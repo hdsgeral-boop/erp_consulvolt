@@ -1,9 +1,14 @@
 <?php
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
+use App\Http\Controllers\Api\Contabilidade\DiarioController;
+use App\Http\Controllers\Api\Contabilidade\LancamentoController;
+use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
+use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\SaudeController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
+use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -44,6 +49,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('empresa')->group(function () {
         Route::prefix('sistema')->name('sistema.')->group(function () {
             Route::get('logs', [LogAuditoriaController::class, 'index'])->name('logs.index');
+            Route::get('validacoes', [ValidacaoDadosController::class, 'index'])->name('validacoes.index');
+            Route::get('validacoes/{codigo}', [ValidacaoDadosController::class, 'show'])->where('codigo', '[a-z_]+')->name('validacoes.show');
+        });
+
+        Route::prefix('contabilidade')->name('contabilidade.')->group(function () {
+            Route::get('plano-contas', [PlanoContasController::class, 'index'])->name('plano-contas.index');
+            Route::post('plano-contas', [PlanoContasController::class, 'store'])->name('plano-contas.store');
+            Route::put('plano-contas/{conta}', [PlanoContasController::class, 'update'])->whereNumber('conta')->name('plano-contas.update');
+            Route::delete('plano-contas/{conta}', [PlanoContasController::class, 'destroy'])->whereNumber('conta')->name('plano-contas.destroy');
+
+            Route::get('diarios', [DiarioController::class, 'index'])->name('diarios.index');
+            Route::post('diarios', [DiarioController::class, 'store'])->name('diarios.store');
+
+            Route::get('lancamentos', [LancamentoController::class, 'index'])->name('lancamentos.index');
+            Route::post('lancamentos', [LancamentoController::class, 'store'])->name('lancamentos.store');
+            Route::get('lancamentos/{lancamento}', [LancamentoController::class, 'show'])->whereNumber('lancamento')->name('lancamentos.show');
+            Route::post('lancamentos/{lancamento}/estornar', [LancamentoController::class, 'estornar'])->whereNumber('lancamento')->name('lancamentos.estornar');
+
+            Route::get('relatorios/balancete', [RelatorioContabilController::class, 'balancete'])->name('relatorios.balancete');
+            Route::get('relatorios/razao', [RelatorioContabilController::class, 'razao'])->name('relatorios.razao');
+            Route::get('relatorios/desequilibrios', [RelatorioContabilController::class, 'desequilibrios'])->name('relatorios.desequilibrios');
         });
     });
 });

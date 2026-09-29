@@ -5,7 +5,7 @@
 | **1** | Infraestrutura Docker, Laravel 12, multi-empresa, autenticação, envelope da API, auditoria, **dicionário DE/PARA das 154 tabelas**, inventário funcional do legado | ✅ Concluída (2026-09-29) |
 | **2** | Migrations das 154 tabelas a partir do `mapa_de_para.json` (FKs, CHECKs, índices); estrutura das 29 tabelas sem dados, derivada do código JS; models Eloquent | ✅ Concluída (2026-09-30) |
 | **3** | `php artisan erp:migrar-backup-legado` — ETL por streaming, pela ordem das dependências; regras de integridade; `ocorrencias_migracao` / `quarentena_migracao`; recalibração das sequences; relatório de validação (contagens, FKs, D−C) | ✅ Concluída (2026-09-29) |
-| **4** | Services e endpoints por módulo (Sistema, Contabilidade, Terceiros, Logística, Vendas/AGT, Compras, RH/Salários, Tesouraria, POS, Activos, Projectos, Orçamento, A&D, CRM), cache e locks Redis, filas; catálogo de permissões | Planeada |
+| **4** ⏳ | Services e endpoints por módulo (Sistema, Contabilidade, Terceiros, Logística, Vendas/AGT, Compras, RH/Salários, Tesouraria, POS, Activos, Projectos, Orçamento, A&D, CRM), cache e locks Redis, filas; catálogo de permissões | Planeada |
 | **5** | Frontend React + TypeScript com o layout do legado (sidebar, top header, DataTables, modais, impressões A4), módulo a módulo, com a matriz de paridade | Planeada |
 | **6** | Testes E2E, reconciliação contabilística cêntimo a cêntimo com o legado, homologação | Planeada |
 
@@ -80,6 +80,21 @@ Cobrem os seguintes casos:
 - **Equilíbrio D−C por empresa:** as empresas 5 (+200 000,00), 8 (−521 899,98) e 10 (−0,01) estão desequilibradas **no próprio legado**. As empresas 1 (−0,03), 3, 8 e 22 têm um efeito de arredondamento de ≤ 3 cêntimos (ADR-022). Tudo aparece discriminado no relatório.
 - **Testes:** 50 a passar (233 verificações). O `MigracaoLegadoTest` cobre, com um backup sintético, cada regra de integridade, o login com a palavra-passe do legado após a migração, a simulação e a recusa de ficheiros inválidos ou de destino com dados.
 - **Verificação ponta a ponta pela API:** com os dados migrados, lista as empresas e consulta a auditoria com `X-Empresa-Id`.
+
+## Fase 4 — em curso (módulo a módulo)
+| Módulo | Estado | Endpoints | Notas |
+| :--- | :--- | :--- | :--- |
+| Núcleo transversal | ✅ | — | Catálogo de permissões do legado e conversão de perfis (ADR-024); numeração segura (ADR-026); lock de exercício encerrado |
+| **Contabilidade** | ✅ | plano-contas (CRUD, cache Redis), diarios, lancamentos (listar, detalhe, criar, **estornar**), relatorios/balancete, relatorios/razao, relatorios/desequilibrios | Partidas dobradas em decimal exacto; estorno com rasto (ADR-016); chave do lançamento (ADR-025) |
+| **Sistema › Validações de dados** | ✅ | sistema/validacoes, sistema/validacoes/{codigo} | 11 validações só de leitura que substituem as rotinas destrutivas (ADR-015) |
+| Terceiros e Produtos | ⏳ | | |
+| Vendas / Facturação AGT | ⏳ | | |
+| Compras | ⏳ | | |
+| Tesouraria | ⏳ | | |
+| RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |
+| Logística, POS, Activos, Projectos, Orçamento, A&D, CRM | ⏳ | | |
+
+Os testes são agora 60 (326 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
 
 ## Decisões do utilizador (2026-09-29, após a Fase 1)
 1. **Ecrãs vazios do legado** (Encomendas Clientes, Activos "Cadastro"): **corrigir** no sistema novo — ADR-014.

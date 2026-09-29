@@ -718,13 +718,32 @@ final class ServicoMigracaoLegado
         }
     }
 
+    /**
+     * Perfis: os do formato antigo (sem _v2 e sem all:true) são convertidos para v2 com o resultado do próprio
+     * converterAntigo do legado (database/legado/perfis_convertidos.json); o original fica em permissoes_originais.
+     */
     private function carregarPerfis(): void
     {
+        $ficheiro = database_path('legado/perfis_convertidos.json');
+        $convertidos = is_file($ficheiro) ? json_decode(file_get_contents($ficheiro), true)['perfis'] : [];
         $lote = [];
         foreach ($this->linhasDe('user_profiles') as $o) {
             $id = $this->conversorChave($o['id'] ?? null);
+            $this->linhaAtual = ['tabela' => 'user_profiles', 'id' => (string) $id, 'destino' => 'perfis_utilizador', 'coluna' => 'permissoes', 'empresa' => null];
+            $perms = is_array($o['permissions'] ?? null) ? $o['permissions'] : [];
+            $originais = null;
+            if (($perms['_v2'] ?? null) !== true && ($perms['all'] ?? null) !== true) {
+                $conv = $convertidos[(string) $id] ?? null;
+                if ($conv === null || $conv['original'] != $perms) {
+                    throw new ErroNegocio("Perfil #{$id} no formato antigo sem conversão válida: correr ferramentas/levantamento/converter_perfis_antigos.mjs sobre este backup.", 'ETL_PERFIL_ANTIGO');
+                }
+                $originais = json_encode($perms, JSON_UNESCAPED_UNICODE);
+                $perms = $conv['convertido'];
+                $this->informacao('perfis_utilizador', 'permissoes', 'CONVERSAO_PERFIL', null, (string) (count($perms) - 1),
+                    'Perfil no formato antigo convertido para v2 com o converterAntigo do legado (original em permissoes_originais)');
+            }
             $lote[] = ['id' => $id, 'nome' => trim((string) ($o['name'] ?? "Perfil {$id}")),
-                'permissoes' => json_encode($o['permissions'] ?? new \stdClass, JSON_UNESCAPED_UNICODE)];
+                'permissoes' => json_encode($perms ?: new \stdClass, JSON_UNESCAPED_UNICODE), 'permissoes_originais' => $originais];
             $this->validos['perfis_utilizador'][$id] = null;
         }
         if ($lote) {

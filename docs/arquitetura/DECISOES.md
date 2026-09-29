@@ -181,3 +181,22 @@ Cada execução fica registada em `execucoes_migracao`, com o SHA-256 do ficheir
 **Bugs que os testes do ETL apanharam antes da migração real:**
 - `data_documento` estava a ser inferida como TIMESTAMPTZ e as datas "AAAA-MM" ficavam NULL. Passou a DATE (directiva 3.2).
 - As referências a tabelas globais, com `empresa_id` NULL (perfis, taxas de câmbio), eram tratadas como órfãs, por causa do `isset()` sobre um valor NULL.
+
+## ADR-024 — Permissões: catálogo e conversão de perfis feitos com o código do próprio legado
+**Decisão.**
+- O catálogo (15 módulos, 116 ecrãs, 195 tarefas, 19 regras de segregação, 21 perfis-modelo) é extraído por `ferramentas/levantamento/extrair_permissoes.mjs`. O script executa `js/permissoes.js` num contexto isolado do Node e grava `backend/resources/permissoes/catalogo.json`.
+- Os perfis no formato antigo (3 no backup, incluindo o "Contabilista Junior" do utilizador `celso`) são convertidos para v2 com o `converterAntigo` do legado. É executado o próprio código: `js/app_v2.js:725-888` e `js/permissoes.js:808`, através de `converter_perfis_antigos.mjs`. O resultado fica em `database/legado/perfis_convertidos.json`, que o ETL aplica. O JSON original fica em `perfis_utilizador.permissoes_originais`.
+- O `ServicoPermissoes` reproduz o `hasView`/`can` do v2: um ecrã é visível se o utilizador tiver a consulta, alguma tarefa desse ecrã ou algum ecrã-filho visível. Mantém também os mapas `LEGADO`/`LEGADO_VISTA`.
+- Os controllers pedem as chaves do legado, através de `exigir(...)`. Por exemplo: `lancamentos_post` para gravar, `contab_lanc_transferir` para estornar, `contab_mapa_balancete_view` para o balancete.
+
+**Porquê.** Reescrever à mão as regras antigas criaria divergências silenciosas nos acessos. Executar o código original garante que cada utilizador mantém exactamente o que já tinha.
+
+## ADR-025 — Identidade de um lançamento: LAN → referência → documento
+**Contexto.** 17 885 linhas têm `numero_lan`; as 26 515 linhas mais antigas não. Agrupá-las por `numero_documento` gerava 1 832 falsos "desequilibrados" na empresa 1, porque a integração da tesouraria grava o número da factura paga em cada linha. Os próprios dados mostram que, nas linhas antigas, o número do lançamento estava em `referencia`, que o legado lia como `lan_number || reference` (js/app_v2.js:14).
+**Decisão.** A chave do lançamento é `COALESCE(numero_lan, referencia, numero_documento)`, definida num único sítio (`LancamentoContabil::chaveSql()`) e usada pelo estorno, pelo relatório de desequilíbrios e pelas validações. Com os dados reais:
+- os 351 lançamentos com LAN estão equilibrados;
+- o desequilíbrio da empresa 8 (−521 899,98) concentra-se em **4 lançamentos** e o da empresa 5 (+200 000,00) em **2**;
+- as 19 diferenças da empresa 1 são de cêntimos (arredondamento, ADR-022).
+
+## ADR-026 — Numeração: lock Redis + sequência transaccional, a continuar a do legado
+**Decisão.** `ServicoNumeracao` usa `Cache::lock` (Redis, `erp:lock:numeracao:{empresa}:{chave}`) e `SELECT … FOR UPDATE` em `sequencias_documentos`. O incremento pertence à transacção do documento: se a transacção falhar, o número não é consumido (sem saltos nem duplicados). A semente é o maior número já usado no legado (`numero_lan` ou `referencia`, no formato `<diário><ano><seq6>`). Esta sequência serve de base também às séries de facturas, guias e recibos.

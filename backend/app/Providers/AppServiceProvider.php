@@ -22,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Um contexto de empresa por pedido HTTP / trabalho de fila (seguro também com Octane).
         $this->app->scoped(ContextoEmpresa::class);
+        $this->app->scoped(ServicoPermissoes::class);
     }
 
     public function boot(): void
@@ -67,7 +68,7 @@ class AppServiceProvider extends ServiceProvider
         // Qualquer chave de permissão do legado (ecrã "<id>_view" ou tarefa) é uma ability do Gate.
         // Policies específicas continuam a decidir quando o perfil não concede a chave (retorno null).
         Gate::before(function (Utilizador $utilizador, string $habilidade) {
-            return app(ServicoPermissoes::class)->tem($utilizador, $habilidade, app(ContextoEmpresa::class)->id()) ?: null;
+            return app(ServicoPermissoes::class)->autoriza($utilizador, $habilidade, app(ContextoEmpresa::class)->id()) ?: null;
         });
     }
 

@@ -89,6 +89,15 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET | `/api/sistema/empresas` | Empresas acessíveis (selector do Top Header) |
 | GET | `/api/sistema/empresas/{id}` | Detalhe (inclui logótipo) |
 | GET | `/api/sistema/logs` | Auditoria da empresa activa (filtros, paginação) — requer `config_logs_view` |
+| GET | `/api/sistema/validacoes`, `/api/sistema/validacoes/{codigo}` | Validações de dados (só leitura, ADR-015) |
+| GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
+| GET/POST | `/api/contabilidade/diarios` | Diários |
+| GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |
+| GET | `/api/contabilidade/lancamentos/{id}` | Lançamento completo a que a linha pertence |
+| POST | `/api/contabilidade/lancamentos/{id}/estornar` | Estorno com rasto (`motivo`) |
+| GET | `/api/contabilidade/relatorios/balancete` | `data_inicio`, `data_fim`, `nivel`, `prefixo`, `excluir_estornos`, `so_com_saldo` |
+| GET | `/api/contabilidade/relatorios/razao` | `codigo_conta`, `data_inicio`, `data_fim`, `terceiro_id` |
+| GET | `/api/contabilidade/relatorios/desequilibrios` | Lançamentos com Σ D ≠ Σ C |
 
 ## Estrutura
 

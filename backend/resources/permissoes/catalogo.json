@@ -1,0 +1,3182 @@
+{
+  "origem": "js/permissoes.js",
+  "gerado_em": "2026-09-29T14:36:33.432Z",
+  "modulos": [
+    {
+      "id": "geral",
+      "nome": "Geral",
+      "ecras": [
+        {
+          "id": "dashboard",
+          "nome": "Dashboard global / Painel de módulos",
+          "vistas": [
+            "dashboard"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "relatorios_gestao",
+          "nome": "Relatórios de gestão por módulo (comparação de períodos)",
+          "vistas": [
+            "relatorios_gestao"
+          ],
+          "pai": null,
+          "nota": "Mostra indicadores de todos os módulos (vendas, compras, tesouraria, RH, etc.).",
+          "tarefas": []
+        },
+        {
+          "id": "fluxo_processos",
+          "nome": "Fluxo de Processos",
+          "vistas": [
+            "fluxo_processos"
+          ],
+          "pai": null,
+          "nota": "Cada separador também exige a consulta do módulo de origem.",
+          "tarefas": []
+        },
+        {
+          "id": "accounting_bi",
+          "nome": "BI contabilístico e Gestão documental",
+          "vistas": [
+            "accounting_bi",
+            "sgd"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        }
+      ]
+    },
+    {
+      "id": "rh",
+      "nome": "Recursos Humanos e Salários",
+      "ecras": [
+        {
+          "id": "colaboradores",
+          "nome": "Colaboradores",
+          "vistas": [
+            "colaboradores"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "colaboradores_detail",
+              "rotulo": "Criar e editar colaboradores",
+              "sensivel": false
+            },
+            {
+              "chave": "colaboradores_import",
+              "rotulo": "Importar colaboradores (Excel)",
+              "sensivel": false
+            },
+            {
+              "chave": "rh_colab_del",
+              "rotulo": "Eliminar colaboradores",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "rh_portal",
+          "nome": "Portal do Colaborador (os próprios dados) — automático para utilizadores ligados a um colaborador",
+          "vistas": [
+            "rh_portal"
+          ],
+          "pai": null,
+          "nota": "Cada utilizador só vê o colaborador ligado ao seu utilizador. A chefia aprova as férias da equipa no próprio portal (sem tarefa adicional).",
+          "tarefas": [
+            {
+              "chave": "rh_portal_usar",
+              "rotulo": "Usar o portal: pedir férias, justificar ausências, pedir documentos e alterações do agregado; autoavaliação, avaliar a chefia e extrair recibos",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "rh_portal_gestao",
+          "nome": "Pedidos do Portal (RH)",
+          "vistas": [
+            "rh_portal_gestao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rh_portal_aprovar",
+              "rotulo": "Aprovar/recusar pedidos como RH, emitir documentos, ver autoavaliações e resultados anónimos das chefias, ligar utilizadores a colaboradores",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_portal_modelos",
+              "rotulo": "Configurar os modelos de documentos (texto, assinante, emissão automática)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "rh_avaliacao_config",
+          "nome": "Configuração da avaliação de desempenho (ciclos 360º)",
+          "vistas": [
+            "rh_avaliacao_config"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rh_aval_config",
+              "rotulo": "Criar e configurar ciclos (período, prazos, pesos 360º, feedback, bonificação, comunicado)",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_aval_abrir",
+              "rotulo": "Abrir e fechar ciclos e comunicar a abertura",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "rh_avaliacao_ciclo",
+          "nome": "Acompanhamento do ciclo 360º",
+          "vistas": [
+            "rh_avaliacao_ciclo"
+          ],
+          "pai": null,
+          "nota": "A chefia avalia a sua equipa, regista reuniões e o superior decide contestações no Portal do Colaborador, validados pela Estrutura Orgânica.",
+          "tarefas": [
+            {
+              "chave": "rh_aval_parecer",
+              "rotulo": "Dar parecer do RH nas contestações (e decidir quando não há superior da chefia)",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_aval_bonus_calcular",
+              "rotulo": "Calcular propostas de bonificação",
+              "sensivel": false
+            },
+            {
+              "chave": "rh_aval_bonus_aprovar",
+              "rotulo": "Aprovar e anular bonificações",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_aval_bonus_lancar",
+              "rotulo": "Lançar bonificações aprovadas no processamento salarial",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "rh_assiduidade",
+          "nome": "Efectividade (biometria)",
+          "vistas": [
+            "rh_assiduidade"
+          ],
+          "pai": null,
+          "nota": "O apuramento de horas extra e faltas do mês fechado alimenta o processamento salarial pelo botão «Importar Efectividade».",
+          "tarefas": [
+            {
+              "chave": "rh_assid_registar",
+              "rotulo": "Registar, importar e eliminar efectividade (manual, ficheiro ou relógio biométrico)",
+              "sensivel": false
+            },
+            {
+              "chave": "rh_assid_fechar",
+              "rotulo": "Fechar e reabrir a efectividade do mês (só a efectividade fechada passa para o cálculo)",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_assid_config",
+              "rotulo": "Configurar as regras de apuramento e a ligação ao relógio",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "rh_produtividade",
+          "nome": "Subsídio de produtividade",
+          "vistas": [
+            "rh_produtividade"
+          ],
+          "pai": null,
+          "nota": "Só colaboradores com itens de produtividade no contrato. O período fechado é importado no cálculo pelo botão «Importar Produtividade».",
+          "tarefas": [
+            {
+              "chave": "rh_prod_registar",
+              "rotulo": "Registar, importar (Excel) e eliminar produtividade do período",
+              "sensivel": false
+            },
+            {
+              "chave": "rh_prod_periodo",
+              "rotulo": "Criar, fechar e reabrir os períodos de cálculo da produtividade",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_prod_config",
+              "rotulo": "Configurar os itens de produtividade (descrição, unidade, preço, rubrica)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "rh_ferias",
+          "nome": "Programa de férias",
+          "vistas": [
+            "rh_ferias"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rh_ferias_edit",
+              "rotulo": "Planear e aprovar férias",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "rh_avaliacao",
+          "nome": "Avaliação de desempenho",
+          "vistas": [
+            "rh_avaliacao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rh_avaliacao_edit",
+              "rotulo": "Avaliar colaboradores (gravar, concluir, reabrir e eliminar avaliações)",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_avaliacao_itens",
+              "rotulo": "Gerir itens de avaliação (comuns a todos e específicos por colaborador)",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "contratos",
+          "nome": "Contratos",
+          "vistas": [
+            "contratos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "contratos_new",
+              "rotulo": "Criar e editar contratos (incluindo aplicar rubricas em massa)",
+              "sensivel": false
+            },
+            {
+              "chave": "contratos_import",
+              "rotulo": "Importar contratos (Excel)",
+              "sensivel": false
+            },
+            {
+              "chave": "contratos_terminate",
+              "rotulo": "Rescindir e eliminar contratos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "funcoes",
+          "nome": "Funções e categorias",
+          "vistas": [
+            "funcoes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rh_funcoes_gerir",
+              "rotulo": "Criar e editar funções",
+              "sensivel": false
+            },
+            {
+              "chave": "rh_funcao_del",
+              "rotulo": "Eliminar funções",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "infotipos",
+          "nome": "Rubricas (infotipos)",
+          "vistas": [
+            "infotipos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rh_infotipos_gerir",
+              "rotulo": "Criar, editar e importar rubricas",
+              "sensivel": false
+            },
+            {
+              "chave": "rh_infotipo_del",
+              "rotulo": "Eliminar rubricas",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "calcular",
+          "nome": "Calcular (período salarial)",
+          "vistas": [
+            "calcular"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "calcular_lancar",
+              "rotulo": "Lançar e editar rubricas do período",
+              "sensivel": false
+            },
+            {
+              "chave": "calcular_bulk",
+              "rotulo": "Lançar e editar rubricas em lote",
+              "sensivel": false
+            },
+            {
+              "chave": "calcular_folha",
+              "rotulo": "Importar do mês anterior/contratos/produtividade e fechar o cálculo",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_lanc_del",
+              "rotulo": "Eliminar lançamentos do período",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "processamento",
+          "nome": "Processamentos",
+          "vistas": [
+            "processamento"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "processamento_validate",
+              "rotulo": "Validar processamento",
+              "sensivel": true
+            },
+            {
+              "chave": "processamento_integrate",
+              "rotulo": "Integrar salários na contabilidade",
+              "sensivel": true
+            },
+            {
+              "chave": "processamento_reopen",
+              "rotulo": "Reabrir período para edição",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_limpeza_massa",
+              "rotulo": "Limpar todos os processamentos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "bancario",
+          "nome": "Coordenadas bancárias",
+          "vistas": [
+            "bancario"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rh_bancario_gerir",
+              "rotulo": "Gerir bancos e IBAN dos colaboradores",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_banco_del",
+              "rotulo": "Eliminar bancos e IBAN",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "relatorios",
+          "nome": "Relatórios e recibos",
+          "vistas": [
+            "relatorios"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "rh_rel_remuneracoes",
+          "nome": "Mapa de remunerações",
+          "vistas": [
+            "rh_rel_remuneracoes"
+          ],
+          "pai": "relatorios",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "rh_rel_irt",
+          "nome": "Mapa de IRT",
+          "vistas": [
+            "rh_rel_irt"
+          ],
+          "pai": "relatorios",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "rh_rel_inss",
+          "nome": "Mapa de Segurança Social",
+          "vistas": [
+            "rh_rel_inss"
+          ],
+          "pai": "relatorios",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "rh_rel_pagamentos",
+          "nome": "Salários a pagar",
+          "vistas": [
+            "rh_rel_pagamentos"
+          ],
+          "pai": "relatorios",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "rh_rel_banco",
+          "nome": "Ordem de pagamento bancária",
+          "vistas": [
+            "rh_rel_banco"
+          ],
+          "pai": "relatorios",
+          "nota": "Contém IBAN e valores líquidos.",
+          "tarefas": []
+        },
+        {
+          "id": "rh_rel_recibos",
+          "nome": "Recibos de salário",
+          "vistas": [
+            "rh_rel_recibos"
+          ],
+          "pai": "relatorios",
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rh_recibos_emitir",
+              "rotulo": "Emitir recibos (PDF individual e em massa)",
+              "sensivel": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contab",
+      "nome": "Contabilidade",
+      "ecras": [
+        {
+          "id": "lancamentos",
+          "nome": "Lançamentos (diários)",
+          "vistas": [
+            "lancamentos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "lancamentos_editar",
+              "rotulo": "Criar, copiar e editar lançamentos",
+              "sensivel": false
+            },
+            {
+              "chave": "lancamentos_post",
+              "rotulo": "Gravar lançamentos no diário",
+              "sensivel": true
+            },
+            {
+              "chave": "lancamentos_import",
+              "rotulo": "Importar lançamentos (Excel)",
+              "sensivel": false
+            },
+            {
+              "chave": "lancamentos_saldos",
+              "rotulo": "Importar saldos históricos",
+              "sensivel": true
+            },
+            {
+              "chave": "lancamentos_bulk_notes",
+              "rotulo": "Notas em massa",
+              "sensivel": false
+            },
+            {
+              "chave": "contab_lanc_transferir",
+              "rotulo": "Transferir e estornar lançamentos",
+              "sensivel": true
+            },
+            {
+              "chave": "contab_lanc_del",
+              "rotulo": "Anular e eliminar lançamentos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "encerramento",
+          "nome": "Encerramento do exercício",
+          "vistas": [
+            "encerramento"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "contab_apurar",
+              "rotulo": "Apurar resultados",
+              "sensivel": true
+            },
+            {
+              "chave": "contab_exercicio_reabrir",
+              "rotulo": "Reabrir exercício e cancelar apuramentos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "relatorios_contabeis",
+          "nome": "Mapas e relatórios",
+          "vistas": [
+            "relatorios_contabeis"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "contab_compensar",
+              "rotulo": "Compensar linhas e regularizar diferenças",
+              "sensivel": true
+            },
+            {
+              "chave": "contab_reconc_rev",
+              "rotulo": "Reverter compensações",
+              "sensivel": true
+            },
+            {
+              "chave": "contab_agt",
+              "rotulo": "Reconciliação AGT: importar, gravar e eliminar",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "contab_mapa_extrato",
+          "nome": "Extracto de conta corrente",
+          "vistas": [
+            "contab_mapa_extrato"
+          ],
+          "pai": "relatorios_contabeis",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "contab_mapa_balancete",
+          "nome": "Balancete, razão e IVA",
+          "vistas": [
+            "contab_mapa_balancete"
+          ],
+          "pai": "relatorios_contabeis",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "contab_mapa_balanco",
+          "nome": "Balanço",
+          "vistas": [
+            "contab_mapa_balanco"
+          ],
+          "pai": "relatorios_contabeis",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "contab_mapa_dr",
+          "nome": "Demonstração de resultados",
+          "vistas": [
+            "contab_mapa_dr"
+          ],
+          "pai": "relatorios_contabeis",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "contab_mapa_fluxo",
+          "nome": "Fluxos de caixa",
+          "vistas": [
+            "contab_mapa_fluxo"
+          ],
+          "pai": "relatorios_contabeis",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "contab_mapa_evolucao",
+          "nome": "Evolução mensal",
+          "vistas": [
+            "contab_mapa_evolucao"
+          ],
+          "pai": "relatorios_contabeis",
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "relatorio_contas",
+          "nome": "Relatório e Contas",
+          "vistas": [
+            "relatorio_contas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "rc_editar",
+              "rotulo": "Configurar, calcular e gravar",
+              "sensivel": false
+            },
+            {
+              "chave": "rc_concluir",
+              "rotulo": "Concluir o relatório",
+              "sensivel": true
+            },
+            {
+              "chave": "rc_reabrir",
+              "rotulo": "Reabrir relatório concluído",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "contab_rotinas",
+          "nome": "Rotinas contabilísticas",
+          "vistas": [
+            "contab_rotinas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "contab_rotinas_exec",
+              "rotulo": "Executar rotinas (capitalização, compensação automática, actualização e transferência de saldos)",
+              "sensivel": true
+            },
+            {
+              "chave": "contab_rotinas_anular",
+              "rotulo": "Anular rotinas",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "imposto_selo",
+          "nome": "Rotinas › Imposto de Selo",
+          "vistas": [
+            "imposto_selo"
+          ],
+          "pai": "contab_rotinas",
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "selo_lancar",
+              "rotulo": "Gerar o lançamento do imposto",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "consolidacao",
+          "nome": "Consolidação de empresas",
+          "vistas": [
+            "consolidacao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "consol_gerir",
+              "rotulo": "Criar e editar grupos",
+              "sensivel": false
+            },
+            {
+              "chave": "consol_executar",
+              "rotulo": "Executar a consolidação",
+              "sensivel": true
+            },
+            {
+              "chave": "consol_eliminar",
+              "rotulo": "Eliminar grupos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "tabelas_aux",
+          "nome": "Terceiros e tabelas",
+          "vistas": [
+            "tabelas_aux"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "aux_gerir",
+              "rotulo": "Criar, editar, importar e copiar (diários, terceiros, notas, centros de custo)",
+              "sensivel": false
+            },
+            {
+              "chave": "aux_eliminar",
+              "rotulo": "Eliminar registos",
+              "sensivel": true
+            },
+            {
+              "chave": "aux_reciclagem",
+              "rotulo": "Reciclagem: restaurar e eliminar definitivamente",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "contabilidade",
+          "nome": "Mapeamento contábil de salários",
+          "vistas": [
+            "contabilidade"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "contab_mapeamento",
+              "rotulo": "Editar, copiar e recuperar mapeamentos",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "teso",
+      "nome": "Tesouraria",
+      "ecras": [
+        {
+          "id": "teso_gestao_pagamentos",
+          "nome": "Pagamentos e recebimentos",
+          "vistas": [
+            "teso_gestao_pagamentos",
+            "teso_gestao_recebimentos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "teso_doc_emitir",
+              "rotulo": "Emitir, copiar e importar pagamentos e recebimentos",
+              "sensivel": false
+            },
+            {
+              "chave": "teso_doc_eliminar",
+              "rotulo": "Eliminar documentos não integrados",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "teso_folha_caixa",
+          "nome": "Folha de Caixa",
+          "vistas": [
+            "teso_folha_caixa"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "teso_caixa_operar",
+              "rotulo": "Abrir sessão e registar movimentos",
+              "sensivel": false
+            },
+            {
+              "chave": "teso_caixa_fechar",
+              "rotulo": "Fechar sessão (contagem)",
+              "sensivel": true
+            },
+            {
+              "chave": "teso_caixa_contabilizar",
+              "rotulo": "Contabilizar sessão",
+              "sensivel": true
+            },
+            {
+              "chave": "teso_caixa_eliminar",
+              "rotulo": "Eliminar sessão fechada",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "teso_contab_integracao",
+          "nome": "Integração no razão",
+          "vistas": [
+            "teso_contab_integracao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "teso_integrar",
+              "rotulo": "Integrar documentos na contabilidade",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "teso_contab_historico",
+          "nome": "Anulação de integrações",
+          "vistas": [
+            "teso_contab_historico"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "teso_desintegrar",
+              "rotulo": "Anular integrações",
+              "sensivel": true
+            },
+            {
+              "chave": "teso_reparar",
+              "rotulo": "Ferramentas de reparação e recuperação",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "teso_gestao_mapas",
+          "nome": "Extractos e mapas de disponibilidades",
+          "vistas": [
+            "teso_gestao_mapas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "teso_gestao_conciliacao",
+          "nome": "Reconciliação bancária",
+          "vistas": [
+            "teso_gestao_conciliacao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "teso_conc_importar",
+              "rotulo": "Importar, editar e reprocessar extractos",
+              "sensivel": false
+            },
+            {
+              "chave": "teso_conc_confirmar",
+              "rotulo": "Conciliar e gravar rascunhos",
+              "sensivel": true
+            },
+            {
+              "chave": "teso_conc_anular",
+              "rotulo": "Eliminar extractos e rascunhos, reabrir e eliminar conciliações",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "teso_gestao_conferencia",
+          "nome": "Conferência de caixa",
+          "vistas": [
+            "teso_gestao_conferencia"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "teso_conf_registar",
+              "rotulo": "Registar e finalizar conferências",
+              "sensivel": false
+            },
+            {
+              "chave": "teso_conf_reabrir",
+              "rotulo": "Reabrir conferência finalizada",
+              "sensivel": true
+            },
+            {
+              "chave": "teso_conf_assinar",
+              "rotulo": "Assinar como gerente",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "teso_meios_pagamento",
+          "nome": "Meios de pagamento",
+          "vistas": [
+            "teso_meios_pagamento"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "teso_meios_gerir",
+              "rotulo": "Criar, editar e eliminar meios de pagamento",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vendas",
+      "nome": "Vendas e Facturação",
+      "ecras": [
+        {
+          "id": "vendas_clientes",
+          "nome": "Clientes",
+          "vistas": [
+            "vendas_clientes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "vendas_clientes_gerir",
+              "rotulo": "Criar e editar clientes",
+              "sensivel": false
+            },
+            {
+              "chave": "vendas_dados_del",
+              "rotulo": "Eliminar clientes, produtos e categorias",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "vendas_produtos",
+          "nome": "Produtos e serviços",
+          "vistas": [
+            "vendas_produtos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "vendas_produtos_gerir",
+              "rotulo": "Criar, copiar, bloquear produtos e categorias",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "vendas_faturacao",
+          "nome": "Facturação",
+          "vistas": [
+            "vendas_faturacao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "vendas_fat_emitir",
+              "rotulo": "Emitir orçamentos, encomendas, guias, facturas e notas de crédito",
+              "sensivel": false
+            },
+            {
+              "chave": "vendas_recibos",
+              "rotulo": "Emitir e eliminar recibos (liquidar facturas)",
+              "sensivel": true
+            },
+            {
+              "chave": "vendas_fat_contabilizar",
+              "rotulo": "Contabilizar facturas e recibos",
+              "sensivel": true
+            },
+            {
+              "chave": "vendas_fat_descontab",
+              "rotulo": "Descontabilizar facturas",
+              "sensivel": true
+            },
+            {
+              "chave": "vendas_fat_unpost",
+              "rotulo": "Descontabilizar recibos",
+              "sensivel": true
+            },
+            {
+              "chave": "vendas_fat_del",
+              "rotulo": "Eliminar documentos",
+              "sensivel": true
+            },
+            {
+              "chave": "acao_limpeza_massa",
+              "rotulo": "Limpeza em massa e reparações (pendentes, estados, lançamentos)",
+              "sensivel": true
+            },
+            {
+              "chave": "vendas_config",
+              "rotulo": "Configurar contas de vendas",
+              "sensivel": true
+            },
+            {
+              "chave": "vendas_fe_config",
+              "rotulo": "Configurar a facturação electrónica AGT (regime, séries, estabelecimentos)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "vendas_relatorios",
+          "nome": "Relatórios de vendas",
+          "vistas": [
+            "vendas_relatorios"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        }
+      ]
+    },
+    {
+      "id": "pos",
+      "nome": "POS, Lavandaria e Hotelaria",
+      "ecras": [
+        {
+          "id": "pos",
+          "nome": "Frente de caixa",
+          "vistas": [
+            "pos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "pos_venda",
+              "rotulo": "Abrir sessão e registar vendas",
+              "sensivel": false
+            },
+            {
+              "chave": "pos_desconto",
+              "rotulo": "Aplicar descontos e alterar preços",
+              "sensivel": true
+            },
+            {
+              "chave": "pos_fecho",
+              "rotulo": "Fechar sessão (Z)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "pos_relatorios",
+          "nome": "Relatórios POS",
+          "vistas": [
+            "pos_relatorios"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "pos_terminais",
+          "nome": "Terminais POS",
+          "vistas": [
+            "pos_terminais"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "pos_terminais_gerir",
+              "rotulo": "Configurar terminais, meios de pagamento e definições de caixa",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "pos_config_print",
+          "nome": "Configuração de impressão",
+          "vistas": [
+            "pos_config_print"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "pos_print_config",
+              "rotulo": "Gravar configuração de impressão",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "pos_integracao",
+          "nome": "Integração das sessões",
+          "vistas": [
+            "pos_integracao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "pos_integrar",
+              "rotulo": "Integrar sessões na contabilidade",
+              "sensivel": true
+            },
+            {
+              "chave": "pos_descontabilizar",
+              "rotulo": "Descontabilizar sessões",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "pos_desvios",
+          "nome": "Desvios de caixa",
+          "vistas": [
+            "pos_desvios"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "pos_desvio_deliberar",
+              "rotulo": "Deliberar e anular deliberações de desvios",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "pos_prestacao",
+          "nome": "Prestação de contas",
+          "vistas": [
+            "pos_prestacao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "pos_prestar",
+              "rotulo": "Liquidar numerário, transferências e TPA",
+              "sensivel": true
+            },
+            {
+              "chave": "pos_prestacao_anular",
+              "rotulo": "Anular liquidações",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "pos_lavandaria",
+          "nome": "Lavandaria e alfaiataria",
+          "vistas": [
+            "pos_lavandaria"
+          ],
+          "pai": null,
+          "nota": "O balcão da lavandaria abre na Frente de caixa; este acesso abre o backoffice.",
+          "tarefas": [
+            {
+              "chave": "lav_ordens",
+              "rotulo": "Registar ordens, orçamentos, estados, entregas e facturar",
+              "sensivel": false
+            },
+            {
+              "chave": "lav_receber",
+              "rotulo": "Receber pagamentos",
+              "sensivel": true
+            },
+            {
+              "chave": "lav_anular",
+              "rotulo": "Anular ordens",
+              "sensivel": true
+            },
+            {
+              "chave": "lav_tabelas",
+              "rotulo": "Tabelas de peças e serviços, importação e definições",
+              "sensivel": true
+            },
+            {
+              "chave": "lav_dano_decidir",
+              "rotulo": "Decidir indemnizações por danos",
+              "sensivel": true
+            },
+            {
+              "chave": "lav_dano_pagar",
+              "rotulo": "Pagar indemnizações",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "pos_hotelaria",
+          "nome": "Hotelaria",
+          "vistas": [
+            "pos_hotelaria"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "hotel_estadias",
+              "rotulo": "Check-in e alteração de estadias",
+              "sensivel": false
+            },
+            {
+              "chave": "hotel_checkout",
+              "rotulo": "Check-out e pagamento",
+              "sensivel": false
+            },
+            {
+              "chave": "hotel_anular",
+              "rotulo": "Anular estadias",
+              "sensivel": true
+            },
+            {
+              "chave": "hotel_quartos",
+              "rotulo": "Criar e editar quartos",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "compras",
+      "nome": "Compras e Aprovisionamento",
+      "ecras": [
+        {
+          "id": "compras_pedidos",
+          "nome": "Pedidos internos",
+          "vistas": [
+            "compras_pedidos",
+            "compras"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "compras_ped_criar",
+              "rotulo": "Criar pedidos internos",
+              "sensivel": false
+            },
+            {
+              "chave": "compras_ped_aprovar",
+              "rotulo": "Aprovar pedidos — nível 1 (quando a unidade do requisitante não tem responsável no sistema)",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_ped_aprovar_n2",
+              "rotulo": "Aprovar pedidos — nível 2 dos escalões de valor",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_ped_aprovar_n3",
+              "rotulo": "Aprovar pedidos — nível 3 dos escalões de valor",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_ped_aprovar_n4",
+              "rotulo": "Aprovar pedidos — nível 4 dos escalões de valor",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_deliberacao_config",
+              "rotulo": "Configurar os escalões de aprovação por valor",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_ped_eliminar",
+              "rotulo": "Eliminar pedidos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "compras_prospeccao",
+          "nome": "Prospecção e adjudicação",
+          "vistas": [
+            "compras_prospeccao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "compras_new_proposal",
+              "rotulo": "Registar propostas de fornecedores e definir o seu IVA",
+              "sensivel": false
+            },
+            {
+              "chave": "compras_evaluate",
+              "rotulo": "Propor e cancelar propostas de adjudicação",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_adjudicate",
+              "rotulo": "Aprovar adjudicação (gera a encomenda) e desfazer",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_prop_eliminar",
+              "rotulo": "Eliminar propostas",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "compras_encomendas",
+          "nome": "Encomendas a fornecedores",
+          "vistas": [
+            "compras_encomendas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "compras_enc_criar",
+              "rotulo": "Criar encomendas, definir o IVA, associar contratos e gerar facturas",
+              "sensivel": false
+            },
+            {
+              "chave": "compras_enc_eliminar",
+              "rotulo": "Eliminar encomendas",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "compras_rececoes",
+          "nome": "Recepções",
+          "vistas": [
+            "compras_rececoes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "compras_rec_registar",
+              "rotulo": "Registar recepções",
+              "sensivel": false
+            },
+            {
+              "chave": "compras_rec_contabilizar",
+              "rotulo": "Contabilizar recepções",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "compras_faturacao",
+          "nome": "Facturas de fornecedores",
+          "vistas": [
+            "compras_faturacao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "compras_fact_registar",
+              "rotulo": "Registar facturas de fornecedores",
+              "sensivel": false
+            },
+            {
+              "chave": "compras_fact_contabilizar",
+              "rotulo": "Contabilizar facturas",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_descontab",
+              "rotulo": "Descontabilizar recepções e facturas",
+              "sensivel": true
+            },
+            {
+              "chave": "compras_fact_eliminar",
+              "rotulo": "Eliminar facturas",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "compras_fornecedores",
+          "nome": "Fornecedores",
+          "vistas": [
+            "compras_fornecedores"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "compras_forn_gerir",
+              "rotulo": "Criar e editar fornecedores",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "compras_encomendas_clientes",
+          "nome": "Encomendas de clientes",
+          "vistas": [
+            "compras_encomendas_clientes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "compras_gerar_pedidos",
+              "rotulo": "Gerar pedidos de compra a partir de vendas",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "compras_contratos",
+          "nome": "Contratos de compra",
+          "vistas": [
+            "compras_contratos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "compras_contratos_gerir",
+              "rotulo": "Criar e editar contratos",
+              "sensivel": false
+            },
+            {
+              "chave": "compras_contratos_cancelar",
+              "rotulo": "Cancelar contratos",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stock",
+      "nome": "Armazém e Inventário",
+      "ecras": [
+        {
+          "id": "armazem_stock",
+          "nome": "Níveis de stock",
+          "vistas": [
+            "armazem_stock"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "armazem_ajuste",
+              "rotulo": "Ajustar stock manualmente",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "armazem_rececoes",
+          "nome": "Validar entradas",
+          "vistas": [
+            "armazem_rececoes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "armazem_validar",
+              "rotulo": "Validar recepções (entrada em stock)",
+              "sensivel": true
+            },
+            {
+              "chave": "armazem_rec_anular",
+              "rotulo": "Cancelar recepções e reverter validações",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "armazem_guias",
+          "nome": "Guias de saída",
+          "vistas": [
+            "armazem_guias"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "armazem_guias_emitir",
+              "rotulo": "Emitir guias de saída",
+              "sensivel": true
+            },
+            {
+              "chave": "armazem_guias_anular",
+              "rotulo": "Anular guias",
+              "sensivel": true
+            },
+            {
+              "chave": "armazem_guias_contab",
+              "rotulo": "Contabilizar e descontabilizar guias",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "armazem_movimentos",
+          "nome": "Histórico de movimentos",
+          "vistas": [
+            "armazem_movimentos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "armazem_recalcular",
+              "rotulo": "Recalcular valorizações de stock",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "armazem_armazens",
+          "nome": "Configuração de armazéns",
+          "vistas": [
+            "armazem_armazens"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "armazem_config",
+              "rotulo": "Criar, editar e eliminar armazéns",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "pos_armazem",
+          "nome": "POS de armazém",
+          "vistas": [
+            "pos_armazem"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "pos_armazem_vender",
+              "rotulo": "Vender ao balcão",
+              "sensivel": false
+            },
+            {
+              "chave": "pos_armazem_picking",
+              "rotulo": "Iniciar picking de encomendas",
+              "sensivel": false
+            },
+            {
+              "chave": "pos_armazem_expedir",
+              "rotulo": "Confirmar expedição",
+              "sensivel": true
+            },
+            {
+              "chave": "pos_armazem_acerto",
+              "rotulo": "Acertar stock do armazém",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "inventario_sessoes",
+          "nome": "Sessões de inventário",
+          "vistas": [
+            "inventario_sessoes",
+            "inventario"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "inventario_iniciar",
+              "rotulo": "Iniciar inventários",
+              "sensivel": false
+            },
+            {
+              "chave": "inventario_manage",
+              "rotulo": "Anular, reabrir e regularizar diferenças",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "inventario_contagem",
+          "nome": "Efectuar contagem",
+          "vistas": [
+            "inventario_contagem"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "inventario_count",
+              "rotulo": "Registar e terminar contagens",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "inventario_revisao",
+          "nome": "Revisão e regularização",
+          "vistas": [
+            "inventario_revisao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "inventario_rever",
+              "rotulo": "Rever contagens (rascunho e pré-visualização)",
+              "sensivel": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "activos",
+      "nome": "Activos (Imobilizado)",
+      "ecras": [
+        {
+          "id": "activos",
+          "nome": "Cadastro e gestão",
+          "vistas": [
+            "activos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "activos_gerir",
+              "rotulo": "Criar, importar, editar em massa e transferir activos",
+              "sensivel": false
+            },
+            {
+              "chave": "activos_eliminar",
+              "rotulo": "Eliminar activos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "activos_categorias",
+          "nome": "Categorias e taxas",
+          "vistas": [
+            "activos_categorias"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "activos_cat_gerir",
+              "rotulo": "Criar, editar e eliminar categorias",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "activos_manutencao",
+          "nome": "Manutenções",
+          "vistas": [
+            "activos_manutencao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "activos_manut",
+              "rotulo": "Registar, finalizar e eliminar manutenções",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "activos_amortizacoes",
+          "nome": "Amortizações",
+          "vistas": [
+            "activos_amortizacoes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "activos_amort_calcular",
+              "rotulo": "Calcular amortizações (e cotas manuais)",
+              "sensivel": true
+            },
+            {
+              "chave": "activos_amort_integrar",
+              "rotulo": "Integrar amortizações na contabilidade",
+              "sensivel": true
+            },
+            {
+              "chave": "activos_amort_anular",
+              "rotulo": "Anular e reabrir períodos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "activos_abates",
+          "nome": "Abates e vendas",
+          "vistas": [
+            "activos_abates"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "activos_abater",
+              "rotulo": "Abater activos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "activos_pendentes",
+          "nome": "Aquisições pendentes",
+          "vistas": [
+            "activos_pendentes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "activos_inventariar",
+              "rotulo": "Inventariar a partir de lançamentos e ligar activos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "activos_mapa",
+          "nome": "Mapa das amortizações",
+          "vistas": [
+            "activos_mapa"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "activos_mapa_editar",
+              "rotulo": "Editar valores no mapa",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "projectos",
+      "nome": "Projectos",
+      "ecras": [
+        {
+          "id": "projectos_carteira",
+          "nome": "Carteira de projectos",
+          "vistas": [
+            "projectos_carteira"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "proj_gerir",
+              "rotulo": "Criar e gerir projectos (tarefas, equipa, organigrama, orçamento, horas, aditamentos)",
+              "sensivel": false
+            },
+            {
+              "chave": "proj_execucao",
+              "rotulo": "Registar a execução em obra (% executada, horas e equipamentos)",
+              "sensivel": false
+            },
+            {
+              "chave": "proj_requisitar",
+              "rotulo": "Requisitar materiais para o projecto/obra",
+              "sensivel": false
+            },
+            {
+              "chave": "proj_estado",
+              "rotulo": "Encerrar e cancelar projectos",
+              "sensivel": true
+            },
+            {
+              "chave": "proj_revisao",
+              "rotulo": "Revisão de preços e facturação",
+              "sensivel": true
+            },
+            {
+              "chave": "proj_eliminar",
+              "rotulo": "Eliminar aditamentos, milestones, tarefas e subtarefas",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "projectos_extracto",
+          "nome": "Extracto analítico",
+          "vistas": [
+            "projectos_extracto"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "projectos_gantt",
+          "nome": "Gantt global",
+          "vistas": [
+            "projectos_gantt"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        }
+      ]
+    },
+    {
+      "id": "crm",
+      "nome": "CRM",
+      "ecras": [
+        {
+          "id": "crm_pipeline",
+          "nome": "Pipeline de vendas (Kanban)",
+          "vistas": [
+            "crm_pipeline"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "crm_editar",
+              "rotulo": "Criar e editar oportunidades, contas, contactos e actividades; mover etapas",
+              "sensivel": false
+            },
+            {
+              "chave": "crm_converter",
+              "rotulo": "Converter oportunidades em proposta, encomenda ou factura",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "crm_agenda",
+          "nome": "Agenda comercial",
+          "vistas": [
+            "crm_agenda"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "crm_contas",
+          "nome": "Contas, contactos e ficha 360º",
+          "vistas": [
+            "crm_contas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "crm_previsao",
+          "nome": "Previsão de vendas e indicadores",
+          "vistas": [
+            "crm_previsao"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "crm_campanhas",
+          "nome": "Campanhas de email",
+          "vistas": [
+            "crm_campanhas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "crm_campanhas_enviar",
+              "rotulo": "Enviar e exportar campanhas de email",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "crm_config",
+          "nome": "Configuração do CRM",
+          "vistas": [
+            "crm_config"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "crm_configurar",
+              "rotulo": "Alterar pipelines, modelos, sequências, motivos e origens",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "acrescimos",
+      "nome": "Acréscimos e Diferimentos",
+      "ecras": [
+        {
+          "id": "ad_registos",
+          "nome": "Registos de acréscimos e diferimentos",
+          "vistas": [
+            "ad_registos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "ad_editar",
+              "rotulo": "Criar, editar, regularizar, anular, terminar e eliminar registos",
+              "sensivel": false
+            },
+            {
+              "chave": "ad_definicoes_edit",
+              "rotulo": "Alterar as contas 37 e o diário do módulo",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "ad_propostas",
+          "nome": "Proposta mensal",
+          "vistas": [
+            "ad_propostas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "ad_contabilizar",
+              "rotulo": "Contabilizar e descontabilizar lançamentos no Diário",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "ad_recolher",
+          "nome": "Recolher documentos (compras, vendas, Diário, tesouraria)",
+          "vistas": [
+            "ad_recolher"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        }
+      ]
+    },
+    {
+      "id": "orcamento",
+      "nome": "Gestão Orçamental",
+      "ecras": [
+        {
+          "id": "orc_rubricas",
+          "nome": "Rubricas orçamentais",
+          "vistas": [
+            "orc_rubricas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "orc_rubricas_edit",
+              "rotulo": "Criar, editar e eliminar rubricas (ligação às contas)",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "orc_orcamentos",
+          "nome": "Orçamentos (exploração e tesouraria)",
+          "vistas": [
+            "orc_orcamentos"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "orc_editar",
+              "rotulo": "Preparar orçamentos (criar, preencher, nova versão, eliminar rascunhos)",
+              "sensivel": false
+            },
+            {
+              "chave": "orc_submeter",
+              "rotulo": "Submeter orçamentos para aprovação",
+              "sensivel": false
+            },
+            {
+              "chave": "orc_aprovar",
+              "rotulo": "Aprovar e devolver orçamentos",
+              "sensivel": true
+            },
+            {
+              "chave": "orc_hierarquia",
+              "rotulo": "Repartir metas (top-down), pedir e consolidar contributos (bottom-up)",
+              "sensivel": false
+            },
+            {
+              "chave": "orc_contributo",
+              "rotulo": "Preencher e submeter os contributos de que é responsável (CC/UN)",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "orc_controlo",
+          "nome": "Controlo orçamental (orçado vs realizado)",
+          "vistas": [
+            "orc_controlo"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "orc_previsoes",
+          "nome": "Previsões deslizantes (12 meses)",
+          "vistas": [
+            "orc_previsoes"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "orc_previsoes_edit",
+              "rotulo": "Criar, rever e publicar previsões",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "orc_cenarios",
+          "nome": "Cenários what-if",
+          "vistas": [
+            "orc_cenarios"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "orc_cenarios_edit",
+              "rotulo": "Criar e alterar cenários",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "orc_alertas",
+          "nome": "Alertas e aprovações orçamentais",
+          "vistas": [
+            "orc_alertas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "orc_aprovar_excesso",
+              "rotulo": "Aprovar ou recusar excessos orçamentais",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "estrutura",
+      "nome": "Estrutura Orgânica",
+      "ecras": [
+        {
+          "id": "est_estrutura",
+          "nome": "Unidades, cargos e afectação",
+          "vistas": [
+            "est_estrutura"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_editar",
+              "rotulo": "Criar e editar unidades e cargos; afectar colaboradores",
+              "sensivel": false
+            },
+            {
+              "chave": "est_eliminar",
+              "rotulo": "Eliminar unidades e cargos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "est_organigrama",
+          "nome": "Organigrama funcional e nominal",
+          "vistas": [
+            "est_organigrama"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "est_mapa",
+          "nome": "Mapa de pessoal",
+          "vistas": [
+            "est_mapa"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "est_ver_salarios",
+              "rotulo": "Ver a massa salarial por unidade e cargo",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "nome": "Configurações",
+      "ecras": [
+        {
+          "id": "config_geral",
+          "nome": "Geral / Backup",
+          "vistas": [
+            "config_geral",
+            "configuracoes"
+          ],
+          "pai": null,
+          "nota": "Restaurar e apagar dados passam sempre pela Manutenção de dados (pedido e aprovação).",
+          "tarefas": [
+            {
+              "chave": "config_backup",
+              "rotulo": "Exportar cópias de segurança e dados (inclui Power BI)",
+              "sensivel": true
+            },
+            {
+              "chave": "config_ferramentas",
+              "rotulo": "Copiar tabelas entre empresas, clonar empresa e ferramentas de reparação",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "config_empresas",
+          "nome": "Gestão de empresas",
+          "vistas": [
+            "config_empresas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "config_empresas_gerir",
+              "rotulo": "Criar e editar empresas",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "config_plano",
+          "nome": "Plano de contas",
+          "vistas": [
+            "config_plano"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "contab_plano_gerir",
+              "rotulo": "Criar, editar e importar contas",
+              "sensivel": false
+            },
+            {
+              "chave": "contab_tabelas_del",
+              "rotulo": "Eliminar contas",
+              "sensivel": true
+            },
+            {
+              "chave": "contab_conta_substituir",
+              "rotulo": "Substituir uma conta por outra em todos os registos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "config_moedas",
+          "nome": "Moedas e câmbios",
+          "vistas": [
+            "config_moedas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "config_moedas_gerir",
+              "rotulo": "Gerir moedas e câmbios",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "config_utilizadores",
+          "nome": "Utilizadores",
+          "vistas": [
+            "config_utilizadores"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "config_util_gerir",
+              "rotulo": "Criar, editar e eliminar utilizadores",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "config_perfis",
+          "nome": "Perfis e permissões",
+          "vistas": [
+            "config_perfis"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "config_perfis_gerir",
+              "rotulo": "Criar, editar e eliminar perfis",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "config_logs",
+          "nome": "Logs de navegação",
+          "vistas": [
+            "config_logs",
+            "audit_logs"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": []
+        },
+        {
+          "id": "config_manutencao",
+          "nome": "Manutenção de dados",
+          "vistas": [
+            "config_manutencao"
+          ],
+          "pai": null,
+          "nota": "Pedidos de limpeza/restauro; a aprovação exige outro administrador.",
+          "tarefas": []
+        },
+        {
+          "id": "config_migracao",
+          "nome": "Migração de dados",
+          "vistas": [
+            "config_migracao"
+          ],
+          "pai": null,
+          "nota": "As importações continuam sujeitas às tarefas de cada módulo.",
+          "tarefas": []
+        }
+      ]
+    }
+  ],
+  "segregacao": [
+    {
+      "a": "teso_doc_emitir",
+      "b": "teso_integrar",
+      "motivo": "Emite pagamentos e recebimentos e integra-os na contabilidade."
+    },
+    {
+      "a": "teso_doc_emitir",
+      "b": "teso_conc_confirmar",
+      "motivo": "Emite pagamentos e reconcilia as contas bancárias."
+    },
+    {
+      "a": "teso_caixa_operar",
+      "b": "teso_conf_registar",
+      "motivo": "Opera a caixa e faz a conferência dessa caixa."
+    },
+    {
+      "a": "teso_caixa_operar",
+      "b": "teso_caixa_contabilizar",
+      "motivo": "Opera a caixa e contabiliza as próprias sessões."
+    },
+    {
+      "a": "compras_fact_registar",
+      "b": "teso_doc_emitir",
+      "motivo": "Regista facturas de fornecedores e emite os pagamentos."
+    },
+    {
+      "a": "calcular_folha",
+      "b": "processamento_validate",
+      "motivo": "Fecha o cálculo dos salários e valida-o."
+    },
+    {
+      "a": "rh_bancario_gerir",
+      "b": "processamento_validate",
+      "motivo": "Altera o IBAN dos colaboradores e valida os salários."
+    },
+    {
+      "a": "compras_ped_criar",
+      "b": "compras_ped_aprovar",
+      "motivo": "Cria pedidos internos e aprova-os."
+    },
+    {
+      "a": "compras_evaluate",
+      "b": "compras_adjudicate",
+      "motivo": "Propõe e aprova a adjudicação."
+    },
+    {
+      "a": "compras_rec_registar",
+      "b": "armazem_validar",
+      "motivo": "Regista recepções e valida-as no armazém."
+    },
+    {
+      "a": "inventario_count",
+      "b": "inventario_manage",
+      "motivo": "Conta o inventário e regulariza as diferenças."
+    },
+    {
+      "a": "pos_venda",
+      "b": "pos_desvio_deliberar",
+      "motivo": "Vende no POS e delibera os desvios de caixa."
+    },
+    {
+      "a": "pos_venda",
+      "b": "pos_prestar",
+      "motivo": "Vende no POS e presta contas das próprias vendas."
+    },
+    {
+      "a": "lav_dano_decidir",
+      "b": "lav_dano_pagar",
+      "motivo": "Decide e paga as indemnizações por danos."
+    },
+    {
+      "a": "vendas_fat_emitir",
+      "b": "vendas_fat_descontab",
+      "motivo": "Emite facturas e descontabiliza-as."
+    },
+    {
+      "a": "config_util_gerir",
+      "b": "config_perfis_gerir",
+      "motivo": "Cria utilizadores e define as permissões dos perfis."
+    },
+    {
+      "a": "rh_aval_bonus_calcular",
+      "b": "rh_aval_bonus_aprovar",
+      "motivo": "Calcula e aprova as bonificações de desempenho."
+    },
+    {
+      "a": "proj_execucao",
+      "b": "proj_revisao",
+      "motivo": "Regista a execução da obra e factura a revisão de preços."
+    },
+    {
+      "a": "rh_prod_registar",
+      "b": "rh_prod_periodo",
+      "motivo": "Regista a produtividade e fecha o período que vai a pagamento."
+    }
+  ],
+  "modelos": [
+    {
+      "nome": "Contabilista",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "lancamentos_view": true,
+        "encerramento_view": true,
+        "relatorios_contabeis_view": true,
+        "contab_mapa_extrato_view": true,
+        "contab_mapa_balancete_view": true,
+        "contab_mapa_balanco_view": true,
+        "contab_mapa_dr_view": true,
+        "contab_mapa_fluxo_view": true,
+        "contab_mapa_evolucao_view": true,
+        "relatorio_contas_view": true,
+        "contab_rotinas_view": true,
+        "imposto_selo_view": true,
+        "consolidacao_view": true,
+        "tabelas_aux_view": true,
+        "contabilidade_view": true,
+        "ad_registos_view": true,
+        "ad_propostas_view": true,
+        "ad_recolher_view": true,
+        "orc_controlo_view": true,
+        "config_plano_view": true,
+        "teso_gestao_mapas_view": true,
+        "teso_gestao_conciliacao_view": true,
+        "teso_contab_integracao_view": true,
+        "teso_contab_historico_view": true,
+        "activos_view": true,
+        "activos_amortizacoes_view": true,
+        "activos_mapa_view": true,
+        "pos_integracao_view": true,
+        "compras_faturacao_view": true,
+        "vendas_faturacao_view": true,
+        "processamento_view": true,
+        "lancamentos_editar": true,
+        "lancamentos_post": true,
+        "lancamentos_import": true,
+        "lancamentos_saldos": true,
+        "lancamentos_bulk_notes": true,
+        "contab_lanc_transferir": true,
+        "contab_lanc_del": true,
+        "contab_apurar": true,
+        "contab_compensar": true,
+        "contab_reconc_rev": true,
+        "contab_agt": true,
+        "rc_editar": true,
+        "rc_concluir": true,
+        "contab_rotinas_exec": true,
+        "selo_lancar": true,
+        "consol_gerir": true,
+        "consol_executar": true,
+        "aux_gerir": true,
+        "aux_eliminar": true,
+        "contab_mapeamento": true,
+        "contab_plano_gerir": true,
+        "teso_integrar": true,
+        "activos_amort_integrar": true,
+        "pos_integrar": true,
+        "compras_fact_contabilizar": true,
+        "vendas_fat_contabilizar": true,
+        "ad_editar": true,
+        "ad_contabilizar": true
+      }
+    },
+    {
+      "nome": "Tesoureiro",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "teso_gestao_pagamentos_view": true,
+        "teso_folha_caixa_view": true,
+        "teso_contab_integracao_view": true,
+        "teso_contab_historico_view": true,
+        "teso_gestao_mapas_view": true,
+        "teso_gestao_conciliacao_view": true,
+        "teso_gestao_conferencia_view": true,
+        "teso_meios_pagamento_view": true,
+        "orc_controlo_view": true,
+        "orc_previsoes_view": true,
+        "orc_alertas_view": true,
+        "contab_mapa_extrato_view": true,
+        "relatorios_contabeis_view": true,
+        "pos_prestacao_view": true,
+        "teso_doc_emitir": true,
+        "teso_doc_eliminar": true,
+        "teso_conc_importar": true,
+        "teso_conc_confirmar": true,
+        "teso_conf_registar": true,
+        "pos_prestar": true
+      }
+    },
+    {
+      "nome": "Operador da Folha de Caixa",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "teso_folha_caixa_view": true,
+        "teso_caixa_operar": true,
+        "teso_caixa_fechar": true
+      }
+    },
+    {
+      "nome": "Técnico de RH",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "rh_portal_gestao_view": true,
+        "rh_avaliacao_config_view": true,
+        "rh_avaliacao_ciclo_view": true,
+        "colaboradores_view": true,
+        "rh_ferias_view": true,
+        "rh_avaliacao_view": true,
+        "contratos_view": true,
+        "funcoes_view": true,
+        "infotipos_view": true,
+        "calcular_view": true,
+        "bancario_view": true,
+        "relatorios_view": true,
+        "rh_rel_remuneracoes_view": true,
+        "rh_rel_irt_view": true,
+        "rh_rel_inss_view": true,
+        "rh_rel_recibos_view": true,
+        "est_estrutura_view": true,
+        "est_organigrama_view": true,
+        "est_mapa_view": true,
+        "colaboradores_detail": true,
+        "colaboradores_import": true,
+        "rh_ferias_edit": true,
+        "contratos_new": true,
+        "contratos_import": true,
+        "rh_funcoes_gerir": true,
+        "rh_infotipos_gerir": true,
+        "calcular_lancar": true,
+        "calcular_bulk": true,
+        "calcular_folha": true,
+        "rh_lanc_del": true,
+        "rh_recibos_emitir": true,
+        "est_editar": true,
+        "rh_portal_aprovar": true,
+        "rh_portal_modelos": true,
+        "rh_aval_config": true,
+        "rh_aval_abrir": true,
+        "rh_aval_parecer": true,
+        "rh_aval_bonus_calcular": true,
+        "rh_avaliacao_itens": true,
+        "rh_prod_registar": true,
+        "rh_produtividade_view": true
+      }
+    },
+    {
+      "nome": "Responsável de Salários",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "colaboradores_view": true,
+        "rh_portal_gestao_view": true,
+        "rh_avaliacao_config_view": true,
+        "rh_avaliacao_ciclo_view": true,
+        "rh_assiduidade_view": true,
+        "rh_produtividade_view": true,
+        "rh_ferias_view": true,
+        "rh_avaliacao_view": true,
+        "contratos_view": true,
+        "funcoes_view": true,
+        "infotipos_view": true,
+        "calcular_view": true,
+        "processamento_view": true,
+        "bancario_view": true,
+        "relatorios_view": true,
+        "rh_rel_remuneracoes_view": true,
+        "rh_rel_irt_view": true,
+        "rh_rel_inss_view": true,
+        "rh_rel_pagamentos_view": true,
+        "rh_rel_banco_view": true,
+        "rh_rel_recibos_view": true,
+        "est_estrutura_view": true,
+        "est_organigrama_view": true,
+        "est_mapa_view": true,
+        "processamento_validate": true,
+        "processamento_integrate": true,
+        "processamento_reopen": true,
+        "contratos_terminate": true,
+        "rh_colab_del": true,
+        "rh_recibos_emitir": true,
+        "rh_ferias_edit": true,
+        "rh_avaliacao_edit": true,
+        "rh_avaliacao_itens": true,
+        "est_ver_salarios": true,
+        "rh_portal_aprovar": true,
+        "rh_aval_bonus_aprovar": true,
+        "rh_aval_bonus_lancar": true,
+        "rh_prod_periodo": true,
+        "rh_prod_config": true
+      }
+    },
+    {
+      "nome": "Comercial / Facturação",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "vendas_clientes_view": true,
+        "vendas_produtos_view": true,
+        "vendas_faturacao_view": true,
+        "vendas_relatorios_view": true,
+        "compras_encomendas_clientes_view": true,
+        "crm_pipeline_view": true,
+        "crm_agenda_view": true,
+        "crm_contas_view": true,
+        "vendas_clientes_gerir": true,
+        "vendas_produtos_gerir": true,
+        "vendas_fat_emitir": true,
+        "vendas_recibos": true,
+        "crm_converter": true
+      }
+    },
+    {
+      "nome": "Operador POS / Lavandaria",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "pos_view": true,
+        "pos_relatorios_view": true,
+        "pos_lavandaria_view": true,
+        "pos_hotelaria_view": true,
+        "pos_venda": true,
+        "pos_fecho": true,
+        "lav_ordens": true,
+        "lav_receber": true,
+        "hotel_estadias": true,
+        "hotel_checkout": true
+      }
+    },
+    {
+      "nome": "Comprador",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "compras_pedidos_view": true,
+        "compras_prospeccao_view": true,
+        "compras_encomendas_view": true,
+        "compras_rececoes_view": true,
+        "compras_faturacao_view": true,
+        "compras_fornecedores_view": true,
+        "compras_encomendas_clientes_view": true,
+        "compras_contratos_view": true,
+        "armazem_stock_view": true,
+        "compras_ped_criar": true,
+        "compras_new_proposal": true,
+        "compras_evaluate": true,
+        "compras_enc_criar": true,
+        "compras_rec_registar": true,
+        "compras_fact_registar": true,
+        "compras_forn_gerir": true,
+        "compras_gerar_pedidos": true,
+        "compras_contratos_gerir": true
+      }
+    },
+    {
+      "nome": "Fiel de Armazém",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "armazem_stock_view": true,
+        "armazem_rececoes_view": true,
+        "armazem_guias_view": true,
+        "armazem_movimentos_view": true,
+        "armazem_armazens_view": true,
+        "pos_armazem_view": true,
+        "inventario_sessoes_view": true,
+        "inventario_contagem_view": true,
+        "inventario_revisao_view": true,
+        "compras_rececoes_view": true,
+        "armazem_validar": true,
+        "armazem_guias_emitir": true,
+        "pos_armazem_vender": true,
+        "pos_armazem_picking": true,
+        "pos_armazem_expedir": true,
+        "inventario_iniciar": true,
+        "inventario_count": true,
+        "inventario_rever": true
+      }
+    },
+    {
+      "nome": "Auditor / Consulta",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "relatorios_gestao_view": true,
+        "accounting_bi_view": true,
+        "colaboradores_view": true,
+        "rh_portal_gestao_view": true,
+        "rh_avaliacao_config_view": true,
+        "rh_avaliacao_ciclo_view": true,
+        "rh_assiduidade_view": true,
+        "rh_produtividade_view": true,
+        "rh_ferias_view": true,
+        "rh_avaliacao_view": true,
+        "contratos_view": true,
+        "funcoes_view": true,
+        "infotipos_view": true,
+        "calcular_view": true,
+        "processamento_view": true,
+        "bancario_view": true,
+        "relatorios_view": true,
+        "rh_rel_remuneracoes_view": true,
+        "rh_rel_irt_view": true,
+        "rh_rel_inss_view": true,
+        "rh_rel_pagamentos_view": true,
+        "rh_rel_banco_view": true,
+        "rh_rel_recibos_view": true,
+        "lancamentos_view": true,
+        "encerramento_view": true,
+        "relatorios_contabeis_view": true,
+        "contab_mapa_extrato_view": true,
+        "contab_mapa_balancete_view": true,
+        "contab_mapa_balanco_view": true,
+        "contab_mapa_dr_view": true,
+        "contab_mapa_fluxo_view": true,
+        "contab_mapa_evolucao_view": true,
+        "relatorio_contas_view": true,
+        "contab_rotinas_view": true,
+        "imposto_selo_view": true,
+        "consolidacao_view": true,
+        "tabelas_aux_view": true,
+        "contabilidade_view": true,
+        "teso_gestao_pagamentos_view": true,
+        "teso_folha_caixa_view": true,
+        "teso_contab_integracao_view": true,
+        "teso_contab_historico_view": true,
+        "teso_gestao_mapas_view": true,
+        "teso_gestao_conciliacao_view": true,
+        "teso_gestao_conferencia_view": true,
+        "teso_meios_pagamento_view": true,
+        "vendas_clientes_view": true,
+        "vendas_produtos_view": true,
+        "vendas_faturacao_view": true,
+        "vendas_relatorios_view": true,
+        "pos_view": true,
+        "pos_relatorios_view": true,
+        "pos_terminais_view": true,
+        "pos_config_print_view": true,
+        "pos_integracao_view": true,
+        "pos_desvios_view": true,
+        "pos_prestacao_view": true,
+        "pos_lavandaria_view": true,
+        "pos_hotelaria_view": true,
+        "compras_pedidos_view": true,
+        "compras_prospeccao_view": true,
+        "compras_encomendas_view": true,
+        "compras_rececoes_view": true,
+        "compras_faturacao_view": true,
+        "compras_fornecedores_view": true,
+        "compras_encomendas_clientes_view": true,
+        "compras_contratos_view": true,
+        "armazem_stock_view": true,
+        "armazem_rececoes_view": true,
+        "armazem_guias_view": true,
+        "armazem_movimentos_view": true,
+        "armazem_armazens_view": true,
+        "pos_armazem_view": true,
+        "inventario_sessoes_view": true,
+        "inventario_contagem_view": true,
+        "inventario_revisao_view": true,
+        "activos_view": true,
+        "activos_categorias_view": true,
+        "activos_manutencao_view": true,
+        "activos_amortizacoes_view": true,
+        "activos_abates_view": true,
+        "activos_pendentes_view": true,
+        "activos_mapa_view": true,
+        "projectos_carteira_view": true,
+        "projectos_extracto_view": true,
+        "projectos_gantt_view": true,
+        "crm_pipeline_view": true,
+        "crm_agenda_view": true,
+        "crm_contas_view": true,
+        "crm_previsao_view": true,
+        "crm_campanhas_view": true,
+        "crm_config_view": true,
+        "ad_registos_view": true,
+        "ad_propostas_view": true,
+        "ad_recolher_view": true,
+        "orc_rubricas_view": true,
+        "orc_orcamentos_view": true,
+        "orc_controlo_view": true,
+        "orc_previsoes_view": true,
+        "orc_cenarios_view": true,
+        "orc_alertas_view": true,
+        "est_estrutura_view": true,
+        "est_organigrama_view": true,
+        "est_mapa_view": true,
+        "config_geral_view": true,
+        "config_empresas_view": true,
+        "config_plano_view": true,
+        "config_moedas_view": true,
+        "config_logs_view": true
+      }
+    },
+    {
+      "nome": "Direcção",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "relatorios_gestao_view": true,
+        "accounting_bi_view": true,
+        "colaboradores_view": true,
+        "rh_portal_gestao_view": true,
+        "rh_avaliacao_config_view": true,
+        "rh_avaliacao_ciclo_view": true,
+        "rh_assiduidade_view": true,
+        "rh_produtividade_view": true,
+        "rh_ferias_view": true,
+        "rh_avaliacao_view": true,
+        "contratos_view": true,
+        "funcoes_view": true,
+        "infotipos_view": true,
+        "calcular_view": true,
+        "processamento_view": true,
+        "bancario_view": true,
+        "relatorios_view": true,
+        "rh_rel_remuneracoes_view": true,
+        "rh_rel_irt_view": true,
+        "rh_rel_inss_view": true,
+        "rh_rel_pagamentos_view": true,
+        "rh_rel_banco_view": true,
+        "rh_rel_recibos_view": true,
+        "lancamentos_view": true,
+        "encerramento_view": true,
+        "relatorios_contabeis_view": true,
+        "contab_mapa_extrato_view": true,
+        "contab_mapa_balancete_view": true,
+        "contab_mapa_balanco_view": true,
+        "contab_mapa_dr_view": true,
+        "contab_mapa_fluxo_view": true,
+        "contab_mapa_evolucao_view": true,
+        "relatorio_contas_view": true,
+        "contab_rotinas_view": true,
+        "imposto_selo_view": true,
+        "consolidacao_view": true,
+        "tabelas_aux_view": true,
+        "contabilidade_view": true,
+        "teso_gestao_pagamentos_view": true,
+        "teso_folha_caixa_view": true,
+        "teso_contab_integracao_view": true,
+        "teso_contab_historico_view": true,
+        "teso_gestao_mapas_view": true,
+        "teso_gestao_conciliacao_view": true,
+        "teso_gestao_conferencia_view": true,
+        "teso_meios_pagamento_view": true,
+        "vendas_clientes_view": true,
+        "vendas_produtos_view": true,
+        "vendas_faturacao_view": true,
+        "vendas_relatorios_view": true,
+        "pos_view": true,
+        "pos_relatorios_view": true,
+        "pos_terminais_view": true,
+        "pos_config_print_view": true,
+        "pos_integracao_view": true,
+        "pos_desvios_view": true,
+        "pos_prestacao_view": true,
+        "pos_lavandaria_view": true,
+        "pos_hotelaria_view": true,
+        "compras_pedidos_view": true,
+        "compras_prospeccao_view": true,
+        "compras_encomendas_view": true,
+        "compras_rececoes_view": true,
+        "compras_faturacao_view": true,
+        "compras_fornecedores_view": true,
+        "compras_encomendas_clientes_view": true,
+        "compras_contratos_view": true,
+        "armazem_stock_view": true,
+        "armazem_rececoes_view": true,
+        "armazem_guias_view": true,
+        "armazem_movimentos_view": true,
+        "armazem_armazens_view": true,
+        "pos_armazem_view": true,
+        "inventario_sessoes_view": true,
+        "inventario_contagem_view": true,
+        "inventario_revisao_view": true,
+        "activos_view": true,
+        "activos_categorias_view": true,
+        "activos_manutencao_view": true,
+        "activos_amortizacoes_view": true,
+        "activos_abates_view": true,
+        "activos_pendentes_view": true,
+        "activos_mapa_view": true,
+        "projectos_carteira_view": true,
+        "projectos_extracto_view": true,
+        "projectos_gantt_view": true,
+        "crm_pipeline_view": true,
+        "crm_agenda_view": true,
+        "crm_contas_view": true,
+        "crm_previsao_view": true,
+        "crm_campanhas_view": true,
+        "crm_config_view": true,
+        "ad_registos_view": true,
+        "ad_propostas_view": true,
+        "ad_recolher_view": true,
+        "orc_rubricas_view": true,
+        "orc_orcamentos_view": true,
+        "orc_controlo_view": true,
+        "orc_previsoes_view": true,
+        "orc_cenarios_view": true,
+        "orc_alertas_view": true,
+        "est_estrutura_view": true,
+        "est_organigrama_view": true,
+        "est_mapa_view": true,
+        "config_geral_view": true,
+        "config_empresas_view": true,
+        "config_plano_view": true,
+        "config_moedas_view": true,
+        "config_logs_view": true,
+        "compras_ped_aprovar": true,
+        "compras_ped_aprovar_n2": true,
+        "compras_ped_aprovar_n3": true,
+        "compras_ped_aprovar_n4": true,
+        "compras_deliberacao_config": true,
+        "compras_adjudicate": true,
+        "pos_desvio_deliberar": true,
+        "lav_dano_decidir": true,
+        "teso_conf_assinar": true,
+        "rc_concluir": true,
+        "processamento_validate": true,
+        "orc_aprovar": true,
+        "orc_aprovar_excesso": true,
+        "est_ver_salarios": true,
+        "rh_aval_bonus_aprovar": true
+      }
+    },
+    {
+      "nome": "Controller / Gestão Orçamental",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "orc_rubricas_view": true,
+        "orc_orcamentos_view": true,
+        "orc_controlo_view": true,
+        "orc_previsoes_view": true,
+        "orc_cenarios_view": true,
+        "orc_alertas_view": true,
+        "relatorios_contabeis_view": true,
+        "ad_registos_view": true,
+        "ad_propostas_view": true,
+        "est_organigrama_view": true,
+        "crm_previsao_view": true,
+        "orc_rubricas_edit": true,
+        "orc_editar": true,
+        "orc_submeter": true,
+        "orc_hierarquia": true,
+        "orc_contributo": true,
+        "orc_previsoes_edit": true,
+        "orc_cenarios_edit": true
+      }
+    },
+    {
+      "nome": "Responsável de Departamento",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "est_organigrama_view": true,
+        "est_estrutura_view": true,
+        "orc_orcamentos_view": true,
+        "orc_controlo_view": true,
+        "orc_alertas_view": true,
+        "crm_agenda_view": true,
+        "orc_contributo": true
+      }
+    },
+    {
+      "nome": "Comercial CRM",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "crm_pipeline_view": true,
+        "crm_agenda_view": true,
+        "crm_contas_view": true,
+        "crm_previsao_view": true,
+        "vendas_clientes_view": true,
+        "vendas_produtos_view": true,
+        "vendas_faturacao_view": true,
+        "crm_editar": true,
+        "crm_converter": true,
+        "vendas_fat_emitir": true
+      }
+    },
+    {
+      "nome": "Director Comercial",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "crm_pipeline_view": true,
+        "crm_agenda_view": true,
+        "crm_contas_view": true,
+        "crm_previsao_view": true,
+        "crm_campanhas_view": true,
+        "crm_config_view": true,
+        "vendas_clientes_view": true,
+        "vendas_faturacao_view": true,
+        "vendas_relatorios_view": true,
+        "orc_orcamentos_view": true,
+        "orc_controlo_view": true,
+        "est_organigrama_view": true,
+        "crm_editar": true,
+        "crm_converter": true,
+        "crm_campanhas_enviar": true,
+        "crm_configurar": true,
+        "vendas_fat_emitir": true,
+        "orc_contributo": true
+      }
+    },
+    {
+      "nome": "Colaborador (só portal)",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true
+      }
+    },
+    {
+      "nome": "Gestor de Estrutura Orgânica",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "est_estrutura_view": true,
+        "est_organigrama_view": true,
+        "est_mapa_view": true,
+        "colaboradores_view": true,
+        "funcoes_view": true,
+        "est_editar": true,
+        "est_eliminar": true
+      }
+    },
+    {
+      "nome": "Director de Projectos / Obras",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "projectos_carteira_view": true,
+        "projectos_extracto_view": true,
+        "projectos_gantt_view": true,
+        "vendas_clientes_view": true,
+        "vendas_faturacao_view": true,
+        "compras_pedidos_view": true,
+        "compras_encomendas_view": true,
+        "orc_controlo_view": true,
+        "est_organigrama_view": true,
+        "proj_gerir": true,
+        "proj_estado": true,
+        "proj_revisao": true,
+        "proj_eliminar": true,
+        "proj_requisitar": true
+      }
+    },
+    {
+      "nome": "Gestor de Projecto / Obra",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "projectos_carteira_view": true,
+        "projectos_extracto_view": true,
+        "projectos_gantt_view": true,
+        "vendas_clientes_view": true,
+        "compras_pedidos_view": true,
+        "armazem_stock_view": true,
+        "proj_gerir": true,
+        "proj_execucao": true,
+        "proj_requisitar": true
+      }
+    },
+    {
+      "nome": "Encarregado / Técnico de Obra",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "projectos_carteira_view": true,
+        "projectos_gantt_view": true,
+        "armazem_stock_view": true,
+        "proj_execucao": true,
+        "proj_requisitar": true
+      }
+    },
+    {
+      "nome": "Controller de Projectos",
+      "permissoes": {
+        "_v2": true,
+        "dashboard_view": true,
+        "fluxo_processos_view": true,
+        "rh_portal_view": true,
+        "rh_portal_usar": true,
+        "projectos_carteira_view": true,
+        "projectos_extracto_view": true,
+        "projectos_gantt_view": true,
+        "vendas_faturacao_view": true,
+        "compras_faturacao_view": true,
+        "orc_controlo_view": true,
+        "relatorios_contabeis_view": true,
+        "contab_mapa_extrato_view": true
+      }
+    }
+  ]
+}

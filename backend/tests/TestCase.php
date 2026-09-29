@@ -55,6 +55,17 @@ abstract class TestCase extends BaseTestCase
         ], $atributos));
     }
 
+    /**
+     * Cada pedido de teste autentica de novo a partir do seu próprio token (o Laravel memoriza o utilizador
+     * no guard durante o teste; sem isto, um segundo token seria ignorado).
+     */
+    public function call($method, $uri, $parameters = [], $cookies = [], $files = [], $server = [], $content = null)
+    {
+        $this->app['auth']->forgetGuards();
+
+        return parent::call($method, $uri, $parameters, $cookies, $files, $server, $content);
+    }
+
     /** Inicia sessão pela API e devolve os cabeçalhos Authorization prontos a usar. */
     protected function entrar(Utilizador $utilizador, string $palavraPasse = 'Palavra#Passe2026'): array
     {
