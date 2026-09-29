@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (481) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (484) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -135,6 +135,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE itens_compra ADD CONSTRAINT fk_itens_compra_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_compra ADD CONSTRAINT fk_itens_compra_encomenda_compra_id FOREIGN KEY (encomenda_compra_id) REFERENCES encomendas_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_compra ADD CONSTRAINT fk_itens_compra_tarefa_projeto_id FOREIGN KEY (tarefa_projeto_id) REFERENCES tarefas_projeto (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE itens_compra ADD CONSTRAINT fk_itens_compra_item_encomenda_id FOREIGN KEY (item_encomenda_id) REFERENCES itens_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_compra ADD CONSTRAINT fk_itens_compra_pedido_compra_id FOREIGN KEY (pedido_compra_id) REFERENCES pedidos_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_compra ADD CONSTRAINT fk_itens_compra_cotacao_compra_id FOREIGN KEY (cotacao_compra_id) REFERENCES cotacoes_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_compra ADD CONSTRAINT fk_itens_compra_fatura_compra_id FOREIGN KEY (fatura_compra_id) REFERENCES faturas_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -165,6 +166,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE itens_guia_saida ADD CONSTRAINT fk_itens_guia_saida_produto_id FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_guia_saida ADD CONSTRAINT fk_itens_guia_saida_projeto_id FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_guia_saida ADD CONSTRAINT fk_itens_guia_saida_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE itens_guia_saida ADD CONSTRAINT fk_itens_guia_saida_item_compra_id FOREIGN KEY (item_compra_id) REFERENCES itens_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_guia_saida ADD CONSTRAINT fk_itens_guia_saida_guia_saida_id FOREIGN KEY (guia_saida_id) REFERENCES guias_saida (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_guia_saida ADD CONSTRAINT fk_itens_guia_saida_rececao_compra_id FOREIGN KEY (rececao_compra_id) REFERENCES rececoes_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE sessoes_inventario ADD CONSTRAINT fk_sessoes_inventario_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -263,7 +265,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE respostas_ascendentes_rh ADD CONSTRAINT fk_respostas_ascendentes_rh_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE respostas_ascendentes_rh ADD CONSTRAINT fk_respostas_ascendentes_rh_colaborador_alvo_id FOREIGN KEY (colaborador_alvo_id) REFERENCES colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE modelos_documentos_rh ADD CONSTRAINT fk_modelos_documentos_rh_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
-        DB::statement('ALTER TABLE configuracoes_processamento_salarial ADD CONSTRAINT fk_configuracoes_processamento_salarial_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE configuracoes_deliberacao_compras ADD CONSTRAINT fk_configuracoes_deliberacao_compras_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE unidades_organicas ADD CONSTRAINT fk_unidades_organicas_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE unidades_organicas ADD CONSTRAINT fk_unidades_organicas_unidade_organica_pai_id FOREIGN KEY (unidade_organica_pai_id) REFERENCES unidades_organicas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE unidades_organicas ADD CONSTRAINT fk_unidades_organicas_colaborador_responsavel_id FOREIGN KEY (colaborador_responsavel_id) REFERENCES colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -480,6 +482,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE modelos_email_crm ADD CONSTRAINT fk_modelos_email_crm_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE sequencias_campanhas_crm ADD CONSTRAINT fk_sequencias_campanhas_crm_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE sequencias_campanhas_crm ADD CONSTRAINT fk_sequencias_campanhas_crm_funil_vendas_crm_id FOREIGN KEY (funil_vendas_crm_id) REFERENCES funis_vendas_crm (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE configuracoes_contabeis_compras ADD CONSTRAINT fk_configuracoes_contabeis_compras_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas_estadias_hotel ADD CONSTRAINT fk_vendas_estadias_hotel_venda_id FOREIGN KEY (venda_id) REFERENCES vendas (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas_estadias_hotel ADD CONSTRAINT fk_vendas_estadias_hotel_estadia_hotel_id FOREIGN KEY (estadia_hotel_id) REFERENCES estadias_hotel (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas_estadias_hotel ADD CONSTRAINT fk_vendas_estadias_hotel_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -620,6 +623,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE itens_compra DROP CONSTRAINT IF EXISTS fk_itens_compra_empresa_id');
         DB::statement('ALTER TABLE itens_compra DROP CONSTRAINT IF EXISTS fk_itens_compra_encomenda_compra_id');
         DB::statement('ALTER TABLE itens_compra DROP CONSTRAINT IF EXISTS fk_itens_compra_tarefa_projeto_id');
+        DB::statement('ALTER TABLE itens_compra DROP CONSTRAINT IF EXISTS fk_itens_compra_item_encomenda_id');
         DB::statement('ALTER TABLE itens_compra DROP CONSTRAINT IF EXISTS fk_itens_compra_pedido_compra_id');
         DB::statement('ALTER TABLE itens_compra DROP CONSTRAINT IF EXISTS fk_itens_compra_cotacao_compra_id');
         DB::statement('ALTER TABLE itens_compra DROP CONSTRAINT IF EXISTS fk_itens_compra_fatura_compra_id');
@@ -650,6 +654,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE itens_guia_saida DROP CONSTRAINT IF EXISTS fk_itens_guia_saida_produto_id');
         DB::statement('ALTER TABLE itens_guia_saida DROP CONSTRAINT IF EXISTS fk_itens_guia_saida_projeto_id');
         DB::statement('ALTER TABLE itens_guia_saida DROP CONSTRAINT IF EXISTS fk_itens_guia_saida_empresa_id');
+        DB::statement('ALTER TABLE itens_guia_saida DROP CONSTRAINT IF EXISTS fk_itens_guia_saida_item_compra_id');
         DB::statement('ALTER TABLE itens_guia_saida DROP CONSTRAINT IF EXISTS fk_itens_guia_saida_guia_saida_id');
         DB::statement('ALTER TABLE itens_guia_saida DROP CONSTRAINT IF EXISTS fk_itens_guia_saida_rececao_compra_id');
         DB::statement('ALTER TABLE sessoes_inventario DROP CONSTRAINT IF EXISTS fk_sessoes_inventario_empresa_id');
@@ -748,7 +753,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE respostas_ascendentes_rh DROP CONSTRAINT IF EXISTS fk_respostas_ascendentes_rh_empresa_id');
         DB::statement('ALTER TABLE respostas_ascendentes_rh DROP CONSTRAINT IF EXISTS fk_respostas_ascendentes_rh_colaborador_alvo_id');
         DB::statement('ALTER TABLE modelos_documentos_rh DROP CONSTRAINT IF EXISTS fk_modelos_documentos_rh_empresa_id');
-        DB::statement('ALTER TABLE configuracoes_processamento_salarial DROP CONSTRAINT IF EXISTS fk_configuracoes_processamento_salarial_empresa_id');
+        DB::statement('ALTER TABLE configuracoes_deliberacao_compras DROP CONSTRAINT IF EXISTS fk_configuracoes_deliberacao_compras_empresa_id');
         DB::statement('ALTER TABLE unidades_organicas DROP CONSTRAINT IF EXISTS fk_unidades_organicas_empresa_id');
         DB::statement('ALTER TABLE unidades_organicas DROP CONSTRAINT IF EXISTS fk_unidades_organicas_unidade_organica_pai_id');
         DB::statement('ALTER TABLE unidades_organicas DROP CONSTRAINT IF EXISTS fk_unidades_organicas_colaborador_responsavel_id');
@@ -965,6 +970,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE modelos_email_crm DROP CONSTRAINT IF EXISTS fk_modelos_email_crm_empresa_id');
         DB::statement('ALTER TABLE sequencias_campanhas_crm DROP CONSTRAINT IF EXISTS fk_sequencias_campanhas_crm_empresa_id');
         DB::statement('ALTER TABLE sequencias_campanhas_crm DROP CONSTRAINT IF EXISTS fk_sequencias_campanhas_crm_funil_vendas_crm_id');
+        DB::statement('ALTER TABLE configuracoes_contabeis_compras DROP CONSTRAINT IF EXISTS fk_configuracoes_contabeis_compras_empresa_id');
         DB::statement('ALTER TABLE vendas_estadias_hotel DROP CONSTRAINT IF EXISTS fk_vendas_estadias_hotel_venda_id');
         DB::statement('ALTER TABLE vendas_estadias_hotel DROP CONSTRAINT IF EXISTS fk_vendas_estadias_hotel_estadia_hotel_id');
         DB::statement('ALTER TABLE vendas_estadias_hotel DROP CONSTRAINT IF EXISTS fk_vendas_estadias_hotel_empresa_id');

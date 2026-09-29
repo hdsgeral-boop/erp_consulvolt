@@ -30,7 +30,7 @@ abstract class PedidoCompraBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'nome_requerente', 'data', 'estado', 'venda_origem_id', 'projeto_id', 'codigo_projeto', 'descricao', 'data_entrega', 'observacoes', 'deliberacao', 'unidade_negocio_id', 'centro_custo_id', 'data_prevista', 'criado_por', 'colaborador_requerente_id',
+        'empresa_id', 'nome_requerente', 'data', 'estado', 'estado_original', 'venda_origem_id', 'projeto_id', 'codigo_projeto', 'descricao', 'data_entrega', 'observacoes', 'deliberacao', 'unidade_negocio_id', 'centro_custo_id', 'data_prevista', 'criado_por', 'colaborador_requerente_id', 'numero_pedido', 'anulado_em', 'motivo_anulacao',
     ];
 
     protected function casts(): array
@@ -46,6 +46,7 @@ abstract class PedidoCompraBase extends ModeloBase
             'centro_custo_id' => 'integer',
             'data_prevista' => 'date',
             'colaborador_requerente_id' => 'integer',
+            'anulado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

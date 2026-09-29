@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T16:34:08.901Z",
+  "gerado_em": "2026-09-29T17:23:52.806Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -4969,6 +4969,22 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "PENDENTE",
+            "APROVADO",
+            "REJEITADO",
+            "ADJUDICADO",
+            "FECHADO",
+            "ANULADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -5095,6 +5111,33 @@
           "dominio": null
         },
         {
+          "coluna": "numero_pedido",
+          "legado": null,
+          "tipo": "varchar(50)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "anulado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_anulacao",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -5114,7 +5157,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_pedidos_compra_estado"
+      ]
     },
     {
       "tabela": "cotacoes_compra",
@@ -5210,9 +5255,24 @@
         {
           "coluna": "estado",
           "legado": "status",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(25)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "PROPOSTA",
+            "PROPOSTA_ADJUDICACAO",
+            "ADJUDICADO",
+            "RECUSADA",
+            "ANULADA"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -5307,6 +5367,15 @@
           "dominio": null
         },
         {
+          "coluna": "numero_proposta",
+          "legado": null,
+          "tipo": "varchar(50)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -5326,7 +5395,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_cotacoes_compra_estado"
+      ]
     },
     {
       "tabela": "encomendas_compra",
@@ -5416,9 +5487,23 @@
         {
           "coluna": "estado",
           "legado": "status",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(21)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "EM_PROCESSAMENTO",
+            "PARCIAL",
+            "RECEBIDO",
+            "ANULADA"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -5576,6 +5661,33 @@
           "dominio": null
         },
         {
+          "coluna": "data_entrega_prevista",
+          "legado": null,
+          "tipo": "date",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "anulado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_anulacao",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -5603,7 +5715,9 @@
           "onde": null
         }
       ],
-      "checks": []
+      "checks": [
+        "ck_encomendas_compra_estado"
+      ]
     },
     {
       "tabela": "rececoes_compra",
@@ -5672,6 +5786,19 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "RECEBIDO",
+            "VALIDADO",
+            "ANULADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -5778,6 +5905,60 @@
           "dominio": null
         },
         {
+          "coluna": "numero_rececao",
+          "legado": null,
+          "tipo": "varchar(50)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "numero_lan_contabilizacao",
+          "legado": null,
+          "tipo": "varchar(30)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "validado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "validado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "anulado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_anulacao",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -5797,7 +5978,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_rececoes_compra_estado"
+      ]
     },
     {
       "tabela": "faturas_compra",
@@ -5896,6 +6079,20 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "PENDENTE",
+            "PARCIAL",
+            "PAGO",
+            "ANULADA"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -6020,6 +6217,42 @@
           "dominio": null
         },
         {
+          "coluna": "data_vencimento",
+          "legado": null,
+          "tipo": "date",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "numero_lan_contabilizacao",
+          "legado": null,
+          "tipo": "varchar(30)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "anulado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_anulacao",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -6039,7 +6272,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_faturas_compra_estado"
+      ]
     },
     {
       "tabela": "itens_compra",
@@ -6275,6 +6510,54 @@
           "tipo": "numeric(9,4)",
           "nulo": true,
           "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "item_encomenda_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "itens_compra",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "valor_recebido_kz",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "valor_transitoria_kz",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "imposto_kz",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "imposto_moeda",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -7111,6 +7394,15 @@
           "dominio": null
         },
         {
+          "coluna": "custo_medio",
+          "legado": null,
+          "tipo": "numeric(18,6)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -7790,6 +8082,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "item_compra_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "itens_compra",
+            "cascata": false
+          },
           "dominio": null
         },
         {
@@ -13587,10 +13891,10 @@
       "checks": []
     },
     {
-      "tabela": "configuracoes_processamento_salarial",
+      "tabela": "configuracoes_deliberacao_compras",
       "legado": "pa_settings",
-      "model": "ConfigProcessamentoSalarial",
-      "modulo": "RH",
+      "model": "ConfigDeliberacaoCompra",
+      "modulo": "Compras",
       "global": false,
       "pivo": false,
       "empresa_derivada_de": null,
@@ -24956,6 +25260,85 @@
         }
       ],
       "unicos": [],
+      "checks": []
+    },
+    {
+      "tabela": "configuracoes_contabeis_compras",
+      "legado": null,
+      "model": "ConfigContabilCompra",
+      "modulo": "Compras",
+      "global": false,
+      "pivo": false,
+      "empresa_derivada_de": null,
+      "eliminacao_logica": false,
+      "colunas": [
+        {
+          "coluna": "id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": false,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "empresa_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": false,
+          "origem": "derivado",
+          "fk": {
+            "tabela": "empresas",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "chave",
+          "legado": null,
+          "tipo": "varchar(150)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "codigo_conta",
+          "legado": null,
+          "tipo": "varchar(20)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "atualizado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        }
+      ],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "chave"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {

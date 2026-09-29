@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T16:09:16.323Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T17:12:15.261Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1653 |
+| Colunas reais mapeadas | 1658 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -83,6 +83,11 @@
 | `sales.payment_method` | NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE | Numerário → NUMERARIO; Numerario → NUMERARIO; Multicaixa → TPA; Transferência bancária → TRANSFERENCIA; Conta corrente → CONTA_CORRENTE; Multicaixa (TPA) → TPA; Transferencia → TRANSFERENCIA |
 | `sales.payment_mode` | PRONTO, PRAZO, MARCOS | MARCOS → MARCOS; PRONTO → PRONTO |
 | `purchase_items.parent_type` | PEDIDO, COTACAO, ENCOMENDA, FATURA | QUOTE → COTACAO; ORDER → ENCOMENDA; REQUEST → PEDIDO; INVOICE → FATURA |
+| `purchase_requests.status` | PENDENTE, APROVADO, REJEITADO, ADJUDICADO, FECHADO, ANULADO | ADJUDICADO → ADJUDICADO; PENDENTE → PENDENTE; APROVADO → APROVADO |
+| `purchase_quotes.status` | PROPOSTA, PROPOSTA_ADJUDICACAO, ADJUDICADO, RECUSADA, ANULADA | ADJUDICADO → ADJUDICADO; PROPOSTA → PROPOSTA; PROPOSTA_ADJUDICACAO → PROPOSTA_ADJUDICACAO |
+| `purchase_orders.status` | EM_PROCESSAMENTO, PARCIAL, RECEBIDO, ANULADA | RECEBIDO → RECEBIDO; EM_PROCESSAMENTO → EM_PROCESSAMENTO |
+| `purchase_deliveries.status` | RECEBIDO, VALIDADO, ANULADO | RECEBIDO → RECEBIDO |
+| `purchase_invoices.status` | PENDENTE, PARCIAL, PAGO, ANULADA | PENDENTE → PENDENTE; PAGO → PAGO |
 | `inventory_movements.type` | ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE | SAÍDA → SAIDA; ENTRADA → ENTRADA |
 | `inventory_sessions.status` | EM_CONTAGEM, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
 | `employees.status` | ACTIVO, INACTIVO, SUSPENSO | ACTIVO → ACTIVO; Não ACTIVO → INACTIVO; NÃO ACTIVO → INACTIVO |
@@ -732,7 +737,8 @@ Linhas reais: **21** · fictícias descartadas: 16
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `requester_name` | `nome_requerente` | varchar(50) | sim | 100% |  |  |
 | `date` | `data` | timestamptz | sim | 100% |  | tipos mistos: string_data=14, string_datahora=7 |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PENDENTE, APROVADO, REJEITADO, ADJUDICADO, FECHADO, ANULADO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `source_sale_id` | `venda_origem_id` | bigint | sim | 33% | `vendas.id` |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `project_id` | `projeto_id` | bigint | sim | 33% | `projetos.id` |  |
@@ -760,7 +766,8 @@ Linhas reais: **23** · fictícias descartadas: 16
 | `total_amount` | `montante_total` | numeric(15,2) | sim | 100% |  | tipos mistos: inteiro=21, decimal=2 |
 | `date` | `data` | date | sim | 100% |  |  |
 | `delivery_date` | `data_entrega` | date | sim | 70% |  |  |
-| `status` | `estado` | varchar(30) | sim | 100% |  |  |
+| `status` | `estado` | varchar(25) | sim | 100% |  | código normalizado ∈ {PROPOSTA, PROPOSTA_ADJUDICACAO, ADJUDICADO, RECUSADA, ANULADA}; texto original em estado_original |
+| `status` | `estado_original` | varchar(30) | sim | 100% |  | texto exacto do legado |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `business_unit_id` | `unidade_negocio_id` | bigint | sim | 39% | `unidades_negocio.id` |  |
 | `cost_center_id` | `centro_custo_id` | bigint | sim | 39% | `centros_custo.id` |  |
@@ -782,7 +789,8 @@ Linhas reais: **17** · fictícias descartadas: 16
 | `supplier_id` | `fornecedor_id` | bigint | sim | 100% | `terceiros.id` |  |
 | `order_number` | `numero_encomenda` | varchar(30) | sim | 100% |  |  |
 | `date` | `data` | timestamptz | sim | 100% |  | tipos mistos: string_datahora=16, string_data=1 |
-| `status` | `estado` | varchar(30) | sim | 100% |  |  |
+| `status` | `estado` | varchar(21) | sim | 100% |  | código normalizado ∈ {EM_PROCESSAMENTO, PARCIAL, RECEBIDO, ANULADA}; texto original em estado_original |
+| `status` | `estado_original` | varchar(30) | sim | 100% |  | texto exacto do legado |
 | `is_posted` | `contabilizado` | boolean | sim | 94% |  |  |
 | `source_sale_id` | `venda_origem_id` | bigint | sim | 35% | `vendas.id` | tipos Dexie: {"undef":2} |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
@@ -808,7 +816,8 @@ Linhas reais: **22** · fictícias descartadas: 16
 | `order_id` | `encomenda_compra_id` | bigint | sim | 100% | `encomendas_compra.id` |  |
 | `delivery_number` | `numero_entrega` | varchar(30) | sim | 100% |  |  |
 | `date` | `data` | date | sim | 100% |  |  |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {RECEBIDO, VALIDADO, ANULADO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `is_posted` | `contabilizado` | boolean | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `is_validated` | `validado` | boolean | sim | 91% |  |  |
@@ -834,7 +843,8 @@ Linhas reais: **25** · fictícias descartadas: 16
 | `date` | `data` | date | sim | 100% |  |  |
 | `total_amount` | `montante_total` | numeric(15,2) | sim | 100% |  | tipos mistos: inteiro=20, decimal=5 |
 | `total_tax` | `total_imposto` | numeric(15,2) | sim | 84% |  | tipos mistos: inteiro=8, decimal=13 |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PENDENTE, PARCIAL, PAGO, ANULADA}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `is_posted` | `contabilizado` | boolean | sim | 100% |  | tipos mistos: boolean=24, inteiro=1 |
 | `items` | `itens` | jsonb | sim | 84% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
@@ -1650,7 +1660,9 @@ Linhas reais: **0** · fictícias descartadas: 0 · ⚠ **sem dados reais — es
 
 _Sem colunas reais no backup._
 
-### `pa_settings` → `configuracoes_processamento_salarial` (model `ConfigProcessamentoSalarial`, `/api/rh/config`)
+## Módulo: Compras
+
+### `pa_settings` → `configuracoes_deliberacao_compras` (model `ConfigDeliberacaoCompra`, `/api/compras/deliberacao/escaloes`)
 
 Linhas reais: **2** · fictícias descartadas: 0
 
@@ -1661,6 +1673,8 @@ Linhas reais: **2** · fictícias descartadas: 0
 | `actualizado_por` | `atualizado_por` | varchar(10) | sim | 100% |  |  |
 | `actualizado_em` | `atualizado_em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
+
+## Módulo: RH
 
 ### `org_units` → `unidades_organicas` (model `UnidadeOrganica`, `/api/rh/estrutura/unidades`)
 

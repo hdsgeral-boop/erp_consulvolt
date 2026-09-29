@@ -774,17 +774,6 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_modelos_documentos_rh_empresa_id ON modelos_documentos_rh (empresa_id)');
 
-        // pa_settings (legado) -> configuracoes_processamento_salarial · 2 linhas reais no backup
-        Schema::create('configuracoes_processamento_salarial', function (Blueprint $table) {
-            $table->id();
-            $table->bigInteger('empresa_id')->comment('legado: pa_company_id');
-            $table->jsonb('niveis')->nullable()->comment('legado: niveis');
-            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
-            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
-            $table->timestampTz('criado_em')->nullable()->useCurrent();
-        });
-        DB::statement('CREATE UNIQUE INDEX uq_configuracoes_processamento_salarial_empresa_id ON configuracoes_processamento_salarial (empresa_id)');
-
         // org_units (legado) -> unidades_organicas · 16 linhas reais no backup · eliminação lógica
         Schema::create('unidades_organicas', function (Blueprint $table) {
             $table->id();
@@ -843,7 +832,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('postos_trabalho');
         Schema::dropIfExists('unidades_organicas');
-        Schema::dropIfExists('configuracoes_processamento_salarial');
         Schema::dropIfExists('modelos_documentos_rh');
         Schema::dropIfExists('respostas_ascendentes_rh');
         Schema::dropIfExists('participacoes_ascendentes_rh');

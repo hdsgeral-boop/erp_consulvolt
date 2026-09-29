@@ -28,7 +28,7 @@ abstract class FaturaCompraBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'encomenda_compra_id', 'fornecedor_id', 'numero_fatura', 'data', 'montante_total', 'total_imposto', 'estado', 'contabilizado', 'itens', 'projeto_id', 'codigo_projeto', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'montante_total_moeda', 'total_imposto_moeda',
+        'empresa_id', 'encomenda_compra_id', 'fornecedor_id', 'numero_fatura', 'data', 'montante_total', 'total_imposto', 'estado', 'estado_original', 'contabilizado', 'itens', 'projeto_id', 'codigo_projeto', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'montante_total_moeda', 'total_imposto_moeda', 'data_vencimento', 'numero_lan_contabilizacao', 'anulado_em', 'motivo_anulacao',
     ];
 
     protected function casts(): array
@@ -50,6 +50,8 @@ abstract class FaturaCompraBase extends ModeloBase
             'taxa_cambio_manual' => 'boolean',
             'montante_total_moeda' => 'decimal:2',
             'total_imposto_moeda' => 'decimal:2',
+            'data_vencimento' => 'date',
+            'anulado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

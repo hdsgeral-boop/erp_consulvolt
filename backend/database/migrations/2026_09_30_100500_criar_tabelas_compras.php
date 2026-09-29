@@ -20,7 +20,8 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('nome_requerente', 255)->nullable()->comment('legado: requester_name');
             $table->timestampTz('data')->nullable()->comment('legado: date · tipos mistos: string_data=14, string_datahora=7');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {PENDENTE, APROVADO, REJEITADO, ADJUDICADO, FECHADO, ANULADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->bigInteger('venda_origem_id')->nullable()->comment('legado: source_sale_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado');
@@ -33,6 +34,9 @@ return new class extends Migration
             $table->date('data_prevista')->nullable()->comment('legado: expected_date');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->bigInteger('colaborador_requerente_id')->nullable()->comment('legado: requester_employee_id');
+            $table->string('numero_pedido', 50)->nullable()->comment('N.º do pedido "PC <série>/<n>" (o legado só mostrava o id)');
+            $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');
+            $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -42,6 +46,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_pedidos_compra_unidade_negocio_id ON pedidos_compra (unidade_negocio_id)');
         DB::statement('CREATE INDEX ix_pedidos_compra_centro_custo_id ON pedidos_compra (centro_custo_id)');
         DB::statement('CREATE INDEX ix_pedidos_compra_colaborador_requerente_id ON pedidos_compra (colaborador_requerente_id)');
+        DB::statement('ALTER TABLE pedidos_compra ADD CONSTRAINT ck_pedidos_compra_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE\',\'APROVADO\',\'REJEITADO\',\'ADJUDICADO\',\'FECHADO\',\'ANULADO\'))');
 
         // purchase_quotes (legado) -> cotacoes_compra · 23 linhas reais no backup
         Schema::create('cotacoes_compra', function (Blueprint $table) {
@@ -53,7 +58,8 @@ return new class extends Migration
             $table->decimal('montante_total', 15, 2)->nullable()->comment('legado: total_amount · tipos mistos: inteiro=21, decimal=2');
             $table->date('data')->nullable()->comment('legado: date');
             $table->date('data_entrega')->nullable()->comment('legado: delivery_date');
-            $table->string('estado', 30)->nullable()->comment('legado: status');
+            $table->string('estado', 25)->nullable()->comment('legado: status · código normalizado ∈ {PROPOSTA, PROPOSTA_ADJUDICACAO, ADJUDICADO, RECUSADA, ANULADA}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
             $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
@@ -63,6 +69,7 @@ return new class extends Migration
             $table->decimal('montante_total_moeda', 15, 2)->nullable()->comment('legado: total_amount_currency');
             $table->decimal('total_imposto', 15, 2)->nullable()->comment('legado: total_tax · do código legado js/ui_compras_v2.js:1448');
             $table->decimal('total_com_imposto', 15, 2)->nullable()->comment('legado: total_with_tax · do código legado js/ui_compras_v2.js:1449');
+            $table->string('numero_proposta', 50)->nullable()->comment('N.º interno "PP <série>/<n>" (a referência é a do fornecedor)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -72,6 +79,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_cotacoes_compra_unidade_negocio_id ON cotacoes_compra (unidade_negocio_id)');
         DB::statement('CREATE INDEX ix_cotacoes_compra_centro_custo_id ON cotacoes_compra (centro_custo_id)');
         DB::statement('CREATE INDEX ix_cotacoes_compra_taxa_cambio_id ON cotacoes_compra (taxa_cambio_id)');
+        DB::statement('ALTER TABLE cotacoes_compra ADD CONSTRAINT ck_cotacoes_compra_estado CHECK (estado IS NULL OR estado IN (\'PROPOSTA\',\'PROPOSTA_ADJUDICACAO\',\'ADJUDICADO\',\'RECUSADA\',\'ANULADA\'))');
 
         // purchase_orders (legado) -> encomendas_compra · 17 linhas reais no backup
         Schema::create('encomendas_compra', function (Blueprint $table) {
@@ -82,7 +90,8 @@ return new class extends Migration
             $table->bigInteger('fornecedor_id')->nullable()->comment('legado: supplier_id');
             $table->string('numero_encomenda', 50)->nullable()->comment('legado: order_number');
             $table->timestampTz('data')->nullable()->comment('legado: date · tipos mistos: string_datahora=16, string_data=1');
-            $table->string('estado', 30)->nullable()->comment('legado: status');
+            $table->string('estado', 21)->nullable()->comment('legado: status · código normalizado ∈ {EM_PROCESSAMENTO, PARCIAL, RECEBIDO, ANULADA}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->boolean('contabilizado')->nullable()->comment('legado: is_posted');
             $table->bigInteger('venda_origem_id')->nullable()->comment('legado: source_sale_id · tipos Dexie: {"undef":2}');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
@@ -98,6 +107,9 @@ return new class extends Migration
             $table->decimal('montante_total_moeda', 15, 2)->nullable()->comment('legado: total_amount_currency');
             $table->decimal('total_imposto', 15, 2)->nullable()->comment('legado: total_tax · do código legado js/ui_compras_v2.js:2156');
             $table->decimal('total_com_imposto', 15, 2)->nullable()->comment('legado: total_with_tax · do código legado js/ui_compras_v2.js:2156');
+            $table->date('data_entrega_prevista')->nullable()->comment('Prazo de entrega da proposta adjudicada');
+            $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');
+            $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -111,6 +123,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_encomendas_compra_unidade_negocio_id ON encomendas_compra (unidade_negocio_id)');
         DB::statement('CREATE INDEX ix_encomendas_compra_centro_custo_id ON encomendas_compra (centro_custo_id)');
         DB::statement('CREATE INDEX ix_encomendas_compra_taxa_cambio_id ON encomendas_compra (taxa_cambio_id)');
+        DB::statement('ALTER TABLE encomendas_compra ADD CONSTRAINT ck_encomendas_compra_estado CHECK (estado IS NULL OR estado IN (\'EM_PROCESSAMENTO\',\'PARCIAL\',\'RECEBIDO\',\'ANULADA\'))');
 
         // purchase_deliveries (legado) -> rececoes_compra · 22 linhas reais no backup
         Schema::create('rececoes_compra', function (Blueprint $table) {
@@ -119,7 +132,8 @@ return new class extends Migration
             $table->bigInteger('encomenda_compra_id')->nullable()->comment('legado: order_id');
             $table->string('numero_entrega', 50)->nullable()->comment('legado: delivery_number');
             $table->date('data')->nullable()->comment('legado: date');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {RECEBIDO, VALIDADO, ANULADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->boolean('contabilizado')->nullable()->comment('legado: is_posted');
             $table->boolean('validado')->nullable()->comment('legado: is_validated');
             $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id');
@@ -130,6 +144,12 @@ return new class extends Migration
             $table->bigInteger('taxa_cambio_id')->nullable()->comment('legado: exchange_rate_id');
             $table->boolean('taxa_cambio_manual')->nullable()->comment('legado: exchange_rate_manual');
             $table->decimal('valor_total_kz', 15, 2)->nullable()->comment('legado: total_value_kz · tipos mistos: inteiro=2, decimal=1');
+            $table->string('numero_rececao', 50)->nullable()->comment('N.º interno "RCP <série>/<n>" (numero_entrega é a guia do fornecedor)');
+            $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento da validação (entrada em armazém)');
+            $table->timestampTz('validado_em')->nullable()->comment('Data/hora da validação no armazém');
+            $table->string('validado_por', 100)->nullable()->comment('Utilizador que validou');
+            $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');
+            $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -139,6 +159,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_rececoes_compra_unidade_negocio_id ON rececoes_compra (unidade_negocio_id)');
         DB::statement('CREATE INDEX ix_rececoes_compra_centro_custo_id ON rececoes_compra (centro_custo_id)');
         DB::statement('CREATE INDEX ix_rececoes_compra_taxa_cambio_id ON rececoes_compra (taxa_cambio_id)');
+        DB::statement('ALTER TABLE rececoes_compra ADD CONSTRAINT ck_rececoes_compra_estado CHECK (estado IS NULL OR estado IN (\'RECEBIDO\',\'VALIDADO\',\'ANULADO\'))');
 
         // purchase_invoices (legado) -> faturas_compra · 25 linhas reais no backup
         Schema::create('faturas_compra', function (Blueprint $table) {
@@ -150,7 +171,8 @@ return new class extends Migration
             $table->date('data')->nullable()->comment('legado: date');
             $table->decimal('montante_total', 15, 2)->nullable()->comment('legado: total_amount · tipos mistos: inteiro=20, decimal=5');
             $table->decimal('total_imposto', 15, 2)->nullable()->comment('legado: total_tax · tipos mistos: inteiro=8, decimal=13');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {PENDENTE, PARCIAL, PAGO, ANULADA}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->boolean('contabilizado')->nullable()->comment('legado: is_posted · tipos mistos: boolean=24, inteiro=1');
             $table->jsonb('itens')->nullable()->comment('legado: items');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
@@ -163,6 +185,10 @@ return new class extends Migration
             $table->boolean('taxa_cambio_manual')->nullable()->comment('legado: exchange_rate_manual');
             $table->decimal('montante_total_moeda', 15, 2)->nullable()->comment('legado: total_amount_currency');
             $table->decimal('total_imposto_moeda', 15, 2)->nullable()->comment('legado: total_tax_currency');
+            $table->date('data_vencimento')->nullable()->comment('Data de vencimento');
+            $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento contabilístico da factura');
+            $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');
+            $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -174,6 +200,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_faturas_compra_centro_custo_id ON faturas_compra (centro_custo_id)');
         DB::statement('CREATE INDEX ix_faturas_compra_taxa_cambio_id ON faturas_compra (taxa_cambio_id)');
         DB::statement('CREATE INDEX ix_faturas_compra_empresa_id_fornecedor_id_numero_fatura ON faturas_compra (empresa_id, fornecedor_id, numero_fatura)');
+        DB::statement('ALTER TABLE faturas_compra ADD CONSTRAINT ck_faturas_compra_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE\',\'PARCIAL\',\'PAGO\',\'ANULADA\'))');
 
         // purchase_items (legado) -> itens_compra · 90 linhas reais no backup
         Schema::create('itens_compra', function (Blueprint $table) {
@@ -200,6 +227,11 @@ return new class extends Migration
             $table->decimal('cambial_faturado_por_receber_qtd', 12, 3)->nullable()->comment('legado: fx_fat_por_receber_qty');
             $table->decimal('cambial_faturado_por_receber_kz', 15, 2)->nullable()->comment('legado: fx_fat_por_receber_kz');
             $table->decimal('taxa_imposto', 9, 4)->nullable()->comment('legado: tax_rate · do código legado js/ui_compras_v2.js:1243');
+            $table->bigInteger('item_encomenda_id')->nullable()->comment('Linha da encomenda que esta linha de factura factura');
+            $table->decimal('valor_recebido_kz', 15, 2)->nullable()->comment('Encomenda: valor em Kz acumulado das quantidades recebidas');
+            $table->decimal('valor_transitoria_kz', 15, 2)->nullable()->comment('Factura: valor debitado na conta transitória de compras (328)');
+            $table->decimal('imposto_kz', 15, 2)->nullable()->comment('IVA da linha em Kz (o legado guardava tax_kz nas linhas embutidas da factura)');
+            $table->decimal('imposto_moeda', 15, 2)->nullable()->comment('IVA da linha na moeda do documento');
             $table->bigInteger('pedido_compra_id')->nullable()->comment('tipo_documento_origem = PEDIDO');
             $table->bigInteger('cotacao_compra_id')->nullable()->comment('tipo_documento_origem = COTACAO');
             $table->bigInteger('fatura_compra_id')->nullable()->comment('tipo_documento_origem = FATURA');
@@ -211,6 +243,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_itens_compra_projeto_id ON itens_compra (projeto_id)');
         DB::statement('CREATE INDEX ix_itens_compra_encomenda_compra_id ON itens_compra (encomenda_compra_id)');
         DB::statement('CREATE INDEX ix_itens_compra_tarefa_projeto_id ON itens_compra (tarefa_projeto_id)');
+        DB::statement('CREATE INDEX ix_itens_compra_item_encomenda_id ON itens_compra (item_encomenda_id)');
         DB::statement('CREATE INDEX ix_itens_compra_pedido_compra_id ON itens_compra (pedido_compra_id)');
         DB::statement('CREATE INDEX ix_itens_compra_cotacao_compra_id ON itens_compra (cotacao_compra_id)');
         DB::statement('CREATE INDEX ix_itens_compra_fatura_compra_id ON itens_compra (fatura_compra_id)');
@@ -267,6 +300,28 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_marcos_contrato_fornecedor_empresa_id ON marcos_contrato_fornecedor (empresa_id)');
         DB::statement('CREATE INDEX ix_marcos_contrato_fornecedor_contrato_fornecedor_id ON marcos_contrato_fornecedor (contrato_fornecedor_id)');
 
+        // pa_settings (legado) -> configuracoes_deliberacao_compras · 2 linhas reais no backup
+        Schema::create('configuracoes_deliberacao_compras', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: pa_company_id');
+            $table->jsonb('niveis')->nullable()->comment('legado: niveis');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_configuracoes_deliberacao_compras_empresa_id ON configuracoes_deliberacao_compras (empresa_id)');
+
+        // configuracoes_contabeis_compras (tabela nova) · 0 linhas reais no backup
+        Schema::create('configuracoes_contabeis_compras', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->string('chave', 150)->nullable()->comment('Chave da conta (ver ServicoConfigCompras::CHAVES)');
+            $table->string('codigo_conta', 20)->nullable()->comment('Conta do plano');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_configuracoes_contabeis_compras_empresa_id_chave ON configuracoes_contabeis_compras (empresa_id, chave)');
+
         // contratos_fornecedores_encomendas (pivô)
         Schema::create('contratos_fornecedores_encomendas', function (Blueprint $table) {
             $table->bigInteger('empresa_id');
@@ -282,6 +337,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('contratos_fornecedores_encomendas');
+        Schema::dropIfExists('configuracoes_contabeis_compras');
+        Schema::dropIfExists('configuracoes_deliberacao_compras');
         Schema::dropIfExists('marcos_contrato_fornecedor');
         Schema::dropIfExists('contratos_fornecedores');
         Schema::dropIfExists('catalogo_fornecedores');

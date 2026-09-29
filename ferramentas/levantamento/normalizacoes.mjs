@@ -30,6 +30,16 @@ export const NORMALIZACOES = {
   // ── Compras ──
   'purchase_items.parent_type': { dominio: ['PEDIDO', 'COTACAO', 'ENCOMENDA', 'FATURA'], mapa: {
     REQUEST: 'PEDIDO', QUOTE: 'COTACAO', ORDER: 'ENCOMENDA', INVOICE: 'FATURA' } },
+  'purchase_requests.status': { dominio: ['PENDENTE', 'APROVADO', 'REJEITADO', 'ADJUDICADO', 'FECHADO', 'ANULADO'], mapa: {
+    PENDENTE: 'PENDENTE', APROVADO: 'APROVADO', REJEITADO: 'REJEITADO', ADJUDICADO: 'ADJUDICADO', FECHADO: 'FECHADO', ANULADO: 'ANULADO' } },
+  'purchase_quotes.status': { dominio: ['PROPOSTA', 'PROPOSTA_ADJUDICACAO', 'ADJUDICADO', 'RECUSADA', 'ANULADA'], mapa: {
+    PROPOSTA: 'PROPOSTA', 'PROPOSTA ADJUDICACAO': 'PROPOSTA_ADJUDICACAO', ADJUDICADO: 'ADJUDICADO', RECUSADA: 'RECUSADA', ANULADA: 'ANULADA' } },
+  'purchase_orders.status': { dominio: ['EM_PROCESSAMENTO', 'PARCIAL', 'RECEBIDO', 'ANULADA'], mapa: {
+    'EM PROCESSAMENTO': 'EM_PROCESSAMENTO', PARCIAL: 'PARCIAL', RECEBIDO: 'RECEBIDO', ANULADA: 'ANULADA' } },
+  'purchase_deliveries.status': { dominio: ['RECEBIDO', 'VALIDADO', 'ANULADO'], mapa: {
+    RECEBIDO: 'RECEBIDO', VALIDADO: 'VALIDADO', ANULADO: 'ANULADO' } },
+  'purchase_invoices.status': { dominio: ['PENDENTE', 'PARCIAL', 'PAGO', 'ANULADA'], mapa: {
+    PENDENTE: 'PENDENTE', PARCIAL: 'PARCIAL', PAGO: 'PAGO', ANULADA: 'ANULADA' } },
 
   // ── Logística ──
   'inventory_movements.type': { dominio: ['ENTRADA', 'SAIDA', 'TRANSFERENCIA', 'AJUSTE'], mapa: {

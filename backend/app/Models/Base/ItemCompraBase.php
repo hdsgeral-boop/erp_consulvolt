@@ -7,12 +7,15 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\CotacaoCompra;
 use App\Models\EncomendaCompra;
 use App\Models\FaturaCompra;
+use App\Models\ItemCompra;
+use App\Models\ItemGuiaSaida;
 use App\Models\ModeloBase;
 use App\Models\PedidoCompra;
 use App\Models\Produto;
 use App\Models\Projeto;
 use App\Models\TarefaProjeto;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Tabela itens_compra (módulo Compras). Legado: purchase_items · 90 linhas reais no backup.
@@ -27,7 +30,7 @@ abstract class ItemCompraBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'tipo_documento_origem', 'tipo_documento_origem_original', 'produto_id', 'quantidade', 'preco_unitario', 'projeto_id', 'codigo_projeto', 'quantidade_recebida', 'quantidade_faturada', 'encomenda_compra_id', 'descricao', 'total', 'tarefa_projeto_id', 'preco_unitario_moeda', 'total_moeda', 'total_kz', 'cambial_recebido_por_faturar_qtd', 'cambial_recebido_por_faturar_kz', 'cambial_faturado_por_receber_qtd', 'cambial_faturado_por_receber_kz', 'taxa_imposto', 'pedido_compra_id', 'cotacao_compra_id', 'fatura_compra_id',
+        'empresa_id', 'tipo_documento_origem', 'tipo_documento_origem_original', 'produto_id', 'quantidade', 'preco_unitario', 'projeto_id', 'codigo_projeto', 'quantidade_recebida', 'quantidade_faturada', 'encomenda_compra_id', 'descricao', 'total', 'tarefa_projeto_id', 'preco_unitario_moeda', 'total_moeda', 'total_kz', 'cambial_recebido_por_faturar_qtd', 'cambial_recebido_por_faturar_kz', 'cambial_faturado_por_receber_qtd', 'cambial_faturado_por_receber_kz', 'taxa_imposto', 'item_encomenda_id', 'valor_recebido_kz', 'valor_transitoria_kz', 'imposto_kz', 'imposto_moeda', 'pedido_compra_id', 'cotacao_compra_id', 'fatura_compra_id',
     ];
 
     protected function casts(): array
@@ -51,6 +54,11 @@ abstract class ItemCompraBase extends ModeloBase
             'cambial_faturado_por_receber_qtd' => 'decimal:3',
             'cambial_faturado_por_receber_kz' => 'decimal:2',
             'taxa_imposto' => 'decimal:4',
+            'item_encomenda_id' => 'integer',
+            'valor_recebido_kz' => 'decimal:2',
+            'valor_transitoria_kz' => 'decimal:2',
+            'imposto_kz' => 'decimal:2',
+            'imposto_moeda' => 'decimal:2',
             'pedido_compra_id' => 'integer',
             'cotacao_compra_id' => 'integer',
             'fatura_compra_id' => 'integer',
@@ -79,6 +87,11 @@ abstract class ItemCompraBase extends ModeloBase
         return $this->belongsTo(TarefaProjeto::class, 'tarefa_projeto_id');
     }
 
+    public function itemEncomenda(): BelongsTo
+    {
+        return $this->belongsTo(ItemCompra::class, 'item_encomenda_id');
+    }
+
     public function pedidoCompra(): BelongsTo
     {
         return $this->belongsTo(PedidoCompra::class, 'pedido_compra_id');
@@ -92,5 +105,15 @@ abstract class ItemCompraBase extends ModeloBase
     public function faturaCompra(): BelongsTo
     {
         return $this->belongsTo(FaturaCompra::class, 'fatura_compra_id');
+    }
+
+    public function itensCompraPorItemEncomenda(): HasMany
+    {
+        return $this->hasMany(ItemCompra::class, 'item_encomenda_id');
+    }
+
+    public function itensGuiaSaida(): HasMany
+    {
+        return $this->hasMany(ItemGuiaSaida::class, 'item_compra_id');
     }
 }

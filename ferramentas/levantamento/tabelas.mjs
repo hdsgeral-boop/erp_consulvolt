@@ -87,7 +87,7 @@ export const TABELAS = [
   ['rh_upward_participation', 'participacoes_ascendentes_rh', 'ParticipacaoAscendenteRH', 'RH', '/api/rh/avaliacoes/ascendentes'],
   ['rh_upward_responses', 'respostas_ascendentes_rh', 'RespostaAscendenteRH', 'RH', '/api/rh/avaliacoes/ascendentes-respostas'],
   ['rh_doc_templates', 'modelos_documentos_rh', 'ModeloDocumentoRH', 'RH', '/api/rh/modelos-documentos'],
-  ['pa_settings', 'configuracoes_processamento_salarial', 'ConfigProcessamentoSalarial', 'RH', '/api/rh/config'],
+  ['pa_settings', 'configuracoes_deliberacao_compras', 'ConfigDeliberacaoCompra', 'Compras', '/api/compras/deliberacao/escaloes'],   // "purchase approval": escalões (niveis) de compras_deliberacao.js
   ['org_units', 'unidades_organicas', 'UnidadeOrganica', 'RH', '/api/rh/estrutura/unidades'],
   ['org_positions', 'postos_trabalho', 'PostoTrabalho', 'RH', '/api/rh/estrutura/postos'],
   ['treasury_documents', 'documentos_tesouraria', 'DocumentoTesouraria', 'Tesouraria', '/api/tesouraria/documentos'],

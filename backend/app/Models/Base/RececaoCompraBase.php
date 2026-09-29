@@ -27,7 +27,7 @@ abstract class RececaoCompraBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'encomenda_compra_id', 'numero_entrega', 'data', 'estado', 'contabilizado', 'validado', 'armazem_id', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'valor_total_kz',
+        'empresa_id', 'encomenda_compra_id', 'numero_entrega', 'data', 'estado', 'estado_original', 'contabilizado', 'validado', 'armazem_id', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'valor_total_kz', 'numero_rececao', 'numero_lan_contabilizacao', 'validado_em', 'validado_por', 'anulado_em', 'motivo_anulacao',
     ];
 
     protected function casts(): array
@@ -45,6 +45,8 @@ abstract class RececaoCompraBase extends ModeloBase
             'taxa_cambio_id' => 'integer',
             'taxa_cambio_manual' => 'boolean',
             'valor_total_kz' => 'decimal:2',
+            'validado_em' => 'datetime',
+            'anulado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

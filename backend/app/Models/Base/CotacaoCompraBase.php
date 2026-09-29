@@ -28,7 +28,7 @@ abstract class CotacaoCompraBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'pedido_compra_id', 'fornecedor_id', 'referencia', 'montante_total', 'data', 'data_entrega', 'estado', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'montante_total_moeda', 'total_imposto', 'total_com_imposto',
+        'empresa_id', 'pedido_compra_id', 'fornecedor_id', 'referencia', 'montante_total', 'data', 'data_entrega', 'estado', 'estado_original', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'montante_total_moeda', 'total_imposto', 'total_com_imposto', 'numero_proposta',
     ];
 
     protected function casts(): array

@@ -33,7 +33,7 @@ abstract class EncomendaCompraBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'pedido_compra_id', 'cotacao_compra_id', 'fornecedor_id', 'numero_encomenda', 'data', 'estado', 'contabilizado', 'venda_origem_id', 'projeto_id', 'codigo_projeto', 'contrato_fornecedor_id', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'montante_total', 'montante_total_moeda', 'total_imposto', 'total_com_imposto',
+        'empresa_id', 'pedido_compra_id', 'cotacao_compra_id', 'fornecedor_id', 'numero_encomenda', 'data', 'estado', 'estado_original', 'contabilizado', 'venda_origem_id', 'projeto_id', 'codigo_projeto', 'contrato_fornecedor_id', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'montante_total', 'montante_total_moeda', 'total_imposto', 'total_com_imposto', 'data_entrega_prevista', 'anulado_em', 'motivo_anulacao',
     ];
 
     protected function casts(): array
@@ -57,6 +57,8 @@ abstract class EncomendaCompraBase extends ModeloBase
             'montante_total_moeda' => 'decimal:2',
             'total_imposto' => 'decimal:2',
             'total_com_imposto' => 'decimal:2',
+            'data_entrega_prevista' => 'date',
+            'anulado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

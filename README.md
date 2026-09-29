@@ -101,6 +101,13 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | POST | `/api/vendas/faturacao-eletronica/{enviar,consultar}` | Envio dos pendentes e consulta dos estados |
 | POST/GET | `/api/vendas/documentos/{id}/revalidar` · `/pedido-assinado` · `/qr?formato=png\|svg` | Corrigir e reenviar; pré-visualizar o pedido assinado; QR code |
 | GET | `/api/vendas/saft?inicio=&fim=` | Ficheiro SAF-T(AO) de facturação (XML) |
+| GET/POST | `/api/compras/pedidos[/{id}]` · POST `/{id}/decidir` · `/{id}/anular` · GET `/{id}/comparacao` | Pedidos de compra, deliberação e comparação de propostas |
+| GET/PUT | `/api/compras/deliberacao/escaloes` | Escalões de aprovação |
+| GET/POST | `/api/compras/propostas[/{id}]` · POST `/{id}/propor` · `/cancelar-proposta` · `/adjudicar` · `/anular` | Propostas e adjudicação (gera a encomenda) |
+| GET | `/api/compras/encomendas[/{id}]` · POST `/{id}/anular` · `/{id}/rececoes` · `/{id}/faturas` | Encomendas; registar recepção; facturar |
+| GET/POST | `/api/compras/rececoes[/{id}]` · POST `/{id}/validar` · `/reverter-validacao` · `/anular` | Recepções (validação no armazém: stock e contabilidade) |
+| GET/POST | `/api/compras/faturas[/{id}]` · POST `/{id}/contabilizar` · `/descontabilizar` · `/anular` | Facturas de fornecedor (directas: só serviços/imobilizado) |
+| GET/PUT | `/api/compras/configuracao/contas` | Contas de compras por omissão |
 | GET/POST/PUT/DELETE | `/api/logistica/categorias-produtos[/{id}]` | Categorias de produtos |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |

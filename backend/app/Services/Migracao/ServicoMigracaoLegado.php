@@ -251,8 +251,67 @@ final class ServicoMigracaoLegado
 
         $this->validarChavesEmpresas();
         $this->carregarPivos();
+        $this->carregarLinhasFaturasCompra();
         $this->carregarLigacoesUtilizadorEmpresa();
         $this->carregarAuditoria();
+    }
+
+    /**
+     * As facturas de fornecedor do legado guardavam as linhas embutidas (purchase_invoices.items[]); o sistema novo
+     * trabalha com linhas reais ligadas à linha da encomenda (anulação, contabilização, conta transitória).
+     * Expande-as para itens_compra (tipo FATURA). O legado ligava por vezes à linha da PROPOSTA ("linhas virtuais",
+     * ui_compras_v2.js:1491-1506): nesse caso liga-se à linha da encomenda da factura com o mesmo produto (ocorrência).
+     */
+    private function carregarLinhasFaturasCompra(): void
+    {
+        $proximo = (int) DB::table('itens_compra')->max('id');
+        $lote = [];
+        $comLinhas = DB::table('itens_compra')->whereNotNull('fatura_compra_id')->distinct()->pluck('fatura_compra_id')->flip();
+        foreach (DB::table('faturas_compra')->whereNotNull('itens')->orderBy('id')->get() as $f) {
+            $itens = json_decode((string) $f->itens, true);
+            if (! is_array($itens) || ! $itens || isset($comLinhas[$f->id])) {
+                continue;
+            }
+            $this->linhaAtual = ['tabela' => 'purchase_invoices', 'id' => (string) $f->id, 'destino' => 'itens_compra', 'coluna' => 'item_encomenda_id', 'empresa' => $f->empresa_id];
+            $daEncomenda = $f->encomenda_compra_id ? DB::table('itens_compra')->where('encomenda_compra_id', $f->encomenda_compra_id)->orderBy('id')->get()->keyBy('id') : collect();
+            $usados = [];
+            foreach ($itens as $i) {
+                $q = (string) ($i['quantity'] ?? 0);
+                $p = (string) ($i['unit_price'] ?? 0);
+                $t = (string) ($i['tax_rate'] ?? 0);
+                $liq = isset($i['net_kz']) ? number_format((float) $i['net_kz'], 2, '.', '') : number_format(round((float) $q * (float) $p, 2), 2, '.', '');
+                $iva = isset($i['tax_kz']) ? number_format((float) $i['tax_kz'], 2, '.', '') : number_format(round((float) $liq * (float) $t / 100, 2), 2, '.', '');
+                $produto = $this->conversorChave($i['product_id'] ?? null);
+                $produto = $produto !== null && array_key_exists($produto, $this->validos['produtos'] ?? []) ? $produto : null;
+
+                $itemId = $this->conversorChave($i['item_id'] ?? null);
+                $ligacao = $itemId !== null && $daEncomenda->has($itemId) ? $itemId : null;
+                if ($ligacao === null && $f->encomenda_compra_id) {
+                    $ligacao = $daEncomenda->first(fn ($l) => (int) $l->produto_id === (int) $produto && ! isset($usados[$l->id]))?->id;
+                    $ligacao !== null
+                        ? $this->informacao('itens_compra', 'item_encomenda_id', 'SEMANTICA', $itemId, (string) $ligacao,
+                            "Linha da factura ligada no legado à linha #{$itemId} da proposta: ligada à linha #{$ligacao} da encomenda (mesmo produto)")
+                        : $this->anularFk('itens_compra', 'item_encomenda_id', $itemId, $daEncomenda->isEmpty()
+                            ? "A encomenda #{$f->encomenda_compra_id} não tem linhas no backup (apagadas no legado, ex.: clearAllTransactions apagava purchase_items de todas as empresas): linha da factura sem ligação"
+                            : 'Linha da factura sem linha correspondente na encomenda');
+                }
+                if ($ligacao !== null) {
+                    $usados[$ligacao] = true;
+                }
+                $lote[] = [
+                    'id' => ++$proximo, 'empresa_id' => $f->empresa_id, 'tipo_documento_origem' => 'FATURA', 'tipo_documento_origem_original' => 'INVOICE (items[])',
+                    'fatura_compra_id' => $f->id, 'item_encomenda_id' => $ligacao, 'produto_id' => $produto, 'quantidade' => $q, 'preco_unitario' => number_format((float) $p, 2, '.', ''),
+                    'taxa_imposto' => $t, 'total' => $liq, 'total_kz' => $liq, 'imposto_kz' => $iva,
+                    'preco_unitario_moeda' => isset($i['unit_price_currency']) ? number_format((float) $i['unit_price_currency'], 2, '.', '') : null,
+                    'total_moeda' => isset($i['net_currency']) ? number_format((float) $i['net_currency'], 2, '.', '') : null,
+                    'imposto_moeda' => isset($i['tax_currency']) ? number_format((float) $i['tax_currency'], 2, '.', '') : null,
+                    'valor_transitoria_kz' => isset($i['valor_328_kz']) ? number_format((float) $i['valor_328_kz'], 2, '.', '') : null,
+                ];
+            }
+        }
+        foreach (array_chunk($lote, 500) as $parte) {
+            $this->inserir('itens_compra', $parte);
+        }
     }
 
     /** Ordem de carga: dependências (FKs) primeiro; ciclos resolvidos pela ordem de menor dependência pendente. */

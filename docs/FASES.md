@@ -91,6 +91,8 @@ Cobrem os seguintes casos:
 | **Vendas / Facturação AGT (parte 1)** | ✅ | vendas/documentos (emitir FT/FR/NC/OR/PF/NE, converter, anular, contabilizar, descontabilizar), vendas/recibos (emitir, anular, contabilizar, descontabilizar), vendas/configuracao/{contas,series} | Séries AGT sem colisões, cálculo exacto, selagem, NC abate a factura, estorno com rasto (ADR-029) |
 | **Vendas / Facturação AGT (parte 2)** | ✅ | vendas/faturacao-eletronica (configuração, ligação, resumo, enviar, consultar), documentos/{id}/{revalidar,pedido-assinado,qr}, configuracao/series (CRUD + solicitar-agt), vendas/saft | Envio à AGT no servidor (JWS RS256), Hash SAF-T na emissão, SAF-T(AO) correcto, QR, multi-moeda (ADR-030) |
 | Vendas: guias GR/GD e stock | ⏳ | com o módulo Logística (movimentos de inventário) | |
+| **Compras (parte 1)** | ✅ | compras/pedidos (+decidir, comparacao), deliberacao/escaloes, propostas (+propor, adjudicar), encomendas, rececoes (+validar, reverter), faturas (+contabilizar, descontabilizar), configuracao/contas | Adjudicação única e atómica, ligação linha a linha, stock com custo médio, conta transitória, estorno (ADR-031) |
+| Compras (parte 2) | ⏳ | contratos e marcos, pedidos a partir de encomendas de clientes, pagamentos (Tesouraria), controlo orçamental | |
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
 | RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |

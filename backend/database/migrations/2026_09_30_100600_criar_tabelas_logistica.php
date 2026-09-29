@@ -65,6 +65,7 @@ return new class extends Migration
             $table->string('unidade_fe', 10)->nullable()->comment('legado: fe_unidade');
             $table->text('tipo_operacao_fe')->nullable()->comment('legado: fe_tipo_operacao · sem valores reais: tipo a confirmar no código legado');
             $table->text('codigo_isencao_fe')->nullable()->comment('legado: fe_isencao · sem valores reais: tipo a confirmar no código legado');
+            $table->decimal('custo_medio', 18, 6)->nullable()->comment('Custo médio ponderado (Kz), actualizado nas entradas de stock');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -161,6 +162,7 @@ return new class extends Migration
             $table->decimal('cambial_v2', 15, 2)->nullable()->comment('legado: fx_v2');
             $table->decimal('valor_kz', 15, 2)->nullable()->comment('legado: value_kz · tipos mistos: decimal=1, inteiro=2');
             $table->decimal('custo_unitario_kz', 15, 2)->nullable()->comment('legado: unit_cost_kz · tipos mistos: decimal=1, inteiro=2');
+            $table->bigInteger('item_compra_id')->nullable()->comment('Recepção: linha da encomenda recebida');
             $table->bigInteger('guia_saida_id')->nullable()->comment('documento-pai do tipo GUIA_SAIDA');
             $table->bigInteger('rececao_compra_id')->nullable()->comment('documento-pai do tipo RECECAO_COMPRA');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -169,6 +171,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_itens_guia_saida_empresa_id ON itens_guia_saida (empresa_id)');
         DB::statement('CREATE INDEX ix_itens_guia_saida_produto_id ON itens_guia_saida (produto_id)');
         DB::statement('CREATE INDEX ix_itens_guia_saida_projeto_id ON itens_guia_saida (projeto_id)');
+        DB::statement('CREATE INDEX ix_itens_guia_saida_item_compra_id ON itens_guia_saida (item_compra_id)');
         DB::statement('CREATE INDEX ix_itens_guia_saida_guia_saida_id ON itens_guia_saida (guia_saida_id)');
         DB::statement('CREATE INDEX ix_itens_guia_saida_rececao_compra_id ON itens_guia_saida (rececao_compra_id)');
         DB::statement('ALTER TABLE itens_guia_saida ADD CONSTRAINT ck_itens_guia_saida_documento_origem CHECK ((guia_saida_id IS NOT NULL)::int + (rececao_compra_id IS NOT NULL)::int <= 1)');

@@ -7,16 +7,16 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
 
 /**
- * Tabela configuracoes_processamento_salarial (módulo RH). Legado: pa_settings · 2 linhas reais no backup.
- * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ConfigProcessamentoSalarial.
+ * Tabela configuracoes_deliberacao_compras (módulo Compras). Legado: pa_settings · 2 linhas reais no backup.
+ * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ConfigDeliberacaoCompra.
  */
-abstract class ConfigProcessamentoSalarialBase extends ModeloBase
+abstract class ConfigDeliberacaoCompraBase extends ModeloBase
 {
     use Auditavel, PertenceEmpresa;
 
-    protected $table = 'configuracoes_processamento_salarial';
+    protected $table = 'configuracoes_deliberacao_compras';
 
-    protected string $moduloAuditoria = 'RH';
+    protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
         'empresa_id', 'niveis', 'atualizado_por',

@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T16:09:16.323Z",
+  "gerado_em": "2026-09-29T17:12:15.261Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -5003,7 +5003,39 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {PENDENTE, APROVADO, REJEITADO, ADJUDICADO, FECHADO, ANULADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PENDENTE",
+              "APROVADO",
+              "REJEITADO",
+              "ADJUDICADO",
+              "FECHADO",
+              "ANULADO"
+            ],
+            "mapa": {
+              "PENDENTE": "PENDENTE",
+              "APROVADO": "APROVADO",
+              "REJEITADO": "REJEITADO",
+              "ADJUDICADO": "ADJUDICADO",
+              "FECHADO": "FECHADO",
+              "ANULADO": "ANULADO"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 10,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "source_sale_id",
@@ -5277,11 +5309,41 @@
         {
           "legado": "status",
           "pt": "estado",
+          "tipo_pg": "varchar(25)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 20,
+          "notas": [
+            "código normalizado ∈ {PROPOSTA, PROPOSTA_ADJUDICACAO, ADJUDICADO, RECUSADA, ANULADA}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PROPOSTA",
+              "PROPOSTA_ADJUDICACAO",
+              "ADJUDICADO",
+              "RECUSADA",
+              "ANULADA"
+            ],
+            "mapa": {
+              "PROPOSTA": "PROPOSTA",
+              "PROPOSTA ADJUDICACAO": "PROPOSTA_ADJUDICACAO",
+              "ADJUDICADO": "ADJUDICADO",
+              "RECUSADA": "RECUSADA",
+              "ANULADA": "ANULADA"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
           "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 20,
-          "notas": []
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "id",
@@ -5484,11 +5546,39 @@
         {
           "legado": "status",
           "pt": "estado",
+          "tipo_pg": "varchar(21)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 16,
+          "notas": [
+            "código normalizado ∈ {EM_PROCESSAMENTO, PARCIAL, RECEBIDO, ANULADA}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "EM_PROCESSAMENTO",
+              "PARCIAL",
+              "RECEBIDO",
+              "ANULADA"
+            ],
+            "mapa": {
+              "EM PROCESSAMENTO": "EM_PROCESSAMENTO",
+              "PARCIAL": "PARCIAL",
+              "RECEBIDO": "RECEBIDO",
+              "ANULADA": "ANULADA"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
           "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 16,
-          "notas": []
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "is_posted",
@@ -5751,7 +5841,33 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 8,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {RECEBIDO, VALIDADO, ANULADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "RECEBIDO",
+              "VALIDADO",
+              "ANULADO"
+            ],
+            "mapa": {
+              "RECEBIDO": "RECEBIDO",
+              "VALIDADO": "VALIDADO",
+              "ANULADO": "ANULADO"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 8,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "is_posted",
@@ -5998,7 +6114,35 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 8,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {PENDENTE, PARCIAL, PAGO, ANULADA}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PENDENTE",
+              "PARCIAL",
+              "PAGO",
+              "ANULADA"
+            ],
+            "mapa": {
+              "PENDENTE": "PENDENTE",
+              "PARCIAL": "PARCIAL",
+              "PAGO": "PAGO",
+              "ANULADA": "ANULADA"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 8,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "is_posted",
@@ -12095,10 +12239,10 @@
     },
     {
       "legado": "pa_settings",
-      "pt": "configuracoes_processamento_salarial",
-      "model": "ConfigProcessamentoSalarial",
-      "modulo": "RH",
-      "endpoint": "/api/rh/config",
+      "pt": "configuracoes_deliberacao_compras",
+      "model": "ConfigDeliberacaoCompra",
+      "modulo": "Compras",
+      "endpoint": "/api/compras/deliberacao/escaloes",
       "linhas_reais": 2,
       "linhas_dummy_descartadas": 0,
       "esquema_a_derivar_do_codigo": false,

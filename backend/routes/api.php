@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
+use App\Http\Controllers\Api\Compras\ComprasController;
 use App\Http\Controllers\Api\Contabilidade\DiarioController;
 use App\Http\Controllers\Api\Contabilidade\LancamentoController;
 use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
@@ -118,6 +119,47 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('documentos/{venda}/pedido-assinado', [FaturacaoEletronicaController::class, 'pedidoAssinado'])->whereNumber('venda')->name('documentos.pedido-assinado');
             Route::get('documentos/{venda}/qr', [FaturacaoEletronicaController::class, 'qr'])->whereNumber('venda')->name('documentos.qr');
             Route::get('saft', [FaturacaoEletronicaController::class, 'saft'])->name('saft');
+        });
+
+        Route::prefix('compras')->name('compras.')->controller(ComprasController::class)->group(function () {
+            Route::get('pedidos', 'pedidos')->name('pedidos.index');
+            Route::post('pedidos', 'criarPedido')->name('pedidos.store');
+            Route::get('pedidos/{id}', 'pedido')->whereNumber('id')->name('pedidos.show');
+            Route::post('pedidos/{id}/decidir', 'decidirPedido')->whereNumber('id')->name('pedidos.decidir');
+            Route::post('pedidos/{id}/anular', 'anularPedido')->whereNumber('id')->name('pedidos.anular');
+            Route::get('pedidos/{id}/comparacao', 'compararPropostas')->whereNumber('id')->name('pedidos.comparacao');
+            Route::get('deliberacao/escaloes', 'escaloes')->name('deliberacao.escaloes');
+            Route::put('deliberacao/escaloes', 'definirEscaloes')->name('deliberacao.escaloes.definir');
+
+            Route::get('propostas', 'propostas')->name('propostas.index');
+            Route::post('propostas', 'criarProposta')->name('propostas.store');
+            Route::get('propostas/{id}', 'proposta')->whereNumber('id')->name('propostas.show');
+            Route::post('propostas/{id}/propor', 'proporAdjudicacao')->whereNumber('id')->name('propostas.propor');
+            Route::post('propostas/{id}/cancelar-proposta', 'cancelarProposta')->whereNumber('id')->name('propostas.cancelar');
+            Route::post('propostas/{id}/adjudicar', 'adjudicar')->whereNumber('id')->name('propostas.adjudicar');
+            Route::post('propostas/{id}/anular', 'anularProposta')->whereNumber('id')->name('propostas.anular');
+
+            Route::get('encomendas', 'encomendas')->name('encomendas.index');
+            Route::get('encomendas/{id}', 'encomenda')->whereNumber('id')->name('encomendas.show');
+            Route::post('encomendas/{id}/anular', 'anularEncomenda')->whereNumber('id')->name('encomendas.anular');
+            Route::post('encomendas/{encomenda}/rececoes', 'registarRececao')->whereNumber('encomenda')->name('rececoes.store');
+            Route::post('encomendas/{encomenda}/faturas', 'faturarEncomenda')->whereNumber('encomenda')->name('faturas.encomenda');
+
+            Route::get('rececoes', 'rececoes')->name('rececoes.index');
+            Route::get('rececoes/{id}', 'rececao')->whereNumber('id')->name('rececoes.show');
+            Route::post('rececoes/{id}/validar', 'validarRececao')->whereNumber('id')->name('rececoes.validar');
+            Route::post('rececoes/{id}/reverter-validacao', 'reverterRececao')->whereNumber('id')->name('rececoes.reverter');
+            Route::post('rececoes/{id}/anular', 'anularRececao')->whereNumber('id')->name('rececoes.anular');
+
+            Route::get('faturas', 'faturasLista')->name('faturas.index');
+            Route::post('faturas', 'criarFaturaDireta')->name('faturas.store');
+            Route::get('faturas/{id}', 'fatura')->whereNumber('id')->name('faturas.show');
+            Route::post('faturas/{id}/anular', 'anularFatura')->whereNumber('id')->name('faturas.anular');
+            Route::post('faturas/{id}/contabilizar', 'contabilizarFatura')->whereNumber('id')->name('faturas.contabilizar');
+            Route::post('faturas/{id}/descontabilizar', 'descontabilizarFatura')->whereNumber('id')->name('faturas.descontabilizar');
+
+            Route::get('configuracao/contas', 'contas')->name('configuracao.contas');
+            Route::put('configuracao/contas', 'definirContas')->name('configuracao.contas.definir');
         });
 
         Route::prefix('contabilidade')->name('contabilidade.')->group(function () {

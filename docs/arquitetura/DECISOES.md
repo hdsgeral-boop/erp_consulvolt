@@ -302,3 +302,65 @@ Verificação sobre os dados reais: foram gerados ficheiros SAF-T das empresas 5
 **Esquema.**
 - `taxas_cambio.taxa` passa a `numeric(18,6)`. Era `numeric(9,4)`, o que truncava as taxas do legado (até 6 casas) e limitava o valor a 99 999.
 - O gerador passa a aplicar um mínimo de 100 caracteres às colunas "feito por" (`*_por`, `nome_utilizador`, `operador`): 51 colunas estavam com `varchar(10)`/`varchar(20)` e não cabia um nome de utilizador. O teste de configuração do regime detectou o problema.
+
+## ADR-031 — Compras (parte 1): do pedido à contabilização da factura
+
+**Âmbito.**
+- Pedido e deliberação por escalões; proposta; comparação; adjudicação que gera a encomenda.
+- Recepção em dois passos: registo pelo comprador e validação no armazém.
+- Factura de fornecedor, da encomenda ou directa; contabilização e estorno.
+- Ficam para depois: contratos e marcos, pedidos gerados a partir de encomendas de clientes, pagamentos (Tesouraria) e controlo orçamental (Orçamento).
+
+**Correcções face ao legado** (levantamento completo de `ui_compras_v2.js`, `compras_deliberacao.js`, `moedas_compras.js` e `ui_warehouse.js`):
+- **Numeração por série:** PC (pedido), PP (proposta), EC (encomenda) e RCP (recepção). As encomendas do legado eram `ORD-` + 4 dígitos aleatórios, sem controlo de colisões. O n.º da guia e o da factura do fornecedor continuam a ser os externos.
+- **Adjudicação atómica e única:**
+  - o exercício é verificado antes de gravar;
+  - a proposta tem de estar "proposta para adjudicação", o que mantém a segregação avaliar ≠ adjudicar;
+  - as restantes propostas ficam RECUSADAS.
+
+  No legado era possível adjudicar duas vezes, e uma adjudicação podia ficar sem encomenda.
+- **Deliberação:** escalões cumulativos, como no legado.
+  - Ninguém aprova os próprios pedidos; a recusa exige nota.
+  - A adjudicação abre uma revisão (novas etapas, código 409 `REVISAO_DELIBERACAO`) se o valor da proposta exigir mais níveis do que os aprovados.
+  - O valor estimado usa o custo médio, e não o preço de venda.
+- **Ligação linha a linha:** encomenda ↔ recepção ↔ factura, com as colunas `item_compra_id` e `item_encomenda_id`. O legado casava pelo `product_id` e perdia linhas repetidas do mesmo produto.
+- **Limites de quantidade:** a recepção fica limitada ao pendente por receber e a factura ao pendente por facturar; tudo numa única transacção. O legado gravava as quantidades facturadas antes da factura e sem limite.
+- **Estado da encomenda gravado:** EM_PROCESSAMENTO, PARCIAL ou RECEBIDO. O legado nunca gravava PARCIAL.
+- **Stock:** só por movimentos (`ServicoStock`), com o produto bloqueado durante a operação e custo médio ponderado (coluna nova `produtos.custo_medio`). O legado nunca calculava o custo médio.
+- **Validação da recepção** (diário GL):
+  - D compras (2.1) / C transitória do fornecedor (3.2.8), seguido de D mercadorias (2.6) / C compras (2.1).
+  - A parte já facturada e ainda não recebida entra ao valor da factura; o restante entra ao preço ou câmbio da encomenda na data da recepção (o legado usava a data do dia da validação).
+  - A mesma recepção não pode ser validada duas vezes.
+- **Reverter a validação:** faz estorno e dá saída de stock ao custo da entrada. Só é permitido sem facturas da encomenda e com stock disponível. O legado deixava a conta 3.2.8 desequilibrada e o stock negativo.
+- **Factura:**
+  - n.º único por fornecedor, garantido por um lock transaccional;
+  - exercício aberto também na factura directa;
+  - a factura directa não aceita artigos de stock (no legado debitava a 2.1 sem entrada em stock).
+- **Contabilização da factura** (diário FF):
+  - artigo de stock: D transitória, pelo valor consumido na recepção; a diferença para o valor da factura vai para diferenças de câmbio;
+  - imobilizado: D conta do activo;
+  - serviços: D conta de custo do produto. O legado usava por omissão a '72', que no PGC angolano são custos com pessoal;
+  - D IVA dedutível;
+  - C fornecedor pelo total da factura, que tem de bater com as linhas.
+- **Descontabilizar = estorno:**
+  - o lançamento é localizado pelo n.º guardado no documento;
+  - nos documentos do legado, localiza-se pelo n.º do documento, filtrado pela conta do fornecedor a crédito e pelo diário FF (`LocalizadorLancamentos`, comum com Vendas);
+  - o legado apagava as linhas por `doc_number` e podia apagar lançamentos de outro fornecedor ou da Tesouraria com o mesmo número.
+- **Anulações com motivo e rasto** (pedido, proposta, encomenda, recepção, factura), nunca eliminação. Uma encomenda anulada devolve a proposta e o pedido ao estado adjudicável.
+- **Contas:** vêm do produto ou do fornecedor e, na falta, da configuração de compras (tabela nova `configuracoes_contabeis_compras`). Não há contas fixas no código.
+
+**Dicionário.** A tabela `pa_settings` do legado ("purchase approval settings", que guarda os `niveis`) tinha sido traduzida por engano como `configuracoes_processamento_salarial` (RH). Passa a chamar-se `configuracoes_deliberacao_compras` (model `ConfigDeliberacaoCompra`).
+
+Os estados de pedidos, propostas, encomendas, recepções e facturas passam a ter domínio (CHECK), com o texto original guardado. O IVA de cada linha fica gravado em Kz (`imposto_kz`), para a contabilização em moeda estrangeira bater ao cêntimo.
+
+**ETL.**
+- As facturas de fornecedor do legado guardavam as linhas embutidas (`items[]`). São agora expandidas para `itens_compra` (44 linhas), com os totais a bater nas 25 facturas.
+- As linhas ligadas no legado à linha da proposta (bug das "linhas virtuais") são religadas à linha da encomenda com o mesmo produto.
+- As encomendas 33 e 34 (empresa 6) não têm linhas no backup, apagadas no legado (ex.: `clearAllTransactions` apagava `purchase_items` de todas as empresas). As 11 linhas de factura correspondentes ficam sem ligação à encomenda, registadas como ocorrências.
+
+**Verificação sobre os dados reais** (em transacção revertida, sem alterar dados):
+- facturas contabilizadas (23): 18 estornáveis; 2 sem lançamento identificável; 1 reconciliada com o banco; 2 pagas;
+- facturas por contabilizar (2): 1 contabiliza; 1 exige a configuração de contas (produto sem conta de custo);
+- recepções validadas (20): 19 bloqueadas por terem facturas, como previsto; 1 do legado sem ligação às linhas.
+
+**Pendências conhecidas:** duas facturas da empresa 6 com o mesmo n.º (`FT FA.2026/631`), herdadas do legado; o sistema novo impede novos duplicados.

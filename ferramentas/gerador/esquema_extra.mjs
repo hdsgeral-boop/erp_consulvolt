@@ -60,7 +60,8 @@ export const UNICOS = [
   // Configuração: uma linha por empresa
   ['configuracoes_contabeis_vendas', ['empresa_id', 'chave']],   // uma linha por chave (clientes_default, iva_vendas, …)
   ['configuracoes_pos', ['empresa_id']],
-  ['configuracoes_processamento_salarial', ['empresa_id']],
+  ['configuracoes_deliberacao_compras', ['empresa_id']],
+  ['configuracoes_contabeis_compras', ['empresa_id', 'chave']],
   ['configuracoes_faturacao_eletronica', ['empresa_id']],
   // Séries de numeração (AGT e não fiscais): código único por empresa, tipo e ano
   ['series_faturacao_eletronica', ['empresa_id', 'tipo', 'ano', 'codigo']],
@@ -156,6 +157,37 @@ export const COLUNAS_NOVAS = {
     ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'],
     ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
   ],
+  // ADR-031 (Compras): numeração, rasto de anulação/contabilização e ligação linha a linha
+  // (o legado casava encomenda/recepção/factura por product_id e perdia linhas repetidas)
+  pedidos_compra: [
+    ['numero_pedido', 'varchar(50)', null, 'N.º do pedido "PC <série>/<n>" (o legado só mostrava o id)'],
+    ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+  ],
+  cotacoes_compra: [['numero_proposta', 'varchar(50)', null, 'N.º interno "PP <série>/<n>" (a referência é a do fornecedor)']],
+  encomendas_compra: [
+    ['data_entrega_prevista', 'date', null, 'Prazo de entrega da proposta adjudicada'],
+    ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+  ],
+  rececoes_compra: [
+    ['numero_rececao', 'varchar(50)', null, 'N.º interno "RCP <série>/<n>" (numero_entrega é a guia do fornecedor)'],
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento da validação (entrada em armazém)'],
+    ['validado_em', 'timestamptz', null, 'Data/hora da validação no armazém'], ['validado_por', 'varchar(100)', null, 'Utilizador que validou'],
+    ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+  ],
+  faturas_compra: [
+    ['data_vencimento', 'date', null, 'Data de vencimento'],
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento contabilístico da factura'],
+    ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+  ],
+  itens_compra: [
+    ['item_encomenda_id', 'bigint', 'itens_compra', 'Linha da encomenda que esta linha de factura factura'],
+    ['valor_recebido_kz', 'numeric(15,2)', null, 'Encomenda: valor em Kz acumulado das quantidades recebidas'],
+    ['valor_transitoria_kz', 'numeric(15,2)', null, 'Factura: valor debitado na conta transitória de compras (328)'],
+    ['imposto_kz', 'numeric(15,2)', null, 'IVA da linha em Kz (o legado guardava tax_kz nas linhas embutidas da factura)'],
+    ['imposto_moeda', 'numeric(15,2)', null, 'IVA da linha na moeda do documento'],
+  ],
+  itens_guia_saida: [['item_compra_id', 'bigint', 'itens_compra', 'Recepção: linha da encomenda recebida']],
+  produtos: [['custo_medio', 'numeric(18,6)', null, 'Custo médio ponderado (Kz), actualizado nas entradas de stock']],
   // ADR-005: org_type_id = -1 significa "Avençado"
   mapeamentos_contabeis_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
   mapeamentos_contabeis_sistema_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
@@ -174,6 +206,10 @@ export const CHECKS = [
 
 // Tabelas novas do desenho (ETL / infraestrutura).
 export const TABELAS_NOVAS = {
+  configuracoes_contabeis_compras: {
+    modulo: 'Compras', model: 'ConfigContabilCompra',
+    colunas: [['chave', 'varchar(150)', 'Chave da conta (ver ServicoConfigCompras::CHAVES)'], ['codigo_conta', 'varchar(20)', 'Conta do plano']],
+  },
   ocorrencias_migracao: {
     modulo: 'Sistema', model: 'OcorrenciaMigracao', global: true,
     colunas: [

@@ -8,6 +8,7 @@ use App\Models\LancamentoContabil;
 use App\Models\ReciboVenda;
 use App\Models\Terceiro;
 use App\Models\Venda;
+use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ final class ServicoContabilizacaoVendas
         private readonly ContextoEmpresa $contexto,
         private readonly ServicoLancamentos $lancamentos,
         private readonly ServicoConfigVendas $config,
+        private readonly LocalizadorLancamentos $localizador,
     ) {}
 
     public function contabilizar(Venda $venda): Venda
@@ -192,40 +194,17 @@ final class ServicoContabilizacaoVendas
             array_keys(array_filter($contas, fn ($v) => bccomp($v, '0', 2) !== 0)), array_filter($contas, fn ($v) => bccomp($v, '0', 2) !== 0)));
     }
 
-    /**
-     * Linha do lançamento a estornar: pelo n.º guardado na contabilização ou, nos documentos do legado,
-     * pelo n.º do documento — desde que corresponda a UM só lançamento activo (senão recusa, ambíguo).
-     * No legado o mesmo n.º ("FA 2026/1") era partilhado por FT, FR e recibos da Tesouraria: quando se conhece
-     * a conta do cliente, só conta o lançamento que a movimenta no sentido da venda (D; C na nota de crédito).
-     */
     private function localizar(?string $numeroLan, string $numeroDocumento, bool $pos, ?string $contaCliente = null, string $dcCliente = 'D'): LancamentoContabil
     {
-        $q = LancamentoContabil::query()->whereNull('estorno_de_id')->whereNull('estornado_por_id');
-        if ($numeroLan) {
-            return (clone $q)->where('numero_lan', $numeroLan)->orderBy('id')->first()
-                ?? throw new ErroNegocio("Lançamento {$numeroLan} não encontrado ou já estornado.", 'LANCAMENTO_NAO_ENCONTRADO', 422);
-        }
-        if ($pos) {
+        if (! $numeroLan && $pos) {
             throw new ErroNegocio('Venda POS do legado: é contabilizada na sessão POS — descontabilize a sessão.', 'VENDA_POS', 422);
         }
-        $chaves = (clone $q)->where('numero_documento', $numeroDocumento)->selectRaw(LancamentoContabil::chaveSql().' as chave, diario_id')->distinct()->get();
-        if ($contaCliente && $chaves->count() > 1) {
-            $chaves = $chaves->filter(fn ($c) => (clone $q)->where('numero_documento', $numeroDocumento)->where('diario_id', $c->diario_id)
-                ->whereRaw(LancamentoContabil::chaveSql().' = ?', [$c->chave])->where('codigo_conta', $contaCliente)->where('tipo_dc', $dcCliente)->exists())->values();
-        }
-        if ($chaves->count() !== 1) {
-            throw new ErroNegocio($chaves->isEmpty()
-                ? "Não foi encontrado o lançamento do documento {$numeroDocumento}. Verifique na Contabilidade."
-                : "O documento {$numeroDocumento} corresponde a vários lançamentos: estorne-o na Contabilidade.",
-                'LANCAMENTO_NAO_ENCONTRADO', 422, ['lancamentos' => $chaves->pluck('chave')->all()]);
-        }
 
-        return (clone $q)->where('numero_documento', $numeroDocumento)->where('diario_id', $chaves[0]->diario_id)
-            ->whereRaw(LancamentoContabil::chaveSql().' = ?', [$chaves[0]->chave])->orderBy('id')->firstOrFail();
+        return $this->localizador->localizar($numeroLan, $numeroDocumento, $contaCliente, $dcCliente);
     }
 
     private function diario(string $codigo, string $nome): DiarioContabil
     {
-        return DiarioContabil::query()->firstOrCreate(['codigo' => $codigo], ['nome' => $nome, 'descricao' => "Diário de {$nome} (criado automaticamente)"]);
+        return $this->localizador->diario($codigo, $nome);
     }
 }

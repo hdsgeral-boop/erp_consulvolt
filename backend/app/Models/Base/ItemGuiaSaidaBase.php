@@ -5,6 +5,7 @@ namespace App\Models\Base;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\GuiaSaida;
+use App\Models\ItemCompra;
 use App\Models\ModeloBase;
 use App\Models\Produto;
 use App\Models\Projeto;
@@ -24,7 +25,7 @@ abstract class ItemGuiaSaidaBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'produto_id', 'quantidade', 'projeto_id', 'codigo_projeto', 'cambial_q1', 'cambial_v1', 'cambial_q2', 'cambial_v2', 'valor_kz', 'custo_unitario_kz', 'guia_saida_id', 'rececao_compra_id',
+        'empresa_id', 'produto_id', 'quantidade', 'projeto_id', 'codigo_projeto', 'cambial_q1', 'cambial_v1', 'cambial_q2', 'cambial_v2', 'valor_kz', 'custo_unitario_kz', 'item_compra_id', 'guia_saida_id', 'rececao_compra_id',
     ];
 
     protected function casts(): array
@@ -40,6 +41,7 @@ abstract class ItemGuiaSaidaBase extends ModeloBase
             'cambial_v2' => 'decimal:2',
             'valor_kz' => 'decimal:2',
             'custo_unitario_kz' => 'decimal:2',
+            'item_compra_id' => 'integer',
             'guia_saida_id' => 'integer',
             'rececao_compra_id' => 'integer',
             'criado_em' => 'datetime',
@@ -55,6 +57,11 @@ abstract class ItemGuiaSaidaBase extends ModeloBase
     public function projeto(): BelongsTo
     {
         return $this->belongsTo(Projeto::class, 'projeto_id');
+    }
+
+    public function itemCompra(): BelongsTo
+    {
+        return $this->belongsTo(ItemCompra::class, 'item_compra_id');
     }
 
     public function guiaSaida(): BelongsTo
