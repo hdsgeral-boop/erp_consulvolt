@@ -33,8 +33,8 @@ return new class extends Migration
             $table->jsonb('contadores_z')->nullable()->comment('legado: z_counters');
             $table->boolean('ativo')->nullable()->comment('legado: is_active');
             $table->string('id_legado', 30)->nullable()->comment('legado: legacy_id');
-            $table->string('criado_por', 10)->nullable()->comment('legado: created_by');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: updated_by');
+            $table->string('criado_por', 100)->nullable()->comment('legado: created_by');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: updated_by');
             $table->jsonb('lavandaria_contadores_os')->nullable()->comment('legado: lav_os_counters');
             $table->jsonb('lavandaria_contadores_rc')->nullable()->comment('legado: lav_rc_counters');
             $table->jsonb('lavandaria_contadores_ft')->nullable()->comment('legado: lav_ft_counters');
@@ -73,7 +73,7 @@ return new class extends Migration
             $table->string('estado_desvio', 20)->nullable()->comment('legado: deviation_status · código normalizado ∈ {NAO_APLICAVEL, SEM_DESVIO, DELIBERADO, PENDENTE}; texto original em estado_desvio_original');
             $table->string('estado_desvio_original', 100)->nullable()->comment('legado: deviation_status · texto exacto do legado');
             $table->timestampTz('fechado_em')->nullable()->comment('legado: closed_at');
-            $table->string('fechado_por', 10)->nullable()->comment('legado: closed_by');
+            $table->string('fechado_por', 100)->nullable()->comment('legado: closed_by');
             $table->string('numero_z', 50)->nullable()->comment('legado: z_number');
             $table->integer('numero_vendas')->nullable()->comment('legado: sales_count');
             $table->decimal('total_vendas', 15, 2)->nullable()->comment('legado: total_sales');
@@ -89,7 +89,7 @@ return new class extends Migration
             $table->jsonb('lans_contabilizacao')->nullable()->comment('legado: posting_lans');
             $table->bigInteger('diario_contabilizacao_id')->nullable()->comment('legado: posting_journal_id');
             $table->timestampTz('contabilizado_em')->nullable()->comment('legado: posted_at');
-            $table->string('contabilizado_por', 10)->nullable()->comment('legado: posted_by');
+            $table->string('contabilizado_por', 100)->nullable()->comment('legado: posted_by');
             $table->jsonb('deliberacao')->nullable()->comment('legado: deliberation');
             $table->timestampTz('descontabilizado_em')->nullable()->comment('legado: unposted_at · do código legado js/pos_prestacao.js:348');
             $table->string('descontabilizado_por', 255)->nullable()->comment('legado: unposted_by · do código legado js/pos_prestacao.js:348');
@@ -107,7 +107,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: pos_company_id');
             $table->string('estado', 20)->nullable()->comment('legado: status');
-            $table->string('criado_por', 10)->nullable()->comment('legado: created_by');
+            $table->string('criado_por', 100)->nullable()->comment('legado: created_by');
             $table->bigInteger('sessao_pos_id')->nullable()->comment('legado: session_id');
             $table->string('numero_z', 50)->nullable()->comment('legado: z_number');
             $table->string('chave_item', 30)->nullable()->comment('legado: item_key');
@@ -149,7 +149,7 @@ return new class extends Migration
             $table->string('conta_operador', 20)->nullable()->comment('legado: account_operator');
             $table->integer('tolerancia_desvio')->nullable()->comment('legado: deviation_tolerance');
             $table->string('codigo_diario', 50)->nullable()->comment('legado: journal_code');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: updated_by');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: updated_by');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
         });
@@ -177,8 +177,8 @@ return new class extends Migration
             $table->text('observacoes')->nullable()->comment('legado: notes · sem valores reais: tipo a confirmar no código legado');
             $table->jsonb('itens')->nullable()->comment('legado: items');
             $table->jsonb('historico_alteracoes')->nullable()->comment('legado: history');
-            $table->string('criado_por', 10)->nullable()->comment('legado: created_by');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: updated_by');
+            $table->string('criado_por', 100)->nullable()->comment('legado: created_by');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: updated_by');
             $table->timestampTz('saida_em')->nullable()->comment('legado: checkout_at');
             $table->decimal('quantidade_final', 12, 3)->nullable()->comment('legado: final_quantity');
             $table->text('opcao_atraso')->nullable()->comment('legado: late_choice · sem valores reais: tipo a confirmar no código legado');
@@ -187,7 +187,7 @@ return new class extends Migration
             $table->string('numero_venda', 50)->nullable()->comment('legado: sale_number');
             $table->bigInteger('sessao_fecho_id')->nullable()->comment('legado: closed_session_id');
             $table->timestampTz('fechado_em')->nullable()->comment('legado: closed_at');
-            $table->string('fechado_por', 10)->nullable()->comment('legado: closed_by');
+            $table->string('fechado_por', 100)->nullable()->comment('legado: closed_by');
             $table->text('motivo_cancelamento')->nullable()->comment('legado: cancel_reason · do código legado js/hotelaria.js:488');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at');
@@ -209,7 +209,7 @@ return new class extends Migration
             $table->string('codigo_terminal', 50)->nullable()->comment('legado: terminal_code');
             $table->bigInteger('cliente_id')->nullable()->comment('legado: customer_id');
             $table->timestampTz('recebido_em')->nullable()->comment('legado: received_at');
-            $table->string('recebido_por', 10)->nullable()->comment('legado: received_by');
+            $table->string('recebido_por', 100)->nullable()->comment('legado: received_by');
             $table->bigInteger('sessao_rececao_id')->nullable()->comment('legado: reception_session_id');
             $table->string('modo_faturacao', 20)->nullable()->comment('legado: invoice_mode');
             $table->boolean('urgente')->nullable()->comment('legado: urgent');
@@ -224,7 +224,7 @@ return new class extends Migration
             $table->bigInteger('colaborador_atribuido_id')->nullable()->comment('legado: assigned_employee_id');
             $table->string('nome_atribuido', 255)->nullable()->comment('legado: assigned_name');
             $table->timestampTz('atribuido_em')->nullable()->comment('legado: assigned_at');
-            $table->string('atribuido_por', 10)->nullable()->comment('legado: assigned_by');
+            $table->string('atribuido_por', 100)->nullable()->comment('legado: assigned_by');
             $table->text('nota_atribuicao')->nullable()->comment('legado: assignment_note · sem valores reais: tipo a confirmar no código legado');
             $table->jsonb('atribuicoes')->nullable()->comment('legado: assignments');
             $table->timestampTz('entregue_em')->nullable()->comment('legado: delivered_at');
@@ -255,7 +255,7 @@ return new class extends Migration
             $table->string('numero_recibo', 50)->nullable()->comment('legado: receipt_number');
             $table->string('natureza_registo', 20)->nullable()->comment('legado: kind');
             $table->string('estado', 20)->nullable()->comment('legado: status');
-            $table->string('criado_por', 10)->nullable()->comment('legado: created_by');
+            $table->string('criado_por', 100)->nullable()->comment('legado: created_by');
             $table->bigInteger('venda_id')->nullable()->comment('legado: sale_id · do código legado js/lavandaria.js:274');
             $table->string('lans_contabilizacao', 255)->nullable()->comment('legado: posting_lans · do código legado js/lavandaria.js:2470');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
@@ -329,13 +329,13 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: lav_company_id');
             $table->string('codigo', 50)->nullable()->comment('legado: code');
-            $table->string('criado_por', 10)->nullable()->comment('legado: created_by');
+            $table->string('criado_por', 100)->nullable()->comment('legado: created_by');
             $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('tecido', 20)->nullable()->comment('legado: fabric');
             $table->string('cor', 10)->nullable()->comment('legado: color');
             $table->string('unidade', 10)->nullable()->comment('legado: unit');
             $table->boolean('ativo')->nullable()->comment('legado: is_active');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: updated_by');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: updated_by');
             $table->decimal('preco', 15, 2)->nullable()->comment('legado: price');
             $table->jsonb('precos_servico')->nullable()->comment('legado: service_prices');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');

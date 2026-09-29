@@ -38,7 +38,7 @@ abstract class TaxaCambioBase extends ModeloBase
         return [
             'empresa_id' => 'integer',
             'data_taxa' => 'date',
-            'taxa' => 'decimal:4',
+            'taxa' => 'decimal:6',
             'taxa_compra_bai' => 'decimal:6',
             'taxa_venda_bai' => 'decimal:6',
             'criado_em' => 'datetime',

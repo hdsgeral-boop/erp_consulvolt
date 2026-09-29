@@ -95,6 +95,12 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST | `/api/vendas/documentos[/{id}]` | FT, FR, NC, OR, PF, NE; `POST /{id}/converter`, `/anular`, `/contabilizar`, `/descontabilizar` (estorno) |
 | GET/POST | `/api/vendas/recibos[/{id}]` | Recibos de clientes; `POST /{id}/anular`, `/contabilizar`, `/descontabilizar` |
 | GET/PUT | `/api/vendas/configuracao/contas` · GET `/api/vendas/configuracao/series` | Contas de vendas e séries de numeração |
+| POST/PUT/DELETE | `/api/vendas/configuracao/series[/{id}]` · POST `/{id}/solicitar-agt` | Séries (regras do legado) e pedido do código à AGT |
+| GET/PUT | `/api/vendas/faturacao-eletronica/configuracao` | Regime, estabelecimentos, isenção por omissão, envio automático, exigir séries AGT |
+| GET | `/api/vendas/faturacao-eletronica/{ligacao,resumo}` | Estado da ligação à AGT (sem segredos) e contagem por estado de envio |
+| POST | `/api/vendas/faturacao-eletronica/{enviar,consultar}` | Envio dos pendentes e consulta dos estados |
+| POST/GET | `/api/vendas/documentos/{id}/revalidar` · `/pedido-assinado` · `/qr?formato=png\|svg` | Corrigir e reenviar; pré-visualizar o pedido assinado; QR code |
+| GET | `/api/vendas/saft?inicio=&fim=` | Ficheiro SAF-T(AO) de facturação (XML) |
 | GET/POST/PUT/DELETE | `/api/logistica/categorias-produtos[/{id}]` | Categorias de produtos |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
@@ -120,3 +126,15 @@ erp_laravel/
 ├── ferramentas/levantamento/  levantamento do backup e gerador do dicionário DE/PARA
 └── docs/
 ```
+
+## Facturação electrónica AGT (ADR-030)
+
+1. Preencha as variáveis `AGT_*` em `backend/.env` (ver `backend/.env.example`), com `AGT_DRIVER=direto`.
+2. Coloque as chaves PEM (RSA de 2048 bits ou mais) em `.segredos/agt/` (ou na pasta indicada em `AGT_PASTA_SEGREDOS`). Esta pasta nunca entra no Git:
+   - `produtor_privada.pem` — chave do produtor de software; a pública submete-se no Portal do Parceiro;
+   - `contribuintes/<NIF>.pem` — chave de cada empresa, descarregada no Portal do Contribuinte;
+   - `saft_privada.pem` — assinatura SAF-T dos documentos (Hash), depois da certificação.
+3. Execute `docker compose up -d`. O serviço `scheduler` corre `erp:agt:ciclo` de 2 em 2 minutos para as empresas com envio automático; a fila `agt` é processada pelo `worker`.
+4. Em **Vendas › Facturação electrónica**, active o regime e confirme o estado em `GET /api/vendas/faturacao-eletronica/ligacao`.
+
+Para continuar a usar o serviço intermédio do legado (`servico_agt`), defina `AGT_DRIVER=intermedio`, `AGT_INTERMEDIO_URL` e `AGT_INTERMEDIO_TOKEN`.

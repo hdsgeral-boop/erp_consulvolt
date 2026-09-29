@@ -404,6 +404,9 @@ export const GLOSSARIO = {
 // Tipos impostos quando a inferência a partir dos dados não serve (valores sujos no legado).
 export const TIPOS_FORCADOS = {
   'audit_logs.company_id': 'bigint',
+  // Câmbios: 6 casas decimais (o legado guardava até 6; numeric(9,4) truncava e limitava a 99 999)
+  'exchange_rates.rate': 'numeric(18,6)', 'exchange_rates.created_by': 'varchar(100)', 'exchange_rates.updated_by': 'varchar(100)',
+  'exchange_rates.source': 'varchar(50)',
   'audit_logs.user': 'varchar(100)',      // 18 linhas gravaram o objecto de sessão: extrai-se .username
   'audit_logs.record_id': 'varchar(255)', // inteiros, textos e 72 arrays ([15,91] -> "15,91")
   'users.allowed_companies': 'jsonb',     // normalizado para utilizador_empresa (pivô)

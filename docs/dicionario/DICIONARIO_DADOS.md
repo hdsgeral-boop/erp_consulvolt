@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T15:27:15.947Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T16:09:16.323Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -261,15 +261,15 @@ Linhas reais: **36** · fictícias descartadas: 0
 | `scope_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `currency` | `codigo_moeda` | varchar(10) | sim | 100% |  |  |
 | `rate_date` | `data_taxa` | date | sim | 100% |  |  |
-| `rate` | `taxa` | numeric(9,4) | sim | 100% |  |  |
-| `source` | `fonte_dados` | varchar(10) | sim | 100% |  |  |
+| `rate` | `taxa` | numeric(18,6) | sim | 100% |  | tipo forçado (inferido: numeric(9,4)) |
+| `source` | `fonte_dados` | varchar(50) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `bai_buy` | `taxa_compra_bai` | numeric(18,6) | sim | 100% |  |  |
 | `bai_sell` | `taxa_venda_bai` | numeric(18,6) | sim | 100% |  |  |
 | `created_at` | `criado_em` | timestamptz | sim | 100% |  |  |
-| `created_by` | `criado_por` | varchar(10) | sim | 100% |  |  |
+| `created_by` | `criado_por` | varchar(100) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `updated_at` | `atualizado_em` | timestamptz | sim | 31% |  |  |
-| `updated_by` | `atualizado_por` | varchar(10) | sim | 31% |  |  |
+| `updated_by` | `atualizado_por` | varchar(100) | sim | 31% |  | tipo forçado (inferido: varchar(10)) |
 
 ### `internal_rules` → `regras_internas_ia` (model `RegraInternaIA`, `/api/sistema/regras-ia`)
 

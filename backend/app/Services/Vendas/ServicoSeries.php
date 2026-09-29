@@ -24,7 +24,7 @@ final class ServicoSeries
     /**
      * @return array{serie: SerieFaturacaoEletronica, numero: int, numero_documento: string}
      */
-    public function reservar(int $empresaId, string $tipo, string $data, bool $fiscal, string $origem = 'GERAL'): array
+    public function reservar(int $empresaId, string $tipo, string $data, bool $fiscal, string $origem = 'GERAL', bool $exigirAgt = false): array
     {
         $ano = (int) substr($data, 0, 4);
         $dia = substr($data, 0, 10);
@@ -33,9 +33,14 @@ final class ServicoSeries
         }
 
         try {
-            return Cache::lock("lock:serie:{$empresaId}:{$tipo}:{$ano}:{$origem}", 10)->block(5, fn () => DB::transaction(function () use ($tipo, $ano, $dia, $fiscal, $origem) {
+            return Cache::lock("lock:serie:{$empresaId}:{$tipo}:{$ano}:{$origem}", 10)->block(5, fn () => DB::transaction(function () use ($tipo, $ano, $dia, $fiscal, $origem, $exigirAgt) {
                 $serie = SerieFaturacaoEletronica::query()->where('tipo', $tipo)->where('ano', $ano)->where('origem', $origem)
-                    ->where('estado', 'ATIVA')->lockForUpdate()->first() ?? $this->criar($tipo, $ano, $origem);
+                    ->where('estado', 'ATIVA')->lockForUpdate()->first();
+                // "Exigir séries AGT" (configuração do regime): só séries com código atribuído pela AGT (facturacao_agt.js:191)
+                if ($exigirAgt && (! $serie || ! $serie->agt_codigo)) {
+                    throw new ErroNegocio("Não há série {$tipo} {$ano} atribuída pela AGT. Peça-a em Vendas › Facturação electrónica › Séries.", 'SERIE_AGT_EM_FALTA', 422);
+                }
+                $serie ??= $this->criar($tipo, $ano, $origem);
 
                 if ($fiscal && $serie->ultima_data && $dia < $serie->ultima_data->toDateString()) {
                     throw new ErroNegocio("A data não pode ser anterior à do último documento da série {$serie->codigo} ({$serie->ultima_data->toDateString()}).",

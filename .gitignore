@@ -1,5 +1,7 @@
 # Segredos
 .env
+.segredos/
+*.pem
 backend/.env
 # Dependências e artefactos
 backend/vendor/

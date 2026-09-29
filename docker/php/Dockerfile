@@ -1,9 +1,9 @@
 # Imagem PHP 8.3-FPM do backend ERP_CONSULVOLT (usada pelos serviços `app` e `worker`).
 FROM php:8.3-fpm-alpine
 
-RUN apk add --no-cache icu-libs libzip libpq postgresql-client tzdata \
- && apk add --no-cache --virtual .deps-build $PHPIZE_DEPS icu-dev libzip-dev postgresql-dev linux-headers \
- && docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql intl zip bcmath opcache pcntl \
+RUN apk add --no-cache icu-libs libzip libpq libpng postgresql-client tzdata \
+ && apk add --no-cache --virtual .deps-build $PHPIZE_DEPS icu-dev libzip-dev libpng-dev postgresql-dev linux-headers \
+ && docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql intl zip bcmath opcache pcntl gd \
  && pecl install redis \
  && docker-php-ext-enable redis \
  && apk del .deps-build \

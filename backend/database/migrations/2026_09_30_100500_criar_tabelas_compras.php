@@ -31,7 +31,7 @@ return new class extends Migration
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
             $table->date('data_prevista')->nullable()->comment('legado: expected_date');
-            $table->string('criado_por', 20)->nullable()->comment('legado: criado_por');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->bigInteger('colaborador_requerente_id')->nullable()->comment('legado: requester_employee_id');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();

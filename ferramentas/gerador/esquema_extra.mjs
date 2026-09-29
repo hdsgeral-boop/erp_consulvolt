@@ -143,6 +143,9 @@ export const COLUNAS_NOVAS = {
     ['sessao_pos_legado_codigo', 'varchar(50)', null, "Código 'POS_SESS_<epoch>' do legado (sem FK)"],
     // ADR-029: ligação explícita à contabilização (o legado só ligava por numero_documento, ambíguo entre módulos)
     ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento contabilístico gerado pela contabilização do documento'],
+    // ADR-030: assinatura SAF-T(AO) calculada na emissão (o legado gerava um hash falso na exportação)
+    ['saft_hash', 'text', null, 'Assinatura RSA-SHA1 (base64) de "data;data entrada;n.º;total bruto;hash anterior"'],
+    ['saft_hash_controlo', 'varchar(10)', null, 'Versão da chave usada na assinatura (HashControl); 0 = não assinado'],
   ],
   // ADR-029: recibos com rasto de anulação, série e ligação à factura-recibo que os originou
   recibos_venda: [

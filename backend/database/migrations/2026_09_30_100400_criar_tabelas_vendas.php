@@ -63,7 +63,7 @@ return new class extends Migration
             $table->string('codigo_terminal_pos', 50)->nullable()->comment('legado: pos_terminal_code');
             $table->jsonb('pos_pagamentos')->nullable()->comment('legado: pos_payments');
             $table->decimal('pos_troco', 15, 2)->nullable()->comment('legado: pos_change');
-            $table->string('pos_operador', 10)->nullable()->comment('legado: pos_operator');
+            $table->string('pos_operador', 100)->nullable()->comment('legado: pos_operator');
             $table->jsonb('pos_lans_contabilizacao')->nullable()->comment('legado: pos_posting_lans');
             $table->bigInteger('pedido_lavandaria_id')->nullable()->comment('legado: lav_order_id');
             $table->string('numero_pedido_lavandaria', 50)->nullable()->comment('legado: lav_order_number');
@@ -91,6 +91,8 @@ return new class extends Migration
             $table->text('motivo_nota_credito')->nullable()->comment('legado: nc_motivo · do código legado js/ui_sales.js:1856');
             $table->string('sessao_pos_legado_codigo', 50)->nullable()->comment('Código \'POS_SESS_<epoch>\' do legado (sem FK)');
             $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento contabilístico gerado pela contabilização do documento');
+            $table->text('saft_hash')->nullable()->comment('Assinatura RSA-SHA1 (base64) de "data;data entrada;n.º;total bruto;hash anterior"');
+            $table->string('saft_hash_controlo', 10)->nullable()->comment('Versão da chave usada na assinatura (HashControl); 0 = não assinado');
             $table->text('estadias_hotel_ids_legado')->nullable()->comment('legado: hotel_stay_ids · lista de ids do legado; normalizada em vendas_estadias_hotel');
             $table->text('documentos_relacionados_legado')->nullable()->comment('legado: related_doc_id · lista de ids do legado; normalizada em vendas_documentos_relacionados');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -220,7 +222,7 @@ return new class extends Migration
             $table->string('pais_padrao', 10)->nullable()->comment('legado: pais_padrao');
             $table->text('isencao_padrao')->nullable()->comment('legado: isencao_padrao · sem valores reais: tipo a confirmar no código legado');
             $table->jsonb('software')->nullable()->comment('legado: software');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: actualizado_por');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->jsonb('servico')->nullable()->comment('legado: servico · do código legado js/facturacao_agt_envio.js:50');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent();

@@ -44,6 +44,8 @@ final class EmitirDocumentoRequest extends FormRequest
             'valido_ate' => ['nullable', 'date_format:Y-m-d'],
             'condicoes_pagamento' => ['nullable', 'string', 'max:2000'],
             'observacoes' => ['nullable', 'string', 'max:4000'],
+            'codigo_moeda' => ['nullable', 'string', 'regex:/^[A-Z]{3}$/'],
+            'taxa_cambio' => ['nullable', 'numeric', 'gt:0', 'max:999999999'],
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')],
             'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
             'projeto_id' => ['nullable', 'integer', $daEmpresa('projetos')],

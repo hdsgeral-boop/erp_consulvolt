@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T15:27:15.947Z",
+  "gerado_em": "2026-09-29T16:09:16.323Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -1112,20 +1112,24 @@
         {
           "legado": "rate",
           "pt": "taxa",
-          "tipo_pg": "numeric(9,4)",
+          "tipo_pg": "numeric(18,6)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: numeric(9,4))"
+          ]
         },
         {
           "legado": "source",
           "pt": "fonte_dados",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(50)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 3,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "bai_buy",
@@ -1157,11 +1161,13 @@
         {
           "legado": "created_by",
           "pt": "criado_por",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "id",
@@ -1186,11 +1192,13 @@
         {
           "legado": "updated_by",
           "pt": "atualizado_por",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 0.3056,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         }
       ]
     },

@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
 use App\Http\Controllers\Api\Terceiros\TerceiroController;
 use App\Http\Controllers\Api\Vendas\ConfigVendasController;
 use App\Http\Controllers\Api\Vendas\DocumentoVendaController;
+use App\Http\Controllers\Api\Vendas\FaturacaoEletronicaController;
 use App\Http\Controllers\Api\Vendas\ReciboVendaController;
 use Illuminate\Support\Facades\Route;
 
@@ -101,6 +102,22 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('configuracao/contas', [ConfigVendasController::class, 'contas'])->name('configuracao.contas');
             Route::put('configuracao/contas', [ConfigVendasController::class, 'definirContas'])->name('configuracao.contas.definir');
             Route::get('configuracao/series', [ConfigVendasController::class, 'series'])->name('configuracao.series');
+            Route::post('configuracao/series', [FaturacaoEletronicaController::class, 'criarSerie'])->name('configuracao.series.criar');
+            Route::put('configuracao/series/{serie}', [FaturacaoEletronicaController::class, 'atualizarSerie'])->whereNumber('serie')->name('configuracao.series.atualizar');
+            Route::delete('configuracao/series/{serie}', [FaturacaoEletronicaController::class, 'eliminarSerie'])->whereNumber('serie')->name('configuracao.series.eliminar');
+            Route::post('configuracao/series/{serie}/solicitar-agt', [FaturacaoEletronicaController::class, 'solicitarSerieAgt'])->whereNumber('serie')->name('configuracao.series.solicitar-agt');
+
+            // Facturação electrónica AGT (ADR-030)
+            Route::get('faturacao-eletronica/configuracao', [FaturacaoEletronicaController::class, 'configuracao'])->name('fe.configuracao');
+            Route::put('faturacao-eletronica/configuracao', [FaturacaoEletronicaController::class, 'gravarConfiguracao'])->name('fe.configuracao.gravar');
+            Route::get('faturacao-eletronica/ligacao', [FaturacaoEletronicaController::class, 'ligacao'])->name('fe.ligacao');
+            Route::get('faturacao-eletronica/resumo', [FaturacaoEletronicaController::class, 'resumo'])->name('fe.resumo');
+            Route::post('faturacao-eletronica/enviar', [FaturacaoEletronicaController::class, 'enviar'])->name('fe.enviar');
+            Route::post('faturacao-eletronica/consultar', [FaturacaoEletronicaController::class, 'consultar'])->name('fe.consultar');
+            Route::post('documentos/{venda}/revalidar', [FaturacaoEletronicaController::class, 'revalidar'])->whereNumber('venda')->name('documentos.revalidar');
+            Route::get('documentos/{venda}/pedido-assinado', [FaturacaoEletronicaController::class, 'pedidoAssinado'])->whereNumber('venda')->name('documentos.pedido-assinado');
+            Route::get('documentos/{venda}/qr', [FaturacaoEletronicaController::class, 'qr'])->whereNumber('venda')->name('documentos.qr');
+            Route::get('saft', [FaturacaoEletronicaController::class, 'saft'])->name('saft');
         });
 
         Route::prefix('contabilidade')->name('contabilidade.')->group(function () {

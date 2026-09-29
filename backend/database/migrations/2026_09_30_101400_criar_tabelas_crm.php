@@ -54,7 +54,7 @@ return new class extends Migration
             $table->string('origem', 22)->nullable()->comment('legado: origem · código normalizado ∈ {RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO}; texto original em origem_original');
             $table->string('origem_original', 100)->nullable()->comment('legado: origem · texto exacto do legado');
             $table->string('responsavel', 10)->nullable()->comment('legado: responsavel');
-            $table->string('criado_por', 10)->nullable()->comment('legado: criado_por');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->text('setor')->nullable()->comment('legado: sector · sem valores reais: tipo a confirmar no código legado');
             $table->text('website')->nullable()->comment('legado: website · sem valores reais: tipo a confirmar no código legado');
             $table->text('notas')->nullable()->comment('legado: notas · sem valores reais: tipo a confirmar no código legado');
@@ -104,7 +104,7 @@ return new class extends Migration
             $table->jsonb('historico')->nullable()->comment('legado: historico');
             $table->timestampTz('etapa_desde')->nullable()->comment('legado: etapa_desde');
             $table->jsonb('vendas')->nullable()->comment('legado: vendas');
-            $table->string('criado_por', 10)->nullable()->comment('legado: criado_por');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->timestampTz('fechado_em')->nullable()->comment('legado: fechada_em');
             $table->text('motivo_perda')->nullable()->comment('legado: motivo_perda');
             $table->text('concorrente')->nullable()->comment('legado: concorrente · sem valores reais: tipo a confirmar no código legado');
@@ -134,10 +134,10 @@ return new class extends Migration
             $table->string('responsavel', 10)->nullable()->comment('legado: responsavel');
             $table->boolean('automatica')->nullable()->comment('legado: automatica');
             $table->bigInteger('modelo_email_crm_id')->nullable()->comment('legado: modelo_id');
-            $table->string('criado_por', 20)->nullable()->comment('legado: criado_por');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->timestampTz('concluida_em')->nullable()->comment('legado: concluida_em');
             $table->string('resultado', 50)->nullable()->comment('legado: resultado');
-            $table->string('concluida_por', 10)->nullable()->comment('legado: concluida_por');
+            $table->string('concluida_por', 100)->nullable()->comment('legado: concluida_por');
             $table->bigInteger('sequencia_campanha_id')->nullable()->comment('legado: sequencia_id · do código legado js/modules/crm/crm_dados.js:222');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();

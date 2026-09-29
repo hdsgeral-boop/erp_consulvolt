@@ -147,6 +147,8 @@ const MINIMOS = [
   [/^email$/, 150], [/^(telefone|telefone_.*)$/, 50], [/^nif$/, 30], [/^iban$/, 50],
   [/^(endereco|morada|rua|bairro|municipio|provincia|comuna|cidade|pais|localizacao)$/, 150],
   [/(_original)$/, 100], [/^chave$/, 150],
+  // "criado_por", "atualizado_por", "fechado_por"…: nome de utilizador (47 colunas vinham com varchar(10))
+  [/_por$/, 100], [/^(nome_utilizador|utilizador|operador|pos_operador)$/, 100],
 ];
 for (const def of tabelas.values()) {
   for (const col of def.colunas.values()) {

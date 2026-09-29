@@ -44,6 +44,43 @@ return [
         ],
     ],
 
+    /*
+    | Facturação electrónica AGT (ADR-030). Substitui o serviço intermédio do legado (servico_agt/servidor.js):
+    | o próprio backend guarda as credenciais e as chaves e assina os pedidos (JWS RS256). Nada disto vai para
+    | a base de dados nem para o browser. As chaves ficam em /run/segredos/agt (volume só de leitura, fora do Git).
+    |   driver: desligado (por omissão) | direto (o backend fala com a AGT) | intermedio (reutiliza o serviço do legado)
+    */
+    'agt' => [
+        'driver' => env('AGT_DRIVER', 'desligado'),
+        'ambiente' => env('AGT_AMBIENTE', 'homologacao'),
+        'urls' => [
+            'homologacao' => 'https://sifphml.minfin.gov.ao/sigt/fe/v1/',
+            'producao' => 'https://sifp.minfin.gov.ao/sigt/fe/v1/',
+        ],
+        'url_base' => env('AGT_URL_BASE'),               // só se a AGT mudar o endereço (ex.: /sigt/fe/ws/v1/)
+        'utilizador' => env('AGT_UTILIZADOR'),
+        'palavra_passe' => env('AGT_PALAVRA_PASSE'),
+        'jws_typ' => env('AGT_JWS_TYP', 'JWT'),           // a confirmar na homologação (erros E08/E40)
+        'timeout' => (int) env('AGT_TIMEOUT', 30),
+        'software' => [
+            'productId' => env('AGT_PRODUCT_ID', ''),
+            'productVersion' => env('AGT_PRODUCT_VERSION', ''),
+            'softwareValidationNumber' => env('AGT_SOFTWARE_VALIDATION', ''),
+            'productCompanyTaxId' => env('AGT_PRODUTOR_NIF', ''),
+        ],
+        'pasta_chaves' => env('AGT_PASTA_CHAVES', '/run/segredos/agt'),
+        'chave_produtor' => env('AGT_CHAVE_PRODUTOR', 'produtor_privada.pem'),      // relativo à pasta das chaves
+        'pasta_contribuintes' => env('AGT_PASTA_CONTRIBUINTES', 'contribuintes'),   // <NIF>.pem
+        // Assinatura SAF-T(AO) dos documentos (Hash): chave privada do produtor certificado e versão (HashControl)
+        'chave_saft' => env('AGT_CHAVE_SAFT', 'saft_privada.pem'),
+        'versao_chave_saft' => env('AGT_VERSAO_CHAVE_SAFT', '1'),
+        // Driver "intermedio": serviço do legado (o token nunca vai para a base de dados)
+        'intermedio_url' => env('AGT_INTERMEDIO_URL'),
+        'intermedio_token' => env('AGT_INTERMEDIO_TOKEN'),
+        'max_documentos' => 30,
+        'qr_consulta' => 'https://quiosqueagt.minfin.gov.ao/facturacao-eletronica/consultar-fe',
+    ],
+
     'auditoria' => [
         // Anos com partição criada antecipadamente em logs_auditoria (além da partição DEFAULT).
         'anos_particoes' => [2024, 2025, 2026, 2027, 2028],

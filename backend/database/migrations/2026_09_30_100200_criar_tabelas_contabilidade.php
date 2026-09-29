@@ -222,7 +222,7 @@ return new class extends Migration
             $table->jsonb('configuracao')->nullable()->comment('legado: config');
             $table->jsonb('textos')->nullable()->comment('legado: textos');
             $table->jsonb('notas_incluir')->nullable()->comment('legado: notas_incluir');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: atualizado_por');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: atualizado_por');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: atualizado_em');
         });

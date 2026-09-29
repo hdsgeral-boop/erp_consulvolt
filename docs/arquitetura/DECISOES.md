@@ -263,3 +263,42 @@ O n.º do lançamento fica guardado em `numero_lan_contabilizacao`. Descontabili
 - 9 ambíguas ou sem lançamento.
 
 **Recibos.** Só liquidam facturas FT contabilizadas do próprio cliente, com montante até ao pendente. A anulação só é possível com o recibo não contabilizado, exige motivo e fica registada (`estado`, `anulado_em`, `motivo_anulacao`); o recibo nunca é apagado.
+
+## ADR-030 — Vendas parte 2: envio à AGT, Hash SAF-T, ficheiro SAF-T(AO), QR e multi-moeda
+
+**Envio à AGT no próprio backend.** No legado, as credenciais e chaves estavam num serviço Node à parte (`servico_agt/servidor.js`) e o token de acesso ficava no localStorage do browser. O ciclo de envio também corria no browser, com uma variável `emCurso` que não impedia envios duplicados vindos de duas abas.
+
+No sistema novo:
+- O backend assina com JWS RS256 (chave do produtor no softwareInfo, chave do contribuinte nos documentos e nos pedidos) e chama os serviços `registarFactura`, `obterEstado`, `consultarFactura` e `solicitarSerie`.
+- As credenciais vêm só do ambiente do servidor. As chaves ficam num volume só de leitura (`/run/segredos/agt`, fora do Git, com `*.pem` e `.segredos/` no `.gitignore`). A API de ligação devolve o estado sem expor segredos.
+- Há três drivers (`ClienteAgt`): `desligado` (por omissão), `direto` e `intermedio`, que reutiliza o serviço do legado já instalado.
+- Mantém-se o ciclo de estados do legado: POR_ENVIAR/ERRO → ENVIADO → VALIDO | INVALIDO; REJEITADO; E09 leva a uma consulta directa. A espera entre consultas cresce conforme a resposta: resultCode 8 (em processamento), 7/E97 (pedido prematuro), E98/HTTP 429 (demasiados pedidos). Com resultCode 9 (cancelado), o documento é reenviado.
+- Um lock Redis por empresa e operação impede envios duplicados. O ciclo automático corre no serviço `scheduler` (`erp:agt:ciclo`, de 2 em 2 minutos) e na fila `agt`. É também disparado 3 s depois de cada emissão, se o envio automático estiver ligado.
+- **Correcção de documentos:** quando o documento tem erros locais, ou foi considerado inválido ou rejeitado pela AGT, pode ser revalidado. Só o documento electrónico (`fe_documento`) é refeito, a partir dos dados de origem corrigidos (`Venda::$permitirRevalidacao`); os restantes campos fiscais continuam selados. Um documento INVALIDO é reenviado como correcção (`documentStatus` "C").
+- **Séries:** as regras do legado mantêm-se (uma série activa por tipo, ano e origem; o código não se altera depois de usada; uma série usada não se elimina). O código da série pode ser pedido à AGT. Com "exigir séries AGT", os documentos fiscais só usam séries com código da AGT, e o limite autorizado é respeitado (`SERIE_ESGOTADA`).
+- **Regime:** não se activa se existirem documentos fiscais fora do regime com data igual ou posterior à data de início, e não se desactiva nem muda de data depois de haver documentos no regime.
+- **A confirmar na homologação** (herdado do legado): o valor de `typ` nas assinaturas (`AGT_JWS_TYP`) e o caminho dos serviços (`AGT_URL_BASE`).
+
+**Hash SAF-T(AO) na emissão.** O legado calculava na exportação um "hash" falso (soma de caracteres + texto fixo) e voltava a calculá-lo a cada exportação. O sistema novo usa `RSA-SHA1("InvoiceDate;SystemEntryDate;InvoiceNo;GrossTotal;HashAnterior")` em base64, encadeado por série. É calculado na emissão, dentro da transacção que bloqueia a série, e fica selado (`saft_hash`, `saft_hash_controlo`). Sem chave SAF-T (software ainda não certificado), fica `HashControl = "0"`, sem assinatura inventada.
+
+**Ficheiro SAF-T(AO) 1.01_01 (facturação).** É gerado com XMLWriter, que escapa os caracteres especiais. Contém:
+- MasterFiles: clientes, produtos (tipo P/S) e tabela de taxas;
+- SalesInvoices: TotalDebit = soma das NC e TotalCredit = soma de FT/FR, ambos sem imposto; linhas com o valor sem imposto; References nas NC; isenção vinda do produto ou da configuração, nunca um M10 fixo; `Currency` nos documentos em moeda estrangeira; `Payment` nas FR;
+- Payments: os recibos (RG), com a factura de origem.
+
+Correcções face ao legado: as etiquetas erradas (`InvoiceNao`, `AuditFileSchemaVersion`, `SoftwareValidactionNumber`) e o número de certificação inventado. Os documentos anteriores ao sistema novo saem com Hash "0" e ficam listados nos avisos, tal como as linhas isentas sem código M. Antes da certificação, o ficheiro deve passar no validador da AGT.
+
+Verificação sobre os dados reais: foram gerados ficheiros SAF-T das empresas 5, 6 e 18, com XML válido. Os avisos incluem produtos a 0% sem código de isenção; é preciso preenchê-lo na ficha do produto ou definir a isenção por omissão.
+
+**QR code.** É gerado no servidor (chillerlan/php-qrcode + GD), em PNG de 350×350 ou SVG, com correcção M e o endereço `consultar-fe?emissor=<NIF>&document=<n.º>` (espaços como `%20`). O logótipo oficial é opcional, em `storage/app/agt/agt_logo.png`. Como no legado, usa-se a menor versão de QR em que o endereço cabe (a AGT indica a versão 4, que não chega).
+
+**Multi-moeda.** A moeda e o câmbio ficam no cabeçalho do documento. Os valores oficiais são em Kz e os valores na moeda ficam nos campos `*_moeda`.
+- **Câmbio:** vem da tabela, com a última taxa até à data do documento; a taxa da empresa prevalece sobre a geral. Também pode ser indicado manualmente.
+- **Cálculo em Kz:** as regras AGT são aplicadas ao preço convertido com 6 casas decimais, para o documento electrónico ficar coerente (linhas e totais em Kz, com o bloco `currency`).
+- **Nota de crédito:** herda sempre a moeda e o câmbio da factura, para o contravalor anular exactamente o da factura.
+- **Conversões:** herdam a moeda; o câmbio é reavaliado na nova data, salvo se era manual.
+- **Recibos e diferenças de câmbio:** os recibos são em Kz; as diferenças de câmbio ficam para o módulo Tesouraria.
+
+**Esquema.**
+- `taxas_cambio.taxa` passa a `numeric(18,6)`. Era `numeric(9,4)`, o que truncava as taxas do legado (até 6 casas) e limitava o valor a 99 999.
+- O gerador passa a aplicar um mínimo de 100 caracteres às colunas "feito por" (`*_por`, `nome_utilizador`, `operador`): 51 colunas estavam com `varchar(10)`/`varchar(20)` e não cabia um nome de utilizador. O teste de configuração do regime detectou o problema.

@@ -18,9 +18,6 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
  */
 final class ServicoSelagemAgt
 {
-    /** Códigos de taxa AGT (facturacao_agt.js:69-76). */
-    private const CODIGOS_TAXA = ['0' => 'ISE', '14' => 'NOR', '7' => 'INT', '5' => 'RED'];
-
     /**
      * @param  EloquentCollection<int, ItemVenda>  $itens
      * @param  string|null  $referenciaOrigem  N.º do documento de origem (obrigatório nas notas de crédito)
@@ -42,9 +39,38 @@ final class ServicoSelagemAgt
         }
     }
 
+    /**
+     * Refaz o documento electrónico depois de corrigidos os dados de origem (cliente, empresa, produto).
+     * Só grava se já não houver erros locais. Devolve a lista de erros (vazia = revalidado).
+     *
+     * @param  EloquentCollection<int, ItemVenda>  $itens
+     * @return list<string>
+     */
+    public function revalidar(Venda $venda, EloquentCollection $itens, ?ConfigFaturacaoEletronica $config, ?string $referenciaOrigem = null): array
+    {
+        $itens->loadMissing('produto');
+        $documento = $this->construir($venda, $itens, $config, $referenciaOrigem);
+        [$erros, $avisos] = $this->validar($documento, $venda, $referenciaOrigem);
+        if (! $erros) {
+            $venda->permitirRevalidacao = true;
+            try {
+                $venda->forceFill(['fe_documento' => $documento, 'fe_erros' => [], 'fe_avisos' => $avisos, 'fe_estado' => 'PRONTO', 'fe_validado_em' => now()])->save();
+            } finally {
+                $venda->permitirRevalidacao = false;
+            }
+        }
+
+        return $erros;
+    }
+
     public function emRegime(?ConfigFaturacaoEletronica $config, Venda $venda): bool
     {
-        return (bool) ($config?->ativo) && $config->data_inicio !== null && $venda->data_emissao->toDateString() >= $config->data_inicio->toDateString();
+        return $this->emRegimeNaData($config, $venda->data_emissao->toDateString());
+    }
+
+    public function emRegimeNaData(?ConfigFaturacaoEletronica $config, string $data): bool
+    {
+        return (bool) ($config?->ativo) && $config->data_inicio !== null && substr($data, 0, 10) >= $config->data_inicio->toDateString();
     }
 
     /** @param  EloquentCollection<int, ItemVenda>  $itens */
@@ -53,11 +79,16 @@ final class ServicoSelagemAgt
         $empresa = Empresa::query()->find($venda->empresa_id);
         $cliente = Terceiro::query()->find($venda->cliente_id);
         $nc = $venda->tipo_documento === 'NC';
+        // Moeda estrangeira: linhas e totais em Kz (valores oficiais), com o bloco currency (moeda, total na moeda, câmbio)
+        $estrangeira = $venda->codigo_moeda && $venda->codigo_moeda !== 'AOA';
         $linhas = [];
         foreach ($itens->values() as $i => $item) {
-            $valor = CalculadoraDocumento::arredondar(bcmul((string) $item->quantidade, (string) $item->preco_unitario, 8));
-            $taxa = rtrim(rtrim(number_format((float) $item->taxa_imposto, 4, '.', ''), '0'), '.');
-            $codigoTaxa = self::CODIGOS_TAXA[$taxa] ?? 'OUT';
+            $preco = $estrangeira && $item->preco_unitario_moeda !== null
+                ? bcmul((string) $item->preco_unitario_moeda, (string) $venda->taxa_cambio, 6) : (string) $item->preco_unitario;
+            $valor = $item->total_linha !== null ? number_format((float) $item->total_linha, 2, '.', '')
+                : CalculadoraDocumento::arredondar(bcmul((string) $item->quantidade, $preco, 8));
+            $taxa = CatalogoAgt::taxaTexto($item->taxa_imposto);
+            $codigoTaxa = CatalogoAgt::codigoTaxa($taxa);
             $linha = [
                 'lineNumber' => $i + 1,
                 'operationType' => $item->produto?->tipo_operacao_fe ?: ($item->produto?->movimenta_stock ? 'TB' : 'SG'),
@@ -65,8 +96,8 @@ final class ServicoSelagemAgt
                 'productDescription' => $item->descricao ?: $item->produto?->nome,
                 'quantity' => (float) $item->quantidade,
                 'unitOfMeasure' => $item->produto?->unidade_fe ?: 'UN',
-                'unitPriceBase' => (float) $item->preco_unitario,
-                'unitPrice' => (float) $item->preco_unitario,
+                'unitPriceBase' => (float) $preco,
+                'unitPrice' => (float) $preco,
                 ($nc ? 'debitAmount' : 'creditAmount') => (float) $valor,
                 'taxes' => [array_filter([
                     'taxType' => 'IVA', 'taxCountryRegion' => 'AO', 'taxCode' => $codigoTaxa, 'taxPercentage' => (float) $taxa,
@@ -87,12 +118,14 @@ final class ServicoSelagemAgt
                 'documentStatus' => 'N',
                 'documentDate' => $venda->data_emissao->toDateString(),
                 'documentType' => $venda->tipo_documento,
-                'systemEntryDate' => now()->format('Y-m-d\TH:i:s'),
+                'systemEntryDate' => ($venda->fe_data_entrada_sistema ?? now())->format('Y-m-d\TH:i:s'),
                 'customerTaxID' => $cliente?->nif ?: '999999999',
                 'customerCountry' => $cliente?->fe_pais ?: ($config?->pais_padrao ?: 'AO'),
                 'companyName' => $cliente?->nome ?: 'Consumidor Final',
                 'lines' => $linhas,
-                'documentTotals' => ['taxPayable' => (float) $venda->total_imposto, 'netTotal' => (float) $venda->total_liquido, 'grossTotal' => (float) $venda->total_bruto],
+                'documentTotals' => ['taxPayable' => (float) $venda->total_imposto, 'netTotal' => (float) $venda->total_liquido, 'grossTotal' => (float) $venda->total_bruto]
+                    + ($estrangeira ? ['currency' => ['currencyCode' => $venda->codigo_moeda, 'currencyAmount' => (float) $venda->total_bruto_moeda,
+                        'exchangeRate' => (float) $venda->taxa_cambio]] : []),
             ],
         ];
     }

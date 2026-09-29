@@ -89,7 +89,8 @@ Cobrem os seguintes casos:
 | **Sistema › Validações de dados** | ✅ | sistema/validacoes, sistema/validacoes/{codigo} | 12 validações só de leitura que substituem as rotinas destrutivas (ADR-015) |
 | **Terceiros e Produtos** | ✅ | terceiros (CRUD por papel CLIENTE/FORNECEDOR), logistica/produtos (CRUD, bloquear, catálogo em cache), logistica/categorias-produtos | Paridade saveCustomer/saveSupplier/saveProduct; stock só por movimentos (ADR-028) |
 | **Vendas / Facturação AGT (parte 1)** | ✅ | vendas/documentos (emitir FT/FR/NC/OR/PF/NE, converter, anular, contabilizar, descontabilizar), vendas/recibos (emitir, anular, contabilizar, descontabilizar), vendas/configuracao/{contas,series} | Séries AGT sem colisões, cálculo exacto, selagem, NC abate a factura, estorno com rasto (ADR-029) |
-| Vendas / Facturação AGT (parte 2) | ⏳ | envio AGT, QR, assinatura SAF-T, multi-moeda; guias GR/GD com Logística | |
+| **Vendas / Facturação AGT (parte 2)** | ✅ | vendas/faturacao-eletronica (configuração, ligação, resumo, enviar, consultar), documentos/{id}/{revalidar,pedido-assinado,qr}, configuracao/series (CRUD + solicitar-agt), vendas/saft | Envio à AGT no servidor (JWS RS256), Hash SAF-T na emissão, SAF-T(AO) correcto, QR, multi-moeda (ADR-030) |
+| Vendas: guias GR/GD e stock | ⏳ | com o módulo Logística (movimentos de inventário) | |
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
 | RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |

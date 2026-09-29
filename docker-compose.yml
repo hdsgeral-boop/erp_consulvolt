@@ -17,6 +17,8 @@ x-backend: &backend
     # Gerir dependências sempre dentro do contentor: docker compose exec app composer <comando>
     - erp_vendor:/var/www/html/vendor
     - ../wstb_payroll_backup_2026-09-22.json:/dados/legado/wstb_payroll_backup_2026-09-22.json:ro
+    # Chaves da AGT (produtor, contribuintes por NIF, chave SAF-T): só leitura, fora do Git (ADR-030)
+    - ${AGT_PASTA_SEGREDOS:-./.segredos/agt}:/run/segredos/agt:ro
   environment:
     # Variáveis reais do ambiente prevalecem sobre backend/.env (Dotenv imutável do Laravel).
     DB_CONNECTION: pgsql
@@ -117,8 +119,14 @@ services:
   worker:
     <<: *backend
     container_name: erp_worker
-    command: ["php", "artisan", "queue:work", "redis", "--queue=alta,default,pdfs,baixa",
+    command: ["php", "artisan", "queue:work", "redis", "--queue=alta,agt,default,pdfs,baixa",
               "--sleep=3", "--tries=3", "--timeout=600", "--max-time=3600"]
+
+  # 6. Agendador (ciclo automático de envio/consulta à AGT, manutenção)
+  scheduler:
+    <<: *backend
+    container_name: erp_scheduler
+    command: ["php", "artisan", "schedule:work"]
 
 volumes:
   erp_vendor:

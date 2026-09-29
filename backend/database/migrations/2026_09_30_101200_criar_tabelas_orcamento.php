@@ -50,9 +50,9 @@ return new class extends Migration
             $table->integer('versao')->nullable()->comment('legado: versao');
             $table->bigInteger('versao_origem_id')->nullable()->comment('legado: versao_origem_id');
             $table->string('estado', 20)->nullable()->comment('legado: status');
-            $table->string('criado_por', 10)->nullable()->comment('legado: criado_por');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->jsonb('rejeicoes')->nullable()->comment('legado: rejeicoes');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: actualizado_por');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->string('abordagem', 20)->nullable()->comment('legado: abordagem');
             $table->string('dimensao_filhos', 10)->nullable()->comment('legado: dimensao_filhos');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');

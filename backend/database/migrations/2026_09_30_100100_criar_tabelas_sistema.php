@@ -91,12 +91,12 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->nullable()->comment('legado: scope_company_id');
             $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->date('data_taxa')->nullable()->comment('legado: rate_date');
-            $table->decimal('taxa', 9, 4)->nullable()->comment('legado: rate');
-            $table->string('fonte_dados', 10)->nullable()->comment('legado: source');
+            $table->decimal('taxa', 18, 6)->nullable()->comment('legado: rate · tipo forçado (inferido: numeric(9,4))');
+            $table->string('fonte_dados', 50)->nullable()->comment('legado: source · tipo forçado (inferido: varchar(10))');
             $table->decimal('taxa_compra_bai', 18, 6)->nullable()->comment('legado: bai_buy');
             $table->decimal('taxa_venda_bai', 18, 6)->nullable()->comment('legado: bai_sell');
-            $table->string('criado_por', 10)->nullable()->comment('legado: created_by');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: updated_by');
+            $table->string('criado_por', 100)->nullable()->comment('legado: created_by · tipo forçado (inferido: varchar(10))');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: updated_by · tipo forçado (inferido: varchar(10))');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at');
         });

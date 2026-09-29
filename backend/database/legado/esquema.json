@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T15:42:37.261Z",
+  "gerado_em": "2026-09-29T16:34:08.901Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -594,7 +594,7 @@
         {
           "coluna": "taxa",
           "legado": "rate",
-          "tipo": "numeric(9,4)",
+          "tipo": "numeric(18,6)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -603,7 +603,7 @@
         {
           "coluna": "fonte_dados",
           "legado": "source",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -630,7 +630,7 @@
         {
           "coluna": "criado_por",
           "legado": "created_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -639,7 +639,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "updated_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2386,7 +2386,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "atualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3553,7 +3553,7 @@
         {
           "coluna": "pos_operador",
           "legado": "pos_operator",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3810,6 +3810,24 @@
           "coluna": "numero_lan_contabilizacao",
           "legado": null,
           "tipo": "varchar(30)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "saft_hash",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "saft_hash_controlo",
+          "legado": null,
+          "tipo": "varchar(10)",
           "nulo": true,
           "origem": "novo",
           "fk": null,
@@ -4644,7 +4662,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -5058,7 +5076,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -10295,7 +10313,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -10552,7 +10570,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -10561,7 +10579,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -10838,7 +10856,7 @@
         {
           "coluna": "fechado_por",
           "legado": "fechado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -10856,7 +10874,7 @@
         {
           "coluna": "lancado_por",
           "legado": "lancado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11056,7 +11074,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11065,7 +11083,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11163,7 +11181,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11181,7 +11199,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11199,7 +11217,7 @@
         {
           "coluna": "fechado_por",
           "legado": "fechado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11235,7 +11253,7 @@
         {
           "coluna": "lancado_por",
           "legado": "lancado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11262,7 +11280,7 @@
         {
           "coluna": "reaberto_por",
           "legado": "reaberto_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11441,7 +11459,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -12122,7 +12140,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -12131,7 +12149,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -12167,7 +12185,7 @@
         {
           "coluna": "aberto_por",
           "legado": "aberto_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -12557,7 +12575,7 @@
         {
           "coluna": "registado_por",
           "legado": "registado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -12986,7 +13004,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -13611,7 +13629,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -13827,7 +13845,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -13836,7 +13854,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15325,7 +15343,7 @@
         {
           "coluna": "operador",
           "legado": "operator",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15929,7 +15947,7 @@
         {
           "coluna": "criado_por",
           "legado": "created_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15938,7 +15956,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "updated_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16234,7 +16252,7 @@
         {
           "coluna": "fechado_por",
           "legado": "closed_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16381,7 +16399,7 @@
         {
           "coluna": "contabilizado_por",
           "legado": "posted_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16490,7 +16508,7 @@
         {
           "coluna": "criado_por",
           "legado": "created_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16816,7 +16834,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "updated_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17059,7 +17077,7 @@
         {
           "coluna": "criado_por",
           "legado": "created_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17068,7 +17086,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "updated_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17155,7 +17173,7 @@
         {
           "coluna": "fechado_por",
           "legado": "closed_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17277,7 +17295,7 @@
         {
           "coluna": "recebido_por",
           "legado": "received_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17418,7 +17436,7 @@
         {
           "coluna": "atribuido_por",
           "legado": "assigned_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17645,7 +17663,7 @@
         {
           "coluna": "criado_por",
           "legado": "created_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18167,7 +18185,7 @@
         {
           "coluna": "criado_por",
           "legado": "created_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18221,7 +18239,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "updated_by",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -22066,7 +22084,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -22084,7 +22102,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23289,7 +23307,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23525,7 +23543,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23543,7 +23561,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24085,7 +24103,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24472,7 +24490,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24692,7 +24710,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24719,7 +24737,7 @@
         {
           "coluna": "concluida_por",
           "legado": "concluida_por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,

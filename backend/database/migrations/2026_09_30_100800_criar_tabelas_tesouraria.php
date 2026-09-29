@@ -194,7 +194,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code');
-            $table->string('operador', 10)->nullable()->comment('legado: operator');
+            $table->string('operador', 100)->nullable()->comment('legado: operator');
             $table->date('data_abertura')->nullable()->comment('legado: open_date');
             $table->date('data_fecho')->nullable()->comment('legado: close_date');
             $table->decimal('saldo_abertura', 15, 2)->nullable()->comment('legado: opening_balance · tipos mistos: inteiro=10, decimal=2');

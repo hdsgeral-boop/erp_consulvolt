@@ -6,6 +6,10 @@ use App\Models\Empresa;
 use App\Models\TokenAcesso;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoPermissoes;
+use App\Services\Vendas\Agt\ClienteAgt;
+use App\Services\Vendas\Agt\ClienteAgtDesligado;
+use App\Services\Vendas\Agt\ClienteAgtDireto;
+use App\Services\Vendas\Agt\ClienteAgtIntermedio;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +27,13 @@ class AppServiceProvider extends ServiceProvider
         // Um contexto de empresa por pedido HTTP / trabalho de fila (seguro também com Octane).
         $this->app->scoped(ContextoEmpresa::class);
         $this->app->scoped(ServicoPermissoes::class);
+
+        // Ligação à AGT (ADR-030): directa, pelo serviço intermédio do legado, ou desligada (por omissão)
+        $this->app->bind(ClienteAgt::class, fn ($app) => match (config('erp.agt.driver')) {
+            'direto' => $app->make(ClienteAgtDireto::class),
+            'intermedio' => $app->make(ClienteAgtIntermedio::class),
+            default => $app->make(ClienteAgtDesligado::class),
+        });
     }
 
     public function boot(): void

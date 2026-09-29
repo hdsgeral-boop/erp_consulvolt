@@ -21,7 +21,7 @@ return new class extends Migration
             $table->jsonb('contas')->nullable()->comment('legado: contas');
             $table->bigInteger('diario_id')->nullable()->comment('legado: journal_id');
             $table->integer('prazo_documento_dias')->nullable()->comment('legado: prazo_documento_dias');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: actualizado_por');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
         });
@@ -50,9 +50,9 @@ return new class extends Migration
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->jsonb('origem')->nullable()->comment('legado: origem');
             $table->text('notas')->nullable()->comment('legado: notas · sem valores reais: tipo a confirmar no código legado');
-            $table->string('atualizado_por', 10)->nullable()->comment('legado: actualizado_por');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->string('estado', 20)->nullable()->comment('legado: estado');
-            $table->string('criado_por', 10)->nullable()->comment('legado: criado_por');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->string('regularizacao', 255)->nullable()->comment('legado: regularizacao · do código legado js/modules/acrescimos/ad_dados.js:188');
             $table->jsonb('termino')->nullable()->comment('legado: termino · do código legado js/modules/acrescimos/ad_dados.js:201');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
