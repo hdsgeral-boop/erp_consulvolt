@@ -1,0 +1,2712 @@
+{
+  "gerado_em": "2026-09-29T11:00:09.410Z",
+  "origem": "Análise estática (acorn) de payroll_system_web/js/**/*.js: db.<tabela>/b.<tabela>/tx.table('<tabela>') .add/.put/.bulkAdd/.bulkPut/.update/.modify, resolvendo variáveis, spreads, mutações obj.campo=, push em arrays, .map, retornos de funções e argumentos de funções de gravação; mais adições manuais verificadas (gravações dinâmicas db[tabela]). Esquema = última declaração de cada tabela em js/db_v2.js.",
+  "convencoes": {
+    "exemplo": "Literal quando o código grava um literal (string/número/booleano/null); caso contrário, o texto da expressão-fonte do código (ex.: \"agora()\" = ISO datetime, \"utilizador()\" = nome do utilizador, \"cid()\" = id da empresa).",
+    "ref": "Primeira ocorrência encontrada (ficheiro:linha) da propriedade/atribuição; \"nota\" indica outras fontes relevantes.",
+    "grupo_B": "Lista só campos gravados pelo código que não existem como coluna real no backup (levantamento_colunas_legado.json; colunas so_em_dummy=true tratadas como inexistentes). A PK \"id\" é ignorada.",
+    "placeholder_seed": "db.seedMasterData (js/db_v2.js:237-296, chamado em js/app_v2.js:84) grava em TODAS as tabelas com company_id uma linha dummy is_master_data=1 com os campos company_id, is_master_data, name, description, status, value, total_value, quantity, doc_number, code, nif, date, doc_date, entry_date, reference (+ campos específicos por tabela nas linhas 280-293). Estes campos não foram contados no grupo B quando só vêm do placeholder."
+  },
+  "tabelas": {
+    "companies": {
+      "grupo": "B",
+      "esquema_dexie": "++id, name, nif, logo, province, municipality, commune, is_master_data",
+      "ref_esquema": "js/db_v2.js:6",
+      "linhas_reais_backup": 14,
+      "campos": {
+        "he_percentagem_1": {
+          "exemplo": "expr: ler('he-p1')",
+          "ref": "js/app_v2.js:9172",
+          "nota": "number: ler = id => parseFloat(valor do input) (js/app_v2.js:9171); validado >= 0"
+        },
+        "he_limite_horas": {
+          "exemplo": "expr: ler('he-limite')",
+          "ref": "js/app_v2.js:9172",
+          "nota": "number: ler = id => parseFloat(valor do input) (js/app_v2.js:9171); validado >= 0"
+        },
+        "he_percentagem_2": {
+          "exemplo": "expr: ler('he-p2')",
+          "ref": "js/app_v2.js:9172",
+          "nota": "number: ler = id => parseFloat(valor do input) (js/app_v2.js:9171); validado >= 0"
+        },
+        "functional_currency": {
+          "exemplo": "expr: nova",
+          "ref": "js/moedas.js:371"
+        }
+      }
+    },
+    "infotypes": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, type, name, inss, irt, is_master_data",
+      "ref_esquema": "js/db_v2.js:9",
+      "linhas_reais_backup": 175,
+      "campos": {
+        "base_horaria": {
+          "exemplo": "boolean (valor === 'true')",
+          "ref": "js/app_v2.js:9161",
+          "nota": "js/app_v2.js:9155; add em :9163"
+        },
+        "calculo_horas": {
+          "exemplo": "string (select info-calculo-horas, default '')",
+          "ref": "js/app_v2.js:9161",
+          "nota": "js/app_v2.js:9156; add em :9163"
+        }
+      }
+    },
+    "payroll_entries": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, period_id, employee_id, infotype_id, value, worked_days, [period_id+employee_id], [company_id+period_id], is_master_data",
+      "ref_esquema": "js/db_v2.js:12",
+      "linhas_reais_backup": 1114,
+      "campos": {
+        "origem": {
+          "exemplo": "string (template)",
+          "ref": "js/modules/rh/aval360_dados.js:505"
+        },
+        "eval_bonus_id": {
+          "exemplo": "expr: x.id",
+          "ref": "js/modules/rh/aval360_dados.js:505"
+        }
+      }
+    },
+    "chart_of_accounts": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, code, description, type, is_master_data",
+      "ref_esquema": "js/db_v2.js:15",
+      "linhas_reais_backup": 18035,
+      "campos": {
+        "account_nature": {
+          "exemplo": "expr: typeVal",
+          "ref": "js/app_v2.js:10836",
+          "nota": "também: js/db_v2.js:456"
+        },
+        "is_master_data": {
+          "exemplo": 0,
+          "ref": "js/app_v2.js:10837",
+          "nota": "coluna só existe em linha dummy no backup"
+        }
+      }
+    },
+    "journals": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, code, description, is_master_data",
+      "ref_esquema": "js/db_v2.js:17",
+      "linhas_reais_backup": 436,
+      "campos": {
+        "is_master_data": {
+          "exemplo": 0,
+          "ref": "js/app_v2.js:10853",
+          "nota": "coluna só existe em linha dummy no backup | também: js/ui_rotinas.js:1310"
+        }
+      }
+    },
+    "third_parties": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, nif, name, type, account_code, [company_id+type], is_master_data",
+      "ref_esquema": "js/db_v2.js:18",
+      "linhas_reais_backup": 6545,
+      "campos": {
+        "is_master_data": {
+          "exemplo": 0,
+          "ref": "js/app_v2.js:10785",
+          "nota": "coluna só existe em linha dummy no backup"
+        },
+        "fe_pais": {
+          "exemplo": "expr: paisFE",
+          "ref": "js/ui_sales.js:2197"
+        }
+      }
+    },
+    "demo_notes": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, code, description, is_master_data",
+      "ref_esquema": "js/db_v2.js:20",
+      "linhas_reais_backup": 366,
+      "campos": {
+        "is_master_data": {
+          "exemplo": 0,
+          "ref": "js/ui_compras_v2.js:3284",
+          "nota": "coluna só existe em linha dummy no backup | também: js/ui_compras_v2.js:3289, js/ui_compras_v2.js:3294, js/ui_inventory.js:1089, js/ui_inventory.js:1094"
+        }
+      }
+    },
+    "journal_lines": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, journal_id, doc_date, entry_date, reference, doc_number, value, type_dc, account_code, third_party_id, description, demo_note_id, cashflow_note_id, period_id, reconciliation_id, [company_id+journal_id], [company_id+doc_number], [company_id+period_id], [company_id+reference], [company_id+account_code+doc_date], [company_id+doc_date], is_master_data",
+      "ref_esquema": "js/db_v2.js:22",
+      "linhas_reais_backup": 44400,
+      "campos": {
+        "fx_rounding": {
+          "exemplo": "number (arred2(line.fx_rounding))",
+          "ref": "js/moedas_lancamentos.js:260"
+        },
+        "system_origin": {
+          "exemplo": "PROJECTS",
+          "ref": "js/ui_rotinas.js:1354"
+        },
+        "user": {
+          "exemplo": "Sistema",
+          "ref": "js/ui_rotinas.js:1355"
+        },
+        "tax_value": {
+          "exemplo": 0,
+          "ref": "js/ui_rotinas.js:1360",
+          "nota": "também: js/ui_rotinas.js:1363"
+        }
+      }
+    },
+    "sales": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, customer_id, doc_type, doc_number, date, status, is_posted, related_doc_id, [company_id+doc_type], is_master_data",
+      "ref_esquema": "js/db_v2.js:31",
+      "linhas_reais_backup": 102,
+      "campos": {
+        "fe_documento": {
+          "exemplo": "expr: pacote",
+          "ref": "js/facturacao_agt.js:447"
+        },
+        "fe_erros": {
+          "exemplo": "expr: erros",
+          "ref": "js/facturacao_agt.js:447"
+        },
+        "fe_avisos": {
+          "exemplo": "expr: avisos",
+          "ref": "js/facturacao_agt.js:447"
+        },
+        "fe_estado": {
+          "exemplo": "expr: erros.length ? 'COM_ERROS' : 'PRONTO'",
+          "ref": "js/facturacao_agt.js:448"
+        },
+        "fe_validado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/facturacao_agt.js:448"
+        },
+        "fe_selado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/facturacao_agt.js:451"
+        },
+        "fe_envio": {
+          "exemplo": "expr: novo",
+          "ref": "js/facturacao_agt_envio.js:82"
+        },
+        "fe_regime": {
+          "exemplo": true,
+          "ref": "js/facturacao_agt.js:210"
+        },
+        "fe_tipo": {
+          "exemplo": "expr: tipo",
+          "ref": "js/facturacao_agt.js:210"
+        },
+        "fe_serie_id": {
+          "exemplo": "expr: s.id",
+          "ref": "js/facturacao_agt.js:210"
+        },
+        "fe_serie": {
+          "exemplo": "expr: s.codigo",
+          "ref": "js/facturacao_agt.js:210"
+        },
+        "fe_numero": {
+          "exemplo": "expr: n",
+          "ref": "js/facturacao_agt.js:210"
+        },
+        "fe_estabelecimento": {
+          "exemplo": "expr: s.estabelecimento",
+          "ref": "js/facturacao_agt.js:210"
+        },
+        "fe_system_entry": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/facturacao_agt.js:210"
+        },
+        "nc_motivo": {
+          "exemplo": "expr: ncMotivo",
+          "ref": "js/ui_sales.js:1856"
+        }
+      }
+    },
+    "sale_items": {
+      "grupo": "B",
+      "esquema_dexie": "++id, sale_id, product_id, quantity, billed_qty, delivered_qty, purchase_request_id, is_master_data",
+      "ref_esquema": "js/db_v2.js:32",
+      "linhas_reais_backup": 95,
+      "campos": {
+        "fe_selado": {
+          "exemplo": true,
+          "ref": "js/facturacao_agt.js:459"
+        }
+      }
+    },
+    "receipts": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, customer_id, receipt_number, date, total_amount, payment_method, bank_id, is_posted, payment_reference, is_master_data",
+      "ref_esquema": "js/db_v2.js:33",
+      "linhas_reais_backup": 2,
+      "campos": {
+        "total_amount_currency": {
+          "exemplo": "expr: fxVenda.cabecalho.total_gross_currency",
+          "ref": "js/ui_sales.js:1927"
+        },
+        "reference": {
+          "exemplo": "expr: referencia",
+          "ref": "js/ui_sales.js:3692",
+          "nota": "coluna só existe em linha dummy no backup"
+        },
+        "project_id": {
+          "exemplo": null,
+          "ref": "js/db_v2.js:568",
+          "nota": "upgrade v1236: addProjectFields (modify) — default null"
+        },
+        "project_code": {
+          "exemplo": "",
+          "ref": "js/db_v2.js:569",
+          "nota": "upgrade v1236: addProjectFields (modify) — default ''"
+        }
+      }
+    },
+    "sales_accounting_config": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, key, [company_id+key]",
+      "ref_esquema": "js/db_v2.js:35",
+      "gravacoes": [
+        "update@js/ui_sales.js:4798",
+        "add@js/ui_sales.js:4800"
+      ],
+      "campos": {
+        "account_code": {
+          "exemplo": "expr: account_code || null",
+          "ref": "js/ui_sales.js:4798",
+          "nota": "também: js/ui_sales.js:4800"
+        },
+        "company_id": {
+          "exemplo": "expr: companyId",
+          "ref": "js/ui_sales.js:4800"
+        },
+        "key": {
+          "exemplo": "expr: key",
+          "ref": "js/ui_sales.js:4800"
+        }
+      }
+    },
+    "purchase_quotes": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, request_id, supplier_id, reference, total_amount, status, [company_id+status], is_master_data",
+      "ref_esquema": "js/db_v2.js:37",
+      "linhas_reais_backup": 23,
+      "campos": {
+        "total_tax": {
+          "exemplo": "expr: ivaKz",
+          "ref": "js/ui_compras_v2.js:1448"
+        },
+        "total_with_tax": {
+          "exemplo": "number (Math.round((semIvaKz + ivaKz) * 100) / 100)",
+          "ref": "js/ui_compras_v2.js:1449"
+        }
+      }
+    },
+    "purchase_orders": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, quote_id, supplier_id, order_number, date, status, source_sale_id, is_master_data, contract_id",
+      "ref_esquema": "js/db_v2.js:670",
+      "linhas_reais_backup": 17,
+      "campos": {
+        "total_tax": {
+          "exemplo": "expr: ivaEnc",
+          "ref": "js/ui_compras_v2.js:2156"
+        },
+        "total_with_tax": {
+          "exemplo": "number (Math.round((netEnc + ivaEnc) * 100) / 100)",
+          "ref": "js/ui_compras_v2.js:2156"
+        }
+      }
+    },
+    "purchase_items": {
+      "grupo": "B",
+      "esquema_dexie": "++id, parent_id, parent_type, [parent_id+parent_type], product_id, quantity, unit_price, received_qty, is_master_data",
+      "ref_esquema": "js/db_v2.js:41",
+      "linhas_reais_backup": 90,
+      "campos": {
+        "tax_rate": {
+          "exemplo": "expr: t",
+          "ref": "js/ui_compras_v2.js:1243",
+          "nota": "também: js/ui_compras_v2.js:1464, js/ui_compras_v2.js:2148"
+        }
+      }
+    },
+    "asset_categories": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, name, account_expense, account_accumulated, is_master_data",
+      "ref_esquema": "js/db_v2.js:49",
+      "linhas_reais_backup": 11,
+      "campos": {
+        "account_asset": {
+          "exemplo": "",
+          "ref": "js/ui_assets.js:824"
+        }
+      }
+    },
+    "asset_maintenance_plans": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, asset_id, is_master_data",
+      "ref_esquema": "js/db_v2.js:51",
+      "gravacoes": [],
+      "campos": {
+        "company_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:51",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "asset_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:51",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "is_master_data": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:51",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        }
+      },
+      "nota": "Nenhuma gravação (add/put/update/modify) no código; campos listados são só os do índice Dexie."
+    },
+    "asset_disposals": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, asset_id, type, is_master_data",
+      "ref_esquema": "js/db_v2.js:53",
+      "gravacoes": [
+        "add@js/ui_assets.js:2525"
+      ],
+      "campos": {
+        "company_id": {
+          "exemplo": "number (parseInt(window.activeCompanyId))",
+          "ref": "js/ui_assets.js:2509"
+        },
+        "asset_id": {
+          "exemplo": "expr: assetId",
+          "ref": "js/ui_assets.js:2510"
+        },
+        "type": {
+          "exemplo": "expr: type",
+          "ref": "js/ui_assets.js:2511"
+        },
+        "date": {
+          "exemplo": "expr: document.getElementById('disp-date').value",
+          "ref": "js/ui_assets.js:2512"
+        },
+        "description": {
+          "exemplo": "expr: document.getElementById('disp-desc').value",
+          "ref": "js/ui_assets.js:2513"
+        },
+        "value": {
+          "exemplo": "number (parseFloat(document.getElementById('disp-val').value))",
+          "ref": "js/ui_assets.js:2514"
+        },
+        "third_party_id": {
+          "exemplo": "expr: type === 'VENDA' ? parseInt($('#disp-third').val()) : null",
+          "ref": "js/ui_assets.js:2515"
+        },
+        "account_third": {
+          "exemplo": "expr: type === 'VENDA' ? $('#disp-acc-third').val() : null",
+          "ref": "js/ui_assets.js:2516"
+        },
+        "is_master_data": {
+          "exemplo": "desconhecido",
+          "ref": "js/db_v2.js:53",
+          "nota": "indexado no esquema mas nenhuma gravação encontrada no código"
+        }
+      }
+    },
+    "users": {
+      "grupo": "B",
+      "esquema_dexie": "++id, username, password, role, profile_id",
+      "ref_esquema": "js/db_v2.js:56",
+      "linhas_reais_backup": 4,
+      "campos": {
+        "name": {
+          "exemplo": "expr: exec[k]",
+          "ref": "js/app_v2.js:8867"
+        },
+        "email": {
+          "exemplo": "expr: exec[k]",
+          "ref": "js/app_v2.js:8867"
+        }
+      }
+    },
+    "treasury_documents": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, type, doc_date, account_fin, description, total_value, status, reference, doc_url, [company_id+status], [company_id+type], is_master_data",
+      "ref_esquema": "js/db_v2.js:175",
+      "linhas_reais_backup": 5781,
+      "campos": {
+        "reconciliation_id": {
+          "exemplo": null,
+          "ref": "js/ui_lancamentos.js:2344",
+          "nota": "também: js/ui_tesouraria.js:1200, js/ui_tesouraria.js:1317, js/ui_tesouraria.js:1558"
+        }
+      }
+    },
+    "cash_audits": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, account_code, audit_date, status, [company_id+status]",
+      "ref_esquema": "js/db_v2.js:180",
+      "linhas_reais_backup": 1,
+      "campos": {
+        "manager_name": {
+          "exemplo": "expr: old.manager_name",
+          "ref": "js/ui_tesouraria.js:7438",
+          "nota": "também: js/ui_tesouraria.js:7641"
+        },
+        "manager_signed_at": {
+          "exemplo": "expr: old.manager_signed_at",
+          "ref": "js/ui_tesouraria.js:7439",
+          "nota": "também: js/ui_tesouraria.js:7642"
+        }
+      }
+    },
+    "payment_letters": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, month_year, bank_account_code, signature_name, date, total_amount, is_master_data",
+      "ref_esquema": "js/db_v2.js:190",
+      "gravacoes": [],
+      "campos": {
+        "company_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:190",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "month_year": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:190",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "bank_account_code": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:190",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "signature_name": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:190",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "date": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:190",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "total_amount": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:190",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "is_master_data": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:190",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        }
+      },
+      "nota": "Nenhuma gravação (add/put/update/modify) no código; campos listados são só os do índice Dexie."
+    },
+    "payment_letter_items": {
+      "grupo": "A",
+      "esquema_dexie": "++id, letter_id, employee_id, amount, iban, is_master_data",
+      "ref_esquema": "js/db_v2.js:191",
+      "gravacoes": [],
+      "campos": {
+        "letter_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:191",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "employee_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:191",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "amount": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:191",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "iban": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:191",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "is_master_data": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:191",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        }
+      },
+      "nota": "Nenhuma gravação (add/put/update/modify) no código; campos listados são só os do índice Dexie."
+    },
+    "cash_lines": {
+      "grupo": "B",
+      "esquema_dexie": "++id, session_id, company_id, type, doc_date, doc_number, reference, third_party_id, product_id, account_debit, account_credit, description, value, bu_id, cc_id, source_type, source_id, is_posted, [session_id+type], [company_id+session_id]",
+      "ref_esquema": "js/db_v2.js:207",
+      "linhas_reais_backup": 186,
+      "campos": {
+        "contra_value_kz": {
+          "exemplo": "expr: base.value_kz",
+          "ref": "js/moedas_tesouraria.js:384",
+          "nota": "também: js/moedas_tesouraria.js:392"
+        },
+        "contra_currency": {
+          "exemplo": "expr: base.currency",
+          "ref": "js/moedas_tesouraria.js:384",
+          "nota": "também: js/moedas_tesouraria.js:392"
+        },
+        "contra_value_currency": {
+          "exemplo": "expr: base.currency ? valor : null",
+          "ref": "js/moedas_tesouraria.js:384",
+          "nota": "também: js/moedas_tesouraria.js:392"
+        }
+      }
+    },
+    "project_budget_lines": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, project_id, task_id, rubric, amount, is_master_data",
+      "ref_esquema": "js/db_v2.js:556",
+      "linhas_reais_backup": 13,
+      "campos": {
+        "org_node_id": {
+          "exemplo": "expr: a.org_node_id",
+          "ref": "js/projectos_organigrama.js:477"
+        },
+        "team_member_id": {
+          "exemplo": "expr: a.team_member_id",
+          "ref": "js/projectos_organigrama.js:477"
+        }
+      }
+    },
+    "project_billings": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, project_id, doc_number, date, amount, status, is_master_data",
+      "ref_esquema": "js/db_v2.js:559",
+      "gravacoes": [],
+      "campos": {
+        "company_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:559",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "project_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:559",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "doc_number": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:559",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "date": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:559",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "amount": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:559",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "status": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:559",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "is_master_data": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:559",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        }
+      },
+      "nota": "Nenhuma gravação (add/put/update/modify) no código; campos listados são só os do índice Dexie."
+    },
+    "project_asset_allocations": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, project_id, asset_id, start_date, end_date, is_master_data",
+      "ref_esquema": "js/db_v2.js:560",
+      "gravacoes": [],
+      "campos": {
+        "company_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:560",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "project_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:560",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "asset_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:560",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "start_date": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:560",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "end_date": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:560",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "is_master_data": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:560",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        }
+      },
+      "nota": "Nenhuma gravação (add/put/update/modify) no código; campos listados são só os do índice Dexie."
+    },
+    "project_change_orders": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, project_id, description, amount, status, is_master_data",
+      "ref_esquema": "js/db_v2.js:561",
+      "gravacoes": [
+        "update@js/ui_projects.js:3791",
+        "add@js/ui_projects.js:3792"
+      ],
+      "campos": {
+        "company_id": {
+          "exemplo": "number (parseInt(window.activeCompanyId))",
+          "ref": "js/ui_projects.js:3783"
+        },
+        "project_id": {
+          "exemplo": "expr: window._currentProject.id",
+          "ref": "js/ui_projects.js:3784"
+        },
+        "description": {
+          "exemplo": "expr: desc",
+          "ref": "js/ui_projects.js:3785"
+        },
+        "amount": {
+          "exemplo": "expr: amount",
+          "ref": "js/ui_projects.js:3786"
+        },
+        "status": {
+          "exemplo": "expr: status",
+          "ref": "js/ui_projects.js:3787"
+        },
+        "is_master_data": {
+          "exemplo": 0,
+          "ref": "js/ui_projects.js:3788"
+        }
+      }
+    },
+    "project_documents": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, project_id, type_id, file_name, upload_date, is_master_data",
+      "ref_esquema": "js/db_v2.js:562",
+      "gravacoes": [],
+      "campos": {
+        "company_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:562",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "project_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:562",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "type_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:562",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "file_name": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:562",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "upload_date": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:562",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "is_master_data": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:562",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        }
+      },
+      "nota": "Nenhuma gravação (add/put/update/modify) no código; campos listados são só os do índice Dexie."
+    },
+    "project_activity_log": {
+      "grupo": "A",
+      "esquema_dexie": "++id, company_id, project_id, timestamp, user, action, details, is_master_data",
+      "ref_esquema": "js/db_v2.js:563",
+      "gravacoes": [],
+      "campos": {
+        "company_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:563",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "project_id": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:563",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "timestamp": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:563",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "user": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:563",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "action": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:563",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "details": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:563",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        },
+        "is_master_data": {
+          "exemplo": "desconhecido (sem gravação no código)",
+          "ref": "js/db_v2.js:563",
+          "nota": "campo apenas declarado no índice Dexie; nenhuma gravação encontrada em js/**/*.js"
+        }
+      },
+      "nota": "Nenhuma gravação (add/put/update/modify) no código; campos listados são só os do índice Dexie."
+    },
+    "purchase_contract_milestones": {
+      "grupo": "A",
+      "esquema_dexie": "++id, contract_id, title, expected_date, amount, status",
+      "ref_esquema": "js/db_v2.js:608",
+      "gravacoes": [
+        "add@js/ui_compras_v2.js:4708"
+      ],
+      "campos": {
+        "contract_id": {
+          "exemplo": "expr: finalId",
+          "ref": "js/ui_compras_v2.js:4708"
+        },
+        "title": {
+          "exemplo": "expr: title",
+          "ref": "js/ui_compras_v2.js:4708"
+        },
+        "expected_date": {
+          "exemplo": "expr: expected_date",
+          "ref": "js/ui_compras_v2.js:4708"
+        },
+        "amount": {
+          "exemplo": "expr: amount",
+          "ref": "js/ui_compras_v2.js:4708"
+        },
+        "status": {
+          "exemplo": "expr: mstatus",
+          "ref": "js/ui_compras_v2.js:4708"
+        }
+      }
+    },
+    "pos_sessions": {
+      "grupo": "B",
+      "esquema_dexie": "++id, pos_company_id, terminal_id, status, opened_at, posting_status, settlement_status, deviation_status, [pos_company_id+status], [terminal_id+status]",
+      "ref_esquema": "js/db_v2.js:644",
+      "linhas_reais_backup": 4,
+      "campos": {
+        "unposted_at": {
+          "exemplo": "ISO datetime (new Date().toISOString())",
+          "ref": "js/pos_prestacao.js:348"
+        },
+        "unposted_by": {
+          "exemplo": "string: utilizador (operador())",
+          "ref": "js/pos_prestacao.js:348"
+        },
+        "deliberation_cancelled": {
+          "exemplo": "objecto {..., cancelled_by, cancelled_at}",
+          "ref": "js/pos_prestacao.js:487"
+        }
+      }
+    },
+    "pos_settlements": {
+      "grupo": "B",
+      "esquema_dexie": "++id, pos_company_id, session_id, kind, status, [pos_company_id+status]",
+      "ref_esquema": "js/db_v2.js:645",
+      "linhas_reais_backup": 6,
+      "campos": {
+        "commission_deducted": {
+          "exemplo": "expr: deduzida",
+          "ref": "js/pos_prestacao.js:761"
+        },
+        "commission_doc_id": {
+          "exemplo": "expr: comissaoDocId",
+          "ref": "js/pos_prestacao.js:761"
+        },
+        "cancelled_at": {
+          "exemplo": "ISO datetime (new Date().toISOString())",
+          "ref": "js/pos_prestacao.js:790"
+        },
+        "cancelled_by": {
+          "exemplo": "string: utilizador (operador())",
+          "ref": "js/pos_prestacao.js:790"
+        }
+      }
+    },
+    "lav_orders": {
+      "grupo": "B",
+      "esquema_dexie": "++id, lav_company_id, order_number, status, customer_id, terminal_id, promised_date, [lav_company_id+status]",
+      "ref_esquema": "js/db_v2.js:652",
+      "linhas_reais_backup": 5,
+      "campos": {
+        "cancel_reason": {
+          "exemplo": "expr: motivo",
+          "ref": "js/lavandaria.js:1068",
+          "nota": "também: js/lavandaria.js:1843"
+        }
+      }
+    },
+    "lav_payments": {
+      "grupo": "B",
+      "esquema_dexie": "++id, lav_company_id, order_id, session_id, status",
+      "ref_esquema": "js/db_v2.js:653",
+      "linhas_reais_backup": 5,
+      "campos": {
+        "sale_id": {
+          "exemplo": "expr: saleId",
+          "ref": "js/lavandaria.js:274"
+        },
+        "posting_lans": {
+          "exemplo": "expr: lans",
+          "ref": "js/lavandaria.js:2470",
+          "nota": "também: js/lavandaria.js:2476"
+        }
+      }
+    },
+    "lav_claims": {
+      "grupo": "A",
+      "esquema_dexie": "++id, lav_company_id, order_id, status",
+      "ref_esquema": "js/db_v2.js:654",
+      "gravacoes": [
+        "add@js/lavandaria.js:1055",
+        "update@js/lavandaria.js:1537",
+        "update@js/lavandaria.js:1570"
+      ],
+      "campos": {
+        "lav_company_id": {
+          "exemplo": "expr: cid()",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "order_id": {
+          "exemplo": "expr: o.id",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "order_number": {
+          "exemplo": "expr: o.order_number",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "line_id": {
+          "exemplo": "expr: i.line_id",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "item_name": {
+          "exemplo": "string (template)",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "piece_desc": {
+          "exemplo": "expr: descricaoPeca(i)",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "entry_state": {
+          "exemplo": "expr: estadoEntradaTexto(i)",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "customer_id": {
+          "exemplo": "expr: o.customer_id",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "description": {
+          "exemplo": "expr: desc",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "declared_value": {
+          "exemplo": "number (r2(num(document.getElementById('lav-dano-valor')?.value)))",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "status": {
+          "exemplo": "AGUARDA_COMPROVATIVO",
+          "ref": "js/lavandaria.js:1055",
+          "nota": "também: js/lavandaria.js:1535, js/lavandaria.js:1570"
+        },
+        "created_at": {
+          "exemplo": "ISO datetime (new Date().toISOString())",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "created_by": {
+          "exemplo": "string: utilizador (operador())",
+          "ref": "js/lavandaria.js:1055"
+        },
+        "proof_ref": {
+          "exemplo": "expr: ref",
+          "ref": "js/lavandaria.js:1535"
+        },
+        "proof_date": {
+          "exemplo": "expr: v('ldd-data').value || ''",
+          "ref": "js/lavandaria.js:1535"
+        },
+        "proof_amount": {
+          "exemplo": "expr: valor",
+          "ref": "js/lavandaria.js:1535"
+        },
+        "decision_note": {
+          "exemplo": "expr: nota",
+          "ref": "js/lavandaria.js:1535"
+        },
+        "decided_at": {
+          "exemplo": "ISO datetime (new Date().toISOString())",
+          "ref": "js/lavandaria.js:1535"
+        },
+        "decided_by": {
+          "exemplo": "string: utilizador (operador())",
+          "ref": "js/lavandaria.js:1535"
+        },
+        "compensation": {
+          "exemplo": "expr: valor",
+          "ref": "js/lavandaria.js:1536"
+        },
+        "treasury_doc_id": {
+          "exemplo": "expr: docId",
+          "ref": "js/lavandaria.js:1570"
+        },
+        "paid_at": {
+          "exemplo": "ISO datetime (new Date().toISOString())",
+          "ref": "js/lavandaria.js:1570"
+        },
+        "paid_by": {
+          "exemplo": "string: utilizador (operador())",
+          "ref": "js/lavandaria.js:1570"
+        }
+      }
+    },
+    "lav_settings": {
+      "grupo": "A",
+      "esquema_dexie": "++id, lav_company_id",
+      "ref_esquema": "js/db_v2.js:655",
+      "gravacoes": [
+        "put@js/lavandaria.js:1480",
+        "add@js/lavandaria.js:1480"
+      ],
+      "campos": {
+        "lav_company_id": {
+          "exemplo": "expr: cid()",
+          "ref": "js/lavandaria.js:1473"
+        },
+        "storage_fee_enabled": {
+          "exemplo": "boolean (v('ld-fee-on').checked)",
+          "ref": "js/lavandaria.js:1473"
+        },
+        "storage_free_days": {
+          "exemplo": "number (Math.max(0, Math.round(num(v('ld-free').value))))",
+          "ref": "js/lavandaria.js:1473"
+        },
+        "storage_fee_pct_day": {
+          "exemplo": "number (Math.max(0, num(v('ld-pct').value)))",
+          "ref": "js/lavandaria.js:1474"
+        },
+        "cf_advance_pct": {
+          "exemplo": "number (Math.min(100, Math.max(0, num(v('ld-cf').value))))",
+          "ref": "js/lavandaria.js:1474"
+        },
+        "urgency_pct": {
+          "exemplo": "number (Math.max(0, num(v('ld-urg').value)))",
+          "ref": "js/lavandaria.js:1475"
+        },
+        "urgency_lead_factor": {
+          "exemplo": "number (Math.min(1, Math.max(0.1, num(v('ld-urg-f').value) || 0.5)))",
+          "ref": "js/lavandaria.js:1475"
+        },
+        "pickup_fee": {
+          "exemplo": "number (r2(num(v('ld-rec').value)))",
+          "ref": "js/lavandaria.js:1476"
+        },
+        "delivery_fee": {
+          "exemplo": "number (r2(num(v('ld-ent').value)))",
+          "ref": "js/lavandaria.js:1476"
+        },
+        "claim_days": {
+          "exemplo": "number (Math.max(0, Math.round(num(v('ld-rcl').value))))",
+          "ref": "js/lavandaria.js:1476"
+        },
+        "extras_account": {
+          "exemplo": "expr: v('ld-extras').value",
+          "ref": "js/lavandaria.js:1477"
+        },
+        "extras_tax_rate": {
+          "exemplo": "number (Math.max(0, num(v('ld-extras-iva').value)))",
+          "ref": "js/lavandaria.js:1477"
+        },
+        "compensation_account": {
+          "exemplo": "expr: v('ld-conta').value",
+          "ref": "js/lavandaria.js:1478"
+        },
+        "invoice_on_advance": {
+          "exemplo": "boolean (v('ld-iva').checked)",
+          "ref": "js/lavandaria.js:1478"
+        },
+        "updated_at": {
+          "exemplo": "ISO datetime (new Date().toISOString())",
+          "ref": "js/lavandaria.js:1478"
+        },
+        "updated_by": {
+          "exemplo": "string: utilizador (operador())",
+          "ref": "js/lavandaria.js:1478"
+        }
+      }
+    },
+    "hotel_stays": {
+      "grupo": "B",
+      "esquema_dexie": "++id, hotel_company_id, terminal_id, room_product_id, status, [hotel_company_id+status]",
+      "ref_esquema": "js/db_v2.js:665",
+      "linhas_reais_backup": 8,
+      "campos": {
+        "cancel_reason": {
+          "exemplo": "expr: motivo",
+          "ref": "js/hotelaria.js:488"
+        }
+      }
+    },
+    "maintenance_requests": {
+      "grupo": "A",
+      "esquema_dexie": "++id, maint_company_id, status, action, created_at",
+      "ref_esquema": "js/db_v2.js:675",
+      "gravacoes": [
+        "update@js/manutencao.js:329",
+        "add@js/manutencao.js:533",
+        "update@js/manutencao.js:612",
+        "update@js/manutencao.js:623",
+        "update@js/manutencao.js:690",
+        "update@js/manutencao.js:699",
+        "update@js/manutencao.js:710",
+        "update@js/manutencao.js:724"
+      ],
+      "campos": {
+        "status": {
+          "exemplo": "EXPIRADO",
+          "ref": "js/manutencao.js:329",
+          "nota": "também: js/manutencao.js:527, js/manutencao.js:613, js/manutencao.js:624, js/manutencao.js:690"
+        },
+        "history": {
+          "exemplo": "array de {at, by, text}",
+          "ref": "js/manutencao.js:329",
+          "nota": "também: js/manutencao.js:529, js/manutencao.js:615, js/manutencao.js:625, js/manutencao.js:690"
+        },
+        "maint_company_id": {
+          "exemplo": "expr: cid() || null",
+          "ref": "js/manutencao.js:525"
+        },
+        "scope": {
+          "exemplo": "expr: a.ambito",
+          "ref": "js/manutencao.js:525"
+        },
+        "scope_company_id": {
+          "exemplo": "expr: a.ambito === 'empresa' ? cid() : null",
+          "ref": "js/manutencao.js:525"
+        },
+        "scope_company_name": {
+          "exemplo": "expr: a.ambito === 'empresa' && empresa ? empresa.name : ''",
+          "ref": "js/manutencao.js:525"
+        },
+        "action": {
+          "exemplo": "expr: codigo",
+          "ref": "js/manutencao.js:526"
+        },
+        "action_label": {
+          "exemplo": "expr: a.titulo",
+          "ref": "js/manutencao.js:526"
+        },
+        "params": {
+          "exemplo": "expr: p",
+          "ref": "js/manutencao.js:526"
+        },
+        "params_resumo": {
+          "exemplo": "expr: a.resumoParametros ? a.resumoParametros(p) : ''",
+          "ref": "js/manutencao.js:526"
+        },
+        "justification": {
+          "exemplo": "expr: justificacao",
+          "ref": "js/manutencao.js:527"
+        },
+        "impact_at_request": {
+          "exemplo": "expr: imp",
+          "ref": "js/manutencao.js:527"
+        },
+        "requested_by": {
+          "exemplo": "expr: eu",
+          "ref": "js/manutencao.js:528"
+        },
+        "created_at": {
+          "exemplo": "ISO datetime (agoraISO())",
+          "ref": "js/manutencao.js:528"
+        },
+        "approved_by": {
+          "exemplo": "objecto {id, username}",
+          "ref": "js/manutencao.js:613"
+        },
+        "approved_at": {
+          "exemplo": "expr: quando",
+          "ref": "js/manutencao.js:613"
+        },
+        "approval_note": {
+          "exemplo": "expr: nota",
+          "ref": "js/manutencao.js:613"
+        },
+        "expires_at": {
+          "exemplo": "expr: semPrazo(p) ? null : new Date(Date.now() + VALIDADE_APROVACAO_H * 3600000).toISOString()",
+          "ref": "js/manutencao.js:614"
+        },
+        "impact_at_approval": {
+          "exemplo": "expr: imp",
+          "ref": "js/manutencao.js:614"
+        },
+        "rejected_by": {
+          "exemplo": "objecto {id, username}",
+          "ref": "js/manutencao.js:624"
+        },
+        "rejected_at": {
+          "exemplo": "expr: quando",
+          "ref": "js/manutencao.js:624"
+        },
+        "rejection_reason": {
+          "exemplo": "expr: nota",
+          "ref": "js/manutencao.js:624"
+        },
+        "executed_by": {
+          "exemplo": "expr: eu",
+          "ref": "js/manutencao.js:690",
+          "nota": "também: js/manutencao.js:699"
+        },
+        "executed_at": {
+          "exemplo": "expr: quando",
+          "ref": "js/manutencao.js:690",
+          "nota": "também: js/manutencao.js:699"
+        },
+        "impact_at_execution": {
+          "exemplo": "expr: imp",
+          "ref": "js/manutencao.js:690",
+          "nota": "também: js/manutencao.js:699"
+        },
+        "result": {
+          "exemplo": "Execução iniciada (acção que substitui ou apaga dados em bloco).",
+          "ref": "js/manutencao.js:690",
+          "nota": "também: js/manutencao.js:699"
+        },
+        "cancelled_by": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/manutencao.js:724"
+        },
+        "cancelled_at": {
+          "exemplo": "ISO datetime (agoraISO())",
+          "ref": "js/manutencao.js:724"
+        }
+      }
+    },
+    "rh_education": {
+      "grupo": "A",
+      "esquema_dexie": "++id, rh_company_id, employee_id",
+      "ref_esquema": "js/db_v2.js:683",
+      "gravacoes": [
+        "bulkAdd@js/modules/rh/ficha_colaborador.js:423",
+        "bulkAdd@js/modules/rh/importar_colaboradores.js:378 (b[tabela] dinâmico, tabela='rh_education' em :382)"
+      ],
+      "campos": {
+        "rh_company_id": {
+          "exemplo": "expr: cid",
+          "ref": "js/modules/rh/ficha_colaborador.js:415",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:378"
+        },
+        "employee_id": {
+          "exemplo": "expr: employeeId",
+          "ref": "js/modules/rh/ficha_colaborador.js:415",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:378"
+        },
+        "ordem": {
+          "exemplo": "expr: i",
+          "ref": "js/modules/rh/ficha_colaborador.js:415",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:378"
+        },
+        "nivel": {
+          "exemplo": "expr: r.nivel || ''",
+          "ref": "js/modules/rh/ficha_colaborador.js:416",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:313"
+        },
+        "curso": {
+          "exemplo": "expr: String(r.curso || '').trim()",
+          "ref": "js/modules/rh/ficha_colaborador.js:416",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:313"
+        },
+        "instituicao": {
+          "exemplo": "expr: String(r.instituicao || '').trim()",
+          "ref": "js/modules/rh/ficha_colaborador.js:416",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:313"
+        },
+        "ano_conclusao": {
+          "exemplo": "expr: String(r.ano_conclusao || '').trim()",
+          "ref": "js/modules/rh/ficha_colaborador.js:417",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:313"
+        },
+        "estado": {
+          "exemplo": "expr: r.estado || 'Concluído'",
+          "ref": "js/modules/rh/ficha_colaborador.js:417",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:313"
+        },
+        "updated_at": {
+          "exemplo": "ISO datetime (agora)",
+          "ref": "js/modules/rh/ficha_colaborador.js:417",
+          "nota": "também importação: js/modules/rh/importar_colaboradores.js:378"
+        }
+      }
+    },
+    "rh_evaluations": {
+      "grupo": "A",
+      "esquema_dexie": "++id, rh_company_id, employee_id, ano, status, [rh_company_id+ano]",
+      "ref_esquema": "js/db_v2.js:684",
+      "gravacoes": [
+        "update@js/modules/rh/aval360_dados.js:290",
+        "update@js/modules/rh/aval360_dados.js:317",
+        "update@js/modules/rh/aval360_dados.js:326",
+        "update@js/modules/rh/aval360_dados.js:343",
+        "update@js/modules/rh/aval360_dados.js:354",
+        "update@js/modules/rh/aval360_dados.js:373",
+        "update@js/modules/rh/avaliacao.js:667",
+        "add@js/modules/rh/avaliacao.js:668",
+        "update@js/modules/rh/avaliacao.js:713"
+      ],
+      "campos": {
+        "ciclo_id": {
+          "exemplo": "expr: c.id",
+          "ref": "js/modules/rh/aval360_dados.js:290"
+        },
+        "nota_360": {
+          "exemplo": "expr: r.nota",
+          "ref": "js/modules/rh/aval360_dados.js:290"
+        },
+        "classificacao_360": {
+          "exemplo": "expr: r.classificacao",
+          "ref": "js/modules/rh/aval360_dados.js:290"
+        },
+        "componentes_360": {
+          "exemplo": "expr: r.componentes",
+          "ref": "js/modules/rh/aval360_dados.js:290"
+        },
+        "avisos_360": {
+          "exemplo": "expr: r.avisos",
+          "ref": "js/modules/rh/aval360_dados.js:290"
+        },
+        "actualizado_360_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/aval360_dados.js:290"
+        },
+        "conhecimento": {
+          "exemplo": "expr: conhecimento",
+          "ref": "js/modules/rh/aval360_dados.js:317",
+          "nota": "também: js/modules/rh/aval360_dados.js:326"
+        },
+        "comentario_colaborador": {
+          "exemplo": "expr: conhecimento.comentario || a.comentario_colaborador || ''",
+          "ref": "js/modules/rh/aval360_dados.js:317",
+          "nota": "também: js/modules/rh/avaliacao.js:661"
+        },
+        "contestacao": {
+          "exemplo": "expr: contestacao",
+          "ref": "js/modules/rh/aval360_dados.js:343",
+          "nota": "também: js/modules/rh/aval360_dados.js:354, js/modules/rh/aval360_dados.js:373"
+        },
+        "rh_company_id": {
+          "exemplo": "expr: cid",
+          "ref": "js/modules/rh/avaliacao.js:654"
+        },
+        "employee_id": {
+          "exemplo": "expr: employeeId ? employeeId.id : dados.employee_id",
+          "ref": "js/modules/rh/avaliacao.js:654"
+        },
+        "ano": {
+          "exemplo": "expr: ano",
+          "ref": "js/modules/rh/avaliacao.js:654"
+        },
+        "periodo": {
+          "exemplo": "expr: periodo",
+          "ref": "js/modules/rh/avaliacao.js:654"
+        },
+        "criterios": {
+          "exemplo": "expr: criterios",
+          "ref": "js/modules/rh/avaliacao.js:655"
+        },
+        "objectivos": {
+          "exemplo": "expr: objectivos",
+          "ref": "js/modules/rh/avaliacao.js:655"
+        },
+        "peso_objectivos": {
+          "exemplo": "expr: isNaN(pesoObj) ? PESO_OBJECTIVOS : pesoObj",
+          "ref": "js/modules/rh/avaliacao.js:655"
+        },
+        "pontuacao": {
+          "exemplo": "expr: calc.pontuacao",
+          "ref": "js/modules/rh/avaliacao.js:656"
+        },
+        "pontuacao_criterios": {
+          "exemplo": "expr: calc.pontuacao_criterios",
+          "ref": "js/modules/rh/avaliacao.js:656"
+        },
+        "pontuacao_objectivos": {
+          "exemplo": "expr: calc.pontuacao_objectivos",
+          "ref": "js/modules/rh/avaliacao.js:656"
+        },
+        "classificacao": {
+          "exemplo": "expr: calc.classificacao",
+          "ref": "js/modules/rh/avaliacao.js:657"
+        },
+        "status": {
+          "exemplo": "RASCUNHO",
+          "ref": "js/modules/rh/avaliacao.js:658",
+          "nota": "também: js/modules/rh/avaliacao.js:713"
+        },
+        "avaliador": {
+          "exemplo": "expr: avaliador",
+          "ref": "js/modules/rh/avaliacao.js:659"
+        },
+        "data_avaliacao": {
+          "exemplo": "expr: dataAv",
+          "ref": "js/modules/rh/avaliacao.js:659"
+        },
+        "pontos_fortes": {
+          "exemplo": "expr: String(dados.pontos_fortes || '').trim()",
+          "ref": "js/modules/rh/avaliacao.js:660"
+        },
+        "pontos_melhorar": {
+          "exemplo": "expr: String(dados.pontos_melhorar || '').trim()",
+          "ref": "js/modules/rh/avaliacao.js:660"
+        },
+        "plano_desenvolvimento": {
+          "exemplo": "expr: String(dados.plano_desenvolvimento || '').trim()",
+          "ref": "js/modules/rh/avaliacao.js:661"
+        },
+        "concluida_em": {
+          "exemplo": "expr: concluir ? agora : null",
+          "ref": "js/modules/rh/avaliacao.js:662"
+        },
+        "concluida_por": {
+          "exemplo": "expr: concluir ? nomeUtilizador() : null",
+          "ref": "js/modules/rh/avaliacao.js:663"
+        },
+        "updated_at": {
+          "exemplo": "ISO datetime (agora)",
+          "ref": "js/modules/rh/avaliacao.js:664",
+          "nota": "também: js/modules/rh/avaliacao.js:713"
+        },
+        "created_at": {
+          "exemplo": "ISO datetime (agora)",
+          "ref": "js/modules/rh/avaliacao.js:668"
+        },
+        "reaberta_em": {
+          "exemplo": "ISO datetime (new Date().toISOString())",
+          "ref": "js/modules/rh/avaliacao.js:713"
+        },
+        "reaberta_por": {
+          "exemplo": "string: utilizador (nomeUtilizador())",
+          "ref": "js/modules/rh/avaliacao.js:713"
+        }
+      }
+    },
+    "orc_rubrics": {
+      "grupo": "B",
+      "esquema_dexie": "++id, orc_company_id, tipo, codigo, [orc_company_id+tipo]",
+      "ref_esquema": "js/db_v2.js:703",
+      "linhas_reais_backup": 75,
+      "campos": {
+        "controlo": {
+          "exemplo": "objecto {modo, aviso_pct, limite_pct, base}",
+          "ref": "js/modules/orcamento/orcamento_dados.js:103"
+        },
+        "driver": {
+          "exemplo": "expr: dados.driver || null",
+          "ref": "js/modules/orcamento/orcamento_dados.js:105"
+        },
+        "cambial_pct": {
+          "exemplo": "number (Math.min(100, Math.max(0, num(dados.cambial_pct))))",
+          "ref": "js/modules/orcamento/orcamento_dados.js:106"
+        },
+        "variavel_pct": {
+          "exemplo": "expr: dados.variavel_pct === '' || dados.variavel_pct == null ? null : Math.min(100, Math.max(0,…",
+          "ref": "js/modules/orcamento/orcamento_dados.js:107"
+        }
+      }
+    },
+    "orc_budgets": {
+      "grupo": "B",
+      "esquema_dexie": "++id, orc_company_id, ano, tipo, status, pai_id, [orc_company_id+ano]",
+      "ref_esquema": "js/db_v2.js:711",
+      "linhas_reais_backup": 8,
+      "campos": {
+        "saldo_inicial": {
+          "exemplo": "expr: cabecalho.saldo_inicial === '' ? null : arred(cabecalho.saldo_inicial)",
+          "ref": "js/modules/orcamento/orcamento_dados.js:234"
+        },
+        "submetido_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_dados.js:250"
+        },
+        "submetido_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_dados.js:250"
+        },
+        "substituido_por_id": {
+          "exemplo": "expr: o.id",
+          "ref": "js/modules/orcamento/orcamento_dados.js:259"
+        },
+        "substituido_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_dados.js:259"
+        },
+        "aprovado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_dados.js:260"
+        },
+        "aprovado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_dados.js:260"
+        },
+        "prazo_contributo": {
+          "exemplo": "expr: prazo || null",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:134",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:139"
+        },
+        "consolidado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:162"
+        },
+        "consolidado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:162"
+        },
+        "consolidado_ids": {
+          "exemplo": "expr: incluidos.map(f => f.id)",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:162"
+        }
+      }
+    },
+    "orc_forecasts": {
+      "grupo": "A",
+      "esquema_dexie": "++id, orc_company_id, tipo, mes_ref, status, [orc_company_id+tipo]",
+      "ref_esquema": "js/db_v2.js:712",
+      "gravacoes": [
+        "add@js/modules/orcamento/orcamento_planeamento.js:234",
+        "add@js/modules/orcamento/orcamento_planeamento.js:255",
+        "update@js/modules/orcamento/orcamento_planeamento.js:272",
+        "update@js/modules/orcamento/orcamento_planeamento.js:278"
+      ],
+      "campos": {
+        "orc_company_id": {
+          "exemplo": "expr: cid",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234"
+        },
+        "tipo": {
+          "exemplo": "expr: tipo",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:226"
+        },
+        "business_unit_id": {
+          "exemplo": "expr: business_unit_id ? Number(business_unit_id) : null",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:226"
+        },
+        "cost_center_id": {
+          "exemplo": "expr: cost_center_id ? Number(cost_center_id) : null",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:226"
+        },
+        "project_id": {
+          "exemplo": "expr: project_id ? Number(project_id) : null",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:226"
+        },
+        "nome": {
+          "exemplo": "expr: String(nome || `Previsão ${O().TIPOS[tipo].toLowerCase()}`).trim()",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234"
+        },
+        "mes_ref": {
+          "exemplo": "expr: mes_ref",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:255"
+        },
+        "revisao": {
+          "exemplo": 1,
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:255"
+        },
+        "status": {
+          "exemplo": "RASCUNHO",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:255, js/modules/orcamento/orcamento_planeamento.js:278"
+        },
+        "metodo": {
+          "exemplo": "expr: metodo",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234"
+        },
+        "crescimento_pct": {
+          "exemplo": "number (num(crescimento_pct))",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234"
+        },
+        "notas": {
+          "exemplo": "",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:255, js/modules/orcamento/orcamento_planeamento.js:272"
+        },
+        "criado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:255"
+        },
+        "criado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:234",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:255"
+        },
+        "revisao_origem_id": {
+          "exemplo": "expr: ultima.id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:255"
+        },
+        "actualizado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:272"
+        },
+        "actualizado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:272"
+        },
+        "publicado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:278"
+        },
+        "publicado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:278"
+        }
+      }
+    },
+    "orc_forecast_lines": {
+      "grupo": "A",
+      "esquema_dexie": "++id, orc_company_id, forecast_id, rubric_id",
+      "ref_esquema": "js/db_v2.js:713",
+      "gravacoes": [
+        "bulkAdd@js/modules/orcamento/orcamento_planeamento.js:235",
+        "bulkAdd@js/modules/orcamento/orcamento_planeamento.js:256",
+        "bulkAdd@js/modules/orcamento/orcamento_planeamento.js:271"
+      ],
+      "campos": {
+        "orc_company_id": {
+          "exemplo": "expr: cid",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:235",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:259, js/modules/orcamento/orcamento_planeamento.js:271"
+        },
+        "forecast_id": {
+          "exemplo": "expr: id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:235",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:259, js/modules/orcamento/orcamento_planeamento.js:271"
+        },
+        "rubric_id": {
+          "exemplo": "expr: r.id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:235",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:259, js/modules/orcamento/orcamento_planeamento.js:271"
+        },
+        "valores": {
+          "exemplo": "expr: valores[r.id]",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:235",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:259, js/modules/orcamento/orcamento_planeamento.js:271"
+        }
+      }
+    },
+    "orc_scenarios": {
+      "grupo": "A",
+      "esquema_dexie": "++id, orc_company_id, budget_id",
+      "ref_esquema": "js/db_v2.js:714",
+      "gravacoes": [
+        "update@js/modules/orcamento/orcamento_planeamento.js:388",
+        "add@js/modules/orcamento/orcamento_planeamento.js:388"
+      ],
+      "campos": {
+        "orc_company_id": {
+          "exemplo": "expr: o.orc_company_id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "budget_id": {
+          "exemplo": "expr: o.id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "nome": {
+          "exemplo": "expr: nome",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "tipo": {
+          "exemplo": "expr: PADROES[dados.tipo] ? dados.tipo : 'PERSONALIZADO'",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "variaveis": {
+          "exemplo": "expr: variaveis",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "ajustes": {
+          "exemplo": "expr: ajustes",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "notas": {
+          "exemplo": "expr: String(dados.notas || '')",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "actualizado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "actualizado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:386"
+        },
+        "criado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:388"
+        },
+        "criado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:388"
+        }
+      }
+    },
+    "orc_excess_requests": {
+      "grupo": "A",
+      "esquema_dexie": "++id, orc_company_id, status, rubric_id, budget_id",
+      "ref_esquema": "js/db_v2.js:715",
+      "gravacoes": [
+        "update@js/modules/orcamento/orcamento_planeamento.js:538",
+        "add@js/modules/orcamento/orcamento_planeamento.js:539",
+        "update@js/modules/orcamento/orcamento_planeamento.js:545",
+        "update@js/modules/orcamento/orcamento_planeamento_ui.js:112",
+        "update@js/modules/orcamento/orcamento_planeamento_ui.js:123",
+        "update@js/modules/orcamento/orcamento_planeamento_ui.js:124"
+      ],
+      "campos": {
+        "orc_company_id": {
+          "exemplo": "expr: window.activeCompanyId",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "status": {
+          "exemplo": "PENDENTE",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento.js:545, js/modules/orcamento/orcamento_planeamento_ui.js:112, js/modules/orcamento/orcamento_planeamento_ui.js:123, js/modules/orcamento/orcamento_planeamento_ui.js:124"
+        },
+        "rubric_id": {
+          "exemplo": "expr: r.rubrica.id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "budget_id": {
+          "exemplo": "expr: r.orcamento.id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "origem": {
+          "exemplo": "expr: ctx.origem || ''",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "doc": {
+          "exemplo": "expr: ctx.doc || ''",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "chave_doc": {
+          "exemplo": "expr: chaveDoc(ctx)",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "data_doc": {
+          "exemplo": "expr: d10(ctx.data)",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "valor": {
+          "exemplo": "expr: r.documento",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "orcado": {
+          "exemplo": "expr: r.orcado",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "consumido": {
+          "exemplo": "expr: r.consumido",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "pct": {
+          "exemplo": "expr: isFinite(r.pct) ? arred(r.pct) : null",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "excesso": {
+          "exemplo": "expr: r.excesso",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "motivo": {
+          "exemplo": "expr: String(motivo || '').trim()",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "pedido_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "pedido_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:537"
+        },
+        "decidido_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:545"
+        },
+        "decidido_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:545"
+        },
+        "nota_decisao": {
+          "exemplo": "expr: String(nota || '').trim()",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:545"
+        },
+        "autoaprovado": {
+          "exemplo": "expr: souEu(p.pedido_por)",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:545"
+        },
+        "utilizado_em": {
+          "exemplo": "ISO datetime (new Date().toISOString())",
+          "ref": "js/modules/orcamento/orcamento_planeamento_ui.js:112",
+          "nota": "também: js/modules/orcamento/orcamento_planeamento_ui.js:123, js/modules/orcamento/orcamento_planeamento_ui.js:124"
+        }
+      }
+    },
+    "orc_alert_log": {
+      "grupo": "A",
+      "esquema_dexie": "++id, orc_company_id, em",
+      "ref_esquema": "js/db_v2.js:716",
+      "gravacoes": [
+        "add@js/modules/orcamento/orcamento_planeamento.js:527"
+      ],
+      "campos": {
+        "orc_company_id": {
+          "exemplo": "expr: window.activeCompanyId",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "origem": {
+          "exemplo": "expr: ctx.origem || ''",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "doc": {
+          "exemplo": "expr: ctx.doc || ''",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "rubric_id": {
+          "exemplo": "expr: r.rubrica.id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "budget_id": {
+          "exemplo": "expr: r.orcamento.id",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "pct": {
+          "exemplo": "expr: isFinite(r.pct) ? arred(r.pct) : null",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "estado": {
+          "exemplo": "expr: r.estado",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "accao": {
+          "exemplo": "expr: accao",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        },
+        "valor": {
+          "exemplo": "expr: r.documento",
+          "ref": "js/modules/orcamento/orcamento_planeamento.js:527"
+        }
+      }
+    },
+    "ad_items": {
+      "grupo": "B",
+      "esquema_dexie": "++id, ad_company_id, tipo, estado, [ad_company_id+estado]",
+      "ref_esquema": "js/db_v2.js:724",
+      "linhas_reais_backup": 2,
+      "campos": {
+        "regularizacao": {
+          "exemplo": "expr: regul",
+          "ref": "js/modules/acrescimos/ad_dados.js:188",
+          "nota": "também: js/modules/acrescimos/ad_dados.js:206"
+        },
+        "termino": {
+          "exemplo": "objecto {data, motivo, por, em}",
+          "ref": "js/modules/acrescimos/ad_dados.js:201",
+          "nota": "também: js/modules/acrescimos/ad_dados.js:207"
+        }
+      }
+    },
+    "ad_postings": {
+      "grupo": "B",
+      "esquema_dexie": "++id, ad_company_id, item_id, periodo, estado, lan_number",
+      "ref_esquema": "js/db_v2.js:725",
+      "linhas_reais_backup": 8,
+      "campos": {
+        "anulado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/acrescimos/ad_dados.js:344"
+        },
+        "anulado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/acrescimos/ad_dados.js:344"
+        }
+      }
+    },
+    "crm_settings": {
+      "grupo": "A",
+      "esquema_dexie": "++id, crm_company_id",
+      "ref_esquema": "js/db_v2.js:731",
+      "gravacoes": [
+        "update@js/modules/crm/crm_dados.js:55",
+        "add@js/modules/crm/crm_dados.js:55"
+      ],
+      "campos": {
+        "crm_company_id": {
+          "exemplo": "expr: cid",
+          "ref": "js/modules/crm/crm_dados.js:53"
+        },
+        "motivos_perda": {
+          "exemplo": "expr: lista(dados.motivos_perda)",
+          "ref": "js/modules/crm/crm_dados.js:53"
+        },
+        "origens": {
+          "exemplo": "expr: lista(dados.origens)",
+          "ref": "js/modules/crm/crm_dados.js:53"
+        },
+        "dias_sem_actividade": {
+          "exemplo": "number (Math.max(1, parseInt(dados.dias_sem_actividade) || 7))",
+          "ref": "js/modules/crm/crm_dados.js:53"
+        },
+        "prazo_pagamento_dias": {
+          "exemplo": "number (Math.max(0, parseInt(dados.prazo_pagamento_dias) || 30))",
+          "ref": "js/modules/crm/crm_dados.js:53"
+        }
+      }
+    },
+    "crm_activities": {
+      "grupo": "B",
+      "esquema_dexie": "++id, crm_company_id, opportunity_id, account_id, concluida, data_prevista",
+      "ref_esquema": "js/db_v2.js:736",
+      "linhas_reais_backup": 45,
+      "campos": {
+        "sequencia_id": {
+          "exemplo": "expr: s.id",
+          "ref": "js/modules/crm/crm_dados.js:222"
+        }
+      }
+    },
+    "crm_sequences": {
+      "grupo": "A",
+      "esquema_dexie": "++id, crm_company_id, pipeline_id",
+      "ref_esquema": "js/db_v2.js:738",
+      "gravacoes": [
+        "update@js/modules/crm/crm_dados.js:369",
+        "add@js/modules/crm/crm_dados.js:370"
+      ],
+      "campos": {
+        "crm_company_id": {
+          "exemplo": "expr: cidA()",
+          "ref": "js/modules/crm/crm_dados.js:368"
+        },
+        "nome": {
+          "exemplo": "expr: nome",
+          "ref": "js/modules/crm/crm_dados.js:368"
+        },
+        "pipeline_id": {
+          "exemplo": "number (Number(dados.pipeline_id))",
+          "ref": "js/modules/crm/crm_dados.js:368"
+        },
+        "etapa_id": {
+          "exemplo": "expr: dados.etapa_id",
+          "ref": "js/modules/crm/crm_dados.js:368"
+        },
+        "activo": {
+          "exemplo": "expr: dados.activo === false ? 0 : 1",
+          "ref": "js/modules/crm/crm_dados.js:368"
+        },
+        "passos": {
+          "exemplo": "expr: passos",
+          "ref": "js/modules/crm/crm_dados.js:368"
+        }
+      }
+    },
+    "org_units": {
+      "grupo": "B",
+      "esquema_dexie": "++id, org_company_id, pai_id",
+      "ref_esquema": "js/db_v2.js:744",
+      "linhas_reais_backup": 16,
+      "campos": {
+        "disposicao": {
+          "exemplo": "expr: v",
+          "ref": "js/modules/estrutura/estrutura_ui.js:400"
+        }
+      }
+    },
+    "rh_portal_requests": {
+      "grupo": "B",
+      "esquema_dexie": "++id, rh_company_id, employee_id, tipo, estado, [rh_company_id+estado]",
+      "ref_esquema": "js/db_v2.js:752",
+      "linhas_reais_backup": 9,
+      "campos": {
+        "absence_id": {
+          "exemplo": "expr: ausencia.id",
+          "ref": "js/modules/rh/portal_dados.js:170"
+        },
+        "cancelado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/portal_dados.js:205"
+        }
+      }
+    },
+    "rh_upward_participation": {
+      "grupo": "A",
+      "esquema_dexie": "&uid, rh_company_id, employee_id, alvo_employee_id, ano",
+      "ref_esquema": "js/db_v2.js:754",
+      "gravacoes": [
+        "add@js/modules/rh/portal_dados.js:456"
+      ],
+      "campos": {
+        "uid": {
+          "exemplo": "expr: uid()",
+          "ref": "js/modules/rh/portal_dados.js:456"
+        },
+        "rh_company_id": {
+          "exemplo": "expr: cidA()",
+          "ref": "js/modules/rh/portal_dados.js:456"
+        },
+        "employee_id": {
+          "exemplo": "expr: emp.id",
+          "ref": "js/modules/rh/portal_dados.js:456"
+        },
+        "alvo_employee_id": {
+          "exemplo": "expr: chefe.id",
+          "ref": "js/modules/rh/portal_dados.js:456"
+        },
+        "ano": {
+          "exemplo": "expr: ano",
+          "ref": "js/modules/rh/portal_dados.js:456"
+        },
+        "periodo": {
+          "exemplo": "expr: periodo",
+          "ref": "js/modules/rh/portal_dados.js:456"
+        }
+      }
+    },
+    "rh_upward_responses": {
+      "grupo": "A",
+      "esquema_dexie": "&uid, rh_company_id, alvo_employee_id, ano",
+      "ref_esquema": "js/db_v2.js:755",
+      "gravacoes": [
+        "add@js/modules/rh/portal_dados.js:457"
+      ],
+      "campos": {
+        "uid": {
+          "exemplo": "expr: uid()",
+          "ref": "js/modules/rh/portal_dados.js:457"
+        },
+        "rh_company_id": {
+          "exemplo": "expr: cidA()",
+          "ref": "js/modules/rh/portal_dados.js:457"
+        },
+        "alvo_employee_id": {
+          "exemplo": "expr: chefe.id",
+          "ref": "js/modules/rh/portal_dados.js:457"
+        },
+        "ano": {
+          "exemplo": "expr: ano",
+          "ref": "js/modules/rh/portal_dados.js:457"
+        },
+        "periodo": {
+          "exemplo": "expr: periodo",
+          "ref": "js/modules/rh/portal_dados.js:457"
+        },
+        "respostas": {
+          "exemplo": "expr: resp",
+          "ref": "js/modules/rh/portal_dados.js:457"
+        },
+        "comentario": {
+          "exemplo": "expr: String(comentario || '').trim()",
+          "ref": "js/modules/rh/portal_dados.js:457"
+        }
+      }
+    },
+    "rh_eval_cycles": {
+      "grupo": "B",
+      "esquema_dexie": "++id, rh_company_id, ano, estado",
+      "ref_esquema": "js/db_v2.js:767",
+      "linhas_reais_backup": 2,
+      "campos": {
+        "fechado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/aval360_dados.js:184"
+        },
+        "fechado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/rh/aval360_dados.js:184"
+        }
+      }
+    },
+    "rh_eval_feedback": {
+      "grupo": "B",
+      "esquema_dexie": "++id, rh_company_id, ciclo_id, employee_id",
+      "ref_esquema": "js/db_v2.js:770",
+      "linhas_reais_backup": 1,
+      "campos": {
+        "confirmacao": {
+          "exemplo": "objecto {em, comentario}",
+          "ref": "js/modules/rh/aval360_dados.js:426"
+        }
+      }
+    },
+    "rh_eval_bonus": {
+      "grupo": "A",
+      "esquema_dexie": "++id, rh_company_id, ciclo_id, employee_id",
+      "ref_esquema": "js/db_v2.js:771",
+      "gravacoes": [
+        "bulkAdd@js/modules/rh/aval360_dados.js:475",
+        "modify@js/modules/rh/aval360_dados.js:487",
+        "update@js/modules/rh/aval360_dados.js:506",
+        "update@js/modules/rh/aval360_dados.js:521"
+      ],
+      "campos": {
+        "rh_company_id": {
+          "exemplo": "expr: c.rh_company_id",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "ciclo_id": {
+          "exemplo": "expr: c.id",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "employee_id": {
+          "exemplo": "expr: l.a.employee_id",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "avaliacao_id": {
+          "exemplo": "expr: l.a.id",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "metodo": {
+          "exemplo": "expr: bm.metodo",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "classificacao": {
+          "exemplo": "expr: l.classif",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "nota": {
+          "exemplo": "expr: l.nota",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "base": {
+          "exemplo": "expr: l.base",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "valor": {
+          "exemplo": "expr: l.valor",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "estado": {
+          "exemplo": "PROPOSTA",
+          "ref": "js/modules/rh/aval360_dados.js:474",
+          "nota": "também: js/modules/rh/aval360_dados.js:487, js/modules/rh/aval360_dados.js:506, js/modules/rh/aval360_dados.js:521"
+        },
+        "calculado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "calculado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/aval360_dados.js:474"
+        },
+        "aprovado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/rh/aval360_dados.js:487",
+          "nota": "também: js/modules/rh/aval360_dados.js:521"
+        },
+        "aprovado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/aval360_dados.js:487",
+          "nota": "também: js/modules/rh/aval360_dados.js:521"
+        },
+        "payroll_entry_id": {
+          "exemplo": "expr: id",
+          "ref": "js/modules/rh/aval360_dados.js:506",
+          "nota": "também: js/modules/rh/aval360_dados.js:521"
+        },
+        "period_id": {
+          "exemplo": "expr: periodo.id",
+          "ref": "js/modules/rh/aval360_dados.js:506",
+          "nota": "também: js/modules/rh/aval360_dados.js:521"
+        },
+        "lancado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/rh/aval360_dados.js:506"
+        },
+        "lancado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/aval360_dados.js:506"
+        }
+      }
+    },
+    "rh_doc_templates": {
+      "grupo": "A",
+      "esquema_dexie": "++id, rh_company_id, codigo",
+      "ref_esquema": "js/db_v2.js:777",
+      "gravacoes": [
+        "update@js/modules/rh/portal_dados.js:312",
+        "add@js/modules/rh/portal_dados.js:312"
+      ],
+      "campos": {
+        "rh_company_id": {
+          "exemplo": "expr: cid",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "codigo": {
+          "exemplo": "expr: codigo",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "nome": {
+          "exemplo": "expr: nome",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "titulo": {
+          "exemplo": "expr: titulo",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "texto": {
+          "exemplo": "expr: texto",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "activo": {
+          "exemplo": "expr: dados.activo !== false",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "auto_emitir": {
+          "exemplo": "boolean (!!dados.auto_emitir)",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "assinante": {
+          "exemplo": "expr: String(dados.assinante || '').trim()",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "cargo_assinante": {
+          "exemplo": "expr: String(dados.cargo_assinante || '').trim()",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "local": {
+          "exemplo": "expr: String(dados.local || '').trim()",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "actualizado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        },
+        "actualizado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/portal_dados.js:310"
+        }
+      }
+    },
+    "fe_config": {
+      "grupo": "B",
+      "esquema_dexie": "++id, fe_company_id",
+      "ref_esquema": "js/db_v2.js:783",
+      "linhas_reais_backup": 1,
+      "campos": {
+        "servico": {
+          "exemplo": "objecto {url, auto, exigir_series_agt}",
+          "ref": "js/facturacao_agt_envio.js:50"
+        }
+      }
+    },
+    "fe_series": {
+      "grupo": "A",
+      "esquema_dexie": "++id, fe_company_id, tipo, ano",
+      "ref_esquema": "js/db_v2.js:784",
+      "gravacoes": [
+        "update@js/facturacao_agt.js:149",
+        "add@js/facturacao_agt.js:155",
+        "add@js/facturacao_agt.js:198",
+        "update@js/facturacao_agt.js:203",
+        "update@js/facturacao_agt.js:224",
+        "update@js/facturacao_agt_envio.js:260"
+      ],
+      "campos": {
+        "codigo": {
+          "exemplo": "expr: codigo",
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197, js/facturacao_agt_envio.js:261"
+        },
+        "tipo": {
+          "exemplo": "expr: tipo",
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197"
+        },
+        "ano": {
+          "exemplo": "expr: ano",
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197"
+        },
+        "origem": {
+          "exemplo": "expr: origem",
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197"
+        },
+        "origem_nome": {
+          "exemplo": "expr: dados.origem_nome || s.origem_nome",
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197"
+        },
+        "estabelecimento": {
+          "exemplo": "expr: estabelecimento",
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197"
+        },
+        "contingencia": {
+          "exemplo": false,
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197"
+        },
+        "estado": {
+          "exemplo": "ACTIVA",
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197"
+        },
+        "agt_codigo": {
+          "exemplo": "expr: String(dados.agt_codigo || '').trim() || null",
+          "ref": "js/facturacao_agt.js:149",
+          "nota": "também: js/facturacao_agt.js:155, js/facturacao_agt.js:197, js/facturacao_agt_envio.js:261"
+        },
+        "fe_company_id": {
+          "exemplo": "expr: cid",
+          "ref": "js/facturacao_agt.js:155",
+          "nota": "também: js/facturacao_agt.js:197"
+        },
+        "proximo": {
+          "exemplo": 1,
+          "ref": "js/facturacao_agt.js:155",
+          "nota": "também: js/facturacao_agt.js:197, js/facturacao_agt.js:203, js/facturacao_agt.js:224, js/facturacao_agt_envio.js:261"
+        },
+        "ultima_data": {
+          "exemplo": null,
+          "ref": "js/facturacao_agt.js:155",
+          "nota": "também: js/facturacao_agt.js:197, js/facturacao_agt.js:203, js/facturacao_agt.js:224"
+        },
+        "criado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/facturacao_agt.js:155",
+          "nota": "também: js/facturacao_agt.js:197"
+        },
+        "criado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/facturacao_agt.js:155",
+          "nota": "também: js/facturacao_agt.js:197"
+        },
+        "agt_primeiro": {
+          "exemplo": "expr: res.firstDocumentNo || null",
+          "ref": "js/facturacao_agt_envio.js:262"
+        },
+        "agt_ultimo": {
+          "exemplo": "expr: res.lastDocumentNo || null",
+          "ref": "js/facturacao_agt_envio.js:262"
+        },
+        "agt_quantidade": {
+          "exemplo": "expr: res.authorizedQuantity || null",
+          "ref": "js/facturacao_agt_envio.js:262"
+        },
+        "agt_pedido_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/facturacao_agt_envio.js:262"
+        }
+      }
+    },
+    "rh_attendance": {
+      "grupo": "B",
+      "esquema_dexie": "++id, rh_company_id, employee_id, data, [rh_company_id+data], [employee_id+data]",
+      "ref_esquema": "js/db_v2.js:834",
+      "linhas_reais_backup": 190,
+      "campos": {
+        "autorizado_extra": {
+          "exemplo": "expr: autorizado_extra",
+          "ref": "js/modules/rh/assiduidade.js:316"
+        }
+      }
+    },
+    "rh_attendance_config": {
+      "grupo": "A",
+      "esquema_dexie": "++id, rh_company_id",
+      "ref_esquema": "js/db_v2.js:835",
+      "gravacoes": [
+        "update@js/modules/rh/assiduidade.js:72",
+        "add@js/modules/rh/assiduidade.js:72"
+      ],
+      "campos": {
+        "rh_company_id": {
+          "exemplo": "expr: cid",
+          "ref": "js/modules/rh/assiduidade.js:59"
+        },
+        "dias_uteis": {
+          "exemplo": "expr: dias.sort()",
+          "ref": "js/modules/rh/assiduidade.js:59"
+        },
+        "tolerancia_min": {
+          "exemplo": "number (Math.max(0, Math.min(120, num(dados.tolerancia_min))))",
+          "ref": "js/modules/rh/assiduidade.js:60"
+        },
+        "arredondamento_min": {
+          "exemplo": "expr: [0, 5, 10, 15, 30, 60].includes(num(dados.arredondamento_min)) ? num(dados.arredondamento_…",
+          "ref": "js/modules/rh/assiduidade.js:61"
+        },
+        "extras_min_minutos": {
+          "exemplo": "number (Math.max(0, Math.min(240, num(dados.extras_min_minutos))))",
+          "ref": "js/modules/rh/assiduidade.js:62"
+        },
+        "minimo_dia_horas": {
+          "exemplo": "number (Math.max(0, Math.min(24, num(dados.minimo_dia_horas))))",
+          "ref": "js/modules/rh/assiduidade.js:63"
+        },
+        "feriados": {
+          "exemplo": "expr: feriados",
+          "ref": "js/modules/rh/assiduidade.js:64"
+        },
+        "relogio": {
+          "exemplo": "objecto {url, formato}",
+          "ref": "js/modules/rh/assiduidade.js:65"
+        },
+        "modo_compensacao": {
+          "exemplo": "expr: MODOS_COMPENSACAO[dados.modo_compensacao] ? dados.modo_compensacao : (actual.modo_compensa…",
+          "ref": "js/modules/rh/assiduidade.js:66"
+        },
+        "limite_compensacao_h": {
+          "exemplo": "number (Math.max(0, Math.min(200, num(dados.limite_compensacao_h !== undefined ? dados.limite_comp…)",
+          "ref": "js/modules/rh/assiduidade.js:67"
+        },
+        "extra_nao_util_exige_autorizacao": {
+          "exemplo": "expr: dados.extra_nao_util_exige_autorizacao !== undefined ? !!dados.extra_nao_util_exige_autori…",
+          "ref": "js/modules/rh/assiduidade.js:68"
+        },
+        "actualizado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/assiduidade.js:69"
+        },
+        "actualizado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/rh/assiduidade.js:69"
+        }
+      }
+    },
+    "rh_absences": {
+      "grupo": "B",
+      "esquema_dexie": "++id, rh_company_id, employee_id, data_inicio, estado, [rh_company_id+estado]",
+      "ref_esquema": "js/db_v2.js:836",
+      "linhas_reais_backup": 34,
+      "campos": {
+        "motivo": {
+          "exemplo": "",
+          "ref": "js/modules/rh/ausencias.js:133",
+          "nota": "também: js/modules/rh/ausencias.js:152, js/modules/rh/ausencias.js:164"
+        },
+        "documento_url": {
+          "exemplo": "",
+          "ref": "js/modules/rh/ausencias.js:133",
+          "nota": "também: js/modules/rh/ausencias.js:152, js/modules/rh/ausencias.js:164"
+        },
+        "remunerada": {
+          "exemplo": "expr: v.remunerada",
+          "ref": "js/modules/rh/ausencias.js:134",
+          "nota": "também: js/modules/rh/ausencias.js:153, js/modules/rh/ausencias.js:164"
+        },
+        "avisos": {
+          "exemplo": "expr: v.avisos",
+          "ref": "js/modules/rh/ausencias.js:134",
+          "nota": "também: js/modules/rh/ausencias.js:153, js/modules/rh/ausencias.js:164"
+        },
+        "portal_request_id": {
+          "exemplo": "expr: portalRequestId || null",
+          "ref": "js/modules/rh/ausencias.js:135",
+          "nota": "também: js/modules/rh/ausencias.js:153, js/modules/rh/ausencias.js:164"
+        },
+        "justificada_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/ausencias.js:154"
+        },
+        "justificada_por": {
+          "exemplo": "expr: (window.currentUser && window.currentUser.username) || ''",
+          "ref": "js/modules/rh/ausencias.js:154"
+        },
+        "decidido_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/ausencias.js:167"
+        },
+        "decidido_por": {
+          "exemplo": "expr: por || (window.currentUser && window.currentUser.username) || ''",
+          "ref": "js/modules/rh/ausencias.js:167"
+        },
+        "nota_decisao": {
+          "exemplo": "expr: nota || ''",
+          "ref": "js/modules/rh/ausencias.js:167"
+        }
+      }
+    },
+    "rh_attendance_closures": {
+      "grupo": "B",
+      "esquema_dexie": "++id, rh_company_id, mes, [rh_company_id+mes]",
+      "ref_esquema": "js/db_v2.js:842",
+      "linhas_reais_backup": 2,
+      "campos": {
+        "reaberto_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/assiduidade.js:174"
+        },
+        "reaberto_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/rh/assiduidade.js:174"
+        },
+        "motivo_reabertura": {
+          "exemplo": "expr: String(motivo).trim()",
+          "ref": "js/modules/rh/assiduidade.js:174"
+        }
+      }
+    },
+    "rh_productivity": {
+      "grupo": "B",
+      "esquema_dexie": "++id, rh_company_id, prod_period_id, employee_id, item_id, [prod_period_id+employee_id]",
+      "ref_esquema": "js/db_v2.js:858",
+      "linhas_reais_backup": 6,
+      "campos": {
+        "actualizado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "js/modules/rh/produtividade.js:222",
+          "nota": "também: js/modules/rh/produtividade.js:294"
+        },
+        "actualizado_por": {
+          "exemplo": "string: utilizador (utilizador())",
+          "ref": "js/modules/rh/produtividade.js:222",
+          "nota": "também: js/modules/rh/produtividade.js:294"
+        }
+      }
+    }
+  },
+  "delivery_items_delivery_id": {
+    "conclusao": "AMBOS. delivery_items.delivery_id é polimórfico sem coluna discriminadora: recebe ids de purchase_deliveries (recepções de compras, ui_compras_v2.js) e ids de delivery_notes (guias de saída/remessa do armazém e POS). Os leitores distinguem pelo contexto (ex.: ui_warehouse.js:2071 vs 2080). Atenção: company_backup.js exporta e remapeia delivery_items apenas como filhos de delivery_notes (linhas 66-68 e 250-252), e substituir_conta.js:19 declara o pai como purchase_deliveries — há colisão de ids possível entre as duas tabelas-pai.",
+    "refs": [
+      "js/ui_compras_v2.js:2183 (delId = purchase_deliveries.add) → js/ui_compras_v2.js:2194-2195 delivery_items.add({delivery_id: delId})",
+      "js/ui_compras_v2.js:2361 (delId = purchase_deliveries.add) → js/ui_compras_v2.js:2375-2376 delivery_items.add({delivery_id: delId})",
+      "js/moedas_compras.js:193 delivery_items.update (itens de uma purchase_delivery; lidos em moedas_compras.js:206 por del.id de purchase_deliveries)",
+      "js/ui_compras_v2.js:2857-2859 / 2972 leitura por purchase_deliveries.id",
+      "js/fluxo_compras.js:59-61 leitura por ids de recepções (purchase_deliveries)",
+      "js/ui_warehouse.js:888 (guiaId = delivery_notes.add) → js/ui_warehouse.js:914 delivery_items.add({delivery_id: guiaId, ...it})",
+      "js/ui_pos_armazem.js:489 (guiaId = delivery_notes.add) → js/ui_pos_armazem.js:506-507",
+      "js/ui_pos_armazem.js:1018 (guiaId = delivery_notes.add) → js/ui_pos_armazem.js:1040-1041",
+      "js/ui_warehouse.js:2069-2071 (purchase_deliveries) vs js/ui_warehouse.js:2079-2080 (delivery_notes) — mesma coluna, dois pais",
+      "js/company_backup.js:66-68 e 250-252 (backup trata delivery_id como delivery_notes.id)",
+      "js/substituir_conta.js:19 (PAIS.delivery_items = [delivery_id, purchase_deliveries])",
+      "js/manutencao.js:93 (apaga delivery_items de guias = delivery_notes)"
+    ]
+  },
+  "tabelas_inexistentes_referenciadas": {
+    "routine_logs": {
+      "uso": "Gravação (add) de log da rotina de capitalização de obras: {company_id, date (ISO), routine_type: \"CAPITALIZACAO_OBRAS\", reference_id, total_value, user: \"Sistema\", is_master_data: 0}. A tabela não está declarada em nenhum db.version().stores() — a chamada falha em runtime (db.routine_logs undefined).",
+      "refs": [
+        "js/ui_rotinas.js:1368-1376"
+      ]
+    },
+    "delivery_note_items": {
+      "uso": "Leitura where('delivery_id') para preencher factura a partir de guias (fillInvoiceFromGuia). Tabela inexistente no esquema (os itens de guias estão em delivery_items).",
+      "refs": [
+        "js/ui_sales.js:1273"
+      ]
+    },
+    "accounting_maps": {
+      "uso": "Tabela antiga (nome anterior de accounting_mapos). Lida só para migração/recuperação para accounting_mapos (campos lidos: company_id, infotype_id, org_type_id, account_number, is_master_data). Não declarada no esquema actual.",
+      "refs": [
+        "js/db_v2.js:119",
+        "js/app_v2.js:2372",
+        "js/app_v2.js:2392",
+        "js/app_v2.js:6056"
+      ]
+    },
+    "system_accounting_maps": {
+      "uso": "Tabela antiga (nome anterior de system_accounting_mapos). Lida só para migração/recuperação (campos lidos: company_id, code, org_type_id, account_number, is_master_data). Não declarada no esquema actual.",
+      "refs": [
+        "js/db_v2.js:147",
+        "js/app_v2.js:2373",
+        "js/app_v2.js:6063"
+      ]
+    }
+  },
+  "resumo": {
+    "A": {
+      "sales_accounting_config": {
+        "campos": 3,
+        "gravados_pelo_codigo": 3
+      },
+      "asset_maintenance_plans": {
+        "campos": 3,
+        "gravados_pelo_codigo": 0
+      },
+      "asset_disposals": {
+        "campos": 9,
+        "gravados_pelo_codigo": 8
+      },
+      "payment_letters": {
+        "campos": 7,
+        "gravados_pelo_codigo": 0
+      },
+      "payment_letter_items": {
+        "campos": 5,
+        "gravados_pelo_codigo": 0
+      },
+      "project_billings": {
+        "campos": 7,
+        "gravados_pelo_codigo": 0
+      },
+      "project_asset_allocations": {
+        "campos": 6,
+        "gravados_pelo_codigo": 0
+      },
+      "project_change_orders": {
+        "campos": 6,
+        "gravados_pelo_codigo": 6
+      },
+      "project_documents": {
+        "campos": 6,
+        "gravados_pelo_codigo": 0
+      },
+      "project_activity_log": {
+        "campos": 7,
+        "gravados_pelo_codigo": 0
+      },
+      "purchase_contract_milestones": {
+        "campos": 5,
+        "gravados_pelo_codigo": 5
+      },
+      "lav_claims": {
+        "campos": 23,
+        "gravados_pelo_codigo": 23
+      },
+      "lav_settings": {
+        "campos": 16,
+        "gravados_pelo_codigo": 16
+      },
+      "maintenance_requests": {
+        "campos": 28,
+        "gravados_pelo_codigo": 28
+      },
+      "rh_education": {
+        "campos": 9,
+        "gravados_pelo_codigo": 9
+      },
+      "rh_evaluations": {
+        "campos": 32,
+        "gravados_pelo_codigo": 32
+      },
+      "orc_forecasts": {
+        "campos": 19,
+        "gravados_pelo_codigo": 19
+      },
+      "orc_forecast_lines": {
+        "campos": 4,
+        "gravados_pelo_codigo": 4
+      },
+      "orc_scenarios": {
+        "campos": 11,
+        "gravados_pelo_codigo": 11
+      },
+      "orc_excess_requests": {
+        "campos": 21,
+        "gravados_pelo_codigo": 21
+      },
+      "orc_alert_log": {
+        "campos": 11,
+        "gravados_pelo_codigo": 11
+      },
+      "crm_settings": {
+        "campos": 5,
+        "gravados_pelo_codigo": 5
+      },
+      "crm_sequences": {
+        "campos": 6,
+        "gravados_pelo_codigo": 6
+      },
+      "rh_upward_participation": {
+        "campos": 6,
+        "gravados_pelo_codigo": 6
+      },
+      "rh_upward_responses": {
+        "campos": 7,
+        "gravados_pelo_codigo": 7
+      },
+      "rh_eval_bonus": {
+        "campos": 18,
+        "gravados_pelo_codigo": 18
+      },
+      "rh_doc_templates": {
+        "campos": 12,
+        "gravados_pelo_codigo": 12
+      },
+      "fe_series": {
+        "campos": 18,
+        "gravados_pelo_codigo": 18
+      },
+      "rh_attendance_config": {
+        "campos": 13,
+        "gravados_pelo_codigo": 13
+      }
+    },
+    "B": {
+      "companies": 4,
+      "infotypes": 2,
+      "payroll_entries": 2,
+      "chart_of_accounts": 2,
+      "journals": 1,
+      "third_parties": 2,
+      "demo_notes": 1,
+      "journal_lines": 4,
+      "sales": 15,
+      "sale_items": 1,
+      "receipts": 4,
+      "purchase_quotes": 2,
+      "purchase_orders": 2,
+      "purchase_items": 1,
+      "asset_categories": 1,
+      "users": 2,
+      "treasury_documents": 1,
+      "cash_audits": 2,
+      "cash_lines": 3,
+      "project_budget_lines": 2,
+      "pos_sessions": 3,
+      "pos_settlements": 4,
+      "lav_orders": 1,
+      "lav_payments": 2,
+      "hotel_stays": 1,
+      "orc_rubrics": 4,
+      "orc_budgets": 11,
+      "ad_items": 2,
+      "ad_postings": 2,
+      "crm_activities": 1,
+      "org_units": 1,
+      "rh_portal_requests": 2,
+      "rh_eval_cycles": 2,
+      "rh_eval_feedback": 1,
+      "fe_config": 1,
+      "rh_attendance": 1,
+      "rh_absences": 10,
+      "rh_attendance_closures": 3,
+      "rh_productivity": 2
+    }
+  }
+}

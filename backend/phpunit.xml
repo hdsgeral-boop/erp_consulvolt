@@ -35,6 +35,20 @@
         <env name="ARGON_MEMORY" value="1024" force="true"/>
         <env name="ARGON_TIME" value="1" force="true"/>
         <env name="ARGON_THREADS" value="1" force="true"/>
+        <!-- Também em $_SERVER: o Laravel lê $_SERVER antes de $_ENV e o docker-compose define DB_DATABASE como variável real. -->
+        <server name="APP_ENV" value="testing" force="true"/>
+        <server name="APP_DEBUG" value="false" force="true"/>
+        <server name="DB_CONNECTION" value="pgsql" force="true"/>
+        <server name="DB_DATABASE" value="erp_consulvolt_testes" force="true"/>
+        <server name="DB_URL" value="" force="true"/>
+        <server name="CACHE_STORE" value="array" force="true"/>
+        <server name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <server name="SESSION_DRIVER" value="array" force="true"/>
+        <server name="MAIL_MAILER" value="array" force="true"/>
+        <server name="BROADCAST_CONNECTION" value="null" force="true"/>
+        <server name="ARGON_MEMORY" value="1024" force="true"/>
+        <server name="ARGON_TIME" value="1" force="true"/>
+        <server name="ARGON_THREADS" value="1" force="true"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

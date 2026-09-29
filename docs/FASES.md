@@ -3,8 +3,8 @@
 | Fase | Âmbito | Estado |
 | :---: | :--- | :--- |
 | **1** | Infraestrutura Docker, Laravel 12, multi-empresa, autenticação, envelope da API, auditoria, **dicionário DE/PARA das 154 tabelas**, inventário funcional do legado | ✅ Concluída (2026-09-29) |
-| **2** | Migrations das 154 tabelas a partir do `mapa_de_para.json` (FKs, CHECKs, índices); estrutura das 29 tabelas sem dados, derivada do código JS; models Eloquent | ⏳ Seguinte |
-| **3** | `php artisan erp:migrar-backup-legado` — ETL por streaming, pela ordem das dependências; regras de integridade; `ocorrencias_migracao` / `quarentena_migracao`; recalibração das sequences; relatório de validação (contagens, FKs, D−C) | Planeada |
+| **2** | Migrations das 154 tabelas a partir do `mapa_de_para.json` (FKs, CHECKs, índices); estrutura das 29 tabelas sem dados, derivada do código JS; models Eloquent | ✅ Concluída (2026-09-30) |
+| **3** ⏳ | `php artisan erp:migrar-backup-legado` — ETL por streaming, pela ordem das dependências; regras de integridade; `ocorrencias_migracao` / `quarentena_migracao`; recalibração das sequences; relatório de validação (contagens, FKs, D−C) | Planeada |
 | **4** | Services e endpoints por módulo (Sistema, Contabilidade, Terceiros, Logística, Vendas/AGT, Compras, RH/Salários, Tesouraria, POS, Activos, Projectos, Orçamento, A&D, CRM), cache e locks Redis, filas; catálogo de permissões | Planeada |
 | **5** | Frontend React + TypeScript com o layout do legado (sidebar, top header, DataTables, modais, impressões A4), módulo a módulo, com a matriz de paridade | Planeada |
 | **6** | Testes E2E, reconciliação contabilística cêntimo a cêntimo com o legado, homologação | Planeada |
@@ -52,6 +52,20 @@ Cobrem os seguintes casos:
 - Partições anuais, com movimentação a partir da DEFAULT.
 - Fuso horário.
 - Semântica das permissões: superadmin, `all`, v2, acentos e portal automático.
+
+## Fase 2 — Entregáveis e verificação
+- **Gerador de esquema** (`ferramentas/gerador/gerar_esquema.mjs`, ADR-018) a partir de:
+  - o dicionário DE/PARA;
+  - `docs/dicionario/campos_codigo_legado.json`, com os campos extraídos do código JS. Cobre as 29 tabelas sem dados e 108 campos que o backup não tem, por exemplo `fe_*` (AGT) nas vendas e `he_*` (horas extra) nas empresas;
+  - as regras de `esquema_extra.mjs`.
+- **Esquema:**
+  - 156 tabelas: as 154 da matriz, 4 tabelas pivô, `ocorrencias_migracao` e `quarentena_migracao`. As 4 da Fase 1 não são geradas.
+  - **2 371 colunas**, **479 FKs** (DEFERRABLE, com RESTRICT ou CASCADE) e **26 chaves únicas**, todas verificadas contra os dados reais.
+  - **36 CHECKs**: domínios das enumerações, D/C, valor ≥ 0 e polimórficos resolvidos.
+  - Índices em todas as FKs e índices compostos para as consultas frequentes.
+- **Models:** 152 models, cada um com uma base regenerável e uma classe de negócio. Todos têm casts, relações belongsTo/hasMany, isolamento por empresa e auditoria.
+- **Testes:** 45 a passar (180 verificações). O `EsquemaContratoTest` compara a base real com o contrato.
+- **Correcções:** os testes estavam a apagar a base principal; ficou resolvido e protegido (ADR-019).
 
 ## Decisões do utilizador (2026-09-29, após a Fase 1)
 1. **Ecrãs vazios do legado** (Encomendas Clientes, Activos "Cadastro"): **corrigir** no sistema novo — ADR-014.

@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T09:05:13.102Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T11:04:07.787Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -12,7 +12,7 @@
 | Linhas reais a migrar | 203 818 |
 | Colunas reais mapeadas | 1653 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
-| Chaves estrangeiras com órfãos | 15 |
+| Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
 
 ## Convenções
@@ -43,6 +43,9 @@
 | `fixed_assets.category_id` | categoria inexistente | **ANULAR_FK** | Categoria eliminada no legado. |
 | `fixed_assets.journal_line_id` | lançamento inexistente | **ANULAR_FK** | Lançamento de aquisição eliminado/estornado. |
 | `asset_movements.asset_id` | activo inexistente | **QUARENTENA** | Transferência de um bem eliminado. |
+| `reconciliation_matches.internal_id` | lançamento inexistente (323 de 1 635) | **ANULAR_FK** | Linhas apagadas pelo "descontabilizar" do legado (ADR-016). O emparelhamento fica com valor/data e a ocorrência regista o id original. |
+| `reconciliation_matches.external_id` | linha de extracto inexistente (58 de 1 761) | **ANULAR_FK** | Linha de extracto eliminada no legado. |
+| `third_party_addresses` | ligação por NIF | **MANTER_SEM_FK** | O legado liga moradas ao terceiro pelo NIF (não único entre terceiros): sem FK; resolução por (empresa_id, nif). |
 | `*.<fk>` | 0, "0", "" ou NaN | **ANULAR_FK** | O legado usa 0/""/NaN como "sem valor". |
 | `*.<lista_ids>` | "112,113" ou array | **PIVO** | Listas de ids (invoice_ids, order_ids, hotel_stay_ids, related_doc_id) passam a tabelas pivô com FK real. |
 | `journal_lines.value` | valor = 0 (38 linhas) | **MANTER_E_REPORTAR** | CHECK (valor >= 0) em vez de > 0 para dados migrados; linhas a zero aparecem no relatório de validação. |
@@ -64,6 +67,8 @@
 | `accounting_mapos.org_type_id` | `org_types` | 80.4% | 44 | -1 |
 | `system_accounting_mapos.org_type_id` | `org_types` | 90.9% | 10 | NaN, -1 |
 | `treasury_items.doc_id` | `treasury_documents` | 99.8% | 15 | 4595, 4651, 4650, 4652, 4685, 4686, 5710, 5711 |
+| `reconciliation_matches.internal_id` | `journal_lines` | 80.2% | 323 | 7750, 20824, 22086, 22072, 21339, 22210, 22190, 22142 |
+| `reconciliation_matches.external_id` | `bank_statement_lines` | 96.7% | 58 | 2972, 2975, 2981, 2982, 2983, 2984, 2986, 2987 |
 | `fixed_assets.category_id` | `asset_categories` | 99.4% | 1 | 10 |
 | `fixed_assets.journal_line_id` | `journal_lines` | 97.1% | 5 | 37569, 42514 |
 | `asset_movements.asset_id` | `fixed_assets` | 0.0% | 1 | 1 |
@@ -1806,8 +1811,8 @@ Linhas reais: **1788** · fictícias descartadas: 16
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `reconciliation_id` | `reconciliacao_codigo` | varchar(30) | sim | 100% |  |  |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
-| `internal_id` | `lancamento_interno_id` | integer | sim | 91% |  |  |
-| `external_id` | `linha_externa_id` | integer | sim | 98% |  |  |
+| `internal_id` | `lancamento_contabil_id` | bigint | sim | 91% | `lancamentos_contabeis.id` ⚠ 80.2% (323 órfãos) |  |
+| `external_id` | `linha_extrato_bancario_id` | bigint | sim | 98% | `linhas_extrato_bancario.id` ⚠ 96.7% (58 órfãos) |  |
 | `match_type` | `tipo_correspondencia` | varchar(20) | sim | 100% |  | código normalizado ∈ {AUTOMATICA, MANUAL}; texto original em tipo_correspondencia_original |
 | `match_type` | `tipo_correspondencia_original` | varchar(10) | sim | 100% |  | texto exacto do legado |
 | `value` | `valor` | numeric(15,2) | sim | 100% |  | tipos mistos: inteiro=1512, decimal=276 |

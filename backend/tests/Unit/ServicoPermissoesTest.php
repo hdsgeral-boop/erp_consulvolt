@@ -2,8 +2,10 @@
 
 namespace Tests\Unit;
 
+use App\Models\Colaborador;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoPermissoes;
+use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -56,7 +58,9 @@ final class ServicoPermissoesTest extends TestCase
         $empresaA = $this->criarEmpresa();
         $empresaB = $this->criarEmpresa();
         $u = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true])->id]);
-        $u->empresas()->attach($empresaA->id, ['colaborador_id' => 24]);
+        $colaborador = app(ContextoEmpresa::class)->executarComo($empresaA->id,
+            fn () => Colaborador::create(['nome_completo' => 'Colaborador de Teste', 'estado' => 'ACTIVO']));
+        $u->empresas()->attach($empresaA->id, ['colaborador_id' => $colaborador->id]);
         $u->empresas()->attach($empresaB->id, ['colaborador_id' => null]);
 
         $this->assertTrue($this->permissoes->tem($u, 'rh_portal_view', $empresaA->id));

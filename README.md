@@ -49,6 +49,15 @@ node --max-old-space-size=4096 ferramentas/levantamento/levantar_colunas.mjs ../
 node --max-old-space-size=4096 ferramentas/levantamento/gerar_dicionario.mjs ../wstb_payroll_backup_2026-09-22.json docs/dicionario/levantamento_colunas_legado.json docs/dicionario
 ```
 
+Regenerar o esquema (migrations + `app/Models/Base/*` + `database/legado/esquema.json`) após alterar o glossário ou `esquema_extra.mjs`:
+
+```bash
+node --max-old-space-size=4096 ferramentas/gerador/gerar_esquema.mjs ../wstb_payroll_backup_2026-09-22.json
+docker compose exec app vendor/bin/pint && docker compose exec app php artisan migrate:fresh && docker compose exec app php artisan test
+```
+
+`app/Models/<Model>.php` nunca é sobrescrito (código de negócio); `app/Models/Base/<Model>Base.php` é sempre regenerado.
+
 ## API
 
 Todas as respostas usam o envelope:

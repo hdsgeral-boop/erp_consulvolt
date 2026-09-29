@@ -109,3 +109,50 @@ O lançamento original fica marcado como estornado e **nunca é apagado**. O doc
 - As restantes regras salariais do legado mantêm-se: INSS 3%/8%, faltas, pro-rata, horas extra e avençados.
 
 **Garantia de não-regressão.** Com os dados actuais, a regra nova dá o mesmo resultado que a antiga. O teste de aceitação da Fase 4 recalcula as folhas **VALIDADAS** do backup com o motor novo, exige diferença zero em cada colaborador e rubrica, e lista qualquer excepção para decisão.
+
+## ADR-018 — O esquema é gerado a partir do dicionário e verificado contra os dados reais
+**Decisão.** `ferramentas/gerador/gerar_esquema.mjs` produz a partir de `mapa_de_para.json`, do `campos_codigo_legado.json` (campos que só o código grava) e das regras de `esquema_extra.mjs`:
+- as migrations (uma por módulo, mais uma migration final com todas as FKs);
+- os models em dois níveis: `App\Models\Base\<Model>Base`, **regenerado sempre**, e `App\Models\<Model>`, criado uma única vez, onde vive o código de negócio;
+- o contrato `database/legado/esquema.json`.
+
+**Salvaguardas.** O gerador falha se:
+- uma chave única ou um CHECK for violado pelos dados reais do backup, depois de mapeados e normalizados;
+- uma regra referir uma tabela ou coluna inexistente;
+- um campo do código ficar sem tradução.
+
+O `EsquemaContratoTest` compara a base real com o contrato: tipos, precisão, nulidade, FKs e o seu ON DELETE, únicos, models, relações e isolamento por empresa.
+
+**FKs.** São todas `DEFERRABLE INITIALLY IMMEDIATE`. Na aplicação comportam-se como FKs normais. O ETL carrega com `SET CONSTRAINTS ALL DEFERRED` e o COMMIT falha se sobrar algum órfão, o que garante o critério "zero órfãos". A regra é RESTRICT, excepto CASCADE nas linhas e itens do próprio documento.
+
+**Tenant.** Todas as tabelas de negócio têm `empresa_id NOT NULL`, incluindo as linhas-filho que no legado não o tinham (itens de venda, itens de tesouraria…). O ETL deriva-o do documento-pai. Assim, o isolamento não depende de joins. As excepções globais são `utilizadores`, `perfis_utilizador`, `moedas`, `configuracoes_sistema` e `taxas_cambio` (onde `empresa_id NULL` significa "todas as empresas").
+
+**Chaves únicas que os dados violam.** Ficam como índice e o caso vai para os relatórios de validação (ADR-015):
+- 408 terceiros com o mesmo NIF e tipo;
+- 10 cargos e 2 infotipos com o mesmo nome;
+- 12 notas DEMO e 6 notas de fluxo com o mesmo código;
+- **4 mapeamentos contabilísticos de RH duplicados**, que tornam ambígua a conta usada na integração salarial;
+- **2 facturas de fornecedor registadas em duplicado**.
+
+Nas vendas, a numeração única é imposta só aos documentos fiscais (FT/FR/NC/ND), com um índice parcial. Os orçamentos e proformas do legado repetem números, porque "Orçamento" e "Orcamento" eram tratados como tipos distintos.
+
+**Relações amputadas do legado → FKs reais.**
+- `purchase_items.parent_id` com `parent_type` passa a 4 FKs (`pedido_compra_id` / `cotacao_compra_id` / `encomenda_compra_id` / `fatura_compra_id`), com um CHECK que exige no máximo uma.
+- As listas de ids (`estadias_hotel_ids`, `related_doc_id`, `invoice_ids`, `order_ids`) passam a tabelas pivô com FK; o valor original fica em `<coluna>_legado`.
+- `reconciliation_matches.internal_id` / `external_id` passam a FKs para lançamentos e linhas de extracto. Os 323 lançamentos em falta (20%) foram apagados pelo "descontabilizar" do legado, o que confirma o ADR-016.
+
+## ADR-019 — Os testes nunca correm na base principal
+**Contexto.** O docker-compose define `DB_DATABASE` como variável real de ambiente. Essa variável chega ao `$_SERVER`, que o Laravel lê **antes** do `$_ENV`, onde o PHPUnit escreve. Por isso os testes corriam na base principal e o `RefreshDatabase` apagava-a. Não houve perda de dados, porque ainda não havia dados reais.
+**Decisão.** O `phpunit.xml` define as variáveis críticas também como `<server>`. O `TestCase::beforeRefreshingDatabase()` **aborta** a execução se a base activa não terminar em `_testes`.
+
+## ADR-020 — `delivery_items` tem dois documentos-pai sem discriminador
+**Contexto.** O legado grava em `delivery_items.delivery_id` tanto ids de **guias de saída** (ui_warehouse.js:888, ui_pos_armazem.js:489/1018) como de **recepções de compra** (ui_compras_v2.js:2183/2361, moedas_compras.js:193). Não há nenhuma coluna que os distinga e os ids dos dois documentos coincidem: 23 das 47 linhas são ambíguas. O próprio código contradiz-se: company_backup.js:66 trata o campo como id de guia, substituir_conta.js:19 como id de recepção.
+**Decisão.** `itens_guia_saida` passa a ter `guia_saida_id` e `rececao_compra_id`, cada uma com FK real, e um CHECK que exige no máximo uma. O ETL (Fase 3) decide o pai de cada linha, por esta ordem:
+1. há contadores cambiais de compra (`fx_q*`/`unit_cost_kz`);
+2. coincide o produto com o documento;
+3. coincide o armazém.
+
+As linhas que continuarem ambíguas vão para quarentena, para decisão.
+
+## ADR-021 — `maintenance_requests` = pedidos de Manutenção de dados
+A matriz chama-lhe `pedidos_manutencao_equipamentos`, e o nome mantém-se por ser contratual. Mas, segundo o código (js/manutencao.js), a tabela guarda os **pedidos de manutenção de dados** com aprovação dupla (resets, limpezas, restauros), que podem ser globais. É por isso uma tabela global, com `empresa_id` opcional.

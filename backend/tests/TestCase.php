@@ -12,6 +12,19 @@ abstract class TestCase extends BaseTestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Protecção: RefreshDatabase apaga a base. Nunca correr fora de uma base "*_testes"
+     * (ex.: se o ambiente do contentor sobrepuser DB_DATABASE ao phpunit.xml).
+     */
+    protected function beforeRefreshingDatabase(): void
+    {
+        $base = (string) config('database.connections.'.config('database.default').'.database');
+        if (! str_ends_with($base, '_testes')) {
+            fwrite(STDERR, "\nTESTES ABORTADOS: a base activa é '{$base}', não uma base de testes (*_testes).\n");
+            exit(1);
+        }
+    }
+
     protected function criarEmpresa(array $atributos = []): Empresa
     {
         static $sequencia = 0;
