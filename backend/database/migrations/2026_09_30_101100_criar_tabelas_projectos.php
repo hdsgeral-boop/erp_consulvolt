@@ -18,8 +18,8 @@ return new class extends Migration
         Schema::create('projetos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 30)->nullable()->comment('legado: code');
-            $table->string('nome', 200)->nullable()->comment('legado: name');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('estado', 10)->nullable()->comment('legado: status');
             $table->string('tipo', 20)->nullable()->comment('legado: type');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
@@ -41,7 +41,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
-            $table->string('nome', 50)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->date('data')->nullable()->comment('legado: date');
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -57,11 +57,11 @@ return new class extends Migration
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->bigInteger('tarefa_pai_id')->nullable()->comment('legado: parent_task_id');
             $table->text('codigo')->nullable()->comment('legado: code · sem valores reais: tipo a confirmar no código legado');
-            $table->string('nome', 100)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->date('data_inicio')->nullable()->comment('legado: start_date');
             $table->date('data_fim')->nullable()->comment('legado: end_date');
             $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {PENDENTE, EM_CURSO, CONCLUIDA}; texto original em estado_original');
-            $table->string('estado_original', 20)->nullable()->comment('legado: status · texto exacto do legado');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->bigInteger('marco_projeto_id')->nullable()->comment('legado: milestone_id');
             $table->bigInteger('atribuido_a_id')->nullable()->comment('legado: assigned_to_id');
             $table->decimal('percentagem_execucao', 9, 4)->nullable()->comment('legado: execution_pct');
@@ -81,7 +81,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
-            $table->string('nome', 30)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -114,7 +114,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
-            $table->string('nome_requerente', 20)->nullable()->comment('legado: requester_name');
+            $table->string('nome_requerente', 255)->nullable()->comment('legado: requester_name');
             $table->date('data')->nullable()->comment('legado: date');
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->date('data_prevista')->nullable()->comment('legado: expected_date');
@@ -149,7 +149,7 @@ return new class extends Migration
             $table->bigInteger('tarefa_projeto_id')->nullable()->comment('legado: task_id');
             $table->string('rubrica', 20)->nullable()->comment('legado: rubric');
             $table->decimal('montante', 15, 2)->nullable()->comment('legado: amount');
-            $table->string('numero_conta', 10)->nullable()->comment('legado: account_number');
+            $table->string('numero_conta', 20)->nullable()->comment('legado: account_number');
             $table->bigInteger('no_organigrama_projeto_id')->nullable()->comment('legado: org_node_id · do código legado js/projectos_organigrama.js:477');
             $table->bigInteger('membro_equipa_projeto_id')->nullable()->comment('legado: team_member_id · do código legado js/projectos_organigrama.js:477');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -170,9 +170,9 @@ return new class extends Migration
             $table->string('rubrica', 30)->nullable()->comment('legado: rubric');
             $table->string('modulo_origem', 10)->nullable()->comment('legado: source_module');
             $table->string('tipo_documento_origem', 20)->nullable()->comment('legado: source_doc_type · código normalizado ∈ {AUTO_INTERNO, REGISTO_OBRA, FATURA}; texto original em tipo_documento_origem_original');
-            $table->string('tipo_documento_origem_original', 30)->nullable()->comment('legado: source_doc_type · texto exacto do legado');
+            $table->string('tipo_documento_origem_original', 100)->nullable()->comment('legado: source_doc_type · texto exacto do legado');
             $table->string('natureza', 20)->nullable()->comment('legado: nature · código normalizado ∈ {CUSTO, CUSTO_REAL, PROVEITO}; texto original em natureza_original');
-            $table->string('natureza_original', 20)->nullable()->comment('legado: nature · texto exacto do legado');
+            $table->string('natureza_original', 100)->nullable()->comment('legado: nature · texto exacto do legado');
             $table->date('data')->nullable()->comment('legado: date');
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: value');
             $table->decimal('montante', 15, 2)->nullable()->comment('legado: amount');
@@ -286,7 +286,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
-            $table->string('chave', 20)->nullable()->comment('legado: key');
+            $table->string('chave', 150)->nullable()->comment('legado: key');
             $table->text('valor')->nullable()->comment('legado: value');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -314,7 +314,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('revisao_mensal_projeto_id')->nullable()->comment('legado: review_id');
             $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {MAO_OBRA, SUBEMPREITADA}; texto original em tipo_original');
-            $table->string('tipo_original', 20)->nullable()->comment('legado: type · texto exacto do legado');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id');
             $table->bigInteger('tarefa_projeto_id')->nullable()->comment('legado: task_id');
             $table->decimal('percentagem_anterior', 9, 4)->nullable()->comment('legado: previous_pct');
@@ -338,7 +338,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->bigInteger('no_pai_id')->nullable()->comment('legado: parent_id');
-            $table->string('titulo', 50)->nullable()->comment('legado: titulo');
+            $table->string('titulo', 255)->nullable()->comment('legado: titulo');
             $table->string('area', 30)->nullable()->comment('legado: area');
             $table->text('descricao')->nullable()->comment('legado: descricao · sem valores reais: tipo a confirmar no código legado');
             $table->integer('vagas')->nullable()->comment('legado: vagas');

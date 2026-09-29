@@ -18,8 +18,8 @@ return new class extends Migration
         Schema::create('armazens', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome', 30)->nullable()->comment('legado: name');
-            $table->string('localizacao', 50)->nullable()->comment('legado: location');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
+            $table->string('localizacao', 150)->nullable()->comment('legado: location');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -30,22 +30,22 @@ return new class extends Migration
         Schema::create('produtos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 30)->nullable()->comment('legado: code');
-            $table->string('nome', 150)->nullable()->comment('legado: name');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: unit_price · tipos mistos: inteiro=99, decimal=1');
             $table->decimal('taxa_imposto', 9, 4)->nullable()->comment('legado: tax_rate');
             $table->decimal('quantidade_stock', 12, 3)->nullable()->comment('legado: stock_qty');
             $table->boolean('movimenta_stock')->nullable()->comment('legado: is_inventory · tipos mistos: boolean=77, inteiro=23');
-            $table->string('codigo_conta', 10)->nullable()->comment('legado: account_code');
+            $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code');
             $table->string('conta_compra', 20)->nullable()->comment('legado: account_purchase · tipos mistos: string_inteiro=13, inteiro=19');
-            $table->string('conta_inventario', 10)->nullable()->comment('legado: account_inventory · tipos mistos: string_inteiro=13, inteiro=19');
+            $table->string('conta_inventario', 20)->nullable()->comment('legado: account_inventory · tipos mistos: string_inteiro=13, inteiro=19');
             $table->string('conta_custo', 20)->nullable()->comment('legado: account_cost · tipos mistos: string_inteiro=17, inteiro=19');
             $table->bigInteger('categoria_produto_id')->nullable()->comment('legado: category_id');
             $table->string('conta_iva', 20)->nullable()->comment('legado: account_iva · tipos mistos: string_inteiro=26, inteiro=42');
             $table->string('conta_iva_liquidado', 20)->nullable()->comment('legado: account_iva_liquidado');
             $table->string('conta_iva_dedutivel', 20)->nullable()->comment('legado: account_iva_dedutivel');
-            $table->string('conta_quebra', 10)->nullable()->comment('legado: account_shortage');
-            $table->string('conta_sobra', 10)->nullable()->comment('legado: account_surplus');
+            $table->string('conta_quebra', 20)->nullable()->comment('legado: account_shortage');
+            $table->string('conta_sobra', 20)->nullable()->comment('legado: account_surplus');
             $table->text('imagem_base64')->nullable()->comment('legado: image_base64');
             $table->boolean('e_quarto')->nullable()->comment('legado: is_room');
             $table->boolean('e_ativo_imobilizado')->nullable()->comment('legado: is_asset');
@@ -76,7 +76,7 @@ return new class extends Migration
         Schema::create('categorias_produtos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome', 100)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -104,7 +104,7 @@ return new class extends Migration
             $table->bigInteger('produto_id')->nullable()->comment('legado: product_id');
             $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id');
             $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE}; texto original em tipo_original');
-            $table->string('tipo_original', 20)->nullable()->comment('legado: type · texto exacto do legado');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
             $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantity · tipos mistos: inteiro=100, decimal=2');
             $table->timestampTz('data')->nullable()->comment('legado: date · tipos mistos: string_datahora=79, string_data=23');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id');
@@ -127,7 +127,7 @@ return new class extends Migration
         Schema::create('guias_saida', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('numero_documento', 30)->nullable()->comment('legado: doc_number');
+            $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number');
             $table->date('data')->nullable()->comment('legado: date');
             $table->string('tipo', 20)->nullable()->comment('legado: type');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: entity_id');
@@ -181,7 +181,7 @@ return new class extends Migration
             $table->date('data')->nullable()->comment('legado: date');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {EM_CONTAGEM, CONCLUIDA, ANULADA}; texto original em estado_original');
-            $table->string('estado_original', 20)->nullable()->comment('legado: status · texto exacto do legado');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->string('tipo', 10)->nullable()->comment('legado: type');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();

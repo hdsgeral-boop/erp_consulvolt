@@ -20,7 +20,7 @@ final class ServicoEmpresas
     public function idsAcessiveis(Utilizador $utilizador): array
     {
         return Cache::remember(
-            ChaveCache::utilizador($utilizador->getKey(), 'empresas'),
+            ChaveCache::utilizador($utilizador->getKey(), 'empresas:v'.$this->versao()),
             config('erp.cache.ttl.empresas_utilizador'),
             function () use ($utilizador): array {
                 $consulta = Empresa::query()->where('estado', Empresa::ESTADO_ATIVO);
@@ -47,6 +47,17 @@ final class ServicoEmpresas
 
     public function invalidarUtilizador(int $utilizadorId): void
     {
-        Cache::forget(ChaveCache::utilizador($utilizadorId, 'empresas'));
+        Cache::forget(ChaveCache::utilizador($utilizadorId, 'empresas:v'.$this->versao()));
+    }
+
+    /** Uma empresa mudou de estado: todas as listas em cache ficam inválidas (nova versão da chave). */
+    public function invalidarTodos(): void
+    {
+        Cache::forever('empresas:versao', $this->versao() + 1);
+    }
+
+    private function versao(): int
+    {
+        return (int) Cache::get('empresas:versao', 1);
     }
 }

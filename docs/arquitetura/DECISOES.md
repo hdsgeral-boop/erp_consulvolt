@@ -200,3 +200,32 @@ Cada execução fica registada em `execucoes_migracao`, com o SHA-256 do ficheir
 
 ## ADR-026 — Numeração: lock Redis + sequência transaccional, a continuar a do legado
 **Decisão.** `ServicoNumeracao` usa `Cache::lock` (Redis, `erp:lock:numeracao:{empresa}:{chave}`) e `SELECT … FOR UPDATE` em `sequencias_documentos`. O incremento pertence à transacção do documento: se a transacção falhar, o número não é consumido (sem saltos nem duplicados). A semente é o maior número já usado no legado (`numero_lan` ou `referencia`, no formato `<diário><ano><seq6>`). Esta sequência serve de base também às séries de facturas, guias e recibos.
+
+## ADR-027 — Tamanhos mínimos de colunas por semântica
+**Contexto.** O gerador dimensionava cada `varchar` pelo maior valor do backup × 1,5. Isso deixava colunas curtas demais para registos novos: por exemplo, `produtos.codigo_conta` ficava com `varchar(10)` quando o plano de contas usa códigos até 20.
+**Decisão.** O gerador aplica mínimos por semântica:
+- contas: 20 (igual a `plano_contas.codigo`);
+- nomes e descrições: 255;
+- códigos e números: 50;
+- email: 150; telefone: 50; IBAN: 50;
+- moradas: 150;
+- `*_original`: 100;
+- `chave`: 150.
+
+O esquema foi regenerado e o backup migrado de novo, sem diferenças nos resultados.
+
+## ADR-028 — Terceiros e produtos: paridade e melhorias
+**Paridade** com `saveCustomer`, `saveSupplier`, `saveProduct` e os hooks do legado:
+- a conta é obrigatória e tem de ser de movimento;
+- o NIF é único na empresa; a API devolve `NIF_DUPLICADO` com o id do existente, para o frontend o seleccionar;
+- um fornecedor que passa a cliente fica com o tipo `CLIENTE_FORNECEDOR`;
+- a isenção AGT só se aplica com IVA a 0%; `conta_iva` é igual a `conta_iva_liquidado`;
+- o catálogo de compras acompanha o produto.
+
+**Melhorias:**
+- **A ficha do produto não altera o stock.** O legado mantinha três fontes de stock desalinhadas; no sistema novo o stock só resulta de movimentos de inventário.
+- A eliminação é lógica, e fica bloqueada quando o terceiro ou o produto tem documentos, lançamentos ou movimentos.
+- O catálogo de venda fica em cache no Redis e é invalidado nas escritas.
+- O `Model::shouldBeStrict` detecta erros cedo.
+
+**Cache de acesso às empresas.** A ligação utilizador ↔ empresa passou a um pivô próprio (`UtilizadorEmpresa`), que invalida a cache quando é alterada. As mudanças de estado de uma empresa incrementam uma versão global da chave. Antes disto, um utilizador ligado a uma nova empresa esperava até 1 h pelo acesso (bug detectado pelos testes).

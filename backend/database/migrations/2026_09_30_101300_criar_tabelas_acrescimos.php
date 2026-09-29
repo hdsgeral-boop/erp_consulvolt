@@ -36,8 +36,8 @@ return new class extends Migration
             $table->string('natureza', 10)->nullable()->comment('legado: natureza');
             $table->text('descricao')->nullable()->comment('legado: descricao');
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor');
-            $table->string('conta_resultado', 10)->nullable()->comment('legado: conta_resultado');
-            $table->string('conta_balanco', 10)->nullable()->comment('legado: conta_balanco');
+            $table->string('conta_resultado', 20)->nullable()->comment('legado: conta_resultado');
+            $table->string('conta_balanco', 20)->nullable()->comment('legado: conta_balanco');
             $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
             $table->date('data_fim')->nullable()->comment('legado: data_fim');
             $table->string('reparticao', 10)->nullable()->comment('legado: reparticao');
@@ -73,8 +73,8 @@ return new class extends Migration
             $table->string('tipo', 30)->nullable()->comment('legado: tipo');
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor · tipos mistos: inteiro=6, decimal=2');
             $table->bigInteger('diario_id')->nullable()->comment('legado: journal_id');
-            $table->string('numero_lan', 20)->nullable()->comment('legado: lan_number');
-            $table->string('numero_documento', 30)->nullable()->comment('legado: doc_number');
+            $table->string('numero_lan', 50)->nullable()->comment('legado: lan_number');
+            $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number');
             $table->date('data_documento')->nullable()->comment('legado: doc_date');
             $table->string('estado', 20)->nullable()->comment('legado: estado');
             $table->string('por', 10)->nullable()->comment('legado: por');

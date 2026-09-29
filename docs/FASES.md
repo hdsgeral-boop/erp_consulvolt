@@ -86,15 +86,15 @@ Cobrem os seguintes casos:
 | :--- | :--- | :--- | :--- |
 | Núcleo transversal | ✅ | — | Catálogo de permissões do legado e conversão de perfis (ADR-024); numeração segura (ADR-026); lock de exercício encerrado |
 | **Contabilidade** | ✅ | plano-contas (CRUD, cache Redis), diarios, lancamentos (listar, detalhe, criar, **estornar**), relatorios/balancete, relatorios/razao, relatorios/desequilibrios | Partidas dobradas em decimal exacto; estorno com rasto (ADR-016); chave do lançamento (ADR-025) |
-| **Sistema › Validações de dados** | ✅ | sistema/validacoes, sistema/validacoes/{codigo} | 11 validações só de leitura que substituem as rotinas destrutivas (ADR-015) |
-| Terceiros e Produtos | ⏳ | | |
+| **Sistema › Validações de dados** | ✅ | sistema/validacoes, sistema/validacoes/{codigo} | 12 validações só de leitura que substituem as rotinas destrutivas (ADR-015) |
+| **Terceiros e Produtos** | ✅ | terceiros (CRUD por papel CLIENTE/FORNECEDOR), logistica/produtos (CRUD, bloquear, catálogo em cache), logistica/categorias-produtos | Paridade saveCustomer/saveSupplier/saveProduct; stock só por movimentos (ADR-028) |
 | Vendas / Facturação AGT | ⏳ | | |
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
 | RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |
 | Logística, POS, Activos, Projectos, Orçamento, A&D, CRM | ⏳ | | |
 
-Os testes são agora 60 (326 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
+Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
 
 ## Decisões do utilizador (2026-09-29, após a Fase 1)
 1. **Ecrãs vazios do legado** (Encomendas Clientes, Activos "Cadastro"): **corrigir** no sistema novo — ADR-014.

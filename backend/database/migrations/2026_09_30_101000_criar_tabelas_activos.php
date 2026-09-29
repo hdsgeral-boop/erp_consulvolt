@@ -18,7 +18,7 @@ return new class extends Migration
         Schema::create('ativos_imobilizados', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 30)->nullable()->comment('legado: code');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->bigInteger('categoria_ativo_id')->nullable()->comment('legado: category_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
@@ -50,13 +50,13 @@ return new class extends Migration
         Schema::create('categorias_ativos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome', 100)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->decimal('taxa_anual', 9, 4)->nullable()->comment('legado: annual_rate · tipos mistos: inteiro=10, decimal=1');
             $table->integer('vida_util_padrao')->nullable()->comment('legado: default_useful_life');
-            $table->string('conta_gasto', 10)->nullable()->comment('legado: account_expense');
-            $table->string('conta_amortizacao_acumulada', 10)->nullable()->comment('legado: account_accumulated');
-            $table->string('conta_venda', 10)->nullable()->comment('legado: account_sale');
-            $table->string('conta_perda', 10)->nullable()->comment('legado: account_loss');
+            $table->string('conta_gasto', 20)->nullable()->comment('legado: account_expense');
+            $table->string('conta_amortizacao_acumulada', 20)->nullable()->comment('legado: account_accumulated');
+            $table->string('conta_venda', 20)->nullable()->comment('legado: account_sale');
+            $table->string('conta_perda', 20)->nullable()->comment('legado: account_loss');
             $table->string('conta_ativo', 255)->nullable()->comment('legado: account_asset · do código legado js/ui_assets.js:824');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -119,7 +119,7 @@ return new class extends Migration
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->decimal('custo', 15, 2)->nullable()->comment('legado: cost');
             $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {PLANEADA, EM_CURSO, CONCLUIDA}; texto original em estado_original');
-            $table->string('estado_original', 20)->nullable()->comment('legado: status · texto exacto do legado');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->text('resolucao')->nullable()->comment('legado: resolution');
             $table->date('data_execucao')->nullable()->comment('legado: execution_date');
             $table->timestampTz('criado_em')->nullable()->useCurrent();

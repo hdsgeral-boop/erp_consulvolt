@@ -18,7 +18,7 @@ return new class extends Migration
         Schema::create('pedidos_compra', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome_requerente', 50)->nullable()->comment('legado: requester_name');
+            $table->string('nome_requerente', 255)->nullable()->comment('legado: requester_name');
             $table->timestampTz('data')->nullable()->comment('legado: date · tipos mistos: string_data=14, string_datahora=7');
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->bigInteger('venda_origem_id')->nullable()->comment('legado: source_sale_id');
@@ -56,7 +56,7 @@ return new class extends Migration
             $table->string('estado', 30)->nullable()->comment('legado: status');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->decimal('taxa_cambio', 18, 6)->nullable()->comment('legado: exchange_rate');
             $table->bigInteger('taxa_cambio_id')->nullable()->comment('legado: exchange_rate_id');
             $table->boolean('taxa_cambio_manual')->nullable()->comment('legado: exchange_rate_manual');
@@ -80,7 +80,7 @@ return new class extends Migration
             $table->bigInteger('pedido_compra_id')->nullable()->comment('legado: request_id');
             $table->bigInteger('cotacao_compra_id')->nullable()->comment('legado: quote_id');
             $table->bigInteger('fornecedor_id')->nullable()->comment('legado: supplier_id');
-            $table->string('numero_encomenda', 30)->nullable()->comment('legado: order_number');
+            $table->string('numero_encomenda', 50)->nullable()->comment('legado: order_number');
             $table->timestampTz('data')->nullable()->comment('legado: date · tipos mistos: string_datahora=16, string_data=1');
             $table->string('estado', 30)->nullable()->comment('legado: status');
             $table->boolean('contabilizado')->nullable()->comment('legado: is_posted');
@@ -90,7 +90,7 @@ return new class extends Migration
             $table->bigInteger('contrato_fornecedor_id')->nullable()->comment('legado: contract_id');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->decimal('taxa_cambio', 18, 6)->nullable()->comment('legado: exchange_rate');
             $table->bigInteger('taxa_cambio_id')->nullable()->comment('legado: exchange_rate_id');
             $table->boolean('taxa_cambio_manual')->nullable()->comment('legado: exchange_rate_manual');
@@ -117,7 +117,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('encomenda_compra_id')->nullable()->comment('legado: order_id');
-            $table->string('numero_entrega', 30)->nullable()->comment('legado: delivery_number');
+            $table->string('numero_entrega', 50)->nullable()->comment('legado: delivery_number');
             $table->date('data')->nullable()->comment('legado: date');
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->boolean('contabilizado')->nullable()->comment('legado: is_posted');
@@ -125,7 +125,7 @@ return new class extends Migration
             $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->decimal('taxa_cambio', 18, 6)->nullable()->comment('legado: exchange_rate');
             $table->bigInteger('taxa_cambio_id')->nullable()->comment('legado: exchange_rate_id');
             $table->boolean('taxa_cambio_manual')->nullable()->comment('legado: exchange_rate_manual');
@@ -157,7 +157,7 @@ return new class extends Migration
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->decimal('taxa_cambio', 18, 6)->nullable()->comment('legado: exchange_rate');
             $table->bigInteger('taxa_cambio_id')->nullable()->comment('legado: exchange_rate_id');
             $table->boolean('taxa_cambio_manual')->nullable()->comment('legado: exchange_rate_manual');
@@ -180,7 +180,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('tipo_documento_origem', 20)->nullable()->comment('legado: parent_type · código normalizado ∈ {PEDIDO, COTACAO, ENCOMENDA, FATURA}; texto original em tipo_documento_origem_original');
-            $table->string('tipo_documento_origem_original', 20)->nullable()->comment('legado: parent_type · texto exacto do legado');
+            $table->string('tipo_documento_origem_original', 100)->nullable()->comment('legado: parent_type · texto exacto do legado');
             $table->bigInteger('produto_id')->nullable()->comment('legado: product_id');
             $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantity');
             $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: unit_price · tipos mistos: inteiro=83, decimal=4');
@@ -222,8 +222,8 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('produto_id')->nullable()->comment('legado: product_id');
-            $table->string('codigo', 30)->nullable()->comment('legado: code');
-            $table->string('nome', 150)->nullable()->comment('legado: name');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: unit_price · tipos mistos: inteiro=69, decimal=1');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -238,7 +238,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('fornecedor_id')->nullable()->comment('legado: supplier_id');
             $table->bigInteger('encomenda_compra_id')->nullable()->comment('legado: order_id');
-            $table->string('referencia', 20)->nullable()->comment('legado: reference');
+            $table->string('referencia', 50)->nullable()->comment('legado: reference');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->date('data_inicio')->nullable()->comment('legado: start_date');
             $table->date('data_fim')->nullable()->comment('legado: end_date');

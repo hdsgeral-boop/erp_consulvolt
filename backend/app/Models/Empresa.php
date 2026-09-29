@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditavel;
+use App\Services\Sistema\ServicoEmpresas;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -44,10 +45,18 @@ class Empresa extends ModeloBase
         ];
     }
 
+    protected static function booted(): void
+    {
+        $invalidar = fn () => app(ServicoEmpresas::class)->invalidarTodos();
+        static::saved(fn (Empresa $e) => $e->wasChanged(['estado', 'eliminado_em']) || $e->wasRecentlyCreated ? $invalidar() : null);
+        static::deleted($invalidar);
+        static::restored($invalidar);
+    }
+
     public function utilizadores(): BelongsToMany
     {
         return $this->belongsToMany(Utilizador::class, 'utilizador_empresa', 'empresa_id', 'utilizador_id')
-            ->withPivot('colaborador_id');
+            ->using(UtilizadorEmpresa::class)->withPivot('colaborador_id');
     }
 
     public function estaAtiva(): bool

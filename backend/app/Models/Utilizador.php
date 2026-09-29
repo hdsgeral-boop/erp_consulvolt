@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\Auditavel;
+use App\Services\Sistema\ServicoEmpresas;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -61,6 +62,15 @@ class Utilizador extends Autenticavel
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function (Utilizador $u) {
+            if ($u->wasChanged(['papel', 'acesso_todas_empresas', 'ativo'])) {
+                app(ServicoEmpresas::class)->invalidarUtilizador((int) $u->getKey());
+            }
+        });
+    }
+
     public function perfil(): BelongsTo
     {
         return $this->belongsTo(PerfilUtilizador::class, 'perfil_utilizador_id');
@@ -69,7 +79,7 @@ class Utilizador extends Autenticavel
     public function empresas(): BelongsToMany
     {
         return $this->belongsToMany(Empresa::class, 'utilizador_empresa', 'utilizador_id', 'empresa_id')
-            ->withPivot('colaborador_id');
+            ->using(UtilizadorEmpresa::class)->withPivot('colaborador_id');
     }
 
     /** Tokens Sanctum na tabela tokens_acesso (colunas portador_tipo/portador_id). */

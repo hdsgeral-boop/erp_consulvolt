@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T12:03:44.912Z",
+  "gerado_em": "2026-09-29T15:02:58.940Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -23,7 +23,7 @@
         {
           "coluna": "chave",
           "legado": "key",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -94,7 +94,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -103,7 +103,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -112,7 +112,7 @@
         {
           "coluna": "nome_abreviado",
           "legado": "short_name",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -386,7 +386,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -462,7 +462,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -471,7 +471,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -576,7 +576,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -710,7 +710,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -790,7 +790,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -900,7 +900,7 @@
         {
           "coluna": "nome_ficheiro",
           "legado": "file_name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -989,7 +989,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -1016,7 +1016,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -1106,7 +1106,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -1124,7 +1124,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -1362,7 +1362,7 @@
         {
           "coluna": "referencia_documento",
           "legado": "doc_ref",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -1401,7 +1401,7 @@
         {
           "coluna": "tipo_documento_origem_original",
           "legado": "source_doc_type",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -1452,7 +1452,7 @@
         {
           "coluna": "numero_lan",
           "legado": "lan_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -1461,7 +1461,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -1932,7 +1932,7 @@
         {
           "coluna": "numero_lan",
           "legado": "lan_number",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -1962,7 +1962,7 @@
         {
           "coluna": "tipo_documento_origem_original",
           "legado": "source_doc_type",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -2001,7 +2001,7 @@
         {
           "coluna": "nome_utilizador",
           "legado": "user",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2084,7 +2084,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2155,7 +2155,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2247,7 +2247,7 @@
         {
           "coluna": "tipo_original",
           "legado": "type",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -2256,7 +2256,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2350,7 +2350,7 @@
         {
           "coluna": "estado_original",
           "legado": "status",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -2462,7 +2462,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2480,7 +2480,7 @@
         {
           "coluna": "conta_reserva_cambial",
           "legado": "fx_reserve_account",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2507,7 +2507,7 @@
         {
           "coluna": "conta_diferenca_eliminacao",
           "legado": "elim_diff_account",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2730,7 +2730,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2748,7 +2748,7 @@
         {
           "coluna": "nome_utilizador",
           "legado": "user",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2828,7 +2828,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(150)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2851,7 +2851,7 @@
         {
           "coluna": "tipo_original",
           "legado": "type",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -2869,7 +2869,7 @@
         {
           "coluna": "codigo_conta",
           "legado": "account_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2878,7 +2878,7 @@
         {
           "coluna": "conta_compra_transitoria",
           "legado": "account_purchase_clearing",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2887,7 +2887,7 @@
         {
           "coluna": "email",
           "legado": "email",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2896,7 +2896,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2905,7 +2905,7 @@
         {
           "coluna": "telefone",
           "legado": "phone",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -2996,7 +2996,7 @@
         {
           "coluna": "rua",
           "legado": "street",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3005,7 +3005,7 @@
         {
           "coluna": "numero_porta",
           "legado": "door_number",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3014,7 +3014,7 @@
         {
           "coluna": "bairro",
           "legado": "neighborhood",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3023,7 +3023,7 @@
         {
           "coluna": "municipio",
           "legado": "municipality",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3032,7 +3032,7 @@
         {
           "coluna": "provincia",
           "legado": "province",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3041,7 +3041,7 @@
         {
           "coluna": "pais",
           "legado": "country",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3133,7 +3133,7 @@
         {
           "coluna": "tipo_documento_original",
           "legado": "doc_type",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -3238,7 +3238,7 @@
         {
           "coluna": "estado_original",
           "legado": "status",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -3372,7 +3372,7 @@
         {
           "coluna": "meio_pagamento_original",
           "legado": "payment_method",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -3381,7 +3381,7 @@
         {
           "coluna": "nome_tabela",
           "legado": "table_name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3447,7 +3447,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3525,7 +3525,7 @@
         {
           "coluna": "codigo_terminal_pos",
           "legado": "pos_terminal_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3582,7 +3582,7 @@
         {
           "coluna": "numero_pedido_lavandaria",
           "legado": "lav_order_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -3630,7 +3630,7 @@
         {
           "coluna": "modo_pagamento_original",
           "legado": "payment_mode",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -4042,7 +4042,7 @@
         {
           "coluna": "codigo_conta",
           "legado": "account_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -4176,7 +4176,7 @@
         {
           "coluna": "numero_recibo",
           "legado": "receipt_number",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -4233,7 +4233,7 @@
         {
           "coluna": "referencia_pagamento",
           "legado": "payment_reference",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -4847,7 +4847,7 @@
         {
           "coluna": "nome_requerente",
           "legado": "requester_name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -5143,7 +5143,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -5298,7 +5298,7 @@
         {
           "coluna": "numero_encomenda",
           "legado": "order_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -5403,7 +5403,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -5551,7 +5551,7 @@
         {
           "coluna": "numero_entrega",
           "legado": "delivery_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -5632,7 +5632,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -5865,7 +5865,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -5989,7 +5989,7 @@
         {
           "coluna": "tipo_documento_origem_original",
           "legado": "parent_type",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -6285,7 +6285,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6294,7 +6294,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(150)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6398,7 +6398,7 @@
         {
           "coluna": "referencia",
           "legado": "reference",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6615,7 +6615,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6624,7 +6624,7 @@
         {
           "coluna": "localizacao",
           "legado": "location",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6695,7 +6695,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6704,7 +6704,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(150)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6749,7 +6749,7 @@
         {
           "coluna": "codigo_conta",
           "legado": "account_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6767,7 +6767,7 @@
         {
           "coluna": "conta_inventario",
           "legado": "account_inventory",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6824,7 +6824,7 @@
         {
           "coluna": "conta_quebra",
           "legado": "account_shortage",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -6833,7 +6833,7 @@
         {
           "coluna": "conta_sobra",
           "legado": "account_surplus",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -7083,7 +7083,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -7294,7 +7294,7 @@
         {
           "coluna": "tipo_original",
           "legado": "type",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -7427,7 +7427,7 @@
         {
           "coluna": "numero_documento",
           "legado": "doc_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -7817,7 +7817,7 @@
         {
           "coluna": "estado_original",
           "legado": "status",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -8024,7 +8024,7 @@
         {
           "coluna": "nome_completo",
           "legado": "name",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8042,7 +8042,7 @@
         {
           "coluna": "numero_inss",
           "legado": "inss",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8088,7 +8088,7 @@
         {
           "coluna": "estado_original",
           "legado": "status",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -8181,7 +8181,7 @@
         {
           "coluna": "estado_civil_original",
           "legado": "estado_civil",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -8253,7 +8253,7 @@
         {
           "coluna": "bairro",
           "legado": "bairro",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8262,7 +8262,7 @@
         {
           "coluna": "municipio",
           "legado": "municipio",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8271,7 +8271,7 @@
         {
           "coluna": "provincia",
           "legado": "provincia",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8452,7 +8452,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8532,7 +8532,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8620,7 +8620,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8793,7 +8793,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -9155,7 +9155,7 @@
         {
           "coluna": "numero_conta",
           "legado": "account_number",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -9217,7 +9217,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -9247,7 +9247,7 @@
         {
           "coluna": "numero_conta",
           "legado": "account_number",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -9309,7 +9309,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -9318,7 +9318,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -9327,7 +9327,7 @@
         {
           "coluna": "nif",
           "legado": "nif",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -9725,7 +9725,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -9749,7 +9749,7 @@
         {
           "coluna": "parentesco_original",
           "legado": "parentesco",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -10890,7 +10890,7 @@
         {
           "coluna": "codigo",
           "legado": "codigo",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11780,7 +11780,7 @@
         {
           "coluna": "chave",
           "legado": "chave",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11789,7 +11789,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11923,7 +11923,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -13598,7 +13598,7 @@
         {
           "coluna": "codigo",
           "legado": "codigo",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -13607,7 +13607,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -13866,7 +13866,7 @@
         {
           "coluna": "titulo",
           "legado": "titulo",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -14087,7 +14087,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -14326,7 +14326,7 @@
         {
           "coluna": "data_documento_original",
           "legado": "orig_doc_date",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -14368,7 +14368,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -14573,7 +14573,7 @@
         {
           "coluna": "estado_original",
           "legado": "status",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -14712,7 +14712,7 @@
         {
           "coluna": "tipo_original",
           "legado": "type",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -14830,7 +14830,7 @@
         {
           "coluna": "tipo_correspondencia_original",
           "legado": "match_type",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -14912,7 +14912,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -14966,7 +14966,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15037,7 +15037,7 @@
         {
           "coluna": "codigo_conta",
           "legado": "account_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15046,7 +15046,7 @@
         {
           "coluna": "nome_conta",
           "legado": "account_name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15064,7 +15064,7 @@
         {
           "coluna": "nome_operador",
           "legado": "operator_name",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15234,7 +15234,7 @@
         {
           "coluna": "codigo_conta",
           "legado": "account_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15306,7 +15306,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15440,7 +15440,7 @@
         {
           "coluna": "conta_debito",
           "legado": "account_debit",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15449,7 +15449,7 @@
         {
           "coluna": "conta_credito",
           "legado": "account_credit",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15515,7 +15515,7 @@
         {
           "coluna": "tipo_origem_original",
           "legado": "source_type",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -15542,7 +15542,7 @@
         {
           "coluna": "codigo_moeda",
           "legado": "currency",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15696,7 +15696,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15705,7 +15705,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -15727,7 +15727,7 @@
         {
           "coluna": "tipo_original",
           "legado": "type",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -16030,7 +16030,7 @@
         {
           "coluna": "codigo_terminal",
           "legado": "terminal_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16039,7 +16039,7 @@
         {
           "coluna": "nome_terminal",
           "legado": "terminal_name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16048,7 +16048,7 @@
         {
           "coluna": "codigo_sessao",
           "legado": "session_code",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16093,7 +16093,7 @@
         {
           "coluna": "nome_operador",
           "legado": "operator_name",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16134,7 +16134,7 @@
         {
           "coluna": "estado_desvio_original",
           "legado": "deviation_status",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -16161,7 +16161,7 @@
         {
           "coluna": "numero_z",
           "legado": "z_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16429,7 +16429,7 @@
         {
           "coluna": "numero_z",
           "legado": "z_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16519,7 +16519,7 @@
         {
           "coluna": "conta_transitoria",
           "legado": "transit_account",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16552,7 +16552,7 @@
         {
           "coluna": "conta_comissao",
           "legado": "commission_account",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16573,7 +16573,7 @@
         {
           "coluna": "referencia_lote",
           "legado": "batch_ref",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16591,7 +16591,7 @@
         {
           "coluna": "referencia",
           "legado": "reference",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16689,7 +16689,7 @@
         {
           "coluna": "conta_sobra",
           "legado": "account_surplus",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16698,7 +16698,7 @@
         {
           "coluna": "conta_quebra",
           "legado": "account_shortage",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16707,7 +16707,7 @@
         {
           "coluna": "conta_operador",
           "legado": "account_operator",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16725,7 +16725,7 @@
         {
           "coluna": "codigo_diario",
           "legado": "journal_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16815,7 +16815,7 @@
         {
           "coluna": "codigo_terminal",
           "legado": "terminal_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16848,7 +16848,7 @@
         {
           "coluna": "nome_quarto",
           "legado": "room_name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -16878,7 +16878,7 @@
         {
           "coluna": "nome_hospede",
           "legado": "guest_name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17144,7 +17144,7 @@
         {
           "coluna": "numero_encomenda",
           "legado": "order_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17165,7 +17165,7 @@
         {
           "coluna": "codigo_terminal",
           "legado": "terminal_code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17318,7 +17318,7 @@
         {
           "coluna": "nome_atribuido",
           "legado": "assigned_name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17455,7 +17455,7 @@
         {
           "coluna": "numero_encomenda",
           "legado": "order_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18076,7 +18076,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18094,7 +18094,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18219,7 +18219,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18457,7 +18457,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18484,7 +18484,7 @@
         {
           "coluna": "conta_gasto",
           "legado": "account_expense",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18493,7 +18493,7 @@
         {
           "coluna": "conta_amortizacao_acumulada",
           "legado": "account_accumulated",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18502,7 +18502,7 @@
         {
           "coluna": "conta_venda",
           "legado": "account_sale",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18511,7 +18511,7 @@
         {
           "coluna": "conta_perda",
           "legado": "account_loss",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -18940,7 +18940,7 @@
         {
           "coluna": "estado_original",
           "legado": "status",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -19419,7 +19419,7 @@
         {
           "coluna": "codigo",
           "legado": "code",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -19428,7 +19428,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(200)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -19585,7 +19585,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -19698,7 +19698,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -19738,7 +19738,7 @@
         {
           "coluna": "estado_original",
           "legado": "status",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -19862,7 +19862,7 @@
         {
           "coluna": "nome",
           "legado": "name",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -20073,7 +20073,7 @@
         {
           "coluna": "nome_requerente",
           "legado": "requester_name",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -20317,7 +20317,7 @@
         {
           "coluna": "numero_conta",
           "legado": "account_number",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -20458,7 +20458,7 @@
         {
           "coluna": "tipo_documento_origem_original",
           "legado": "source_doc_type",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -20480,7 +20480,7 @@
         {
           "coluna": "natureza_original",
           "legado": "nature",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -21214,7 +21214,7 @@
         {
           "coluna": "chave",
           "legado": "key",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -21401,7 +21401,7 @@
         {
           "coluna": "tipo_original",
           "legado": "type",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -21561,7 +21561,7 @@
         {
           "coluna": "titulo",
           "legado": "titulo",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -21716,7 +21716,7 @@
         {
           "coluna": "codigo",
           "legado": "codigo",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -21725,7 +21725,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -21936,7 +21936,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23305,7 +23305,7 @@
         {
           "coluna": "conta_resultado",
           "legado": "conta_resultado",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23314,7 +23314,7 @@
         {
           "coluna": "conta_balanco",
           "legado": "conta_balanco",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23592,7 +23592,7 @@
         {
           "coluna": "numero_lan",
           "legado": "lan_number",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23601,7 +23601,7 @@
         {
           "coluna": "numero_documento",
           "legado": "doc_number",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23815,7 +23815,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23925,7 +23925,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23934,7 +23934,7 @@
         {
           "coluna": "nif",
           "legado": "nif",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23943,7 +23943,7 @@
         {
           "coluna": "email",
           "legado": "email",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23952,7 +23952,7 @@
         {
           "coluna": "telefone",
           "legado": "telefone",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23985,7 +23985,7 @@
         {
           "coluna": "origem_original",
           "legado": "origem",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -24115,7 +24115,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24133,7 +24133,7 @@
         {
           "coluna": "email",
           "legado": "email",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24142,7 +24142,7 @@
         {
           "coluna": "telefone",
           "legado": "telefone",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24318,7 +24318,7 @@
         {
           "coluna": "origem_original",
           "legado": "origem",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "texto_original",
           "fk": null,
@@ -24544,7 +24544,7 @@
         {
           "coluna": "titulo",
           "legado": "titulo",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24711,7 +24711,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,

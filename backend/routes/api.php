@@ -5,10 +5,13 @@ use App\Http\Controllers\Api\Contabilidade\DiarioController;
 use App\Http\Controllers\Api\Contabilidade\LancamentoController;
 use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
+use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
+use App\Http\Controllers\Api\Logistica\ProdutoController;
 use App\Http\Controllers\Api\SaudeController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
 use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
+use App\Http\Controllers\Api\Terceiros\TerceiroController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -51,6 +54,29 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('logs', [LogAuditoriaController::class, 'index'])->name('logs.index');
             Route::get('validacoes', [ValidacaoDadosController::class, 'index'])->name('validacoes.index');
             Route::get('validacoes/{codigo}', [ValidacaoDadosController::class, 'show'])->where('codigo', '[a-z_]+')->name('validacoes.show');
+        });
+
+        Route::prefix('terceiros')->name('terceiros.')->group(function () {
+            Route::get('/', [TerceiroController::class, 'index'])->name('index');
+            Route::post('/', [TerceiroController::class, 'store'])->name('store');
+            Route::get('{terceiro}', [TerceiroController::class, 'show'])->whereNumber('terceiro')->name('show');
+            Route::put('{terceiro}', [TerceiroController::class, 'update'])->whereNumber('terceiro')->name('update');
+            Route::delete('{terceiro}', [TerceiroController::class, 'destroy'])->whereNumber('terceiro')->name('destroy');
+        });
+
+        Route::prefix('logistica')->name('logistica.')->group(function () {
+            Route::get('produtos', [ProdutoController::class, 'index'])->name('produtos.index');
+            Route::get('produtos/catalogo', [ProdutoController::class, 'catalogo'])->name('produtos.catalogo');
+            Route::post('produtos', [ProdutoController::class, 'store'])->name('produtos.store');
+            Route::get('produtos/{produto}', [ProdutoController::class, 'show'])->whereNumber('produto')->name('produtos.show');
+            Route::put('produtos/{produto}', [ProdutoController::class, 'update'])->whereNumber('produto')->name('produtos.update');
+            Route::post('produtos/{produto}/bloquear', [ProdutoController::class, 'bloquear'])->whereNumber('produto')->name('produtos.bloquear');
+            Route::delete('produtos/{produto}', [ProdutoController::class, 'destroy'])->whereNumber('produto')->name('produtos.destroy');
+
+            Route::get('categorias-produtos', [CategoriaProdutoController::class, 'index'])->name('categorias.index');
+            Route::post('categorias-produtos', [CategoriaProdutoController::class, 'store'])->name('categorias.store');
+            Route::put('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'update'])->whereNumber('categoria')->name('categorias.update');
+            Route::delete('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'destroy'])->whereNumber('categoria')->name('categorias.destroy');
         });
 
         Route::prefix('contabilidade')->name('contabilidade.')->group(function () {

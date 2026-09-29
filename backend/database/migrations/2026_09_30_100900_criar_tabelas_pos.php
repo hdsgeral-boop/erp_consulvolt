@@ -18,10 +18,10 @@ return new class extends Migration
         Schema::create('terminais_pos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: pos_company_id');
-            $table->string('codigo', 10)->nullable()->comment('legado: code');
-            $table->string('nome', 30)->nullable()->comment('legado: name');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {LOJA, LAVANDARIA, HOTELARIA}; texto original em tipo_original');
-            $table->string('tipo_original', 20)->nullable()->comment('legado: type · texto exacto do legado');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
             $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id');
@@ -60,21 +60,21 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: pos_company_id');
             $table->bigInteger('terminal_pos_id')->nullable()->comment('legado: terminal_id');
-            $table->string('codigo_terminal', 10)->nullable()->comment('legado: terminal_code');
-            $table->string('nome_terminal', 30)->nullable()->comment('legado: terminal_name');
-            $table->string('codigo_sessao', 30)->nullable()->comment('legado: session_code');
+            $table->string('codigo_terminal', 50)->nullable()->comment('legado: terminal_code');
+            $table->string('nome_terminal', 255)->nullable()->comment('legado: terminal_name');
+            $table->string('codigo_sessao', 50)->nullable()->comment('legado: session_code');
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->timestampTz('aberto_em')->nullable()->comment('legado: opened_at');
             $table->decimal('fundo_maneio_abertura', 15, 2)->nullable()->comment('legado: opening_float');
             $table->bigInteger('operador_id')->nullable()->comment('legado: operator_id');
-            $table->string('nome_operador', 20)->nullable()->comment('legado: operator_name');
+            $table->string('nome_operador', 255)->nullable()->comment('legado: operator_name');
             $table->string('estado_contabilizacao', 20)->nullable()->comment('legado: posting_status');
             $table->string('estado_liquidacao', 20)->nullable()->comment('legado: settlement_status');
             $table->string('estado_desvio', 20)->nullable()->comment('legado: deviation_status · código normalizado ∈ {NAO_APLICAVEL, SEM_DESVIO, DELIBERADO, PENDENTE}; texto original em estado_desvio_original');
-            $table->string('estado_desvio_original', 20)->nullable()->comment('legado: deviation_status · texto exacto do legado');
+            $table->string('estado_desvio_original', 100)->nullable()->comment('legado: deviation_status · texto exacto do legado');
             $table->timestampTz('fechado_em')->nullable()->comment('legado: closed_at');
             $table->string('fechado_por', 10)->nullable()->comment('legado: closed_by');
-            $table->string('numero_z', 30)->nullable()->comment('legado: z_number');
+            $table->string('numero_z', 50)->nullable()->comment('legado: z_number');
             $table->integer('numero_vendas')->nullable()->comment('legado: sales_count');
             $table->decimal('total_vendas', 15, 2)->nullable()->comment('legado: total_sales');
             $table->jsonb('totais_por_metodo')->nullable()->comment('legado: totals_by_method');
@@ -109,7 +109,7 @@ return new class extends Migration
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->string('criado_por', 10)->nullable()->comment('legado: created_by');
             $table->bigInteger('sessao_pos_id')->nullable()->comment('legado: session_id');
-            $table->string('numero_z', 30)->nullable()->comment('legado: z_number');
+            $table->string('numero_z', 50)->nullable()->comment('legado: z_number');
             $table->string('chave_item', 30)->nullable()->comment('legado: item_key');
             $table->string('natureza_registo', 20)->nullable()->comment('legado: kind');
             $table->string('meio_pagamento_codigo', 10)->nullable()->comment('legado: pm_id');
@@ -119,14 +119,14 @@ return new class extends Migration
             $table->decimal('montante_liquido', 15, 2)->nullable()->comment('legado: amount_net');
             $table->string('alvo', 20)->nullable()->comment('legado: target');
             $table->string('conta_destino', 20)->nullable()->comment('legado: target_account');
-            $table->string('conta_transitoria', 10)->nullable()->comment('legado: transit_account');
+            $table->string('conta_transitoria', 20)->nullable()->comment('legado: transit_account');
             $table->bigInteger('sessao_caixa_id')->nullable()->comment('legado: cash_session_id');
             $table->bigInteger('movimento_caixa_id')->nullable()->comment('legado: cash_line_id');
-            $table->string('conta_comissao', 10)->nullable()->comment('legado: commission_account');
+            $table->string('conta_comissao', 20)->nullable()->comment('legado: commission_account');
             $table->bigInteger('documento_tesouraria_id')->nullable()->comment('legado: treasury_doc_id');
-            $table->string('referencia_lote', 10)->nullable()->comment('legado: batch_ref');
+            $table->string('referencia_lote', 50)->nullable()->comment('legado: batch_ref');
             $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number');
-            $table->string('referencia', 20)->nullable()->comment('legado: reference · tipos mistos: string_inteiro=2, string=1');
+            $table->string('referencia', 50)->nullable()->comment('legado: reference · tipos mistos: string_inteiro=2, string=1');
             $table->decimal('comissao_deduzida', 15, 2)->nullable()->comment('legado: commission_deducted · do código legado js/pos_prestacao.js:761');
             $table->decimal('documento_comissao_id', 15, 2)->nullable()->comment('legado: commission_doc_id · do código legado js/pos_prestacao.js:761');
             $table->timestampTz('cancelado_em')->nullable()->comment('legado: cancelled_at · do código legado js/pos_prestacao.js:790');
@@ -144,11 +144,11 @@ return new class extends Migration
         Schema::create('configuracoes_pos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: pos_company_id');
-            $table->string('conta_sobra', 10)->nullable()->comment('legado: account_surplus');
-            $table->string('conta_quebra', 10)->nullable()->comment('legado: account_shortage');
-            $table->string('conta_operador', 10)->nullable()->comment('legado: account_operator');
+            $table->string('conta_sobra', 20)->nullable()->comment('legado: account_surplus');
+            $table->string('conta_quebra', 20)->nullable()->comment('legado: account_shortage');
+            $table->string('conta_operador', 20)->nullable()->comment('legado: account_operator');
             $table->integer('tolerancia_desvio')->nullable()->comment('legado: deviation_tolerance');
-            $table->string('codigo_diario', 10)->nullable()->comment('legado: journal_code');
+            $table->string('codigo_diario', 50)->nullable()->comment('legado: journal_code');
             $table->string('atualizado_por', 10)->nullable()->comment('legado: updated_by');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -160,13 +160,13 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: hotel_company_id');
             $table->bigInteger('terminal_pos_id')->nullable()->comment('legado: terminal_id');
-            $table->string('codigo_terminal', 10)->nullable()->comment('legado: terminal_code');
+            $table->string('codigo_terminal', 50)->nullable()->comment('legado: terminal_code');
             $table->bigInteger('sessao_pos_id')->nullable()->comment('legado: session_id');
             $table->bigInteger('produto_quarto_id')->nullable()->comment('legado: room_product_id');
-            $table->string('nome_quarto', 50)->nullable()->comment('legado: room_name');
+            $table->string('nome_quarto', 255)->nullable()->comment('legado: room_name');
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->bigInteger('cliente_hospede_id')->nullable()->comment('legado: guest_customer_id');
-            $table->string('nome_hospede', 50)->nullable()->comment('legado: guest_name');
+            $table->string('nome_hospede', 255)->nullable()->comment('legado: guest_name');
             $table->integer('numero_hospedes')->nullable()->comment('legado: guests_count');
             $table->string('modo', 10)->nullable()->comment('legado: mode');
             $table->timestampTz('entrada_em')->nullable()->comment('legado: checkin_at');
@@ -204,9 +204,9 @@ return new class extends Migration
         Schema::create('pedidos_lavandaria', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: lav_company_id');
-            $table->string('numero_encomenda', 30)->nullable()->comment('legado: order_number');
+            $table->string('numero_encomenda', 50)->nullable()->comment('legado: order_number');
             $table->bigInteger('terminal_pos_id')->nullable()->comment('legado: terminal_id');
-            $table->string('codigo_terminal', 10)->nullable()->comment('legado: terminal_code');
+            $table->string('codigo_terminal', 50)->nullable()->comment('legado: terminal_code');
             $table->bigInteger('cliente_id')->nullable()->comment('legado: customer_id');
             $table->timestampTz('recebido_em')->nullable()->comment('legado: received_at');
             $table->string('recebido_por', 10)->nullable()->comment('legado: received_by');
@@ -222,7 +222,7 @@ return new class extends Migration
             $table->jsonb('itens')->nullable()->comment('legado: items');
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->bigInteger('colaborador_atribuido_id')->nullable()->comment('legado: assigned_employee_id');
-            $table->string('nome_atribuido', 30)->nullable()->comment('legado: assigned_name');
+            $table->string('nome_atribuido', 255)->nullable()->comment('legado: assigned_name');
             $table->timestampTz('atribuido_em')->nullable()->comment('legado: assigned_at');
             $table->string('atribuido_por', 10)->nullable()->comment('legado: assigned_by');
             $table->text('nota_atribuicao')->nullable()->comment('legado: assignment_note · sem valores reais: tipo a confirmar no código legado');
@@ -244,7 +244,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: lav_company_id');
             $table->bigInteger('pedido_lavandaria_id')->nullable()->comment('legado: order_id');
-            $table->string('numero_encomenda', 30)->nullable()->comment('legado: order_number');
+            $table->string('numero_encomenda', 50)->nullable()->comment('legado: order_number');
             $table->bigInteger('sessao_pos_id')->nullable()->comment('legado: session_id');
             $table->bigInteger('terminal_pos_id')->nullable()->comment('legado: terminal_id');
             $table->bigInteger('cliente_id')->nullable()->comment('legado: customer_id');
@@ -328,9 +328,9 @@ return new class extends Migration
         Schema::create('pecas_lavandaria', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: lav_company_id');
-            $table->string('codigo', 10)->nullable()->comment('legado: code');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
             $table->string('criado_por', 10)->nullable()->comment('legado: created_by');
-            $table->string('nome', 30)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('tecido', 20)->nullable()->comment('legado: fabric');
             $table->string('cor', 10)->nullable()->comment('legado: color');
             $table->string('unidade', 10)->nullable()->comment('legado: unit');

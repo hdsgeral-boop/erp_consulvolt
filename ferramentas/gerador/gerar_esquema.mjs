@@ -137,6 +137,25 @@ for (const def of tabelas.values()) {
   for (const col of def.colunas.values()) if (col.fk || (col.pt.endsWith('_id') && col.pt !== 'id' && /^bigint|integer/.test(col.tipo))) col.tipo = 'bigint';
 }
 
+// 1c-bis. tamanhos mínimos por semântica: o varchar inferido dos dados (máx. observado × 1,5) é demasiado
+// justo para registos novos (ex.: produtos.codigo_conta varchar(10) vs plano_contas.codigo varchar(20)).
+const MINIMOS = [
+  [/^(codigo_conta|conta_.*|numero_conta|codigo_conta_bancaria)$/, 20],   // = plano_contas.codigo
+  [/^(nome|nome_.*|descricao|titulo|designacao)$/, 255],
+  [/^(codigo|codigo_.*|numero_.*|referencia.*)$/, 50],
+  [/^email$/, 150], [/^(telefone|telefone_.*)$/, 50], [/^nif$/, 30], [/^iban$/, 50],
+  [/^(endereco|morada|rua|bairro|municipio|provincia|comuna|cidade|pais|localizacao)$/, 150],
+  [/(_original)$/, 100], [/^chave$/, 150],
+];
+for (const def of tabelas.values()) {
+  for (const col of def.colunas.values()) {
+    const m = /^varchar\((\d+)\)$/.exec(col.tipo);
+    if (!m || col.dominio) continue;
+    const minimo = MINIMOS.find(([re]) => re.test(col.pt))?.[1];
+    if (minimo && Number(m[1]) < minimo) col.tipo = `varchar(${minimo})`;
+  }
+}
+
 // 1d. colunas novas, polimórficos e pivôs
 for (const [tab, cols] of Object.entries(COLUNAS_NOVAS)) {
   const def = tabelas.get(tab);

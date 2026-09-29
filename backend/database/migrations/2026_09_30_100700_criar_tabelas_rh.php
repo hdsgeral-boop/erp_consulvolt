@@ -18,13 +18,13 @@ return new class extends Migration
         Schema::create('colaboradores', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome_completo', 100)->nullable()->comment('legado: name');
+            $table->string('nome_completo', 255)->nullable()->comment('legado: name');
             $table->string('nif', 30)->nullable()->comment('legado: nif · tipos mistos: string=127, string_inteiro=6');
-            $table->string('numero_inss', 20)->nullable()->comment('legado: inss · tipos mistos: string_inteiro=127, string=5');
+            $table->string('numero_inss', 50)->nullable()->comment('legado: inss · tipos mistos: string_inteiro=127, string=5');
             $table->bigInteger('cargo_funcao_id')->nullable()->comment('legado: role_id');
             $table->bigInteger('tipo_organizacao_id')->nullable()->comment('legado: org_type_id');
             $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {ACTIVO, INACTIVO, SUSPENSO}; texto original em estado_original');
-            $table->string('estado_original', 20)->nullable()->comment('legado: status · texto exacto do legado');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->integer('dias_uteis_mes')->nullable()->comment('legado: work_days');
             $table->boolean('reformado')->nullable()->comment('legado: is_retired');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
@@ -33,7 +33,7 @@ return new class extends Migration
             $table->string('sexo', 10)->nullable()->comment('legado: sexo');
             $table->date('data_nascimento')->nullable()->comment('legado: data_nascimento');
             $table->string('estado_civil', 20)->nullable()->comment('legado: estado_civil · código normalizado ∈ {SOLTEIRO, CASADO, DIVORCIADO, VIUVO, UNIAO_FACTO}; texto original em estado_civil_original');
-            $table->string('estado_civil_original', 20)->nullable()->comment('legado: estado_civil · texto exacto do legado');
+            $table->string('estado_civil_original', 100)->nullable()->comment('legado: estado_civil · texto exacto do legado');
             $table->string('nacionalidade', 20)->nullable()->comment('legado: nacionalidade');
             $table->string('naturalidade', 20)->nullable()->comment('legado: naturalidade');
             $table->string('provincia_naturalidade', 20)->nullable()->comment('legado: provincia_naturalidade');
@@ -41,9 +41,9 @@ return new class extends Migration
             $table->date('documento_validade')->nullable()->comment('legado: documento_validade');
             $table->date('data_admissao')->nullable()->comment('legado: data_admissao');
             $table->text('endereco')->nullable()->comment('legado: endereco');
-            $table->string('bairro', 20)->nullable()->comment('legado: bairro');
-            $table->string('municipio', 20)->nullable()->comment('legado: municipio');
-            $table->string('provincia', 10)->nullable()->comment('legado: provincia');
+            $table->string('bairro', 150)->nullable()->comment('legado: bairro');
+            $table->string('municipio', 150)->nullable()->comment('legado: municipio');
+            $table->string('provincia', 150)->nullable()->comment('legado: provincia');
             $table->string('telefone', 50)->nullable()->comment('legado: telefone · tipos mistos: string=5, string_inteiro=10');
             $table->text('telefone_alternativo')->nullable()->comment('legado: telefone_alternativo · sem valores reais: tipo a confirmar no código legado');
             $table->text('email')->nullable()->comment('legado: email · sem valores reais: tipo a confirmar no código legado');
@@ -73,7 +73,7 @@ return new class extends Migration
         Schema::create('cargos_funcoes', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome', 100)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -86,7 +86,7 @@ return new class extends Migration
         Schema::create('tipos_organizacao_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome', 20)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -98,7 +98,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('tipo', 20)->nullable()->comment('legado: type');
-            $table->string('nome', 50)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->boolean('numero_inss')->nullable()->comment('legado: inss');
             $table->string('irt', 30)->nullable()->comment('legado: irt · tipos mistos: boolean=149, string=26');
             $table->boolean('base_horaria')->nullable()->comment('legado: base_horaria · do código legado js/app_v2.js:9161');
@@ -121,7 +121,7 @@ return new class extends Migration
             $table->date('data_fim')->nullable()->comment('legado: end_date');
             $table->string('estado', 10)->nullable()->comment('legado: status');
             $table->decimal('horas_por_dia', 12, 3)->nullable()->comment('legado: hours_per_day');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->jsonb('produtividade')->nullable()->comment('legado: produtividade');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -174,7 +174,7 @@ return new class extends Migration
             $table->bigInteger('infotipo_salarial_id')->nullable()->comment('legado: infotype_id');
             $table->bigInteger('tipo_organizacao_id')->nullable()->comment('legado: org_type_id · -1 no legado = coluna \'Avençado\' -> NULL + avencado=true');
             $table->boolean('avencado')->nullable()->comment('Coluna \'Avençado\' do mapeamento (legado: org_type_id = -1)');
-            $table->string('numero_conta', 10)->nullable()->comment('legado: account_number');
+            $table->string('numero_conta', 20)->nullable()->comment('legado: account_number');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -187,10 +187,10 @@ return new class extends Migration
         Schema::create('mapeamentos_contabeis_sistema_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 30)->nullable()->comment('legado: code');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
             $table->bigInteger('tipo_organizacao_id')->nullable()->comment('legado: org_type_id · tipos Dexie: {"nan":6}; -1 no legado = coluna \'Avençado\' -> NULL + avencado=true');
             $table->boolean('avencado')->nullable()->comment('Coluna \'Avençado\' do mapeamento (legado: org_type_id = -1)');
-            $table->string('numero_conta', 10)->nullable()->comment('legado: account_number');
+            $table->string('numero_conta', 20)->nullable()->comment('legado: account_number');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -201,9 +201,9 @@ return new class extends Migration
         Schema::create('bancos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome', 50)->nullable()->comment('legado: name');
-            $table->string('codigo', 10)->nullable()->comment('legado: code · tipos mistos: string_inteiro=2, string=7');
-            $table->string('nif', 10)->nullable()->comment('legado: nif');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string_inteiro=2, string=7');
+            $table->string('nif', 30)->nullable()->comment('legado: nif');
             $table->text('endereco')->nullable()->comment('legado: address');
             $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -261,9 +261,9 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
             $table->integer('ordem')->nullable()->comment('legado: ordem');
-            $table->string('nome', 10)->nullable()->comment('legado: nome');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->string('parentesco', 20)->nullable()->comment('legado: parentesco · código normalizado ∈ {FILHO, CONJUGE, PAI, MAE, OUTRO}; texto original em parentesco_original');
-            $table->string('parentesco_original', 20)->nullable()->comment('legado: parentesco · texto exacto do legado');
+            $table->string('parentesco_original', 100)->nullable()->comment('legado: parentesco · texto exacto do legado');
             $table->date('data_nascimento')->nullable()->comment('legado: data_nascimento');
             $table->string('sexo', 10)->nullable()->comment('legado: sexo');
             $table->boolean('dependente_fiscal')->nullable()->comment('legado: dependente_fiscal');
@@ -418,7 +418,7 @@ return new class extends Migration
         Schema::create('itens_produtividade_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
-            $table->string('codigo', 10)->nullable()->comment('legado: codigo');
+            $table->string('codigo', 50)->nullable()->comment('legado: codigo');
             $table->text('descricao')->nullable()->comment('legado: descricao');
             $table->string('metrica', 20)->nullable()->comment('legado: metrica');
             $table->string('unidade', 10)->nullable()->comment('legado: unidade');
@@ -533,8 +533,8 @@ return new class extends Migration
             $table->string('ambito', 20)->nullable()->comment('legado: ambito');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
             $table->string('tipo', 20)->nullable()->comment('legado: tipo');
-            $table->string('chave', 30)->nullable()->comment('legado: chave');
-            $table->string('nome', 50)->nullable()->comment('legado: nome');
+            $table->string('chave', 150)->nullable()->comment('legado: chave');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->text('descricao')->nullable()->comment('legado: descricao');
             $table->decimal('peso', 9, 4)->nullable()->comment('legado: peso');
             $table->integer('ordem')->nullable()->comment('legado: ordem');
@@ -553,7 +553,7 @@ return new class extends Migration
         Schema::create('ciclos_avaliacao_360', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
-            $table->string('nome', 100)->nullable()->comment('legado: nome');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->integer('ano')->nullable()->comment('legado: ano');
             $table->string('periodo', 10)->nullable()->comment('legado: periodo');
             $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
@@ -789,8 +789,8 @@ return new class extends Migration
         Schema::create('unidades_organicas', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: org_company_id');
-            $table->string('codigo', 10)->nullable()->comment('legado: codigo');
-            $table->string('nome', 100)->nullable()->comment('legado: nome');
+            $table->string('codigo', 50)->nullable()->comment('legado: codigo');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->string('tipo', 30)->nullable()->comment('legado: tipo');
             $table->bigInteger('unidade_organica_pai_id')->nullable()->comment('legado: pai_id');
             $table->bigInteger('colaborador_responsavel_id')->nullable()->comment('legado: responsavel_employee_id');
@@ -823,7 +823,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: org_company_id');
             $table->bigInteger('unidade_organica_id')->nullable()->comment('legado: unit_id');
             $table->bigInteger('cargo_funcao_id')->nullable()->comment('legado: role_id');
-            $table->string('titulo', 30)->nullable()->comment('legado: titulo');
+            $table->string('titulo', 255)->nullable()->comment('legado: titulo');
             $table->integer('vagas')->nullable()->comment('legado: vagas');
             $table->bigInteger('posto_superior_id')->nullable()->comment('legado: reporta_a_position_id');
             $table->text('responsabilidades')->nullable()->comment('legado: responsabilidades');

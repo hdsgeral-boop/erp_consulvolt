@@ -18,10 +18,10 @@ return new class extends Migration
         Schema::create('plano_contas', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 20)->nullable()->comment('legado: code · tipos mistos: string_inteiro=18033, string=2');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string_inteiro=18033, string=2');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->string('tipo', 10)->nullable()->comment('legado: type');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->string('natureza_conta', 255)->nullable()->comment('legado: account_nature · do código legado js/app_v2.js:10836');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -35,9 +35,9 @@ return new class extends Migration
         Schema::create('diarios_contabeis', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 20)->nullable()->comment('legado: code · tipos mistos: string=433, string_inteiro=3');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string=433, string_inteiro=3');
             $table->text('descricao')->nullable()->comment('legado: description');
-            $table->string('nome', 100)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -64,17 +64,17 @@ return new class extends Migration
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado; tipos Dexie: {"undef":28}');
             $table->string('reconciliacao_codigo', 50)->nullable()->comment('legado: reconciliation_id');
             $table->bigInteger('periodo_id')->nullable()->comment('legado: period_id');
-            $table->string('referencia_documento', 20)->nullable()->comment('legado: doc_ref');
+            $table->string('referencia_documento', 50)->nullable()->comment('legado: doc_ref');
             $table->integer('periodo_contabil')->nullable()->comment('legado: acc_period');
             $table->string('documento_origem_id', 10)->nullable()->comment('legado: source_doc_id');
             $table->string('tipo_documento_origem', 20)->nullable()->comment('legado: source_doc_type · código normalizado ∈ {FATURA_COMPRA, RECECAO_COMPRA}; texto original em tipo_documento_origem_original');
-            $table->string('tipo_documento_origem_original', 30)->nullable()->comment('legado: source_doc_type · texto exacto do legado');
+            $table->string('tipo_documento_origem_original', 100)->nullable()->comment('legado: source_doc_type · texto exacto do legado');
             $table->string('url_documento', 255)->nullable()->comment('legado: doc_url · tipos Dexie: {"undef":266}');
             $table->string('fonte_dados', 30)->nullable()->comment('legado: source');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
-            $table->string('numero_lan', 30)->nullable()->comment('legado: lan_number');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('numero_lan', 50)->nullable()->comment('legado: lan_number');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->decimal('valor_moeda', 15, 2)->nullable()->comment('legado: value_currency · tipos mistos: inteiro=12, decimal=2');
             $table->decimal('taxa_cambio', 18, 6)->nullable()->comment('legado: exchange_rate');
             $table->bigInteger('taxa_cambio_id')->nullable()->comment('legado: exchange_rate_id');
@@ -148,14 +148,14 @@ return new class extends Migration
             $table->bigInteger('periodo_id')->nullable()->comment('legado: period_id');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
-            $table->string('numero_lan', 20)->nullable()->comment('legado: lan_number');
+            $table->string('numero_lan', 50)->nullable()->comment('legado: lan_number');
             $table->string('documento_origem_id', 10)->nullable()->comment('legado: source_doc_id');
             $table->string('tipo_documento_origem', 20)->nullable()->comment('legado: source_doc_type · código normalizado ∈ {FATURA_COMPRA, RECECAO_COMPRA}; texto original em tipo_documento_origem_original');
-            $table->string('tipo_documento_origem_original', 30)->nullable()->comment('legado: source_doc_type · texto exacto do legado');
+            $table->string('tipo_documento_origem_original', 100)->nullable()->comment('legado: source_doc_type · texto exacto do legado');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado; tipos Dexie: {"undef":2}');
             $table->string('sistema_origem', 20)->nullable()->comment('legado: system_origin');
-            $table->string('nome_utilizador', 20)->nullable()->comment('legado: user');
+            $table->string('nome_utilizador', 255)->nullable()->comment('legado: user');
             $table->decimal('valor_imposto', 15, 2)->nullable()->comment('legado: tax_value');
             $table->timestampTz('eliminado_em')->nullable()->comment('legado: deleted_at');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
@@ -177,7 +177,7 @@ return new class extends Migration
         Schema::create('notas_demonstracao_resultados', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 10)->nullable()->comment('legado: code');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -189,7 +189,7 @@ return new class extends Migration
         Schema::create('notas_fluxo_caixa', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 10)->nullable()->comment('legado: code · tipos mistos: string_inteiro=393, string=18');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string_inteiro=393, string=18');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -203,8 +203,8 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->integer('ano')->nullable()->comment('legado: year · tipos Dexie: {"undef":1}');
             $table->string('tipo', 28)->nullable()->comment('legado: type · tipos Dexie: {"undef":1}; código normalizado ∈ {DEMONSTRACAO_RESULTADOS, FLUXO_CAIXA}; texto original em tipo_original');
-            $table->string('tipo_original', 10)->nullable()->comment('legado: type · texto exacto do legado');
-            $table->string('codigo', 20)->nullable()->comment('legado: code · tipos mistos: string_inteiro=105, string=9');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string_inteiro=105, string=9');
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · tipos mistos: decimal=52, inteiro=62');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -218,7 +218,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: report_company_id');
             $table->integer('ano_relatorio')->nullable()->comment('legado: report_year');
             $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {RASCUNHO, APROVADO}; texto original em estado_original');
-            $table->string('estado_original', 10)->nullable()->comment('legado: status · texto exacto do legado');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->jsonb('configuracao')->nullable()->comment('legado: config');
             $table->jsonb('textos')->nullable()->comment('legado: textos');
             $table->jsonb('notas_incluir')->nullable()->comment('legado: notas_incluir');
@@ -234,12 +234,12 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
             $table->bigInteger('empresa_holding_id')->nullable()->comment('legado: holding_company_id');
-            $table->string('nome', 10)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('moeda_apresentacao', 10)->nullable()->comment('legado: presentation_currency');
-            $table->string('conta_reserva_cambial', 10)->nullable()->comment('legado: fx_reserve_account');
+            $table->string('conta_reserva_cambial', 20)->nullable()->comment('legado: fx_reserve_account');
             $table->boolean('eliminacao_ativa')->nullable()->comment('legado: elim_enabled');
             $table->string('prefixos_excluidos_eliminacao', 10)->nullable()->comment('legado: elim_exclude_prefixes · 1 valores são listas separadas por vírgulas -> tabela pivô');
-            $table->string('conta_diferenca_eliminacao', 10)->nullable()->comment('legado: elim_diff_account');
+            $table->string('conta_diferenca_eliminacao', 20)->nullable()->comment('legado: elim_diff_account');
             $table->bigInteger('ultima_execucao_id')->nullable()->comment('legado: last_run_id');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_on');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -272,9 +272,9 @@ return new class extends Migration
             $table->date('data_execucao')->nullable()->comment('legado: run_date');
             $table->timestampTz('executado_em')->nullable()->comment('legado: run_at');
             $table->date('data_fim')->nullable()->comment('legado: date_end');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->string('estado', 20)->nullable()->comment('legado: status');
-            $table->string('nome_utilizador', 10)->nullable()->comment('legado: user');
+            $table->string('nome_utilizador', 255)->nullable()->comment('legado: user');
             $table->jsonb('totais')->nullable()->comment('legado: totals');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();

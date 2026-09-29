@@ -62,6 +62,13 @@ final class ServicoValidacoesDados
                           FROM terceiros WHERE empresa_id = ? AND eliminado_em IS NULL AND nif IS NOT NULL AND nif <> '' AND nif NOT IN ('999999999', '000000000')
                           GROUP BY nif, tipo HAVING COUNT(*) > 1 ORDER BY 3 DESC",
             ],
+            'terceiros_nome_com_espacos' => [
+                'titulo' => 'Terceiros com espaços ou tabulações no início/fim do nome', 'modulo' => 'Terceiros', 'gravidade' => 'INFO',
+                'descricao' => 'Nomes gravados pelo legado sem limpeza; afectam a ordenação e a pesquisa. Os dados novos já são limpos na entrada.',
+                'legado' => '—',
+                'sql' => "SELECT id, tipo, '[' || nome || ']' AS nome_gravado, nif FROM terceiros
+                          WHERE empresa_id = ? AND eliminado_em IS NULL AND nome <> btrim(nome, E' \\t\\r\\n') ORDER BY id",
+            ],
             'mapeamentos_rh_duplicados' => [
                 'titulo' => 'Mapeamentos contabilísticos de RH ambíguos', 'modulo' => 'RH', 'gravidade' => 'ERRO',
                 'descricao' => 'Mais de uma conta para o mesmo infotipo e tipo de órgão: a integração salarial fica ambígua.', 'legado' => '—',

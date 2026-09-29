@@ -19,8 +19,8 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: orc_company_id');
             $table->string('tipo', 20)->nullable()->comment('legado: tipo');
-            $table->string('codigo', 10)->nullable()->comment('legado: codigo');
-            $table->string('nome', 100)->nullable()->comment('legado: nome');
+            $table->string('codigo', 50)->nullable()->comment('legado: codigo');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->string('natureza', 20)->nullable()->comment('legado: natureza');
             $table->string('grupo', 50)->nullable()->comment('legado: grupo');
             $table->jsonb('contas')->nullable()->comment('legado: contas');
@@ -45,7 +45,7 @@ return new class extends Migration
             $table->string('tipo', 20)->nullable()->comment('legado: tipo');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
-            $table->string('nome', 100)->nullable()->comment('legado: nome');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->text('descricao')->nullable()->comment('legado: descricao · sem valores reais: tipo a confirmar no código legado');
             $table->integer('versao')->nullable()->comment('legado: versao');
             $table->bigInteger('versao_origem_id')->nullable()->comment('legado: versao_origem_id');

@@ -17,7 +17,7 @@ return new class extends Migration
         // system_config (legado) -> configuracoes_sistema · 4 linhas reais no backup
         Schema::create('configuracoes_sistema', function (Blueprint $table) {
             $table->id();
-            $table->string('chave', 30)->nullable()->comment('legado: key');
+            $table->string('chave', 150)->nullable()->comment('legado: key');
             $table->text('valor')->nullable()->comment('legado: value · tipos mistos: string=3, inteiro=1');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -27,9 +27,9 @@ return new class extends Migration
         Schema::create('unidades_negocio', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 20)->nullable()->comment('legado: code');
-            $table->string('nome', 100)->nullable()->comment('legado: name');
-            $table->string('nome_abreviado', 10)->nullable()->comment('legado: short_name');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
+            $table->string('nome_abreviado', 255)->nullable()->comment('legado: short_name');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->bigInteger('unidade_negocio_pai_id')->nullable()->comment('legado: parent_id');
             $table->integer('ordem_sequencia')->nullable()->comment('legado: seq_order');
@@ -63,7 +63,7 @@ return new class extends Migration
         Schema::create('centros_custo', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 20)->nullable()->comment('legado: code');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -74,8 +74,8 @@ return new class extends Migration
         // currencies (legado) -> moedas · 5 linhas reais no backup · eliminação lógica
         Schema::create('moedas', function (Blueprint $table) {
             $table->id();
-            $table->string('codigo', 10)->nullable()->comment('legado: code');
-            $table->string('nome', 30)->nullable()->comment('legado: name');
+            $table->string('codigo', 50)->nullable()->comment('legado: code');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('simbolo', 10)->nullable()->comment('legado: symbol');
             $table->integer('casas_decimais')->nullable()->comment('legado: decimals');
             $table->boolean('ativo')->nullable()->comment('legado: is_active');
@@ -89,7 +89,7 @@ return new class extends Migration
         Schema::create('taxas_cambio', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->nullable()->comment('legado: scope_company_id');
-            $table->string('codigo_moeda', 10)->nullable()->comment('legado: currency');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->date('data_taxa')->nullable()->comment('legado: rate_date');
             $table->decimal('taxa', 9, 4)->nullable()->comment('legado: rate');
             $table->string('fonte_dados', 10)->nullable()->comment('legado: source');
@@ -106,7 +106,7 @@ return new class extends Migration
         Schema::create('regras_internas_ia', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome', 100)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->text('palavras_chave')->nullable()->comment('legado: keywords');
             $table->text('modelo')->nullable()->comment('legado: template');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -118,7 +118,7 @@ return new class extends Migration
         Schema::create('tipos_documento', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('nome', 50)->nullable()->comment('legado: name');
+            $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('contexto_modulo', 10)->nullable()->comment('legado: module_context');
             $table->text('descricao')->nullable()->comment('legado: description · sem valores reais: tipo a confirmar no código legado');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -133,7 +133,7 @@ return new class extends Migration
             $table->bigInteger('tipo_documento_id')->nullable()->comment('legado: type_id');
             $table->string('tipo_entidade', 10)->nullable()->comment('legado: entity_type');
             $table->text('entidade_id')->nullable()->comment('legado: entity_id · sem valores reais: tipo a confirmar no código legado');
-            $table->string('nome_ficheiro', 30)->nullable()->comment('legado: file_name');
+            $table->string('nome_ficheiro', 255)->nullable()->comment('legado: file_name');
             $table->text('conteudo_ficheiro')->nullable()->comment('legado: file_data');
             $table->string('tipo_mime', 30)->nullable()->comment('legado: mime_type');
             $table->timestampTz('data_carregamento')->nullable()->comment('legado: upload_date');
