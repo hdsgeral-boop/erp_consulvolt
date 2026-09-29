@@ -1,0 +1,126 @@
+# ERP_CONSULVOLT — orquestração local (5 serviços da directiva).
+# Uso: copiar .env.example para .env, ajustar segredos e correr `docker compose up -d --build`.
+# As portas publicadas ficam presas a 127.0.0.1 e evitam as do XAMPP (80/3306).
+
+name: erp_consulvolt
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+  image: erp_consulvolt/php:8.3
+  restart: unless-stopped
+  working_dir: /var/www/html
+  volumes:
+    - ./backend:/var/www/html
+    # vendor num volume Linux nativo: evita ler milhares de ficheiros pela montagem Windows (arranque 7 s -> ms).
+    # Gerir dependências sempre dentro do contentor: docker compose exec app composer <comando>
+    - erp_vendor:/var/www/html/vendor
+    - ../wstb_payroll_backup_2026-09-22.json:/dados/legado/wstb_payroll_backup_2026-09-22.json:ro
+  environment:
+    # Variáveis reais do ambiente prevalecem sobre backend/.env (Dotenv imutável do Laravel).
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: 5432
+    DB_DATABASE: ${POSTGRES_DB}
+    DB_USERNAME: ${POSTGRES_USER}
+    DB_PASSWORD: ${POSTGRES_PASSWORD}
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+    REDIS_PASSWORD: ${REDIS_PASSWORD}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  # 1. Backend Laravel (PHP 8.3-FPM)
+  app:
+    <<: *backend
+    container_name: erp_app
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep php-fpm > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # 2. Nginx: SPA React + proxy /api
+  web:
+    image: nginx:1.27-alpine
+    container_name: erp_web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_PORTA:-8080}:80"
+    volumes:
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/var/www/frontend:ro
+    depends_on:
+      app:
+        condition: service_healthy
+
+  # 3. PostgreSQL 16
+  postgres:
+    image: postgres:16-alpine
+    container_name: erp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      TZ: UTC
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - max_wal_size=2GB
+      - -c
+      - timezone=UTC
+    ports:
+      - "127.0.0.1:${POSTGRES_PORTA:-5433}:5432"
+    volumes:
+      - erp_pgdados:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # 4. Redis 7: cache, locks distribuídos e filas
+  redis:
+    image: redis:7-alpine
+    container_name: erp_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}",
+              "--maxmemory", "512mb", "--maxmemory-policy", "volatile-lru"]
+    ports:
+      - "127.0.0.1:${REDIS_PORTA:-6380}:6379"
+    volumes:
+      - erp_redisdados:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  # 5. Worker das filas assíncronas (conciliação, folhas em massa, PDFs, ETL)
+  worker:
+    <<: *backend
+    container_name: erp_worker
+    command: ["php", "artisan", "queue:work", "redis", "--queue=alta,default,pdfs,baixa",
+              "--sleep=3", "--tries=3", "--timeout=600", "--max-time=3600"]
+
+volumes:
+  erp_vendor:
+  erp_pgdados:
+  erp_redisdados:

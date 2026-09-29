@@ -1,0 +1,111 @@
+# Decisões de Arquitectura (ADR)
+
+Registo das decisões com impacto duradouro. Cada entrada: contexto → decisão → consequências.
+
+---
+
+## ADR-001 — Directiva 100% em português como fonte de verdade
+**Contexto.** Há dois documentos de especificação: `prompt_execucao_migracao_erp_pt.md` (tabelas, colunas e API em português) e `plano_migracao_erp_laravel_react.md` (DDL em inglês). Contradizem-se em nomes, no cabeçalho de tenant (`X-Company-Id` vs `X-Empresa-Id`), no comando de importação e no número de contentores.
+**Decisão (utilizador, 2026-09-29).** Prevalece a directiva em português. O plano director fica como referência funcional.
+**Consequências.** O nome das tabelas segue literalmente a matriz contratual (ex.: `efectividade_assiduidade`). As colunas usam o AO90 (`ativo`, `projeto`, `atualizado_em`). O cabeçalho é `X-Empresa-Id` e o comando é `erp:migrar-backup-legado`.
+**Excepção documentada.** As tabelas internas do framework têm nome português (`migracoes`, `trabalhos_falhados`, `lotes_trabalhos`), mas as suas colunas são as que o Laravel tem fixas no código. Os tokens do Sanctum (`tokens_acesso`) estão 100% em português, através do model `TokenAcesso`.
+
+## ADR-002 — O dicionário DE/PARA é gerado, não escrito à mão
+**Contexto.** São 154 tabelas e 1 652 colunas reais; a directiva só descrevia 3 tabelas.
+**Decisão.** `ferramentas/levantamento/` lê o backup e gera `mapa_de_para.json`, `DICIONARIO_DADOS.md` e `pendencias.json`, a partir de um glossário (`glossario.mjs`), de normalizações e de regras de integridade versionadas. O gerador **falha** se houver colunas sem tradução, nomes em colisão ou valores enumerados sem código.
+**Consequências.** As migrations (Fase 2) e o ETL (Fase 3) consomem o `mapa_de_para.json`. Qualquer alteração de nome faz-se no glossário e regenera-se tudo.
+
+## ADR-003 — Dados "mestre" do legado
+**Contexto.** O legado criava, em cada tabela, uma linha fictícia por empresa (`is_master_data=1`, "REGISTO MESTRE OBRIGATÓRIO"), 1 214 linhas no total, para contornar limitações do Dexie. Nenhuma linha real as referencia. Na tabela `companies`, a mesma marca aparece em empresas reais.
+**Decisão (utilizador).** As linhas fictícias não migram. As empresas 10 (SUNNA) e 18 mantêm-se e perdem a marca. A empresa 11 ("SISTEMA - DADO MESTRE") não migra.
+**Consequências.** São 203 818 linhas reais a migrar. As colunas de enchimento que ficaram nas empresas 10 e 18 são descartadas.
+
+## ADR-004 — Enumerações: código normalizado + texto original
+**Decisão (utilizador).** As 30 colunas enumeradas passam a guardar um código (ex.: `Factura`→`FT`, `Nota de CRÉDITO`→`NC`, `Não ACTIVO`→`INACTIVO`) e ganham a coluna `<coluna>_original` com o texto exacto do legado. Valores desconhecidos ficam com código NULL e geram uma ocorrência de migração; nunca se inventa um código.
+
+## ADR-005 — Inconsistências do legado: nada é inventado nem perdido em silêncio
+**Decisão.** Aplicam-se as regras de `regras_integridade.mjs`: QUARENTENA, ANULAR_FK, DIARIO_RECUPERACAO, CODIGO_LEGADO e SEMANTICA. Cada aplicação gera uma linha em `ocorrencias_migracao` com o payload original. Os casos notáveis são:
+- 117 lançamentos apontam para o diário 103, que não existe, ou para NaN. São reapontados para um diário "REC — Recuperado do Legado", porque retirá-los alteraria os saldos.
+- `org_type_id = -1` significa "Avençado" (js/app_v2.js:2648). Passa a `tipo_organizacao_id NULL` com `avencado = true`.
+- `sales.pos_session_id = 'POS_SESS_<epoch>'` eram sessões que só existiam no `localStorage` do navegador. Ficam como código legado, sem FK.
+- Os lançamentos desequilibrados das empresas 5, 8 e 10 (D−C = −321 900,00 no total) são importados como estão e reportados no ecrã de desequilíbrios do próprio sistema (decisão do utilizador).
+
+## ADR-006 — Multi-empresa: contexto explícito e política fail-closed
+**Decisão.** A empresa activa vem do cabeçalho `X-Empresa-Id`, validado pelo middleware `empresa` (existe, está activa e o utilizador tem acesso). É guardada no `ContextoEmpresa`, um singleton `scoped` por pedido ou trabalho. O Global Scope `EscopoEmpresa` **recusa** consultas a models `PertenceEmpresa` sem empresa definida, a menos que se use `semIsolamento()` explícito (ETL, manutenção, consolidação). Gravar com um `empresa_id` diferente do activo é recusado.
+**Consequências.** Um esquecimento do programador dá um erro visível em vez de uma fuga de dados entre empresas.
+**Legado.** `allowed_companies` vazio significava implicitamente "todas as empresas" (js/data/servicos.js:56-64). Passa a ser a flag explícita `utilizadores.acesso_todas_empresas`.
+
+## ADR-007 — Autenticação: tokens Sanctum e migração transparente das palavras-passe
+**Decisão.** O login usa tokens Bearer, sem cookies. Os utilizadores migrados mantêm o hash PBKDF2-SHA256 do legado (120 000 iterações, 32 bytes, Base64; ver js/data/senhas.js) nas colunas `*_legado`. No primeiro login correcto o hash é convertido para **Argon2id** e as colunas legadas são limpas.
+**Paridade.** O nome de utilizador é comparado de forma exacta e a sessão expira após 15 minutos de inactividade.
+**Melhorias.**
+- A validade absoluta do token é de 12 horas.
+- São permitidas 5 tentativas de login por minuto, por utilizador e IP.
+- A mensagem de erro é igual para utilizador inexistente e para palavra-passe errada.
+- Um utilizador desactivado perde de imediato todos os tokens.
+- Os logins falhados ficam na auditoria.
+
+## ADR-008 — Permissões: mesma semântica do legado
+**Decisão.** `ServicoPermissoes` replica `tem(k)` de js/permissoes.js:591-599. Há acesso total para `SUPER_ADMINISTRADOR` ou para `all:true`. Caso contrário vale `permissoes[norm(k)] === true`, com acesso automático ao portal para quem está ligado a um colaborador. Todas as chaves são abilities do Gate (`Gate::authorize('config_logs_view')`).
+**Pendente (Fase 4).** O catálogo de 116 ecrãs e cerca de 195 tarefas, e os mapas `LEGADO`/`LEGADO_VISTA` para os perfis no formato antigo.
+
+## ADR-009 — Auditoria particionada, sem FK e imutável
+**Decisão.** `logs_auditoria` é particionada por ano (RANGE `ocorrido_em`) e tem uma partição DEFAULT. Não tem FK para empresas nem para utilizadores, porque o histórico tem de sobreviver às eliminações (o backup tem logs das empresas 11 e 21, que já não existem). O model recusa update e delete.
+**Auditoria automática.** O trait `Auditavel` substitui os hooks do Dexie e regista, além disso, os valores anteriores e novos, sem segredos.
+**Partições futuras.** Criadas por `erp:auditoria:particoes`, agendado para Dezembro. Se já houver linhas na DEFAULT, o comando move-as.
+
+## ADR-010 — `lancamentos_contabeis` não é particionada (por agora)
+**Contexto.** A directiva pede partição anual. No PostgreSQL, uma tabela particionada exige que a PK inclua a chave de partição. Isso impede FKs simples de outras tabelas para `lancamentos_contabeis(id)`: activos, reconciliações e projectos referenciam lançamentos.
+**Decisão.** A tabela fica **não particionada**, com índices compostos (`empresa_id, codigo_conta, data_documento`, …). Com 44 400 linhas, o volume está duas ordens de grandeza abaixo do ponto em que a partição compensa.
+**Revisão.** A decisão reavalia-se aos 10 milhões de linhas. O caminho seria uma PK composta `(id, data_documento)` e FKs compostas.
+
+## ADR-011 — Fuso horário
+**Decisão.** A aplicação corre em `Africa/Luanda` e as colunas temporais são `TIMESTAMPTZ`. A sessão PostgreSQL usa o fuso da aplicação (`config/database.php`, opção `timezone`). Sem isto, o Laravel grava as datas sem offset e o PostgreSQL interpreta-as como UTC, o que desfasa todas as datas em 1 hora. O erro foi detectado pelo teste de inactividade e fica protegido por `FusoHorarioTest`.
+
+## ADR-012 — Desenvolvimento em Windows: `vendor` num volume Linux
+**Contexto.** Com o código montado a partir do NTFS, o arranque do Laravel demorava cerca de 7 s por pedido, por causa de milhares de acessos a ficheiros do `vendor`.
+**Decisão.** O `vendor` fica no volume nomeado `erp_vendor`. O OPcache revalida os ficheiros a cada 2 s. O entrypoint garante permissões de escrita em `storage/`. O Nginx resolve `app` pelo DNS do Docker, para que a recriação do contentor não cause 502.
+**Consequências.** O pedido desce para cerca de 70–160 ms em desenvolvimento. As dependências gerem-se sempre dentro do contentor. Em produção a imagem inclui o código, sem montagem de volume.
+
+## ADR-013 — Cálculo salarial: a fonte de verdade é o `engine_v2.js`
+**Contexto.** A tabela de IRT do plano director não corresponde à que o legado usa. O `engine_v2.js` usa parcelas fixas de 12 500, 87 250, 187 250 … 2 342 250.
+**Decisão.** O `PayrollService` (Fase 4) reproduz exactamente `js/engine_v2.js:21-97` e `js/app_v2.js:5787-6016`, incluindo as regras implícitas: INSS 3%/8% fixo; isenção de 30 000 Kz nos subsídios identificados pelo nome; avençado com 6,5% sobre o bruto. Os casos de teste são validados contra folhas já processadas no backup. Qualquer correcção a estas regras só se faz com decisão explícita do utilizador.
+
+## ADR-014 — Ecrãs vazios do legado são corrigidos
+**Contexto.** Dois ecrãs do menu abrem vazios por erro de código:
+- *Compras › Encomendas Clientes*: o menu chama `'encomendas_clientes'`, mas o separador usa `'vendas'` (js/ui_compras_v2.js:719, 868).
+- *Activos › Cadastro e Gestão*: chama `renderAssets('dashboard')`, que não tem ramo (js/app_v2.js:1129).
+
+Há ainda a vista `sgd`, que chama `renderSGD`, uma função inexistente.
+**Decisão (utilizador, 2026-09-29).** No sistema novo estes ecrãs mostram o conteúdo previsto: a lista de encomendas de clientes que geram pedidos de compra, e o painel de cadastro de activos. A `sgd` passa a ser a Gestão Documental sobre `documentos_anexos` e `tipos_documento`.
+
+## ADR-015 — Rotinas destrutivas escondidas não são portadas
+**Contexto.** Alguns ecrãs do legado alteram ou apagam dados só por serem abertos:
+- documentos de tesouraria sem data e as suas linhas (js/ui_tesouraria.js:275-286);
+- "correcção" de amortizações duplicadas e recálculo do acumulado em **todas** as empresas (js/ui_assets.js:3-37);
+- remoção das contas por omissão de clientes e produtos (js/ui_sales.js:366-393);
+- normalização de `purchase_items.parent_type`, conversão de `account_code` numérico e remoção de empresas "SISTEMA DADOS MESTRE" duplicadas.
+
+**Decisão (utilizador).** Nenhuma leitura altera dados. Cada rotina passa a ser um **relatório de validação** em *Sistema › Validações de Dados*, que mostra as anomalias com drill-down para o registo. As correcções são **acções explícitas**, com permissão própria, confirmação, execução em transacção, registo em auditoria e, quando destrutivas, aprovação dupla (como a *Manutenção de dados* do legado).
+**ETL.** As mesmas regras correm como verificações no fim da importação e alimentam o relatório de migração.
+
+## ADR-016 — Descontabilizar = estorno com rasto
+**Contexto.** No legado, descontabilizar apaga fisicamente as `journal_lines` (por `doc_number` ou `period_id`; js/ui_lancamentos.js:2959-3078) e não deixa histórico contabilístico.
+**Decisão (utilizador).** Descontabilizar cria um **lançamento de estorno**:
+- no mesmo diário, com um novo N.º de lançamento;
+- com as mesmas contas e valores e D/C invertidos;
+- ligado ao original (`lancamento_estornado_id` / `estornado_por_id`);
+- marcado `origem = ESTORNO`.
+
+O lançamento original fica marcado como estornado e **nunca é apagado**. O documento de origem (factura, recepção, folha, tesouraria) volta ao estado "não contabilizado" e pode ser contabilizado de novo. Os bloqueios do legado mantêm-se como pré-condições: reconciliação bancária, guia contabilizada e activos ligados.
+**Data do estorno.** Por omissão é a do original. Se o período já estiver fechado (lock de exercício), usa-se o primeiro dia aberto e fica registada uma nota.
+**Relatórios.** Apresentam por omissão os saldos líquidos, com a opção "mostrar estornos". O legado `recycled_journal_lines` migra para `lancamentos_estornados` como arquivo histórico.
+
+## ADR-017 — Isenção de IRT de 30 000 Kz pela marcação do infotipo
+**Contexto.** O legado identifica os subsídios isentos pelo **nome** da rubrica, com `includes('alimenta')` e `includes('transp')` (js/app_v2.js:5890-5924), e ignora a marcação `infotypes.irt`. No backup, a marcação `irt = "conditional_30k"` está exactamente nas rubricas *Subsídio de alimentação* e *Subsídio de transporte*, nas 13 empresas.
+**Decisão (utilizador: "corrigir só se for errado, mas algumas rubricas possuem essa característica de isenção").**
+- A isenção de até 30 000 Kz por rubrica aplica-se aos infotipos marcados `conditional_30k`, qualquer que seja o nome. Assim, nomes mal escritos (o backup tem "Subsídio de comusúnicação") ou rubricas novas deixam de falhar.
+- Os infotipos com `irt = false` não entram na base de IRT, e os de `irt = true` entram por inteiro.
+- As restantes regras salariais do legado mantêm-se: INSS 3%/8%, faltas, pro-rata, horas extra e avençados.
+
+**Garantia de não-regressão.** Com os dados actuais, a regra nova dá o mesmo resultado que a antiga. O teste de aceitação da Fase 4 recalcula as folhas **VALIDADAS** do backup com o motor novo, exige diferença zero em cada colaborador e rubrica, e lista qualquer excepção para decisão.

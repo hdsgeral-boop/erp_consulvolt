@@ -1,0 +1,15 @@
+# Segredos
+.env
+backend/.env
+# Dependências e artefactos
+backend/vendor/
+backend/node_modules/
+frontend/node_modules/
+backend/storage/*.key
+backend/storage/logs/*
+!backend/storage/logs/.gitignore
+backend/.phpunit.result.cache
+# Levantamento pesado (regenerável a partir do backup)
+docs/dicionario/levantamento_colunas_legado.json
+# Contém valores reais do backup (ex.: contas bancárias) — regenerável, nunca publicar
+docs/dicionario/pendencias.json
