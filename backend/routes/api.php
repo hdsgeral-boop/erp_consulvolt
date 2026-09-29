@@ -12,6 +12,9 @@ use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
 use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
 use App\Http\Controllers\Api\Terceiros\TerceiroController;
+use App\Http\Controllers\Api\Vendas\ConfigVendasController;
+use App\Http\Controllers\Api\Vendas\DocumentoVendaController;
+use App\Http\Controllers\Api\Vendas\ReciboVendaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -77,6 +80,27 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('categorias-produtos', [CategoriaProdutoController::class, 'store'])->name('categorias.store');
             Route::put('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'update'])->whereNumber('categoria')->name('categorias.update');
             Route::delete('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'destroy'])->whereNumber('categoria')->name('categorias.destroy');
+        });
+
+        Route::prefix('vendas')->name('vendas.')->group(function () {
+            Route::get('documentos', [DocumentoVendaController::class, 'index'])->name('documentos.index');
+            Route::post('documentos', [DocumentoVendaController::class, 'store'])->name('documentos.store');
+            Route::get('documentos/{venda}', [DocumentoVendaController::class, 'show'])->whereNumber('venda')->name('documentos.show');
+            Route::post('documentos/{venda}/converter', [DocumentoVendaController::class, 'converter'])->whereNumber('venda')->name('documentos.converter');
+            Route::post('documentos/{venda}/anular', [DocumentoVendaController::class, 'anular'])->whereNumber('venda')->name('documentos.anular');
+            Route::post('documentos/{venda}/contabilizar', [DocumentoVendaController::class, 'contabilizar'])->whereNumber('venda')->name('documentos.contabilizar');
+            Route::post('documentos/{venda}/descontabilizar', [DocumentoVendaController::class, 'descontabilizar'])->whereNumber('venda')->name('documentos.descontabilizar');
+
+            Route::get('recibos', [ReciboVendaController::class, 'index'])->name('recibos.index');
+            Route::post('recibos', [ReciboVendaController::class, 'store'])->name('recibos.store');
+            Route::get('recibos/{recibo}', [ReciboVendaController::class, 'show'])->whereNumber('recibo')->name('recibos.show');
+            Route::post('recibos/{recibo}/anular', [ReciboVendaController::class, 'anular'])->whereNumber('recibo')->name('recibos.anular');
+            Route::post('recibos/{recibo}/contabilizar', [ReciboVendaController::class, 'contabilizar'])->whereNumber('recibo')->name('recibos.contabilizar');
+            Route::post('recibos/{recibo}/descontabilizar', [ReciboVendaController::class, 'descontabilizar'])->whereNumber('recibo')->name('recibos.descontabilizar');
+
+            Route::get('configuracao/contas', [ConfigVendasController::class, 'contas'])->name('configuracao.contas');
+            Route::put('configuracao/contas', [ConfigVendasController::class, 'definirContas'])->name('configuracao.contas.definir');
+            Route::get('configuracao/series', [ConfigVendasController::class, 'series'])->name('configuracao.series');
         });
 
         Route::prefix('contabilidade')->name('contabilidade.')->group(function () {

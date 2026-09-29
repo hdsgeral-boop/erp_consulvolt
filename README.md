@@ -92,6 +92,9 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET | `/api/sistema/validacoes`, `/api/sistema/validacoes/{codigo}` | Validações de dados (só leitura, ADR-015) |
 | GET/POST/PUT/DELETE | `/api/terceiros[/{id}]` | Clientes/fornecedores (`papel`: CLIENTE ou FORNECEDOR) |
 | GET/POST/PUT/DELETE | `/api/logistica/produtos[/{id}]` | Produtos e serviços; `POST /{id}/bloquear`; `GET /catalogo` (cache) |
+| GET/POST | `/api/vendas/documentos[/{id}]` | FT, FR, NC, OR, PF, NE; `POST /{id}/converter`, `/anular`, `/contabilizar`, `/descontabilizar` (estorno) |
+| GET/POST | `/api/vendas/recibos[/{id}]` | Recibos de clientes; `POST /{id}/anular`, `/contabilizar`, `/descontabilizar` |
+| GET/PUT | `/api/vendas/configuracao/contas` · GET `/api/vendas/configuracao/series` | Contas de vendas e séries de numeração |
 | GET/POST/PUT/DELETE | `/api/logistica/categorias-produtos[/{id}]` | Categorias de produtos |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |

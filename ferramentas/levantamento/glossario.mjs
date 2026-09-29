@@ -410,7 +410,16 @@ export const TIPOS_FORCADOS = {
   'users.colaboradores': 'jsonb',         // {empresa_id: colaborador_id} -> utilizador_empresa.colaborador_id
   'treasury_items.orig_doc_date': 'varchar(50)',
   'journal_lines.doc_date': 'date',             // data de competência (directiva 3.2); 52 valores traziam hora
-  'recycled_journal_lines.doc_date': 'date', // mistura datas com números de documento ("FT FA12026/761")
+  'recycled_journal_lines.doc_date': 'date',
+  // Séries de facturação (tabela sem dados no backup: tipos definidos aqui, não inferidos)
+  'fe_series.codigo': 'varchar(30)', 'fe_series.tipo': 'varchar(5)', 'fe_series.ano': 'integer', 'fe_series.origem': 'varchar(30)',
+  'fe_series.estado': 'varchar(20)', 'fe_series.ultima_data': 'date', 'fe_series.estabelecimento': 'varchar(20)',
+  'fe_series.agt_codigo': 'varchar(60)', 'fe_series.agt_primeiro': 'integer', 'fe_series.agt_ultimo': 'integer',
+  'fe_series.agt_quantidade': 'integer', 'fe_series.proximo': 'integer',
+  // Facturação electrónica nas vendas (campos só do código: tipos definidos aqui)
+  'sales.fe_documento': 'jsonb', 'sales.fe_erros': 'jsonb', 'sales.fe_avisos': 'jsonb', 'sales.fe_envio': 'jsonb',
+  'sales.fe_estado': 'varchar(20)', 'sales.fe_tipo': 'varchar(5)', 'sales.fe_serie': 'varchar(50)', 'sales.fe_numero': 'integer',
+  'sales.fe_estabelecimento': 'varchar(20)', 'sales.delivery_date': 'date', 'sale_items.notes': 'text', 'sale_items.description': 'text', // mistura datas com números de documento ("FT FA12026/761")
 };
 
 export const SOBREPOSICOES = {

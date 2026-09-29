@@ -229,3 +229,37 @@ O esquema foi regenerado e o backup migrado de novo, sem diferenças nos resulta
 - O `Model::shouldBeStrict` detecta erros cedo.
 
 **Cache de acesso às empresas.** A ligação utilizador ↔ empresa passou a um pivô próprio (`UtilizadorEmpresa`), que invalida a cache quando é alterada. As mudanças de estado de uma empresa incrementam uma versão global da chave. Antes disto, um utilizador ligado a uma nova empresa esperava até 1 h pelo acesso (bug detectado pelos testes).
+
+## ADR-029 — Vendas e facturação AGT (parte 1)
+**Âmbito.** Emissão de FT, FR, NC, OR, PF e NE; selagem AGT; conversões; recibos; contabilização e estorno. Ficam para depois: guias GR/GD (com o stock, no módulo Logística), envio à AGT, QR, assinatura SAF-T e multi-moeda (parte 2).
+
+**Numeração.** Todos os documentos novos usam o formato `<TIPO> <SÉRIE>/<n>` (ex.: `FT A2026/15`, `RE A2026/3`). A série é por tipo, ano e origem, e é criada automaticamente. Os números vêm de um lock Redis e de `SELECT … FOR UPDATE` na mesma transacção do documento. Nos documentos fiscais, a data não pode ser futura nem anterior à do último documento da série. Isto acaba com a colisão do legado, em que FT e FR partilhavam o prefixo `FA`.
+
+**Cálculo e selagem.** As contas são feitas em decimal exacto, com as regras AGT:
+- linha = arred(qtd × preço, 2);
+- IVA arredondado ao cêntimo por excesso;
+- bruto = líquido + IVA.
+
+FT, FR e NC ficam selados na emissão, mesmo com erros de validação (E01/E02/E03/E22/E23/E24), que ficam em `fe_erros`. A partir daí, os campos fiscais e as linhas são imutáveis, e um fiscal não se anula nem se elimina: corrige-se com uma nota de crédito.
+
+**Regras de negócio corrigidas face ao legado:**
+- **Nota de crédito:** exige a factura de origem (FT ou FR do mesmo cliente), um motivo e saldo creditável suficiente. Esse saldo é validado com a factura bloqueada. A NC abate o pendente da factura.
+- **Estado persistido:** a FT passa por PENDENTE, PARCIAL e PAGO; a FR nasce PAGO; a NC fica CONCLUIDO; OR, PF e NE passam de PENDENTE a CONCLUIDO ou ANULADO.
+- **Anulação:** só para documentos não fiscais que ainda não foram convertidos.
+- **Factura-recibo:** exige uma conta de disponibilidade (classe 4) e gera o recibo automaticamente.
+- **Condições de pagamento:** PRAZO e MARCOS exigem um plano que some 100%.
+
+**Contabilização.** Cada documento gera um lançamento, equilibrado por construção, através de `ServicoLancamentos`:
+- **Diários:** FC para vendas, RC para recebimentos.
+- **Contas:** vêm do produto ou do cliente; na falta, da configuração de vendas (`clientes_default`, `proveitos_mercadorias`, `proveitos_servicos`, `iva_vendas`). Se faltarem, a operação é recusada com `CONFIG_VENDAS_EM_FALTA` — nunca se usam contas fixas.
+- **Movimentos:** FT = D cliente / C proveitos + C IVA; NC = o inverso; FR = D disponibilidade / C proveitos + C IVA; recibo = D disponibilidade / C cliente.
+
+O n.º do lançamento fica guardado em `numero_lan_contabilizacao`. Descontabilizar é sempre um estorno (ADR-016). Uma FT com recibos activos não se descontabiliza.
+
+**Documentos do legado.** O legado ligava a venda ao lançamento só pelo n.º do documento, que ele próprio reutilizava entre FT, FR e recibos da Tesouraria. O estorno procura o único lançamento activo que movimenta a conta do cliente no sentido da venda; se houver ambiguidade, recusa e remete para a Contabilidade. Verificação sobre o backup real (em transacção revertida, sem alterar dados), nas 51 vendas contabilizadas:
+- 12 estornáveis;
+- 5 bloqueadas por reconciliação bancária;
+- 25 vendas POS, a descontabilizar pela sessão;
+- 9 ambíguas ou sem lançamento.
+
+**Recibos.** Só liquidam facturas FT contabilizadas do próprio cliente, com montante até ao pendente. A anulação só é possível com o recibo não contabilizado, exige motivo e fica registada (`estado`, `anulado_em`, `motivo_anulacao`); o recibo nunca é apagado.

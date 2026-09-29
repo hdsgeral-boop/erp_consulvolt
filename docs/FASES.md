@@ -88,7 +88,8 @@ Cobrem os seguintes casos:
 | **Contabilidade** | ✅ | plano-contas (CRUD, cache Redis), diarios, lancamentos (listar, detalhe, criar, **estornar**), relatorios/balancete, relatorios/razao, relatorios/desequilibrios | Partidas dobradas em decimal exacto; estorno com rasto (ADR-016); chave do lançamento (ADR-025) |
 | **Sistema › Validações de dados** | ✅ | sistema/validacoes, sistema/validacoes/{codigo} | 12 validações só de leitura que substituem as rotinas destrutivas (ADR-015) |
 | **Terceiros e Produtos** | ✅ | terceiros (CRUD por papel CLIENTE/FORNECEDOR), logistica/produtos (CRUD, bloquear, catálogo em cache), logistica/categorias-produtos | Paridade saveCustomer/saveSupplier/saveProduct; stock só por movimentos (ADR-028) |
-| Vendas / Facturação AGT | ⏳ | | |
+| **Vendas / Facturação AGT (parte 1)** | ✅ | vendas/documentos (emitir FT/FR/NC/OR/PF/NE, converter, anular, contabilizar, descontabilizar), vendas/recibos (emitir, anular, contabilizar, descontabilizar), vendas/configuracao/{contas,series} | Séries AGT sem colisões, cálculo exacto, selagem, NC abate a factura, estorno com rasto (ADR-029) |
+| Vendas / Facturação AGT (parte 2) | ⏳ | envio AGT, QR, assinatura SAF-T, multi-moeda; guias GR/GD com Logística | |
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
 | RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |

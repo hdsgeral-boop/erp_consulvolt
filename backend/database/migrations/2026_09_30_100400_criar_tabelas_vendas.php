@@ -19,14 +19,14 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('cliente_id')->nullable()->comment('legado: customer_id');
-            $table->string('tipo_documento', 20)->nullable()->comment('legado: doc_type · código normalizado ∈ {FT, FR, NC, ND, PF, OR, NE, GR}; texto original em tipo_documento_original');
+            $table->string('tipo_documento', 20)->nullable()->comment('legado: doc_type · código normalizado ∈ {FT, FR, NC, ND, PF, OR, NE, GR, GD}; texto original em tipo_documento_original');
             $table->string('tipo_documento_original', 100)->nullable()->comment('legado: doc_type · texto exacto do legado');
             $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number');
             $table->timestampTz('data_emissao')->nullable()->comment('legado: date · tipos mistos: string_datahora=47, string_data=55');
             $table->decimal('total_liquido', 15, 2)->nullable()->comment('legado: total_net · tipos mistos: inteiro=57, decimal=43');
             $table->decimal('total_imposto', 15, 2)->nullable()->comment('legado: total_tax · tipos mistos: inteiro=29, decimal=73');
             $table->decimal('total_bruto', 15, 2)->nullable()->comment('legado: total_gross · tipos mistos: inteiro=70, decimal=32');
-            $table->text('data_entrega')->nullable()->comment('legado: delivery_date · sem valores reais: tipo a confirmar no código legado');
+            $table->date('data_entrega')->nullable()->comment('legado: delivery_date · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
             $table->decimal('valor_pago', 15, 2)->nullable()->comment('legado: paid_amount');
             $table->decimal('valor_pendente', 15, 2)->nullable()->comment('legado: pending_amount · tipos mistos: inteiro=32, decimal=30');
             $table->boolean('contabilizado')->nullable()->comment('legado: is_posted · tipos mistos: boolean=70, inteiro=1');
@@ -70,26 +70,27 @@ return new class extends Migration
             $table->decimal('montante_pago', 15, 2)->nullable()->comment('legado: amount_paid');
             $table->date('valido_ate')->nullable()->comment('legado: valid_until');
             $table->integer('dias_validade')->nullable()->comment('legado: validity_days');
-            $table->string('modo_pagamento', 20)->nullable()->comment('legado: payment_mode · código normalizado ∈ {PRONTO, MARCOS}; texto original em modo_pagamento_original');
+            $table->string('modo_pagamento', 20)->nullable()->comment('legado: payment_mode · código normalizado ∈ {PRONTO, PRAZO, MARCOS}; texto original em modo_pagamento_original');
             $table->string('modo_pagamento_original', 100)->nullable()->comment('legado: payment_mode · texto exacto do legado');
             $table->jsonb('plano_pagamentos')->nullable()->comment('legado: payment_schedule');
             $table->bigInteger('oportunidade_crm_id')->nullable()->comment('legado: crm_opportunity_id');
-            $table->string('fe_documento', 255)->nullable()->comment('legado: fe_documento · do código legado js/facturacao_agt.js:447');
-            $table->string('fe_erros', 255)->nullable()->comment('legado: fe_erros · do código legado js/facturacao_agt.js:447');
-            $table->date('fe_avisos')->nullable()->comment('legado: fe_avisos · do código legado js/facturacao_agt.js:447');
-            $table->string('fe_estado', 255)->nullable()->comment('legado: fe_estado · do código legado js/facturacao_agt.js:448');
+            $table->jsonb('fe_documento')->nullable()->comment('legado: fe_documento · do código legado js/facturacao_agt.js:447');
+            $table->jsonb('fe_erros')->nullable()->comment('legado: fe_erros · do código legado js/facturacao_agt.js:447');
+            $table->jsonb('fe_avisos')->nullable()->comment('legado: fe_avisos · do código legado js/facturacao_agt.js:447');
+            $table->string('fe_estado', 20)->nullable()->comment('legado: fe_estado · do código legado js/facturacao_agt.js:448');
             $table->timestampTz('fe_validado_em')->nullable()->comment('legado: fe_validado_em · do código legado js/facturacao_agt.js:448');
             $table->timestampTz('fe_selado_em')->nullable()->comment('legado: fe_selado_em · do código legado js/facturacao_agt.js:451');
-            $table->string('fe_envio', 255)->nullable()->comment('legado: fe_envio · do código legado js/facturacao_agt_envio.js:82');
+            $table->jsonb('fe_envio')->nullable()->comment('legado: fe_envio · do código legado js/facturacao_agt_envio.js:82');
             $table->boolean('fe_regime')->nullable()->comment('legado: fe_regime · do código legado js/facturacao_agt.js:210');
-            $table->string('fe_tipo', 255)->nullable()->comment('legado: fe_tipo · do código legado js/facturacao_agt.js:210');
+            $table->string('fe_tipo', 5)->nullable()->comment('legado: fe_tipo · do código legado js/facturacao_agt.js:210');
             $table->bigInteger('serie_faturacao_eletronica_id')->nullable()->comment('legado: fe_serie_id · do código legado js/facturacao_agt.js:210');
-            $table->string('fe_serie', 255)->nullable()->comment('legado: fe_serie · do código legado js/facturacao_agt.js:210');
-            $table->string('fe_numero', 255)->nullable()->comment('legado: fe_numero · do código legado js/facturacao_agt.js:210');
-            $table->string('fe_estabelecimento', 255)->nullable()->comment('legado: fe_estabelecimento · do código legado js/facturacao_agt.js:210');
+            $table->string('fe_serie', 50)->nullable()->comment('legado: fe_serie · do código legado js/facturacao_agt.js:210');
+            $table->integer('fe_numero')->nullable()->comment('legado: fe_numero · do código legado js/facturacao_agt.js:210');
+            $table->string('fe_estabelecimento', 20)->nullable()->comment('legado: fe_estabelecimento · do código legado js/facturacao_agt.js:210');
             $table->timestampTz('fe_data_entrada_sistema')->nullable()->comment('legado: fe_system_entry · do código legado js/facturacao_agt.js:210');
             $table->text('motivo_nota_credito')->nullable()->comment('legado: nc_motivo · do código legado js/ui_sales.js:1856');
             $table->string('sessao_pos_legado_codigo', 50)->nullable()->comment('Código \'POS_SESS_<epoch>\' do legado (sem FK)');
+            $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento contabilístico gerado pela contabilização do documento');
             $table->text('estadias_hotel_ids_legado')->nullable()->comment('legado: hotel_stay_ids · lista de ids do legado; normalizada em vendas_estadias_hotel');
             $table->text('documentos_relacionados_legado')->nullable()->comment('legado: related_doc_id · lista de ids do legado; normalizada em vendas_documentos_relacionados');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -109,10 +110,10 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_vendas_serie_faturacao_eletronica_id ON vendas (serie_faturacao_eletronica_id)');
         DB::statement('CREATE INDEX ix_vendas_empresa_id_data_emissao ON vendas (empresa_id, data_emissao)');
         DB::statement('CREATE INDEX ix_vendas_empresa_id_estado ON vendas (empresa_id, estado)');
-        DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_tipo_documento CHECK (tipo_documento IS NULL OR tipo_documento IN (\'FT\',\'FR\',\'NC\',\'ND\',\'PF\',\'OR\',\'NE\',\'GR\'))');
+        DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_tipo_documento CHECK (tipo_documento IS NULL OR tipo_documento IN (\'FT\',\'FR\',\'NC\',\'ND\',\'PF\',\'OR\',\'NE\',\'GR\',\'GD\'))');
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE\',\'PARCIAL\',\'PAGO\',\'CONCLUIDO\',\'ANULADO\'))');
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_meio_pagamento CHECK (meio_pagamento IS NULL OR meio_pagamento IN (\'NUMERARIO\',\'TPA\',\'TRANSFERENCIA\',\'CONTA_CORRENTE\'))');
-        DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_modo_pagamento CHECK (modo_pagamento IS NULL OR modo_pagamento IN (\'PRONTO\',\'MARCOS\'))');
+        DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_modo_pagamento CHECK (modo_pagamento IS NULL OR modo_pagamento IN (\'PRONTO\',\'PRAZO\',\'MARCOS\'))');
 
         // sale_items (legado) -> itens_venda · 95 linhas reais no backup
         Schema::create('itens_venda', function (Blueprint $table) {
@@ -126,11 +127,11 @@ return new class extends Migration
             $table->bigInteger('venda_id')->nullable()->comment('legado: sale_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado');
-            $table->integer('observacoes')->nullable()->comment('legado: notes');
+            $table->text('observacoes')->nullable()->comment('legado: notes · tipo forçado (inferido: integer)');
             $table->decimal('quantidade_faturada', 12, 3)->nullable()->comment('legado: billed_qty');
             $table->bigInteger('pedido_compra_id')->nullable()->comment('legado: purchase_request_id');
             $table->decimal('quantidade_entregue', 12, 3)->nullable()->comment('legado: delivered_qty');
-            $table->text('descricao')->nullable()->comment('legado: description');
+            $table->text('descricao')->nullable()->comment('legado: description · tipo forçado (inferido: text)');
             $table->decimal('percentagem_desconto', 9, 4)->nullable()->comment('legado: discount_pct');
             $table->decimal('total_linha', 15, 2)->nullable()->comment('legado: line_total');
             $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code');
@@ -166,6 +167,12 @@ return new class extends Migration
             $table->string('referencia', 255)->nullable()->comment('legado: reference · do código legado js/ui_sales.js:3692');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id · do código legado js/db_v2.js:568');
             $table->string('codigo_projeto', 255)->nullable()->comment('legado: project_code · do código legado js/db_v2.js:569');
+            $table->string('estado', 20)->nullable()->comment('EMITIDO ou ANULADO (nulo nos recibos do legado = EMITIDO)');
+            $table->bigInteger('venda_origem_id')->nullable()->comment('Factura-recibo que gerou automaticamente o recibo');
+            $table->bigInteger('serie_faturacao_eletronica_id')->nullable()->comment('Série de numeração do recibo');
+            $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento contabilístico do recibo');
+            $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');
+            $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -175,6 +182,8 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_recibos_venda_centro_custo_id ON recibos_venda (centro_custo_id)');
         DB::statement('CREATE INDEX ix_recibos_venda_banco_id ON recibos_venda (banco_id)');
         DB::statement('CREATE INDEX ix_recibos_venda_projeto_id ON recibos_venda (projeto_id)');
+        DB::statement('CREATE INDEX ix_recibos_venda_venda_origem_id ON recibos_venda (venda_origem_id)');
+        DB::statement('CREATE INDEX ix_recibos_venda_serie_faturacao_eletronica_id ON recibos_venda (serie_faturacao_eletronica_id)');
 
         // receipt_items (legado) -> itens_recibo_venda · 2 linhas reais no backup
         Schema::create('itens_recibo_venda', function (Blueprint $table) {
@@ -199,7 +208,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
-        DB::statement('CREATE UNIQUE INDEX uq_configuracoes_contabeis_vendas_empresa_id ON configuracoes_contabeis_vendas (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_configuracoes_contabeis_vendas_empresa_id_chave ON configuracoes_contabeis_vendas (empresa_id, chave)');
 
         // fe_config (legado) -> configuracoes_faturacao_eletronica · 1 linhas reais no backup
         Schema::create('configuracoes_faturacao_eletronica', function (Blueprint $table) {
@@ -222,26 +231,26 @@ return new class extends Migration
         Schema::create('series_faturacao_eletronica', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: fe_company_id · do código legado js/facturacao_agt.js:155');
-            $table->string('codigo', 255)->nullable()->comment('legado: codigo · do código legado js/facturacao_agt.js:149');
-            $table->string('tipo', 255)->nullable()->comment('legado: tipo · do código legado js/facturacao_agt.js:149');
-            $table->string('ano', 255)->nullable()->comment('legado: ano · do código legado js/facturacao_agt.js:149');
-            $table->string('origem', 255)->nullable()->comment('legado: origem · do código legado js/facturacao_agt.js:149');
+            $table->string('codigo', 50)->nullable()->comment('legado: codigo · do código legado js/facturacao_agt.js:149');
+            $table->string('tipo', 5)->nullable()->comment('legado: tipo · do código legado js/facturacao_agt.js:149');
+            $table->integer('ano')->nullable()->comment('legado: ano · do código legado js/facturacao_agt.js:149');
+            $table->string('origem', 30)->nullable()->comment('legado: origem · do código legado js/facturacao_agt.js:149');
             $table->string('origem_nome', 255)->nullable()->comment('legado: origem_nome · do código legado js/facturacao_agt.js:149');
-            $table->string('estabelecimento', 255)->nullable()->comment('legado: estabelecimento · do código legado js/facturacao_agt.js:149');
+            $table->string('estabelecimento', 20)->nullable()->comment('legado: estabelecimento · do código legado js/facturacao_agt.js:149');
             $table->boolean('contingencia')->nullable()->comment('legado: contingencia · do código legado js/facturacao_agt.js:149');
-            $table->string('estado', 255)->nullable()->comment('legado: estado · do código legado js/facturacao_agt.js:149');
-            $table->string('agt_codigo', 255)->nullable()->comment('legado: agt_codigo · do código legado js/facturacao_agt.js:149');
+            $table->string('estado', 20)->nullable()->comment('legado: estado · do código legado js/facturacao_agt.js:149');
+            $table->string('agt_codigo', 60)->nullable()->comment('legado: agt_codigo · do código legado js/facturacao_agt.js:149');
             $table->integer('proximo_numero')->nullable()->comment('legado: proximo · do código legado js/facturacao_agt.js:155');
-            $table->string('ultima_data', 255)->nullable()->comment('legado: ultima_data · do código legado js/facturacao_agt.js:155');
+            $table->date('ultima_data')->nullable()->comment('legado: ultima_data · do código legado js/facturacao_agt.js:155');
             $table->string('criado_por', 255)->nullable()->comment('legado: criado_por · do código legado js/facturacao_agt.js:155');
-            $table->string('agt_primeiro_numero', 255)->nullable()->comment('legado: agt_primeiro · do código legado js/facturacao_agt_envio.js:262');
-            $table->string('agt_ultimo_numero', 255)->nullable()->comment('legado: agt_ultimo · do código legado js/facturacao_agt_envio.js:262');
-            $table->decimal('agt_quantidade', 12, 3)->nullable()->comment('legado: agt_quantidade · do código legado js/facturacao_agt_envio.js:262');
+            $table->integer('agt_primeiro_numero')->nullable()->comment('legado: agt_primeiro · do código legado js/facturacao_agt_envio.js:262');
+            $table->integer('agt_ultimo_numero')->nullable()->comment('legado: agt_ultimo · do código legado js/facturacao_agt_envio.js:262');
+            $table->integer('agt_quantidade')->nullable()->comment('legado: agt_quantidade · do código legado js/facturacao_agt_envio.js:262');
             $table->timestampTz('agt_pedido_em')->nullable()->comment('legado: agt_pedido_em · do código legado js/facturacao_agt_envio.js:262');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em · do código legado js/facturacao_agt.js:155');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
-        DB::statement('CREATE INDEX ix_series_faturacao_eletronica_empresa_id ON series_faturacao_eletronica (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_series_faturacao_eletronica_empresa_id_tipo_ano_codigo ON series_faturacao_eletronica (empresa_id, tipo, ano, codigo)');
 
         // vendas_estadias_hotel (pivô)
         Schema::create('vendas_estadias_hotel', function (Blueprint $table) {

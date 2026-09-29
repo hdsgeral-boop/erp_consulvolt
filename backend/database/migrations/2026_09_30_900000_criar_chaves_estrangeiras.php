@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (479) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (481) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -87,6 +87,8 @@ return new class extends Migration
         DB::statement('ALTER TABLE recibos_venda ADD CONSTRAINT fk_recibos_venda_centro_custo_id FOREIGN KEY (centro_custo_id) REFERENCES centros_custo (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE recibos_venda ADD CONSTRAINT fk_recibos_venda_banco_id FOREIGN KEY (banco_id) REFERENCES bancos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE recibos_venda ADD CONSTRAINT fk_recibos_venda_projeto_id FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE recibos_venda ADD CONSTRAINT fk_recibos_venda_venda_origem_id FOREIGN KEY (venda_origem_id) REFERENCES vendas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE recibos_venda ADD CONSTRAINT fk_recibos_venda_serie_faturacao_eletronica_id FOREIGN KEY (serie_faturacao_eletronica_id) REFERENCES series_faturacao_eletronica (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_recibo_venda ADD CONSTRAINT fk_itens_recibo_venda_recibo_venda_id FOREIGN KEY (recibo_venda_id) REFERENCES recibos_venda (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_recibo_venda ADD CONSTRAINT fk_itens_recibo_venda_venda_id FOREIGN KEY (venda_id) REFERENCES vendas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_recibo_venda ADD CONSTRAINT fk_itens_recibo_venda_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -570,6 +572,8 @@ return new class extends Migration
         DB::statement('ALTER TABLE recibos_venda DROP CONSTRAINT IF EXISTS fk_recibos_venda_centro_custo_id');
         DB::statement('ALTER TABLE recibos_venda DROP CONSTRAINT IF EXISTS fk_recibos_venda_banco_id');
         DB::statement('ALTER TABLE recibos_venda DROP CONSTRAINT IF EXISTS fk_recibos_venda_projeto_id');
+        DB::statement('ALTER TABLE recibos_venda DROP CONSTRAINT IF EXISTS fk_recibos_venda_venda_origem_id');
+        DB::statement('ALTER TABLE recibos_venda DROP CONSTRAINT IF EXISTS fk_recibos_venda_serie_faturacao_eletronica_id');
         DB::statement('ALTER TABLE itens_recibo_venda DROP CONSTRAINT IF EXISTS fk_itens_recibo_venda_recibo_venda_id');
         DB::statement('ALTER TABLE itens_recibo_venda DROP CONSTRAINT IF EXISTS fk_itens_recibo_venda_venda_id');
         DB::statement('ALTER TABLE itens_recibo_venda DROP CONSTRAINT IF EXISTS fk_itens_recibo_venda_empresa_id');

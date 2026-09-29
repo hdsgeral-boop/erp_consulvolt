@@ -16,7 +16,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { GLOSSARIO, SOBREPOSICOES } from '../levantamento/glossario.mjs';
+import { GLOSSARIO, SOBREPOSICOES, TIPOS_FORCADOS } from '../levantamento/glossario.mjs';
 import { NORMALIZACOES, dobrar } from '../levantamento/normalizacoes.mjs';
 import {
   GLOBAIS, FASE1, EMPRESA_DERIVADA, ELIMINACAO_LOGICA, UNICOS, INDICES_COM_DUPLICADOS_CONHECIDOS, INDICES,
@@ -108,7 +108,8 @@ for (const t of mapa.tabelas) {
     if (trad === undefined) { erros.push(`sem tradução (código): ${t.legado}.${campo}  [${info.ref ?? ''}]`); continue; }
     const [pt, fkLeg] = Array.isArray(trad) ? trad : [trad, null];
     if (def.colunas.has(pt)) continue;
-    const col = { pt, legado: campo, tipo: fkLeg ? 'bigint' : inferirDoExemplo(pt, info.exemplo), nulo: true, origem: 'codigo', nota: `do código legado ${info.ref ?? ''}`.trim() };
+    const tipo = fkLeg ? 'bigint' : (TIPOS_FORCADOS[`${t.legado}.${campo}`] ?? inferirDoExemplo(pt, info.exemplo));
+    const col = { pt, legado: campo, tipo, nulo: true, origem: 'codigo', nota: `do código legado ${info.ref ?? ''}`.trim() };
     if (fkLeg) {
       const alvo = mapa.tabelas.find((x) => x.legado === fkLeg);
       if (alvo) col.fk = { tabela: alvo.pt };

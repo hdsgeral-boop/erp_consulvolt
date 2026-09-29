@@ -38,7 +38,6 @@ abstract class ItemVendaBase extends ModeloBase
             'total' => 'decimal:2',
             'venda_id' => 'integer',
             'projeto_id' => 'integer',
-            'observacoes' => 'integer',
             'quantidade_faturada' => 'decimal:3',
             'pedido_compra_id' => 'integer',
             'quantidade_entregue' => 'decimal:3',

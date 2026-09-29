@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T12:03:41.209Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T15:27:15.947Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -78,10 +78,10 @@
 | Tabela.coluna | Domínio de códigos | Valores do legado → código |
 | :--- | :--- | :--- |
 | `third_parties.type` | CLIENTE, FORNECEDOR, COLABORADOR, CLIENTE_FORNECEDOR | CLIENTE → CLIENTE; FORNECEDOR → FORNECEDOR; Colaborador → COLABORADOR; COLABORADOR → COLABORADOR; FORNECEDOR, CLIENTE → CLIENTE_FORNECEDOR |
-| `sales.doc_type` | FT, FR, NC, ND, PF, OR, NE, GR | Factura → FT; Factura-Recibo → FR; Encomenda → NE; Orçamento → OR; Orcamento → OR; Proforma → PF; Guia de Remessa → GR; Factura Proforma → PF; Nota de CRÉDITO → NC |
+| `sales.doc_type` | FT, FR, NC, ND, PF, OR, NE, GR, GD | Factura → FT; Factura-Recibo → FR; Encomenda → NE; Orçamento → OR; Orcamento → OR; Proforma → PF; Guia de Remessa → GR; Factura Proforma → PF; Nota de CRÉDITO → NC |
 | `sales.status` | PENDENTE, PARCIAL, PAGO, CONCLUIDO, ANULADO | PENDENTE → PENDENTE; PAGO → PAGO; CONCLUIDO → CONCLUIDO; Pendente → PENDENTE |
 | `sales.payment_method` | NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE | Numerário → NUMERARIO; Numerario → NUMERARIO; Multicaixa → TPA; Transferência bancária → TRANSFERENCIA; Conta corrente → CONTA_CORRENTE; Multicaixa (TPA) → TPA; Transferencia → TRANSFERENCIA |
-| `sales.payment_mode` | PRONTO, MARCOS | MARCOS → MARCOS; PRONTO → PRONTO |
+| `sales.payment_mode` | PRONTO, PRAZO, MARCOS | MARCOS → MARCOS; PRONTO → PRONTO |
 | `purchase_items.parent_type` | PEDIDO, COTACAO, ENCOMENDA, FATURA | QUOTE → COTACAO; ORDER → ENCOMENDA; REQUEST → PEDIDO; INVOICE → FATURA |
 | `inventory_movements.type` | ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE | SAÍDA → SAIDA; ENTRADA → ENTRADA |
 | `inventory_sessions.status` | EM_CONTAGEM, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
@@ -575,7 +575,7 @@ Linhas reais: **102** · fictícias descartadas: 16
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `customer_id` | `cliente_id` | bigint | sim | 98% | `terceiros.id` |  |
-| `doc_type` | `tipo_documento` | varchar(20) | sim | 100% |  | código normalizado ∈ {FT, FR, NC, ND, PF, OR, NE, GR}; texto original em tipo_documento_original |
+| `doc_type` | `tipo_documento` | varchar(20) | sim | 100% |  | código normalizado ∈ {FT, FR, NC, ND, PF, OR, NE, GR, GD}; texto original em tipo_documento_original |
 | `doc_type` | `tipo_documento_original` | varchar(30) | sim | 100% |  | texto exacto do legado |
 | `doc_number` | `numero_documento` | varchar(50) | sim | 100% |  |  |
 | `date` | `data_emissao` | timestamptz | sim | 100% |  | tipos mistos: string_datahora=47, string_data=55 |
@@ -583,7 +583,7 @@ Linhas reais: **102** · fictícias descartadas: 16
 | `total_tax` | `total_imposto` | numeric(15,2) | sim | 100% |  | tipos mistos: inteiro=29, decimal=73 |
 | `total_gross` | `total_bruto` | numeric(15,2) | sim | 100% |  | tipos mistos: inteiro=70, decimal=32 |
 | `related_doc_id` | `documentos_relacionados` | varchar(10) | sim | 33% |  | tipos mistos: inteiro=27, string_inteiro=7 |
-| `delivery_date` | `data_entrega` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
+| `delivery_date` | `data_entrega` | date | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `paid_amount` | `valor_pago` | numeric(15,2) | sim | 61% |  |  |
 | `pending_amount` | `valor_pendente` | numeric(15,2) | sim | 61% |  | tipos mistos: inteiro=32, decimal=30 |
@@ -629,7 +629,7 @@ Linhas reais: **102** · fictícias descartadas: 16
 | `hotel_stay_ids` | `estadias_hotel_ids` | jsonb | sim | 8% |  |  |
 | `valid_until` | `valido_ate` | date | sim | 5% |  |  |
 | `validity_days` | `dias_validade` | integer | sim | 5% |  |  |
-| `payment_mode` | `modo_pagamento` | varchar(20) | sim | 5% |  | código normalizado ∈ {PRONTO, MARCOS}; texto original em modo_pagamento_original |
+| `payment_mode` | `modo_pagamento` | varchar(20) | sim | 5% |  | código normalizado ∈ {PRONTO, PRAZO, MARCOS}; texto original em modo_pagamento_original |
 | `payment_mode` | `modo_pagamento_original` | varchar(10) | sim | 5% |  | texto exacto do legado |
 | `payment_schedule` | `plano_pagamentos` | jsonb | sim | 5% |  |  |
 | `crm_opportunity_id` | `oportunidade_crm_id` | bigint | sim | 2% | `oportunidades_venda_crm.id` |  |
@@ -649,11 +649,11 @@ Linhas reais: **95** · fictícias descartadas: 0
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `project_id` | `projeto_id` | bigint | sim | 0% | `projetos.id` |  |
 | `project_code` | `codigo_projeto` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
-| `notes` | `observacoes` | integer | sim | 1% |  |  |
+| `notes` | `observacoes` | text | sim | 1% |  | tipo forçado (inferido: integer) |
 | `billed_qty` | `quantidade_faturada` | numeric(12,3) | sim | 61% |  |  |
 | `purchase_request_id` | `pedido_compra_id` | bigint | sim | 7% | `pedidos_compra.id` |  |
 | `delivered_qty` | `quantidade_entregue` | numeric(12,3) | sim | 45% |  |  |
-| `description` | `descricao` | text | sim | 18% |  |  |
+| `description` | `descricao` | text | sim | 18% |  | tipo forçado (inferido: text) |
 | `discount_pct` | `percentagem_desconto` | numeric(9,4) | sim | 3% |  |  |
 | `line_total` | `total_linha` | numeric(15,2) | sim | 3% |  |  |
 | `account_code` | `codigo_conta` | varchar(10) | sim | 3% |  |  |

@@ -34,7 +34,7 @@ final class ServicoLancamentos
 
     /**
      * @param  array{diario_id: int, data_documento: string, numero_documento?: ?string, referencia?: ?string, descricao?: ?string,
-     *               linhas: list<array<string, mixed>>}  $dados
+     *               tipo_origem?: string, linhas: list<array<string, mixed>>}  $dados  (tipo_origem: MANUAL por omissão; VENDAS, RECIBOS… quando gerado por um módulo)
      * @return Collection<int, LancamentoContabil>
      */
     public function criar(array $dados): Collection
@@ -61,7 +61,7 @@ final class ServicoLancamentos
             $comum = [
                 'diario_id' => $diario->id, 'data_documento' => $dados['data_documento'], 'data_lancamento' => now(),
                 'numero_lan' => $numeroLan, 'numero_documento' => $dados['numero_documento'] ?? $numeroLan,
-                'referencia' => $dados['referencia'] ?? null, 'tipo_origem' => LancamentoContabil::ORIGEM_MANUAL,
+                'referencia' => $dados['referencia'] ?? null, 'tipo_origem' => $dados['tipo_origem'] ?? LancamentoContabil::ORIGEM_MANUAL,
                 'nome_utilizador' => Auth::user()?->nome_utilizador,
             ];
             $criadas = new Collection;

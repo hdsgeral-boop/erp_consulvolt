@@ -58,10 +58,12 @@ export const UNICOS = [
   ['unidades_organicas', ['empresa_id', 'codigo']],
   ['coordenadas_bancarias_colaboradores', ['empresa_id', 'colaborador_id', 'iban']],
   // Configuração: uma linha por empresa
-  ['configuracoes_contabeis_vendas', ['empresa_id']],
+  ['configuracoes_contabeis_vendas', ['empresa_id', 'chave']],   // uma linha por chave (clientes_default, iva_vendas, …)
   ['configuracoes_pos', ['empresa_id']],
   ['configuracoes_processamento_salarial', ['empresa_id']],
   ['configuracoes_faturacao_eletronica', ['empresa_id']],
+  // Séries de numeração (AGT e não fiscais): código único por empresa, tipo e ano
+  ['series_faturacao_eletronica', ['empresa_id', 'tipo', 'ano', 'codigo']],
 ];
 
 // Chaves candidatas que o backup VIOLA: ficam como índice normal + relatório de validação (ADR-015).
@@ -137,7 +139,20 @@ export const COLUNAS_NOVAS = {
     ['estornado_em', 'timestamptz', null, 'Data/hora do estorno'],
   ],
   // ADR-005: sessões POS antigas só existiam no localStorage
-  vendas: [['sessao_pos_legado_codigo', 'varchar(50)', null, "Código 'POS_SESS_<epoch>' do legado (sem FK)"]],
+  vendas: [
+    ['sessao_pos_legado_codigo', 'varchar(50)', null, "Código 'POS_SESS_<epoch>' do legado (sem FK)"],
+    // ADR-029: ligação explícita à contabilização (o legado só ligava por numero_documento, ambíguo entre módulos)
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento contabilístico gerado pela contabilização do documento'],
+  ],
+  // ADR-029: recibos com rasto de anulação, série e ligação à factura-recibo que os originou
+  recibos_venda: [
+    ['estado', 'varchar(20)', null, 'EMITIDO ou ANULADO (nulo nos recibos do legado = EMITIDO)'],
+    ['venda_origem_id', 'bigint', 'vendas', 'Factura-recibo que gerou automaticamente o recibo'],
+    ['serie_faturacao_eletronica_id', 'bigint', 'series_faturacao_eletronica', 'Série de numeração do recibo'],
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento contabilístico do recibo'],
+    ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'],
+    ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+  ],
   // ADR-005: org_type_id = -1 significa "Avençado"
   mapeamentos_contabeis_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
   mapeamentos_contabeis_sistema_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],

@@ -14,17 +14,18 @@ export const NORMALIZACOES = {
     CLIENTE: 'CLIENTE', FORNECEDOR: 'FORNECEDOR', COLABORADOR: 'COLABORADOR', 'FORNECEDOR, CLIENTE': 'CLIENTE_FORNECEDOR', 'CLIENTE, FORNECEDOR': 'CLIENTE_FORNECEDOR' } },
 
   // ── Vendas (códigos AGT / SAF-T AO) ──
-  'sales.doc_type': { dominio: ['FT', 'FR', 'NC', 'ND', 'PF', 'OR', 'NE', 'GR'], mapa: {
+  'sales.doc_type': { dominio: ['FT', 'FR', 'NC', 'ND', 'PF', 'OR', 'NE', 'GR', 'GD'], mapa: {
     FACTURA: 'FT', FATURA: 'FT', FT: 'FT', 'FACTURA RECIBO': 'FR', 'FATURA RECIBO': 'FR', FR: 'FR',
     'NOTA DE CREDITO': 'NC', NC: 'NC', 'NOTA DE DEBITO': 'ND', ND: 'ND',
     PROFORMA: 'PF', 'FACTURA PROFORMA': 'PF', 'FATURA PROFORMA': 'PF', 'FACTURA PRO FORMA': 'PF', PF: 'PF',
-    ORCAMENTO: 'OR', OR: 'OR', ENCOMENDA: 'NE', 'NOTA DE ENCOMENDA': 'NE', NE: 'NE', 'GUIA DE REMESSA': 'GR', GR: 'GR' } },
+    ORCAMENTO: 'OR', OR: 'OR', ENCOMENDA: 'NE', 'NOTA DE ENCOMENDA': 'NE', NE: 'NE', 'GUIA DE REMESSA': 'GR', GR: 'GR',
+    'GUIA DE DEVOLUCAO': 'GD', GD: 'GD' } },
   'sales.status': { dominio: ['PENDENTE', 'PARCIAL', 'PAGO', 'CONCLUIDO', 'ANULADO'], mapa: {
     PENDENTE: 'PENDENTE', PARCIAL: 'PARCIAL', PAGO: 'PAGO', CONCLUIDO: 'CONCLUIDO', ANULADO: 'ANULADO', ANULADA: 'ANULADO' } },
   'sales.payment_method': { dominio: ['NUMERARIO', 'TPA', 'TRANSFERENCIA', 'CONTA_CORRENTE'], mapa: {
     NUMERARIO: 'NUMERARIO', MULTICAIXA: 'TPA', 'MULTICAIXA (TPA)': 'TPA', TPA: 'TPA',
     'TRANSFERENCIA BANCARIA': 'TRANSFERENCIA', TRANSFERENCIA: 'TRANSFERENCIA', 'CONTA CORRENTE': 'CONTA_CORRENTE' } },
-  'sales.payment_mode': { dominio: ['PRONTO', 'MARCOS'], mapa: { PRONTO: 'PRONTO', MARCOS: 'MARCOS' } },
+  'sales.payment_mode': { dominio: ['PRONTO', 'PRAZO', 'MARCOS'], mapa: { PRONTO: 'PRONTO', PRAZO: 'PRAZO', MARCOS: 'MARCOS' } },
 
   // ── Compras ──
   'purchase_items.parent_type': { dominio: ['PEDIDO', 'COTACAO', 'ENCOMENDA', 'FATURA'], mapa: {

@@ -5,6 +5,7 @@ namespace App\Models\Base;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
+use App\Models\ReciboVenda;
 use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -28,9 +29,13 @@ abstract class SerieFaturacaoEletronicaBase extends ModeloBase
     {
         return [
             'empresa_id' => 'integer',
+            'ano' => 'integer',
             'contingencia' => 'boolean',
             'proximo_numero' => 'integer',
-            'agt_quantidade' => 'decimal:3',
+            'ultima_data' => 'date',
+            'agt_primeiro_numero' => 'integer',
+            'agt_ultimo_numero' => 'integer',
+            'agt_quantidade' => 'integer',
             'agt_pedido_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
@@ -40,5 +45,10 @@ abstract class SerieFaturacaoEletronicaBase extends ModeloBase
     public function vendas(): HasMany
     {
         return $this->hasMany(Venda::class, 'serie_faturacao_eletronica_id');
+    }
+
+    public function recibosVenda(): HasMany
+    {
+        return $this->hasMany(ReciboVenda::class, 'serie_faturacao_eletronica_id');
     }
 }

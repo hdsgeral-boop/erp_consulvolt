@@ -1,0 +1,162 @@
+<?php
+
+namespace App\Services\Vendas;
+
+use App\Models\ConfigFaturacaoEletronica;
+use App\Models\Empresa;
+use App\Models\ItemVenda;
+use App\Models\Terceiro;
+use App\Models\Venda;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+
+/**
+ * Selagem dos documentos fiscais (FacturaAGT.construir/validar/selar, js/facturacao_agt.js:234-462).
+ * Constrói o documento electrónico AGT, valida-o localmente (E01/E02/E03/E22/E23/E24) e sela o documento:
+ * a partir daqui os campos fiscais são imutáveis (Venda::CAMPOS_SELADOS). Como no legado, o documento
+ * fica selado mesmo com erros (o número já foi atribuído) — os erros ficam em fe_erros para correcção/envio.
+ * A assinatura JWS e o envio à AGT são feitos pelo serviço intermédio (Vendas, parte 2).
+ */
+final class ServicoSelagemAgt
+{
+    /** Códigos de taxa AGT (facturacao_agt.js:69-76). */
+    private const CODIGOS_TAXA = ['0' => 'ISE', '14' => 'NOR', '7' => 'INT', '5' => 'RED'];
+
+    /**
+     * @param  EloquentCollection<int, ItemVenda>  $itens
+     * @param  string|null  $referenciaOrigem  N.º do documento de origem (obrigatório nas notas de crédito)
+     */
+    public function selar(Venda $venda, EloquentCollection $itens, ?ConfigFaturacaoEletronica $config, ?string $referenciaOrigem = null): void
+    {
+        $itens->loadMissing('produto');
+        $documento = $this->construir($venda, $itens, $config, $referenciaOrigem);
+        [$erros, $avisos] = $this->validar($documento, $venda, $referenciaOrigem);
+        $agora = now();
+
+        $venda->forceFill([
+            'fe_documento' => $documento, 'fe_erros' => $erros, 'fe_avisos' => $avisos,
+            'fe_estado' => $erros ? 'COM_ERROS' : 'PRONTO', 'fe_validado_em' => $agora, 'fe_selado_em' => $agora,
+            'fe_regime' => $this->emRegime($config, $venda), 'fe_tipo' => $venda->tipo_documento,
+        ])->save();
+        foreach ($itens as $item) {
+            $item->forceFill(['fe_selado' => true])->save();
+        }
+    }
+
+    public function emRegime(?ConfigFaturacaoEletronica $config, Venda $venda): bool
+    {
+        return (bool) ($config?->ativo) && $config->data_inicio !== null && $venda->data_emissao->toDateString() >= $config->data_inicio->toDateString();
+    }
+
+    /** @param  EloquentCollection<int, ItemVenda>  $itens */
+    private function construir(Venda $venda, EloquentCollection $itens, ?ConfigFaturacaoEletronica $config, ?string $referenciaOrigem): array
+    {
+        $empresa = Empresa::query()->find($venda->empresa_id);
+        $cliente = Terceiro::query()->find($venda->cliente_id);
+        $nc = $venda->tipo_documento === 'NC';
+        $linhas = [];
+        foreach ($itens->values() as $i => $item) {
+            $valor = CalculadoraDocumento::arredondar(bcmul((string) $item->quantidade, (string) $item->preco_unitario, 8));
+            $taxa = rtrim(rtrim(number_format((float) $item->taxa_imposto, 4, '.', ''), '0'), '.');
+            $codigoTaxa = self::CODIGOS_TAXA[$taxa] ?? 'OUT';
+            $linha = [
+                'lineNumber' => $i + 1,
+                'operationType' => $item->produto?->tipo_operacao_fe ?: ($item->produto?->movimenta_stock ? 'TB' : 'SG'),
+                'productCode' => $item->produto?->codigo ?: (string) ($item->produto_id ?? 'SERV'),
+                'productDescription' => $item->descricao ?: $item->produto?->nome,
+                'quantity' => (float) $item->quantidade,
+                'unitOfMeasure' => $item->produto?->unidade_fe ?: 'UN',
+                'unitPriceBase' => (float) $item->preco_unitario,
+                'unitPrice' => (float) $item->preco_unitario,
+                ($nc ? 'debitAmount' : 'creditAmount') => (float) $valor,
+                'taxes' => [array_filter([
+                    'taxType' => 'IVA', 'taxCountryRegion' => 'AO', 'taxCode' => $codigoTaxa, 'taxPercentage' => (float) $taxa,
+                    'taxContribution' => (float) bcsub((string) $item->total, $valor, 2),
+                    'taxExemptionCode' => $codigoTaxa === 'ISE' ? ($item->produto?->codigo_isencao_fe ?: $config?->isencao_padrao) : null,
+                ], fn ($v) => $v !== null)],
+            ];
+            if ($nc) {
+                $linha['referenceInfo'] = ['reference' => $referenciaOrigem, 'reason' => $venda->motivo_nota_credito];
+            }
+            $linhas[] = $linha;
+        }
+
+        return [
+            'taxRegistrationNumber' => $empresa?->nif,
+            'documento' => [
+                'documentNo' => $venda->numero_documento,
+                'documentStatus' => 'N',
+                'documentDate' => $venda->data_emissao->toDateString(),
+                'documentType' => $venda->tipo_documento,
+                'systemEntryDate' => now()->format('Y-m-d\TH:i:s'),
+                'customerTaxID' => $cliente?->nif ?: '999999999',
+                'customerCountry' => $cliente?->fe_pais ?: ($config?->pais_padrao ?: 'AO'),
+                'companyName' => $cliente?->nome ?: 'Consumidor Final',
+                'lines' => $linhas,
+                'documentTotals' => ['taxPayable' => (float) $venda->total_imposto, 'netTotal' => (float) $venda->total_liquido, 'grossTotal' => (float) $venda->total_bruto],
+            ],
+        ];
+    }
+
+    /** @return array{0: list<string>, 1: list<string>} [erros, avisos] (validar, js/facturacao_agt.js:320-402) */
+    private function validar(array $d, Venda $venda, ?string $referenciaOrigem): array
+    {
+        $erros = $avisos = [];
+        $doc = $d['documento'];
+        if (! $d['taxRegistrationNumber'] || ! preg_match('/^[0-9A-Za-z]{9,15}$/', (string) $d['taxRegistrationNumber'])) {
+            $erros[] = 'E01/E02: NIF da empresa em falta ou inválido.';
+        }
+        if (! preg_match('/^[A-Z]{2} [A-Za-z0-9]+\/[1-9]\d*$/', $doc['documentNo']) || strlen($doc['documentNo']) < 8 || strlen($doc['documentNo']) > 60) {
+            $erros[] = "E02: número de documento com formato inválido ({$doc['documentNo']}).";
+        }
+        if (! str_starts_with($doc['documentNo'], $doc['documentType'].' ')) {
+            $erros[] = 'E03: o prefixo do número não corresponde ao tipo de documento.';
+        }
+        if ($doc['customerTaxID'] === '999999999') {
+            $avisos[] = 'Cliente sem NIF: documento emitido a consumidor final (999999999).';
+        }
+        if (! $doc['lines']) {
+            $erros[] = 'E01: documento sem linhas.';
+        }
+        $somaImposto = $somaLiquido = '0.00';
+        foreach ($doc['lines'] as $l) {
+            $valor = (string) ($l['creditAmount'] ?? $l['debitAmount']);
+            $imposto = (string) $l['taxes'][0]['taxContribution'];
+            if ($l['quantity'] <= 0) {
+                $erros[] = "E03: linha {$l['lineNumber']} com quantidade não positiva.";
+            }
+            if ($l['unitPrice'] < 0) {
+                $erros[] = "E03: linha {$l['lineNumber']} com preço negativo.";
+            }
+            if (! $l['productDescription']) {
+                $erros[] = "E01: linha {$l['lineNumber']} sem descrição do produto.";
+            }
+            $esperado = CalculadoraDocumento::excessoCentimo(bcdiv(bcmul(number_format((float) $valor, 2, '.', ''), (string) $l['taxes'][0]['taxPercentage'], 8), '100', 8));
+            if (bccomp(number_format((float) $imposto, 2, '.', ''), $esperado, 2) !== 0) {
+                $erros[] = "E03: linha {$l['lineNumber']} com imposto diferente do calculado ({$esperado}).";
+            }
+            if ($l['taxes'][0]['taxCode'] === 'ISE' && empty($l['taxes'][0]['taxExemptionCode'])) {
+                $erros[] = "E01: linha {$l['lineNumber']} isenta sem motivo de isenção (código M).";
+            }
+            if ($l['taxes'][0]['taxCode'] === 'OUT') {
+                $avisos[] = "Linha {$l['lineNumber']}: taxa de IVA fora das taxas legais (código OUT).";
+            }
+            $somaImposto = bcadd($somaImposto, number_format((float) $imposto, 2, '.', ''), 2);
+            $somaLiquido = bcadd($somaLiquido, number_format((float) $valor, 2, '.', ''), 2);
+        }
+        $t = $doc['documentTotals'];
+        if (bccomp($somaImposto, number_format($t['taxPayable'], 2, '.', ''), 2) !== 0) {
+            $erros[] = 'E22: soma do imposto das linhas diferente do total do imposto.';
+        }
+        if (bccomp($somaLiquido, number_format($t['netTotal'], 2, '.', ''), 2) !== 0) {
+            $erros[] = 'E23: soma dos valores líquidos diferente do total líquido.';
+        }
+        if (abs($t['netTotal'] + $t['taxPayable'] - $t['grossTotal']) > 0.001) {
+            $erros[] = 'E24: total bruto diferente de líquido + imposto.';
+        }
+        if ($venda->tipo_documento === 'NC' && (! $venda->motivo_nota_credito || ! $referenciaOrigem)) {
+            $erros[] = 'E01: nota de crédito sem referência ou motivo.';
+        }
+
+        return [$erros, $avisos];
+    }
+}

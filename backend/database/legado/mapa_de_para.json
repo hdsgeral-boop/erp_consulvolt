@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T12:03:41.209Z",
+  "gerado_em": "2026-09-29T15:27:15.947Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -3587,7 +3587,7 @@
           "preenchimento": 1,
           "max_comprimento": 16,
           "notas": [
-            "código normalizado ∈ {FT, FR, NC, ND, PF, OR, NE, GR}; texto original em tipo_documento_original"
+            "código normalizado ∈ {FT, FR, NC, ND, PF, OR, NE, GR, GD}; texto original em tipo_documento_original"
           ],
           "normalizacao": {
             "dominio": [
@@ -3598,7 +3598,8 @@
               "PF",
               "OR",
               "NE",
-              "GR"
+              "GR",
+              "GD"
             ],
             "mapa": {
               "FACTURA": "FT",
@@ -3622,7 +3623,9 @@
               "NOTA DE ENCOMENDA": "NE",
               "NE": "NE",
               "GUIA DE REMESSA": "GR",
-              "GR": "GR"
+              "GR": "GR",
+              "GUIA DE DEVOLUCAO": "GD",
+              "GD": "GD"
             }
           }
         },
@@ -3705,12 +3708,13 @@
         {
           "legado": "delivery_date",
           "pt": "data_entrega",
-          "tipo_pg": "text",
+          "tipo_pg": "date",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {
@@ -4260,15 +4264,17 @@
           "preenchimento": 0.049,
           "max_comprimento": 6,
           "notas": [
-            "código normalizado ∈ {PRONTO, MARCOS}; texto original em modo_pagamento_original"
+            "código normalizado ∈ {PRONTO, PRAZO, MARCOS}; texto original em modo_pagamento_original"
           ],
           "normalizacao": {
             "dominio": [
               "PRONTO",
+              "PRAZO",
               "MARCOS"
             ],
             "mapa": {
               "PRONTO": "PRONTO",
+              "PRAZO": "PRAZO",
               "MARCOS": "MARCOS"
             }
           }
@@ -4441,11 +4447,13 @@
         {
           "legado": "notes",
           "pt": "observacoes",
-          "tipo_pg": "integer",
+          "tipo_pg": "text",
           "nulo": true,
           "preenchimento": 0.0105,
           "max_comprimento": 3,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: integer)"
+          ]
         },
         {
           "legado": "billed_qty",
@@ -4494,7 +4502,9 @@
           "nulo": true,
           "preenchimento": 0.1789,
           "max_comprimento": 86,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: text)"
+          ]
         },
         {
           "legado": "discount_pct",
