@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T11:04:07.787Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T12:03:41.209Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -346,7 +346,7 @@ Linhas reais: **44400** · fictícias descartadas: 15
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `journal_id` | `diario_id` | bigint | sim | 100% | `diarios_contabeis.id` ⚠ 99.7% (117 órfãos) | tipos Dexie: {"nan":9} |
-| `doc_date` | `data_documento` | timestamptz | sim | 100% |  | tipos mistos: string_data=44344, string_datahora=52, string=4 |
+| `doc_date` | `data_documento` | date | sim | 100% |  | tipos mistos: string_data=44344, string_datahora=52, string=4; tipo forçado (inferido: timestamptz) |
 | `entry_date` | `data_lancamento` | timestamptz | sim | 100% |  | tipos mistos: string_data=32819, string_datahora=11087, string=492 |
 | `reference` | `referencia` | varchar(100) | sim | 100% |  | tipos mistos: string_inteiro=4723, string=39662 |
 | `doc_number` | `numero_documento` | varchar(100) | sim | 100% |  | tipos mistos: string_inteiro=6016, string=38377 |
@@ -397,7 +397,7 @@ Linhas reais: **2505** · fictícias descartadas: 16
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `journal_id` | `diario_id` | bigint | sim | 100% | `diarios_contabeis.id` ⚠ 98.4% (40 órfãos) |  |
-| `doc_date` | `data_documento` | date | sim | 100% |  |  |
+| `doc_date` | `data_documento` | date | sim | 100% |  | tipo forçado (inferido: date) |
 | `entry_date` | `data_lancamento` | timestamptz | sim | 100% |  | tipos mistos: string_data=2176, string_datahora=327 |
 | `reference` | `referencia` | varchar(50) | sim | 100% |  |  |
 | `doc_number` | `numero_documento` | varchar(50) | sim | 100% |  | tipos mistos: string=2397, string_inteiro=108 |
@@ -1753,7 +1753,7 @@ Linhas reais: **6252** · fictícias descartadas: 0
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `project_id` | `projeto_id` | bigint | sim | 0% | `projetos.id` |  |
 | `project_code` | `codigo_projeto` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
-| `orig_doc_date` | `data_documento_original` | timestamptz | sim | 97% |  | tipos mistos: string_data=6042, string=45, string_datahora=1 |
+| `orig_doc_date` | `data_documento_original` | varchar(50) | sim | 97% |  | tipos mistos: string_data=6042, string=45, string_datahora=1; tipo forçado (inferido: timestamptz) |
 | `nif_imported` | `nif_importado` | varchar(30) | sim | 20% |  | tipos mistos: string_inteiro=995, string=245 |
 | `business_unit_id` | `unidade_negocio_id` | bigint | sim | 1% | `unidades_negocio.id` |  |
 | `cost_center_id` | `centro_custo_id` | bigint | sim | 0% | `centros_custo.id` |  |

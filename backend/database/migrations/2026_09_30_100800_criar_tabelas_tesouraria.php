@@ -60,7 +60,7 @@ return new class extends Migration
             $table->bigInteger('documento_tesouraria_id')->nullable()->comment('legado: doc_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado');
-            $table->timestampTz('data_documento_original')->nullable()->comment('legado: orig_doc_date · tipos mistos: string_data=6042, string=45, string_datahora=1');
+            $table->string('data_documento_original', 50)->nullable()->comment('legado: orig_doc_date · tipos mistos: string_data=6042, string=45, string_datahora=1; tipo forçado (inferido: timestamptz)');
             $table->string('nif_importado', 30)->nullable()->comment('legado: nif_imported · tipos mistos: string_inteiro=995, string=245');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');

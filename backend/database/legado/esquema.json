@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T11:04:09.702Z",
+  "gerado_em": "2026-09-29T12:03:44.912Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -1215,7 +1215,7 @@
         {
           "coluna": "data_documento",
           "legado": "doc_date",
-          "tipo": "timestamptz",
+          "tipo": "date",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -14326,7 +14326,7 @@
         {
           "coluna": "data_documento_original",
           "legado": "orig_doc_date",
-          "tipo": "timestamptz",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,

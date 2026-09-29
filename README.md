@@ -58,6 +58,17 @@ docker compose exec app vendor/bin/pint && docker compose exec app php artisan m
 
 `app/Models/<Model>.php` nunca é sobrescrito (código de negócio); `app/Models/Base/<Model>Base.php` é sempre regenerado.
 
+## Migração do backup legado
+
+```bash
+# simulação completa (valida tudo e desfaz no fim)
+docker compose exec app php artisan erp:migrar-backup-legado /dados/legado/wstb_payroll_backup_2026-09-22.json --simular
+# migração real (COMMIT); --substituir --force apaga os dados de negócio existentes antes
+docker compose exec app php artisan erp:migrar-backup-legado /dados/legado/wstb_payroll_backup_2026-09-22.json
+```
+
+O relatório fica em `backend/storage/app/private/migracao/` e em `execucoes_migracao.relatorio`. O detalhe de cada correcção está em `ocorrencias_migracao` e as linhas rejeitadas em `quarentena_migracao`.
+
 ## API
 
 Todas as respostas usam o envelope:

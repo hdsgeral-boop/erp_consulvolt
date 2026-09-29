@@ -156,3 +156,28 @@ As linhas que continuarem ambíguas vão para quarentena, para decisão.
 
 ## ADR-021 — `maintenance_requests` = pedidos de Manutenção de dados
 A matriz chama-lhe `pedidos_manutencao_equipamentos`, e o nome mantém-se por ser contratual. Mas, segundo o código (js/manutencao.js), a tabela guarda os **pedidos de manutenção de dados** com aprovação dupla (resets, limpezas, restauros), que podem ser globais. É por isso uma tabela global, com `empresa_id` opcional.
+
+## ADR-022 — Valores monetários com 2 casas decimais: arredondamento documentado
+**Contexto.** O legado guarda floats JavaScript. Há 1 866 lançamentos com ruído binário (`261.6700000000001`) e 2 652 com fracções de cêntimo reais, vindas de conversões cambiais e percentagens (`2350.877192982456`). Arredondar cada linha ao cêntimo altera o saldo D−C de quatro empresas em no máximo 3 cêntimos.
+**Decisão (utilizador, 2026-09-29).** Os valores ficam com 2 casas decimais (directiva `NUMERIC(15,2)` e padrão fiscal SAF-T/AGT), com arredondamento "half away from zero", igual ao do PostgreSQL:
+- o ruído binário desaparece sem registo;
+- cada fracção de cêntimo real gera uma ocorrência `ARREDONDAMENTO` com o valor original.
+
+O relatório do ETL mostra, por empresa, o "efeito do arredondamento" e o "D−C do legado" reconstituído. Os valores reconciliam ao décimo de milésimo com as somas do legado (empresa 1: −0,03 migrado = −0,0271 de arredondamento + −0,0029 do legado).
+
+## ADR-023 — ETL em três etapas, numa transacção, com validação antes do COMMIT
+**Decisão.** `php artisan erp:migrar-backup-legado <ficheiro> [--simular] [--substituir --force]` corre em três etapas:
+1. **Extracção por streaming** (halaxa/json-machine) para `etl_linhas_legado` (UNLOGGED). Memória máxima de cerca de 145 MB para um backup de 57 MB. As linhas "dado mestre" são descartadas nesta etapa.
+2. **Carga por ordem topológica das FKs**, numa única transacção com `SET CONSTRAINTS ALL DEFERRED`. Inclui conversão de tipos (`ConversorTipos`), normalizações, empresa derivada do documento-pai ou da holding, polimórficos (ADR-020), pivôs e as regras de `regras_integridade.mjs`. Cada correcção gera uma linha em `ocorrencias_migracao` e cada linha rejeitada vai para `quarentena_migracao`, com o payload original.
+3. **Validação:**
+   - contagens: lidas = migradas + quarentena, por tabela;
+   - órfãos: contados FK a FK; se houver algum, a transacção falha com a lista;
+   - D−C por empresa;
+   - sequences recalibradas;
+   - `SET CONSTRAINTS ALL IMMEDIATE` e só depois COMMIT (ou ROLLBACK em simulação).
+
+Cada execução fica registada em `execucoes_migracao`, com o SHA-256 do ficheiro e o relatório. A execução recusa correr sobre uma base com dados sem `--substituir`, e recusa ficheiros que não sejam exports Dexie.
+**Resultado com o backup real (2026-09-29).** 203 818 linhas lidas e 203 843 gravadas (inclui 2 diários REC, as tabelas pivô e as ligações utilizador↔empresa). 31 linhas em quarentena, 0 divergências de contagem e 0 órfãos. 5 039 ocorrências, das quais cerca de 4 350 são arredondamentos INFO. Duração de cerca de 80 s.
+**Bugs que os testes do ETL apanharam antes da migração real:**
+- `data_documento` estava a ser inferida como TIMESTAMPTZ e as datas "AAAA-MM" ficavam NULL. Passou a DATE (directiva 3.2).
+- As referências a tabelas globais, com `empresa_id` NULL (perfis, taxas de câmbio), eram tratadas como órfãs, por causa do `isset()` sobre um valor NULL.

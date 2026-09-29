@@ -49,7 +49,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('diario_id')->nullable()->comment('legado: journal_id · tipos Dexie: {"nan":9}');
-            $table->timestampTz('data_documento')->nullable()->comment('legado: doc_date · tipos mistos: string_data=44344, string_datahora=52, string=4');
+            $table->date('data_documento')->nullable()->comment('legado: doc_date · tipos mistos: string_data=44344, string_datahora=52, string=4; tipo forçado (inferido: timestamptz)');
             $table->timestampTz('data_lancamento')->nullable()->comment('legado: entry_date · tipos mistos: string_data=32819, string_datahora=11087, string=492');
             $table->string('referencia', 100)->nullable()->comment('legado: reference · tipos mistos: string_inteiro=4723, string=39662');
             $table->string('numero_documento', 100)->nullable()->comment('legado: doc_number · tipos mistos: string_inteiro=6016, string=38377');
@@ -130,7 +130,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('diario_id')->nullable()->comment('legado: journal_id');
-            $table->date('data_documento')->nullable()->comment('legado: doc_date');
+            $table->date('data_documento')->nullable()->comment('legado: doc_date · tipo forçado (inferido: date)');
             $table->timestampTz('data_lancamento')->nullable()->comment('legado: entry_date · tipos mistos: string_data=2176, string_datahora=327');
             $table->string('referencia', 50)->nullable()->comment('legado: reference');
             $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number · tipos mistos: string=2397, string_inteiro=108');

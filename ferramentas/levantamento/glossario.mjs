@@ -408,6 +408,9 @@ export const TIPOS_FORCADOS = {
   'audit_logs.record_id': 'varchar(255)', // inteiros, textos e 72 arrays ([15,91] -> "15,91")
   'users.allowed_companies': 'jsonb',     // normalizado para utilizador_empresa (pivô)
   'users.colaboradores': 'jsonb',         // {empresa_id: colaborador_id} -> utilizador_empresa.colaborador_id
+  'treasury_items.orig_doc_date': 'varchar(50)',
+  'journal_lines.doc_date': 'date',             // data de competência (directiva 3.2); 52 valores traziam hora
+  'recycled_journal_lines.doc_date': 'date', // mistura datas com números de documento ("FT FA12026/761")
 };
 
 export const SOBREPOSICOES = {

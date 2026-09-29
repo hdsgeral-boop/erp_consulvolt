@@ -26,6 +26,7 @@ class Empresa extends ModeloBase
         'nome', 'nif', 'endereco', 'provincia', 'municipio', 'comuna', 'telefone', 'email', 'website',
         'numero_registo_comercial', 'rodape_documento', 'logotipo', 'taxa_inss_patronal', 'taxa_inss_trabalhador',
         'regras_ia', 'estado', 'e_consolidacao', 'moeda_consolidacao', 'data_fim_consolidacao',
+        'he_percentagem_1', 'he_limite_horas', 'he_percentagem_2', 'moeda_funcional',
     ];
 
     protected $hidden = ['logotipo'];
@@ -37,6 +38,9 @@ class Empresa extends ModeloBase
             'taxa_inss_trabalhador' => 'decimal:2',
             'e_consolidacao' => 'boolean',
             'data_fim_consolidacao' => 'date',
+            'he_percentagem_1' => 'decimal:4',
+            'he_limite_horas' => 'decimal:3',
+            'he_percentagem_2' => 'decimal:4',
         ];
     }
 

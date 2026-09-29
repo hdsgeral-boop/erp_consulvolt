@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T11:04:07.787Z",
+  "gerado_em": "2026-09-29T12:03:41.209Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -1639,12 +1639,13 @@
         {
           "legado": "doc_date",
           "pt": "data_documento",
-          "tipo_pg": "timestamptz",
+          "tipo_pg": "date",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 19,
           "notas": [
-            "tipos mistos: string_data=44344, string_datahora=52, string=4"
+            "tipos mistos: string_data=44344, string_datahora=52, string=4",
+            "tipo forçado (inferido: timestamptz)"
           ]
         },
         {
@@ -2229,7 +2230,9 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: date)"
+          ]
         },
         {
           "legado": "entry_date",
@@ -12921,12 +12924,13 @@
         {
           "legado": "orig_doc_date",
           "pt": "data_documento_original",
-          "tipo_pg": "timestamptz",
+          "tipo_pg": "varchar(50)",
           "nulo": true,
           "preenchimento": 0.9738,
           "max_comprimento": 19,
           "notas": [
-            "tipos mistos: string_data=6042, string=45, string_datahora=1"
+            "tipos mistos: string_data=6042, string=45, string_datahora=1",
+            "tipo forçado (inferido: timestamptz)"
           ]
         },
         {

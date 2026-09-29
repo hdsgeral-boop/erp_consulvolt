@@ -46,7 +46,7 @@ abstract class LancamentoContabilBase extends ModeloBase
         return [
             'empresa_id' => 'integer',
             'diario_id' => 'integer',
-            'data_documento' => 'datetime',
+            'data_documento' => 'date',
             'data_lancamento' => 'datetime',
             'valor' => 'decimal:2',
             'terceiro_id' => 'integer',

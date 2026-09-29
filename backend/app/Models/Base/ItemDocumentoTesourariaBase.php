@@ -41,7 +41,6 @@ abstract class ItemDocumentoTesourariaBase extends ModeloBase
             'valor' => 'decimal:2',
             'documento_tesouraria_id' => 'integer',
             'projeto_id' => 'integer',
-            'data_documento_original' => 'datetime',
             'unidade_negocio_id' => 'integer',
             'centro_custo_id' => 'integer',
             'valor_moeda' => 'decimal:2',
