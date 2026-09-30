@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
+use App\Http\Controllers\Api\RH\AssiduidadeController;
 use App\Http\Controllers\Api\RH\CadastrosRHController;
 use App\Http\Controllers\Api\RH\ColaboradorController;
 use App\Http\Controllers\Api\RH\ContratoTrabalhoController;
@@ -257,6 +258,27 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('cartas/{carta}', 'eliminar')->whereNumber('carta')->name('cartas.destroy');
             Route::post('cartas/{carta}/pagamento', 'pagar')->whereNumber('carta')->name('cartas.pagar');
         });
+
+        Route::prefix('rh/assiduidade')->name('rh.assiduidade.')->controller(AssiduidadeController::class)->group(function () {
+            Route::get('configuracao', 'config')->name('config');
+            Route::put('configuracao', 'gravarConfig')->name('config.gravar');
+            Route::get('registos', 'registos')->name('registos.index');
+            Route::post('registos', 'gravarRegisto')->name('registos.gravar');
+            Route::delete('registos/{registo}', 'eliminarRegisto')->whereNumber('registo')->name('registos.destroy');
+            Route::post('registos/importar', 'importar')->name('registos.importar');
+            Route::get('fechos', 'fechos')->name('fechos.index');
+            Route::get('meses/{mes}', 'mes')->where('mes', '\d{4}-\d{2}')->name('meses.show');
+            Route::post('meses/{mes}/detectar-faltas', 'detectar')->where('mes', '\d{4}-\d{2}')->name('meses.detectar');
+            Route::post('meses/{mes}/fechar', 'fechar')->where('mes', '\d{4}-\d{2}')->name('meses.fechar');
+            Route::post('meses/{mes}/reabrir', 'reabrir')->where('mes', '\d{4}-\d{2}')->name('meses.reabrir');
+            Route::get('tipos-ausencia', 'catalogo')->name('ausencias.catalogo');
+            Route::get('ausencias', 'ausencias')->name('ausencias.index');
+            Route::post('ausencias', 'criarAusencia')->name('ausencias.store');
+            Route::post('ausencias/{ausencia}/justificar', 'justificar')->whereNumber('ausencia')->name('ausencias.justificar');
+            Route::post('ausencias/{ausencia}/decidir', 'decidir')->whereNumber('ausencia')->name('ausencias.decidir');
+            Route::post('ausencias/{ausencia}/cancelar', 'cancelar')->whereNumber('ausencia')->name('ausencias.cancelar');
+        });
+        Route::post('rh/salarios/periodos/{id}/importar-efectividade', [AssiduidadeController::class, 'lancar'])->whereNumber('id')->name('rh.salarios.importar-efectividade');
 
         Route::prefix('rh')->name('rh.')->group(function () {
             Route::controller(ColaboradorController::class)->group(function () {

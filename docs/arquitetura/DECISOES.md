@@ -654,3 +654,54 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - **Ensaio com os dados reais** (último período de cada empresa, desfeito no fim): nas empresas 1 e 3 a carta foi emitida e o pagamento integrado. Nas outras 8 não há IBAN registados.
 
 **Fica para depois:** importação Excel de colaboradores e contratos, contratos em massa, cópia de mapeamentos entre empresas, recuperação do mapeamento a partir do diário, e PDF da carta e do recibo (Fase 5).
+
+## ADR-038 — RH parte 2a: assiduidade (efectividade), ausências e calendário
+
+**Calendário** (`ServicoCalendarioRH`):
+- A configuração da assiduidade (dias úteis da semana e feriados) é a fonte única dos dias úteis para a assiduidade, as ausências e as férias. No legado, as férias contavam segunda a sexta fixos.
+- Não existe tabela de feriados: são uma lista na configuração, como no legado.
+- Os tipos das colunas desta configuração tinham sido gerados sem dados e estavam errados. Foram corrigidos: dias úteis e feriados em jsonb, arredondamento inteiro e autorização booleana.
+
+**Apuramento mensal** (`ServicoAssiduidade::resumoMes`, paridade com `resumoMes` de `js/modules/rh/assiduidade.js`):
+- Mantém do legado:
+  - horas do contrato por dia (8 por omissão), arredondamento, tolerância e mínimo de minutos para contar horas extra;
+  - dias não úteis contam como extra, com autorização opcional;
+  - férias aprovadas ou gozadas e ausências aprovadas não são falta; as ausências não remuneradas continuam a ser descontadas (art.º 222.º/2);
+  - compensação DIA, MENSAL ou LIMITE;
+  - aviso acima de 3 faltas no mês (art.º 230.º).
+- **Não-regressão:** os dois fechos reais da empresa 18 (01/2026 e 09/2026) reproduzem exactamente as horas extra, as horas de falta e os dias de falta do legado.
+- Correcções:
+  - entram só colaboradores ACTIVOS. O legado só excluía «INACTIVO», mas o formulário gravava «Não ACTIVO», e gerava faltas a inactivos e suspensos;
+  - não há falta em dias sem registo antes da admissão ou do início do contrato, nem depois do fim do contrato. O trabalho registado conta sempre;
+  - as faltas por justificar são geradas em acções explícitas (detectar, fechar). No legado bastava abrir o ecrã para criar ausências.
+
+**Fecho e lançamento no processamento:**
+- **Fecho:**
+  - há um fecho por mês (estado FECHADO ou REABERTO, índice único); o histórico fica na auditoria;
+  - o fecho guarda as linhas e a configuração usada;
+  - reabrir exige motivo e o processamento salarial do mês aberto.
+- **Lançar** (`POST /rh/salarios/periodos/{id}/importar-efectividade`):
+  - exige `calcular_folha` (no legado não havia guarda) e o processamento ABERTO;
+  - as rubricas indicadas têm de ser de horas EXTRA e FALTA;
+  - o mês é **recalculado** com a configuração do fecho e as ausências aprovadas até ao momento. Isto corrige três defeitos do legado:
+    - subtraía as justificações depois da compensação e perdia horas extra;
+    - nunca retirava as ausências pedidas (não detectadas) aprovadas depois do fecho;
+    - deixava ficar os lançamentos cujas horas passaram a zero;
+  - os lançamentos ficam com `origem = ASSIDUIDADE`, e os que deixam de ter horas são retirados.
+
+**Ausências** (`ServicoAusencias`, catálogo da Lei 12/23):
+- Mantém do legado:
+  - tipos e unidades (dias de calendário, dias úteis ou horas);
+  - o limite de dias seguidos é erro; os limites por mês e por ano são aviso;
+  - prova obrigatória, salvo no tipo «Outra»;
+  - avisos de pré-aviso de 7 dias e de suspensão acima de 30 dias;
+  - só se justificam faltas detectadas com o processamento do mês aberto;
+  - cancelar uma justificação devolve a falta a POR_JUSTIFICAR.
+- Correcções:
+  - o RH regista e justifica ausências. No legado só o colaborador o podia fazer, pelo portal, e quem não tinha utilizador ficava com as faltas por justificar;
+  - a sobreposição passa a verificar também as férias;
+  - nos tipos «a critério do empregador», a aprovação exige a decisão SIM/NAO sobre a remuneração;
+  - ninguém decide a sua própria ausência.
+- O domínio de `remunerada` passa a SIM/NAO/EMPREGADOR.
+
+**Fica para depois:** leitura directa do relógio biométrico por URL (o endereço já se configura), e o circuito chefia → RH no portal (RH parte 3).

@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (493) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (495) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -225,9 +225,11 @@ return new class extends Migration
         DB::statement('ALTER TABLE efectividade_assiduidade ADD CONSTRAINT fk_efectividade_assiduidade_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_assiduidade ADD CONSTRAINT fk_configuracoes_assiduidade_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE fechos_mensais_assiduidade ADD CONSTRAINT fk_fechos_mensais_assiduidade_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE fechos_mensais_assiduidade ADD CONSTRAINT fk_fechos_mensais_assiduidade_periodo_processamento_salarial_id FOREIGN KEY (periodo_processamento_salarial_id) REFERENCES periodos_processamento_salarial (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_produtividade_rh ADD CONSTRAINT fk_itens_produtividade_rh_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_produtividade_rh ADD CONSTRAINT fk_itens_produtividade_rh_infotipo_salarial_id FOREIGN KEY (infotipo_salarial_id) REFERENCES infotipos_salariais (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE periodos_produtividade_rh ADD CONSTRAINT fk_periodos_produtividade_rh_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE periodos_produtividade_rh ADD CONSTRAINT fk_periodos_produtividade_rh_periodo_processamento_salarial_id FOREIGN KEY (periodo_processamento_salarial_id) REFERENCES periodos_processamento_salarial (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE registos_produtividade_rh ADD CONSTRAINT fk_registos_produtividade_rh_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE registos_produtividade_rh ADD CONSTRAINT fk_registos_produtividade_rh_periodo_produtividade_id FOREIGN KEY (periodo_produtividade_id) REFERENCES periodos_produtividade_rh (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE registos_produtividade_rh ADD CONSTRAINT fk_registos_produtividade_rh_colaborador_id FOREIGN KEY (colaborador_id) REFERENCES colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -722,9 +724,11 @@ return new class extends Migration
         DB::statement('ALTER TABLE efectividade_assiduidade DROP CONSTRAINT IF EXISTS fk_efectividade_assiduidade_empresa_id');
         DB::statement('ALTER TABLE configuracoes_assiduidade DROP CONSTRAINT IF EXISTS fk_configuracoes_assiduidade_empresa_id');
         DB::statement('ALTER TABLE fechos_mensais_assiduidade DROP CONSTRAINT IF EXISTS fk_fechos_mensais_assiduidade_empresa_id');
+        DB::statement('ALTER TABLE fechos_mensais_assiduidade DROP CONSTRAINT IF EXISTS fk_fechos_mensais_assiduidade_periodo_processamento_salarial_id');
         DB::statement('ALTER TABLE itens_produtividade_rh DROP CONSTRAINT IF EXISTS fk_itens_produtividade_rh_empresa_id');
         DB::statement('ALTER TABLE itens_produtividade_rh DROP CONSTRAINT IF EXISTS fk_itens_produtividade_rh_infotipo_salarial_id');
         DB::statement('ALTER TABLE periodos_produtividade_rh DROP CONSTRAINT IF EXISTS fk_periodos_produtividade_rh_empresa_id');
+        DB::statement('ALTER TABLE periodos_produtividade_rh DROP CONSTRAINT IF EXISTS fk_periodos_produtividade_rh_periodo_processamento_salarial_id');
         DB::statement('ALTER TABLE registos_produtividade_rh DROP CONSTRAINT IF EXISTS fk_registos_produtividade_rh_empresa_id');
         DB::statement('ALTER TABLE registos_produtividade_rh DROP CONSTRAINT IF EXISTS fk_registos_produtividade_rh_periodo_produtividade_id');
         DB::statement('ALTER TABLE registos_produtividade_rh DROP CONSTRAINT IF EXISTS fk_registos_produtividade_rh_colaborador_id');

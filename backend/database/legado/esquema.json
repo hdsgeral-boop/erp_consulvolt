@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T14:13:01.836Z",
+  "gerado_em": "2026-09-30T14:53:59.990Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -10596,6 +10596,21 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "PEDIDO",
+            "PLANEADO",
+            "APROVADO",
+            "GOZADO",
+            "CANCELADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -10639,7 +10654,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_plano_ferias_colaboradores_estado"
+      ]
     },
     {
       "tabela": "ausencias_faltas_colaboradores",
@@ -10687,7 +10704,7 @@
         {
           "coluna": "tipo",
           "legado": "tipo",
-          "tipo": "text",
+          "tipo": "varchar(40)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -10741,9 +10758,25 @@
         {
           "coluna": "estado",
           "legado": "estado",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "POR_JUSTIFICAR",
+            "PENDENTE_CHEFIA",
+            "PENDENTE_RH",
+            "APROVADO",
+            "RECUSADO",
+            "CANCELADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "estado",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -10825,7 +10858,7 @@
         {
           "coluna": "documento_url",
           "legado": "documento_url",
-          "tipo": "varchar(255)",
+          "tipo": "text",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -10834,7 +10867,7 @@
         {
           "coluna": "remunerada",
           "legado": "remunerada",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -10843,7 +10876,7 @@
         {
           "coluna": "avisos",
           "legado": "avisos",
-          "tipo": "date",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -10900,7 +10933,7 @@
         {
           "coluna": "nota_decisao",
           "legado": "nota_decisao",
-          "tipo": "varchar(255)",
+          "tipo": "text",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -10926,7 +10959,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_ausencias_faltas_colaboradores_estado"
+      ]
     },
     {
       "tabela": "efectividade_assiduidade",
@@ -11014,6 +11049,19 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "MANUAL",
+            "FICHEIRO",
+            "RELOGIO"
+          ]
+        },
+        {
+          "coluna": "origem_original",
+          "legado": "origem",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -11055,7 +11103,7 @@
         {
           "coluna": "autorizado_extra",
           "legado": "autorizado_extra",
-          "tipo": "varchar(255)",
+          "tipo": "boolean",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -11080,8 +11128,19 @@
           "dominio": null
         }
       ],
-      "unicos": [],
-      "checks": []
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "colaborador_id",
+            "data"
+          ],
+          "onde": null
+        }
+      ],
+      "checks": [
+        "ck_efectividade_assiduidade_origem"
+      ]
     },
     {
       "tabela": "configuracoes_assiduidade",
@@ -11117,7 +11176,7 @@
         {
           "coluna": "dias_uteis",
           "legado": "dias_uteis",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -11135,7 +11194,7 @@
         {
           "coluna": "arredondamento_min",
           "legado": "arredondamento_min",
-          "tipo": "jsonb",
+          "tipo": "integer",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -11162,7 +11221,7 @@
         {
           "coluna": "feriados",
           "legado": "feriados",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -11180,7 +11239,7 @@
         {
           "coluna": "modo_compensacao",
           "legado": "modo_compensacao",
-          "tipo": "jsonb",
+          "tipo": "varchar(10)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -11198,7 +11257,7 @@
         {
           "coluna": "extra_nao_util_exige_autorizacao",
           "legado": "extra_nao_util_exige_autorizacao",
-          "tipo": "varchar(255)",
+          "tipo": "boolean",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -11282,6 +11341,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "FECHADO",
+            "REABERTO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "estado",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -11348,12 +11419,15 @@
           "dominio": null
         },
         {
-          "coluna": "periodo_id",
+          "coluna": "periodo_processamento_salarial_id",
           "legado": "period_id",
           "tipo": "bigint",
           "nulo": true,
           "origem": "backup",
-          "fk": null,
+          "fk": {
+            "tabela": "periodos_processamento_salarial",
+            "cascata": false
+          },
           "dominio": null
         },
         {
@@ -11402,6 +11476,15 @@
           "dominio": null
         },
         {
+          "coluna": "configuracao",
+          "legado": null,
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -11420,8 +11503,18 @@
           "dominio": null
         }
       ],
-      "unicos": [],
-      "checks": []
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "mes"
+          ],
+          "onde": null
+        }
+      ],
+      "checks": [
+        "ck_fechos_mensais_assiduidade_estado"
+      ]
     },
     {
       "tabela": "itens_produtividade_rh",
@@ -11479,6 +11572,21 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "QUANTIDADE",
+            "HORAS",
+            "OBJECTIVO",
+            "PONTOS",
+            "TAREFAS"
+          ]
+        },
+        {
+          "coluna": "metrica_original",
+          "legado": "metrica",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -11493,7 +11601,7 @@
         {
           "coluna": "preco_unitario",
           "legado": "preco_unitario",
-          "tipo": "numeric(15,2)",
+          "tipo": "numeric(15,4)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11514,7 +11622,7 @@
         {
           "coluna": "minimo",
           "legado": "minimo",
-          "tipo": "text",
+          "tipo": "numeric(15,3)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11523,7 +11631,7 @@
         {
           "coluna": "maximo",
           "legado": "maximo",
-          "tipo": "text",
+          "tipo": "numeric(15,3)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11576,7 +11684,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_itens_produtividade_rh_metrica"
+      ]
     },
     {
       "tabela": "periodos_produtividade_rh",
@@ -11661,6 +11771,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "ABERTO",
+            "FECHADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "estado",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -11727,12 +11849,15 @@
           "dominio": null
         },
         {
-          "coluna": "periodo_id",
+          "coluna": "periodo_processamento_salarial_id",
           "legado": "period_id",
           "tipo": "bigint",
           "nulo": true,
           "origem": "backup",
-          "fk": null,
+          "fk": {
+            "tabela": "periodos_processamento_salarial",
+            "cascata": false
+          },
           "dominio": null
         },
         {
@@ -11781,8 +11906,18 @@
           "dominio": null
         }
       ],
-      "unicos": [],
-      "checks": []
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "mes"
+          ],
+          "onde": null
+        }
+      ],
+      "checks": [
+        "ck_periodos_produtividade_rh_estado"
+      ]
     },
     {
       "tabela": "registos_produtividade_rh",
@@ -11863,7 +11998,7 @@
         {
           "coluna": "data",
           "legado": "data",
-          "tipo": "text",
+          "tipo": "date",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -11881,7 +12016,7 @@
         {
           "coluna": "preco_unitario",
           "legado": "preco_unitario",
-          "tipo": "numeric(15,2)",
+          "tipo": "numeric(15,4)",
           "nulo": true,
           "origem": "backup",
           "fk": null,

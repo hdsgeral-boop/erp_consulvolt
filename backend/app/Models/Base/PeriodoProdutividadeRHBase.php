@@ -6,7 +6,9 @@ use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\ModeloBase;
+use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\RegistoProdutividadeRH;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -22,7 +24,7 @@ abstract class PeriodoProdutividadeRHBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'mes', 'data_inicio', 'data_fim', 'observacoes', 'atualizado_por', 'estado', 'criado_por', 'fechado_em', 'fechado_por', 'total_fecho', 'registos_fecho', 'lancado_em', 'lancado_por', 'periodo_id', 'reaberto_em', 'reaberto_por', 'motivo_reabertura',
+        'empresa_id', 'mes', 'data_inicio', 'data_fim', 'observacoes', 'atualizado_por', 'estado', 'estado_original', 'criado_por', 'fechado_em', 'fechado_por', 'total_fecho', 'registos_fecho', 'lancado_em', 'lancado_por', 'periodo_processamento_salarial_id', 'reaberto_em', 'reaberto_por', 'motivo_reabertura',
     ];
 
     protected function casts(): array
@@ -35,11 +37,16 @@ abstract class PeriodoProdutividadeRHBase extends ModeloBase
             'total_fecho' => 'decimal:2',
             'registos_fecho' => 'integer',
             'lancado_em' => 'datetime',
-            'periodo_id' => 'integer',
+            'periodo_processamento_salarial_id' => 'integer',
             'reaberto_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'criado_em' => 'datetime',
         ];
+    }
+
+    public function periodoProcessamentoSalarial(): BelongsTo
+    {
+        return $this->belongsTo(PeriodoProcessamentoSalarial::class, 'periodo_processamento_salarial_id');
     }
 
     public function linhasFolhaSalarial(): HasMany

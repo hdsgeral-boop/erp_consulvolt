@@ -317,7 +317,8 @@ return new class extends Migration
             $table->date('data_fim')->nullable()->comment('legado: data_fim');
             $table->integer('dias')->nullable()->comment('legado: dias');
             $table->integer('direito')->nullable()->comment('legado: direito');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {PEDIDO, PLANEADO, APROVADO, GOZADO, CANCELADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->text('observacoes')->nullable()->comment('legado: observacoes');
             $table->bigInteger('pedido_portal_colaborador_id')->nullable()->comment('legado: portal_request_id');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
@@ -326,19 +327,21 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_plano_ferias_colaboradores_empresa_id ON plano_ferias_colaboradores (empresa_id)');
         DB::statement('CREATE INDEX ix_plano_ferias_colaboradores_colaborador_id ON plano_ferias_colaboradores (colaborador_id)');
         DB::statement('CREATE INDEX ix_plano_ferias_colaboradores_pedido_portal_colaborador_id ON plano_ferias_colaboradores (pedido_portal_colaborador_id)');
+        DB::statement('ALTER TABLE plano_ferias_colaboradores ADD CONSTRAINT ck_plano_ferias_colaboradores_estado CHECK (estado IS NULL OR estado IN (\'PEDIDO\',\'PLANEADO\',\'APROVADO\',\'GOZADO\',\'CANCELADO\'))');
 
         // rh_absences (legado) -> ausencias_faltas_colaboradores · 34 linhas reais no backup
         Schema::create('ausencias_faltas_colaboradores', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
-            $table->text('tipo')->nullable()->comment('legado: tipo · sem valores reais: tipo a confirmar no código legado');
+            $table->string('tipo', 40)->nullable()->comment('legado: tipo · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
             $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
             $table->date('data_fim')->nullable()->comment('legado: data_fim');
             $table->integer('dias_uteis')->nullable()->comment('legado: dias_uteis');
             $table->decimal('horas_falta', 12, 3)->nullable()->comment('legado: horas_falta');
             $table->string('ocorrencia', 50)->nullable()->comment('legado: ocorrencia');
-            $table->string('estado', 30)->nullable()->comment('legado: estado');
+            $table->string('estado', 20)->nullable()->comment('legado: estado · código normalizado ∈ {POR_JUSTIFICAR, PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, RECUSADO, CANCELADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: estado · texto exacto do legado');
             $table->boolean('detectada')->nullable()->comment('legado: detectada');
             $table->bigInteger('fecho_mensal_assiduidade_id')->nullable()->comment('legado: fecho_id');
             $table->string('mes', 20)->nullable()->comment('legado: mes');
@@ -347,15 +350,15 @@ return new class extends Migration
             $table->decimal('horas', 12, 3)->nullable()->comment('legado: horas');
             $table->boolean('pendente_no_fecho')->nullable()->comment('legado: pendente_no_fecho');
             $table->text('motivo')->nullable()->comment('legado: motivo · do código legado js/modules/rh/ausencias.js:133');
-            $table->string('documento_url', 255)->nullable()->comment('legado: documento_url · do código legado js/modules/rh/ausencias.js:133');
-            $table->string('remunerada', 255)->nullable()->comment('legado: remunerada · do código legado js/modules/rh/ausencias.js:134');
-            $table->date('avisos')->nullable()->comment('legado: avisos · do código legado js/modules/rh/ausencias.js:134');
+            $table->text('documento_url')->nullable()->comment('legado: documento_url · do código legado js/modules/rh/ausencias.js:133');
+            $table->string('remunerada', 20)->nullable()->comment('legado: remunerada · do código legado js/modules/rh/ausencias.js:134');
+            $table->jsonb('avisos')->nullable()->comment('legado: avisos · do código legado js/modules/rh/ausencias.js:134');
             $table->bigInteger('pedido_portal_colaborador_id')->nullable()->comment('legado: portal_request_id · do código legado js/modules/rh/ausencias.js:135');
             $table->timestampTz('justificada_em')->nullable()->comment('legado: justificada_em · do código legado js/modules/rh/ausencias.js:154');
             $table->string('justificada_por', 255)->nullable()->comment('legado: justificada_por · do código legado js/modules/rh/ausencias.js:154');
             $table->timestampTz('decidido_em')->nullable()->comment('legado: decidido_em · do código legado js/modules/rh/ausencias.js:167');
             $table->string('decidido_por', 255)->nullable()->comment('legado: decidido_por · do código legado js/modules/rh/ausencias.js:167');
-            $table->string('nota_decisao', 255)->nullable()->comment('legado: nota_decisao · do código legado js/modules/rh/ausencias.js:167');
+            $table->text('nota_decisao')->nullable()->comment('legado: nota_decisao · do código legado js/modules/rh/ausencias.js:167');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -363,6 +366,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_ausencias_faltas_colaboradores_colaborador_id ON ausencias_faltas_colaboradores (colaborador_id)');
         DB::statement('CREATE INDEX ix_ausencias_faltas_colaboradores_fecho_mensal_assiduidade_id ON ausencias_faltas_colaboradores (fecho_mensal_assiduidade_id)');
         DB::statement('CREATE INDEX ix_ausencias_faltas_colaboradores_pedido_portal_colaborador_id ON ausencias_faltas_colaboradores (pedido_portal_colaborador_id)');
+        DB::statement('ALTER TABLE ausencias_faltas_colaboradores ADD CONSTRAINT ck_ausencias_faltas_colaboradores_estado CHECK (estado IS NULL OR estado IN (\'POR_JUSTIFICAR\',\'PENDENTE_CHEFIA\',\'PENDENTE_RH\',\'APROVADO\',\'RECUSADO\',\'CANCELADO\'))');
 
         // rh_attendance (legado) -> efectividade_assiduidade · 190 linhas reais no backup
         Schema::create('efectividade_assiduidade', function (Blueprint $table) {
@@ -373,32 +377,34 @@ return new class extends Migration
             $table->string('entrada', 10)->nullable()->comment('legado: entrada');
             $table->string('saida', 10)->nullable()->comment('legado: saida');
             $table->decimal('horas', 12, 3)->nullable()->comment('legado: horas · tipos mistos: inteiro=24, decimal=166');
-            $table->string('origem', 20)->nullable()->comment('legado: origem');
+            $table->string('origem', 20)->nullable()->comment('legado: origem · código normalizado ∈ {MANUAL, FICHEIRO, RELOGIO}; texto original em origem_original');
+            $table->string('origem_original', 100)->nullable()->comment('legado: origem · texto exacto do legado');
             $table->string('fonte', 50)->nullable()->comment('legado: fonte');
             $table->text('observacoes')->nullable()->comment('legado: observacoes · sem valores reais: tipo a confirmar no código legado');
             $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
-            $table->string('autorizado_extra', 255)->nullable()->comment('legado: autorizado_extra · do código legado js/modules/rh/assiduidade.js:316');
+            $table->boolean('autorizado_extra')->nullable()->comment('legado: autorizado_extra · do código legado js/modules/rh/assiduidade.js:316');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
         });
-        DB::statement('CREATE INDEX ix_efectividade_assiduidade_empresa_id ON efectividade_assiduidade (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_efectividade_assiduidade_empresa_id_colaborador_id_data ON efectividade_assiduidade (empresa_id, colaborador_id, data)');
         DB::statement('CREATE INDEX ix_efectividade_assiduidade_colaborador_id ON efectividade_assiduidade (colaborador_id)');
+        DB::statement('ALTER TABLE efectividade_assiduidade ADD CONSTRAINT ck_efectividade_assiduidade_origem CHECK (origem IS NULL OR origem IN (\'MANUAL\',\'FICHEIRO\',\'RELOGIO\'))');
 
         // rh_attendance_config (legado) -> configuracoes_assiduidade · 0 linhas reais no backup
         Schema::create('configuracoes_assiduidade', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id · do código legado js/modules/rh/assiduidade.js:59');
-            $table->string('dias_uteis', 255)->nullable()->comment('legado: dias_uteis · do código legado js/modules/rh/assiduidade.js:59');
+            $table->jsonb('dias_uteis')->nullable()->comment('legado: dias_uteis · do código legado js/modules/rh/assiduidade.js:59');
             $table->integer('tolerancia_min')->nullable()->comment('legado: tolerancia_min · do código legado js/modules/rh/assiduidade.js:60');
-            $table->jsonb('arredondamento_min')->nullable()->comment('legado: arredondamento_min · do código legado js/modules/rh/assiduidade.js:61');
+            $table->integer('arredondamento_min')->nullable()->comment('legado: arredondamento_min · do código legado js/modules/rh/assiduidade.js:61');
             $table->integer('extras_min_minutos')->nullable()->comment('legado: extras_min_minutos · do código legado js/modules/rh/assiduidade.js:62');
             $table->decimal('minimo_dia_horas', 12, 3)->nullable()->comment('legado: minimo_dia_horas · do código legado js/modules/rh/assiduidade.js:63');
-            $table->string('feriados', 255)->nullable()->comment('legado: feriados · do código legado js/modules/rh/assiduidade.js:64');
+            $table->jsonb('feriados')->nullable()->comment('legado: feriados · do código legado js/modules/rh/assiduidade.js:64');
             $table->jsonb('relogio')->nullable()->comment('legado: relogio · do código legado js/modules/rh/assiduidade.js:65');
-            $table->jsonb('modo_compensacao')->nullable()->comment('legado: modo_compensacao · do código legado js/modules/rh/assiduidade.js:66');
+            $table->string('modo_compensacao', 10)->nullable()->comment('legado: modo_compensacao · do código legado js/modules/rh/assiduidade.js:66');
             $table->decimal('limite_compensacao_h', 15, 2)->nullable()->comment('legado: limite_compensacao_h · do código legado js/modules/rh/assiduidade.js:67');
-            $table->string('extra_nao_util_exige_autorizacao', 255)->nullable()->comment('legado: extra_nao_util_exige_autorizacao · do código legado js/modules/rh/assiduidade.js:68');
+            $table->boolean('extra_nao_util_exige_autorizacao')->nullable()->comment('legado: extra_nao_util_exige_autorizacao · do código legado js/modules/rh/assiduidade.js:68');
             $table->string('atualizado_por', 255)->nullable()->comment('legado: actualizado_por · do código legado js/modules/rh/assiduidade.js:69');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em · do código legado js/modules/rh/assiduidade.js:69');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -410,7 +416,8 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
             $table->string('mes', 20)->nullable()->comment('legado: mes');
-            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->string('estado', 20)->nullable()->comment('legado: estado · código normalizado ∈ {FECHADO, REABERTO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: estado · texto exacto do legado');
             $table->integer('dias_uteis')->nullable()->comment('legado: dias_uteis');
             $table->jsonb('linhas')->nullable()->comment('legado: linhas');
             $table->jsonb('totais')->nullable()->comment('legado: totais');
@@ -418,16 +425,19 @@ return new class extends Migration
             $table->string('fechado_por', 100)->nullable()->comment('legado: fechado_por');
             $table->timestampTz('lancado_em')->nullable()->comment('legado: lancado_em');
             $table->string('lancado_por', 100)->nullable()->comment('legado: lancado_por');
-            $table->bigInteger('periodo_id')->nullable()->comment('legado: period_id');
+            $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('legado: period_id');
             $table->date('apurado_ate')->nullable()->comment('legado: apurado_ate');
             $table->integer('ausencias_geradas')->nullable()->comment('legado: ausencias_geradas');
             $table->timestampTz('reaberto_em')->nullable()->comment('legado: reaberto_em · do código legado js/modules/rh/assiduidade.js:174');
             $table->string('reaberto_por', 255)->nullable()->comment('legado: reaberto_por · do código legado js/modules/rh/assiduidade.js:174');
             $table->text('motivo_reabertura')->nullable()->comment('legado: motivo_reabertura · do código legado js/modules/rh/assiduidade.js:174');
+            $table->jsonb('configuracao')->nullable()->comment('Configuração da assiduidade usada no apuramento (fotografia)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
-        DB::statement('CREATE INDEX ix_fechos_mensais_assiduidade_empresa_id ON fechos_mensais_assiduidade (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_fechos_mensais_assiduidade_empresa_id_mes ON fechos_mensais_assiduidade (empresa_id, mes)');
+        DB::statement('CREATE INDEX ix_fechos_mensais_assiduidade_periodo_processamento_salarial_id ON fechos_mensais_assiduidade (periodo_processamento_salarial_id)');
+        DB::statement('ALTER TABLE fechos_mensais_assiduidade ADD CONSTRAINT ck_fechos_mensais_assiduidade_estado CHECK (estado IS NULL OR estado IN (\'FECHADO\',\'REABERTO\'))');
 
         // rh_prod_items (legado) -> itens_produtividade_rh · 1 linhas reais no backup
         Schema::create('itens_produtividade_rh', function (Blueprint $table) {
@@ -435,12 +445,13 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
             $table->string('codigo', 50)->nullable()->comment('legado: codigo');
             $table->text('descricao')->nullable()->comment('legado: descricao');
-            $table->string('metrica', 20)->nullable()->comment('legado: metrica');
+            $table->string('metrica', 20)->nullable()->comment('legado: metrica · código normalizado ∈ {QUANTIDADE, HORAS, OBJECTIVO, PONTOS, TAREFAS}; texto original em metrica_original');
+            $table->string('metrica_original', 100)->nullable()->comment('legado: metrica · texto exacto do legado');
             $table->string('unidade', 10)->nullable()->comment('legado: unidade');
-            $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: preco_unitario');
+            $table->decimal('preco_unitario', 15, 4)->nullable()->comment('legado: preco_unitario · tipo forçado (inferido: numeric(15,2))');
             $table->bigInteger('infotipo_salarial_id')->nullable()->comment('legado: infotype_id');
-            $table->text('minimo')->nullable()->comment('legado: minimo · sem valores reais: tipo a confirmar no código legado');
-            $table->text('maximo')->nullable()->comment('legado: maximo · sem valores reais: tipo a confirmar no código legado');
+            $table->decimal('minimo', 15, 3)->nullable()->comment('legado: minimo · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->decimal('maximo', 15, 3)->nullable()->comment('legado: maximo · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
             $table->boolean('ativo')->nullable()->comment('legado: activo');
             $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
@@ -449,6 +460,7 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_itens_produtividade_rh_empresa_id ON itens_produtividade_rh (empresa_id)');
         DB::statement('CREATE INDEX ix_itens_produtividade_rh_infotipo_salarial_id ON itens_produtividade_rh (infotipo_salarial_id)');
+        DB::statement('ALTER TABLE itens_produtividade_rh ADD CONSTRAINT ck_itens_produtividade_rh_metrica CHECK (metrica IS NULL OR metrica IN (\'QUANTIDADE\',\'HORAS\',\'OBJECTIVO\',\'PONTOS\',\'TAREFAS\'))');
 
         // rh_prod_periods (legado) -> periodos_produtividade_rh · 1 linhas reais no backup
         Schema::create('periodos_produtividade_rh', function (Blueprint $table) {
@@ -459,7 +471,8 @@ return new class extends Migration
             $table->date('data_fim')->nullable()->comment('legado: data_fim');
             $table->text('observacoes')->nullable()->comment('legado: observacoes · sem valores reais: tipo a confirmar no código legado');
             $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
-            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->string('estado', 20)->nullable()->comment('legado: estado · código normalizado ∈ {ABERTO, FECHADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: estado · texto exacto do legado');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->timestampTz('fechado_em')->nullable()->comment('legado: fechado_em');
             $table->string('fechado_por', 100)->nullable()->comment('legado: fechado_por');
@@ -467,14 +480,16 @@ return new class extends Migration
             $table->integer('registos_fecho')->nullable()->comment('legado: registos_fecho');
             $table->timestampTz('lancado_em')->nullable()->comment('legado: lancado_em');
             $table->string('lancado_por', 100)->nullable()->comment('legado: lancado_por');
-            $table->bigInteger('periodo_id')->nullable()->comment('legado: period_id');
+            $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('legado: period_id');
             $table->timestampTz('reaberto_em')->nullable()->comment('legado: reaberto_em');
             $table->string('reaberto_por', 100)->nullable()->comment('legado: reaberto_por');
             $table->text('motivo_reabertura')->nullable()->comment('legado: motivo_reabertura');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
         });
-        DB::statement('CREATE INDEX ix_periodos_produtividade_rh_empresa_id ON periodos_produtividade_rh (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_periodos_produtividade_rh_empresa_id_mes ON periodos_produtividade_rh (empresa_id, mes)');
+        DB::statement('CREATE INDEX ix_periodos_produtividade_rh_periodo_processamento_salarial_id ON periodos_produtividade_rh (periodo_processamento_salarial_id)');
+        DB::statement('ALTER TABLE periodos_produtividade_rh ADD CONSTRAINT ck_periodos_produtividade_rh_estado CHECK (estado IS NULL OR estado IN (\'ABERTO\',\'FECHADO\'))');
 
         // rh_productivity (legado) -> registos_produtividade_rh · 6 linhas reais no backup
         Schema::create('registos_produtividade_rh', function (Blueprint $table) {
@@ -484,9 +499,9 @@ return new class extends Migration
             $table->string('mes', 20)->nullable()->comment('legado: mes');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
             $table->bigInteger('item_produtividade_id')->nullable()->comment('legado: item_id');
-            $table->text('data')->nullable()->comment('legado: data · sem valores reais: tipo a confirmar no código legado');
+            $table->date('data')->nullable()->comment('legado: data · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
             $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantidade');
-            $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: preco_unitario');
+            $table->decimal('preco_unitario', 15, 4)->nullable()->comment('legado: preco_unitario · tipo forçado (inferido: numeric(15,2))');
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor');
             $table->decimal('quantidade_considerada', 12, 3)->nullable()->comment('legado: quantidade_considerada');
             $table->text('observacoes')->nullable()->comment('legado: observacoes · sem valores reais: tipo a confirmar no código legado');

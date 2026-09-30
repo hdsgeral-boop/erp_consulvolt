@@ -41,7 +41,10 @@ export const UNICOS = [
   ['colaboradores', ['empresa_id', 'nif']],
   ['tipos_organizacao_rh', ['empresa_id', 'nome']],
   ['periodos_processamento_salarial', ['empresa_id', 'mes_ano']],
-  ['coordenadas_bancarias_colaboradores', ['empresa_id', 'colaborador_id']],   // um IBAN por colaborador (upsert do legado)
+  ['coordenadas_bancarias_colaboradores', ['empresa_id', 'colaborador_id']],
+  ['efectividade_assiduidade', ['empresa_id', 'colaborador_id', 'data']],   // um registo por colaborador e dia
+  ['fechos_mensais_assiduidade', ['empresa_id', 'mes']],                   // estado actual do mês (o histórico fica na auditoria)
+  ['periodos_produtividade_rh', ['empresa_id', 'mes']],   // um IBAN por colaborador (upsert do legado)
   // Numeração única obrigatória só nos documentos fiscais (AGT). Orçamentos/proformas do legado repetem números
   // (o legado tratava "Orçamento" e "Orcamento" como tipos distintos) -> relatório de validação.
   ['vendas', ['empresa_id', 'tipo_documento', 'numero_documento'], "tipo_documento IN ('FT','FR','NC','ND')"],
@@ -197,6 +200,10 @@ export const COLUNAS_NOVAS = {
     ['documento_tesouraria_id', 'bigint', 'documentos_tesouraria', 'Pagamento (PAG) gerado a partir da carta'],
     ['grupo', 'varchar(20)', null, 'COLABORADORES, AVENCADOS ou TODOS'],
     ['criado_por', 'varchar(100)', null, 'Quem emitiu a carta'],
+  ],
+  // ADR-038 (RH parte 2): o fecho guarda a configuração usada, para o recálculo ao lançar ser reprodutível
+  fechos_mensais_assiduidade: [
+    ['configuracao', 'jsonb', null, 'Configuração da assiduidade usada no apuramento (fotografia)'],
   ],
   // ADR-035 (Compras parte 2): contratos com rasto de cancelamento; marcos ligados à factura (estado deixa de ser manual)
   contratos_fornecedores: [

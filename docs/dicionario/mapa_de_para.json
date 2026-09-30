@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T14:12:58.164Z",
+  "gerado_em": "2026-09-30T14:53:55.145Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -9926,7 +9926,37 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 8,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {PEDIDO, PLANEADO, APROVADO, GOZADO, CANCELADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PEDIDO",
+              "PLANEADO",
+              "APROVADO",
+              "GOZADO",
+              "CANCELADO"
+            ],
+            "mapa": {
+              "PEDIDO": "PEDIDO",
+              "PLANEADO": "PLANEADO",
+              "APROVADO": "APROVADO",
+              "GOZADO": "GOZADO",
+              "CANCELADO": "CANCELADO"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 8,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "observacoes",
@@ -10032,12 +10062,13 @@
         {
           "legado": "tipo",
           "pt": "tipo",
-          "tipo_pg": "text",
+          "tipo_pg": "varchar(40)",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {
@@ -10088,11 +10119,43 @@
         {
           "legado": "estado",
           "pt": "estado",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 14,
+          "notas": [
+            "código normalizado ∈ {POR_JUSTIFICAR, PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, RECUSADO, CANCELADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "POR_JUSTIFICAR",
+              "PENDENTE_CHEFIA",
+              "PENDENTE_RH",
+              "APROVADO",
+              "RECUSADO",
+              "CANCELADO"
+            ],
+            "mapa": {
+              "POR_JUSTIFICAR": "POR_JUSTIFICAR",
+              "PENDENTE_CHEFIA": "PENDENTE_CHEFIA",
+              "PENDENTE_RH": "PENDENTE_RH",
+              "APROVADO": "APROVADO",
+              "RECUSADO": "RECUSADO",
+              "CANCELADO": "CANCELADO"
+            }
+          }
+        },
+        {
+          "legado": "estado",
+          "pt": "estado_original",
           "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 14,
-          "notas": []
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "detectada",
@@ -10276,7 +10339,33 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 8,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {MANUAL, FICHEIRO, RELOGIO}; texto original em origem_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "MANUAL",
+              "FICHEIRO",
+              "RELOGIO"
+            ],
+            "mapa": {
+              "MANUAL": "MANUAL",
+              "FICHEIRO": "FICHEIRO",
+              "RELOGIO": "RELOGIO"
+            }
+          }
+        },
+        {
+          "legado": "origem",
+          "pt": "origem_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 8,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "fonte",
@@ -10401,7 +10490,31 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 7,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {FECHADO, REABERTO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "FECHADO",
+              "REABERTO"
+            ],
+            "mapa": {
+              "FECHADO": "FECHADO",
+              "REABERTO": "REABERTO"
+            }
+          }
+        },
+        {
+          "legado": "estado",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 7,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "dias_uteis",
@@ -10479,12 +10592,20 @@
         },
         {
           "legado": "period_id",
-          "pt": "periodo_id",
-          "tipo_pg": "integer",
+          "pt": "periodo_processamento_salarial_id",
+          "tipo_pg": "bigint",
           "nulo": true,
           "preenchimento": 0.5,
           "max_comprimento": 3,
-          "notas": []
+          "notas": [],
+          "fk": {
+            "tabela_legado": "payroll_periods",
+            "tabela": "periodos_processamento_salarial",
+            "coluna": "id",
+            "correspondencia": 1,
+            "orfaos": 0,
+            "on_delete": "restrict"
+          }
         },
         {
           "legado": "apurado_ate",
@@ -10558,7 +10679,37 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {QUANTIDADE, HORAS, OBJECTIVO, PONTOS, TAREFAS}; texto original em metrica_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "QUANTIDADE",
+              "HORAS",
+              "OBJECTIVO",
+              "PONTOS",
+              "TAREFAS"
+            ],
+            "mapa": {
+              "QUANTIDADE": "QUANTIDADE",
+              "HORAS": "HORAS",
+              "OBJECTIVO": "OBJECTIVO",
+              "PONTOS": "PONTOS",
+              "TAREFAS": "TAREFAS"
+            }
+          }
+        },
+        {
+          "legado": "metrica",
+          "pt": "metrica_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 10,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "unidade",
@@ -10572,11 +10723,13 @@
         {
           "legado": "preco_unitario",
           "pt": "preco_unitario",
-          "tipo_pg": "numeric(15,2)",
+          "tipo_pg": "numeric(15,4)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 3,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: numeric(15,2))"
+          ]
         },
         {
           "legado": "infotype_id",
@@ -10598,23 +10751,25 @@
         {
           "legado": "minimo",
           "pt": "minimo",
-          "tipo_pg": "text",
+          "tipo_pg": "numeric(15,3)",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {
           "legado": "maximo",
           "pt": "maximo",
-          "tipo_pg": "text",
+          "tipo_pg": "numeric(15,3)",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {
@@ -10765,7 +10920,31 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 7,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {ABERTO, FECHADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "ABERTO",
+              "FECHADO"
+            ],
+            "mapa": {
+              "ABERTO": "ABERTO",
+              "FECHADO": "FECHADO"
+            }
+          }
+        },
+        {
+          "legado": "estado",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 7,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "criado_em",
@@ -10852,12 +11031,20 @@
         },
         {
           "legado": "period_id",
-          "pt": "periodo_id",
-          "tipo_pg": "integer",
+          "pt": "periodo_processamento_salarial_id",
+          "tipo_pg": "bigint",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 3,
-          "notas": []
+          "notas": [],
+          "fk": {
+            "tabela_legado": "payroll_periods",
+            "tabela": "periodos_processamento_salarial",
+            "coluna": "id",
+            "correspondencia": 1,
+            "orfaos": 0,
+            "on_delete": "restrict"
+          }
         },
         {
           "legado": "reaberto_em",
@@ -10978,12 +11165,13 @@
         {
           "legado": "data",
           "pt": "data",
-          "tipo_pg": "text",
+          "tipo_pg": "date",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {
@@ -10998,11 +11186,13 @@
         {
           "legado": "preco_unitario",
           "pt": "preco_unitario",
-          "tipo_pg": "numeric(15,2)",
+          "tipo_pg": "numeric(15,4)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 3,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: numeric(15,2))"
+          ]
         },
         {
           "legado": "valor",

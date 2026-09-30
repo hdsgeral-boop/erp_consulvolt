@@ -51,6 +51,16 @@ export const NORMALIZACOES = {
 
   // ── RH ──
   'infotypes.calculo_horas': { dominio: ['EXTRA', 'FALTA', 'NAO'], mapa: { EXTRA: 'EXTRA', FALTA: 'FALTA', NAO: 'NAO' } },
+  'rh_attendance.origem': { dominio: ['MANUAL', 'FICHEIRO', 'RELOGIO'], mapa: { MANUAL: 'MANUAL', FICHEIRO: 'FICHEIRO', RELOGIO: 'RELOGIO' } },
+  'rh_attendance_closures.estado': { dominio: ['FECHADO', 'REABERTO'], mapa: { FECHADO: 'FECHADO', REABERTO: 'REABERTO' } },
+  'rh_absences.estado': { dominio: ['POR_JUSTIFICAR', 'PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'RECUSADO', 'CANCELADO'], mapa: {
+    POR_JUSTIFICAR: 'POR_JUSTIFICAR', PENDENTE_CHEFIA: 'PENDENTE_CHEFIA', PENDENTE_RH: 'PENDENTE_RH', APROVADO: 'APROVADO', RECUSADO: 'RECUSADO', CANCELADO: 'CANCELADO' } },
+  'rh_absences.remunerada': { dominio: ['SIM', 'NAO', 'EMPREGADOR'], mapa: { TRUE: 'SIM', FALSE: 'NAO', EMPREGADOR: 'EMPREGADOR' } },
+  'rh_vacations.status': { dominio: ['PEDIDO', 'PLANEADO', 'APROVADO', 'GOZADO', 'CANCELADO'], mapa: {
+    PEDIDO: 'PEDIDO', PLANEADO: 'PLANEADO', APROVADO: 'APROVADO', GOZADO: 'GOZADO', CANCELADO: 'CANCELADO' } },
+  'rh_prod_periods.estado': { dominio: ['ABERTO', 'FECHADO'], mapa: { ABERTO: 'ABERTO', FECHADO: 'FECHADO' } },
+  'rh_prod_items.metrica': { dominio: ['QUANTIDADE', 'HORAS', 'OBJECTIVO', 'PONTOS', 'TAREFAS'], mapa: {
+    QUANTIDADE: 'QUANTIDADE', HORAS: 'HORAS', OBJECTIVO: 'OBJECTIVO', PONTOS: 'PONTOS', TAREFAS: 'TAREFAS' } },
   'payroll_periods.status': { dominio: ['ABERTO', 'FECHADO', 'VALIDADO'], mapa: { ABERTO: 'ABERTO', FECHADO: 'FECHADO', VALIDADO: 'VALIDADO' } },
   'employees.status': { dominio: ['ACTIVO', 'INACTIVO', 'SUSPENSO'], mapa: {
     ACTIVO: 'ACTIVO', ATIVO: 'ACTIVO', 'NAO ACTIVO': 'INACTIVO', 'NAO ATIVO': 'INACTIVO', INACTIVO: 'INACTIVO', INATIVO: 'INACTIVO', SUSPENSO: 'SUSPENSO' } },

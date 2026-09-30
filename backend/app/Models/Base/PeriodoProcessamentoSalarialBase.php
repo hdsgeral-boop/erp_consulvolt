@@ -6,8 +6,10 @@ use App\Models\CartaPagamentoBancario;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\DocumentoTesouraria;
+use App\Models\FechoMensalAssiduidade;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\ModeloBase;
+use App\Models\PeriodoProdutividadeRH;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -46,6 +48,16 @@ abstract class PeriodoProcessamentoSalarialBase extends ModeloBase
     public function cartasPagamentoBancario(): HasMany
     {
         return $this->hasMany(CartaPagamentoBancario::class, 'periodo_processamento_salarial_id');
+    }
+
+    public function fechosMensaisAssiduidade(): HasMany
+    {
+        return $this->hasMany(FechoMensalAssiduidade::class, 'periodo_processamento_salarial_id');
+    }
+
+    public function periodosProdutividadeRh(): HasMany
+    {
+        return $this->hasMany(PeriodoProdutividadeRH::class, 'periodo_processamento_salarial_id');
     }
 
     public function documentosTesouraria(): HasMany

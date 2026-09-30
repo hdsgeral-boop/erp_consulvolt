@@ -24,7 +24,7 @@ abstract class AusenciaFaltaColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'tipo', 'data_inicio', 'data_fim', 'dias_uteis', 'horas_falta', 'ocorrencia', 'estado', 'detectada', 'fecho_mensal_assiduidade_id', 'mes', 'criado_por', 'dias', 'horas', 'pendente_no_fecho', 'motivo', 'documento_url', 'remunerada', 'avisos', 'pedido_portal_colaborador_id', 'justificada_em', 'justificada_por', 'decidido_em', 'decidido_por', 'nota_decisao',
+        'empresa_id', 'colaborador_id', 'tipo', 'data_inicio', 'data_fim', 'dias_uteis', 'horas_falta', 'ocorrencia', 'estado', 'estado_original', 'detectada', 'fecho_mensal_assiduidade_id', 'mes', 'criado_por', 'dias', 'horas', 'pendente_no_fecho', 'motivo', 'documento_url', 'remunerada', 'avisos', 'pedido_portal_colaborador_id', 'justificada_em', 'justificada_por', 'decidido_em', 'decidido_por', 'nota_decisao',
     ];
 
     protected function casts(): array
@@ -41,7 +41,7 @@ abstract class AusenciaFaltaColaboradorBase extends ModeloBase
             'dias' => 'integer',
             'horas' => 'decimal:3',
             'pendente_no_fecho' => 'boolean',
-            'avisos' => 'date',
+            'avisos' => 'array',
             'pedido_portal_colaborador_id' => 'integer',
             'justificada_em' => 'datetime',
             'decidido_em' => 'datetime',

@@ -21,7 +21,7 @@ abstract class EfectividadeAssiduidadeBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'data', 'colaborador_id', 'entrada', 'saida', 'horas', 'origem', 'fonte', 'observacoes', 'atualizado_por', 'criado_por', 'autorizado_extra',
+        'empresa_id', 'data', 'colaborador_id', 'entrada', 'saida', 'horas', 'origem', 'origem_original', 'fonte', 'observacoes', 'atualizado_por', 'criado_por', 'autorizado_extra',
     ];
 
     protected function casts(): array
@@ -31,6 +31,7 @@ abstract class EfectividadeAssiduidadeBase extends ModeloBase
             'data' => 'date',
             'colaborador_id' => 'integer',
             'horas' => 'decimal:3',
+            'autorizado_extra' => 'boolean',
             'atualizado_em' => 'datetime',
             'criado_em' => 'datetime',
         ];

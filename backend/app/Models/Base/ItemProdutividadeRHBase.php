@@ -23,15 +23,17 @@ abstract class ItemProdutividadeRHBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'descricao', 'metrica', 'unidade', 'preco_unitario', 'infotipo_salarial_id', 'minimo', 'maximo', 'ativo', 'atualizado_por', 'criado_por',
+        'empresa_id', 'codigo', 'descricao', 'metrica', 'metrica_original', 'unidade', 'preco_unitario', 'infotipo_salarial_id', 'minimo', 'maximo', 'ativo', 'atualizado_por', 'criado_por',
     ];
 
     protected function casts(): array
     {
         return [
             'empresa_id' => 'integer',
-            'preco_unitario' => 'decimal:2',
+            'preco_unitario' => 'decimal:4',
             'infotipo_salarial_id' => 'integer',
+            'minimo' => 'decimal:3',
+            'maximo' => 'decimal:3',
             'ativo' => 'boolean',
             'atualizado_em' => 'datetime',
             'criado_em' => 'datetime',

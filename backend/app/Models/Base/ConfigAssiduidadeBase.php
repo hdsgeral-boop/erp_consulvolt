@@ -26,13 +26,15 @@ abstract class ConfigAssiduidadeBase extends ModeloBase
     {
         return [
             'empresa_id' => 'integer',
+            'dias_uteis' => 'array',
             'tolerancia_min' => 'integer',
-            'arredondamento_min' => 'array',
+            'arredondamento_min' => 'integer',
             'extras_min_minutos' => 'integer',
             'minimo_dia_horas' => 'decimal:3',
+            'feriados' => 'array',
             'relogio' => 'array',
-            'modo_compensacao' => 'array',
             'limite_compensacao_h' => 'decimal:2',
+            'extra_nao_util_exige_autorizacao' => 'boolean',
             'atualizado_em' => 'datetime',
             'criado_em' => 'datetime',
         ];

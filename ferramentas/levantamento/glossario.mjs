@@ -404,7 +404,15 @@ export const GLOSSARIO = {
 // Tipos impostos quando a inferência a partir dos dados não serve (valores sujos no legado).
 export const TIPOS_FORCADOS = {
   'audit_logs.company_id': 'bigint',
-  'infotypes.calculo_horas': 'varchar(10)',   // '' (automático), EXTRA, FALTA ou NAO — texto, não número
+  'infotypes.calculo_horas': 'varchar(10)',
+  // RH parte 2 (tabelas quase sem dados no backup: tipos inferidos do código estavam errados)
+  'rh_attendance_config.dias_uteis': 'jsonb', 'rh_attendance_config.feriados': 'jsonb', 'rh_attendance_config.arredondamento_min': 'integer',
+  'rh_attendance_config.modo_compensacao': 'varchar(10)', 'rh_attendance_config.extra_nao_util_exige_autorizacao': 'boolean',
+  'rh_attendance.autorizado_extra': 'boolean',
+  'rh_absences.avisos': 'jsonb', 'rh_absences.tipo': 'varchar(40)', 'rh_absences.remunerada': 'varchar(20)', 'rh_absences.documento_url': 'text',
+  'rh_absences.nota_decisao': 'text',
+  'rh_prod_items.minimo': 'numeric(15,3)', 'rh_prod_items.maximo': 'numeric(15,3)', 'rh_prod_items.preco_unitario': 'numeric(15,4)',
+  'rh_productivity.preco_unitario': 'numeric(15,4)', 'rh_productivity.data': 'date',   // '' (automático), EXTRA, FALTA ou NAO — texto, não número
   // Câmbios: 6 casas decimais (o legado guardava até 6; numeric(9,4) truncava e limitava a 99 999)
   'exchange_rates.rate': 'numeric(18,6)', 'exchange_rates.created_by': 'varchar(100)', 'exchange_rates.updated_by': 'varchar(100)',
   'exchange_rates.source': 'varchar(50)',
@@ -434,6 +442,9 @@ export const SOBREPOSICOES = {
   employees: { name: 'nome_completo' },
   // infotypes.inss é a flag «sujeito a INSS» da rubrica (não o n.º de segurança social do colaborador)
   infotypes: { inss: 'sujeito_inss' },
+  // fecho da assiduidade e período de produtividade: period_id é o processamento salarial onde foram lançados
+  rh_attendance_closures: { period_id: ['periodo_processamento_salarial_id', 'payroll_periods'] },
+  rh_prod_periods: { period_id: ['periodo_processamento_salarial_id', 'payroll_periods'] },
   purchase_contract_milestones: { contract_id: ['contrato_fornecedor_id', 'purchase_contracts'] },
   lav_claims: { order_id: ['pedido_lavandaria_id', 'lav_orders'] },
   project_documents: { type_id: ['tipo_documento_id', 'document_types'] },
@@ -466,6 +477,4 @@ export const SOBREPOSICOES = {
   payroll_entries: { period_id: ['periodo_processamento_salarial_id', 'payroll_periods'] },
   journal_lines: { period_id: 'periodo_id' },
   asset_depreciations: { period_id: 'periodo_codigo' },
-  rh_attendance_closures: { period_id: 'periodo_id' },
-  rh_prod_periods: { period_id: 'periodo_id' },
 };

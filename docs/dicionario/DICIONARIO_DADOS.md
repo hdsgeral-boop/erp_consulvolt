@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T14:12:58.164Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T14:53:55.145Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1665 |
+| Colunas reais mapeadas | 1671 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -93,6 +93,13 @@
 | `inventory_movements.type` | ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE | SAÍDA → SAIDA; ENTRADA → ENTRADA |
 | `inventory_sessions.status` | EM_CONTAGEM, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
 | `infotypes.calculo_horas` | EXTRA, FALTA, NAO |  |
+| `rh_attendance.origem` | MANUAL, FICHEIRO, RELOGIO | FICHEIRO → FICHEIRO; MANUAL → MANUAL |
+| `rh_attendance_closures.estado` | FECHADO, REABERTO | FECHADO → FECHADO |
+| `rh_absences.estado` | POR_JUSTIFICAR, PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, RECUSADO, CANCELADO | POR_JUSTIFICAR → ⚠ NULL |
+| `rh_absences.remunerada` | SIM, NAO, EMPREGADOR |  |
+| `rh_vacations.status` | PEDIDO, PLANEADO, APROVADO, GOZADO, CANCELADO | PEDIDO → PEDIDO; APROVADO → APROVADO |
+| `rh_prod_periods.estado` | ABERTO, FECHADO | FECHADO → FECHADO |
+| `rh_prod_items.metrica` | QUANTIDADE, HORAS, OBJECTIVO, PONTOS, TAREFAS | QUANTIDADE → QUANTIDADE |
 | `payroll_periods.status` | ABERTO, FECHADO, VALIDADO | VALIDADO → VALIDADO; ABERTO → ABERTO |
 | `employees.status` | ACTIVO, INACTIVO, SUSPENSO | ACTIVO → ACTIVO; Não ACTIVO → INACTIVO; NÃO ACTIVO → INACTIVO |
 | `employees.estado_civil` | SOLTEIRO, CASADO, DIVORCIADO, VIUVO, UNIAO_FACTO | Solteiro(a) → SOLTEIRO; Casado(a) → CASADO |
@@ -1336,7 +1343,8 @@ Linhas reais: **4** · fictícias descartadas: 0
 | `data_fim` | `data_fim` | date | sim | 100% |  |  |
 | `dias` | `dias` | integer | sim | 100% |  |  |
 | `direito` | `direito` | integer | sim | 100% |  |  |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PEDIDO, PLANEADO, APROVADO, GOZADO, CANCELADO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `observacoes` | `observacoes` | text | sim | 100% |  |  |
 | `portal_request_id` | `pedido_portal_colaborador_id` | bigint | sim | 100% | `pedidos_portal_colaborador.id` |  |
 | `created_at` | `criado_em` | timestamptz | sim | 100% |  |  |
@@ -1351,13 +1359,14 @@ Linhas reais: **34** · fictícias descartadas: 0
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `rh_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `employee_id` | `colaborador_id` | bigint | sim | 100% | `colaboradores.id` |  |
-| `tipo` | `tipo` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
+| `tipo` | `tipo` | varchar(40) | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
 | `data_inicio` | `data_inicio` | date | sim | 100% |  |  |
 | `data_fim` | `data_fim` | date | sim | 100% |  |  |
 | `dias_uteis` | `dias_uteis` | integer | sim | 100% |  |  |
 | `horas_falta` | `horas_falta` | numeric(12,3) | sim | 100% |  |  |
 | `ocorrencia` | `ocorrencia` | varchar(50) | sim | 100% |  |  |
-| `estado` | `estado` | varchar(30) | sim | 100% |  |  |
+| `estado` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {POR_JUSTIFICAR, PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, RECUSADO, CANCELADO}; texto original em estado_original |
+| `estado` | `estado_original` | varchar(30) | sim | 100% |  | texto exacto do legado |
 | `detectada` | `detectada` | boolean | sim | 100% |  |  |
 | `fecho_id` | `fecho_mensal_assiduidade_id` | bigint | sim | 18% | `fechos_mensais_assiduidade.id` |  |
 | `mes` | `mes` | varchar(20) | sim | 100% |  |  |
@@ -1380,7 +1389,8 @@ Linhas reais: **190** · fictícias descartadas: 0
 | `saida` | `saida` | varchar(10) | sim | 1% |  |  |
 | `horas` | `horas` | numeric(12,3) | sim | 100% |  | tipos mistos: inteiro=24, decimal=166 |
 | `rh_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
-| `origem` | `origem` | varchar(20) | sim | 100% |  |  |
+| `origem` | `origem` | varchar(20) | sim | 100% |  | código normalizado ∈ {MANUAL, FICHEIRO, RELOGIO}; texto original em origem_original |
+| `origem` | `origem_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `fonte` | `fonte` | varchar(50) | sim | 98% |  |  |
 | `observacoes` | `observacoes` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `actualizado_em` | `atualizado_em` | timestamptz | sim | 100% |  |  |
@@ -1403,7 +1413,8 @@ Linhas reais: **2** · fictícias descartadas: 0
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `rh_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `mes` | `mes` | varchar(20) | sim | 100% |  |  |
-| `estado` | `estado` | varchar(20) | sim | 100% |  |  |
+| `estado` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {FECHADO, REABERTO}; texto original em estado_original |
+| `estado` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `dias_uteis` | `dias_uteis` | integer | sim | 100% |  |  |
 | `linhas` | `linhas` | jsonb | sim | 100% |  |  |
 | `totais` | `totais` | jsonb | sim | 100% |  |  |
@@ -1412,7 +1423,7 @@ Linhas reais: **2** · fictícias descartadas: 0
 | `lancado_em` | `lancado_em` | timestamptz | sim | 50% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `lancado_por` | `lancado_por` | varchar(10) | sim | 50% |  |  |
-| `period_id` | `periodo_id` | integer | sim | 50% |  |  |
+| `period_id` | `periodo_processamento_salarial_id` | bigint | sim | 50% | `periodos_processamento_salarial.id` |  |
 | `apurado_ate` | `apurado_ate` | date | sim | 50% |  |  |
 | `ausencias_geradas` | `ausencias_geradas` | integer | sim | 50% |  |  |
 
@@ -1425,12 +1436,13 @@ Linhas reais: **1** · fictícias descartadas: 0
 | `rh_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `codigo` | `codigo` | varchar(10) | sim | 100% |  |  |
 | `descricao` | `descricao` | text | sim | 100% |  |  |
-| `metrica` | `metrica` | varchar(20) | sim | 100% |  |  |
+| `metrica` | `metrica` | varchar(20) | sim | 100% |  | código normalizado ∈ {QUANTIDADE, HORAS, OBJECTIVO, PONTOS, TAREFAS}; texto original em metrica_original |
+| `metrica` | `metrica_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `unidade` | `unidade` | varchar(10) | sim | 100% |  |  |
-| `preco_unitario` | `preco_unitario` | numeric(15,2) | sim | 100% |  |  |
+| `preco_unitario` | `preco_unitario` | numeric(15,4) | sim | 100% |  | tipo forçado (inferido: numeric(15,2)) |
 | `infotype_id` | `infotipo_salarial_id` | bigint | sim | 100% | `infotipos_salariais.id` |  |
-| `minimo` | `minimo` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
-| `maximo` | `maximo` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
+| `minimo` | `minimo` | numeric(15,3) | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
+| `maximo` | `maximo` | numeric(15,3) | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
 | `activo` | `ativo` | boolean | sim | 100% |  |  |
 | `actualizado_em` | `atualizado_em` | timestamptz | sim | 100% |  |  |
 | `actualizado_por` | `atualizado_por` | varchar(10) | sim | 100% |  |  |
@@ -1451,7 +1463,8 @@ Linhas reais: **1** · fictícias descartadas: 0
 | `observacoes` | `observacoes` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `actualizado_em` | `atualizado_em` | timestamptz | sim | 100% |  |  |
 | `actualizado_por` | `atualizado_por` | varchar(10) | sim | 100% |  |  |
-| `estado` | `estado` | varchar(20) | sim | 100% |  |  |
+| `estado` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {ABERTO, FECHADO}; texto original em estado_original |
+| `estado` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `criado_em` | `criado_em` | timestamptz | sim | 100% |  |  |
 | `criado_por` | `criado_por` | varchar(10) | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
@@ -1461,7 +1474,7 @@ Linhas reais: **1** · fictícias descartadas: 0
 | `registos_fecho` | `registos_fecho` | integer | sim | 100% |  |  |
 | `lancado_em` | `lancado_em` | timestamptz | sim | 100% |  |  |
 | `lancado_por` | `lancado_por` | varchar(10) | sim | 100% |  |  |
-| `period_id` | `periodo_id` | integer | sim | 100% |  |  |
+| `period_id` | `periodo_processamento_salarial_id` | bigint | sim | 100% | `periodos_processamento_salarial.id` |  |
 | `reaberto_em` | `reaberto_em` | timestamptz | sim | 100% |  |  |
 | `reaberto_por` | `reaberto_por` | varchar(10) | sim | 100% |  |  |
 | `motivo_reabertura` | `motivo_reabertura` | text | sim | 100% |  |  |
@@ -1477,9 +1490,9 @@ Linhas reais: **6** · fictícias descartadas: 0
 | `mes` | `mes` | varchar(20) | sim | 100% |  |  |
 | `employee_id` | `colaborador_id` | bigint | sim | 100% | `colaboradores.id` |  |
 | `item_id` | `item_produtividade_id` | bigint | sim | 100% | `itens_produtividade_rh.id` |  |
-| `data` | `data` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
+| `data` | `data` | date | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
 | `quantidade` | `quantidade` | numeric(12,3) | sim | 100% |  |  |
-| `preco_unitario` | `preco_unitario` | numeric(15,2) | sim | 100% |  |  |
+| `preco_unitario` | `preco_unitario` | numeric(15,4) | sim | 100% |  | tipo forçado (inferido: numeric(15,2)) |
 | `valor` | `valor` | numeric(15,2) | sim | 100% |  |  |
 | `quantidade_considerada` | `quantidade_considerada` | numeric(12,3) | sim | 100% |  |  |
 | `observacoes` | `observacoes` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |

@@ -23,7 +23,7 @@ abstract class PlanoFeriasColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'ano', 'data_inicio', 'data_fim', 'dias', 'direito', 'estado', 'observacoes', 'pedido_portal_colaborador_id',
+        'empresa_id', 'colaborador_id', 'ano', 'data_inicio', 'data_fim', 'dias', 'direito', 'estado', 'estado_original', 'observacoes', 'pedido_portal_colaborador_id',
     ];
 
     protected function casts(): array
