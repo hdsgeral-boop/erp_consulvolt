@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Logistica\ServicoMigracaoStock;
 use App\Services\Migracao\ServicoMigracaoLegado;
 use App\Services\RH\ServicoFolhaSalarial;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -81,6 +82,17 @@ final class MigrarBackupLegado extends Command
                 }
             }
             $this->info("Salários: {$total['periodos']} períodos fotografados; contabilizados que conferem com o diário: {$total['confere']}, com diferença: {$total['difere']} (ver Sistema › Validações).");
+
+            // Stock (ADR-042): saldos por armazém do legado como verdade, acerto do histórico e custo médio inicial
+            $st = ['sem_tipo' => 0, 'acertos' => 0, 'totais_corrigidos' => 0, 'com_custo' => 0, 'sem_custo' => 0];
+            foreach (DB::table('produtos')->where('movimenta_stock', true)->distinct()->pluck('empresa_id') as $empresa) {
+                $r = $contexto->executarComo((int) $empresa, fn () => DB::transaction(fn () => app(ServicoMigracaoStock::class)->acertar()));
+                foreach ($st as $k => $v) {
+                    $st[$k] = $v + $r[$k];
+                }
+            }
+            $this->info("Stock: {$st['sem_tipo']} saída(s) de guia sem tipo classificada(s); {$st['acertos']} acerto(s) de saldo inicial; {$st['totais_corrigidos']} total(is) de produto alinhado(s); "
+                ."custo médio inicial em {$st['com_custo']} produto(s), {$st['sem_custo']} sem custo conhecido (ver Sistema › Validações).");
         }
 
         return self::SUCCESS;

@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T15:52:50.358Z",
+  "gerado_em": "2026-09-30T16:28:03.497Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -8043,16 +8043,18 @@
           "preenchimento": 1,
           "max_comprimento": 11,
           "notas": [
-            "código normalizado ∈ {EM_CONTAGEM, CONCLUIDA, ANULADA}; texto original em estado_original"
+            "código normalizado ∈ {EM_CONTAGEM, REVISAO, CONCLUIDA, ANULADA}; texto original em estado_original"
           ],
           "normalizacao": {
             "dominio": [
               "EM_CONTAGEM",
+              "REVISAO",
               "CONCLUIDA",
               "ANULADA"
             ],
             "mapa": {
               "EM CONTAGEM": "EM_CONTAGEM",
+              "REVISAO": "REVISAO",
               "CONCLUIDA": "CONCLUIDA",
               "ANULADA": "ANULADA"
             }
@@ -8161,11 +8163,13 @@
         {
           "legado": "difference",
           "pt": "diferenca",
-          "tipo_pg": "numeric(15,2)",
+          "tipo_pg": "numeric(12,3)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 3,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: numeric(15,2))"
+          ]
         },
         {
           "legado": "notes",

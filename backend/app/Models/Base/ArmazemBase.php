@@ -27,13 +27,14 @@ abstract class ArmazemBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'nome', 'localizacao',
+        'empresa_id', 'nome', 'localizacao', 'codigo', 'predefinido',
     ];
 
     protected function casts(): array
     {
         return [
             'empresa_id' => 'integer',
+            'predefinido' => 'boolean',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',
@@ -50,9 +51,14 @@ abstract class ArmazemBase extends ModeloBase
         return $this->hasMany(StockArmazem::class, 'armazem_id');
     }
 
-    public function movimentosInventario(): HasMany
+    public function movimentosInventarioPorArmazem(): HasMany
     {
         return $this->hasMany(MovimentoInventario::class, 'armazem_id');
+    }
+
+    public function movimentosInventarioPorArmazemContraparte(): HasMany
+    {
+        return $this->hasMany(MovimentoInventario::class, 'armazem_contraparte_id');
     }
 
     public function guiasSaida(): HasMany

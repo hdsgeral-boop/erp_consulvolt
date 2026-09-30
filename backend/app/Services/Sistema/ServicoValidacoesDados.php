@@ -69,6 +69,22 @@ final class ServicoValidacoesDados
                                 WHERE l.empresa_id = p.empresa_id AND l.numero_documento = 'SAL' || replace(p.mes_ano, '/', '') AND l.tipo_dc = 'D' AND l.estorno_de_id IS NULL) dia ON true
                           WHERE p.empresa_id = ? AND p.contabilizado AND abs(calc.debitos - COALESCE(dia.debitos, 0)) > 10 ORDER BY p.mes_ano",
             ],
+            'stock_acertos_migracao' => [
+                'titulo' => 'Stock: acertos de saldo inicial na migração', 'modulo' => 'Logística', 'gravidade' => 'AVISO',
+                'descricao' => 'No legado o stock por armazém, o stock total e os movimentos eram actualizados em sítios diferentes e divergiam. Manteve-se o saldo por armazém '
+                    .'e criou-se um movimento de acerto por diferença; confirme estas quantidades num inventário.',
+                'legado' => 'updateWarehouseStock (js/ui_warehouse.js:1010) e escritas directas em products.stock_qty sem movimento',
+                'sql' => "SELECT m.id AS movimento_id, a.nome AS armazem, p.codigo, p.nome, m.sentido, m.quantidade, m.valor FROM movimentos_inventario m
+                          JOIN produtos p ON p.id = m.produto_id JOIN armazens a ON a.id = m.armazem_id
+                          WHERE m.empresa_id = ? AND m.documento_tipo = 'MIGRACAO' ORDER BY a.nome, p.codigo",
+            ],
+            'produtos_stock_sem_custo' => [
+                'titulo' => 'Produtos com stock e sem custo médio', 'modulo' => 'Logística', 'gravidade' => 'AVISO',
+                'descricao' => 'Sem custo, as saídas e o custo das vendas (CMV) ficam a zero. O legado nunca calculou o custo médio; o inicial foi o último custo de recepção, quando existia.',
+                'legado' => 'calculateAverageCosts (js/ui_warehouse.js:1) recalculava ao vivo e caía no preço de venda',
+                'sql' => 'SELECT id AS produto_id, codigo, nome, quantidade_stock FROM produtos
+                          WHERE empresa_id = ? AND movimenta_stock AND eliminado_em IS NULL AND quantidade_stock <> 0 AND COALESCE(custo_medio, 0) = 0 ORDER BY codigo',
+            ],
             'colaboradores_activos_sem_iban' => [
                 'titulo' => 'Colaboradores activos sem IBAN', 'modulo' => 'RH', 'gravidade' => 'AVISO',
                 'descricao' => 'Sem coordenadas bancárias não entram numa carta de pagamento. No legado os botões do ecrã de IBAN não funcionavam: só a importação gravava.',

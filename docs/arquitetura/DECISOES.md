@@ -855,3 +855,64 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 **Tipos corrigidos** (tabelas vazias no backup): critérios, objectivos, componentes, conhecimento e contestação passam a jsonb; pontuações e notas a numérico; `ano` a inteiro; as respostas ascendentes a jsonb; o bónus ganha FKs para a avaliação e para o processamento.
 
 **Não-regressão com dados reais:** o ciclo aberto da empresa 18 (6 participantes, 8 critérios, participantes no formato do legado) calcula as componentes. A única resposta de subordinado existente fica retida, por estar abaixo do mínimo de anonimato.
+
+## ADR-042 — Logística parte 1: motor de stock, armazéns, transferências, inventário e acerto do stock migrado
+
+**Decisões do utilizador (2026-09-30):**
+- Stock nas vendas: FT, FR e GR baixam o stock ao emitir; uma FT gerada de uma GR não volta a baixar; a GD repõe; a NC só repõe quando é uma devolução de mercadoria.
+- CMV em **inventário permanente**: cada saída lança D 71 / C 26 ao custo médio (implementado na parte 2).
+- Stock migrado: os saldos por armazém do legado são a verdade, com um movimento de acerto por diferença; o custo médio inicial é o último custo de recepção.
+
+**O legado não tinha um motor de stock.** Cada ecrã escrevia à mão, sem transacção, em três sítios diferentes: `products.stock_qty`, `warehouse_stock` e `inventory_movements`.
+- As recepções e as guias partilhavam a mesma tabela de linhas e apagavam-se umas às outras.
+- A saída das guias era gravada sem tipo.
+- O «custo médio» caía no preço de venda.
+- Não havia transferências.
+
+**Motor de stock** (`ServicoStock`):
+- É a única via de alteração do stock.
+- Cada movimento regista o sentido (E/S), o valor, o custo médio após o movimento e o documento de origem (`documento_tipo`, `documento_id`). No legado havia só texto livre, lido depois por expressões regulares.
+- O custo médio ponderado é recalculado nas entradas; as saídas saem ao custo médio.
+- Não há stock negativo (salvo em regularizações).
+- **Um armazém com inventário em curso não movimenta**, excepto a própria regularização.
+- **Transferências** `TRF AAAA/NNNN`: saída e entrada ao custo médio; o total e o custo médio mantêm-se.
+- Ajustes manuais exigem motivo.
+
+**Armazéns e mapas** (`ServicoArmazens`):
+- Armazém predefinido explícito (o legado caía no primeiro).
+- Eliminar só com o stock a zero.
+- Extracto do artigo com saldo corrido em quantidade e valor.
+- Valorização ao custo médio real.
+- Alerta de ruptura pelo `stock_minimo` do produto (o legado usava ≤ 5 fixo).
+
+**Inventário** (`ServicoInventario`):
+- Mantém do legado:
+  - uma sessão por armazém de cada vez;
+  - fotografia de todos os produtos de stock e contagem cega;
+  - revisão com custo e justificação;
+  - regularização no diário SQ com o documento INV AAAA/id (sobras: D inventário / C sobras; quebras: D quebras / C inventário).
+- Correcções:
+  - produtos por contar só passam a zero se isso for confirmado (no legado o aviso nunca aparecia);
+  - a regularização usa a data da sessão e valoriza cada linha ao custo médio ou ao custo indicado;
+  - sem contas configuradas a aprovação é recusada (o legado mexia no stock sem lançar);
+  - a aprovação é feita por outra pessoa, e não pela palavra-passe de administrador;
+  - anular deixa a sessão ANULADA com motivo (o legado apagava-a);
+  - reabrir estorna o lançamento e anula só o saldo líquido dos ajustes da sessão, o que funciona em reaberturas repetidas.
+
+**Contas da logística** (`ServicoConfigLogistica`): CMV, sobras e quebras. A conta do produto prevalece, e o inventário usa a conta configurada nas Compras. O legado reescrevia prefixos de contas e produzia contas inexistentes.
+
+**Acerto do stock migrado** (`ServicoMigracaoStock`, corre depois da ETL):
+- 4 saídas de guia sem tipo foram classificadas como SAÍDA.
+- Sentido e valor foram preenchidos em todos os movimentos.
+- 4 acertos de saldo inicial, que ficam em Sistema › Validações.
+- 4 totais de produto alinhados com a soma dos armazéns.
+- Custo médio inicial em 4 produtos; 29 ficaram sem custo conhecido, também em Validações.
+- Depois do acerto, os saldos por armazém batem exactamente com os movimentos.
+
+**Atenção na entrada em produção:** um inventário do legado ficou EM_CONTAGEM. No sistema novo, isso congela o respectivo armazém até ser concluído ou anulado.
+
+**Salvaguardas nas ferramentas:**
+- O gerador de esquema falha se uma tabela aparecer duas vezes em COLUNAS_NOVAS ou TABELAS_NOVAS. Uma entrada repetida de `produtos` fazia perder colunas sem aviso.
+- O catálogo de permissões passou a aceitar tarefas novas do sistema actual (`armazem_transferencia`).
+
+**Fica para a parte 2:** stock e CMV nos documentos de venda, guias de saída do armazém (VENDA, CONSUMO, BACK_TO_BACK) com numeração sem repetições e anulação por estorno, e ligação GR → FT.

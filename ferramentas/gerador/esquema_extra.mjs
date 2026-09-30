@@ -77,6 +77,7 @@ export const UNICOS = [
   ['resultados_folha_salarial', ['periodo_processamento_salarial_id', 'colaborador_id']],
   ['contratos_fornecedores_encomendas', ['encomenda_compra_id']],   // cada encomenda num só contrato (pcRetirarDeOutrosContratos)
   ['configuracoes_contabeis_tesouraria', ['empresa_id', 'chave']],
+  ['configuracoes_contabeis_logistica', ['empresa_id', 'chave']],
   ['configuracoes_faturacao_eletronica', ['empresa_id']],
   // Séries de numeração (AGT e não fiscais): código único por empresa, tipo e ano
   ['series_faturacao_eletronica', ['empresa_id', 'tipo', 'ano', 'codigo']],
@@ -213,6 +214,31 @@ export const COLUNAS_NOVAS = {
   fechos_mensais_assiduidade: [
     ['configuracao', 'jsonb', null, 'Configuração da assiduidade usada no apuramento (fotografia)'],
   ],
+  // ADR-042 (Logística parte 1): movimento com sentido, valor e ligação ao documento (o legado só tinha texto em «referência»)
+  movimentos_inventario: [
+    ['sentido', 'varchar(1)', null, 'E (entrada) ou S (saída) — os ajustes e transferências também têm sentido'],
+    ['valor', 'numeric(15,2)', null, 'Quantidade × custo unitário (Kz)'],
+    ['custo_medio_apos', 'numeric(18,6)', null, 'Custo médio ponderado do produto depois do movimento'],
+    ['documento_tipo', 'varchar(30)', null, 'Origem: RECECAO, VENDA, GUIA, TRANSFERENCIA, INVENTARIO, AJUSTE, MIGRACAO…'],
+    ['documento_id', 'bigint', null, 'Id do documento de origem'],
+    ['armazem_contraparte_id', 'bigint', 'armazens', 'Transferências: o outro armazém'],
+    ['criado_por', 'varchar(100)', null, 'Quem registou'],
+  ],
+  armazens: [
+    ['codigo', 'varchar(20)', null, 'Código do armazém'], ['predefinido', 'boolean', null, 'Armazém por omissão (o legado usava o primeiro)'],
+  ],
+  produtos: [
+    ['custo_medio', 'numeric(18,6)', null, 'Custo médio ponderado (Kz), actualizado nas entradas de stock'],
+    ['stock_minimo', 'numeric(12,3)', null, 'Stock mínimo (alerta de ruptura; o legado usava ≤ 5 fixo)'],
+  ],
+  sessoes_inventario: [
+    ['aprovado_por', 'varchar(100)', null, 'Quem aprovou a regularização'], ['aprovado_em', 'timestamptz', null, 'Aprovação'],
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'Lançamento da regularização (diário SQ)'],
+    ['motivo_anulacao', 'text', null, 'Motivo da anulação (o legado apagava a sessão)'], ['iniciado_por', 'varchar(100)', null, 'Quem abriu a contagem'],
+  ],
+  linhas_sessao_inventario: [
+    ['custo_unitario', 'numeric(18,6)', null, 'Custo usado na valorização da diferença'], ['valor_diferenca', 'numeric(15,2)', null, 'Diferença × custo (Kz)'],
+  ],
   // ADR-035 (Compras parte 2): contratos com rasto de cancelamento; marcos ligados à factura (estado deixa de ser manual)
   contratos_fornecedores: [
     ['cancelado_em', 'timestamptz', null, 'Data/hora do cancelamento'], ['motivo_cancelamento', 'text', null, 'Motivo do cancelamento'],
@@ -246,7 +272,6 @@ export const COLUNAS_NOVAS = {
     ['imposto_moeda', 'numeric(15,2)', null, 'IVA da linha na moeda do documento'],
   ],
   itens_guia_saida: [['item_compra_id', 'bigint', 'itens_compra', 'Recepção: linha da encomenda recebida']],
-  produtos: [['custo_medio', 'numeric(18,6)', null, 'Custo médio ponderado (Kz), actualizado nas entradas de stock']],
   // ADR-005: org_type_id = -1 significa "Avençado"
   mapeamentos_contabeis_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
   mapeamentos_contabeis_sistema_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
@@ -281,6 +306,10 @@ export const TABELAS_NOVAS = {
   configuracoes_contabeis_tesouraria: {
     modulo: 'Tesouraria', model: 'ConfigContabilTesouraria',
     colunas: [['chave', 'varchar(150)', 'Chave da conta (ver ServicoConfigTesouraria::CHAVES)'], ['codigo_conta', 'varchar(20)', 'Conta do plano']],
+  },
+  configuracoes_contabeis_logistica: {
+    modulo: 'Logistica', model: 'ConfigContabilLogistica',
+    colunas: [['chave', 'varchar(150)', 'Chave da conta (ver ServicoConfigLogistica::CHAVES)'], ['codigo_conta', 'varchar(20)', 'Conta do plano']],
   },
   configuracoes_contabeis_compras: {
     modulo: 'Compras', model: 'ConfigContabilCompra',

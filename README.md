@@ -148,6 +148,11 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | POST | `/api/rh/avaliacao/bonificacoes/{id}/anular` · `/feedbacks` · `/feedbacks/{id}/confirmar` | Anulação de bónus e acompanhamento |
 | GET/POST/PUT | `/api/rh/avaliacao/360/tarefas` · `/360/respostas` · `/autoavaliacao` · `/ascendente[/{colaborador}]` | O próprio: 360º, autoavaliação e avaliação da chefia |
 | GET/POST/PUT/DELETE | `/api/logistica/categorias-produtos[/{id}]` | Categorias de produtos |
+| GET/POST/PUT/DELETE | `/api/logistica/armazens[/{id}]` | Armazéns (predefinido explícito) |
+| GET | `/api/logistica/stock` · `/movimentos` · `/produtos/{id}/extracto` | Stock por armazém, valorização, movimentos e extracto do artigo |
+| POST | `/api/logistica/transferencias` · `/ajustes` | Transferências entre armazéns e ajustes manuais |
+| GET/PUT | `/api/logistica/configuracao/contas` | Contas da logística (CMV, sobras, quebras) |
+| GET/POST | `/api/logistica/inventarios[/{id}]` · POST `/contagem` · `/concluir-contagem` · `/revisao` · `/voltar-contagem` · `/aprovar` · `/reabrir` · `/anular` | Inventário físico |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

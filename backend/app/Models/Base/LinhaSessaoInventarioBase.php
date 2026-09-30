@@ -22,7 +22,7 @@ abstract class LinhaSessaoInventarioBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'sessao_inventario_id', 'produto_id', 'quantidade_sistema', 'quantidade_contada', 'diferenca', 'observacoes', 'justificacao', 'custo_personalizado',
+        'empresa_id', 'sessao_inventario_id', 'produto_id', 'quantidade_sistema', 'quantidade_contada', 'diferenca', 'observacoes', 'justificacao', 'custo_personalizado', 'custo_unitario', 'valor_diferenca',
     ];
 
     protected function casts(): array
@@ -33,8 +33,10 @@ abstract class LinhaSessaoInventarioBase extends ModeloBase
             'produto_id' => 'integer',
             'quantidade_sistema' => 'decimal:3',
             'quantidade_contada' => 'decimal:3',
-            'diferenca' => 'decimal:2',
+            'diferenca' => 'decimal:3',
             'custo_personalizado' => 'decimal:2',
+            'custo_unitario' => 'decimal:6',
+            'valor_diferenca' => 'decimal:2',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

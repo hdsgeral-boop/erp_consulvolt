@@ -406,6 +406,8 @@ export const TIPOS_FORCADOS = {
   'audit_logs.company_id': 'bigint',
   'infotypes.calculo_horas': 'varchar(10)',
   'org_units.utilizador_responsavel': 'varchar(100)',
+  'inventory_session_lines.difference': 'numeric(12,3)',   // é uma quantidade (contada − sistema), não um valor
+
   // RH parte 3b: avaliação (tabelas vazias no backup — tipos do código estavam errados)
   'rh_evaluations.ano': 'integer', 'rh_evaluations.periodo': 'varchar(10)', 'rh_evaluations.criterios': 'jsonb', 'rh_evaluations.objectivos': 'jsonb',
   'rh_evaluations.peso_objectivos': 'numeric(5,2)', 'rh_evaluations.pontuacao': 'numeric(5,2)', 'rh_evaluations.pontuacao_criterios': 'numeric(5,2)',

@@ -160,7 +160,7 @@ final class ServicoRececoesCompra
                     throw new ErroNegocio('Indique o armazém de entrada.', 'SEM_ARMAZEM', 422);
                 }
                 $this->stock->entrada($produto->id, $armazemId, $q, $custo, $data, "Recepção {$rececao->numero_rececao} (guia {$rececao->numero_entrega}, enc. {$encomenda->numero_encomenda})",
-                    $fornecedor->id, $item->projeto_id);
+                    $fornecedor->id, $item->projeto_id, ['documento_tipo' => 'RECECAO', 'documento_id' => $rececao->id]);
                 if (bccomp($valor, '0', 2) <= 0) {
                     continue;
                 }
@@ -219,7 +219,7 @@ final class ServicoRececoesCompra
                 $item = ItemCompra::query()->lockForUpdate()->findOrFail($l->item_compra_id);
                 // saída ao custo da ENTRADA (o legado usava cost_price); sem stock suficiente, recusa
                 $this->stock->saida($l->produto_id, (int) $rececao->armazem_id, (string) $l->quantidade, (string) $l->custo_unitario_kz, $data,
-                    "Reversão da recepção {$rececao->numero_rececao}: {$motivo}");
+                    "Reversão da recepção {$rececao->numero_rececao}: {$motivo}", null, null, false, ['documento_tipo' => 'RECECAO', 'documento_id' => $rececao->id]);
                 $item->update([
                     'cambial_recebido_por_faturar_qtd' => bcsub((string) $item->cambial_recebido_por_faturar_qtd, (string) $l->cambial_q2, 3),
                     'cambial_recebido_por_faturar_kz' => bcsub((string) $item->cambial_recebido_por_faturar_kz, (string) $l->cambial_v2, 2),

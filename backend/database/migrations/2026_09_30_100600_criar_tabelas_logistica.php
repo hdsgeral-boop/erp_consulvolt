@@ -20,6 +20,8 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('localizacao', 150)->nullable()->comment('legado: location');
+            $table->string('codigo', 20)->nullable()->comment('Código do armazém');
+            $table->boolean('predefinido')->nullable()->comment('Armazém por omissão (o legado usava o primeiro)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -66,6 +68,7 @@ return new class extends Migration
             $table->text('tipo_operacao_fe')->nullable()->comment('legado: fe_tipo_operacao · sem valores reais: tipo a confirmar no código legado');
             $table->text('codigo_isencao_fe')->nullable()->comment('legado: fe_isencao · sem valores reais: tipo a confirmar no código legado');
             $table->decimal('custo_medio', 18, 6)->nullable()->comment('Custo médio ponderado (Kz), actualizado nas entradas de stock');
+            $table->decimal('stock_minimo', 12, 3)->nullable()->comment('Stock mínimo (alerta de ruptura; o legado usava ≤ 5 fixo)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -113,6 +116,13 @@ return new class extends Migration
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado');
             $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: unit_price · tipos mistos: inteiro=55, decimal=15');
+            $table->string('sentido', 1)->nullable()->comment('E (entrada) ou S (saída) — os ajustes e transferências também têm sentido');
+            $table->decimal('valor', 15, 2)->nullable()->comment('Quantidade × custo unitário (Kz)');
+            $table->decimal('custo_medio_apos', 18, 6)->nullable()->comment('Custo médio ponderado do produto depois do movimento');
+            $table->string('documento_tipo', 30)->nullable()->comment('Origem: RECECAO, VENDA, GUIA, TRANSFERENCIA, INVENTARIO, AJUSTE, MIGRACAO…');
+            $table->bigInteger('documento_id')->nullable()->comment('Id do documento de origem');
+            $table->bigInteger('armazem_contraparte_id')->nullable()->comment('Transferências: o outro armazém');
+            $table->string('criado_por', 100)->nullable()->comment('Quem registou');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -121,6 +131,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_movimentos_inventario_armazem_id ON movimentos_inventario (armazem_id)');
         DB::statement('CREATE INDEX ix_movimentos_inventario_terceiro_id ON movimentos_inventario (terceiro_id)');
         DB::statement('CREATE INDEX ix_movimentos_inventario_projeto_id ON movimentos_inventario (projeto_id)');
+        DB::statement('CREATE INDEX ix_movimentos_inventario_armazem_contraparte_id ON movimentos_inventario (armazem_contraparte_id)');
         DB::statement('CREATE INDEX ix_movimentos_inventario_empresa_id_produto_id_data ON movimentos_inventario (empresa_id, produto_id, data)');
         DB::statement('ALTER TABLE movimentos_inventario ADD CONSTRAINT ck_movimentos_inventario_tipo CHECK (tipo IS NULL OR tipo IN (\'ENTRADA\',\'SAIDA\',\'TRANSFERENCIA\',\'AJUSTE\'))');
 
@@ -183,15 +194,20 @@ return new class extends Migration
             $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id');
             $table->date('data')->nullable()->comment('legado: date');
             $table->text('descricao')->nullable()->comment('legado: description');
-            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {EM_CONTAGEM, CONCLUIDA, ANULADA}; texto original em estado_original');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {EM_CONTAGEM, REVISAO, CONCLUIDA, ANULADA}; texto original em estado_original');
             $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->string('tipo', 10)->nullable()->comment('legado: type');
+            $table->string('aprovado_por', 100)->nullable()->comment('Quem aprovou a regularização');
+            $table->timestampTz('aprovado_em')->nullable()->comment('Aprovação');
+            $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('Lançamento da regularização (diário SQ)');
+            $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação (o legado apagava a sessão)');
+            $table->string('iniciado_por', 100)->nullable()->comment('Quem abriu a contagem');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_sessoes_inventario_empresa_id ON sessoes_inventario (empresa_id)');
         DB::statement('CREATE INDEX ix_sessoes_inventario_armazem_id ON sessoes_inventario (armazem_id)');
-        DB::statement('ALTER TABLE sessoes_inventario ADD CONSTRAINT ck_sessoes_inventario_estado CHECK (estado IS NULL OR estado IN (\'EM_CONTAGEM\',\'CONCLUIDA\',\'ANULADA\'))');
+        DB::statement('ALTER TABLE sessoes_inventario ADD CONSTRAINT ck_sessoes_inventario_estado CHECK (estado IS NULL OR estado IN (\'EM_CONTAGEM\',\'REVISAO\',\'CONCLUIDA\',\'ANULADA\'))');
 
         // inventory_session_lines (legado) -> linhas_sessao_inventario · 6 linhas reais no backup
         Schema::create('linhas_sessao_inventario', function (Blueprint $table) {
@@ -201,10 +217,12 @@ return new class extends Migration
             $table->bigInteger('produto_id')->nullable()->comment('legado: product_id');
             $table->decimal('quantidade_sistema', 12, 3)->nullable()->comment('legado: system_quantity · tipos mistos: inteiro=4, decimal=2');
             $table->decimal('quantidade_contada', 12, 3)->nullable()->comment('legado: counted_quantity · tipos mistos: inteiro=4, decimal=2');
-            $table->decimal('diferenca', 15, 2)->nullable()->comment('legado: difference');
+            $table->decimal('diferenca', 12, 3)->nullable()->comment('legado: difference · tipo forçado (inferido: numeric(15,2))');
             $table->text('observacoes')->nullable()->comment('legado: notes · sem valores reais: tipo a confirmar no código legado');
             $table->text('justificacao')->nullable()->comment('legado: justification');
             $table->decimal('custo_personalizado', 15, 2)->nullable()->comment('legado: custom_cost');
+            $table->decimal('custo_unitario', 18, 6)->nullable()->comment('Custo usado na valorização da diferença');
+            $table->decimal('valor_diferenca', 15, 2)->nullable()->comment('Diferença × custo (Kz)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });

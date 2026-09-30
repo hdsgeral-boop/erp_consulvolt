@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T15:52:52.784Z",
+  "gerado_em": "2026-09-30T16:30:09.284Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -7059,6 +7059,24 @@
           "dominio": null
         },
         {
+          "coluna": "codigo",
+          "legado": null,
+          "tipo": "varchar(20)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "predefinido",
+          "legado": null,
+          "tipo": "boolean",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -7448,6 +7466,15 @@
           "dominio": null
         },
         {
+          "coluna": "stock_minimo",
+          "legado": null,
+          "tipo": "numeric(12,3)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -7803,6 +7830,72 @@
           "tipo": "numeric(15,2)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "sentido",
+          "legado": null,
+          "tipo": "varchar(1)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "valor",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "custo_medio_apos",
+          "legado": null,
+          "tipo": "numeric(18,6)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "documento_tipo",
+          "legado": null,
+          "tipo": "varchar(30)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "documento_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "armazem_contraparte_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "armazens",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "criado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -8259,6 +8352,7 @@
           "fk": null,
           "dominio": [
             "EM_CONTAGEM",
+            "REVISAO",
             "CONCLUIDA",
             "ANULADA"
           ]
@@ -8278,6 +8372,51 @@
           "tipo": "varchar(10)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "aprovado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "aprovado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "numero_lan_contabilizacao",
+          "legado": null,
+          "tipo": "varchar(30)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_anulacao",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "iniciado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -8384,7 +8523,7 @@
         {
           "coluna": "diferenca",
           "legado": "difference",
-          "tipo": "numeric(15,2)",
+          "tipo": "numeric(12,3)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -8414,6 +8553,24 @@
           "tipo": "numeric(15,2)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "custo_unitario",
+          "legado": null,
+          "tipo": "numeric(18,6)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "valor_diferenca",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -26210,6 +26367,85 @@
       "legado": null,
       "model": "ConfigContabilTesouraria",
       "modulo": "Tesouraria",
+      "global": false,
+      "pivo": false,
+      "empresa_derivada_de": null,
+      "eliminacao_logica": false,
+      "colunas": [
+        {
+          "coluna": "id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": false,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "empresa_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": false,
+          "origem": "derivado",
+          "fk": {
+            "tabela": "empresas",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "chave",
+          "legado": null,
+          "tipo": "varchar(150)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "codigo_conta",
+          "legado": null,
+          "tipo": "varchar(20)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "atualizado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        }
+      ],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "chave"
+          ],
+          "onde": null
+        }
+      ],
+      "checks": []
+    },
+    {
+      "tabela": "configuracoes_contabeis_logistica",
+      "legado": null,
+      "model": "ConfigContabilLogistica",
+      "modulo": "Logistica",
       "global": false,
       "pivo": false,
       "empresa_derivada_de": null,

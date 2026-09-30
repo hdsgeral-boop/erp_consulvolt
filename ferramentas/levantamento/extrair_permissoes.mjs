@@ -20,6 +20,13 @@ const catalogo = {
   segregacao: P.SEGREGACAO.map(([a, b, motivo]) => ({ a, b, motivo })),
   modelos: P.MODELOS.map((m) => ({ nome: m.nome, permissoes: P.permsDoModelo(m) })),
 };
-fs.writeFileSync(destino, JSON.stringify(catalogo, null, 2));
+// Tarefas do sistema novo que não existem no legado (ecrã → tarefas). Aplicadas sempre que o catálogo é regenerado.
+const TAREFAS_NOVAS = {
+  armazem_stock: [{ chave: 'armazem_transferencia', rotulo: 'Transferir stock entre armazéns', sensivel: false }],   // ADR-042 (declarada no legado, nunca implementada)
+};
+for (const e of catalogo.modulos.flatMap((m) => m.ecras)) {
+  for (const t of TAREFAS_NOVAS[e.id] || []) if (!e.tarefas.some((x) => x.chave === t.chave)) e.tarefas.push(t);
+}
+fs.writeFileSync(destino, JSON.stringify(catalogo, null, 2) + '\n');
 const ecras = catalogo.modulos.flatMap((m) => m.ecras);
 console.log(JSON.stringify({ modulos: catalogo.modulos.length, ecras: ecras.length, tarefas: ecras.reduce((a, e) => a + e.tarefas.length, 0), segregacao: catalogo.segregacao.length, modelos: catalogo.modelos.length }));

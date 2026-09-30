@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T15:52:50.358Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T16:28:03.497Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -91,7 +91,7 @@
 | `purchase_deliveries.status` | RECEBIDO, VALIDADO, ANULADO | RECEBIDO → RECEBIDO |
 | `purchase_invoices.status` | PENDENTE, PARCIAL, PAGO, ANULADA | PENDENTE → PENDENTE; PAGO → PAGO |
 | `inventory_movements.type` | ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE | SAÍDA → SAIDA; ENTRADA → ENTRADA |
-| `inventory_sessions.status` | EM_CONTAGEM, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
+| `inventory_sessions.status` | EM_CONTAGEM, REVISAO, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
 | `infotypes.calculo_horas` | EXTRA, FALTA, NAO |  |
 | `rh_attendance.origem` | MANUAL, FICHEIRO, RELOGIO | FICHEIRO → FICHEIRO; MANUAL → MANUAL |
 | `rh_attendance_closures.estado` | FECHADO, REABERTO | FECHADO → FECHADO |
@@ -1099,7 +1099,7 @@ Linhas reais: **4** · fictícias descartadas: 16
 | `warehouse_id` | `armazem_id` | bigint | sim | 100% | `armazens.id` |  |
 | `date` | `data` | date | sim | 100% |  |  |
 | `description` | `descricao` | text | sim | 100% |  |  |
-| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {EM_CONTAGEM, CONCLUIDA, ANULADA}; texto original em estado_original |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {EM_CONTAGEM, REVISAO, CONCLUIDA, ANULADA}; texto original em estado_original |
 | `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `type` | `tipo` | varchar(10) | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
@@ -1114,7 +1114,7 @@ Linhas reais: **6** · fictícias descartadas: 0
 | `product_id` | `produto_id` | bigint | sim | 100% | `produtos.id` |  |
 | `system_quantity` | `quantidade_sistema` | numeric(12,3) | sim | 100% |  | tipos mistos: inteiro=4, decimal=2 |
 | `counted_quantity` | `quantidade_contada` | numeric(12,3) | sim | 100% |  | tipos mistos: inteiro=4, decimal=2 |
-| `difference` | `diferenca` | numeric(15,2) | sim | 100% |  |  |
+| `difference` | `diferenca` | numeric(12,3) | sim | 100% |  | tipo forçado (inferido: numeric(15,2)) |
 | `notes` | `observacoes` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `justification` | `justificacao` | text | sim | 33% |  |  |

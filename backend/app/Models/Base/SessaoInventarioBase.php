@@ -23,7 +23,7 @@ abstract class SessaoInventarioBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'armazem_id', 'data', 'descricao', 'estado', 'estado_original', 'tipo',
+        'empresa_id', 'armazem_id', 'data', 'descricao', 'estado', 'estado_original', 'tipo', 'aprovado_por', 'aprovado_em', 'numero_lan_contabilizacao', 'motivo_anulacao', 'iniciado_por',
     ];
 
     protected function casts(): array
@@ -32,6 +32,7 @@ abstract class SessaoInventarioBase extends ModeloBase
             'empresa_id' => 'integer',
             'armazem_id' => 'integer',
             'data' => 'date',
+            'aprovado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

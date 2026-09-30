@@ -28,6 +28,18 @@ const BACKEND = path.join(RAIZ, 'backend');
 const erros = [];
 const avisos = [];
 
+// Salvaguarda: uma chave repetida num objecto JS sobrepõe a anterior em silêncio (aconteceu com produtos em
+// COLUNAS_NOVAS — ADR-042). Falha se alguma tabela aparecer duas vezes em COLUNAS_NOVAS ou TABELAS_NOVAS.
+{
+  const fonte = fs.readFileSync(path.join(RAIZ, 'ferramentas/gerador/esquema_extra.mjs'), 'utf8');
+  for (const bloco of ['COLUNAS_NOVAS', 'TABELAS_NOVAS']) {
+    const ini = fonte.indexOf(`export const ${bloco}`);
+    const fim = fonte.indexOf('\nexport const ', ini + 1);
+    const chaves = [...fonte.slice(ini, fim < 0 ? undefined : fim).matchAll(/^ {2}([a-z_0-9]+): [[{]/gm)].map((m) => m[1]);
+    const repetidas = chaves.filter((k, i) => chaves.indexOf(k) !== i);
+    if (repetidas.length) throw new Error(`esquema_extra.mjs: ${bloco} tem chaves repetidas: ${[...new Set(repetidas)].join(', ')}`);
+  }
+}
 const mapa = JSON.parse(fs.readFileSync(path.join(RAIZ, 'docs/dicionario/mapa_de_para.json'), 'utf8'));
 const caminhoCodigo = path.join(RAIZ, 'docs/dicionario/campos_codigo_legado.json');
 const codigo = fs.existsSync(caminhoCodigo) ? JSON.parse(fs.readFileSync(caminhoCodigo, 'utf8')) : { tabelas: {} };

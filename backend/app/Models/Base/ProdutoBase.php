@@ -32,7 +32,7 @@ abstract class ProdutoBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'quantidade_stock', 'movimenta_stock', 'codigo_conta', 'conta_compra', 'conta_inventario', 'conta_custo', 'categoria_produto_id', 'conta_iva', 'conta_iva_liquidado', 'conta_iva_dedutivel', 'conta_quebra', 'conta_sobra', 'imagem_base64', 'e_quarto', 'e_ativo_imobilizado', 'conta_ativo', 'preco_por_hora', 'preco_por_dia', 'horas_minimas', 'e_servico', 'bloqueado', 'lavandaria_grupo', 'lavandaria_unidade', 'lavandaria_dias_entrega', 'lavandaria_requer_orcamento', 'lavandaria_ativa', 'lavandaria_preco_peca', 'lavandaria_preco_kg', 'unidade_fe', 'tipo_operacao_fe', 'codigo_isencao_fe', 'custo_medio',
+        'empresa_id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'quantidade_stock', 'movimenta_stock', 'codigo_conta', 'conta_compra', 'conta_inventario', 'conta_custo', 'categoria_produto_id', 'conta_iva', 'conta_iva_liquidado', 'conta_iva_dedutivel', 'conta_quebra', 'conta_sobra', 'imagem_base64', 'e_quarto', 'e_ativo_imobilizado', 'conta_ativo', 'preco_por_hora', 'preco_por_dia', 'horas_minimas', 'e_servico', 'bloqueado', 'lavandaria_grupo', 'lavandaria_unidade', 'lavandaria_dias_entrega', 'lavandaria_requer_orcamento', 'lavandaria_ativa', 'lavandaria_preco_peca', 'lavandaria_preco_kg', 'unidade_fe', 'tipo_operacao_fe', 'codigo_isencao_fe', 'custo_medio', 'stock_minimo',
     ];
 
     protected function casts(): array
@@ -57,6 +57,7 @@ abstract class ProdutoBase extends ModeloBase
             'lavandaria_preco_peca' => 'decimal:2',
             'lavandaria_preco_kg' => 'decimal:2',
             'custo_medio' => 'decimal:6',
+            'stock_minimo' => 'decimal:3',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',

@@ -104,7 +104,9 @@ Cobrem os seguintes casos:
 | **RH (parte 2b)** | ✅ | rh/ferias (+estado), rh/produtividade/itens, rh/produtividade/periodos (+fechar, reabrir, registos), rh/salarios/periodos/{id}/importar-produtividade | Férias pelo calendário da empresa e sem sobreposições; mínimo/máximo da produtividade no total; relançar retira obsoletos; valores reais iguais ao legado (ADR-039) |
 | **RH (parte 3a)** | ✅ | rh/estrutura (+unidades, postos, afectacao, chefia), rh/cargos, rh/portal (resumo, meus-pedidos, recibos, pedidos +cancelar, decidir, proposta, emitir, aprovacoes, ligacoes, modelos) | Sem ciclos na chefia, afectação em massa preserva o gestor, decisões atómicas com segregação chefia/RH, numeração de documentos atómica, recibos da fotografia (ADR-040) |
 | **RH (parte 3b)** | ✅ | rh/avaliacao (itens, avaliacoes +reabrir, conhecimento, contestar, parecer, decidir-contestacao, resultado-360; ciclos +abrir, fechar, confirmar-comunicado, bonificacoes +calcular, aprovar, lancar, anular; feedbacks; 360/tarefas, 360/respostas; autoavaliacao; ascendente) | Fórmulas iguais ao legado, ninguém se avalia, resultados anónimos só após o prazo, bónus sem duplicar no processamento (ADR-041) |
-| Logística, POS, Activos, Projectos, Orçamento, A&D, CRM | ⏳ | | |
+| **Logística (parte 1)** | ✅ | logistica/armazens, stock, movimentos, produtos/{id}/extracto, transferencias, ajustes, configuracao/contas, inventarios (+contagem, concluir-contagem, revisao, voltar-contagem, aprovar, reabrir, anular) | Motor de stock único com sentido/valor/documento, custo médio real, transferências, armazém congelado durante o inventário, regularização contabilizada e reaberta por estorno, stock migrado reconciliado (ADR-042) |
+| Logística (parte 2) | ⏳ | | Stock e CMV nas vendas, guias de saída, GR → FT |
+| POS, Activos, Projectos, Orçamento, A&D, CRM | ⏳ | | |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
 

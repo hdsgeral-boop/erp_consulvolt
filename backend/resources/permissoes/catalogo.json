@@ -1490,6 +1490,11 @@
               "chave": "armazem_ajuste",
               "rotulo": "Ajustar stock manualmente",
               "sensivel": true
+            },
+            {
+              "chave": "armazem_transferencia",
+              "rotulo": "Transferir stock entre armazéns",
+              "sensivel": false
             }
           ]
         },

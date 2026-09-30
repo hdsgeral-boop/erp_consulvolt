@@ -24,7 +24,7 @@ abstract class MovimentoInventarioBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'produto_id', 'armazem_id', 'tipo', 'tipo_original', 'quantidade', 'data', 'terceiro_id', 'referencia', 'projeto_id', 'codigo_projeto', 'preco_unitario',
+        'empresa_id', 'produto_id', 'armazem_id', 'tipo', 'tipo_original', 'quantidade', 'data', 'terceiro_id', 'referencia', 'projeto_id', 'codigo_projeto', 'preco_unitario', 'sentido', 'valor', 'custo_medio_apos', 'documento_tipo', 'documento_id', 'armazem_contraparte_id', 'criado_por',
     ];
 
     protected function casts(): array
@@ -38,6 +38,10 @@ abstract class MovimentoInventarioBase extends ModeloBase
             'terceiro_id' => 'integer',
             'projeto_id' => 'integer',
             'preco_unitario' => 'decimal:2',
+            'valor' => 'decimal:2',
+            'custo_medio_apos' => 'decimal:6',
+            'documento_id' => 'integer',
+            'armazem_contraparte_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
@@ -61,5 +65,10 @@ abstract class MovimentoInventarioBase extends ModeloBase
     public function projeto(): BelongsTo
     {
         return $this->belongsTo(Projeto::class, 'projeto_id');
+    }
+
+    public function armazemContraparte(): BelongsTo
+    {
+        return $this->belongsTo(Armazem::class, 'armazem_contraparte_id');
     }
 }

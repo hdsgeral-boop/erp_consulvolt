@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
+use App\Http\Controllers\Api\Logistica\StockController;
 use App\Http\Controllers\Api\RH\AssiduidadeController;
 use App\Http\Controllers\Api\RH\AvaliacaoController;
 use App\Http\Controllers\Api\RH\CadastrosRHController;
@@ -95,6 +96,30 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('categorias-produtos', [CategoriaProdutoController::class, 'store'])->name('categorias.store');
             Route::put('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'update'])->whereNumber('categoria')->name('categorias.update');
             Route::delete('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'destroy'])->whereNumber('categoria')->name('categorias.destroy');
+
+            Route::controller(StockController::class)->group(function () {
+                Route::get('armazens', 'armazens')->name('armazens.index');
+                Route::post('armazens', 'guardarArmazem')->name('armazens.store');
+                Route::put('armazens/{armazem}', 'guardarArmazem')->whereNumber('armazem')->name('armazens.update');
+                Route::delete('armazens/{armazem}', 'eliminarArmazem')->whereNumber('armazem')->name('armazens.destroy');
+                Route::get('stock', 'stock')->name('stock.index');
+                Route::get('movimentos', 'movimentos')->name('movimentos.index');
+                Route::get('produtos/{produto}/extracto', 'extracto')->whereNumber('produto')->name('produtos.extracto');
+                Route::post('transferencias', 'transferir')->name('transferencias.store');
+                Route::post('ajustes', 'ajustar')->name('ajustes.store');
+                Route::get('configuracao/contas', 'contas')->name('configuracao.contas');
+                Route::put('configuracao/contas', 'definirContas')->name('configuracao.contas.definir');
+                Route::get('inventarios', 'sessoes')->name('inventarios.index');
+                Route::post('inventarios', 'abrirSessao')->name('inventarios.store');
+                Route::get('inventarios/{sessao}', 'sessao')->whereNumber('sessao')->name('inventarios.show');
+                Route::post('inventarios/{sessao}/contagem', 'contar')->whereNumber('sessao')->name('inventarios.contar');
+                Route::post('inventarios/{sessao}/concluir-contagem', 'concluirContagem')->whereNumber('sessao')->name('inventarios.concluir');
+                Route::post('inventarios/{sessao}/revisao', 'rever')->whereNumber('sessao')->name('inventarios.rever');
+                Route::post('inventarios/{sessao}/voltar-contagem', 'voltarContagem')->whereNumber('sessao')->name('inventarios.voltar');
+                Route::post('inventarios/{sessao}/aprovar', 'aprovar')->whereNumber('sessao')->name('inventarios.aprovar');
+                Route::post('inventarios/{sessao}/reabrir', 'reabrir')->whereNumber('sessao')->name('inventarios.reabrir');
+                Route::post('inventarios/{sessao}/anular', 'anular')->whereNumber('sessao')->name('inventarios.anular');
+            });
         });
 
         Route::prefix('vendas')->name('vendas.')->group(function () {
