@@ -108,6 +108,8 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST | `/api/compras/rececoes[/{id}]` · POST `/{id}/validar` · `/reverter-validacao` · `/anular` | Recepções (validação no armazém: stock e contabilidade) |
 | GET/POST | `/api/compras/faturas[/{id}]` · POST `/{id}/contabilizar` · `/descontabilizar` · `/anular` | Facturas de fornecedor (directas: só serviços/imobilizado) |
 | GET/PUT | `/api/compras/configuracao/contas` | Contas de compras por omissão |
+| GET/POST/PUT | `/api/compras/contratos[/{id}]` · POST `/{id}/encomendas` · `/{id}/marcos` · `/{id}/marcos/{m}/fatura` · `/{id}/cancelar` | Contratos de fornecedores e marcos |
+| GET/POST | `/api/compras/encomendas-clientes` · POST `/encomendas-clientes/pedido` | Encomendas de clientes → pedido de compra consolidado |
 | GET/POST/PUT | `/api/tesouraria/documentos[/{id}]` · POST `/{id}/integrar` · `/desintegrar` · `/anular` | Pagamentos e recebimentos (integração no diário BD/CX, estorno) |
 | GET | `/api/tesouraria/pendentes` | Documentos em aberto de clientes e fornecedores (ligados à venda/factura) |
 | GET/POST/PUT/DELETE | `/api/tesouraria/meios-pagamento[/{id}]` | Meios de pagamento (IBAN validado, um predefinido) |

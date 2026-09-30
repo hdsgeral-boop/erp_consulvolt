@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\CotacaoCompra;
 use App\Models\EncomendaCompra;
 use App\Models\ItemCompra;
+use App\Models\ItemVenda;
 use App\Models\PedidoCompra;
 use App\Models\Produto;
 use App\Models\Terceiro;
@@ -74,6 +75,8 @@ final class ServicoProcessoCompras
             }
             CotacaoCompra::query()->where('pedido_compra_id', $pedido->id)->whereIn('estado', ['PROPOSTA', 'PROPOSTA_ADJUDICACAO'])->update(['estado' => 'ANULADA']);
             $pedido->update(['estado' => 'ANULADO', 'anulado_em' => now(), 'motivo_anulacao' => $motivo]);
+            // liberta as linhas de encomendas de clientes que tinham originado este pedido
+            ItemVenda::query()->where('pedido_compra_id', $pedido->id)->update(['pedido_compra_id' => null]);
 
             return $pedido;
         });

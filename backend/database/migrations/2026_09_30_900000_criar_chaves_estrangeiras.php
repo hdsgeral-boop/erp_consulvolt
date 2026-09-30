@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (489) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (490) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -146,6 +146,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE contratos_fornecedores ADD CONSTRAINT fk_contratos_fornecedores_encomenda_compra_id FOREIGN KEY (encomenda_compra_id) REFERENCES encomendas_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE marcos_contrato_fornecedor ADD CONSTRAINT fk_marcos_contrato_fornecedor_contrato_fornecedor_id FOREIGN KEY (contrato_fornecedor_id) REFERENCES contratos_fornecedores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE marcos_contrato_fornecedor ADD CONSTRAINT fk_marcos_contrato_fornecedor_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE marcos_contrato_fornecedor ADD CONSTRAINT fk_marcos_contrato_fornecedor_fatura_compra_id FOREIGN KEY (fatura_compra_id) REFERENCES faturas_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE armazens ADD CONSTRAINT fk_armazens_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE produtos ADD CONSTRAINT fk_produtos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE produtos ADD CONSTRAINT fk_produtos_categoria_produto_id FOREIGN KEY (categoria_produto_id) REFERENCES categorias_produtos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -639,6 +640,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE contratos_fornecedores DROP CONSTRAINT IF EXISTS fk_contratos_fornecedores_encomenda_compra_id');
         DB::statement('ALTER TABLE marcos_contrato_fornecedor DROP CONSTRAINT IF EXISTS fk_marcos_contrato_fornecedor_contrato_fornecedor_id');
         DB::statement('ALTER TABLE marcos_contrato_fornecedor DROP CONSTRAINT IF EXISTS fk_marcos_contrato_fornecedor_empresa_id');
+        DB::statement('ALTER TABLE marcos_contrato_fornecedor DROP CONSTRAINT IF EXISTS fk_marcos_contrato_fornecedor_fatura_compra_id');
         DB::statement('ALTER TABLE armazens DROP CONSTRAINT IF EXISTS fk_armazens_empresa_id');
         DB::statement('ALTER TABLE produtos DROP CONSTRAINT IF EXISTS fk_produtos_empresa_id');
         DB::statement('ALTER TABLE produtos DROP CONSTRAINT IF EXISTS fk_produtos_categoria_produto_id');

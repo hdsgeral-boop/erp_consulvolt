@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T12:18:48.418Z",
+  "gerado_em": "2026-09-30T12:53:59.750Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -6806,11 +6806,37 @@
         {
           "legado": "status",
           "pt": "estado",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 5,
+          "notas": [
+            "código normalizado ∈ {ATIVO, EXPIRADO, CANCELADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "ATIVO",
+              "EXPIRADO",
+              "CANCELADO"
+            ],
+            "mapa": {
+              "ATIVO": "ATIVO",
+              "EXPIRADO": "EXPIRADO",
+              "CANCELADO": "CANCELADO"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
           "tipo_pg": "varchar(10)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 5,
-          "notas": []
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "is_master_data",

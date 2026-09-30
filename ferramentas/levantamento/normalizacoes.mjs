@@ -30,6 +30,8 @@ export const NORMALIZACOES = {
   // ── Compras ──
   'purchase_items.parent_type': { dominio: ['PEDIDO', 'COTACAO', 'ENCOMENDA', 'FATURA'], mapa: {
     REQUEST: 'PEDIDO', QUOTE: 'COTACAO', ORDER: 'ENCOMENDA', INVOICE: 'FATURA' } },
+  'purchase_contracts.status': { dominio: ['ATIVO', 'EXPIRADO', 'CANCELADO'], mapa: { ATIVO: 'ATIVO', EXPIRADO: 'EXPIRADO', CANCELADO: 'CANCELADO' } },
+  'purchase_contract_milestones.status': { dominio: ['PENDENTE', 'FATURADO', 'PAGO'], mapa: { PENDENTE: 'PENDENTE', FATURADO: 'FATURADO', PAGO: 'PAGO' } },
   'purchase_requests.status': { dominio: ['PENDENTE', 'APROVADO', 'REJEITADO', 'ADJUDICADO', 'FECHADO', 'ANULADO'], mapa: {
     PENDENTE: 'PENDENTE', APROVADO: 'APROVADO', REJEITADO: 'REJEITADO', ADJUDICADO: 'ADJUDICADO', FECHADO: 'FECHADO', ANULADO: 'ANULADO' } },
   'purchase_quotes.status': { dominio: ['PROPOSTA', 'PROPOSTA_ADJUDICACAO', 'ADJUDICADO', 'RECUSADA', 'ANULADA'], mapa: {

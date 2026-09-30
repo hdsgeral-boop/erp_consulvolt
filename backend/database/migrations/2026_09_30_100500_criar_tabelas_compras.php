@@ -276,7 +276,10 @@ return new class extends Migration
             $table->date('data_inicio')->nullable()->comment('legado: start_date');
             $table->date('data_fim')->nullable()->comment('legado: end_date');
             $table->decimal('valor_total', 15, 2)->nullable()->comment('legado: total_value');
-            $table->string('estado', 10)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {ATIVO, EXPIRADO, CANCELADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
+            $table->timestampTz('cancelado_em')->nullable()->comment('Data/hora do cancelamento');
+            $table->text('motivo_cancelamento')->nullable()->comment('Motivo do cancelamento');
             $table->text('encomendas_ids_legado')->nullable()->comment('legado: order_ids · lista de ids do legado; normalizada em contratos_fornecedores_encomendas');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -284,6 +287,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_contratos_fornecedores_empresa_id ON contratos_fornecedores (empresa_id)');
         DB::statement('CREATE INDEX ix_contratos_fornecedores_fornecedor_id ON contratos_fornecedores (fornecedor_id)');
         DB::statement('CREATE INDEX ix_contratos_fornecedores_encomenda_compra_id ON contratos_fornecedores (encomenda_compra_id)');
+        DB::statement('ALTER TABLE contratos_fornecedores ADD CONSTRAINT ck_contratos_fornecedores_estado CHECK (estado IS NULL OR estado IN (\'ATIVO\',\'EXPIRADO\',\'CANCELADO\'))');
 
         // purchase_contract_milestones (legado) -> marcos_contrato_fornecedor · 0 linhas reais no backup
         Schema::create('marcos_contrato_fornecedor', function (Blueprint $table) {
@@ -294,11 +298,13 @@ return new class extends Migration
             $table->date('data_prevista')->nullable()->comment('legado: expected_date · do código legado js/ui_compras_v2.js:4708');
             $table->decimal('montante', 15, 2)->nullable()->comment('legado: amount · do código legado js/ui_compras_v2.js:4708');
             $table->string('estado', 255)->nullable()->comment('legado: status · do código legado js/ui_compras_v2.js:4708');
+            $table->bigInteger('fatura_compra_id')->nullable()->comment('Factura do fornecedor que factura o marco');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_marcos_contrato_fornecedor_empresa_id ON marcos_contrato_fornecedor (empresa_id)');
         DB::statement('CREATE INDEX ix_marcos_contrato_fornecedor_contrato_fornecedor_id ON marcos_contrato_fornecedor (contrato_fornecedor_id)');
+        DB::statement('CREATE INDEX ix_marcos_contrato_fornecedor_fatura_compra_id ON marcos_contrato_fornecedor (fatura_compra_id)');
 
         // pa_settings (legado) -> configuracoes_deliberacao_compras · 2 linhas reais no backup
         Schema::create('configuracoes_deliberacao_compras', function (Blueprint $table) {
@@ -330,6 +336,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->primary(['contrato_fornecedor_id', 'encomenda_compra_id']);
         });
+        DB::statement('CREATE UNIQUE INDEX uq_contratos_fornecedores_encomendas_encomenda_compra_id ON contratos_fornecedores_encomendas (encomenda_compra_id)');
         DB::statement('CREATE INDEX ix_contratos_fornecedores_encomendas_empresa_id ON contratos_fornecedores_encomendas (empresa_id)');
         DB::statement('CREATE INDEX ix_contratos_fornecedores_encomendas_encomenda_compra_id ON contratos_fornecedores_encomendas (encomenda_compra_id)');
     }

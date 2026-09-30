@@ -5,6 +5,7 @@ namespace App\Models\Base;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ContratoFornecedor;
+use App\Models\FaturaCompra;
 use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -21,7 +22,7 @@ abstract class MarcoContratoFornecedorBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'contrato_fornecedor_id', 'titulo', 'data_prevista', 'montante', 'estado',
+        'empresa_id', 'contrato_fornecedor_id', 'titulo', 'data_prevista', 'montante', 'estado', 'fatura_compra_id',
     ];
 
     protected function casts(): array
@@ -31,6 +32,7 @@ abstract class MarcoContratoFornecedorBase extends ModeloBase
             'contrato_fornecedor_id' => 'integer',
             'data_prevista' => 'date',
             'montante' => 'decimal:2',
+            'fatura_compra_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
@@ -39,5 +41,10 @@ abstract class MarcoContratoFornecedorBase extends ModeloBase
     public function contratoFornecedor(): BelongsTo
     {
         return $this->belongsTo(ContratoFornecedor::class, 'contrato_fornecedor_id');
+    }
+
+    public function faturaCompra(): BelongsTo
+    {
+        return $this->belongsTo(FaturaCompra::class, 'fatura_compra_id');
     }
 }

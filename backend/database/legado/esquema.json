@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T12:44:35.844Z",
+  "gerado_em": "2026-09-30T12:59:58.681Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -6826,9 +6826,40 @@
         {
           "coluna": "estado",
           "legado": "status",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "ATIVO",
+            "EXPIRADO",
+            "CANCELADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cancelado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_cancelamento",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -6861,7 +6892,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_contratos_fornecedores_estado"
+      ]
     },
     {
       "tabela": "marcos_contrato_fornecedor",
@@ -6940,6 +6973,18 @@
           "nulo": true,
           "origem": "codigo",
           "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "fatura_compra_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "faturas_compra",
+            "cascata": false
+          },
           "dominio": null
         },
         {
@@ -26129,7 +26174,14 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "encomenda_compra_id"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     }
   ],

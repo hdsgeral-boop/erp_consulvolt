@@ -492,3 +492,41 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - caixas em moeda estrangeira (a folha de caixa continua a ser só em Kz, com recusa explícita);
 - recibos de vendas (módulo Vendas) em moeda;
 - cartas de pagamento aos bancos: pela estrutura das tabelas (colaborador, IBAN, mês) servem o pagamento de salários, por isso passam para o módulo RH/Salários.
+
+## ADR-035 — Compras (parte 2): contratos de fornecedores e encomendas de clientes
+
+**Contratos** (`js/ui_compras_v2.js:4418-4798`):
+- **Contrato:**
+  - a referência é única por fornecedor;
+  - a data de fim não pode ser anterior à de início;
+  - o fornecedor não muda depois de haver encomendas;
+  - o valor não pode ficar abaixo da soma dos marcos.
+- **Encomendas associadas:**
+  - só do mesmo fornecedor e não anuladas (no legado era só uma confirmação);
+  - cada encomenda pertence a um só contrato, garantido por um índice único no pivô;
+  - mover uma encomenda para outro contrato é explícito (`mover`), em vez de retirada silenciosa;
+  - mantém-se, por compatibilidade, `contratos_fornecedores.encomenda_compra_id` = 1.ª encomenda.
+- **Marcos:**
+  - geridos um a um, com ids estáveis; o legado apagava e recriava todos a cada gravação;
+  - a soma dos montantes tem de ser ≤ valor do contrato, e a data tem de cair dentro do período;
+  - **o estado deixa de ser manual:** PENDENTE → FATURADO (factura do fornecedor ligada; coluna nova `fatura_compra_id`) → PAGO (factura paga);
+  - um marco facturado não se altera nem se elimina.
+- **Consumo** calculado: encomendado, facturado (facturas das encomendas e dos marcos) e pago, com a percentagem e um aviso quando o valor contratado é excedido.
+- **Expiração automática:** ATIVO passa a EXPIRADO depois da data de fim, na listagem e no agendador (diariamente às 00:15). No legado a expiração era manual.
+- **Cancelar:** exige motivo e deixa rasto (`cancelado_em`, `motivo_cancelamento`); um contrato cancelado não se altera.
+- **Domínios dos estados:** contratos ATIVO/EXPIRADO/CANCELADO; marcos PENDENTE/FATURADO/PAGO.
+
+**Encomendas de clientes → pedidos de compra** (ecrã `compras_encomendas_clientes`, que no legado ficava vazio; `generatePurchaseRequestFromSales`):
+- **Listagem:** mostra as encomendas de clientes (NE) com as linhas, a quantidade pendente, o stock disponível e o pedido de compra activo, se houver.
+- **Pedido gerado a partir das linhas escolhidas:**
+  - um único pedido, **consolidado por produto**;
+  - preço estimado ao custo médio (o legado deixava 0, e a deliberação caía no preço de venda);
+  - criado pelo utilizador, o que impede a auto-aprovação: no legado `criado_por` ficava vazio;
+  - passa pela deliberação normal.
+- **Uma linha só entra num pedido activo;** anular o pedido liberta as linhas.
+
+**Verificação sobre os dados reais:**
+- 9 encomendas de clientes, com 12 linhas, das quais 5 ainda por comprar;
+- o contrato migrado apresenta o consumo (encomendado 100%; facturado acima do contratado, herdado do legado).
+
+**Pendente:** controlo orçamental das compras (`OrcControlo`), que chega com o módulo Orçamento.

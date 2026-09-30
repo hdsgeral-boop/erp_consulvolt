@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
 use App\Http\Controllers\Api\Compras\ComprasController;
+use App\Http\Controllers\Api\Compras\ContratosComprasController;
 use App\Http\Controllers\Api\Contabilidade\DiarioController;
 use App\Http\Controllers\Api\Contabilidade\LancamentoController;
 use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
@@ -121,6 +122,22 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('documentos/{venda}/pedido-assinado', [FaturacaoEletronicaController::class, 'pedidoAssinado'])->whereNumber('venda')->name('documentos.pedido-assinado');
             Route::get('documentos/{venda}/qr', [FaturacaoEletronicaController::class, 'qr'])->whereNumber('venda')->name('documentos.qr');
             Route::get('saft', [FaturacaoEletronicaController::class, 'saft'])->name('saft');
+        });
+
+        Route::prefix('compras')->name('compras.')->controller(ContratosComprasController::class)->group(function () {
+            Route::get('contratos', 'index')->name('contratos.index');
+            Route::post('contratos', 'gravar')->name('contratos.store');
+            Route::get('contratos/{id}', 'show')->whereNumber('id')->name('contratos.show');
+            Route::put('contratos/{id}', 'gravar')->whereNumber('id')->name('contratos.update');
+            Route::post('contratos/{id}/encomendas', 'associar')->whereNumber('id')->name('contratos.associar');
+            Route::delete('contratos/{id}/encomendas/{encomenda}', 'desassociar')->whereNumber(['id', 'encomenda'])->name('contratos.desassociar');
+            Route::post('contratos/{id}/marcos', 'gravarMarco')->whereNumber('id')->name('contratos.marcos.store');
+            Route::put('contratos/{id}/marcos/{marco}', 'gravarMarco')->whereNumber(['id', 'marco'])->name('contratos.marcos.update');
+            Route::delete('contratos/{id}/marcos/{marco}', 'eliminarMarco')->whereNumber(['id', 'marco'])->name('contratos.marcos.destroy');
+            Route::post('contratos/{id}/marcos/{marco}/fatura', 'faturarMarco')->whereNumber(['id', 'marco'])->name('contratos.marcos.fatura');
+            Route::post('contratos/{id}/cancelar', 'cancelar')->whereNumber('id')->name('contratos.cancelar');
+            Route::get('encomendas-clientes', 'encomendasClientes')->name('encomendas-clientes.index');
+            Route::post('encomendas-clientes/pedido', 'gerarPedido')->name('encomendas-clientes.pedido');
         });
 
         Route::prefix('compras')->name('compras.')->controller(ComprasController::class)->group(function () {

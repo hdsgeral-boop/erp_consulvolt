@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T12:18:48.418Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T12:53:59.750Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1663 |
+| Colunas reais mapeadas | 1664 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -83,6 +83,8 @@
 | `sales.payment_method` | NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE | Numerário → NUMERARIO; Numerario → NUMERARIO; Multicaixa → TPA; Transferência bancária → TRANSFERENCIA; Conta corrente → CONTA_CORRENTE; Multicaixa (TPA) → TPA; Transferencia → TRANSFERENCIA |
 | `sales.payment_mode` | PRONTO, PRAZO, MARCOS | MARCOS → MARCOS; PRONTO → PRONTO |
 | `purchase_items.parent_type` | PEDIDO, COTACAO, ENCOMENDA, FATURA | QUOTE → COTACAO; ORDER → ENCOMENDA; REQUEST → PEDIDO; INVOICE → FATURA |
+| `purchase_contracts.status` | ATIVO, EXPIRADO, CANCELADO | ATIVO → ATIVO |
+| `purchase_contract_milestones.status` | PENDENTE, FATURADO, PAGO |  |
 | `purchase_requests.status` | PENDENTE, APROVADO, REJEITADO, ADJUDICADO, FECHADO, ANULADO | ADJUDICADO → ADJUDICADO; PENDENTE → PENDENTE; APROVADO → APROVADO |
 | `purchase_quotes.status` | PROPOSTA, PROPOSTA_ADJUDICACAO, ADJUDICADO, RECUSADA, ANULADA | ADJUDICADO → ADJUDICADO; PROPOSTA → PROPOSTA; PROPOSTA_ADJUDICACAO → PROPOSTA_ADJUDICACAO |
 | `purchase_orders.status` | EM_PROCESSAMENTO, PARCIAL, RECEBIDO, ANULADA | RECEBIDO → RECEBIDO; EM_PROCESSAMENTO → EM_PROCESSAMENTO |
@@ -922,7 +924,8 @@ Linhas reais: **1** · fictícias descartadas: 15
 | `start_date` | `data_inicio` | date | sim | 100% |  |  |
 | `end_date` | `data_fim` | date | sim | 100% |  |  |
 | `total_value` | `valor_total` | numeric(15,2) | sim | 100% |  |  |
-| `status` | `estado` | varchar(10) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {ATIVO, EXPIRADO, CANCELADO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(10) | sim | 100% |  | texto exacto do legado |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 
 ### `purchase_contract_milestones` → `marcos_contrato_fornecedor` (model `MarcoContratoFornecedor`, `/api/compras/contratos/marcos`)

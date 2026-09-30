@@ -62,6 +62,7 @@ export const UNICOS = [
   ['configuracoes_pos', ['empresa_id']],
   ['configuracoes_deliberacao_compras', ['empresa_id']],
   ['configuracoes_contabeis_compras', ['empresa_id', 'chave']],
+  ['contratos_fornecedores_encomendas', ['encomenda_compra_id']],   // cada encomenda num só contrato (pcRetirarDeOutrosContratos)
   ['configuracoes_contabeis_tesouraria', ['empresa_id', 'chave']],
   ['configuracoes_faturacao_eletronica', ['empresa_id']],
   // Séries de numeração (AGT e não fiscais): código único por empresa, tipo e ano
@@ -181,6 +182,11 @@ export const COLUNAS_NOVAS = {
   ],
   // ADR-031 (Compras): numeração, rasto de anulação/contabilização e ligação linha a linha
   // (o legado casava encomenda/recepção/factura por product_id e perdia linhas repetidas)
+  // ADR-035 (Compras parte 2): contratos com rasto de cancelamento; marcos ligados à factura (estado deixa de ser manual)
+  contratos_fornecedores: [
+    ['cancelado_em', 'timestamptz', null, 'Data/hora do cancelamento'], ['motivo_cancelamento', 'text', null, 'Motivo do cancelamento'],
+  ],
+  marcos_contrato_fornecedor: [['fatura_compra_id', 'bigint', 'faturas_compra', 'Factura do fornecedor que factura o marco']],
   pedidos_compra: [
     ['numero_pedido', 'varchar(50)', null, 'N.º do pedido "PC <série>/<n>" (o legado só mostrava o id)'],
     ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],

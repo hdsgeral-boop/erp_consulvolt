@@ -8,6 +8,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\EncomendaCompra;
 use App\Models\ItemCompra;
 use App\Models\ItemDocumentoTesouraria;
+use App\Models\MarcoContratoFornecedor;
 use App\Models\ModeloBase;
 use App\Models\MovimentoCaixa;
 use App\Models\Projeto;
@@ -92,6 +93,11 @@ abstract class FaturaCompraBase extends ModeloBase
     public function itensCompra(): HasMany
     {
         return $this->hasMany(ItemCompra::class, 'fatura_compra_id');
+    }
+
+    public function marcosContratoFornecedor(): HasMany
+    {
+        return $this->hasMany(MarcoContratoFornecedor::class, 'fatura_compra_id');
     }
 
     public function itensDocumentoTesouraria(): HasMany

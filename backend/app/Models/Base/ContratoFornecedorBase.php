@@ -24,7 +24,7 @@ abstract class ContratoFornecedorBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'fornecedor_id', 'encomenda_compra_id', 'referencia', 'descricao', 'data_inicio', 'data_fim', 'valor_total', 'estado', 'encomendas_ids_legado',
+        'empresa_id', 'fornecedor_id', 'encomenda_compra_id', 'referencia', 'descricao', 'data_inicio', 'data_fim', 'valor_total', 'estado', 'estado_original', 'cancelado_em', 'motivo_cancelamento', 'encomendas_ids_legado',
     ];
 
     protected function casts(): array
@@ -36,6 +36,7 @@ abstract class ContratoFornecedorBase extends ModeloBase
             'data_inicio' => 'date',
             'data_fim' => 'date',
             'valor_total' => 'decimal:2',
+            'cancelado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
