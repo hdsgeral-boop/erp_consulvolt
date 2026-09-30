@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
 use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
 use App\Http\Controllers\Api\Terceiros\TerceiroController;
+use App\Http\Controllers\Api\Tesouraria\TesourariaController;
 use App\Http\Controllers\Api\Vendas\ConfigVendasController;
 use App\Http\Controllers\Api\Vendas\DocumentoVendaController;
 use App\Http\Controllers\Api\Vendas\FaturacaoEletronicaController;
@@ -160,6 +161,21 @@ Route::middleware('auth:sanctum')->group(function () {
 
             Route::get('configuracao/contas', 'contas')->name('configuracao.contas');
             Route::put('configuracao/contas', 'definirContas')->name('configuracao.contas.definir');
+        });
+
+        Route::prefix('tesouraria')->name('tesouraria.')->controller(TesourariaController::class)->group(function () {
+            Route::get('documentos', 'index')->name('documentos.index');
+            Route::post('documentos', 'store')->name('documentos.store');
+            Route::get('documentos/{id}', 'show')->whereNumber('id')->name('documentos.show');
+            Route::put('documentos/{id}', 'update')->whereNumber('id')->name('documentos.update');
+            Route::post('documentos/{id}/anular', 'anular')->whereNumber('id')->name('documentos.anular');
+            Route::post('documentos/{id}/integrar', 'integrar')->whereNumber('id')->name('documentos.integrar');
+            Route::post('documentos/{id}/desintegrar', 'desintegrar')->whereNumber('id')->name('documentos.desintegrar');
+            Route::get('pendentes', 'pendentes')->name('pendentes');
+            Route::get('meios-pagamento', 'meios')->name('meios.index');
+            Route::post('meios-pagamento', 'gravarMeio')->name('meios.store');
+            Route::put('meios-pagamento/{id}', 'gravarMeio')->whereNumber('id')->name('meios.update');
+            Route::delete('meios-pagamento/{id}', 'eliminarMeio')->whereNumber('id')->name('meios.destroy');
         });
 
         Route::prefix('contabilidade')->name('contabilidade.')->group(function () {

@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T17:12:15.261Z",
+  "gerado_em": "2026-09-30T11:40:58.809Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -12719,7 +12719,31 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 11,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {PAGAMENTO, RECEBIMENTO}; texto original em tipo_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PAGAMENTO",
+              "RECEBIMENTO"
+            ],
+            "mapa": {
+              "PAGAMENTO": "PAGAMENTO",
+              "RECEBIMENTO": "RECEBIMENTO"
+            }
+          }
+        },
+        {
+          "legado": "type",
+          "pt": "tipo_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 11,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "doc_date",
@@ -12768,7 +12792,33 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 9,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {PENDENTE, INTEGRADO, ANULADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PENDENTE",
+              "INTEGRADO",
+              "ANULADO"
+            ],
+            "mapa": {
+              "PENDENTE": "PENDENTE",
+              "INTEGRADO": "INTEGRADO",
+              "ANULADO": "ANULADO"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 9,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "reference",

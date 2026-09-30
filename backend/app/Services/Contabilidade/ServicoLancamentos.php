@@ -34,7 +34,8 @@ final class ServicoLancamentos
 
     /**
      * @param  array{diario_id: int, data_documento: string, numero_documento?: ?string, referencia?: ?string, descricao?: ?string,
-     *               tipo_origem?: string, linhas: list<array<string, mixed>>}  $dados  (tipo_origem: MANUAL por omissão; VENDAS, RECIBOS… quando gerado por um módulo)
+     *               tipo_origem?: string, linhas: list<array<string, mixed>>}  $dados  (tipo_origem: MANUAL por omissão; VENDAS, RECIBOS… quando gerado por um módulo;
+     *               cada linha pode trazer numero_documento próprio)
      * @return Collection<int, LancamentoContabil>
      */
     public function criar(array $dados): Collection
@@ -66,7 +67,8 @@ final class ServicoLancamentos
             ];
             $criadas = new Collection;
             foreach ($dados['linhas'] as $l) {
-                $criadas->push(LancamentoContabil::create($comum + [
+                // a linha pode indicar o seu próprio n.º de documento (ex.: tesouraria: a factura que liquida)
+                $criadas->push(LancamentoContabil::create(array_merge($comum, array_filter(['numero_documento' => $l['numero_documento'] ?? null])) + [
                     'codigo_conta' => (string) $l['codigo_conta'], 'tipo_dc' => $l['tipo_dc'], 'valor' => $this->dinheiro($l['valor']),
                     'descricao' => $l['descricao'] ?? $dados['descricao'] ?? null,
                     'terceiro_id' => $l['terceiro_id'] ?? null, 'centro_custo_id' => $l['centro_custo_id'] ?? null,

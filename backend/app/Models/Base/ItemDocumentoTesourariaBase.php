@@ -6,6 +6,7 @@ use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\DocumentoTesouraria;
+use App\Models\FaturaCompra;
 use App\Models\ModeloBase;
 use App\Models\NotaDemonstracao;
 use App\Models\NotaFluxoCaixa;
@@ -13,6 +14,7 @@ use App\Models\Projeto;
 use App\Models\TaxaCambio;
 use App\Models\Terceiro;
 use App\Models\UnidadeNegocio;
+use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -28,7 +30,7 @@ abstract class ItemDocumentoTesourariaBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'codigo_conta', 'terceiro_id', 'numero_documento', 'nota_demonstracao_id', 'nota_fluxo_caixa_id', 'descricao', 'valor', 'tipo_dc', 'documento_tesouraria_id', 'projeto_id', 'codigo_projeto', 'data_documento_original', 'nif_importado', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'valor_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'cambial_moeda_documento', 'cambial_saldo_moeda', 'cambial_saldo_kz', 'valor_introduzido',
+        'empresa_id', 'codigo_conta', 'terceiro_id', 'numero_documento', 'nota_demonstracao_id', 'nota_fluxo_caixa_id', 'descricao', 'valor', 'tipo_dc', 'documento_tesouraria_id', 'projeto_id', 'codigo_projeto', 'data_documento_original', 'nif_importado', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'valor_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'cambial_moeda_documento', 'cambial_saldo_moeda', 'cambial_saldo_kz', 'valor_introduzido', 'venda_id', 'fatura_compra_id',
     ];
 
     protected function casts(): array
@@ -50,6 +52,8 @@ abstract class ItemDocumentoTesourariaBase extends ModeloBase
             'cambial_saldo_moeda' => 'decimal:2',
             'cambial_saldo_kz' => 'decimal:2',
             'valor_introduzido' => 'decimal:2',
+            'venda_id' => 'integer',
+            'fatura_compra_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
@@ -93,5 +97,15 @@ abstract class ItemDocumentoTesourariaBase extends ModeloBase
     public function taxaCambioRelacao(): BelongsTo
     {
         return $this->belongsTo(TaxaCambio::class, 'taxa_cambio_id');
+    }
+
+    public function venda(): BelongsTo
+    {
+        return $this->belongsTo(Venda::class, 'venda_id');
+    }
+
+    public function faturaCompra(): BelongsTo
+    {
+        return $this->belongsTo(FaturaCompra::class, 'fatura_compra_id');
     }
 }

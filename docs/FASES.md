@@ -92,7 +92,9 @@ Cobrem os seguintes casos:
 | **Vendas / Facturação AGT (parte 2)** | ✅ | vendas/faturacao-eletronica (configuração, ligação, resumo, enviar, consultar), documentos/{id}/{revalidar,pedido-assinado,qr}, configuracao/series (CRUD + solicitar-agt), vendas/saft | Envio à AGT no servidor (JWS RS256), Hash SAF-T na emissão, SAF-T(AO) correcto, QR, multi-moeda (ADR-030) |
 | Vendas: guias GR/GD e stock | ⏳ | com o módulo Logística (movimentos de inventário) | |
 | **Compras (parte 1)** | ✅ | compras/pedidos (+decidir, comparacao), deliberacao/escaloes, propostas (+propor, adjudicar), encomendas, rececoes (+validar, reverter), faturas (+contabilizar, descontabilizar), configuracao/contas | Adjudicação única e atómica, ligação linha a linha, stock com custo médio, conta transitória, estorno (ADR-031) |
-| Compras (parte 2) | ⏳ | contratos e marcos, pedidos a partir de encomendas de clientes, pagamentos (Tesouraria), controlo orçamental | |
+| Compras (parte 2) | ⏳ | contratos e marcos, pedidos a partir de encomendas de clientes, controlo orçamental | |
+| **Tesouraria (parte 1)** | ✅ | tesouraria/documentos (+integrar, desintegrar, anular), tesouraria/pendentes, tesouraria/meios-pagamento | Ligação explícita às facturas, sem pagar duas vezes, estorno bloqueado por reconciliação (ADR-032) |
+| Tesouraria (parte 2) | ⏳ | reconciliação bancária, folha e conferência de caixa, multi-moeda e diferenças de câmbio | |
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
 | RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |

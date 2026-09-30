@@ -213,6 +213,14 @@ final class ConversorTipos
         $s = is_array($v) ? json_encode($v, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
             : (is_bool($v) ? ($v ? 'true' : 'false') : (is_float($v) ? json_encode($v) : (string) $v));
 
+        // Caracteres invisíveis (espaço de largura zero, BOM, word joiner) colados ao copiar/colar no legado:
+        // criavam contas "fantasma" (ex.: "\u{200B}4311" ao lado de "4311") e lançamentos em códigos inexistentes.
+        $limpo = preg_replace('/[\x{200B}-\x{200D}\x{2060}\x{FEFF}]/u', '', $s);
+        if ($limpo !== null && $limpo !== $s) {
+            $this->ocorrer('NORMALIZACAO', 'INFO', $s, $limpo, 'Caracteres invisíveis removidos (espaço de largura zero/BOM)');
+            $s = $limpo;
+        }
+
         if ($maximo !== null && mb_strlen($s) > $maximo) {
             $this->ocorrer('TRUNCAGEM', 'ERRO', $s, mb_substr($s, 0, $maximo), "Texto com mais de {$maximo} caracteres truncado (original na ocorrência)");
 

@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (484) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (486) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -288,6 +288,8 @@ return new class extends Migration
         DB::statement('ALTER TABLE itens_documento_tesouraria ADD CONSTRAINT fk_itens_documento_tesouraria_centro_custo_id FOREIGN KEY (centro_custo_id) REFERENCES centros_custo (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_documento_tesouraria ADD CONSTRAINT fk_itens_documento_tesouraria_taxa_cambio_id FOREIGN KEY (taxa_cambio_id) REFERENCES taxas_cambio (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_documento_tesouraria ADD CONSTRAINT fk_itens_documento_tesouraria_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE itens_documento_tesouraria ADD CONSTRAINT fk_itens_documento_tesouraria_venda_id FOREIGN KEY (venda_id) REFERENCES vendas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE itens_documento_tesouraria ADD CONSTRAINT fk_itens_documento_tesouraria_fatura_compra_id FOREIGN KEY (fatura_compra_id) REFERENCES faturas_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE linhas_extrato_bancario ADD CONSTRAINT fk_linhas_extrato_bancario_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE reconciliacoes_bancarias ADD CONSTRAINT fk_reconciliacoes_bancarias_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE correspondencias_reconciliacao ADD CONSTRAINT fk_correspondencias_reconciliacao_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -776,6 +778,8 @@ return new class extends Migration
         DB::statement('ALTER TABLE itens_documento_tesouraria DROP CONSTRAINT IF EXISTS fk_itens_documento_tesouraria_centro_custo_id');
         DB::statement('ALTER TABLE itens_documento_tesouraria DROP CONSTRAINT IF EXISTS fk_itens_documento_tesouraria_taxa_cambio_id');
         DB::statement('ALTER TABLE itens_documento_tesouraria DROP CONSTRAINT IF EXISTS fk_itens_documento_tesouraria_empresa_id');
+        DB::statement('ALTER TABLE itens_documento_tesouraria DROP CONSTRAINT IF EXISTS fk_itens_documento_tesouraria_venda_id');
+        DB::statement('ALTER TABLE itens_documento_tesouraria DROP CONSTRAINT IF EXISTS fk_itens_documento_tesouraria_fatura_compra_id');
         DB::statement('ALTER TABLE linhas_extrato_bancario DROP CONSTRAINT IF EXISTS fk_linhas_extrato_bancario_empresa_id');
         DB::statement('ALTER TABLE reconciliacoes_bancarias DROP CONSTRAINT IF EXISTS fk_reconciliacoes_bancarias_empresa_id');
         DB::statement('ALTER TABLE correspondencias_reconciliacao DROP CONSTRAINT IF EXISTS fk_correspondencias_reconciliacao_empresa_id');

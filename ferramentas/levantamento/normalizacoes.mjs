@@ -57,6 +57,8 @@ export const NORMALIZACOES = {
     'FILHO(A)': 'FILHO', FILHO: 'FILHO', FILHA: 'FILHO', CONJUGE: 'CONJUGE', PAI: 'PAI', MAE: 'MAE' } },
 
   // ── Tesouraria / caixa / POS ──
+  'treasury_documents.type': { dominio: ['PAGAMENTO', 'RECEBIMENTO'], mapa: { PAGAMENTO: 'PAGAMENTO', RECEBIMENTO: 'RECEBIMENTO' } },
+  'treasury_documents.status': { dominio: ['PENDENTE', 'INTEGRADO', 'ANULADO'], mapa: { PENDENTE: 'PENDENTE', INTEGRADO: 'INTEGRADO', ANULADO: 'ANULADO' } },
   'bank_statement_lines.status': { dominio: ['PENDENTE', 'CONCILIADO'], mapa: {
     PENDING: 'PENDENTE', PENDENTE: 'PENDENTE', CONCILIATED: 'CONCILIADO', CONCILIADO: 'CONCILIADO' } },
   'reconciliations.type': { dominio: ['ATUALIZACAO_LOTE'], mapa: { 'BATCH UPDATE': 'ATUALIZACAO_LOTE' } },

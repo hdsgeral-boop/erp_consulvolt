@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-29T17:12:15.261Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T11:40:58.809Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1658 |
+| Colunas reais mapeadas | 1660 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -93,6 +93,8 @@
 | `employees.status` | ACTIVO, INACTIVO, SUSPENSO | ACTIVO → ACTIVO; Não ACTIVO → INACTIVO; NÃO ACTIVO → INACTIVO |
 | `employees.estado_civil` | SOLTEIRO, CASADO, DIVORCIADO, VIUVO, UNIAO_FACTO | Solteiro(a) → SOLTEIRO; Casado(a) → CASADO |
 | `rh_dependents.parentesco` | FILHO, CONJUGE, PAI, MAE, OUTRO | Filho(a) → FILHO |
+| `treasury_documents.type` | PAGAMENTO, RECEBIMENTO | RECEBIMENTO → RECEBIMENTO; PAGAMENTO → PAGAMENTO |
+| `treasury_documents.status` | PENDENTE, INTEGRADO, ANULADO | INTEGRADO → INTEGRADO; PENDENTE → PENDENTE |
 | `bank_statement_lines.status` | PENDENTE, CONCILIADO | CONCILIATED → CONCILIADO; PENDING → PENDENTE; CONCILIADO → CONCILIADO |
 | `reconciliations.type` | ATUALIZACAO_LOTE | BATCH_UPDATE → ATUALIZACAO_LOTE |
 | `reconciliation_matches.match_type` | AUTOMATICA, MANUAL | AUTO → AUTOMATICA; MANUAL → MANUAL |
@@ -1730,12 +1732,14 @@ Linhas reais: **5781** · fictícias descartadas: 16
 | Coluna legado | Coluna PT | Tipo PG | Nulo | Preench. | FK | Notas |
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
-| `type` | `tipo` | varchar(20) | sim | 100% |  |  |
+| `type` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {PAGAMENTO, RECEBIMENTO}; texto original em tipo_original |
+| `type` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `doc_date` | `data_documento` | date | sim | 100% |  |  |
 | `account_fin` | `conta_financeira` | varchar(20) | sim | 100% |  | tipos mistos: string_inteiro=5777, string=4 |
 | `description` | `descricao` | text | sim | 100% |  |  |
 | `total_value` | `valor_total` | numeric(15,2) | sim | 100% |  | tipos mistos: inteiro=4901, decimal=880 |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PENDENTE, INTEGRADO, ANULADO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `reference` | `referencia` | varchar(100) | sim | 100% |  | tipos mistos: string=4037, string_inteiro=1742 |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `project_id` | `projeto_id` | bigint | sim | 0% | `projetos.id` |  |

@@ -364,3 +364,54 @@ Os estados de pedidos, propostas, encomendas, recepções e facturas passam a te
 - recepções validadas (20): 19 bloqueadas por terem facturas, como previsto; 1 do legado sem ligação às linhas.
 
 **Pendências conhecidas:** duas facturas da empresa 6 com o mesmo n.º (`FT FA.2026/631`), herdadas do legado; o sistema novo impede novos duplicados.
+
+## ADR-032 — Tesouraria (parte 1): pagamentos, recebimentos, pendentes e ligação às facturas
+
+**Âmbito.** Inclui:
+- documentos de pagamento e de recebimento, com criação, edição (só enquanto pendentes), anulação, integração e desintegração por estorno;
+- documentos em aberto de clientes e de fornecedores;
+- ligação às vendas e às facturas de fornecedor;
+- meios de pagamento.
+
+Ficam para a parte 2: reconciliação bancária (importação de extractos, correspondência, compensação), folha de caixa e conferência de caixa, multi-moeda com diferenças de câmbio e cartas de pagamento (o legado tinha as tabelas, mas nenhum código as usava).
+
+**Correcções face ao legado** (levantamento completo de `ui_tesouraria.js`, `moedas_tesouraria.js`, `ui_folha_caixa.js` e `fluxo_tesouraria.js`):
+- **Numeração por série:** "PAG" para pagamentos e "REC" para recebimentos. A referência continua a ser texto livre; no legado era a única chave e aparecia repetida (5 781 documentos para 5 111 referências distintas).
+- **Validação ao gravar:**
+  - a conta financeira tem de ser de movimento, das classes 43 (bancos) ou 45 (caixa);
+  - o sentido tem de estar certo: num pagamento os débitos excedem os créditos, num recebimento o contrário;
+  - o exercício tem de estar aberto (o legado não verificava);
+  - as contas das linhas têm de ser de movimento;
+  - **o valor liquidado de um documento não pode exceder o saldo em aberto**, já descontados os pagamentos ainda por integrar (no legado podia pagar-se duas vezes).
+- **Ligação explícita** de cada linha à venda (`venda_id`) ou à factura de fornecedor (`fatura_compra_id`). Na integração, actualiza o pago e o estado da venda e o estado da factura de fornecedor (PENDENTE, PARCIAL ou PAGO, calculado a partir do diário). No legado nada era actualizado, e o "pago" das vendas contava documentos por integrar, ignorava o sentido D/C e ignorava a empresa.
+- **Pendentes:** calculados com uma única consulta agregada ao diário.
+  - Consideram só contas de terceiros da classe 3, excepto a 34 (impostos), e com terceiro; o legado aceitava 1, 2, 3 e 48.
+  - Descontam os documentos por integrar.
+  - Cada pendente é ligado à venda ou factura quando o n.º e o terceiro não deixam dúvida.
+  - A consulta ao diário no servidor substitui a leitura do diário inteiro pelo browser: 3 a 40 ms por empresa nos dados reais.
+- **Integração:**
+  - numa única transacção, através de `ServicoLancamentos` (diário BD para bancos, CX para caixa);
+  - cada contrapartida fica com o n.º do documento que liquida, graças ao `numero_documento` por linha, suportado agora pelo `ServicoLancamentos`.
+- **Desintegrar = estorno**, recusado se o lançamento estiver reconciliado com o banco ou ligado a activos.
+  - O legado apagava as linhas pelo texto da referência, e o seu bloqueio por reconciliação procurava o prefixo `RECON_`, que nenhum código gerava.
+  - Para os documentos do legado, o lançamento é localizado pela referência ou por `TES-<id>`, filtrado pela conta financeira no sentido do documento; se houver ambiguidade, a operação é recusada.
+- **Nunca se apaga; anula-se com motivo.**
+  - Não foram migradas as rotinas destrutivas do legado:
+    - a limpeza automática de documentos sem data, em todas as empresas, ao abrir o ecrã;
+    - `forceClearSale`;
+    - `repairtreasuryInconsistencies` / `_executeRescue` / `recoverOrphanedModuleDocs`, que repunham estados sem apagar o diário e levavam a dupla contabilização.
+  - As validações de dados (ADR-018) cobrem estes casos como relatórios só de leitura.
+- **Meios de pagamento:**
+  - IBAN angolano validado com os dígitos de controlo (ISO 13616, mod 97); o legado só avisava;
+  - SWIFT/BIC com formato válido;
+  - um só meio predefinido por empresa, garantido numa transacção;
+  - eliminação lógica.
+- **Permissões:** as do legado, com segregação efectiva entre `teso_doc_emitir` e `teso_integrar` (no legado era só um aviso ao gravar o perfil).
+
+**ETL.** Os textos passam a ser limpos de caracteres invisíveis (espaço de largura zero, BOM, word joiner), colados no legado ao copiar e colar. Criavam uma conta "fantasma" `\u200B4311` ao lado da 4311 na empresa 22, 11 lançamentos em códigos inexistentes e 4 documentos de tesouraria com conta financeira inválida. A conta fantasma cai agora na regra de conta duplicada (quarentena), e as ocorrências ficam registadas.
+
+**Verificação sobre os dados reais** (desintegração em transacção revertida, sem alterar dados): dos 5 777 documentos integrados:
+- 3 659 são estornáveis;
+- 2 006 estão bloqueados por reconciliação bancária; o legado apagá-los-ia na mesma;
+- 111 têm referência ambígua ou nenhum lançamento, e são recusados em vez de adivinhados;
+- 1 está ligado a activos.

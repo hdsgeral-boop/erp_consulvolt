@@ -8,6 +8,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\EncomendaCompra;
 use App\Models\EstadiaHotel;
 use App\Models\GuiaSaida;
+use App\Models\ItemDocumentoTesouraria;
 use App\Models\ItemReciboVenda;
 use App\Models\ItemVenda;
 use App\Models\ModeloBase;
@@ -182,6 +183,11 @@ abstract class VendaBase extends ModeloBase
     public function guiasSaida(): HasMany
     {
         return $this->hasMany(GuiaSaida::class, 'venda_relacionada_id');
+    }
+
+    public function itensDocumentoTesouraria(): HasMany
+    {
+        return $this->hasMany(ItemDocumentoTesouraria::class, 'venda_id');
     }
 
     public function estadiasHotel(): HasMany

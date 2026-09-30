@@ -7,6 +7,7 @@ use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\EncomendaCompra;
 use App\Models\ItemCompra;
+use App\Models\ItemDocumentoTesouraria;
 use App\Models\ModeloBase;
 use App\Models\Projeto;
 use App\Models\TaxaCambio;
@@ -90,5 +91,10 @@ abstract class FaturaCompraBase extends ModeloBase
     public function itensCompra(): HasMany
     {
         return $this->hasMany(ItemCompra::class, 'fatura_compra_id');
+    }
+
+    public function itensDocumentoTesouraria(): HasMany
+    {
+        return $this->hasMany(ItemDocumentoTesouraria::class, 'fatura_compra_id');
     }
 }

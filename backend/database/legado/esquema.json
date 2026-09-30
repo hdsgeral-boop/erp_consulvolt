@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-29T17:23:52.806Z",
+  "gerado_em": "2026-09-30T11:41:00.207Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -14393,6 +14393,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "PAGAMENTO",
+            "RECEBIMENTO"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "type",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -14437,6 +14449,19 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "PENDENTE",
+            "INTEGRADO",
+            "ANULADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -14558,6 +14583,60 @@
           "dominio": null
         },
         {
+          "coluna": "numero_documento",
+          "legado": null,
+          "tipo": "varchar(50)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "numero_lan_contabilizacao",
+          "legado": null,
+          "tipo": "varchar(30)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "integrado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "integrado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "anulado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_anulacao",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -14577,7 +14656,10 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_documentos_tesouraria_tipo",
+        "ck_documentos_tesouraria_estado"
+      ]
     },
     {
       "tabela": "itens_documento_tesouraria",
@@ -14851,6 +14933,30 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "venda_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "vendas",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "fatura_compra_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "faturas_compra",
+            "cascata": false
+          },
           "dominio": null
         },
         {

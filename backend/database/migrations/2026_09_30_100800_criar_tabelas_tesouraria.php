@@ -18,12 +18,14 @@ return new class extends Migration
         Schema::create('documentos_tesouraria', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('tipo', 20)->nullable()->comment('legado: type');
+            $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {PAGAMENTO, RECEBIMENTO}; texto original em tipo_original');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
             $table->date('data_documento')->nullable()->comment('legado: doc_date');
             $table->string('conta_financeira', 20)->nullable()->comment('legado: account_fin · tipos mistos: string_inteiro=5777, string=4');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->decimal('valor_total', 15, 2)->nullable()->comment('legado: total_value · tipos mistos: inteiro=4901, decimal=880');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {PENDENTE, INTEGRADO, ANULADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->string('referencia', 100)->nullable()->comment('legado: reference · tipos mistos: string=4037, string_inteiro=1742');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado');
@@ -36,6 +38,12 @@ return new class extends Migration
             $table->decimal('valor_total_moeda', 15, 2)->nullable()->comment('legado: total_value_currency');
             $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('legado: payroll_period_id');
             $table->string('reconciliacao_codigo', 255)->nullable()->comment('legado: reconciliation_id · do código legado js/ui_lancamentos.js:2344');
+            $table->string('numero_documento', 50)->nullable()->comment('N.º "PAG|REC <série>/<n>" (a referência continua texto livre)');
+            $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento da integração');
+            $table->timestampTz('integrado_em')->nullable()->comment('Data/hora da integração');
+            $table->string('integrado_por', 100)->nullable()->comment('Utilizador que integrou');
+            $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');
+            $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -44,6 +52,8 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_documentos_tesouraria_taxa_cambio_id ON documentos_tesouraria (taxa_cambio_id)');
         DB::statement('CREATE INDEX ix_documentos_tesouraria_periodo_processamento_salarial_id ON documentos_tesouraria (periodo_processamento_salarial_id)');
         DB::statement('CREATE INDEX ix_documentos_tesouraria_empresa_id_data_documento ON documentos_tesouraria (empresa_id, data_documento)');
+        DB::statement('ALTER TABLE documentos_tesouraria ADD CONSTRAINT ck_documentos_tesouraria_tipo CHECK (tipo IS NULL OR tipo IN (\'PAGAMENTO\',\'RECEBIMENTO\'))');
+        DB::statement('ALTER TABLE documentos_tesouraria ADD CONSTRAINT ck_documentos_tesouraria_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE\',\'INTEGRADO\',\'ANULADO\'))');
 
         // treasury_items (legado) -> itens_documento_tesouraria · 6252 linhas reais no backup
         Schema::create('itens_documento_tesouraria', function (Blueprint $table) {
@@ -73,6 +83,8 @@ return new class extends Migration
             $table->decimal('cambial_saldo_moeda', 15, 2)->nullable()->comment('legado: fx_bal_cur');
             $table->decimal('cambial_saldo_kz', 15, 2)->nullable()->comment('legado: fx_bal_kz');
             $table->decimal('valor_introduzido', 15, 2)->nullable()->comment('legado: value_input');
+            $table->bigInteger('venda_id')->nullable()->comment('Factura de venda liquidada por esta linha');
+            $table->bigInteger('fatura_compra_id')->nullable()->comment('Factura de fornecedor liquidada por esta linha');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -85,6 +97,8 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_itens_documento_tesouraria_unidade_negocio_id ON itens_documento_tesouraria (unidade_negocio_id)');
         DB::statement('CREATE INDEX ix_itens_documento_tesouraria_centro_custo_id ON itens_documento_tesouraria (centro_custo_id)');
         DB::statement('CREATE INDEX ix_itens_documento_tesouraria_taxa_cambio_id ON itens_documento_tesouraria (taxa_cambio_id)');
+        DB::statement('CREATE INDEX ix_itens_documento_tesouraria_venda_id ON itens_documento_tesouraria (venda_id)');
+        DB::statement('CREATE INDEX ix_itens_documento_tesouraria_fatura_compra_id ON itens_documento_tesouraria (fatura_compra_id)');
         DB::statement('ALTER TABLE itens_documento_tesouraria ADD CONSTRAINT ck_itens_tesouraria_tipo_dc CHECK (tipo_dc IN (\'D\',\'C\'))');
 
         // bank_statement_lines (legado) -> linhas_extrato_bancario · 2821 linhas reais no backup

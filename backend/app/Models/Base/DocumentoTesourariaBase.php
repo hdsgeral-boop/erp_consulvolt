@@ -27,7 +27,7 @@ abstract class DocumentoTesourariaBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'tipo', 'data_documento', 'conta_financeira', 'descricao', 'valor_total', 'estado', 'referencia', 'projeto_id', 'codigo_projeto', 'importado', 'url_documento', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'valor_total_moeda', 'periodo_processamento_salarial_id', 'reconciliacao_codigo',
+        'empresa_id', 'tipo', 'tipo_original', 'data_documento', 'conta_financeira', 'descricao', 'valor_total', 'estado', 'estado_original', 'referencia', 'projeto_id', 'codigo_projeto', 'importado', 'url_documento', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'valor_total_moeda', 'periodo_processamento_salarial_id', 'reconciliacao_codigo', 'numero_documento', 'numero_lan_contabilizacao', 'integrado_em', 'integrado_por', 'anulado_em', 'motivo_anulacao',
     ];
 
     protected function casts(): array
@@ -43,6 +43,8 @@ abstract class DocumentoTesourariaBase extends ModeloBase
             'taxa_cambio_manual' => 'boolean',
             'valor_total_moeda' => 'decimal:2',
             'periodo_processamento_salarial_id' => 'integer',
+            'integrado_em' => 'datetime',
+            'anulado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

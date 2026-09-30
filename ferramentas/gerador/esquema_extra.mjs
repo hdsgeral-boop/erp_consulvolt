@@ -157,6 +157,18 @@ export const COLUNAS_NOVAS = {
     ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'],
     ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
   ],
+  // ADR-032 (Tesouraria): numeração, rasto de integração/anulação e ligação EXPLÍCITA ao documento liquidado
+  // (o legado ligava só pelo texto doc_number; o "pago" das vendas contava até pagamentos por integrar)
+  documentos_tesouraria: [
+    ['numero_documento', 'varchar(50)', null, 'N.º "PAG|REC <série>/<n>" (a referência continua texto livre)'],
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento da integração'],
+    ['integrado_em', 'timestamptz', null, 'Data/hora da integração'], ['integrado_por', 'varchar(100)', null, 'Utilizador que integrou'],
+    ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+  ],
+  itens_documento_tesouraria: [
+    ['venda_id', 'bigint', 'vendas', 'Factura de venda liquidada por esta linha'],
+    ['fatura_compra_id', 'bigint', 'faturas_compra', 'Factura de fornecedor liquidada por esta linha'],
+  ],
   // ADR-031 (Compras): numeração, rasto de anulação/contabilização e ligação linha a linha
   // (o legado casava encomenda/recepção/factura por product_id e perdia linhas repetidas)
   pedidos_compra: [
