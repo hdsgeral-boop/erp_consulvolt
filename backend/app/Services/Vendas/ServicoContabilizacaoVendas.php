@@ -21,7 +21,9 @@ use Illuminate\Support\Facades\DB;
  *   - FT: D cliente / C proveitos + C IVA · NC: o inverso · FR: D disponibilidade / C proveitos + C IVA
  *     (o legado não permitia descontabilizar FR);
  *   - recibo: D disponibilidade / C cliente;
- *   - descontabilizar = estorno com rasto (ADR-016), nunca apagar; guias/encomendas não são contabilizáveis.
+ *   - descontabilizar = estorno com rasto (ADR-016), nunca apagar; encomendas não são contabilizáveis;
+ *   - CMV em inventário permanente (ADR-043): as linhas D custo / C inventário (o inverso nas devoluções) entram no
+ *     lançamento do próprio documento; as guias GR/GD contabilizam só o CMV (sem proveitos).
  */
 final class ServicoContabilizacaoVendas
 {
@@ -34,18 +36,24 @@ final class ServicoContabilizacaoVendas
         private readonly ServicoLancamentos $lancamentos,
         private readonly ServicoConfigVendas $config,
         private readonly LocalizadorLancamentos $localizador,
+        private readonly ServicoStockVendas $stockVendas,
     ) {}
 
     public function contabilizar(Venda $venda): Venda
     {
-        if (! $venda->eFiscal()) {
-            throw new ErroNegocio("Documentos {$venda->tipo_documento} não são contabilizáveis (só FT, FR e NC).", 'NAO_CONTABILIZAVEL', 422);
+        $guia = in_array($venda->tipo_documento, ['GR', 'GD'], true);
+        if (! $venda->eFiscal() && ! $guia) {
+            throw new ErroNegocio("Documentos {$venda->tipo_documento} não são contabilizáveis (só FT, FR, NC, GR e GD).", 'NAO_CONTABILIZAVEL', 422);
         }
         if ($venda->contabilizado) {
             throw new ErroNegocio('O documento já está contabilizado.', 'JA_CONTABILIZADO', 422);
         }
         if ($venda->estado === 'ANULADO') {
             throw new ErroNegocio('Documento anulado: não é contabilizável.', 'DOCUMENTO_ANULADO', 422);
+        }
+
+        if ($guia) {
+            return $this->contabilizarGuia($venda);
         }
 
         return DB::transaction(function () use ($venda) {
@@ -78,6 +86,9 @@ final class ServicoContabilizacaoVendas
             foreach ($creditos as $c) {
                 $linhas[] = ['codigo_conta' => $c['conta'], 'tipo_dc' => $dc('C'), 'valor' => $c['valor']] + $comum;
             }
+            foreach ($this->stockVendas->linhasCmv($venda) as $c) {   // custo das mercadorias vendidas (ou devolvidas)
+                $linhas[] = $c + array_diff_key($comum, ['terceiro_id' => 1]);
+            }
 
             $criadas = $this->lancamentos->criar([
                 'diario_id' => $this->diario(self::DIARIO_VENDAS, 'Vendas')->id, 'data_documento' => $venda->data_emissao->toDateString(),
@@ -87,6 +98,28 @@ final class ServicoContabilizacaoVendas
             $numeroLan = $criadas->first()->numero_lan;
             $venda->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
             $recibo?->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
+
+            return $venda;
+        });
+    }
+
+    /** GR/GD: só o CMV (a guia não tem proveitos). */
+    private function contabilizarGuia(Venda $venda): Venda
+    {
+        return DB::transaction(function () use ($venda) {
+            $venda = Venda::query()->lockForUpdate()->findOrFail($venda->id);
+            $linhas = $this->stockVendas->linhasCmv($venda);
+            if (! $linhas) {
+                throw new ErroNegocio('A guia não tem mercadoria de stock com custo: não há nada a contabilizar.', 'NADA_A_CONTABILIZAR', 422);
+            }
+            $comum = ['unidade_negocio_id' => $venda->unidade_negocio_id, 'centro_custo_id' => $venda->centro_custo_id, 'projeto_id' => $venda->projeto_id];
+            $cliente = Terceiro::query()->withTrashed()->find($venda->cliente_id);
+            $criadas = $this->lancamentos->criar([
+                'diario_id' => $this->diario('GR', 'Guias de remessa e devolução')->id, 'data_documento' => $venda->data_emissao->toDateString(),
+                'numero_documento' => $venda->numero_documento, 'descricao' => mb_substr("{$venda->numero_documento} - {$cliente?->nome}", 0, 1000), 'tipo_origem' => 'VENDAS',
+                'linhas' => array_map(fn ($l) => $l + $comum, $linhas),
+            ]);
+            $venda->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $criadas->first()->numero_lan]);
 
             return $venda;
         });
@@ -106,7 +139,7 @@ final class ServicoContabilizacaoVendas
         return DB::transaction(function () use ($venda, $motivo) {
             $contaCliente = Terceiro::query()->withTrashed()->find($venda->cliente_id)?->codigo_conta;
             $linha = $this->localizar($venda->numero_lan_contabilizacao, $venda->numero_documento, $venda->sessao_pos_id || $venda->sessao_pos_legado_codigo,
-                $venda->tipo_documento === 'FR' ? null : $contaCliente, $venda->tipo_documento === 'NC' ? 'C' : 'D');
+                in_array($venda->tipo_documento, ['FR', 'GR', 'GD'], true) ? null : $contaCliente, $venda->tipo_documento === 'NC' ? 'C' : 'D');
             $this->lancamentos->estornar($linha, $motivo);
             $venda->update(['contabilizado' => false, 'numero_lan_contabilizacao' => null]);
             if ($venda->tipo_documento === 'FR') {

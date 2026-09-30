@@ -11,6 +11,7 @@ use App\Models\RececaoCompra;
 use App\Models\SessaoInventario;
 use App\Models\StockArmazem;
 use App\Models\TerminalPOS;
+use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -39,6 +40,11 @@ abstract class ArmazemBase extends ModeloBase
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',
         ];
+    }
+
+    public function vendas(): HasMany
+    {
+        return $this->hasMany(Venda::class, 'armazem_id');
     }
 
     public function rececoesCompra(): HasMany

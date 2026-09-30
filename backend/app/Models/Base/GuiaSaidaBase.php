@@ -26,7 +26,7 @@ abstract class GuiaSaidaBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'numero_documento', 'data', 'tipo', 'terceiro_id', 'armazem_id', 'area_rececao', 'estado', 'venda_relacionada_id', 'contabilizado', 'projeto_id', 'codigo_projeto',
+        'empresa_id', 'numero_documento', 'data', 'tipo', 'tipo_original', 'terceiro_id', 'armazem_id', 'area_rececao', 'estado', 'estado_original', 'venda_relacionada_id', 'contabilizado', 'projeto_id', 'codigo_projeto', 'observacoes', 'criado_por', 'numero_lan_contabilizacao', 'anulado_em', 'motivo_anulacao',
     ];
 
     protected function casts(): array
@@ -39,6 +39,7 @@ abstract class GuiaSaidaBase extends ModeloBase
             'venda_relacionada_id' => 'integer',
             'contabilizado' => 'boolean',
             'projeto_id' => 'integer',
+            'anulado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

@@ -153,6 +153,7 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | POST | `/api/logistica/transferencias` · `/ajustes` | Transferências entre armazéns e ajustes manuais |
 | GET/PUT | `/api/logistica/configuracao/contas` | Contas da logística (CMV, sobras, quebras) |
 | GET/POST | `/api/logistica/inventarios[/{id}]` · POST `/contagem` · `/concluir-contagem` · `/revisao` · `/voltar-contagem` · `/aprovar` · `/reabrir` · `/anular` | Inventário físico |
+| GET/POST | `/api/logistica/guias-saida[/{id}]` · POST `/contabilizar` · `/descontabilizar` · `/anular` | Guias de consumo interno |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

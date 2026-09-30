@@ -78,6 +78,13 @@ final class ServicoValidacoesDados
                           JOIN produtos p ON p.id = m.produto_id JOIN armazens a ON a.id = m.armazem_id
                           WHERE m.empresa_id = ? AND m.documento_tipo = 'MIGRACAO' ORDER BY a.nome, p.codigo",
             ],
+            'stock_negativo' => [
+                'titulo' => 'Stock negativo', 'modulo' => 'Logística', 'gravidade' => 'AVISO',
+                'descricao' => 'As vendas podem deixar o stock negativo (como no legado, para não bloquear documentos fiscais); regularize com a entrada em falta ou um inventário.',
+                'legado' => 'FT/FR/GR baixavam o stock sem verificar (js/ui_sales.js:1888)',
+                'sql' => 'SELECT s.armazem_id, a.nome AS armazem, p.codigo, p.nome, s.quantidade_stock FROM stock_armazem s JOIN produtos p ON p.id = s.produto_id
+                          JOIN armazens a ON a.id = s.armazem_id WHERE s.empresa_id = ? AND s.quantidade_stock < 0 ORDER BY a.nome, p.codigo',
+            ],
             'produtos_stock_sem_custo' => [
                 'titulo' => 'Produtos com stock e sem custo médio', 'modulo' => 'Logística', 'gravidade' => 'AVISO',
                 'descricao' => 'Sem custo, as saídas e o custo das vendas (CMV) ficam a zero. O legado nunca calculou o custo médio; o inicial foi o último custo de recepção, quando existia.',

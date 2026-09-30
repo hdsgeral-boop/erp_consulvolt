@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api\Logistica;
 
 use App\Http\Controllers\Controller;
 use App\Models\Armazem;
+use App\Models\GuiaSaida;
+use App\Models\ItemGuiaSaida;
 use App\Models\LinhaSessaoInventario;
 use App\Models\MovimentoInventario;
 use App\Models\SessaoInventario;
 use App\Services\Logistica\ServicoArmazens;
 use App\Services\Logistica\ServicoConfigLogistica;
+use App\Services\Logistica\ServicoGuiasSaida;
 use App\Services\Logistica\ServicoInventario;
 use App\Services\Logistica\ServicoStock;
 use App\Support\Api\RespostaApi;
@@ -23,6 +26,7 @@ final class StockController extends Controller
         private readonly ServicoStock $stock,
         private readonly ServicoInventario $inventario,
         private readonly ServicoConfigLogistica $config,
+        private readonly ServicoGuiasSaida $guiasSaida,
     ) {}
 
     // ───────────── Armazéns ─────────────
@@ -108,6 +112,59 @@ final class StockController extends Controller
             isset($d['custo_unitario']) ? (string) $d['custo_unitario'] : null, $d['data'], "Ajuste manual: {$d['motivo']}", ['documento_tipo' => 'AJUSTE']);
 
         return RespostaApi::criado($res['movimento'], 'Ajuste de stock registado.');
+    }
+
+    // ───────────── Guias de saída (consumo interno) ─────────────
+
+    public function guias(Request $r): JsonResponse
+    {
+        $this->exigir('armazem_guias_view');
+        $f = $r->validate(['tipo' => ['nullable', 'in:VENDA,BACK_TO_BACK,CONSUMO'], 'armazem_id' => ['nullable', 'integer']]);
+
+        return RespostaApi::sucesso(GuiaSaida::query()->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))
+            ->when($f['armazem_id'] ?? null, fn ($q, $v) => $q->where('armazem_id', $v))->orderByDesc('data')->orderByDesc('id')->get(), 'Guias de saída.');
+    }
+
+    public function guia(int $guia): JsonResponse
+    {
+        $this->exigir('armazem_guias_view');
+        $g = GuiaSaida::query()->findOrFail($guia);
+
+        return RespostaApi::sucesso($g->toArray() + ['linhas' => ItemGuiaSaida::query()->where('guia_saida_id', $g->id)->orderBy('id')->get()], 'Guia de saída.');
+    }
+
+    public function emitirGuia(Request $r): JsonResponse
+    {
+        $this->exigir('armazem_guias_emitir');
+        $d = $r->validate(['armazem_id' => ['required', 'integer'], 'data' => ['required', 'date'], 'area_rececao' => ['required', 'string', 'max:255'],
+            'observacoes' => ['nullable', 'string', 'max:2000'], 'linhas' => ['required', 'array', 'min:1', 'max:500'], 'linhas.*.produto_id' => ['required', 'integer'],
+            'linhas.*.quantidade' => ['required', 'numeric', 'gt:0']]);
+        Armazem::query()->findOrFail($d['armazem_id']);
+
+        return RespostaApi::criado($this->guiasSaida->emitirConsumo($d), 'Guia de consumo emitida.');
+    }
+
+    public function contabilizarGuia(int $guia): JsonResponse
+    {
+        $this->exigir('armazem_guias_contab');
+
+        return RespostaApi::sucesso($this->guiasSaida->contabilizar(GuiaSaida::query()->findOrFail($guia)), 'Guia contabilizada.');
+    }
+
+    public function descontabilizarGuia(Request $r, int $guia): JsonResponse
+    {
+        $this->exigir('armazem_guias_contab');
+        $d = $r->validate(['motivo' => ['required', 'string', 'min:5', 'max:500']]);
+
+        return RespostaApi::sucesso($this->guiasSaida->descontabilizar(GuiaSaida::query()->findOrFail($guia), $d['motivo']), 'Guia descontabilizada (estorno).');
+    }
+
+    public function anularGuia(Request $r, int $guia): JsonResponse
+    {
+        $this->exigir('armazem_guias_anular');
+        $d = $r->validate(['motivo' => ['required', 'string', 'min:5', 'max:500']]);
+
+        return RespostaApi::sucesso($this->guiasSaida->anular(GuiaSaida::query()->findOrFail($guia), $d['motivo']), 'Guia anulada (stock reposto).');
     }
 
     // ───────────── Configuração ─────────────

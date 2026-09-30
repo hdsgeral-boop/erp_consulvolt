@@ -24,7 +24,7 @@ abstract class ItemVendaBase extends ModeloBase
     protected string $moduloAuditoria = 'Vendas';
 
     protected $fillable = [
-        'empresa_id', 'produto_id', 'quantidade', 'preco_unitario', 'taxa_imposto', 'total', 'venda_id', 'projeto_id', 'codigo_projeto', 'observacoes', 'quantidade_faturada', 'pedido_compra_id', 'quantidade_entregue', 'descricao', 'percentagem_desconto', 'total_linha', 'codigo_conta', 'preco_unitario_moeda', 'total_moeda', 'imposto_moeda', 'fe_selado',
+        'empresa_id', 'produto_id', 'quantidade', 'preco_unitario', 'taxa_imposto', 'total', 'venda_id', 'projeto_id', 'codigo_projeto', 'observacoes', 'quantidade_faturada', 'pedido_compra_id', 'quantidade_entregue', 'descricao', 'percentagem_desconto', 'total_linha', 'codigo_conta', 'preco_unitario_moeda', 'total_moeda', 'imposto_moeda', 'fe_selado', 'custo_unitario_kz', 'quantidade_stock', 'quantidade_devolvida',
     ];
 
     protected function casts(): array
@@ -47,6 +47,9 @@ abstract class ItemVendaBase extends ModeloBase
             'total_moeda' => 'decimal:2',
             'imposto_moeda' => 'decimal:2',
             'fe_selado' => 'boolean',
+            'custo_unitario_kz' => 'decimal:6',
+            'quantidade_stock' => 'decimal:3',
+            'quantidade_devolvida' => 'decimal:3',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

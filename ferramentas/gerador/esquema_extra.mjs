@@ -163,6 +163,14 @@ export const COLUNAS_NOVAS = {
     // ADR-030: assinatura SAF-T(AO) calculada na emissão (o legado gerava um hash falso na exportação)
     ['saft_hash', 'text', null, 'Assinatura RSA-SHA1 (base64) de "data;data entrada;n.º;total bruto;hash anterior"'],
     ['saft_hash_controlo', 'varchar(10)', null, 'Versão da chave usada na assinatura (HashControl); 0 = não assinado'],
+    // ADR-043: stock nas vendas (FT/FR/GR baixam; GD e NC de devolução repõem)
+    ['armazem_id', 'bigint', 'armazens', 'Armazém de onde sai (ou para onde volta) a mercadoria'],
+    ['devolucao_mercadoria', 'boolean', null, 'NC: a mercadoria volta ao stock (as NC de correcção de preço não mexem no stock)'],
+  ],
+  itens_venda: [
+    ['custo_unitario_kz', 'numeric(18,6)', null, 'Custo médio da saída/entrada de stock da linha (base do CMV)'],
+    ['quantidade_stock', 'numeric(12,3)', null, 'Quantidade que movimentou stock (0 numa FT gerada de uma GR)'],
+    ['quantidade_devolvida', 'numeric(12,3)', null, 'GR: quantidade já devolvida por guias de devolução'],
   ],
   // ADR-029: recibos com rasto de anulação, série e ligação à factura-recibo que os originou
   recibos_venda: [
@@ -272,6 +280,11 @@ export const COLUNAS_NOVAS = {
     ['imposto_moeda', 'numeric(15,2)', null, 'IVA da linha na moeda do documento'],
   ],
   itens_guia_saida: [['item_compra_id', 'bigint', 'itens_compra', 'Recepção: linha da encomenda recebida']],
+  guias_saida: [
+    ['observacoes', 'text', null, 'Observações'], ['criado_por', 'varchar(100)', null, 'Quem emitiu'],
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'Lançamento do consumo (D custo / C inventário)'],
+    ['anulado_em', 'timestamptz', null, 'Anulação (o legado apagava a guia)'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+  ],
   // ADR-005: org_type_id = -1 significa "Avençado"
   mapeamentos_contabeis_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
   mapeamentos_contabeis_sistema_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],

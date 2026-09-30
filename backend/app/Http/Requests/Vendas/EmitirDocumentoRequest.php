@@ -21,7 +21,7 @@ final class EmitirDocumentoRequest extends FormRequest
         $daEmpresa = fn (string $tabela) => Rule::exists($tabela, 'id')->where('empresa_id', $empresa);
 
         return [
-            'tipo_documento' => ['required', Rule::in(['FT', 'FR', 'NC', 'OR', 'PF', 'NE'])],
+            'tipo_documento' => ['required', Rule::in(['FT', 'FR', 'NC', 'OR', 'PF', 'NE', 'GR'])],   // a GD só se gera a partir de uma GR
             'cliente_id' => ['required', 'integer', Rule::exists('terceiros', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],
             'data_emissao' => ['required', 'date_format:Y-m-d'],
             'linhas' => ['required', 'array', 'min:1', 'max:500'],
@@ -49,6 +49,8 @@ final class EmitirDocumentoRequest extends FormRequest
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')],
             'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
             'projeto_id' => ['nullable', 'integer', $daEmpresa('projetos')],
+            'armazem_id' => ['nullable', 'integer', Rule::exists('armazens', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],
+            'devolucao_mercadoria' => ['nullable', 'boolean'],   // NC: a mercadoria volta ao stock
         ];
     }
 

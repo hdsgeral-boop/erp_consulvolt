@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T16:30:09.284Z",
+  "gerado_em": "2026-09-30T16:47:08.104Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -3834,6 +3834,27 @@
           "dominio": null
         },
         {
+          "coluna": "armazem_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "armazens",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "devolucao_mercadoria",
+          "legado": null,
+          "tipo": "boolean",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "estadias_hotel_ids_legado",
           "legado": "hotel_stay_ids",
           "tipo": "text",
@@ -4110,6 +4131,33 @@
           "tipo": "boolean",
           "nulo": true,
           "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "custo_unitario_kz",
+          "legado": null,
+          "tipo": "numeric(18,6)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "quantidade_stock",
+          "legado": null,
+          "tipo": "numeric(12,3)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "quantidade_devolvida",
+          "legado": null,
+          "tipo": "numeric(12,3)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -7979,6 +8027,19 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "VENDA",
+            "BACK_TO_BACK",
+            "CONSUMO"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "type",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -8020,6 +8081,19 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "CONCLUIDO",
+            "FATURADA",
+            "ANULADA"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -8066,6 +8140,51 @@
           "dominio": null
         },
         {
+          "coluna": "observacoes",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "numero_lan_contabilizacao",
+          "legado": null,
+          "tipo": "varchar(30)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "anulado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_anulacao",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -8093,7 +8212,10 @@
           "onde": null
         }
       ],
-      "checks": []
+      "checks": [
+        "ck_guias_saida_tipo",
+        "ck_guias_saida_estado"
+      ]
     },
     {
       "tabela": "itens_guia_saida",

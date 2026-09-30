@@ -107,6 +107,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::get('produtos/{produto}/extracto', 'extracto')->whereNumber('produto')->name('produtos.extracto');
                 Route::post('transferencias', 'transferir')->name('transferencias.store');
                 Route::post('ajustes', 'ajustar')->name('ajustes.store');
+                Route::get('guias-saida', 'guias')->name('guias.index');
+                Route::post('guias-saida', 'emitirGuia')->name('guias.store');
+                Route::get('guias-saida/{guia}', 'guia')->whereNumber('guia')->name('guias.show');
+                Route::post('guias-saida/{guia}/contabilizar', 'contabilizarGuia')->whereNumber('guia')->name('guias.contabilizar');
+                Route::post('guias-saida/{guia}/descontabilizar', 'descontabilizarGuia')->whereNumber('guia')->name('guias.descontabilizar');
+                Route::post('guias-saida/{guia}/anular', 'anularGuia')->whereNumber('guia')->name('guias.anular');
                 Route::get('configuracao/contas', 'contas')->name('configuracao.contas');
                 Route::put('configuracao/contas', 'definirContas')->name('configuracao.contas.definir');
                 Route::get('inventarios', 'sessoes')->name('inventarios.index');

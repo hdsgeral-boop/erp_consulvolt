@@ -916,3 +916,44 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - O catálogo de permissões passou a aceitar tarefas novas do sistema actual (`armazem_transferencia`).
 
 **Fica para a parte 2:** stock e CMV nos documentos de venda, guias de saída do armazém (VENDA, CONSUMO, BACK_TO_BACK) com numeração sem repetições e anulação por estorno, e ligação GR → FT.
+
+## ADR-043 — Logística parte 2: stock e CMV nas vendas, guias de remessa e devolução, guias de consumo
+
+**Stock nas vendas** (`ServicoStockVendas`), aplicando a decisão do utilizador (ADR-042):
+- **Saídas ao custo médio:** FT, FR e GR baixam o stock ao emitir.
+- **Casos sem nova baixa:**
+  - uma FT gerada de uma GR não volta a baixar;
+  - uma FT gerada de uma encomenda baixa só o que ainda não saiu por guia.
+- **Reposições:**
+  - a GD repõe ao custo da GR;
+  - a NC repõe ao custo da factura, mas só quando se indica `devolucao_mercadoria`. As NC de correcção de preço não mexem no stock.
+- **Movimento e custo gravados na linha:** a saída acontece antes de gravar cada linha, para o custo (`custo_unitario_kz`) e a quantidade movimentada (`quantidade_stock`) ficarem na linha desde a criação. As linhas dos documentos fiscais são imutáveis depois de seladas.
+- **Stock negativo permitido nas vendas**, como no legado, para um documento fiscal não ficar à espera do registo das entradas. Os negativos aparecem em Sistema › Validações. As guias de consumo, as transferências e os ajustes continuam a bloquear.
+- **Armazém:** o indicado, o da origem ou o predefinido. Uma empresa sem armazéns recebe automaticamente o «Armazém principal».
+- **Conversões:** NE → GR e GR → FT/GD, com as quantidades entregue, facturada e devolvida por linha.
+  - Uma FT de uma GR marca também a encomenda como facturada. No legado, a encomenda podia voltar a ser facturada.
+  - A origem só fica CONCLUIDA quando está totalmente facturada (ou, numa GR, facturada ou devolvida).
+- **Anulação de GR/GD:** repõe o stock e as quantidades da origem; se estiver contabilizada, exige estorno primeiro.
+
+**CMV em inventário permanente:**
+- As linhas D custo / C inventário (o inverso nas devoluções) entram no lançamento do próprio documento, com as contas do produto ou das contas da logística.
+- As GR e GD contabilizam só o CMV, no diário GR.
+- O CMV fica uma única vez em cada documento que movimentou stock.
+- Isto corrige três defeitos do legado:
+  - as facturas não tinham CMV;
+  - a guia do armazém e a «GR LOG» espelho podiam lançá-lo as duas;
+  - a GD gravada sem cedilha caía no ramo das facturas e lançava proveitos.
+
+**Guias de saída do armazém** (`ServicoGuiasSaida`):
+- As saídas para clientes passam a fazer-se pela GR das Vendas. As guias de VENDA e BACK_TO_BACK do legado migram só para consulta.
+- A guia de **consumo interno** dá saída ao custo médio e é contabilizada D custo / C inventário no diário GS.
+- **Correcções:**
+  - numeração `GE AAAA/NNNN` sem repetições, a partir do maior número já emitido (o legado contava as guias e apagava-as);
+  - linhas próprias da guia (no legado partilhavam a tabela com as recepções e apagavam-se umas às outras);
+  - o movimento tem sempre tipo e sentido;
+  - anular deixa a guia ANULADA e repõe o stock (o legado apagava-a); se estiver contabilizada, exige estorno primeiro.
+
+**Fica para depois:**
+- MovementOfGoods no SAF-T (GR/GD);
+- dados de transporte exigidos pela AGT (matrícula, locais e hora de carga e descarga), que o legado também não tinha;
+- o POS e a lavandaria, que passam a usar o mesmo motor de stock e CMV no respectivo módulo.

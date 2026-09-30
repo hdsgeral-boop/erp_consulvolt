@@ -93,6 +93,8 @@ return new class extends Migration
             $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento contabilístico gerado pela contabilização do documento');
             $table->text('saft_hash')->nullable()->comment('Assinatura RSA-SHA1 (base64) de "data;data entrada;n.º;total bruto;hash anterior"');
             $table->string('saft_hash_controlo', 10)->nullable()->comment('Versão da chave usada na assinatura (HashControl); 0 = não assinado');
+            $table->bigInteger('armazem_id')->nullable()->comment('Armazém de onde sai (ou para onde volta) a mercadoria');
+            $table->boolean('devolucao_mercadoria')->nullable()->comment('NC: a mercadoria volta ao stock (as NC de correcção de preço não mexem no stock)');
             $table->text('estadias_hotel_ids_legado')->nullable()->comment('legado: hotel_stay_ids · lista de ids do legado; normalizada em vendas_estadias_hotel');
             $table->text('documentos_relacionados_legado')->nullable()->comment('legado: related_doc_id · lista de ids do legado; normalizada em vendas_documentos_relacionados');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -110,6 +112,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_vendas_pedido_lavandaria_id ON vendas (pedido_lavandaria_id)');
         DB::statement('CREATE INDEX ix_vendas_oportunidade_crm_id ON vendas (oportunidade_crm_id)');
         DB::statement('CREATE INDEX ix_vendas_serie_faturacao_eletronica_id ON vendas (serie_faturacao_eletronica_id)');
+        DB::statement('CREATE INDEX ix_vendas_armazem_id ON vendas (armazem_id)');
         DB::statement('CREATE INDEX ix_vendas_empresa_id_data_emissao ON vendas (empresa_id, data_emissao)');
         DB::statement('CREATE INDEX ix_vendas_empresa_id_estado ON vendas (empresa_id, estado)');
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_tipo_documento CHECK (tipo_documento IS NULL OR tipo_documento IN (\'FT\',\'FR\',\'NC\',\'ND\',\'PF\',\'OR\',\'NE\',\'GR\',\'GD\'))');
@@ -141,6 +144,9 @@ return new class extends Migration
             $table->decimal('total_moeda', 15, 2)->nullable()->comment('legado: total_currency · tipos mistos: inteiro=5, decimal=2');
             $table->decimal('imposto_moeda', 15, 2)->nullable()->comment('legado: tax_currency · tipos mistos: inteiro=5, decimal=2');
             $table->boolean('fe_selado')->nullable()->comment('legado: fe_selado · do código legado js/facturacao_agt.js:459');
+            $table->decimal('custo_unitario_kz', 18, 6)->nullable()->comment('Custo médio da saída/entrada de stock da linha (base do CMV)');
+            $table->decimal('quantidade_stock', 12, 3)->nullable()->comment('Quantidade que movimentou stock (0 numa FT gerada de uma GR)');
+            $table->decimal('quantidade_devolvida', 12, 3)->nullable()->comment('GR: quantidade já devolvida por guias de devolução');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });

@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T16:28:03.497Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T16:47:06.163Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1678 |
+| Colunas reais mapeadas | 1680 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -91,6 +91,8 @@
 | `purchase_deliveries.status` | RECEBIDO, VALIDADO, ANULADO | RECEBIDO → RECEBIDO |
 | `purchase_invoices.status` | PENDENTE, PARCIAL, PAGO, ANULADA | PENDENTE → PENDENTE; PAGO → PAGO |
 | `inventory_movements.type` | ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE | SAÍDA → SAIDA; ENTRADA → ENTRADA |
+| `delivery_notes.type` | VENDA, BACK_TO_BACK, CONSUMO | VENDA → VENDA; BACK_TO_BACK → BACK_TO_BACK |
+| `delivery_notes.status` | CONCLUIDO, FATURADA, ANULADA | CONCLUIDO → CONCLUIDO |
 | `inventory_sessions.status` | EM_CONTAGEM, REVISAO, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
 | `infotypes.calculo_horas` | EXTRA, FALTA, NAO |  |
 | `rh_attendance.origem` | MANUAL, FICHEIRO, RELOGIO | FICHEIRO → FICHEIRO; MANUAL → MANUAL |
@@ -1059,11 +1061,13 @@ Linhas reais: **11** · fictícias descartadas: 16
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `doc_number` | `numero_documento` | varchar(30) | sim | 100% |  |  |
 | `date` | `data` | date | sim | 100% |  |  |
-| `type` | `tipo` | varchar(20) | sim | 100% |  |  |
+| `type` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {VENDA, BACK_TO_BACK, CONSUMO}; texto original em tipo_original |
+| `type` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `entity_id` | `terceiro_id` | bigint | sim | 73% | `terceiros.id` |  |
 | `warehouse_id` | `armazem_id` | bigint | sim | 100% | `armazens.id` |  |
 | `receiving_area` | `area_rececao` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {CONCLUIDO, FATURADA, ANULADA}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `related_sale_id` | `venda_relacionada_id` | bigint | sim | 55% | `vendas.id` |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `is_posted` | `contabilizado` | boolean | sim | 91% |  |  |

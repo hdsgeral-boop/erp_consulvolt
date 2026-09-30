@@ -27,14 +27,14 @@ use Illuminate\Support\Facades\DB;
  *     valores na moeda em *_moeda. Os valores em Kz são calculados com as regras AGT sobre o preço convertido
  *     (6 casas), para o documento fiscal ser coerente; a NC usa sempre o câmbio da factura de origem;
  *   - Hash SAF-T(AO) calculado na emissão, encadeado por série (ServicoHashSaft).
- * Guias (GR/GD) e baixa de stock chegam com o módulo Logística (movimentos de inventário).
+ * Guias (GR/GD) e stock (ADR-043, ServicoStockVendas): FT/FR/GR baixam, GD e NC de devolução repõem, CMV no lançamento.
  */
 final class ServicoDocumentosVenda
 {
     /** Conversões permitidas (convertDocument, js/ui_sales.js:2730), sem as que o legado não suportava. */
-    public const CONVERSOES = ['OR' => ['NE', 'FT'], 'PF' => ['NE', 'FT'], 'NE' => ['FT'], 'FT' => ['NC'], 'FR' => ['NC']];
+    public const CONVERSOES = ['OR' => ['NE', 'FT'], 'PF' => ['NE', 'FT'], 'NE' => ['GR', 'FT'], 'GR' => ['FT', 'GD'], 'FT' => ['NC'], 'FR' => ['NC']];
 
-    private const TIPOS_EMITIVEIS = ['FT', 'FR', 'NC', 'OR', 'PF', 'NE'];
+    private const TIPOS_EMITIVEIS = ['FT', 'FR', 'NC', 'OR', 'PF', 'NE', 'GR', 'GD'];
 
     public function __construct(
         private readonly ContextoEmpresa $contexto,
@@ -45,6 +45,7 @@ final class ServicoDocumentosVenda
         private readonly ServicoEstadoVenda $estado,
         private readonly ServicoCambios $cambios,
         private readonly ServicoHashSaft $hash,
+        private readonly ServicoStockVendas $stockVendas,
     ) {}
 
     /**
@@ -57,7 +58,7 @@ final class ServicoDocumentosVenda
         $empresa = $this->contexto->obrigatorio();
         $tipo = $d['tipo_documento'];
         if (! in_array($tipo, self::TIPOS_EMITIVEIS, true)) {
-            throw new ErroNegocio("Tipo de documento {$tipo} não emitível neste módulo (guias: módulo Logística).", 'TIPO_NAO_SUPORTADO', 422);
+            throw new ErroNegocio("Tipo de documento {$tipo} não emitível.", 'TIPO_NAO_SUPORTADO', 422);
         }
         $fiscal = in_array($tipo, Venda::FISCAIS, true);
         $data = substr($d['data_emissao'], 0, 10);
@@ -88,14 +89,16 @@ final class ServicoDocumentosVenda
             $origemNc = $tipo === 'NC' ? $this->validarNotaCredito($d, $cliente, $calculo['total_bruto']) : null;
             $reserva = $this->series->reservar($empresa, $tipo, $data, $fiscal, 'GERAL', $exigirSerieAgt);
             $bruto = $calculo['total_bruto'];
+            $armazem = $this->stockVendas->armazem(isset($d['armazem_id']) ? (int) $d['armazem_id'] : null, $origemConversao ?? $origemNc);
             $venda = Venda::create(array_merge([
                 'cliente_id' => $cliente->id, 'tipo_documento' => $tipo, 'numero_documento' => $reserva['numero_documento'],
                 'data_emissao' => $data.' '.now()->format('H:i:s'),
                 'total_liquido' => $calculo['total_liquido'], 'total_imposto' => $calculo['total_imposto'], 'total_bruto' => $bruto,
-                'valor_pago' => $tipo === 'FR' ? $bruto : '0.00', 'valor_pendente' => in_array($tipo, ['FR', 'NC'], true) ? '0.00' : $bruto,
+                'valor_pago' => $tipo === 'FR' ? $bruto : '0.00', 'valor_pendente' => in_array($tipo, ['FR', 'NC', 'GR', 'GD'], true) ? '0.00' : $bruto,
                 'estado' => match ($tipo) {
-                    'FR' => 'PAGO', 'NC' => 'CONCLUIDO', default => 'PENDENTE'
+                    'FR' => 'PAGO', 'NC', 'GD' => 'CONCLUIDO', default => 'PENDENTE'
                 },
+                'armazem_id' => $armazem, 'devolucao_mercadoria' => $tipo === 'NC' && ! empty($d['devolucao_mercadoria']),
                 'contabilizado' => false, 'codigo_moeda' => $moeda['codigo'],
                 'taxa_cambio' => $moeda['estrangeira'] ? $moeda['taxa'] : null, 'taxa_cambio_id' => $moeda['taxa_id'], 'taxa_cambio_manual' => $moeda['manual'],
                 'total_liquido_moeda' => $calculoMoeda['total_liquido'] ?? null, 'total_imposto_moeda' => $calculoMoeda['total_imposto'] ?? null,
@@ -109,8 +112,13 @@ final class ServicoDocumentosVenda
             ], $condicoes));
 
             $itens = new Collection;
+            $itensNc = $origemNc ? $origemNc->itensVenda()->orderBy('id')->get() : collect();
             foreach ($linhas as $i => $l) {
-                $itens->push(ItemVenda::create([
+                // linha de origem (conversão) ou, na NC directa, a linha da factura com o mesmo produto
+                $idOrigem = $d['linhas'][$i]['item_origem_id'] ?? null;
+                $itemOrigem = $idOrigem ? ItemVenda::query()->find($idOrigem) : $itensNc->firstWhere('produto_id', $l['produto_id']);
+                $stock = $this->stockVendas->movimentarLinha($venda, $l, $itemOrigem, $origemConversao ?? $origemNc, $armazem);
+                $itens->push(ItemVenda::create($stock + [
                     'venda_id' => $venda->id, 'produto_id' => $l['produto_id'], 'descricao' => $l['descricao'], 'quantidade' => $l['quantidade'],
                     'preco_unitario' => CalculadoraDocumento::arredondar($linhasKz[$i]['preco_unitario']), 'taxa_imposto' => $l['taxa_imposto'],
                     'total' => $calculo['linhas'][$i]['total'], 'total_linha' => $calculo['linhas'][$i]['valor'], 'observacoes' => $l['observacoes'] ?? null,
@@ -158,10 +166,15 @@ final class ServicoDocumentosVenda
         $itens = $origem->itensVenda()->orderBy('id')->get();
         $linhas = [];
         foreach ($itens as $i) {
-            $restante = $destino === 'NC' ? (float) $i->quantidade : (float) $i->quantidade - (float) $i->quantidade_faturada;
+            $restante = match (true) {
+                $destino === 'NC' => (float) $i->quantidade,
+                $destino === 'GR' => (float) $i->quantidade - (float) $i->quantidade_entregue,
+                $origem->tipo_documento === 'GR' => (float) $i->quantidade - (float) $i->quantidade_faturada - (float) $i->quantidade_devolvida,
+                default => (float) $i->quantidade - (float) $i->quantidade_faturada,
+            };
             if ($restante > 0.0005) {
                 $preco = $origem->codigo_moeda && $origem->codigo_moeda !== ServicoCambios::BASE && $i->preco_unitario_moeda !== null ? $i->preco_unitario_moeda : $i->preco_unitario;
-                $linhas[] = ['produto_id' => $i->produto_id, 'quantidade' => $restante, 'preco_unitario' => $preco, 'descricao' => $i->descricao, '_origem' => $i];
+                $linhas[] = ['produto_id' => $i->produto_id, 'quantidade' => $restante, 'preco_unitario' => $preco, 'descricao' => $i->descricao, 'item_origem_id' => $i->id, '_origem' => $i];
             }
         }
         if (! $linhas) {
@@ -178,13 +191,34 @@ final class ServicoDocumentosVenda
                 // a moeda passa ao documento gerado; o câmbio reavalia-se na nova data, salvo se era manual (cambioParaConversao)
                 'codigo_moeda' => $origem->codigo_moeda ?: ServicoCambios::BASE,
                 'taxa_cambio' => $origem->taxa_cambio_manual ? $origem->taxa_cambio : null,
-            ], array_intersect_key($extra, array_flip(['motivo_nota_credito', 'observacoes', 'modo_pagamento', 'plano_pagamentos']))), $destino === 'NC' ? null : $origem);
+            ], array_intersect_key($extra, array_flip(['motivo_nota_credito', 'observacoes', 'modo_pagamento', 'plano_pagamentos', 'armazem_id', 'devolucao_mercadoria']))),
+                $destino === 'NC' ? null : $origem);
 
             if ($destino !== 'NC') {
+                $campo = match ($destino) {
+                    'GR' => 'quantidade_entregue', 'GD' => 'quantidade_devolvida', default => 'quantidade_faturada'
+                };
                 foreach ($linhas as $l) {
-                    $l['_origem']->update(['quantidade_faturada' => (float) $l['_origem']->quantidade_faturada + (float) $l['quantidade']]);
+                    $l['_origem']->refresh()->update([$campo => (float) $l['_origem']->{$campo} + (float) $l['quantidade']]);
                 }
-                $origem->update(['estado' => 'CONCLUIDO']);
+                // FT de uma GR que veio de uma encomenda: a encomenda também fica facturada (senão podia voltar a ser facturada)
+                if ($origem->tipo_documento === 'GR' && in_array($destino, ['FT', 'FR'], true)) {
+                    $ne = Venda::query()->whereIn('id', DB::table('vendas_documentos_relacionados')->where('venda_id', $origem->id)->pluck('venda_relacionada_id'))
+                        ->where('tipo_documento', 'NE')->first();
+                    foreach ($ne ? $linhas : [] as $l) {
+                        $x = $ne->itensVenda()->where('produto_id', $l['produto_id'])->orderBy('id')->first();
+                        $x?->update(['quantidade_faturada' => (float) $x->quantidade_faturada + (float) $l['quantidade']]);
+                    }
+                    if ($ne && ! $ne->itensVenda()->get()->contains(fn ($x) => (float) $x->quantidade - (float) $x->quantidade_faturada > 0.0005)) {
+                        $ne->update(['estado' => 'CONCLUIDO']);
+                    }
+                }
+                // concluído quando tudo foi facturado (ou, numa GR, facturado ou devolvido)
+                $pendente = $origem->itensVenda()->get()->contains(fn ($x) => (float) $x->quantidade - (float) $x->quantidade_faturada
+                    - ($origem->tipo_documento === 'GR' ? (float) $x->quantidade_devolvida : 0) > 0.0005);
+                if (! $pendente) {
+                    $origem->update(['estado' => 'CONCLUIDO']);
+                }
             }
 
             return $nova;
@@ -197,12 +231,33 @@ final class ServicoDocumentosVenda
         if ($venda->eFiscal()) {
             throw new ErroNegocio('Documentos fiscais não se anulam: emita uma nota de crédito.', 'DOCUMENTO_SELADO', 422);
         }
-        if ($venda->estado === 'CONCLUIDO' || $venda->itensVenda()->where('quantidade_faturada', '>', 0)->exists()) {
+        if (($venda->estado === 'CONCLUIDO' && $venda->tipo_documento !== 'GD')
+            || $venda->itensVenda()->where(fn ($q) => $q->where('quantidade_faturada', '>', 0)->orWhere('quantidade_devolvida', '>', 0))->exists()) {
             throw new ErroNegocio('O documento já foi convertido: não pode ser anulado.', 'DOCUMENTO_CONVERTIDO', 422);
         }
-        $venda->update(['estado' => 'ANULADO', 'valor_pendente' => '0.00']);
+        if ($venda->estado === 'ANULADO') {
+            throw new ErroNegocio('O documento já está anulado.', 'DOCUMENTO_ANULADO', 422);
+        }
+        if ($venda->contabilizado) {
+            throw new ErroNegocio('A guia está contabilizada: descontabilize-a primeiro (estorno).', 'DOCUMENTO_CONTABILIZADO', 422);
+        }
 
-        return $venda;
+        return DB::transaction(function () use ($venda) {
+            if (in_array($venda->tipo_documento, ['GR', 'GD'], true)) {
+                $this->stockVendas->reverter($venda, 'anulação');
+                // a origem (encomenda da GR, GR da GD) volta a ter a quantidade por entregar/devolver
+                $origem = Venda::query()->whereIn('id', DB::table('vendas_documentos_relacionados')->where('venda_id', $venda->id)->pluck('venda_relacionada_id'))->first();
+                $campo = $venda->tipo_documento === 'GR' ? 'quantidade_entregue' : 'quantidade_devolvida';
+                foreach ($origem ? $venda->itensVenda()->get() : [] as $i) {
+                    $o = $origem->itensVenda()->where('produto_id', $i->produto_id)->where($campo, '>', 0)->orderBy('id')->first();
+                    $o?->update([$campo => max(0, (float) $o->{$campo} - (float) $i->quantidade)]);
+                }
+                $origem?->estado === 'CONCLUIDO' && $origem->update(['estado' => 'PENDENTE']);
+            }
+            $venda->update(['estado' => 'ANULADO', 'valor_pendente' => '0.00']);
+
+            return $venda;
+        });
     }
 
     /**

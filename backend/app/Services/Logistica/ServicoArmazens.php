@@ -54,6 +54,12 @@ final class ServicoArmazens
         return Armazem::query()->where('predefinido', true)->first() ?? Armazem::query()->orderBy('id')->first();
     }
 
+    /** O predefinido; uma empresa sem armazéns recebe o «Armazém principal» (a venda de artigos de stock não fica bloqueada). */
+    public function garantirPredefinido(): Armazem
+    {
+        return $this->predefinido() ?? Armazem::create(['nome' => 'Armazém principal', 'codigo' => 'PRINCIPAL', 'predefinido' => true]);
+    }
+
     /** Stock por armazém e produto, com custo médio, valor e alerta de ruptura. */
     public function stock(?int $armazem = null, bool $soComStock = false): array
     {

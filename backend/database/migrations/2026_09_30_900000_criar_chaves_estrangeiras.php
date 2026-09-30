@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (499) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (500) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -76,6 +76,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT fk_vendas_pedido_lavandaria_id FOREIGN KEY (pedido_lavandaria_id) REFERENCES pedidos_lavandaria (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT fk_vendas_oportunidade_crm_id FOREIGN KEY (oportunidade_crm_id) REFERENCES oportunidades_venda_crm (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT fk_vendas_serie_faturacao_eletronica_id FOREIGN KEY (serie_faturacao_eletronica_id) REFERENCES series_faturacao_eletronica (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE vendas ADD CONSTRAINT fk_vendas_armazem_id FOREIGN KEY (armazem_id) REFERENCES armazens (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_venda ADD CONSTRAINT fk_itens_venda_produto_id FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_venda ADD CONSTRAINT fk_itens_venda_venda_id FOREIGN KEY (venda_id) REFERENCES vendas (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_venda ADD CONSTRAINT fk_itens_venda_projeto_id FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -579,6 +580,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE vendas DROP CONSTRAINT IF EXISTS fk_vendas_pedido_lavandaria_id');
         DB::statement('ALTER TABLE vendas DROP CONSTRAINT IF EXISTS fk_vendas_oportunidade_crm_id');
         DB::statement('ALTER TABLE vendas DROP CONSTRAINT IF EXISTS fk_vendas_serie_faturacao_eletronica_id');
+        DB::statement('ALTER TABLE vendas DROP CONSTRAINT IF EXISTS fk_vendas_armazem_id');
         DB::statement('ALTER TABLE itens_venda DROP CONSTRAINT IF EXISTS fk_itens_venda_produto_id');
         DB::statement('ALTER TABLE itens_venda DROP CONSTRAINT IF EXISTS fk_itens_venda_venda_id');
         DB::statement('ALTER TABLE itens_venda DROP CONSTRAINT IF EXISTS fk_itens_venda_projeto_id');

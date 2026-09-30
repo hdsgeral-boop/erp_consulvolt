@@ -65,15 +65,16 @@ final class DocumentoVendaController extends Controller
         return RespostaApi::criado($this->detalhe($venda), "Documento {$venda->numero_documento} emitido com sucesso.");
     }
 
-    /** POST /{id}/converter — OR/PF → NE/FT, NE → FT, FT/FR → NC. */
+    /** POST /{id}/converter — OR/PF → NE/FT, NE → GR/FT, GR → FT/GD, FT/FR → NC. */
     public function converter(Request $request, int $venda): JsonResponse
     {
         $this->exigir('vendas_fat_emitir');
         $d = $request->validate([
-            'tipo_destino' => ['required', Rule::in(['NE', 'FT', 'NC'])],
+            'tipo_destino' => ['required', Rule::in(['NE', 'FT', 'NC', 'GR', 'GD'])],
             'data_emissao' => ['nullable', 'date_format:Y-m-d'],
             'motivo_nota_credito' => ['required_if:tipo_destino,NC', 'nullable', 'string', 'max:200'],
             'ignorar_validade' => ['nullable', 'boolean'], 'observacoes' => ['nullable', 'string', 'max:4000'],
+            'armazem_id' => ['nullable', 'integer'], 'devolucao_mercadoria' => ['nullable', 'boolean'],
         ]);
         $nova = $this->documentos->converter(Venda::query()->findOrFail($venda), $d['tipo_destino'], $d);
 

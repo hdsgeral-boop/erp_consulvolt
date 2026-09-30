@@ -46,6 +46,8 @@ export const NORMALIZACOES = {
   // ── Logística ──
   'inventory_movements.type': { dominio: ['ENTRADA', 'SAIDA', 'TRANSFERENCIA', 'AJUSTE'], mapa: {
     ENTRADA: 'ENTRADA', SAIDA: 'SAIDA', TRANSFERENCIA: 'TRANSFERENCIA', AJUSTE: 'AJUSTE' } },
+  'delivery_notes.type': { dominio: ['VENDA', 'BACK_TO_BACK', 'CONSUMO'], mapa: { VENDA: 'VENDA', 'BACK TO BACK': 'BACK_TO_BACK', CONSUMO: 'CONSUMO' } },
+  'delivery_notes.status': { dominio: ['CONCLUIDO', 'FATURADA', 'ANULADA'], mapa: { CONCLUIDO: 'CONCLUIDO', FATURADA: 'FATURADA', ANULADA: 'ANULADA' } },
   'inventory_sessions.status': { dominio: ['EM_CONTAGEM', 'REVISAO', 'CONCLUIDA', 'ANULADA'], mapa: {
     'EM CONTAGEM': 'EM_CONTAGEM', REVISAO: 'REVISAO', CONCLUIDA: 'CONCLUIDA', ANULADA: 'ANULADA' } },
 

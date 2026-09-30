@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T16:28:03.497Z",
+  "gerado_em": "2026-09-30T16:47:06.163Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -7702,7 +7702,33 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 12,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {VENDA, BACK_TO_BACK, CONSUMO}; texto original em tipo_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "VENDA",
+              "BACK_TO_BACK",
+              "CONSUMO"
+            ],
+            "mapa": {
+              "VENDA": "VENDA",
+              "BACK TO BACK": "BACK_TO_BACK",
+              "CONSUMO": "CONSUMO"
+            }
+          }
+        },
+        {
+          "legado": "type",
+          "pt": "tipo_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 12,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "entity_id",
@@ -7756,7 +7782,33 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 9,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {CONCLUIDO, FATURADA, ANULADA}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "CONCLUIDO",
+              "FATURADA",
+              "ANULADA"
+            ],
+            "mapa": {
+              "CONCLUIDO": "CONCLUIDO",
+              "FATURADA": "FATURADA",
+              "ANULADA": "ANULADA"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 9,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "related_sale_id",
