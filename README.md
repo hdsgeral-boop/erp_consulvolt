@@ -133,6 +133,10 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST | `/api/rh/assiduidade/meses/{AAAA-MM}` · POST `/detectar-faltas` · `/fechar` · `/reabrir` · GET `/fechos` | Apuramento e fecho mensal |
 | GET/POST | `/api/rh/assiduidade/ausencias` · POST `/{id}/justificar` · `/decidir` · `/cancelar` · GET `/tipos-ausencia` | Ausências (Lei 12/23) |
 | POST | `/api/rh/salarios/periodos/{id}/importar-efectividade` | Horas extra e de falta do mês fechado → processamento |
+| GET/POST/PUT/DELETE | `/api/rh/ferias[/{id}]` · POST `/{id}/estado` | Plano de férias, direito e saldo |
+| GET/POST/PUT/DELETE | `/api/rh/produtividade/itens[/{id}]` | Itens do subsídio de produtividade |
+| GET/POST/PUT | `/api/rh/produtividade/periodos[/{id}]` · POST `/fechar` · `/reabrir` · `/registos[/{registo}]` | Períodos e registos de produtividade |
+| POST | `/api/rh/salarios/periodos/{id}/importar-produtividade` | Produtividade do período fechado → processamento |
 | GET/POST/PUT/DELETE | `/api/logistica/categorias-produtos[/{id}]` | Categorias de produtos |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |

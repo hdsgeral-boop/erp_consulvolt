@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\RH\AssiduidadeController;
 use App\Http\Controllers\Api\RH\CadastrosRHController;
 use App\Http\Controllers\Api\RH\ColaboradorController;
 use App\Http\Controllers\Api\RH\ContratoTrabalhoController;
+use App\Http\Controllers\Api\RH\FeriasProdutividadeController;
 use App\Http\Controllers\Api\RH\FolhaSalarialController;
 use App\Http\Controllers\Api\RH\PagamentoSalariosController;
 use App\Http\Controllers\Api\SaudeController;
@@ -279,6 +280,28 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('ausencias/{ausencia}/cancelar', 'cancelar')->whereNumber('ausencia')->name('ausencias.cancelar');
         });
         Route::post('rh/salarios/periodos/{id}/importar-efectividade', [AssiduidadeController::class, 'lancar'])->whereNumber('id')->name('rh.salarios.importar-efectividade');
+
+        Route::prefix('rh')->name('rh.')->controller(FeriasProdutividadeController::class)->group(function () {
+            Route::get('ferias', 'ferias')->name('ferias.index');
+            Route::post('ferias', 'gravarFerias')->name('ferias.store');
+            Route::put('ferias/{periodo}', 'gravarFerias')->whereNumber('periodo')->name('ferias.update');
+            Route::post('ferias/{periodo}/estado', 'estadoFerias')->whereNumber('periodo')->name('ferias.estado');
+            Route::delete('ferias/{periodo}', 'eliminarFerias')->whereNumber('periodo')->name('ferias.destroy');
+            Route::get('produtividade/itens', 'itens')->name('produtividade.itens.index');
+            Route::post('produtividade/itens', 'gravarItem')->name('produtividade.itens.store');
+            Route::put('produtividade/itens/{item}', 'gravarItem')->whereNumber('item')->name('produtividade.itens.update');
+            Route::delete('produtividade/itens/{item}', 'eliminarItem')->whereNumber('item')->name('produtividade.itens.destroy');
+            Route::get('produtividade/periodos', 'periodos')->name('produtividade.periodos.index');
+            Route::post('produtividade/periodos', 'gravarPeriodo')->name('produtividade.periodos.store');
+            Route::get('produtividade/periodos/{periodo}', 'periodo')->whereNumber('periodo')->name('produtividade.periodos.show');
+            Route::put('produtividade/periodos/{periodo}', 'gravarPeriodo')->whereNumber('periodo')->name('produtividade.periodos.update');
+            Route::post('produtividade/periodos/{periodo}/fechar', 'fecharPeriodo')->whereNumber('periodo')->name('produtividade.periodos.fechar');
+            Route::post('produtividade/periodos/{periodo}/reabrir', 'reabrirPeriodo')->whereNumber('periodo')->name('produtividade.periodos.reabrir');
+            Route::post('produtividade/periodos/{periodo}/registos', 'gravarRegisto')->whereNumber('periodo')->name('produtividade.registos.store');
+            Route::put('produtividade/periodos/{periodo}/registos/{registo}', 'gravarRegisto')->whereNumber(['periodo', 'registo'])->name('produtividade.registos.update');
+            Route::delete('produtividade/periodos/{periodo}/registos/{registo}', 'eliminarRegisto')->whereNumber(['periodo', 'registo'])->name('produtividade.registos.destroy');
+        });
+        Route::post('rh/salarios/periodos/{id}/importar-produtividade', [FeriasProdutividadeController::class, 'lancar'])->whereNumber('id')->name('rh.salarios.importar-produtividade');
 
         Route::prefix('rh')->name('rh.')->group(function () {
             Route::controller(ColaboradorController::class)->group(function () {

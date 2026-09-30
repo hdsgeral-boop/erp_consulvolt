@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\Colaborador;
 use App\Models\ContratoTrabalho;
 use App\Models\InfotipoSalarial;
+use App\Models\ItemProdutividadeRH;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -54,7 +55,13 @@ final class ServicoContratosTrabalho
                 'horas_por_dia' => (string) ($d['horas_por_dia'] ?? $c?->horas_por_dia ?? 8), 'data_inicio' => $inicio, 'data_fim' => $fim,
                 'estado' => $d['estado'] ?? $c?->estado ?? 'ACTIVO', 'codigo_moeda' => strtoupper((string) ($d['codigo_moeda'] ?? $c?->codigo_moeda ?? 'AOA'))];
             if (array_key_exists('produtividade', $d)) {
-                $dados['produtividade'] = $d['produtividade'];
+                $ids = array_map(fn ($x) => (int) $x['item_id'], $d['produtividade'] ?? []);
+                if (count($ids) !== count(array_unique($ids)) || ItemProdutividadeRH::query()->whereKey($ids)->count() !== count(array_unique($ids))) {
+                    throw new ErroNegocio('Itens de produtividade inválidos ou repetidos no contrato.', 'ITEM_PRODUTIVIDADE_INVALIDO', 422);
+                }
+                // mantêm-se os itens entretanto desactivados (o legado retirava-os ao gravar o contrato)
+                $dados['produtividade'] = array_map(fn ($x) => ['item_id' => (int) $x['item_id'], 'preco_unitario' => isset($x['preco_unitario']) && (float) $x['preco_unitario'] > 0
+                    ? (float) $x['preco_unitario'] : null], $d['produtividade'] ?? []);
             }
             $c ? $c->update($dados) : $c = ContratoTrabalho::create($dados);
 

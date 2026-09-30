@@ -705,3 +705,42 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - O domínio de `remunerada` passa a SIM/NAO/EMPREGADOR.
 
 **Fica para depois:** leitura directa do relógio biométrico por URL (o endereço já se configura), e o circuito chefia → RH no portal (RH parte 3).
+
+## ADR-039 — RH parte 2b: férias e subsídio de produtividade
+
+**Férias** (`ServicoFerias`, `js/modules/rh/ferias.js`):
+- Mantém do legado:
+  - direito por colaborador e ano, 22 dias úteis por omissão;
+  - gravar o direito aplica-o a todos os períodos desse ano;
+  - saldo = direito − dias marcados, sem contar os cancelados;
+  - estados PEDIDO (portal), PLANEADO, APROVADO, GOZADO e CANCELADO;
+  - nada se altera enquanto o pedido do portal estiver pendente;
+  - só as férias APROVADAS ou GOZADAS contam como ausência na assiduidade.
+- Correcções:
+  - os dias úteis vêm do calendário da empresa (ADR-038). O legado usava segunda a sexta fixos e ignorava os feriados;
+  - a sobreposição com outras férias ou com ausências é recusada (no RH o legado só pedia confirmação);
+  - exceder o direito exige `confirmar_excesso`, que corresponde à confirmação do legado;
+  - GOZADO só depois de as férias terminarem; PEDIDO só pelo portal;
+  - o direito é lido sempre da mesma forma. O legado usava registos diferentes no portal e no RH;
+  - um período vindo do portal não se elimina: cancela-se, para não deixar o pedido a apontar para o vazio.
+- Nos dados reais, os dias dos 3 períodos confirmados neste ensaio são iguais aos do legado (não há feriados configurados).
+
+**Produtividade** (`ServicoProdutividade`, `js/modules/rh/produtividade.js`):
+- Mantém do legado:
+  - itens com código único, métrica, preço > 0 (4 casas), rubrica de VENCIMENTO e mínimo/máximo;
+  - períodos por mês com janela de medição de até 93 dias, sem sobreposição, sem registos fora da janela, e fechar/reabrir com motivo e o processamento aberto;
+  - registos só para quem tem o item no contrato;
+  - preço do contrato (se > 0) ou do item, fixado no registo;
+  - um item em uso não se elimina, desactiva-se;
+  - o lançamento no processamento exige o período FECHADO e o processamento ABERTO, com a opção «substituir».
+- Correcções:
+  - **o mínimo e o máximo aplicam-se ao total** do colaborador no item e no período. O legado aplicava-os a cada registo, e dividir as quantidades em registos diários contornava o tecto;
+  - a quantidade considerada reparte-se pelos registos na proporção da quantidade;
+  - um registo por (colaborador, item, data) também na introdução manual;
+  - elegibilidade: colaborador ACTIVO com contrato válido na janela;
+  - gravar o contrato mantém os itens desactivados (o legado retirava-os) e valida os itens;
+  - lançar exige `calcular_folha` e retira os lançamentos de produtividade que deixaram de ter valor (`origem = PRODUTIVIDADE`).
+- Nos dados reais, o período de 09/2026 recalculado dá 489 250,00, o mesmo que o fecho do legado e que o valor lançado na folha.
+- Tipos corrigidos (tabelas quase sem dados): mínimo e máximo passam de texto a numérico, o preço fica com 4 casas e a data do registo passa a data. O `period_id` do período passa a FK para o processamento salarial.
+
+**Fica para depois:** importação Excel da produtividade (a chave NIF + item + data está pronta no serviço), acumulação, pro rata e transporte de férias, e subsídio de férias. O legado não tinha nenhum destes três.
