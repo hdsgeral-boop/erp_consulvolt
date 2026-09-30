@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
 use App\Http\Controllers\Api\RH\AssiduidadeController;
+use App\Http\Controllers\Api\RH\AvaliacaoController;
 use App\Http\Controllers\Api\RH\CadastrosRHController;
 use App\Http\Controllers\Api\RH\ColaboradorController;
 use App\Http\Controllers\Api\RH\ContratoTrabalhoController;
@@ -335,6 +336,41 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('modelos', 'modelos')->name('modelos.index');
             Route::put('modelos', 'gravarModelo')->name('modelos.gravar');
             Route::delete('modelos/{codigo}', 'reporModelo')->where('codigo', '[A-Z0-9_]+')->name('modelos.repor');
+        });
+
+        Route::prefix('rh/avaliacao')->name('rh.avaliacao.')->controller(AvaliacaoController::class)->group(function () {
+            Route::get('itens', 'itens')->name('itens.index');
+            Route::post('itens', 'guardarItem')->name('itens.store');
+            Route::put('itens/{item}', 'guardarItem')->whereNumber('item')->name('itens.update');
+            Route::delete('itens/{item}', 'eliminarItem')->whereNumber('item')->name('itens.destroy');
+            Route::get('avaliacoes', 'avaliacoes')->name('avaliacoes.index');
+            Route::post('avaliacoes', 'gravar')->name('avaliacoes.gravar');
+            Route::post('avaliacoes/{avaliacao}/reabrir', 'reabrir')->whereNumber('avaliacao')->name('avaliacoes.reabrir');
+            Route::delete('avaliacoes/{avaliacao}', 'eliminar')->whereNumber('avaliacao')->name('avaliacoes.destroy');
+            Route::post('avaliacoes/{avaliacao}/conhecimento', 'conhecimento')->whereNumber('avaliacao')->name('avaliacoes.conhecimento');
+            Route::post('avaliacoes/{avaliacao}/contestar', 'contestar')->whereNumber('avaliacao')->name('avaliacoes.contestar');
+            Route::post('avaliacoes/{avaliacao}/parecer', 'parecer')->whereNumber('avaliacao')->name('avaliacoes.parecer');
+            Route::post('avaliacoes/{avaliacao}/decidir-contestacao', 'decidirContestacao')->whereNumber('avaliacao')->name('avaliacoes.decidir');
+            Route::get('avaliacoes/{avaliacao}/resultado-360', 'resultado360')->whereNumber('avaliacao')->name('avaliacoes.resultado360');
+            Route::get('ciclos', 'ciclos')->name('ciclos.index');
+            Route::post('ciclos', 'gravarCiclo')->name('ciclos.store');
+            Route::put('ciclos/{ciclo}', 'gravarCiclo')->whereNumber('ciclo')->name('ciclos.update');
+            Route::post('ciclos/{ciclo}/abrir', 'abrirCiclo')->whereNumber('ciclo')->name('ciclos.abrir');
+            Route::post('ciclos/{ciclo}/fechar', 'fecharCiclo')->whereNumber('ciclo')->name('ciclos.fechar');
+            Route::post('ciclos/{ciclo}/confirmar-comunicado', 'confirmarComunicado')->whereNumber('ciclo')->name('ciclos.comunicado');
+            Route::get('ciclos/{ciclo}/bonificacoes', 'bonificacoes')->whereNumber('ciclo')->name('bonificacoes.index');
+            Route::post('ciclos/{ciclo}/bonificacoes/calcular', 'calcularBonificacoes')->whereNumber('ciclo')->name('bonificacoes.calcular');
+            Route::post('ciclos/{ciclo}/bonificacoes/aprovar', 'aprovarBonificacoes')->whereNumber('ciclo')->name('bonificacoes.aprovar');
+            Route::post('ciclos/{ciclo}/bonificacoes/lancar', 'lancarBonificacoes')->whereNumber('ciclo')->name('bonificacoes.lancar');
+            Route::post('bonificacoes/{bonificacao}/anular', 'anularBonificacao')->whereNumber('bonificacao')->name('bonificacoes.anular');
+            Route::post('feedbacks', 'registarFeedback')->name('feedbacks.store');
+            Route::post('feedbacks/{feedback}/confirmar', 'confirmarFeedback')->whereNumber('feedback')->name('feedbacks.confirmar');
+            Route::get('360/tarefas', 'tarefas360')->name('360.tarefas');
+            Route::post('360/respostas', 'responder360')->name('360.responder');
+            Route::get('autoavaliacao', 'autoavaliacao')->name('autoavaliacao.show');
+            Route::put('autoavaliacao', 'gravarAutoavaliacao')->name('autoavaliacao.gravar');
+            Route::post('ascendente', 'responderAscendente')->name('ascendente.responder');
+            Route::get('ascendente/{colaborador}', 'resultadosAscendente')->whereNumber('colaborador')->name('ascendente.resultados');
         });
 
         Route::prefix('rh')->name('rh.')->group(function () {

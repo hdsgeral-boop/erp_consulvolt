@@ -21,7 +21,7 @@ abstract class AutoavaliacaoColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'ano', 'periodo', 'criterios', 'objetivos', 'realizacoes', 'dificuldades', 'formacao', 'estado', 'submetida_em',
+        'empresa_id', 'colaborador_id', 'ano', 'periodo', 'criterios', 'objetivos', 'realizacoes', 'dificuldades', 'formacao', 'estado', 'estado_original', 'submetida_em',
     ];
 
     protected function casts(): array

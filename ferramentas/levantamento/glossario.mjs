@@ -405,7 +405,20 @@ export const GLOSSARIO = {
 export const TIPOS_FORCADOS = {
   'audit_logs.company_id': 'bigint',
   'infotypes.calculo_horas': 'varchar(10)',
-  'org_units.utilizador_responsavel': 'varchar(100)', 'rh_doc_templates.codigo': 'varchar(50)',
+  'org_units.utilizador_responsavel': 'varchar(100)',
+  // RH parte 3b: avaliação (tabelas vazias no backup — tipos do código estavam errados)
+  'rh_evaluations.ano': 'integer', 'rh_evaluations.periodo': 'varchar(10)', 'rh_evaluations.criterios': 'jsonb', 'rh_evaluations.objectivos': 'jsonb',
+  'rh_evaluations.peso_objectivos': 'numeric(5,2)', 'rh_evaluations.pontuacao': 'numeric(5,2)', 'rh_evaluations.pontuacao_criterios': 'numeric(5,2)',
+  'rh_evaluations.pontuacao_objectivos': 'numeric(5,2)', 'rh_evaluations.classificacao': 'varchar(30)', 'rh_evaluations.status': 'varchar(20)',
+  'rh_evaluations.pontos_fortes': 'text', 'rh_evaluations.pontos_melhorar': 'text', 'rh_evaluations.plano_desenvolvimento': 'text',
+  'rh_evaluations.nota_360': 'numeric(5,2)', 'rh_evaluations.classificacao_360': 'varchar(30)', 'rh_evaluations.componentes_360': 'jsonb',
+  'rh_evaluations.avisos_360': 'jsonb', 'rh_evaluations.conhecimento': 'jsonb', 'rh_evaluations.contestacao': 'jsonb',
+  'rh_evaluation_items.meta': 'numeric(15,3)',
+  'rh_eval_bonus.metodo': 'varchar(20)', 'rh_eval_bonus.classificacao': 'varchar(30)', 'rh_eval_bonus.nota': 'numeric(5,2)', 'rh_eval_bonus.base': 'numeric(15,2)',
+  'rh_eval_bonus.estado': 'varchar(20)', 'rh_eval_bonus.avaliacao_id': 'bigint', 'rh_eval_bonus.period_id': 'bigint',
+  'rh_eval_feedback.acordos': 'text',
+  'rh_upward_participation.ano': 'integer', 'rh_upward_participation.periodo': 'varchar(10)',
+  'rh_upward_responses.ano': 'integer', 'rh_upward_responses.periodo': 'varchar(10)', 'rh_upward_responses.respostas': 'jsonb', 'rh_doc_templates.codigo': 'varchar(50)',
   // RH parte 2 (tabelas quase sem dados no backup: tipos inferidos do código estavam errados)
   'rh_attendance_config.dias_uteis': 'jsonb', 'rh_attendance_config.feriados': 'jsonb', 'rh_attendance_config.arredondamento_min': 'integer',
   'rh_attendance_config.modo_compensacao': 'varchar(10)', 'rh_attendance_config.extra_nao_util_exige_autorizacao': 'boolean',
@@ -446,6 +459,7 @@ export const SOBREPOSICOES = {
   // fecho da assiduidade e período de produtividade: period_id é o processamento salarial onde foram lançados
   rh_attendance_closures: { period_id: ['periodo_processamento_salarial_id', 'payroll_periods'] },
   rh_prod_periods: { period_id: ['periodo_processamento_salarial_id', 'payroll_periods'] },
+  rh_eval_bonus: { period_id: ['periodo_processamento_salarial_id', 'payroll_periods'], avaliacao_id: ['avaliacao_desempenho_id', 'rh_evaluations'] },
   purchase_contract_milestones: { contract_id: ['contrato_fornecedor_id', 'purchase_contracts'] },
   lav_claims: { order_id: ['pedido_lavandaria_id', 'lav_orders'] },
   project_documents: { type_id: ['tipo_documento_id', 'document_types'] },

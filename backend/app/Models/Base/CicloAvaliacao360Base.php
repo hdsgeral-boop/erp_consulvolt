@@ -26,7 +26,7 @@ abstract class CicloAvaliacao360Base extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'nome', 'ano', 'periodo', 'data_inicio', 'data_fim', 'estado', 'prazos', 'pesos', 'minimo_anonimato', 'max_pares', 'feedback', 'bonificacao', 'comunicado', 'atualizado_por', 'criado_por', 'participantes', 'criterios', 'aberto_em', 'aberto_por', 'fechado_em', 'fechado_por',
+        'empresa_id', 'nome', 'ano', 'periodo', 'data_inicio', 'data_fim', 'estado', 'estado_original', 'prazos', 'pesos', 'minimo_anonimato', 'max_pares', 'feedback', 'bonificacao', 'comunicado', 'atualizado_por', 'criado_por', 'participantes', 'criterios', 'aberto_em', 'aberto_por', 'fechado_em', 'fechado_por',
     ];
 
     protected function casts(): array

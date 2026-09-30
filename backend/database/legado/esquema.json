@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T15:47:52.546Z",
+  "gerado_em": "2026-09-30T15:52:52.784Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -12144,7 +12144,7 @@
         {
           "coluna": "nota_360",
           "legado": "nota_360",
-          "tipo": "varchar(255)",
+          "tipo": "numeric(5,2)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12153,7 +12153,7 @@
         {
           "coluna": "classificacao_360",
           "legado": "classificacao_360",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12162,7 +12162,7 @@
         {
           "coluna": "componentes_360",
           "legado": "componentes_360",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12171,7 +12171,7 @@
         {
           "coluna": "avisos_360",
           "legado": "avisos_360",
-          "tipo": "date",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12189,7 +12189,7 @@
         {
           "coluna": "conhecimento",
           "legado": "conhecimento",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12207,7 +12207,7 @@
         {
           "coluna": "contestacao",
           "legado": "contestacao",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12228,7 +12228,7 @@
         {
           "coluna": "ano",
           "legado": "ano",
-          "tipo": "varchar(255)",
+          "tipo": "integer",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12237,7 +12237,7 @@
         {
           "coluna": "periodo",
           "legado": "periodo",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(10)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12246,7 +12246,7 @@
         {
           "coluna": "criterios",
           "legado": "criterios",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12255,7 +12255,7 @@
         {
           "coluna": "objetivos",
           "legado": "objectivos",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12264,7 +12264,7 @@
         {
           "coluna": "peso_objetivos",
           "legado": "peso_objectivos",
-          "tipo": "numeric(9,4)",
+          "tipo": "numeric(5,2)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12273,7 +12273,7 @@
         {
           "coluna": "pontuacao",
           "legado": "pontuacao",
-          "tipo": "varchar(255)",
+          "tipo": "numeric(5,2)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12282,7 +12282,7 @@
         {
           "coluna": "pontuacao_criterios",
           "legado": "pontuacao_criterios",
-          "tipo": "varchar(255)",
+          "tipo": "numeric(5,2)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12291,7 +12291,7 @@
         {
           "coluna": "pontuacao_objetivos",
           "legado": "pontuacao_objectivos",
-          "tipo": "varchar(255)",
+          "tipo": "numeric(5,2)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12300,7 +12300,7 @@
         {
           "coluna": "classificacao",
           "legado": "classificacao",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12309,7 +12309,7 @@
         {
           "coluna": "estado",
           "legado": "status",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12336,7 +12336,7 @@
         {
           "coluna": "pontos_fortes",
           "legado": "pontos_fortes",
-          "tipo": "varchar(255)",
+          "tipo": "text",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12345,7 +12345,7 @@
         {
           "coluna": "pontos_melhorar",
           "legado": "pontos_melhorar",
-          "tipo": "varchar(255)",
+          "tipo": "text",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12354,7 +12354,7 @@
         {
           "coluna": "plano_desenvolvimento",
           "legado": "plano_desenvolvimento",
-          "tipo": "varchar(255)",
+          "tipo": "text",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -12415,7 +12415,17 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "colaborador_id",
+            "ano",
+            "periodo"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {
@@ -12456,6 +12466,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "COMUM",
+            "ESPECIFICO"
+          ]
+        },
+        {
+          "coluna": "ambito_original",
+          "legado": "ambito",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -12476,6 +12498,18 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "CRITERIO",
+            "OBJECTIVO"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "tipo",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -12545,7 +12579,7 @@
         {
           "coluna": "meta",
           "legado": "meta",
-          "tipo": "integer",
+          "tipo": "numeric(15,3)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -12589,7 +12623,10 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_criterios_avaliacao_rh_ambito",
+        "ck_criterios_avaliacao_rh_tipo"
+      ]
     },
     {
       "tabela": "ciclos_avaliacao_360",
@@ -12673,6 +12710,19 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "RASCUNHO",
+            "ABERTO",
+            "FECHADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "estado",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -12830,8 +12880,25 @@
           "dominio": null
         }
       ],
-      "unicos": [],
-      "checks": []
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "ano",
+            "periodo"
+          ],
+          "onde": null
+        },
+        {
+          "colunas": [
+            "empresa_id"
+          ],
+          "onde": "estado = 'ABERTO'"
+        }
+      ],
+      "checks": [
+        "ck_ciclos_avaliacao_360_estado"
+      ]
     },
     {
       "tabela": "participantes_avaliacao_360",
@@ -12937,7 +13004,16 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "ciclo_avaliacao_id",
+            "colaborador_avaliador_id",
+            "colaborador_avaliado_id"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {
@@ -13168,7 +13244,7 @@
         {
           "coluna": "acordos",
           "legado": "acordos",
-          "tipo": "varchar(50)",
+          "tipo": "text",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -13279,18 +13355,21 @@
           "dominio": null
         },
         {
-          "coluna": "avaliacao_id",
+          "coluna": "avaliacao_desempenho_id",
           "legado": "avaliacao_id",
-          "tipo": "varchar(255)",
+          "tipo": "bigint",
           "nulo": true,
           "origem": "codigo",
-          "fk": null,
+          "fk": {
+            "tabela": "avaliacoes_desempenho_rh",
+            "cascata": false
+          },
           "dominio": null
         },
         {
           "coluna": "metodo",
           "legado": "metodo",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -13299,7 +13378,7 @@
         {
           "coluna": "classificacao",
           "legado": "classificacao",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -13308,7 +13387,7 @@
         {
           "coluna": "nota",
           "legado": "nota",
-          "tipo": "varchar(255)",
+          "tipo": "numeric(5,2)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -13317,7 +13396,7 @@
         {
           "coluna": "base",
           "legado": "base",
-          "tipo": "varchar(255)",
+          "tipo": "numeric(15,2)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -13335,7 +13414,7 @@
         {
           "coluna": "estado",
           "legado": "estado",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -13390,12 +13469,15 @@
           "dominio": null
         },
         {
-          "coluna": "periodo_id",
+          "coluna": "periodo_processamento_salarial_id",
           "legado": "period_id",
-          "tipo": "varchar(255)",
+          "tipo": "bigint",
           "nulo": true,
           "origem": "codigo",
-          "fk": null,
+          "fk": {
+            "tabela": "periodos_processamento_salarial",
+            "cascata": false
+          },
           "dominio": null
         },
         {
@@ -13521,7 +13603,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "ciclo_avaliacao_id",
+            "colaborador_id"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {
@@ -13831,6 +13921,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "RASCUNHO",
+            "SUBMETIDA"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -13861,8 +13963,20 @@
           "dominio": null
         }
       ],
-      "unicos": [],
-      "checks": []
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "colaborador_id",
+            "ano",
+            "periodo"
+          ],
+          "onde": null
+        }
+      ],
+      "checks": [
+        "ck_autoavaliacoes_colaborador_estado"
+      ]
     },
     {
       "tabela": "participacoes_ascendentes_rh",
@@ -13931,7 +14045,7 @@
         {
           "coluna": "ano",
           "legado": "ano",
-          "tipo": "varchar(255)",
+          "tipo": "integer",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -13940,7 +14054,7 @@
         {
           "coluna": "periodo",
           "legado": "periodo",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(10)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -13965,7 +14079,18 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "colaborador_id",
+            "colaborador_alvo_id",
+            "ano",
+            "periodo"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {
@@ -14023,7 +14148,7 @@
         {
           "coluna": "ano",
           "legado": "ano",
-          "tipo": "varchar(255)",
+          "tipo": "integer",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -14032,7 +14157,7 @@
         {
           "coluna": "periodo",
           "legado": "periodo",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(10)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -14041,7 +14166,7 @@
         {
           "coluna": "respostas",
           "legado": "respostas",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,

@@ -21,7 +21,7 @@ abstract class CriterioAvaliacaoRHBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'ambito', 'colaborador_id', 'tipo', 'chave', 'nome', 'descricao', 'peso', 'ordem', 'ativo', 'natureza', 'meta', 'unidade', 'sentido',
+        'empresa_id', 'ambito', 'ambito_original', 'colaborador_id', 'tipo', 'tipo_original', 'chave', 'nome', 'descricao', 'peso', 'ordem', 'ativo', 'natureza', 'meta', 'unidade', 'sentido',
     ];
 
     protected function casts(): array
@@ -32,7 +32,7 @@ abstract class CriterioAvaliacaoRHBase extends ModeloBase
             'peso' => 'decimal:4',
             'ordem' => 'integer',
             'ativo' => 'boolean',
-            'meta' => 'integer',
+            'meta' => 'decimal:3',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

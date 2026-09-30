@@ -2,6 +2,7 @@
 
 namespace App\Models\Base;
 
+use App\Models\BonificacaoAvaliacaoRH;
 use App\Models\CartaPagamentoBancario;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
@@ -58,6 +59,11 @@ abstract class PeriodoProcessamentoSalarialBase extends ModeloBase
     public function periodosProdutividadeRh(): HasMany
     {
         return $this->hasMany(PeriodoProdutividadeRH::class, 'periodo_processamento_salarial_id');
+    }
+
+    public function bonificacoesAvaliacaoRh(): HasMany
+    {
+        return $this->hasMany(BonificacaoAvaliacaoRH::class, 'periodo_processamento_salarial_id');
     }
 
     public function documentosTesouraria(): HasMany

@@ -29,6 +29,8 @@ abstract class RespostaAscendenteRHBase extends ModeloBase
         return [
             'empresa_id' => 'integer',
             'colaborador_alvo_id' => 'integer',
+            'ano' => 'integer',
+            'respostas' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

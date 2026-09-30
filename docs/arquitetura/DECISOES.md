@@ -794,3 +794,64 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - Corrigido, e `normalizacoes.mjs` passou a falhar se alguma chave não estiver dobrada ou apontar para um valor fora do domínio.
 
 **Fica para depois:** e-mail de notificação dos pedidos (o legado só tinha contadores) e PDF dos documentos emitidos (Fase 5).
+
+## ADR-041 — RH parte 3b: avaliação de desempenho, 360º, contestação, bonificação e avaliação ascendente
+
+**Avaliação de desempenho** (`ServicoAvaliacao`, `js/modules/rh/avaliacao.js`):
+- Paridade nas fórmulas:
+  - critérios com nota de 1 a 5 e peso (média ponderada);
+  - objectivos quantitativos: atingido/meta, ou meta/atingido quando o sentido é MENOR, entre 0 e 200 %;
+  - objectivos qualitativos: (nota − 1) × 25 %;
+  - pontuação = critérios × (1 − P) + objectivos × P, com P = 30 % por omissão, arredondada a 2 casas;
+  - classes: Excelente ≥ 4,5, Muito Bom ≥ 3,5, Bom ≥ 2,5, Suficiente ≥ 1,5, Insuficiente abaixo disso.
+- Itens comuns e específicos; na primeira utilização criam-se os 8 critérios padrão.
+- Concluir exige todas as notas e resultados, o avaliador e a data. Uma avaliação concluída ou já dada a conhecer não se altera.
+- Correcções:
+  - uma avaliação por colaborador, ano e período, garantida por índice único (o legado só o verificava na aplicação);
+  - ninguém se avalia a si próprio (o legado permitia ao RH);
+  - peso dos objectivos vazio passa a 30. No legado `Number('')` dava 0, e os objectivos deixavam de contar sem aviso;
+  - a chefia que avalia é a do ciclo do mesmo ano e período (o legado usava o ciclo que estivesse aberto);
+  - uma avaliação dada a conhecer, contestada ou com bónus não se elimina (o legado deixava bónus órfãos);
+  - um item já usado desactiva-se em vez de ser eliminado.
+
+**Ciclo 360º** (`ServicoAvaliacao360`, `js/modules/rh/aval360_dados.js`):
+- Paridade:
+  - pesos 50/10/20/20 (chefia, autoavaliação, pares, subordinados), com soma 100 e a chefia com peso;
+  - mínimo de anonimato 3 (nunca menos de 2) e até 5 pares;
+  - um ciclo por ano e período, e um só ciclo aberto (agora com índice único parcial);
+  - ao abrir fotografa a composição a partir da estrutura (ADR-040) e os critérios comuns;
+  - respostas anónimas: quem respondeu e o que respondeu ficam em tabelas separadas, sem ligação;
+  - grupos abaixo do mínimo juntam-se num grupo «pares e subordinados» ou ficam de fora, com aviso;
+  - nota 360 = Σ média × peso / Σ pesos disponíveis, e exige a avaliação da chefia;
+  - fases POR_AVALIAR → EM_AVALIACAO → AGUARDA_CONHECIMENTO → PRAZO_CONTESTACAO → (CONTESTADA) → FINAL.
+- Contestação:
+  - fundamentação com pelo menos 30 caracteres;
+  - decide a chefia da chefia, ou o RH se ela não existir;
+  - exige o parecer do RH antes da decisão;
+  - o avaliado e a chefia avaliadora não decidem;
+  - uma decisão ALTERADA recalcula a classificação.
+- Correcções:
+  - **os resultados anónimos só são mostrados depois do prazo das respostas ou com o ciclo fechado.** Acompanhar ao vivo permitia deduzir a resposta de alguém comparando os resultados antes e depois;
+  - a nota 360 é recalculada ao consultar o resultado (o legado só a recalculava ao concluir ou pelo botão).
+
+**Bonificação:**
+- Paridade:
+  - métodos PERCENTAGEM (base × % × meses), FIXO e BOLSA (distribuída pela nota, com a diferença de arredondamento no maior valor);
+  - só entram avaliações na fase FINAL;
+  - quem calcula não aprova, e ninguém aprova o seu próprio bónus;
+  - o lançamento vai para o processamento do mês configurado, que tem de estar ABERTO.
+- Correcções:
+  - só entram participantes do ciclo;
+  - a configuração do bónus fica bloqueada com o ciclo fechado ou com bónus aprovados ou lançados;
+  - lançar recusa uma rubrica já lançada no período para o mesmo colaborador (o legado duplicava);
+  - anular o bónus fica auditado; uma linha da folha vinda de um bónus não se remove no ecrã Calcular.
+
+**Avaliação ascendente e acompanhamento:**
+- 8 questões de liderança, uma resposta por chefia e por período, anónima.
+- O mínimo de anonimato é o do ciclo do período (no legado era 3 fixo), e os resultados só aparecem depois do prazo.
+- Os resultados são vistos por período (o agregado anual do legado juntava grupos pequenos) e só pela própria chefia ou pelo RH.
+- Reuniões de acompanhamento: registadas pela chefia ou pelo RH, nunca pelo próprio; ficam bloqueadas depois da confirmação do colaborador.
+
+**Tipos corrigidos** (tabelas vazias no backup): critérios, objectivos, componentes, conhecimento e contestação passam a jsonb; pontuações e notas a numérico; `ano` a inteiro; as respostas ascendentes a jsonb; o bónus ganha FKs para a avaliação e para o processamento.
+
+**Não-regressão com dados reais:** o ciclo aberto da empresa 18 (6 participantes, 8 critérios, participantes no formato do legado) calcula as componentes. A única resposta de subordinado existente fica retida, por estar abaixo do mínimo de anonimato.

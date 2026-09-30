@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T15:47:36.337Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T15:52:50.358Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1674 |
+| Colunas reais mapeadas | 1678 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -103,6 +103,12 @@
 | `rh_portal_requests.tipo` | FERIAS, AUSENCIA, DOCUMENTO, AGREGADO | FERIAS → FERIAS; DOCUMENTO → DOCUMENTO; AGREGADO → AGREGADO |
 | `rh_portal_requests.estado` | PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, EMITIDO, RECUSADO, CANCELADO | PENDENTE_RH → PENDENTE_RH; APROVADO → APROVADO; EMITIDO → EMITIDO |
 | `org_units.tipo` | ORGAO_SOCIAL, DIRECCAO_GERAL, DIRECCAO, DEPARTAMENTO, GABINETE, SECCAO, EQUIPA, OUTRO | DEPARTAMENTO → DEPARTAMENTO; DIRECCAO_GERAL → DIRECCAO_GERAL; DIRECCAO → DIRECCAO; ORGAO_SOCIAL → ORGAO_SOCIAL; EQUIPA → EQUIPA |
+| `rh_evaluations.status` | RASCUNHO, CONCLUIDA |  |
+| `rh_self_evaluations.status` | RASCUNHO, SUBMETIDA | SUBMETIDA → SUBMETIDA |
+| `rh_eval_cycles.estado` | RASCUNHO, ABERTO, FECHADO | ABERTO → ABERTO; RASCUNHO → RASCUNHO |
+| `rh_eval_bonus.estado` | PROPOSTA, APROVADA, LANCADA |  |
+| `rh_evaluation_items.tipo` | CRITERIO, OBJECTIVO | CRITERIO → CRITERIO; OBJECTIVO → OBJECTIVO |
+| `rh_evaluation_items.ambito` | COMUM, ESPECIFICO | COMUM → COMUM; ESPECIFICO → ESPECIFICO |
 | `payroll_periods.status` | ABERTO, FECHADO, VALIDADO | VALIDADO → VALIDADO; ABERTO → ABERTO |
 | `employees.status` | ACTIVO, INACTIVO, SUSPENSO | ACTIVO → ACTIVO; Não ACTIVO → INACTIVO; NÃO ACTIVO → INACTIVO |
 | `employees.estado_civil` | SOLTEIRO, CASADO, DIVORCIADO, VIUVO, UNIAO_FACTO | Solteiro(a) → SOLTEIRO; Casado(a) → CASADO |
@@ -1517,9 +1523,11 @@ Linhas reais: **26** · fictícias descartadas: 0
 | Coluna legado | Coluna PT | Tipo PG | Nulo | Preench. | FK | Notas |
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `rh_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
-| `ambito` | `ambito` | varchar(20) | sim | 100% |  |  |
+| `ambito` | `ambito` | varchar(20) | sim | 100% |  | código normalizado ∈ {COMUM, ESPECIFICO}; texto original em ambito_original |
+| `ambito` | `ambito_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `employee_id` | `colaborador_id` | bigint | sim | 8% | `colaboradores.id` |  |
-| `tipo` | `tipo` | varchar(20) | sim | 100% |  |  |
+| `tipo` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {CRITERIO, OBJECTIVO}; texto original em tipo_original |
+| `tipo` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `chave` | `chave` | varchar(30) | sim | 92% |  |  |
 | `nome` | `nome` | varchar(50) | sim | 100% |  |  |
 | `descricao` | `descricao` | text | sim | 8% |  |  |
@@ -1530,7 +1538,7 @@ Linhas reais: **26** · fictícias descartadas: 0
 | `updated_at` | `atualizado_em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `natureza` | `natureza` | varchar(20) | sim | 4% |  |  |
-| `meta` | `meta` | integer | sim | 4% |  |  |
+| `meta` | `meta` | numeric(15,3) | sim | 4% |  | tipo forçado (inferido: integer) |
 | `unidade` | `unidade` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `sentido` | `sentido` | varchar(10) | sim | 8% |  |  |
 
@@ -1545,7 +1553,8 @@ Linhas reais: **2** · fictícias descartadas: 0
 | `periodo` | `periodo` | varchar(10) | sim | 100% |  |  |
 | `data_inicio` | `data_inicio` | date | sim | 100% |  |  |
 | `data_fim` | `data_fim` | date | sim | 100% |  |  |
-| `estado` | `estado` | varchar(20) | sim | 100% |  |  |
+| `estado` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {RASCUNHO, ABERTO, FECHADO}; texto original em estado_original |
+| `estado` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `prazos` | `prazos` | jsonb | sim | 100% |  |  |
 | `pesos` | `pesos` | jsonb | sim | 100% |  |  |
 | `minimo_anonimato` | `minimo_anonimato` | integer | sim | 100% |  |  |
@@ -1606,7 +1615,7 @@ Linhas reais: **1** · fictícias descartadas: 0
 | `objectivos` | `objetivos` | jsonb | sim | 100% |  |  |
 | `positivos` | `positivos` | text | sim | 100% |  |  |
 | `melhorar` | `melhorar` | text | sim | 100% |  |  |
-| `acordos` | `acordos` | varchar(50) | sim | 100% |  |  |
+| `acordos` | `acordos` | text | sim | 100% |  | tipo forçado (inferido: varchar(50)) |
 | `registado_por` | `registado_por` | varchar(10) | sim | 100% |  |  |
 | `registado_em` | `registado_em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
@@ -1665,7 +1674,8 @@ Linhas reais: **1** · fictícias descartadas: 0
 | `realizacoes` | `realizacoes` | text | sim | 100% |  |  |
 | `dificuldades` | `dificuldades` | text | sim | 100% |  |  |
 | `formacao` | `formacao` | varchar(10) | sim | 100% |  |  |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {RASCUNHO, SUBMETIDA}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `submetida_em` | `submetida_em` | timestamptz | sim | 100% |  |  |
 | `actualizado_em` | `atualizado_em` | timestamptz | sim | 100% |  |  |
 | `criado_em` | `criado_em` | timestamptz | sim | 100% |  |  |

@@ -130,6 +130,9 @@ final class ServicoFolhaSalarial
     {
         DB::transaction(function () use ($l) {
             $this->exigirEstado($this->bloquear(PeriodoProcessamentoSalarial::query()->findOrFail($l->periodo_processamento_salarial_id)), ['ABERTO']);
+            if (DB::table('bonificacoes_avaliacao_rh')->where('linha_folha_salarial_id', $l->id)->exists()) {
+                throw new ErroNegocio('Este lançamento é uma bonificação de desempenho: anule-a na Avaliação.', 'LANCAMENTO_DE_BONIFICACAO', 422);
+            }
             $l->delete();
         });
     }

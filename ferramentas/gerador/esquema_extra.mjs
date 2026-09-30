@@ -45,7 +45,14 @@ export const UNICOS = [
   ['efectividade_assiduidade', ['empresa_id', 'colaborador_id', 'data']],   // um registo por colaborador e dia
   ['fechos_mensais_assiduidade', ['empresa_id', 'mes']],                   // estado actual do mês (o histórico fica na auditoria)
   ['periodos_produtividade_rh', ['empresa_id', 'mes']],
-  ['modelos_documentos_rh', ['empresa_id', 'codigo']],   // um IBAN por colaborador (upsert do legado)
+  ['modelos_documentos_rh', ['empresa_id', 'codigo']],
+  ['avaliacoes_desempenho_rh', ['empresa_id', 'colaborador_id', 'ano', 'periodo']],   // o legado só verificava na aplicação
+  ['ciclos_avaliacao_360', ['empresa_id', 'ano', 'periodo']],
+  ['autoavaliacoes_colaborador', ['empresa_id', 'colaborador_id', 'ano', 'periodo']],
+  ['confirmacoes_avaliacao_rh', ['ciclo_avaliacao_id', 'colaborador_id']],
+  ['participantes_avaliacao_360', ['ciclo_avaliacao_id', 'colaborador_avaliador_id', 'colaborador_avaliado_id']],
+  ['participacoes_ascendentes_rh', ['empresa_id', 'colaborador_id', 'colaborador_alvo_id', 'ano', 'periodo']],
+  ['ciclos_avaliacao_360', ['empresa_id'], "estado = 'ABERTO'"],   // um só ciclo aberto   // um IBAN por colaborador (upsert do legado)
   // Numeração única obrigatória só nos documentos fiscais (AGT). Orçamentos/proformas do legado repetem números
   // (o legado tratava "Orçamento" e "Orcamento" como tipos distintos) -> relatório de validação.
   ['vendas', ['empresa_id', 'tipo_documento', 'numero_documento'], "tipo_documento IN ('FT','FR','NC','ND')"],

@@ -521,30 +521,30 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id · do código legado js/modules/rh/avaliacao.js:654');
             $table->bigInteger('ciclo_avaliacao_id')->nullable()->comment('legado: ciclo_id · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->string('nota_360', 255)->nullable()->comment('legado: nota_360 · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->string('classificacao_360', 255)->nullable()->comment('legado: classificacao_360 · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->string('componentes_360', 255)->nullable()->comment('legado: componentes_360 · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->date('avisos_360')->nullable()->comment('legado: avisos_360 · do código legado js/modules/rh/aval360_dados.js:290');
+            $table->decimal('nota_360', 5, 2)->nullable()->comment('legado: nota_360 · do código legado js/modules/rh/aval360_dados.js:290');
+            $table->string('classificacao_360', 30)->nullable()->comment('legado: classificacao_360 · do código legado js/modules/rh/aval360_dados.js:290');
+            $table->jsonb('componentes_360')->nullable()->comment('legado: componentes_360 · do código legado js/modules/rh/aval360_dados.js:290');
+            $table->jsonb('avisos_360')->nullable()->comment('legado: avisos_360 · do código legado js/modules/rh/aval360_dados.js:290');
             $table->timestampTz('atualizado_360_em')->nullable()->comment('legado: actualizado_360_em · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->string('conhecimento', 255)->nullable()->comment('legado: conhecimento · do código legado js/modules/rh/aval360_dados.js:317');
+            $table->jsonb('conhecimento')->nullable()->comment('legado: conhecimento · do código legado js/modules/rh/aval360_dados.js:317');
             $table->text('comentario_colaborador')->nullable()->comment('legado: comentario_colaborador · do código legado js/modules/rh/aval360_dados.js:317');
-            $table->string('contestacao', 255)->nullable()->comment('legado: contestacao · do código legado js/modules/rh/aval360_dados.js:343');
+            $table->jsonb('contestacao')->nullable()->comment('legado: contestacao · do código legado js/modules/rh/aval360_dados.js:343');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id · do código legado js/modules/rh/avaliacao.js:654');
-            $table->string('ano', 255)->nullable()->comment('legado: ano · do código legado js/modules/rh/avaliacao.js:654');
-            $table->string('periodo', 255)->nullable()->comment('legado: periodo · do código legado js/modules/rh/avaliacao.js:654');
-            $table->string('criterios', 255)->nullable()->comment('legado: criterios · do código legado js/modules/rh/avaliacao.js:655');
-            $table->string('objetivos', 255)->nullable()->comment('legado: objectivos · do código legado js/modules/rh/avaliacao.js:655');
-            $table->decimal('peso_objetivos', 9, 4)->nullable()->comment('legado: peso_objectivos · do código legado js/modules/rh/avaliacao.js:655');
-            $table->string('pontuacao', 255)->nullable()->comment('legado: pontuacao · do código legado js/modules/rh/avaliacao.js:656');
-            $table->string('pontuacao_criterios', 255)->nullable()->comment('legado: pontuacao_criterios · do código legado js/modules/rh/avaliacao.js:656');
-            $table->string('pontuacao_objetivos', 255)->nullable()->comment('legado: pontuacao_objectivos · do código legado js/modules/rh/avaliacao.js:656');
-            $table->string('classificacao', 255)->nullable()->comment('legado: classificacao · do código legado js/modules/rh/avaliacao.js:657');
-            $table->string('estado', 255)->nullable()->comment('legado: status · do código legado js/modules/rh/avaliacao.js:658');
+            $table->integer('ano')->nullable()->comment('legado: ano · do código legado js/modules/rh/avaliacao.js:654');
+            $table->string('periodo', 10)->nullable()->comment('legado: periodo · do código legado js/modules/rh/avaliacao.js:654');
+            $table->jsonb('criterios')->nullable()->comment('legado: criterios · do código legado js/modules/rh/avaliacao.js:655');
+            $table->jsonb('objetivos')->nullable()->comment('legado: objectivos · do código legado js/modules/rh/avaliacao.js:655');
+            $table->decimal('peso_objetivos', 5, 2)->nullable()->comment('legado: peso_objectivos · do código legado js/modules/rh/avaliacao.js:655');
+            $table->decimal('pontuacao', 5, 2)->nullable()->comment('legado: pontuacao · do código legado js/modules/rh/avaliacao.js:656');
+            $table->decimal('pontuacao_criterios', 5, 2)->nullable()->comment('legado: pontuacao_criterios · do código legado js/modules/rh/avaliacao.js:656');
+            $table->decimal('pontuacao_objetivos', 5, 2)->nullable()->comment('legado: pontuacao_objectivos · do código legado js/modules/rh/avaliacao.js:656');
+            $table->string('classificacao', 30)->nullable()->comment('legado: classificacao · do código legado js/modules/rh/avaliacao.js:657');
+            $table->string('estado', 20)->nullable()->comment('legado: status · do código legado js/modules/rh/avaliacao.js:658');
             $table->string('avaliador', 255)->nullable()->comment('legado: avaliador · do código legado js/modules/rh/avaliacao.js:659');
             $table->date('data_avaliacao')->nullable()->comment('legado: data_avaliacao · do código legado js/modules/rh/avaliacao.js:659');
-            $table->string('pontos_fortes', 255)->nullable()->comment('legado: pontos_fortes · do código legado js/modules/rh/avaliacao.js:660');
-            $table->string('pontos_melhorar', 255)->nullable()->comment('legado: pontos_melhorar · do código legado js/modules/rh/avaliacao.js:660');
-            $table->string('plano_desenvolvimento', 255)->nullable()->comment('legado: plano_desenvolvimento · do código legado js/modules/rh/avaliacao.js:661');
+            $table->text('pontos_fortes')->nullable()->comment('legado: pontos_fortes · do código legado js/modules/rh/avaliacao.js:660');
+            $table->text('pontos_melhorar')->nullable()->comment('legado: pontos_melhorar · do código legado js/modules/rh/avaliacao.js:660');
+            $table->text('plano_desenvolvimento')->nullable()->comment('legado: plano_desenvolvimento · do código legado js/modules/rh/avaliacao.js:661');
             $table->timestampTz('concluida_em')->nullable()->comment('legado: concluida_em · do código legado js/modules/rh/avaliacao.js:662');
             $table->string('concluida_por', 255)->nullable()->comment('legado: concluida_por · do código legado js/modules/rh/avaliacao.js:663');
             $table->timestampTz('reaberta_em')->nullable()->comment('legado: reaberta_em · do código legado js/modules/rh/avaliacao.js:713');
@@ -552,7 +552,7 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at · do código legado js/modules/rh/avaliacao.js:664');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at · do código legado js/modules/rh/avaliacao.js:668');
         });
-        DB::statement('CREATE INDEX ix_avaliacoes_desempenho_rh_empresa_id ON avaliacoes_desempenho_rh (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_avaliacoes_desempenho_rh_empresa__colabora_ano_periodo ON avaliacoes_desempenho_rh (empresa_id, colaborador_id, ano, periodo)');
         DB::statement('CREATE INDEX ix_avaliacoes_desempenho_rh_ciclo_avaliacao_id ON avaliacoes_desempenho_rh (ciclo_avaliacao_id)');
         DB::statement('CREATE INDEX ix_avaliacoes_desempenho_rh_colaborador_id ON avaliacoes_desempenho_rh (colaborador_id)');
 
@@ -560,9 +560,11 @@ return new class extends Migration
         Schema::create('criterios_avaliacao_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
-            $table->string('ambito', 20)->nullable()->comment('legado: ambito');
+            $table->string('ambito', 20)->nullable()->comment('legado: ambito · código normalizado ∈ {COMUM, ESPECIFICO}; texto original em ambito_original');
+            $table->string('ambito_original', 100)->nullable()->comment('legado: ambito · texto exacto do legado');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
-            $table->string('tipo', 20)->nullable()->comment('legado: tipo');
+            $table->string('tipo', 20)->nullable()->comment('legado: tipo · código normalizado ∈ {CRITERIO, OBJECTIVO}; texto original em tipo_original');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: tipo · texto exacto do legado');
             $table->string('chave', 150)->nullable()->comment('legado: chave');
             $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->text('descricao')->nullable()->comment('legado: descricao');
@@ -570,7 +572,7 @@ return new class extends Migration
             $table->integer('ordem')->nullable()->comment('legado: ordem');
             $table->boolean('ativo')->nullable()->comment('legado: activo');
             $table->string('natureza', 20)->nullable()->comment('legado: natureza');
-            $table->integer('meta')->nullable()->comment('legado: meta');
+            $table->decimal('meta', 15, 3)->nullable()->comment('legado: meta · tipo forçado (inferido: integer)');
             $table->text('unidade')->nullable()->comment('legado: unidade · sem valores reais: tipo a confirmar no código legado');
             $table->string('sentido', 10)->nullable()->comment('legado: sentido');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
@@ -578,6 +580,8 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_criterios_avaliacao_rh_empresa_id ON criterios_avaliacao_rh (empresa_id)');
         DB::statement('CREATE INDEX ix_criterios_avaliacao_rh_colaborador_id ON criterios_avaliacao_rh (colaborador_id)');
+        DB::statement('ALTER TABLE criterios_avaliacao_rh ADD CONSTRAINT ck_criterios_avaliacao_rh_ambito CHECK (ambito IS NULL OR ambito IN (\'COMUM\',\'ESPECIFICO\'))');
+        DB::statement('ALTER TABLE criterios_avaliacao_rh ADD CONSTRAINT ck_criterios_avaliacao_rh_tipo CHECK (tipo IS NULL OR tipo IN (\'CRITERIO\',\'OBJECTIVO\'))');
 
         // rh_eval_cycles (legado) -> ciclos_avaliacao_360 · 2 linhas reais no backup
         Schema::create('ciclos_avaliacao_360', function (Blueprint $table) {
@@ -588,7 +592,8 @@ return new class extends Migration
             $table->string('periodo', 10)->nullable()->comment('legado: periodo');
             $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
             $table->date('data_fim')->nullable()->comment('legado: data_fim');
-            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->string('estado', 20)->nullable()->comment('legado: estado · código normalizado ∈ {RASCUNHO, ABERTO, FECHADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: estado · texto exacto do legado');
             $table->jsonb('prazos')->nullable()->comment('legado: prazos');
             $table->jsonb('pesos')->nullable()->comment('legado: pesos');
             $table->integer('minimo_anonimato')->nullable()->comment('legado: minimo_anonimato');
@@ -607,7 +612,9 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
         });
-        DB::statement('CREATE INDEX ix_ciclos_avaliacao_360_empresa_id ON ciclos_avaliacao_360 (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_ciclos_avaliacao_360_empresa_id_ano_periodo ON ciclos_avaliacao_360 (empresa_id, ano, periodo)');
+        DB::statement('CREATE UNIQUE INDEX uq_ciclos_avaliacao_360_empresa_id ON ciclos_avaliacao_360 (empresa_id) WHERE estado = \'ABERTO\'');
+        DB::statement('ALTER TABLE ciclos_avaliacao_360 ADD CONSTRAINT ck_ciclos_avaliacao_360_estado CHECK (estado IS NULL OR estado IN (\'RASCUNHO\',\'ABERTO\',\'FECHADO\'))');
 
         // rh_eval_360_part (legado) -> participantes_avaliacao_360 · 1 linhas reais no backup
         Schema::create('participantes_avaliacao_360', function (Blueprint $table) {
@@ -621,8 +628,8 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_participantes_avaliacao_360_ciclo_av_colabora_colabora ON participantes_avaliacao_360 (ciclo_avaliacao_id, colaborador_avaliador_id, colaborador_avaliado_id)');
         DB::statement('CREATE INDEX ix_participantes_avaliacao_360_empresa_id ON participantes_avaliacao_360 (empresa_id)');
-        DB::statement('CREATE INDEX ix_participantes_avaliacao_360_ciclo_avaliacao_id ON participantes_avaliacao_360 (ciclo_avaliacao_id)');
         DB::statement('CREATE INDEX ix_participantes_avaliacao_360_colaborador_avaliador_id ON participantes_avaliacao_360 (colaborador_avaliador_id)');
         DB::statement('CREATE INDEX ix_participantes_avaliacao_360_colaborador_avaliado_id ON participantes_avaliacao_360 (colaborador_avaliado_id)');
 
@@ -655,7 +662,7 @@ return new class extends Migration
             $table->jsonb('objetivos')->nullable()->comment('legado: objectivos');
             $table->text('positivos')->nullable()->comment('legado: positivos');
             $table->text('melhorar')->nullable()->comment('legado: melhorar');
-            $table->string('acordos', 50)->nullable()->comment('legado: acordos');
+            $table->text('acordos')->nullable()->comment('legado: acordos · tipo forçado (inferido: varchar(50))');
             $table->string('registado_por', 100)->nullable()->comment('legado: registado_por');
             $table->timestampTz('registado_em')->nullable()->comment('legado: registado_em');
             $table->jsonb('confirmacao')->nullable()->comment('legado: confirmacao · do código legado js/modules/rh/aval360_dados.js:426');
@@ -673,19 +680,19 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id · do código legado js/modules/rh/aval360_dados.js:474');
             $table->bigInteger('ciclo_avaliacao_id')->nullable()->comment('legado: ciclo_id · do código legado js/modules/rh/aval360_dados.js:474');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id · do código legado js/modules/rh/aval360_dados.js:474');
-            $table->string('avaliacao_id', 255)->nullable()->comment('legado: avaliacao_id · do código legado js/modules/rh/aval360_dados.js:474');
-            $table->string('metodo', 255)->nullable()->comment('legado: metodo · do código legado js/modules/rh/aval360_dados.js:474');
-            $table->string('classificacao', 255)->nullable()->comment('legado: classificacao · do código legado js/modules/rh/aval360_dados.js:474');
-            $table->string('nota', 255)->nullable()->comment('legado: nota · do código legado js/modules/rh/aval360_dados.js:474');
-            $table->string('base', 255)->nullable()->comment('legado: base · do código legado js/modules/rh/aval360_dados.js:474');
+            $table->bigInteger('avaliacao_desempenho_id')->nullable()->comment('legado: avaliacao_id · do código legado js/modules/rh/aval360_dados.js:474');
+            $table->string('metodo', 20)->nullable()->comment('legado: metodo · do código legado js/modules/rh/aval360_dados.js:474');
+            $table->string('classificacao', 30)->nullable()->comment('legado: classificacao · do código legado js/modules/rh/aval360_dados.js:474');
+            $table->decimal('nota', 5, 2)->nullable()->comment('legado: nota · do código legado js/modules/rh/aval360_dados.js:474');
+            $table->decimal('base', 15, 2)->nullable()->comment('legado: base · do código legado js/modules/rh/aval360_dados.js:474');
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor · do código legado js/modules/rh/aval360_dados.js:474');
-            $table->string('estado', 255)->nullable()->comment('legado: estado · do código legado js/modules/rh/aval360_dados.js:474');
+            $table->string('estado', 20)->nullable()->comment('legado: estado · do código legado js/modules/rh/aval360_dados.js:474');
             $table->string('calculado_por', 255)->nullable()->comment('legado: calculado_por · do código legado js/modules/rh/aval360_dados.js:474');
             $table->timestampTz('calculado_em')->nullable()->comment('legado: calculado_em · do código legado js/modules/rh/aval360_dados.js:474');
             $table->string('aprovado_por', 255)->nullable()->comment('legado: aprovado_por · do código legado js/modules/rh/aval360_dados.js:487');
             $table->timestampTz('aprovado_em')->nullable()->comment('legado: aprovado_em · do código legado js/modules/rh/aval360_dados.js:487');
             $table->bigInteger('linha_folha_salarial_id')->nullable()->comment('legado: payroll_entry_id · do código legado js/modules/rh/aval360_dados.js:506');
-            $table->string('periodo_id', 255)->nullable()->comment('legado: period_id · do código legado js/modules/rh/aval360_dados.js:506');
+            $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('legado: period_id · do código legado js/modules/rh/aval360_dados.js:506');
             $table->string('lancado_por', 255)->nullable()->comment('legado: lancado_por · do código legado js/modules/rh/aval360_dados.js:506');
             $table->timestampTz('lancado_em')->nullable()->comment('legado: lancado_em · do código legado js/modules/rh/aval360_dados.js:506');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -694,7 +701,9 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_bonificacoes_avaliacao_rh_empresa_id ON bonificacoes_avaliacao_rh (empresa_id)');
         DB::statement('CREATE INDEX ix_bonificacoes_avaliacao_rh_ciclo_avaliacao_id ON bonificacoes_avaliacao_rh (ciclo_avaliacao_id)');
         DB::statement('CREATE INDEX ix_bonificacoes_avaliacao_rh_colaborador_id ON bonificacoes_avaliacao_rh (colaborador_id)');
+        DB::statement('CREATE INDEX ix_bonificacoes_avaliacao_rh_avaliacao_desempenho_id ON bonificacoes_avaliacao_rh (avaliacao_desempenho_id)');
         DB::statement('CREATE INDEX ix_bonificacoes_avaliacao_rh_linha_folha_salarial_id ON bonificacoes_avaliacao_rh (linha_folha_salarial_id)');
+        DB::statement('CREATE INDEX ix_bonificacoes_avaliacao_rh_periodo_processamento_salarial_id ON bonificacoes_avaliacao_rh (periodo_processamento_salarial_id)');
 
         // rh_eval_ack (legado) -> confirmacoes_avaliacao_rh · 1 linhas reais no backup
         Schema::create('confirmacoes_avaliacao_rh', function (Blueprint $table) {
@@ -706,8 +715,8 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_confirmacoes_avaliacao_rh_ciclo_avaliacao_id_colaborador_id ON confirmacoes_avaliacao_rh (ciclo_avaliacao_id, colaborador_id)');
         DB::statement('CREATE INDEX ix_confirmacoes_avaliacao_rh_empresa_id ON confirmacoes_avaliacao_rh (empresa_id)');
-        DB::statement('CREATE INDEX ix_confirmacoes_avaliacao_rh_ciclo_avaliacao_id ON confirmacoes_avaliacao_rh (ciclo_avaliacao_id)');
         DB::statement('CREATE INDEX ix_confirmacoes_avaliacao_rh_colaborador_id ON confirmacoes_avaliacao_rh (colaborador_id)');
 
         // rh_portal_requests (legado) -> pedidos_portal_colaborador · 9 linhas reais no backup
@@ -749,13 +758,15 @@ return new class extends Migration
             $table->text('realizacoes')->nullable()->comment('legado: realizacoes');
             $table->text('dificuldades')->nullable()->comment('legado: dificuldades');
             $table->string('formacao', 10)->nullable()->comment('legado: formacao');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {RASCUNHO, SUBMETIDA}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->timestampTz('submetida_em')->nullable()->comment('legado: submetida_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
         });
-        DB::statement('CREATE INDEX ix_autoavaliacoes_colaborador_empresa_id ON autoavaliacoes_colaborador (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_autoavaliacoes_colaborador_empresa__colabora_ano_periodo ON autoavaliacoes_colaborador (empresa_id, colaborador_id, ano, periodo)');
         DB::statement('CREATE INDEX ix_autoavaliacoes_colaborador_colaborador_id ON autoavaliacoes_colaborador (colaborador_id)');
+        DB::statement('ALTER TABLE autoavaliacoes_colaborador ADD CONSTRAINT ck_autoavaliacoes_colaborador_estado CHECK (estado IS NULL OR estado IN (\'RASCUNHO\',\'SUBMETIDA\'))');
 
         // rh_upward_participation (legado) -> participacoes_ascendentes_rh · 0 linhas reais no backup
         Schema::create('participacoes_ascendentes_rh', function (Blueprint $table) {
@@ -764,12 +775,12 @@ return new class extends Migration
             $table->string('uid', 255)->nullable()->comment('legado: uid · do código legado js/modules/rh/portal_dados.js:456');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id · do código legado js/modules/rh/portal_dados.js:456');
             $table->bigInteger('colaborador_alvo_id')->nullable()->comment('legado: alvo_employee_id · do código legado js/modules/rh/portal_dados.js:456');
-            $table->string('ano', 255)->nullable()->comment('legado: ano · do código legado js/modules/rh/portal_dados.js:456');
-            $table->string('periodo', 255)->nullable()->comment('legado: periodo · do código legado js/modules/rh/portal_dados.js:456');
+            $table->integer('ano')->nullable()->comment('legado: ano · do código legado js/modules/rh/portal_dados.js:456');
+            $table->string('periodo', 10)->nullable()->comment('legado: periodo · do código legado js/modules/rh/portal_dados.js:456');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
-        DB::statement('CREATE INDEX ix_participacoes_ascendentes_rh_empresa_id ON participacoes_ascendentes_rh (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_participacoes_ascendentes_rh_empresa__colabora_colabora_ano_ ON participacoes_ascendentes_rh (empresa_id, colaborador_id, colaborador_alvo_id, ano, periodo)');
         DB::statement('CREATE INDEX ix_participacoes_ascendentes_rh_colaborador_id ON participacoes_ascendentes_rh (colaborador_id)');
         DB::statement('CREATE INDEX ix_participacoes_ascendentes_rh_colaborador_alvo_id ON participacoes_ascendentes_rh (colaborador_alvo_id)');
 
@@ -779,9 +790,9 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id · do código legado js/modules/rh/portal_dados.js:457');
             $table->string('uid', 255)->nullable()->comment('legado: uid · do código legado js/modules/rh/portal_dados.js:457');
             $table->bigInteger('colaborador_alvo_id')->nullable()->comment('legado: alvo_employee_id · do código legado js/modules/rh/portal_dados.js:457');
-            $table->string('ano', 255)->nullable()->comment('legado: ano · do código legado js/modules/rh/portal_dados.js:457');
-            $table->string('periodo', 255)->nullable()->comment('legado: periodo · do código legado js/modules/rh/portal_dados.js:457');
-            $table->string('respostas', 255)->nullable()->comment('legado: respostas · do código legado js/modules/rh/portal_dados.js:457');
+            $table->integer('ano')->nullable()->comment('legado: ano · do código legado js/modules/rh/portal_dados.js:457');
+            $table->string('periodo', 10)->nullable()->comment('legado: periodo · do código legado js/modules/rh/portal_dados.js:457');
+            $table->jsonb('respostas')->nullable()->comment('legado: respostas · do código legado js/modules/rh/portal_dados.js:457');
             $table->text('comentario')->nullable()->comment('legado: comentario · do código legado js/modules/rh/portal_dados.js:457');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();

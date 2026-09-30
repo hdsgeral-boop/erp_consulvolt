@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T15:47:36.337Z",
+  "gerado_em": "2026-09-30T15:52:50.358Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -11308,7 +11308,31 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {COMUM, ESPECIFICO}; texto original em ambito_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "COMUM",
+              "ESPECIFICO"
+            ],
+            "mapa": {
+              "COMUM": "COMUM",
+              "ESPECIFICO": "ESPECIFICO"
+            }
+          }
+        },
+        {
+          "legado": "ambito",
+          "pt": "ambito_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 10,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "employee_id",
@@ -11334,7 +11358,31 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 9,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {CRITERIO, OBJECTIVO}; texto original em tipo_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "CRITERIO",
+              "OBJECTIVO"
+            ],
+            "mapa": {
+              "CRITERIO": "CRITERIO",
+              "OBJECTIVO": "OBJECTIVO"
+            }
+          }
+        },
+        {
+          "legado": "tipo",
+          "pt": "tipo_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 9,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "chave",
@@ -11431,11 +11479,13 @@
         {
           "legado": "meta",
           "pt": "meta",
-          "tipo_pg": "integer",
+          "tipo_pg": "numeric(15,3)",
           "nulo": true,
           "preenchimento": 0.0385,
           "max_comprimento": 4,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: integer)"
+          ]
         },
         {
           "legado": "unidade",
@@ -11521,7 +11571,33 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 8,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {RASCUNHO, ABERTO, FECHADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "RASCUNHO",
+              "ABERTO",
+              "FECHADO"
+            ],
+            "mapa": {
+              "RASCUNHO": "RASCUNHO",
+              "ABERTO": "ABERTO",
+              "FECHADO": "FECHADO"
+            }
+          }
+        },
+        {
+          "legado": "estado",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 8,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "prazos",
@@ -12013,11 +12089,13 @@
         {
           "legado": "acordos",
           "pt": "acordos",
-          "tipo_pg": "varchar(50)",
+          "tipo_pg": "text",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 28,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(50))"
+          ]
         },
         {
           "legado": "registado_por",
@@ -12464,7 +12542,31 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 9,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {RASCUNHO, SUBMETIDA}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "RASCUNHO",
+              "SUBMETIDA"
+            ],
+            "mapa": {
+              "RASCUNHO": "RASCUNHO",
+              "SUBMETIDA": "SUBMETIDA"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 9,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "submetida_em",

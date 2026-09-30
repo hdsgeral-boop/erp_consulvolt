@@ -142,6 +142,11 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST | `/api/rh/portal/resumo` · `/meus-pedidos` · `/recibos` · POST `/pedidos` · `/pedidos/{id}/cancelar` | Portal do colaborador (o próprio) |
 | GET/POST | `/api/rh/portal/aprovacoes` · `/pedidos` · POST `/pedidos/{id}/decidir` · GET `/pedidos/{id}/proposta` · POST `/pedidos/{id}/emitir` · `/ligacoes` | Aprovações (chefia e RH) |
 | GET/PUT/DELETE | `/api/rh/portal/modelos[/{codigo}]` | Modelos de documentos do RH |
+| GET/POST/PUT/DELETE | `/api/rh/avaliacao/itens[/{id}]` | Itens de avaliação (critérios e objectivos) |
+| GET/POST/DELETE | `/api/rh/avaliacao/avaliacoes[/{id}]` · POST `/{id}/reabrir` · `/conhecimento` · `/contestar` · `/parecer` · `/decidir-contestacao` · GET `/{id}/resultado-360` | Avaliação de desempenho |
+| GET/POST/PUT | `/api/rh/avaliacao/ciclos[/{id}]` · POST `/abrir` · `/fechar` · `/confirmar-comunicado` · `/bonificacoes/calcular` · `/aprovar` · `/lancar` | Ciclos 360º e bonificação |
+| POST | `/api/rh/avaliacao/bonificacoes/{id}/anular` · `/feedbacks` · `/feedbacks/{id}/confirmar` | Anulação de bónus e acompanhamento |
+| GET/POST/PUT | `/api/rh/avaliacao/360/tarefas` · `/360/respostas` · `/autoavaliacao` · `/ascendente[/{colaborador}]` | O próprio: 360º, autoavaliação e avaliação da chefia |
 | GET/POST/PUT/DELETE | `/api/logistica/categorias-produtos[/{id}]` | Categorias de produtos |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |

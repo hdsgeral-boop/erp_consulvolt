@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (495) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (497) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -254,7 +254,9 @@ return new class extends Migration
         DB::statement('ALTER TABLE bonificacoes_avaliacao_rh ADD CONSTRAINT fk_bonificacoes_avaliacao_rh_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE bonificacoes_avaliacao_rh ADD CONSTRAINT fk_bonificacoes_avaliacao_rh_ciclo_avaliacao_id FOREIGN KEY (ciclo_avaliacao_id) REFERENCES ciclos_avaliacao_360 (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE bonificacoes_avaliacao_rh ADD CONSTRAINT fk_bonificacoes_avaliacao_rh_colaborador_id FOREIGN KEY (colaborador_id) REFERENCES colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE bonificacoes_avaliacao_rh ADD CONSTRAINT fk_bonificacoes_avaliacao_rh_avaliacao_desempenho_id FOREIGN KEY (avaliacao_desempenho_id) REFERENCES avaliacoes_desempenho_rh (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE bonificacoes_avaliacao_rh ADD CONSTRAINT fk_bonificacoes_avaliacao_rh_linha_folha_salarial_id FOREIGN KEY (linha_folha_salarial_id) REFERENCES linhas_folha_salarial (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE bonificacoes_avaliacao_rh ADD CONSTRAINT fk_bonificacoes_avaliacao_rh_periodo_processamento_salarial_id FOREIGN KEY (periodo_processamento_salarial_id) REFERENCES periodos_processamento_salarial (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE confirmacoes_avaliacao_rh ADD CONSTRAINT fk_confirmacoes_avaliacao_rh_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE confirmacoes_avaliacao_rh ADD CONSTRAINT fk_confirmacoes_avaliacao_rh_ciclo_avaliacao_id FOREIGN KEY (ciclo_avaliacao_id) REFERENCES ciclos_avaliacao_360 (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE confirmacoes_avaliacao_rh ADD CONSTRAINT fk_confirmacoes_avaliacao_rh_colaborador_id FOREIGN KEY (colaborador_id) REFERENCES colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -753,7 +755,9 @@ return new class extends Migration
         DB::statement('ALTER TABLE bonificacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_bonificacoes_avaliacao_rh_empresa_id');
         DB::statement('ALTER TABLE bonificacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_bonificacoes_avaliacao_rh_ciclo_avaliacao_id');
         DB::statement('ALTER TABLE bonificacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_bonificacoes_avaliacao_rh_colaborador_id');
+        DB::statement('ALTER TABLE bonificacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_bonificacoes_avaliacao_rh_avaliacao_desempenho_id');
         DB::statement('ALTER TABLE bonificacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_bonificacoes_avaliacao_rh_linha_folha_salarial_id');
+        DB::statement('ALTER TABLE bonificacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_bonificacoes_avaliacao_rh_periodo_processamento_salarial_id');
         DB::statement('ALTER TABLE confirmacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_confirmacoes_avaliacao_rh_empresa_id');
         DB::statement('ALTER TABLE confirmacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_confirmacoes_avaliacao_rh_ciclo_avaliacao_id');
         DB::statement('ALTER TABLE confirmacoes_avaliacao_rh DROP CONSTRAINT IF EXISTS fk_confirmacoes_avaliacao_rh_colaborador_id');

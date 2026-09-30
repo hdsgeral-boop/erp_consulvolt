@@ -2,12 +2,14 @@
 
 namespace App\Models\Base;
 
+use App\Models\BonificacaoAvaliacaoRH;
 use App\Models\CicloAvaliacao360;
 use App\Models\Colaborador;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Tabela avaliacoes_desempenho_rh (módulo RH). Legado: rh_evaluations · 0 linhas reais no backup.
@@ -30,10 +32,20 @@ abstract class AvaliacaoDesempenhoRHBase extends ModeloBase
         return [
             'empresa_id' => 'integer',
             'ciclo_avaliacao_id' => 'integer',
-            'avisos_360' => 'date',
+            'nota_360' => 'decimal:2',
+            'componentes_360' => 'array',
+            'avisos_360' => 'array',
             'atualizado_360_em' => 'datetime',
+            'conhecimento' => 'array',
+            'contestacao' => 'array',
             'colaborador_id' => 'integer',
-            'peso_objetivos' => 'decimal:4',
+            'ano' => 'integer',
+            'criterios' => 'array',
+            'objetivos' => 'array',
+            'peso_objetivos' => 'decimal:2',
+            'pontuacao' => 'decimal:2',
+            'pontuacao_criterios' => 'decimal:2',
+            'pontuacao_objetivos' => 'decimal:2',
             'data_avaliacao' => 'date',
             'concluida_em' => 'datetime',
             'reaberta_em' => 'datetime',
@@ -50,5 +62,10 @@ abstract class AvaliacaoDesempenhoRHBase extends ModeloBase
     public function colaborador(): BelongsTo
     {
         return $this->belongsTo(Colaborador::class, 'colaborador_id');
+    }
+
+    public function bonificacoesAvaliacaoRh(): HasMany
+    {
+        return $this->hasMany(BonificacaoAvaliacaoRH::class, 'avaliacao_desempenho_id');
     }
 }

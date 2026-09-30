@@ -66,6 +66,12 @@ export const NORMALIZACOES = {
     'PENDENTE CHEFIA': 'PENDENTE_CHEFIA', 'PENDENTE RH': 'PENDENTE_RH', APROVADO: 'APROVADO', EMITIDO: 'EMITIDO', RECUSADO: 'RECUSADO', CANCELADO: 'CANCELADO' } },
   'org_units.tipo': { dominio: ['ORGAO_SOCIAL', 'DIRECCAO_GERAL', 'DIRECCAO', 'DEPARTAMENTO', 'GABINETE', 'SECCAO', 'EQUIPA', 'OUTRO'], mapa: {
     'ORGAO SOCIAL': 'ORGAO_SOCIAL', 'DIRECCAO GERAL': 'DIRECCAO_GERAL', DIRECCAO: 'DIRECCAO', DEPARTAMENTO: 'DEPARTAMENTO', GABINETE: 'GABINETE', SECCAO: 'SECCAO', EQUIPA: 'EQUIPA', OUTRO: 'OUTRO' } },
+  'rh_evaluations.status': { dominio: ['RASCUNHO', 'CONCLUIDA'], mapa: { RASCUNHO: 'RASCUNHO', CONCLUIDA: 'CONCLUIDA' } },
+  'rh_self_evaluations.status': { dominio: ['RASCUNHO', 'SUBMETIDA'], mapa: { RASCUNHO: 'RASCUNHO', SUBMETIDA: 'SUBMETIDA' } },
+  'rh_eval_cycles.estado': { dominio: ['RASCUNHO', 'ABERTO', 'FECHADO'], mapa: { RASCUNHO: 'RASCUNHO', ABERTO: 'ABERTO', FECHADO: 'FECHADO' } },
+  'rh_eval_bonus.estado': { dominio: ['PROPOSTA', 'APROVADA', 'LANCADA'], mapa: { PROPOSTA: 'PROPOSTA', APROVADA: 'APROVADA', LANCADA: 'LANCADA' } },
+  'rh_evaluation_items.tipo': { dominio: ['CRITERIO', 'OBJECTIVO'], mapa: { CRITERIO: 'CRITERIO', OBJECTIVO: 'OBJECTIVO' } },
+  'rh_evaluation_items.ambito': { dominio: ['COMUM', 'ESPECIFICO'], mapa: { COMUM: 'COMUM', ESPECIFICO: 'ESPECIFICO' } },
   'payroll_periods.status': { dominio: ['ABERTO', 'FECHADO', 'VALIDADO'], mapa: { ABERTO: 'ABERTO', FECHADO: 'FECHADO', VALIDADO: 'VALIDADO' } },
   'employees.status': { dominio: ['ACTIVO', 'INACTIVO', 'SUSPENSO'], mapa: {
     ACTIVO: 'ACTIVO', ATIVO: 'ACTIVO', 'NAO ACTIVO': 'INACTIVO', 'NAO ATIVO': 'INACTIVO', INACTIVO: 'INACTIVO', INATIVO: 'INACTIVO', SUSPENSO: 'SUSPENSO' } },

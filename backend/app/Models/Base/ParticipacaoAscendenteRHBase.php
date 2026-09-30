@@ -30,6 +30,7 @@ abstract class ParticipacaoAscendenteRHBase extends ModeloBase
             'empresa_id' => 'integer',
             'colaborador_id' => 'integer',
             'colaborador_alvo_id' => 'integer',
+            'ano' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

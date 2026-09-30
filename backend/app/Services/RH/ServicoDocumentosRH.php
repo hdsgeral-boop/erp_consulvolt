@@ -123,16 +123,8 @@ final class ServicoDocumentosRH
         $c = Colaborador::query()->withTrashed()->findOrFail($colaborador);
         $e = Empresa::query()->findOrFail($this->contexto->obrigatorio());
         $hoje = now()->toDateString();
-        $contrato = ContratoTrabalho::query()->where('colaborador_id', $c->id)->where('estado', 'ACTIVO')
-            ->where(fn ($q) => $q->whereNull('data_inicio')->orWhere('data_inicio', '<=', $hoje))->where(fn ($q) => $q->whereNull('data_fim')->orWhere('data_fim', '>=', $hoje))
-            ->orderBy('id')->first();
-        $mensal = '0';
-        if ($contrato) {
-            $ctr = ['dias' => $contrato->dias_contrato_mes, 'horas' => $contrato->horas_por_dia];
-            foreach ((array) $contrato->remuneracoes as $r) {
-                $mensal = bcadd($mensal, MotorSalarial::mensal(['valor_mes' => $r['valor_mes'] ?? $r['value_month'] ?? null, 'valor_dia' => $r['valor_dia'] ?? $r['value_per_day'] ?? null], $ctr), 2);
-            }
-        }
+        $contrato = $this->contratoVigente($c->id);
+        $mensal = $this->remuneracaoMensal($c->id);
         $admissao = $c->data_admissao?->toDateString() ?? $contrato?->data_inicio?->toDateString();
         $cb = CoordenadaBancariaColaborador::query()->where('colaborador_id', $c->id)->first();
 
@@ -149,6 +141,31 @@ final class ServicoDocumentosRH
             'finalidade' => (string) ($pedido['finalidade'] ?? ''), 'destinatario' => (string) ($pedido['destinatario'] ?? ''), 'observacoes' => (string) ($pedido['observacoes'] ?? ''),
             'data_hoje' => Extenso::data($hoje), 'local' => (string) ($e->municipio ?: ($e->provincia ?: (trim(explode(',', (string) $e->endereco)[0]) ?: 'Luanda'))),
         ];
+    }
+
+    /** Contrato ACTIVO vigente hoje. */
+    public function contratoVigente(int $colaborador): ?ContratoTrabalho
+    {
+        $hoje = now()->toDateString();
+
+        return ContratoTrabalho::query()->where('colaborador_id', $colaborador)->where('estado', 'ACTIVO')
+            ->where(fn ($q) => $q->whereNull('data_inicio')->orWhere('data_inicio', '<=', $hoje))->where(fn ($q) => $q->whereNull('data_fim')->orWhere('data_fim', '>=', $hoje))
+            ->orderBy('id')->first();
+    }
+
+    /** Remuneração mensal ilíquida do contrato vigente (Σ das remunerações). */
+    public function remuneracaoMensal(int $colaborador): string
+    {
+        $contrato = $this->contratoVigente($colaborador);
+        $mensal = '0.00';
+        if ($contrato) {
+            $ctr = ['dias' => $contrato->dias_contrato_mes, 'horas' => $contrato->horas_por_dia];
+            foreach ((array) $contrato->remuneracoes as $r) {
+                $mensal = bcadd($mensal, MotorSalarial::mensal(['valor_mes' => $r['valor_mes'] ?? $r['value_month'] ?? null, 'valor_dia' => $r['valor_dia'] ?? $r['value_per_day'] ?? null], $ctr), 2);
+            }
+        }
+
+        return $mensal;
     }
 
     /** @return array{titulo: string, texto: string, local: string, assinante: string, cargo_assinante: string, faltas: list<string>} */
