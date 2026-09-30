@@ -406,6 +406,16 @@ export const TIPOS_FORCADOS = {
   'audit_logs.company_id': 'bigint',
   'infotypes.calculo_horas': 'varchar(10)',
   'org_units.utilizador_responsavel': 'varchar(100)',
+  // Orçamento (tabelas quase vazias no backup: tipos inferidos do código estavam errados)
+  'orc_budgets.consolidado_ids': 'jsonb', 'orc_budgets.prazo_contributo': 'date', 'orc_budgets.responsavel': 'varchar(100)', 'orc_budgets.origem': 'varchar(30)',
+  'orc_forecasts.nome': 'varchar(255)', 'orc_forecasts.tipo': 'varchar(20)', 'orc_forecasts.mes_ref': 'varchar(7)', 'orc_forecasts.status': 'varchar(20)',
+  'orc_forecasts.metodo': 'varchar(20)', 'orc_forecasts.criado_por': 'varchar(100)', 'orc_forecasts.actualizado_por': 'varchar(100)', 'orc_forecasts.publicado_por': 'varchar(100)',
+  'orc_scenarios.tipo': 'varchar(20)', 'orc_scenarios.variaveis': 'jsonb', 'orc_scenarios.ajustes': 'jsonb',
+  'orc_excess_requests.status': 'varchar(20)', 'orc_excess_requests.origem': 'varchar(30)', 'orc_excess_requests.doc': 'varchar(100)',
+  'orc_excess_requests.chave_doc': 'varchar(150)', 'orc_excess_requests.autoaprovado': 'boolean', 'orc_excess_requests.nota_decisao': 'text',
+  'orc_excess_requests.pedido_por': 'varchar(100)', 'orc_excess_requests.decidido_por': 'varchar(100)',
+  'orc_alert_log.estado': 'varchar(20)', 'orc_alert_log.accao': 'varchar(30)', 'orc_alert_log.origem': 'varchar(30)', 'orc_alert_log.doc': 'varchar(100)',
+  'orc_alert_log.por': 'varchar(100)',
   'inventory_session_lines.difference': 'numeric(12,3)',   // é uma quantidade (contada − sistema), não um valor
 
   // RH parte 3b: avaliação (tabelas vazias no backup — tipos do código estavam errados)

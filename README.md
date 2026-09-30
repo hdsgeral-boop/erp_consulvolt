@@ -154,6 +154,9 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/PUT | `/api/logistica/configuracao/contas` | Contas da logística (CMV, sobras, quebras) |
 | GET/POST | `/api/logistica/inventarios[/{id}]` · POST `/contagem` · `/concluir-contagem` · `/revisao` · `/voltar-contagem` · `/aprovar` · `/reabrir` · `/anular` | Inventário físico |
 | GET/POST | `/api/logistica/guias-saida[/{id}]` · POST `/contabilizar` · `/descontabilizar` · `/anular` | Guias de consumo interno |
+| GET/POST/PUT/DELETE | `/api/orcamento/rubricas[/{id}]` · POST `/rubricas/base` | Rubricas orçamentais (exploração e tesouraria) |
+| GET/POST/PUT/DELETE | `/api/orcamento/orcamentos[/{id}]` · PUT `/valores` · POST `/submeter` · `/aprovar` · `/devolver` · `/nova-versao` · `/repartir` · `/contributos` · `/consolidar` | Orçamentos e hierarquia |
+| GET | `/api/orcamento/orcamentos/{id}/controlo` | Orçado × realizado (mês, acumulado, ano) |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

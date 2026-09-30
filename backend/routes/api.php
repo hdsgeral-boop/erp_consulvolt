@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
 use App\Http\Controllers\Api\Logistica\StockController;
+use App\Http\Controllers\Api\Orcamento\OrcamentoController;
 use App\Http\Controllers\Api\RH\AssiduidadeController;
 use App\Http\Controllers\Api\RH\AvaliacaoController;
 use App\Http\Controllers\Api\RH\CadastrosRHController;
@@ -402,6 +403,27 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('autoavaliacao', 'gravarAutoavaliacao')->name('autoavaliacao.gravar');
             Route::post('ascendente', 'responderAscendente')->name('ascendente.responder');
             Route::get('ascendente/{colaborador}', 'resultadosAscendente')->whereNumber('colaborador')->name('ascendente.resultados');
+        });
+
+        Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
+            Route::get('rubricas', 'rubricas')->name('rubricas.index');
+            Route::post('rubricas', 'guardarRubrica')->name('rubricas.store');
+            Route::post('rubricas/base', 'criarRubricasBase')->name('rubricas.base');
+            Route::put('rubricas/{rubrica}', 'guardarRubrica')->whereNumber('rubrica')->name('rubricas.update');
+            Route::delete('rubricas/{rubrica}', 'eliminarRubrica')->whereNumber('rubrica')->name('rubricas.destroy');
+            Route::get('orcamentos', 'orcamentos')->name('orcamentos.index');
+            Route::post('orcamentos', 'criar')->name('orcamentos.store');
+            Route::get('orcamentos/{orcamento}', 'orcamento')->whereNumber('orcamento')->name('orcamentos.show');
+            Route::put('orcamentos/{orcamento}/valores', 'gravarValores')->whereNumber('orcamento')->name('orcamentos.valores');
+            Route::post('orcamentos/{orcamento}/submeter', 'submeter')->whereNumber('orcamento')->name('orcamentos.submeter');
+            Route::post('orcamentos/{orcamento}/aprovar', 'aprovar')->whereNumber('orcamento')->name('orcamentos.aprovar');
+            Route::post('orcamentos/{orcamento}/devolver', 'devolver')->whereNumber('orcamento')->name('orcamentos.devolver');
+            Route::post('orcamentos/{orcamento}/nova-versao', 'novaVersao')->whereNumber('orcamento')->name('orcamentos.versao');
+            Route::delete('orcamentos/{orcamento}', 'eliminar')->whereNumber('orcamento')->name('orcamentos.destroy');
+            Route::post('orcamentos/{orcamento}/repartir', 'repartir')->whereNumber('orcamento')->name('orcamentos.repartir');
+            Route::post('orcamentos/{orcamento}/contributos', 'pedirContributos')->whereNumber('orcamento')->name('orcamentos.contributos');
+            Route::post('orcamentos/{orcamento}/consolidar', 'consolidar')->whereNumber('orcamento')->name('orcamentos.consolidar');
+            Route::get('orcamentos/{orcamento}/controlo', 'controlo')->whereNumber('orcamento')->name('orcamentos.controlo');
         });
 
         Route::prefix('rh')->name('rh.')->group(function () {

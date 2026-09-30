@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T16:47:06.163Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T17:15:59.806Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1680 |
+| Colunas reais mapeadas | 1684 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -111,6 +111,12 @@
 | `rh_eval_bonus.estado` | PROPOSTA, APROVADA, LANCADA |  |
 | `rh_evaluation_items.tipo` | CRITERIO, OBJECTIVO | CRITERIO → CRITERIO; OBJECTIVO → OBJECTIVO |
 | `rh_evaluation_items.ambito` | COMUM, ESPECIFICO | COMUM → COMUM; ESPECIFICO → ESPECIFICO |
+| `orc_budgets.status` | RASCUNHO, SUBMETIDO, APROVADO, SUBSTITUIDO | RASCUNHO → RASCUNHO |
+| `orc_budgets.tipo` | EXPLORACAO, TESOURARIA | EXPLORACAO → EXPLORACAO; TESOURARIA → TESOURARIA |
+| `orc_rubrics.tipo` | EXPLORACAO, TESOURARIA | EXPLORACAO → EXPLORACAO; TESOURARIA → TESOURARIA |
+| `orc_rubrics.natureza` | PROVEITO, CUSTO, RECEBIMENTO, PAGAMENTO | PROVEITO → PROVEITO; CUSTO → CUSTO; PAGAMENTO → PAGAMENTO; RECEBIMENTO → RECEBIMENTO |
+| `orc_excess_requests.status` | PENDENTE, APROVADO, REJEITADO, UTILIZADO |  |
+| `orc_forecasts.status` | RASCUNHO, PUBLICADA |  |
 | `payroll_periods.status` | ABERTO, FECHADO, VALIDADO | VALIDADO → VALIDADO; ABERTO → ABERTO |
 | `employees.status` | ACTIVO, INACTIVO, SUSPENSO | ACTIVO → ACTIVO; Não ACTIVO → INACTIVO; NÃO ACTIVO → INACTIVO |
 | `employees.estado_civil` | SOLTEIRO, CASADO, DIVORCIADO, VIUVO, UNIAO_FACTO | Solteiro(a) → SOLTEIRO; Casado(a) → CASADO |
@@ -2608,10 +2614,12 @@ Linhas reais: **75** · fictícias descartadas: 0
 | Coluna legado | Coluna PT | Tipo PG | Nulo | Preench. | FK | Notas |
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `orc_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
-| `tipo` | `tipo` | varchar(20) | sim | 100% |  |  |
+| `tipo` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {EXPLORACAO, TESOURARIA}; texto original em tipo_original |
+| `tipo` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `codigo` | `codigo` | varchar(10) | sim | 100% |  |  |
 | `nome` | `nome` | varchar(100) | sim | 100% |  |  |
-| `natureza` | `natureza` | varchar(20) | sim | 100% |  |  |
+| `natureza` | `natureza` | varchar(20) | sim | 100% |  | código normalizado ∈ {PROVEITO, CUSTO, RECEBIMENTO, PAGAMENTO}; texto original em natureza_original |
+| `natureza` | `natureza_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `grupo` | `grupo` | varchar(50) | sim | 100% |  |  |
 | `contas` | `contas` | jsonb | sim | 100% |  |  |
 | `ordem` | `ordem` | integer | sim | 100% |  |  |
@@ -2629,14 +2637,16 @@ Linhas reais: **8** · fictícias descartadas: 0
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `orc_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `ano` | `ano` | integer | sim | 100% |  |  |
-| `tipo` | `tipo` | varchar(20) | sim | 100% |  |  |
+| `tipo` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {EXPLORACAO, TESOURARIA}; texto original em tipo_original |
+| `tipo` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `business_unit_id` | `unidade_negocio_id` | bigint | sim | 50% | `unidades_negocio.id` |  |
 | `cost_center_id` | `centro_custo_id` | bigint | sim | 0% | `centros_custo.id` |  |
 | `nome` | `nome` | varchar(100) | sim | 100% |  |  |
 | `descricao` | `descricao` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `versao` | `versao` | integer | sim | 100% |  |  |
 | `versao_origem_id` | `versao_origem_id` | bigint | sim | 0% | `orcamentos_anuais.id` |  |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {RASCUNHO, SUBMETIDO, APROVADO, SUBSTITUIDO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `criado_por` | `criado_por` | varchar(10) | sim | 100% |  |  |
 | `criado_em` | `criado_em` | timestamptz | sim | 100% |  |  |
 | `rejeicoes` | `rejeicoes` | jsonb | sim | 100% |  |  |
@@ -2647,11 +2657,11 @@ Linhas reais: **8** · fictícias descartadas: 0
 | `dimensao_filhos` | `dimensao_filhos` | varchar(10) | sim | 13% |  |  |
 | `project_id` | `projeto_id` | bigint | sim | 0% | `projetos.id` |  |
 | `metodo` | `metodo` | varchar(20) | sim | 50% |  |  |
-| `origem` | `origem` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
+| `origem` | `origem` | varchar(30) | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
 | `crescimento_proveitos_pct` | `crescimento_proveitos_pct` | numeric(9,4) | sim | 50% |  |  |
 | `crescimento_custos_pct` | `crescimento_custos_pct` | numeric(9,4) | sim | 50% |  |  |
 | `inflacao_pct` | `inflacao_pct` | numeric(9,4) | sim | 50% |  |  |
-| `responsavel` | `responsavel` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
+| `responsavel` | `responsavel` | varchar(100) | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
 | `pai_id` | `orcamento_pai_id` | bigint | sim | 50% | `orcamentos_anuais.id` |  |
 
 ### `orc_lines` → `linhas_orcamento` (model `LinhaOrcamento`, `/api/orcamento/linhas`)

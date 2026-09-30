@@ -39,6 +39,7 @@ abstract class PedidoExtrapolacaoOrcamentoBase extends ModeloBase
             'valor_excesso' => 'decimal:2',
             'pedido_em' => 'datetime',
             'decidido_em' => 'datetime',
+            'autoaprovado' => 'boolean',
             'utilizado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',

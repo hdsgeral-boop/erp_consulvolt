@@ -74,6 +74,15 @@ export const NORMALIZACOES = {
   'rh_eval_bonus.estado': { dominio: ['PROPOSTA', 'APROVADA', 'LANCADA'], mapa: { PROPOSTA: 'PROPOSTA', APROVADA: 'APROVADA', LANCADA: 'LANCADA' } },
   'rh_evaluation_items.tipo': { dominio: ['CRITERIO', 'OBJECTIVO'], mapa: { CRITERIO: 'CRITERIO', OBJECTIVO: 'OBJECTIVO' } },
   'rh_evaluation_items.ambito': { dominio: ['COMUM', 'ESPECIFICO'], mapa: { COMUM: 'COMUM', ESPECIFICO: 'ESPECIFICO' } },
+  'orc_budgets.status': { dominio: ['RASCUNHO', 'SUBMETIDO', 'APROVADO', 'SUBSTITUIDO'], mapa: {
+    RASCUNHO: 'RASCUNHO', SUBMETIDO: 'SUBMETIDO', APROVADO: 'APROVADO', SUBSTITUIDO: 'SUBSTITUIDO' } },
+  'orc_budgets.tipo': { dominio: ['EXPLORACAO', 'TESOURARIA'], mapa: { EXPLORACAO: 'EXPLORACAO', TESOURARIA: 'TESOURARIA' } },
+  'orc_rubrics.tipo': { dominio: ['EXPLORACAO', 'TESOURARIA'], mapa: { EXPLORACAO: 'EXPLORACAO', TESOURARIA: 'TESOURARIA' } },
+  'orc_rubrics.natureza': { dominio: ['PROVEITO', 'CUSTO', 'RECEBIMENTO', 'PAGAMENTO'], mapa: {
+    PROVEITO: 'PROVEITO', CUSTO: 'CUSTO', RECEBIMENTO: 'RECEBIMENTO', PAGAMENTO: 'PAGAMENTO' } },
+  'orc_excess_requests.status': { dominio: ['PENDENTE', 'APROVADO', 'REJEITADO', 'UTILIZADO'], mapa: {
+    PENDENTE: 'PENDENTE', APROVADO: 'APROVADO', REJEITADO: 'REJEITADO', UTILIZADO: 'UTILIZADO' } },
+  'orc_forecasts.status': { dominio: ['RASCUNHO', 'PUBLICADA'], mapa: { RASCUNHO: 'RASCUNHO', PUBLICADA: 'PUBLICADA' } },
   'payroll_periods.status': { dominio: ['ABERTO', 'FECHADO', 'VALIDADO'], mapa: { ABERTO: 'ABERTO', FECHADO: 'FECHADO', VALIDADO: 'VALIDADO' } },
   'employees.status': { dominio: ['ACTIVO', 'INACTIVO', 'SUSPENSO'], mapa: {
     ACTIVO: 'ACTIVO', ATIVO: 'ACTIVO', 'NAO ACTIVO': 'INACTIVO', 'NAO ATIVO': 'INACTIVO', INACTIVO: 'INACTIVO', INATIVO: 'INACTIVO', SUSPENSO: 'SUSPENSO' } },

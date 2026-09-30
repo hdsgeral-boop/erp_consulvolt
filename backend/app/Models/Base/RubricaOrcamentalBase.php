@@ -25,7 +25,7 @@ abstract class RubricaOrcamentalBase extends ModeloBase
     protected string $moduloAuditoria = 'Orçamento';
 
     protected $fillable = [
-        'empresa_id', 'tipo', 'codigo', 'nome', 'natureza', 'grupo', 'contas', 'ordem', 'ativo', 'descricao', 'controlo', 'indutor', 'cambial_pct', 'variavel_pct',
+        'empresa_id', 'tipo', 'tipo_original', 'codigo', 'nome', 'natureza', 'natureza_original', 'grupo', 'contas', 'ordem', 'ativo', 'descricao', 'controlo', 'indutor', 'cambial_pct', 'variavel_pct',
     ];
 
     protected function casts(): array

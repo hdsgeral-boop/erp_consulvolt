@@ -36,7 +36,6 @@ abstract class PrevisaoOrcamentalBase extends ModeloBase
             'unidade_negocio_id' => 'integer',
             'centro_custo_id' => 'integer',
             'projeto_id' => 'integer',
-            'nome' => 'array',
             'revisao' => 'integer',
             'crescimento_pct' => 'decimal:4',
             'revisao_origem_id' => 'integer',

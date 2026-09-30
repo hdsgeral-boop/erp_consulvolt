@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T16:47:06.163Z",
+  "gerado_em": "2026-09-30T17:15:59.806Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -19878,7 +19878,31 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {EXPLORACAO, TESOURARIA}; texto original em tipo_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "EXPLORACAO",
+              "TESOURARIA"
+            ],
+            "mapa": {
+              "EXPLORACAO": "EXPLORACAO",
+              "TESOURARIA": "TESOURARIA"
+            }
+          }
+        },
+        {
+          "legado": "tipo",
+          "pt": "tipo_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 10,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "codigo",
@@ -19905,7 +19929,35 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 11,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {PROVEITO, CUSTO, RECEBIMENTO, PAGAMENTO}; texto original em natureza_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PROVEITO",
+              "CUSTO",
+              "RECEBIMENTO",
+              "PAGAMENTO"
+            ],
+            "mapa": {
+              "PROVEITO": "PROVEITO",
+              "CUSTO": "CUSTO",
+              "RECEBIMENTO": "RECEBIMENTO",
+              "PAGAMENTO": "PAGAMENTO"
+            }
+          }
+        },
+        {
+          "legado": "natureza",
+          "pt": "natureza_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 11,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "grupo",
@@ -20028,7 +20080,31 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {EXPLORACAO, TESOURARIA}; texto original em tipo_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "EXPLORACAO",
+              "TESOURARIA"
+            ],
+            "mapa": {
+              "EXPLORACAO": "EXPLORACAO",
+              "TESOURARIA": "TESOURARIA"
+            }
+          }
+        },
+        {
+          "legado": "tipo",
+          "pt": "tipo_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 10,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "business_unit_id",
@@ -20117,7 +20193,35 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 8,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {RASCUNHO, SUBMETIDO, APROVADO, SUBSTITUIDO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "RASCUNHO",
+              "SUBMETIDO",
+              "APROVADO",
+              "SUBSTITUIDO"
+            ],
+            "mapa": {
+              "RASCUNHO": "RASCUNHO",
+              "SUBMETIDO": "SUBMETIDO",
+              "APROVADO": "APROVADO",
+              "SUBSTITUIDO": "SUBSTITUIDO"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 8,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "criado_por",
@@ -20222,12 +20326,13 @@
         {
           "legado": "origem",
           "pt": "origem",
-          "tipo_pg": "text",
+          "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {
@@ -20260,12 +20365,13 @@
         {
           "legado": "responsavel",
           "pt": "responsavel",
-          "tipo_pg": "text",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {

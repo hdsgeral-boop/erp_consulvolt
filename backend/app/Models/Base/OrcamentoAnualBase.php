@@ -29,7 +29,7 @@ abstract class OrcamentoAnualBase extends ModeloBase
     protected string $moduloAuditoria = 'Orçamento';
 
     protected $fillable = [
-        'empresa_id', 'ano', 'tipo', 'unidade_negocio_id', 'centro_custo_id', 'nome', 'descricao', 'versao', 'versao_origem_id', 'estado', 'criado_por', 'rejeicoes', 'atualizado_por', 'abordagem', 'dimensao_filhos', 'projeto_id', 'metodo', 'origem', 'crescimento_proveitos_pct', 'crescimento_custos_pct', 'inflacao_pct', 'responsavel', 'orcamento_pai_id', 'saldo_inicial', 'submetido_por', 'submetido_em', 'substituido_por_id', 'substituido_em', 'aprovado_por', 'aprovado_em', 'prazo_contributo', 'consolidado_em', 'consolidado_por', 'consolidado_ids',
+        'empresa_id', 'ano', 'tipo', 'tipo_original', 'unidade_negocio_id', 'centro_custo_id', 'nome', 'descricao', 'versao', 'versao_origem_id', 'estado', 'estado_original', 'criado_por', 'rejeicoes', 'atualizado_por', 'abordagem', 'dimensao_filhos', 'projeto_id', 'metodo', 'origem', 'crescimento_proveitos_pct', 'crescimento_custos_pct', 'inflacao_pct', 'responsavel', 'orcamento_pai_id', 'saldo_inicial', 'submetido_por', 'submetido_em', 'substituido_por_id', 'substituido_em', 'aprovado_por', 'aprovado_em', 'prazo_contributo', 'consolidado_em', 'consolidado_por', 'consolidado_ids',
     ];
 
     protected function casts(): array
@@ -52,7 +52,9 @@ abstract class OrcamentoAnualBase extends ModeloBase
             'substituido_por_id' => 'integer',
             'substituido_em' => 'datetime',
             'aprovado_em' => 'datetime',
+            'prazo_contributo' => 'date',
             'consolidado_em' => 'datetime',
+            'consolidado_ids' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

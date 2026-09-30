@@ -106,7 +106,9 @@ Cobrem os seguintes casos:
 | **RH (parte 3b)** | ✅ | rh/avaliacao (itens, avaliacoes +reabrir, conhecimento, contestar, parecer, decidir-contestacao, resultado-360; ciclos +abrir, fechar, confirmar-comunicado, bonificacoes +calcular, aprovar, lancar, anular; feedbacks; 360/tarefas, 360/respostas; autoavaliacao; ascendente) | Fórmulas iguais ao legado, ninguém se avalia, resultados anónimos só após o prazo, bónus sem duplicar no processamento (ADR-041) |
 | **Logística (parte 1)** | ✅ | logistica/armazens, stock, movimentos, produtos/{id}/extracto, transferencias, ajustes, configuracao/contas, inventarios (+contagem, concluir-contagem, revisao, voltar-contagem, aprovar, reabrir, anular) | Motor de stock único com sentido/valor/documento, custo médio real, transferências, armazém congelado durante o inventário, regularização contabilizada e reaberta por estorno, stock migrado reconciliado (ADR-042) |
 | **Logística (parte 2)** | ✅ | vendas/documentos GR e GD (+converter NE → GR, GR → FT/GD; NC com devolucao_mercadoria), logistica/guias-saida (+contabilizar, descontabilizar, anular) | FT/FR/GR baixam e GD/NC de devolução repõem ao custo, CMV permanente no lançamento do documento, guias de consumo com numeração sem repetições (ADR-043) |
-| POS, Activos, Projectos, Orçamento, A&D, CRM | ⏳ | | |
+| **Orçamento (parte 1)** | ✅ | orcamento/rubricas (+base), orcamento/orcamentos (+valores, submeter, aprovar, devolver, nova-versao, repartir, contributos, consolidar, controlo) | Base histórica com crescimento/inflação, segregação submeter/aprovar, consolidação da última versão, realizado do Diário sem apuramentos (ADR-044) |
+| Orçamento (parte 2) | ⏳ | | Controlo nos documentos, compromissos, pedidos de excesso, previsões, cenários |
+| POS, Activos, Projectos, A&D, CRM | ⏳ | | |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
 

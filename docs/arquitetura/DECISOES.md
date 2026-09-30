@@ -957,3 +957,58 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - MovementOfGoods no SAF-T (GR/GD);
 - dados de transporte exigidos pela AGT (matrícula, locais e hora de carga e descarga), que o legado também não tinha;
 - o POS e a lavandaria, que passam a usar o mesmo motor de stock e CMV no respectivo módulo.
+
+## ADR-044 — Orçamento parte 1: rubricas, orçamentos, versões, hierarquia e controlo orçado × realizado
+
+**Rubricas** (`ServicoRubricasOrcamentais`, `js/modules/orcamento/orcamento_dados.js`):
+- Dois tipos: exploração (PROVEITO/CUSTO) e tesouraria (RECEBIMENTO/PAGAMENTO).
+- Ligadas ao plano por conta exacta ou por prefixo, e cada conta pertence a uma só rubrica do mesmo tipo.
+- Na tesouraria não se usam 43/45, que são o próprio movimento.
+- Controlo de excesso (NENHUM, AVISAR, APROVACAO ou BLOQUEAR) só em custos e pagamentos, e o limite não pode ser inferior ao aviso.
+- Rubricas base do PGC Angola: criam-se só as que existem no plano e não se sobrepõem.
+- Correcção: uma rubrica usada em previsões ou pedidos de excesso também não se elimina (o legado só verificava as linhas).
+
+**Orçamentos** (`ServicoOrcamentos`):
+- Mantém do legado:
+  - chave ano|tipo|UN|CC|projecto, válida para todas as versões;
+  - método HISTÓRICO: base = realizado ou orçamento aprovado do ano anterior × (1 + crescimento)(1 + inflação), com crescimento distinto para proveitos e custos;
+  - método BASE ZERO: cada rubrica com valor exige justificação de pelo menos 10 caracteres;
+  - 12 meses por rubrica, e linhas a zero sem notas não se gravam;
+  - estados RASCUNHO → SUBMETIDO → APROVADO; o aprovado anterior da mesma chave fica SUBSTITUIDO;
+  - devolver com motivo;
+  - nova versão só a partir do aprovado, e só uma em preparação de cada vez.
+- Hierarquia:
+  - top-down reparte o pai pelos filhos em rascunho: IGUAL, pelo REALIZADO anterior, ou MANUAL (percentagens que somam 100);
+  - o último filho fica com o resto do arredondamento, para a soma dos filhos igualar o pai;
+  - bottom-up cria contributos com responsável; o responsável edita e submete o seu com `orc_contributo`;
+  - consolidar soma os contributos no pai.
+- Correcções:
+  - quem submeteu não aprova (o legado só avisava);
+  - **a consolidação usa só a última versão de cada contributo**. O legado somava a v1 aprovada e a v2 submetida, em duplicado;
+  - um orçamento com filhos não se elimina (o legado deixava `pai_id` órfão);
+  - a chave é verificada dentro de uma transacção com bloqueio.
+
+**Execução** (`ServicoExecucaoOrcamental`), com os resultados a partir do Diário:
+- **Exploração:**
+  - entram as contas 6/7 e as de outras classes que uma rubrica liste explicitamente;
+  - PROVEITO = C − D e CUSTO = D − C;
+  - as contas 6/7 sem rubrica aparecem em «sem rubrica».
+- **Tesouraria:**
+  - em cada documento, o movimento líquido de 43/45 reparte-se pelas contrapartidas na proporção dos valores;
+  - as transferências internas anulam-se;
+  - calcula o saldo inicial e os saldos de fim de mês.
+- Aplica os filtros UN/CC/projecto do orçamento e exclui a classe 9.
+- Desvio = real − orçado.
+  - É favorável acima do orçado nos proveitos e recebimentos, e abaixo nos custos e pagamentos.
+  - Um desvio desfavorável acima de 10 % fica assinalado.
+  - O mapa mostra os 5 piores desvios e o orçado inicial (v1) ao lado do corrigido.
+- **Correcção:** os lançamentos de apuramento de resultados excluem-se pelo diário AP-*. O legado usava o «período 13/14», mas no backup esse campo também guarda ids de processamentos salariais, e o salário do processamento n.º 13 ficaria de fora.
+- Nos dados reais, os 8 orçamentos migrados calculam o controlo em menos de 0,1 s cada.
+
+**Tipos corrigidos** (tabelas quase vazias no backup): nomes e estados das previsões; tipo, variáveis e ajustes dos cenários (jsonb); estado, origem e `autoaprovado` (booleano) dos pedidos de excesso; ids consolidados em jsonb; prazo do contributo como data.
+
+**Fica para a parte 2:**
+- controlo orçamental nos documentos (adjudicação, factura directa, pagamento, lançamento manual);
+- compromissos por linha de encomenda, libertados pela quantidade facturada ou pelo cancelamento;
+- pedidos de excesso com permissão verificada no servidor, e alertas;
+- previsões (rolling forecast) e cenários.

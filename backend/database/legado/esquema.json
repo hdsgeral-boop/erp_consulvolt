@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T16:47:08.104Z",
+  "gerado_em": "2026-09-30T17:16:02.587Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -23087,6 +23087,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "EXPLORACAO",
+            "TESOURARIA"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "tipo",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -23113,6 +23125,20 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "PROVEITO",
+            "CUSTO",
+            "RECEBIMENTO",
+            "PAGAMENTO"
+          ]
+        },
+        {
+          "coluna": "natureza_original",
+          "legado": "natureza",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -23234,7 +23260,10 @@
           "onde": null
         }
       ],
-      "checks": []
+      "checks": [
+        "ck_rubricas_orcamentais_tipo",
+        "ck_rubricas_orcamentais_natureza"
+      ]
     },
     {
       "tabela": "orcamentos_anuais",
@@ -23282,6 +23311,18 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "EXPLORACAO",
+            "TESOURARIA"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "tipo",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -23355,6 +23396,20 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "RASCUNHO",
+            "SUBMETIDO",
+            "APROVADO",
+            "SUBSTITUIDO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -23426,7 +23481,7 @@
         {
           "coluna": "origem",
           "legado": "origem",
-          "tipo": "text",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23462,7 +23517,7 @@
         {
           "coluna": "responsavel",
           "legado": "responsavel",
-          "tipo": "text",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23549,7 +23604,7 @@
         {
           "coluna": "prazo_contributo",
           "legado": "prazo_contributo",
-          "tipo": "varchar(255)",
+          "tipo": "date",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23576,7 +23631,7 @@
         {
           "coluna": "consolidado_ids",
           "legado": "consolidado_ids",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23602,7 +23657,10 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_orcamentos_anuais_tipo",
+        "ck_orcamentos_anuais_estado"
+      ]
     },
     {
       "tabela": "linhas_orcamento",
@@ -23742,7 +23800,7 @@
         {
           "coluna": "tipo",
           "legado": "tipo",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23787,7 +23845,7 @@
         {
           "coluna": "nome",
           "legado": "nome",
-          "tipo": "jsonb",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23796,7 +23854,7 @@
         {
           "coluna": "mes_referencia",
           "legado": "mes_ref",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(7)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23814,7 +23872,7 @@
         {
           "coluna": "estado",
           "legado": "status",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23823,7 +23881,7 @@
         {
           "coluna": "metodo",
           "legado": "metodo",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23850,7 +23908,7 @@
         {
           "coluna": "criado_por",
           "legado": "criado_por",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23871,7 +23929,7 @@
         {
           "coluna": "atualizado_por",
           "legado": "actualizado_por",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -23880,7 +23938,7 @@
         {
           "coluna": "publicado_por",
           "legado": "publicado_por",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24058,7 +24116,7 @@
         {
           "coluna": "tipo",
           "legado": "tipo",
-          "tipo": "jsonb",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24067,7 +24125,7 @@
         {
           "coluna": "variaveis",
           "legado": "variaveis",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24076,7 +24134,7 @@
         {
           "coluna": "ajustes",
           "legado": "ajustes",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24165,7 +24223,7 @@
         {
           "coluna": "estado",
           "legado": "status",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24198,7 +24256,7 @@
         {
           "coluna": "origem",
           "legado": "origem",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24207,7 +24265,7 @@
         {
           "coluna": "documento",
           "legado": "doc",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24216,7 +24274,7 @@
         {
           "coluna": "chave_documento",
           "legado": "chave_doc",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(150)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24288,7 +24346,7 @@
         {
           "coluna": "pedido_por",
           "legado": "pedido_por",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24306,7 +24364,7 @@
         {
           "coluna": "decidido_por",
           "legado": "decidido_por",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24324,7 +24382,7 @@
         {
           "coluna": "nota_decisao",
           "legado": "nota_decisao",
-          "tipo": "varchar(255)",
+          "tipo": "text",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24333,7 +24391,7 @@
         {
           "coluna": "autoaprovado",
           "legado": "autoaprovado",
-          "tipo": "varchar(255)",
+          "tipo": "boolean",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24413,7 +24471,7 @@
         {
           "coluna": "por",
           "legado": "por",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24422,7 +24480,7 @@
         {
           "coluna": "origem",
           "legado": "origem",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24431,7 +24489,7 @@
         {
           "coluna": "documento",
           "legado": "doc",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24473,7 +24531,7 @@
         {
           "coluna": "estado",
           "legado": "estado",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -24482,7 +24540,7 @@
         {
           "coluna": "acao",
           "legado": "accao",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,

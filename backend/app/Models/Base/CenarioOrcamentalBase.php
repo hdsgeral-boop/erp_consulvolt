@@ -29,7 +29,8 @@ abstract class CenarioOrcamentalBase extends ModeloBase
         return [
             'empresa_id' => 'integer',
             'orcamento_anual_id' => 'integer',
-            'tipo' => 'array',
+            'variaveis' => 'array',
+            'ajustes' => 'array',
             'atualizado_em' => 'datetime',
             'criado_em' => 'datetime',
         ];
