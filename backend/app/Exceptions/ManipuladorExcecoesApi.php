@@ -23,6 +23,14 @@ final class ManipuladorExcecoesApi
 {
     public static function renderizar(Throwable $e): JsonResponse
     {
+        if ($e instanceof ErroOrcamental) {   // já fora da transacção desfeita do documento
+            try {
+                $e->registar();
+            } catch (Throwable) {
+                // o registo do alerta nunca impede a resposta
+            }
+        }
+
         return match (true) {
             $e instanceof ValidationException => RespostaApi::erro(
                 'Os dados enviados são inválidos.', 422, 'VALIDACAO', $e->errors()),

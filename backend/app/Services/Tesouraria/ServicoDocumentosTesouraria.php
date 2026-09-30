@@ -11,6 +11,7 @@ use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Vendas\CalculadoraDocumento;
 use App\Services\Vendas\ServicoSeries;
@@ -86,6 +87,12 @@ final class ServicoDocumentosTesouraria
             }
             foreach ($linhas as $l) {
                 ItemDocumentoTesouraria::create($l + ['documento_tesouraria_id' => $doc->id]);
+            }
+            if ($tipo === 'PAGAMENTO') {   // controlo orçamental de tesouraria (ui_tesouraria.js:1032): débitos consomem, créditos abatem
+                app(ServicoControloOrcamental::class)->avaliar('TESOURARIA', ['origem' => 'PAGAMENTO', 'documento' => $doc->numero_documento, 'data' => $data],
+                    array_map(fn ($l) => ['codigo_conta' => $l['codigo_conta'], 'valor' => ($l['tipo_dc'] === 'D' ? 1 : -1) * (float) $l['valor'],
+                        'unidade_negocio_id' => $l['unidade_negocio_id'] ?? null, 'centro_custo_id' => $l['centro_custo_id'] ?? null, 'projeto_id' => $l['projeto_id'] ?? null], $linhas),
+                    ['documento_tesouraria_id' => $doc->id]);
             }
 
             return $doc->refresh();

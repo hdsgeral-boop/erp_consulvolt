@@ -11,6 +11,7 @@ use App\Models\PedidoCompra;
 use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\ServicoExercicios;
+use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Vendas\ServicoSeries;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -248,6 +249,11 @@ final class ServicoProcessoCompras
                 ItemCompra::create($this->linha('ENCOMENDA', ['encomenda_compra_id' => $encomenda->id], $l, $calc['linhas'][$i], $moeda)
                     + ['projeto_id' => $l['item']->projeto_id ?? $pedido->projeto_id, 'quantidade_recebida' => 0, 'quantidade_faturada' => 0, 'valor_recebido_kz' => 0]);
             }
+            // controlo orçamental (OrcControlo na adjudicação, ui_compras_v2.js:2107): a própria encomenda não conta como compromisso
+            app(ServicoControloOrcamental::class)->avaliar('EXPLORACAO',
+                ['origem' => 'ENCOMENDA', 'documento' => $encomenda->numero_encomenda, 'data' => $data],
+                app(ServicoControloOrcamental::class)->linhasCompra(ItemCompra::query()->where('encomenda_compra_id', $encomenda->id)->get(), $encomenda),
+                ['encomenda_compra_id' => $encomenda->id]);
             $cotacao->update(['estado' => 'ADJUDICADO']);
             CotacaoCompra::query()->where('pedido_compra_id', $pedido->id)->where('id', '<>', $cotacao->id)
                 ->whereIn('estado', ['PROPOSTA', 'PROPOSTA_ADJUDICACAO'])->update(['estado' => 'RECUSADA']);

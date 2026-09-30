@@ -8,6 +8,7 @@ use App\Models\FaturaCompra;
 use App\Models\ItemCompra;
 use App\Models\Produto;
 use App\Services\Contabilidade\ServicoExercicios;
+use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Vendas\CalculadoraDocumento;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -116,6 +117,9 @@ final class ServicoFaturasCompra
             foreach ($linhas as $i => $l) {
                 ItemCompra::create($this->processo->linha('FATURA', ['fatura_compra_id' => $fatura->id], $l, $calc['linhas'][$i], $moeda) + ['projeto_id' => $d['projeto_id'] ?? null]);
             }
+            $controlo = app(ServicoControloOrcamental::class);
+            $controlo->avaliar('EXPLORACAO', ['origem' => 'FATURA_FORNECEDOR', 'documento' => "{$fornecedor->id}/{$d['numero_fatura']}", 'data' => $data],
+                $controlo->linhasCompra(ItemCompra::query()->where('fatura_compra_id', $fatura->id)->get(), $fatura), ['fatura_compra_id' => $fatura->id]);
 
             return $fatura->refresh();
         });

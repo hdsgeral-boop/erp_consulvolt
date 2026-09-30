@@ -424,6 +424,12 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('orcamentos/{orcamento}/contributos', 'pedirContributos')->whereNumber('orcamento')->name('orcamentos.contributos');
             Route::post('orcamentos/{orcamento}/consolidar', 'consolidar')->whereNumber('orcamento')->name('orcamentos.consolidar');
             Route::get('orcamentos/{orcamento}/controlo', 'controlo')->whereNumber('orcamento')->name('orcamentos.controlo');
+            Route::post('verificar', 'verificar')->name('verificar');
+            Route::get('pedidos-excesso', 'pedidosExcesso')->name('excesso.index');
+            Route::post('pedidos-excesso', 'pedirExcesso')->name('excesso.store');
+            Route::post('pedidos-excesso/{pedido}/decidir', 'decidirExcesso')->whereNumber('pedido')->name('excesso.decidir');
+            Route::get('alertas', 'alertas')->name('alertas');
+            Route::get('monitor', 'monitor')->name('monitor');
         });
 
         Route::prefix('rh')->name('rh.')->group(function () {

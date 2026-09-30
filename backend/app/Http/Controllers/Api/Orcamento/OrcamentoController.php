@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Api\Orcamento;
 
 use App\Http\Controllers\Controller;
 use App\Models\LinhaOrcamento;
+use App\Models\LogAlertaOrcamental;
 use App\Models\OrcamentoAnual;
+use App\Models\PedidoExtrapolacaoOrcamento;
 use App\Models\RubricaOrcamental;
+use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Services\Orcamento\ServicoExecucaoOrcamental;
 use App\Services\Orcamento\ServicoOrcamentos;
 use App\Services\Orcamento\ServicoRubricasOrcamentais;
@@ -22,6 +25,7 @@ final class OrcamentoController extends Controller
         private readonly ServicoRubricasOrcamentais $rubricas,
         private readonly ServicoOrcamentos $orcamentos,
         private readonly ServicoExecucaoOrcamental $execucao,
+        private readonly ServicoControloOrcamental $controlo,
     ) {}
 
     // ───────────── Rubricas ─────────────
@@ -177,6 +181,66 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_hierarquia');
 
         return RespostaApi::sucesso($this->orcamentos->consolidar(OrcamentoAnual::query()->findOrFail($orcamento)), 'Contributos consolidados.');
+    }
+
+    // ───────────── Controlo nos documentos ─────────────
+
+    /** @return array<string, list<mixed>> */
+    private function regrasDocumento(): array
+    {
+        return ['tipo' => ['required', 'in:EXPLORACAO,TESOURARIA'], 'origem' => ['required', 'string', 'max:30'], 'documento' => ['required', 'string', 'max:100'],
+            'data' => ['required', 'date'], 'linhas' => ['required', 'array', 'min:1'], 'linhas.*.codigo_conta' => ['required', 'string', 'max:20'],
+            'linhas.*.valor' => ['required', 'numeric'], 'linhas.*.unidade_negocio_id' => ['nullable', 'integer'], 'linhas.*.centro_custo_id' => ['nullable', 'integer'],
+            'linhas.*.projeto_id' => ['nullable', 'integer']];
+    }
+
+    /** POST /verificar — simulação do controlo antes de gravar o documento (nada é registado). */
+    public function verificar(Request $r): JsonResponse
+    {
+        $d = $r->validate($this->regrasDocumento());
+
+        return RespostaApi::sucesso($this->controlo->verificar($d['tipo'], $d['data'], $d['linhas']), 'Verificação orçamental.');
+    }
+
+    public function pedirExcesso(Request $r): JsonResponse
+    {
+        $d = $r->validate($this->regrasDocumento() + ['motivo' => ['required', 'string', 'min:5', 'max:1000']]);
+
+        return RespostaApi::criado($this->controlo->pedirExcesso($d['tipo'], ['origem' => $d['origem'], 'documento' => $d['documento'], 'data' => substr($d['data'], 0, 10)],
+            $d['linhas'], $d['motivo']), 'Pedido de aprovação do excesso enviado.');
+    }
+
+    public function pedidosExcesso(Request $r): JsonResponse
+    {
+        $this->exigir('orc_alertas_view', 'orc_aprovar_excesso');
+        $f = $r->validate(['estado' => ['nullable', 'in:PENDENTE,APROVADO,REJEITADO,UTILIZADO']]);
+
+        return RespostaApi::sucesso(PedidoExtrapolacaoOrcamento::query()->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))->orderByDesc('id')->get(),
+            'Pedidos de excesso orçamental.');
+    }
+
+    public function decidirExcesso(Request $r, int $pedido): JsonResponse
+    {
+        $this->exigir('orc_aprovar_excesso');
+        $d = $r->validate(['decisao' => ['required', 'in:APROVADO,REJEITADO'], 'nota' => ['nullable', 'string', 'max:1000']]);
+
+        return RespostaApi::sucesso($this->controlo->decidirPedido(PedidoExtrapolacaoOrcamento::query()->findOrFail($pedido), $d['decisao'], $d['nota'] ?? null),
+            $d['decisao'] === 'APROVADO' ? 'Excesso aprovado: o documento já pode ser gravado.' : 'Excesso rejeitado.');
+    }
+
+    public function alertas(): JsonResponse
+    {
+        $this->exigir('orc_alertas_view');
+
+        return RespostaApi::sucesso(LogAlertaOrcamental::query()->orderByDesc('em')->orderByDesc('id')->limit(300)->get(), 'Registo de alertas orçamentais.');
+    }
+
+    public function monitor(Request $r): JsonResponse
+    {
+        $this->exigir('orc_alertas_view', 'orc_controlo_view');
+        $d = $r->validate(['ano' => ['required', 'integer'], 'mes' => ['nullable', 'integer', 'between:1,12']]);
+
+        return RespostaApi::sucesso($this->controlo->monitor((int) $d['ano'], (int) ($d['mes'] ?? now()->month)), 'Monitor de consumo orçamental.');
     }
 
     // ───────────── Controlo ─────────────

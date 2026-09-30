@@ -7,10 +7,12 @@ use App\Http\Requests\Contabilidade\CriarLancamentoRequest;
 use App\Http\Resources\Contabilidade\LancamentoResource;
 use App\Models\LancamentoContabil;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /** /api/contabilidade/lancamentos — ecrã "lancamentos" do legado. */
 final class LancamentoController extends Controller
@@ -58,7 +60,18 @@ final class LancamentoController extends Controller
     public function store(CriarLancamentoRequest $request): JsonResponse
     {
         $this->exigir('lancamentos_post');
-        $linhas = $this->lancamentos->criar($request->validated());
+        // lançamento manual com controlo orçamental (ui_lancamentos.js:1686): débitos consomem, créditos abatem
+        $linhas = DB::transaction(function () use ($request) {
+            $linhas = $this->lancamentos->criar($request->validated());
+            $l0 = $linhas->first();
+            app(ServicoControloOrcamental::class)->avaliar('EXPLORACAO',
+                ['origem' => 'LANCAMENTO', 'documento' => (string) $l0->numero_lan, 'data' => $l0->data_documento->toDateString()],
+                $linhas->map(fn ($l) => ['codigo_conta' => $l->codigo_conta, 'valor' => ($l->tipo_dc === 'D' ? 1 : -1) * (float) $l->valor,
+                    'unidade_negocio_id' => $l->unidade_negocio_id, 'centro_custo_id' => $l->centro_custo_id, 'projeto_id' => $l->projeto_id])->all(),
+                ['numero_lan' => $l0->numero_lan]);
+
+            return $linhas;
+        });
 
         return RespostaApi::criado($this->documento($linhas), "Lançamento {$linhas->first()->numero_lan} gravado com sucesso.");
     }

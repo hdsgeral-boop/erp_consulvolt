@@ -157,6 +157,9 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST/PUT/DELETE | `/api/orcamento/rubricas[/{id}]` · POST `/rubricas/base` | Rubricas orçamentais (exploração e tesouraria) |
 | GET/POST/PUT/DELETE | `/api/orcamento/orcamentos[/{id}]` · PUT `/valores` · POST `/submeter` · `/aprovar` · `/devolver` · `/nova-versao` · `/repartir` · `/contributos` · `/consolidar` | Orçamentos e hierarquia |
 | GET | `/api/orcamento/orcamentos/{id}/controlo` | Orçado × realizado (mês, acumulado, ano) |
+| POST | `/api/orcamento/verificar` | Simulação do controlo orçamental de um documento |
+| GET/POST | `/api/orcamento/pedidos-excesso` · POST `/{id}/decidir` | Pedidos de aprovação de excesso |
+| GET | `/api/orcamento/alertas` · `/api/orcamento/monitor` | Registo de alertas e consumo orçamental |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

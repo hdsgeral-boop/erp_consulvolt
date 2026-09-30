@@ -1012,3 +1012,42 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - compromissos por linha de encomenda, libertados pela quantidade facturada ou pelo cancelamento;
 - pedidos de excesso com permissão verificada no servidor, e alertas;
 - previsões (rolling forecast) e cenários.
+
+## ADR-045 — Orçamento parte 2: controlo orçamental nos documentos, compromissos e pedidos de excesso
+
+**Controlo** (`ServicoControloOrcamental`, `OrcControlo.validar` e `OrcPlano.verificar` do legado):
+- **Onde corre:** nos mesmos quatro pontos do legado, sempre dentro da transacção do documento:
+  - adjudicação (encomenda);
+  - factura de fornecedor directa;
+  - pagamento da tesouraria (débitos consomem, créditos abatem);
+  - lançamento manual.
+- **Mantém do legado:**
+  - só entram rubricas activas de CUSTO ou PAGAMENTO com controlo;
+  - cada linha é verificada contra todos os orçamentos APROVADOS do tipo e do ano cujas dimensões a abrangem;
+  - % = (realizado + compromissos + documento) / orçado, acumulado até ao mês ou do ano inteiro;
+  - AVISO a partir do limiar de aviso; acima do limite, APROVACAO ou BLOQUEIO conforme o modo da rubrica.
+- **Pedidos de excesso:**
+  - circuito PENDENTE → APROVADO/REJEITADO → UTILIZADO;
+  - um pedido aprovado para aquele documento, de valor suficiente, deixa-o gravar;
+  - quem tem `orc_aprovar_excesso` pode «aprovar no acto», indicando motivo (fica marcado `autoaprovado`);
+  - `POST /verificar` simula o controlo sem registar nada.
+- **Registo:** todas as ocorrências vão para o registo de alertas, **incluindo as tentativas bloqueadas**. O alerta é gravado pelo manipulador de excepções, depois de desfeita a transacção do documento (`ErroOrcamental`).
+
+**Compromissos**, calculados a partir dos documentos reais:
+- encomendas pela parte **ainda por facturar** de cada linha;
+- facturas de fornecedor por contabilizar;
+- pagamentos da tesouraria pendentes.
+
+**Correcções face ao legado:**
+- a primeira factura parcial já não liberta a encomenda inteira;
+- as encomendas anuladas deixam de contar (no legado não havia anulação e ficavam comprometidas para sempre);
+- uma rubrica sem dotação num orçamento aprovado dá o aviso «sem dotação» e não bloqueia (o legado dividia por zero e bloqueava qualquer gasto);
+- falha fechada: um erro no controlo trava o documento (o legado deixava gravar);
+- a permissão de aprovar excessos é verificada no servidor, e ninguém decide o seu próprio pedido;
+- o pedido aprovado só passa a UTILIZADO se o documento for mesmo gravado (o legado consumia-o antes);
+- no modo AVISAR, o monitor nunca mostra «excedido»;
+- a encomenda leva o projecto do pedido, pelo que os orçamentos de projecto também são controlados.
+
+**Monitor:** consumo (realizado + compromissos), disponível e estado por rubrica, para todos os orçamentos aprovados do ano.
+
+**Fica para a parte 3:** previsões (rolling forecast) e cenários what-if, e a análise de desvios (temporal, pontual e estrutural).

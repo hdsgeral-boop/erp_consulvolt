@@ -25,9 +25,12 @@ final class ServicoExecucaoOrcamental
 {
     public function __construct(private readonly ContextoEmpresa $contexto) {}
 
+    /** Lançamento a ignorar (o documento que está a ser validado já está no Diário, dentro da mesma transacção). */
+    public ?string $excluirNumeroLan = null;
+
     private function base(int $ano)
     {
-        return DB::table('lancamentos_contabeis as l')->leftJoin('diarios_contabeis as d', 'd.id', '=', 'l.diario_id')
+        return DB::table('lancamentos_contabeis as l')->when($this->excluirNumeroLan, fn ($q, $n) => $q->where(fn ($x) => $x->whereNull('l.numero_lan')->orWhere('l.numero_lan', '<>', $n)))->leftJoin('diarios_contabeis as d', 'd.id', '=', 'l.diario_id')
             ->where('l.empresa_id', $this->contexto->obrigatorio())->whereBetween('l.data_documento', ["{$ano}-01-01", "{$ano}-12-31"])
             ->where('l.codigo_conta', 'not like', '9%')->where(fn ($q) => $q->whereNull('d.codigo')->orWhere('d.codigo', 'not like', 'AP-%'));
     }
