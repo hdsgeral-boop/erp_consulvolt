@@ -85,6 +85,7 @@ return new class extends Migration
             $table->decimal('valor_introduzido', 15, 2)->nullable()->comment('legado: value_input');
             $table->bigInteger('venda_id')->nullable()->comment('Factura de venda liquidada por esta linha');
             $table->bigInteger('fatura_compra_id')->nullable()->comment('Factura de fornecedor liquidada por esta linha');
+            $table->decimal('valor_kz_documento', 15, 2)->nullable()->comment('Multi-moeda: valor da linha em Kz ao câmbio do documento (a diferença para o valor histórico é diferença de câmbio)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });

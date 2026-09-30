@@ -75,6 +75,9 @@ final class ServicoLancamentos
                     'terceiro_id' => $l['terceiro_id'] ?? null, 'centro_custo_id' => $l['centro_custo_id'] ?? null,
                     'unidade_negocio_id' => $l['unidade_negocio_id'] ?? null, 'projeto_id' => $l['projeto_id'] ?? null,
                     'nota_demonstracao_id' => $l['nota_demonstracao_id'] ?? null, 'nota_fluxo_caixa_id' => $l['nota_fluxo_caixa_id'] ?? null,
+                    // moeda do documento (linhas de clientes/fornecedores/bancos em moeda estrangeira): permite o saldo em moeda
+                    'codigo_moeda' => $l['codigo_moeda'] ?? null, 'valor_moeda' => isset($l['valor_moeda']) ? $this->dinheiro($l['valor_moeda']) : null,
+                    'taxa_cambio' => $l['taxa_cambio'] ?? null,
                 ]));
             }
 

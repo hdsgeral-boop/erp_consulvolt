@@ -177,6 +177,7 @@ export const COLUNAS_NOVAS = {
   itens_documento_tesouraria: [
     ['venda_id', 'bigint', 'vendas', 'Factura de venda liquidada por esta linha'],
     ['fatura_compra_id', 'bigint', 'faturas_compra', 'Factura de fornecedor liquidada por esta linha'],
+    ['valor_kz_documento', 'numeric(15,2)', null, 'Multi-moeda: valor da linha em Kz ao câmbio do documento (a diferença para o valor histórico é diferença de câmbio)'],
   ],
   // ADR-031 (Compras): numeração, rasto de anulação/contabilização e ligação linha a linha
   // (o legado casava encomenda/recepção/factura por product_id e perdia linhas repetidas)

@@ -95,7 +95,7 @@ Cobrem os seguintes casos:
 | Compras (parte 2) | ⏳ | contratos e marcos, pedidos a partir de encomendas de clientes, controlo orçamental | |
 | **Tesouraria (parte 1)** | ✅ | tesouraria/documentos (+integrar, desintegrar, anular), tesouraria/pendentes, tesouraria/meios-pagamento | Ligação explícita às facturas, sem pagar duas vezes, estorno bloqueado por reconciliação (ADR-032) |
 | **Tesouraria (parte 2)** | ✅ | tesouraria/extrato (+importar), reconciliacao (+sugestoes, mapa, anular), caixa/sessoes (+movimentos, fechar, contabilizar), conferencias (+finalizar, assinar, reabrir), configuracao/contas | Importação sem duplicados, sugestões indexadas, compensações libertadas no estorno, caixa por conta, contas de sobras/quebras correctas (ADR-033) |
-| Tesouraria (parte 3) | ⏳ | multi-moeda e diferenças de câmbio; cartas de pagamento | |
+| **Tesouraria (parte 3)** | ✅ | multi-moeda nos documentos de tesouraria e pendentes (saldo em moeda) | Valor histórico, diferenças de câmbio pelas contas configuradas, moeda nos lançamentos de vendas/compras (ADR-034) |
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
 | RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |

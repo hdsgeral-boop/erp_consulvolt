@@ -96,7 +96,10 @@ final class ServicoContabilizacaoCompras
                 throw new ErroNegocio("As linhas da factura somam {$credito} mas o total é {$fatura->montante_total}: verifique a factura.", 'TOTAIS_INCONSISTENTES', 422,
                     ['soma_linhas' => $credito, 'total' => (string) $fatura->montante_total]);
             }
-            $lancamento[] = ['codigo_conta' => $contaFornecedor, 'tipo_dc' => 'C', 'valor' => $credito] + $comum;
+            // fornecedor em moeda estrangeira: a linha guarda o valor na moeda (saldo em moeda na liquidação)
+            $moeda = $fatura->codigo_moeda && $fatura->codigo_moeda !== 'AOA'
+                ? ['codigo_moeda' => $fatura->codigo_moeda, 'valor_moeda' => $fatura->montante_total_moeda, 'taxa_cambio' => $fatura->taxa_cambio] : [];
+            $lancamento[] = ['codigo_conta' => $contaFornecedor, 'tipo_dc' => 'C', 'valor' => $credito] + $moeda + $comum;
 
             $numeroLan = $this->lancamentos->criar([
                 'diario_id' => $this->localizador->diario('FF', 'Facturas de fornecedor')->id, 'data_documento' => $fatura->data->toDateString(),

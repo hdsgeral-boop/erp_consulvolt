@@ -71,7 +71,10 @@ final class ServicoContabilizacaoVendas
                 $contaDebito = $cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.');
             }
 
-            $linhas = [['codigo_conta' => $contaDebito, 'tipo_dc' => $dc('D'), 'valor' => $soma] + $comum];
+            // cliente em moeda estrangeira: a linha guarda o valor na moeda (saldo em moeda e diferenças de câmbio na liquidação)
+            $moeda = $venda->codigo_moeda && $venda->codigo_moeda !== 'AOA' && $venda->tipo_documento !== 'FR'
+                ? ['codigo_moeda' => $venda->codigo_moeda, 'valor_moeda' => $venda->total_bruto_moeda, 'taxa_cambio' => $venda->taxa_cambio] : [];
+            $linhas = [['codigo_conta' => $contaDebito, 'tipo_dc' => $dc('D'), 'valor' => $soma] + $moeda + $comum];
             foreach ($creditos as $c) {
                 $linhas[] = ['codigo_conta' => $c['conta'], 'tipo_dc' => $dc('C'), 'valor' => $c['valor']] + $comum;
             }

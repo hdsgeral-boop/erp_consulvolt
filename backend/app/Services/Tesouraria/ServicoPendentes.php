@@ -35,7 +35,10 @@ final class ServicoPendentes
             ->when($f['codigo_conta'] ?? null, fn ($q, $v) => $q->where('l.codigo_conta', 'like', str_replace(['%', '_'], ['\%', '\_'], $v).'%'))
             ->groupBy('l.terceiro_id', 'l.codigo_conta', DB::raw($chave))
             ->selectRaw("l.terceiro_id, l.codigo_conta, {$chave} as numero_documento, MIN(l.data_documento) as data_documento,
-                SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE 0 END) as debito, SUM(CASE WHEN l.tipo_dc = 'C' THEN l.valor ELSE 0 END) as credito")
+                SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE 0 END) as debito, SUM(CASE WHEN l.tipo_dc = 'C' THEN l.valor ELSE 0 END) as credito,
+                MAX(NULLIF(l.codigo_moeda, 'AOA')) as moeda, COUNT(DISTINCT NULLIF(l.codigo_moeda, 'AOA')) as n_moedas,
+                SUM(CASE WHEN l.tipo_dc = 'D' AND NULLIF(l.codigo_moeda, 'AOA') IS NOT NULL THEN COALESCE(l.valor_moeda, 0) ELSE 0 END) as debito_moeda,
+                SUM(CASE WHEN l.tipo_dc = 'C' AND NULLIF(l.codigo_moeda, 'AOA') IS NOT NULL THEN COALESCE(l.valor_moeda, 0) ELSE 0 END) as credito_moeda")
             ->get();
 
         // documentos de tesouraria por integrar (os integrados já estão no diário)
@@ -44,7 +47,9 @@ final class ServicoPendentes
             ->when($f['excluir_documento_id'] ?? null, fn ($q, $v) => $q->where('d.id', '<>', $v))
             ->groupBy('i.terceiro_id', 'i.codigo_conta', 'i.numero_documento')
             ->selectRaw("i.terceiro_id, i.codigo_conta, COALESCE(NULLIF(i.numero_documento, ''), 'SEM_DOC') as numero_documento,
-                SUM(CASE WHEN i.tipo_dc = 'D' THEN i.valor ELSE 0 END) as debito, SUM(CASE WHEN i.tipo_dc = 'C' THEN i.valor ELSE 0 END) as credito")
+                SUM(CASE WHEN i.tipo_dc = 'D' THEN i.valor ELSE 0 END) as debito, SUM(CASE WHEN i.tipo_dc = 'C' THEN i.valor ELSE 0 END) as credito,
+                SUM(CASE WHEN i.tipo_dc = 'D' AND NULLIF(i.codigo_moeda, 'AOA') IS NOT NULL THEN COALESCE(i.valor_moeda, 0) ELSE 0 END) as debito_moeda,
+                SUM(CASE WHEN i.tipo_dc = 'C' AND NULLIF(i.codigo_moeda, 'AOA') IS NOT NULL THEN COALESCE(i.valor_moeda, 0) ELSE 0 END) as credito_moeda")
             ->get()->keyBy(fn ($p) => "{$p->terceiro_id}|{$p->codigo_conta}|{$p->numero_documento}");
         // movimentos de caixa ainda por contabilizar (o legado só descontava a sessão aberta: permitia pagar em duplicado)
         $caixa = DB::table('movimentos_caixa as m')->join('sessoes_caixa as s', 's.id', '=', 'm.sessao_caixa_id')
@@ -56,8 +61,9 @@ final class ServicoPendentes
             ->groupBy('m.terceiro_id', DB::raw("CASE WHEN m.tipo = 'REC' THEN m.conta_credito ELSE m.conta_debito END"), 'm.numero_documento')->get();
         foreach ($caixa as $c) {
             $k = "{$c->terceiro_id}|{$c->codigo_conta}|{$c->numero_documento}";
-            $p = $pendentes[$k] ?? (object) ['debito' => 0, 'credito' => 0];
-            $pendentes[$k] = (object) ['debito' => (float) $p->debito + (float) $c->debito, 'credito' => (float) $p->credito + (float) $c->credito];
+            $p = $pendentes[$k] ?? (object) ['debito' => 0, 'credito' => 0, 'debito_moeda' => 0, 'credito_moeda' => 0];
+            $pendentes[$k] = (object) ['debito' => (float) $p->debito + (float) $c->debito, 'credito' => (float) $p->credito + (float) $c->credito,
+                'debito_moeda' => $p->debito_moeda ?? 0, 'credito_moeda' => $p->credito_moeda ?? 0];   // a caixa é só em Kz
         }
 
         $terceiros = DB::table('terceiros')->where('empresa_id', $empresa)->whereIn('id', $diario->pluck('terceiro_id')->unique())->pluck('nome', 'id');
@@ -83,7 +89,17 @@ final class ServicoPendentes
             if ($pesquisa !== '' && ! str_contains(mb_strtolower($nome.' '.$l->numero_documento), $pesquisa)) {
                 continue;
             }
-            $saida[] = [
+            // saldo na moeda do documento (facturas em moeda estrangeira): base da diferença de câmbio na liquidação
+            $moeda = (int) $l->n_moedas === 1 ? $l->moeda : null;
+            $moedaInfo = ['codigo_moeda' => $moeda ?? 'AOA', 'saldo_moeda' => null, 'total_moeda' => null];
+            if ($moeda) {
+                $dm = number_format((float) $l->debito_moeda, 2, '.', '');
+                $cm = number_format((float) $l->credito_moeda, 2, '.', '');
+                $totalMoeda = $aReceber ? $dm : $cm;
+                $liqMoeda = $aReceber ? bcadd($cm, number_format((float) ($p->credito_moeda ?? 0), 2, '.', ''), 2) : bcadd($dm, number_format((float) ($p->debito_moeda ?? 0), 2, '.', ''), 2);
+                $moedaInfo = ['codigo_moeda' => $moeda, 'total_moeda' => $totalMoeda, 'saldo_moeda' => bcsub($totalMoeda, $liqMoeda, 2)];
+            }
+            $saida[] = $moedaInfo + [
                 'terceiro_id' => (int) $l->terceiro_id, 'terceiro' => $nome, 'codigo_conta' => $l->codigo_conta, 'numero_documento' => $l->numero_documento,
                 'data_documento' => $l->data_documento, 'natureza' => $natureza, 'total' => $total, 'liquidado' => $liquidado,
                 'em_liquidacao' => number_format((float) $emCurso, 2, '.', ''), 'saldo' => $saldo, 'liquidar_a' => $aReceber ? 'C' : 'D',

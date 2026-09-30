@@ -30,7 +30,7 @@ abstract class ItemDocumentoTesourariaBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'codigo_conta', 'terceiro_id', 'numero_documento', 'nota_demonstracao_id', 'nota_fluxo_caixa_id', 'descricao', 'valor', 'tipo_dc', 'documento_tesouraria_id', 'projeto_id', 'codigo_projeto', 'data_documento_original', 'nif_importado', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'valor_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'cambial_moeda_documento', 'cambial_saldo_moeda', 'cambial_saldo_kz', 'valor_introduzido', 'venda_id', 'fatura_compra_id',
+        'empresa_id', 'codigo_conta', 'terceiro_id', 'numero_documento', 'nota_demonstracao_id', 'nota_fluxo_caixa_id', 'descricao', 'valor', 'tipo_dc', 'documento_tesouraria_id', 'projeto_id', 'codigo_projeto', 'data_documento_original', 'nif_importado', 'unidade_negocio_id', 'centro_custo_id', 'codigo_moeda', 'valor_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'cambial_moeda_documento', 'cambial_saldo_moeda', 'cambial_saldo_kz', 'valor_introduzido', 'venda_id', 'fatura_compra_id', 'valor_kz_documento',
     ];
 
     protected function casts(): array
@@ -54,6 +54,7 @@ abstract class ItemDocumentoTesourariaBase extends ModeloBase
             'valor_introduzido' => 'decimal:2',
             'venda_id' => 'integer',
             'fatura_compra_id' => 'integer',
+            'valor_kz_documento' => 'decimal:2',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

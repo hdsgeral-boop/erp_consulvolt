@@ -133,6 +133,7 @@ final class TesourariaController extends Controller
             'tipo' => ['required', Rule::in(ServicoDocumentosTesouraria::TIPOS)], 'data_documento' => ['required', 'date_format:Y-m-d'],
             'conta_financeira' => ['required', 'string', 'max:20'], 'descricao' => ['required', 'string', 'min:5', 'max:1000'],
             'referencia' => ['nullable', 'string', 'max:100'], 'projeto_id' => ['nullable', 'integer', $daEmpresa('projetos')],
+            'taxa_cambio' => ['nullable', 'numeric', 'gt:0'],
             'linhas' => ['required', 'array', 'min:1', 'max:500'],
             'linhas.*.codigo_conta' => ['required', 'string', 'max:20'], 'linhas.*.tipo_dc' => ['required', Rule::in(['D', 'C'])],
             'linhas.*.valor' => ['required', 'numeric', 'gt:0', 'max:9999999999999.99'],

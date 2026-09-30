@@ -465,3 +465,30 @@ As sessões contabilizadas no legado, sem ligação aos lançamentos, são estor
 **Contas de tesouraria** (tabela nova `configuracoes_contabeis_tesouraria`): sobras, quebras e diferenças de câmbio. O legado usava 6621/7621 invertidas face ao PGC angolano.
 
 **Pendente (Tesouraria parte 3):** multi-moeda (documentos e caixas em moeda estrangeira, diferenças de câmbio na liquidação de facturas em moeda) e cartas de pagamento aos bancos (o legado tinha as tabelas, mas nenhum código).
+
+## ADR-034 — Tesouraria (parte 3): multi-moeda e diferenças de câmbio
+
+**Moeda nos lançamentos.** `ServicoLancamentos` passa a aceitar, por linha, `codigo_moeda`, `valor_moeda` e `taxa_cambio`:
+- a contabilização de vendas grava a moeda na linha do cliente (FT e NC em moeda estrangeira);
+- a de compras grava-a na linha do fornecedor.
+
+Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira de calcular a diferença de câmbio na liquidação.
+
+**Pendentes em moeda.** Cada documento em aberto traz o `codigo_moeda` e o `saldo_moeda`, somando as linhas do diário na moeda e descontando os documentos por integrar. Nos dados reais o cálculo continua a demorar entre 30 e 60 ms por empresa.
+
+**Documentos de tesouraria em moeda** (`tesoFxPrepararGravacao` do legado):
+- **Moeda do documento:** é a da conta financeira no plano de contas; o câmbio é o da tabela na data do documento, ou manual.
+- **Linha que liquida um documento em moeda estrangeira:**
+  - **Quantidade em moeda liquidada:** é o valor da linha, se a conta for na mesma moeda; se o pagamento for feito a partir de uma conta em Kz, é o valor em Kz convertido ao câmbio do dia.
+  - **Limite:** a quantidade tem de ser ≤ saldo em moeda do documento.
+  - **Valor histórico em Kz:** é o saldo em Kz, se liquidar tudo; senão, a proporção `moeda liquidada × saldo Kz ÷ saldo moeda`. O terceiro é lançado por este valor, e por isso a conta fica exactamente saldada em Kz e em moeda.
+  - **Diferença de câmbio:** o banco é lançado ao câmbio do documento, e a diferença face ao valor histórico vai para as contas configuradas (favoráveis ou desfavoráveis, conforme o sentido). O legado usava 6621/7621 fixas e trocadas face ao PGC angolano.
+  - Uma conta numa moeda diferente da do documento é recusada (`MOEDAS_DIFERENTES`).
+- **Integração:** recalcula tudo com o saldo actual, de forma a apanhar outros documentos integrados entretanto.
+- **Venda e factura liquidadas:** o pago da venda e o estado da factura de fornecedor são actualizados pelo valor histórico em Kz.
+- **Documento por integrar:** mesmo depois de desintegrado, continua a reservar o valor até ser anulado, para evitar pagamentos duplicados.
+
+**Fica para outros módulos:**
+- caixas em moeda estrangeira (a folha de caixa continua a ser só em Kz, com recusa explícita);
+- recibos de vendas (módulo Vendas) em moeda;
+- cartas de pagamento aos bancos: pela estrutura das tabelas (colaborador, IBAN, mês) servem o pagamento de salários, por isso passam para o módulo RH/Salários.
