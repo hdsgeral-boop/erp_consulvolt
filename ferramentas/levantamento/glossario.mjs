@@ -405,6 +405,7 @@ export const GLOSSARIO = {
 export const TIPOS_FORCADOS = {
   'audit_logs.company_id': 'bigint',
   'infotypes.calculo_horas': 'varchar(10)',
+  'org_units.utilizador_responsavel': 'varchar(100)', 'rh_doc_templates.codigo': 'varchar(50)',
   // RH parte 2 (tabelas quase sem dados no backup: tipos inferidos do código estavam errados)
   'rh_attendance_config.dias_uteis': 'jsonb', 'rh_attendance_config.feriados': 'jsonb', 'rh_attendance_config.arredondamento_min': 'integer',
   'rh_attendance_config.modo_compensacao': 'varchar(10)', 'rh_attendance_config.extra_nao_util_exige_autorizacao': 'boolean',

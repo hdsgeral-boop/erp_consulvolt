@@ -54,13 +54,18 @@ export const NORMALIZACOES = {
   'rh_attendance.origem': { dominio: ['MANUAL', 'FICHEIRO', 'RELOGIO'], mapa: { MANUAL: 'MANUAL', FICHEIRO: 'FICHEIRO', RELOGIO: 'RELOGIO' } },
   'rh_attendance_closures.estado': { dominio: ['FECHADO', 'REABERTO'], mapa: { FECHADO: 'FECHADO', REABERTO: 'REABERTO' } },
   'rh_absences.estado': { dominio: ['POR_JUSTIFICAR', 'PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'RECUSADO', 'CANCELADO'], mapa: {
-    POR_JUSTIFICAR: 'POR_JUSTIFICAR', PENDENTE_CHEFIA: 'PENDENTE_CHEFIA', PENDENTE_RH: 'PENDENTE_RH', APROVADO: 'APROVADO', RECUSADO: 'RECUSADO', CANCELADO: 'CANCELADO' } },
+    'POR JUSTIFICAR': 'POR_JUSTIFICAR', 'PENDENTE CHEFIA': 'PENDENTE_CHEFIA', 'PENDENTE RH': 'PENDENTE_RH', APROVADO: 'APROVADO', RECUSADO: 'RECUSADO', CANCELADO: 'CANCELADO' } },
   'rh_absences.remunerada': { dominio: ['SIM', 'NAO', 'EMPREGADOR'], mapa: { TRUE: 'SIM', FALSE: 'NAO', EMPREGADOR: 'EMPREGADOR' } },
   'rh_vacations.status': { dominio: ['PEDIDO', 'PLANEADO', 'APROVADO', 'GOZADO', 'CANCELADO'], mapa: {
     PEDIDO: 'PEDIDO', PLANEADO: 'PLANEADO', APROVADO: 'APROVADO', GOZADO: 'GOZADO', CANCELADO: 'CANCELADO' } },
   'rh_prod_periods.estado': { dominio: ['ABERTO', 'FECHADO'], mapa: { ABERTO: 'ABERTO', FECHADO: 'FECHADO' } },
   'rh_prod_items.metrica': { dominio: ['QUANTIDADE', 'HORAS', 'OBJECTIVO', 'PONTOS', 'TAREFAS'], mapa: {
     QUANTIDADE: 'QUANTIDADE', HORAS: 'HORAS', OBJECTIVO: 'OBJECTIVO', PONTOS: 'PONTOS', TAREFAS: 'TAREFAS' } },
+  'rh_portal_requests.tipo': { dominio: ['FERIAS', 'AUSENCIA', 'DOCUMENTO', 'AGREGADO'], mapa: { FERIAS: 'FERIAS', AUSENCIA: 'AUSENCIA', DOCUMENTO: 'DOCUMENTO', AGREGADO: 'AGREGADO' } },
+  'rh_portal_requests.estado': { dominio: ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'], mapa: {
+    'PENDENTE CHEFIA': 'PENDENTE_CHEFIA', 'PENDENTE RH': 'PENDENTE_RH', APROVADO: 'APROVADO', EMITIDO: 'EMITIDO', RECUSADO: 'RECUSADO', CANCELADO: 'CANCELADO' } },
+  'org_units.tipo': { dominio: ['ORGAO_SOCIAL', 'DIRECCAO_GERAL', 'DIRECCAO', 'DEPARTAMENTO', 'GABINETE', 'SECCAO', 'EQUIPA', 'OUTRO'], mapa: {
+    'ORGAO SOCIAL': 'ORGAO_SOCIAL', 'DIRECCAO GERAL': 'DIRECCAO_GERAL', DIRECCAO: 'DIRECCAO', DEPARTAMENTO: 'DEPARTAMENTO', GABINETE: 'GABINETE', SECCAO: 'SECCAO', EQUIPA: 'EQUIPA', OUTRO: 'OUTRO' } },
   'payroll_periods.status': { dominio: ['ABERTO', 'FECHADO', 'VALIDADO'], mapa: { ABERTO: 'ABERTO', FECHADO: 'FECHADO', VALIDADO: 'VALIDADO' } },
   'employees.status': { dominio: ['ACTIVO', 'INACTIVO', 'SUSPENSO'], mapa: {
     ACTIVO: 'ACTIVO', ATIVO: 'ACTIVO', 'NAO ACTIVO': 'INACTIVO', 'NAO ATIVO': 'INACTIVO', INACTIVO: 'INACTIVO', INATIVO: 'INACTIVO', SUSPENSO: 'SUSPENSO' } },
@@ -116,3 +121,12 @@ export const NORMALIZACOES = {
     SUPERADMIN: 'SUPER_ADMINISTRADOR', ADMIN: 'ADMINISTRADOR', VIEWER: 'UTILIZADOR', USER: 'UTILIZADOR' } },
   'companies.status': { dominio: ['ATIVO', 'INATIVO'], mapa: { ACTIVE: 'ATIVO', ATIVO: 'ATIVO', ACTIVO: 'ATIVO', INACTIVE: 'INATIVO' } },
 };
+
+// Salvaguarda: as chaves do mapa têm de estar DOBRADAS (ex.: 'POR JUSTIFICAR', não 'POR_JUSTIFICAR'); uma chave não
+// dobrada nunca coincide e o valor migraria como NULL (aconteceu com rh_absences.estado — ADR-040).
+for (const [col, { mapa, dominio }] of Object.entries(NORMALIZACOES)) {
+  for (const [k, v] of Object.entries(mapa)) {
+    if (dobrar(k) !== k) throw new Error(`normalizacoes.mjs: chave não dobrada em ${col}: «${k}» (use «${dobrar(k)}»)`);
+    if (!dominio.includes(v)) throw new Error(`normalizacoes.mjs: ${col}: «${v}» fora do domínio`);
+  }
+}

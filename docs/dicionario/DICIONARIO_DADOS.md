@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T14:53:55.145Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T15:47:36.337Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1671 |
+| Colunas reais mapeadas | 1674 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -95,11 +95,14 @@
 | `infotypes.calculo_horas` | EXTRA, FALTA, NAO |  |
 | `rh_attendance.origem` | MANUAL, FICHEIRO, RELOGIO | FICHEIRO → FICHEIRO; MANUAL → MANUAL |
 | `rh_attendance_closures.estado` | FECHADO, REABERTO | FECHADO → FECHADO |
-| `rh_absences.estado` | POR_JUSTIFICAR, PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, RECUSADO, CANCELADO | POR_JUSTIFICAR → ⚠ NULL |
+| `rh_absences.estado` | POR_JUSTIFICAR, PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, RECUSADO, CANCELADO | POR_JUSTIFICAR → POR_JUSTIFICAR |
 | `rh_absences.remunerada` | SIM, NAO, EMPREGADOR |  |
 | `rh_vacations.status` | PEDIDO, PLANEADO, APROVADO, GOZADO, CANCELADO | PEDIDO → PEDIDO; APROVADO → APROVADO |
 | `rh_prod_periods.estado` | ABERTO, FECHADO | FECHADO → FECHADO |
 | `rh_prod_items.metrica` | QUANTIDADE, HORAS, OBJECTIVO, PONTOS, TAREFAS | QUANTIDADE → QUANTIDADE |
+| `rh_portal_requests.tipo` | FERIAS, AUSENCIA, DOCUMENTO, AGREGADO | FERIAS → FERIAS; DOCUMENTO → DOCUMENTO; AGREGADO → AGREGADO |
+| `rh_portal_requests.estado` | PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, EMITIDO, RECUSADO, CANCELADO | PENDENTE_RH → PENDENTE_RH; APROVADO → APROVADO; EMITIDO → EMITIDO |
+| `org_units.tipo` | ORGAO_SOCIAL, DIRECCAO_GERAL, DIRECCAO, DEPARTAMENTO, GABINETE, SECCAO, EQUIPA, OUTRO | DEPARTAMENTO → DEPARTAMENTO; DIRECCAO_GERAL → DIRECCAO_GERAL; DIRECCAO → DIRECCAO; ORGAO_SOCIAL → ORGAO_SOCIAL; EQUIPA → EQUIPA |
 | `payroll_periods.status` | ABERTO, FECHADO, VALIDADO | VALIDADO → VALIDADO; ABERTO → ABERTO |
 | `employees.status` | ACTIVO, INACTIVO, SUSPENSO | ACTIVO → ACTIVO; Não ACTIVO → INACTIVO; NÃO ACTIVO → INACTIVO |
 | `employees.estado_civil` | SOLTEIRO, CASADO, DIVORCIADO, VIUVO, UNIAO_FACTO | Solteiro(a) → SOLTEIRO; Casado(a) → CASADO |
@@ -1634,10 +1637,12 @@ Linhas reais: **9** · fictícias descartadas: 0
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `rh_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `employee_id` | `colaborador_id` | bigint | sim | 100% | `colaboradores.id` |  |
-| `tipo` | `tipo` | varchar(20) | sim | 100% |  |  |
+| `tipo` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {FERIAS, AUSENCIA, DOCUMENTO, AGREGADO}; texto original em tipo_original |
+| `tipo` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `dados` | `dados` | jsonb | sim | 100% |  |  |
 | `etapas` | `etapas` | jsonb | sim | 100% |  |  |
-| `estado` | `estado` | varchar(20) | sim | 100% |  |  |
+| `estado` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, EMITIDO, RECUSADO, CANCELADO}; texto original em estado_original |
+| `estado` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `criado_por` | `criado_por` | varchar(10) | sim | 100% |  |  |
 | `criado_em` | `criado_em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
@@ -1709,10 +1714,11 @@ Linhas reais: **16** · fictícias descartadas: 0
 | `org_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `codigo` | `codigo` | varchar(10) | sim | 81% |  |  |
 | `nome` | `nome` | varchar(100) | sim | 100% |  |  |
-| `tipo` | `tipo` | varchar(30) | sim | 100% |  |  |
+| `tipo` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {ORGAO_SOCIAL, DIRECCAO_GERAL, DIRECCAO, DEPARTAMENTO, GABINETE, SECCAO, EQUIPA, OUTRO}; texto original em tipo_original |
+| `tipo` | `tipo_original` | varchar(30) | sim | 100% |  | texto exacto do legado |
 | `pai_id` | `unidade_organica_pai_id` | bigint | sim | 88% | `unidades_organicas.id` |  |
 | `responsavel_employee_id` | `colaborador_responsavel_id` | bigint | sim | 44% | `colaboradores.id` |  |
-| `utilizador_responsavel` | `utilizador_responsavel` | varchar(10) | sim | 13% |  |  |
+| `utilizador_responsavel` | `utilizador_responsavel` | varchar(100) | sim | 13% |  | tipo forçado (inferido: varchar(10)) |
 | `utilizadores` | `utilizadores` | jsonb | sim | 100% |  |  |
 | `missao` | `missao` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `atribuicoes` | `atribuicoes` | text | sim | 25% |  |  |

@@ -101,6 +101,39 @@ final class ServicoFerias
         });
     }
 
+    /**
+     * Pedido pelo portal: início não passado, sem sobreposição e SEM exceder o direito (no portal o excesso é erro,
+     * como no legado); fica PEDIDO até à decisão.
+     */
+    public function criarPedido(int $colaborador, string $ini, string $fim, ?string $observacoes): PlanoFeriasColaborador
+    {
+        if ($ini < now()->toDateString()) {
+            throw new ErroNegocio('As férias pedidas não podem começar no passado.', 'DATA_PASSADA', 422);
+        }
+        if ($fim < $ini) {
+            throw new ErroNegocio('A data de fim não pode ser anterior à de início.', 'DATAS_INVALIDAS', 422);
+        }
+        $dias = $this->calendario->diasUteis($ini, $fim);
+        if ($dias < 1) {
+            throw new ErroNegocio('O período não tem dias úteis.', 'SEM_DIAS_UTEIS', 422);
+        }
+        $ano = (int) substr($ini, 0, 4);
+        $direito = $this->direito($colaborador, $ano);
+        DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ["ferias:{$colaborador}"]);
+        if (PlanoFeriasColaborador::query()->where('colaborador_id', $colaborador)->where('estado', '<>', 'CANCELADO')->where('data_inicio', '<=', $fim)->where('data_fim', '>=', $ini)->exists()
+            || AusenciaFaltaColaborador::query()->where('colaborador_id', $colaborador)->whereNotIn('estado', ['CANCELADO', 'RECUSADO', 'POR_JUSTIFICAR'])
+                ->where('data_inicio', '<=', $fim)->where('data_fim', '>=', $ini)->exists()) {
+            throw new ErroNegocio('O período sobrepõe-se a férias ou ausências já marcadas.', 'SOBREPOSICAO', 422);
+        }
+        $marcados = (int) PlanoFeriasColaborador::query()->where('colaborador_id', $colaborador)->where('ano', $ano)->where('estado', '<>', 'CANCELADO')->sum('dias');
+        if ($marcados + $dias > $direito) {
+            throw new ErroNegocio("Excede o saldo de férias de {$ano}: direito {$direito}, já marcados {$marcados}, pedidos {$dias}.", 'SALDO_EXCEDIDO', 422);
+        }
+
+        return PlanoFeriasColaborador::create(['colaborador_id' => $colaborador, 'ano' => $ano, 'data_inicio' => $ini, 'data_fim' => $fim, 'dias' => $dias,
+            'direito' => $direito, 'estado' => 'PEDIDO', 'observacoes' => $observacoes]);
+    }
+
     public function alterarEstado(PlanoFeriasColaborador $p, string $estado): PlanoFeriasColaborador
     {
         return $this->gravar(['colaborador_id' => $p->colaborador_id, 'data_inicio' => $p->data_inicio->toDateString(), 'data_fim' => $p->data_fim->toDateString(),

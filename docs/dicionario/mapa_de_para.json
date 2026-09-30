@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T14:53:55.145Z",
+  "gerado_em": "2026-09-30T15:47:36.337Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -10136,9 +10136,9 @@
               "CANCELADO"
             ],
             "mapa": {
-              "POR_JUSTIFICAR": "POR_JUSTIFICAR",
-              "PENDENTE_CHEFIA": "PENDENTE_CHEFIA",
-              "PENDENTE_RH": "PENDENTE_RH",
+              "POR JUSTIFICAR": "POR_JUSTIFICAR",
+              "PENDENTE CHEFIA": "PENDENTE_CHEFIA",
+              "PENDENTE RH": "PENDENTE_RH",
               "APROVADO": "APROVADO",
               "RECUSADO": "RECUSADO",
               "CANCELADO": "CANCELADO"
@@ -12195,7 +12195,35 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 9,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {FERIAS, AUSENCIA, DOCUMENTO, AGREGADO}; texto original em tipo_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "FERIAS",
+              "AUSENCIA",
+              "DOCUMENTO",
+              "AGREGADO"
+            ],
+            "mapa": {
+              "FERIAS": "FERIAS",
+              "AUSENCIA": "AUSENCIA",
+              "DOCUMENTO": "DOCUMENTO",
+              "AGREGADO": "AGREGADO"
+            }
+          }
+        },
+        {
+          "legado": "tipo",
+          "pt": "tipo_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 9,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "dados",
@@ -12222,7 +12250,39 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 11,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, EMITIDO, RECUSADO, CANCELADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PENDENTE_CHEFIA",
+              "PENDENTE_RH",
+              "APROVADO",
+              "EMITIDO",
+              "RECUSADO",
+              "CANCELADO"
+            ],
+            "mapa": {
+              "PENDENTE CHEFIA": "PENDENTE_CHEFIA",
+              "PENDENTE RH": "PENDENTE_RH",
+              "APROVADO": "APROVADO",
+              "EMITIDO": "EMITIDO",
+              "RECUSADO": "RECUSADO",
+              "CANCELADO": "CANCELADO"
+            }
+          }
+        },
+        {
+          "legado": "estado",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 11,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "criado_por",
@@ -12594,11 +12654,47 @@
         {
           "legado": "tipo",
           "pt": "tipo",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 14,
+          "notas": [
+            "código normalizado ∈ {ORGAO_SOCIAL, DIRECCAO_GERAL, DIRECCAO, DEPARTAMENTO, GABINETE, SECCAO, EQUIPA, OUTRO}; texto original em tipo_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "ORGAO_SOCIAL",
+              "DIRECCAO_GERAL",
+              "DIRECCAO",
+              "DEPARTAMENTO",
+              "GABINETE",
+              "SECCAO",
+              "EQUIPA",
+              "OUTRO"
+            ],
+            "mapa": {
+              "ORGAO SOCIAL": "ORGAO_SOCIAL",
+              "DIRECCAO GERAL": "DIRECCAO_GERAL",
+              "DIRECCAO": "DIRECCAO",
+              "DEPARTAMENTO": "DEPARTAMENTO",
+              "GABINETE": "GABINETE",
+              "SECCAO": "SECCAO",
+              "EQUIPA": "EQUIPA",
+              "OUTRO": "OUTRO"
+            }
+          }
+        },
+        {
+          "legado": "tipo",
+          "pt": "tipo_original",
           "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 14,
-          "notas": []
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "pai_id",
@@ -12637,11 +12733,13 @@
         {
           "legado": "utilizador_responsavel",
           "pt": "utilizador_responsavel",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 0.125,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "utilizadores",

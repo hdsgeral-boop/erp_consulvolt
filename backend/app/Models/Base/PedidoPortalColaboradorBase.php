@@ -24,7 +24,7 @@ abstract class PedidoPortalColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'tipo', 'dados', 'etapas', 'estado', 'criado_por', 'plano_ferias_colaborador_id', 'decidido_em', 'documento', 'ausencia_falta_id', 'cancelado_em',
+        'empresa_id', 'colaborador_id', 'tipo', 'tipo_original', 'dados', 'etapas', 'estado', 'estado_original', 'criado_por', 'plano_ferias_colaborador_id', 'decidido_em', 'documento', 'ausencia_falta_id', 'cancelado_em',
     ];
 
     protected function casts(): array

@@ -69,8 +69,8 @@ final class ServicoColaboradores
         if (! empty($d['reformado']) && ! empty($d['avencado'])) {
             throw new ErroNegocio('Um colaborador não pode ser reformado e avençado ao mesmo tempo.', 'REFORMADO_E_AVENCADO', 422);
         }
-        if ($c && isset($d['colaborador_gestor_id']) && (int) $d['colaborador_gestor_id'] === $c->id) {
-            throw new ErroNegocio('O colaborador não pode ser o seu próprio gestor.', 'GESTOR_INVALIDO', 422);
+        if ($c && ! empty($d['colaborador_gestor_id'])) {
+            app(ServicoEstruturaOrg::class)->exigirGestorValido($c->id, (int) $d['colaborador_gestor_id']);   // nem o próprio, nem em ciclo
         }
         if (! empty($d['posto_trabalho_id'])) {
             $posto = PostoTrabalho::query()->findOrFail($d['posto_trabalho_id']);

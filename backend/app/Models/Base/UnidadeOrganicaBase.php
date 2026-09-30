@@ -27,7 +27,7 @@ abstract class UnidadeOrganicaBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'nome', 'tipo', 'unidade_organica_pai_id', 'colaborador_responsavel_id', 'utilizador_responsavel', 'utilizadores', 'missao', 'atribuicoes', 'centro_custo_id', 'unidade_negocio_id', 'ordem', 'ativo', 'apoio', 'cor', 'atualizado_por', 'criado_por', 'disposicao',
+        'empresa_id', 'codigo', 'nome', 'tipo', 'tipo_original', 'unidade_organica_pai_id', 'colaborador_responsavel_id', 'utilizador_responsavel', 'utilizadores', 'missao', 'atribuicoes', 'centro_custo_id', 'unidade_negocio_id', 'ordem', 'ativo', 'apoio', 'cor', 'atualizado_por', 'criado_por', 'disposicao',
     ];
 
     protected function casts(): array

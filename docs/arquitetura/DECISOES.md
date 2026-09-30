@@ -744,3 +744,53 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - Tipos corrigidos (tabelas quase sem dados): mínimo e máximo passam de texto a numérico, o preço fica com 4 casas e a data do registo passa a data. O `period_id` do período passa a FK para o processamento salarial.
 
 **Fica para depois:** importação Excel da produtividade (a chave NIF + item + data está pronta no serviço), acumulação, pro rata e transporte de férias, e subsídio de férias. O legado não tinha nenhum destes três.
+
+## ADR-040 — RH parte 3a: estrutura orgânica e portal do colaborador
+
+**Estrutura orgânica** (`ServicoEstruturaOrg`, `js/modules/estrutura/estrutura_dados.js`):
+- Mantém do legado:
+  - unidades com código único e pai sem ciclos; o responsável é colocado na unidade;
+  - postos com unidade, cargo ou título, e vagas (exceder as vagas é só aviso);
+  - na afectação, o gestor não pode ser o próprio e o posto tem de ser da unidade;
+  - a chefia directa é o gestor explícito ou, subindo na árvore, o primeiro responsável;
+  - uma unidade com subunidades ou membros activos não se elimina, nem um posto com ocupantes.
+- Correcções:
+  - são recusados ciclos na chefia (A chefia B e B chefia A) e no «reporta a» dos postos. No legado, uma contestação podia acabar decidida pelo próprio avaliado;
+  - a chefia ignora gestores e responsáveis inactivos e unidades inactivas;
+  - **a afectação em massa já não apaga o gestor explícito** (o legado gravava gestor = nulo em todos);
+  - um posto indicado sem unidade assume a unidade do posto;
+  - eliminar limpa as referências (inactivos, «reporta a»);
+  - um cargo usado por postos não se elimina, e o nome do cargo é único;
+  - postos e afectações ficam auditados (models auditáveis).
+- Nos dados reais: 22 activos na empresa 6 (18 com chefia) e 6 na empresa 18 (5 com chefia), sem ciclos.
+
+**Portal do colaborador** (`ServicoPortalColaborador`, `js/modules/rh/portal_dados.js`):
+- Mantém do legado:
+  - tipos FÉRIAS, AUSÊNCIA, DOCUMENTO e AGREGADO;
+  - circuito CHEFIA → RH nas férias e nas ausências. A chefia é DISPENSADA se não existir ou não tiver utilizador;
+  - documentos e agregado vão só ao RH;
+  - a recusa exige nota; ninguém decide um pedido seu;
+  - só o requerente cancela, e só enquanto o pedido está pendente;
+  - no portal, as férias não podem começar no passado nem exceder o saldo.
+- Correcções:
+  - **uma decisão e todos os seus efeitos numa única transacção.** No legado, decidir uma ausência falhava sempre (tabela fora da transacção Dexie) e era desfeita;
+  - a mesma pessoa não aprova as duas etapas (segregação chefia/RH);
+  - a passagem chefia → RH não marca a ausência como decidida;
+  - a ligação utilizador ↔ colaborador lê-se sempre da base de dados, exige `rh_portal_aprovar` e fica auditada;
+  - no agregado, a aprovação é recusada se os dependentes mudaram desde o pedido; os parentescos do legado («Filho(a)») são normalizados;
+  - os recibos do portal vêm da fotografia do processamento (o legado recalculava com os dados actuais).
+
+**Documentos** (`ServicoDocumentosRH`):
+- Os 6 modelos padrão existem sempre e podem ser personalizados e repostos; a empresa pode ter modelos próprios.
+- Há 21 variáveis `{{…}}`; as desconhecidas são recusadas.
+- Uma variável sem valor aparece como [Rótulo] e impede a emissão automática; o destinatário é opcional.
+- **A numeração `DOC/AAAA/NNNN` é atómica** (`ServicoNumeracao`, a partir do maior número emitido). No legado, dois pedidos em simultâneo recebiam o mesmo número.
+- Nos dados reais, a próxima emissão é `DOC/2026/0003`.
+- Valores e datas por extenso (`App\Support\Texto\Extenso`): «trezentos mil kwanzas», «2 de Março de 2020».
+
+**Regressão corrigida (partes 2a/3a):**
+- As chaves dos mapas de normalização com «_» nunca coincidiam, porque o valor é comparado dobrado: «POR_JUSTIFICAR» passa a «POR JUSTIFICAR».
+- Por isso, as 34 faltas por justificar tinham migrado com estado nulo, e o mesmo teria acontecido aos pedidos do portal.
+- Corrigido, e `normalizacoes.mjs` passou a falhar se alguma chave não estiver dobrada ou apontar para um valor fora do domínio.
+
+**Fica para depois:** e-mail de notificação dos pedidos (o legado só tinha contadores) e PDF dos documentos emitidos (Fase 5).

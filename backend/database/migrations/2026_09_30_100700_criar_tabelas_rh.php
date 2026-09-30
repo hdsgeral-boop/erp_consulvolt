@@ -715,10 +715,12 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
-            $table->string('tipo', 20)->nullable()->comment('legado: tipo');
+            $table->string('tipo', 20)->nullable()->comment('legado: tipo · código normalizado ∈ {FERIAS, AUSENCIA, DOCUMENTO, AGREGADO}; texto original em tipo_original');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: tipo · texto exacto do legado');
             $table->jsonb('dados')->nullable()->comment('legado: dados');
             $table->jsonb('etapas')->nullable()->comment('legado: etapas');
-            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->string('estado', 20)->nullable()->comment('legado: estado · código normalizado ∈ {PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, EMITIDO, RECUSADO, CANCELADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: estado · texto exacto do legado');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->bigInteger('plano_ferias_colaborador_id')->nullable()->comment('legado: vacation_id');
             $table->timestampTz('decidido_em')->nullable()->comment('legado: decidido_em');
@@ -732,6 +734,8 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_pedidos_portal_colaborador_colaborador_id ON pedidos_portal_colaborador (colaborador_id)');
         DB::statement('CREATE INDEX ix_pedidos_portal_colaborador_plano_ferias_colaborador_id ON pedidos_portal_colaborador (plano_ferias_colaborador_id)');
         DB::statement('CREATE INDEX ix_pedidos_portal_colaborador_ausencia_falta_id ON pedidos_portal_colaborador (ausencia_falta_id)');
+        DB::statement('ALTER TABLE pedidos_portal_colaborador ADD CONSTRAINT ck_pedidos_portal_colaborador_tipo CHECK (tipo IS NULL OR tipo IN (\'FERIAS\',\'AUSENCIA\',\'DOCUMENTO\',\'AGREGADO\'))');
+        DB::statement('ALTER TABLE pedidos_portal_colaborador ADD CONSTRAINT ck_pedidos_portal_colaborador_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE_CHEFIA\',\'PENDENTE_RH\',\'APROVADO\',\'EMITIDO\',\'RECUSADO\',\'CANCELADO\'))');
 
         // rh_self_evaluations (legado) -> autoavaliacoes_colaborador · 1 linhas reais no backup
         Schema::create('autoavaliacoes_colaborador', function (Blueprint $table) {
@@ -789,7 +793,7 @@ return new class extends Migration
         Schema::create('modelos_documentos_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id · do código legado js/modules/rh/portal_dados.js:310');
-            $table->string('codigo', 255)->nullable()->comment('legado: codigo · do código legado js/modules/rh/portal_dados.js:310');
+            $table->string('codigo', 50)->nullable()->comment('legado: codigo · do código legado js/modules/rh/portal_dados.js:310');
             $table->string('nome', 255)->nullable()->comment('legado: nome · do código legado js/modules/rh/portal_dados.js:310');
             $table->string('titulo', 255)->nullable()->comment('legado: titulo · do código legado js/modules/rh/portal_dados.js:310');
             $table->text('texto')->nullable()->comment('legado: texto · do código legado js/modules/rh/portal_dados.js:310');
@@ -802,7 +806,7 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em · do código legado js/modules/rh/portal_dados.js:310');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
         });
-        DB::statement('CREATE INDEX ix_modelos_documentos_rh_empresa_id ON modelos_documentos_rh (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_modelos_documentos_rh_empresa_id_codigo ON modelos_documentos_rh (empresa_id, codigo)');
 
         // org_units (legado) -> unidades_organicas · 16 linhas reais no backup · eliminação lógica
         Schema::create('unidades_organicas', function (Blueprint $table) {
@@ -810,10 +814,11 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: org_company_id');
             $table->string('codigo', 50)->nullable()->comment('legado: codigo');
             $table->string('nome', 255)->nullable()->comment('legado: nome');
-            $table->string('tipo', 30)->nullable()->comment('legado: tipo');
+            $table->string('tipo', 20)->nullable()->comment('legado: tipo · código normalizado ∈ {ORGAO_SOCIAL, DIRECCAO_GERAL, DIRECCAO, DEPARTAMENTO, GABINETE, SECCAO, EQUIPA, OUTRO}; texto original em tipo_original');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: tipo · texto exacto do legado');
             $table->bigInteger('unidade_organica_pai_id')->nullable()->comment('legado: pai_id');
             $table->bigInteger('colaborador_responsavel_id')->nullable()->comment('legado: responsavel_employee_id');
-            $table->string('utilizador_responsavel', 10)->nullable()->comment('legado: utilizador_responsavel');
+            $table->string('utilizador_responsavel', 100)->nullable()->comment('legado: utilizador_responsavel · tipo forçado (inferido: varchar(10))');
             $table->jsonb('utilizadores')->nullable()->comment('legado: utilizadores');
             $table->text('missao')->nullable()->comment('legado: missao · sem valores reais: tipo a confirmar no código legado');
             $table->text('atribuicoes')->nullable()->comment('legado: atribuicoes');
@@ -835,6 +840,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_unidades_organicas_colaborador_responsavel_id ON unidades_organicas (colaborador_responsavel_id)');
         DB::statement('CREATE INDEX ix_unidades_organicas_centro_custo_id ON unidades_organicas (centro_custo_id)');
         DB::statement('CREATE INDEX ix_unidades_organicas_unidade_negocio_id ON unidades_organicas (unidade_negocio_id)');
+        DB::statement('ALTER TABLE unidades_organicas ADD CONSTRAINT ck_unidades_organicas_tipo CHECK (tipo IS NULL OR tipo IN (\'ORGAO_SOCIAL\',\'DIRECCAO_GERAL\',\'DIRECCAO\',\'DEPARTAMENTO\',\'GABINETE\',\'SECCAO\',\'EQUIPA\',\'OUTRO\'))');
 
         // org_positions (legado) -> postos_trabalho · 9 linhas reais no backup · eliminação lógica
         Schema::create('postos_trabalho', function (Blueprint $table) {

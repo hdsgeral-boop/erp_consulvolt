@@ -13,9 +13,11 @@ use App\Http\Controllers\Api\RH\AssiduidadeController;
 use App\Http\Controllers\Api\RH\CadastrosRHController;
 use App\Http\Controllers\Api\RH\ColaboradorController;
 use App\Http\Controllers\Api\RH\ContratoTrabalhoController;
+use App\Http\Controllers\Api\RH\EstruturaController;
 use App\Http\Controllers\Api\RH\FeriasProdutividadeController;
 use App\Http\Controllers\Api\RH\FolhaSalarialController;
 use App\Http\Controllers\Api\RH\PagamentoSalariosController;
+use App\Http\Controllers\Api\RH\PortalColaboradorController;
 use App\Http\Controllers\Api\SaudeController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
@@ -302,6 +304,38 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('produtividade/periodos/{periodo}/registos/{registo}', 'eliminarRegisto')->whereNumber(['periodo', 'registo'])->name('produtividade.registos.destroy');
         });
         Route::post('rh/salarios/periodos/{id}/importar-produtividade', [FeriasProdutividadeController::class, 'lancar'])->whereNumber('id')->name('rh.salarios.importar-produtividade');
+
+        Route::prefix('rh')->name('rh.')->controller(EstruturaController::class)->group(function () {
+            Route::get('estrutura', 'arvore')->name('estrutura.arvore');
+            Route::post('estrutura/unidades', 'guardarUnidade')->name('estrutura.unidades.store');
+            Route::put('estrutura/unidades/{unidade}', 'guardarUnidade')->whereNumber('unidade')->name('estrutura.unidades.update');
+            Route::delete('estrutura/unidades/{unidade}', 'eliminarUnidade')->whereNumber('unidade')->name('estrutura.unidades.destroy');
+            Route::post('estrutura/postos', 'guardarPosto')->name('estrutura.postos.store');
+            Route::put('estrutura/postos/{posto}', 'guardarPosto')->whereNumber('posto')->name('estrutura.postos.update');
+            Route::delete('estrutura/postos/{posto}', 'eliminarPosto')->whereNumber('posto')->name('estrutura.postos.destroy');
+            Route::post('estrutura/afectacao', 'afectar')->name('estrutura.afectar');
+            Route::get('estrutura/chefia/{colaborador}', 'chefia')->whereNumber('colaborador')->name('estrutura.chefia');
+            Route::get('cargos', 'cargos')->name('cargos.index');
+            Route::post('cargos', 'guardarCargo')->name('cargos.store');
+            Route::put('cargos/{cargo}', 'guardarCargo')->whereNumber('cargo')->name('cargos.update');
+            Route::delete('cargos/{cargo}', 'eliminarCargo')->whereNumber('cargo')->name('cargos.destroy');
+        });
+        Route::prefix('rh/portal')->name('rh.portal.')->controller(PortalColaboradorController::class)->group(function () {
+            Route::get('resumo', 'resumo')->name('resumo');
+            Route::get('meus-pedidos', 'meusPedidos')->name('meus-pedidos');
+            Route::get('recibos', 'recibos')->name('recibos');
+            Route::post('pedidos', 'criarPedido')->name('pedidos.store');
+            Route::post('pedidos/{pedido}/cancelar', 'cancelar')->whereNumber('pedido')->name('pedidos.cancelar');
+            Route::get('aprovacoes', 'paraMim')->name('aprovacoes');
+            Route::get('pedidos', 'pedidos')->name('pedidos.index');
+            Route::post('pedidos/{pedido}/decidir', 'decidir')->whereNumber('pedido')->name('pedidos.decidir');
+            Route::get('pedidos/{pedido}/proposta', 'propostaDocumento')->whereNumber('pedido')->name('pedidos.proposta');
+            Route::post('pedidos/{pedido}/emitir', 'emitir')->whereNumber('pedido')->name('pedidos.emitir');
+            Route::post('ligacoes', 'ligar')->name('ligacoes');
+            Route::get('modelos', 'modelos')->name('modelos.index');
+            Route::put('modelos', 'gravarModelo')->name('modelos.gravar');
+            Route::delete('modelos/{codigo}', 'reporModelo')->where('codigo', '[A-Z0-9_]+')->name('modelos.repor');
+        });
 
         Route::prefix('rh')->name('rh.')->group(function () {
             Route::controller(ColaboradorController::class)->group(function () {

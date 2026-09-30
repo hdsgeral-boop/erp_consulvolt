@@ -44,7 +44,8 @@ export const UNICOS = [
   ['coordenadas_bancarias_colaboradores', ['empresa_id', 'colaborador_id']],
   ['efectividade_assiduidade', ['empresa_id', 'colaborador_id', 'data']],   // um registo por colaborador e dia
   ['fechos_mensais_assiduidade', ['empresa_id', 'mes']],                   // estado actual do mês (o histórico fica na auditoria)
-  ['periodos_produtividade_rh', ['empresa_id', 'mes']],   // um IBAN por colaborador (upsert do legado)
+  ['periodos_produtividade_rh', ['empresa_id', 'mes']],
+  ['modelos_documentos_rh', ['empresa_id', 'codigo']],   // um IBAN por colaborador (upsert do legado)
   // Numeração única obrigatória só nos documentos fiscais (AGT). Orçamentos/proformas do legado repetem números
   // (o legado tratava "Orçamento" e "Orcamento" como tipos distintos) -> relatório de validação.
   ['vendas', ['empresa_id', 'tipo_documento', 'numero_documento'], "tipo_documento IN ('FT','FR','NC','ND')"],

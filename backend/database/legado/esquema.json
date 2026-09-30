@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T14:53:59.990Z",
+  "gerado_em": "2026-09-30T15:47:52.546Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -13574,6 +13574,20 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "FERIAS",
+            "AUSENCIA",
+            "DOCUMENTO",
+            "AGREGADO"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "tipo",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -13600,6 +13614,22 @@
           "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "PENDENTE_CHEFIA",
+            "PENDENTE_RH",
+            "APROVADO",
+            "EMITIDO",
+            "RECUSADO",
+            "CANCELADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "estado",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -13683,7 +13713,10 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_pedidos_portal_colaborador_tipo",
+        "ck_pedidos_portal_colaborador_estado"
+      ]
     },
     {
       "tabela": "autoavaliacoes_colaborador",
@@ -14079,7 +14112,7 @@
         {
           "coluna": "codigo",
           "legado": "codigo",
-          "tipo": "varchar(255)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -14185,7 +14218,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "codigo"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {
@@ -14318,9 +14359,27 @@
         {
           "coluna": "tipo",
           "legado": "tipo",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "ORGAO_SOCIAL",
+            "DIRECCAO_GERAL",
+            "DIRECCAO",
+            "DEPARTAMENTO",
+            "GABINETE",
+            "SECCAO",
+            "EQUIPA",
+            "OUTRO"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "tipo",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -14351,7 +14410,7 @@
         {
           "coluna": "utilizador_responsavel",
           "legado": "utilizador_responsavel",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -14508,7 +14567,9 @@
           "onde": null
         }
       ],
-      "checks": []
+      "checks": [
+        "ck_unidades_organicas_tipo"
+      ]
     },
     {
       "tabela": "postos_trabalho",

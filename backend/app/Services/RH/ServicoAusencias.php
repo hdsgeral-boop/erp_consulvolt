@@ -133,19 +133,19 @@ final class ServicoAusencias
     }
 
     /** Registo pelo RH (fica a aguardar a decisão do RH). */
-    public function criar(array $d): AusenciaFaltaColaborador
+    public function criar(array $d, string $estado = 'PENDENTE_RH'): AusenciaFaltaColaborador
     {
         Colaborador::query()->findOrFail($d['colaborador_id']);
         $v = $this->validar($d);
 
         return AusenciaFaltaColaborador::create(['colaborador_id' => $d['colaborador_id'], 'tipo' => $d['tipo'], 'data_inicio' => $d['data_inicio'], 'data_fim' => $d['data_fim'],
             'dias' => $v['dias'], 'dias_uteis' => $v['dias_uteis'], 'horas' => $v['horas'], 'horas_falta' => $v['horas'], 'motivo' => $d['motivo'],
-            'documento_url' => $d['documento_url'] ?? null, 'remunerada' => $v['remunerada'], 'avisos' => $v['avisos'], 'estado' => 'PENDENTE_RH',
+            'documento_url' => $d['documento_url'] ?? null, 'remunerada' => $v['remunerada'], 'avisos' => $v['avisos'], 'estado' => $estado,
             'detectada' => false, 'mes' => substr($d['data_inicio'], 0, 7), 'criado_por' => Auth::user()?->nome_utilizador]);
     }
 
     /** Justificar uma falta detectada: fica a aguardar decisão; só com o processamento do mês aberto. */
-    public function justificar(AusenciaFaltaColaborador $a, array $d): AusenciaFaltaColaborador
+    public function justificar(AusenciaFaltaColaborador $a, array $d, string $estado = 'PENDENTE_RH'): AusenciaFaltaColaborador
     {
         if (! $a->detectada || $a->estado !== 'POR_JUSTIFICAR') {
             throw new ErroNegocio('Só se justificam faltas detectadas que estejam por justificar.', 'ESTADO_INVALIDO', 422);
@@ -156,7 +156,7 @@ final class ServicoAusencias
         $v = $this->validar(['colaborador_id' => $a->colaborador_id, 'data_inicio' => $a->data_inicio->toDateString(), 'data_fim' => $a->data_fim->toDateString(),
             'horas' => $a->horas_falta] + $d, $a);
         $a->update(['tipo' => $d['tipo'], 'motivo' => $d['motivo'], 'documento_url' => $d['documento_url'] ?? null, 'remunerada' => $v['remunerada'], 'avisos' => $v['avisos'],
-            'estado' => 'PENDENTE_RH', 'justificada_em' => now(), 'justificada_por' => Auth::user()?->nome_utilizador]);
+            'estado' => $estado, 'justificada_em' => now(), 'justificada_por' => Auth::user()?->nome_utilizador]);
 
         return $a->refresh();
     }
@@ -184,6 +184,28 @@ final class ServicoAusencias
 
             return $a->refresh();
         });
+    }
+
+    /**
+     * Reflexo da decisão de um pedido do portal: passagem da chefia para o RH (sem data de decisão — ainda não é
+     * final; o legado preenchia-a), aprovação final (com a decisão de remuneração nos tipos a critério do empregador)
+     * ou recusa.
+     */
+    public function aplicarDecisaoPortal(AusenciaFaltaColaborador $a, string $estado, ?string $remunerada = null, ?string $nota = null): void
+    {
+        if ($estado === 'PENDENTE_RH') {
+            $a->update(['estado' => 'PENDENTE_RH']);
+
+            return;
+        }
+        $dados = ['estado' => $estado, 'decidido_em' => now(), 'decidido_por' => Auth::user()?->nome_utilizador, 'nota_decisao' => $nota];
+        if ($estado === 'APROVADO' && $a->remunerada === 'EMPREGADOR') {
+            if (! in_array($remunerada, ['SIM', 'NAO'], true)) {
+                throw new ErroNegocio('Indique se esta ausência é remunerada (decisão do empregador).', 'DECISAO_REMUNERACAO', 422);
+            }
+            $dados['remunerada'] = $remunerada;
+        }
+        $a->update($dados);
     }
 
     /** Cancelar um pedido pendente; numa falta detectada a justificação é retirada (volta a POR_JUSTIFICAR). */
