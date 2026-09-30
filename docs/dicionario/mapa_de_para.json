@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T18:37:13.592Z",
+  "gerado_em": "2026-09-30T20:13:46.130Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -7704,13 +7704,14 @@
           "preenchimento": 1,
           "max_comprimento": 12,
           "notas": [
-            "código normalizado ∈ {VENDA, BACK_TO_BACK, CONSUMO}; texto original em tipo_original"
+            "código normalizado ∈ {VENDA, BACK_TO_BACK, CONSUMO, VENDA_BALCAO}; texto original em tipo_original"
           ],
           "normalizacao": {
             "dominio": [
               "VENDA",
               "BACK_TO_BACK",
-              "CONSUMO"
+              "CONSUMO",
+              "VENDA_BALCAO"
             ],
             "mapa": {
               "VENDA": "VENDA",
@@ -15838,11 +15839,13 @@
         {
           "legado": "item_key",
           "pt": "chave_item",
-          "tipo_pg": "varchar(30)",
+          "tipo_pg": "varchar(60)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 14,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(30))"
+          ]
         },
         {
           "legado": "kind",
@@ -15856,11 +15859,13 @@
         {
           "legado": "pm_id",
           "pt": "meio_pagamento_codigo",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(40)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 6,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "date",
@@ -16017,12 +16022,13 @@
         {
           "legado": "reference",
           "pt": "referencia",
-          "tipo_pg": "varchar(20)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 0.5,
           "max_comprimento": 10,
           "notas": [
-            "tipos mistos: string_inteiro=2, string=1"
+            "tipos mistos: string_inteiro=2, string=1",
+            "tipo forçado (inferido: varchar(20))"
           ]
         }
       ]
@@ -17090,20 +17096,24 @@
         {
           "legado": "fabric",
           "pt": "tecido",
-          "tipo_pg": "varchar(20)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 7,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(20))"
+          ]
         },
         {
           "legado": "color",
           "pt": "cor",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(50)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 6,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "unit",

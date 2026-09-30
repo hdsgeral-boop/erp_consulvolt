@@ -460,6 +460,11 @@ export const TIPOS_FORCADOS = {
   'sales.fe_estabelecimento': 'varchar(20)', 'sales.delivery_date': 'date', 'sale_items.notes': 'text', 'sale_items.description': 'text', // mistura datas com números de documento ("FT FA12026/761")
   // POS (tipos inferidos com poucos dados: o desvio e a tolerância são valores em Kz; o documento da comissão é um id)
   'pos_sessions.deviation': 'numeric(15,2)', 'pos_settings.deviation_tolerance': 'numeric(15,2)', 'pos_settlements.commission_doc_id': 'bigint',
+  // Lavandaria (reclamações sem dados no backup: tipos inferidos do código estavam errados)
+  'lav_claims.entry_state': 'text', 'lav_claims.order_number': 'varchar(50)', 'lav_claims.paid_by': 'varchar(100)', 'lav_payments.posting_lans': 'jsonb',
+  'lav_settings.urgency_lead_factor': 'numeric(6,4)', 'lav_pieces.fabric': 'varchar(100)', 'lav_pieces.color': 'varchar(50)', 'lav_claims.decision_note': 'text',
+  // Prestação de contas POS: ids de meios gerados (pm_ + 8), chaves TRF:<venda>:<meio>, comprovativos até 100; comissão deduzida é sim/não
+  'pos_settlements.pm_id': 'varchar(40)', 'pos_settlements.item_key': 'varchar(60)', 'pos_settlements.reference': 'varchar(100)', 'pos_settlements.commission_deducted': 'boolean',
 };
 
 export const SOBREPOSICOES = {
@@ -475,7 +480,7 @@ export const SOBREPOSICOES = {
   rh_prod_periods: { period_id: ['periodo_processamento_salarial_id', 'payroll_periods'] },
   rh_eval_bonus: { period_id: ['periodo_processamento_salarial_id', 'payroll_periods'], avaliacao_id: ['avaliacao_desempenho_id', 'rh_evaluations'] },
   purchase_contract_milestones: { contract_id: ['contrato_fornecedor_id', 'purchase_contracts'] },
-  lav_claims: { order_id: ['pedido_lavandaria_id', 'lav_orders'] },
+  lav_claims: { order_id: ['pedido_lavandaria_id', 'lav_orders'], entry_state: 'estado_entrada' /* estado da peça à entrada (texto), não um lançamento */ },
   project_documents: { type_id: ['tipo_documento_id', 'document_types'] },
   sales: { date: 'data_emissao', doc_date: 'data_emissao' /* directiva, secção 3.1 */ },
   audit_logs: { company_id: 'empresa_id' /* sem FK: a auditoria sobrevive a empresas eliminadas */ },

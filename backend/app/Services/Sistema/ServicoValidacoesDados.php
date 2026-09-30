@@ -106,6 +106,70 @@ final class ServicoValidacoesDados
                 'sql' => "SELECT s.id AS sessao_id, s.numero_z, s.codigo_terminal, s.fechado_em, s.total_vendas, s.estado_contabilizacao, s.estado_desvio, s.desvio FROM sessoes_pos s
                           WHERE s.empresa_id = ? AND s.estado = 'FECHADA' AND (s.estado_contabilizacao = 'PENDENTE' OR s.estado_desvio = 'PENDENTE') ORDER BY s.fechado_em",
             ],
+            'pos_sessoes_por_prestar' => [
+                'titulo' => 'POS: sessões integradas com prestação de contas por fazer', 'modulo' => 'POS', 'gravidade' => 'AVISO',
+                'descricao' => 'O numerário, o TPA e as transferências ainda estão nas contas transitórias: registe a prestação de contas (folha de caixa / recebimentos).',
+                'legado' => 'Separador Prestação de contas (js/pos_prestacao.js:558)',
+                'sql' => "SELECT s.id AS sessao_id, s.numero_z, s.codigo_terminal, s.fechado_em, s.total_vendas, s.estado_liquidacao FROM sessoes_pos s
+                          WHERE s.empresa_id = ? AND s.estado = 'FECHADA' AND s.estado_contabilizacao IN ('CONTABILIZADA', 'SEM_MOVIMENTO') AND s.estado_liquidacao IN ('PENDENTE', 'PARCIAL') ORDER BY s.fechado_em",
+            ],
+            'pos_liquidacoes_orfas' => [
+                'titulo' => 'POS: liquidações registadas cujo movimento ou documento desapareceu ou foi anulado', 'modulo' => 'POS', 'gravidade' => 'ERRO',
+                'descricao' => 'A liquidação conta como feita mas o movimento da folha de caixa não existe ou o recebimento está anulado: a transitória não fica saldada. Anule a liquidação e volte a prestá-la.',
+                'legado' => 'O legado apagava linhas de caixa e documentos sem verificar a liquidação (js/pos_prestacao.js:771)',
+                'sql' => "SELECT l.id AS liquidacao_id, l.numero_z, l.chave_item, l.alvo, l.movimento_caixa_id, l.documento_tesouraria_id, d.estado AS estado_documento FROM liquidacoes_pos l
+                          LEFT JOIN movimentos_caixa m ON m.id = l.movimento_caixa_id LEFT JOIN documentos_tesouraria d ON d.id = l.documento_tesouraria_id
+                          WHERE l.empresa_id = ? AND l.estado = 'REGISTADO' AND ((l.alvo = 'FOLHA_CAIXA' AND m.id IS NULL) OR (l.alvo = 'TESOURARIA' AND (d.id IS NULL OR d.estado = 'ANULADO'))) ORDER BY l.id",
+            ],
+            'pos_tpa_talao_difere' => [
+                'titulo' => 'POS: talão do TPA diferente do sistema', 'modulo' => 'POS', 'gravidade' => 'AVISO',
+                'descricao' => 'A prestação regulariza a transitória pelo valor do sistema; a diferença para o talão tem de ser conferida com o extracto bancário e regularizada manualmente.',
+                'legado' => 'O legado só avisava no modal de liquidação (js/pos_prestacao.js:661)',
+                'sql' => "SELECT s.id AS sessao_id, s.numero_z, f->>'nome' AS meio, (f->>'valor_sistema')::numeric AS valor_sistema, (f->>'valor_talao')::numeric AS valor_talao,
+                          (f->>'diferenca')::numeric AS diferenca
+                          FROM sessoes_pos s CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(s.fechos_tpa) = 'array' THEN s.fechos_tpa ELSE '[]'::jsonb END) f
+                          WHERE s.empresa_id = ? AND COALESCE((f->>'diferenca')::numeric, 0) <> 0 ORDER BY s.fechado_em",
+            ],
+            'hotel_estadias_saida_atrasada' => [
+                'titulo' => 'Hotelaria: estadias abertas com a saída prevista ultrapassada', 'modulo' => 'POS', 'gravidade' => 'AVISO',
+                'descricao' => 'O hóspede já devia ter saído (saída prevista + tolerância do terminal): faça o check-out (recálculo ou manter o contratado) ou corrija a estadia.',
+                'legado' => 'O mapa de quartos só assinalava «atrasado» no ecrã (js/hotelaria.js:229)',
+                'sql' => "SELECT e.id AS estadia_id, e.nome_quarto, e.entrada_em, e.saida_prevista_em FROM estadias_hotel e LEFT JOIN terminais_pos t ON t.id = e.terminal_pos_id
+                          WHERE e.empresa_id = ? AND e.estado = 'ABERTA' AND e.saida_prevista_em + make_interval(mins => COALESCE(t.hotel_tolerancia_atraso_min, 60)) < now() ORDER BY e.saida_prevista_em",
+            ],
+            'pos_armazem_vendas_por_contabilizar' => [
+                'titulo' => 'POS de armazém: vendas ao balcão com CMV por contabilizar', 'modulo' => 'Logística', 'gravidade' => 'AVISO',
+                'descricao' => 'A guia saiu do stock mas o custo não foi lançado (contas da logística em falta ou exercício fechado na emissão). Contabilize-a em Logística › Guias de saída.',
+                'legado' => 'O legado lançava num diário adivinhado ou em nenhum (js/ui_pos_armazem.js:492-496)',
+                'sql' => "SELECT g.id AS guia_id, g.numero_documento, g.data, SUM(i.valor_kz) AS valor FROM guias_saida g JOIN itens_guia_saida i ON i.guia_saida_id = g.id
+                          WHERE g.empresa_id = ? AND g.tipo = 'VENDA_BALCAO' AND g.estado <> 'ANULADA' AND NOT COALESCE(g.contabilizado, false)
+                          GROUP BY g.id HAVING SUM(i.valor_kz) > 0 ORDER BY g.data",
+            ],
+            'lavandaria_servicos_sem_conta_iva' => [
+                'titulo' => 'Lavandaria: serviços com IVA sem conta de IVA liquidado', 'modulo' => 'POS', 'gravidade' => 'ERRO',
+                'descricao' => 'Serviços e taxas de lavandaria com IVA > 0 sem conta de IVA liquidado própria nem «IVA liquidado» nas contas de vendas: a integração da sessão POS falha.',
+                'legado' => "Conta fixa '34.5.3' em linhasIntegracao (js/lavandaria.js:2388)",
+                'sql' => "SELECT p.id AS produto_id, p.codigo, p.nome, p.taxa_imposto FROM produtos p
+                          WHERE p.empresa_id = ? AND p.lavandaria_grupo IS NOT NULL AND p.eliminado_em IS NULL AND p.taxa_imposto > 0
+                            AND COALESCE(p.conta_iva_liquidado, p.conta_iva, '') = ''
+                            AND NOT EXISTS (SELECT 1 FROM configuracoes_contabeis_vendas c WHERE c.empresa_id = p.empresa_id AND c.chave = 'iva_vendas' AND COALESCE(c.codigo_conta, '') <> '')
+                          ORDER BY p.codigo",
+            ],
+            'lavandaria_servicos_conta_nao_62' => [
+                'titulo' => 'Lavandaria: serviços sem conta de proveitos da classe 62', 'modulo' => 'POS', 'gravidade' => 'AVISO',
+                'descricao' => 'Os serviços de lavandaria/alfaiataria creditam a conta de proveitos do produto (classe 62).',
+                'legado' => 'Validação só no ecrã (js/lavandaria.js:1427)',
+                'sql' => "SELECT id AS produto_id, codigo, nome, codigo_conta FROM produtos WHERE empresa_id = ? AND lavandaria_grupo IN ('LAVANDARIA','ALFAIATARIA')
+                          AND eliminado_em IS NULL AND COALESCE(codigo_conta, '') NOT LIKE '62%' ORDER BY codigo",
+            ],
+            'lavandaria_clientes_sem_conta' => [
+                'titulo' => 'Lavandaria: clientes sem conta contabilística', 'modulo' => 'POS', 'gravidade' => 'ERRO',
+                'descricao' => 'Clientes com ordens de lavandaria sem conta própria e sem «conta de clientes por omissão»: não se emitem facturas nem se integra a sessão.',
+                'legado' => "Conta fixa '31.1' (js/lavandaria.js:2386)",
+                'sql' => "SELECT DISTINCT t.id AS terceiro_id, t.nome FROM pedidos_lavandaria o JOIN terceiros t ON t.id = o.cliente_id
+                          WHERE o.empresa_id = ? AND COALESCE(t.codigo_conta, '') = ''
+                            AND NOT EXISTS (SELECT 1 FROM configuracoes_contabeis_vendas c WHERE c.empresa_id = o.empresa_id AND c.chave = 'clientes_default' AND COALESCE(c.codigo_conta, '') <> '')",
+            ],
             'colaboradores_activos_sem_iban' => [
                 'titulo' => 'Colaboradores activos sem IBAN', 'modulo' => 'RH', 'gravidade' => 'AVISO',
                 'descricao' => 'Sem coordenadas bancárias não entram numa carta de pagamento. No legado os botões do ecrã de IBAN não funcionavam: só a importação gravava.',

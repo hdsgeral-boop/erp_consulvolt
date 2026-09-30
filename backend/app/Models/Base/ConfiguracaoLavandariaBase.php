@@ -31,7 +31,7 @@ abstract class ConfiguracaoLavandariaBase extends ModeloBase
             'percentagem_armazenagem_dia' => 'decimal:4',
             'percentagem_adiantamento' => 'decimal:4',
             'percentagem_urgencia' => 'decimal:4',
-            'fator_prazo_urgencia' => 'integer',
+            'fator_prazo_urgencia' => 'decimal:4',
             'valor_taxa_recolha' => 'decimal:4',
             'valor_taxa_entrega' => 'decimal:4',
             'dias_reclamacao' => 'integer',

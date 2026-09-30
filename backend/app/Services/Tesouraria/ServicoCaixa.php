@@ -3,6 +3,7 @@
 namespace App\Services\Tesouraria;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\LiquidacaoPOS;
 use App\Models\MovimentoCaixa;
 use App\Models\SessaoCaixa;
 use App\Services\Contabilidade\LocalizadorLancamentos;
@@ -109,6 +110,9 @@ final class ServicoCaixa
             $sessao = SessaoCaixa::query()->lockForUpdate()->findOrFail($m->sessao_caixa_id);
             if ($sessao->estado !== 'ABERTA' || $m->contabilizado) {
                 throw new ErroNegocio('Só se removem movimentos de sessões abertas.', 'SESSAO_NAO_ABERTA', 422);
+            }
+            if (LiquidacaoPOS::query()->where('movimento_caixa_id', $m->id)->where('estado', 'REGISTADO')->exists()) {
+                throw new ErroNegocio('Movimento da prestação de contas do POS: anule-o na prestação de contas.', 'MOVIMENTO_POS', 422);
             }
             $m->delete();
         });

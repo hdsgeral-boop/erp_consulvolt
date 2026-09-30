@@ -428,6 +428,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('sessoes/{sessao}/deliberacao', 'deliberar')->whereNumber('sessao')->name('sessoes.deliberar');
             Route::post('sessoes/{sessao}/deliberacao/anular', 'anularDeliberacao')->whereNumber('sessao')->name('sessoes.deliberacao.anular');
         });
+        // POS: prestação de contas e relatórios, lavandaria, hotelaria e POS armazém (ficheiros próprios)
+        require __DIR__.'/api/pos_prestacao.php';
+        require __DIR__.'/api/pos_lavandaria.php';
+        require __DIR__.'/api/pos_hotelaria.php';
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

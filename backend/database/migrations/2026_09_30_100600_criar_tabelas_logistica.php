@@ -141,7 +141,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number');
             $table->date('data')->nullable()->comment('legado: date');
-            $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {VENDA, BACK_TO_BACK, CONSUMO}; texto original em tipo_original');
+            $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {VENDA, BACK_TO_BACK, CONSUMO, VENDA_BALCAO}; texto original em tipo_original');
             $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: entity_id');
             $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id');
@@ -165,7 +165,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_guias_saida_armazem_id ON guias_saida (armazem_id)');
         DB::statement('CREATE INDEX ix_guias_saida_venda_relacionada_id ON guias_saida (venda_relacionada_id)');
         DB::statement('CREATE INDEX ix_guias_saida_projeto_id ON guias_saida (projeto_id)');
-        DB::statement('ALTER TABLE guias_saida ADD CONSTRAINT ck_guias_saida_tipo CHECK (tipo IS NULL OR tipo IN (\'VENDA\',\'BACK_TO_BACK\',\'CONSUMO\'))');
+        DB::statement('ALTER TABLE guias_saida ADD CONSTRAINT ck_guias_saida_tipo CHECK (tipo IS NULL OR tipo IN (\'VENDA\',\'BACK_TO_BACK\',\'CONSUMO\',\'VENDA_BALCAO\'))');
         DB::statement('ALTER TABLE guias_saida ADD CONSTRAINT ck_guias_saida_estado CHECK (estado IS NULL OR estado IN (\'CONCLUIDO\',\'FATURADA\',\'ANULADA\'))');
 
         // delivery_items (legado) -> itens_guia_saida · 47 linhas reais no backup

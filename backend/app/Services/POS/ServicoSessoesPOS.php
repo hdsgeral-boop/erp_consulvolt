@@ -29,6 +29,7 @@ final class ServicoSessoesPOS
         private readonly ServicoNumeracao $numeracao,
         private readonly ServicoConfigPOS $config,
         private readonly ServicoContabilizacaoPOS $contabilizacao,
+        private readonly ServicoFontesLavandariaPOS $lavandaria,
     ) {}
 
     /** @return array{sessao: SessaoPOS, aviso: ?string} */
@@ -68,10 +69,12 @@ final class ServicoSessoesPOS
     }
 
     /**
-     * Totais da sessão a partir das vendas (totaisSessao, pos_gestao.js:230-251).
+     * Totais da sessão a partir das vendas (totaisSessao, pos_gestao.js:230-251) e dos recibos da lavandaria (fonteSessao,
+     * lavandaria.js:2369-2377): os recibos entram nos totais por meio, no numerário e nas transferências, mas não em
+     * total_vendas (só documentos); o resumo da lavandaria fica em `lavandaria` (não é gravado na sessão).
      *
      * @return array{numero_vendas: int, total_vendas: string, totais_por_metodo: list<array<string, mixed>>, transferencias: list<array<string, mixed>>,
-     *               vendas_numerario: string, numerario_esperado: string}
+     *               vendas_numerario: string, numerario_esperado: string, lavandaria: array<string, mixed>}
      */
     public function totais(SessaoPOS $s): array
     {
@@ -96,9 +99,10 @@ final class ServicoSessoesPOS
                 }
             }
         }
+        $lavandaria = $this->lavandaria->acumular($s, $porMeio, $transferencias, $numerario);
 
         return ['numero_vendas' => $vendas->count(), 'total_vendas' => $bruto, 'totais_por_metodo' => array_values($porMeio), 'transferencias' => $transferencias,
-            'vendas_numerario' => $numerario, 'numerario_esperado' => bcadd((string) $s->fundo_maneio_abertura, $numerario, 2)];
+            'vendas_numerario' => $numerario, 'numerario_esperado' => bcadd((string) $s->fundo_maneio_abertura, $numerario, 2), 'lavandaria' => $lavandaria];
     }
 
     /** Relatório X: totais da sessão aberta, sem fechar (só impressão no legado). */
@@ -125,6 +129,8 @@ final class ServicoSessoesPOS
             }
             $t = TerminalPOS::query()->withTrashed()->findOrFail($s->terminal_pos_id);
             $tot = $this->totais($s);
+            $lavandaria = $tot['lavandaria'];   // resumo calculado, não é coluna da sessão
+            unset($tot['lavandaria']);
 
             $contagens = [];
             foreach ($d['contagens'] ?? [] as $den => $qtd) {
@@ -167,7 +173,7 @@ final class ServicoSessoesPOS
 
             $ano = (int) now()->format('Y');
             $n = $this->numeracao->proximo($empresa, "pos_z:{$t->id}:{$ano}", fn () => $this->maiorNumero($t, 'numero_z', "Z-{$t->codigo}-{$ano}-", $t->contadores_z, $ano));
-            $semMovimento = $tot['numero_vendas'] === 0;
+            $semMovimento = $tot['numero_vendas'] === 0 && ! $lavandaria['movimento'];
             $zero = bccomp($desvio, '0', 2) === 0;
             $s->update($tot + [
                 'estado' => 'FECHADA', 'fechado_em' => now(), 'fechado_por' => Auth::user()?->nome_utilizador, 'numero_z' => sprintf('Z-%s-%d-%04d', $t->codigo, $ano, $n),

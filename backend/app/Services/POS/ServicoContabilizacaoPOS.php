@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\DB;
  *     «absorver até 1 Kz» — e o CMV (D 71 / C 26) das mercadorias (o legado não lançava CMV no POS);
  *   - descontabilizar = estorno (o legado apagava as linhas do diário);
  *   - a deliberação do desvio é segregada (quem operou a sessão não delibera o próprio desvio) e anula-se por estorno.
+ * Lavandaria (ServicoFontesLavandariaPOS): as facturas e os recibos da lavandaria da sessão entram em lançamentos próprios
+ * por data (FT: D cliente / C proveitos + IVA; recibos: D transitória / C cliente), estornados com a sessão.
  */
 final class ServicoContabilizacaoPOS
 {
@@ -32,6 +34,7 @@ final class ServicoContabilizacaoPOS
         private readonly ServicoContabilizacaoVendas $vendas,
         private readonly ServicoStockVendas $stockVendas,
         private readonly ServicoConfigPOS $config,
+        private readonly ServicoFontesLavandariaPOS $lavandaria,
     ) {}
 
     public function contabilizar(SessaoPOS $s): SessaoPOS
@@ -45,7 +48,8 @@ final class ServicoContabilizacaoPOS
                 throw new ErroNegocio($s->estado_contabilizacao === 'SEM_MOVIMENTO' ? 'A sessão não tem vendas.' : 'A sessão já está integrada.', 'SESSAO_JA_INTEGRADA', 422);
             }
             $vendas = Venda::query()->where('sessao_pos_id', $s->id)->where('tipo_documento', 'FR')->where('estado', '<>', 'ANULADO')->orderBy('id')->lockForUpdate()->get();
-            if ($vendas->isEmpty()) {
+            $comLavandaria = $this->lavandaria->recibos($s)->isNotEmpty() || $this->lavandaria->faturas($s)->isNotEmpty();
+            if ($vendas->isEmpty() && ! $comLavandaria) {
                 throw new ErroNegocio('A sessão não tem vendas por integrar.', 'SEM_VENDAS', 422);
             }
             $diario = $this->diario();
@@ -59,11 +63,16 @@ final class ServicoContabilizacaoPOS
                 $lans[] = $numeroLan;
                 Venda::query()->whereIn('id', $doDia->pluck('id'))->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan, 'pos_lans_contabilizacao' => json_encode([$numeroLan])]);
             }
+            if ($comLavandaria) {   // facturas e recibos da lavandaria (linhasIntegracao, lavandaria.js:2379-2463)
+                $lans = array_merge($lans, $this->lavandaria->contabilizar($s, $diario));
+            }
             $s->update(['estado_contabilizacao' => 'CONTABILIZADA', 'lans_contabilizacao' => $lans, 'diario_contabilizacao_id' => $diario->id,
                 'contabilizado_em' => now(), 'contabilizado_por' => Auth::user()?->nome_utilizador]);
             if (($s->deliberacao['automatica'] ?? false) && empty($s->deliberacao['numero_lan'])) {
                 $this->lancarDesvio($s);
             }
+
+            app(ServicoPrestacaoContasPOS::class)->actualizarEstado($s->refresh());   // o item de numerário depende do desvio deliberado
 
             return $s->refresh();
         });
@@ -91,6 +100,7 @@ final class ServicoContabilizacaoPOS
                 $this->lancamentos->estornar($this->localizador->localizar($lan, (string) $s->numero_z), $motivo);
             }
             Venda::query()->where('sessao_pos_id', $s->id)->update(['contabilizado' => false, 'numero_lan_contabilizacao' => null, 'pos_lans_contabilizacao' => null]);
+            $this->lavandaria->desmarcar($s);
             $s->update(['estado_contabilizacao' => 'PENDENTE', 'lans_contabilizacao' => null, 'contabilizado_em' => null, 'contabilizado_por' => null, 'deliberacao' => $del,
                 'descontabilizado_em' => now(), 'descontabilizado_por' => Auth::user()?->nome_utilizador]);
 
@@ -126,6 +136,8 @@ final class ServicoContabilizacaoPOS
                 'data' => now()->toDateString(), 'por' => $u?->nome_utilizador, 'em' => now()->toIso8601String()]]);
             $this->lancarDesvio($s);
 
+            app(ServicoPrestacaoContasPOS::class)->actualizarEstado($s->refresh());   // o item de numerário depende do desvio deliberado
+
             return $s->refresh();
         });
     }
@@ -150,6 +162,8 @@ final class ServicoContabilizacaoPOS
             }
             $s->update(['estado_desvio' => 'PENDENTE', 'deliberacao' => null,
                 'deliberacao_cancelada' => $del + ['anulado_por' => Auth::user()?->nome_utilizador, 'anulado_em' => now()->toIso8601String(), 'motivo' => $motivo]]);
+
+            app(ServicoPrestacaoContasPOS::class)->actualizarEstado($s->refresh());   // o item de numerário depende do desvio deliberado
 
             return $s;
         });

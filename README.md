@@ -168,6 +168,19 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | POST | `/api/pos/terminais/{id}/sessoes` · GET `/api/pos/sessoes[/{id}]` · `/relatorio-x` · POST `/fechar` | Abertura, relatório X e fecho Z |
 | POST | `/api/pos/sessoes/{id}/vendas` | Venda POS (factura-recibo) |
 | POST | `/api/pos/sessoes/{id}/contabilizar` · `/descontabilizar` · `/deliberacao` · `/deliberacao/anular` | Integração e desvios de caixa |
+| GET | `/api/pos/prestacao` · `/api/pos/sessoes/{id}/prestacao` | Prestação de contas por regularizar (itens NUM/TPA/TRF) |
+| POST | `/api/pos/sessoes/{id}/prestacao` · `/prestacao/transferencias` | Liquidar numerário (folha de caixa), TPA com comissão e transferências (tesouraria) |
+| GET/POST | `/api/pos/liquidacoes[/{id}]` · POST `/{id}/anular` | Histórico e anulação de liquidações |
+| GET | `/api/pos/relatorios` · `/api/pos/relatorios/servicos` | Relatórios do POS (período, terminal, operador) e bloco «POS e Serviços» |
+| GET/PUT/POST | `/api/pos/lavandaria/definicoes` · `/pecas` · `/servicos` | Tabelas e definições da lavandaria |
+| GET/POST | `/api/pos/lavandaria/ordens[/{id}]` · `/sessoes/{id}/ordens` · `/orcamentos` · `/ordens/estado` · `/ordens/atribuir` · `/ordens/{id}/anular` | Ordens de serviço |
+| POST | `/api/pos/lavandaria/sessoes/{s}/ordens/{o}/pagamentos` · `/faturar` · `/entregar` · `/pagamentos/{id}/anular` | Recebimentos, facturação e entrega |
+| GET/POST | `/api/pos/lavandaria/reclamacoes` · `/{id}/decidir` · `/{id}/pagar` · GET `/relatorio` | Danos e relatório |
+| GET/PUT | `/api/pos/hotelaria/quartos[/{produto}]` | Mapa de quartos e tarifas |
+| GET/PUT | `/api/pos/hotelaria/estadias[/{id}]` · PUT `/consumos` · POST `/anular` | Estadias |
+| POST | `/api/pos/hotelaria/sessoes/{id}/checkin` · `/checkout` · `/checkout/simular` | Check-in e check-out com factura-recibo POS |
+| GET/POST | `/api/pos/armazem/vendas[/{id}]` · GET `/api/pos/armazem/stock` | Venda ao balcão (guia de saída com CMV) |
+| GET/POST | `/api/pos/armazem/picking[/{id}]` · POST `/expedir` | Picking e expedição de encomendas (NE → GR) |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

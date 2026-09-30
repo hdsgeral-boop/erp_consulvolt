@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T18:37:17.227Z",
+  "gerado_em": "2026-09-30T20:13:49.964Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -8031,7 +8031,8 @@
           "dominio": [
             "VENDA",
             "BACK_TO_BACK",
-            "CONSUMO"
+            "CONSUMO",
+            "VENDA_BALCAO"
           ]
         },
         {
@@ -17823,7 +17824,7 @@
         {
           "coluna": "chave_item",
           "legado": "item_key",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(60)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17841,7 +17842,7 @@
         {
           "coluna": "meio_pagamento_codigo",
           "legado": "pm_id",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(40)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17976,7 +17977,7 @@
         {
           "coluna": "referencia",
           "legado": "reference",
-          "tipo": "varchar(50)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17985,7 +17986,7 @@
         {
           "coluna": "comissao_deduzida",
           "legado": "commission_deducted",
-          "tipo": "numeric(15,2)",
+          "tipo": "boolean",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -18503,7 +18504,14 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "produto_quarto_id"
+          ],
+          "onde": "estado = 'ABERTA'"
+        }
+      ],
       "checks": []
     },
     {
@@ -18980,7 +18988,7 @@
         {
           "coluna": "lans_contabilizacao",
           "legado": "posting_lans",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -19054,7 +19062,7 @@
         {
           "coluna": "numero_encomenda",
           "legado": "order_number",
-          "tipo": "integer",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -19088,9 +19096,9 @@
           "dominio": null
         },
         {
-          "coluna": "estado_lancamento",
+          "coluna": "estado_entrada",
           "legado": "entry_state",
-          "tipo": "date",
+          "tipo": "text",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -19174,7 +19182,7 @@
         {
           "coluna": "nota_decisao",
           "legado": "decision_note",
-          "tipo": "varchar(255)",
+          "tipo": "text",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -19231,7 +19239,7 @@
         {
           "coluna": "pago_por",
           "legado": "paid_by",
-          "tipo": "numeric(15,2)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -19338,7 +19346,7 @@
         {
           "coluna": "fator_prazo_urgencia",
           "legado": "urgency_lead_factor",
-          "tipo": "integer",
+          "tipo": "numeric(6,4)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -19499,7 +19507,7 @@
         {
           "coluna": "tecido",
           "legado": "fabric",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -19508,7 +19516,7 @@
         {
           "coluna": "cor",
           "legado": "color",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,

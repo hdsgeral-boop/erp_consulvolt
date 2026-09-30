@@ -110,7 +110,9 @@ Cobrem os seguintes casos:
 | **Orçamento (parte 2)** | ✅ | orcamento/verificar, pedidos-excesso (+decidir), alertas, monitor; controlo na adjudicação, factura directa, pagamento e lançamento manual | Compromissos pela parte por facturar, sem dotação não bloqueia, falha fechada, alerta de bloqueio registado fora da transacção desfeita (ADR-045) |
 | **Orçamento (parte 3)** | ✅ | orcamento/previsoes (+revisao, publicar), orcamentos/{id}/cenarios (+padrao), cenarios (+gerar-versao), orcamentos/{id}/desvios/{rubrica} | Previsões a 12 meses com revisões e fecho estimado, cenários que geram versão, classificação dos desvios (ADR-046) |
 | **POS (parte 1)** | ✅ | pos/terminais (+copiar-meios, ativo, sessoes), pos/definicoes, pos/sessoes (+relatorio-x, fechar, vendas, contabilizar, descontabilizar, deliberacao) | Terminais e meios, sessões com X/Z, vendas FR com preço com IVA, desconto e troco, integração com CMV, desvios automáticos e deliberados (ADR-047) |
-| POS (partes 2-3) | ⏳ | | Prestação de contas, relatórios; hotelaria, lavandaria, POS armazém |
+| **POS (parte 2)** | ✅ | pos/prestacao, pos/sessoes/{id}/prestacao (+transferencias), pos/liquidacoes (+anular), pos/relatorios (+servicos) | Prestação de contas: numerário → folha de caixa, TPA com comissão e transferências → tesouraria; relatórios com filtros (ADR-048) |
+| **POS (parte 3a)** | ✅ | pos/lavandaria (definições, peças, serviços, ordens, orçamentos, materiais, pagamentos, entrega, reclamações, relatório) | Lavandaria/alfaiataria com FR ou FT+recibo, Consumidor Final, armazenagem, integração na sessão, reclamações com segregação (ADR-049) |
+| **POS (parte 3b)** | ✅ | pos/hotelaria (quartos, estadias, checkin, checkout), pos/armazem (stock, vendas, picking) | Hotelaria com regras do terminal e rateio dos pagamentos; venda ao balcão com CMV; picking NE → GR (ADR-050) |
 | Activos, Projectos, A&D, CRM | ⏳ | | |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.

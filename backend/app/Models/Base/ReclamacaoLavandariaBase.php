@@ -23,7 +23,7 @@ abstract class ReclamacaoLavandariaBase extends ModeloBase
     protected string $moduloAuditoria = 'POS';
 
     protected $fillable = [
-        'empresa_id', 'pedido_lavandaria_id', 'numero_encomenda', 'linha_pedido_id', 'nome_item', 'descricao_peca', 'estado_lancamento', 'cliente_id', 'descricao', 'valor_declarado', 'estado', 'criado_por', 'referencia_comprovativo', 'data_comprovativo', 'valor_comprovativo', 'nota_decisao', 'decidido_em', 'decidido_por', 'valor_compensacao', 'documento_tesouraria_id', 'pago_em', 'pago_por',
+        'empresa_id', 'pedido_lavandaria_id', 'numero_encomenda', 'linha_pedido_id', 'nome_item', 'descricao_peca', 'estado_entrada', 'cliente_id', 'descricao', 'valor_declarado', 'estado', 'criado_por', 'referencia_comprovativo', 'data_comprovativo', 'valor_comprovativo', 'nota_decisao', 'decidido_em', 'decidido_por', 'valor_compensacao', 'documento_tesouraria_id', 'pago_em', 'pago_por',
     ];
 
     protected function casts(): array
@@ -31,8 +31,6 @@ abstract class ReclamacaoLavandariaBase extends ModeloBase
         return [
             'empresa_id' => 'integer',
             'pedido_lavandaria_id' => 'integer',
-            'numero_encomenda' => 'integer',
-            'estado_lancamento' => 'date',
             'cliente_id' => 'integer',
             'valor_declarado' => 'decimal:2',
             'data_comprovativo' => 'date',
@@ -41,7 +39,6 @@ abstract class ReclamacaoLavandariaBase extends ModeloBase
             'valor_compensacao' => 'decimal:2',
             'documento_tesouraria_id' => 'integer',
             'pago_em' => 'datetime',
-            'pago_por' => 'decimal:2',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

@@ -4,6 +4,8 @@ namespace App\Console\Commands;
 
 use App\Services\Logistica\ServicoMigracaoStock;
 use App\Services\Migracao\ServicoMigracaoLegado;
+use App\Services\POS\ServicoMigracaoHotelaria;
+use App\Services\POS\ServicoMigracaoLavandaria;
 use App\Services\POS\ServicoMigracaoPOS;
 use App\Services\RH\ServicoFolhaSalarial;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -98,6 +100,12 @@ final class MigrarBackupLegado extends Command
             // POS: chaves dos JSON do legado (meios, totais do Z, talões TPA, deliberações, pagamentos) em português
             $pos = DB::transaction(fn () => app(ServicoMigracaoPOS::class)->normalizar());
             $this->info("POS: JSON normalizados em {$pos['terminais']} terminal(is), {$pos['sessoes']} sessão(ões) e {$pos['vendas']} venda(s).");
+            // Hotelaria: chaves dos JSON das estadias (consumos e histórico) em português
+            $hotel = DB::transaction(fn () => app(ServicoMigracaoHotelaria::class)->normalizar());
+            $this->info("Hotelaria: JSON normalizados em {$hotel['estadias']} estadia(s).");
+            // Lavandaria: chaves dos JSON, valor das linhas, valor líquido das linhas legadas com preço com IVA e pago das facturas
+            $lav = DB::transaction(fn () => app(ServicoMigracaoLavandaria::class)->normalizar());
+            $this->info('Lavandaria: '.collect($lav)->map(fn ($v, $k) => str_replace('_', ' ', $k).' '.(is_array($v) ? json_encode($v) : $v))->implode('; ').'.');
         }
 
         return self::SUCCESS;

@@ -41,6 +41,7 @@ abstract class PagamentoLavandariaBase extends ModeloBase
             'troco' => 'decimal:2',
             'pos_pagamentos' => 'array',
             'venda_id' => 'integer',
+            'lans_contabilizacao' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

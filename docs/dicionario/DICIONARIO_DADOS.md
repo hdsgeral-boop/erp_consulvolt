@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T18:37:13.592Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T20:13:46.130Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -91,7 +91,7 @@
 | `purchase_deliveries.status` | RECEBIDO, VALIDADO, ANULADO | RECEBIDO → RECEBIDO |
 | `purchase_invoices.status` | PENDENTE, PARCIAL, PAGO, ANULADA | PENDENTE → PENDENTE; PAGO → PAGO |
 | `inventory_movements.type` | ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE | SAÍDA → SAIDA; ENTRADA → ENTRADA |
-| `delivery_notes.type` | VENDA, BACK_TO_BACK, CONSUMO | VENDA → VENDA; BACK_TO_BACK → BACK_TO_BACK |
+| `delivery_notes.type` | VENDA, BACK_TO_BACK, CONSUMO, VENDA_BALCAO | VENDA → VENDA; BACK_TO_BACK → BACK_TO_BACK |
 | `delivery_notes.status` | CONCLUIDO, FATURADA, ANULADA | CONCLUIDO → CONCLUIDO |
 | `inventory_sessions.status` | EM_CONTAGEM, REVISAO, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
 | `infotypes.calculo_horas` | EXTRA, FALTA, NAO |  |
@@ -1067,7 +1067,7 @@ Linhas reais: **11** · fictícias descartadas: 16
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `doc_number` | `numero_documento` | varchar(30) | sim | 100% |  |  |
 | `date` | `data` | date | sim | 100% |  |  |
-| `type` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {VENDA, BACK_TO_BACK, CONSUMO}; texto original em tipo_original |
+| `type` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {VENDA, BACK_TO_BACK, CONSUMO, VENDA_BALCAO}; texto original em tipo_original |
 | `type` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `entity_id` | `terceiro_id` | bigint | sim | 73% | `terceiros.id` |  |
 | `warehouse_id` | `armazem_id` | bigint | sim | 100% | `armazens.id` |  |
@@ -2072,9 +2072,9 @@ Linhas reais: **6** · fictícias descartadas: 0
 | `created_by` | `criado_por` | varchar(10) | sim | 100% |  |  |
 | `session_id` | `sessao_pos_id` | bigint | sim | 100% | `sessoes_pos.id` |  |
 | `z_number` | `numero_z` | varchar(30) | sim | 100% |  |  |
-| `item_key` | `chave_item` | varchar(30) | sim | 100% |  |  |
+| `item_key` | `chave_item` | varchar(60) | sim | 100% |  | tipo forçado (inferido: varchar(30)) |
 | `kind` | `natureza_registo` | varchar(20) | sim | 100% |  |  |
-| `pm_id` | `meio_pagamento_codigo` | varchar(10) | sim | 100% |  |  |
+| `pm_id` | `meio_pagamento_codigo` | varchar(40) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `date` | `data` | date | sim | 100% |  |  |
 | `amount_gross` | `montante_bruto` | numeric(15,2) | sim | 100% |  |  |
 | `commission` | `comissao` | numeric(15,2) | sim | 100% |  |  |
@@ -2089,7 +2089,7 @@ Linhas reais: **6** · fictícias descartadas: 0
 | `treasury_doc_id` | `documento_tesouraria_id` | bigint | sim | 67% | `documentos_tesouraria.id` |  |
 | `batch_ref` | `referencia_lote` | varchar(10) | sim | 17% |  |  |
 | `doc_number` | `numero_documento` | varchar(50) | sim | 50% |  |  |
-| `reference` | `referencia` | varchar(20) | sim | 50% |  | tipos mistos: string_inteiro=2, string=1 |
+| `reference` | `referencia` | varchar(100) | sim | 50% |  | tipos mistos: string_inteiro=2, string=1; tipo forçado (inferido: varchar(20)) |
 
 ### `pos_settings` → `configuracoes_pos` (model `ConfiguracaoPOS`, `/api/pos/config`)
 
@@ -2227,8 +2227,8 @@ Linhas reais: **2** · fictícias descartadas: 0
 | `created_at` | `criado_em` | timestamptz | sim | 100% |  |  |
 | `created_by` | `criado_por` | varchar(10) | sim | 100% |  |  |
 | `name` | `nome` | varchar(30) | sim | 100% |  |  |
-| `fabric` | `tecido` | varchar(20) | sim | 100% |  |  |
-| `color` | `cor` | varchar(10) | sim | 100% |  |  |
+| `fabric` | `tecido` | varchar(100) | sim | 100% |  | tipo forçado (inferido: varchar(20)) |
+| `color` | `cor` | varchar(50) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `unit` | `unidade` | varchar(10) | sim | 100% |  |  |
 | `is_active` | `ativo` | boolean | sim | 100% |  |  |
 | `updated_at` | `atualizado_em` | timestamptz | sim | 100% |  |  |

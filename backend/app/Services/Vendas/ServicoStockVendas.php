@@ -68,7 +68,8 @@ final class ServicoStockVendas
         $r = $sentido === 'S'
             ? $this->stock->saida($p->id, $armazem, $q, null, $venda->data_emissao->toDateString(), $ref, $venda->cliente_id, $venda->projeto_id, true, $doc)   // paridade: a venda não fica bloqueada pelo stock (relatório de negativos)
             : $this->stock->entrada($p->id, $armazem, $q, $custo ?? (string) ($p->custo_medio ?? '0'), $venda->data_emissao->toDateString(), $ref, $venda->cliente_id, $venda->projeto_id, $doc);
-        if ($origem && $vendaOrigem?->tipo_documento === 'NE' && $sentido === 'S') {
+        // FT/FR directas da encomenda: a mercadoria sai agora (na GR é a conversão que actualiza a quantidade entregue)
+        if ($origem && $vendaOrigem?->tipo_documento === 'NE' && $sentido === 'S' && in_array($tipo, ['FT', 'FR'], true)) {
             $origem->update(['quantidade_entregue' => bcadd((string) ($origem->quantidade_entregue ?? 0), $q, 3)]);
         }
 

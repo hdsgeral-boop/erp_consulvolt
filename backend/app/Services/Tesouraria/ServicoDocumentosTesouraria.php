@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\DiarioContabil;
 use App\Models\DocumentoTesouraria;
 use App\Models\ItemDocumentoTesouraria;
+use App\Models\LiquidacaoPOS;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
@@ -60,6 +61,7 @@ final class ServicoDocumentosTesouraria
         if ($doc && $doc->estado !== 'PENDENTE') {
             throw new ErroNegocio("Um documento {$doc->estado} não pode ser alterado.", 'DOCUMENTO_NAO_EDITAVEL', 422);
         }
+        $doc && $this->exigirSemLiquidacaoPOS($doc);
         $tipo = $d['tipo'];
         $data = substr($d['data_documento'], 0, 10);
         $this->exercicios->exigirAberto($empresa, $data);
@@ -107,6 +109,7 @@ final class ServicoDocumentosTesouraria
                 throw new ErroNegocio($doc->estado === 'INTEGRADO' ? 'O documento está integrado: desintegre-o primeiro (estorno).' : 'O documento já está anulado.',
                     'DOCUMENTO_NAO_ANULAVEL', 422);
             }
+            $this->exigirSemLiquidacaoPOS($doc);
             $doc->update(['estado' => 'ANULADO', 'anulado_em' => now(), 'motivo_anulacao' => $motivo]);
 
             return $doc;
@@ -193,6 +196,14 @@ final class ServicoDocumentosTesouraria
      * @param  array{codigo: string, taxa: string, taxa_id: ?int, manual: bool, estrangeira: bool}  $moeda
      * @return array{0: list<array<string, mixed>>, 1: string, 2: string} linhas normalizadas, total em Kz, total na moeda do documento
      */
+    /** Documento criado pela prestação de contas do POS (ADR-048): altera-se/anula-se só a partir daí, para a liquidação não ficar órfã. */
+    private function exigirSemLiquidacaoPOS(DocumentoTesouraria $doc): void
+    {
+        if (LiquidacaoPOS::query()->where('estado', 'REGISTADO')->where(fn ($q) => $q->where('documento_tesouraria_id', $doc->id)->orWhere('documento_comissao_id', $doc->id))->exists()) {
+            throw new ErroNegocio('Documento da prestação de contas do POS: anule-o na prestação de contas.', 'DOCUMENTO_POS', 422);
+        }
+    }
+
     private function validarLinhas(string $tipo, array $linhas, ?int $docId, string $data, array $moeda): array
     {
         if (! in_array($tipo, self::TIPOS, true)) {

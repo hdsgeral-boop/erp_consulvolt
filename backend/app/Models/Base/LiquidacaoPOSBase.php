@@ -39,7 +39,7 @@ abstract class LiquidacaoPOSBase extends ModeloBase
             'sessao_caixa_id' => 'integer',
             'movimento_caixa_id' => 'integer',
             'documento_tesouraria_id' => 'integer',
-            'comissao_deduzida' => 'decimal:2',
+            'comissao_deduzida' => 'boolean',
             'documento_comissao_id' => 'integer',
             'cancelado_em' => 'datetime',
             'criado_em' => 'datetime',

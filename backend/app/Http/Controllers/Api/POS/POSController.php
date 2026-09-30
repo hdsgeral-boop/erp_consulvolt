@@ -122,7 +122,7 @@ final class POSController extends Controller
             $q->when($f[$c] ?? null, fn ($q, $v) => $q->where($c, $v));
         }
 
-        return RespostaApi::paginado($q->orderByDesc('aberto_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), 'Sessões POS.');
+        return RespostaApi::paginado($q->orderByDesc('aberto_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), null, 'Sessões POS.');
     }
 
     public function sessao(int $sessao): JsonResponse

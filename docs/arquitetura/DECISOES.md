@@ -1183,3 +1183,126 @@ Implementado em `app/Services/POS` a partir de `pos_gestao.js`, `pos_prestacao.j
 - Prestação de contas: numerário na folha de caixa, TPA e transferências na tesouraria, comissões.
 - Relatórios.
 - Hotelaria, lavandaria e POS armazém.
+
+## ADR-048 — POS parte 2: prestação de contas e relatórios
+
+Implementado em `ServicoPrestacaoContasPOS` e `ServicoRelatoriosPOS`, a partir de `pos_prestacao.js:494-797`, `pos_gestao.js:1093-1133` e `relatorios_gestao.js:531-560`.
+
+**Prestação de contas.** Serve para saldar as contas transitórias depois de a sessão estar integrada. Há um item por meio de pagamento, ou por transferência:
+- `NUM:<meio>`: movimento REC na folha de caixa ABERTA da conta de liquidação (D caixa / C transitória).
+  - Valor = numerário do sistema + desvio, sempre que a deliberação tem efeito (automática ou manual).
+  - Se o valor for negativo, gera-se um movimento PAG.
+  - Uma sessão sem vendas em numerário mas com desvio presta só o desvio.
+- `TPA:<meio>`: RECEBIMENTO pendente no banco (conta 43, em Kz), que credita a transitória pelo valor do sistema.
+  - A comissão é sugerida como pct × talão e pode ser editada.
+  - Se for deduzida, é uma linha D dentro do recebimento. Se não for, é um PAGAMENTO separado (`documento_comissao_id`).
+- `TRF:<venda>:<meio>`: um RECEBIMENTO por comprovativo, com o cliente e o número da venda.
+- Contas: a transitória vem do instantâneo da sessão. A de liquidação e a da comissão vêm do meio actual do terminal, mesmo que esteja inactivo.
+- Bloqueios: sessão por integrar; desvio por deliberar; desvio deliberado ainda sem lançamento.
+- Estado da sessão: PENDENTE, PARCIAL ou LIQUIDADA. É recalculado ao prestar, ao anular, ao integrar e ao deliberar um desvio. Uma sessão sem nada a regularizar fica LIQUIDADA.
+- Segregação no servidor: quem operou a sessão não presta contas dela (403 SEGREGACAO_FUNCOES). O legado só avisava.
+- Anular nunca apaga a liquidação: fica ANULADO, com `cancelado_em` e `cancelado_por`.
+  - Numerário: retira o movimento de uma folha ainda aberta e por contabilizar.
+  - Documentos pendentes: são anulados.
+  - Documento integrado ou folha contabilizada: dá erro.
+- A tesouraria recusa remover ou anular um movimento de caixa, ou alterar ou anular um documento de tesouraria, ligado a uma liquidação registada (MOVIMENTO_POS / DOCUMENTO_POS). No legado apagavam-se sem verificar e a liquidação ficava órfã.
+- Quando o talão do TPA difere do sistema, liquida-se pelo sistema. A diferença fica visível no item, nos relatórios e na validação `pos_tpa_talao_difere`.
+
+**Relatórios:**
+- KPIs, totais por meio, lista de Z, e vendas por produto, terminal e operador.
+- Filtros por período, terminal e operador. O legado não tinha filtros.
+- Bloco POS do relatório de gestão «POS e Serviços».
+
+**Validações:** `pos_sessoes_por_prestar`, `pos_liquidacoes_orfas`, `pos_tpa_talao_difere`.
+
+**Esquema:** o código do meio de pagamento na liquidação passa a 40 caracteres (os ids gerados têm 11), a chave do item a 60 e a referência a 100. A comissão deduzida passa a booleano.
+
+**Dados reais (empresa 18):** a prestação das 2 sessões fechadas reproduz as 6 liquidações do legado (sessão 3: 280 000 = 290 000 − 10 000 da falta deliberada). As transitórias 487, 488 e 489 ficam com saldo 0,00.
+
+## ADR-049 — POS parte 3a: lavandaria e alfaiataria
+
+Implementado em `app/Services/POS/Lavandaria` e `ServicoFontesLavandariaPOS`, a partir de `js/lavandaria.js`.
+
+**Ordens de serviço:**
+- Número `OS/<terminal>/<ano>/<n>` e etiquetas geradas por `ServicoNumeracao`, a partir dos contadores do legado. No legado os contadores podiam recuar ou duplicar.
+- O estado da ordem deriva dos estados das linhas: ORCAMENTO, RECEBIDA, EM_EXECUCAO, PRONTA, ENTREGA_PARCIAL, ENTREGUE ou ANULADA.
+- Linhas:
+  - o estado da peça à entrada é obrigatório;
+  - o preço vem da tabela peça × serviço;
+  - urgência, recolha, entrega e armazenagem são taxas com a conta e o IVA das definições.
+- Orçamentos aprovados ou recusados um a um ou em massa. O valor aprovado é o facturável pela regra AGT.
+- Anular exige `lav_anular`, também pela via da alteração de estado. No legado bastava `lav_ordens`.
+- Materiais de alfaiataria: guia de consumo ao custo médio, com o CMV lançado no momento. Sem stock, a operação é recusada; o legado cortava o stock a zero.
+
+**Dinheiro** (numa transacção, com a ordem e a sessão bloqueadas):
+- Recebido = total e sem saldos anteriores: factura-recibo POS.
+- Nos outros casos: factura em conta corrente e recibo `RC-LAV/<terminal>/<ano>/<n>` (ADIANTAMENTO ou PAGAMENTO).
+- A factura em conta corrente sai também na série do terminal e com preço com IVA: `ServicoDocumentosVenda::emitir` passou a aceitar FT em modo POS.
+- Consumidor Final: adiantamento mínimo, e o saldo é pago na entrega.
+- Armazenagem com o IVA do produto da taxa. O legado usava 14 % fixo.
+- Recebimentos aplicados às facturas mais antigas primeiro.
+- Um recibo só se anula com a sessão aberta. A factura-recibo corrige-se com nota de crédito.
+
+**Sessão POS:**
+- Os recibos entram nos totais por meio, no numerário e nas transferências, mas não em `total_vendas`. O legado somava-os às vendas no Z.
+- Integração: FT — D cliente / C proveitos + IVA; recibos — D transitória / C cliente.
+- Sem contas fixas (o legado usava '31.1', '34.5.3' e '62'). Um desequilíbrio é erro.
+
+**Reclamações:** AGUARDA_COMPROVATIVO → COMPROVADO → APROVADA ou RECUSADA → PAGA. Quem decide uma reclamação não a paga (segregação aplicada por reclamação). O pagamento é um PAGAMENTO de tesouraria (D conta das indemnizações).
+
+**Migração:**
+- `ServicoMigracaoLavandaria::normalizar()` traduz os JSON e calcula o valor das linhas.
+- Acerta o valor líquido das linhas das facturas de lavandaria e das vendas POS do legado (preço com IVA e `total_linha` vazio). Sem este acerto, uma reintegração lançaria o bruto todo em proveitos e o IVA a zero. Os 28 documentos conferem com o cabeçalho.
+- Recalcula o valor pago das facturas.
+
+**Esquema:** o estado da peça à entrada estava traduzido como `estado_lancamento` e tipado como data; passa a `estado_entrada` em texto. Outros tipos corrigidos:
+- número da encomenda, `pago_por` e nota da decisão;
+- lançamentos do pagamento em jsonb;
+- factor de prazo da urgência;
+- tecido e cor da peça.
+
+**Validações:** `lavandaria_servicos_sem_conta_iva`, `lavandaria_servicos_conta_nao_62`, `lavandaria_clientes_sem_conta`. Na empresa 18, a primeira e a terceira disparam: falta configurar a conta de IVA liquidado e a conta de clientes por omissão.
+
+**Fica para depois:** os recibos RC-LAV nos Payments do SAF-T, as impressões e a importação de Excel.
+
+## ADR-050 — POS parte 3b: hotelaria e POS de armazém
+
+Implementado em `app/Services/POS/Hotelaria`, `ServicoPOSArmazem` e `ServicoGuiasSaida`, a partir de `hotelaria.js` e `ui_pos_armazem.js`.
+
+**Hotelaria:**
+- Os quartos são produtos com `e_quarto`, `preco_por_hora`, `preco_por_dia` e `horas_minimas`.
+- Regras do terminal: entrada às 14:00, saída às 12:00, tolerância de 60 min e bloqueio da venda à hora entre as 21:00 e as 08:00, por omissão.
+- Check-in:
+  - exige a sessão aberta de um terminal HOTELARIA;
+  - modo DIA, com um número inteiro de diárias, ou HORA, com o mínimo de horas do quarto e fora da janela bloqueada;
+  - um só check-in aberto por quarto, garantido por lock e por índice único parcial.
+- Consumos gravados na estadia; o stock sai no check-out. A anulação só é possível sem consumos e com motivo.
+- Check-out numa única transacção:
+  - saída tardia: RECALCULAR ou MANTER, com decisão obrigatória;
+  - desconto em %;
+  - uma factura-recibo POS por quarto, ou factura única;
+  - pagamentos rateados pelas facturas, com o cêntimo no maior e o troco na última;
+  - facturas ligadas em `vendas_estadias_hotel`.
+- Preço diferente do do quarto, preço de consumo alterado e desconto exigem `pos_desconto`. No legado não estavam protegidos.
+- Arredondamento: o total segue a regra AGT do documento fiscal (`calcularComIva`), a mesma que o legado usava no documento AGT. Por isso um check-out de 40 500 com desconto pode dar 40 499,99; o ecrã do hotel do legado mostrava 40 500.
+
+**POS de armazém:**
+- Venda ao balcão: é só uma guia de saída VENDA_BALCAO, sem factura nem pagamento, como no legado.
+  - Numeração `GE POS AAAA/NNNN`, a continuar a do legado (a próxima é 0009).
+  - Custo médio, sem stock negativo.
+  - CMV no diário GS, com número de lançamento.
+  - Se faltarem contas, a guia fica por contabilizar, com aviso e com a validação `pos_armazem_vendas_por_contabilizar`.
+- Picking de encomendas: é a conversão NE → GR já existente, com lock e com exigência de stock no armazém escolhido. O estado deriva das quantidades entregues. «EM PICKING» não se grava; no legado ficava para sempre.
+- Não portados:
+  - o acerto de stock, porque o total é sempre a soma dos armazéns (ADR-042);
+  - as senhas de atendimento, que eram só memória do navegador.
+
+**Correcções nas Vendas encontradas durante a integração:**
+- Na conversão NE → GR, a quantidade entregue da encomenda era somada duas vezes (em `movimentarLinha` e em `converter`). Agora `movimentarLinha` só a actualiza nas FT/FR directas.
+- A conta do cliente só é exigida na FT e na NC, e só se não houver conta de clientes por omissão. FR, guias, encomendas e orçamentos não lançam na conta do cliente, e o legado aceitava clientes sem conta. Isto desbloqueia a expedição das 4 encomendas reais da empresa 18.
+
+**Migração:** `ServicoMigracaoHotelaria::normalizar()` traduz os consumos e o histórico das estadias. A estadia com consumos recalcula o total da factura migrada (65 000).
+
+**Validação:** `hotel_estadias_saida_atrasada`.
+
+**Organização do trabalho (POS partes 2 e 3):** foram desenvolvidas em paralelo, cada uma com os seus ficheiros de rotas (`routes/api/pos_*.php`) e a sua base de testes. A integração, o esquema, a ETL e a suite completa foram feitos no fim: 165 testes.

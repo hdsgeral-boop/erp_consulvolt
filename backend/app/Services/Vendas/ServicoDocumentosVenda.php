@@ -46,6 +46,7 @@ final class ServicoDocumentosVenda
         private readonly ServicoCambios $cambios,
         private readonly ServicoHashSaft $hash,
         private readonly ServicoStockVendas $stockVendas,
+        private readonly ServicoConfigVendas $configVendas,
     ) {}
 
     /**
@@ -67,15 +68,16 @@ final class ServicoDocumentosVenda
         $this->exercicios->exigirAberto($empresa, $data);
 
         $cliente = Terceiro::query()->findOrFail($d['cliente_id']);
-        // POS: a factura-recibo lança nas contas transitórias do terminal, não na do cliente (o Consumidor Final do legado não tem conta)
-        if (! $cliente->eCliente() || (! $cliente->codigo_conta && empty($d['pos']))) {
+        // só a FT e a NC lançam na conta do cliente, e a contabilização usa a conta de clientes por omissão quando ele não tem conta própria;
+        // FR (disponibilidade ou transitórias do POS), guias, encomendas e orçamentos não a usam (o legado aceitava clientes sem conta)
+        if (! $cliente->eCliente() || (! $cliente->codigo_conta && in_array($tipo, ['FT', 'NC'], true) && ! $this->configVendas->conta('clientes_default'))) {
             throw new ErroNegocio('O cliente tem de estar registado como cliente e ter conta contabilística.', 'CLIENTE_INVALIDO', 422);
         }
         $config = ConfigFaturacaoEletronica::query()->first();
         $origemNcPrevia = $tipo === 'NC' ? Venda::query()->find($d['venda_origem_id'] ?? 0) : null;
         $pos = $d['pos'] ?? null;
-        if ($pos && ($tipo !== 'FR' || (($d['codigo_moeda'] ?? 'AOA') !== 'AOA'))) {
-            throw new ErroNegocio('No POS só se emitem facturas-recibo em Kz.', 'POS_TIPO_INVALIDO', 422);
+        if ($pos && (! in_array($tipo, ['FR', 'FT'], true) || (($d['codigo_moeda'] ?? 'AOA') !== 'AOA'))) {   // FT: lavandaria em conta corrente
+            throw new ErroNegocio('No POS só se emitem facturas e facturas-recibo em Kz.', 'POS_TIPO_INVALIDO', 422);
         }
         $moeda = $this->resolverMoeda($d, $empresa, $data, $origemNcPrevia);
         $linhas = $this->prepararLinhas($d['linhas'], $fiscal, $config, $moeda['taxa']);
