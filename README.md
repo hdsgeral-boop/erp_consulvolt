@@ -160,6 +160,9 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | POST | `/api/orcamento/verificar` | Simulação do controlo orçamental de um documento |
 | GET/POST | `/api/orcamento/pedidos-excesso` · POST `/{id}/decidir` | Pedidos de aprovação de excesso |
 | GET | `/api/orcamento/alertas` · `/api/orcamento/monitor` | Registo de alertas e consumo orçamental |
+| GET/POST/PUT/DELETE | `/api/orcamento/previsoes[/{id}]` · POST `/revisao` · `/publicar` | Previsões deslizantes (12 meses) |
+| GET/POST/PUT/DELETE | `/api/orcamento/orcamentos/{id}/cenarios` · `/cenarios/padrao` · `/api/orcamento/cenarios[/{id}]` · POST `/gerar-versao` | Cenários what-if |
+| GET | `/api/orcamento/orcamentos/{id}/desvios/{rubrica}` | Análise do desvio de uma rubrica |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

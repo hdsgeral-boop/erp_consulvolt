@@ -1051,3 +1051,43 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 **Monitor:** consumo (realizado + compromissos), disponível e estado por rubrica, para todos os orçamentos aprovados do ano.
 
 **Fica para a parte 3:** previsões (rolling forecast) e cenários what-if, e a análise de desvios (temporal, pontual e estrutural).
+
+## ADR-046 — Orçamento parte 3: previsões deslizantes, cenários what-if e análise de desvios
+
+Implementado em `ServicoPlaneamentoOrcamental`, a partir de `orcamento_planeamento.js:180-420` e `576-623`.
+
+**Previsões a 12 meses:**
+- Há uma série por dimensões (tipo, UN, CC, projecto), com revisões.
+- A partir do mês de referência (o último mês com real fechado), a previsão é semeada por um de quatro métodos:
+  - ORCAMENTO: orçamento aprovado do mês;
+  - TENDENCIA: média dos 3 últimos meses reais;
+  - ANO_ANTERIOR: mês homólogo mais o crescimento;
+  - BRANCO: sem valores iniciais.
+- Uma nova revisão copia os meses em comum com a anterior e semeia só os meses novos.
+- Uma revisão só é criada depois de a anterior ser publicada. Uma revisão publicada não se altera nem se elimina.
+- O resumo apresenta:
+  - o real dos 3 últimos meses;
+  - o total previsto a 12 meses;
+  - a estimativa de fecho do ano (real até ao mês de referência + previsão do resto);
+  - o orçado.
+
+**Cenários:**
+- Variáveis: volume, preço de venda, matérias, pessoal, outros custos e câmbio.
+- Cada rubrica tem um indutor e uma parte variável, deduzidos do PGC ou definidos na rubrica, e uma exposição cambial.
+- É possível um ajuste por rubrica.
+- Há três padrões: Otimista, Realista e Pessimista.
+- O resultado compara o orçamento base com o cenário. Um cenário pode gerar uma nova versão, em rascunho, do orçamento aprovado.
+
+**Análise de desvios** (só exploração):
+- Desvio mês a mês e acumulado.
+- Classificação:
+  - SEM_DESVIO;
+  - TEMPORAL: os desvios compensam-se;
+  - PONTUAL: 2 meses concentram 70 % ou mais;
+  - ESTRUTURAL: 70 % ou mais com o mesmo sinal;
+  - MISTO.
+- Contas face ao mesmo período do ano anterior.
+- Os 10 maiores movimentos.
+- Estimativa de fecho pela última previsão publicada.
+
+**Correcção:** as permissões `orc_previsoes_edit` e `orc_cenarios_edit` são verificadas no servidor. No legado não protegiam nenhuma função, só o ecrã.

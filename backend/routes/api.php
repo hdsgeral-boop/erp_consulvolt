@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
 use App\Http\Controllers\Api\Logistica\StockController;
 use App\Http\Controllers\Api\Orcamento\OrcamentoController;
+use App\Http\Controllers\Api\Orcamento\PlaneamentoOrcamentalController;
 use App\Http\Controllers\Api\RH\AssiduidadeController;
 use App\Http\Controllers\Api\RH\AvaliacaoController;
 use App\Http\Controllers\Api\RH\CadastrosRHController;
@@ -430,6 +431,24 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('pedidos-excesso/{pedido}/decidir', 'decidirExcesso')->whereNumber('pedido')->name('excesso.decidir');
             Route::get('alertas', 'alertas')->name('alertas');
             Route::get('monitor', 'monitor')->name('monitor');
+        });
+
+        Route::prefix('orcamento')->name('orcamento.')->controller(PlaneamentoOrcamentalController::class)->group(function () {
+            Route::get('previsoes', 'previsoes')->name('previsoes.index');
+            Route::post('previsoes', 'criarPrevisao')->name('previsoes.store');
+            Route::get('previsoes/{previsao}', 'previsao')->whereNumber('previsao')->name('previsoes.show');
+            Route::put('previsoes/{previsao}', 'gravarPrevisao')->whereNumber('previsao')->name('previsoes.update');
+            Route::post('previsoes/{previsao}/revisao', 'novaRevisao')->whereNumber('previsao')->name('previsoes.revisao');
+            Route::post('previsoes/{previsao}/publicar', 'publicarPrevisao')->whereNumber('previsao')->name('previsoes.publicar');
+            Route::delete('previsoes/{previsao}', 'eliminarPrevisao')->whereNumber('previsao')->name('previsoes.destroy');
+            Route::get('orcamentos/{orcamento}/cenarios', 'cenarios')->whereNumber('orcamento')->name('cenarios.index');
+            Route::post('orcamentos/{orcamento}/cenarios/padrao', 'cenariosPadrao')->whereNumber('orcamento')->name('cenarios.padrao');
+            Route::post('cenarios', 'gravarCenario')->name('cenarios.store');
+            Route::get('cenarios/{cenario}', 'cenario')->whereNumber('cenario')->name('cenarios.show');
+            Route::put('cenarios/{cenario}', 'gravarCenario')->whereNumber('cenario')->name('cenarios.update');
+            Route::delete('cenarios/{cenario}', 'eliminarCenario')->whereNumber('cenario')->name('cenarios.destroy');
+            Route::post('cenarios/{cenario}/gerar-versao', 'orcamentoDeCenario')->whereNumber('cenario')->name('cenarios.versao');
+            Route::get('orcamentos/{orcamento}/desvios/{rubrica}', 'desvios')->whereNumber(['orcamento', 'rubrica'])->name('desvios');
         });
 
         Route::prefix('rh')->name('rh.')->group(function () {
