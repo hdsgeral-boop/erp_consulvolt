@@ -111,6 +111,11 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST/PUT | `/api/tesouraria/documentos[/{id}]` · POST `/{id}/integrar` · `/desintegrar` · `/anular` | Pagamentos e recebimentos (integração no diário BD/CX, estorno) |
 | GET | `/api/tesouraria/pendentes` | Documentos em aberto de clientes e fornecedores (ligados à venda/factura) |
 | GET/POST/PUT/DELETE | `/api/tesouraria/meios-pagamento[/{id}]` | Meios de pagamento (IBAN validado, um predefinido) |
+| GET/POST | `/api/tesouraria/extrato` · POST `/extrato/importar` · `/extrato/{id}/anular` | Extractos bancários (XLSX/XLS/CSV, sem duplicados) |
+| GET/POST | `/api/tesouraria/reconciliacao` · GET `/sugestoes` · `/mapa` · POST `/{codigo}/anular` | Reconciliação bancária |
+| GET/POST/DELETE | `/api/tesouraria/caixa/sessoes[/{id}]` · POST `/{id}/movimentos` · `/fechar` · `/contabilizar` · `/descontabilizar` | Folha de caixa |
+| GET/POST/PUT | `/api/tesouraria/conferencias[/{id}]` · POST `/{id}/finalizar` · `/assinar` · `/reabrir` | Conferência de caixa |
+| GET/PUT | `/api/tesouraria/configuracao/contas` | Contas de sobras/quebras e diferenças de câmbio |
 | GET/POST/PUT/DELETE | `/api/logistica/categorias-produtos[/{id}]` | Categorias de produtos |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |

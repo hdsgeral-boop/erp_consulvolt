@@ -12,6 +12,7 @@ use App\Models\ItemDocumentoTesouraria;
 use App\Models\ItemReciboVenda;
 use App\Models\ItemVenda;
 use App\Models\ModeloBase;
+use App\Models\MovimentoCaixa;
 use App\Models\OportunidadeVendaCRM;
 use App\Models\PagamentoLavandaria;
 use App\Models\PedidoCompra;
@@ -188,6 +189,11 @@ abstract class VendaBase extends ModeloBase
     public function itensDocumentoTesouraria(): HasMany
     {
         return $this->hasMany(ItemDocumentoTesouraria::class, 'venda_id');
+    }
+
+    public function movimentosCaixa(): HasMany
+    {
+        return $this->hasMany(MovimentoCaixa::class, 'venda_id');
     }
 
     public function estadiasHotel(): HasMany

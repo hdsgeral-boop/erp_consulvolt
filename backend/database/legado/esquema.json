@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T11:41:00.207Z",
+  "gerado_em": "2026-09-30T12:18:49.588Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -15077,7 +15077,8 @@
           "fk": null,
           "dominio": [
             "PENDENTE",
-            "CONCILIADO"
+            "CONCILIADO",
+            "ANULADO"
           ]
         },
         {
@@ -15668,6 +15669,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "RASCUNHO",
+            "FINALIZADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -15708,7 +15721,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_conferencias_caixa_estado"
+      ]
     },
     {
       "tabela": "sessoes_caixa",
@@ -15811,6 +15826,19 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "ABERTA",
+            "FECHADA",
+            "CONTABILIZADA"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -15819,6 +15847,33 @@
           "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "numeros_lan_contabilizacao",
+          "legado": null,
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "fechado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "contabilizado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -15842,7 +15897,9 @@
         }
       ],
       "unicos": [],
-      "checks": []
+      "checks": [
+        "ck_sessoes_caixa_estado"
+      ]
     },
     {
       "tabela": "movimentos_caixa",
@@ -15890,9 +15947,21 @@
         {
           "coluna": "tipo",
           "legado": "type",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "REC",
+            "PAG"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "type",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -16149,6 +16218,30 @@
           "dominio": null
         },
         {
+          "coluna": "venda_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "vendas",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "fatura_compra_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "faturas_compra",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -16169,6 +16262,7 @@
       ],
       "unicos": [],
       "checks": [
+        "ck_movimentos_caixa_tipo",
         "ck_movimentos_caixa_tipo_origem"
       ]
     },
@@ -25366,6 +25460,85 @@
         }
       ],
       "unicos": [],
+      "checks": []
+    },
+    {
+      "tabela": "configuracoes_contabeis_tesouraria",
+      "legado": null,
+      "model": "ConfigContabilTesouraria",
+      "modulo": "Tesouraria",
+      "global": false,
+      "pivo": false,
+      "empresa_derivada_de": null,
+      "eliminacao_logica": false,
+      "colunas": [
+        {
+          "coluna": "id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": false,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "empresa_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": false,
+          "origem": "derivado",
+          "fk": {
+            "tabela": "empresas",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "chave",
+          "legado": null,
+          "tipo": "varchar(150)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "codigo_conta",
+          "legado": null,
+          "tipo": "varchar(20)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "atualizado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        }
+      ],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "chave"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {

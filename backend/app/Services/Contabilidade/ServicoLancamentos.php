@@ -5,6 +5,7 @@ namespace App\Services\Contabilidade;
 use App\Exceptions\ErroNegocio;
 use App\Models\DiarioContabil;
 use App\Models\LancamentoContabil;
+use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoNumeracao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Collection;
@@ -144,12 +145,30 @@ final class ServicoLancamentos
     /** Bloqueios do legado à descontabilização (js/ui_lancamentos.js:2959-3078), agora pré-condições do estorno. */
     private function exigirSemBloqueios(Collection $linhas): void
     {
-        if ($linhas->contains(fn ($l) => $l->reconciliacao_codigo !== null && $l->reconciliacao_codigo !== '')) {
+        $empresa = $this->contexto->obrigatorio();
+        $comCodigo = $linhas->filter(fn ($l) => $l->reconciliacao_codigo !== null && $l->reconciliacao_codigo !== '');
+        // reconciliação BANCÁRIA — linha de meios monetários (classe 4), código de banco (REC-/MAN-/DFT-) ou código com
+        // correspondências de extracto: bloqueia (reverte-se primeiro no banco)
+        $bancarios = DB::table('correspondencias_reconciliacao')->where('empresa_id', $empresa)
+            ->whereIn('reconciliacao_codigo', $comCodigo->pluck('reconciliacao_codigo')->unique()->all())->whereNotNull('linha_extrato_bancario_id')
+            ->distinct()->pluck('reconciliacao_codigo')->flip();
+        if ($comCodigo->contains(fn ($l) => str_starts_with((string) $l->codigo_conta, '4') || preg_match('/^(REC|MAN|DFT)-/', (string) $l->reconciliacao_codigo)
+            || isset($bancarios[$l->reconciliacao_codigo]))) {
             throw new ErroNegocio('O lançamento tem linhas reconciliadas com o banco: reverta primeiro a reconciliação.', 'LANCAMENTO_RECONCILIADO', 422);
         }
         $ids = $linhas->pluck('id')->all();
-        if (DB::table('ativos_imobilizados')->where('empresa_id', $this->contexto->obrigatorio())->whereIn('lancamento_contabil_id', $ids)->exists()) {
+        if (DB::table('ativos_imobilizados')->where('empresa_id', $empresa)->whereIn('lancamento_contabil_id', $ids)->exists()) {
             throw new ErroNegocio('O lançamento está ligado a activos imobilizados: trate primeiro os activos.', 'LANCAMENTO_COM_ATIVOS', 422);
+        }
+        // COMPENSAÇÃO de terceiros (factura × pagamento, classe 3): liberta-se nas duas pontas, com rasto
+        // (como o legado fazia ao descontabilizar; os códigos REC_/AUTO/TRF_/MATC partilham o mesmo campo)
+        $codigos = $comCodigo->pluck('reconciliacao_codigo')->unique()->values()->all();
+        if ($codigos) {
+            DB::table('lancamentos_contabeis')->where('empresa_id', $empresa)->whereIn('reconciliacao_codigo', $codigos)->update(['reconciliacao_codigo' => null]);
+            DB::table('reconciliacoes_bancarias')->where('empresa_id', $empresa)->whereIn('reconciliacao_codigo', $codigos)
+                ->update(['estado' => 'ANULADA', 'atualizado_em' => now()]);
+            app(ServicoAuditoria::class)->registar('Contabilidade', 'Libertou compensações',
+                'Estorno do lançamento '.$linhas->first()->numero_lan.': compensações '.implode(', ', $codigos), 'lancamentos_contabeis');
         }
     }
 

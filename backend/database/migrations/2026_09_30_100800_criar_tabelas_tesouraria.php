@@ -111,7 +111,7 @@ return new class extends Migration
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · tipos mistos: inteiro=2391, decimal=430');
             $table->string('tipo_dc', 10)->nullable()->comment('legado: type_dc');
-            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {PENDENTE, CONCILIADO}; texto original em estado_original');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {PENDENTE, CONCILIADO, ANULADO}; texto original em estado_original');
             $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->string('reconciliacao_codigo', 30)->nullable()->comment('legado: reconciliation_id');
             $table->string('lote_codigo', 30)->nullable()->comment('legado: batch_id');
@@ -122,7 +122,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_linhas_extrato_bancario_empresa_id_codigo_conta_data ON linhas_extrato_bancario (empresa_id, codigo_conta, data)');
         DB::statement('CREATE INDEX ix_linhas_extrato_bancario_empresa_id_reconciliacao_codigo ON linhas_extrato_bancario (empresa_id, reconciliacao_codigo)');
         DB::statement('ALTER TABLE linhas_extrato_bancario ADD CONSTRAINT ck_extrato_tipo_dc CHECK (tipo_dc IN (\'D\',\'C\'))');
-        DB::statement('ALTER TABLE linhas_extrato_bancario ADD CONSTRAINT ck_linhas_extrato_bancario_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE\',\'CONCILIADO\'))');
+        DB::statement('ALTER TABLE linhas_extrato_bancario ADD CONSTRAINT ck_linhas_extrato_bancario_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE\',\'CONCILIADO\',\'ANULADO\'))');
 
         // reconciliations (legado) -> reconciliacoes_bancarias · 2469 linhas reais no backup
         Schema::create('reconciliacoes_bancarias', function (Blueprint $table) {
@@ -195,13 +195,15 @@ return new class extends Migration
             $table->text('conta_regularizacao')->nullable()->comment('legado: regularization_account · sem valores reais: tipo a confirmar no código legado');
             $table->text('nome_conta_regularizacao')->nullable()->comment('legado: regularization_account_name · sem valores reais: tipo a confirmar no código legado');
             $table->text('referencia_lancamento')->nullable()->comment('legado: journal_entry_ref · sem valores reais: tipo a confirmar no código legado');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {RASCUNHO, FINALIZADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->string('nome_gerente', 255)->nullable()->comment('legado: manager_name · do código legado js/ui_tesouraria.js:7438');
             $table->timestampTz('assinado_gerente_em')->nullable()->comment('legado: manager_signed_at · do código legado js/ui_tesouraria.js:7439');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at');
         });
         DB::statement('CREATE INDEX ix_conferencias_caixa_empresa_id ON conferencias_caixa (empresa_id)');
+        DB::statement('ALTER TABLE conferencias_caixa ADD CONSTRAINT ck_conferencias_caixa_estado CHECK (estado IS NULL OR estado IN (\'RASCUNHO\',\'FINALIZADO\'))');
 
         // cash_sessions (legado) -> sessoes_caixa · 12 linhas reais no backup
         Schema::create('sessoes_caixa', function (Blueprint $table) {
@@ -214,19 +216,25 @@ return new class extends Migration
             $table->decimal('saldo_abertura', 15, 2)->nullable()->comment('legado: opening_balance · tipos mistos: inteiro=10, decimal=2');
             $table->decimal('saldo_fecho', 15, 2)->nullable()->comment('legado: closing_balance · tipos mistos: decimal=5, inteiro=6');
             $table->decimal('saldo_fisico', 15, 2)->nullable()->comment('legado: physical_balance · tipos mistos: decimal=5, inteiro=6');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {ABERTA, FECHADA, CONTABILIZADA}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
+            $table->jsonb('numeros_lan_contabilizacao')->nullable()->comment('Lançamentos da contabilização (um por data de movimento + diferença de fecho)');
+            $table->string('fechado_por', 100)->nullable()->comment('Utilizador que fechou');
+            $table->timestampTz('contabilizado_em')->nullable()->comment('Data/hora da contabilização');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_sessoes_caixa_empresa_id ON sessoes_caixa (empresa_id)');
+        DB::statement('ALTER TABLE sessoes_caixa ADD CONSTRAINT ck_sessoes_caixa_estado CHECK (estado IS NULL OR estado IN (\'ABERTA\',\'FECHADA\',\'CONTABILIZADA\'))');
 
         // cash_lines (legado) -> movimentos_caixa · 186 linhas reais no backup
         Schema::create('movimentos_caixa', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('sessao_caixa_id')->nullable()->comment('legado: session_id');
-            $table->string('tipo', 10)->nullable()->comment('legado: type');
+            $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {REC, PAG}; texto original em tipo_original');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
             $table->date('data_documento')->nullable()->comment('legado: doc_date');
             $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number · tipos mistos: string=183, string_inteiro=2');
             $table->string('referencia', 100)->nullable()->comment('legado: reference · tipos mistos: string=183, string_inteiro=2');
@@ -252,6 +260,8 @@ return new class extends Migration
             $table->decimal('contravalor_kz', 15, 2)->nullable()->comment('legado: contra_value_kz · do código legado js/moedas_tesouraria.js:384');
             $table->string('contra_moeda', 255)->nullable()->comment('legado: contra_currency · do código legado js/moedas_tesouraria.js:384');
             $table->string('contravalor_moeda', 255)->nullable()->comment('legado: contra_value_currency · do código legado js/moedas_tesouraria.js:384');
+            $table->bigInteger('venda_id')->nullable()->comment('Factura de venda recebida por este movimento');
+            $table->bigInteger('fatura_compra_id')->nullable()->comment('Factura de fornecedor paga por este movimento');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -264,11 +274,26 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_movimentos_caixa_taxa_cambio_id ON movimentos_caixa (taxa_cambio_id)');
         DB::statement('CREATE INDEX ix_movimentos_caixa_nota_demonstracao_id ON movimentos_caixa (nota_demonstracao_id)');
         DB::statement('CREATE INDEX ix_movimentos_caixa_nota_fluxo_caixa_id ON movimentos_caixa (nota_fluxo_caixa_id)');
+        DB::statement('CREATE INDEX ix_movimentos_caixa_venda_id ON movimentos_caixa (venda_id)');
+        DB::statement('CREATE INDEX ix_movimentos_caixa_fatura_compra_id ON movimentos_caixa (fatura_compra_id)');
+        DB::statement('ALTER TABLE movimentos_caixa ADD CONSTRAINT ck_movimentos_caixa_tipo CHECK (tipo IS NULL OR tipo IN (\'REC\',\'PAG\'))');
         DB::statement('ALTER TABLE movimentos_caixa ADD CONSTRAINT ck_movimentos_caixa_tipo_origem CHECK (tipo_origem IS NULL OR tipo_origem IN (\'CONTABILIDADE\',\'IMPORTACAO\',\'MANUAL\',\'FATURA_COMPRA\',\'POS\'))');
+
+        // configuracoes_contabeis_tesouraria (tabela nova) · 0 linhas reais no backup
+        Schema::create('configuracoes_contabeis_tesouraria', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->string('chave', 150)->nullable()->comment('Chave da conta (ver ServicoConfigTesouraria::CHAVES)');
+            $table->string('codigo_conta', 20)->nullable()->comment('Conta do plano');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_configuracoes_contabeis_tesouraria_empresa_id_chave ON configuracoes_contabeis_tesouraria (empresa_id, chave)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('configuracoes_contabeis_tesouraria');
         Schema::dropIfExists('movimentos_caixa');
         Schema::dropIfExists('sessoes_caixa');
         Schema::dropIfExists('conferencias_caixa');

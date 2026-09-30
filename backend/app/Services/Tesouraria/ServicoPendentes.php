@@ -21,7 +21,7 @@ final class ServicoPendentes
     public function __construct(private readonly ContextoEmpresa $contexto) {}
 
     /**
-     * @param  array{terceiro_id?: ?int, codigo_conta?: ?string, natureza?: ?string, pesquisa?: ?string, excluir_documento_id?: ?int}  $f
+     * @param  array{terceiro_id?: ?int, codigo_conta?: ?string, natureza?: ?string, pesquisa?: ?string, excluir_documento_id?: ?int, excluir_movimento_id?: ?int}  $f
      * @return list<array<string, mixed>>
      */
     public function abertos(array $f = []): array
@@ -46,6 +46,19 @@ final class ServicoPendentes
             ->selectRaw("i.terceiro_id, i.codigo_conta, COALESCE(NULLIF(i.numero_documento, ''), 'SEM_DOC') as numero_documento,
                 SUM(CASE WHEN i.tipo_dc = 'D' THEN i.valor ELSE 0 END) as debito, SUM(CASE WHEN i.tipo_dc = 'C' THEN i.valor ELSE 0 END) as credito")
             ->get()->keyBy(fn ($p) => "{$p->terceiro_id}|{$p->codigo_conta}|{$p->numero_documento}");
+        // movimentos de caixa ainda por contabilizar (o legado só descontava a sessão aberta: permitia pagar em duplicado)
+        $caixa = DB::table('movimentos_caixa as m')->join('sessoes_caixa as s', 's.id', '=', 'm.sessao_caixa_id')
+            ->where('m.empresa_id', $empresa)->where(fn ($q) => $q->whereNull('m.contabilizado')->orWhere('m.contabilizado', false))
+            ->whereNotNull('m.terceiro_id')->whereNotNull('m.numero_documento')
+            ->when($f['excluir_movimento_id'] ?? null, fn ($q, $v) => $q->where('m.id', '<>', $v))
+            ->selectRaw("m.terceiro_id, CASE WHEN m.tipo = 'REC' THEN m.conta_credito ELSE m.conta_debito END AS codigo_conta, m.numero_documento,
+                SUM(CASE WHEN m.tipo = 'PAG' THEN m.valor ELSE 0 END) AS debito, SUM(CASE WHEN m.tipo = 'REC' THEN m.valor ELSE 0 END) AS credito")
+            ->groupBy('m.terceiro_id', DB::raw("CASE WHEN m.tipo = 'REC' THEN m.conta_credito ELSE m.conta_debito END"), 'm.numero_documento')->get();
+        foreach ($caixa as $c) {
+            $k = "{$c->terceiro_id}|{$c->codigo_conta}|{$c->numero_documento}";
+            $p = $pendentes[$k] ?? (object) ['debito' => 0, 'credito' => 0];
+            $pendentes[$k] = (object) ['debito' => (float) $p->debito + (float) $c->debito, 'credito' => (float) $p->credito + (float) $c->credito];
+        }
 
         $terceiros = DB::table('terceiros')->where('empresa_id', $empresa)->whereIn('id', $diario->pluck('terceiro_id')->unique())->pluck('nome', 'id');
         $pesquisa = mb_strtolower(trim((string) ($f['pesquisa'] ?? '')));
@@ -83,9 +96,10 @@ final class ServicoPendentes
     }
 
     /** Saldo em aberto de um documento concreto (para validar o valor a liquidar). */
-    public function saldo(int $terceiroId, string $conta, string $numeroDocumento, ?int $excluirDocumentoId = null): ?array
+    public function saldo(int $terceiroId, string $conta, string $numeroDocumento, ?int $excluirDocumentoId = null, ?int $excluirMovimentoId = null): ?array
     {
-        foreach ($this->abertos(['terceiro_id' => $terceiroId, 'codigo_conta' => $conta, 'excluir_documento_id' => $excluirDocumentoId]) as $a) {
+        foreach ($this->abertos(['terceiro_id' => $terceiroId, 'codigo_conta' => $conta, 'excluir_documento_id' => $excluirDocumentoId,
+            'excluir_movimento_id' => $excluirMovimentoId]) as $a) {
             if ($a['codigo_conta'] === $conta && $a['numero_documento'] === $numeroDocumento) {
                 return $a;
             }

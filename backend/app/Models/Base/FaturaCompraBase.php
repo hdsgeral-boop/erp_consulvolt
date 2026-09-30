@@ -9,6 +9,7 @@ use App\Models\EncomendaCompra;
 use App\Models\ItemCompra;
 use App\Models\ItemDocumentoTesouraria;
 use App\Models\ModeloBase;
+use App\Models\MovimentoCaixa;
 use App\Models\Projeto;
 use App\Models\TaxaCambio;
 use App\Models\Terceiro;
@@ -96,5 +97,10 @@ abstract class FaturaCompraBase extends ModeloBase
     public function itensDocumentoTesouraria(): HasMany
     {
         return $this->hasMany(ItemDocumentoTesouraria::class, 'fatura_compra_id');
+    }
+
+    public function movimentosCaixa(): HasMany
+    {
+        return $this->hasMany(MovimentoCaixa::class, 'fatura_compra_id');
     }
 }

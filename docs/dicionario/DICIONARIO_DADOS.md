@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T11:40:58.809Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T12:18:48.418Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1660 |
+| Colunas reais mapeadas | 1663 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -95,7 +95,10 @@
 | `rh_dependents.parentesco` | FILHO, CONJUGE, PAI, MAE, OUTRO | Filho(a) → FILHO |
 | `treasury_documents.type` | PAGAMENTO, RECEBIMENTO | RECEBIMENTO → RECEBIMENTO; PAGAMENTO → PAGAMENTO |
 | `treasury_documents.status` | PENDENTE, INTEGRADO, ANULADO | INTEGRADO → INTEGRADO; PENDENTE → PENDENTE |
-| `bank_statement_lines.status` | PENDENTE, CONCILIADO | CONCILIATED → CONCILIADO; PENDING → PENDENTE; CONCILIADO → CONCILIADO |
+| `cash_sessions.status` | ABERTA, FECHADA, CONTABILIZADA | CONTABILIZADA → CONTABILIZADA; ABERTA → ABERTA; FECHADA → FECHADA |
+| `cash_lines.type` | REC, PAG | PAG → PAG; REC → REC |
+| `cash_audits.status` | RASCUNHO, FINALIZADO | FINALIZADO → FINALIZADO |
+| `bank_statement_lines.status` | PENDENTE, CONCILIADO, ANULADO | CONCILIATED → CONCILIADO; PENDING → PENDENTE; CONCILIADO → CONCILIADO |
 | `reconciliations.type` | ATUALIZACAO_LOTE | BATCH_UPDATE → ATUALIZACAO_LOTE |
 | `reconciliation_matches.match_type` | AUTOMATICA, MANUAL | AUTO → AUTOMATICA; MANUAL → MANUAL |
 | `cash_lines.source_type` | CONTABILIDADE, IMPORTACAO, MANUAL, FATURA_COMPRA, POS | contabilidade → CONTABILIDADE; import → IMPORTACAO; manual → MANUAL; purchase_invoice → FATURA_COMPRA; pos → POS |
@@ -1798,7 +1801,7 @@ Linhas reais: **2821** · fictícias descartadas: 16
 | `description` | `descricao` | text | sim | 98% |  |  |
 | `value` | `valor` | numeric(15,2) | sim | 100% |  | tipos mistos: inteiro=2391, decimal=430 |
 | `type_dc` | `tipo_dc` | varchar(10) | sim | 100% |  |  |
-| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PENDENTE, CONCILIADO}; texto original em estado_original |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PENDENTE, CONCILIADO, ANULADO}; texto original em estado_original |
 | `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `reconciliation_id` | `reconciliacao_codigo` | varchar(30) | sim | 79% |  |  |
@@ -1873,7 +1876,8 @@ Linhas reais: **1** · fictícias descartadas: 16
 | `regularization_account` | `conta_regularizacao` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `regularization_account_name` | `nome_conta_regularizacao` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `journal_entry_ref` | `referencia_lancamento` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {RASCUNHO, FINALIZADO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `created_at` | `criado_em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `updated_at` | `atualizado_em` | timestamptz | sim | 100% |  |  |
@@ -1892,7 +1896,8 @@ Linhas reais: **12** · fictícias descartadas: 16
 | `opening_balance` | `saldo_abertura` | numeric(15,2) | sim | 100% |  | tipos mistos: inteiro=10, decimal=2 |
 | `closing_balance` | `saldo_fecho` | numeric(15,2) | sim | 92% |  | tipos mistos: decimal=5, inteiro=6 |
 | `physical_balance` | `saldo_fisico` | numeric(15,2) | sim | 92% |  | tipos mistos: decimal=5, inteiro=6 |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {ABERTA, FECHADA, CONTABILIZADA}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `currency` | `codigo_moeda` | varchar(10) | sim | 25% |  |  |
 
@@ -1904,7 +1909,8 @@ Linhas reais: **186** · fictícias descartadas: 16
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `session_id` | `sessao_caixa_id` | bigint | sim | 100% | `sessoes_caixa.id` |  |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
-| `type` | `tipo` | varchar(10) | sim | 100% |  |  |
+| `type` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {REC, PAG}; texto original em tipo_original |
+| `type` | `tipo_original` | varchar(10) | sim | 100% |  | texto exacto do legado |
 | `doc_date` | `data_documento` | date | sim | 100% |  |  |
 | `doc_number` | `numero_documento` | varchar(50) | sim | 99% |  | tipos mistos: string=183, string_inteiro=2 |
 | `reference` | `referencia` | varchar(100) | sim | 99% |  | tipos mistos: string=183, string_inteiro=2 |

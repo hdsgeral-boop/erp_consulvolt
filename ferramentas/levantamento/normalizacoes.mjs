@@ -59,7 +59,10 @@ export const NORMALIZACOES = {
   // ── Tesouraria / caixa / POS ──
   'treasury_documents.type': { dominio: ['PAGAMENTO', 'RECEBIMENTO'], mapa: { PAGAMENTO: 'PAGAMENTO', RECEBIMENTO: 'RECEBIMENTO' } },
   'treasury_documents.status': { dominio: ['PENDENTE', 'INTEGRADO', 'ANULADO'], mapa: { PENDENTE: 'PENDENTE', INTEGRADO: 'INTEGRADO', ANULADO: 'ANULADO' } },
-  'bank_statement_lines.status': { dominio: ['PENDENTE', 'CONCILIADO'], mapa: {
+  'cash_sessions.status': { dominio: ['ABERTA', 'FECHADA', 'CONTABILIZADA'], mapa: { ABERTA: 'ABERTA', FECHADA: 'FECHADA', CONTABILIZADA: 'CONTABILIZADA' } },
+  'cash_lines.type': { dominio: ['REC', 'PAG'], mapa: { REC: 'REC', PAG: 'PAG', RECEBIMENTO: 'REC', PAGAMENTO: 'PAG' } },
+  'cash_audits.status': { dominio: ['RASCUNHO', 'FINALIZADO'], mapa: { RASCUNHO: 'RASCUNHO', FINALIZADO: 'FINALIZADO' } },
+  'bank_statement_lines.status': { dominio: ['PENDENTE', 'CONCILIADO', 'ANULADO'], mapa: {
     PENDING: 'PENDENTE', PENDENTE: 'PENDENTE', CONCILIATED: 'CONCILIADO', CONCILIADO: 'CONCILIADO' } },
   'reconciliations.type': { dominio: ['ATUALIZACAO_LOTE'], mapa: { 'BATCH UPDATE': 'ATUALIZACAO_LOTE' } },
   'reconciliation_matches.match_type': { dominio: ['AUTOMATICA', 'MANUAL'], mapa: { AUTO: 'AUTOMATICA', MANUAL: 'MANUAL' } },

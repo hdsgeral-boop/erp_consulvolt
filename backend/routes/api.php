@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
 use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
 use App\Http\Controllers\Api\Terceiros\TerceiroController;
+use App\Http\Controllers\Api\Tesouraria\OperacoesTesourariaController;
 use App\Http\Controllers\Api\Tesouraria\TesourariaController;
 use App\Http\Controllers\Api\Vendas\ConfigVendasController;
 use App\Http\Controllers\Api\Vendas\DocumentoVendaController;
@@ -176,6 +177,37 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('meios-pagamento', 'gravarMeio')->name('meios.store');
             Route::put('meios-pagamento/{id}', 'gravarMeio')->whereNumber('id')->name('meios.update');
             Route::delete('meios-pagamento/{id}', 'eliminarMeio')->whereNumber('id')->name('meios.destroy');
+        });
+
+        Route::prefix('tesouraria')->name('tesouraria.')->controller(OperacoesTesourariaController::class)->group(function () {
+            Route::get('extrato', 'extrato')->name('extrato.index');
+            Route::post('extrato/importar', 'importarExtrato')->name('extrato.importar');
+            Route::post('extrato/{id}/anular', 'anularLinhaExtrato')->whereNumber('id')->name('extrato.anular');
+            Route::get('reconciliacao/sugestoes', 'sugestoes')->name('reconciliacao.sugestoes');
+            Route::post('reconciliacao', 'confirmar')->name('reconciliacao.confirmar');
+            Route::get('reconciliacao', 'reconciliacoes')->name('reconciliacao.index');
+            Route::post('reconciliacao/{codigo}/anular', 'anularReconciliacao')->where('codigo', '[A-Za-z0-9_\-]+')->name('reconciliacao.anular');
+            Route::get('reconciliacao/mapa', 'mapa')->name('reconciliacao.mapa');
+
+            Route::get('caixa/sessoes', 'sessoes')->name('caixa.sessoes');
+            Route::post('caixa/sessoes', 'abrirSessao')->name('caixa.abrir');
+            Route::get('caixa/sessoes/{id}', 'sessao')->whereNumber('id')->name('caixa.sessao');
+            Route::post('caixa/sessoes/{id}/movimentos', 'registarMovimento')->whereNumber('id')->name('caixa.movimento');
+            Route::delete('caixa/sessoes/{id}/movimentos/{movimento}', 'removerMovimento')->whereNumber(['id', 'movimento'])->name('caixa.movimento.remover');
+            Route::post('caixa/sessoes/{id}/fechar', 'fecharSessao')->whereNumber('id')->name('caixa.fechar');
+            Route::post('caixa/sessoes/{id}/contabilizar', 'contabilizarSessao')->whereNumber('id')->name('caixa.contabilizar');
+            Route::post('caixa/sessoes/{id}/descontabilizar', 'descontabilizarSessao')->whereNumber('id')->name('caixa.descontabilizar');
+            Route::delete('caixa/sessoes/{id}', 'eliminarSessao')->whereNumber('id')->name('caixa.eliminar');
+
+            Route::get('conferencias', 'conferencias')->name('conferencias.index');
+            Route::post('conferencias', 'gravarConferencia')->name('conferencias.store');
+            Route::put('conferencias/{id}', 'gravarConferencia')->whereNumber('id')->name('conferencias.update');
+            Route::post('conferencias/{id}/finalizar', 'finalizarConferencia')->whereNumber('id')->name('conferencias.finalizar');
+            Route::post('conferencias/{id}/assinar', 'assinarConferencia')->whereNumber('id')->name('conferencias.assinar');
+            Route::post('conferencias/{id}/reabrir', 'reabrirConferencia')->whereNumber('id')->name('conferencias.reabrir');
+
+            Route::get('configuracao/contas', 'contas')->name('configuracao.contas');
+            Route::put('configuracao/contas', 'definirContas')->name('configuracao.contas.definir');
         });
 
         Route::prefix('contabilidade')->name('contabilidade.')->group(function () {

@@ -94,7 +94,8 @@ Cobrem os seguintes casos:
 | **Compras (parte 1)** | ✅ | compras/pedidos (+decidir, comparacao), deliberacao/escaloes, propostas (+propor, adjudicar), encomendas, rececoes (+validar, reverter), faturas (+contabilizar, descontabilizar), configuracao/contas | Adjudicação única e atómica, ligação linha a linha, stock com custo médio, conta transitória, estorno (ADR-031) |
 | Compras (parte 2) | ⏳ | contratos e marcos, pedidos a partir de encomendas de clientes, controlo orçamental | |
 | **Tesouraria (parte 1)** | ✅ | tesouraria/documentos (+integrar, desintegrar, anular), tesouraria/pendentes, tesouraria/meios-pagamento | Ligação explícita às facturas, sem pagar duas vezes, estorno bloqueado por reconciliação (ADR-032) |
-| Tesouraria (parte 2) | ⏳ | reconciliação bancária, folha e conferência de caixa, multi-moeda e diferenças de câmbio | |
+| **Tesouraria (parte 2)** | ✅ | tesouraria/extrato (+importar), reconciliacao (+sugestoes, mapa, anular), caixa/sessoes (+movimentos, fechar, contabilizar), conferencias (+finalizar, assinar, reabrir), configuracao/contas | Importação sem duplicados, sugestões indexadas, compensações libertadas no estorno, caixa por conta, contas de sobras/quebras correctas (ADR-033) |
+| Tesouraria (parte 3) | ⏳ | multi-moeda e diferenças de câmbio; cartas de pagamento | |
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
 | RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |

@@ -62,6 +62,7 @@ export const UNICOS = [
   ['configuracoes_pos', ['empresa_id']],
   ['configuracoes_deliberacao_compras', ['empresa_id']],
   ['configuracoes_contabeis_compras', ['empresa_id', 'chave']],
+  ['configuracoes_contabeis_tesouraria', ['empresa_id', 'chave']],
   ['configuracoes_faturacao_eletronica', ['empresa_id']],
   // Séries de numeração (AGT e não fiscais): código único por empresa, tipo e ano
   ['series_faturacao_eletronica', ['empresa_id', 'tipo', 'ano', 'codigo']],
@@ -165,6 +166,14 @@ export const COLUNAS_NOVAS = {
     ['integrado_em', 'timestamptz', null, 'Data/hora da integração'], ['integrado_por', 'varchar(100)', null, 'Utilizador que integrou'],
     ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
   ],
+  sessoes_caixa: [
+    ['numeros_lan_contabilizacao', 'jsonb', null, 'Lançamentos da contabilização (um por data de movimento + diferença de fecho)'],
+    ['fechado_por', 'varchar(100)', null, 'Utilizador que fechou'], ['contabilizado_em', 'timestamptz', null, 'Data/hora da contabilização'],
+  ],
+  movimentos_caixa: [
+    ['venda_id', 'bigint', 'vendas', 'Factura de venda recebida por este movimento'],
+    ['fatura_compra_id', 'bigint', 'faturas_compra', 'Factura de fornecedor paga por este movimento'],
+  ],
   itens_documento_tesouraria: [
     ['venda_id', 'bigint', 'vendas', 'Factura de venda liquidada por esta linha'],
     ['fatura_compra_id', 'bigint', 'faturas_compra', 'Factura de fornecedor liquidada por esta linha'],
@@ -218,6 +227,10 @@ export const CHECKS = [
 
 // Tabelas novas do desenho (ETL / infraestrutura).
 export const TABELAS_NOVAS = {
+  configuracoes_contabeis_tesouraria: {
+    modulo: 'Tesouraria', model: 'ConfigContabilTesouraria',
+    colunas: [['chave', 'varchar(150)', 'Chave da conta (ver ServicoConfigTesouraria::CHAVES)'], ['codigo_conta', 'varchar(20)', 'Conta do plano']],
+  },
   configuracoes_contabeis_compras: {
     modulo: 'Compras', model: 'ConfigContabilCompra',
     colunas: [['chave', 'varchar(150)', 'Chave da conta (ver ServicoConfigCompras::CHAVES)'], ['codigo_conta', 'varchar(20)', 'Conta do plano']],

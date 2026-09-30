@@ -19,7 +19,7 @@ abstract class ConferenciaCaixaBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'codigo_conta', 'nome_conta', 'data_conferencia', 'nome_operador', 'denominacoes', 'total_fisico', 'total_sistema', 'saldo_externo', 'diferenca', 'justificacao', 'conta_regularizacao', 'nome_conta_regularizacao', 'referencia_lancamento', 'estado', 'nome_gerente', 'assinado_gerente_em',
+        'empresa_id', 'codigo_conta', 'nome_conta', 'data_conferencia', 'nome_operador', 'denominacoes', 'total_fisico', 'total_sistema', 'saldo_externo', 'diferenca', 'justificacao', 'conta_regularizacao', 'nome_conta_regularizacao', 'referencia_lancamento', 'estado', 'estado_original', 'nome_gerente', 'assinado_gerente_em',
     ];
 
     protected function casts(): array

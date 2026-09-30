@@ -415,3 +415,53 @@ Ficam para a parte 2: reconciliação bancária (importação de extractos, corr
 - 2 006 estão bloqueados por reconciliação bancária; o legado apagá-los-ia na mesma;
 - 111 têm referência ambígua ou nenhum lançamento, e são recusados em vez de adivinhados;
 - 1 está ligado a activos.
+
+## ADR-033 — Tesouraria (parte 2): reconciliação bancária, folha de caixa e conferência de caixa
+
+**Reconciliação bancária** (`processExternalBankStatement`, `runReconciliationAlgorithm`, `confirmBankReconciliation` e `deleteReconciliation` do legado):
+- **Importação:** aceita XLSX, XLS e CSV (PhpSpreadsheet); o legado só lia Excel.
+  - Os cabeçalhos são reconhecidos por sinónimos (Data, Referência, Descrição, Débito/Crédito ou Valor + D/C), sem acentos nem maiúsculas.
+  - Os números são lidos correctamente em "1.500,50" e "1,500.50" (o legado estragava o primeiro); as datas em dd/mm/aaaa, aaaa-mm-dd ou data Excel.
+  - **Os duplicados são detectados**: reimportar o mesmo extracto não duplica linhas. Cada importação fica com um lote `IMP-AAAAMMDD-nnnn`.
+- **Convenção única:** o extracto está na óptica do banco (C = entrada, D = saída) e corresponde a lançamentos da conta 43 no sentido oposto. O legado tinha convenções contraditórias.
+- **Sugestões:** mesma data e valor, depois ±N dias, depois valor único; a referência desempata.
+  - As sugestões não gravam nada.
+  - O cálculo é indexado por valor e sentido: 0,3 s nas contas com mais linhas pendentes (a primeira versão, que comparava todos com todos, demorava 17 s).
+- **Confirmação:**
+  - por grupos (N:M), com Σ extracto = Σ diário;
+  - numa transacção, com as linhas bloqueadas;
+  - recusa linhas de outra conta, já reconciliadas, estornadas ou estornos;
+  - código `REC-AAAAMMDD-nnnn` sem colisões (o legado usava `Date.now()` ou 4 caracteres aleatórios).
+- **Anular** não apaga: a reconciliação fica ANULADA, com o motivo, e as duas pontas voltam a estar por reconciliar. As linhas de extracto só se anulam se estiverem por reconciliar.
+- **Mapa de reconciliação numa data:** saldo do diário, movimentos só no diário, movimentos só no extracto e saldo que o banco deve apresentar.
+
+**Estorno e reconciliação.** O campo `reconciliacao_codigo` do diário é partilhado por dois conceitos:
+- reconciliação **bancária** (`REC-`, `MAN-`, `DFT-`, contas 43/45, códigos com correspondências de extracto): bloqueia o estorno;
+- **compensação** entre facturas e pagamentos na classe 3 (`REC_`, `AUTO`, `TRF_`, `MATC…`): passa a ser **libertada** no estorno, nas duas pontas, com registo de auditoria, como o legado fazia ao descontabilizar.
+
+Nos dados reais, isto aumenta os documentos de tesouraria estornáveis de 3 659 para 4 793; os 872 bloqueados são reconciliações bancárias.
+
+**Folha de caixa** (`ui_folha_caixa.js`):
+- uma sessão aberta **por conta** de caixa, garantida com lock; o legado tinha uma por empresa e permitia duplicá-la com um duplo clique;
+- o saldo de abertura sugerido é a contagem física do último fecho, com aviso se o saldo indicado for diferente;
+- os movimentos têm contrapartida de movimento e exercício aberto e, quando liquidam uma factura, o valor não pode exceder o saldo em aberto;
+- **os pendentes descontam também os movimentos de caixa ainda por contabilizar de qualquer sessão**; o legado só descontava a sessão aberta, o que permitia pagar em duplicado;
+- o fecho grava a diferença entre o físico e o sistema;
+- a contabilização:
+  - é feita numa transacção, com um lançamento por data de movimento (o legado fazia um por linha, datado da abertura) e a diferença de fecho lançada em sobras ou quebras, conforme a configuração;
+  - actualiza as vendas e facturas liquidadas;
+  - desfaz-se por estorno (o legado não tinha descontabilização).
+
+As sessões contabilizadas no legado, sem ligação aos lançamentos, são estornadas na Contabilidade.
+
+**Conferência de caixa:**
+- total físico calculado pelas denominações (notas e moedas em Kz);
+- saldo do sistema = saldo da conta no diário **até à data** da conferência (o legado não tinha data de corte);
+- uma diferença exige justificação;
+- a regularização é opcional e feita no diário CX com n.º próprio: sobra D caixa / C proveito; quebra D custo / C caixa. No legado as contas estavam invertidas (sobra→78, custo; quebra→68, proveito), usava-se o primeiro diário que aparecesse e as linhas eram apagadas pela referência ao editar;
+- a assinatura do gerente tem de ser de outra pessoa que não o operador;
+- reabrir = estorno da regularização.
+
+**Contas de tesouraria** (tabela nova `configuracoes_contabeis_tesouraria`): sobras, quebras e diferenças de câmbio. O legado usava 6621/7621 invertidas face ao PGC angolano.
+
+**Pendente (Tesouraria parte 3):** multi-moeda (documentos e caixas em moeda estrangeira, diferenças de câmbio na liquidação de facturas em moeda) e cartas de pagamento aos bancos (o legado tinha as tabelas, mas nenhum código).

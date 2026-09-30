@@ -5,15 +5,12 @@ namespace App\Services\Tesouraria;
 use App\Exceptions\ErroNegocio;
 use App\Models\DiarioContabil;
 use App\Models\DocumentoTesouraria;
-use App\Models\FaturaCompra;
 use App\Models\ItemDocumentoTesouraria;
 use App\Models\Terceiro;
-use App\Models\Venda;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoPlanoContas;
-use App\Services\Vendas\ServicoEstadoVenda;
 use App\Services\Vendas\ServicoSeries;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
@@ -46,7 +43,7 @@ final class ServicoDocumentosTesouraria
         private readonly ServicoLancamentos $lancamentos,
         private readonly LocalizadorLancamentos $localizador,
         private readonly ServicoPendentes $pendentes,
-        private readonly ServicoEstadoVenda $estadoVenda,
+        private readonly ServicoLiquidacoes $liquidacoes,
     ) {}
 
     /** @param  array<string, mixed>  $d  tipo, data_documento, conta_financeira, descricao, referencia?, linhas[] */
@@ -220,56 +217,18 @@ final class ServicoDocumentosTesouraria
 
     private function validarLigacao(array &$l, string $onde): void
     {
-        if (! empty($l['venda_id'])) {
-            $v = Venda::query()->find($l['venda_id']);
-            if (! $v || $v->cliente_id !== (int) ($l['terceiro_id'] ?? 0) || ! $v->contabilizado) {
-                throw new ErroNegocio("{$onde} a venda indicada não é deste cliente ou não está contabilizada.", 'LIGACAO_INVALIDA', 422);
-            }
-            $l['numero_documento'] ??= $v->numero_documento;
-        }
-        if (! empty($l['fatura_compra_id'])) {
-            $f = FaturaCompra::query()->find($l['fatura_compra_id']);
-            if (! $f || $f->fornecedor_id !== (int) ($l['terceiro_id'] ?? 0) || ! $f->contabilizado || $f->estado === 'ANULADA') {
-                throw new ErroNegocio("{$onde} a factura indicada não é deste fornecedor ou não está contabilizada.", 'LIGACAO_INVALIDA', 422);
-            }
-            $l['numero_documento'] ??= $f->numero_fatura;
+        $numero = $this->liquidacoes->validarLigacao($l['venda_id'] ?? null, $l['fatura_compra_id'] ?? null, isset($l['terceiro_id']) ? (int) $l['terceiro_id'] : null, $onde);
+        if ($numero !== null) {
+            $l['numero_documento'] ??= $numero;
         }
         if (! empty($l['terceiro_id']) && ! Terceiro::query()->whereKey($l['terceiro_id'])->exists()) {
             throw new ErroNegocio("{$onde} terceiro inexistente.", 'TERCEIRO_INEXISTENTE', 422);
         }
     }
 
-    /** Actualiza pago/estado das vendas e o estado das facturas de fornecedor ligadas (sinal +1 integrar, −1 estornar). */
     private function actualizarLigados($itens, int $sinal): void
     {
-        foreach ($itens->whereNotNull('venda_id')->groupBy('venda_id') as $vendaId => $linhas) {
-            $venda = Venda::query()->lockForUpdate()->find($vendaId);
-            if (! $venda) {
-                continue;
-            }
-            $recebido = $linhas->reduce(fn ($s, $i) => $i->tipo_dc === 'C' ? bcadd($s, (string) $i->valor, 2) : bcsub($s, (string) $i->valor, 2), '0.00');
-            $pago = bcadd((string) ($venda->valor_pago ?? 0), $sinal > 0 ? $recebido : bcmul($recebido, '-1', 2), 2);
-            $venda->update(['valor_pago' => bccomp($pago, '0', 2) < 0 ? '0.00' : $pago]);
-            $this->estadoVenda->recalcular($venda);
-        }
-        foreach ($itens->whereNotNull('fatura_compra_id')->pluck('fatura_compra_id')->unique() as $faturaId) {
-            $this->recalcularFaturaCompra(FaturaCompra::query()->lockForUpdate()->find($faturaId));
-        }
-    }
-
-    /** Estado da factura de fornecedor a partir do diário: crédito − débito na conta do fornecedor para o n.º da factura. */
-    public function recalcularFaturaCompra(?FaturaCompra $f): void
-    {
-        if (! $f || $f->estado === 'ANULADA') {
-            return;
-        }
-        $conta = Terceiro::query()->withTrashed()->whereKey($f->fornecedor_id)->value('codigo_conta');
-        $saldo = (string) DB::table('lancamentos_contabeis')->where('empresa_id', $f->empresa_id)->where('terceiro_id', $f->fornecedor_id)
-            ->where('codigo_conta', $conta)->where('numero_documento', $f->numero_fatura)
-            ->selectRaw("COALESCE(SUM(CASE WHEN tipo_dc = 'C' THEN valor ELSE -valor END), 0) AS s")->value('s');
-        $total = (string) $f->montante_total;
-        $estado = bccomp($saldo, self::tolerancia(), 3) <= 0 ? 'PAGO' : (bccomp($saldo, bcsub($total, self::tolerancia(), 3), 3) < 0 ? 'PARCIAL' : 'PENDENTE');
-        $f->update(['estado' => $estado]);
+        $this->liquidacoes->aplicar($itens->map(fn ($i) => $i->only(['venda_id', 'fatura_compra_id', 'tipo_dc', 'valor']))->all(), $sinal);
     }
 
     private function exigirContaFinanceira(string $conta): void

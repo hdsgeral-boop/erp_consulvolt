@@ -22,7 +22,7 @@ abstract class SessaoCaixaBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'codigo_conta', 'operador', 'data_abertura', 'data_fecho', 'saldo_abertura', 'saldo_fecho', 'saldo_fisico', 'estado', 'codigo_moeda',
+        'empresa_id', 'codigo_conta', 'operador', 'data_abertura', 'data_fecho', 'saldo_abertura', 'saldo_fecho', 'saldo_fisico', 'estado', 'estado_original', 'codigo_moeda', 'numeros_lan_contabilizacao', 'fechado_por', 'contabilizado_em',
     ];
 
     protected function casts(): array
@@ -34,6 +34,8 @@ abstract class SessaoCaixaBase extends ModeloBase
             'saldo_abertura' => 'decimal:2',
             'saldo_fecho' => 'decimal:2',
             'saldo_fisico' => 'decimal:2',
+            'numeros_lan_contabilizacao' => 'array',
+            'contabilizado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

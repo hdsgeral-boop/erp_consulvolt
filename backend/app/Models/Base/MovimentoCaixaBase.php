@@ -5,6 +5,7 @@ namespace App\Models\Base;
 use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\FaturaCompra;
 use App\Models\LiquidacaoPOS;
 use App\Models\ModeloBase;
 use App\Models\NotaDemonstracao;
@@ -14,6 +15,7 @@ use App\Models\SessaoCaixa;
 use App\Models\TaxaCambio;
 use App\Models\Terceiro;
 use App\Models\UnidadeNegocio;
+use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -30,7 +32,7 @@ abstract class MovimentoCaixaBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'sessao_caixa_id', 'tipo', 'data_documento', 'numero_documento', 'referencia', 'terceiro_id', 'produto_id', 'conta_debito', 'conta_credito', 'descricao', 'valor', 'unidade_negocio_id', 'centro_custo_id', 'tipo_origem', 'tipo_origem_original', 'origem_id', 'contabilizado', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'valor_kz', 'nota_demonstracao_id', 'nota_fluxo_caixa_id', 'url_documento', 'contravalor_kz', 'contra_moeda', 'contravalor_moeda',
+        'empresa_id', 'sessao_caixa_id', 'tipo', 'tipo_original', 'data_documento', 'numero_documento', 'referencia', 'terceiro_id', 'produto_id', 'conta_debito', 'conta_credito', 'descricao', 'valor', 'unidade_negocio_id', 'centro_custo_id', 'tipo_origem', 'tipo_origem_original', 'origem_id', 'contabilizado', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'valor_kz', 'nota_demonstracao_id', 'nota_fluxo_caixa_id', 'url_documento', 'contravalor_kz', 'contra_moeda', 'contravalor_moeda', 'venda_id', 'fatura_compra_id',
     ];
 
     protected function casts(): array
@@ -52,6 +54,8 @@ abstract class MovimentoCaixaBase extends ModeloBase
             'nota_demonstracao_id' => 'integer',
             'nota_fluxo_caixa_id' => 'integer',
             'contravalor_kz' => 'decimal:2',
+            'venda_id' => 'integer',
+            'fatura_compra_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
@@ -95,6 +99,16 @@ abstract class MovimentoCaixaBase extends ModeloBase
     public function notaFluxoCaixa(): BelongsTo
     {
         return $this->belongsTo(NotaFluxoCaixa::class, 'nota_fluxo_caixa_id');
+    }
+
+    public function venda(): BelongsTo
+    {
+        return $this->belongsTo(Venda::class, 'venda_id');
+    }
+
+    public function faturaCompra(): BelongsTo
+    {
+        return $this->belongsTo(FaturaCompra::class, 'fatura_compra_id');
     }
 
     public function liquidacoesPos(): HasMany
