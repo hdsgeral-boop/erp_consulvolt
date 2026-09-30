@@ -64,7 +64,7 @@ final class ServicoLancamentos
                 'diario_id' => $diario->id, 'data_documento' => $dados['data_documento'], 'data_lancamento' => now(),
                 'numero_lan' => $numeroLan, 'numero_documento' => $dados['numero_documento'] ?? $numeroLan,
                 'referencia' => $dados['referencia'] ?? null, 'tipo_origem' => $dados['tipo_origem'] ?? LancamentoContabil::ORIGEM_MANUAL,
-                'nome_utilizador' => Auth::user()?->nome_utilizador,
+                'nome_utilizador' => Auth::user()?->nome_utilizador, 'sessao_pos_id' => $dados['sessao_pos_id'] ?? null,
             ];
             $criadas = new Collection;
             foreach ($dados['linhas'] as $l) {

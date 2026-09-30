@@ -76,9 +76,14 @@ abstract class DocumentoTesourariaBase extends ModeloBase
         return $this->hasMany(ItemDocumentoTesouraria::class, 'documento_tesouraria_id');
     }
 
-    public function liquidacoesPos(): HasMany
+    public function liquidacoesPosPorDocumentoTesouraria(): HasMany
     {
         return $this->hasMany(LiquidacaoPOS::class, 'documento_tesouraria_id');
+    }
+
+    public function liquidacoesPosPorDocumentoComissao(): HasMany
+    {
+        return $this->hasMany(LiquidacaoPOS::class, 'documento_comissao_id');
     }
 
     public function reclamacoesLavandaria(): HasMany

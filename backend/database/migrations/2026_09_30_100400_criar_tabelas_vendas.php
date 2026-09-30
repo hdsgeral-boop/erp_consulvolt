@@ -43,7 +43,7 @@ return new class extends Migration
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
             $table->decimal('desconto', 15, 2)->nullable()->comment('legado: discount');
             $table->bigInteger('sessao_pos_id')->nullable()->comment('legado: pos_session_id');
-            $table->string('meio_pagamento', 20)->nullable()->comment('legado: payment_method · código normalizado ∈ {NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE}; texto original em meio_pagamento_original');
+            $table->string('meio_pagamento', 20)->nullable()->comment('legado: payment_method · código normalizado ∈ {NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE, MISTO}; texto original em meio_pagamento_original');
             $table->string('meio_pagamento_original', 100)->nullable()->comment('legado: payment_method · texto exacto do legado');
             $table->string('nome_tabela', 255)->nullable()->comment('legado: table_name');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id · tipos Dexie: {"undef":2}');
@@ -101,6 +101,7 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE UNIQUE INDEX uq_vendas_empresa_id_tipo_documento_numero_documento ON vendas (empresa_id, tipo_documento, numero_documento) WHERE tipo_documento IN (\'FT\',\'FR\',\'NC\',\'ND\')');
+        DB::statement('CREATE INDEX ix_vendas_empresa_id ON vendas (empresa_id)');
         DB::statement('CREATE INDEX ix_vendas_cliente_id ON vendas (cliente_id)');
         DB::statement('CREATE INDEX ix_vendas_projeto_id ON vendas (projeto_id)');
         DB::statement('CREATE INDEX ix_vendas_unidade_negocio_id ON vendas (unidade_negocio_id)');
@@ -117,7 +118,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_vendas_empresa_id_estado ON vendas (empresa_id, estado)');
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_tipo_documento CHECK (tipo_documento IS NULL OR tipo_documento IN (\'FT\',\'FR\',\'NC\',\'ND\',\'PF\',\'OR\',\'NE\',\'GR\',\'GD\'))');
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE\',\'PARCIAL\',\'PAGO\',\'CONCLUIDO\',\'ANULADO\'))');
-        DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_meio_pagamento CHECK (meio_pagamento IS NULL OR meio_pagamento IN (\'NUMERARIO\',\'TPA\',\'TRANSFERENCIA\',\'CONTA_CORRENTE\'))');
+        DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_meio_pagamento CHECK (meio_pagamento IS NULL OR meio_pagamento IN (\'NUMERARIO\',\'TPA\',\'TRANSFERENCIA\',\'CONTA_CORRENTE\',\'MISTO\'))');
         DB::statement('ALTER TABLE vendas ADD CONSTRAINT ck_vendas_modo_pagamento CHECK (modo_pagamento IS NULL OR modo_pagamento IN (\'PRONTO\',\'PRAZO\',\'MARCOS\'))');
 
         // sale_items (legado) -> itens_venda · 95 linhas reais no backup

@@ -458,6 +458,8 @@ export const TIPOS_FORCADOS = {
   'sales.fe_documento': 'jsonb', 'sales.fe_erros': 'jsonb', 'sales.fe_avisos': 'jsonb', 'sales.fe_envio': 'jsonb',
   'sales.fe_estado': 'varchar(20)', 'sales.fe_tipo': 'varchar(5)', 'sales.fe_serie': 'varchar(50)', 'sales.fe_numero': 'integer',
   'sales.fe_estabelecimento': 'varchar(20)', 'sales.delivery_date': 'date', 'sale_items.notes': 'text', 'sale_items.description': 'text', // mistura datas com números de documento ("FT FA12026/761")
+  // POS (tipos inferidos com poucos dados: o desvio e a tolerância são valores em Kz; o documento da comissão é um id)
+  'pos_sessions.deviation': 'numeric(15,2)', 'pos_settings.deviation_tolerance': 'numeric(15,2)', 'pos_settlements.commission_doc_id': 'bigint',
 };
 
 export const SOBREPOSICOES = {
@@ -491,7 +493,7 @@ export const SOBREPOSICOES = {
   lav_payments: { order_id: ['pedido_lavandaria_id', 'lav_orders'], session_id: ['sessao_pos_id', 'pos_sessions'] },
   cash_lines: { session_id: ['sessao_caixa_id', 'cash_sessions'] },
   inventory_session_lines: { session_id: ['sessao_inventario_id', 'inventory_sessions'] },
-  pos_settlements: { session_id: ['sessao_pos_id', 'pos_sessions'] },
+  pos_settlements: { session_id: ['sessao_pos_id', 'pos_sessions'], commission_doc_id: ['documento_comissao_id', 'treasury_documents'] },
   hotel_stays: { session_id: ['sessao_pos_id', 'pos_sessions'] },
   ad_postings: { item_id: ['item_acrescimo_diferimento_id', 'ad_items'] },
   rh_productivity: { item_id: ['item_produtividade_id', 'rh_prod_items'] },

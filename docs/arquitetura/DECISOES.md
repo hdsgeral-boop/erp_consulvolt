@@ -1091,3 +1091,95 @@ Implementado em `ServicoPlaneamentoOrcamental`, a partir de `orcamento_planeamen
 - Estimativa de fecho pela última previsão publicada.
 
 **Correcção:** as permissões `orc_previsoes_edit` e `orc_cenarios_edit` são verificadas no servidor. No legado não protegiam nenhuma função, só o ecrã.
+
+## ADR-047 — POS parte 1: terminais, sessões, vendas, integração e desvios de caixa
+
+Implementado em `app/Services/POS` a partir de `pos_gestao.js`, `pos_prestacao.js:97-489` e `ui_sales.js`. O legado tinha duas camadas: o POS antigo em localStorage e o actual em base de dados, que o substituía. Só o actual foi portado. As vendas antigas (`POS_SESS_<epoch>`) mantêm-se em `sessao_pos_legado_codigo`.
+
+**Terminais e meios de pagamento** (`ServicoTerminaisPOS`):
+- Os meios de pagamento são numerário, TPA e transferência. Cada um tem conta transitória e conta de liquidação.
+- Regras das contas, validadas no servidor:
+  - todas têm de ser contas de movimento;
+  - numerário liquida numa conta 45; TPA e transferência numa conta 43;
+  - a conta transitória é diferente da de liquidação e não se repete entre meios;
+  - um TPA com comissão tem de ter conta de comissão.
+- Copiar meios de outro terminal:
+  - SUBSTITUIR reaproveita os ids por tipo;
+  - ACRESCENTAR junta os meios com ids novos;
+  - de outra empresa, só com acesso a essa empresa.
+- O código do terminal fica bloqueado depois da primeira sessão.
+- Um terminal com sessão aberta não se desactiva; um com movimento não se elimina.
+
+**Sessões** (`ServicoSessoesPOS`):
+- Uma sessão aberta por terminal, garantida por índice único parcial e lock.
+- Códigos `T01-AAAA-NNNN` e Z `Z-T01-AAAA-NNNN` por `ServicoNumeracao`. A numeração continua a do legado.
+- Relatório X.
+- Fecho Z:
+  - contagem por notas e moedas ou pelo total;
+  - talão de cada TPA com movimento;
+  - justificação obrigatória acima da tolerância, ou quando o talão difere do sistema.
+
+**Vendas** (`ServicoVendasPOS` → `ServicoDocumentosVenda::emitir` com `pos`):
+- Emite uma factura-recibo na série do terminal (`FR T01AAAA/n`), com AGT, hash, stock e CMV, numa única transacção.
+- O preço inclui IVA. O desconto global é uma percentagem sobre o total com IVA (`CalculadoraDocumento::calcularComIva`, a mesma regra do documento AGT do legado).
+- Pagamentos:
+  - pode haver vários meios na mesma venda;
+  - o troco só se dá em numerário e o valor gravado é líquido do troco;
+  - TPA e transferências não podem exceder o total;
+  - a transferência exige o número do comprovativo.
+- Descontos e preços alterados exigem `pos_desconto`.
+- Cliente: o indicado, senão o padrão do terminal, senão «Consumidor Final».
+- O stock é verificado no armazém do terminal.
+- A venda POS não se contabiliza nem se descontabiliza sozinha.
+
+**Integração da sessão** (`ServicoContabilizacaoPOS`):
+- Um lançamento por data, no diário `GEPOS` (configurável), com `tipo_origem = POS` e `sessao_pos_id`:
+  - D contas transitórias por meio. Cada transferência é uma linha com o cliente e o documento.
+  - C proveitos e IVA com os valores do documento.
+  - CMV: D 71 / C 26.
+- Descontabilizar é por estorno. Fica bloqueado se houver prestação de contas ou uma deliberação manual com lançamento.
+
+**Desvios de caixa:**
+- Desvio zero: SEM_DESVIO.
+- Dentro da tolerância e diferente de zero: fica DELIBERADO automaticamente (sobra ou quebra) e é lançado com a integração. Numa sessão sem vendas, é lançado no fecho.
+- Acima da tolerância: fica PENDENTE e é deliberado com uma de quatro decisões:
+
+  | Decisão | Lançamento |
+  |---|---|
+  | SOBRA_PROVEITO | D transitória / C sobras (6) |
+  | FALTA_CUSTO | D quebras (7) / C transitória |
+  | FALTA_OPERADOR | D operador (3) / C transitória |
+  | SEM_EFEITO | sem lançamento |
+
+- Todas as decisões, excepto SEM_EFEITO, exigem a sessão integrada.
+- Quem abriu a sessão não delibera o próprio desvio.
+- A anulação é por estorno e fica bloqueada depois de o numerário ser prestado.
+
+**Correcções face ao legado:**
+- Gravar o terminal fazia recuar os contadores. As sessões, os Z e os documentos da lavandaria podiam repetir números.
+- As vendas POS não lançavam CMV. A saída de stock era valorizada ao preço de venda, pelo stock global lido ao abrir o ecrã, e cortada a zero.
+- Os totais do cabeçalho não somavam quando havia desconto.
+- Nada corria numa transacção, e a regra de uma sessão aberta por terminal podia ser violada por duas aberturas simultâneas.
+- O operador gravado era sempre quem abriu a sessão.
+- O cliente padrão do terminal era ignorado.
+- O desvio dentro da tolerância nunca era contabilizado.
+- Descontabilizar e anular a deliberação apagavam linhas do diário.
+- A segregação de funções só gerava um aviso.
+
+**Dados migrados:**
+- Os JSON do legado (meios, totais do Z, talões, deliberações e pagamentos) passam a chaves portuguesas no fim da ETL (`ServicoMigracaoPOS`).
+- Tipos corrigidos: `desvio` e `tolerancia_desvio` passam a numérico; `documento_comissao_id` passa a FK para documentos de tesouraria.
+- Novos valores de domínio: `RESTAURANTE` no tipo de terminal e `MISTO` no meio de pagamento das vendas.
+- O «Consumidor Final» do legado não tem conta. A venda POS não a exige, porque lança nas transitórias.
+
+**Verificação nos dados reais (empresa 18, numa transacção desfeita no fim):**
+- Os totais das 2 sessões fechadas recalculam exactamente.
+- As 2 sessões com prestação de contas ficam bloqueadas para descontabilizar.
+- Venda, Z e integração numa sessão aberta dão um lançamento equilibrado com CMV (GEPOS2026000004).
+
+**Gerador:** um índice único parcial por estado já não substitui o índice da FK.
+
+**Próximas partes:**
+- Prestação de contas: numerário na folha de caixa, TPA e transferências na tesouraria, comissões.
+- Relatórios.
+- Hotelaria, lavandaria e POS armazém.

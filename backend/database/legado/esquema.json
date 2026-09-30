@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T17:16:02.587Z",
+  "gerado_em": "2026-09-30T18:37:17.227Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -3367,7 +3367,8 @@
             "NUMERARIO",
             "TPA",
             "TRANSFERENCIA",
-            "CONTA_CORRENTE"
+            "CONTA_CORRENTE",
+            "MISTO"
           ]
         },
         {
@@ -17096,6 +17097,7 @@
           "fk": null,
           "dominio": [
             "LOJA",
+            "RESTAURANTE",
             "LAVANDARIA",
             "HOTELARIA"
           ]
@@ -17618,7 +17620,7 @@
         {
           "coluna": "desvio",
           "legado": "deviation",
-          "tipo": "integer",
+          "tipo": "numeric(15,2)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -17736,7 +17738,14 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "terminal_pos_id"
+          ],
+          "onde": "estado = 'ABERTA'"
+        }
+      ],
       "checks": [
         "ck_sessoes_pos_estado_desvio"
       ]
@@ -17985,10 +17994,13 @@
         {
           "coluna": "documento_comissao_id",
           "legado": "commission_doc_id",
-          "tipo": "numeric(15,2)",
+          "tipo": "bigint",
           "nulo": true,
           "origem": "codigo",
-          "fk": null,
+          "fk": {
+            "tabela": "documentos_tesouraria",
+            "cascata": false
+          },
           "dominio": null
         },
         {
@@ -18028,7 +18040,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "sessao_pos_id",
+            "chave_item"
+          ],
+          "onde": "estado = 'REGISTADO'"
+        }
+      ],
       "checks": []
     },
     {
@@ -18092,7 +18112,7 @@
         {
           "coluna": "tolerancia_desvio",
           "legado": "deviation_tolerance",
-          "tipo": "integer",
+          "tipo": "numeric(15,2)",
           "nulo": true,
           "origem": "backup",
           "fk": null,

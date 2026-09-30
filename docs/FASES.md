@@ -109,7 +109,9 @@ Cobrem os seguintes casos:
 | **Orçamento (parte 1)** | ✅ | orcamento/rubricas (+base), orcamento/orcamentos (+valores, submeter, aprovar, devolver, nova-versao, repartir, contributos, consolidar, controlo) | Base histórica com crescimento/inflação, segregação submeter/aprovar, consolidação da última versão, realizado do Diário sem apuramentos (ADR-044) |
 | **Orçamento (parte 2)** | ✅ | orcamento/verificar, pedidos-excesso (+decidir), alertas, monitor; controlo na adjudicação, factura directa, pagamento e lançamento manual | Compromissos pela parte por facturar, sem dotação não bloqueia, falha fechada, alerta de bloqueio registado fora da transacção desfeita (ADR-045) |
 | **Orçamento (parte 3)** | ✅ | orcamento/previsoes (+revisao, publicar), orcamentos/{id}/cenarios (+padrao), cenarios (+gerar-versao), orcamentos/{id}/desvios/{rubrica} | Previsões a 12 meses com revisões e fecho estimado, cenários que geram versão, classificação dos desvios (ADR-046) |
-| POS, Activos, Projectos, A&D, CRM | ⏳ | | |
+| **POS (parte 1)** | ✅ | pos/terminais (+copiar-meios, ativo, sessoes), pos/definicoes, pos/sessoes (+relatorio-x, fechar, vendas, contabilizar, descontabilizar, deliberacao) | Terminais e meios, sessões com X/Z, vendas FR com preço com IVA, desconto e troco, integração com CMV, desvios automáticos e deliberados (ADR-047) |
+| POS (partes 2-3) | ⏳ | | Prestação de contas, relatórios; hotelaria, lavandaria, POS armazém |
+| Activos, Projectos, A&D, CRM | ⏳ | | |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
 

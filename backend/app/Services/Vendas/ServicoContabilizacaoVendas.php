@@ -51,6 +51,9 @@ final class ServicoContabilizacaoVendas
         if ($venda->estado === 'ANULADO') {
             throw new ErroNegocio('Documento anulado: não é contabilizável.', 'DOCUMENTO_ANULADO', 422);
         }
+        if ($venda->sessao_pos_id || $venda->sessao_pos_legado_codigo) {   // pos_gestao.js:1135-1149
+            throw new ErroNegocio('Venda POS: é contabilizada na integração da sessão (POS › Integração).', 'VENDA_POS', 422);
+        }
 
         if ($guia) {
             return $this->contabilizarGuia($venda);
@@ -130,6 +133,9 @@ final class ServicoContabilizacaoVendas
         if (! $venda->contabilizado) {
             throw new ErroNegocio('O documento não está contabilizado.', 'NAO_CONTABILIZADO', 422);
         }
+        if ($venda->sessao_pos_id) {
+            throw new ErroNegocio('Venda POS: é contabilizada na sessão — descontabilize a sessão.', 'VENDA_POS', 422);
+        }
         if ($venda->tipo_documento === 'FT' && DB::table('itens_recibo_venda as i')->join('recibos_venda as r', 'r.id', '=', 'i.recibo_venda_id')
             ->where('i.empresa_id', $venda->empresa_id)->where('i.venda_id', $venda->id)
             ->where(fn ($q) => $q->whereNull('r.estado')->orWhere('r.estado', '<>', 'ANULADO'))->exists()) {
@@ -204,7 +210,7 @@ final class ServicoContabilizacaoVendas
      *
      * @return list<array{conta: string, valor: string}>
      */
-    private function linhasProveitoEIva(Venda $venda): array
+    public function linhasProveitoEIva(Venda $venda): array
     {
         $contas = [];
         foreach ($venda->itensVenda()->with(['produto' => fn ($q) => $q->withTrashed()])->orderBy('id')->get() as $i => $item) {

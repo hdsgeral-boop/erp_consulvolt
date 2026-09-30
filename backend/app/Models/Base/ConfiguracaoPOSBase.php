@@ -26,7 +26,7 @@ abstract class ConfiguracaoPOSBase extends ModeloBase
     {
         return [
             'empresa_id' => 'integer',
-            'tolerancia_desvio' => 'integer',
+            'tolerancia_desvio' => 'decimal:2',
             'atualizado_em' => 'datetime',
             'criado_em' => 'datetime',
         ];

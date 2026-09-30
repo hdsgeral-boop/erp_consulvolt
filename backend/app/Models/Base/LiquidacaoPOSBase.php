@@ -40,7 +40,7 @@ abstract class LiquidacaoPOSBase extends ModeloBase
             'movimento_caixa_id' => 'integer',
             'documento_tesouraria_id' => 'integer',
             'comissao_deduzida' => 'decimal:2',
-            'documento_comissao_id' => 'decimal:2',
+            'documento_comissao_id' => 'integer',
             'cancelado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
@@ -65,5 +65,10 @@ abstract class LiquidacaoPOSBase extends ModeloBase
     public function documentoTesouraria(): BelongsTo
     {
         return $this->belongsTo(DocumentoTesouraria::class, 'documento_tesouraria_id');
+    }
+
+    public function documentoComissao(): BelongsTo
+    {
+        return $this->belongsTo(DocumentoTesouraria::class, 'documento_comissao_id');
     }
 }

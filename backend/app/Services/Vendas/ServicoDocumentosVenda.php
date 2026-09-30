@@ -51,7 +51,9 @@ final class ServicoDocumentosVenda
     /**
      * @param  array<string, mixed>  $d  tipo_documento, cliente_id, data_emissao, linhas[{produto_id, quantidade, preco_unitario?, descricao?}],
      *                                   venda_origem_id (NC), motivo_nota_credito (NC), conta_disponibilidade + meio_pagamento (FR),
-     *                                   modo_pagamento/plano_pagamentos, dias_validade/valido_ate, observacoes, UN/CC/projecto
+     *                                   modo_pagamento/plano_pagamentos, dias_validade/valido_ate, observacoes, UN/CC/projecto;
+     *                                   pos {origem_serie, percentagem_desconto, colunas} — venda POS (ServicoVendasPOS): preços com IVA,
+     *                                   série do terminal, pagamentos nas contas transitórias do terminal (sem recibo avulso)
      */
     public function emitir(array $d, ?Venda $origemConversao = null): Venda
     {
@@ -65,29 +67,39 @@ final class ServicoDocumentosVenda
         $this->exercicios->exigirAberto($empresa, $data);
 
         $cliente = Terceiro::query()->findOrFail($d['cliente_id']);
-        if (! $cliente->eCliente() || ! $cliente->codigo_conta) {
+        // POS: a factura-recibo lança nas contas transitórias do terminal, não na do cliente (o Consumidor Final do legado não tem conta)
+        if (! $cliente->eCliente() || (! $cliente->codigo_conta && empty($d['pos']))) {
             throw new ErroNegocio('O cliente tem de estar registado como cliente e ter conta contabilística.', 'CLIENTE_INVALIDO', 422);
         }
         $config = ConfigFaturacaoEletronica::query()->first();
         $origemNcPrevia = $tipo === 'NC' ? Venda::query()->find($d['venda_origem_id'] ?? 0) : null;
+        $pos = $d['pos'] ?? null;
+        if ($pos && ($tipo !== 'FR' || (($d['codigo_moeda'] ?? 'AOA') !== 'AOA'))) {
+            throw new ErroNegocio('No POS só se emitem facturas-recibo em Kz.', 'POS_TIPO_INVALIDO', 422);
+        }
         $moeda = $this->resolverMoeda($d, $empresa, $data, $origemNcPrevia);
         $linhas = $this->prepararLinhas($d['linhas'], $fiscal, $config, $moeda['taxa']);
         $calculoMoeda = $moeda['estrangeira'] ? CalculadoraDocumento::calcular($linhas) : null;
         $linhasKz = $moeda['estrangeira']
             ? array_map(fn ($l) => ['preco_unitario' => bcmul($l['preco_unitario'], $moeda['taxa'], 6)] + $l, $linhas) : $linhas;
-        $calculo = CalculadoraDocumento::calcular($linhasKz);
+        $calculo = $pos ? CalculadoraDocumento::calcularComIva($linhasKz, $pos['percentagem_desconto'] ?? 0) : CalculadoraDocumento::calcular($linhasKz);
+        if ($pos) {   // preço da linha passa a ser a base sem IVA e já com o desconto (valor da linha / quantidade)
+            foreach ($linhasKz as $i => $l) {
+                $linhasKz[$i]['preco_unitario'] = $calculo['linhas'][$i]['preco_base'];
+            }
+        }
         $exigirSerieAgt = $fiscal && $this->selagem->emRegimeNaData($config, $data) && ! empty($config?->servico['exigir_series_agt']);
 
-        if ($tipo === 'FR') {
+        if ($tipo === 'FR' && ! $pos) {
             $this->recibos->exigirContaDisponibilidade($d['conta_disponibilidade']
                 ?? throw new ErroNegocio('Indique a conta de disponibilidade (caixa/banco) da factura-recibo.', 'CONTA_DISPONIBILIDADE_EM_FALTA', 422));
         }
         $condicoes = $this->condicoesPagamento($tipo, $d, $data);
 
-        return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt) {
+        return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt, $pos) {
             // dentro da transacção e com a factura de origem bloqueada: duas NC em simultâneo não excedem o saldo
             $origemNc = $tipo === 'NC' ? $this->validarNotaCredito($d, $cliente, $calculo['total_bruto']) : null;
-            $reserva = $this->series->reservar($empresa, $tipo, $data, $fiscal, 'GERAL', $exigirSerieAgt);
+            $reserva = $this->series->reservar($empresa, $tipo, $data, $fiscal, $pos['origem_serie'] ?? 'GERAL', $exigirSerieAgt);
             $bruto = $calculo['total_bruto'];
             $armazem = $this->stockVendas->armazem(isset($d['armazem_id']) ? (int) $d['armazem_id'] : null, $origemConversao ?? $origemNc);
             $venda = Venda::create(array_merge([
@@ -109,7 +121,7 @@ final class ServicoDocumentosVenda
                 'meio_pagamento' => $tipo === 'FR' ? ($d['meio_pagamento'] ?? 'NUMERARIO') : null,
                 'observacoes' => $d['observacoes'] ?? null, 'condicoes_pagamento' => $d['condicoes_pagamento'] ?? null,
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
-            ], $condicoes));
+            ], $condicoes, $pos['colunas'] ?? []));
 
             $itens = new Collection;
             $itensNc = $origemNc ? $origemNc->itensVenda()->orderBy('id')->get() : collect();
@@ -122,6 +134,7 @@ final class ServicoDocumentosVenda
                     'venda_id' => $venda->id, 'produto_id' => $l['produto_id'], 'descricao' => $l['descricao'], 'quantidade' => $l['quantidade'],
                     'preco_unitario' => CalculadoraDocumento::arredondar($linhasKz[$i]['preco_unitario']), 'taxa_imposto' => $l['taxa_imposto'],
                     'total' => $calculo['linhas'][$i]['total'], 'total_linha' => $calculo['linhas'][$i]['valor'], 'observacoes' => $l['observacoes'] ?? null,
+                    'percentagem_desconto' => $pos ? ($pos['percentagem_desconto'] ?? 0) : null,
                     'preco_unitario_moeda' => $calculoMoeda ? $l['preco_unitario'] : null, 'total_moeda' => $calculoMoeda['linhas'][$i]['total'] ?? null,
                     'imposto_moeda' => $calculoMoeda['linhas'][$i]['imposto'] ?? null,
                 ]));
@@ -134,7 +147,7 @@ final class ServicoDocumentosVenda
             if ($origemNc) {
                 $this->estado->recalcular($origemNc->refresh());
             }
-            if ($tipo === 'FR') {
+            if ($tipo === 'FR' && ! $pos) {
                 $this->recibos->criarDaFacturaRecibo($venda, $d['conta_disponibilidade'], $d['meio_pagamento'] ?? 'NUMERARIO', $d['referencia_pagamento'] ?? null);
             }
             if ($fiscal) {

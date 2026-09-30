@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\Logistica\ProdutoController;
 use App\Http\Controllers\Api\Logistica\StockController;
 use App\Http\Controllers\Api\Orcamento\OrcamentoController;
 use App\Http\Controllers\Api\Orcamento\PlaneamentoOrcamentalController;
+use App\Http\Controllers\Api\POS\POSController;
 use App\Http\Controllers\Api\RH\AssiduidadeController;
 use App\Http\Controllers\Api\RH\AvaliacaoController;
 use App\Http\Controllers\Api\RH\CadastrosRHController;
@@ -404,6 +405,28 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('autoavaliacao', 'gravarAutoavaliacao')->name('autoavaliacao.gravar');
             Route::post('ascendente', 'responderAscendente')->name('ascendente.responder');
             Route::get('ascendente/{colaborador}', 'resultadosAscendente')->whereNumber('colaborador')->name('ascendente.resultados');
+        });
+
+        Route::prefix('pos')->name('pos.')->controller(POSController::class)->group(function () {
+            Route::get('terminais', 'terminais')->name('terminais.index');
+            Route::post('terminais', 'guardarTerminal')->name('terminais.store');
+            Route::get('terminais/{terminal}', 'terminal')->whereNumber('terminal')->name('terminais.show');
+            Route::put('terminais/{terminal}', 'guardarTerminal')->whereNumber('terminal')->name('terminais.update');
+            Route::delete('terminais/{terminal}', 'eliminarTerminal')->whereNumber('terminal')->name('terminais.destroy');
+            Route::post('terminais/{terminal}/copiar-meios', 'copiarMeios')->whereNumber('terminal')->name('terminais.copiar');
+            Route::post('terminais/{terminal}/ativo', 'ativarTerminal')->whereNumber('terminal')->name('terminais.ativo');
+            Route::post('terminais/{terminal}/sessoes', 'abrirSessao')->whereNumber('terminal')->name('sessoes.abrir');
+            Route::get('definicoes', 'definicoes')->name('definicoes.show');
+            Route::put('definicoes', 'guardarDefinicoes')->name('definicoes.update');
+            Route::get('sessoes', 'sessoes')->name('sessoes.index');
+            Route::get('sessoes/{sessao}', 'sessao')->whereNumber('sessao')->name('sessoes.show');
+            Route::get('sessoes/{sessao}/relatorio-x', 'relatorioX')->whereNumber('sessao')->name('sessoes.x');
+            Route::post('sessoes/{sessao}/fechar', 'fecharSessao')->whereNumber('sessao')->name('sessoes.fechar');
+            Route::post('sessoes/{sessao}/vendas', 'vender')->whereNumber('sessao')->name('sessoes.vender');
+            Route::post('sessoes/{sessao}/contabilizar', 'contabilizar')->whereNumber('sessao')->name('sessoes.contabilizar');
+            Route::post('sessoes/{sessao}/descontabilizar', 'descontabilizar')->whereNumber('sessao')->name('sessoes.descontabilizar');
+            Route::post('sessoes/{sessao}/deliberacao', 'deliberar')->whereNumber('sessao')->name('sessoes.deliberar');
+            Route::post('sessoes/{sessao}/deliberacao/anular', 'anularDeliberacao')->whereNumber('sessao')->name('sessoes.deliberacao.anular');
         });
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {

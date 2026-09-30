@@ -387,7 +387,8 @@ for (const [modulo, defs] of modulos) {
       const condicoes = [def.eliminacaoLogica && 'eliminado_em IS NULL', u.onde].filter(Boolean);
       extra.push(`        DB::statement(${phpStr(`CREATE UNIQUE INDEX ${n} ON ${def.pt} (${u.join(', ')})${condicoes.length ? ` WHERE ${condicoes.join(' AND ')}` : ''}`)});`);
     }
-    const indexados = new Set(def.unicos.map((u) => u[0]));
+    // um único parcial por estado (ex.: só a sessão ABERTA) não serve as pesquisas da FK: esse índice mantém-se
+    const indexados = new Set(def.unicos.filter((u) => !u.onde).map((u) => u[0]));
     for (const c of cols) if ((c.fk || c.pt === 'empresa_id') && !indexados.has(c.pt) && !(def.chavePrimaria && def.chavePrimaria[0] === c.pt)) {
       extra.push(`        DB::statement('CREATE INDEX ${nomeIndice('ix', def.pt, [c.pt])} ON ${def.pt} (${c.pt})');`);
     }

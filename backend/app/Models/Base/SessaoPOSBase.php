@@ -49,7 +49,7 @@ abstract class SessaoPOSBase extends ModeloBase
             'numerario_esperado' => 'decimal:2',
             'numerario_contado' => 'decimal:2',
             'contagens_numerario' => 'array',
-            'desvio' => 'integer',
+            'desvio' => 'decimal:2',
             'fechos_tpa' => 'array',
             'lans_contabilizacao' => 'array',
             'diario_contabilizacao_id' => 'integer',

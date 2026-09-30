@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\Logistica\ServicoMigracaoStock;
 use App\Services\Migracao\ServicoMigracaoLegado;
+use App\Services\POS\ServicoMigracaoPOS;
 use App\Services\RH\ServicoFolhaSalarial;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Console\Command;
@@ -93,6 +94,10 @@ final class MigrarBackupLegado extends Command
             }
             $this->info("Stock: {$st['sem_tipo']} saída(s) de guia sem tipo classificada(s); {$st['acertos']} acerto(s) de saldo inicial; {$st['totais_corrigidos']} total(is) de produto alinhado(s); "
                 ."custo médio inicial em {$st['com_custo']} produto(s), {$st['sem_custo']} sem custo conhecido (ver Sistema › Validações).");
+
+            // POS: chaves dos JSON do legado (meios, totais do Z, talões TPA, deliberações, pagamentos) em português
+            $pos = DB::transaction(fn () => app(ServicoMigracaoPOS::class)->normalizar());
+            $this->info("POS: JSON normalizados em {$pos['terminais']} terminal(is), {$pos['sessoes']} sessão(ões) e {$pos['vendas']} venda(s).");
         }
 
         return self::SUCCESS;

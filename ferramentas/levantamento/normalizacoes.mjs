@@ -22,7 +22,7 @@ export const NORMALIZACOES = {
     'GUIA DE DEVOLUCAO': 'GD', GD: 'GD' } },
   'sales.status': { dominio: ['PENDENTE', 'PARCIAL', 'PAGO', 'CONCLUIDO', 'ANULADO'], mapa: {
     PENDENTE: 'PENDENTE', PARCIAL: 'PARCIAL', PAGO: 'PAGO', CONCLUIDO: 'CONCLUIDO', ANULADO: 'ANULADO', ANULADA: 'ANULADO' } },
-  'sales.payment_method': { dominio: ['NUMERARIO', 'TPA', 'TRANSFERENCIA', 'CONTA_CORRENTE'], mapa: {
+  'sales.payment_method': { dominio: ['NUMERARIO', 'TPA', 'TRANSFERENCIA', 'CONTA_CORRENTE', 'MISTO'], mapa: {   // MISTO: venda POS com vários meios
     NUMERARIO: 'NUMERARIO', MULTICAIXA: 'TPA', 'MULTICAIXA (TPA)': 'TPA', TPA: 'TPA',
     'TRANSFERENCIA BANCARIA': 'TRANSFERENCIA', TRANSFERENCIA: 'TRANSFERENCIA', 'CONTA CORRENTE': 'CONTA_CORRENTE' } },
   'sales.payment_mode': { dominio: ['PRONTO', 'PRAZO', 'MARCOS'], mapa: { PRONTO: 'PRONTO', PRAZO: 'PRAZO', MARCOS: 'MARCOS' } },
@@ -104,7 +104,7 @@ export const NORMALIZACOES = {
   'reconciliation_matches.match_type': { dominio: ['AUTOMATICA', 'MANUAL'], mapa: { AUTO: 'AUTOMATICA', MANUAL: 'MANUAL' } },
   'cash_lines.source_type': { dominio: ['CONTABILIDADE', 'IMPORTACAO', 'MANUAL', 'FATURA_COMPRA', 'POS'], mapa: {
     CONTABILIDADE: 'CONTABILIDADE', IMPORT: 'IMPORTACAO', MANUAL: 'MANUAL', 'PURCHASE INVOICE': 'FATURA_COMPRA', POS: 'POS' } },
-  'pos_terminals.type': { dominio: ['LOJA', 'LAVANDARIA', 'HOTELARIA'], mapa: { LOJA: 'LOJA', LAVANDARIA: 'LAVANDARIA', HOTELARIA: 'HOTELARIA' } },
+  'pos_terminals.type': { dominio: ['LOJA', 'RESTAURANTE', 'LAVANDARIA', 'HOTELARIA'], mapa: { LOJA: 'LOJA', RESTAURANTE: 'RESTAURANTE', LAVANDARIA: 'LAVANDARIA', HOTELARIA: 'HOTELARIA' } },
   'pos_sessions.deviation_status': { dominio: ['NAO_APLICAVEL', 'SEM_DESVIO', 'DELIBERADO', 'PENDENTE'], mapa: {
     'N/A': 'NAO_APLICAVEL', 'SEM DESVIO': 'SEM_DESVIO', DELIBERADO: 'DELIBERADO', PENDENTE: 'PENDENTE' } },
 

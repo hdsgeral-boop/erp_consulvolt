@@ -92,6 +92,20 @@ final class ServicoValidacoesDados
                 'sql' => 'SELECT id AS produto_id, codigo, nome, quantidade_stock FROM produtos
                           WHERE empresa_id = ? AND movimenta_stock AND eliminado_em IS NULL AND quantidade_stock <> 0 AND COALESCE(custo_medio, 0) = 0 ORDER BY codigo',
             ],
+            'pos_sessoes_abertas_antigas' => [
+                'titulo' => 'POS: sessões abertas de dias anteriores', 'modulo' => 'POS', 'gravidade' => 'AVISO',
+                'descricao' => 'Sessões de caixa por fechar desde um dia anterior: as vendas continuam a entrar nelas e o Z fica com vários dias. Feche-as (fecho Z).',
+                'legado' => 'O legado só avisava ao abrir o POS (js/pos_gestao.js:147)',
+                'sql' => "SELECT s.id AS sessao_id, s.codigo_sessao, s.codigo_terminal, s.nome_operador, s.aberto_em FROM sessoes_pos s
+                          WHERE s.empresa_id = ? AND s.estado = 'ABERTA' AND s.aberto_em < date_trunc('day', now()) ORDER BY s.aberto_em",
+            ],
+            'pos_sessoes_por_integrar' => [
+                'titulo' => 'POS: sessões fechadas por integrar ou com desvio por deliberar', 'modulo' => 'POS', 'gravidade' => 'AVISO',
+                'descricao' => 'Sessões com o Z feito cujas vendas ainda não estão na contabilidade, ou cujo desvio de caixa acima da tolerância aguarda decisão.',
+                'legado' => 'Painel de integração e desvios (js/pos_prestacao.js)',
+                'sql' => "SELECT s.id AS sessao_id, s.numero_z, s.codigo_terminal, s.fechado_em, s.total_vendas, s.estado_contabilizacao, s.estado_desvio, s.desvio FROM sessoes_pos s
+                          WHERE s.empresa_id = ? AND s.estado = 'FECHADA' AND (s.estado_contabilizacao = 'PENDENTE' OR s.estado_desvio = 'PENDENTE') ORDER BY s.fechado_em",
+            ],
             'colaboradores_activos_sem_iban' => [
                 'titulo' => 'Colaboradores activos sem IBAN', 'modulo' => 'RH', 'gravidade' => 'AVISO',
                 'descricao' => 'Sem coordenadas bancárias não entram numa carta de pagamento. No legado os botões do ecrã de IBAN não funcionavam: só a importação gravava.',

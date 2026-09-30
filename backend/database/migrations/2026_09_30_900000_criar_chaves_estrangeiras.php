@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (500) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (501) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -331,6 +331,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE liquidacoes_pos ADD CONSTRAINT fk_liquidacoes_pos_sessao_caixa_id FOREIGN KEY (sessao_caixa_id) REFERENCES sessoes_caixa (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE liquidacoes_pos ADD CONSTRAINT fk_liquidacoes_pos_movimento_caixa_id FOREIGN KEY (movimento_caixa_id) REFERENCES movimentos_caixa (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE liquidacoes_pos ADD CONSTRAINT fk_liquidacoes_pos_documento_tesouraria_id FOREIGN KEY (documento_tesouraria_id) REFERENCES documentos_tesouraria (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE liquidacoes_pos ADD CONSTRAINT fk_liquidacoes_pos_documento_comissao_id FOREIGN KEY (documento_comissao_id) REFERENCES documentos_tesouraria (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_pos ADD CONSTRAINT fk_configuracoes_pos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE estadias_hotel ADD CONSTRAINT fk_estadias_hotel_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE estadias_hotel ADD CONSTRAINT fk_estadias_hotel_terminal_pos_id FOREIGN KEY (terminal_pos_id) REFERENCES terminais_pos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -835,6 +836,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE liquidacoes_pos DROP CONSTRAINT IF EXISTS fk_liquidacoes_pos_sessao_caixa_id');
         DB::statement('ALTER TABLE liquidacoes_pos DROP CONSTRAINT IF EXISTS fk_liquidacoes_pos_movimento_caixa_id');
         DB::statement('ALTER TABLE liquidacoes_pos DROP CONSTRAINT IF EXISTS fk_liquidacoes_pos_documento_tesouraria_id');
+        DB::statement('ALTER TABLE liquidacoes_pos DROP CONSTRAINT IF EXISTS fk_liquidacoes_pos_documento_comissao_id');
         DB::statement('ALTER TABLE configuracoes_pos DROP CONSTRAINT IF EXISTS fk_configuracoes_pos_empresa_id');
         DB::statement('ALTER TABLE estadias_hotel DROP CONSTRAINT IF EXISTS fk_estadias_hotel_empresa_id');
         DB::statement('ALTER TABLE estadias_hotel DROP CONSTRAINT IF EXISTS fk_estadias_hotel_terminal_pos_id');

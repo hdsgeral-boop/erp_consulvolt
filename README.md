@@ -163,6 +163,11 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST/PUT/DELETE | `/api/orcamento/previsoes[/{id}]` · POST `/revisao` · `/publicar` | Previsões deslizantes (12 meses) |
 | GET/POST/PUT/DELETE | `/api/orcamento/orcamentos/{id}/cenarios` · `/cenarios/padrao` · `/api/orcamento/cenarios[/{id}]` · POST `/gerar-versao` | Cenários what-if |
 | GET | `/api/orcamento/orcamentos/{id}/desvios/{rubrica}` | Análise do desvio de uma rubrica |
+| GET/POST/PUT/DELETE | `/api/pos/terminais[/{id}]` · POST `/copiar-meios` · `/ativo` | Terminais POS e meios de pagamento |
+| GET/PUT | `/api/pos/definicoes` | Contas de sobras/quebras/operador, tolerância e diário |
+| POST | `/api/pos/terminais/{id}/sessoes` · GET `/api/pos/sessoes[/{id}]` · `/relatorio-x` · POST `/fechar` | Abertura, relatório X e fecho Z |
+| POST | `/api/pos/sessoes/{id}/vendas` | Venda POS (factura-recibo) |
+| POST | `/api/pos/sessoes/{id}/contabilizar` · `/descontabilizar` · `/deliberacao` · `/deliberacao/anular` | Integração e desvios de caixa |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

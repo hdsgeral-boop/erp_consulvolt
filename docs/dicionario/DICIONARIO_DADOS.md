@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T17:15:59.806Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T18:37:13.592Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -80,7 +80,7 @@
 | `third_parties.type` | CLIENTE, FORNECEDOR, COLABORADOR, CLIENTE_FORNECEDOR | CLIENTE → CLIENTE; FORNECEDOR → FORNECEDOR; Colaborador → COLABORADOR; COLABORADOR → COLABORADOR; FORNECEDOR, CLIENTE → CLIENTE_FORNECEDOR |
 | `sales.doc_type` | FT, FR, NC, ND, PF, OR, NE, GR, GD | Factura → FT; Factura-Recibo → FR; Encomenda → NE; Orçamento → OR; Orcamento → OR; Proforma → PF; Guia de Remessa → GR; Factura Proforma → PF; Nota de CRÉDITO → NC |
 | `sales.status` | PENDENTE, PARCIAL, PAGO, CONCLUIDO, ANULADO | PENDENTE → PENDENTE; PAGO → PAGO; CONCLUIDO → CONCLUIDO; Pendente → PENDENTE |
-| `sales.payment_method` | NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE | Numerário → NUMERARIO; Numerario → NUMERARIO; Multicaixa → TPA; Transferência bancária → TRANSFERENCIA; Conta corrente → CONTA_CORRENTE; Multicaixa (TPA) → TPA; Transferencia → TRANSFERENCIA |
+| `sales.payment_method` | NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE, MISTO | Numerário → NUMERARIO; Numerario → NUMERARIO; Multicaixa → TPA; Transferência bancária → TRANSFERENCIA; Conta corrente → CONTA_CORRENTE; Multicaixa (TPA) → TPA; Transferencia → TRANSFERENCIA |
 | `sales.payment_mode` | PRONTO, PRAZO, MARCOS | MARCOS → MARCOS; PRONTO → PRONTO |
 | `purchase_items.parent_type` | PEDIDO, COTACAO, ENCOMENDA, FATURA | QUOTE → COTACAO; ORDER → ENCOMENDA; REQUEST → PEDIDO; INVOICE → FATURA |
 | `purchase_contracts.status` | ATIVO, EXPIRADO, CANCELADO | ATIVO → ATIVO |
@@ -130,7 +130,7 @@
 | `reconciliations.type` | ATUALIZACAO_LOTE | BATCH_UPDATE → ATUALIZACAO_LOTE |
 | `reconciliation_matches.match_type` | AUTOMATICA, MANUAL | AUTO → AUTOMATICA; MANUAL → MANUAL |
 | `cash_lines.source_type` | CONTABILIDADE, IMPORTACAO, MANUAL, FATURA_COMPRA, POS | contabilidade → CONTABILIDADE; import → IMPORTACAO; manual → MANUAL; purchase_invoice → FATURA_COMPRA; pos → POS |
-| `pos_terminals.type` | LOJA, LAVANDARIA, HOTELARIA | loja → LOJA; lavandaria → LAVANDARIA; hotelaria → HOTELARIA |
+| `pos_terminals.type` | LOJA, RESTAURANTE, LAVANDARIA, HOTELARIA | loja → LOJA; lavandaria → LAVANDARIA; hotelaria → HOTELARIA |
 | `pos_sessions.deviation_status` | NAO_APLICAVEL, SEM_DESVIO, DELIBERADO, PENDENTE | N/A → NAO_APLICAVEL; SEM_DESVIO → SEM_DESVIO; DELIBERADO → DELIBERADO |
 | `journal_lines.source_doc_type` | FATURA_COMPRA, RECECAO_COMPRA | PURCHASE_INVOICE → FATURA_COMPRA; PURCHASE_DELIVERY → RECECAO_COMPRA |
 | `recycled_journal_lines.source_doc_type` | FATURA_COMPRA, RECECAO_COMPRA | PURCHASE_INVOICE → FATURA_COMPRA |
@@ -639,7 +639,7 @@ Linhas reais: **102** · fictícias descartadas: 16
 | `cost_center_id` | `centro_custo_id` | bigint | sim | 46% | `centros_custo.id` |  |
 | `discount` | `desconto` | numeric(15,2) | sim | 27% |  |  |
 | `pos_session_id` | `sessao_pos_id` | bigint | sim | 27% | `sessoes_pos.id` ⚠ 60.7% (11 órfãos) |  |
-| `payment_method` | `meio_pagamento` | varchar(20) | sim | 27% |  | código normalizado ∈ {NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE}; texto original em meio_pagamento_original |
+| `payment_method` | `meio_pagamento` | varchar(20) | sim | 27% |  | código normalizado ∈ {NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE, MISTO}; texto original em meio_pagamento_original |
 | `payment_method` | `meio_pagamento_original` | varchar(50) | sim | 27% |  | texto exacto do legado |
 | `table_name` | `nome_tabela` | varchar(50) | sim | 8% |  |  |
 | `third_party_id` | `terceiro_id` | bigint | sim | 0% | `terceiros.id` | tipos Dexie: {"undef":2} |
@@ -1991,7 +1991,7 @@ Linhas reais: **8** · fictícias descartadas: 0
 | `pos_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `code` | `codigo` | varchar(10) | sim | 100% |  |  |
 | `name` | `nome` | varchar(30) | sim | 100% |  |  |
-| `type` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {LOJA, LAVANDARIA, HOTELARIA}; texto original em tipo_original |
+| `type` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {LOJA, RESTAURANTE, LAVANDARIA, HOTELARIA}; texto original em tipo_original |
 | `type` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `business_unit_id` | `unidade_negocio_id` | bigint | sim | 63% | `unidades_negocio.id` |  |
 | `cost_center_id` | `centro_custo_id` | bigint | sim | 63% | `centros_custo.id` |  |
@@ -2051,7 +2051,7 @@ Linhas reais: **4** · fictícias descartadas: 0
 | `cash_expected` | `numerario_esperado` | numeric(15,2) | sim | 50% |  |  |
 | `cash_counted` | `numerario_contado` | numeric(15,2) | sim | 50% |  |  |
 | `cash_counts` | `contagens_numerario` | jsonb | sim | 50% |  |  |
-| `deviation` | `desvio` | integer | sim | 50% |  |  |
+| `deviation` | `desvio` | numeric(15,2) | sim | 50% |  | tipo forçado (inferido: integer) |
 | `tpa_closes` | `fechos_tpa` | jsonb | sim | 50% |  |  |
 | `justification` | `justificacao` | text | sim | 25% |  |  |
 | `posting_lans` | `lans_contabilizacao` | jsonb | sim | 50% |  |  |
@@ -2101,7 +2101,7 @@ Linhas reais: **1** · fictícias descartadas: 0
 | `account_surplus` | `conta_sobra` | varchar(10) | sim | 100% |  |  |
 | `account_shortage` | `conta_quebra` | varchar(10) | sim | 100% |  |  |
 | `account_operator` | `conta_operador` | varchar(10) | sim | 100% |  |  |
-| `deviation_tolerance` | `tolerancia_desvio` | integer | sim | 100% |  |  |
+| `deviation_tolerance` | `tolerancia_desvio` | numeric(15,2) | sim | 100% |  | tipo forçado (inferido: integer) |
 | `journal_code` | `codigo_diario` | varchar(10) | sim | 100% |  |  |
 | `updated_at` | `atualizado_em` | timestamptz | sim | 100% |  |  |
 | `updated_by` | `atualizado_por` | varchar(10) | sim | 100% |  |  |

@@ -32,6 +32,43 @@ final class CalculadoraDocumento
         return ['linhas' => $saida, 'total_liquido' => $liquido, 'total_imposto' => $imposto, 'total_bruto' => bcadd($liquido, $imposto, 2)];
     }
 
+    /**
+     * POS e lavandaria: o preço INCLUI IVA e o desconto global é uma percentagem sobre o total com IVA
+     * (construir, js/facturacao_agt.js:240-266). Para cada linha, o valor cobrado é arred(qtd × preço × (1 − desc));
+     * a base é a maior base cuja soma com o imposto (arredondado por excesso) não excede o valor cobrado.
+     * O cabeçalho fica coerente (líquido + imposto = bruto; o legado gravava o líquido e o imposto antes do desconto).
+     *
+     * @param  list<array{quantidade: string|float|int, preco_unitario: string|float|int, taxa_imposto: string|float|int}>  $linhas  preço com IVA
+     * @return array{linhas: list<array{valor: string, imposto: string, total: string, preco_base: string}>, total_liquido: string, total_imposto: string, total_bruto: string}
+     */
+    public static function calcularComIva(array $linhas, string|float|int $percentagemDesconto = 0): array
+    {
+        $fator = bcsub('1', bcdiv(self::n($percentagemDesconto), '100', 8), 8);
+        $liquido = $imposto = '0.00';
+        $saida = [];
+        foreach ($linhas as $l) {
+            $taxa = self::n($l['taxa_imposto']);
+            $cobrado = self::arredondar(bcmul(bcmul(self::n($l['quantidade']), self::n($l['preco_unitario']), 8), $fator, 8), 2);
+            $v = self::arredondar(bcdiv($cobrado, bcadd('1', bcdiv($taxa, '100', 8), 8), 8), 2);
+            $bruto = fn (string $b) => bcadd($b, self::excessoCentimo(bcdiv(bcmul($b, $taxa, 8), '100', 8)), 2);
+            for ($k = 0; $k < 4 && bccomp($bruto($v), $cobrado, 2) !== 0; $k++) {
+                $v = bcadd($v, bccomp($bruto($v), $cobrado, 2) > 0 ? '-0.01' : '0.01', 2);
+            }
+            if (bccomp($bruto($v), $cobrado, 2) > 0) {
+                $v = bcsub($v, '0.01', 2);
+            }
+            $v = bccomp($v, '0', 2) < 0 ? '0.00' : $v;
+            $iva = self::excessoCentimo(bcdiv(bcmul($v, $taxa, 8), '100', 8));
+            $qtd = self::n($l['quantidade']);
+            $saida[] = ['valor' => $v, 'imposto' => $iva, 'total' => bcadd($v, $iva, 2),
+                'preco_base' => bccomp($qtd, '0', 8) > 0 ? self::arredondar(bcdiv($v, $qtd, 10), 6) : '0'];
+            $liquido = bcadd($liquido, $v, 2);
+            $imposto = bcadd($imposto, $iva, 2);
+        }
+
+        return ['linhas' => $saida, 'total_liquido' => $liquido, 'total_imposto' => $imposto, 'total_bruto' => bcadd($liquido, $imposto, 2)];
+    }
+
     /** Arredondamento "half away from zero" a $casas decimais. */
     public static function arredondar(string $v, int $casas = 2): string
     {

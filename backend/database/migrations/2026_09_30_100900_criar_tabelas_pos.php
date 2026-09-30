@@ -20,7 +20,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: pos_company_id');
             $table->string('codigo', 50)->nullable()->comment('legado: code');
             $table->string('nome', 255)->nullable()->comment('legado: name');
-            $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {LOJA, LAVANDARIA, HOTELARIA}; texto original em tipo_original');
+            $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {LOJA, RESTAURANTE, LAVANDARIA, HOTELARIA}; texto original em tipo_original');
             $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
@@ -53,7 +53,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_terminais_pos_centro_custo_id ON terminais_pos (centro_custo_id)');
         DB::statement('CREATE INDEX ix_terminais_pos_armazem_id ON terminais_pos (armazem_id)');
         DB::statement('CREATE INDEX ix_terminais_pos_cliente_padrao_id ON terminais_pos (cliente_padrao_id)');
-        DB::statement('ALTER TABLE terminais_pos ADD CONSTRAINT ck_terminais_pos_tipo CHECK (tipo IS NULL OR tipo IN (\'LOJA\',\'LAVANDARIA\',\'HOTELARIA\'))');
+        DB::statement('ALTER TABLE terminais_pos ADD CONSTRAINT ck_terminais_pos_tipo CHECK (tipo IS NULL OR tipo IN (\'LOJA\',\'RESTAURANTE\',\'LAVANDARIA\',\'HOTELARIA\'))');
 
         // pos_sessions (legado) -> sessoes_pos · 4 linhas reais no backup
         Schema::create('sessoes_pos', function (Blueprint $table) {
@@ -83,7 +83,7 @@ return new class extends Migration
             $table->decimal('numerario_esperado', 15, 2)->nullable()->comment('legado: cash_expected');
             $table->decimal('numerario_contado', 15, 2)->nullable()->comment('legado: cash_counted');
             $table->jsonb('contagens_numerario')->nullable()->comment('legado: cash_counts');
-            $table->integer('desvio')->nullable()->comment('legado: deviation');
+            $table->decimal('desvio', 15, 2)->nullable()->comment('legado: deviation · tipo forçado (inferido: integer)');
             $table->jsonb('fechos_tpa')->nullable()->comment('legado: tpa_closes');
             $table->text('justificacao')->nullable()->comment('legado: justification');
             $table->jsonb('lans_contabilizacao')->nullable()->comment('legado: posting_lans');
@@ -97,6 +97,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_sessoes_pos_terminal_pos_id ON sessoes_pos (terminal_pos_id) WHERE estado = \'ABERTA\'');
         DB::statement('CREATE INDEX ix_sessoes_pos_empresa_id ON sessoes_pos (empresa_id)');
         DB::statement('CREATE INDEX ix_sessoes_pos_terminal_pos_id ON sessoes_pos (terminal_pos_id)');
         DB::statement('CREATE INDEX ix_sessoes_pos_diario_contabilizacao_id ON sessoes_pos (diario_contabilizacao_id)');
@@ -128,17 +129,19 @@ return new class extends Migration
             $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number');
             $table->string('referencia', 50)->nullable()->comment('legado: reference · tipos mistos: string_inteiro=2, string=1');
             $table->decimal('comissao_deduzida', 15, 2)->nullable()->comment('legado: commission_deducted · do código legado js/pos_prestacao.js:761');
-            $table->decimal('documento_comissao_id', 15, 2)->nullable()->comment('legado: commission_doc_id · do código legado js/pos_prestacao.js:761');
+            $table->bigInteger('documento_comissao_id')->nullable()->comment('legado: commission_doc_id · do código legado js/pos_prestacao.js:761');
             $table->timestampTz('cancelado_em')->nullable()->comment('legado: cancelled_at · do código legado js/pos_prestacao.js:790');
             $table->string('cancelado_por', 255)->nullable()->comment('legado: cancelled_by · do código legado js/pos_prestacao.js:790');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_liquidacoes_pos_sessao_pos_id_chave_item ON liquidacoes_pos (sessao_pos_id, chave_item) WHERE estado = \'REGISTADO\'');
         DB::statement('CREATE INDEX ix_liquidacoes_pos_empresa_id ON liquidacoes_pos (empresa_id)');
         DB::statement('CREATE INDEX ix_liquidacoes_pos_sessao_pos_id ON liquidacoes_pos (sessao_pos_id)');
         DB::statement('CREATE INDEX ix_liquidacoes_pos_sessao_caixa_id ON liquidacoes_pos (sessao_caixa_id)');
         DB::statement('CREATE INDEX ix_liquidacoes_pos_movimento_caixa_id ON liquidacoes_pos (movimento_caixa_id)');
         DB::statement('CREATE INDEX ix_liquidacoes_pos_documento_tesouraria_id ON liquidacoes_pos (documento_tesouraria_id)');
+        DB::statement('CREATE INDEX ix_liquidacoes_pos_documento_comissao_id ON liquidacoes_pos (documento_comissao_id)');
 
         // pos_settings (legado) -> configuracoes_pos · 1 linhas reais no backup
         Schema::create('configuracoes_pos', function (Blueprint $table) {
@@ -147,7 +150,7 @@ return new class extends Migration
             $table->string('conta_sobra', 20)->nullable()->comment('legado: account_surplus');
             $table->string('conta_quebra', 20)->nullable()->comment('legado: account_shortage');
             $table->string('conta_operador', 20)->nullable()->comment('legado: account_operator');
-            $table->integer('tolerancia_desvio')->nullable()->comment('legado: deviation_tolerance');
+            $table->decimal('tolerancia_desvio', 15, 2)->nullable()->comment('legado: deviation_tolerance · tipo forçado (inferido: integer)');
             $table->string('codigo_diario', 50)->nullable()->comment('legado: journal_code');
             $table->string('atualizado_por', 100)->nullable()->comment('legado: updated_by');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at');

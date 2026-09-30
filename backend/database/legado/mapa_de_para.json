@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T17:15:59.806Z",
+  "gerado_em": "2026-09-30T18:37:13.592Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -3955,14 +3955,15 @@
           "preenchimento": 0.2745,
           "max_comprimento": 22,
           "notas": [
-            "código normalizado ∈ {NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE}; texto original em meio_pagamento_original"
+            "código normalizado ∈ {NUMERARIO, TPA, TRANSFERENCIA, CONTA_CORRENTE, MISTO}; texto original em meio_pagamento_original"
           ],
           "normalizacao": {
             "dominio": [
               "NUMERARIO",
               "TPA",
               "TRANSFERENCIA",
-              "CONTA_CORRENTE"
+              "CONTA_CORRENTE",
+              "MISTO"
             ],
             "mapa": {
               "NUMERARIO": "NUMERARIO",
@@ -15099,16 +15100,18 @@
           "preenchimento": 1,
           "max_comprimento": 10,
           "notas": [
-            "código normalizado ∈ {LOJA, LAVANDARIA, HOTELARIA}; texto original em tipo_original"
+            "código normalizado ∈ {LOJA, RESTAURANTE, LAVANDARIA, HOTELARIA}; texto original em tipo_original"
           ],
           "normalizacao": {
             "dominio": [
               "LOJA",
+              "RESTAURANTE",
               "LAVANDARIA",
               "HOTELARIA"
             ],
             "mapa": {
               "LOJA": "LOJA",
+              "RESTAURANTE": "RESTAURANTE",
               "LAVANDARIA": "LAVANDARIA",
               "HOTELARIA": "HOTELARIA"
             }
@@ -15671,11 +15674,13 @@
         {
           "legado": "deviation",
           "pt": "desvio",
-          "tipo_pg": "integer",
+          "tipo_pg": "numeric(15,2)",
           "nulo": true,
           "preenchimento": 0.5,
           "max_comprimento": 6,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: integer)"
+          ]
         },
         {
           "legado": "tpa_closes",
@@ -16079,11 +16084,13 @@
         {
           "legado": "deviation_tolerance",
           "pt": "tolerancia_desvio",
-          "tipo_pg": "integer",
+          "tipo_pg": "numeric(15,2)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 1,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: integer)"
+          ]
         },
         {
           "legado": "journal_code",
