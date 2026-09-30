@@ -41,6 +41,7 @@ export const UNICOS = [
   ['colaboradores', ['empresa_id', 'nif']],
   ['tipos_organizacao_rh', ['empresa_id', 'nome']],
   ['periodos_processamento_salarial', ['empresa_id', 'mes_ano']],
+  ['coordenadas_bancarias_colaboradores', ['empresa_id', 'colaborador_id']],   // um IBAN por colaborador (upsert do legado)
   // Numeração única obrigatória só nos documentos fiscais (AGT). Orçamentos/proformas do legado repetem números
   // (o legado tratava "Orçamento" e "Orcamento" como tipos distintos) -> relatório de validação.
   ['vendas', ['empresa_id', 'tipo_documento', 'numero_documento'], "tipo_documento IN ('FT','FR','NC','ND')"],
@@ -189,6 +190,13 @@ export const COLUNAS_NOVAS = {
     ['validado_em', 'timestamptz', null, 'Validação'], ['validado_por', 'varchar(100)', null, 'Quem validou'],
     ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento da integração no diário SAL'],
     ['modo_calculo', 'varchar(10)', null, 'ATUAL (regras corrigidas) ou LEGADO (reprodução do motor antigo, períodos migrados)'],
+  ],
+  // ADR-037 (RH parte 1b): carta de pagamento = ordem bancária gravada de um período validado, paga por documento de tesouraria
+  cartas_pagamento_bancario: [
+    ['periodo_processamento_salarial_id', 'bigint', 'periodos_processamento_salarial', 'Processamento salarial pago por esta carta'],
+    ['documento_tesouraria_id', 'bigint', 'documentos_tesouraria', 'Pagamento (PAG) gerado a partir da carta'],
+    ['grupo', 'varchar(20)', null, 'COLABORADORES, AVENCADOS ou TODOS'],
+    ['criado_por', 'varchar(100)', null, 'Quem emitiu a carta'],
   ],
   // ADR-035 (Compras parte 2): contratos com rasto de cancelamento; marcos ligados à factura (estado deixa de ser manual)
   contratos_fornecedores: [

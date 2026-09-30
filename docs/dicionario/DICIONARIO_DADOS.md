@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T13:33:48.903Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T14:12:58.164Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -92,6 +92,7 @@
 | `purchase_invoices.status` | PENDENTE, PARCIAL, PAGO, ANULADA | PENDENTE → PENDENTE; PAGO → PAGO |
 | `inventory_movements.type` | ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE | SAÍDA → SAIDA; ENTRADA → ENTRADA |
 | `inventory_sessions.status` | EM_CONTAGEM, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
+| `infotypes.calculo_horas` | EXTRA, FALTA, NAO |  |
 | `payroll_periods.status` | ABERTO, FECHADO, VALIDADO | VALIDADO → VALIDADO; ABERTO → ABERTO |
 | `employees.status` | ACTIVO, INACTIVO, SUSPENSO | ACTIVO → ACTIVO; Não ACTIVO → INACTIVO; NÃO ACTIVO → INACTIVO |
 | `employees.estado_civil` | SOLTEIRO, CASADO, DIVORCIADO, VIUVO, UNIAO_FACTO | Solteiro(a) → SOLTEIRO; Casado(a) → CASADO |

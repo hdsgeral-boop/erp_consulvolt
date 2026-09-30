@@ -2,6 +2,7 @@
 
 namespace App\Models\Base;
 
+use App\Models\CartaPagamentoBancario;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\DocumentoTesouraria;
@@ -40,6 +41,11 @@ abstract class PeriodoProcessamentoSalarialBase extends ModeloBase
     public function linhasFolhaSalarial(): HasMany
     {
         return $this->hasMany(LinhaFolhaSalarial::class, 'periodo_processamento_salarial_id');
+    }
+
+    public function cartasPagamentoBancario(): HasMany
+    {
+        return $this->hasMany(CartaPagamentoBancario::class, 'periodo_processamento_salarial_id');
     }
 
     public function documentosTesouraria(): HasMany

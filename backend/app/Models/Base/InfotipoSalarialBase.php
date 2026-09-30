@@ -33,7 +33,6 @@ abstract class InfotipoSalarialBase extends ModeloBase
             'empresa_id' => 'integer',
             'sujeito_inss' => 'boolean',
             'base_horaria' => 'boolean',
-            'calculo_horas' => 'decimal:3',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',

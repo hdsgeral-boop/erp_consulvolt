@@ -2,6 +2,7 @@
 
 namespace App\Models\Base;
 
+use App\Models\CartaPagamentoBancario;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ItemDocumentoTesouraria;
@@ -63,6 +64,11 @@ abstract class DocumentoTesourariaBase extends ModeloBase
     public function periodoProcessamentoSalarial(): BelongsTo
     {
         return $this->belongsTo(PeriodoProcessamentoSalarial::class, 'periodo_processamento_salarial_id');
+    }
+
+    public function cartasPagamentoBancario(): HasMany
+    {
+        return $this->hasMany(CartaPagamentoBancario::class, 'documento_tesouraria_id');
     }
 
     public function itensDocumentoTesouraria(): HasMany

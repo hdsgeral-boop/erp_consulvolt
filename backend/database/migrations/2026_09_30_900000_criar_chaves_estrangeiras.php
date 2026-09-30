@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (491) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (493) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -205,6 +205,8 @@ return new class extends Migration
         DB::statement('ALTER TABLE coordenadas_bancarias_colaboradores ADD CONSTRAINT fk_coordenadas_bancarias_colaboradores_colaborador_id FOREIGN KEY (colaborador_id) REFERENCES colaboradores (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE coordenadas_bancarias_colaboradores ADD CONSTRAINT fk_coordenadas_bancarias_colaboradores_banco_id FOREIGN KEY (banco_id) REFERENCES bancos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE cartas_pagamento_bancario ADD CONSTRAINT fk_cartas_pagamento_bancario_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE cartas_pagamento_bancario ADD CONSTRAINT fk_cartas_pagamento_bancario_periodo_processamento_salarial_id FOREIGN KEY (periodo_processamento_salarial_id) REFERENCES periodos_processamento_salarial (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE cartas_pagamento_bancario ADD CONSTRAINT fk_cartas_pagamento_bancario_documento_tesouraria_id FOREIGN KEY (documento_tesouraria_id) REFERENCES documentos_tesouraria (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_carta_pagamento ADD CONSTRAINT fk_itens_carta_pagamento_carta_pagamento_bancario_id FOREIGN KEY (carta_pagamento_bancario_id) REFERENCES cartas_pagamento_bancario (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_carta_pagamento ADD CONSTRAINT fk_itens_carta_pagamento_colaborador_id FOREIGN KEY (colaborador_id) REFERENCES colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_carta_pagamento ADD CONSTRAINT fk_itens_carta_pagamento_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -700,6 +702,8 @@ return new class extends Migration
         DB::statement('ALTER TABLE coordenadas_bancarias_colaboradores DROP CONSTRAINT IF EXISTS fk_coordenadas_bancarias_colaboradores_colaborador_id');
         DB::statement('ALTER TABLE coordenadas_bancarias_colaboradores DROP CONSTRAINT IF EXISTS fk_coordenadas_bancarias_colaboradores_banco_id');
         DB::statement('ALTER TABLE cartas_pagamento_bancario DROP CONSTRAINT IF EXISTS fk_cartas_pagamento_bancario_empresa_id');
+        DB::statement('ALTER TABLE cartas_pagamento_bancario DROP CONSTRAINT IF EXISTS fk_cartas_pagamento_bancario_periodo_processamento_salarial_id');
+        DB::statement('ALTER TABLE cartas_pagamento_bancario DROP CONSTRAINT IF EXISTS fk_cartas_pagamento_bancario_documento_tesouraria_id');
         DB::statement('ALTER TABLE itens_carta_pagamento DROP CONSTRAINT IF EXISTS fk_itens_carta_pagamento_carta_pagamento_bancario_id');
         DB::statement('ALTER TABLE itens_carta_pagamento DROP CONSTRAINT IF EXISTS fk_itens_carta_pagamento_colaborador_id');
         DB::statement('ALTER TABLE itens_carta_pagamento DROP CONSTRAINT IF EXISTS fk_itens_carta_pagamento_empresa_id');

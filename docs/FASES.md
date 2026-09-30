@@ -99,7 +99,8 @@ Cobrem os seguintes casos:
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
 | **RH / Salários (parte 1a)** | ✅ | rh/salarios/periodos (+lancamentos, importar-contratos, encerrar, validar, reabrir, contabilizar, descontabilizar, recibos), verificacao-legado | Motor bcmath LEGADO/ATUAL, fotografia imutável ao encerrar, contabilização agregada e estorno; 38/44 folhas conferem com o diário (ADR-017, ADR-036) |
-| RH / Salários (parte 1b e seguintes) | ⏳ | | Colaboradores, contratos, infotipos, mapeamentos, cartas de pagamento; assiduidade, férias, avaliação |
+| **RH / Salários (parte 1b)** | ✅ | rh/colaboradores (+coordenada-bancaria), rh/coordenadas-bancarias, rh/contratos (+terminar), rh/infotipos, rh/tipos-organizacao, rh/bancos, rh/mapeamentos-contabeis, rh/salarios/periodos/{id}/ordem-pagamento, /cartas, rh/salarios/cartas (+pagamento) | Eliminação só sem utilizações (FKs reais), IBAN com dígitos de controlo, histórico de contratos sem sobreposição, contas de movimento no mapeamento, cartas de pagamento e pagamento pela tesouraria (ADR-037) |
+| RH (partes 2 e 3) | ⏳ | | Assiduidade, ausências, férias, produtividade; avaliação, 360, portal, estrutura |
 | Logística, POS, Activos, Projectos, Orçamento, A&D, CRM | ⏳ | | |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.

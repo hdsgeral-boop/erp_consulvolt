@@ -102,7 +102,7 @@ return new class extends Migration
             $table->boolean('sujeito_inss')->nullable()->comment('legado: inss');
             $table->string('irt', 30)->nullable()->comment('legado: irt · tipos mistos: boolean=149, string=26');
             $table->boolean('base_horaria')->nullable()->comment('legado: base_horaria · do código legado js/app_v2.js:9161');
-            $table->decimal('calculo_horas', 12, 3)->nullable()->comment('legado: calculo_horas · do código legado js/app_v2.js:9161');
+            $table->string('calculo_horas', 10)->nullable()->comment('legado: calculo_horas · do código legado js/app_v2.js:9161');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -230,6 +230,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_coordenadas_bancarias_colabora_empresa__colabora ON coordenadas_bancarias_colaboradores (empresa_id, colaborador_id)');
         DB::statement('CREATE UNIQUE INDEX uq_coordenadas_bancarias_colabora_empresa__colabora_iban ON coordenadas_bancarias_colaboradores (empresa_id, colaborador_id, iban)');
         DB::statement('CREATE INDEX ix_coordenadas_bancarias_colaboradores_colaborador_id ON coordenadas_bancarias_colaboradores (colaborador_id)');
         DB::statement('CREATE INDEX ix_coordenadas_bancarias_colaboradores_banco_id ON coordenadas_bancarias_colaboradores (banco_id)');
@@ -243,10 +244,16 @@ return new class extends Migration
             $table->string('nome_assinatura', 255)->nullable()->comment('legado: signature_name · do código legado js/db_v2.js:190');
             $table->date('data')->nullable()->comment('legado: date · do código legado js/db_v2.js:190');
             $table->decimal('montante_total', 15, 2)->nullable()->comment('legado: total_amount · do código legado js/db_v2.js:190');
+            $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('Processamento salarial pago por esta carta');
+            $table->bigInteger('documento_tesouraria_id')->nullable()->comment('Pagamento (PAG) gerado a partir da carta');
+            $table->string('grupo', 20)->nullable()->comment('COLABORADORES, AVENCADOS ou TODOS');
+            $table->string('criado_por', 100)->nullable()->comment('Quem emitiu a carta');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_empresa_id ON cartas_pagamento_bancario (empresa_id)');
+        DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_periodo_processamento_salarial_id ON cartas_pagamento_bancario (periodo_processamento_salarial_id)');
+        DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_documento_tesouraria_id ON cartas_pagamento_bancario (documento_tesouraria_id)');
 
         // payment_letter_items (legado) -> itens_carta_pagamento · 0 linhas reais no backup
         Schema::create('itens_carta_pagamento', function (Blueprint $table) {

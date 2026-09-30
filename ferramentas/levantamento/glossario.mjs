@@ -404,6 +404,7 @@ export const GLOSSARIO = {
 // Tipos impostos quando a inferência a partir dos dados não serve (valores sujos no legado).
 export const TIPOS_FORCADOS = {
   'audit_logs.company_id': 'bigint',
+  'infotypes.calculo_horas': 'varchar(10)',   // '' (automático), EXTRA, FALTA ou NAO — texto, não número
   // Câmbios: 6 casas decimais (o legado guardava até 6; numeric(9,4) truncava e limitava a 99 999)
   'exchange_rates.rate': 'numeric(18,6)', 'exchange_rates.created_by': 'varchar(100)', 'exchange_rates.updated_by': 'varchar(100)',
   'exchange_rates.source': 'varchar(50)',

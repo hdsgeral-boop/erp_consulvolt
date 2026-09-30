@@ -377,7 +377,7 @@ final class ServicoFolhaSalarial
 
     private function contaRubrica($mapas, int $infotipo, ?int $org, bool $avencado): ?string
     {
-        $doInfotipo = $mapas->where('infotipo_salarial_id', $infotipo);
+        $doInfotipo = $mapas->where('infotipo_salarial_id', $infotipo)->filter(fn ($x) => (string) $x->numero_conta !== '');   // o legado gravava '' nas células limpas
         if ($avencado && ($m = $doInfotipo->first(fn ($x) => $x->avencado))) {
             return $m->numero_conta;
         }
@@ -385,9 +385,9 @@ final class ServicoFolhaSalarial
         return $doInfotipo->first(fn ($x) => ! $x->avencado && (int) $x->tipo_organizacao_id === (int) $org)?->numero_conta;
     }
 
-    private function contaSistema($sistema, string $codigo, ?int $org, bool $avencado): ?string
+    public function contaSistema($sistema, string $codigo, ?int $org, bool $avencado): ?string
     {
-        $doCodigo = $sistema->where('codigo', $codigo);
+        $doCodigo = $sistema->where('codigo', $codigo)->filter(fn ($x) => (string) $x->numero_conta !== '');
         if ($avencado && ($m = $doCodigo->first(fn ($x) => $x->avencado))) {
             return $m->numero_conta;
         }

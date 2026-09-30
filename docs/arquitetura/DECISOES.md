@@ -577,3 +577,80 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 **Glossário:** o `infotypes.inss` do legado é a marcação "sujeito a INSS" (`sujeito_inss`) e não um número.
 
 **Fica para o bloco b:** CRUD de colaboradores, contratos, infotipos e mapeamentos, coordenadas bancárias, cartas de pagamento e pagamento dos salários por documento de tesouraria.
+
+## ADR-037 — RH/Salários (parte 1b): cadastros, IBAN, cartas de pagamento e pagamento pela tesouraria
+
+**Colaboradores** (`ServicoColaboradores`; js/app_v2.js:3833-3997 e 9068-9127; ficha_colaborador.js):
+- **Mantém-se do legado:**
+  - nome e NIF obrigatórios;
+  - reformado e avençado não podem estar ambos marcados;
+  - a ficha grava dependentes e habilitações por substituição, na mesma transacção;
+  - a habilitação máxima é calculada quando está vazia (maior nível concluído);
+  - é criado o terceiro «COLABORADOR» com o mesmo NIF.
+- **Correcções:**
+  - o NIF é normalizado e único na empresa (o formulário do legado não verificava);
+  - a procura do terceiro faz-se na empresa (no legado era global);
+  - os dias úteis são validados entre 1 e 31;
+  - o gestor não pode ser o próprio colaborador, e o posto tem de pertencer à unidade orgânica.
+- **Eliminação:**
+  - é lógica e só é permitida sem utilizações, o que se verifica pelas FKs reais do PostgreSQL (`VerificadorReferencias`);
+  - o legado apagava em cascata e deixava contratos e lançamentos órfãos;
+  - para quem saiu da empresa, usa-se o estado INACTIVO.
+
+**Coordenadas bancárias:**
+- Um IBAN por colaborador (índice único), com banco obrigatório.
+- O IBAN é validado com os dígitos de controlo (ISO 13616): AO + 23 dígitos, ou IBAN estrangeiro.
+- O NIB de 21 dígitos é aceite e convertido para AO06.
+- No legado, os botões deste ecrã não funcionavam: as funções tinham «º» no nome, e só a importação gravava IBAN.
+- Nos dados reais, 64 colaboradores activos não têm IBAN e 4 IBAN têm formato inválido. Ambos aparecem em Sistema › Validações.
+
+**Contratos** (`ServicoContratosTrabalho`):
+- **Mantém-se do legado:**
+  - valores por omissão: 22 dias, 8 h, moeda AOA, estado ACTIVO;
+  - pelo menos uma remuneração com valor;
+  - valor diário = valor mensal ÷ dias do contrato;
+  - terminar exige `contratos_terminate`.
+- **Correcção principal — histórico de contratos:**
+  - o legado só admitia um contrato por colaborador em toda a vida, e a revisão salarial reescrevia o contrato (e, sem fotografia, os meses passados);
+  - agora há vários contratos, desde que os períodos não se sobreponham;
+  - o processamento usa o contrato ACTIVO válido no mês.
+- **Outras correcções:**
+  - data de fim ≥ data de início;
+  - horas por dia entre 0 e 24;
+  - só rubricas de VENCIMENTO, sem repetições;
+  - «sem fim» passa a data de fim vazia (continua a aceitar 9999-12-31).
+- **Formato das remunerações:** as novas gravam-se com chaves em português. As migradas mantêm as chaves do legado, e a leitura aceita os dois formatos.
+
+**Rubricas, tipos de organização e bancos** (`ServicoCadastrosRH`):
+- Nomes únicos na empresa, sem distinguir maiúsculas; os 2 pares repetidos do legado ficam como estão.
+- Domínios validados:
+  - tipo: VENCIMENTO, DESCONTO ou OUTROS;
+  - IRT: true, false ou conditional_30k;
+  - cálculo por horas: EXTRA, FALTA ou NAO. Esta coluna estava gerada como numérica e passou a texto.
+- Eliminação só sem utilizações, incluindo remunerações de contratos (jsonb).
+- A conta do banco tem de ser de movimento.
+- No legado, eliminar um banco deixava IBAN órfãos, e eliminar uma rubrica deixava contratos e lançamentos órfãos.
+
+**Mapeamento contabilístico:**
+- A matriz tem rubrica × tipo de organização, mais a coluna Avençado, e as contas do sistema: NET_PAY_CREDIT, IRT_CREDIT, IRT_AVENCADO_CREDIT, INSS_FUNC_CREDIT, INSS_EMP_DEBIT, INSS_EMP_CREDIT e ROUNDING_DIFF.
+- A conta tem de existir e ser de movimento. O legado aceitava contas «fora do plano».
+- Grava-se um mapeamento por chave, o que elimina os 5 duplicados herdados; limpar uma célula apaga o mapeamento em vez de gravar `''`.
+- A contabilização ignora os mapeamentos com a conta vazia que vieram do legado.
+
+**Ordem de pagamento, cartas e pagamento** (`ServicoPagamentoSalarios`):
+- **Ordem de pagamento:** só de períodos VALIDADOS, e passa a vir da fotografia.
+- **Cartas de pagamento:**
+  - as tabelas `payment_letters` existiam no legado mas nunca foram usadas;
+  - agora a ordem pode ser gravada como carta sobre uma conta bancária (43), com o IBAN e o valor fixados na emissão;
+  - cada colaborador entra numa só carta por período;
+  - a carta é recusada se faltar um IBAN (o legado imprimia «N/D»).
+- **Pagamento:**
+  - gera um documento PAG na tesouraria, PENDENTE e ligado ao período (`periodo_processamento_salarial_id`);
+  - debita os salários a pagar (NET_PAY_CREDIT de cada colaborador), com o n.º `SALMMAAAA`;
+  - exige o período contabilizado e a conta bancária em Kz;
+  - o total pago no período não pode exceder o líquido;
+  - a integração no diário faz-se pela Tesouraria (D salários a pagar / C banco);
+  - uma carta com pagamento activo não se elimina nem se volta a pagar.
+- **Ensaio com os dados reais** (último período de cada empresa, desfeito no fim): nas empresas 1 e 3 a carta foi emitida e o pagamento integrado. Nas outras 8 não há IBAN registados.
+
+**Fica para depois:** importação Excel de colaboradores e contratos, contratos em massa, cópia de mapeamentos entre empresas, recuperação do mapeamento a partir do diário, e PDF da carta e do recibo (Fase 5).

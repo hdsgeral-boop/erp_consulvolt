@@ -122,6 +122,12 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST/DELETE | `/api/rh/salarios/periodos/{id}/lancamentos[/{lancamento}]` · POST `/{id}/importar-contratos` | Lançamentos do mês (só em ABERTO) |
 | POST | `/api/rh/salarios/periodos/{id}/encerrar` · `/validar` · `/reabrir` · `/contabilizar` · `/descontabilizar` | Ciclo do processamento (estorno ao descontabilizar) |
 | GET | `/api/rh/salarios/periodos/{id}/recibos/{colaborador}` · `/api/rh/salarios/verificacao-legado` | Recibo de vencimento; conferência das folhas migradas com o diário |
+| GET | `/api/rh/salarios/periodos/{id}/ordem-pagamento` | Ordem de pagamento bancária (banco, IBAN, líquido) |
+| POST/GET/DELETE | `/api/rh/salarios/periodos/{id}/cartas` · `/api/rh/salarios/cartas[/{carta}]` · POST `/cartas/{carta}/pagamento` | Cartas de pagamento e pagamento pela tesouraria |
+| GET/POST/PUT/DELETE | `/api/rh/colaboradores[/{id}]` · PUT/DELETE `/{id}/coordenada-bancaria` · GET `/api/rh/coordenadas-bancarias` | Colaboradores, ficha e IBAN |
+| GET/POST/PUT/DELETE | `/api/rh/contratos[/{id}]` · POST `/{id}/terminar` | Contratos de trabalho (histórico sem sobreposição) |
+| GET/POST/PUT/DELETE | `/api/rh/infotipos` · `/api/rh/tipos-organizacao` · `/api/rh/bancos` `[/{id}]` | Rubricas, tipos de organização e bancos |
+| GET/PUT | `/api/rh/mapeamentos-contabeis` | Mapeamento contabilístico dos salários |
 | GET/POST/PUT/DELETE | `/api/logistica/categorias-produtos[/{id}]` | Categorias de produtos |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |

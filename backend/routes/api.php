@@ -9,7 +9,11 @@ use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
+use App\Http\Controllers\Api\RH\CadastrosRHController;
+use App\Http\Controllers\Api\RH\ColaboradorController;
+use App\Http\Controllers\Api\RH\ContratoTrabalhoController;
 use App\Http\Controllers\Api\RH\FolhaSalarialController;
+use App\Http\Controllers\Api\RH\PagamentoSalariosController;
 use App\Http\Controllers\Api\SaudeController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
@@ -243,6 +247,52 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('periodos/{id}/descontabilizar', 'descontabilizar')->whereNumber('id')->name('periodos.descontabilizar');
             Route::get('periodos/{id}/recibos/{colaborador}', 'recibo')->whereNumber(['id', 'colaborador'])->name('recibos.show');
             Route::get('verificacao-legado', 'verificacaoLegado')->name('verificacao-legado');
+        });
+
+        Route::prefix('rh/salarios')->name('rh.salarios.')->controller(PagamentoSalariosController::class)->group(function () {
+            Route::get('periodos/{id}/ordem-pagamento', 'ordem')->whereNumber('id')->name('ordem-pagamento');
+            Route::post('periodos/{id}/cartas', 'emitir')->whereNumber('id')->name('cartas.emitir');
+            Route::get('cartas', 'cartas')->name('cartas.index');
+            Route::get('cartas/{carta}', 'carta')->whereNumber('carta')->name('cartas.show');
+            Route::delete('cartas/{carta}', 'eliminar')->whereNumber('carta')->name('cartas.destroy');
+            Route::post('cartas/{carta}/pagamento', 'pagar')->whereNumber('carta')->name('cartas.pagar');
+        });
+
+        Route::prefix('rh')->name('rh.')->group(function () {
+            Route::controller(ColaboradorController::class)->group(function () {
+                Route::get('colaboradores', 'index')->name('colaboradores.index');
+                Route::post('colaboradores', 'store')->name('colaboradores.store');
+                Route::get('colaboradores/{colaborador}', 'show')->whereNumber('colaborador')->name('colaboradores.show');
+                Route::put('colaboradores/{colaborador}', 'update')->whereNumber('colaborador')->name('colaboradores.update');
+                Route::delete('colaboradores/{colaborador}', 'destroy')->whereNumber('colaborador')->name('colaboradores.destroy');
+                Route::get('coordenadas-bancarias', 'coordenadas')->name('coordenadas.index');
+                Route::put('colaboradores/{colaborador}/coordenada-bancaria', 'gravarCoordenada')->whereNumber('colaborador')->name('coordenadas.gravar');
+                Route::delete('colaboradores/{colaborador}/coordenada-bancaria', 'eliminarCoordenada')->whereNumber('colaborador')->name('coordenadas.destroy');
+            });
+            Route::controller(ContratoTrabalhoController::class)->group(function () {
+                Route::get('contratos', 'index')->name('contratos.index');
+                Route::post('contratos', 'store')->name('contratos.store');
+                Route::get('contratos/{contrato}', 'show')->whereNumber('contrato')->name('contratos.show');
+                Route::put('contratos/{contrato}', 'update')->whereNumber('contrato')->name('contratos.update');
+                Route::post('contratos/{contrato}/terminar', 'terminar')->whereNumber('contrato')->name('contratos.terminar');
+                Route::delete('contratos/{contrato}', 'destroy')->whereNumber('contrato')->name('contratos.destroy');
+            });
+            Route::controller(CadastrosRHController::class)->group(function () {
+                Route::get('infotipos', 'infotipos')->name('infotipos.index');
+                Route::post('infotipos', 'guardarInfotipo')->name('infotipos.store');
+                Route::put('infotipos/{infotipo}', 'guardarInfotipo')->whereNumber('infotipo')->name('infotipos.update');
+                Route::delete('infotipos/{infotipo}', 'eliminarInfotipo')->whereNumber('infotipo')->name('infotipos.destroy');
+                Route::get('tipos-organizacao', 'tiposOrganizacao')->name('tipos-organizacao.index');
+                Route::post('tipos-organizacao', 'guardarTipoOrganizacao')->name('tipos-organizacao.store');
+                Route::put('tipos-organizacao/{tipo}', 'guardarTipoOrganizacao')->whereNumber('tipo')->name('tipos-organizacao.update');
+                Route::delete('tipos-organizacao/{tipo}', 'eliminarTipoOrganizacao')->whereNumber('tipo')->name('tipos-organizacao.destroy');
+                Route::get('bancos', 'bancos')->name('bancos.index');
+                Route::post('bancos', 'guardarBanco')->name('bancos.store');
+                Route::put('bancos/{banco}', 'guardarBanco')->whereNumber('banco')->name('bancos.update');
+                Route::delete('bancos/{banco}', 'eliminarBanco')->whereNumber('banco')->name('bancos.destroy');
+                Route::get('mapeamentos-contabeis', 'mapeamentos')->name('mapeamentos.index');
+                Route::put('mapeamentos-contabeis', 'gravarMapeamentos')->name('mapeamentos.gravar');
+            });
         });
 
         Route::prefix('contabilidade')->name('contabilidade.')->group(function () {

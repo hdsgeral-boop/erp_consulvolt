@@ -69,6 +69,31 @@ final class ServicoValidacoesDados
                                 WHERE l.empresa_id = p.empresa_id AND l.numero_documento = 'SAL' || replace(p.mes_ano, '/', '') AND l.tipo_dc = 'D' AND l.estorno_de_id IS NULL) dia ON true
                           WHERE p.empresa_id = ? AND p.contabilizado AND abs(calc.debitos - COALESCE(dia.debitos, 0)) > 10 ORDER BY p.mes_ano",
             ],
+            'colaboradores_activos_sem_iban' => [
+                'titulo' => 'Colaboradores activos sem IBAN', 'modulo' => 'RH', 'gravidade' => 'AVISO',
+                'descricao' => 'Sem coordenadas bancárias não entram numa carta de pagamento. No legado os botões do ecrã de IBAN não funcionavam: só a importação gravava.',
+                'legado' => 'saveEmployeeIBANº (js/app_v2.js:9536) — nome da função com «º», nunca chamada',
+                'sql' => "SELECT c.id AS colaborador_id, c.nome_completo, c.nif FROM colaboradores c
+                          WHERE c.empresa_id = ? AND c.eliminado_em IS NULL AND c.estado = 'ACTIVO'
+                            AND NOT EXISTS (SELECT 1 FROM coordenadas_bancarias_colaboradores b WHERE b.colaborador_id = c.id) ORDER BY c.nome_completo",
+            ],
+            'colaboradores_iban_invalido' => [
+                'titulo' => 'IBAN de colaboradores com formato inválido', 'modulo' => 'RH', 'gravidade' => 'AVISO',
+                'descricao' => 'IBAN que não é AO + 23 dígitos, NIB de 21 dígitos nem um IBAN estrangeiro: corrija-os no ecrã Coordenadas bancárias (a gravação valida também os dígitos de controlo).',
+                'legado' => 'O formulário só retirava espaços; a importação validava o formato',
+                'sql' => "SELECT b.colaborador_id, c.nome_completo, b.iban FROM coordenadas_bancarias_colaboradores b JOIN colaboradores c ON c.id = b.colaborador_id
+                          WHERE b.empresa_id = ? AND NOT (b.iban ~ '^AO[0-9]{23}$' OR b.iban ~ '^[0-9]{21}$' OR (b.iban ~ '^[A-Z]{2}[0-9]{2}[A-Z0-9]{10,30}$' AND b.iban !~ '^AO')) ORDER BY c.nome_completo",
+            ],
+            'mapeamentos_salarios_duplicados' => [
+                'titulo' => 'Mapeamentos contabilísticos de salários repetidos', 'modulo' => 'RH', 'gravidade' => 'INFO',
+                'descricao' => 'A mesma rubrica/conta do sistema e tipo de organização mapeada mais de uma vez; a próxima gravação no ecrã Mapeamento deixa só uma.',
+                'legado' => 'showPayrollMappingFixer (js/app_v2.js:10451) só acrescentava linhas',
+                'sql' => "SELECT 'RUBRICA' AS tipo, infotipo_salarial_id::text AS chave, tipo_organizacao_id, avencado, COUNT(*) AS registos, string_agg(COALESCE(NULLIF(numero_conta, ''), '(vazia)'), ', ') AS contas
+                          FROM mapeamentos_contabeis_rh WHERE empresa_id = ? GROUP BY 2, 3, 4 HAVING COUNT(*) > 1
+                          UNION ALL
+                          SELECT 'SISTEMA', codigo, tipo_organizacao_id, avencado, COUNT(*), string_agg(COALESCE(NULLIF(numero_conta, ''), '(vazia)'), ', ')
+                          FROM mapeamentos_contabeis_sistema_rh WHERE empresa_id = ? GROUP BY 2, 3, 4 HAVING COUNT(*) > 1",
+            ],
             'terceiros_nif_duplicado' => [
                 'titulo' => 'Terceiros duplicados (mesmo NIF e tipo)', 'modulo' => 'Terceiros', 'gravidade' => 'AVISO',
                 'descricao' => 'Clientes/fornecedores registados mais de uma vez com o mesmo NIF (408 no legado).', 'legado' => '—',
@@ -132,7 +157,7 @@ final class ServicoValidacoesDados
         $empresa = $this->contexto->obrigatorio();
         $saida = [];
         foreach ($this->definicoes() as $codigo => $d) {
-            $n = (int) DB::selectOne("SELECT COUNT(*) AS n FROM ({$d['sql']}) v", [$empresa])->n;
+            $n = (int) DB::selectOne("SELECT COUNT(*) AS n FROM ({$d['sql']}) v", array_fill(0, substr_count($d['sql'], '?'), $empresa))->n;
             $saida[] = ['codigo' => $codigo] + array_diff_key($d, ['sql' => true]) + ['ocorrencias' => $n];
         }
 
@@ -143,7 +168,7 @@ final class ServicoValidacoesDados
     public function detalhe(string $codigo, int $limite = 500): array
     {
         $d = $this->definicoes()[$codigo] ?? throw new ErroNegocio("Validação desconhecida: {$codigo}", 'VALIDACAO_DESCONHECIDA', 404);
-        $linhas = DB::select("SELECT * FROM ({$d['sql']}) v LIMIT ".max(1, min($limite, 5000)), [$this->contexto->obrigatorio()]);
+        $linhas = DB::select("SELECT * FROM ({$d['sql']}) v LIMIT ".max(1, min($limite, 5000)), array_fill(0, substr_count($d['sql'], '?'), $this->contexto->obrigatorio()));
 
         return ['codigo' => $codigo] + array_diff_key($d, ['sql' => true]) + ['linhas' => $linhas, 'total_mostrado' => count($linhas)];
     }

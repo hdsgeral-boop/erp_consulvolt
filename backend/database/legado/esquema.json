@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T13:33:51.379Z",
+  "gerado_em": "2026-09-30T14:13:01.836Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -9105,7 +9105,7 @@
         {
           "coluna": "calculo_horas",
           "legado": "calculo_horas",
-          "tipo": "numeric(12,3)",
+          "tipo": "varchar(10)",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -9987,6 +9987,13 @@
         {
           "colunas": [
             "empresa_id",
+            "colaborador_id"
+          ],
+          "onde": null
+        },
+        {
+          "colunas": [
+            "empresa_id",
             "colaborador_id",
             "iban"
           ],
@@ -10068,6 +10075,48 @@
           "tipo": "numeric(15,2)",
           "nulo": true,
           "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "periodo_processamento_salarial_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "periodos_processamento_salarial",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "documento_tesouraria_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "documentos_tesouraria",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "grupo",
+          "legado": null,
+          "tipo": "varchar(20)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
