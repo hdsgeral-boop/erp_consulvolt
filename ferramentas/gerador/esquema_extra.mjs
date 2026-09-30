@@ -55,7 +55,12 @@ export const UNICOS = [
   ['ciclos_avaliacao_360', ['empresa_id'], "estado = 'ABERTO'"],
   ['sessoes_pos', ['terminal_pos_id'], "estado = 'ABERTA'"],   // uma sessão aberta por terminal (o legado: ler-depois-inserir)
   ['liquidacoes_pos', ['sessao_pos_id', 'chave_item'], "estado = 'REGISTADO'"],
-  ['estadias_hotel', ['produto_quarto_id'], "estado = 'ABERTA'"],   // um check-in aberto por quarto (o legado: ler-depois-inserir)   // cada item da prestação de contas liquida-se uma vez   // um só ciclo aberto   // um IBAN por colaborador (upsert do legado)
+  ['estadias_hotel', ['produto_quarto_id'], "estado = 'ABERTA'"],
+  ['amortizacoes_ativos', ['empresa_id', 'ativo_imobilizado_id', 'periodo_codigo']],   // índice [company_id+asset_id+period_id] do legado (db_v2.js:50)
+  ['configuracoes_projetos', ['empresa_id', 'projeto_id', 'chave'], 'projeto_id IS NOT NULL'],
+  ['configuracoes_projetos', ['empresa_id', 'chave'], 'projeto_id IS NULL'],
+  ['contas_crm', ['empresa_id', 'terceiro_id'], 'terceiro_id IS NOT NULL'],   // uma conta CRM por cliente
+  ['periodos_lancamento_acrescimos', ['item_acrescimo_diferimento_id', 'tipo', 'periodo'], "estado = 'CONTABILIZADO'"],   // sem lançamentos em duplicado   // um check-in aberto por quarto (o legado: ler-depois-inserir)   // cada item da prestação de contas liquida-se uma vez   // um só ciclo aberto   // um IBAN por colaborador (upsert do legado)
   // Numeração única obrigatória só nos documentos fiscais (AGT). Orçamentos/proformas do legado repetem números
   // (o legado tratava "Orçamento" e "Orcamento" como tipos distintos) -> relatório de validação.
   ['vendas', ['empresa_id', 'tipo_documento', 'numero_documento'], "tipo_documento IN ('FT','FR','NC','ND')"],

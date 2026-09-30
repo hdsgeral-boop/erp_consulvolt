@@ -432,6 +432,10 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/pos_prestacao.php';
         require __DIR__.'/api/pos_lavandaria.php';
         require __DIR__.'/api/pos_hotelaria.php';
+        // Activos, Projectos, Acréscimos e diferimentos e CRM (ficheiros próprios)
+        require __DIR__.'/api/ativos.php';
+        require __DIR__.'/api/projetos.php';
+        require __DIR__.'/api/acrescimos_crm.php';
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

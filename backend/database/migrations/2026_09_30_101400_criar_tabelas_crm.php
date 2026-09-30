@@ -18,8 +18,8 @@ return new class extends Migration
         Schema::create('configuracoes_crm', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id · do código legado js/modules/crm/crm_dados.js:53');
-            $table->text('motivos_perda')->nullable()->comment('legado: motivos_perda · do código legado js/modules/crm/crm_dados.js:53');
-            $table->string('origens', 255)->nullable()->comment('legado: origens · do código legado js/modules/crm/crm_dados.js:53');
+            $table->jsonb('motivos_perda')->nullable()->comment('legado: motivos_perda · do código legado js/modules/crm/crm_dados.js:53');
+            $table->jsonb('origens')->nullable()->comment('legado: origens · do código legado js/modules/crm/crm_dados.js:53');
             $table->integer('dias_sem_atividade')->nullable()->comment('legado: dias_sem_actividade · do código legado js/modules/crm/crm_dados.js:53');
             $table->integer('prazo_pagamento_dias')->nullable()->comment('legado: prazo_pagamento_dias · do código legado js/modules/crm/crm_dados.js:53');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -53,7 +53,7 @@ return new class extends Migration
             $table->text('morada')->nullable()->comment('legado: morada · sem valores reais: tipo a confirmar no código legado');
             $table->string('origem', 22)->nullable()->comment('legado: origem · código normalizado ∈ {RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO}; texto original em origem_original');
             $table->string('origem_original', 100)->nullable()->comment('legado: origem · texto exacto do legado');
-            $table->string('responsavel', 10)->nullable()->comment('legado: responsavel');
+            $table->string('responsavel', 100)->nullable()->comment('legado: responsavel · tipo forçado (inferido: varchar(10))');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->text('setor')->nullable()->comment('legado: sector · sem valores reais: tipo a confirmar no código legado');
             $table->text('website')->nullable()->comment('legado: website · sem valores reais: tipo a confirmar no código legado');
@@ -62,6 +62,7 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('eliminado_em')->nullable();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_contas_crm_empresa_id_terceiro_id ON contas_crm (empresa_id, terceiro_id) WHERE eliminado_em IS NULL AND terceiro_id IS NOT NULL');
         DB::statement('CREATE INDEX ix_contas_crm_empresa_id ON contas_crm (empresa_id)');
         DB::statement('CREATE INDEX ix_contas_crm_terceiro_id ON contas_crm (terceiro_id)');
         DB::statement('ALTER TABLE contas_crm ADD CONSTRAINT ck_contas_crm_origem CHECK (origem IS NULL OR origem IN (\'RECOMENDACAO\',\'CLIENTE_EXISTENTE\',\'SITE\',\'CAMPANHA\',\'OUTRO\'))');
@@ -72,7 +73,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id');
             $table->bigInteger('conta_crm_id')->nullable()->comment('legado: account_id');
             $table->string('nome', 255)->nullable()->comment('legado: nome');
-            $table->string('cargo', 10)->nullable()->comment('legado: cargo');
+            $table->string('cargo', 100)->nullable()->comment('legado: cargo · tipo forçado (inferido: varchar(10))');
             $table->string('email', 150)->nullable()->comment('legado: email');
             $table->string('telefone', 50)->nullable()->comment('legado: telefone · tipos mistos: string=2, string_inteiro=1');
             $table->boolean('principal')->nullable()->comment('legado: principal');
@@ -94,7 +95,7 @@ return new class extends Migration
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor');
             $table->decimal('probabilidade', 9, 4)->nullable()->comment('legado: probabilidade');
             $table->date('data_fecho_prevista')->nullable()->comment('legado: data_fecho_prevista');
-            $table->string('responsavel', 10)->nullable()->comment('legado: responsavel');
+            $table->string('responsavel', 100)->nullable()->comment('legado: responsavel · tipo forçado (inferido: varchar(10))');
             $table->string('origem', 22)->nullable()->comment('legado: origem · código normalizado ∈ {RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO}; texto original em origem_original');
             $table->string('origem_original', 100)->nullable()->comment('legado: origem · texto exacto do legado');
             $table->text('notas')->nullable()->comment('legado: notas');
@@ -131,12 +132,12 @@ return new class extends Migration
             $table->text('descricao')->nullable()->comment('legado: descricao');
             $table->date('data_prevista')->nullable()->comment('legado: data_prevista');
             $table->boolean('concluida')->nullable()->comment('legado: concluida');
-            $table->string('responsavel', 10)->nullable()->comment('legado: responsavel');
+            $table->string('responsavel', 100)->nullable()->comment('legado: responsavel · tipo forçado (inferido: varchar(10))');
             $table->boolean('automatica')->nullable()->comment('legado: automatica');
             $table->bigInteger('modelo_email_crm_id')->nullable()->comment('legado: modelo_id');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->timestampTz('concluida_em')->nullable()->comment('legado: concluida_em');
-            $table->string('resultado', 50)->nullable()->comment('legado: resultado');
+            $table->text('resultado')->nullable()->comment('legado: resultado · tipo forçado (inferido: varchar(50))');
             $table->string('concluida_por', 100)->nullable()->comment('legado: concluida_por');
             $table->bigInteger('sequencia_campanha_id')->nullable()->comment('legado: sequencia_id · do código legado js/modules/crm/crm_dados.js:222');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
@@ -154,7 +155,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id');
             $table->string('nome', 255)->nullable()->comment('legado: nome');
-            $table->string('assunto', 100)->nullable()->comment('legado: assunto');
+            $table->string('assunto', 255)->nullable()->comment('legado: assunto · tipo forçado (inferido: varchar(100))');
             $table->text('corpo')->nullable()->comment('legado: corpo');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -169,7 +170,7 @@ return new class extends Migration
             $table->bigInteger('funil_vendas_crm_id')->nullable()->comment('legado: pipeline_id · do código legado js/modules/crm/crm_dados.js:368');
             $table->string('etapa_codigo', 255)->nullable()->comment('legado: etapa_id · do código legado js/modules/crm/crm_dados.js:368');
             $table->boolean('ativo')->nullable()->comment('legado: activo · do código legado js/modules/crm/crm_dados.js:368');
-            $table->string('passos', 255)->nullable()->comment('legado: passos · do código legado js/modules/crm/crm_dados.js:368');
+            $table->jsonb('passos')->nullable()->comment('legado: passos · do código legado js/modules/crm/crm_dados.js:368');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });

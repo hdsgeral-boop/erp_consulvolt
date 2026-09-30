@@ -2,11 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Services\CRM\ServicoMigracaoCRM;
 use App\Services\Logistica\ServicoMigracaoStock;
 use App\Services\Migracao\ServicoMigracaoLegado;
 use App\Services\POS\ServicoMigracaoHotelaria;
 use App\Services\POS\ServicoMigracaoLavandaria;
 use App\Services\POS\ServicoMigracaoPOS;
+use App\Services\Projetos\ServicoMigracaoProjetos;
 use App\Services\RH\ServicoFolhaSalarial;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Console\Command;
@@ -105,6 +107,12 @@ final class MigrarBackupLegado extends Command
             $this->info("Hotelaria: JSON normalizados em {$hotel['estadias']} estadia(s).");
             // Lavandaria: chaves dos JSON, valor das linhas, valor líquido das linhas legadas com preço com IVA e pago das facturas
             $lav = DB::transaction(fn () => app(ServicoMigracaoLavandaria::class)->normalizar());
+            // CRM: chaves dos JSON das oportunidades e funis (linhas, histórico, documentos ligados) em português
+            $crm = DB::transaction(fn () => app(ServicoMigracaoCRM::class)->normalizar());
+            // Projectos: Kanban e terceiro das linhas de subempreitada dos autos
+            $proj = DB::transaction(fn () => app(ServicoMigracaoProjetos::class)->normalizar());
+            $this->info('Projectos: '.json_encode($proj, JSON_UNESCAPED_UNICODE).'.');
+            $this->info('CRM: '.json_encode($crm, JSON_UNESCAPED_UNICODE).'.');
             $this->info('Lavandaria: '.collect($lav)->map(fn ($v, $k) => str_replace('_', ' ', $k).' '.(is_array($v) ? json_encode($v) : $v))->implode('; ').'.');
         }
 

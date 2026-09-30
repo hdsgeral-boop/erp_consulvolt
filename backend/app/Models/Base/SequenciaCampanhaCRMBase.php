@@ -32,6 +32,7 @@ abstract class SequenciaCampanhaCRMBase extends ModeloBase
             'empresa_id' => 'integer',
             'funil_vendas_crm_id' => 'integer',
             'ativo' => 'boolean',
+            'passos' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

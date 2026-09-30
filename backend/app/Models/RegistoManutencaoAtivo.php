@@ -5,7 +5,13 @@ namespace App\Models;
 use App\Models\Base\RegistoManutencaoAtivoBase;
 
 /**
- * registos_manutencao_ativos — /api/activos/manutencoes.
- * Regras de negócio e relações adicionais vêm aqui; a estrutura está em RegistoManutencaoAtivoBase (gerado).
+ * registos_manutencao_ativos — /api/ativos/manutencoes (ServicoManutencaoAtivos).
  */
-class RegistoManutencaoAtivo extends RegistoManutencaoAtivoBase {}
+class RegistoManutencaoAtivo extends RegistoManutencaoAtivoBase
+{
+    public const TIPOS = ['PREVENTIVA', 'CORRECTIVA'];
+
+    public const PLANEADA = 'PLANEADA';
+
+    public const CONCLUIDA = 'CONCLUIDA';
+}

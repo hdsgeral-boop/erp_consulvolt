@@ -6,10 +6,12 @@ use App\Exceptions\ErroNegocio;
 use App\Jobs\Vendas\CicloAgt;
 use App\Models\ConfigFaturacaoEletronica;
 use App\Models\ItemVenda;
+use App\Models\OportunidadeVendaCRM;
 use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Contabilidade\ServicoExercicios;
+use App\Services\CRM\ServicoOportunidadesCRM;
 use App\Services\Sistema\ServicoCambios;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Collection;
@@ -148,6 +150,9 @@ final class ServicoDocumentosVenda
             }
             if ($origemNc) {
                 $this->estado->recalcular($origemNc->refresh());
+            }
+            if (! empty($d['oportunidade_crm_id'])) {   // CRM (ADR-054): mesmo cliente, não ligado a outra oportunidade; FT/FR/NE ganham-na
+                app(ServicoOportunidadesCRM::class)->ligarVenda(OportunidadeVendaCRM::query()->findOrFail($d['oportunidade_crm_id']), $venda->id);
             }
             if ($tipo === 'FR' && ! $pos) {
                 $this->recibos->criarDaFacturaRecibo($venda, $d['conta_disponibilidade'], $d['meio_pagamento'] ?? 'NUMERARIO', $d['referencia_pagamento'] ?? null);

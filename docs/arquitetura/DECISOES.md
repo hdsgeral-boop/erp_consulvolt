@@ -1306,3 +1306,149 @@ Implementado em `app/Services/POS/Hotelaria`, `ServicoPOSArmazem` e `ServicoGuia
 **Validação:** `hotel_estadias_saida_atrasada`.
 
 **Organização do trabalho (POS partes 2 e 3):** foram desenvolvidas em paralelo, cada uma com os seus ficheiros de rotas (`routes/api/pos_*.php`) e a sua base de testes. A integração, o esquema, a ETL e a suite completa foram feitos no fim: 165 testes.
+
+## ADR-051 — Activos: cadastro, amortizações, abates e manutenções
+
+Implementado em `app/Services/Ativos`, a partir de `ui_assets.js` e `fluxo_imobilizado.js`. A regra de cálculo está isolada em `CalculadoraAmortizacoes`.
+
+**Cálculo (paridade):**
+- Quotas constantes mensais, sem pro rata: o mês de aquisição conta inteiro.
+- Base = aquisição − valor residual.
+- Quota = quota fixa, ou base ÷ vida útil (meses), ao cêntimo com half-up exacto (ADR-022).
+- Não há quota antes da aquisição, nos anos até ao ano da amortização inicial, depois da vida útil, nem com a base esgotada.
+- Os rascunhos, calculados ou manuais, mantêm o valor ao recalcular.
+
+**Integração:**
+- Diário AM, documento `AM-MM-AAAA`, datado do último dia do mês.
+- D gasto 73 / C amortização acumulada 18, agrupado por conta, unidade de negócio e centro de custo.
+- Reabrir um período é o estorno dos lançamentos do período, incluindo os migrados (ADR-016).
+
+**Correcções face ao legado:**
+- A integração individual gerava D e C com números de lançamento diferentes.
+- O cálculo de vários meses podia exceder a base, porque os rascunhos da mesma execução não contavam.
+- As contas 73.1/18.1 do legado não existiam; agora a operação é recusada.
+- Editar uma quota integrada mexia no diário; agora é preciso reabrir o período.
+- O último mês da vida útil absorve o resto por amortizar.
+- Um activo sem vida útil amortiza pela taxa da categoria; no legado nunca amortizava.
+- Um bem totalmente amortizado já não aparece como pendente.
+- Abates e vendas passam a ser contabilizados: D 18 / C 11-12 / D terceiro, com C 6 (mais-valia) ou D 7 (menos-valia). O legado só mudava o estado. A anulação é por estorno.
+- A inventariação a partir de linhas 11/12 fica limitada ao valor da linha.
+- Eliminações bloqueadas pelas FKs, edição em massa sujeita ao bloqueio da ficha e código AST-NNN pela numeração da empresa.
+
+**Dados reais:**
+- Das 1 448 quotas migradas, 1 435 reproduzem-se exactamente.
+- 9 diferem 1 cêntimo: meio cêntimo exacto, arredondado para baixo em vírgula flutuante no legado.
+- 4 diferem no último mês de vida com quota fixa: o legado deixou 47 a 163 Kz por amortizar.
+- Os registos migrados não são alterados.
+
+**Esquema e validações:**
+- Único (empresa, activo, período) nas amortizações. `acumulado_fim_ano` passa a inteiro (é um ano). Domínios novos: estado do activo, tipo de abate e tipo de manutenção.
+- Validações: `ativos_vida_esgotada_por_amortizar` (5 activos), `ativos_sem_categoria_ou_contas` (1), `amortizacoes_integradas_sem_lancamento`.
+
+**Fica para depois:**
+- A verificação `ServicoAmortizacoes::porIntegrarNoAno` será chamada pelo fecho do exercício quando este for portado. No legado a verificação nunca detectava nada.
+- `pedidos_manutencao_equipamentos` pertence à Manutenção de dados (ADR-021).
+
+## ADR-052 — Projectos: ficha, WBS, equipa, organigrama, autos de medição e razão analítico
+
+Implementado em `app/Services/Projetos`, a partir de `ui_projects.js`, `projectos_dashboard.js`, `projectos_organigrama.js` e `fluxo_projectos.js`.
+
+**Paridade:**
+- Um projecto INTERNO exige unidade de negócio e centro de custo; um EXTERNO exige cliente e encomenda. Estados: PREPARACAO, ACTIVO, ENCERRADO e CANCELADO.
+- Execução da tarefa = média das subtarefas. A dos marcos e a do projecto calculam-se pelas tarefas principais.
+- Kanban configurável.
+- Equipa: interno, terceiro ou texto livre, de 1 a 8 h/dia.
+- Organigrama com vagas.
+- Revisão mensal (autos de medição):
+  - mão de obra = horas/8 × vencimentos do mês, deduzindo o já imputado;
+  - subempreitada = (% actual − maior % medida) × valor adjudicado;
+  - facturação do auto = venda × execução − já facturado.
+
+**Razão analítico (uma só regra em todos os ecrãs):**
+- Soma o razão, as FT e FR do projecto menos as NC, as linhas de facturas de fornecedor e os autos sem documento.
+- Compromissos = encomendas pela parte por facturar (regra do ADR-045).
+
+**Correcções face ao legado:**
+- Fim da dupla contagem das subempreitadas no resumo, no fluxo e no organigrama, e das linhas de pedido e de encomenda no extracto.
+- A linha do auto grava o terceiro certo; o legado gravava o id do membro (8 linhas corrigidas na migração).
+- O mesmo auto não se factura duas vezes.
+- O custo por contrato deixou de ser sempre 0.
+- A mão de obra fica datada no mês da revisão.
+- Só se registam horas de colaboradores internos da equipa.
+- Encerrar o projecto exige `proj_estado`, também pela edição, e um projecto encerrado não aceita imputações.
+- As facturas são emitidas por Compras e por Vendas: número único, artigo, IVA do artigo e série AGT.
+
+**Integração:**
+- A contabilização do processamento salarial imputa as folhas de horas do mês ao razão analítico; a descontabilização retira-as.
+- Continua pendente uma decisão: a mão de obra pode entrar pelo auto e pela folha de horas, como no legado; o auto deduz o que já foi imputado no mês.
+- A requisição de material e a factura do auto ainda não gravam a tarefa na linha de compra (há um contorno no serviço de Projectos). Fica como gancho em Compras.
+
+**Dados reais:**
+- O extracto confere com o legado nos projectos P6, P8, P19 e P21.
+- No P7 o custo fica 500 000 Kz abaixo: o legado contava uma linha de encomenda já facturada, por colisão de ids.
+
+**Esquema e validações:**
+- Domínios: BLOQUEADA nas tarefas; PROCESSAMENTO_SALARIAL e FATURA_RECIBO na origem do razão. Tamanhos da origem e da área. Únicos nas configurações do projecto.
+- Validações: `projetos_horas_fora_da_equipa`, `projetos_autos_sem_factura`, `projetos_tarefas_datas_invertidas`.
+
+## ADR-053 — Acréscimos e diferimentos: repartição, proposta mensal, contabilização e regularização
+
+Implementado em `app/Services/Acrescimos`, a partir de `js/modules/acrescimos/ad_dados.js`.
+
+**Registos:**
+- Tipos ACRESCIMO ou DIFERIMENTO; natureza CUSTO (conta 7) ou PROVEITO (conta 6); conta de balanço 37.
+- O diferimento exige a data do documento. O acréscimo tem data limite: a indicada, ou o fim do período + prazo (60 dias por omissão).
+- Com lançamentos, só se alteram as notas e a data limite.
+
+**Repartição:** por MESES (cada mês civil tocado vale 1) ou por DIAS. O arredondamento é acumulado e a última quota absorve a diferença.
+
+**Proposta mensal:**
+- Junta as linhas por contabilizar até ao mês, incluindo as atrasadas: INICIAL, RECONHECIMENTO, REGULARIZACAO/ANULACAO e TERMINO.
+- Um lançamento por linha, com o documento `AD<id>-<AAAAMM>-<TIP>` e `tipo_origem` ACRESCIMOS.
+- Cada linha numa transacção, com lock e verificação de duplicado; no legado podia duplicar em simultâneo.
+
+**Descontabilizar = estorno (ADR-016)**, sem buracos. Um registo que já teve lançamentos não se elimina; o legado apagava.
+
+**Recolha:** a partir das facturas de fornecedor e de cliente, do Diário e da tesouraria. Ficam de fora os documentos anulados e os lançamentos estornados.
+
+**Dados reais:**
+- Os 8 períodos migrados (empresas 10 e 18) são reproduzidos sem diferenças.
+- A conta 3743 da empresa 10 reconcilia: módulo = Diário = 2 859 153,85.
+
+**Esquema e validações:**
+- Único (item, tipo, período) nos períodos contabilizados; regularização em jsonb.
+- Validações: `ad_periodos_sem_lancamento`, `ad_acrescimos_sem_documento`.
+
+## ADR-054 — CRM: funis, oportunidades, actividades, clientes e ligação a Vendas
+
+Implementado em `app/Services/CRM`, a partir de `js/modules/crm/crm_dados.js`, `crm_ui.js` e `crm_ui_gestao.js`.
+
+**Funis:**
+- Etapas ABERTA, GANHA e PERDIDA, com exactamente uma ganha e uma perdida. Cada etapa tem probabilidade, dias de estagnação e tarefas automáticas.
+- Sequências de email por etapa.
+- A primeira utilização cria, com lock, o funil «Vendas» e 3 modelos.
+
+**Oportunidades:**
+- Valor pelas linhas; probabilidade da etapa por omissão; valor ponderado.
+- Mudar de etapa grava o histórico e cria as tarefas e os passos das sequências. Ao fechar, as tarefas automáticas pendentes são canceladas. A perda exige motivo.
+- Saúde da oportunidade, previsão e indicadores.
+
+**Contas:**
+- Prospect ou cliente, com uma conta CRM por terceiro (índice único).
+- A passagem a cliente é feita pelo `ServicoTerceiros`, com uma conta 31 de movimento.
+- Ficha 360º, com as facturas em atraso lidas de `valor_pendente`.
+
+**Vendas:**
+- `POST /api/vendas/documentos` aceita `oportunidade_crm_id` e liga o documento na mesma transacção: mesmo cliente, não anulado, não ligado a outra oportunidade.
+- FT, FR e NE marcam a oportunidade como ganha.
+- Também é possível ligar depois, com `POST crm/oportunidades/{id}/documentos`.
+
+**Emails:** não há envio SMTP. O `CanalEmailCRM` por omissão devolve uma ligação mailto: e regista a actividade. Um envio real é uma implementação registada no contentor.
+
+**Migração:** `ServicoMigracaoCRM::normalizar()` traduz as chaves dos JSON (linhas, histórico, documentos ligados). É idempotente.
+
+**Esquema e validações:**
+- Motivos de perda, origens e passos em jsonb; resultado em texto; origens mapeadas a códigos.
+- Validações: `crm_oportunidades_etapa_inexistente`, `crm_vendas_cliente_divergente`.
+
+**Organização do trabalho (ADR-051 a 054):** três agentes em paralelo, com as mesmas regras das partes 2-3 do POS. O coordenador aplicou o esquema, os ganchos (salários → projectos, vendas → CRM), a ETL e as validações. Suite: 194 testes.

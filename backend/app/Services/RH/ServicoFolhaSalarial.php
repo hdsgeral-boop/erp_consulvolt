@@ -15,6 +15,7 @@ use App\Models\ResultadoFolhaSalarial;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Projetos\ServicoExecucaoProjetos;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -324,6 +325,8 @@ final class ServicoFolhaSalarial
                 'linhas' => array_values($linhas)]);
             $p->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $criadas->first()->numero_lan]);
 
+            app(ServicoExecucaoProjetos::class)->imputarPeriodo($p);   // Projectos (ADR-052): folhas de horas do mês → razão analítico (legado: processamento salarial)
+
             return $p;
         });
     }
@@ -339,6 +342,8 @@ final class ServicoFolhaSalarial
             // legado: doc_number 'SAL'+MMAAAA no diário SAL (sem n.º de lançamento guardado)
             $this->lancamentos->estornar($this->localizador->localizar($p->numero_lan_contabilizacao, "SAL{$mes}{$ano}", null, 'D', $p->numero_lan_contabilizacao ? null : 'SAL'), $motivo);
             $p->update(['contabilizado' => false, 'numero_lan_contabilizacao' => null]);
+
+            app(ServicoExecucaoProjetos::class)->reverterPeriodo($p);   // Projectos (ADR-052): retira a mão de obra imputada pelas folhas de horas
 
             return $p;
         });

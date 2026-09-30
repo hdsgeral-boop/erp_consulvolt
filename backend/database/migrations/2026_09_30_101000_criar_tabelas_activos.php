@@ -25,7 +25,8 @@ return new class extends Migration
             $table->decimal('valor_aquisicao', 15, 2)->nullable()->comment('legado: acquisition_value · tipos mistos: decimal=91, inteiro=83');
             $table->integer('vida_util')->nullable()->comment('legado: useful_life');
             $table->date('data_aquisicao')->nullable()->comment('legado: acquisition_date');
-            $table->string('estado', 10)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {ACTIVO, INACTIVO, ABATIDO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->bigInteger('lancamento_contabil_id')->nullable()->comment('legado: journal_line_id');
             $table->bigInteger('fornecedor_id')->nullable()->comment('legado: supplier_id');
             $table->decimal('valor_residual', 15, 2)->nullable()->comment('legado: residual_value');
@@ -33,7 +34,7 @@ return new class extends Migration
             $table->integer('vida_util_restante')->nullable()->comment('legado: remaining_life');
             $table->decimal('amortizacao_acumulada_inicial', 15, 2)->nullable()->comment('legado: accumulated_dep_initial · tipos mistos: inteiro=94, decimal=72');
             $table->decimal('quota_fixa', 15, 2)->nullable()->comment('legado: fixed_quota · tipos mistos: inteiro=10, decimal=32');
-            $table->decimal('acumulado_fim_ano', 15, 2)->nullable()->comment('legado: accumulated_end_year');
+            $table->integer('acumulado_fim_ano')->nullable()->comment('legado: accumulated_end_year · tipo forçado (inferido: numeric(15,2))');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -45,6 +46,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_ativos_imobilizados_lancamento_contabil_id ON ativos_imobilizados (lancamento_contabil_id)');
         DB::statement('CREATE INDEX ix_ativos_imobilizados_fornecedor_id ON ativos_imobilizados (fornecedor_id)');
         DB::statement('CREATE INDEX ix_ativos_imobilizados_unidade_negocio_id ON ativos_imobilizados (unidade_negocio_id)');
+        DB::statement('ALTER TABLE ativos_imobilizados ADD CONSTRAINT ck_ativos_imobilizados_estado CHECK (estado IS NULL OR estado IN (\'ACTIVO\',\'INACTIVO\',\'ABATIDO\'))');
 
         // asset_categories (legado) -> categorias_ativos · 11 linhas reais no backup · eliminação lógica
         Schema::create('categorias_ativos', function (Blueprint $table) {
@@ -76,7 +78,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
-        DB::statement('CREATE INDEX ix_amortizacoes_ativos_empresa_id ON amortizacoes_ativos (empresa_id)');
+        DB::statement('CREATE UNIQUE INDEX uq_amortizacoes_ativos_empresa__ativo_im_periodo_ ON amortizacoes_ativos (empresa_id, ativo_imobilizado_id, periodo_codigo)');
         DB::statement('CREATE INDEX ix_amortizacoes_ativos_ativo_imobilizado_id ON amortizacoes_ativos (ativo_imobilizado_id)');
         DB::statement('CREATE INDEX ix_amortizacoes_ativos_empresa__ativo_im_periodo_ ON amortizacoes_ativos (empresa_id, ativo_imobilizado_id, periodo_codigo)');
 
@@ -114,7 +116,8 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('ativo_imobilizado_id')->nullable()->comment('legado: asset_id');
-            $table->string('tipo', 20)->nullable()->comment('legado: type');
+            $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {PREVENTIVA, CORRECTIVA}; texto original em tipo_original');
+            $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
             $table->date('data')->nullable()->comment('legado: date');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->decimal('custo', 15, 2)->nullable()->comment('legado: cost');
@@ -127,6 +130,7 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_registos_manutencao_ativos_empresa_id ON registos_manutencao_ativos (empresa_id)');
         DB::statement('CREATE INDEX ix_registos_manutencao_ativos_ativo_imobilizado_id ON registos_manutencao_ativos (ativo_imobilizado_id)');
+        DB::statement('ALTER TABLE registos_manutencao_ativos ADD CONSTRAINT ck_registos_manutencao_ativos_tipo CHECK (tipo IS NULL OR tipo IN (\'PREVENTIVA\',\'CORRECTIVA\'))');
         DB::statement('ALTER TABLE registos_manutencao_ativos ADD CONSTRAINT ck_registos_manutencao_ativos_estado CHECK (estado IS NULL OR estado IN (\'PLANEADA\',\'EM_CURSO\',\'CONCLUIDA\'))');
 
         // asset_movements (legado) -> transferencias_centros_custo_ativos · 1 linhas reais no backup

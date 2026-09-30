@@ -464,6 +464,14 @@ export const TIPOS_FORCADOS = {
   'lav_claims.entry_state': 'text', 'lav_claims.order_number': 'varchar(50)', 'lav_claims.paid_by': 'varchar(100)', 'lav_payments.posting_lans': 'jsonb',
   'lav_settings.urgency_lead_factor': 'numeric(6,4)', 'lav_pieces.fabric': 'varchar(100)', 'lav_pieces.color': 'varchar(50)', 'lav_claims.decision_note': 'text',
   // Prestação de contas POS: ids de meios gerados (pm_ + 8), chaves TRF:<venda>:<meio>, comprovativos até 100; comissão deduzida é sim/não
+  // Activos/Projectos/A&D/CRM (tabelas quase vazias: tamanhos inferidos de 1-2 exemplos eram curtos demais)
+  'ad_items.natureza': 'varchar(30)', 'ad_items.reparticao': 'varchar(10)', 'ad_items.data_limite': 'date', 'ad_postings.por': 'varchar(100)',
+  'crm_activities.responsavel': 'varchar(100)', 'crm_contacts.cargo': 'varchar(100)', 'crm_accounts.responsavel': 'varchar(100)', 'crm_opportunities.responsavel': 'varchar(100)',
+  'project_review_lines.generated_doc_id': 'varchar(50)', 'project_org_nodes.disposicao': 'varchar(30)', 'project_ledger.source_module': 'varchar(30)',
+  'document_types.module_context': 'varchar(30)',
+  'fixed_assets.accumulated_end_year': 'integer', 'project_ledger.source_doc_type': 'varchar(30)', 'project_ledger.source_doc_id': 'varchar(60)', 'project_org_nodes.area': 'varchar(100)',
+  'ad_items.regularizacao': 'jsonb', 'crm_settings.motivos_perda': 'jsonb', 'crm_settings.origens': 'jsonb', 'crm_sequences.passos': 'jsonb', 'crm_activities.resultado': 'text',
+  'crm_templates.assunto': 'varchar(255)',
   'pos_settlements.pm_id': 'varchar(40)', 'pos_settlements.item_key': 'varchar(60)', 'pos_settlements.reference': 'varchar(100)', 'pos_settlements.commission_deducted': 'boolean',
 };
 

@@ -118,19 +118,25 @@ export const NORMALIZACOES = {
 
   // ── Activos / projectos ──
   'asset_maintenance_records.status': { dominio: ['PLANEADA', 'EM_CURSO', 'CONCLUIDA'], mapa: { CONCLUIDA: 'CONCLUIDA', 'EM CURSO': 'EM_CURSO', PLANEADA: 'PLANEADA' } },
-  'project_tasks.status': { dominio: ['PENDENTE', 'EM_CURSO', 'CONCLUIDA'], mapa: {
-    PENDENTE: 'PENDENTE', 'EM CURSO': 'EM_CURSO', FAZENDO: 'EM_CURSO', CONCLUIDA: 'CONCLUIDA' } },
+  'project_tasks.status': { dominio: ['PENDENTE', 'EM_CURSO', 'CONCLUIDA', 'BLOQUEADA'], mapa: {
+    PENDENTE: 'PENDENTE', 'EM CURSO': 'EM_CURSO', FAZENDO: 'EM_CURSO', CONCLUIDA: 'CONCLUIDA', BLOQUEADA: 'BLOQUEADA' } },
   'project_ledger.nature': { dominio: ['CUSTO', 'CUSTO_REAL', 'PROVEITO'], mapa: {
     C: 'CUSTO', CUSTO: 'CUSTO', 'CUSTO REAL': 'CUSTO_REAL', PROVEITO: 'PROVEITO', P: 'PROVEITO' } },
-  'project_ledger.source_doc_type': { dominio: ['AUTO_INTERNO', 'REGISTO_OBRA', 'FATURA'], mapa: {
-    'AUTO INTERNO': 'AUTO_INTERNO', 'REGISTO DE OBRA': 'REGISTO_OBRA', FACTURA: 'FATURA', FATURA: 'FATURA' } },
+  'project_ledger.source_doc_type': { dominio: ['AUTO_INTERNO', 'REGISTO_OBRA', 'FATURA', 'FATURA_RECIBO', 'PROCESSAMENTO_SALARIAL'], mapa: {
+    'AUTO INTERNO': 'AUTO_INTERNO', 'REGISTO DE OBRA': 'REGISTO_OBRA', FACTURA: 'FATURA', FATURA: 'FATURA', 'FACTURA RECIBO': 'FATURA_RECIBO', 'FATURA RECIBO': 'FATURA_RECIBO',
+    'PROCESSAMENTO SALARIAL': 'PROCESSAMENTO_SALARIAL' } },
+  'fixed_assets.status': { dominio: ['ACTIVO', 'INACTIVO', 'ABATIDO'], mapa: { ACTIVO: 'ACTIVO', ATIVO: 'ACTIVO', INACTIVO: 'INACTIVO', INATIVO: 'INACTIVO', ABATIDO: 'ABATIDO' } },
+  'asset_disposals.type': { dominio: ['SINISTRO', 'VENDA', 'FIM_VIDA'], mapa: { SINISTRO: 'SINISTRO', VENDA: 'VENDA', 'FIM VIDA': 'FIM_VIDA' } },
+  'asset_maintenance_records.type': { dominio: ['PREVENTIVA', 'CORRECTIVA'], mapa: { PREVENTIVA: 'PREVENTIVA', CORRECTIVA: 'CORRECTIVA', CORRETIVA: 'CORRECTIVA' } },
   'project_review_lines.type': { dominio: ['MAO_OBRA', 'SUBEMPREITADA'], mapa: { LABOR: 'MAO_OBRA', SUBCONTRACT: 'SUBEMPREITADA' } },
 
   // ── CRM ──
   'crm_accounts.origem': { dominio: ['RECOMENDACAO', 'CLIENTE_EXISTENTE', 'SITE', 'CAMPANHA', 'OUTRO'], mapa: {
-    RECOMENDACAO: 'RECOMENDACAO', 'CLIENTE EXISTENTE': 'CLIENTE_EXISTENTE' } },
+    RECOMENDACAO: 'RECOMENDACAO', 'CLIENTE EXISTENTE': 'CLIENTE_EXISTENTE', WEBSITE: 'SITE', SITE: 'SITE', 'EMAIL MARKETING': 'CAMPANHA', 'REDES SOCIAIS': 'CAMPANHA',
+    CAMPANHA: 'CAMPANHA', OUTRO: 'OUTRO' } },
   'crm_opportunities.origem': { dominio: ['RECOMENDACAO', 'CLIENTE_EXISTENTE', 'SITE', 'CAMPANHA', 'OUTRO'], mapa: {
-    RECOMENDACAO: 'RECOMENDACAO', 'CLIENTE EXISTENTE': 'CLIENTE_EXISTENTE' } },
+    RECOMENDACAO: 'RECOMENDACAO', 'CLIENTE EXISTENTE': 'CLIENTE_EXISTENTE', WEBSITE: 'SITE', SITE: 'SITE', 'EMAIL MARKETING': 'CAMPANHA', 'REDES SOCIAIS': 'CAMPANHA',
+    CAMPANHA: 'CAMPANHA', OUTRO: 'OUTRO' } },
 
   // ── Sistema ──
   // SUPER_ADMINISTRADOR = acesso total (paridade: role 'superadmin' em js/permissoes.js:593).

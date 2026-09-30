@@ -21,7 +21,7 @@ abstract class RegistoManutencaoAtivoBase extends ModeloBase
     protected string $moduloAuditoria = 'Activos';
 
     protected $fillable = [
-        'empresa_id', 'ativo_imobilizado_id', 'tipo', 'data', 'descricao', 'custo', 'estado', 'estado_original', 'resolucao', 'data_execucao',
+        'empresa_id', 'ativo_imobilizado_id', 'tipo', 'tipo_original', 'data', 'descricao', 'custo', 'estado', 'estado_original', 'resolucao', 'data_execucao',
     ];
 
     protected function casts(): array

@@ -119,7 +119,7 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('nome', 255)->nullable()->comment('legado: name');
-            $table->string('contexto_modulo', 10)->nullable()->comment('legado: module_context');
+            $table->string('contexto_modulo', 30)->nullable()->comment('legado: module_context · tipo forçado (inferido: varchar(10))');
             $table->text('descricao')->nullable()->comment('legado: description · sem valores reais: tipo a confirmar no código legado');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();

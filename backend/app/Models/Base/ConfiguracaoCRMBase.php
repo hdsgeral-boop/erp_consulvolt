@@ -26,6 +26,8 @@ abstract class ConfiguracaoCRMBase extends ModeloBase
     {
         return [
             'empresa_id' => 'integer',
+            'motivos_perda' => 'array',
+            'origens' => 'array',
             'dias_sem_atividade' => 'integer',
             'prazo_pagamento_dias' => 'integer',
             'criado_em' => 'datetime',

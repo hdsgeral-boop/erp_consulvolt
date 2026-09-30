@@ -33,7 +33,7 @@ abstract class AtivoImobilizadoBase extends ModeloBase
     protected string $moduloAuditoria = 'Activos';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'descricao', 'categoria_ativo_id', 'centro_custo_id', 'valor_aquisicao', 'vida_util', 'data_aquisicao', 'estado', 'lancamento_contabil_id', 'fornecedor_id', 'valor_residual', 'amortizacao_acumulada', 'vida_util_restante', 'amortizacao_acumulada_inicial', 'quota_fixa', 'acumulado_fim_ano', 'unidade_negocio_id',
+        'empresa_id', 'codigo', 'descricao', 'categoria_ativo_id', 'centro_custo_id', 'valor_aquisicao', 'vida_util', 'data_aquisicao', 'estado', 'estado_original', 'lancamento_contabil_id', 'fornecedor_id', 'valor_residual', 'amortizacao_acumulada', 'vida_util_restante', 'amortizacao_acumulada_inicial', 'quota_fixa', 'acumulado_fim_ano', 'unidade_negocio_id',
     ];
 
     protected function casts(): array
@@ -52,7 +52,7 @@ abstract class AtivoImobilizadoBase extends ModeloBase
             'vida_util_restante' => 'integer',
             'amortizacao_acumulada_inicial' => 'decimal:2',
             'quota_fixa' => 'decimal:2',
-            'acumulado_fim_ano' => 'decimal:2',
+            'acumulado_fim_ano' => 'integer',
             'unidade_negocio_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',

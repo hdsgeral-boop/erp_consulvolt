@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T20:13:46.130Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T21:39:51.578Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1684 |
+| Colunas reais mapeadas | 1686 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -137,9 +137,12 @@
 | `historical_balances.type` | DEMONSTRACAO_RESULTADOS, FLUXO_CAIXA | DEMO → DEMONSTRACAO_RESULTADOS; FLUXO → FLUXO_CAIXA |
 | `annual_reports.status` | RASCUNHO, APROVADO | DRAFT → RASCUNHO |
 | `asset_maintenance_records.status` | PLANEADA, EM_CURSO, CONCLUIDA | concluida → CONCLUIDA |
-| `project_tasks.status` | PENDENTE, EM_CURSO, CONCLUIDA | PENDENTE → PENDENTE; EM_CURSO → EM_CURSO; CONCLUIDA → CONCLUIDA; FAZENDO → EM_CURSO |
+| `project_tasks.status` | PENDENTE, EM_CURSO, CONCLUIDA, BLOQUEADA | PENDENTE → PENDENTE; EM_CURSO → EM_CURSO; CONCLUIDA → CONCLUIDA; FAZENDO → EM_CURSO |
 | `project_ledger.nature` | CUSTO, CUSTO_REAL, PROVEITO | C → CUSTO; custo_real → CUSTO_REAL; custo → CUSTO; proveito → PROVEITO |
-| `project_ledger.source_doc_type` | AUTO_INTERNO, REGISTO_OBRA, FATURA | AUTO_INTERNO → AUTO_INTERNO; Registo de Obra → REGISTO_OBRA; Factura → FATURA |
+| `project_ledger.source_doc_type` | AUTO_INTERNO, REGISTO_OBRA, FATURA, FATURA_RECIBO, PROCESSAMENTO_SALARIAL | AUTO_INTERNO → AUTO_INTERNO; Registo de Obra → REGISTO_OBRA; Factura → FATURA |
+| `fixed_assets.status` | ACTIVO, INACTIVO, ABATIDO | ACTIVO → ACTIVO |
+| `asset_disposals.type` | SINISTRO, VENDA, FIM_VIDA |  |
+| `asset_maintenance_records.type` | PREVENTIVA, CORRECTIVA | CORRECTIVA → CORRECTIVA |
 | `project_review_lines.type` | MAO_OBRA, SUBEMPREITADA | LABOR → MAO_OBRA; SUBCONTRACT → SUBEMPREITADA |
 | `crm_accounts.origem` | RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO | Recomendação → RECOMENDACAO; Cliente existente → CLIENTE_EXISTENTE |
 | `crm_opportunities.origem` | RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO | Recomendação → RECOMENDACAO; Cliente existente → CLIENTE_EXISTENTE |
@@ -329,7 +332,7 @@ Linhas reais: **1** · fictícias descartadas: 16
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `name` | `nome` | varchar(50) | sim | 100% |  |  |
-| `module_context` | `contexto_modulo` | varchar(10) | sim | 100% |  |  |
+| `module_context` | `contexto_modulo` | varchar(30) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `description` | `descricao` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 
@@ -2253,7 +2256,8 @@ Linhas reais: **174** · fictícias descartadas: 16
 | `useful_life` | `vida_util` | integer | sim | 100% |  |  |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `acquisition_date` | `data_aquisicao` | date | sim | 100% |  |  |
-| `status` | `estado` | varchar(10) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {ACTIVO, INACTIVO, ABATIDO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(10) | sim | 100% |  | texto exacto do legado |
 | `journal_line_id` | `lancamento_contabil_id` | bigint | sim | 98% | `lancamentos_contabeis.id` ⚠ 97.1% (5 órfãos) |  |
 | `supplier_id` | `fornecedor_id` | bigint | sim | 20% | `terceiros.id` |  |
 | `residual_value` | `valor_residual` | numeric(15,2) | sim | 100% |  |  |
@@ -2262,7 +2266,7 @@ Linhas reais: **174** · fictícias descartadas: 16
 | `remaining_life` | `vida_util_restante` | integer | sim | 95% |  |  |
 | `accumulated_dep_initial` | `amortizacao_acumulada_inicial` | numeric(15,2) | sim | 95% |  | tipos mistos: inteiro=94, decimal=72 |
 | `fixed_quota` | `quota_fixa` | numeric(15,2) | sim | 24% |  | tipos mistos: inteiro=10, decimal=32 |
-| `accumulated_end_year` | `acumulado_fim_ano` | numeric(15,2) | sim | 58% |  |  |
+| `accumulated_end_year` | `acumulado_fim_ano` | integer | sim | 58% |  | tipo forçado (inferido: numeric(15,2)) |
 | `business_unit_id` | `unidade_negocio_id` | bigint | sim | 1% | `unidades_negocio.id` |  |
 
 ### `asset_categories` → `categorias_ativos` (model `CategoriaAtivo`, `/api/activos/categorias`)
@@ -2315,7 +2319,8 @@ Linhas reais: **1** · fictícias descartadas: 16
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `asset_id` | `ativo_imobilizado_id` | bigint | sim | 100% | `ativos_imobilizados.id` |  |
-| `type` | `tipo` | varchar(20) | sim | 100% |  |  |
+| `type` | `tipo` | varchar(20) | sim | 100% |  | código normalizado ∈ {PREVENTIVA, CORRECTIVA}; texto original em tipo_original |
+| `type` | `tipo_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `date` | `data` | date | sim | 100% |  |  |
 | `description` | `descricao` | text | sim | 100% |  |  |
 | `cost` | `custo` | numeric(15,2) | sim | 100% |  |  |
@@ -2391,7 +2396,7 @@ Linhas reais: **51** · fictícias descartadas: 16
 | `name` | `nome` | varchar(100) | sim | 100% |  |  |
 | `start_date` | `data_inicio` | date | sim | 100% |  |  |
 | `end_date` | `data_fim` | date | sim | 78% |  |  |
-| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PENDENTE, EM_CURSO, CONCLUIDA}; texto original em estado_original |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {PENDENTE, EM_CURSO, CONCLUIDA, BLOQUEADA}; texto original em estado_original |
 | `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `milestone_id` | `marco_projeto_id` | bigint | sim | 82% | `marcos_projeto.id` |  |
@@ -2481,8 +2486,8 @@ Linhas reais: **30** · fictícias descartadas: 16
 | `project_id` | `projeto_id` | bigint | sim | 100% | `projetos.id` |  |
 | `task_id` | `tarefa_projeto_id` | bigint | sim | 13% | `tarefas_projeto.id` |  |
 | `rubric` | `rubrica` | varchar(30) | sim | 100% |  |  |
-| `source_module` | `modulo_origem` | varchar(10) | sim | 100% |  |  |
-| `source_doc_type` | `tipo_documento_origem` | varchar(20) | sim | 100% |  | código normalizado ∈ {AUTO_INTERNO, REGISTO_OBRA, FATURA}; texto original em tipo_documento_origem_original |
+| `source_module` | `modulo_origem` | varchar(30) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
+| `source_doc_type` | `tipo_documento_origem` | varchar(27) | sim | 100% |  | tipo forçado (inferido: varchar(30)); código normalizado ∈ {AUTO_INTERNO, REGISTO_OBRA, FATURA, FATURA_RECIBO, PROCESSAMENTO_SALARIAL}; texto original em tipo_documento_origem_original |
 | `source_doc_type` | `tipo_documento_origem_original` | varchar(30) | sim | 100% |  | texto exacto do legado |
 | `nature` | `natureza` | varchar(20) | sim | 100% |  | código normalizado ∈ {CUSTO, CUSTO_REAL, PROVEITO}; texto original em natureza_original |
 | `nature` | `natureza_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
@@ -2490,7 +2495,7 @@ Linhas reais: **30** · fictícias descartadas: 16
 | `value` | `valor` | numeric(15,2) | sim | 83% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `amount` | `montante` | numeric(15,2) | sim | 53% |  |  |
-| `source_doc_id` | `documento_origem_id` | varchar(30) | sim | 17% |  |  |
+| `source_doc_id` | `documento_origem_id` | varchar(60) | sim | 17% |  | tipo forçado (inferido: varchar(30)) |
 | `journal_line_id` | `lancamento_contabil_id` | bigint | sim | 0% | `lancamentos_contabeis.id` |  |
 | `description` | `descricao` | text | sim | 27% |  |  |
 
@@ -2580,7 +2585,7 @@ Linhas reais: **55** · fictícias descartadas: 15
 | `previous_pct` | `percentagem_anterior` | numeric(9,4) | sim | 15% |  |  |
 | `current_pct` | `percentagem_atual` | numeric(9,4) | sim | 15% |  |  |
 | `calculated_value` | `valor_calculado` | numeric(15,2) | sim | 100% |  |  |
-| `generated_doc_id` | `documento_gerado_id` | varchar(10) | sim | 60% |  |  |
+| `generated_doc_id` | `documento_gerado_id` | varchar(50) | sim | 60% |  | tipo forçado (inferido: varchar(10)) |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `employee_id` | `colaborador_id` | bigint | sim | 85% | `colaboradores.id` |  |
 
@@ -2594,7 +2599,7 @@ Linhas reais: **30** · fictícias descartadas: 2
 | `project_id` | `projeto_id` | bigint | sim | 100% | `projetos.id` |  |
 | `parent_id` | `no_pai_id` | bigint | sim | 93% | `nos_organigrama_projeto.id` |  |
 | `titulo` | `titulo` | varchar(50) | sim | 100% |  |  |
-| `area` | `area` | varchar(30) | sim | 27% |  |  |
+| `area` | `area` | varchar(100) | sim | 27% |  | tipo forçado (inferido: varchar(30)) |
 | `descricao` | `descricao` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `vagas` | `vagas` | integer | sim | 100% |  |  |
 | `responsavel_member_id` | `membro_responsavel_id` | bigint | sim | 0% | `membros_equipa_projeto.id` |  |
@@ -2603,7 +2608,7 @@ Linhas reais: **30** · fictícias descartadas: 2
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `apoio` | `apoio` | integer | sim | 13% |  |  |
 | `tarefas` | `tarefas` | jsonb | sim | 17% |  |  |
-| `disposicao` | `disposicao` | varchar(10) | sim | 10% |  |  |
+| `disposicao` | `disposicao` | varchar(30) | sim | 10% |  | tipo forçado (inferido: varchar(10)) |
 
 ## Módulo: Orçamento
 
@@ -2732,16 +2737,16 @@ Linhas reais: **2** · fictícias descartadas: 0
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `ad_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `tipo` | `tipo` | varchar(20) | sim | 100% |  |  |
-| `natureza` | `natureza` | varchar(10) | sim | 100% |  |  |
+| `natureza` | `natureza` | varchar(30) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `descricao` | `descricao` | text | sim | 100% |  |  |
 | `valor` | `valor` | numeric(15,2) | sim | 100% |  |  |
 | `conta_resultado` | `conta_resultado` | varchar(10) | sim | 100% |  |  |
 | `conta_balanco` | `conta_balanco` | varchar(10) | sim | 100% |  |  |
 | `data_inicio` | `data_inicio` | date | sim | 100% |  |  |
 | `data_fim` | `data_fim` | date | sim | 100% |  |  |
-| `reparticao` | `reparticao` | varchar(10) | sim | 100% |  |  |
+| `reparticao` | `reparticao` | varchar(10) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `data_documento` | `data_documento` | date | sim | 100% |  |  |
-| `data_limite` | `data_limite` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
+| `data_limite` | `data_limite` | date | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
 | `documento_em_balanco` | `documento_em_balanco` | boolean | sim | 100% |  |  |
 | `third_party_id` | `terceiro_id` | bigint | sim | 100% | `terceiros.id` |  |
 | `business_unit_id` | `unidade_negocio_id` | bigint | sim | 50% | `unidades_negocio.id` |  |
@@ -2772,7 +2777,7 @@ Linhas reais: **8** · fictícias descartadas: 0
 | `doc_number` | `numero_documento` | varchar(30) | sim | 100% |  |  |
 | `doc_date` | `data_documento` | date | sim | 100% |  |  |
 | `estado` | `estado` | varchar(20) | sim | 100% |  |  |
-| `por` | `por` | varchar(10) | sim | 100% |  |  |
+| `por` | `por` | varchar(100) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `em` | `em` | timestamptz | sim | 100% |  |  |
 | `diferenca` | `diferenca` | numeric(15,2) | sim | 0% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
@@ -2814,7 +2819,7 @@ Linhas reais: **5** · fictícias descartadas: 0
 | `morada` | `morada` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `origem` | `origem` | varchar(22) | sim | 100% |  | código normalizado ∈ {RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO}; texto original em origem_original |
 | `origem` | `origem_original` | varchar(30) | sim | 100% |  | texto exacto do legado |
-| `responsavel` | `responsavel` | varchar(10) | sim | 100% |  |  |
+| `responsavel` | `responsavel` | varchar(100) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `criado_por` | `criado_por` | varchar(10) | sim | 100% |  |  |
 | `criado_em` | `criado_em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
@@ -2832,7 +2837,7 @@ Linhas reais: **4** · fictícias descartadas: 0
 | `crm_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `account_id` | `conta_crm_id` | bigint | sim | 100% | `contas_crm.id` |  |
 | `nome` | `nome` | varchar(30) | sim | 100% |  |  |
-| `cargo` | `cargo` | varchar(10) | sim | 50% |  |  |
+| `cargo` | `cargo` | varchar(100) | sim | 50% |  | tipo forçado (inferido: varchar(10)) |
 | `email` | `email` | varchar(50) | sim | 75% |  |  |
 | `telefone` | `telefone` | varchar(30) | sim | 75% |  | tipos mistos: string=2, string_inteiro=1 |
 | `principal` | `principal` | boolean | sim | 100% |  |  |
@@ -2852,7 +2857,7 @@ Linhas reais: **5** · fictícias descartadas: 0
 | `valor` | `valor` | numeric(15,2) | sim | 100% |  |  |
 | `probabilidade` | `probabilidade` | numeric(9,4) | sim | 60% |  |  |
 | `data_fecho_prevista` | `data_fecho_prevista` | date | sim | 100% |  |  |
-| `responsavel` | `responsavel` | varchar(10) | sim | 100% |  |  |
+| `responsavel` | `responsavel` | varchar(100) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `origem` | `origem` | varchar(22) | sim | 100% |  | código normalizado ∈ {RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO}; texto original em origem_original |
 | `origem` | `origem_original` | varchar(30) | sim | 100% |  | texto exacto do legado |
 | `notas` | `notas` | text | sim | 20% |  |  |
@@ -2887,14 +2892,14 @@ Linhas reais: **45** · fictícias descartadas: 0
 | `descricao` | `descricao` | text | sim | 100% |  |  |
 | `data_prevista` | `data_prevista` | date | sim | 100% |  |  |
 | `concluida` | `concluida` | boolean | sim | 100% |  |  |
-| `responsavel` | `responsavel` | varchar(10) | sim | 89% |  |  |
+| `responsavel` | `responsavel` | varchar(100) | sim | 89% |  | tipo forçado (inferido: varchar(10)) |
 | `automatica` | `automatica` | boolean | sim | 100% |  |  |
 | `modelo_id` | `modelo_email_crm_id` | bigint | sim | 20% | `modelos_email_crm.id` |  |
 | `criado_por` | `criado_por` | varchar(20) | sim | 100% |  |  |
 | `criado_em` | `criado_em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `concluida_em` | `concluida_em` | timestamptz | sim | 91% |  |  |
-| `resultado` | `resultado` | varchar(50) | sim | 87% |  |  |
+| `resultado` | `resultado` | text | sim | 87% |  | tipo forçado (inferido: varchar(50)) |
 | `concluida_por` | `concluida_por` | varchar(10) | sim | 2% |  |  |
 
 ### `crm_templates` → `modelos_email_crm` (model `ModeloEmailCRM`, `/api/crm/modelos`)
@@ -2905,7 +2910,7 @@ Linhas reais: **6** · fictícias descartadas: 0
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `crm_company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `nome` | `nome` | varchar(30) | sim | 100% |  |  |
-| `assunto` | `assunto` | varchar(100) | sim | 100% |  |  |
+| `assunto` | `assunto` | varchar(255) | sim | 100% |  | tipo forçado (inferido: varchar(100)) |
 | `corpo` | `corpo` | text | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 

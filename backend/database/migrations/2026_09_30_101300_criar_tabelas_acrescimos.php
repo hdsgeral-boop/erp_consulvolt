@@ -33,16 +33,16 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: ad_company_id');
             $table->string('tipo', 20)->nullable()->comment('legado: tipo');
-            $table->string('natureza', 10)->nullable()->comment('legado: natureza');
+            $table->string('natureza', 30)->nullable()->comment('legado: natureza · tipo forçado (inferido: varchar(10))');
             $table->text('descricao')->nullable()->comment('legado: descricao');
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor');
             $table->string('conta_resultado', 20)->nullable()->comment('legado: conta_resultado');
             $table->string('conta_balanco', 20)->nullable()->comment('legado: conta_balanco');
             $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
             $table->date('data_fim')->nullable()->comment('legado: data_fim');
-            $table->string('reparticao', 10)->nullable()->comment('legado: reparticao');
+            $table->string('reparticao', 10)->nullable()->comment('legado: reparticao · tipo forçado (inferido: varchar(10))');
             $table->date('data_documento')->nullable()->comment('legado: data_documento');
-            $table->text('data_limite')->nullable()->comment('legado: data_limite · sem valores reais: tipo a confirmar no código legado');
+            $table->date('data_limite')->nullable()->comment('legado: data_limite · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
             $table->boolean('documento_em_balanco')->nullable()->comment('legado: documento_em_balanco');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
@@ -53,7 +53,7 @@ return new class extends Migration
             $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->string('estado', 20)->nullable()->comment('legado: estado');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
-            $table->string('regularizacao', 255)->nullable()->comment('legado: regularizacao · do código legado js/modules/acrescimos/ad_dados.js:188');
+            $table->jsonb('regularizacao')->nullable()->comment('legado: regularizacao · do código legado js/modules/acrescimos/ad_dados.js:188');
             $table->jsonb('termino')->nullable()->comment('legado: termino · do código legado js/modules/acrescimos/ad_dados.js:201');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
@@ -77,7 +77,7 @@ return new class extends Migration
             $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number');
             $table->date('data_documento')->nullable()->comment('legado: doc_date');
             $table->string('estado', 20)->nullable()->comment('legado: estado');
-            $table->string('por', 10)->nullable()->comment('legado: por');
+            $table->string('por', 100)->nullable()->comment('legado: por · tipo forçado (inferido: varchar(10))');
             $table->timestampTz('em')->nullable()->comment('legado: em');
             $table->decimal('diferenca', 15, 2)->nullable()->comment('legado: diferenca');
             $table->string('anulado_por', 255)->nullable()->comment('legado: anulado_por · do código legado js/modules/acrescimos/ad_dados.js:344');
@@ -85,6 +85,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_periodos_lancamento_acrescimos_item_acr_tipo_periodo ON periodos_lancamento_acrescimos (item_acrescimo_diferimento_id, tipo, periodo) WHERE estado = \'CONTABILIZADO\'');
         DB::statement('CREATE INDEX ix_periodos_lancamento_acrescimos_empresa_id ON periodos_lancamento_acrescimos (empresa_id)');
         DB::statement('CREATE INDEX ix_periodos_lancamento_acrescimos_item_acrescimo_diferimento_id ON periodos_lancamento_acrescimos (item_acrescimo_diferimento_id)');
         DB::statement('CREATE INDEX ix_periodos_lancamento_acrescimos_diario_id ON periodos_lancamento_acrescimos (diario_id)');

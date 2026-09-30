@@ -113,7 +113,11 @@ Cobrem os seguintes casos:
 | **POS (parte 2)** | ✅ | pos/prestacao, pos/sessoes/{id}/prestacao (+transferencias), pos/liquidacoes (+anular), pos/relatorios (+servicos) | Prestação de contas: numerário → folha de caixa, TPA com comissão e transferências → tesouraria; relatórios com filtros (ADR-048) |
 | **POS (parte 3a)** | ✅ | pos/lavandaria (definições, peças, serviços, ordens, orçamentos, materiais, pagamentos, entrega, reclamações, relatório) | Lavandaria/alfaiataria com FR ou FT+recibo, Consumidor Final, armazenagem, integração na sessão, reclamações com segregação (ADR-049) |
 | **POS (parte 3b)** | ✅ | pos/hotelaria (quartos, estadias, checkin, checkout), pos/armazem (stock, vendas, picking) | Hotelaria com regras do terminal e rateio dos pagamentos; venda ao balcão com CMV; picking NE → GR (ADR-050) |
-| Activos, Projectos, A&D, CRM | ⏳ | | |
+| **Activos** | ✅ | ativos/categorias, bens (+importar, edicao-massa, transferencias), afetacoes, manutencoes, aquisicoes-pendentes, abates, amortizacoes (+calcular, quota, integrar, reabrir, verificacao), mapas, fluxo | Amortizações em rascunho → diário AM, reabertura por estorno, abates com mais/menos-valia; 1 435/1 448 quotas migradas reproduzidas (ADR-051) |
+| **Projectos** | ✅ | projetos (carteira, ficha/estado, WBS, Kanban, equipa, organigrama, orçamento, aditamentos, horas, equipamentos, requisições, revisões/autos, facturação, extracto, resumo, fluxo, rentabilidade) | Razão analítico único sem duplicados, autos e facturação sem repetições, imputação salarial ligada ao processamento (ADR-052) |
+| **Acréscimos e diferimentos** | ✅ | acrescimos/definicoes, itens (+regularizar, terminar), quotas, proposta (+contabilizar), lancamentos (+descontabilizar), reconciliacao, recolha | Repartição dias/meses, proposta mensal, um lançamento por linha, estorno sem buracos; 8 períodos migrados reproduzidos (ADR-053) |
+| **CRM** | ✅ | crm/configuracao, funis (+quadro), modelos-email, sequencias, contas, oportunidades (+etapa, conversao, documentos), atividades, agenda, emails, campanhas, previsao, indicadores | Funis com tarefas e sequências, ficha 360º, prospect → cliente, ligação a Vendas, emails registados sem envio (ADR-054) |
+| Sistema (administração) | ⏳ | | Empresas, utilizadores/perfis, backups, manutenção de dados, fecho do exercício |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
 

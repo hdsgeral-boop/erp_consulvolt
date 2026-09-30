@@ -181,6 +181,13 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | POST | `/api/pos/hotelaria/sessoes/{id}/checkin` · `/checkout` · `/checkout/simular` | Check-in e check-out com factura-recibo POS |
 | GET/POST | `/api/pos/armazem/vendas[/{id}]` · GET `/api/pos/armazem/stock` | Venda ao balcão (guia de saída com CMV) |
 | GET/POST | `/api/pos/armazem/picking[/{id}]` · POST `/expedir` | Picking e expedição de encomendas (NE → GR) |
+| GET/POST/PUT/DELETE | `/api/ativos/categorias[/{id}]` · `/api/ativos/bens[/{id}]` · POST `/importar`, `/edicao-massa`, `/eliminar` | Categorias e cadastro de activos |
+| GET/POST/PUT/DELETE | `/api/ativos/afetacoes[/{id}]` · `/api/ativos/manutencoes[/{id}]` · POST `/api/ativos/bens/{id}/transferencias` | Afectações, manutenções e transferências de centro de custo |
+| GET/POST | `/api/ativos/aquisicoes-pendentes` · `/{linha}/inventariar` · `/{linha}/ligar` · `/api/ativos/abates` (+`/simulacao`, `/{id}/anular`) | Inventariação e abates/vendas |
+| GET/POST/PUT | `/api/ativos/amortizacoes` (+`/pendentes`, `/pre-visualizacao`, `/verificacao`, `/calcular`, `/quota`, `/integrar`, `/reabrir`) · `/api/ativos/mapas/*` | Amortizações e mapas |
+| GET/POST/PUT/DELETE | `/api/projetos[/{id}]` (+`/estado`, `/resumo`, `/wbs`, `/kanban`, `/equipa`, `/organigrama`, `/orcamento`, `/aditamentos`, `/horas`, `/requisicoes`, `/revisoes`) · `/gantt`, `/extracto`, `/rentabilidade` | Projectos |
+| GET/POST/PUT/DELETE | `/api/acrescimos/definicoes` · `/itens[/{id}]` (+`/regularizar`, `/terminar`) · `/quotas` · `/proposta` (+`/contabilizar`) · `/lancamentos` · `/reconciliacao` · `/recolha` | Acréscimos e diferimentos |
+| GET/POST/PUT/DELETE | `/api/crm/configuracao` · `/funis` · `/modelos-email` · `/sequencias` · `/contas` · `/oportunidades` (+`/etapa`, `/conversao`, `/documentos`) · `/atividades` · `/agenda` · `/emails` · `/campanhas` · `/previsao` · `/indicadores` | CRM |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

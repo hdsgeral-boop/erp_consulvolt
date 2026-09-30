@@ -49,6 +49,7 @@ final class EmitirDocumentoRequest extends FormRequest
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')],
             'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
             'projeto_id' => ['nullable', 'integer', $daEmpresa('projetos')],
+            'oportunidade_crm_id' => ['nullable', 'integer', $daEmpresa('oportunidades_venda_crm')],   // CRM (ADR-054): liga o documento à oportunidade
             'armazem_id' => ['nullable', 'integer', Rule::exists('armazens', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],
             'devolucao_mercadoria' => ['nullable', 'boolean'],   // NC: a mercadoria volta ao stock
         ];

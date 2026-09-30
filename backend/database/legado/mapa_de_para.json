@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T20:13:46.130Z",
+  "gerado_em": "2026-09-30T21:39:51.578Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -1308,11 +1308,13 @@
         {
           "legado": "module_context",
           "pt": "contexto_modulo",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 2,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "description",
@@ -17293,11 +17295,39 @@
         {
           "legado": "status",
           "pt": "estado",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 6,
+          "notas": [
+            "código normalizado ∈ {ACTIVO, INACTIVO, ABATIDO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "ACTIVO",
+              "INACTIVO",
+              "ABATIDO"
+            ],
+            "mapa": {
+              "ACTIVO": "ACTIVO",
+              "ATIVO": "ACTIVO",
+              "INACTIVO": "INACTIVO",
+              "INATIVO": "INACTIVO",
+              "ABATIDO": "ABATIDO"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
           "tipo_pg": "varchar(10)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 6,
-          "notas": []
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "journal_line_id",
@@ -17398,11 +17428,13 @@
         {
           "legado": "accumulated_end_year",
           "pt": "acumulado_fim_ano",
-          "tipo_pg": "numeric(15,2)",
+          "tipo_pg": "integer",
           "nulo": true,
           "preenchimento": 0.5805,
           "max_comprimento": 4,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: numeric(15,2))"
+          ]
         },
         {
           "legado": "business_unit_id",
@@ -17696,7 +17728,32 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {PREVENTIVA, CORRECTIVA}; texto original em tipo_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "PREVENTIVA",
+              "CORRECTIVA"
+            ],
+            "mapa": {
+              "PREVENTIVA": "PREVENTIVA",
+              "CORRECTIVA": "CORRECTIVA",
+              "CORRETIVA": "CORRECTIVA"
+            }
+          }
+        },
+        {
+          "legado": "type",
+          "pt": "tipo_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 10,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "date",
@@ -18275,19 +18332,21 @@
           "preenchimento": 1,
           "max_comprimento": 9,
           "notas": [
-            "código normalizado ∈ {PENDENTE, EM_CURSO, CONCLUIDA}; texto original em estado_original"
+            "código normalizado ∈ {PENDENTE, EM_CURSO, CONCLUIDA, BLOQUEADA}; texto original em estado_original"
           ],
           "normalizacao": {
             "dominio": [
               "PENDENTE",
               "EM_CURSO",
-              "CONCLUIDA"
+              "CONCLUIDA",
+              "BLOQUEADA"
             ],
             "mapa": {
               "PENDENTE": "PENDENTE",
               "EM CURSO": "EM_CURSO",
               "FAZENDO": "EM_CURSO",
-              "CONCLUIDA": "CONCLUIDA"
+              "CONCLUIDA": "CONCLUIDA",
+              "BLOQUEADA": "BLOQUEADA"
             }
           }
         },
@@ -18990,33 +19049,41 @@
         {
           "legado": "source_module",
           "pt": "modulo_origem",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 6,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "source_doc_type",
           "pt": "tipo_documento_origem",
-          "tipo_pg": "varchar(20)",
+          "tipo_pg": "varchar(27)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 15,
           "notas": [
-            "código normalizado ∈ {AUTO_INTERNO, REGISTO_OBRA, FATURA}; texto original em tipo_documento_origem_original"
+            "tipo forçado (inferido: varchar(30))",
+            "código normalizado ∈ {AUTO_INTERNO, REGISTO_OBRA, FATURA, FATURA_RECIBO, PROCESSAMENTO_SALARIAL}; texto original em tipo_documento_origem_original"
           ],
           "normalizacao": {
             "dominio": [
               "AUTO_INTERNO",
               "REGISTO_OBRA",
-              "FATURA"
+              "FATURA",
+              "FATURA_RECIBO",
+              "PROCESSAMENTO_SALARIAL"
             ],
             "mapa": {
               "AUTO INTERNO": "AUTO_INTERNO",
               "REGISTO DE OBRA": "REGISTO_OBRA",
               "FACTURA": "FATURA",
-              "FATURA": "FATURA"
+              "FATURA": "FATURA",
+              "FACTURA RECIBO": "FATURA_RECIBO",
+              "FATURA RECIBO": "FATURA_RECIBO",
+              "PROCESSAMENTO SALARIAL": "PROCESSAMENTO_SALARIAL"
             }
           }
         },
@@ -19115,11 +19182,13 @@
         {
           "legado": "source_doc_id",
           "pt": "documento_origem_id",
-          "tipo_pg": "varchar(30)",
+          "tipo_pg": "varchar(60)",
           "nulo": true,
           "preenchimento": 0.1667,
           "max_comprimento": 14,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(30))"
+          ]
         },
         {
           "legado": "journal_line_id",
@@ -19646,11 +19715,13 @@
         {
           "legado": "generated_doc_id",
           "pt": "documento_gerado_id",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(50)",
           "nulo": true,
           "preenchimento": 0.6,
           "max_comprimento": 2,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "is_master_data",
@@ -19760,11 +19831,13 @@
         {
           "legado": "area",
           "pt": "area",
-          "tipo_pg": "varchar(30)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 0.2667,
           "max_comprimento": 19,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(30))"
+          ]
         },
         {
           "legado": "descricao",
@@ -19853,11 +19926,13 @@
         {
           "legado": "disposicao",
           "pt": "disposicao",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 0.1,
           "max_comprimento": 6,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         }
       ]
     },
@@ -20700,11 +20775,13 @@
         {
           "legado": "natureza",
           "pt": "natureza",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(30)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "descricao",
@@ -20767,7 +20844,9 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "data_documento",
@@ -20781,12 +20860,13 @@
         {
           "legado": "data_limite",
           "pt": "data_limite",
-          "tipo_pg": "text",
+          "tipo_pg": "date",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {
@@ -21073,11 +21153,13 @@
         {
           "legado": "por",
           "pt": "por",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "em",
@@ -21319,7 +21401,13 @@
             ],
             "mapa": {
               "RECOMENDACAO": "RECOMENDACAO",
-              "CLIENTE EXISTENTE": "CLIENTE_EXISTENTE"
+              "CLIENTE EXISTENTE": "CLIENTE_EXISTENTE",
+              "WEBSITE": "SITE",
+              "SITE": "SITE",
+              "EMAIL MARKETING": "CAMPANHA",
+              "REDES SOCIAIS": "CAMPANHA",
+              "CAMPANHA": "CAMPANHA",
+              "OUTRO": "OUTRO"
             }
           }
         },
@@ -21338,11 +21426,13 @@
         {
           "legado": "responsavel",
           "pt": "responsavel",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "criado_por",
@@ -21473,11 +21563,13 @@
         {
           "legado": "cargo",
           "pt": "cargo",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 0.5,
           "max_comprimento": 3,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "email",
@@ -21638,11 +21730,13 @@
         {
           "legado": "responsavel",
           "pt": "responsavel",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "origem",
@@ -21664,7 +21758,13 @@
             ],
             "mapa": {
               "RECOMENDACAO": "RECOMENDACAO",
-              "CLIENTE EXISTENTE": "CLIENTE_EXISTENTE"
+              "CLIENTE EXISTENTE": "CLIENTE_EXISTENTE",
+              "WEBSITE": "SITE",
+              "SITE": "SITE",
+              "EMAIL MARKETING": "CAMPANHA",
+              "REDES SOCIAIS": "CAMPANHA",
+              "CAMPANHA": "CAMPANHA",
+              "OUTRO": "OUTRO"
             }
           }
         },
@@ -21958,11 +22058,13 @@
         {
           "legado": "responsavel",
           "pt": "responsavel",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 0.8889,
           "max_comprimento": 5,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "automatica",
@@ -22031,11 +22133,13 @@
         {
           "legado": "resultado",
           "pt": "resultado",
-          "tipo_pg": "varchar(50)",
+          "tipo_pg": "text",
           "nulo": true,
           "preenchimento": 0.8667,
           "max_comprimento": 31,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(50))"
+          ]
         },
         {
           "legado": "concluida_por",
@@ -22087,11 +22191,13 @@
         {
           "legado": "assunto",
           "pt": "assunto",
-          "tipo_pg": "varchar(100)",
+          "tipo_pg": "varchar(255)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 37,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(100))"
+          ]
         },
         {
           "legado": "corpo",

@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T20:13:49.964Z",
+  "gerado_em": "2026-09-30T21:40:03.286Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -799,7 +799,7 @@
         {
           "coluna": "contexto_modulo",
           "legado": "module_context",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -19692,9 +19692,22 @@
         {
           "coluna": "estado",
           "legado": "status",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(20)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": [
+            "ACTIVO",
+            "INACTIVO",
+            "ABATIDO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
           "fk": null,
           "dominio": null
         },
@@ -19770,7 +19783,7 @@
         {
           "coluna": "acumulado_fim_ano",
           "legado": "accumulated_end_year",
-          "tipo": "numeric(15,2)",
+          "tipo": "integer",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -19825,7 +19838,9 @@
           "onde": null
         }
       ],
-      "checks": []
+      "checks": [
+        "ck_ativos_imobilizados_estado"
+      ]
     },
     {
       "tabela": "categorias_ativos",
@@ -20059,7 +20074,16 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "ativo_imobilizado_id",
+            "periodo_codigo"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {
@@ -20299,6 +20323,18 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "PREVENTIVA",
+            "CORRECTIVA"
+          ]
+        },
+        {
+          "coluna": "tipo_original",
+          "legado": "type",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -20389,6 +20425,7 @@
       ],
       "unicos": [],
       "checks": [
+        "ck_registos_manutencao_ativos_tipo",
         "ck_registos_manutencao_ativos_estado"
       ]
     },
@@ -21136,7 +21173,8 @@
           "dominio": [
             "PENDENTE",
             "EM_CURSO",
-            "CONCLUIDA"
+            "CONCLUIDA",
+            "BLOQUEADA"
           ]
         },
         {
@@ -21840,7 +21878,7 @@
         {
           "coluna": "modulo_origem",
           "legado": "source_module",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -21849,14 +21887,16 @@
         {
           "coluna": "tipo_documento_origem",
           "legado": "source_doc_type",
-          "tipo": "varchar(20)",
+          "tipo": "varchar(27)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
           "dominio": [
             "AUTO_INTERNO",
             "REGISTO_OBRA",
-            "FATURA"
+            "FATURA",
+            "FATURA_RECIBO",
+            "PROCESSAMENTO_SALARIAL"
           ]
         },
         {
@@ -21920,7 +21960,7 @@
         {
           "coluna": "documento_origem_id",
           "legado": "source_doc_id",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(60)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -22652,7 +22692,23 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "projeto_id",
+            "chave"
+          ],
+          "onde": "projeto_id IS NOT NULL"
+        },
+        {
+          "colunas": [
+            "empresa_id",
+            "chave"
+          ],
+          "onde": "projeto_id IS NULL"
+        }
+      ],
       "checks": []
     },
     {
@@ -22865,7 +22921,7 @@
         {
           "coluna": "documento_gerado_id",
           "legado": "generated_doc_id",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(50)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -22974,7 +23030,7 @@
         {
           "coluna": "area",
           "legado": "area",
-          "tipo": "varchar(30)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -23049,7 +23105,7 @@
         {
           "coluna": "disposicao",
           "legado": "disposicao",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24740,7 +24796,7 @@
         {
           "coluna": "natureza",
           "legado": "natureza",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(30)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24821,7 +24877,7 @@
         {
           "coluna": "data_limite",
           "legado": "data_limite",
-          "tipo": "text",
+          "tipo": "date",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -24932,7 +24988,7 @@
         {
           "coluna": "regularizacao",
           "legado": "regularizacao",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -25090,7 +25146,7 @@
         {
           "coluna": "por",
           "legado": "por",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -25151,7 +25207,16 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "item_acrescimo_diferimento_id",
+            "tipo",
+            "periodo"
+          ],
+          "onde": "estado = 'CONTABILIZADO'"
+        }
+      ],
       "checks": []
     },
     {
@@ -25188,7 +25253,7 @@
         {
           "coluna": "motivos_perda",
           "legado": "motivos_perda",
-          "tipo": "text",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -25197,7 +25262,7 @@
         {
           "coluna": "origens",
           "legado": "origens",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -25456,7 +25521,7 @@
         {
           "coluna": "responsavel",
           "legado": "responsavel",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -25526,7 +25591,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "terceiro_id"
+          ],
+          "onde": "terceiro_id IS NOT NULL"
+        }
+      ],
       "checks": [
         "ck_contas_crm_origem"
       ]
@@ -25586,7 +25659,7 @@
         {
           "coluna": "cargo",
           "legado": "cargo",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -25756,7 +25829,7 @@
         {
           "coluna": "responsavel",
           "legado": "responsavel",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -26042,7 +26115,7 @@
         {
           "coluna": "responsavel",
           "legado": "responsavel",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -26090,7 +26163,7 @@
         {
           "coluna": "resultado",
           "legado": "resultado",
-          "tipo": "varchar(50)",
+          "tipo": "text",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -26182,7 +26255,7 @@
         {
           "coluna": "assunto",
           "legado": "assunto",
-          "tipo": "varchar(100)",
+          "tipo": "varchar(255)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -26292,7 +26365,7 @@
         {
           "coluna": "passos",
           "legado": "passos",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,

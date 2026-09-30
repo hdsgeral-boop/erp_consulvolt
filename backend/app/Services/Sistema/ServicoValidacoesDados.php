@@ -170,6 +170,78 @@ final class ServicoValidacoesDados
                           WHERE o.empresa_id = ? AND COALESCE(t.codigo_conta, '') = ''
                             AND NOT EXISTS (SELECT 1 FROM configuracoes_contabeis_vendas c WHERE c.empresa_id = o.empresa_id AND c.chave = 'clientes_default' AND COALESCE(c.codigo_conta, '') <> '')",
             ],
+            'ativos_vida_esgotada_por_amortizar' => [
+                'titulo' => 'Activos com a vida útil esgotada e valor por amortizar', 'modulo' => 'Activos', 'gravidade' => 'AVISO',
+                'descricao' => 'O legado parava no fim da vida útil sem absorver o resto (arredondamentos ou amortização inicial migrada); agora o último mês absorve-o, mas estes já passaram esse mês.',
+                'legado' => 'processAmortizationCalculations (ui_assets.js:1356): quota nunca ajustada no último mês',
+                'sql' => "SELECT a.id AS ativo_id, a.codigo, a.data_aquisicao, a.vida_util, a.valor_aquisicao - COALESCE(a.valor_residual, 0) - COALESCE(a.amortizacao_acumulada, 0) AS por_amortizar
+                          FROM ativos_imobilizados a WHERE a.empresa_id = ? AND a.eliminado_em IS NULL AND a.estado = 'ACTIVO' AND a.vida_util > 0
+                           AND date_trunc('month', a.data_aquisicao) + make_interval(months => a.vida_util) <= date_trunc('month', current_date)
+                           AND a.valor_aquisicao - COALESCE(a.valor_residual, 0) - COALESCE(a.amortizacao_acumulada, 0) > 0 ORDER BY 5 DESC",
+            ],
+            'ativos_sem_categoria_ou_contas' => [
+                'titulo' => 'Activos sem categoria ou com categoria sem contas de amortização', 'modulo' => 'Activos', 'gravidade' => 'ERRO',
+                'descricao' => 'Não se integram amortizações destes activos. O legado lançava em 73.1/18.1 (inexistentes) e apagava categorias em uso.',
+                'legado' => 'ui_assets.js:1407 (fallback 73.1/18.1), deleteAssetCategory sem verificação',
+                'sql' => "SELECT a.id AS ativo_id, a.codigo, a.categoria_ativo_id, c.nome AS categoria, c.conta_gasto, c.conta_amortizacao_acumulada
+                          FROM ativos_imobilizados a LEFT JOIN categorias_ativos c ON c.id = a.categoria_ativo_id AND c.eliminado_em IS NULL
+                          WHERE a.empresa_id = ? AND a.eliminado_em IS NULL AND a.estado <> 'ABATIDO'
+                           AND (c.id IS NULL OR COALESCE(c.conta_gasto, '') = '' OR COALESCE(c.conta_amortizacao_acumulada, '') = '') ORDER BY a.codigo",
+            ],
+            'amortizacoes_integradas_sem_lancamento' => [
+                'titulo' => 'Períodos de amortização integrados sem lançamento no diário AM', 'modulo' => 'Activos', 'gravidade' => 'AVISO',
+                'descricao' => 'Quotas marcadas como contabilizadas cujo lançamento AM-MM-AAAA não existe (ou foi estornado fora do módulo).',
+                'legado' => 'Descontabilizar no diário apagava as linhas AM (ui_lancamentos.js:2368-2371)',
+                'sql' => "SELECT x.periodo_codigo, x.valor FROM (SELECT periodo_codigo, SUM(valor) AS valor FROM amortizacoes_ativos WHERE empresa_id = ? AND contabilizado GROUP BY 1) x
+                          WHERE NOT EXISTS (SELECT 1 FROM lancamentos_contabeis l JOIN diarios_contabeis d ON d.id = l.diario_id AND d.codigo = 'AM'
+                                            WHERE l.empresa_id = ? AND l.numero_documento = 'AM-' || x.periodo_codigo AND l.estorno_de_id IS NULL AND l.estornado_por_id IS NULL)
+                          ORDER BY 1",
+            ],
+            'ad_periodos_sem_lancamento' => [
+                'titulo' => 'Acréscimos/diferimentos contabilizados sem lançamento activo', 'modulo' => 'Acréscimos', 'gravidade' => 'ERRO',
+                'descricao' => 'Períodos CONTABILIZADOS cujo lançamento não existe ou foi estornado fora do módulo.', 'legado' => 'descontabilizar apagava as linhas (ad_dados.js:339-343)',
+                'sql' => "SELECT p.id AS periodo_id, p.item_acrescimo_diferimento_id AS item_id, p.tipo, p.periodo, p.numero_lan FROM periodos_lancamento_acrescimos p
+                          WHERE p.empresa_id = ? AND p.estado = 'CONTABILIZADO' AND p.valor > 0 AND NOT EXISTS (SELECT 1 FROM lancamentos_contabeis l WHERE l.empresa_id = p.empresa_id
+                          AND l.diario_id = p.diario_id AND l.numero_lan = p.numero_lan AND l.estorno_de_id IS NULL AND l.estornado_por_id IS NULL) ORDER BY p.id",
+            ],
+            'ad_acrescimos_sem_documento' => [
+                'titulo' => 'Acréscimos sem documento real depois da data limite', 'modulo' => 'Acréscimos', 'gravidade' => 'AVISO',
+                'descricao' => 'Acréscimos ACTIVOS cuja data limite já passou: regularize com a factura ou anule.', 'legado' => 'Alerta da proposta (ad_dados.js:263-265)',
+                'sql' => "SELECT id AS item_id, descricao, valor, data_limite FROM itens_acrescimos_diferimentos WHERE empresa_id = ? AND tipo = 'ACRESCIMO' AND estado = 'ACTIVO'
+                          AND data_limite < CURRENT_DATE ORDER BY data_limite",
+            ],
+            'crm_oportunidades_etapa_inexistente' => [
+                'titulo' => 'CRM: oportunidades numa etapa que não existe no funil', 'modulo' => 'CRM', 'gravidade' => 'ERRO',
+                'descricao' => 'A etapa da oportunidade não consta das etapas do funil.', 'legado' => 'gravarPipeline só verificava as etapas removidas (crm_dados.js:100-106)',
+                'sql' => "SELECT o.id AS oportunidade_id, o.etapa_codigo, o.funil_vendas_crm_id FROM oportunidades_venda_crm o JOIN funis_vendas_crm f ON f.id = o.funil_vendas_crm_id
+                          WHERE o.empresa_id = ? AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(f.etapas) e WHERE e->>'id' = o.etapa_codigo) ORDER BY o.id",
+            ],
+            'crm_vendas_cliente_divergente' => [
+                'titulo' => 'CRM: documentos de venda ligados a oportunidades de outro cliente', 'modulo' => 'CRM', 'gravidade' => 'AVISO',
+                'descricao' => 'O cliente do documento difere do terceiro da conta CRM da oportunidade.', 'legado' => 'ligarVenda (crm_dados.js:316)',
+                'sql' => 'SELECT v.id AS venda_id, v.numero_documento, o.id AS oportunidade_id FROM vendas v JOIN oportunidades_venda_crm o ON o.id = v.oportunidade_crm_id
+                          JOIN contas_crm c ON c.id = o.conta_crm_id WHERE v.empresa_id = ? AND (c.terceiro_id IS NULL OR c.terceiro_id <> v.cliente_id) ORDER BY v.id',
+            ],
+            'projetos_horas_fora_da_equipa' => [
+                'titulo' => 'Projectos: horas de quem não é colaborador interno da equipa', 'modulo' => 'Projectos', 'gravidade' => 'AVISO',
+                'descricao' => 'O legado gravava o id do membro externo como colaborador (1 caso migrado).', 'legado' => 'showTimesheetModal, js/ui_projects.js:3312',
+                'sql' => 'SELECT f.id AS folha_id, f.projeto_id, f.tarefa_projeto_id, f.colaborador_id, f.data, f.horas FROM folhas_horas_projeto f WHERE f.empresa_id = ?
+                          AND NOT EXISTS (SELECT 1 FROM membros_equipa_projeto m JOIN equipas_projeto e ON e.id = m.equipa_projeto_id WHERE e.projeto_id = f.projeto_id AND m.colaborador_id = f.colaborador_id)
+                          ORDER BY f.id',
+            ],
+            'projetos_autos_sem_factura' => [
+                'titulo' => 'Projectos: autos de subempreitada cuja factura não existe ou é de outro projecto/fornecedor', 'modulo' => 'Projectos', 'gravidade' => 'AVISO',
+                'descricao' => 'Facturas AUTO apagadas no legado ou ids reutilizados; o custo conta pela factura, não pela linha.', 'legado' => 'executeReview, js/ui_projects.js:2714-2738',
+                'sql' => "SELECT l.id AS linha_id, r.projeto_id, r.mes, r.ano, l.terceiro_id, l.tarefa_projeto_id, l.valor_calculado, l.documento_gerado_id FROM linhas_revisao_projeto l
+                          JOIN revisoes_mensais_projeto r ON r.id = l.revisao_mensal_projeto_id WHERE l.empresa_id = ? AND l.tipo = 'SUBEMPREITADA' AND l.documento_gerado_id IS NOT NULL
+                          AND NOT EXISTS (SELECT 1 FROM faturas_compra f WHERE f.empresa_id = l.empresa_id AND f.id::text = l.documento_gerado_id AND f.projeto_id = r.projeto_id AND f.fornecedor_id = l.terceiro_id)
+                          ORDER BY l.id",
+            ],
+            'projetos_tarefas_datas_invertidas' => [
+                'titulo' => 'Projectos: tarefas com fim antes do início', 'modulo' => 'Projectos', 'gravidade' => 'INFO',
+                'descricao' => 'O legado não validava as datas (2 casos migrados).', 'legado' => 'saveTask, js/ui_projects.js:1254',
+                'sql' => 'SELECT t.id AS tarefa_id, t.projeto_id, t.nome, t.data_inicio, t.data_fim FROM tarefas_projeto t WHERE t.empresa_id = ? AND t.data_fim < t.data_inicio ORDER BY t.id',
+            ],
             'colaboradores_activos_sem_iban' => [
                 'titulo' => 'Colaboradores activos sem IBAN', 'modulo' => 'RH', 'gravidade' => 'AVISO',
                 'descricao' => 'Sem coordenadas bancárias não entram numa carta de pagamento. No legado os botões do ecrã de IBAN não funcionavam: só a importação gravava.',
