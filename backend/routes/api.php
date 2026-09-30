@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
+use App\Http\Controllers\Api\RH\FolhaSalarialController;
 use App\Http\Controllers\Api\SaudeController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
@@ -225,6 +226,23 @@ Route::middleware('auth:sanctum')->group(function () {
 
             Route::get('configuracao/contas', 'contas')->name('configuracao.contas');
             Route::put('configuracao/contas', 'definirContas')->name('configuracao.contas.definir');
+        });
+
+        Route::prefix('rh/salarios')->name('rh.salarios.')->controller(FolhaSalarialController::class)->group(function () {
+            Route::get('periodos', 'periodos')->name('periodos.index');
+            Route::post('periodos', 'abrir')->name('periodos.abrir');
+            Route::get('periodos/{id}', 'periodo')->whereNumber('id')->name('periodos.show');
+            Route::get('periodos/{id}/lancamentos', 'lancamentos')->whereNumber('id')->name('lancamentos.index');
+            Route::post('periodos/{id}/lancamentos', 'gravarLancamento')->whereNumber('id')->name('lancamentos.store');
+            Route::delete('periodos/{id}/lancamentos/{lancamento}', 'removerLancamento')->whereNumber(['id', 'lancamento'])->name('lancamentos.destroy');
+            Route::post('periodos/{id}/importar-contratos', 'importarContratos')->whereNumber('id')->name('periodos.importar');
+            Route::post('periodos/{id}/encerrar', 'encerrar')->whereNumber('id')->name('periodos.encerrar');
+            Route::post('periodos/{id}/validar', 'validar')->whereNumber('id')->name('periodos.validar');
+            Route::post('periodos/{id}/reabrir', 'reabrir')->whereNumber('id')->name('periodos.reabrir');
+            Route::post('periodos/{id}/contabilizar', 'contabilizar')->whereNumber('id')->name('periodos.contabilizar');
+            Route::post('periodos/{id}/descontabilizar', 'descontabilizar')->whereNumber('id')->name('periodos.descontabilizar');
+            Route::get('periodos/{id}/recibos/{colaborador}', 'recibo')->whereNumber(['id', 'colaborador'])->name('recibos.show');
+            Route::get('verificacao-legado', 'verificacaoLegado')->name('verificacao-legado');
         });
 
         Route::prefix('contabilidade')->name('contabilidade.')->group(function () {

@@ -24,14 +24,14 @@ abstract class InfotipoSalarialBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'tipo', 'nome', 'numero_inss', 'irt', 'base_horaria', 'calculo_horas',
+        'empresa_id', 'tipo', 'nome', 'sujeito_inss', 'irt', 'base_horaria', 'calculo_horas',
     ];
 
     protected function casts(): array
     {
         return [
             'empresa_id' => 'integer',
-            'numero_inss' => 'boolean',
+            'sujeito_inss' => 'boolean',
             'base_horaria' => 'boolean',
             'calculo_horas' => 'decimal:3',
             'criado_em' => 'datetime',

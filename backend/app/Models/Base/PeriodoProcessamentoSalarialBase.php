@@ -22,7 +22,7 @@ abstract class PeriodoProcessamentoSalarialBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'mes_ano', 'estado', 'contabilizado',
+        'empresa_id', 'mes_ano', 'estado', 'estado_original', 'contabilizado', 'fechado_em', 'fechado_por', 'validado_em', 'validado_por', 'numero_lan_contabilizacao', 'modo_calculo',
     ];
 
     protected function casts(): array
@@ -30,6 +30,8 @@ abstract class PeriodoProcessamentoSalarialBase extends ModeloBase
         return [
             'empresa_id' => 'integer',
             'contabilizado' => 'boolean',
+            'fechado_em' => 'datetime',
+            'validado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

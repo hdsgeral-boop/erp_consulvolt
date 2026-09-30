@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (490) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (491) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -487,6 +487,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE modelos_email_crm ADD CONSTRAINT fk_modelos_email_crm_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE sequencias_campanhas_crm ADD CONSTRAINT fk_sequencias_campanhas_crm_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE sequencias_campanhas_crm ADD CONSTRAINT fk_sequencias_campanhas_crm_funil_vendas_crm_id FOREIGN KEY (funil_vendas_crm_id) REFERENCES funis_vendas_crm (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE resultados_folha_salarial ADD CONSTRAINT fk_resultados_folha_salarial_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_contabeis_tesouraria ADD CONSTRAINT fk_configuracoes_contabeis_tesouraria_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_contabeis_compras ADD CONSTRAINT fk_configuracoes_contabeis_compras_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas_estadias_hotel ADD CONSTRAINT fk_vendas_estadias_hotel_venda_id FOREIGN KEY (venda_id) REFERENCES vendas (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE');
@@ -981,6 +982,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE modelos_email_crm DROP CONSTRAINT IF EXISTS fk_modelos_email_crm_empresa_id');
         DB::statement('ALTER TABLE sequencias_campanhas_crm DROP CONSTRAINT IF EXISTS fk_sequencias_campanhas_crm_empresa_id');
         DB::statement('ALTER TABLE sequencias_campanhas_crm DROP CONSTRAINT IF EXISTS fk_sequencias_campanhas_crm_funil_vendas_crm_id');
+        DB::statement('ALTER TABLE resultados_folha_salarial DROP CONSTRAINT IF EXISTS fk_resultados_folha_salarial_empresa_id');
         DB::statement('ALTER TABLE configuracoes_contabeis_tesouraria DROP CONSTRAINT IF EXISTS fk_configuracoes_contabeis_tesouraria_empresa_id');
         DB::statement('ALTER TABLE configuracoes_contabeis_compras DROP CONSTRAINT IF EXISTS fk_configuracoes_contabeis_compras_empresa_id');
         DB::statement('ALTER TABLE vendas_estadias_hotel DROP CONSTRAINT IF EXISTS fk_vendas_estadias_hotel_venda_id');

@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T12:59:58.681Z",
+  "gerado_em": "2026-09-30T13:33:51.379Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -9076,7 +9076,7 @@
           "dominio": null
         },
         {
-          "coluna": "numero_inss",
+          "coluna": "sujeito_inss",
           "legado": "inss",
           "tipo": "boolean",
           "nulo": true,
@@ -9326,6 +9326,19 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "ABERTO",
+            "FECHADO",
+            "VALIDADO"
+          ]
+        },
+        {
+          "coluna": "estado_original",
+          "legado": "status",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -9334,6 +9347,60 @@
           "tipo": "boolean",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "fechado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "fechado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "validado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "validado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "numero_lan_contabilizacao",
+          "legado": null,
+          "tipo": "varchar(30)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "modo_calculo",
+          "legado": null,
+          "tipo": "varchar(10)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -9365,7 +9432,9 @@
           "onde": null
         }
       ],
-      "checks": []
+      "checks": [
+        "ck_periodos_processamento_salarial_estado"
+      ]
     },
     {
       "tabela": "linhas_folha_salarial",
@@ -25514,6 +25583,256 @@
         }
       ],
       "unicos": [],
+      "checks": []
+    },
+    {
+      "tabela": "resultados_folha_salarial",
+      "legado": null,
+      "model": "ResultadoFolhaSalarial",
+      "modulo": "RH",
+      "global": false,
+      "pivo": false,
+      "empresa_derivada_de": null,
+      "eliminacao_logica": false,
+      "colunas": [
+        {
+          "coluna": "id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": false,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "empresa_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": false,
+          "origem": "derivado",
+          "fk": {
+            "tabela": "empresas",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "periodo_processamento_salarial_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "colaborador_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "tipo_organizacao_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "unidade_negocio_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "centro_custo_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "avencado",
+          "legado": null,
+          "tipo": "boolean",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "reformado",
+          "legado": null,
+          "tipo": "boolean",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "dias_contrato",
+          "legado": null,
+          "tipo": "numeric(6,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "dias_trabalhados",
+          "legado": null,
+          "tipo": "numeric(6,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "bruto",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "base_inss",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "inss_trabalhador",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "inss_patronal",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "isencoes",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "base_irt",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "irt",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "descontos",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "liquido",
+          "legado": null,
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "rubricas",
+          "legado": null,
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "avisos",
+          "legado": null,
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "modo_calculo",
+          "legado": null,
+          "tipo": "varchar(10)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "atualizado_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        }
+      ],
+      "unicos": [
+        {
+          "colunas": [
+            "periodo_processamento_salarial_id",
+            "colaborador_id"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {

@@ -3,7 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Services\Migracao\ServicoMigracaoLegado;
+use App\Services\RH\ServicoFolhaSalarial;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -65,6 +68,20 @@ final class MigrarBackupLegado extends Command
             return self::FAILURE;
         }
         $this->info($simular ? 'Simulação concluída sem erros (base de dados intacta).' : 'Migração concluída e gravada (COMMIT).');
+
+        if (! $simular) {
+            // Salários (ADR-036): o legado não guardava resultados; fotografa os períodos encerrados em modo LEGADO,
+            // reconstruídos com a variante que reproduz o diário, e confere-os com os lançamentos SAL.
+            $contexto = app(ContextoEmpresa::class);
+            $total = ['periodos' => 0, 'confere' => 0, 'difere' => 0];
+            foreach (DB::table('periodos_processamento_salarial')->distinct()->pluck('empresa_id') as $empresa) {
+                $r = $contexto->executarComo((int) $empresa, fn () => DB::transaction(fn () => app(ServicoFolhaSalarial::class)->fotografarLegado()));
+                foreach ($total as $k => $v) {
+                    $total[$k] = $v + $r[$k];
+                }
+            }
+            $this->info("Salários: {$total['periodos']} períodos fotografados; contabilizados que conferem com o diário: {$total['confere']}, com diferença: {$total['difere']} (ver Sistema › Validações).");
+        }
 
         return self::SUCCESS;
     }

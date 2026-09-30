@@ -530,3 +530,50 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - o contrato migrado apresenta o consumo (encomendado 100%; facturado acima do contratado, herdado do legado).
 
 **Pendente:** controlo orçamental das compras (`OrcControlo`), que chega com o módulo Orçamento.
+
+## ADR-036 — RH/Salários (parte 1a): motor salarial, ciclo do período, fotografia e contabilização
+
+**Motor** (`App\Services\RH\MotorSalarial`): reescrita pura, em bcmath, de `js/engine_v2.js`, com dois modos.
+- **LEGADO** reproduz o legado tal como calculava. Serve apenas para fotografar os períodos migrados.
+- **ATUAL** é o modo dos períodos novos. Tem as correcções abaixo, todas do tipo "corrigir só o que está errado" (ADR-017).
+- **Mantém-se do legado:**
+  - a tabela de IRT, com 11 escalões e parcela fixa;
+  - o INSS a 3 % e 8 %, que no modo ATUAL são as taxas da empresa;
+  - avençados a 6,5 %;
+  - horas extra com 50 % até 30 h e 75 % acima;
+  - faltas pro rata dos dias trabalhados face aos `dias_contrato`.
+- **Correcções no modo ATUAL:**
+  1. A isenção até 30 000 Kz depende da marcação `irt = conditional_30k`, e não do nome. Nos dados reais é exactamente o conjunto alimentação + transporte, portanto o resultado é igual. A isenção passa a incidir sobre o valor **pago**; o legado usava o valor cheio mesmo com faltas.
+  2. Um VENCIMENTO com `irt = false` fica fora da base de IRT. O legado ignorava a marcação.
+  3. A base de INSS nunca fica negativa.
+  4. O IRT do avençado incide sobre bruto − faltas; o legado usava o bruto.
+  5. As rubricas OUTROS (ex.: "Dias de Trabalho") são só informativas e não entram no bruto.
+  6. Cada componente é arredondado a 2 casas.
+
+**Ciclo** (`ServicoFolhaSalarial`):
+- **Estados:** ABERTO → FECHADO (encerrar) → VALIDADO (validar), com domínio normalizado.
+  - Os lançamentos só se alteram com o período ABERTO.
+  - Reabrir não é possível enquanto o período estiver contabilizado.
+- **Importar contratos:** cria os lançamentos a partir das remunerações do contrato ACTIVO válido no mês, para colaboradores ACTIVOS em AOA. É idempotente.
+- **Fotografia imutável:**
+  - ao encerrar, gravam-se os resultados por colaborador em `resultados_folha_salarial` (componentes, rubricas, avisos, modo);
+  - o recibo e a contabilização lêem a fotografia;
+  - no legado, mudar um contrato ou um infotipo alterava retroactivamente os meses já pagos.
+- **Contabilização:**
+  - a partir da fotografia, com os mapeamentos `mapeamentos_contabeis_rh` (rubricas) e os do sistema (NET_PAY_CREDIT, IRT_CREDIT, IRT_AVENCADO_CREDIT, INSS_FUNC_CREDIT, INSS_EMP_DEBIT, INSS_EMP_CREDIT);
+  - linhas agregadas por conta, D/C, unidade de negócio e centro de custo, no diário SAL, com o documento `SALMMAAAA`;
+  - se faltar um mapeamento, a operação é recusada (`MAPEAMENTO_EM_FALTA`) em vez de deixar o lançamento desequilibrado.
+- **Descontabilizar** é feito por estorno (ADR-016). Para os períodos migrados, o lançamento é localizado pelo documento `SALMMAAAA` no diário SAL.
+- **Recibos:** só de períodos VALIDADO, como no legado.
+
+**Migração e não-regressão:**
+- O legado não guardava resultados. Depois da ETL, `erp:migrar-backup-legado` fotografa os 46 períodos em modo LEGADO.
+- Para cada período escolhe o divisor que reproduz o diário. O legado dividia por `dias_contrato` do contrato ou do colaborador, conforme a versão.
+- **38 dos 44 períodos contabilizados conferem com o diário** (tolerância de 10 Kz).
+- Os 6 restantes são a empresa 1 de 04 a 07/2026 e a empresa 8 em 04 e 05/2026. Os dados foram alterados depois da contabilização, e é esse o problema que a fotografia resolve.
+- Estes 6 períodos aparecem na validação `folhas_salariais_vs_diario` (Sistema › Validações) e em `GET /api/rh/salarios/verificacao-legado`.
+- Em modo ATUAL, só a empresa 18 em 01/2026 difere, e apenas pelo efeito das correcções.
+
+**Glossário:** o `infotypes.inss` do legado é a marcação "sujeito a INSS" (`sujeito_inss`) e não um número.
+
+**Fica para o bloco b:** CRUD de colaboradores, contratos, infotipos e mapeamentos, coordenadas bancárias, cartas de pagamento e pagamento dos salários por documento de tesouraria.

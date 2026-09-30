@@ -99,7 +99,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('tipo', 20)->nullable()->comment('legado: type');
             $table->string('nome', 255)->nullable()->comment('legado: name');
-            $table->boolean('numero_inss')->nullable()->comment('legado: inss');
+            $table->boolean('sujeito_inss')->nullable()->comment('legado: inss');
             $table->string('irt', 30)->nullable()->comment('legado: irt · tipos mistos: boolean=149, string=26');
             $table->boolean('base_horaria')->nullable()->comment('legado: base_horaria · do código legado js/app_v2.js:9161');
             $table->decimal('calculo_horas', 12, 3)->nullable()->comment('legado: calculo_horas · do código legado js/app_v2.js:9161');
@@ -134,12 +134,20 @@ return new class extends Migration
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('mes_ano', 20)->nullable()->comment('legado: month_year');
-            $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {ABERTO, FECHADO, VALIDADO}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->boolean('contabilizado')->nullable()->comment('legado: is_posted');
+            $table->timestampTz('fechado_em')->nullable()->comment('Encerramento do cálculo (fotografia dos resultados)');
+            $table->string('fechado_por', 100)->nullable()->comment('Quem encerrou');
+            $table->timestampTz('validado_em')->nullable()->comment('Validação');
+            $table->string('validado_por', 100)->nullable()->comment('Quem validou');
+            $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento da integração no diário SAL');
+            $table->string('modo_calculo', 10)->nullable()->comment('ATUAL (regras corrigidas) ou LEGADO (reprodução do motor antigo, períodos migrados)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE UNIQUE INDEX uq_periodos_processamento_salarial_empresa_id_mes_ano ON periodos_processamento_salarial (empresa_id, mes_ano)');
+        DB::statement('ALTER TABLE periodos_processamento_salarial ADD CONSTRAINT ck_periodos_processamento_salarial_estado CHECK (estado IS NULL OR estado IN (\'ABERTO\',\'FECHADO\',\'VALIDADO\'))');
 
         // payroll_entries (legado) -> linhas_folha_salarial · 1114 linhas reais no backup
         Schema::create('linhas_folha_salarial', function (Blueprint $table) {
@@ -826,10 +834,43 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_postos_trabalho_unidade_organica_id ON postos_trabalho (unidade_organica_id)');
         DB::statement('CREATE INDEX ix_postos_trabalho_cargo_funcao_id ON postos_trabalho (cargo_funcao_id)');
         DB::statement('CREATE INDEX ix_postos_trabalho_posto_superior_id ON postos_trabalho (posto_superior_id)');
+
+        // resultados_folha_salarial (tabela nova) · 0 linhas reais no backup
+        Schema::create('resultados_folha_salarial', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('Período');
+            $table->bigInteger('colaborador_id')->nullable()->comment('Colaborador');
+            $table->bigInteger('tipo_organizacao_id')->nullable()->comment('Tipo de organização (mapeamento contabilístico)');
+            $table->bigInteger('unidade_negocio_id')->nullable();
+            $table->bigInteger('centro_custo_id')->nullable();
+            $table->boolean('avencado')->nullable();
+            $table->boolean('reformado')->nullable();
+            $table->decimal('dias_contrato', 6, 2)->nullable();
+            $table->decimal('dias_trabalhados', 6, 2)->nullable();
+            $table->decimal('bruto', 15, 2)->nullable();
+            $table->decimal('base_inss', 15, 2)->nullable();
+            $table->decimal('inss_trabalhador', 15, 2)->nullable();
+            $table->decimal('inss_patronal', 15, 2)->nullable();
+            $table->decimal('isencoes', 15, 2)->nullable()->comment('Isenções de IRT (subsídios até 30 000 Kz) e faltas');
+            $table->decimal('base_irt', 15, 2)->nullable();
+            $table->decimal('irt', 15, 2)->nullable();
+            $table->decimal('descontos', 15, 2)->nullable();
+            $table->decimal('liquido', 15, 2)->nullable();
+            $table->jsonb('rubricas')->nullable()->comment('Detalhe por rubrica calculada');
+            $table->jsonb('avisos')->nullable();
+            $table->string('modo_calculo', 10)->nullable()->comment('ATUAL ou LEGADO');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_resultados_folha_salarial_periodo__colabora ON resultados_folha_salarial (periodo_processamento_salarial_id, colaborador_id)');
+        DB::statement('CREATE INDEX ix_resultados_folha_salarial_empresa_id ON resultados_folha_salarial (empresa_id)');
+        DB::statement('CREATE INDEX ix_resultados_folha_salarial_colaborador_id ON resultados_folha_salarial (colaborador_id)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('resultados_folha_salarial');
         Schema::dropIfExists('postos_trabalho');
         Schema::dropIfExists('unidades_organicas');
         Schema::dropIfExists('modelos_documentos_rh');

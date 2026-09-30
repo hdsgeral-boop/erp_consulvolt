@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T12:53:59.750Z",
+  "gerado_em": "2026-09-30T13:33:48.903Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -8830,7 +8830,7 @@
         },
         {
           "legado": "inss",
-          "pt": "numero_inss",
+          "pt": "sujeito_inss",
           "tipo_pg": "boolean",
           "nulo": true,
           "preenchimento": 1,
@@ -9050,7 +9050,33 @@
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 8,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {ABERTO, FECHADO, VALIDADO}; texto original em estado_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "ABERTO",
+              "FECHADO",
+              "VALIDADO"
+            ],
+            "mapa": {
+              "ABERTO": "ABERTO",
+              "FECHADO": "FECHADO",
+              "VALIDADO": "VALIDADO"
+            }
+          }
+        },
+        {
+          "legado": "status",
+          "pt": "estado_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 1,
+          "max_comprimento": 8,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "id",

@@ -55,6 +55,20 @@ final class ServicoValidacoesDados
                 'descricao' => 'Linhas sem efeito contabilístico (38 vieram do legado).', 'legado' => '—',
                 'sql' => 'SELECT id AS linha_id, codigo_conta, numero_lan, numero_documento, data_documento FROM lancamentos_contabeis WHERE empresa_id = ? AND valor = 0 ORDER BY id',
             ],
+            'folhas_salariais_vs_diario' => [
+                'titulo' => 'Folhas de salários que não conferem com o diário', 'modulo' => 'RH', 'gravidade' => 'AVISO',
+                'descricao' => 'Períodos contabilizados cuja fotografia (Σ vencimentos + INSS patronal) difere mais de 10 Kz dos débitos do lançamento SAL. '
+                    .'No legado os resultados eram recalculados ao vivo: meses com contratos ou lançamentos alterados depois de contabilizados já não se reproduzem.',
+                'legado' => 'calculatePeriodData (js/app_v2.js:5787) recalculava sempre; ROUNDING_DIFF absorvia até 10 Kz',
+                'sql' => "SELECT p.id AS periodo_id, p.mes_ano, calc.debitos AS calculado, COALESCE(dia.debitos, 0) AS diario, calc.debitos - COALESCE(dia.debitos, 0) AS diferenca
+                          FROM periodos_processamento_salarial p
+                          JOIN LATERAL (SELECT COALESCE(SUM(r.inss_patronal), 0) + COALESCE(SUM((SELECT SUM((x->>'valor')::numeric) FROM jsonb_array_elements(r.rubricas) x
+                                  WHERE x->>'tipo' = 'VENCIMENTO' AND COALESCE((x->>'informativa')::boolean, false) = false)), 0) AS debitos
+                                FROM resultados_folha_salarial r WHERE r.periodo_processamento_salarial_id = p.id) calc ON true
+                          LEFT JOIN LATERAL (SELECT SUM(l.valor) AS debitos FROM lancamentos_contabeis l JOIN diarios_contabeis d ON d.id = l.diario_id AND d.codigo = 'SAL'
+                                WHERE l.empresa_id = p.empresa_id AND l.numero_documento = 'SAL' || replace(p.mes_ano, '/', '') AND l.tipo_dc = 'D' AND l.estorno_de_id IS NULL) dia ON true
+                          WHERE p.empresa_id = ? AND p.contabilizado AND abs(calc.debitos - COALESCE(dia.debitos, 0)) > 10 ORDER BY p.mes_ano",
+            ],
             'terceiros_nif_duplicado' => [
                 'titulo' => 'Terceiros duplicados (mesmo NIF e tipo)', 'modulo' => 'Terceiros', 'gravidade' => 'AVISO',
                 'descricao' => 'Clientes/fornecedores registados mais de uma vez com o mesmo NIF (408 no legado).', 'legado' => '—',

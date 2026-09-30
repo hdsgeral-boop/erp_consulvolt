@@ -62,6 +62,7 @@ export const UNICOS = [
   ['configuracoes_pos', ['empresa_id']],
   ['configuracoes_deliberacao_compras', ['empresa_id']],
   ['configuracoes_contabeis_compras', ['empresa_id', 'chave']],
+  ['resultados_folha_salarial', ['periodo_processamento_salarial_id', 'colaborador_id']],
   ['contratos_fornecedores_encomendas', ['encomenda_compra_id']],   // cada encomenda num só contrato (pcRetirarDeOutrosContratos)
   ['configuracoes_contabeis_tesouraria', ['empresa_id', 'chave']],
   ['configuracoes_faturacao_eletronica', ['empresa_id']],
@@ -182,6 +183,13 @@ export const COLUNAS_NOVAS = {
   ],
   // ADR-031 (Compras): numeração, rasto de anulação/contabilização e ligação linha a linha
   // (o legado casava encomenda/recepção/factura por product_id e perdia linhas repetidas)
+  // ADR-036 (Salários): ciclo de vida com rasto e ligação ao lançamento (o legado não guardava resultados nem n.º)
+  periodos_processamento_salarial: [
+    ['fechado_em', 'timestamptz', null, 'Encerramento do cálculo (fotografia dos resultados)'], ['fechado_por', 'varchar(100)', null, 'Quem encerrou'],
+    ['validado_em', 'timestamptz', null, 'Validação'], ['validado_por', 'varchar(100)', null, 'Quem validou'],
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento da integração no diário SAL'],
+    ['modo_calculo', 'varchar(10)', null, 'ATUAL (regras corrigidas) ou LEGADO (reprodução do motor antigo, períodos migrados)'],
+  ],
   // ADR-035 (Compras parte 2): contratos com rasto de cancelamento; marcos ligados à factura (estado deixa de ser manual)
   contratos_fornecedores: [
     ['cancelado_em', 'timestamptz', null, 'Data/hora do cancelamento'], ['motivo_cancelamento', 'text', null, 'Motivo do cancelamento'],
@@ -234,6 +242,19 @@ export const CHECKS = [
 
 // Tabelas novas do desenho (ETL / infraestrutura).
 export const TABELAS_NOVAS = {
+  resultados_folha_salarial: {
+    modulo: 'RH', model: 'ResultadoFolhaSalarial',
+    colunas: [
+      ['periodo_processamento_salarial_id', 'bigint', 'Período'], ['colaborador_id', 'bigint', 'Colaborador'],
+      ['tipo_organizacao_id', 'bigint', 'Tipo de organização (mapeamento contabilístico)'], ['unidade_negocio_id', 'bigint'], ['centro_custo_id', 'bigint'],
+      ['avencado', 'boolean'], ['reformado', 'boolean'], ['dias_contrato', 'numeric(6,2)'], ['dias_trabalhados', 'numeric(6,2)'],
+      ['bruto', 'numeric(15,2)'], ['base_inss', 'numeric(15,2)'], ['inss_trabalhador', 'numeric(15,2)'], ['inss_patronal', 'numeric(15,2)'],
+      ['isencoes', 'numeric(15,2)', 'Isenções de IRT (subsídios até 30 000 Kz) e faltas'], ['base_irt', 'numeric(15,2)'], ['irt', 'numeric(15,2)'],
+      ['descontos', 'numeric(15,2)'], ['liquido', 'numeric(15,2)'], ['rubricas', 'jsonb', 'Detalhe por rubrica calculada'],
+      ['avisos', 'jsonb'], ['modo_calculo', 'varchar(10)', 'ATUAL ou LEGADO'],
+    ],
+    indices: [['colaborador_id']],
+  },
   configuracoes_contabeis_tesouraria: {
     modulo: 'Tesouraria', model: 'ConfigContabilTesouraria',
     colunas: [['chave', 'varchar(150)', 'Chave da conta (ver ServicoConfigTesouraria::CHAVES)'], ['codigo_conta', 'varchar(20)', 'Conta do plano']],

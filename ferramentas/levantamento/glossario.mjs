@@ -431,6 +431,8 @@ export const SOBREPOSICOES = {
     description: null, value: null, total_value: null, quantity: null, doc_number: null, code: null,
     date: null, doc_date: null, entry_date: null, reference: null },
   employees: { name: 'nome_completo' },
+  // infotypes.inss é a flag «sujeito a INSS» da rubrica (não o n.º de segurança social do colaborador)
+  infotypes: { inss: 'sujeito_inss' },
   purchase_contract_milestones: { contract_id: ['contrato_fornecedor_id', 'purchase_contracts'] },
   lav_claims: { order_id: ['pedido_lavandaria_id', 'lav_orders'] },
   project_documents: { type_id: ['tipo_documento_id', 'document_types'] },

@@ -98,7 +98,8 @@ Cobrem os seguintes casos:
 | **Tesouraria (parte 3)** | ✅ | multi-moeda nos documentos de tesouraria e pendentes (saldo em moeda) | Valor histórico, diferenças de câmbio pelas contas configuradas, moeda nos lançamentos de vendas/compras (ADR-034) |
 | Compras | ⏳ | | |
 | Tesouraria | ⏳ | | |
-| RH / Salários | ⏳ | | Motor salarial com não-regressão contra as folhas validadas (ADR-017) |
+| **RH / Salários (parte 1a)** | ✅ | rh/salarios/periodos (+lancamentos, importar-contratos, encerrar, validar, reabrir, contabilizar, descontabilizar, recibos), verificacao-legado | Motor bcmath LEGADO/ATUAL, fotografia imutável ao encerrar, contabilização agregada e estorno; 38/44 folhas conferem com o diário (ADR-017, ADR-036) |
+| RH / Salários (parte 1b e seguintes) | ⏳ | | Colaboradores, contratos, infotipos, mapeamentos, cartas de pagamento; assiduidade, férias, avaliação |
 | Logística, POS, Activos, Projectos, Orçamento, A&D, CRM | ⏳ | | |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.

@@ -988,6 +988,9 @@ final class ServicoMigracaoLegado
             if ($destino === 'diarios_contabeis' && $this->diariosRecuperacao) {
                 $consulta->whereNotIn('id', array_values($this->diariosRecuperacao));   // os diários REC são criados pelo ETL
             }
+            if ($destino === 'itens_compra') {
+                $consulta->where(fn ($q) => $q->whereNull('tipo_documento_origem_original')->orWhere('tipo_documento_origem_original', '<>', 'INVOICE (items[])'));   // expandidas de purchase_invoices.items[]
+            }
             $migradas = $consulta ? (int) $consulta->count() : 0;
             $quarentena = $this->registo->quarentenaDe($leg);
             $ok = $lidas === $migradas + $quarentena;

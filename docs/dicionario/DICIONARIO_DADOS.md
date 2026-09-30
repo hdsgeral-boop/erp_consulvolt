@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T12:53:59.750Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T13:33:48.903Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1664 |
+| Colunas reais mapeadas | 1665 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -92,6 +92,7 @@
 | `purchase_invoices.status` | PENDENTE, PARCIAL, PAGO, ANULADA | PENDENTE → PENDENTE; PAGO → PAGO |
 | `inventory_movements.type` | ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE | SAÍDA → SAIDA; ENTRADA → ENTRADA |
 | `inventory_sessions.status` | EM_CONTAGEM, CONCLUIDA, ANULADA | CONCLUIDA → CONCLUIDA; EM CONTAGEM → EM_CONTAGEM |
+| `payroll_periods.status` | ABERTO, FECHADO, VALIDADO | VALIDADO → VALIDADO; ABERTO → ABERTO |
 | `employees.status` | ACTIVO, INACTIVO, SUSPENSO | ACTIVO → ACTIVO; Não ACTIVO → INACTIVO; NÃO ACTIVO → INACTIVO |
 | `employees.estado_civil` | SOLTEIRO, CASADO, DIVORCIADO, VIUVO, UNIAO_FACTO | Solteiro(a) → SOLTEIRO; Casado(a) → CASADO |
 | `rh_dependents.parentesco` | FILHO, CONJUGE, PAI, MAE, OUTRO | Filho(a) → FILHO |
@@ -1178,7 +1179,7 @@ Linhas reais: **175** · fictícias descartadas: 16
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `type` | `tipo` | varchar(20) | sim | 100% |  |  |
 | `name` | `nome` | varchar(50) | sim | 100% |  |  |
-| `inss` | `numero_inss` | boolean | sim | 100% |  |  |
+| `inss` | `sujeito_inss` | boolean | sim | 100% |  |  |
 | `irt` | `irt` | varchar(30) | sim | 100% |  | tipos mistos: boolean=149, string=26 |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
@@ -1209,7 +1210,8 @@ Linhas reais: **47** · fictícias descartadas: 16
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `company_id` | `empresa_id` | bigint | não | 100% | `empresas.id` |  |
 | `month_year` | `mes_ano` | varchar(20) | sim | 100% |  |  |
-| `status` | `estado` | varchar(20) | sim | 100% |  |  |
+| `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {ABERTO, FECHADO, VALIDADO}; texto original em estado_original |
+| `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |
 | `is_posted` | `contabilizado` | boolean | sim | 96% |  |  |
 
