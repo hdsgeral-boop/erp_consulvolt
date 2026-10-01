@@ -6,7 +6,7 @@
 | **2** | Migrations das 154 tabelas a partir do `mapa_de_para.json` (FKs, CHECKs, índices); estrutura das 29 tabelas sem dados, derivada do código JS; models Eloquent | ✅ Concluída (2026-09-30) |
 | **3** | `php artisan erp:migrar-backup-legado` — ETL por streaming, pela ordem das dependências; regras de integridade; `ocorrencias_migracao` / `quarentena_migracao`; recalibração das sequences; relatório de validação (contagens, FKs, D−C) | ✅ Concluída (2026-09-29) |
 | **4** ✅ | Services e endpoints por módulo (Sistema, Contabilidade, Terceiros, Logística, Vendas/AGT, Compras, RH/Salários, Tesouraria, POS, Activos, Projectos, Orçamento, A&D, CRM), cache e locks Redis, filas; catálogo de permissões | Planeada |
-| **5** | Frontend React + TypeScript com o layout do legado (sidebar, top header, DataTables, modais, impressões A4), módulo a módulo, com a matriz de paridade | Planeada |
+| **5** | Frontend React + TypeScript com o layout do legado (sidebar, top header, DataTables, modais, impressões A4), módulo a módulo, com a matriz de paridade | Em curso (Ant Design + TypeScript; base + Vendas piloto concluídos, ADR-061) |
 | **6** | Testes E2E, reconciliação contabilística cêntimo a cêntimo com o legado, homologação | Planeada |
 
 ---
@@ -131,3 +131,10 @@ Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints d
 2. **Rotinas destrutivas escondidas**: **não portar**; substituir por relatórios de validação — ADR-015.
 3. **Descontabilizar**: **estorno com rasto** em vez de apagar linhas — ADR-016.
 4. **Regras salariais implícitas**: corrigir só o que está errado, mantendo as isenções que existem. A isenção de 30 000 Kz passa a depender da marcação `irt = conditional_30k` do infotipo e não do nome — ADR-017.
+
+### Fase 5 — Frontend React (em curso)
+
+| Parte | Estado | Conteúdo |
+| :--- | :---: | :--- |
+| **Base + piloto** | ✅ | Login, escolha de empresa, menu por permissões (`GET /api/sistema/menu`), layout, tabela paginada genérica, erros; Vendas › Facturação (listagem, emissão, detalhe e acções) — ADR-061 |
+| Restantes módulos | ⏳ | Em paralelo por módulo, sobre a mesma base |

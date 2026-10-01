@@ -1653,3 +1653,39 @@ Implementado em `app/Services/Gestao/Relatorios` e `app/Services/Gestao/Fluxos`,
 **Fica para depois:** as facturas de imobilizado por contabilizar (ADR-051) e o rascunho de reconciliação bancária.
 
 **Organização do trabalho (ADR-059/060):** dois agentes em paralelo; o coordenador centralizou a regra do apuramento. Suite: 277 testes. Com estes dois ADR fica concluída a Fase 4 (backend).
+
+## ADR-061 — Fase 5: base do frontend React e módulo piloto (Vendas › Facturação)
+
+**Decisão do utilizador (2026-10-01):** Ant Design + TypeScript. Primeiro a base e um módulo piloto, depois os restantes módulos em paralelo.
+
+**Stack:** React 18, TypeScript estrito, Ant Design 5 (locale pt_PT, dayjs pt), React Router 6, TanStack Query 5, axios, Vite 6, Vitest 3. O build vai para `frontend/dist`, que é servido pelo nginx já existente; o build não é versionado.
+
+**Base:**
+- **Cliente HTTP** (`src/api/cliente.ts`):
+  - acrescenta o token Bearer (Sanctum) e o `X-Empresa-Id`;
+  - desembrulha o envelope `{sucesso, mensagem, dados, metadados}` e lê a paginação de `metadados.paginacao`;
+  - converte os erros em `ErroApi` (mensagem do servidor, `codigo`, `erros`);
+  - um 401 termina a sessão.
+- **Sessão** (`SessaoContexto`):
+  - entrar e sair;
+  - escolha da empresa (limpa a cache de consultas);
+  - `pode(...chaves)` com a mesma semântica do `exigir` do servidor (qualquer das chaves; `*` = acesso total);
+  - termina ao fim de `inatividade_minutos` sem actividade, alinhado com o servidor;
+  - no navegador só se guardam o token e a empresa activa.
+- **Menu:** novo `GET /api/sistema/menu` (`ServicoPermissoes::menu`), que devolve os módulos e ecrãs do catálogo que o utilizador pode ver na empresa activa, com a mesma regra do `podeVer`. O frontend não decide permissões: esconde o que o servidor diz que não se vê, e o servidor volta a validar cada pedido.
+- **Rotas:** `/` (início, `GET /api/gestao/inicio`) e `/m/{modulo}/{ecra}/*`. Os ecrãs registam-se em `src/modulos/registo.tsx` pelo id do catálogo; os que ainda não existem mostram «em construção».
+- **Componentes:** `TabelaApi` (paginação do servidor, filtros, erros), `CabecalhoPagina`, `notificarErro` (mensagem, detalhes e código), formatação em Kz e datas pt.
+
+**Módulo piloto — Vendas › Facturação:**
+- **Listagem** com filtros (tipo, estado, contabilização, período, n.º).
+- **Emissão** de FT, FR, NC, OR, PF, NE e GR:
+  - cliente por pesquisa e linhas com o catálogo de produtos;
+  - FR com a conta de caixa/banco e o meio de pagamento;
+  - NC com a factura de origem, o motivo e a devolução de mercadoria.
+  - Os totais no ecrã são uma estimativa: quem calcula, numera e sela é o servidor.
+- **Detalhe** com converter, anular, contabilizar e descontabilizar, mostrando só as acções que o utilizador pode fazer naquele estado do documento.
+
+**Verificação:**
+- verificação de tipos, Vitest e build sem erros;
+- o nginx serve o SPA, incluindo ligações profundas (`try_files`);
+- com um utilizador temporário só de Vendas (empresa 18): entrar, sessão, menu (só Dashboard e Facturação), início, documentos (54), clientes (348) e catálogo responderam correctamente; o utilizador foi apagado no fim.

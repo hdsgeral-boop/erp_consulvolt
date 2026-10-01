@@ -130,6 +130,30 @@ final class ServicoPermissoes
         return $chaves;
     }
 
+    /**
+     * Menu da aplicação (Fase 5): módulos do catálogo com os ecrãs que o utilizador pode ver na empresa activa
+     * (consulta, uma tarefa do ecrã ou um ecrã-filho visível — mesma regra de podeVer). Módulos sem ecrãs visíveis não aparecem.
+     *
+     * @return list<array{id: string, nome: string, ecras: list<array{id: string, nome: string, vistas: list<string>, pai: ?string}>}>
+     */
+    public function menu(Utilizador $utilizador, ?int $empresaId = null): array
+    {
+        $menu = [];
+        foreach (CatalogoPermissoes::completo()['modulos'] as $m) {
+            $ecras = [];
+            foreach ($m['ecras'] as $e) {
+                if ($this->ecraVisivel($utilizador, $e, $empresaId)) {
+                    $ecras[] = ['id' => $e['id'], 'nome' => $e['nome'], 'vistas' => $e['vistas'] ?? [], 'pai' => $e['pai'] ?? null];
+                }
+            }
+            if ($ecras) {
+                $menu[] = ['id' => $m['id'], 'nome' => $m['nome'], 'ecras' => $ecras];
+            }
+        }
+
+        return $menu;
+    }
+
     public static function norm(string $chave): string
     {
         $decomposta = Normalizer::normalize($chave, Normalizer::FORM_D) ?: $chave;

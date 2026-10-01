@@ -58,6 +58,20 @@ docker compose exec app vendor/bin/pint && docker compose exec app php artisan m
 
 `app/Models/<Model>.php` nunca é sobrescrito (código de negócio); `app/Models/Base/<Model>Base.php` é sempre regenerado.
 
+## Frontend (React — Fase 5)
+
+React 18 + TypeScript + Ant Design 5 (Vite), em `frontend/`. Em produção o nginx serve `frontend/dist` em http://127.0.0.1:8080 e encaminha `/api` para o Laravel.
+
+```bash
+cd frontend
+npm install                  # npm 11: aprovar o script do esbuild — npm approve-scripts esbuild
+npm run dev                  # http://127.0.0.1:5173 (proxy de /api para :8080)
+npm run build                # verifica tipos e gera frontend/dist (servido pelo nginx)
+npm run testes               # Vitest
+```
+
+Estrutura: `src/api` (cliente HTTP: token Bearer, `X-Empresa-Id`, envelope e erros), `src/sessao` (entrar, empresa activa, permissões, inactividade), `src/layout` (menu de `GET /api/sistema/menu`), `src/componentes` (tabela paginada da API, cabeçalho), `src/modulos/<módulo>` (ecrãs registados em `src/modulos/registo.tsx` pelo id do ecrã do catálogo de permissões; rota `/m/{modulo}/{ecra}`).
+
 ## Migração do backup legado
 
 ```bash
@@ -198,6 +212,7 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | POST/GET | `/api/sistema/plano-contas/substituir[/simular]` · `/manutencao/*` · `/copias/{exportar,importar,clonar}` · `/migracao/*` · GET `/api/sistema/logotipo-login` (público) | Substituir conta, manutenção de dados, cópias e migração |
 | GET/POST | `/api/gestao/inicio` · `/api/gestao/paineis[/{modulo}]` · `/paineis/comparacao` · `/api/gestao/cubo/{conjuntos,valores,consultar}` · `/api/gestao/bi[/consultar]` | Página inicial, painéis, análise dinâmica e BI |
 | GET | `/api/gestao/relatorios[/{periodos,resumo,todos,{modulo}}]` · `/api/gestao/fluxos[/{fluxo}[/processos[/{chave}]]]` | Relatórios de gestão e fluxo de processos |
+| GET | `/api/sistema/menu` | Menu (módulos e ecrãs visíveis) e permissões efectivas na empresa activa — frontend |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |
