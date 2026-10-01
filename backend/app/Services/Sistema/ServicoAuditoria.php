@@ -52,11 +52,15 @@ final class ServicoAuditoria
         ]));
     }
 
-    /** Usado pelo trait Auditavel. */
+    /**
+     * Usado pelo trait Auditavel. A empresa lê-se dos atributos em bruto: os models globais (utilizadores, perfis,
+     * moedas…) não têm empresa_id e, com o modo estrito, getAttribute() lançava MissingAttributeException ao
+     * alterar/eliminar um registo existente.
+     */
     public function registarModelo(Model $modelo, string $acao, ?array $anteriores, ?array $novos): void
     {
         $tabela = $modelo->getTable();
-        $empresaId = $modelo->getAttribute('empresa_id') ?? ($tabela === 'empresas' ? $modelo->getKey() : null);
+        $empresaId = $modelo->getAttributes()['empresa_id'] ?? ($tabela === 'empresas' ? $modelo->getKey() : null);
 
         $this->registar(
             modulo: method_exists($modelo, 'moduloAuditoria') ? $modelo->moduloAuditoria() : 'Sistema',

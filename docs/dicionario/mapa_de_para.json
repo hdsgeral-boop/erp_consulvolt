@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T21:39:51.578Z",
+  "gerado_em": "2026-10-01T08:44:33.789Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -2140,7 +2140,33 @@
           "nulo": true,
           "preenchimento": 0.3055,
           "max_comprimento": 10,
-          "notas": []
+          "notas": [
+            "código normalizado ∈ {AGREGACAO, ELIMINACAO, CONVERSAO}; texto original em tipo_consolidacao_original"
+          ],
+          "normalizacao": {
+            "dominio": [
+              "AGREGACAO",
+              "ELIMINACAO",
+              "CONVERSAO"
+            ],
+            "mapa": {
+              "AGREGACAO": "AGREGACAO",
+              "ELIMINACAO": "ELIMINACAO",
+              "CONVERSAO": "CONVERSAO"
+            }
+          }
+        },
+        {
+          "legado": "consolidation_type",
+          "pt": "tipo_consolidacao_original",
+          "tipo_pg": "varchar(20)",
+          "nulo": true,
+          "preenchimento": 0.3055,
+          "max_comprimento": 10,
+          "origem": "texto_original",
+          "notas": [
+            "texto exacto do legado"
+          ]
         },
         {
           "legado": "value_kz_origem",
@@ -3035,11 +3061,12 @@
         {
           "legado": "elim_exclude_prefixes",
           "pt": "prefixos_excluidos_eliminacao",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 5,
           "notas": [
+            "tipo forçado (inferido: varchar(10))",
             "1 valores são listas separadas por vírgulas -> tabela pivô"
           ]
         },

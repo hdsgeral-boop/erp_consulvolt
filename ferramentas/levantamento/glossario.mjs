@@ -472,6 +472,11 @@ export const TIPOS_FORCADOS = {
   'fixed_assets.accumulated_end_year': 'integer', 'project_ledger.source_doc_type': 'varchar(30)', 'project_ledger.source_doc_id': 'varchar(60)', 'project_org_nodes.area': 'varchar(100)',
   'ad_items.regularizacao': 'jsonb', 'crm_settings.motivos_perda': 'jsonb', 'crm_settings.origens': 'jsonb', 'crm_sequences.passos': 'jsonb', 'crm_activities.resultado': 'text',
   'crm_templates.assunto': 'varchar(255)',
+  // Consolidação e manutenção de dados (ADR-057/058): prefixos excluídos das eliminações; pedidos com objectos JSON
+  'consolidation_groups.elim_exclude_prefixes': 'varchar(100)',
+  'maintenance_requests.params': 'jsonb', 'maintenance_requests.impact_at_request': 'jsonb', 'maintenance_requests.impact_at_approval': 'jsonb',
+  'maintenance_requests.impact_at_execution': 'jsonb', 'maintenance_requests.requested_by': 'jsonb', 'maintenance_requests.executed_by': 'jsonb',
+  'maintenance_requests.cancelled_by': 'jsonb',
   'pos_settlements.pm_id': 'varchar(40)', 'pos_settlements.item_key': 'varchar(60)', 'pos_settlements.reference': 'varchar(100)', 'pos_settlements.commission_deducted': 'boolean',
 };
 

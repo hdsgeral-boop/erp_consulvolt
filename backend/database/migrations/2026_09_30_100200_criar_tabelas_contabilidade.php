@@ -85,7 +85,8 @@ return new class extends Migration
             $table->bigInteger('empresa_origem_id')->nullable()->comment('legado: source_company_id');
             $table->bigInteger('linha_origem_id')->nullable()->comment('legado: source_line_id');
             $table->bigInteger('execucao_consolidacao_id')->nullable()->comment('legado: consolidation_run_id');
-            $table->string('tipo_consolidacao', 20)->nullable()->comment('legado: consolidation_type');
+            $table->string('tipo_consolidacao', 20)->nullable()->comment('legado: consolidation_type · código normalizado ∈ {AGREGACAO, ELIMINACAO, CONVERSAO}; texto original em tipo_consolidacao_original');
+            $table->string('tipo_consolidacao_original', 100)->nullable()->comment('legado: consolidation_type · texto exacto do legado');
             $table->decimal('valor_kz_origem', 15, 2)->nullable()->comment('legado: value_kz_origem · tipos mistos: decimal=6480, inteiro=7084');
             $table->bigInteger('empresa_intragrupo_id')->nullable()->comment('legado: intragroup_company_id');
             $table->bigInteger('item_acrescimo_diferimento_id')->nullable()->comment('legado: ad_item_id');
@@ -124,6 +125,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE lancamentos_contabeis ADD CONSTRAINT ck_lancamentos_tipo_dc CHECK (tipo_dc IN (\'D\',\'C\'))');
         DB::statement('ALTER TABLE lancamentos_contabeis ADD CONSTRAINT ck_lancamentos_valor CHECK (valor >= 0)');
         DB::statement('ALTER TABLE lancamentos_contabeis ADD CONSTRAINT ck_lancamentos_contabeis_tipo_documento_origem CHECK (tipo_documento_origem IS NULL OR tipo_documento_origem IN (\'FATURA_COMPRA\',\'RECECAO_COMPRA\'))');
+        DB::statement('ALTER TABLE lancamentos_contabeis ADD CONSTRAINT ck_lancamentos_contabeis_tipo_consolidacao CHECK (tipo_consolidacao IS NULL OR tipo_consolidacao IN (\'AGREGACAO\',\'ELIMINACAO\',\'CONVERSAO\'))');
 
         // recycled_journal_lines (legado) -> lancamentos_estornados · 2505 linhas reais no backup
         Schema::create('lancamentos_estornados', function (Blueprint $table) {
@@ -223,6 +225,9 @@ return new class extends Migration
             $table->jsonb('textos')->nullable()->comment('legado: textos');
             $table->jsonb('notas_incluir')->nullable()->comment('legado: notas_incluir');
             $table->string('atualizado_por', 100)->nullable()->comment('legado: atualizado_por');
+            $table->jsonb('fotografia')->nullable()->comment('Números do relatório no momento da conclusão');
+            $table->timestampTz('concluido_em')->nullable()->comment('Data/hora da conclusão');
+            $table->string('concluido_por', 100)->nullable()->comment('Utilizador que concluiu');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: atualizado_em');
         });
@@ -238,7 +243,7 @@ return new class extends Migration
             $table->string('moeda_apresentacao', 10)->nullable()->comment('legado: presentation_currency');
             $table->string('conta_reserva_cambial', 20)->nullable()->comment('legado: fx_reserve_account');
             $table->boolean('eliminacao_ativa')->nullable()->comment('legado: elim_enabled');
-            $table->string('prefixos_excluidos_eliminacao', 10)->nullable()->comment('legado: elim_exclude_prefixes · 1 valores são listas separadas por vírgulas -> tabela pivô');
+            $table->string('prefixos_excluidos_eliminacao', 100)->nullable()->comment('legado: elim_exclude_prefixes · tipo forçado (inferido: varchar(10)); 1 valores são listas separadas por vírgulas -> tabela pivô');
             $table->string('conta_diferenca_eliminacao', 20)->nullable()->comment('legado: elim_diff_account');
             $table->bigInteger('ultima_execucao_id')->nullable()->comment('legado: last_run_id');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_on');

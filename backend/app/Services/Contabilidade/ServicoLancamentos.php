@@ -65,6 +65,9 @@ final class ServicoLancamentos
                 'numero_lan' => $numeroLan, 'numero_documento' => $dados['numero_documento'] ?? $numeroLan,
                 'referencia' => $dados['referencia'] ?? null, 'tipo_origem' => $dados['tipo_origem'] ?? LancamentoContabil::ORIGEM_MANUAL,
                 'nome_utilizador' => Auth::user()?->nome_utilizador, 'sessao_pos_id' => $dados['sessao_pos_id'] ?? null,
+                // apuramento (período 13, ADR-056), compensações e origem sistémica (rotinas, consolidação)
+                'periodo_id' => $dados['periodo_id'] ?? null, 'periodo_contabil' => $dados['periodo_contabil'] ?? null,
+                'reconciliacao_codigo' => $dados['reconciliacao_codigo'] ?? null, 'sistema_origem' => $dados['sistema_origem'] ?? null,
             ];
             $criadas = new Collection;
             foreach ($dados['linhas'] as $l) {
@@ -129,6 +132,7 @@ final class ServicoLancamentos
                     'projeto_id' => $o->projeto_id, 'nota_demonstracao_id' => $o->nota_demonstracao_id, 'nota_fluxo_caixa_id' => $o->nota_fluxo_caixa_id,
                     'codigo_moeda' => $o->codigo_moeda, 'valor_moeda' => $o->valor_moeda, 'taxa_cambio' => $o->taxa_cambio,
                     'tipo_origem' => LancamentoContabil::ORIGEM_ESTORNO, 'estorno_de_id' => $o->id,
+                    'periodo_id' => $o->periodo_id, 'periodo_contabil' => $o->periodo_contabil,   // o estorno do apuramento fica no período 13, como o original
                     'nome_utilizador' => Auth::user()?->nome_utilizador,
                 ]);
                 $o->update(['estornado_por_id' => $estorno->id, 'estornado_em' => $agora]);

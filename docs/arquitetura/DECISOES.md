@@ -1452,3 +1452,140 @@ Implementado em `app/Services/CRM`, a partir de `js/modules/crm/crm_dados.js`, `
 - Validações: `crm_oportunidades_etapa_inexistente`, `crm_vendas_cliente_divergente`.
 
 **Organização do trabalho (ADR-051 a 054):** três agentes em paralelo, com as mesmas regras das partes 2-3 do POS. O coordenador aplicou o esquema, os ganchos (salários → projectos, vendas → CRM), a ETL e as validações. Suite: 194 testes.
+
+## ADR-055 — Contabilidade parte 2: demonstrações financeiras, Relatório e Contas, tabelas auxiliares e importação
+
+**Contexto.** O Balanço, a DR e o Fluxo de Caixa do legado (`ui_reports.js:862-1472`) e o Relatório e Contas (`relatorio_contas.js`) calculam-se pelas notas das linhas, com comparativo e saldos históricos. Havia duas versões do motor, com diferenças entre si.
+
+**Decisão — um só motor** (`ServicoDemonstracoesFinanceiras`), igual ao de `relatorio_contas.js:88-209`:
+- Agregado em SQL por nota.
+- Excluem-se a classe 9 e o apuramento (períodos 13 e 14) de cada exercício.
+- As linhas sem nota são reportadas («Movimentos por mapear»).
+- O resultado líquido do Balanço é o mesmo da DR.
+
+**Correcções face ao legado:**
+- Notas 16 e 20 ignoradas e nota 6 escondida.
+- Ajuste «SPAZIO», que duplicava o resultado anterior.
+- Apuramento do ano anterior incluído no comparativo.
+- Notas fora da estrutura descartadas em silêncio.
+- Fluxo de caixa com |valor| linha a linha, pelo que um estorno contava duas vezes. Agora soma-se por nota com sinal e há controlo pela variação real da classe 4.
+
+**Mapas:**
+- Balancete com as opções do legado; os totais deixam de somar as contas totalizadoras.
+- Extracto com as contrapartidas de todo o lançamento.
+- Evolução e IVA.
+- Reconciliação AGT: o estado DIVERGENTE passa a ser atribuído.
+- Compensações com código `MATCH-AAAAMMDD-nnnn`. A regularização passa pelo `ServicoLancamentos` e reverter marca a compensação como ANULADA.
+
+**Relatório e Contas:**
+- Números, indicadores (ROE, ROA, ROS), notas e Nota 4 por categoria.
+- Estados RASCUNHO → APROVADO → reabrir. Só se aprova com o exercício encerrado, e a fotografia fica nas colunas `fotografia`, `concluido_em` e `concluido_por`.
+
+**Tabelas e importação:**
+- Tabelas auxiliares com verificação de utilizações e com cópia entre empresas só com acesso a ambas.
+- Reciclagem por diário + chave (ADR-025); restaurar cria um lançamento novo.
+- Importação de lançamentos e de saldos históricos validada por inteiro e gravada numa transacção.
+
+**Verificação.** Nos dados reais, o Balanço e a DR dão o mesmo que as fórmulas do legado, ao cêntimo, em 13 empresas × 2 anos. As diferenças do Balanço explicam-se pelos desequilíbrios do diário (ADR-025), pela classe 9 e pelas linhas sem nota.
+
+**Validações:** `linhas_sem_nota_demonstracao`, `notas_demonstracao_fora_da_estrutura`, `notas_demonstracao_codigo_repetido` (12 empresas têm a nota «15» duplicada, o que impede um índice único).
+
+**Unidades de negócio:** ficou uma só implementação, a da Administração (ADR-058), em `/api/sistema/unidades-negocio`.
+
+## ADR-056 — Encerramento do exercício e rotinas contabilísticas
+
+Implementado em `ServicoEncerramento`, `ServicoRotinasContabeis` e `ServicoRotinasContabeisSelo`, a partir de `ui_closing.js` e `ui_rotinas.js`.
+
+**Encerramento:**
+- O cadeado é a chave `closed_year_<empresa>_<ano>` em `configuracoes_sistema`, como no legado; a chave passa a ser única. Não há lançamento de abertura, porque o legado não o tinha.
+- Cinco passos de apuramento (agrupadora .9 → classe 8 → agregadoras → resultados → 889): um lançamento por passo, a 31-12, com `periodo_id = 13`.
+- Repetir um passo ou cancelar o apuramento é estorno (ADR-016); o legado apagava. O `ServicoLancamentos` passou a aceitar período e reconciliação, e o estorno herda o período 13 do original.
+- As contas do apuramento têm de existir e ser de movimento. As que faltam podem ser criadas a pedido; as totalizadoras são sempre recusadas. No legado gravava-se, por exemplo, na 769, que é totalizadora.
+- Validações:
+  - sequência dos exercícios;
+  - D = C;
+  - classes 6 e 7 a zero;
+  - amortizações por integrar (`ServicoAmortizacoes::porIntegrarNoAno`; no legado esta verificação nunca detectava nada);
+  - armazém ao custo médio contra o saldo acumulado das contas 22 + 26 (o legado usava o preço de venda e só o movimento do ano);
+  - balanço histórico.
+- Encerrar só sem divergências. Reabrir só sem anos seguintes encerrados.
+
+**Rotinas:**
+- Imposto de Selo 1%: arredondado ao cêntimo e sem lançar duas vezes o mesmo mês.
+- Capitalização de obras `CAP-AAAAMM`, no último dia do mês.
+- Compensação e transferência de saldos com lançamentos equilibrados.
+- Actualização em massa validada.
+- Anular = estorno; o legado apagava e deixava a linha 3772 órfã.
+- A limpeza de reconciliações só pré-visualiza; a execução faz-se na Manutenção de dados.
+
+**Dados reais:**
+- Empresa 6, 2025: o apuramento reproduz o legado (passos 2-5 idênticos; 7 movimentos com 1 a 2 cêntimos, ADR-022).
+- A empresa 6 tem o armazém a 28 380 000 ao custo e as contas 22 + 26 a zero. Com a validação corrigida, 2025 não encerraria sem regularizar o inventário. Fica a decisão do utilizador.
+
+**Validação:** `encerramento_exercicio_encerrado_com_resultados`.
+
+## ADR-057 — Consolidação de empresas
+
+Implementado em `app/Services/Consolidacao`, a partir de `consolidacao.js`.
+
+**Holding e acesso:**
+- A holding é uma empresa com `e_consolidacao`; os membros entram a 100% pelo método INTEGRAL.
+- É exigido acesso à holding e a todas as empresas do grupo.
+
+**Execução (paridade com o legado):**
+- Valida os câmbios antes de tudo.
+- Une os dados mestre por código e os terceiros por NIF.
+- Copia as linhas como AGREGACAO.
+- Eliminações por NIF, com o lançamento identificado pela chave do legado (LAN, ou diário + documento + data). A chave do ADR-025 produzia 90 eliminações em vez de 4.
+- Diferenças na conta 5.9.8; conversão ao câmbio de fecho nas classes 1-4; reservas na 5.9.9.
+- Mapa de Consolidação.
+
+**Correcções:**
+- As linhas da holding são uma projecção: as geradas são substituídas (excepção ao ADR-016) e as manuais preservadas. O legado apagava também as manuais.
+- Tudo numa transacção.
+- Pares estornados não são copiados.
+
+**Dados reais:** o grupo 2 reproduz a execução 5 do legado: 4 eliminações com diferença 0, mesma divergência, reservas 521 899,99. Há 10 linhas da empresa 10 posteriores à última execução, apontadas pela validação `consolidacao_holding_desactualizada`.
+
+**Esquema:** domínio de `tipo_consolidacao` (AGREGACAO, ELIMINACAO, CONVERSAO); prefixos excluídos das eliminações com até 100 caracteres.
+
+## ADR-058 — Administração do sistema
+
+Implementado em `app/Services/Sistema`, a partir de `app_v2.js`, `permissoes.js`, `moedas.js`, `manutencao.js`, `substituir_conta.js`, `company_backup.js` e `mapeamento_massa.js`.
+
+**Acessos:**
+- Só um utilizador de acesso total atribui perfis totais, dá acesso a todas as empresas ou define o papel. No legado havia escalada de privilégios.
+- O último Super Administrador e a própria conta não se eliminam nem desactivam.
+- Desactivar um utilizador ou repor a palavra-passe revoga as sessões.
+- Perfis v2 só com chaves do catálogo; a segregação de funções avisa e exige confirmação.
+- O `ServicoAuditoria` passou a ler o `empresa_id` dos atributos reais; em modo estrito falhava ao alterar registos globais.
+
+**Empresas e moedas:**
+- Empresa nova com as rubricas por omissão.
+- INSS 0% passa a ser aceite (no legado `||8` transformava-o em 8%).
+- Câmbios com âmbito TODAS ou EMPRESA, únicos por lock; um câmbio em uso não se altera; BAI lido pelo servidor.
+
+**Substituir conta:** altera só configurações, fichas e documentos de tesouraria pendentes, numa transacção auditada. O Diário e os documentos contabilizados nunca são reescritos (ADR-016).
+
+**Manutenção de dados:** pedido → aprovação por outro administrador, na sua sessão e com a palavra-passe → execução em 24 h. Das 13 acções do legado:
+- 5 portadas como operações seguras: anular pendentes, estornar, reconciliações órfãs, eliminar empresa vazia;
+- 4 substituídas por estornos, validações ou cópias;
+- 4 não portadas.
+
+Os campos do pedido passam a jsonb.
+
+**Cópias:**
+- Exportação JSON versionada.
+- Importação só para empresa nova ou vazia, com ids novos e referências remapeadas (FK, sem FK, polimórficas e em JSON).
+- Clone só da estrutura.
+- A cópia da empresa 1 (25 432 linhas) reimporta com contagens e D−C iguais.
+
+**Migração:** importações e edição em massa transaccionais, com simulação.
+
+**Unidades de negócio:** implementação única em `/api/sistema/unidades-negocio`, com códigos de erro específicos.
+
+**Rota pública:** `GET /api/sistema/logotipo-login`.
+
+**Validações:** `texto_corrompido_lancamentos`, `reconciliacoes_tesouraria_orfas`.
+
+**Organização do trabalho (ADR-055 a 058):** três agentes em paralelo. O coordenador unificou as unidades de negócio, aplicou o esquema (fotografia do R&C, pedidos jsonb, chave única do cadeado, domínios) e os ganchos (`ServicoLancamentos`, `ServicoAuditoria`, rota pública), e correu a ETL e a suite completa: 253 testes. As 46 validações correm sem erros nas 14 empresas.

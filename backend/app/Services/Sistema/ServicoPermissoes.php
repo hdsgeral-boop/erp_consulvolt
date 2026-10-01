@@ -31,6 +31,15 @@ final class ServicoPermissoes
         return $utilizador->eSuperAdministrador() || ($this->permissoes($utilizador)['all'] ?? null) === true;
     }
 
+    /**
+     * Administrador para efeitos de aprovação (papelAdmin, js/manutencao.js:21): papel SUPER_ADMINISTRADOR ou
+     * ADMINISTRADOR, ou perfil de acesso total (no legado, o perfil n.º 1 "Super Administrador").
+     */
+    public function administrador(Utilizador $utilizador): bool
+    {
+        return in_array($utilizador->papel, [Utilizador::PAPEL_SUPER_ADMINISTRADOR, Utilizador::PAPEL_ADMINISTRADOR], true) || $this->total($utilizador);
+    }
+
     public function tem(Utilizador $utilizador, string $chave, ?int $empresaId = null): bool
     {
         if ($this->total($utilizador)) {

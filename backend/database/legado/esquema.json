@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-09-30T21:40:03.286Z",
+  "gerado_em": "2026-10-01T08:44:35.429Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -57,7 +57,14 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "chave"
+          ],
+          "onde": null
+        }
+      ],
       "checks": []
     },
     {
@@ -1579,6 +1586,19 @@
           "nulo": true,
           "origem": "backup",
           "fk": null,
+          "dominio": [
+            "AGREGACAO",
+            "ELIMINACAO",
+            "CONVERSAO"
+          ]
+        },
+        {
+          "coluna": "tipo_consolidacao_original",
+          "legado": "consolidation_type",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "texto_original",
+          "fk": null,
           "dominio": null
         },
         {
@@ -1706,7 +1726,8 @@
       "checks": [
         "ck_lancamentos_tipo_dc",
         "ck_lancamentos_valor",
-        "ck_lancamentos_contabeis_tipo_documento_origem"
+        "ck_lancamentos_contabeis_tipo_documento_origem",
+        "ck_lancamentos_contabeis_tipo_consolidacao"
       ]
     },
     {
@@ -2393,6 +2414,33 @@
           "dominio": null
         },
         {
+          "coluna": "fotografia",
+          "legado": null,
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "concluido_em",
+          "legado": null,
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "concluido_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": "criado_em",
           "tipo": "timestamptz",
@@ -2498,7 +2546,7 @@
         {
           "coluna": "prefixos_excluidos_eliminacao",
           "legado": "elim_exclude_prefixes",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -20636,7 +20684,7 @@
         {
           "coluna": "parametros",
           "legado": "params",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -20663,7 +20711,7 @@
         {
           "coluna": "impacto_no_pedido",
           "legado": "impact_at_request",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -20672,7 +20720,7 @@
         {
           "coluna": "pedido_por",
           "legado": "requested_by",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -20717,7 +20765,7 @@
         {
           "coluna": "impacto_na_aprovacao",
           "legado": "impact_at_approval",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -20753,7 +20801,7 @@
         {
           "coluna": "executado_por",
           "legado": "executed_by",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -20771,7 +20819,7 @@
         {
           "coluna": "impacto_na_execucao",
           "legado": "impact_at_execution",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -20789,7 +20837,7 @@
         {
           "coluna": "cancelado_por",
           "legado": "cancelled_by",
-          "tipo": "varchar(255)",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,

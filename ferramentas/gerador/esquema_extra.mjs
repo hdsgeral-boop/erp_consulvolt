@@ -56,6 +56,7 @@ export const UNICOS = [
   ['sessoes_pos', ['terminal_pos_id'], "estado = 'ABERTA'"],   // uma sessão aberta por terminal (o legado: ler-depois-inserir)
   ['liquidacoes_pos', ['sessao_pos_id', 'chave_item'], "estado = 'REGISTADO'"],
   ['estadias_hotel', ['produto_quarto_id'], "estado = 'ABERTA'"],
+  ['configuracoes_sistema', ['chave']],   // chave única (o cadeado closed_year_<empresa>_<ano>, ADR-056)
   ['amortizacoes_ativos', ['empresa_id', 'ativo_imobilizado_id', 'periodo_codigo']],   // índice [company_id+asset_id+period_id] do legado (db_v2.js:50)
   ['configuracoes_projetos', ['empresa_id', 'projeto_id', 'chave'], 'projeto_id IS NOT NULL'],
   ['configuracoes_projetos', ['empresa_id', 'chave'], 'projeto_id IS NULL'],
@@ -157,6 +158,12 @@ export const PIVOS = [
 
 // Colunas novas do desenho (não existem no legado).
 export const COLUNAS_NOVAS = {
+  // ADR-055: fotografia do Relatório e Contas concluído (legado: annual_reports.snapshot/completed_em/completed_por, js/relatorio_contas.js:1179-1181)
+  relatorios_anuais_contas: [
+    ['fotografia', 'jsonb', null, 'Números do relatório no momento da conclusão'],
+    ['concluido_em', 'timestamptz', null, 'Data/hora da conclusão'],
+    ['concluido_por', 'varchar(100)', null, 'Utilizador que concluiu'],
+  ],
   // ADR-016: estorno com rasto, linha a linha
   lancamentos_contabeis: [
     ['estorno_de_id', 'bigint', 'lancamentos_contabeis', 'Linha original que esta linha estorna'],

@@ -22,6 +22,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_configuracoes_sistema_chave ON configuracoes_sistema (chave)');
 
         // business_units (legado) -> unidades_negocio · 16 linhas reais no backup · eliminação lógica
         Schema::create('unidades_negocio', function (Blueprint $table) {

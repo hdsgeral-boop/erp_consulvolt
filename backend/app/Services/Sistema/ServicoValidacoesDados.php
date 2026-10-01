@@ -242,6 +242,64 @@ final class ServicoValidacoesDados
                 'descricao' => 'O legado não validava as datas (2 casos migrados).', 'legado' => 'saveTask, js/ui_projects.js:1254',
                 'sql' => 'SELECT t.id AS tarefa_id, t.projeto_id, t.nome, t.data_inicio, t.data_fim FROM tarefas_projeto t WHERE t.empresa_id = ? AND t.data_fim < t.data_inicio ORDER BY t.id',
             ],
+            'linhas_sem_nota_demonstracao' => [
+                'titulo' => 'Linhas sem nota às demonstrações', 'modulo' => 'Contabilidade', 'gravidade' => 'AVISO',
+                'descricao' => 'Linhas (fora da classe 9) sem nota DEMO: não entram no Balanço/DR e desequilibram o Balanço ("Movimentos por mapear").',
+                'legado' => 'Alerta do Balanço em ui_reports.js:1048-1062',
+                'sql' => "SELECT l.codigo_conta, COUNT(*) AS linhas, SUM(CASE WHEN l.tipo_dc='D' THEN l.valor ELSE -l.valor END) AS saldo, MIN(l.id) AS linha_id
+                          FROM lancamentos_contabeis l LEFT JOIN notas_demonstracao_resultados n ON n.id = l.nota_demonstracao_id AND n.empresa_id = l.empresa_id
+                          WHERE l.empresa_id = ? AND n.id IS NULL AND l.codigo_conta NOT LIKE '9%' GROUP BY l.codigo_conta ORDER BY 2 DESC",
+            ],
+            'notas_demonstracao_fora_da_estrutura' => [
+                'titulo' => 'Notas DEMO com código fora da estrutura do PGC', 'modulo' => 'Contabilidade', 'gravidade' => 'AVISO',
+                'descricao' => 'Linhas com notas cujo código não é 4–35 (nem 14.1): o legado descartava-as em silêncio.',
+                'legado' => 'processBalanco, ui_reports.js:863-914',
+                'sql' => "SELECT trim(n.codigo) AS nota, COUNT(*) AS linhas, MIN(l.id) AS linha_id FROM lancamentos_contabeis l
+                          JOIN notas_demonstracao_resultados n ON n.id = l.nota_demonstracao_id
+                          WHERE l.empresa_id = ? AND trim(n.codigo) NOT IN ('4','5','6','7','8','9','10','11','12','13','14','14.1','15','16','17','18','19','20','21','22','23','24','25','26','27','28','29','30','31','32','33','34','35')
+                          GROUP BY 1 ORDER BY 2 DESC",
+            ],
+            'notas_demonstracao_codigo_repetido' => [
+                'titulo' => 'Notas DEMO com o mesmo código', 'modulo' => 'Contabilidade', 'gravidade' => 'AVISO',
+                'descricao' => 'Duas notas com o mesmo código (ex.: "15" curto e médio/longo prazo; devia ser 15 e 20).',
+                'legado' => 'Tabelas auxiliares sem unicidade',
+                'sql' => 'SELECT trim(codigo) AS codigo, COUNT(*) AS notas, MIN(id) AS nota_id FROM notas_demonstracao_resultados WHERE empresa_id = ? GROUP BY 1 HAVING COUNT(*) > 1',
+            ],
+            'encerramento_exercicio_encerrado_com_resultados' => [
+                'titulo' => 'Exercícios encerrados com as classes 6/7 por apurar', 'modulo' => 'Contabilidade', 'gravidade' => 'AVISO',
+                'descricao' => 'Ano com cadeado (closed_year) cujas classes 6 ou 7 não estão a zero (ex.: resíduo do arredondamento ADR-022).',
+                'legado' => 'A validação comparava floats com tolerância 0,001 (ui_closing.js:1428)',
+                'sql' => "SELECT extract(year from l.data_documento)::int AS ano,
+                                 SUM(CASE WHEN l.codigo_conta LIKE '6%' THEN CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END ELSE 0 END) AS classe_6,
+                                 SUM(CASE WHEN l.codigo_conta LIKE '7%' THEN CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END ELSE 0 END) AS classe_7
+                          FROM lancamentos_contabeis l WHERE l.empresa_id = ? AND EXISTS (SELECT 1 FROM configuracoes_sistema c
+                               WHERE c.chave = 'closed_year_' || l.empresa_id || '_' || extract(year from l.data_documento)::int AND lower(trim(c.valor)) IN ('true','1'))
+                          GROUP BY 1 HAVING SUM(CASE WHEN l.codigo_conta LIKE '6%' THEN CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END ELSE 0 END) <> 0
+                              OR SUM(CASE WHEN l.codigo_conta LIKE '7%' THEN CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END ELSE 0 END) <> 0 ORDER BY 1",
+            ],
+            'consolidacao_holding_desactualizada' => [
+                'titulo' => 'Consolidação desactualizada', 'modulo' => 'Contabilidade', 'gravidade' => 'AVISO',
+                'descricao' => 'Lançamentos das empresas do grupo gravados depois da última consolidação e datados até à data de fim: consolide de novo.',
+                'legado' => 'Aviso do Mapa de Consolidação (consolidacao.js:1209)',
+                'sql' => 'SELECT g.id AS grupo_id, e.data_fim, e.executado_em, COUNT(l.id) AS linhas FROM grupos_consolidacao g
+                          JOIN execucoes_consolidacao e ON e.id = g.ultima_execucao_id JOIN membros_consolidacao m ON m.grupo_consolidacao_id = g.id
+                          JOIN lancamentos_contabeis l ON l.empresa_id = m.empresa_membro_id AND l.data_documento <= e.data_fim AND l.criado_em > e.executado_em
+                          WHERE g.empresa_id = ? GROUP BY g.id, e.data_fim, e.executado_em ORDER BY g.id',
+            ],
+            'texto_corrompido_lancamentos' => [
+                'titulo' => 'Descrições com texto corrompido (mojibake)', 'modulo' => 'Sistema', 'gravidade' => 'INFO',
+                'descricao' => 'Acentos estragados gravados (ex.: "GestÃ£o") ou caracteres de substituição. O legado reparava-os em massa (reparar_texto.js); aqui só se listam.',
+                'legado' => 'repararTextoCorrompidoBD, js/reparar_texto.js',
+                'sql' => "SELECT id AS linha_id, numero_lan, data_documento, descricao FROM lancamentos_contabeis WHERE empresa_id = ? AND descricao ~ '\u{00C3}[\u{0080}-\u{00BF}]|\u{00C2}[\u{00A0}-\u{00BF}]|\u{FFFD}' ORDER BY id",
+            ],
+            'reconciliacoes_tesouraria_orfas' => [
+                'titulo' => 'Linhas 43/45 reconciliadas sem extracto bancário', 'modulo' => 'Tesouraria', 'gravidade' => 'AVISO',
+                'descricao' => 'Código de reconciliação que não pertence a uma reconciliação CONCILIADO_BANCO (correcção: Manutenção de dados › LIMPAR_RECONCILIACOES_ORFAS).',
+                'legado' => 'limparReconciliacoesTesouraria, ui_rotinas.js:1225',
+                'sql' => "SELECT l.id AS linha_id, l.codigo_conta, l.reconciliacao_codigo, l.data_documento, l.valor FROM lancamentos_contabeis l WHERE l.empresa_id = ? AND l.reconciliacao_codigo IS NOT NULL
+                          AND (l.codigo_conta LIKE '43%' OR l.codigo_conta LIKE '45%') AND NOT EXISTS (SELECT 1 FROM reconciliacoes_bancarias r WHERE r.empresa_id = l.empresa_id
+                          AND r.reconciliacao_codigo = l.reconciliacao_codigo AND r.estado = 'CONCILIADO_BANCO') ORDER BY l.id",
+            ],
             'colaboradores_activos_sem_iban' => [
                 'titulo' => 'Colaboradores activos sem IBAN', 'modulo' => 'RH', 'gravidade' => 'AVISO',
                 'descricao' => 'Sem coordenadas bancárias não entram numa carta de pagamento. No legado os botões do ecrã de IBAN não funcionavam: só a importação gravava.',

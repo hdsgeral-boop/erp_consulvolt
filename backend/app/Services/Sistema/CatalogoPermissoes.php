@@ -35,6 +35,55 @@ final class CatalogoPermissoes
     /** @var array<string, string>|null tarefa => ecrã id */
     private static ?array $tarefas = null;
 
+    /** @var array<string, mixed>|null catálogo completo (módulos, segregação, modelos) */
+    private static ?array $bruto = null;
+
+    /** Catálogo completo, tal como extraído do legado (módulos → ecrãs → tarefas, segregação e perfis-modelo). */
+    public static function completo(): array
+    {
+        self::carregar();
+
+        return self::$bruto;
+    }
+
+    /** @return list<array{a: string, b: string, motivo: string}> pares de tarefas incompatíveis (js/permissoes.js:514-535) */
+    public static function segregacao(): array
+    {
+        self::carregar();
+
+        return self::$bruto['segregacao'];
+    }
+
+    /** @return list<array{nome: string, permissoes: array<string, bool>}> perfis-modelo (js/permissoes.js:539-581) */
+    public static function modelos(): array
+    {
+        self::carregar();
+
+        return self::$bruto['modelos'];
+    }
+
+    /** Chave válida num perfil v2: consulta de um ecrã ("<ecrã>_view") ou tarefa do catálogo. */
+    public static function chaveValida(string $chave): bool
+    {
+        self::carregar();
+
+        return self::eTarefa($chave) || (str_ends_with($chave, '_view') && isset(self::$ecras[substr($chave, 0, -5)]));
+    }
+
+    /** @return array<string, array<string, mixed>> chave da tarefa => tarefa (com o ecrã) */
+    public static function tarefas(): array
+    {
+        self::carregar();
+        $r = [];
+        foreach (self::$ecras as $e) {
+            foreach ($e['tarefas'] as $t) {
+                $r[$t['chave']] = $t + ['ecra' => $e['id']];
+            }
+        }
+
+        return $r;
+    }
+
     /** @return array<string, array<string, mixed>> */
     public static function ecras(): array
     {
@@ -71,6 +120,7 @@ final class CatalogoPermissoes
             return;
         }
         $catalogo = json_decode(file_get_contents(resource_path('permissoes/catalogo.json')), true, flags: JSON_THROW_ON_ERROR);
+        self::$bruto = $catalogo;
         self::$ecras = self::$porVista = self::$tarefas = [];
         foreach ($catalogo['modulos'] as $m) {
             foreach ($m['ecras'] as $e) {

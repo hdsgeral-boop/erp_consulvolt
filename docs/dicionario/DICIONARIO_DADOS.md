@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-09-30T21:39:51.578Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-10-01T08:44:33.789Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -10,7 +10,7 @@
 | Linhas no backup | 205 033 |
 | Linhas fictícias descartadas (is_master_data) | 1215 |
 | Linhas reais a migrar | 203 818 |
-| Colunas reais mapeadas | 1686 |
+| Colunas reais mapeadas | 1687 |
 | Tabelas sem linhas reais (esquema a derivar do código JS) | 29 |
 | Chaves estrangeiras com órfãos | 17 |
 | Colunas enumeradas a normalizar (código + `*_original`) | 122 |
@@ -143,6 +143,7 @@
 | `fixed_assets.status` | ACTIVO, INACTIVO, ABATIDO | ACTIVO → ACTIVO |
 | `asset_disposals.type` | SINISTRO, VENDA, FIM_VIDA |  |
 | `asset_maintenance_records.type` | PREVENTIVA, CORRECTIVA | CORRECTIVA → CORRECTIVA |
+| `journal_lines.consolidation_type` | AGREGACAO, ELIMINACAO, CONVERSAO | AGREGACAO → AGREGACAO; ELIMINACAO → ELIMINACAO; CONVERSAO → CONVERSAO |
 | `project_review_lines.type` | MAO_OBRA, SUBEMPREITADA | LABOR → MAO_OBRA; SUBCONTRACT → SUBEMPREITADA |
 | `crm_accounts.origem` | RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO | Recomendação → RECOMENDACAO; Cliente existente → CLIENTE_EXISTENTE |
 | `crm_opportunities.origem` | RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO | Recomendação → RECOMENDACAO; Cliente existente → CLIENTE_EXISTENTE |
@@ -425,7 +426,8 @@ Linhas reais: **44400** · fictícias descartadas: 15
 | `source_company_id` | `empresa_origem_id` | bigint | sim | 31% | `empresas.id` |  |
 | `source_line_id` | `linha_origem_id` | integer | sim | 31% |  |  |
 | `consolidation_run_id` | `execucao_consolidacao_id` | bigint | sim | 31% | `execucoes_consolidacao.id` |  |
-| `consolidation_type` | `tipo_consolidacao` | varchar(20) | sim | 31% |  |  |
+| `consolidation_type` | `tipo_consolidacao` | varchar(20) | sim | 31% |  | código normalizado ∈ {AGREGACAO, ELIMINACAO, CONVERSAO}; texto original em tipo_consolidacao_original |
+| `consolidation_type` | `tipo_consolidacao_original` | varchar(20) | sim | 31% |  | texto exacto do legado |
 | `value_kz_origem` | `valor_kz_origem` | numeric(15,2) | sim | 31% |  | tipos mistos: decimal=6480, inteiro=7084 |
 | `intragroup_company_id` | `empresa_intragrupo_id` | bigint | sim | 0% | `empresas.id` |  |
 | `ad_item_id` | `item_acrescimo_diferimento_id` | bigint | sim | 0% | `itens_acrescimos_diferimentos.id` |  |
@@ -534,7 +536,7 @@ Linhas reais: **1** · fictícias descartadas: 0
 | `presentation_currency` | `moeda_apresentacao` | varchar(10) | sim | 100% |  |  |
 | `fx_reserve_account` | `conta_reserva_cambial` | varchar(10) | sim | 100% |  |  |
 | `elim_enabled` | `eliminacao_ativa` | boolean | sim | 100% |  |  |
-| `elim_exclude_prefixes` | `prefixos_excluidos_eliminacao` | varchar(10) | sim | 100% |  | 1 valores são listas separadas por vírgulas -> tabela pivô |
+| `elim_exclude_prefixes` | `prefixos_excluidos_eliminacao` | varchar(100) | sim | 100% |  | tipo forçado (inferido: varchar(10)); 1 valores são listas separadas por vírgulas -> tabela pivô |
 | `elim_diff_account` | `conta_diferenca_eliminacao` | varchar(10) | sim | 100% |  |  |
 | `created_on` | `criado_em` | date | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |

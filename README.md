@@ -188,6 +188,14 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST/PUT/DELETE | `/api/projetos[/{id}]` (+`/estado`, `/resumo`, `/wbs`, `/kanban`, `/equipa`, `/organigrama`, `/orcamento`, `/aditamentos`, `/horas`, `/requisicoes`, `/revisoes`) · `/gantt`, `/extracto`, `/rentabilidade` | Projectos |
 | GET/POST/PUT/DELETE | `/api/acrescimos/definicoes` · `/itens[/{id}]` (+`/regularizar`, `/terminar`) · `/quotas` · `/proposta` (+`/contabilizar`) · `/lancamentos` · `/reconciliacao` · `/recolha` | Acréscimos e diferimentos |
 | GET/POST/PUT/DELETE | `/api/crm/configuracao` · `/funis` · `/modelos-email` · `/sequencias` · `/contas` · `/oportunidades` (+`/etapa`, `/conversao`, `/documentos`) · `/atividades` · `/agenda` · `/emails` · `/campanhas` · `/previsao` · `/indicadores` | CRM |
+| GET | `/api/contabilidade/relatorios/balanco` · `/demonstracao-resultados` · `/fluxo-caixa` · `/extrato` · `/evolucao` · `/iva` · `/movimentos-sem-nota` · POST `/iva/reconciliacao-agt` | Demonstrações financeiras e mapas |
+| GET/POST/DELETE | `/api/contabilidade/compensacoes` · `/api/contabilidade/relatorio-contas/{ano}` (+`/concluir`, `/reabrir`) | Compensações e Relatório e Contas |
+| GET/POST/PUT/DELETE | `/api/contabilidade/tabelas/{diarios,notas-demonstracao,notas-fluxo-caixa,centros-custo}` · `/reciclagem` · POST `/lancamentos/importar` · `/saldos-historicos/{ano}` | Tabelas auxiliares, reciclagem e importações |
+| GET/POST | `/api/contabilidade/encerramento[/{ano}]` (+`/passos/{n}`, `/validacoes`, `/encerrar`, `/reabrir`, `/cancelar-apuramento`, `/mapa`) | Encerramento do exercício |
+| GET/POST | `/api/contabilidade/rotinas/*` (capitalização, compensação, transferência, imposto-selo, actualização em massa, histórico, anular) | Rotinas contabilísticas |
+| GET/POST/PUT/DELETE | `/api/consolidacao/grupos[/{id}]` (+`/executar`, `/mapa`) · `/execucoes/{id}` | Consolidação |
+| GET/POST/PUT/DELETE | `/api/sistema/utilizadores` · `/perfis` · `/gestao-empresas` · `/empresas` · `/moedas` · `/cambios` (+`/bai`, `/importar`) · `/unidades-negocio` | Administração |
+| POST/GET | `/api/sistema/plano-contas/substituir[/simular]` · `/manutencao/*` · `/copias/{exportar,importar,clonar}` · `/migracao/*` · GET `/api/sistema/logotipo-login` (público) | Substituir conta, manutenção de dados, cópias e migração |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

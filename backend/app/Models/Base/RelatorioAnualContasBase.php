@@ -19,7 +19,7 @@ abstract class RelatorioAnualContasBase extends ModeloBase
     protected string $moduloAuditoria = 'Contabilidade';
 
     protected $fillable = [
-        'empresa_id', 'ano_relatorio', 'estado', 'estado_original', 'configuracao', 'textos', 'notas_incluir', 'atualizado_por',
+        'empresa_id', 'ano_relatorio', 'estado', 'estado_original', 'configuracao', 'textos', 'notas_incluir', 'atualizado_por', 'fotografia', 'concluido_em', 'concluido_por',
     ];
 
     protected function casts(): array
@@ -30,6 +30,8 @@ abstract class RelatorioAnualContasBase extends ModeloBase
             'configuracao' => 'array',
             'textos' => 'array',
             'notas_incluir' => 'array',
+            'fotografia' => 'array',
+            'concluido_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

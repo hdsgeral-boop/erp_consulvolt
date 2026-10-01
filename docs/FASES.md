@@ -117,7 +117,11 @@ Cobrem os seguintes casos:
 | **Projectos** | ✅ | projetos (carteira, ficha/estado, WBS, Kanban, equipa, organigrama, orçamento, aditamentos, horas, equipamentos, requisições, revisões/autos, facturação, extracto, resumo, fluxo, rentabilidade) | Razão analítico único sem duplicados, autos e facturação sem repetições, imputação salarial ligada ao processamento (ADR-052) |
 | **Acréscimos e diferimentos** | ✅ | acrescimos/definicoes, itens (+regularizar, terminar), quotas, proposta (+contabilizar), lancamentos (+descontabilizar), reconciliacao, recolha | Repartição dias/meses, proposta mensal, um lançamento por linha, estorno sem buracos; 8 períodos migrados reproduzidos (ADR-053) |
 | **CRM** | ✅ | crm/configuracao, funis (+quadro), modelos-email, sequencias, contas, oportunidades (+etapa, conversao, documentos), atividades, agenda, emails, campanhas, previsao, indicadores | Funis com tarefas e sequências, ficha 360º, prospect → cliente, ligação a Vendas, emails registados sem envio (ADR-054) |
-| Sistema (administração) | ⏳ | | Empresas, utilizadores/perfis, backups, manutenção de dados, fecho do exercício |
+| **Contabilidade (parte 2)** | ✅ | contabilidade/relatorios (balanco, demonstracao-resultados, fluxo-caixa, extrato, evolucao, iva, reconciliacao-agt, movimentos-sem-nota), compensacoes, relatorio-contas, tabelas, reciclagem, lancamentos/importar, saldos-historicos | Motor único das demonstrações, igual ao legado ao cêntimo; Relatório e Contas com fotografia (ADR-055) |
+| **Encerramento e rotinas** | ✅ | contabilidade/encerramento (passos 1-5, validacoes, encerrar, reabrir, cancelar-apuramento), contabilidade/rotinas | Apuramento no período 13 por lançamentos/estornos, validações corrigidas, Imposto de Selo, capitalização (ADR-056) |
+| **Consolidação** | ✅ | consolidacao/grupos (+executar, mapa), execucoes | Eliminações intragrupo e conversão cambial; reproduz a execução do legado (ADR-057) |
+| **Sistema (administração)** | ✅ | sistema/utilizadores, perfis, gestao-empresas, moedas, cambios (+bai), unidades-negocio, plano-contas/substituir, manutencao, copias, migracao | Sem escalada de privilégios, substituir conta sem reescrever o Diário, manutenção com aprovação dupla, cópias por empresa (ADR-058) |
+| Painéis, BI e relatórios de gestão | ⏳ | | Dashboard/painéis por módulo, cubo, relatórios de gestão, fluxo de processos, BI |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
 

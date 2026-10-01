@@ -128,6 +128,7 @@ export const NORMALIZACOES = {
   'fixed_assets.status': { dominio: ['ACTIVO', 'INACTIVO', 'ABATIDO'], mapa: { ACTIVO: 'ACTIVO', ATIVO: 'ACTIVO', INACTIVO: 'INACTIVO', INATIVO: 'INACTIVO', ABATIDO: 'ABATIDO' } },
   'asset_disposals.type': { dominio: ['SINISTRO', 'VENDA', 'FIM_VIDA'], mapa: { SINISTRO: 'SINISTRO', VENDA: 'VENDA', 'FIM VIDA': 'FIM_VIDA' } },
   'asset_maintenance_records.type': { dominio: ['PREVENTIVA', 'CORRECTIVA'], mapa: { PREVENTIVA: 'PREVENTIVA', CORRECTIVA: 'CORRECTIVA', CORRETIVA: 'CORRECTIVA' } },
+  'journal_lines.consolidation_type': { dominio: ['AGREGACAO', 'ELIMINACAO', 'CONVERSAO'], mapa: { AGREGACAO: 'AGREGACAO', ELIMINACAO: 'ELIMINACAO', CONVERSAO: 'CONVERSAO' } },
   'project_review_lines.type': { dominio: ['MAO_OBRA', 'SUBEMPREITADA'], mapa: { LABOR: 'MAO_OBRA', SUBCONTRACT: 'SUBEMPREITADA' } },
 
   // ── CRM ──

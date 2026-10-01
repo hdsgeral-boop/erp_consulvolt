@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Http\Controllers\Api\Sistema;
+
+use App\Exceptions\ErroNegocio;
+use App\Http\Controllers\Controller;
+use App\Services\Sistema\ServicoMigracaoDados;
+use App\Support\Api\RespostaApi;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+
+/**
+ * /api/sistema/migracao — Centro de migração de dados (modelos e importação em massa; cada entidade exige a tarefa do
+ * seu módulo) e edição em massa de clientes, fornecedores e produtos.
+ */
+final class MigracaoDadosController extends Controller
+{
+    public function __construct(private readonly ServicoMigracaoDados $migracao) {}
+
+    /** GET .../modelos — entidades importáveis, colunas e instruções (só as que o utilizador pode importar). */
+    public function modelos(Request $r): JsonResponse
+    {
+        $this->exigir('config_migracao_view', ...array_column(ServicoMigracaoDados::ENTIDADES, 'permissao'));
+        $lista = array_values(array_filter($this->migracao->modelos(), fn ($m) => $r->user()->can($m['permissao'])));
+
+        return RespostaApi::sucesso($lista, 'Modelos de importação.');
+    }
+
+    /** GET .../modelos/{entidade} — modelo Excel com a folha de instruções. */
+    public function modeloExcel(string $entidade): BinaryFileResponse
+    {
+        $this->exigir($this->permissao($entidade));
+        $pasta = storage_path('app/copias');
+        if (! is_dir($pasta)) {
+            mkdir($pasta, 0775, true);
+        }
+        $caminho = $pasta.'/modelo_'.Str::random(12).'.xlsx';
+        $this->migracao->modeloExcel($entidade, $caminho);
+
+        return response()->download($caminho, 'Template_'.$entidade.'.xlsx')->deleteFileAfterSend();
+    }
+
+    /** POST .../importar/{entidade} — linhas (cabeçalhos do modelo), decisão IGNORAR|ACTUALIZAR, simular. */
+    public function importar(Request $r, string $entidade): JsonResponse
+    {
+        $this->exigir($this->permissao($entidade));
+        $d = $r->validate(['linhas' => ['required', 'array', 'min:1', 'max:20000'], 'linhas.*' => ['array'], 'decisao' => ['nullable', Rule::in(['IGNORAR', 'ACTUALIZAR'])],
+            'simular' => ['nullable', 'boolean'], 'conta_omissao' => ['nullable', 'string', 'max:20']]);
+        $simular = (bool) ($d['simular'] ?? false);
+        $res = $this->migracao->importar($entidade, $r->input('linhas'), $d['decisao'] ?? 'IGNORAR', $simular, ['conta_omissao' => $d['conta_omissao'] ?? null]);
+
+        return RespostaApi::sucesso($res, $simular ? 'Simulação da importação.'
+            : "Importação concluída: {$res['criados']} criado(s), {$res['actualizados']} actualizado(s), {$res['ignorados']} ignorado(s).");
+    }
+
+    /** POST .../edicao-massa/{entidade} — clientes | fornecedores | produtos. */
+    public function editarEmMassa(Request $r, string $entidade): JsonResponse
+    {
+        abort_unless(isset(ServicoMigracaoDados::EDICAO_MASSA[$entidade]), 404);
+        $this->exigir(ServicoMigracaoDados::EDICAO_MASSA[$entidade]['permissao']);
+        $d = $r->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:5000'], 'ids.*' => ['integer'],
+            'dados' => ['nullable', 'array'], 'dados.codigo_moeda' => ['sometimes', 'string', 'size:3'], 'dados.taxa_imposto' => ['sometimes', Rule::in([14, 7, 5, 2, 0])],
+            'dados.categoria_produto_id' => ['sometimes', 'nullable', 'integer'], 'dados.movimenta_stock' => ['sometimes', 'boolean'], 'dados.e_servico' => ['sometimes', 'boolean'],
+            'dados.bloqueado' => ['sometimes', 'boolean'],
+            'contas' => ['nullable', 'array'], 'contas.*' => ['string', 'max:20'],
+            'preco' => ['nullable', 'array'], 'preco.modo' => ['required_with:preco', Rule::in(['DEFINIR', 'PERCENTAGEM', 'SOMAR'])], 'preco.valor' => ['required_with:preco', 'numeric'],
+        ]);
+        if (($d['preco']['modo'] ?? null) === 'DEFINIR' && $d['preco']['valor'] < 0) {
+            throw new ErroNegocio('O preço não pode ser negativo.', 'PRECO_INVALIDO', 422);
+        }
+        $res = $this->migracao->editarEmMassa($entidade, array_map('intval', $d['ids']), $d['dados'] ?? [], $r->input('contas', []), $d['preco'] ?? null);
+
+        return RespostaApi::sucesso($res, "Alterações aplicadas a {$res['alterados']} registo(s).");
+    }
+
+    private function permissao(string $entidade): string
+    {
+        abort_unless(isset(ServicoMigracaoDados::ENTIDADES[$entidade]), 404);
+
+        return ServicoMigracaoDados::ENTIDADES[$entidade]['permissao'];
+    }
+}

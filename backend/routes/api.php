@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\RH\FolhaSalarialController;
 use App\Http\Controllers\Api\RH\PagamentoSalariosController;
 use App\Http\Controllers\Api\RH\PortalColaboradorController;
 use App\Http\Controllers\Api\SaudeController;
+use App\Http\Controllers\Api\Sistema\ConfiguracaoSistemaController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
 use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
@@ -52,6 +53,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('saude', SaudeController::class)->name('saude');
+Route::get('sistema/logotipo-login', [ConfiguracaoSistemaController::class, 'logotipoLogin'])->name('sistema.logotipo_login');   // ecrã de entrada (sem sessão), ADR-058
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');
@@ -436,6 +438,10 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/ativos.php';
         require __DIR__.'/api/projetos.php';
         require __DIR__.'/api/acrescimos_crm.php';
+        // Contabilidade parte 2, encerramento/rotinas/consolidação e administração do sistema (ficheiros próprios)
+        require __DIR__.'/api/contabilidade_relatorios.php';
+        require __DIR__.'/api/contabilidade_encerramento.php';
+        require __DIR__.'/api/sistema_admin.php';
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');
