@@ -29,7 +29,7 @@ final class FiltroMapas
             $sql .= " AND {$a}codigo_conta NOT LIKE '9%'";
         }
         if ($anoApuramento !== null && empty($f['incluir_apuramento'])) {
-            $sql .= " AND NOT (COALESCE({$a}periodo_id, 0) IN (13, 14) AND EXTRACT(YEAR FROM {$a}data_documento) = ?)";
+            $sql .= " AND NOT (COALESCE({$a}periodo_id, 0) IN (13, 14) AND NOT EXISTS (SELECT 1 FROM diarios_contabeis d_sal WHERE d_sal.id = {$a}diario_id AND d_sal.codigo = 'SAL') AND EXTRACT(YEAR FROM {$a}data_documento) = ?)";
             $p[] = $anoApuramento;
         }
         foreach (['unidade_negocio_id', 'centro_custo_id', 'diario_id', 'terceiro_id'] as $campo) {

@@ -1520,7 +1520,7 @@ Implementado em `ServicoEncerramento`, `ServicoRotinasContabeis` e `ServicoRotin
 
 **Dados reais:**
 - Empresa 6, 2025: o apuramento reproduz o legado (passos 2-5 idênticos; 7 movimentos com 1 a 2 cêntimos, ADR-022).
-- A empresa 6 tem o armazém a 28 380 000 ao custo e as contas 22 + 26 a zero. Com a validação corrigida, 2025 não encerraria sem regularizar o inventário. Fica a decisão do utilizador.
+- A empresa 6 tem o armazém a 28 380 000 ao custo e as contas 22 + 26 a zero. **Decisão do utilizador (2026-10-01): a validação do inventário é só um aviso** (`avisos` na validação e na resposta do encerramento) e não impede o encerramento. As restantes validações continuam a bloquear.
 
 **Validação:** `encerramento_exercicio_encerrado_com_resultados`.
 
@@ -1589,3 +1589,67 @@ Os campos do pedido passam a jsonb.
 **Validações:** `texto_corrompido_lancamentos`, `reconciliacoes_tesouraria_orfas`.
 
 **Organização do trabalho (ADR-055 a 058):** três agentes em paralelo. O coordenador unificou as unidades de negócio, aplicou o esquema (fotografia do R&C, pedidos jsonb, chave única do cadeado, domínios) e os ganchos (`ServicoLancamentos`, `ServicoAuditoria`, rota pública), e correu a ETL e a suite completa: 253 testes. As 46 validações correm sem erros nas 14 empresas.
+
+## ADR-059 — Painéis, Análise Dinâmica e BI
+
+Implementado em `app/Services/Gestao/Paineis`, a partir de `ui_dashboard.js` (welcome), `ui_painel_modulos.js`, `ui_cubo.js` e `ui_bi.js`. O backend fornece os dados agregados; o React desenha os gráficos.
+
+**Página inicial:** empresa, saudação, os 16 contadores de pendentes (cada um com a permissão do legado), Dica do Dia e comunicado da avaliação 360º.
+
+**Painéis:**
+- 13 módulos, com os indicadores, as séries de 12 meses e as tabelas do legado.
+- Calculados em SQL agregado com os serviços dos módulos.
+- Filtros por ano/mês, unidade de negócio e centro de custo.
+- Valores sem IVA por omissão; `iva=com` reproduz o legado.
+- Cache de 120 s.
+
+**Correcções face ao legado:**
+- O apuramento já não entra nos proveitos e custos; o legado zerava o resultado depois do encerramento.
+- Os documentos anulados não contam.
+- A Visão Geral só mostra indicadores dos módulos a que o utilizador tem acesso.
+- O stock baixo segue o stock mínimo de cada artigo.
+- Entradas e saídas de stock classificadas pelo sentido do movimento.
+- O RH lê a fotografia do processamento.
+- No BI, o nome do diário passa a estar certo.
+
+**Holding e comparação:** só empresas acessíveis; as restantes aparecem agregadas e sem nome.
+
+**Análise dinâmica e BI:**
+- O cruzamento (pivot) é feito no servidor, sobre 8 conjuntos de dados e os lançamentos.
+- Dimensões, medidas e agregações vêm de uma lista branca e os filtros vão por parâmetro.
+- Limite de 20 000 células.
+
+**Dados reais (empresas 3, 6, 18 e 22):**
+- Proveitos, custos, resultado e saldos 31/32/43/45 iguais ao balancete ao cêntimo.
+- RH igual à fotografia do processamento.
+- Painéis entre 4 e 117 ms.
+
+## ADR-060 — Relatórios de gestão e Fluxo de Processos
+
+Implementado em `app/Services/Gestao/Relatorios` e `app/Services/Gestao/Fluxos`, a partir de `relatorios_gestao.js`, `fluxo_processos.js`, `fluxo_*.js`, `fluxo_tabela.js` e `fluxo_narrativa.js`. As narrativas foram extraídas do próprio legado para `narrativas.json`.
+
+**Relatórios de gestão:**
+- Período A contra período B (homólogo, anterior, livre ou nenhum).
+- 9 módulos, com variação Δ e Δ% e resumo executivo das variações de 20 % ou mais.
+- Correcções:
+  - a margem usa o custo gravado na venda (ADR-043);
+  - o stock já não é valorizado ao preço de venda;
+  - o RH lê a fotografia do processamento;
+  - na hotelaria, cada factura conta uma vez e só o alojamento.
+- Os 84 indicadores coincidem com a fórmula legada nas empresas 3, 6 e 18, salvo a correcção da hotelaria.
+
+**Fluxo de Processos:**
+- 14 fluxos.
+- Cada processo tem as etapas avaliadas pelos estados reais dos documentos: factos, pendências, acções e narrativa.
+- Funil com os processos parados em cada etapa; listas paginadas.
+- Os fluxos de imobilizado e projectos reutilizam os dos módulos.
+
+**Apuramento × salários (correcção transversal):**
+- No legado, o `period_id` das linhas do diário SAL é o id do processamento salarial (`fluxo_processos.js:100`). Um processamento com id 13 ou 14 era tratado como apuramento e desaparecia dos mapas.
+- A regra do apuramento passa a ser «período 13/14 **fora do diário SAL**» em todo o lado: mapas (`FiltroMapas`), Relatório e Contas, painéis, cubo, comparação, relatório de gestão e encerramento.
+- O cancelamento do apuramento podia estornar salários; agora não pode.
+- Nos dados actuais nenhum processamento tem id 13/14, por isso os números não mudam. Há um teste que fixa a regra.
+
+**Fica para depois:** as facturas de imobilizado por contabilizar (ADR-051) e o rascunho de reconciliação bancária.
+
+**Organização do trabalho (ADR-059/060):** dois agentes em paralelo; o coordenador centralizou a regra do apuramento. Suite: 277 testes. Com estes dois ADR fica concluída a Fase 4 (backend).

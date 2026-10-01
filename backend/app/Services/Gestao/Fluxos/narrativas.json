@@ -1,0 +1,743 @@
+{
+  "rh": {
+    "titulo": "Processamento salarial",
+    "objectivo": "Calcular, validar, contabilizar e liquidar os salários de cada mês, com as obrigações fiscais (IRT) e de segurança social (INSS).",
+    "intervenientes": [
+      "Técnico de RH",
+      "Responsável de Salários",
+      "Contabilista",
+      "Tesoureiro"
+    ],
+    "etapas": [
+      {
+        "nome": "Dados base",
+        "quem": "Técnico de RH",
+        "descricao": "Mantém actualizados os colaboradores, contratos activos, funções, rubricas e coordenadas bancárias antes de abrir o período.",
+        "controlos": "Todos os colaboradores activos têm contrato e IBAN; tabelas de IRT/INSS em vigor.",
+        "resultado": "Base de dados pronta para o cálculo."
+      },
+      {
+        "nome": "Lançar rubricas",
+        "quem": "Técnico de RH",
+        "descricao": "Abre o período em Calcular e lança as rubricas variáveis (horas extra, faltas, subsídios, adiantamentos) de cada colaborador.",
+        "controlos": "Colaboradores sem lançamentos são assinalados; valores por hora seguem o contrato.",
+        "resultado": "Lançamentos do período completos."
+      },
+      {
+        "nome": "Fechar cálculo",
+        "quem": "Técnico de RH",
+        "descricao": "Revê o mapa provisório e fecha o cálculo, impedindo novas alterações ao período.",
+        "controlos": "Revisão dos colaboradores sem lançamentos antes do fecho.",
+        "resultado": "Período FECHADO."
+      },
+      {
+        "nome": "Processar e validar",
+        "quem": "Responsável de Salários",
+        "descricao": "Confere o mapa salarial, os recibos e os totais de IRT e INSS e valida o processamento.",
+        "controlos": "Segregação: quem fecha o cálculo não deve validar.",
+        "resultado": "Período VALIDADO; recibos disponíveis."
+      },
+      {
+        "nome": "Integrar na contabilidade",
+        "quem": "Contabilista",
+        "descricao": "Gera o lançamento contabilístico a partir do mapeamento das rubricas e das contas de sistema.",
+        "controlos": "Todas as rubricas e contas de sistema mapeadas por tipo de órgão.",
+        "resultado": "Lançamento no Diário ligado ao período."
+      },
+      {
+        "nome": "Liquidar salários e obrigações",
+        "quem": "Tesoureiro",
+        "descricao": "Paga os salários líquidos, o IRT e o INSS na Tesouraria (indicando o período salarial) ou compensa as contas no extracto.",
+        "controlos": "Cada obrigação liquidada até zero; pagamentos ligados ao período.",
+        "resultado": "Obrigações do período saldadas."
+      }
+    ]
+  },
+  "ferias": {
+    "titulo": "Plano de férias",
+    "objectivo": "Garantir que cada colaborador marca, vê aprovadas e goza as férias a que tem direito no ano, com a decisão da chefia e do RH.",
+    "intervenientes": [
+      "Colaborador",
+      "Chefia directa",
+      "Técnico de RH"
+    ],
+    "etapas": [
+      {
+        "nome": "Direito anual",
+        "quem": "Técnico de RH",
+        "descricao": "Define o número de dias úteis de férias a que o colaborador tem direito no ano (22 por defeito).",
+        "controlos": "Direito igual para todos os períodos do mesmo ano.",
+        "resultado": "Direito anual conhecido."
+      },
+      {
+        "nome": "Marcação das férias",
+        "quem": "Colaborador / Técnico de RH",
+        "descricao": "O colaborador pede os períodos no Portal do Colaborador ou o RH marca-os no Programa de Férias.",
+        "controlos": "Sem sobreposições nem dias acima do direito; contam só dias úteis.",
+        "resultado": "Períodos marcados (pedidos ou planeados)."
+      },
+      {
+        "nome": "Aprovação da chefia",
+        "quem": "Chefia directa",
+        "descricao": "A chefia definida na Estrutura Orgânica aprova ou recusa os pedidos da sua equipa no portal, com motivo na recusa.",
+        "controlos": "Ninguém aprova os próprios pedidos; sem chefia no sistema a etapa é dispensada.",
+        "resultado": "Pedido aprovado pela chefia."
+      },
+      {
+        "nome": "Aprovação do RH",
+        "quem": "Técnico de RH",
+        "descricao": "O RH decide os pedidos em Pedidos do Portal e aprova os períodos planeados no Programa de Férias.",
+        "controlos": "Os pedidos do portal só mudam pela decisão, não pelo Programa de Férias.",
+        "resultado": "Períodos aprovados."
+      },
+      {
+        "nome": "Gozo das férias",
+        "quem": "Técnico de RH",
+        "descricao": "Depois de cada período, marca-o como gozado.",
+        "controlos": "Períodos aprovados já terminados são assinalados.",
+        "resultado": "Férias gozadas registadas."
+      },
+      {
+        "nome": "Saldo do ano",
+        "quem": "Técnico de RH",
+        "descricao": "Confere o saldo no fim do ano e decide o tratamento dos dias não gozados.",
+        "controlos": "Saldo negativo bloqueia; dias por gozar no fim do ano são assinalados.",
+        "resultado": "Plano do ano encerrado."
+      }
+    ]
+  },
+  "avaliacao": {
+    "titulo": "Avaliação de desempenho 360º",
+    "objectivo": "Avaliar cada colaborador pela chefia, por si próprio, pelos pares e pelos subordinados, com tomada de conhecimento, direito de contestação, acompanhamento periódico e bonificação.",
+    "intervenientes": [
+      "Colaborador",
+      "Pares e subordinados (anónimos)",
+      "Chefia directa",
+      "Superior da chefia",
+      "Técnico de RH"
+    ],
+    "etapas": [
+      {
+        "nome": "Critérios e objectivos",
+        "quem": "Técnico de RH",
+        "descricao": "Configura o ciclo: período, prazos, critérios comuns e específicos, objectivos quantitativos (meta) e qualitativos (nota), pesos 360º, reuniões de acompanhamento e bonificação. Abre o ciclo e publica o comunicado com os procedimentos.",
+        "controlos": "Pesos somam 100%; composição 360º e critérios fixados na abertura; leitura do comunicado confirmada por cada colaborador.",
+        "resultado": "Ciclo aberto e comunicado."
+      },
+      {
+        "nome": "Autoavaliação e 360º",
+        "quem": "Colaborador, pares e subordinados",
+        "descricao": "O colaborador faz a autoavaliação e as avaliações que lhe foram atribuídas (colegas da unidade e a sua chefia) no Portal do Colaborador, dentro do prazo.",
+        "controlos": "Pares e subordinados anónimos; médias só com o mínimo de respostas por grupo.",
+        "resultado": "Respostas 360º recolhidas."
+      },
+      {
+        "nome": "Avaliação da chefia",
+        "quem": "Chefia directa",
+        "descricao": "A chefia avalia critérios e objectivos (valor atingido ou nota), regista pontos fortes, a melhorar e plano de desenvolvimento, apoiada nas reuniões de acompanhamento e na autoavaliação.",
+        "controlos": "Só a chefia directa (ou o RH) avalia; ao concluir calcula-se a nota 360º ponderada.",
+        "resultado": "Nota da chefia e nota 360º."
+      },
+      {
+        "nome": "Conhecimento e comentário",
+        "quem": "Colaborador",
+        "descricao": "O colaborador toma conhecimento no portal e pode comentar; o RH regista o conhecimento dado fora do portal.",
+        "controlos": "Depois do conhecimento a avaliação não pode ser reaberta.",
+        "resultado": "Conhecimento registado; começa o prazo de contestação."
+      },
+      {
+        "nome": "Contestação e decisão",
+        "quem": "Colaborador, RH e superior da chefia",
+        "descricao": "Dentro do prazo, o colaborador contesta fundamentadamente; o RH dá parecer e o superior da chefia decide manter ou alterar a nota.",
+        "controlos": "O avaliado e a chefia não decidem; decisão justificada e visível ao colaborador.",
+        "resultado": "Avaliação final."
+      },
+      {
+        "nome": "Plano e bonificação",
+        "quem": "Técnico de RH / Direcção",
+        "descricao": "Confirma o plano de desenvolvimento, calcula a bonificação pelo método configurado, aprova-a (por outra pessoa) e lança-a no processamento salarial.",
+        "controlos": "Plano obrigatório com Suficiente/Insuficiente; só avaliações finais entram na bonificação.",
+        "resultado": "Ciclo encerrado para o colaborador."
+      }
+    ]
+  },
+  "vendas": {
+    "titulo": "Processo de venda",
+    "objectivo": "Acompanhar a venda desde a proposta ao cliente até ao recebimento ou compensação da conta do cliente.",
+    "intervenientes": [
+      "Comercial",
+      "Armazém",
+      "Facturação",
+      "Contabilista",
+      "Tesoureiro"
+    ],
+    "etapas": [
+      {
+        "nome": "Orçamento / Proforma",
+        "quem": "Comercial",
+        "descricao": "Emite a proposta com preços, validade e modalidade de pagamento (prazo ou marcos).",
+        "controlos": "Validade e condições de pagamento definidas.",
+        "resultado": "Proposta enviada ao cliente."
+      },
+      {
+        "nome": "Encomenda do cliente",
+        "quem": "Comercial",
+        "descricao": "Converte a proposta aceite em encomenda, mantendo as condições acordadas.",
+        "controlos": "Encomenda ligada ao documento de origem.",
+        "resultado": "Encomenda confirmada."
+      },
+      {
+        "nome": "Entrega (guia)",
+        "quem": "Armazém",
+        "descricao": "Emite a guia de remessa e movimenta o stock.",
+        "controlos": "Quantidades entregues não excedem as encomendadas.",
+        "resultado": "Mercadoria entregue."
+      },
+      {
+        "nome": "Factura",
+        "quem": "Facturação",
+        "descricao": "Emite a factura a partir da encomenda ou da guia, com os meios de pagamento no rodapé.",
+        "controlos": "Numeração sequencial e dados fiscais do cliente.",
+        "resultado": "Factura emitida."
+      },
+      {
+        "nome": "Contabilização",
+        "quem": "Contabilista",
+        "descricao": "Contabiliza a factura (cliente 31, proveitos 6, IVA).",
+        "controlos": "Contas do cliente e dos produtos definidas.",
+        "resultado": "Factura no Diário."
+      },
+      {
+        "nome": "Recebimento ou compensação",
+        "quem": "Tesoureiro",
+        "descricao": "Regista o recebimento na Tesouraria ou compensa a conta do cliente (notas de crédito, adiantamentos).",
+        "controlos": "Saldo da factura a zero; atrasos assinalados.",
+        "resultado": "Venda recebida."
+      }
+    ]
+  },
+  "pos": {
+    "titulo": "Sessão de caixa POS",
+    "objectivo": "Garantir que cada sessão do ponto de venda fica fechada, contabilizada e com as contas transitórias dos meios de pagamento compensadas.",
+    "intervenientes": [
+      "Operador POS",
+      "Supervisor",
+      "Contabilista",
+      "Tesoureiro"
+    ],
+    "etapas": [
+      {
+        "nome": "Abertura da caixa",
+        "quem": "Operador POS",
+        "descricao": "Abre a sessão com o fundo de maneio contado.",
+        "controlos": "Uma sessão aberta por terminal.",
+        "resultado": "Sessão aberta."
+      },
+      {
+        "nome": "Vendas e fecho (Z)",
+        "quem": "Operador POS",
+        "descricao": "Regista as vendas e fecha a sessão com a contagem por meio de pagamento.",
+        "controlos": "Contagem cega por meio de pagamento.",
+        "resultado": "Relatório Z."
+      },
+      {
+        "nome": "Desvio de caixa",
+        "quem": "Supervisor",
+        "descricao": "Delibera sobre as diferenças entre o contado e o esperado.",
+        "controlos": "Quem vende não delibera o próprio desvio.",
+        "resultado": "Desvio justificado e lançado."
+      },
+      {
+        "nome": "Integração contabilística",
+        "quem": "Contabilista",
+        "descricao": "Integra as vendas da sessão nas contas transitórias (48) de cada meio de pagamento.",
+        "controlos": "Transitória definida para cada meio.",
+        "resultado": "Lançamentos da sessão no Diário."
+      },
+      {
+        "nome": "Prestação de contas",
+        "quem": "Operador POS / Tesoureiro",
+        "descricao": "Entrega os valores e regista a transferência para o banco ou a caixa central.",
+        "controlos": "Valores entregues iguais ao fecho.",
+        "resultado": "Prestação registada."
+      },
+      {
+        "nome": "Compensação das transitórias",
+        "quem": "Contabilista",
+        "descricao": "Compensa as contas transitórias com os depósitos e os recebimentos TPA.",
+        "controlos": "Saldo de cada transitória a zero.",
+        "resultado": "Sessão concluída."
+      }
+    ]
+  },
+  "lavandaria": {
+    "titulo": "Ordem de lavandaria e alfaiataria",
+    "objectivo": "Acompanhar cada ordem desde a recepção das peças até ao recebimento do cliente.",
+    "intervenientes": [
+      "Recepção",
+      "Produção",
+      "Facturação",
+      "Tesoureiro"
+    ],
+    "etapas": [
+      {
+        "nome": "Recepção",
+        "quem": "Recepção",
+        "descricao": "Regista as peças, o estado à entrada e o serviço pedido (peça ou kg).",
+        "controlos": "Estado das peças documentado.",
+        "resultado": "Ordem aberta."
+      },
+      {
+        "nome": "Orçamento (alfaiataria)",
+        "quem": "Recepção",
+        "descricao": "Emite o orçamento dos arranjos quando aplicável.",
+        "controlos": "Aceitação do cliente antes da execução.",
+        "resultado": "Orçamento aceite."
+      },
+      {
+        "nome": "Execução",
+        "quem": "Produção",
+        "descricao": "Executa os serviços e regista danos com comprovativo.",
+        "controlos": "Danos com decisão e comprovativo.",
+        "resultado": "Peças prontas."
+      },
+      {
+        "nome": "Entrega ao cliente",
+        "quem": "Recepção",
+        "descricao": "Entrega as peças; aplica armazenagem se levantadas fora do prazo.",
+        "controlos": "Taxa de armazenagem conforme regra.",
+        "resultado": "Peças entregues."
+      },
+      {
+        "nome": "Facturação e contabilização",
+        "quem": "Facturação",
+        "descricao": "Emite a factura ou factura-recibo e contabiliza.",
+        "controlos": "Adiantamentos descontados.",
+        "resultado": "Documento emitido."
+      },
+      {
+        "nome": "Recebimento ou compensação",
+        "quem": "Tesoureiro",
+        "descricao": "Regista o recebimento ou compensa com o adiantamento.",
+        "controlos": "Saldo do cliente a zero.",
+        "resultado": "Ordem concluída."
+      }
+    ]
+  },
+  "projetos": {
+    "titulo": "Projecto ou obra",
+    "objectivo": "Acompanhar cada projecto desde a abertura até ao encerramento, com a execução, os custos face ao orçamento e a margem calculada sem IVA.",
+    "intervenientes": [
+      "Director de Projectos / Obras",
+      "Gestor de Projecto / Obra",
+      "Encarregado / Técnico de Obra",
+      "Controller de Projectos",
+      "Facturação",
+      "Tesoureiro"
+    ],
+    "etapas": [
+      {
+        "nome": "Abertura",
+        "quem": "Director de Projectos / Obras",
+        "descricao": "Abre o projecto: externo (cliente e encomenda) ou interno (unidade de negócio e centro de custo).",
+        "controlos": "Projecto externo exige encomenda; interno exige UN e centro de custo.",
+        "resultado": "Projecto aberto."
+      },
+      {
+        "nome": "Planeamento (WBS)",
+        "quem": "Gestor de Projecto / Obra",
+        "descricao": "Cria milestones, tarefas e subtarefas com datas e responsáveis; ordena a árvore arrastando.",
+        "controlos": "Tarefas com datas e responsável.",
+        "resultado": "WBS planeado."
+      },
+      {
+        "nome": "Equipa e orçamento",
+        "quem": "Gestor de Projecto / Obra",
+        "descricao": "Define a equipa e o orçamento base por rubrica e tarefa.",
+        "controlos": "Orçamento acima da venda sem IVA → margem prevista negativa.",
+        "resultado": "Orçamento base e equipa."
+      },
+      {
+        "nome": "Execução",
+        "quem": "Encarregado / Técnico de Obra",
+        "descricao": "Regista a % executada, as horas, os equipamentos e as requisições de material.",
+        "controlos": "Tarefas atrasadas e custo acima do orçamento são assinalados.",
+        "resultado": "Obra executada."
+      },
+      {
+        "nome": "Autos e facturação",
+        "quem": "Director de Projectos / Obras",
+        "descricao": "Faz o auto de medição e factura o valor sem IVA com a taxa de IVA aplicável.",
+        "controlos": "Facturado nunca acima da venda com aditamentos (segregação execução × facturação).",
+        "resultado": "Facturas emitidas e contabilizadas."
+      },
+      {
+        "nome": "Recebimento",
+        "quem": "Tesoureiro",
+        "descricao": "Recebe as facturas do cliente na Tesouraria.",
+        "controlos": "Facturas vencidas assinaladas.",
+        "resultado": "Facturas liquidadas."
+      },
+      {
+        "nome": "Encerramento",
+        "quem": "Director de Projectos / Obras",
+        "descricao": "Encerra o projecto executado, facturado e recebido.",
+        "controlos": "Margem efectiva sem IVA apurada.",
+        "resultado": "Projecto encerrado."
+      }
+    ]
+  },
+  "compras": {
+    "titulo": "Processo de compra",
+    "objectivo": "Controlar a compra desde a necessidade interna até ao pagamento ao fornecedor.",
+    "intervenientes": [
+      "Requisitante",
+      "Comprador",
+      "Aprovador",
+      "Armazém",
+      "Contabilista",
+      "Tesoureiro"
+    ],
+    "etapas": [
+      {
+        "nome": "Pedido interno",
+        "quem": "Requisitante / Aprovador",
+        "descricao": "Regista a necessidade e obtém a aprovação do pedido.",
+        "controlos": "Quem pede não aprova; verificação orçamental da rubrica.",
+        "resultado": "Pedido aprovado."
+      },
+      {
+        "nome": "Prospecção e adjudicação",
+        "quem": "Comprador / Aprovador",
+        "descricao": "Recolhe propostas, avalia e adjudica ao fornecedor escolhido.",
+        "controlos": "Quem avalia não adjudica; controlo orçamental na adjudicação.",
+        "resultado": "Proposta adjudicada."
+      },
+      {
+        "nome": "Encomenda",
+        "quem": "Comprador",
+        "descricao": "Emite a encomenda ao fornecedor (ou dentro de um contrato).",
+        "controlos": "Encomenda comprometida no orçamento.",
+        "resultado": "Encomenda enviada."
+      },
+      {
+        "nome": "Recepção",
+        "quem": "Armazém",
+        "descricao": "Recebe e confere as quantidades e a qualidade.",
+        "controlos": "Quem regista a recepção não a valida.",
+        "resultado": "Mercadoria recebida."
+      },
+      {
+        "nome": "Factura e contabilização",
+        "quem": "Contabilista",
+        "descricao": "Regista a factura do fornecedor e contabiliza-a.",
+        "controlos": "Conferência factura × encomenda × recepção.",
+        "resultado": "Factura no Diário."
+      },
+      {
+        "nome": "Pagamento ao fornecedor",
+        "quem": "Tesoureiro",
+        "descricao": "Paga na Tesouraria ou compensa a conta do fornecedor.",
+        "controlos": "Quem regista facturas não emite pagamentos.",
+        "resultado": "Fornecedor pago."
+      }
+    ]
+  },
+  "imobilizado": {
+    "titulo": "Aquisição de imobilizado",
+    "objectivo": "Da factura de compra à integração mensal das amortizações do activo.",
+    "intervenientes": [
+      "Comprador",
+      "Contabilista",
+      "Gestor de activos"
+    ],
+    "etapas": [
+      {
+        "nome": "Factura de compra",
+        "quem": "Comprador",
+        "descricao": "Regista a factura do bem de investimento.",
+        "controlos": "Produto marcado como activo.",
+        "resultado": "Factura registada."
+      },
+      {
+        "nome": "Contabilização da compra",
+        "quem": "Contabilista",
+        "descricao": "Contabiliza a compra nas contas 11/12.",
+        "controlos": "Conta de imobilizado correcta.",
+        "resultado": "Aquisição no Diário."
+      },
+      {
+        "nome": "Inventariação do activo",
+        "quem": "Gestor de activos",
+        "descricao": "Cria a ficha do activo a partir do lançamento.",
+        "controlos": "Valor inventariado igual ao contabilizado.",
+        "resultado": "Activo registado."
+      },
+      {
+        "nome": "Categoria e vida útil",
+        "quem": "Gestor de activos",
+        "descricao": "Define a categoria, a taxa e a vida útil.",
+        "controlos": "Taxas conforme a tabela fiscal.",
+        "resultado": "Plano de amortização."
+      },
+      {
+        "nome": "Cálculo das amortizações",
+        "quem": "Contabilista",
+        "descricao": "Calcula as amortizações do período.",
+        "controlos": "Sem períodos em falta.",
+        "resultado": "Amortizações calculadas."
+      },
+      {
+        "nome": "Integração das amortizações",
+        "quem": "Contabilista",
+        "descricao": "Integra as amortizações no Diário.",
+        "controlos": "Amortização acumulada reconciliada.",
+        "resultado": "Activo em dia."
+      }
+    ]
+  },
+  "bancos": {
+    "titulo": "Conta bancária (43)",
+    "objectivo": "Garantir que cada mês de cada conta à ordem está lançado, integrado e reconciliado com o extracto.",
+    "intervenientes": [
+      "Tesoureiro",
+      "Contabilista"
+    ],
+    "etapas": [
+      {
+        "nome": "Lançamento na Tesouraria",
+        "quem": "Tesoureiro",
+        "descricao": "Regista os pagamentos e recebimentos do mês na conta bancária.",
+        "controlos": "Documentos com suporte.",
+        "resultado": "Movimentos registados."
+      },
+      {
+        "nome": "Integração na contabilidade",
+        "quem": "Contabilista",
+        "descricao": "Integra os documentos da Tesouraria no Diário.",
+        "controlos": "Quem emite pagamentos não integra.",
+        "resultado": "Movimentos no Diário."
+      },
+      {
+        "nome": "Extracto bancário",
+        "quem": "Tesoureiro",
+        "descricao": "Importa o extracto do banco do mês.",
+        "controlos": "Saldo inicial igual ao final do mês anterior.",
+        "resultado": "Extracto carregado."
+      },
+      {
+        "nome": "Reconciliação mensal",
+        "quem": "Contabilista",
+        "descricao": "Reconcilia o extracto com o Diário e explica as diferenças.",
+        "controlos": "Quem emite pagamentos não reconcilia.",
+        "resultado": "Mês reconciliado."
+      }
+    ]
+  },
+  "caixa": {
+    "titulo": "Sessão da Folha de Caixa",
+    "objectivo": "Controlar cada sessão da caixa, da abertura à integração contabilística.",
+    "intervenientes": [
+      "Operador de caixa",
+      "Conferente",
+      "Contabilista"
+    ],
+    "etapas": [
+      {
+        "nome": "Abertura",
+        "quem": "Operador de caixa",
+        "descricao": "Abre a sessão com o saldo inicial contado.",
+        "controlos": "Saldo inicial igual ao fecho anterior.",
+        "resultado": "Sessão aberta."
+      },
+      {
+        "nome": "Movimentos",
+        "quem": "Operador de caixa",
+        "descricao": "Regista entradas e saídas com documento de suporte.",
+        "controlos": "Sem saldo negativo.",
+        "resultado": "Movimentos registados."
+      },
+      {
+        "nome": "Fecho e contagem",
+        "quem": "Operador de caixa / Conferente",
+        "descricao": "Fecha a sessão com a contagem de notas e moedas.",
+        "controlos": "Conferência por outra pessoa.",
+        "resultado": "Sessão fechada."
+      },
+      {
+        "nome": "Diferença de caixa",
+        "quem": "Conferente",
+        "descricao": "Trata as diferenças entre o contado e o saldo.",
+        "controlos": "Diferenças justificadas.",
+        "resultado": "Diferença lançada."
+      },
+      {
+        "nome": "Integração na contabilidade",
+        "quem": "Contabilista",
+        "descricao": "Integra a sessão no Diário.",
+        "controlos": "Quem opera a caixa não contabiliza.",
+        "resultado": "Sessão concluída."
+      }
+    ]
+  },
+  "orcamento": {
+    "titulo": "Ciclo orçamental",
+    "objectivo": "Preparar, aprovar e controlar o orçamento anual por rubrica, UN, centro de custo ou projecto, com previsões e tratamento dos excessos.",
+    "intervenientes": [
+      "Controller",
+      "Responsáveis de CC/UN",
+      "Direcção",
+      "Aprovador de excessos"
+    ],
+    "etapas": [
+      {
+        "nome": "Preparação",
+        "quem": "Controller",
+        "descricao": "Cria o orçamento (histórico ajustado ou base zero), define as metas e reparte-as top-down quando aplicável.",
+        "controlos": "Rubricas sem contas sobrepostas; base zero exige justificação por rubrica.",
+        "resultado": "Orçamento em rascunho com valores."
+      },
+      {
+        "nome": "Contributos (bottom-up)",
+        "quem": "Responsáveis de CC/UN",
+        "descricao": "Cada responsável (sugerido pela Estrutura Orgânica) preenche e submete o seu contributo; o controller consolida.",
+        "controlos": "Prazo dos contributos; só o responsável edita o seu contributo.",
+        "resultado": "Contributos consolidados no orçamento-pai."
+      },
+      {
+        "nome": "Submissão",
+        "quem": "Controller",
+        "descricao": "Submete o orçamento para aprovação.",
+        "controlos": "Valores completos e justificados.",
+        "resultado": "Orçamento SUBMETIDO."
+      },
+      {
+        "nome": "Aprovação",
+        "quem": "Direcção",
+        "descricao": "Aprova ou devolve com motivo; a nova versão substitui a anterior.",
+        "controlos": "Quem prepara não deve aprovar.",
+        "resultado": "Orçamento APROVADO (em vigor)."
+      },
+      {
+        "nome": "Execução e controlo",
+        "quem": "Controller / Responsáveis",
+        "descricao": "Compara orçado com realizado e compromissos (encomendas, facturas por lançar, pagamentos) e revê as previsões deslizantes.",
+        "controlos": "Aviso, pedido de aprovação ou bloqueio conforme a rubrica.",
+        "resultado": "Desvios identificados e explicados."
+      },
+      {
+        "nome": "Excessos e desvios",
+        "quem": "Aprovador de excessos",
+        "descricao": "Decide os pedidos de excesso e analisa as causas dos desvios (temporal, pontual, estrutural).",
+        "controlos": "Decisão registada com nota; auto-aprovação assinalada.",
+        "resultado": "Excessos decididos; medidas correctivas."
+      }
+    ]
+  },
+  "crm": {
+    "titulo": "Oportunidade comercial (CRM)",
+    "objectivo": "Levar cada oportunidade do primeiro contacto ao recebimento, com actividades, previsão ponderada e ligação aos documentos de venda.",
+    "intervenientes": [
+      "Comercial",
+      "Director Comercial",
+      "Facturação",
+      "Tesoureiro"
+    ],
+    "etapas": [
+      {
+        "nome": "Oportunidade",
+        "quem": "Comercial",
+        "descricao": "Regista a oportunidade num pipeline, com conta (prospect ou cliente), valor, origem e data de fecho prevista.",
+        "controlos": "Conta e responsável definidos.",
+        "resultado": "Oportunidade no Kanban."
+      },
+      {
+        "nome": "Qualificação e actividades",
+        "quem": "Comercial",
+        "descricao": "Realiza chamadas, reuniões e emails; as tarefas automáticas e sequências são criadas ao mudar de etapa.",
+        "controlos": "Sem próxima actividade ou estagnada → cartão em risco.",
+        "resultado": "Necessidade qualificada."
+      },
+      {
+        "nome": "Proposta",
+        "quem": "Comercial",
+        "descricao": "Converte a oportunidade em orçamento/proforma no ERP, com os artigos e as condições.",
+        "controlos": "Aviso se o cliente tem facturas em atraso (não bloqueia).",
+        "resultado": "Proposta ligada à oportunidade."
+      },
+      {
+        "nome": "Negociação e fecho",
+        "quem": "Comercial / Director Comercial",
+        "descricao": "Negoceia e move para Ganha ou Perdida (com motivo de perda).",
+        "controlos": "Motivo obrigatório na perda.",
+        "resultado": "Oportunidade fechada."
+      },
+      {
+        "nome": "Encomenda ou factura",
+        "quem": "Facturação",
+        "descricao": "Emite a encomenda ou factura a partir da oportunidade; o prospect passa a cliente com a conta 31 escolhida.",
+        "controlos": "Sem conta contabilística por defeito.",
+        "resultado": "Documento de venda ligado."
+      },
+      {
+        "nome": "Recebimento",
+        "quem": "Tesoureiro",
+        "descricao": "Recebe a factura na Tesouraria ou por compensação.",
+        "controlos": "Vencimento pela validade ou prazo definido.",
+        "resultado": "Venda recebida."
+      }
+    ]
+  },
+  "acrescimos": {
+    "titulo": "Acréscimos e diferimentos",
+    "objectivo": "Reconhecer gastos e rendimentos no período a que respeitam (especialização dos exercícios), com propostas mensais e regularização pelo documento real.",
+    "intervenientes": [
+      "Contabilista",
+      "Responsável da contabilidade"
+    ],
+    "etapas": [
+      {
+        "nome": "Registo",
+        "quem": "Contabilista",
+        "descricao": "Regista o acréscimo ou diferimento (manual ou recolhido de compras, vendas, Diário ou tesouraria), com contas 37 configuráveis e repartição por dias ou meses.",
+        "controlos": "Conta de resultado 7x (gasto) ou 6x (rendimento) e conta 37 do tipo.",
+        "resultado": "Registo activo com plano de quotas."
+      },
+      {
+        "nome": "Lançamento inicial",
+        "quem": "Contabilista",
+        "descricao": "Nos diferimentos, contabiliza a transferência do valor para a conta 37.",
+        "controlos": "Não aplicável aos acréscimos.",
+        "resultado": "Valor diferido no balanço."
+      },
+      {
+        "nome": "Reconhecimentos mensais",
+        "quem": "Responsável da contabilidade",
+        "descricao": "Valida a proposta mensal e contabiliza as quotas do mês (incluindo meses em atraso).",
+        "controlos": "Uma linha por quota; arredondamento acumulado.",
+        "resultado": "Quotas reconhecidas."
+      },
+      {
+        "nome": "Documento real / fim do período",
+        "quem": "Contabilista",
+        "descricao": "No acréscimo, liga o documento real (factura); no diferimento, o período termina ou é terminado antecipadamente.",
+        "controlos": "Documento em falta após o período é assinalado.",
+        "resultado": "Base para a regularização."
+      },
+      {
+        "nome": "Regularização ou término",
+        "quem": "Responsável da contabilidade",
+        "descricao": "Contabiliza a regularização (diferença entre estimado e real) ou o término antecipado.",
+        "controlos": "Descontabilizar respeita as dependências.",
+        "resultado": "Registo regularizado ou concluído."
+      },
+      {
+        "nome": "Conta 37 saldada",
+        "quem": "Contabilista",
+        "descricao": "Confirma que o registo não deixa saldo na conta 37 e que o módulo reconcilia com o Diário.",
+        "controlos": "Reconciliação módulo × Diário por conta.",
+        "resultado": "Processo encerrado."
+      }
+    ]
+  }
+}

@@ -100,7 +100,8 @@ final class ServicoEncerramento
     {
         $empresa = $this->contexto->obrigatorio();
         $porAno = DB::table('lancamentos_contabeis')->where('empresa_id', $empresa)->whereNotNull('data_documento')
-            ->selectRaw('extract(year from data_documento)::int AS ano, COUNT(*) AS linhas, BOOL_OR(periodo_id = ? AND estorno_de_id IS NULL AND estornado_por_id IS NULL) AS apuramento', [self::PERIODO_APURAMENTO])
+            ->selectRaw("extract(year from data_documento)::int AS ano, COUNT(*) AS linhas, BOOL_OR(periodo_id = ? AND estorno_de_id IS NULL AND estornado_por_id IS NULL
+                AND NOT EXISTS (SELECT 1 FROM diarios_contabeis d_sal WHERE d_sal.id = lancamentos_contabeis.diario_id AND d_sal.codigo = 'SAL')) AS apuramento", [self::PERIODO_APURAMENTO])
             ->groupByRaw('1')->get()->keyBy('ano');
         $anos = $porAno->keys()->merge(DB::table('saldos_historicos')->where('empresa_id', $empresa)->whereNotNull('ano')->distinct()->pluck('ano'))
             ->merge($this->exercicios->anosEncerrados($empresa))->map(fn ($a) => (int) $a)->unique()->sort()->values();
@@ -189,7 +190,9 @@ final class ServicoEncerramento
     /**
      * Validações finais (runClosingValidactions). Não grava nada.
      *
-     * @return array{ano: int, encerrado: bool, pode_encerrar: bool, verificacoes: list<array<string, mixed>>, divergencias: list<array<string, mixed>>}
+     * Divergências bloqueiam o encerramento; avisos (inventário — decisão do utilizador, 2026-10-01) só se reportam.
+     *
+     * @return array{ano: int, encerrado: bool, pode_encerrar: bool, verificacoes: list<array<string, mixed>>, divergencias: list<array<string, mixed>>, avisos: list<array<string, mixed>>}
      */
     public function validar(int $ano): array
     {
@@ -238,7 +241,8 @@ final class ServicoEncerramento
         $difInv = $this->abs(bcsub($armazem, $contab, 2));
         $okInv = bccomp($difInv, self::TOLERANCIA_INVENTARIO, 2) <= 0;
         $v[] = $this->verificacao('INVENTARIO', $okInv, $okInv ? 'O saldo contabilístico das existências confere com o armazém.'
-            : "Diferença entre o armazém ({$armazem}) e a contabilidade (contas 22+26: {$contab}).", $difInv, ['armazem' => $armazem, 'contabilidade' => $contab]);
+            : "Diferença entre o armazém ({$armazem}) e a contabilidade (contas 22+26: {$contab}): regularize o inventário (aviso, não impede o encerramento).",
+            $difInv, ['armazem' => $armazem, 'contabilidade' => $contab], false);
 
         // 4. Balanço histórico (saldos iniciais) do ano
         $historico = DB::table('saldos_historicos')->where('empresa_id', $empresa)->where('ano', $ano)->where('tipo', 'DEMONSTRACAO_RESULTADOS')->pluck('valor', 'codigo')
@@ -252,9 +256,11 @@ final class ServicoEncerramento
             $v[] = $this->verificacao('HISTORICO', true, 'Balanço histórico sem registos para este ano.');
         }
 
-        $divergencias = array_values(array_filter($v, fn ($x) => ! $x['ok']));
+        $divergencias = array_values(array_filter($v, fn ($x) => ! $x['ok'] && $x['bloqueia']));
+        $avisos = array_values(array_filter($v, fn ($x) => ! $x['ok'] && ! $x['bloqueia']));
 
-        return ['ano' => $ano, 'encerrado' => $this->exercicios->encerrado($empresa, $ano), 'pode_encerrar' => ! $divergencias, 'verificacoes' => $v, 'divergencias' => $divergencias];
+        return ['ano' => $ano, 'encerrado' => $this->exercicios->encerrado($empresa, $ano), 'pode_encerrar' => ! $divergencias, 'verificacoes' => $v,
+            'divergencias' => $divergencias, 'avisos' => $avisos];
     }
 
     /** Valida e tranca o exercício. Com divergências recusa e devolve o mapa de divergências em `erros.divergencias`. */
@@ -313,7 +319,7 @@ final class ServicoEncerramento
                 $this->exercicios->reabrir($empresa, $ano);
             }
             $linhas = LancamentoContabil::query()->where('periodo_id', self::PERIODO_APURAMENTO)->whereBetween('data_documento', $this->limites($ano))
-                ->whereNull('estorno_de_id')->whereNull('estornado_por_id')->orderBy('id')->get();
+                ->whereNotIn('diario_id', $this->diariosSalarios())->whereNull('estorno_de_id')->whereNull('estornado_por_id')->orderBy('id')->get();
             $estornados = $this->estornarApuramentos($linhas, "Cancelamento do apuramento de {$ano}: {$motivo}");
             $this->auditoria->registar('Contabilidade', 'Cancelou o apuramento', "Apuramento de {$ano} cancelado ({$motivo}). "
                 .($estavaEncerrado ? 'Exercício reaberto. ' : '').'Lançamentos estornados: '.($estornados ? implode(', ', $estornados) : 'nenhum'), 'lancamentos_contabeis');
@@ -327,7 +333,7 @@ final class ServicoEncerramento
     {
         $linhas = DB::table('lancamentos_contabeis as l')->leftJoin('diarios_contabeis as d', 'd.id', '=', 'l.diario_id')
             ->where('l.empresa_id', $this->contexto->obrigatorio())
-            ->where('l.periodo_id', self::PERIODO_APURAMENTO)->whereBetween('l.data_documento', $this->limites($ano))
+            ->where('l.periodo_id', self::PERIODO_APURAMENTO)->whereBetween('l.data_documento', $this->limites($ano))->whereRaw("COALESCE(d.codigo, '') <> 'SAL'")
             ->orderBy('l.numero_documento')->orderByRaw("CASE WHEN l.tipo_dc = 'D' THEN 0 ELSE 1 END")->orderBy('l.codigo_conta')->orderBy('l.id')
             ->get(['l.id', 'l.data_documento', 'd.codigo as diario', 'l.numero_lan', 'l.numero_documento', 'l.codigo_conta', 'l.descricao', 'l.tipo_dc', 'l.valor',
                 'l.estorno_de_id', 'l.estornado_por_id']);
@@ -478,9 +484,20 @@ final class ServicoEncerramento
         }
     }
 
-    private function verificacao(string $tipo, bool $ok, string $descricao, ?string $diferenca = null, array $detalhes = []): array
+    private function verificacao(string $tipo, bool $ok, string $descricao, ?string $diferenca = null, array $detalhes = [], bool $bloqueia = true): array
     {
-        return ['tipo' => $tipo, 'ok' => $ok, 'descricao' => $descricao, 'diferenca' => $diferenca, 'detalhes' => $detalhes];
+        return ['tipo' => $tipo, 'ok' => $ok, 'bloqueia' => $bloqueia, 'descricao' => $descricao, 'diferenca' => $diferenca, 'detalhes' => $detalhes];
+    }
+
+    /**
+     * No legado o period_id das linhas do diário SAL é o id do processamento salarial (fluxo_processos.js:100):
+     * um processamento com id 13/14 não é apuramento. As consultas do apuramento excluem sempre o diário SAL.
+     *
+     * @return list<int>
+     */
+    private function diariosSalarios(): array
+    {
+        return DB::table('diarios_contabeis')->where('empresa_id', $this->contexto->obrigatorio())->where('codigo', 'SAL')->pluck('id')->map(fn ($i) => (int) $i)->all();
     }
 
     private function diarioId(string $codigo): ?int

@@ -82,7 +82,7 @@ final class ServicoRelatoriosPOS
 
     /**
      * Bloco POS do relatório de gestão «POS e Serviços» (relatorios_gestao.js:531-560): sessões abertas no período, vendas
-     * POS emitidas no período. Os indicadores de lavandaria e hotelaria ficam a null até esses módulos os fornecerem.
+     * POS emitidas no período. Os indicadores de lavandaria e hotelaria do relatório de gestão completo estão em App\Services\Gestao\Relatorios\Modulos\ModuloServicos (ADR-060).
      *
      * @return array{kpis: list<array<string, mixed>>}
      */

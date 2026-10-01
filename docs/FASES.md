@@ -5,7 +5,7 @@
 | **1** | Infraestrutura Docker, Laravel 12, multi-empresa, autenticação, envelope da API, auditoria, **dicionário DE/PARA das 154 tabelas**, inventário funcional do legado | ✅ Concluída (2026-09-29) |
 | **2** | Migrations das 154 tabelas a partir do `mapa_de_para.json` (FKs, CHECKs, índices); estrutura das 29 tabelas sem dados, derivada do código JS; models Eloquent | ✅ Concluída (2026-09-30) |
 | **3** | `php artisan erp:migrar-backup-legado` — ETL por streaming, pela ordem das dependências; regras de integridade; `ocorrencias_migracao` / `quarentena_migracao`; recalibração das sequences; relatório de validação (contagens, FKs, D−C) | ✅ Concluída (2026-09-29) |
-| **4** ⏳ | Services e endpoints por módulo (Sistema, Contabilidade, Terceiros, Logística, Vendas/AGT, Compras, RH/Salários, Tesouraria, POS, Activos, Projectos, Orçamento, A&D, CRM), cache e locks Redis, filas; catálogo de permissões | Planeada |
+| **4** ✅ | Services e endpoints por módulo (Sistema, Contabilidade, Terceiros, Logística, Vendas/AGT, Compras, RH/Salários, Tesouraria, POS, Activos, Projectos, Orçamento, A&D, CRM), cache e locks Redis, filas; catálogo de permissões | Planeada |
 | **5** | Frontend React + TypeScript com o layout do legado (sidebar, top header, DataTables, modais, impressões A4), módulo a módulo, com a matriz de paridade | Planeada |
 | **6** | Testes E2E, reconciliação contabilística cêntimo a cêntimo com o legado, homologação | Planeada |
 
@@ -121,7 +121,8 @@ Cobrem os seguintes casos:
 | **Encerramento e rotinas** | ✅ | contabilidade/encerramento (passos 1-5, validacoes, encerrar, reabrir, cancelar-apuramento), contabilidade/rotinas | Apuramento no período 13 por lançamentos/estornos, validações corrigidas, Imposto de Selo, capitalização (ADR-056) |
 | **Consolidação** | ✅ | consolidacao/grupos (+executar, mapa), execucoes | Eliminações intragrupo e conversão cambial; reproduz a execução do legado (ADR-057) |
 | **Sistema (administração)** | ✅ | sistema/utilizadores, perfis, gestao-empresas, moedas, cambios (+bai), unidades-negocio, plano-contas/substituir, manutencao, copias, migracao | Sem escalada de privilégios, substituir conta sem reescrever o Diário, manutenção com aprovação dupla, cópias por empresa (ADR-058) |
-| Painéis, BI e relatórios de gestão | ⏳ | | Dashboard/painéis por módulo, cubo, relatórios de gestão, fluxo de processos, BI |
+| **Painéis, Análise Dinâmica e BI** | ✅ | gestao/inicio, gestao/paineis (+{modulo}, comparacao), gestao/cubo (conjuntos, valores, consultar), gestao/bi | 13 painéis + holding, cubo seguro por lista branca, KPIs iguais ao balancete (ADR-059) |
+| **Relatórios de gestão e Fluxo de Processos** | ✅ | gestao/relatorios (periodos, resumo, todos, {modulo}), gestao/fluxos ({fluxo}, processos, processos/{chave}) | 9 módulos A×B iguais ao legado, 14 fluxos; apuramento separado dos salários (ADR-060) |
 
 Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints da Contabilidade respondem em 0,2–0,7 s.
 

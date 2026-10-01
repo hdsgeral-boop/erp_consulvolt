@@ -442,6 +442,9 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/contabilidade_relatorios.php';
         require __DIR__.'/api/contabilidade_encerramento.php';
         require __DIR__.'/api/sistema_admin.php';
+        // Painéis/BI e relatórios de gestão/fluxo de processos (ficheiros próprios)
+        require __DIR__.'/api/gestao_paineis.php';
+        require __DIR__.'/api/gestao_relatorios.php';
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

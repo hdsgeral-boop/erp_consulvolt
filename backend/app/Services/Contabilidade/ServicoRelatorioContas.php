@@ -241,7 +241,7 @@ final class ServicoRelatorioContas
         $empresa = $this->contexto->obrigatorio();
         $semPontos = "replace(replace(l.codigo_conta, '.', ''), ' ', '')";
         $base = "FROM lancamentos_contabeis l WHERE l.empresa_id = ? AND l.codigo_conta NOT LIKE '9%'
-            AND NOT (COALESCE(l.periodo_id, 0) IN (13, 14) AND EXTRACT(YEAR FROM l.data_documento) = ?)";
+            AND NOT (COALESCE(l.periodo_id, 0) IN (13, 14) AND NOT EXISTS (SELECT 1 FROM diarios_contabeis d_sal WHERE d_sal.id = l.diario_id AND d_sal.codigo = 'SAL') AND EXTRACT(YEAR FROM l.data_documento) = ?)";
         $r = DB::selectOne("SELECT
                 COALESCE(SUM(CASE WHEN {$semPontos} ~ '^2[2-7]' AND l.data_documento < ? THEN (CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END) END), 0) AS ei,
                 COALESCE(SUM(CASE WHEN {$semPontos} ~ '^2[2-7]' THEN (CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END) END), 0) AS ef,
@@ -388,7 +388,7 @@ final class ServicoRelatorioContas
             JOIN notas_demonstracao_resultados n ON n.id = l.nota_demonstracao_id AND n.empresa_id = l.empresa_id
             LEFT JOIN plano_contas pc ON pc.empresa_id = l.empresa_id AND pc.codigo = l.codigo_conta AND pc.eliminado_em IS NULL
             WHERE l.empresa_id = ? AND l.data_documento <= ? AND l.codigo_conta NOT LIKE '9%'
-              AND NOT (COALESCE(l.periodo_id, 0) IN (13, 14) AND EXTRACT(YEAR FROM l.data_documento) = ?)
+              AND NOT (COALESCE(l.periodo_id, 0) IN (13, 14) AND NOT EXISTS (SELECT 1 FROM diarios_contabeis d_sal WHERE d_sal.id = l.diario_id AND d_sal.codigo = 'SAL') AND EXTRACT(YEAR FROM l.data_documento) = ?)
             GROUP BY 1, 2", ["{$ano}-01-01", "{$ano}-01-01", "{$ano}-01-01", $this->contexto->obrigatorio(), "{$ano}-12-31", $ano]);
     }
 
@@ -404,7 +404,7 @@ final class ServicoRelatorioContas
             FROM lancamentos_contabeis l
             WHERE l.empresa_id = ? AND l.data_documento <= ? AND l.codigo_conta NOT LIKE '9%'
               AND NOT ({$semPontos} ~ '^(6|7|8[2-9])' AND l.data_documento < ?)".($comApuramento ? '' : '
-              AND NOT (COALESCE(l.periodo_id, 0) IN (13, 14) AND EXTRACT(YEAR FROM l.data_documento) = ?)').'
+              AND NOT (COALESCE(l.periodo_id, 0) IN (13, 14) AND NOT EXISTS (SELECT 1 FROM diarios_contabeis d_sal WHERE d_sal.id = l.diario_id AND d_sal.codigo = \'SAL\') AND EXTRACT(YEAR FROM l.data_documento) = ?)').'
             GROUP BY 1 ORDER BY 1', array_merge([$this->contexto->obrigatorio(), "{$ano}-12-31", "{$ano}-01-01"], $comApuramento ? [] : [$ano]));
         $desc = DB::table('plano_contas')->where('empresa_id', $this->contexto->obrigatorio())->whereNull('eliminado_em')->get(['codigo', 'descricao'])
             ->flatMap(fn ($c) => [$c->codigo => $c->descricao, str_replace(['.', ' '], '', $c->codigo) => $c->descricao])->all();

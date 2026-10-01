@@ -181,6 +181,25 @@ final class EncerramentoExercicioTest extends TestCase
     }
 
     #[Test]
+    public function salarios_do_processamento_13_nao_sao_apuramento(): void
+    {
+        // no legado o period_id das linhas SAL é o id do processamento salarial: o processamento 13 não é apuramento
+        $sal = app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () {
+            $d = DiarioContabil::create(['codigo' => 'SAL', 'nome' => 'Salários'])->id;
+            app(ServicoLancamentos::class)->criar(['diario_id' => $d, 'data_documento' => '2025-05-31', 'periodo_id' => 13, 'numero_documento' => 'SAL052025',
+                'linhas' => [['codigo_conta' => '7111', 'tipo_dc' => 'D', 'valor' => 100], ['codigo_conta' => '3111', 'tipo_dc' => 'C', 'valor' => 100]]]);
+
+            return LancamentoContabil::query()->where('diario_id', $d)->pluck('id')->all();
+        });
+        $this->apurar();
+        $this->assertSame([], collect($this->getJson('/api/contabilidade/encerramento/2025/mapa', $this->s)->assertOk()->json('dados.linhas'))
+            ->whereIn('id', $sal)->values()->all());
+        $this->postJson('/api/contabilidade/encerramento/2025/cancelar-apuramento', ['motivo' => 'Refazer'], $this->s)->assertOk();
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => $this->assertSame(0,
+            LancamentoContabil::query()->whereIn('id', $sal)->whereNotNull('estornado_por_id')->count()));
+    }
+
+    #[Test]
     public function cancelar_o_apuramento_reabre_e_estorna_o_periodo_13(): void
     {
         $this->apurar();
@@ -223,8 +242,12 @@ final class EncerramentoExercicioTest extends TestCase
             }
             SaldoHistorico::create(['ano' => 2025, 'tipo' => 'FLUXO_CAIXA', 'codigo' => '4', 'valor' => 99999]);
         });
-        $v = collect($this->getJson('/api/contabilidade/encerramento/2025/validacoes', $this->s)->assertOk()->json('dados.verificacoes'))->keyBy('tipo');
+        $r = $this->getJson('/api/contabilidade/encerramento/2025/validacoes', $this->s)->assertOk()->json('dados');
+        $v = collect($r['verificacoes'])->keyBy('tipo');
         $this->assertFalse($v['INVENTARIO']['ok']);
+        // o inventário só avisa (não bloqueia); o balanço histórico desequilibrado bloqueia
+        $this->assertSame(['INVENTARIO'], array_column($r['avisos'], 'tipo'));
+        $this->assertNotContains('INVENTARIO', array_column($r['divergencias'], 'tipo'));
         $this->assertSame(['armazem' => '0.00', 'contabilidade' => '250.00'], $v['INVENTARIO']['detalhes']);
         $this->assertSame('250.00', $v['INVENTARIO']['diferenca']);
         $this->assertFalse($v['HISTORICO']['ok']);

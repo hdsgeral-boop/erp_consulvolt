@@ -196,6 +196,8 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST/PUT/DELETE | `/api/consolidacao/grupos[/{id}]` (+`/executar`, `/mapa`) · `/execucoes/{id}` | Consolidação |
 | GET/POST/PUT/DELETE | `/api/sistema/utilizadores` · `/perfis` · `/gestao-empresas` · `/empresas` · `/moedas` · `/cambios` (+`/bai`, `/importar`) · `/unidades-negocio` | Administração |
 | POST/GET | `/api/sistema/plano-contas/substituir[/simular]` · `/manutencao/*` · `/copias/{exportar,importar,clonar}` · `/migracao/*` · GET `/api/sistema/logotipo-login` (público) | Substituir conta, manutenção de dados, cópias e migração |
+| GET/POST | `/api/gestao/inicio` · `/api/gestao/paineis[/{modulo}]` · `/paineis/comparacao` · `/api/gestao/cubo/{conjuntos,valores,consultar}` · `/api/gestao/bi[/consultar]` | Página inicial, painéis, análise dinâmica e BI |
+| GET | `/api/gestao/relatorios[/{periodos,resumo,todos,{modulo}}]` · `/api/gestao/fluxos[/{fluxo}[/processos[/{chave}]]]` | Relatórios de gestão e fluxo de processos |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |
