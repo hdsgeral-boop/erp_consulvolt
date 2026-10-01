@@ -174,6 +174,49 @@ final class ServicoAvaliacao360
         return collect((array) $c->participantes)->first(fn ($x) => (int) ($x['colaborador_id'] ?? $x['employee_id'] ?? 0) === $colaborador);
     }
 
+    // ───────────── Portal: a minha avaliação (ADR-064) ─────────────
+
+    /**
+     * O que o colaborador vê da sua avaliação: as avaliações concluídas (com a fase, o que pode fazer e o prazo de
+     * contestação), as reuniões de acompanhamento, o ciclo aberto (critérios, comunicado), as tarefas 360º e a
+     * avaliação ascendente da chefia directa. Só leitura: as acções usam os endpoints de /api/rh/avaliacao.
+     */
+    public function minhaAvaliacao(): array
+    {
+        $eu = $this->portal->exigirColaborador()->id;
+        $ciclos = CicloAvaliacao360::query()->get()->keyBy('id');
+        $porPeriodo = $ciclos->keyBy(fn ($c) => $c->ano.'|'.$c->periodo);
+        $avaliacoes = AvaliacaoDesempenhoRH::query()->where('colaborador_id', $eu)->where('estado', 'CONCLUIDA')->orderByDesc('ano')->orderByDesc('id')->get()
+            ->map(function (AvaliacaoDesempenhoRH $a) use ($ciclos, $porPeriodo) {
+                $c = $ciclos[$a->ciclo_avaliacao_id] ?? $porPeriodo[$a->ano.'|'.$a->periodo] ?? null;
+                $fase = self::fase($a, $c);
+                $prazo = $a->conhecimento ? date('Y-m-d', strtotime(substr((string) $a->conhecimento['em'], 0, 10).' +'.((int) ($c?->prazos['dias_contestacao'] ?? 10)).' days')) : null;
+
+                return collect($a->toArray())->except(['avisos_360'])->all() + ['fase' => $fase, 'nota_final' => self::notaFinal($a), 'classificacao_final' => self::classificacaoFinal($a),
+                    'prazo_contestacao' => $prazo, 'pode_tomar_conhecimento' => $fase === 'AGUARDA_CONHECIMENTO', 'pode_contestar' => $fase === 'PRAZO_CONTESTACAO',
+                    'tem_resultado_360' => $c !== null];
+            })->values()->all();
+        $feedbacks = FeedbackAvaliacao360::query()->where('colaborador_id', $eu)->orderByDesc('data')->orderByDesc('id')->limit(50)
+            ->get(['id', 'ciclo_avaliacao_id', 'periodo_referencia', 'data', 'objetivos', 'positivos', 'melhorar', 'acordos', 'registado_por', 'confirmacao'])->toArray();
+
+        $aberto = CicloAvaliacao360::query()->where('estado', 'ABERTO')->first();
+        $ciclo = null;
+        $ascendente = null;
+        if ($aberto) {
+            $ciclo = ['id' => $aberto->id, 'nome' => $aberto->nome, 'ano' => (int) $aberto->ano, 'periodo' => $aberto->periodo, 'prazos' => $aberto->prazos,
+                'criterios' => array_values((array) $aberto->criterios), 'comunicado' => $aberto->comunicado,
+                'comunicado_confirmado' => ConfirmacaoAvaliacaoRH::query()->where('ciclo_avaliacao_id', $aberto->id)->where('colaborador_id', $eu)->exists()];
+            $chefe = $this->estrutura->chefiaDe($eu);
+            $ascendente = ['chefia_colaborador_id' => $chefe, 'chefia_nome' => $chefe ? Colaborador::query()->find($chefe)?->nome_completo : null,
+                'questoes' => collect(self::LIDERANCA)->map(fn ($nome, $chave) => ['chave' => $chave, 'nome' => $nome])->values()->all(),
+                'respondida' => $chefe !== null && ParticipacaoAscendenteRH::query()->where('colaborador_id', $eu)->where('colaborador_alvo_id', $chefe)
+                    ->where('ano', $aberto->ano)->where('periodo', $aberto->periodo)->exists()];
+        }
+
+        return ['colaborador_id' => $eu, 'avaliacoes' => $avaliacoes, 'feedbacks' => $feedbacks, 'ciclo_aberto' => $ciclo,
+            'tarefas_360' => $this->minhasTarefas(), 'ascendente' => $ascendente];
+    }
+
     // ───────────── Respostas 360 ─────────────
 
     /** Avaliações 360 que o utilizador ainda tem por fazer no ciclo aberto. */

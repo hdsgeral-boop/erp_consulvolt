@@ -7,7 +7,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaOrc, Kz, SeletorOrcamento, useOrcamentos } from './comum/componentes';
-import { MESES } from './comum/regras';
+import { MESES, somaValores } from './comum/regras';
 import type { Controlo as DadosControlo, Desvio, LinhaControlo } from './comum/tipos';
 
 /** Orçamento › Controlo orçamental (ecrã orc_controlo): orçado vs realizado por rubrica, piores desvios e análise do desvio. */
@@ -67,8 +67,8 @@ export default function Controlo() {
           )}
           <Card size="small" extra={<BotaoCsv nome={`controlo-orcamental-${c.orcamento.ano}-${mes}`} linhas={c.linhas} colunas={[
             { titulo: 'Código', valor: (l) => l.codigo }, { titulo: 'Rubrica', valor: (l) => l.nome }, { titulo: 'Natureza', valor: (l) => l.natureza }, { titulo: 'Grupo', valor: (l) => l.grupo },
-            { titulo: 'Orçado', valor: (l) => l.orcado.toFixed(2), numerico: true }, { titulo: 'Orçado inicial', valor: (l) => l.orcado_inicial?.toFixed(2), numerico: true },
-            { titulo: 'Realizado', valor: (l) => l.realizado.toFixed(2), numerico: true }, { titulo: 'Desvio', valor: (l) => l.desvio.toFixed(2), numerico: true },
+            { titulo: 'Orçado', valor: (l) => l.orcado, numerico: true }, { titulo: 'Orçado inicial', valor: (l) => l.orcado_inicial ?? '', numerico: true },
+            { titulo: 'Realizado', valor: (l) => l.realizado, numerico: true }, { titulo: 'Desvio', valor: (l) => l.desvio, numerico: true },
             { titulo: 'Execução %', valor: (l) => l.execucao_pct, numerico: true }, { titulo: 'Favorável', valor: (l) => l.favoravel },
           ]} />}>
             <Table<LinhaControlo>
@@ -93,7 +93,7 @@ export default function Controlo() {
           </Card>
           {c.sem_rubrica.length > 0 && (
             <Alert style={{ marginTop: 16 }} type="warning" showIcon message={`${c.sem_rubrica.length} conta(s) com movimento sem rubrica`}
-              description={c.sem_rubrica.map((s) => `${s.conta}: ${formatarKz(s.valores.reduce((a, b) => a + b, 0))}`).join(' · ')} />
+              description={c.sem_rubrica.map((s) => `${s.conta}: ${formatarKz(somaValores(s.valores))}`).join(' · ')} />
           )}
         </>
       )}

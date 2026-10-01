@@ -293,6 +293,51 @@ final class ServicoPortalColaborador
             ->sortByDesc(fn ($r) => substr($r['mes_ano'], 3).substr($r['mes_ano'], 0, 2))->values()->all();
     }
 
+    /**
+     * As minhas ausências e faltas (ADR-064): por omissão as por justificar; com estado = TODOS, as últimas 200.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function minhasAusencias(?string $estado = null): array
+    {
+        $c = $this->exigirColaborador();
+        $estado ??= 'POR_JUSTIFICAR';
+
+        return AusenciaFaltaColaborador::query()->where('colaborador_id', $c->id)
+            ->when($estado !== 'TODOS', fn ($q) => $q->where('estado', $estado))
+            ->orderByDesc('data_inicio')->orderByDesc('id')->limit(200)
+            ->get(['id', 'tipo', 'data_inicio', 'data_fim', 'dias', 'dias_uteis', 'horas', 'horas_falta', 'ocorrencia', 'estado', 'detectada', 'mes', 'motivo',
+                'documento_url', 'remunerada', 'pedido_portal_colaborador_id', 'nota_decisao'])
+            ->map(fn ($a) => $a->toArray() + ['pode_justificar' => $a->estado === 'POR_JUSTIFICAR'])->all();
+    }
+
+    /** Os meus dependentes (agregado registado). */
+    public function meusDependentes(): array
+    {
+        $c = $this->exigirColaborador();
+
+        return DependenteColaborador::query()->where('colaborador_id', $c->id)->orderBy('ordem')->orderBy('id')
+            ->get(['id', 'ordem', 'nome', 'parentesco', 'data_nascimento', 'sexo', 'dependente_fiscal', 'origem'])->toArray();
+    }
+
+    /**
+     * Utilizadores com acesso à empresa activa e o colaborador a que estão ligados (para ligar utilizador ↔ colaborador).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function utilizadoresEmpresa(): array
+    {
+        $empresa = $this->contexto->obrigatorio();
+        $linhas = DB::table('utilizador_empresa as ue')->join('utilizadores as u', 'u.id', '=', 'ue.utilizador_id')
+            ->where('ue.empresa_id', $empresa)->whereNull('u.eliminado_em')
+            ->orderBy('u.nome_utilizador')->get(['u.id', 'u.nome_utilizador', 'u.nome_completo', 'u.ativo', 'ue.colaborador_id']);
+        $nomes = Colaborador::query()->withTrashed()->whereIn('id', $linhas->pluck('colaborador_id')->filter()->unique()->values()->all())->pluck('nome_completo', 'id');
+
+        return $linhas->map(fn ($l) => ['id' => (int) $l->id, 'nome_utilizador' => (string) $l->nome_utilizador, 'nome_completo' => $l->nome_completo,
+            'ativo' => (bool) $l->ativo, 'colaborador_id' => $l->colaborador_id !== null ? (int) $l->colaborador_id : null,
+            'colaborador_nome' => $l->colaborador_id !== null ? ($nomes[$l->colaborador_id] ?? null) : null])->values()->all();
+    }
+
     // ───────────── Preparação dos pedidos ─────────────
 
     private function prepararFerias(PedidoPortalColaborador $p, Colaborador $c, array $d): void

@@ -5,7 +5,9 @@ namespace App\Services\RH;
 use App\Exceptions\ErroNegocio;
 use App\Models\CargoFuncao;
 use App\Models\Colaborador;
+use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PostoTrabalho;
+use App\Models\ResultadoFolhaSalarial;
 use App\Models\UnidadeOrganica;
 use App\Support\Dados\VerificadorReferencias;
 use Illuminate\Support\Facades\Auth;
@@ -44,6 +46,73 @@ final class ServicoEstruturaOrg
         return ['unidades' => UnidadeOrganica::query()->orderBy('ordem')->orderBy('nome')->get()->map(fn ($u) => $u->toArray() + [
             'membros' => $colabs->where('unidade_organica_id', $u->id)->count(), 'postos' => $postos->where('unidade_organica_id', $u->id)->values()])->all(),
             'sem_unidade' => $colabs->whereNull('unidade_organica_id')->count()];
+    }
+
+    // ───────────── Mapa de pessoal (ADR-064) ─────────────
+
+    /**
+     * Mapa de pessoal por unidade orgânica (só os postos da própria unidade; o cliente agrega as subunidades) e por
+     * cargo: lugares previstos (vagas dos postos), ocupados (colaboradores activos no posto), em aberto e acima do
+     * previsto, e colaboradores activos. Com $verSalarios, a massa salarial = ilíquido (bruto) do último
+     * processamento fechado ou validado, atribuído à unidade e ao cargo actuais de cada colaborador.
+     */
+    public function mapaPessoal(bool $verSalarios): array
+    {
+        $colabs = Colaborador::query()->where('estado', 'ACTIVO')->get(['id', 'unidade_organica_id', 'posto_trabalho_id', 'cargo_funcao_id']);
+        $porPosto = $colabs->whereNotNull('posto_trabalho_id')->countBy('posto_trabalho_id');
+        $postos = PostoTrabalho::query()->get(['id', 'unidade_organica_id', 'cargo_funcao_id', 'vagas'])->map(function ($p) use ($porPosto) {
+            $o = (int) ($porPosto[$p->id] ?? 0);
+            $v = (int) $p->vagas;
+
+            return ['unidade' => $p->unidade_organica_id, 'cargo' => $p->cargo_funcao_id, 'previstos' => $v, 'ocupados' => $o, 'em_aberto' => max(0, $v - $o), 'acima' => max(0, $o - $v)];
+        });
+
+        $massa = ['periodo' => null, 'por_colaborador' => []];
+        $todos = $colabs;
+        if ($verSalarios) {
+            $ultimo = PeriodoProcessamentoSalarial::query()->whereIn('estado', ['FECHADO', 'VALIDADO'])
+                ->orderByRaw('substring(mes_ano from 4 for 4) DESC, substring(mes_ano from 1 for 2) DESC')->first(['id', 'mes_ano']);
+            if ($ultimo) {
+                $massa = ['periodo' => $ultimo->mes_ano, 'por_colaborador' => ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $ultimo->id)
+                    ->get(['colaborador_id', 'bruto'])->groupBy('colaborador_id')->map(fn ($g) => $g->reduce(fn ($s, $r) => bcadd($s, (string) $r->bruto, 2), '0.00'))->all()];
+            }
+            // quem recebeu e não está activo conta pela unidade e cargo que tem na ficha
+            $fora = array_diff(array_keys($massa['por_colaborador']), $colabs->pluck('id')->all());
+            $todos = $fora === [] ? $colabs : $colabs->concat(Colaborador::query()->withTrashed()->whereIn('id', $fora)->get(['id', 'unidade_organica_id', 'posto_trabalho_id', 'cargo_funcao_id']));
+        }
+        $somaMassa = function (callable $filtro) use ($massa, $todos): string {
+            $s = '0.00';
+            foreach ($todos->filter($filtro) as $c) {
+                $s = bcadd($s, $massa['por_colaborador'][$c->id] ?? '0', 2);
+            }
+
+            return $s;
+        };
+        $linha = function ($grupoPostos, callable $filtroColab) use ($colabs, $verSalarios, $somaMassa): array {
+            $l = ['previstos' => (int) $grupoPostos->sum('previstos'), 'ocupados' => (int) $grupoPostos->sum('ocupados'), 'em_aberto' => (int) $grupoPostos->sum('em_aberto'),
+                'acima' => (int) $grupoPostos->sum('acima'), 'postos' => $grupoPostos->count(), 'colaboradores' => $colabs->filter($filtroColab)->count()];
+
+            return $verSalarios ? $l + ['massa_salarial' => $somaMassa($filtroColab)] : $l;
+        };
+
+        $unidades = UnidadeOrganica::query()->orderBy('ordem')->orderBy('nome')->get(['id', 'codigo', 'nome', 'unidade_organica_pai_id', 'ativo'])
+            ->map(fn ($u) => ['unidade_organica_id' => $u->id, 'codigo' => $u->codigo, 'nome' => $u->nome, 'unidade_organica_pai_id' => $u->unidade_organica_pai_id, 'ativo' => (bool) $u->ativo]
+                + $linha($postos->where('unidade', $u->id), fn ($c) => (int) $c->unidade_organica_id === $u->id))->values()->all();
+        $semUnidade = $linha($postos->whereNull('unidade'), fn ($c) => $c->unidade_organica_id === null);
+
+        $nomesCargo = CargoFuncao::query()->orderBy('nome')->pluck('nome', 'id');
+        $idsCargo = $nomesCargo->keys()->all();
+        $cargos = collect($idsCargo)->map(fn ($id) => ['cargo_funcao_id' => (int) $id, 'nome' => $nomesCargo[$id]]
+            + $linha($postos->where('cargo', $id), fn ($c) => (int) $c->cargo_funcao_id === (int) $id))
+            ->filter(fn ($l) => $l['postos'] > 0 || $l['colaboradores'] > 0 || bccomp($l['massa_salarial'] ?? '0', '0', 2) !== 0)->values();
+        $semCargo = $linha($postos->filter(fn ($p) => $p['cargo'] === null || ! isset($nomesCargo[$p['cargo']])),
+            fn ($c) => $c->cargo_funcao_id === null || ! isset($nomesCargo[$c->cargo_funcao_id]));
+        if ($semCargo['postos'] > 0 || $semCargo['colaboradores'] > 0 || bccomp($semCargo['massa_salarial'] ?? '0', '0', 2) !== 0) {
+            $cargos->push(['cargo_funcao_id' => null, 'nome' => 'Sem cargo'] + $semCargo);
+        }
+
+        return ['ver_salarios' => $verSalarios, 'periodo_salarial' => $massa['periodo'], 'por_unidade' => $unidades, 'sem_unidade' => $semUnidade,
+            'por_cargo' => $cargos->all(), 'totais' => $linha($postos, fn () => true)];
     }
 
     // ───────────── Unidades ─────────────

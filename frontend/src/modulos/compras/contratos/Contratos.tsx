@@ -1,4 +1,4 @@
-import { Button, Card, Flex, Select } from 'antd';
+import { Button, Card, Flex, Input, Select } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useState } from 'react';
@@ -9,7 +9,7 @@ import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EstadoTag, opcoesEstado } from '../comum/estados';
 import { NomeTerceiro } from '../comum/referencias';
 import { SeletorTerceiro } from '../comum/Seletores';
-import { TabelaLocal } from '../comum/Tabelas';
+import { TabelaApi } from '@/componentes/TabelaApi';
 import type { ContratoCompra } from '../comum/tipos';
 import { DetalheContrato } from './DetalheContrato';
 import { ModalContrato } from './ModalContrato';
@@ -30,10 +30,11 @@ function ListaContratos() {
   const [estado, setEstado] = useState<string>();
   const [fornecedor, setFornecedor] = useState<number>();
   const [novo, setNovo] = useState(false);
+  const [pesquisa, setPesquisa] = useState('');
 
   const colunas: ColumnsType<ContratoCompra> = [
     { title: 'Referência', dataIndex: 'referencia', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
-    { title: 'Fornecedor', key: 'fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} /> },
+    { title: 'Fornecedor', key: 'fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, render: (v) => v || '—' },
     { title: 'Início', dataIndex: 'data_inicio', render: formatarData },
     { title: 'Fim', dataIndex: 'data_fim', render: formatarData },
@@ -58,10 +59,11 @@ function ListaContratos() {
         <Flex gap={8} wrap style={{ marginBottom: 16 }}>
           <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={opcoesEstado(['ATIVO', 'EXPIRADO', 'CANCELADO'])} />
           <SeletorTerceiro papel="FORNECEDOR" style={{ width: 320 }} value={fornecedor} onChange={setFornecedor} />
+          <Input.Search placeholder="Referência" allowClear style={{ width: 200 }} onSearch={(v) => setPesquisa(v.trim())} />
         </Flex>
-        <TabelaLocal<ContratoCompra>
+        <TabelaApi<ContratoCompra>
           url="/compras/contratos"
-          params={{ estado, fornecedor_id: fornecedor }}
+          filtros={{ estado, fornecedor_id: fornecedor, pesquisa: pesquisa || undefined }}
           chaveConsulta={['compras', 'contratos']}
           columns={colunas}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}

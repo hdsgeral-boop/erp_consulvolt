@@ -1762,6 +1762,65 @@ Três agentes em paralelo, com as mesmas regras da ronda 1 (ADR-062). Com esta r
 - **Lavandaria:** lista de colaboradores acessível com `lav_ordens`.
 - **Estrutura:** mapa de pessoal com massa salarial por unidade e por cargo.
 - **Importações:** de ficheiros `.xlsx` no servidor (hoje é colagem ou CSV).
-- **Gestão documental:** ainda sem API.
+- **Gestão documental:** não aplicável — no legado `window.renderSGD` nunca foi definido (ecrã morto); o aviso foi retirado (ADR-064).
 - **Downloads binários:** com 401 não terminam a sessão.
 - **Componentes a promover para `src/componentes`:** `PainelPagamentos`, `calcularComIva` do cliente, impressão de talões, gráficos SVG, análise dinâmica, Gantt, grelha mensal, seletores, `useAccao` e `ModalMotivo`.
+
+## ADR-064 — Fase 5, afinação: lacunas de API fechadas em backend e frontend
+
+Três agentes em paralelo, cada um no backend e nos ecrãs dos seus módulos. As rotas novas estão em `routes/api/afinacao_{a,b,c}.php`; o coordenador fez a integração.
+
+**Compras, Tesouraria e Armazém:**
+- **Paginação comum** (`RespostaApi::paginado`) nas listas de pedidos, propostas, encomendas, recepções, facturas e contratos de compras, documentos de tesouraria, guias e inventários. No frontend saíram as tabelas próprias; todas usam o `TabelaApi`.
+- **Nomes nas respostas**, carregados em conjunto (sem N+1, com um teste que o confirma) e visíveis mesmo com a ficha eliminada:
+  - `fornecedor` em propostas, encomendas, facturas e contratos;
+  - `produto` nas linhas de compra, recepção e guia, e também no POS de armazém;
+  - `terceiro` na tesouraria, na caixa e nas guias;
+  - `cliente` como objecto nas encomendas de clientes.
+- **Filtros:** facturas por encomenda e por número; pesquisa literal (sem curingas do utilizador) nas listas; guias e inventários por estado.
+- **Tesouraria:**
+  - disponibilidades e extracto com a permissão do próprio ecrã, iguais ao balancete e ao razão;
+  - integração em lote, em que cada documento é integrado na sua própria transacção.
+- **Recálculo das valorizações de stock** (`armazem_recalcular`):
+  - só simula, salvo pedido expresso para aplicar;
+  - nunca altera valores contabilizados, que aparecem no relatório como divergências;
+  - recusa aplicar com um inventário em curso.
+
+**Vendas, Contabilidade, Sistema e Gestão:**
+- **Vendas:**
+  - os indicadores dos relatórios passaram a ser calculados no servidor (`/vendas/relatorios/resumo`), e o ecrã deixou de ler os documentos no navegador;
+  - o SAF-T é validado antes de escrever o XML (`/vendas/saft/validar`);
+  - acções AGT no detalhe da venda: revalidar, QR e pedido assinado.
+- **Contabilidade:** `terceiro` nos lançamentos e no razão.
+- **Sistema:**
+  - importações em massa e de câmbios com o próprio `.xlsx` do modelo, lido no servidor (`ServicoLeituraFolha`: folha «Template», datas convertidas, linha de exemplo ignorada, número de linha igual ao do Excel);
+  - moeda funcional acessível a quem consulta moedas.
+- **Frontend:** `descarregar()` em `src/api/cliente.ts`. Nas descargas, um 401 termina a sessão e os erros JSON vindos dentro do ficheiro são lidos.
+- **Gestão documental:** confirmado ecrã morto no legado; nada a migrar.
+
+**RH, Projectos, Orçamento, Activos, Lavandaria e Estrutura:**
+- **RH:**
+  - a folha fotografada traz nome, NIF e INSS;
+  - a ficha do colaborador traz unidade orgânica, unidade de negócio e centro de custo por nome;
+  - endpoints novos do portal: ausências, dependentes, a minha avaliação e utilizadores da empresa para ligar a colaboradores;
+  - o portal passa a ter a avaliação do próprio: comunicado, autoavaliação, 360º, ascendente, tomar conhecimento, contestar e acompanhamento.
+- **Estrutura:** mapa de pessoal por unidade e por cargo; a massa salarial só aparece com `est_ver_salarios`.
+- **Projectos:** equipamentos do projecto; nomes nas horas e no orçamento; cliente na carteira.
+- **Orçamento:**
+  - todas as respostas trazem os valores monetários como texto com 2 casas (`FormatoOrcamento`, só à saída);
+  - o frontend fazia contas sobre texto (concatenava em vez de somar, e `.toFixed` sobre texto); passou a somar em cêntimos;
+  - a lista de orçamentos é paginada e os pedidos de excesso e alertas trazem os nomes.
+- **Activos:** abates e manutenções paginados e com filtros.
+- **Lavandaria:** colaboradores (só id e nome) para atribuir as ordens.
+
+**Correcção de esquema:** `autoavaliacoes_colaborador.formacao` passou de `varchar(10)` a texto, como no legado («Necessidades de formação», área de texto). A validação passou a 2000 caracteres e o portal usa uma área de texto.
+
+**Verificação:**
+- 224 testes Vitest e build de produção;
+- suite completa do backend, depois de recarregar a base com a ETL real;
+- contratos confirmados com GET reais (empresas 3, 6 e 18) feitos por utilizadores temporários entretanto apagados.
+
+**Fica registado:**
+- `GET /rh/avaliacao/avaliacoes/{id}/resultado-360` grava `nota_360` ao ser lido (é um GET com efeitos);
+- os valores dentro dos detalhes dos erros de controlo orçamental continuam numéricos;
+- a promoção para `src/componentes` dos componentes repetidos entre módulos é o passo seguinte.

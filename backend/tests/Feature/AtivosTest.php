@@ -164,6 +164,8 @@ final class AtivosTest extends TestCase
 
         $grande = $this->bem(['descricao' => 'Monitor', 'valor_aquisicao' => 30000]);
         $certo = $this->bem(['descricao' => 'Teclado', 'valor_aquisicao' => 20000]);
+        $sem = collect($this->getJson('/api/ativos/aquisicoes-pendentes', $this->s)->json('dados.ativos_sem_lancamento'))->firstWhere('id', $certo);
+        $this->assertSame('Equipamento administrativo', $sem['categoria_nome']);   // nome da categoria (ADR-064)
         $this->postJson("/api/ativos/aquisicoes-pendentes/{$linha}/ligar", ['ids' => [$grande]], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'EXCEDE_AQUISICAO');
         $this->postJson("/api/ativos/aquisicoes-pendentes/{$linha}/ligar", ['ids' => [$certo]], $this->s)->assertOk()->assertJsonPath('dados.por_inventariar', '0.00');
         $this->getJson("/api/ativos/bens/{$certo}", $this->s)->assertJsonPath('dados.fornecedor_id', $this->ids['forn'])->assertJsonPath('dados.origem.codigo_conta', '1141');
@@ -208,6 +210,13 @@ final class AtivosTest extends TestCase
         $this->postJson("/api/ativos/manutencoes/{$m}/executar", ['resolucao' => 'De novo'], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'MANUTENCAO_CONCLUIDA');
         $this->deleteJson("/api/ativos/manutencoes/{$m}", [], $this->s)->assertOk();
         $this->assertCount(1, $this->getJson('/api/ativos/manutencoes', $this->s)->json('dados'));
+        // filtros e paginação (ADR-064)
+        $this->postJson('/api/ativos/manutencoes', ['ativo_imobilizado_id' => $a, 'tipo' => 'PREVENTIVA', 'data' => '2026-05-10', 'descricao' => 'Inspecção'], $this->s)->assertCreated();
+        $this->getJson('/api/ativos/manutencoes?tipo=PREVENTIVA', $this->s)->assertJsonCount(1, 'dados')->assertJsonPath('dados.0.descricao', 'Inspecção');
+        $this->getJson('/api/ativos/manutencoes?data_de=2026-04-01&data_ate=2026-04-30', $this->s)->assertJsonCount(1, 'dados')->assertJsonPath('dados.0.tipo', 'CORRECTIVA');
+        $this->getJson('/api/ativos/manutencoes?pesquisa=gerador&por_pagina=1', $this->s)->assertJsonCount(1, 'dados')
+            ->assertJsonPath('metadados.paginacao.total', 2)->assertJsonPath('metadados.paginacao.ultima_pagina', 2);
+        $this->getJson('/api/ativos/manutencoes?data_de=2026-05-01&data_ate=2026-04-01', $this->s)->assertStatus(422);
     }
 
     #[Test]
@@ -241,6 +250,11 @@ final class AtivosTest extends TestCase
             ->assertCreated()->json('dados.abate.id');
         $this->assertSame(['C 1141 1200.00', 'D 1815 300.00', 'D 78031 900.00'], $this->linhasDe("ABT-{$s}"));
         $this->assertCount(1, $this->getJson('/api/ativos/abates', $this->s)->json('dados'));
+        // filtros e paginação (ADR-064)
+        $this->getJson('/api/ativos/abates?tipo=SINISTRO&data_de=2026-03-01&data_ate=2026-03-31', $this->s)->assertJsonCount(1, 'dados')
+            ->assertJsonPath('metadados.paginacao.total', 1)->assertJsonPath('dados.0.numero_documento', "ABT-{$s}");
+        $this->getJson('/api/ativos/abates?tipo=VENDA', $this->s)->assertJsonCount(0, 'dados');
+        $this->getJson('/api/ativos/abates?data_de=2026-04-01', $this->s)->assertJsonCount(0, 'dados');
         $this->assertSame([], $this->getJson('/api/ativos/mapas/categorias', $this->s)->assertOk()->json('dados'));   // abatidos saem do resumo
 
         // sem registo contabilístico (activos cuja compra nunca foi contabilizada), como no legado

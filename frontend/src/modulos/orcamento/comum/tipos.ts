@@ -1,12 +1,16 @@
 /**
- * Tipos das respostas de /api/orcamento (confirmados com pedidos GET reais). Atenção: neste módulo os valores
- * mensais e os totais do controlo vêm como NÚMEROS (jsonb/float), não como texto decimal; os totais das linhas vêm como texto.
+ * Tipos das respostas de /api/orcamento (confirmados com pedidos GET reais). Desde a afinação da Fase 5 (ADR-064) todos os
+ * valores monetários (valores mensais, orçado, realizado, totais, desvios, saldos) vêm como texto decimal com 2 casas;
+ * percentagens e contagens continuam números.
  */
 
 export type TipoOrcamento = 'EXPLORACAO' | 'TESOURARIA';
 export type NaturezaRubrica = 'PROVEITO' | 'CUSTO' | 'RECEBIMENTO' | 'PAGAMENTO';
 export type EstadoOrcamento = 'RASCUNHO' | 'SUBMETIDO' | 'APROVADO' | 'SUBSTITUIDO';
 export type ModoControlo = 'NENHUM' | 'AVISAR' | 'APROVACAO' | 'BLOQUEAR';
+
+/** Valor em Kz: texto decimal com 2 casas («1234.50»). */
+export type Dinheiro = string;
 
 export interface Rubrica {
   id: number;
@@ -61,7 +65,7 @@ export interface Orcamento {
 export interface LinhaOrcamento {
   id: number;
   rubrica_orcamental_id: number;
-  valores: number[];
+  valores: Dinheiro[];
   total: string | null;
   notas: string | null;
 }
@@ -77,15 +81,15 @@ export interface LinhaControlo {
   nome: string;
   natureza: NaturezaRubrica;
   grupo: string | null;
-  orcado: number;
-  orcado_inicial: number | null;
-  realizado: number;
-  desvio: number;
+  orcado: Dinheiro;
+  orcado_inicial: Dinheiro | null;
+  realizado: Dinheiro;
+  desvio: Dinheiro;
   execucao_pct: number | null;
   desvio_pct: number | null;
   favoravel: boolean;
   desvio_significativo: boolean;
-  mensal: { orcado: number[]; realizado: number[] };
+  mensal: { orcado: Dinheiro[]; realizado: Dinheiro[] };
 }
 
 export interface Controlo {
@@ -95,22 +99,22 @@ export interface Controlo {
   linhas: LinhaControlo[];
   piores_desvios: LinhaControlo[];
   /** Contas 6/7 (ou contrapartidas na tesouraria) com movimento e sem rubrica: valores mensais. */
-  sem_rubrica: { conta: string; valores: number[] }[];
-  totais: { orcado: number; realizado: number };
+  sem_rubrica: { conta: string; valores: Dinheiro[] }[];
+  totais: { orcado: Dinheiro; realizado: Dinheiro };
   /** Só na tesouraria. */
-  saldo_inicial?: number;
-  saldos_fim_mes?: number[];
+  saldo_inicial?: Dinheiro;
+  saldos_fim_mes?: Dinheiro[];
 }
 
 export interface Desvio {
   rubrica: { id: number; codigo: string; nome: string; natureza: NaturezaRubrica };
-  mensal: { mes: number; orcado: number; real: number; desvio: number; acumulado: number; desfavoravel: boolean }[];
-  desvio_total: number;
+  mensal: { mes: number; orcado: Dinheiro; real: Dinheiro; desvio: Dinheiro; acumulado: Dinheiro; desfavoravel: boolean }[];
+  desvio_total: Dinheiro;
   classificacao: 'SEM_DESVIO' | 'TEMPORAL' | 'PONTUAL' | 'ESTRUTURAL' | 'MISTO' | string;
   desfavoraveis: number;
-  contas: { conta: string | number; real: number; anterior: number; variacao: number }[];
+  contas: { conta: string | number; real: Dinheiro; anterior: Dinheiro; variacao: Dinheiro }[];
   maiores_movimentos: { data_documento: string; numero_documento: string | null; codigo_conta: string; descricao: string | null; tipo_dc: 'D' | 'C'; valor: string; terceiro_id: number | null }[];
-  fecho_estimado: { revisao: number; mes_referencia: string; orcado_ano: number; valor: number } | null;
+  fecho_estimado: { revisao: number; mes_referencia: string; orcado_ano: Dinheiro; valor: Dinheiro } | null;
 }
 
 export interface Previsao {
@@ -141,13 +145,13 @@ export interface ResumoPrevisao {
     rubrica_id: number;
     codigo: string;
     nome: string;
-    real_recente: number[];
-    previsao: Record<string, number | string>;
-    total_12: number;
-    real_ano: number;
-    previsto_ano: number;
-    fecho_estimado: number;
-    orcado: number | null;
+    real_recente: Dinheiro[];
+    previsao: Record<string, Dinheiro>;
+    total_12: Dinheiro;
+    real_ano: Dinheiro;
+    previsto_ano: Dinheiro;
+    fecho_estimado: Dinheiro;
+    orcado: Dinheiro | null;
   }[];
 }
 
@@ -164,9 +168,9 @@ export interface Cenario {
 export interface CalculoCenario {
   cenario: Cenario;
   orcamento_id: number;
-  linhas: { rubrica_id: number; codigo: string; nome: string; natureza: NaturezaRubrica; indutor: string | null; base: number; cenario: number; variacao: number; valores: number[] }[];
-  resultado_base: number;
-  resultado_cenario: number;
+  linhas: { rubrica_id: number; codigo: string; nome: string; natureza: NaturezaRubrica; indutor: string | null; base: Dinheiro; cenario: Dinheiro; variacao: Dinheiro; valores: Dinheiro[] }[];
+  resultado_base: Dinheiro;
+  resultado_cenario: Dinheiro;
 }
 
 export interface PedidoExcesso {
@@ -190,6 +194,23 @@ export interface PedidoExcesso {
   nota_decisao: string | null;
   autoaprovado: boolean | null;
   utilizado_em: string | null;
+  /** Por nome (ADR-064). */
+  rubrica?: RefRubrica | null;
+  orcamento?: RefOrcamento | null;
+}
+
+export interface RefRubrica {
+  id: number;
+  codigo: string;
+  nome: string;
+}
+
+export interface RefOrcamento {
+  id: number;
+  nome: string | null;
+  ano: number;
+  tipo: TipoOrcamento;
+  versao: number;
 }
 
 export interface AlertaOrcamental {
@@ -204,6 +225,8 @@ export interface AlertaOrcamental {
   estado: string | null;
   acao: string | null;
   valor: string | null;
+  rubrica?: RefRubrica | null;
+  orcamento?: RefOrcamento | null;
 }
 
 export interface LinhaMonitor {
@@ -212,10 +235,10 @@ export interface LinhaMonitor {
   rubrica_orcamental_id: number;
   rubrica: string;
   modo: ModoControlo | string;
-  orcado: number;
-  compromissos: number;
-  consumido: number;
-  disponivel: number;
+  orcado: Dinheiro;
+  compromissos: Dinheiro;
+  consumido: Dinheiro;
+  disponivel: Dinheiro;
   percentagem: number | null;
   estado: 'SEM_DOTACAO' | 'EXCEDIDO' | 'AVISO' | 'OK' | string;
 }

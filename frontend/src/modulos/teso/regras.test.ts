@@ -1,4 +1,4 @@
-import { accoesConferencia, accoesDocumento, accoesSessao, lerDenominacoes, sentidoPorOmissao, somaCorrespondencia, totalContado, totalDocumento } from './regras';
+import { accoesConferencia, accoesDocumento, accoesSessao, errosDoLote, extratoConfere, lerDenominacoes, sentidoPorOmissao, somaCorrespondencia, totalContado, totalDocumento } from './regras';
 
 const todas = () => true;
 const so = (...permitidas: string[]) => (...c: string[]) => c.some((x) => permitidas.includes(x));
@@ -61,5 +61,21 @@ describe('correspondência extracto × diário', () => {
     expect(r.casa).toBe(false);
     expect(r.diferenca).toBe('200.00');
     expect(somaCorrespondencia([], []).casa).toBe(false);
+  });
+});
+
+describe('afinação (ADR-064)', () => {
+  it('lista os erros da integração em lote pelo número do documento', () => {
+    expect(errosDoLote({ integrados: [{ id: 1, numero_documento: 'PAG A2026/1', numero_lan_contabilizacao: 'BD1' }], erros: [{ id: 2, numero_documento: 'PAG A2026/2', codigo: 'X', mensagem: 'O documento está ANULADO.' }, { id: 9, numero_documento: null, codigo: 'DOCUMENTO_INEXISTENTE', mensagem: 'Documento inexistente.' }] })).toEqual([
+      'PAG A2026/2: O documento está ANULADO.',
+      '#9: Documento inexistente.',
+    ]);
+    expect(errosDoLote(null)).toEqual([]);
+  });
+
+  it('confere o saldo corrido do extracto em cêntimos', () => {
+    const m = (tipo_dc: 'D' | 'C', valor: string) => ({ tipo_dc, valor }) as never;
+    expect(extratoConfere({ saldo_inicial: '0.10', saldo_final: '-350.30', movimentos: [m('C', '100.20'), m('C', '250.20')] })).toBe(true);
+    expect(extratoConfere({ saldo_inicial: '0.00', saldo_final: '1.00', movimentos: [m('D', '0.99')] })).toBe(false);
   });
 });

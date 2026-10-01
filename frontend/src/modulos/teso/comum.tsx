@@ -1,10 +1,10 @@
-import { Input, Select, Table, type TableProps } from 'antd';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { Input, Select, type TableProps } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { obter } from '@/api/cliente';
-import { notificarErro } from '@/utilitarios/erros';
+import { TabelaApi } from '@/componentes/TabelaApi';
 import { usePlanoContas } from '../contab/comum/dados';
-import type { DocumentoTesouraria, MeioPagamento, PaginaDocumentos } from './api';
+import type { DocumentoTesouraria, MeioPagamento } from './api';
 
 export function useMeiosPagamento() {
   return useQuery({ queryKey: ['teso', 'meios'], queryFn: () => obter<MeioPagamento[]>('/tesouraria/meios-pagamento'), staleTime: 300_000, retry: false });
@@ -53,42 +53,9 @@ export function SeletorContaFinanceira({ value, onChange, allowClear, placeholde
 }
 
 /**
- * Tabela dos documentos de tesouraria. O GET /tesouraria/documentos devolve {itens, total, pagina, por_pagina} dentro de `dados`
- * (não usa metadados.paginacao), por isso não serve o TabelaApi comum.
+ * Tabela dos documentos de tesouraria: GET /tesouraria/documentos no formato paginado comum (metadados.paginacao, ADR-064),
+ * mostrado pelo TabelaApi de src/componentes.
  */
 export function TabelaDocumentos({ filtros, ...props }: { filtros: Record<string, unknown> } & Omit<TableProps<DocumentoTesouraria>, 'dataSource' | 'pagination' | 'loading'>) {
-  const [pagina, setPagina] = useState(1);
-  const [tamanho, setTamanho] = useState(25);
-  const chave = JSON.stringify(filtros);
-  useEffect(() => setPagina(1), [chave]);
-  const consulta = useQuery({
-    queryKey: ['teso', 'documentos', filtros, pagina, tamanho],
-    queryFn: () => obter<PaginaDocumentos>('/tesouraria/documentos', { ...filtros, pagina, por_pagina: tamanho }),
-    placeholderData: keepPreviousData,
-  });
-  useEffect(() => {
-    if (consulta.error) notificarErro(consulta.error, 'Erro ao carregar os documentos');
-  }, [consulta.error]);
-  return (
-    <Table<DocumentoTesouraria>
-      rowKey="id"
-      size="middle"
-      scroll={{ x: 'max-content' }}
-      {...props}
-      loading={consulta.isFetching}
-      dataSource={consulta.data?.itens}
-      pagination={{
-        current: pagina,
-        pageSize: tamanho,
-        total: consulta.data?.total ?? 0,
-        showSizeChanger: true,
-        pageSizeOptions: [10, 25, 50, 100],
-        showTotal: (t) => `${t} documento(s)`,
-        onChange: (p, s) => {
-          setPagina(s !== tamanho ? 1 : p);
-          setTamanho(s);
-        },
-      }}
-    />
-  );
+  return <TabelaApi<DocumentoTesouraria> url="/tesouraria/documentos" chaveConsulta={['teso', 'documentos']} filtros={filtros} rowKey="id" {...props} />;
 }

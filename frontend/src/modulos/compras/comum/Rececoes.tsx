@@ -1,22 +1,21 @@
-import { Alert, Button, Card, DatePicker, Descriptions, Flex, Form, InputNumber, Modal, Select, Skeleton, Table } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Select, Skeleton, Table } from 'antd';
 import { ArrowLeftOutlined, CheckCircleTwoTone, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from './accoes';
 import { EstadoTag } from './estados';
-import { obterLista } from './lista';
 import { ModalRececao } from './ModaisEncomenda';
 import { NomeArmazem, NomeProduto, NomeTerceiro, useArmazens } from './referencias';
 import { accoesRececao } from './regras';
 import { SeletorArmazem } from './Seletores';
-import { TabelaServidor } from './Tabelas';
+import { TabelaApi } from '@/componentes/TabelaApi';
 import { numeroOuId, type EncomendaCompra, type LinhaRececao, type RececaoCompra } from './tipos';
 
 export type ModoRececoes = 'compras' | 'armazem';
@@ -47,6 +46,7 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
   const [encomenda, setEncomenda] = useState<number | null>(null);
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [escolher, setEscolher] = useState(false);
+  const [pesquisa, setPesquisa] = useState('');
 
   const colunas: ColumnsType<RececaoCompra> = [
     { title: 'Recepção', key: 'numero', fixed: 'left', render: (_, r) => <strong>{numeroOuId(r.numero_rececao, r.id)}</strong> },
@@ -76,13 +76,14 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
       <Card>
         <Flex gap={8} wrap style={{ marginBottom: 16 }}>
           <Select placeholder="Estado" allowClear style={{ width: 220 }} value={estado} onChange={setEstado} options={ESTADOS_FILTRO} />
+          <Input.Search placeholder="N.º da recepção ou guia" allowClear style={{ width: 230 }} onSearch={(v) => setPesquisa(v.trim())} />
           <InputNumber placeholder="N.º interno da encomenda" min={1} style={{ width: 220 }} value={encomenda} onChange={(v) => setEncomenda(v)} />
           <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
         </Flex>
-        <TabelaServidor<RececaoCompra>
+        <TabelaApi<RececaoCompra>
           url="/compras/rececoes"
           chaveConsulta={['compras', 'rececoes']}
-          filtros={{ estado, encomenda_compra_id: encomenda ?? undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
+          filtros={{ estado, pesquisa: pesquisa || undefined, encomenda_compra_id: encomenda ?? undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
           columns={colunas}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
@@ -98,7 +99,7 @@ function EscolherEncomenda({ aoFechar, aoRegistar }: { aoFechar: () => void; aoR
   const abertas = useQuery({
     queryKey: ['compras', 'encomendas', 'por-receber'],
     queryFn: async () => {
-      const [a, b] = await Promise.all(['EM_PROCESSAMENTO', 'PARCIAL'].map((estado) => obterLista<EncomendaCompra>('/compras/encomendas', { estado, por_pagina: 200 })));
+      const [a, b] = await Promise.all(['EM_PROCESSAMENTO', 'PARCIAL'].map((estado) => obterPagina<EncomendaCompra>('/compras/encomendas', { estado, por_pagina: 200 })));
       return [...a.itens, ...b.itens];
     },
   });
@@ -115,7 +116,7 @@ function EscolherEncomenda({ aoFechar, aoRegistar }: { aoFechar: () => void; aoR
         placeholder="Encomenda por receber"
         value={id}
         onChange={setId}
-        options={(abertas.data ?? []).map((e) => ({ value: e.id, label: `${numeroOuId(e.numero_encomenda, e.id)} — ${formatarData(e.data)} — ${formatarKz(e.montante_total)} Kz` }))}
+        options={(abertas.data ?? []).map((e) => ({ value: e.id, label: `${numeroOuId(e.numero_encomenda, e.id)} — ${e.fornecedor?.nome?.trim() ?? `fornecedor #${e.fornecedor_id}`} — ${formatarData(e.data)} — ${formatarKz(e.montante_total)} Kz` }))}
       />
     </Modal>
   );
@@ -147,7 +148,7 @@ export function DetalheRececao() {
     <>
       <CabecalhoPagina
         titulo={`Recepção ${nome}`}
-        subtitulo={encomenda.data ? <>Encomenda {numeroOuId(encomenda.data.numero_encomenda, encomenda.data.id)} · <NomeTerceiro id={encomenda.data.fornecedor_id} /></> : `Encomenda #${r.encomenda_compra_id}`}
+        subtitulo={encomenda.data ? <>Encomenda {numeroOuId(encomenda.data.numero_encomenda, encomenda.data.id)} · <NomeTerceiro id={encomenda.data.fornecedor_id} terceiro={encomenda.data.fornecedor} /></> : `Encomenda #${r.encomenda_compra_id}`}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -180,7 +181,7 @@ export function DetalheRececao() {
           pagination={false}
           dataSource={r.linhas ?? []}
           columns={[
-            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} /> },
+            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} /> },
             { title: 'Quantidade', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
             { title: 'Custo unit. (Kz)', dataIndex: 'custo_unitario_kz', align: 'right', render: (v: string | null) => formatarKz(v) },
             { title: 'Valor (Kz)', dataIndex: 'valor_kz', align: 'right', render: (v: string | null) => formatarKz(v) },

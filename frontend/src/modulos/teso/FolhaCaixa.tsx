@@ -187,6 +187,7 @@ function DetalheSessao() {
             { title: 'Data', dataIndex: 'data_documento', render: formatarData },
             { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => (v === 'REC' ? <Tag color="green">Entrada</Tag> : <Tag color="volcano">Saída</Tag>) },
             { title: 'Documento', dataIndex: 'numero_documento' },
+            { title: 'Terceiro', key: 'terceiro', render: (_, m) => m.terceiro?.nome?.trim() ?? (m.terceiro_id ? `#${m.terceiro_id}` : '—') },
             { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300 },
             { title: 'Débito', dataIndex: 'conta_debito' },
             { title: 'Crédito', dataIndex: 'conta_credito' },

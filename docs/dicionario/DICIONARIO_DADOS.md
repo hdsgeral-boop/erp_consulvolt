@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-10-01T08:44:33.789Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-10-01T14:50:43.506Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -1688,7 +1688,7 @@ Linhas reais: **1** · fictícias descartadas: 0
 | `objectivos` | `objetivos` | jsonb | sim | 100% |  |  |
 | `realizacoes` | `realizacoes` | text | sim | 100% |  |  |
 | `dificuldades` | `dificuldades` | text | sim | 100% |  |  |
-| `formacao` | `formacao` | varchar(10) | sim | 100% |  |  |
+| `formacao` | `formacao` | text | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `status` | `estado` | varchar(20) | sim | 100% |  | código normalizado ∈ {RASCUNHO, SUBMETIDA}; texto original em estado_original |
 | `status` | `estado_original` | varchar(20) | sim | 100% |  | texto exacto do legado |
 | `submetida_em` | `submetida_em` | timestamptz | sim | 100% |  |  |

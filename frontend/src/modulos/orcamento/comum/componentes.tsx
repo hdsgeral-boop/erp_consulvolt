@@ -47,7 +47,7 @@ export function EtiquetaOrc({ valor }: { valor: string | null | undefined }) {
   return <Tag color={ESTADOS[valor]?.cor ?? 'default'}>{rotuloOrc(valor)}</Tag>;
 }
 
-/** Número em Kz (este módulo devolve números); negativos a vermelho. */
+/** Valor em Kz (texto decimal desde a ADR-064; aceita também números); negativos a vermelho. */
 export function Kz({ valor, forte }: { valor: number | string | null | undefined; forte?: boolean }) {
   const n = Number(valor ?? 0);
   return <Typography.Text strong={forte} type={n < 0 ? 'danger' : undefined} style={{ whiteSpace: 'nowrap' }}>{formatarKz(valor === null || valor === undefined ? null : n)}</Typography.Text>;
@@ -58,7 +58,8 @@ export function useRubricas(tipo?: TipoOrcamento) {
 }
 
 export function useOrcamentos(filtros: { ano?: number; tipo?: TipoOrcamento } = {}) {
-  return useQuery({ queryKey: ['orcamento', 'orcamentos', filtros], queryFn: () => obter<Orcamento[]>('/orcamento/orcamentos', filtros) });
+  // a lista é paginada no servidor (ADR-064): os seletores e a lista pedem a página máxima (500)
+  return useQuery({ queryKey: ['orcamento', 'orcamentos', filtros], queryFn: () => obter<Orcamento[]>('/orcamento/orcamentos', { ...filtros, por_pagina: 500 }) });
 }
 
 export function rotuloOrcamento(o: Pick<Orcamento, 'ano' | 'nome' | 'versao' | 'tipo' | 'estado'>): string {

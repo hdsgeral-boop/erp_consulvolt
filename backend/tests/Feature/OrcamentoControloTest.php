@@ -129,6 +129,17 @@ final class OrcamentoControloTest extends TestCase
         $this->assertEquals([1350, 350, -150, 'EXCEDIDO'], [$m[$this->ids['C04']]['consumido'], $m[$this->ids['C04']]['compromissos'], $m[$this->ids['C04']]['disponivel'],
             $m[$this->ids['C04']]['estado']]);
 
+        // afinação (ADR-064): dinheiro em texto com 2 casas; pedidos e alertas com a rubrica e o orçamento por nome
+        $this->assertSame(['1350.00', '350.00', '-150.00'], [$m[$this->ids['C04']]['consumido'], $m[$this->ids['C04']]['compromissos'], $m[$this->ids['C04']]['disponivel']]);
+        $this->assertSame('300.00', $this->postJson('/api/orcamento/verificar', array_replace($doc, ['documento' => 'X-9']), $a)->assertOk()->json('dados.0.documento'));
+        $pe = collect($this->getJson('/api/orcamento/pedidos-excesso', $this->s['aprovador'])->assertOk()->json('dados'))->firstWhere('id', $p['id']);
+        $this->assertSame(['1200.00', '100.00', $this->ids['C04']], [$pe['valor_orcado'], $pe['valor_excesso'], $pe['rubrica']['id']]);
+        $this->assertNotEmpty($pe['rubrica']['nome']);
+        $this->assertSame((int) now()->format('Y'), $pe['orcamento']['ano']);
+        $al = $this->getJson('/api/orcamento/alertas', $a)->assertOk()->json('dados.0');
+        $this->assertArrayHasKey('rubrica', $al);
+        $this->assertArrayHasKey('orcamento', $al);
+
         // rubrica sem dotação no orçamento: aviso, não bloqueio (o legado bloqueava qualquer gasto)
         $this->lancamento('7611', 10, $a)->assertCreated();
         $this->assertSame('SEM_DOTACAO', $this->em(fn () => LogAlertaOrcamental::query()->latest('id')->value('estado')));

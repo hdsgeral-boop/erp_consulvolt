@@ -10,7 +10,7 @@ import { formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatac
 import { ModalMotivo, useAccao } from '../comum/accoes';
 import { numero } from '../comum/calculos';
 import { EstadoTag } from '../comum/estados';
-import { NomeProduto, NomeTerceiro } from '../comum/referencias';
+import { NomeProduto, NomeTerceiro, type RefProduto } from '../comum/referencias';
 import { accoesFatura } from '../comum/regras';
 import type { FaturaCompra, ItemCompra } from '../comum/tipos';
 
@@ -26,13 +26,14 @@ interface ItemLegado {
 }
 
 /** Linhas para mostrar: as linhas normalizadas ou, nas facturas migradas, o JSON do legado. */
-export function linhasFatura(f: FaturaCompra & { itens?: ItemLegado[] | null }): { chave: string; produto_id: number; descricao: string | null; quantidade: number; preco: number; iva: number; liquido: number; imposto: number }[] {
+export function linhasFatura(f: FaturaCompra & { itens?: ItemLegado[] | null }): { chave: string; produto_id: number; produto?: RefProduto | null; descricao: string | null; quantidade: number; preco: number; iva: number; liquido: number; imposto: number }[] {
   if (f.linhas && f.linhas.length > 0) {
     return f.linhas.map((l: ItemCompra) => {
       const liquido = numero(l.total_kz ?? l.total ?? numero(l.quantidade) * numero(l.preco_unitario));
       return {
         chave: String(l.id),
         produto_id: l.produto_id,
+        produto: l.produto ?? null,
         descricao: l.descricao,
         quantidade: numero(l.quantidade),
         preco: numero(l.preco_unitario),
@@ -73,7 +74,7 @@ export function DetalheFatura() {
     <>
       <CabecalhoPagina
         titulo={`Factura ${f.numero_fatura}`}
-        subtitulo={<NomeTerceiro id={f.fornecedor_id} />}
+        subtitulo={<NomeTerceiro id={f.fornecedor_id} terceiro={f.fornecedor} />}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -108,7 +109,7 @@ export function DetalheFatura() {
           scroll={{ x: 'max-content' }}
           dataSource={linhas}
           columns={[
-            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} descricao={l.descricao} /> },
+            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
             { title: 'Qtd.', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
             { title: 'Preço (Kz)', dataIndex: 'preco', align: 'right', render: (v: number) => formatarKz(v) },
             { title: 'IVA %', dataIndex: 'iva', align: 'right', render: formatarNumero },

@@ -10,7 +10,8 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/modulos/compras/comum/accoes';
-import { lerTabelaColada } from './comum/regras';
+import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
+import { eFolhaExcel, lerTabelaColada } from './comum/regras';
 
 interface Moeda {
   id: number;
@@ -66,6 +67,19 @@ function useMoedas() {
   return useQuery({ queryKey: [...CHAVE, 'lista'], queryFn: () => obter<Moeda[]>('/sistema/moedas') });
 }
 
+/** Moeda funcional da empresa activa (GET /api/sistema/moedas/funcional — config_moedas_view ou config_moedas_gerir). */
+interface MoedaFuncional {
+  codigo_moeda: string;
+  nome: string | null;
+  simbolo: string | null;
+  casas_decimais: number;
+  base: boolean;
+}
+
+function useMoedaFuncional(activo: boolean) {
+  return useQuery({ queryKey: [...CHAVE, 'funcional'], queryFn: () => obter<MoedaFuncional>('/sistema/moedas/funcional'), enabled: activo, staleTime: 300_000 });
+}
+
 /** Configurações › Moedas e câmbios (config_moedas): moedas, moeda funcional, câmbios, importação e câmbios do BAI. */
 export default function Moedas() {
   const { pode } = useSessao();
@@ -85,7 +99,9 @@ export default function Moedas() {
 }
 
 function ListaMoedas({ gerir }: { gerir: boolean }) {
+  const { pode } = useSessao();
   const moedas = useMoedas();
+  const funcional = useMoedaFuncional(pode('config_moedas_view', 'config_moedas_gerir'));
   const [edicao, setEdicao] = useState<Moeda | 'nova' | null>(null);
   const [form] = Form.useForm<{ codigo: string; nome: string; simbolo: string; casas_decimais?: number; ativo?: boolean }>();
   const accao = useAccao({ invalidar: [CHAVE, ['sistema', 'gestao-empresas']], aoSucesso: () => setEdicao(null) });
@@ -97,11 +113,17 @@ function ListaMoedas({ gerir }: { gerir: boolean }) {
   }, [edicao, form]);
   return (
     <Card>
-      {gerir && (
-        <Flex justify="end" style={{ marginBottom: 12 }}>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova moeda</Button>
-        </Flex>
-      )}
+      <Flex justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 12 }}>
+        <Typography.Text>
+          {funcional.data ? (
+            <>
+              Moeda funcional da empresa activa: <strong>{funcional.data.codigo_moeda}</strong>
+              {funcional.data.nome ? ` — ${funcional.data.nome}` : ''}
+            </>
+          ) : null}
+        </Typography.Text>
+        {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova moeda</Button>}
+      </Flex>
       <Table<Moeda>
         rowKey="id"
         size="middle"
@@ -109,7 +131,7 @@ function ListaMoedas({ gerir }: { gerir: boolean }) {
         dataSource={moedas.data}
         pagination={false}
         columns={[
-          { title: 'Código', dataIndex: 'codigo', width: 90, render: (v: string, m) => (<><strong>{v}</strong>{m.base && <Tag color="gold" style={{ marginLeft: 6 }}>base</Tag>}</>) },
+          { title: 'Código', dataIndex: 'codigo', width: 90, render: (v: string, m) => (<><strong>{v}</strong>{m.base && <Tag color="gold" style={{ marginLeft: 6 }}>base</Tag>}{funcional.data?.codigo_moeda === v && <Tag color="blue" style={{ marginLeft: 6 }}>funcional</Tag>}</>) },
           { title: 'Nome', dataIndex: 'nome' },
           { title: 'Símbolo', dataIndex: 'simbolo', width: 90 },
           { title: 'Casas', dataIndex: 'casas_decimais', width: 80 },
@@ -258,15 +280,21 @@ function Importar() {
   const [conteudo, setConteudo] = useState('');
   const [decisao, setDecisao] = useState<'IGNORAR' | 'ACTUALIZAR'>('IGNORAR');
   const [simulacao, setSimulacao] = useState<ResultadoImportacao | null>(null);
+  const [ficheiro, setFicheiro] = useState<File | null>(null);
   const linhas = lerTabelaColada(conteudo);
   const executar = useMutation({
-    mutationFn: (simular: boolean) => enviar<ResultadoImportacao>('post', '/sistema/cambios/importar', { linhas, decisao, simular }),
+    // .xlsx/.xls: o ficheiro vai ao servidor (multipart) e é lido lá; texto colado ou CSV: linhas em JSON
+    mutationFn: (simular: boolean) =>
+      ficheiro
+        ? enviarFicheiro<ResultadoImportacao>('/sistema/cambios/importar', ficheiro, { decisao, simular })
+        : enviar<ResultadoImportacao>('post', '/sistema/cambios/importar', { linhas, decisao, simular }),
     onSuccess: ({ dados, mensagem }, simular) => {
       if (simular) setSimulacao(dados);
       else {
         message.success(mensagem);
         setSimulacao(null);
         setConteudo('');
+        setFicheiro(null);
         void cliente.invalidateQueries({ queryKey: CHAVE });
       }
     },
@@ -275,26 +303,39 @@ function Importar() {
   return (
     <Card>
       <Typography.Paragraph>
-        Cole as linhas copiadas do Excel (com cabeçalho) ou carregue um CSV. Colunas: <Typography.Text code>Data</Typography.Text> <Typography.Text code>Moeda</Typography.Text>{' '}
+        Carregue o ficheiro Excel (.xlsx) ou CSV, ou cole as linhas copiadas do Excel (com cabeçalho). Colunas: <Typography.Text code>Data</Typography.Text> <Typography.Text code>Moeda</Typography.Text>{' '}
         <Typography.Text code>Taxa</Typography.Text> e, opcionalmente, <Typography.Text code>Origem</Typography.Text> <Typography.Text code>Âmbito</Typography.Text> (Todas | Empresa).
       </Typography.Paragraph>
       <Space direction="vertical" style={{ width: '100%' }}>
-        <Upload
-          accept=".csv,.txt"
-          showUploadList={false}
-          beforeUpload={async (f) => {
-            setConteudo(await f.text());
-            setSimulacao(null);
-            return false;
-          }}
-        >
-          <Button icon={<UploadOutlined />}>Carregar CSV</Button>
-        </Upload>
-        <Input.TextArea rows={8} value={conteudo} onChange={(e) => { setConteudo(e.target.value); setSimulacao(null); }} placeholder={'Data\tMoeda\tTaxa\n2026-09-30\tUSD\t912,50'} style={{ fontFamily: 'monospace' }} />
+        <Space wrap>
+          <Upload
+            accept=".xlsx,.xls,.csv,.txt"
+            showUploadList={false}
+            beforeUpload={async (f) => {
+              if (eFolhaExcel(f.name)) {
+                setFicheiro(f);
+                setConteudo('');
+              } else {
+                setFicheiro(null);
+                setConteudo(await f.text());
+              }
+              setSimulacao(null);
+              return false;
+            }}
+          >
+            <Button icon={<UploadOutlined />}>Carregar ficheiro (.xlsx ou CSV)</Button>
+          </Upload>
+          {ficheiro && (
+            <Tag closable onClose={() => { setFicheiro(null); setSimulacao(null); }} color="blue">
+              {ficheiro.name}
+            </Tag>
+          )}
+        </Space>
+        <Input.TextArea rows={8} value={conteudo} disabled={ficheiro !== null} onChange={(e) => { setConteudo(e.target.value); setSimulacao(null); }} placeholder={'Data\tMoeda\tTaxa\n2026-09-30\tUSD\t912,50'} style={{ fontFamily: 'monospace' }} />
         <Flex gap={16} wrap align="center">
-          <Typography.Text>{linhas.length} linha(s) lida(s)</Typography.Text>
+          <Typography.Text>{ficheiro ? 'Ficheiro lido no servidor' : `${linhas.length} linha(s) lida(s)`}</Typography.Text>
           <Radio.Group value={decisao} onChange={(e) => setDecisao(e.target.value)} options={[{ value: 'IGNORAR', label: 'Manter os câmbios existentes' }, { value: 'ACTUALIZAR', label: 'Actualizar os existentes' }]} />
-          <Button disabled={!linhas.length} loading={executar.isPending} onClick={() => executar.mutate(true)}>Validar (simulação)</Button>
+          <Button disabled={!ficheiro && !linhas.length} loading={executar.isPending} onClick={() => executar.mutate(true)}>Validar (simulação)</Button>
           <Button type="primary" disabled={!simulacao || simulacao.novos + simulacao.existentes === 0} loading={executar.isPending} onClick={() => executar.mutate(false)}>Importar</Button>
         </Flex>
         {simulacao && (

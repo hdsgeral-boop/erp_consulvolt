@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\POS;
 
 use App\Http\Controllers\Controller;
+use App\Models\Colaborador;
 use App\Models\PecaLavandaria;
 use App\Models\PedidoLavandaria;
 use App\Models\Produto;
@@ -114,6 +115,20 @@ final class LavandariaController extends Controller
             'responsavel' => ['nullable', 'string', 'max:20']]);
 
         return RespostaApi::sucesso($this->ordens->listar($f), 'Ordens de serviço.');
+    }
+
+    /**
+     * GET /colaboradores — só id e nome (e se está activo), para atribuir ordens e filtrar por responsável sem as
+     * permissões do RH (ADR-064). Por omissão só os não inactivos; ?todos=1 inclui os inactivos (ordens antigas).
+     */
+    public function colaboradores(Request $r): JsonResponse
+    {
+        $this->exigir(...self::VER);
+        $f = $r->validate(['todos' => ['nullable', 'boolean']]);
+
+        return RespostaApi::sucesso(Colaborador::query()->when(! ($f['todos'] ?? false), fn ($q) => $q->where(fn ($x) => $x->whereNull('estado')->orWhere('estado', '<>', 'INACTIVO')))
+            ->orderBy('nome_completo')->get(['id', 'nome_completo', 'estado'])
+            ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->nome_completo, 'activo' => $c->estado !== 'INACTIVO'])->values(), 'Colaboradores.');
     }
 
     public function ordem(int $ordem): JsonResponse

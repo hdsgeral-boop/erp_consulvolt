@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\RH;
 use App\Http\Controllers\Controller;
 use App\Models\PedidoPortalColaborador;
 use App\Services\RH\ServicoAusencias;
+use App\Services\RH\ServicoAvaliacao360;
 use App\Services\RH\ServicoDocumentosRH;
 use App\Services\RH\ServicoPortalColaborador;
 use App\Support\Api\RespostaApi;
@@ -41,6 +42,33 @@ final class PortalColaboradorController extends Controller
     public function recibos(): JsonResponse
     {
         return RespostaApi::sucesso($this->portal->recibos(), 'Os meus recibos de vencimento.');
+    }
+
+    /** GET /ausencias — as minhas faltas (por omissão as por justificar; ?estado=TODOS para o histórico). */
+    public function ausencias(Request $r): JsonResponse
+    {
+        $f = $r->validate(['estado' => ['nullable', Rule::in(['TODOS', 'POR_JUSTIFICAR', 'PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'RECUSADO', 'CANCELADO'])]]);
+
+        return RespostaApi::sucesso($this->portal->minhasAusencias($f['estado'] ?? null), 'As minhas ausências.');
+    }
+
+    public function dependentes(): JsonResponse
+    {
+        return RespostaApi::sucesso($this->portal->meusDependentes(), 'Os meus dependentes.');
+    }
+
+    /** GET /avaliacoes — a minha avaliação (concluídas, acompanhamento, ciclo aberto, 360º e ascendente). */
+    public function avaliacoes(ServicoAvaliacao360 $a360): JsonResponse
+    {
+        return RespostaApi::sucesso($a360->minhaAvaliacao(), 'A minha avaliação.');
+    }
+
+    /** GET /utilizadores — utilizadores da empresa activa, para os ligar a colaboradores. */
+    public function utilizadores(): JsonResponse
+    {
+        $this->exigir('rh_portal_gestao_view', 'rh_portal_aprovar');
+
+        return RespostaApi::sucesso($this->portal->utilizadoresEmpresa(), 'Utilizadores da empresa.');
     }
 
     public function criarPedido(Request $r): JsonResponse

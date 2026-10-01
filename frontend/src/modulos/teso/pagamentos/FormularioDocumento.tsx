@@ -64,7 +64,7 @@ export function FormularioDocumento() {
         unidade_negocio_id: l.unidade_negocio_id ?? undefined,
         venda_id: l.venda_id ?? undefined,
         fatura_compra_id: l.fatura_compra_id ?? undefined,
-        _terceiro: l.terceiro_id ? `Terceiro #${l.terceiro_id}` : undefined,
+        _terceiro: l.terceiro?.nome?.trim() ?? (l.terceiro_id ? `Terceiro #${l.terceiro_id}` : undefined),
       })),
     });
   }, [existente.data, form]);

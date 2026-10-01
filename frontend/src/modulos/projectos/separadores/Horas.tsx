@@ -1,39 +1,27 @@
-import { Alert, Button, Card, DatePicker, Form, InputNumber, Modal, Popconfirm, Space, Table, Typography } from 'antd';
+import { Button, Card, DatePicker, Form, InputNumber, Modal, Popconfirm, Space, Table, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
-import { useSessao } from '@/sessao/SessaoContexto';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { useAccao } from '@/modulos/compras/comum/accoes';
-import { useColaboradores } from '@/modulos/rh/comum/consultas';
 import { SeletorActivo } from '@/modulos/activos/comum/componentes';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { EtiquetaProjectos, SeletorMembro, SeletorTarefa, useWbs } from '../comum/componentes';
-import { achatarWbs } from '../comum/regras';
-import type { Extracto, FolhaHoras, MovimentoExtracto } from '../comum/tipos';
+import { EtiquetaProjectos, SeletorMembro, SeletorTarefa } from '../comum/componentes';
+import type { EquipamentosProjecto, FolhaHoras, UsoEquipamento } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 
 /** Folhas de horas (só colaboradores internos da equipa) e imputação do uso de equipamentos (activos) às tarefas. */
 export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
-  const { pode } = useSessao();
   const horas = useQuery({ queryKey: ['projectos', 'horas', projecto.id], queryFn: () => obter<FolhaHoras[]>(`/projetos/${projecto.id}/horas`) });
-  // Não há GET próprio dos usos de equipamento: lêem-se do extracto analítico (exige projectos_extracto_view).
-  const equip = useQuery({
-    queryKey: ['projectos', 'extracto', 'equipamentos', projecto.id],
-    queryFn: () => obter<Extracto>('/projetos/extracto', { projeto_id: projecto.id }),
-    enabled: pode('projectos_extracto_view'),
-    retry: false,
-  });
-  const colab = useColaboradores();
-  const w = useWbs(projecto.id);
-  const tarefas = useMemo(() => new Map(achatarWbs(w.data).map((t) => [t.id, t.nome])), [w.data]);
+  const equip = useQuery({ queryKey: ['projectos', 'equipamentos', projecto.id], queryFn: () => obter<EquipamentosProjecto>(`/projetos/${projecto.id}/equipamentos`) });
   const [novaHora, setNovaHora] = useState(false);
   const [novoEquip, setNovoEquip] = useState(false);
   const accao = useAccao({ invalidar: [['projectos']] });
-  const usos = (equip.data?.movimentos ?? []).filter((m) => m.modulo === 'ATIVOS' && m.origem === 'EQUIPAMENTOS' && m.fonte === 'RAZAO');
+  const usos = equip.data?.usos ?? [];
   const totalHoras = (horas.data ?? []).reduce((t, h) => t + Number(h.horas), 0);
+  const tarefa = (codigo: string | null | undefined, nome: string | null | undefined, id: number | null) => (nome ? [codigo, nome].filter(Boolean).join(' — ') : id ? `#${id}` : '—');
 
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
@@ -46,8 +34,8 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
           pagination={{ pageSize: 20 }}
           columns={[
             { title: 'Data', dataIndex: 'data', render: formatarData },
-            { title: 'Colaborador', dataIndex: 'colaborador_id', render: (id) => colab.nome(id) },
-            { title: 'Tarefa', dataIndex: 'tarefa_projeto_id', render: (id) => tarefas.get(id) ?? `#${id}` },
+            { title: 'Colaborador', dataIndex: 'colaborador_nome', render: (v: string | null | undefined, h) => v ?? `#${h.colaborador_id}` },
+            { title: 'Tarefa', key: 't', render: (_, h) => tarefa(h.tarefa_codigo, h.tarefa_nome, h.tarefa_projeto_id) },
             { title: 'Horas', dataIndex: 'horas', align: 'right', render: formatarNumero },
             { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaProjectos valor={v} /> },
             {
@@ -62,33 +50,40 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
           ]}
         />
       </Card>
-      <Card size="small" title="Uso de equipamentos" extra={acc.execucao && <Button size="small" icon={<PlusOutlined />} onClick={() => setNovoEquip(true)}>Imputar equipamento</Button>}>
-        {!pode('projectos_extracto_view') ? (
-          <Alert type="info" showIcon message="A lista dos usos de equipamento lê-se do extracto analítico, que exige a permissão do ecrã «Extracto analítico». O registo continua disponível." />
-        ) : (
-          <Table<MovimentoExtracto>
-            rowKey={(m) => String(m.fonte_id)}
-            size="small"
-            loading={equip.isFetching}
-            dataSource={usos}
-            pagination={{ pageSize: 20 }}
-            columns={[
-              { title: 'Data', dataIndex: 'data', render: formatarData },
-              { title: 'Equipamento', dataIndex: 'documento' },
-              { title: 'Tarefa', key: 't', render: (_, m) => m.tarefa ?? (m.tarefa_projeto_id ? tarefas.get(m.tarefa_projeto_id) : null) ?? '—' },
-              { title: 'Descrição', dataIndex: 'descricao', ellipsis: true },
-              { title: 'Custo (Kz)', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> },
-              {
-                title: '', key: 'acc', align: 'right',
-                render: (_, m) => acc.eliminar && m.fonte_id && (
-                  <Popconfirm title="Eliminar este uso de equipamento?" okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
-                    onConfirm={() => accao.mutate({ metodo: 'delete', url: `/projetos/${projecto.id}/equipamentos/${m.fonte_id}` })}>
-                    <Button size="small" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>
-                ),
-              },
-            ]}
-          />
+      <Card size="small" title={`Uso de equipamentos (${formatarKz(equip.data?.total ?? '0.00')} Kz)`} extra={acc.execucao && <Button size="small" icon={<PlusOutlined />} onClick={() => setNovoEquip(true)}>Imputar equipamento</Button>}>
+        <Table<UsoEquipamento>
+          rowKey="id"
+          size="small"
+          loading={equip.isFetching}
+          dataSource={usos}
+          pagination={{ pageSize: 20 }}
+          columns={[
+            { title: 'Data', dataIndex: 'data', render: formatarData },
+            { title: 'Equipamento', key: 'e', render: (_, m) => (m.ativo_codigo ? `${m.ativo_codigo}${m.ativo_descricao ? ` — ${m.ativo_descricao}` : ''}` : '—') },
+            { title: 'Tarefa', key: 't', render: (_, m) => tarefa(m.tarefa_codigo, m.tarefa_nome, m.tarefa_projeto_id) },
+            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true },
+            { title: 'Custo (Kz)', dataIndex: 'montante', align: 'right', render: (v) => <ValorKz valor={v} /> },
+            {
+              title: '', key: 'acc', align: 'right',
+              render: (_, m) => acc.eliminar && (
+                <Popconfirm title="Eliminar este uso de equipamento?" okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
+                  onConfirm={() => accao.mutate({ metodo: 'delete', url: `/projetos/${projecto.id}/equipamentos/${m.id}` })}>
+                  <Button size="small" danger icon={<DeleteOutlined />} />
+                </Popconfirm>
+              ),
+            },
+          ]}
+        />
+        {(equip.data?.afetacoes ?? []).length > 0 && (
+          <>
+            <Typography.Text strong style={{ display: 'block', marginTop: 12 }}>Activos afectos ao projecto</Typography.Text>
+            <Table size="small" rowKey="id" pagination={false} dataSource={equip.data?.afetacoes ?? []} style={{ marginTop: 8 }}
+              columns={[
+                { title: 'Activo', key: 'a', render: (_, f) => `${f.ativo_codigo ?? `#${f.ativo_imobilizado_id}`}${f.ativo_descricao ? ` — ${f.ativo_descricao}` : ''}` },
+                { title: 'De', dataIndex: 'data_inicio', render: formatarData },
+                { title: 'Até', dataIndex: 'data_fim', render: (v: string | null) => (v ? formatarData(v) : 'em curso') },
+              ]} />
+          </>
         )}
       </Card>
       <ModalHoras projectoId={projecto.id} aberto={novaHora} aoFechar={() => setNovaHora(false)} />

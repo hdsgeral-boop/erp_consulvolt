@@ -32,7 +32,7 @@ final class ProjetoController extends Controller
         $this->exigir(...self::LER);
         $f = $r->validate(['estado' => ['nullable', Rule::in(Projeto::ESTADOS)], 'tipo' => ['nullable', Rule::in(Projeto::TIPOS)], 'pesquisa' => ['nullable', 'string', 'max:100'],
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
-        $q = Projeto::query()
+        $q = Projeto::query()->with(['cliente' => fn ($c) => $c->withTrashed()->select(['id', 'nome', 'nif'])])   // nome do cliente na carteira (ADR-064)
             ->when($f['estado'] ?? null, fn ($q, $v) => $v === 'ACTIVO' ? $q->whereIn('estado', ['ACTIVO', 'EM_CURSO']) : $q->where('estado', $v))
             ->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))
             ->when($f['pesquisa'] ?? null, fn ($q, $v) => $q->where(fn ($x) => $x->where('codigo', 'ilike', "%{$v}%")->orWhere('nome', 'ilike', "%{$v}%")));

@@ -13,6 +13,7 @@ use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 /** /api/rh/estrutura — unidades orgânicas, postos, afectação e chefia; /api/rh/cargos — funções e categorias. */
@@ -25,6 +26,14 @@ final class EstruturaController extends Controller
         $this->exigir('est_estrutura_view', 'colaboradores_view');
 
         return RespostaApi::sucesso($this->estrutura->arvore(), 'Estrutura orgânica.');
+    }
+
+    /** GET /estrutura/mapa — mapa de pessoal por unidade e por cargo; a massa salarial só com est_ver_salarios (ADR-064). */
+    public function mapa(): JsonResponse
+    {
+        $this->exigir('est_mapa_view', 'est_mapa', 'est_estrutura_view');
+
+        return RespostaApi::sucesso($this->estrutura->mapaPessoal(Gate::any(['est_ver_salarios'])), 'Mapa de pessoal.');
     }
 
     public function guardarUnidade(Request $r, ?int $unidade = null): JsonResponse

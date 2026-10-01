@@ -8,6 +8,7 @@ use App\Models\LinhaExtratoBancario;
 use App\Models\MovimentoCaixa;
 use App\Models\ReconciliacaoBancaria;
 use App\Models\SessaoCaixa;
+use App\Services\Compras\RelacoesNomes;
 use App\Services\Tesouraria\ServicoCaixa;
 use App\Services\Tesouraria\ServicoConferenciaCaixa;
 use App\Services\Tesouraria\ServicoConfigTesouraria;
@@ -248,7 +249,8 @@ final class OperacoesTesourariaController extends Controller
 
         return $s->toArray() + ['saldo_sistema' => $this->caixa->saldoSistema($s),
             'diferenca' => $s->saldo_fisico !== null && $s->saldo_fecho !== null ? bcsub((string) $s->saldo_fisico, (string) $s->saldo_fecho, 2) : null,
-            'movimentos' => MovimentoCaixa::query()->where('sessao_caixa_id', $s->id)->orderBy('data_documento')->orderBy('id')->get()->toArray()];
+            'movimentos' => MovimentoCaixa::query()->where('sessao_caixa_id', $s->id)->with(RelacoesNomes::terceiro())
+                ->orderBy('data_documento')->orderBy('id')->get()->toArray()];
     }
 
     private function motivo(Request $r): string

@@ -42,7 +42,7 @@ export default function EncomendasClientes() {
   });
 
   const encomendas = useMemo(
-    () => (consulta.data ?? []).filter((e) => contemTexto(pesquisa, e.numero_documento, e.cliente, ...e.linhas.map((l) => l.produto))),
+    () => (consulta.data ?? []).filter((e) => contemTexto(pesquisa, e.numero_documento, e.cliente?.nome, ...e.linhas.map((l) => l.produto))),
     [consulta.data, pesquisa],
   );
   const selecionaveis = useMemo(() => new Set(linhasSelecionaveis(encomendas)), [encomendas]);
@@ -98,7 +98,7 @@ export default function EncomendasClientes() {
                 <Space wrap>
                   <strong>{e.numero_documento}</strong>
                   <span>{formatarData(e.data_emissao)}</span>
-                  <span>{e.cliente?.trim()}</span>
+                  <span>{e.cliente?.nome?.trim()}</span>
                   {e.estado && <EstadoTag estado={e.estado} />}
                 </Space>
               }

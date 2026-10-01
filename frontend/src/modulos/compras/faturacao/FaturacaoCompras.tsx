@@ -1,9 +1,9 @@
-import { Button, Card, Checkbox, DatePicker, Flex, Select } from 'antd';
+import { Button, Card, Checkbox, DatePicker, Flex, Input, Select, Tag } from 'antd';
 import { CheckCircleTwoTone, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
@@ -11,7 +11,7 @@ import { EstadoTag, opcoesEstado } from '../comum/estados';
 import { ModalContas } from '../comum/ModalContas';
 import { NomeTerceiro } from '../comum/referencias';
 import { SeletorTerceiro } from '../comum/Seletores';
-import { TabelaServidor } from '../comum/Tabelas';
+import { TabelaApi } from '@/componentes/TabelaApi';
 import type { FaturaCompra } from '../comum/tipos';
 import { ValorMoeda } from '../comum/Valores';
 import { DetalheFatura } from './DetalheFatura';
@@ -36,11 +36,15 @@ function ListaFaturas() {
   const [porContabilizar, setPorContabilizar] = useState(false);
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [contas, setContas] = useState(false);
+  const [pesquisa, setPesquisa] = useState('');
+  // ?encomenda=ID — facturas de uma encomenda (ligação a partir do detalhe da encomenda)
+  const [params, setParams] = useSearchParams();
+  const encomenda = Number(params.get('encomenda')) || undefined;
 
   const colunas: ColumnsType<FaturaCompra> = [
     { title: 'Factura', dataIndex: 'numero_fatura', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Fornecedor', key: 'fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} /> },
+    { title: 'Fornecedor', key: 'fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },
     { title: 'Encomenda', dataIndex: 'encomenda_compra_id', render: (v: number | null) => (v ? `#${v}` : 'Directa') },
     { title: 'Total (Kz)', key: 'total', align: 'right', render: (_, r) => <ValorMoeda kz={r.montante_total} moeda={r.codigo_moeda} valorMoeda={r.montante_total_moeda} /> },
     { title: 'Vencimento', dataIndex: 'data_vencimento', render: formatarData },
@@ -73,14 +77,20 @@ function ListaFaturas() {
           <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={opcoesEstado(['PENDENTE', 'PARCIAL', 'PAGO', 'ANULADA'])} />
           <SeletorTerceiro papel="FORNECEDOR" style={{ width: 320 }} value={fornecedor} onChange={setFornecedor} />
           <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
+          <Input.Search placeholder="N.º da factura" allowClear style={{ width: 200 }} onSearch={(v) => setPesquisa(v.trim())} />
+          {encomenda && (
+            <Tag closable onClose={() => setParams({})}>
+              Encomenda #{encomenda}
+            </Tag>
+          )}
           <Checkbox checked={porContabilizar} onChange={(e) => setPorContabilizar(e.target.checked)}>
             Só por contabilizar
           </Checkbox>
         </Flex>
-        <TabelaServidor<FaturaCompra>
+        <TabelaApi<FaturaCompra>
           url="/compras/faturas"
           chaveConsulta={['compras', 'faturas']}
-          filtros={{ estado, fornecedor_id: fornecedor, por_contabilizar: porContabilizar ? 1 : undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
+          filtros={{ estado, fornecedor_id: fornecedor, encomenda_compra_id: encomenda, pesquisa: pesquisa || undefined, por_contabilizar: porContabilizar ? 1 : undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
           columns={colunas}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />

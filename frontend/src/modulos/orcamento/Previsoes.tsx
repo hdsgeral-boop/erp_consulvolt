@@ -122,7 +122,7 @@ function Detalhe() {
 
   const colunas: ColumnsType<Linha> = [
     { title: 'Rubrica', key: 'r', fixed: 'left', width: 240, render: (_, l) => <><strong>{l.codigo}</strong> {l.nome}</> },
-    ...r.meses_reais.map((m, i) => ({ title: <Typography.Text type="secondary">{dayjs(`${m}-01`).format('MMM YY')} (real)</Typography.Text>, key: `real${i}`, align: 'right' as const, render: (_: unknown, l: Linha) => <Typography.Text type="secondary">{(l.real_recente[i] ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</Typography.Text> })),
+    ...r.meses_reais.map((m, i) => ({ title: <Typography.Text type="secondary">{dayjs(`${m}-01`).format('MMM YY')} (real)</Typography.Text>, key: `real${i}`, align: 'right' as const, render: (_: unknown, l: Linha) => <Typography.Text type="secondary">{Number(l.real_recente[i] ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</Typography.Text> })),
     ...r.meses.map((m) => ({
       title: dayjs(`${m}-01`).format('MMM YY'), key: m, align: 'right' as const,
       render: (_: unknown, l: Linha) => editavel

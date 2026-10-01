@@ -16,7 +16,7 @@ import { EstadoTag, opcoesEstado } from '@/modulos/compras/comum/estados';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { NomeArmazem } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem, SeletorProduto } from '@/modulos/compras/comum/Seletores';
-import { TabelaLocal } from '@/modulos/compras/comum/Tabelas';
+import { TabelaApi } from '@/componentes/TabelaApi';
 import { accoesInventario, previsualizarRegularizacao } from './regras';
 import type { LinhaInventario, SessaoInventario } from './tipos';
 
@@ -98,11 +98,10 @@ function ListaSessoes({ modo }: { modo: ModoInventario }) {
           <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 220 }} value={armazem} onChange={setArmazem} />
           {modo === 'sessoes' && <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={opcoesEstado(['EM_CONTAGEM', 'REVISAO', 'CONCLUIDA', 'ANULADA'])} />}
         </Flex>
-        <TabelaLocal<SessaoInventario>
+        <TabelaApi<SessaoInventario>
           url="/logistica/inventarios"
-          params={{ armazem_id: armazem }}
+          filtros={{ armazem_id: armazem, estado, pesquisa: pesquisa.trim() || undefined }}
           chaveConsulta={['logistica', 'inventarios']}
-          filtrar={(s) => (!estado || s.estado === estado) && contemTexto(pesquisa, s.descricao)}
           columns={colunas}
           locale={{ emptyText: modo === 'contagem' ? 'Não há inventários em contagem.' : modo === 'revisao' ? 'Não há inventários em revisão.' : undefined }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}

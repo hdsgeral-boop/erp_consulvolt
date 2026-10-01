@@ -8,6 +8,7 @@ use App\Models\TaxaCambio;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Sistema\ServicoCambiosBAI;
 use App\Services\Sistema\ServicoGestaoEmpresas;
+use App\Services\Sistema\ServicoLeituraFolha;
 use App\Services\Sistema\ServicoMoedas;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -30,11 +31,21 @@ final class MoedaController extends Controller
         private readonly ServicoGestaoEmpresas $gestao,
     ) {}
 
-    public function index(Request $r): JsonResponse
+    /** GET /api/sistema/moedas — lista de moedas; a moeda funcional da empresa activa segue em metadados.moeda_funcional. */
+    public function index(Request $r, ContextoEmpresa $contexto): JsonResponse
     {
         $d = $r->validate(['ativas' => ['nullable', 'boolean']]);
 
-        return RespostaApi::sucesso($this->moedas->moedas((bool) ($d['ativas'] ?? false)), 'Moedas obtidas com sucesso.');
+        return RespostaApi::sucesso($this->moedas->moedas((bool) ($d['ativas'] ?? false)), 'Moedas obtidas com sucesso.', 200,
+            ['moeda_funcional' => $this->moedas->moedaFuncional($contexto->obrigatorio())['codigo_moeda']]);
+    }
+
+    /** GET /api/sistema/moedas/funcional — moeda funcional da empresa activa (config_moedas_view ou config_moedas_gerir). */
+    public function obterFuncional(ContextoEmpresa $contexto): JsonResponse
+    {
+        $this->exigir(...self::VER);
+
+        return RespostaApi::sucesso($this->moedas->moedaFuncional($contexto->obrigatorio()), 'Moeda funcional da empresa.');
     }
 
     public function store(Request $r): JsonResponse
@@ -106,14 +117,20 @@ final class MoedaController extends Controller
         return RespostaApi::sucesso(null, 'Câmbio eliminado.');
     }
 
-    /** POST /api/sistema/cambios/importar — linhas da folha (Data | Moeda | Taxa | Origem | Âmbito). */
-    public function importar(Request $r): JsonResponse
+    /**
+     * POST /api/sistema/cambios/importar — linhas da folha (Data | Moeda | Taxa | Origem | Âmbito), em JSON `linhas`
+     * ou num ficheiro XLSX/XLS/CSV em multipart (`ficheiro`), lido no servidor; decisao IGNORAR|ACTUALIZAR e simular.
+     */
+    public function importar(Request $r, ServicoLeituraFolha $folha): JsonResponse
     {
         $this->exigir('config_moedas_gerir');
-        $d = $r->validate(['linhas' => ['required', 'array', 'min:1', 'max:20000'], 'linhas.*' => ['array'], 'decisao' => ['nullable', Rule::in(['IGNORAR', 'ACTUALIZAR'])],
-            'simular' => ['nullable', 'boolean']]);
+        $d = $r->validate(['linhas' => ['required_without:ficheiro', 'array', 'min:1', 'max:20000'], 'linhas.*' => ['array'],
+            'ficheiro' => ['required_without:linhas', 'file', 'max:20480', 'extensions:xlsx,xls,csv,txt'],
+            'decisao' => ['nullable', Rule::in(['IGNORAR', 'ACTUALIZAR'])], 'simular' => ['nullable', 'boolean']],
+            ['ficheiro.extensions' => 'O ficheiro tem de ser XLSX, XLS ou CSV.']);
         $simular = (bool) ($d['simular'] ?? false);
-        $res = $this->moedas->importarCambios($r->input('linhas'), $d['decisao'] ?? 'IGNORAR', $simular);
+        $linhas = $r->hasFile('ficheiro') ? $folha->linhas($r->file('ficheiro'), 'Cambios') : $r->input('linhas');
+        $res = $this->moedas->importarCambios($linhas, $d['decisao'] ?? 'IGNORAR', $simular);
 
         return RespostaApi::sucesso($res, $simular ? 'Simulação da importação de câmbios.'
             : "Importação concluída: {$res['importados']} novo(s), {$res['actualizados']} actualizado(s), ".count($res['rejeitadas']).' rejeitado(s).');

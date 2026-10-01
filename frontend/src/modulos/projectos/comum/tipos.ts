@@ -13,6 +13,8 @@ export interface Projecto {
   centro_custo_id: number | null;
   cliente_id: number | null;
   encomenda_venda_id: number | null;
+  /** Na carteira: o cliente por nome (ADR-064). */
+  cliente?: { id: number; nome: string; nif?: string | null } | null;
 }
 
 export interface FichaProjecto extends Projecto {
@@ -46,9 +48,9 @@ export interface ResumoProjecto {
   curva_s: { meses: string[]; previsto: number[]; realizado: number[]; faturado: number[] | null };
   orcado_realizado: { rubrica: string; orcado: string; realizado: string }[];
   origem_custos: Record<string, string>;
-  orcamento_por_rubrica: { rubrica: string; montante: string }[] | Record<string, string>;
+  orcamento_por_rubrica: Record<string, string>;
   execucao_por_marco: { marco: string; execucao: number; tarefas: number }[];
-  horas_por_colaborador: { nome: string; horas: number }[] | Record<string, number>;
+  horas_por_colaborador: { colaborador_id: number; nome: string; horas: number }[];
   equipa_por_papel: Record<string, number>;
   alertas: Alerta[];
   ficha: {
@@ -185,6 +187,12 @@ export interface LinhaOrcamento {
   numero_conta: string | null;
   no_organigrama_projeto_id: number | null;
   membro_equipa_projeto_id: number | null;
+  /** Nomes (ADR-064). */
+  tarefa_codigo?: string | null;
+  tarefa_nome?: string | null;
+  posicao_titulo?: string | null;
+  membro_nome?: string | null;
+  colaborador_id?: number | null;
 }
 
 export interface Aditamento {
@@ -203,6 +211,31 @@ export interface FolhaHoras {
   data: string;
   horas: string;
   estado: string;
+  /** Nomes (ADR-064). */
+  colaborador_nome?: string | null;
+  tarefa_codigo?: string | null;
+  tarefa_nome?: string | null;
+}
+
+/** GET /projetos/{id}/equipamentos (ADR-064). */
+export interface UsoEquipamento {
+  id: number;
+  data: string | null;
+  tarefa_projeto_id: number | null;
+  tarefa_codigo: string | null;
+  tarefa_nome: string | null;
+  ativo_imobilizado_id: number | null;
+  ativo_codigo: string | null;
+  ativo_descricao: string | null;
+  descricao: string | null;
+  montante: string;
+  lancamento_contabil_id: number | null;
+}
+
+export interface EquipamentosProjecto {
+  usos: UsoEquipamento[];
+  total: string;
+  afetacoes: { id: number; ativo_imobilizado_id: number; ativo_codigo: string | null; ativo_descricao: string | null; data_inicio: string | null; data_fim: string | null }[];
 }
 
 export interface Requisicao {

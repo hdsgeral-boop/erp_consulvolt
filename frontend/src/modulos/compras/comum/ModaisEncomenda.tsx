@@ -84,7 +84,7 @@ export function ModalRececao({ encomenda, aberto, aoFechar, aoRegistar }: { enco
               pagination={false}
               dataSource={campos}
               columns={[
-                { title: 'Artigo', render: (_, c) => <NomeProduto id={linhasEnc[c.name]?.produto_id} descricao={linhasEnc[c.name]?.descricao} /> },
+                { title: 'Artigo', render: (_, c) => <NomeProduto id={linhasEnc[c.name]?.produto_id} produto={linhasEnc[c.name]?.produto} descricao={linhasEnc[c.name]?.descricao} /> },
                 { title: 'Encomendado', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade) },
                 { title: 'Já recebido', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade_recebida ?? 0) },
                 {
@@ -198,7 +198,7 @@ export function ModalFaturaEncomenda({ encomenda, aberto, aoFechar, aoRegistar }
               pagination={false}
               dataSource={campos}
               columns={[
-                { title: 'Artigo', render: (_, c) => <NomeProduto id={linhasEnc[c.name]?.produto_id} descricao={linhasEnc[c.name]?.descricao} /> },
+                { title: 'Artigo', render: (_, c) => <NomeProduto id={linhasEnc[c.name]?.produto_id} produto={linhasEnc[c.name]?.produto} descricao={linhasEnc[c.name]?.descricao} /> },
                 { title: 'Encomendado', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade) },
                 { title: 'Recebido', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade_recebida ?? 0) },
                 { title: 'Facturado', align: 'right', render: (_, c) => formatarNumero(linhasEnc[c.name]?.quantidade_faturada ?? 0) },

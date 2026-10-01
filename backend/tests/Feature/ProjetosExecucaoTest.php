@@ -244,4 +244,35 @@ final class ProjetosExecucaoTest extends TestCase
         $this->assertSame(['40000.00', '-40000.00'], [$rent['linhas'][0]['custos'], $rent['linhas'][0]['margem']]);
         $this->assertSame(0.0, $rent['kpis']['horas']);
     }
+
+    /** Afinação da Fase 5 (ADR-064): nomes nas horas e no orçamento, GET dos equipamentos, cliente na carteira, mapas como objecto. */
+    #[Test]
+    public function afinacao_nomes_equipamentos_e_cliente_na_carteira(): void
+    {
+        $s = $this->s;
+        $p = $this->ids['p'];
+        $vazio = $this->getJson("/api/projetos/{$p}/resumo", $s)->assertOk();
+        $this->assertStringContainsString('"orcamento_por_rubrica":{', $vazio->getContent());   // objecto, nunca []
+
+        $this->postJson("/api/projetos/{$p}/horas", ['tarefa_projeto_id' => $this->ids['t3'], 'colaborador_id' => $this->ids['rui'], 'data' => '2026-09-10', 'horas' => 6], $s)->assertCreated();
+        $h = $this->getJson("/api/projetos/{$p}/horas", $s)->assertOk()->json('dados.0');
+        $this->assertSame(['Rui', 'Instalações'], [$h['colaborador_nome'], $h['tarefa_nome']]);
+        $this->assertSame([['colaborador_id' => $this->ids['rui'], 'nome' => 'Rui', 'horas' => 6.0]],
+            $this->getJson("/api/projetos/{$p}/resumo", $s)->json('dados.horas_por_colaborador'));
+
+        $this->postJson("/api/projetos/{$p}/orcamento", ['tarefa_projeto_id' => $this->ids['t3'], 'rubrica' => 'MAO_DE_OBRA', 'montante' => 1500], $s)->assertCreated();
+        $l = collect($this->getJson("/api/projetos/{$p}/orcamento", $s)->assertOk()->json('dados.linhas'))->firstWhere('tarefa_projeto_id', $this->ids['t3']);
+        $this->assertSame('Instalações', $l['tarefa_nome']);
+
+        $this->getJson("/api/projetos/{$p}/equipamentos", $s)->assertOk()->assertJsonPath('dados.usos', [])->assertJsonPath('dados.total', '0.00');
+        $this->postJson("/api/projetos/{$p}/equipamentos", ['tarefa_projeto_id' => $this->ids['t3'], 'ativo_imobilizado_id' => $this->ids['ativo'], 'data' => '2026-09-15',
+            'horas' => 2, 'custo_hora' => 1000.5], $s)->assertCreated();
+        $e = $this->getJson("/api/projetos/{$p}/equipamentos", $s)->assertOk()->json('dados');
+        $this->assertSame([$this->ids['ativo'], 'RETRO1', 'Retroescavadora', 'Instalações', '2001.00', '2001.00'],
+            [$e['usos'][0]['ativo_imobilizado_id'], $e['usos'][0]['ativo_codigo'], $e['usos'][0]['ativo_descricao'], $e['usos'][0]['tarefa_nome'], $e['usos'][0]['montante'], $e['total']]);
+        $this->getJson("/api/projetos/{$p}/equipamentos", $this->sessao(['vendas_view']))->assertForbidden();
+
+        $linha = collect($this->getJson('/api/projetos', $s)->assertOk()->json('dados'))->firstWhere('id', $p);
+        $this->assertSame(['id' => $this->ids['cliente'], 'nome' => 'Cliente A', 'nif' => '5000000001'], $linha['cliente']);
+    }
 }

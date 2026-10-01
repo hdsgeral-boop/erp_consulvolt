@@ -2,16 +2,16 @@ import { Button, Card, Flex, Input, InputNumber, Modal, Progress, Radio, Select,
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
 import { useAccao } from '@/modulos/compras/comum/accoes';
 import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { EtiquetaOrc, Kz, useOrcamentos, useRubricas } from './comum/componentes';
+import { EtiquetaOrc, Kz } from './comum/componentes';
 import { corMonitor, MESES } from './comum/regras';
-import type { AlertaOrcamental, LinhaMonitor, PedidoExcesso } from './comum/tipos';
+import type { AlertaOrcamental, LinhaMonitor, PedidoExcesso, RefOrcamento, RefRubrica } from './comum/tipos';
 
 /** Orçamento › Alertas e aprovações (ecrã orc_alertas): pedidos de excesso para decidir, registo de alertas e monitor de consumo. */
 export default function Alertas() {
@@ -30,21 +30,17 @@ export default function Alertas() {
   );
 }
 
-function useNomes() {
-  const rub = useRubricas();
-  const orc = useOrcamentos({});
-  return useMemo(() => ({
-    rubrica: (id: number | null) => { const r = rub.data?.find((x) => x.id === id); return r ? `${r.codigo} ${r.nome}` : id ? `#${id}` : '—'; },
-    orcamento: (id: number | null) => { const o = orc.data?.find((x) => x.id === id); return o ? `${o.nome ?? ''} ${o.ano} v${o.versao}` : id ? `#${id}` : '—'; },
-  }), [rub.data, orc.data]);
-}
+/** Rubrica e orçamento por nome: vêm na própria resposta (ADR-064). */
+const nomeRubrica = (x: { rubrica?: RefRubrica | null; rubrica_orcamental_id: number | null }) =>
+  (x.rubrica ? `${x.rubrica.codigo} ${x.rubrica.nome}` : x.rubrica_orcamental_id ? `#${x.rubrica_orcamental_id}` : '—');
+const nomeOrcamento = (x: { orcamento?: RefOrcamento | null; orcamento_anual_id: number | null }) =>
+  (x.orcamento ? `${x.orcamento.nome ?? ''} ${x.orcamento.ano} v${x.orcamento.versao}`.trim() : x.orcamento_anual_id ? `#${x.orcamento_anual_id}` : '—');
 
 function Pedidos() {
   const { pode, utilizador } = useSessao();
   const [estado, setEstado] = useState<string | undefined>('PENDENTE');
   const [decidir, setDecidir] = useState<PedidoExcesso | null>(null);
   const q = useQuery({ queryKey: ['orcamento', 'pedidos-excesso', estado], queryFn: () => obter<PedidoExcesso[]>('/orcamento/pedidos-excesso', { estado }) });
-  const nomes = useNomes();
   return (
     <Card>
       <Flex gap={8} style={{ marginBottom: 16 }}>
@@ -61,8 +57,8 @@ function Pedidos() {
         columns={[
           { title: 'Pedido', key: 'p', render: (_, p) => <>{formatarDataHora(p.pedido_em)}<br /><Typography.Text type="secondary">{p.pedido_por}</Typography.Text></> },
           { title: 'Documento', key: 'd', render: (_, p) => <>{p.origem} · {p.documento}<br /><Typography.Text type="secondary">{formatarData(p.data_documento)}</Typography.Text></> },
-          { title: 'Rubrica', dataIndex: 'rubrica_orcamental_id', render: nomes.rubrica },
-          { title: 'Orçamento', dataIndex: 'orcamento_anual_id', render: nomes.orcamento },
+          { title: 'Rubrica', key: 'rubrica', render: (_, x) => nomeRubrica(x) },
+          { title: 'Orçamento', key: 'orcamento', render: (_, x) => nomeOrcamento(x) },
           { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> },
           { title: 'Orçado', dataIndex: 'valor_orcado', align: 'right', render: (v) => <ValorKz valor={v} /> },
           { title: 'Consumido', dataIndex: 'valor_consumido', align: 'right', render: (v) => <ValorKz valor={v} /> },
@@ -118,8 +114,8 @@ function Monitor() {
         </Space>
         <BotaoCsv nome={`monitor-orcamental-${ano}-${mes}`} linhas={linhas} colunas={[
           { titulo: 'Orçamento', valor: (l) => l.orcamento }, { titulo: 'Rubrica', valor: (l) => l.rubrica }, { titulo: 'Modo', valor: (l) => l.modo },
-          { titulo: 'Orçado', valor: (l) => l.orcado.toFixed(2), numerico: true }, { titulo: 'Compromissos', valor: (l) => l.compromissos.toFixed(2), numerico: true },
-          { titulo: 'Consumido', valor: (l) => l.consumido.toFixed(2), numerico: true }, { titulo: 'Disponível', valor: (l) => l.disponivel.toFixed(2), numerico: true },
+          { titulo: 'Orçado', valor: (l) => l.orcado, numerico: true }, { titulo: 'Compromissos', valor: (l) => l.compromissos, numerico: true },
+          { titulo: 'Consumido', valor: (l) => l.consumido, numerico: true }, { titulo: 'Disponível', valor: (l) => l.disponivel, numerico: true },
           { titulo: '%', valor: (l) => l.percentagem, numerico: true }, { titulo: 'Estado', valor: (l) => l.estado },
         ]} />
       </Flex>
@@ -149,7 +145,6 @@ function Monitor() {
 
 function Registo() {
   const q = useQuery({ queryKey: ['orcamento', 'alertas'], queryFn: () => obter<AlertaOrcamental[]>('/orcamento/alertas') });
-  const nomes = useNomes();
   return (
     <Card>
       <Typography.Paragraph type="secondary">Últimas 300 ocorrências, incluindo as tentativas bloqueadas.</Typography.Paragraph>
@@ -164,8 +159,8 @@ function Registo() {
           { title: 'Quando', dataIndex: 'em', render: formatarDataHora },
           { title: 'Utilizador', dataIndex: 'por' },
           { title: 'Documento', key: 'd', render: (_, a) => `${a.origem ?? ''} · ${a.documento ?? ''}` },
-          { title: 'Rubrica', dataIndex: 'rubrica_orcamental_id', render: nomes.rubrica },
-          { title: 'Orçamento', dataIndex: 'orcamento_anual_id', render: nomes.orcamento },
+          { title: 'Rubrica', key: 'rubrica', render: (_, x) => nomeRubrica(x) },
+          { title: 'Orçamento', key: 'orcamento', render: (_, x) => nomeOrcamento(x) },
           { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> },
           { title: '%', dataIndex: 'percentagem', align: 'right', render: (v) => (v ? `${Number(v).toLocaleString('pt-PT', { maximumFractionDigits: 1 })}%` : '—') },
           { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaOrc valor={v} /> },

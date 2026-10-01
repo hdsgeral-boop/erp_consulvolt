@@ -4,13 +4,17 @@ namespace App\Services\RH;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\Banco;
+use App\Models\CentroCusto;
 use App\Models\Colaborador;
 use App\Models\CoordenadaBancariaColaborador;
 use App\Models\DependenteColaborador;
 use App\Models\HabilitacaoColaborador;
 use App\Models\PostoTrabalho;
 use App\Models\Terceiro;
+use App\Models\UnidadeNegocio;
+use App\Models\UnidadeOrganica;
 use App\Support\Dados\VerificadorReferencias;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -57,7 +61,22 @@ final class ServicoColaboradores
             'dependentes' => DependenteColaborador::query()->where('colaborador_id', $c->id)->orderBy('ordem')->orderBy('id')->get()->toArray(),
             'habilitacoes' => HabilitacaoColaborador::query()->where('colaborador_id', $c->id)->orderBy('ordem')->orderBy('id')->get()->toArray(),
             'coordenada_bancaria' => CoordenadaBancariaColaborador::query()->where('colaborador_id', $c->id)->first()?->toArray(),
+            // referências por nome (ADR-064): {id, codigo, nome} ou null
+            'unidade_organica' => self::ref(UnidadeOrganica::class, $c->unidade_organica_id, 'nome'),
+            'unidade_negocio' => self::ref(UnidadeNegocio::class, $c->unidade_negocio_id, 'nome'),
+            'centro_custo' => self::ref(CentroCusto::class, $c->centro_custo_id, 'descricao'),
         ];
+    }
+
+    /**
+     * @param  class-string<Model>  $modelo
+     * @return array{id: int, codigo: ?string, nome: ?string}|null
+     */
+    private static function ref(string $modelo, ?int $id, string $campoNome): ?array
+    {
+        $m = $id ? $modelo::query()->withTrashed()->find($id) : null;
+
+        return $m ? ['id' => (int) $m->id, 'codigo' => $m->codigo, 'nome' => $m->{$campoNome}] : null;
     }
 
     /**

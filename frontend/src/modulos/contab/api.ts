@@ -1,3 +1,4 @@
+import type { TerceiroLinha } from './comum/terceiro';
 /** Tipos da API de Contabilidade (backend: LancamentoResource, ServicoRelatoriosContabeis, ServicoDemonstracoesFinanceiras, ServicoEncerramento…). */
 
 export interface ContaPlano {
@@ -35,6 +36,8 @@ export interface LinhaLancamento {
   valor: string;
   descricao: string | null;
   terceiro_id: number | null;
+  /** {id, nome, nif} — presente nas linhas devolvidas pela API de lançamentos (null sem terceiro). */
+  terceiro?: TerceiroLinha | null;
   centro_custo_id: number | null;
   unidade_negocio_id: number | null;
   projeto_id: number | null;
@@ -88,6 +91,7 @@ export interface MovimentoRazao {
   tipo_dc: 'D' | 'C';
   valor: string;
   terceiro_id: number | null;
+  terceiro?: TerceiroLinha | null;
   diario: string | null;
   estorno_de_id: number | null;
   estornado_por_id: number | null;

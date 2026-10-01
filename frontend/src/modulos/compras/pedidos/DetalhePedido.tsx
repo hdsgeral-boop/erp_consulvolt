@@ -3,14 +3,13 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '../comum/accoes';
 import { numero } from '../comum/calculos';
 import { EstadoTag, rotuloEstado } from '../comum/estados';
-import { obterLista } from '../comum/lista';
 import { NomeProduto, NomeTerceiro } from '../comum/referencias';
 import { accoesPedido, etapaPendente } from '../comum/regras';
 import { numeroOuId, type EtapaDeliberacao, type ItemCompra, type PedidoCompra, type PropostaCompra } from '../comum/tipos';
@@ -36,7 +35,7 @@ export function DetalhePedido() {
   const verPropostas = pode('compras_prospeccao_view');
   const propostas = useQuery({
     queryKey: ['compras', 'propostas', 'do-pedido', id],
-    queryFn: () => obterLista<PropostaCompra>('/compras/propostas', { pedido_compra_id: id, por_pagina: 100 }),
+    queryFn: () => obterPagina<PropostaCompra>('/compras/propostas', { pedido_compra_id: id, por_pagina: 100 }),
     enabled: verPropostas,
   });
   const accao = useAccao<PedidoCompra>({
@@ -124,7 +123,7 @@ export function DetalhePedido() {
           scroll={{ x: 'max-content' }}
           dataSource={linhas}
           columns={[
-            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} descricao={l.descricao} /> },
+            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
             { title: 'Qtd.', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
             { title: 'Preço estimado', dataIndex: 'preco_unitario', align: 'right', render: (v: string | null) => (v ? formatarKz(v) : <Typography.Text type="warning">sem preço</Typography.Text>) },
             { title: 'Total estimado', key: 'total', align: 'right', render: (_, l) => (l.preco_unitario ? formatarKz(numero(l.quantidade) * numero(l.preco_unitario)) : '—') },
@@ -143,7 +142,7 @@ export function DetalhePedido() {
             columns={[
               { title: 'Proposta', render: (_, r) => numeroOuId(r.numero_proposta, r.id) },
               { title: 'Referência', dataIndex: 'referencia' },
-              { title: 'Fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} /> },
+              { title: 'Fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },
               { title: 'Total (Kz)', dataIndex: 'montante_total', align: 'right', render: (v: string | null) => formatarKz(v) },
               { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
             ]}

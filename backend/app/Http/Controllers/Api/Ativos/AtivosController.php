@@ -15,6 +15,8 @@ use App\Services\Ativos\ServicoAtivos;
 use App\Services\Ativos\ServicoCategoriasAtivos;
 use App\Services\Ativos\ServicoManutencaoAtivos;
 use App\Support\Api\RespostaApi;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -201,13 +203,31 @@ final class AtivosController extends Controller
     public function manutencoes(Request $r): JsonResponse
     {
         $this->exigir('activos_manutencao_view', 'activos_view');
-        $f = $r->validate(['ativo_imobilizado_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'string', 'max:20']]);
+        $f = $r->validate(['ativo_imobilizado_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'string', 'max:20'], 'tipo' => ['nullable', 'string', 'max:30']]
+            + self::REGRAS_LISTA);
         $q = RegistoManutencaoAtivo::query()->with('ativoImobilizado:id,codigo,descricao');
-        foreach (['ativo_imobilizado_id', 'estado'] as $c) {
+        foreach (['ativo_imobilizado_id', 'estado', 'tipo'] as $c) {
             $q->when($f[$c] ?? null, fn ($q, $v) => $q->where($c, $v));
         }
+        self::filtrarPeriodo($q, $f);
 
-        return RespostaApi::sucesso($q->orderByDesc('data')->orderByDesc('id')->get(), 'Manutenções.');
+        // paginado (ADR-064): «dados» é a lista da página; metadados.paginacao descreve a página
+        return RespostaApi::paginado($q->orderByDesc('data')->orderByDesc('id')->paginate((int) ($f['por_pagina'] ?? 100), ['*'], 'pagina', (int) ($f['pagina'] ?? 1)), null, 'Manutenções.');
+    }
+
+    /** Paginação e período (data de/até) das listas de manutenções e abates. */
+    private const REGRAS_LISTA = ['data_de' => ['nullable', 'date'], 'data_ate' => ['nullable', 'date', 'after_or_equal:data_de'],
+        'pesquisa' => ['nullable', 'string', 'max:100'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']];
+
+    /** @param  Builder<Model>  $q */
+    private static function filtrarPeriodo($q, array $f): void
+    {
+        $q->when($f['data_de'] ?? null, fn ($q, $v) => $q->whereDate('data', '>=', $v))->when($f['data_ate'] ?? null, fn ($q, $v) => $q->whereDate('data', '<=', $v))
+            ->when($f['pesquisa'] ?? null, function ($q, $p) {
+                $termo = '%'.str_replace(['%', '_'], ['\%', '\_'], $p).'%';
+                $q->where(fn ($x) => $x->where('descricao', 'ilike', $termo)
+                    ->orWhereHas('ativoImobilizado', fn ($a) => $a->withTrashed()->where(fn ($y) => $y->where('codigo', 'ilike', $termo)->orWhere('descricao', 'ilike', $termo))));
+            });
     }
 
     public function registarManutencao(Request $r): JsonResponse
@@ -267,12 +287,18 @@ final class AtivosController extends Controller
 
     // ───────────── Abates e vendas ─────────────
 
-    public function abatesLista(): JsonResponse
+    public function abatesLista(Request $r): JsonResponse
     {
         $this->exigir('activos_abates_view', 'activos_view');
+        $f = $r->validate(['tipo' => ['nullable', 'string', 'max:20'], 'ativo_imobilizado_id' => ['nullable', 'integer']] + self::REGRAS_LISTA);
+        $q = AbateVendaAtivo::query()->with(['ativoImobilizado:id,codigo,descricao,valor_aquisicao', 'terceiro:id,nome'])
+            ->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))->when($f['ativo_imobilizado_id'] ?? null, fn ($q, $v) => $q->where('ativo_imobilizado_id', $v));
+        self::filtrarPeriodo($q, $f);
+        // paginado (ADR-064)
+        $pagina = $q->orderByDesc('data')->orderByDesc('id')->paginate((int) ($f['por_pagina'] ?? 100), ['*'], 'pagina', (int) ($f['pagina'] ?? 1));
+        $pagina->setCollection($pagina->getCollection()->map(fn ($x) => $x->toArray() + ['numero_documento' => $x->numeroDocumento()]));
 
-        return RespostaApi::sucesso(AbateVendaAtivo::query()->with(['ativoImobilizado:id,codigo,descricao,valor_aquisicao', 'terceiro:id,nome'])->orderByDesc('data')->orderByDesc('id')->get()
-            ->map(fn ($x) => $x->toArray() + ['numero_documento' => $x->numeroDocumento()]), 'Abates e vendas.');
+        return RespostaApi::paginado($pagina, null, 'Abates e vendas.');
     }
 
     public function simularAbate(Request $r): JsonResponse

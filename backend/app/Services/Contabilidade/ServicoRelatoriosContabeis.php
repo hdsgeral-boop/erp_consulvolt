@@ -159,6 +159,7 @@ final class ServicoRelatoriosContabeis
     {
         $empresa = $this->contexto->obrigatorio();
         $filtroTerceiro = isset($f['terceiro_id']) ? ' AND terceiro_id = ?' : '';
+        $filtroTerceiroL = isset($f['terceiro_id']) ? ' AND l.terceiro_id = ?' : '';
         $base = [$empresa, $f['codigo_conta']];
         $terceiro = isset($f['terceiro_id']) ? [(int) $f['terceiro_id']] : [];
 
@@ -167,10 +168,11 @@ final class ServicoRelatoriosContabeis
             array_merge($base, [$f['data_inicio']], $terceiro))->s);
 
         $movimentos = DB::select("SELECT l.id, l.data_documento, l.numero_lan, l.numero_documento, l.descricao, l.tipo_dc, l.valor, l.terceiro_id,
-                d.codigo AS diario, l.estorno_de_id, l.estornado_por_id,
+                t.nome AS terceiro_nome, t.nif AS terceiro_nif, d.codigo AS diario, l.estorno_de_id, l.estornado_por_id,
                 ?::numeric + SUM(CASE WHEN l.tipo_dc = 'D' THEN l.valor ELSE -l.valor END) OVER (ORDER BY l.data_documento, l.id) AS saldo
             FROM lancamentos_contabeis l JOIN diarios_contabeis d ON d.id = l.diario_id
-            WHERE l.empresa_id = ? AND l.codigo_conta = ? AND l.data_documento BETWEEN ? AND ?{$filtroTerceiro}
+            LEFT JOIN terceiros t ON t.id = l.terceiro_id
+            WHERE l.empresa_id = ? AND l.codigo_conta = ? AND l.data_documento BETWEEN ? AND ?{$filtroTerceiroL}
             ORDER BY l.data_documento, l.id", array_merge([$inicial], $base, [$f['data_inicio'], $f['data_fim']], $terceiro));
 
         $debito = $credito = '0.00';
@@ -178,6 +180,9 @@ final class ServicoRelatoriosContabeis
             $m->tipo_dc === 'D' ? $debito = bcadd($debito, (string) $m->valor, 2) : $credito = bcadd($credito, (string) $m->valor, 2);
             $m->valor = $this->fmt($m->valor);
             $m->saldo = $this->fmt($m->saldo);
+            // nome do terceiro na própria consulta (sem N+1); terceiro eliminado (soft delete) continua a aparecer
+            $m->terceiro = $m->terceiro_id !== null ? ['id' => (int) $m->terceiro_id, 'nome' => $m->terceiro_nome, 'nif' => $m->terceiro_nif] : null;
+            unset($m->terceiro_nome, $m->terceiro_nif);
         }
 
         return ['codigo_conta' => $f['codigo_conta'], 'saldo_inicial' => $this->fmt($inicial), 'debito' => $debito, 'credito' => $credito,

@@ -1,71 +1,50 @@
-import type { DocumentoVenda } from '../api';
-
 /**
- * Indicadores de vendas (paridade: renderRelatoriosVendasTab do legado) calculados no cliente a partir dos documentos
- * do período. Contam as facturas (FT) e facturas-recibo (FR) menos as notas de crédito (NC); os anulados não contam.
+ * Indicadores de vendas (paridade: renderRelatoriosVendasTab do legado), calculados no servidor:
+ * GET /api/vendas/relatorios/resumo?inicio=&fim= (permissão vendas_relatorios_view).
+ * Contam as facturas (FT) e facturas-recibo (FR) menos as notas de crédito (NC); os anulados não contam.
+ * Valores em Kz como texto decimal com 2 casas.
  */
-export interface KpisVendas {
-  liquido: number;
-  imposto: number;
-  bruto: number;
-  notasCredito: number;
-  aReceber: number;
+export interface ResumoVendas {
+  periodo: { inicio: string; fim: string };
   documentos: number;
-  porMes: { mes: string; liquido: number; bruto: number }[];
-  topClientes: { cliente_id: number; nome: string; bruto: number; documentos: number }[];
-  pendentes: DocumentoVenda[];
+  liquido: string;
+  imposto: string;
+  bruto: string;
+  notas_credito: string;
+  a_receber: string;
+  por_mes: { mes: string; liquido: string; bruto: string; documentos: number }[];
+  maiores_clientes: { cliente_id: number | null; nome: string; nif: string | null; bruto: string; documentos: number }[];
+  pendentes: {
+    id: number;
+    numero_documento: string | null;
+    data_emissao: string | null;
+    data_vencimento: string | null;
+    cliente: { id: number; nome: string | null } | null;
+    total_bruto: string;
+    valor_pendente: string;
+  }[];
 }
 
-const r2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
-const n = (v: string | null | undefined) => (v ? Number(v) || 0 : 0);
+/** Resposta de GET /api/vendas/saft/validar (validação prévia, sem gerar o ficheiro). */
+export interface ValidacaoSaft {
+  nome: string;
+  documentos: number;
+  recibos: number;
+  avisos: string[];
+}
 
-export function calcularKpis(documentos: DocumentoVenda[], topN = 10): KpisVendas {
-  const validos = documentos.filter((d) => d.estado !== 'ANULADO' && ['FT', 'FR', 'NC'].includes(d.tipo_documento));
-  const meses = new Map<string, { liquido: number; bruto: number }>();
-  const clientes = new Map<number, { nome: string; bruto: number; documentos: number }>();
-  let liquido = 0;
-  let imposto = 0;
-  let bruto = 0;
-  let notasCredito = 0;
-  let aReceber = 0;
+/** Texto decimal → cêntimos inteiros (sem erros de vírgula flutuante). */
+export function emCentimos(valor: string | null | undefined): number {
+  if (!valor) return 0;
+  const m = /^(-)?(\d+)(?:\.(\d{1,2}))?$/.exec(valor.trim());
+  if (!m) return Math.round((Number(valor) || 0) * 100);
+  const c = Number(m[2]) * 100 + Number((m[3] ?? '0').padEnd(2, '0'));
+  return m[1] ? -c : c;
+}
 
-  for (const d of validos) {
-    const sinal = d.tipo_documento === 'NC' ? -1 : 1;
-    liquido += sinal * n(d.total_liquido);
-    imposto += sinal * n(d.total_imposto);
-    bruto += sinal * n(d.total_bruto);
-    if (sinal < 0) notasCredito += n(d.total_bruto);
-    if (d.tipo_documento === 'FT') aReceber += n(d.valor_pendente);
-
-    const mes = (d.data_emissao ?? '').slice(0, 7);
-    const m = meses.get(mes) ?? { liquido: 0, bruto: 0 };
-    m.liquido += sinal * n(d.total_liquido);
-    m.bruto += sinal * n(d.total_bruto);
-    meses.set(mes, m);
-
-    if (sinal > 0) {
-      const c = clientes.get(d.cliente_id) ?? { nome: d.cliente?.nome?.trim() || `#${d.cliente_id}`, bruto: 0, documentos: 0 };
-      c.bruto += n(d.total_bruto);
-      c.documentos += 1;
-      clientes.set(d.cliente_id, c);
-    }
-  }
-
-  return {
-    liquido: r2(liquido),
-    imposto: r2(imposto),
-    bruto: r2(bruto),
-    notasCredito: r2(notasCredito),
-    aReceber: r2(aReceber),
-    documentos: validos.length,
-    porMes: [...meses.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([mes, v]) => ({ mes, liquido: r2(v.liquido), bruto: r2(v.bruto) })),
-    topClientes: [...clientes.entries()]
-      .map(([cliente_id, c]) => ({ cliente_id, nome: c.nome, bruto: r2(c.bruto), documentos: c.documentos }))
-      .sort((a, b) => b.bruto - a.bruto)
-      .slice(0, topN),
-    pendentes: validos
-      .filter((d) => d.tipo_documento === 'FT' && n(d.valor_pendente) > 0)
-      .sort((a, b) => (b.data_emissao ?? '').localeCompare(a.data_emissao ?? ''))
-      .slice(0, 10),
-  };
+/** Barras da facturação mensal: percentagem de cada mês face ao maior valor absoluto (com IVA). */
+export function barrasMensais(porMes: ResumoVendas['por_mes']): { mes: string; bruto: string; percentagem: number; negativo: boolean }[] {
+  const centimos = porMes.map((m) => emCentimos(m.bruto));
+  const maximo = Math.max(1, ...centimos.map((c) => Math.abs(c)));
+  return porMes.map((m, i) => ({ mes: m.mes, bruto: m.bruto, percentagem: Math.round((Math.abs(centimos[i]) / maximo) * 100), negativo: centimos[i] < 0 }));
 }

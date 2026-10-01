@@ -9,6 +9,7 @@ use App\Models\FaturaCompra;
 use App\Models\ItemCompra;
 use App\Models\PedidoCompra;
 use App\Models\RececaoCompra;
+use App\Services\Compras\RelacoesNomes;
 use App\Services\Compras\ServicoConfigCompras;
 use App\Services\Compras\ServicoContabilizacaoCompras;
 use App\Services\Compras\ServicoDeliberacaoCompras;
@@ -46,7 +47,7 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_pedidos_view');
 
-        return $this->listar($r, PedidoCompra::query(), 'data');
+        return $this->listar($r, PedidoCompra::query(), 'data', ['numero_pedido', 'nome_requerente']);
     }
 
     public function pedido(int $id): JsonResponse
@@ -117,7 +118,8 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_prospeccao_view');
 
-        return $this->listar($r, CotacaoCompra::query()->when($r->integer('pedido_compra_id'), fn ($q, $v) => $q->where('pedido_compra_id', $v)), 'data');
+        return $this->listar($r, CotacaoCompra::query()->with(RelacoesNomes::fornecedor())
+            ->when($r->integer('pedido_compra_id'), fn ($q, $v) => $q->where('pedido_compra_id', $v)), 'data', ['numero_proposta', 'referencia']);
     }
 
     public function proposta(int $id): JsonResponse
@@ -178,7 +180,8 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_encomendas_view', 'compras_rececoes_view', 'armazem_rececoes_view', 'compras_faturacao_view');
 
-        return $this->listar($r, EncomendaCompra::query()->when($r->integer('fornecedor_id'), fn ($q, $v) => $q->where('fornecedor_id', $v)), 'data');
+        return $this->listar($r, EncomendaCompra::query()->with(RelacoesNomes::fornecedor())
+            ->when($r->integer('fornecedor_id'), fn ($q, $v) => $q->where('fornecedor_id', $v)), 'data', ['numero_encomenda']);
     }
 
     public function encomenda(int $id): JsonResponse
@@ -202,7 +205,8 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_rececoes_view', 'armazem_rececoes_view');
 
-        return $this->listar($r, RececaoCompra::query()->when($r->integer('encomenda_compra_id'), fn ($q, $v) => $q->where('encomenda_compra_id', $v)), 'data');
+        return $this->listar($r, RececaoCompra::query()->when($r->integer('encomenda_compra_id'), fn ($q, $v) => $q->where('encomenda_compra_id', $v)),
+            'data', ['numero_rececao', 'numero_entrega']);
     }
 
     public function rececao(int $id): JsonResponse
@@ -210,7 +214,8 @@ final class ComprasController extends Controller
         $this->exigir('compras_rececoes_view', 'armazem_rececoes_view');
         $rec = RececaoCompra::query()->findOrFail($id);
 
-        return RespostaApi::sucesso($rec->toArray() + ['linhas' => $rec->itensGuiaSaida()->orderBy('id')->get()->toArray()], 'Recepção obtida com sucesso.');
+        return RespostaApi::sucesso($rec->toArray() + ['linhas' => $rec->itensGuiaSaida()->with(RelacoesNomes::produto())->orderBy('id')->get()->toArray()],
+            'Recepção obtida com sucesso.');
     }
 
     public function registarRececao(Request $r, int $encomenda): JsonResponse
@@ -255,8 +260,10 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_faturacao_view');
 
-        return $this->listar($r, FaturaCompra::query()->when($r->integer('fornecedor_id'), fn ($q, $v) => $q->where('fornecedor_id', $v))
-            ->when($r->boolean('por_contabilizar'), fn ($q) => $q->where('contabilizado', false)), 'data');
+        return $this->listar($r, FaturaCompra::query()->with(RelacoesNomes::fornecedor())
+            ->when($r->integer('fornecedor_id'), fn ($q, $v) => $q->where('fornecedor_id', $v))
+            ->when($r->integer('encomenda_compra_id'), fn ($q, $v) => $q->where('encomenda_compra_id', $v))
+            ->when($r->boolean('por_contabilizar'), fn ($q) => $q->where('contabilizado', false)), 'data', ['numero_fatura']);
     }
 
     public function fatura(int $id): JsonResponse
@@ -335,22 +342,42 @@ final class ComprasController extends Controller
 
     // ─────────── Auxiliares ───────────
 
-    private function listar(Request $r, Builder $q, string $data): JsonResponse
+    /**
+     * Listagem paginada (RespostaApi::paginado — metadados.paginacao, ADR-064) com os filtros comuns: estado, período e
+     * `pesquisa` (ilike, sem curingas do utilizador) nas colunas indicadas.
+     *
+     * @param  list<string>  $colunasPesquisa
+     */
+    private function listar(Request $r, Builder $q, string $data, array $colunasPesquisa = []): JsonResponse
     {
         $f = $r->validate(['estado' => ['nullable', 'string', 'max:30'], 'data_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_fim' => ['nullable', 'date_format:Y-m-d'],
-            'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+            'pesquisa' => ['nullable', 'string', 'max:100'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+        $pesquisa = trim((string) ($f['pesquisa'] ?? ''));
         $pagina = $q->when($f['estado'] ?? null, fn ($x, $v) => $x->where('estado', $v))
             ->when($f['data_inicio'] ?? null, fn ($x, $v) => $x->where($data, '>=', $v))
             ->when($f['data_fim'] ?? null, fn ($x, $v) => $x->where($data, '<', date('Y-m-d', strtotime("{$v} +1 day"))))
+            ->when($pesquisa !== '' && $colunasPesquisa, function ($x) use ($pesquisa, $colunasPesquisa) {
+                $termo = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $pesquisa).'%';
+                $x->where(function ($w) use ($termo, $colunasPesquisa) {
+                    foreach ($colunasPesquisa as $coluna) {
+                        $w->orWhere($coluna, 'ilike', $termo);
+                    }
+                });
+            })
             ->orderByDesc($data)->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
 
-        return RespostaApi::sucesso(['itens' => $pagina->items(), 'total' => $pagina->total(), 'pagina' => $pagina->currentPage(), 'por_pagina' => $pagina->perPage()],
-            'Lista obtida com sucesso.');
+        return RespostaApi::paginado($pagina, null, 'Lista obtida com sucesso.');
     }
 
+    /** Documento com as linhas; `fornecedor` {id,nome,nif} quando o documento o tem e `produto` {id,codigo,nome} nas linhas. */
     private function doc(Model $m, string $fk): array
     {
-        return $m->refresh()->toArray() + ['linhas' => ItemCompra::query()->where($fk, $m->getKey())->orderBy('id')->get()->toArray()];
+        $m->refresh();
+        if (method_exists($m, 'fornecedor')) {
+            $m->load(RelacoesNomes::fornecedor());
+        }
+
+        return $m->toArray() + ['linhas' => ItemCompra::query()->where($fk, $m->getKey())->with(RelacoesNomes::produto())->orderBy('id')->get()->toArray()];
     }
 
     private function motivo(Request $r): string

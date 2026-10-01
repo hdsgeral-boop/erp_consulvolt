@@ -4,13 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '../comum/accoes';
 import { EstadoTag } from '../comum/estados';
-import { obterLista } from '../comum/lista';
 import { NomeTerceiro } from '../comum/referencias';
 import { accoesContrato } from '../comum/regras';
 import { numeroOuId, type ContratoCompra, type EncomendaCompra, type FaturaCompra, type MarcoContrato } from '../comum/tipos';
@@ -31,12 +30,12 @@ export function DetalheContrato() {
   const c = consulta.data;
   const encomendasFornecedor = useQuery({
     queryKey: ['compras', 'encomendas', 'do-fornecedor', c?.fornecedor_id],
-    queryFn: () => obterLista<EncomendaCompra>('/compras/encomendas', { fornecedor_id: c?.fornecedor_id, por_pagina: 200 }),
+    queryFn: () => obterPagina<EncomendaCompra>('/compras/encomendas', { fornecedor_id: c?.fornecedor_id, por_pagina: 200 }),
     enabled: modal === 'associar' && !!c,
   });
   const faturasFornecedor = useQuery({
     queryKey: ['compras', 'faturas', 'do-fornecedor', c?.fornecedor_id],
-    queryFn: () => obterLista<FaturaCompra>('/compras/faturas', { fornecedor_id: c?.fornecedor_id, por_pagina: 200 }),
+    queryFn: () => obterPagina<FaturaCompra>('/compras/faturas', { fornecedor_id: c?.fornecedor_id, por_pagina: 200 }),
     enabled: !!c && pode('compras_faturacao_view'),
   });
   const accao = useAccao({ invalidar: [['compras']], aoSucesso: () => { setModal(null); setMarco(null); } });
@@ -57,7 +56,7 @@ export function DetalheContrato() {
     <>
       <CabecalhoPagina
         titulo={`Contrato ${c.referencia}`}
-        subtitulo={<NomeTerceiro id={c.fornecedor_id} />}
+        subtitulo={<NomeTerceiro id={c.fornecedor_id} terceiro={c.fornecedor} />}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>

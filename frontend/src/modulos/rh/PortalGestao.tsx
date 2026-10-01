@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -6,7 +6,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData } from '@/utilitarios/formatacao';
-import { PARENTESCOS, TIPOS_PEDIDO, type ModeloDocumento, type PedidoPortal, type PropostaDocumento, type TipoPedido } from './api';
+import { PARENTESCOS, TIPOS_PEDIDO, type ModeloDocumento, type PedidoPortal, type PropostaDocumento, type TipoPedido, type UtilizadorEmpresa } from './api';
 import { AreaImpressao, BotaoImprimir, EstadoTag, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { DocumentoImpresso, EtapasPedido, resumoPedido } from './comum/Pedidos';
@@ -23,7 +23,7 @@ export default function PortalGestao() {
       <Tabs items={[
         { key: 'pedidos', label: 'Pedidos', children: <Pedidos /> },
         { key: 'modelos', label: 'Modelos de documentos', children: <Modelos /> },
-        ...(pode('rh_portal_aprovar') ? [{ key: 'ligacoes', label: 'Ligações utilizador ↔ colaborador', children: <Ligacoes /> }] : []),
+        ...(pode('rh_portal_aprovar') || pode('rh_portal_gestao_view') ? [{ key: 'ligacoes', label: 'Ligações utilizador ↔ colaborador', children: <Ligacoes editar={pode('rh_portal_aprovar')} /> }] : []),
       ]} />
     </>
   );
@@ -208,18 +208,51 @@ function Modelos() {
   );
 }
 
-function Ligacoes() {
-  const [form] = Form.useForm<{ utilizador_id: number; colaborador_id?: number | null }>();
-  const accao = useAccaoRh(() => form.resetFields());
+/** Utilizadores da empresa e o colaborador a que cada um está ligado (GET /rh/portal/utilizadores); ligar exige rh_portal_aprovar. */
+function Ligacoes({ editar }: { editar: boolean }) {
+  const q = useQuery({ queryKey: ['rh', 'portal', 'utilizadores'], queryFn: () => obter<UtilizadorEmpresa[]>('/rh/portal/utilizadores') });
+  useAvisarErro(q.error);
+  const [pesquisa, setPesquisa] = useState('');
+  const [soSem, setSoSem] = useState(false);
+  const [ligar, setLigar] = useState<UtilizadorEmpresa | null>(null);
+  const [form] = Form.useForm<{ colaborador_id?: number | null }>();
+  const accao = useAccaoRh(() => setLigar(null));
+  const termo = pesquisa.trim().toLowerCase();
+  const linhas = (q.data ?? []).filter((u) => (!soSem || !u.colaborador_id)
+    && (!termo || [u.nome_utilizador, u.nome_completo, u.colaborador_nome].some((t) => (t ?? '').toLowerCase().includes(termo))));
+  const colunas: ColumnsType<UtilizadorEmpresa> = [
+    { title: 'Utilizador', dataIndex: 'nome_utilizador', render: (v: string, u) => <Space size={4}><strong>{v}</strong>{!u.ativo && <Tag>Inactivo</Tag>}</Space>, sorter: (a, b) => a.nome_utilizador.localeCompare(b.nome_utilizador, 'pt') },
+    { title: 'Nome', dataIndex: 'nome_completo', render: (v: string | null) => v ?? '—' },
+    { title: 'Colaborador ligado', dataIndex: 'colaborador_nome', render: (v: string | null, u) => (u.colaborador_id ? v ?? `#${u.colaborador_id}` : <Typography.Text type="secondary">sem ligação</Typography.Text>) },
+    ...(editar ? [{
+      title: '', key: 'acc', align: 'right' as const,
+      render: (_: unknown, u: UtilizadorEmpresa) => (
+        <Space size={4}>
+          <Button size="small" onClick={() => { form.setFieldsValue({ colaborador_id: u.colaborador_id }); setLigar(u); }}>{u.colaborador_id ? 'Alterar' : 'Ligar'}</Button>
+          {u.colaborador_id && (
+            <Popconfirm title="Retirar a ligação ao colaborador?" okText="Retirar" cancelText="Cancelar" okButtonProps={{ danger: true }}
+              onConfirm={() => accao.mutateAsync({ metodo: 'post', url: '/rh/portal/ligacoes', dados: { utilizador_id: u.id, colaborador_id: null } })}>
+              <Button size="small" danger>Retirar</Button>
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    }] : []),
+  ];
   return (
-    <Card style={{ maxWidth: 640 }}>
-      <Typography.Paragraph type="secondary">Liga um utilizador desta empresa ao seu colaborador (acesso automático ao Portal). Sem colaborador, a ligação é retirada. Fica auditado.</Typography.Paragraph>
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Ainda não existe na API uma listagem de utilizadores para escolher: indique o n.º (id) do utilizador." />
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: '/rh/portal/ligacoes', dados: { utilizador_id: v.utilizador_id, colaborador_id: v.colaborador_id ?? null } })}>
-        <Form.Item name="utilizador_id" label="Utilizador (id)" rules={[{ required: true }]}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
-        <Form.Item name="colaborador_id" label="Colaborador"><SeletorColaborador style={{ width: '100%' }} /></Form.Item>
-        <Button type="primary" htmlType="submit" loading={accao.isPending}>Gravar ligação</Button>
-      </Form>
+    <Card>
+      <Typography.Paragraph type="secondary">Cada utilizador desta empresa pode estar ligado a um colaborador (acesso automático ao Portal); um colaborador só tem um utilizador. As alterações ficam auditadas.</Typography.Paragraph>
+      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+        <Input.Search placeholder="Utilizador, nome ou colaborador" allowClear onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} style={{ width: 300 }} />
+        <Checkbox checked={soSem} onChange={(e) => setSoSem(e.target.checked)}>Só sem ligação</Checkbox>
+      </Flex>
+      <Table<UtilizadorEmpresa> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 20 }} scroll={{ x: 'max-content' }} />
+      <Modal title={`Ligar ${ligar?.nome_utilizador ?? ''} a um colaborador`} open={ligar !== null} onCancel={() => setLigar(null)} okText="Gravar ligação" cancelText="Cancelar"
+        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+        <Form form={form} layout="vertical" onFinish={(v) => ligar && accao.mutate({ metodo: 'post', url: '/rh/portal/ligacoes', dados: { utilizador_id: ligar.id, colaborador_id: v.colaborador_id ?? null } })}>
+          <Form.Item name="colaborador_id" label="Colaborador" extra="Sem colaborador, a ligação é retirada."><SeletorColaborador style={{ width: '100%' }} /></Form.Item>
+        </Form>
+      </Modal>
     </Card>
   );
 }

@@ -183,11 +183,18 @@ final class ServicoFolhaSalarial
     /** Resultado do período: a fotografia gravada (se encerrado) ou o cálculo ao vivo (se aberto). */
     public function resultados(PeriodoProcessamentoSalarial $p): array
     {
-        if ($p->estado !== 'ABERTO') {
-            return ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->orderBy('colaborador_id')->get()->toArray();
-        }
+        $res = $p->estado !== 'ABERTO'
+            ? ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->orderBy('colaborador_id')->get()->toArray()
+            : $this->calcular($p, 'ATUAL');
+        // identificação do colaborador (nome, NIF, INSS) em cada resultado — a fotografia só guarda o id (ADR-064)
+        $ids = array_values(array_unique(array_map(fn ($x) => (int) $x['colaborador_id'], $res)));
+        $col = $ids === [] ? collect() : Colaborador::query()->withTrashed()->whereIn('id', $ids)->get(['id', 'nome_completo', 'nif', 'numero_inss'])->keyBy('id');
 
-        return $this->calcular($p, 'ATUAL');
+        return array_map(function (array $x) use ($col) {
+            $c = $col[(int) $x['colaborador_id']] ?? null;
+
+            return $x + ['nome' => $c?->nome_completo, 'nif' => $c?->nif, 'numero_inss' => $c?->numero_inss];
+        }, $res);
     }
 
     /** @return list<array<string, mixed>> */

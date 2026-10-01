@@ -7,7 +7,11 @@ import type { ConjuntoCubo } from './comum/pivot';
 
 type MetadadosBI = ConjuntoCubo & { periodos: { id: string; rotulo: string }[] };
 
-/** Geral › BI contabilístico (accounting_bi): análise dinâmica dos lançamentos (GET /gestao/bi, POST /gestao/bi/consultar). */
+/**
+ * Geral › BI contabilístico (accounting_bi): análise dinâmica dos lançamentos (GET /gestao/bi, POST /gestao/bi/consultar).
+ * A vista «sgd» (Gestão documental) do mesmo ecrã no legado era um ecrã morto: app_v2.js:1166 chamava window.renderSGD,
+ * que nenhum ficheiro define (INVENTARIO_FUNCIONAL_LEGADO.md 3.1) — não há funcionalidade a migrar.
+ */
 export default function AccountingBI() {
   const meta = useQuery({ queryKey: ['gestao', 'bi'], queryFn: () => obter<MetadadosBI>('/gestao/bi'), staleTime: 300_000 });
   return (
@@ -20,13 +24,6 @@ export default function AccountingBI() {
       ) : (
         <AnaliseDinamica conjunto={meta.data} urlConsultar="/gestao/bi/consultar" periodos={meta.data.periodos} />
       )}
-      <Alert
-        style={{ marginTop: 16 }}
-        type="info"
-        showIcon
-        message="Gestão documental"
-        description="A gestão documental (vista «sgd» do legado) ainda não tem API no novo sistema; este ecrã cobre o BI contabilístico."
-      />
     </>
   );
 }

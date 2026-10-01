@@ -274,7 +274,7 @@ final class AvaliacaoController extends Controller
     {
         $d = $r->validate(['ano' => ['required', 'integer', 'between:2000,2100'], 'periodo' => ['required', Rule::in(ServicoAvaliacao::PERIODOS)], 'criterios' => ['nullable', 'array'],
             'objetivos' => ['nullable', 'array'], 'realizacoes' => ['nullable', 'string', 'max:10000'], 'dificuldades' => ['nullable', 'string', 'max:10000'],
-            'formacao' => ['nullable', 'string', 'max:10'], 'submeter' => ['nullable', 'boolean']]);
+            'formacao' => ['nullable', 'string', 'max:2000'], 'submeter' => ['nullable', 'boolean']]);
 
         return RespostaApi::sucesso($this->avaliacao->gravarAutoavaliacao($d), ! empty($d['submeter']) ? 'Autoavaliação submetida.' : 'Autoavaliação gravada.');
     }

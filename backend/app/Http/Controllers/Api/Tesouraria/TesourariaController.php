@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DocumentoTesouraria;
 use App\Models\ItemDocumentoTesouraria;
 use App\Models\MeioPagamento;
+use App\Services\Compras\RelacoesNomes;
 use App\Services\Tesouraria\ServicoDocumentosTesouraria;
 use App\Services\Tesouraria\ServicoMeiosPagamento;
 use App\Services\Tesouraria\ServicoPendentes;
@@ -38,8 +39,19 @@ final class TesourariaController extends Controller
                 ->orWhere('numero_documento', 'ilike', "%{$v}%")))
             ->orderByDesc('data_documento')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
 
-        return RespostaApi::sucesso(['itens' => $pagina->items(), 'total' => $pagina->total(), 'pagina' => $pagina->currentPage(), 'por_pagina' => $pagina->perPage()],
-            'Documentos de tesouraria.');
+        return RespostaApi::paginado($pagina, null, 'Documentos de tesouraria.');
+    }
+
+    /** POST /api/tesouraria/documentos/integrar — integração em lote; cada documento na sua transacção (ADR-064). */
+    public function integrarLote(Request $r): JsonResponse
+    {
+        $this->exigir('teso_integrar');
+        $d = $r->validate(['ids' => ['required', 'array', 'min:1', 'max:200'], 'ids.*' => ['integer', 'min:1']]);
+        $res = $this->documentos->integrarLote($d['ids']);
+        $n = count($res['integrados']);
+        $e = count($res['erros']);
+
+        return RespostaApi::sucesso($res, $e ? "{$n} documento(s) integrado(s); {$e} com erro." : "{$n} documento(s) integrado(s).");
     }
 
     public function show(int $id): JsonResponse
@@ -152,6 +164,7 @@ final class TesourariaController extends Controller
 
     private function doc(DocumentoTesouraria $d): array
     {
-        return $d->refresh()->toArray() + ['linhas' => ItemDocumentoTesouraria::query()->where('documento_tesouraria_id', $d->id)->orderBy('id')->get()->toArray()];
+        return $d->refresh()->toArray() + ['linhas' => ItemDocumentoTesouraria::query()->where('documento_tesouraria_id', $d->id)
+            ->with(RelacoesNomes::terceiro())->orderBy('id')->get()->toArray()];
     }
 }

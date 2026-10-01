@@ -1,11 +1,15 @@
+import type { RefProduto, RefTerceiro } from './referencias';
+
 /**
  * Tipos das respostas de /api/compras (ComprasController / ContratosComprasController). Estas rotas devolvem
- * os modelos Eloquent (toArray): datas em ISO 8601, decimais em texto, e só os ids das entidades relacionadas.
+ * os modelos Eloquent (toArray): datas em ISO 8601, decimais em texto, os ids das entidades relacionadas e, desde a
+ * afinação (ADR-064), `fornecedor` {id,nome,nif} nos documentos e `produto` {id,codigo,nome} nas linhas.
  */
 
 export interface ItemCompra {
   id: number;
   produto_id: number;
+  produto?: RefProduto | null;
   descricao: string | null;
   quantidade: string;
   preco_unitario: string | null;
@@ -60,6 +64,7 @@ export interface PropostaCompra {
   numero_proposta: string | null;
   pedido_compra_id: number;
   fornecedor_id: number;
+  fornecedor?: RefTerceiro | null;
   referencia: string;
   data: string | null;
   data_entrega: string | null;
@@ -79,6 +84,7 @@ export interface EncomendaCompra {
   pedido_compra_id: number | null;
   cotacao_compra_id: number | null;
   fornecedor_id: number;
+  fornecedor?: RefTerceiro | null;
   data: string | null;
   estado: string;
   contabilizado: boolean | null;
@@ -98,6 +104,7 @@ export interface EncomendaCompra {
 export interface LinhaRececao {
   id: number;
   produto_id: number;
+  produto?: RefProduto | null;
   quantidade: string;
   valor_kz: string | null;
   custo_unitario_kz: string | null;
@@ -128,6 +135,7 @@ export interface FaturaCompra {
   numero_fatura: string;
   encomenda_compra_id: number | null;
   fornecedor_id: number;
+  fornecedor?: RefTerceiro | null;
   data: string | null;
   data_vencimento: string | null;
   estado: string | null;
@@ -156,6 +164,7 @@ export interface MarcoContrato {
 export interface ContratoCompra {
   id: number;
   fornecedor_id: number;
+  fornecedor?: RefTerceiro | null;
   referencia: string;
   descricao: string | null;
   data_inicio: string | null;
@@ -185,7 +194,8 @@ export interface EncomendaCliente {
   id: number;
   numero_documento: string;
   data_emissao: string;
-  cliente: string | null;
+  cliente_id: number | null;
+  cliente: { id: number; nome: string } | null;
   estado: string | null;
   linhas: LinhaEncomendaCliente[];
 }

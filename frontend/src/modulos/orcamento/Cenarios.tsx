@@ -9,6 +9,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/modulos/compras/comum/accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaOrc, Kz, SeletorOrcamento, useOrcamentos } from './comum/componentes';
+import { diferenca } from './comum/regras';
 import type { CalculoCenario, Cenario } from './comum/tipos';
 
 const VARIAVEIS: { chave: string; rotulo: string }[] = [
@@ -89,7 +90,7 @@ function DetalheCenario({ id, editar, podeVersao, aoEliminar, aoGerar }: { id: n
   if (!q.data) return <Card loading />;
   const r = q.data;
   const c = r.cenario;
-  const variacao = r.resultado_cenario - r.resultado_base;
+  const variacao = diferenca(r.resultado_cenario, r.resultado_base);
 
   return (
     <Card size="small" title={<Space>{c.nome}{c.tipo && <EtiquetaOrc valor={c.tipo} />}</Space>}

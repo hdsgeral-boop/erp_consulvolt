@@ -12,6 +12,7 @@ import { IndicadorEquilibrio } from '../comum/Componentes';
 import { equilibrio } from '../comum/decimal';
 import { EditorLinhasDC, linhasParaApi, type LinhaEditor } from '../comum/EditorLinhasDC';
 import { SeletorDiario } from '../comum/Seletores';
+import { rotuloTerceiro } from '../comum/terceiro';
 
 interface ValoresForm {
   diario_id?: number;
@@ -56,7 +57,7 @@ export function NovoLancamento() {
           unidade_negocio_id: l.unidade_negocio_id ?? undefined,
           nota_demonstracao_id: l.nota_demonstracao_id ?? undefined,
           nota_fluxo_caixa_id: l.nota_fluxo_caixa_id ?? undefined,
-          _terceiro: l.terceiro_id ? `Terceiro #${l.terceiro_id}` : undefined,
+          _terceiro: l.terceiro_id ? rotuloTerceiro(l.terceiro, l.terceiro_id, true) : undefined,
         })),
       }
     : { data_documento: dayjs(), linhas: [{ tipo_dc: 'D' }, { tipo_dc: 'C' }] };

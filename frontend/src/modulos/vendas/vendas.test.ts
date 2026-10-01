@@ -1,30 +1,32 @@
-import { calcularKpis } from './relatorios/kpis';
-import { nomeFicheiro } from './relatorios/Relatorios';
+import { barrasMensais, emCentimos } from './relatorios/kpis';
+import { nomeDoContentDisposition as nomeFicheiro } from '@/api/cliente';
 import { alocacoesParaPedido, distribuirMontante, totalAlocado } from './recibos/alocacao';
 import { accoesRecibo, rotuloMeio } from './recibos/tipos';
 import { corpoProduto, produtoParaFormulario, type ProdutoFicha } from './produtos/formularioProduto';
 import { separadorFaturacao } from './Faturacao';
-import type { DocumentoVenda } from './api';
+import { accoesAgt, svgComoDataUrl } from './agt/accoesDocumento';
 
-const doc = (o: Partial<DocumentoVenda>) =>
-  ({ id: 1, tipo_documento: 'FT', numero_documento: 'FT 1', data_emissao: '2026-01-10', cliente_id: 1, cliente: { id: 1, nome: 'A', nif: null }, total_liquido: '100.00', total_imposto: '14.00', total_bruto: '114.00', valor_pendente: '0.00', estado: 'PAGO', ...o }) as DocumentoVenda;
+describe('indicadores de vendas (resumo do servidor)', () => {
+  it('converte texto decimal em cêntimos sem erros de vírgula flutuante', () => {
+    expect(emCentimos('1234.56')).toBe(123456);
+    expect(emCentimos('-100.5')).toBe(-10050);
+    expect(emCentimos('0.1')).toBe(10);
+    expect(emCentimos(null)).toBe(0);
+  });
 
-describe('indicadores de vendas', () => {
-  it('soma FT e FR, subtrai NC e ignora anulados e não fiscais', () => {
-    const k = calcularKpis([
-      doc({ id: 1, valor_pendente: '114.00', estado: 'PENDENTE' }),
-      doc({ id: 2, tipo_documento: 'FR', data_emissao: '2026-02-01', cliente_id: 2, cliente: { id: 2, nome: 'B', nif: null }, total_liquido: '200.00', total_imposto: '28.00', total_bruto: '228.00' }),
-      doc({ id: 3, tipo_documento: 'NC', total_liquido: '50.00', total_imposto: '7.00', total_bruto: '57.00' }),
-      doc({ id: 4, estado: 'ANULADO', total_bruto: '999.00' }),
-      doc({ id: 5, tipo_documento: 'OR', total_bruto: '500.00' }),
+  it('calcula as barras mensais face ao maior valor absoluto', () => {
+    expect(
+      barrasMensais([
+        { mes: '2026-01', liquido: '50.00', bruto: '57.00', documentos: 2 },
+        { mes: '2026-02', liquido: '200.00', bruto: '228.00', documentos: 1 },
+        { mes: '2026-03', liquido: '-10.00', bruto: '-11.40', documentos: 1 },
+      ]),
+    ).toEqual([
+      { mes: '2026-01', bruto: '57.00', percentagem: 25, negativo: false },
+      { mes: '2026-02', bruto: '228.00', percentagem: 100, negativo: false },
+      { mes: '2026-03', bruto: '-11.40', percentagem: 5, negativo: true },
     ]);
-    expect(k).toMatchObject({ liquido: 250, imposto: 35, bruto: 285, notasCredito: 57, aReceber: 114, documentos: 3 });
-    expect(k.porMes).toEqual([
-      { mes: '2026-01', liquido: 50, bruto: 57 },
-      { mes: '2026-02', liquido: 200, bruto: 228 },
-    ]);
-    expect(k.topClientes.map((c) => c.nome)).toEqual(['B', 'A']);
-    expect(k.pendentes.map((d) => d.id)).toEqual([1]);
+    expect(barrasMensais([])).toEqual([]);
   });
 });
 
@@ -83,5 +85,31 @@ describe('navegação e ficheiros', () => {
   it('lê o nome do ficheiro do Content-Disposition', () => {
     expect(nomeFicheiro('attachment; filename="SAFT_AO_2026.xml"', 'x.xml')).toBe('SAFT_AO_2026.xml');
     expect(nomeFicheiro(undefined, 'x.xml')).toBe('x.xml');
+  });
+});
+
+describe('acções AGT avançadas no detalhe da venda', () => {
+  const todas = () => true;
+  const fe = (o: Record<string, unknown>) => ({ serie: 'A', numero: 1, estado: 'PRONTO', regime: true, erros: [], avisos: [], selado_em: '2026-01-10T10:00:00Z', envio: 'VALIDO', ...o });
+
+  it('revalidar só para erros locais por enviar ou inválidos/rejeitados pela AGT, com vendas_fat_emitir', () => {
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO' }) }, todas).revalidar).toBe(true);
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'INVALIDO' }) }, todas).revalidar).toBe(true);
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ estado: 'COM_ERROS', envio: null }) }, todas).revalidar).toBe(true);
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ estado: 'COM_ERROS', envio: 'VALIDO' }) }, todas).revalidar).toBe(false);
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'VALIDO' }) }, todas).revalidar).toBe(false);
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO', regime: false }) }, todas).revalidar).toBe(false);
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO' }) }, (p) => p !== 'vendas_fat_emitir').revalidar).toBe(false);
+  });
+
+  it('QR e pedido assinado só para documentos do regime já selados, cada um com a sua permissão', () => {
+    expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: fe({}) }, todas)).toMatchObject({ qr: true, pedidoAssinado: true });
+    expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: fe({ selado_em: null }) }, todas)).toMatchObject({ qr: false, pedidoAssinado: false });
+    expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: undefined }, todas)).toEqual({ revalidar: false, qr: false, pedidoAssinado: false });
+    expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: fe({}) }, (p) => p === 'vendas_faturacao_view')).toMatchObject({ qr: true, pedidoAssinado: false });
+  });
+
+  it('o SVG do QR vai para um data URL codificado', () => {
+    expect(svgComoDataUrl('<svg a="1"/>')).toBe('data:image/svg+xml;charset=utf-8,%3Csvg%20a%3D%221%22%2F%3E');
   });
 });

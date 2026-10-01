@@ -32,6 +32,7 @@ function ListaProjectos() {
   const colunas: ColumnsType<Projecto> = [
     { title: 'Código', dataIndex: 'codigo', render: (v) => <Typography.Text strong>{v ?? '—'}</Typography.Text> },
     { title: 'Nome', dataIndex: 'nome', ellipsis: true, width: 360 },
+    { title: 'Cliente', key: 'cliente', ellipsis: true, width: 240, render: (_, p) => p.cliente?.nome ?? (p.cliente_id ? `#${p.cliente_id}` : '—') },
     { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaProjectos valor={v} /> },
     { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaProjectos valor={v} /> },
   ];

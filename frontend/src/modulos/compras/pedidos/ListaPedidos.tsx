@@ -9,7 +9,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { EstadoTag, opcoesEstado } from '../comum/estados';
 import { etapaPendente } from '../comum/regras';
-import { TabelaServidor } from '../comum/Tabelas';
+import { TabelaApi } from '@/componentes/TabelaApi';
 import { numeroOuId, type PedidoCompra } from '../comum/tipos';
 import { ModalEscaloes } from './ModalEscaloes';
 
@@ -62,7 +62,7 @@ export function ListaPedidos() {
           />
           <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
         </Flex>
-        <TabelaServidor<PedidoCompra>
+        <TabelaApi<PedidoCompra>
           url="/compras/pedidos"
           chaveConsulta={['compras', 'pedidos']}
           filtros={{ estado, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}

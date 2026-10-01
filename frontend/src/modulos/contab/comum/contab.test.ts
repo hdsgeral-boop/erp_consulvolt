@@ -1,3 +1,4 @@
+import { rotuloTerceiro } from './terceiro';
 import type { Balanco, DemonstracaoResultados, EstadoExercicio, ValidacaoExercicio } from '../api';
 import { gerarCsv } from './csv';
 import { deCentimos, equilibrio, paraCentimos, somar, somarColunas } from './decimal';
@@ -146,5 +147,15 @@ describe('mapeamento de salários', () => {
     );
     expect(corpo.rubricas).toHaveLength(3);
     expect(alteracoes(original, { ...original })).toEqual([]);
+  });
+});
+
+describe('terceiro nas linhas de lançamentos e no razão', () => {
+  it('mostra o nome (e o NIF quando pedido) em vez do #id', () => {
+    expect(rotuloTerceiro({ id: 7, nome: ' Cliente A ', nif: '5000000001' }, 7)).toBe('Cliente A');
+    expect(rotuloTerceiro({ id: 7, nome: 'Cliente A', nif: '5000000001' }, 7, true)).toBe('Cliente A (NIF 5000000001)');
+    expect(rotuloTerceiro({ id: 7, nome: null, nif: null }, 7)).toBe('#7');
+    expect(rotuloTerceiro(undefined, 9)).toBe('#9');
+    expect(rotuloTerceiro(null, null)).toBe('—');
   });
 });

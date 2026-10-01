@@ -27,6 +27,7 @@ export function TabelaResultados({ periodo, carregando }: { periodo: DetalhePeri
         </Flex>
       ),
     },
+    { title: 'NIF', dataIndex: 'nif', render: (v: string | null | undefined) => v ?? '—' },
     { title: 'Dias', align: 'center', render: (_, r) => `${formatarNumero(r.dias_trabalhados)}/${formatarNumero(r.dias_contrato)}` },
     { title: 'Bruto', dataIndex: 'bruto', align: 'right', render: (v: string) => formatarKz(v), sorter: (a, b) => Number(a.bruto) - Number(b.bruto) },
     { title: 'INSS (trab.)', dataIndex: 'inss_trabalhador', align: 'right', render: (v: string) => formatarKz(v) },

@@ -2,13 +2,13 @@ import { Alert, Button, Card, Col, Descriptions, Flex, Form, Image, Input, Modal
 import { CloudDownloadOutlined, CopyOutlined, DeleteOutlined, ImportOutlined, UploadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { enviar, obter } from '@/api/cliente';
+import { descarregar, enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
-import { descarregarFicheiro, lerComoDataUrl } from './comum/ficheiros';
+import { lerComoDataUrl } from './comum/ficheiros';
 
 interface ResumoCopia {
   empresa_origem: { id: number; nome: string | null };
@@ -72,7 +72,7 @@ function Exportar() {
         onClick={async () => {
           setAExportar(true);
           try {
-            await descarregarFicheiro('/sistema/copias/exportar', undefined, `copia_empresa_${empresa?.id ?? ''}.json`);
+            await descarregar('/sistema/copias/exportar', undefined, `copia_empresa_${empresa?.id ?? ''}.json`);
             message.success('Cópia de segurança descarregada.');
           } catch (e) {
             notificarErro(e, 'Não foi possível exportar a cópia');

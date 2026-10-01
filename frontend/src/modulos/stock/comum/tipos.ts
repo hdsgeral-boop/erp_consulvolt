@@ -1,4 +1,5 @@
 /** Tipos das respostas de /api/logistica e /api/pos/armazem (StockController, POSArmazemController). */
+import type { RefProduto, RefTerceiro } from '@/modulos/compras/comum/referencias';
 
 export interface LinhaStock {
   armazem_id: number;
@@ -66,6 +67,8 @@ export interface GuiaSaida {
   tipo: string;
   tipo_original: string | null;
   terceiro_id: number | null;
+  /** {id,nome,nif} — na lista e no detalhe de /logistica/guias-saida (ADR-064). */
+  terceiro?: RefTerceiro | null;
   armazem_id: number | null;
   area_rececao: string | null;
   estado: string | null;
@@ -76,7 +79,7 @@ export interface GuiaSaida {
   numero_lan_contabilizacao: string | null;
   anulado_em: string | null;
   motivo_anulacao: string | null;
-  linhas?: { id: number; produto_id: number; quantidade: string; valor_kz: string | null; custo_unitario_kz: string | null }[];
+  linhas?: { id: number; produto_id: number; produto?: RefProduto | null; quantidade: string; valor_kz: string | null; custo_unitario_kz: string | null }[];
   aviso_contabilizacao?: string | null;
 }
 
@@ -144,3 +147,42 @@ export interface ListaRecolha {
 
 export const TIPOS_MOVIMENTO: Record<string, string> = { ENTRADA: 'Entrada', SAIDA: 'Saída', TRANSFERENCIA: 'Transferência', AJUSTE: 'Ajuste' };
 export const TIPOS_GUIA: Record<string, string> = { CONSUMO: 'Consumo interno', VENDA: 'Venda', BACK_TO_BACK: 'Back-to-back', VENDA_BALCAO: 'Venda ao balcão' };
+
+/** POST /logistica/stock/recalcular-valorizacoes (tarefa armazem_recalcular, ADR-064). */
+export interface MovimentoRecalculado {
+  movimento_id: number;
+  data: string | null;
+  tipo: string;
+  sentido: 'E' | 'S';
+  armazem_id: number;
+  documento_tipo: string | null;
+  documento_id: number | null;
+  quantidade: string;
+  valor_atual: string;
+  valor_recalculado: string;
+  preco_recalculado: string;
+  custo_medio_apos: string;
+  /** Documento de origem contabilizado: a diferença é só informativa (não é aplicada). */
+  contabilizado: boolean;
+}
+
+export interface ProdutoRecalculado {
+  produto_id: number;
+  codigo: string | null;
+  nome: string;
+  custo_medio_atual: string;
+  custo_medio_recalculado: string;
+  custo_medio_alterado: boolean;
+  movimentos_recalculados: number;
+  movimentos_alterados: number;
+  divergencias_contabilizadas: number;
+  diferenca_valor: string;
+  movimentos: MovimentoRecalculado[];
+}
+
+export interface ResultadoRecalculo {
+  aplicado: boolean;
+  resumo: { produtos_analisados: number; produtos_com_alteracoes: number; movimentos_alterados: number; divergencias_contabilizadas: number; diferenca_valor: string };
+  produtos: ProdutoRecalculado[];
+  avisos: string[];
+}

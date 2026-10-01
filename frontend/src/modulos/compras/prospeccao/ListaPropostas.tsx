@@ -9,7 +9,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { EstadoTag, opcoesEstado } from '../comum/estados';
 import { NomeTerceiro } from '../comum/referencias';
-import { TabelaServidor } from '../comum/Tabelas';
+import { TabelaApi } from '@/componentes/TabelaApi';
 import { numeroOuId, type PropostaCompra } from '../comum/tipos';
 import { ValorMoeda } from '../comum/Valores';
 
@@ -24,7 +24,7 @@ export function ListaPropostas() {
     { title: 'Proposta', key: 'numero', fixed: 'left', render: (_, r) => <strong>{numeroOuId(r.numero_proposta, r.id)}</strong> },
     { title: 'Referência', dataIndex: 'referencia' },
     { title: 'Pedido', dataIndex: 'pedido_compra_id', render: (v: number) => `#${v}` },
-    { title: 'Fornecedor', key: 'fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} /> },
+    { title: 'Fornecedor', key: 'fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
     { title: 'Entrega', dataIndex: 'data_entrega', render: formatarData },
     { title: 'Total (Kz)', key: 'total', align: 'right', render: (_, r) => <ValorMoeda kz={r.montante_total} moeda={r.codigo_moeda} valorMoeda={r.montante_total_moeda} /> },
@@ -58,7 +58,7 @@ export function ListaPropostas() {
           <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
           {pedido && <Button onClick={() => navegar(`comparacao/${pedido}`)}>Quadro comparativo do pedido</Button>}
         </Flex>
-        <TabelaServidor<PropostaCompra>
+        <TabelaApi<PropostaCompra>
           url="/compras/propostas"
           chaveConsulta={['compras', 'propostas']}
           filtros={{ estado, pedido_compra_id: pedido ?? undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}

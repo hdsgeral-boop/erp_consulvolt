@@ -2,15 +2,15 @@ import { Alert, Button, Card, Checkbox, Col, Empty, Flex, Form, Input, InputNumb
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { enviar, obter } from '@/api/cliente';
+import { descarregar, enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { usePlanoContas } from '@/modulos/contab/comum/dados';
-import { descarregarFicheiro } from './comum/ficheiros';
-import { lerTabelaColada } from './comum/regras';
+import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
+import { eFolhaExcel, lerTabelaColada } from './comum/regras';
 
 interface ColunaModelo {
   cabecalho: string;
@@ -38,6 +38,9 @@ interface ResultadoImportacao {
   actualizados: number;
   ignorados: number;
   erros: { linha: number; motivo: string }[];
+  /** Só nas importações a partir de ficheiro .xlsx (lido no servidor). */
+  linhas_lidas?: number;
+  linhas_exemplo_ignoradas?: number;
 }
 
 /** Configurações › Migração de dados (config_migracao): modelos Excel, importação em massa com simulação e edição em massa. */
@@ -66,18 +69,23 @@ function Importacao() {
   const [contaOmissao, setContaOmissao] = useState('');
   const [resultado, setResultado] = useState<ResultadoImportacao | null>(null);
   const [aDescarregar, setADescarregar] = useState(false);
+  const [ficheiro, setFicheiro] = useState<File | null>(null);
   const modelo = modelos.data?.find((m) => m.entidade === entidade);
   const linhas = lerTabelaColada(conteudo);
-  const cabecalhosEmFalta = modelo && linhas.length ? modelo.colunas.filter((c) => c.obrigatorio && !(c.cabecalho in linhas[0])).map((c) => c.cabecalho) : [];
+  const cabecalhosEmFalta = modelo && linhas.length && !ficheiro ? modelo.colunas.filter((c) => c.obrigatorio && !(c.cabecalho in linhas[0])).map((c) => c.cabecalho) : [];
 
   const executar = useMutation({
+    // .xlsx/.xls: o próprio modelo preenchido vai ao servidor (multipart) e é lido lá; texto colado ou CSV: linhas em JSON
     mutationFn: (simular: boolean) =>
-      enviar<ResultadoImportacao>('post', `/sistema/migracao/importar/${entidade}`, { linhas, decisao, simular, conta_omissao: contaOmissao || undefined }),
+      ficheiro
+        ? enviarFicheiro<ResultadoImportacao>(`/sistema/migracao/importar/${entidade}`, ficheiro, { decisao, simular, conta_omissao: contaOmissao || undefined })
+        : enviar<ResultadoImportacao>('post', `/sistema/migracao/importar/${entidade}`, { linhas, decisao, simular, conta_omissao: contaOmissao || undefined }),
     onSuccess: ({ dados, mensagem }, simular) => {
       setResultado(dados);
       if (!simular) {
         message.success(mensagem);
         setConteudo('');
+        setFicheiro(null);
         void cliente.invalidateQueries();
       }
     },
@@ -100,6 +108,7 @@ function Importacao() {
                   setEntidade(m.entidade);
                   setResultado(null);
                   setConteudo('');
+                  setFicheiro(null);
                 }}
                 style={{ cursor: 'pointer', background: m.entidade === entidade ? '#e6f4ff' : undefined, paddingLeft: 8 }}
               >
@@ -123,7 +132,7 @@ function Importacao() {
                 onClick={async () => {
                   setADescarregar(true);
                   try {
-                    await descarregarFicheiro(`/sistema/migracao/modelos/${modelo.entidade}`, undefined, `Template_${modelo.entidade}.xlsx`);
+                    await descarregar(`/sistema/migracao/modelos/${modelo.entidade}`, undefined, `Template_${modelo.entidade}.xlsx`);
                   } catch (e) {
                     notificarErro(e, 'Não foi possível descarregar o modelo');
                   } finally {
@@ -151,29 +160,42 @@ function Importacao() {
               type="info"
               showIcon
               style={{ marginBottom: 12 }}
-              message="Preencha o modelo no Excel, seleccione a tabela (com o cabeçalho) e cole aqui, ou guarde como CSV e carregue o ficheiro."
+              message="Preencha o modelo no Excel e carregue o ficheiro .xlsx (a linha de exemplo, se ficar, é ignorada). Também pode colar a tabela (com o cabeçalho) ou carregar um CSV."
             />
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Upload
-                accept=".csv,.txt"
-                showUploadList={false}
-                beforeUpload={async (f) => {
-                  setConteudo(await f.text());
-                  setResultado(null);
-                  return false;
-                }}
-              >
-                <Button icon={<UploadOutlined />}>Carregar CSV</Button>
-              </Upload>
-              <Input.TextArea rows={8} value={conteudo} onChange={(e) => { setConteudo(e.target.value); setResultado(null); }} placeholder={modelo.colunas.map((c) => c.cabecalho).join('\t')} style={{ fontFamily: 'monospace' }} />
+              <Space wrap>
+                <Upload
+                  accept=".xlsx,.xls,.csv,.txt"
+                  showUploadList={false}
+                  beforeUpload={async (f) => {
+                    if (eFolhaExcel(f.name)) {
+                      setFicheiro(f);
+                      setConteudo('');
+                    } else {
+                      setFicheiro(null);
+                      setConteudo(await f.text());
+                    }
+                    setResultado(null);
+                    return false;
+                  }}
+                >
+                  <Button icon={<UploadOutlined />}>Carregar ficheiro (.xlsx ou CSV)</Button>
+                </Upload>
+                {ficheiro && (
+                  <Tag closable color="blue" onClose={() => { setFicheiro(null); setResultado(null); }}>
+                    {ficheiro.name}
+                  </Tag>
+                )}
+              </Space>
+              <Input.TextArea rows={8} value={conteudo} disabled={ficheiro !== null} onChange={(e) => { setConteudo(e.target.value); setResultado(null); }} placeholder={modelo.colunas.map((c) => c.cabecalho).join('\t')} style={{ fontFamily: 'monospace' }} />
               {cabecalhosEmFalta.length > 0 && <Alert type="error" showIcon message={`Faltam colunas obrigatórias no cabeçalho: ${cabecalhosEmFalta.join(', ')}.`} />}
               <Flex gap={16} wrap align="center">
-                <Typography.Text>{linhas.length} linha(s)</Typography.Text>
+                <Typography.Text>{ficheiro ? (resultado?.linhas_lidas !== undefined ? `${resultado.linhas_lidas} linha(s) no ficheiro` : 'Ficheiro lido no servidor') : `${linhas.length} linha(s)`}</Typography.Text>
                 <Radio.Group value={decisao} onChange={(e) => setDecisao(e.target.value)} options={[{ value: 'IGNORAR', label: 'Ignorar existentes' }, { value: 'ACTUALIZAR', label: 'Actualizar existentes' }]} />
                 {modelo.entidade === 'terceiros' && <Input style={{ width: 200 }} placeholder="Conta por omissão (opcional)" value={contaOmissao} onChange={(e) => setContaOmissao(e.target.value)} maxLength={20} />}
               </Flex>
               <Space>
-                <Button disabled={!linhas.length || cabecalhosEmFalta.length > 0} loading={executar.isPending} onClick={() => executar.mutate(true)}>
+                <Button disabled={(!ficheiro && !linhas.length) || cabecalhosEmFalta.length > 0} loading={executar.isPending} onClick={() => executar.mutate(true)}>
                   Validar (simulação)
                 </Button>
                 <Button type="primary" disabled={!resultado?.simulacao || resultado.rejeitadas.length > 0 || resultado.erros.length > 0} loading={executar.isPending} onClick={() => executar.mutate(false)}>
@@ -186,7 +208,7 @@ function Importacao() {
                   showIcon
                   message={
                     resultado.simulacao
-                      ? `Simulação: ${resultado.novos} novo(s), ${resultado.existentes.length} existente(s), ${resultado.repetidos} repetido(s) no ficheiro, ${resultado.rejeitadas.length} rejeitado(s), ${resultado.erros.length} erro(s).`
+                      ? `Simulação: ${resultado.novos} novo(s), ${resultado.existentes.length} existente(s), ${resultado.repetidos} repetido(s) no ficheiro, ${resultado.rejeitadas.length} rejeitado(s), ${resultado.erros.length} erro(s).${resultado.linhas_exemplo_ignoradas ? ` Linha de exemplo do modelo ignorada.` : ''}`
                       : `Concluído: ${resultado.criados} criado(s), ${resultado.actualizados} actualizado(s), ${resultado.ignorados} ignorado(s).`
                   }
                   description={

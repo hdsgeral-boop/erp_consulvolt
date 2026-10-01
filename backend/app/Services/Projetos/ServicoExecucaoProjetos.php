@@ -3,6 +3,7 @@
 namespace App\Services\Projetos;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\AfetacaoAtivoProjeto;
 use App\Models\AtivoImobilizado;
 use App\Models\Colaborador;
 use App\Models\EquipaProjeto;
@@ -42,9 +43,52 @@ final class ServicoExecucaoProjetos
 
     // ───────────── Folhas de horas ─────────────
 
+    /** Folhas de horas com o nome do colaborador e o código/nome da tarefa (ADR-064). */
     public function folhasHoras(Projeto $p): array
     {
-        return FolhaHorasProjeto::query()->where('projeto_id', $p->id)->orderByDesc('data')->orderByDesc('id')->get()->all();
+        $folhas = FolhaHorasProjeto::query()->where('projeto_id', $p->id)->orderByDesc('data')->orderByDesc('id')->get();
+        $nomes = Colaborador::query()->withTrashed()->whereIn('id', $folhas->pluck('colaborador_id')->filter()->unique()->values()->all())->pluck('nome_completo', 'id');
+        $tarefas = self::tarefasDoProjeto($p);
+
+        return $folhas->map(fn ($f) => $f->toArray() + ['colaborador_nome' => $nomes[$f->colaborador_id] ?? null,
+            'tarefa_codigo' => $tarefas[$f->tarefa_projeto_id]['codigo'] ?? null, 'tarefa_nome' => $tarefas[$f->tarefa_projeto_id]['nome'] ?? null])->all();
+    }
+
+    /**
+     * Usos de equipamento imputados ao projecto (razão analítico, rubrica CUSTOS_EQUIPAMENTO de origem ATIVOS) e as
+     * afectações de activos ao projecto (ADR-064).
+     */
+    public function equipamentos(Projeto $p): array
+    {
+        $tarefas = self::tarefasDoProjeto($p);
+        $usos = RazaoAnaliticoProjeto::query()->where('projeto_id', $p->id)->where('rubrica', 'CUSTOS_EQUIPAMENTO')->where('modulo_origem', 'ATIVOS')
+            ->orderByDesc('data')->orderByDesc('id')->get();
+        // o registo guarda «MAQ-<código do activo>» como documento de origem
+        $codigos = $usos->map(fn ($u) => str_starts_with((string) $u->documento_origem_id, 'MAQ-') ? substr((string) $u->documento_origem_id, 4) : null)->filter()->unique()->values()->all();
+        $ativos = $codigos === [] ? collect() : AtivoImobilizado::query()->withTrashed()->whereIn('codigo', $codigos)->get(['id', 'codigo', 'descricao'])->keyBy('codigo');
+        $total = '0.00';
+        $lista = $usos->map(function ($u) use ($tarefas, $ativos, &$total) {
+            $codigo = str_starts_with((string) $u->documento_origem_id, 'MAQ-') ? substr((string) $u->documento_origem_id, 4) : null;
+            $a = $codigo !== null ? ($ativos[$codigo] ?? null) : null;
+            $total = bcadd($total, (string) $u->montante, 2);
+
+            return ['id' => $u->id, 'data' => $u->data?->toDateString(), 'tarefa_projeto_id' => $u->tarefa_projeto_id,
+                'tarefa_codigo' => $tarefas[$u->tarefa_projeto_id]['codigo'] ?? null, 'tarefa_nome' => $tarefas[$u->tarefa_projeto_id]['nome'] ?? null,
+                'ativo_imobilizado_id' => $a?->id, 'ativo_codigo' => $codigo, 'ativo_descricao' => $a?->descricao,
+                'descricao' => $u->descricao, 'montante' => ServicoAnaliticoProjetos::dinheiro((string) $u->montante), 'lancamento_contabil_id' => $u->lancamento_contabil_id];
+        })->values()->all();
+        $afetacoes = AfetacaoAtivoProjeto::query()->where('projeto_id', $p->id)->with('ativoImobilizado:id,codigo,descricao')->orderByDesc('data_inicio')->get()
+            ->map(fn ($f) => ['id' => $f->id, 'ativo_imobilizado_id' => $f->ativo_imobilizado_id, 'ativo_codigo' => $f->ativoImobilizado?->codigo,
+                'ativo_descricao' => $f->ativoImobilizado?->descricao, 'data_inicio' => $f->data_inicio?->toDateString(), 'data_fim' => $f->data_fim?->toDateString()])->all();
+
+        return ['usos' => $lista, 'total' => $total, 'afetacoes' => $afetacoes];
+    }
+
+    /** @return array<int, array{codigo: ?string, nome: ?string}> */
+    private static function tarefasDoProjeto(Projeto $p): array
+    {
+        return TarefaProjeto::query()->where('projeto_id', $p->id)->get(['id', 'codigo', 'nome'])
+            ->mapWithKeys(fn ($t) => [$t->id => ['codigo' => $t->codigo, 'nome' => $t->nome]])->all();
     }
 
     /** @param  array{tarefa_projeto_id: int, colaborador_id: int, data: string, horas: mixed}  $d */

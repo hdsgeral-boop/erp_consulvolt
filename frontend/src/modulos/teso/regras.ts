@@ -3,7 +3,7 @@
  */
 import { deCentimos, paraCentimos, type LinhaDC } from '../contab/comum/decimal';
 import type { Pode } from '../contab/comum/regras';
-import type { ConferenciaCaixa, DocumentoTesouraria, SessaoCaixa, TipoDocumento } from './api';
+import type { ConferenciaCaixa, DocumentoTesouraria, ExtratoConta, ResultadoIntegracaoLote, SessaoCaixa, TipoDocumento } from './api';
 import { DENOMINACOES } from './api';
 
 /**
@@ -91,4 +91,19 @@ export function lerDenominacoes(v: ConferenciaCaixa['denominacoes']): Record<str
     }
   }
   return v;
+}
+
+/** Máximo de ids por pedido de integração em lote (TesourariaController::integrarLote valida max:200). */
+export const LOTE_INTEGRACAO = 200;
+
+/** Mensagens dos documentos que não foram integrados no lote ("n.º: mensagem do servidor"). */
+export function errosDoLote(r: ResultadoIntegracaoLote | null | undefined): string[] {
+  return (r?.erros ?? []).map((e) => `${e.numero_documento ?? `#${e.id}`}: ${e.mensagem}`);
+}
+
+/** Confere o saldo corrido do extracto: saldo inicial + Σ D − Σ C deve dar o saldo final (em cêntimos). */
+export function extratoConfere(e: Pick<ExtratoConta, 'saldo_inicial' | 'saldo_final' | 'movimentos'>): boolean {
+  let s = paraCentimos(e.saldo_inicial);
+  for (const m of e.movimentos) s += m.tipo_dc === 'D' ? paraCentimos(m.valor) : -paraCentimos(m.valor);
+  return s === paraCentimos(e.saldo_final);
 }

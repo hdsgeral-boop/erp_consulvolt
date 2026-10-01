@@ -74,6 +74,110 @@ export interface FichaColaborador extends Colaborador {
   dependentes: Dependente[];
   habilitacoes: Habilitacao[];
   coordenada_bancaria: CoordenadaBancaria | null;
+  /** Referências por nome (ADR-064). */
+  unidade_organica?: ReferenciaNome | null;
+  unidade_negocio?: ReferenciaNome | null;
+  centro_custo?: ReferenciaNome | null;
+}
+
+export interface ReferenciaNome {
+  id: number;
+  codigo: string | null;
+  nome: string | null;
+}
+
+/** Utilizador da empresa activa e o colaborador a que está ligado (GET /rh/portal/utilizadores). */
+export interface UtilizadorEmpresa {
+  id: number;
+  nome_utilizador: string;
+  nome_completo: string | null;
+  ativo: boolean;
+  colaborador_id: number | null;
+  colaborador_nome: string | null;
+}
+
+/** Ausência do próprio no portal (GET /rh/portal/ausencias). */
+export interface MinhaAusencia {
+  id: number;
+  tipo: string | null;
+  data_inicio: string;
+  data_fim: string;
+  dias: number | null;
+  dias_uteis: number | null;
+  horas: string | null;
+  horas_falta: string | null;
+  ocorrencia: string | null;
+  estado: string;
+  detectada: boolean | null;
+  mes: string | null;
+  motivo: string | null;
+  documento_url: string | null;
+  remunerada: string | null;
+  pedido_portal_colaborador_id: number | null;
+  nota_decisao: string | null;
+  pode_justificar: boolean;
+}
+
+/** A minha avaliação (GET /rh/portal/avaliacoes). */
+export interface MinhaAvaliacao {
+  colaborador_id: number;
+  avaliacoes: (Avaliacao & {
+    classificacao_final: string | null;
+    prazo_contestacao: string | null;
+    pode_tomar_conhecimento: boolean;
+    pode_contestar: boolean;
+    tem_resultado_360: boolean;
+  })[];
+  feedbacks: {
+    id: number;
+    ciclo_avaliacao_id: number | null;
+    periodo_referencia: string | null;
+    data: string | null;
+    objetivos: unknown;
+    positivos: string | null;
+    melhorar: string | null;
+    acordos: string | null;
+    registado_por: string | null;
+    confirmacao: { em: string; comentario?: string | null } | null;
+  }[];
+  ciclo_aberto: {
+    id: number;
+    nome: string | null;
+    ano: number;
+    periodo: PeriodoAvaliacao;
+    prazos: Ciclo360['prazos'];
+    criterios: { chave: string; nome: string; peso?: number }[];
+    comunicado: { titulo?: string | null; texto?: string | null } | null;
+    comunicado_confirmado: boolean;
+  } | null;
+  tarefas_360: { ciclo_avaliacao_id: number; colaborador_avaliado_id: number; nome: string | null; grupo: 'PARES' | 'SUBORDINADOS' }[];
+  ascendente: { chefia_colaborador_id: number | null; chefia_nome: string | null; questoes: { chave: string; nome: string }[]; respondida: boolean } | null;
+}
+
+/** GET /rh/avaliacao/autoavaliacao. */
+export interface Autoavaliacao {
+  autoavaliacao: {
+    id: number;
+    criterios: { chave: string; nome: string; nota: number | null; comentario: string | null }[] | null;
+    objetivos: { chave: string; descricao: string; resultado: number | null }[] | null;
+    realizacoes: string | null;
+    dificuldades: string | null;
+    formacao: string | null;
+    estado: 'RASCUNHO' | 'SUBMETIDA';
+    submetida_em: string | null;
+  } | null;
+  criterios: { chave: string; nome: string; descricao?: string | null }[];
+  objetivos: { chave: string; nome: string; descricao?: string | null; meta?: string | null; unidade?: string | null }[];
+}
+
+/** GET /rh/avaliacao/ascendente/{colaborador}. */
+export interface ResultadoAscendente {
+  respostas: number;
+  minimo: number;
+  liberado: boolean;
+  questoes?: Record<string, { nome: string; media: number | null }>;
+  media?: number | null;
+  comentarios?: string[];
 }
 
 /** Remuneração do contrato: as novas usam chaves em português; as migradas mantêm as do legado (ADR-037). */
@@ -154,7 +258,10 @@ export interface RubricaResultado {
 
 export interface ResultadoSalarial {
   colaborador_id: number;
-  nome?: string;
+  /** Identificação do colaborador (também nos resultados fotografados, ADR-064). */
+  nome?: string | null;
+  nif?: string | null;
+  numero_inss?: string | null;
   tipo_organizacao_id: number | null;
   unidade_negocio_id: number | null;
   centro_custo_id: number | null;

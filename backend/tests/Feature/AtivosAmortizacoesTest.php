@@ -116,6 +116,8 @@ final class AtivosAmortizacoesTest extends TestCase
         $pre = $this->getJson('/api/ativos/amortizacoes/pre-visualizacao?periodo=01-2026', $this->s)->assertOk()->json('dados');
         $this->assertSame(['7315', 'D', '1333.33'], [$pre['linhas'][0]['codigo_conta'], $pre['linhas'][0]['tipo_dc'], $pre['linhas'][0]['valor']]);
         $this->assertSame('AM-01-2026', $pre['numero_documento']);
+        $this->assertArrayHasKey('unidade_negocio_codigo', $pre['linhas'][0]);   // códigos de UN/CC (ADR-064)
+        $this->assertArrayHasKey('centro_custo_codigo', $pre['linhas'][0]);
 
         $int = $this->postJson('/api/ativos/amortizacoes/integrar', ['periodos' => ['02-2026', '01-2026']], $this->s)->assertOk()->json('dados');
         $this->assertSame(['AM2026000001', 'AM2026000002'], array_column($int, 'numero_lan'));

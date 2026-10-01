@@ -9,6 +9,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import type { DocumentoLancamento, LinhaLancamento } from '../api';
+import { rotuloTerceiro } from '../comum/terceiro';
 import { ValorKz } from '../comum/Componentes';
 import { porId, useDiarios, useTabelaAux } from '../comum/dados';
 import { accoesLancamento } from '../comum/regras';
@@ -52,7 +53,7 @@ export function DetalheLancamento() {
   const colunas = [
     { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string) => <strong>{v}</strong> },
     { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null) => v ?? '—' },
-    { title: 'Terceiro', dataIndex: 'terceiro_id', render: (v: number | null) => (v ? `#${v}` : '—') },
+    { title: 'Terceiro', key: 'terceiro', render: (_: unknown, r: LinhaLancamento) => rotuloTerceiro(r.terceiro, r.terceiro_id, true) },
     { title: 'Centro de custo', dataIndex: 'centro_custo_id', render: (v: number | null) => (v ? nomesCentro.get(v) ?? `#${v}` : '—') },
     { title: 'Débito', align: 'right' as const, render: (_: unknown, r: LinhaLancamento) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null) },
     { title: 'Crédito', align: 'right' as const, render: (_: unknown, r: LinhaLancamento) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null) },

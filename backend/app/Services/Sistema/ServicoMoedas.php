@@ -41,6 +41,20 @@ final class ServicoMoedas
         private readonly ServicoAuditoria $auditoria,
     ) {}
 
+    /**
+     * Moeda funcional da empresa (empresas.moeda_funcional; AOA quando vazia), com nome e símbolo da tabela de moedas.
+     *
+     * @return array{codigo_moeda: string, nome: string|null, simbolo: string|null, casas_decimais: int, base: bool}
+     */
+    public function moedaFuncional(int $empresaId): array
+    {
+        $codigo = strtoupper((string) (DB::table('empresas')->where('id', $empresaId)->value('moeda_funcional') ?: ServicoCambios::BASE));
+        $m = Moeda::query()->where('codigo', $codigo)->first();
+
+        return ['codigo_moeda' => $codigo, 'nome' => $m?->nome, 'simbolo' => $m?->simbolo, 'casas_decimais' => (int) ($m?->casas_decimais ?? 2),
+            'base' => $codigo === ServicoCambios::BASE];
+    }
+
     /** @return list<array<string, mixed>> AOA primeiro, depois as padrão do legado, depois por código */
     public function moedas(bool $apenasAtivas = false): array
     {

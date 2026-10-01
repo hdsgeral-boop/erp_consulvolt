@@ -4,6 +4,7 @@ namespace App\Services\Ativos;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\AtivoImobilizado;
+use App\Models\CategoriaAtivo;
 use App\Models\LancamentoContabil;
 use Illuminate\Support\Facades\DB;
 
@@ -105,10 +106,14 @@ final class ServicoAquisicoesAtivos
     }
 
     /** Activos sem lançamento de compra associado (candidatos à ligação). */
-    public function semLancamento()
+    public function semLancamento(): array
     {
-        return AtivoImobilizado::query()->whereNull('lancamento_contabil_id')->orderBy('codigo')
+        $ativos = AtivoImobilizado::query()->whereNull('lancamento_contabil_id')->orderBy('codigo')
             ->get(['id', 'codigo', 'descricao', 'valor_aquisicao', 'data_aquisicao', 'categoria_ativo_id', 'estado']);
+        $categorias = CategoriaAtivo::withTrashed()->whereIn('id', $ativos->pluck('categoria_ativo_id')->filter()->unique()->values()->all())->pluck('nome', 'id');
+
+        // com o nome da categoria (ADR-064)
+        return $ativos->map(fn ($a) => $a->toArray() + ['categoria_nome' => $categorias[$a->categoria_ativo_id] ?? null])->values()->all();
     }
 
     /** @return array{0: LancamentoContabil, 1: string} linha bloqueada e valor por inventariar */

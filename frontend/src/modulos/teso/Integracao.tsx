@@ -10,10 +10,11 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorConta } from '../contab/comum/Seletores';
-import type { DocumentoTesouraria, TipoDocumento } from './api';
+import type { DocumentoTesouraria, ResultadoIntegracaoLote, TipoDocumento } from './api';
 import { SeletorContaFinanceira, TabelaDocumentos } from './comum';
 import { DetalheDocumento } from './pagamentos/DetalheDocumento';
 import { colunasDocumentos } from './pagamentos/ListaDocumentos';
+import { errosDoLote, LOTE_INTEGRACAO } from './regras';
 
 /** Tesouraria › Integração no razão (ecrã teso_contab_integracao): documentos por integrar e contas de tesouraria. */
 export default function Integracao() {
@@ -36,18 +37,23 @@ function PorIntegrar() {
   const [progresso, setProgresso] = useState<{ feitos: number; total: number; erros: string[] } | null>(null);
   const podeIntegrar = pode('teso_integrar');
 
-  /** Integração em lote: um pedido por documento (o servidor não tem integração em massa); os erros não interrompem os restantes. */
+  /**
+   * Integração em lote: POST /tesouraria/documentos/integrar {ids} (ADR-064), em blocos de LOTE_INTEGRACAO. No servidor cada
+   * documento é integrado na sua transacção: os erros vêm em `erros` e não interrompem os restantes.
+   */
   const integrarSeleccionados = async () => {
     const lista = [...seleccao];
     const erros: string[] = [];
     setProgresso({ feitos: 0, total: lista.length, erros });
-    for (let i = 0; i < lista.length; i++) {
+    for (let i = 0; i < lista.length; i += LOTE_INTEGRACAO) {
+      const bloco = lista.slice(i, i + LOTE_INTEGRACAO);
       try {
-        await enviar('post', `/tesouraria/documentos/${lista[i].id}/integrar`);
+        const { dados } = await enviar<ResultadoIntegracaoLote>('post', '/tesouraria/documentos/integrar', { ids: bloco.map((d) => d.id) });
+        erros.push(...errosDoLote(dados));
       } catch (e) {
-        erros.push(`${lista[i].numero_documento ?? `#${lista[i].id}`}: ${e instanceof ErroApi ? e.message : String(e)}`);
+        erros.push(...bloco.map((d) => `${d.numero_documento ?? `#${d.id}`}: ${e instanceof ErroApi ? e.message : String(e)}`));
       }
-      setProgresso({ feitos: i + 1, total: lista.length, erros: [...erros] });
+      setProgresso({ feitos: Math.min(lista.length, i + bloco.length), total: lista.length, erros: [...erros] });
     }
     setSeleccao([]);
     void cliente.invalidateQueries({ queryKey: ['teso'] });

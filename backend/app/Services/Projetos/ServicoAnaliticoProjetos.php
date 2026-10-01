@@ -368,8 +368,9 @@ final class ServicoAnaliticoProjetos
             'curva_s' => $this->curvaS($p, $tarefas, $orcamento, $movs, $prazo, $hoje),
             'orcado_realizado' => array_values(array_map(fn ($r) => ['rubrica' => $r, 'orcado' => $orcPorRubrica[$r] ?? '0.00', 'realizado' => $realPorRubrica[$r] ?? '0.00'],
                 array_values(array_unique(array_merge(array_keys($orcPorRubrica), array_keys(array_filter($realPorRubrica, fn ($v) => (float) $v > 0))))))),
-            'origem_custos' => array_filter($origem, fn ($v) => (float) $v != 0),
-            'orcamento_por_rubrica' => $orcPorRubrica,
+            // mapas rubrica → valor: sempre objecto JSON, também quando vazios (ADR-064)
+            'origem_custos' => (object) array_filter($origem, fn ($v) => (float) $v != 0),
+            'orcamento_por_rubrica' => (object) $orcPorRubrica,
             'execucao_por_marco' => $porMarco,
             'horas_por_colaborador' => $horas->map(fn ($h, $id) => ['colaborador_id' => $id, 'nome' => $nomes[$id] ?? "#{$id}", 'horas' => (float) $h])->sortByDesc('horas')->take(10)->values()->all(),
             'equipa_por_papel' => $papeis->all(),

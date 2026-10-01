@@ -182,7 +182,7 @@ final class ServicoContratosFornecedores
     /** Consumo do contrato: encomendado, facturado e pago, e marcos com o estado efectivo. */
     public function resumo(ContratoFornecedor $c): array
     {
-        $c->refresh();
+        $c->refresh()->load(RelacoesNomes::fornecedor());
         $encomendas = $this->encomendas($c);
         $ids = $encomendas->pluck('id');
         $faturas = FaturaCompra::query()->where(fn ($q) => $q->whereIn('encomenda_compra_id', $ids)

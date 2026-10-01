@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import type { DetalhePeriodo, PeriodoSalarial } from '../api';
+import type { DetalhePeriodo, PeriodoSalarial, ResultadoSalarial } from '../api';
 import { BotaoImprimir, SemPeriodo, SeletorPeriodo } from '../comum/componentes';
 import { useAvisarErro, useColaboradores, usePeriodosSalariais } from '../comum/consultas';
 
@@ -54,11 +54,11 @@ export function AvisoNaoValidado({ periodo }: { periodo?: PeriodoSalarial }) {
   return <Alert className="rh-nao-imprimir" type="warning" showIcon style={{ marginBottom: 16 }} message={`Período ${periodo.estado === 'ABERTO' ? 'em cálculo (valores provisórios, ao vivo)' : 'fechado mas ainda não validado'}.`} />;
 }
 
-/** Dados do colaborador para os mapas (nome, NIF, INSS, morada). */
+/** Dados do colaborador para os mapas (nome, NIF, INSS, morada): nome, NIF e INSS do próprio resultado (fotografados, ADR-064) e, na falta, da ficha. */
 export function useDadosColaborador() {
   const c = useColaboradores();
-  return (id: number) => {
+  return (id: number, r?: Pick<ResultadoSalarial, 'nome' | 'nif' | 'numero_inss'>) => {
     const x = c.mapa.get(id);
-    return { nome: x?.nome_completo ?? `#${id}`, nif: x?.nif ?? '', inss: x?.numero_inss ?? '', provincia: x?.provincia ?? '', municipio: x?.municipio ?? '', cargo: x?.cargo_funcao_id ?? null };
+    return { nome: r?.nome ?? x?.nome_completo ?? `#${id}`, nif: r?.nif ?? x?.nif ?? '', inss: r?.numero_inss ?? x?.numero_inss ?? '', provincia: x?.provincia ?? '', municipio: x?.municipio ?? '', cargo: x?.cargo_funcao_id ?? null };
   };
 }

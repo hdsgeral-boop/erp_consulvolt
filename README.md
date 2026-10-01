@@ -213,6 +213,13 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST | `/api/gestao/inicio` · `/api/gestao/paineis[/{modulo}]` · `/paineis/comparacao` · `/api/gestao/cubo/{conjuntos,valores,consultar}` · `/api/gestao/bi[/consultar]` | Página inicial, painéis, análise dinâmica e BI |
 | GET | `/api/gestao/relatorios[/{periodos,resumo,todos,{modulo}}]` · `/api/gestao/fluxos[/{fluxo}[/processos[/{chave}]]]` | Relatórios de gestão e fluxo de processos |
 | GET | `/api/sistema/menu` | Menu (módulos e ecrãs visíveis) e permissões efectivas na empresa activa — frontend |
+| GET/POST | `/api/tesouraria/disponibilidades` · `/extrato-conta` · POST `/documentos/integrar` | Mapas de tesouraria (`teso_gestao_mapas_view`) e integração em lote |
+| POST | `/api/logistica/stock/recalcular-valorizacoes` | Recálculo do custo médio (simulação por omissão; `aplicar` grava, sem tocar no contabilizado) |
+| GET | `/api/vendas/relatorios/resumo` · `/api/vendas/saft/validar` | Indicadores de vendas no servidor; validação do SAF-T antes do ficheiro |
+| GET | `/api/sistema/moedas/funcional` | Moeda funcional da empresa activa |
+| POST | `/api/sistema/migracao/importar/{entidade}` · `/api/sistema/cambios/importar` | Aceitam também o `.xlsx` do modelo (multipart, campo `ficheiro`) |
+| GET | `/api/rh/portal/{ausencias,dependentes,avaliacoes,utilizadores}` · `/api/rh/estrutura/mapa` | Portal do colaborador; mapa de pessoal (massa salarial só com `est_ver_salarios`) |
+| GET | `/api/projetos/{id}/equipamentos` · `/api/pos/lavandaria/colaboradores` | Equipamentos do projecto; colaboradores para atribuir ordens |
 | GET/POST/PUT/DELETE | `/api/contabilidade/plano-contas[/{id}]` | Plano de contas (cache Redis) |
 | GET/POST | `/api/contabilidade/diarios` | Diários |
 | GET/POST | `/api/contabilidade/lancamentos` | Linhas de lançamentos (filtros) / novo lançamento equilibrado |

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\GuiaSaida;
 use App\Models\ItemGuiaSaida;
 use App\Models\Venda;
+use App\Services\Compras\RelacoesNomes;
 use App\Services\Logistica\ServicoArmazens;
 use App\Services\POS\ServicoPOSArmazem;
 use App\Support\Api\RespostaApi;
@@ -40,15 +41,16 @@ final class POSArmazemController extends Controller
             ->when($f['armazem_id'] ?? null, fn ($q, $v) => $q->where('armazem_id', $v))->when($f['de'] ?? null, fn ($q, $v) => $q->where('data', '>=', $v))
             ->when($f['ate'] ?? null, fn ($q, $v) => $q->where('data', '<=', $v));
 
-        return RespostaApi::sucesso($q->orderByDesc('data')->orderByDesc('id')->get(), 'Vendas ao balcão.');
+        return RespostaApi::sucesso($q->with(RelacoesNomes::terceiro())->orderByDesc('data')->orderByDesc('id')->get(), 'Vendas ao balcão.');
     }
 
     public function venda(int $guia): JsonResponse
     {
         $this->exigir(...self::VER);
-        $g = GuiaSaida::query()->findOrFail($guia);
+        $g = GuiaSaida::query()->with(RelacoesNomes::terceiro())->findOrFail($guia);
 
-        return RespostaApi::sucesso($g->toArray() + ['linhas' => ItemGuiaSaida::query()->where('guia_saida_id', $g->id)->orderBy('id')->get()], 'Guia de saída.');
+        return RespostaApi::sucesso($g->toArray() + ['linhas' => ItemGuiaSaida::query()->with(RelacoesNomes::produto())->where('guia_saida_id', $g->id)->orderBy('id')->get()],
+            'Guia de saída.');
     }
 
     public function vender(Request $r): JsonResponse

@@ -12,6 +12,7 @@ import { BotaoCsv, ValorKz } from '../comum/Componentes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
 import { enviarFicheiro } from '../comum/ficheiros';
 import { SeletorConta } from '../comum/Seletores';
+import { rotuloTerceiro } from '../comum/terceiro';
 import { useAbrirLancamento, useMapa } from '../comum/useMapa';
 
 /** Mapas › Balancete, razão e IVA (ecrã contab_mapa_balancete). */
@@ -157,6 +158,7 @@ function SeparadorRazao({ inicial }: { inicial: { conta: string; inicio?: string
     { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string, r) => (abrir ? <Typography.Link onClick={() => abrir(r.id)}>{v}</Typography.Link> : v) },
     { title: 'Documento', dataIndex: 'numero_documento' },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300 },
+    { title: 'Terceiro', key: 'terceiro', ellipsis: true, width: 200, render: (_, r) => (r.terceiro_id ? rotuloTerceiro(r.terceiro, r.terceiro_id) : '—') },
     { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null) },
     { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null) },
     { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
@@ -197,6 +199,8 @@ function SeparadorRazao({ inicial }: { inicial: { conta: string; inicio?: string
                 { titulo: 'N.º lançamento', valor: (l) => l.numero_lan },
                 { titulo: 'Documento', valor: (l) => l.numero_documento },
                 { titulo: 'Descrição', valor: (l) => l.descricao },
+                { titulo: 'NIF', valor: (l) => l.terceiro?.nif },
+                { titulo: 'Terceiro', valor: (l) => l.terceiro?.nome?.trim() },
                 { titulo: 'Débito', valor: (l) => (l.tipo_dc === 'D' ? l.valor : ''), numerico: true },
                 { titulo: 'Crédito', valor: (l) => (l.tipo_dc === 'C' ? l.valor : ''), numerico: true },
                 { titulo: 'Saldo', valor: (l) => l.saldo, numerico: true },

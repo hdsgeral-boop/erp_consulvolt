@@ -116,6 +116,38 @@ final class ServicoDocumentosTesouraria
         });
     }
 
+    /**
+     * Integração em lote (ADR-064): cada documento é integrado na sua própria transacção (integrar()), por isso uma falha
+     * não desfaz os que já ficaram integrados. Ids repetidos contam uma vez; ids de outra empresa ou inexistentes vão para os erros.
+     *
+     * @param  list<int>  $ids
+     * @return array{integrados: list<array<string, mixed>>, erros: list<array<string, mixed>>}
+     */
+    public function integrarLote(array $ids): array
+    {
+        $integrados = [];
+        $erros = [];
+        foreach (array_values(array_unique(array_map('intval', $ids))) as $id) {
+            $doc = DocumentoTesouraria::query()->find($id);
+            if (! $doc) {
+                $erros[] = ['id' => $id, 'numero_documento' => null, 'codigo' => 'DOCUMENTO_INEXISTENTE', 'mensagem' => 'Documento inexistente.'];
+
+                continue;
+            }
+            try {
+                $d = $this->integrar($doc);
+                $integrados[] = ['id' => $d->id, 'numero_documento' => $d->numero_documento, 'numero_lan_contabilizacao' => $d->numero_lan_contabilizacao];
+            } catch (ErroNegocio $e) {
+                $erros[] = ['id' => $doc->id, 'numero_documento' => $doc->numero_documento, 'codigo' => $e->codigo, 'mensagem' => $e->getMessage()];
+            } catch (\Throwable $e) {
+                report($e);
+                $erros[] = ['id' => $doc->id, 'numero_documento' => $doc->numero_documento, 'codigo' => 'ERRO_INTERNO', 'mensagem' => 'Erro inesperado ao integrar o documento.'];
+            }
+        }
+
+        return ['integrados' => $integrados, 'erros' => $erros];
+    }
+
     public function integrar(DocumentoTesouraria $doc): DocumentoTesouraria
     {
         return DB::transaction(function () use ($doc) {

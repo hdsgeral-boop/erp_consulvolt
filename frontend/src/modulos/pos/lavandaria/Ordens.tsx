@@ -1,14 +1,16 @@
-import { Button, Flex, Input, Space, Table, Tag, Typography } from 'antd';
+import { Button, DatePicker, Flex, Form, Input, Modal, Radio, Select, Space, Table, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
+import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
+import { dataApi, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/modulos/compras/comum/accoes';
 import { EstadoPOS } from '../comum/estados';
 import { SeletorTerminal } from '../comum/Filtros';
 import type { Terminal } from '../comum/tipos';
+import { useColaboradoresLav } from './dados';
 import { DetalheOrdem } from './DetalheOrdem';
 import type { ListaOrdens, OrdemResumo } from './tipos';
 
@@ -34,7 +36,10 @@ export function Ordens({ terminal }: { terminal: Terminal | undefined }) {
   const [terminalFiltro, setTerminalFiltro] = useState<number>();
   const [seleccao, setSeleccao] = useState<number[]>([]);
   const [aberta, setAberta] = useState<number | null>(null);
-  const filtros = { estado, texto: texto.trim() || undefined, terminal_pos_id: terminalFiltro };
+  const [responsavel, setResponsavel] = useState<string>();
+  const [atribuir, setAtribuir] = useState(false);
+  const colaboradores = useColaboradoresLav(true);
+  const filtros = { estado, texto: texto.trim() || undefined, terminal_pos_id: terminalFiltro, responsavel };
   const consulta = useQuery({ queryKey: ['pos', 'lavandaria', 'ordens', filtros], queryFn: () => obter<ListaOrdens>('/pos/lavandaria/ordens', filtros) });
   useEffect(() => {
     if (consulta.error) notificarErro(consulta.error, 'Erro ao carregar as ordens');
@@ -56,6 +61,8 @@ export function Ordens({ terminal }: { terminal: Terminal | undefined }) {
       <Flex gap={8} wrap style={{ marginBottom: 12 }}>
         <Input.Search allowClear placeholder="N.º da ordem, etiqueta, cliente ou telefone" style={{ width: 320 }} onSearch={setTexto} />
         <SeletorTerminal tipo="LAVANDARIA" value={terminalFiltro} onChange={setTerminalFiltro} />
+        <Select placeholder="Responsável" allowClear showSearch optionFilterProp="label" value={responsavel} onChange={setResponsavel} style={{ width: 220 }} loading={colaboradores.isLoading}
+          options={[{ value: 'SEM', label: 'Sem responsável' }, ...(colaboradores.data ?? []).map((c) => ({ value: String(c.id), label: c.activo ? c.nome : `${c.nome} (inactivo)` }))]} />
         {pode('lav_ordens') && seleccao.length > 0 && (
           <Space>
             <Button loading={lote.isPending} onClick={() => lote.mutate({ url: '/pos/lavandaria/ordens/estado', dados: { ids: seleccao, estado: 'EM_EXECUCAO' } })}>
@@ -64,6 +71,7 @@ export function Ordens({ terminal }: { terminal: Terminal | undefined }) {
             <Button loading={lote.isPending} onClick={() => lote.mutate({ url: '/pos/lavandaria/ordens/estado', dados: { ids: seleccao, estado: 'PRONTA' } })}>
               Marcar prontas ({seleccao.length})
             </Button>
+            <Button onClick={() => setAtribuir(true)}>Atribuir responsável ({seleccao.length})</Button>
           </Space>
         )}
       </Flex>
@@ -97,6 +105,37 @@ export function Ordens({ terminal }: { terminal: Terminal | undefined }) {
         ]}
       />
       <DetalheOrdem id={aberta} terminal={terminal} aoFechar={() => setAberta(null)} />
+      <ModalAtribuir ids={atribuir ? seleccao : []} aoFechar={() => setAtribuir(false)} aoConcluir={() => { setAtribuir(false); setSeleccao([]); }} />
     </>
+  );
+}
+
+/** Atribuir (ou retirar) o responsável de várias ordens (POST /pos/lavandaria/ordens/atribuir, lav_ordens). */
+function ModalAtribuir({ ids, aoFechar, aoConcluir }: { ids: number[]; aoFechar: () => void; aoConcluir: () => void }) {
+  const colaboradores = useColaboradoresLav();
+  const [form] = Form.useForm<{ modo: 'ATRIBUIR' | 'RETIRAR'; colaborador_id?: number; data?: Dayjs | null; aplicar: 'PENDENTES' | 'NENHUM'; nota?: string }>();
+  const modo = Form.useWatch('modo', form);
+  const accao = useAccao({ invalidar: [['pos']], aoSucesso: aoConcluir });
+  useEffect(() => { if (ids.length) form.setFieldsValue({ modo: 'ATRIBUIR', aplicar: 'PENDENTES', colaborador_id: undefined, data: null, nota: undefined }); }, [ids.length, form]);
+  return (
+    <Modal title={`Responsável de ${ids.length} ordem(ns)`} open={ids.length > 0} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/pos/lavandaria/ordens/atribuir', dados: {
+        ids, retirar: v.modo === 'RETIRAR', colaborador_id: v.modo === 'RETIRAR' ? null : v.colaborador_id, data: dataApi(v.data ?? null) ?? null, aplicar: v.aplicar, nota: v.nota?.trim() || null,
+      } })}>
+        <Form.Item name="modo"><Radio.Group options={[{ value: 'ATRIBUIR', label: 'Atribuir' }, { value: 'RETIRAR', label: 'Retirar o responsável' }]} /></Form.Item>
+        {modo !== 'RETIRAR' && (
+          <>
+            <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
+              <Select showSearch optionFilterProp="label" loading={colaboradores.isLoading} options={(colaboradores.data ?? []).map((c) => ({ value: c.id, label: c.nome }))} />
+            </Form.Item>
+            <Form.Item name="data" label="Data da atribuição" extra="Vazio = hoje; não pode ser futura."><DatePicker format="DD/MM/YYYY" /></Form.Item>
+            <Form.Item name="aplicar" label="Linhas da ordem">
+              <Radio.Group options={[{ value: 'PENDENTES', label: 'Atribuir também as linhas pendentes' }, { value: 'NENHUM', label: 'Só a ordem' }]} />
+            </Form.Item>
+          </>
+        )}
+        <Form.Item name="nota" label="Nota"><Input maxLength={500} /></Form.Item>
+      </Form>
+    </Modal>
   );
 }

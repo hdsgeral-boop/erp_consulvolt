@@ -1,4 +1,5 @@
 import { accoesGuia, accoesInventario, guiaGerida, previsualizarRegularizacao } from './regras';
+import { podeAplicarRecalculo } from './RecalculoValorizacoes';
 import { adicionarAoCarrinho, alterarQuantidade, totalUnidades } from './carrinho';
 import { linhasAlteradas } from './Inventario';
 import type { GuiaSaida, SessaoInventario } from './tipos';
@@ -68,5 +69,21 @@ describe('carrinho do POS de armazém', () => {
   it('retira a linha com quantidade zero e ignora produtos sem stock', () => {
     expect(alterarQuantidade([{ ...p, quantidade: 1 }], 1, 0)).toEqual([]);
     expect(adicionarAoCarrinho([], { ...p, disponivel: 0 })).toEqual([]);
+  });
+});
+
+describe('recálculo das valorizações (ADR-064)', () => {
+  const resultado = (aplicado: boolean, alterados: number, cmAlterado = false) => ({
+    aplicado,
+    resumo: { produtos_analisados: 1, produtos_com_alteracoes: 1, movimentos_alterados: alterados, divergencias_contabilizadas: 0, diferenca_valor: '0.00' },
+    produtos: [{ movimentos_alterados: alterados, custo_medio_alterado: cmAlterado } as never],
+    avisos: [],
+  });
+  it('só deixa aplicar depois de uma simulação com alterações', () => {
+    expect(podeAplicarRecalculo(null)).toBe(false);
+    expect(podeAplicarRecalculo(resultado(false, 3))).toBe(true);
+    expect(podeAplicarRecalculo(resultado(false, 0, true))).toBe(true);
+    expect(podeAplicarRecalculo(resultado(false, 0))).toBe(false);
+    expect(podeAplicarRecalculo(resultado(true, 3))).toBe(false);
   });
 });

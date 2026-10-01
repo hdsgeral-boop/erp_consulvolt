@@ -10,6 +10,8 @@ use App\Models\ReciboVenda;
 use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Support\Tenancy\ContextoEmpresa;
+use DateTimeImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use XMLWriter;
 
@@ -30,30 +32,48 @@ final class ServicoExportacaoSaft
 
     private const MECANISMOS = ['NUMERARIO' => 'NU', 'TPA' => 'CD', 'TRANSFERENCIA' => 'TB', 'CONTA_CORRENTE' => 'OU'];
 
+    private const AVISO_SOFTWARE = 'Dados do software (productId, n.º de certificação) por configurar no servidor: o ficheiro não é aceite para efeitos fiscais.';
+
     /** @var list<string> */
     private array $avisos = [];
 
     public function __construct(private readonly ContextoEmpresa $contexto) {}
 
+    /**
+     * Validação prévia, sem gerar o ficheiro (GET /api/vendas/saft/validar e início de gerar()): período, NIF da empresa
+     * e existência de documentos. Lança ErroNegocio (422, envelope JSON) e devolve as contagens e os avisos conhecidos à partida.
+     *
+     * @return array{nome: string, documentos: int, recibos: int, avisos: list<string>}
+     */
+    public function validar(string $inicio, string $fim): array
+    {
+        $nif = $this->empresaValida($inicio, $fim)[1];
+        $documentos = $this->consultaVendas($inicio, $fim)->count();
+        $recibos = $this->consultaRecibos($inicio, $fim)->count();
+        if ($documentos === 0 && $recibos === 0) {
+            throw new ErroNegocio('Não há documentos fiscais nem recibos no período.', 'SEM_DOCUMENTOS', 422);
+        }
+        $avisos = [];
+        if ($this->softwarePorConfigurar()) {
+            $avisos[] = self::AVISO_SOFTWARE;
+        }
+        $semHash = $this->consultaVendas($inicio, $fim)->where(fn ($q) => $q->whereNull('saft_hash')->orWhere('saft_hash', ''))->count();
+        if ($semHash) {
+            $avisos[] = $this->avisoSemHash($semHash);
+        }
+
+        return ['nome' => "SAFT_AO_{$nif}_{$inicio}_{$fim}.xml", 'documentos' => $documentos, 'recibos' => $recibos, 'avisos' => $avisos];
+    }
+
     /** @return array{xml: string, nome: string, avisos: list<string>, documentos: int, recibos: int} */
     public function gerar(string $inicio, string $fim): array
     {
-        if ($inicio > $fim || substr($inicio, 0, 4) !== substr($fim, 0, 4)) {
-            throw new ErroNegocio('O período tem de estar dentro do mesmo exercício (início ≤ fim).', 'PERIODO_INVALIDO', 422);
-        }
         $this->avisos = [];
-        $empresa = Empresa::query()->findOrFail($this->contexto->obrigatorio());
-        $nif = preg_replace('/\s+/', '', (string) $empresa->nif);
-        if (! preg_match('/^[0-9A-Za-z]{9,15}$/', $nif)) {
-            throw new ErroNegocio('A empresa não tem um NIF válido.', 'NIF_INVALIDO', 422);
-        }
+        [$empresa, $nif] = $this->empresaValida($inicio, $fim);
 
-        $vendas = Venda::query()->whereIn('tipo_documento', Venda::FISCAIS)
-            ->where('data_emissao', '>=', $inicio)->where('data_emissao', '<', date('Y-m-d', strtotime("{$fim} +1 day")))
-            ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'ANULADO'))
+        $vendas = $this->consultaVendas($inicio, $fim)
             ->with(['itensVenda' => fn ($q) => $q->orderBy('id')])->orderBy('data_emissao')->orderBy('id')->get();
-        $recibos = ReciboVenda::query()->whereBetween('data', [$inicio, $fim])->whereNull('venda_origem_id')
-            ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'ANULADO'))
+        $recibos = $this->consultaRecibos($inicio, $fim)
             ->with('itensReciboVenda.venda:id,numero_documento,data_emissao')->orderBy('data')->orderBy('id')->get();
         if ($vendas->isEmpty() && $recibos->isEmpty()) {
             throw new ErroNegocio('Não há documentos fiscais nem recibos no período.', 'SEM_DOCUMENTOS', 422);
@@ -89,18 +109,67 @@ final class ServicoExportacaoSaft
 
         $semHash = $vendas->filter(fn ($v) => ! $v->saft_hash)->count();
         if ($semHash) {
-            $this->avisos[] = "{$semHash} documento(s) sem assinatura SAF-T (anteriores ao sistema novo ou sem chave SAF-T instalada): Hash \"0\".";
+            $this->avisos[] = $this->avisoSemHash($semHash);
         }
 
         return ['xml' => $x->outputMemory(), 'nome' => "SAFT_AO_{$nif}_{$inicio}_{$fim}.xml", 'avisos' => array_values(array_unique($this->avisos)),
             'documentos' => $vendas->count(), 'recibos' => $recibos->count()];
     }
 
+    /** @return array{0: Empresa, 1: string} */
+    private function empresaValida(string $inicio, string $fim): array
+    {
+        if (! $this->dataValida($inicio) || ! $this->dataValida($fim) || $inicio > $fim || substr($inicio, 0, 4) !== substr($fim, 0, 4)) {
+            throw new ErroNegocio('O período tem de estar dentro do mesmo exercício (início ≤ fim).', 'PERIODO_INVALIDO', 422);
+        }
+        $empresa = Empresa::query()->findOrFail($this->contexto->obrigatorio());
+        $nif = preg_replace('/\s+/', '', (string) $empresa->nif);
+        if (! preg_match('/^[0-9A-Za-z]{9,15}$/', $nif)) {
+            throw new ErroNegocio('A empresa não tem um NIF válido.', 'NIF_INVALIDO', 422);
+        }
+
+        return [$empresa, $nif];
+    }
+
+    private function dataValida(string $d): bool
+    {
+        $dt = DateTimeImmutable::createFromFormat('!Y-m-d', $d);
+
+        return $dt !== false && $dt->format('Y-m-d') === $d;
+    }
+
+    /** @return Builder<Venda> */
+    private function consultaVendas(string $inicio, string $fim): Builder
+    {
+        return Venda::query()->whereIn('tipo_documento', Venda::FISCAIS)
+            ->where('data_emissao', '>=', $inicio)->where('data_emissao', '<', date('Y-m-d', strtotime("{$fim} +1 day")))
+            ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'ANULADO'));
+    }
+
+    /** @return Builder<ReciboVenda> */
+    private function consultaRecibos(string $inicio, string $fim): Builder
+    {
+        return ReciboVenda::query()->whereBetween('data', [$inicio, $fim])->whereNull('venda_origem_id')
+            ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'ANULADO'));
+    }
+
+    private function softwarePorConfigurar(): bool
+    {
+        $s = config('erp.agt.software');
+
+        return ! ($s['softwareValidationNumber'] ?? null) || ! ($s['productId'] ?? null);
+    }
+
+    private function avisoSemHash(int $n): string
+    {
+        return "{$n} documento(s) sem assinatura SAF-T (anteriores ao sistema novo ou sem chave SAF-T instalada): Hash \"0\".";
+    }
+
     private function cabecalho(XMLWriter $x, Empresa $e, string $nif, string $inicio, string $fim): void
     {
         $s = config('erp.agt.software');
-        if (! $s['softwareValidationNumber'] || ! $s['productId']) {
-            $this->avisos[] = 'Dados do software (productId, n.º de certificação) por configurar no servidor: o ficheiro não é aceite para efeitos fiscais.';
+        if ($this->softwarePorConfigurar()) {
+            $this->avisos[] = self::AVISO_SOFTWARE;
         }
         $x->startElement('Header');
         $this->el($x, 'AuditFileVersion', '1.01_01');

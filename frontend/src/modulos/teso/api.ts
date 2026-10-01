@@ -1,4 +1,5 @@
-/** Tipos da API de Tesouraria (TesourariaController, OperacoesTesourariaController). */
+/** Tipos da API de Tesouraria (TesourariaController, OperacoesTesourariaController, MapasTesourariaController). */
+import type { RefTerceiro } from '@/modulos/compras/comum/referencias';
 
 export type TipoDocumento = 'PAGAMENTO' | 'RECEBIMENTO';
 export type EstadoDocumento = 'PENDENTE' | 'INTEGRADO' | 'ANULADO';
@@ -7,6 +8,7 @@ export interface LinhaDocumentoTesouraria {
   id: number;
   codigo_conta: string;
   terceiro_id: number | null;
+  terceiro?: RefTerceiro | null;
   numero_documento: string | null;
   descricao: string | null;
   valor: string;
@@ -48,12 +50,44 @@ export interface DocumentoTesouraria {
   linhas?: LinhaDocumentoTesouraria[];
 }
 
-/** Listagem de documentos: o endpoint devolve a página dentro de `dados` (não usa metadados.paginacao). */
-export interface PaginaDocumentos {
-  itens: DocumentoTesouraria[];
-  total: number;
-  pagina: number;
-  por_pagina: number;
+/** POST /tesouraria/documentos/integrar — integração em lote (cada documento na sua transacção). */
+export interface ResultadoIntegracaoLote {
+  integrados: { id: number; numero_documento: string | null; numero_lan_contabilizacao: string | null }[];
+  erros: { id: number; numero_documento: string | null; codigo: string; mensagem: string }[];
+}
+
+/** GET /tesouraria/disponibilidades — saldos das contas 43/45 à data (saldo final do balancete). */
+export interface Disponibilidades {
+  data: string;
+  contas: { codigo_conta: string; descricao: string | null; grupo: string; tipo: 'BANCO' | 'CAIXA'; meio_pagamento: string | null; codigo_moeda: string | null; saldo: string }[];
+  totais: { bancos: string; caixa: string; total: string };
+}
+
+/** GET /tesouraria/extrato-conta — razão de uma conta 43/45 com saldo corrido. */
+export interface ExtratoConta {
+  codigo_conta: string;
+  descricao: string | null;
+  data_inicio: string;
+  data_fim: string;
+  saldo_inicial: string;
+  debito: string;
+  credito: string;
+  saldo_final: string;
+  movimentos: {
+    id: number;
+    data_documento: string;
+    numero_lan: string | null;
+    numero_documento: string | null;
+    descricao: string | null;
+    tipo_dc: 'D' | 'C';
+    valor: string;
+    saldo: string;
+    diario: string | null;
+    terceiro_id: number | null;
+    terceiro: RefTerceiro | null;
+    estorno_de_id: number | null;
+    estornado_por_id: number | null;
+  }[];
 }
 
 export interface Pendente {
@@ -95,6 +129,7 @@ export interface MovimentoCaixa {
   numero_documento: string | null;
   referencia: string | null;
   terceiro_id: number | null;
+  terceiro?: RefTerceiro | null;
   conta_debito: string;
   conta_credito: string;
   descricao: string | null;

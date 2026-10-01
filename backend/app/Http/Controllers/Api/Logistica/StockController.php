@@ -9,10 +9,12 @@ use App\Models\ItemGuiaSaida;
 use App\Models\LinhaSessaoInventario;
 use App\Models\MovimentoInventario;
 use App\Models\SessaoInventario;
+use App\Services\Compras\RelacoesNomes;
 use App\Services\Logistica\ServicoArmazens;
 use App\Services\Logistica\ServicoConfigLogistica;
 use App\Services\Logistica\ServicoGuiasSaida;
 use App\Services\Logistica\ServicoInventario;
+use App\Services\Logistica\ServicoRecalculoStock;
 use App\Services\Logistica\ServicoStock;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
@@ -119,18 +121,29 @@ final class StockController extends Controller
     public function guias(Request $r): JsonResponse
     {
         $this->exigir('armazem_guias_view');
-        $f = $r->validate(['tipo' => ['nullable', 'in:VENDA,BACK_TO_BACK,CONSUMO'], 'armazem_id' => ['nullable', 'integer']]);
+        $f = $r->validate(['tipo' => ['nullable', 'in:VENDA,BACK_TO_BACK,CONSUMO'], 'armazem_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'string', 'max:30'],
+            'contabilizado' => ['nullable', 'boolean'], 'pesquisa' => ['nullable', 'string', 'max:100'],
+            'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
 
-        return RespostaApi::sucesso(GuiaSaida::query()->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))
-            ->when($f['armazem_id'] ?? null, fn ($q, $v) => $q->where('armazem_id', $v))->orderByDesc('data')->orderByDesc('id')->get(), 'Guias de saída.');
+        return RespostaApi::paginado(GuiaSaida::query()->with(RelacoesNomes::terceiro())
+            ->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))
+            ->when($f['armazem_id'] ?? null, fn ($q, $v) => $q->where('armazem_id', $v))
+            ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
+            ->when(isset($f['contabilizado']), fn ($q) => $q->where('contabilizado', (bool) $f['contabilizado']))
+            ->when($f['pesquisa'] ?? null, function ($q, $v) {
+                $termo = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], trim($v)).'%';
+                $q->where(fn ($w) => $w->where('numero_documento', 'ilike', $termo)->orWhere('area_rececao', 'ilike', $termo));
+            })
+            ->orderByDesc('data')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1)), null, 'Guias de saída.');
     }
 
     public function guia(int $guia): JsonResponse
     {
         $this->exigir('armazem_guias_view');
-        $g = GuiaSaida::query()->findOrFail($guia);
+        $g = GuiaSaida::query()->with(RelacoesNomes::terceiro())->findOrFail($guia);
 
-        return RespostaApi::sucesso($g->toArray() + ['linhas' => ItemGuiaSaida::query()->where('guia_saida_id', $g->id)->orderBy('id')->get()], 'Guia de saída.');
+        return RespostaApi::sucesso($g->toArray() + ['linhas' => ItemGuiaSaida::query()->where('guia_saida_id', $g->id)->with(RelacoesNomes::produto())->orderBy('id')->get()],
+            'Guia de saída.');
     }
 
     public function emitirGuia(Request $r): JsonResponse
@@ -191,8 +204,26 @@ final class StockController extends Controller
     {
         $this->exigir('inventario_sessoes_view', 'inventario_contagem_view', 'inventario_revisao_view');
 
-        return RespostaApi::sucesso(SessaoInventario::query()->when($r->integer('armazem_id') ?: null, fn ($q, $a) => $q->where('armazem_id', $a))
-            ->orderByDesc('data')->orderByDesc('id')->get(), 'Inventários.');
+        $f = $r->validate(['armazem_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'string', 'max:30'], 'pesquisa' => ['nullable', 'string', 'max:100'],
+            'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+
+        return RespostaApi::paginado(SessaoInventario::query()->when($f['armazem_id'] ?? null, fn ($q, $a) => $q->where('armazem_id', $a))
+            ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
+            ->when($f['pesquisa'] ?? null, fn ($q, $v) => $q->where('descricao', 'ilike', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], trim($v)).'%'))
+            ->orderByDesc('data')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1)), null, 'Inventários.');
+    }
+
+    // ───────────── Recálculo das valorizações (ADR-064) ─────────────
+
+    /** POST /api/logistica/stock/recalcular-valorizacoes — simulação por omissão; `aplicar` grava (tarefa armazem_recalcular). */
+    public function recalcularValorizacoes(Request $r, ServicoRecalculoStock $recalculo): JsonResponse
+    {
+        $this->exigir('armazem_recalcular');
+        $d = $r->validate(['produto_id' => ['nullable', 'integer'], 'aplicar' => ['nullable', 'boolean']]);
+        $res = $recalculo->recalcular(isset($d['produto_id']) ? (int) $d['produto_id'] : null, (bool) ($d['aplicar'] ?? false));
+        $n = $res['resumo']['movimentos_alterados'];
+
+        return RespostaApi::sucesso($res, $res['aplicado'] ? "Recálculo aplicado: {$n} movimento(s) revalorizado(s)." : "Simulação: {$n} movimento(s) seriam revalorizados.");
     }
 
     public function sessao(int $sessao): JsonResponse

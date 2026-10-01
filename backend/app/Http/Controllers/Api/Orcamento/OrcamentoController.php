@@ -8,14 +8,17 @@ use App\Models\LogAlertaOrcamental;
 use App\Models\OrcamentoAnual;
 use App\Models\PedidoExtrapolacaoOrcamento;
 use App\Models\RubricaOrcamental;
+use App\Services\Orcamento\FormatoOrcamento;
 use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Services\Orcamento\ServicoExecucaoOrcamental;
 use App\Services\Orcamento\ServicoOrcamentos;
 use App\Services\Orcamento\ServicoRubricasOrcamentais;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 /** /api/orcamento — rubricas, orçamentos (ciclo, versões, hierarquia) e controlo orçado × realizado. */
@@ -35,7 +38,7 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_rubricas_view', 'orc_orcamentos_view', 'orc_controlo_view');
         $f = $r->validate(['tipo' => ['nullable', 'in:EXPLORACAO,TESOURARIA']]);
 
-        return RespostaApi::sucesso(RubricaOrcamental::query()->when($f['tipo'] ?? null, fn ($q, $t) => $q->where('tipo', $t))->orderBy('tipo')->orderBy('ordem')->orderBy('codigo')->get(),
+        return $this->ok(RubricaOrcamental::query()->when($f['tipo'] ?? null, fn ($q, $t) => $q->where('tipo', $t))->orderBy('tipo')->orderBy('ordem')->orderBy('codigo')->get(),
             'Rubricas orçamentais.');
     }
 
@@ -52,7 +55,7 @@ final class OrcamentoController extends Controller
         $x = $rubrica ? RubricaOrcamental::query()->findOrFail($rubrica) : null;
         $res = $this->rubricas->guardar($d, $x);
 
-        return $x ? RespostaApi::sucesso($res, 'Rubrica actualizada.') : RespostaApi::criado($res, 'Rubrica criada.');
+        return $x ? $this->ok($res, 'Rubrica actualizada.') : $this->novo($res, 'Rubrica criada.');
     }
 
     public function eliminarRubrica(int $rubrica): JsonResponse
@@ -60,7 +63,7 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_rubricas_edit');
         $this->rubricas->eliminar(RubricaOrcamental::query()->findOrFail($rubrica));
 
-        return RespostaApi::sucesso(null, 'Rubrica eliminada.');
+        return $this->ok(null, 'Rubrica eliminada.');
     }
 
     public function criarRubricasBase(Request $r): JsonResponse
@@ -69,7 +72,7 @@ final class OrcamentoController extends Controller
         $d = $r->validate(['tipo' => ['required', 'in:EXPLORACAO,TESOURARIA']]);
         $res = $this->rubricas->criarBase($d['tipo']);
 
-        return RespostaApi::sucesso($res, count($res['criadas']).' rubrica(s) criada(s); '.count($res['ignoradas']).' ignorada(s).');
+        return $this->ok($res, count($res['criadas']).' rubrica(s) criada(s); '.count($res['ignoradas']).' ignorada(s).');
     }
 
     // ───────────── Orçamentos ─────────────
@@ -77,10 +80,17 @@ final class OrcamentoController extends Controller
     public function orcamentos(Request $r): JsonResponse
     {
         $this->exigir('orc_orcamentos_view', 'orc_controlo_view', 'orc_contributo');
-        $f = $r->validate(['ano' => ['nullable', 'integer'], 'tipo' => ['nullable', 'in:EXPLORACAO,TESOURARIA']]);
+        $f = $r->validate(['ano' => ['nullable', 'integer'], 'tipo' => ['nullable', 'in:EXPLORACAO,TESOURARIA'], 'estado' => ['nullable', 'string', 'max:30'],
+            'pesquisa' => ['nullable', 'string', 'max:100'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+        // paginado (ADR-064): «dados» continua a ser a lista; metadados.paginacao descreve a página (por omissão 200 por página)
+        $pagina = OrcamentoAnual::query()->when($f['ano'] ?? null, fn ($q, $a) => $q->where('ano', $a))->when($f['tipo'] ?? null, fn ($q, $t) => $q->where('tipo', $t))
+            ->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))
+            ->when($f['pesquisa'] ?? null, fn ($q, $p) => $q->where('nome', 'ilike', '%'.str_replace(['%', '_'], ['\%', '\_'], $p).'%'))
+            ->orderByDesc('ano')->orderBy('tipo')->orderByDesc('versao')->orderByDesc('id')
+            ->paginate((int) ($f['por_pagina'] ?? 200), ['*'], 'pagina', (int) ($f['pagina'] ?? 1));
 
-        return RespostaApi::sucesso(OrcamentoAnual::query()->when($f['ano'] ?? null, fn ($q, $a) => $q->where('ano', $a))->when($f['tipo'] ?? null, fn ($q, $t) => $q->where('tipo', $t))
-            ->orderByDesc('ano')->orderBy('tipo')->orderByDesc('versao')->get(), 'Orçamentos.');
+        return RespostaApi::sucesso(FormatoOrcamento::normalizar($pagina->getCollection()), 'Orçamentos.', 200, ['paginacao' => [
+            'pagina_atual' => $pagina->currentPage(), 'por_pagina' => $pagina->perPage(), 'total' => $pagina->total(), 'ultima_pagina' => $pagina->lastPage()]]);
     }
 
     public function orcamento(int $orcamento): JsonResponse
@@ -88,7 +98,7 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_orcamentos_view', 'orc_controlo_view', 'orc_contributo');
         $o = OrcamentoAnual::query()->findOrFail($orcamento);
 
-        return RespostaApi::sucesso($o->toArray() + ['linhas' => LinhaOrcamento::query()->where('orcamento_anual_id', $o->id)->get(),
+        return $this->ok($o->toArray() + ['linhas' => LinhaOrcamento::query()->where('orcamento_anual_id', $o->id)->get(),
             'filhos' => OrcamentoAnual::query()->where('orcamento_pai_id', $o->id)->get(['id', 'nome', 'versao', 'estado', 'unidade_negocio_id', 'centro_custo_id', 'projeto_id', 'responsavel'])],
             'Orçamento.');
     }
@@ -107,7 +117,7 @@ final class OrcamentoController extends Controller
             'orcamento_pai_id' => ['nullable', 'integer', $existe('orcamentos_anuais')], 'dimensao_filhos' => ['nullable', 'in:UN,CC,PROJETO'],
             'saldo_inicial' => ['nullable', 'numeric']]);
 
-        return RespostaApi::criado($this->orcamentos->criar($d), 'Orçamento criado.');
+        return $this->novo($this->orcamentos->criar($d), 'Orçamento criado.');
     }
 
     public function gravarValores(Request $r, int $orcamento): JsonResponse
@@ -117,7 +127,7 @@ final class OrcamentoController extends Controller
         $d = $r->validate(['linhas' => ['present', 'array'], 'linhas.*.rubrica_orcamental_id' => ['required', 'integer'], 'linhas.*.valores' => ['required', 'array', 'size:12'],
             'linhas.*.valores.*' => ['numeric'], 'linhas.*.notas' => ['nullable', 'string', 'max:2000']]);
 
-        return RespostaApi::sucesso($this->orcamentos->gravarValores($o, $d['linhas']), 'Valores gravados.');
+        return $this->ok($this->orcamentos->gravarValores($o, $d['linhas']), 'Valores gravados.');
     }
 
     public function submeter(int $orcamento): JsonResponse
@@ -125,14 +135,14 @@ final class OrcamentoController extends Controller
         $o = OrcamentoAnual::query()->findOrFail($orcamento);
         ServicoOrcamentos::eResponsavel($o) ? $this->exigir('orc_contributo', 'orc_submeter') : $this->exigir('orc_submeter');
 
-        return RespostaApi::sucesso($this->orcamentos->submeter($o), 'Orçamento submetido.');
+        return $this->ok($this->orcamentos->submeter($o), 'Orçamento submetido.');
     }
 
     public function aprovar(int $orcamento): JsonResponse
     {
         $this->exigir('orc_aprovar');
 
-        return RespostaApi::sucesso($this->orcamentos->aprovar(OrcamentoAnual::query()->findOrFail($orcamento)), 'Orçamento aprovado.');
+        return $this->ok($this->orcamentos->aprovar(OrcamentoAnual::query()->findOrFail($orcamento)), 'Orçamento aprovado.');
     }
 
     public function devolver(Request $r, int $orcamento): JsonResponse
@@ -140,14 +150,14 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_aprovar');
         $d = $r->validate(['motivo' => ['required', 'string', 'min:5', 'max:1000']]);
 
-        return RespostaApi::sucesso($this->orcamentos->devolver(OrcamentoAnual::query()->findOrFail($orcamento), $d['motivo']), 'Orçamento devolvido para revisão.');
+        return $this->ok($this->orcamentos->devolver(OrcamentoAnual::query()->findOrFail($orcamento), $d['motivo']), 'Orçamento devolvido para revisão.');
     }
 
     public function novaVersao(int $orcamento): JsonResponse
     {
         $this->exigir('orc_editar');
 
-        return RespostaApi::criado($this->orcamentos->novaVersao(OrcamentoAnual::query()->findOrFail($orcamento)), 'Nova versão criada (a anterior vigora até à aprovação).');
+        return $this->novo($this->orcamentos->novaVersao(OrcamentoAnual::query()->findOrFail($orcamento)), 'Nova versão criada (a anterior vigora até à aprovação).');
     }
 
     public function eliminar(int $orcamento): JsonResponse
@@ -155,7 +165,7 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_editar');
         $this->orcamentos->eliminar(OrcamentoAnual::query()->findOrFail($orcamento));
 
-        return RespostaApi::sucesso(null, 'Orçamento eliminado.');
+        return $this->ok(null, 'Orçamento eliminado.');
     }
 
     public function repartir(Request $r, int $orcamento): JsonResponse
@@ -163,7 +173,7 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_hierarquia');
         $d = $r->validate(['criterio' => ['required', 'in:IGUAL,REALIZADO,MANUAL'], 'percentagens' => ['nullable', 'array'], 'percentagens.*' => ['numeric', 'min:0']]);
 
-        return RespostaApi::sucesso($this->orcamentos->repartirTopDown(OrcamentoAnual::query()->findOrFail($orcamento), $d['criterio'], $d['percentagens'] ?? []), 'Orçamento repartido.');
+        return $this->ok($this->orcamentos->repartirTopDown(OrcamentoAnual::query()->findOrFail($orcamento), $d['criterio'], $d['percentagens'] ?? []), 'Orçamento repartido.');
     }
 
     public function pedirContributos(Request $r, int $orcamento): JsonResponse
@@ -172,7 +182,7 @@ final class OrcamentoController extends Controller
         $d = $r->validate(['filhos' => ['required', 'array', 'min:1'], 'filhos.*.unidade_negocio_id' => ['nullable', 'integer'], 'filhos.*.centro_custo_id' => ['nullable', 'integer'],
             'filhos.*.projeto_id' => ['nullable', 'integer'], 'filhos.*.responsavel' => ['required', 'string', 'max:100'], 'prazo' => ['nullable', 'date'], 'preencher' => ['nullable', 'boolean']]);
 
-        return RespostaApi::criado($this->orcamentos->pedirContributos(OrcamentoAnual::query()->findOrFail($orcamento), $d['filhos'], $d['prazo'] ?? null, (bool) ($d['preencher'] ?? false)),
+        return $this->novo($this->orcamentos->pedirContributos(OrcamentoAnual::query()->findOrFail($orcamento), $d['filhos'], $d['prazo'] ?? null, (bool) ($d['preencher'] ?? false)),
             'Contributos pedidos.');
     }
 
@@ -180,7 +190,7 @@ final class OrcamentoController extends Controller
     {
         $this->exigir('orc_hierarquia');
 
-        return RespostaApi::sucesso($this->orcamentos->consolidar(OrcamentoAnual::query()->findOrFail($orcamento)), 'Contributos consolidados.');
+        return $this->ok($this->orcamentos->consolidar(OrcamentoAnual::query()->findOrFail($orcamento)), 'Contributos consolidados.');
     }
 
     // ───────────── Controlo nos documentos ─────────────
@@ -199,14 +209,14 @@ final class OrcamentoController extends Controller
     {
         $d = $r->validate($this->regrasDocumento());
 
-        return RespostaApi::sucesso($this->controlo->verificar($d['tipo'], $d['data'], $d['linhas']), 'Verificação orçamental.');
+        return $this->ok($this->controlo->verificar($d['tipo'], $d['data'], $d['linhas']), 'Verificação orçamental.', ['documento']);   // aqui «documento» é o valor
     }
 
     public function pedirExcesso(Request $r): JsonResponse
     {
         $d = $r->validate($this->regrasDocumento() + ['motivo' => ['required', 'string', 'min:5', 'max:1000']]);
 
-        return RespostaApi::criado($this->controlo->pedirExcesso($d['tipo'], ['origem' => $d['origem'], 'documento' => $d['documento'], 'data' => substr($d['data'], 0, 10)],
+        return $this->novo($this->controlo->pedirExcesso($d['tipo'], ['origem' => $d['origem'], 'documento' => $d['documento'], 'data' => substr($d['data'], 0, 10)],
             $d['linhas'], $d['motivo']), 'Pedido de aprovação do excesso enviado.');
     }
 
@@ -215,7 +225,7 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_alertas_view', 'orc_aprovar_excesso');
         $f = $r->validate(['estado' => ['nullable', 'in:PENDENTE,APROVADO,REJEITADO,UTILIZADO']]);
 
-        return RespostaApi::sucesso(PedidoExtrapolacaoOrcamento::query()->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))->orderByDesc('id')->get(),
+        return $this->ok($this->comNomes(PedidoExtrapolacaoOrcamento::query()->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))->orderByDesc('id')->get()),
             'Pedidos de excesso orçamental.');
     }
 
@@ -224,7 +234,7 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_aprovar_excesso');
         $d = $r->validate(['decisao' => ['required', 'in:APROVADO,REJEITADO'], 'nota' => ['nullable', 'string', 'max:1000']]);
 
-        return RespostaApi::sucesso($this->controlo->decidirPedido(PedidoExtrapolacaoOrcamento::query()->findOrFail($pedido), $d['decisao'], $d['nota'] ?? null),
+        return $this->ok($this->controlo->decidirPedido(PedidoExtrapolacaoOrcamento::query()->findOrFail($pedido), $d['decisao'], $d['nota'] ?? null),
             $d['decisao'] === 'APROVADO' ? 'Excesso aprovado: o documento já pode ser gravado.' : 'Excesso rejeitado.');
     }
 
@@ -232,7 +242,7 @@ final class OrcamentoController extends Controller
     {
         $this->exigir('orc_alertas_view');
 
-        return RespostaApi::sucesso(LogAlertaOrcamental::query()->orderByDesc('em')->orderByDesc('id')->limit(300)->get(), 'Registo de alertas orçamentais.');
+        return $this->ok($this->comNomes(LogAlertaOrcamental::query()->orderByDesc('em')->orderByDesc('id')->limit(300)->get()), 'Registo de alertas orçamentais.');
     }
 
     public function monitor(Request $r): JsonResponse
@@ -240,7 +250,7 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_alertas_view', 'orc_controlo_view');
         $d = $r->validate(['ano' => ['required', 'integer'], 'mes' => ['nullable', 'integer', 'between:1,12']]);
 
-        return RespostaApi::sucesso($this->controlo->monitor((int) $d['ano'], (int) ($d['mes'] ?? now()->month)), 'Monitor de consumo orçamental.');
+        return $this->ok($this->controlo->monitor((int) $d['ano'], (int) ($d['mes'] ?? now()->month)), 'Monitor de consumo orçamental.');
     }
 
     // ───────────── Controlo ─────────────
@@ -250,7 +260,36 @@ final class OrcamentoController extends Controller
         $this->exigir('orc_controlo_view');
         $d = $r->validate(['mes' => ['nullable', 'integer', 'between:1,12'], 'vista' => ['nullable', 'in:MES,ACUMULADO,ANO']]);
 
-        return RespostaApi::sucesso($this->execucao->controlo(OrcamentoAnual::query()->findOrFail($orcamento), (int) ($d['mes'] ?? now()->month), $d['vista'] ?? 'ACUMULADO'),
+        return $this->ok($this->execucao->controlo(OrcamentoAnual::query()->findOrFail($orcamento), (int) ($d['mes'] ?? now()->month), $d['vista'] ?? 'ACUMULADO'),
             'Controlo orçamental.');
+    }
+
+    /**
+     * Pedidos de excesso e alertas com a rubrica ({id, codigo, nome}) e o orçamento ({id, nome, ano, tipo, versao}) por nome (ADR-064).
+     *
+     * @param  Collection<int, Model>  $itens
+     */
+    private function comNomes($itens): array
+    {
+        $rubricas = RubricaOrcamental::query()->withTrashed()->whereIn('id', $itens->pluck('rubrica_orcamental_id')->filter()->unique()->values()->all())
+            ->get(['id', 'codigo', 'nome'])->keyBy('id');
+        $orcamentos = OrcamentoAnual::query()->whereIn('id', $itens->pluck('orcamento_anual_id')->filter()->unique()->values()->all())
+            ->get(['id', 'nome', 'ano', 'tipo', 'versao'])->keyBy('id');
+
+        return $itens->map(fn ($i) => $i->toArray() + [
+            'rubrica' => ($x = $rubricas[$i->rubrica_orcamental_id] ?? null) ? ['id' => $x->id, 'codigo' => $x->codigo, 'nome' => $x->nome] : null,
+            'orcamento' => ($o = $orcamentos[$i->orcamento_anual_id] ?? null) ? ['id' => $o->id, 'nome' => $o->nome, 'ano' => $o->ano, 'tipo' => $o->tipo, 'versao' => $o->versao] : null,
+        ])->values()->all();
+    }
+
+    /** Resposta com os valores monetários em texto decimal de 2 casas (ADR-064). */
+    private function ok(mixed $dados, string $mensagem, array $extra = []): JsonResponse
+    {
+        return RespostaApi::sucesso(FormatoOrcamento::normalizar($dados, $extra), $mensagem);
+    }
+
+    private function novo(mixed $dados, string $mensagem): JsonResponse
+    {
+        return RespostaApi::criado(FormatoOrcamento::normalizar($dados), $mensagem);
     }
 }

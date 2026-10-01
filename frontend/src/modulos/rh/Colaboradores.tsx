@@ -13,7 +13,7 @@ import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import {
-  ESTADOS_CIVIS, ESTADOS_COLABORADOR, NIVEIS_HABILITACAO, PARENTESCOS, type Colaborador, type ContratoTrabalho, type FichaColaborador,
+  ESTADOS_CIVIS, ESTADOS_COLABORADOR, NIVEIS_HABILITACAO, PARENTESCOS, type Colaborador, type ContratoTrabalho, type FichaColaborador, type ReferenciaNome,
 } from './api';
 import { EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useCargos, useColaboradores, useTiposOrganizacao } from './comum/consultas';
@@ -136,8 +136,8 @@ function FichaDoColaborador() {
                   <Descriptions.Item label="Dias úteis/mês">{c.dias_uteis_mes ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="Gestor directo">{colaboradores.nome(c.colaborador_gestor_id)}</Descriptions.Item>
                   <Descriptions.Item label="Habilitação máxima">{c.habilitacao_maxima ?? '—'}</Descriptions.Item>
-                  <Descriptions.Item label="Unidade orgânica">{c.unidade_organica_id ? `#${c.unidade_organica_id}` : '—'}</Descriptions.Item>
-                  <Descriptions.Item label="UN / CC">{c.unidade_negocio_id ? `#${c.unidade_negocio_id}` : '—'} / {c.centro_custo_id ? `#${c.centro_custo_id}` : '—'}</Descriptions.Item>
+                  <Descriptions.Item label="Unidade orgânica">{refNome(c.unidade_organica, c.unidade_organica_id)}</Descriptions.Item>
+                  <Descriptions.Item label="UN / CC">{refNome(c.unidade_negocio, c.unidade_negocio_id)} / {refNome(c.centro_custo, c.centro_custo_id)}</Descriptions.Item>
                 </Descriptions>
               ),
             },
@@ -356,4 +356,10 @@ function FormularioColaborador() {
       </Form>
     </>
   );
+}
+
+/** Unidade orgânica, unidade de negócio ou centro de custo por código e nome (ficha, ADR-064). */
+function refNome(r: ReferenciaNome | null | undefined, id: number | null | undefined): string {
+  if (r) return [r.codigo, r.nome].filter(Boolean).join(' — ') || `#${r.id}`;
+  return id ? `#${id}` : '—';
 }

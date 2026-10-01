@@ -41,7 +41,7 @@ export function DetalheProposta() {
     <>
       <CabecalhoPagina
         titulo={`Proposta ${nome}`}
-        subtitulo={<>Referência {c.referencia} · <NomeTerceiro id={c.fornecedor_id} /></>}
+        subtitulo={<>Referência {c.referencia} · <NomeTerceiro id={c.fornecedor_id} terceiro={c.fornecedor} /></>}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -102,7 +102,7 @@ export function DetalheProposta() {
           scroll={{ x: 'max-content' }}
           dataSource={c.linhas ?? []}
           columns={[
-            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} descricao={l.descricao} /> },
+            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
             { title: 'Qtd.', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
             ...(moeda !== 'AOA' ? [{ title: `Preço (${moeda})`, dataIndex: 'preco_unitario_moeda', align: 'right' as const, render: (v: string | null) => formatarKz(v) }] : []),
             { title: 'Preço (Kz)', dataIndex: 'preco_unitario', align: 'right', render: (v: string | null) => formatarKz(v) },

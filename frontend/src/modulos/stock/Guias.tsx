@@ -10,12 +10,11 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
-import { EstadoTag } from '@/modulos/compras/comum/estados';
-import { contemTexto } from '@/modulos/compras/comum/lista';
+import { EstadoTag, opcoesEstado } from '@/modulos/compras/comum/estados';
 import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/LinhasProdutos';
 import { NomeArmazem, NomeProduto, NomeTerceiro } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem } from '@/modulos/compras/comum/Seletores';
-import { TabelaLocal } from '@/modulos/compras/comum/Tabelas';
+import { TabelaApi } from '@/componentes/TabelaApi';
 import { accoesGuia, guiaGerida } from './comum/regras';
 import { TIPOS_GUIA, type GuiaSaida } from './comum/tipos';
 
@@ -41,13 +40,14 @@ function ListaGuias() {
   const [tipo, setTipo] = useState<string>();
   const [armazem, setArmazem] = useState<number>();
   const [pesquisa, setPesquisa] = useState('');
+  const [estado, setEstado] = useState<string>();
 
   const colunas: ColumnsType<GuiaSaida> = [
     { title: 'Guia', dataIndex: 'numero_documento', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
     { title: 'Tipo', key: 'tipo', render: (_, r) => <Tag>{rotuloTipo(r)}</Tag> },
     { title: 'Armazém', dataIndex: 'armazem_id', render: (v: number | null) => <NomeArmazem id={v} /> },
-    { title: 'Destino', key: 'destino', render: (_, r) => r.area_rececao || (r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} /> : '—') },
+    { title: 'Destino', key: 'destino', render: (_, r) => r.area_rececao || (r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} terceiro={r.terceiro} /> : '—') },
     { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
     { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', render: (c: boolean | null) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
   ];
@@ -64,12 +64,12 @@ function ListaGuias() {
           <Input.Search placeholder="N.º ou destino" allowClear style={{ width: 240 }} onSearch={setPesquisa} />
           <Select placeholder="Tipo" allowClear style={{ width: 200 }} value={tipo} onChange={setTipo} options={['CONSUMO', 'VENDA', 'BACK_TO_BACK'].map((t) => ({ value: t, label: TIPOS_GUIA[t] }))} />
           <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 220 }} value={armazem} onChange={setArmazem} />
+          <Select placeholder="Estado" allowClear style={{ width: 170 }} value={estado} onChange={setEstado} options={opcoesEstado(['CONCLUIDO', 'ANULADA'])} />
         </Flex>
-        <TabelaLocal<GuiaSaida>
+        <TabelaApi<GuiaSaida>
           url="/logistica/guias-saida"
-          params={{ tipo, armazem_id: armazem }}
+          filtros={{ tipo, armazem_id: armazem, estado, pesquisa: pesquisa.trim() || undefined }}
           chaveConsulta={['logistica', 'guias']}
-          filtrar={(g) => contemTexto(pesquisa, g.numero_documento, g.area_rececao)}
           columns={colunas}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
@@ -168,7 +168,7 @@ function DetalheGuia() {
           <Descriptions.Item label="Data">{formatarData(g.data)}</Descriptions.Item>
           <Descriptions.Item label="Armazém"><NomeArmazem id={g.armazem_id} /></Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={g.estado} /></Descriptions.Item>
-          <Descriptions.Item label="Destino">{g.area_rececao || (g.terceiro_id ? <NomeTerceiro id={g.terceiro_id} /> : '—')}</Descriptions.Item>
+          <Descriptions.Item label="Destino">{g.area_rececao || (g.terceiro_id ? <NomeTerceiro id={g.terceiro_id} terceiro={g.terceiro} /> : '—')}</Descriptions.Item>
           <Descriptions.Item label="Contabilização">{g.contabilizado ? `Contabilizada${g.numero_lan_contabilizacao ? ` (${g.numero_lan_contabilizacao})` : ''}` : 'Por contabilizar'}</Descriptions.Item>
           {g.criado_por && <Descriptions.Item label="Emitida por">{g.criado_por}</Descriptions.Item>}
           {g.observacoes && <Descriptions.Item label="Observações" span={3}>{g.observacoes}</Descriptions.Item>}
@@ -181,7 +181,7 @@ function DetalheGuia() {
           pagination={false}
           dataSource={g.linhas ?? []}
           columns={[
-            { title: 'Produto', dataIndex: 'produto_id', render: (v: number) => <NomeProduto id={v} /> },
+            { title: 'Produto', dataIndex: 'produto_id', render: (v: number, l: NonNullable<GuiaSaida['linhas']>[number]) => <NomeProduto id={v} produto={l.produto} /> },
             { title: 'Quantidade', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
             { title: 'Custo unit. (Kz)', dataIndex: 'custo_unitario_kz', align: 'right', render: (v: string | null) => formatarKz(v) },
             { title: 'Valor (Kz)', dataIndex: 'valor_kz', align: 'right', render: (v: string | null) => formatarKz(v) },

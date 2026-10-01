@@ -10,6 +10,7 @@ import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import type { LinhaLancamento } from '../api';
+import { rotuloTerceiro } from '../comum/terceiro';
 import { ValorKz } from '../comum/Componentes';
 import { useDiarios, porId } from '../comum/dados';
 import { ModalImportar } from '../comum/ficheiros';
@@ -39,6 +40,7 @@ export function ListaLancamentos() {
     { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string) => <strong>{v}</strong> },
     { title: 'Documento', dataIndex: 'numero_documento', render: (v: string | null) => v ?? '—' },
     { title: 'Conta', dataIndex: 'codigo_conta' },
+    { title: 'Terceiro', key: 'terceiro', ellipsis: true, width: 200, render: (_, r) => (r.terceiro_id ? <Tooltip title={r.terceiro?.nif ? `NIF ${r.terceiro.nif}` : undefined}>{rotuloTerceiro(r.terceiro, r.terceiro_id)}</Tooltip> : '—') },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 320, render: (v: string | null) => <Tooltip title={v}>{v ?? '—'}</Tooltip> },
     { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null) },
     { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null) },

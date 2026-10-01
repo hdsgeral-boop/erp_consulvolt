@@ -14,8 +14,8 @@ import { ReciboSalario } from '../comum/ReciboSalario';
 import { colunasRubricas, escalaoIrt, formatarIban, gerarCsv, kzCsv, somar, valoresRubricas } from '../comum/regras';
 import { AvisoNaoValidado, MolduraMapa, useDadosColaborador, usePeriodoMapa } from './comum';
 
-const ordenarPorNome = (dados: (id: number) => { nome: string }) => (a: ResultadoSalarial, b: ResultadoSalarial) =>
-  dados(a.colaborador_id).nome.localeCompare(dados(b.colaborador_id).nome, 'pt');
+const ordenarPorNome = (dados: (id: number, r?: ResultadoSalarial) => { nome: string }) => (a: ResultadoSalarial, b: ResultadoSalarial) =>
+  dados(a.colaborador_id, a).nome.localeCompare(dados(b.colaborador_id, b).nome, 'pt');
 
 /** RH › Relatórios e recibos (ecrã relatorios): entrada para os mapas que o utilizador pode ver. */
 export function Relatorios() {
@@ -51,7 +51,7 @@ export function MapaRemuneracoes() {
   const exportar = () => {
     const cab = ['Colaborador', 'NIF', 'N.º INSS', 'Dias contr.', 'Dias trab.', ...colunas.map((c) => c.nome), 'Bruto', 'INSS trab.', 'IRT', 'Descontos', 'Líquido', 'INSS empresa'];
     const linhas = res.map((r, i) => {
-      const d = dados(r.colaborador_id);
+      const d = dados(r.colaborador_id, r);
       return [d.nome, d.nif, d.inss, r.dias_contrato, r.dias_trabalhados, ...colunas.map((c) => kzCsv(valores[i][c.chave])), kzCsv(r.bruto), kzCsv(r.inss_trabalhador), kzCsv(r.irt), kzCsv(r.descontos), kzCsv(r.liquido), kzCsv(r.inss_patronal)];
     });
     descarregar(`mapa-remuneracoes-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(cab, linhas));
@@ -73,7 +73,7 @@ export function MapaRemuneracoes() {
             </thead>
             <tbody>
               {res.map((r, i) => {
-                const d = dados(r.colaborador_id);
+                const d = dados(r.colaborador_id, r);
                 return (
                   <tr key={r.colaborador_id}>
                     <td className="num">{i + 1}</td><td>{d.nome}{r.avencado ? ' (avençado)' : ''}</td><td>{d.nif}</td><td>{d.inss}</td>
@@ -111,7 +111,7 @@ export function MapaIrt() {
   const exportar = () => {
     const cab = ['NIF', 'N.º SS', 'Nome', 'Província', 'Município', 'Bruto', 'INSS 3%', 'Isenções', 'Matéria colectável', 'Parcela fixa', 'Taxa %', 'Excesso', 'Imposto devido', 'Imposto retido'];
     const linhas = grupoA.map((r) => {
-      const d = dados(r.colaborador_id);
+      const d = dados(r.colaborador_id, r);
       const e = escalaoIrt(r.base_irt);
       return [d.nif, d.inss, d.nome, d.provincia, d.municipio, kzCsv(r.bruto), kzCsv(r.inss_trabalhador), kzCsv(r.isencoes), kzCsv(r.base_irt), kzCsv(e.fixo), String(e.taxa).replace('.', ','), kzCsv(e.excesso), kzCsv(e.devido), kzCsv(r.irt)];
     });
@@ -130,7 +130,7 @@ export function MapaIrt() {
             </thead>
             <tbody>
               {grupoA.map((r, i) => {
-                const d = dados(r.colaborador_id);
+                const d = dados(r.colaborador_id, r);
                 const e = escalaoIrt(r.base_irt);
                 return (
                   <tr key={r.colaborador_id}>
@@ -163,7 +163,7 @@ export function MapaIrt() {
               <thead><tr><th>Ord.</th><th>NIF</th><th style={{ textAlign: 'left' }}>Nome</th><th>Valor bruto</th><th>Matéria colectável</th><th>IRT retido</th></tr></thead>
               <tbody>
                 {grupoB.map((r, i) => {
-                  const d = dados(r.colaborador_id);
+                  const d = dados(r.colaborador_id, r);
                   return <tr key={r.colaborador_id}><td className="num">{i + 1}</td><td>{d.nif}</td><td>{d.nome}</td><td className="num">{formatarKz(r.bruto)}</td><td className="num">{formatarKz(r.base_irt)}</td><td className="num">{formatarKz(r.irt)}</td></tr>;
                 })}
               </tbody>
@@ -184,7 +184,7 @@ export function MapaInss() {
   const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter((r) => !r.avencado).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
   const exportar = () => descarregar(`mapa-inss-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(
     ['Colaborador', 'NIF', 'N.º INSS', 'Base', 'Trabalhador', 'Empresa', 'Total'],
-    res.map((r) => { const d = dados(r.colaborador_id); return [d.nome, d.nif, d.inss, kzCsv(r.base_inss), kzCsv(r.inss_trabalhador), kzCsv(r.inss_patronal), kzCsv(somar([r.inss_trabalhador, r.inss_patronal]))]; }),
+    res.map((r) => { const d = dados(r.colaborador_id, r); return [d.nome, d.nif, d.inss, kzCsv(r.base_inss), kzCsv(r.inss_trabalhador), kzCsv(r.inss_patronal), kzCsv(somar([r.inss_trabalhador, r.inss_patronal]))]; }),
   ));
   return (
     <MolduraMapa titulo="Mapa de Segurança Social" subtitulo="Contribuições para o INSS do mês" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
@@ -195,7 +195,7 @@ export function MapaInss() {
           <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>N.º INSS</th><th>Base de incidência</th><th>Trabalhador</th><th>Empresa</th><th>Total</th></tr></thead>
           <tbody>
             {res.map((r, i) => {
-              const d = dados(r.colaborador_id);
+              const d = dados(r.colaborador_id, r);
               return (
                 <tr key={r.colaborador_id}>
                   <td className="num">{i + 1}</td><td>{d.nome}{r.reformado ? ' (reformado)' : ''}</td><td>{d.inss || '—'}</td><td className="num">{formatarKz(r.base_inss)}</td>
@@ -231,7 +231,7 @@ export function MapaPagamentos() {
           <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>NIF</th><th>Líquido a receber (Kz)</th><th>Assinatura</th></tr></thead>
           <tbody>
             {res.map((r, i) => {
-              const d = dados(r.colaborador_id);
+              const d = dados(r.colaborador_id, r);
               return <tr key={r.colaborador_id}><td className="num">{i + 1}</td><td>{d.nome}{r.avencado ? ' (avençado)' : ''}</td><td>{d.nif}</td><td className="num">{formatarKz(r.liquido)}</td><td style={{ width: 180 }} /></tr>;
             })}
           </tbody>
@@ -302,7 +302,7 @@ export function MapaRecibos() {
         <AreaImpressao>
           {visiveis.length === 0 && <Empty />}
           {visiveis.map((r, i) => {
-            const d = dados(r.colaborador_id);
+            const d = dados(r.colaborador_id, r);
             return <ReciboSalario key={r.colaborador_id} resultado={r} mesAno={mesAno} empresa={{ nome: empresa?.nome, nif: empresa?.nif ?? null }}
               colaborador={{ nome: d.nome, nif: d.nif, numero_inss: d.inss, funcao: d.cargo ? cargos.nome(d.cargo) : null }} quebra={i < visiveis.length - 1} />;
           })}

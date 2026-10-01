@@ -34,7 +34,18 @@ export interface DocumentoVenda {
   observacoes: string | null;
   data_vencimento: string | null;
   valido_ate: string | null;
-  faturacao_eletronica?: { serie: string | null; numero: number | null; estado: string | null; regime: boolean | null; erros: unknown[]; avisos: unknown[]; hash?: string | null };
+  faturacao_eletronica?: {
+    serie: string | null;
+    numero: number | null;
+    estado: string | null;
+    regime: boolean | null;
+    erros: unknown[];
+    avisos: unknown[];
+    hash?: string | null;
+    selado_em?: string | null;
+    envio?: string | null;
+    erros_agt?: unknown[];
+  };
   linhas?: LinhaVenda[];
   [chave: string]: unknown;
 }

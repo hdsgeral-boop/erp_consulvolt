@@ -25,6 +25,10 @@ final class LancamentoResource extends JsonResource
             'valor' => $this->valor,
             'descricao' => $this->descricao,
             'terceiro_id' => $this->terceiro_id,
+            // {id, nome, nif}: só com a relação carregada (eager loading nos controladores; aqui nunca há carregamento preguiçoso)
+            'terceiro' => $this->terceiro_id === null ? null : $this->whenLoaded('terceiro', fn () => $this->terceiro
+                ? ['id' => $this->terceiro->id, 'nome' => $this->terceiro->nome, 'nif' => $this->terceiro->nif]
+                : ['id' => $this->terceiro_id, 'nome' => null, 'nif' => null]),
             'centro_custo_id' => $this->centro_custo_id,
             'unidade_negocio_id' => $this->unidade_negocio_id,
             'projeto_id' => $this->projeto_id,

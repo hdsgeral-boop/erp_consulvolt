@@ -176,8 +176,8 @@ function ModalPrevisualizar({ periodo, podeIntegrar, aoFechar }: { periodo: stri
             dataSource={p.linhas}
             columns={[
               { title: 'Conta', dataIndex: 'codigo_conta' },
-              { title: 'UN', dataIndex: 'unidade_negocio_id', render: (v) => v ?? '—' },
-              { title: 'CC', dataIndex: 'centro_custo_id', render: (v) => v ?? '—' },
+              { title: 'UN', dataIndex: 'unidade_negocio_id', render: (v, l) => l.unidade_negocio_codigo ?? (v ? `#${v}` : '—') },
+              { title: 'CC', dataIndex: 'centro_custo_id', render: (v, l) => l.centro_custo_codigo ?? (v ? `#${v}` : '—') },
               { title: 'Débito', key: 'd', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : '') },
               { title: 'Crédito', key: 'c', align: 'right', render: (_, l) => (l.tipo_dc === 'C' ? <ValorKz valor={l.valor} /> : '') },
             ]}

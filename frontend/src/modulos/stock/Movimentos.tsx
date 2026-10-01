@@ -1,9 +1,12 @@
-import { Card, DatePicker, Flex, Input, Select, Tag } from 'antd';
+import { Button, Card, DatePicker, Flex, Input, Select, Tag } from 'antd';
+import { CalculatorOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
+import { useSessao } from '@/sessao/SessaoContexto';
+import { RecalculoValorizacoes } from './comum/RecalculoValorizacoes';
 import { dataApi, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { NomeArmazem, NomeProduto } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem, SeletorProduto } from '@/modulos/compras/comum/Seletores';
@@ -18,6 +21,8 @@ export default function Movimentos() {
   const [referencia, setReferencia] = useState('');
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [extracto, setExtracto] = useState<Movimento | null>(null);
+  const [recalcular, setRecalcular] = useState(false);
+  const { pode } = useSessao();
 
   const colunas: ColumnsType<Movimento> = [
     { title: 'Data', dataIndex: 'data', render: formatarDataHora },
@@ -34,7 +39,11 @@ export default function Movimentos() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Histórico de movimentos" subtitulo="Entradas, saídas, transferências e ajustes de stock (clique numa linha para ver o extracto do artigo)" />
+      <CabecalhoPagina
+        titulo="Histórico de movimentos"
+        subtitulo="Entradas, saídas, transferências e ajustes de stock (clique numa linha para ver o extracto do artigo)"
+        accoes={pode('armazem_recalcular') && <Button icon={<CalculatorOutlined />} onClick={() => setRecalcular(true)}>Recalcular valorizações</Button>}
+      />
       <Card>
         <Flex gap={8} wrap style={{ marginBottom: 16 }}>
           <SeletorProduto allowClear style={{ width: 300 }} value={produto} onChange={setProduto} />
@@ -53,6 +62,7 @@ export default function Movimentos() {
         />
       </Card>
       <ExtractoArtigo key={extracto?.id ?? 'nenhum'} produtoId={extracto?.produto_id ?? null} armazemInicial={extracto?.armazem_id} aoFechar={() => setExtracto(null)} />
+      {recalcular && <RecalculoValorizacoes aberto aoFechar={() => setRecalcular(false)} />}
     </>
   );
 }

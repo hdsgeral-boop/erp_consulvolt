@@ -71,6 +71,7 @@ export default function Pendentes() {
           columns={[
             { title: 'Código', dataIndex: 'codigo' },
             { title: 'Descrição', dataIndex: 'descricao' },
+            { title: 'Categoria', dataIndex: 'categoria_nome', render: (v: string | null | undefined) => v ?? '—' },
             { title: 'Aquisição', dataIndex: 'data_aquisicao', render: formatarData },
             { title: 'Valor', dataIndex: 'valor_aquisicao', align: 'right', render: (v) => <ValorKz valor={v} /> },
             { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },

@@ -116,6 +116,14 @@ final class ExecucaoController extends Controller
         return RespostaApi::sucesso(null, 'Registo de horas eliminado.');
     }
 
+    /** GET /{projeto}/equipamentos — usos de equipamento imputados e afectações de activos ao projecto (ADR-064). */
+    public function equipamentos(int $projeto): JsonResponse
+    {
+        $this->exigir(...ProjetoController::LER);
+
+        return RespostaApi::sucesso($this->execucao->equipamentos(Projeto::query()->findOrFail($projeto)), 'Equipamentos do projecto.');
+    }
+
     public function registarEquipamento(Request $r, int $projeto): JsonResponse
     {
         $this->exigir('proj_gerir', 'proj_execucao');

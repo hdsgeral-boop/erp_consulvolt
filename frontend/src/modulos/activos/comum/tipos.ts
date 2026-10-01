@@ -158,7 +158,7 @@ export interface PreVisualizacao {
   periodo: string;
   numero_documento: string;
   movimentos: { ativo_imobilizado_id: number; codigo: string | null; descricao: string; conta_debito: string; conta_credito: string; valor: string }[];
-  linhas: { codigo_conta: string; tipo_dc: 'D' | 'C'; valor: string; unidade_negocio_id: number | null; centro_custo_id: number | null }[];
+  linhas: { codigo_conta: string; tipo_dc: 'D' | 'C'; valor: string; unidade_negocio_id: number | null; centro_custo_id: number | null; unidade_negocio_codigo?: string | null; centro_custo_codigo?: string | null }[];
   total: string;
 }
 
@@ -254,7 +254,7 @@ export interface LinhaPendente {
 export interface AquisicoesPendentes {
   linhas: LinhaPendente[];
   total_por_inventariar: string;
-  ativos_sem_lancamento: { id: number; codigo: string | null; descricao: string; valor_aquisicao: string; data_aquisicao: string | null; categoria_ativo_id: number | null; estado: string }[];
+  ativos_sem_lancamento: { id: number; codigo: string | null; descricao: string; valor_aquisicao: string; data_aquisicao: string | null; categoria_ativo_id: number | null; estado: string; categoria_nome?: string | null }[];
 }
 
 export interface SimulacaoAbate {

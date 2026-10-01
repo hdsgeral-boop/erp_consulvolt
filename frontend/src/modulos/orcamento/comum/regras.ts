@@ -1,5 +1,5 @@
 /**
- * Regras de apresentação do Orçamento. Os valores mensais vêm como números: as somas fazem-se em cêntimos
+ * Regras de apresentação do Orçamento. Os valores vêm como texto decimal (ADR-064): as somas fazem-se em cêntimos
  * inteiros para não acumular erros de vírgula flutuante. O servidor recalcula e valida sempre.
  */
 
@@ -18,6 +18,16 @@ const deC = (x: number) => x / 100;
 /** 12 valores mensais normalizados (faltas = 0). */
 export function doze(valores: (number | string | null | undefined)[] | null | undefined): number[] {
   return Array.from({ length: 12 }, (_, i) => deC(c(valores?.[i])));
+}
+
+/** a − b ao cêntimo (valores em texto decimal ou números). */
+export function diferenca(a: number | string | null | undefined, b: number | string | null | undefined): number {
+  return deC(c(a) - c(b));
+}
+
+/** Soma ao cêntimo de uma lista de valores. */
+export function somaValores(valores: (number | string | null | undefined)[] | null | undefined): number {
+  return deC((valores ?? []).reduce<number>((t, v) => t + c(v), 0));
 }
 
 /** Total anual de uma linha (soma dos 12 meses ao cêntimo). */

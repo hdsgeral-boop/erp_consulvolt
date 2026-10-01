@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
-import { contemTexto, paraPagina } from './lista';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { contemTexto } from './lista';
+import { NomeProduto, NomeTerceiro } from './referencias';
 import { pendente, totaisLinhas } from './calculos';
 import { EstadoTag, rotuloEstado } from './estados';
 import { accoesContrato, accoesEncomenda, accoesFatura, accoesPedido, accoesProposta, accoesRececao, etapaPendente } from './regras';
@@ -18,11 +20,23 @@ const nada = () => false;
 const so = (...chaves: string[]) => (...pedidas: string[]) => pedidas.some((p) => chaves.includes(p));
 
 describe('listas de Compras', () => {
-  it('converte o formato {itens,total,pagina,por_pagina} em Pagina', () => {
-    const p = paraPagina({ itens: [{ id: 1 }, { id: 2 }], total: 51, pagina: 2, por_pagina: 25 });
-    expect(p.itens).toHaveLength(2);
-    expect(p.paginacao).toEqual({ pagina_atual: 2, por_pagina: 25, total: 51, ultima_pagina: 3 });
-    expect(paraPagina(null).paginacao.total).toBe(0);
+  it('mostra os nomes que vêm na resposta sem pedir a ficha', () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <span data-testid="t">
+          <NomeTerceiro id={7} terceiro={{ id: 7, nome: ' Fornecedor & Cia ', nif: '5000000099' }} />
+        </span>
+        <span data-testid="p">
+          <NomeProduto id={3} produto={{ id: 3, codigo: 'A1', nome: 'Cimento' }} descricao="Cimento" />
+        </span>
+        <span data-testid="v">
+          <NomeTerceiro id={null} />
+        </span>
+      </QueryClientProvider>,
+    );
+    expect(screen.getByTestId('t').textContent).toBe('Fornecedor & Cia');
+    expect(screen.getByTestId('p').textContent).toBe('A1 — Cimento');
+    expect(screen.getByTestId('v').textContent).toBe('—');
   });
 
   it('filtra texto sem acentos nem maiúsculas', () => {

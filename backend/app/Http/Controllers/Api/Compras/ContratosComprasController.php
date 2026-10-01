@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ContratoFornecedor;
 use App\Models\EncomendaCompra;
 use App\Models\MarcoContratoFornecedor;
+use App\Services\Compras\RelacoesNomes;
 use App\Services\Compras\ServicoContratosFornecedores;
 use App\Services\Compras\ServicoEncomendasClientes;
 use App\Support\Api\RespostaApi;
@@ -26,10 +27,16 @@ final class ContratosComprasController extends Controller
     {
         $this->exigir('compras_contratos_view');
         $this->contratos->expirar();
-        $f = $r->validate(['fornecedor_id' => ['nullable', 'integer'], 'estado' => ['nullable', Rule::in(['ATIVO', 'EXPIRADO', 'CANCELADO'])]]);
+        $f = $r->validate(['fornecedor_id' => ['nullable', 'integer'], 'estado' => ['nullable', Rule::in(['ATIVO', 'EXPIRADO', 'CANCELADO'])],
+            'pesquisa' => ['nullable', 'string', 'max:100'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+        $pesquisa = trim((string) ($f['pesquisa'] ?? ''));
 
-        return RespostaApi::sucesso(ContratoFornecedor::query()->when($f['fornecedor_id'] ?? null, fn ($q, $v) => $q->where('fornecedor_id', $v))
-            ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))->orderByDesc('data_inicio')->orderByDesc('id')->get(), 'Contratos de fornecedores.');
+        return RespostaApi::paginado(ContratoFornecedor::query()->with(RelacoesNomes::fornecedor())
+            ->when($f['fornecedor_id'] ?? null, fn ($q, $v) => $q->where('fornecedor_id', $v))
+            ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
+            ->when($pesquisa !== '', fn ($q) => $q->where('referencia', 'ilike', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $pesquisa).'%'))
+            ->orderByDesc('data_inicio')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1)),
+            null, 'Contratos de fornecedores.');
     }
 
     public function show(int $id): JsonResponse

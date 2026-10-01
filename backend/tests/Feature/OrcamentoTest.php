@@ -161,4 +161,30 @@ final class OrcamentoTest extends TestCase
         $this->postJson("/api/orcamento/orcamentos/{$pai2}/consolidar", [], $a)->assertOk()->assertJsonCount(2, 'dados.consolidado_ids');
         $this->assertSame(35.0, (float) collect($this->getJson("/api/orcamento/orcamentos/{$pai2}", $a)->json('dados.linhas'))->first()['valores'][0]);   // 15 + 20
     }
+
+    /** Afinação da Fase 5 (ADR-064): valores monetários sempre em texto com 2 casas e a lista de orçamentos paginada. */
+    #[Test]
+    public function afinacao_tipos_monetarios_e_paginacao(): void
+    {
+        $a = $this->s['a'];
+        $this->postJson('/api/orcamento/rubricas/base', ['tipo' => 'EXPLORACAO'], $a)->assertOk();
+        $o = $this->postJson('/api/orcamento/orcamentos', ['ano' => $this->ano, 'tipo' => 'EXPLORACAO'], $a)->assertCreated()->json('dados.id');
+        $this->putJson("/api/orcamento/orcamentos/{$o}/valores", ['linhas' => [['rubrica_orcamental_id' => $this->rub('P01'), 'valores' => $this->meses(100.5)]]], $a)->assertOk();
+        $l = collect($this->getJson("/api/orcamento/orcamentos/{$o}", $a)->assertOk()->json('dados.linhas'))->firstWhere('rubrica_orcamental_id', $this->rub('P01'));
+        $this->assertSame(array_fill(0, 12, '100.50'), $l['valores']);
+        $this->assertSame('1206.00', $l['total']);
+
+        $c = $this->getJson("/api/orcamento/orcamentos/{$o}/controlo?mes=1&vista=MES", $a)->assertOk()->json('dados');
+        $p01 = collect($c['linhas'])->firstWhere('codigo', 'P01');
+        $this->assertSame(['100.50', '600.00', '499.50'], [$p01['orcado'], $p01['realizado'], $p01['desvio']]);
+        $this->assertSame('100.50', $p01['mensal']['orcado'][0]);
+        $this->assertIsString($c['totais']['orcado']);
+        $this->assertIsFloat($p01['desvio_pct']);   // percentagens continuam numéricas
+        $this->assertSame($o, $c['orcamento']['id']);
+
+        $this->postJson('/api/orcamento/orcamentos', ['ano' => $this->ano - 1, 'tipo' => 'EXPLORACAO'], $a)->assertCreated();
+        $r = $this->getJson('/api/orcamento/orcamentos?por_pagina=1', $a)->assertOk()->assertJsonCount(1, 'dados');
+        $this->assertSame(['pagina_atual' => 1, 'por_pagina' => 1, 'total' => 2, 'ultima_pagina' => 2], $r->json('metadados.paginacao'));
+        $this->getJson("/api/orcamento/orcamentos?ano={$this->ano}", $a)->assertJsonCount(1, 'dados')->assertJsonPath('dados.0.id', $o);
+    }
 }

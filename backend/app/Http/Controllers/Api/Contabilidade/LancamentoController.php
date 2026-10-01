@@ -9,6 +9,7 @@ use App\Models\LancamentoContabil;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Support\Api\RespostaApi;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -31,7 +32,7 @@ final class LancamentoController extends Controller
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $pagina = LancamentoContabil::query()
+        $pagina = LancamentoContabil::query()->with(self::comTerceiro())
             ->when($f['diario_id'] ?? null, fn ($q, $v) => $q->where('diario_id', $v))
             ->when($f['codigo_conta'] ?? null, fn ($q, $v) => $q->where('codigo_conta', 'like', str_replace(['%', '_'], ['\%', '\_'], $v).'%'))
             ->when($f['numero_lan'] ?? null, fn ($q, $v) => $q->where('numero_lan', $v))
@@ -86,9 +87,18 @@ final class LancamentoController extends Controller
         return RespostaApi::criado($this->documento($estorno), "Estorno {$estorno->first()->numero_lan} gravado com sucesso.");
     }
 
+    /** Terceiro das linhas numa só consulta (sem N+1); os eliminados (soft delete) continuam a mostrar o nome. */
+    private static function comTerceiro(): array
+    {
+        return ['terceiro' => fn ($q) => $q->withTrashed()->select(['id', 'nome', 'nif'])];
+    }
+
     /** @param  Collection<int, LancamentoContabil>  $linhas */
     private function documento(Collection $linhas): array
     {
+        if ($linhas instanceof EloquentCollection) {
+            $linhas->loadMissing(self::comTerceiro());
+        }
         $primeira = $linhas->first();
         $debito = $linhas->where('tipo_dc', 'D')->reduce(fn ($a, $l) => bcadd($a, (string) $l->valor, 2), '0.00');
         $credito = $linhas->where('tipo_dc', 'C')->reduce(fn ($a, $l) => bcadd($a, (string) $l->valor, 2), '0.00');

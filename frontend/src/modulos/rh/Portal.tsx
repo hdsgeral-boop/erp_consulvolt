@@ -10,8 +10,9 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import {
-  PARENTESCOS, TIPOS_PEDIDO, type ModeloDocumento, type PedidoPortal, type ResultadoSalarial, type ResumoPortal, type TipoAusencia, type TipoPedido,
+  PARENTESCOS, TIPOS_PEDIDO, type Dependente, type MinhaAusencia, type ModeloDocumento, type PedidoPortal, type ResultadoSalarial, type ResumoPortal, type TipoAusencia, type TipoPedido,
 } from './api';
+import { PortalAvaliacao } from './comum/PortalAvaliacao';
 import { AreaImpressao, BotaoImprimir, EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro } from './comum/consultas';
 import { DocumentoImpresso, EtapasPedido, resumoPedido } from './comum/Pedidos';
@@ -39,6 +40,8 @@ export default function Portal() {
       <Tabs items={[
         { key: 'pedidos', label: 'Os meus pedidos', children: <MeusPedidos resumo={r} /> },
         { key: 'recibos', label: 'Recibos', children: <Recibos resumo={r} /> },
+        { key: 'faltas', label: r.faltas_por_justificar ? `Faltas (${r.faltas_por_justificar})` : 'Faltas', children: <MinhasFaltas /> },
+        { key: 'avaliacao', label: 'A minha avaliação', children: <PortalAvaliacao /> },
         { key: 'aprovacoes', label: `Aprovações (${r.aprovacoes_para_mim})`, children: <Aprovacoes /> },
         {
           key: 'dados',
@@ -52,6 +55,7 @@ export default function Portal() {
                 <Descriptions.Item label="Admissão">{formatarData(r.colaborador.data_admissao)}</Descriptions.Item>
                 <Descriptions.Item label="Férias marcadas">{r.ferias.marcados} dias</Descriptions.Item>
               </Descriptions>
+              <MeusDependentes />
               <Typography.Paragraph type="secondary" style={{ marginTop: 12 }}>Para alterar o agregado familiar faça um pedido «Alteração do agregado familiar»; outras alterações pedem-se ao RH.</Typography.Paragraph>
             </Card>
           ),
@@ -231,3 +235,63 @@ function Aprovacoes() {
   );
 }
 
+
+/** As minhas faltas (GET /rh/portal/ausencias): justificar uma falta por justificar cria um pedido «Ausência» ligado à falta. */
+function MinhasFaltas() {
+  const [historico, setHistorico] = useState(false);
+  const q = useQuery({ queryKey: ['rh', 'portal', 'ausencias', historico], queryFn: () => obter<MinhaAusencia[]>('/rh/portal/ausencias', historico ? { estado: 'TODOS' } : undefined) });
+  useAvisarErro(q.error);
+  const catalogo = useQuery({ queryKey: ['rh', 'assiduidade', 'tipos-ausencia'], queryFn: () => obter<Record<string, TipoAusencia>>('/rh/assiduidade/tipos-ausencia'), staleTime: Infinity });
+  const [justificar, setJustificar] = useState<MinhaAusencia | null>(null);
+  const [form] = Form.useForm();
+  const accao = useAccaoRh(() => setJustificar(null));
+  const cat = catalogo.data ?? {};
+  const colunas: ColumnsType<MinhaAusencia> = [
+    { title: 'Data', render: (_, a) => (a.data_inicio === a.data_fim ? formatarData(a.data_inicio) : `${formatarData(a.data_inicio)} a ${formatarData(a.data_fim)}`) },
+    { title: 'Ocorrência', render: (_, a) => (a.tipo ? cat[a.tipo]?.nome ?? a.tipo : a.ocorrencia ?? (a.detectada ? 'Falta detectada na assiduidade' : '—')) },
+    { title: 'Duração', render: (_, a) => (a.horas_falta ? `${a.horas_falta} h` : a.horas ? `${a.horas} h` : `${a.dias_uteis ?? a.dias ?? 1} dia(s)`) },
+    { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
+    { title: 'Motivo / decisão', render: (_, a) => a.nota_decisao ?? a.motivo ?? '' },
+    { title: '', key: 'acc', align: 'right', render: (_, a) => a.pode_justificar && <Button size="small" type="primary" onClick={() => { form.resetFields(); setJustificar(a); }}>Justificar</Button> },
+  ];
+  return (
+    <Card>
+      <Space style={{ marginBottom: 12 }}>
+        <Checkbox checked={historico} onChange={(e) => setHistorico(e.target.checked)}>Ver o histórico (todas as ausências)</Checkbox>
+      </Space>
+      <Table<MinhaAusencia> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 20 }} scroll={{ x: 'max-content' }}
+        locale={{ emptyText: historico ? 'Sem ausências registadas.' : 'Não tem faltas por justificar.' }} />
+      <Modal title="Justificar falta" open={justificar !== null} onCancel={() => setJustificar(null)} okText="Enviar justificação" cancelText="Cancelar" confirmLoading={accao.isPending}
+        onOk={() => form.submit()} destroyOnClose>
+        {justificar && <Typography.Paragraph>Falta de {formatarData(justificar.data_inicio)}{justificar.data_fim !== justificar.data_inicio ? ` a ${formatarData(justificar.data_fim)}` : ''}.</Typography.Paragraph>}
+        <Form form={form} layout="vertical" onFinish={(v) => justificar && accao.mutate({ metodo: 'post', url: '/rh/portal/pedidos', dados: { tipo: 'AUSENCIA', ausencia_id: justificar.id, ...v } })}>
+          <Form.Item name="ausencia_tipo" label="Tipo (Lei 12/23)" rules={[{ required: true, message: 'Escolha o tipo.' }]}>
+            <Select showSearch optionFilterProp="label" loading={catalogo.isLoading} options={Object.entries(cat).map(([k, t]) => ({ value: k, label: t.nome }))} />
+          </Form.Item>
+          <Form.Item name="motivo" label="Motivo" rules={[{ required: true, message: 'Indique o motivo.' }]}><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
+          <Form.Item name="documento_url" label="Documento de prova (ligação)"><Input maxLength={1000} /></Form.Item>
+        </Form>
+      </Modal>
+    </Card>
+  );
+}
+
+/** O agregado familiar registado (GET /rh/portal/dependentes). */
+function MeusDependentes() {
+  const q = useQuery({ queryKey: ['rh', 'portal', 'dependentes'], queryFn: () => obter<(Dependente & { id: number })[]>('/rh/portal/dependentes') });
+  useAvisarErro(q.error);
+  const rotulo = (p: string | null) => PARENTESCOS.find((x) => x.value === p)?.label ?? p ?? '—';
+  return (
+    <div style={{ marginTop: 16 }}>
+      <Typography.Text strong>Agregado familiar</Typography.Text>
+      <Table<Dependente & { id: number }> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={false} style={{ marginTop: 8 }}
+        locale={{ emptyText: 'Sem dependentes registados.' }}
+        columns={[
+          { title: 'Nome', dataIndex: 'nome' },
+          { title: 'Parentesco', dataIndex: 'parentesco', render: rotulo },
+          { title: 'Nascimento', dataIndex: 'data_nascimento', render: formatarData },
+          { title: 'Dependente fiscal', dataIndex: 'dependente_fiscal', render: (v: boolean | null) => (v ? 'Sim' : 'Não') },
+        ]} />
+    </div>
+  );
+}

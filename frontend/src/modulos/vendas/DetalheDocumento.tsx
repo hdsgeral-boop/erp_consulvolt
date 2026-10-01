@@ -1,17 +1,21 @@
-import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, Input, Modal, Select, Skeleton, Space, Table, Tag, message } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Dropdown, Flex, Form, Input, Modal, Select, Skeleton, Space, Table, Tag, Typography, message } from 'antd';
+import { ArrowLeftOutlined, DownOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { enviar, obter } from '@/api/cliente';
+import { descarregar, enviar, http, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
+import { accoesAgt, svgComoDataUrl } from './agt/accoesDocumento';
 import { CONTABILIZAVEIS, CONVERSOES, CORES_ESTADO, FISCAIS, TIPOS_DOCUMENTO, type DocumentoVenda, type LinhaVenda } from './api';
 
-/** Detalhe de um documento de venda, com converter, anular e contabilizar/descontabilizar (mesmas regras do servidor). */
+/**
+ * Detalhe de um documento de venda, com converter, anular e contabilizar/descontabilizar (mesmas regras do servidor)
+ * e as acções AGT avançadas: revalidar e reenviar, QR code e pré-visualização do pedido assinado.
+ */
 export function DetalheDocumento() {
   const { id } = useParams();
   const navegar = useNavigate();
@@ -22,6 +26,9 @@ export function DetalheDocumento() {
   const [formConv] = Form.useForm<{ tipo_destino: string; data_emissao: Dayjs; motivo_nota_credito?: string; devolucao_mercadoria?: boolean }>();
   const [formMotivo] = Form.useForm<{ motivo: string }>();
   const tipoDestino = Form.useWatch('tipo_destino', formConv);
+  const [qr, setQr] = useState<{ imagem: string; url: string | null } | null>(null);
+  const [pedido, setPedido] = useState<unknown>(null);
+  const [aCarregarAgt, setACarregarAgt] = useState<string | null>(null);
 
   const consulta = useQuery({ queryKey: ['vendas', 'documento', id], queryFn: () => obter<DocumentoVenda>(`/vendas/documentos/${id}`) });
   const accao = useMutation({
@@ -46,6 +53,38 @@ export function DetalheDocumento() {
   const podeAnular = !anulado && !FISCAIS.includes(d.tipo_documento) && !d.contabilizado && pode('vendas_fat_del');
   const podeContabilizar = !anulado && !d.contabilizado && CONTABILIZAVEIS.includes(d.tipo_documento) && pode('vendas_fat_contabilizar');
   const podeDescontabilizar = d.contabilizado && pode('vendas_fat_descontab');
+  const agt = accoesAgt(d, pode);
+  const nomeBase = (d.numero_documento ?? `documento_${d.id}`).replace(/[^\w.-]+/g, '_');
+
+  /**
+   * QR em SVG (texto). Sem responseType: o axios tenta ler JSON e, não sendo, devolve o texto do SVG; os erros chegam
+   * em JSON ao interceptor (mensagem do servidor) e o 401 termina a sessão, como em qualquer pedido.
+   */
+  const verQr = async () => {
+    setACarregarAgt('qr');
+    try {
+      const r = await http.get<string>(`/vendas/documentos/${d.id}/qr`, { params: { formato: 'svg' } });
+      setQr({ imagem: svgComoDataUrl(String(r.data)), url: (r.headers['x-url-consulta'] as string | undefined) ?? null });
+    } catch (e) {
+      notificarErro(e, 'Não foi possível obter o QR code');
+    } finally {
+      setACarregarAgt(null);
+    }
+  };
+  const verPedido = async () => {
+    setACarregarAgt('pedido');
+    try {
+      setPedido(await obter<unknown>(`/vendas/documentos/${d.id}/pedido-assinado`));
+    } catch (e) {
+      notificarErro(e, 'Não foi possível pré-visualizar o pedido assinado');
+    } finally {
+      setACarregarAgt(null);
+    }
+  };
+  const accoesAgtMenu = [
+    ...(agt.qr ? [{ key: 'qr', label: 'QR code' }] : []),
+    ...(agt.pedidoAssinado ? [{ key: 'pedido', label: 'Pedido assinado (pré-visualização)' }] : []),
+  ];
 
   const colunas = [
     { title: 'Descrição', dataIndex: 'descricao' },
@@ -67,6 +106,29 @@ export function DetalheDocumento() {
             {podeConverter && <Button onClick={() => { formConv.setFieldsValue({ tipo_destino: destinos[0], data_emissao: dayjs() }); setConversao(true); }}>Converter</Button>}
             {podeContabilizar && <Button type="primary" loading={accao.isPending} onClick={() => accao.mutate({ caminho: 'contabilizar' })}>Contabilizar</Button>}
             {podeDescontabilizar && <Button danger onClick={() => setDescontab(true)}>Descontabilizar</Button>}
+            {agt.revalidar && (
+              <Button
+                loading={accao.isPending}
+                onClick={() =>
+                  Modal.confirm({
+                    title: `Revalidar e reenviar ${d.numero_documento} à AGT?`,
+                    content: 'O documento electrónico é refeito com os dados actuais (cliente, produtos, configuração) e reenviado. Os valores fiscais não mudam.',
+                    okText: 'Revalidar e reenviar',
+                    cancelText: 'Cancelar',
+                    onOk: () => accao.mutateAsync({ caminho: 'revalidar' }),
+                  })
+                }
+              >
+                Revalidar AGT
+              </Button>
+            )}
+            {accoesAgtMenu.length > 0 && (
+              <Dropdown menu={{ items: accoesAgtMenu, onClick: ({ key }) => void (key === 'qr' ? verQr() : verPedido()) }}>
+                <Button loading={aCarregarAgt !== null}>
+                  AGT <DownOutlined />
+                </Button>
+              </Dropdown>
+            )}
             {podeAnular && (
               <Button danger onClick={() => Modal.confirm({ title: `Anular ${d.numero_documento}?`, okText: 'Anular', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ caminho: 'anular' }) })}>
                 Anular
@@ -120,6 +182,40 @@ export function DetalheDocumento() {
             </>
           )}
         </Form>
+      </Modal>
+
+      <Modal
+        title={`QR code — ${d.numero_documento}`}
+        open={qr !== null}
+        onCancel={() => setQr(null)}
+        footer={
+          <Space>
+            <Button
+              onClick={async () => {
+                try {
+                  await descarregar(`/vendas/documentos/${d.id}/qr`, { formato: 'png' }, `QR_${nomeBase}.png`);
+                } catch (e) {
+                  notificarErro(e, 'Não foi possível descarregar o QR code');
+                }
+              }}
+            >
+              Descarregar PNG
+            </Button>
+            <Button type="primary" onClick={() => setQr(null)}>Fechar</Button>
+          </Space>
+        }
+      >
+        {qr && (
+          <Flex vertical align="center" gap={12}>
+            <img src={qr.imagem} alt={`QR code do documento ${d.numero_documento}`} style={{ width: 240, height: 240 }} />
+            {qr.url && <Typography.Text copyable={{ text: qr.url }} style={{ wordBreak: 'break-all', fontSize: 12 }}>{qr.url}</Typography.Text>}
+          </Flex>
+        )}
+      </Modal>
+
+      <Modal title="Pedido assinado (não enviado)" open={pedido !== null} onCancel={() => setPedido(null)} footer={<Button type="primary" onClick={() => setPedido(null)}>Fechar</Button>} width={760}>
+        <Typography.Paragraph type="secondary">Pré-visualização do pedido à AGT com a assinatura, para confirmar as chaves e a estrutura. Nada foi enviado.</Typography.Paragraph>
+        <pre style={{ maxHeight: 420, overflow: 'auto', fontSize: 12, background: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 6 }}>{JSON.stringify(pedido, null, 2)}</pre>
       </Modal>
 
       <Modal title="Descontabilizar (estorno)" open={descontab} onCancel={() => setDescontab(false)} okText="Descontabilizar" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} onOk={() => formMotivo.submit()}>

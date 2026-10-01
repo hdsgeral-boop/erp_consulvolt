@@ -1,15 +1,14 @@
 import { Button, Card, DatePicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table } from 'antd';
 import { CheckOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
 import { useAccao } from '@/modulos/compras/comum/accoes';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { EtiquetaActivos, SeletorActivo } from './comum/componentes';
+import { filtroPeriodo, useListaPaginada } from './comum/paginacao';
 import type { Manutencao as RegistoManutencao } from './comum/tipos';
 
 /** Activos › Manutenções (ecrã activos_manutencao): registo de manutenções preventivas e correctivas e respectiva conclusão. */
@@ -19,10 +18,10 @@ export default function Manutencao() {
   const [estado, setEstado] = useState<string>();
   const [nova, setNova] = useState(false);
   const [concluir, setConcluir] = useState<RegistoManutencao | null>(null);
-  const q = useQuery({
-    queryKey: ['activos', 'manutencoes', activo, estado],
-    queryFn: () => obter<RegistoManutencao[]>('/ativos/manutencoes', { ativo_imobilizado_id: activo, estado }),
-  });
+  const [tipo, setTipo] = useState<string>();
+  const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  // paginado e filtrado no servidor (ADR-064)
+  const q = useListaPaginada<RegistoManutencao>(['activos', 'manutencoes'], '/ativos/manutencoes', { ativo_imobilizado_id: activo, estado, tipo, ...filtroPeriodo(periodo) });
   const eliminar = useAccao({ invalidar: [['activos']] });
   const gerir = pode('activos_manut');
 
@@ -39,8 +38,11 @@ export default function Manutencao() {
             <SeletorActivo allowClear value={activo} onChange={setActivo} style={{ width: 320 }} />
             <Select placeholder="Estado" allowClear value={estado} onChange={setEstado} style={{ width: 160 }}
               options={[{ value: 'PLANEADA', label: 'Planeada' }, { value: 'CONCLUIDA', label: 'Concluída' }]} />
+            <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 150 }}
+              options={[{ value: 'PREVENTIVA', label: 'Preventiva' }, { value: 'CORRECTIVA', label: 'Correctiva' }]} />
+            <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} allowEmpty={[true, true]} placeholder={['Desde', 'Até']} />
           </Flex>
-          <BotaoCsv nome="manutencoes" linhas={q.data} colunas={[
+          <BotaoCsv nome="manutencoes_pagina" linhas={q.itens} colunas={[
             { titulo: 'Data', valor: (l) => formatarData(l.data) }, { titulo: 'Activo', valor: (l) => l.ativo_imobilizado?.codigo },
             { titulo: 'Tipo', valor: (l) => l.tipo }, { titulo: 'Descrição', valor: (l) => l.descricao }, { titulo: 'Custo', valor: (l) => l.custo, numerico: true },
             { titulo: 'Estado', valor: (l) => l.estado }, { titulo: 'Resolução', valor: (l) => l.resolucao },
@@ -50,7 +52,8 @@ export default function Manutencao() {
           rowKey="id"
           size="middle"
           loading={q.isFetching}
-          dataSource={q.data}
+          dataSource={q.itens}
+          pagination={q.paginacao}
           scroll={{ x: 'max-content' }}
           columns={[
             { title: 'Data', dataIndex: 'data', render: formatarData },

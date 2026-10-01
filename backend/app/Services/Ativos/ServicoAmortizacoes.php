@@ -6,8 +6,10 @@ use App\Exceptions\ErroNegocio;
 use App\Models\AmortizacaoAtivo;
 use App\Models\AtivoImobilizado;
 use App\Models\CategoriaAtivo;
+use App\Models\CentroCusto;
 use App\Models\LancamentoContabil;
 use App\Models\NotaDemonstracao;
+use App\Models\UnidadeNegocio;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
 use Illuminate\Support\Collection;
@@ -168,6 +170,11 @@ final class ServicoAmortizacoes
             throw new ErroNegocio("Não existem cálculos pendentes para integrar em {$periodo}.", 'SEM_RASCUNHOS', 422);
         }
         [$movimentos, $linhas] = $this->linhas($rascunhos);
+        // códigos da unidade de negócio e do centro de custo nas linhas agrupadas (ADR-064; só na pré-visualização)
+        $un = UnidadeNegocio::query()->withTrashed()->whereIn('id', array_filter(array_column($linhas, 'unidade_negocio_id')))->pluck('codigo', 'id');
+        $cc = CentroCusto::query()->withTrashed()->whereIn('id', array_filter(array_column($linhas, 'centro_custo_id')))->pluck('codigo', 'id');
+        $linhas = array_map(fn ($l) => $l + ['unidade_negocio_codigo' => $l['unidade_negocio_id'] ? ($un[$l['unidade_negocio_id']] ?? null) : null,
+            'centro_custo_codigo' => $l['centro_custo_id'] ? ($cc[$l['centro_custo_id']] ?? null) : null], $linhas);
 
         return ['periodo' => $periodo, 'numero_documento' => AmortizacaoAtivo::numeroDocumento($periodo), 'movimentos' => $movimentos, 'linhas' => $linhas,
             'total' => $this->somaValores($rascunhos)];

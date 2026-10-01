@@ -333,4 +333,22 @@ final class POSLavandariaTest extends TestCase
         $this->assertSame(['pm_num', 'NUMERARIO', 1000, '489'], [$pag['meio_id'], $pag['tipo'], $pag['valor'], $pag['conta_transitoria']]);
         $this->getJson("/api/pos/lavandaria/ordens/{$id}", $this->s)->assertOk()->assertJsonPath('dados.totais.total', '10499.99')->assertJsonPath('dados.totais.saldo', '9499.99');
     }
+
+    /** Afinação da Fase 5 (ADR-064): colaboradores (só id e nome) com as permissões da lavandaria, sem as do RH. */
+    #[Test]
+    public function colaboradores_para_atribuir_com_lav_ordens(): void
+    {
+        $this->naEmpresa(function () {
+            Colaborador::create(['nome_completo' => 'Beatriz', 'nif' => 'B1', 'estado' => 'ACTIVO']);
+            Colaborador::create(['nome_completo' => 'Alberto', 'nif' => 'A1', 'estado' => 'ACTIVO']);
+            Colaborador::create(['nome_completo' => 'Carlos', 'nif' => 'C1', 'estado' => 'INACTIVO']);
+        });
+        $s = $this->sessao(['lav_ordens']);
+        $this->assertSame([['nome' => 'Alberto', 'activo' => true], ['nome' => 'Beatriz', 'activo' => true]],
+            array_map(fn ($c) => array_diff_key($c, ['id' => 1]), $this->getJson('/api/pos/lavandaria/colaboradores', $s)->assertOk()->json('dados')));
+        $this->assertSame(['Alberto', 'Beatriz', 'Carlos'], array_column($this->getJson('/api/pos/lavandaria/colaboradores?todos=1', $s)->json('dados'), 'nome'));
+        $this->assertSame(['id', 'nome', 'activo'], array_keys($this->getJson('/api/pos/lavandaria/colaboradores', $s)->json('dados.0')));   // nada mais do RH
+        $this->getJson('/api/rh/colaboradores', $s)->assertForbidden();
+        $this->getJson('/api/pos/lavandaria/colaboradores', $this->sessao(['vendas_view']))->assertForbidden();
+    }
 }

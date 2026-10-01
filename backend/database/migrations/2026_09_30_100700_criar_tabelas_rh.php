@@ -757,7 +757,7 @@ return new class extends Migration
             $table->jsonb('objetivos')->nullable()->comment('legado: objectivos');
             $table->text('realizacoes')->nullable()->comment('legado: realizacoes');
             $table->text('dificuldades')->nullable()->comment('legado: dificuldades');
-            $table->string('formacao', 10)->nullable()->comment('legado: formacao');
+            $table->text('formacao')->nullable()->comment('legado: formacao · tipo forçado (inferido: varchar(10))');
             $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {RASCUNHO, SUBMETIDA}; texto original em estado_original');
             $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->timestampTz('submetida_em')->nullable()->comment('legado: submetida_em');

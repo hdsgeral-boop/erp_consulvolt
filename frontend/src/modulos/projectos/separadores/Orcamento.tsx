@@ -48,7 +48,8 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
           dataSource={orc.data?.linhas}
           pagination={false}
           columns={[
-            { title: 'Tarefa', dataIndex: 'tarefa_projeto_id', render: (id) => (id ? tarefas.get(id)?.nome ?? `#${id}` : 'Projecto (geral)') },
+            { title: 'Tarefa', dataIndex: 'tarefa_projeto_id', render: (id, l) => (id ? l.tarefa_nome ?? tarefas.get(id)?.nome ?? '#' + id : 'Projecto (geral)') },
+            { title: 'Responsável', key: 'resp', render: (_, l) => l.membro_nome ?? l.posicao_titulo ?? '—' },
             { title: 'Rubrica', dataIndex: 'rubrica', render: rotuloRubrica },
             { title: 'Conta', dataIndex: 'numero_conta', render: (v) => v ?? '—' },
             { title: 'Montante (Kz)', dataIndex: 'montante', align: 'right', render: (v) => <ValorKz valor={v} /> },

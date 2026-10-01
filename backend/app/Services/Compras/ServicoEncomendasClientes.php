@@ -25,12 +25,13 @@ final class ServicoEncomendasClientes
     public function listar(): array
     {
         $vendas = Venda::query()->where('tipo_documento', 'NE')->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'ANULADO'))
-            ->with(['cliente:id,nome', 'itensVenda.produto:id,codigo,nome,quantidade_stock,movimenta_stock'])->orderByDesc('data_emissao')->get();
+            ->with(['cliente' => fn ($q) => $q->withTrashed()->select(['id', 'nome']), 'itensVenda.produto:id,codigo,nome,quantidade_stock,movimenta_stock'])->orderByDesc('data_emissao')->get();
         $pedidos = PedidoCompra::query()->whereIn('id', $vendas->flatMap(fn ($v) => $v->itensVenda->pluck('pedido_compra_id'))->filter()->unique())
             ->get(['id', 'numero_pedido', 'estado'])->keyBy('id');
 
         return $vendas->map(fn (Venda $v) => [
-            'id' => $v->id, 'numero_documento' => $v->numero_documento, 'data_emissao' => $v->data_emissao?->toDateString(), 'cliente' => $v->cliente?->nome, 'estado' => $v->estado,
+            'id' => $v->id, 'numero_documento' => $v->numero_documento, 'data_emissao' => $v->data_emissao?->toDateString(), 'cliente_id' => $v->cliente_id,
+            'cliente' => $v->cliente ? ['id' => $v->cliente->id, 'nome' => $v->cliente->nome] : null, 'estado' => $v->estado,
             'linhas' => $v->itensVenda->map(function (ItemVenda $i) use ($pedidos) {
                 $p = $i->pedido_compra_id ? ($pedidos[$i->pedido_compra_id] ?? null) : null;
                 $ativo = $p && $p->estado !== 'ANULADO';

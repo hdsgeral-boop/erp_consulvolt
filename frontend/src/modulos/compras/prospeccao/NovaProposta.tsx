@@ -4,12 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '../comum/accoes';
 import { totaisLinhas } from '../comum/calculos';
-import { obterLista } from '../comum/lista';
 import { NomeProduto, useMapaProdutos } from '../comum/referencias';
 import { SeletorTerceiro } from '../comum/Seletores';
 import { numeroOuId, type ItemCompra, type PedidoCompra, type PropostaCompra } from '../comum/tipos';
@@ -59,7 +58,7 @@ export function NovaProposta() {
 
   const aprovados = useQuery({
     queryKey: ['compras', 'pedidos', 'aprovados'],
-    queryFn: () => obterLista<PedidoCompra>('/compras/pedidos', { estado: 'APROVADO', por_pagina: 200 }),
+    queryFn: () => obterPagina<PedidoCompra>('/compras/pedidos', { estado: 'APROVADO', por_pagina: 200 }),
   });
   const pedido = useQuery({
     queryKey: ['compras', 'pedido', String(pedidoId)],

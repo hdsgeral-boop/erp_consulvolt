@@ -18,5 +18,17 @@ export function useOrdem(id: number | null) {
   return useQuery({ queryKey: ['pos', 'lavandaria', 'ordem', id], queryFn: () => obter<DetalheOrdem>(`/pos/lavandaria/ordens/${id}`), enabled: !!id });
 }
 
+/** Colaborador para atribuir ordens (só id e nome; GET /pos/lavandaria/colaboradores com as permissões da lavandaria, ADR-064). */
+export interface ColaboradorLav {
+  id: number;
+  nome: string;
+  activo: boolean;
+}
+
+/** Com `todos`, inclui os inactivos (para filtrar ordens antigas). */
+export function useColaboradoresLav(todos = false) {
+  return useQuery({ queryKey: ['pos', 'lavandaria', 'colaboradores', todos], queryFn: () => obter<ColaboradorLav[]>('/pos/lavandaria/colaboradores', { todos: todos ? 1 : undefined }), staleTime: 300_000 });
+}
+
 export const GRUPOS_LAV: Record<string, string> = { LAVANDARIA: 'Lavandaria', ALFAIATARIA: 'Alfaiataria' };
 export const UNIDADES_LAV: Record<string, string> = { PECA: 'Peça', KG: 'Kg' };

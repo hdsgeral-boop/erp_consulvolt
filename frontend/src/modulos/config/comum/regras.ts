@@ -26,6 +26,11 @@ export function diferencas(antes: Record<string, unknown> | null | undefined, de
     .sort((x, y) => Number(y.alterado) - Number(x.alterado) || x.campo.localeCompare(y.campo));
 }
 
+/** Ficheiros que seguem para o servidor em multipart (lidos lá com PhpSpreadsheet); CSV/TXT continuam a ser lidos no navegador. */
+export function eFolhaExcel(nome: string): boolean {
+  return /\.(xlsx|xls)$/i.test(nome.trim());
+}
+
 /**
  * Lê uma tabela colada do Excel (separada por tabulações) ou um CSV (; ou ,) com cabeçalho na 1.ª linha e devolve objectos
  * {cabeçalho: valor}. Linhas vazias são ignoradas; aspas duplas delimitam campos.

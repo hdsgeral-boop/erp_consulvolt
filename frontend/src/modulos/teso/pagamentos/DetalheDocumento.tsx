@@ -81,7 +81,7 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
           scroll={{ x: 'max-content' }}
           columns={[
             { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string) => <strong>{v}</strong> },
-            { title: 'Terceiro', dataIndex: 'terceiro_id', render: (v: number | null) => (v ? `#${v}` : '—') },
+            { title: 'Terceiro', key: 'terceiro', render: (_, l) => (l.terceiro ? `${l.terceiro.nome.trim()}${l.terceiro.nif ? ` (NIF ${l.terceiro.nif})` : ''}` : l.terceiro_id ? `#${l.terceiro_id}` : '—') },
             { title: 'Documento liquidado', dataIndex: 'numero_documento', render: (v: string | null) => v ?? '—' },
             { title: 'Descrição', dataIndex: 'descricao' },
             { title: 'Débito', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : null) },

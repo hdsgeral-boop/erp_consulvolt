@@ -4,9 +4,13 @@ namespace App\Services\Projetos;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\AditamentoAlteracaoProjeto;
+use App\Models\Colaborador;
 use App\Models\LinhaOrcamentoProjeto;
+use App\Models\MembroEquipaProjeto;
+use App\Models\NoOrganigramaProjeto;
 use App\Models\Projeto;
 use App\Models\TarefaProjeto;
+use App\Models\Terceiro;
 use App\Services\Contabilidade\ServicoPlanoContas;
 
 /**
@@ -36,8 +40,23 @@ final class ServicoOrcamentoProjetos
     public function linhas(Projeto $p): array
     {
         $linhas = LinhaOrcamentoProjeto::query()->where('projeto_id', $p->id)->orderBy('id')->get();
+        // nomes (ADR-064): tarefa, posição do organigrama e membro responsável (colaborador, terceiro ou externo)
+        $tarefas = TarefaProjeto::query()->where('projeto_id', $p->id)->get(['id', 'codigo', 'nome'])->keyBy('id');
+        $nos = NoOrganigramaProjeto::query()->where('projeto_id', $p->id)->pluck('titulo', 'id');
+        $membros = MembroEquipaProjeto::query()->whereIn('id', $linhas->pluck('membro_equipa_projeto_id')->filter()->unique()->values()->all())
+            ->get(['id', 'colaborador_id', 'terceiro_id', 'nome_externo'])->keyBy('id');
+        $colabs = Colaborador::query()->withTrashed()->whereIn('id', $membros->pluck('colaborador_id')->filter()->unique()->values()->all())->pluck('nome_completo', 'id');
+        $terceiros = Terceiro::query()->withTrashed()->whereIn('id', $membros->pluck('terceiro_id')->filter()->unique()->values()->all())->pluck('nome', 'id');
+        $nomeMembro = function (?int $id) use ($membros, $colabs, $terceiros): ?string {
+            $m = $id ? ($membros[$id] ?? null) : null;
 
-        return ['total' => ServicoAnaliticoProjetos::dinheiro($linhas->reduce(fn ($s, $l) => bcadd($s, (string) $l->montante, 2), '0')), 'linhas' => $linhas->all()];
+            return $m ? ($colabs[$m->colaborador_id] ?? $terceiros[$m->terceiro_id] ?? $m->nome_externo) : null;
+        };
+
+        return ['total' => ServicoAnaliticoProjetos::dinheiro($linhas->reduce(fn ($s, $l) => bcadd($s, (string) $l->montante, 2), '0')),
+            'linhas' => $linhas->map(fn ($l) => $l->toArray() + ['tarefa_codigo' => $tarefas[$l->tarefa_projeto_id]->codigo ?? null,
+                'tarefa_nome' => $tarefas[$l->tarefa_projeto_id]->nome ?? null, 'posicao_titulo' => $nos[$l->no_organigrama_projeto_id] ?? null,
+                'membro_nome' => $nomeMembro($l->membro_equipa_projeto_id), 'colaborador_id' => $membros[$l->membro_equipa_projeto_id]->colaborador_id ?? null])->all()];
     }
 
     /** @param  array<string, mixed>  $d */

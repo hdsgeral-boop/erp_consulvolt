@@ -168,7 +168,7 @@ function VendasBalcao({ armazem }: { armazem?: number }) {
         columns={[
           { title: 'Guia', dataIndex: 'numero_documento', render: (v: string) => <strong>{v}</strong> },
           { title: 'Data', dataIndex: 'data', render: formatarData },
-          { title: 'Cliente', key: 'c', render: (_, r) => (r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} /> : r.area_rececao || 'Cliente de balcão') },
+          { title: 'Cliente', key: 'c', render: (_, r) => (r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} terceiro={r.terceiro} /> : r.area_rececao || 'Cliente de balcão') },
           { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
           { title: 'Contab.', dataIndex: 'contabilizado', render: (c: boolean | null) => (c ? <Tag color="green">Sim</Tag> : <Tag>Não</Tag>) },
           { title: 'Emitida por', dataIndex: 'criado_por', render: (v) => v || '—' },
@@ -192,7 +192,7 @@ function VendasBalcao({ armazem }: { armazem?: number }) {
                 pagination={false}
                 dataSource={detalhe.data.linhas ?? []}
                 columns={[
-                  { title: 'Produto', dataIndex: 'produto_id', render: (v: number) => <NomeProduto id={v} /> },
+                  { title: 'Produto', dataIndex: 'produto_id', render: (v: number, l) => <NomeProduto id={v} produto={l.produto} /> },
                   { title: 'Qtd.', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
                   { title: 'Custo (Kz)', dataIndex: 'valor_kz', align: 'right', render: (v: string | null) => formatarKz(v) },
                 ]}
