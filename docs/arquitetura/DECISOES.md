@@ -1724,3 +1724,44 @@ Três agentes em paralelo, cada um nas pastas dos seus módulos. O registo de ec
    - Portal: as minhas ausências, dependentes e avaliações; utilizadores da empresa para ligar a colaboradores;
    - importações Excel de colaboradores e contratos.
 4. Ficaram por fazer no frontend: a avaliação do próprio e da equipa no portal, os botões AGT avançados no detalhe da venda, impressões dedicadas (talões e guias) e a edição em massa de clientes.
+
+## ADR-063 — Fase 5, ronda 2: POS, Activos, Projectos, A&D, Orçamento, CRM, Estrutura, Configurações e Gestão
+
+Três agentes em paralelo, com as mesmas regras da ronda 1 (ADR-062). Com esta ronda, **os 116 ecrãs do catálogo de permissões estão todos registados no frontend.**
+
+**Ecrãs desta ronda (54, só sobre a API existente):**
+- **POS (9):**
+  - Frente de caixa: venda táctil e por teclado, com leitura de códigos e atalhos F2/F4/F8/F9; pagamento misto com troco só em numerário; relatório X; fecho Z com contagem por notas e moedas e talões TPA.
+  - Relatórios; terminais e meios de pagamento; definições e preferências de impressão (guardadas no navegador); integração; desvios; prestação de contas.
+  - Lavandaria (ordens, recepção, entrega, reclamações, tabelas) e hotelaria (mapa de quartos, check-in, consumos, check-out com rateio dos pagamentos).
+  - Os totais da venda usam uma cópia exacta de `calcularComIva` e batem ao cêntimo com o servidor.
+- **Activos (7), Projectos (3, com 9 separadores no detalhe), Acréscimos e diferimentos (3), Orçamento (6):**
+  - amortizações com pré-visualização D/C;
+  - Gantt e Kanban em CSS, sem dependências novas;
+  - grelha mensal do orçamento;
+  - importação CSV lida no navegador.
+- **CRM (6), Estrutura (3), Configurações (9), Geral (4):**
+  - pipeline em Kanban com arrastar e largar e conversão em documento de venda;
+  - organigrama em CSS;
+  - editor de perfis v2 com segregação de funções e matriz;
+  - manutenção de dados com aprovação dupla;
+  - cópias de segurança e migração;
+  - painéis com gráficos SVG próprios (paleta segura para daltonismo, vista em tabela), análise dinâmica, relatórios de gestão A×B, fluxo de processos e BI.
+
+**Integrações feitas pelo coordenador:**
+- **CRM → Vendas:** a emissão de documentos lê os dados da conversão (`location.state.conversaoCrm`), abre pré-preenchida e envia `oportunidade_crm_id`. O documento fica assim ligado à oportunidade (ADR-054).
+- **Backend:**
+  - `GET /api/pos/hotelaria/estadias` dava erro 500 (mensagem passada no lugar do recurso no `paginado`); foi o único caso no código.
+  - Um operador só com permissões do POS, da lavandaria ou da hotelaria passa a poder consultar clientes, catálogo, categorias e o stock do armazém do terminal (`POSPermissoesConsultaTest`). Continua sem poder criar fichas.
+
+**Verificação:** `tsc` sem erros no projecto, 207 testes Vitest em 21 ficheiros, build de produção, e contratos confirmados com pedidos GET reais (empresas 3, 6, 18 e 22) feitos por utilizadores temporários entretanto apagados.
+
+**Lacunas acrescentadas à lista da afinação (ADR-062):**
+- **Projectos e Activos:** endpoint dos equipamentos do projecto; nomes de colaboradores, tarefas e rubricas nas respostas de projectos e orçamento; paginação de abates, manutenções e orçamentos.
+- **Orçamento:** tipos numéricos inconsistentes (números e texto decimal misturados).
+- **Lavandaria:** lista de colaboradores acessível com `lav_ordens`.
+- **Estrutura:** mapa de pessoal com massa salarial por unidade e por cargo.
+- **Importações:** de ficheiros `.xlsx` no servidor (hoje é colagem ou CSV).
+- **Gestão documental:** ainda sem API.
+- **Downloads binários:** com 401 não terminam a sessão.
+- **Componentes a promover para `src/componentes`:** `PainelPagamentos`, `calcularComIva` do cliente, impressão de talões, gráficos SVG, análise dinâmica, Gantt, grelha mensal, seletores, `useAccao` e `ModalMotivo`.

@@ -17,7 +17,9 @@ use Illuminate\Http\Request;
  */
 final class TerceiroController extends Controller
 {
-    private const VER = ['vendas_clientes_view', 'compras_fornecedores_view', 'tabelas_aux_view', 'lancamentos_view', 'vendas_faturacao_view'];
+    /** Consulta: também o POS, a lavandaria e a hotelaria, que escolhem o cliente/hóspede (Fase 5). */
+    private const VER = ['vendas_clientes_view', 'compras_fornecedores_view', 'tabelas_aux_view', 'lancamentos_view', 'vendas_faturacao_view',
+        'pos_venda', 'lav_ordens', 'lav_receber', 'hotel_estadias', 'hotel_checkout', 'pos_terminais_gerir'];
 
     private const GERIR = ['CLIENTE' => ['vendas_clientes_gerir', 'aux_gerir'], 'FORNECEDOR' => ['compras_forn_gerir', 'aux_gerir']];
 

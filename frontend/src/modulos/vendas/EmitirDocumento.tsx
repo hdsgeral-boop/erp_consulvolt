@@ -3,7 +3,7 @@ import { ArrowLeftOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/ico
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
@@ -15,6 +15,15 @@ interface LinhaForm {
   quantidade?: number;
   preco_unitario?: number;
   descricao?: string;
+}
+
+/** Dados enviados pelo CRM ao converter uma oportunidade (GET /crm/oportunidades/{id}/conversao, ADR-054). */
+interface ConversaoCrm {
+  tipo_documento?: string;
+  cliente_id?: number;
+  data_emissao?: string;
+  oportunidade_crm_id?: number;
+  linhas?: { produto_id: number; quantidade: number | string; preco_unitario?: number | string | null; descricao?: string | null }[];
 }
 
 interface ValoresForm {
@@ -44,6 +53,26 @@ export function EmitirDocumento() {
   const clienteId = Form.useWatch('cliente_id', form);
   const linhas = Form.useWatch('linhas', form) ?? [];
   const [pesquisaCliente, setPesquisaCliente] = useState('');
+  const conversao = (useLocation().state as { conversaoCrm?: ConversaoCrm } | null)?.conversaoCrm;
+  const valoresIniciais = useMemo<Partial<ValoresForm>>(() => {
+    const base = { tipo_documento: 'FT', data_emissao: dayjs(), linhas: [{ quantidade: 1 }] as LinhaForm[], meio_pagamento: 'NUMERARIO' };
+    if (!conversao) return base;
+    return {
+      ...base,
+      tipo_documento: conversao.tipo_documento && (TIPOS_EMITIVEIS as readonly string[]).includes(conversao.tipo_documento) ? conversao.tipo_documento : base.tipo_documento,
+      cliente_id: conversao.cliente_id,
+      data_emissao: conversao.data_emissao ? dayjs(conversao.data_emissao) : base.data_emissao,
+      linhas: conversao.linhas?.length
+        ? conversao.linhas.map((l) => ({ produto_id: l.produto_id, quantidade: Number(l.quantidade), preco_unitario: l.preco_unitario == null ? undefined : Number(l.preco_unitario), descricao: l.descricao ?? undefined }))
+        : base.linhas,
+    };
+  }, [conversao]);
+  // o cliente vindo do CRM pode não estar na primeira página da pesquisa: carrega-se para o selector mostrar o nome
+  const clienteInicial = useQuery({
+    queryKey: ['terceiros', 'um', conversao?.cliente_id],
+    queryFn: () => obter<Terceiro>(`/terceiros/${conversao?.cliente_id}`),
+    enabled: !!conversao?.cliente_id,
+  });
 
   const produtos = useQuery({ queryKey: ['logistica', 'catalogo'], queryFn: () => obter<ProdutoCatalogo[]>('/logistica/produtos/catalogo'), staleTime: 300_000 });
   const clientes = useQuery({
@@ -86,6 +115,7 @@ export function EmitirDocumento() {
         ...v,
         data_emissao: dataApi(v.data_emissao),
         linhas: v.linhas.map((l) => ({ produto_id: l.produto_id, quantidade: l.quantidade, preco_unitario: l.preco_unitario, descricao: l.descricao || undefined })),
+        oportunidade_crm_id: conversao?.oportunidade_crm_id,   // o servidor liga o documento à oportunidade (FT/FR/NE ganham-na)
       }),
     onSuccess: ({ dados, mensagem }) => {
       message.success(mensagem);
@@ -104,11 +134,11 @@ export function EmitirDocumento() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Novo documento de venda" accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
+      <CabecalhoPagina titulo="Novo documento de venda" subtitulo={conversao?.oportunidade_crm_id ? `A partir da oportunidade #${conversao.oportunidade_crm_id} do CRM` : undefined} accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
       <Form<ValoresForm>
         form={form}
         layout="vertical"
-        initialValues={{ tipo_documento: 'FT', data_emissao: dayjs(), linhas: [{ quantidade: 1 }], meio_pagamento: 'NUMERARIO' }}
+        initialValues={valoresIniciais}
         onFinish={(v) => emitir.mutate(v)}
       >
         <Card title="Documento" style={{ marginBottom: 16 }}>
@@ -126,7 +156,10 @@ export function EmitirDocumento() {
                   onSearch={setPesquisaCliente}
                   loading={clientes.isFetching}
                   placeholder="Pesquisar por nome ou NIF"
-                  options={(clientes.data?.itens ?? []).map((c) => ({ value: c.id, label: `${c.nome}${c.nif ? ` (NIF ${c.nif})` : ''}` }))}
+                  options={[...(clienteInicial.data && !(clientes.data?.itens ?? []).some((c) => c.id === clienteInicial.data?.id) ? [clienteInicial.data] : []), ...(clientes.data?.itens ?? [])].map((c) => ({
+                    value: c.id,
+                    label: `${c.nome}${c.nif ? ` (NIF ${c.nif})` : ''}`,
+                  }))}
                 />
               </Form.Item>
             </Col>

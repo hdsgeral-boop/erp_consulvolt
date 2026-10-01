@@ -1,4 +1,11 @@
-import type { ComponentType, LazyExoticComponent } from 'react';
+import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
-/** Ecrãs do módulo orcamento (ids do catálogo de permissões). Acrescentar: id: lazy(() => import('./Ficheiro')). */
-export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {};
+/** Ecrãs do módulo Orçamento (ids do catálogo de permissões). */
+export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
+  orc_rubricas: lazy(() => import('./Rubricas')),
+  orc_orcamentos: lazy(() => import('./Orcamentos')),
+  orc_controlo: lazy(() => import('./Controlo')),
+  orc_previsoes: lazy(() => import('./Previsoes')),
+  orc_cenarios: lazy(() => import('./Cenarios')),
+  orc_alertas: lazy(() => import('./Alertas')),
+};

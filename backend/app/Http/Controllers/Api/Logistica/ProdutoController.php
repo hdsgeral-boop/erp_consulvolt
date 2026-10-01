@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 /** /api/logistica/produtos — ecrã "vendas_produtos" do legado (produtos, serviços, quartos, lavandaria). */
 final class ProdutoController extends Controller
 {
-    private const VER = ['vendas_produtos_view', 'vendas_faturacao_view', 'armazem_stock_view', 'compras_pedidos_view', 'pos_view'];
+    private const VER = ['vendas_produtos_view', 'vendas_faturacao_view', 'armazem_stock_view', 'compras_pedidos_view', 'pos_view', 'pos_venda'];
 
     public function __construct(private readonly ServicoProdutos $produtos) {}
 

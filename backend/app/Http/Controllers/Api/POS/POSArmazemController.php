@@ -24,7 +24,7 @@ final class POSArmazemController extends Controller
 
     public function stock(Request $r, ServicoArmazens $armazens): JsonResponse
     {
-        $this->exigir(...self::VER);
+        $this->exigir(...self::VER, ...['pos_venda']);   // a frente de caixa mostra o stock do armazém do terminal
         $f = $r->validate(['armazem_id' => ['required', 'integer'], 'so_com_stock' => ['nullable', 'boolean']]);
 
         return RespostaApi::sucesso($armazens->stock((int) $f['armazem_id'], (bool) ($f['so_com_stock'] ?? false)), 'Stock do armazém.');

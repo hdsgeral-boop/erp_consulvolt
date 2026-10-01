@@ -16,7 +16,7 @@ final class CategoriaProdutoController extends Controller
 
     public function index(): JsonResponse
     {
-        $this->exigir('vendas_produtos_view', 'vendas_faturacao_view', 'armazem_stock_view');
+        $this->exigir('vendas_produtos_view', 'vendas_faturacao_view', 'armazem_stock_view', 'pos_view', 'pos_venda');
 
         return RespostaApi::sucesso(CategoriaProduto::query()->orderBy('nome')->get(['id', 'nome']), 'Categorias obtidas com sucesso.');
     }

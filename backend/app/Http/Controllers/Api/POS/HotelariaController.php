@@ -63,7 +63,7 @@ final class HotelariaController extends Controller
         }
         $q->when($f['de'] ?? null, fn ($q, $v) => $q->where('entrada_em', '>=', $v))->when($f['ate'] ?? null, fn ($q, $v) => $q->where('entrada_em', '<', now()->parse($v)->addDay()));
 
-        return RespostaApi::paginado($q->orderByDesc('entrada_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), 'Estadias.');
+        return RespostaApi::paginado($q->orderByDesc('entrada_em')->orderByDesc('id')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), null, 'Estadias.');
     }
 
     public function estadia(int $estadia): JsonResponse
