@@ -137,4 +137,6 @@ Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints d
 | Parte | Estado | Conteúdo |
 | :--- | :---: | :--- |
 | **Base + piloto** | ✅ | Login, escolha de empresa, menu por permissões (`GET /api/sistema/menu`), layout, tabela paginada genérica, erros; Vendas › Facturação (listagem, emissão, detalhe e acções) — ADR-061 |
-| Restantes módulos | ⏳ | Em paralelo por módulo, sobre a mesma base |
+| **Ronda 1** | ✅ | 65 ecrãs: Vendas, Compras, Armazém/Inventário, Contabilidade, Tesouraria, RH e Salários; 90 testes Vitest — ADR-062 |
+| Ronda 2 | ⏳ | POS, Activos, Projectos, CRM, Acréscimos, Orçamento, Estrutura, Configurações, painéis/relatórios/fluxos/BI |
+| Afinação | ⏳ | Paginação uniforme, nomes nas respostas, filtros e endpoints em falta (lista no ADR-062) |

@@ -15,7 +15,9 @@ use Illuminate\Validation\Rule;
 /** /api/rh/colaboradores — ecrã «Colaboradores» e ficha; /coordenada-bancaria — ecrã «Coordenadas bancárias». */
 final class ColaboradorController extends Controller
 {
-    private const VER = ['colaboradores_view', 'contratos_view', 'calcular_view', 'processamento_view'];
+    /** Consulta: a ficha e os ecrãs de RH que listam colaboradores (bancário, efectividade, produtividade, férias, avaliação, portal, mapas). */
+    private const VER = ['colaboradores_view', 'contratos_view', 'calcular_view', 'processamento_view', 'bancario_view', 'rh_assiduidade_view',
+        'rh_produtividade_view', 'rh_ferias_view', 'rh_avaliacao_view', 'rh_avaliacao_ciclo_view', 'rh_portal_gestao_view', 'rh_rel_remuneracoes_view', 'rh_rel_irt_view', 'rh_rel_inss_view', 'rh_rel_pagamentos_view', 'rh_rel_banco_view', 'rh_rel_recibos_view', 'rh_recibos_emitir', 'relatorios_view'];
 
     public function __construct(private readonly ServicoColaboradores $colaboradores) {}
 

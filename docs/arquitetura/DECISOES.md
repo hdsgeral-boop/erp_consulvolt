@@ -1689,3 +1689,38 @@ Implementado em `app/Services/Gestao/Relatorios` e `app/Services/Gestao/Fluxos`,
 - verificação de tipos, Vitest e build sem erros;
 - o nginx serve o SPA, incluindo ligações profundas (`try_files`);
 - com um utilizador temporário só de Vendas (empresa 18): entrar, sessão, menu (só Dashboard e Facturação), início, documentos (54), clientes (348) e catálogo responderam correctamente; o utilizador foi apagado no fim.
+
+## ADR-062 — Fase 5, ronda 1: ecrãs de Vendas, Compras, Armazém, Contabilidade, Tesouraria e RH
+
+Três agentes em paralelo, cada um nas pastas dos seus módulos. O registo de ecrãs passou a um ficheiro por módulo (`src/modulos/<módulo>/ecras.ts`), que o `src/modulos/registo.tsx` junta. A integração, o build e o commit ficaram com o coordenador.
+
+**Ecrãs (65, só sobre a API existente):**
+- **Vendas, Compras, Armazém e Inventário (20):**
+  - Vendas: clientes; produtos e categorias; relatórios e exportação SAF-T; na Facturação, recibos e facturação electrónica AGT (envio, configuração, séries).
+  - Compras: pedidos com deliberação e escalões; prospecção com quadro comparativo e adjudicação; encomendas; recepções; facturas; fornecedores; encomendas de clientes; contratos com marcos.
+  - Armazém: níveis de stock com ajustes, transferências e extracto; validar entradas; guias; movimentos; armazéns; POS de armazém (balcão e picking); inventário (sessões, contagem cega, revisão).
+- **Contabilidade e Tesouraria (23):**
+  - Contabilidade: lançamentos (com D = C, estorno e importação); encerramento em 5 passos com validações e avisos; 7 mapas com filtros, totais e CSV; Relatório e Contas; rotinas e Imposto de Selo; consolidação; tabelas auxiliares e plano de contas; mapeamento contabilístico de salários.
+  - Tesouraria: pagamentos e recebimentos; folha de caixa; integração e anulação; reconciliação bancária; conferência de caixa; meios de pagamento; disponibilidades.
+- **RH e Salários (22):** colaboradores; contratos; funções; rubricas; coordenadas bancárias; cálculo e processamento (cartas e pagamento na tesouraria); efectividade com importação CSV/XLSX e fecho; produtividade; férias; avaliação e ciclos 360º; portal e pedidos do portal; mapas (remunerações, IRT, INSS, salários a pagar, ordem bancária) e recibos imprimíveis.
+
+**Regras comuns:**
+- Cada acção só aparece com `pode(...)` e no estado certo do documento; o servidor valida sempre.
+- As mutações mostram a mensagem do servidor e invalidam a cache do módulo.
+- Valores em Kz como texto decimal, somados em cêntimos no cliente.
+
+**Correcção no backend (encontrada pelo agente de RH):** os ecrãs de mapas e recibos (`rh_rel_*`) e os de bancário, efectividade, produtividade, férias, avaliação e portal não conseguiam ler os períodos, os colaboradores e as rubricas com as suas próprias permissões. As listas de consulta foram alargadas e há um teste novo.
+
+**Verificação:** `tsc` sem erros no projecto, 90 testes Vitest, build de produção, e contratos confirmados com pedidos GET reais (empresas 3, 6 e 18) feitos por utilizadores temporários entretanto apagados.
+
+**Lacunas de API registadas para a ronda de afinação** (os ecrãs contornam-nas):
+1. Paginação: `/api/compras/{pedidos,propostas,encomendas,rececoes,faturas}` e `/api/tesouraria/documentos` devolvem `{itens,total,...}` em `dados`, em vez de `metadados.paginacao`. Uniformizar backend e frontend em conjunto.
+2. Nomes nas respostas: `fornecedor`, `terceiro` e `produto` ({id, nome, nif/código}) nas linhas de compras, guias, lançamentos, tesouraria e caixa; nomes nos resultados fotografados da folha; unidade orgânica, unidade de negócio e centro de custo por nome na ficha do colaborador.
+3. Filtros e endpoints em falta:
+   - filtros: facturas de compra por encomenda e por número; recepções por número; inventários e guias por estado e com paginação;
+   - Tesouraria: disponibilidades e extracto próprios (`teso_gestao_mapas_view`) e integração em lote;
+   - Vendas: resumo dos relatórios por `vendas_relatorios_view`; erro em JSON antes do ficheiro no SAF-T;
+   - Armazém: recalcular valorizações de stock;
+   - Portal: as minhas ausências, dependentes e avaliações; utilizadores da empresa para ligar a colaboradores;
+   - importações Excel de colaboradores e contratos.
+4. Ficaram por fazer no frontend: a avaliação do próprio e da equipa no portal, os botões AGT avançados no detalhe da venda, impressões dedicadas (talões e guias) e a edição em massa de clientes.

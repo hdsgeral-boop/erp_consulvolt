@@ -1,0 +1,225 @@
+import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { obter } from '@/api/cliente';
+import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { useSessao } from '@/sessao/SessaoContexto';
+import { formatarData } from '@/utilitarios/formatacao';
+import { PARENTESCOS, TIPOS_PEDIDO, type ModeloDocumento, type PedidoPortal, type PropostaDocumento, type TipoPedido } from './api';
+import { AreaImpressao, BotaoImprimir, EstadoTag, SeletorColaborador } from './comum/componentes';
+import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
+import { DocumentoImpresso, EtapasPedido, resumoPedido } from './comum/Pedidos';
+import { accoesPedidoRh } from './comum/regras';
+
+const ESTADOS_PEDIDO = ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'];
+
+/** RH › Pedidos do Portal (ecrã rh_portal_gestao): decidir pedidos, emitir documentos, modelos e ligações utilizador ↔ colaborador. */
+export default function PortalGestao() {
+  const { pode } = useSessao();
+  return (
+    <>
+      <CabecalhoPagina titulo="Pedidos do Portal" subtitulo="Férias, ausências, documentos e alterações do agregado pedidos pelos colaboradores" />
+      <Tabs items={[
+        { key: 'pedidos', label: 'Pedidos', children: <Pedidos /> },
+        { key: 'modelos', label: 'Modelos de documentos', children: <Modelos /> },
+        ...(pode('rh_portal_aprovar') ? [{ key: 'ligacoes', label: 'Ligações utilizador ↔ colaborador', children: <Ligacoes /> }] : []),
+      ]} />
+    </>
+  );
+}
+
+function Pedidos() {
+  const { pode, empresa } = useSessao();
+  const colaboradores = useColaboradores();
+  const [estado, setEstado] = useState<string | undefined>('PENDENTE_RH');
+  const [tipo, setTipo] = useState<TipoPedido>();
+  const [colaborador, setColaborador] = useState<number>();
+  const [decidir, setDecidir] = useState<PedidoPortal | null>(null);
+  const [emitir, setEmitir] = useState<PedidoPortal | null>(null);
+  const [ver, setVer] = useState<PedidoPortal | null>(null);
+  const [formD] = Form.useForm<{ decisao: 'APROVADO' | 'RECUSADO'; nota?: string; remunerada?: 'SIM' | 'NAO' }>();
+  const [formE] = Form.useForm<{ titulo: string; texto: string; assinante: string; cargo_assinante?: string; local?: string }>();
+  const decisao = Form.useWatch('decisao', formD);
+  const q = useQuery({ queryKey: ['rh', 'portal', 'pedidos', { estado, tipo, colaborador }], queryFn: () => obter<PedidoPortal[]>('/rh/portal/pedidos', { estado, tipo, colaborador_id: colaborador }) });
+  useAvisarErro(q.error);
+  const proposta = useQuery({ queryKey: ['rh', 'portal', 'proposta', emitir?.id], queryFn: () => obter<PropostaDocumento>(`/rh/portal/pedidos/${emitir?.id}/proposta`), enabled: emitir !== null, gcTime: 0 });
+  const accao = useAccaoRh(() => { setDecidir(null); setEmitir(null); });
+
+  const abrirEmissao = (p: PedidoPortal) => {
+    formE.resetFields();
+    setEmitir(p);
+  };
+  const prop = proposta.data;
+  useEffect(() => {
+    if (prop) formE.setFieldsValue({ titulo: prop.titulo, texto: prop.texto, assinante: prop.assinante ?? '', cargo_assinante: prop.cargo_assinante ?? '', local: prop.local ?? '' });
+  }, [prop, formE]);
+
+  const colunas: ColumnsType<PedidoPortal> = [
+    { title: 'N.º', dataIndex: 'id', render: (v: number) => `#${v}` },
+    { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => <strong>{colaboradores.nome(v)}</strong> },
+    { title: 'Tipo', dataIndex: 'tipo', render: (t: TipoPedido) => TIPOS_PEDIDO[t] ?? t },
+    { title: 'Resumo', render: (_, p) => resumoPedido(p) },
+    { title: 'Pedido em', dataIndex: 'criado_em', render: formatarData },
+    { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
+    {
+      title: '',
+      key: 'accoes',
+      render: (_, p) => {
+        const ac = accoesPedidoRh(p, pode);
+        return (
+          <Space size={4}>
+            {ac.decidir && <Button size="small" type="primary" onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'APROVADO' }); setDecidir(p); }}>Decidir</Button>}
+            {ac.emitir && <Button size="small" type="primary" onClick={() => abrirEmissao(p)}>Emitir documento</Button>}
+            {ac.emitir && <Button size="small" danger onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'RECUSADO' }); setDecidir(p); }}>Recusar</Button>}
+            {p.documento && <Button size="small" onClick={() => setVer(p)}>Ver documento</Button>}
+          </Space>
+        );
+      },
+    },
+  ];
+
+  const dadosD = (decidir?.dados ?? {}) as Record<string, unknown>;
+  return (
+    <Card>
+      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+        <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={ESTADOS_PEDIDO.map((e) => ({ value: e, label: <EstadoTag estado={e} /> }))} />
+        <Select placeholder="Tipo" allowClear style={{ width: 260 }} value={tipo} onChange={setTipo} options={Object.entries(TIPOS_PEDIDO).map(([v, l]) => ({ value: v, label: l }))} />
+        <SeletorColaborador value={colaborador} onChange={setColaborador} />
+      </Flex>
+      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 25 }} scroll={{ x: 'max-content' }}
+        expandable={{ expandedRowRender: (p) => <DetalhePedido pedido={p} /> }} />
+
+      <Modal title={`Decidir pedido #${decidir?.id ?? ''}`} open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnClose>
+        {decidir && <Typography.Paragraph>{colaboradores.nome(decidir.colaborador_id)} — {TIPOS_PEDIDO[decidir.tipo]}: {resumoPedido(decidir)}</Typography.Paragraph>}
+        {decidir?.tipo === 'AGREGADO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="A aprovação é recusada se o agregado mudou desde o pedido." />}
+        <Form form={formD} layout="vertical" onFinish={(v) => decidir && accao.mutate({ metodo: 'post', url: `/rh/portal/pedidos/${decidir.id}/decidir`, dados: v })}>
+          <Form.Item name="decisao" label="Decisão"><Select disabled={decidir?.tipo === 'DOCUMENTO'} options={[{ value: 'APROVADO', label: 'Aprovar' }, { value: 'RECUSADO', label: 'Recusar' }]} /></Form.Item>
+          {decisao === 'APROVADO' && decidir?.tipo === 'AUSENCIA' && (
+            <Form.Item name="remunerada" label="Remunerada? (tipos a critério do empregador)" extra={dadosD.tipo ? `Tipo: ${String(dadosD.tipo)}` : undefined}>
+              <Select allowClear options={[{ value: 'SIM', label: 'Sim' }, { value: 'NAO', label: 'Não (descontada)' }]} />
+            </Form.Item>
+          )}
+          <Form.Item name="nota" label="Nota" rules={[{ required: decisao === 'RECUSADO', min: 3, message: 'Indique o motivo da recusa.' }]}><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title={`Emitir documento — pedido #${emitir?.id ?? ''}`} open={emitir !== null} width={860} onCancel={() => setEmitir(null)} okText="Emitir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formE.submit()} destroyOnClose>
+        {proposta.isLoading ? <Card loading bordered={false} /> : (
+          <>
+            {(proposta.data?.faltas ?? []).length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Variáveis sem valor (aparecem como [Rótulo]): ${proposta.data?.faltas.join(', ')}. Complete o texto antes de emitir.`} />}
+            <Form form={formE} layout="vertical" onFinish={(v) => emitir && accao.mutate({ metodo: 'post', url: `/rh/portal/pedidos/${emitir.id}/emitir`, dados: v })}>
+              <Form.Item name="titulo" label="Título" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item>
+              <Form.Item name="texto" label="Texto" rules={[{ required: true, min: 20 }]}><Input.TextArea rows={10} maxLength={20000} /></Form.Item>
+              <Row gutter={12}>
+                <Col span={8}><Form.Item name="assinante" label="Assinante" rules={[{ required: true, message: 'Indique quem assina.' }]}><Input maxLength={255} /></Form.Item></Col>
+                <Col span={8}><Form.Item name="cargo_assinante" label="Cargo do assinante"><Input maxLength={255} /></Form.Item></Col>
+                <Col span={8}><Form.Item name="local" label="Local"><Input maxLength={255} /></Form.Item></Col>
+              </Row>
+            </Form>
+          </>
+        )}
+      </Modal>
+
+      <Modal title="Documento emitido" open={ver !== null} width={820} onCancel={() => setVer(null)} footer={<Space><BotaoImprimir /><Button onClick={() => setVer(null)}>Fechar</Button></Space>}>
+        {ver?.documento && <AreaImpressao><DocumentoImpresso documento={ver.documento} empresa={empresa?.nome} /></AreaImpressao>}
+      </Modal>
+    </Card>
+  );
+}
+
+function DetalhePedido({ pedido }: { pedido: PedidoPortal }) {
+  const d = (pedido.dados ?? {}) as Record<string, unknown>;
+  const lista = (v: unknown) => (Array.isArray(v) ? (v as Record<string, unknown>[]) : []);
+  return (
+    <Space direction="vertical" style={{ width: '100%' }}>
+      <EtapasPedido pedido={pedido} />
+      {pedido.tipo === 'AGREGADO' && (
+        <Row gutter={16}>
+          {(['antes', 'depois'] as const).map((k) => (
+            <Col span={12} key={k}>
+              <Typography.Text strong>{k === 'antes' ? 'Agregado actual' : 'Agregado proposto'}</Typography.Text>
+              <Table size="small" pagination={false} rowKey={(x, i) => `${String(x.nome)}-${i}`} dataSource={lista(d[k])} columns={[
+                { title: 'Nome', dataIndex: 'nome' },
+                { title: 'Parentesco', dataIndex: 'parentesco', render: (v: string | null) => PARENTESCOS.find((p) => p.value === v)?.label ?? v ?? '—' },
+                { title: 'Nascimento', dataIndex: 'data_nascimento', render: (v: string | null) => formatarData(v) },
+              ]} />
+            </Col>
+          ))}
+        </Row>
+      )}
+      {Boolean(d.observacoes || d.motivo) && <Descriptions size="small" column={1}><Descriptions.Item label="Observações / motivo">{String(d.observacoes || d.motivo)}</Descriptions.Item></Descriptions>}
+      {Array.isArray(d.avisos) && d.avisos.length > 0 && <Alert type="warning" showIcon message={(d.avisos as string[]).join(' ')} />}
+    </Space>
+  );
+}
+
+function Modelos() {
+  const { pode } = useSessao();
+  const editar = pode('rh_portal_modelos');
+  const q = useQuery({ queryKey: ['rh', 'portal', 'modelos'], queryFn: () => obter<{ modelos: ModeloDocumento[]; variaveis: Record<string, string> }>('/rh/portal/modelos') });
+  useAvisarErro(q.error);
+  const [edicao, setEdicao] = useState<ModeloDocumento | 'novo' | null>(null);
+  const [form] = Form.useForm();
+  const accao = useAccaoRh(() => setEdicao(null));
+  return (
+    <Card>
+      {editar && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" onClick={() => { form.resetFields(); form.setFieldsValue({ ativo: true, auto_emitir: false }); setEdicao('novo'); }}>Novo modelo</Button></Flex>}
+      <Table<ModeloDocumento> rowKey="codigo" size="small" loading={q.isFetching} dataSource={q.data?.modelos ?? []} pagination={false} columns={[
+        { title: 'Código', dataIndex: 'codigo', render: (v: string) => <code>{v}</code> },
+        { title: 'Nome', dataIndex: 'nome' },
+        { title: 'Origem', render: (_, m) => (m.padrao ? (m.personalizado ? <Tag color="blue">Padrão personalizado</Tag> : <Tag>Padrão</Tag>) : <Tag color="purple">Próprio</Tag>) },
+        { title: 'Emissão automática', dataIndex: 'auto_emitir', render: (v: boolean) => (v ? 'Sim' : 'Não') },
+        { title: 'Assinante', dataIndex: 'assinante', render: (v: string | null) => v ?? '—' },
+        { title: 'Activo', dataIndex: 'ativo', render: (v: boolean) => (v ? <Tag color="green">Sim</Tag> : <Tag>Não</Tag>) },
+        {
+          title: '',
+          key: 'accoes',
+          render: (_, m) => editar && (
+            <Space size={4}>
+              <Button size="small" onClick={() => { form.setFieldsValue(m); setEdicao(m); }}>Editar</Button>
+              {(m.personalizado || !m.padrao) && (
+                <Popconfirm title={m.padrao ? 'Repor o texto padrão?' : 'Eliminar o modelo?'} okText="Confirmar" cancelText="Cancelar" onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/portal/modelos/${m.codigo}` })}>
+                  <Button size="small" danger>{m.padrao ? 'Repor' : 'Eliminar'}</Button>
+                </Popconfirm>
+              )}
+            </Space>
+          ),
+        },
+      ]} />
+      <Modal title={edicao === 'novo' ? 'Novo modelo' : 'Editar modelo'} open={edicao !== null} width={860} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+        <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'put', url: '/rh/portal/modelos', dados: v })}>
+          <Row gutter={12}>
+            <Col span={8}><Form.Item name="codigo" label="Código" rules={[{ pattern: /^[A-Z0-9_]+$/, message: 'Maiúsculas, números e _.' }]} extra="Vazio = gerado."><Input maxLength={50} disabled={edicao !== 'novo'} /></Form.Item></Col>
+            <Col span={16}><Form.Item name="nome" label="Nome" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
+            <Col span={24}><Form.Item name="titulo" label="Título" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
+            <Col span={24}><Form.Item name="texto" label="Texto" rules={[{ required: true, min: 30 }]}><Input.TextArea rows={8} maxLength={20000} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="assinante" label="Assinante"><Input maxLength={255} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="cargo_assinante" label="Cargo"><Input maxLength={255} /></Form.Item></Col>
+            <Col span={8}><Form.Item name="local" label="Local"><Input maxLength={255} /></Form.Item></Col>
+            <Col span={12}><Form.Item name="ativo" valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
+            <Col span={12}><Form.Item name="auto_emitir" valuePropName="checked"><Checkbox>Emissão automática (sem variáveis em falta e com assinante)</Checkbox></Form.Item></Col>
+          </Row>
+        </Form>
+        <Typography.Text strong>Variáveis disponíveis</Typography.Text>
+        <div style={{ marginTop: 4 }}>{Object.entries(q.data?.variaveis ?? {}).map(([k, r]) => <Tag key={k} title={r} style={{ marginBottom: 4 }}>{`{{${k}}}`}</Tag>)}</div>
+      </Modal>
+    </Card>
+  );
+}
+
+function Ligacoes() {
+  const [form] = Form.useForm<{ utilizador_id: number; colaborador_id?: number | null }>();
+  const accao = useAccaoRh(() => form.resetFields());
+  return (
+    <Card style={{ maxWidth: 640 }}>
+      <Typography.Paragraph type="secondary">Liga um utilizador desta empresa ao seu colaborador (acesso automático ao Portal). Sem colaborador, a ligação é retirada. Fica auditado.</Typography.Paragraph>
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Ainda não existe na API uma listagem de utilizadores para escolher: indique o n.º (id) do utilizador." />
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: '/rh/portal/ligacoes', dados: { utilizador_id: v.utilizador_id, colaborador_id: v.colaborador_id ?? null } })}>
+        <Form.Item name="utilizador_id" label="Utilizador (id)" rules={[{ required: true }]}><InputNumber min={1} style={{ width: '100%' }} /></Form.Item>
+        <Form.Item name="colaborador_id" label="Colaborador"><SeletorColaborador style={{ width: '100%' }} /></Form.Item>
+        <Button type="primary" htmlType="submit" loading={accao.isPending}>Gravar ligação</Button>
+      </Form>
+    </Card>
+  );
+}

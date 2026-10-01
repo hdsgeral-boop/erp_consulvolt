@@ -8,8 +8,7 @@ backend/vendor/
 backend/node_modules/
 frontend/node_modules/
 # Build do frontend (gerado por `npm run build`) e caches do TypeScript
-frontend/dist/*
-!frontend/dist/.gitkeep
+frontend/dist/
 frontend/*.tsbuildinfo
 backend/storage/*.key
 backend/storage/logs/*

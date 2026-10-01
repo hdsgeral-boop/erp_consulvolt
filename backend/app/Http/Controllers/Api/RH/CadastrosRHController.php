@@ -21,7 +21,7 @@ final class CadastrosRHController extends Controller
 
     public function infotipos(): JsonResponse
     {
-        $this->exigir('infotipos_view', 'contratos_view', 'calcular_view', 'contabilidade_view');
+        $this->exigir('infotipos_view', 'contratos_view', 'calcular_view', 'contabilidade_view', 'rh_produtividade_view', 'rh_avaliacao_config_view');
 
         return RespostaApi::sucesso(InfotipoSalarial::query()->orderBy('tipo', 'desc')->orderBy('nome')->get(), 'Rubricas salariais.');
     }

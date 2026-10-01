@@ -16,11 +16,14 @@ use Illuminate\Validation\Rule;
 /** /api/rh/salarios — ecrãs calcular e processamento do legado (js/app_v2.js:4981-6521). */
 final class FolhaSalarialController extends Controller
 {
+    /** Consulta dos períodos e resultados: também os mapas e recibos de RH (ecrãs rh_rel_*), que os lêem. */
+    private const VER_PERIODOS = ['calcular_view', 'processamento_view', 'rh_rel_remuneracoes_view', 'rh_rel_irt_view', 'rh_rel_inss_view', 'rh_rel_pagamentos_view', 'rh_rel_banco_view', 'rh_rel_recibos_view', 'rh_recibos_emitir', 'relatorios_view'];
+
     public function __construct(private readonly ServicoFolhaSalarial $folha) {}
 
     public function periodos(): JsonResponse
     {
-        $this->exigir('calcular_view', 'processamento_view');
+        $this->exigir(...self::VER_PERIODOS);
 
         return RespostaApi::sucesso(PeriodoProcessamentoSalarial::query()->orderByRaw('substring(mes_ano from 4 for 4) DESC, substring(mes_ano from 1 for 2) DESC')->get(), 'Períodos de processamento.');
     }
@@ -36,7 +39,7 @@ final class FolhaSalarialController extends Controller
     /** GET /periodos/{id} — período, resultados (fotografia ou cálculo ao vivo) e totais. */
     public function periodo(int $id): JsonResponse
     {
-        $this->exigir('calcular_view', 'processamento_view');
+        $this->exigir(...self::VER_PERIODOS);
         $p = PeriodoProcessamentoSalarial::query()->findOrFail($id);
         $res = $this->folha->resultados($p);
         $totais = [];

@@ -1,0 +1,40 @@
+/* Mapas e recibos do RH: no ecrã aparecem dentro do layout; na impressão só a área .rh-impressao. */
+.rh-mapa-cabecalho { text-align: center; margin-bottom: 12px; }
+.rh-mapa-empresa { font-weight: 600; font-size: 15px; }
+.rh-mapa-titulo { font-size: 17px; font-weight: 700; text-transform: uppercase; margin-top: 2px; }
+.rh-mapa-periodo { color: #555; margin-top: 2px; }
+
+.rh-tabela-mapa { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rh-tabela-mapa th, .rh-tabela-mapa td { border: 1px solid #d9d9d9; padding: 3px 6px; }
+.rh-tabela-mapa th { background: #fafafa; font-weight: 600; text-align: center; }
+.rh-tabela-mapa td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rh-tabela-mapa tfoot td { font-weight: 700; background: #fafafa; }
+
+.rh-recibo { border: 1px solid #bfbfbf; padding: 16px 20px; margin-bottom: 16px; background: #fff; font-size: 12.5px; break-inside: avoid; page-break-inside: avoid; }
+.rh-recibo + .rh-recibo { margin-top: 8px; }
+.rh-recibo-topo { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #262626; padding-bottom: 8px; margin-bottom: 8px; }
+.rh-recibo-titulo { font-size: 15px; font-weight: 700; text-transform: uppercase; }
+.rh-recibo-dados { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 16px; margin-bottom: 8px; }
+.rh-recibo-dados span { color: #595959; }
+.rh-recibo-totais { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px 16px; margin-top: 8px; border-top: 1px solid #d9d9d9; padding-top: 6px; }
+.rh-recibo-liquido { font-size: 14px; font-weight: 700; text-align: right; margin-top: 6px; }
+.rh-recibo-assinatura { display: flex; justify-content: space-between; margin-top: 28px; gap: 40px; }
+.rh-recibo-assinatura div { flex: 1; border-top: 1px solid #595959; text-align: center; padding-top: 2px; color: #595959; }
+
+.rh-documento { background: #fff; padding: 32px 40px; border: 1px solid #d9d9d9; font-size: 14px; line-height: 1.7; }
+.rh-documento h2 { text-align: center; margin-bottom: 24px; }
+.rh-documento p { white-space: pre-wrap; text-align: justify; }
+
+@media print {
+  @page { size: A4 portrait; margin: 12mm; }
+  body * { visibility: hidden !important; }
+  .rh-impressao, .rh-impressao * { visibility: visible !important; }
+  .rh-impressao { position: absolute; left: 0; top: 0; width: 100%; }
+  .rh-nao-imprimir { display: none !important; }
+  .rh-recibo { border-color: #000; }
+  .rh-recibo-quebra { page-break-after: always; break-after: page; }
+  .rh-tabela-mapa { font-size: 10px; }
+}
+@media print and (orientation: landscape) {
+  .rh-impressao-paisagem .rh-tabela-mapa { font-size: 9.5px; }
+}
