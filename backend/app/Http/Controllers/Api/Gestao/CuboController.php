@@ -57,8 +57,8 @@ final class CuboController extends Controller
             'colunas' => ['nullable', 'array', 'max:'.ServicoCubo::MAX_COLUNAS], 'colunas.*' => ['string', 'max:60'],
             'medidas' => ['nullable', 'array', 'max:'.ServicoCubo::MAX_MEDIDAS], 'medidas.*.medida' => ['nullable', 'string', 'max:60'],
             'medidas.*.agregacao' => ['required', 'string', 'max:20'],
-            'filtros' => ['nullable', 'array'], 'filtros.*' => ['array'], 'filtros.*.*' => ['nullable', 'string', 'max:300'],
-            'exclusoes' => ['nullable', 'array'], 'exclusoes.*' => ['array'], 'exclusoes.*.*' => ['nullable', 'string', 'max:300'],
+            'filtros' => ['nullable', 'array', 'max:30'], 'filtros.*' => ['array', 'max:1000'], 'filtros.*.*' => ['nullable', 'string', 'max:300'],
+            'exclusoes' => ['nullable', 'array', 'max:30'], 'exclusoes.*' => ['array', 'max:1000'], 'exclusoes.*.*' => ['nullable', 'string', 'max:300'],
             'incluir_apuramento' => ['nullable', 'boolean'],
         ];
     }

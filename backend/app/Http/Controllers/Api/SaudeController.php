@@ -6,24 +6,66 @@ use App\Http\Controllers\Controller;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
+use RuntimeException;
 use Throwable;
 
-/** GET /api/saude — estado das dependências (PostgreSQL, Redis). 503 se alguma falhar. */
+/**
+ * GET /api/saude — estado das dependências, para healthchecks e monitorização (docs/PRODUCAO.md).
+ *
+ * Componentes: base de dados (PostgreSQL), Redis, filas (tamanho de cada fila e trabalhos falhados) e
+ * armazenamento (storage/ gravável). Responde 503 se algum componente falhar. É pública: as mensagens
+ * de erro só são mostradas em modo de depuração e nunca há segredos na resposta.
+ */
 final class SaudeController extends Controller
 {
+    /** Filas consumidas pelo worker (docker-compose*.yml), por prioridade. */
+    private const FILAS = ['alta', 'agt', 'default', 'pdfs', 'baixa'];
+
     public function __invoke(): JsonResponse
     {
         $verificacoes = [
-            'base_dados' => $this->verificar(fn () => DB::selectOne('select version() as v')->v),
+            'base_dados' => $this->verificar(fn () => 'PostgreSQL '.DB::selectOne('show server_version')->server_version),
             'redis' => $this->verificar(fn () => 'Redis '.(Redis::connection()->info('server')['redis_version'] ?? '?')),
+            'filas' => $this->verificar(fn () => $this->estadoFilas()),
+            'armazenamento' => $this->verificar(fn () => $this->estadoArmazenamento()),
         ];
 
         $ok = collect($verificacoes)->every(fn ($v) => $v['estado'] === 'OK');
 
         return $ok
-            ? RespostaApi::sucesso(['estado' => 'OK', 'componentes' => $verificacoes], 'Todos os serviços estão operacionais.')
+            ? RespostaApi::sucesso(['estado' => 'OK', 'versao' => $this->versao(), 'componentes' => $verificacoes], 'Todos os serviços estão operacionais.')
             : RespostaApi::erro('Um ou mais serviços estão indisponíveis.', 503, 'SERVICO_INDISPONIVEL', $verificacoes);
+    }
+
+    /** Tamanho de cada fila e trabalhos falhados (informativo: uma fila longa não torna o serviço indisponível). */
+    private function estadoFilas(): string
+    {
+        $ligacao = Queue::connection();
+        $tamanhos = collect(self::FILAS)->map(fn (string $fila) => $fila.'='.$ligacao->size($fila))->implode(', ');
+        $falhados = DB::table((string) config('queue.failed.table', 'trabalhos_falhados'))->count();
+
+        return config('queue.default')." ({$tamanhos}); falhados={$falhados}";
+    }
+
+    private function estadoArmazenamento(): string
+    {
+        foreach (['app' => storage_path('app'), 'cache' => storage_path('framework/cache')] as $nome => $pasta) {
+            if (! is_dir($pasta) || ! is_writable($pasta)) {
+                throw new RuntimeException("storage/{$nome} sem permissão de escrita");
+            }
+        }
+
+        return 'gravável';
+    }
+
+    /** Versão da imagem (ficheiro VERSAO gravado no build de produção); "dev" fora das imagens de produção. */
+    private function versao(): string
+    {
+        $ficheiro = base_path('VERSAO');
+
+        return is_file($ficheiro) ? (trim((string) file_get_contents($ficheiro)) ?: 'desconhecida') : 'dev';
     }
 
     /** @return array{estado: string, detalhe: string, latencia_ms: float} */

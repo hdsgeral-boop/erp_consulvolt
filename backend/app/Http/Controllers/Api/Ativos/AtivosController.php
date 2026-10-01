@@ -116,7 +116,7 @@ final class AtivosController extends Controller
     public function eliminarBens(Request $r): JsonResponse
     {
         $this->exigir('activos_eliminar');
-        $d = $r->validate(['ids' => ['required', 'array', 'min:1'], 'ids.*' => ['integer']]);
+        $d = $r->validate(['ids' => ['required', 'array', 'min:1', 'max:5000'], 'ids.*' => ['integer']]);
 
         return RespostaApi::sucesso(['eliminados' => $this->ativos->eliminarVarios($d['ids'])], 'Activos eliminados.');
     }
@@ -124,7 +124,7 @@ final class AtivosController extends Controller
     public function editarBens(Request $r): JsonResponse
     {
         $this->exigir('activos_gerir');
-        $d = $r->validate(['ids' => ['required', 'array', 'min:1'], 'ids.*' => ['integer'], 'campos' => ['required', 'array']]
+        $d = $r->validate(['ids' => ['required', 'array', 'min:1', 'max:5000'], 'ids.*' => ['integer'], 'campos' => ['required', 'array']]
             + collect($this->regrasFicha(true))->only(ServicoAtivos::CAMPOS_MASSA)->mapWithKeys(fn ($v, $k) => ["campos.{$k}" => $v])->all());
 
         return RespostaApi::sucesso(['actualizados' => $this->ativos->editarVarios($d['ids'], $d['campos'])], 'Activos actualizados.');
@@ -280,7 +280,7 @@ final class AtivosController extends Controller
     public function ligar(Request $r, int $linha): JsonResponse
     {
         $this->exigir('activos_inventariar');
-        $d = $r->validate(['ids' => ['required', 'array', 'min:1'], 'ids.*' => ['integer']]);
+        $d = $r->validate(['ids' => ['required', 'array', 'min:1', 'max:5000'], 'ids.*' => ['integer']]);
 
         return RespostaApi::sucesso($this->aquisicoes->ligar($linha, $d['ids']), 'Activos ligados ao lançamento.');
     }

@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * /api/gestao — página de início (vista `welcome`) e dashboard por módulos (vista `dashboard`): lista dos painéis visíveis,
@@ -63,6 +64,10 @@ final class PaineisController extends Controller
     public function comparacao(Request $r): JsonResponse
     {
         $this->exigir(self::DASHBOARD);
+        // valores contabilísticos de várias empresas: exige também as vistas do painel de Contabilidade
+        if (! $this->paineis->podeVer(ServicoPaineis::CATALOGO['contabilidade']['vistas'])) {
+            throw new AccessDeniedHttpException;
+        }
         $f = $r->validate([
             'empresas' => ['nullable', 'array', 'max:30'], 'empresas.*' => ['integer', 'distinct'],
             'ano' => ['nullable', 'integer', 'min:1900', 'max:2999'], 'mes' => ['nullable', 'integer', 'min:1', 'max:12'], 'actualizar' => ['nullable', 'boolean'],

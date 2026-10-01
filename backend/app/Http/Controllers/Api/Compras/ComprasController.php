@@ -136,7 +136,7 @@ final class ComprasController extends Controller
             'pedido_compra_id' => ['required', 'integer', $this->daEmpresa('pedidos_compra')], 'fornecedor_id' => ['required', 'integer', $this->daEmpresa('terceiros')],
             'referencia' => ['required', 'string', 'max:50'], 'data' => ['nullable', 'date_format:Y-m-d'], 'data_entrega' => ['nullable', 'date_format:Y-m-d'],
             'codigo_moeda' => ['nullable', 'regex:/^[A-Z]{3}$/'], 'taxa_cambio' => ['nullable', 'numeric', 'gt:0'],
-            'linhas' => ['required', 'array', 'min:1'], 'linhas.*.item_pedido_id' => ['required', 'integer'],
+            'linhas' => ['required', 'array', 'min:1', 'max:2000'], 'linhas.*.item_pedido_id' => ['required', 'integer'],
             'linhas.*.preco_unitario' => ['required', 'numeric', 'min:0'], 'linhas.*.taxa_imposto' => ['nullable', 'numeric', 'between:0,100'],
         ]);
         $c = $this->processo->criarProposta($d);
@@ -222,7 +222,7 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_rec_registar');
         $d = $r->validate(['numero_entrega' => ['required', 'string', 'max:50'], 'data' => ['required', 'date_format:Y-m-d'],
-            'linhas' => ['required', 'array', 'min:1'], 'linhas.*.item_encomenda_id' => ['required', 'integer'], 'linhas.*.quantidade' => ['required', 'numeric', 'min:0']],
+            'linhas' => ['required', 'array', 'min:1', 'max:2000'], 'linhas.*.item_encomenda_id' => ['required', 'integer'], 'linhas.*.quantidade' => ['required', 'numeric', 'min:0']],
             [], ['numero_entrega' => 'n.º da guia do fornecedor']);
         $rec = $this->rececoes->registar(EncomendaCompra::query()->findOrFail($encomenda), $d);
 

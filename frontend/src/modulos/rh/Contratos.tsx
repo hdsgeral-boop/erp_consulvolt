@@ -110,7 +110,7 @@ export default function Contratos() {
           {pode('contratos_terminate') && semFim(c.data_fim) && (
             <Tooltip title="Terminar contrato"><Button size="small" type="text" icon={<StopOutlined />} aria-label="Terminar" onClick={() => { formFim.setFieldsValue({ data_fim: dayjs() }); setTerminar(c); }} /></Tooltip>
           )}
-          {pode('contratos_new') && (
+          {pode('contratos_terminate') && (
             <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" onClick={() => Modal.confirm({
               title: 'Eliminar este contrato?',
               content: 'Os processamentos encerrados guardam a fotografia: nada muda para trás.',

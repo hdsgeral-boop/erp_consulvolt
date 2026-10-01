@@ -1,0 +1,259 @@
+# ERP_CONSULVOLT — orquestração de PRODUÇÃO (runbook completo em docs/PRODUCAO.md).
+#
+# Uso (SEMPRE com --env-file, que alimenta as variáveis ${...} deste ficheiro):
+#   cp .env.prod.example .env.prod && chmod 600 .env.prod     # preencher os segredos (nunca no Git)
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod build
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod exec app php artisan migrate --force
+# Atalho: ferramentas/operacao/prod.sh <comando do compose>
+#
+# Diferenças face ao docker-compose.yml de desenvolvimento:
+#   - código, vendor e frontend/dist DENTRO das imagens (sem montagens de código); OPcache sem revalidação;
+#   - PHP-FPM e nginx sem root; sistema de ficheiros só de leitura nos serviços PHP (tmpfs para caches);
+#   - PostgreSQL e Redis sem portas publicadas; Redis com palavra-passe;
+#   - logs JSON com rotação; limites de recursos; serviço de cópias de segurança agendadas.
+
+name: ${COMPOSE_PROJECT_NAME:-erp_consulvolt_prod}
+
+x-logs: &logs
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+    tag: "{{.Name}}"
+
+x-php: &php
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile.prod
+    target: app
+    args:
+      ERP_VERSAO: ${ERP_VERSAO:-local}
+  image: ${ERP_IMAGEM_PREFIXO:-erp_consulvolt}/app:${ERP_VERSAO:-local}
+  restart: unless-stopped
+  # tini como PID 1: entrega o SIGTERM ao PHP (sem isto o schedule:work ignora-o e só morre por SIGKILL) e recolhe zombies.
+  init: true
+  env_file:
+    - path: ${ERP_ENV_FICHEIRO:-.env.prod}
+      required: true
+  environment:
+    # Ligações internas (prevalecem sobre o .env.prod). As credenciais vêm das mesmas variáveis do PostgreSQL/Redis.
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_DATABASE: ${POSTGRES_DB:?defina POSTGRES_DB no .env.prod}
+    DB_USERNAME: ${POSTGRES_USER:?defina POSTGRES_USER no .env.prod}
+    DB_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env.prod}
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env.prod}
+    AGT_PASTA_CHAVES: /run/segredos/agt
+  volumes:
+    # Ficheiros da aplicação (relatórios da migração, cópias por empresa, importações): persistentes e partilhados.
+    - erp_storage:/var/www/html/storage/app
+    # Chaves da AGT (ADR-030): só leitura, fora do Git e fora da imagem. Legíveis pelo uid 82 (www-data).
+    - ${AGT_PASTA_SEGREDOS:-./.segredos/agt}:/run/segredos/agt:ro
+  read_only: true
+  tmpfs:
+    - /tmp:size=256m,mode=1777
+    - /var/www/html/storage/framework:size=128m,uid=82,gid=82,mode=0770
+    - /var/www/html/storage/logs:size=64m,uid=82,gid=82,mode=0770
+    - /var/www/html/bootstrap/cache:size=16m,uid=82,gid=82,mode=0770
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  logging: *logs
+
+services:
+  # 1. Laravel (PHP 8.3-FPM) — só alcançável pelo nginx na rede interna (porta 9000)
+  app:
+    <<: *php
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1536M
+
+  # 2. nginx: SPA React (dentro da imagem) + proxy /api. Publicado só em localhost: o HTTPS fica no reverse proxy.
+  web:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile.prod
+      target: web
+    image: ${ERP_IMAGEM_PREFIXO:-erp_consulvolt}/web:${ERP_VERSAO:-local}
+    restart: unless-stopped
+    ports:
+      - "${WEB_ENDERECO:-127.0.0.1}:${WEB_PORTA:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+      - /var/cache/nginx:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      app:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+    logging: *logs
+
+  # 3. Worker das filas (conciliação, folhas em massa, PDFs, AGT). REDIS_QUEUE_RETRY_AFTER > --timeout (ver .env.prod).
+  worker:
+    <<: *php
+    command: ["php", "artisan", "queue:work", "redis", "--queue=alta,agt,default,pdfs,baixa",
+              "--sleep=3", "--tries=3", "--timeout=600", "--max-time=3600", "--memory=512"]
+    stop_grace_period: 300s
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'artisan queue:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1024M
+
+  # 4. Agendador (ciclo AGT a cada 2 min, partições da auditoria em Dezembro, contratos expirados)
+  scheduler:
+    <<: *php
+    command: ["php", "artisan", "schedule:work"]
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'artisan schedule:work' > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # 5. PostgreSQL 16 — volume persistente, SEM porta publicada (acesso: exec psql ou túnel SSH)
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB no .env.prod}
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER no .env.prod}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env.prod}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8 --data-checksums"
+      TZ: UTC
+    command:
+      - postgres
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - max_wal_size=2GB
+      - -c
+      - max_connections=100
+      - -c
+      - timezone=UTC
+      - -c
+      - log_min_duration_statement=2000
+      - -c
+      - log_lock_waits=on
+    volumes:
+      - erp_pgdados:/var/lib/postgresql/data
+      - ./docker/postgres/producao:/docker-entrypoint-initdb.d:ro
+    shm_size: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+    logging: *logs
+
+  # 6. Redis 7 — cache, locks e filas; palavra-passe obrigatória, SEM porta publicada
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\" --maxmemory 512mb --maxmemory-policy volatile-lru --protected-mode yes"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env.prod}
+    volumes:
+      - erp_redisdados:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 768M
+    logging: *logs
+
+  # 7. Cópias de segurança agendadas (ferramentas/operacao/backup.sh; rotação diária/semanal/mensal)
+  copias:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile.prod
+      target: copias
+    image: ${ERP_IMAGEM_PREFIXO:-erp_consulvolt}/copias:${ERP_VERSAO:-local}
+    restart: unless-stopped
+    environment:
+      TZ: Africa/Luanda
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${POSTGRES_DB:?defina POSTGRES_DB no .env.prod}
+      PGUSER: ${POSTGRES_USER:?defina POSTGRES_USER no .env.prod}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env.prod}
+      ERP_COPIAS_DESTINO: /copias
+      ERP_COPIAS_CRON: ${ERP_COPIAS_CRON:-30 2 * * *}
+      ERP_COPIAS_AO_ARRANCAR: ${ERP_COPIAS_AO_ARRANCAR:-0}
+      ERP_COPIAS_RETER_DIARIAS: ${ERP_COPIAS_RETER_DIARIAS:-7}
+      ERP_COPIAS_RETER_SEMANAIS: ${ERP_COPIAS_RETER_SEMANAIS:-4}
+      ERP_COPIAS_RETER_MENSAIS: ${ERP_COPIAS_RETER_MENSAIS:-12}
+      ERP_COPIAS_STORAGE_DIR: /dados/storage
+      ERP_COPIAS_REDIS_DIR: ${ERP_COPIAS_REDIS_DIR:-}
+      ERP_COPIAS_SEGREDOS_DIR: /dados/segredos
+      ERP_COPIAS_CHAVE: ${ERP_COPIAS_CHAVE:-}
+    volumes:
+      - ${ERP_PASTA_COPIAS:-./copias}:/copias
+      - erp_storage:/dados/storage:ro
+      - erp_redisdados:/dados/redis:ro
+      - ${AGT_PASTA_SEGREDOS:-./.segredos/agt}:/dados/segredos:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    logging: *logs
+
+volumes:
+  erp_pgdados:
+  erp_redisdados:
+  erp_storage:

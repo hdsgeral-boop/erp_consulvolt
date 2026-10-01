@@ -1,0 +1,74 @@
+# ERP_CONSULVOLT — ambiente ISOLADO para os testes ponta-a-ponta (Playwright), com dados fictícios.
+#
+# Uso (sobre o docker-compose.yml base, que fornece o postgres e o redis):
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d app_e2e web_e2e
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml exec -T app_e2e php artisan erp:e2e:preparar --force
+#
+# Isolamento face ao ambiente de desenvolvimento (base erp_consulvolt com os dados reais migrados):
+#   - base própria erp_consulvolt_e2e (o comando erp:e2e:preparar recusa correr noutra base que não termine em _e2e);
+#   - Redis nas bases lógicas 2 (default/sessões) e 3 (cache) e com prefixos próprios — o worker de desenvolvimento
+#     (base lógica 0) nunca vê trabalhos deste ambiente; as filas correm em modo síncrono (QUEUE_CONNECTION=sync);
+#   - AGT sempre desligada; nginx próprio em 127.0.0.1:8081 a servir o mesmo frontend/dist.
+# Nota: as âncoras YAML do ficheiro base não atravessam ficheiros, por isso a definição do backend é repetida aqui.
+
+services:
+  app_e2e:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    image: erp_consulvolt/php:8.3
+    container_name: erp_app_e2e
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./backend:/var/www/html
+      - erp_vendor:/var/www/html/vendor
+    environment:
+      APP_ENV: e2e
+      APP_DEBUG: "false"
+      APP_URL: http://127.0.0.1:8081
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: erp_consulvolt_e2e
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_DB: "2"
+      REDIS_CACHE_DB: "3"
+      REDIS_PREFIX: "erp_e2e:"
+      CACHE_PREFIX: "erp_e2e_cache:"
+      QUEUE_CONNECTION: sync
+      AGT_DRIVER: desligado
+      LOG_STACK: single
+      # vários testes entram com o mesmo utilizador em poucos segundos
+      ERP_SESSAO_TENTATIVAS_POR_MINUTO: "1000"
+      ERP_SESSAO_TENTATIVAS_POR_MINUTO_IP: "1000"
+      # a navegação abre 116 ecrãs seguidos com o mesmo utilizador
+      ERP_API_PEDIDOS_POR_MINUTO: "100000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep php-fpm > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  web_e2e:
+    image: nginx:1.27-alpine
+    container_name: erp_web_e2e
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${WEB_E2E_PORTA:-8081}:80"
+    volumes:
+      - ./docker/nginx/e2e.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/var/www/frontend:ro
+    depends_on:
+      app_e2e:
+        condition: service_healthy

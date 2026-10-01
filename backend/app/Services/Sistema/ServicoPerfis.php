@@ -78,6 +78,9 @@ final class ServicoPerfis
                 throw new ErroNegocio("Já existe um perfil com o nome «{$repetido->nome}».", 'PERFIL_DUPLICADO', 422);
             }
 
+            if ($p) {
+                $this->exigirPerfilGerivel($p, $actor);
+            }
             $eraTotal = $p && ($p->permissoes['all'] ?? null) === true;
             $total = (bool) ($d['acesso_total'] ?? ($p ? $eraTotal : false));
             if (($total || $eraTotal) && ! $this->permissoes->total($actor)) {
@@ -116,6 +119,28 @@ final class ServicoPerfis
 
             return ['perfil' => $p->refresh(), 'avisos' => $avisos];
         });
+    }
+
+    /**
+     * Segurança (Fase 6): os perfis são globais. Um actor sem acesso total (nem acesso a todas as empresas) não altera o
+     * seu próprio perfil (escalada de privilégios) nem um perfil usado por utilizadores de empresas que não administra.
+     */
+    private function exigirPerfilGerivel(PerfilUtilizador $p, Utilizador $actor): void
+    {
+        $dominio = app(ServicoUtilizadores::class)->dominio($actor);
+        if ($dominio === null) {
+            return;
+        }
+        if ((int) $actor->perfil_utilizador_id === (int) $p->id) {
+            throw new ErroNegocio('Não pode alterar o perfil que lhe está atribuído.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
+        }
+        $fora = DB::table('utilizadores as u')->whereNull('u.eliminado_em')->where('u.perfil_utilizador_id', $p->id)
+            ->where(fn ($w) => $w->where('u.acesso_todas_empresas', true)
+                ->orWhereExists(fn ($e) => $e->selectRaw('1')->from('utilizador_empresa as ue')->whereColumn('ue.utilizador_id', 'u.id')->whereNotIn('ue.empresa_id', $dominio)))
+            ->exists();
+        if ($fora) {
+            throw new ErroNegocio('Este perfil é usado por utilizadores de empresas que não administra.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
+        }
     }
 
     public function duplicar(PerfilUtilizador $p, Utilizador $actor): PerfilUtilizador

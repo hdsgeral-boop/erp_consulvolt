@@ -78,7 +78,8 @@ export default function Dashboard() {
               label: p.nome,
               children: p.tipo === 'CUBO' ? <Cubo /> : <PainelModulo modulo={p.id} filtros={filtros} aoMudarFiltros={setFiltros} aoIrPara={(ir) => paineis.some((x) => x.id === ir) && setActivo(ir)} />,
             })),
-            ...(empresas.length > 1 ? [{ key: '__comparacao', label: 'Comparar empresas', children: <ComparacaoEmpresas filtros={filtros} aoMudarFiltros={setFiltros} /> }] : []),
+            // a comparação mostra valores contabilísticos: exige as vistas do painel de Contabilidade (como o servidor)
+            ...(empresas.length > 1 && paineis.some((p) => p.id === 'contabilidade') ? [{ key: '__comparacao', label: 'Comparar empresas', children: <ComparacaoEmpresas filtros={filtros} aoMudarFiltros={setFiltros} /> }] : []),
           ]}
         />
       )}

@@ -227,7 +227,7 @@ final class AvaliacaoController extends Controller
     public function registarFeedback(Request $r): JsonResponse
     {
         $d = $r->validate(['ciclo_avaliacao_id' => ['required', 'integer'], 'colaborador_id' => ['required', 'integer'],
-            'periodo_referencia' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2]|T[1-4]|S[12])$/'], 'data' => ['required', 'date'], 'objetivos' => ['nullable', 'array'],
+            'periodo_referencia' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2]|T[1-4]|S[12])$/'], 'data' => ['required', 'date'], 'objetivos' => ['nullable', 'array', 'max:100'],
             'positivos' => ['nullable', 'string', 'max:5000'], 'melhorar' => ['nullable', 'string', 'max:5000'], 'acordos' => ['nullable', 'string', 'max:5000']]);
 
         return RespostaApi::sucesso($this->a360->registarFeedback($d), 'Reunião de acompanhamento registada.');
@@ -249,7 +249,7 @@ final class AvaliacaoController extends Controller
 
     public function responder360(Request $r): JsonResponse
     {
-        $d = $r->validate(['colaborador_avaliado_id' => ['required', 'integer'], 'notas' => ['required', 'array'], 'notas.*.chave' => ['required', 'string'],
+        $d = $r->validate(['colaborador_avaliado_id' => ['required', 'integer'], 'notas' => ['required', 'array', 'max:200'], 'notas.*.chave' => ['required', 'string'],
             'notas.*.nota' => ['required', 'integer', 'between:1,5'], 'comentario' => ['nullable', 'string', 'max:2000']]);
         $this->a360->responder((int) $d['colaborador_avaliado_id'], $d['notas'], $d['comentario'] ?? null);
 
@@ -281,7 +281,7 @@ final class AvaliacaoController extends Controller
 
     public function responderAscendente(Request $r): JsonResponse
     {
-        $d = $r->validate(['ano' => ['required', 'integer'], 'periodo' => ['required', Rule::in(ServicoAvaliacao::PERIODOS)], 'respostas' => ['required', 'array'],
+        $d = $r->validate(['ano' => ['required', 'integer'], 'periodo' => ['required', Rule::in(ServicoAvaliacao::PERIODOS)], 'respostas' => ['required', 'array', 'max:200'],
             'respostas.*.chave' => ['required', 'string'], 'respostas.*.nota' => ['required', 'integer', 'between:1,5'], 'comentario' => ['nullable', 'string', 'max:2000']]);
         $this->a360->responderAscendente((int) $d['ano'], $d['periodo'], $d['respostas'], $d['comentario'] ?? null);
 

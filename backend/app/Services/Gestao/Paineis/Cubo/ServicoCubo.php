@@ -233,7 +233,7 @@ final class ServicoCubo
             $ag = $m['agregacao'] ?? null;
             if (! is_string($ag) || ! isset(CatalogoCubo::AGREGACOES[$ag])) {
                 $erros['medidas'] = 'Agregação desconhecida.';
-            } elseif ($ag !== 'contagem' && (! is_string($m['medida'] ?? null) || ! isset($def['medidas'][$m['medida']]))) {
+            } elseif (($ag !== 'contagem' || ($m['medida'] ?? '') !== '') && (! is_string($m['medida'] ?? null) || ! isset($def['medidas'][$m['medida']]))) {   // também na contagem, se indicada (Fase 6: evitava um erro 500)
                 $erros['medidas'] = 'Medida desconhecida: '.(is_string($m['medida'] ?? null) ? $m['medida'] : '?').'.';
             }
         }

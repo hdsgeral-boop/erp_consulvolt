@@ -83,6 +83,44 @@ docker compose exec app php artisan erp:migrar-backup-legado /dados/legado/wstb_
 
 O relatório fica em `backend/storage/app/private/migracao/` e em `execucoes_migracao.relatorio`. O detalhe de cada correcção está em `ocorrencias_migracao` e as linhas rejeitadas em `quarentena_migracao`.
 
+## Testes ponta-a-ponta (Playwright)
+
+Ambiente isolado (base `erp_consulvolt_e2e` com dados fictícios, recriada antes de cada execução; nunca toca na base de desenvolvimento):
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d app_e2e web_e2e   # http://127.0.0.1:8081
+cd frontend; npm install; npx playwright install chromium; npm run build
+npm run e2e                                   # recria a base E2E e corre tudo
+npx playwright test vendas                    # um ficheiro
+npm run e2e:relatorio                         # relatório HTML da última execução
+```
+
+Utilizadores fictícios (`e2e.admin`, `e2e.vendas`, `e2e.pos`, `e2e.rh`, `e2e.aprovador`) e detalhes em [frontend/e2e/README.md](frontend/e2e/README.md).
+
+## Produção e integração contínua
+
+Runbook completo: [docs/PRODUCAO.md](docs/PRODUCAO.md) (instalação, HTTPS, deploy, rollback, cópias e restauro, monitorização, chaves AGT e o plano da migração definitiva).
+
+```bash
+cp .env.prod.example .env.prod && chmod 600 .env.prod      # preencher segredos (nunca no Git)
+sh ferramentas/operacao/prod.sh build                      # imagens app / web / copias (docker/php/Dockerfile.prod)
+sh ferramentas/operacao/prod.sh up -d --wait postgres redis
+sh ferramentas/operacao/prod.sh run --rm --no-deps app php artisan migrate --force
+sh ferramentas/operacao/prod.sh up -d --wait
+sh ferramentas/operacao/deploy.sh                          # novas versões: build, cópia, migrate, recriação, verificação
+sh ferramentas/operacao/prod.sh run --rm --no-deps copias /operacao/backup.sh                       # cópia imediata
+sh ferramentas/operacao/prod.sh run --rm --no-deps copias /operacao/restaurar.sh /copias/diarias/<cópia> <base_nova>
+```
+
+| Produção | Desenvolvimento |
+| :--- | :--- |
+| Código, `vendor` (sem dev) e `frontend/dist` dentro das imagens; OPcache sem revalidação | Código montado; OPcache revalida a cada 2 s |
+| PHP-FPM e nginx sem root; FS só de leitura; tini | root; FS gravável |
+| PostgreSQL/Redis sem portas publicadas; web só em 127.0.0.1 atrás do reverse proxy HTTPS | portas em 127.0.0.1 |
+| Logs JSON (stderr) com rotação; serviço `copias` agendado | logs diários em ficheiro |
+
+CI (GitHub Actions, `.github/workflows/ci.yml`) em cada push/PR para `main`: backend (PHP 8.3, PostgreSQL 16, Redis 7, Pint, PHPUnit), frontend (Node 22, tsc, Vitest, build) e build das imagens de produção (sem publicação). Usa só dados fictícios.
+
 ## API
 
 Todas as respostas usam o envelope:

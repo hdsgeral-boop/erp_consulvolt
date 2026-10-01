@@ -1,0 +1,183 @@
+# Integração contínua do ERP_CONSULVOLT.
+# Repositório PÚBLICO: nenhum dado real nem segredo. Todas as credenciais abaixo são descartáveis e só
+# existem dentro dos contentores efémeros do GitHub Actions; o backup legado nunca é usado aqui.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TZ: Africa/Luanda
+
+jobs:
+  # ------------------------------------------------------------------------------------------
+  backend:
+    name: Backend (PHP 8.3 · PostgreSQL 16 · Redis 7)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci_utilizador
+          POSTGRES_PASSWORD: ci_palavra_passe_descartavel
+          # A protecção do TestCase exige uma base terminada em _testes (ADR-019); o phpunit.xml força este nome.
+          POSTGRES_DB: erp_consulvolt_testes
+          POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_utilizador -d erp_consulvolt_testes"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USERNAME: ci_utilizador
+      DB_PASSWORD: ci_palavra_passe_descartavel
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+      AGT_DRIVER: desligado
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP 8.3 com as extensões do docker/php/Dockerfile
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: pdo_pgsql, pgsql, intl, zip, bcmath, opcache, pcntl, gd, redis
+          ini-values: date.timezone=Africa/Luanda, memory_limit=1G
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache do Composer
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: composer install
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Extensões do PostgreSQL (iguais a docker/postgres/init)
+        env:
+          PGPASSWORD: ci_palavra_passe_descartavel
+        run: psql -h 127.0.0.1 -U ci_utilizador -d erp_consulvolt_testes -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS unaccent; CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+
+      - name: .env de teste
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+
+      - name: Estilo (Pint)
+        run: vendor/bin/pint --test
+
+      - name: Testes (PHPUnit, PostgreSQL real)
+        run: php artisan test
+
+  # ------------------------------------------------------------------------------------------
+  frontend:
+    name: Frontend (Node 22 · TypeScript · Vitest · build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # O esbuild precisa do seu script de instalação; --ignore-scripts=false garante-o mesmo com
+      # versões do npm que bloqueiam scripts por omissão (a lista "allowScripts" do package.json também o aprova).
+      - name: npm ci
+        run: npm ci --ignore-scripts=false --no-audit --no-fund
+
+      - name: Tipos (tsc)
+        run: npx tsc --noEmit -p .
+
+      - name: Testes (Vitest)
+        run: npx vitest run
+
+      - name: Build de produção
+        run: npm run build
+
+  # ------------------------------------------------------------------------------------------
+  producao:
+    name: Imagens de produção e scripts de operação
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ShellCheck dos scripts de operação
+        run: shellcheck -s sh ferramentas/operacao/*.sh docker/php/producao/entrypoint.sh
+
+      - name: Validar docker-compose.prod.yml (com o modelo .env.prod.example)
+        run: |
+          cp .env.prod.example .env.prod
+          docker compose -f docker-compose.prod.yml --env-file .env.prod config --quiet
+          rm .env.prod
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Só constrói (push: false): nada é publicado em registos.
+      - name: Build da imagem app (PHP-FPM)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/php/Dockerfile.prod
+          target: app
+          push: false
+          build-args: ERP_VERSAO=${{ github.sha }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+
+      - name: Build da imagem web (nginx + SPA)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/php/Dockerfile.prod
+          target: web
+          push: false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+      - name: Build da imagem copias
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/php/Dockerfile.prod
+          target: copias
+          push: false
+          cache-from: type=gha,scope=copias
+          cache-to: type=gha,scope=copias,mode=max

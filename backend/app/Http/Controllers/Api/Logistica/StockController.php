@@ -252,7 +252,7 @@ final class StockController extends Controller
     public function contar(Request $r, int $sessao): JsonResponse
     {
         $this->exigir('inventario_count');
-        $d = $r->validate(['linhas' => ['required', 'array', 'min:1'], 'linhas.*.produto_id' => ['required', 'integer'], 'linhas.*.quantidade_contada' => ['nullable', 'numeric', 'min:0'],
+        $d = $r->validate(['linhas' => ['required', 'array', 'min:1', 'max:10000'], 'linhas.*.produto_id' => ['required', 'integer'], 'linhas.*.quantidade_contada' => ['nullable', 'numeric', 'min:0'],
             'linhas.*.observacoes' => ['nullable', 'string', 'max:500']]);
 
         return RespostaApi::sucesso(['gravadas' => $this->inventario->contar(SessaoInventario::query()->findOrFail($sessao), $d['linhas'])], 'Contagem gravada.');
@@ -269,7 +269,7 @@ final class StockController extends Controller
     public function rever(Request $r, int $sessao): JsonResponse
     {
         $this->exigir('inventario_rever');
-        $d = $r->validate(['linhas' => ['required', 'array'], 'linhas.*.produto_id' => ['required', 'integer'], 'linhas.*.custo_personalizado' => ['nullable', 'numeric', 'min:0'],
+        $d = $r->validate(['linhas' => ['required', 'array', 'max:10000'], 'linhas.*.produto_id' => ['required', 'integer'], 'linhas.*.custo_personalizado' => ['nullable', 'numeric', 'min:0'],
             'linhas.*.justificacao' => ['nullable', 'string', 'max:500']]);
         $this->inventario->rever(SessaoInventario::query()->findOrFail($sessao), $d['linhas']);
 

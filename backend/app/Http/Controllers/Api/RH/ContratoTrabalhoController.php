@@ -56,7 +56,7 @@ final class ContratoTrabalhoController extends Controller
 
     public function destroy(int $contrato): JsonResponse
     {
-        $this->exigir('contratos_new');
+        $this->exigir('contratos_terminate');   // catálogo: «Rescindir e eliminar contratos» (Fase 6)
         ContratoTrabalho::query()->findOrFail($contrato)->delete();   // os períodos encerrados guardam a fotografia: nada muda para trás
 
         return RespostaApi::sucesso(null, 'Contrato eliminado com sucesso.');

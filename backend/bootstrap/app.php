@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [ForcarRespostaJson::class]);
+        // Limite geral da API (limitador 'api' do AppServiceProvider, configurável em erp.api.pedidos_por_minuto).
+        $middleware->throttleApi();
         $middleware->alias(['empresa' => ResolverEmpresaAtiva::class]);
         // API só por token: nunca redireccionar para uma página de login.
         $middleware->redirectGuestsTo(fn () => null);

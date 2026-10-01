@@ -120,7 +120,17 @@ final class ServicoAmortizacoes
             $doAtivo = ($registos[$a->id] ?? collect())->keyBy('periodo_codigo');
             $acumulado = bcadd(CalculadoraAmortizacoes::d($a->amortizacao_acumulada_inicial), $this->somaValores($doAtivo), 2);
             $inicio = (int) $a->data_aquisicao->format('Y') * 12 + (int) $a->data_aquisicao->format('n') - 1;
-            for ($n = $inicio; $n <= $ultimo; $n++) {
+            // Desempenho (Fase 6): depois da vida útil ou com a base esgotada nenhuma quota é devida (devida() devolve null
+            // e o acumulado não muda), por isso o ciclo pára aí em vez de percorrer todos os meses até hoje.
+            $vida = (int) $a->vida_util;
+            $fim = $vida > 0 ? min($ultimo, $inicio + $vida - 1) : $ultimo;
+            $base = CalculadoraAmortizacoes::base($a);
+            // nos anos ≤ «ano da amortização acumulada inicial» também não há quota (CalculadoraAmortizacoes::noPeriodoDeVida)
+            $primeiro = $a->acumulado_fim_ano !== null ? max($inicio, ((int) $a->acumulado_fim_ano + 1) * 12) : $inicio;
+            for ($n = $primeiro; $n <= $fim; $n++) {
+                if (bccomp($base, $acumulado, 2) <= 0) {
+                    break;
+                }
                 $p = CalculadoraAmortizacoes::codigo(intdiv($n, 12), $n % 12 + 1);
                 if (isset($doAtivo[$p])) {
                     continue;

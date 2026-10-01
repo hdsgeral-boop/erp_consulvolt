@@ -44,7 +44,7 @@ final class PagamentoSalariosController extends Controller
     {
         $this->exigir('processamento_integrate');
         $d = $r->validate(['codigo_conta_bancaria' => ['required', 'string', 'max:20'], 'data' => ['required', 'date'], 'nome_assinatura' => ['nullable', 'string', 'max:255'],
-            'grupo' => ['nullable', 'in:'.implode(',', ServicoPagamentoSalarios::GRUPOS)], 'colaboradores' => ['nullable', 'array'], 'colaboradores.*' => ['integer']]);
+            'grupo' => ['nullable', 'in:'.implode(',', ServicoPagamentoSalarios::GRUPOS)], 'colaboradores' => ['nullable', 'array', 'max:10000'], 'colaboradores.*' => ['integer']]);
         $c = $this->pagamentos->emitirCarta(PeriodoProcessamentoSalarial::query()->findOrFail($id), $d);
 
         return RespostaApi::criado($this->pagamentos->carta($c), 'Carta de pagamento emitida.');

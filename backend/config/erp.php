@@ -15,6 +15,13 @@ return [
         'validade_horas' => (int) env('ERP_SESSAO_VALIDADE_HORAS', 12),
         // Tentativas de login por minuto (por nome de utilizador + IP).
         'tentativas_por_minuto' => (int) env('ERP_SESSAO_TENTATIVAS_POR_MINUTO', 5),
+        // Tentativas de login por minuto a partir do mesmo IP, com qualquer nome de utilizador (contra password spraying).
+        'tentativas_por_minuto_ip' => (int) env('ERP_SESSAO_TENTATIVAS_POR_MINUTO_IP', 60),
+    ],
+
+    'api' => [
+        // Limite geral de pedidos à API por utilizador autenticado (ou por IP, sem sessão).
+        'pedidos_por_minuto' => (int) env('ERP_API_PEDIDOS_POR_MINUTO', 300),
     ],
 
     'password' => [

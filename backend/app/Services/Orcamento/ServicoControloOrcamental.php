@@ -296,6 +296,10 @@ final class ServicoControloOrcamental
             'autoaprovado' => $auto] + ($auto ? ['decidido_por' => $user, 'decidido_em' => now(), 'utilizado_em' => now(), 'nota_decisao' => 'Aprovado no acto'] : []);
         $existente = PedidoExtrapolacaoOrcamento::query()->where('chave_documento', $chave)->where('rubrica_orcamental_id', $a['rubrica_orcamental_id'])
             ->where('orcamento_anual_id', $a['orcamento_anual_id'])->where('estado', 'PENDENTE')->first();
+        // Segurança (Fase 6): um pedido pendente de outro utilizador não é reescrito (valor, motivo e autor) por um novo pedido.
+        if ($existente && ! $auto && $existente->pedido_por !== null && $existente->pedido_por !== $user) {
+            throw new ErroNegocio("Já existe um pedido de excesso pendente deste documento, feito por {$existente->pedido_por}.", 'PEDIDO_DE_OUTRO_UTILIZADOR', 409);
+        }
         $existente ? $existente->update($dados) : $existente = PedidoExtrapolacaoOrcamento::create($dados);
 
         return $existente->refresh();

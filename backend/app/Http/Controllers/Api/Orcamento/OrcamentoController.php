@@ -199,7 +199,7 @@ final class OrcamentoController extends Controller
     private function regrasDocumento(): array
     {
         return ['tipo' => ['required', 'in:EXPLORACAO,TESOURARIA'], 'origem' => ['required', 'string', 'max:30'], 'documento' => ['required', 'string', 'max:100'],
-            'data' => ['required', 'date'], 'linhas' => ['required', 'array', 'min:1'], 'linhas.*.codigo_conta' => ['required', 'string', 'max:20'],
+            'data' => ['required', 'date'], 'linhas' => ['required', 'array', 'min:1', 'max:500'], 'linhas.*.codigo_conta' => ['required', 'string', 'max:20'],
             'linhas.*.valor' => ['required', 'numeric'], 'linhas.*.unidade_negocio_id' => ['nullable', 'integer'], 'linhas.*.centro_custo_id' => ['nullable', 'integer'],
             'linhas.*.projeto_id' => ['nullable', 'integer']];
     }
@@ -214,6 +214,8 @@ final class OrcamentoController extends Controller
 
     public function pedirExcesso(Request $r): JsonResponse
     {
+        // quem grava documentos sujeitos ao controlo orçamental (compras, tesouraria, lançamentos) ou acompanha os alertas
+        $this->exigir('compras_ped_criar', 'compras_enc_criar', 'compras_fact_registar', 'teso_doc_emitir', 'lancamentos_post', 'orc_alertas_view');
         $d = $r->validate($this->regrasDocumento() + ['motivo' => ['required', 'string', 'min:5', 'max:1000']]);
 
         return $this->novo($this->controlo->pedirExcesso($d['tipo'], ['origem' => $d['origem'], 'documento' => $d['documento'], 'data' => substr($d['data'], 0, 10)],

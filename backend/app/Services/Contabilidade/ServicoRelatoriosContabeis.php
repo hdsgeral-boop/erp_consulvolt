@@ -386,8 +386,11 @@ final class ServicoRelatoriosContabeis
         $empresa = $this->contexto->obrigatorio();
         [$filtro, $pf] = FiltroMapas::sql('l', array_diff_key($f, ['filtro_contas' => 1]), (int) substr($f['data_fim'], 0, 4));
         $ini = $f['data_inicio'] ?? null;
+        // Desempenho (Fase 6): com data_inicio, o CTE já não lê o histórico anterior — um documento é diário + n.º + data e só
+        // interessam os de data ≥ data_inicio (filtro final), por isso o resultado é o mesmo.
+        $desde = $ini ? ' AND l.data_documento >= ?' : '';
         $linhas = DB::select("WITH linhas AS (
-                SELECT l.* FROM lancamentos_contabeis l WHERE l.empresa_id = ? AND l.data_documento <= ?{$filtro}
+                SELECT l.* FROM lancamentos_contabeis l WHERE l.empresa_id = ? AND l.data_documento <= ?{$filtro}{$desde}
             ), doc AS (
                 SELECT diario_id, numero_documento, data_documento,
                     SUM(CASE WHEN replace(codigo_conta, ' ', '') LIKE '345%' THEN valor ELSE 0 END) AS iva,
@@ -405,7 +408,7 @@ final class ServicoRelatoriosContabeis
             LEFT JOIN diarios_contabeis d ON d.id = l.diario_id
             LEFT JOIN plano_contas pc ON pc.empresa_id = l.empresa_id AND pc.codigo = l.codigo_conta AND pc.eliminado_em IS NULL
             WHERE replace(l.codigo_conta, ' ', '') LIKE '345%'".($ini ? ' AND l.data_documento >= ?' : '').'
-            ORDER BY l.data_documento, l.numero_documento, l.id', array_merge([$empresa, $f['data_fim']], $pf, $ini ? [$ini] : []));
+            ORDER BY l.data_documento, l.numero_documento, l.id', array_merge([$empresa, $f['data_fim']], $pf, $ini ? [$ini, $ini] : []));
 
         $t = ['total_documento' => '0.00', 'base' => '0.00', 'iva_debito' => '0.00', 'iva_credito' => '0.00'];
         foreach ($linhas as $l) {

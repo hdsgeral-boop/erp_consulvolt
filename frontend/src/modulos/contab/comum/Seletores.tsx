@@ -3,6 +3,8 @@ import { useMemo, useState } from 'react';
 import { useDiarios, usePlanoContas, useTabelaAux, useTerceiros, useUnidadesNegocio, type TabelaAux } from './dados';
 
 interface PropsBase<V> {
+  /** Injectado pelo Form.Item: liga o rótulo ao campo (clique no rótulo, leitores de ecrã). */
+  id?: string;
   value?: V;
   onChange?: (v: V) => void;
   placeholder?: string;
@@ -15,7 +17,7 @@ interface PropsBase<V> {
  * Selector de conta do plano (pesquisa por código ou descrição). Por omissão só contas de movimento (tipo M),
  * que são as únicas onde o servidor aceita lançamentos. Sem acesso ao plano, cai num campo de texto livre.
  */
-export function SeletorConta({ value, onChange, placeholder = 'Conta', allowClear, disabled, style, prefixos, incluirTotalizadoras = false }: PropsBase<string | undefined> & { prefixos?: string[]; incluirTotalizadoras?: boolean }) {
+export function SeletorConta({ id, value, onChange, placeholder = 'Conta', allowClear, disabled, style, prefixos, incluirTotalizadoras = false }: PropsBase<string | undefined> & { prefixos?: string[]; incluirTotalizadoras?: boolean }) {
   const plano = usePlanoContas();
   const opcoes = useMemo(
     () =>
@@ -25,10 +27,11 @@ export function SeletorConta({ value, onChange, placeholder = 'Conta', allowClea
     [plano.data, prefixos, incluirTotalizadoras],
   );
   if (plano.isError) {
-    return <Input value={value} onChange={(e) => onChange?.(e.target.value || undefined)} placeholder={placeholder} disabled={disabled} style={style} maxLength={20} />;
+    return <Input id={id} value={value} onChange={(e) => onChange?.(e.target.value || undefined)} placeholder={placeholder} disabled={disabled} style={style} maxLength={20} />;
   }
   return (
     <Select
+      id={id}
       showSearch
       value={value}
       onChange={onChange}
@@ -45,10 +48,11 @@ export function SeletorConta({ value, onChange, placeholder = 'Conta', allowClea
   );
 }
 
-export function SeletorDiario({ value, onChange, placeholder = 'Diário', allowClear, disabled, style }: PropsBase<number | undefined>) {
+export function SeletorDiario({ id, value, onChange, placeholder = 'Diário', allowClear, disabled, style }: PropsBase<number | undefined>) {
   const diarios = useDiarios();
   return (
     <Select
+      id={id}
       showSearch
       value={value}
       onChange={onChange}
@@ -65,10 +69,11 @@ export function SeletorDiario({ value, onChange, placeholder = 'Diário', allowC
 }
 
 /** Notas DEMO / fluxo de caixa / centros de custo (tabelas auxiliares). */
-export function SeletorAux({ tabela, value, onChange, placeholder, allowClear = true, disabled, style }: PropsBase<number | undefined> & { tabela: TabelaAux }) {
+export function SeletorAux({ id, tabela, value, onChange, placeholder, allowClear = true, disabled, style }: PropsBase<number | undefined> & { tabela: TabelaAux }) {
   const t = useTabelaAux(tabela);
   return (
     <Select
+      id={id}
       showSearch
       value={value}
       onChange={onChange}
@@ -84,10 +89,11 @@ export function SeletorAux({ tabela, value, onChange, placeholder, allowClear = 
   );
 }
 
-export function SeletorUnidade({ value, onChange, placeholder = 'Unidade de negócio', allowClear = true, disabled, style }: PropsBase<number | undefined>) {
+export function SeletorUnidade({ id, value, onChange, placeholder = 'Unidade de negócio', allowClear = true, disabled, style }: PropsBase<number | undefined>) {
   const u = useUnidadesNegocio();
   return (
     <Select
+      id={id}
       showSearch
       value={value}
       onChange={onChange}
@@ -104,13 +110,14 @@ export function SeletorUnidade({ value, onChange, placeholder = 'Unidade de neg�
 }
 
 /** Terceiro por pesquisa remota (nome ou NIF). `rotuloInicial` mostra o terceiro já escolhido antes da 1.ª pesquisa. */
-export function SeletorTerceiro({ value, onChange, placeholder = 'Terceiro (nome ou NIF)', allowClear = true, disabled, style, rotuloInicial }: PropsBase<number | undefined> & { rotuloInicial?: string }) {
+export function SeletorTerceiro({ id, value, onChange, placeholder = 'Terceiro (nome ou NIF)', allowClear = true, disabled, style, rotuloInicial }: PropsBase<number | undefined> & { rotuloInicial?: string }) {
   const [pesquisa, setPesquisa] = useState('');
   const t = useTerceiros(pesquisa);
   const opcoes: SelectProps['options'] = (t.data?.itens ?? []).map((x) => ({ value: x.id, label: `${x.nome.trim()}${x.nif ? ` (NIF ${x.nif})` : ''}` }));
   if (value && rotuloInicial && !opcoes.some((o) => o.value === value)) opcoes.unshift({ value, label: rotuloInicial });
   return (
     <Select
+      id={id}
       showSearch
       value={value}
       onChange={onChange}

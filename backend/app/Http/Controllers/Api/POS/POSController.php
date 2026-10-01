@@ -168,9 +168,9 @@ final class POSController extends Controller
         $this->exigir('pos_venda');
         $d = $r->validate([
             'cliente_id' => ['nullable', 'integer'], 'observacoes' => ['nullable', 'string', 'max:2000'], 'percentagem_desconto' => ['nullable', 'numeric', 'between:0,100'],
-            'linhas' => ['required', 'array', 'min:1'], 'linhas.*.produto_id' => ['required', 'integer'], 'linhas.*.quantidade' => ['required', 'numeric', 'gt:0'],
+            'linhas' => ['required', 'array', 'min:1', 'max:1000'], 'linhas.*.produto_id' => ['required', 'integer'], 'linhas.*.quantidade' => ['required', 'numeric', 'gt:0'],
             'linhas.*.preco_unitario' => ['nullable', 'numeric', 'min:0'], 'linhas.*.descricao' => ['nullable', 'string', 'max:500'],
-            'pagamentos' => ['required', 'array', 'min:1'], 'pagamentos.*.meio_id' => ['required', 'string', 'max:40'], 'pagamentos.*.valor' => ['required', 'numeric', 'gt:0'],
+            'pagamentos' => ['required', 'array', 'min:1', 'max:50'], 'pagamentos.*.meio_id' => ['required', 'string', 'max:40'], 'pagamentos.*.valor' => ['required', 'numeric', 'gt:0'],
             'pagamentos.*.referencia' => ['nullable', 'string', 'max:100'],
         ]);
         // desconto e alteração de preço (updatePOSDiscount / updatePOSCartPrice, permissoes.js:229)

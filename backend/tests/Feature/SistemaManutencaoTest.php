@@ -8,6 +8,7 @@ use App\Models\LogAuditoria;
 use App\Models\PedidoManutencaoEquipamento;
 use App\Models\PlanoConta;
 use App\Models\Utilizador;
+use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -187,6 +188,15 @@ final class SistemaManutencaoTest extends TestCase
         $vazia = $this->criarEmpresa(['nif' => '5417000399']);
         $comDados = $this->criarEmpresa(['nif' => '5417000398']);
         DB::table('lancamentos_contabeis')->insert(['empresa_id' => $comDados->id, 'codigo_conta' => '4311', 'tipo_dc' => 'D', 'valor' => 1, 'data_documento' => $this->hoje]);
+        // sem acesso à empresa indicada: nem impacto nem pedido (não revela contagens de outra empresa)
+        $pedidoVazia = ['acao' => 'ELIMINAR_EMPRESA', 'parametros' => ['empresa_id' => $vazia->id], 'justificacao' => str_repeat('j', 25), 'ciente' => true];
+        $this->postJson('/api/sistema/manutencao/impacto', ['acao' => 'ELIMINAR_EMPRESA', 'parametros' => ['empresa_id' => $vazia->id]], $this->sp)
+            ->assertForbidden()->assertJsonPath('codigo', 'EMPRESA_SEM_ACESSO');
+        $this->postJson('/api/sistema/manutencao/pedidos', $pedidoVazia, $this->sp)->assertForbidden()->assertJsonPath('codigo', 'EMPRESA_SEM_ACESSO');
+        foreach (Utilizador::query()->whereIn('nome_utilizador', ['pedinte', 'aprovador'])->get() as $u) {
+            $u->empresas()->attach([$vazia->id, $comDados->id]);
+            app(ServicoEmpresas::class)->invalidarUtilizador($u->id);
+        }
         $this->postJson('/api/sistema/manutencao/pedidos', ['acao' => 'ELIMINAR_EMPRESA', 'parametros' => ['empresa_id' => $comDados->id], 'justificacao' => str_repeat('j', 25), 'ciente' => true], $this->sp)
             ->assertStatus(422)->assertJsonPath('codigo', 'ACAO_BLOQUEADA');
 

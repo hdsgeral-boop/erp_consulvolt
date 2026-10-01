@@ -1,0 +1,75 @@
+# Contexto de build do Docker (raiz do repositório). Tudo o que está aqui NUNCA é enviado para o daemon,
+# logo nunca pode acabar numa camada de imagem: segredos, dados reais, dependências e artefactos locais.
+# As dependências (vendor, node_modules) e o build do frontend são sempre recriados dentro do build.
+
+# Controlo de versões e ferramentas locais
+.git
+.github
+.gitattributes
+.vscode
+.idea
+**/.DS_Store
+**/Thumbs.db
+
+# Segredos e configuração de ambiente (a imagem recebe as variáveis em tempo de execução)
+.env
+.env.*
+!.env.example
+!.env.prod.example
+**/.env
+**/.env.*
+!**/.env.example
+.segredos
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+
+# Cópias de segurança, dumps e dados reais
+copias
+copias/**
+backups
+**/*.dump
+**/*.backup
+**/*.sql.gz
+**/*.tar.gz
+**/*.tar.gz.enc
+**/wstb_payroll_backup_*.json
+docs/dicionario/levantamento_colunas_legado.json
+docs/dicionario/pendencias.json
+ferramentas/gerador/unicidade_resultado.json
+
+# Dependências e artefactos de build (recriados no build multi-stage)
+**/node_modules
+backend/vendor
+frontend/dist
+frontend/*.tsbuildinfo
+frontend/coverage
+frontend/test-results
+frontend/playwright-report
+
+# Estado de runtime do Laravel (a imagem cria a estrutura vazia; os dados vivem em volumes)
+backend/storage/app/*
+!backend/storage/app/.gitignore
+!backend/storage/app/private
+backend/storage/app/private/*
+!backend/storage/app/private/.gitignore
+!backend/storage/app/public
+backend/storage/app/public/*
+!backend/storage/app/public/.gitignore
+backend/storage/logs/*
+!backend/storage/logs/.gitignore
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/framework/testing/*
+backend/bootstrap/cache/*.php
+backend/.phpunit.result.cache
+backend/.phpunit.cache
+backend/phpunit_b.xml
+
+# Documentação e ferramentas de levantamento/geração não entram nas imagens
+docs
+ferramentas/levantamento
+ferramentas/gerador
+**/*.log

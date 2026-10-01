@@ -256,7 +256,9 @@ final class GestaoPaineisTest extends TestCase
         $outra = $this->criarEmpresa();
         $semAcesso = $this->criarEmpresa();
         app(ContextoEmpresa::class)->executarComo($outra->id, fn () => LancamentoContabil::create(['data_documento' => '2026-02-01', 'codigo_conta' => '6211', 'tipo_dc' => 'C', 'valor' => 250]));
-        $s = $this->sessao(['dashboard_view'], [$this->empresa->id, $outra->id]);
+        $soPainel = $this->sessao(['dashboard_view'], [$this->empresa->id, $outra->id]);
+        $this->getJson('/api/gestao/paineis/comparacao?ano=2026&mes=3', $soPainel)->assertForbidden();
+        $s = $this->sessao(['dashboard_view', 'lancamentos_view'], [$this->empresa->id, $outra->id]);
         $r = $this->getJson('/api/gestao/paineis/comparacao?ano=2026&mes=3&empresas[]='.$this->empresa->id.'&empresas[]='.$outra->id, $s)->assertOk()->json('dados');
         $quadro = collect(collect($r['tabelas'])->firstWhere('id', 'quadro_comparativo')['linhas'])->keyBy('chave');
         $this->assertSame('600.00', $quadro[(string) $this->empresa->id]['resultado']);

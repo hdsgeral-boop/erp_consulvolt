@@ -19,3 +19,15 @@ docs/dicionario/levantamento_colunas_legado.json
 # Contém valores reais do backup (ex.: contas bancárias) — regenerável, nunca publicar
 docs/dicionario/pendencias.json
 ferramentas/gerador/unicidade_resultado.json
+# Produção e operação (Fase 6): segredos, cópias de segurança e dumps nunca entram no Git
+.env.prod
+.env.*.local
+copias/
+backups/
+*.dump
+*.backup
+*.sql.gz
+*.tar.gz.enc
+SHA256SUMS
+wstb_payroll_backup_*.json
+.versoes-implantadas

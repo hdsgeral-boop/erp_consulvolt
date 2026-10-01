@@ -38,10 +38,14 @@ final class ServicoFerias
     public function resumo(int $ano): array
     {
         $periodos = PlanoFeriasColaborador::query()->where('ano', $ano)->where('estado', '<>', 'CANCELADO')->get()->groupBy('colaborador_id');
+        // Desempenho (Fase 6): o direito de todos os colaboradores numa só consulta (antes, uma por colaborador — N+1),
+        // com a mesma regra de direito(): o registo do ano com direito mais recente (atualizado_em, id), senão 22.
+        $direitos = PlanoFeriasColaborador::query()->where('ano', $ano)->whereNotNull('direito')
+            ->orderByDesc('atualizado_em')->orderByDesc('id')->get(['colaborador_id', 'direito'])->unique('colaborador_id')->pluck('direito', 'colaborador_id');
 
-        return Colaborador::query()->where('estado', 'ACTIVO')->orderBy('nome_completo')->get()->map(function ($c) use ($periodos, $ano) {
+        return Colaborador::query()->where('estado', 'ACTIVO')->orderBy('nome_completo')->get()->map(function ($c) use ($periodos, $direitos) {
             $meus = $periodos[$c->id] ?? collect();
-            $direito = $this->direito($c->id, $ano);
+            $direito = (int) ($direitos[$c->id] ?? self::DIREITO_PADRAO);
             $marcados = (int) $meus->sum('dias');
 
             return ['colaborador_id' => $c->id, 'nome' => $c->nome_completo, 'direito' => $direito, 'marcados' => $marcados,

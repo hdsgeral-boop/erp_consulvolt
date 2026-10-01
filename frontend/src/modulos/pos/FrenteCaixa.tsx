@@ -32,7 +32,9 @@ export default function FrenteCaixa() {
   const terminais = useTerminais();
   const [terminalId, setTerminalId] = useState<number | null>(() => lerTerminalGuardado(empresa?.id));
   const [verX, setVerX] = useState(false);
-  const [verZ, setVerZ] = useState(false);
+  // sessão do fecho Z em curso: guardada à parte para o resultado do fecho (n.º Z, imprimir) não desaparecer quando a
+  // lista de terminais é recarregada e a sessão deixa de estar aberta
+  const [sessaoZ, setSessaoZ] = useState<number | null>(null);
 
   const escolher = (id: number | null) => {
     setTerminalId(id);
@@ -85,7 +87,7 @@ export default function FrenteCaixa() {
               </Button>
             )}
             {accoes.fecharZ && (
-              <Button danger icon={<LockOutlined />} onClick={() => setVerZ(true)}>
+              <Button danger icon={<LockOutlined />} onClick={() => sessao && setSessaoZ(sessao.id)}>
                 Fecho Z
               </Button>
             )}
@@ -115,7 +117,7 @@ export default function FrenteCaixa() {
       )}
 
       {sessao && <RelatorioXModal sessaoId={sessao.id} aberto={verX} aoFechar={() => setVerX(false)} />}
-      {sessao && <FechoZ sessaoId={sessao.id} aberto={verZ} aoFechar={() => setVerZ(false)} />}
+      {sessaoZ !== null && <FechoZ sessaoId={sessaoZ} aberto aoFechar={() => setSessaoZ(null)} />}
     </>
   );
 }

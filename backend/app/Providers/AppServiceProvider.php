@@ -88,9 +88,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('entrar', function (Request $request) {
             $chave = mb_strtolower((string) $request->input('nome_utilizador')).'|'.$request->ip();
 
-            return Limit::perMinute(config('erp.sessao.tentativas_por_minuto'))->by($chave);
+            // Segurança (Fase 6): além do limite por utilizador e IP (ADR-007), um limite por IP impede testar muitos
+            // nomes de utilizador a partir do mesmo endereço (password spraying).
+            return [
+                Limit::perMinute(config('erp.sessao.tentativas_por_minuto'))->by($chave),
+                Limit::perMinute((int) (config('erp.sessao.tentativas_por_minuto_ip') ?? 60))->by('ip|'.$request->ip()),
+            ];
         });
 
-        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(300)->by($request->user()?->getKey() ?: $request->ip()));
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute((int) config('erp.api.pedidos_por_minuto', 300))->by($request->user()?->getKey() ?: $request->ip()));
     }
 }

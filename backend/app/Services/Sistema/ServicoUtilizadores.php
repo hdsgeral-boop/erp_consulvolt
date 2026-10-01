@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\Empresa;
 use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -42,9 +43,12 @@ final class ServicoUtilizadores
     ) {}
 
     /** @param  array<string, mixed>  $f  pesquisa, ativo, perfil_utilizador_id, empresa_id, por_pagina */
-    public function listar(array $f): LengthAwarePaginator
+    public function listar(array $f, ?Utilizador $actor = null): LengthAwarePaginator
     {
+        $dominio = $actor ? $this->dominio($actor) : null;
         $pagina = Utilizador::query()->with('perfil')
+            // Segurança (Fase 6): sem acesso total só se vêem os utilizadores com acesso a uma das empresas do actor.
+            ->when($dominio !== null, fn ($q) => $q->where(fn ($w) => $this->visiveis($w, $dominio)))
             ->when(isset($f['pesquisa']) && $f['pesquisa'] !== '', function ($q) use ($f) {
                 $termo = '%'.mb_strtolower((string) $f['pesquisa']).'%';
                 $q->where(fn ($w) => $w->whereRaw('lower(nome_utilizador) LIKE ?', [$termo])->orWhereRaw('lower(nome_completo) LIKE ?', [$termo])
@@ -58,18 +62,35 @@ final class ServicoUtilizadores
                     ->where('utilizador_empresa.empresa_id', (int) $f['empresa_id']))))
             ->orderBy('nome_utilizador')
             ->paginate(min((int) ($f['por_pagina'] ?? 50), 500));
-        $pagina->setCollection($pagina->getCollection()->map(fn (Utilizador $u) => $this->apresentar($u)));
+        $pagina->setCollection($pagina->getCollection()->map(fn (Utilizador $u) => $this->apresentar($u, $actor)));
 
         return $pagina;
     }
 
-    /** @return array<string, mixed> dados públicos (sem hashes nem segredos) */
-    public function apresentar(Utilizador $u): array
+    /**
+     * Ficha de um utilizador visível pelo actor (404 se estiver fora das empresas que o actor administra).
+     *
+     * @return array<string, mixed>
+     */
+    public function obter(int $id, Utilizador $actor): array
+    {
+        $dominio = $this->dominio($actor);
+        $u = Utilizador::query()->with('perfil')->when($dominio !== null, fn ($q) => $q->where(fn ($w) => $this->visiveis($w, $dominio)))->findOrFail($id);
+
+        return $this->apresentar($u, $actor);
+    }
+
+    /**
+     * @return array<string, mixed> dados públicos (sem hashes nem segredos); com $actor sem acesso total, as ligações
+     *                              a empresas fora do seu domínio não são mostradas
+     */
+    public function apresentar(Utilizador $u, ?Utilizador $actor = null): array
     {
         $u->loadMissing('perfil');
+        $dominio = $actor ? $this->dominio($actor) : null;
         $ligacoes = DB::table('utilizador_empresa as ue')->join('empresas as e', 'e.id', '=', 'ue.empresa_id')
             ->leftJoin('colaboradores as c', 'c.id', '=', 'ue.colaborador_id')
-            ->where('ue.utilizador_id', $u->id)->orderBy('e.nome')
+            ->where('ue.utilizador_id', $u->id)->when($dominio !== null, fn ($q) => $q->whereIn('ue.empresa_id', $dominio))->orderBy('e.nome')
             ->get(['ue.empresa_id', 'e.nome', 'e.estado', 'e.eliminado_em', 'ue.colaborador_id', 'c.nome_completo as colaborador_nome']);
 
         return [
@@ -130,7 +151,7 @@ final class ServicoUtilizadores
     {
         return DB::transaction(function () use ($u, $d, $actor) {
             $u = Utilizador::query()->lockForUpdate()->findOrFail($u->id);
-            $this->exigirGerivel($u, $actor);
+            $this->exigirGerivel($u, $actor, isset($d['palavra_passe']) && $d['palavra_passe'] !== '');   // redefinir a palavra-passe exige todas as empresas
             $antes = $this->resumoAuditoria($u);
 
             if (isset($d['nome_utilizador'])) {
@@ -269,7 +290,7 @@ final class ServicoUtilizadores
     }
 
     /** Um utilizador sem acesso total não gere contas de acesso total (Super Administrador ou perfil "all"). */
-    private function exigirGerivel(Utilizador $alvo, Utilizador $actor): void
+    private function exigirGerivel(Utilizador $alvo, Utilizador $actor, bool $todasAsEmpresas = true): void
     {
         if ($this->permissoes->total($actor)) {
             return;
@@ -277,6 +298,51 @@ final class ServicoUtilizadores
         if ($this->permissoes->total($alvo)) {
             throw new ErroNegocio('Só um administrador de acesso total pode alterar esta conta.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
         }
+        // Segurança (Fase 6): antes, um administrador da empresa A podia repor a palavra-passe, desactivar, editar ou eliminar
+        // um utilizador só da empresa B. Sem acesso total:
+        //  - editar (atualizar) exige partilhar pelo menos uma empresa — as ligações às outras empresas mantêm-se (regra existente);
+        //  - repor a palavra-passe, mudar o estado ou eliminar afecta o acesso a TODAS as empresas do alvo, por isso exige que
+        //    todas estejam no domínio do actor.
+        $dominio = $this->dominio($actor);
+        if ($dominio === null) {
+            return;
+        }
+        $ligacoes = DB::table('utilizador_empresa')->where('utilizador_id', $alvo->id);
+        $fora = $alvo->acesso_todas_empresas || ($todasAsEmpresas
+            ? (clone $ligacoes)->whereNotIn('empresa_id', $dominio)->exists()
+            : ((clone $ligacoes)->exists() && ! (clone $ligacoes)->whereIn('empresa_id', $dominio)->exists()));
+        if ($fora) {
+            throw new ErroNegocio('Este utilizador tem acesso a empresas que não administra.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
+        }
+    }
+
+    /**
+     * Empresas que o actor administra: null = todas (acesso total ou acesso a todas as empresas); senão as empresas a
+     * que está ligado (activas ou não).
+     *
+     * @return list<int>|null
+     */
+    public function dominio(Utilizador $actor): ?array
+    {
+        if ($this->permissoes->total($actor) || $actor->acesso_todas_empresas) {
+            return null;
+        }
+
+        return DB::table('utilizador_empresa')->where('utilizador_id', $actor->id)->pluck('empresa_id')->map(fn ($x) => (int) $x)->all();
+    }
+
+    /**
+     * Restrição «utilizadores visíveis num domínio»: com acesso a todas as empresas, Super Administradores ou ligados a
+     * uma das empresas do domínio.
+     *
+     * @param  Builder<Utilizador>  $q
+     * @param  list<int>  $dominio
+     */
+    private function visiveis($q, array $dominio): void
+    {
+        $q->where('acesso_todas_empresas', true)->orWhere('papel', Utilizador::PAPEL_SUPER_ADMINISTRADOR)
+            ->orWhereExists(fn ($e) => $e->selectRaw('1')->from('utilizador_empresa')->whereColumn('utilizador_empresa.utilizador_id', 'utilizadores.id')
+                ->whereIn('utilizador_empresa.empresa_id', $dominio));
     }
 
     private function exigirOutroSuperAdministrador(Utilizador $u, string $operacao): void

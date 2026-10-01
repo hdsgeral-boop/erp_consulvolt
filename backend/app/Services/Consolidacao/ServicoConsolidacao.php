@@ -350,7 +350,7 @@ final class ServicoConsolidacao
      */
     public function mapa(int $grupoId, array $f): array
     {
-        $grupo = $this->grupos->grupo($grupoId);
+        $grupo = $this->grupos->grupo($grupoId, true);   // Segurança (Fase 6): o mapa mostra uma coluna por empresa-membro
         $execucao = $grupo->ultima_execucao_id ? $this->contexto->semIsolamento(fn () => ExecucaoConsolidacao::query()->find($grupo->ultima_execucao_id)) : null;
         if (! $execucao) {
             throw new ErroNegocio('Consolide a holding antes de gerar o Mapa de Consolidação.', 'SEM_CONSOLIDACAO', 422);

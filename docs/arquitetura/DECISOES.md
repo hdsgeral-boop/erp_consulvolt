@@ -1824,3 +1824,82 @@ Três agentes em paralelo, cada um no backend e nos ecrãs dos seus módulos. As
 - `GET /rh/avaliacao/avaliacoes/{id}/resultado-360` grava `nota_360` ao ser lido (é um GET com efeitos);
 - os valores dentro dos detalhes dos erros de controlo orçamental continuam numéricos;
 - **promoção feita a seguir:** `src/utilitarios/decimal.ts` (somas exactas em cêntimos), `src/utilitarios/csv.ts`, `src/componentes/Accoes.tsx` (`useAccao`, `ModalMotivo`) e `src/componentes/graficos/` (gráficos SVG acessíveis). As importações foram reescritas por script (só linhas de import) e o resultado foi validado por `tsc`, pelos 224 testes e pelo build. Os componentes ligados a um domínio (pagamentos do POS, seletores de compras e contabilidade, Gantt, grelha mensal) ficam nos módulos, importáveis por outros.
+
+## ADR-065 — Fase 6: testes ponta-a-ponta, segurança e desempenho, produção e integração contínua
+
+Três agentes em paralelo (E2E, auditoria, produção), em pastas exclusivas; o coordenador integrou as alterações partilhadas. A base de desenvolvimento com os dados reais (`erp_consulvolt`) só foi lida: medições dentro de transacções desfeitas, restauro numa base temporária apagada a seguir.
+
+### Testes ponta-a-ponta
+
+**Ambiente isolado** (`docker-compose.e2e.yml`):
+- `app_e2e`: mesma imagem e código, base `erp_consulvolt_e2e`, Redis nas bases lógicas 2/3 com prefixos próprios, filas síncronas, AGT desligada e limites de pedidos altos;
+- `web_e2e`: nginx em 127.0.0.1:8081 com o mesmo `frontend/dist`.
+
+**Dados fictícios.** `erp:e2e:preparar` recusa qualquer base cujo nome não termine em `_e2e` (o seeder repete a protecção), faz `migrate:fresh` e carrega `database/seeders/E2E`: duas empresas de demonstração, cinco utilizadores com perfis distintos, plano de contas mínimo, configurações contabilísticas dos módulos, stock, POS e RH. NIF fictícios (5999…). O Playwright recria a base antes de cada execução.
+
+**Cobertura** (Playwright, Chromium, em série — 145 testes):
+- autenticação, empresa activa e menu por permissões (o perfil de vendas não vê nem acede aos outros módulos);
+- Vendas: FT, FR, NC parcial e contabilização;
+- POS: sessão, pagamento misto com troco, X, Z sem desvio e integração;
+- Compras: ciclo completo com deliberação por outro utilizador, recepção em stock, factura e contabilização;
+- Contabilidade: lançamento manual (gravar bloqueado enquanto desequilibrado), balancete e mapas;
+- RH: período, importação dos contratos, cálculo (INSS, IRT, líquido) e mapas;
+- Configurações: perfil com conflito de segregação (aviso + confirmação no servidor) e utilizador novo;
+- navegação: o menu da API coincide com o catálogo e os 116 ecrãs abrem sem «Sem acesso», notificações de erro, erros na consola, excepções ou respostas 4xx/5xx.
+
+Os testes chamam-se `*.e2e.ts` (separados do Vitest) e correm com `npm run e2e`; relatório e traces fora do Git.
+
+**Defeitos corrigidos:** o resultado do fecho Z desaparecia quando a lista de terminais recarregava (o modal passa a guardar a sessão do fecho e só fecha com «Concluir»); os selectores contabilísticos descartavam o `id` do `Form.Item` (rótulos não ligados aos campos).
+
+### Segurança e desempenho
+
+**Âmbito.** ~766 rotas revistas: autenticação, `exigir`, isolamento entre empresas (~490 consultas brutas), atribuição em massa, SQL dinâmico, uploads, descargas, dados sensíveis e limites de entrada. Não há fugas entre empresas no SQL nem injecção; as 21 regras `exists` filtram a empresa; o cubo usa lista branca e bind; o frontend não tem pontos de XSS e a impressão escapa os campos.
+
+**Domínio do administrador** (os riscos reais estavam nas tabelas globais). Um administrador sem acesso total gere só o seu domínio — as empresas a que está ligado:
+- editar um utilizador exige partilhar uma empresa (as ligações às restantes mantêm-se, ADR-058);
+- repor a palavra-passe, mudar o estado ou eliminar exigem todas as empresas do alvo;
+- contas com acesso a todas as empresas e perfis usados fora do domínio (ou o próprio perfil) ficam reservados a quem tem acesso total;
+- a lista e a ficha de utilizadores mostram só o domínio.
+
+**Outras correcções:**
+- eliminar contrato exige `contratos_terminate` (o botão no frontend também);
+- o mapa de consolidação exige acesso a todas as empresas-membro;
+- a comparação de empresas exige as vistas do painel de Contabilidade (o separador só aparece a quem as tem);
+- a Manutenção de dados recusa (403 `EMPRESA_SEM_ACESSO`) impacto, pedido, decisão e execução sobre uma empresa a que o actor não tem acesso;
+- pedir um excesso orçamental exige uma tarefa de quem grava documentos com controlo orçamental (pedidos, encomendas, facturas de compra, tesouraria, lançamentos) ou `orc_alertas_view`; o pedido pendente de outro utilizador já não é reescrito;
+- login com limite também por IP (`ERP_SESSAO_TENTATIVAS_POR_MINUTO_IP`, 60/min) e limite geral da API activo (`throttleApi`, `ERP_API_PEDIDOS_POR_MINUTO`, 300/min por utilizador);
+- arrays de entrada com `max`; o cubo recusa medidas desconhecidas com 422 e limita filtros.
+
+**Desempenho.** Rotas GET medidas nas empresas com mais dados, com contagem de consultas e EXPLAIN: quase todas abaixo de 300 ms; as 46 validações em menos de 400 ms nas 14 empresas. Correcções, com resultado provado igual sobre os dados reais e teste (`DesempenhoTest`):
+- meses de amortização por calcular deixam de percorrer meses sem quota possível — fluxo do imobilizado de 1,0–1,6 s para ~0,2 s;
+- resumo de férias sem N+1 — de 38 para 4 consultas;
+- mapa de IVA deixa de ler o histórico anterior ao período.
+
+Os índices existentes cobrem as consultas medidas; não se acrescentou nenhum.
+
+### Produção e integração contínua
+
+**Imagens.** Um único `docker/php/Dockerfile.prod` multi-stage gera, do mesmo commit, `app` (PHP 8.3-FPM sem dependências de desenvolvimento, `route:cache`/`event:cache` no build, OPcache sem revalidação, `www-data`), `web` (nginx-unprivileged com o `frontend/dist`) e `copias` (pg_dump 16 + openssl). O `config:cache` corre no arranque e não no build, para nenhum segredo ficar numa camada. O estágio de dependências usa o caminho final (`/var/www/html`), porque a cache de rotas guarda caminhos absolutos.
+
+**Orquestração** (`docker-compose.prod.yml`): PostgreSQL e Redis sem portas publicadas, Redis com palavra-passe, nginx só em 127.0.0.1 atrás do proxy HTTPS; FS só de leitura, `cap_drop: ALL`, `no-new-privileges` e `init: true` (sem tini o `schedule:work` ignora o SIGTERM e pode prender o mutex do ciclo AGT); logs JSON com rotação; `REDIS_QUEUE_RETRY_AFTER=660` acima do `--timeout=600` do worker.
+
+**nginx.** CSP sem `unsafe-eval` (só o hash do `onclick="window.print()"` da reimpressão POS; `style-src 'unsafe-inline'` para o Ant Design), validada num Chromium em 101 ecrãs com 0 violações; HSTS quando o proxy indica HTTPS; IP real por `X-Forwarded-For` de redes privadas; `limit_req` no login; pedidos até 25 MB (100 MB só em `/api/sistema/copias`); activos com hash em cache 1 ano.
+
+**Saúde.** `GET /api/saude` verifica PostgreSQL, Redis, filas e armazenamento, devolve a versão da imagem e responde 503 se algum componente falhar.
+
+**Cópias.** `backup.sh` (pg_dump verificado, storage, chaves AGT cifradas, `SHA256SUMS`, rotação 7/4/12 agendada); `restaurar.sh` só cria bases novas, verifica as somas e pede confirmação. Restauro testado com a base real: 178 tabelas e 318 141 linhas idênticas, mesmo MD5 do diário.
+
+**Migração definitiva** (`docs/PRODUCAO.md` §13): congelar o legado e registar o SHA-256 do backup final; cópia, simulação e `erp:migrar-backup-legado --substituir --force` com worker e scheduler parados; conferências e critérios de aceitação; retorno só possível até ao go.
+
+**CI** (`.github/workflows/ci.yml`, só dados fictícios): backend (PostgreSQL 16, Redis 7, Pint, PHPUnit), frontend (Node 22, tsc, Vitest, build) e produção (ShellCheck, `compose config`, build das imagens sem publicação).
+
+### Verificação
+- backend: 317 testes PHPUnit; frontend: 224 testes Vitest, `tsc` e build; E2E: 145 testes Playwright com o limite da API activo.
+
+### Fica registado
+- `config_manutencao_view` continua a bastar para pedir acções de manutenção (mitigado: administrador, palavra-passe e decisor diferente); uma chave própria exigiria rever os perfis migrados;
+- validar uma recepção de compras gera lançamentos sem verificar `compras_rec_contabilizar` (confirmar com o legado);
+- o papel ADMINISTRADOR deriva do nome do perfil conter «admin» (paridade);
+- `GET /api/saude` é público e indica o estado dos componentes (sem mensagens internas);
+- aspecto: o POS mostra o nome de utilizador do operador; a factura de compra mostra o id da encomenda em vez do número;
+- por decidir pelo utilizador: servidor, domínio e HTTPS, SMTP, destino externo das cópias e guarda das chaves, data do dia D.

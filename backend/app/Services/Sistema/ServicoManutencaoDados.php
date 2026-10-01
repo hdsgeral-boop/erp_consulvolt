@@ -159,6 +159,9 @@ final class ServicoManutencaoDados
     {
         $this->definicao($acao);
         $this->validarParametros($acao, $parametros);
+        /** @var Utilizador $actor */
+        $actor = auth()->user();
+        $this->exigirAcessoEmpresas($acao, $parametros, $actor);
 
         return $this->calcularImpacto($acao, $parametros, $this->contexto->obrigatorio());
     }
@@ -169,6 +172,7 @@ final class ServicoManutencaoDados
         $def = $this->definicao($d['acao']);
         $parametros = $d['parametros'] ?? [];
         $this->validarParametros($d['acao'], $parametros);
+        $this->exigirAcessoEmpresas($d['acao'], $parametros, $actor);
         $justificacao = trim((string) $d['justificacao']);
         if (mb_strlen($justificacao) < 20) {
             throw new ErroNegocio('Escreva uma justificação com pelo menos 20 caracteres.', 'JUSTIFICACAO_CURTA', 422);
@@ -236,6 +240,7 @@ final class ServicoManutencaoDados
             if ($imp['bloqueio']) {
                 throw new ErroNegocio("Execução bloqueada: {$imp['bloqueio']}", 'ACAO_BLOQUEADA', 422, ['impacto' => $imp]);
             }
+            $this->exigirAcessoEmpresas($p->acao, $this->json($p->parametros), $actor);
             $execucao = $this->executarAcao($p);
             $p->update(['estado' => 'EXECUTADO', 'executado_por' => $this->compacto($this->quem($actor)), 'executado_em' => now(),
                 'impacto_na_execucao' => $this->compacto($imp['linhas']), 'resultado' => mb_substr($execucao['resultado'], 0, 255),
@@ -337,6 +342,22 @@ final class ServicoManutencaoDados
         }
         if ($p->ambito === 'empresa' && ! $this->empresas->podeAceder($actor, (int) $p->empresa_id)) {
             throw new ErroNegocio('Não tem acesso à empresa deste pedido.', 'EMPRESA_SEM_ACESSO', 403);
+        }
+        $this->exigirAcessoEmpresas($p->acao, $this->json($p->parametros), $actor);
+    }
+
+    /**
+     * Parâmetros do tipo «empresa» (ex.: ELIMINAR_EMPRESA) só podem apontar para empresas a que o actor tem acesso.
+     *
+     * @param  array<string, mixed>  $parametros
+     */
+    private function exigirAcessoEmpresas(string $acao, array $parametros, Utilizador $actor): void
+    {
+        foreach (self::ACOES[$acao]['parametros'] ?? [] as $def) {
+            $v = $parametros[$def['id']] ?? null;
+            if ($def['tipo'] === 'empresa' && is_numeric($v) && ! $this->empresas->podeAceder($actor, (int) $v)) {
+                throw new ErroNegocio('Não tem acesso à empresa indicada.', 'EMPRESA_SEM_ACESSO', 403);
+            }
         }
     }
 

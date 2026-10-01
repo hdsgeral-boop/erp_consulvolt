@@ -24,14 +24,14 @@ final class UtilizadorController extends Controller
         $f = $r->validate(['pesquisa' => ['nullable', 'string', 'max:100'], 'ativo' => ['nullable', 'boolean'], 'perfil_utilizador_id' => ['nullable', 'integer'],
             'empresa_id' => ['nullable', 'integer'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500']]);
 
-        return RespostaApi::paginado($this->utilizadores->listar($f), null, 'Utilizadores obtidos com sucesso.');
+        return RespostaApi::paginado($this->utilizadores->listar($f, $r->user()), null, 'Utilizadores obtidos com sucesso.');
     }
 
-    public function show(int $utilizador): JsonResponse
+    public function show(Request $r, int $utilizador): JsonResponse
     {
         $this->exigir(...self::VER);
 
-        return RespostaApi::sucesso($this->utilizadores->apresentar(Utilizador::query()->with('perfil')->findOrFail($utilizador)), 'Utilizador obtido com sucesso.');
+        return RespostaApi::sucesso($this->utilizadores->obter($utilizador, $r->user()), 'Utilizador obtido com sucesso.');
     }
 
     public function store(Request $r): JsonResponse
@@ -39,7 +39,7 @@ final class UtilizadorController extends Controller
         $this->exigir('config_util_gerir');
         $u = $this->utilizadores->criar($this->validar($r, true), $r->user());
 
-        return RespostaApi::criado($this->utilizadores->apresentar($u->load('perfil')), 'Utilizador criado com sucesso.');
+        return RespostaApi::criado($this->utilizadores->apresentar($u->load('perfil'), $r->user()), 'Utilizador criado com sucesso.');
     }
 
     public function update(Request $r, int $utilizador): JsonResponse
@@ -47,7 +47,7 @@ final class UtilizadorController extends Controller
         $this->exigir('config_util_gerir');
         $u = $this->utilizadores->atualizar(Utilizador::query()->findOrFail($utilizador), $this->validar($r, false), $r->user());
 
-        return RespostaApi::sucesso($this->utilizadores->apresentar($u->load('perfil')), 'Utilizador actualizado com sucesso.');
+        return RespostaApi::sucesso($this->utilizadores->apresentar($u->load('perfil'), $r->user()), 'Utilizador actualizado com sucesso.');
     }
 
     public function estado(Request $r, int $utilizador): JsonResponse
@@ -56,7 +56,7 @@ final class UtilizadorController extends Controller
         $d = $r->validate(['ativo' => ['required', 'boolean']]);
         $u = $this->utilizadores->definirEstado(Utilizador::query()->findOrFail($utilizador), (bool) $d['ativo'], $r->user());
 
-        return RespostaApi::sucesso($this->utilizadores->apresentar($u->load('perfil')), $d['ativo'] ? 'Utilizador activado.' : 'Utilizador desactivado.');
+        return RespostaApi::sucesso($this->utilizadores->apresentar($u->load('perfil'), $r->user()), $d['ativo'] ? 'Utilizador activado.' : 'Utilizador desactivado.');
     }
 
     public function reporPalavraPasse(Request $r, int $utilizador): JsonResponse

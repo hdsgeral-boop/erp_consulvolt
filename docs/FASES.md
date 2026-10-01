@@ -132,7 +132,7 @@ Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints d
 3. **Descontabilizar**: **estorno com rasto** em vez de apagar linhas — ADR-016.
 4. **Regras salariais implícitas**: corrigir só o que está errado, mantendo as isenções que existem. A isenção de 30 000 Kz passa a depender da marcação `irt = conditional_30k` do infotipo e não do nome — ADR-017.
 
-### Fase 5 — Frontend React (em curso)
+### Fase 5 — Frontend React ✅
 
 | Parte | Estado | Conteúdo |
 | :--- | :---: | :--- |
@@ -141,3 +141,12 @@ Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints d
 | **Ronda 2** | ✅ | 54 ecrãs: POS, Activos, Projectos, Acréscimos, Orçamento, CRM, Estrutura, Configurações, painéis/relatórios/fluxos/BI; os 116 ecrãs do catálogo registados; 207 testes Vitest — ADR-063 |
 | **Afinação** | ✅ | Paginação uniforme, nomes nas respostas, filtros e endpoints em falta, portal com avaliação do próprio, importação .xlsx no servidor, descargas seguras — ADR-064 |
 | **Componentes comuns** | ✅ | `src/utilitarios/{decimal,csv}`, `src/componentes/Accoes` (useAccao, ModalMotivo), `src/componentes/graficos` (gráficos SVG) — usados por todos os módulos; os específicos de domínio (pagamentos POS, seletores, Gantt, grelha mensal) ficam nos módulos |
+
+### Fase 6 — Testes ponta-a-ponta, segurança e produção ✅
+
+| Parte | Estado | Conteúdo |
+| :--- | :---: | :--- |
+| **Testes ponta-a-ponta** | ✅ | Playwright em ambiente isolado (`docker-compose.e2e.yml`, base `_e2e` com dados fictícios): 145 testes — autenticação, Vendas, POS, Compras, Contabilidade, RH, Configurações e os 116 ecrãs do menu |
+| **Segurança e desempenho** | ✅ | Domínio do administrador nos utilizadores e perfis, limites de pedidos e de login, permissões afinadas; amortizações, férias e IVA mais rápidos com resultados iguais |
+| **Produção e CI** | ✅ | Imagens de produção, compose endurecido, CSP, cópias e restauro testados, deploy com rollback, GitHub Actions, runbook com o plano da migração definitiva (`docs/PRODUCAO.md`) — ADR-065 |
+| **Migração definitiva** | ⏳ | Depende das decisões do utilizador: servidor, domínio/HTTPS, SMTP, destino das cópias e data do dia D |
