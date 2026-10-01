@@ -3,7 +3,7 @@ import { DeleteOutlined, EditOutlined, FlagOutlined, PlusOutlined } from '@ant-d
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { BarraExecucao, EtiquetaProjectos, ModalEliminar, SeletorMembro, SeletorTarefa, useEquipa, useWbs } from '../comum/componentes';

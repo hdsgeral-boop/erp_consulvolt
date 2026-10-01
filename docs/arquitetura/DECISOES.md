@@ -1823,4 +1823,4 @@ Três agentes em paralelo, cada um no backend e nos ecrãs dos seus módulos. As
 **Fica registado:**
 - `GET /rh/avaliacao/avaliacoes/{id}/resultado-360` grava `nota_360` ao ser lido (é um GET com efeitos);
 - os valores dentro dos detalhes dos erros de controlo orçamental continuam numéricos;
-- a promoção para `src/componentes` dos componentes repetidos entre módulos é o passo seguinte.
+- **promoção feita a seguir:** `src/utilitarios/decimal.ts` (somas exactas em cêntimos), `src/utilitarios/csv.ts`, `src/componentes/Accoes.tsx` (`useAccao`, `ModalMotivo`) e `src/componentes/graficos/` (gráficos SVG acessíveis). As importações foram reescritas por script (só linhas de import) e o resultado foi validado por `tsc`, pelos 224 testes e pelo build. Os componentes ligados a um domínio (pagamentos do POS, seletores de compras e contabilidade, Gantt, grelha mensal) ficam nos módulos, importáveis por outros.

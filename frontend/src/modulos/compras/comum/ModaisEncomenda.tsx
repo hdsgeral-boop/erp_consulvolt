@@ -2,7 +2,7 @@ import { Alert, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Table, Ty
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect } from 'react';
 import { dataApi, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from './accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { numero, pendente } from './calculos';
 import { NomeProduto, useMapaProdutos } from './referencias';
 import { numeroOuId, type EncomendaCompra, type FaturaCompra, type ItemCompra, type RececaoCompra } from './tipos';

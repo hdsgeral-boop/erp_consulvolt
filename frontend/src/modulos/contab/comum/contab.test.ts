@@ -1,7 +1,7 @@
 import { rotuloTerceiro } from './terceiro';
 import type { Balanco, DemonstracaoResultados, EstadoExercicio, ValidacaoExercicio } from '../api';
-import { gerarCsv } from './csv';
-import { deCentimos, equilibrio, paraCentimos, somar, somarColunas } from './decimal';
+import { gerarCsv } from '@/utilitarios/csv';
+import { deCentimos, equilibrio, paraCentimos, somar, somarColunas } from '@/utilitarios/decimal';
 import { linhasBalanco, linhasDR } from './demonstracoes';
 import { alteracoes, corpoGravacao, grelhaRubricas } from './mapeamento';
 import { accoesEncerramento, accoesLancamento, accoesRelatorioContas } from './regras';

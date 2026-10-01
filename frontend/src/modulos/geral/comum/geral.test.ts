@@ -1,4 +1,4 @@
-import { caminhoSector, corSerie, eixoValores, escalaLinear, fatiasDonut, formatarCompacto, paraNumero, passoRedondo } from './escalas';
+import { caminhoSector, corSerie, eixoValores, escalaLinear, fatiasDonut, formatarCompacto, paraNumero, passoRedondo } from '@/componentes/graficos/escalas';
 import { construirPivot, moverDimensao, pivotParaCsv, rotuloChave, seriesPivot, type ResultadoCubo } from './pivot';
 import { formatarPorFormato } from './componentes';
 

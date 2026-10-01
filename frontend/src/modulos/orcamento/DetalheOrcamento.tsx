@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
-import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
 import { dataApi, formatarData, formatarDataHora } from '@/utilitarios/formatacao';
 import { EtiquetaOrc, Kz, rotuloOrc, useRubricas } from './comum/componentes';

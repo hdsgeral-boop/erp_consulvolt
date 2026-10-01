@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { obterPagina } from '@/api/cliente';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { FichaProjecto, Projecto } from './comum/tipos';
 

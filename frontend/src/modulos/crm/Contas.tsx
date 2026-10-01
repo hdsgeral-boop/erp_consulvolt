@@ -8,7 +8,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { SeletorConta } from '@/modulos/contab/comum/Seletores';
 import { CHAVE_CRM, useConfigCRM } from './comum/dados';

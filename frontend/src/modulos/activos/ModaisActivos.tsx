@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { SeletorActivo, SeletorCategoria, SeletorProjecto } from './comum/componentes';

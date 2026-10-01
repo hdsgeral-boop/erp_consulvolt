@@ -2,7 +2,7 @@ import { Alert, Card, Checkbox, Form } from 'antd';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { FluxoCaixa } from '../api';
-import { eZero } from '../comum/decimal';
+import { eZero } from '@/utilitarios/decimal';
 import { TabelaDemonstracao } from '../comum/Demonstracao';
 import { linhasFluxo } from '../comum/demonstracoes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';

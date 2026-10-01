@@ -9,7 +9,7 @@ import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
 import { EstadoPOS, opcoesEstadoPOS } from './comum/estados';

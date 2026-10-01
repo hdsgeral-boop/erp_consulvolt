@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 import { useEffect } from 'react';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorCategoria, useCategorias } from './comum/componentes';
 import type { Activo } from './comum/tipos';

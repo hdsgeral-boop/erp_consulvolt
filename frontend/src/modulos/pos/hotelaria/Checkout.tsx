@@ -4,7 +4,7 @@ import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { formatarCentimos, liquidarTroco, pagamentosParaApi, paraCentimos, ratearPagamentos, resumirPagamentos, type Pagamento } from '../comum/calculos';
 import { meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';

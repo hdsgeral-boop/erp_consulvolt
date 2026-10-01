@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from './comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { EstadoTag } from './comum/estados';
 import { contemTexto } from './comum/lista';
 import { numeroOuId, type EncomendaCliente, type LinhaEncomendaCliente, type PedidoCompra } from './comum/tipos';

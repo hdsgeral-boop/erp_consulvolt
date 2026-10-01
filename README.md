@@ -70,7 +70,7 @@ npm run build                # verifica tipos e gera frontend/dist (servido pelo
 npm run testes               # Vitest
 ```
 
-Estrutura: `src/api` (cliente HTTP: token Bearer, `X-Empresa-Id`, envelope e erros), `src/sessao` (entrar, empresa activa, permissões, inactividade), `src/layout` (menu de `GET /api/sistema/menu`), `src/componentes` (tabela paginada da API, cabeçalho), `src/modulos/<módulo>` (ecrãs registados em `src/modulos/registo.tsx` pelo id do ecrã do catálogo de permissões; rota `/m/{modulo}/{ecra}`).
+Estrutura: `src/api` (cliente HTTP: token Bearer, `X-Empresa-Id`, envelope e erros), `src/sessao` (entrar, empresa activa, permissões, inactividade), `src/layout` (menu de `GET /api/sistema/menu`), `src/componentes` (tabela paginada da API, cabeçalho, `Accoes` — acções com mensagem e motivo —, `graficos` SVG), `src/utilitarios` (formatação, erros, `decimal` em cêntimos, `csv`), `src/modulos/<módulo>` (ecrãs registados em `src/modulos/registo.tsx` pelo id do ecrã do catálogo de permissões; rota `/m/{modulo}/{ecra}`).
 
 ## Migração do backup legado
 

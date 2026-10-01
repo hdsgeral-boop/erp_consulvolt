@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { CHAVE_CRM, useConfigCRM, useFunis, useModelosEmail } from './comum/dados';
 import { marcadoresDesconhecidos, validarFunil, type Etapa, type Funil, type ModeloEmail, type Sequencia } from './comum/tipos';
 

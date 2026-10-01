@@ -9,7 +9,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, ValorKz } from './comum/Componentes';
-import { eZero } from './comum/decimal';
+import { eZero } from '@/utilitarios/decimal';
 import { MovimentosSemNota } from './comum/Demonstracao';
 import { useAbrirLancamento } from './comum/useMapa';
 

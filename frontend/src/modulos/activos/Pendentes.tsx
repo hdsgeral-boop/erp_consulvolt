@@ -7,7 +7,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaActivos, SeletorCategoria, useCategorias } from './comum/componentes';
 import { repartirValor, validarInventariacao } from './comum/regras';

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { avaliarFecho, contagensParaApi, DENOMINACOES, deCentimos, formatarCentimos, totalContagem } from '../comum/calculos';
 import { useDefinicoesPOS } from '../comum/dados';
 import { TabelaMeios } from '../comum/DetalheSessao';

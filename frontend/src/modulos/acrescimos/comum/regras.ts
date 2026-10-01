@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { deCentimos, paraCentimos, type Valor } from '@/modulos/contab/comum/decimal';
+import { deCentimos, paraCentimos, type Valor } from '@/utilitarios/decimal';
 import type { Definicoes, ItemAD, LinhaProposta, NaturezaAD, TipoAD } from './tipos';
 
 /** Regras de apresentação dos Acréscimos e Diferimentos (o servidor valida e calcula sempre). */

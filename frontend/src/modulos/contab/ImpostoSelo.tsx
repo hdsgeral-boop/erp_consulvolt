@@ -8,7 +8,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from './comum/Componentes';
-import { eZero } from './comum/decimal';
+import { eZero } from '@/utilitarios/decimal';
 
 interface ResumoSelo {
   mes: number;

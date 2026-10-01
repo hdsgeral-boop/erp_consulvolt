@@ -9,7 +9,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { EstadoTag, opcoesEstado } from '@/modulos/compras/comum/estados';
 import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/LinhasProdutos';
 import { NomeArmazem, NomeProduto, NomeTerceiro } from '@/modulos/compras/comum/referencias';

@@ -10,7 +10,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from '../contab/comum/Componentes';
-import { deCentimos, paraCentimos } from '../contab/comum/decimal';
+import { deCentimos, paraCentimos } from '@/utilitarios/decimal';
 import { SeletorAux, SeletorConta, SeletorTerceiro, SeletorUnidade } from '../contab/comum/Seletores';
 import type { MovimentoCaixa, SessaoCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';

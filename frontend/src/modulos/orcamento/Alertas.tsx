@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaOrc, Kz } from './comum/componentes';
 import { corMonitor, MESES } from './comum/regras';

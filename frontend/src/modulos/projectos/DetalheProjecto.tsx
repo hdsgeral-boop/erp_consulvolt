@@ -6,7 +6,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { BarraExecucao, EtiquetaProjectos } from './comum/componentes';
 import { accoesProjecto } from './comum/regras';
 import type { FichaProjecto } from './comum/tipos';

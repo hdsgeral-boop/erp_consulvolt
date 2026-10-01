@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorActivo } from '@/modulos/activos/comum/componentes';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos, SeletorMembro, SeletorTarefa } from '../comum/componentes';

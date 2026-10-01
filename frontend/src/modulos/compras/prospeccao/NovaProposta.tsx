@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from '../comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { totaisLinhas } from '../comum/calculos';
 import { NomeProduto, useMapaProdutos } from '../comum/referencias';
 import { SeletorTerceiro } from '../comum/Seletores';

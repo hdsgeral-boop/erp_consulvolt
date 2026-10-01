@@ -3,7 +3,7 @@ import { DeleteOutlined, MoreOutlined, PlusOutlined, SettingOutlined } from '@an
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarData } from '@/utilitarios/formatacao';
 import { BarraExecucao } from '../comum/componentes';
 import { tarefaAtrasada } from '../comum/regras';

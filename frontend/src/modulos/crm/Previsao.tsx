@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { dataApi, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { GraficoBarras, GraficoDonut } from '@/modulos/geral/comum/Graficos';
+import { GraficoBarras, GraficoDonut } from '@/componentes/graficos/Graficos';
 import { CartaoKpi } from '@/modulos/geral/comum/componentes';
 import { useFunis } from './comum/dados';
 

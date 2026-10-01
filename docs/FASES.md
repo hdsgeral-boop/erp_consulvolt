@@ -140,4 +140,4 @@ Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints d
 | **Ronda 1** | ✅ | 65 ecrãs: Vendas, Compras, Armazém/Inventário, Contabilidade, Tesouraria, RH e Salários; 90 testes Vitest — ADR-062 |
 | **Ronda 2** | ✅ | 54 ecrãs: POS, Activos, Projectos, Acréscimos, Orçamento, CRM, Estrutura, Configurações, painéis/relatórios/fluxos/BI; os 116 ecrãs do catálogo registados; 207 testes Vitest — ADR-063 |
 | **Afinação** | ✅ | Paginação uniforme, nomes nas respostas, filtros e endpoints em falta, portal com avaliação do próprio, importação .xlsx no servidor, descargas seguras — ADR-064 |
-| Componentes comuns | ⏳ | Promoção para `src/componentes` dos componentes repetidos entre módulos |
+| **Componentes comuns** | ✅ | `src/utilitarios/{decimal,csv}`, `src/componentes/Accoes` (useAccao, ModalMotivo), `src/componentes/graficos` (gráficos SVG) — usados por todos os módulos; os específicos de domínio (pagamentos POS, seletores, Gantt, grelha mensal) ficam nos módulos |

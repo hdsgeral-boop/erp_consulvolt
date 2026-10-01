@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '../comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { totaisLinhas } from '../comum/calculos';
 import { LinhasProdutos, type LinhaProdutoForm } from '../comum/LinhasProdutos';
 import type { PedidoCompra } from '../comum/tipos';

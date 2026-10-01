@@ -9,7 +9,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorDiario } from '@/modulos/contab/comum/Seletores';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarData } from '@/utilitarios/formatacao';
 import { EtiquetaAD, useDefinicoes } from './comum/componentes';
 import type { ItemAD } from './comum/tipos';

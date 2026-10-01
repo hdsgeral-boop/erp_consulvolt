@@ -2,7 +2,7 @@ import { Col, DatePicker, Form, Input, InputNumber, Modal, Progress, Row } from 
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect } from 'react';
 import { dataApi } from '@/utilitarios/formatacao';
-import { useAccao } from '../comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorTerceiro } from '../comum/Seletores';
 import type { ContratoCompra } from '../comum/tipos';
 

@@ -8,7 +8,7 @@ import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { ModalMotivo, useAccao } from '../comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { EstadoTag } from '../comum/estados';
 import { NomeTerceiro } from '../comum/referencias';
 import { accoesContrato } from '../comum/regras';

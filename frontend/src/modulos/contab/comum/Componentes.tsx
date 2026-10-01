@@ -1,8 +1,8 @@
 import { Button, Flex, Statistic, Tag, Typography } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { descarregarCsv, gerarCsv, type ColunaCsv } from './csv';
-import { eZero, equilibrio, negativo, type LinhaDC, type Valor } from './decimal';
+import { descarregarCsv, gerarCsv, type ColunaCsv } from '@/utilitarios/csv';
+import { eZero, equilibrio, negativo, type LinhaDC, type Valor } from '@/utilitarios/decimal';
 
 /** Valor em Kz alinhado à direita; negativos a vermelho; zeros discretos (opcional). */
 export function ValorKz({ valor, forte, discretoSeZero }: { valor: Valor; forte?: boolean; discretoSeZero?: boolean }) {

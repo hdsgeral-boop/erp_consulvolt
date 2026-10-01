@@ -9,7 +9,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
-import { GraficoAuto, type GraficoApi } from './comum/Graficos';
+import { GraficoAuto, type GraficoApi } from '@/componentes/graficos/Graficos';
 import { CartaoKpi, TabelaGestao, useRotaDaVista, type TabelaApiGestao } from './comum/componentes';
 import { AnaliseDinamica } from './comum/AnaliseDinamica';
 import type { ConjuntoCubo } from './comum/pivot';

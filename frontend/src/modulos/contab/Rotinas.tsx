@@ -8,7 +8,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from './comum/Componentes';
-import { somar } from './comum/decimal';
+import { somar } from '@/utilitarios/decimal';
 import { lerLinhasActualizacao } from './comum/rotinas';
 import { SeletorAux, SeletorConta, SeletorDiario } from './comum/Seletores';
 

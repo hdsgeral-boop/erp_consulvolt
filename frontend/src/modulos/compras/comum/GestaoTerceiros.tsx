@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from './accoes';
+import { useAccao } from '@/componentes/Accoes';
 import type { FichaTerceiro } from './referencias';
 import { SeletorConta } from './Seletores';
 

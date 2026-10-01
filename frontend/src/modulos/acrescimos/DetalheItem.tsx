@@ -8,7 +8,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaAD } from './comum/componentes';
 import { accoesItem } from './comum/regras';

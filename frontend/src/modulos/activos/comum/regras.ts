@@ -1,4 +1,4 @@
-import { deCentimos, paraCentimos, type Valor } from '@/modulos/contab/comum/decimal';
+import { deCentimos, paraCentimos, type Valor } from '@/utilitarios/decimal';
 import type { Activo, EstadoPeriodo, LinhaImportacao, LinhaMapa, LinhaPeriodo } from './tipos';
 
 /** Regras de apresentação do módulo Activos (o servidor valida sempre; aqui decide-se só o que se mostra). */

@@ -5,7 +5,7 @@ import { enviar } from '@/api/cliente';
 import { SeletorTerceiro } from '@/modulos/contab/comum/Seletores';
 import { IndicadorEquilibrio, ValorKz } from '@/modulos/contab/comum/Componentes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorActivo } from './comum/componentes';

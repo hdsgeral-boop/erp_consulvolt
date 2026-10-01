@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { descarregarCsv, gerarCsv } from '@/modulos/contab/comum/csv';
+import { descarregarCsv, gerarCsv } from '@/utilitarios/csv';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
 import { EstadoPOS } from './comum/estados';
 import { SeletorTerminal } from './comum/Filtros';

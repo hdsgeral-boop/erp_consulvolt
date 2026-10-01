@@ -9,7 +9,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
 import type { DocumentoLancamento } from '../api';
 import { IndicadorEquilibrio } from '../comum/Componentes';
-import { equilibrio } from '../comum/decimal';
+import { equilibrio } from '@/utilitarios/decimal';
 import { EditorLinhasDC, linhasParaApi, type LinhaEditor } from '../comum/EditorLinhasDC';
 import { SeletorDiario } from '../comum/Seletores';
 import { rotuloTerceiro } from '../comum/terceiro';

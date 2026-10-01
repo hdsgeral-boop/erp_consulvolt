@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorProduto } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { dataApi, formatarData, formatarNumero } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos, SeletorTarefa, useWbs } from '../comum/componentes';
 import { achatarWbs, rotuloRubrica } from '../comum/regras';

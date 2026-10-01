@@ -7,7 +7,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { CHAVE_CRM, useFunis } from './comum/dados';
 import { ModalMoverEtapa, TagSaude } from './comum/componentes';
 import { FichaOportunidade, FormOportunidade } from './comum/Oportunidade';

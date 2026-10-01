@@ -7,7 +7,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 
 interface EmpresaUtilizador {
   empresa_id: number;

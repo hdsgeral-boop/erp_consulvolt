@@ -8,7 +8,7 @@ import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import { useMapaProdutos } from '@/modulos/compras/comum/referencias';
 import { CHAVE_CRM, useConfigCRM, useFunis } from './dados';

@@ -10,7 +10,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import type { Extrato, MovimentoExtrato } from '../api';
 import { BotaoCsv, IndicadorEquilibrio, ValorKz } from '../comum/Componentes';
-import { equilibrio } from '../comum/decimal';
+import { equilibrio } from '@/utilitarios/decimal';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
 import { SeletorConta, SeletorDiario } from '../comum/Seletores';
 import { useAbrirLancamento, useMapa } from '../comum/useMapa';

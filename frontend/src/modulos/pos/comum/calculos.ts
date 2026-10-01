@@ -1,4 +1,4 @@
-import { deCentimos, paraCentimos } from '@/modulos/contab/comum/decimal';
+import { deCentimos, paraCentimos } from '@/utilitarios/decimal';
 import type { ProdutoPOS, TipoMeio, ValorApi } from './tipos';
 
 /**

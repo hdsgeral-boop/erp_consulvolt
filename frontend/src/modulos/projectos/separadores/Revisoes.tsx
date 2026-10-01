@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { SeletorConta, SeletorProduto } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos } from '../comum/componentes';

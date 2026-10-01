@@ -11,7 +11,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { notificarErro } from '@/utilitarios/erros';
-import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { EstadoTag, opcoesEstado } from '@/modulos/compras/comum/estados';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { NomeArmazem } from '@/modulos/compras/comum/referencias';

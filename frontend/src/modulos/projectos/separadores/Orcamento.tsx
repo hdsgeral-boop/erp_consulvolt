@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos, ModalEliminar, SeletorTarefa, useWbs } from '../comum/componentes';
 import { achatarWbs, consumo, RUBRICAS, rotuloRubrica, totaisPorRubrica } from '../comum/regras';

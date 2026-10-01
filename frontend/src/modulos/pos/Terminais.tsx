@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { NomeArmazem } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem, SeletorConta, SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';

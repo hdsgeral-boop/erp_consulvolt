@@ -7,7 +7,7 @@ import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { CHAVE_CRM, useConfigCRM, useContasPesquisa, useModelosEmail } from './dados';
 import { NIVEIS_SAUDE, abrirMailto, exigeMotivo, type Actividade, type Envio, type Etapa, type MensagemEmail, type Saude } from './tipos';
 

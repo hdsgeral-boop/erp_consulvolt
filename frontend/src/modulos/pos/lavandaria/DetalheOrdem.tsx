@@ -5,7 +5,7 @@ import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import { deCentimos, pagamentosParaApi, resumirPagamentos, type Pagamento } from '../comum/calculos';
 import { EstadoPOS } from '../comum/estados';

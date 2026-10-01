@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { useColaboradores, useCargos } from '@/modulos/rh/comum/consultas';
 import { SeletorColaborador } from '@/modulos/rh/comum/componentes';
 import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';

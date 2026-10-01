@@ -5,7 +5,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
 import { EstadoPOS, opcoesEstadoPOS } from './comum/estados';
 import { SeletorTerminal } from './comum/Filtros';

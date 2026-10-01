@@ -1,7 +1,7 @@
 /**
  * Regras da Tesouraria no cliente: totais dos documentos e visibilidade das acções (espelham o servidor, que valida sempre).
  */
-import { deCentimos, paraCentimos, type LinhaDC } from '../contab/comum/decimal';
+import { deCentimos, paraCentimos, type LinhaDC } from '@/utilitarios/decimal';
 import type { Pode } from '../contab/comum/regras';
 import type { ConferenciaCaixa, DocumentoTesouraria, ExtratoConta, ResultadoIntegracaoLote, SessaoCaixa, TipoDocumento } from './api';
 import { DENOMINACOES } from './api';

@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaOrc, Kz, SeletorOrcamento, useOrcamentos } from './comum/componentes';
 import { diferenca } from './comum/regras';

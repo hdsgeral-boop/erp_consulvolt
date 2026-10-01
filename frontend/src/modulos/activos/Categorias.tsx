@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { useCategorias } from './comum/componentes';
 import type { CategoriaActivo } from './comum/tipos';
 

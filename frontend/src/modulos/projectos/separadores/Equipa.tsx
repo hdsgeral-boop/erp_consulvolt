@@ -2,7 +2,7 @@ import { Button, Card, Flex, Form, Input, InputNumber, Modal, Popconfirm, Radio,
 import { DeleteOutlined, EditOutlined, PlusOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { SeletorTerceiro } from '@/modulos/contab/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarNumero } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos, SeletorColaborador, useEquipa } from '../comum/componentes';
 import type { Membro } from '../comum/tipos';

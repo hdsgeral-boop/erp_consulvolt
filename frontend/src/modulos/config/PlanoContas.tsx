@@ -7,7 +7,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { usePlanoContas } from '@/modulos/contab/comum/dados';
 import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import type { ContaPlano } from '@/modulos/contab/api';

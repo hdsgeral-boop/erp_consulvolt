@@ -2,7 +2,7 @@ import { Alert, Form, Modal, Skeleton } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { obter } from '@/api/cliente';
-import { useAccao } from './accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from './Seletores';
 
 export type ConfigContas = Record<string, { descricao: string; codigo_conta: string | null }>;

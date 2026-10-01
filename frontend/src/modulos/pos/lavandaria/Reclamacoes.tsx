@@ -6,7 +6,7 @@ import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { EstadoPOS, opcoesEstadoPOS } from '../comum/estados';
 import { accoesReclamacao } from '../comum/regras';

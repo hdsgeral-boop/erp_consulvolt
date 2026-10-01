@@ -3,7 +3,7 @@ import { PrinterOutlined, SaveOutlined } from '@ant-design/icons';
 import { useEffect } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { useDefinicoesPOS } from './comum/dados';
 import { gravarPreferencias, htmlTalaoVenda, imprimirHtml, lerPreferencias, type PreferenciasImpressao } from './comum/impressao';

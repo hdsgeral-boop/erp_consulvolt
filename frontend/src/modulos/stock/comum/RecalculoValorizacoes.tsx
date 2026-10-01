@@ -1,7 +1,7 @@
 import { Alert, Button, Descriptions, Modal, Space, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { NomeArmazem } from '@/modulos/compras/comum/referencias';
 import { SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import type { MovimentoRecalculado, ProdutoRecalculado, ResultadoRecalculo } from './tipos';

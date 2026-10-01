@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { EtiquetaActivos, SeletorActivo } from './comum/componentes';
 import { filtroPeriodo, useListaPaginada } from './comum/paginacao';

@@ -9,7 +9,7 @@ import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { EstadoPOS, opcoesEstadoPOS } from '../comum/estados';
 import { BarraSessao, useTerminalDeTrabalho } from '../comum/SessaoTerminal';
 import { Checkout } from './Checkout';

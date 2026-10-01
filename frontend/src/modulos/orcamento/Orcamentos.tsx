@@ -6,7 +6,7 @@ import { Route, Routes, useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 import { EtiquetaOrc, SeletorOrcamento, useOrcamentos } from './comum/componentes';

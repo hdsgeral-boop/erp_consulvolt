@@ -4,7 +4,7 @@ import type { DataNode } from 'antd/es/tree';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { Organigrama, Posicao } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';

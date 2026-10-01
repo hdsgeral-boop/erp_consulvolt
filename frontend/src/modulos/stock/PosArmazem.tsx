@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { EstadoTag } from '@/modulos/compras/comum/estados';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { NomeProduto, NomeTerceiro, useArmazens } from '@/modulos/compras/comum/referencias';

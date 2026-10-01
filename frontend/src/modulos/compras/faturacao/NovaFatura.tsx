@@ -4,7 +4,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '../comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { totaisLinhas } from '../comum/calculos';
 import { LinhasProdutos, type LinhaProdutoForm } from '../comum/LinhasProdutos';
 import { SeletorTerceiro } from '../comum/Seletores';

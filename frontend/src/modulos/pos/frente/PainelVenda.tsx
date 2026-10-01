@@ -3,7 +3,7 @@ import { ClearOutlined, DeleteOutlined, MinusOutlined, PlusOutlined, PrinterOutl
 import { useMemo, useRef, useState } from 'react';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { useAtalhos } from '../comum/atalhos';
 import {

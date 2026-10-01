@@ -10,7 +10,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { EstadoTag } from '@/modulos/compras/comum/estados';
 import { SeletorConta, SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import type { DocumentoVenda } from '../api';

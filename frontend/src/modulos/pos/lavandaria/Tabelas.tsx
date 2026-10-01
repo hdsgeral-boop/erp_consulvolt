@@ -3,7 +3,7 @@ import { EditOutlined, MinusCircleOutlined, PlusOutlined, SaveOutlined } from '@
 import { useEffect, useState } from 'react';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { GRUPOS_LAV, UNIDADES_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
 import type { DefinicoesLav, Peca, ServicoLav } from './tipos';

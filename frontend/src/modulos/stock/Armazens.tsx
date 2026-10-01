@@ -3,7 +3,7 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined } from '@an
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { ModalContas } from '@/modulos/compras/comum/ModalContas';
 import { useArmazens, type Armazem } from '@/modulos/compras/comum/referencias';
 

@@ -6,8 +6,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
-import { descarregarCsv } from '@/modulos/contab/comum/csv';
-import { GraficoBarras } from './Graficos';
+import { descarregarCsv } from '@/utilitarios/csv';
+import { GraficoBarras } from '@/componentes/graficos/Graficos';
 import { eNumerico, formatarPorFormato } from './componentes';
 import { AGREGACOES, LIMITES_CUBO, construirPivot, pivotParaCsv, seriesPivot, type ConjuntoCubo, type PedidoMedida, type ResultadoCubo } from './pivot';
 

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { ModalMotivo, useAccao } from '@/modulos/compras/comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { SeletorProduto, SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { formatarCentimos } from '../comum/calculos';
 import { useCatalogoPOS } from '../comum/dados';

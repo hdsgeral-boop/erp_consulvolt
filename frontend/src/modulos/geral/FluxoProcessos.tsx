@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { GraficoBarras } from './comum/Graficos';
+import { GraficoBarras } from '@/componentes/graficos/Graficos';
 import { CartaoKpi, formatarPorFormato, useRotaDaVista } from './comum/componentes';
 
 interface Etapa {

@@ -3,7 +3,7 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, ThunderboltOutlined } from 
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { EtiquetaOrc, useRubricas } from './comum/componentes';
 import type { Rubrica, TipoOrcamento } from './comum/tipos';

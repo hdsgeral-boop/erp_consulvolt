@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '../comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import type { Escalao } from '../comum/tipos';
 
 /** Valida os escalões como o servidor: 1 a 4 níveis com nome; limites positivos e crescentes; o último sem limite. */

@@ -3,7 +3,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { deCentimos, formatarCentimos, pagamentosParaApi, resumirPagamentos, type Pagamento } from '../comum/calculos';
 import { meiosActivos, novaChave, PainelPagamentos } from '../comum/PainelPagamentos';

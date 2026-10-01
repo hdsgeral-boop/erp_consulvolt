@@ -6,7 +6,7 @@ import { enviar } from '@/api/cliente';
 import { SeletorAux, SeletorTerceiro, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';

@@ -9,7 +9,7 @@ import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { ModalMotivo, useAccao } from '../comum/accoes';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { pendente } from '../comum/calculos';
 import { EstadoTag, opcoesEstado } from '../comum/estados';
 import { ModalFaturaEncomenda, ModalRececao } from '../comum/ModaisEncomenda';

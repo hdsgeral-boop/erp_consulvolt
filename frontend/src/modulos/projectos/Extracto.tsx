@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
-import { somar } from '@/modulos/contab/comum/decimal';
+import { somar } from '@/utilitarios/decimal';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';

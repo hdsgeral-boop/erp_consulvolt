@@ -8,7 +8,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from '../comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { EstadoTag } from '../comum/estados';
 import { NomeProduto, NomeTerceiro } from '../comum/referencias';
 import { accoesProposta } from '../comum/regras';

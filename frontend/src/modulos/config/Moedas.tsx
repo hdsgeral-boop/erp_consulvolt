@@ -9,7 +9,7 @@ import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarNumero } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 import { eFolhaExcel, lerTabelaColada } from './comum/regras';
 

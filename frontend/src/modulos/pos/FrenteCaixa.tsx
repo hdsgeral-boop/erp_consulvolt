@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { useAccao } from '@/modulos/compras/comum/accoes';
+import { useAccao } from '@/componentes/Accoes';
 import { TIPOS_TERMINAL, useTerminais } from './comum/dados';
 import { accoesFrente } from './comum/regras';
 import type { SessaoResumo, Terminal } from './comum/tipos';
