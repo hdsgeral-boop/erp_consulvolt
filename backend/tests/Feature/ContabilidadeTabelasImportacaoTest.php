@@ -15,6 +15,7 @@ use App\Models\Terceiro;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PHPUnit\Framework\Attributes\Test;
@@ -188,6 +189,30 @@ final class ContabilidadeTabelasImportacaoTest extends TestCase
             ->assertStatus(422)->assertJsonPath('codigo', 'IMPORTACAO_INVALIDA')->json('erros.erros');
         $this->assertCount(4, $e);
         $this->assertSame(4, $this->como(fn () => LancamentoContabil::query()->count()));
+    }
+
+    #[Test]
+    public function saldos_historicos_modelo_excel_traz_os_valores_e_reimporta_igual(): void
+    {
+        $this->putJson('/api/contabilidade/saldos-historicos/2024', ['demo' => ['23' => 1234.5, '4.10' => 7], 'fluxo' => ['111' => 900]], $this->s)->assertOk();
+        $r = $this->get('/api/contabilidade/saldos-historicos/2024/modelo', $this->s)->assertOk();
+        $ficheiro = $r->baseResponse->getFile()->getRealPath();
+        $folha = IOFactory::load($ficheiro)->getActiveSheet()->toArray(null, true, false, false);
+        $this->assertSame(['TIPO', 'CÓDIGO', 'DESCRIÇÃO', 'VALOR'], $folha[0]);
+        $linhas = collect(array_slice($folha, 1))->keyBy(fn ($l) => "{$l[0]}|{$l[1]}");
+        $this->assertEqualsWithDelta(1234.5, $linhas['DEMO|23'][3], 0.001);
+        $this->assertNull($linhas['DEMO|10'][3]);
+        $this->assertFalse($linhas->has('DEMO|res_liq'));
+        // o próprio modelo volta a entrar pela importação (a coluna DESCRIÇÃO é ignorada)
+        $lido = $this->postJson('/api/contabilidade/saldos-historicos/importar', ['ficheiro' => new UploadedFile($ficheiro, 'modelo.xlsx', null, null, true)], $this->s)
+            ->assertOk()->json('dados');
+        $this->assertSame(['23' => '1234.50', '4.10' => '7.00'], array_intersect_key($lido['demo'], ['23' => 1, '4.10' => 1]));
+        $this->assertSame('900.00', $lido['fluxo']['111']);
+        @unlink($ficheiro);
+
+        $sem = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'lancamentos_view' => true])->id]);
+        $sem->empresas()->attach($this->empresa->id);
+        $this->get('/api/contabilidade/saldos-historicos/2024/modelo', $this->entrar($sem) + ['X-Empresa-Id' => $this->empresa->id])->assertForbidden();
     }
 
     #[Test]

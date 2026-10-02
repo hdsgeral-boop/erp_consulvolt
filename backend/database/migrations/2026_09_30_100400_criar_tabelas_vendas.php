@@ -101,6 +101,8 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE UNIQUE INDEX uq_vendas_empresa_id_tipo_documento_numero_documento ON vendas (empresa_id, tipo_documento, numero_documento) WHERE tipo_documento IN (\'FT\',\'FR\',\'NC\',\'ND\')');
+        DB::statement('CREATE UNIQUE INDEX uq_vendas_empresa_id_tipo_documento_numero_documento_2 ON vendas (empresa_id, tipo_documento, numero_documento) WHERE tipo_documento IN (\'NE\',\'GR\',\'GD\')');
+        DB::statement('CREATE UNIQUE INDEX uq_vendas_empresa_id_tipo_documento_numero_documento_3 ON vendas (empresa_id, tipo_documento, numero_documento) WHERE tipo_documento IN (\'OR\',\'PF\') AND serie_faturacao_eletronica_id IS NOT NULL');
         DB::statement('CREATE INDEX ix_vendas_empresa_id ON vendas (empresa_id)');
         DB::statement('CREATE INDEX ix_vendas_cliente_id ON vendas (cliente_id)');
         DB::statement('CREATE INDEX ix_vendas_projeto_id ON vendas (projeto_id)');

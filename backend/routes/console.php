@@ -1,6 +1,8 @@
 <?php
 
+use App\Jobs\Sistema\BatimentoWorker;
 use App\Models\ContratoFornecedor;
+use App\Support\Cache\Batimentos;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Schedule;
 
@@ -15,3 +17,7 @@ Schedule::call(function () {
     app(ContextoEmpresa::class)->semIsolamento(fn () => ContratoFornecedor::query()->where('estado', 'ATIVO')
         ->whereNotNull('data_fim')->where('data_fim', '<', now()->toDateString())->update(['estado' => 'EXPIRADO']));
 })->dailyAt('00:15')->name('compras:contratos-expirados')->withoutOverlapping();
+
+// Batimentos (R11): o /api/saude marca FALHA se o scheduler ou o worker deixarem de bater.
+Schedule::call(fn () => Batimentos::registar(Batimentos::SCHEDULER))->everyMinute()->name('sistema:batimento-scheduler');
+Schedule::job(new BatimentoWorker, 'baixa')->everyFiveMinutes()->name('sistema:batimento-worker');

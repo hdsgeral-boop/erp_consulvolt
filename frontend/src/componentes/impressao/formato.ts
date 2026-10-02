@@ -10,8 +10,19 @@ import type { FormatoPagina, Orientacao, Papel } from './tipos';
  */
 
 export const PX_POR_MM = 96 / 25.4;
-/** Margens da página (mm): laterais/topo 10 mm; em baixo 14 mm para o rodapé com «Página X de Y». */
-export const MARGENS_MM = { topo: 10, direita: 10, baixo: 14, esquerda: 10 } as const;
+/**
+ * Margens da página (mm). Com a paginação do motor (o normal) o rodapé «Página X de Y» fica DENTRO de cada folha
+ * (zona de ALTURA_RODAPE_MM no fundo), por isso a margem de baixo é 8 mm. Sem paginação (recurso), 14 mm para as
+ * caixas de margem do @page (que só o Chromium/Edge mostram).
+ */
+export const MARGENS_MM = { topo: 10, direita: 10, baixo: 8, esquerda: 10 } as const;
+export const MARGEM_BAIXO_SEM_PAGINACAO_MM = 14;
+/** Altura reservada no fundo de cada folha para o rodapé (empresa · Página X de Y). */
+export const ALTURA_RODAPE_MM = 7;
+/** Folga de segurança no fundo da zona de conteúdo (arredondamentos entre o ecrã, onde se mede, e a impressão). */
+export const FOLGA_PAGINA_MM = 1.5;
+/** Desconto na altura de cada folha (evita uma página em branco por arredondamento). */
+export const DESCONTO_FOLHA_MM = 0.8;
 export const COLUNAS_PAISAGEM = 9;
 export const ESCALA_MINIMA = 0.55;
 /** Redução aceite em A4 paisagem antes de passar a A3 (legível e imprimível em qualquer impressora). */
@@ -26,6 +37,13 @@ interface Candidato {
 }
 
 const DIMENSOES = { A4: { curto: 210, longo: 297 }, A3: { curto: 297, longo: 420 } } as const;
+
+/** Altura (mm) de cada folha paginada: altura do papel − margens − desconto de segurança. */
+export function alturaPaginaMm(f: Pick<FormatoPagina, 'papel' | 'orientacao'>): number {
+  const d = DIMENSOES[f.papel];
+  const altura = f.orientacao === 'retrato' ? d.longo : d.curto;
+  return Math.round((altura - MARGENS_MM.topo - MARGENS_MM.baixo - DESCONTO_FOLHA_MM) * 100) / 100;
+}
 
 function candidato(papel: 'A4' | 'A3', orientacao: 'retrato' | 'paisagem'): Candidato {
   const d = DIMENSOES[papel];
@@ -96,13 +114,20 @@ export function textoCss(texto: string): string {
   return `"${texto.replace(/[\\"]/g, (c) => `\\${c}`).replace(/[\r\n]+/g, ' ').replace(/[<>]/g, ' ')}"`;
 }
 
-/** Regra `@page` do formato (com «Página X de Y» e o rodapé nas caixas de margem, onde o navegador suportar). */
-export function cssPagina(f: FormatoPagina, rodape?: string | null): string {
+/**
+ * Regra `@page` do formato. Com `paginado` (o normal: o documento foi partido em folhas pelo motor) só define o
+ * tamanho e as margens. Sem paginação (recurso, se a paginação falhar) põe o «Página X de Y» e o rodapé da empresa nas
+ * caixas de margem do @page — que só o Chromium/Edge mostram (o Firefox ignora-as).
+ */
+export function cssPagina(f: FormatoPagina, rodape?: string | null, paginado = false): string {
   const m = MARGENS_MM;
+  const tamanho = `size: ${f.papel} ${f.orientacao === 'retrato' ? 'portrait' : 'landscape'} !important;`;
+  // Paginado pelo motor: o «Página X de Y» e o rodapé da empresa já estão em cada folha (também no Firefox).
+  if (paginado) return `@page {\n  ${tamanho}\n  margin: ${m.topo}mm ${m.direita}mm ${m.baixo}mm ${m.esquerda}mm !important;\n}`;
   const caixaRodape = rodape ? `@bottom-left { content: ${textoCss(rodape.slice(0, 300))}; font: 7.5pt Arial, sans-serif; color: #555; vertical-align: top; padding-top: 3mm; }` : '';
   return `@page {
-  size: ${f.papel} ${f.orientacao === 'retrato' ? 'portrait' : 'landscape'} !important;
-  margin: ${m.topo}mm ${m.direita}mm ${m.baixo}mm ${m.esquerda}mm !important;
+  ${tamanho}
+  margin: ${m.topo}mm ${m.direita}mm ${MARGEM_BAIXO_SEM_PAGINACAO_MM}mm ${m.esquerda}mm !important;
   ${caixaRodape}
   @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 7.5pt Arial, sans-serif; color: #555; vertical-align: top; padding-top: 3mm; }
 }`;

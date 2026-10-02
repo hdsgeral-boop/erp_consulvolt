@@ -50,6 +50,13 @@ final class VendaResource extends JsonResource
                 'serie' => $this->fe_serie, 'numero' => $this->fe_numero, 'estado' => $this->fe_estado, 'regime' => $this->fe_regime,
                 'selado_em' => $this->fe_selado_em?->toIso8601String(), 'erros' => $this->fe_erros ?? [], 'avisos' => $this->fe_avisos ?? [],
                 'envio' => ServicoEnvioAgt::estadoEnvio($this->resource), 'erros_agt' => $this->fe_envio['erros'] ?? [],
+                // última resposta da AGT (A-04): pedido, datas, correcção e as últimas acções registadas no envio
+                'envio_detalhe' => $this->fe_envio ? [
+                    'request_id' => $this->fe_envio['requestID'] ?? null, 'enviado_em' => $this->fe_envio['enviado_em'] ?? null,
+                    'validado_em' => $this->fe_envio['validado_em'] ?? null, 'ultima_consulta' => $this->fe_envio['ultima_consulta'] ?? null,
+                    'proxima_consulta' => $this->fe_envio['proxima_consulta'] ?? null, 'correccao' => (bool) ($this->fe_envio['correccao'] ?? false),
+                    'tentativas' => (int) ($this->fe_envio['tentativas'] ?? 0), 'historico' => array_values(array_slice((array) ($this->fe_envio['historico'] ?? []), -5)),
+                ] : null,
                 'hash' => ServicoHashSaft::excerto($this->saft_hash), 'hash_controlo' => $this->saft_hash_controlo,
             ],
             'linhas' => $this->whenLoaded('itensVenda', fn () => $this->itensVenda->map(fn (ItemVenda $i) => [

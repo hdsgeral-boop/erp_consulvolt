@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { comOpcoesOrcamentoPedido, useExcessoOrcamental } from '@/componentes/orcamento';
 import { totaisLinhas } from '../comum/calculos';
 import { LinhasProdutos, type LinhaProdutoForm } from '../comum/LinhasProdutos';
 import { SeletorTerceiro } from '../comum/Seletores';
@@ -27,7 +28,14 @@ export function NovaFatura() {
   const linhas = Form.useWatch('linhas', form) ?? [];
   const moeda = (Form.useWatch('codigo_moeda', form) ?? 'AOA').toUpperCase();
   const estimativa = totaisLinhas(linhas);
-  const criar = useAccao<FaturaCompra>({ invalidar: [['compras']], aoSucesso: (f) => navegar(`../${f.id}`), tituloErro: 'Não foi possível registar a factura' });
+  const excesso = useExcessoOrcamental();
+  const criar: ReturnType<typeof useAccao<FaturaCompra>> = useAccao<FaturaCompra>({
+    invalidar: [['compras']],
+    aoSucesso: (f) => navegar(`../${f.id}`),
+    tituloErro: 'Não foi possível registar a factura',
+    // excesso orçamental (A-02): pedir a aprovação ou aprovar no acto e repetir o mesmo pedido
+    aoErro: (e, pedido) => excesso.tratar(e, { repetir: (o) => criar.mutate(comOpcoesOrcamentoPedido(pedido, o)) }),
+  });
 
   return (
     <>
@@ -109,6 +117,7 @@ export function NovaFatura() {
           <Button onClick={() => navegar('..')}>Cancelar</Button>
         </Space>
       </Form>
+      {excesso.dialogo}
     </>
   );
 }

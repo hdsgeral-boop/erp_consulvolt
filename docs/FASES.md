@@ -150,4 +150,6 @@ Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints d
 | **Segurança e desempenho** | ✅ | Domínio do administrador nos utilizadores e perfis, limites de pedidos e de login, permissões afinadas; amortizações, férias e IVA mais rápidos com resultados iguais |
 | **Produção e CI** | ✅ | Imagens de produção, compose endurecido, CSP, cópias e restauro testados, deploy com rollback, GitHub Actions, runbook com o plano da migração definitiva (`docs/PRODUCAO.md`) — ADR-065 |
 | **Responsividade, identidade e PDF** | ✅ | 116 ecrãs responsivos (telemóvel a ecrã grande), logótipo e nome da empresa na barra e nos documentos, ícones SVG, motor de impressão com A4/A3 automático e sem deslocação; pendentes da Fase 6 resolvidos — ADR-066 |
+| **Análise de paridade completa** | ✅ | Paridade funcional, regras no backend, Redis, cálculos e fluxos verificados com dados reais; correcções e lacunas altas (ronda 1); visual do sistema antigo; paginação em todos os navegadores — ADR-067 |
+| **Lacunas (ronda 2)** | ⏳ | Restantes lacunas A-03, A-05, A-07…A-10, A-12 e médias M-01…M-20 (ver `docs/paridade/ANALISE_PARIDADE_2026-10-02.md`) e decisões do utilizador |
 | **Migração definitiva** | ⏳ | Depende das decisões do utilizador: servidor, domínio/HTTPS, SMTP, destino das cópias e data do dia D |

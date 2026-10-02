@@ -64,6 +64,12 @@ export interface OpcoesDocumento {
   cssExtra?: string;
   /** Mostrar o cabeçalho da empresa (por omissão: sim). */
   cabecalho?: boolean;
+  /**
+   * Partir o documento em folhas pelo próprio motor, com «Página X de Y» e o rodapé da empresa em cada folha
+   * (funciona no Chromium/Edge e no Firefox). Por omissão: sim. Com `false` usa as caixas de margem do @page
+   * (só Chromium/Edge mostram a numeração).
+   */
+  paginar?: boolean;
 }
 
 export interface OpcoesImpressao extends OpcoesDocumento {
@@ -76,4 +82,6 @@ export interface DocumentoPreparado {
   html: string;
   formato: FormatoPagina;
   nomeFicheiro: string;
+  /** Número de folhas (0 quando o documento não foi paginado pelo motor). */
+  paginas: number;
 }

@@ -107,6 +107,10 @@ final class TerceirosProdutosTest extends TestCase
 
         $this->postJson('/api/logistica/produtos', ['codigo' => 'P002', 'nome' => 'Isento', 'taxa_imposto' => 0, 'codigo_isencao_fe' => 'M02'], $this->h)
             ->assertCreated()->assertJsonPath('dados.codigo_isencao_fe', 'M02');
+        // M3: só as taxas de IVA legais (0, 5, 7, 14)
+        $this->postJson('/api/logistica/produtos', ['codigo' => 'P004', 'nome' => 'Taxa ilegal', 'taxa_imposto' => 10], $this->h)
+            ->assertStatus(422)->assertJsonValidationErrors(['taxa_imposto'], 'erros');
+        $this->postJson('/api/logistica/produtos', ['codigo' => 'P005', 'nome' => 'Intermédia', 'taxa_imposto' => '7.0000'], $this->h)->assertCreated();
         $this->postJson('/api/logistica/produtos', $base, $this->h)->assertStatus(422)->assertJsonPath('codigo', 'PRODUTO_DUPLICADO');
         $this->postJson('/api/logistica/produtos', ['codigo' => 'P003', 'nome' => 'X', 'codigo_conta' => '31'], $this->h)
             ->assertStatus(422)->assertJsonPath('codigo', 'CONTA_TOTALIZADORA');

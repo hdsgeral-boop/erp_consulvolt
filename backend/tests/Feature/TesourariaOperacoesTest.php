@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Empresa;
 use App\Models\LancamentoContabil;
+use App\Models\NotaDemonstracao;
+use App\Models\NotaFluxoCaixa;
 use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\Terceiro;
@@ -195,5 +197,34 @@ final class TesourariaOperacoesTest extends TestCase
             ->assertJsonPath('dados.nome_gerente', null);
         $this->assertSame(1, app(ContextoEmpresa::class)->executarComo($this->empresa->id,
             fn () => LancamentoContabil::query()->where('numero_lan', $f->json('dados.referencia_lancamento'))->whereNotNull('estornado_por_id')->count() > 0 ? 1 : 0));
+    }
+
+    #[Test]
+    public function linhas_de_disponibilidades_levam_a_nota_10_e_a_contrapartida_da_caixa_as_notas_do_movimento(): void
+    {
+        [$nota10, $nota22, $fluxo] = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => [
+            NotaDemonstracao::create(['codigo' => '10', 'descricao' => 'Disponibilidades'])->id,
+            NotaDemonstracao::create(['codigo' => '22', 'descricao' => 'Vendas'])->id,
+            NotaFluxoCaixa::create(['codigo' => '1.1', 'descricao' => 'Recebimentos de clientes'])->id,
+        ]);
+        $notas = fn (?string $lan) => app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => LancamentoContabil::query()->where('numero_lan', $lan)
+            ->orderBy('id')->get()->mapWithKeys(fn ($l) => [$l->codigo_conta => [$l->nota_demonstracao_id === null ? null : (int) $l->nota_demonstracao_id,
+                $l->nota_fluxo_caixa_id === null ? null : (int) $l->nota_fluxo_caixa_id]])->all());
+
+        // documento de tesouraria: a conta financeira (43) leva a nota 10 (js/ui_tesouraria.js:1411-1440)
+        $doc = $this->doc('RECEBIMENTO', '611', '500');   // gravado e integrado
+        $lan = $this->getJson("/api/tesouraria/documentos/{$doc}", $this->s)->assertOk()->json('dados.numero_lan_contabilizacao');
+        $this->assertSame([$nota10, null], $notas($lan)['4311']);
+        $this->assertSame([$nota22, null], $notas($lan)['611']);   // linha sem nota indicada: nota por omissão pelo prefixo (61 → 22, ServicoNotasPorConta)
+
+        // folha de caixa: 45 → nota 10 sem fluxo; contrapartida → notas do movimento (js/ui_folha_caixa.js:1309-1319)
+        $s = $this->postJson('/api/tesouraria/caixa/sessoes', ['codigo_conta' => '4511', 'data' => $this->hoje], $this->s)->assertCreated()->json('dados.id');
+        $this->postJson("/api/tesouraria/caixa/sessoes/{$s}/movimentos", ['tipo' => 'REC', 'conta_contrapartida' => '611', 'valor' => 100, 'data_documento' => $this->hoje,
+            'descricao' => 'Venda a dinheiro', 'nota_demonstracao_id' => $nota22, 'nota_fluxo_caixa_id' => $fluxo], $this->s)->assertCreated();
+        $this->postJson("/api/tesouraria/caixa/sessoes/{$s}/fechar", ['saldo_fisico' => 100, 'data' => $this->hoje], $this->s)->assertOk();
+        $c = $this->postJson("/api/tesouraria/caixa/sessoes/{$s}/contabilizar", [], $this->s)->assertOk();
+        $l = $notas($c->json('dados.numeros_lan_contabilizacao.0'));
+        $this->assertSame([$nota10, null], $l['4511']);
+        $this->assertSame([$nota22, $fluxo], $l['611']);
     }
 }

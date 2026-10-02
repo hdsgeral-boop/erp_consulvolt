@@ -136,6 +136,12 @@ export interface MovimentoCaixa {
   valor: string;
   tipo_origem: string | null;
   contabilizado: boolean | null;
+  unidade_negocio_id?: number | null;
+  centro_custo_id?: number | null;
+  nota_demonstracao_id?: number | null;
+  nota_fluxo_caixa_id?: number | null;
+  venda_id?: number | null;
+  fatura_compra_id?: number | null;
 }
 
 export interface SessaoCaixa {

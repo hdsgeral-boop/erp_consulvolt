@@ -1,4 +1,4 @@
-import { iniciais } from './marca';
+import { iniciais, rotuloPapel } from './marca';
 
 describe('iniciais da empresa', () => {
   it('usa a primeira letra das duas primeiras palavras significativas', () => {
@@ -16,5 +16,15 @@ describe('iniciais da empresa', () => {
     expect(iniciais('')).toBe('?');
     expect(iniciais(null)).toBe('?');
     expect(iniciais('Lda')).toBe('?');
+  });
+});
+
+describe('papel do utilizador', () => {
+  it('traduz os papéis conhecidos e formata os restantes', () => {
+    expect(rotuloPapel('SUPER_ADMINISTRADOR')).toBe('Super Admin');
+    expect(rotuloPapel('ADMINISTRADOR')).toBe('Administrador');
+    expect(rotuloPapel('utilizador')).toBe('Utilizador');
+    expect(rotuloPapel('GESTOR_LOJA')).toBe('Gestor loja');
+    expect(rotuloPapel(null)).toBeNull();
   });
 });

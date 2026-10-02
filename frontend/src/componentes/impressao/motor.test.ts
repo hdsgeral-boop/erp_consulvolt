@@ -69,12 +69,19 @@ describe('decisão do papel/orientação', () => {
     expect([A4R, A4P, A3P]).toEqual([718, 1047, 1512]);
   });
 
-  it('@page com tamanho, orientação e «Página X de Y»', () => {
+  it('@page sem paginação do motor (recurso): tamanho, orientação e «Página X de Y» nas caixas de margem', () => {
     const css = cssPagina({ ...FORMATO_PADRAO, papel: 'A3', orientacao: 'paisagem' }, 'Rodapé "da" empresa');
+    expect(css).toContain('margin: 10mm 10mm 14mm 10mm');
     expect(css).toContain('size: A3 landscape');
     expect(css).toContain('counter(page)');
     expect(css).toContain('counter(pages)');
     expect(css).toContain('Rodapé \\"da\\" empresa');
+  });
+
+  it('@page com paginação do motor (normal): sem caixas de margem — a numeração está em cada folha', () => {
+    const css = cssPagina({ ...FORMATO_PADRAO, papel: 'A4', orientacao: 'paisagem' }, 'Rodapé', true);
+    expect(css).toContain('size: A4 landscape');
+    expect(css).not.toContain('counter(pages)');
   });
 });
 

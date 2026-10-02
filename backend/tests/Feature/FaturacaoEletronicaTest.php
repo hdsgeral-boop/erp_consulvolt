@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\Vendas\CicloAgt;
 use App\Models\Empresa;
 use App\Models\PlanoConta;
 use App\Models\Produto;
@@ -13,7 +14,9 @@ use App\Services\Vendas\ServicoHashSaft;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\Client\Request as PedidoHttp;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Testing\Fakes\QueueFake;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -350,5 +353,53 @@ final class FaturacaoEletronicaTest extends TestCase
         $this->assertCount(0, $xml->xpath('//s:InvoiceNao'));
 
         $this->get('/api/vendas/saft?inicio=2020-01-01&fim=2020-01-31', $this->cabecalhos)->assertStatus(422)->assertJsonPath('codigo', 'SEM_DOCUMENTOS');
+    }
+
+    #[Test]
+    public function pre_validacao_agt_recusa_a_emissao_sem_consumir_o_numero_da_serie(): void
+    {
+        $this->ativarRegime();
+        $ano = substr($this->hoje, 0, 4);
+        // país do cliente fora do código ISO de 2 letras e produto sem unidade de medida (regras do legado, facturacao_agt.js:345-357)
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Terceiro::query()->whereKey($this->cliente->id)->update(['fe_pais' => 'Angola']));
+        $r = $this->emitir()->assertStatus(422)->assertJsonPath('codigo', 'AGT_PRE_VALIDACAO');
+        $this->assertStringContainsString('ISO', implode(' ', $r->json('erros.erros')));
+        $this->assertSame(0, app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Venda::query()->count()), 'Nada foi gravado');
+
+        // corrigido o cliente, o documento leva o n.º 1 da série: o n.º não foi consumido pela tentativa recusada
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Terceiro::query()->whereKey($this->cliente->id)->update(['fe_pais' => 'AO']));
+        $id = $this->emitir()->assertCreated()->assertJsonPath('dados.numero_documento', fn ($n) => str_ends_with($n, "{$ano}/1"))->json('dados.id');
+        $this->assertSame('PRONTO', $this->venda($id)->fe_estado);
+    }
+
+    #[Test]
+    public function envio_automatico_a_agt_e_agendado_depois_do_commit(): void
+    {
+        $this->ativarRegime(['auto' => true]);
+        $this->emitir()->assertCreated();
+        Queue::assertPushed(CicloAgt::class);
+    }
+
+    #[Test]
+    public function falha_ao_agendar_o_envio_a_agt_nao_falha_a_emissao(): void
+    {
+        $this->ativarRegime(['auto' => true]);
+        // R4: o push corre depois do COMMIT; com o Redis em baixo a factura já está gravada — aviso no log, sem 500
+        Queue::swap(new class(app()) extends QueueFake
+        {
+            public function push($job, $data = '', $queue = null)
+            {
+                throw new \RuntimeException('Redis em baixo');
+            }
+
+            public function later($delay, $job, $data = '', $queue = null)
+            {
+                throw new \RuntimeException('Redis em baixo');
+            }
+        });
+        Log::spy();
+        $id = $this->emitir()->assertCreated()->json('dados.id');
+        $this->assertSame('PRONTO', $this->venda($id)->fe_estado);
+        Log::shouldHaveReceived('warning')->withArgs(fn ($m, $c = []) => str_contains($m, 'Envio automático à AGT não agendado') && $c['venda_id'] === $id)->once();
     }
 }

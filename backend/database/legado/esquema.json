@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-10-01T14:50:45.807Z",
+  "gerado_em": "2026-10-02T09:21:29.887Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -3948,6 +3948,22 @@
             "numero_documento"
           ],
           "onde": "tipo_documento IN ('FT','FR','NC','ND')"
+        },
+        {
+          "colunas": [
+            "empresa_id",
+            "tipo_documento",
+            "numero_documento"
+          ],
+          "onde": "tipo_documento IN ('NE','GR','GD')"
+        },
+        {
+          "colunas": [
+            "empresa_id",
+            "tipo_documento",
+            "numero_documento"
+          ],
+          "onde": "tipo_documento IN ('OR','PF') AND serie_faturacao_eletronica_id IS NOT NULL"
         }
       ],
       "checks": [
@@ -5253,7 +5269,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "numero_pedido"
+          ],
+          "onde": "numero_pedido IS NOT NULL"
+        }
+      ],
       "checks": [
         "ck_pedidos_compra_estado"
       ]
@@ -5491,7 +5515,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "numero_proposta"
+          ],
+          "onde": "numero_proposta IS NOT NULL"
+        }
+      ],
       "checks": [
         "ck_cotacoes_compra_estado"
       ]
@@ -6074,7 +6106,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "numero_rececao"
+          ],
+          "onde": "numero_rececao IS NOT NULL"
+        }
+      ],
       "checks": [
         "ck_rececoes_compra_estado"
       ]
@@ -15468,7 +15508,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "numero_documento"
+          ],
+          "onde": "numero_documento IS NOT NULL"
+        }
+      ],
       "checks": [
         "ck_documentos_tesouraria_tipo",
         "ck_documentos_tesouraria_estado"

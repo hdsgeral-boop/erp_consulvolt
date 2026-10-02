@@ -12,6 +12,7 @@ import { dadosPropostaCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { comOpcoesOrcamentoPedido, useExcessoOrcamental } from '@/componentes/orcamento';
 import { EstadoTag } from '../comum/estados';
 import { NomeProduto, NomeTerceiro } from '../comum/referencias';
 import { accoesProposta } from '../comum/regras';
@@ -25,11 +26,19 @@ export function DetalheProposta() {
   const [adjudicar, setAdjudicar] = useState(false);
   const [form] = Form.useForm<{ data: Dayjs }>();
   const consulta = useQuery({ queryKey: ['compras', 'proposta', id], queryFn: () => obter<PropostaCompra>(`/compras/propostas/${id}`) });
-  const accao = useAccao<PropostaCompra | EncomendaCompra>({
+  const excesso = useExcessoOrcamental();
+  const accao: ReturnType<typeof useAccao<PropostaCompra | EncomendaCompra>> = useAccao<PropostaCompra | EncomendaCompra>({
     invalidar: [['compras']],
     aoSucesso: (dados, pedido) => {
       setAdjudicar(false);
       if (pedido.url.endsWith('/adjudicar') && dados?.id && pode('compras_encomendas_view')) navegar(`/m/compras/compras_encomendas/${dados.id}`);
+    },
+    // a adjudicação cria a encomenda e passa pelo controlo orçamental (A-02)
+    aoErro: (e, pedido) => {
+      if (!pedido.url.endsWith('/adjudicar')) return false;
+      const tratado = excesso.tratar(e, { repetir: (o) => accao.mutate(comOpcoesOrcamentoPedido(pedido, o)) });
+      if (tratado) setAdjudicar(false);
+      return tratado;
     },
   });
 
@@ -137,6 +146,7 @@ export function DetalheProposta() {
           </Form.Item>
         </Form>
       </Modal>
+      {excesso.dialogo}
     </>
   );
 }

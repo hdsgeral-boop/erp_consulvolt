@@ -11,8 +11,10 @@ use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Models\UnidadeNegocio;
+use App\Support\Cache\ChaveCache;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -143,6 +145,18 @@ final class SistemaCopiasMigracaoTest extends TestCase
             // nunca por cima de dados: destino com dados é recusado
             $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'empresa_destino_id' => $this->empresa->id], $this->s + ['Accept' => 'application/json'])
                 ->assertStatus(422)->assertJsonPath('codigo', 'DESTINO_COM_DADOS');
+            // R3: destino vazio já aberto antes (plano e catálogo vazios em cache) — a importação invalida-os depois do commit
+            $vazia = $this->criarEmpresa(['nif' => '5417000590', 'nome' => 'Vazia, Lda']);
+            $u = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'config_backup' => true, 'config_empresas_gerir' => true, 'config_ferramentas' => true])->id]);
+            $u->empresas()->attach([$this->empresa->id, $vazia->id]);
+            $planoVazia = ChaveCache::empresa($vazia->id, 'contabilidade', 'plano_contas');
+            $catalogoVazia = ChaveCache::empresa($vazia->id, 'logistica', 'catalogo_produtos');
+            Cache::put($planoVazia, [], 86400);
+            Cache::put($catalogoVazia, [], 21600);
+            $this->post('/api/sistema/copias/importar', ['ficheiro' => $upload(), 'empresa_destino_id' => $vazia->id], $this->entrar($u) + ['X-Empresa-Id' => $this->empresa->id, 'Accept' => 'application/json'])
+                ->assertCreated();
+            $this->assertNull(Cache::get($planoVazia));
+            $this->assertNull(Cache::get($catalogoVazia));
             // ficheiro de outra versão do esquema
             $copia['esquema'] = '2000_01_01_000000_antiga';
             file_put_contents($ficheiro, json_encode($copia));

@@ -15,13 +15,14 @@ interface Props {
 /**
  * Cabeçalho das páginas: título/subtítulo à esquerda e acções à direita. Em ecrãs estreitos o bloco das acções
  * passa para a linha seguinte e os botões quebram linha (Space wrap); o título nunca é empurrado para fora.
+ * Aspecto do sistema anterior (h2.view-title): título grande cinzento-ardósia e linha por baixo (src/estilos/identidade.css).
  */
 export function CabecalhoPagina({ titulo, subtitulo, accoes, impressao, impressaoDesactivada }: Props) {
   const temAccoes = !!accoes || !!impressao;
   return (
     <Flex justify="space-between" align="center" wrap gap={12} style={{ marginBottom: 16 }} className="cabecalho-pagina">
       <div style={{ minWidth: 0, flex: '1 1 260px' }}>
-        <Typography.Title level={3} style={{ margin: 0, overflowWrap: 'anywhere' }}>
+        <Typography.Title level={3} className="erp-titulo-pagina" style={{ margin: 0, overflowWrap: 'anywhere' }}>
           {titulo}
         </Typography.Title>
         {subtitulo && <Typography.Text type="secondary">{subtitulo}</Typography.Text>}

@@ -15,3 +15,15 @@ export function iniciais(nome: string | null | undefined): string {
   if (palavras.length === 1) return palavras[0].replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?';
   return (letra(palavras[0]) + letra(palavras[1])) || '?';
 }
+
+const PAPEIS: Readonly<Record<string, string>> = {
+  SUPER_ADMINISTRADOR: 'Super Admin',
+  ADMINISTRADOR: 'Administrador',
+  UTILIZADOR: 'Utilizador',
+};
+
+/** Papel do utilizador para a barra superior (como no sistema anterior: «Super Admin» por baixo do nome). */
+export function rotuloPapel(papel: string | null | undefined): string | null {
+  if (!papel) return null;
+  return PAPEIS[papel.toUpperCase()] ?? papel.charAt(0).toUpperCase() + papel.slice(1).toLowerCase().replace(/_/g, ' ');
+}

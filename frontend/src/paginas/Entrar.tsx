@@ -6,6 +6,7 @@ import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
 
+/** Entrada no sistema, com o aspecto do sistema anterior: fotografia de fundo e cartão translúcido ao centro. */
 export function Entrar() {
   const { entrar, motivoSaida } = useSessao();
   const [erro, setErro] = useState<string | null>(null);
@@ -25,14 +26,12 @@ export function Entrar() {
   };
 
   return (
-    <main className="erp-pagina-entrada" style={{ background: '#f0f2f5' }}>
-      <Card style={{ width: '100%', maxWidth: 400 }} styles={{ body: { padding: 'clamp(20px, 5vw, 32px)' } }}>
+    <main className="erp-pagina-entrada erp-fundo-entrada">
+      <Card className="erp-cartao-entrada" style={{ width: '100%', maxWidth: 440 }} styles={{ body: { padding: 'clamp(24px, 6vw, 44px)' } }}>
         <Flex vertical align="center" gap={8} style={{ marginBottom: 24, textAlign: 'center' }}>
-          {logotipo.data?.logotipo ? <img src={logotipo.data.logotipo} alt="Logótipo" style={{ maxHeight: 72, maxWidth: 'min(220px, 100%)', objectFit: 'contain' }} /> : null}
-          <Typography.Title level={3} style={{ margin: 0 }}>
-            ERP Consulvolt
-          </Typography.Title>
-          <Typography.Text type="secondary">Entre com o seu utilizador</Typography.Text>
+          {logotipo.data?.logotipo ? <img src={logotipo.data.logotipo} alt="Logótipo" style={{ maxHeight: 110, maxWidth: 'min(240px, 100%)', objectFit: 'contain', marginBottom: 8 }} /> : null}
+          <h1 className="erp-entrada-titulo">ERP Consulvolt</h1>
+          <Typography.Text type="secondary">Aceda à sua conta para continuar</Typography.Text>
         </Flex>
         {motivoSaida && <Alert type="info" showIcon message={motivoSaida} style={{ marginBottom: 16 }} />}
         {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}
@@ -43,7 +42,7 @@ export function Entrar() {
           <Form.Item name="palavra_passe" label="Palavra-passe" rules={[{ required: true, message: 'Indique a palavra-passe.' }]}>
             <Input.Password size="large" prefix={<LockOutlined />} autoComplete="current-password" />
           </Form.Item>
-          <Button type="primary" htmlType="submit" block size="large" loading={aEntrar}>
+          <Button type="primary" htmlType="submit" block size="large" loading={aEntrar} style={{ marginTop: 8, fontWeight: 700 }}>
             Entrar
           </Button>
         </Form>

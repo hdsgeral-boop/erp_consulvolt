@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ItemAvaliacao, ResultadoSalarial } from '../api';
 import {
-  accoesPedidoRh, accoesPeriodo, chaveMesAno, classificar, colunasRubricas, contratoVigente, escalaoIrt, formatarHoras, formatarIban, gerarCsv, horasEntre,
+  accoesPedidoRh, accoesPeriodo, chaveMesAno, classificar, colunasRubricas, contratoVigente, formatarHoras, formatarIban, gerarCsv, horasEntre,
   ibanValido, itensAplicaveis, kzCsv, mesAnoParaMes, mesParaMesAno, mesPorExtenso, normalizarRemuneracoes, numeroRecibo, somar, totalContrato, totaisResultados,
   validarPesos360, valoresRubricas,
 } from './regras';
@@ -68,19 +68,6 @@ describe('mapa de remunerações', () => {
   });
 });
 
-describe('escalão de IRT', () => {
-  it('isento até 150 000', () => {
-    expect(escalaoIrt('150000').devido).toBe('0.00');
-    expect(escalaoIrt(0).devido).toBe('0.00');
-  });
-  it('2.º e 3.º escalões', () => {
-    expect(escalaoIrt('200000')).toEqual({ fixo: '12500.00', taxa: 16, excesso: '150000.00', devido: '20500.00' });
-    expect(escalaoIrt('250000').devido).toBe('40250.00');
-  });
-  it('último escalão (sem máximo)', () => {
-    expect(escalaoIrt('12000000')).toMatchObject({ taxa: 25, devido: '2842250.00' });
-  });
-});
 
 describe('contratos', () => {
   it('lê o formato do legado e o novo', () => {

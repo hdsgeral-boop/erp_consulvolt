@@ -182,7 +182,7 @@ curl -s http://127.0.0.1:8080/api/saude | jq '.dados.versao, .dados.estado'
 ```
 
 Notas:
-- **Caches.** O `config:cache` corre automaticamente no arranque de cada contentor; `route:cache` e `event:cache` vêm do build; o OPcache é recriado com a imagem. Nunca é preciso `cache:clear` para código novo. `php artisan cache:clear` limpa só dados em cache no Redis (permissões, plano de contas…) e só se usa se houver dados de referência alterados por fora da aplicação.
+- **Caches.** O `config:cache` corre automaticamente no arranque de cada contentor; `route:cache` e `event:cache` vêm do build; o OPcache é recriado com a imagem. Nunca é preciso `cache:clear` para código novo. `php artisan cache:clear` limpa só dados em cache no Redis (empresas acessíveis por utilizador, plano de contas, catálogo de produtos, painéis; as permissões não estão em cache — são memorizadas por pedido) e usa-se sempre que dados de referência forem alterados por fora da aplicação (SQL directo, restauro de cópia, migração do legado — passo obrigatório na secção 13.4).
 - **Worker.** Ao ser recriado, o worker recebe SIGTERM e termina o trabalho em curso (`stop_grace_period: 300s`). O `--max-time=3600` recicla-o de hora a hora. `php artisan queue:restart` só é preciso se o worker não for recriado.
 - **Scheduler.** Os serviços PHP correm com `init: true` (tini), por isso o `schedule:work` pára em cerca de 1 s. Sem o tini ignorava o SIGTERM e só morria por SIGKILL, 60 s depois. Uma tarefa `withoutOverlapping` interrompida (ex.: `erp:agt:ciclo`) deixaria o mutex activo até 24 h. Por isso o `deploy.sh` corre `php artisan schedule:clear-cache` logo a seguir a recriar os serviços. Faça o mesmo à mão se o ciclo AGT deixar de correr (`schedule:list` / logs do scheduler).
 - **Migrações.** Devem ser compatíveis com a versão anterior sempre que possível (expandir → migrar → contrair), para que o rollback não exija restauro.
@@ -255,7 +255,18 @@ Segredos: `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in segredos.tar.gz.
 
 ## 10. Monitorização, logs e manutenção periódica
 
-**Saúde.** `GET /api/saude` (pública) devolve 200 com `dados.estado = OK`, `dados.versao` e os componentes `base_dados`, `redis`, `filas` (tamanho de cada fila e n.º de trabalhos falhados) e `armazenamento` (storage gravável). Se algum componente falhar, devolve 503 `SERVICO_INDISPONIVEL`. `GET /up` é o health-check nativo do Laravel, e `GET /nginx-saude` só verifica o nginx. Ligar um monitor externo (UptimeRobot, Uptime Kuma, …) a `https://<domínio>/api/saude`, com alerta ao fim de 2 falhas.
+**Saúde.** `GET /api/saude` (pública) devolve 200 com `dados.estado = OK`, `dados.versao` e os componentes `base_dados`, `redis`, `filas` (tamanho de cada fila e n.º de trabalhos falhados), `armazenamento` (storage gravável) e `processos` (batimentos do scheduler e do worker). Se algum componente falhar, devolve 503 `SERVICO_INDISPONIVEL`, com o estado de cada componente em `erros`. A rota **não passa pelo limitador da API** (que usa o Redis), para responder 503 com o detalhe mesmo com o Redis em baixo.
+
+**Batimentos.** O scheduler grava `batimento:scheduler` na cache a cada minuto e agenda de 5 em 5 min um trabalho na fila `baixa` (`BatimentoWorker`) que grava `batimento:worker`. Em `processos`, um batimento com mais de 5 min (scheduler) ou 15 min (worker) é FALHA, com a idade no detalhe. «sem registo» (ambiente sem scheduler, ou logo depois de um `cache:clear`) é só informativo.
+
+**Comportamento com o Redis em baixo** (o Redis é um ponto único de falha assumido — cache, locks, filas e rate limiting):
+- todos os pedidos `/api/*` (incluindo `/api/autenticacao/entrar`) respondem **500 `ERRO_INTERNO`**, porque o limitador e a resolução da empresa activa usam o Redis; só `/api/saude` responde, com **503** e `erros.redis.estado = FALHA`;
+- a numeração (vendas, lançamentos, POS, fecho Z) falha antes de gravar: a transacção é desfeita, **sem números perdidos nem duplicados**;
+- uma factura emitida no instante da queda fica gravada; se o agendamento do envio à AGT falhar, é registado um aviso no log e o ciclo `erp:agt:ciclo` envia-a quando o Redis voltar (o utilizador recebe a resposta normal: não volta a emitir);
+- o worker e o scheduler falham e reiniciam (`restart: unless-stopped`); o ciclo AGT fica parado até o Redis voltar e `processos` passa a FALHA ao fim de 5/15 min;
+- com AOF ligado, um reinício do Redis não perde filas, locks únicos nem `empresas:versao`.
+
+Recuperação: `prod.sh ps` / `prod.sh logs redis`; reiniciar com `prod.sh restart redis`; confirmar `GET /api/saude` = 200. Se o Redis tiver perdido os dados (volume apagado), correr `php artisan schedule:clear-cache` (mutexes do agendador) — a cache reconstrói-se sozinha. `GET /up` é o health-check nativo do Laravel, e `GET /nginx-saude` só verifica o nginx. Ligar um monitor externo (UptimeRobot, Uptime Kuma, …) a `https://<domínio>/api/saude`, com alerta ao fim de 2 falhas.
 
 **Healthchecks dos contentores:**
 
@@ -355,7 +366,12 @@ sh ferramentas/operacao/prod.sh run --rm --no-deps -v /srv/erp/legado:/dados/leg
 sh ferramentas/operacao/prod.sh run --rm --no-deps -v /srv/erp/legado:/dados/legado:ro app \
    php artisan erp:migrar-backup-legado /dados/legado/wstb_payroll_backup_<data>.json --substituir --force \
    | tee /srv/erp/legado/etl_producao_<data>.log
-# e) cópia imediatamente depois da migração (ponto de partida oficial)
+# e) OBRIGATÓRIO: limpar a cache antes de reabrir a aplicação. O --substituir faz TRUNCATE … RESTART IDENTITY e reutiliza
+#    ids: sem isto, um utilizador novo com o id de um antigo herdava durante até 1 h a lista de empresas acessíveis do antigo,
+#    e o plano de contas (24 h) e o catálogo (6 h) ficavam os do ensaio. A ETL já tenta limpar (linha «Cache: …» na consola
+#    e `cache` no relatório); este passo garante-o mesmo que essa limpeza tenha falhado.
+sh ferramentas/operacao/prod.sh exec app php artisan cache:clear
+# f) cópia imediatamente depois da migração (ponto de partida oficial)
 sh ferramentas/operacao/prod.sh run --rm --no-deps copias /operacao/backup.sh
 ```
 

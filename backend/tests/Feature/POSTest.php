@@ -7,8 +7,10 @@ use App\Models\Empresa;
 use App\Models\LancamentoContabil;
 use App\Models\PlanoConta;
 use App\Models\Produto;
+use App\Models\SessaoPOS;
 use App\Models\StockArmazem;
 use App\Services\Logistica\ServicoStock;
+use App\Services\POS\ServicoVendasPOS;
 use App\Services\Vendas\ServicoConfigVendas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
@@ -206,5 +208,21 @@ final class POSTest extends TestCase
         $this->postJson("/api/pos/sessoes/{$sessao}/deliberacao/anular", ['motivo' => 'Revisto'], $gestor)->assertOk()->assertJsonPath('dados.estado_desvio', 'PENDENTE')
             ->assertJsonPath('dados.deliberacao_cancelada.decisao', 'FALTA_OPERADOR');
         $this->assertSame([], $this->lancamentos('POS_DESVIO'));
+    }
+
+    #[Test]
+    public function preco_com_mais_de_duas_casas_e_recusado_e_normalizado_no_servico(): void
+    {
+        // E-VEN-1: a API recusa preços com mais de 2 casas; o serviço (chamado por hotel e lavandaria) normaliza-os
+        // a 2 casas antes de validar os pagamentos, para que o total cobrado seja o do documento
+        $sessao = $this->postJson("/api/pos/terminais/{$this->ids['t']}/sessoes", [], $this->s)->assertCreated()->json('dados.id');
+        $this->vender($sessao, [['meio_id' => 'pm_num', 'valor' => 100]], 3, ['linhas' => [['produto_id' => $this->ids['p'], 'quantidade' => 3, 'preco_unitario' => 10.005]]])
+            ->assertStatus(422)->assertJsonValidationErrors('linhas.0.preco_unitario', 'erros');
+        // 3 × 10,01 = 30,03 com IVA (sem normalizar, 3 × 10,005 dava 30,01 nos pagamentos e o documento ficava com 30,03)
+        $v = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoVendasPOS::class)->vender(
+            SessaoPOS::query()->findOrFail($sessao),
+            ['linhas' => [['produto_id' => $this->ids['p'], 'quantidade' => 3, 'preco_unitario' => '10.005']], 'pagamentos' => [['meio_id' => 'pm_num', 'valor' => 100]]]));
+        $this->assertSame(['30.03', '69.97', '0.00'], [(string) $v->total_bruto, (string) $v->pos_troco, (string) $v->desconto]);
+        $this->assertSame('30.03', $v->pos_pagamentos[0]['valor']);
     }
 }

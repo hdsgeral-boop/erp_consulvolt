@@ -11,6 +11,8 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { accoesAgt, svgComoDataUrl } from './agt/accoesDocumento';
+import { BlocoAgt } from './agt/BlocoAgt';
+import { INFO_ESTADO_AGT, estadoAgtDoDocumento } from './agt/estadoAgt';
 import { pedidoDocumentoComercial } from './impressao/documentoComercial';
 import { dadosDocumentoVenda, type QrDocumento } from './impressao/documentoVenda';
 import { CONTABILIZAVEIS, CONVERSOES, CORES_ESTADO, FISCAIS, TIPOS_DOCUMENTO, type DocumentoVenda, type LinhaVenda } from './api';
@@ -57,6 +59,7 @@ export function DetalheDocumento() {
   const podeContabilizar = !anulado && !d.contabilizado && CONTABILIZAVEIS.includes(d.tipo_documento) && pode('vendas_fat_contabilizar');
   const podeDescontabilizar = d.contabilizado && pode('vendas_fat_descontab');
   const agt = accoesAgt(d, pode);
+  const estadoAgt = estadoAgtDoDocumento(d.faturacao_eletronica);
   const nomeBase = (d.numero_documento ?? `documento_${d.id}`).replace(/[^\w.-]+/g, '_');
 
   /**
@@ -162,11 +165,15 @@ export function DetalheDocumento() {
           <Descriptions.Item label="Estado">{d.estado ? <Tag color={CORES_ESTADO[d.estado]}>{d.estado}</Tag> : '—'}</Descriptions.Item>
           <Descriptions.Item label="Vencimento">{formatarData(d.data_vencimento)}</Descriptions.Item>
           <Descriptions.Item label="Contabilização">{d.contabilizado ? `Contabilizado (${d.numero_lan_contabilizacao ?? '—'})` : 'Por contabilizar'}</Descriptions.Item>
-          <Descriptions.Item label="AGT">{d.faturacao_eletronica?.estado ?? '—'}{d.faturacao_eletronica?.hash ? ` · hash ${d.faturacao_eletronica.hash}` : ''}</Descriptions.Item>
+          <Descriptions.Item label="AGT">
+            {estadoAgt ? <Tag color={INFO_ESTADO_AGT[estadoAgt].cor}>{INFO_ESTADO_AGT[estadoAgt].rotulo}</Tag> : (d.faturacao_eletronica?.estado ?? '—')}
+            {d.faturacao_eletronica?.hash ? ` hash ${d.faturacao_eletronica.hash}` : ''}
+          </Descriptions.Item>
           {d.motivo_nota_credito && <Descriptions.Item label="Motivo da NC" span="filled">{d.motivo_nota_credito}</Descriptions.Item>}
           {d.observacoes && <Descriptions.Item label="Observações" span="filled">{d.observacoes}</Descriptions.Item>}
         </Descriptions>
       </Card>
+      <BlocoAgt documento={d} />
       <Card title="Linhas" style={{ marginBottom: 16 }}>
         <Table<LinhaVenda> rowKey="id" size="small" pagination={false} columns={colunas} dataSource={d.linhas ?? []} scroll={scrollTabela()} />
         <Flex justify="end" style={{ marginTop: 16 }}>

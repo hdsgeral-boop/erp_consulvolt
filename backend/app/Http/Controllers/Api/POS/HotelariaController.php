@@ -78,7 +78,7 @@ final class HotelariaController extends Controller
         $this->exigir('hotel_estadias');
         $d = $r->validate([
             'produto_quarto_id' => ['required', 'integer'], 'cliente_hospede_id' => ['required', 'integer'], 'modo' => ['required', Rule::in(EstadiaHotel::MODOS)],
-            'entrada_em' => ['nullable', 'date'], 'quantidade' => ['required', 'numeric', 'gt:0'], 'preco_unitario' => ['nullable', 'numeric', 'min:0'],
+            'entrada_em' => ['nullable', 'date'], 'quantidade' => ['required', 'numeric', 'gt:0'], 'preco_unitario' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
             'numero_hospedes' => ['nullable', 'integer', 'min:1'], 'observacoes' => ['nullable', 'string', 'max:2000'],
         ]);
         if (isset($d['preco_unitario'])) {
@@ -94,7 +94,7 @@ final class HotelariaController extends Controller
         $this->exigir('hotel_estadias');
         $d = $r->validate([
             'cliente_hospede_id' => ['nullable', 'integer'], 'entrada_em' => ['nullable', 'date'], 'quantidade' => ['nullable', 'numeric', 'gt:0'],
-            'preco_unitario' => ['nullable', 'numeric', 'min:0'], 'numero_hospedes' => ['nullable', 'integer', 'min:1'], 'observacoes' => ['nullable', 'string', 'max:2000'],
+            'preco_unitario' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'], 'numero_hospedes' => ['nullable', 'integer', 'min:1'], 'observacoes' => ['nullable', 'string', 'max:2000'],
         ]);
         $e = EstadiaHotel::query()->findOrFail($estadia);
         if (isset($d['preco_unitario']) && bccomp(number_format((float) $d['preco_unitario'], 2, '.', ''), (string) $e->preco_unitario, 2) !== 0) {
@@ -108,7 +108,7 @@ final class HotelariaController extends Controller
     {
         $this->exigir('hotel_estadias', 'pos_venda');
         $d = $r->validate(['linhas' => ['present', 'array'], 'linhas.*.produto_id' => ['required', 'integer'], 'linhas.*.quantidade' => ['required', 'numeric', 'gt:0'],
-            'linhas.*.preco_unitario' => ['nullable', 'numeric', 'min:0']]);
+            'linhas.*.preco_unitario' => ['nullable', 'numeric', 'decimal:0,2', 'min:0']]);
         // alteração de preço no carrinho do quarto (updatePOSCartPrice, permissoes.js:229)
         $precos = Produto::query()->whereIn('id', array_column($d['linhas'], 'produto_id'))->pluck('preco_unitario', 'id');
         if (collect($d['linhas'])->contains(fn ($l) => isset($l['preco_unitario'])

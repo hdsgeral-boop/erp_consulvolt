@@ -4,6 +4,7 @@ namespace App\Services\Tesouraria;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\ConfigContabilTesouraria;
+use App\Models\NotaDemonstracao;
 use App\Services\Contabilidade\ServicoPlanoContas;
 use Illuminate\Support\Facades\DB;
 
@@ -27,6 +28,18 @@ final class ServicoConfigTesouraria
     {
         return ConfigContabilTesouraria::query()->where('chave', $chave)->value('codigo_conta')
             ?: throw new ErroNegocio("{$motivo} Configure a conta \"".self::CHAVES[$chave].'" nas contas de tesouraria.', 'CONFIG_TESOURARIA_EM_FALTA', 422, ['chave' => $chave]);
+    }
+
+    /**
+     * Nota às demonstrações 10 (Disponibilidades) da empresa, posta pelo legado nas linhas das contas 43/45 geradas pela
+     * Tesouraria e pela folha de caixa (js/ui_tesouraria.js:1411-1413; js/ui_folha_caixa.js:1309-1319). Sem ela as linhas
+     * saíam do Balanço («movimentos por mapear»). Null se a empresa não tiver a nota.
+     */
+    public function notaDisponibilidades(): ?int
+    {
+        $id = NotaDemonstracao::query()->whereRaw("TRIM(codigo) = '10'")->orderBy('id')->value('id');
+
+        return $id !== null ? (int) $id : null;
     }
 
     public function todas(): array

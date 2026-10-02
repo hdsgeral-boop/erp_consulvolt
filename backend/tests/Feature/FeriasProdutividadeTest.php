@@ -148,4 +148,23 @@ final class FeriasProdutividadeTest extends TestCase
         $this->postJson("/api/rh/salarios/periodos/{$sal}/importar-produtividade", [], $this->s)->assertOk()->assertJsonPath('dados.removidos', 1);
         $this->assertCount(1, $linhas());
     }
+
+    #[Test]
+    public function produtividade_reparte_o_tecto_sem_residuo(): void
+    {
+        // E-RH-1: tecto de 10 no total e três registos de 5 a 50 000 → 500 000 exactos (antes: 3 × 3,333 × 50 000 = 499 950)
+        $item = $this->postJson('/api/rh/produtividade/itens', ['codigo' => 'MONT', 'descricao' => 'Montagem', 'preco_unitario' => 50000,
+            'infotipo_salarial_id' => $this->ids['prod'], 'maximo' => 10], $this->s)->assertCreated()->json('dados.id');
+        $this->postJson('/api/rh/contratos', ['colaborador_id' => $this->ids['ana'], 'data_inicio' => '2025-01-01', 'produtividade' => [['item_id' => $item, 'preco_unitario' => null]],
+            'remuneracoes' => [['infotipo_salarial_id' => $this->ids['base'], 'valor_mes' => 100000]]], $this->s)->assertCreated();
+        $p = $this->postJson('/api/rh/produtividade/periodos', ['mes' => '2025-08', 'data_inicio' => '2025-08-01', 'data_fim' => '2025-08-31'], $this->s)->assertCreated()->json('dados.id');
+        foreach (['2025-08-04', '2025-08-05', '2025-08-06'] as $data) {
+            $this->postJson("/api/rh/produtividade/periodos/{$p}/registos", ['colaborador_id' => $this->ids['ana'], 'item_produtividade_id' => $item, 'quantidade' => 5, 'data' => $data], $this->s)
+                ->assertCreated();
+        }
+        $regs = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => RegistoProdutividadeRH::query()->where('colaborador_id', $this->ids['ana'])->orderBy('id')->get());
+        $this->assertSame(['166666.67', '166666.67', '166666.66'], $regs->map(fn ($r) => (string) $r->valor)->all());
+        $this->assertSame(['3.333', '3.333', '3.333'], $regs->map(fn ($r) => (string) $r->quantidade_considerada)->all());   // só apresentação
+        $this->postJson("/api/rh/produtividade/periodos/{$p}/fechar", [], $this->s)->assertOk()->assertJsonPath('dados.total_fecho', '500000.00');
+    }
 }

@@ -9,6 +9,7 @@ import { SessaoProvider } from '@/sessao/SessaoContexto';
 import { App } from '@/App';
 import { TEMA } from '@/estilos/tema';
 import '@/estilos/global.css';
+import '@/estilos/identidade.css';
 
 dayjs.locale('pt');
 

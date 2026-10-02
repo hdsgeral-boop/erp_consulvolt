@@ -42,6 +42,18 @@ final class ServicoExercicios
     }
 
     /**
+     * M5: verificação DENTRO da transacção da escrita, serializada com o encerramento. O encerramento bloqueia a linha da
+     * empresa com FOR UPDATE (ServicoEncerramento::bloquearEmpresa); aqui toma-se FOR KEY SHARE — conflitua com o FOR
+     * UPDATE (a escrita espera pelo fim do encerramento, ou este pela escrita) mas não com UPDATEs normais da empresa nem
+     * com outras escritas. Sem isto, uma escrita verificada antes do COMMIT do encerramento entrava num exercício já fechado.
+     */
+    public function exigirAbertoNaTransacao(int $empresaId, string $data): void
+    {
+        DB::selectOne('SELECT id FROM empresas WHERE id = ? FOR KEY SHARE', [$empresaId]);
+        $this->exigirAberto($empresaId, $data);
+    }
+
+    /**
      * Anos encerrados da empresa, por ordem crescente. A chave tem o id da empresa no meio: compara-se o prefixo
      * exacto em PHP (um LIKE 'closed_year_6_%' também apanharia a empresa 61, porque '_' é um caráter universal).
      *

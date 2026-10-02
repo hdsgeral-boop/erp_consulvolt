@@ -6,7 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\PlanoConta;
 use App\Models\Utilizador;
 use App\Support\Cache\ChaveCache;
-use Illuminate\Support\Facades\Cache;
+use App\Support\Cache\InvalidacaoCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -166,7 +166,7 @@ final class ServicoSubstituicaoConta
                         }
                     }
                 }
-                Cache::forget(ChaveCache::empresa($id, 'logistica', 'catalogo_produtos'));
+                InvalidacaoCache::esquecer(ChaveCache::empresa($id, 'logistica', 'catalogo_produtos'));   // agora e depois do commit (R2)
                 $total = array_sum($alterados);
                 $this->auditoria->registar('Contabilidade/Plano de contas', 'Substituir conta', "{$nome}: conta {$origem} substituída por {$destino} em {$total} registo(s) de configuração e fichas"
                     .' (lançamentos e documentos contabilizados não alterados).', 'plano_contas', $contas['destino']['id'], ['conta' => $origem, 'registos' => $ids], ['conta' => $destino, 'registos' => $ids],

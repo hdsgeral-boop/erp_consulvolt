@@ -6,7 +6,9 @@ use App\Exceptions\ErroNegocio;
 use App\Models\DiarioContabil;
 use App\Models\LancamentoContabil;
 use App\Services\Sistema\ServicoAuditoria;
+use App\Services\Sistema\ServicoCambios;
 use App\Services\Sistema\ServicoNumeracao;
+use App\Services\Vendas\CalculadoraDocumento;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -58,7 +60,13 @@ final class ServicoLancamentos
             }
         }
 
-        return DB::transaction(function () use ($dados, $diario, $empresa) {
+        // nota às demonstrações por omissão (pelo prefixo da conta, regra do legado recoverDataMapping) só nos lançamentos
+        // automáticos e só nas linhas que chegam sem nota; os manuais, estornos e importações ficam como vierem (CR2)
+        $automatico = ! in_array($dados['tipo_origem'] ?? LancamentoContabil::ORIGEM_MANUAL, [LancamentoContabil::ORIGEM_MANUAL, LancamentoContabil::ORIGEM_ESTORNO, 'IMPORTACAO'], true);
+        $notas = $automatico ? app(ServicoNotasPorConta::class)->ids(array_values(array_unique(ServicoNotasPorConta::REGRAS))) : [];
+
+        return DB::transaction(function () use ($dados, $diario, $empresa, $automatico, $notas) {
+            $this->exercicios->exigirAbertoNaTransacao($empresa, $dados['data_documento']);   // M5: serializado com o encerramento
             $numeroLan = $this->proximoNumeroLan($empresa, $diario, $dados['data_documento']);
             $comum = [
                 'diario_id' => $diario->id, 'data_documento' => $dados['data_documento'], 'data_lancamento' => now(),
@@ -77,7 +85,9 @@ final class ServicoLancamentos
                     'descricao' => $l['descricao'] ?? $dados['descricao'] ?? null,
                     'terceiro_id' => $l['terceiro_id'] ?? null, 'centro_custo_id' => $l['centro_custo_id'] ?? null,
                     'unidade_negocio_id' => $l['unidade_negocio_id'] ?? null, 'projeto_id' => $l['projeto_id'] ?? null,
-                    'nota_demonstracao_id' => $l['nota_demonstracao_id'] ?? null, 'nota_fluxo_caixa_id' => $l['nota_fluxo_caixa_id'] ?? null,
+                    'nota_demonstracao_id' => $l['nota_demonstracao_id']
+                        ?? ($automatico ? ($notas[ServicoNotasPorConta::codigoPorConta((string) $l['codigo_conta']) ?? ''] ?? null) : null),
+                    'nota_fluxo_caixa_id' => $l['nota_fluxo_caixa_id'] ?? null,
                     // moeda do documento (linhas de clientes/fornecedores/bancos em moeda estrangeira): permite o saldo em moeda
                     'codigo_moeda' => $l['codigo_moeda'] ?? null, 'valor_moeda' => isset($l['valor_moeda']) ? $this->dinheiro($l['valor_moeda']) : null,
                     'taxa_cambio' => $l['taxa_cambio'] ?? null,
@@ -86,6 +96,84 @@ final class ServicoLancamentos
 
             return $criadas;
         });
+    }
+
+    /**
+     * M7 — lançamento manual em moeda estrangeira (js/moedas_lancamentos.js:281-342). Converte as linhas (valor_moeda) em Kz:
+     *   - câmbio: o indicado (manual) ou o da tabela na data fiscal; sem nenhum → CAMBIO_EM_FALTA;
+     *   - o lançamento tem de estar equilibrado NA MOEDA;
+     *   - Kz por linha = arred(valor_moeda × câmbio); uma diferença em Kz até 1 Kz (arredondamento da conversão) é acertada na
+     *     maior linha do lado menor — como o legado, que pedia confirmação (o valor na moeda não muda); acima disso, recusa.
+     * Sem moeda (ou em AOA) devolve os dados como vieram.
+     *
+     * @param  array<string, mixed>  $dados
+     * @return array<string, mixed>
+     */
+    public function prepararMoedaManual(array $dados): array
+    {
+        $moeda = strtoupper(trim((string) ($dados['codigo_moeda'] ?? '')));
+        unset($dados['codigo_moeda'], $dados['taxa_cambio_documento']);
+        if ($moeda === '' || $moeda === ServicoCambios::BASE) {
+            unset($dados['taxa_cambio']);
+
+            return $dados;
+        }
+        $data = (string) $dados['data_documento'];
+        $taxa = ! empty($dados['taxa_cambio']) ? number_format((float) $dados['taxa_cambio'], 6, '.', '')
+            : (app(ServicoCambios::class)->obter($this->contexto->obrigatorio(), $moeda, $data)['taxa']
+                ?? throw new ErroNegocio("Não há câmbio de {$moeda} registado até {$data}: registe-o ou indique um câmbio manual.", 'CAMBIO_EM_FALTA', 422));
+        unset($dados['taxa_cambio']);
+        $dm = $cm = '0.00';
+        foreach ($dados['linhas'] as $l) {
+            $v = $this->dinheiro($l['valor_moeda']);
+            $l['tipo_dc'] === 'D' ? $dm = bcadd($dm, $v, 2) : $cm = bcadd($cm, $v, 2);
+        }
+        if (bccomp($dm, $cm, 2) !== 0) {
+            throw new ErroNegocio("O lançamento não está equilibrado em {$moeda} (diferença de ".ltrim(bcsub($dm, $cm, 2), '-').').', 'LANCAMENTO_DESEQUILIBRADO_MOEDA', 422,
+                ['debito_moeda' => $dm, 'credito_moeda' => $cm]);
+        }
+        foreach ($dados['linhas'] as $i => $l) {
+            $dados['linhas'][$i] = ['valor' => CalculadoraDocumento::arredondar(bcmul($this->dinheiro($l['valor_moeda']), (string) $taxa, 8)),
+                'codigo_moeda' => $moeda, 'valor_moeda' => $this->dinheiro($l['valor_moeda']), 'taxa_cambio' => $taxa] + $l;
+        }
+        [$d, $c] = $this->totais($dados['linhas']);
+        $dif = bcsub($d, $c, 2);
+        if (bccomp($dif, '0', 2) !== 0 && bccomp(ltrim($dif, '-'), '1.00', 2) <= 0) {
+            $ladoMenor = bccomp($dif, '0', 2) > 0 ? 'C' : 'D';
+            $alvo = collect($dados['linhas'])->filter(fn ($l) => $l['tipo_dc'] === $ladoMenor)->sortByDesc(fn ($l) => (float) $l['valor'])->keys()->first();
+            $dados['linhas'][$alvo]['valor'] = bcadd($dados['linhas'][$alvo]['valor'], ltrim($dif, '-'), 2);
+        }
+
+        return $dados;
+    }
+
+    /**
+     * M6 — regra do legado para o lançamento MANUAL nos diários de caixa e bancos (saveJournalEntry, js/ui_lancamentos.js:1707-1731):
+     * se há linhas de disponibilidades (classe 4), as contrapartidas (não 4) têm de ter nota de fluxo de caixa e as linhas
+     * da classe 4 não podem tê-la (a nota vai na contrapartida). Só no lançamento manual: as integrações seguem as suas regras.
+     *
+     * @param  array{diario_id: int, linhas: list<array<string, mixed>>}  $dados
+     */
+    public function exigirNotasFluxoManual(array $dados): void
+    {
+        $codigo = strtoupper(trim((string) DiarioContabil::query()->whereKey($dados['diario_id'])->value('codigo')));
+        if (! in_array($codigo, ['CX', 'BD'], true)) {
+            return;
+        }
+        $linhas = collect($dados['linhas']);
+        if (! $linhas->contains(fn ($l) => str_starts_with((string) $l['codigo_conta'], '4'))) {
+            return;
+        }
+        $sem = $linhas->keys()->filter(fn ($i) => ! str_starts_with((string) $linhas[$i]['codigo_conta'], '4') && empty($linhas[$i]['nota_fluxo_caixa_id']));
+        if ($sem->isNotEmpty()) {
+            throw new ErroNegocio("No diário {$codigo}, as contrapartidas das contas de disponibilidades (classe 4) têm de ter uma nota de fluxo de caixa.",
+                'NOTA_FLUXO_OBRIGATORIA', 422, ['linhas' => $sem->map(fn ($i) => $i + 1)->values()->all()]);
+        }
+        $com = $linhas->keys()->filter(fn ($i) => str_starts_with((string) $linhas[$i]['codigo_conta'], '4') && ! empty($linhas[$i]['nota_fluxo_caixa_id']));
+        if ($com->isNotEmpty()) {
+            throw new ErroNegocio('A nota de fluxo de caixa não se aplica à conta de disponibilidades (classe 4), mas sim à sua contrapartida.',
+                'NOTA_FLUXO_NA_DISPONIBILIDADE', 422, ['linhas' => $com->map(fn ($i) => $i + 1)->values()->all()]);
+        }
     }
 
     /**
@@ -114,9 +202,9 @@ final class ServicoLancamentos
             $nota = '';
             if ($this->exercicios->encerrado($empresa, (int) substr($data, 0, 4))) {
                 $data = now()->toDateString();
-                $this->exercicios->exigirAberto($empresa, $data);
                 $nota = " (exercício do original encerrado: estorno datado de {$data})";
             }
+            $this->exercicios->exigirAbertoNaTransacao($empresa, $data);   // M5: serializado com o encerramento
 
             $diario = DiarioContabil::query()->findOrFail($linha->diario_id);
             $numeroLan = $this->proximoNumeroLan($empresa, $diario, $data);

@@ -16,6 +16,8 @@ use App\Services\Sistema\ServicoCambios;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Documentos comerciais (saveSale / executeConversion do legado, js/ui_sales.js:1708, 2893), com as correcções:
@@ -83,10 +85,16 @@ final class ServicoDocumentosVenda
         }
         $moeda = $this->resolverMoeda($d, $empresa, $data, $origemNcPrevia);
         $linhas = $this->prepararLinhas($d['linhas'], $fiscal, $config, $moeda['taxa']);
+        if ($origemNcPrevia) {
+            $linhas = $this->linhasDaOrigemNc($linhas, $d['linhas'], $origemNcPrevia, $moeda['estrangeira']);
+        }
         $calculoMoeda = $moeda['estrangeira'] ? CalculadoraDocumento::calcular($linhas) : null;
         $linhasKz = $moeda['estrangeira']
             ? array_map(fn ($l) => ['preco_unitario' => bcmul($l['preco_unitario'], $moeda['taxa'], 6)] + $l, $linhas) : $linhas;
         $calculo = $pos ? CalculadoraDocumento::calcularComIva($linhasKz, $pos['percentagem_desconto'] ?? 0) : CalculadoraDocumento::calcular($linhasKz);
+        if ($origemNcPrevia && ! $moeda['estrangeira']) {
+            $calculo = $this->calculoDaOrigemNc($linhas, $calculo);
+        }
         if ($pos) {   // preço da linha passa a ser a base sem IVA e já com o desconto (valor da linha / quantidade)
             foreach ($linhasKz as $i => $l) {
                 $linhasKz[$i]['preco_unitario'] = $calculo['linhas'][$i]['preco_base'];
@@ -103,6 +111,12 @@ final class ServicoDocumentosVenda
         return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt, $pos) {
             // dentro da transacção e com a factura de origem bloqueada: duas NC em simultâneo não excedem o saldo
             $origemNc = $tipo === 'NC' ? $this->validarNotaCredito($d, $cliente, $calculo['total_bruto']) : null;
+            if ($origemNc) {
+                $this->exigirQuantidadesNc($origemNc, $linhas);
+            }
+            if ($fiscal && $this->selagem->emRegimeNaData($config, $data)) {
+                $this->preValidarAgt($empresa, $tipo, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $d, $config, $origemNc);
+            }
             $reserva = $this->series->reservar($empresa, $tipo, $data, $fiscal, $pos['origem_serie'] ?? 'GERAL', $exigirSerieAgt);
             $bruto = $calculo['total_bruto'];
             $armazem = $this->stockVendas->armazem(isset($d['armazem_id']) ? (int) $d['armazem_id'] : null, $origemConversao ?? $origemNc);
@@ -162,7 +176,16 @@ final class ServicoDocumentosVenda
                 $this->selagem->selar($venda, $itens, $config, $origemNc?->numero_documento);
                 // envio automático à AGT (fe_config.servico.auto), depois do commit, alguns segundos depois
                 if ($venda->fe_regime && $venda->fe_estado === 'PRONTO' && ! empty($config?->servico['auto'])) {
-                    CicloAgt::dispatch($empresa)->afterCommit()->delay(now()->addSeconds(3));
+                    // R4: o lock único e o push usam o Redis e correm DEPOIS do COMMIT — uma falha aí devolvia 500 com a factura já
+                    // gravada (e o utilizador podia voltar a emitir). Regista-se um aviso: o agendador (erp:agt:ciclo) recolhe-a.
+                    DB::afterCommit(function () use ($empresa, $venda) {
+                        try {
+                            CicloAgt::dispatch($empresa)->delay(now()->addSeconds(3));
+                        } catch (Throwable $e) {
+                            Log::warning('Envio automático à AGT não agendado; o agendador recolhe o documento no próximo ciclo.',
+                                ['empresa_id' => $empresa, 'venda_id' => $venda->id, 'erro' => $e->getMessage()]);
+                        }
+                    });
                 }
             }
 
@@ -183,11 +206,24 @@ final class ServicoDocumentosVenda
             throw new ErroNegocio("Documento expirado em {$origem->valido_ate->toDateString()}. Confirme para converter mesmo assim.", 'DOCUMENTO_EXPIRADO', 422);
         }
 
+        // legado (convertDocument, js/ui_sales.js:2750-2753): factura liquidada, mesmo em parte, não se converte em NC
+        if ($destino === 'NC' && ($origem->estado === 'PAGO' && bccomp((string) ($origem->valor_pago ?? '0'), '0.005', 3) > 0
+            || bccomp((string) ($origem->valor_pago ?? '0'), '0.01', 2) > 0)) {
+            throw new ErroNegocio("Não é possível emitir nota de crédito para a factura {$origem->numero_documento}, que está liquidada: desassocie ou anule primeiro os pagamentos na Tesouraria.",
+                'NC_FATURA_PAGA', 422);
+        }
+
         $itens = $origem->itensVenda()->orderBy('id')->get();
+        $creditada = $destino === 'NC' ? $this->quantidadesCreditadas($origem) : [];
         $linhas = [];
         foreach ($itens as $i) {
+            // NC: o que ainda não foi creditado por outras NC (creditado por produto, abatido às primeiras linhas)
+            $jaCreditada = min((float) $i->quantidade, $creditada[$i->produto_id] ?? 0.0);
+            if ($destino === 'NC') {
+                $creditada[$i->produto_id] = ($creditada[$i->produto_id] ?? 0.0) - $jaCreditada;
+            }
             $restante = match (true) {
-                $destino === 'NC' => (float) $i->quantidade,
+                $destino === 'NC' => (float) $i->quantidade - $jaCreditada,
                 $destino === 'GR' => (float) $i->quantidade - (float) $i->quantidade_entregue,
                 $origem->tipo_documento === 'GR' => (float) $i->quantidade - (float) $i->quantidade_faturada - (float) $i->quantidade_devolvida,
                 default => (float) $i->quantidade - (float) $i->quantidade_faturada,
@@ -356,12 +392,149 @@ final class ServicoDocumentosVenda
             throw new ErroNegocio('A referência tem de ser uma factura ou factura-recibo do mesmo cliente.', 'NC_REFERENCIA_INVALIDA', 422);
         }
         $disponivel = bcsub((string) $origem->total_bruto, $this->estado->creditado($origem), 2);
+        // legado (saveSale, js/ui_sales.js:1725-1728): factura PAGA não admite NC — anule primeiro o recibo/pagamento.
+        // Só conta o pago por recibos/tesouraria (valor_pago): uma factura toda creditada por NC cai no saldo creditável abaixo.
+        if ($origem->estado === 'PAGO' && bccomp((string) ($origem->valor_pago ?? '0'), '0.005', 3) > 0) {
+            throw new ErroNegocio("Não é possível emitir nota de crédito para a factura {$origem->numero_documento}, que está paga: anule primeiro o recibo/pagamento associado.",
+                'NC_FATURA_PAGA', 422);
+        }
+        $disponivel = bcsub((string) $origem->total_bruto, $this->estado->creditado($origem), 2);
         if (bccomp($totalNc, $disponivel, 2) > 0) {
             throw new ErroNegocio("A nota de crédito ({$totalNc}) excede o saldo creditável da factura ({$disponivel}).", 'NC_EXCEDE_SALDO', 422,
                 ['saldo_creditavel' => $disponivel]);
         }
 
         return $origem;
+    }
+
+    /**
+     * Pré-validação AGT antes de reservar o n.º da série (legado: js/ui_sales.js:1798-1803, 2943-2948 — «Nada foi gravado»).
+     * Antes, o documento era numerado e selado com fe_estado = COM_ERROS e, sendo fiscal, só se corrigia com uma NC.
+     */
+    private function preValidarAgt(int $empresa, string $tipo, string $data, Terceiro $cliente, array $linhas, array $linhasKz, array $calculo,
+        ?array $calculoMoeda, array $moeda, array $d, ?ConfigFaturacaoEletronica $config, ?Venda $origemNc): void
+    {
+        $prov = (new Venda)->forceFill([
+            'empresa_id' => $empresa, 'cliente_id' => $cliente->id, 'tipo_documento' => $tipo, 'data_emissao' => $data.' '.now()->format('H:i:s'),
+            'total_liquido' => $calculo['total_liquido'], 'total_imposto' => $calculo['total_imposto'], 'total_bruto' => $calculo['total_bruto'],
+            'codigo_moeda' => $moeda['codigo'], 'taxa_cambio' => $moeda['estrangeira'] ? $moeda['taxa'] : null,
+            'total_bruto_moeda' => $calculoMoeda['total_bruto'] ?? null, 'fe_data_entrada_sistema' => now(),
+            'motivo_nota_credito' => $tipo === 'NC' ? ($d['motivo_nota_credito'] ?? null) : null,
+        ]);
+        $produtos = Produto::query()->whereIn('id', array_column($linhas, 'produto_id'))->get()->keyBy('id');
+        $itens = new Collection;
+        foreach ($linhas as $i => $l) {
+            $itens->push((new ItemVenda)->forceFill([
+                'produto_id' => $l['produto_id'], 'descricao' => $l['descricao'], 'quantidade' => $l['quantidade'],
+                'preco_unitario' => CalculadoraDocumento::arredondar($linhasKz[$i]['preco_unitario']), 'taxa_imposto' => $l['taxa_imposto'],
+                'total' => $calculo['linhas'][$i]['total'], 'total_linha' => $calculo['linhas'][$i]['valor'],
+                'preco_unitario_moeda' => $calculoMoeda ? $l['preco_unitario'] : null,
+            ])->setRelation('produto', $produtos[$l['produto_id']] ?? null));
+        }
+        [$erros, $avisos] = $this->selagem->preValidar($prov, $itens, $config, $origemNc?->numero_documento);
+        if ($erros) {
+            throw new ErroNegocio('O documento não cumpre as regras da AGT. Corrija antes de emitir: nada foi gravado.', 'AGT_PRE_VALIDACAO', 422,
+                ['erros' => $erros, 'avisos' => $avisos]);
+        }
+    }
+
+    /**
+     * Linhas da NC presas às da factura de origem: o produto tem de existir na origem e o preço (na moeda do documento)
+     * e a taxa de IVA são os da linha de origem — não os do pedido nem a taxa actual do produto. A linha de origem é
+     * a indicada em item_origem_id (conversão) ou a primeira com o mesmo produto.
+     *
+     * @param  list<array<string, mixed>>  $linhas  já preparadas
+     * @param  list<array<string, mixed>>  $pedido  linhas do pedido (para item_origem_id)
+     * @return list<array<string, mixed>>
+     */
+    private function linhasDaOrigemNc(array $linhas, array $pedido, Venda $origem, bool $estrangeira): array
+    {
+        $itens = $origem->itensVenda()->orderBy('id')->get();
+        foreach ($linhas as $i => $l) {
+            $n = $i + 1;
+            $idOrigem = $pedido[$i]['item_origem_id'] ?? null;
+            $item = $idOrigem ? $itens->firstWhere('id', (int) $idOrigem) : $itens->firstWhere('produto_id', $l['produto_id']);
+            if (! $item || (int) $item->produto_id !== (int) $l['produto_id']) {
+                throw new ErroNegocio("Linha {$n}: o produto não consta da factura de origem {$origem->numero_documento}.", 'NC_LINHA_SEM_ORIGEM', 422);
+            }
+            $preco = $estrangeira && $item->preco_unitario_moeda !== null ? $item->preco_unitario_moeda : $item->preco_unitario;
+            $linhas[$i]['preco_unitario'] = number_format((float) $preco, 2, '.', '');
+            $linhas[$i]['taxa_imposto'] = (string) ($item->taxa_imposto ?? '0');
+            if (! $estrangeira && $item->total_linha !== null && (float) $item->quantidade > 0) {
+                $linhas[$i]['_origem'] = $this->valoresOrigemNc($item, (string) $l['quantidade']);
+            }
+        }
+
+        return $linhas;
+    }
+
+    /**
+     * Valores em Kz da linha da NC a partir dos da linha de origem, e não de qtd × preço: nas FR/FT do POS o preço
+     * guardado é a base arredondada (ou, nas migradas, o preço com IVA), e o recálculo dava um total ≠ da factura
+     * (NC recusada com NC_EXCEDE_SALDO ou saldo por creditar). Crédito total: os valores da origem; parcial:
+     * valor = arred(total_linha × q / q_origem) e IVA por excesso ao cêntimo.
+     *
+     * @return array{valor: string, imposto: string}
+     */
+    private function valoresOrigemNc(ItemVenda $item, string $quantidade): array
+    {
+        $valorOrigem = number_format((float) $item->total_linha, 2, '.', '');
+        $qOrigem = number_format((float) $item->quantidade, 3, '.', '');
+        $q = number_format((float) $quantidade, 3, '.', '');
+        if (bccomp($q, $qOrigem, 3) === 0) {
+            $imposto = $item->total !== null ? bcsub(number_format((float) $item->total, 2, '.', ''), $valorOrigem, 2)
+                : CalculadoraDocumento::excessoCentimo(bcdiv(bcmul($valorOrigem, (string) $item->taxa_imposto, 8), '100', 8));
+
+            return ['valor' => $valorOrigem, 'imposto' => bccomp($imposto, '0', 2) < 0 ? '0.00' : $imposto];
+        }
+        $valor = CalculadoraDocumento::arredondar(bcdiv(bcmul($valorOrigem, $q, 8), $qOrigem, 8), 2);
+
+        return ['valor' => $valor, 'imposto' => CalculadoraDocumento::excessoCentimo(bcdiv(bcmul($valor, (string) ($item->taxa_imposto ?? '0'), 8), '100', 8))];
+    }
+
+    /** Substitui no cálculo da NC (Kz) os valores das linhas presas à origem e refaz os totais. */
+    private function calculoDaOrigemNc(array $linhas, array $calculo): array
+    {
+        $liquido = $imposto = '0.00';
+        foreach ($linhas as $i => $l) {
+            if (isset($l['_origem'])) {
+                $calculo['linhas'][$i] = ['valor' => $l['_origem']['valor'], 'imposto' => $l['_origem']['imposto'],
+                    'total' => bcadd($l['_origem']['valor'], $l['_origem']['imposto'], 2)];
+            }
+            $liquido = bcadd($liquido, $calculo['linhas'][$i]['valor'], 2);
+            $imposto = bcadd($imposto, $calculo['linhas'][$i]['imposto'], 2);
+        }
+
+        return ['linhas' => $calculo['linhas'], 'total_liquido' => $liquido, 'total_imposto' => $imposto, 'total_bruto' => bcadd($liquido, $imposto, 2)];
+    }
+
+    /** Quantidade da NC por produto ≤ quantidade da origem − já creditada por outras NC (não anuladas). Chamado com a origem bloqueada. */
+    private function exigirQuantidadesNc(Venda $origem, array $linhas): void
+    {
+        $origemQt = $origem->itensVenda()->get()->groupBy('produto_id')->map(fn ($g) => $g->sum(fn ($x) => (float) $x->quantidade));
+        $creditada = $this->quantidadesCreditadas($origem);
+        $pedida = [];
+        foreach ($linhas as $l) {
+            $pedida[$l['produto_id']] = ($pedida[$l['produto_id']] ?? 0) + (float) $l['quantidade'];
+        }
+        foreach ($pedida as $produto => $qt) {
+            $resta = (float) ($origemQt[$produto] ?? 0) - (float) ($creditada[$produto] ?? 0);
+            if ($qt - $resta > 0.0005) {
+                throw new ErroNegocio('A quantidade a creditar ('.round($qt, 3).') excede a ainda não creditada na factura ('.round(max(0, $resta), 3).').',
+                    'NC_QUANTIDADE_EXCEDIDA', 422, ['produto_id' => (int) $produto, 'disponivel' => round(max(0, $resta), 3)]);
+            }
+        }
+    }
+
+    /** @return array<int, float> quantidade já creditada por produto (NC não anuladas sobre a factura) */
+    private function quantidadesCreditadas(Venda $origem): array
+    {
+        return DB::table('vendas_documentos_relacionados as r')->join('vendas as nc', 'nc.id', '=', 'r.venda_id')
+            ->join('itens_venda as i', 'i.venda_id', '=', 'nc.id')
+            ->where('r.empresa_id', $origem->empresa_id)->where('r.venda_relacionada_id', $origem->id)
+            ->where('nc.tipo_documento', 'NC')->where(fn ($q) => $q->whereNull('nc.estado')->orWhere('nc.estado', '<>', 'ANULADO'))
+            ->groupBy('i.produto_id')->selectRaw('i.produto_id, SUM(i.quantidade) AS q')->pluck('q', 'produto_id')
+            ->map(fn ($q) => (float) $q)->all();
     }
 
     /**

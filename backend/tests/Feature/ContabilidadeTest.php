@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\DiarioContabil;
 use App\Models\Empresa;
+use App\Models\LancamentoContabil;
 use App\Models\LogAuditoria;
+use App\Models\NotaFluxoCaixa;
 use App\Models\PlanoConta;
+use App\Models\TaxaCambio;
 use App\Services\Sistema\ServicoNumeracao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
@@ -239,5 +242,52 @@ final class ContabilidadeTest extends TestCase
         $this->lancamento($this->equilibrado());
         $caixa = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => PlanoConta::query()->where('codigo', '111')->value('id'));
         $this->deleteJson("/api/contabilidade/plano-contas/{$caixa}", [], $this->cabecalhos)->assertStatus(403);   // falta contab_tabelas_del
+    }
+
+    #[Test]
+    public function lancamento_manual_em_caixa_ou_bancos_exige_nota_de_fluxo_na_contrapartida(): void
+    {
+        [$cx, $fluxo] = app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () {
+            PlanoConta::create(['codigo' => '4511', 'descricao' => 'Caixa sede', 'tipo' => 'M']);
+
+            return [DiarioContabil::create(['codigo' => 'CX', 'descricao' => 'Caixa'])->id, NotaFluxoCaixa::create(['codigo' => '1.1', 'descricao' => 'Recebimentos'])->id];
+        });
+        $post = fn (array $linhas) => $this->postJson('/api/contabilidade/lancamentos', ['diario_id' => $cx, 'data_documento' => '2026-03-15', 'descricao' => 'Venda',
+            'linhas' => $linhas], $this->cabecalhos);
+        $caixa = ['codigo_conta' => '4511', 'tipo_dc' => 'D', 'valor' => 100];
+        $venda = ['codigo_conta' => '611', 'tipo_dc' => 'C', 'valor' => 100];
+
+        // M6 (ui_lancamentos.js:1707-1731): contrapartida sem nota de fluxo; nota de fluxo na conta 4
+        $post([$caixa, $venda])->assertStatus(422)->assertJsonPath('codigo', 'NOTA_FLUXO_OBRIGATORIA')->assertJsonPath('erros.linhas', [2]);
+        $post([$caixa + ['nota_fluxo_caixa_id' => $fluxo], $venda + ['nota_fluxo_caixa_id' => $fluxo]])->assertStatus(422)->assertJsonPath('codigo', 'NOTA_FLUXO_NA_DISPONIBILIDADE');
+        $post([$caixa, $venda + ['nota_fluxo_caixa_id' => $fluxo]])->assertCreated();
+        // noutro diário não se aplica
+        $this->lancamento($this->equilibrado())->assertCreated();
+    }
+
+    #[Test]
+    public function lancamento_manual_em_moeda_estrangeira_converte_equilibra_na_moeda_e_acerta_o_arredondamento(): void
+    {
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => TaxaCambio::create(['codigo_moeda' => 'USD', 'data_taxa' => '2026-03-01', 'taxa' => '912.333333']));
+        $post = fn (array $linhas, array $extra = []) => $this->postJson('/api/contabilidade/lancamentos', $extra + ['diario_id' => $this->diario->id, 'data_documento' => '2026-03-15',
+            'descricao' => 'Em USD', 'codigo_moeda' => 'USD', 'linhas' => $linhas], $this->cabecalhos);
+
+        // desequilibrado na moeda
+        $post([['codigo_conta' => '111', 'tipo_dc' => 'D', 'valor_moeda' => 10], ['codigo_conta' => '611', 'tipo_dc' => 'C', 'valor_moeda' => 9]])
+            ->assertStatus(422)->assertJsonPath('codigo', 'LANCAMENTO_DESEQUILIBRADO_MOEDA');
+        // 10,01 = 3,34 + 3,34 + 3,33 em USD; em Kz 9 132,46 ≠ 3 047,19 + 3 047,19 + 3 038,07 = 9 132,45 → acerto de 0,01 na maior linha a crédito
+        $r = $post([['codigo_conta' => '111', 'tipo_dc' => 'D', 'valor_moeda' => 10.01], ['codigo_conta' => '611', 'tipo_dc' => 'C', 'valor_moeda' => 3.34],
+            ['codigo_conta' => '611', 'tipo_dc' => 'C', 'valor_moeda' => 3.34], ['codigo_conta' => '611', 'tipo_dc' => 'C', 'valor_moeda' => 3.33]])->assertCreated();
+        $linhas = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => LancamentoContabil::query()
+            ->where('numero_lan', $r->json('dados.numero_lan'))->orderBy('id')->get(['codigo_moeda', 'valor_moeda', 'valor', 'taxa_cambio']));
+        $this->assertSame(['USD'], $linhas->pluck('codigo_moeda')->unique()->values()->all());
+        $this->assertSame(['10.01', '3.34', '3.34', '3.33'], $linhas->map(fn ($l) => (string) $l->valor_moeda)->all());
+        $this->assertSame('9132.46', (string) $linhas[0]->valor);
+        $this->assertSame('9132.46', number_format($linhas->slice(1)->sum(fn ($l) => (float) $l->valor), 2, '.', ''));
+        // câmbio manual; sem câmbio na data → CAMBIO_EM_FALTA
+        $post([['codigo_conta' => '111', 'tipo_dc' => 'D', 'valor_moeda' => 1], ['codigo_conta' => '611', 'tipo_dc' => 'C', 'valor_moeda' => 1]], ['data_documento' => '2026-02-01'])
+            ->assertStatus(422)->assertJsonPath('codigo', 'CAMBIO_EM_FALTA');
+        $post([['codigo_conta' => '111', 'tipo_dc' => 'D', 'valor_moeda' => 1], ['codigo_conta' => '611', 'tipo_dc' => 'C', 'valor_moeda' => 1]], ['data_documento' => '2026-02-01', 'taxa_cambio' => 900])
+            ->assertCreated();
     }
 }

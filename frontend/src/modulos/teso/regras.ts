@@ -48,6 +48,10 @@ export function accoesSessao(s: Pick<SessaoCaixa, 'estado' | 'movimentos'> | und
     podeDescontabilizar: s?.estado === 'CONTABILIZADA' && pode('teso_caixa_contabilizar'),
     /** O servidor só elimina sessões abertas sem movimentos. */
     podeEliminar: aberta && !(s?.movimentos?.length ?? 0) && pode('teso_caixa_eliminar'),
+    /** Reabrir: só sessões fechadas e por contabilizar, com a permissão de fechar (ServicoCaixaAjustes::reabrir; A-11). */
+    podeReabrir: s?.estado === 'FECHADA' && pode('teso_caixa_fechar'),
+    /** Notas DEMO/fluxo, UN e CC dos movimentos: enquanto a sessão não está contabilizada. */
+    podeClassificar: (aberta || s?.estado === 'FECHADA') && !!(s?.movimentos?.length ?? 0) && pode('teso_caixa_operar'),
   };
 }
 

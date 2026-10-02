@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Contabilidade\CompensacaoController;
 use App\Http\Controllers\Api\Contabilidade\DemonstracoesFinanceirasController;
 use App\Http\Controllers\Api\Contabilidade\ImportacaoLancamentosController;
+use App\Http\Controllers\Api\Contabilidade\NotasPorContaController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContasController;
 use App\Http\Controllers\Api\Contabilidade\TabelasAuxiliaresController;
@@ -43,6 +44,9 @@ Route::prefix('contabilidade')->name('contabilidade.')->group(function () {
         Route::post('{ano}/reabrir', 'reabrir')->whereNumber('ano')->name('reabrir');
     });
 
+    // E-CON-1: «Sincronizar notas automática» (recoverDataMapping) — ferramenta de reparação, simulação por omissão
+    Route::post('tabelas/notas-demonstracao/sincronizar-por-conta', [NotasPorContaController::class, 'sincronizar'])->name('tabelas.notas-demonstracao.sincronizar-por-conta');
+
     Route::controller(TabelasAuxiliaresController::class)->group(function () {
         Route::post('tabelas/centros-custo/sincronizar', 'sincronizarCentrosCusto')->name('tabelas.centros-custo.sincronizar');
         Route::prefix('tabelas/{tabela}')->whereIn('tabela', ['diarios', 'notas-demonstracao', 'notas-fluxo-caixa', 'centros-custo'])->name('tabelas.')->group(function () {
@@ -65,6 +69,7 @@ Route::prefix('contabilidade')->name('contabilidade.')->group(function () {
         Route::post('lancamentos/importar', 'importar')->name('lancamentos.importar');
         Route::get('saldos-historicos/{ano}', 'saldosHistoricos')->whereNumber('ano')->name('saldos-historicos.show');
         Route::put('saldos-historicos/{ano}', 'gravarSaldosHistoricos')->whereNumber('ano')->name('saldos-historicos.update');
+        Route::get('saldos-historicos/{ano}/modelo', 'modeloSaldosHistoricos')->whereNumber('ano')->name('saldos-historicos.modelo');
         Route::post('saldos-historicos/importar', 'importarSaldosHistoricos')->name('saldos-historicos.importar');
     });
 });

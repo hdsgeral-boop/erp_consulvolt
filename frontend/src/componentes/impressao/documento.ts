@@ -86,6 +86,16 @@ body.imp-quebrar td, body.imp-quebrar th, body.imp-quebrar td *, body.imp-quebra
 .imp-conteudo { width: 100%; }
 .imp-rodape-fim { margin-top: 6mm; font-size: 7.5pt; color: #555; text-align: center; }
 
+/* Folhas da paginação do motor (paginacao.ts): altura útil fixa, rodapé com «Página X de Y» em cada folha */
+.imp-pagina { position: relative; width: var(--imp-largura-pagina, auto); height: var(--imp-altura-pagina, auto); margin: 0; padding: 0; break-inside: avoid; page-break-inside: avoid; }
+.imp-pagina:not(:last-child) { break-after: page; page-break-after: always; }
+.imp-pagina-corpo { height: calc(100% - 7mm); }
+.imp-pagina .imp-conteudo { display: flow-root; }
+.imp-pagina-rodape { position: absolute; left: 0; right: 0; bottom: 0; min-height: 5mm; display: flex; justify-content: space-between; align-items: flex-end; gap: 6mm; padding-top: 1mm; border-top: 0.2mm solid #bfbfbf; font: 7.5pt/1.25 Arial, 'Helvetica Neue', Helvetica, sans-serif; color: #555; }
+.imp-pagina-rodape-empresa { flex: 1 1 auto; min-width: 0; }
+.imp-pagina-numero { flex: none; white-space: nowrap; }
+.imp-fonte { position: absolute; left: 0; top: 0; }
+
 /* Tabelas geradas por tabelaHtml() */
 .imp-tabela { width: 100%; border-collapse: collapse; font-size: 8.5pt; margin-bottom: 4mm; }
 .imp-tabela caption { text-align: left; font-weight: 700; font-size: 9.5pt; padding: 1mm 0; }
@@ -102,6 +112,9 @@ body.imp-quebrar td, body.imp-quebrar th, body.imp-quebrar td *, body.imp-quebra
 
 @media screen {
   body.imp-documento { padding: 0; }
+  /* pré-visualização (testes, abrir o HTML): folhas separadas como no papel */
+  .imp-pagina + .imp-pagina { margin-top: 6mm; }
+  .imp-pagina { outline: 1px dashed #c8c8c8; outline-offset: 2mm; }
 }
 `;
 

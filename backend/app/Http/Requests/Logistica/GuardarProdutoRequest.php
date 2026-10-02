@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Logistica;
 
+use App\Rules\TaxaIvaLegal;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,7 +26,7 @@ final class GuardarProdutoRequest extends FormRequest
             'codigo' => [$criar ? 'required' : 'sometimes', 'string', 'max:50'],
             'nome' => [$criar ? 'required' : 'sometimes', 'string', 'max:255'],
             'preco_unitario' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
-            'taxa_imposto' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'taxa_imposto' => ['nullable', 'numeric', new TaxaIvaLegal],
             'movimenta_stock' => ['nullable', 'boolean'],
             'e_servico' => ['nullable', 'boolean'],
             'categoria_produto_id' => ['nullable', 'integer', Rule::exists('categorias_produtos', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],

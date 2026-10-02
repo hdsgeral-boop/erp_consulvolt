@@ -8,6 +8,7 @@ use App\Models\ItemCompra;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Contabilidade\ServicoNotasPorConta;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,6 +28,7 @@ final class ServicoContabilizacaoCompras
         private readonly ServicoLancamentos $lancamentos,
         private readonly LocalizadorLancamentos $localizador,
         private readonly ServicoConfigCompras $config,
+        private readonly ServicoNotasPorConta $notas,
     ) {}
 
     public function contabilizar(FaturaCompra $fatura): FaturaCompra
@@ -57,7 +59,9 @@ final class ServicoContabilizacaoCompras
                 $liquido = number_format((float) ($l->total_kz ?? $l->total), 2, '.', '');
                 if ($p?->movimenta_stock && $l->item_encomenda_id) {
                     $transitoria = $fornecedor->conta_compra_transitoria ?: $this->config->exigir('transitoria_compras', 'O fornecedor não tem conta transitória de compras.');
-                    $valorTrans = number_format((float) $l->valor_transitoria_kz, 2, '.', '');
+                    // linhas migradas sem valor_transitoria_kz: a transitória salda pelo valor da linha, como o legado quando faltava
+                    // valor_328_kz (ui_compras_v2.js:3364-3370); antes o NULL passava a 0 e todo o líquido ia para diferenças de câmbio (E-STK-2)
+                    $valorTrans = $l->valor_transitoria_kz !== null ? number_format((float) $l->valor_transitoria_kz, 2, '.', '') : $liquido;
                     $somar($transitoria, $valorTrans);
                     $diferenca = bcsub($liquido, $valorTrans, 2);
                     if (bccomp($diferenca, '0', 2) > 0) {
@@ -100,6 +104,14 @@ final class ServicoContabilizacaoCompras
             $moeda = $fatura->codigo_moeda && $fatura->codigo_moeda !== 'AOA'
                 ? ['codigo_moeda' => $fatura->codigo_moeda, 'valor_moeda' => $fatura->montante_total_moeda, 'taxa_cambio' => $fatura->taxa_cambio] : [];
             $lancamento[] = ['codigo_conta' => $contaFornecedor, 'tipo_dc' => 'C', 'valor' => $credito] + $moeda + $comum;
+            // notas às demonstrações como o legado (ui_compras_v2.js:3452-3460): 321/322/328 → nota 11, 34* → nota 9, 11/12/14 → nota 4
+            // (sem nota as linhas ficavam fora do Balanço e da DR — E-CON-1)
+            $lancamento = $this->notas->aplicarALinhas($lancamento, fn (string $c) => match (true) {
+                str_starts_with($c, '321') || str_starts_with($c, '322') || str_starts_with($c, '328') => '11',
+                str_starts_with($c, '34') => '9',
+                str_starts_with($c, '11') || str_starts_with($c, '12') || str_starts_with($c, '14') => '4',
+                default => null,
+            });
 
             $numeroLan = $this->lancamentos->criar([
                 'diario_id' => $this->localizador->diario('FF', 'Facturas de fornecedor')->id, 'data_documento' => $fatura->data->toDateString(),

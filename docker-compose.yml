@@ -31,6 +31,8 @@ x-backend: &backend
     REDIS_HOST: redis
     REDIS_PORT: 6379
     REDIS_PASSWORD: ${REDIS_PASSWORD}
+    # > --timeout=600 do worker (e o timeout de 300 s do CicloAgt): com o valor por omissão (90 s) um trabalho longo era entregue 2.ª vez
+    REDIS_QUEUE_RETRY_AFTER: 660
   depends_on:
     postgres:
       condition: service_healthy

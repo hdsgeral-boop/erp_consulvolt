@@ -1,5 +1,5 @@
 import { Button, Card, Checkbox, DatePicker, Input, Tag, Tooltip } from 'antd';
-import { ImportOutlined, PlusOutlined } from '@ant-design/icons';
+import { HistoryOutlined, ImportOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { ValorKz } from '../comum/Componentes';
 import { useDiarios, porId } from '../comum/dados';
 import { ModalImportar } from '../comum/ficheiros';
 import { SeletorConta, SeletorDiario, SeletorTerceiro } from '../comum/Seletores';
+import { ModalSaldosHistoricos } from './ModalSaldosHistoricos';
 
 /** Lançamentos › listagem das linhas do diário (GET /contabilidade/lancamentos), com filtros. */
 export function ListaLancamentos() {
@@ -32,6 +33,7 @@ export function ListaLancamentos() {
   const [classe9, setClasse9] = useState(false);
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [importar, setImportar] = useState(false);
+  const [saldos, setSaldos] = useState(false);
   const [aceitarAvisos, setAceitarAvisos] = useState(false);
 
   const colunas: ColunaApi<LinhaLancamento>[] = [
@@ -61,6 +63,11 @@ export function ListaLancamentos() {
             {pode('lancamentos_import') && (
               <Button icon={<ImportOutlined />} onClick={() => setImportar(true)}>
                 Importar
+              </Button>
+            )}
+            {pode('lancamentos_saldos') && (
+              <Button icon={<HistoryOutlined />} onClick={() => setSaldos(true)}>
+                Saldos históricos
               </Button>
             )}
             {pode('lancamentos_post') && (
@@ -131,6 +138,7 @@ export function ListaLancamentos() {
         aoFechar={() => setImportar(false)}
         aoConcluir={() => void cliente.invalidateQueries({ queryKey: ['contab'] })}
       />
+      {saldos && <ModalSaldosHistoricos aberto={saldos} aoFechar={() => setSaldos(false)} />}
     </>
   );
 }

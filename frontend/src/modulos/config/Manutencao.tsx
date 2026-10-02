@@ -11,6 +11,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { accoesPedido, textoConfirmacao, type PedidoResumo } from './comum/regras';
 import { larguraGaveta, scrollTabela, useEcra } from '@/componentes/responsivo';
 import { TabelaLocalImprimivel } from './comum/impressao';
+import Validacoes from './validacoes/Validacoes';
 
 interface ParametroAccao {
   id: string;
@@ -66,7 +67,10 @@ const CORES: Record<string, string> = { PENDENTE: 'orange', APROVADO: 'blue', EX
 const ROTULOS: Record<string, string> = { PENDENTE: 'A aguardar aprovação', APROVADO: 'Aprovado', EXECUTADO: 'Executado', REJEITADO: 'Rejeitado', CANCELADO: 'Cancelado', EXPIRADO: 'Expirado' };
 const CHAVE = ['sistema', 'manutencao'];
 
-/** Configurações › Manutenção de dados (config_manutencao): acções correctivas com impacto, pedido, aprovação dupla e execução. */
+/**
+ * Configurações › Manutenção de dados (config_manutencao): acções correctivas com impacto, pedido, aprovação dupla e execução,
+ * e as Validações de dados (A-01) — relatórios só de leitura que substituem as rotinas destrutivas do legado (ADR-015).
+ */
 export default function Manutencao() {
   const catalogo = useQuery({ queryKey: [...CHAVE, 'acoes'], queryFn: () => obter<Catalogo>('/sistema/manutencao/acoes'), staleTime: 3_600_000 });
   const [separador, setSeparador] = useState('pedidos');
@@ -89,6 +93,7 @@ export default function Manutencao() {
           items={[
             { key: 'pedidos', label: 'Pedidos', children: <Pedidos /> },
             { key: 'novo', label: 'Novo pedido', children: <NovoPedido acoes={catalogo.data?.acoes ?? []} aoCriar={() => setSeparador('pedidos')} /> },
+            { key: 'validacoes', label: 'Validações de dados', children: <Validacoes /> },
             {
               key: 'legado',
               label: 'Acções do sistema antigo',

@@ -65,6 +65,13 @@ export const UNICOS = [
   // Numeração única obrigatória só nos documentos fiscais (AGT). Orçamentos/proformas do legado repetem números
   // (o legado tratava "Orçamento" e "Orcamento" como tipos distintos) -> relatório de validação.
   ['vendas', ['empresa_id', 'tipo_documento', 'numero_documento'], "tipo_documento IN ('FT','FR','NC','ND')"],
+  // Unicidade dos restantes números de documento (análise de regras 2026-10-02, M15). O legado repete OR/PF sem série.
+  ['vendas', ['empresa_id', 'tipo_documento', 'numero_documento'], "tipo_documento IN ('NE','GR','GD')"],
+  ['vendas', ['empresa_id', 'tipo_documento', 'numero_documento'], "tipo_documento IN ('OR','PF') AND serie_faturacao_eletronica_id IS NOT NULL"],
+  ['documentos_tesouraria', ['empresa_id', 'numero_documento'], 'numero_documento IS NOT NULL'],
+  ['pedidos_compra', ['empresa_id', 'numero_pedido'], 'numero_pedido IS NOT NULL'],
+  ['cotacoes_compra', ['empresa_id', 'numero_proposta'], 'numero_proposta IS NOT NULL'],
+  ['rececoes_compra', ['empresa_id', 'numero_rececao'], 'numero_rececao IS NOT NULL'],
   ['recibos_venda', ['empresa_id', 'numero_recibo']],
   ['encomendas_compra', ['empresa_id', 'numero_encomenda']],
   ['guias_saida', ['empresa_id', 'numero_documento']],

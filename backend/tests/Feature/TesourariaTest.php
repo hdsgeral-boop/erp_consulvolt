@@ -7,6 +7,7 @@ use App\Models\LancamentoContabil;
 use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\Terceiro;
+use App\Models\Venda;
 use App\Services\Tesouraria\ServicoMeiosPagamento;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Testing\TestResponse;
@@ -177,5 +178,46 @@ final class TesourariaTest extends TestCase
         $this->assertTrue($lista[$b]['predefinido']);
         $this->deleteJson("/api/tesouraria/meios-pagamento/{$b}", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'MEIO_PREDEFINIDO');
         $this->deleteJson("/api/tesouraria/meios-pagamento/{$a}", [], $this->s)->assertOk();
+    }
+
+    #[Test]
+    public function ligacao_a_factura_impoe_numero_conta_do_documento_pendente_e_rejeita_venda_anulada(): void
+    {
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => PlanoConta::create(['codigo' => '3181', 'descricao' => 'Outros devedores', 'tipo' => 'M']));
+        [$ft, $numero] = $this->factura();
+        $linha = fn (array $x) => [$x + ['codigo_conta' => '3111', 'tipo_dc' => 'C', 'valor' => '1000', 'terceiro_id' => $this->cliente->id, 'venda_id' => $ft]];
+
+        // (a) n.º inventado com venda ligada: antes saltava o limite do saldo e actualizava a venda na mesma
+        $this->documento('RECEBIMENTO', $linha(['numero_documento' => 'FT INVENTADA/1', 'valor' => '99999']))->assertStatus(422)->assertJsonPath('codigo', 'LIGACAO_INVALIDA');
+        // (b) conta diferente da do documento: não há pendente dessa venda nessa conta
+        $this->documento('RECEBIMENTO', $linha(['codigo_conta' => '3181', 'valor' => '99999']))->assertStatus(422)->assertJsonPath('codigo', 'SEM_PENDENTE');
+        // o n.º igual ao do documento é aceite
+        $this->documento('RECEBIMENTO', $linha(['numero_documento' => $numero, 'valor' => '2850']))->assertCreated()->assertJsonPath('dados.linhas.0.numero_documento', $numero);
+        // documento já todo em liquidação: sem pendente → rejeita (antes era tratado como adiantamento)
+        $this->documento('RECEBIMENTO', $linha([]))->assertStatus(422)->assertJsonPath('codigo', 'SEM_PENDENTE');
+
+        // folha de caixa: o mesmo n.º imposto e pendente obrigatório
+        $s = $this->sessao(['teso_folha_caixa_view', 'teso_caixa_operar']);
+        $sessao = $this->postJson('/api/tesouraria/caixa/sessoes', ['codigo_conta' => '4511', 'data' => $this->hoje], $s)->assertCreated()->json('dados.id');
+        $mov = fn (array $d) => $this->postJson("/api/tesouraria/caixa/sessoes/{$sessao}/movimentos", $d + ['tipo' => 'REC', 'conta_contrapartida' => '3111', 'valor' => 100,
+            'terceiro_id' => $this->cliente->id, 'venda_id' => $ft, 'data_documento' => $this->hoje, 'descricao' => 'Recebimento'], $s);
+        $mov(['numero_documento' => 'OUTRO/9'])->assertStatus(422)->assertJsonPath('codigo', 'LIGACAO_INVALIDA');
+        $mov([])->assertStatus(422)->assertJsonPath('codigo', 'SEM_PENDENTE');
+
+        // (c) venda anulada não se liquida
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Venda::query()->whereKey($ft)->update(['estado' => 'ANULADO']));
+        $this->documento('RECEBIMENTO', $linha(['valor' => '10']))->assertStatus(422)->assertJsonPath('codigo', 'LIGACAO_INVALIDA');
+    }
+
+    #[Test]
+    public function liquidacao_nao_deixa_o_pago_da_venda_acima_do_total(): void
+    {
+        [$ft] = $this->factura();
+        $doc = $this->documento('RECEBIMENTO', [['codigo_conta' => '3111', 'tipo_dc' => 'C', 'valor' => '1000', 'terceiro_id' => $this->cliente->id, 'venda_id' => $ft]])
+            ->assertCreated()->json('dados.id');
+        // (d) pago já registado por outra via (ex.: recibo) depois de gravado o documento: a integração não ultrapassa o total
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Venda::query()->whereKey($ft)->update(['valor_pago' => '2000.00']));
+        $this->postJson("/api/tesouraria/documentos/{$doc}/integrar", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'VALOR_SUPERIOR_EM_ABERTO');
+        $this->getJson("/api/vendas/documentos/{$ft}", $this->s)->assertJsonPath('dados.valor_pago', '2000.00');
     }
 }

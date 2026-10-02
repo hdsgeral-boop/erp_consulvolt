@@ -5,7 +5,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { iniciais } from '@/layout/marca';
 import { notificarErro } from '@/utilitarios/erros';
 
-/** Escolha da empresa a seguir ao login (responsiva: cartão com largura máxima e lista que quebra linha). */
+/** Escolha da empresa a seguir ao login (responsiva: cartão com largura máxima e lista que quebra linha), sobre o fundo da entrada. */
 export function EscolherEmpresa() {
   const { empresas, escolherEmpresa, sair, utilizador } = useSessao();
   const { token } = theme.useToken();
@@ -18,8 +18,9 @@ export function EscolherEmpresa() {
   };
 
   return (
-    <main className="erp-pagina-entrada" style={{ background: '#f0f2f5' }}>
+    <main className="erp-pagina-entrada erp-fundo-entrada">
       <Card
+        className="erp-cartao-entrada"
         style={{ width: '100%', maxWidth: 560 }}
         title={<span style={{ whiteSpace: 'normal' }}>{`Bem-vindo, ${utilizador?.nome_completo || utilizador?.nome_utilizador}`}</span>}
         extra={

@@ -129,38 +129,6 @@ export function valoresRubricas(r: Pick<ResultadoSalarial, 'rubricas'>): Record<
   return Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, deCentimos(v)]));
 }
 
-// ───────────── IRT (tabela do MotorSalarial — só para mostrar o escalão no mapa) ─────────────
-
-export const TABELA_IRT: { max: number | null; taxa: number; fixo: number; excesso: number }[] = [
-  { max: 150000, taxa: 0, fixo: 0, excesso: 0 },
-  { max: 200000, taxa: 0.16, fixo: 12500, excesso: 150000 },
-  { max: 300000, taxa: 0.18, fixo: 31250, excesso: 200000 },
-  { max: 500000, taxa: 0.19, fixo: 49250, excesso: 300000 },
-  { max: 1000000, taxa: 0.2, fixo: 87250, excesso: 500000 },
-  { max: 1500000, taxa: 0.21, fixo: 187250, excesso: 1000000 },
-  { max: 2000000, taxa: 0.22, fixo: 292250, excesso: 1500000 },
-  { max: 2500000, taxa: 0.23, fixo: 402250, excesso: 2000000 },
-  { max: 5000000, taxa: 0.24, fixo: 517250, excesso: 2500000 },
-  { max: 10000000, taxa: 0.245, fixo: 1117250, excesso: 5000000 },
-  { max: null, taxa: 0.25, fixo: 2342250, excesso: 10000000 },
-];
-
-export interface EscalaoIrt {
-  fixo: string;
-  taxa: number;
-  excesso: string;
-  devido: string;
-}
-
-/** Escalão e imposto devido pela matéria colectável: fixo + (base − excesso) × taxa (como MotorSalarial::irt). */
-export function escalaoIrt(base: string | number): EscalaoIrt {
-  const b = paraCentimos(base);
-  if (b <= 0) return { fixo: '0.00', taxa: 0, excesso: '0.00', devido: '0.00' };
-  const e = TABELA_IRT.find((x) => x.max === null || b <= x.max * 100) ?? TABELA_IRT[TABELA_IRT.length - 1];
-  const devido = Math.round(e.fixo * 100 + (b - e.excesso * 100) * e.taxa);
-  return { fixo: deCentimos(e.fixo * 100), taxa: e.taxa * 100, excesso: deCentimos(e.excesso * 100), devido: deCentimos(devido) };
-}
-
 // ───────────── Contratos ─────────────
 
 export interface RemuneracaoContrato {

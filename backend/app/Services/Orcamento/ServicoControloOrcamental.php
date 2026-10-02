@@ -57,7 +57,9 @@ final class ServicoControloOrcamental
     }
 
     /**
-     * Compromissos do ano: encomendas pela parte por facturar, facturas de fornecedor por contabilizar (exploração);
+     * Compromissos do ano: encomendas pela parte por facturar, facturas de fornecedor por contabilizar (exploração),
+     * incluindo as feitas a partir de encomenda: o registo da factura já abate a quantidade facturada da encomenda
+     * (ServicoFaturasCompra::registarDaEncomenda), pelo que não há dupla contagem e o valor não desaparece até à contabilização;
      * pagamentos pendentes (tesouraria).
      *
      * @param  array{encomenda_compra_id?: int, fatura_compra_id?: int, documento_tesouraria_id?: int}  $excluir
@@ -83,7 +85,7 @@ final class ServicoControloOrcamental
             }
             $faturas = DB::table('itens_compra as i')->join('faturas_compra as f', 'f.id', '=', 'i.fatura_compra_id')
                 ->where('f.empresa_id', $this->empresa())->whereYear('f.data', $ano)->where(fn ($q) => $q->whereNull('f.contabilizado')->orWhere('f.contabilizado', false))
-                ->where(fn ($q) => $q->whereNull('f.estado')->orWhere('f.estado', '<>', 'ANULADA'))->whereNull('i.item_encomenda_id')
+                ->where(fn ($q) => $q->whereNull('f.estado')->orWhere('f.estado', '<>', 'ANULADA'))
                 ->when($excluir['fatura_compra_id'] ?? null, fn ($q, $v) => $q->where('f.id', '<>', $v))
                 ->get(['i.produto_id', 'i.total_kz', 'i.projeto_id', 'f.unidade_negocio_id', 'f.centro_custo_id', 'f.projeto_id as projeto_cab', 'f.data']);
             foreach ($faturas as $l) {
@@ -121,6 +123,12 @@ final class ServicoControloOrcamental
     }
 
     // ───────────── Verificação ─────────────
+
+    /** Compromisso datado até ao mês indicado (inclusive) do ano do orçamento. */
+    private static function ateAoMes(array $compromisso, int $meses): bool
+    {
+        return (int) substr((string) $compromisso['data'], 5, 2) <= $meses;
+    }
 
     private static function abrange(OrcamentoAnual $o, array $l): bool
     {
@@ -177,8 +185,9 @@ final class ServicoControloOrcamental
                 $orcado = $linha ? round(array_sum(array_slice(array_map('floatval', (array) $linha->valores), 0, $meses)), 2) : 0.0;
                 $real ??= $this->execucao->realizado($o)['por_rubrica'];
                 $realizado = round(array_sum(array_slice($real[$rid] ?? [], 0, $meses)), 2);
+                // compromissos só até ao mês do documento (base ANO: o ano todo), como o legado (consumo, orcamento_planeamento.js:475)
                 $comp = round(array_sum(array_map(fn ($x) => $x['valor'], array_filter($compromissos, fn ($x) => self::abrange($o, $x)
-                    && ServicoRubricasOrcamentais::rubricaDaConta([$r], $x['codigo_conta'])))), 2);
+                    && self::ateAoMes($x, $meses) && ServicoRubricasOrcamentais::rubricaDaConta([$r], $x['codigo_conta'])))), 2);
                 $consumido = round($realizado + $comp, 2);
                 $pct = $orcado > 0 ? round(($consumido + $valor) / $orcado * 100, 2) : null;
                 $estado = match (true) {
@@ -240,7 +249,9 @@ final class ServicoControloOrcamental
                 continue;
             }
             throw new ErroOrcamental("O documento excede o orçamento de {$a['rubrica']} ({$a['percentagem']} %): peça a aprovação do excesso.", 'ORCAMENTO_EXIGE_APROVACAO',
-                ['alertas' => $alertas, 'chave_documento' => $chave], [$a], 'SEM_APROVACAO');
+                // o suficiente para o frontend pedir a aprovação a partir do próprio documento (POST /orcamento/pedidos-excesso)
+                ['alertas' => $alertas, 'chave_documento' => $chave, 'tipo' => $tipo, 'origem' => $doc['origem'], 'documento' => $doc['documento'],
+                    'data' => $doc['data'], 'linhas' => array_slice(array_values($linhas), 0, 500)], [$a], 'SEM_APROVACAO');
         }
         foreach (array_filter($alertas, fn ($a) => in_array($a['estado'], ['AVISO', 'SEM_DOTACAO'], true)) as $a) {
             $this->registar($a, 'CONTINUOU');
@@ -330,7 +341,8 @@ final class ServicoControloOrcamental
                 $c = $r->controlo ?? ['modo' => 'NENHUM', 'aviso_pct' => 90, 'limite_pct' => 100, 'base' => 'ACUMULADO'];
                 $meses = ($c['base'] ?? 'ACUMULADO') === 'ANO' ? 12 : $mes;
                 $orcado = round(array_sum(array_slice(array_map('floatval', (array) $l->valores), 0, $meses)), 2);
-                $cp = round(array_sum(array_map(fn ($x) => $x['valor'], array_filter($comp, fn ($x) => self::abrange($o, $x) && ServicoRubricasOrcamentais::rubricaDaConta([$r], $x['codigo_conta'])))), 2);
+                $cp = round(array_sum(array_map(fn ($x) => $x['valor'], array_filter($comp, fn ($x) => self::abrange($o, $x) && self::ateAoMes($x, $meses)
+                    && ServicoRubricasOrcamentais::rubricaDaConta([$r], $x['codigo_conta'])))), 2);
                 $consumido = round(array_sum(array_slice($real[$r->id] ?? [], 0, $meses)) + $cp, 2);
                 $pct = $orcado > 0 ? round($consumido / $orcado * 100, 2) : null;
                 $modo = $c['modo'] ?? 'NENHUM';

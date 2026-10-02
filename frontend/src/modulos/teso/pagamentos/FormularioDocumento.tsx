@@ -7,6 +7,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
+import { linhasDeMovimentos, useExcessoOrcamental, type OpcoesOrcamento } from '@/componentes/orcamento';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ValorKz } from '../../contab/comum/Componentes';
 import { EditorLinhasDC, linhasParaApi, type LinhaEditor } from '../../contab/comum/EditorLinhasDC';
@@ -72,8 +73,9 @@ export function FormularioDocumento() {
     });
   }, [existente.data, form]);
 
+  const excesso = useExcessoOrcamental();
   const gravar = useMutation({
-    mutationFn: (v: ValoresForm) => {
+    mutationFn: (v: ValoresForm & { orcamento?: OpcoesOrcamento }) => {
       const corpo = {
         tipo: v.tipo,
         data_documento: dataApi(v.data_documento),
@@ -82,6 +84,7 @@ export function FormularioDocumento() {
         referencia: v.referencia || undefined,
         taxa_cambio: v.taxa_cambio || undefined,
         linhas: linhasParaApi(v.linhas),
+        orcamento: v.orcamento,
       };
       return id ? enviar<DocumentoTesouraria>('put', `/tesouraria/documentos/${id}`, corpo) : enviar<DocumentoTesouraria>('post', '/tesouraria/documentos', corpo);
     },
@@ -90,7 +93,15 @@ export function FormularioDocumento() {
       void cliente.invalidateQueries({ queryKey: ['teso'] });
       navegar(id ? `../${id}` : `../${dados.id}`);
     },
-    onError: (e) => notificarErro(e, 'Não foi possível gravar o documento'),
+    onError: (e, v) => {
+      // controlo orçamental de tesouraria (só pagamentos): pedir a aprovação ou aprovar no acto (A-02).
+      // As linhas do ecrã só servem de contexto em Kz; em contas em moeda o servidor deve devolver as suas (patch proposto).
+      const tratado = excesso.tratar(e, {
+        contexto: () => (v.taxa_cambio ? undefined : { tipo: 'TESOURARIA', data: dataApi(v.data_documento) ?? '', linhas: linhasDeMovimentos(v.linhas) }),
+        repetir: (orcamento) => gravar.mutate({ ...v, orcamento }),
+      });
+      if (!tratado) notificarErro(e, 'Não foi possível gravar o documento');
+    },
   });
 
   const acrescentarPendentes = (escolhidos: Pendente[]) => {
@@ -186,6 +197,7 @@ export function FormularioDocumento() {
         </Space>
       </Form>
       {pendentes && <ModalPendentes tipo={tipo} aoFechar={() => setPendentes(false)} aoEscolher={acrescentarPendentes} />}
+      {excesso.dialogo}
     </>
   );
 }

@@ -3,13 +3,16 @@
 namespace Tests\Feature;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\DiarioContabil;
 use App\Models\Empresa;
 use App\Models\ItemVenda;
 use App\Models\LancamentoContabil;
+use App\Models\NotaDemonstracao;
 use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Models\Venda;
+use App\Services\Contabilidade\ServicoLancamentos;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\Test;
@@ -232,5 +235,90 @@ final class VendasTest extends TestCase
         $u = $this->criarUtilizador(['perfil_utilizador_id' => $perfil->id]);
         $u->empresas()->attach($outra->id);
         $this->getJson("/api/vendas/documentos/{$id}", $this->entrar($u) + ['X-Empresa-Id' => $outra->id])->assertNotFound();
+    }
+
+    #[Test]
+    public function nota_de_credito_proibida_sobre_factura_paga_como_no_legado(): void
+    {
+        $ft = $this->emitir()->json('dados.id');
+        $this->postJson("/api/vendas/documentos/{$ft}/contabilizar", [], $this->cabecalhos)->assertOk();
+        $recibo = fn (string $m) => $this->postJson('/api/vendas/recibos', ['cliente_id' => $this->cliente->id, 'data' => $this->hoje,
+            'codigo_conta' => '451', 'meio_pagamento' => 'TRANSFERENCIA', 'alocacoes' => [['venda_id' => $ft, 'montante' => $m]]], $this->cabecalhos)->assertCreated();
+        $nc = fn () => $this->emitir(['tipo_documento' => 'NC', 'venda_origem_id' => $ft, 'motivo_nota_credito' => 'Devolução',
+            'linhas' => [['produto_id' => $this->produto->id, 'quantidade' => 0.5]]]);
+        $converter = fn (int $id) => $this->postJson("/api/vendas/documentos/{$id}/converter", ['tipo_destino' => 'NC', 'motivo_nota_credito' => 'Devolução'], $this->cabecalhos);
+
+        // paga em parte: a conversão é bloqueada (ui_sales.js:2750-2753); a emissão directa só bloqueia a PAGA (ui_sales.js:1725-1728)
+        $recibo('1000');
+        $converter($ft)->assertStatus(422)->assertJsonPath('codigo', 'NC_FATURA_PAGA');
+        $nc()->assertCreated();
+        // paga na totalidade: nenhuma das vias
+        $recibo('1280');
+        $this->getJson("/api/vendas/documentos/{$ft}", $this->cabecalhos)->assertJsonPath('dados.estado', 'PAGO');
+        $nc()->assertStatus(422)->assertJsonPath('codigo', 'NC_FATURA_PAGA');
+        // a factura-recibo nasce paga
+        $fr = $this->emitir(['tipo_documento' => 'FR', 'conta_disponibilidade' => '451'])->assertCreated()->json('dados.id');
+        $converter($fr)->assertStatus(422)->assertJsonPath('codigo', 'NC_FATURA_PAGA');
+    }
+
+    #[Test]
+    public function linhas_da_nota_de_credito_ficam_presas_a_factura_de_origem(): void
+    {
+        $ft = $this->emitir(['linhas' => [['produto_id' => $this->produto->id, 'quantidade' => 1], ['produto_id' => $this->servico->id, 'quantidade' => 100]]])
+            ->assertCreated()->assertJsonPath('dados.total_bruto', '2281.14')->json('dados.id');
+        // a taxa e o preço do produto mudam depois da factura: a NC usa os da linha de origem
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => $this->produto->update(['taxa_imposto' => 7, 'preco_unitario' => 5000]));
+        $nc = fn (array $linhas) => $this->emitir(['tipo_documento' => 'NC', 'venda_origem_id' => $ft, 'motivo_nota_credito' => 'Devolução', 'linhas' => $linhas]);
+        $outro = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Produto::create(['codigo' => 'P9', 'nome' => 'Outro', 'preco_unitario' => 1, 'taxa_imposto' => 14]));
+
+        $nc([['produto_id' => $outro->id, 'quantidade' => 1]])->assertStatus(422)->assertJsonPath('codigo', 'NC_LINHA_SEM_ORIGEM');
+        // quantidade acima da facturada, ainda dentro do saldo creditável em valor
+        $nc([['produto_id' => $this->produto->id, 'quantidade' => 2]])->assertStatus(422)->assertJsonPath('codigo', 'NC_QUANTIDADE_EXCEDIDA');
+        // preço do pedido ignorado: 1 × 1 000 a 14 %
+        $nc([['produto_id' => $this->produto->id, 'quantidade' => 1, 'preco_unitario' => 1]])->assertCreated()
+            ->assertJsonPath('dados.total_liquido', '1000.00')->assertJsonPath('dados.total_imposto', '140.00')->assertJsonPath('dados.linhas.0.taxa_imposto', '14.0000');
+        // já toda creditada
+        $nc([['produto_id' => $this->produto->id, 'quantidade' => 0.001]])->assertStatus(422)->assertJsonPath('codigo', 'NC_QUANTIDADE_EXCEDIDA');
+    }
+
+    #[Test]
+    public function nota_de_credito_usa_os_valores_da_linha_de_origem_e_nao_o_recalculo_do_preco(): void
+    {
+        // factura POS migrada: o preço da linha ficou com IVA (1 140) mas o valor da linha é 2 500 + 350 de IVA
+        $ft = $this->emitir()->assertCreated()->json('dados.id');
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => ItemVenda::query()->where('venda_id', $ft)->update(['preco_unitario' => 1140]));
+        $converter = $this->postJson("/api/vendas/documentos/{$ft}/converter", ['tipo_destino' => 'NC', 'motivo_nota_credito' => 'Devolução total'], $this->cabecalhos);
+        $converter->assertCreated()->assertJsonPath('dados.total_liquido', '2500.00')->assertJsonPath('dados.total_imposto', '350.00')->assertJsonPath('dados.total_bruto', '2850.00');
+
+        // crédito parcial: arred(total_linha × q / q_origem) e IVA por excesso
+        $ft2 = $this->emitir(['linhas' => [['produto_id' => $this->produto->id, 'quantidade' => 3]]])->json('dados.id');
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => ItemVenda::query()->where('venda_id', $ft2)->update(['preco_unitario' => 1140]));
+        $this->emitir(['tipo_documento' => 'NC', 'venda_origem_id' => $ft2, 'motivo_nota_credito' => 'Devolução parcial',
+            'linhas' => [['produto_id' => $this->produto->id, 'quantidade' => 1]]])->assertCreated()
+            ->assertJsonPath('dados.total_liquido', '1000.00')->assertJsonPath('dados.total_imposto', '140.00');
+    }
+
+    #[Test]
+    public function lancamentos_automaticos_sem_nota_recebem_a_nota_pelo_prefixo_e_os_manuais_nao(): void
+    {
+        $n = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => collect(['9' => 'Contas a receber', '21' => 'Estado', '22' => 'Vendas', '10' => 'Disponibilidades'])
+            ->map(fn ($d, $c) => NotaDemonstracao::create(['codigo' => (string) $c, 'descricao' => $d])->id)->all());
+        $ft = $this->emitir()->json('dados.id');
+        $lan = $this->postJson("/api/vendas/documentos/{$ft}/contabilizar", [], $this->cabecalhos)->assertOk()->json('dados.numero_lan_contabilizacao');
+        $notas = fn (string $numero) => app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => LancamentoContabil::query()->where('numero_lan', $numero)
+            ->orderBy('id')->get()->mapWithKeys(fn ($l) => [$l->codigo_conta => $l->nota_demonstracao_id === null ? null : (int) $l->nota_demonstracao_id])->all());
+        $this->assertSame(['311' => $n['9'], '611' => $n['22'], '3452' => $n['21']], $notas($lan));
+
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () use ($n, $notas) {
+            $diario = DiarioContabil::query()->firstOrCreate(['codigo' => 'DIV'], ['descricao' => 'Diversos']);
+            $linhas = [['codigo_conta' => '611', 'tipo_dc' => 'D', 'valor' => 10], ['codigo_conta' => '451', 'tipo_dc' => 'C', 'valor' => 10]];
+            // manual: fica como veio (sem nota)
+            $manual = app(ServicoLancamentos::class)->criar(['diario_id' => $diario->id, 'data_documento' => $this->hoje, 'descricao' => 'Manual', 'linhas' => $linhas]);
+            $this->assertSame(['611' => null, '451' => null], $notas($manual->first()->numero_lan));
+            // automático com nota específica: prevalece sobre a do prefixo
+            $linhas[0]['nota_demonstracao_id'] = $n['10'];
+            $auto = app(ServicoLancamentos::class)->criar(['diario_id' => $diario->id, 'data_documento' => $this->hoje, 'tipo_origem' => 'VENDAS', 'linhas' => $linhas]);
+            $this->assertSame(['611' => $n['10'], '451' => $n['10']], $notas($auto->first()->numero_lan));
+        });
     }
 }

@@ -26,10 +26,35 @@ final class ConversorTipos
         return $v === null || $v === '' || $v === 'NaN' || $v === 'undefined' || $v === 'null' || (is_float($v) && is_nan($v));
     }
 
-    public function converter(mixed $v, string $tipo): mixed
+    /**
+     * Espaços Unicode (não ASCII) sem significado nas pontas de um texto: espaço não separável (U+00A0), espaços tipográficos
+     * U+2000-U+200A, U+202F, U+205F, U+3000, U+1680, separadores de linha/parágrafo e U+0085.
+     */
+    private const ESPACOS_UNICODE = '\x{0085}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}';
+
+    /**
+     * Colunas de código (contas, produtos, terceiros, centros, diários, moedas…): os espaços nas pontas nunca fazem parte do
+     * código e criavam códigos «gémeos» (ex.: conta «75216 » com U+00A0 ao lado da 75216; 47 códigos de produto com espaços).
+     */
+    public static function colunaDeCodigo(?string $coluna): bool
+    {
+        return $coluna !== null && preg_match('/^codigo(_|$)|_codigo$|^numero_conta$|^conta(_|$)|_conta$/', $coluna) === 1;
+    }
+
+    /**
+     * @param  ?string  $coluna  coluna de destino; nas colunas de código (colunaDeCodigo) também se retiram os espaços ASCII
+     *                           (espaço, tabulação, mudança de linha) das pontas
+     */
+    public function converter(mixed $v, string $tipo, ?string $coluna = null): mixed
     {
         if (self::vazio($v)) {
             return null;
+        }
+        if (self::colunaDeCodigo($coluna) && ! is_array($v) && (str_starts_with($tipo, 'varchar') || $tipo === 'text')) {
+            $v = $this->aparar(is_bool($v) ? ($v ? 'true' : 'false') : (is_float($v) ? json_encode($v) : (string) $v), true);
+            if ($v === '') {
+                return null;
+            }
         }
 
         return match (true) {
@@ -220,11 +245,27 @@ final class ConversorTipos
             $this->ocorrer('NORMALIZACAO', 'INFO', $s, $limpo, 'Caracteres invisíveis removidos (espaço de largura zero/BOM)');
             $s = $limpo;
         }
+        // Espaços Unicode nas pontas (U+00A0 e afins) nunca têm significado, em nenhum texto (E-CON-2: conta «75216 » migrada)
+        $s = $this->aparar($s, false);
 
         if ($maximo !== null && mb_strlen($s) > $maximo) {
             $this->ocorrer('TRUNCAGEM', 'ERRO', $s, mb_substr($s, 0, $maximo), "Texto com mais de {$maximo} caracteres truncado (original na ocorrência)");
 
             return mb_substr($s, 0, $maximo);
+        }
+
+        return $s;
+    }
+
+    /** Retira das pontas os espaços Unicode (e, com $ascii, também os ASCII), registando a normalização. */
+    private function aparar(string $s, bool $ascii): string
+    {
+        $classe = self::ESPACOS_UNICODE.($ascii ? '\s' : '');
+        $limpo = preg_replace('/^['.$classe.']+|['.$classe.']+$/u', '', $s);
+        if ($limpo !== null && $limpo !== $s) {
+            $this->ocorrer('NORMALIZACAO', 'INFO', $s, $limpo, $ascii ? 'Espaços retirados das pontas de um código' : 'Espaços Unicode (ex.: U+00A0) retirados das pontas');
+
+            return $limpo;
         }
 
         return $s;

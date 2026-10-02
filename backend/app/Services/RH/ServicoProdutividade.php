@@ -208,18 +208,35 @@ final class ServicoProdutividade
 
     /**
      * Mínimo/máximo sobre o total do colaborador no item e no período; a quantidade considerada reparte-se pelos
-     * registos na proporção da quantidade (valor = considerada × preço do registo).
+     * registos na proporção da quantidade (valor = quantidade × considerada ÷ total × preço do registo).
+     * E-RH-1: o valor calcula-se sem arredondamento intermédio (bcmath) e o último registo absorve o resto, para que a soma
+     * dos valores seja o total exacto arredondado ao cêntimo (antes: 3 × 3,333 × 50 000 = 499 950 em vez de 500 000).
+     * A quantidade considerada de cada registo fica a 3 casas só para apresentação.
      */
     public function recalcular(int $periodo, int $colaborador, int $item): void
     {
         $i = ItemProdutividadeRH::query()->findOrFail($item);
         $regs = RegistoProdutividadeRH::query()->where('periodo_produtividade_id', $periodo)->where('colaborador_id', $colaborador)->where('item_produtividade_id', $item)->orderBy('id')->get();
-        $total = (float) $regs->sum('quantidade');
-        $considerada = self::considerar($total, $i->minimo !== null ? (float) $i->minimo : null, $i->maximo !== null ? (float) $i->maximo : null);
-        foreach ($regs as $r) {
-            $qc = $total > 0 ? round((float) $r->quantidade * $considerada / $total, 3) : 0.0;
-            $r->update(['quantidade_considerada' => $qc, 'valor' => round($qc * (float) $r->preco_unitario, 2)]);
+        $total = $regs->reduce(fn ($c, $r) => bcadd($c, (string) ($r->quantidade ?? 0), 3), '0.000');
+        $considerada = number_format(self::considerar((float) $total, $i->minimo !== null ? (float) $i->minimo : null, $i->maximo !== null ? (float) $i->maximo : null), 3, '.', '');
+        $positivo = bccomp($total, '0', 3) > 0;
+        $exactos = $regs->map(fn ($r) => $positivo ? bcdiv(bcmul(bcmul((string) $r->quantidade, $considerada, 10), (string) ($r->preco_unitario ?? 0), 10), $total, 10) : '0');
+        $alvo = self::arred($exactos->reduce(fn ($c, $v) => bcadd($c, $v, 10), '0'), 2);
+        $acumulado = '0.00';
+        foreach ($regs->values() as $n => $r) {
+            $valor = $n === $regs->count() - 1 ? bcsub($alvo, $acumulado, 2) : self::arred($exactos[$n], 2);
+            $acumulado = bcadd($acumulado, $valor, 2);
+            $qc = $positivo ? self::arred(bcdiv(bcmul((string) $r->quantidade, $considerada, 10), $total, 10), 3) : '0.000';
+            $r->update(['quantidade_considerada' => $qc, 'valor' => $valor]);
         }
+    }
+
+    /** Arredondamento half-up (bcmath). */
+    private static function arred(string $v, int $casas): string
+    {
+        $ajuste = '0.'.str_repeat('0', $casas).'5';
+
+        return bccomp($v, '0', 10) >= 0 ? bcadd($v, $ajuste, $casas) : bcsub($v, $ajuste, $casas);
     }
 
     public static function considerar(float $q, ?float $minimo, ?float $maximo): float

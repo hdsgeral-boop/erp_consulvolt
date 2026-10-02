@@ -8,7 +8,10 @@ use App\Models\NotaFluxoCaixa;
 use App\Models\SaldoHistorico;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Throwable;
 
 /**
@@ -126,6 +129,39 @@ final class ServicoSaldosHistoricos
         }
 
         return $r;
+    }
+
+    /**
+     * Modelo Excel (downloadHistoryTemplate, js/ui_lancamentos.js:1356-1369): TIPO, CÓDIGO, VALOR com uma linha por nota
+     * DEMO e por nota de fluxo permitida, já com os valores gravados do ano (serve também de exportação para rever e
+     * reimportar). A coluna DESCRIÇÃO é só informativa: lerFicheiro() procura as colunas pelo cabeçalho e ignora-a.
+     * O resultado líquido (res_liq) não entra: é sempre calculado ao gravar.
+     */
+    public function modeloExcel(int $ano, string $caminho): void
+    {
+        $dados = $this->obter($ano);
+        $linhas = [['TIPO', 'CÓDIGO', 'DESCRIÇÃO', 'VALOR']];
+        foreach ([['DEMO', $dados['demo']], ['FLUXO', $dados['fluxo']]] as [$tipo, $notas]) {
+            foreach ($notas as $n) {
+                if ($n['codigo'] !== 'res_liq') {
+                    $linhas[] = [$tipo, $n['codigo'], (string) $n['descricao'], $n['valor'] !== null ? (float) $n['valor'] : null];
+                }
+            }
+        }
+        $livro = new Spreadsheet;
+        $folha = $livro->getActiveSheet()->setTitle('Historico');
+        // códigos como texto (ex.: «12» e «012» são notas diferentes) e valores numéricos
+        foreach ($linhas as $i => $l) {
+            foreach ($l as $j => $v) {
+                $celula = [$j + 1, $i + 1];
+                $j === 1 && $i > 0 ? $folha->setCellValueExplicit($celula, (string) $v, DataType::TYPE_STRING) : $folha->setCellValue($celula, $v);
+            }
+        }
+        $folha->getStyle('D2:D'.count($linhas))->getNumberFormat()->setFormatCode('#,##0.00');
+        foreach (['A' => 10, 'B' => 12, 'C' => 60, 'D' => 18] as $col => $largura) {
+            $folha->getColumnDimension($col)->setWidth($largura);
+        }
+        (new Xlsx($livro))->save($caminho);
     }
 
     private function valor(mixed $v, string $codigo): string

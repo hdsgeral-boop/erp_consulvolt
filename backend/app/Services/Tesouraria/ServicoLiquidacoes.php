@@ -18,27 +18,53 @@ final class ServicoLiquidacoes
 {
     public function __construct(private readonly ServicoEstadoVenda $estadoVenda) {}
 
-    /** Valida a ligação de uma linha e devolve o n.º do documento ligado (para a chave dos pendentes). */
-    public function validarLigacao(?int $vendaId, ?int $faturaId, ?int $terceiroId, string $onde): ?string
+    /**
+     * Valida a ligação de uma linha e devolve o n.º do documento ligado (para a chave dos pendentes).
+     * O n.º é sempre o do documento ligado: um n.º diferente enviado pelo cliente é rejeitado — com um n.º inventado
+     * não havia pendente, o limite do saldo em aberto era saltado e a venda era actualizada na mesma.
+     */
+    public function validarLigacao(?int $vendaId, ?int $faturaId, ?int $terceiroId, string $onde, ?string $numeroEnviado = null): ?string
     {
+        $numero = null;
         if ($vendaId) {
             $v = Venda::query()->find($vendaId);
             if (! $v || $v->cliente_id !== (int) $terceiroId || ! $v->contabilizado) {
                 throw new ErroNegocio("{$onde} a venda indicada não é deste cliente ou não está contabilizada.", 'LIGACAO_INVALIDA', 422);
             }
-
-            return $v->numero_documento;
-        }
-        if ($faturaId) {
+            if ($v->estado === 'ANULADO') {
+                throw new ErroNegocio("{$onde} a venda {$v->numero_documento} está anulada.", 'LIGACAO_INVALIDA', 422);
+            }
+            $numero = (string) $v->numero_documento;
+        } elseif ($faturaId) {
             $f = FaturaCompra::query()->find($faturaId);
             if (! $f || $f->fornecedor_id !== (int) $terceiroId || ! $f->contabilizado || $f->estado === 'ANULADA') {
                 throw new ErroNegocio("{$onde} a factura indicada não é deste fornecedor ou não está contabilizada.", 'LIGACAO_INVALIDA', 422);
             }
-
-            return $f->numero_fatura;
+            $numero = (string) $f->numero_fatura;
+        }
+        if ($numero !== null && $numeroEnviado !== null && trim($numeroEnviado) !== '' && trim($numeroEnviado) !== $numero) {
+            throw new ErroNegocio("{$onde} o n.º de documento indicado ({$numeroEnviado}) não é o do documento ligado ({$numero}).", 'LIGACAO_INVALIDA', 422,
+                ['numero_documento' => $numero]);
         }
 
-        return null;
+        return $numero;
+    }
+
+    /**
+     * Uma linha ligada a uma venda/factura de fornecedor tem de liquidar o PENDENTE desse documento, na conta do terceiro
+     * onde foi contabilizado (o pendente é ligado ao documento por ServicoPendentes::ligarDocumentos). Sem pendente
+     * — documento já liquidado, conta trocada ou n.º diferente — rejeita-se, em vez de tratar como adiantamento.
+     */
+    public function exigirPendente(?array $aberto, ?int $vendaId, ?int $faturaId, string $numero, string $onde): void
+    {
+        if (! $vendaId && ! $faturaId) {
+            return;
+        }
+        $ligado = $aberto && ($vendaId ? (int) ($aberto['venda_id'] ?? 0) === $vendaId : (int) ($aberto['fatura_compra_id'] ?? 0) === $faturaId);
+        if (! $ligado) {
+            throw new ErroNegocio("{$onde} o documento {$numero} não tem saldo em aberto nesta conta do terceiro (já liquidado ou conta diferente da do documento).",
+                'SEM_PENDENTE', 422, ['numero_documento' => $numero]);
+        }
     }
 
     /**
@@ -64,6 +90,10 @@ final class ServicoLiquidacoes
                 continue;
             }
             $pago = bcadd((string) ($venda->valor_pago ?? 0), $sinal > 0 ? $recebido : bcmul($recebido, '-1', 2), 2);
+            if (bccomp($pago, bcadd((string) $venda->total_bruto, '0.01', 2), 2) > 0) {
+                throw new ErroNegocio("A liquidação deixaria a venda {$venda->numero_documento} com {$pago} pagos, acima do total ({$venda->total_bruto}).",
+                    'VALOR_SUPERIOR_EM_ABERTO', 422, ['venda_id' => $venda->id, 'total_bruto' => (string) $venda->total_bruto]);
+            }
             $venda->update(['valor_pago' => bccomp($pago, '0', 2) < 0 ? '0.00' : $pago]);
             $this->estadoVenda->recalcular($venda);
         }

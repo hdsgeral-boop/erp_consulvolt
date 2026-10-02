@@ -1,34 +1,41 @@
-import { Avatar, Button, Drawer, Dropdown, Flex, Layout, Menu, Select, Spin, Typography, theme, type MenuProps } from 'antd';
-import { LogoutOutlined, MenuFoldOutlined, MenuOutlined, MenuUnfoldOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Drawer, Dropdown, Flex, Layout, Menu, Select, Spin, Tooltip, type MenuProps } from 'antd';
+import { LogoutOutlined, MenuFoldOutlined, MenuOutlined, MenuUnfoldOutlined, SwapOutlined, UserOutlined } from '@ant-design/icons';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { useIdentidade } from '@/sessao/identidade';
 import { useEcra } from '@/componentes/responsivo/useEcra';
 import { larguraGaveta } from '@/componentes/responsivo/utilitarios';
 import { notificarErro } from '@/utilitarios/erros';
 import { construirItensMenu, estadoMenu } from './itensMenu';
 import { MarcaEmpresa } from './MarcaEmpresa';
+import { rotuloPapel } from './marca';
 
-const LARGURA_MENU = 272;
-const ALTURA_CABECALHO = 64;
+const LARGURA_MENU = 280;
+const ALTURA_CABECALHO = 72;
 const ALTURA_CABECALHO_TELEMOVEL = 56;
 
 /**
  * Layout da aplicação: menu pelas permissões (GET /sistema/menu), identidade da empresa activa (logótipo + nome),
  * selector de empresa e menu do utilizador.
  *
+ * Aspecto do sistema anterior (index_arrumado.html + css/styles.css): menu lateral escuro (#121212) de 280 px com a
+ * marca no topo, item activo com barra azul à esquerda e sub-níveis com guia tracejada; barra superior branca com o
+ * botão quadrado do menu, o nome da empresa e o crachá do NIF à esquerda, «Trocar empresa», o utilizador e o botão
+ * vermelho de sair à direita.
+ *
  * Responsivo:
  *  - ≥ 992 px (lg): menu lateral fixo e recolhível (botão «Recolher menu»), selector de empresa na barra superior;
- *  - < 992 px: o menu passa a uma gaveta aberta pelo botão «Abrir menu» (fecha ao navegar), com o selector de empresa;
- *    a barra superior mostra o logótipo e o nome da empresa;
+ *  - < 992 px: o menu passa a uma gaveta escura aberta pelo botão «Abrir menu» (fecha ao navegar), com o selector de
+ *    empresa; a barra superior mostra o logótipo e o nome da empresa;
  *  - < 768 px: barra compacta (56 px) e menu do utilizador só com o avatar (o nome passa para dentro do menu).
  */
 export function LayoutPrincipal() {
   const { menu, empresa, empresas, utilizador, escolherEmpresa, sair } = useSessao();
+  const identidade = useIdentidade();
   const navegar = useNavigate();
   const local = useLocation();
   const ecra = useEcra();
-  const { token } = theme.useToken();
   const [recolhido, setRecolhido] = useState(false);
   const [gavetaAberta, setGavetaAberta] = useState(false);
 
@@ -48,6 +55,9 @@ export function LayoutPrincipal() {
   }, [ecra.pequeno]);
 
   const nomeUtilizador = utilizador?.nome_completo || utilizador?.nome_utilizador || '';
+  const papel = rotuloPapel(utilizador?.papel) ?? utilizador?.nome_utilizador ?? null;
+  const nomeEmpresa = identidade.data?.nome || empresa?.nome || '';
+  const nif = identidade.data?.nif ?? empresa?.nif ?? null;
   const trocarEmpresa = (id: number) =>
     escolherEmpresa(id)
       .then(() => navegar('/'))
@@ -60,13 +70,23 @@ export function LayoutPrincipal() {
       options={empresas.map((e) => ({ value: e.id, label: e.nome, title: e.nome }))}
       onChange={(id: number) => void trocarEmpresa(id)}
       aria-label="Empresa activa"
+      prefix={<SwapOutlined aria-hidden style={{ color: '#64748b' }} />}
       showSearch={empresas.length > 8}
       optionFilterProp="label"
     />
   );
 
   const menuNavegacao = (
-    <Menu mode="inline" items={itens} selectedKeys={[seleccionado]} defaultOpenKeys={abertos} onClick={(i) => navegar(i.key)} style={{ borderInlineEnd: 0 }} />
+    <Menu
+      className="erp-menu"
+      theme="dark"
+      mode="inline"
+      items={itens}
+      selectedKeys={[seleccionado]}
+      defaultOpenKeys={abertos}
+      onClick={(i) => navegar(i.key)}
+      style={{ borderInlineEnd: 0, background: 'transparent' }}
+    />
   );
 
   const itensUtilizador: MenuProps['items'] = [
@@ -78,26 +98,18 @@ export function LayoutPrincipal() {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {!ecra.pequeno && (
-        <Layout.Sider
-          className="erp-sider"
-          collapsible
-          collapsed={recolhido}
-          trigger={null}
-          width={LARGURA_MENU}
-          theme="light"
-          style={{ borderRight: `1px solid ${token.colorBorderSecondary}` }}
-        >
+        <Layout.Sider className="erp-sider" collapsible collapsed={recolhido} trigger={null} width={LARGURA_MENU} theme="dark">
           <div
+            className="erp-sider-topo"
             style={{
               height: ALTURA_CABECALHO,
               display: 'flex',
               alignItems: 'center',
               justifyContent: recolhido ? 'center' : 'flex-start',
-              padding: recolhido ? '0 8px' : '0 16px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              padding: recolhido ? '0 8px' : '0 20px',
             }}
           >
-            <MarcaEmpresa soIcone={recolhido} tamanho={recolhido ? 32 : 36} comProduto />
+            <MarcaEmpresa soIcone={recolhido} tamanho={recolhido ? 34 : 40} comProduto escuro />
           </div>
           {menuNavegacao}
         </Layout.Sider>
@@ -110,14 +122,12 @@ export function LayoutPrincipal() {
           open={gavetaAberta}
           onClose={() => setGavetaAberta(false)}
           width={larguraGaveta(300)}
-          title={<MarcaEmpresa tamanho={32} comProduto />}
+          title={<MarcaEmpresa tamanho={34} comProduto escuro />}
           destroyOnHidden
           aria-label="Menu principal"
         >
-          <div style={{ padding: '12px 16px', borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
-            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
-              Empresa activa
-            </Typography.Text>
+          <div className="erp-gaveta-empresa">
+            <span className="erp-gaveta-empresa-rotulo">Empresa activa</span>
             {seletorEmpresa('100%')}
           </div>
           {menuNavegacao}
@@ -128,20 +138,20 @@ export function LayoutPrincipal() {
         <Layout.Header
           className="erp-cabecalho"
           style={{
-            background: token.colorBgContainer,
-            padding: ecra.md ? '0 16px' : '0 8px 0 4px',
+            background: '#ffffff',
+            padding: ecra.lg ? '0 24px' : ecra.md ? '0 16px' : '0 8px 0 8px',
             height: ecra.md ? ALTURA_CABECALHO : ALTURA_CABECALHO_TELEMOVEL,
             lineHeight: 'normal',
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            borderBottom: '1px solid #e2e8f0',
           }}
         >
           <Flex justify="space-between" align="center" gap={ecra.md ? 12 : 8} style={{ height: '100%' }}>
-            <Flex align="center" gap={ecra.md ? 12 : 4} style={{ minWidth: 0, flex: '1 1 auto' }}>
+            <Flex align="center" gap={ecra.md ? 14 : 8} style={{ minWidth: 0, flex: '1 1 auto' }}>
               {ecra.pequeno ? (
-                <Button type="text" icon={<MenuOutlined />} aria-label="Abrir menu" aria-expanded={gavetaAberta} onClick={() => setGavetaAberta(true)} />
+                <Button className="erp-botao-menu" icon={<MenuOutlined />} aria-label="Abrir menu" aria-expanded={gavetaAberta} onClick={() => setGavetaAberta(true)} />
               ) : (
                 <Button
-                  type="text"
+                  className="erp-botao-menu"
                   icon={recolhido ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                   aria-label="Recolher menu"
                   aria-expanded={!recolhido}
@@ -151,22 +161,36 @@ export function LayoutPrincipal() {
               )}
               {ecra.pequeno ? (
                 <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-                  <MarcaEmpresa tamanho={ecra.md ? 32 : 28} />
+                  <MarcaEmpresa tamanho={ecra.md ? 34 : 28} />
                 </div>
               ) : (
-                seletorEmpresa(ecra.xl ? 340 : 280)
+                <div className="erp-cabecalho-empresa">
+                  <span className="erp-cabecalho-empresa-nome" title={nomeEmpresa}>
+                    {nomeEmpresa}
+                  </span>
+                  {nif && <span className="erp-cracha-nif">NIF: {nif}</span>}
+                </div>
               )}
             </Flex>
-            <Dropdown menu={{ items: itensUtilizador }} trigger={ecra.pequeno ? ['click'] : ['hover']} placement="bottomRight">
-              <Flex align="center" gap={8} style={{ cursor: 'pointer', minWidth: 0, flex: 'none' }} role="button" tabIndex={0} aria-label="Menu do utilizador">
-                <Avatar icon={<UserOutlined />} style={{ flex: 'none' }} />
-                {ecra.md && (
-                  <Typography.Text ellipsis style={{ maxWidth: 220 }}>
-                    {nomeUtilizador}
-                  </Typography.Text>
-                )}
-              </Flex>
-            </Dropdown>
+            <Flex align="center" gap={ecra.md ? 12 : 4} style={{ flex: 'none', minWidth: 0 }}>
+              {!ecra.pequeno && seletorEmpresa(ecra.xl ? 300 : 230)}
+              <Dropdown menu={{ items: itensUtilizador }} trigger={ecra.pequeno ? ['click'] : ['hover']} placement="bottomRight">
+                <div className={ecra.md ? 'erp-utilizador' : undefined} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }} role="button" tabIndex={0} aria-label="Menu do utilizador">
+                  {ecra.md && (
+                    <div className="erp-utilizador-textos">
+                      <span className="erp-utilizador-nome">{nomeUtilizador}</span>
+                      {papel && <span className="erp-utilizador-papel">{papel}</span>}
+                    </div>
+                  )}
+                  <Avatar icon={<UserOutlined />} style={{ flex: 'none', background: '#eff6ff', color: '#1d4ed8' }} />
+                </div>
+              </Dropdown>
+              {ecra.md && (
+                <Tooltip title="Sair do sistema">
+                  <Button className="erp-botao-sair" icon={<LogoutOutlined />} aria-label="Sair do sistema" onClick={() => void sair()} />
+                </Tooltip>
+              )}
+            </Flex>
           </Flex>
         </Layout.Header>
         <Layout.Content className="erp-conteudo">

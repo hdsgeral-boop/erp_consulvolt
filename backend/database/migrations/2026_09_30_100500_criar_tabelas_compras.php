@@ -40,6 +40,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_pedidos_compra_empresa_id_numero_pedido ON pedidos_compra (empresa_id, numero_pedido) WHERE numero_pedido IS NOT NULL');
         DB::statement('CREATE INDEX ix_pedidos_compra_empresa_id ON pedidos_compra (empresa_id)');
         DB::statement('CREATE INDEX ix_pedidos_compra_venda_origem_id ON pedidos_compra (venda_origem_id)');
         DB::statement('CREATE INDEX ix_pedidos_compra_projeto_id ON pedidos_compra (projeto_id)');
@@ -73,6 +74,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_cotacoes_compra_empresa_id_numero_proposta ON cotacoes_compra (empresa_id, numero_proposta) WHERE numero_proposta IS NOT NULL');
         DB::statement('CREATE INDEX ix_cotacoes_compra_empresa_id ON cotacoes_compra (empresa_id)');
         DB::statement('CREATE INDEX ix_cotacoes_compra_pedido_compra_id ON cotacoes_compra (pedido_compra_id)');
         DB::statement('CREATE INDEX ix_cotacoes_compra_fornecedor_id ON cotacoes_compra (fornecedor_id)');
@@ -153,6 +155,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_rececoes_compra_empresa_id_numero_rececao ON rececoes_compra (empresa_id, numero_rececao) WHERE numero_rececao IS NOT NULL');
         DB::statement('CREATE INDEX ix_rececoes_compra_empresa_id ON rececoes_compra (empresa_id)');
         DB::statement('CREATE INDEX ix_rececoes_compra_encomenda_compra_id ON rececoes_compra (encomenda_compra_id)');
         DB::statement('CREATE INDEX ix_rececoes_compra_armazem_id ON rececoes_compra (armazem_id)');

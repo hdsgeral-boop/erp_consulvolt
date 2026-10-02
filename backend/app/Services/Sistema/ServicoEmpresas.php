@@ -5,6 +5,7 @@ namespace App\Services\Sistema;
 use App\Models\Empresa;
 use App\Models\Utilizador;
 use App\Support\Cache\ChaveCache;
+use App\Support\Cache\InvalidacaoCache;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 
@@ -45,15 +46,22 @@ final class ServicoEmpresas
         return in_array($empresaId, $this->idsAcessiveis($utilizador), true);
     }
 
+    /** Agora e depois do commit (R2): a versão é lida em cada momento. */
     public function invalidarUtilizador(int $utilizadorId): void
     {
-        Cache::forget(ChaveCache::utilizador($utilizadorId, 'empresas:v'.$this->versao()));
+        InvalidacaoCache::agoraEDepoisDoCommit(fn () => Cache::forget(ChaveCache::utilizador($utilizadorId, 'empresas:v'.$this->versao())));
     }
 
-    /** Uma empresa mudou de estado: todas as listas em cache ficam inválidas (nova versão da chave). */
+    /**
+     * Uma empresa mudou de estado: todas as listas em cache ficam inválidas (nova versão da chave), agora e depois do
+     * commit (R2). Incremento atómico (R7): o get + forever(v+1) podia dar a mesma versão a duas alterações simultâneas.
+     */
     public function invalidarTodos(): void
     {
-        Cache::forever('empresas:versao', $this->versao() + 1);
+        InvalidacaoCache::agoraEDepoisDoCommit(function () {
+            Cache::add('empresas:versao', 1);
+            Cache::increment('empresas:versao');
+        });
     }
 
     private function versao(): int

@@ -54,7 +54,8 @@ use Illuminate\Support\Facades\Route;
 | Middleware: auth:sanctum (token Bearer) · empresa (cabeçalho X-Empresa-Id obrigatório).
 */
 
-Route::get('saude', SaudeController::class)->name('saude');
+// sem o throttle da API (R5): o limitador usa o Redis e, com ele em baixo, a saúde respondia 500 em vez do 503 com o detalhe por componente
+Route::get('saude', SaudeController::class)->withoutMiddleware('throttle:api')->name('saude');
 Route::get('sistema/logotipo-login', [ConfiguracaoSistemaController::class, 'logotipoLogin'])->name('sistema.logotipo_login');   // ecrã de entrada (sem sessão), ADR-058
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
@@ -262,6 +263,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('caixa/sessoes/{id}/movimentos', 'registarMovimento')->whereNumber('id')->name('caixa.movimento');
             Route::delete('caixa/sessoes/{id}/movimentos/{movimento}', 'removerMovimento')->whereNumber(['id', 'movimento'])->name('caixa.movimento.remover');
             Route::post('caixa/sessoes/{id}/fechar', 'fecharSessao')->whereNumber('id')->name('caixa.fechar');
+            Route::post('caixa/sessoes/{id}/reabrir', 'reabrirSessao')->whereNumber('id')->name('caixa.reabrir');
+            Route::put('caixa/sessoes/{id}/movimentos/classificacao', 'classificarMovimentos')->whereNumber('id')->name('caixa.movimentos.classificacao');
             Route::post('caixa/sessoes/{id}/contabilizar', 'contabilizarSessao')->whereNumber('id')->name('caixa.contabilizar');
             Route::post('caixa/sessoes/{id}/descontabilizar', 'descontabilizarSessao')->whereNumber('id')->name('caixa.descontabilizar');
             Route::delete('caixa/sessoes/{id}', 'eliminarSessao')->whereNumber('id')->name('caixa.eliminar');

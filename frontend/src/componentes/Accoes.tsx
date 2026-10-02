@@ -18,6 +18,8 @@ export function useAccao<T = unknown>(opcoes: {
   invalidar: unknown[][];
   aoSucesso?: (dados: T, pedido: PedidoAccao) => void;
   tituloErro?: string;
+  /** Tratamento próprio de certos erros (ex.: excesso orçamental); devolve true se tratou e não há notificação. */
+  aoErro?: (e: unknown, pedido: PedidoAccao) => boolean;
 }) {
   const cliente = useQueryClient();
   return useMutation({
@@ -27,7 +29,10 @@ export function useAccao<T = unknown>(opcoes: {
       opcoes.invalidar.forEach((chave) => void cliente.invalidateQueries({ queryKey: chave }));
       opcoes.aoSucesso?.(dados, pedido);
     },
-    onError: (e) => notificarErro(e, opcoes.tituloErro),
+    onError: (e, pedido) => {
+      if (opcoes.aoErro?.(e, pedido)) return;
+      notificarErro(e, opcoes.tituloErro);
+    },
   });
 }
 

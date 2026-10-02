@@ -7,6 +7,8 @@ use App\Models\LancamentoContabil;
 use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\StockArmazem;
+use App\Services\Contabilidade\ServicoExercicios;
+use App\Services\Logistica\ServicoStock;
 use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -142,5 +144,29 @@ final class LogisticaStockTest extends TestCase
         $this->postJson("/api/logistica/inventarios/{$inv}/anular", ['motivo' => 'Inventário repetido'], $s)->assertOk()->assertJsonPath('dados.estado', 'ANULADA')
             ->assertJsonPath('dados.motivo_anulacao', 'Inventário repetido');
         $mov($a)->assertCreated();
+    }
+
+    #[Test]
+    public function saida_a_custo_explicito_recalcula_o_custo_medio_e_ajuste_manual_sai_ao_custo_medio(): void
+    {
+        $a = $this->postJson('/api/logistica/armazens', ['nome' => 'Central'], $this->s)->assertCreated()->json('dados.id');
+        $hoje = now()->toDateString();
+        $aj = fn (string $sent, $q, $custo = null, ?string $data = null) => $this->postJson('/api/logistica/ajustes', ['produto_id' => $this->ids['p'], 'armazem_id' => $a,
+            'sentido' => $sent, 'quantidade' => $q, 'custo_unitario' => $custo, 'data' => $data ?? $hoje, 'motivo' => 'Teste de custo'], $this->s);
+        $aj('E', 10, 100)->assertCreated();
+        $aj('E', 10, 200)->assertCreated()->assertJsonPath('dados.custo_medio_apos', '150.000000');
+
+        // E-STK-1: estorno da 2.ª entrada (sai ao custo dela, 200): ficam 10 a 100 = 1 000 (antes ficavam a 150 = 1 500, ≠ conta 26)
+        $r = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoStock::class)->saida($this->ids['p'], $a, '10', '200', $hoje, 'Estorno da recepção'));
+        $this->assertSame('100.000000', $r['movimento']->custo_medio_apos);
+        $this->assertSame('2000.00', (string) $r['movimento']->valor);
+
+        // M4: no ajuste manual a saída ignora o custo indicado e sai ao custo médio (o legado valorizava ao custo do produto)
+        $aj('S', 1, 999)->assertCreated()->assertJsonPath('dados.preco_unitario', '100.00')->assertJsonPath('dados.custo_medio_apos', '100.000000');
+
+        // M4/M5: nenhum movimento de stock num exercício encerrado
+        $ano = (int) now()->subYear()->format('Y');
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoExercicios::class)->encerrar($this->empresa->id, $ano));
+        $aj('E', 1, 100, "{$ano}-12-31")->assertStatus(422)->assertJsonPath('codigo', 'EXERCICIO_ENCERRADO');
     }
 }

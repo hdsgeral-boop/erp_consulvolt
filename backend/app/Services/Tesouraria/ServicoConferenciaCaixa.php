@@ -82,8 +82,9 @@ final class ServicoConferenciaCaixa
                 $contra = $sobra ? $this->config->exigir('caixa_sobras', 'Há uma sobra a regularizar.') : $this->config->exigir('caixa_quebras', 'Há uma quebra a regularizar.');
                 $numero = $this->lancamentos->criar(['diario_id' => $this->localizador->diario('CX', 'Caixa')->id, 'data_documento' => $c->data_conferencia->toDateString(),
                     'numero_documento' => "CONF-{$c->id}", 'descricao' => ($sobra ? 'Sobra' : 'Quebra')." na conferência de caixa {$c->codigo_conta}", 'tipo_origem' => 'CAIXA',
-                    'linhas' => [['codigo_conta' => $sobra ? $c->codigo_conta : $contra, 'tipo_dc' => 'D', 'valor' => $valor],
-                        ['codigo_conta' => $sobra ? $contra : $c->codigo_conta, 'tipo_dc' => 'C', 'valor' => $valor]]])->first()->numero_lan;
+                    // a linha da caixa (45) leva a nota 10 (Disponibilidades), como no legado (E-CON-1)
+                    'linhas' => [['codigo_conta' => $sobra ? $c->codigo_conta : $contra, 'tipo_dc' => 'D', 'valor' => $valor, 'nota_demonstracao_id' => $sobra ? $this->config->notaDisponibilidades() : null],
+                        ['codigo_conta' => $sobra ? $contra : $c->codigo_conta, 'tipo_dc' => 'C', 'valor' => $valor, 'nota_demonstracao_id' => $sobra ? null : $this->config->notaDisponibilidades()]]])->first()->numero_lan;
             }
             $c->update(['estado' => 'FINALIZADO', 'total_sistema' => $sistema, 'diferenca' => $diferenca, 'referencia_lancamento' => $numero,
                 'conta_regularizacao' => $contra]);

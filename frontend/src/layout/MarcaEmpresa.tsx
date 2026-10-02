@@ -10,13 +10,17 @@ interface Props {
   tamanho?: number;
   /** mostra «ERP Consulvolt» por baixo do nome */
   comProduto?: boolean;
+  /** cores para o fundo escuro do menu lateral (nome a branco, produto em maiúsculas — como no sistema anterior) */
+  escuro?: boolean;
 }
 
 /**
  * Identidade da empresa activa: logótipo (GET /sistema/identidade) e nome com reticências e tooltip.
  * Sem logótipo → avatar com as iniciais na cor primária. Enquanto a identidade carrega usa o nome da sessão.
+ * No menu lateral escuro (`escuro`) segue o cabeçalho do menu do sistema anterior: nome a branco e o produto em
+ * maiúsculas por baixo (legado: «ERP_CONSULT / GESTÃO EMPRESARIAL»).
  */
-export function MarcaEmpresa({ soIcone = false, tamanho = 36, comProduto = false }: Props) {
+export function MarcaEmpresa({ soIcone = false, tamanho = 36, comProduto = false, escuro = false }: Props) {
   const { empresa } = useSessao();
   const identidade = useIdentidade();
   const { token } = theme.useToken();
@@ -47,14 +51,14 @@ export function MarcaEmpresa({ soIcone = false, tamanho = 36, comProduto = false
   }
 
   return (
-    <div className="erp-marca" data-testid="marca-empresa">
+    <div className={escuro ? 'erp-marca erp-marca-escura' : 'erp-marca'} data-testid="marca-empresa">
       {imagem}
       <div className="erp-marca-textos">
-        <Typography.Text strong ellipsis={{ tooltip: { title: nome, placement: 'bottom' } }} style={{ color: token.colorText, maxWidth: '100%' }} data-testid="nome-empresa">
+        <Typography.Text strong ellipsis={{ tooltip: { title: nome, placement: 'bottom' } }} className="erp-marca-nome" style={{ color: escuro ? undefined : token.colorText, maxWidth: '100%' }} data-testid="nome-empresa">
           {nome}
         </Typography.Text>
         {comProduto && (
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <Typography.Text type="secondary" className="erp-marca-produto" style={escuro ? undefined : { fontSize: 12 }}>
             ERP Consulvolt
           </Typography.Text>
         )}

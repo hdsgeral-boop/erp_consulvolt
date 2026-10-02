@@ -1,6 +1,7 @@
 import { construirDocumento, estiloConteudo, limparNomeFicheiro, nomeFicheiroPadrao } from './documento';
 import { clonarParaImpressao, contarColunas, estilosDaPagina } from './dom';
-import { cssPagina, decidirFormato, FORMATO_PADRAO } from './formato';
+import { cssPagina, decidirFormato, FORMATO_PADRAO, mmParaPx } from './formato';
+import { paginarDocumento } from './paginacao';
 import type { DocumentoPreparado, FormatoPagina, OpcoesDocumento } from './tipos';
 
 /**
@@ -8,6 +9,11 @@ import type { DocumentoPreparado, FormatoPagina, OpcoesDocumento } from './tipos
  * scripts no documento), mede a largura natural do conteúdo, decide papel/orientação/escala, e chama
  * `iframe.contentWindow.print()` a partir da janela principal. «Guardar como PDF» no diálogo dá o PDF
  * (vectorial, texto seleccionável); o título do documento é o nome de ficheiro sugerido.
+ *
+ * Depois de decidido o formato, o documento é partido em folhas pelo próprio motor (paginacao.ts): cada folha leva o
+ * rodapé da empresa e «Página X de Y», o que funciona no Chromium/Edge e no Firefox (que não suporta as caixas de
+ * margem do @page). Se a paginação falhar, o documento é reescrito sem ela e o @page volta às caixas de margem
+ * (recurso: numeração só no Chromium/Edge).
  */
 
 const ESPERA_MAXIMA_RECURSOS_MS = 4000;
@@ -81,13 +87,30 @@ interface Preparacao extends DocumentoPreparado {
   iframe: HTMLIFrameElement;
 }
 
+/**
+ * As folhas de estilo copiadas do ecrã são medidas no ecrã mas usadas no papel: as regras `@media print` passam a
+ * valer sempre e as `@media screen` deixam de valer, para a medição (e a paginação) bater certo com a impressão.
+ */
+export function estilosParaImpressao(html: string): string {
+  return html
+    .replace(/@media\s+print\b/gi, '@media all')
+    .replace(/@media\s+screen\b/gi, '@media not all')
+    .replace(/(<link[^>]*\smedia=")print(")/gi, '$1all$2')
+    .replace(/(<link[^>]*\smedia=")screen(")/gi, '$1not all$2');
+}
+
+/** Serializa o documento da iframe (já paginado). */
+function serializar(doc: Document): string {
+  return `<!doctype html>\n${doc.documentElement.outerHTML}`;
+}
+
 async function preparar(o: OpcoesDocumento): Promise<Preparacao> {
   const comEstilos = o.estilosDaPagina ?? typeof o.conteudo !== 'string';
   const conteudo = typeof o.conteudo === 'string' ? o.conteudo : clonarParaImpressao(o.conteudo);
   const emitidoEm = o.emitidoEm ?? new Date();
   const nomeFicheiro = limparNomeFicheiro(o.nomeFicheiro || nomeFicheiroPadrao(o.titulo, o.identidade?.nome, emitidoEm));
   const opcoes = { ...o, conteudo, emitidoEm, nomeFicheiro };
-  const estilos = comEstilos ? estilosDaPagina() : '';
+  const estilos = comEstilos ? estilosParaImpressao(estilosDaPagina()) : '';
   const rodape = o.rodape ?? o.identidade?.rodape ?? null;
 
   const iframe = criarIframe();
@@ -102,8 +125,23 @@ async function preparar(o: OpcoesDocumento): Promise<Preparacao> {
       formato = FORMATO_PADRAO;
     }
     aplicarFormato(doc, formato, rodape);
+    if (o.paginar !== false) {
+      // a iframe toma a largura útil da página (as media queries batem certo com a impressão)
+      iframe.style.width = `${mmParaPx(formato.larguraUtilMm)}px`;
+      try {
+        const { paginas } = paginarDocumento(doc, formato, rodape);
+        const estilo = doc.getElementById('imp-pagina');
+        if (estilo) estilo.textContent = cssPagina(formato, rodape, true);
+        return { iframe, formato, nomeFicheiro, paginas, html: serializar(doc) };
+      } catch (e) {
+        // recurso: documento sem paginação (numeração pelas caixas de margem do @page, só Chromium/Edge)
+        console.warn('Paginação do documento de impressão falhou; a usar o @page do navegador.', e);
+        const novo = escrever(iframe, construirDocumento(opcoes, formato, estilos));
+        await aguardarRecursos(novo);
+      }
+    }
     iframe.style.width = '800px';
-    return { iframe, formato, nomeFicheiro, html: construirDocumento(opcoes, formato, estilos) };
+    return { iframe, formato, nomeFicheiro, paginas: 0, html: construirDocumento(opcoes, formato, estilos) };
   } catch (e) {
     iframe.remove();
     throw e;
@@ -117,7 +155,7 @@ async function preparar(o: OpcoesDocumento): Promise<Preparacao> {
 export async function prepararDocumento(o: OpcoesDocumento): Promise<DocumentoPreparado> {
   const p = await preparar(o);
   p.iframe.remove();
-  return { html: p.html, formato: p.formato, nomeFicheiro: p.nomeFicheiro };
+  return { html: p.html, formato: p.formato, nomeFicheiro: p.nomeFicheiro, paginas: p.paginas };
 }
 
 /** Imprime (ou guarda em PDF, pelo diálogo do navegador) o documento. Devolve o formato escolhido. */

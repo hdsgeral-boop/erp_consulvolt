@@ -176,7 +176,7 @@ final class ProjetosExecucaoTest extends TestCase
         // FT da encomenda (conversão) + FT do auto − NC da FT do auto; proveito analítico da mesma factura não se conta duas vezes
         $this->postJson("/api/vendas/documentos/{$this->ids['ne']}/converter", ['tipo_destino' => 'FT'], $s)->assertCreated();
         $this->postJson('/api/vendas/documentos', ['tipo_documento' => 'NC', 'cliente_id' => $this->ids['cliente'], 'data_emissao' => now()->toDateString(), 'venda_origem_id' => $ft['id'],
-            'motivo_nota_credito' => 'Erro no auto', 'linhas' => [['produto_id' => $this->ids['servico'], 'quantidade' => 1, 'preco_unitario' => 700]]], $s)->assertCreated();
+            'motivo_nota_credito' => 'Erro no auto (metade)', 'linhas' => [['produto_id' => $this->ids['servico'], 'quantidade' => 0.5]]], $s)->assertCreated();
         $this->naEmpresa(function () use ($p, $ft) {
             RazaoAnaliticoProjeto::create(['projeto_id' => $p, 'rubrica' => 'PROVEITOS_FATURACAO', 'modulo_origem' => 'VENDAS', 'natureza' => 'PROVEITO', 'data' => now()->toDateString(),
                 'montante' => 2700, 'documento_origem_id' => $ft['numero_documento']]);
@@ -189,18 +189,18 @@ final class ProjetosExecucaoTest extends TestCase
             }
         });
         $x = $this->getJson("/api/projetos/extracto?projeto_id={$p}", $s)->assertOk()->json('dados');
-        $this->assertSame(['12000.00', '1499.00'], [$x['totais']['proveitos'], $x['totais']['compromissos']]);
-        $this->assertSame(['-700.00', '2700.00', '10000.00'], collect($x['movimentos'])->where('fonte', 'VENDA')->pluck('valor')->sort()->values()->all());
+        $this->assertSame(['11350.00', '1499.00'], [$x['totais']['proveitos'], $x['totais']['compromissos']]);
+        $this->assertSame(['-1350.00', '2700.00', '10000.00'], collect($x['movimentos'])->where('fonte', 'VENDA')->pluck('valor')->sort()->values()->all());
 
         // resumo: mesmos custos do extracto, sem duplicar a subempreitada; margem sobre a facturação sem IVA
         $r = $this->getJson("/api/projetos/{$p}/resumo", $s)->assertOk()->json('dados');
-        $this->assertSame([$x['totais']['custos'], '12000.00', '10000.00'], [$r['indicadores']['custo'], $r['indicadores']['faturado'], $r['indicadores']['venda']]);
+        $this->assertSame([$x['totais']['custos'], '11350.00', '10000.00'], [$r['indicadores']['custo'], $r['indicadores']['faturado'], $r['indicadores']['venda']]);
         $this->assertSame(['40000.00', '171050.00'], [$r['origem_custos']['AUTOS_SUBEMPREITADAS'], $r['origem_custos']['AUTOS_MAO_OBRA']]);
-        $this->assertSame(bcsub('12000.00', $x['totais']['custos'], 2), $r['indicadores']['margem_real']);
+        $this->assertSame(bcsub('11350.00', $x['totais']['custos'], 2), $r['indicadores']['margem_real']);
         $this->assertSame(['TAREFAS_SEM_ORCAMENTO'], array_column($r['alertas'], 'codigo'));
-        $this->assertSame(['execucao' => 27, 'faturado_pct' => 120.0], ['execucao' => $r['indicadores']['execucao'], 'faturado_pct' => $r['indicadores']['faturado_pct']]);
+        $this->assertSame(['execucao' => 27, 'faturado_pct' => 113.5], ['execucao' => $r['indicadores']['execucao'], 'faturado_pct' => $r['indicadores']['faturado_pct']]);
         $fluxo = collect($this->getJson('/api/projetos/fluxo', $s)->assertOk()->json('dados'))->firstWhere('id', $p);
-        $this->assertSame([$x['totais']['custos'], '12000.00', 'CONCLUIDA'], [$fluxo['custo'], $fluxo['faturado'], $fluxo['etapas']['faturacao']]);
+        $this->assertSame([$x['totais']['custos'], '11350.00', 'CONCLUIDA'], [$fluxo['custo'], $fluxo['faturado'], $fluxo['etapas']['faturacao']]);
     }
 
     #[Test]

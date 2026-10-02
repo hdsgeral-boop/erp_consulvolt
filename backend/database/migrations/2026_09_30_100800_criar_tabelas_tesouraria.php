@@ -47,6 +47,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_documentos_tesouraria_empresa_id_numero_documento ON documentos_tesouraria (empresa_id, numero_documento) WHERE numero_documento IS NOT NULL');
         DB::statement('CREATE INDEX ix_documentos_tesouraria_empresa_id ON documentos_tesouraria (empresa_id)');
         DB::statement('CREATE INDEX ix_documentos_tesouraria_projeto_id ON documentos_tesouraria (projeto_id)');
         DB::statement('CREATE INDEX ix_documentos_tesouraria_taxa_cambio_id ON documentos_tesouraria (taxa_cambio_id)');

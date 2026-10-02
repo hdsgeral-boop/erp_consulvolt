@@ -172,6 +172,8 @@ final class ServicoDocumentosTesouraria
             $linhas = [[
                 'codigo_conta' => $doc->conta_financeira, 'tipo_dc' => $doc->tipo === 'PAGAMENTO' ? 'C' : 'D', 'valor' => $total,
                 'descricao' => mb_substr((string) $doc->descricao, 0, 1000), 'projeto_id' => $doc->projeto_id,
+                // nota 10 (Disponibilidades) na conta financeira, sem nota de fluxo, como o legado (E-CON-1)
+                'nota_demonstracao_id' => $this->config->notaDisponibilidades(),
             ] + ($moeda['estrangeira'] ? ['codigo_moeda' => $moeda['codigo'], 'valor_moeda' => $totalMoeda, 'taxa_cambio' => $moeda['taxa']] : [])];
             foreach ($itens as $i) {
                 $linhas[] = ['codigo_conta' => $i['codigo_conta'], 'tipo_dc' => $i['tipo_dc'], 'valor' => $i['valor'], 'terceiro_id' => $i['terceiro_id'] ?? null,
@@ -272,6 +274,8 @@ final class ServicoDocumentosTesouraria
 
             $aberto = ! empty($l['numero_documento']) && ! empty($l['terceiro_id'])
                 ? $this->pendentes->saldo((int) $l['terceiro_id'], (string) $l['codigo_conta'], (string) $l['numero_documento'], $docId) : null;
+            $this->liquidacoes->exigirPendente($aberto, ! empty($l['venda_id']) ? (int) $l['venda_id'] : null,
+                ! empty($l['fatura_compra_id']) ? (int) $l['fatura_compra_id'] : null, (string) ($l['numero_documento'] ?? ''), $onde);
             if ($aberto && $aberto['codigo_moeda'] !== 'AOA' && bccomp((string) $aberto['saldo_moeda'], '0', 2) > 0) {
                 $l = $this->liquidacaoEmMoeda($l, $aberto, $moeda, $kzDoc, $valor, $data, $onde);
             } elseif (! empty($l['numero_documento']) && ! empty($l['terceiro_id'])) {
@@ -336,9 +340,10 @@ final class ServicoDocumentosTesouraria
 
     private function validarLigacao(array &$l, string $onde): void
     {
-        $numero = $this->liquidacoes->validarLigacao($l['venda_id'] ?? null, $l['fatura_compra_id'] ?? null, isset($l['terceiro_id']) ? (int) $l['terceiro_id'] : null, $onde);
+        $numero = $this->liquidacoes->validarLigacao($l['venda_id'] ?? null, $l['fatura_compra_id'] ?? null, isset($l['terceiro_id']) ? (int) $l['terceiro_id'] : null, $onde,
+            isset($l['numero_documento']) ? (string) $l['numero_documento'] : null);
         if ($numero !== null) {
-            $l['numero_documento'] ??= $numero;
+            $l['numero_documento'] = $numero;   // imposto: o do documento ligado
         }
         if (! empty($l['terceiro_id']) && ! Terceiro::query()->whereKey($l['terceiro_id'])->exists()) {
             throw new ErroNegocio("{$onde} terceiro inexistente.", 'TERCEIRO_INEXISTENTE', 422);

@@ -31,6 +31,7 @@ final class DocumentoVendaController extends Controller
             'cliente_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'string', 'max:20'], 'contabilizado' => ['nullable', 'boolean'],
             'data_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_fim' => ['nullable', 'date_format:Y-m-d'],
             'pesquisa' => ['nullable', 'string', 'max:100'], 'pendentes' => ['nullable', 'boolean'],
+            'estado_fe' => ['nullable', Rule::in(self::ESTADOS_FE)],
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1'],
         ]);
 
@@ -44,10 +45,31 @@ final class DocumentoVendaController extends Controller
             ->when($f['pesquisa'] ?? null, fn ($q, $v) => $q->where('numero_documento', 'ilike', '%'.str_replace(['%', '_'], ['\%', '\_'], $v).'%'))
             ->when(! empty($f['pendentes']), fn ($q) => $q->whereIn('tipo_documento', ['FT'])->where('valor_pendente', '>', 0)
                 ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'ANULADO')))
+            ->when($f['estado_fe'] ?? null, fn ($q, $v) => self::filtrarEstadoFe($q, $v))
             ->orderByDesc('data_emissao')->orderByDesc('id')
             ->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
 
         return RespostaApi::paginado($pagina, VendaResource::class);
+    }
+
+    /** Estados AGT do filtro: os mesmos contadores de ServicoEnvioAgt::resumo() (ecrã «Facturação electrónica»). */
+    public const ESTADOS_FE = ['COM_ERROS_LOCAIS', 'POR_ENVIAR', 'ENVIADO', 'VALIDO', 'INVALIDO', 'REJEITADO', 'ERRO'];
+
+    /**
+     * Filtro por estado AGT com a regra de ServicoEnvioAgt::resumo()/estadoEnvio(): fora do regime não há estado;
+     * fe_estado ≠ PRONTO = erros locais; PRONTO sem estado de envio = por enviar.
+     */
+    private static function filtrarEstadoFe($q, string $estado)
+    {
+        $q->where('fe_regime', true);
+        if ($estado === 'COM_ERROS_LOCAIS') {
+            return $q->where(fn ($q) => $q->whereNull('fe_estado')->orWhere('fe_estado', '<>', 'PRONTO'));
+        }
+        $q->where('fe_estado', 'PRONTO');
+
+        return $estado === 'POR_ENVIAR'
+            ? $q->where(fn ($q) => $q->whereRaw("fe_envio->>'estado' IS NULL")->orWhereRaw("fe_envio->>'estado' = 'POR_ENVIAR'"))
+            : $q->whereRaw("fe_envio->>'estado' = ?", [$estado]);
     }
 
     public function show(int $venda): JsonResponse

@@ -9,6 +9,7 @@ use App\Models\FaturaCompra;
 use App\Models\ItemCompra;
 use App\Models\PedidoCompra;
 use App\Models\RececaoCompra;
+use App\Rules\TaxaIvaLegal;
 use App\Services\Compras\RelacoesNomes;
 use App\Services\Compras\ServicoConfigCompras;
 use App\Services\Compras\ServicoContabilizacaoCompras;
@@ -137,7 +138,7 @@ final class ComprasController extends Controller
             'referencia' => ['required', 'string', 'max:50'], 'data' => ['nullable', 'date_format:Y-m-d'], 'data_entrega' => ['nullable', 'date_format:Y-m-d'],
             'codigo_moeda' => ['nullable', 'regex:/^[A-Z]{3}$/'], 'taxa_cambio' => ['nullable', 'numeric', 'gt:0'],
             'linhas' => ['required', 'array', 'min:1', 'max:2000'], 'linhas.*.item_pedido_id' => ['required', 'integer'],
-            'linhas.*.preco_unitario' => ['required', 'numeric', 'min:0'], 'linhas.*.taxa_imposto' => ['nullable', 'numeric', 'between:0,100'],
+            'linhas.*.preco_unitario' => ['required', 'numeric', 'min:0'], 'linhas.*.taxa_imposto' => ['nullable', 'numeric', new TaxaIvaLegal],
         ]);
         $c = $this->processo->criarProposta($d);
 
@@ -281,7 +282,7 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_fact_registar');
         $d = $r->validate($this->regrasFatura() + ['linhas.*.item_encomenda_id' => ['required', 'integer'], 'linhas.*.quantidade' => ['required', 'numeric', 'min:0'],
-            'linhas.*.taxa_imposto' => ['nullable', 'numeric', 'between:0,100']]);
+            'linhas.*.taxa_imposto' => ['nullable', 'numeric', new TaxaIvaLegal]]);
         $f = $this->faturas->registarDaEncomenda(EncomendaCompra::query()->findOrFail($encomenda), $d);
 
         return RespostaApi::criado($this->doc($f, 'fatura_compra_id'), "Factura {$f->numero_fatura} registada.");
@@ -293,7 +294,7 @@ final class ComprasController extends Controller
         $d = $r->validate($this->regrasFatura() + ['fornecedor_id' => ['required', 'integer', $this->daEmpresa('terceiros')],
             'codigo_moeda' => ['nullable', 'regex:/^[A-Z]{3}$/'], 'linhas.*.produto_id' => ['required', 'integer', $this->daEmpresa('produtos')],
             'linhas.*.quantidade' => ['required', 'numeric', 'gt:0'], 'linhas.*.preco_unitario' => ['required', 'numeric', 'min:0'],
-            'linhas.*.taxa_imposto' => ['nullable', 'numeric', 'between:0,100'], 'linhas.*.descricao' => ['nullable', 'string', 'max:1000']] + $this->dimensoes());
+            'linhas.*.taxa_imposto' => ['nullable', 'numeric', new TaxaIvaLegal], 'linhas.*.descricao' => ['nullable', 'string', 'max:1000']] + $this->dimensoes());
         $f = $this->faturas->registarDireta($d);
 
         return RespostaApi::criado($this->doc($f, 'fatura_compra_id'), "Factura {$f->numero_fatura} registada.");

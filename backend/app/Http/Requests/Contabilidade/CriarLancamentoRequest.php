@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Contabilidade;
 
+use App\Services\Sistema\ServicoCambios;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,13 @@ final class CriarLancamentoRequest extends FormRequest
     public function authorize(): bool
     {
         return true;   // permissão verificada no controller (catálogo do legado)
+    }
+
+    private function emMoeda(): bool
+    {
+        $m = strtoupper(trim((string) $this->input('codigo_moeda', '')));
+
+        return $m !== '' && $m !== ServicoCambios::BASE;
     }
 
     /** @return array<string, mixed> */
@@ -26,10 +34,15 @@ final class CriarLancamentoRequest extends FormRequest
             'numero_documento' => ['nullable', 'string', 'max:100'],
             'referencia' => ['nullable', 'string', 'max:100'],
             'descricao' => ['nullable', 'string', 'max:1000'],
+            // M7 — lançamento em moeda estrangeira (js/moedas_lancamentos.js): moeda e câmbio do documento; cada linha em valor_moeda
+            // (o valor em Kz é calculado no servidor). Sem câmbio indicado, usa-se a tabela de câmbios na data fiscal.
+            'codigo_moeda' => ['nullable', 'string', 'size:3'],
+            'taxa_cambio' => ['nullable', 'numeric', 'gt:0'],
             'linhas' => ['required', 'array', 'min:2', 'max:500'],
             'linhas.*.codigo_conta' => ['required', 'string', 'max:20'],
             'linhas.*.tipo_dc' => ['required', Rule::in(['D', 'C'])],
-            'linhas.*.valor' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999999.99'],
+            'linhas.*.valor' => [$this->emMoeda() ? 'nullable' : 'required', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999999.99'],
+            'linhas.*.valor_moeda' => [$this->emMoeda() ? 'required' : 'prohibited', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999999.99'],
             'linhas.*.descricao' => ['nullable', 'string', 'max:1000'],
             'linhas.*.terceiro_id' => ['nullable', 'integer', $daEmpresa('terceiros')],
             'linhas.*.centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],

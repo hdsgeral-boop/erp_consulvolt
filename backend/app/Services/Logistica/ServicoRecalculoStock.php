@@ -140,6 +140,10 @@ final class ServicoRecalculoStock
                 $aoCustoMedio = $m->custo_medio_apos === null || bccomp((string) $m->preco_unitario, $this->arredondar((string) $m->custo_medio_apos), 2) === 0;
                 if ($aoCustoMedio) {
                     [$precoNovo, $valorNovo] = $this->valorizar($q, $cm);
+                } elseif (bccomp($qtd, '0', 3) > 0 && bccomp(bcsub($qtd, $q, 3), '0', 3) > 0) {
+                    // E-STK-1: saída a custo explícito — o custo médio do que sobra é (q × cm − valor da saída) / (q − q_saída)
+                    $restante = bcsub(bcmul($qtd, $cm, 8), (string) $m->valor, 8);
+                    $cm = bccomp($restante, '0', 8) > 0 ? bcdiv($restante, bcsub($qtd, $q, 3), self::ESCALA_CUSTO) : '0';
                 }
                 if ($m->tipo === 'TRANSFERENCIA') {
                     $custoSaidaTransferencia[$this->chaveTransferencia($m, false)] = $aoCustoMedio ? $cm : (string) $m->preco_unitario;

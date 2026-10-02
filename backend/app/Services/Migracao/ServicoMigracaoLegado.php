@@ -3,6 +3,7 @@
 namespace App\Services\Migracao;
 
 use App\Exceptions\ErroNegocio;
+use App\Support\Cache\LimpezaCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -142,6 +143,15 @@ final class ServicoMigracaoLegado
                     'relatorio' => $this->relatorio ? json_encode($this->relatorio, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null]);
             throw $e;
         }
+
+        // R1: a carga (TRUNCATE … RESTART IDENTITY, inserts sem eventos) não invalida a cache e reutiliza ids — limpar depois
+        // do COMMIT; na simulação também, porque os `remember` feitos durante a carga guardaram dados que o rollback apagou
+        try {
+            $relatorio['cache'] = LimpezaCache::limparTudo();
+        } catch (Throwable $e) {
+            $relatorio['cache'] = 'NÃO LIMPA: '.$e->getMessage().' — execute «php artisan cache:clear» antes de abrir a aplicação.';
+        }
+        $this->informar('Cache: '.$relatorio['cache']);
 
         DB::table('execucoes_migracao')->where('codigo', $this->execucao)->update([
             'estado' => $simulacao ? 'SIMULADA' : 'CONCLUIDA', 'concluido_em' => now(),
@@ -427,7 +437,7 @@ final class ServicoMigracaoLegado
             } elseif (isset($this->normalizacoes[$def['tabela']][$col])) {
                 $linha[$col] = $this->normalizar($def['tabela'], $col, $v);
             } else {
-                $linha[$col] = $this->conversor->converter($v, $c['tipo']);
+                $linha[$col] = $this->conversor->converter($v, $c['tipo'], $col);   // a coluna activa a limpeza de espaços nos códigos (E-CON-2)
             }
         }
         $this->linhaAtual['coluna'] = null;

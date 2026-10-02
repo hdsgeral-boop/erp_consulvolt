@@ -101,10 +101,10 @@ final class TesourariaController extends Controller
         return RespostaApi::sucesso($this->doc($d), 'Documento desintegrado (estorno registado).');
     }
 
-    /** GET /api/tesouraria/pendentes — documentos em aberto de clientes e fornecedores. */
+    /** GET /api/tesouraria/pendentes — documentos em aberto de clientes e fornecedores (também para pagar/receber na folha de caixa). */
     public function pendentes(Request $r): JsonResponse
     {
-        $this->exigir('teso_gestao_pagamentos_view');
+        $this->exigir('teso_gestao_pagamentos_view', 'teso_caixa_operar');
         $f = $r->validate(['terceiro_id' => ['nullable', 'integer'], 'codigo_conta' => ['nullable', 'string', 'max:20'],
             'natureza' => ['nullable', Rule::in(['A_RECEBER', 'A_PAGAR'])], 'pesquisa' => ['nullable', 'string', 'max:100']]);
 

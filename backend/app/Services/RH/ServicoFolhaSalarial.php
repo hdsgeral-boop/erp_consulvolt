@@ -15,6 +15,7 @@ use App\Models\ResultadoFolhaSalarial;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Contabilidade\ServicoNotasPorConta;
 use App\Services\Projetos\ServicoExecucaoProjetos;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
@@ -326,6 +327,11 @@ final class ServicoFolhaSalarial
             if ($faltam) {
                 throw new ErroNegocio('Faltam mapeamentos contabilísticos: '.implode('; ', array_keys($faltam)).'.', 'MAPEAMENTO_EM_FALTA', 422, ['em_falta' => array_keys($faltam)]);
             }
+            $this->acertarArredondamento($p, $sistema, $linhas);
+            // notas às demonstrações como o legado (integratePayrollToJournal, js/app_v2.js:6313-6315): 72* → nota 28, outras 3* → nota 19
+            // (sem nota as linhas ficavam fora do Balanço e da DR — E-CON-1)
+            $linhas = app(ServicoNotasPorConta::class)->aplicarALinhas(array_values($linhas),
+                fn (string $c) => str_starts_with($c, '72') ? '28' : (str_starts_with($c, '3') ? '19' : null));
             [$mes, $ano] = explode('/', $p->mes_ano);
             $criadas = $this->lancamentos->criar(['diario_id' => $this->localizador->diario('SAL', 'Salários')->id, 'data_documento' => $this->ultimoDia($p->mes_ano),
                 'numero_documento' => "SAL{$mes}{$ano}", 'referencia' => $p->mes_ano, 'descricao' => "Processamento salarial {$p->mes_ano}", 'tipo_origem' => 'SALARIOS',
@@ -398,6 +404,35 @@ final class ServicoFolhaSalarial
         }
 
         return $doInfotipo->first(fn ($x) => ! $x->avencado && (int) $x->tipo_organizacao_id === (int) $org)?->numero_conta;
+    }
+
+    /**
+     * Fotografias em modo LEGADO (períodos migrados) guardam componentes não arredondados um a um e podem não fechar ao
+     * cêntimo (±0,01–0,02 Kz). Como o legado (calculatePeriodData, js/app_v2.js), a diferença até 10 Kz vai para a conta
+     * ROUNDING_DIFF; sem ela o período, uma vez estornado, nunca mais podia ser contabilizado. No modo ATUAL o lançamento
+     * fecha sempre por construção (MotorSalarial) e nada é acrescentado.
+     *
+     * @param  array<string, array<string, mixed>>  $linhas
+     */
+    private function acertarArredondamento(PeriodoProcessamentoSalarial $p, $sistema, array &$linhas): void
+    {
+        if ($p->modo_calculo !== 'LEGADO') {
+            return;
+        }
+        $dif = '0.00';
+        foreach ($linhas as $l) {
+            $dif = $l['tipo_dc'] === 'D' ? bcadd($dif, (string) $l['valor'], 2) : bcsub($dif, (string) $l['valor'], 2);
+        }
+        if (bccomp($dif, '0', 2) === 0 || bccomp(ltrim($dif, '-'), '10', 2) > 0) {
+            return;   // fecha, ou a diferença é grande demais para ser arredondamento (o ServicoLancamentos recusa)
+        }
+        $conta = $this->contaSistema($sistema, 'ROUNDING_DIFF', null, false);
+        if (! $conta) {
+            throw new ErroNegocio("O lançamento do período {$p->mes_ano} tem {$dif} Kz de arredondamento: falta o mapeamento ROUNDING_DIFF.",
+                'MAPEAMENTO_EM_FALTA', 422, ['em_falta' => ['ROUNDING_DIFF']]);
+        }
+        $linhas['ROUNDING_DIFF'] = ['codigo_conta' => $conta, 'tipo_dc' => bccomp($dif, '0', 2) > 0 ? 'C' : 'D', 'valor' => ltrim($dif, '-'),
+            'unidade_negocio_id' => null, 'centro_custo_id' => null];
     }
 
     public function contaSistema($sistema, string $codigo, ?int $org, bool $avencado): ?string

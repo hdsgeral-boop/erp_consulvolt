@@ -5,6 +5,8 @@ namespace App\Services\Sistema;
 use App\Exceptions\ErroNegocio;
 use App\Models\Empresa;
 use App\Models\Utilizador;
+use App\Support\Cache\ChaveCache;
+use App\Support\Cache\InvalidacaoCache;
 use Generator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -183,6 +185,7 @@ final class ServicoCopiaEmpresa
         return DB::transaction(function () use ($caminho, $nomes, $ids, $cabecalho, $dadosEmpresa, $destinoId, $actor, $resumo) {
             $destino = $destinoId ? Empresa::query()->lockForUpdate()->findOrFail($destinoId) : $this->criarEmpresa($dadosEmpresa, $actor);
             $r = $this->carregar(fn () => $this->linhasDoFicheiro($caminho, $nomes), $ids, (int) $cabecalho['empresa_id_origem'], $destino->id, array_values($nomes), false);
+            $this->invalidarCachesEmpresa($destino->id);
             $this->auditoria->registar('Sistema/Cópias de segurança', 'Importar cópia de empresa', 'Cópia de «'.($cabecalho['empresa']['nome'] ?? '?')."» (exportada em {$cabecalho['exportado_em']}) "
                 ."importada para a empresa #{$destino->id} «{$destino->nome}»: {$r['linhas']} linha(s).", 'empresas', $destino->id, null, ['por_tabela' => $r['por_tabela']], empresaId: $destino->id);
 
@@ -224,6 +227,7 @@ final class ServicoCopiaEmpresa
                     }
                 }
             }, $ids, $origem->id, $destino->id, $tabelas, true);
+            $this->invalidarCachesEmpresa($destino->id);
             $this->auditoria->registar('Sistema/Cópias de segurança', 'Clonar empresa', "Estrutura de «{$origem->nome}» clonada para a empresa #{$destino->id} «{$destino->nome}»: {$r['linhas']} linha(s).",
                 'empresas', $destino->id, null, ['origem' => $origem->id, 'por_tabela' => $r['por_tabela']], empresaId: $destino->id);
 
@@ -511,6 +515,16 @@ final class ServicoCopiaEmpresa
         }
 
         return $dados;
+    }
+
+    /**
+     * R3: a carga insere plano_contas e produtos com DB::table()->insert (sem eventos de model). Se a empresa foi aberta
+     * antes (importar para uma existente vazia), ficavam em cache um plano vazio (24 h) e um catálogo vazio (6 h).
+     */
+    private function invalidarCachesEmpresa(int $empresaId): void
+    {
+        InvalidacaoCache::esquecer(ChaveCache::empresa($empresaId, 'contabilidade', 'plano_contas'));
+        InvalidacaoCache::esquecer(ChaveCache::empresa($empresaId, 'logistica', 'catalogo_produtos'));
     }
 
     private function criarEmpresa(array $dados, Utilizador $actor): Empresa

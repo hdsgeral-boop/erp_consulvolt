@@ -572,7 +572,7 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - **38 dos 44 períodos contabilizados conferem com o diário** (tolerância de 10 Kz).
 - Os 6 restantes são a empresa 1 de 04 a 07/2026 e a empresa 8 em 04 e 05/2026. Os dados foram alterados depois da contabilização, e é esse o problema que a fotografia resolve.
 - Estes 6 períodos aparecem na validação `folhas_salariais_vs_diario` (Sistema › Validações) e em `GET /api/rh/salarios/verificacao-legado`.
-- Em modo ATUAL, só a empresa 18 em 01/2026 difere, e apenas pelo efeito das correcções.
+- Em modo ATUAL, com os dados actuais, diferem 4 períodos, todos apenas pelo efeito das correcções: empresa 8 em 04/2026 (isenção sobre o valor pago), empresa 3 em 05/2026 (isenção sobre o valor pago, com o degrau da tabela de IRT a 150 000 Kz), empresa 8 em 05/2026 (precisão dos dias, 1,85 Kz) e empresa 18 em 01/2026 (avençado, `irt=false` e contrato sem validade no mês) — análise de 2026-10-02.
 
 **Glossário:** o `infotypes.inss` do legado é a marcação "sujeito a INSS" (`sujeito_inss`) e não um número.
 
@@ -1946,3 +1946,44 @@ Pedido do utilizador (2026-10-01): sistema 100 % responsivo; logótipo e nome da
 ### Fica registado
 - No Gantt impresso a linha de cabeçalho não se repete nas páginas seguintes (é feita com `div`, não `thead`).
 - O «Página X de Y» usa as caixas de margem `@page` (Chromium/Edge); no Firefox a numeração não aparece.
+
+## ADR-067 — Análise de paridade completa (2026-10-02) e correcções
+
+Pedido do utilizador: confirmar que tudo foi migrado, que as regras de negócio estão no backend, que o Redis funciona a 100 %, que os cálculos e fluxos estão certos, e aproximar o visual do sistema antigo. Antes, cópia integral do projecto e da base de desenvolvimento em `C:\xampp\htdocs\ERP_CONSULVOLT_MEU\v2` (local, não publicada). Três análises só de leitura, cujos relatórios ficam em `docs/paridade/`:
+- `ANALISE_PARIDADE_2026-10-02.md` — 279 funcionalidades: 130 migradas, 88 parciais, 45 em falta, 16 não aplicáveis; os 116 ecrãs e as 196 tarefas do catálogo existem; lacunas A-01…A-12 (alta) e M-01…M-20 (média);
+- `ANALISE_REGRAS_REDIS_2026-10-02.md` — o backend recalcula totais, IVA, numeração, troco, IRT/INSS e lançamentos; Redis verificado (cache, locks, limitador, filas, agendador); riscos A1–A4, R1–R12, M1–M16;
+- `ANALISE_CALCULOS_FLUXOS_2026-10-02.md` — fórmulas legado vs novo com dados reais (63 folhas/413 linhas, 2 002 casos de acréscimos, vendas, POS, stock, amortizações, contabilidade, orçamento, RH): iguais salvo arredondamentos decididos, erros do legado corrigidos e problemas de dados; 10 erros de fluxo/casos-limite.
+
+### Correcções (todas com teste)
+- **Salários:** fotografias LEGADO que não fecham ao cêntimo acertam a diferença (≤ 10 Kz) na conta ROUNDING_DIFF, como o legado; notas das demonstrações no lançamento SAL (28 nas 72*, 19 nas 3*).
+- **Notas das demonstrações:** compras (11/9/4 como o legado), tesouraria e caixa (nota 10 nas disponibilidades), nota por omissão pelo prefixo da conta nos lançamentos automáticos sem nota (`ServicoNotasPorConta`), e a rotina do legado `recoverDataMapping` portada (`POST /api/contabilidade/tabelas/notas-demonstracao/sincronizar-por-conta`, `config_ferramentas`, simula por omissão, só linhas sem nota, exercícios abertos). Nos dados reais atribuiria nota a 947 linhas — fica para o utilizador correr quando quiser.
+- **Tesouraria:** linha ligada a um documento impõe o número desse documento e exige o pendente nessa conta; vendas anuladas recusadas; o valor pago nunca excede o total.
+- **Notas de crédito:** proibidas sobre factura paga (regras do legado na emissão e na conversão); linhas presas à factura de origem (produto, preço, taxa, quantidade ainda não creditada); valores pela linha de origem, crédito parcial proporcional.
+- **AGT:** a pré-validação recusa (422 `AGT_PRE_VALIDACAO`) antes de reservar o número de série; regras do legado acrescentadas.
+- **POS:** preços com no máximo 2 casas; pagamentos e documento coincidem.
+- **Stock:** custo médio recalculado nas saídas a custo explícito; saída de ajuste ao custo médio; nenhum movimento em exercício encerrado (verificação dentro da transacção, também nos lançamentos).
+- **Compras:** facturas migradas sem valor da transitória já não vão inteiras para diferenças de câmbio; taxas de IVA só das legais (0, 5, 7, 14).
+- **Contabilidade:** nota de fluxo obrigatória no lançamento manual de caixa/bancos; lançamento manual em moeda estrangeira (câmbio, equilíbrio na moeda, acerto ≤ 1 Kz).
+- **Orçamento:** compromissos só até ao mês do documento; facturas de encomenda por contabilizar contam como compromisso; o erro de excesso traz o necessário para o pedido de aprovação.
+- **Produtividade:** repartição sem resíduo.
+- **Migração do legado:** códigos sem espaços Unicode nas pontas (+ validação `codigos_com_espacos_nas_pontas`); limpeza da cache depois do COMMIT e no fim da simulação (passo obrigatório no runbook).
+- **Unicidade:** números de NE/GR/GD, OR/PF com série, documentos de tesouraria, pedidos, propostas e recepções de compra únicos por empresa (o gerador passou a distinguir nomes de índices parciais com as mesmas colunas).
+- **Redis:** invalidação da cache também depois do commit; cópia de empresa invalida plano e catálogo; falha ao agendar o envio AGT já não falha a emissão; `/api/saude` sem limitador (503 com detalhe se o Redis cair) e com batimentos do agendador e do worker; incremento atómico da versão das empresas; `REDIS_QUEUE_RETRY_AFTER=660` também em desenvolvimento.
+
+### Lacunas construídas (ronda 1)
+- Ecrã **Validações de dados** (separador da Manutenção de dados).
+- **Pedido de aprovação do excesso orçamental** a partir do próprio documento (lançamento manual, pagamento, factura de compra, adjudicação) e aprovação no acto para quem tem `orc_aprovar_excesso`.
+- **AGT:** erros e avisos legíveis no detalhe; filtro por estado AGT na lista (`estado_fe`).
+- **Saldos históricos:** ecrã, importação e modelo Excel.
+- **Folha de caixa:** pagar e receber facturas, notas nas linhas, classificar movimentos, reabrir sessão fechada.
+- **Mapa de IRT** com o escalão calculado no servidor (a tabela deixou de existir no frontend).
+
+### Visual e impressão
+- Paleta, tipografia (Inter), menu lateral escuro, barra superior, tabelas, botões e separadores do sistema antigo; ecrã de entrada e Início como os do legado (com as imagens de fundo do legado); contraste AA.
+- Paginação feita pelo motor de impressão (folhas com «Página X de Y» em qualquer navegador, incluindo Firefox; cabeçalho das tabelas e do Gantt repetido em cada página).
+
+### Decisões pendentes do utilizador
+Lista de 27 decisões apresentada em 2026-10-02 (IRT a 150 000 Kz, preço livre, câmbio manual, horas extra automáticas, mesas do restaurante, NC sobre FR, contas de diferenças de câmbio, Power BI, assistente IA, etc.).
+
+### Verificação
+- backend: 353 testes PHPUnit; frontend: 342 testes Vitest, `tsc` e build; E2E: 263 testes Playwright; ETL do backup real recarregada (46 folhas fotografadas, 38 iguais ao diário).

@@ -245,6 +245,28 @@ final class MotorSalarial
         return '0';
     }
 
+    /**
+     * M13 — decomposição oficial do IRT para o Mapa de IRT (Grupo A): parcela fixa, taxa (em %), excesso (limite inferior do
+     * escalão) e imposto devido = fixo + (base − excesso) × taxa, arredondado ao cêntimo. Calculada aqui para o frontend
+     * deixar de ter uma cópia da tabela fiscal (TABELA_IRT/escalaoIrt em rh/comum/regras.ts).
+     *
+     * @return array{fixo: string, taxa: float, excesso: string, devido: string}
+     */
+    public static function escalaoIrt(string $base): array
+    {
+        if (bccomp($base, '0', self::E) <= 0) {
+            return ['fixo' => '0.00', 'taxa' => 0.0, 'excesso' => '0.00', 'devido' => '0.00'];
+        }
+        foreach (self::TABELA_IRT as $e) {
+            if ($e['max'] === null || bccomp($base, $e['max'], self::E) <= 0) {
+                return ['fixo' => number_format((float) $e['fixo'], 2, '.', ''), 'taxa' => (float) bcmul($e['taxa'], '100', 3),
+                    'excesso' => number_format((float) $e['excesso'], 2, '.', ''), 'devido' => self::arred(self::irt($base))];
+            }
+        }
+
+        return ['fixo' => '0.00', 'taxa' => 0.0, 'excesso' => '0.00', 'devido' => '0.00'];
+    }
+
     /** Valor mensal de uma remuneração do contrato (valor_mes, ou valor_dia × dias do contrato). */
     public static function mensal(array $rem, ?array $contrato): string
     {

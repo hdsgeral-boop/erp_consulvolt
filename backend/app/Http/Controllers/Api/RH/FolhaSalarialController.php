@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\PeriodoProcessamentoSalarial;
+use App\Services\RH\MotorSalarial;
 use App\Services\RH\ServicoFolhaSalarial;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -41,11 +42,14 @@ final class FolhaSalarialController extends Controller
     {
         $this->exigir(...self::VER_PERIODOS);
         $p = PeriodoProcessamentoSalarial::query()->findOrFail($id);
-        $res = $this->folha->resultados($p);
+        // M13: decomposição oficial do IRT por linha (Grupo A; os avençados pagam a taxa fixa e ficam com null)
+        $res = array_map(fn (array $x) => $x + ['irt_escalao' => empty($x['avencado']) ? MotorSalarial::escalaoIrt((string) ($x['base_irt'] ?? '0')) : null],
+            $this->folha->resultados($p));
         $totais = [];
         foreach (['bruto', 'inss_trabalhador', 'inss_patronal', 'irt', 'descontos', 'liquido'] as $k) {
             $totais[$k] = array_reduce($res, fn ($s, $x) => bcadd($s, (string) $x[$k], 2), '0.00');
         }
+        $totais['irt_devido'] = array_reduce($res, fn ($s, $x) => $x['irt_escalao'] ? bcadd($s, $x['irt_escalao']['devido'], 2) : $s, '0.00');
 
         return RespostaApi::sucesso($p->toArray() + ['resultados' => $res, 'totais' => $totais, 'fotografia' => $p->estado !== 'ABERTO'], 'Processamento obtido com sucesso.');
     }

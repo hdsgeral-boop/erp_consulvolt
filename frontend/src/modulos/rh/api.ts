@@ -281,16 +281,27 @@ export interface ResultadoSalarial {
   rubricas: RubricaResultado[];
   avisos: string[];
   modo_calculo: string;
+  /** Escalão do IRT calculado pelo MotorSalarial (null nos avençados e nos resultados antigos). */
+  irt_escalao?: EscalaoIrt | null;
   mes_ano?: string;
   numero_recibo?: string;
   periodo_processamento_salarial_id?: number;
+}
+
+/** Escalão do IRT devolvido pelo servidor (MotorSalarial): parcela fixa, taxa (%), excesso e imposto devido. */
+export interface EscalaoIrt {
+  fixo: string;
+  taxa: number;
+  excesso: string;
+  devido: string;
 }
 
 export type ChaveTotal = 'bruto' | 'inss_trabalhador' | 'inss_patronal' | 'irt' | 'descontos' | 'liquido';
 
 export interface DetalhePeriodo extends PeriodoSalarial {
   resultados: ResultadoSalarial[];
-  totais: Record<ChaveTotal, string>;
+  /** irt_devido: Σ do imposto devido pelos escalões (MotorSalarial). */
+  totais: Record<ChaveTotal, string> & { irt_devido?: string };
   fotografia: boolean;
 }
 

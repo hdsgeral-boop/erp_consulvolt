@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DiarioContabil;
 use App\Models\Empresa;
 use App\Models\EncomendaCompra;
+use App\Models\FaturaCompra;
 use App\Models\ItemCompra;
 use App\Models\LancamentoContabil;
 use App\Models\LinhaOrcamento;
@@ -107,7 +108,9 @@ final class OrcamentoControloTest extends TestCase
 
         // factura de 300: 1 300 / 1 200 → exige aprovação; pede-se, outro aprova, volta a gravar e o pedido fica utilizado
         $this->fatura('F-1', 300, $a)->assertStatus(422)->assertJsonPath('codigo', 'ORCAMENTO_EXIGE_APROVACAO')
-            ->assertJsonPath('erros.chave_documento', "FATURA_FORNECEDOR|{$this->ids['fornecedor']}/F-1");
+            ->assertJsonPath('erros.chave_documento', "FATURA_FORNECEDOR|{$this->ids['fornecedor']}/F-1")
+            // detalhes para o frontend pedir a aprovação a partir do documento (compras: linhas calculadas no servidor)
+            ->assertJsonPath('erros.tipo', 'EXPLORACAO')->assertJsonPath('erros.origem', 'FATURA_FORNECEDOR')->assertJsonPath('erros.linhas.0.codigo_conta', '752');
         $doc = ['tipo' => 'EXPLORACAO', 'origem' => 'FATURA_FORNECEDOR', 'documento' => "{$this->ids['fornecedor']}/F-1", 'data' => $this->hoje,
             'linhas' => [['codigo_conta' => '752', 'valor' => 300]]];
         $this->postJson('/api/orcamento/verificar', $doc, $a)->assertOk()->assertJsonPath('dados.0.estado', 'APROVACAO')->assertJsonPath('dados.0.percentagem', 108.33);
@@ -157,6 +160,52 @@ final class OrcamentoControloTest extends TestCase
             $this->assertEquals([['752', 600.0]], array_map(fn ($x) => [$x['codigo_conta'], $x['valor']], $c->compromissos('EXPLORACAO', (int) now()->format('Y'))));   // 6 de 10 por facturar
             $e->update(['estado' => 'ANULADA']);
             $this->assertSame([], $c->compromissos('EXPLORACAO', (int) now()->format('Y')));
+        });
+    }
+
+    #[Test]
+    public function compromissos_contam_so_ate_ao_mes_do_documento(): void
+    {
+        // E-ORC-1: pessoal 50/mês com base ACUMULADO e BLOQUEAR; encomenda de 1 000 datada de Dezembro não pesa num documento de Março
+        $this->em(function () {
+            $ano = (int) now()->format('Y');
+            RubricaOrcamental::query()->whereKey($this->ids['C02'])->update(['controlo' => ['modo' => 'BLOQUEAR', 'aviso_pct' => 80, 'limite_pct' => 100, 'base' => 'ACUMULADO']]);
+            $p = Produto::create(['codigo' => 'S2', 'nome' => 'Formação', 'preco_unitario' => 0, 'taxa_imposto' => 0, 'movimenta_stock' => false, 'conta_custo' => '7211',
+                'codigo_isencao_fe' => 'M00']);
+            $e = EncomendaCompra::create(['numero_encomenda' => 'EC 2', 'fornecedor_id' => $this->ids['fornecedor'], 'data' => "{$ano}-12-01", 'estado' => 'EM_PROCESSAMENTO', 'montante_total' => 1000]);
+            ItemCompra::create(['tipo_documento_origem' => 'ENCOMENDA', 'encomenda_compra_id' => $e->id, 'produto_id' => $p->id, 'quantidade' => 1, 'quantidade_faturada' => 0,
+                'preco_unitario' => 1000, 'total' => 1000, 'total_kz' => 1000]);
+            $c = app(ServicoControloOrcamental::class);
+            $v = $c->verificar('EXPLORACAO', "{$ano}-03-15", [['codigo_conta' => '7211', 'valor' => 50]]);
+            $this->assertEquals([150, 0, 'OK'], [$v[0]['orcado'], $v[0]['compromissos'], $v[0]['estado']]);   // antes: 1 000 em compromissos → BLOQUEIO
+            $m = collect($c->monitor($ano, 3))->keyBy('rubrica_orcamental_id')[$this->ids['C02']];
+            $this->assertEquals([0, 0, 'OK'], [$m['compromissos'], $m['consumido'], $m['estado']]);
+            // em Dezembro (e numa rubrica com base ANO) a encomenda já conta
+            $this->assertEquals([1000, 'BLOQUEIO'], array_values(array_intersect_key($c->verificar('EXPLORACAO', "{$ano}-12-15", [['codigo_conta' => '7211', 'valor' => 50]])[0],
+                ['compromissos' => 1, 'estado' => 1])));
+            $e->update(['data' => "{$ano}-02-01"]);
+            $this->assertSame('BLOQUEIO', $c->verificar('EXPLORACAO', "{$ano}-03-15", [['codigo_conta' => '7211', 'valor' => 50]])[0]['estado']);
+        });
+    }
+
+    #[Test]
+    public function factura_de_encomenda_por_contabilizar_conta_como_compromisso(): void
+    {
+        // E-ORC-2: a factura registada a partir da encomenda já abateu a quantidade facturada; até ser contabilizada é compromisso
+        $this->em(function () {
+            $ano = (int) now()->format('Y');
+            $e = EncomendaCompra::create(['numero_encomenda' => 'EC 3', 'fornecedor_id' => $this->ids['fornecedor'], 'data' => now(), 'estado' => 'EM_PROCESSAMENTO', 'montante_total' => 1000]);
+            $ie = ItemCompra::create(['tipo_documento_origem' => 'ENCOMENDA', 'encomenda_compra_id' => $e->id, 'produto_id' => $this->ids['servico'], 'quantidade' => 10,
+                'quantidade_faturada' => 4, 'preco_unitario' => 100, 'total' => 1000, 'total_kz' => 1000]);
+            $f = FaturaCompra::create(['fornecedor_id' => $this->ids['fornecedor'], 'numero_fatura' => 'FE-1', 'data' => now()->toDateString(), 'encomenda_compra_id' => $e->id,
+                'montante_total' => 400, 'contabilizado' => false, 'estado' => 'PENDENTE']);
+            ItemCompra::create(['tipo_documento_origem' => 'FATURA', 'fatura_compra_id' => $f->id, 'item_encomenda_id' => $ie->id,
+                'produto_id' => $this->ids['servico'], 'quantidade' => 4, 'preco_unitario' => 100, 'total' => 400, 'total_kz' => 400]);
+            $c = app(ServicoControloOrcamental::class);
+            $valores = fn () => collect($c->compromissos('EXPLORACAO', $ano))->pluck('valor')->sort()->values()->all();
+            $this->assertEquals([400.0, 600.0], $valores());   // 600 por facturar na encomenda + 400 na factura (sem dupla contagem)
+            $f->update(['contabilizado' => true]);
+            $this->assertEquals([600.0], $valores());   // contabilizada: passa ao realizado
         });
     }
 }

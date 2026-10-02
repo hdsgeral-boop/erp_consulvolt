@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Armazem;
 use App\Models\Empresa;
+use App\Models\ItemCompra;
 use App\Models\LancamentoContabil;
+use App\Models\NotaDemonstracao;
 use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\StockArmazem;
@@ -267,5 +269,23 @@ final class ComprasTest extends TestCase
         $u = $this->criarUtilizador(['perfil_utilizador_id' => $perfil->id]);
         $u->empresas()->attach($outra->id);
         $this->getJson("/api/compras/pedidos/{$p}", $this->entrar($u) + ['X-Empresa-Id' => $outra->id])->assertNotFound();
+    }
+
+    #[Test]
+    public function factura_migrada_sem_valor_da_transitoria_e_notas_das_demonstracoes(): void
+    {
+        $notas = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => collect(['4', '9', '11'])
+            ->mapWithKeys(fn ($c) => [$c => NotaDemonstracao::create(['codigo' => $c, 'descricao' => "Nota {$c}"])->id])->all());
+        $e = $this->encomenda();
+        $r = $this->receber($e, 4)->json('dados.id');
+        $this->postJson("/api/compras/rececoes/{$r}/validar", ['armazem_id' => $this->armazem->id], $this->armazenista)->assertOk();
+        $f = $this->faturar($e, 4, 'FT 9')->assertCreated()->json('dados.id');
+        // E-STK-2: linha migrada sem valor_transitoria_kz → a 3281 salda pelo valor da linha (antes: 0 na 3281 e 360 em diferenças de câmbio)
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => ItemCompra::query()->where('fatura_compra_id', $f)->update(['valor_transitoria_kz' => null]));
+        $lan = $this->postJson("/api/compras/faturas/{$f}/contabilizar", [], $this->contabilista)->assertOk()->json('dados.numero_lan_contabilizacao');
+        $this->assertSame(['D 3281 360.00', 'D 3451 50.40', 'C 3211 410.40'], $this->lancamento($lan));
+        // E-CON-1: notas como o legado (321/322/328 → 11, 34 → 9)
+        $this->assertSame(['3281' => $notas['11'], '3451' => $notas['9'], '3211' => $notas['11']], app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => LancamentoContabil::query()->where('numero_lan', $lan)->orderBy('id')->pluck('nota_demonstracao_id', 'codigo_conta')->map(fn ($v) => (int) $v)->all()));
     }
 }

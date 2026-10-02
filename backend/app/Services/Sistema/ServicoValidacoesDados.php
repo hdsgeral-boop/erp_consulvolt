@@ -332,6 +332,14 @@ final class ServicoValidacoesDados
                           FROM terceiros WHERE empresa_id = ? AND eliminado_em IS NULL AND nif IS NOT NULL AND nif <> '' AND nif NOT IN ('999999999', '000000000')
                           GROUP BY nif, tipo HAVING COUNT(*) > 1 ORDER BY 3 DESC",
             ],
+            'codigos_com_espacos_nas_pontas' => [
+                'titulo' => 'Códigos com espaços no início/fim (contas, produtos, terceiros…)', 'modulo' => 'Sistema', 'gravidade' => 'AVISO',
+                'descricao' => 'Códigos com espaços nas pontas, incluindo o espaço não separável (U+00A0) e outros espaços Unicode: não coincidem com o código '
+                    .'limpo (ex.: lançamentos na conta «75216 », que não existe no plano, e o apuramento criaria essa conta). Corrija o código na ficha '
+                    .'ou com Substituir conta.',
+                'legado' => 'Copiar/colar no legado sem limpeza; o ETL só retirava caracteres de largura zero (E-CON-2)',
+                'sql' => self::sqlCodigosComEspacos(),
+            ],
             'terceiros_nome_com_espacos' => [
                 'titulo' => 'Terceiros com espaços ou tabulações no início/fim do nome', 'modulo' => 'Terceiros', 'gravidade' => 'INFO',
                 'descricao' => 'Nomes gravados pelo legado sem limpeza; afectam a ordenação e a pesquisa. Os dados novos já são limpos na entrada.',
@@ -380,6 +388,27 @@ final class ServicoValidacoesDados
                           ORDER BY id",
             ],
         ];
+    }
+
+    /**
+     * Uma linha por código com espaços nas pontas: [[:space:]] (ASCII) e os espaços Unicode (U+00A0, U+2000-U+200B, U+202F,
+     * U+205F, U+2060, U+3000, U+FEFF…). O código aparece entre parênteses rectos para se verem os espaços.
+     */
+    private static function sqlCodigosComEspacos(): string
+    {
+        $esp = "[[:space:]\u{0085}\u{00A0}\u{1680}\u{2000}-\u{200B}\u{2028}\u{2029}\u{202F}\u{205F}\u{2060}\u{3000}\u{FEFF}]";
+        $tem = fn (string $c) => "({$c} ~ '^{$esp}' OR {$c} ~ '{$esp}\$')";
+        $partes = [];
+        foreach ([['plano_contas', 'codigo', 'Plano de contas'], ['produtos', 'codigo', 'Produto'], ['produtos', 'codigo_conta', 'Produto (conta)'],
+            ['terceiros', 'codigo_conta', 'Terceiro (conta)'], ['centros_custo', 'codigo', 'Centro de custo'], ['unidades_negocio', 'codigo', 'Unidade de negócio'],
+            ['diarios_contabeis', 'codigo', 'Diário']] as [$tabela, $coluna, $rotulo]) {
+            $partes[] = "SELECT '{$rotulo}' AS origem, '[' || {$coluna} || ']' AS codigo_gravado, COUNT(*) AS registos, MIN(id) AS id
+                         FROM {$tabela} WHERE empresa_id = ? AND eliminado_em IS NULL AND {$tem($coluna)} GROUP BY {$coluna}";
+        }
+        $partes[] = "SELECT 'Lançamentos (conta)' AS origem, '[' || codigo_conta || ']' AS codigo_gravado, COUNT(*) AS registos, MIN(id) AS id
+                     FROM lancamentos_contabeis WHERE empresa_id = ? AND {$tem('codigo_conta')} GROUP BY codigo_conta";
+
+        return implode(' UNION ALL ', $partes).' ORDER BY 1, 2';
     }
 
     /** @return list<array<string, mixed>> resumo de todas as validações da empresa activa */

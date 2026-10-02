@@ -1,38 +1,38 @@
 import {
+  AccountBookOutlined,
   ApartmentOutlined,
   AppstoreOutlined,
   AuditOutlined,
-  BarChartOutlined,
   BankOutlined,
-  CalculatorOutlined,
+  BarChartOutlined,
+  BookOutlined,
   CalendarOutlined,
   ContactsOutlined,
   DashboardOutlined,
   DatabaseOutlined,
-  FieldTimeOutlined,
   FileProtectOutlined,
   FileTextOutlined,
-  FundOutlined,
+  GoldOutlined,
   IdcardOutlined,
-  InboxOutlined,
+  LineChartOutlined,
   PrinterOutlined,
   ProjectOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
   ShopOutlined,
   ShoppingCartOutlined,
-  ShoppingOutlined,
   SolutionOutlined,
   SwapOutlined,
   TeamOutlined,
   ToolOutlined,
+  TruckOutlined,
   UserOutlined,
-  WalletOutlined,
 } from '@ant-design/icons';
 import type { ComponentType, CSSProperties, ReactNode } from 'react';
 
 /**
- * Ícones SVG (de @ant-design/icons) dos módulos e ecrãs do ERP.
+ * Ícones SVG (de @ant-design/icons) dos módulos e ecrãs do ERP, escolhidos para lembrar os do sistema anterior
+ * (Font Awesome em payroll_system_web/index_arrumado.html; o equivalente vai indicado em cada linha).
  *
  * Fonte dos ids: backend/resources/permissoes/catalogo.json → modulos[].id (o mesmo que GET /api/sistema/menu devolve).
  * Ao acrescentar um módulo ao catálogo, acrescente aqui o ícone — o teste iconesModulos.test.ts falha se faltar algum.
@@ -41,21 +41,21 @@ export type ComponenteIcone = ComponentType<{ className?: string; style?: CSSPro
 
 /** Módulo do catálogo → ícone. */
 export const ICONES_MODULOS: Readonly<Record<string, ComponenteIcone>> = {
-  geral: DashboardOutlined, // Geral / Gestão: painel, relatórios de gestão, BI
-  rh: TeamOutlined, // Recursos Humanos e Salários
-  contab: CalculatorOutlined, // Contabilidade
-  teso: WalletOutlined, // Tesouraria
-  vendas: ShoppingOutlined, // Vendas e Facturação
-  pos: ShopOutlined, // POS, Lavandaria e Hotelaria (frente de loja)
-  compras: ShoppingCartOutlined, // Compras e Aprovisionamento
-  stock: InboxOutlined, // Armazém e Inventário
-  activos: ToolOutlined, // Activos (Imobilizado): equipamentos, manutenção, amortizações
-  projectos: ProjectOutlined, // Projectos
-  crm: ContactsOutlined, // CRM
-  acrescimos: FieldTimeOutlined, // Acréscimos e Diferimentos (especialização de exercícios)
-  orcamento: FundOutlined, // Gestão Orçamental
-  estrutura: ApartmentOutlined, // Estrutura Orgânica
-  config: SettingOutlined, // Configurações
+  geral: LineChartOutlined, // Geral / Gestão: painel, relatórios de gestão, BI (legado: fa-chart-line «Dashboard Global»)
+  rh: TeamOutlined, // Recursos Humanos e Salários (legado: fa-users)
+  contab: BookOutlined, // Contabilidade (legado: fa-book)
+  teso: BankOutlined, // Tesouraria (legado: fa-university)
+  vendas: ShoppingCartOutlined, // Vendas e Facturação (legado: fa-shopping-cart)
+  pos: ShopOutlined, // POS, Lavandaria e Hotelaria (legado: fa-cash-register — sem equivalente; frente de loja)
+  compras: TruckOutlined, // Compras e Aprovisionamento (legado: fa-truck-loading)
+  stock: GoldOutlined, // Armazém e Inventário (legado: fa-warehouse / fa-boxes — caixas empilhadas)
+  activos: ToolOutlined, // Activos (Imobilizado): equipamentos, manutenção, amortizações (legado: fa-couch — sem equivalente)
+  projectos: ProjectOutlined, // Projectos (legado: fa-hard-hat — sem equivalente; planeamento)
+  crm: ContactsOutlined, // CRM (legado: fa-handshake — sem equivalente)
+  acrescimos: SwapOutlined, // Acréscimos e Diferimentos (legado: fa-exchange-alt)
+  orcamento: AccountBookOutlined, // Gestão Orçamental (legado: fa-file-invoice-dollar)
+  estrutura: ApartmentOutlined, // Estrutura Orgânica (legado: fa-sitemap)
+  config: SettingOutlined, // Configurações (legado: fa-cog)
 };
 
 /** Sinónimos que possam aparecer noutros pontos (rotas antigas, textos) → id do catálogo. */

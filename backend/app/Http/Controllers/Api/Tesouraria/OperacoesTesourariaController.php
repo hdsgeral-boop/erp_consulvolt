@@ -10,6 +10,7 @@ use App\Models\ReconciliacaoBancaria;
 use App\Models\SessaoCaixa;
 use App\Services\Compras\RelacoesNomes;
 use App\Services\Tesouraria\ServicoCaixa;
+use App\Services\Tesouraria\ServicoCaixaAjustes;
 use App\Services\Tesouraria\ServicoConferenciaCaixa;
 use App\Services\Tesouraria\ServicoConfigTesouraria;
 use App\Services\Tesouraria\ServicoReconciliacaoBancaria;
@@ -17,6 +18,7 @@ use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /** /api/tesouraria — reconciliação bancária, folha de caixa, conferência de caixa e contas de tesouraria. */
@@ -27,6 +29,7 @@ final class OperacoesTesourariaController extends Controller
         private readonly ServicoCaixa $caixa,
         private readonly ServicoConferenciaCaixa $conferencia,
         private readonly ServicoConfigTesouraria $config,
+        private readonly ServicoCaixaAjustes $ajustesCaixa,
     ) {}
 
     // ─────────── Reconciliação bancária ───────────
@@ -136,8 +139,16 @@ final class OperacoesTesourariaController extends Controller
             'conta_contrapartida' => ['required', 'string', 'max:20'], 'valor' => ['required', 'numeric', 'gt:0'], 'descricao' => ['required', 'string', 'min:3', 'max:1000'],
             'terceiro_id' => ['nullable', 'integer', $daEmpresa('terceiros')], 'numero_documento' => ['nullable', 'string', 'max:100'], 'referencia' => ['nullable', 'string', 'max:100'],
             'venda_id' => ['nullable', 'integer', $daEmpresa('vendas')], 'fatura_compra_id' => ['nullable', 'integer', $daEmpresa('faturas_compra')],
-            'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')], 'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')]]);
-        $this->caixa->registarMovimento(SessaoCaixa::query()->findOrFail($id), $d);
+            'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')], 'centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
+            'nota_demonstracao_id' => ['nullable', 'integer'], 'nota_fluxo_caixa_id' => ['nullable', 'integer']]);
+        // As notas (DEMO/fluxo) gravam-se na mesma transacção, logo a seguir ao movimento (A-11: o ServicoCaixa ainda não as recebe).
+        DB::transaction(function () use ($id, $d) {
+            $m = $this->caixa->registarMovimento(SessaoCaixa::query()->findOrFail($id), $d);
+            $notas = array_filter(array_intersect_key($d, array_flip(['nota_demonstracao_id', 'nota_fluxo_caixa_id'])), fn ($v) => $v !== null);
+            if ($notas) {
+                $this->ajustesCaixa->classificar(SessaoCaixa::query()->findOrFail($id), [$m->id], $notas);
+            }
+        });
 
         return RespostaApi::criado($this->sessaoArray(SessaoCaixa::query()->findOrFail($id)), 'Movimento registado.');
     }
@@ -170,6 +181,30 @@ final class OperacoesTesourariaController extends Controller
         $this->exigir('teso_caixa_contabilizar');
 
         return RespostaApi::sucesso($this->sessaoArray($this->caixa->descontabilizar(SessaoCaixa::query()->findOrFail($id), $this->motivo($r))), 'Sessão descontabilizada (estorno).');
+    }
+
+    /** POST /caixa/sessoes/{id}/reabrir — volta a ABERTA uma sessão fechada e por contabilizar (A-11). */
+    public function reabrirSessao(Request $r, int $id): JsonResponse
+    {
+        $this->exigir('teso_caixa_fechar');
+
+        return RespostaApi::sucesso($this->sessaoArray($this->ajustesCaixa->reabrir(SessaoCaixa::query()->findOrFail($id), $this->motivo($r))), 'Sessão reaberta.');
+    }
+
+    /** PUT /caixa/sessoes/{id}/movimentos/classificacao — notas DEMO/fluxo, UN e CC de movimentos por contabilizar (só as chaves enviadas). */
+    public function classificarMovimentos(Request $r, int $id): JsonResponse
+    {
+        $this->exigir('teso_caixa_operar');
+        $empresa = app(ContextoEmpresa::class)->obrigatorio();
+        $daEmpresa = fn (string $t) => Rule::exists($t, 'id')->where('empresa_id', $empresa);
+        $d = $r->validate(['movimentos' => ['required', 'array', 'min:1', 'max:1000'], 'movimentos.*' => ['integer'],
+            'nota_demonstracao_id' => ['sometimes', 'nullable', 'integer'], 'nota_fluxo_caixa_id' => ['sometimes', 'nullable', 'integer'],
+            'unidade_negocio_id' => ['sometimes', 'nullable', 'integer', $daEmpresa('unidades_negocio')],
+            'centro_custo_id' => ['sometimes', 'nullable', 'integer', $daEmpresa('centros_custo')]]);
+        $n = $this->ajustesCaixa->classificar(SessaoCaixa::query()->findOrFail($id), array_map('intval', $d['movimentos']),
+            array_intersect_key($d, array_flip(ServicoCaixaAjustes::CAMPOS_CLASSIFICACAO)));
+
+        return RespostaApi::sucesso($this->sessaoArray(SessaoCaixa::query()->findOrFail($id)), "Classificação aplicada a {$n} movimento(s).");
     }
 
     public function eliminarSessao(int $id): JsonResponse

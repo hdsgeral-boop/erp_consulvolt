@@ -8,9 +8,9 @@ use App\Models\ExecucaoConsolidacao;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
 use App\Support\Cache\ChaveCache;
+use App\Support\Cache\InvalidacaoCache;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -334,7 +334,7 @@ final class ServicoConsolidacao
             });
             DB::table('empresas')->where('id', $holding)->update(['moeda_consolidacao' => $moeda, 'data_fim_consolidacao' => $dataFim, 'execucao_consolidacao_id' => $run,
                 'atualizado_em' => $agora]);
-            Cache::forget(ChaveCache::empresa($holding, 'contabilidade', 'plano_contas'));
+            InvalidacaoCache::esquecer(ChaveCache::empresa($holding, 'contabilidade', 'plano_contas'));   // agora e depois do commit (R2)
             $this->auditoria->registar('Contabilidade', 'Executou a consolidação', "Grupo {$grupo->id} até {$dataFim} em {$moeda}: ".count($todas)." linhas ({$apagadas} substituídas).",
                 'execucoes_consolidacao', $run, null, null, $holding);
 

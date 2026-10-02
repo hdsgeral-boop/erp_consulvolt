@@ -14,7 +14,8 @@ const LARGURA_NOMES_TELEMOVEL = 160;
  * Gantt simples em CSS (sem dependências): uma linha por item, barra posicionada em % da escala, cabeçalho
  * por meses (ou semanas), marca de hoje e barra de progresso quando o item a tem. Sem fim = barra tracejada até ao fim.
  * Desloca na horizontal dentro do contentor (`erp-deslocar-x`); na impressão (ref → motor comum) as barras levam
- * `imp-cor` para saírem com cor mesmo sem «gráficos de fundo».
+ * `imp-cor` para saírem com cor mesmo sem «gráficos de fundo», cada linha é indivisível (`imp-sem-quebra`) e a linha
+ * de cabeçalho (meses/semanas) leva `imp-repetir` — a paginação do motor repete-a no topo de cada página.
  */
 export const Gantt = forwardRef<HTMLDivElement, { linhas: LinhaGantt[]; inicio?: string | null; fim?: string | null; aoClicar?: (l: LinhaGantt) => void }>(function Gantt({ linhas, inicio, fim, aoClicar }, ref) {
   const { token } = theme.useToken();
@@ -31,7 +32,8 @@ export const Gantt = forwardRef<HTMLDivElement, { linhas: LinhaGantt[]; inicio?:
   return (
     <div ref={ref} className="erp-deslocar-x erp-gantt" style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius }}>
       <div style={{ minWidth: LARGURA_NOMES_ACTUAL + 700 }}>
-        <div style={{ display: 'flex', borderBottom: `1px solid ${token.colorBorderSecondary}`, background: token.colorFillAlter, position: 'sticky', top: 0 }}>
+        {/* imp-repetir: na impressão, a linha dos meses/semanas repete-se no topo de cada página (motor comum) */}
+        <div className="erp-gantt-cabecalho imp-repetir imp-sem-quebra imp-cor" style={{ display: 'flex', borderBottom: `1px solid ${token.colorBorderSecondary}`, background: token.colorFillAlter, position: 'sticky', top: 0 }}>
           <div style={{ width: LARGURA_NOMES_ACTUAL, flex: 'none', padding: '6px 8px', fontWeight: 600 }}>Item</div>
           <div style={{ position: 'relative', flex: 1, height: 32 }}>
             {marcas.map((m, i) => (
@@ -45,7 +47,7 @@ export const Gantt = forwardRef<HTMLDivElement, { linhas: LinhaGantt[]; inicio?:
           const b = l.tipo === 'grupo' ? null : barraGantt(l, escala);
           const marco = l.tipo === 'marco' && l.inicio && l.inicio === l.fim;
           return (
-            <div key={l.chave} style={{ display: 'flex', height: ALTURA, borderBottom: `1px solid ${token.colorSplit}`, background: l.tipo === 'grupo' ? token.colorFillQuaternary : undefined }}>
+            <div key={l.chave} className="erp-gantt-linha imp-sem-quebra" style={{ display: 'flex', height: ALTURA, borderBottom: `1px solid ${token.colorSplit}`, background: l.tipo === 'grupo' ? token.colorFillQuaternary : undefined }}>
               <div
                 style={{ width: LARGURA_NOMES_ACTUAL, flex: 'none', padding: `0 8px 0 ${8 + l.nivel * 16}px`, display: 'flex', alignItems: 'center', overflow: 'hidden', cursor: aoClicar && l.id ? 'pointer' : undefined }}
                 onClick={() => aoClicar && l.id && aoClicar(l)}

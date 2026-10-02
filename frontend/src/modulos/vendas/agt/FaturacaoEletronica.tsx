@@ -3,6 +3,7 @@ import { CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined, Settin
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
@@ -76,6 +77,7 @@ export function FaturacaoEletronica() {
 
 function EstadoEnvio() {
   const { pode } = useSessao();
+  const navegar = useNavigate();
   const resumo = useQuery({ queryKey: ['vendas', 'fe', 'resumo'], queryFn: () => obter<Record<string, number>>('/vendas/faturacao-eletronica/resumo') });
   const ligacao = useQuery({ queryKey: ['vendas', 'fe', 'ligacao'], queryFn: () => obter<Record<string, unknown>>('/vendas/faturacao-eletronica/ligacao'), enabled: pode('vendas_fe_config'), retry: false });
   const [resultado, setResultado] = useState<Record<string, unknown> | null>(null);
@@ -105,7 +107,17 @@ function EstadoEnvio() {
           <Row gutter={[16, 16]}>
             {RESUMO.map((r) => (
               <Col key={r.chave} xs={12} md={6} lg={3}>
-                <Statistic title={r.rotulo} value={resumo.data?.[r.chave] ?? 0} valueStyle={(resumo.data?.[r.chave] ?? 0) > 0 && r.cor ? { color: r.cor } : undefined} />
+                {/* atalho para a lista de documentos filtrada pelo estado AGT (A-04) */}
+                <div
+                  role="link"
+                  tabIndex={0}
+                  title={`Ver os documentos: ${r.rotulo.toLowerCase()}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navegar(`/m/vendas/vendas_faturacao?estado_fe=${r.chave}`)}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navegar(`/m/vendas/vendas_faturacao?estado_fe=${r.chave}`)}
+                >
+                  <Statistic title={r.rotulo} value={resumo.data?.[r.chave] ?? 0} valueStyle={(resumo.data?.[r.chave] ?? 0) > 0 && r.cor ? { color: r.cor } : undefined} />
+                </div>
               </Col>
             ))}
           </Row>

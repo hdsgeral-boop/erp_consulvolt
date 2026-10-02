@@ -8,6 +8,14 @@
 
 return [
 
+    /*
+    | Taxas de IVA legais (Angola): 14 normal, 7 intermédia, 5 reduzida, 0 isento — as únicas aceites em produtos e
+    | documentos de compra (M3; as do legado, js/ui_sales.js:2319-2324 e js/ui_compras_v2.js:1174).
+    */
+    'fiscal' => [
+        'taxas_iva' => [0, 5, 7, 14],
+    ],
+
     'sessao' => [
         // Paridade com o legado (js/app_v2.js:704-723): logout automático após 15 minutos sem actividade.
         'inatividade_minutos' => (int) env('ERP_SESSAO_INATIVIDADE_MINUTOS', 15),

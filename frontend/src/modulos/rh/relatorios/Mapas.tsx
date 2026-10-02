@@ -12,7 +12,7 @@ import { GRUPOS_PAGAMENTO, type OrdemPagamento, type ResultadoSalarial } from '.
 import { AreaImpressao, CabecalhoMapa, descarregar, SeletorColaborador } from '../comum/componentes';
 import { useAvisarErro, useCargos } from '../comum/consultas';
 import { ReciboSalario } from '../comum/ReciboSalario';
-import { colunasRubricas, escalaoIrt, formatarIban, gerarCsv, kzCsv, somar, valoresRubricas } from '../comum/regras';
+import { colunasRubricas, formatarIban, gerarCsv, kzCsv, somar, valoresRubricas } from '../comum/regras';
 import { AvisoNaoValidado, MolduraMapa, useDadosColaborador, usePeriodoMapa } from './comum';
 
 const ordenarPorNome = (dados: (id: number, r?: ResultadoSalarial) => { nome: string }) => (a: ResultadoSalarial, b: ResultadoSalarial) =>
@@ -113,8 +113,8 @@ export function MapaIrt() {
     const cab = ['NIF', 'N.º SS', 'Nome', 'Província', 'Município', 'Bruto', 'INSS 3%', 'Isenções', 'Matéria colectável', 'Parcela fixa', 'Taxa %', 'Excesso', 'Imposto devido', 'Imposto retido'];
     const linhas = grupoA.map((r) => {
       const d = dados(r.colaborador_id, r);
-      const e = escalaoIrt(r.base_irt);
-      return [d.nif, d.inss, d.nome, d.provincia, d.municipio, kzCsv(r.bruto), kzCsv(r.inss_trabalhador), kzCsv(r.isencoes), kzCsv(r.base_irt), kzCsv(e.fixo), String(e.taxa).replace('.', ','), kzCsv(e.excesso), kzCsv(e.devido), kzCsv(r.irt)];
+      const e = r.irt_escalao;
+      return [d.nif, d.inss, d.nome, d.provincia, d.municipio, kzCsv(r.bruto), kzCsv(r.inss_trabalhador), kzCsv(r.isencoes), kzCsv(r.base_irt), e ? kzCsv(e.fixo) : '', e ? String(e.taxa).replace('.', ',') : '', e ? kzCsv(e.excesso) : '', e ? kzCsv(e.devido) : '', kzCsv(r.irt)];
     });
     descarregar(`mapa-irt-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(cab, linhas));
   };
@@ -132,13 +132,13 @@ export function MapaIrt() {
             <tbody>
               {grupoA.map((r, i) => {
                 const d = dados(r.colaborador_id, r);
-                const e = escalaoIrt(r.base_irt);
+                const e = r.irt_escalao;
                 return (
                   <tr key={r.colaborador_id}>
                     <td className="num">{i + 1}</td><td>{d.nif}</td><td>{d.inss}</td><td>{d.nome}</td><td>{d.provincia}</td><td>{d.municipio}</td>
                     <td className="num">{formatarKz(r.bruto)}</td><td className="num">{formatarKz(r.inss_trabalhador)}</td><td className="num">{formatarKz(r.isencoes)}</td>
-                    <td className="num">{formatarKz(r.base_irt)}</td><td className="num">{formatarKz(e.fixo)}</td><td className="num">{formatarNumero(e.taxa)}%</td>
-                    <td className="num">{formatarKz(e.excesso)}</td><td className="num">{formatarKz(e.devido)}</td><td className="num"><strong>{formatarKz(r.irt)}</strong></td>
+                    <td className="num">{formatarKz(r.base_irt)}</td><td className="num">{e ? formatarKz(e.fixo) : '—'}</td><td className="num">{e ? `${formatarNumero(e.taxa)}%` : '—'}</td>
+                    <td className="num">{e ? formatarKz(e.excesso) : '—'}</td><td className="num">{e ? formatarKz(e.devido) : '—'}</td><td className="num"><strong>{formatarKz(r.irt)}</strong></td>
                   </tr>
                 );
               })}
@@ -148,14 +148,14 @@ export function MapaIrt() {
                 <td colSpan={6}>Totais ({grupoA.length})</td>
                 <td className="num">{formatarKz(somar(grupoA.map((r) => r.bruto)))}</td><td className="num">{formatarKz(somar(grupoA.map((r) => r.inss_trabalhador)))}</td>
                 <td className="num">{formatarKz(somar(grupoA.map((r) => r.isencoes)))}</td><td className="num">{formatarKz(somar(grupoA.map((r) => r.base_irt)))}</td>
-                <td colSpan={3} /><td className="num">{formatarKz(somar(grupoA.map((r) => escalaoIrt(r.base_irt).devido)))}</td>
+                <td colSpan={3} /><td className="num">{formatarKz(mapa.detalhe.data?.totais.irt_devido ?? somar(grupoA.map((r) => r.irt_escalao?.devido ?? '0')))}</td>
                 <td className="num">{formatarKz(somar(grupoA.map((r) => r.irt)))}</td>
               </tr>
             </tfoot>
           </table>
         </DeslocamentoHorizontal>
         <Typography.Paragraph type="secondary" className="rh-nao-imprimir" style={{ marginTop: 8 }}>
-          O escalão (parcela fixa, taxa e excesso) e o imposto devido são mostrados pela tabela de IRT em vigor; o imposto retido é o calculado pelo servidor no processamento (nos períodos migrados, pelo modo do legado).
+          O escalão (parcela fixa, taxa e excesso) e o imposto devido vêm do cálculo do servidor (MotorSalarial); o imposto retido é o calculado pelo servidor no processamento (nos períodos migrados, pelo modo do legado).
         </Typography.Paragraph>
         {grupoB.length > 0 && (
           <>

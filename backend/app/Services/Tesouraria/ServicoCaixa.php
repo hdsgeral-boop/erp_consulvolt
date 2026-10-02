@@ -70,8 +70,8 @@ final class ServicoCaixa
         if (bccomp($valor, '0', 2) <= 0) {
             throw new ErroNegocio('O valor tem de ser positivo.', 'VALOR_INVALIDO', 422);
         }
-        $numero = $this->liquidacoes->validarLigacao($d['venda_id'] ?? null, $d['fatura_compra_id'] ?? null, $d['terceiro_id'] ?? null, 'Movimento:')
-            ?? ($d['numero_documento'] ?? null);
+        $numero = $this->liquidacoes->validarLigacao($d['venda_id'] ?? null, $d['fatura_compra_id'] ?? null, $d['terceiro_id'] ?? null, 'Movimento:',
+            isset($d['numero_documento']) ? (string) $d['numero_documento'] : null) ?? ($d['numero_documento'] ?? null);
 
         return DB::transaction(function () use ($sessao, $d, $data, $valor, $numero) {
             $sessao = SessaoCaixa::query()->lockForUpdate()->findOrFail($sessao->id);
@@ -84,6 +84,8 @@ final class ServicoCaixa
             $rec = $d['tipo'] === 'REC';
             if ($numero && ! empty($d['terceiro_id'])) {
                 $aberto = $this->pendentes->saldo((int) $d['terceiro_id'], $d['conta_contrapartida'], $numero);
+                $this->liquidacoes->exigirPendente($aberto, isset($d['venda_id']) ? (int) $d['venda_id'] : null,
+                    isset($d['fatura_compra_id']) ? (int) $d['fatura_compra_id'] : null, (string) $numero, 'Movimento:');
                 if ($aberto && bccomp($valor, bcadd($aberto['saldo'], '0.01', 2), 2) > 0) {
                     throw new ErroNegocio("O valor ({$valor}) excede o saldo em aberto do documento {$numero} ({$aberto['saldo']}).", 'VALOR_SUPERIOR_EM_ABERTO', 422);
                 }
@@ -146,13 +148,20 @@ final class ServicoCaixa
             $movimentos = MovimentoCaixa::query()->where('sessao_caixa_id', $sessao->id)->orderBy('data_documento')->orderBy('id')->get();
             $diario = $this->localizador->diario('CX', 'Caixa');
             $numeros = [];
+            // notas como o legado (js/ui_folha_caixa.js:1309-1319, E-CON-1): linha numa conta 45 → nota 10, sem nota de fluxo;
+            // contrapartida → as notas do movimento
+            $nota10 = $this->config->notaDisponibilidades();
+            $notas = fn (?MovimentoCaixa $m, string $conta) => str_starts_with($conta, '45') ? ['nota_demonstracao_id' => $nota10, 'nota_fluxo_caixa_id' => null]
+                : ['nota_demonstracao_id' => $m?->nota_demonstracao_id, 'nota_fluxo_caixa_id' => $m?->nota_fluxo_caixa_id];
             foreach ($movimentos->groupBy(fn ($m) => $m->data_documento->toDateString()) as $data => $grupo) {
                 $linhas = [];
                 foreach ($grupo as $m) {
                     $comum = ['valor' => $m->valor, 'descricao' => mb_substr((string) $m->descricao, 0, 1000), 'terceiro_id' => $m->terceiro_id,
                         'unidade_negocio_id' => $m->unidade_negocio_id, 'centro_custo_id' => $m->centro_custo_id];
-                    $linhas[] = ['codigo_conta' => $m->conta_debito, 'tipo_dc' => 'D', 'numero_documento' => $m->tipo === 'PAG' ? $m->numero_documento : null] + $comum;
-                    $linhas[] = ['codigo_conta' => $m->conta_credito, 'tipo_dc' => 'C', 'numero_documento' => $m->tipo === 'REC' ? $m->numero_documento : null] + $comum;
+                    $linhas[] = ['codigo_conta' => $m->conta_debito, 'tipo_dc' => 'D', 'numero_documento' => $m->tipo === 'PAG' ? $m->numero_documento : null]
+                        + $notas($m, (string) $m->conta_debito) + $comum;
+                    $linhas[] = ['codigo_conta' => $m->conta_credito, 'tipo_dc' => 'C', 'numero_documento' => $m->tipo === 'REC' ? $m->numero_documento : null]
+                        + $notas($m, (string) $m->conta_credito) + $comum;
                 }
                 $numeros[] = $this->lancamentos->criar(['diario_id' => $diario->id, 'data_documento' => $data, 'numero_documento' => "CX-{$sessao->id}-{$data}",
                     'descricao' => "Folha de caixa {$sessao->codigo_conta} — sessão {$sessao->id}", 'tipo_origem' => 'CAIXA', 'linhas' => $linhas])->first()->numero_lan;
@@ -164,8 +173,8 @@ final class ServicoCaixa
                 $contra = $sobra ? $this->config->exigir('caixa_sobras', 'Há uma sobra de caixa a lançar.') : $this->config->exigir('caixa_quebras', 'Há uma quebra de caixa a lançar.');
                 $numeros[] = $this->lancamentos->criar(['diario_id' => $diario->id, 'data_documento' => $sessao->data_fecho->toDateString(),
                     'numero_documento' => "CX-{$sessao->id}-DIF", 'descricao' => ($sobra ? 'Sobra' : 'Quebra')." de caixa no fecho da sessão {$sessao->id}", 'tipo_origem' => 'CAIXA',
-                    'linhas' => [['codigo_conta' => $sobra ? $sessao->codigo_conta : $contra, 'tipo_dc' => 'D', 'valor' => $valor],
-                        ['codigo_conta' => $sobra ? $contra : $sessao->codigo_conta, 'tipo_dc' => 'C', 'valor' => $valor]]])->first()->numero_lan;
+                    'linhas' => [['codigo_conta' => $sobra ? $sessao->codigo_conta : $contra, 'tipo_dc' => 'D', 'valor' => $valor] + $notas(null, $sobra ? $sessao->codigo_conta : $contra),
+                        ['codigo_conta' => $sobra ? $contra : $sessao->codigo_conta, 'tipo_dc' => 'C', 'valor' => $valor] + $notas(null, $sobra ? $contra : $sessao->codigo_conta)]])->first()->numero_lan;
             }
             MovimentoCaixa::query()->where('sessao_caixa_id', $sessao->id)->update(['contabilizado' => true]);
             $sessao->update(['estado' => 'CONTABILIZADA', 'numeros_lan_contabilizacao' => $numeros, 'contabilizado_em' => now()]);

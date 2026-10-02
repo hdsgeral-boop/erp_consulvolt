@@ -45,6 +45,17 @@ export interface DocumentoVenda {
     selado_em?: string | null;
     envio?: string | null;
     erros_agt?: unknown[];
+    /** Última resposta da AGT (VendaResource, A-04). */
+    envio_detalhe?: {
+      request_id: string | null;
+      enviado_em: string | null;
+      validado_em: string | null;
+      ultima_consulta: string | null;
+      proxima_consulta: string | null;
+      correccao: boolean;
+      tentativas: number;
+      historico: { em: string; accao: string; resultado: string }[];
+    } | null;
   };
   linhas?: LinhaVenda[];
   [chave: string]: unknown;

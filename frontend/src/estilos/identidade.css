@@ -1,0 +1,736 @@
+/*
+ * IDENTIDADE VISUAL DO SISTEMA ANTERIOR (payroll_system_web/css/styles.css, js/ui_dashboard.js, js/app_v2.js)
+ * Importado em src/main.tsx a seguir a global.css. As cores e tokens do Ant Design estão em src/estilos/tema.ts;
+ * aqui fica o que os tokens não cobrem. Regras sobre componentes do Ant Design levam `:root` (ganham ao CSS-in-JS).
+ *
+ * Paleta: primária #2563eb (escura #1d4ed8, clara #eff6ff) · texto #1e293b / #475569 / #64748b · limites #cbd5e1 /
+ * #e2e8f0 · fundo #f8fafc · menu #121212 (texto #d0d0d0, 3.º nível #94a3b8, realce #3b82f6) · cantos 4 px.
+ */
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #f8fafc;
+}
+
+/* ── Menu lateral escuro (legado: .sidebar #121212, .nav-item, .nav-group) ──────────────────────────────────── */
+/* (o Drawer põe a className no próprio painel .ant-drawer-content; o segundo selector cobre versões que a põem na raiz) */
+.erp-sider,
+:root .erp-gaveta-menu.ant-drawer-content,
+:root .erp-gaveta-menu .ant-drawer-content {
+  background: #121212;
+}
+
+.erp-sider {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.025);
+  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.04);
+}
+
+.erp-sider-topo,
+:root .erp-gaveta-menu .ant-drawer-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+}
+
+:root .erp-gaveta-menu .ant-drawer-close {
+  color: #d0d0d0;
+}
+
+:root .erp-gaveta-menu .ant-drawer-close:hover {
+  color: #ffffff;
+}
+
+.erp-gaveta-empresa {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.erp-gaveta-empresa-rotulo {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Marca no fundo escuro: nome a branco; produto em maiúsculas cinzento-azulado (legado: «GESTÃO EMPRESARIAL») */
+:root .erp-marca-escura .erp-marca-nome {
+  color: #ffffff;
+}
+
+:root .erp-marca-escura .erp-marca-produto {
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.erp-menu.ant-menu {
+  padding: 12px 0 24px;
+}
+
+/* Itens de topo (Início e módulos) maiores, como no legado (1rem) */
+:root .erp-menu.ant-menu-root > .ant-menu-item,
+:root .erp-menu.ant-menu-root > .ant-menu-submenu > .ant-menu-submenu-title {
+  font-size: 15px;
+}
+
+/* Item activo: fundo azul translúcido e barra de 4 px à esquerda (legado: .nav-item.active) */
+:root .erp-menu.ant-menu-dark .ant-menu-item-selected {
+  box-shadow: inset 4px 0 0 #3b82f6;
+  font-weight: 500;
+}
+
+:root .erp-menu.ant-menu-dark .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  color: #ffffff;
+}
+
+/* Sub-níveis com a guia tracejada à esquerda (legado: .nav-group-items border-left dashed) */
+:root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline {
+  margin-inline-start: 26px;
+  border-inline-start: 1px dashed rgba(255, 255, 255, 0.15);
+  background: transparent;
+}
+
+:root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item,
+:root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title {
+  padding-inline-start: 14px !important;
+  margin-inline: 6px 8px;
+  width: calc(100% - 14px);
+}
+
+/* 3.º nível: mais pequeno, cinzento-azulado e com a marca «•» (legado) */
+:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item {
+  height: 36px;
+  line-height: 36px;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item::before {
+  content: '\2022';
+  margin-inline-end: 8px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item-selected,
+:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item:hover {
+  color: #ffffff;
+}
+
+/* Foco visível pelo teclado no fundo escuro */
+:root .erp-menu.ant-menu-dark .ant-menu-item:focus-visible,
+:root .erp-menu.ant-menu-dark .ant-menu-submenu-title:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: -2px;
+}
+
+/* ── Barra superior (legado: .top-header — nome da empresa, crachá do NIF, utilizador e sair) ───────────────── */
+.erp-cabecalho {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.erp-cabecalho-empresa {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.erp-cabecalho-empresa-nome {
+  max-width: 100%;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #475569;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Crachá do NIF (legado: .nif-badge) */
+.erp-cracha-nif {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.erp-utilizador {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid #e2e8f0;
+}
+
+.erp-utilizador-textos {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.erp-utilizador-nome {
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.erp-utilizador-papel {
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+/* Botão quadrado com moldura (legado: #sidebar-toggle .btn-outline) */
+:root .erp-botao-menu.ant-btn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #a6a6a6;
+  background: transparent;
+  color: #333333;
+}
+
+:root .erp-botao-menu.ant-btn:hover {
+  background: #f0f0f0;
+  color: #1e293b;
+}
+
+/* Sair (legado: botão só com ícone, vermelho) */
+:root .erp-botao-sair.ant-btn.ant-btn-variant-outlined:not(:disabled) {
+  border-color: #fecaca;
+  background: #ffffff;
+  color: #dc2626;
+  box-shadow: none;
+}
+
+:root .erp-botao-sair.ant-btn.ant-btn-variant-outlined:not(:disabled):hover {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+/* ── Títulos das páginas (legado: h2.view-title, cinzento-ardósia a 800, linha por baixo) ───────────────────── */
+:root .cabecalho-pagina {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+:root .cabecalho-pagina .ant-typography.erp-titulo-pagina {
+  font-size: clamp(20px, 2.4vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: #475569;
+}
+
+/* ── Cartões (legado: .card — moldura clara, sombra muito suave, 4 px) ─────────────────────────────────────── */
+:root .ant-card:not(.ant-card-type-inner) {
+  border-color: #edf1f5;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.03), 0 20px 25px -5px rgba(0, 0, 0, 0.02);
+}
+
+:root .ant-card .ant-card-head-title {
+  font-weight: 700;
+  color: #475569;
+}
+
+/* ── Tabelas (legado: cabeçalho em maiúsculas sobre #f1f5f9, linhas e colunas tracejadas, densas) ──────────── */
+:root .ant-table-wrapper .ant-table {
+  font-family: 'Century Gothic', 'Avant Garde', AppleGothic, Inter, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+
+:root .ant-table-wrapper .ant-table-thead > tr > th,
+:root .ant-table-wrapper .ant-table-thead > tr > td {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+:root .ant-table-wrapper .ant-table-tbody > tr > td {
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+:root .ant-table-wrapper .ant-table:not(.ant-table-bordered) .ant-table-tbody > tr > td:not(:last-child) {
+  border-inline-end: 1px dashed #e2e8f0;
+}
+
+:root .ant-table-wrapper .ant-table-summary td {
+  font-weight: 700;
+  color: #1d4ed8;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ── Botões em degradê «ERP clássico» (legado: .btn, .btn-primary, .btn-danger) ─────────────────────────────── */
+:root .ant-btn.ant-btn-variant-outlined.ant-btn-color-default:not(:disabled):not(.ant-btn-disabled) {
+  border-color: #a6a6a6;
+  background: linear-gradient(to bottom, #ffffff 0%, #f3f3f3 50%, #e5e5e5 100%);
+  color: #333333;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+:root .ant-btn.ant-btn-variant-outlined.ant-btn-color-default:not(:disabled):not(.ant-btn-disabled):hover {
+  border-color: #99c1e5;
+  background: linear-gradient(to bottom, #f0f8ff 0%, #e0efff 50%, #cde5ff 100%);
+  color: #0b4a8e;
+}
+
+:root .ant-btn.ant-btn-variant-solid.ant-btn-color-primary:not(:disabled):not(.ant-btn-disabled) {
+  border-color: #8ab6df;
+  background: linear-gradient(to bottom, #f0f8ff 0%, #d4e8fb 50%, #bcdcf9 100%);
+  color: #0b4a8e;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+:root .ant-btn.ant-btn-variant-solid.ant-btn-color-primary:not(:disabled):not(.ant-btn-disabled):hover {
+  border-color: #72aae1;
+  background: linear-gradient(to bottom, #ffffff 0%, #e5f1fc 50%, #d0e7fa 100%);
+  color: #0b4a8e;
+}
+
+:root .ant-btn.ant-btn-variant-solid.ant-btn-color-dangerous:not(:disabled):not(.ant-btn-disabled) {
+  border-color: #df8a8a;
+  background: linear-gradient(to bottom, #fff0f0 0%, #fcd6d6 50%, #fac2c2 100%);
+  color: #8e0b0b;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 1px 1px rgba(0, 0, 0, 0.05);
+}
+
+:root .ant-btn.ant-btn-variant-solid.ant-btn-color-dangerous:not(:disabled):not(.ant-btn-disabled):hover {
+  border-color: #df7272;
+  background: linear-gradient(to bottom, #ffffff 0%, #ffe0e0 50%, #fccaca 100%);
+  color: #8e0b0b;
+}
+
+:root .ant-btn.ant-btn-variant-solid:not(:disabled):not(.ant-btn-disabled):active,
+:root .ant-btn.ant-btn-variant-outlined.ant-btn-color-default:not(:disabled):not(.ant-btn-disabled):active {
+  background: linear-gradient(to bottom, #e5e5e5 0%, #f3f3f3 100%);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Separadores como botões (legado: .tab-btn — branco com moldura; activo a azul cheio, texto branco) ──────── */
+:root .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav::before {
+  border-bottom-color: transparent;
+}
+
+:root .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-ink-bar {
+  display: none;
+}
+
+:root .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab {
+  margin-block: 2px 4px;
+  padding: 6px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+:root .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+:root .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab:hover .ant-tabs-tab-btn {
+  color: #2563eb;
+}
+
+:root .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab-active {
+  border-color: #2563eb;
+  background: #2563eb;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+:root .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #ffffff;
+  text-shadow: none;
+}
+
+:root .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab-disabled {
+  background: #f1f5f9;
+}
+
+/* ── Formulários e modais (legado: rótulos a 600; modal com linha sob o título) ─────────────────────────────── */
+:root .ant-form-vertical .ant-form-item-label > label {
+  font-weight: 600;
+}
+
+:root .ant-modal .ant-modal-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* ── Páginas de entrada (legado: fotografia de fundo e cartão translúcido) ───────────────────────────────────── */
+.erp-pagina-entrada.erp-fundo-entrada {
+  background: #0f172a url('./imagens/fundo-entrada.jpg') center / cover no-repeat;
+}
+
+:root .erp-cartao-entrada.ant-card {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.erp-entrada-titulo {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* ── Início (legado: ecrã de boas-vindas de js/ui_dashboard.js) ─────────────────────────────────────────────── */
+.erp-inicio {
+  margin: -24px;
+  padding: 24px;
+  min-height: calc(100vh - 72px);
+  background: linear-gradient(rgba(248, 250, 252, 0.55), rgba(248, 250, 252, 0.78)), url('./imagens/fundo-inicio.jpg') center / cover no-repeat;
+}
+
+@media (max-width: 767.98px) {
+  .erp-inicio {
+    margin: -16px;
+    padding: 16px;
+    min-height: calc(100vh - 56px);
+  }
+}
+
+@media (max-width: 575.98px) {
+  .erp-inicio {
+    margin: -12px;
+    padding: 12px;
+  }
+}
+
+.erp-inicio-saudacao {
+  margin: 0 0 4px;
+  font-size: clamp(26px, 4.2vw, 44px);
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  color: #1e293b;
+  overflow-wrap: anywhere;
+}
+
+.erp-inicio-saudacao-nome {
+  color: #1d4ed8;
+}
+
+.erp-inicio-subtitulo {
+  margin: 0 0 24px;
+  font-size: clamp(15px, 1.6vw, 18px);
+  font-weight: 500;
+  color: #475569;
+}
+
+/* Cartão escuro da empresa activa (legado: .premium-card) */
+.erp-inicio-empresa {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(20px, 3vw, 36px);
+  border-radius: 4px;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  box-shadow: 0 20px 40px rgba(30, 41, 59, 0.08);
+  color: #ffffff;
+}
+
+.erp-inicio-empresa-marca {
+  position: absolute;
+  right: -20px;
+  bottom: -20px;
+  font-size: 180px;
+  opacity: 0.05;
+  transform: rotate(-10deg);
+  pointer-events: none;
+}
+
+.erp-inicio-cracha {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.erp-inicio-empresa-nome {
+  margin: 12px 0 4px;
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 700;
+  line-height: 1.2;
+  color: #ffffff;
+  overflow-wrap: anywhere;
+}
+
+.erp-inicio-empresa-morada {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.erp-inicio-dados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.erp-inicio-dado-rotulo,
+.erp-inicio-pendentes-titulo {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.erp-inicio-dado-valor {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.erp-inicio-pendentes {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.erp-inicio-pendentes-cabeca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.erp-inicio-total {
+  padding: 1px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.erp-inicio-pilulas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.erp-inicio-pilula {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.erp-inicio-pilula:hover,
+.erp-inicio-pilula:focus-visible {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.erp-inicio-pilula:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 1px;
+}
+
+.erp-inicio-pilula[disabled] {
+  cursor: default;
+}
+
+.erp-inicio-pilula-numero {
+  font-weight: 800;
+  color: #fde68a;
+}
+
+/* Cartões pequenos (Dica do dia, Painel) */
+.erp-inicio-mini {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+  padding: 20px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.erp-inicio-mini {
+  width: 100%;
+  cursor: pointer;
+}
+
+button.erp-inicio-mini:hover,
+button.erp-inicio-mini:focus-visible {
+  border-color: #2563eb;
+}
+
+.erp-inicio-mini-titulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.erp-inicio-mini-texto {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.erp-caixa-icone {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  font-size: 22px;
+  transition: transform 0.3s ease, background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Lista de módulos (legado: .module-navigation / .module-card-btn) */
+.erp-inicio-modulos {
+  padding: clamp(16px, 2.4vw, 32px);
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02), 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.erp-inicio-modulos-titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.erp-inicio-lista-modulos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.erp-modulo-botao {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.erp-modulo-botao .erp-caixa-icone {
+  background: rgba(100, 116, 139, 0.09);
+  color: #64748b;
+}
+
+.erp-modulo-botao:hover,
+.erp-modulo-botao:focus-visible {
+  transform: translateX(6px);
+  border-color: #2563eb;
+  box-shadow: 0 15px 30px rgba(37, 99, 235, 0.08);
+}
+
+.erp-modulo-botao:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.erp-modulo-botao:hover .erp-caixa-icone,
+.erp-modulo-botao:focus-visible .erp-caixa-icone {
+  transform: scale(1.08);
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.erp-modulo-botao[disabled] {
+  cursor: default;
+  filter: grayscale(1) opacity(0.65);
+  transform: none;
+}
+
+.erp-modulo-textos {
+  min-width: 0;
+}
+
+.erp-modulo-nome {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.erp-modulo-descricao {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: #64748b;
+}
+
+@media (max-width: 575.98px) {
+  .erp-modulo-botao:hover,
+  .erp-modulo-botao:focus-visible {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-modulo-botao,
+  .erp-caixa-icone,
+  .erp-inicio-pilula {
+    transition: none;
+  }
+
+  .erp-modulo-botao:hover,
+  .erp-modulo-botao:focus-visible {
+    transform: none;
+  }
+}

@@ -8,6 +8,7 @@ use App\Models\MovimentoInventario;
 use App\Models\Produto;
 use App\Models\SessaoInventario;
 use App\Models\StockArmazem;
+use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Sistema\ServicoNumeracao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
@@ -31,6 +32,7 @@ final class ServicoStock
     public function __construct(
         private readonly ContextoEmpresa $contexto,
         private readonly ServicoNumeracao $numeracao,
+        private readonly ServicoExercicios $exercicios,
     ) {}
 
     /** @param  array{documento_tipo?: string, documento_id?: int}  $doc */
@@ -116,6 +118,8 @@ final class ServicoStock
         }
 
         return DB::transaction(function () use ($m, $quantidade, $armazemId) {
+            // M4/M5: nenhum movimento de stock (ajustes, guias, POS, inventário, compras) num exercício encerrado
+            $this->exercicios->exigirAbertoNaTransacao($this->contexto->obrigatorio(), substr((string) $m['data'], 0, 10));
             $produto = Produto::query()->lockForUpdate()->findOrFail($m['produto_id']);
             if (! $produto->movimenta_stock) {
                 throw new ErroNegocio("O produto {$produto->codigo} não movimenta stock.", 'PRODUTO_SEM_STOCK', 422);
@@ -142,6 +146,12 @@ final class ServicoStock
                 }
                 $novoTotal = bcsub($total, $quantidade, 3);
                 $novoArmazem = bcsub($noArmazem, $quantidade, 3);
+                // E-STK-1: saída a custo explícito ≠ custo médio (estorno de uma recepção, quebra com custo próprio) — o valor do
+                // stock que sobra passa a ser (q × cm − q_saída × custo); sem isto o stock valorizado deixava de bater com a 26
+                if (isset($m['custo']) && bccomp($custo, $custoMedio, 6) !== 0 && bccomp($total, '0', 3) > 0 && bccomp($novoTotal, '0', 3) > 0) {
+                    $restante = bcsub(bcmul($total, $custoMedio, 8), bcmul($quantidade, $custo, 8), 8);
+                    $custoMedio = bccomp($restante, '0', 8) > 0 ? bcdiv($restante, $novoTotal, 6) : '0.000000';
+                }
             }
 
             $linha->update(['quantidade_stock' => $novoArmazem]);

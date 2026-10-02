@@ -382,8 +382,13 @@ for (const [modulo, defs] of modulos) {
     const linhas = cols.filter((c) => !(def.chavePrimaria && c.pt === 'id')).map(blueprint);
     if (def.chavePrimaria) linhas.push(`            $table->primary([${def.chavePrimaria.map(phpStr).join(', ')}]);`);
     const extra = [];
+    const nomesUnicos = new Set();
     for (const u of def.unicos) {
-      const n = nomeIndice('uq', def.pt, u);
+      // únicos parciais com as mesmas colunas (condições diferentes) precisam de nomes distintos: _2, _3…
+      const base = nomeIndice('uq', def.pt, u);
+      let n = base;
+      for (let k = 2; nomesUnicos.has(n); k++) n = `${base.slice(0, 60)}_${k}`;
+      nomesUnicos.add(n);
       const condicoes = [def.eliminacaoLogica && 'eliminado_em IS NULL', u.onde].filter(Boolean);
       extra.push(`        DB::statement(${phpStr(`CREATE UNIQUE INDEX ${n} ON ${def.pt} (${u.join(', ')})${condicoes.length ? ` WHERE ${condicoes.join(' AND ')}` : ''}`)});`);
     }

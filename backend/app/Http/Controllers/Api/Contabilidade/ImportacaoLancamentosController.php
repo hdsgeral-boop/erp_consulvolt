@@ -8,6 +8,8 @@ use App\Services\Contabilidade\ServicoSaldosHistoricos;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /** /api/contabilidade/lancamentos/importar e /saldos-historicos — importações do ecrã "lancamentos" (ADR-055). */
 final class ImportacaoLancamentosController extends Controller
@@ -38,6 +40,20 @@ final class ImportacaoLancamentosController extends Controller
             [], ['demo' => 'valores das notas DEMO', 'fluxo' => 'valores das notas de fluxo']);
 
         return RespostaApi::sucesso($servico->gravar($ano, $d['demo'], $d['fluxo']), "Histórico de {$ano} guardado com sucesso.");
+    }
+
+    /** GET /saldos-historicos/{ano}/modelo — modelo Excel (TIPO, CÓDIGO, DESCRIÇÃO, VALOR) com os valores gravados do ano. */
+    public function modeloSaldosHistoricos(int $ano, ServicoSaldosHistoricos $servico): BinaryFileResponse
+    {
+        $this->exigir('lancamentos_saldos');
+        $pasta = storage_path('app/copias');
+        if (! is_dir($pasta)) {
+            mkdir($pasta, 0775, true);
+        }
+        $caminho = $pasta.'/historico_'.Str::random(12).'.xlsx';
+        $servico->modeloExcel($ano, $caminho);
+
+        return response()->download($caminho, "Template_Importacao_Historico_{$ano}.xlsx")->deleteFileAfterSend();
     }
 
     public function importarSaldosHistoricos(Request $request, ServicoSaldosHistoricos $servico): JsonResponse

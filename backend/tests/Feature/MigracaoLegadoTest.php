@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -191,7 +192,9 @@ final class MigracaoLegadoTest extends TestCase
     #[Test]
     public function simulacao_valida_tudo_e_nao_grava_nada(): void
     {
+        Cache::forever('utilizador:1:empresas:v1', [99]);   // dados que o rollback da simulação tornaria falsos
         $this->assertSame(0, $this->migrar(['--simular' => true]));
+        $this->assertNull(Cache::get('utilizador:1:empresas:v1'), 'R1: a simulação limpa a cache no fim');
 
         $this->assertSame(0, DB::table('empresas')->count());
         $this->assertSame(0, DB::table('lancamentos_contabeis')->count());
@@ -206,8 +209,12 @@ final class MigracaoLegadoTest extends TestCase
 
         $this->assertSame(1, $this->migrar());
         $this->assertSame('FALHADA', DB::table('execucoes_migracao')->orderByDesc('id')->value('estado'));
+        // R1: o TRUNCATE … RESTART IDENTITY reutiliza ids — a lista de empresas em cache do utilizador antigo não pode sobreviver
+        Cache::forever('utilizador:1:empresas:v1', [1, 10, 22]);
         $this->assertSame(0, $this->migrar(['--substituir' => true, '--force' => true]));
         $this->assertSame(3, DB::table('empresas')->count());
+        $this->assertNull(Cache::get('utilizador:1:empresas:v1'));
+        $this->assertStringContainsString('limpa', json_decode(DB::table('execucoes_migracao')->orderByDesc('id')->value('relatorio'), true)['cache']);
     }
 
     #[Test]

@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { enviar } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
+import { linhasDeMovimentos, useExcessoOrcamental, type OpcoesOrcamento } from '@/componentes/orcamento';
 import { dataApi } from '@/utilitarios/formatacao';
 import type { DocumentoLancamento } from '../api';
 import { IndicadorEquilibrio } from '../comum/Componentes';
@@ -40,6 +41,7 @@ export function NovoLancamento() {
   const linhas = Form.useWatch('linhas', form) ?? [];
   const e = equilibrio(linhas);
   const copia = (local.state as EstadoCopia | null)?.copia;
+  const excesso = useExcessoOrcamental();
 
   const valoresIniciais: Partial<ValoresForm> = copia
     ? {
@@ -63,7 +65,7 @@ export function NovoLancamento() {
     : { data_documento: dayjs(), linhas: [{ tipo_dc: 'D' }, { tipo_dc: 'C' }] };
 
   const gravar = useMutation({
-    mutationFn: (v: ValoresForm) =>
+    mutationFn: (v: ValoresForm & { orcamento?: OpcoesOrcamento }) =>
       enviar<DocumentoLancamento>('post', '/contabilidade/lancamentos', {
         diario_id: v.diario_id,
         data_documento: dataApi(v.data_documento),
@@ -71,6 +73,7 @@ export function NovoLancamento() {
         referencia: v.referencia || undefined,
         descricao: v.descricao || undefined,
         linhas: linhasParaApi(v.linhas.map((l) => ({ ...l, descricao: l.descricao || v.descricao }))),
+        orcamento: v.orcamento,
       }),
     onSuccess: ({ dados, mensagem }) => {
       message.success(mensagem);
@@ -78,7 +81,14 @@ export function NovoLancamento() {
       const primeira = dados.linhas[0];
       navegar(primeira ? `../${primeira.id}` : '..');
     },
-    onError: (erro) => notificarErro(erro, 'Não foi possível gravar o lançamento'),
+    onError: (erro, v) => {
+      // excesso orçamental: pedir a aprovação ou aprovar no acto sem perder o formulário (A-02)
+      const tratado = excesso.tratar(erro, {
+        contexto: () => ({ tipo: 'EXPLORACAO', data: dataApi(v.data_documento) ?? '', linhas: linhasDeMovimentos(v.linhas) }),
+        repetir: (orcamento) => gravar.mutate({ ...v, orcamento }),
+      });
+      if (!tratado) notificarErro(erro, 'Não foi possível gravar o lançamento');
+    },
   });
 
   return (
@@ -131,6 +141,7 @@ export function NovoLancamento() {
           <Button onClick={() => navegar('..')}>Cancelar</Button>
         </Space>
       </Form>
+      {excesso.dialogo}
     </>
   );
 }

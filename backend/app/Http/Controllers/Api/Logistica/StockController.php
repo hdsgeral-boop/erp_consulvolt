@@ -110,8 +110,12 @@ final class StockController extends Controller
         $d = $r->validate(['produto_id' => ['required', 'integer'], 'armazem_id' => ['required', 'integer'], 'sentido' => ['required', 'in:E,S'],
             'quantidade' => ['required', 'numeric', 'gt:0'], 'custo_unitario' => ['nullable', 'numeric', 'min:0'], 'data' => ['required', 'date'],
             'motivo' => ['required', 'string', 'min:5', 'max:500']]);
+        // M4: a saída de um ajuste manual sai sempre ao custo médio (o legado valorizava ao custo do produto; um custo indicado
+        // numa saída mudaria o custo médio do que fica, E-STK-1). Na entrada mantém-se o custo indicado — stock inicial: o
+        // sistema novo não tem o «preço de custo» da ficha que o legado usava — ou, sem ele, o custo médio.
+        $custo = $d['sentido'] === 'E' && isset($d['custo_unitario']) ? (string) $d['custo_unitario'] : null;
         $res = $this->stock->ajustar((int) $d['produto_id'], (int) $d['armazem_id'], $d['sentido'], (string) $d['quantidade'],
-            isset($d['custo_unitario']) ? (string) $d['custo_unitario'] : null, $d['data'], "Ajuste manual: {$d['motivo']}", ['documento_tipo' => 'AJUSTE']);
+            $custo, $d['data'], "Ajuste manual: {$d['motivo']}", ['documento_tipo' => 'AJUSTE']);
 
         return RespostaApi::criado($res['movimento'], 'Ajuste de stock registado.');
     }

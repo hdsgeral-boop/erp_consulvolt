@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Support\Api\RespostaApi;
+use App\Support\Cache\Batimentos;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -30,6 +31,8 @@ final class SaudeController extends Controller
             'redis' => $this->verificar(fn () => 'Redis '.(Redis::connection()->info('server')['redis_version'] ?? '?')),
             'filas' => $this->verificar(fn () => $this->estadoFilas()),
             'armazenamento' => $this->verificar(fn () => $this->estadoArmazenamento()),
+            // batimentos do scheduler e do worker (R11); a mensagem não tem segredos e mostra-se sempre (excepto se a cache falhar)
+            'processos' => $this->verificar(fn () => Batimentos::estado(), mostrarErro: true),
         ];
 
         $ok = collect($verificacoes)->every(fn ($v) => $v['estado'] === 'OK');
@@ -69,14 +72,14 @@ final class SaudeController extends Controller
     }
 
     /** @return array{estado: string, detalhe: string, latencia_ms: float} */
-    private function verificar(callable $teste): array
+    private function verificar(callable $teste, bool $mostrarErro = false): array
     {
         $inicio = microtime(true);
         try {
             $detalhe = (string) $teste();
             $estado = 'OK';
         } catch (Throwable $e) {
-            $detalhe = config('app.debug') ? $e->getMessage() : 'indisponível';
+            $detalhe = config('app.debug') || ($mostrarErro && $e::class === RuntimeException::class) ? $e->getMessage() : 'indisponível';
             $estado = 'FALHA';
         }
 

@@ -62,8 +62,10 @@ final class LancamentoController extends Controller
     {
         $this->exigir('lancamentos_post');
         // lançamento manual com controlo orçamental (ui_lancamentos.js:1686): débitos consomem, créditos abatem
-        $linhas = DB::transaction(function () use ($request) {
-            $linhas = $this->lancamentos->criar($request->validated());
+        $dados = $this->lancamentos->prepararMoedaManual($request->validated());   // M7 (js/moedas_lancamentos.js)
+        $this->lancamentos->exigirNotasFluxoManual($dados);   // M6 (js/ui_lancamentos.js:1707-1731)
+        $linhas = DB::transaction(function () use ($dados) {
+            $linhas = $this->lancamentos->criar($dados);
             $l0 = $linhas->first();
             app(ServicoControloOrcamental::class)->avaliar('EXPLORACAO',
                 ['origem' => 'LANCAMENTO', 'documento' => (string) $l0->numero_lan, 'data' => $l0->data_documento->toDateString()],

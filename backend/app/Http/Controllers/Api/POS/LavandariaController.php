@@ -8,6 +8,7 @@ use App\Models\PecaLavandaria;
 use App\Models\PedidoLavandaria;
 use App\Models\Produto;
 use App\Models\ReclamacaoLavandaria;
+use App\Rules\TaxaIvaLegal;
 use App\Services\POS\Lavandaria\RegrasLavandaria;
 use App\Services\POS\Lavandaria\ServicoCaixaLavandaria;
 use App\Services\POS\Lavandaria\ServicoConfigLavandaria;
@@ -97,7 +98,7 @@ final class LavandariaController extends Controller
     {
         $this->exigir('lav_tabelas');
         $d = $r->validate(['nome' => [$servico ? 'sometimes' : 'required', 'string', 'max:255'], 'grupo' => [$servico ? 'sometimes' : 'required', Rule::in(RegrasLavandaria::GRUPOS)],
-            'codigo_conta' => [$servico ? 'sometimes' : 'required', 'string', 'max:20'], 'taxa_imposto' => ['sometimes', 'numeric', 'min:0'],
+            'codigo_conta' => [$servico ? 'sometimes' : 'required', 'string', 'max:20'], 'taxa_imposto' => ['sometimes', 'numeric', new TaxaIvaLegal],
             'dias_entrega' => ['sometimes', 'integer', 'min:0'], 'requer_orcamento' => ['sometimes', 'boolean'], 'ativa' => ['sometimes', 'boolean'],
             'codigo_isencao_fe' => ['sometimes', 'nullable', 'string', 'max:10'], 'conta_iva_liquidado' => ['sometimes', 'nullable', 'string', 'max:20']]);
         $s = $servico ? Produto::query()->findOrFail($servico) : null;

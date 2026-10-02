@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Models\Base\ProdutoBase;
 use App\Support\Cache\ChaveCache;
-use Illuminate\Support\Facades\Cache;
+use App\Support\Cache\InvalidacaoCache;
 
 /**
  * produtos — produtos e serviços (inclui quartos de hotelaria e serviços de lavandaria). /api/logistica/produtos.
@@ -21,7 +21,7 @@ class Produto extends ProdutoBase
 
     protected static function booted(): void
     {
-        $invalidar = fn (Produto $p) => Cache::forget(ChaveCache::empresa((int) $p->empresa_id, 'logistica', 'catalogo_produtos'));
+        $invalidar = fn (Produto $p) => InvalidacaoCache::esquecer(ChaveCache::empresa((int) $p->empresa_id, 'logistica', 'catalogo_produtos'));   // agora e depois do commit (R2)
         static::saved($invalidar);
         static::deleted($invalidar);
         static::restored($invalidar);

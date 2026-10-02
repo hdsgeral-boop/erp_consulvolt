@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Models\Base\PlanoContaBase;
 use App\Support\Cache\ChaveCache;
-use Illuminate\Support\Facades\Cache;
+use App\Support\Cache\InvalidacaoCache;
 
 /**
  * plano_contas — /api/contabilidade/plano-contas.
@@ -19,7 +19,7 @@ class PlanoConta extends PlanoContaBase
 
     protected static function booted(): void
     {
-        $invalidar = fn (PlanoConta $conta) => Cache::forget(ChaveCache::empresa((int) $conta->empresa_id, 'contabilidade', 'plano_contas'));
+        $invalidar = fn (PlanoConta $conta) => InvalidacaoCache::esquecer(ChaveCache::empresa((int) $conta->empresa_id, 'contabilidade', 'plano_contas'));   // agora e depois do commit (R2)
         static::saved($invalidar);
         static::deleted($invalidar);
         static::restored($invalidar);

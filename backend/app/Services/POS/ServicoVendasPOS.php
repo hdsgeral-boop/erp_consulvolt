@@ -54,6 +54,10 @@ final class ServicoVendasPOS
             if (bccomp($pct, '0', 4) < 0 || bccomp($pct, '100', 4) > 0) {
                 throw new ErroNegocio('O desconto tem de estar entre 0 e 100 %.', 'DESCONTO_INVALIDO', 422);
             }
+            // E-VEN-1: preço indicado normalizado a 2 casas (como a emissão o grava), para que os pagamentos sejam validados
+            // contra o mesmo total do documento (ex.: 3 × 10,005 dava 30,02 nos pagamentos e 30,03 na factura)
+            $d['linhas'] = array_map(fn ($l) => isset($l['preco_unitario']) && $l['preco_unitario'] !== ''
+                ? ['preco_unitario' => number_format((float) $l['preco_unitario'], 2, '.', '')] + $l : $l, $d['linhas']);
             $cliente = $this->cliente($d['cliente_id'] ?? null, $t);
             $armazem = $t->armazem_id ?: $this->armazens->garantirPredefinido()->id;
             $this->exigirStock($d['linhas'], $armazem);
