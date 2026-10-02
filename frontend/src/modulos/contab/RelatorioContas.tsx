@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { esc, tabelaHtml } from '@/componentes/impressao';
+import { scrollTabela, useEcra } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
@@ -135,12 +137,22 @@ export default function RelatorioContas() {
   };
 
   const anos = Array.from({ length: 6 }, (_, i) => dayjs().year() - i);
+  const { telemovel } = useEcra();
 
   return (
     <>
       <CabecalhoPagina
         titulo="Relatório e Contas"
         subtitulo={d ? `${d.empresa.nome} · exercício de ${ano}${d.encerrado ? '' : ' (provisório: exercício aberto)'}` : undefined}
+        impressaoDesactivada={!d}
+        impressao={() =>
+          d && {
+            titulo: `Relatório e Contas · exercício de ${ano}`,
+            subtitulo: d.encerrado ? undefined : 'Provisório: exercício aberto',
+            filtros: [regras.concluido ? 'Concluído (números fixados)' : 'Rascunho (números recalculados a cada consulta)', `Moeda: ${d.moeda}`],
+            conteudo: documentoRelatorioContas(d, notas),
+          }
+        }
         accoes={
           <Space wrap>
             <Select value={ano} onChange={setAno} style={{ width: 110 }} options={anos.map((a) => ({ value: a, label: String(a) }))} aria-label="Exercício" />
@@ -174,12 +186,13 @@ export default function RelatorioContas() {
                 key: 'indicadores',
                 label: 'Indicadores',
                 children: (
-                  <Row gutter={16}>
+                  <Row gutter={[16, 16]}>
                     <Col xs={24} lg={12}>
                       <Card title="Grandezas (Kz)" size="small">
                         <Table
                           rowKey={(r) => r[0]}
                           size="small"
+                          scroll={scrollTabela()}
                           pagination={false}
                           dataSource={MONETARIOS}
                           columns={[
@@ -195,6 +208,7 @@ export default function RelatorioContas() {
                         <Table
                           rowKey={(r) => r[0]}
                           size="small"
+                          scroll={scrollTabela()}
                           pagination={false}
                           dataSource={RACIOS}
                           columns={[
@@ -225,11 +239,12 @@ export default function RelatorioContas() {
               },
               {
                 key: 'configuracao',
+                forceRender: true,
                 label: 'Configuração',
                 children: (
                   <Card>
                     <Form form={form} layout="vertical" disabled={!regras.podeEditar} onFinish={gravarConfiguracao}>
-                      <Row gutter={16}>
+                      <Row gutter={[16, 0]}>
                         {[
                           ['nome', 'Denominação'], ['nif', 'NIF'], ['sede', 'Sede'], ['objecto', 'Objecto social'], ['forma', 'Forma jurídica'],
                           ['sector', 'Sector de actividade'], ['local', 'Local'], ['director', 'Director / gerente'], ['contabilista', 'Contabilista certificado'],
@@ -310,6 +325,7 @@ export default function RelatorioContas() {
                           <Table
                             rowKey="conta"
                             size="small"
+                            scroll={scrollTabela()}
                             pagination={false}
                             dataSource={contas}
                             columns={[
@@ -329,7 +345,7 @@ export default function RelatorioContas() {
                 label: 'Anexos',
                 children: (
                   <Tabs
-                    tabPosition="left"
+                    tabPosition={telemovel ? 'top' : 'left'}
                     items={Object.entries(d.anexos).map(([k, linhas]) => ({
                       key: k,
                       label: NOMES_ANEXOS[k] ?? k,
@@ -364,7 +380,7 @@ function TabelaAnexo({ nome, linhas }: { nome: string; linhas: Record<string, un
         size="small"
         dataSource={linhas}
         pagination={{ pageSize: 50 }}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         columns={chaves.map((k) => ({
           title: k.replace(/_/g, ' '),
           dataIndex: k,
@@ -374,4 +390,72 @@ function TabelaAnexo({ nome, linhas }: { nome: string; linhas: Record<string, un
       />
     </>
   );
+}
+
+/** Relatório e Contas para impressão: indicadores, rácios, alertas, notas seleccionadas e anexos. */
+export function documentoRelatorioContas(d: DadosRC, notas: Record<string, boolean>): string {
+  const anoN = String(d.ano);
+  const anoN1 = String(d.ano_anterior);
+  const grandezas = tabelaHtml({
+    legenda: 'Grandezas (Kz)',
+    linhas: MONETARIOS,
+    colunas: [
+      { titulo: 'Indicador', valor: (r) => r[1] },
+      { titulo: anoN, valor: (r) => d.n.indicadores[r[0]] as string, formato: 'moeda' },
+      { titulo: anoN1, valor: (r) => d.n1.indicadores[r[0]] as string, formato: 'moeda' },
+    ],
+  });
+  const racios = tabelaHtml({
+    legenda: 'Rácios',
+    linhas: RACIOS,
+    colunas: [
+      { titulo: 'Rácio', valor: (r) => r[1] },
+      { titulo: anoN, valor: (r) => racio(d.n.indicadores[r[0]], r[2]), alinhamento: 'direita' },
+      { titulo: anoN1, valor: (r) => racio(d.n1.indicadores[r[0]], r[2]), alinhamento: 'direita' },
+    ],
+  });
+  const alertas = d.alertas.length
+    ? tabelaHtml({
+        legenda: `Alertas (${d.alertas.length})`,
+        linhas: d.alertas,
+        colunas: [
+          { titulo: 'Tipo', valor: (a) => (a.tipo === 'erro' ? 'Erro' : a.tipo === 'aviso' ? 'Aviso' : 'Informação') },
+          { titulo: 'Alerta', valor: (a) => a.texto, quebrar: true },
+        ],
+      })
+    : '';
+  const notasHtml = Object.entries(d.composicao)
+    .filter(([nota]) => notas[nota] !== false)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([nota, contas]) =>
+      tabelaHtml({
+        legenda: `Nota ${nota}`,
+        linhas: contas,
+        totais: true,
+        colunas: [
+          { titulo: 'Conta', valor: (c) => c.conta },
+          { titulo: 'Descrição', valor: (c) => c.descricao ?? '—', quebrar: true },
+          { titulo: anoN, valor: (c) => c.n, formato: 'moeda', somar: true },
+          { titulo: anoN1, valor: (c) => c.n1, formato: 'moeda', somar: true },
+        ],
+      }),
+    )
+    .join('');
+  const anexos = Object.entries(d.anexos)
+    .filter(([, linhas]) => linhas?.length)
+    .map(([k, linhas]) => {
+      const chaves = Object.keys(linhas[0]);
+      const monetaria = (c: string) => linhas.some((l) => typeof l[c] === 'string' && /^-?\d+\.\d{2}$/.test(l[c] as string));
+      return tabelaHtml<Record<string, unknown>>({
+        legenda: NOMES_ANEXOS[k] ?? k,
+        linhas,
+        colunas: chaves.map((c) => ({
+          titulo: c.replace(/_/g, ' '),
+          valor: (l) => (typeof l[c] === 'object' && l[c] !== null ? JSON.stringify(l[c]) : (l[c] as string | number | null | undefined)),
+          formato: monetaria(c) ? ('moeda' as const) : undefined,
+        })),
+      });
+    })
+    .join('');
+  return `${grandezas}${racios}<p style="font-size:8.5pt">Colaboradores no exercício: ${esc(d.colaboradores)}</p>${alertas}${notasHtml}${anexos}`;
 }

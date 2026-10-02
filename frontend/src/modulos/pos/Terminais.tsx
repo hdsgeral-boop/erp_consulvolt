@@ -5,6 +5,8 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { pares, tabelaHtml } from '@/componentes/impressao';
+import { larguraGaveta, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
@@ -26,12 +28,15 @@ export default function Terminais() {
   const [editar, setEditar] = useState<Terminal | 'novo' | null>(null);
   const [copiar, setCopiar] = useState<Terminal | null>(null);
   const accao = useAccao({ invalidar: [['pos']] });
+  const pequeno = useEcraPequeno();
 
   return (
     <>
       <CabecalhoPagina
         titulo="Terminais POS"
         subtitulo="Terminais de venda, meios de pagamento e contas"
+        impressaoDesactivada={!terminais.data?.length}
+        impressao={() => ({ titulo: 'Lista de terminais POS', conteudo: documentoTerminais(terminais.data ?? []) })}
         accoes={
           pode('pos_terminais_gerir') && (
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('novo')}>
@@ -42,19 +47,19 @@ export default function Terminais() {
       />
       <Table<Terminal>
         rowKey="id"
-        size="middle"
+        size={pequeno ? 'small' : 'middle'}
         loading={terminais.isFetching}
         dataSource={terminais.data}
         pagination={false}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         expandable={{ expandedRowRender: (t) => <TabelaMeiosTerminal meios={t.meios_pagamento ?? []} /> }}
         columns={[
           { title: 'Código', dataIndex: 'codigo', render: (v) => <b>{v}</b> },
           { title: 'Nome', dataIndex: 'nome' },
           { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => TIPOS_TERMINAL[v] ?? v },
-          { title: 'Armazém', dataIndex: 'armazem_id', render: (v) => (v ? <NomeArmazem id={v} /> : 'Predefinido') },
-          { title: 'Fundo padrão', dataIndex: 'fundo_maneio_padrao', align: 'right', render: (v) => formatarKz(v) },
-          { title: 'Meios activos', render: (_, t) => (t.meios_pagamento ?? []).filter((m) => m.ativo).map((m) => <Tag key={m.id}>{m.nome}</Tag>) },
+          { title: 'Armazém', dataIndex: 'armazem_id', render: (v) => (v ? <NomeArmazem id={v} /> : 'Predefinido'), responsive: ['lg'] },
+          { title: 'Fundo padrão', dataIndex: 'fundo_maneio_padrao', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
+          { title: 'Meios activos', responsive: ['md'], render: (_, t) => (t.meios_pagamento ?? []).filter((m) => m.ativo).map((m) => <Tag key={m.id}>{m.nome}</Tag>) },
           { title: 'Sessão', dataIndex: 'sessao_aberta', render: (s: Terminal['sessao_aberta']) => (s ? <Tooltip title={`${s.nome_operador ?? ''} · ${formatarDataHora(s.aberto_em)}`}><Tag color="processing">{s.codigo_sessao}</Tag></Tooltip> : '—') },
           { title: 'Estado', dataIndex: 'ativo', render: (v) => (v ? <Tag color="green">Activo</Tag> : <Tag>Inactivo</Tag>) },
           {
@@ -64,7 +69,7 @@ export default function Terminais() {
             render: (_, t) => {
               const a = accoesTerminal(pode, t);
               return (
-                <Space size={4}>
+                <Space size={4} wrap>
                   {a.editar && <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(t)} aria-label="Editar" />}
                   {a.copiarMeios && (
                     <Tooltip title="Copiar meios de pagamento de outro terminal">
@@ -117,6 +122,7 @@ function TabelaMeiosTerminal({ meios }: { meios: MeioPagamento[] }) {
   return (
     <Table<MeioPagamento>
       size="small"
+      scroll={scrollTabela()}
       pagination={false}
       rowKey={(m) => m.id ?? m.nome}
       dataSource={meios}
@@ -222,9 +228,9 @@ function EditorTerminal({ alvo, aoFechar }: { alvo: Terminal | 'novo' | null; ao
     <Drawer
       open={!!alvo}
       onClose={aoFechar}
-      width={980}
+      width={larguraGaveta(980)}
       title={novo ? 'Novo terminal' : `Terminal ${t?.codigo ?? ''}`}
-      destroyOnClose
+      destroyOnHidden
       extra={
         <Space>
           <Button onClick={aoFechar}>Cancelar</Button>
@@ -235,7 +241,7 @@ function EditorTerminal({ alvo, aoFechar }: { alvo: Terminal | 'novo' | null; ao
       }
     >
       <Form form={form} layout="vertical" onFinish={enviar}>
-        <Row gutter={16}>
+        <Row gutter={[16, 0]}>
           <Col xs={24} md={6}>
             <Form.Item name="codigo" label="Código" rules={[{ required: true, message: 'Indique o código.' }, { pattern: /^[A-Za-z0-9_-]{1,10}$/, message: 'Até 10 letras, algarismos, «-» ou «_».' }]} extra={t ? 'Bloqueado depois da primeira sessão (entra na numeração).' : undefined}>
               <Input maxLength={10} style={{ textTransform: 'uppercase' }} />
@@ -263,7 +269,7 @@ function EditorTerminal({ alvo, aoFechar }: { alvo: Terminal | 'novo' | null; ao
           </Col>
           <Col xs={24} md={6}>
             <Form.Item name="fundo_maneio_padrao" label="Fundo de maneio padrão">
-              <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} addonAfter="Kz" />
+              <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} suffix="Kz" />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
@@ -314,7 +320,7 @@ function EditorTerminal({ alvo, aoFechar }: { alvo: Terminal | 'novo' | null; ao
               {campos.map((campo) => (
                 <EditorMeio key={campo.key} nome={campo.name} aoRemover={() => remove(campo.name)} />
               ))}
-              <Space>
+              <Space wrap>
                 {(['NUMERARIO', 'TPA', 'TRANSFERENCIA'] as const).map((tp) => (
                   <Button key={tp} icon={<PlusOutlined />} onClick={() => add({ tipo: tp, nome: TIPOS_MEIO[tp], ativo: true, conta_transitoria: null, conta_liquidacao: null, ...(tp === 'TPA' ? { comissao_pct: 0, comissao_deduzida: true } : {}) })}>
                     {TIPOS_MEIO[tp]}
@@ -356,7 +362,7 @@ function EditorMeio({ nome, aoRemover }: { nome: number; aoRemover: () => void }
       <Form.Item name={[nome, 'tipo']} hidden>
         <Input />
       </Form.Item>
-      <Row gutter={12}>
+      <Row gutter={[12, 0]}>
         <Col xs={24} md={8}>
           <Form.Item name={[nome, 'nome']} label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}>
             <Input maxLength={100} />
@@ -426,7 +432,7 @@ function ModalCopiarMeios({ destino, terminais, aoFechar }: { destino: Terminal 
     label: `${t.codigo} — ${t.nome} (${(t.meios_pagamento ?? []).length} meio(s))`,
   }));
   return (
-    <Modal open={!!destino} title={`Copiar meios de pagamento para ${destino?.codigo ?? ''}`} okText="Copiar" cancelText="Cancelar" confirmLoading={copiar.isPending} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!destino} title={`Copiar meios de pagamento para ${destino?.codigo ?? ''}`} okText="Copiar" cancelText="Cancelar" confirmLoading={copiar.isPending} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -458,4 +464,38 @@ function ModalCopiarMeios({ destino, terminais, aoFechar }: { destino: Terminal 
       </Form>
     </Modal>
   );
+}
+
+/** Lista de terminais (com os meios de pagamento de cada um) para impressão em A4. */
+export function documentoTerminais(terminais: Terminal[]): string {
+  const lista = tabelaHtml<Terminal>({
+    linhas: terminais,
+    colunas: [
+      { titulo: 'Código', valor: (t) => t.codigo },
+      { titulo: 'Nome', valor: (t) => t.nome },
+      { titulo: 'Tipo', valor: (t) => TIPOS_TERMINAL[t.tipo] ?? t.tipo },
+      { titulo: 'Fundo padrão', valor: (t) => t.fundo_maneio_padrao, formato: 'moeda' },
+      { titulo: 'Meios activos', valor: (t) => (t.meios_pagamento ?? []).filter((m) => m.ativo).map((m) => m.nome).join(', '), quebrar: true },
+      { titulo: 'Sessão', valor: (t) => t.sessao_aberta?.codigo_sessao ?? '—' },
+      { titulo: 'Estado', valor: (t) => (t.ativo ? 'Activo' : 'Inactivo') },
+    ],
+  });
+  const meios = terminais
+    .filter((t) => (t.meios_pagamento ?? []).length)
+    .map((t) =>
+      tabelaHtml<MeioPagamento>({
+        legenda: `Meios de pagamento · ${t.codigo} — ${t.nome}`,
+        linhas: t.meios_pagamento ?? [],
+        colunas: [
+          { titulo: 'Meio', valor: (m) => m.nome },
+          { titulo: 'Tipo', valor: (m) => TIPOS_MEIO[m.tipo] ?? m.tipo },
+          { titulo: 'Transitória', valor: (m) => m.conta_transitoria ?? '—' },
+          { titulo: 'Liquidação', valor: (m) => m.conta_liquidacao ?? '—' },
+          { titulo: 'TPA', valor: (m) => (m.tipo === 'TPA' ? `${m.codigo_tpa ?? '—'} · comissão ${m.comissao_pct ?? 0}%${m.conta_comissao ? ` (${m.conta_comissao})` : ''}` : '—') },
+          { titulo: 'Estado', valor: (m) => (m.ativo ? 'Activo' : 'Inactivo') },
+        ],
+      }),
+    )
+    .join('');
+  return `${pares([['Terminais', terminais.length], ['Activos', terminais.filter((t) => t.ativo).length]], 2)}${lista}${meios}`;
 }

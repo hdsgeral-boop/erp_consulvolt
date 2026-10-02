@@ -36,7 +36,7 @@ export function MolduraMapa({ titulo, subtitulo, mapa, apenas, accoes, filtros, 
 }) {
   return (
     <>
-      <CabecalhoPagina titulo={titulo} subtitulo={subtitulo} accoes={<Space>{accoes}<BotaoImprimir desactivado={!mapa.detalhe.data} /></Space>} />
+      <CabecalhoPagina titulo={titulo} subtitulo={subtitulo} accoes={<Space wrap>{accoes}<BotaoImprimir desactivado={!mapa.detalhe.data} titulo={titulo} /></Space>} />
       <Card className="rh-nao-imprimir" style={{ marginBottom: 16 }} styles={{ body: { padding: 12 } }}>
         <Flex gap={8} wrap align="center">
           <SeletorPeriodo periodos={mapa.periodos.data} valor={mapa.id} aoMudar={mapa.setId} apenas={apenas} carregando={mapa.periodos.isLoading} />

@@ -5,6 +5,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { formatarCentimos, liquidarTroco, pagamentosParaApi, paraCentimos, ratearPagamentos, resumirPagamentos, type Pagamento } from '../comum/calculos';
 import { meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
@@ -106,12 +107,12 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
     <Modal
       open={aberto}
       onCancel={aoFechar}
-      width={900}
+      width={larguraModal(900)}
       title={`Check-out · ${estadias.map((e) => e.nome_quarto).join(', ')}`}
       okText={concluido ? 'Fechar' : 'Concluir check-out'}
       cancelText="Cancelar"
       maskClosable={false}
-      destroyOnClose
+      destroyOnHidden
       okButtonProps={{ disabled: !concluido && (!simulacao || aSimular || !resumo.valido || porDecidir.length > 0) }}
       confirmLoading={checkout.isPending}
       onOk={() => (concluido ? aoFechar() : checkout.mutate({ url: `/pos/hotelaria/sessoes/${sessaoId}/checkout`, dados: { ...corpo, pagamentos: pagamentosParaApi(pagamentos) } }))}
@@ -127,9 +128,9 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
               <Radio value="POR_QUARTO">Uma factura por quarto</Radio>
               <Radio value="UNICA">Factura única</Radio>
             </Radio.Group>
-            {modo === 'UNICA' && <SeletorTerceiro papel="CLIENTE" value={cliente} onChange={setCliente} style={{ width: 300 }} placeholder="Cliente da factura única" />}
+            {modo === 'UNICA' && <SeletorTerceiro papel="CLIENTE" value={cliente} onChange={setCliente} style={{ width: 300, maxWidth: '100%' }} placeholder="Cliente da factura única" />}
             {pode('pos_desconto') && (
-              <InputNumber<number> min={0} max={100} precision={2} decimalSeparator="," addonBefore="Desconto" addonAfter="%" style={{ width: 200 }} value={desconto || null} onChange={(v) => setDesconto(v ?? 0)} />
+              <InputNumber<number> min={0} max={100} precision={2} decimalSeparator="," prefix="Desconto" suffix="%" style={{ width: 200, maxWidth: '100%' }} value={desconto || null} onChange={(v) => setDesconto(v ?? 0)} />
             )}
           </Flex>
 
@@ -160,6 +161,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
                     ))}
                   <Table
                     size="small"
+                    scroll={scrollTabela()}
                     pagination={false}
                     rowKey={(_, n) => String(n)}
                     dataSource={f.linhas}
@@ -170,7 +172,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
                       { title: 'Total', align: 'right', render: (_, l) => formatarCentimos(Math.round(Number(l.quantidade) * Number(l.preco_unitario) * 100)) },
                     ]}
                   />
-                  <Descriptions size="small" column={4} style={{ marginTop: 8 }}>
+                  <Descriptions size="small" column={{ xs: 2, sm: 4 }} style={{ marginTop: 8 }}>
                     <Descriptions.Item label="Bruto">{formatarKz(f.bruto)}</Descriptions.Item>
                     <Descriptions.Item label="Desconto">{formatarKz(f.desconto)}</Descriptions.Item>
                     <Descriptions.Item label="Base">{formatarKz(f.total_liquido)}</Descriptions.Item>

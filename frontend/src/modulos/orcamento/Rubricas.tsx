@@ -1,12 +1,15 @@
-import { Button, Card, Checkbox, Col, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import { Button, Card, Checkbox, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Select, Space, Switch, Table, Tag, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { EtiquetaOrc, useRubricas } from './comum/componentes';
 import type { Rubrica, TipoOrcamento } from './comum/tipos';
+import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pedidoTabela } from './comum/impressao';
 
 const NATUREZAS: Record<TipoOrcamento, { value: string; label: string }[]> = {
   EXPLORACAO: [{ value: 'PROVEITO', label: 'Proveito' }, { value: 'CUSTO', label: 'Custo' }],
@@ -24,6 +27,28 @@ export default function Rubricas() {
   const gerir = pode('orc_rubricas_edit');
   const linhas = (q.data ?? []).filter((r) => contemTexto(texto, r.codigo, r.nome, r.grupo, ...r.contas.map((x) => x.codigo)));
 
+  const colunas: ColunaApi<Rubrica>[] = [
+    { title: 'Código', dataIndex: 'codigo', render: (v) => <strong>{v}</strong> },
+    { title: 'Nome', dataIndex: 'nome' },
+    { title: 'Natureza', dataIndex: 'natureza', render: (v) => <EtiquetaOrc valor={v} /> },
+    { title: 'Grupo', dataIndex: 'grupo', render: (v) => v ?? '—' },
+    { title: 'Contas', dataIndex: 'contas', valorImpressao: (r) => r.contas.map((x) => `${x.codigo}${x.prefixo ? '*' : ''}`).join(', '), render: (cs: Rubrica['contas']) => <Space size={2} wrap>{cs.map((x) => <Tag key={x.codigo}>{x.codigo}{x.prefixo ? '*' : ''}</Tag>)}</Space> },
+    { title: 'Controlo', key: 'ctl', responsive: ['md'], render: (_, r) => (r.controlo?.modo && r.controlo.modo !== 'NENHUM' ? <><EtiquetaOrc valor={r.controlo.modo} /><Typography.Text type="secondary">{r.controlo.aviso_pct ?? 90}% / {r.controlo.limite_pct ?? 100}%</Typography.Text></> : '—') },
+    { title: 'Activa', dataIndex: 'ativo', render: (v) => (v === false ? <Tag>Inactiva</Tag> : <Tag color="green">Sim</Tag>) },
+    {
+      title: '', key: 'acc', align: 'right',
+      render: (_, r) => gerir && (
+        <Space>
+          <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(r)} />
+          <Popconfirm title={`Eliminar a rubrica ${r.codigo}?`} description="Rubricas usadas em orçamentos, previsões ou pedidos não se eliminam." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
+            onConfirm={() => accao.mutate({ metodo: 'delete', url: `/orcamento/rubricas/${r.id}` })}>
+            <Button size="small" danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <>
       <CabecalhoPagina
@@ -38,40 +63,22 @@ export default function Rubricas() {
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar({ tipo, ativo: true, contas: [] })}>Nova rubrica</Button>
           </>
         )}
+        impressaoDesactivada={!linhas.length}
+        impressao={() => pedidoTabela({ titulo: `Rubricas orçamentais (${tipo === 'EXPLORACAO' ? 'exploração' : 'tesouraria'})`, filtros: texto ? [`Pesquisa: ${texto}`] : undefined, colunas, linhas })}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
+        <BarraFiltros>
           <Segmented value={tipo} onChange={(v) => setTipo(v as TipoOrcamento)} options={[{ value: 'EXPLORACAO', label: 'Exploração' }, { value: 'TESOURARIA', label: 'Tesouraria' }]} />
           <Input.Search placeholder="Código, nome, grupo ou conta" allowClear onSearch={setTexto} style={{ width: 280 }} />
-        </Flex>
+        </BarraFiltros>
         <Table<Rubrica>
           rowKey="id"
           size="middle"
           loading={q.isFetching}
           dataSource={linhas}
           pagination={false}
-          scroll={{ x: 'max-content' }}
-          columns={[
-            { title: 'Código', dataIndex: 'codigo', render: (v) => <strong>{v}</strong> },
-            { title: 'Nome', dataIndex: 'nome' },
-            { title: 'Natureza', dataIndex: 'natureza', render: (v) => <EtiquetaOrc valor={v} /> },
-            { title: 'Grupo', dataIndex: 'grupo', render: (v) => v ?? '—' },
-            { title: 'Contas', dataIndex: 'contas', render: (cs: Rubrica['contas']) => <Space size={2} wrap>{cs.map((x) => <Tag key={x.codigo}>{x.codigo}{x.prefixo ? '*' : ''}</Tag>)}</Space> },
-            { title: 'Controlo', key: 'ctl', render: (_, r) => (r.controlo?.modo && r.controlo.modo !== 'NENHUM' ? <><EtiquetaOrc valor={r.controlo.modo} /><Typography.Text type="secondary">{r.controlo.aviso_pct ?? 90}% / {r.controlo.limite_pct ?? 100}%</Typography.Text></> : '—') },
-            { title: 'Activa', dataIndex: 'ativo', render: (v) => (v === false ? <Tag>Inactiva</Tag> : <Tag color="green">Sim</Tag>) },
-            {
-              title: '', key: 'acc', align: 'right',
-              render: (_, r) => gerir && (
-                <Space>
-                  <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(r)} />
-                  <Popconfirm title={`Eliminar a rubrica ${r.codigo}?`} description="Rubricas usadas em orçamentos, previsões ou pedidos não se eliminam." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
-                    onConfirm={() => accao.mutate({ metodo: 'delete', url: `/orcamento/rubricas/${r.id}` })}>
-                    <Button size="small" danger icon={<DeleteOutlined />} />
-                  </Popconfirm>
-                </Space>
-              ),
-            },
-          ]}
+          scroll={scrollTabela()}
+          columns={colunas}
         />
         <Typography.Text type="secondary">* conta por prefixo (abrange as subcontas)</Typography.Text>
       </Card>
@@ -100,7 +107,7 @@ function ModalRubrica({ rubrica, aoFechar }: { rubrica: Partial<Rubrica> | null;
   }, [rubrica, form]);
 
   return (
-    <Modal title={rubrica?.id ? `Editar rubrica ${rubrica.codigo}` : 'Nova rubrica'} open={!!rubrica} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={820} destroyOnClose>
+    <Modal title={rubrica?.id ? `Editar rubrica ${rubrica.codigo}` : 'Nova rubrica'} open={!!rubrica} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(820)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => {
         const dados = { ...v, grupo: v.grupo || null, descricao: v.descricao || null, indutor: v.indutor || null, controlo: comControlo ? v.controlo : null,
           contas: v.contas.filter((x: { codigo: string }) => x.codigo?.trim()).map((x: { codigo: string; prefixo: boolean }) => ({ codigo: x.codigo.trim(), prefixo: !!x.prefixo })) };

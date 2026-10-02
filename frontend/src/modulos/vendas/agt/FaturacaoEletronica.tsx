@@ -5,6 +5,8 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
@@ -85,7 +87,7 @@ function EstadoEnvio() {
         style={{ marginBottom: 16 }}
         extra={
           pode('vendas_fat_emitir') && (
-            <Space>
+            <Space wrap>
               <Button type="primary" icon={<CloudUploadOutlined />} loading={accao.isPending && accao.variables?.url.endsWith('enviar')} onClick={() => accao.mutate({ url: '/vendas/faturacao-eletronica/enviar' })}>
                 Enviar pendentes
               </Button>
@@ -116,7 +118,7 @@ function EstadoEnvio() {
             onClose={() => setResultado(null)}
             message="Resultado"
             description={
-              <Descriptions size="small" column={{ xs: 1, md: 3 }}>
+              <Descriptions size="small" column={COLUNAS_DESCRICOES}>
                 {Object.entries(resultado).filter(([, v]) => typeof v !== 'object').map(([k, v]) => (
                   <Descriptions.Item key={k} label={k.replace(/_/g, ' ')}>{String(v)}</Descriptions.Item>
                 ))}
@@ -231,18 +233,18 @@ function Configuracao() {
             {(campos, { add, remove }) => (
               <>
                 {campos.map(({ key, name }) => (
-                  <Row key={key} gutter={8}>
-                    <Col span={6}>
+                  <Row key={key} gutter={8} wrap={false}>
+                    <Col flex="0 0 30%">
                       <Form.Item name={[name, 'numero']} rules={[{ required: true, message: 'N.º' }, { max: 20 }]}>
                         <Input placeholder="N.º" />
                       </Form.Item>
                     </Col>
-                    <Col span={16}>
+                    <Col flex="1 1 auto" style={{ minWidth: 0 }}>
                       <Form.Item name={[name, 'nome']} rules={[{ max: 200 }]}>
                         <Input placeholder="Nome" />
                       </Form.Item>
                     </Col>
-                    <Col span={2}>
+                    <Col flex="0 0 40px">
                       <Button danger type="text" icon={<DeleteOutlined />} disabled={campos.length <= 1} onClick={() => remove(name)} aria-label="Remover" />
                     </Col>
                   </Row>
@@ -274,10 +276,33 @@ function Series() {
 
   return (
     <Card
+      title="Séries de documentos"
       extra={
-        <Space>
+        <Space wrap>
           <InputNumber placeholder="Ano" min={2000} max={2100} value={ano} onChange={setAno} />
           {podeGerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova série</Button>}
+          <BotoesExportar
+            desactivado={!consulta.data?.length}
+            obterPedido={() => ({
+              titulo: 'Séries de documentos de venda',
+              filtros: [ano ? `Ano: ${ano}` : 'Todos os anos'],
+              conteudo: tabelaHtml({
+                colunas: [
+                  { titulo: 'Tipo', valor: (s: SerieFE) => s.tipo },
+                  { titulo: 'Código', valor: (s) => s.codigo },
+                  { titulo: 'Ano', valor: (s) => s.ano, alinhamento: 'centro' },
+                  { titulo: 'Origem', valor: (s) => [s.origem, s.origem_nome].filter(Boolean).join(' — ') },
+                  { titulo: 'Estabelecimento', valor: (s) => s.estabelecimento ?? '' },
+                  { titulo: 'Próximo n.º', valor: (s) => s.proximo_numero, formato: 'inteiro' },
+                  { titulo: 'Último n.º AGT', valor: (s) => s.agt_ultimo_numero, formato: 'inteiro' },
+                  { titulo: 'Última data', valor: (s) => s.ultima_data, formato: 'data' },
+                  { titulo: 'Contingência', valor: (s) => (s.contingencia ? 'Sim' : 'Não') },
+                  { titulo: 'Estado', valor: (s) => (s.estado === 'ATIVA' ? 'Activa' : s.estado === 'FECHADA' ? 'Fechada' : s.estado) },
+                ],
+                linhas: consulta.data ?? [],
+              }),
+            })}
+          />
         </Space>
       }
     >
@@ -287,15 +312,16 @@ function Series() {
         loading={consulta.isFetching}
         dataSource={consulta.data ?? []}
         pagination={false}
+        scroll={scrollTabela()}
         columns={[
           { title: 'Tipo', dataIndex: 'tipo', render: (t: string) => <Tag>{t}</Tag> },
           { title: 'Código', dataIndex: 'codigo', render: (v: string) => <strong>{v}</strong> },
-          { title: 'Ano', dataIndex: 'ano' },
-          { title: 'Origem', key: 'origem', render: (_, s) => [s.origem, s.origem_nome].filter(Boolean).join(' — ') || '—' },
+          { title: 'Ano', dataIndex: 'ano', responsive: ['sm'] },
+          { title: 'Origem', key: 'origem', responsive: ['md'], render: (_, s) => [s.origem, s.origem_nome].filter(Boolean).join(' — ') || '—' },
           { title: 'Próximo n.º', dataIndex: 'proximo_numero', align: 'right', render: (v) => v ?? '—' },
-          { title: 'Último n.º AGT', dataIndex: 'agt_ultimo_numero', align: 'right', render: (v) => v ?? '—' },
-          { title: 'Última data', dataIndex: 'ultima_data', render: formatarData },
-          { title: 'Contingência', dataIndex: 'contingencia', render: (c: boolean | null) => (c ? <Tag color="orange">Sim</Tag> : 'Não') },
+          { title: 'Último n.º AGT', dataIndex: 'agt_ultimo_numero', align: 'right', responsive: ['md'], render: (v) => v ?? '—' },
+          { title: 'Última data', dataIndex: 'ultima_data', responsive: ['lg'], render: formatarData },
+          { title: 'Contingência', dataIndex: 'contingencia', responsive: ['lg'], render: (c: boolean | null) => (c ? <Tag color="orange">Sim</Tag> : 'Não') },
           { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e === 'ATIVA' ? 'ATIVO' : e === 'FECHADA' ? 'CONCLUIDA' : e} /> },
           {
             title: '',
@@ -303,7 +329,7 @@ function Series() {
             align: 'right',
             render: (_, s) =>
               podeGerir && (
-                <Space>
+                <Space wrap={false}>
                   <Button size="small" onClick={() => accao.mutate({ url: `/vendas/configuracao/series/${s.id}/solicitar-agt` })}>Pedir à AGT</Button>
                   <Button size="small" icon={<EditOutlined />} onClick={() => setEdicao(s)} aria-label="Editar" />
                   <Button
@@ -327,7 +353,7 @@ function Series() {
           },
         ]}
       />
-      <Modal title={edicao === 'nova' ? 'Nova série' : 'Editar série'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
+      <Modal width={larguraModal(560)} title={edicao === 'nova' ? 'Nova série' : 'Editar série'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"
@@ -337,37 +363,37 @@ function Series() {
           }}
         >
           <Row gutter={16}>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
                 <Select options={TIPOS_SERIE.map((t) => ({ value: t, label: t }))} />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="ano" label="Ano" rules={[{ required: true }]}>
                 <InputNumber min={2000} max={2100} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="estado" label="Estado">
                 <Select options={[{ value: 'ATIVA', label: 'Activa' }, { value: 'FECHADA', label: 'Fechada' }]} />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="codigo" label="Código" rules={[{ required: true, message: 'Indique o código.' }, { pattern: /^[A-Za-z0-9]{1,30}$/, message: 'Letras e números, sem espaços nem «/».' }]}>
                 <Input />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="estabelecimento" label="Estabelecimento" rules={[{ max: 20 }]}>
                 <Input />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="origem" label="Origem" rules={[{ max: 30 }]}>
                 <Input placeholder="Ex.: POS1" />
               </Form.Item>
             </Col>
-            <Col span={16}>
+            <Col xs={24} sm={16}>
               <Form.Item name="origem_nome" label="Nome da origem" rules={[{ max: 200 }]}>
                 <Input />
               </Form.Item>

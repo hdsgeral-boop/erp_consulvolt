@@ -3,7 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { scrollTabela } from '@/componentes/responsivo';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import type { ColunaApi } from '@/componentes/TabelaApi';
+import { tabelaDeColunas } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -109,10 +113,10 @@ function Capitalizacao({ exec }: { exec: boolean }) {
         </Form.Item>
         <Space wrap>
           <Form.Item name="conta_debito" label="Conta a débito (classe 1)" rules={[{ required: true }]}>
-            <SeletorConta prefixos={['1']} style={{ width: 300 }} />
+            <SeletorConta prefixos={['1']} style={{ width: 300, maxWidth: '100%' }} />
           </Form.Item>
           <Form.Item name="conta_credito" label="Conta a crédito (65)" rules={[{ required: true }]}>
-            <SeletorConta prefixos={['65']} style={{ width: 300 }} />
+            <SeletorConta prefixos={['65']} style={{ width: 300, maxWidth: '100%' }} />
           </Form.Item>
         </Space>
         {exec && (
@@ -138,7 +142,7 @@ function Compensacao({ exec }: { exec: boolean }) {
   return (
     <Card
       extra={
-        <Space>
+        <Space wrap>
           <Button loading={pares.isFetching} onClick={() => void pares.refetch()}>
             {pares.data ? 'Actualizar pares' : 'Identificar pares'}
           </Button>
@@ -171,7 +175,7 @@ function Compensacao({ exec }: { exec: boolean }) {
           size="small"
           dataSource={pares.data}
           pagination={{ pageSize: 50, showTotal: (n) => `${n} par(es)` }}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           rowSelection={exec ? { selectedRowKeys: seleccao, onChange: (k) => setSeleccao(k as string[]) } : undefined}
           columns={[
             { title: 'Conta', render: (_, p) => p.debito.codigo_conta },
@@ -221,6 +225,7 @@ function Transferencia({ exec }: { exec: boolean }) {
       {linhas.length > 0 && (
         <>
           <Table<LinhaTransferencia>
+            scroll={scrollTabela()}
             rowKey="conta_origem"
             size="small"
             pagination={false}
@@ -229,12 +234,12 @@ function Transferencia({ exec }: { exec: boolean }) {
               { title: 'Conta de origem', dataIndex: 'conta_origem' },
               { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
               { title: 'Natureza', dataIndex: 'natureza', render: (v: string) => <Tag>{v.replace('_', ' ').toLowerCase()}</Tag> },
-              { title: 'Conta de destino', render: (_, l, i) => <SeletorConta value={l.conta_destino} onChange={(v) => alterar(i, { conta_destino: v })} disabled={!exec || l.natureza === 'SEM_SALDO'} style={{ width: 260 }} /> },
+              { title: 'Conta de destino', render: (_, l, i) => <SeletorConta value={l.conta_destino} onChange={(v) => alterar(i, { conta_destino: v })} disabled={!exec || l.natureza === 'SEM_SALDO'} style={{ width: 260, maxWidth: '100%' }} /> },
               { title: 'Nota DEMO de destino', render: (_, l, i) => <SeletorAux tabela="notas-demonstracao" value={l.nota_destino_id} onChange={(v) => alterar(i, { nota_destino_id: v })} disabled={!exec} /> },
             ]}
           />
           {exec && (
-            <Space style={{ marginTop: 16 }}>
+            <Space wrap style={{ marginTop: 16 }}>
               <SeletorDiario value={diario} onChange={setDiario} />
               <Button
                 type="primary"
@@ -278,7 +283,7 @@ function Actualizacao({ exec }: { exec: boolean }) {
         nota_demonstracao_id, nota_fluxo_caixa_id. As linhas com erro são recusadas; as válidas ficam no histórico e podem ser anuladas.
       </Typography.Paragraph>
       <Input.TextArea rows={8} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={'91489;nota_demonstracao_id;272\n91490;descricao;Nova descrição'} disabled={!exec} />
-      <Space style={{ marginTop: 12 }}>
+      <Space wrap style={{ marginTop: 12 }}>
         <Typography.Text>{linhas.length} linha(s) reconhecida(s)</Typography.Text>
         {exec && (
           <Button type="primary" disabled={!linhas.length} loading={accao.isPending} onClick={() => accao.mutate()}>
@@ -291,6 +296,7 @@ function Actualizacao({ exec }: { exec: boolean }) {
           <Alert style={{ marginTop: 12 }} type={resultado.erros.length ? 'warning' : 'success'} showIcon message={`${resultado.actualizadas} actualizada(s) · ${resultado.erros.length} com erro · rotina ${resultado.codigo}`} />
           {resultado.erros.length > 0 && (
             <Table
+              scroll={scrollTabela()}
               rowKey={(r) => `${r.linha}`}
               size="small"
               style={{ marginTop: 12 }}
@@ -318,15 +324,7 @@ function Historico() {
     setAnular(null);
     form.resetFields();
   });
-  return (
-    <Card>
-      <Table<RotinaHistorico>
-        rowKey="codigo"
-        size="small"
-        loading={historico.isLoading}
-        dataSource={historico.data}
-        pagination={{ pageSize: 25 }}
-        columns={[
+  const colunasHistorico: ColunaApi<RotinaHistorico>[] = [
           { title: 'Código', dataIndex: 'codigo', render: (v: string) => <strong>{v}</strong> },
           { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => <Tag>{v}</Tag> },
           { title: 'Data', dataIndex: 'data', render: formatarData },
@@ -334,9 +332,28 @@ function Historico() {
           { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
           {
             title: '',
+            exportar: false,
             render: (_, r) => (pode('contab_rotinas_anular') && r.estado === 'EXECUTADA' ? <Button size="small" danger onClick={() => setAnular(r.codigo)}>Anular</Button> : null),
           },
-        ]}
+        ];
+  return (
+    <Card
+      extra={
+        <BotoesExportar
+          tamanho="small"
+          desactivado={!historico.data?.length}
+          obterPedido={async () => ({ titulo: 'Histórico de rotinas contabilísticas', conteudo: await tabelaDeColunas(colunasHistorico, historico.data ?? []) })}
+        />
+      }
+    >
+      <Table<RotinaHistorico>
+        scroll={scrollTabela()}
+        rowKey="codigo"
+        size="small"
+        loading={historico.isLoading}
+        dataSource={historico.data}
+        pagination={{ pageSize: 25 }}
+        columns={colunasHistorico}
       />
       <Modal title={`Anular a rotina ${anular ?? ''}`} open={!!anular} onCancel={() => setAnular(null)} okText="Anular" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ caminho: 'anular', dados: { codigo: anular, motivo: v.motivo } })}>
@@ -367,7 +384,7 @@ function Limpeza() {
               size="small"
               dataSource={d.linhas}
               pagination={{ pageSize: 25 }}
-              scroll={{ x: 'max-content' }}
+              scroll={scrollTabela()}
               columns={Object.keys(d.linhas[0]).map((k) => ({ title: k.replace(/_/g, ' '), dataIndex: k, render: (v: unknown) => String(v ?? '—') }))}
             />
           )}

@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Dropdown, Empty, Flex, Input, List, Modal, Segmented, Space, Table, Tag, Typography } from 'antd';
+import { Button, Card, DatePicker, Dropdown, Empty, Input, List, Modal, Segmented, Space, Table, Tag, Typography } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -6,6 +6,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
+import { tabelaDeColunas } from '@/modulos/contab/comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -47,39 +51,18 @@ export default function Recolher() {
     });
   };
 
-  return (
-    <>
-      <CabecalhoPagina titulo="Recolher documentos" subtitulo="Documentos com linhas de gastos (7) ou rendimentos (6) que podem originar ou regularizar acréscimos e diferimentos" />
-      <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <Segmented value={fonte} onChange={(v) => setFonte(v as FonteRecolha)} options={FONTES} />
-          <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-          <Input.Search placeholder="Documento, terceiro ou conta" allowClear onSearch={setTexto} style={{ width: 260 }} />
-        </Flex>
-        <Table<Candidato>
-          rowKey={(c) => `${c.fonte}-${c.id}`}
-          size="small"
-          loading={q.isFetching}
-          dataSource={q.data}
-          scroll={{ x: 'max-content' }}
-          pagination={{ defaultPageSize: 25, showSizeChanger: true, showTotal: (n) => `${n} documento(s)` }}
-          expandable={{
-            expandedRowRender: (c) => (
-              <Table size="small" rowKey="conta" pagination={false} dataSource={c.linhas} style={{ maxWidth: 420 }}
-                columns={[{ title: 'Conta', dataIndex: 'conta' }, { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> }]} />
-            ),
-          }}
-          columns={[
+  const colunasLinhas: ColunaApi<Candidato['linhas'][number]>[] = [{ title: 'Conta', dataIndex: 'conta' }, { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> }];
+  const colunas: ColunaApi<Candidato>[] = [
             { title: 'Data', dataIndex: 'data', render: formatarData },
             { title: 'Documento', dataIndex: 'doc', render: (v, c) => <>{v}{c.lan && c.lan !== v && <Typography.Text type="secondary"> · {c.lan}</Typography.Text>}</> },
-            { title: 'Terceiro', dataIndex: 'terceiro', ellipsis: true, width: 220, render: (v) => v?.trim() || '—' },
-            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 220, render: (v) => v ?? '—' },
+            { title: 'Terceiro', dataIndex: 'terceiro', ellipsis: true, width: 220, responsive: ['md'], render: (v) => v?.trim() || '—' },
+            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 220, render: (v) => v ?? '—', responsive: ['lg'] },
             { title: 'Natureza', dataIndex: 'natureza', render: (v) => <EtiquetaAD valor={v} /> },
-            { title: 'Contas', key: 'c', render: (_, c) => c.linhas.map((l) => l.conta).join(', ') },
+            { title: 'Contas', key: 'c', responsive: ['md'], render: (_, c) => c.linhas.map((l) => l.conta).join(', ') },
             { title: 'Total (Kz)', dataIndex: 'total', align: 'right', render: (v) => <ValorKz valor={v} forte /> },
             { title: 'Situação', key: 's', render: (_, c) => <Space size={4}>{c.ligado && <Tag color="blue">Já ligado</Tag>}{!c.contabilizado && <Tag>Não contabilizado</Tag>}</Space> },
             {
-              title: '', key: 'acc', align: 'right', fixed: 'right',
+              title: '', key: 'acc', align: 'right', fixed: 'right', exportar: false,
               render: (_, c) => editar && (
                 <Dropdown trigger={['click']} menu={{
                   items: [
@@ -94,7 +77,43 @@ export default function Recolher() {
                 </Dropdown>
               ),
             },
-          ]}
+          ];
+  return (
+    <>
+      <CabecalhoPagina titulo="Recolher documentos" subtitulo="Documentos com linhas de gastos (7) ou rendimentos (6) que podem originar ou regularizar acréscimos e diferimentos" />
+      <Card>
+        <BarraFiltros
+          accoes={
+            <BotoesExportar
+              tamanho="small"
+              desactivado={!q.data?.length}
+              obterPedido={async () => ({
+                titulo: 'Documentos a recolher para acréscimos e diferimentos',
+                periodo: de && ate ? `${formatarData(de)} a ${formatarData(ate)}` : undefined,
+                filtros: [`Fonte: ${FONTES.find((x) => x.value === fonte)?.label ?? fonte}`, texto && `Pesquisa: ${texto}`],
+                conteudo: await tabelaDeColunas(colunas, q.data ?? []),
+              })}
+            />
+          }
+        >
+          <Segmented value={fonte} onChange={(v) => setFonte(v as FonteRecolha)} options={FONTES} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+          <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
+          <Input.Search placeholder="Documento, terceiro ou conta" allowClear onSearch={setTexto} style={{ width: 260 }} />
+        </BarraFiltros>
+        <Table<Candidato>
+          rowKey={(c) => `${c.fonte}-${c.id}`}
+          size="small"
+          loading={q.isFetching}
+          dataSource={q.data}
+          scroll={scrollTabela()}
+          pagination={{ defaultPageSize: 25, showSizeChanger: true, showTotal: (n) => `${n} documento(s)` }}
+          expandable={{
+            expandedRowRender: (c) => (
+              <Table size="small" rowKey="conta" pagination={false} dataSource={c.linhas} style={{ maxWidth: 420 }} scroll={scrollTabela()}
+                columns={colunasLinhas} />
+            ),
+          }}
+          columns={colunas}
         />
       </Card>
       <ModalItem aberto={!!criar} item={criar} aoFechar={() => setCriar(null)} aoGravar={(it) => navegar(`/m/acrescimos/ad_registos/${it.id}`)} />
@@ -113,7 +132,7 @@ function EscolherAcrescimo({ documento, aoFechar }: { documento: Candidato | nul
   });
   return (
     <>
-      <Modal title={`Regularizar com ${documento?.doc ?? ''}`} open={!!documento && !escolhido} onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>} width={720}>
+      <Modal title={`Regularizar com ${documento?.doc ?? ''}`} open={!!documento && !escolhido} onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>} width={larguraModal(720)}>
         <Typography.Paragraph type="secondary">Documento: {documento?.doc} · {formatarKz(documento?.total, true)} · {documento?.terceiro?.trim()}</Typography.Paragraph>
         {q.data?.length ? (
           <List

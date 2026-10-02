@@ -18,6 +18,7 @@ import { useAccaoRh, useAvisarErro } from './comum/consultas';
 import { DocumentoImpresso, EtapasPedido, resumoPedido } from './comum/Pedidos';
 import { ReciboSalario } from './comum/ReciboSalario';
 import { pedidoPendente } from './comum/regras';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 /** Portal do Colaborador (ecrã rh_portal): os próprios dados, recibos, pedidos e aprovações da equipa. */
 export default function Portal() {
@@ -88,13 +89,13 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
     { title: 'N.º', dataIndex: 'id', render: (v: number) => `#${v}` },
     { title: 'Tipo', dataIndex: 'tipo', render: (t: TipoPedido) => TIPOS_PEDIDO[t] ?? t },
     { title: 'Resumo', render: (_, p) => resumoPedido(p) },
-    { title: 'Pedido em', dataIndex: 'criado_em', render: formatarData },
+    { title: 'Pedido em', dataIndex: 'criado_em', responsive: ['md'], render: formatarData },
     { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
     {
       title: '',
       key: 'accoes',
       render: (_, p) => (
-        <Space size={4}>
+        <Space size={4} wrap>
           {p.documento && <Button size="small" onClick={() => setDocumento(p)}>Ver documento</Button>}
           {pedidoPendente(p) && (
             <Popconfirm title="Cancelar o pedido?" okText="Cancelar pedido" cancelText="Voltar" onConfirm={() => accao.mutateAsync({ metodo: 'post', url: `/rh/portal/pedidos/${p.id}/cancelar` })}>
@@ -111,11 +112,11 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
       <Space wrap style={{ marginBottom: 12 }}>
         {(Object.keys(TIPOS_PEDIDO) as TipoPedido[]).map((t) => <Button key={t} icon={<PlusOutlined />} onClick={() => { form.resetFields(); setTipo(t); }}>{TIPOS_PEDIDO[t]}</Button>)}
       </Space>
-      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 20 }} scroll={{ x: 'max-content' }}
+      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 20 }} scroll={scrollTabela()}
         expandable={{ expandedRowRender: (p) => <EtapasPedido pedido={p} /> }} />
 
-      <Modal title={tipo ? `Pedido — ${TIPOS_PEDIDO[tipo]}` : ''} open={tipo !== null} width={640} onCancel={() => setTipo(null)} okText="Enviar pedido" cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={tipo ? `Pedido — ${TIPOS_PEDIDO[tipo]}` : ''} open={tipo !== null} width={larguraModal(640)} onCancel={() => setTipo(null)} okText="Enviar pedido" cancelText="Cancelar"
+        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={enviarPedido}>
           {tipo === 'FERIAS' && (
             <>
@@ -153,11 +154,11 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
                   <>
                     {campos.map(({ key, name }) => (
                       <Row gutter={8} key={key} align="middle">
-                        <Col span={8}><Form.Item name={[name, 'nome']} rules={[{ required: true, message: 'Nome.' }]}><Input placeholder="Nome" /></Form.Item></Col>
-                        <Col span={5}><Form.Item name={[name, 'parentesco']}><Select placeholder="Parentesco" options={PARENTESCOS} /></Form.Item></Col>
-                        <Col span={6}><Form.Item name={[name, 'data_nascimento']}><DatePicker format="DD/MM/YYYY" placeholder="Nascimento" style={{ width: '100%' }} /></Form.Item></Col>
-                        <Col span={4}><Form.Item name={[name, 'dependente_fiscal']} valuePropName="checked"><Checkbox>Fiscal</Checkbox></Form.Item></Col>
-                        <Col span={1}><Form.Item><MinusCircleOutlined onClick={() => remove(name)} aria-label="Retirar" /></Form.Item></Col>
+                        <Col xs={24} sm={12} md={8}><Form.Item name={[name, 'nome']} rules={[{ required: true, message: 'Nome.' }]}><Input placeholder="Nome" /></Form.Item></Col>
+                        <Col xs={24} sm={12} md={5}><Form.Item name={[name, 'parentesco']}><Select placeholder="Parentesco" options={PARENTESCOS} /></Form.Item></Col>
+                        <Col xs={24} sm={12} md={6}><Form.Item name={[name, 'data_nascimento']}><DatePicker format="DD/MM/YYYY" placeholder="Nascimento" style={{ width: '100%' }} /></Form.Item></Col>
+                        <Col xs={24} sm={12} md={4}><Form.Item name={[name, 'dependente_fiscal']} valuePropName="checked"><Checkbox>Fiscal</Checkbox></Form.Item></Col>
+                        <Col xs={24} sm={12} md={1}><Form.Item><MinusCircleOutlined onClick={() => remove(name)} aria-label="Retirar" /></Form.Item></Col>
                       </Row>
                     ))}
                     <Button type="dashed" icon={<PlusOutlined />} onClick={() => add()}>Acrescentar</Button>
@@ -170,7 +171,7 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
         </Form>
       </Modal>
 
-      <Modal title="Documento emitido" open={documento !== null} width={820} onCancel={() => setDocumento(null)} footer={<Space><BotaoImprimir /><Button onClick={() => setDocumento(null)}>Fechar</Button></Space>}>
+      <Modal title="Documento emitido" open={documento !== null} width={larguraModal(820)} onCancel={() => setDocumento(null)} footer={<Space wrap><BotaoImprimir /><Button onClick={() => setDocumento(null)}>Fechar</Button></Space>}>
         {documento?.documento && <AreaImpressao><DocumentoImpresso documento={documento.documento} empresa={empresa?.nome} /></AreaImpressao>}
       </Modal>
     </Card>
@@ -184,16 +185,16 @@ function Recibos({ resumo }: { resumo: ResumoPortal }) {
   const [ver, setVer] = useState<ResultadoSalarial | null>(null);
   return (
     <Card>
-      <Table<ResultadoSalarial> rowKey={(r) => r.numero_recibo ?? String(r.periodo_processamento_salarial_id)} size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 12 }}
+      <Table<ResultadoSalarial> rowKey={(r) => r.numero_recibo ?? String(r.periodo_processamento_salarial_id)} size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 12 }} scroll={scrollTabela()}
         onRow={(r) => ({ onClick: () => setVer(r), style: { cursor: 'pointer' } })}
         columns={[
           { title: 'Mês', dataIndex: 'mes_ano', render: (v: string) => <strong>{v}</strong> },
-          { title: 'N.º do recibo', dataIndex: 'numero_recibo' },
+          { title: 'N.º do recibo', dataIndex: 'numero_recibo', responsive: ['md'] },
           { title: 'Bruto', dataIndex: 'bruto', align: 'right', render: (v: string) => formatarKz(v) },
           { title: 'Descontos', align: 'right', render: (_, r) => formatarKz(Number(r.inss_trabalhador) + Number(r.irt) + Number(r.descontos)) },
           { title: 'Líquido', dataIndex: 'liquido', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong> },
         ]} />
-      <Modal title={`Recibo ${ver?.mes_ano ?? ''}`} open={ver !== null} width={820} onCancel={() => setVer(null)} footer={<Space><BotaoImprimir /><Button onClick={() => setVer(null)}>Fechar</Button></Space>}>
+      <Modal title={`Recibo ${ver?.mes_ano ?? ''}`} open={ver !== null} width={larguraModal(820)} onCancel={() => setVer(null)} footer={<Space wrap><BotaoImprimir /><Button onClick={() => setVer(null)}>Fechar</Button></Space>}>
         {ver && (
           <AreaImpressao>
             <ReciboSalario resultado={ver} mesAno={ver.mes_ano ?? ''} empresa={{ nome: empresa?.nome, nif: empresa?.nif ?? null }} colaborador={{ nome: resumo.colaborador.nome_completo, nif: resumo.colaborador.nif }} />
@@ -214,7 +215,7 @@ function Aprovacoes() {
   const accao = useAccaoRh(() => setDecidir(null));
   return (
     <Card>
-      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={false} scroll={{ x: 'max-content' }}
+      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={false} scroll={scrollTabela()}
         columns={[
           { title: 'N.º', dataIndex: 'id', render: (v: number) => `#${v}` },
           { title: 'Pedido por', dataIndex: 'criado_por' },
@@ -224,7 +225,7 @@ function Aprovacoes() {
           { title: '', key: 'a', render: (_, p) => p.tipo !== 'DOCUMENTO' && <Button size="small" type="primary" onClick={() => { form.resetFields(); form.setFieldsValue({ decisao: 'APROVADO' }); setDecidir(p); }}>Decidir</Button> },
         ]}
         expandable={{ expandedRowRender: (p) => <EtapasPedido pedido={p} /> }} />
-      <Modal title={`Decidir pedido #${decidir?.id ?? ''}`} open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={`Decidir pedido #${decidir?.id ?? ''}`} open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         {decidir && <Typography.Paragraph>{TIPOS_PEDIDO[decidir.tipo]} — {resumoPedido(decidir)}</Typography.Paragraph>}
         <Form form={form} layout="vertical" onFinish={(v) => decidir && accao.mutate({ metodo: 'post', url: `/rh/portal/pedidos/${decidir.id}/decidir`, dados: v })}>
           <Form.Item name="decisao" label="Decisão"><Select options={[{ value: 'APROVADO', label: 'Aprovar' }, { value: 'RECUSADO', label: 'Recusar' }]} /></Form.Item>
@@ -259,10 +260,10 @@ function MinhasFaltas() {
       <Space style={{ marginBottom: 12 }}>
         <Checkbox checked={historico} onChange={(e) => setHistorico(e.target.checked)}>Ver o histórico (todas as ausências)</Checkbox>
       </Space>
-      <Table<MinhaAusencia> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 20 }} scroll={{ x: 'max-content' }}
+      <Table<MinhaAusencia> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 20 }} scroll={scrollTabela()}
         locale={{ emptyText: historico ? 'Sem ausências registadas.' : 'Não tem faltas por justificar.' }} />
       <Modal title="Justificar falta" open={justificar !== null} onCancel={() => setJustificar(null)} okText="Enviar justificação" cancelText="Cancelar" confirmLoading={accao.isPending}
-        onOk={() => form.submit()} destroyOnClose>
+        onOk={() => form.submit()} destroyOnHidden>
         {justificar && <Typography.Paragraph>Falta de {formatarData(justificar.data_inicio)}{justificar.data_fim !== justificar.data_inicio ? ` a ${formatarData(justificar.data_fim)}` : ''}.</Typography.Paragraph>}
         <Form form={form} layout="vertical" onFinish={(v) => justificar && accao.mutate({ metodo: 'post', url: '/rh/portal/pedidos', dados: { tipo: 'AUSENCIA', ausencia_id: justificar.id, ...v } })}>
           <Form.Item name="ausencia_tipo" label="Tipo (Lei 12/23)" rules={[{ required: true, message: 'Escolha o tipo.' }]}>
@@ -284,7 +285,7 @@ function MeusDependentes() {
   return (
     <div style={{ marginTop: 16 }}>
       <Typography.Text strong>Agregado familiar</Typography.Text>
-      <Table<Dependente & { id: number }> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={false} style={{ marginTop: 8 }}
+      <Table<Dependente & { id: number }> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={false} scroll={scrollTabela()} style={{ marginTop: 8 }}
         locale={{ emptyText: 'Sem dependentes registados.' }}
         columns={[
           { title: 'Nome', dataIndex: 'nome' },

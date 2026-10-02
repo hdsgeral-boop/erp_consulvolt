@@ -5,6 +5,7 @@ import { obter } from '@/api/cliente';
 import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
 import { FASES_AVALIACAO, PERIODOS_AVALIACAO, type Autoavaliacao, type MinhaAvaliacao, type ResultadoAscendente } from '../api';
 import { useAccaoRh, useAvisarErro } from './consultas';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 type AvaliacaoPortal = MinhaAvaliacao['avaliacoes'][number];
 type Tarefa360 = MinhaAvaliacao['tarefas_360'][number];
@@ -134,7 +135,7 @@ function FormAutoavaliacao({ ano, periodo }: { ano: number; periodo: string }) {
       {q.data.objetivos.length > 0 && <Typography.Text strong>Objectivos (resultado atingido, %)</Typography.Text>}
       <Form.List name="objetivos">
         {(campos) => campos.map(({ key, name }) => (
-          <Flex key={key} gap={12} align="center" style={{ marginBottom: 4 }}>
+          <Flex key={key} gap={12} wrap align="center" style={{ marginBottom: 4 }}>
             <span style={{ minWidth: 220 }}>{q.data.objetivos[name]?.nome}</span>
             <Form.Item name={[name, 'resultado']} style={{ marginBottom: 0 }}><InputNumber min={0} max={200} suffix="%" style={{ width: 120 }} /></Form.Item>
           </Flex>
@@ -162,12 +163,12 @@ function Modal360({ tarefa, criterios, aoFechar }: { tarefa: Tarefa360 | null; c
   const completo = criterios.every((c) => (notas[c.chave] ?? 0) >= 1);
   return (
     <Modal title={`Avaliação 360º — ${tarefa?.nome ?? ''}`} open={tarefa !== null} onCancel={aoFechar} okText="Enviar (anónimo)" cancelText="Cancelar" okButtonProps={{ disabled: !completo }}
-      confirmLoading={accao.isPending} destroyOnClose
+      confirmLoading={accao.isPending} destroyOnHidden
       onOk={() => tarefa && accao.mutate({ metodo: 'post', url: '/rh/avaliacao/360/respostas', dados: {
         colaborador_avaliado_id: tarefa.colaborador_avaliado_id, notas: criterios.map((c) => ({ chave: c.chave, nota: notas[c.chave] })), comentario: comentario.trim() || null,
       } })}>
       {criterios.map((c) => (
-        <Flex key={c.chave} justify="space-between" align="center" style={{ marginBottom: 8 }}>
+        <Flex key={c.chave} justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 8 }}>
           <span>{c.nome}</span><Rate count={5} value={notas[c.chave] ?? 0} onChange={(n) => setNotas((x) => ({ ...x, [c.chave]: n }))} />
         </Flex>
       ))}
@@ -186,7 +187,7 @@ function FormAscendente({ ano, periodo, chefia, questoes }: { ano: number; perio
     <div>
       <Typography.Paragraph type="secondary">Avalie {chefia ?? 'a sua chefia directa'} (1 = discordo totalmente, 5 = concordo totalmente). A resposta é anónima e só é mostrada em conjunto, com o mínimo de respostas do ciclo.</Typography.Paragraph>
       {questoes.map((q) => (
-        <Flex key={q.chave} justify="space-between" align="center" style={{ marginBottom: 6, maxWidth: 720 }}>
+        <Flex key={q.chave} justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 6, maxWidth: 720 }}>
           <span>{q.nome}</span><Rate count={5} value={notas[q.chave] ?? 0} onChange={(n) => setNotas((x) => ({ ...x, [q.chave]: n }))} />
         </Flex>
       ))}
@@ -207,7 +208,7 @@ function ResultadoEquipa({ colaborador, ano, periodo }: { colaborador: number; a
   if (!r.liberado) return <Alert style={{ marginTop: 8 }} type="info" showIcon message={`${r.respostas} resposta(s) recebida(s). Os resultados só são mostrados com pelo menos ${r.minimo} respostas e depois do prazo do ciclo.`} />;
   return (
     <Card size="small" style={{ marginTop: 8 }} title={`Média ${r.media !== null && r.media !== undefined ? formatarNumero(r.media) : '—'} (${r.respostas} respostas)`}>
-      <Table size="small" pagination={false} rowKey="chave" dataSource={Object.entries(r.questoes ?? {}).map(([chave, x]) => ({ chave, ...x }))} columns={[
+      <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="chave" dataSource={Object.entries(r.questoes ?? {}).map(([chave, x]) => ({ chave, ...x }))} columns={[
         { title: 'Questão', dataIndex: 'nome' },
         { title: 'Média', dataIndex: 'media', align: 'right', render: (v: number | null) => (v !== null ? formatarNumero(v) : '—') },
       ]} />
@@ -245,14 +246,14 @@ function MinhasAvaliacoes({ avaliacoes }: { avaliacoes: AvaliacaoPortal[] }) {
         ]}
         expandable={{ expandedRowRender: (a) => <DetalheAvaliacao a={a} /> }} />
 
-      <Modal title="Tomar conhecimento da avaliação" open={conhecer !== null} onCancel={() => setConhecer(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose
+      <Modal title="Tomar conhecimento da avaliação" open={conhecer !== null} onCancel={() => setConhecer(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden
         onOk={() => conhecer && accao.mutate({ metodo: 'post', url: `/rh/avaliacao/avaliacoes/${conhecer.id}/conhecimento`, dados: { comentario: texto.trim() || null } })}>
         <Typography.Paragraph>Tomar conhecimento não significa concordar. A partir desta data corre o prazo de contestação.</Typography.Paragraph>
         <Input.TextArea rows={3} maxLength={2000} placeholder="Comentário (opcional)" value={texto} onChange={(e) => setTexto(e.target.value)} />
       </Modal>
 
       <Modal title="Contestar a avaliação" open={contestar !== null} onCancel={() => setContestar(null)} okText="Enviar contestação" cancelText="Cancelar" okButtonProps={{ danger: true, disabled: texto.trim().length < 30 }}
-        confirmLoading={accao.isPending} destroyOnClose
+        confirmLoading={accao.isPending} destroyOnHidden
         onOk={() => contestar && accao.mutate({ metodo: 'post', url: `/rh/avaliacao/avaliacoes/${contestar.id}/contestar`, dados: { fundamentacao: texto.trim() } })}>
         {contestar?.prazo_contestacao && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Prazo de contestação até ${formatarData(contestar.prazo_contestacao)}.`} />}
         <Input.TextArea rows={6} maxLength={10000} showCount placeholder="Fundamente a contestação (mínimo 30 caracteres)" value={texto} onChange={(e) => setTexto(e.target.value)} />
@@ -267,14 +268,14 @@ function DetalheAvaliacao({ a }: { a: AvaliacaoPortal }) {
   return (
     <Space direction="vertical" style={{ width: '100%' }}>
       {(a.criterios ?? []).length > 0 && (
-        <Table size="small" pagination={false} rowKey="chave" dataSource={a.criterios ?? []} columns={[
+        <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="chave" dataSource={a.criterios ?? []} columns={[
           { title: 'Critério', dataIndex: 'nome' },
           { title: 'Nota', dataIndex: 'nota', render: (v: number | null) => (v ? <Rate disabled count={5} value={v} /> : '—') },
           { title: 'Comentário', dataIndex: 'comentario', render: (v: string | null) => v ?? '' },
         ]} />
       )}
       {(a.objetivos ?? []).length > 0 && (
-        <Table size="small" pagination={false} rowKey="chave" dataSource={a.objetivos ?? []} columns={[
+        <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="chave" dataSource={a.objetivos ?? []} columns={[
           { title: 'Objectivo', dataIndex: 'descricao' },
           { title: 'Meta', render: (_, o) => (o.meta !== null ? `${formatarNumero(o.meta)} ${o.unidade ?? ''}` : '—') },
           { title: 'Atingido', dataIndex: 'atingido', render: (v: number | null) => (v !== null ? formatarNumero(v) : '—') },
@@ -298,10 +299,10 @@ function ModalResultado360({ avaliacao, aoFechar }: { avaliacao: AvaliacaoPortal
   useAvisarErro(q.error);
   const r = q.data;
   return (
-    <Modal title="Resultado 360º" open={avaliacao !== null} width={680} onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>}>
-      {q.isLoading || !r ? <Card loading bordered={false} /> : !r.liberado ? <Alert type="info" showIcon message={r.aviso ?? 'Resultados ainda não disponíveis.'} /> : (
+    <Modal title="Resultado 360º" open={avaliacao !== null} width={larguraModal(680)} onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>}>
+      {q.isLoading || !r ? <Card loading variant="borderless" /> : !r.liberado ? <Alert type="info" showIcon message={r.aviso ?? 'Resultados ainda não disponíveis.'} /> : (
         <>
-          <Table size="small" pagination={false} rowKey="grupo" dataSource={Object.entries(r.componentes ?? {}).map(([grupo, c]) => ({ grupo, ...c }))} columns={[
+          <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="grupo" dataSource={Object.entries(r.componentes ?? {}).map(([grupo, c]) => ({ grupo, ...c }))} columns={[
             { title: 'Grupo', dataIndex: 'grupo', render: (g: string) => ROTULO_GRUPO[g] ?? g },
             { title: 'Respostas', dataIndex: 'n', align: 'right' },
             { title: 'Média', dataIndex: 'media', align: 'right', render: (v: number | null) => (v !== null ? formatarNumero(v) : '—') },
@@ -336,7 +337,7 @@ function Acompanhamento({ feedbacks }: { feedbacks: Feedback[] }) {
             <Descriptions.Item label="Acordos">{f.acordos ?? '—'}</Descriptions.Item>
           </Descriptions>
         ) }} />
-      <Modal title="Confirmar a reunião de acompanhamento" open={confirmar !== null} onCancel={() => setConfirmar(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose
+      <Modal title="Confirmar a reunião de acompanhamento" open={confirmar !== null} onCancel={() => setConfirmar(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden
         onOk={() => confirmar && accao.mutate({ metodo: 'post', url: `/rh/avaliacao/feedbacks/${confirmar.id}/confirmar`, dados: { comentario: comentario.trim() || null } })}>
         <Input.TextArea rows={3} maxLength={2000} placeholder="Comentário (opcional)" value={comentario} onChange={(e) => setComentario(e.target.value)} />
       </Modal>

@@ -26,6 +26,12 @@ final class E2ESeeder extends Seeder
 
     public const EMPRESA_VAZIA = 'Demo E2E Serviços, Lda';
 
+    /**
+     * Logótipo FICTÍCIO da empresa de demonstração (PNG 64×64, 206 bytes: quadrado azul com as letras «DE»), para a
+     * barra do menu e o cabeçalho das impressões. Respeita ServicoGestaoEmpresas::validarLogotipo (data URI PNG ≤ 1 MB).
+     */
+    public const LOGOTIPO_DEMO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAlUlEQVR42u3aQQqAIBAFUG/S0bphV7RFEIEQiFZOPpm1/LdQcZiUi7Ws27BVpk0hct9IUsT0V0MKmv40AHwOiJv+KAAAAAAAAACAJwC5ctX+pHrtDADwBqC2X9C+W+dDDAAAAAAwEKD98QIAiA1wCwEAAABEA+hKAMwI0J0GAAAAAAAAmAFgahGgHRB+9PgPw99xx+93kLk9UqNFqX4AAAAASUVORK5CYII=';
+
     /** nome de utilizador => descrição */
     public const UTILIZADORES = [
         'e2e.admin' => 'super-administrador (acesso total, todas as empresas)',
@@ -50,6 +56,7 @@ final class E2ESeeder extends Seeder
             'nome' => self::EMPRESA_DEMO, 'nif' => '5999000001', 'estado' => Empresa::ESTADO_ATIVO, 'moeda_funcional' => 'AOA',
             'endereco' => 'Rua Fictícia n.º 1, Luanda', 'provincia' => 'Luanda', 'municipio' => 'Luanda', 'telefone' => '+244 900 000 001',
             'email' => 'demo-e2e@exemplo.invalid', 'taxa_inss_trabalhador' => 3, 'taxa_inss_patronal' => 8,
+            'logotipo' => self::LOGOTIPO_DEMO,
         ]);
         $vazia = Empresa::create(['nome' => self::EMPRESA_VAZIA, 'nif' => '5999000002', 'estado' => Empresa::ESTADO_ATIVO, 'moeda_funcional' => 'AOA']);
 

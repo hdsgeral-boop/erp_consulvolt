@@ -5,6 +5,9 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { dadosPedidoCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
@@ -60,6 +63,7 @@ export function DetalhePedido() {
       <CabecalhoPagina
         titulo={`Pedido ${numeroOuId(p.numero_pedido, p.id)}`}
         subtitulo={p.nome_requerente}
+        impressao={() => pedidoDocumentoComercial(dadosPedidoCompra(p))}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -81,7 +85,7 @@ export function DetalhePedido() {
       {p.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Pedido anulado${p.motivo_anulacao ? `: ${p.motivo_anulacao}` : '.'}`} />}
 
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Data">{formatarData(p.data)}</Descriptions.Item>
           <Descriptions.Item label="Entrega pretendida">{formatarData(p.data_entrega)}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={p.estado} /></Descriptions.Item>
@@ -90,8 +94,8 @@ export function DetalhePedido() {
             {(p.valor_estimado?.sem_preco ?? 0) > 0 && <Typography.Text type="warning"> ({p.valor_estimado?.sem_preco} linha(s) sem preço)</Typography.Text>}
           </Descriptions.Item>
           {p.criado_por && <Descriptions.Item label="Criado por">{p.criado_por}</Descriptions.Item>}
-          {p.descricao && <Descriptions.Item label="Descrição" span={3}>{p.descricao}</Descriptions.Item>}
-          {p.observacoes && <Descriptions.Item label="Observações" span={3}>{p.observacoes}</Descriptions.Item>}
+          {p.descricao && <Descriptions.Item label="Descrição" span="filled">{p.descricao}</Descriptions.Item>}
+          {p.observacoes && <Descriptions.Item label="Observações" span="filled">{p.observacoes}</Descriptions.Item>}
         </Descriptions>
       </Card>
 
@@ -120,7 +124,7 @@ export function DetalhePedido() {
           rowKey="id"
           size="small"
           pagination={false}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           dataSource={linhas}
           columns={[
             { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
@@ -138,6 +142,7 @@ export function DetalhePedido() {
             size="small"
             pagination={false}
             dataSource={propostas.data?.itens}
+            scroll={scrollTabela()}
             onRow={(r) => ({ onClick: () => navegar(`/m/compras/compras_prospeccao/${r.id}`), style: { cursor: 'pointer' } })}
             columns={[
               { title: 'Proposta', render: (_, r) => numeroOuId(r.numero_proposta, r.id) },
@@ -153,6 +158,7 @@ export function DetalhePedido() {
       <Modal
         title={`Decisão — ${etapa?.nome ?? 'aprovação do pedido'}`}
         open={decisao}
+        width={larguraModal(520)}
         onCancel={() => setDecisao(false)}
         okText="Confirmar decisão"
         cancelText="Cancelar"

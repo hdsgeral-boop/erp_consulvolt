@@ -1,23 +1,44 @@
 import { Alert, Card, Col, Descriptions, Empty, List, Progress, Row, Space, Statistic, Table, Typography, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
+import { useRef } from 'react';
+import { BotoesExportar } from '@/componentes/impressao';
+import { COLUNAS_DESCRICOES } from '@/componentes/responsivo';
 import { obter } from '@/api/cliente';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { BarraExecucao } from '../comum/componentes';
+import { BarraExecucao, rotuloProjectos as rotuloTipo } from '../comum/componentes';
 import { rotuloRubrica } from '../comum/regras';
 import type { ResumoProjecto } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
+import { scrollTabela } from '@/componentes/responsivo';
 
 /** Resumo e indicadores do projecto (GET /projetos/{id}/resumo). */
 export function SeparadorResumo({ projecto, aoIr }: PropsSeparador & { aoIr: (separador: string) => void }) {
   const q = useQuery({ queryKey: ['projectos', 'resumo', projecto.id], queryFn: () => obter<ResumoProjecto>(`/projetos/${projecto.id}/resumo`) });
+  const ref = useRef<HTMLDivElement>(null);
   if (q.isLoading || !q.data) return <Card loading />;
   const r = q.data;
   const i = r.indicadores;
   const nome = (x: string | { nome?: string; numero_documento?: string } | null) => (!x ? '—' : typeof x === 'string' ? x : x.nome ?? x.numero_documento ?? '—');
 
   return (
+    <div ref={ref}>
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <div className="imp-nao-imprimir" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <BotoesExportar
+          textoImprimir="Imprimir ficha"
+          obterPedido={() =>
+            ref.current
+              ? {
+                  titulo: `Ficha do projecto ${projecto.codigo ?? ''} — ${projecto.nome}`,
+                  subtitulo: `${rotuloTipo(projecto.tipo)} · ${rotuloTipo(projecto.estado)}${projecto.cliente ? ` · Cliente: ${projecto.cliente.nome}` : ''}`,
+                  periodo: i.prazo.inicio || i.prazo.fim ? `${formatarData(i.prazo.inicio)} a ${formatarData(i.prazo.fim)}` : undefined,
+                  conteudo: ref.current,
+                }
+              : null
+          }
+        />
+      </div>
       {r.alertas.length > 0 && (
         <Card size="small" title="Alertas">
           <List
@@ -59,7 +80,7 @@ export function SeparadorResumo({ projecto, aoIr }: PropsSeparador & { aoIr: (se
         </Col>
         <Col xs={24} lg={10}>
           <Card size="small" title="Orçado vs realizado por rubrica">
-            <Table
+            <Table scroll={scrollTabela()}
               size="small"
               rowKey="rubrica"
               pagination={false}
@@ -104,7 +125,7 @@ export function SeparadorResumo({ projecto, aoIr }: PropsSeparador & { aoIr: (se
         </Col>
       </Row>
       <Card size="small" title="Ficha">
-        <Descriptions size="small" column={{ xs: 1, md: 3 }}>
+        <Descriptions size="small" column={COLUNAS_DESCRICOES}>
           <Descriptions.Item label="Cliente">{nome(r.ficha.cliente)}</Descriptions.Item>
           <Descriptions.Item label="Encomenda">{nome(r.ficha.encomenda)}</Descriptions.Item>
           <Descriptions.Item label="Unidade de negócio">{r.ficha.unidade_negocio ? `${r.ficha.unidade_negocio.codigo ?? ''} ${r.ficha.unidade_negocio.nome}` : '—'}</Descriptions.Item>
@@ -117,6 +138,7 @@ export function SeparadorResumo({ projecto, aoIr }: PropsSeparador & { aoIr: (se
         </Descriptions>
       </Card>
     </Space>
+    </div>
   );
 }
 
@@ -148,7 +170,7 @@ function CurvaS({ meses, series }: { meses: string[]; series: { nome: string; va
           </g>
         ))}
       </svg>
-      <Space size="large">
+      <Space wrap size="large">
         {series.map((s) => <span key={s.nome}><span style={{ display: 'inline-block', width: 12, height: 3, background: s.cor, marginRight: 6, verticalAlign: 'middle' }} />{s.nome}</span>)}
       </Space>
     </div>

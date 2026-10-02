@@ -1,14 +1,15 @@
-import { Button, Flex, Modal, Select, Space, Tooltip } from 'antd';
+import { Button, Modal, Select, Space, Tooltip } from 'antd';
 import { EyeOutlined, RollbackOutlined, SendOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
+import { BarraFiltros } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
-import { EstadoPOS, opcoesEstadoPOS } from './comum/estados';
-import { SeletorTerminal } from './comum/Filtros';
+import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from './comum/estados';
+import { SeletorTerminal, useFiltroTerminal } from './comum/Filtros';
 import { accoesIntegracao } from './comum/regras';
 import type { SessaoPOS } from './comum/tipos';
 
@@ -20,6 +21,7 @@ export default function Integracao() {
   const { pode } = useSessao();
   const [terminal, setTerminal] = useState<number>();
   const [estado, setEstado] = useState<string | undefined>('PENDENTE');
+  const filtroTerminal = useFiltroTerminal(terminal);
   const [detalhe, setDetalhe] = useState<number | null>(null);
   const [estornar, setEstornar] = useState<SessaoPOS | null>(null);
   const accao = useAccao({ invalidar: [['pos']], aoSucesso: () => setEstornar(null) });
@@ -57,7 +59,7 @@ export default function Integracao() {
   return (
     <>
       <CabecalhoPagina titulo="Integração das sessões POS" subtitulo="Contabilização das sessões fechadas (fecho Z)" />
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <BarraFiltros>
         <SeletorTerminal value={terminal} onChange={setTerminal} />
         <Select
           allowClear
@@ -67,23 +69,24 @@ export default function Integracao() {
           onChange={setEstado}
           options={opcoesEstadoPOS(['PENDENTE', 'CONTABILIZADA', 'SEM_MOVIMENTO'])}
         />
-      </Flex>
+      </BarraFiltros>
       <TabelaApi<SessaoPOS>
         url="/pos/sessoes"
         chaveConsulta={['pos', 'sessoes', 'integracao']}
         filtros={{ estado: 'FECHADA', terminal_pos_id: terminal, estado_contabilizacao: estado }}
+        impressao={{ titulo: 'Integração das sessões POS', filtros: [filtroTerminal, `Integração: ${estado ? rotuloEstadoPOS(estado) : 'Todas'}`] }}
         columns={[
           { title: 'Z', dataIndex: 'numero_z', render: (v, s) => v ?? s.codigo_sessao },
           { title: 'Terminal', render: (_, s) => `${s.codigo_terminal} — ${s.nome_terminal}` },
-          { title: 'Operador', dataIndex: 'nome_operador' },
+          { title: 'Operador', dataIndex: 'nome_operador', responsive: ['md'] },
           { title: 'Fecho', dataIndex: 'fechado_em', render: (v) => formatarDataHora(v) },
-          { title: 'Vendas', dataIndex: 'numero_vendas', align: 'right' },
+          { title: 'Vendas', dataIndex: 'numero_vendas', align: 'right', responsive: ['md'] },
           { title: 'Total', dataIndex: 'total_vendas', align: 'right', render: (v) => formatarKz(v) },
           { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v) => <ValorDesvio valor={v} /> },
           { title: 'Integração', dataIndex: 'estado_contabilizacao', render: (v) => <EstadoPOS estado={v} /> },
-          { title: 'Lançamentos', dataIndex: 'lans_contabilizacao', render: (v: string[] | null) => v?.join(', ') || '—' },
+          { title: 'Lançamentos', dataIndex: 'lans_contabilizacao', render: (v: string[] | null) => v?.join(', ') || '—', responsive: ['lg'] },
           { title: 'Prestação', dataIndex: 'estado_liquidacao', render: (v) => <EstadoPOS estado={v} /> },
-          { title: '', key: 'accoes', fixed: 'right', render: (_, s) => botoes(s) },
+          { title: '', key: 'accoes', fixed: 'right', exportar: false, render: (_, s) => botoes(s) },
         ]}
       />
       <DetalheSessao id={detalhe} aoFechar={() => setDetalhe(null)} />

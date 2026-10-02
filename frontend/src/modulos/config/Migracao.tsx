@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { descarregar, enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -148,6 +149,7 @@ function Importacao() {
               size="small"
               rowKey="campo"
               pagination={false}
+              scroll={scrollTabela()}
               dataSource={modelo.colunas}
               style={{ marginBottom: 12 }}
               columns={[
@@ -285,10 +287,10 @@ function EdicaoMassa() {
     <Row gutter={16}>
       <Col xs={24} xl={14}>
         <Card size="small">
-          <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+          <BarraFiltros style={{ marginBottom: 12 }}>
             <Radio.Group value={entidade} optionType="button" onChange={(e) => { setEntidade(e.target.value); setIds([]); form.resetFields(); }} options={disponiveis.map((e) => ({ value: e, label: e[0].toUpperCase() + e.slice(1) }))} />
             <Input.Search placeholder="Pesquisar" allowClear style={{ width: 240 }} onSearch={setPesquisa} />
-          </Flex>
+          </BarraFiltros>
           <TabelaApi<RegistoMassa>
             key={entidade}
             url={entidade === 'produtos' ? '/logistica/produtos' : '/terceiros'}
@@ -296,6 +298,8 @@ function EdicaoMassa() {
             filtros={entidade === 'produtos' ? { pesquisa } : { pesquisa, papel: entidade === 'clientes' ? 'CLIENTE' : 'FORNECEDOR' }}
             size="small"
             porPagina={50}
+            scroll={scrollTabela()}
+            impressao={{ titulo: `Lista de ${entidade}`, filtros: pesquisa ? [`Pesquisa: ${pesquisa}`] : undefined }}
             rowSelection={{ selectedRowKeys: ids, preserveSelectedRowKeys: true, onChange: (k) => setIds(k as number[]) }}
             columns={[
               { title: entidade === 'produtos' ? 'Código' : 'NIF', key: 'c', render: (_, r) => (entidade === 'produtos' ? r.codigo : r.nif) ?? '—' },
@@ -317,20 +321,20 @@ function EdicaoMassa() {
             )}
             {entidade === 'produtos' && (
               <Row gutter={8}>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Form.Item name="taxa_imposto" label="Taxa de IVA">
                     <Select allowClear options={[14, 7, 5, 2, 0].map((t) => ({ value: t, label: `${t}%` }))} />
                   </Form.Item>
                 </Col>
-                <Col span={12}><Form.Item name="movimenta_stock" label="Movimenta stock"><Select allowClear options={simNao} /></Form.Item></Col>
-                <Col span={12}><Form.Item name="e_servico" label="É serviço"><Select allowClear options={simNao} /></Form.Item></Col>
-                <Col span={12}><Form.Item name="bloqueado" label="Bloqueado"><Select allowClear options={simNao} /></Form.Item></Col>
-                <Col span={12}>
+                <Col xs={24} md={12}><Form.Item name="movimenta_stock" label="Movimenta stock"><Select allowClear options={simNao} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="e_servico" label="É serviço"><Select allowClear options={simNao} /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="bloqueado" label="Bloqueado"><Select allowClear options={simNao} /></Form.Item></Col>
+                <Col xs={24} md={12}>
                   <Form.Item name="preco_modo" label="Preço">
                     <Select allowClear options={[{ value: 'DEFINIR', label: 'Definir valor' }, { value: 'PERCENTAGEM', label: 'Alterar em %' }, { value: 'SOMAR', label: 'Somar valor' }]} />
                   </Form.Item>
                 </Col>
-                <Col span={12}><Form.Item name="preco_valor" label="Valor"><InputNumber style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
+                <Col xs={24} md={12}><Form.Item name="preco_valor" label="Valor"><InputNumber style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
               </Row>
             )}
             {CONTAS_MASSA[entidade].map(([k, rotulo]) => (

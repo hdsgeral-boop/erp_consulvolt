@@ -8,6 +8,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { CHAVE_CRM, useConfigCRM, useFunis, useModelosEmail } from './comum/dados';
 import { marcadoresDesconhecidos, validarFunil, type Etapa, type Funil, type ModeloEmail, type Sequencia } from './comum/tipos';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 const TIPOS_ETAPA = [{ value: 'ABERTA', label: 'Aberta' }, { value: 'GANHA', label: 'Ganha' }, { value: 'PERDIDA', label: 'Perdida' }];
 
@@ -68,7 +69,7 @@ function Funis({ gerir }: { gerir: boolean }) {
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo funil</Button>
         </Flex>
       )}
-      <Table<Funil>
+      <Table<Funil> scroll={scrollTabela()}
         rowKey="id"
         loading={funis.isLoading}
         dataSource={funis.data}
@@ -82,7 +83,7 @@ function Funis({ gerir }: { gerir: boolean }) {
             title: '',
             width: 90,
             render: (_, f) => (
-              <Space>
+              <Space wrap>
                 <Button size="small" type="text" icon={<EditOutlined />} aria-label={gerir ? 'Editar' : 'Ver'} onClick={() => setEdicao(f)} />
                 {gerir && (
                   <Popconfirm title={`Eliminar o funil «${f.nome}»?`} description="Só é possível sem oportunidades." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/crm/funis/${f.id}` })}>
@@ -124,7 +125,7 @@ function EditorFunil({ funil, gerir, aoFechar }: { funil: Funil | 'novo' | null;
   }, [funil, form]);
   const erros = validarFunil(etapas);
   return (
-    <Modal open={!!funil} title={funil === 'novo' ? 'Novo funil' : `Funil — ${funil ? funil.nome : ''}`} onCancel={aoFechar} width={1000} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !gerir || erros.length > 0 }} confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!funil} title={funil === 'novo' ? 'Novo funil' : `Funil — ${funil ? funil.nome : ''}`} onCancel={aoFechar} width={larguraModal(1000)} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !gerir || erros.length > 0 }} confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -138,9 +139,9 @@ function EditorFunil({ funil, gerir, aoFechar }: { funil: Funil | 'novo' | null;
         }
       >
         <Row gutter={16}>
-          <Col span={14}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
-          <Col span={5}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-          <Col span={5}><Form.Item name="ativo" label="Activo" valuePropName="checked"><Switch /></Form.Item></Col>
+          <Col xs={24} sm={14}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
+          <Col xs={24} sm={5}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24} sm={5}><Form.Item name="ativo" label="Activo" valuePropName="checked"><Switch /></Form.Item></Col>
         </Row>
         {erros.length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={erros.join(' ')} />}
         <Form.List name="etapas">
@@ -155,9 +156,9 @@ function EditorFunil({ funil, gerir, aoFechar }: { funil: Funil | 'novo' | null;
                     </Form.Item>
                     <Form.Item name={[c.name, 'nome']} style={{ flex: 1, minWidth: 160, marginBottom: 0 }} rules={[{ required: true, message: 'Nome.' }]}><Input placeholder="Nome da etapa" maxLength={100} /></Form.Item>
                     <Form.Item name={[c.name, 'tipo']} style={{ width: 120, marginBottom: 0 }}><Select options={TIPOS_ETAPA} /></Form.Item>
-                    <Form.Item name={[c.name, 'probabilidade']} style={{ width: 110, marginBottom: 0 }}><InputNumber min={0} max={100} addonAfter="%" placeholder="Prob." /></Form.Item>
-                    <Form.Item name={[c.name, 'dias_estagnacao']} style={{ width: 150, marginBottom: 0 }} tooltip="Alerta de estagnação"><InputNumber min={0} addonAfter="dias" placeholder="Estagnação" /></Form.Item>
-                    <Space>
+                    <Form.Item name={[c.name, 'probabilidade']} style={{ width: 110, marginBottom: 0 }}><InputNumber min={0} max={100} suffix="%" placeholder="Prob." /></Form.Item>
+                    <Form.Item name={[c.name, 'dias_estagnacao']} style={{ width: 150, marginBottom: 0 }} tooltip="Alerta de estagnação"><InputNumber min={0} suffix="dias" placeholder="Estagnação" /></Form.Item>
+                    <Space wrap>
                       <Button size="small" icon={<ArrowUpOutlined />} disabled={i === 0} onClick={() => move(i, i - 1)} aria-label="Subir" />
                       <Button size="small" icon={<ArrowDownOutlined />} disabled={i === campos.length - 1} onClick={() => move(i, i + 1)} aria-label="Descer" />
                       <Button size="small" danger icon={<DeleteOutlined />} onClick={() => remove(c.name)} aria-label="Remover etapa" />
@@ -167,10 +168,10 @@ function EditorFunil({ funil, gerir, aoFechar }: { funil: Funil | 'novo' | null;
                     {(tarefas, { add: addT, remove: remT }) => (
                       <div style={{ marginTop: 8, paddingLeft: 32 }}>
                         {tarefas.map((t) => (
-                          <Flex key={t.key} gap={8} style={{ marginBottom: 4 }}>
+                          <Flex key={t.key} gap={8} wrap style={{ marginBottom: 4 }}>
                             <Form.Item name={[t.name, 'tipo']} style={{ width: 150, marginBottom: 0 }}><Select placeholder="Tipo" options={Object.entries(config.data?.tipos_atividade ?? {}).map(([value, label]) => ({ value, label }))} /></Form.Item>
                             <Form.Item name={[t.name, 'titulo']} style={{ flex: 1, marginBottom: 0 }}><Input placeholder="Tarefa automática ao entrar na etapa" maxLength={255} /></Form.Item>
-                            <Form.Item name={[t.name, 'dias']} style={{ width: 120, marginBottom: 0 }}><InputNumber min={0} addonAfter="dias" /></Form.Item>
+                            <Form.Item name={[t.name, 'dias']} style={{ width: 120, marginBottom: 0 }}><InputNumber min={0} suffix="dias" /></Form.Item>
                             <Form.Item name={[t.name, 'modelo_email_crm_id']} style={{ width: 180, marginBottom: 0 }}><Select allowClear placeholder="Modelo (email)" options={(modelos.data ?? []).map((m) => ({ value: m.id, label: m.nome }))} /></Form.Item>
                             <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => remT(t.name)} aria-label="Remover tarefa" />
                           </Flex>
@@ -207,7 +208,7 @@ function Modelos({ gerir }: { gerir: boolean }) {
   return (
     <Card>
       {gerir && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo modelo</Button></Flex>}
-      <Table<ModeloEmail>
+      <Table<ModeloEmail> scroll={scrollTabela()}
         rowKey="id"
         loading={modelos.isLoading}
         dataSource={modelos.data}
@@ -219,7 +220,7 @@ function Modelos({ gerir }: { gerir: boolean }) {
             title: '',
             width: 90,
             render: (_, m) => (
-              <Space>
+              <Space wrap>
                 <Button size="small" type="text" icon={<EditOutlined />} aria-label={gerir ? 'Editar' : 'Ver'} onClick={() => setEdicao(m)} />
                 {gerir && (
                   <Popconfirm title={`Eliminar o modelo «${m.nome}»?`} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/crm/modelos-email/${m.id}` })}>
@@ -231,7 +232,7 @@ function Modelos({ gerir }: { gerir: boolean }) {
           },
         ]}
       />
-      <Modal open={!!edicao} title={edicao === 'novo' ? 'Novo modelo de email' : 'Modelo de email'} onCancel={() => setEdicao(null)} width={720} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !gerir }} confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal open={!!edicao} title={edicao === 'novo' ? 'Novo modelo de email' : 'Modelo de email'} onCancel={() => setEdicao(null)} width={larguraModal(720)} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !gerir }} confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" disabled={!gerir} onFinish={(v) => accao.mutate({ metodo: edicao === 'novo' ? 'post' : 'put', url: edicao === 'novo' ? '/crm/modelos-email' : `/crm/modelos-email/${(edicao as ModeloEmail).id}`, dados: v })}>
           <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item>
           <Form.Item name="assunto" label="Assunto" rules={[{ required: true, message: 'Indique o assunto.' }]}><Input maxLength={100} /></Form.Item>
@@ -265,7 +266,7 @@ function Sequencias({ gerir }: { gerir: boolean }) {
     <Card>
       <Typography.Paragraph type="secondary">Quando uma oportunidade entra na etapa, são agendados os emails da sequência (até 5 passos) como actividades.</Typography.Paragraph>
       {gerir && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova sequência</Button></Flex>}
-      <Table<Sequencia>
+      <Table<Sequencia> scroll={scrollTabela()}
         rowKey="id"
         loading={lista.isLoading}
         dataSource={lista.data}
@@ -279,7 +280,7 @@ function Sequencias({ gerir }: { gerir: boolean }) {
             title: '',
             width: 90,
             render: (_, s) => (
-              <Space>
+              <Space wrap>
                 <Button size="small" type="text" icon={<EditOutlined />} aria-label={gerir ? 'Editar' : 'Ver'} onClick={() => setEdicao(s)} />
                 {gerir && (
                   <Popconfirm title={`Eliminar a sequência «${s.nome}»?`} description="As actividades já agendadas mantêm-se." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/crm/sequencias/${s.id}` })}>
@@ -291,21 +292,21 @@ function Sequencias({ gerir }: { gerir: boolean }) {
           },
         ]}
       />
-      <Modal open={!!edicao} title={edicao === 'nova' ? 'Nova sequência' : 'Sequência'} onCancel={() => setEdicao(null)} width={680} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !gerir }} confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal open={!!edicao} title={edicao === 'nova' ? 'Nova sequência' : 'Sequência'} onCancel={() => setEdicao(null)} width={larguraModal(680)} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !gerir }} confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" disabled={!gerir} onFinish={(v) => accao.mutate({ metodo: edicao === 'nova' ? 'post' : 'put', url: edicao === 'nova' ? '/crm/sequencias' : `/crm/sequencias/${(edicao as Sequencia).id}`, dados: v })}>
           <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item>
           <Row gutter={16}>
-            <Col span={10}><Form.Item name="funil_vendas_crm_id" label="Funil" rules={[{ required: true }]}><Select options={(funis.data ?? []).map((f) => ({ value: f.id, label: f.nome }))} onChange={() => form.setFieldValue('etapa_codigo', undefined)} /></Form.Item></Col>
-            <Col span={10}><Form.Item name="etapa_codigo" label="Ao entrar na etapa" rules={[{ required: true }]}><Select options={(funis.data?.find((f) => f.id === funilId)?.etapas ?? []).map((e) => ({ value: e.id, label: e.nome }))} /></Form.Item></Col>
-            <Col span={4}><Form.Item name="ativo" label="Activa" valuePropName="checked"><Switch /></Form.Item></Col>
+            <Col xs={24} sm={10}><Form.Item name="funil_vendas_crm_id" label="Funil" rules={[{ required: true }]}><Select options={(funis.data ?? []).map((f) => ({ value: f.id, label: f.nome }))} onChange={() => form.setFieldValue('etapa_codigo', undefined)} /></Form.Item></Col>
+            <Col xs={24} sm={10}><Form.Item name="etapa_codigo" label="Ao entrar na etapa" rules={[{ required: true }]}><Select options={(funis.data?.find((f) => f.id === funilId)?.etapas ?? []).map((e) => ({ value: e.id, label: e.nome }))} /></Form.Item></Col>
+            <Col xs={24} sm={4}><Form.Item name="ativo" label="Activa" valuePropName="checked"><Switch /></Form.Item></Col>
           </Row>
           <Form.List name="passos">
             {(campos, { add, remove }) => (
               <>
                 {campos.map((c, i) => (
-                  <Flex key={c.key} gap={8} align="start">
+                  <Flex key={c.key} gap={8} align="start" wrap>
                     <Typography.Text style={{ width: 60, paddingTop: 5 }}>Passo {i + 1}</Typography.Text>
-                    <Form.Item name={[c.name, 'dias']} style={{ width: 140, marginBottom: 8 }}><InputNumber min={0} max={3650} addonBefore="D+" style={{ width: '100%' }} /></Form.Item>
+                    <Form.Item name={[c.name, 'dias']} style={{ width: 140, marginBottom: 8 }}><InputNumber min={0} max={3650} prefix="D+" style={{ width: '100%' }} /></Form.Item>
                     <Form.Item name={[c.name, 'modelo_email_crm_id']} style={{ flex: 1, marginBottom: 8 }} rules={[{ required: true, message: 'Escolha o modelo.' }]}><Select placeholder="Modelo de email" options={(modelos.data ?? []).map((m) => ({ value: m.id, label: m.nome }))} /></Form.Item>
                     <Button type="text" danger icon={<DeleteOutlined />} disabled={campos.length === 1} onClick={() => remove(c.name)} aria-label="Remover passo" />
                   </Flex>

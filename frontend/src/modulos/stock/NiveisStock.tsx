@@ -15,6 +15,8 @@ import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/L
 import { SeletorArmazem, SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import { ExtractoArtigo } from './comum/ExtractoArtigo';
 import type { LinhaStock, RespostaStock } from './comum/tipos';
+import { BarraFiltros, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { pedidoStockPorArmazem } from './comum/impressao';
 
 /** Armazém › Níveis de stock (ecrã armazem_stock): stock e valorização por armazém, ajustes, transferências e extracto. */
 export default function NiveisStock() {
@@ -39,14 +41,16 @@ export default function NiveisStock() {
     [consulta.data, pesquisa, soRupturas],
   );
   const v = consulta.data?.valorizacao;
+  const pequeno = useEcraPequeno();
+  const [nomeArmazem, setNomeArmazem] = useState<string>();
 
   const colunas: ColumnsType<LinhaStock> = [
     { title: 'Código', dataIndex: 'codigo', render: (x) => x || '—', sorter: (a, b) => String(a.codigo).localeCompare(String(b.codigo)) },
     { title: 'Produto', dataIndex: 'nome', sorter: (a, b) => a.nome.localeCompare(b.nome) },
-    { title: 'Armazém', dataIndex: 'armazem' },
+    { title: 'Armazém', dataIndex: 'armazem', responsive: ['md'] },
     { title: 'Quantidade', dataIndex: 'quantidade', align: 'right', render: (q: string) => <span style={{ color: Number(q) < 0 ? '#cf1322' : undefined }}>{formatarNumero(q)}</span>, sorter: (a, b) => Number(a.quantidade) - Number(b.quantidade) },
-    { title: 'Mínimo', dataIndex: 'stock_minimo', align: 'right', render: (x: string | null) => (x ? formatarNumero(x) : '—') },
-    { title: 'Custo médio (Kz)', dataIndex: 'custo_medio', align: 'right', render: (x: string | null) => formatarKz(x) },
+    { title: 'Mínimo', dataIndex: 'stock_minimo', align: 'right', responsive: ['lg'], render: (x: string | null) => (x ? formatarNumero(x) : '—') },
+    { title: 'Custo médio (Kz)', dataIndex: 'custo_medio', align: 'right', responsive: ['lg'], render: (x: string | null) => formatarKz(x) },
     { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (x: string | null) => formatarKz(x), sorter: (a, b) => Number(a.valor) - Number(b.valor) },
     { title: '', dataIndex: 'ruptura', render: (r: boolean) => (r ? <Tag color="red">Ruptura</Tag> : null) },
   ];
@@ -56,6 +60,15 @@ export default function NiveisStock() {
       <CabecalhoPagina
         titulo="Níveis de stock"
         subtitulo="Quantidades e valorização ao custo médio, por armazém"
+        impressaoDesactivada={!linhas.length}
+        impressao={() =>
+          pedidoStockPorArmazem(linhas, [
+            armazem ? `Armazém: ${nomeArmazem ?? `#${armazem}`}` : 'Todos os armazéns',
+            comStock && 'Só com stock',
+            soRupturas && 'Só rupturas',
+            pesquisa && `Pesquisa: ${pesquisa}`,
+          ])
+        }
         accoes={
           <>
             {pode('armazem_transferencia', 'armazem_ajuste') && <Button icon={<SwapOutlined />} onClick={() => setModal('transferencia')}>Transferência</Button>}
@@ -64,17 +77,17 @@ export default function NiveisStock() {
         }
       />
       {v && (
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col xs={24} md={6}>
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12} md={6}>
             <Card><Statistic title="Valor total do stock (Kz)" value={formatarKz(v.total)} /></Card>
           </Col>
-          <Col xs={24} md={6}>
+          <Col xs={24} sm={12} md={6}>
             <Card><Statistic title="Artigos em ruptura" value={v.rupturas} valueStyle={v.rupturas ? { color: '#cf1322' } : undefined} /></Card>
           </Col>
           <Col xs={24} md={12}>
             <Card size="small" title="Por armazém">
               {v.por_armazem.map((a) => (
-                <Flex key={a.armazem} justify="space-between">
+                <Flex key={a.armazem} justify="space-between" gap={8} wrap>
                   <span>{a.armazem} ({a.produtos} artigos)</span>
                   <strong>{formatarKz(a.valor)} Kz</strong>
                 </Flex>
@@ -84,16 +97,16 @@ export default function NiveisStock() {
         </Row>
       )}
       <Card>
-        <Flex gap={8} wrap align="center" style={{ marginBottom: 16 }}>
-          <Input.Search placeholder="Código, produto ou armazém" allowClear style={{ width: 280 }} onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} />
-          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 240 }} value={armazem} onChange={setArmazem} />
+        <BarraFiltros>
+          <Input.Search placeholder="Código, produto ou armazém" allowClear style={{ width: 280, maxWidth: '100%' }} onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} />
+          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 240, maxWidth: '100%' }} value={armazem} onChange={(x, o) => { setArmazem(x); setNomeArmazem(o && !Array.isArray(o) && o.label ? String(o.label) : undefined); }} />
           <Checkbox checked={comStock} onChange={(e) => setComStock(e.target.checked)}>Só com stock</Checkbox>
           <Checkbox checked={soRupturas} onChange={(e) => setSoRupturas(e.target.checked)}>Só rupturas</Checkbox>
-        </Flex>
+        </BarraFiltros>
         <Table<LinhaStock>
           rowKey={(r) => `${r.armazem_id}-${r.produto_id}`}
-          size="middle"
-          scroll={{ x: 'max-content' }}
+          size={pequeno ? 'small' : 'middle'}
+          scroll={scrollTabela()}
           loading={consulta.isFetching}
           dataSource={linhas}
           columns={colunas}
@@ -116,11 +129,11 @@ function ModalAjuste({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => vo
     if (aberto) form.setFieldsValue({ sentido: 'E', data: dayjs(), quantidade: undefined, custo_unitario: undefined, motivo: '' });
   }, [aberto, form]);
   return (
-    <Modal title="Ajuste manual de stock" open={aberto} onCancel={aoFechar} okText="Registar ajuste" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={620}>
+    <Modal title="Ajuste manual de stock" open={aberto} onCancel={aoFechar} okText="Registar ajuste" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(620)}>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/logistica/ajustes', dados: { ...v, data: dataApi(v.data), custo_unitario: v.sentido === 'E' ? v.custo_unitario : undefined } })}>
         <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Os ajustes ficam registados com o motivo. Para regularizações de contagem física use o inventário." />
         <Row gutter={16}>
-          <Col span={24}>
+          <Col xs={24}>
             <Form.Item name="produto_id" label="Produto" rules={[{ required: true, message: 'Escolha o produto.' }]}>
               <SeletorProduto apenasStock />
             </Form.Item>
@@ -170,7 +183,7 @@ function ModalTransferencia({ aberto, aoFechar }: { aberto: boolean; aoFechar: (
     if (aberto) form.setFieldsValue({ data: dayjs(), observacoes: undefined, linhas: [{ quantidade: 1 }] });
   }, [aberto, form]);
   return (
-    <Modal title="Transferência entre armazéns" open={aberto} onCancel={aoFechar} okText="Transferir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={820}>
+    <Modal title="Transferência entre armazéns" open={aberto} onCancel={aoFechar} okText="Transferir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(820)}>
       <Form
         form={form}
         layout="vertical"

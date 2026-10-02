@@ -163,7 +163,7 @@ function AbrirSessao({ terminal, podeAbrir }: { terminal: Terminal; podeAbrir: b
   const abrir = useAccao({ invalidar: [['pos']], tituloErro: 'Não foi possível abrir a sessão' });
   return (
     <Flex justify="center" style={{ marginTop: 24 }}>
-      <Card style={{ width: 420 }} title={<Space><UnlockOutlined /> Abrir sessão de caixa</Space>}>
+      <Card style={{ width: '100%', maxWidth: 420 }} title={<Space><UnlockOutlined /> Abrir sessão de caixa</Space>}>
         {!podeAbrir ? (
           <Alert type="info" showIcon message="Não tem permissão para abrir sessões neste terminal." />
         ) : (
@@ -174,7 +174,7 @@ function AbrirSessao({ terminal, podeAbrir }: { terminal: Terminal; podeAbrir: b
             onFinish={(v) => abrir.mutate({ url: `/pos/terminais/${terminal.id}/sessoes`, dados: { fundo_maneio: v.fundo_maneio ?? 0 } })}
           >
             <Form.Item name="fundo_maneio" label="Fundo de maneio (numerário inicial na gaveta)" extra={`Padrão do terminal: ${formatarKz(terminal.fundo_maneio_padrao)} Kz`}>
-              <InputNumber<number> size="large" min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} addonAfter="Kz" autoFocus />
+              <InputNumber<number> size="large" min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} suffix="Kz" autoFocus />
             </Form.Item>
             <Button type="primary" size="large" block htmlType="submit" loading={abrir.isPending}>
               Abrir sessão

@@ -5,10 +5,13 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { descarregarCsv, gerarCsv } from '@/utilitarios/csv';
+import { useTerminais } from './comum/dados';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
+import { documentoRelatorios } from './comum/documentos';
 import { EstadoPOS } from './comum/estados';
 import { SeletorTerminal } from './comum/Filtros';
 import type { PainelRelatorios } from './comum/tipos';
@@ -29,6 +32,9 @@ export default function Relatorios() {
     if (consulta.error) notificarErro(consulta.error, 'Erro ao carregar os relatórios do POS');
   }, [consulta.error]);
   const r = consulta.data;
+  const tamanho = useEcraPequeno() ? 'small' : 'middle';
+  const terminais = useTerminais();
+  const escolhido = terminal ? terminais.data?.find((t) => t.id === terminal) : undefined;
 
   const exportarZ = () =>
     r &&
@@ -74,13 +80,20 @@ export default function Relatorios() {
     <>
       <CabecalhoPagina
         titulo="Relatórios POS"
-        accoes={
-          <>
-            <DatePicker.RangePicker format="DD/MM/YYYY" allowClear={false} value={periodo} onChange={(v) => v?.[0] && v[1] && setPeriodo([v[0], v[1]])} />
-            <SeletorTerminal value={terminal} onChange={setTerminal} />
-          </>
+        impressaoDesactivada={!r}
+        impressao={() =>
+          r && {
+            titulo: 'Relatórios POS',
+            periodo: `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}`,
+            filtros: [`Terminal: ${escolhido ? `${escolhido.codigo} — ${escolhido.nome}` : 'Todos'}`],
+            conteudo: documentoRelatorios(r),
+          }
         }
       />
+      <BarraFiltros>
+        <DatePicker.RangePicker format="DD/MM/YYYY" allowClear={false} value={periodo} onChange={(v) => v?.[0] && v[1] && setPeriodo([v[0], v[1]])} />
+        <SeletorTerminal value={terminal} onChange={setTerminal} />
+      </BarraFiltros>
       {!r ? (
         <Skeleton active />
       ) : (
@@ -108,20 +121,20 @@ export default function Relatorios() {
                       </Button>
                     </Flex>
                     <Table<Z>
-                      size="small"
+                      size={tamanho}
                       rowKey="id"
                       dataSource={r.zs}
-                      scroll={{ x: 'max-content' }}
+                      scroll={scrollTabela()}
                       onRow={(z) => ({ onClick: () => setDetalhe(z.id), style: { cursor: 'pointer' } })}
                       columns={[
                         { title: 'Z', dataIndex: 'numero_z' },
                         { title: 'Terminal', dataIndex: 'codigo_terminal' },
-                        { title: 'Operador', dataIndex: 'nome_operador' },
+                        { title: 'Operador', dataIndex: 'nome_operador', responsive: ['md'] },
                         { title: 'Fecho', dataIndex: 'fechado_em', render: (v) => formatarDataHora(v) },
                         { title: 'Vendas', dataIndex: 'numero_vendas', align: 'right' },
                         { title: 'Total', dataIndex: 'total_vendas', align: 'right', render: (v) => formatarKz(v) },
-                        { title: 'Esperado', dataIndex: 'numerario_esperado', align: 'right', render: (v) => formatarKz(v) },
-                        { title: 'Contado', dataIndex: 'numerario_contado', align: 'right', render: (v) => formatarKz(v) },
+                        { title: 'Esperado', dataIndex: 'numerario_esperado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
+                        { title: 'Contado', dataIndex: 'numerario_contado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
                         { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v) => <ValorDesvio valor={v} /> },
                         { title: 'Desvio', dataIndex: 'estado_desvio', render: (v) => <EstadoPOS estado={v} /> },
                         { title: 'Integração', dataIndex: 'estado_contabilizacao', render: (v) => <EstadoPOS estado={v} /> },
@@ -136,7 +149,8 @@ export default function Relatorios() {
                 label: 'Por meio de pagamento',
                 children: (
                   <Table
-                    size="small"
+                    size={tamanho}
+                    scroll={scrollTabela()}
                     pagination={false}
                     rowKey={(m) => `${m.tipo}-${m.nome}`}
                     dataSource={r.por_meio}
@@ -160,14 +174,15 @@ export default function Relatorios() {
                       </Button>
                     </Flex>
                     <Table
-                      size="small"
+                      size={tamanho}
+                      scroll={scrollTabela()}
                       rowKey="produto_id"
                       dataSource={r.por_produto}
                       columns={[
-                        { title: 'Código', dataIndex: 'codigo' },
+                        { title: 'Código', dataIndex: 'codigo', responsive: ['md'] },
                         { title: 'Produto', dataIndex: 'nome' },
                         { title: 'Quantidade', dataIndex: 'quantidade', align: 'right', render: (v) => formatarNumero(v) },
-                        { title: 'Base', dataIndex: 'total_liquido', align: 'right', render: (v) => formatarKz(v) },
+                        { title: 'Base', dataIndex: 'total_liquido', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
                         { title: 'Total', dataIndex: 'total_bruto', align: 'right', render: (v) => formatarKz(v) },
                       ]}
                     />
@@ -178,11 +193,12 @@ export default function Relatorios() {
                 key: 'terminais',
                 label: 'Por terminal e operador',
                 children: (
-                  <Row gutter={16}>
+                  <Row gutter={[16, 16]}>
                     <Col xs={24} lg={12}>
                       <Card size="small" title="Por terminal">
                         <Table
-                          size="small"
+                          size={tamanho}
+                          scroll={scrollTabela()}
                           pagination={false}
                           rowKey="terminal_pos_id"
                           dataSource={r.por_terminal}
@@ -197,7 +213,8 @@ export default function Relatorios() {
                     <Col xs={24} lg={12}>
                       <Card size="small" title="Por operador">
                         <Table
-                          size="small"
+                          size={tamanho}
+                          scroll={scrollTabela()}
                           pagination={false}
                           rowKey={(o) => o.operador ?? '—'}
                           dataSource={r.por_operador}
@@ -217,7 +234,8 @@ export default function Relatorios() {
                 label: `Diferenças TPA (${r.diferencas_tpa.length})`,
                 children: r.diferencas_tpa.length ? (
                   <Table
-                    size="small"
+                    size={tamanho}
+                    scroll={scrollTabela()}
                     pagination={false}
                     rowKey={(d) => `${d.sessao_pos_id}-${d.meio_id}`}
                     dataSource={r.diferencas_tpa}

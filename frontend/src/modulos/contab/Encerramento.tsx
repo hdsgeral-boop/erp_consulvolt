@@ -5,6 +5,8 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -65,7 +67,7 @@ export default function Encerramento() {
         titulo="Encerramento do exercício"
         subtitulo="Apuramento de resultados no período 13, validações e cadeado do exercício"
         accoes={
-          <Space>
+          <Space wrap>
             <Select value={ano} onChange={setAno} style={{ width: 120 }} options={anos.map((a) => ({ value: a, label: String(a) }))} aria-label="Exercício" />
             {regras.podeEncerrar && (
               <Button
@@ -140,9 +142,29 @@ export default function Encerramento() {
                 key: 'classe8',
                 label: 'Resumo da classe 8',
                 children: (
-                  <Card>
+                  <Card
+                    extra={
+                      <BotoesExportar
+                        tamanho="small"
+                        desactivado={!e.resumo_classe_8.length}
+                        obterPedido={() => ({
+                          titulo: `Resumo da classe 8 · exercício de ${ano}`,
+                          conteudo: tabelaHtml({
+                            linhas: e.resumo_classe_8,
+                            totais: true,
+                            colunas: [
+                              { titulo: 'Conta', valor: (l) => l.codigo_conta },
+                              { titulo: 'Descrição', valor: (l) => l.descricao ?? '—' },
+                              { titulo: 'Saldo credor (Kz)', valor: (l) => l.saldo_credor, formato: 'moeda', somar: true },
+                            ],
+                          }),
+                        })}
+                      />
+                    }
+                  >
                     <Table
                       rowKey="codigo_conta"
+                      scroll={scrollTabela()}
                       size="small"
                       pagination={false}
                       dataSource={e.resumo_classe_8}
@@ -165,9 +187,9 @@ export default function Encerramento() {
         title={previsao.data ? `Passo ${previsao.data.passo} — ${previsao.data.titulo}` : 'Pré-visualização'}
         open={previsto !== null}
         onCancel={() => setPrevisto(null)}
-        width={900}
+        width={larguraModal(900)}
         footer={
-          <Space>
+          <Space wrap>
             <Button onClick={() => setPrevisto(null)}>Fechar</Button>
             {regras.podeExecutarPassos && previsao.data && (
               <Button
@@ -225,6 +247,7 @@ export default function Encerramento() {
             <Table
               rowKey={(_, i) => String(i)}
               size="small"
+              scroll={scrollTabela()}
               dataSource={previsao.data.movimentos}
               pagination={{ pageSize: 10, showTotal: (t) => `${t} movimento(s)` }}
               locale={{ emptyText: 'Não existem saldos a apurar neste passo.' }}
@@ -289,9 +312,38 @@ function PainelValidacoes({ ano, validacao, aCarregar, aoValidar }: { ano: numbe
     <Card
       title={`Validações do exercício de ${ano}`}
       extra={
-        <Button type="primary" loading={aCarregar} onClick={aoValidar}>
-          {validacao ? 'Validar novamente' : 'Validar'}
-        </Button>
+        <Space wrap>
+          {validacao && (
+            <BotoesExportar
+              tamanho="small"
+              obterPedido={() => ({
+                titulo: `Validações do exercício de ${ano}`,
+                filtros: [validacao.pode_encerrar ? 'O exercício pode ser encerrado' : `${validacao.divergencias.length} divergência(s) impedem o encerramento`, `${validacao.avisos.length} aviso(s)`],
+                conteudo: tabelaHtml({
+                  linhas: validacao.verificacoes,
+                  colunas: [
+                    { titulo: 'Verificação', valor: (v) => v.descricao, quebrar: true },
+                    { titulo: 'Resultado', valor: (v) => (v.ok ? 'OK' : v.bloqueia ? 'Bloqueia' : 'Aviso') },
+                    { titulo: 'Diferença', valor: (v) => (v.ok ? null : v.diferenca), formato: 'moeda' },
+                    {
+                      titulo: 'Detalhes',
+                      quebrar: true,
+                      valor: (v) =>
+                        v.ok || !v.detalhes
+                          ? ''
+                          : Object.entries(v.detalhes)
+                              .map(([k, x]) => `${k.replace(/_/g, ' ')}: ${typeof x === 'string' && !Number.isNaN(Number(x)) ? formatarKz(x) : Array.isArray(x) ? x.join(', ') || '—' : String(x ?? '—')}`)
+                              .join(' · '),
+                    },
+                  ],
+                }),
+              })}
+            />
+          )}
+          <Button type="primary" loading={aCarregar} onClick={aoValidar}>
+            {validacao ? 'Validar novamente' : 'Validar'}
+          </Button>
+        </Space>
       }
     >
       {!validacao ? (
@@ -313,7 +365,7 @@ function PainelValidacoes({ ano, validacao, aCarregar, aoValidar }: { ano: numbe
                 <List.Item.Meta
                   avatar={<IconeVerificacao v={v} />}
                   title={
-                    <Space>
+                    <Space wrap>
                       <span>{v.descricao}</span>
                       {!v.ok && <Tag color={v.bloqueia ? 'red' : 'orange'}>{v.bloqueia ? 'Bloqueia' : 'Aviso'}</Tag>}
                     </Space>
@@ -344,7 +396,31 @@ function PainelValidacoes({ ano, validacao, aCarregar, aoValidar }: { ano: numbe
 function PainelMapa({ mapa, aCarregar, ano }: { mapa?: MapaApuramento; aCarregar: boolean; ano: number }) {
   type Linha = MapaApuramento['linhas'][number];
   return (
-    <Card extra={<BotaoCsv<Linha> nome={`apuramento_${ano}`} linhas={mapa?.linhas} colunas={[
+    <Card extra={<Space wrap>
+      <BotoesExportar
+        tamanho="small"
+        desactivado={!mapa?.linhas.length}
+        obterPedido={() =>
+          mapa && {
+            titulo: `Mapa de apuramento · exercício de ${ano}`,
+            conteudo: tabelaHtml<Linha>({
+              linhas: mapa.linhas,
+              totais: 'Totais',
+              colunas: [
+                { titulo: 'Diário', valor: (l) => l.diario, total: 'Totais' },
+                { titulo: 'N.º lançamento', valor: (l) => l.numero_lan, total: '' },
+                { titulo: 'Documento', valor: (l) => l.numero_documento, total: '' },
+                { titulo: 'Conta', valor: (l) => l.codigo_conta, total: '' },
+                { titulo: 'Descrição', valor: (l) => l.descricao, quebrar: true, total: '' },
+                { titulo: 'Débito', valor: (l) => l.debito, formato: 'moeda', total: formatarKz(mapa.total_debito) },
+                { titulo: 'Crédito', valor: (l) => l.credito, formato: 'moeda', total: formatarKz(mapa.total_credito) },
+                { titulo: 'Situação', valor: (l) => (l.estornado ? 'Estornado' : l.estorno ? 'Estorno' : ''), total: '' },
+              ],
+            }),
+          }
+        }
+      />
+      <BotaoCsv<Linha> nome={`apuramento_${ano}`} linhas={mapa?.linhas} colunas={[
       { titulo: 'Data', valor: (l) => l.data_documento },
       { titulo: 'Diário', valor: (l) => l.diario },
       { titulo: 'N.º lançamento', valor: (l) => l.numero_lan },
@@ -353,7 +429,8 @@ function PainelMapa({ mapa, aCarregar, ano }: { mapa?: MapaApuramento; aCarregar
       { titulo: 'Descrição', valor: (l) => l.descricao },
       { titulo: 'Débito', valor: (l) => l.debito, numerico: true },
       { titulo: 'Crédito', valor: (l) => l.credito, numerico: true },
-    ]} />}>
+    ]} />
+    </Space>}>
       <Table<Linha>
         rowKey="id"
         size="small"
@@ -361,7 +438,7 @@ function PainelMapa({ mapa, aCarregar, ano }: { mapa?: MapaApuramento; aCarregar
         dataSource={mapa?.linhas}
         pagination={{ pageSize: 50, showTotal: (t) => `${t} linha(s)` }}
         locale={{ emptyText: 'Ainda não há lançamentos de apuramento neste exercício.' }}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         rowClassName={(l) => (l.estornado || l.estorno ? 'linha-estornada' : '')}
         columns={[
           { title: 'Diário', dataIndex: 'diario' },

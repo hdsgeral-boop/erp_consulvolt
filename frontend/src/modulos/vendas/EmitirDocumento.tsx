@@ -6,9 +6,13 @@ import { useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { enviar, obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { useEcra } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { MEIOS_PAGAMENTO, TIPOS_DOCUMENTO, TIPOS_EMITIVEIS, type DocumentoVenda, type ProdutoCatalogo, type Terceiro } from './api';
+
+/** Espaço entre os totais estimados (menor em telemóvel, onde quebram linha). */
+const pequenoGap = (telemovel: boolean) => (telemovel ? 16 : 32);
 
 interface LinhaForm {
   produto_id?: number;
@@ -53,6 +57,8 @@ export function EmitirDocumento() {
   const clienteId = Form.useWatch('cliente_id', form);
   const linhas = Form.useWatch('linhas', form) ?? [];
   const [pesquisaCliente, setPesquisaCliente] = useState('');
+  // em telemóvel cada linha do documento fica num cartão próprio (campos empilhados, numerados)
+  const { telemovel } = useEcra();
   const conversao = (useLocation().state as { conversaoCrm?: ConversaoCrm } | null)?.conversaoCrm;
   const valoresIniciais = useMemo<Partial<ValoresForm>>(() => {
     const base = { tipo_documento: 'FT', data_emissao: dayjs(), linhas: [{ quantidade: 1 }] as LinhaForm[], meio_pagamento: 'NUMERARIO' };
@@ -230,8 +236,18 @@ export function EmitirDocumento() {
           <Form.List name="linhas" rules={[{ validator: async (_, v) => (v && v.length ? undefined : Promise.reject(new Error('Acrescente pelo menos uma linha.'))) }]}>
             {(campos, { add, remove }, { errors }) => (
               <>
-                {campos.map(({ key, name }) => (
-                  <Row key={key} gutter={8} align="top">
+                {campos.map(({ key, name }, n) => (
+                  <Row
+                    key={key}
+                    gutter={8}
+                    align="top"
+                    style={telemovel ? { border: '1px solid rgba(5, 5, 5, 0.12)', borderRadius: 8, padding: '8px 4px 0', margin: '0 0 12px' } : undefined}
+                  >
+                    {telemovel && (
+                      <Col span={24} style={{ marginBottom: 4 }}>
+                        <Typography.Text type="secondary">Linha {n + 1}</Typography.Text>
+                      </Col>
+                    )}
                     <Col xs={24} md={9}>
                       <Form.Item name={[name, 'produto_id']} rules={[{ required: true, message: 'Produto' }]}>
                         <Select
@@ -249,12 +265,12 @@ export function EmitirDocumento() {
                         <Input placeholder="Descrição" maxLength={1000} />
                       </Form.Item>
                     </Col>
-                    <Col xs={8} md={3}>
+                    <Col xs={9} md={3}>
                       <Form.Item name={[name, 'quantidade']} rules={[{ required: true, message: 'Qtd.' }]}>
                         <InputNumber min={0.001} step={1} placeholder="Qtd." style={{ width: '100%' }} />
                       </Form.Item>
                     </Col>
-                    <Col xs={12} md={4}>
+                    <Col xs={11} md={4}>
                       <Form.Item name={[name, 'preco_unitario']}>
                         <InputNumber min={0} precision={2} placeholder="Preço s/ IVA" style={{ width: '100%' }} />
                       </Form.Item>
@@ -272,7 +288,7 @@ export function EmitirDocumento() {
             )}
           </Form.List>
           <Divider />
-          <Flex justify="end" gap={32}>
+          <Flex justify="end" gap={pequenoGap(telemovel)} wrap>
             <Statistic title="Líquido (estimativa)" value={formatarKz(estimativa.liquido)} />
             <Statistic title="IVA (estimativa)" value={formatarKz(estimativa.imposto)} />
             <Statistic title="Total (estimativa)" value={formatarKz(estimativa.liquido + estimativa.imposto)} />
@@ -286,7 +302,7 @@ export function EmitirDocumento() {
           </Form.Item>
         </Card>
 
-        <Space>
+        <Space wrap>
           <Button type="primary" htmlType="submit" loading={emitir.isPending}>
             Emitir {TIPOS_DOCUMENTO[tipo]?.toLowerCase()}
           </Button>

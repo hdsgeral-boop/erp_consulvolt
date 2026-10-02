@@ -134,6 +134,8 @@ export interface FaturaCompra {
   id: number;
   numero_fatura: string;
   encomenda_compra_id: number | null;
+  /** Número da encomenda de origem (só no detalhe). */
+  numero_encomenda?: string | null;
   fornecedor_id: number;
   fornecedor?: RefTerceiro | null;
   data: string | null;

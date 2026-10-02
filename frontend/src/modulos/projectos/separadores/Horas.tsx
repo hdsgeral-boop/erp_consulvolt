@@ -2,7 +2,7 @@ import { Button, Card, DatePicker, Form, InputNumber, Modal, Popconfirm, Space, 
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { obter } from '@/api/cliente';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { useAccao } from '@/componentes/Accoes';
@@ -11,6 +11,8 @@ import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios
 import { EtiquetaProjectos, SeletorMembro, SeletorTarefa } from '../comum/componentes';
 import type { EquipamentosProjecto, FolhaHoras, UsoEquipamento } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
+import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
+import { scrollTabela } from '@/componentes/responsivo';
 
 /** Folhas de horas (só colaboradores internos da equipa) e imputação do uso de equipamentos (activos) às tarefas. */
 export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
@@ -22,11 +24,16 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
   const usos = equip.data?.usos ?? [];
   const totalHoras = (horas.data ?? []).reduce((t, h) => t + Number(h.horas), 0);
   const tarefa = (codigo: string | null | undefined, nome: string | null | undefined, id: number | null) => (nome ? [codigo, nome].filter(Boolean).join(' — ') : id ? `#${id}` : '—');
+  const refSeparador = useRef<HTMLDivElement>(null);
 
   return (
+    <div ref={refSeparador}>
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <div className="imp-nao-imprimir" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <ImpressaoSeparador alvo={refSeparador} titulo="Horas e equipamentos" projecto={projecto} />
+      </div>
       <Card size="small" title={`Folhas de horas (${formatarNumero(totalHoras)} h)`} extra={acc.execucao && <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setNovaHora(true)}>Registar horas</Button>}>
-        <Table<FolhaHoras>
+        <Table<FolhaHoras> scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={horas.isFetching}
@@ -51,7 +58,7 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
         />
       </Card>
       <Card size="small" title={`Uso de equipamentos (${formatarKz(equip.data?.total ?? '0.00')} Kz)`} extra={acc.execucao && <Button size="small" icon={<PlusOutlined />} onClick={() => setNovoEquip(true)}>Imputar equipamento</Button>}>
-        <Table<UsoEquipamento>
+        <Table<UsoEquipamento> scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={equip.isFetching}
@@ -77,7 +84,7 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
         {(equip.data?.afetacoes ?? []).length > 0 && (
           <>
             <Typography.Text strong style={{ display: 'block', marginTop: 12 }}>Activos afectos ao projecto</Typography.Text>
-            <Table size="small" rowKey="id" pagination={false} dataSource={equip.data?.afetacoes ?? []} style={{ marginTop: 8 }}
+            <Table scroll={scrollTabela()} size="small" rowKey="id" pagination={false} dataSource={equip.data?.afetacoes ?? []} style={{ marginTop: 8 }}
               columns={[
                 { title: 'Activo', key: 'a', render: (_, f) => `${f.ativo_codigo ?? `#${f.ativo_imobilizado_id}`}${f.ativo_descricao ? ` — ${f.ativo_descricao}` : ''}` },
                 { title: 'De', dataIndex: 'data_inicio', render: formatarData },
@@ -89,6 +96,7 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
       <ModalHoras projectoId={projecto.id} aberto={novaHora} aoFechar={() => setNovaHora(false)} />
       <ModalEquipamento projectoId={projecto.id} aberto={novoEquip} aoFechar={() => setNovoEquip(false)} />
     </Space>
+    </div>
   );
 }
 
@@ -97,13 +105,13 @@ function ModalHoras({ projectoId, aberto, aoFechar }: { projectoId: number; aber
   const accao = useAccao({ invalidar: [['projectos']], aoSucesso: () => aoFechar() });
   useEffect(() => { if (aberto) { form.resetFields(); form.setFieldsValue({ data: dayjs(), horas: 8 }); } }, [aberto, form]);
   return (
-    <Modal title="Registar horas" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title="Registar horas" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/projetos/${projectoId}/horas`, dados: { ...v, data: dataApi(v.data) } })}>
         <Form.Item name="colaborador_id" label="Colaborador (interno da equipa)" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
           <SeletorMembro projectoId={projectoId} apenasInternos valorColaborador />
         </Form.Item>
         <Form.Item name="tarefa_projeto_id" label="Tarefa" rules={[{ required: true, message: 'Escolha a tarefa.' }]}><SeletorTarefa projectoId={projectoId} /></Form.Item>
-        <Space>
+        <Space wrap>
           <Form.Item name="data" label="Data" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" /></Form.Item>
           <Form.Item name="horas" label="Horas" rules={[{ required: true }]}><InputNumber min={0.25} max={24} step={0.5} style={{ width: 120 }} /></Form.Item>
         </Space>
@@ -119,7 +127,7 @@ function ModalEquipamento({ projectoId, aberto, aoFechar }: { projectoId: number
   const c = Form.useWatch('custo_hora', form);
   useEffect(() => { if (aberto) { form.resetFields(); form.setFieldsValue({ data: dayjs(), horas: 8 }); } }, [aberto, form]);
   return (
-    <Modal title="Imputar uso de equipamento" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Imputar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title="Imputar uso de equipamento" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Imputar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/projetos/${projectoId}/equipamentos`, dados: { ...v, data: dataApi(v.data) } })}>
         <Form.Item name="ativo_imobilizado_id" label="Equipamento (activo)" rules={[{ required: true, message: 'Escolha o equipamento.' }]}><SeletorActivo apenasActivos /></Form.Item>
         <Form.Item name="tarefa_projeto_id" label="Tarefa" rules={[{ required: true, message: 'Escolha a tarefa.' }]}><SeletorTarefa projectoId={projectoId} /></Form.Item>

@@ -1,7 +1,8 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, Row, Select, Skeleton, Space, Table, Tag } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, Row, Select, Skeleton, Space, Table, Tag } from 'antd';
 import { ArrowLeftOutlined, CheckCircleTwoTone, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnsType } from 'antd/es/table';
+import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { dadosGuiaSaida } from './comum/impressao';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
@@ -10,13 +11,14 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
-import { EstadoTag, opcoesEstado } from '@/modulos/compras/comum/estados';
+import { EstadoTag, opcoesEstado, rotuloEstado } from '@/modulos/compras/comum/estados';
 import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/LinhasProdutos';
-import { NomeArmazem, NomeProduto, NomeTerceiro } from '@/modulos/compras/comum/referencias';
+import { NomeArmazem, NomeProduto, NomeTerceiro, useArmazens } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem } from '@/modulos/compras/comum/Seletores';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { accoesGuia, guiaGerida } from './comum/regras';
 import { TIPOS_GUIA, type GuiaSaida } from './comum/tipos';
+import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 
 /** Armazém › Guias de saída (ecrã armazem_guias): consumo interno, vendas ao balcão e guias de venda migradas. */
 export default function Guias() {
@@ -41,15 +43,18 @@ function ListaGuias() {
   const [armazem, setArmazem] = useState<number>();
   const [pesquisa, setPesquisa] = useState('');
   const [estado, setEstado] = useState<string>();
+  const pequeno = useEcraPequeno();
+  const armazens = useArmazens();
+  const nomeArmazem = (id: number | null | undefined) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? `#${id}` : '');
 
-  const colunas: ColumnsType<GuiaSaida> = [
+  const colunas: ColunaApi<GuiaSaida>[] = [
     { title: 'Guia', dataIndex: 'numero_documento', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Tipo', key: 'tipo', render: (_, r) => <Tag>{rotuloTipo(r)}</Tag> },
-    { title: 'Armazém', dataIndex: 'armazem_id', render: (v: number | null) => <NomeArmazem id={v} /> },
-    { title: 'Destino', key: 'destino', render: (_, r) => r.area_rececao || (r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} terceiro={r.terceiro} /> : '—') },
+    { title: 'Tipo', key: 'tipo', responsive: ['sm'], valorImpressao: (r) => rotuloTipo(r), render: (_, r) => <Tag>{rotuloTipo(r)}</Tag> },
+    { title: 'Armazém', dataIndex: 'armazem_id', responsive: ['md'], valorImpressao: (r) => nomeArmazem(r.armazem_id), render: (v: number | null) => <NomeArmazem id={v} /> },
+    { title: 'Destino', key: 'destino', responsive: ['md'], valorImpressao: (r) => r.area_rececao || r.terceiro?.nome?.trim() || (r.terceiro_id ? `#${r.terceiro_id}` : ''), render: (_, r) => r.area_rececao || (r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} terceiro={r.terceiro} /> : '—') },
     { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
-    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', render: (c: boolean | null) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
+    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', responsive: ['lg'], valorImpressao: (r) => (r.contabilizado ? 'Sim' : 'Não'), render: (c: boolean | null) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
   ];
 
   return (
@@ -60,17 +65,22 @@ function ListaGuias() {
         accoes={pode('armazem_guias_emitir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Guia de consumo</Button>}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <Input.Search placeholder="N.º ou destino" allowClear style={{ width: 240 }} onSearch={setPesquisa} />
-          <Select placeholder="Tipo" allowClear style={{ width: 200 }} value={tipo} onChange={setTipo} options={['CONSUMO', 'VENDA', 'BACK_TO_BACK'].map((t) => ({ value: t, label: TIPOS_GUIA[t] }))} />
-          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 220 }} value={armazem} onChange={setArmazem} />
+        <BarraFiltros>
+          <Input.Search placeholder="N.º ou destino" allowClear style={{ width: 240, maxWidth: '100%' }} onSearch={setPesquisa} />
+          <Select placeholder="Tipo" allowClear style={{ width: 200, maxWidth: '100%' }} value={tipo} onChange={setTipo} options={['CONSUMO', 'VENDA', 'BACK_TO_BACK'].map((t) => ({ value: t, label: TIPOS_GUIA[t] }))} />
+          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 220, maxWidth: '100%' }} value={armazem} onChange={setArmazem} />
           <Select placeholder="Estado" allowClear style={{ width: 170 }} value={estado} onChange={setEstado} options={opcoesEstado(['CONCLUIDO', 'ANULADA'])} />
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<GuiaSaida>
           url="/logistica/guias-saida"
           filtros={{ tipo, armazem_id: armazem, estado, pesquisa: pesquisa.trim() || undefined }}
           chaveConsulta={['logistica', 'guias']}
           columns={colunas}
+          size={pequeno ? 'small' : 'middle'}
+          impressao={{
+            titulo: 'Lista de guias de saída',
+            filtros: [tipo && `Tipo: ${TIPOS_GUIA[tipo] ?? tipo}`, !!armazem && `Armazém: ${nomeArmazem(armazem)}`, estado && `Estado: ${rotuloEstado(estado)}`, pesquisa.trim() && `Pesquisa: ${pesquisa.trim()}`],
+          }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
@@ -121,7 +131,7 @@ function EmitirGuia() {
             <Input.TextArea rows={2} />
           </Form.Item>
         </Card>
-        <Space>
+        <Space wrap>
           <Button type="primary" htmlType="submit" loading={emitir.isPending}>Emitir guia</Button>
           <Button onClick={() => navegar('..')}>Cancelar</Button>
         </Space>
@@ -137,6 +147,7 @@ function DetalheGuia() {
   const [modal, setModal] = useState<'anular' | 'descontabilizar' | null>(null);
   const consulta = useQuery({ queryKey: ['logistica', 'guia', id], queryFn: () => obter<GuiaSaida>(`/logistica/guias-saida/${id}`) });
   const accao = useAccao<GuiaSaida>({ invalidar: [['logistica']], aoSucesso: () => setModal(null) });
+  const armazens = useArmazens();
 
   if (consulta.isLoading) return <Skeleton active />;
   const g = consulta.data;
@@ -148,6 +159,7 @@ function DetalheGuia() {
       <CabecalhoPagina
         titulo={`Guia ${g.numero_documento}`}
         subtitulo={rotuloTipo(g)}
+        impressao={() => pedidoDocumentoComercial(dadosGuiaSaida(g, g.armazem_id ? armazens.data?.find((x) => x.id === g.armazem_id)?.nome ?? `#${g.armazem_id}` : null))}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -164,18 +176,18 @@ function DetalheGuia() {
       {g.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Guia anulada${g.motivo_anulacao ? `: ${g.motivo_anulacao}` : '.'}`} />}
       {!guiaGerida(g) && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Guia de venda: contabiliza-se e anula-se pela guia de remessa nas Vendas." />}
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Data">{formatarData(g.data)}</Descriptions.Item>
           <Descriptions.Item label="Armazém"><NomeArmazem id={g.armazem_id} /></Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={g.estado} /></Descriptions.Item>
           <Descriptions.Item label="Destino">{g.area_rececao || (g.terceiro_id ? <NomeTerceiro id={g.terceiro_id} terceiro={g.terceiro} /> : '—')}</Descriptions.Item>
           <Descriptions.Item label="Contabilização">{g.contabilizado ? `Contabilizada${g.numero_lan_contabilizacao ? ` (${g.numero_lan_contabilizacao})` : ''}` : 'Por contabilizar'}</Descriptions.Item>
           {g.criado_por && <Descriptions.Item label="Emitida por">{g.criado_por}</Descriptions.Item>}
-          {g.observacoes && <Descriptions.Item label="Observações" span={3}>{g.observacoes}</Descriptions.Item>}
+          {g.observacoes && <Descriptions.Item label="Observações" span="filled">{g.observacoes}</Descriptions.Item>}
         </Descriptions>
       </Card>
       <Card title="Artigos">
-        <Table
+        <Table scroll={scrollTabela()}
           rowKey="id"
           size="small"
           pagination={false}

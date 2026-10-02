@@ -4,6 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import type { ColunaApi } from '@/componentes/TabelaApi';
+import { pedidoTabela } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
@@ -12,6 +15,8 @@ import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaActivos, SeletorCategoria, useCategorias } from './comum/componentes';
 import { repartirValor, validarInventariacao } from './comum/regras';
 import type { AquisicoesPendentes, LinhaPendente } from './comum/tipos';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { somar } from '@/utilitarios/decimal';
 
 /** Activos › Aquisições pendentes (ecrã activos_pendentes): linhas 11/12 do Diário por inventariar e activos sem lançamento de compra. */
 export default function Pendentes() {
@@ -22,6 +27,29 @@ export default function Pendentes() {
   const d = q.data;
   const gerir = pode('activos_inventariar');
 
+  const colunas: ColunaApi<LinhaPendente>[] = [
+    { title: 'Data', dataIndex: 'data_documento', render: formatarData },
+    { title: 'Diário', dataIndex: 'diario', responsive: ['md'] },
+    { title: 'Documento', dataIndex: 'numero_documento' },
+    { title: 'N.º lanç.', dataIndex: 'numero_lan', responsive: ['lg'], render: (v) => v ?? '—' },
+    { title: 'Conta', dataIndex: 'codigo_conta' },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 240 },
+    { title: 'Fornecedor', dataIndex: 'terceiro', ellipsis: true, width: 200, responsive: ['md'], render: (v) => v ?? '—' },
+    { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor))) },
+    { title: 'Inventariado', dataIndex: 'inventariado', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
+    { title: 'Por inventariar', dataIndex: 'por_inventariar', align: 'right', render: (v) => <ValorKz valor={v} forte />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.por_inventariar))) },
+    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
+    {
+      title: '', key: 'acc', align: 'right',
+      render: (_, l) => gerir && (
+        <Space>
+          <Button size="small" type="primary" onClick={() => setInventariar(l)}>Inventariar</Button>
+          <Button size="small" icon={<LinkOutlined />} disabled={!d?.ativos_sem_lancamento.length} onClick={() => setLigar(l)}>Ligar</Button>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <>
       <CabecalhoPagina titulo="Aquisições pendentes" subtitulo="Lançamentos em contas 11/12 ainda não inventariados como activos" />
@@ -30,35 +58,15 @@ export default function Pendentes() {
         <Col xs={12} md={6}><Card size="small"><Statistic title="Valor por inventariar (Kz)" value={formatarKz(d?.total_por_inventariar)} /></Card></Col>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Activos sem lançamento" value={d?.ativos_sem_lancamento.length ?? 0} /></Card></Col>
       </Row>
-      <Card title="Linhas do Diário (contas 11/12)" style={{ marginBottom: 16 }}>
+      <Card title="Linhas do Diário (contas 11/12)" style={{ marginBottom: 16 }}
+        extra={<BotoesExportar tamanho="small" desactivado={!d?.linhas.length} obterPedido={() => pedidoTabela({ titulo: 'Aquisições pendentes de inventariação (contas 11/12)', colunas, linhas: d?.linhas ?? [], totais: 'Total' })} />}>
         <Table<LinhaPendente>
           rowKey="id"
           size="middle"
           loading={q.isFetching}
           dataSource={d?.linhas}
           scroll={{ x: 'max-content' }}
-          columns={[
-            { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-            { title: 'Diário', dataIndex: 'diario' },
-            { title: 'Documento', dataIndex: 'numero_documento' },
-            { title: 'N.º lanç.', dataIndex: 'numero_lan', render: (v) => v ?? '—' },
-            { title: 'Conta', dataIndex: 'codigo_conta' },
-            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 240 },
-            { title: 'Fornecedor', dataIndex: 'terceiro', ellipsis: true, width: 200, render: (v) => v ?? '—' },
-            { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> },
-            { title: 'Inventariado', dataIndex: 'inventariado', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
-            { title: 'Por inventariar', dataIndex: 'por_inventariar', align: 'right', render: (v) => <ValorKz valor={v} forte /> },
-            { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
-            {
-              title: '', key: 'acc', fixed: 'right', align: 'right',
-              render: (_, l) => gerir && (
-                <Space>
-                  <Button size="small" type="primary" onClick={() => setInventariar(l)}>Inventariar</Button>
-                  <Button size="small" icon={<LinkOutlined />} disabled={!d?.ativos_sem_lancamento.length} onClick={() => setLigar(l)}>Ligar</Button>
-                </Space>
-              ),
-            },
-          ]}
+          columns={colunas}
         />
       </Card>
       <Card title="Activos sem lançamento de compra">
@@ -67,6 +75,7 @@ export default function Pendentes() {
           size="small"
           loading={q.isFetching}
           dataSource={d?.ativos_sem_lancamento}
+          scroll={scrollTabela()}
           pagination={{ pageSize: 10 }}
           columns={[
             { title: 'Código', dataIndex: 'codigo' },
@@ -131,22 +140,22 @@ function ModalInventariar({ linha, aoFechar }: { linha: LinhaPendente | null; ao
       title={`Inventariar ${linha?.numero_documento ?? ''} — conta ${linha?.codigo_conta ?? ''}`}
       open={!!linha}
       onCancel={aoFechar}
-      width={1100}
+      width={larguraModal(1100)}
       okText={`Inventariar ${itens.length} activo(s)`}
       cancelText="Cancelar"
       okButtonProps={{ disabled: !valido }}
       confirmLoading={accao.isPending}
       onOk={() => accao.mutate({ url: `/ativos/aquisicoes-pendentes/${linha?.id}/inventariar`, dados: { itens: itens.map(({ chave: _c, ...r }) => ({ ...r, codigo: r.codigo || null })) } })}
-      destroyOnClose
+      destroyOnHidden
     >
       <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 12 }}>
-        <Space>
+        <Space wrap>
           <Typography.Text>Dividir em</Typography.Text>
           <InputNumber min={1} max={1000} value={partes} onChange={(v) => setPartes(v ?? 1)} style={{ width: 80 }} />
           <Button icon={<SplitCellsOutlined />} onClick={dividir}>unidades iguais</Button>
           <Button icon={<PlusOutlined />} onClick={() => setItens((s) => [...s, { chave: sequencia++, descricao: linha?.descricao ?? '', centro_custo_id: linha?.centro_custo_id ?? undefined }])}>Linha</Button>
         </Space>
-        <Space size="large">
+        <Space size="large" wrap>
           <span>Por inventariar: <ValorKz valor={linha?.por_inventariar} forte /></span>
           <span>Itens: <ValorKz valor={validacao.total} forte /></span>
           <span>Resto: <ValorKz valor={validacao.restante} forte /></span>

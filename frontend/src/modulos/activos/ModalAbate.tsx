@@ -11,6 +11,7 @@ import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorActivo } from './comum/componentes';
 import { resultadoAbate } from './comum/regras';
 import type { Activo, SimulacaoAbate } from './comum/tipos';
+import { COLUNAS_DESCRICOES, larguraModal } from '@/componentes/responsivo';
 
 interface Valores {
   ativo_imobilizado_id: number;
@@ -86,8 +87,8 @@ export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; acti
       title={activo ? `Abate / venda — ${activo.codigo} ${activo.descricao}` : 'Abate / venda de activo'}
       open={aberto}
       onCancel={aoFechar}
-      width={900}
-      destroyOnClose
+      width={larguraModal(900)}
+      destroyOnHidden
       footer={[
         <Button key="c" onClick={aoFechar}>Cancelar</Button>,
         <Button key="s" loading={aSimular} onClick={simular}>Simular lançamento</Button>,
@@ -150,7 +151,7 @@ export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; acti
               <Input maxLength={2000} />
             </Form.Item>
           </Col>
-          <Col span={24}>
+          <Col xs={24}>
             <Form.Item name="contabilizar" valuePropName="checked">
               <Checkbox>Contabilizar o abate (lançamento no diário AM)</Checkbox>
             </Form.Item>
@@ -166,7 +167,7 @@ export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; acti
       )}
       {simulacao && (
         <>
-          <Descriptions size="small" column={4} bordered style={{ marginBottom: 12 }}>
+          <Descriptions size="small" column={COLUNAS_DESCRICOES} bordered style={{ marginBottom: 12 }}>
             <Descriptions.Item label="Aquisição"><ValorKz valor={simulacao.valor_aquisicao} /></Descriptions.Item>
             <Descriptions.Item label="Amort. acumulada"><ValorKz valor={simulacao.amortizacao_acumulada} /></Descriptions.Item>
             <Descriptions.Item label="Valor líquido"><ValorKz valor={simulacao.valor_liquido} /></Descriptions.Item>

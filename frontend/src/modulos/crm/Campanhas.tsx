@@ -4,11 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter, enviar } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import { CHAVE_CRM, useConfigCRM, useFunis, useModelosEmail } from './comum/dados';
 import { abrirMailto, type Envio, type MensagemEmail } from './comum/tipos';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 type Destinatario = MensagemEmail & { conta: { id: number; nome: string; tipo: string }; tem_email: boolean };
 
@@ -81,31 +83,51 @@ export default function Campanhas() {
       />
       <Card size="small" style={{ marginBottom: 12 }}>
         <Flex gap={8} wrap align="center">
-          <Select placeholder="Modelo de email" style={{ width: 260 }} value={modelo} onChange={setModelo} loading={modelos.isLoading} options={(modelos.data ?? []).map((m) => ({ value: m.id, label: m.nome }))} />
+          <Select placeholder="Modelo de email" style={{ width: 260, maxWidth: '100%' }} value={modelo} onChange={setModelo} loading={modelos.isLoading} options={(modelos.data ?? []).map((m) => ({ value: m.id, label: m.nome }))} />
           <Select allowClear placeholder="Tipo de conta" style={{ width: 150 }} value={tipo} onChange={setTipo} options={[{ value: 'PROSPECT', label: 'Prospects' }, { value: 'CLIENTE', label: 'Clientes' }]} />
           <Select allowClear placeholder="Funil" style={{ width: 160 }} value={funil} onChange={(f) => { setFunil(f); setEtapa(undefined); }} options={(funis.data ?? []).map((f) => ({ value: f.id, label: f.nome }))} />
-          <Select allowClear placeholder="Com oportunidade na etapa" style={{ width: 220 }} disabled={!funil} value={etapa} onChange={setEtapa} options={etapas.map((e) => ({ value: e.id, label: e.nome }))} />
+          <Select allowClear placeholder="Com oportunidade na etapa" style={{ width: 220, maxWidth: '100%' }} disabled={!funil} value={etapa} onChange={setEtapa} options={etapas.map((e) => ({ value: e.id, label: e.nome }))} />
           <Select allowClear placeholder="Origem" style={{ width: 160 }} value={origem} onChange={setOrigem} options={(config.data?.origens ?? []).map((o) => ({ value: o, label: o }))} />
         </Flex>
       </Card>
       {!modelo ? (
         <Empty description="Escolha o modelo de email para ver os destinatários." />
       ) : (
-        <Row gutter={12}>
+        <Row gutter={[12, 12]}>
           <Col xs={24} xl={16}>
             <Card
               size="small"
               title={`Destinatários (${escolhidos.length} de ${lista.length})`}
               extra={
+                <Space wrap>
+                <BotoesExportar
+                  tamanho="small"
+                  desactivado={!lista.length}
+                  obterPedido={() => ({
+                    titulo: 'Destinatários da campanha de email',
+                    filtros: [modelos.data?.find((m) => m.id === modelo)?.nome && `Modelo: ${modelos.data?.find((m) => m.id === modelo)?.nome}`, `${lista.length} conta(s) · ${escolhidos.length} escolhida(s)`],
+                    conteudo: tabelaHtml({
+                      colunas: [
+                        { titulo: 'Conta', valor: (d: Destinatario) => d.conta.nome, quebrar: true },
+                        { titulo: 'Tipo', valor: (d) => (d.conta.tipo === 'CLIENTE' ? 'Cliente' : 'Prospect') },
+                        { titulo: 'Email', valor: (d) => d.para || 'sem email' },
+                        { titulo: 'Assunto', valor: (d) => d.assunto, quebrar: true },
+                        { titulo: 'Escolhido', valor: (d) => (escolhidos.includes(d.conta.id) ? 'Sim' : '') },
+                      ],
+                      linhas: lista,
+                    }),
+                  })}
+                />
                 <BotaoCsv<Destinatario>
                   nome="destinatarios_campanha"
                   linhas={lista}
                   colunas={[{ titulo: 'Conta', valor: (d) => d.conta.nome }, { titulo: 'Tipo', valor: (d) => d.conta.tipo }, { titulo: 'Email', valor: (d) => d.para }, { titulo: 'Assunto', valor: (d) => d.assunto }]}
                 />
+                </Space>
               }
             >
               {semEmail > 0 && <Alert type="warning" showIcon style={{ marginBottom: 8 }} message={`${semEmail} conta(s) sem email não podem receber a campanha.`} />}
-              <Table<Destinatario>
+              <Table<Destinatario> scroll={scrollTabela()}
                 size="small"
                 rowKey={(d) => d.conta.id}
                 loading={destinatarios.isFetching}
@@ -166,7 +188,7 @@ export default function Campanhas() {
           </Col>
         </Row>
       )}
-      <Modal open={!!ver} title={ver?.assunto} onCancel={() => setVer(null)} footer={null} width={640}>
+      <Modal open={!!ver} title={ver?.assunto} onCancel={() => setVer(null)} footer={null} width={larguraModal(640)}>
         <Typography.Paragraph type="secondary">Para: {ver?.para || '—'}</Typography.Paragraph>
         <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #f0f0f0', borderRadius: 6, padding: 12 }}>{ver?.corpo}</div>
       </Modal>

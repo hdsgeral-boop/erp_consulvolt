@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Empresa;
+use App\Services\Sistema\ServicoGestaoEmpresas;
 use Database\Seeders\E2E\E2ESeeder;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
@@ -26,5 +27,12 @@ final class PrepararE2ETest extends TestCase
     {
         $this->expectException(RuntimeException::class);
         (new E2ESeeder)->run();
+    }
+
+    #[Test]
+    public function logotipo_ficticio_da_empresa_demo_e_aceite_pelo_validador(): void
+    {
+        ServicoGestaoEmpresas::validarLogotipo(E2ESeeder::LOGOTIPO_DEMO);
+        $this->assertStringStartsWith('data:image/png;base64,', E2ESeeder::LOGOTIPO_DEMO);
     }
 }

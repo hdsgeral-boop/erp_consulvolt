@@ -5,6 +5,8 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 import { descarregar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { pares, tabelaHtml } from '@/componentes/impressao';
+import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -28,6 +30,63 @@ export default function Relatorios() {
   const resumo = consulta.data;
   const barras = useMemo(() => barrasMensais(resumo?.por_mes ?? []), [resumo]);
 
+  /** Mapa impresso: indicadores, facturação mensal, maiores clientes e pendentes (A4 retrato, salvo se não couber). */
+  const pedidoImpressao = () => {
+    if (!resumo) return null;
+    return {
+      titulo: 'Relatório de vendas',
+      periodo: `${formatarData(inicio)} a ${formatarData(fim)}`,
+      filtros: ['Facturas e facturas-recibo menos notas de crédito; anulados excluídos'],
+      conteudo: [
+        pares(
+          [
+            ['Vendas líquidas', `${formatarKz(resumo.liquido)} Kz`],
+            ['IVA liquidado', `${formatarKz(resumo.imposto)} Kz`],
+            ['Total com IVA', `${formatarKz(resumo.bruto)} Kz`],
+            ['A receber', `${formatarKz(resumo.a_receber)} Kz`],
+            ['Notas de crédito', `${formatarKz(resumo.notas_credito)} Kz`],
+            ['Documentos', resumo.documentos],
+          ],
+          3,
+        ),
+        tabelaHtml({
+          legenda: 'Facturação mensal',
+          colunas: [
+            { titulo: 'Mês', valor: (m: ResumoVendas['por_mes'][number]) => dayjs(`${m.mes}-01`).format('MM/YYYY') },
+            { titulo: 'Documentos', valor: (m) => m.documentos, formato: 'inteiro', somar: true },
+            { titulo: 'Líquido (Kz)', valor: (m) => m.liquido, formato: 'moeda', somar: true },
+            { titulo: 'Com IVA (Kz)', valor: (m) => m.bruto, formato: 'moeda', somar: true },
+          ],
+          linhas: resumo.por_mes,
+          totais: true,
+        }),
+        tabelaHtml({
+          legenda: 'Maiores clientes',
+          colunas: [
+            { titulo: 'Cliente', valor: (c: ResumoVendas['maiores_clientes'][number]) => c.nome, quebrar: true },
+            { titulo: 'NIF', valor: (c) => c.nif ?? '' },
+            { titulo: 'Docs.', valor: (c) => c.documentos, formato: 'inteiro' },
+            { titulo: 'Facturado (Kz)', valor: (c) => c.bruto, formato: 'moeda' },
+          ],
+          linhas: resumo.maiores_clientes,
+        }),
+        tabelaHtml({
+          legenda: 'Facturas pendentes mais recentes',
+          colunas: [
+            { titulo: 'Documento', valor: (d: ResumoVendas['pendentes'][number]) => d.numero_documento ?? `#${d.id}` },
+            { titulo: 'Data', valor: (d) => d.data_emissao, formato: 'data' },
+            { titulo: 'Cliente', valor: (d) => d.cliente?.nome ?? '', quebrar: true },
+            { titulo: 'Vencimento', valor: (d) => d.data_vencimento, formato: 'data' },
+            { titulo: 'Total (Kz)', valor: (d) => d.total_bruto, formato: 'moeda' },
+            { titulo: 'Pendente (Kz)', valor: (d) => d.valor_pendente, formato: 'moeda', somar: true },
+          ],
+          linhas: resumo.pendentes,
+          totais: true,
+        }),
+      ].join(''),
+    };
+  };
+
   /** Valida primeiro (JSON: erros e avisos legíveis) e só depois descarrega o ficheiro. */
   const exportarSaft = async () => {
     setAExportar(true);
@@ -49,6 +108,8 @@ export default function Relatorios() {
       <CabecalhoPagina
         titulo="Relatórios de vendas"
         subtitulo="Indicadores de facturação do período (facturas e facturas-recibo menos notas de crédito)"
+        impressao={podeResumo ? pedidoImpressao : undefined}
+        impressaoDesactivada={!resumo}
         accoes={
           <>
             <DatePicker.RangePicker format="DD/MM/YYYY" allowClear={false} value={periodo} onChange={(v) => v?.[0] && v?.[1] && setPeriodo([v[0], v[1]])} />
@@ -69,13 +130,13 @@ export default function Relatorios() {
         <Alert type="error" showIcon message="Não foi possível calcular os indicadores." description={consulta.error?.message} />
       ) : (
         <>
-          <Row gutter={16} style={{ marginBottom: 16 }}>
-            <Col xs={12} md={6}><Card><Statistic title="Vendas líquidas (Kz)" value={formatarKz(resumo.liquido)} /></Card></Col>
-            <Col xs={12} md={6}><Card><Statistic title="IVA liquidado (Kz)" value={formatarKz(resumo.imposto)} /></Card></Col>
-            <Col xs={12} md={6}><Card><Statistic title="A receber (Kz)" value={formatarKz(resumo.a_receber)} valueStyle={{ color: '#d48806' }} /></Card></Col>
-            <Col xs={12} md={6}><Card><Statistic title="Notas de crédito (Kz)" value={formatarKz(resumo.notas_credito)} valueStyle={{ color: '#cf1322' }} /></Card></Col>
-          </Row>
-          <Row gutter={16}>
+          <div className="erp-grelha-auto" style={{ marginBottom: 16 }}>
+            <Card><Statistic title="Vendas líquidas (Kz)" value={formatarKz(resumo.liquido)} /></Card>
+            <Card><Statistic title="IVA liquidado (Kz)" value={formatarKz(resumo.imposto)} /></Card>
+            <Card><Statistic title="A receber (Kz)" value={formatarKz(resumo.a_receber)} valueStyle={{ color: '#d48806' }} /></Card>
+            <Card><Statistic title="Notas de crédito (Kz)" value={formatarKz(resumo.notas_credito)} valueStyle={{ color: '#cf1322' }} /></Card>
+          </div>
+          <Row gutter={[16, 0]}>
             <Col xs={24} lg={12}>
               <Card title="Facturação mensal (com IVA)" style={{ marginBottom: 16 }}>
                 {barras.length === 0 ? (
@@ -83,9 +144,9 @@ export default function Relatorios() {
                 ) : (
                   barras.map((m) => (
                     <Flex key={m.mes} align="center" gap={12} style={{ marginBottom: 6 }}>
-                      <span style={{ width: 70 }}>{dayjs(`${m.mes}-01`).format('MM/YYYY')}</span>
-                      <Progress percent={m.percentagem} showInfo={false} status={m.negativo ? 'exception' : 'normal'} style={{ flex: 1, margin: 0 }} />
-                      <span style={{ width: 150, textAlign: 'right' }}>{formatarKz(m.bruto)}</span>
+                      <span style={{ flex: '0 0 64px' }}>{dayjs(`${m.mes}-01`).format('MM/YYYY')}</span>
+                      <Progress percent={m.percentagem} showInfo={false} status={m.negativo ? 'exception' : 'normal'} style={{ flex: 1, margin: 0, minWidth: 0 }} />
+                      <span style={{ flex: '0 0 auto', minWidth: 90, textAlign: 'right' }}>{formatarKz(m.bruto)}</span>
                     </Flex>
                   ))
                 )}
@@ -99,6 +160,7 @@ export default function Relatorios() {
                   size="small"
                   pagination={false}
                   dataSource={resumo.maiores_clientes}
+                  scroll={scrollTabela()}
                   columns={[
                     { title: 'Cliente', dataIndex: 'nome' },
                     { title: 'Docs.', dataIndex: 'documentos', align: 'right' },
@@ -114,11 +176,12 @@ export default function Relatorios() {
               size="small"
               pagination={false}
               dataSource={resumo.pendentes}
+              scroll={scrollTabela()}
               columns={[
                 { title: 'Documento', dataIndex: 'numero_documento' },
                 { title: 'Data', dataIndex: 'data_emissao', render: formatarData },
                 { title: 'Cliente', key: 'cliente', render: (_, d) => d.cliente?.nome ?? (d.cliente ? `#${d.cliente.id}` : '—') },
-                { title: 'Vencimento', dataIndex: 'data_vencimento', render: formatarData },
+                { title: 'Vencimento', dataIndex: 'data_vencimento', responsive: ['md'], render: formatarData },
                 { title: 'Pendente (Kz)', dataIndex: 'valor_pendente', align: 'right', render: (v: string) => formatarKz(v) },
               ]}
             />

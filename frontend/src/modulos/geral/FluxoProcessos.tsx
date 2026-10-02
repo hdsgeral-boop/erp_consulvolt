@@ -1,10 +1,12 @@
 import { Alert, Badge, Button, Card, Col, Collapse, Descriptions, Drawer, Empty, Flex, Input, List, Progress, Row, Select, Skeleton, Space, Steps, Tabs, Tag, Typography } from 'antd';
 import { RightOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import { BarraFiltros, larguraGaveta } from '@/componentes/responsivo';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { GraficoBarras } from '@/componentes/graficos/Graficos';
@@ -101,7 +103,7 @@ export default function FluxoProcessos() {
       {fluxos.length === 0 ? (
         <Empty description="Não tem acesso a nenhum fluxo (cada fluxo exige também a consulta do módulo de origem)." />
       ) : (
-        <Tabs destroyInactiveTabPane items={fluxos.map((f) => ({ key: f.id, label: f.tem_actividade ? f.nome : <Typography.Text type="secondary">{f.nome}</Typography.Text>, children: <Fluxo fluxo={f} /> }))} />
+        <Tabs destroyOnHidden items={fluxos.map((f) => ({ key: f.id, label: f.tem_actividade ? f.nome : <Typography.Text type="secondary">{f.nome}</Typography.Text>, children: <Fluxo fluxo={f} /> }))} />
       )}
     </>
   );
@@ -208,7 +210,7 @@ function Fluxo({ fluxo }: { fluxo: FluxoResumoLista }) {
       )}
 
       <Card size="small" title={`Processos${etapa ? ` — ${nomeEtapa(etapa)}` : ''}`}>
-        <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+        <BarraFiltros>
           <Input.Search placeholder="Pesquisar n.º, entidade…" allowClear style={{ width: 280 }} onSearch={setPesquisa} />
           <Select
             allowClear
@@ -224,19 +226,23 @@ function Fluxo({ fluxo }: { fluxo: FluxoResumoLista }) {
             ]}
           />
           <Select allowClear placeholder="Etapa" style={{ width: 220 }} value={etapa} onChange={setEtapa} options={fluxo.etapas.map((e) => ({ value: e.id, label: e.nome }))} />
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<ProcessoLista>
           url={`/gestao/fluxos/${fluxo.id}/processos`}
           chaveConsulta={['gestao', 'fluxos', fluxo.id, 'processos']}
           filtros={{ etapa, estado, pesquisa }}
+          impressao={{
+            titulo: `Processos · ${fluxo.nome}`,
+            filtros: [etapa && `Etapa: ${nomeEtapa(etapa)}`, estado && `Estado: ${({ em_curso: 'Em curso', bloqueado: 'Bloqueados', com_pendencias: 'Com pendências', concluido: 'Concluídos' } as Record<string, string>)[estado] ?? estado}`, pesquisa && `Pesquisa: ${pesquisa}`],
+          }}
           rowKey="chave"
           size="small"
           onRow={(p) => ({ onClick: () => setAberto(p.chave), style: { cursor: 'pointer' } })}
           columns={[
             { title: 'Processo', dataIndex: 'titulo', render: (v: string, p) => (<><strong>{v}</strong>{p.subtitulo && <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{p.subtitulo}</div>}</>) },
-            { title: 'Data', dataIndex: 'data', render: formatarData, width: 110 },
+            { title: 'Data', dataIndex: 'data', render: formatarData, width: 110, responsive: ['md'] },
             { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string | null) => formatarKz(v) },
-            { title: 'Pendente', dataIndex: 'valor_pendente', align: 'right', render: (v: string | null) => (v && Number(v) ? <Typography.Text type="warning">{formatarKz(v)}</Typography.Text> : '—') },
+            { title: 'Pendente', dataIndex: 'valor_pendente', align: 'right', responsive: ['md'], render: (v: string | null) => (v && Number(v) ? <Typography.Text type="warning">{formatarKz(v)}</Typography.Text> : '—') },
             {
               title: 'Etapa actual',
               dataIndex: 'etapa_actual_nome',
@@ -249,10 +255,11 @@ function Fluxo({ fluxo }: { fluxo: FluxoResumoLista }) {
                 </Space>
               ),
             },
-            { title: 'Progresso', key: 'p', width: 140, render: (_, p) => <Progress percent={Math.round((p.concluidas / Math.max(1, p.total_etapas)) * 100)} size="small" status={p.bloqueado ? 'exception' : undefined} format={() => `${p.concluidas}/${p.total_etapas}`} /> },
+            { title: 'Progresso', key: 'p', width: 140, responsive: ['lg'], valorImpressao: (p) => `${p.concluidas}/${p.total_etapas}${p.bloqueado ? ' (bloqueado)' : ''}`, render: (_, p) => <Progress percent={Math.round((p.concluidas / Math.max(1, p.total_etapas)) * 100)} size="small" status={p.bloqueado ? 'exception' : undefined} format={() => `${p.concluidas}/${p.total_etapas}`} /> },
             {
               title: 'Alertas',
               key: 'a',
+              valorImpressao: (p) => [p.n_erros ? `${p.n_erros} erro(s)` : '', p.n_avisos ? `${p.n_avisos} aviso(s)` : ''].filter(Boolean).join(' · '),
               render: (_, p) => (
                 <Space size={4}>
                   {p.n_erros > 0 && <Badge count={p.n_erros} color="red" title="Erros" />}
@@ -277,13 +284,22 @@ function DetalheDoProcesso({ fluxo, chave, aoFechar }: { fluxo: FluxoResumoLista
     enabled: !!chave,
   });
   const d = q.data;
+  const refDetalhe = useRef<HTMLDivElement>(null);
   return (
-    <Drawer open={!!chave} onClose={aoFechar} width={760} title={d ? `${d.titulo} — ${fluxo.nome}` : 'Processo'} destroyOnClose>
+    <Drawer
+      open={!!chave}
+      onClose={aoFechar}
+      width={larguraGaveta(760)}
+      title={d ? `${d.titulo} — ${fluxo.nome}` : 'Processo'}
+      destroyOnHidden
+      extra={d && <BotoesExportar tamanho="small" obterPedido={() => refDetalhe.current && { titulo: `${d.titulo} — ${fluxo.nome}`, subtitulo: d.subtitulo, conteudo: refDetalhe.current }} />}
+    >
       {q.isLoading || !d ? (
         <Skeleton active />
       ) : (
+        <div ref={refDetalhe}>
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
-          <Descriptions size="small" column={2} bordered>
+          <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
             <Descriptions.Item label="Descrição" span={2}>{d.subtitulo ?? '—'}</Descriptions.Item>
             <Descriptions.Item label="Data">{formatarData(d.data)}</Descriptions.Item>
             <Descriptions.Item label="Progresso">{d.concluidas}/{d.total_etapas} etapas{d.bloqueado && <Tag color="red" style={{ marginLeft: 8 }}>Bloqueado</Tag>}</Descriptions.Item>
@@ -304,7 +320,7 @@ function DetalheDoProcesso({ fluxo, chave, aoFechar }: { fluxo: FluxoResumoLista
               return {
                 status: est.passo,
                 title: (
-                  <Space>
+                  <Space wrap>
                     {e.nome}
                     <Tag color={est.cor}>{est.rotulo}</Tag>
                     {et?.narrativa?.quem && <Typography.Text type="secondary" style={{ fontSize: 12 }}>{et.narrativa.quem}</Typography.Text>}
@@ -351,6 +367,7 @@ function DetalheDoProcesso({ fluxo, chave, aoFechar }: { fluxo: FluxoResumoLista
             })}
           />
         </Space>
+        </div>
       )}
     </Drawer>
   );

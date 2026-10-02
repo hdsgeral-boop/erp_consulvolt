@@ -6,11 +6,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
-import { EstadoPOS, opcoesEstadoPOS } from '../comum/estados';
+import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { BarraSessao, useTerminalDeTrabalho } from '../comum/SessaoTerminal';
 import { Checkout } from './Checkout';
 import { DetalheEstadia, ModalCheckin } from './Estadia';
@@ -30,7 +32,7 @@ export default function Hotelaria() {
         <Skeleton active />
       ) : (
         <Tabs
-          destroyInactiveTabPane
+          destroyOnHidden
           items={[
             { key: 'mapa', label: 'Mapa de quartos', children: <Mapa terminalId={trabalho.terminalId} terminal={trabalho.terminal} /> },
             { key: 'estadias', label: 'Estadias', children: <ListaEstadias terminal={trabalho.terminal} /> },
@@ -69,11 +71,19 @@ function Mapa({ terminalId, terminal }: { terminalId: number | undefined; termin
   return (
     <>
       <Flex justify="space-between" wrap gap={8} style={{ marginBottom: 12 }}>
-        <Space>
+        <Space wrap>
           <Badge status="success" text={`${contagem.livres} livre(s)`} />
           <Badge status="error" text={`${contagem.ocupados} ocupado(s)`} />
           {contagem.atrasados > 0 && <Badge status="warning" text={`${contagem.atrasados} com saída atrasada`} />}
         </Space>
+        <BotoesExportar
+          tamanho="small"
+          obterPedido={() => ({
+            titulo: 'Mapa de quartos',
+            filtros: [`${contagem.livres} livre(s) · ${contagem.ocupados} ocupado(s)${contagem.atrasados ? ` · ${contagem.atrasados} com saída atrasada` : ''}`],
+            conteudo: documentoMapaQuartos(quartos.data ?? []),
+          })}
+        />
         {podeCheckout && seleccionados.length > 0 && (
           <Button type="primary" icon={<LogoutOutlined />} onClick={() => setCheckout(seleccionados)}>
             Check-out de {seleccionados.length} quarto(s)
@@ -168,10 +178,10 @@ function ListaEstadias({ terminal }: { terminal: ReturnType<typeof useTerminalDe
   const [aberta, setAberta] = useState<number | null>(null);
   return (
     <>
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <BarraFiltros>
         <Select allowClear placeholder="Estado" style={{ width: 160 }} value={estado} onChange={setEstado} options={opcoesEstadoPOS(['ABERTA', 'FECHADA', 'ANULADA'])} />
         <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-      </Flex>
+      </BarraFiltros>
       <Alert
         type="info"
         showIcon
@@ -182,15 +192,20 @@ function ListaEstadias({ terminal }: { terminal: ReturnType<typeof useTerminalDe
         url="/pos/hotelaria/estadias"
         chaveConsulta={['pos', 'hotelaria', 'estadias']}
         filtros={{ estado, de: dataApi(periodo?.[0]), ate: dataApi(periodo?.[1]) }}
+        impressao={{
+          titulo: 'Estadias',
+          periodo: periodo?.[0] && periodo[1] ? `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}` : undefined,
+          filtros: [`Estado: ${estado ? rotuloEstadoPOS(estado) : 'Todos'}`],
+        }}
         onRow={(e) => ({ onClick: () => setAberta(e.id), style: { cursor: 'pointer' } })}
         columns={[
           { title: 'Quarto', dataIndex: 'nome_quarto' },
           { title: 'Hóspede', dataIndex: 'nome_hospede' },
-          { title: 'Entrada', dataIndex: 'entrada_em', render: (v) => formatarDataHora(v) },
+          { title: 'Entrada', dataIndex: 'entrada_em', render: (v) => formatarDataHora(v), responsive: ['md'] },
           { title: 'Saída', render: (_, e) => formatarDataHora(e.saida_em ?? e.saida_prevista_em) },
-          { title: 'Modalidade', render: (_, e) => `${e.modo === 'HORA' ? 'Hora' : 'Diária'} × ${Number(e.quantidade_final ?? e.quantidade)}` },
+          { title: 'Modalidade', responsive: ['md'], render: (_, e) => `${e.modo === 'HORA' ? 'Hora' : 'Diária'} × ${Number(e.quantidade_final ?? e.quantidade)}` },
           { title: 'Preço', dataIndex: 'preco_unitario', align: 'right', render: (v) => formatarKz(v) },
-          { title: 'Factura', dataIndex: 'numero_venda', render: (v) => v ?? '—' },
+          { title: 'Factura', dataIndex: 'numero_venda', render: (v) => v ?? '—', responsive: ['lg'] },
           { title: 'Estado', dataIndex: 'estado', render: (v) => <EstadoPOS estado={v} /> },
         ]}
       />
@@ -209,6 +224,7 @@ function Tarifas() {
       <Table<Quarto>
         rowKey="produto_id"
         size="small"
+        scroll={scrollTabela()}
         pagination={false}
         loading={quartos.isFetching}
         dataSource={quartos.data}
@@ -224,7 +240,7 @@ function Tarifas() {
                 min={0}
                 precision={campo === 'horas_minimas' ? 1 : 2}
                 decimalSeparator=","
-                style={{ width: 130 }}
+                style={{ width: 130, maxWidth: '100%' }}
                 value={edicao[q.produto_id]?.[campo] ?? Number(q[campo])}
                 onChange={(v) => setEdicao((e) => ({ ...e, [q.produto_id]: { ...e[q.produto_id], [campo]: v } }))}
               />
@@ -256,4 +272,22 @@ function Tarifas() {
       />
     </>
   );
+}
+
+/** Mapa de quartos (ocupação actual) para impressão. */
+export function documentoMapaQuartos(quartos: Quarto[]): string {
+  return tabelaHtml<Quarto>({
+    linhas: quartos,
+    colunas: [
+      { titulo: 'Código', valor: (q) => q.codigo },
+      { titulo: 'Quarto', valor: (q) => q.nome },
+      { titulo: 'Situação', valor: (q) => (!q.estadia ? 'Livre' : q.estadia.atrasado ? 'Ocupado (saída atrasada)' : 'Ocupado') },
+      { titulo: 'Hóspede', valor: (q) => q.estadia?.nome_hospede ?? '' },
+      { titulo: 'Saída prevista', valor: (q) => (q.estadia ? formatarDataHora(q.estadia.saida_prevista_em) : '') },
+      { titulo: 'Diária', valor: (q) => q.preco_por_dia, formato: 'moeda' },
+      { titulo: 'Hora', valor: (q) => q.preco_por_hora, formato: 'moeda' },
+      { titulo: 'Em aberto', valor: (q) => q.estadia?.total_em_aberto ?? null, formato: 'moeda', somar: true },
+    ],
+    totais: true,
+  });
 }

@@ -25,10 +25,10 @@ export function Entrar() {
   };
 
   return (
-    <Flex align="center" justify="center" style={{ minHeight: '100vh', background: '#f0f2f5', padding: 16 }}>
-      <Card style={{ width: 380 }}>
-        <Flex vertical align="center" gap={8} style={{ marginBottom: 24 }}>
-          {logotipo.data?.logotipo ? <img src={logotipo.data.logotipo} alt="Logótipo" style={{ maxHeight: 72, maxWidth: 220 }} /> : null}
+    <main className="erp-pagina-entrada" style={{ background: '#f0f2f5' }}>
+      <Card style={{ width: '100%', maxWidth: 400 }} styles={{ body: { padding: 'clamp(20px, 5vw, 32px)' } }}>
+        <Flex vertical align="center" gap={8} style={{ marginBottom: 24, textAlign: 'center' }}>
+          {logotipo.data?.logotipo ? <img src={logotipo.data.logotipo} alt="Logótipo" style={{ maxHeight: 72, maxWidth: 'min(220px, 100%)', objectFit: 'contain' }} /> : null}
           <Typography.Title level={3} style={{ margin: 0 }}>
             ERP Consulvolt
           </Typography.Title>
@@ -38,16 +38,16 @@ export function Entrar() {
         {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}
         <Form layout="vertical" onFinish={submeter} requiredMark={false}>
           <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>
-            <Input prefix={<UserOutlined />} autoComplete="username" autoFocus />
+            <Input size="large" prefix={<UserOutlined />} autoComplete="username" autoFocus />
           </Form.Item>
           <Form.Item name="palavra_passe" label="Palavra-passe" rules={[{ required: true, message: 'Indique a palavra-passe.' }]}>
-            <Input.Password prefix={<LockOutlined />} autoComplete="current-password" />
+            <Input.Password size="large" prefix={<LockOutlined />} autoComplete="current-password" />
           </Form.Item>
-          <Button type="primary" htmlType="submit" block loading={aEntrar}>
+          <Button type="primary" htmlType="submit" block size="large" loading={aEntrar}>
             Entrar
           </Button>
         </Form>
       </Card>
-    </Flex>
+    </main>
   );
 }

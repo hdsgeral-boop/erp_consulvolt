@@ -5,6 +5,8 @@ import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { tabelaHtml } from '@/componentes/impressao';
+import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi } from '@/utilitarios/formatacao';
 import { useConfigCRM } from './comum/dados';
@@ -40,8 +42,40 @@ export default function AgendaComercial() {
       }),
   });
 
+  const [separador, setSeparador] = useState('agenda');
+  const tipos = config.data?.tipos_atividade ?? {};
+  /** Lista impressa das actividades (agenda: agrupada em atraso/hoje/próximos; todas: com os filtros actuais). */
+  const pedidoImpressao = () => {
+    type L = { grupo: string; a: Actividade };
+    const linhas: L[] =
+      separador === 'agenda'
+        ? [
+            ...(agenda.data?.em_atraso ?? []).map((a) => ({ grupo: 'Em atraso', a })),
+            ...(agenda.data?.hoje ?? []).map((a) => ({ grupo: 'Hoje', a })),
+            ...(agenda.data?.proximos ?? []).map((a) => ({ grupo: `Próximos ${dias} dias`, a })),
+          ]
+        : (todas.data?.itens ?? []).map((a) => ({ grupo: '', a }));
+    return {
+      titulo: separador === 'agenda' ? 'Agenda comercial' : 'Actividades comerciais',
+      filtros: [responsavel ? `Responsável: ${responsavel}` : 'Todos os responsáveis', separador === 'todas' && filtros.estado && `Estado: ${filtros.estado.toLowerCase()}`, separador === 'todas' && filtros.tipo && `Tipo: ${tipos[filtros.tipo] ?? filtros.tipo}`],
+      conteudo: tabelaHtml({
+        colunas: [
+          { titulo: 'Data prevista', valor: (l: L) => (l.a.data_prevista ? formatarDataHora(l.a.data_prevista) : '') },
+          { titulo: 'Tipo', valor: (l) => tipos[l.a.tipo] ?? l.a.tipo },
+          { titulo: 'Actividade', valor: (l) => l.a.titulo ?? '', quebrar: true },
+          { titulo: 'Conta / oportunidade', valor: (l) => [l.a.conta_crm?.nome, l.a.oportunidade_crm?.titulo].filter(Boolean).join(' · '), quebrar: true },
+          { titulo: 'Responsável', valor: (l) => l.a.responsavel ?? '' },
+          { titulo: 'Situação', valor: (l) => (l.a.concluida ? `Concluída${l.a.resultado ? ` — ${l.a.resultado}` : ''}` : l.a.vencida ? 'Vencida' : 'Pendente'), quebrar: true },
+        ],
+        linhas,
+        agrupar: separador === 'agenda' ? { chave: (l) => l.grupo } : undefined,
+        vazio: 'Sem actividades.',
+      }),
+    };
+  };
+
   const bloco = (titulo: string, lista: Actividade[] | undefined, cor: string) => (
-    <Card size="small" title={<Space>{titulo}<Badge count={lista?.length ?? 0} color={cor} showZero /></Space>} style={{ height: '100%' }} loading={agenda.isLoading}>
+    <Card size="small" title={<Space wrap>{titulo}<Badge count={lista?.length ?? 0} color={cor} showZero /></Space>} style={{ height: '100%' }} loading={agenda.isLoading}>
       <ListaActividades actividades={lista ?? []} podeEditar={editar} aoEditar={setActividade} vazio="Nada agendado." />
     </Card>
   );
@@ -52,16 +86,19 @@ export default function AgendaComercial() {
         titulo="Agenda comercial"
         subtitulo="Chamadas, reuniões, emails e tarefas da equipa comercial"
         accoes={editar && <Button type="primary" icon={<PlusOutlined />} onClick={() => setActividade('nova')}>Nova actividade</Button>}
+        impressao={pedidoImpressao}
       />
       <Card size="small" style={{ marginBottom: 12 }}>
         <Flex gap={8} wrap align="center">
-          <Input placeholder="Responsável (vazio = todos)" allowClear style={{ width: 220 }} value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
+          <Input placeholder="Responsável (vazio = todos)" allowClear style={{ width: 220, maxWidth: '100%' }} value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
           <span>Próximos</span>
           <InputNumber min={0} max={365} value={dias} onChange={(v) => setDias(v ?? 7)} style={{ width: 80 }} />
           <span>dias</span>
         </Flex>
       </Card>
       <Tabs
+        activeKey={separador}
+        onChange={setSeparador}
         items={[
           {
             key: 'agenda',
@@ -85,7 +122,7 @@ export default function AgendaComercial() {
                     onChange={(v) => setFiltros({ ...filtros, estado: (v as string) || undefined })}
                     options={[{ value: 'PENDENTES', label: 'Pendentes' }, { value: 'VENCIDAS', label: 'Vencidas' }, { value: 'CONCLUIDAS', label: 'Concluídas' }, { value: '', label: 'Todas' }]}
                   />
-                  <Select allowClear placeholder="Tipo" style={{ width: 160 }} value={filtros.tipo} onChange={(t?: string) => setFiltros({ ...filtros, tipo: t })} options={Object.entries(config.data?.tipos_atividade ?? {}).map(([value, label]) => ({ value, label }))} />
+                  <Select allowClear placeholder="Tipo" style={{ width: 160, maxWidth: '100%' }} value={filtros.tipo} onChange={(t?: string) => setFiltros({ ...filtros, tipo: t })} options={Object.entries(config.data?.tipos_atividade ?? {}).map(([value, label]) => ({ value, label }))} />
                   <DatePicker.RangePicker format="DD/MM/YYYY" allowEmpty={[true, true]} value={filtros.datas ?? null} onChange={(v) => setFiltros({ ...filtros, datas: v })} />
                 </Flex>
                 <ListaActividades actividades={todas.data?.itens ?? []} podeEditar={editar} aoEditar={setActividade} vazio={todas.isLoading ? 'A carregar…' : 'Sem actividades.'} />

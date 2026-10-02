@@ -7,6 +7,8 @@ import 'dayjs/locale/pt';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessaoProvider } from '@/sessao/SessaoContexto';
 import { App } from '@/App';
+import { TEMA } from '@/estilos/tema';
+import '@/estilos/global.css';
 
 dayjs.locale('pt');
 
@@ -16,7 +18,7 @@ const cliente = new QueryClient({
 
 createRoot(document.getElementById('raiz')!).render(
   <StrictMode>
-    <ConfigProvider locale={ptPT} theme={{ token: { colorPrimary: '#1f5fae', borderRadius: 6 } }}>
+    <ConfigProvider locale={ptPT} theme={TEMA}>
       <AntApp>
         <QueryClientProvider client={cliente}>
           <SessaoProvider>

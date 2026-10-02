@@ -6,7 +6,8 @@ import { fileURLToPath, URL } from 'node:url';
 export default defineConfig({
   plugins: [react()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
-  server: { port: 5173, proxy: { '/api': 'http://127.0.0.1:8080' } },
+  // ERP_API_ALVO permite apontar o servidor de desenvolvimento para o ambiente E2E (http://127.0.0.1:8081, dados fictícios).
+  server: { port: 5173, proxy: { '/api': process.env.ERP_API_ALVO ?? 'http://127.0.0.1:8080' } },
   build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
   test: { environment: 'jsdom', globals: true, setupFiles: ['./src/configuracao-testes.ts'] },
 });

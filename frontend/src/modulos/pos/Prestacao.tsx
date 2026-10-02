@@ -6,14 +6,17 @@ import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { somar } from '@/utilitarios/decimal';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
-import { EstadoPOS, opcoesEstadoPOS } from './comum/estados';
-import { SeletorTerminal } from './comum/Filtros';
+import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from './comum/estados';
+import { SeletorTerminal, useFiltroTerminal } from './comum/Filtros';
 import { accoesItemPrestacao, podeAnularLiquidacao } from './comum/regras';
 import type { FolhaCaixa, ItemPrestacao, Liquidacao, SessaoPrestacao } from './comum/tipos';
 
@@ -31,7 +34,7 @@ export default function Prestacao() {
     <>
       <CabecalhoPagina titulo="Prestação de contas POS" subtitulo="Liquidação do numerário, TPA e transferências das sessões integradas" />
       <Tabs
-        destroyInactiveTabPane
+        destroyOnHidden
         items={[
           { key: 'pendentes', label: 'Por regularizar', children: <PorRegularizar /> },
           { key: 'liquidacoes', label: 'Liquidações', children: <ListaLiquidacoes /> },
@@ -46,6 +49,7 @@ function PorRegularizar() {
   const [terminal, setTerminal] = useState<number>();
   const [detalhe, setDetalhe] = useState<number | null>(null);
   const [registar, setRegistar] = useState<{ sessao: SessaoPrestacao; item: ItemPrestacao } | null>(null);
+  const filtroTerminal = useFiltroTerminal(terminal);
   const consulta = useQuery({ queryKey: ['pos', 'prestacao', terminal], queryFn: () => obter<Pendentes>('/pos/prestacao', { terminal_pos_id: terminal }) });
   useEffect(() => {
     if (consulta.error) notificarErro(consulta.error, 'Erro ao carregar a prestação de contas');
@@ -66,9 +70,17 @@ function PorRegularizar() {
 
   return (
     <>
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <BarraFiltros
+        accoes={
+          <BotoesExportar
+            tamanho="small"
+            desactivado={!consulta.data?.sessoes.length}
+            obterPedido={() => ({ titulo: 'Prestação de contas POS · por regularizar', filtros: [filtroTerminal], conteudo: documentoPorRegularizar(consulta.data?.sessoes ?? []) })}
+          />
+        }
+      >
         <SeletorTerminal value={terminal} onChange={setTerminal} />
-      </Flex>
+      </BarraFiltros>
       {consulta.isLoading ? (
         <Skeleton active />
       ) : !consulta.data?.sessoes.length ? (
@@ -95,7 +107,7 @@ function PorRegularizar() {
                   </Space>
                 }
                 extra={
-                  <Space>
+                  <Space wrap>
                     <Button size="small" icon={<EyeOutlined />} onClick={() => setDetalhe(s.id)}>
                       Sessão
                     </Button>
@@ -127,11 +139,11 @@ function TabelaItens({ sessao, aoRegistar }: { sessao: SessaoPrestacao; aoRegist
       pagination={false}
       rowKey="chave_item"
       dataSource={sessao.itens}
-      scroll={{ x: 'max-content' }}
+      scroll={scrollTabela()}
       columns={[
         { title: 'Natureza', dataIndex: 'natureza', render: (n) => <EstadoPOS estado={n} /> },
         { title: 'Meio', dataIndex: 'nome' },
-        { title: 'Transitória → liquidação', render: (_, i) => `${i.conta_transitoria ?? '—'} → ${i.conta_liquidacao ?? '—'}` },
+        { title: 'Transitória → liquidação', responsive: ['md'], render: (_, i) => `${i.conta_transitoria ?? '—'} → ${i.conta_liquidacao ?? '—'}` },
         {
           title: 'Detalhe',
           render: (_, i) =>
@@ -234,7 +246,7 @@ function ModalRegistar({ alvo, folhas, aoFechar }: { alvo: { sessao: SessaoPrest
   };
 
   return (
-    <Modal open={!!alvo} title={item ? `Prestar ${item.nome ?? item.natureza} · ${formatarKz(item.valor)} Kz` : ''} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!alvo} title={item ? `Prestar ${item.nome ?? item.natureza} · ${formatarKz(item.valor)} Kz` : ''} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
       {item && (
         <Form form={form} layout="vertical" onFinish={enviar}>
           <Alert
@@ -264,7 +276,7 @@ function ModalRegistar({ alvo, folhas, aoFechar }: { alvo: { sessao: SessaoPrest
           {item.natureza === 'TPA' && (
             <Flex gap={16} wrap>
               <Form.Item name="comissao" label={`Comissão (${item.comissao_pct ?? 0}% sugerido)`}>
-                <InputNumber<number> min={0} precision={2} decimalSeparator="," addonAfter="Kz" style={{ width: 200 }} />
+                <InputNumber<number> min={0} precision={2} decimalSeparator="," suffix="Kz" style={{ width: 200, maxWidth: '100%' }} />
               </Form.Item>
               <Form.Item name="comissao_deduzida" label="Deduzida no recebimento" valuePropName="checked">
                 <Switch />
@@ -288,7 +300,7 @@ function ListaLiquidacoes() {
 
   return (
     <>
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <BarraFiltros>
         <Select allowClear placeholder="Estado" style={{ width: 160 }} value={estado} onChange={setEstado} options={opcoesEstadoPOS(['REGISTADO', 'ANULADO'])} />
         <Select allowClear placeholder="Natureza" style={{ width: 170 }} value={natureza} onChange={setNatureza} options={opcoesEstadoPOS(['NUMERARIO', 'TPA', 'TRANSFERENCIA'])} />
         <Select
@@ -303,27 +315,37 @@ function ListaLiquidacoes() {
           ]}
         />
         <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-      </Flex>
+      </BarraFiltros>
       <TabelaApi<Liquidacao>
         url="/pos/liquidacoes"
         chaveConsulta={['pos', 'liquidacoes']}
         filtros={{ estado, natureza_registo: natureza, alvo, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
+        impressao={{
+          titulo: 'Liquidações POS',
+          periodo: periodo?.[0] && periodo[1] ? `${formatarData(dataApi(periodo[0]))} a ${formatarData(dataApi(periodo[1]))}` : undefined,
+          filtros: [
+            `Estado: ${estado ? rotuloEstadoPOS(estado) : 'Todos'}`,
+            natureza && `Natureza: ${rotuloEstadoPOS(natureza)}`,
+            alvo && `Destino: ${alvo === 'FOLHA_CAIXA' ? 'Folha de caixa' : 'Tesouraria'}`,
+          ],
+        }}
         columns={[
           { title: 'Data', dataIndex: 'data', render: (v) => formatarData(v) },
           { title: 'Z', dataIndex: 'numero_z' },
           { title: 'Natureza', dataIndex: 'natureza_registo', render: (v) => <EstadoPOS estado={v} /> },
           { title: 'Destino', dataIndex: 'alvo', render: (v) => (v === 'FOLHA_CAIXA' ? 'Folha de caixa' : 'Tesouraria') },
-          { title: 'Contas', render: (_, l) => `${l.conta_transitoria ?? '—'} → ${l.conta_destino ?? '—'}` },
+          { title: 'Contas', responsive: ['lg'], render: (_, l) => `${l.conta_transitoria ?? '—'} → ${l.conta_destino ?? '—'}` },
           { title: 'Referência', render: (_, l) => l.numero_documento ?? l.referencia ?? (l.documento_tesouraria_id ? `Doc. #${l.documento_tesouraria_id}` : l.movimento_caixa_id ? `Mov. #${l.movimento_caixa_id}` : '—') },
-          { title: 'Bruto', dataIndex: 'montante_bruto', align: 'right', render: (v) => formatarKz(v) },
-          { title: 'Comissão', dataIndex: 'comissao', align: 'right', render: (v) => formatarKz(v) },
-          { title: 'Líquido', dataIndex: 'montante_liquido', align: 'right', render: (v) => formatarKz(v) },
+          { title: 'Bruto', dataIndex: 'montante_bruto', align: 'right', render: (v) => formatarKz(v), responsive: ['md'], totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.montante_bruto))) },
+          { title: 'Comissão', dataIndex: 'comissao', align: 'right', render: (v) => formatarKz(v), responsive: ['md'], totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.comissao))) },
+          { title: 'Líquido', dataIndex: 'montante_liquido', align: 'right', render: (v) => formatarKz(v), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.montante_liquido))) },
           { title: 'Estado', dataIndex: 'estado', render: (v, l) => (l.cancelado_em ? <Tooltip title={`${l.cancelado_por ?? ''} · ${formatarDataHora(l.cancelado_em)}`}><span><EstadoPOS estado={v} /></span></Tooltip> : <EstadoPOS estado={v} />) },
-          { title: 'Por', dataIndex: 'criado_por' },
+          { title: 'Por', dataIndex: 'criado_por', responsive: ['lg'] },
           {
             title: '',
             key: 'accoes',
             fixed: 'right',
+            exportar: false,
             render: (_, l) =>
               podeAnularLiquidacao(pode, l) ? (
                 <Button size="small" danger icon={<StopOutlined />} onClick={() => setAnular(l)}>
@@ -344,4 +366,33 @@ function ListaLiquidacoes() {
       />
     </>
   );
+}
+
+/** Texto do detalhe de um item a prestar (igual ao do ecrã, sem cores). */
+function detalheItem(i: ItemPrestacao): string {
+  if (i.natureza === 'NUMERARIO') return `Sistema ${formatarKz(i.numerario_sistema)}${i.desvio_aplicado ? ` · desvio ${formatarKz(i.desvio_aplicado)}` : ''}${i.movimento === 'PAG' ? ' · pagamento' : ''}`;
+  if (i.natureza === 'TPA')
+    return `Talão ${formatarKz(i.valor_talao)}${i.diferenca && Number(i.diferenca) !== 0 ? ` · dif. ${formatarKz(i.diferenca)}` : ''} · comissão ${i.comissao_pct ?? 0}% ≈ ${formatarKz(i.comissao_sugerida)}`;
+  return `${i.numero_documento ?? ''} · comprovativo ${i.referencia ?? '—'}`;
+}
+
+/** Sessões por regularizar (agrupadas por Z) para impressão. */
+export function documentoPorRegularizar(sessoes: SessaoPrestacao[]): string {
+  const linhas = sessoes.flatMap((s) => s.itens.map((i) => ({ s, i })));
+  return tabelaHtml({
+    linhas,
+    totais: true,
+    agrupar: {
+      chave: (l) => `${l.s.numero_z ?? l.s.codigo_sessao} · ${l.s.codigo_terminal} — ${l.s.nome_terminal} · ${l.s.nome_operador ?? '—'} · ${formatarDataHora(l.s.fechado_em)}`,
+      subtotais: true,
+    },
+    colunas: [
+      { titulo: 'Natureza', valor: (l) => rotuloEstadoPOS(l.i.natureza) },
+      { titulo: 'Meio', valor: (l) => l.i.nome },
+      { titulo: 'Transitória → liquidação', valor: (l) => `${l.i.conta_transitoria ?? '—'} → ${l.i.conta_liquidacao ?? '—'}` },
+      { titulo: 'Detalhe', valor: (l) => detalheItem(l.i), quebrar: true },
+      { titulo: 'Valor', valor: (l) => l.i.valor, formato: 'moeda', somar: true },
+      { titulo: 'Estado', valor: (l) => (l.i.bloqueio ? `${rotuloEstadoPOS(l.i.estado)} (${l.i.bloqueio.mensagem})` : rotuloEstadoPOS(l.i.estado)), quebrar: true },
+    ],
+  });
 }

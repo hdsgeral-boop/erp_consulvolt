@@ -68,7 +68,7 @@ export function EditorLinhasDC({ nome = 'linhas', campos = {}, minimo = 1, prefi
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={2}>
-                  <Space>
+                  <Space wrap>
                     <Button
                       type="text"
                       icon={<CopyOutlined />}

@@ -1,0 +1,305 @@
+/*
+ * CSS global do ERP Consulvolt (importado em src/main.tsx).
+ *
+ * Objectivo: base responsiva comum a todos os ecrãs (telemóvel 360 px → ecrã grande 1920 px) sem tocar em cada
+ * componente. Os pontos de quebra são os do Ant Design 5 (iguais a src/componentes/responsivo/useEcra.ts):
+ *   xs < 576 · sm ≥ 576 · md ≥ 768 · lg ≥ 992 · xl ≥ 1200 · xxl ≥ 1600
+ *
+ * As regras que corrigem componentes do Ant Design usam o prefixo `:root` para ganharem em especificidade ao
+ * CSS-in-JS do Ant Design (que é injectado depois deste ficheiro e usa :where(), especificidade 0).
+ */
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  /* palavras/códigos/IBAN/e-mails longos quebram em vez de alargar o contentor (não altera a largura mínima das tabelas) */
+  overflow-wrap: break-word;
+}
+
+#raiz {
+  min-height: 100vh;
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+canvas {
+  max-width: 100%;
+}
+
+/* ── Layout principal ───────────────────────────────────────────────────────── */
+/* Nenhum descendente pode alargar a página: a coluna de conteúdo encolhe (min-width: 0) e, em último recurso,
+   desloca-se na horizontal dentro de si própria. */
+.erp-layout-coluna {
+  min-width: 0;
+}
+
+.erp-conteudo {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 24px;
+}
+
+@media (max-width: 767.98px) {
+  .erp-conteudo {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .erp-conteudo {
+    padding: 12px;
+  }
+}
+
+/* Menu lateral fixo (desktop): acompanha o ecrã e desloca-se por si quando tem muitos módulos. */
+.erp-sider {
+  position: sticky !important;
+  top: 0;
+  height: 100vh;
+  overflow: hidden auto;
+  scrollbar-width: thin;
+}
+
+.erp-cabecalho {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* Gaveta do menu em ecrãs pequenos */
+:root .erp-gaveta-menu .ant-drawer-body {
+  padding: 0;
+}
+
+/* Marca (logótipo + nome) no topo do menu e na barra superior */
+.erp-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.erp-marca-logotipo {
+  flex: none;
+  display: block;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.erp-marca-textos {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+/* ── Tabelas: deslocamento horizontal no próprio contentor ─────────────────── */
+:root .ant-table-wrapper {
+  max-width: 100%;
+  min-width: 0;
+}
+
+:root .ant-table-wrapper .ant-table {
+  overflow-x: auto;
+}
+
+/* Paginação das tabelas quebra linha em vez de sair do ecrã */
+:root .ant-table-wrapper .ant-table-pagination {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+/* Contentor genérico para conteúdo largo (Gantt, gráficos fixos, <table> HTML) — ver DeslocamentoHorizontal */
+.erp-deslocar-x {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Modais e gavetas nunca maiores do que o ecrã ───────────────────────────── */
+:root .ant-modal {
+  max-width: calc(100vw - 32px);
+}
+
+:root .ant-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+:root .ant-modal-footer > .ant-btn + .ant-btn,
+:root .ant-modal-footer > * + * {
+  margin-inline-start: 0 !important;
+}
+
+:root .ant-drawer-content-wrapper {
+  max-width: 100vw;
+}
+
+@media (max-width: 575.98px) {
+  :root .ant-modal {
+    max-width: calc(100vw - 16px);
+    margin-inline: auto;
+    top: 8px;
+    padding-bottom: 8px;
+  }
+
+  :root .ant-modal .ant-modal-content {
+    padding: 16px;
+  }
+
+  :root .ant-drawer .ant-drawer-body {
+    padding: 16px;
+  }
+
+  :root .erp-gaveta-menu .ant-drawer-body {
+    padding: 0;
+  }
+}
+
+/* ── Formulários ────────────────────────────────────────────────────────────── */
+/* (os formulários horizontais já empilham rótulo/campo em xs pelo próprio Ant Design) */
+@media (max-width: 575.98px) {
+  :root .ant-form-inline {
+    row-gap: 0;
+  }
+
+  :root .ant-form-inline .ant-form-item {
+    flex: 1 1 100%;
+    margin-inline-end: 0;
+  }
+
+  :root .ant-form-inline .ant-form-item .ant-picker,
+  :root .ant-form-inline .ant-form-item .ant-select,
+  :root .ant-form-inline .ant-form-item .ant-input-number {
+    width: 100% !important;
+  }
+}
+
+/* ── Descriptions: em xs, as linhas horizontais com moldura empilham rótulo sobre valor ── */
+/* :has() distingue o layout horizontal (rótulo e valor na mesma linha) do vertical (linhas separadas). */
+@media (max-width: 575.98px) {
+  :root .ant-descriptions-bordered .ant-descriptions-view tr:has(> th.ant-descriptions-item-label + td.ant-descriptions-item-content) {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  :root .ant-descriptions-bordered .ant-descriptions-view tr:has(> th.ant-descriptions-item-label + td.ant-descriptions-item-content) > th,
+  :root .ant-descriptions-bordered .ant-descriptions-view tr:has(> th.ant-descriptions-item-label + td.ant-descriptions-item-content) > td {
+    display: block;
+    flex: 1 1 100%;
+    width: 100%;
+    border-inline-end: 0;
+  }
+
+  :root .ant-descriptions .ant-descriptions-item-content {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ── Barra de filtros que quebra linha (BarraFiltros ou className="erp-barra-filtros") ── */
+.erp-barra-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.erp-barra-filtros > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 575.98px) {
+  .erp-barra-filtros-contentor,
+  .erp-barra-filtros-accoes {
+    width: 100%;
+  }
+
+  .erp-barra-filtros > * {
+    flex: 1 1 100%;
+  }
+
+  .erp-barra-filtros > .ant-select,
+  .erp-barra-filtros > .ant-picker,
+  .erp-barra-filtros > .ant-input,
+  .erp-barra-filtros > .ant-input-affix-wrapper,
+  .erp-barra-filtros > .ant-input-search,
+  .erp-barra-filtros > .ant-input-group-wrapper,
+  .erp-barra-filtros > .ant-input-number,
+  .erp-barra-filtros > .ant-space,
+  .erp-barra-filtros .ant-form-item {
+    width: 100% !important;
+  }
+
+  .erp-barra-filtros-accoes > .ant-btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* ── Utilitários ────────────────────────────────────────────────────────────── */
+/* Esconder/mostrar por largura (preferir JS — useEcra — quando o conteúdo é pesado) */
+@media (max-width: 767.98px) {
+  .erp-oculto-telemovel {
+    display: none !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .erp-so-telemovel {
+    display: none !important;
+  }
+}
+
+/* Texto numa linha com reticências (o elemento precisa de largura limitada, ex. num Flex com min-width: 0) */
+.erp-reticencias {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Grelha de cartões/indicadores que se adapta sozinha (KPI, atalhos): mínimo 220 px por cartão */
+.erp-grelha-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 16px;
+}
+
+/* Páginas de entrada (Entrar, Escolher empresa) */
+.erp-pagina-entrada {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+@media (max-width: 575.98px) {
+  .erp-pagina-entrada {
+    align-items: flex-start;
+    padding: 16px 12px;
+  }
+}

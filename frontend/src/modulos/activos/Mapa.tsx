@@ -5,13 +5,15 @@ import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, tabelaHtml, type ColunaImpressao } from '@/componentes/impressao';
+import { BarraFiltros } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
 import { somarColunas } from '@/utilitarios/decimal';
 import { useAccao } from '@/componentes/Accoes';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { EtiquetaActivos } from './comum/componentes';
+import { EtiquetaActivos, rotuloActivos } from './comum/componentes';
 import { codigoPeriodo, MESES_CURTOS, rotuloPeriodo, totaisMapa } from './comum/regras';
 import type { LinhaFiscal, LinhaMapa, MapaAmortizacoes, MapaFiscal } from './comum/tipos';
 
@@ -22,10 +24,10 @@ export default function Mapa() {
     <>
       <CabecalhoPagina
         titulo="Mapa das amortizações"
-        accoes={<InputNumber addonBefore="Ano" min={1900} max={2100} value={ano} onChange={(v) => v && setAno(v)} style={{ width: 150 }} />}
+        accoes={<InputNumber prefix="Ano" min={1900} max={2100} value={ano} onChange={(v) => v && setAno(v)} style={{ width: 150 }} />}
       />
       <Tabs
-        destroyInactiveTabPane
+        destroyOnHidden
         items={[
           { key: 'anual', label: 'Mapa anual', children: <MapaAnual ano={ano} /> },
           { key: 'fiscal', label: 'Mapa fiscal', children: <MapaFiscalAno ano={ano} /> },
@@ -52,6 +54,45 @@ function MapaAnual({ ano }: { ano: number }) {
   );
   const filtrado = linhas.length !== (q.data?.linhas.length ?? 0);
   const totais = filtrado ? totaisMapa(linhas) : q.data?.totais;
+
+  /** Mapa anual impresso: as 12 quotas mensais, com o total (filtrado) do ecrã — documento largo: A4/A3 paisagem automáticos. */
+  const imprimir = () => {
+    const tot = totais;
+    const colunasImp: ColunaImpressao<LinhaMapa>[] = [
+      { titulo: 'Código', valor: (l) => l.codigo, total: `Total${filtrado ? ' (filtrado)' : ''}` },
+      { titulo: 'Descrição', valor: (l) => l.descricao },
+      { titulo: 'Categoria', valor: (l) => l.categoria },
+      { titulo: 'Taxa', valor: (l) => (l.taxa ? `${Number(l.taxa).toLocaleString('pt-PT')}%` : ''), alinhamento: 'direita' },
+      { titulo: 'Aquisição', valor: (l) => l.data_aquisicao, formato: 'data' },
+      { titulo: 'Aquis. anos ant.', valor: (l) => l.aquisicao_anos_anteriores, formato: 'moeda', total: tot ? formatarKz(tot.aquisicao_anos_anteriores) : '' },
+      { titulo: 'Aquis. no ano', valor: (l) => l.aquisicao_ano, formato: 'moeda', total: tot ? formatarKz(tot.aquisicao_ano) : '' },
+      { titulo: 'Acum. anterior', valor: (l) => l.acumulado_anterior, formato: 'moeda', total: tot ? formatarKz(tot.acumulado_anterior) : '' },
+      ...MESES_CURTOS.map((nome, i): ColunaImpressao<LinhaMapa> => ({
+        titulo: nome, valor: (l) => l.meses[String(i + 1)]?.valor ?? '', formato: 'moeda', total: tot ? formatarKz(tot.meses[String(i + 1)]) : '',
+      })),
+      { titulo: 'Total do ano', valor: (l) => l.ano, formato: 'moeda', total: tot ? formatarKz(tot.ano) : '' },
+      { titulo: 'Acumulado', valor: (l) => l.acumulado, formato: 'moeda', total: tot ? formatarKz(tot.acumulado) : '' },
+      { titulo: 'Líquido', valor: (l) => l.liquido, formato: 'moeda', total: tot ? formatarKz(tot.liquido) : '' },
+      { titulo: 'Estado', valor: (l) => rotuloActivos(l.estado) },
+    ];
+    return {
+      titulo: 'Mapa das amortizações',
+      periodo: String(ano),
+      filtros: [texto && `Pesquisa: ${texto}`, categoria && `Categoria: ${categoria}`, estado && `Estado: ${rotuloActivos(estado)}`],
+      orientacao: 'paisagem' as const,
+      conteudo: tabelaHtml({ colunas: colunasImp, linhas, totais: true }),
+    };
+  };
+
+  const colunasCsv: Parameters<typeof BotaoCsv<LinhaMapa>>[0]['colunas'] = [
+          { titulo: 'Código', valor: (l) => l.codigo }, { titulo: 'Descrição', valor: (l) => l.descricao }, { titulo: 'Categoria', valor: (l) => l.categoria },
+          { titulo: 'Taxa', valor: (l) => l.taxa, numerico: true }, { titulo: 'Data aquisição', valor: (l) => l.data_aquisicao },
+          { titulo: 'Aquisição anos anteriores', valor: (l) => l.aquisicao_anos_anteriores, numerico: true }, { titulo: 'Aquisição no ano', valor: (l) => l.aquisicao_ano, numerico: true },
+          { titulo: 'Acumulado anterior', valor: (l) => l.acumulado_anterior, numerico: true },
+          ...MESES_CURTOS.map((m, i) => ({ titulo: m, valor: (l: LinhaMapa) => l.meses[String(i + 1)]?.valor ?? '', numerico: true })),
+          { titulo: 'Total do ano', valor: (l) => l.ano, numerico: true }, { titulo: 'Acumulado', valor: (l) => l.acumulado, numerico: true },
+          { titulo: 'Líquido', valor: (l) => l.liquido, numerico: true }, { titulo: 'Estado', valor: (l) => l.estado },
+        ];
 
   const colunas: ColumnsType<LinhaMapa> = [
     { title: 'Código', dataIndex: 'codigo', fixed: 'left', width: 110 },
@@ -87,23 +128,15 @@ function MapaAnual({ ano }: { ano: number }) {
 
   return (
     <Card>
-      <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 16 }}>
-        <Flex gap={8} wrap>
+      <BarraFiltros accoes={<>
+        <BotoesExportar desactivado={!linhas.length} obterPedido={imprimir} />
+        <BotaoCsv nome={`mapa-amortizacoes-${ano}`} linhas={linhas} colunas={colunasCsv} />
+      </>}>
           <Input.Search placeholder="Código ou descrição" allowClear onSearch={setTexto} style={{ width: 240 }} />
           <Select placeholder="Categoria" allowClear value={categoria} onChange={setCategoria} style={{ width: 220 }} options={categorias.map((c) => ({ value: c, label: c }))} />
           <Select placeholder="Estado" allowClear value={estado} onChange={setEstado} style={{ width: 140 }}
             options={[{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }, { value: 'ABATIDO', label: 'Abatido' }]} />
-        </Flex>
-        <BotaoCsv nome={`mapa-amortizacoes-${ano}`} linhas={linhas} colunas={[
-          { titulo: 'Código', valor: (l) => l.codigo }, { titulo: 'Descrição', valor: (l) => l.descricao }, { titulo: 'Categoria', valor: (l) => l.categoria },
-          { titulo: 'Taxa', valor: (l) => l.taxa, numerico: true }, { titulo: 'Data aquisição', valor: (l) => l.data_aquisicao },
-          { titulo: 'Aquisição anos anteriores', valor: (l) => l.aquisicao_anos_anteriores, numerico: true }, { titulo: 'Aquisição no ano', valor: (l) => l.aquisicao_ano, numerico: true },
-          { titulo: 'Acumulado anterior', valor: (l) => l.acumulado_anterior, numerico: true },
-          ...MESES_CURTOS.map((m, i) => ({ titulo: m, valor: (l: LinhaMapa) => l.meses[String(i + 1)]?.valor ?? '', numerico: true })),
-          { titulo: 'Total do ano', valor: (l) => l.ano, numerico: true }, { titulo: 'Acumulado', valor: (l) => l.acumulado, numerico: true },
-          { titulo: 'Líquido', valor: (l) => l.liquido, numerico: true }, { titulo: 'Estado', valor: (l) => l.estado },
-        ]} />
-      </Flex>
+      </BarraFiltros>
       <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
         Quotas a laranja: calculadas e ainda não integradas.{podeEditar ? ' Clique numa quota não integrada para a definir manualmente.' : ''}
       </Typography.Text>
@@ -143,7 +176,7 @@ function MapaAnual({ ano }: { ano: number }) {
         onOk={() => editar && quota.mutate({ metodo: 'put', url: '/ativos/amortizacoes/quota', dados: { ativo_imobilizado_id: editar.linha.ativo_imobilizado_id, periodo: codigoPeriodo(ano, editar.mes), valor: editar.valor ?? 0 } })}
       >
         <Typography.Paragraph type="secondary">A quota fica em rascunho até à integração do período. Valor 0 retira o rascunho.</Typography.Paragraph>
-        <InputNumber min={0} precision={2} style={{ width: 200 }} value={editar?.valor} onChange={(v) => editar && setEditar({ ...editar, valor: v })} addonAfter="Kz" autoFocus />
+        <InputNumber min={0} precision={2} style={{ width: 200 }} value={editar?.valor} onChange={(v) => editar && setEditar({ ...editar, valor: v })} suffix="Kz" autoFocus />
       </Modal>
     </Card>
   );
@@ -161,6 +194,32 @@ function MapaFiscalAno({ ano }: { ano: number }) {
     <Card>
       <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 16 }}>
         <Input.Search placeholder="Código, descrição ou conta" allowClear onSearch={setTexto} style={{ width: 280 }} />
+        <Flex gap={8} wrap>
+        <BotoesExportar desactivado={!linhas.length} obterPedido={() => ({
+          titulo: 'Mapa fiscal das amortizações',
+          periodo: String(ano),
+          filtros: texto ? [`Pesquisa: ${texto}`] : undefined,
+          orientacao: 'paisagem' as const,
+          conteudo: tabelaHtml<LinhaFiscal>({
+            linhas,
+            totais: true,
+            colunas: [
+              { titulo: 'Código', valor: (l) => l.codigo, total: `Total${filtrado ? ' (filtrado)' : ''}` },
+              { titulo: 'Descrição', valor: (l) => l.descricao },
+              { titulo: 'Conta', valor: (l) => l.conta },
+              { titulo: 'Aquisição', valor: (l) => mesAno(l.mes_aquisicao, l.ano_aquisicao) },
+              { titulo: 'Início utiliz.', valor: (l) => mesAno(l.mes_inicio_utilizacao, l.ano_inicio_utilizacao) },
+              { titulo: 'Valor de aquisição', valor: (l) => l.valor_aquisicao, formato: 'moeda', total: totais ? formatarKz(totais.valor_aquisicao) : '' },
+              { titulo: 'Anos de vida', valor: (l) => l.anos_vida, alinhamento: 'direita' },
+              { titulo: 'Taxa cat.', valor: (l) => (l.taxa_categoria ? `${Number(l.taxa_categoria).toLocaleString('pt-PT')}%` : ''), alinhamento: 'direita' },
+              { titulo: 'Taxa efectiva', valor: (l) => (l.taxa_efectiva ? `${Number(l.taxa_efectiva).toLocaleString('pt-PT')}%` : ''), alinhamento: 'direita' },
+              { titulo: 'Anteriores', valor: (l) => l.anteriores, formato: 'moeda', total: totais ? formatarKz(totais.anteriores) : '' },
+              { titulo: 'Do exercício', valor: (l) => l.exercicio, formato: 'moeda', total: totais ? formatarKz(totais.exercicio) : '' },
+              { titulo: 'Acumuladas', valor: (l) => l.acumuladas, formato: 'moeda', total: totais ? formatarKz(totais.acumuladas) : '' },
+              { titulo: 'Líquido', valor: (l) => l.liquido, formato: 'moeda', total: totais ? formatarKz(totais.liquido) : '' },
+            ],
+          }),
+        })} />
         <BotaoCsv nome={`mapa-fiscal-${ano}`} linhas={linhas} colunas={[
           { titulo: 'Código', valor: (l) => l.codigo }, { titulo: 'Descrição', valor: (l) => l.descricao }, { titulo: 'Conta', valor: (l) => l.conta },
           { titulo: 'Aquisição (mês/ano)', valor: (l) => mesAno(l.mes_aquisicao, l.ano_aquisicao) }, { titulo: 'Início de utilização', valor: (l) => mesAno(l.mes_inicio_utilizacao, l.ano_inicio_utilizacao) },
@@ -169,6 +228,7 @@ function MapaFiscalAno({ ano }: { ano: number }) {
           { titulo: 'Amortizações anteriores', valor: (l) => l.anteriores, numerico: true }, { titulo: 'Amortizações do exercício', valor: (l) => l.exercicio, numerico: true },
           { titulo: 'Amortizações acumuladas', valor: (l) => l.acumuladas, numerico: true }, { titulo: 'Valor líquido', valor: (l) => l.liquido, numerico: true },
         ]} />
+        </Flex>
       </Flex>
       <Table<LinhaFiscal>
         rowKey="ativo_imobilizado_id"

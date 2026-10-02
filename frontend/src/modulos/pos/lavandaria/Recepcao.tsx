@@ -3,6 +3,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { scrollTabela } from '@/componentes/responsivo';
 import { useAccao } from '@/componentes/Accoes';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { deCentimos, formatarCentimos, pagamentosParaApi, resumirPagamentos, type Pagamento } from '../comum/calculos';
@@ -157,16 +158,16 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
   return (
     <>
       {!sessaoId && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O terminal escolhido não tem sessão aberta: abra-a na frente de caixa para registar a recepção." />}
-      <Row gutter={16}>
+      <Row gutter={[16, 16]}>
         <Col xs={24} xl={16}>
           <Card size="small" title="Cliente e condições">
             <Flex gap={12} wrap align="center">
-              <SeletorTerceiro papel="CLIENTE" value={cliente} onChange={setCliente} style={{ width: 340 }} />
+              <SeletorTerceiro papel="CLIENTE" value={cliente} onChange={setCliente} style={{ width: 340, maxWidth: '100%' }} />
               <Radio.Group value={modo} onChange={(e) => setModo(e.target.value)} optionType="button">
                 <Radio value="ENTREGA">Facturar na entrega</Radio>
                 <Radio value="RECEPCAO">Facturar já</Radio>
               </Radio.Group>
-              <Space>
+              <Space wrap>
                 <Switch checked={urgente} onChange={setUrgente} /> Urgente {def && `(+${def.percentagem_urgencia}%)`}
               </Space>
             </Flex>
@@ -178,7 +179,7 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
               rowKey="chave"
               pagination={false}
               dataSource={linhas}
-              scroll={{ x: 'max-content' }}
+              scroll={scrollTabela()}
               columns={[
                 {
                   title: 'Peça',
@@ -233,9 +234,9 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
                 <Checkbox checked={d.ativa} onChange={(e) => set({ ...d, ativa: e.target.checked })} style={{ width: 90 }}>
                   {rotulo}
                 </Checkbox>
-                <Input disabled={!d.ativa} placeholder="Morada" style={{ width: 280 }} maxLength={500} value={d.morada} onChange={(e) => set({ ...d, morada: e.target.value })} />
+                <Input disabled={!d.ativa} placeholder="Morada" style={{ width: 280, maxWidth: '100%' }} maxLength={500} value={d.morada} onChange={(e) => set({ ...d, morada: e.target.value })} />
                 <DatePicker disabled={!d.ativa} format="DD/MM/YYYY" value={d.data ?? null} onChange={(v) => set({ ...d, data: v })} />
-                <InputNumber<number> disabled={!d.ativa} min={0} precision={2} placeholder={`Taxa (${taxa ?? '0'})`} addonAfter="Kz" style={{ width: 170 }} value={d.taxa ?? null} onChange={(v) => set({ ...d, taxa: v })} />
+                <InputNumber<number> disabled={!d.ativa} min={0} precision={2} placeholder={`Taxa (${taxa ?? '0'})`} suffix="Kz" style={{ width: 170, maxWidth: '100%' }} value={d.taxa ?? null} onChange={(v) => set({ ...d, taxa: v })} />
               </Flex>
             ))}
             <Input.TextArea rows={2} maxLength={2000} placeholder="Observações da ordem" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
@@ -249,9 +250,9 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
               Estimativa: o servidor calcula o preço, as taxas e o IVA. {def && `Consumidor Final: adiantamento mínimo de ${def.percentagem_adiantamento}%.`}
             </Typography.Paragraph>
             <Divider style={{ margin: '8px 0' }} />
-            <Flex gap={8} align="center" style={{ marginBottom: 8 }}>
+            <Flex gap={8} wrap align="center" style={{ marginBottom: 8 }}>
               <Typography.Text>Adiantamento:</Typography.Text>
-              <InputNumber<number> min={0} precision={2} decimalSeparator="," addonAfter="Kz" value={adiantamento / 100} onChange={(v) => setAdiantamento(Math.round((v ?? 0) * 100))} />
+              <InputNumber<number> min={0} precision={2} decimalSeparator="," suffix="Kz" value={adiantamento / 100} onChange={(v) => setAdiantamento(Math.round((v ?? 0) * 100))} />
               <Button size="small" onClick={() => setAdiantamento(total)}>
                 Total
               </Button>

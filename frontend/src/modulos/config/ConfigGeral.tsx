@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { descarregar, enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
@@ -97,7 +98,7 @@ function ResumoDaCopia({ r }: { r: ResumoCopia }) {
         <Descriptions.Item label="Destino">{r.empresa_destino.nome ?? (r.empresa_destino.id ? `Empresa #${r.empresa_destino.id}` : '—')}{r.empresa_destino.nif ? ` (NIF ${r.empresa_destino.nif})` : ''}</Descriptions.Item>
         <Descriptions.Item label="Linhas">{formatarNumero(r.importadas ?? r.linhas)} em {tabelas.length} tabela(s){r.ignoradas ? ` · ${r.ignoradas} ignorada(s)` : ''}</Descriptions.Item>
       </Descriptions>
-      <Table size="small" rowKey="tabela" dataSource={tabelas} pagination={tabelas.length > 8 ? { pageSize: 8, size: 'small' } : false} columns={[{ title: 'Tabela', dataIndex: 'tabela' }, { title: 'Linhas', dataIndex: 'n', align: 'right', render: formatarNumero }]} />
+      <Table size="small" rowKey="tabela" scroll={scrollTabela()} dataSource={tabelas} pagination={tabelas.length > 8 ? { pageSize: 8, size: 'small' } : false} columns={[{ title: 'Tabela', dataIndex: 'tabela' }, { title: 'Linhas', dataIndex: 'n', align: 'right', render: formatarNumero }]} />
     </>
   );
 }
@@ -156,12 +157,12 @@ function Importar() {
             </Form.Item>
           ) : (
             <Row gutter={8}>
-              <Col span={14}>
+              <Col xs={24} md={14}>
                 <Form.Item name="nome" label="Nome da nova empresa" rules={[{ required: true, message: 'Indique o nome.' }]}>
                   <Input maxLength={255} />
                 </Form.Item>
               </Col>
-              <Col span={10}>
+              <Col xs={24} sm={12} md={10}>
                 <Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }]}>
                   <Input maxLength={30} />
                 </Form.Item>
@@ -169,7 +170,7 @@ function Importar() {
             </Row>
           )}
         </Form>
-        <Space>
+        <Space wrap>
           <Button icon={<ImportOutlined />} disabled={!ficheiro} loading={executar.isPending} onClick={() => executar.mutate(true)}>
             Validar (simulação)
           </Button>
@@ -229,18 +230,18 @@ function Clonar() {
           <Select showSearch optionFilterProp="label" options={empresas.map((e) => ({ value: e.id, label: e.nome }))} />
         </Form.Item>
         <Row gutter={8}>
-          <Col span={14}>
+          <Col xs={24} md={14}>
             <Form.Item name="nome" label="Nome da nova empresa" rules={[{ required: true, message: 'Indique o nome.' }]}>
               <Input maxLength={255} />
             </Form.Item>
           </Col>
-          <Col span={10}>
+          <Col xs={24} sm={12} md={10}>
             <Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }]}>
               <Input maxLength={30} />
             </Form.Item>
           </Col>
         </Row>
-        <Space>
+        <Space wrap>
           <Button icon={<CopyOutlined />} loading={executar.isPending} onClick={() => executar.mutate(true)}>
             Simular
           </Button>

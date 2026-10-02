@@ -354,8 +354,10 @@ final class ServicoUtilizadores
     }
 
     /**
-     * Papel (compatibilidade com o legado, app_v2.js:3165): o Super Administrador mantém o papel; os outros recebem
-     * ADMINISTRADOR se o nome do perfil contiver "admin". Só um Super Administrador pode indicar o papel explicitamente.
+     * Papel explícito: só um Super Administrador o define. Sem indicação, um utilizador novo é UTILIZADOR e um existente
+     * mantém o seu papel. No legado (app_v2.js:3165) era ADMINISTRADOR quando o nome do perfil continha "admin" — um
+     * perfil «Administrativo» ou «Administração financeira» dava poderes de aprovação (Manutenção de dados): abandonado.
+     * Os papéis migrados mantêm-se (ETL).
      *
      * @param  array<string, mixed>  $d
      */
@@ -368,11 +370,8 @@ final class ServicoUtilizadores
 
             return (string) $d['papel'];
         }
-        if ($alvo?->eSuperAdministrador()) {
-            return Utilizador::PAPEL_SUPER_ADMINISTRADOR;
-        }
 
-        return $perfil && str_contains(ServicoPermissoes::norm((string) $perfil->nome), 'admin') ? Utilizador::PAPEL_ADMINISTRADOR : Utilizador::PAPEL_UTILIZADOR;
+        return $alvo?->papel ?: Utilizador::PAPEL_UTILIZADOR;
     }
 
     private function exigirPalavraPasse(string $palavraPasse): void

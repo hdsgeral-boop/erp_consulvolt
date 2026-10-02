@@ -1,4 +1,5 @@
 import type { ResultadoSalarial } from '../api';
+import { DeslocamentoHorizontal } from '@/componentes/responsivo';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { mesPorExtenso, numeroRecibo } from './regras';
 
@@ -44,6 +45,7 @@ export function ReciboSalario({ resultado, mesAno, colaborador, empresa, quebra 
         <div><span>Dias do contrato: </span>{formatarNumero(r.dias_contrato)}</div>
         <div><span>Dias trabalhados: </span>{formatarNumero(r.dias_trabalhados)}</div>
       </div>
+      <DeslocamentoHorizontal>
       <table className="rh-tabela-mapa">
         <thead>
           <tr>
@@ -88,6 +90,7 @@ export function ReciboSalario({ resultado, mesAno, colaborador, empresa, quebra 
           )}
         </tbody>
       </table>
+      </DeslocamentoHorizontal>
       <div className="rh-recibo-totais">
         <div>Bruto: <strong>{formatarKz(r.bruto)}</strong></div>
         <div>Base INSS: {formatarKz(r.base_inss)}</div>

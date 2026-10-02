@@ -9,6 +9,9 @@ import { BarraExecucao } from '../comum/componentes';
 import { tarefaAtrasada } from '../comum/regras';
 import type { ColunaKanban, Kanban, TarefaKanban } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { useRef } from 'react';
+import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
 
 /** Quadro Kanban configurável: arrastar um cartão para outra coluna (ou usar o menu do cartão) muda o estado da tarefa. */
 export function SeparadorKanban({ projecto, acc }: PropsSeparador) {
@@ -19,6 +22,7 @@ export function SeparadorKanban({ projecto, acc }: PropsSeparador) {
   const [sobre, setSobre] = useState<string | null>(null);
   const [configurar, setConfigurar] = useState(false);
   const podeMover = acc.execucao;
+  const refQuadro = useRef<HTMLDivElement>(null);
 
   const moverPara = (tarefa: number, coluna: string) => mover.mutate({ url: `/projetos/${projecto.id}/kanban/mover`, dados: { tarefa_id: tarefa, coluna } });
 
@@ -49,11 +53,11 @@ export function SeparadorKanban({ projecto, acc }: PropsSeparador) {
 
   const k = q.data;
   return (
-    <Card loading={q.isLoading} extra={acc.gerir && <Button icon={<SettingOutlined />} onClick={() => setConfigurar(true)}>Colunas</Button>}>
+    <Card loading={q.isLoading} extra={<Space wrap>{acc.gerir && <Button icon={<SettingOutlined />} onClick={() => setConfigurar(true)}>Colunas</Button>}<ImpressaoSeparador alvo={refQuadro} titulo="Quadro Kanban" projecto={projecto} orientacao="paisagem" /></Space>}>
       {k && k.por_mapear.length > 0 && (
         <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`${k.por_mapear.length} tarefa(s) sem coluna: ${k.por_mapear.map((t) => t.nome).join(', ')}`} />
       )}
-      <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
+      <div ref={refQuadro} className="erp-deslocar-x" style={{ display: 'flex', gap: 12, paddingBottom: 8 }}>
         {k?.colunas.map((c) => (
           <div
             key={c.id}
@@ -103,12 +107,12 @@ function ModalColunas({ aberto, projectoId, colunas, aoFechar }: { aberto: boole
   const valido = linhas.length > 0 && linhas.every((l) => /^[A-Z0-9_]{1,30}$/.test(l.id)) && new Set(linhas.map((l) => l.id)).size === linhas.length;
 
   return (
-    <Modal title="Colunas do Kanban" open={aberto} onCancel={aoFechar} width={760} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !valido }} confirmLoading={accao.isPending}
+    <Modal title="Colunas do Kanban" open={aberto} onCancel={aoFechar} width={larguraModal(760)} okText="Gravar" cancelText="Cancelar" okButtonProps={{ disabled: !valido }} confirmLoading={accao.isPending}
       onOk={() => accao.mutate({ metodo: 'put', url: `/projetos/${projectoId}/kanban/colunas`, dados: { colunas: linhas } })}>
       <Typography.Paragraph type="secondary">Cada coluna pode corresponder a um estado da tarefa: mover um cartão para essa coluna muda o estado.</Typography.Paragraph>
-      <Table<ColunaEditavel>
+      <Table<ColunaEditavel> scroll={scrollTabela()}
         size="small"
-        rowKey={(_, i) => String(i)}
+        rowKey={(l) => JSON.stringify(l)}
         pagination={false}
         dataSource={linhas}
         columns={[
@@ -119,7 +123,7 @@ function ModalColunas({ aberto, projectoId, colunas, aoFechar }: { aberto: boole
           { title: '', key: 'x', render: (_, __, i) => <Button size="small" danger icon={<DeleteOutlined />} disabled={linhas.length === 1} onClick={() => setLinhas((s) => s.filter((_, n) => n !== i))} /> },
         ]}
       />
-      <Space style={{ marginTop: 8 }}>
+      <Space wrap style={{ marginTop: 8 }}>
         <Button icon={<PlusOutlined />} onClick={() => setLinhas((s) => [...s, { id: `COLUNA_${s.length + 1}`, titulo: 'Nova coluna', cor: '#64748b', estado: null }])}>Coluna</Button>
       </Space>
     </Modal>

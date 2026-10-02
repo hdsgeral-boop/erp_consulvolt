@@ -1,13 +1,14 @@
 import { Alert, Card, Col, DatePicker, Flex, Input, InputNumber, Row, Select, Skeleton, Space, Table, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { dataApi, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { GraficoBarras, GraficoDonut } from '@/componentes/graficos/Graficos';
 import { CartaoKpi } from '@/modulos/geral/comum/componentes';
 import { useFunis } from './comum/dados';
+import { scrollTabela } from '@/componentes/responsivo';
 
 interface Previsao {
   por_mes: { mes: string; bruto: string; ponderado: string; n: number; compromisso: string }[];
@@ -49,22 +50,38 @@ export default function Previsao() {
   const ind = useQuery({ queryKey: ['crm', 'indicadores', funil, datas?.[0]?.valueOf(), datas?.[1]?.valueOf()], queryFn: () => obter<Indicadores>('/crm/indicadores', { funil_vendas_crm_id: funil, de: dataApi(datas?.[0]), ate: dataApi(datas?.[1]) }) });
   const p = previsao.data;
   const i = ind.data;
+  const ref = useRef<HTMLDivElement>(null);
+  const nomeFunil = funis.data?.find((f) => f.id === funil)?.nome;
 
   return (
     <>
-      <CabecalhoPagina titulo="Previsão de vendas e indicadores" subtitulo="Quanto deve entrar nos próximos meses e como está a correr o funil" />
-      <Card size="small" style={{ marginBottom: 12 }}>
+      <CabecalhoPagina
+        titulo="Previsão de vendas e indicadores"
+        subtitulo="Quanto deve entrar nos próximos meses e como está a correr o funil"
+        impressaoDesactivada={!p && !i}
+        impressao={() =>
+          ref.current
+            ? {
+                titulo: 'Previsão de vendas e indicadores do funil',
+                filtros: [nomeFunil ? `Funil: ${nomeFunil}` : 'Todos os funis', `Previsão a ${meses} mes(es)`, responsavel && `Responsável: ${responsavel}`, `Indicadores de ${datas?.[0]?.format('DD/MM/YYYY') ?? '…'} a ${datas?.[1]?.format('DD/MM/YYYY') ?? '…'}`],
+                conteudo: ref.current,
+              }
+            : null
+        }
+      />
+      <Card size="small" style={{ marginBottom: 12 }} className="imp-nao-imprimir">
         <Flex gap={8} wrap align="center">
-          <Select allowClear placeholder="Todos os funis" style={{ width: 200 }} value={funil} onChange={setFunil} options={(funis.data ?? []).map((f) => ({ value: f.id, label: f.nome }))} />
+          <Select allowClear placeholder="Todos os funis" style={{ width: 200, maxWidth: '100%' }} value={funil} onChange={setFunil} options={(funis.data ?? []).map((f) => ({ value: f.id, label: f.nome }))} />
           <span>Previsão a</span>
           <InputNumber min={1} max={24} value={meses} onChange={(v) => setMeses(v ?? 6)} style={{ width: 70 }} />
           <span>meses</span>
-          <Input.Search placeholder="Responsável" allowClear style={{ width: 160 }} onSearch={setResponsavel} />
+          <Input.Search placeholder="Responsável" allowClear style={{ width: 160, maxWidth: '100%' }} onSearch={setResponsavel} />
           <span>Indicadores de</span>
           <DatePicker.RangePicker format="DD/MM/YYYY" allowEmpty={[true, true]} value={datas} onChange={setDatas} />
         </Flex>
       </Card>
 
+      <div ref={ref}>
       <Typography.Title level={4}>Previsão</Typography.Title>
       {previsao.isLoading ? (
         <Skeleton active />
@@ -91,7 +108,7 @@ export default function Previsao() {
             />
           </Card>
           <Card size="small" title="Por responsável">
-            <Table
+            <Table scroll={scrollTabela()}
               size="small"
               rowKey="responsavel"
               pagination={false}
@@ -137,7 +154,7 @@ export default function Previsao() {
             </Col>
           </Row>
           <Card size="small" title="Conversão entre etapas">
-            <Table
+            <Table scroll={scrollTabela()}
               size="small"
               rowKey="etapa"
               pagination={false}
@@ -153,6 +170,7 @@ export default function Previsao() {
           </Card>
         </Space>
       )}
+      </div>
     </>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from './Seletores';
+import { larguraModal } from '@/componentes/responsivo';
 
 export type ConfigContas = Record<string, { descricao: string; codigo_conta: string | null }>;
 
@@ -30,7 +31,7 @@ export function ModalContas({ url, titulo, aberto, aoFechar, podeEditar, chaveCo
       title={titulo}
       open={aberto}
       onCancel={aoFechar}
-      width={640}
+      width={larguraModal(640)}
       okText="Gravar"
       cancelText="Fechar"
       okButtonProps={{ style: podeEditar ? undefined : { display: 'none' } }}

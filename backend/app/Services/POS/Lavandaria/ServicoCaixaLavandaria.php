@@ -382,7 +382,7 @@ final class ServicoCaixaLavandaria
             'armazem_id' => $t->armazem_id, 'unidade_negocio_id' => $t->unidade_negocio_id, 'centro_custo_id' => $t->centro_custo_id,
             'linhas' => array_map(fn ($l) => ['produto_id' => $l['produto_id'], 'quantidade' => $l['quantidade'], 'descricao' => $l['descricao'], 'preco_unitario' => $l['preco']], $linhas),
             'pos' => ['origem_serie' => $t->codigo, 'percentagem_desconto' => 0, 'colunas' => $extra + ['sessao_pos_id' => $s->id, 'terminal_pos_id' => $t->id,
-                'codigo_terminal_pos' => $t->codigo, 'pos_operador' => Auth::user()?->nome_utilizador]],
+                'codigo_terminal_pos' => $t->codigo, 'pos_operador' => Auth::user()?->nomeApresentacao()]],
         ]);
     }
 

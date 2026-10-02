@@ -2,7 +2,8 @@ import { Input, Select, type TableProps } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { obter } from '@/api/cliente';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi, type ImpressaoTabelaApi } from '@/componentes/TabelaApi';
+import { useEcraPequeno } from '@/componentes/responsivo';
 import { usePlanoContas } from '../contab/comum/dados';
 import type { DocumentoTesouraria, MeioPagamento } from './api';
 
@@ -56,6 +57,10 @@ export function SeletorContaFinanceira({ value, onChange, allowClear, placeholde
  * Tabela dos documentos de tesouraria: GET /tesouraria/documentos no formato paginado comum (metadados.paginacao, ADR-064),
  * mostrado pelo TabelaApi de src/componentes.
  */
-export function TabelaDocumentos({ filtros, ...props }: { filtros: Record<string, unknown> } & Omit<TableProps<DocumentoTesouraria>, 'dataSource' | 'pagination' | 'loading'>) {
-  return <TabelaApi<DocumentoTesouraria> url="/tesouraria/documentos" chaveConsulta={['teso', 'documentos']} filtros={filtros} rowKey="id" {...props} />;
+export function TabelaDocumentos({
+  filtros,
+  ...props
+}: { filtros: Record<string, unknown>; impressao?: ImpressaoTabelaApi; columns?: ColunaApi<DocumentoTesouraria>[] } & Omit<TableProps<DocumentoTesouraria>, 'dataSource' | 'pagination' | 'loading' | 'columns'>) {
+  const pequeno = useEcraPequeno();
+  return <TabelaApi<DocumentoTesouraria> url="/tesouraria/documentos" chaveConsulta={['teso', 'documentos']} filtros={filtros} rowKey="id" size={pequeno ? 'small' : 'middle'} {...props} />;
 }

@@ -12,6 +12,7 @@ import { totaisLinhas } from '../comum/calculos';
 import { NomeProduto, useMapaProdutos } from '../comum/referencias';
 import { SeletorTerceiro } from '../comum/Seletores';
 import { numeroOuId, type ItemCompra, type PedidoCompra, type PropostaCompra } from '../comum/tipos';
+import { scrollTabela } from '@/componentes/responsivo';
 
 interface LinhaProposta {
   item_pedido_id: number;
@@ -158,7 +159,7 @@ export function NovaProposta() {
           <Form.List name="linhas" rules={[{ validator: async (_, v) => (v && v.length ? undefined : Promise.reject(new Error('Escolha um pedido com artigos.'))) }]}>
             {(campos, _op, { errors }) => (
               <>
-                <Table
+                <Table scroll={scrollTabela()}
                   rowKey="key"
                   size="small"
                   pagination={false}
@@ -197,14 +198,14 @@ export function NovaProposta() {
             )}
           </Form.List>
           <Divider />
-          <Flex justify="end" gap={32}>
+          <Flex justify="end" gap={24} wrap>
             <Statistic title={`Líquido (${moeda.toUpperCase()})`} value={formatarKz(estimativa.liquido)} />
             <Statistic title="IVA" value={formatarKz(estimativa.imposto)} />
             <Statistic title="Total" value={formatarKz(estimativa.total)} />
           </Flex>
           <Typography.Text type="secondary">Estimativa na moeda da proposta; o servidor converte para Kz e grava os totais.</Typography.Text>
         </Card>
-        <Space>
+        <Space wrap>
           <Button type="primary" htmlType="submit" loading={criar.isPending}>
             Registar proposta
           </Button>

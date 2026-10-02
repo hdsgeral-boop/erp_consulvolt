@@ -7,6 +7,7 @@ import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { FichaProjecto, Projecto } from './comum/tipos';
+import { larguraModal } from '@/componentes/responsivo';
 
 interface Valores {
   codigo?: string;
@@ -56,8 +57,8 @@ export function ModalProjecto({ aberto, projecto, aoFechar, aoGravar }: { aberto
       okText="Gravar"
       cancelText="Cancelar"
       confirmLoading={accao.isPending}
-      width={760}
-      destroyOnClose
+      width={larguraModal(760)}
+      destroyOnHidden
     >
       <Form
         form={form}

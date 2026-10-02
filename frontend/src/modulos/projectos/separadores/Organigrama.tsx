@@ -2,12 +2,13 @@ import { Alert, Button, Card, Checkbox, Col, Empty, Flex, Form, Input, InputNumb
 import { ApartmentOutlined, ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, PlusOutlined, UserAddOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { Organigrama, Posicao } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
+import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
 
 const CORES: Record<string, string> = { azul: 'blue', verde: 'green', laranja: 'orange', roxo: 'purple', cinza: 'default', vermelho: 'red', ciano: 'cyan' };
 
@@ -18,6 +19,7 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
   const [alocar, setAlocar] = useState<Posicao | null>(null);
   const accao = useAccao({ invalidar: [['projectos']] });
   const o = q.data;
+  const refOrganigrama = useRef<HTMLDivElement>(null);
 
   const arvore = useMemo<DataNode[]>(() => {
     const filhos = new Map<number | null, Posicao[]>();
@@ -43,7 +45,7 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
         {p.membros.length > 0 && <Typography.Text type="secondary">{p.membros.map((m) => m.nome).join(', ')}</Typography.Text>}
         {Number(p.valores.orcamento) > 0 && <Typography.Text type="secondary">Orç. {formatarKz(p.valores.orcamento)} · exec. {formatarKz(p.valores.executado)}</Typography.Text>}
         {acc.gerir && (
-          <Space size={4} onClick={(e) => e.stopPropagation()}>
+          <Space wrap size={4} onClick={(e) => e.stopPropagation()}>
             <Button size="small" icon={<UserAddOutlined />} title="Alocar membros" onClick={() => setAlocar(p)} />
             <Button size="small" icon={<PlusOutlined />} title="Nova posição subordinada" onClick={() => setPosicao({ no_pai_id: p.id, cor: p.cor })} />
             <Button size="small" icon={<EditOutlined />} onClick={() => setPosicao(p)} />
@@ -60,10 +62,10 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
   };
 
   return (
-    <Card loading={q.isLoading}>
+    <Card loading={q.isLoading} ref={refOrganigrama} title="Organigrama" extra={<ImpressaoSeparador alvo={refOrganigrama} titulo="Organigrama" projecto={projecto} desactivado={!o} />}>
       {o && (
         <>
-          <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={12} md={4}><Statistic title="Posições" value={o.posicoes.length} /></Col>
             <Col xs={12} md={4}><Statistic title="Vagas" value={o.totais.vagas} /></Col>
             <Col xs={12} md={4}><Statistic title="Membros alocados" value={`${o.totais.alocados}/${o.totais.membros}`} /></Col>
@@ -75,7 +77,7 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
               message={`${o.totais.tarefas_sem_posicao} tarefa(s) sem posição · ${o.totais.orcamento_sem_responsavel} linha(s) de orçamento sem responsável`} />
           )}
           {acc.gerir && (
-            <Flex gap={8} style={{ marginBottom: 12 }}>
+            <Flex gap={8} wrap style={{ marginBottom: 12 }} className="imp-nao-imprimir">
               <Button type="primary" icon={<PlusOutlined />} onClick={() => setPosicao({ cor: 'azul' })}>Nova posição</Button>
               {o.posicoes.length === 0 && (
                 <Button icon={<ApartmentOutlined />} loading={accao.isPending} onClick={() => accao.mutate({ url: `/projetos/${projecto.id}/organigrama/modelo` })}>Criar a partir do modelo de obra</Button>
@@ -103,7 +105,7 @@ function ModalPosicao({ projectoId, posicao, posicoes, aoFechar }: { projectoId:
     if (posicao) { form.resetFields(); form.setFieldsValue({ vagas: 1, ...posicao, apoio: !!posicao.apoio }); }
   }, [posicao, form]);
   return (
-    <Modal title={posicao?.id ? `Editar «${posicao.titulo}»` : 'Nova posição'} open={!!posicao} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title={posicao?.id ? `Editar «${posicao.titulo}»` : 'Nova posição'} open={!!posicao} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => {
         const dados = { titulo: v.titulo, area: v.area || null, descricao: v.descricao || null, vagas: v.vagas ?? 0, no_pai_id: v.no_pai_id ?? null, cor: v.cor ?? 'azul', apoio: !!v.apoio };
         accao.mutate(posicao?.id ? { metodo: 'put', url: `/projetos/${projectoId}/organigrama/posicoes/${posicao.id}`, dados } : { url: `/projetos/${projectoId}/organigrama/posicoes`, dados });

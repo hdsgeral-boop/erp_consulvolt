@@ -12,11 +12,75 @@ import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos } from '../comum/componentes';
 import type { DetalheRevisao, PropostaFaturacao, Revisao, SimulacaoRevisao } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
+import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
+import { useRef } from 'react';
+import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
+
+/** Auto de medição impresso (A4 retrato): resumo, subempreitadas, mão de obra, equipamentos e assinaturas. */
+export function pedidoAutoMedicao(d: DetalheRevisao, mes: string) {
+  type S = DetalheRevisao['subempreitadas'][number];
+  type M = DetalheRevisao['mao_obra'][number];
+  type E = DetalheRevisao['equipamentos'][number];
+  return {
+    titulo: `Auto de medição ${d.revisao.referencia}`,
+    periodo: `${mes} de ${d.revisao.ano}`,
+    filtros: [`Projecto: ${d.projeto.codigo} — ${d.projeto.nome}`, d.cliente ? `Cliente: ${d.cliente}` : null],
+    orientacao: 'retrato' as const,
+    conteudo:
+      pares(
+        [
+          ['Subempreitadas', `${formatarKz(d.totais.subempreitadas)} Kz`],
+          ['Mão de obra', `${formatarKz(d.totais.mao_obra)} Kz`],
+          ['Equipamentos', `${formatarKz(d.totais.equipamentos)} Kz`],
+          ['Total do auto', `${formatarKz(d.totais.geral)} Kz`],
+        ],
+        2,
+      ) +
+      (d.subempreitadas.length
+        ? tabelaHtml({
+            legenda: 'Subempreitadas',
+            colunas: [
+              { titulo: 'Subempreiteiro', valor: (s: S) => s.nome ?? '', quebrar: true },
+              { titulo: 'Tarefa', valor: (s) => s.tarefa ?? '', quebrar: true },
+              { titulo: '% anterior', valor: (s) => s.percentagem_anterior, formato: 'percentagem' },
+              { titulo: '% actual', valor: (s) => s.percentagem_atual, formato: 'percentagem' },
+              { titulo: 'Valor (Kz)', valor: (s) => s.valor_calculado, formato: 'moeda', somar: true },
+            ],
+            linhas: d.subempreitadas,
+            totais: true,
+          })
+        : '') +
+      tabelaHtml({
+        legenda: 'Mão de obra',
+        colunas: [
+          { titulo: 'Colaborador', valor: (m: M) => m.nome, quebrar: true },
+          { titulo: 'Valor (Kz)', valor: (m) => m.valor_calculado, formato: 'moeda', somar: true },
+        ],
+        linhas: d.mao_obra,
+        totais: true,
+      }) +
+      (d.equipamentos.length
+        ? tabelaHtml({
+            legenda: 'Equipamentos',
+            colunas: [
+              { titulo: 'Código', valor: (e: E) => e.codigo },
+              { titulo: 'Descrição', valor: (e) => e.descricao, quebrar: true },
+              { titulo: 'Valor (Kz)', valor: (e) => e.valor, formato: 'moeda', somar: true },
+            ],
+            linhas: d.equipamentos,
+            totais: true,
+          })
+        : '') +
+      '<div class="imp-sem-quebra" style="display:flex;justify-content:space-around;gap:10mm;margin-top:16mm"><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Pelo empreiteiro</div><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Pelo dono da obra / fiscalização</div></div>',
+  };
+}
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 /** Autos de medição (revisões mensais: mão de obra, subempreitadas e equipamentos) e facturação do auto em Vendas. */
 export function SeparadorRevisoes({ projecto, acc }: PropsSeparador) {
+  const refSeparador = useRef<HTMLDivElement>(null);
   const q = useQuery({ queryKey: ['projectos', 'revisoes', projecto.id], queryFn: () => obter<Revisao[]>(`/projetos/${projecto.id}/revisoes`) });
   const [nova, setNova] = useState(false);
   const [detalhe, setDetalhe] = useState<number | null>(null);
@@ -24,8 +88,8 @@ export function SeparadorRevisoes({ projecto, acc }: PropsSeparador) {
   const faturada = (f: Revisao['faturada']) => (!f ? null : typeof f === 'string' ? f : f.numero_documento);
 
   return (
-    <Card size="small" extra={acc.revisao && <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setNova(true)}>Revisão mensal</Button>}>
-      <Table<Revisao>
+    <Card size="small" ref={refSeparador} title="Autos de medição e facturação" extra={<Space wrap>{acc.revisao && <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setNova(true)}>Revisão mensal</Button>}<ImpressaoSeparador alvo={refSeparador} titulo="Autos de medição" projecto={projecto} /></Space>}>
+      <Table<Revisao> scroll={scrollTabela()}
         rowKey="id"
         size="small"
         loading={q.isFetching}
@@ -80,8 +144,8 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
       title="Revisão mensal (auto de medição)"
       open={aberto}
       onCancel={aoFechar}
-      width={900}
-      destroyOnClose
+      width={larguraModal(900)}
+      destroyOnHidden
       footer={[
         <Button key="c" onClick={aoFechar}>Cancelar</Button>,
         <Button key="s" icon={<CalculatorOutlined />} loading={aSimular} onClick={simular}>Simular</Button>,
@@ -93,14 +157,14 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
     >
       <Space wrap style={{ marginBottom: 12 }}>
         <DatePicker picker="month" format="MM/YYYY" value={mes} allowClear={false} onChange={(d) => { if (d) { setMes(d); setSimulacao(null); } }} />
-        <SeletorProduto allowClear placeholder="Artigo da subempreitada (opcional)" value={produto} onChange={setProduto} style={{ width: 300 }} />
+        <SeletorProduto allowClear placeholder="Artigo da subempreitada (opcional)" value={produto} onChange={setProduto} style={{ width: 300, maxWidth: '100%' }} />
         <Checkbox checked={confirmarAdit} onChange={(e) => setConfirmarAdit(e.target.checked)}>Confirmar excesso sobre o contratado (aditamento)</Checkbox>
       </Space>
       {simulacao && (
         <>
           {simulacao.revisao_existente && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Já existe revisão para este mês: a execução deduz o que já foi imputado." />}
           <Typography.Title level={5}>Mão de obra interna</Typography.Title>
-          <Table size="small" rowKey="membro_id" pagination={false} dataSource={simulacao.internos}
+          <Table scroll={scrollTabela()} size="small" rowKey="membro_id" pagination={false} dataSource={simulacao.internos}
             columns={[
               { title: 'Colaborador', dataIndex: 'nome' },
               { title: 'h/dia', dataIndex: 'horas_dia', align: 'right' },
@@ -112,7 +176,7 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
           {simulacao.externos.length > 0 && (
             <>
               <Typography.Title level={5} style={{ marginTop: 12 }}>Subempreitadas</Typography.Title>
-              <Table size="small" rowKey={(_, i) => String(i)} pagination={false} dataSource={simulacao.externos}
+              <Table scroll={scrollTabela()} size="small" rowKey={(l) => JSON.stringify(l)} pagination={false} dataSource={simulacao.externos}
                 columns={[
                   { title: 'Subempreiteiro', dataIndex: 'nome' },
                   { title: '% anterior', dataIndex: 'percentagem_anterior', align: 'right' },
@@ -122,7 +186,7 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
             </>
           )}
           <Typography.Title level={5} style={{ marginTop: 12 }}>Equipamentos ({formatarKz(simulacao.equipamentos.total, true)})</Typography.Title>
-          <Table size="small" rowKey={(_, i) => String(i)} pagination={false} dataSource={simulacao.equipamentos.linhas}
+          <Table scroll={scrollTabela()} size="small" rowKey={(l) => JSON.stringify(l)} pagination={false} dataSource={simulacao.equipamentos.linhas}
             columns={[{ title: 'Código', dataIndex: 'codigo' }, { title: 'Descrição', dataIndex: 'descricao' }, { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> }]} />
         </>
       )}
@@ -134,10 +198,17 @@ function DetalheAuto({ projectoId, revisaoId, aoFechar }: { projectoId: number; 
   const q = useQuery({ queryKey: ['projectos', 'revisao', projectoId, revisaoId], queryFn: () => obter<DetalheRevisao>(`/projetos/${projectoId}/revisoes/${revisaoId}`), enabled: !!revisaoId });
   const d = q.data;
   return (
-    <Drawer title={d ? `Auto ${d.revisao.referencia} — ${MESES[d.revisao.mes - 1]} ${d.revisao.ano}` : 'Auto de medição'} open={!!revisaoId} onClose={aoFechar} width={820} loading={q.isLoading}>
+    <Drawer
+      title={d ? `Auto ${d.revisao.referencia} — ${MESES[d.revisao.mes - 1]} ${d.revisao.ano}` : 'Auto de medição'}
+      open={!!revisaoId}
+      onClose={aoFechar}
+      width={larguraGaveta(820)}
+      loading={q.isLoading}
+      extra={d && <BotoesExportar tamanho="small" obterPedido={() => pedidoAutoMedicao(d, MESES[d.revisao.mes - 1])} />}
+    >
       {d && (
         <Space direction="vertical" style={{ width: '100%' }}>
-          <Descriptions size="small" bordered column={2}>
+          <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }}>
             <Descriptions.Item label="Projecto">{d.projeto.codigo} — {d.projeto.nome}</Descriptions.Item>
             <Descriptions.Item label="Cliente">{d.cliente}</Descriptions.Item>
             <Descriptions.Item label="Subempreitadas"><ValorKz valor={d.totais.subempreitadas} /></Descriptions.Item>
@@ -145,13 +216,13 @@ function DetalheAuto({ projectoId, revisaoId, aoFechar }: { projectoId: number; 
             <Descriptions.Item label="Equipamentos"><ValorKz valor={d.totais.equipamentos} /></Descriptions.Item>
             <Descriptions.Item label="Total"><ValorKz valor={d.totais.geral} forte /></Descriptions.Item>
           </Descriptions>
-          {d.subempreitadas.length > 0 && <Table size="small" rowKey="id" pagination={false} title={() => <strong>Subempreitadas</strong>} dataSource={d.subempreitadas}
+          {d.subempreitadas.length > 0 && <Table scroll={scrollTabela()} size="small" rowKey="id" pagination={false} title={() => <strong>Subempreitadas</strong>} dataSource={d.subempreitadas}
             columns={[{ title: 'Subempreiteiro', dataIndex: 'nome', render: (v) => v ?? '—' }, { title: 'Tarefa', dataIndex: 'tarefa', render: (v) => v ?? '—' },
               { title: '% anterior', dataIndex: 'percentagem_anterior', align: 'right' }, { title: '% actual', dataIndex: 'percentagem_atual', align: 'right' },
               { title: 'Valor', dataIndex: 'valor_calculado', align: 'right', render: (v) => <ValorKz valor={v} /> }]} />}
-          <Table size="small" rowKey="id" pagination={false} title={() => <strong>Mão de obra</strong>} dataSource={d.mao_obra}
+          <Table scroll={scrollTabela()} size="small" rowKey="id" pagination={false} title={() => <strong>Mão de obra</strong>} dataSource={d.mao_obra}
             columns={[{ title: 'Colaborador', dataIndex: 'nome' }, { title: 'Valor', dataIndex: 'valor_calculado', align: 'right', render: (v) => <ValorKz valor={v} /> }]} />
-          {d.equipamentos.length > 0 && <Table size="small" rowKey={(_, i) => String(i)} pagination={false} title={() => <strong>Equipamentos</strong>} dataSource={d.equipamentos}
+          {d.equipamentos.length > 0 && <Table scroll={scrollTabela()} size="small" rowKey={(l) => JSON.stringify(l)} pagination={false} title={() => <strong>Equipamentos</strong>} dataSource={d.equipamentos}
             columns={[{ title: 'Código', dataIndex: 'codigo' }, { title: 'Descrição', dataIndex: 'descricao' }, { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> }]} />}
         </Space>
       )}
@@ -177,10 +248,10 @@ function ModalFaturar({ projectoId, revisao, aoFechar }: { projectoId: number; r
   }, [proposta.data, form]);
   const p = proposta.data;
   return (
-    <Modal title={`Facturar o auto ${revisao?.referencia ?? ''}`} open={!!revisao} onCancel={aoFechar} onOk={() => form.submit()} okText="Emitir documento" cancelText="Cancelar" confirmLoading={accao.isPending} width={640} destroyOnClose>
+    <Modal title={`Facturar o auto ${revisao?.referencia ?? ''}`} open={!!revisao} onCancel={aoFechar} onOk={() => form.submit()} okText="Emitir documento" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(640)} destroyOnHidden>
       {proposta.error && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={(proposta.error as Error).message} />}
       {p && (
-        <Descriptions size="small" column={2} bordered style={{ marginBottom: 12 }}>
+        <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered style={{ marginBottom: 12 }}>
           <Descriptions.Item label="Execução global">{p.execucao_global}%</Descriptions.Item>
           <Descriptions.Item label="Venda (sem IVA)"><ValorKz valor={p.venda} /></Descriptions.Item>
           <Descriptions.Item label="Já facturado"><ValorKz valor={p.faturado} /></Descriptions.Item>
@@ -195,7 +266,7 @@ function ModalFaturar({ projectoId, revisao, aoFechar }: { projectoId: number; r
       })}>
         <Space wrap>
           <Form.Item name="tipo_documento" label="Documento" rules={[{ required: true }]}>
-            <Select style={{ width: 200 }} options={[{ value: 'FT', label: 'Factura (FT)' }, { value: 'FR', label: 'Factura-recibo (FR)' }, { value: 'PF', label: 'Pró-forma (PF)' }]} />
+            <Select style={{ width: 200, maxWidth: '100%' }} options={[{ value: 'FT', label: 'Factura (FT)' }, { value: 'FR', label: 'Factura-recibo (FR)' }, { value: 'PF', label: 'Pró-forma (PF)' }]} />
           </Form.Item>
           <Form.Item name="valor" label="Valor sem IVA (Kz)" rules={[{ required: true, message: 'Indique o valor.' }]}><InputNumber min={0.01} precision={2} style={{ width: 180 }} /></Form.Item>
           <Form.Item name="data_emissao" label="Data de emissão"><DatePicker format="DD/MM/YYYY" /></Form.Item>

@@ -57,7 +57,7 @@ final class ServicoSessoesPOS
             $u = Auth::user();
             $sessao = SessaoPOS::create([
                 'terminal_pos_id' => $t->id, 'codigo_terminal' => $t->codigo, 'nome_terminal' => $t->nome, 'codigo_sessao' => sprintf('%s-%d-%04d', $t->codigo, $ano, $n),
-                'estado' => 'ABERTA', 'aberto_em' => now(), 'fundo_maneio_abertura' => $fundo, 'operador_id' => $u?->id, 'nome_operador' => $u?->nome_utilizador,
+                'estado' => 'ABERTA', 'aberto_em' => now(), 'fundo_maneio_abertura' => $fundo, 'operador_id' => $u?->id, 'nome_operador' => $u?->nomeApresentacao(),
                 'estado_contabilizacao' => 'PENDENTE', 'estado_liquidacao' => 'PENDENTE', 'estado_desvio' => 'NAO_APLICAVEL',
             ]);
             // sessões antigas por fechar noutro terminal do mesmo operador (aviso, como o legado em pos_gestao.js:147)

@@ -53,7 +53,8 @@ export function TabelaResultados({ periodo, carregando }: { periodo: DetalhePeri
               size="small"
               rowKey={(x, i) => `${x.infotipo_id}-${i}`}
               pagination={false}
-              style={{ minWidth: 420 }}
+              style={{ flex: '1 1 320px', minWidth: 0 }}
+              scroll={{ x: 'max-content' }}
               dataSource={r.rubricas ?? []}
               columns={[
                 { title: 'Rubrica', dataIndex: 'nome' },
@@ -62,7 +63,7 @@ export function TabelaResultados({ periodo, carregando }: { periodo: DetalhePeri
                 { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => formatarKz(v) },
               ]}
             />
-            <Descriptions size="small" column={1} bordered style={{ minWidth: 300 }}>
+            <Descriptions size="small" column={1} bordered style={{ flex: '1 1 260px', minWidth: 0 }}>
               <Descriptions.Item label="Base INSS">{formatarKz(r.base_inss)}</Descriptions.Item>
               <Descriptions.Item label="Isenções">{formatarKz(r.isencoes)}</Descriptions.Item>
               <Descriptions.Item label="Matéria colectável IRT">{formatarKz(r.base_irt)}</Descriptions.Item>

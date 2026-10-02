@@ -2,7 +2,9 @@ import { Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, R
 import { DeleteOutlined, EditOutlined, FlagOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { rotuloProjectos } from '../comum/componentes';
 import { useAccao } from '@/componentes/Accoes';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
@@ -11,6 +13,7 @@ import { Gantt } from '../comum/Gantt';
 import { linhasGanttWbs, tarefaAtrasada } from '../comum/regras';
 import type { Marco, TarefaWbs } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 type LinhaArvore = (TarefaWbs & { chave: string; children?: LinhaArvore[] }) | { chave: string; grupo: true; marco: Marco | null; execucao: number; children?: LinhaArvore[] };
 
@@ -29,18 +32,53 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
   const [eliminar, setEliminar] = useState<{ tipo: 'tarefa' | 'marco'; id: number; nome: string } | null>(null);
   const accEliminar = useAccao({ invalidar: [['projectos']], aoSucesso: () => setEliminar(null) });
   const nomeMembro = useMemo(() => new Map((equipa.data?.membros ?? []).map((m) => [m.id, m.nome])), [equipa.data]);
+  const refGantt = useRef<HTMLDivElement>(null);
 
   const arvore: LinhaArvore[] = (w.data?.grupos ?? [])
     .filter((g) => g.marco || g.tarefas.length)
     .map((g) => ({ chave: `m-${g.marco?.id ?? 'sem'}`, grupo: true as const, marco: g.marco, execucao: g.execucao, children: g.tarefas.length ? g.tarefas.map(paraArvore) : undefined }));
 
+  /** WBS impressa: milestones como grupos e tarefas/subtarefas indentadas; o Gantt imprime-se a partir do ecrã. */
+  const pedidoImpressao = () => {
+    if (vista === 'gantt') {
+      return refGantt.current
+        ? { titulo: `Gantt do projecto ${projecto.codigo ?? ''} — ${projecto.nome}`, filtros: ['Barras tracejadas = sem data de fim; linha vermelha = hoje'], conteudo: refGantt.current, orientacao: 'paisagem' as const }
+        : null;
+    }
+    type Plana = { grupo: string; nivel: number; t: TarefaWbs };
+    const planas: Plana[] = [];
+    const juntar = (t: TarefaWbs, grupo: string, nivel: number) => {
+      planas.push({ grupo, nivel, t });
+      (t.subtarefas ?? []).forEach((s) => juntar(s, grupo, nivel + 1));
+    };
+    (w.data?.grupos ?? []).forEach((g) => g.tarefas.forEach((t) => juntar(t, `${g.marco?.nome ?? 'Sem milestone'}${g.marco?.data ? ` · ${formatarData(g.marco.data)}` : ''} · execução ${Math.round(g.execucao)} %`, 0)));
+    return {
+      titulo: `Planeamento (WBS) — ${projecto.codigo ?? ''} ${projecto.nome}`,
+      filtros: [`Execução global: ${Math.round(w.data?.execucao_global ?? 0)} %`],
+      conteudo: tabelaHtml({
+        colunas: [
+          { titulo: 'Tarefa', valor: (p: Plana) => `${' '.repeat(p.nivel)}${p.t.codigo ? `${p.t.codigo} ` : ''}${p.t.nome}${tarefaAtrasada(p.t) ? ' (atrasada)' : ''}`, quebrar: true },
+          { titulo: 'Responsável', valor: (p) => (p.t.atribuido_a_id ? nomeMembro.get(p.t.atribuido_a_id) ?? `#${p.t.atribuido_a_id}` : '') },
+          { titulo: 'Início', valor: (p) => p.t.data_inicio, formato: 'data' },
+          { titulo: 'Fim', valor: (p) => p.t.data_fim, formato: 'data' },
+          { titulo: 'Estado', valor: (p) => rotuloProjectos(p.t.estado) },
+          { titulo: 'Execução', valor: (p) => p.t.execucao, formato: 'percentagem' },
+          { titulo: 'Horas', valor: (p) => p.t.horas, formato: 'numero' },
+          { titulo: 'Valor contrato (Kz)', valor: (p) => p.t.valor_contrato, formato: 'moeda' },
+        ],
+        linhas: planas,
+        agrupar: { chave: (p) => p.grupo },
+      }),
+    };
+  };
+
   const colunas: ColumnsType<LinhaArvore> = [
     {
-      title: 'Tarefa', key: 'nome', width: 380,
+      title: 'Tarefa', key: 'nome', width: 320,
       render: (_, l) => 'grupo' in l ? (
-        <Space><FlagOutlined style={{ color: '#8b5cf6' }} /><strong>{l.marco?.nome ?? 'Sem milestone'}</strong>{l.marco?.data && <Typography.Text type="secondary">{formatarData(l.marco.data)}</Typography.Text>}</Space>
+        <Space wrap><FlagOutlined style={{ color: '#8b5cf6' }} /><strong>{l.marco?.nome ?? 'Sem milestone'}</strong>{l.marco?.data && <Typography.Text type="secondary">{formatarData(l.marco.data)}</Typography.Text>}</Space>
       ) : (
-        <Space>
+        <Space wrap>
           {l.codigo && <Typography.Text type="secondary">{l.codigo}</Typography.Text>}
           {l.nome}
           {tarefaAtrasada(l) && <Tag color="red">Atrasada</Tag>}
@@ -61,7 +99,7 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
           if (!l.marco) return null;
           const m = l.marco;
           return (
-            <Space>
+            <Space wrap>
               {acc.gerir && <Tooltip title="Nova tarefa neste milestone"><Button size="small" icon={<PlusOutlined />} onClick={() => setTarefa({ marco_projeto_id: m.id })} /></Tooltip>}
               {acc.gerir && <Button size="small" icon={<EditOutlined />} onClick={() => setMarco(m)} />}
               {acc.eliminar && <Button size="small" danger icon={<DeleteOutlined />} onClick={() => setEliminar({ tipo: 'marco', id: m.id, nome: m.nome })} />}
@@ -69,7 +107,7 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
           );
         }
         return (
-          <Space>
+          <Space wrap>
             {acc.execucao && !l.subtarefas?.length && <Button size="small" onClick={() => setExecucao(l)}>%</Button>}
             {acc.gerir && <Tooltip title="Nova subtarefa"><Button size="small" icon={<PlusOutlined />} onClick={() => setTarefa({ tarefa_pai_id: l.id, marco_projeto_id: l.marco_projeto_id })} /></Tooltip>}
             {acc.gerir && <Button size="small" icon={<EditOutlined />} onClick={() => setTarefa(l)} />}
@@ -83,16 +121,15 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
   return (
     <Card>
       <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 16 }}>
-        <Space>
+        <Space wrap>
           <Segmented value={vista} onChange={(v) => setVista(v as 'wbs' | 'gantt')} options={[{ value: 'wbs', label: 'WBS' }, { value: 'gantt', label: 'Gantt' }]} />
           <Typography.Text>Execução global: </Typography.Text><BarraExecucao valor={w.data?.execucao_global} largura={180} />
         </Space>
-        {acc.gerir && (
-          <Space>
-            <Button icon={<FlagOutlined />} onClick={() => setMarco({})}>Novo milestone</Button>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setTarefa({})}>Nova tarefa</Button>
-          </Space>
-        )}
+        <Space wrap>
+          {acc.gerir && <Button icon={<FlagOutlined />} onClick={() => setMarco({})}>Novo milestone</Button>}
+          {acc.gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setTarefa({})}>Nova tarefa</Button>}
+          <BotoesExportar desactivado={!w.data} obterPedido={pedidoImpressao} />
+        </Space>
       </Flex>
       {vista === 'wbs' ? (
         <Table<LinhaArvore>
@@ -102,12 +139,12 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
           dataSource={arvore}
           columns={colunas}
           pagination={false}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           expandable={{ defaultExpandAllRows: true }}
           key={arvore.length}
         />
       ) : (
-        <Gantt linhas={linhasGanttWbs(w.data)} />
+        <Gantt ref={refGantt} linhas={linhasGanttWbs(w.data)} />
       )}
       <ModalTarefa projectoId={projecto.id} tarefa={tarefa} aoFechar={() => setTarefa(null)} />
       <ModalMarco projectoId={projecto.id} marco={marco} aoFechar={() => setMarco(null)} />
@@ -143,7 +180,7 @@ function ModalTarefa({ projectoId, tarefa, aoFechar }: { projectoId: number; tar
   const marcos = (w.data?.grupos ?? []).filter((g) => g.marco).map((g) => ({ value: g.marco!.id, label: g.marco!.nome }));
 
   return (
-    <Modal title={editar ? `Editar tarefa «${tarefa?.nome}»` : tarefa?.tarefa_pai_id ? 'Nova subtarefa' : 'Nova tarefa'} open={!!tarefa} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={760} destroyOnClose>
+    <Modal title={editar ? `Editar tarefa «${tarefa?.nome}»` : tarefa?.tarefa_pai_id ? 'Nova subtarefa' : 'Nova tarefa'} open={!!tarefa} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(760)} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -187,7 +224,7 @@ function ModalMarco({ projectoId, marco, aoFechar }: { projectoId: number; marco
     if (marco) form.setFieldsValue({ nome: marco.nome ?? '', data: marco.data ? dayjs(marco.data) : undefined });
   }, [marco, form]);
   return (
-    <Modal title={marco?.id ? 'Editar milestone' : 'Novo milestone'} open={!!marco} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title={marco?.id ? 'Editar milestone' : 'Novo milestone'} open={!!marco} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => {
         const dados = { nome: v.nome, data: dataApi(v.data) ?? null };
         accao.mutate(marco?.id ? { metodo: 'put', url: `/projetos/${projectoId}/marcos/${marco.id}`, dados } : { url: `/projetos/${projectoId}/marcos`, dados });
@@ -206,9 +243,9 @@ function ModalExecucao({ projectoId, tarefa, aoFechar }: { projectoId: number; t
   return (
     <Modal title={`Execução de «${tarefa?.nome ?? ''}»`} open={!!tarefa} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending}
       onOk={() => accao.mutate({ url: `/projetos/${projectoId}/tarefas/${tarefa?.id}/execucao`, dados: { percentagem_execucao: valor } })}>
-      <Flex gap={16} align="center">
-        <Slider style={{ flex: 1 }} min={0} max={100} step={5} value={valor} onChange={setValor} />
-        <InputNumber min={0} max={100} precision={0} value={valor} onChange={(v) => setValor(v ?? 0)} addonAfter="%" style={{ width: 110 }} />
+      <Flex gap={16} align="center" wrap>
+        <Slider style={{ flex: 1, minWidth: 160 }} min={0} max={100} step={5} value={valor} onChange={setValor} />
+        <InputNumber min={0} max={100} precision={0} value={valor} onChange={(v) => setValor(v ?? 0)} suffix="%" style={{ width: 110 }} />
       </Flex>
     </Modal>
   );

@@ -4,6 +4,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { scrollTabela } from '@/componentes/responsivo';
+import { TabelaLocalImprimivel } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarNumero } from '@/utilitarios/formatacao';
@@ -72,21 +74,21 @@ function Contas() {
 
   return (
     <Card>
-      <Flex justify="space-between" wrap gap={8} style={{ marginBottom: 12 }}>
-        <Space wrap>
+      <TabelaLocalImprimivel<ContaPlano>
+        titulo="Plano de contas"
+        filtros={[tipo ? `Tipo: ${tipo === 'M' ? 'Movimento' : 'Totalizadoras'}` : null, filtro ? `Pesquisa: ${filtro}` : null]}
+        filtrosEcra={<>
           <Input.Search placeholder="Código (prefixo) ou descrição" allowClear style={{ width: 280 }} onChange={(e) => setFiltro(e.target.value)} />
           <Radio.Group value={tipo ?? ''} onChange={(e) => setTipo(e.target.value || undefined)} optionType="button" options={[{ value: '', label: 'Todas' }, { value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadoras' }]} />
-        </Space>
-        <Space wrap>
+        </>}
+        accoes={<>
           <BotaoCsv<ContaPlano>
             nome="plano_contas"
             linhas={linhas}
             colunas={[{ titulo: 'Código', valor: (c) => c.codigo }, { titulo: 'Descrição', valor: (c) => c.descricao }, { titulo: 'Tipo', valor: (c) => c.tipo }, { titulo: 'Moeda', valor: (c) => c.codigo_moeda }]}
           />
           {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova conta</Button>}
-        </Space>
-      </Flex>
-      <Table<ContaPlano>
+        </>}
         rowKey="id"
         size="small"
         loading={plano.isLoading}
@@ -95,8 +97,8 @@ function Contas() {
         columns={[
           { title: 'Código', dataIndex: 'codigo', width: 150, render: (v: string, c) => <span style={{ paddingLeft: Math.max(0, v.replace(/\./g, '').length - 1) * 6, fontWeight: c.tipo === 'T' ? 600 : 400 }}>{v}</span> },
           { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null, c) => <span style={{ fontWeight: c.tipo === 'T' ? 600 : 400 }}>{v}</span> },
-          { title: 'Tipo', dataIndex: 'tipo', width: 130, render: (t: string) => (t === 'T' ? <Tag color="blue">Totalizadora</Tag> : <Tag>Movimento</Tag>) },
-          { title: 'Moeda', dataIndex: 'codigo_moeda', width: 90, render: (v: string | null) => v ?? '—' },
+          { title: 'Tipo', dataIndex: 'tipo', width: 130, valorImpressao: (c) => (c.tipo === 'T' ? 'Totalizadora' : 'Movimento'), render: (t: string) => (t === 'T' ? <Tag color="blue">Totalizadora</Tag> : <Tag>Movimento</Tag>) },
+          { title: 'Moeda', dataIndex: 'codigo_moeda', width: 90, responsive: ['md'], render: (v: string | null) => v ?? '—' },
           {
             title: '',
             width: 90,
@@ -113,7 +115,7 @@ function Contas() {
           },
         ]}
       />
-      <Modal title={edicao === 'nova' ? 'Nova conta' : `Conta ${edicao?.codigo ?? ''}`} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={edicao === 'nova' ? 'Nova conta' : `Conta ${edicao?.codigo ?? ''}`} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form
           form={form}
           layout="vertical"
@@ -126,12 +128,12 @@ function Contas() {
           }
         >
           <Row gutter={16}>
-            <Col span={10}>
+            <Col xs={24} sm={12} md={10}>
               <Form.Item name="codigo" label="Código" rules={[{ required: true, message: 'Indique o código.' }, { pattern: /^[0-9A-Za-z.]+$/, message: 'Só algarismos, letras e pontos.' }]}>
                 <Input maxLength={20} />
               </Form.Item>
             </Col>
-            <Col span={14}>
+            <Col xs={24} md={14}>
               <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
                 <Radio.Group options={[{ value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadora' }]} />
               </Form.Item>
@@ -139,8 +141,8 @@ function Contas() {
           </Row>
           <Form.Item name="descricao" label="Descrição" rules={[{ required: true, message: 'Indique a descrição.' }]}><Input maxLength={255} /></Form.Item>
           <Row gutter={16}>
-            <Col span={10}><Form.Item name="codigo_moeda" label="Moeda (opcional)"><Input maxLength={10} /></Form.Item></Col>
-            <Col span={14}><Form.Item name="natureza_conta" label="Natureza"><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={10}><Form.Item name="codigo_moeda" label="Moeda (opcional)"><Input maxLength={10} /></Form.Item></Col>
+            <Col xs={24} md={14}><Form.Item name="natureza_conta" label="Natureza"><Input maxLength={255} /></Form.Item></Col>
           </Row>
         </Form>
       </Modal>
@@ -223,11 +225,11 @@ function Substituir() {
                   <Row gutter={16}>
                     <Col xs={24} lg={12}>
                       <Typography.Text strong>Alterados</Typography.Text>
-                      <Table size="small" rowKey={(l) => `${l.tabela}.${l.coluna}`} pagination={false} dataSource={e.alteraveis} locale={{ emptyText: 'Nenhum.' }} columns={[{ title: 'Onde', dataIndex: 'rotulo' }, { title: 'Registos', dataIndex: 'registos', align: 'right', render: formatarNumero }]} />
+                      <Table size="small" rowKey={(l) => `${l.tabela}.${l.coluna}`} pagination={false} scroll={scrollTabela()} dataSource={e.alteraveis} locale={{ emptyText: 'Nenhum.' }} columns={[{ title: 'Onde', dataIndex: 'rotulo' }, { title: 'Registos', dataIndex: 'registos', align: 'right', render: formatarNumero }]} />
                     </Col>
                     <Col xs={24} lg={12}>
                       <Typography.Text strong>Não alterados (rever)</Typography.Text>
-                      <Table size="small" rowKey={(l) => `${l.tabela}.${l.coluna}`} pagination={false} dataSource={e.informativos} locale={{ emptyText: 'Nenhum.' }} columns={[{ title: 'Onde', dataIndex: 'rotulo' }, { title: 'Registos', dataIndex: 'registos', align: 'right', render: formatarNumero }]} />
+                      <Table size="small" rowKey={(l) => `${l.tabela}.${l.coluna}`} pagination={false} scroll={scrollTabela()} dataSource={e.informativos} locale={{ emptyText: 'Nenhum.' }} columns={[{ title: 'Onde', dataIndex: 'rotulo' }, { title: 'Registos', dataIndex: 'registos', align: 'right', render: formatarNumero }]} />
                     </Col>
                   </Row>
                 </>

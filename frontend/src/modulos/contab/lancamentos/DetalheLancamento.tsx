@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { pares, tabelaHtml } from '@/componentes/impressao';
+import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
@@ -64,6 +66,32 @@ export function DetalheLancamento() {
       <CabecalhoPagina
         titulo={`Lançamento ${d.numero_lan}`}
         subtitulo={diario ? `${diario.codigo} — ${diario.descricao ?? ''}` : undefined}
+        impressao={() => ({
+          titulo: `Lançamento ${d.numero_lan}`,
+          subtitulo: diario ? `Diário ${diario.codigo} — ${diario.descricao ?? ''}` : undefined,
+          filtros: [situacao === 'ESTORNADO' ? 'Lançamento estornado' : situacao === 'ESTORNO' ? 'Estorno de outro lançamento' : null, !d.equilibrado ? 'Desequilibrado (débito ≠ crédito)' : null],
+          conteudo:
+            pares([
+              ['Data do documento', formatarData(d.data_documento)],
+              ['N.º do documento', d.numero_documento ?? '—'],
+              ['Referência', l0?.referencia ?? '—'],
+              ['Origem', l0?.tipo_origem ?? 'Manual'],
+              ['Registado em', formatarDataHora(l0?.data_lancamento ?? null)],
+              ['Utilizador', l0?.nome_utilizador ?? '—'],
+            ]) +
+            tabelaHtml<LinhaLancamento>({
+              linhas: d.linhas,
+              totais: 'Totais',
+              colunas: [
+                { titulo: 'Conta', valor: (r) => r.codigo_conta, total: 'Totais' },
+                { titulo: 'Descrição', valor: (r) => r.descricao ?? '—', quebrar: true, total: '' },
+                { titulo: 'Terceiro', valor: (r) => rotuloTerceiro(r.terceiro, r.terceiro_id, true), quebrar: true, total: '' },
+                { titulo: 'Centro de custo', valor: (r) => (r.centro_custo_id ? nomesCentro.get(r.centro_custo_id) ?? `#${r.centro_custo_id}` : '—'), total: '' },
+                { titulo: 'Débito', valor: (r) => (r.tipo_dc === 'D' ? r.valor : null), formato: 'moeda', total: formatarKz(d.debito) },
+                { titulo: 'Crédito', valor: (r) => (r.tipo_dc === 'C' ? r.valor : null), formato: 'moeda', total: formatarKz(d.credito) },
+              ],
+            }),
+        })}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -116,7 +144,7 @@ export function DetalheLancamento() {
           pagination={false}
           columns={colunas}
           dataSource={d.linhas}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           summary={() => (
             <Table.Summary.Row>
               <Table.Summary.Cell index={0} colSpan={4}>

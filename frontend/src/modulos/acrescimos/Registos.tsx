@@ -1,10 +1,10 @@
 import { Button, Card, Flex, Form, Input, InputNumber, Modal, Select, Tag, Typography } from 'antd';
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
+import { BarraFiltros, larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorDiario } from '@/modulos/contab/comum/Seletores';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
@@ -36,16 +36,16 @@ function Lista() {
   const [novo, setNovo] = useState(false);
   const [definicoes, setDefinicoes] = useState(false);
 
-  const colunas: ColumnsType<ItemAD> = [
+  const colunas: ColunaApi<ItemAD>[] = [
     { title: 'N.º', dataIndex: 'id', render: (v) => <strong>#{v}</strong> },
     { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaAD valor={v} /> },
-    { title: 'Natureza', dataIndex: 'natureza', render: (v) => <EtiquetaAD valor={v} /> },
+    { title: 'Natureza', dataIndex: 'natureza', render: (v) => <EtiquetaAD valor={v} />, responsive: ['md'] },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300 },
-    { title: 'Terceiro', key: 't', render: (_, r) => r.terceiro?.nome?.trim() ?? '—' },
-    { title: 'Período', key: 'p', render: (_, r) => `${formatarData(r.data_inicio)} → ${formatarData(r.data_fim)}` },
-    { title: 'Contas', key: 'c', render: (_, r) => `${r.conta_resultado} / ${r.conta_balanco}` },
+    { title: 'Terceiro', key: 't', responsive: ['lg'], render: (_, r) => r.terceiro?.nome?.trim() ?? '—' },
+    { title: 'Período', key: 'p', responsive: ['md'], render: (_, r) => `${formatarData(r.data_inicio)} → ${formatarData(r.data_fim)}` },
+    { title: 'Contas', key: 'c', responsive: ['lg'], render: (_, r) => `${r.conta_resultado} / ${r.conta_balanco}` },
     { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} forte /> },
-    { title: 'Reconhecido', dataIndex: 'reconhecido', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
+    { title: 'Reconhecido', dataIndex: 'reconhecido', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero />, responsive: ['md'] },
     { title: 'Estado', key: 'e', render: (_, r) => <><EtiquetaAD valor={r.estado} />{r.sem_documento && <Tag color="red">Sem documento</Tag>}</> },
   ];
 
@@ -62,17 +62,25 @@ function Lista() {
         }
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
+        <BarraFiltros>
           <Input.Search placeholder="Descrição, conta, documento, terceiro" allowClear onSearch={setTexto} style={{ width: 300 }} />
           <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 150 }} options={[{ value: 'ACRESCIMO', label: 'Acréscimos' }, { value: 'DIFERIMENTO', label: 'Diferimentos' }]} />
           <Select value={estado} onChange={setEstado} style={{ width: 240 }}
             options={[{ value: 'ABERTOS', label: 'Em aberto' }, { value: 'TODOS', label: 'Todos' }, ...Object.entries(def.data?.estados ?? {}).map(([value, label]) => ({ value, label }))]} />
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<ItemAD>
           url="/acrescimos/itens"
           chaveConsulta={['acrescimos', 'itens']}
           filtros={{ tipo, estado, texto }}
           columns={colunas}
+          impressao={{
+            titulo: 'Lista de acréscimos e diferimentos',
+            filtros: [
+              `Estado: ${estado === 'ABERTOS' ? 'Em aberto' : estado === 'TODOS' ? 'Todos' : def.data?.estados?.[estado] ?? estado}`,
+              tipo && `Tipo: ${tipo === 'ACRESCIMO' ? 'Acréscimos' : 'Diferimentos'}`,
+              texto && `Pesquisa: ${texto}`,
+            ],
+          }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
@@ -91,7 +99,7 @@ function ModalDefinicoes({ aberto, aoFechar }: { aberto: boolean; aoFechar: () =
     if (aberto && def.data) form.setFieldsValue({ contas: def.data.contas, diario_id: def.data.diario_id ?? undefined, prazo_documento_dias: def.data.prazo_documento_dias });
   }, [aberto, def.data, form]);
   return (
-    <Modal title="Definições de acréscimos e diferimentos" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={640} destroyOnClose>
+    <Modal title="Definições de acréscimos e diferimentos" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(640)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'put', url: '/acrescimos/definicoes', dados: { ...v, diario_id: v.diario_id ?? null } })}>
         {Object.entries(def.data?.rotulos_contas ?? {}).map(([chave, rotulo]) => (
           <Form.Item key={chave} name={['contas', chave]} label={`${rotulo} (${chave.replace('_', ' / ').toLowerCase()})`}>
@@ -99,7 +107,7 @@ function ModalDefinicoes({ aberto, aoFechar }: { aberto: boolean; aoFechar: () =
           </Form.Item>
         ))}
         <Flex gap={12} wrap>
-          <Form.Item name="diario_id" label="Diário dos lançamentos"><SeletorDiario allowClear style={{ width: 280 }} /></Form.Item>
+          <Form.Item name="diario_id" label="Diário dos lançamentos"><SeletorDiario allowClear style={{ width: 280, maxWidth: '100%' }} /></Form.Item>
           <Form.Item name="prazo_documento_dias" label="Prazo do documento real (dias)"><InputNumber min={0} max={3650} style={{ width: 160 }} /></Form.Item>
         </Flex>
         <Typography.Text type="secondary">O prazo define a data limite dos acréscimos sem data indicada (fim do período + prazo).</Typography.Text>

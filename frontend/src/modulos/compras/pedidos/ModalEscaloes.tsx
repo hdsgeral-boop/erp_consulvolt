@@ -7,6 +7,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import type { Escalao } from '../comum/tipos';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 /** Valida os escalões como o servidor: 1 a 4 níveis com nome; limites positivos e crescentes; o último sem limite. */
 export function validarEscaloes(niveis: { nome?: string; limite?: number | null }[]): string | null {
@@ -42,7 +43,7 @@ export function ModalEscaloes({ aberto, aoFechar }: { aberto: boolean; aoFechar:
       title="Escalões de aprovação por valor"
       open={aberto}
       onCancel={aoFechar}
-      width={640}
+      width={larguraModal(640)}
       okText="Gravar"
       cancelText="Fechar"
       okButtonProps={{ disabled: !podeEditar || !!erro, style: podeEditar ? undefined : { display: 'none' } }}
@@ -100,7 +101,7 @@ export function ModalEscaloes({ aberto, aoFechar }: { aberto: boolean; aoFechar:
           {erro && <Alert type="warning" style={{ marginTop: 12 }} message={erro} />}
         </Form>
       ) : (
-        <Table<Escalao>
+        <Table<Escalao> scroll={scrollTabela()}
           size="small"
           rowKey="nome"
           pagination={false}

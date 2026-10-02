@@ -1,7 +1,7 @@
 import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { obter } from '@/api/cliente';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
@@ -11,6 +11,8 @@ import { EtiquetaProjectos, ModalEliminar, SeletorTarefa, useWbs } from '../comu
 import { achatarWbs, consumo, RUBRICAS, rotuloRubrica, totaisPorRubrica } from '../comum/regras';
 import type { Aditamento, CustosTarefa, LinhaOrcamento } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
+import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
+import { scrollTabela } from '@/componentes/responsivo';
 
 /** Orçamento base por tarefa e rubrica, orçado vs executado por tarefa, e aditamentos (trabalhos a mais/menos). */
 export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
@@ -26,10 +28,15 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
   const porRubrica = totaisPorRubrica(orc.data?.linhas ?? []);
   const totalComAdit = (Number(orc.data?.total ?? 0) + Number(adit.data?.total_aprovado ?? 0)).toFixed(2);
   const linhasCustos = Object.entries(custos.data ?? {}).map(([id, c]) => ({ id: Number(id), ...c }));
+  const refSeparador = useRef<HTMLDivElement>(null);
 
   return (
+    <div ref={refSeparador}>
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Row gutter={16}>
+      <div className="imp-nao-imprimir" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <ImpressaoSeparador alvo={refSeparador} titulo="Orçamento e aditamentos" projecto={projecto} />
+      </div>
+      <Row gutter={[16, 16]}>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Orçamento base (Kz)" value={formatarKz(orc.data?.total)} /></Card></Col>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Aditamentos aprovados (Kz)" value={formatarKz(adit.data?.total_aprovado)} /></Card></Col>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Orçamento revisto (Kz)" value={formatarKz(totalComAdit)} /></Card></Col>
@@ -41,7 +48,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
         </Col>
       </Row>
       <Card size="small" title="Orçamento base" extra={acc.gerir && <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setLinha({})}>Rubrica</Button>}>
-        <Table<LinhaOrcamento>
+        <Table<LinhaOrcamento> scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={orc.isFetching}
@@ -56,7 +63,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
             {
               title: '', key: 'acc', align: 'right',
               render: (_, l) => acc.gerir && (
-                <Space>
+                <Space wrap>
                   <Button size="small" icon={<EditOutlined />} onClick={() => setLinha(l)} />
                   <Popconfirm title="Remover esta rubrica do orçamento?" okText="Remover" cancelText="Cancelar" okButtonProps={{ danger: true }}
                     onConfirm={() => accao.mutate({ metodo: 'delete', url: `/projetos/${projecto.id}/orcamento/${l.id}` })}>
@@ -69,7 +76,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
         />
       </Card>
       <Card size="small" title="Orçado vs executado por tarefa">
-        <Table
+        <Table scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={custos.isFetching}
@@ -86,7 +93,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
         />
       </Card>
       <Card size="small" title="Aditamentos e trabalhos a mais" extra={acc.gerir && <Button size="small" icon={<PlusOutlined />} onClick={() => setAditamento({ estado: 'PENDENTE' })}>Aditamento</Button>}>
-        <Table<Aditamento>
+        <Table<Aditamento> scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={adit.isFetching}
@@ -100,7 +107,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
             {
               title: '', key: 'acc', align: 'right',
               render: (_, a) => (
-                <Space>
+                <Space wrap>
                   {acc.gerir && <Button size="small" icon={<EditOutlined />} onClick={() => setAditamento(a)} />}
                   {acc.eliminar && <Button size="small" danger icon={<DeleteOutlined />} onClick={() => setEliminarAdit(a)} />}
                 </Space>
@@ -114,6 +121,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
       <ModalEliminar aberto={!!eliminarAdit} titulo="Eliminar o aditamento" aviso={eliminarAdit?.descricao} carregando={accao.isPending} aoFechar={() => setEliminarAdit(null)}
         aoConfirmar={(confirmacao) => eliminarAdit && accao.mutate({ metodo: 'delete', url: `/projetos/${projecto.id}/aditamentos/${eliminarAdit.id}`, dados: { confirmacao } })} />
     </Space>
+    </div>
   );
 }
 
@@ -125,7 +133,7 @@ function ModalLinha({ projectoId, linha, aoFechar }: { projectoId: number; linha
     if (linha) { form.resetFields(); form.setFieldsValue({ ...linha, montante: linha.montante ? Number(linha.montante) : undefined }); }
   }, [linha, form]);
   return (
-    <Modal title={linha?.id ? 'Editar rubrica' : 'Nova rubrica do orçamento'} open={!!linha} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title={linha?.id ? 'Editar rubrica' : 'Nova rubrica do orçamento'} open={!!linha} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => {
         const dados = { tarefa_projeto_id: v.tarefa_projeto_id ?? null, rubrica: v.rubrica, numero_conta: v.rubrica === 'MAO_DE_OBRA' ? null : v.numero_conta || null, montante: v.montante };
         accao.mutate(linha?.id ? { metodo: 'put', url: `/projetos/${projectoId}/orcamento/${linha.id}`, dados } : { url: `/projetos/${projectoId}/orcamento`, dados });
@@ -135,7 +143,7 @@ function ModalLinha({ projectoId, linha, aoFechar }: { projectoId: number; linha
           <Select options={Object.entries(RUBRICAS).map(([value, label]) => ({ value, label }))} />
         </Form.Item>
         {rubrica && rubrica !== 'MAO_DE_OBRA' && <Form.Item name="numero_conta" label="Conta (opcional)"><SeletorConta /></Form.Item>}
-        <Form.Item name="montante" label="Montante (Kz)" rules={[{ required: true, message: 'Indique o montante.' }]}><InputNumber precision={2} style={{ width: 220 }} /></Form.Item>
+        <Form.Item name="montante" label="Montante (Kz)" rules={[{ required: true, message: 'Indique o montante.' }]}><InputNumber precision={2} style={{ width: 220, maxWidth: '100%' }} /></Form.Item>
       </Form>
     </Modal>
   );
@@ -148,14 +156,14 @@ function ModalAditamento({ projectoId, aditamento, aoFechar }: { projectoId: num
     if (aditamento) { form.resetFields(); form.setFieldsValue({ ...aditamento, montante: aditamento.montante ? Number(aditamento.montante) : undefined }); }
   }, [aditamento, form]);
   return (
-    <Modal title={aditamento?.id ? 'Editar aditamento' : 'Novo aditamento'} open={!!aditamento} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title={aditamento?.id ? 'Editar aditamento' : 'Novo aditamento'} open={!!aditamento} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => {
         const dados = { descricao: v.descricao, montante: v.montante ?? null, estado: v.estado };
         accao.mutate(aditamento?.id ? { metodo: 'put', url: `/projetos/${projectoId}/aditamentos/${aditamento.id}`, dados } : { url: `/projetos/${projectoId}/aditamentos`, dados });
       }}>
         <Form.Item name="descricao" label="Descrição" rules={[{ required: true, message: 'Descreva o aditamento.' }]}><Input.TextArea rows={3} maxLength={5000} /></Form.Item>
-        <Space>
-          <Form.Item name="montante" label="Montante (Kz)" tooltip="Negativo = trabalhos a menos"><InputNumber precision={2} style={{ width: 200 }} /></Form.Item>
+        <Space wrap>
+          <Form.Item name="montante" label="Montante (Kz)" tooltip="Negativo = trabalhos a menos"><InputNumber precision={2} style={{ width: 200, maxWidth: '100%' }} /></Form.Item>
           <Form.Item name="estado" label="Estado">
             <Select style={{ width: 160 }} options={[{ value: 'PENDENTE', label: 'Pendente' }, { value: 'APROVADO', label: 'Aprovado' }, { value: 'REJEITADO', label: 'Rejeitado' }]} />
           </Form.Item>

@@ -11,6 +11,7 @@ import { GRUPOS_PAGAMENTO, type CartaPagamento, type PeriodoSalarial } from '../
 import { AreaImpressao, BotaoImprimir, CabecalhoMapa } from './componentes';
 import { useAccaoRh, useAvisarErro } from './consultas';
 import { formatarIban, mesPorExtenso } from './regras';
+import { DeslocamentoHorizontal, larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 interface ContaPlano {
   codigo: string;
@@ -40,7 +41,7 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
     { title: 'N.º', dataIndex: 'id', render: (v: number) => <strong>#{v}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
     { title: 'Grupo', dataIndex: 'grupo', render: (g: string) => GRUPOS_PAGAMENTO.find((x) => x.value === g)?.label ?? g },
-    { title: 'Conta bancária', dataIndex: 'codigo_conta_bancaria' },
+    { title: 'Conta bancária', dataIndex: 'codigo_conta_bancaria', responsive: ['md'] },
     { title: 'Montante', dataIndex: 'montante_total', align: 'right', render: (v: string) => formatarKz(v, true) },
     { title: 'Pagamento', dataIndex: 'documento_tesouraria_id', render: (v: number | null) => (v ? <Tag color="green">Gerado (#{v})</Tag> : <Tag>Por pagar</Tag>) },
     {
@@ -70,13 +71,13 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
   const c = detalhe.data;
   return (
     <>
-      <Space style={{ marginBottom: 12 }}>
+      <Space wrap style={{ marginBottom: 12 }}>
         {podeEmitir && <Button icon={<PlusOutlined />} onClick={() => { form.setFieldsValue({ data: dayjs(), grupo: 'TODOS' }); setEmitir(true); }}>Emitir carta</Button>}
         {periodo.estado !== 'VALIDADO' && <Typography.Text type="secondary">As cartas emitem-se de períodos validados.</Typography.Text>}
       </Space>
-      <Table<CartaPagamento> rowKey="id" size="small" loading={cartas.isFetching} columns={colunas} dataSource={cartas.data ?? []} pagination={false} />
+      <Table<CartaPagamento> rowKey="id" size="small" loading={cartas.isFetching} columns={colunas} dataSource={cartas.data ?? []} pagination={false} scroll={scrollTabela()} />
 
-      <Modal title="Emitir carta de pagamento" open={emitir} onCancel={() => setEmitir(false)} okText="Emitir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title="Emitir carta de pagamento" open={emitir} onCancel={() => setEmitir(false)} okText="Emitir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Typography.Paragraph type="secondary">Inclui os salários líquidos ainda sem carta (do grupo escolhido). É recusada se algum colaborador não tiver IBAN.</Typography.Paragraph>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${periodo.id}/cartas`, dados: { ...v, data: dataApi(v.data) } })}>
           <Form.Item name="codigo_conta_bancaria" label="Conta bancária (43…)" rules={[{ required: true, message: 'Indique a conta.' }, { pattern: /^43/, message: 'Tem de ser uma conta bancária (43).' }]}>
@@ -92,14 +93,15 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
         </Form>
       </Modal>
 
-      <Modal title={`Carta de pagamento #${ver ?? ''}`} open={ver !== null} width={860} onCancel={() => setVer(null)}
-        footer={<Space><BotaoImprimir desactivado={!c} /><Button onClick={() => setVer(null)}>Fechar</Button></Space>}>
+      <Modal title={`Carta de pagamento #${ver ?? ''}`} open={ver !== null} width={larguraModal(860)} onCancel={() => setVer(null)}
+        footer={<Space wrap><BotaoImprimir desactivado={!c} /><Button onClick={() => setVer(null)}>Fechar</Button></Space>}>
         {detalhe.isLoading || !c ? <Skeleton active /> : (
           <AreaImpressao>
             <CabecalhoMapa empresa={empresa?.nome} titulo="Carta de pagamento de salários" mesAno={c.mes_ano} extra={<div>Data: {formatarData(c.data)} · Conta a debitar: {c.codigo_conta_bancaria}</div>} />
             <Typography.Paragraph>
               Solicitamos a transferência dos salários de {mesPorExtenso(c.mes_ano)} para as contas abaixo indicadas, no montante total de <strong>{formatarKz(c.montante_total, true)}</strong>.
             </Typography.Paragraph>
+            <DeslocamentoHorizontal>
             <table className="rh-tabela-mapa">
               <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Beneficiário</th><th>IBAN</th><th>Montante (Kz)</th></tr></thead>
               <tbody>
@@ -109,6 +111,7 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
               </tbody>
               <tfoot><tr><td colSpan={3}>Total</td><td className="num">{formatarKz(c.montante_total)}</td></tr></tfoot>
             </table>
+            </DeslocamentoHorizontal>
             {c.documento_tesouraria && <Alert className="rh-nao-imprimir" style={{ marginTop: 12 }} type="success" showIcon message={`Pagamento ${c.documento_tesouraria.numero_documento} (${c.documento_tesouraria.estado}).`} />}
             <div className="rh-recibo-assinatura"><div>{c.nome_assinatura ?? 'Assinatura autorizada'}</div></div>
           </AreaImpressao>

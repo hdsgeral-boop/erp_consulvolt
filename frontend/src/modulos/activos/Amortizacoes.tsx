@@ -5,14 +5,18 @@ import dayjs from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, IndicadorEquilibrio, ValorKz } from '@/modulos/contab/comum/Componentes';
-import { paraCentimos } from '@/utilitarios/decimal';
+import { paraCentimos, somar } from '@/utilitarios/decimal';
+import { pedidoTabela } from './comum/impressao';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaActivos } from './comum/componentes';
 import { accoesPeriodo, codigoPeriodo, ordenarPeriodos, quotaEditavel, rotuloPeriodo } from './comum/regras';
 import type { LinhaPeriodo, MesPendente, PeriodoAmortizacoes, PreVisualizacao, Verificacao } from './comum/tipos';
+import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 /** Activos › Amortizações (ecrã activos_amortizacoes): cálculo, quotas manuais, pré-visualização, integração, reabertura e verificação. */
 export default function Amortizacoes() {
@@ -20,7 +24,7 @@ export default function Amortizacoes() {
     <>
       <CabecalhoPagina titulo="Amortizações" subtitulo="Quotas constantes mensais; integração no diário AM (D 73 / C 18) por conta, unidade de negócio e centro de custo" />
       <Tabs
-        destroyInactiveTabPane
+        destroyOnHidden
         items={[
           { key: 'periodo', label: 'Período', children: <Periodo /> },
           { key: 'pendentes', label: 'Meses em falta', children: <MesesEmFalta /> },
@@ -55,6 +59,44 @@ function Periodo() {
     );
   };
 
+  const colunas: ColunaApi<LinhaPeriodo>[] = [
+    { title: 'Código', dataIndex: 'codigo', fixed: 'left' },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
+    { title: 'Categoria', dataIndex: 'categoria', responsive: ['md'] },
+    { title: 'CC', dataIndex: 'centro_custo', responsive: ['lg'], render: (v) => v ?? '—' },
+    { title: 'Aquisição', dataIndex: 'valor_aquisicao', align: 'right', render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor_aquisicao))) },
+    { title: 'Acumulado anterior', dataIndex: 'acumulado_anterior', align: 'right', responsive: ['md'], render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.acumulado_anterior))) },
+    { title: 'Calculada', dataIndex: 'quota_calculada', align: 'right', responsive: ['md'], render: (v) => <ValorKz valor={v} discretoSeZero />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.quota_calculada))) },
+    {
+      title: 'Quota', key: 'quota', align: 'right',
+      valorImpressao: (l) => formatarKz(l.quota),
+      totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.quota))),
+      render: (_, l) => {
+        const editada = l.ativo_imobilizado_id in quotas;
+        if (!acc.quotaManual || !quotaEditavel(l)) return <ValorKz valor={l.quota} forte />;
+        return (
+          <Space.Compact>
+            <InputNumber
+              size="small"
+              min={0}
+              precision={2}
+              style={{ width: 130 }}
+              value={editada ? quotas[l.ativo_imobilizado_id] : Number(l.quota)}
+              onChange={(v) => setQuotas((s) => ({ ...s, [l.ativo_imobilizado_id]: v }))}
+            />
+            {editada && <Button size="small" type="primary" icon={<SaveOutlined />} loading={quota.isPending} onClick={() => gravarQuota(l)} title="Gravar quota manual" />}
+          </Space.Compact>
+        );
+      },
+    },
+    {
+      title: 'Diferença', key: 'dif', align: 'right',
+      valorImpressao: (l) => (paraCentimos(l.quota) !== paraCentimos(l.quota_calculada) ? 'manual' : ''),
+      render: (_, l) => (paraCentimos(l.quota) !== paraCentimos(l.quota_calculada) ? <Tag color="gold">manual</Tag> : null),
+    },
+    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
+  ];
+
   return (
     <Card>
       <Flex gap={12} wrap justify="space-between" align="center" style={{ marginBottom: 16 }}>
@@ -64,6 +106,14 @@ function Periodo() {
           <Input.Search placeholder="Filtrar activos" allowClear onSearch={setFiltro} style={{ width: 220 }} />
         </Space>
         <Space wrap>
+          <BotoesExportar desactivado={!linhas.length} obterPedido={() => pedidoTabela({
+            titulo: 'Amortizações do período',
+            periodo: rotuloPeriodo(periodo),
+            filtros: [p ? `Estado: ${p.estado}` : null, filtro ? `Filtro: ${filtro}` : null],
+            colunas,
+            linhas,
+            totais: 'Total',
+          })} />
           {acc.calcular && (
             <Button icon={<CalculatorOutlined />} loading={calcular.isPending} onClick={() => calcular.mutate({ url: '/ativos/amortizacoes/calcular', dados: { periodos: [periodo] } })}>
               Calcular {rotuloPeriodo(periodo)}
@@ -90,42 +140,9 @@ function Periodo() {
         size="small"
         loading={q.isFetching}
         dataSource={linhas}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         pagination={{ defaultPageSize: 50, showSizeChanger: true, showTotal: (n) => `${n} activo(s)` }}
-        columns={[
-          { title: 'Código', dataIndex: 'codigo', fixed: 'left' },
-          { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
-          { title: 'Categoria', dataIndex: 'categoria' },
-          { title: 'CC', dataIndex: 'centro_custo', render: (v) => v ?? '—' },
-          { title: 'Aquisição', dataIndex: 'valor_aquisicao', align: 'right', render: (v) => <ValorKz valor={v} /> },
-          { title: 'Acumulado anterior', dataIndex: 'acumulado_anterior', align: 'right', render: (v) => <ValorKz valor={v} /> },
-          { title: 'Calculada', dataIndex: 'quota_calculada', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
-          {
-            title: 'Quota', key: 'quota', align: 'right',
-            render: (_, l) => {
-              const editada = l.ativo_imobilizado_id in quotas;
-              if (!acc.quotaManual || !quotaEditavel(l)) return <ValorKz valor={l.quota} forte />;
-              return (
-                <Space.Compact>
-                  <InputNumber
-                    size="small"
-                    min={0}
-                    precision={2}
-                    style={{ width: 130 }}
-                    value={editada ? quotas[l.ativo_imobilizado_id] : Number(l.quota)}
-                    onChange={(v) => setQuotas((s) => ({ ...s, [l.ativo_imobilizado_id]: v }))}
-                  />
-                  {editada && <Button size="small" type="primary" icon={<SaveOutlined />} loading={quota.isPending} onClick={() => gravarQuota(l)} title="Gravar quota manual" />}
-                </Space.Compact>
-              );
-            },
-          },
-          {
-            title: 'Diferença', key: 'dif', align: 'right',
-            render: (_, l) => (paraCentimos(l.quota) !== paraCentimos(l.quota_calculada) ? <Tag color="gold">manual</Tag> : null),
-          },
-          { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
-        ]}
+        columns={colunas}
       />
       <ModalPrevisualizar periodo={previsao ? periodo : null} podeIntegrar={pode('activos_amort_integrar')} aoFechar={() => setPrevisao(false)} />
       <ModalReabrir periodos={reabrir ? [periodo] : []} aoFechar={() => setReabrir(false)} />
@@ -148,8 +165,8 @@ function ModalPrevisualizar({ periodo, podeIntegrar, aoFechar }: { periodo: stri
       title={`Integração de ${periodo ? rotuloPeriodo(periodo) : ''}`}
       open={!!periodo}
       onCancel={aoFechar}
-      width={960}
-      destroyOnClose
+      width={larguraModal(960)}
+      destroyOnHidden
       footer={[
         <Button key="c" onClick={aoFechar}>Fechar</Button>,
         podeIntegrar && (
@@ -163,7 +180,7 @@ function ModalPrevisualizar({ periodo, podeIntegrar, aoFechar }: { periodo: stri
       {q.error && <Alert type="warning" showIcon message={(q.error as Error).message} />}
       {p && (
         <>
-          <Descriptions size="small" column={3} style={{ marginBottom: 12 }}>
+          <Descriptions size="small" column={COLUNAS_DESCRICOES} style={{ marginBottom: 12 }}>
             <Descriptions.Item label="Documento">{p.numero_documento}</Descriptions.Item>
             <Descriptions.Item label="Activos">{p.movimentos.length}</Descriptions.Item>
             <Descriptions.Item label="Total"><ValorKz valor={p.total} forte /></Descriptions.Item>

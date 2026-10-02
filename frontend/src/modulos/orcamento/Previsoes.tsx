@@ -1,20 +1,22 @@
 import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Typography } from 'antd';
 import { ArrowLeftOutlined, BranchesOutlined, CloudUploadOutlined, DeleteOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
-import { formatarDataHora } from '@/utilitarios/formatacao';
+import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaOrc, Kz } from './comum/componentes';
 import { totalAnual } from './comum/regras';
 import type { Previsao, ResumoPrevisao } from './comum/tipos';
+import { larguraModal, scrollTabela, useEcra } from '@/componentes/responsivo';
+import { pedidoTabela } from './comum/impressao';
 
 const METODOS = [
   { value: 'ORCAMENTO', label: 'Orçamento aprovado do mês' },
@@ -38,26 +40,31 @@ function Lista() {
   const { pode } = useSessao();
   const [nova, setNova] = useState(false);
   const q = useQuery({ queryKey: ['orcamento', 'previsoes'], queryFn: () => obter<Previsao[]>('/orcamento/previsoes') });
+  const colunasLista: ColunaApi<Previsao>[] = [
+    { title: 'Nome', dataIndex: 'nome', render: (v) => <strong>{v ?? '—'}</strong> },
+    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaOrc valor={v} /> },
+    { title: 'Mês de referência', dataIndex: 'mes_referencia', render: (v) => dayjs(`${v}-01`).format('MM/YYYY') },
+    { title: 'Revisão', dataIndex: 'revisao', render: (v) => `R${v}` },
+    { title: 'Método', dataIndex: 'metodo', responsive: ['lg'], render: (v) => METODOS.find((m) => m.value === v)?.label ?? v ?? '—' },
+    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaOrc valor={v} /> },
+    { title: 'Publicada', key: 'p', responsive: ['md'], render: (_, p) => (p.publicado_em ? `${p.publicado_por ?? ''} ${formatarDataHora(p.publicado_em)}` : '—') },
+  ];
+
   return (
     <>
       <CabecalhoPagina titulo="Previsões deslizantes" subtitulo="Rolling forecast a 12 meses e estimativa de fecho do ano"
-        accoes={pode('orc_previsoes_edit') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNova(true)}>Nova previsão</Button>} />
+        accoes={pode('orc_previsoes_edit') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNova(true)}>Nova previsão</Button>}
+        impressaoDesactivada={!q.data?.length}
+        impressao={() => pedidoTabela({ titulo: 'Previsões deslizantes', colunas: colunasLista, linhas: q.data ?? [] })} />
       <Card>
         <Table<Previsao>
           rowKey="id"
           size="middle"
           loading={q.isFetching}
           dataSource={q.data}
+          scroll={scrollTabela()}
           onRow={(p) => ({ onClick: () => navegar(String(p.id)), style: { cursor: 'pointer' } })}
-          columns={[
-            { title: 'Nome', dataIndex: 'nome', render: (v) => <strong>{v ?? '—'}</strong> },
-            { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaOrc valor={v} /> },
-            { title: 'Mês de referência', dataIndex: 'mes_referencia', render: (v) => dayjs(`${v}-01`).format('MM/YYYY') },
-            { title: 'Revisão', dataIndex: 'revisao', render: (v) => `R${v}` },
-            { title: 'Método', dataIndex: 'metodo', render: (v) => METODOS.find((m) => m.value === v)?.label ?? v ?? '—' },
-            { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaOrc valor={v} /> },
-            { title: 'Publicada', key: 'p', render: (_, p) => (p.publicado_em ? `${p.publicado_por ?? ''} ${formatarDataHora(p.publicado_em)}` : '—') },
-          ]}
+          columns={colunasLista}
         />
       </Card>
       <ModalNova aberto={nova} aoFechar={() => setNova(false)} aoGravar={(p) => navegar(String(p.id))} />
@@ -71,7 +78,7 @@ function ModalNova({ aberto, aoFechar, aoGravar }: { aberto: boolean; aoFechar: 
   const accao = useAccao<Previsao>({ invalidar: [['orcamento']], aoSucesso: (p) => { aoGravar(p); aoFechar(); } });
   useEffect(() => { if (aberto) { form.resetFields(); form.setFieldsValue({ tipo: 'EXPLORACAO', metodo: 'TENDENCIA', mes_referencia: dayjs().subtract(1, 'month') }); } }, [aberto, form]);
   return (
-    <Modal title="Nova previsão" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Criar" cancelText="Cancelar" confirmLoading={accao.isPending} width={720} destroyOnClose>
+    <Modal title="Nova previsão" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Criar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(720)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => {
         const dados: Record<string, unknown> = { ...v, mes_referencia: v.mes_referencia.format('YYYY-MM') };
         for (const k of Object.keys(dados)) if (dados[k] === undefined || dados[k] === '') dados[k] = null;
@@ -102,6 +109,7 @@ function Detalhe() {
   const [valores, setValores] = useState<Record<number, Record<string, number>>>({});
   const [notas, setNotas] = useState('');
   const [alterado, setAlterado] = useState(false);
+  const { telemovel } = useEcra();
   const gravar = useAccao({ invalidar: [['orcamento']], aoSucesso: () => setAlterado(false) });
   const accao = useAccao({ invalidar: [['orcamento']] });
   const revisao = useAccao<Previsao>({ invalidar: [['orcamento']], aoSucesso: (p) => navegar(`../${p.id}`, { relative: 'path' }) });
@@ -120,16 +128,17 @@ function Detalhe() {
   const editavel = p.estado === 'RASCUNHO' && pode('orc_previsoes_edit');
   const total = (rid: number) => totalAnual(Object.values(valores[rid] ?? {}));
 
-  const colunas: ColumnsType<Linha> = [
-    { title: 'Rubrica', key: 'r', fixed: 'left', width: 240, render: (_, l) => <><strong>{l.codigo}</strong> {l.nome}</> },
-    ...r.meses_reais.map((m, i) => ({ title: <Typography.Text type="secondary">{dayjs(`${m}-01`).format('MMM YY')} (real)</Typography.Text>, key: `real${i}`, align: 'right' as const, render: (_: unknown, l: Linha) => <Typography.Text type="secondary">{Number(l.real_recente[i] ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</Typography.Text> })),
+  const colunas: ColunaApi<Linha>[] = [
+    { title: 'Rubrica', key: 'r', fixed: telemovel ? undefined : 'left', width: telemovel ? 170 : 240, render: (_, l) => <><strong>{l.codigo}</strong> {l.nome}</>, valorImpressao: (l) => `${l.codigo} ${l.nome}` },
+    ...r.meses_reais.map((m, i) => ({ title: <Typography.Text type="secondary">{dayjs(`${m}-01`).format('MMM YY')} (real)</Typography.Text>, key: `real${i}`, align: 'right' as const, render: (_: unknown, l: Linha) => <Typography.Text type="secondary">{Number(l.real_recente[i] ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 0 })}</Typography.Text>, valorImpressao: (l: Linha) => Number(l.real_recente[i] ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 0 }) })),
     ...r.meses.map((m) => ({
       title: dayjs(`${m}-01`).format('MMM YY'), key: m, align: 'right' as const,
+      valorImpressao: (l: Linha) => formatarKz(valores[l.rubrica_id]?.[m] ?? 0),
       render: (_: unknown, l: Linha) => editavel
         ? <InputNumber size="small" controls={false} precision={2} style={{ width: 108 }} value={valores[l.rubrica_id]?.[m] ?? 0} onChange={(v) => { setValores((s) => ({ ...s, [l.rubrica_id]: { ...s[l.rubrica_id], [m]: v ?? 0 } })); setAlterado(true); }} />
         : <Kz valor={valores[l.rubrica_id]?.[m] ?? 0} />,
     })),
-    { title: 'Total 12 m', key: 't12', align: 'right', render: (_, l) => <Kz valor={total(l.rubrica_id)} forte /> },
+    { title: 'Total 12 m', key: 't12', align: 'right', render: (_, l) => <Kz valor={total(l.rubrica_id)} forte />, valorImpressao: (l) => formatarKz(total(l.rubrica_id)) },
     { title: `Real ${r.ano_fecho}`, dataIndex: 'real_ano', align: 'right', render: (v) => <Kz valor={v} /> },
     { title: `Fecho ${r.ano_fecho}`, dataIndex: 'fecho_estimado', align: 'right', render: (v) => <Kz valor={v} forte /> },
     { title: 'Orçado', dataIndex: 'orcado', align: 'right', render: (v) => (v === null ? '—' : <Kz valor={v} />) },
@@ -139,6 +148,14 @@ function Detalhe() {
     <>
       <CabecalhoPagina
         titulo={<Space wrap><Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navegar('..')} />{p.nome ?? 'Previsão'} · R{p.revisao}<EtiquetaOrc valor={p.tipo} /><EtiquetaOrc valor={p.estado} /></Space>}
+        impressao={() => pedidoTabela({
+          titulo: 'Previsão deslizante (12 meses)',
+          subtitulo: `${p.nome ?? 'Previsão'} · revisão R${p.revisao} · ${p.estado}${alterado ? ' (com alterações por gravar)' : ''}`,
+          periodo: `Mês de referência ${dayjs(`${p.mes_referencia}-01`).format('MM/YYYY')} · fecho estimado de ${r.ano_fecho}`,
+          filtros: notas ? [`Notas: ${notas}`] : undefined,
+          colunas,
+          linhas: r.linhas,
+        })}
         subtitulo={`Mês de referência ${dayjs(`${p.mes_referencia}-01`).format('MM/YYYY')} · fecho estimado de ${r.ano_fecho}${r.orcamento_id ? '' : ' (sem orçamento aprovado para comparar)'}`}
         accoes={
           <>

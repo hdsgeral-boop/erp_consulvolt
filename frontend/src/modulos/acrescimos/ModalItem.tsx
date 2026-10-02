@@ -1,4 +1,5 @@
 import { Alert, Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, Modal, Radio, Row, Select, Table, Typography } from 'antd';
+import { larguraModal } from '@/componentes/responsivo';
 import { CalculatorOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -91,8 +92,8 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
       title={editar ? `Editar registo #${item?.id}` : 'Novo registo de acréscimo / diferimento'}
       open={aberto}
       onCancel={aoFechar}
-      width={920}
-      destroyOnClose
+      width={larguraModal(920)}
+      destroyOnHidden
       footer={[
         <Button key="p" icon={<CalculatorOutlined />} loading={aSimular} onClick={simular}>Ver plano</Button>,
         <Button key="c" onClick={aoFechar}>Cancelar</Button>,
@@ -102,9 +103,9 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
       {bloq && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="O registo já tem lançamentos: só as notas e a data limite podem ser alteradas." />}
       {item?.origem?.doc && <Alert type="success" showIcon style={{ marginBottom: 12 }} message={`Documento de origem: ${item.origem.fonte ?? ''} ${item.origem.doc}${item.origem.data ? ` de ${dayjs(item.origem.data).format('DD/MM/YYYY')}` : ''}`} />}
       <Form form={form} layout="vertical" onFinish={gravar} onValuesChange={() => setQuotas(null)}>
-        <Row gutter={12}>
+        <Row gutter={[12, 0]}>
           {!editar && (
-            <Col span={24}>
+            <Col xs={24}>
               <Form.Item name="modelo" label="Modelo (opcional)">
                 <Select allowClear placeholder="Seguro anual, renda adiantada, férias a pagar…" onChange={aplicarModelo} options={(def.data?.modelos ?? []).map((m) => ({ value: m.id, label: m.rotulo }))} />
               </Form.Item>
@@ -125,7 +126,7 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
               <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloq} />
             </Form.Item>
           </Col>
-          <Col span={24}>
+          <Col xs={24}>
             <Form.Item name="descricao" label="Descrição" rules={[{ required: true, message: 'Indique a descrição.' }]}><Input maxLength={1000} disabled={bloq} /></Form.Item>
           </Col>
           <Col xs={24} md={12}>
@@ -171,7 +172,7 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
           <Col xs={24} md={12}><Form.Item name="projeto_id" label="Projecto"><SeletorProjecto allowClear disabled={bloq} /></Form.Item></Col>
           <Col xs={24} md={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
           <Col xs={24} md={12}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
-          <Col span={24}><Form.Item name="notas" label="Notas"><Input.TextArea rows={2} maxLength={4000} /></Form.Item></Col>
+          <Col xs={24}><Form.Item name="notas" label="Notas"><Input.TextArea rows={2} maxLength={4000} /></Form.Item></Col>
         </Row>
       </Form>
       {quotas && (

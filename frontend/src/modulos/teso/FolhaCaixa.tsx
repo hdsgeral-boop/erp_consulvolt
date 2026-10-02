@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { pares, tabelaHtml } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -15,6 +16,48 @@ import { SeletorAux, SeletorConta, SeletorTerceiro, SeletorUnidade } from '../co
 import type { MovimentoCaixa, SessaoCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { accoesSessao } from './regras';
+import { COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+
+const ROTULO_SESSAO: Record<string, string> = { ABERTA: 'Aberta', FECHADA: 'Fechada', CONTABILIZADA: 'Contabilizada' };
+
+/** Folha de caixa impressa de uma sessão: resumo de saldos, movimentos (entradas/saídas) com totais e assinaturas. */
+export function pedidoFolhaCaixa(s: SessaoCaixa) {
+  const movs = s.movimentos ?? [];
+  return {
+    titulo: `Folha de caixa — sessão #${s.id}`,
+    periodo: `${formatarData(s.data_abertura)}${s.data_fecho ? ` a ${formatarData(s.data_fecho)}` : ''}`,
+    filtros: [`Conta ${s.codigo_conta}`, `Estado: ${ROTULO_SESSAO[s.estado] ?? s.estado}`],
+    conteudo:
+      pares(
+        [
+          ['Saldo de abertura', `${formatarKz(s.saldo_abertura)} Kz`],
+          ['Saldo do sistema', `${formatarKz(s.saldo_sistema)} Kz`],
+          ['Saldo contado', s.saldo_fisico !== null ? `${formatarKz(s.saldo_fisico)} Kz` : '—'],
+          ['Diferença', s.diferenca !== null && s.diferenca !== undefined ? `${formatarKz(s.diferenca)} Kz` : '—'],
+          ['Operador', s.operador ?? '—'],
+          ['Lançamentos', s.numeros_lan_contabilizacao ?? '—'],
+        ],
+        3,
+      ) +
+      tabelaHtml({
+        colunas: [
+          { titulo: 'Data', valor: (m: MovimentoCaixa) => m.data_documento, formato: 'data' },
+          { titulo: 'Documento', valor: (m) => m.numero_documento ?? '' },
+          { titulo: 'Terceiro', valor: (m) => m.terceiro?.nome?.trim() ?? '', quebrar: true },
+          { titulo: 'Descrição', valor: (m) => m.descricao ?? '', quebrar: true },
+          { titulo: 'Débito', valor: (m) => m.conta_debito },
+          { titulo: 'Crédito', valor: (m) => m.conta_credito },
+          { titulo: 'Entrada (Kz)', valor: (m) => (m.tipo === 'REC' ? m.valor : null), formato: 'moeda', somar: true },
+          { titulo: 'Saída (Kz)', valor: (m) => (m.tipo === 'PAG' ? m.valor : null), formato: 'moeda', somar: true },
+          { titulo: 'Origem', valor: (m) => m.tipo_origem ?? 'Manual' },
+        ],
+        linhas: movs,
+        totais: true,
+        vazio: 'Sem movimentos.',
+      }) +
+      '<div class="imp-sem-quebra" style="display:flex;justify-content:space-around;gap:10mm;margin-top:14mm"><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">O operador de caixa</div><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">O responsável</div></div>',
+  };
+}
 
 /** Tesouraria › Folha de Caixa (ecrã teso_folha_caixa): sessões por conta 45, movimentos, fecho com contagem e contabilização (diário CX). */
 export default function FolhaCaixa() {
@@ -34,6 +77,7 @@ function ListaSessoes() {
   const [abrir, setAbrir] = useState(false);
   const [form] = Form.useForm<{ codigo_conta: string; data: Dayjs; saldo_abertura?: number }>();
   const sessoes = useQuery({ queryKey: ['teso', 'caixa', 'sessoes', conta], queryFn: () => obter<SessaoCaixa[]>('/tesouraria/caixa/sessoes', { codigo_conta: conta }) });
+  const pequeno = useEcraPequeno();
   const abertura = useMutation({
     mutationFn: (v: { codigo_conta: string; data: Dayjs; saldo_abertura?: number }) => enviar<SessaoCaixa>('post', '/tesouraria/caixa/sessoes', { ...v, data: dataApi(v.data) }),
     onSuccess: ({ dados, mensagem }) => {
@@ -50,33 +94,53 @@ function ListaSessoes() {
       <CabecalhoPagina
         titulo="Folha de Caixa"
         subtitulo="Sessões de caixa por conta"
+        impressaoDesactivada={!sessoes.data?.length}
+        impressao={() => ({
+          titulo: 'Sessões de caixa',
+          filtros: [conta ? `Conta ${conta}` : 'Todas as contas de caixa'],
+          conteudo: tabelaHtml({
+            colunas: [
+              { titulo: 'Sessão', valor: (r: SessaoCaixa) => `#${r.id}` },
+              { titulo: 'Conta', valor: (r) => r.codigo_conta },
+              { titulo: 'Abertura', valor: (r) => r.data_abertura, formato: 'data' },
+              { titulo: 'Fecho', valor: (r) => r.data_fecho, formato: 'data' },
+              { titulo: 'Operador', valor: (r) => r.operador ?? '' },
+              { titulo: 'Saldo de abertura', valor: (r) => r.saldo_abertura, formato: 'moeda' },
+              { titulo: 'Saldo de fecho', valor: (r) => r.saldo_fecho, formato: 'moeda' },
+              { titulo: 'Contado', valor: (r) => r.saldo_fisico, formato: 'moeda' },
+              { titulo: 'Estado', valor: (r) => ROTULO_SESSAO[r.estado] ?? r.estado },
+            ],
+            linhas: sessoes.data ?? [],
+          }),
+        })}
         accoes={pode('teso_caixa_operar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.setFieldsValue({ data: dayjs() }); setAbrir(true); }}>Abrir sessão</Button>}
       />
       <Card>
-        <Space style={{ marginBottom: 16 }}>
+        <Space wrap style={{ marginBottom: 16 }}>
           <SeletorContaFinanceira value={conta} onChange={setConta} allowClear prefixos={['45']} placeholder="Conta de caixa" />
         </Space>
         <Table<SessaoCaixa>
           rowKey="id"
           loading={sessoes.isLoading}
           dataSource={sessoes.data}
+          size={pequeno ? 'small' : 'middle'}
           pagination={{ pageSize: 25 }}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
           columns={[
             { title: 'Sessão', dataIndex: 'id', render: (v: number) => <strong>#{v}</strong> },
-            { title: 'Conta', dataIndex: 'codigo_conta' },
+            { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['sm'] },
             { title: 'Abertura', dataIndex: 'data_abertura', render: formatarData },
-            { title: 'Fecho', dataIndex: 'data_fecho', render: formatarData },
-            { title: 'Operador', dataIndex: 'operador' },
-            { title: 'Saldo de abertura', dataIndex: 'saldo_abertura', align: 'right', render: (v: string | null) => <ValorKz valor={v} /> },
-            { title: 'Saldo de fecho', dataIndex: 'saldo_fecho', align: 'right', render: (v: string | null) => <ValorKz valor={v} /> },
-            { title: 'Contado', dataIndex: 'saldo_fisico', align: 'right', render: (v: string | null) => <ValorKz valor={v} /> },
+            { title: 'Fecho', dataIndex: 'data_fecho', responsive: ['md'], render: formatarData },
+            { title: 'Operador', dataIndex: 'operador', responsive: ['lg'] },
+            { title: 'Saldo de abertura', dataIndex: 'saldo_abertura', align: 'right', responsive: ['lg'], render: (v: string | null) => <ValorKz valor={v} /> },
+            { title: 'Saldo de fecho', dataIndex: 'saldo_fecho', align: 'right', responsive: ['md'], render: (v: string | null) => <ValorKz valor={v} /> },
+            { title: 'Contado', dataIndex: 'saldo_fisico', align: 'right', responsive: ['lg'], render: (v: string | null) => <ValorKz valor={v} /> },
             { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
           ]}
         />
       </Card>
-      <Modal title="Abrir sessão de caixa" open={abrir} onCancel={() => setAbrir(false)} okText="Abrir" confirmLoading={abertura.isPending} onOk={() => form.submit()}>
+      <Modal width={larguraModal(480)} title="Abrir sessão de caixa" open={abrir} onCancel={() => setAbrir(false)} okText="Abrir" confirmLoading={abertura.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => abertura.mutate(v)}>
           <Form.Item name="codigo_conta" label="Conta de caixa" rules={[{ required: true }]}>
             <SeletorContaFinanceira prefixos={['45']} style={{ width: '100%' }} />
@@ -147,6 +211,7 @@ function DetalheSessao() {
       <CabecalhoPagina
         titulo={`Sessão de caixa #${s.id}`}
         subtitulo={`Conta ${s.codigo_conta} · ${formatarData(s.data_abertura)}`}
+        impressao={() => pedidoFolhaCaixa(s)}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -163,13 +228,13 @@ function DetalheSessao() {
         }
       />
       <Card style={{ marginBottom: 16 }}>
-        <Space size={40} wrap>
+        <Space size={[40, 16]} wrap>
           <Statistic title="Saldo de abertura" value={formatarKz(s.saldo_abertura)} />
           <Statistic title="Saldo do sistema" value={formatarKz(s.saldo_sistema)} />
           {s.saldo_fisico !== null && <Statistic title="Saldo contado" value={formatarKz(s.saldo_fisico)} />}
           {s.diferenca !== null && s.diferenca !== undefined && <Statistic title="Diferença" value={formatarKz(s.diferenca)} valueStyle={{ color: paraCentimos(s.diferenca) === 0 ? undefined : '#cf1322' }} />}
         </Space>
-        <Descriptions size="small" column={{ xs: 1, md: 4 }} style={{ marginTop: 16 }}>
+        <Descriptions size="small" column={COLUNAS_DESCRICOES} style={{ marginTop: 16 }}>
           <Descriptions.Item label="Estado"><EtiquetaEstado estado={s.estado} /></Descriptions.Item>
           <Descriptions.Item label="Operador">{s.operador ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="Fecho">{formatarData(s.data_fecho)}</Descriptions.Item>
@@ -182,18 +247,18 @@ function DetalheSessao() {
           size="small"
           dataSource={s.movimentos ?? []}
           pagination={false}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           columns={[
             { title: 'Data', dataIndex: 'data_documento', render: formatarData },
             { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => (v === 'REC' ? <Tag color="green">Entrada</Tag> : <Tag color="volcano">Saída</Tag>) },
-            { title: 'Documento', dataIndex: 'numero_documento' },
-            { title: 'Terceiro', key: 'terceiro', render: (_, m) => m.terceiro?.nome?.trim() ?? (m.terceiro_id ? `#${m.terceiro_id}` : '—') },
-            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300 },
-            { title: 'Débito', dataIndex: 'conta_debito' },
-            { title: 'Crédito', dataIndex: 'conta_credito' },
+            { title: 'Documento', dataIndex: 'numero_documento', responsive: ['sm'] },
+            { title: 'Terceiro', key: 'terceiro', responsive: ['md'], render: (_, m) => m.terceiro?.nome?.trim() ?? (m.terceiro_id ? `#${m.terceiro_id}` : '—') },
+            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300, responsive: ['md'] },
+            { title: 'Débito', dataIndex: 'conta_debito', responsive: ['lg'] },
+            { title: 'Crédito', dataIndex: 'conta_credito', responsive: ['lg'] },
             { title: 'Entrada', align: 'right', render: (_, m) => (m.tipo === 'REC' ? <ValorKz valor={m.valor} /> : null) },
             { title: 'Saída', align: 'right', render: (_, m) => (m.tipo === 'PAG' ? <ValorKz valor={m.valor} /> : null) },
-            { title: 'Origem', dataIndex: 'tipo_origem', render: (v: string | null) => (v ? <Tag>{v}</Tag> : 'Manual') },
+            { title: 'Origem', dataIndex: 'tipo_origem', responsive: ['lg'], render: (v: string | null) => (v ? <Tag>{v}</Tag> : 'Manual') },
             {
               title: '',
               render: (_, m) =>
@@ -207,20 +272,20 @@ function DetalheSessao() {
         />
       </Card>
 
-      <Modal title="Registar movimento de caixa" open={movimento} onCancel={() => setMovimento(false)} okText="Registar" confirmLoading={accao.isPending} onOk={() => formMov.submit()} width={720}>
+      <Modal title="Registar movimento de caixa" open={movimento} onCancel={() => setMovimento(false)} okText="Registar" confirmLoading={accao.isPending} onOk={() => formMov.submit()} width={larguraModal(720)}>
         <Form form={formMov} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/movimentos', dados: { ...v, data_documento: dataApi(v.data_documento) } })}>
           <Row gutter={12}>
-            <Col span={10}>
+            <Col xs={24} sm={10}>
               <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
                 <Segmented block options={[{ value: 'REC', label: 'Entrada (recebimento)' }, { value: 'PAG', label: 'Saída (pagamento)' }]} />
               </Form.Item>
             </Col>
-            <Col span={7}>
+            <Col xs={24} sm={7}>
               <Form.Item name="data_documento" label="Data" rules={[{ required: true }]}>
                 <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={7}>
+            <Col xs={24} sm={7}>
               <Form.Item name="valor" label="Valor (Kz)" rules={[{ required: true }]}>
                 <InputNumber min={0.01} precision={2} style={{ width: '100%' }} />
               </Form.Item>
@@ -233,16 +298,16 @@ function DetalheSessao() {
             <Input maxLength={1000} />
           </Form.Item>
           <Row gutter={12}>
-            <Col span={12}><Form.Item name="terceiro_id" label="Terceiro"><SeletorTerceiro style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={6}><Form.Item name="numero_documento" label="N.º documento"><Input maxLength={100} /></Form.Item></Col>
-            <Col span={6}><Form.Item name="referencia" label="Referência"><Input maxLength={100} /></Form.Item></Col>
-            <Col span={12}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="terceiro_id" label="Terceiro"><SeletorTerceiro style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={6}><Form.Item name="numero_documento" label="N.º documento"><Input maxLength={100} /></Form.Item></Col>
+            <Col xs={24} sm={6}><Form.Item name="referencia" label="Referência"><Input maxLength={100} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
           </Row>
         </Form>
       </Modal>
 
-      <Modal title="Fechar sessão (contagem)" open={fecho} onCancel={() => setFecho(false)} okText="Fechar sessão" confirmLoading={accao.isPending} onOk={() => formFecho.submit()}>
+      <Modal width={larguraModal(480)} title="Fechar sessão (contagem)" open={fecho} onCancel={() => setFecho(false)} okText="Fechar sessão" confirmLoading={accao.isPending} onOk={() => formFecho.submit()}>
         <Form form={formFecho} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/fechar', dados: { saldo_fisico: v.saldo_fisico, data: dataApi(v.data) } })}>
           <Typography.Paragraph>Saldo do sistema: <strong>{formatarKz(s.saldo_sistema, true)}</strong></Typography.Paragraph>
           <Form.Item name="saldo_fisico" label="Saldo contado (Kz)" rules={[{ required: true }]}>
@@ -257,7 +322,7 @@ function DetalheSessao() {
         </Form>
       </Modal>
 
-      <Modal title="Descontabilizar a sessão (estorno)" open={descontab} onCancel={() => setDescontab(false)} okText="Descontabilizar" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} onOk={() => formMotivo.submit()}>
+      <Modal width={larguraModal(480)} title="Descontabilizar a sessão (estorno)" open={descontab} onCancel={() => setDescontab(false)} okText="Descontabilizar" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} onOk={() => formMotivo.submit()}>
         <Form form={formMotivo} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/descontabilizar', dados: v })}>
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}>
             <Input.TextArea rows={3} maxLength={500} />

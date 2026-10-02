@@ -5,6 +5,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { NomeArmazem } from '@/modulos/compras/comum/referencias';
 import { SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import type { MovimentoRecalculado, ProdutoRecalculado, ResultadoRecalculo } from './tipos';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 /** Rótulo do botão de aplicação: só se aplica depois de uma simulação com alterações. */
 export function podeAplicarRecalculo(r: ResultadoRecalculo | null | undefined): boolean {
@@ -30,10 +31,10 @@ export function RecalculoValorizacoes({ aberto, aoFechar }: { aberto: boolean; a
       title="Recalcular valorizações de stock"
       open={aberto}
       onCancel={fechar}
-      width={1000}
-      destroyOnClose
+      width={larguraModal(1000)}
+      destroyOnHidden
       footer={
-        <Space>
+        <Space wrap>
           <Button onClick={fechar}>Fechar</Button>
           <Button loading={accao.isPending} onClick={() => executar(false)}>
             Simular
@@ -63,7 +64,7 @@ export function RecalculoValorizacoes({ aberto, aoFechar }: { aberto: boolean; a
         documento; as saídas de documentos contabilizados não são alteradas. Comece por simular.
       </Typography.Paragraph>
       <Space style={{ marginBottom: 12 }} wrap>
-        <SeletorProduto allowClear style={{ width: 320 }} value={produto} onChange={(v) => { setProduto(v); setResultado(null); }} />
+        <SeletorProduto allowClear style={{ width: 320, maxWidth: '100%' }} value={produto} onChange={(v) => { setProduto(v); setResultado(null); }} />
         <Typography.Text type="secondary">{produto ? 'Só este produto.' : 'Todos os produtos com movimentos.'}</Typography.Text>
       </Space>
       {resultado && (
@@ -90,7 +91,7 @@ export function RecalculoValorizacoes({ aberto, aoFechar }: { aberto: boolean; a
             rowKey="produto_id"
             size="small"
             pagination={{ pageSize: 10 }}
-            scroll={{ x: 'max-content' }}
+            scroll={scrollTabela()}
             dataSource={resultado.produtos}
             locale={{ emptyText: 'Sem diferenças: as valorizações estão coerentes com o histórico.' }}
             expandable={{ expandedRowRender: (p) => <MovimentosProduto linhas={p.movimentos} />, rowExpandable: (p) => p.movimentos.length > 0 }}
@@ -111,7 +112,7 @@ export function RecalculoValorizacoes({ aberto, aoFechar }: { aberto: boolean; a
 
 function MovimentosProduto({ linhas }: { linhas: MovimentoRecalculado[] }) {
   return (
-    <Table<MovimentoRecalculado>
+    <Table<MovimentoRecalculado> scroll={scrollTabela()}
       rowKey={(m) => `${m.movimento_id}-${m.contabilizado ? 'c' : 'a'}`}
       size="small"
       pagination={false}

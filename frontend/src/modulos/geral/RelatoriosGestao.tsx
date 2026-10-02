@@ -1,10 +1,10 @@
 import { Alert, Button, Card, Col, DatePicker, Empty, Form, List, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography } from 'antd';
-import { PrinterOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { scrollTabela } from '@/componentes/responsivo';
 import { dataApi, formatarNumero } from '@/utilitarios/formatacao';
 import { GraficoBarras } from '@/componentes/graficos/Graficos';
 import { CartaoKpi, eNumerico, formatarPorFormato } from './comum/componentes';
@@ -98,6 +98,7 @@ export default function RelatoriosGestao() {
   const [comparacao, setComparacao] = useState('homologo');
   const [datasB, setDatasB] = useState<[Dayjs, Dayjs] | null>(null);
   const [separador, setSeparador] = useState('resumo');
+  const areaSeparadores = useRef<HTMLDivElement>(null);
 
   const params = useMemo<ParamsPeriodo | null>(() => {
     const p: ParamsPeriodo = { comparacao };
@@ -129,11 +130,20 @@ export default function RelatoriosGestao() {
       <CabecalhoPagina
         titulo="Relatórios de gestão"
         subtitulo="Indicadores de todos os módulos com comparação de períodos"
-        accoes={
-          <Button icon={<PrinterOutlined />} onClick={() => window.print()}>
-            Imprimir
-          </Button>
-        }
+        impressaoDesactivada={!params}
+        impressao={() => {
+          // Imprime o separador activo (resumo executivo ou módulo), com os indicadores, gráficos e tabelas.
+          const painel = areaSeparadores.current?.querySelector('.ant-tabs-tabpane-active');
+          if (!painel) return null;
+          const nome = separador === 'resumo' ? 'Resumo executivo' : cat?.modulos.find((m) => m.id === separador)?.nome ?? separador;
+          const p = periodos.data;
+          return {
+            titulo: `Relatório de gestão — ${nome}`,
+            periodo: p ? `A: ${p.a.nome} (${p.a.rotulo})${p.b ? ` · B: ${p.b.nome} (${p.b.rotulo})` : ''}` : undefined,
+            filtros: p?.duracao_diferente ? 'Períodos com duração diferente' : undefined,
+            conteudo: painel,
+          };
+        }}
       />
       <Card size="small" style={{ marginBottom: 16 }}>
         <Form layout="inline" style={{ rowGap: 8 }}>
@@ -165,15 +175,17 @@ export default function RelatoriosGestao() {
       {!params ? (
         <Alert type="info" showIcon message="Escolha as datas do período." />
       ) : (
+        <div ref={areaSeparadores}>
         <Tabs
           activeKey={separador}
           onChange={setSeparador}
-          destroyInactiveTabPane
+          destroyOnHidden
           items={[
             { key: 'resumo', label: 'Resumo executivo', children: <ResumoExecutivo params={params} aoAbrir={setSeparador} /> },
             ...cat.modulos.map((m) => ({ key: m.id, label: m.nome, children: <RelatorioDoModulo modulo={m.id} params={params} /> })),
           ]}
         />
+        </div>
       )}
     </>
   );
@@ -291,7 +303,7 @@ function RelatorioDoModulo({ modulo, params }: { modulo: string; params: ParamsP
                 rowKey={(l) => String(l[t.chave])}
                 dataSource={t.linhas}
                 pagination={false}
-                scroll={{ x: 'max-content' }}
+                scroll={scrollTabela()}
                 locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sem registos." /> }}
                 columns={[
                   ...t.colunas.map((c) => ({

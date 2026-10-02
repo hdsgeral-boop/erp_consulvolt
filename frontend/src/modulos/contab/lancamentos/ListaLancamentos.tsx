@@ -1,12 +1,12 @@
-import { Button, Card, Checkbox, DatePicker, Flex, Input, Tag, Tooltip } from 'antd';
+import { Button, Card, Checkbox, DatePicker, Input, Tag, Tooltip } from 'antd';
 import { ImportOutlined, PlusOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
+import { BarraFiltros } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import type { LinhaLancamento } from '../api';
@@ -34,18 +34,19 @@ export function ListaLancamentos() {
   const [importar, setImportar] = useState(false);
   const [aceitarAvisos, setAceitarAvisos] = useState(false);
 
-  const colunas: ColumnsType<LinhaLancamento> = [
+  const colunas: ColunaApi<LinhaLancamento>[] = [
     { title: 'Data', dataIndex: 'data_documento', render: formatarData, width: 105 },
-    { title: 'Diário', dataIndex: 'diario_id', render: (v: number) => <Tag>{nomesDiario.get(v) ?? v}</Tag> },
+    { title: 'Diário', dataIndex: 'diario_id', render: (v: number) => <Tag>{nomesDiario.get(v) ?? v}</Tag>, responsive: ['md'] },
     { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string) => <strong>{v}</strong> },
-    { title: 'Documento', dataIndex: 'numero_documento', render: (v: string | null) => v ?? '—' },
+    { title: 'Documento', dataIndex: 'numero_documento', render: (v: string | null) => v ?? '—', responsive: ['md'] },
     { title: 'Conta', dataIndex: 'codigo_conta' },
-    { title: 'Terceiro', key: 'terceiro', ellipsis: true, width: 200, render: (_, r) => (r.terceiro_id ? <Tooltip title={r.terceiro?.nif ? `NIF ${r.terceiro.nif}` : undefined}>{rotuloTerceiro(r.terceiro, r.terceiro_id)}</Tooltip> : '—') },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 320, render: (v: string | null) => <Tooltip title={v}>{v ?? '—'}</Tooltip> },
+    { title: 'Terceiro', key: 'terceiro', ellipsis: true, width: 200, responsive: ['lg'], valorImpressao: (r) => (r.terceiro_id ? rotuloTerceiro(r.terceiro, r.terceiro_id) : '—'), render: (_, r) => (r.terceiro_id ? <Tooltip title={r.terceiro?.nif ? `NIF ${r.terceiro.nif}` : undefined}>{rotuloTerceiro(r.terceiro, r.terceiro_id)}</Tooltip> : '—') },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 320, valorImpressao: (r) => r.descricao ?? '—', render: (v: string | null) => <Tooltip title={v}>{v ?? '—'}</Tooltip> },
     { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null) },
     { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null) },
     {
       title: 'Situação',
+      responsive: ['lg'],
       render: (_, r) => (r.estorno_de_id ? <Tag color="purple">Estorno</Tag> : r.estornado_por_id ? <Tag color="red">Estornado</Tag> : r.tipo_origem ? <Tag>{r.tipo_origem}</Tag> : null),
     },
   ];
@@ -71,7 +72,7 @@ export function ListaLancamentos() {
         }
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
+        <BarraFiltros>
           <SeletorDiario value={diario} onChange={setDiario} allowClear />
           <SeletorConta value={conta} onChange={setConta} allowClear incluirTotalizadoras placeholder="Conta (prefixo)" />
           <SeletorTerceiro value={terceiro} onChange={setTerceiro} />
@@ -82,7 +83,7 @@ export function ListaLancamentos() {
           <Checkbox checked={classe9} onChange={(e) => setClasse9(e.target.checked)}>
             Incluir classe 9
           </Checkbox>
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<LinhaLancamento>
           url="/contabilidade/lancamentos"
           chaveConsulta={['contab', 'lancamentos']}
@@ -99,6 +100,19 @@ export function ListaLancamentos() {
             data_fim: dataApi(periodo?.[1]),
           }}
           columns={colunas}
+          impressao={{
+            titulo: 'Lista de lançamentos',
+            periodo: periodo?.[0] && periodo[1] ? `${formatarData(dataApi(periodo[0]))} a ${formatarData(dataApi(periodo[1]))}` : undefined,
+            filtros: [
+              !!diario && `Diário: ${nomesDiario.get(diario) ?? diario}`,
+              conta && `Conta: ${conta}`,
+              !!terceiro && `Terceiro: n.º ${terceiro}`,
+              numeroLan && `N.º lançamento: ${numeroLan}`,
+              numeroDoc && `N.º documento: ${numeroDoc}`,
+              pesquisa && `Descrição: ${pesquisa}`,
+              classe9 && 'Inclui classe 9',
+            ],
+          }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>

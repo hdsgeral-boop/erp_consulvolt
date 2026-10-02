@@ -1,7 +1,8 @@
-import { Card, DatePicker, Flex, Input, Table, Tag, Typography } from 'antd';
+import { Card, DatePicker, Input, Table, Tag, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { dataApi, formatarDataHora } from '@/utilitarios/formatacao';
 import { diferencas } from './comum/regras';
@@ -20,6 +21,8 @@ interface LogAuditoria {
   endereco_ip: string | null;
 }
 
+const ROTULOS_FILTRO: Record<string, string> = { pesquisa: 'Pesquisa', nome_utilizador: 'Utilizador', modulo: 'Módulo', acao: 'Acção', tabela: 'Tabela', registo_id: 'Registo' };
+
 const COR_ACCAO: Record<string, string> = { Criou: 'green', Atualizou: 'blue', Actualizou: 'blue', Eliminou: 'red', Entrou: 'cyan', Saiu: 'default' };
 
 /** Configurações › Logs (config_logs): auditoria com filtros e diferenças antes/depois (GET /sistema/logs). */
@@ -31,7 +34,7 @@ export default function Logs() {
     <>
       <CabecalhoPagina titulo="Logs de auditoria" subtitulo="Quem fez o quê, quando e o que mudou" />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+        <BarraFiltros style={{ marginBottom: 12 }}>
           <Input.Search placeholder="Pesquisar nos detalhes" allowClear style={{ width: 240 }} onSearch={campo('pesquisa')} />
           <Input.Search placeholder="Utilizador" allowClear style={{ width: 160 }} onSearch={campo('nome_utilizador')} />
           <Input.Search placeholder="Módulo" allowClear style={{ width: 160 }} onSearch={campo('modulo')} />
@@ -39,13 +42,19 @@ export default function Logs() {
           <Input.Search placeholder="Tabela" allowClear style={{ width: 160 }} onSearch={campo('tabela')} />
           <Input.Search placeholder="Registo (id)" allowClear style={{ width: 130 }} onSearch={campo('registo_id')} />
           <DatePicker.RangePicker format="DD/MM/YYYY" value={datas} onChange={(v) => setDatas(v)} allowEmpty={[true, true]} />
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<LogAuditoria>
           url="/sistema/logs"
           chaveConsulta={['sistema', 'logs']}
           porPagina={50}
           filtros={{ ...filtros, data_inicio: dataApi(datas?.[0]), data_fim: dataApi(datas?.[1]) }}
           size="small"
+          scroll={scrollTabela()}
+          impressao={{
+            titulo: 'Logs de auditoria',
+            periodo: datas?.[0] || datas?.[1] ? `${datas?.[0]?.format('DD/MM/YYYY') ?? '…'} a ${datas?.[1]?.format('DD/MM/YYYY') ?? '…'}` : undefined,
+            filtros: Object.entries(filtros).filter(([, v]) => v).map(([k, v]) => `${ROTULOS_FILTRO[k] ?? k}: ${v}`),
+          }}
           expandable={{
             rowExpandable: (l) => !!(l.dados_anteriores || l.dados_novos),
             expandedRowRender: (l) => {
@@ -55,6 +64,7 @@ export default function Logs() {
                   size="small"
                   rowKey="campo"
                   pagination={false}
+                  scroll={scrollTabela()}
                   dataSource={linhas}
                   columns={[
                     { title: 'Campo', dataIndex: 'campo', width: 220 },
@@ -68,11 +78,11 @@ export default function Logs() {
           columns={[
             { title: 'Data e hora', dataIndex: 'ocorrido_em', width: 150, render: formatarDataHora },
             { title: 'Utilizador', dataIndex: 'nome_utilizador', width: 140 },
-            { title: 'Módulo', dataIndex: 'modulo', width: 160 },
+            { title: 'Módulo', dataIndex: 'modulo', width: 160, responsive: ['md'] },
             { title: 'Acção', dataIndex: 'acao', width: 110, render: (a: string | null) => (a ? <Tag color={COR_ACCAO[a]}>{a}</Tag> : '—') },
-            { title: 'Registo', key: 'reg', width: 160, render: (_, l) => (l.tabela ? `${l.tabela}${l.registo_id ? ` #${l.registo_id}` : ''}` : '—') },
-            { title: 'Detalhes', dataIndex: 'detalhes', render: (v: string | null) => <span style={{ whiteSpace: 'normal' }}>{v ?? '—'}</span> },
-            { title: 'IP', dataIndex: 'endereco_ip', width: 120, render: (v: string | null) => v ?? '—' },
+            { title: 'Registo', key: 'reg', width: 160, responsive: ['md'], render: (_, l) => (l.tabela ? `${l.tabela}${l.registo_id ? ` #${l.registo_id}` : ''}` : '—') },
+            { title: 'Detalhes', dataIndex: 'detalhes', render: (v: string | null) => <span style={{ whiteSpace: 'normal' }}>{v ?? '—'}</span>, valorImpressao: (l) => l.detalhes ?? '—' },
+            { title: 'IP', dataIndex: 'endereco_ip', width: 120, responsive: ['lg'], render: (v: string | null) => v ?? '—' },
           ]}
         />
       </Card>

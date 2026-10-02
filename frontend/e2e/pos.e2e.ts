@@ -25,7 +25,8 @@ test('operador abre a sessão, vende com pagamento misto e troco, vê o relatór
   // abrir a sessão com o fundo de maneio padrão do terminal (5 000)
   await page.getByRole('button', { name: 'Abrir sessão' }).click();
   await esperarSucesso(page);
-  await expect(page.getByText(/Sessão T01-\d{4}-\d{4} · aberta por e2e\.pos/)).toBeVisible();
+  // o operador aparece pelo nome completo (ADR-066), como no legado
+  await expect(page.getByText(/Sessão T01-\d{4}-\d{4} · aberta por Operador POS E2E/)).toBeVisible();
 
   // venda: 2 × Artigo Demo A
   const botaoProduto = page.locator('button').filter({ hasText: 'Artigo Demo A (caixa)' });

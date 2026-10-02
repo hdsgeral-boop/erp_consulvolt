@@ -1,5 +1,4 @@
 import { Alert, Button, Card, DatePicker, Form, Modal, Select, Space, Statistic, Table, Tag, Typography, message } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -9,7 +8,11 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import type { Extrato, MovimentoExtrato } from '../api';
+import { BotoesExportar, pares } from '@/componentes/impressao';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { BotaoCsv, IndicadorEquilibrio, ValorKz } from '../comum/Componentes';
+import { filtrosDosParametros, periodoDosParametros, tabelaDeColunas } from '../comum/impressao';
 import { equilibrio } from '@/utilitarios/decimal';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
 import { SeletorConta, SeletorDiario } from '../comum/Seletores';
@@ -69,21 +72,23 @@ export default function MapaExtrato() {
   const seleccionadas = (d?.movimentos ?? []).filter((m) => seleccao.includes(m.id));
   const eq = equilibrio(seleccionadas);
 
-  const colunas: ColumnsType<MovimentoExtrato> = [
+  const colunas: ColunaApi<MovimentoExtrato>[] = [
     { title: 'Data', dataIndex: 'data_documento', render: formatarData, width: 100 },
     { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string, r) => <span title={r.descricao_conta ?? ''}>{v}</span> },
-    { title: 'Terceiro', dataIndex: 'terceiro', ellipsis: true, width: 180, render: (v: string | null) => v?.trim() ?? '—' },
-    { title: 'Diário', dataIndex: 'diario' },
-    { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string, r) => (abrir ? <Typography.Link onClick={() => abrir(r.id)}>{v}</Typography.Link> : v) },
-    { title: 'Documento', dataIndex: 'numero_documento' },
+    { title: 'Terceiro', dataIndex: 'terceiro', ellipsis: true, width: 180, responsive: ['md'], render: (v: string | null) => v?.trim() ?? '—' },
+    { title: 'Diário', dataIndex: 'diario', responsive: ['lg'] },
+    { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string, r) => (abrir ? <Typography.Link onClick={() => abrir(r.id)}>{v}</Typography.Link> : v), valorImpressao: (r) => r.numero_lan },
+    { title: 'Documento', dataIndex: 'numero_documento', responsive: ['md'] },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
-    { title: 'Contrapartidas', dataIndex: 'contrapartidas' },
-    { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null) },
-    { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null) },
+    { title: 'Contrapartidas', dataIndex: 'contrapartidas', responsive: ['lg'] },
+    { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null), totalImpressao: () => formatarKz(d?.debito) },
+    { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null), totalImpressao: () => formatarKz(d?.credito) },
     { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
     {
       title: 'Compensação',
       dataIndex: 'reconciliacao_codigo',
+      responsive: ['md'],
+      valorImpressao: (r) => r.reconciliacao_codigo ?? '',
       render: (v: string | null) => (v ? <Tag color="blue" style={{ cursor: 'pointer' }} onClick={() => setCodigo(v)}>{v}</Tag> : null),
     },
   ];
@@ -117,6 +122,20 @@ export default function MapaExtrato() {
             <Statistic title="Débitos" value={formatarKz(d.debito)} />
             <Statistic title="Créditos" value={formatarKz(d.credito)} />
             <Statistic title="Saldo final" value={formatarKz(d.saldo_final)} />
+            <BotoesExportar
+              obterPedido={async () => ({
+                titulo: 'Extracto de conta corrente',
+                periodo: periodoDosParametros(mapa.parametros),
+                filtros: [...filtrosDosParametros(mapa.parametros), mapa.parametros?.tipo && mapa.parametros.tipo !== 'todos' ? `Movimentos: ${mapa.parametros.tipo === 'aberto' ? 'em aberto' : 'compensados'}` : null],
+                conteudo:
+                  pares([
+                    ['Saldo inicial', formatarKz(d.saldo_inicial)],
+                    ['Débitos', formatarKz(d.debito)],
+                    ['Créditos', formatarKz(d.credito)],
+                    ['Saldo final', formatarKz(d.saldo_final)],
+                  ], 4) + (await tabelaDeColunas(colunas, d.movimentos)),
+              })}
+            />
             <BotaoCsv<MovimentoExtrato>
               nome="extracto_conta_corrente"
               linhas={d.movimentos}
@@ -162,7 +181,7 @@ export default function MapaExtrato() {
             columns={colunas}
             dataSource={d.movimentos}
             pagination={{ pageSize: 100, showTotal: (n) => `${n} movimento(s)` }}
-            scroll={{ x: 'max-content' }}
+            scroll={scrollTabela()}
             rowSelection={
               podeCompensar
                 ? {
@@ -202,9 +221,9 @@ export default function MapaExtrato() {
         title={`Compensação ${codigo ?? ''}`}
         open={!!codigo}
         onCancel={() => setCodigo(null)}
-        width={820}
+        width={larguraModal(820)}
         footer={
-          <Space>
+          <Space wrap>
             <Button onClick={() => setCodigo(null)}>Fechar</Button>
             {pode('contab_reconc_rev') && codigo && (
               <Button
@@ -227,6 +246,7 @@ export default function MapaExtrato() {
             <Table
               rowKey="id"
               size="small"
+              scroll={scrollTabela()}
               pagination={false}
               dataSource={compensacao.data.linhas}
               columns={[

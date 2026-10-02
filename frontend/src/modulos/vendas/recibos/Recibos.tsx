@@ -1,13 +1,17 @@
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Row, Select, Skeleton, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { somar } from '@/utilitarios/decimal';
+import { pedidoDocumentoComercial } from '../impressao/documentoComercial';
+import { dadosRecibo } from '../impressao/documentoRecibo';
 import { ArrowLeftOutlined, CheckCircleTwoTone, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnsType } from 'antd/es/table';
+
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
@@ -34,16 +38,18 @@ function ListaRecibos() {
   const [cliente, setCliente] = useState<number>();
   const [pesquisa, setPesquisa] = useState('');
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [nomeCliente, setNomeCliente] = useState<string>();
+  const pequeno = useEcraPequeno();
 
-  const colunas: ColumnsType<ReciboVenda> = [
+  const colunas: ColunaApi<ReciboVenda>[] = [
     { title: 'Recibo', dataIndex: 'numero_recibo', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
     { title: 'Cliente', render: (_, r) => r.cliente?.nome ?? `#${r.cliente_id}` },
-    { title: 'Montante (Kz)', dataIndex: 'montante_total', align: 'right', render: (v: string) => formatarKz(v) },
-    { title: 'Meio', dataIndex: 'meio_pagamento', render: rotuloMeio },
-    { title: 'Conta', dataIndex: 'codigo_conta', render: (v) => v || '—' },
-    { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
-    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', render: (c: boolean) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
+    { title: 'Montante (Kz)', dataIndex: 'montante_total', align: 'right', render: (v: string) => formatarKz(v), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => (l.estado === 'ANULADO' ? 0 : l.montante_total)))) },
+    { title: 'Meio', dataIndex: 'meio_pagamento', responsive: ['md'], render: rotuloMeio },
+    { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['lg'], render: (v) => v || '—' },
+    { title: 'Estado', dataIndex: 'estado', responsive: ['sm'], render: (e: string) => <EstadoTag estado={e} /> },
+    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', responsive: ['lg'], render: (c: boolean) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null), valorImpressao: (r) => (r.contabilizado ? 'Sim' : 'Não') },
   ];
 
   return (
@@ -54,16 +60,23 @@ function ListaRecibos() {
         accoes={pode('vendas_recibos') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Novo recibo</Button>}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <Input.Search placeholder="N.º do recibo" allowClear style={{ width: 200 }} onSearch={setPesquisa} />
-          <SeletorTerceiro papel="CLIENTE" style={{ width: 320 }} value={cliente} onChange={setCliente} />
+        <BarraFiltros>
+          <Input.Search placeholder="N.º do recibo" allowClear style={{ width: 200, maxWidth: '100%' }} onSearch={setPesquisa} />
+          <SeletorTerceiro papel="CLIENTE" style={{ width: 320, maxWidth: '100%' }} value={cliente} onChange={(v, o) => { setCliente(v); setNomeCliente(o && !Array.isArray(o) && o.label ? String(o.label) : undefined); }} />
           <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<ReciboVenda>
           url="/vendas/recibos"
           chaveConsulta={['vendas', 'recibos']}
           filtros={{ cliente_id: cliente, pesquisa, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
           columns={colunas}
+          size={pequeno ? 'small' : 'middle'}
+          impressao={{
+            titulo: 'Lista de recibos de clientes',
+            periodo: periodo?.[0] && periodo?.[1] ? `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}` : undefined,
+            filtros: [!!cliente && `Cliente: ${nomeCliente ?? `#${cliente}`}`, pesquisa && `Pesquisa: ${pesquisa}`],
+            rotuloTotal: 'Total (sem anulados)',
+          }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
@@ -160,7 +173,7 @@ function NovoRecibo() {
           title="Facturas a liquidar"
           style={{ marginBottom: 16 }}
           extra={
-            <Space>
+            <Space wrap>
               <span>Valor recebido</span>
               <InputNumber min={0} precision={2} style={{ width: 170 }} value={recebido} disabled={!facturas.length} onChange={(v) => setRecebido(v)} />
               <Button disabled={!distribuicao} onClick={() => distribuicao && setAlocacoes(distribuicao.alocacoes)}>Distribuir</Button>
@@ -174,6 +187,7 @@ function NovoRecibo() {
             pagination={false}
             loading={pendentes.isFetching}
             dataSource={facturas}
+            scroll={scrollTabela()}
             locale={{ emptyText: clienteId ? 'O cliente não tem facturas pendentes.' : 'Escolha o cliente.' }}
             columns={[
               { title: 'Factura', dataIndex: 'numero_documento' },
@@ -185,7 +199,7 @@ function NovoRecibo() {
                 title: 'A liquidar (Kz)',
                 key: 'liq',
                 render: (_, d) => (
-                  <Space>
+                  <Space wrap>
                     <InputNumber min={0} max={Number(d.valor_pendente ?? 0)} precision={2} style={{ width: 150 }} value={alocacoes[d.id] ?? null} onChange={(v) => setAlocacoes((a) => ({ ...a, [d.id]: v }))} />
                     <Button size="small" onClick={() => setAlocacoes((a) => ({ ...a, [d.id]: Number(d.valor_pendente ?? 0) }))}>Total</Button>
                   </Space>
@@ -197,7 +211,7 @@ function NovoRecibo() {
             <Statistic title="Total do recibo (Kz)" value={formatarKz(total)} />
           </Flex>
         </Card>
-        <Space>
+        <Space wrap>
           <Button type="primary" htmlType="submit" loading={emitir.isPending} disabled={total <= 0}>Emitir recibo</Button>
           <Button onClick={() => navegar('..')}>Cancelar</Button>
         </Space>
@@ -224,6 +238,7 @@ function DetalheRecibo() {
       <CabecalhoPagina
         titulo={`Recibo ${r.numero_recibo}`}
         subtitulo={r.cliente?.nome}
+        impressao={() => pedidoDocumentoComercial(dadosRecibo(r))}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -235,7 +250,7 @@ function DetalheRecibo() {
       />
       {r.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Recibo anulado${r.motivo_anulacao ? `: ${r.motivo_anulacao}` : '.'}`} />}
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Cliente">{r.cliente?.nome ?? `#${r.cliente_id}`}{r.cliente?.nif ? ` (NIF ${r.cliente.nif})` : ''}</Descriptions.Item>
           <Descriptions.Item label="Data">{formatarData(r.data)}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={r.estado} /></Descriptions.Item>
@@ -246,7 +261,7 @@ function DetalheRecibo() {
         </Descriptions>
       </Card>
       <Card title="Facturas liquidadas">
-        <Table
+        <Table scroll={scrollTabela()}
           rowKey="venda_id"
           size="small"
           pagination={false}

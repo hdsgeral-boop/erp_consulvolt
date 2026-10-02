@@ -2,10 +2,11 @@ import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Inp
 import { ArrowLeftOutlined, CheckSquareOutlined, DeleteOutlined, EditOutlined, StopOutlined, UndoOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { useAccao } from '@/componentes/Accoes';
@@ -26,6 +27,7 @@ export function DetalheItem() {
   const q = useQuery({ queryKey: ['acrescimos', 'item', id], queryFn: () => obter<MapaItem>(`/acrescimos/itens/${id}`) });
   const accao = useAccao({ invalidar: [['acrescimos']] });
   const eliminar = useAccao({ invalidar: [['acrescimos']], aoSucesso: () => navegar('..') });
+  const refFicha = useRef<HTMLDivElement>(null);
 
   if (q.isLoading) return <Spin style={{ display: 'block', margin: 48 }} />;
   if (q.error || !q.data) return <Result status="404" title="Registo não encontrado" extra={<Button onClick={() => navegar('..')}>Voltar</Button>} />;
@@ -37,6 +39,14 @@ export function DetalheItem() {
     <>
       <CabecalhoPagina
         titulo={<Space wrap><Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navegar('..')} />#{it.id} — {it.descricao}<EtiquetaAD valor={it.tipo} /><EtiquetaAD valor={it.estado} /></Space>}
+        impressao={() =>
+          refFicha.current && {
+            titulo: `${it.tipo === 'DIFERIMENTO' ? 'Diferimento' : 'Acréscimo'} n.º ${it.id} — ${it.descricao}`,
+            periodo: `${formatarData(it.data_inicio)} a ${formatarData(it.data_fim)}`,
+            filtros: [`Estado: ${it.estado}`],
+            conteudo: refFicha.current,
+          }
+        }
         accoes={
           <>
             {acc.editar && <Button icon={<EditOutlined />} onClick={() => setEditar(true)}>{acc.edicaoParcial ? 'Notas e data limite' : 'Editar'}</Button>}
@@ -56,7 +66,8 @@ export function DetalheItem() {
           </>
         }
       />
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      <div ref={refFicha}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Valor (Kz)" value={formatarKz(it.valor)} /></Card></Col>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Reconhecido (Kz)" value={formatarKz(q.data.reconhecido)} /></Card></Col>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Por reconhecer (Kz)" value={formatarKz((Number(it.valor) - Number(q.data.reconhecido)).toFixed(2))} /></Card></Col>
@@ -84,12 +95,13 @@ export function DetalheItem() {
           {it.notas && <Descriptions.Item label="Notas" span={3}>{it.notas}</Descriptions.Item>}
         </Descriptions>
       </Card>
-      <Row gutter={16}>
+      <Row gutter={[16, 16]}>
         <Col xs={24} lg={10}>
           <Card size="small" title="Plano de reconhecimento">
             <Table<Quota>
               size="small"
               rowKey="periodo"
+              scroll={scrollTabela()}
               pagination={false}
               dataSource={quotas}
               columns={[
@@ -107,21 +119,22 @@ export function DetalheItem() {
               rowKey="id"
               pagination={false}
               dataSource={lancamentos}
-              scroll={{ x: 'max-content' }}
+              scroll={scrollTabela()}
               columns={[
                 { title: 'Período', dataIndex: 'periodo' },
                 { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaAD valor={v} /> },
-                { title: 'Documento', dataIndex: 'numero_documento' },
+                { title: 'Documento', dataIndex: 'numero_documento', responsive: ['md'] },
                 { title: 'N.º lanç.', dataIndex: 'numero_lan' },
                 { title: 'Data', dataIndex: 'data_documento', render: formatarData },
                 { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> },
                 { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaAD valor={v} /> },
-                { title: 'Por', key: 'por', render: (_, l) => (l.anulado_por ? `anulado por ${l.anulado_por} ${formatarDataHora(l.anulado_em)}` : `${l.por ?? ''} ${formatarDataHora(l.em)}`) },
+                { title: 'Por', key: 'por', responsive: ['lg'], render: (_, l) => (l.anulado_por ? `anulado por ${l.anulado_por} ${formatarDataHora(l.anulado_em)}` : `${l.por ?? ''} ${formatarDataHora(l.em)}`) },
               ]}
             />
           </Card>
         </Col>
       </Row>
+      </div>
       <ModalItem aberto={editar} item={it} parcial={acc.edicaoParcial} aoFechar={() => setEditar(false)} />
       <ModalRegularizar item={regularizar ? it : null} aoFechar={() => setRegularizar(false)} />
       <ModalTerminar item={terminar ? it : null} aoFechar={() => setTerminar(false)} />
@@ -140,7 +153,7 @@ export function ModalRegularizar({ item, documento, aoFechar }: { item: Pick<Ite
     form.setFieldsValue(documento ? { data: dayjs(documento.data), doc: documento.doc, valor: Number(documento.valor), anulacao: false } : { data: dayjs(), anulacao: false });
   }, [item, documento, form]);
   return (
-    <Modal title={`Regularizar «${item?.descricao ?? ''}»`} open={!!item} onCancel={aoFechar} onOk={() => form.submit()} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title={`Regularizar «${item?.descricao ?? ''}»`} open={!!item} onCancel={aoFechar} onOk={() => form.submit()} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(560)} destroyOnHidden>
       <Typography.Paragraph type="secondary">Acrescido: {formatarKz(item?.valor, true)}. A diferença entre o documento real e o acrescido é tratada no lançamento de regularização.</Typography.Paragraph>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({
         url: `/acrescimos/itens/${item?.id}/regularizar`,
@@ -165,7 +178,7 @@ function ModalTerminar({ item, aoFechar }: { item: ItemAD | null; aoFechar: () =
   const accao = useAccao({ invalidar: [['acrescimos']], aoSucesso: () => aoFechar() });
   useEffect(() => { if (item) form.setFieldsValue({ data: dayjs(), motivo: '' }); }, [item, form]);
   return (
-    <Modal title={`Terminar antecipadamente «${item?.descricao ?? ''}»`} open={!!item} onCancel={aoFechar} onOk={() => form.submit()} okText="Terminar" cancelText="Cancelar" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title={`Terminar antecipadamente «${item?.descricao ?? ''}»`} open={!!item} onCancel={aoFechar} onOk={() => form.submit()} okText="Terminar" cancelText="Cancelar" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} width={larguraModal(560)} destroyOnHidden>
       <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O saldo por reconhecer é contabilizado de uma vez na proposta do mês da data indicada." />
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/acrescimos/itens/${item?.id}/terminar`, dados: { data: dataApi(v.data), motivo: v.motivo || null } })}>
         <Form.Item name="data" label="Data do término" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" /></Form.Item>

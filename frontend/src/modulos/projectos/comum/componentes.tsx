@@ -43,7 +43,7 @@ export function EtiquetaProjectos({ valor }: { valor: string | null | undefined 
 }
 
 export function BarraExecucao({ valor, largura = 120 }: { valor: number | null | undefined; largura?: number }) {
-  return <Progress percent={Math.round(valor ?? 0)} size="small" style={{ width: largura, margin: 0 }} status={(valor ?? 0) >= 100 ? 'success' : 'normal'} />;
+  return <Progress percent={Math.round(valor ?? 0)} size="small" style={{ width: largura, maxWidth: '100%', margin: 0 }} status={(valor ?? 0) >= 100 ? 'success' : 'normal'} />;
 }
 
 export function useWbs(projectoId: number | string | undefined) {
@@ -126,7 +126,7 @@ export function ModalEliminar({ aberto, titulo, aviso, carregando, aoConfirmar, 
       okButtonProps={{ danger: true, disabled: !valido }}
       confirmLoading={carregando}
       onOk={() => { aoConfirmar('ELIMINAR'); setTexto(''); }}
-      destroyOnClose
+      destroyOnHidden
     >
       {aviso && <Typography.Paragraph>{aviso}</Typography.Paragraph>}
       <Typography.Paragraph type="secondary">Escreva <strong>ELIMINAR</strong> para confirmar.</Typography.Paragraph>

@@ -6,6 +6,7 @@ import type { Balanco } from '../api';
 import { MovimentosSemNota, TabelaDemonstracao } from '../comum/Demonstracao';
 import { linhasBalanco } from '../comum/demonstracoes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
+import { filtrosDosParametros, periodoDosParametros } from '../comum/impressao';
 import { useMapa } from '../comum/useMapa';
 
 /** Mapas › Balanço (ecrã contab_mapa_balanco), por notas DEMO, com comparativo e controlo de equilíbrio. */
@@ -61,6 +62,7 @@ export default function MapaBalanco() {
               tipoNota="demonstracao"
               parametros={mapa.parametros ?? {}}
               nomeCsv={`balanco_${d.data_fim}`}
+              impressao={{ titulo: 'Balanço', periodo: periodoDosParametros(mapa.parametros), filtros: [...filtrosDosParametros(mapa.parametros), comparativo ? `Comparativo com ${d.ano_anterior}` : null] }}
             />
           </Card>
         </>

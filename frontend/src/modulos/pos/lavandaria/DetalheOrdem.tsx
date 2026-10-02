@@ -5,10 +5,12 @@ import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
+import { BotoesExportar, pares, tabelaHtml, type PedidoImpressao } from '@/componentes/impressao';
+import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import { deCentimos, pagamentosParaApi, resumirPagamentos, type Pagamento } from '../comum/calculos';
-import { EstadoPOS } from '../comum/estados';
+import { EstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
 import { accoesOrdem } from '../comum/regras';
 import type { Terminal } from '../comum/tipos';
@@ -54,13 +56,14 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
     <Drawer
       open={!!id}
       onClose={aoFechar}
-      width={1000}
-      destroyOnClose
+      width={larguraGaveta(1000)}
+      destroyOnHidden
       title={d ? `${d.pedido.numero_encomenda} · ${d.cliente?.nome ?? ''}` : 'Ordem de serviço'}
       extra={
         d &&
         a && (
           <Space wrap>
+            <BotoesExportar tamanho="small" obterPedido={() => pedidoOrdem(d)} />
             {a.receber && (
               <Button icon={<DollarOutlined />} onClick={() => setReceber(true)}>
                 Receber
@@ -128,7 +131,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                 label: `Peças (${d.pedido.itens.length})`,
                 children: (
                   <>
-                    <Space style={{ marginBottom: 8 }}>
+                    <Space wrap style={{ marginBottom: 8 }}>
                       {a?.iniciar && (
                         <Button size="small" icon={<PlayCircleOutlined />} onClick={() => linhas('INICIAR')}>
                           Iniciar todas
@@ -145,7 +148,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                       rowKey="linha_id"
                       pagination={false}
                       dataSource={d.pedido.itens}
-                      scroll={{ x: 'max-content' }}
+                      scroll={scrollTabela()}
                       columns={[
                         { title: 'Etiquetas', dataIndex: 'etiquetas', render: (v: string[] | undefined) => v?.join(', ') ?? '—' },
                         { title: 'Peça', render: (_, i) => `${i.nome_peca ?? '—'}${i.cor || i.tecido ? ` (${[i.cor, i.tecido].filter(Boolean).join(', ')})` : ''}` },
@@ -210,6 +213,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                     <Typography.Title level={5}>Recibos</Typography.Title>
                     <Table<PagamentoLav>
                       size="small"
+                      scroll={scrollTabela()}
                       rowKey="id"
                       pagination={false}
                       dataSource={d.pagamentos}
@@ -237,6 +241,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                     </Typography.Title>
                     <Table
                       size="small"
+                      scroll={scrollTabela()}
                       rowKey="id"
                       pagination={false}
                       dataSource={d.faturas}
@@ -256,6 +261,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                 children: (
                   <Table
                     size="small"
+                    scroll={scrollTabela()}
                     rowKey="id"
                     pagination={false}
                     dataSource={d.reclamacoes}
@@ -313,18 +319,18 @@ function ModalReceber({ aberto, detalhe, sessaoId, terminal, aoFechar }: { abert
     <Modal
       open={aberto}
       title={`Receber · ${detalhe.pedido.numero_encomenda}`}
-      width={720}
+      width={larguraModal(720)}
       onCancel={aoFechar}
       okText="Registar recebimento"
       cancelText="Cancelar"
       okButtonProps={{ disabled: !resumo.valido || valor <= 0 || valor > saldo }}
       confirmLoading={receber.isPending}
       onOk={() => receber.mutate({ url: `/pos/lavandaria/sessoes/${sessaoId}/ordens/${detalhe.pedido.id}/pagamentos`, dados: { valor: deCentimos(valor), pagamentos: pagamentosParaApi(pagamentos) } })}
-      destroyOnClose
+      destroyOnHidden
     >
-      <Flex gap={8} align="center" style={{ marginBottom: 12 }}>
+      <Flex gap={8} wrap align="center" style={{ marginBottom: 12 }}>
         <Typography.Text>Valor a receber (saldo {formatarKz(detalhe.totais.saldo)} Kz):</Typography.Text>
-        <InputNumber<number> min={0} max={saldo / 100} precision={2} decimalSeparator="," addonAfter="Kz" value={valor / 100} onChange={(v) => setValor(Math.round((v ?? 0) * 100))} />
+        <InputNumber<number> min={0} max={saldo / 100} precision={2} decimalSeparator="," suffix="Kz" value={valor / 100} onChange={(v) => setValor(Math.round((v ?? 0) * 100))} />
       </Flex>
       <PainelPagamentos meios={meios} total={valor} pagamentos={pagamentos} onChange={setPagamentos} />
     </Modal>
@@ -371,7 +377,7 @@ function ModalEntregar({ aberto, detalhe, sessaoId, terminal, aoFechar }: { aber
     <Modal
       open={aberto}
       title={`Entregar · ${detalhe.pedido.numero_encomenda}`}
-      width={760}
+      width={larguraModal(760)}
       onCancel={aoFechar}
       okText="Registar entrega"
       cancelText="Cancelar"
@@ -383,7 +389,7 @@ function ModalEntregar({ aberto, detalhe, sessaoId, terminal, aoFechar }: { aber
           dados: { linhas, valor: deCentimos(valor), pagamentos: valor > 0 ? pagamentosParaApi(pagamentos) : [] },
         })
       }
-      destroyOnClose
+      destroyOnHidden
     >
       <Checkbox.Group style={{ width: '100%' }} value={linhas} onChange={(v) => setLinhas(v as number[])}>
         <Flex vertical gap={4}>
@@ -395,7 +401,7 @@ function ModalEntregar({ aberto, detalhe, sessaoId, terminal, aoFechar }: { aber
         </Flex>
       </Checkbox.Group>
       {simulacao && (
-        <Descriptions size="small" column={2} style={{ marginTop: 12 }}>
+        <Descriptions size="small" column={{ xs: 1, sm: 2 }} style={{ marginTop: 12 }}>
           <Descriptions.Item label="Por facturar">{formatarKz(simulacao.por_facturar)} Kz</Descriptions.Item>
           <Descriptions.Item label="Saldo a pagar">{formatarKz(simulacao.saldo_facturado)} Kz</Descriptions.Item>
           {simulacao.taxa_armazenagem && Number(simulacao.taxa_armazenagem.valor) > 0 && (
@@ -404,9 +410,9 @@ function ModalEntregar({ aberto, detalhe, sessaoId, terminal, aoFechar }: { aber
           {simulacao.consumidor_final && <Descriptions.Item label="Consumidor Final">o saldo paga-se na entrega</Descriptions.Item>}
         </Descriptions>
       )}
-      <Flex gap={8} align="center" style={{ margin: '12px 0' }}>
+      <Flex gap={8} wrap align="center" style={{ margin: '12px 0' }}>
         <Typography.Text>Valor a receber agora:</Typography.Text>
-        <InputNumber<number> min={0} precision={2} decimalSeparator="," addonAfter="Kz" value={valor / 100} onChange={(v) => setValor(Math.round((v ?? 0) * 100))} />
+        <InputNumber<number> min={0} precision={2} decimalSeparator="," suffix="Kz" value={valor / 100} onChange={(v) => setValor(Math.round((v ?? 0) * 100))} />
       </Flex>
       {valor > 0 && <PainelPagamentos meios={meios} total={valor} pagamentos={pagamentos} onChange={setPagamentos} />}
     </Modal>
@@ -419,13 +425,13 @@ function ModalReclamacao({ item, carregando, aoFechar, aoConfirmar }: { item: It
     if (item) form.resetFields();
   }, [item, form]);
   return (
-    <Modal open={!!item} title={`Dano ou reclamação · ${item?.nome_peca ?? ''}`} okText="Registar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!item} title={`Dano ou reclamação · ${item?.nome_peca ?? ''}`} okText="Registar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => aoConfirmar({ descricao: v.descricao.trim(), valor_declarado: v.valor_declarado ?? undefined })}>
         <Form.Item name="descricao" label="Descrição" rules={[{ required: true, message: 'Descreva o dano ou a reclamação.' }]}>
           <Input.TextArea rows={3} maxLength={2000} showCount />
         </Form.Item>
         <Form.Item name="valor_declarado" label="Valor declarado pelo cliente">
-          <InputNumber<number> min={0} precision={2} decimalSeparator="," addonAfter="Kz" style={{ width: 220 }} />
+          <InputNumber<number> min={0} precision={2} decimalSeparator="," suffix="Kz" style={{ width: 220, maxWidth: '100%' }} />
         </Form.Item>
       </Form>
     </Modal>
@@ -438,13 +444,13 @@ function ModalMaterial({ item, carregando, aoFechar, aoConfirmar }: { item: Item
     if (item) form.resetFields();
   }, [item, form]);
   return (
-    <Modal open={!!item} title={`Consumo de material · ${item?.nome ?? ''}`} okText="Abater ao stock" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!item} title={`Consumo de material · ${item?.nome ?? ''}`} okText="Abater ao stock" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={aoConfirmar}>
         <Form.Item name="produto_id" label="Material" rules={[{ required: true, message: 'Escolha o material.' }]}>
           <SeletorProduto apenasStock />
         </Form.Item>
         <Form.Item name="quantidade" label="Quantidade" rules={[{ required: true, message: 'Indique a quantidade.' }]}>
-          <InputNumber<number> min={0.001} precision={3} decimalSeparator="," style={{ width: 200 }} />
+          <InputNumber<number> min={0.001} precision={3} decimalSeparator="," style={{ width: 200, maxWidth: '100%' }} />
         </Form.Item>
         <Typography.Text type="secondary">Gera uma guia de consumo ao custo médio com o CMV; sem stock suficiente, a operação é recusada.</Typography.Text>
       </Form>
@@ -452,3 +458,80 @@ function ModalMaterial({ item, carregando, aoFechar, aoConfirmar }: { item: Item
   );
 }
 
+
+/** Ordem de serviço da lavandaria em A4: dados, peças, recibos, facturas e reclamações. */
+export function pedidoOrdem(d: Detalhe): PedidoImpressao {
+  const p = d.pedido;
+  const dados: [string, string][] = [
+    ['Cliente', d.cliente ? `${d.cliente.nome}${d.cliente.telefone ? ` · ${d.cliente.telefone}` : ''}` : '—'],
+    ['Estado', `${rotuloEstadoPOS(p.estado)}${p.urgente ? ' · urgente' : ''}`],
+    ['Recebida', `${formatarDataHora(p.recebido_em)} · ${p.recebido_por ?? ''}`],
+    ['Prometida', formatarDataHora(p.data_prometida)],
+    ['Facturação', p.modo_faturacao === 'RECEPCAO' ? 'Na recepção' : 'Na entrega'],
+    ['Responsável', d.indicadores.responsavel ?? '—'],
+    ['Total', `${formatarKz(d.totais.total)} Kz`],
+    ['Facturado / pago', `${formatarKz(d.totais.facturado)} / ${formatarKz(d.totais.pago)}`],
+    ['Saldo', `${formatarKz(d.totais.saldo)} Kz`],
+    ['Situação', d.indicadores.situacao ?? '—'],
+    ['Por facturar', `${formatarKz(d.totais.por_facturar)} Kz`],
+  ];
+  if (p.observacoes) dados.push(['Observações', p.observacoes]);
+  const pecas = tabelaHtml<ItemOrdem>({
+    legenda: `Peças (${p.itens.length})`,
+    linhas: p.itens,
+    totais: true,
+    colunas: [
+      { titulo: 'Etiquetas', valor: (i) => i.etiquetas?.join(', ') ?? '—', quebrar: true },
+      { titulo: 'Peça', valor: (i) => `${i.nome_peca ?? '—'}${i.cor || i.tecido ? ` (${[i.cor, i.tecido].filter(Boolean).join(', ')})` : ''}` },
+      { titulo: 'Serviço', valor: (i) => i.nome },
+      { titulo: 'Qtd.', valor: (i) => i.quantidade, formato: 'numero' },
+      { titulo: 'Entrada', valor: (i) => `${i.estado_entrada ?? '—'}${i.notas_entrada ? ` · ${i.notas_entrada}` : ''}`, quebrar: true },
+      { titulo: 'Valor', valor: (i) => i.valor, formato: 'moeda', somar: true },
+      { titulo: 'Estado', valor: (i) => rotuloEstadoPOS(i.estado) },
+      { titulo: 'Orçamento', valor: (i) => (i.requer_orcamento && i.estado_orcamento ? rotuloEstadoPOS(i.estado_orcamento) : '—') },
+    ],
+  });
+  const recibos = d.pagamentos.length
+    ? tabelaHtml<PagamentoLav>({
+        legenda: 'Recibos',
+        linhas: d.pagamentos,
+        colunas: [
+          { titulo: 'Recibo', valor: (r) => r.numero_recibo },
+          { titulo: 'Data', valor: (r) => r.data, formato: 'data' },
+          { titulo: 'Natureza', valor: (r) => rotuloEstadoPOS(r.natureza_registo) },
+          { titulo: 'Meios', valor: (r) => (r.pos_pagamentos ?? []).map((x) => `${x.nome ?? x.tipo}: ${formatarKz(x.valor)}`).join(' · '), quebrar: true },
+          { titulo: 'Montante', valor: (r) => r.montante, formato: 'moeda' },
+          { titulo: 'Estado', valor: (r) => rotuloEstadoPOS(r.estado) },
+        ],
+      })
+    : '';
+  const facturas = d.faturas.length
+    ? tabelaHtml({
+        legenda: 'Facturas',
+        linhas: d.faturas,
+        colunas: [
+          { titulo: 'Documento', valor: (x) => x.numero_documento },
+          { titulo: 'Data', valor: (x) => x.data_emissao, formato: 'data' },
+          { titulo: 'Total', valor: (x) => x.total_bruto, formato: 'moeda' },
+          { titulo: 'Estado', valor: (x) => (x.estado ? rotuloEstadoPOS(x.estado) : '') },
+        ],
+      })
+    : '';
+  const reclamacoes = d.reclamacoes.length
+    ? tabelaHtml({
+        legenda: 'Reclamações',
+        linhas: d.reclamacoes,
+        colunas: [
+          { titulo: 'Peça', valor: (r) => r.nome_item ?? r.descricao_peca ?? '—' },
+          { titulo: 'Descrição', valor: (r) => r.descricao, quebrar: true },
+          { titulo: 'Declarado', valor: (r) => r.valor_declarado, formato: 'moeda' },
+          { titulo: 'Estado', valor: (r) => rotuloEstadoPOS(r.estado) },
+        ],
+      })
+    : '';
+  return {
+    titulo: `Ordem de serviço ${p.numero_encomenda}`,
+    subtitulo: p.codigo_terminal ? `Terminal ${p.codigo_terminal}` : undefined,
+    conteudo: `${pares(dados, 2)}${pecas}${recibos}${facturas}${reclamacoes}`,
+  };
+}

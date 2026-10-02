@@ -2,10 +2,12 @@ import { Button, Card, Checkbox, Form, Input, Modal, Space, Table, Tag } from 'a
 import { DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { tabelaHtml } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { ModalContas } from '@/modulos/compras/comum/ModalContas';
 import { useArmazens, type Armazem } from '@/modulos/compras/comum/referencias';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 /** Armazém › Configuração de armazéns (ecrã armazem_armazens): armazéns da empresa e contas da logística. */
 export default function Armazens() {
@@ -28,6 +30,18 @@ export default function Armazens() {
       <CabecalhoPagina
         titulo="Armazéns"
         subtitulo="Locais de stock da empresa; o predefinido recebe as entradas sem armazém indicado"
+        impressaoDesactivada={!consulta.data?.length}
+        impressao={() => ({
+          titulo: 'Armazéns',
+          conteudo: tabelaHtml({
+            colunas: [
+              { titulo: 'Nome', valor: (a: Armazem) => `${a.nome}${a.predefinido ? ' (predefinido)' : ''}` },
+              { titulo: 'Código', valor: (a) => a.codigo ?? '' },
+              { titulo: 'Localização', valor: (a) => a.localizacao ?? '', quebrar: true },
+            ],
+            linhas: consulta.data ?? [],
+          }),
+        })}
         accoes={
           <>
             {pode('armazem_config', 'armazem_stock_view') && <Button icon={<SettingOutlined />} onClick={() => setContas(true)}>Contas da logística</Button>}
@@ -36,7 +50,7 @@ export default function Armazens() {
         }
       />
       <Card>
-        <Table<Armazem>
+        <Table<Armazem> scroll={scrollTabela()}
           rowKey="id"
           loading={consulta.isFetching}
           dataSource={consulta.data ?? []}
@@ -51,7 +65,7 @@ export default function Armazens() {
               align: 'right',
               render: (_, r) =>
                 podeGerir && (
-                  <Space>
+                  <Space wrap>
                     <Button size="small" icon={<EditOutlined />} onClick={() => setEdicao(r)} aria-label="Editar" />
                     <Button
                       size="small"
@@ -75,7 +89,7 @@ export default function Armazens() {
           ]}
         />
       </Card>
-      <Modal title={edicao === 'novo' ? 'Novo armazém' : 'Editar armazém'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
+      <Modal width={larguraModal(520)} title={edicao === 'novo' ? 'Novo armazém' : 'Editar armazém'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"

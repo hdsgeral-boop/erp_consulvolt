@@ -63,7 +63,7 @@ export function ModalMotivo({
       okButtonProps={{ danger: true }}
       confirmLoading={carregando}
       onOk={() => form.submit()}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={(v) => aoConfirmar(v.motivo.trim())}>
         <Form.Item

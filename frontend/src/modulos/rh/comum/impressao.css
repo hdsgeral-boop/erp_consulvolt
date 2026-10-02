@@ -25,16 +25,26 @@
 .rh-documento h2 { text-align: center; margin-bottom: 24px; }
 .rh-documento p { white-space: pre-wrap; text-align: justify; }
 
+/* Telemóvel: recibos, cartas e cabeçalhos dos mapas empilham (a tabela desloca dentro de .erp-deslocar-x). */
+@media screen and (max-width: 575px) {
+  .rh-recibo { padding: 12px; }
+  .rh-recibo-topo { flex-wrap: wrap; }
+  .rh-recibo-topo > div:last-child { text-align: left !important; }
+  .rh-recibo-dados { grid-template-columns: 1fr; }
+  .rh-recibo-totais { grid-template-columns: repeat(2, 1fr); }
+  .rh-recibo-assinatura { gap: 16px; }
+  .rh-documento { padding: 16px; font-size: 13px; }
+  .rh-mapa-titulo { font-size: 15px; }
+}
+
+/* Ctrl+P na própria página (os botões Imprimir/PDF usam o motor comum, src/componentes/impressao, que gera um
+   documento à parte com body.imp-documento: estas regras não se lhe aplicam). */
 @media print {
-  @page { size: A4 portrait; margin: 12mm; }
-  body * { visibility: hidden !important; }
-  .rh-impressao, .rh-impressao * { visibility: visible !important; }
-  .rh-impressao { position: absolute; left: 0; top: 0; width: 100%; }
+  body:not(.imp-documento) * { visibility: hidden !important; }
+  body:not(.imp-documento) .rh-impressao, body:not(.imp-documento) .rh-impressao * { visibility: visible !important; }
+  body:not(.imp-documento) .rh-impressao { position: absolute; left: 0; top: 0; width: 100%; }
   .rh-nao-imprimir { display: none !important; }
   .rh-recibo { border-color: #000; }
   .rh-recibo-quebra { page-break-after: always; break-after: page; }
   .rh-tabela-mapa { font-size: 10px; }
-}
-@media print and (orientation: landscape) {
-  .rh-impressao-paisagem .rh-tabela-mapa { font-size: 9.5px; }
 }

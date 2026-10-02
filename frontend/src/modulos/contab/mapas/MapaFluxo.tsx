@@ -6,6 +6,7 @@ import { eZero } from '@/utilitarios/decimal';
 import { TabelaDemonstracao } from '../comum/Demonstracao';
 import { linhasFluxo } from '../comum/demonstracoes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
+import { filtrosDosParametros, periodoDosParametros } from '../comum/impressao';
 import { useMapa } from '../comum/useMapa';
 
 /** Mapas › Demonstração de fluxos de caixa (ecrã contab_mapa_fluxo), pelo método directo (notas de fluxo). */
@@ -50,6 +51,7 @@ export default function MapaFluxo() {
               tipoNota="fluxo"
               parametros={mapa.parametros ?? {}}
               nomeCsv={`fluxos_caixa_${d.ano}`}
+              impressao={{ titulo: 'Demonstração dos fluxos de caixa', periodo: periodoDosParametros(mapa.parametros), filtros: [...filtrosDosParametros(mapa.parametros), comparativo ? 'Comparativo com o ano anterior' : null] }}
             />
           </Card>
         </>

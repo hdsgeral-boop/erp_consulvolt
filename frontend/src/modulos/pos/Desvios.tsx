@@ -1,15 +1,16 @@
-import { Alert, Button, Descriptions, Flex, Form, Input, Modal, Radio, Select, Space, Tooltip, Typography } from 'antd';
+import { Alert, Button, Descriptions, Form, Input, Modal, Radio, Select, Space, Tooltip, Typography } from 'antd';
 import { AuditOutlined, EyeOutlined, StopOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
+import { BarraFiltros, larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { useDefinicoesPOS } from './comum/dados';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
-import { EstadoPOS, opcoesEstadoPOS } from './comum/estados';
-import { SeletorTerminal } from './comum/Filtros';
+import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from './comum/estados';
+import { SeletorTerminal, useFiltroTerminal } from './comum/Filtros';
 import { accoesDesvio, DECISOES, decisoesPermitidas } from './comum/regras';
 import type { SessaoPOS } from './comum/tipos';
 
@@ -22,6 +23,7 @@ export default function Desvios() {
   const definicoes = useDefinicoesPOS();
   const [terminal, setTerminal] = useState<number>();
   const [estado, setEstado] = useState<string | undefined>('PENDENTE');
+  const filtroTerminal = useFiltroTerminal(terminal);
   const [detalhe, setDetalhe] = useState<number | null>(null);
   const [deliberar, setDeliberar] = useState<SessaoPOS | null>(null);
   const [anular, setAnular] = useState<SessaoPOS | null>(null);
@@ -68,26 +70,30 @@ export default function Desvios() {
           <Descriptions.Item label="Diário">{definicoes.data.codigo_diario}</Descriptions.Item>
         </Descriptions>
       )}
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <BarraFiltros>
         <SeletorTerminal value={terminal} onChange={setTerminal} />
         <Select allowClear placeholder="Desvio" style={{ width: 200 }} value={estado} onChange={setEstado} options={opcoesEstadoPOS(['PENDENTE', 'DELIBERADO', 'SEM_DESVIO'])} />
-      </Flex>
+      </BarraFiltros>
       <TabelaApi<SessaoPOS>
         url="/pos/sessoes"
         chaveConsulta={['pos', 'sessoes', 'desvios']}
         filtros={{ estado: 'FECHADA', terminal_pos_id: terminal, estado_desvio: estado }}
+        impressao={{
+          titulo: 'Desvios de caixa',
+          filtros: [filtroTerminal, `Desvio: ${estado ? rotuloEstadoPOS(estado) : 'Todos'}`, definicoes.data ? `Tolerância: ${formatarKz(definicoes.data.tolerancia_desvio)} Kz` : null],
+        }}
         columns={[
           { title: 'Z', dataIndex: 'numero_z' },
           { title: 'Terminal', render: (_, s) => `${s.codigo_terminal} — ${s.nome_terminal}` },
-          { title: 'Operador', dataIndex: 'nome_operador' },
+          { title: 'Operador', dataIndex: 'nome_operador', responsive: ['md'] },
           { title: 'Fecho', dataIndex: 'fechado_em', render: (v) => formatarDataHora(v) },
-          { title: 'Esperado', dataIndex: 'numerario_esperado', align: 'right', render: (v) => formatarKz(v) },
-          { title: 'Contado', dataIndex: 'numerario_contado', align: 'right', render: (v) => formatarKz(v) },
+          { title: 'Esperado', dataIndex: 'numerario_esperado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
+          { title: 'Contado', dataIndex: 'numerario_contado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
           { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v) => <ValorDesvio valor={v} /> },
           { title: 'Estado', dataIndex: 'estado_desvio', render: (v) => <EstadoPOS estado={v} /> },
           { title: 'Decisão', render: (_, s) => (s.deliberacao ? `${DECISOES[s.deliberacao.decisao]?.rotulo ?? s.deliberacao.decisao}${s.deliberacao.automatica ? ' (auto.)' : ''}` : '—') },
-          { title: 'Integração', dataIndex: 'estado_contabilizacao', render: (v) => <EstadoPOS estado={v} /> },
-          { title: '', key: 'accoes', fixed: 'right', render: (_, s) => botoes(s) },
+          { title: 'Integração', dataIndex: 'estado_contabilizacao', render: (v) => <EstadoPOS estado={v} />, responsive: ['lg'] },
+          { title: '', key: 'accoes', fixed: 'right', exportar: false, render: (_, s) => botoes(s) },
         ]}
       />
       <DetalheSessao id={detalhe} aoFechar={() => setDetalhe(null)} />
@@ -123,7 +129,7 @@ function ModalDeliberar({
   const opcoes = sessao ? decisoesPermitidas(sessao) : [];
   const sobra = Number(sessao?.desvio ?? 0) > 0;
   return (
-    <Modal open={!!sessao} title={`Deliberar o desvio de ${sessao?.numero_z ?? ''}`} okText="Deliberar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!sessao} title={`Deliberar o desvio de ${sessao?.numero_z ?? ''}`} okText="Deliberar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
       {sessao && (
         <>
           <Alert

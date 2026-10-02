@@ -7,8 +7,11 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { colunasParaImpressao, type ColunaApi } from '@/componentes/TabelaApi';
+import { BotoesExportar, prepararTexto, tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { EstadoPOS } from '../comum/estados';
-import { SeletorTerminal } from '../comum/Filtros';
+import { SeletorTerminal, useFiltroTerminal } from '../comum/Filtros';
 import type { Terminal } from '../comum/tipos';
 import { useColaboradoresLav } from './dados';
 import { DetalheOrdem } from './DetalheOrdem';
@@ -46,6 +49,37 @@ export function Ordens({ terminal }: { terminal: Terminal | undefined }) {
   }, [consulta.error]);
   const lote = useAccao({ invalidar: [['pos']], aoSucesso: () => setSeleccao([]) });
   const contadores = consulta.data?.contadores ?? {};
+  const pequeno = useEcraPequeno();
+  const filtroTerminal = useFiltroTerminal(terminalFiltro);
+  const colunas: ColunaApi<OrdemResumo>[] = [
+    {
+      title: 'Ordem',
+      dataIndex: 'numero_encomenda',
+      render: (v, o) => (
+        <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setAberta(o.id)}>
+          {v}
+        </Button>
+      ),
+      valorImpressao: (o) => o.numero_encomenda,
+    },
+    { title: 'Cliente', render: (_, o) => o.cliente?.nome ?? `#${o.cliente_id}` },
+    { title: 'Recebida', dataIndex: 'recebido_em', render: (v) => formatarDataHora(v), responsive: ['md'] },
+    { title: 'Prometida', dataIndex: 'data_prometida', render: (v, o) => <>{formatarDataHora(v)} {o.urgente && <Tag color="red">Urgente</Tag>}</> },
+    { title: 'Estado', dataIndex: 'estado', render: (v) => <EstadoPOS estado={v} /> },
+    { title: 'Responsável', dataIndex: 'nome_atribuido', render: (v) => v ?? '—', responsive: ['lg'] },
+    { title: 'Situação', render: (_, o) => <Typography.Text type={(o.indicadores.atraso ?? 0) > 0 ? 'danger' : undefined}>{o.indicadores.situacao ?? '—'}</Typography.Text>, responsive: ['md'] },
+    { title: 'Total', dataIndex: 'total', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
+    { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v) => <Typography.Text strong={Number(v) > 0}>{formatarKz(v)}</Typography.Text> },
+  ];
+  const pedidoImpressao = async () => {
+    await prepararTexto();
+    const linhas = consulta.data?.ordens ?? [];
+    return {
+      titulo: 'Ordens de serviço da lavandaria',
+      filtros: [`Filtro: ${FILTROS.find((f) => f.valor === estado)?.rotulo ?? estado}`, filtroTerminal, texto.trim() && `Pesquisa: ${texto.trim()}`, `${linhas.length} ordem(ns)`],
+      conteudo: tabelaHtml({ colunas: colunasParaImpressao(colunas, linhas), linhas }),
+    };
+  };
 
   return (
     <>
@@ -58,13 +92,13 @@ export function Ordens({ terminal }: { terminal: Terminal | undefined }) {
         ))}
         {contadores.recebidas_hoje !== undefined && <Typography.Text type="secondary">· {contadores.recebidas_hoje} recebida(s) hoje</Typography.Text>}
       </Flex>
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <BarraFiltros accoes={<BotoesExportar tamanho="small" desactivado={!consulta.data?.ordens.length} obterPedido={pedidoImpressao} />}>
         <Input.Search allowClear placeholder="N.º da ordem, etiqueta, cliente ou telefone" style={{ width: 320 }} onSearch={setTexto} />
         <SeletorTerminal tipo="LAVANDARIA" value={terminalFiltro} onChange={setTerminalFiltro} />
         <Select placeholder="Responsável" allowClear showSearch optionFilterProp="label" value={responsavel} onChange={setResponsavel} style={{ width: 220 }} loading={colaboradores.isLoading}
           options={[{ value: 'SEM', label: 'Sem responsável' }, ...(colaboradores.data ?? []).map((c) => ({ value: String(c.id), label: c.activo ? c.nome : `${c.nome} (inactivo)` }))]} />
         {pode('lav_ordens') && seleccao.length > 0 && (
-          <Space>
+          <Space wrap>
             <Button loading={lote.isPending} onClick={() => lote.mutate({ url: '/pos/lavandaria/ordens/estado', dados: { ids: seleccao, estado: 'EM_EXECUCAO' } })}>
               Iniciar execução ({seleccao.length})
             </Button>
@@ -74,35 +108,17 @@ export function Ordens({ terminal }: { terminal: Terminal | undefined }) {
             <Button onClick={() => setAtribuir(true)}>Atribuir responsável ({seleccao.length})</Button>
           </Space>
         )}
-      </Flex>
+      </BarraFiltros>
       <Table<OrdemResumo>
         rowKey="id"
-        size="middle"
+        size={pequeno ? 'small' : 'middle'}
         loading={consulta.isFetching}
         dataSource={consulta.data?.ordens}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         pagination={{ defaultPageSize: 25, showSizeChanger: true, showTotal: (t) => `${t} ordem(ns)` }}
         rowSelection={pode('lav_ordens') ? { selectedRowKeys: seleccao, onChange: (k) => setSeleccao(k as number[]) } : undefined}
         onRow={(o) => ({ onDoubleClick: () => setAberta(o.id) })}
-        columns={[
-          {
-            title: 'Ordem',
-            dataIndex: 'numero_encomenda',
-            render: (v, o) => (
-              <Button type="link" size="small" style={{ padding: 0 }} onClick={() => setAberta(o.id)}>
-                {v}
-              </Button>
-            ),
-          },
-          { title: 'Cliente', render: (_, o) => o.cliente?.nome ?? `#${o.cliente_id}` },
-          { title: 'Recebida', dataIndex: 'recebido_em', render: (v) => formatarDataHora(v) },
-          { title: 'Prometida', dataIndex: 'data_prometida', render: (v, o) => <>{formatarDataHora(v)} {o.urgente && <Tag color="red">Urgente</Tag>}</> },
-          { title: 'Estado', dataIndex: 'estado', render: (v) => <EstadoPOS estado={v} /> },
-          { title: 'Responsável', dataIndex: 'nome_atribuido', render: (v) => v ?? '—' },
-          { title: 'Situação', render: (_, o) => <Typography.Text type={(o.indicadores.atraso ?? 0) > 0 ? 'danger' : undefined}>{o.indicadores.situacao ?? '—'}</Typography.Text> },
-          { title: 'Total', dataIndex: 'total', align: 'right', render: (v) => formatarKz(v) },
-          { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v) => <Typography.Text strong={Number(v) > 0}>{formatarKz(v)}</Typography.Text> },
-        ]}
+        columns={colunas}
       />
       <DetalheOrdem id={aberta} terminal={terminal} aoFechar={() => setAberta(null)} />
       <ModalAtribuir ids={atribuir ? seleccao : []} aoFechar={() => setAtribuir(false)} aoConcluir={() => { setAtribuir(false); setSeleccao([]); }} />
@@ -118,7 +134,7 @@ function ModalAtribuir({ ids, aoFechar, aoConcluir }: { ids: number[]; aoFechar:
   const accao = useAccao({ invalidar: [['pos']], aoSucesso: aoConcluir });
   useEffect(() => { if (ids.length) form.setFieldsValue({ modo: 'ATRIBUIR', aplicar: 'PENDENTES', colaborador_id: undefined, data: null, nota: undefined }); }, [ids.length, form]);
   return (
-    <Modal title={`Responsável de ${ids.length} ordem(ns)`} open={ids.length > 0} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+    <Modal title={`Responsável de ${ids.length} ordem(ns)`} open={ids.length > 0} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(520)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/pos/lavandaria/ordens/atribuir', dados: {
         ids, retirar: v.modo === 'RETIRAR', colaborador_id: v.modo === 'RETIRAR' ? null : v.colaborador_id, data: dataApi(v.data ?? null) ?? null, aplicar: v.aplicar, nota: v.nota?.trim() || null,
       } })}>

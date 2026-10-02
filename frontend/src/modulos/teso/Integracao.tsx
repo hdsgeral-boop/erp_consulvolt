@@ -1,4 +1,4 @@
-import { Alert, Button, Card, DatePicker, Flex, Form, Modal, Progress, Select, Space, Tabs, Typography, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Form, Modal, Progress, Select, Tabs, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -6,6 +6,7 @@ import { Route, Routes, useNavigate } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BarraFiltros } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
@@ -13,7 +14,8 @@ import { SeletorConta } from '../contab/comum/Seletores';
 import type { DocumentoTesouraria, ResultadoIntegracaoLote, TipoDocumento } from './api';
 import { SeletorContaFinanceira, TabelaDocumentos } from './comum';
 import { DetalheDocumento } from './pagamentos/DetalheDocumento';
-import { colunasDocumentos } from './pagamentos/ListaDocumentos';
+import { colunasDocumentos, textoPeriodo } from './pagamentos/ListaDocumentos';
+import { ROTULO_TIPO } from './api';
 import { errosDoLote, LOTE_INTEGRACAO } from './regras';
 
 /** Tesouraria › Integração no razão (ecrã teso_contab_integracao): documentos por integrar e contas de tesouraria. */
@@ -71,18 +73,19 @@ function PorIntegrar() {
             label: 'Por integrar',
             children: (
               <Card>
-                <Flex gap={8} wrap style={{ marginBottom: 16 }} justify="space-between">
-                  <Space wrap>
-                    <Select placeholder="Tipo" allowClear style={{ width: 150 }} value={tipo} onChange={setTipo} options={[{ value: 'PAGAMENTO', label: 'Pagamentos' }, { value: 'RECEBIMENTO', label: 'Recebimentos' }]} />
-                    <SeletorContaFinanceira value={conta} onChange={setConta} allowClear />
-                    <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-                  </Space>
-                  {podeIntegrar && (
-                    <Button type="primary" disabled={!seleccao.length || !!(progresso && progresso.feitos < progresso.total)} onClick={() => Modal.confirm({ title: `Integrar ${seleccao.length} documento(s)?`, okText: 'Integrar', cancelText: 'Cancelar', onOk: () => void integrarSeleccionados() })}>
-                      Integrar seleccionados ({seleccao.length})
-                    </Button>
-                  )}
-                </Flex>
+                <BarraFiltros
+                  accoes={
+                    podeIntegrar && (
+                      <Button type="primary" disabled={!seleccao.length || !!(progresso && progresso.feitos < progresso.total)} onClick={() => Modal.confirm({ title: `Integrar ${seleccao.length} documento(s)?`, okText: 'Integrar', cancelText: 'Cancelar', onOk: () => void integrarSeleccionados() })}>
+                        Integrar seleccionados ({seleccao.length})
+                      </Button>
+                    )
+                  }
+                >
+                  <Select placeholder="Tipo" allowClear style={{ width: 150 }} value={tipo} onChange={setTipo} options={[{ value: 'PAGAMENTO', label: 'Pagamentos' }, { value: 'RECEBIMENTO', label: 'Recebimentos' }]} />
+                  <SeletorContaFinanceira value={conta} onChange={setConta} allowClear />
+                  <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
+                </BarraFiltros>
                 {progresso && (
                   <div style={{ marginBottom: 16 }}>
                     <Progress percent={Math.round((progresso.feitos / Math.max(1, progresso.total)) * 100)} status={progresso.erros.length ? 'exception' : undefined} />
@@ -94,6 +97,12 @@ function PorIntegrar() {
                 <TabelaDocumentos
                   filtros={{ estado: 'PENDENTE', tipo, conta_financeira: conta, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
                   columns={colunasDocumentos()}
+                  impressao={{
+                    titulo: 'Documentos de tesouraria por integrar',
+                    periodo: textoPeriodo(periodo),
+                    filtros: [tipo && `Tipo: ${ROTULO_TIPO[tipo]}`, conta && `Conta: ${conta}`, 'Total: recebimentos menos pagamentos'],
+                    rotuloTotal: 'Saldo',
+                  }}
                   rowSelection={podeIntegrar ? { selectedRowKeys: seleccao.map((d) => d.id), onChange: (_, linhas) => setSeleccao(linhas) } : undefined}
                   onRow={(r) => ({ onDoubleClick: () => navegar(String(r.id)) })}
                 />

@@ -2,9 +2,11 @@ import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Empty, Form, I
 import { DeleteOutlined, EditOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { larguraModal, scrollTabela, useEcra } from '@/componentes/responsivo';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
@@ -141,7 +143,7 @@ export default function Consolidacao() {
         okText="Gravar"
         confirmLoading={gravar.isPending}
         onOk={() => form.submit()}
-        width={640}
+        width={larguraModal(640)}
       >
         <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(v)}>
           <Form.Item name="nome" label="Nome da holding" rules={[{ required: true }]}>
@@ -211,6 +213,7 @@ function PainelGrupo({ grupo }: { grupo: Grupo }) {
                   <Descriptions.Item label="Prefixos excluídos">{grupo.prefixos_excluidos_eliminacao || '—'}</Descriptions.Item>
                 </Descriptions>
                 <Table
+                  scroll={scrollTabela()}
                   rowKey="empresa_id"
                   size="small"
                   pagination={false}
@@ -252,6 +255,7 @@ function PainelGrupo({ grupo }: { grupo: Grupo }) {
                 }
               >
                 <Table<Execucao>
+                  scroll={scrollTabela()}
                   rowKey="id"
                   size="small"
                   pagination={false}
@@ -284,7 +288,7 @@ function DetalheExecucao({ id, aoFechar }: { id: number; aoFechar: () => void })
   const t = (consulta.data?.totais ?? {}) as Record<string, unknown> & { eliminacoes?: Record<string, unknown>; empresas?: Record<string, unknown>[] };
   const el = t.eliminacoes ?? {};
   return (
-    <Modal open title={`Execução ${id}`} onCancel={aoFechar} footer={null} width={860}>
+    <Modal open title={`Execução ${id}`} onCancel={aoFechar} footer={null} width={larguraModal(860)}>
       {consulta.isLoading ? (
         <Card loading />
       ) : (
@@ -306,6 +310,7 @@ function DetalheExecucao({ id, aoFechar }: { id: number; aoFechar: () => void })
           )}
           {Array.isArray(t.empresas) && t.empresas.length > 0 && (
             <Table
+              scroll={scrollTabela()}
               rowKey={(_, i) => String(i)}
               size="small"
               style={{ marginTop: 12 }}
@@ -323,9 +328,11 @@ function DetalheExecucao({ id, aoFechar }: { id: number; aoFechar: () => void })
 function PainelMapa({ grupo }: { grupo: Grupo }) {
   const [filtros, setFiltros] = useState<Record<string, unknown>>({ nivel: '2', modo: 'saldo', ocultar_zeros: 1 });
   const [form] = Form.useForm();
+  const { telemovel } = useEcra();
   const mapa = useQuery({ queryKey: ['contab', 'consolidacao', 'mapa', grupo.id, filtros], queryFn: () => obter<MapaConsolidacao>(`/consolidacao/grupos/${grupo.id}/mapa`, filtros) });
   const d = mapa.data;
   type Linha = MapaConsolidacao['linhas'][number];
+  const refMapa = useRef<HTMLDivElement>(null);
   const estilo = (l: Linha) => (l.tipo === 'cabecalho' ? { fontWeight: 600, background: '#fafafa' } : l.tipo === 'subtotal' ? { fontWeight: 600 } : {});
 
   return (
@@ -360,23 +367,34 @@ function PainelMapa({ grupo }: { grupo: Grupo }) {
       {d && (
         <>
           {d.aviso && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={d.aviso} />}
-          <Space style={{ marginBottom: 12 }}>
+          <Space wrap style={{ marginBottom: 12 }}>
             <Typography.Text type="secondary">Moeda {d.moeda} · até {formatarData(d.data_fim)} · {d.lancamentos} lançamento(s)</Typography.Text>
+            <BotoesExportar
+              obterPedido={() =>
+                refMapa.current && {
+                  titulo: `Mapa de Consolidação · ${grupo.nome}`,
+                  periodo: `${filtros.data_inicio ? `${formatarData(filtros.data_inicio as string)} a ` : 'Até '}${formatarData(d.data_fim)}`,
+                  filtros: [`Moeda: ${d.moeda}`, `Nível: ${filtros.nivel === 'classe' ? 'classe' : filtros.nivel === 'conta' ? 'conta' : '2 dígitos'}`, `Valores: ${filtros.modo === 'periodo' ? 'período' : 'saldo'}`, filtros.contas ? `Contas: ${String(filtros.contas)}` : null, `${d.lancamentos} lançamento(s)`],
+                  conteudo: refMapa.current,
+                }
+              }
+            />
             <BotaoCsv<Linha>
               nome={`mapa_consolidacao_${grupo.id}`}
               linhas={d.linhas.filter((l) => l.tipo !== 'cabecalho')}
               colunas={[{ titulo: 'Código', valor: (l) => l.codigo }, { titulo: 'Descrição', valor: (l) => l.descricao }, ...d.colunas.map((c) => ({ titulo: c.nome, valor: (l: Linha) => l.valores?.[c.chave], numerico: true }))]}
             />
           </Space>
+          <div ref={refMapa}>
           <Table<Linha>
             rowKey={(l, i) => `${l.tipo}|${l.codigo}|${i}`}
             size="small"
             pagination={false}
             dataSource={d.linhas}
-            scroll={{ x: 'max-content' }}
+            scroll={scrollTabela()}
             onRow={(l) => ({ style: estilo(l) })}
             columns={[
-              { title: 'Código', dataIndex: 'codigo', fixed: 'left' },
+              { title: 'Código', dataIndex: 'codigo', fixed: telemovel ? undefined : 'left' },
               { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 240 },
               ...d.colunas.map((c) => ({
                 title: c.nome,
@@ -398,6 +416,7 @@ function PainelMapa({ grupo }: { grupo: Grupo }) {
               </>
             )}
           />
+          </div>
         </>
       )}
     </Card>

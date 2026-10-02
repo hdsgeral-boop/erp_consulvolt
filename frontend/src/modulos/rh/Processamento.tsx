@@ -10,10 +10,13 @@ import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import type { DetalhePeriodo } from './api';
 import { CartasPeriodo } from './comum/Cartas';
 import { EstadoTag } from './comum/componentes';
-import { useAccaoRh, useAvisarErro } from './comum/consultas';
+import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { ListaPeriodos } from './comum/ListaPeriodos';
 import { ResumoTotais, TabelaResultados } from './comum/TabelaResultados';
 import { accoesPeriodo } from './comum/regras';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { larguraModal } from '@/componentes/responsivo';
+import { folhaSalariosHtml } from './comum/impressao';
 
 interface Verificacao {
   periodo_id: number;
@@ -51,6 +54,7 @@ function DetalheProcessamento() {
   const periodo = useQuery({ queryKey: ['rh', 'salarios', 'periodo', id], queryFn: () => obter<DetalhePeriodo>(`/rh/salarios/periodos/${id}`) });
   useAvisarErro(periodo.error, 'Erro ao carregar o processamento');
   const [estorno, setEstorno] = useState(false);
+  const colaboradores = useColaboradores();
   const [form] = Form.useForm<{ motivo: string }>();
   const accao = useAccaoRh(() => setEstorno(false));
 
@@ -64,7 +68,14 @@ function DetalheProcessamento() {
     <>
       <CabecalhoPagina
         titulo={`Processamento ${p.mes_ano}`}
-        subtitulo={<Space><EstadoTag estado={p.estado} />{p.contabilizado ? <Tag color="green">Contabilizado ({p.numero_lan_contabilizacao ?? '—'})</Tag> : <Tag>Por contabilizar</Tag>}</Space>}
+        impressaoDesactivada={!p.resultados.length}
+        impressao={() => ({
+          titulo: 'Folha de salários',
+          periodo: p.mes_ano,
+          filtros: [p.contabilizado ? `Contabilizado (${p.numero_lan_contabilizacao ?? '—'})` : 'Por contabilizar', p.validado_em ? `Validado em ${formatarDataHora(p.validado_em)}` : null],
+          conteudo: folhaSalariosHtml(p.resultados, (r) => r.nome ?? colaboradores.nome(r.colaborador_id)),
+        })}
+        subtitulo={<Space wrap><EstadoTag estado={p.estado} />{p.contabilizado ? <Tag color="green">Contabilizado ({p.numero_lan_contabilizacao ?? '—'})</Tag> : <Tag>Por contabilizar</Tag>}</Space>}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -104,7 +115,7 @@ function DetalheProcessamento() {
         />
       </Card>
       <Modal title="Descontabilizar (estorno)" open={estorno} onCancel={() => setEstorno(false)} okText="Descontabilizar" okButtonProps={{ danger: true }} cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${id}/descontabilizar`, dados: v })}>
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}>
             <Input.TextArea rows={3} maxLength={500} />
@@ -120,7 +131,21 @@ function VerificacaoDiario({ aoFechar }: { aoFechar: () => void }) {
   const q = useQuery({ queryKey: ['rh', 'salarios', 'verificacao'], queryFn: () => obter<Verificacao[]>('/rh/salarios/verificacao-legado') });
   useAvisarErro(q.error);
   return (
-    <Modal title="Verificação das folhas contra o diário (SAL)" open width={900} onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>}>
+    <Modal title="Verificação das folhas contra o diário (SAL)" open width={larguraModal(900)} onCancel={aoFechar} footer={<Space wrap>
+      <BotoesExportar desactivado={!q.data?.length} obterPedido={() => ({
+        titulo: 'Verificação das folhas contra o diário (SAL)',
+        conteudo: tabelaHtml({ linhas: q.data ?? [], colunas: [
+          { titulo: 'Mês', valor: (r) => r.mes_ano },
+          { titulo: 'Colab.', valor: (r) => r.colaboradores, formato: 'inteiro' },
+          { titulo: 'Calculado', valor: (r) => r.debitos_calculados, formato: 'moeda' },
+          { titulo: 'Diário', valor: (r) => r.debitos_diario, formato: 'moeda' },
+          { titulo: 'Diferença', valor: (r) => r.diferenca, formato: 'moeda' },
+          { titulo: 'Resultado', valor: (r) => (r.sem_lancamento ? 'Sem lançamento' : r.confere ? 'Confere' : 'Difere') },
+          { titulo: 'Cálculo', valor: (r) => r.modo_calculo },
+        ] }),
+      })} />
+      <Button onClick={aoFechar}>Fechar</Button>
+    </Space>}>
       <Typography.Paragraph type="secondary">Compara os débitos calculados pela fotografia (vencimentos + INSS da empresa) com os débitos lançados no diário SAL (tolerância de 10 Kz).</Typography.Paragraph>
       <Table<Verificacao> rowKey="periodo_id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={false} scroll={{ x: 'max-content' }} columns={[
         { title: 'Mês', dataIndex: 'mes_ano' },

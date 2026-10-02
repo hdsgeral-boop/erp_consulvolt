@@ -6,6 +6,9 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { dadosPropostaCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
@@ -42,6 +45,7 @@ export function DetalheProposta() {
       <CabecalhoPagina
         titulo={`Proposta ${nome}`}
         subtitulo={<>Referência {c.referencia} · <NomeTerceiro id={c.fornecedor_id} terceiro={c.fornecedor} /></>}
+        impressao={() => pedidoDocumentoComercial(dadosPropostaCompra(c))}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -81,7 +85,7 @@ export function DetalheProposta() {
         }
       />
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Pedido">
             {pode('compras_pedidos_view') ? <a onClick={() => navegar(`/m/compras/compras_pedidos/${c.pedido_compra_id}`)}>#{c.pedido_compra_id}</a> : `#${c.pedido_compra_id}`}
           </Descriptions.Item>
@@ -99,7 +103,7 @@ export function DetalheProposta() {
           rowKey="id"
           size="small"
           pagination={false}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           dataSource={c.linhas ?? []}
           columns={[
             { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
@@ -114,6 +118,7 @@ export function DetalheProposta() {
       <Modal
         title={`Adjudicar a proposta ${nome}`}
         open={adjudicar}
+        width={larguraModal(520)}
         onCancel={() => setAdjudicar(false)}
         okText="Adjudicar e gerar encomenda"
         cancelText="Cancelar"

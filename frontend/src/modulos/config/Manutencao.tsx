@@ -9,6 +9,8 @@ import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { accoesPedido, textoConfirmacao, type PedidoResumo } from './comum/regras';
+import { larguraGaveta, scrollTabela, useEcra } from '@/componentes/responsivo';
+import { TabelaLocalImprimivel } from './comum/impressao';
 
 interface ParametroAccao {
   id: string;
@@ -122,7 +124,7 @@ function TabelaImpacto({ impacto }: { impacto: Impacto | null | undefined }) {
   return (
     <>
       {impacto.bloqueio && <Alert type="error" showIcon style={{ marginBottom: 8 }} message={`Bloqueado: ${impacto.bloqueio}`} />}
-      <Table size="small" rowKey="chave" pagination={false} dataSource={linhas} locale={{ emptyText: 'Sem registos afectados.' }} columns={[{ title: 'Registos', dataIndex: 'chave', render: (v: string) => v.replace(/_/g, ' ') }, { title: 'Quantidade', dataIndex: 'n', align: 'right', render: formatarNumero }]} />
+      <Table size="small" rowKey="chave" pagination={false} scroll={scrollTabela()} dataSource={linhas} locale={{ emptyText: 'Sem registos afectados.' }} columns={[{ title: 'Registos', dataIndex: 'chave', render: (v: string) => v.replace(/_/g, ' ') }, { title: 'Quantidade', dataIndex: 'n', align: 'right', render: formatarNumero }]} />
     </>
   );
 }
@@ -167,7 +169,7 @@ function NovoPedido({ acoes, aoCriar }: { acoes: AccaoManutencao[]; aoCriar: () 
               type={accao.gravidade === 'alta' ? 'error' : 'warning'}
               showIcon
               style={{ marginBottom: 16 }}
-              message={<Space>{accao.titulo}<Tag>{accao.ambito === 'sistema' ? 'Todo o sistema' : 'Empresa activa'}</Tag><Tag color={accao.gravidade === 'alta' ? 'red' : 'orange'}>Gravidade {accao.gravidade}</Tag></Space>}
+              message={<Space wrap>{accao.titulo}<Tag>{accao.ambito === 'sistema' ? 'Todo o sistema' : 'Empresa activa'}</Tag><Tag color={accao.gravidade === 'alta' ? 'red' : 'orange'}>Gravidade {accao.gravidade}</Tag></Space>}
               description={accao.descricao}
             />
             {accao.parametros.map((p) => (
@@ -206,17 +208,20 @@ function Pedidos() {
   const [estado, setEstado] = useState('ACTIVOS');
   const [aberto, setAberto] = useState<number | null>(null);
   const lista = useQuery({ queryKey: [...CHAVE, 'pedidos', estado], queryFn: () => obter<Pedido[]>('/sistema/manutencao/pedidos', { estado }) });
+  const { telemovel } = useEcra();
+  const opcoesEstado = [{ value: 'ACTIVOS', label: 'Activos' }, { value: 'PENDENTE', label: 'Pendentes' }, { value: 'APROVADO', label: 'Aprovados' }, { value: 'EXECUTADO', label: 'Executados' }, { value: 'TODOS', label: 'Todos' }];
   return (
     <Card>
-      <Segmented
-        style={{ marginBottom: 12 }}
-        value={estado}
-        onChange={(v) => setEstado(String(v))}
-        options={[{ value: 'ACTIVOS', label: 'Activos' }, { value: 'PENDENTE', label: 'Pendentes' }, { value: 'APROVADO', label: 'Aprovados' }, { value: 'EXECUTADO', label: 'Executados' }, { value: 'TODOS', label: 'Todos' }]}
-      />
-      <Table<Pedido>
+      {/* No telemóvel os 5 estados não cabem num Segmented (excedia 57 px a 375 px): passa a Select. */}
+      <TabelaLocalImprimivel<Pedido>
+        titulo="Pedidos de manutenção de dados"
+        filtros={[`Estado: ${opcoesEstado.find((o) => o.value === estado)?.label ?? estado}`]}
+        filtrosEcra={telemovel
+          ? <Select value={estado} onChange={setEstado} options={opcoesEstado} style={{ width: '100%' }} aria-label="Estado dos pedidos" />
+          : <Segmented value={estado} onChange={(v) => setEstado(String(v))} options={opcoesEstado} />}
         rowKey="id"
         size="middle"
+        scroll={scrollTabela()}
         loading={lista.isLoading}
         dataSource={lista.data}
         onRow={(p) => ({ onClick: () => setAberto(p.id), style: { cursor: 'pointer' } })}
@@ -224,11 +229,11 @@ function Pedidos() {
         columns={[
           { title: 'N.º', dataIndex: 'id', width: 70 },
           { title: 'Acção', dataIndex: 'rotulo_acao', render: (v: string, p) => (<>{v}{p.resumo_parametros && <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{p.resumo_parametros}</div>}</>) },
-          { title: 'Âmbito', key: 'ambito', render: (_, p) => (p.ambito === 'sistema' ? <Tag>Sistema</Tag> : p.nome_empresa_ambito) },
+          { title: 'Âmbito', key: 'ambito', responsive: ['md'], render: (_, p) => (p.ambito === 'sistema' ? <Tag>Sistema</Tag> : p.nome_empresa_ambito) },
           { title: 'Pedido por', key: 'por', render: (_, p) => <>{p.pedido_por?.nome_utilizador}<div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{formatarDataHora(p.pedido_em)}</div></> },
-          { title: 'Aprovado por', key: 'apr', render: (_, p) => p.aprovado_por?.nome_utilizador ?? '—' },
+          { title: 'Aprovado por', key: 'apr', responsive: ['lg'], render: (_, p) => p.aprovado_por?.nome_utilizador ?? '—' },
           { title: 'Estado', dataIndex: 'estado', render: (e: string) => <Tag color={CORES[e]}>{ROTULOS[e] ?? e}</Tag> },
-          { title: 'Expira', dataIndex: 'expira_em', render: formatarDataHora },
+          { title: 'Expira', dataIndex: 'expira_em', responsive: ['md'], render: formatarDataHora },
         ]}
       />
       <DetalhePedido id={aberto} aoFechar={() => setAberto(null)} />
@@ -243,7 +248,7 @@ function DetalhePedido({ id, aoFechar }: { id: number | null; aoFechar: () => vo
   const p = q.data;
   const acc = p && utilizador ? accoesPedido(p, { id: utilizador.id, superAdmin: utilizador.papel === 'SUPER_ADMINISTRADOR' }) : null;
   return (
-    <Drawer open={id !== null} onClose={aoFechar} width={720} title={p ? `Pedido #${p.id} — ${p.rotulo_acao}` : 'Pedido'} destroyOnClose>
+    <Drawer open={id !== null} onClose={aoFechar} width={larguraGaveta(720)} title={p ? `Pedido #${p.id} — ${p.rotulo_acao}` : 'Pedido'} destroyOnHidden>
       {!p ? (
         <Skeleton active />
       ) : (
@@ -309,7 +314,7 @@ function ModalDecisao({ pedido, tipo, aoFechar }: { pedido: Pedido; tipo: 'aprov
       okButtonProps={{ danger: tipo !== 'aprovar' }}
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={submeter}>
         {(tipo === 'aprovar' || tipo === 'rejeitar') && (

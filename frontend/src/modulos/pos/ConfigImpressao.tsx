@@ -6,7 +6,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { useDefinicoesPOS } from './comum/dados';
-import { gravarPreferencias, htmlTalaoVenda, imprimirHtml, lerPreferencias, type PreferenciasImpressao } from './comum/impressao';
+import { gravarPreferencias, htmlTalaoVenda, imprimirHtml, lerPreferencias, useCabecalhoTalao, type PreferenciasImpressao } from './comum/impressao';
 import type { DefinicoesPOS } from './comum/tipos';
 
 /**
@@ -17,7 +17,7 @@ export default function ConfigImpressao() {
   return (
     <>
       <CabecalhoPagina titulo="Configuração do POS" subtitulo="Definições de caixa e impressão de talões" />
-      <Row gutter={16}>
+      <Row gutter={[16, 16]}>
         <Col xs={24} xl={12}>
           <DefinicoesCaixa />
         </Col>
@@ -81,13 +81,13 @@ function DefinicoesCaixa() {
           <Form.Item name="conta_operador" label="Conta de responsabilidade do operador (classe 3)">
             <SeletorConta prefixo="3" />
           </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12}>
               <Form.Item name="tolerancia_desvio" label="Tolerância de desvio" extra="Desvios até este valor ficam deliberados automaticamente.">
-                <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} addonAfter="Kz" />
+                <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} suffix="Kz" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col xs={24} sm={12}>
               <Form.Item name="codigo_diario" label="Diário da integração">
                 <Input maxLength={10} style={{ textTransform: 'uppercase' }} />
               </Form.Item>
@@ -109,6 +109,7 @@ function DefinicoesCaixa() {
 function PreferenciasPosto() {
   const { pode, empresa } = useSessao();
   const [form] = Form.useForm<PreferenciasImpressao>();
+  const cabecalho = useCabecalhoTalao();
   const podeGravar = pode('pos_print_config');
   useEffect(() => {
     form.setFieldsValue(lerPreferencias(empresa?.id));
@@ -131,7 +132,7 @@ function PreferenciasPosto() {
           pos_pagamentos: [{ tipo: 'NUMERARIO', nome: 'Numerário', valor: '1000.00' }],
           itens_venda: [{ id: 1, produto_id: 0, descricao: 'Artigo de exemplo', quantidade: '1', preco_unitario: '1000.00', taxa_imposto: '14', total: '1000.00' }],
         },
-        { empresa: empresa?.nome ?? '', nif: (empresa?.nif as string | null) ?? null, terminal: 'T01' },
+        cabecalho({ terminal: 'T01' }),
         p,
       ),
     );
@@ -175,7 +176,7 @@ function PreferenciasPosto() {
         <Form.Item name="rodape" label="Mensagem de rodapé">
           <Input maxLength={200} />
         </Form.Item>
-        <Space>
+        <Space wrap>
           {podeGravar && (
             <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
               Gravar preferências

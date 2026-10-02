@@ -1,8 +1,10 @@
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Empty, Flex, Form, Row, Segmented, Select, Space, Table, Tag, Typography } from 'antd';
+import { BotoesExportar } from '@/componentes/impressao';
+import { scrollTabela, useEcra } from '@/componentes/responsivo';
 import { DeleteOutlined, DownloadOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
@@ -42,6 +44,8 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
   const [filtros, setFiltros] = useState<Filtro[]>([]);
   const [apuramento, setApuramento] = useState(false);
   const [vista, setVista] = useState<'tabela' | 'grafico'>('tabela');
+  const refResultado = useRef<HTMLDivElement>(null);
+  const { telemovel } = useEcra();
 
   useEffect(() => {
     setLinhas(conjunto.padrao.linhas);
@@ -80,7 +84,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
     const dims = r.linhas.map((d, i) => ({
       title: d.rotulo,
       key: `d${i}`,
-      fixed: i === 0 ? ('left' as const) : undefined,
+      fixed: i === 0 && !telemovel ? ('left' as const) : undefined,
       render: (_: unknown, l: { dimensoes: string[]; chave: string }) => (l.chave === 'total' ? (i === 0 ? <strong>{l.dimensoes[0]}</strong> : null) : l.dimensoes[i]),
     }));
     if (!r.linhas.length) dims.push({ title: '', key: 'd0', fixed: 'left', render: (_: unknown, l: { dimensoes: string[]; chave: string }) => <strong>{l.dimensoes[0]}</strong> });
@@ -105,7 +109,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
           },
     );
     return [...dims, ...valores];
-  }, [r, pivot]);
+  }, [r, pivot, telemovel]);
 
   const grafico = r ? seriesPivot(r) : null;
   const podeAnalisar = (medidas.length > 0 || linhas.length > 0) && (!usarDatas || !!datas);
@@ -114,7 +118,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Card size="small">
         <Form layout="vertical">
-          <Row gutter={16}>
+          <Row gutter={[16, 0]}>
             {periodos && (
               <Col xs={24} md={6}>
                 <Form.Item label="Período">
@@ -208,7 +212,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
         <Card
           size="small"
           title={
-            <Space>
+            <Space wrap>
               {r.conjunto.nome}
               <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 12 }}>
                 {r.resultado.length} linha(s){r.duracao_ms !== undefined ? ` · ${r.duracao_ms} ms` : ''}
@@ -216,7 +220,24 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
             </Space>
           }
           extra={
-            <Space>
+            <Space wrap>
+              <BotoesExportar
+                tamanho="small"
+                obterPedido={() =>
+                  refResultado.current && {
+                    titulo: `Análise dinâmica · ${r.conjunto.nome}`,
+                    periodo: usarDatas && datas ? `${datas[0].format('DD/MM/YYYY')} a ${datas[1].format('DD/MM/YYYY')}` : periodos?.find((p) => p.id === periodo)?.rotulo,
+                    filtros: [
+                      `Linhas: ${r.linhas.map((d) => d.rotulo).join(', ') || '—'}`,
+                      `Colunas: ${r.colunas.map((d) => d.rotulo).join(', ') || '—'}`,
+                      `Medidas: ${r.medidas.map((m) => m.rotulo).join(', ') || '—'}`,
+                      ...filtros.filter((f) => f.valores.length).map((f) => `${rotuloDim(f.dimensao)} ${f.modo === 'filtros' ? '∈' : '∉'} ${f.valores.join(', ')}`),
+                      apuramento ? 'Inclui apuramento' : null,
+                    ],
+                    conteudo: refResultado.current,
+                  }
+                }
+              />
               <Segmented size="small" value={vista} onChange={(v) => setVista(v as 'tabela' | 'grafico')} options={[{ value: 'tabela', label: 'Tabela' }, { value: 'grafico', label: 'Gráfico' }]} />
               <Button
                 size="small"
@@ -236,6 +257,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
           }
         >
           {r.medidas.length === 0 && <Alert type="info" message="Escolha pelo menos uma medida." />}
+          <div ref={refResultado}>
           {vista === 'tabela' ? (
             <Table
               size="small"
@@ -243,7 +265,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
               rowKey="chave"
               dataSource={[...pivot.linhas, ...(pivot.totais ? [pivot.totais] : [])]}
               columns={colunasTabela}
-              scroll={{ x: 'max-content', y: 520 }}
+              scroll={scrollTabela(520)}
               pagination={pivot.linhas.length > 200 ? { pageSize: 200, showSizeChanger: false } : false}
               locale={{ emptyText: <Empty description="Sem dados para os critérios escolhidos." /> }}
             />
@@ -258,6 +280,7 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
           ) : (
             <Empty description="Sem dados para o gráfico." />
           )}
+          </div>
           {(r.linhas.length > 0 || r.colunas.length > 0) && (
             <Typography.Paragraph type="secondary" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
               Linhas: {r.linhas.map((d) => d.rotulo).join(', ') || '—'} · Colunas: {r.colunas.map((d) => d.rotulo).join(', ') || '—'}
@@ -306,7 +329,7 @@ function LinhaFiltro({
   });
   return (
     <Flex gap={8} wrap>
-      <Select style={{ width: 200 }} value={filtro.dimensao} options={opcoesDim} onChange={(d: string) => aoMudar({ ...filtro, dimensao: d, valores: [] })} aria-label="Dimensão do filtro" />
+      <Select style={{ width: 200, maxWidth: '100%' }} value={filtro.dimensao} options={opcoesDim} onChange={(d: string) => aoMudar({ ...filtro, dimensao: d, valores: [] })} aria-label="Dimensão do filtro" />
       <Select
         style={{ width: 130 }}
         value={filtro.modo}
@@ -316,7 +339,7 @@ function LinhaFiltro({
       />
       <Select
         mode={comValores ? 'multiple' : 'tags'}
-        style={{ flex: 1, minWidth: 240 }}
+        style={{ flex: '1 1 200px', minWidth: 0 }}
         value={filtro.valores}
         onChange={(v: string[]) => aoMudar({ ...filtro, valores: v })}
         onSearch={comValores ? setPesquisa : undefined}

@@ -1,7 +1,9 @@
 import { Modal, Skeleton, Space, Statistic, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { BotoesExportar } from '@/componentes/impressao';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { obter } from '@/api/cliente';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, ValorKz } from './Componentes';
@@ -40,6 +42,7 @@ export function TabelaDemonstracao({
   tipoNota,
   parametros,
   nomeCsv,
+  impressao,
 }: {
   linhas: LinhaPlana[];
   comparativo: boolean;
@@ -48,7 +51,10 @@ export function TabelaDemonstracao({
   tipoNota: 'demonstracao' | 'fluxo';
   parametros: Record<string, unknown>;
   nomeCsv: string;
+  /** Título/período/filtros do documento impresso (Imprimir/PDF da demonstração tal como está no ecrã). */
+  impressao?: { titulo: string; periodo?: string; filtros?: (string | null | undefined | false)[] };
 }) {
+  const refTabela = useRef<HTMLDivElement>(null);
   const notas = useTabelaAux(tipoNota === 'demonstracao' ? 'notas-demonstracao' : 'notas-fluxo-caixa');
   const [notaAberta, setNotaAberta] = useState<{ id: number; codigo: string } | null>(null);
   const idNota = (codigo: string | null | undefined) => (codigo ? notas.data?.find((n) => n.codigo === codigo)?.id : undefined);
@@ -75,7 +81,8 @@ export function TabelaDemonstracao({
 
   return (
     <>
-      <div style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {impressao && <BotoesExportar obterPedido={() => refTabela.current && { ...impressao, conteudo: refTabela.current }} />}
         <BotaoCsv<LinhaPlana>
           nome={nomeCsv}
           linhas={linhas}
@@ -87,15 +94,17 @@ export function TabelaDemonstracao({
           ]}
         />
       </div>
-      <Table<LinhaPlana>
-        rowKey="chave"
-        size="small"
-        pagination={false}
-        columns={colunas}
-        dataSource={linhas}
-        onRow={(l) => ({ style: ESTILO[l.tipo] })}
-        scroll={{ x: 'max-content' }}
-      />
+      <div ref={refTabela}>
+        <Table<LinhaPlana>
+          rowKey="chave"
+          size="small"
+          pagination={false}
+          columns={colunas}
+          dataSource={linhas}
+          onRow={(l) => ({ style: ESTILO[l.tipo] })}
+          scroll={scrollTabela()}
+        />
+      </div>
       {notaAberta && <DetalheNota tipo={tipoNota} nota={notaAberta} parametros={parametros} aoFechar={() => setNotaAberta(null)} />}
     </>
   );
@@ -115,7 +124,7 @@ function DetalheNota({ tipo, nota, parametros, aoFechar }: { tipo: string; nota:
   });
   const d = consulta.data;
   return (
-    <Modal open title={d ? `Nota ${d.nota.codigo} — ${d.nota.descricao}` : `Nota ${nota.codigo}`} onCancel={aoFechar} footer={null} width={1000}>
+    <Modal open title={d ? `Nota ${d.nota.codigo} — ${d.nota.descricao}` : `Nota ${nota.codigo}`} onCancel={aoFechar} footer={null} width={larguraModal(1000)}>
       {!d ? (
         <Skeleton active />
       ) : (
@@ -140,12 +149,12 @@ export function TabelaMovimentos({ linhas, abrir }: { linhas: LinhaMovimento[]; 
       size="small"
       dataSource={linhas}
       pagination={{ pageSize: 20, showTotal: (n) => `${n} movimento(s)` }}
-      scroll={{ x: 'max-content' }}
+      scroll={scrollTabela()}
       columns={[
         { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-        { title: 'Diário', dataIndex: 'diario' },
+        { title: 'Diário', dataIndex: 'diario', responsive: ['md'] },
         { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string, r) => (abrir ? <Typography.Link onClick={() => abrir(r.id)}>{v}</Typography.Link> : v) },
-        { title: 'Documento', dataIndex: 'numero_documento' },
+        { title: 'Documento', dataIndex: 'numero_documento', responsive: ['md'] },
         { title: 'Conta', dataIndex: 'codigo_conta' },
         { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
         { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null) },
@@ -168,7 +177,7 @@ export function MovimentosSemNota({ parametros, aoFechar }: { parametros: Record
   });
   const d = consulta.data;
   return (
-    <Modal open title="Movimentos por mapear (sem nota DEMO)" onCancel={aoFechar} footer={null} width={1100}>
+    <Modal open title="Movimentos por mapear (sem nota DEMO)" onCancel={aoFechar} footer={null} width={larguraModal(1100)}>
       {!d ? (
         <Skeleton active />
       ) : (
@@ -185,6 +194,7 @@ export function MovimentosSemNota({ parametros, aoFechar }: { parametros: Record
             size="small"
             dataSource={d.por_conta}
             pagination={{ pageSize: 10 }}
+            scroll={scrollTabela()}
             columns={[
               { title: 'Conta', dataIndex: 'codigo_conta' },
               { title: 'Linhas', dataIndex: 'linhas', align: 'right' },

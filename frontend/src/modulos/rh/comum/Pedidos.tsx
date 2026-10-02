@@ -40,7 +40,8 @@ export function EtapasPedido({ pedido }: { pedido: PedidoPortal }) {
 export function DocumentoImpresso({ documento, empresa }: { documento: DocumentoEmitido; empresa?: string | null }) {
   return (
     <div className="rh-documento">
-      <div style={{ fontWeight: 600 }}>{empresa ?? ''}</div>
+      {/* No documento impresso o nome (e o logótipo) da empresa já vêm no cabeçalho comum. */}
+      <div className="imp-so-ecra" style={{ fontWeight: 600 }}>{empresa ?? ''}</div>
       <div style={{ textAlign: 'right', color: '#595959' }}>N.º {documento.numero}</div>
       <h2>{documento.titulo}</h2>
       <p>{documento.texto}</p>

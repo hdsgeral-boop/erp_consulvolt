@@ -25,4 +25,20 @@ final class SistemaMenuTest extends TestCase
         $this->assertContains('vendas_faturacao_view', $d['permissoes']);
         $this->getJson('/api/sistema/menu', $this->entrar($u))->assertStatus(422);   // sem empresa activa (fail-closed)
     }
+
+    #[Test]
+    public function identidade_da_empresa_activa_para_qualquer_utilizador_da_empresa(): void
+    {
+        $logo = 'data:image/png;base64,iVBORw0KGgo=';
+        $empresa = $this->criarEmpresa(['nome' => 'Empresa Demo', 'nif' => '5999000001', 'endereco' => 'Rua A', 'provincia' => 'Luanda', 'logotipo' => $logo]);
+        $outra = $this->criarEmpresa();
+        $u = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'pos_venda' => true])->id]);
+        $u->empresas()->attach($empresa->id);
+        $s = $this->entrar($u);
+
+        $this->getJson('/api/sistema/identidade', $s + ['X-Empresa-Id' => $empresa->id])->assertOk()
+            ->assertJsonPath('dados.nome', 'Empresa Demo')->assertJsonPath('dados.nif', '5999000001')
+            ->assertJsonPath('dados.morada', 'Rua A, Luanda')->assertJsonPath('dados.logotipo', $logo);
+        $this->getJson('/api/sistema/identidade', $s + ['X-Empresa-Id' => $outra->id])->assertForbidden();
+    }
 }

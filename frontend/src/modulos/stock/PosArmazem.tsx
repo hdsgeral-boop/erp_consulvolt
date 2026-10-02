@@ -5,6 +5,9 @@ import type { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { dadosGuiaSaida } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
@@ -15,6 +18,7 @@ import { SeletorArmazem, SeletorTerceiro } from '@/modulos/compras/comum/Seletor
 import { TabelaLocal } from '@/modulos/compras/comum/Tabelas';
 import { adicionarAoCarrinho, alterarQuantidade, totalUnidades, type ItemCarrinho } from './comum/carrinho';
 import type { EncomendaPicking, GuiaSaida, LinhaStock, ListaRecolha } from './comum/tipos';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 /**
  * Armazém › POS de armazém (ecrã pos_armazem): venda ao balcão (guia de saída), histórico das vendas ao balcão e
@@ -39,9 +43,9 @@ export default function PosArmazem() {
       <CabecalhoPagina
         titulo="POS de armazém"
         subtitulo="Saídas ao balcão e expedição de encomendas"
-        accoes={<SeletorArmazem style={{ width: 260 }} value={armazem} onChange={setArmazem} />}
+        accoes={<SeletorArmazem style={{ width: 260, maxWidth: '100%' }} value={armazem} onChange={setArmazem} />}
       />
-      <Tabs items={separadores} destroyInactiveTabPane />
+      <Tabs items={separadores} destroyOnHidden />
     </>
   );
 }
@@ -70,8 +74,8 @@ function Balcao({ armazem }: { armazem: number }) {
   return (
     <Row gutter={16}>
       <Col xs={24} lg={14}>
-        <Card title="Stock do armazém" extra={<Input.Search placeholder="Código ou produto" allowClear style={{ width: 240 }} onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} />}>
-          <Table<LinhaStock>
+        <Card title="Stock do armazém" extra={<Input.Search placeholder="Código ou produto" allowClear style={{ width: 240, maxWidth: '100%' }} onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} />}>
+          <Table<LinhaStock> scroll={scrollTabela()}
             rowKey="produto_id"
             size="small"
             loading={stock.isFetching}
@@ -104,7 +108,7 @@ function Balcao({ armazem }: { armazem: number }) {
           {carrinho.length === 0 ? (
             <Empty description="Acrescente produtos do stock." />
           ) : (
-            <Table<ItemCarrinho>
+            <Table<ItemCarrinho> scroll={scrollTabela()}
               rowKey="produto_id"
               size="small"
               pagination={false}
@@ -157,7 +161,7 @@ function VendasBalcao({ armazem }: { armazem?: number }) {
   const detalhe = useQuery({ queryKey: ['logistica', 'pos-armazem', 'venda', aberta], queryFn: () => obter<GuiaSaida>(`/pos/armazem/vendas/${aberta}`), enabled: aberta !== null });
   return (
     <Card>
-      <Flex gap={8} style={{ marginBottom: 16 }}>
+      <Flex gap={8} wrap style={{ marginBottom: 16 }}>
         <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
       </Flex>
       <TabelaLocal<GuiaSaida>
@@ -169,24 +173,30 @@ function VendasBalcao({ armazem }: { armazem?: number }) {
           { title: 'Guia', dataIndex: 'numero_documento', render: (v: string) => <strong>{v}</strong> },
           { title: 'Data', dataIndex: 'data', render: formatarData },
           { title: 'Cliente', key: 'c', render: (_, r) => (r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} terceiro={r.terceiro} /> : r.area_rececao || 'Cliente de balcão') },
-          { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
-          { title: 'Contab.', dataIndex: 'contabilizado', render: (c: boolean | null) => (c ? <Tag color="green">Sim</Tag> : <Tag>Não</Tag>) },
-          { title: 'Emitida por', dataIndex: 'criado_por', render: (v) => v || '—' },
+          { title: 'Estado', dataIndex: 'estado', responsive: ['sm'], render: (e: string | null) => <EstadoTag estado={e} /> },
+          { title: 'Contab.', dataIndex: 'contabilizado', responsive: ['md'], render: (c: boolean | null) => (c ? <Tag color="green">Sim</Tag> : <Tag>Não</Tag>) },
+          { title: 'Emitida por', dataIndex: 'criado_por', responsive: ['lg'], render: (v) => v || '—' },
         ]}
       />
-      <Modal title={detalhe.data ? `Guia ${detalhe.data.numero_documento}` : 'Guia'} open={aberta !== null} onCancel={() => setAberta(null)} footer={null} width={720}>
+      <Modal
+        title={detalhe.data ? `Guia ${detalhe.data.numero_documento}` : 'Guia'}
+        open={aberta !== null}
+        onCancel={() => setAberta(null)}
+        footer={detalhe.data ? <BotoesExportar obterPedido={() => (detalhe.data ? pedidoDocumentoComercial(dadosGuiaSaida(detalhe.data, null)) : null)} /> : null}
+        width={larguraModal(720)}
+      >
         {detalhe.isLoading ? (
           <Skeleton active />
         ) : (
           detalhe.data && (
             <>
-              <Descriptions size="small" column={2} style={{ marginBottom: 12 }}>
+              <Descriptions size="small" column={{ xs: 1, sm: 2 }} style={{ marginBottom: 12 }}>
                 <Descriptions.Item label="Data">{formatarData(detalhe.data.data)}</Descriptions.Item>
                 <Descriptions.Item label="Estado"><EstadoTag estado={detalhe.data.estado} /></Descriptions.Item>
                 <Descriptions.Item label="Cliente">{detalhe.data.area_rececao || '—'}</Descriptions.Item>
                 {detalhe.data.observacoes && <Descriptions.Item label="Observações">{detalhe.data.observacoes}</Descriptions.Item>}
               </Descriptions>
-              <Table
+              <Table scroll={scrollTabela()}
                 rowKey="id"
                 size="small"
                 pagination={false}
@@ -229,7 +239,7 @@ function Picking({ armazem }: { armazem: number }) {
     <Row gutter={16}>
       <Col xs={24} lg={10}>
         <Card title="Fila de encomendas">
-          <Table<EncomendaPicking>
+          <Table<EncomendaPicking> scroll={scrollTabela()}
             rowKey="id"
             size="small"
             loading={fila.isFetching}
@@ -258,10 +268,36 @@ function Picking({ armazem }: { armazem: number }) {
           ) : (
             lista.data && (
               <>
-                <Typography.Title level={5}>
-                  {lista.data.encomenda.numero_documento} · {formatarKz(lista.data.encomenda.total_bruto)} Kz
-                </Typography.Title>
-                <Table
+                <Flex justify="space-between" align="center" gap={8} wrap style={{ marginBottom: 8 }}>
+                  <Typography.Title level={5} style={{ margin: 0 }}>
+                    {lista.data.encomenda.numero_documento} · {formatarKz(lista.data.encomenda.total_bruto)} Kz
+                  </Typography.Title>
+                  <BotoesExportar
+                    tamanho="small"
+                    obterPedido={() =>
+                      lista.data
+                        ? {
+                            titulo: `Lista de recolha — ${lista.data.encomenda.numero_documento}`,
+                            filtros: ['Picking de encomenda de cliente'],
+                            conteudo:
+                              tabelaHtml({
+                                colunas: [
+                                  { titulo: 'Código', valor: (l: (typeof lista.data.linhas)[number]) => l.codigo ?? '' },
+                                  { titulo: 'Produto', valor: (l) => l.nome, quebrar: true },
+                                  { titulo: 'Por expedir', valor: (l) => l.por_expedir, formato: 'numero' },
+                                  { titulo: 'Stock no armazém', valor: (l) => (l.movimenta_stock ? formatarNumero(l.stock_armazem) : 'serviço'), alinhamento: 'direita' },
+                                  { titulo: 'Situação', valor: (l) => (l.disponivel ? 'Disponível' : 'Sem stock') },
+                                  { titulo: 'Recolhido', valor: () => '', largura: '24mm' },
+                                ],
+                                linhas: lista.data.linhas,
+                              }) +
+                              '<div class="imp-sem-quebra" style="display:flex;justify-content:space-around;gap:10mm;margin-top:14mm"><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Recolhido por</div><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Conferido por</div></div>',
+                          }
+                        : null
+                    }
+                  />
+                </Flex>
+                <Table scroll={scrollTabela()}
                   rowKey="item_id"
                   size="small"
                   pagination={false}
@@ -270,7 +306,7 @@ function Picking({ armazem }: { armazem: number }) {
                     { title: 'Código', dataIndex: 'codigo', render: (v) => v || '—' },
                     { title: 'Produto', dataIndex: 'nome' },
                     { title: 'Por expedir', dataIndex: 'por_expedir', align: 'right', render: formatarNumero },
-                    { title: 'Stock no armazém', dataIndex: 'stock_armazem', align: 'right', render: (v: string | null, l) => (l.movimenta_stock ? formatarNumero(v) : 'serviço') },
+                    { title: 'Stock no armazém', dataIndex: 'stock_armazem', align: 'right', responsive: ['sm'], render: (v: string | null, l) => (l.movimenta_stock ? formatarNumero(v) : 'serviço') },
                     { title: '', dataIndex: 'disponivel', render: (d: boolean) => (d ? <Tag color="green">Disponível</Tag> : <Tag color="red">Sem stock</Tag>) },
                   ]}
                 />

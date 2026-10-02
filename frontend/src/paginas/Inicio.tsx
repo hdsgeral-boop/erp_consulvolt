@@ -1,9 +1,11 @@
-import { Alert, Badge, Card, Col, Empty, List, Row, Skeleton, Typography } from 'antd';
-import { BulbOutlined } from '@ant-design/icons';
+import { Alert, Badge, Card, Col, Empty, List, Row, Skeleton, Typography, theme } from 'antd';
+import { AppstoreOutlined, BulbOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { iconeModulo } from '@/componentes/icones/iconesModulos';
+import { ecrasDeTopo, rotaEcra } from '@/layout/itensMenu';
 
 interface Pendente {
   id: string;
@@ -21,10 +23,11 @@ interface DadosInicio {
   comunicado_avaliacao?: { titulo?: string; texto?: string } | null;
 }
 
-/** Página inicial (GET /gestao/inicio, ADR-059): saudação, processos pendentes e Dica do Dia. */
+/** Página inicial (GET /gestao/inicio, ADR-059): saudação, processos pendentes, Dica do Dia e atalhos para os módulos. */
 export function Inicio() {
   const { menu, empresa } = useSessao();
   const navegar = useNavigate();
+  const { token } = theme.useToken();
   const consulta = useQuery({ queryKey: ['inicio'], queryFn: () => obter<DadosInicio>('/gestao/inicio') });
 
   // a vista do pendente aponta para o ecrã do catálogo; procura-se o módulo no menu do utilizador
@@ -75,6 +78,53 @@ export function Inicio() {
             <Typography.Paragraph>{dica?.texto ?? '—'}</Typography.Paragraph>
           </Card>
         </Col>
+        {menu.length > 0 && (
+          <Col span={24}>
+            <Card title={<><AppstoreOutlined /> Módulos</>}>
+              <nav aria-label="Atalhos dos módulos" className="erp-grelha-auto">
+                {menu.map((m) => {
+                  const primeiro = ecrasDeTopo(m)[0];
+                  return (
+                    <Card
+                      key={m.id}
+                      size="small"
+                      hoverable={!!primeiro}
+                      role="link"
+                      tabIndex={primeiro ? 0 : -1}
+                      aria-label={`Abrir ${m.nome}`}
+                      onClick={primeiro ? () => navegar(rotaEcra(m.id, primeiro.id)) : undefined}
+                      onKeyDown={(ev) => {
+                        if (primeiro && (ev.key === 'Enter' || ev.key === ' ')) {
+                          ev.preventDefault();
+                          navegar(rotaEcra(m.id, primeiro.id));
+                        }
+                      }}
+                      style={{ cursor: primeiro ? 'pointer' : 'default' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+                        <span
+                          aria-hidden
+                          style={{
+                            flex: 'none', width: 40, height: 40, borderRadius: 8, display: 'grid', placeItems: 'center',
+                            background: token.colorPrimaryBg, color: token.colorPrimary, fontSize: 20,
+                          }}
+                        >
+                          {iconeModulo(m.id)}
+                        </span>
+                        <div style={{ minWidth: 0 }}>
+                          <Typography.Text strong style={{ display: 'block' }}>{m.nome}</Typography.Text>
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            {m.ecras.length === 1 ? '1 ecrã' : `${m.ecras.length} ecrãs`}
+                          </Typography.Text>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </nav>
+            </Card>
+          </Col>
+        )}
       </Row>
     </>
   );

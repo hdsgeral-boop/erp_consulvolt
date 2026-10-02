@@ -1,18 +1,21 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { METRICAS_PRODUTIVIDADE, type DetalheProdutividade, type ItemProdutividade, type PeriodoProdutividade, type RegistoProdutividade } from './api';
 import { CadastroSimples } from './comum/CadastroSimples';
 import { EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useInfotipos } from './comum/consultas';
+import { pedidoTabela } from './comum/impressao';
 import { mesPorExtenso, somar } from './comum/regras';
 
 /** RH › Subsídio de produtividade (ecrã rh_produtividade): períodos, registos e itens. */
@@ -41,6 +44,7 @@ function Inicio() {
               url="/rh/produtividade/itens"
               chave={['rh', 'produtividade', 'itens']}
               nomeItem="item de produtividade"
+              tituloImpressao="Itens de produtividade"
               podeGerir={pode('rh_prod_config')}
               podeEliminar={pode('rh_prod_config')}
               pesquisa={(r) => `${r.codigo} ${r.descricao}`}
@@ -58,15 +62,15 @@ function Inicio() {
               ]}
               campos={
                 <Row gutter={12}>
-                  <Col span={8}><Form.Item name="codigo" label="Código" rules={[{ required: true }, { max: 20 }]}><Input /></Form.Item></Col>
-                  <Col span={16}><Form.Item name="descricao" label="Descrição" rules={[{ required: true }, { max: 500 }]}><Input /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="metrica" label="Métrica"><Select options={METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: m }))} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="unidade" label="Unidade"><Input maxLength={10} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="preco_unitario" label="Preço unitário" rules={[{ required: true }]}><InputNumber min={0.0001} precision={4} decimalSeparator="," style={{ width: '100%' }} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="minimo" label="Mínimo (total)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="maximo" label="Máximo (total)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="ativo" label=" " valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
-                  <Col span={24}>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="codigo" label="Código" rules={[{ required: true }, { max: 20 }]}><Input /></Form.Item></Col>
+                  <Col xs={24} md={16}><Form.Item name="descricao" label="Descrição" rules={[{ required: true }, { max: 500 }]}><Input /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="metrica" label="Métrica"><Select options={METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: m }))} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="unidade" label="Unidade"><Input maxLength={10} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="preco_unitario" label="Preço unitário" rules={[{ required: true }]}><InputNumber min={0.0001} precision={4} decimalSeparator="," style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="minimo" label="Mínimo (total)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="maximo" label="Máximo (total)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="ativo" label=" " valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
+                  <Col xs={24}>
                     <Form.Item name="infotipo_salarial_id" label="Rubrica (vencimento)" rules={[{ required: true }]}>
                       <Select showSearch optionFilterProp="label" options={infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO').map((i) => ({ value: i.id, label: i.nome }))} />
                     </Form.Item>
@@ -91,23 +95,28 @@ function Periodos() {
   useAvisarErro(q.error);
   const accao = useAccaoRh<PeriodoProdutividade>((p) => { setNovo(false); navegar(String(p.id)); });
 
+  const colunas: ColunaApi<PeriodoProdutividade>[] = [
+    { title: 'Mês', dataIndex: 'mes', render: (m: string) => <strong>{mesPorExtenso(m)}</strong> },
+    { title: 'Janela de medição', responsive: ['md'], render: (_, p) => `${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)}` },
+    { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
+    { title: 'Total no fecho', dataIndex: 'total_fecho', align: 'right', render: (v: string | null) => (v ? formatarKz(v) : '—') },
+    { title: 'Lançado', dataIndex: 'lancado_em', responsive: ['md'], render: (v: string | null) => (v ? formatarDataHora(v) : '—') },
+  ];
+
   return (
     <Card>
-      {pode('rh_prod_periodo') && (
-        <Flex justify="end" style={{ marginBottom: 12 }}>
+      <BarraFiltros accoes={
+        <>
+          <BotoesExportar desactivado={!q.data?.length} obterPedido={() => pedidoTabela({ titulo: 'Períodos de produtividade', colunas, linhas: q.data ?? [] })} />
+          {pode('rh_prod_periodo') && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); const m = dayjs().startOf('month'); form.setFieldsValue({ mes: m, janela: [m, m.endOf('month')] }); setNovo(true); }}>Abrir período</Button>
-        </Flex>
-      )}
-      <Table<PeriodoProdutividade> rowKey="id" size="middle" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 24 }}
+          )}
+        </>
+      }>{null}</BarraFiltros>
+      <Table<PeriodoProdutividade> rowKey="id" size="middle" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 24 }} scroll={scrollTabela()}
         onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
-        columns={[
-          { title: 'Mês', dataIndex: 'mes', render: (m: string) => <strong>{mesPorExtenso(m)}</strong> },
-          { title: 'Janela de medição', render: (_, p) => `${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)}` },
-          { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
-          { title: 'Total no fecho', dataIndex: 'total_fecho', align: 'right', render: (v: string | null) => (v ? formatarKz(v) : '—') },
-          { title: 'Lançado', dataIndex: 'lancado_em', render: (v: string | null) => (v ? formatarDataHora(v) : '—') },
-        ]} />
-      <Modal title="Abrir período de produtividade" open={novo} onCancel={() => setNovo(false)} okText="Abrir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+        columns={colunas} />
+      <Modal title="Abrir período de produtividade" open={novo} onCancel={() => setNovo(false)} okText="Abrir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: '/rh/produtividade/periodos', dados: { mes: v.mes.format('YYYY-MM'), data_inicio: dataApi(v.janela[0]), data_fim: dataApi(v.janela[1]), observacoes: v.observacoes ?? null } })}>
           <Form.Item name="mes" label="Mês do processamento" rules={[{ required: true }]}><DatePicker picker="month" format="MM/YYYY" style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="janela" label="Janela de medição (até 93 dias)" rules={[{ required: true }]}><DatePicker.RangePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item>
@@ -148,15 +157,15 @@ function DetalhePeriodo() {
   const item = (iid: number) => itens.data?.find((i) => i.id === iid);
   const itensDoColab = p.elegiveis.find((e) => e.colaborador_id === colabForm)?.itens ?? {};
 
-  const colunas: ColumnsType<RegistoProdutividade> = [
+  const colunas: ColunaApi<RegistoProdutividade>[] = [
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: nomeColab },
     { title: 'Item', dataIndex: 'item_produtividade_id', render: (v: number) => (item(v) ? `${item(v)?.codigo} — ${item(v)?.descricao}` : `#${v}`) },
-    { title: 'Data', dataIndex: 'data', render: formatarData },
+    { title: 'Data', dataIndex: 'data', responsive: ['md'], render: formatarData },
     { title: 'Quantidade', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
     { title: 'Considerada', dataIndex: 'quantidade_considerada', align: 'right', render: (v: string | null, r) => (v !== null && Number(v) !== Number(r.quantidade) ? <Typography.Text type="warning">{formatarNumero(v)}</Typography.Text> : formatarNumero(v)) },
-    { title: 'Preço', dataIndex: 'preco_unitario', align: 'right', render: (v: string) => formatarKz(v) },
-    { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => formatarKz(v) },
-    { title: 'Origem', dataIndex: 'origem', render: (o: string | null) => (o ? <Tag>{o}</Tag> : '—') },
+    { title: 'Preço', dataIndex: 'preco_unitario', align: 'right', responsive: ['md'], render: (v: string) => formatarKz(v) },
+    { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => formatarKz(v), totalImpressao: (ls) => formatarKz(somar(ls.map((r) => r.valor))) },
+    { title: 'Origem', dataIndex: 'origem', responsive: ['lg'], render: (o: string | null) => (o ? <Tag>{o}</Tag> : '—') },
     {
       title: '',
       key: 'accoes',
@@ -175,7 +184,16 @@ function DetalhePeriodo() {
     <>
       <CabecalhoPagina
         titulo={`Produtividade — ${mesPorExtenso(p.mes)}`}
-        subtitulo={<Space><EstadoTag estado={p.estado} />Janela {formatarData(p.data_inicio)} a {formatarData(p.data_fim)}</Space>}
+        impressaoDesactivada={!p.registos.length}
+        impressao={() => pedidoTabela({
+          titulo: 'Registos de produtividade',
+          periodo: `${mesPorExtenso(p.mes)} (janela ${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)})`,
+          filtros: [`Estado: ${p.estado}`, `Elegíveis: ${p.elegiveis.length}`],
+          colunas,
+          linhas: p.registos,
+          totais: 'Total',
+        })}
+        subtitulo={<Space wrap><EstadoTag estado={p.estado} />Janela {formatarData(p.data_inicio)} a {formatarData(p.data_fim)}</Space>}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -194,14 +212,14 @@ function DetalhePeriodo() {
           <Descriptions.Item label="Total actual">{formatarKz(somar(p.registos.map((r) => r.valor)), true)}</Descriptions.Item>
           <Descriptions.Item label="Total no fecho">{p.total_fecho ? formatarKz(p.total_fecho, true) : '—'}</Descriptions.Item>
           {p.lancado_em && <Descriptions.Item label="Lançado no processamento">{formatarDataHora(p.lancado_em)}</Descriptions.Item>}
-          {p.motivo_reabertura && <Descriptions.Item label="Motivo da reabertura" span={3}>{p.motivo_reabertura}</Descriptions.Item>}
+          {p.motivo_reabertura && <Descriptions.Item label="Motivo da reabertura" span="filled">{p.motivo_reabertura}</Descriptions.Item>}
         </Descriptions>
       </Card>
       <Card>
         <Typography.Paragraph type="secondary">O mínimo e o máximo do item aplicam-se ao total do colaborador no período; a quantidade considerada reparte-se pelos registos.</Typography.Paragraph>
-        <Table<RegistoProdutividade> rowKey="id" size="small" columns={colunas} dataSource={p.registos} scroll={{ x: 'max-content' }} pagination={{ pageSize: 50 }} />
+        <Table<RegistoProdutividade> rowKey="id" size="small" columns={colunas} dataSource={p.registos} scroll={scrollTabela()} pagination={{ pageSize: 50 }} />
       </Card>
-      <Modal title={edicao === 'novo' ? 'Novo registo' : 'Editar registo'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={edicao === 'novo' ? 'Novo registo' : 'Editar registo'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => {
           const dados = { ...v, data: dataApi(v.data ?? null) ?? null, observacoes: v.observacoes ?? null };
           if (edicao === 'novo') accao.mutate({ metodo: 'post', url: `/rh/produtividade/periodos/${id}/registos`, dados });
@@ -214,13 +232,13 @@ function DetalhePeriodo() {
             <Select options={Object.values(itensDoColab).map((i) => ({ value: i.item_id, label: `${i.codigo} (${formatarKz(i.preco)})` }))} />
           </Form.Item>
           <Row gutter={12}>
-            <Col span={12}><Form.Item name="quantidade" label="Quantidade" rules={[{ required: true }]}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={12}><Form.Item name="data" label="Data"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabledDate={(d) => d.isBefore(dayjs(p.data_inicio)) || d.isAfter(dayjs(p.data_fim)) || d.isAfter(dayjs())} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="quantidade" label="Quantidade" rules={[{ required: true }]}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="data" label="Data"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabledDate={(d) => d.isBefore(dayjs(p.data_inicio)) || d.isAfter(dayjs(p.data_fim)) || d.isAfter(dayjs())} /></Form.Item></Col>
           </Row>
           <Form.Item name="observacoes" label="Observações"><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
         </Form>
       </Modal>
-      <Modal title="Reabrir período de produtividade" open={reabrir} onCancel={() => setReabrir(false)} okText="Reabrir" okButtonProps={{ danger: true }} cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formR.submit()} destroyOnClose>
+      <Modal title="Reabrir período de produtividade" open={reabrir} onCancel={() => setReabrir(false)} okText="Reabrir" okButtonProps={{ danger: true }} cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formR.submit()} destroyOnHidden>
         <Form form={formR} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/produtividade/periodos/${id}/reabrir`, dados: v })}>
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Pelo menos 5 caracteres.' }]}><Input.TextArea rows={3} maxLength={500} /></Form.Item>
           <Typography.Text type="secondary">Exige o processamento salarial do mês aberto.</Typography.Text>

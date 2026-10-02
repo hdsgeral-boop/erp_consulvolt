@@ -1,7 +1,7 @@
-import { Button, Card, Checkbox, Empty, Flex, Segmented, Select, Skeleton, Slider, Space, Typography } from 'antd';
-import { PrinterOutlined } from '@ant-design/icons';
-import { useMemo, useState } from 'react';
+import { Card, Checkbox, Empty, Flex, Segmented, Select, Skeleton, Slider, Space, Typography } from 'antd';
+import { useMemo, useRef, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { DeslocamentoHorizontal } from '@/componentes/responsivo';
 import { useColaboradores, useCargos } from '@/modulos/rh/comum/consultas';
 import type { Colaborador } from '@/modulos/rh/api';
 import { TIPOS_UNIDADE, aplanar, construirArvore, type NoUnidade } from './comum/arvore';
@@ -23,6 +23,7 @@ const ESTILO = `
 .organigrama .caixa { display: inline-block; min-width: 170px; max-width: 240px; background: #fff; border: 1px solid #d9d9d9; border-radius: 8px; padding: 8px 10px; text-align: left; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
 .organigrama .caixa.apoio { border-style: dashed; }
 @media print { .sem-impressao { display: none !important; } .organigrama { transform: none !important; } }
+.imp-conteudo > .organigrama { margin: 0 auto; }
 `;
 
 /** Estrutura orgânica › Organigrama (est_organigrama): vista funcional (unidades, postos e vagas) ou nominal (pessoas por posto). */
@@ -34,6 +35,7 @@ export default function Organigrama() {
   const [raiz, setRaiz] = useState<number | undefined>();
   const [escala, setEscala] = useState(100);
   const [comPostos, setComPostos] = useState(true);
+  const area = useRef<HTMLDivElement>(null);
 
   const arvore = useMemo(() => construirArvore(estrutura.data?.unidades ?? [], true), [estrutura.data]);
   const visivel = useMemo(() => (raiz ? aplanar(arvore).filter((n) => n.unidade.id === raiz) : arvore), [arvore, raiz]);
@@ -100,14 +102,23 @@ export default function Organigrama() {
         <CabecalhoPagina
           titulo="Organigrama"
           subtitulo="Estrutura funcional (unidades, postos e vagas) ou nominal (pessoas em cada posto)"
-          accoes={<Button icon={<PrinterOutlined />} onClick={() => window.print()}>Imprimir</Button>}
+          impressaoDesactivada={!visivel.length}
+          impressao={() =>
+            area.current && visivel.length ? {
+              titulo: `Organigrama ${modo === 'funcional' ? 'funcional' : 'nominal'}`,
+              subtitulo: modo === 'funcional' ? 'Unidades orgânicas, postos de trabalho e vagas' : 'Pessoas em cada posto de trabalho',
+              filtros: raiz ? `Unidade: ${aplanar(arvore).find((n) => n.unidade.id === raiz)?.unidade.nome ?? ''}` : 'Toda a estrutura',
+              // Largo: o motor escolhe A4/A3 paisagem e, se preciso, reduz a escala para caber sem cortar caixas.
+              conteudo: area.current,
+            } : null
+          }
         />
         <Card size="small" style={{ marginBottom: 12 }}>
           <Flex gap={12} wrap align="center">
             <Segmented value={modo} onChange={(v) => setModo(v as 'funcional' | 'nominal')} options={[{ value: 'funcional', label: 'Funcional' }, { value: 'nominal', label: 'Nominal' }]} />
-            <Select allowClear placeholder="Toda a estrutura" style={{ width: 260 }} value={raiz} onChange={setRaiz} options={aplanar(arvore).map((n) => ({ value: n.unidade.id, label: `${'— '.repeat(n.nivel)}${n.unidade.nome}` }))} />
+            <Select allowClear placeholder="Toda a estrutura" style={{ width: 260, maxWidth: '100%' }} value={raiz} onChange={setRaiz} options={aplanar(arvore).map((n) => ({ value: n.unidade.id, label: `${'— '.repeat(n.nivel)}${n.unidade.nome}` }))} />
             {modo === 'funcional' && <Checkbox checked={comPostos} onChange={(e) => setComPostos(e.target.checked)}>Mostrar postos</Checkbox>}
-            <Space>
+            <Space wrap>
               <span>Zoom</span>
               <Slider min={40} max={130} step={10} value={escala} onChange={setEscala} style={{ width: 140 }} tooltip={{ formatter: (v) => `${v}%` }} />
             </Space>
@@ -119,11 +130,11 @@ export default function Organigrama() {
       ) : !visivel.length ? (
         <Empty description="Ainda não há unidades orgânicas activas." />
       ) : (
-        <div style={{ overflow: 'auto', paddingBottom: 16 }}>
-          <div className="organigrama" role="tree" aria-label="Organigrama" style={{ transform: `scale(${escala / 100})`, transformOrigin: 'top center', minWidth: 'max-content' }}>
+        <DeslocamentoHorizontal style={{ paddingBottom: 16 }}>
+          <div ref={area} className="organigrama" role="tree" aria-label="Organigrama" style={{ transform: `scale(${escala / 100})`, transformOrigin: 'top center', minWidth: 'max-content' }}>
             {ramo(visivel)}
           </div>
-        </div>
+        </DeslocamentoHorizontal>
       )}
     </>
   );

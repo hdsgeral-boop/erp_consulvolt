@@ -6,6 +6,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { numero, pendente } from './calculos';
 import { NomeProduto, useMapaProdutos } from './referencias';
 import { numeroOuId, type EncomendaCompra, type FaturaCompra, type ItemCompra, type RececaoCompra } from './tipos';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 interface LinhaQtd {
   item_encomenda_id: number;
@@ -47,10 +48,10 @@ export function ModalRececao({ encomenda, aberto, aoFechar, aoRegistar }: { enco
       onCancel={aoFechar}
       okText="Registar recepção"
       cancelText="Cancelar"
-      width={820}
+      width={larguraModal(820)}
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         form={form}
@@ -78,7 +79,7 @@ export function ModalRececao({ encomenda, aberto, aoFechar, aoRegistar }: { enco
         </Row>
         <Form.List name="linhas">
           {(campos) => (
-            <Table
+            <Table scroll={scrollTabela()}
               rowKey="key"
               size="small"
               pagination={false}
@@ -140,10 +141,10 @@ export function ModalFaturaEncomenda({ encomenda, aberto, aoFechar, aoRegistar }
       onCancel={aoFechar}
       okText="Registar factura"
       cancelText="Cancelar"
-      width={900}
+      width={larguraModal(900)}
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         form={form}
@@ -192,7 +193,7 @@ export function ModalFaturaEncomenda({ encomenda, aberto, aoFechar, aoRegistar }
         {estrangeira && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Encomenda em ${encomenda.codigo_moeda}: o servidor calcula as diferenças de câmbio face à recepção.`} />}
         <Form.List name="linhas">
           {(campos) => (
-            <Table
+            <Table scroll={scrollTabela()}
               rowKey="key"
               size="small"
               pagination={false}

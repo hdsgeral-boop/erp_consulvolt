@@ -1,13 +1,15 @@
-import { Alert, Button, Card, Checkbox, Col, Divider, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Divider, Form, Input, Modal, Popconfirm, Row, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { larguraModal } from '@/componentes/responsivo';
 
 interface EmpresaUtilizador {
   empresa_id: number;
@@ -45,6 +47,7 @@ export default function Utilizadores() {
   const [palavra, setPalavra] = useState<UtilizadorLinha | null>(null);
   const perfis = usePerfis();
   const accao = useAccao({ invalidar: [CHAVE] });
+  const pequeno = useEcraPequeno();
 
   return (
     <>
@@ -54,7 +57,7 @@ export default function Utilizadores() {
         accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo utilizador</Button>}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+        <BarraFiltros style={{ marginBottom: 12 }}>
           <Input.Search placeholder="Nome, utilizador ou email" allowClear style={{ width: 260 }} onSearch={(v) => setFiltros({ ...filtros, pesquisa: v || undefined })} />
           <Select allowClear placeholder="Estado" style={{ width: 140 }} value={filtros.ativo} onChange={(v?: number) => setFiltros({ ...filtros, ativo: v })} options={[{ value: 1, label: 'Activos' }, { value: 0, label: 'Inactivos' }]} />
           <Select
@@ -77,15 +80,27 @@ export default function Utilizadores() {
             onChange={(v?: number) => setFiltros({ ...filtros, empresa_id: v })}
             options={empresas.map((e) => ({ value: e.id, label: e.nome }))}
           />
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<UtilizadorLinha>
           url="/sistema/utilizadores"
           chaveConsulta={[...CHAVE, 'lista']}
           filtros={filtros}
+          size={pequeno ? 'small' : 'middle'}
+          scroll={scrollTabela()}
+          impressao={{
+            titulo: 'Lista de utilizadores',
+            filtros: [
+              filtros.pesquisa ? `Pesquisa: ${filtros.pesquisa}` : null,
+              filtros.ativo !== undefined ? `Estado: ${filtros.ativo ? 'Activos' : 'Inactivos'}` : null,
+              filtros.perfil_utilizador_id ? `Perfil: ${perfis.data?.find((p) => p.id === filtros.perfil_utilizador_id)?.nome ?? filtros.perfil_utilizador_id}` : null,
+              filtros.empresa_id ? `Empresa: ${empresas.find((e) => e.id === filtros.empresa_id)?.nome ?? filtros.empresa_id}` : null,
+            ],
+          }}
           columns={[
             {
               title: 'Utilizador',
               dataIndex: 'nome_utilizador',
+              valorImpressao: (u) => [u.nome_utilizador, u.nome_completo, u.email].filter(Boolean).join(' · '),
               render: (v: string, u) => (
                 <>
                   <strong>{v}</strong>
@@ -99,10 +114,12 @@ export default function Utilizadores() {
               ),
             },
             { title: 'Papel', dataIndex: 'papel', render: (p: UtilizadorLinha['papel']) => <Tag color={p === 'UTILIZADOR' ? undefined : 'purple'}>{PAPEIS[p] ?? p}</Tag> },
-            { title: 'Perfil', dataIndex: ['perfil', 'nome'], render: (v: string | undefined, u) => (v ? <>{v}{u.perfil?.acesso_total && <Tag color="purple" style={{ marginLeft: 6 }}>total</Tag>}</> : '—') },
+            { title: 'Perfil', dataIndex: ['perfil', 'nome'], responsive: ['md'], render: (v: string | undefined, u) => (v ? <>{v}{u.perfil?.acesso_total && <Tag color="purple" style={{ marginLeft: 6 }}>total</Tag>}</> : '—') },
             {
               title: 'Empresas',
               dataIndex: 'empresas',
+              responsive: ['md'],
+              valorImpressao: (u) => (u.acesso_todas_empresas ? 'Todas' : u.empresas.map((e) => e.nome).join(', ')),
               render: (es: EmpresaUtilizador[], u) =>
                 u.acesso_todas_empresas ? (
                   <Tag color="blue">Todas</Tag>
@@ -113,7 +130,7 @@ export default function Utilizadores() {
                 ),
             },
             { title: 'Estado', dataIndex: 'ativo', render: (a: boolean) => (a ? <Tag color="green">Activo</Tag> : <Tag>Inactivo</Tag>) },
-            { title: 'Último acesso', dataIndex: 'ultimo_acesso_em', render: formatarDataHora },
+            { title: 'Último acesso', dataIndex: 'ultimo_acesso_em', responsive: ['lg'], render: formatarDataHora },
             ...(gerir
               ? [
                   {
@@ -239,27 +256,27 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
       cancelText="Cancelar"
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
-      width={720}
-      destroyOnClose
+      width={larguraModal(720)}
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={submeter}>
         <Row gutter={16}>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item name="nome_utilizador" label="Nome de utilizador" rules={[{ required: true, message: 'Indique o nome de utilizador.' }]}>
               <Input maxLength={100} autoComplete="off" />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item name="nome_completo" label="Nome completo">
               <Input maxLength={200} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item name="email" label="Email" rules={[{ type: 'email', message: 'Email inválido.' }]}>
               <Input maxLength={150} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item
               name="palavra_passe"
               label={novo ? 'Palavra-passe' : 'Nova palavra-passe (opcional)'}
@@ -268,12 +285,12 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
               <Input.Password maxLength={200} autoComplete="new-password" />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item name="perfil_utilizador_id" label="Perfil" rules={[{ required: true, message: 'Escolha o perfil.' }]}>
               <Select showSearch optionFilterProp="label" loading={perfis.isLoading} options={(perfis.data ?? []).map((p) => ({ value: p.id, label: p.acesso_total ? `${p.nome} (acesso total)` : p.nome }))} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item name="papel" label="Papel" tooltip={souSuper ? undefined : 'Só um super-administrador altera o papel.'}>
               <Select disabled={!souSuper} options={Object.entries(PAPEIS).map(([value, label]) => ({ value, label }))} />
             </Form.Item>
@@ -331,7 +348,7 @@ function ModalPalavraPasse({ utilizador, aoFechar }: { utilizador: UtilizadorLin
       cancelText="Cancelar"
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
-      destroyOnClose
+      destroyOnHidden
     >
       <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="As sessões abertas do utilizador são terminadas." />
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/sistema/utilizadores/${utilizador!.id}/palavra-passe`, dados: v })}>

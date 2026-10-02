@@ -7,8 +7,11 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { colunasParaImpressao, type ColunaApi } from '@/componentes/TabelaApi';
+import { BotoesExportar, prepararTexto, tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { EstadoPOS, opcoesEstadoPOS } from '../comum/estados';
+import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { accoesReclamacao } from '../comum/regras';
 import type { Reclamacao } from './tipos';
 
@@ -33,34 +36,25 @@ export function Reclamacoes() {
     },
   });
 
-  return (
-    <>
-      <Flex gap={8} style={{ marginBottom: 12 }}>
-        <Select allowClear placeholder="Estado" style={{ width: 220 }} value={estado} onChange={setEstado} options={opcoesEstadoPOS(['AGUARDA_COMPROVATIVO', 'COMPROVADO', 'APROVADA', 'RECUSADA', 'PAGA'])} />
-      </Flex>
-      <Table<Reclamacao>
-        rowKey="id"
-        size="middle"
-        loading={consulta.isFetching}
-        dataSource={consulta.data}
-        scroll={{ x: 'max-content' }}
-        columns={[
-          { title: 'Data', dataIndex: 'criado_em', render: (v) => formatarDataHora(v) },
+  const pequeno = useEcraPequeno();
+  const colunas: ColunaApi<Reclamacao>[] = [
+          { title: 'Data', dataIndex: 'criado_em', render: (v) => formatarDataHora(v), responsive: ['md'] },
           { title: 'Ordem', dataIndex: 'numero_encomenda' },
           { title: 'Peça', render: (_, r) => r.nome_item ?? r.descricao_peca ?? '—' },
           { title: 'Descrição', dataIndex: 'descricao', ellipsis: true },
-          { title: 'Declarado', dataIndex: 'valor_declarado', align: 'right', render: (v) => formatarKz(v) },
+          { title: 'Declarado', dataIndex: 'valor_declarado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
           { title: 'Comprovado', dataIndex: 'valor_comprovativo', align: 'right', render: (v) => formatarKz(v) },
           { title: 'Estado', dataIndex: 'estado', render: (v) => <EstadoPOS estado={v} /> },
-          { title: 'Decisão', render: (_, r) => (r.decidido_por ? `${r.decidido_por}${r.nota_decisao ? ` · ${r.nota_decisao}` : ''}` : '—') },
+          { title: 'Decisão', responsive: ['lg'], render: (_, r) => (r.decidido_por ? `${r.decidido_por}${r.nota_decisao ? ` · ${r.nota_decisao}` : ''}` : '—') },
           {
             title: '',
             key: 'a',
             fixed: 'right',
+            exportar: false,
             render: (_, r) => {
               const a = accoesReclamacao(pode, r, utilizador?.nome_utilizador);
               return (
-                <Space size={4}>
+                <Space size={4} wrap>
                   {a.comprovar && (
                     <Button size="small" onClick={() => setDecidir({ r, modo: 'COMPROVAR' })}>
                       Comprovativo
@@ -82,7 +76,32 @@ export function Reclamacoes() {
               );
             },
           },
-        ]}
+        ];
+
+  return (
+    <>
+      <BarraFiltros
+        accoes={
+          <BotoesExportar
+            tamanho="small"
+            desactivado={!consulta.data?.length}
+            obterPedido={async () => {
+              await prepararTexto();
+              const linhas = consulta.data ?? [];
+              return { titulo: 'Danos e reclamações da lavandaria', filtros: [`Estado: ${estado ? rotuloEstadoPOS(estado) : 'Todos'}`], conteudo: tabelaHtml({ colunas: colunasParaImpressao(colunas, linhas), linhas }) };
+            }}
+          />
+        }
+      >
+        <Select allowClear placeholder="Estado" style={{ width: 220 }} value={estado} onChange={setEstado} options={opcoesEstadoPOS(['AGUARDA_COMPROVATIVO', 'COMPROVADO', 'APROVADA', 'RECUSADA', 'PAGA'])} />
+      </BarraFiltros>
+      <Table<Reclamacao>
+        rowKey="id"
+        size={pequeno ? 'small' : 'middle'}
+        loading={consulta.isFetching}
+        dataSource={consulta.data}
+        scroll={scrollTabela()}
+        columns={colunas}
       />
       <ModalDecidir alvo={decidir} carregando={accao.isPending} aoFechar={() => setDecidir(null)} aoConfirmar={(dados) => decidir && accao.mutate({ url: `/pos/lavandaria/reclamacoes/${decidir.r.id}/decidir`, dados })} />
       <ModalPagar alvo={pagar} carregando={accao.isPending} aoFechar={() => setPagar(null)} aoConfirmar={(dados) => pagar && accao.mutate({ url: `/pos/lavandaria/reclamacoes/${pagar.id}/pagar`, dados })} />
@@ -113,7 +132,7 @@ function ModalDecidir({ alvo, carregando, aoFechar, aoConfirmar }: { alvo: { r: 
   }, [alvo, form]);
   const recusa = decisao === 'RECUSADA';
   return (
-    <Modal open={!!alvo} title="Decisão da reclamação" okText="Registar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!alvo} title="Decisão da reclamação" okText="Registar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -143,7 +162,7 @@ function ModalDecidir({ alvo, carregando, aoFechar, aoConfirmar }: { alvo: { r: 
               <DatePicker format="DD/MM/YYYY" />
             </Form.Item>
             <Form.Item name="valor_comprovativo" label="Valor comprovado" rules={[{ required: true, message: 'Indique o valor.' }]}>
-              <InputNumber<number> min={0.01} precision={2} decimalSeparator="," addonAfter="Kz" style={{ width: 180 }} />
+              <InputNumber<number> min={0.01} precision={2} decimalSeparator="," suffix="Kz" style={{ width: 180 }} />
             </Form.Item>
           </Flex>
         )}
@@ -161,7 +180,7 @@ function ModalPagar({ alvo, carregando, aoFechar, aoConfirmar }: { alvo: Reclama
     if (alvo) form.setFieldsValue({ data: dayjs(), conta_financeira: undefined });
   }, [alvo, form]);
   return (
-    <Modal open={!!alvo} title={`Pagar indemnização · ${formatarKz(alvo?.valor_compensacao ?? alvo?.valor_comprovativo)} Kz`} okText="Criar pagamento" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!alvo} title={`Pagar indemnização · ${formatarKz(alvo?.valor_compensacao ?? alvo?.valor_comprovativo)} Kz`} okText="Criar pagamento" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => aoConfirmar({ data: dataApi(v.data)!, conta_financeira: v.conta_financeira })}>
         <Form.Item name="data" label="Data" rules={[{ required: true }]}>
           <DatePicker format="DD/MM/YYYY" />

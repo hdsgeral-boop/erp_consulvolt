@@ -1,18 +1,20 @@
-import { Button, Card, DatePicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Progress, Select, Space, Table, Tabs, Tag, message } from 'antd';
+import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Progress, Select, Space, Table, Tabs, Tag, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { ESTADOS_FERIAS_RH, ROTULOS_ESTADO, type PeriodoFerias, type ResumoFerias } from './api';
 import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
+import { htmlTabela, seccaoHtml } from './comum/impressao';
 
 interface Plano {
   resumo: ResumoFerias[];
@@ -66,18 +68,18 @@ export default function Ferias() {
   const resumo = (plano.data?.resumo ?? []).filter((r) => contem(r.nome, termo));
   const periodos = (plano.data?.periodos ?? []).filter((p) => contem(colaboradores.nome(p.colaborador_id), termo));
 
-  const colResumo: ColumnsType<ResumoFerias> = [
+  const colResumo: ColunaApi<ResumoFerias>[] = [
     { title: 'Colaborador', dataIndex: 'nome', render: (v: string) => <strong>{v}</strong>, sorter: (a, b) => a.nome.localeCompare(b.nome, 'pt') },
     { title: 'Direito', dataIndex: 'direito', align: 'right' },
     { title: 'Marcados', dataIndex: 'marcados', align: 'right' },
     { title: 'Aprovados', dataIndex: 'aprovados', align: 'right' },
     { title: 'Gozados', dataIndex: 'gozados', align: 'right' },
-    { title: 'Pedidos (portal)', dataIndex: 'pedidos', align: 'right' },
+    { title: 'Pedidos (portal)', dataIndex: 'pedidos', align: 'right', responsive: ['md'] },
     { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (s: number) => <Tag color={s < 0 ? 'red' : s === 0 ? 'default' : 'green'}>{s}</Tag>, sorter: (a, b) => a.saldo - b.saldo },
-    { title: 'Utilização', width: 160, render: (_, r) => <Progress size="small" percent={r.direito ? Math.round((r.marcados / r.direito) * 100) : 0} status={r.saldo < 0 ? 'exception' : 'normal'} /> },
+    { title: 'Utilização', width: 160, responsive: ['md'], valorImpressao: (r) => `${r.direito ? Math.round((r.marcados / r.direito) * 100) : 0} %`, render: (_, r) => <Progress size="small" percent={r.direito ? Math.round((r.marcados / r.direito) * 100) : 0} status={r.saldo < 0 ? 'exception' : 'normal'} /> },
   ];
 
-  const colPeriodos: ColumnsType<PeriodoFerias> = [
+  const colPeriodos: ColunaApi<PeriodoFerias>[] = [
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v) },
     { title: 'Início', dataIndex: 'data_inicio', render: formatarData },
     { title: 'Fim', dataIndex: 'data_fim', render: formatarData },
@@ -85,13 +87,14 @@ export default function Ferias() {
     {
       title: 'Estado',
       dataIndex: 'estado',
+      valorImpressao: (p) => ROTULOS_ESTADO[p.estado] ?? p.estado,
       render: (e: string, p) => editar && e !== 'PEDIDO' ? (
         <Select size="small" value={e} style={{ width: 140 }} onChange={(estado) => accao.mutate({ metodo: 'post', url: `/rh/ferias/${p.id}/estado`, dados: { estado } })}
           options={ESTADOS_FERIAS_RH.map((x) => ({ value: x, label: ROTULOS_ESTADO[x] }))} />
       ) : <EstadoTag estado={e} />,
     },
-    { title: 'Origem', render: (_, p) => (p.pedido_portal_colaborador_id ? <Tag>Portal #{p.pedido_portal_colaborador_id}</Tag> : 'RH') },
-    { title: 'Observações', dataIndex: 'observacoes', render: (v: string | null) => v ?? '' },
+    { title: 'Origem', responsive: ['md'], render: (_, p) => (p.pedido_portal_colaborador_id ? <Tag>Portal #{p.pedido_portal_colaborador_id}</Tag> : 'RH') },
+    { title: 'Observações', dataIndex: 'observacoes', responsive: ['lg'], ellipsis: true, render: (v: string | null) => v ?? '' },
     {
       title: '',
       key: 'accoes',
@@ -115,20 +118,27 @@ export default function Ferias() {
         titulo="Programa de férias"
         subtitulo="Dias úteis pelo calendário da empresa (feriados da configuração da Efectividade); os pedidos do portal decidem-se em «Pedidos do Portal»"
         accoes={editar && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Marcar férias</Button>}
+        impressaoDesactivada={!resumo.length && !periodos.length}
+        impressao={async () => ({
+          titulo: 'Programa de férias',
+          periodo: String(ano),
+          filtros: [colaborador ? `Colaborador: ${colaboradores.nome(colaborador)}` : null, termo ? `Pesquisa: ${termo}` : null],
+          conteudo: seccaoHtml('Resumo por colaborador', await htmlTabela(colResumo, resumo)) + seccaoHtml(`Períodos (${periodos.length})`, await htmlTabela(colPeriodos, periodos)),
+        })}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <InputNumber value={ano} min={2000} max={2100} onChange={(v) => v && setAno(v)} addonBefore="Ano" style={{ width: 150 }} />
+        <BarraFiltros>
+          <InputNumber value={ano} min={2000} max={2100} onChange={(v) => v && setAno(v)} prefix="Ano" style={{ width: 150 }} />
           <SeletorColaborador value={colaborador} onChange={setColaborador} />
           <PesquisaLocal aoMudar={setTermo} placeholder="Nome" />
-        </Flex>
+        </BarraFiltros>
         <Tabs items={[
-          { key: 'resumo', label: 'Resumo por colaborador', children: <Table<ResumoFerias> rowKey="colaborador_id" size="small" loading={plano.isFetching} columns={colResumo} dataSource={resumo} pagination={{ pageSize: 50 }} scroll={{ x: 'max-content' }} /> },
-          { key: 'periodos', label: `Períodos (${periodos.length})`, children: <Table<PeriodoFerias> rowKey="id" size="small" loading={plano.isFetching} columns={colPeriodos} dataSource={periodos} pagination={{ pageSize: 50 }} scroll={{ x: 'max-content' }} /> },
+          { key: 'resumo', label: 'Resumo por colaborador', children: <Table<ResumoFerias> rowKey="colaborador_id" size="small" loading={plano.isFetching} columns={colResumo} dataSource={resumo} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
+          { key: 'periodos', label: `Períodos (${periodos.length})`, children: <Table<PeriodoFerias> rowKey="id" size="small" loading={plano.isFetching} columns={colPeriodos} dataSource={periodos} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
         ]} />
       </Card>
       <Modal title={edicao === 'novo' ? 'Marcar férias' : 'Editar férias'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar"
-        confirmLoading={gravar.isPending} onOk={() => form.submit()} destroyOnClose>
+        confirmLoading={gravar.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate({
           id: edicao && edicao !== 'novo' ? edicao.id : undefined,
           dados: { colaborador_id: v.colaborador_id, data_inicio: dataApi(v.periodo[0]), data_fim: dataApi(v.periodo[1]), estado: v.estado, direito: v.direito ?? null, observacoes: v.observacoes ?? null },

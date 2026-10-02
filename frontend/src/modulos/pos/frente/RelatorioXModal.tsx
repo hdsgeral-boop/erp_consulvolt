@@ -1,27 +1,32 @@
 import { Button, Descriptions, Modal, Skeleton, Table } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
+import { BotaoImprimir } from '@/componentes/impressao';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { TabelaMeios } from '../comum/DetalheSessao';
-import { htmlRelatorioSessao, lerPreferencias, reimprimir } from '../comum/impressao';
+import { pedidoRelatorioX } from '../comum/documentos';
+import { htmlRelatorioSessao, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import type { TransferenciaSessao } from '../comum/tipos';
 import { useRelatorioX } from './FechoZ';
 
 /** Relatório X: totais da sessão aberta, sem a fechar (GET /pos/sessoes/{id}/relatorio-x). */
 export function RelatorioXModal({ sessaoId, aberto, aoFechar }: { sessaoId: number; aberto: boolean; aoFechar: () => void }) {
   const { empresa } = useSessao();
+  const cabecalho = useCabecalhoTalao();
   const x = useRelatorioX(sessaoId, aberto);
   const r = x.data;
   return (
     <Modal
       open={aberto}
       onCancel={aoFechar}
-      width={760}
+      width={larguraModal(760)}
       title="Relatório X"
       footer={[
-        <Button key="imp" icon={<PrinterOutlined />} disabled={!r} onClick={() => r && reimprimir(htmlRelatorioSessao(r, { empresa: empresa?.nome ?? '' }, lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id))}>
+        <Button key="imp" icon={<PrinterOutlined />} disabled={!r} onClick={() => r && reimprimir(htmlRelatorioSessao(r, cabecalho(), lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id))}>
           Imprimir
         </Button>,
+        <BotaoImprimir key="pdf" modo="pdf" texto="PDF (A4)" desactivado={!r} obterPedido={() => (r ? pedidoRelatorioX(r) : null)} />,
         <Button key="ok" type="primary" onClick={aoFechar}>
           Fechar
         </Button>,
@@ -31,7 +36,7 @@ export function RelatorioXModal({ sessaoId, aberto, aoFechar }: { sessaoId: numb
         <Skeleton active />
       ) : (
         <>
-          <Descriptions size="small" column={2} bordered style={{ marginBottom: 12 }}>
+          <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered style={{ marginBottom: 12 }}>
             <Descriptions.Item label="Sessão">{r.sessao.codigo_sessao}</Descriptions.Item>
             <Descriptions.Item label="Operador">{r.sessao.nome_operador ?? '—'}</Descriptions.Item>
             <Descriptions.Item label="Abertura">{formatarDataHora(r.sessao.aberto_em)}</Descriptions.Item>
@@ -51,6 +56,7 @@ export function RelatorioXModal({ sessaoId, aberto, aoFechar }: { sessaoId: numb
             <Table<TransferenciaSessao>
               style={{ marginTop: 12 }}
               size="small"
+              scroll={scrollTabela()}
               pagination={false}
               rowKey={(t) => `${t.venda_id}-${t.referencia}`}
               dataSource={r.transferencias}

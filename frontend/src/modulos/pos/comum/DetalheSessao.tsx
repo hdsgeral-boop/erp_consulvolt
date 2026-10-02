@@ -3,10 +3,13 @@ import { PrinterOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { obter } from '@/api/cliente';
+import { BotoesExportar } from '@/componentes/impressao';
+import { larguraGaveta, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { EstadoPOS, rotuloEstadoPOS } from './estados';
-import { htmlRelatorioSessao, lerPreferencias, reimprimir } from './impressao';
+import { pedidoSessao } from './documentos';
+import { htmlRelatorioSessao, lerPreferencias, reimprimir, useCabecalhoTalao } from './impressao';
 import { DECISOES } from './regras';
 import type { FechoTPA, SessaoPOS, TotalMeio, VendaSessao } from './tipos';
 
@@ -24,6 +27,7 @@ export function ValorDesvio({ valor }: { valor: string | number | null | undefin
 /** Painel lateral com o fecho de uma sessão POS: totais, numerário, TPA, desvio, deliberação e vendas. */
 export function DetalheSessao({ id, aoFechar, accoes }: { id: number | null; aoFechar: () => void; accoes?: (s: SessaoPOS) => ReactNode }) {
   const { empresa } = useSessao();
+  const cabecalho = useCabecalhoTalao();
   const consulta = useSessaoPOS(id);
   const s = consulta.data;
 
@@ -31,13 +35,14 @@ export function DetalheSessao({ id, aoFechar, accoes }: { id: number | null; aoF
     <Drawer
       open={!!id}
       onClose={aoFechar}
-      width={820}
+      width={larguraGaveta(820)}
       title={s ? `Sessão ${s.codigo_sessao}${s.numero_z ? ` · ${s.numero_z}` : ''}` : 'Sessão'}
       extra={
         s && (
-          <Flex gap={8}>
+          <Flex gap={8} wrap justify="flex-end">
+            <BotoesExportar tamanho="small" obterPedido={() => pedidoSessao(s)} />
             {s.estado === 'FECHADA' && (
-              <Button icon={<PrinterOutlined />} onClick={() => reimprimir(htmlRelatorioSessao(s, { empresa: empresa?.nome ?? '' }, lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id))}>
+              <Button icon={<PrinterOutlined />} onClick={() => reimprimir(htmlRelatorioSessao(s, cabecalho(), lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id))}>
                 Imprimir Z
               </Button>
             )}
@@ -45,13 +50,13 @@ export function DetalheSessao({ id, aoFechar, accoes }: { id: number | null; aoF
           </Flex>
         )
       }
-      destroyOnClose
+      destroyOnHidden
     >
       {!s ? (
         <Skeleton active />
       ) : (
         <>
-          <Descriptions size="small" column={2} bordered>
+          <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
             <Descriptions.Item label="Terminal">{`${s.codigo_terminal} — ${s.nome_terminal}`}</Descriptions.Item>
             <Descriptions.Item label="Operador">{s.nome_operador ?? '—'}</Descriptions.Item>
             <Descriptions.Item label="Abertura">{formatarDataHora(s.aberto_em)}</Descriptions.Item>
@@ -111,6 +116,7 @@ export function TabelaMeios({ linhas }: { linhas: TotalMeio[] }) {
   return (
     <Table<TotalMeio>
       size="small"
+      scroll={scrollTabela()}
       pagination={false}
       rowKey={(m) => `${m.meio_id ?? m.tipo}`}
       dataSource={linhas}
@@ -118,7 +124,7 @@ export function TabelaMeios({ linhas }: { linhas: TotalMeio[] }) {
       columns={[
         { title: 'Meio', dataIndex: 'nome' },
         { title: 'Natureza', dataIndex: 'tipo', render: (t: string) => <EstadoPOS estado={t} /> },
-        { title: 'Transitória', dataIndex: 'conta_transitoria', render: (c) => c ?? '—' },
+        { title: 'Transitória', dataIndex: 'conta_transitoria', render: (c) => c ?? '—', responsive: ['md'] },
         { title: 'Operações', dataIndex: 'quantidade', align: 'right' },
         { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => formatarKz(v) },
       ]}
@@ -130,6 +136,7 @@ export function TabelaFechosTPA({ linhas }: { linhas: FechoTPA[] }) {
   return (
     <Table<FechoTPA>
       size="small"
+      scroll={scrollTabela()}
       pagination={false}
       rowKey="meio_id"
       dataSource={linhas}
@@ -140,7 +147,7 @@ export function TabelaFechosTPA({ linhas }: { linhas: FechoTPA[] }) {
         { title: 'Op. sistema', dataIndex: 'operacoes_sistema', align: 'right' },
         { title: 'Talão', dataIndex: 'valor_talao', align: 'right', render: (v) => formatarKz(v) },
         { title: 'Op. talão', dataIndex: 'operacoes_talao', align: 'right' },
-        { title: 'Lote', dataIndex: 'referencia_lote', render: (v) => v ?? '—' },
+        { title: 'Lote', dataIndex: 'referencia_lote', render: (v) => v ?? '—', responsive: ['md'] },
         { title: 'Diferença', dataIndex: 'diferenca', align: 'right', render: (v) => <ValorDesvio valor={v} /> },
       ]}
     />
@@ -155,6 +162,7 @@ function TabelaContagem({ contagens }: { contagens: Record<string, number> | nul
   return (
     <Table
       size="small"
+      scroll={scrollTabela()}
       pagination={false}
       rowKey="d"
       dataSource={linhas}
@@ -171,13 +179,14 @@ function TabelaVendas({ linhas }: { linhas: VendaSessao[] }) {
   return (
     <Table<VendaSessao>
       size="small"
+      scroll={scrollTabela()}
       rowKey="id"
       dataSource={linhas}
       pagination={{ defaultPageSize: 10 }}
       columns={[
         { title: 'Documento', dataIndex: 'numero_documento' },
         { title: 'Data', dataIndex: 'data_emissao', render: (d) => formatarDataHora(d) },
-        { title: 'Operador', dataIndex: 'pos_operador', render: (v) => v ?? '—' },
+        { title: 'Operador', dataIndex: 'pos_operador', render: (v) => v ?? '—', responsive: ['md'] },
         { title: 'Pagamentos', render: (_, v) => (v.pos_pagamentos ?? []).map((p) => `${p.nome ?? p.tipo}: ${formatarKz(p.valor)}`).join(' · ') || '—' },
         { title: 'Troco', dataIndex: 'pos_troco', align: 'right', render: (v) => formatarKz(v) },
         { title: 'Total', dataIndex: 'total_bruto', align: 'right', render: (v) => formatarKz(v) },

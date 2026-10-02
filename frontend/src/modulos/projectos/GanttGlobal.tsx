@@ -1,9 +1,10 @@
 import { Card, Checkbox, Flex, Input, Space } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { formatarData } from '@/utilitarios/formatacao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { Gantt } from './comum/Gantt';
@@ -24,18 +25,35 @@ export default function GanttGlobal() {
     return { ...q.data, segmentos: q.data.segmentos.map((s) => ({ ...s, projetos: s.projetos.filter((p) => contemTexto(texto, p.codigo, p.nome)) })).filter((s) => s.projetos.length) };
   }, [q.data, texto]);
   const linhas = useMemo(() => linhasGanttGlobal(filtrado, tarefas), [filtrado, tarefas]);
+  const ref = useRef<HTMLDivElement>(null);
 
   return (
     <>
-      <CabecalhoPagina titulo="Gantt global" subtitulo="Projectos activos e respectivas tarefas; barras tracejadas = sem data de fim" />
+      <CabecalhoPagina
+        titulo="Gantt global"
+        subtitulo="Projectos activos e respectivas tarefas; barras tracejadas = sem data de fim"
+        impressaoDesactivada={!linhas.length}
+        impressao={() =>
+          ref.current
+            ? {
+                titulo: 'Gantt global de projectos',
+                periodo: q.data?.inicio && q.data?.fim ? `${formatarData(q.data.inicio)} a ${formatarData(q.data.fim)}` : undefined,
+                filtros: [texto && `Pesquisa: ${texto}`, tarefas ? 'Com tarefas' : 'Só projectos', 'Barras tracejadas = sem data de fim; linha vermelha = hoje'],
+                conteudo: ref.current,
+                orientacao: 'paisagem',
+              }
+            : null
+        }
+      />
       <Card loading={q.isLoading}>
         <Flex gap={12} wrap justify="space-between" style={{ marginBottom: 12 }}>
-          <Space>
-            <Input.Search placeholder="Código ou nome do projecto" allowClear onSearch={setTexto} style={{ width: 280 }} />
+          <Space wrap>
+            <Input.Search placeholder="Código ou nome do projecto" allowClear onSearch={setTexto} style={{ width: 280, maxWidth: '100%' }} />
             <Checkbox checked={tarefas} onChange={(e) => setTarefas(e.target.checked)}>Mostrar tarefas</Checkbox>
           </Space>
         </Flex>
         <Gantt
+          ref={ref}
           linhas={linhas}
           inicio={q.data?.inicio}
           fim={q.data?.fim}

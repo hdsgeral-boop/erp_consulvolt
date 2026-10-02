@@ -1,3 +1,6 @@
+import { construirDocumento, FORMATO_PADRAO, logotipoSeguro } from '@/componentes/impressao';
+import { useIdentidade } from '@/sessao/identidade';
+import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import type { RelatorioX, SessaoPOS, VendaEmitida } from './tipos';
 
@@ -52,19 +55,55 @@ function esc(texto: unknown): string {
   return String(texto ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
 }
 
-function documento(titulo: string, corpo: string, p: PreferenciasImpressao): string {
-  const termico = p.formato === 'TERMICO';
-  const pagina = termico ? `@page { size: ${p.largura}mm auto; margin: 2mm; }` : '@page { size: A4; margin: 15mm; }';
-  const largura = termico ? `${p.largura - 6}mm` : '100%';
-  return `<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
-${pagina}
+/** Estilos do talão (térmico: largura do rolo; A4: dentro do documento do motor comum). */
+function cssTalao(termico: boolean, largura: number): string {
+  return `
 body { font-family: ${termico ? "'Courier New', monospace" : 'Arial, sans-serif'}; font-size: ${termico ? '11px' : '12px'}; margin: 0; color: #000; }
-.talao { width: ${largura}; margin: 0 auto; }
-h1 { font-size: ${termico ? '13px' : '18px'}; text-align: center; margin: 4px 0; }
-.centro { text-align: center; } .direita { text-align: right; }
-table { width: 100%; border-collapse: collapse; } td, th { padding: 2px 0; vertical-align: top; } th { text-align: left; border-bottom: 1px dashed #000; }
-.linha { border-top: 1px dashed #000; margin: 4px 0; } .total { font-weight: bold; font-size: ${termico ? '13px' : '15px'}; }
+.talao { width: ${termico ? `${largura - 6}mm` : '100%'}; margin: 0 auto; }
+.talao h1 { font-size: ${termico ? '13px' : '18px'}; text-align: center; margin: 4px 0; }
+.talao .logo { display: block; margin: 0 auto 3px; max-width: 70%; max-height: 22mm; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.talao .centro { text-align: center; } .talao .direita { text-align: right; } .talao .pequeno { font-size: ${termico ? '10px' : '11px'}; }
+.talao table { width: 100%; border-collapse: collapse; } .talao td, .talao th { padding: 2px 0; vertical-align: top; border: 0; } .talao th { text-align: left; border-bottom: 1px dashed #000; }
+.talao .linha { border-top: 1px dashed #000; margin: 4px 0; } .talao .total { font-weight: bold; font-size: ${termico ? '13px' : '15px'}; }
+${termico ? '' : '.talao-cabecalho-termico, .talao .titulo-doc { display: none; }'}`;
+}
+
+/**
+ * Documento a imprimir. Térmico: talão com a largura do rolo (fora da regra automática A4/A3 do motor comum),
+ * com logótipo e nome da empresa no topo. A4: documento do motor comum (cabeçalho com logótipo, nome, NIF e
+ * morada; «Página X de Y»), em A4 retrato.
+ */
+function documento(titulo: string, corpo: string, p: PreferenciasImpressao, c: CabecalhoTalao): string {
+  if (p.formato === 'A4') {
+    return construirDocumento(
+      {
+        titulo,
+        identidade: { nome: c.empresa, nif: c.nif, morada: c.morada, telefone: c.telefone, logotipo: c.logotipo, rodape: c.rodapeEmpresa },
+        utilizador: c.utilizador,
+        conteudo: `<div class="talao">${corpo}</div>`,
+        cssExtra: cssTalao(false, 0),
+        nomeFicheiro: titulo,
+      },
+      FORMATO_PADRAO,
+    );
+  }
+  return `<!doctype html><html lang="pt"><head><meta charset="utf-8"><title>${esc(titulo)}</title><style>
+@page { size: ${p.largura}mm auto; margin: 2mm; }
+${cssTalao(true, p.largura)}
 </style></head><body><div class="talao">${corpo}</div></body></html>`;
+}
+
+/** Topo do talão térmico: logótipo, nome, NIF e morada (no A4 isto vem no cabeçalho do motor comum). */
+function topoTalao(c: CabecalhoTalao): string {
+  const logo = logotipoSeguro(c.logotipo);
+  return `<div class="talao-cabecalho-termico">
+${logo ? `<img class="logo" src="${logo}" alt="">` : ''}
+<h1>${esc(c.empresa)}</h1>
+${c.nif ? `<div class="centro">NIF ${esc(c.nif)}</div>` : ''}
+${c.morada ? `<div class="centro pequeno">${esc(c.morada)}</div>` : ''}
+${c.telefone ? `<div class="centro pequeno">Tel. ${esc(c.telefone)}</div>` : ''}
+<div class="linha"></div>
+</div>`;
 }
 
 export interface CabecalhoTalao {
@@ -72,6 +111,30 @@ export interface CabecalhoTalao {
   nif?: string | null;
   terminal?: string | null;
   operador?: string | null;
+  /** Logótipo da empresa (data URI), da identidade (GET /sistema/identidade). */
+  logotipo?: string | null;
+  morada?: string | null;
+  telefone?: string | null;
+  /** Rodapé da empresa (só no A4, em cada página). */
+  rodapeEmpresa?: string | null;
+  /** Utilizador que imprime (A4). */
+  utilizador?: string | null;
+}
+
+/** Cabeçalho do talão com a identidade da empresa activa (logótipo, nome, NIF, morada) e o utilizador da sessão. */
+export function useCabecalhoTalao(): (extra?: Partial<CabecalhoTalao>) => CabecalhoTalao {
+  const { empresa, utilizador } = useSessao();
+  const i = useIdentidade().data;
+  return (extra = {}) => ({
+    empresa: i?.nome ?? empresa?.nome ?? '',
+    nif: i?.nif ?? (empresa?.nif as string | null | undefined) ?? null,
+    logotipo: i?.logotipo ?? null,
+    morada: i?.morada ?? null,
+    telefone: i?.telefone ?? null,
+    rodapeEmpresa: i?.rodape ?? null,
+    utilizador: utilizador ? utilizador.nome_completo || utilizador.nome_utilizador : null,
+    ...extra,
+  });
 }
 
 /** Talão (térmico ou A4) de uma factura-recibo POS. */
@@ -87,10 +150,8 @@ export function htmlTalaoVenda(v: VendaEmitida, c: CabecalhoTalao, p: Preferenci
     .map((x) => `<tr><td>${esc(x.nome ?? x.tipo)}${x.referencia ? ` (${esc(x.referencia)})` : ''}</td><td class="direita">${esc(formatarKz(x.valor))}</td></tr>`)
     .join('');
   const corpo = `
-<h1>${esc(c.empresa)}</h1>
-${c.nif ? `<div class="centro">NIF ${esc(c.nif)}</div>` : ''}
-<div class="linha"></div>
-<div class="centro"><b>Factura-recibo ${esc(v.numero_documento)}</b></div>
+${topoTalao(c)}
+<div class="centro titulo-doc"><b>Factura-recibo ${esc(v.numero_documento)}</b></div>
 <div>${esc(formatarDataHora(String(v.criado_em ?? v.data_emissao)))}</div>
 ${c.terminal ? `<div>Terminal: ${esc(c.terminal)}</div>` : ''}
 ${v.pos_operador || c.operador ? `<div>Operador: ${esc(v.pos_operador ?? c.operador)}</div>` : ''}
@@ -109,7 +170,7 @@ ${Number(v.pos_troco ?? 0) > 0 ? `<tr><td>Troco</td><td class="direita">${esc(fo
 </table>
 <div class="linha"></div>
 <div class="centro">${esc(p.rodape)}</div>`;
-  return documento(v.numero_documento, corpo, p);
+  return documento(`Factura-recibo ${v.numero_documento}`, corpo, p, c);
 }
 
 /** Relatório X (sessão aberta) ou Z (sessão fechada). */
@@ -126,8 +187,8 @@ export function htmlRelatorioSessao(r: RelatorioX | SessaoPOS, c: CabecalhoTalao
         .join('')
     : '';
   const corpo = `
-<h1>${esc(c.empresa)}</h1>
-<div class="centro"><b>${x ? 'RELATÓRIO X' : `RELATÓRIO Z ${esc(z.numero_z)}`}</b></div>
+${topoTalao(c)}
+<div class="centro titulo-doc"><b>${x ? 'RELATÓRIO X' : `RELATÓRIO Z ${esc(z.numero_z)}`}</b></div>
 <div>Sessão: ${esc(s.codigo_sessao)}</div>
 <div>Terminal: ${esc(s.codigo_terminal)} — ${esc(s.nome_terminal)}</div>
 <div>Operador: ${esc(s.nome_operador)}</div>
@@ -150,7 +211,7 @@ ${!x ? `<tr><td>Numerário contado</td><td class="direita">${esc(formatarKz(z.nu
 </table>
 ${tpa ? `<div class="linha"></div><table>${tpa}</table>` : ''}
 ${!x && z.justificacao ? `<div class="linha"></div><div>Justificação: ${esc(z.justificacao)}</div>` : ''}`;
-  return documento(x ? 'Relatório X' : `Relatório Z ${z.numero_z ?? ''}`, corpo, p);
+  return documento(x ? 'Relatório X' : `Relatório Z ${z.numero_z ?? ''}`, corpo, p, c);
 }
 
 /**
@@ -159,16 +220,21 @@ ${!x && z.justificacao ? `<div class="linha"></div><div>Justificação: ${esc(z.
  */
 export function reimprimir(html: string, p: PreferenciasImpressao): void {
   if (p.consulta === 'DIRECTO') return imprimirHtml(html);
-  const janela = window.open('', '_blank', 'width=480,height=720');
+  const janela = window.open('', '_blank', `width=${p.formato === 'A4' ? 900 : 480},height=760`);
   if (!janela) return imprimirHtml(html);
   janela.document.open();
   janela.document.write(
     html.replace(
-      '<body>',
-      '<body><div style="position:sticky;top:0;background:#f5f5f5;padding:6px;text-align:center;border-bottom:1px solid #ddd" class="nao-imprimir"><button onclick="window.print()">Imprimir</button></div><style>@media print{.nao-imprimir{display:none}}</style>',
+      /<body([^>]*)>/,
+      '<body$1><div style="position:sticky;top:0;z-index:1;background:#f5f5f5;padding:6px;text-align:center;border-bottom:1px solid #ddd" class="nao-imprimir"><button type="button" data-accao="imprimir">Imprimir</button></div><style>@media print{.nao-imprimir{display:none !important}}</style>',
     ),
   );
   janela.document.close();
+  // Sem onclick inline (CSP script-src 'self' sem 'unsafe-hashes'): o handler é registado a partir da janela principal.
+  janela.document.querySelector('[data-accao="imprimir"]')?.addEventListener('click', () => {
+    janela.focus();
+    janela.print();
+  });
 }
 
 /** Imprime o HTML num iframe invisível (não abre janelas nem é bloqueado pelos bloqueadores de pop-ups). */

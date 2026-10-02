@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\SaudeController;
 use App\Http\Controllers\Api\Sistema\ConfiguracaoSistemaController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
+use App\Http\Controllers\Api\Sistema\IdentidadeEmpresaController;
 use App\Http\Controllers\Api\Sistema\MenuController;
 use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
 use App\Http\Controllers\Api\Terceiros\TerceiroController;
@@ -77,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('empresa')->group(function () {
         Route::prefix('sistema')->name('sistema.')->group(function () {
             Route::get('menu', MenuController::class)->name('menu');
+            Route::get('identidade', IdentidadeEmpresaController::class)->name('identidade');
             Route::get('logs', [LogAuditoriaController::class, 'index'])->name('logs.index');
             Route::get('validacoes', [ValidacaoDadosController::class, 'index'])->name('validacoes.index');
             Route::get('validacoes/{codigo}', [ValidacaoDadosController::class, 'show'])->where('codigo', '[a-z_]+')->name('validacoes.show');

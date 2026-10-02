@@ -11,6 +11,9 @@ import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/format
 import { EtiquetaEstado, ValorKz } from '../../contab/comum/Componentes';
 import { ROTULO_TIPO, type DocumentoTesouraria, type LinhaDocumentoTesouraria } from '../api';
 import { accoesDocumento } from '../regras';
+import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { dadosDocumentoTesouraria } from '../impressao';
 
 /** Detalhe de um documento de tesouraria, com editar, anular, integrar e desintegrar conforme o estado e as permissões. */
 export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: boolean }) {
@@ -43,6 +46,7 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
       <CabecalhoPagina
         titulo={d.numero_documento ?? `Documento #${d.id}`}
         subtitulo={ROTULO_TIPO[d.tipo]}
+        impressao={() => pedidoDocumentoComercial(dadosDocumentoTesouraria(d))}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -60,7 +64,7 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
       {d.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Documento anulado${d.anulado_em ? ` em ${formatarDataHora(d.anulado_em)}` : ''}.`} description={d.motivo_anulacao ?? undefined} />}
       {d.periodo_processamento_salarial_id && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Documento gerado pelo processamento salarial." />}
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Data">{formatarData(d.data_documento)}</Descriptions.Item>
           <Descriptions.Item label="Conta de banco/caixa">{d.conta_financeira}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EtiquetaEstado estado={d.estado} /></Descriptions.Item>
@@ -69,7 +73,7 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
           <Descriptions.Item label="Referência">{d.referencia ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="Integração">{d.numero_lan_contabilizacao ? `${d.numero_lan_contabilizacao} · ${formatarDataHora(d.integrado_em)} · ${d.integrado_por ?? ''}` : 'Por integrar'}</Descriptions.Item>
           {d.reconciliacao_codigo && <Descriptions.Item label="Reconciliação"><Tag color="blue">{d.reconciliacao_codigo}</Tag></Descriptions.Item>}
-          <Descriptions.Item label="Descrição" span={3}>{d.descricao ?? '—'}</Descriptions.Item>
+          <Descriptions.Item label="Descrição" span="filled">{d.descricao ?? '—'}</Descriptions.Item>
         </Descriptions>
       </Card>
       <Card title="Linhas">
@@ -78,12 +82,12 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
           size="small"
           pagination={false}
           dataSource={d.linhas ?? []}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           columns={[
             { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string) => <strong>{v}</strong> },
             { title: 'Terceiro', key: 'terceiro', render: (_, l) => (l.terceiro ? `${l.terceiro.nome.trim()}${l.terceiro.nif ? ` (NIF ${l.terceiro.nif})` : ''}` : l.terceiro_id ? `#${l.terceiro_id}` : '—') },
-            { title: 'Documento liquidado', dataIndex: 'numero_documento', render: (v: string | null) => v ?? '—' },
-            { title: 'Descrição', dataIndex: 'descricao' },
+            { title: 'Documento liquidado', dataIndex: 'numero_documento', responsive: ['sm'], render: (v: string | null) => v ?? '—' },
+            { title: 'Descrição', dataIndex: 'descricao', responsive: ['md'] },
             { title: 'Débito', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : null) },
             { title: 'Crédito', align: 'right', render: (_, l) => (l.tipo_dc === 'C' ? <ValorKz valor={l.valor} /> : null) },
             { title: 'Moeda', render: (_, l) => (l.codigo_moeda ? `${l.valor_moeda} ${l.codigo_moeda}` : '') },
@@ -93,6 +97,7 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
       <Modal
         title={motivo === 'anular' ? 'Anular documento' : 'Anular integração (estorno)'}
         open={motivo !== null}
+        width={larguraModal(520)}
         onCancel={() => setMotivo(null)}
         okText={motivo === 'anular' ? 'Anular' : 'Anular integração'}
         okButtonProps={{ danger: true }}

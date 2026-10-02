@@ -7,10 +7,12 @@ import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
+import { BotoesExportar, pares, tabelaHtml, type PedidoImpressao } from '@/componentes/impressao';
+import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorProduto, SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { formatarCentimos } from '../comum/calculos';
 import { useCatalogoPOS } from '../comum/dados';
-import { EstadoPOS } from '../comum/estados';
+import { EstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { accoesEstadia } from '../comum/regras';
 import type { Terminal } from '../comum/tipos';
 import { precoQuarto, quantidadeMinima, type ConsumoEstadia, type Estadia, type Quarto } from './tipos';
@@ -34,7 +36,7 @@ export function ModalCheckin({ quarto, terminal, aoFechar }: { quarto: Quarto | 
   const mudarModo = (m: 'DIA' | 'HORA') => quarto && form.setFieldsValue({ quantidade: quantidadeMinima(m, quarto), preco_unitario: precoQuarto(m, quarto) });
 
   return (
-    <Modal open={!!quarto} title={`Check-in · ${quarto?.nome ?? ''}`} okText="Registar check-in" cancelText="Cancelar" confirmLoading={checkin.isPending} okButtonProps={{ disabled: !sessaoId }} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!quarto} title={`Check-in · ${quarto?.nome ?? ''}`} okText="Registar check-in" cancelText="Cancelar" confirmLoading={checkin.isPending} okButtonProps={{ disabled: !sessaoId }} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(600)} destroyOnHidden>
       {!sessaoId && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O terminal de hotelaria não tem sessão aberta: abra-a na frente de caixa." />}
       {quarto && (
         <Form
@@ -125,13 +127,14 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
     <Drawer
       open={!!id}
       onClose={aoFechar}
-      width={820}
-      destroyOnClose
+      width={larguraGaveta(820)}
+      destroyOnHidden
       title={e ? `${e.nome_quarto} · ${e.nome_hospede ?? ''}` : 'Estadia'}
       extra={
         e &&
         a && (
-          <Space>
+          <Space wrap>
+            <BotoesExportar tamanho="small" obterPedido={() => pedidoEstadia(e, consumos, nome)} />
             {a.alterar && (
               <Button icon={<EditOutlined />} onClick={() => setAlterar(true)}>
                 Alterar
@@ -158,7 +161,7 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
       ) : (
         <>
           {e.proposta_atraso && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Saída tardia: a estadia passaria a ${e.proposta_atraso.quantidade} (${e.modo === 'HORA' ? 'horas' : 'diárias'}). Decide-se no check-out.`} />}
-          <Descriptions size="small" bordered column={2}>
+          <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }}>
             <Descriptions.Item label="Estado">
               <EstadoPOS estado={e.estado} />
             </Descriptions.Item>
@@ -190,6 +193,7 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
           </Typography.Title>
           <Table<ConsumoEstadia>
             size="small"
+            scroll={scrollTabela()}
             pagination={false}
             rowKey={(_, n) => String(n)}
             dataSource={consumos}
@@ -219,7 +223,7 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
           />
           {a?.consumos && (
             <Flex gap={8} style={{ marginTop: 8 }} wrap>
-              <SeletorProduto style={{ width: 320 }} value={novoProduto} onChange={setNovoProduto} />
+              <SeletorProduto style={{ width: 320, maxWidth: '100%' }} value={novoProduto} onChange={setNovoProduto} />
               <Button icon={<PlusOutlined />} disabled={!novoProduto} onClick={acrescentar}>
                 Acrescentar
               </Button>
@@ -271,7 +275,7 @@ function ModalAlterar({ estadia, carregando, aoFechar, aoConfirmar }: { estadia:
       });
   }, [estadia, form]);
   return (
-    <Modal open={!!estadia} title="Alterar estadia" okText="Gravar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!estadia} title="Alterar estadia" okText="Gravar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(600)} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -309,4 +313,35 @@ function ModalAlterar({ estadia, carregando, aoFechar, aoConfirmar }: { estadia:
       </Form>
     </Modal>
   );
+}
+
+/** Estadia (quarto, hóspede, valores e consumos) em A4. */
+export function pedidoEstadia(e: Estadia, consumos: ConsumoEstadia[], nome: (produtoId: number) => string): PedidoImpressao {
+  const dados: [string, string | number][] = [
+    ['Estado', rotuloEstadoPOS(e.estado)],
+    ['Modalidade', e.modo === 'HORA' ? `À hora · ${Number(e.quantidade)} h` : `Diária · ${Number(e.quantidade)}`],
+    ['Entrada', formatarDataHora(e.entrada_em)],
+    ['Saída prevista', formatarDataHora(e.saida_prevista_em)],
+    ['Preço', `${formatarKz(e.preco_unitario)} Kz`],
+    ['Hóspedes', e.numero_hospedes ?? '—'],
+    ['Alojamento', `${formatarKz(e.total_alojamento)} Kz`],
+    ['Consumos', `${formatarKz(e.total_consumos)} Kz`],
+    ['Total em aberto', `${formatarKz(e.total_em_aberto)} Kz`],
+  ];
+  if (e.numero_venda) dados.push(['Factura', e.numero_venda]);
+  if (e.observacoes) dados.push(['Observações', e.observacoes]);
+  if (e.motivo_cancelamento) dados.push(['Anulação', e.motivo_cancelamento]);
+  const tabela = tabelaHtml<ConsumoEstadia>({
+    legenda: 'Consumos',
+    linhas: consumos,
+    totais: true,
+    vazio: 'Sem consumos.',
+    colunas: [
+      { titulo: 'Produto', valor: (c) => c.descricao ?? nome(c.produto_id) },
+      { titulo: 'Qtd.', valor: (c) => Number(c.quantidade), formato: 'numero' },
+      { titulo: 'Preço', valor: (c) => c.preco_unitario, formato: 'moeda' },
+      { titulo: 'Total', valor: (c) => (Number(c.quantidade) * Number(c.preco_unitario)).toFixed(2), formato: 'moeda', somar: true },
+    ],
+  });
+  return { titulo: `Estadia · ${e.nome_quarto}`, subtitulo: e.nome_hospede ?? undefined, conteudo: `${pares(dados, 2)}${tabela}` };
 }

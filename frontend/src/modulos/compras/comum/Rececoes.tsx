@@ -1,7 +1,10 @@
-import { Alert, Button, Card, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Select, Skeleton, Table } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Select, Skeleton, Table } from 'antd';
 import { ArrowLeftOutlined, CheckCircleTwoTone, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnsType } from 'antd/es/table';
+import { BarraFiltros, COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { somar } from '@/utilitarios/decimal';
+import { dadosRececaoCompra } from './impressao';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
@@ -10,12 +13,12 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
-import { EstadoTag } from './estados';
+import { EstadoTag, rotuloEstado } from './estados';
 import { ModalRececao } from './ModaisEncomenda';
 import { NomeArmazem, NomeProduto, NomeTerceiro, useArmazens } from './referencias';
 import { accoesRececao } from './regras';
 import { SeletorArmazem } from './Seletores';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { numeroOuId, type EncomendaCompra, type LinhaRececao, type RececaoCompra } from './tipos';
 
 export type ModoRececoes = 'compras' | 'armazem';
@@ -47,16 +50,19 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [escolher, setEscolher] = useState(false);
   const [pesquisa, setPesquisa] = useState('');
+  const pequeno = useEcraPequeno();
+  const armazens = useArmazens();
+  const nomeArmazem = (id: number | null) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? `#${id}` : '—');
 
-  const colunas: ColumnsType<RececaoCompra> = [
+  const colunas: ColunaApi<RececaoCompra>[] = [
     { title: 'Recepção', key: 'numero', fixed: 'left', render: (_, r) => <strong>{numeroOuId(r.numero_rececao, r.id)}</strong> },
-    { title: 'Guia do fornecedor', dataIndex: 'numero_entrega', render: (v) => v || '—' },
-    { title: 'Encomenda', dataIndex: 'encomenda_compra_id', render: (v: number) => `#${v}` },
+    { title: 'Guia do fornecedor', dataIndex: 'numero_entrega', responsive: ['md'], render: (v) => v || '—' },
+    { title: 'Encomenda', dataIndex: 'encomenda_compra_id', responsive: ['sm'], render: (v: number) => `#${v}` },
     { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Armazém', dataIndex: 'armazem_id', render: (v: number | null) => <NomeArmazem id={v} /> },
-    { title: 'Valor (Kz)', dataIndex: 'valor_total_kz', align: 'right', render: (v: string | null) => (v ? formatarKz(v) : '—') },
-    { title: 'Estado', dataIndex: 'estado', render: (e: string, r) => <EstadoTag estado={e === 'RECEBIDO' && !r.validado ? 'PENDENTE' : e} /> },
-    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', render: (c: boolean | null) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
+    { title: 'Armazém', dataIndex: 'armazem_id', responsive: ['lg'], valorImpressao: (r) => nomeArmazem(r.armazem_id), render: (v: number | null) => <NomeArmazem id={v} /> },
+    { title: 'Valor (Kz)', dataIndex: 'valor_total_kz', align: 'right', responsive: ['sm'], render: (v: string | null) => (v ? formatarKz(v) : '—'), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => (l.estado === 'ANULADO' ? 0 : l.valor_total_kz)))) },
+    { title: 'Estado', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado === 'RECEBIDO' && !r.validado ? 'PENDENTE' : r.estado), render: (e: string, r) => <EstadoTag estado={e === 'RECEBIDO' && !r.validado ? 'PENDENTE' : e} /> },
+    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', responsive: ['lg'], valorImpressao: (r) => (r.contabilizado ? 'Sim' : 'Não'), render: (c: boolean | null) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
   ];
 
   return (
@@ -74,17 +80,24 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
         }
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <Select placeholder="Estado" allowClear style={{ width: 220 }} value={estado} onChange={setEstado} options={ESTADOS_FILTRO} />
-          <Input.Search placeholder="N.º da recepção ou guia" allowClear style={{ width: 230 }} onSearch={(v) => setPesquisa(v.trim())} />
-          <InputNumber placeholder="N.º interno da encomenda" min={1} style={{ width: 220 }} value={encomenda} onChange={(v) => setEncomenda(v)} />
+        <BarraFiltros>
+          <Select placeholder="Estado" allowClear style={{ width: 220, maxWidth: '100%' }} value={estado} onChange={setEstado} options={ESTADOS_FILTRO} />
+          <Input.Search placeholder="N.º da recepção ou guia" allowClear style={{ width: 230, maxWidth: '100%' }} onSearch={(v) => setPesquisa(v.trim())} />
+          <InputNumber placeholder="N.º interno da encomenda" min={1} style={{ width: 220, maxWidth: '100%' }} value={encomenda} onChange={(v) => setEncomenda(v)} />
           <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<RececaoCompra>
           url="/compras/rececoes"
           chaveConsulta={['compras', 'rececoes']}
           filtros={{ estado, pesquisa: pesquisa || undefined, encomenda_compra_id: encomenda ?? undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
           columns={colunas}
+          size={pequeno ? 'small' : 'middle'}
+          impressao={{
+            titulo: modo === 'armazem' ? 'Lista de entradas a validar' : 'Lista de recepções de compras',
+            periodo: periodo?.[0] && periodo?.[1] ? `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}` : undefined,
+            filtros: [estado && `Estado: ${ESTADOS_FILTRO.find((e) => e.value === estado)?.label ?? estado}`, !!encomenda && `Encomenda: #${encomenda}`, pesquisa && `Pesquisa: ${pesquisa}`],
+            rotuloTotal: 'Total (sem anuladas)',
+          }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
@@ -107,7 +120,7 @@ function EscolherEncomenda({ aoFechar, aoRegistar }: { aoFechar: () => void; aoR
 
   if (encomenda.data) return <ModalRececao encomenda={encomenda.data} aberto aoFechar={aoFechar} aoRegistar={aoRegistar} />;
   return (
-    <Modal title="Registar recepção" open onCancel={aoFechar} footer={null}>
+    <Modal title="Registar recepção" open onCancel={aoFechar} footer={null} width={larguraModal(560)}>
       <Select
         showSearch
         optionFilterProp="label"
@@ -148,6 +161,14 @@ export function DetalheRececao() {
     <>
       <CabecalhoPagina
         titulo={`Recepção ${nome}`}
+        impressao={() =>
+          pedidoDocumentoComercial(
+            dadosRececaoCompra(r, {
+              encomenda: encomenda.data ? `${numeroOuId(encomenda.data.numero_encomenda, encomenda.data.id)} — ${encomenda.data.fornecedor?.nome?.trim() ?? `fornecedor #${encomenda.data.fornecedor_id}`}` : null,
+              armazem: r.armazem_id ? armazens.data?.find((x) => x.id === r.armazem_id)?.nome ?? null : null,
+            }),
+          )
+        }
         subtitulo={encomenda.data ? <>Encomenda {numeroOuId(encomenda.data.numero_encomenda, encomenda.data.id)} · <NomeTerceiro id={encomenda.data.fornecedor_id} terceiro={encomenda.data.fornecedor} /></> : `Encomenda #${r.encomenda_compra_id}`}
         accoes={
           <>
@@ -164,7 +185,7 @@ export function DetalheRececao() {
       />
       {r.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Recepção anulada${r.motivo_anulacao ? `: ${r.motivo_anulacao}` : '.'}`} />}
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Guia do fornecedor">{r.numero_entrega || '—'}</Descriptions.Item>
           <Descriptions.Item label="Data">{formatarData(r.data)}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={r.estado} /></Descriptions.Item>
@@ -180,6 +201,7 @@ export function DetalheRececao() {
           size="small"
           pagination={false}
           dataSource={r.linhas ?? []}
+          scroll={scrollTabela()}
           columns={[
             { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} /> },
             { title: 'Quantidade', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
@@ -195,6 +217,7 @@ export function DetalheRececao() {
       <Modal
         title={`Validar a recepção ${nome}`}
         open={modal === 'validar'}
+        width={larguraModal(560)}
         onCancel={() => setModal(null)}
         okText="Validar"
         cancelText="Cancelar"

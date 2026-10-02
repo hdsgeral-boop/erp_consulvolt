@@ -53,7 +53,7 @@ final class ServicoConferenciaCaixa
         }
         $data = substr($d['data_conferencia'], 0, 10);
         $sistema = $this->saldoConta($d['codigo_conta'], $data);
-        $dados = ['codigo_conta' => $d['codigo_conta'], 'nome_conta' => $conta['descricao'], 'data_conferencia' => $data, 'nome_operador' => Auth::user()?->nome_utilizador,
+        $dados = ['codigo_conta' => $d['codigo_conta'], 'nome_conta' => $conta['descricao'], 'data_conferencia' => $data, 'nome_operador' => Auth::user()?->nomeApresentacao(),
             'denominacoes' => json_encode($denominacoes), 'total_fisico' => $fisico, 'total_sistema' => $sistema,
             'saldo_externo' => isset($d['saldo_externo']) ? number_format((float) $d['saldo_externo'], 2, '.', '') : null,
             'diferenca' => bcsub($fisico, $sistema, 2), 'justificacao' => $d['justificacao'] ?? null, 'estado' => 'RASCUNHO'];

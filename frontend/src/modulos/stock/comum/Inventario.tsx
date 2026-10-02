@@ -1,7 +1,9 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { tabelaHtml } from '@/componentes/impressao';
 import { ArrowLeftOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
+import { useArmazens } from '@/modulos/compras/comum/referencias';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
@@ -12,13 +14,58 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { notificarErro } from '@/utilitarios/erros';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
-import { EstadoTag, opcoesEstado } from '@/modulos/compras/comum/estados';
+import { EstadoTag, opcoesEstado, rotuloEstado } from '@/modulos/compras/comum/estados';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { NomeArmazem } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem, SeletorProduto } from '@/modulos/compras/comum/Seletores';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { accoesInventario, previsualizarRegularizacao } from './regras';
 import type { LinhaInventario, SessaoInventario } from './tipos';
+import { BarraFiltros, COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+
+/**
+ * Inventário impresso: em contagem, a folha de contagem cega (sem a quantidade do sistema, com espaço para escrever);
+ * depois, o mapa de diferenças com custos, valores e justificações.
+ */
+export function pedidoInventario(s: SessaoInventario, nome: string, armazem: string) {
+  const linhas = s.linhas ?? [];
+  const base = { periodo: formatarData(s.data), filtros: [`Armazém: ${armazem}`, `Estado: ${rotuloEstado(s.estado)}`, s.descricao ?? undefined, `${linhas.length} artigo(s)`] };
+  if (s.estado === 'EM_CONTAGEM') {
+    return {
+      ...base,
+      titulo: `Folha de contagem — inventário ${nome}`,
+      conteudo:
+        tabelaHtml({
+          colunas: [
+            { titulo: 'Código', valor: (l: LinhaInventario) => l.codigo ?? '' },
+            { titulo: 'Produto', valor: (l) => l.nome, quebrar: true },
+            { titulo: 'Quantidade contada', valor: (l) => (l.quantidade_contada == null ? '' : formatarNumero(l.quantidade_contada)), alinhamento: 'direita', largura: '32mm' },
+            { titulo: 'Observações', valor: (l) => l.observacoes ?? '', largura: '55mm', quebrar: true },
+          ],
+          linhas,
+        }) +
+        '<div class="imp-sem-quebra" style="display:flex;justify-content:space-around;gap:10mm;margin-top:14mm"><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Contado por</div><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Conferido por</div></div>',
+    };
+  }
+  return {
+    ...base,
+    titulo: `Mapa de diferenças — inventário ${nome}`,
+    conteudo: tabelaHtml({
+      colunas: [
+        { titulo: 'Código', valor: (l: LinhaInventario) => l.codigo ?? '' },
+        { titulo: 'Produto', valor: (l) => l.nome, quebrar: true },
+        { titulo: 'Sistema', valor: (l) => l.quantidade_sistema, formato: 'numero' },
+        { titulo: 'Contado', valor: (l) => l.quantidade_contada, formato: 'numero' },
+        { titulo: 'Diferença', valor: (l) => l.diferenca, formato: 'numero' },
+        { titulo: 'Custo (Kz)', valor: (l) => l.custo_personalizado ?? l.custo_unitario ?? l.custo_medio, formato: 'moeda' },
+        { titulo: 'Valor da diferença (Kz)', valor: (l) => l.valor_diferenca, formato: 'moeda', somar: true },
+        { titulo: 'Justificação', valor: (l) => l.justificacao ?? '', quebrar: true },
+      ],
+      linhas,
+      totais: 'Saldo da regularização',
+    }),
+  };
+}
 
 /** Modo do ecrã: sessões (gestão), contagem (contagem cega) ou revisão (diferenças e regularização). */
 export type ModoInventario = 'sessoes' | 'contagem' | 'revisao';
@@ -74,14 +121,17 @@ function ListaSessoes({ modo }: { modo: ModoInventario }) {
   const [estado, setEstado] = useState<string | undefined>(t.estado);
   const [pesquisa, setPesquisa] = useState('');
   const [abrir, setAbrir] = useState(false);
+  const pequeno = useEcraPequeno();
+  const armazens = useArmazens();
+  const nomeArmazem = (id: number | null | undefined) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? `#${id}` : '');
 
-  const colunas: ColumnsType<SessaoInventario> = [
-    { title: 'Inventário', key: 'n', render: (_, s) => <strong>INV {dayjs(s.data).format('YYYY')}/{s.id}</strong> },
+  const colunas: ColunaApi<SessaoInventario>[] = [
+    { title: 'Inventário', key: 'n', valorImpressao: (s) => `INV ${dayjs(s.data).format('YYYY')}/${s.id}`, render: (_, s) => <strong>INV {dayjs(s.data).format('YYYY')}/{s.id}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Armazém', dataIndex: 'armazem_id', render: (v: number) => <NomeArmazem id={v} /> },
-    { title: 'Descrição', dataIndex: 'descricao', render: (v) => v || '—' },
-    { title: 'Iniciado por', dataIndex: 'iniciado_por', render: (v) => v || '—' },
-    { title: 'Aprovado', key: 'ap', render: (_, s) => (s.aprovado_por ? `${s.aprovado_por} · ${formatarDataHora(s.aprovado_em)}` : '—') },
+    { title: 'Armazém', dataIndex: 'armazem_id', responsive: ['sm'], valorImpressao: (s) => nomeArmazem(s.armazem_id), render: (v: number) => <NomeArmazem id={v} /> },
+    { title: 'Descrição', dataIndex: 'descricao', responsive: ['md'], render: (v) => v || '—' },
+    { title: 'Iniciado por', dataIndex: 'iniciado_por', responsive: ['lg'], render: (v) => v || '—' },
+    { title: 'Aprovado', key: 'ap', responsive: ['lg'], render: (_, s) => (s.aprovado_por ? `${s.aprovado_por} · ${formatarDataHora(s.aprovado_em)}` : '—') },
     { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
   ];
 
@@ -93,16 +143,21 @@ function ListaSessoes({ modo }: { modo: ModoInventario }) {
         accoes={modo === 'sessoes' && pode('inventario_iniciar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setAbrir(true)}>Novo inventário</Button>}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <Input.Search placeholder="Descrição" allowClear style={{ width: 240 }} onSearch={setPesquisa} />
-          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 220 }} value={armazem} onChange={setArmazem} />
+        <BarraFiltros>
+          <Input.Search placeholder="Descrição" allowClear style={{ width: 240, maxWidth: '100%' }} onSearch={setPesquisa} />
+          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 220, maxWidth: '100%' }} value={armazem} onChange={setArmazem} />
           {modo === 'sessoes' && <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={opcoesEstado(['EM_CONTAGEM', 'REVISAO', 'CONCLUIDA', 'ANULADA'])} />}
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<SessaoInventario>
           url="/logistica/inventarios"
           filtros={{ armazem_id: armazem, estado, pesquisa: pesquisa.trim() || undefined }}
           chaveConsulta={['logistica', 'inventarios']}
           columns={colunas}
+          size={pequeno ? 'small' : 'middle'}
+          impressao={{
+            titulo: t.titulo,
+            filtros: [!!armazem && `Armazém: ${nomeArmazem(armazem)}`, estado && `Estado: ${rotuloEstado(estado)}`, pesquisa.trim() && `Pesquisa: ${pesquisa.trim()}`],
+          }}
           locale={{ emptyText: modo === 'contagem' ? 'Não há inventários em contagem.' : modo === 'revisao' ? 'Não há inventários em revisão.' : undefined }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
@@ -116,7 +171,7 @@ function ModalAbrir({ aberto, aoFechar, aoAbrir }: { aberto: boolean; aoFechar: 
   const [form] = Form.useForm<{ armazem_id: number; data: Dayjs; descricao?: string }>();
   const accao = useAccao<SessaoInventario>({ invalidar: [['logistica']], aoSucesso: (s) => { aoFechar(); aoAbrir(s); }, tituloErro: 'Não foi possível abrir o inventário' });
   return (
-    <Modal title="Novo inventário" open={aberto} onCancel={aoFechar} okText="Abrir inventário" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+    <Modal width={larguraModal(520)} title="Novo inventário" open={aberto} onCancel={aoFechar} okText="Abrir inventário" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
       <Form form={form} layout="vertical" preserve={false} initialValues={{ data: dayjs() }} onFinish={(v) => accao.mutate({ url: '/logistica/inventarios', dados: { armazem_id: v.armazem_id, data: dataApi(v.data), descricao: v.descricao || undefined } })}>
         <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Enquanto o inventário estiver aberto, o armazém fica sem movimentos até à aprovação ou anulação." />
         <Form.Item name="armazem_id" label="Armazém" rules={[{ required: true, message: 'Escolha o armazém.' }]}>
@@ -143,6 +198,7 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
   const [novoProduto, setNovoProduto] = useState<number>();
   const [pesquisa, setPesquisa] = useState('');
   const [soPorContar, setSoPorContar] = useState(false);
+  const armazens = useArmazens();
 
   const consulta = useQuery({ queryKey: ['logistica', 'inventario', id], queryFn: () => obter<SessaoInventario>(`/logistica/inventarios/${id}`) });
   const limpar = () => {
@@ -222,7 +278,7 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
         editarContagem ? (
           <Input
             maxLength={500}
-            style={{ width: 260 }}
+            style={{ width: 260, maxWidth: '100%' }}
             value={edicoes[l.produto_id]?.observacoes ?? l.observacoes ?? ''}
             onChange={(ev) => setEdicoes((e) => ({ ...e, [l.produto_id]: { ...e[l.produto_id], observacoes: ev.target.value } }))}
           />
@@ -269,7 +325,7 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
       key: 'just',
       render: (_, l) =>
         editarRevisao && Number(l.diferenca ?? 0) !== 0 ? (
-          <Input maxLength={500} style={{ width: 240 }} value={l.justificacao ?? ''} onChange={(ev) => setRevisao((r) => ({ ...r, [l.produto_id]: { ...r[l.produto_id], justificacao: ev.target.value } }))} />
+          <Input maxLength={500} style={{ width: 240, maxWidth: '100%' }} value={l.justificacao ?? ''} onChange={(ev) => setRevisao((r) => ({ ...r, [l.produto_id]: { ...r[l.produto_id], justificacao: ev.target.value } }))} />
         ) : (
           l.justificacao || '—'
         ),
@@ -282,6 +338,7 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
       <CabecalhoPagina
         titulo={`Inventário ${nome}`}
         subtitulo={<><NomeArmazem id={s.armazem_id} /> · {formatarData(s.data)}{s.descricao ? ` · ${s.descricao}` : ''}</>}
+        impressao={() => pedidoInventario(s, nome, armazens.data?.find((x) => x.id === s.armazem_id)?.nome ?? `#${s.armazem_id}`)}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -329,7 +386,7 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
       {modo === 'revisao' && s.estado !== 'REVISAO' && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Este inventário não está em revisão." />}
 
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 4 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Estado"><EstadoTag estado={s.estado} /></Descriptions.Item>
           <Descriptions.Item label="Artigos">{linhas.length}</Descriptions.Item>
           {emContagem && <Descriptions.Item label="Por contar">{porContar}</Descriptions.Item>}
@@ -340,7 +397,7 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
       </Card>
 
       {!emContagem && s.estado !== 'ANULADA' && (
-        <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={12} md={6}><Card><Statistic title={`Sobras (${previsao.sobras.linhas})`} value={formatarKz(previsao.sobras.valor)} suffix="Kz" valueStyle={{ color: '#389e0d' }} /></Card></Col>
           <Col xs={12} md={6}><Card><Statistic title={`Quebras (${previsao.quebras.linhas})`} value={formatarKz(previsao.quebras.valor)} suffix="Kz" valueStyle={{ color: '#cf1322' }} /></Card></Col>
           <Col xs={12} md={6}><Card><Statistic title="Saldo da regularização" value={formatarKz(previsao.sobras.valor - previsao.quebras.valor)} suffix="Kz" /></Card></Col>
@@ -352,8 +409,8 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
         title={emContagem ? 'Contagem' : 'Linhas do inventário'}
         extra={
           editarContagem && (
-            <Space>
-              <SeletorProduto apenasStock allowClear placeholder="Acrescentar produto não listado" style={{ width: 300 }} value={novoProduto} onChange={setNovoProduto} />
+            <Space wrap>
+              <SeletorProduto apenasStock allowClear placeholder="Acrescentar produto não listado" style={{ width: 300, maxWidth: '100%' }} value={novoProduto} onChange={setNovoProduto} />
               <Button
                 icon={<PlusOutlined />}
                 disabled={!novoProduto}
@@ -374,18 +431,18 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
           )
         }
       >
-        <Flex gap={8} style={{ marginBottom: 12 }} align="center">
-          <Input.Search placeholder="Código ou produto" allowClear style={{ width: 260 }} onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} />
+        <BarraFiltros style={{ marginBottom: 12 }}>
+          <Input.Search placeholder="Código ou produto" allowClear style={{ width: 260, maxWidth: '100%' }} onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} />
           {emContagem && (
             <Button size="small" type={soPorContar ? 'primary' : 'default'} onClick={() => setSoPorContar((x) => !x)}>
               Só por contar
             </Button>
           )}
-        </Flex>
+        </BarraFiltros>
         <Table<LinhaInventario>
           rowKey="id"
           size="small"
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           dataSource={visiveis}
           columns={emContagem ? colunasContagem : colunasRevisao}
           pagination={{ defaultPageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} artigo(s)` }}

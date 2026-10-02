@@ -1,6 +1,6 @@
-import { Button, Empty, Input, Select, Tag, Tooltip, type SelectProps } from 'antd';
-import { PrinterOutlined } from '@ant-design/icons';
-import { useState, type ReactNode } from 'react';
+import { Empty, Input, Select, Tag, Tooltip, type SelectProps } from 'antd';
+import { useRef, useState, type ReactNode } from 'react';
+import { BotoesExportar, type PedidoImpressao } from '@/componentes/impressao';
 import { CORES_ESTADO, FASES_AVALIACAO, ROTULOS_ESTADO, type PeriodoSalarial } from '../api';
 import { useColaboradores } from './consultas';
 import { mesPorExtenso } from './regras';
@@ -72,13 +72,52 @@ export function contem(texto: unknown, termo: string): boolean {
   return !termo || String(texto ?? '').toLowerCase().includes(termo.toLowerCase());
 }
 
-/** Botão «Imprimir»: usa a impressão do navegador; o CSS de impressão mostra só a área .rh-impressao. */
-export function BotaoImprimir({ texto = 'Imprimir', desactivado }: { texto?: string; desactivado?: boolean }) {
+/**
+ * Botões «Imprimir» e «PDF» dos mapas, recibos e documentos do RH (motor comum de impressão: logótipo e nome da
+ * empresa no cabeçalho, papel/orientação automáticos). Imprime a área .rh-impressao do mesmo modal (se o botão
+ * estiver num modal) ou a área visível da página. O título/período do CabecalhoMapa passam para o cabeçalho do documento.
+ */
+export function BotaoImprimir({ texto = 'Imprimir', desactivado, titulo }: { texto?: string; desactivado?: boolean; titulo?: string }) {
+  const ancora = useRef<HTMLSpanElement>(null);
+  const obterPedido = (): PedidoImpressao | null => {
+    const area = encontrarArea(ancora.current);
+    if (!area) return null;
+    const cab = area.querySelector('.rh-mapa-cabecalho');
+    const tituloMapa = cab?.querySelector('.rh-mapa-titulo')?.textContent?.trim();
+    const periodo = cab?.querySelector('.rh-mapa-periodo')?.textContent?.replace(/^Período:\s*/, '').trim();
+    const tituloModal = ancora.current?.closest('.ant-modal-content')?.querySelector('.ant-modal-title')?.textContent?.trim();
+    return {
+      titulo: tituloMapa || titulo || tituloModal || document.title,
+      periodo: periodo || undefined,
+      orientacao: area.classList.contains('rh-impressao-paisagem') ? 'paisagem' : 'auto',
+      conteudo: area,
+      cssExtra: CSS_IMPRESSAO_RH,
+    };
+  };
   return (
-    <Button icon={<PrinterOutlined />} disabled={desactivado} onClick={() => window.print()}>
-      {texto}
-    </Button>
+    <span ref={ancora} style={{ display: 'inline-flex' }}>
+      <BotoesExportar obterPedido={obterPedido} desactivado={desactivado} textoImprimir={texto} />
+    </span>
   );
+}
+
+/** No documento impresso, o nome da empresa, o título e o período do CabecalhoMapa já estão no cabeçalho comum. */
+const CSS_IMPRESSAO_RH = `
+.imp-conteudo > .rh-impressao > .rh-mapa-cabecalho:first-child .rh-mapa-empresa,
+.imp-conteudo > .rh-impressao > .rh-mapa-cabecalho:first-child .rh-mapa-titulo,
+.imp-conteudo > .rh-impressao > .rh-mapa-cabecalho:first-child .rh-mapa-periodo { display: none; }
+.imp-conteudo .rh-tabela-mapa { font-size: 8.5pt; }
+.imp-conteudo .rh-recibo { border-color: #000; }
+.imp-conteudo .rh-recibo-quebra { break-after: page; page-break-after: always; }
+.imp-conteudo .rh-documento { border: 0; padding: 0; }
+`;
+
+/** Área a imprimir: a do modal do botão; senão a primeira área visível fora de modais. */
+function encontrarArea(botao: Element | null): HTMLElement | null {
+  const modal = botao?.closest('.ant-modal-content');
+  if (modal) return modal.querySelector<HTMLElement>('.rh-impressao');
+  const areas = Array.from(document.querySelectorAll<HTMLElement>('.rh-impressao')).filter((a) => !a.closest('.ant-modal-root, .ant-modal-wrap'));
+  return areas.find((a) => a.getClientRects().length > 0) ?? areas[0] ?? null;
 }
 
 /** Área imprimível: no ecrã é um bloco normal; na impressão só ela aparece (impressao.css). */

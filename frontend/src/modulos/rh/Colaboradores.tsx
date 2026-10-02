@@ -1,5 +1,5 @@
 import {
-  Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Divider, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tabs, Tag,
+  Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Divider, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tabs, Tag,
 } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -9,7 +9,9 @@ import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { pares, tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import {
@@ -17,6 +19,7 @@ import {
 } from './api';
 import { EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useCargos, useColaboradores, useTiposOrganizacao } from './comum/consultas';
+import { seccaoHtml } from './comum/impressao';
 import { formatarIban, semFim, totalContrato } from './comum/regras';
 
 /** RH › Colaboradores (ecrã colaboradores): listagem, ficha, criação/edição e eliminação. */
@@ -39,15 +42,16 @@ function ListaColaboradores() {
   const [estado, setEstado] = useState<string | undefined>('ACTIVO');
   const [tipo, setTipo] = useState<number>();
   const [pesquisa, setPesquisa] = useState('');
+  const pequeno = useEcraPequeno();
 
-  const colunas: ColumnsType<Colaborador> = [
+  const colunas: ColunaApi<Colaborador>[] = [
     { title: 'Nome', dataIndex: 'nome_completo', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
     { title: 'NIF', dataIndex: 'nif' },
-    { title: 'N.º INSS', dataIndex: 'numero_inss', render: (v: string | null) => v ?? '—' },
+    { title: 'N.º INSS', dataIndex: 'numero_inss', responsive: ['md'], render: (v: string | null) => v ?? '—' },
     { title: 'Função', dataIndex: 'cargo_funcao_id', render: (v: number | null) => cargos.nome(v) },
-    { title: 'Tipo de organização', dataIndex: 'tipo_organizacao_id', render: (v: number | null) => tipos.nome(v) },
-    { title: 'Admissão', dataIndex: 'data_admissao', render: formatarData },
-    { title: 'Regime', render: (_, r) => (r.avencado ? <Tag color="purple">Avençado</Tag> : r.reformado ? <Tag>Reformado</Tag> : null) },
+    { title: 'Tipo de organização', dataIndex: 'tipo_organizacao_id', responsive: ['lg'], render: (v: number | null) => tipos.nome(v) },
+    { title: 'Admissão', dataIndex: 'data_admissao', responsive: ['md'], render: formatarData },
+    { title: 'Regime', responsive: ['md'], render: (_, r) => (r.avencado ? <Tag color="purple">Avençado</Tag> : r.reformado ? <Tag>Reformado</Tag> : null), valorImpressao: (r) => (r.avencado ? 'Avençado' : r.reformado ? 'Reformado' : '') },
     { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
   ];
 
@@ -59,16 +63,22 @@ function ListaColaboradores() {
         accoes={pode('colaboradores_detail') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Novo colaborador</Button>}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
+        <BarraFiltros>
           <Input.Search placeholder="Nome, NIF ou n.º INSS" allowClear style={{ width: 260 }} onSearch={setPesquisa} />
           <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={ESTADOS_COLABORADOR} />
           <Select placeholder="Tipo de organização" allowClear style={{ width: 220 }} value={tipo} onChange={setTipo} options={tipos.lista.map((t) => ({ value: t.id, label: t.nome }))} />
-        </Flex>
+        </BarraFiltros>
         <TabelaApi<Colaborador>
           url="/rh/colaboradores"
           chaveConsulta={['rh', 'colaboradores', 'lista']}
           filtros={{ estado, tipo_organizacao_id: tipo, pesquisa }}
           columns={colunas}
+          size={pequeno ? 'small' : 'middle'}
+          scroll={scrollTabela()}
+          impressao={{
+            titulo: 'Lista de colaboradores',
+            filtros: [estado && `Estado: ${ESTADOS_COLABORADOR.find((e) => e.value === estado)?.label ?? estado}`, tipo !== undefined && `Tipo de organização: ${tipos.nome(tipo)}`, pesquisa && `Pesquisa: ${pesquisa}`],
+          }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
@@ -101,11 +111,57 @@ function FichaDoColaborador() {
     { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
   ];
 
+  const sexo = c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : '—';
+  const imprimirFicha = () => ({
+    titulo: 'Ficha do colaborador',
+    subtitulo: `${c.nome_completo} — NIF ${c.nif}`,
+    conteudo: [
+      seccaoHtml('Dados profissionais', pares([
+        ['Estado', c.estado ?? '—'], ['Regime', c.avencado ? 'Avençado' : c.reformado ? 'Reformado' : 'Normal'], ['N.º INSS', c.numero_inss ?? '—'],
+        ['Função', cargos.nome(c.cargo_funcao_id)], ['Tipo de organização', tipos.nome(c.tipo_organizacao_id)], ['Admissão', formatarData(c.data_admissao)],
+        ['Dias úteis/mês', c.dias_uteis_mes ?? '—'], ['Gestor directo', colaboradores.nome(c.colaborador_gestor_id)], ['Habilitação máxima', c.habilitacao_maxima ?? '—'],
+        ['Unidade orgânica', refNome(c.unidade_organica, c.unidade_organica_id)], ['UN / CC', `${refNome(c.unidade_negocio, c.unidade_negocio_id)} / ${refNome(c.centro_custo, c.centro_custo_id)}`],
+      ])),
+      seccaoHtml('Dados pessoais e contactos', pares([
+        ['Sexo', sexo], ['Nascimento', formatarData(c.data_nascimento)], ['Estado civil', ESTADOS_CIVIS.find((e) => e.value === c.estado_civil)?.label ?? c.estado_civil ?? '—'],
+        ['Nacionalidade', c.nacionalidade ?? '—'], ['Naturalidade', [c.naturalidade, c.provincia_naturalidade].filter(Boolean).join(', ') || '—'],
+        ['Documento', `${c.documento_identificacao ?? '—'}${c.documento_validade ? ` (válido até ${formatarData(c.documento_validade)})` : ''}`],
+        ['Morada', [c.endereco, c.bairro, c.municipio, c.provincia].filter(Boolean).join(', ') || '—'], ['Telefone', [c.telefone, c.telefone_alternativo].filter(Boolean).join(' / ') || '—'],
+        ['E-mail', c.email ?? '—'], ['Emergência', c.emergencia_nome ? `${c.emergencia_nome} (${c.emergencia_parentesco ?? '—'}) ${c.emergencia_telefone ?? ''}` : '—'],
+        ['IBAN', c.coordenada_bancaria ? `${c.coordenada_bancaria.banco?.nome ?? ''} ${formatarIban(c.coordenada_bancaria.iban)}`.trim() : 'Sem IBAN registado'],
+      ])),
+      seccaoHtml(`Agregado familiar (${c.dependentes.length})`, tabelaHtml({ linhas: c.dependentes, vazio: 'Sem dependentes.', colunas: [
+        { titulo: 'Nome', valor: (d) => d.nome },
+        { titulo: 'Parentesco', valor: (d) => PARENTESCOS.find((p) => p.value === d.parentesco)?.label ?? d.parentesco ?? '—' },
+        { titulo: 'Nascimento', valor: (d) => d.data_nascimento, formato: 'data' },
+        { titulo: 'Sexo', valor: (d) => d.sexo ?? '—' },
+        { titulo: 'Dependente fiscal', valor: (d) => Boolean(d.dependente_fiscal) },
+      ] })),
+      seccaoHtml(`Habilitações (${c.habilitacoes.length})`, tabelaHtml({ linhas: c.habilitacoes, vazio: 'Sem habilitações registadas.', colunas: [
+        { titulo: 'Nível', valor: (h) => h.nivel },
+        { titulo: 'Curso', valor: (h) => h.curso ?? '—' },
+        { titulo: 'Instituição', valor: (h) => h.instituicao ?? '—' },
+        { titulo: 'Conclusão', valor: (h) => h.ano_conclusao ?? '—' },
+        { titulo: 'Estado', valor: (h) => h.estado ?? '—' },
+      ] })),
+      seccaoHtml(`Contratos (${contratos.data?.length ?? 0})`, tabelaHtml({ linhas: contratos.data ?? [], vazio: 'Sem contratos.', colunas: [
+        { titulo: 'Início', valor: (r) => r.data_inicio, formato: 'data' },
+        { titulo: 'Fim', valor: (r) => (semFim(r.data_fim) ? 'Sem fim' : formatarData(r.data_fim)) },
+        { titulo: 'Dias/mês', valor: (r) => r.dias_contrato_mes, alinhamento: 'direita' },
+        { titulo: 'Horas/dia', valor: (r) => r.horas_por_dia, alinhamento: 'direita' },
+        { titulo: 'Remuneração mensal', valor: (r) => `${formatarKz(totalContrato(r))} ${r.codigo_moeda ?? 'AOA'}`, alinhamento: 'direita' },
+        { titulo: 'Estado', valor: (r) => r.estado ?? '—' },
+      ] })),
+    ].join(''),
+  });
+
   return (
     <>
       <CabecalhoPagina
+        impressao={imprimirFicha}
+        impressaoDesactivada={contratos.isLoading}
         titulo={c.nome_completo}
-        subtitulo={<Space>NIF {c.nif}<EstadoTag estado={c.estado} />{c.avencado && <Tag color="purple">Avençado</Tag>}{c.reformado && <Tag>Reformado</Tag>}</Space>}
+        subtitulo={<Space wrap>NIF {c.nif}<EstadoTag estado={c.estado} />{c.avencado && <Tag color="purple">Avençado</Tag>}{c.reformado && <Tag>Reformado</Tag>}</Space>}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -128,7 +184,7 @@ function FichaDoColaborador() {
               key: 'geral',
               label: 'Dados profissionais',
               children: (
-                <Descriptions column={{ xs: 1, md: 3 }} size="small">
+                <Descriptions column={COLUNAS_DESCRICOES} size="small">
                   <Descriptions.Item label="N.º INSS">{c.numero_inss ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="Função">{cargos.nome(c.cargo_funcao_id)}</Descriptions.Item>
                   <Descriptions.Item label="Tipo de organização">{tipos.nome(c.tipo_organizacao_id)}</Descriptions.Item>
@@ -145,14 +201,14 @@ function FichaDoColaborador() {
               key: 'pessoal',
               label: 'Dados pessoais e contactos',
               children: (
-                <Descriptions column={{ xs: 1, md: 3 }} size="small">
+                <Descriptions column={COLUNAS_DESCRICOES} size="small">
                   <Descriptions.Item label="Sexo">{c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : '—'}</Descriptions.Item>
                   <Descriptions.Item label="Nascimento">{formatarData(c.data_nascimento)}</Descriptions.Item>
                   <Descriptions.Item label="Estado civil">{ESTADOS_CIVIS.find((e) => e.value === c.estado_civil)?.label ?? c.estado_civil ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="Nacionalidade">{c.nacionalidade ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="Naturalidade">{[c.naturalidade, c.provincia_naturalidade].filter(Boolean).join(', ') || '—'}</Descriptions.Item>
                   <Descriptions.Item label="Documento">{c.documento_identificacao ?? '—'}{c.documento_validade ? ` (válido até ${formatarData(c.documento_validade)})` : ''}</Descriptions.Item>
-                  <Descriptions.Item label="Morada" span={3}>{[c.endereco, c.bairro, c.municipio, c.provincia].filter(Boolean).join(', ') || '—'}</Descriptions.Item>
+                  <Descriptions.Item label="Morada" span="filled">{[c.endereco, c.bairro, c.municipio, c.provincia].filter(Boolean).join(', ') || '—'}</Descriptions.Item>
                   <Descriptions.Item label="Telefone">{[c.telefone, c.telefone_alternativo].filter(Boolean).join(' / ') || '—'}</Descriptions.Item>
                   <Descriptions.Item label="E-mail">{c.email ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="Emergência">{c.emergencia_nome ? `${c.emergencia_nome} (${c.emergencia_parentesco ?? '—'}) ${c.emergencia_telefone ?? ''}` : '—'}</Descriptions.Item>
@@ -163,7 +219,7 @@ function FichaDoColaborador() {
               key: 'agregado',
               label: `Agregado (${c.dependentes.length})`,
               children: (
-                <Table rowKey={(d) => String(d.id ?? d.nome)} size="small" pagination={false} dataSource={c.dependentes} columns={[
+                <Table rowKey={(d) => String(d.id ?? d.nome)} size="small" scroll={scrollTabela()} pagination={false} dataSource={c.dependentes} columns={[
                   { title: 'Nome', dataIndex: 'nome' },
                   { title: 'Parentesco', dataIndex: 'parentesco', render: (v: string | null) => PARENTESCOS.find((p) => p.value === v)?.label ?? v ?? '—' },
                   { title: 'Nascimento', dataIndex: 'data_nascimento', render: formatarData },
@@ -176,7 +232,7 @@ function FichaDoColaborador() {
               key: 'habilitacoes',
               label: `Habilitações (${c.habilitacoes.length})`,
               children: (
-                <Table rowKey={(h) => String(h.id ?? `${h.nivel}${h.curso}`)} size="small" pagination={false} dataSource={c.habilitacoes} columns={[
+                <Table rowKey={(h) => String(h.id ?? `${h.nivel}${h.curso}`)} size="small" scroll={scrollTabela()} pagination={false} dataSource={c.habilitacoes} columns={[
                   { title: 'Nível', dataIndex: 'nivel' },
                   { title: 'Curso', dataIndex: 'curso', render: (v: string | null) => v ?? '—' },
                   { title: 'Instituição', dataIndex: 'instituicao', render: (v: string | null) => v ?? '—' },
@@ -188,7 +244,7 @@ function FichaDoColaborador() {
             {
               key: 'contratos',
               label: `Contratos (${contratos.data?.length ?? 0})`,
-              children: <Table rowKey="id" size="small" pagination={false} loading={contratos.isFetching} dataSource={contratos.data ?? []} columns={colContratos} />,
+              children: <Table rowKey="id" size="small" scroll={scrollTabela()} pagination={false} loading={contratos.isFetching} dataSource={contratos.data ?? []} columns={colContratos} />,
             },
             {
               key: 'banco',

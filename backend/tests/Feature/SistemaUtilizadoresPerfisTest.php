@@ -60,10 +60,15 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
         $log = app(ContextoEmpresa::class)->semIsolamento(fn () => LogAuditoria::query()->where('acao', 'Criar utilizador')->firstOrFail());
         $this->assertStringNotContainsString('Segredo', json_encode($log->dados_novos));
 
-        // papel derivado do nome do perfil (paridade app_v2.js:3165)
+        // o nome do perfil já não dá papel de administrador (no legado «admin» no nome bastava); o papel é explícito
         $adm = $this->criarPerfil(['_v2' => true, 'lancamentos_view' => true], 'Administração financeira');
-        $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'rui', 'palavra_passe' => 'Segredo#2026', 'perfil_utilizador_id' => $adm->id], $this->s)
-            ->assertCreated()->assertJsonPath('dados.papel', Utilizador::PAPEL_ADMINISTRADOR);
+        $rui = $this->postJson('/api/sistema/utilizadores', ['nome_utilizador' => 'rui', 'palavra_passe' => 'Segredo#2026', 'perfil_utilizador_id' => $adm->id], $this->s)
+            ->assertCreated()->assertJsonPath('dados.papel', Utilizador::PAPEL_UTILIZADOR)->json('dados.id');
+        // um administrador existente mantém o papel ao mudar de perfil
+        $chefe = $this->criarUtilizador(['nome_utilizador' => 'chefe', 'papel' => Utilizador::PAPEL_ADMINISTRADOR]);
+        $chefe->empresas()->attach($this->empresa->id);
+        $this->putJson("/api/sistema/utilizadores/{$chefe->id}", ['perfil_utilizador_id' => $adm->id], $this->s)->assertOk()->assertJsonPath('dados.papel', Utilizador::PAPEL_ADMINISTRADOR);
+        $this->assertNotNull($rui);
     }
 
     #[Test]

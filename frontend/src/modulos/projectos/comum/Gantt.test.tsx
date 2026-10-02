@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { simularLargura } from '@/componentes/responsivo/testes/simularLargura';
 import { Gantt } from './Gantt';
 
 describe('Gantt (componente)', () => {
@@ -22,5 +23,20 @@ describe('Gantt (componente)', () => {
   it('sem linhas mostra a mensagem de vazio', () => {
     render(<Gantt linhas={[]} />);
     expect(screen.getByText('Sem tarefas com datas para mostrar')).toBeInTheDocument();
+  });
+});
+
+describe('Gantt (responsivo e impressão)', () => {
+  afterEach(() => simularLargura(null));
+
+  it('em telemóvel estreita a coluna dos nomes, desloca dentro do contentor e marca as barras para impressão a cores', () => {
+    simularLargura(375);
+    const { container } = render(
+      <Gantt inicio="2026-09-01" fim="2026-09-30" linhas={[{ chave: 't-1', nome: 'Tarefa', nivel: 0, tipo: 'tarefa', inicio: '2026-09-01', fim: '2026-09-10', progresso: 50, estado: 'EM_CURSO' }]} />,
+    );
+    const raiz = container.querySelector('.erp-gantt') as HTMLElement;
+    expect(raiz.classList.contains('erp-deslocar-x')).toBe(true);
+    expect((raiz.firstElementChild as HTMLElement).style.minWidth).toBe('860px');
+    expect(container.querySelectorAll('.imp-cor').length).toBeGreaterThan(0);
   });
 });

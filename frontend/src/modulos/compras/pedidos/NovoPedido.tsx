@@ -88,7 +88,7 @@ export function NovoPedido() {
             <Input.TextArea rows={2} />
           </Form.Item>
         </Card>
-        <Space>
+        <Space wrap>
           <Button type="primary" htmlType="submit" loading={criar.isPending}>
             Criar e enviar para aprovação
           </Button>

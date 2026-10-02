@@ -4,6 +4,8 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { pares, tabelaHtml } from '@/componentes/impressao';
+import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -60,6 +62,36 @@ export default function ImpostoSelo() {
         titulo="Imposto de Selo"
         subtitulo="Recebimentos do mês sujeitos a Imposto de Selo (1%)"
         accoes={<DatePicker picker="month" format="MM/YYYY" value={mes} onChange={(v) => v && setMes(v)} allowClear={false} />}
+        impressaoDesactivada={!r}
+        impressao={() =>
+          r && {
+            titulo: 'Imposto de Selo',
+            periodo: mes.format('MM/YYYY'),
+            subtitulo: `Documento ${r.documento} · ${formatarData(r.data_documento)}`,
+            filtros: [r.lancamento_existente ? `Já lançado (${r.lancamento_existente})` : 'Por lançar'],
+            conteudo:
+              pares([
+                ['Base — vendas a dinheiro e cobranças', `${formatarKz(r.base_vd_cb)} Kz (${r.movimentos_vd_cb} mov.)`],
+                ['Base — caixa', `${formatarKz(r.base_cx)} Kz (${r.movimentos_cx} mov.)`],
+                ['Base total', formatarKz(r.base_total, true)],
+                ['Taxa', `${r.taxa.replace('.', ',')} %`],
+                ['Imposto a lançar', formatarKz(r.imposto, true)],
+              ], 2) +
+              tabelaHtml({
+                legenda: 'Lançamentos de Imposto de Selo',
+                linhas: historico.data ?? [],
+                vazio: 'Ainda não foi lançado Imposto de Selo.',
+                colunas: [
+                  { titulo: 'Data', valor: (h) => h.data_documento, formato: 'data' },
+                  { titulo: 'N.º lançamento', valor: (h) => h.numero_lan },
+                  { titulo: 'Documento', valor: (h) => h.numero_documento },
+                  { titulo: 'Descrição', valor: (h) => h.descricao, quebrar: true },
+                  { titulo: 'Valor', valor: (h) => h.valor, formato: 'moeda' },
+                  { titulo: 'Estado', valor: (h) => h.estado },
+                ],
+              }),
+          }
+        }
       />
       <Card loading={resumo.isLoading} style={{ marginBottom: 16 }} title={r ? `Documento ${r.documento} · ${formatarData(r.data_documento)}` : undefined}>
         {r && (
@@ -70,12 +102,12 @@ export default function ImpostoSelo() {
               <Descriptions.Item label="Base — caixa">{formatarKz(r.base_cx)} Kz ({r.movimentos_cx} mov.)</Descriptions.Item>
               <Descriptions.Item label="Base total">{formatarKz(r.base_total, true)}</Descriptions.Item>
               <Descriptions.Item label="Taxa">{r.taxa.replace('.', ',')} %</Descriptions.Item>
-              <Descriptions.Item label="Imposto a lançar" span={2}>
+              <Descriptions.Item label="Imposto a lançar" span="filled">
                 <strong>{formatarKz(r.imposto, true)}</strong>
               </Descriptions.Item>
             </Descriptions>
             {podeLancar && (
-              <Space style={{ marginTop: 16 }}>
+              <Space wrap style={{ marginTop: 16 }}>
                 <Button
                   type="primary"
                   loading={lancar.isPending}
@@ -103,12 +135,13 @@ export default function ImpostoSelo() {
           loading={historico.isLoading}
           dataSource={historico.data}
           pagination={{ pageSize: 24 }}
+          scroll={scrollTabela()}
           locale={{ emptyText: 'Ainda não foi lançado Imposto de Selo.' }}
           columns={[
             { title: 'Data', dataIndex: 'data_documento', render: formatarData },
             { title: 'N.º lançamento', dataIndex: 'numero_lan' },
             { title: 'Documento', dataIndex: 'numero_documento' },
-            { title: 'Descrição', dataIndex: 'descricao' },
+            { title: 'Descrição', dataIndex: 'descricao', responsive: ['md'] },
             { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
             { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
           ]}

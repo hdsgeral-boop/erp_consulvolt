@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type DragEvent } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { tabelaHtml } from '@/componentes/impressao';
+import { useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -38,6 +40,7 @@ export default function Pipeline() {
   });
   const moverDirecto = useAccao({ invalidar: [CHAVE_CRM], tituloErro: 'Não foi possível mudar a etapa' });
   const editar = pode('crm_editar');
+  const pequeno = useEcraPequeno();
 
   const largar = (e: DragEvent, etapa: Etapa) => {
     e.preventDefault();
@@ -55,6 +58,29 @@ export default function Pipeline() {
   if (funis.isLoading) return <Skeleton active />;
   if (!funis.data?.length) return <Empty description="Não há funis de vendas. Crie um em CRM › Configuração." />;
   const r = quadro.data?.resumo;
+  const funilActual = funis.data.find((f) => f.id === funilId);
+  /** Quadro impresso: oportunidades agrupadas por etapa (com subtotais de valor e ponderado). */
+  const pedidoQuadro = () => {
+    type L = { etapa: Etapa; c: Cartao };
+    const linhas: L[] = (quadro.data?.etapas ?? []).flatMap((col) => filtrarCartoes(col.cartoes, texto, soRisco).map((c) => ({ etapa: col.etapa, c })));
+    return {
+      titulo: `Pipeline de vendas — ${funilActual?.nome ?? ''}`,
+      filtros: [responsavel && `Responsável: ${responsavel}`, texto && `Pesquisa: ${texto}`, soRisco && 'Só em risco ou atenção', r && `Abertas: ${r.abertas} · Valor ${formatarKz(r.valor)} Kz · Ponderado ${formatarKz(r.ponderado)} Kz`],
+      conteudo: tabelaHtml({
+        colunas: [
+          { titulo: 'Oportunidade', valor: (l: L) => l.c.oportunidade.titulo, quebrar: true },
+          { titulo: 'Conta', valor: (l) => l.c.oportunidade.conta_crm?.nome ?? '', quebrar: true },
+          { titulo: 'Responsável', valor: (l) => l.c.oportunidade.responsavel ?? '' },
+          { titulo: 'Fecho previsto', valor: (l) => l.c.oportunidade.data_fecho_prevista, formato: 'data' },
+          { titulo: 'Saúde', valor: (l) => ({ OK: 'OK', ATENCAO: 'Atenção', RISCO: 'Em risco' } as Record<string, string>)[l.c.saude.nivel] ?? l.c.saude.nivel },
+          { titulo: 'Valor (Kz)', valor: (l) => l.c.oportunidade.valor, formato: 'moeda', somar: true },
+        ],
+        linhas,
+        agrupar: { chave: (l) => l.etapa.nome, subtotais: true },
+        totais: true,
+      }),
+    };
+  };
 
   return (
     <>
@@ -62,13 +88,15 @@ export default function Pipeline() {
         titulo="Pipeline de vendas"
         subtitulo="Oportunidades por etapa do funil; arraste os cartões para mudar de etapa"
         accoes={editar && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNova(true)}>Nova oportunidade</Button>}
+        impressao={vista === 'quadro' ? pedidoQuadro : undefined}
+        impressaoDesactivada={!quadro.data}
       />
       <Card size="small" style={{ marginBottom: 12 }}>
         <Flex gap={8} wrap align="center">
-          <Select style={{ width: 200 }} value={funilId} onChange={setFunilId} options={funis.data.map((f) => ({ value: f.id, label: f.ativo ? f.nome : `${f.nome} (inactivo)` }))} aria-label="Funil" />
+          <Select style={{ width: 200, maxWidth: '100%' }} value={funilId} onChange={setFunilId} options={funis.data.map((f) => ({ value: f.id, label: f.ativo ? f.nome : `${f.nome} (inactivo)` }))} aria-label="Funil" />
           <Segmented value={vista} onChange={(v) => setVista(v as 'quadro' | 'lista')} options={[{ value: 'quadro', label: 'Quadro' }, { value: 'lista', label: 'Lista' }]} />
-          <Input.Search placeholder="Título ou conta" allowClear style={{ width: 220 }} onSearch={setTexto} onChange={(e) => !e.target.value && setTexto('')} />
-          <Input.Search placeholder="Responsável" allowClear style={{ width: 160 }} onSearch={setResponsavel} />
+          <Input.Search placeholder="Título ou conta" allowClear style={{ width: 220, maxWidth: '100%' }} onSearch={setTexto} onChange={(e) => !e.target.value && setTexto('')} />
+          <Input.Search placeholder="Responsável" allowClear style={{ width: 160, maxWidth: '100%' }} onSearch={setResponsavel} />
           {vista === 'quadro' ? (
             <Checkbox checked={soRisco} onChange={(e) => setSoRisco(e.target.checked)}>Só em risco ou atenção</Checkbox>
           ) : (
@@ -80,7 +108,7 @@ export default function Pipeline() {
       {vista === 'quadro' ? (
         <>
           {r && (
-            <Row gutter={12} style={{ marginBottom: 12 }}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
               <Col xs={12} md={6}><Card size="small"><Statistic title="Abertas" value={r.abertas} /></Card></Col>
               <Col xs={12} md={6}><Card size="small"><Statistic title="Valor em funil (Kz)" value={formatarKz(r.valor)} /></Card></Col>
               <Col xs={12} md={6}><Card size="small"><Statistic title="Ponderado (Kz)" value={formatarKz(r.ponderado)} /></Card></Col>
@@ -92,7 +120,7 @@ export default function Pipeline() {
           ) : quadro.error ? (
             <Alert type="error" showIcon message={(quadro.error as Error).message} />
           ) : (
-            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }} role="list" aria-label="Etapas do funil">
+            <div className="erp-deslocar-x" style={{ display: 'flex', gap: 12, paddingBottom: 8 }} role="list" aria-label="Etapas do funil">
               {quadro.data?.etapas.map((col) => {
                 const cartoes = filtrarCartoes(col.cartoes, texto, soRisco);
                 return (
@@ -101,7 +129,7 @@ export default function Pipeline() {
                     role="listitem"
                     onDragOver={(e) => editar && e.preventDefault()}
                     onDrop={(e) => editar && largar(e, col.etapa)}
-                    style={{ minWidth: 270, width: 270, flex: 'none', background: '#fafafa', border: '1px solid #f0f0f0', borderTop: `3px solid ${col.etapa.cor ?? '#d9d9d9'}`, borderRadius: 8, padding: 8 }}
+                    style={{ minWidth: pequeno ? 240 : 270, width: pequeno ? 240 : 270, flex: 'none', background: '#fafafa', border: '1px solid #f0f0f0', borderTop: `3px solid ${col.etapa.cor ?? '#d9d9d9'}`, borderRadius: 8, padding: 8 }}
                   >
                     <Flex justify="space-between" align="baseline" style={{ marginBottom: 8 }}>
                       <Typography.Text strong>{col.etapa.nome}</Typography.Text>
@@ -130,13 +158,18 @@ export default function Pipeline() {
             chaveConsulta={['crm', 'oportunidades']}
             filtros={{ funil_vendas_crm_id: funilId, estado, responsavel: responsavel || undefined, pesquisa: texto || undefined }}
             onRow={(o) => ({ onClick: () => setAberta(o.id), style: { cursor: 'pointer' } })}
+            size={pequeno ? 'small' : 'middle'}
+            impressao={{
+              titulo: `Oportunidades — ${funilActual?.nome ?? ''}`,
+              filtros: [estado && `Estado: ${{ ABERTA: 'Abertas', GANHA: 'Ganhas', PERDIDA: 'Perdidas' }[estado] ?? estado}`, responsavel && `Responsável: ${responsavel}`, texto && `Pesquisa: ${texto}`],
+            }}
             columns={[
-              { title: 'Oportunidade', dataIndex: 'titulo', render: (v: string, o) => (<><strong>{v}</strong><div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{o.conta_crm?.nome}</div></>) },
-              { title: 'Etapa', dataIndex: 'etapa_codigo', render: (e: string) => funis.data?.find((f) => f.id === funilId)?.etapas.find((x) => x.id === e)?.nome ?? e },
+              { title: 'Oportunidade', dataIndex: 'titulo', valorImpressao: (o) => `${o.titulo}${o.conta_crm?.nome ? ` — ${o.conta_crm.nome}` : ''}`, render: (v: string, o) => (<><strong>{v}</strong><div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{o.conta_crm?.nome}</div></>) },
+              { title: 'Etapa', dataIndex: 'etapa_codigo', responsive: ['sm'], render: (e: string) => funis.data?.find((f) => f.id === funilId)?.etapas.find((x) => x.id === e)?.nome ?? e },
               { title: 'Estado', dataIndex: 'estado', render: (e: string) => <Tag color={e === 'GANHA' ? 'green' : e === 'PERDIDA' ? 'default' : 'blue'}>{e === 'GANHA' ? 'Ganha' : e === 'PERDIDA' ? 'Perdida' : 'Aberta'}</Tag> },
               { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => formatarKz(v) },
-              { title: 'Fecho previsto', dataIndex: 'data_fecho_prevista', render: formatarData },
-              { title: 'Responsável', dataIndex: 'responsavel' },
+              { title: 'Fecho previsto', dataIndex: 'data_fecho_prevista', responsive: ['md'], render: formatarData },
+              { title: 'Responsável', dataIndex: 'responsavel', responsive: ['lg'] },
             ]}
           />
         </Card>

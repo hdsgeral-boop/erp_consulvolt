@@ -3,7 +3,11 @@ import { CopyOutlined, DeleteOutlined, EditOutlined, ImportOutlined, PlusOutline
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { scrollTabela } from '@/componentes/responsivo';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import type { ColunaApi } from '@/componentes/TabelaApi';
+import { tabelaDeColunas } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora } from '@/utilitarios/formatacao';
@@ -72,11 +76,35 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
     return (dados.data ?? []).filter((r) => !f || r.codigo.toLowerCase().includes(f) || (r.descricao ?? '').toLowerCase().includes(f));
   }, [dados.data, filtro]);
 
+  const colunasAux: ColunaApi<RegistoAux>[] = [
+          { title: 'Código', dataIndex: 'codigo', width: 140, render: (v: string) => <strong>{v}</strong> },
+          { title: 'Descrição', dataIndex: 'descricao' },
+          {
+            title: '',
+            width: 140,
+            exportar: false,
+            render: (_, r) => (
+              <Space wrap>
+                {gerir && <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar" title="Editar" onClick={() => { form.setFieldsValue({ codigo: r.codigo, descricao: r.descricao ?? '' }); setEdicao(r); }} />}
+                {gerir && outras.length > 0 && <Button size="small" type="text" icon={<SendOutlined />} aria-label="Enviar para outra empresa" title="Enviar para outra empresa" onClick={() => { formEmpresa.resetFields(); setEnvio(r); }} />}
+                {pode('aux_eliminar') && (
+                  <Popconfirm title={`Eliminar ${r.codigo}?`} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => mutacao.mutateAsync({ metodo: 'delete', caminho: `${tabela}/${r.id}` })}>
+                    <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" title="Eliminar" />
+                  </Popconfirm>
+                )}
+              </Space>
+            ),
+          },
+        ];
   return (
     <Card>
       <Flex justify="space-between" wrap gap={8} style={{ marginBottom: 12 }}>
-        <Input.Search placeholder="Pesquisar código ou descrição" allowClear style={{ width: 280 }} onChange={(e) => setFiltro(e.target.value)} />
+        <Input.Search placeholder="Pesquisar código ou descrição" allowClear style={{ width: 280, maxWidth: '100%' }} onChange={(e) => setFiltro(e.target.value)} />
         <Space wrap>
+          <BotoesExportar
+            obterPedido={async () => ({ titulo, filtros: [filtro && `Pesquisa: ${filtro}`], conteudo: await tabelaDeColunas(colunasAux, linhas) })}
+            desactivado={!linhas.length}
+          />
           <BotaoCsv<RegistoAux> nome={tabela} linhas={linhas} colunas={[{ titulo: 'Código', valor: (r) => r.codigo }, { titulo: 'Descrição', valor: (r) => r.descricao }]} />
           {gerir && tabela === 'centros-custo' && (
             <Button icon={<SyncOutlined />} loading={mutacao.isPending} onClick={() => mutacao.mutate({ metodo: 'post', caminho: 'centros-custo/sincronizar' })}>
@@ -89,30 +117,13 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
         </Space>
       </Flex>
       <Table<RegistoAux>
+        scroll={scrollTabela()}
         rowKey="id"
         size="small"
         loading={dados.isLoading}
         dataSource={linhas}
         pagination={{ pageSize: 50, showTotal: (n) => `${n} registo(s)` }}
-        columns={[
-          { title: 'Código', dataIndex: 'codigo', width: 140, render: (v: string) => <strong>{v}</strong> },
-          { title: 'Descrição', dataIndex: 'descricao' },
-          {
-            title: '',
-            width: 140,
-            render: (_, r) => (
-              <Space>
-                {gerir && <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar" title="Editar" onClick={() => { form.setFieldsValue({ codigo: r.codigo, descricao: r.descricao ?? '' }); setEdicao(r); }} />}
-                {gerir && outras.length > 0 && <Button size="small" type="text" icon={<SendOutlined />} aria-label="Enviar para outra empresa" title="Enviar para outra empresa" onClick={() => { formEmpresa.resetFields(); setEnvio(r); }} />}
-                {pode('aux_eliminar') && (
-                  <Popconfirm title={`Eliminar ${r.codigo}?`} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => mutacao.mutateAsync({ metodo: 'delete', caminho: `${tabela}/${r.id}` })}>
-                    <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" title="Eliminar" />
-                  </Popconfirm>
-                )}
-              </Space>
-            ),
-          },
-        ]}
+        columns={colunasAux}
       />
 
       <Modal title={edicao === 'novo' ? `Novo registo — ${titulo}` : `Editar — ${titulo}`} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
@@ -191,29 +202,7 @@ function PlanoContas() {
 
   if (plano.isError) return <Alert type="warning" showIcon message="Não tem acesso ao plano de contas nesta empresa." />;
 
-  return (
-    <Card>
-      <Flex justify="space-between" wrap gap={8} style={{ marginBottom: 12 }}>
-        <Space wrap>
-          <Input.Search placeholder="Código (prefixo) ou descrição" allowClear style={{ width: 280 }} onChange={(e) => setFiltro(e.target.value)} />
-          <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 170 }} options={[{ value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadora' }]} />
-        </Space>
-        <Space wrap>
-          <BotaoCsv<ContaPlano>
-            nome="plano_contas"
-            linhas={linhas}
-            colunas={[{ titulo: 'Código', valor: (c) => c.codigo }, { titulo: 'Descrição', valor: (c) => c.descricao }, { titulo: 'Tipo', valor: (c) => c.tipo }, { titulo: 'Moeda', valor: (c) => c.codigo_moeda }]}
-          />
-          {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); form.setFieldsValue({ tipo: 'M' }); setEdicao('novo'); }}>Nova conta</Button>}
-        </Space>
-      </Flex>
-      <Table<ContaPlano>
-        rowKey="id"
-        size="small"
-        loading={plano.isLoading}
-        dataSource={linhas}
-        pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (n) => `${n} conta(s)` }}
-        columns={[
+  const colunasPlano: ColunaApi<ContaPlano>[] = [
           { title: 'Código', dataIndex: 'codigo', width: 160, render: (v: string, c) => <span style={{ paddingLeft: Math.max(0, v.length - 1) * 6, fontWeight: c.tipo === 'T' ? 600 : undefined }}>{v}</span> },
           { title: 'Descrição', dataIndex: 'descricao' },
           { title: 'Tipo', dataIndex: 'tipo', width: 130, render: (v: string) => (v === 'T' ? <Tag>Totalizadora</Tag> : <Tag color="blue">Movimento</Tag>) },
@@ -221,8 +210,9 @@ function PlanoContas() {
           {
             title: '',
             width: 100,
+            exportar: false,
             render: (_, c) => (
-              <Space>
+              <Space wrap>
                 {gerir && (
                   <Button
                     size="small"
@@ -241,7 +231,35 @@ function PlanoContas() {
               </Space>
             ),
           },
-        ]}
+        ];
+  return (
+    <Card>
+      <Flex justify="space-between" wrap gap={8} style={{ marginBottom: 12 }}>
+        <Space wrap>
+          <Input.Search placeholder="Código (prefixo) ou descrição" allowClear style={{ width: 280, maxWidth: '100%' }} onChange={(e) => setFiltro(e.target.value)} />
+          <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 170 }} options={[{ value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadora' }]} />
+        </Space>
+        <Space wrap>
+          <BotoesExportar
+            obterPedido={async () => ({ titulo: 'Plano de contas', filtros: [filtro && `Pesquisa: ${filtro}`, tipo && `Tipo: ${tipo === 'T' ? 'Totalizadora' : 'Movimento'}`], conteudo: await tabelaDeColunas(colunasPlano, linhas) })}
+            desactivado={!linhas.length}
+          />
+          <BotaoCsv<ContaPlano>
+            nome="plano_contas"
+            linhas={linhas}
+            colunas={[{ titulo: 'Código', valor: (c) => c.codigo }, { titulo: 'Descrição', valor: (c) => c.descricao }, { titulo: 'Tipo', valor: (c) => c.tipo }, { titulo: 'Moeda', valor: (c) => c.codigo_moeda }]}
+          />
+          {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); form.setFieldsValue({ tipo: 'M' }); setEdicao('novo'); }}>Nova conta</Button>}
+        </Space>
+      </Flex>
+      <Table<ContaPlano>
+        scroll={scrollTabela()}
+        rowKey="id"
+        size="small"
+        loading={plano.isLoading}
+        dataSource={linhas}
+        pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (n) => `${n} conta(s)` }}
+        columns={colunasPlano}
       />
       <Modal title={edicao === 'novo' ? 'Nova conta' : `Editar conta ${edicao?.codigo ?? ''}`} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
         <Form
@@ -260,7 +278,7 @@ function PlanoContas() {
           <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
             <Select options={[{ value: 'M', label: 'Movimento (aceita lançamentos)' }, { value: 'T', label: 'Totalizadora' }]} />
           </Form.Item>
-          <Space>
+          <Space wrap>
             <Form.Item name="codigo_moeda" label="Moeda">
               <Input maxLength={10} style={{ width: 100 }} placeholder="AOA" />
             </Form.Item>
@@ -345,7 +363,7 @@ function Reciclagem() {
         dataSource={consulta.data}
         pagination={{ pageSize: 50, showTotal: (n) => `${n} documento(s)` }}
         rowSelection={gerir ? { selectedRowKeys: seleccao, onChange: (k) => setSeleccao(k as string[]) } : undefined}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         columns={[
           { title: 'Diário', dataIndex: 'diario' },
           { title: 'Lançamento', dataIndex: 'chave' },

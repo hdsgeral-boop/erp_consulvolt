@@ -34,7 +34,7 @@ final class DocumentoVendaController extends Controller
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $pagina = Venda::query()->with('cliente:id,nome,nif')
+        $pagina = Venda::query()->with('cliente:id,nome,nif,endereco')
             ->when($f['tipo_documento'] ?? null, fn ($q, $v) => $q->where('tipo_documento', $v))
             ->when($f['cliente_id'] ?? null, fn ($q, $v) => $q->where('cliente_id', $v))
             ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
@@ -110,7 +110,7 @@ final class DocumentoVendaController extends Controller
 
     private function detalhe(Venda $venda): array
     {
-        $venda->load(['cliente:id,nome,nif', 'itensVenda' => fn ($q) => $q->orderBy('id')]);
+        $venda->load(['cliente:id,nome,nif,endereco', 'itensVenda' => fn ($q) => $q->orderBy('id')]);
         $relacionados = DB::table('vendas_documentos_relacionados as r')
             ->join('vendas as o', fn ($j) => $j->on('o.id', '=', DB::raw('CASE WHEN r.venda_id = '.(int) $venda->id.' THEN r.venda_relacionada_id ELSE r.venda_id END')))
             ->where('r.empresa_id', $venda->empresa_id)

@@ -14,6 +14,9 @@ import { SeletorTerceiro } from '../../contab/comum/Seletores';
 import { ROTULO_TIPO, type DocumentoTesouraria, type Pendente, type TipoDocumento } from '../api';
 import { SeletorContaFinanceira } from '../comum';
 import { sentidoPorOmissao, totalDocumento } from '../regras';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { BotoesExportar } from '@/componentes/impressao';
+import { pedidoPendentes, ROTULO_NATUREZA } from '../impressao';
 
 type Linha = LinhaEditor & { venda_id?: number; fatura_compra_id?: number };
 
@@ -170,12 +173,12 @@ export function FormularioDocumento() {
               : 'Num recebimento os créditos das linhas têm de exceder os débitos; a diferença entra na conta de banco/caixa.'}
           </Typography.Paragraph>
           <EditorLinhasDC campos={{ terceiro: true, numeroDocumento: true, centroCusto: true, unidade: true }} />
-          <Space size={32} style={{ marginTop: 16 }}>
+          <Space wrap size={32} style={{ marginTop: 16 }}>
             <Statistic title={`Valor do ${ROTULO_TIPO[tipo].toLowerCase()} (Kz)`} value={formatarKz(total.total)} valueStyle={{ color: total.valido ? undefined : '#cf1322' }} />
           </Space>
           {!total.valido && linhas.length > 0 && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="O valor do documento tem de ser positivo (veja o sentido D/C das linhas)." />}
         </Card>
-        <Space>
+        <Space wrap>
           <Button type="primary" htmlType="submit" loading={gravar.isPending} disabled={!total.valido || (!!existente.data && existente.data.estado !== 'PENDENTE')}>
             Gravar (por integrar)
           </Button>
@@ -199,11 +202,16 @@ function ModalPendentes({ tipo, aoFechar, aoEscolher }: { tipo: TipoDocumento; a
   const chave = (p: Pendente) => `${p.terceiro_id}|${p.codigo_conta}|${p.numero_documento}`;
   const escolhidos = (consulta.data ?? []).filter((p) => seleccao.includes(chave(p)));
   return (
-    <Modal open title="Documentos em aberto" width={1000} onCancel={aoFechar} okText={`Acrescentar ${escolhidos.length} linha(s)`} okButtonProps={{ disabled: !escolhidos.length }} onOk={() => aoEscolher(escolhidos)}>
+    <Modal open title="Documentos em aberto" width={larguraModal(1000)} onCancel={aoFechar} okText={`Acrescentar ${escolhidos.length} linha(s)`} okButtonProps={{ disabled: !escolhidos.length }} onOk={() => aoEscolher(escolhidos)}>
       <Space wrap style={{ marginBottom: 12 }}>
         <Select value={natureza} onChange={setNatureza} style={{ width: 160 }} options={[{ value: 'A_PAGAR', label: 'A pagar' }, { value: 'A_RECEBER', label: 'A receber' }]} />
         <SeletorTerceiro value={terceiro} onChange={setTerceiro} />
-        <Input.Search placeholder="N.º do documento" allowClear onSearch={setPesquisa} style={{ width: 200 }} />
+        <Input.Search placeholder="N.º do documento" allowClear onSearch={setPesquisa} style={{ width: 200, maxWidth: '100%' }} />
+        <BotoesExportar
+          tamanho="small"
+          desactivado={!consulta.data?.length}
+          obterPedido={() => pedidoPendentes(consulta.data ?? [], [`Natureza: ${ROTULO_NATUREZA[natureza]}`, pesquisa && `Pesquisa: ${pesquisa}`])}
+        />
       </Space>
       <Table<Pendente>
         rowKey={chave}
@@ -211,16 +219,16 @@ function ModalPendentes({ tipo, aoFechar, aoEscolher }: { tipo: TipoDocumento; a
         loading={consulta.isFetching}
         dataSource={consulta.data}
         pagination={{ pageSize: 10 }}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         rowSelection={{ selectedRowKeys: seleccao, onChange: (k) => setSeleccao(k as string[]) }}
         columns={[
           { title: 'Terceiro', dataIndex: 'terceiro', render: (v: string | null) => v?.trim() ?? '—' },
-          { title: 'Conta', dataIndex: 'codigo_conta' },
+          { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['lg'] },
           { title: 'Documento', dataIndex: 'numero_documento' },
-          { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-          { title: 'Total', dataIndex: 'total', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-          { title: 'Liquidado', dataIndex: 'liquidado', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-          { title: 'Em liquidação', dataIndex: 'em_liquidacao', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
+          { title: 'Data', dataIndex: 'data_documento', responsive: ['sm'], render: formatarData },
+          { title: 'Total', dataIndex: 'total', align: 'right', responsive: ['md'], render: (v: string) => <ValorKz valor={v} /> },
+          { title: 'Liquidado', dataIndex: 'liquidado', align: 'right', responsive: ['lg'], render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
+          { title: 'Em liquidação', dataIndex: 'em_liquidacao', align: 'right', responsive: ['lg'], render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
           { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string, p) => <><ValorKz valor={v} forte />{p.codigo_moeda && p.codigo_moeda !== 'AOA' && p.saldo_moeda ? <div style={{ fontSize: 12 }}>{p.saldo_moeda} {p.codigo_moeda}</div> : null}</> },
         ]}
       />

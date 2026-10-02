@@ -1,9 +1,10 @@
 import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData } from '@/utilitarios/formatacao';
 import { PARENTESCOS, TIPOS_PEDIDO, type ModeloDocumento, type PedidoPortal, type PropostaDocumento, type TipoPedido, type UtilizadorEmpresa } from './api';
@@ -11,6 +12,8 @@ import { AreaImpressao, BotaoImprimir, EstadoTag, SeletorColaborador } from './c
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { DocumentoImpresso, EtapasPedido, resumoPedido } from './comum/Pedidos';
 import { accoesPedidoRh } from './comum/regras';
+import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pedidoTabela } from './comum/impressao';
 
 const ESTADOS_PEDIDO = ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'];
 
@@ -55,12 +58,12 @@ function Pedidos() {
     if (prop) formE.setFieldsValue({ titulo: prop.titulo, texto: prop.texto, assinante: prop.assinante ?? '', cargo_assinante: prop.cargo_assinante ?? '', local: prop.local ?? '' });
   }, [prop, formE]);
 
-  const colunas: ColumnsType<PedidoPortal> = [
+  const colunas: ColunaApi<PedidoPortal>[] = [
     { title: 'N.º', dataIndex: 'id', render: (v: number) => `#${v}` },
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => <strong>{colaboradores.nome(v)}</strong> },
     { title: 'Tipo', dataIndex: 'tipo', render: (t: TipoPedido) => TIPOS_PEDIDO[t] ?? t },
     { title: 'Resumo', render: (_, p) => resumoPedido(p) },
-    { title: 'Pedido em', dataIndex: 'criado_em', render: formatarData },
+    { title: 'Pedido em', dataIndex: 'criado_em', responsive: ['md'], render: formatarData },
     { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
     {
       title: '',
@@ -68,7 +71,7 @@ function Pedidos() {
       render: (_, p) => {
         const ac = accoesPedidoRh(p, pode);
         return (
-          <Space size={4}>
+          <Space size={4} wrap>
             {ac.decidir && <Button size="small" type="primary" onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'APROVADO' }); setDecidir(p); }}>Decidir</Button>}
             {ac.emitir && <Button size="small" type="primary" onClick={() => abrirEmissao(p)}>Emitir documento</Button>}
             {ac.emitir && <Button size="small" danger onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'RECUSADO' }); setDecidir(p); }}>Recusar</Button>}
@@ -82,15 +85,22 @@ function Pedidos() {
   const dadosD = (decidir?.dados ?? {}) as Record<string, unknown>;
   return (
     <Card>
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <BarraFiltros style={{ marginBottom: 12 }} accoes={
+        <BotoesExportar desactivado={!q.data?.length} obterPedido={() => pedidoTabela({
+          titulo: 'Pedidos do Portal do Colaborador',
+          filtros: [estado ? `Estado: ${estado}` : null, tipo ? `Tipo: ${TIPOS_PEDIDO[tipo]}` : null, colaborador ? `Colaborador: ${colaboradores.nome(colaborador)}` : null],
+          colunas,
+          linhas: q.data ?? [],
+        })} />
+      }>
         <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={ESTADOS_PEDIDO.map((e) => ({ value: e, label: <EstadoTag estado={e} /> }))} />
         <Select placeholder="Tipo" allowClear style={{ width: 260 }} value={tipo} onChange={setTipo} options={Object.entries(TIPOS_PEDIDO).map(([v, l]) => ({ value: v, label: l }))} />
         <SeletorColaborador value={colaborador} onChange={setColaborador} />
-      </Flex>
-      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 25 }} scroll={{ x: 'max-content' }}
+      </BarraFiltros>
+      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 25 }} scroll={scrollTabela()}
         expandable={{ expandedRowRender: (p) => <DetalhePedido pedido={p} /> }} />
 
-      <Modal title={`Decidir pedido #${decidir?.id ?? ''}`} open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnClose>
+      <Modal title={`Decidir pedido #${decidir?.id ?? ''}`} open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnHidden>
         {decidir && <Typography.Paragraph>{colaboradores.nome(decidir.colaborador_id)} — {TIPOS_PEDIDO[decidir.tipo]}: {resumoPedido(decidir)}</Typography.Paragraph>}
         {decidir?.tipo === 'AGREGADO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="A aprovação é recusada se o agregado mudou desde o pedido." />}
         <Form form={formD} layout="vertical" onFinish={(v) => decidir && accao.mutate({ metodo: 'post', url: `/rh/portal/pedidos/${decidir.id}/decidir`, dados: v })}>
@@ -104,24 +114,24 @@ function Pedidos() {
         </Form>
       </Modal>
 
-      <Modal title={`Emitir documento — pedido #${emitir?.id ?? ''}`} open={emitir !== null} width={860} onCancel={() => setEmitir(null)} okText="Emitir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formE.submit()} destroyOnClose>
-        {proposta.isLoading ? <Card loading bordered={false} /> : (
+      <Modal title={`Emitir documento — pedido #${emitir?.id ?? ''}`} open={emitir !== null} width={larguraModal(860)} onCancel={() => setEmitir(null)} okText="Emitir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formE.submit()} destroyOnHidden>
+        {proposta.isLoading ? <Card loading variant="borderless" /> : (
           <>
             {(proposta.data?.faltas ?? []).length > 0 && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`Variáveis sem valor (aparecem como [Rótulo]): ${proposta.data?.faltas.join(', ')}. Complete o texto antes de emitir.`} />}
             <Form form={formE} layout="vertical" onFinish={(v) => emitir && accao.mutate({ metodo: 'post', url: `/rh/portal/pedidos/${emitir.id}/emitir`, dados: v })}>
               <Form.Item name="titulo" label="Título" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item>
               <Form.Item name="texto" label="Texto" rules={[{ required: true, min: 20 }]}><Input.TextArea rows={10} maxLength={20000} /></Form.Item>
               <Row gutter={12}>
-                <Col span={8}><Form.Item name="assinante" label="Assinante" rules={[{ required: true, message: 'Indique quem assina.' }]}><Input maxLength={255} /></Form.Item></Col>
-                <Col span={8}><Form.Item name="cargo_assinante" label="Cargo do assinante"><Input maxLength={255} /></Form.Item></Col>
-                <Col span={8}><Form.Item name="local" label="Local"><Input maxLength={255} /></Form.Item></Col>
+                <Col xs={24} sm={12} md={8}><Form.Item name="assinante" label="Assinante" rules={[{ required: true, message: 'Indique quem assina.' }]}><Input maxLength={255} /></Form.Item></Col>
+                <Col xs={24} sm={12} md={8}><Form.Item name="cargo_assinante" label="Cargo do assinante"><Input maxLength={255} /></Form.Item></Col>
+                <Col xs={24} sm={12} md={8}><Form.Item name="local" label="Local"><Input maxLength={255} /></Form.Item></Col>
               </Row>
             </Form>
           </>
         )}
       </Modal>
 
-      <Modal title="Documento emitido" open={ver !== null} width={820} onCancel={() => setVer(null)} footer={<Space><BotaoImprimir /><Button onClick={() => setVer(null)}>Fechar</Button></Space>}>
+      <Modal title="Documento emitido" open={ver !== null} width={larguraModal(820)} onCancel={() => setVer(null)} footer={<Space wrap><BotaoImprimir /><Button onClick={() => setVer(null)}>Fechar</Button></Space>}>
         {ver?.documento && <AreaImpressao><DocumentoImpresso documento={ver.documento} empresa={empresa?.nome} /></AreaImpressao>}
       </Modal>
     </Card>
@@ -137,9 +147,9 @@ function DetalhePedido({ pedido }: { pedido: PedidoPortal }) {
       {pedido.tipo === 'AGREGADO' && (
         <Row gutter={16}>
           {(['antes', 'depois'] as const).map((k) => (
-            <Col span={12} key={k}>
+            <Col xs={24} md={12} key={k}>
               <Typography.Text strong>{k === 'antes' ? 'Agregado actual' : 'Agregado proposto'}</Typography.Text>
-              <Table size="small" pagination={false} rowKey={(x, i) => `${String(x.nome)}-${i}`} dataSource={lista(d[k])} columns={[
+              <Table size="small" pagination={false} scroll={scrollTabela()} rowKey={(x, i) => `${String(x.nome)}-${i}`} dataSource={lista(d[k])} columns={[
                 { title: 'Nome', dataIndex: 'nome' },
                 { title: 'Parentesco', dataIndex: 'parentesco', render: (v: string | null) => PARENTESCOS.find((p) => p.value === v)?.label ?? v ?? '—' },
                 { title: 'Nascimento', dataIndex: 'data_nascimento', render: (v: string | null) => formatarData(v) },
@@ -165,12 +175,12 @@ function Modelos() {
   return (
     <Card>
       {editar && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" onClick={() => { form.resetFields(); form.setFieldsValue({ ativo: true, auto_emitir: false }); setEdicao('novo'); }}>Novo modelo</Button></Flex>}
-      <Table<ModeloDocumento> rowKey="codigo" size="small" loading={q.isFetching} dataSource={q.data?.modelos ?? []} pagination={false} columns={[
+      <Table<ModeloDocumento> rowKey="codigo" size="small" loading={q.isFetching} dataSource={q.data?.modelos ?? []} pagination={false} scroll={scrollTabela()} columns={[
         { title: 'Código', dataIndex: 'codigo', render: (v: string) => <code>{v}</code> },
         { title: 'Nome', dataIndex: 'nome' },
         { title: 'Origem', render: (_, m) => (m.padrao ? (m.personalizado ? <Tag color="blue">Padrão personalizado</Tag> : <Tag>Padrão</Tag>) : <Tag color="purple">Próprio</Tag>) },
-        { title: 'Emissão automática', dataIndex: 'auto_emitir', render: (v: boolean) => (v ? 'Sim' : 'Não') },
-        { title: 'Assinante', dataIndex: 'assinante', render: (v: string | null) => v ?? '—' },
+        { title: 'Emissão automática', dataIndex: 'auto_emitir', responsive: ['md'], render: (v: boolean) => (v ? 'Sim' : 'Não') },
+        { title: 'Assinante', dataIndex: 'assinante', responsive: ['md'], render: (v: string | null) => v ?? '—' },
         { title: 'Activo', dataIndex: 'ativo', render: (v: boolean) => (v ? <Tag color="green">Sim</Tag> : <Tag>Não</Tag>) },
         {
           title: '',
@@ -187,18 +197,18 @@ function Modelos() {
           ),
         },
       ]} />
-      <Modal title={edicao === 'novo' ? 'Novo modelo' : 'Editar modelo'} open={edicao !== null} width={860} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={edicao === 'novo' ? 'Novo modelo' : 'Editar modelo'} open={edicao !== null} width={larguraModal(860)} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'put', url: '/rh/portal/modelos', dados: v })}>
           <Row gutter={12}>
-            <Col span={8}><Form.Item name="codigo" label="Código" rules={[{ pattern: /^[A-Z0-9_]+$/, message: 'Maiúsculas, números e _.' }]} extra="Vazio = gerado."><Input maxLength={50} disabled={edicao !== 'novo'} /></Form.Item></Col>
-            <Col span={16}><Form.Item name="nome" label="Nome" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
-            <Col span={24}><Form.Item name="titulo" label="Título" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
-            <Col span={24}><Form.Item name="texto" label="Texto" rules={[{ required: true, min: 30 }]}><Input.TextArea rows={8} maxLength={20000} /></Form.Item></Col>
-            <Col span={8}><Form.Item name="assinante" label="Assinante"><Input maxLength={255} /></Form.Item></Col>
-            <Col span={8}><Form.Item name="cargo_assinante" label="Cargo"><Input maxLength={255} /></Form.Item></Col>
-            <Col span={8}><Form.Item name="local" label="Local"><Input maxLength={255} /></Form.Item></Col>
-            <Col span={12}><Form.Item name="ativo" valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
-            <Col span={12}><Form.Item name="auto_emitir" valuePropName="checked"><Checkbox>Emissão automática (sem variáveis em falta e com assinante)</Checkbox></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="codigo" label="Código" rules={[{ pattern: /^[A-Z0-9_]+$/, message: 'Maiúsculas, números e _.' }]} extra="Vazio = gerado."><Input maxLength={50} disabled={edicao !== 'novo'} /></Form.Item></Col>
+            <Col xs={24} md={16}><Form.Item name="nome" label="Nome" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24}><Form.Item name="titulo" label="Título" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24}><Form.Item name="texto" label="Texto" rules={[{ required: true, min: 30 }]}><Input.TextArea rows={8} maxLength={20000} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="assinante" label="Assinante"><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="cargo_assinante" label="Cargo"><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="local" label="Local"><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="ativo" valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="auto_emitir" valuePropName="checked"><Checkbox>Emissão automática (sem variáveis em falta e com assinante)</Checkbox></Form.Item></Col>
           </Row>
         </Form>
         <Typography.Text strong>Variáveis disponíveis</Typography.Text>
@@ -220,7 +230,7 @@ function Ligacoes({ editar }: { editar: boolean }) {
   const termo = pesquisa.trim().toLowerCase();
   const linhas = (q.data ?? []).filter((u) => (!soSem || !u.colaborador_id)
     && (!termo || [u.nome_utilizador, u.nome_completo, u.colaborador_nome].some((t) => (t ?? '').toLowerCase().includes(termo))));
-  const colunas: ColumnsType<UtilizadorEmpresa> = [
+  const colunas: ColunaApi<UtilizadorEmpresa>[] = [
     { title: 'Utilizador', dataIndex: 'nome_utilizador', render: (v: string, u) => <Space size={4}><strong>{v}</strong>{!u.ativo && <Tag>Inactivo</Tag>}</Space>, sorter: (a, b) => a.nome_utilizador.localeCompare(b.nome_utilizador, 'pt') },
     { title: 'Nome', dataIndex: 'nome_completo', render: (v: string | null) => v ?? '—' },
     { title: 'Colaborador ligado', dataIndex: 'colaborador_nome', render: (v: string | null, u) => (u.colaborador_id ? v ?? `#${u.colaborador_id}` : <Typography.Text type="secondary">sem ligação</Typography.Text>) },
@@ -242,13 +252,15 @@ function Ligacoes({ editar }: { editar: boolean }) {
   return (
     <Card>
       <Typography.Paragraph type="secondary">Cada utilizador desta empresa pode estar ligado a um colaborador (acesso automático ao Portal); um colaborador só tem um utilizador. As alterações ficam auditadas.</Typography.Paragraph>
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <BarraFiltros style={{ marginBottom: 12 }} accoes={
+        <BotoesExportar desactivado={!linhas.length} obterPedido={() => pedidoTabela({ titulo: 'Ligações utilizador ↔ colaborador', filtros: [soSem ? 'Só sem ligação' : null, pesquisa ? `Pesquisa: ${pesquisa}` : null], colunas, linhas })} />
+      }>
         <Input.Search placeholder="Utilizador, nome ou colaborador" allowClear onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} style={{ width: 300 }} />
         <Checkbox checked={soSem} onChange={(e) => setSoSem(e.target.checked)}>Só sem ligação</Checkbox>
-      </Flex>
-      <Table<UtilizadorEmpresa> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 20 }} scroll={{ x: 'max-content' }} />
+      </BarraFiltros>
+      <Table<UtilizadorEmpresa> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 20 }} scroll={scrollTabela()} />
       <Modal title={`Ligar ${ligar?.nome_utilizador ?? ''} a um colaborador`} open={ligar !== null} onCancel={() => setLigar(null)} okText="Gravar ligação" cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => ligar && accao.mutate({ metodo: 'post', url: '/rh/portal/ligacoes', dados: { utilizador_id: ligar.id, colaborador_id: v.colaborador_id ?? null } })}>
           <Form.Item name="colaborador_id" label="Colaborador" extra="Sem colaborador, a ligação é retirada."><SeletorColaborador style={{ width: '100%' }} /></Form.Item>
         </Form>

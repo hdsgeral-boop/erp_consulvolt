@@ -1,9 +1,10 @@
-import { Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Table, Typography } from 'antd';
+import { Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Table, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
@@ -12,6 +13,8 @@ import { formatarDataHora } from '@/utilitarios/formatacao';
 import { EtiquetaOrc, SeletorOrcamento, useOrcamentos } from './comum/componentes';
 import type { Orcamento, TipoOrcamento } from './comum/tipos';
 import { DetalheOrcamento } from './DetalheOrcamento';
+import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pedidoTabela } from './comum/impressao';
 
 /** Orçamento › Orçamentos (ecrã orc_orcamentos): exploração e tesouraria, versões, aprovação, top-down e contributos. */
 export default function Orcamentos() {
@@ -32,35 +35,39 @@ function Lista() {
   const q = useOrcamentos({ ano, tipo });
   const nomes = new Map((q.data ?? []).map((o) => [o.id, o.nome]));
 
+  const colunas: ColunaApi<Orcamento>[] = [
+    { title: 'Ano', dataIndex: 'ano' },
+    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaOrc valor={v} /> },
+    { title: 'Nome', dataIndex: 'nome', valorImpressao: (o) => `${o.nome ?? '—'}${o.orcamento_pai_id ? ` · contributo de ${nomes.get(o.orcamento_pai_id) ?? `#${o.orcamento_pai_id}`}` : ''}`, render: (v, o) => <><strong>{v ?? '—'}</strong>{o.orcamento_pai_id && <Typography.Text type="secondary"> · contributo de {nomes.get(o.orcamento_pai_id) ?? `#${o.orcamento_pai_id}`}</Typography.Text>}</> },
+    { title: 'Versão', dataIndex: 'versao', render: (v) => `v${v}` },
+    { title: 'Abordagem', dataIndex: 'abordagem', responsive: ['lg'], render: (v) => (v === 'TOP_DOWN' ? 'Top-down' : v === 'BOTTOM_UP' ? 'Bottom-up' : '—') },
+    { title: 'Responsável', dataIndex: 'responsavel', responsive: ['md'], render: (v) => v ?? '—' },
+    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaOrc valor={v} /> },
+    { title: 'Aprovado', key: 'ap', responsive: ['md'], render: (_, o) => (o.aprovado_em ? `${o.aprovado_por ?? ''} ${formatarDataHora(o.aprovado_em)}` : '—') },
+  ];
+
   return (
     <>
       <CabecalhoPagina
         titulo="Orçamentos"
         subtitulo="Rascunho → submetido → aprovado; nova versão a partir do aprovado (o anterior fica substituído)"
         accoes={pode('orc_editar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo orçamento</Button>}
+        impressaoDesactivada={!q.data?.length}
+        impressao={() => pedidoTabela({ titulo: 'Lista de orçamentos', filtros: [ano ? `Ano: ${ano}` : null, tipo ? `Tipo: ${tipo === 'EXPLORACAO' ? 'Exploração' : 'Tesouraria'}` : null], colunas, linhas: q.data ?? [] })}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <InputNumber addonBefore="Ano" min={2000} max={2100} value={ano} onChange={(v) => setAno(v ?? undefined)} style={{ width: 150 }} />
+        <BarraFiltros>
+          <InputNumber prefix="Ano" min={2000} max={2100} value={ano} onChange={(v) => setAno(v ?? undefined)} style={{ width: 150 }} />
           <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 160 }} options={[{ value: 'EXPLORACAO', label: 'Exploração' }, { value: 'TESOURARIA', label: 'Tesouraria' }]} />
-        </Flex>
+        </BarraFiltros>
         <Table<Orcamento>
           rowKey="id"
           size="middle"
           loading={q.isFetching}
           dataSource={q.data}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           onRow={(o) => ({ onClick: () => navegar(String(o.id)), style: { cursor: 'pointer' } })}
-          columns={[
-            { title: 'Ano', dataIndex: 'ano' },
-            { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaOrc valor={v} /> },
-            { title: 'Nome', dataIndex: 'nome', render: (v, o) => <><strong>{v ?? '—'}</strong>{o.orcamento_pai_id && <Typography.Text type="secondary"> · contributo de {nomes.get(o.orcamento_pai_id) ?? `#${o.orcamento_pai_id}`}</Typography.Text>}</> },
-            { title: 'Versão', dataIndex: 'versao', render: (v) => `v${v}` },
-            { title: 'Abordagem', dataIndex: 'abordagem', render: (v) => (v === 'TOP_DOWN' ? 'Top-down' : v === 'BOTTOM_UP' ? 'Bottom-up' : '—') },
-            { title: 'Responsável', dataIndex: 'responsavel', render: (v) => v ?? '—' },
-            { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaOrc valor={v} /> },
-            { title: 'Aprovado', key: 'ap', render: (_, o) => (o.aprovado_em ? `${o.aprovado_por ?? ''} ${formatarDataHora(o.aprovado_em)}` : '—') },
-          ]}
+          columns={colunas}
         />
       </Card>
       <ModalNovoOrcamento aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(o) => navegar(String(o.id))} />
@@ -73,11 +80,12 @@ function ModalNovoOrcamento({ aberto, aoFechar, aoGravar }: { aberto: boolean; a
   const tipo = Form.useWatch('tipo', form);
   const metodo = Form.useWatch('metodo', form);
   const abordagem = Form.useWatch('abordagem', form);
+  const anoForm = Form.useWatch('ano', form);
   const accao = useAccao<Orcamento>({ invalidar: [['orcamento']], aoSucesso: (o) => { aoGravar(o); aoFechar(); } });
   useEffect(() => { if (aberto) { form.resetFields(); form.setFieldsValue({ ano: dayjs().year() + (dayjs().month() >= 9 ? 1 : 0), tipo: 'EXPLORACAO', metodo: 'HISTORICO', origem: 'REALIZADO_ANTERIOR' }); } }, [aberto, form]);
 
   return (
-    <Modal title="Novo orçamento" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Criar" cancelText="Cancelar" confirmLoading={accao.isPending} width={820} destroyOnClose>
+    <Modal title="Novo orçamento" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Criar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(820)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => {
         const dados: Record<string, unknown> = { ...v };
         for (const k of Object.keys(dados)) if (dados[k] === undefined || dados[k] === '') dados[k] = null;
@@ -106,9 +114,9 @@ function ModalNovoOrcamento({ aberto, aoFechar, aoGravar }: { aberto: boolean; a
           {tipo === 'TESOURARIA' && <Col xs={24} md={8}><Form.Item name="saldo_inicial" label="Saldo inicial (Kz)" tooltip="Vazio = calculado pelo Diário"><InputNumber precision={2} style={{ width: '100%' }} /></Form.Item></Col>}
           <Col xs={24} md={8}><Form.Item name="abordagem" label="Abordagem hierárquica"><Select allowClear options={[{ value: 'TOP_DOWN', label: 'Top-down (repartir metas)' }, { value: 'BOTTOM_UP', label: 'Bottom-up (contributos)' }]} /></Form.Item></Col>
           {abordagem && <Col xs={24} md={8}><Form.Item name="dimensao_filhos" label="Dimensão dos filhos"><Select options={[{ value: 'UN', label: 'Unidades de negócio' }, { value: 'CC', label: 'Centros de custo' }, { value: 'PROJETO', label: 'Projectos' }]} /></Form.Item></Col>}
-          <Col xs={24} md={8}><Form.Item name="orcamento_pai_id" label="Orçamento pai (opcional)"><SeletorOrcamento allowClear ano={form.getFieldValue('ano')} tipo={tipo} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="orcamento_pai_id" label="Orçamento pai (opcional)"><SeletorOrcamento allowClear ano={anoForm} tipo={tipo} /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name="responsavel" label="Responsável (utilizador)"><Input maxLength={100} /></Form.Item></Col>
-          <Col span={24}><Form.Item name="descricao" label="Descrição"><Input.TextArea rows={2} maxLength={2000} /></Form.Item></Col>
+          <Col xs={24}><Form.Item name="descricao" label="Descrição"><Input.TextArea rows={2} maxLength={2000} /></Form.Item></Col>
         </Row>
       </Form>
       <Typography.Text type="secondary">A combinação ano / tipo / UN / CC / projecto é única para todas as versões.</Typography.Text>

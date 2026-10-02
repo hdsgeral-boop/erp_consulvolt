@@ -22,6 +22,7 @@ export default function Funcoes() {
                 url="/rh/cargos"
                 chave={['rh', 'cargos']}
                 nomeItem="cargo"
+                tituloImpressao="Lista de cargos e funções"
                 podeGerir={gerir}
                 podeEliminar={eliminar}
                 pesquisa={(r) => `${r.nome} ${r.descricao ?? ''}`}
@@ -50,6 +51,7 @@ export default function Funcoes() {
                 url="/rh/tipos-organizacao"
                 chave={['rh', 'tipos-organizacao']}
                 nomeItem="tipo de organização"
+                tituloImpressao="Lista de tipos de organização"
                 podeGerir={gerir}
                 podeEliminar={eliminar}
                 pesquisa={(r) => r.nome}

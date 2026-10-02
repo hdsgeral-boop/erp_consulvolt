@@ -97,6 +97,11 @@ npm run e2e:relatorio                         # relatório HTML da última execu
 
 Utilizadores fictícios (`e2e.admin`, `e2e.vendas`, `e2e.pos`, `e2e.rh`, `e2e.aprovador`) e detalhes em [frontend/e2e/README.md](frontend/e2e/README.md).
 
+## Impressão, PDF e responsividade (ADR-066)
+
+- **Imprimir/PDF:** motor comum em `frontend/src/componentes/impressao` (ver o `README.md` da pasta). Cabeçalho com o logótipo e o nome da empresa (`GET /api/sistema/identidade`); folha e orientação automáticas (A4 retrato → A4 paisagem → A3 paisagem → escala); sem barras de deslocação; o PDF é o «Guardar como PDF» do navegador.
+- **Responsivo:** base em `frontend/src/componentes/responsivo` (ver o `README.md` da pasta); menu em gaveta abaixo de 992 px; `e2e/responsivo.e2e.ts` confirma os 116 ecrãs a 375 px.
+
 ## Produção e integração contínua
 
 Runbook completo: [docs/PRODUCAO.md](docs/PRODUCAO.md) (instalação, HTTPS, deploy, rollback, cópias e restauro, monitorização, chaves AGT e o plano da migração definitiva).

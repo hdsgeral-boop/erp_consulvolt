@@ -2,7 +2,8 @@ import { Alert, Button, Card, Col, Empty, Flex, Form, InputNumber, Row, Select, 
 import { ReloadOutlined, RightOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { BotoesExportar, clonarParaImpressao } from '@/componentes/impressao';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -10,7 +11,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { GraficoAuto, type GraficoApi } from '@/componentes/graficos/Graficos';
-import { CartaoKpi, TabelaGestao, useRotaDaVista, type TabelaApiGestao } from './comum/componentes';
+import { CartaoKpi, TabelaGestao, tabelaGestaoHtml, useRotaDaVista, type TabelaApiGestao } from './comum/componentes';
 import { AnaliseDinamica } from './comum/AnaliseDinamica';
 import type { ConjuntoCubo } from './comum/pivot';
 
@@ -69,7 +70,7 @@ export default function Dashboard() {
         <Empty description="Não tem acesso a nenhum painel nesta empresa." />
       ) : (
         <Tabs
-          destroyInactiveTabPane
+          destroyOnHidden
           activeKey={activo ?? paineis[0].id}
           onChange={setActivo}
           items={[
@@ -149,14 +150,28 @@ function BarraPeriodo({ filtros, aoMudar, dimensoes, aoActualizar, aActualizar }
 }
 
 /** Conteúdo de um painel: KPIs, gráficos, tabelas e atalhos. Reaproveitado pela comparação de empresas. */
-export function ConteudoPainel({ dados, aoIrPara }: { dados: DadosPainel; aoIrPara?: (ir: string) => void }) {
+export function ConteudoPainel({ dados, aoIrPara, tituloImpressao }: { dados: DadosPainel; aoIrPara?: (ir: string) => void; tituloImpressao?: string }) {
   const navegar = useNavigate();
+  const refVisual = useRef<HTMLDivElement>(null);
   const rotaDaVista = useRotaDaVista();
   const atalhos = (dados.atalhos ?? []).map((a) => ({ ...a, rota: rotaDaVista(a.vista) })).filter((a) => a.rota);
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Flex justify="end">
+        <BotoesExportar
+          tamanho="small"
+          obterPedido={() => ({
+            titulo: tituloImpressao ?? `Dashboard · ${dados.modulo.nome}`,
+            periodo: `${MESES[dados.periodo.mes - 1] ?? dados.periodo.mes} de ${dados.periodo.ano}`,
+            filtros: [dados.aviso, dados.calculado_em ? `Calculado em ${formatarDataHora(dados.calculado_em)}` : null],
+            estilosDaPagina: true,
+            conteudo: (refVisual.current ? clonarParaImpressao(refVisual.current) : '') + (dados.tabelas ?? []).map(tabelaGestaoHtml).join(''),
+          })}
+        />
+      </Flex>
       {dados.aviso && <Alert type="info" showIcon message={dados.aviso} />}
       {!!dados.filtros_ignorados?.length && <Alert type="warning" showIcon message="Este painel não suporta os filtros por unidade de negócio ou centro de custo; foram ignorados." />}
+      <div ref={refVisual}>
       <Row gutter={[12, 12]}>
         {dados.kpis.map((k) => (
           <Col key={k.id} xs={24} sm={12} md={8} xl={6}>
@@ -165,7 +180,7 @@ export function ConteudoPainel({ dados, aoIrPara }: { dados: DadosPainel; aoIrPa
         ))}
       </Row>
       {!!dados.graficos?.length && (
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
           {dados.graficos.map((g) => (
             <Col key={g.id} xs={24} xl={dados.graficos!.length === 1 ? 24 : 12}>
               <Card size="small" style={{ height: '100%' }}>
@@ -175,6 +190,7 @@ export function ConteudoPainel({ dados, aoIrPara }: { dados: DadosPainel; aoIrPa
           ))}
         </Row>
       )}
+      </div>
       {(dados.tabelas ?? []).map((t) => (
         <TabelaGestao key={t.id} tabela={t} />
       ))}
@@ -246,7 +262,7 @@ function ComparacaoEmpresas({ filtros, aoMudarFiltros }: { filtros: Filtros; aoM
           <Select
             mode="multiple"
             allowClear
-            style={{ flex: 1, minWidth: 320 }}
+            style={{ flex: '1 1 240px', minWidth: 0 }}
             maxCount={30}
             value={escolhidas}
             onChange={setEscolhidas}
@@ -257,7 +273,7 @@ function ComparacaoEmpresas({ filtros, aoMudarFiltros }: { filtros: Filtros; aoM
           <Tag>Contabilidade · classe 9 e apuramento excluídos</Tag>
         </Flex>
       </Card>
-      {consulta.isLoading ? <Skeleton active /> : consulta.error ? <Alert type="error" showIcon message={(consulta.error as Error).message} /> : consulta.data ? <ConteudoPainel dados={consulta.data} /> : null}
+      {consulta.isLoading ? <Skeleton active /> : consulta.error ? <Alert type="error" showIcon message={(consulta.error as Error).message} /> : consulta.data ? <ConteudoPainel dados={consulta.data} tituloImpressao="Comparação de empresas" /> : null}
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { Alert, Button, Card, Col, Divider, Empty, Flex, Input, InputNumber, List, Modal, Result, Row, Select, Space, Statistic, Typography, type GetRef, type InputRef } from 'antd';
 import { ClearOutlined, DeleteOutlined, MinusOutlined, PlusOutlined, PrinterOutlined, SearchOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import { useMemo, useRef, useState } from 'react';
+import { larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
@@ -22,7 +23,7 @@ import {
   type Pagamento,
 } from '../comum/calculos';
 import { useCatalogoPOS, useCategoriasPOS } from '../comum/dados';
-import { htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir } from '../comum/impressao';
+import { htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import { acrescentarPagamento, meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
 import { filtrarProdutos, lerCodigo, produtosVendaveis } from '../comum/produtos';
 import type { ProdutoPOS, Terminal, VendaEmitida } from '../comum/tipos';
@@ -36,6 +37,7 @@ const MAX_GRELHA = 48;
  */
 export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessaoId: number }) {
   const { pode, empresa } = useSessao();
+  const cabecalho = useCabecalhoTalao();
   const catalogo = useCatalogoPOS();
   const categorias = useCategoriasPOS();
   const [pesquisa, setPesquisa] = useState('');
@@ -62,7 +64,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
 
   const imprimir = (v: VendaEmitida, manual = false) => {
     const p = lerPreferencias(empresa?.id);
-    const html = htmlTalaoVenda(v, { empresa: empresa?.nome ?? '', nif: (empresa?.nif as string | null) ?? null, terminal: `${terminal.codigo} — ${terminal.nome}` }, p, nomes);
+    const html = htmlTalaoVenda(v, cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}` }), p, nomes);
     if (manual) reimprimir(html, p);
     else imprimirHtml(html);
   };
@@ -133,7 +135,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
       title: `Preço de ${i.nome}`,
       icon: null,
       content: (
-        <InputNumber<number> autoFocus min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} defaultValue={valor} addonAfter="Kz (c/ IVA)" onChange={(v) => (valor = v ?? 0)} />
+        <InputNumber<number> autoFocus min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} defaultValue={valor} suffix="Kz (c/ IVA)" onChange={(v) => (valor = v ?? 0)} />
       ),
       okText: 'Aplicar',
       cancelText: 'Cancelar',
@@ -142,7 +144,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
   };
 
   return (
-    <Row gutter={16}>
+    <Row gutter={[16, 16]}>
       <Col xs={24} lg={14} xl={15}>
         <Card size="small">
           <Flex gap={8} wrap style={{ marginBottom: 12 }}>
@@ -153,7 +155,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
               allowClear
               prefix={<SearchOutlined />}
               placeholder="Código ou nome (F2) · Enter adiciona · 3*CÓDIGO para quantidade"
-              style={{ flex: 1, minWidth: 260 }}
+              style={{ flex: '1 1 240px', minWidth: 0 }}
               value={pesquisa}
               onChange={(e) => {
                 setPesquisa(e.target.value);
@@ -166,7 +168,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
                 size="large"
                 allowClear
                 placeholder="Categoria"
-                style={{ width: 200 }}
+                style={{ flex: '1 1 160px', maxWidth: 260 }}
                 value={categoria ?? undefined}
                 onChange={(v) => setCategoria(v ?? null)}
                 options={categorias.data.map((c) => ({ value: c.id, label: c.nome }))}
@@ -177,7 +179,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
           {!catalogo.isLoading && visiveis.length === 0 ? (
             <Empty description="Nenhum produto encontrado" />
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8 }}>
               {visiveis.slice(0, limite).map((p) => (
                 <Button
                   key={p.id}
@@ -277,8 +279,8 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
                 max={100}
                 precision={2}
                 decimalSeparator=","
-                addonBefore="Desconto (F8)"
-                addonAfter="%"
+                prefix="Desconto (F8)"
+                suffix="%"
                 style={{ width: '100%' }}
                 value={desconto || null}
                 onChange={(v) => setDesconto(v ?? 0)}
@@ -303,7 +305,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
               {formatarCentimos(totais.liquido)} · {formatarCentimos(totais.imposto)}
             </Typography.Text>
           </Flex>
-          <Flex justify="space-between" align="center" style={{ marginTop: 8 }}>
+          <Flex justify="space-between" align="center" wrap gap={8} style={{ marginTop: 8 }}>
             <Statistic title="Total a pagar" value={formatarCentimos(totais.total)} suffix="Kz" valueStyle={{ fontSize: 30, fontWeight: 600 }} />
             <Button type="primary" size="large" style={{ height: 64, minWidth: 150, fontSize: 18 }} disabled={!carrinho.length} onClick={abrirCobranca}>
               Cobrar (F9)
@@ -316,9 +318,9 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
         open={cobrar}
         onCancel={() => setCobrar(false)}
         title={`Pagamento · ${formatarCentimos(totais.total)} Kz`}
-        width={760}
+        width={larguraModal(760)}
         maskClosable={false}
-        destroyOnClose
+        destroyOnHidden
         footer={[
           <Button key="c" size="large" onClick={() => setCobrar(false)}>
             Voltar
@@ -335,7 +337,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
         </Typography.Paragraph>
       </Modal>
 
-      <Modal open={!!emitida} onCancel={() => setEmitida(null)} footer={null} width={520} destroyOnClose>
+      <Modal open={!!emitida} onCancel={() => setEmitida(null)} footer={null} width={larguraModal(520)} destroyOnHidden>
         {emitida && (
           <Result
             status="success"
@@ -343,7 +345,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
             subTitle={`Total ${formatarKz(emitida.total_bruto)} Kz`}
             extra={[
               <Statistic key="t" title="Troco" value={formatarKz(emitida.pos_troco ?? '0')} suffix="Kz" valueStyle={{ fontSize: 40, color: '#3f8600' }} style={{ marginBottom: 16 }} />,
-              <Flex key="b" gap={8} justify="center">
+              <Flex key="b" gap={8} justify="center" wrap>
                 <Button size="large" icon={<PrinterOutlined />} onClick={() => imprimir(emitida, true)}>
                   Imprimir talão
                 </Button>

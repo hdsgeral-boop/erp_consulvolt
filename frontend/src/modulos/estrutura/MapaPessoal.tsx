@@ -4,12 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { scrollTabela } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { useCargos } from '@/modulos/rh/comum/consultas';
 import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import { CartaoKpi } from '@/modulos/geral/comum/componentes';
 import { construirArvore, mapaPessoal, type LinhaMapa } from './comum/arvore';
-import { linhasPorUnidade, taxaOcupacao, type CargoMapa, type ContagemMapa, type LinhaUnidadeMapa, type MapaPessoalApi } from './comum/mapa';
+import { documentoMapaPessoal, linhasPorUnidade, taxaOcupacao, type CargoMapa, type ContagemMapa, type LinhaUnidadeMapa, type MapaPessoalApi } from './comum/mapa';
 import { useEstrutura } from './Estrutura';
 
 const contagem = (n: number, cor: string) => (n ? <Tag color={cor}>{n}</Tag> : 0);
@@ -62,7 +63,15 @@ export default function MapaPessoal() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Mapa de pessoal" subtitulo="Lugares previstos e ocupados por unidade orgânica, cargo e posto de trabalho" />
+      <CabecalhoPagina
+        titulo="Mapa de pessoal"
+        subtitulo="Lugares previstos e ocupados por unidade orgânica, cargo e posto de trabalho"
+        impressao={() => ({
+          titulo: 'Mapa de pessoal',
+          filtros: [soAlertas ? 'Só com lugares em aberto ou acima do previsto' : 'Todos os lugares', ramo ? 'Unidades com as subunidades' : 'Unidades sem as subunidades'],
+          conteudo: documentoMapaPessoal(d, linhasUnidade, linhasCargo, linhasPosto, { ramo, verSalarios }),
+        })}
+      />
       <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
         <Col xs={12} md={kpiCol}><CartaoKpi rotulo="Lugares previstos" valor={t.previstos} formato="num" subtitulo={`${t.postos} posto(s)`} /></Col>
         <Col xs={12} md={kpiCol}><CartaoKpi rotulo="Ocupados" valor={t.ocupados} formato="num" subtitulo={taxa !== null ? `${taxa}% de ocupação` : null} /></Col>
@@ -88,7 +97,7 @@ export default function MapaPessoal() {
                   <BotaoCsv<LinhaUnidadeMapa> nome="mapa_pessoal_unidades" linhas={linhasUnidade}
                     colunas={[{ titulo: 'Código', valor: (l) => l.unidade.codigo ?? '' }, { titulo: 'Unidade', valor: (l) => l.unidade.nome }, ...csvNumeros(numUnidade)]} />
                 </Flex>
-                <Table<LinhaUnidadeMapa> size="small" rowKey="chave" dataSource={linhasUnidade} pagination={false} scroll={{ x: 'max-content', y: 600 }}
+                <Table<LinhaUnidadeMapa> size="small" rowKey="chave" dataSource={linhasUnidade} pagination={false} scroll={scrollTabela(600)}
                   columns={[
                     { title: 'Unidade', key: 'u', render: (_, l) => <span style={{ paddingLeft: l.nivel * 16, fontWeight: l.nivel === 0 ? 600 : 400 }}>{l.unidade.codigo ? `${l.unidade.codigo} — ` : ''}{l.unidade.nome}</span> },
                     ...colunasNumeros(numUnidade),
@@ -106,7 +115,7 @@ export default function MapaPessoal() {
                   {filtro}
                   <BotaoCsv<CargoMapa> nome="mapa_pessoal_cargos" linhas={linhasCargo} colunas={[{ titulo: 'Cargo', valor: (l) => l.nome }, ...csvNumeros((l: CargoMapa) => l)]} />
                 </Flex>
-                <Table<CargoMapa> size="small" rowKey={(l) => String(l.cargo_funcao_id ?? 'sem')} dataSource={linhasCargo} pagination={false} scroll={{ x: 'max-content', y: 600 }}
+                <Table<CargoMapa> size="small" rowKey={(l) => String(l.cargo_funcao_id ?? 'sem')} dataSource={linhasCargo} pagination={false} scroll={scrollTabela(600)}
                   columns={[
                     { title: 'Cargo', dataIndex: 'nome', render: (v: string, l) => (l.cargo_funcao_id === null ? <Typography.Text type="secondary">{v}</Typography.Text> : v) },
                     ...colunasNumeros((l: CargoMapa) => l),
@@ -128,7 +137,7 @@ export default function MapaPessoal() {
                     { titulo: 'Em aberto', valor: (l) => l.livres, numerico: true }, { titulo: 'Acima', valor: (l) => l.acima, numerico: true },
                   ]} />
                 </Flex>
-                <Table<LinhaMapa> size="small" rowKey="chave" loading={estrutura.isLoading} dataSource={linhasPosto} pagination={false} scroll={{ x: 'max-content', y: 600 }}
+                <Table<LinhaMapa> size="small" rowKey="chave" loading={estrutura.isLoading} dataSource={linhasPosto} pagination={false} scroll={scrollTabela(600)}
                   columns={[
                     { title: 'Unidade', dataIndex: 'unidade', render: (v: string, l) => <span style={{ paddingLeft: l.nivel * 16, fontWeight: l.nivel === 0 ? 600 : 400 }}>{v}</span> },
                     { title: 'Posto', dataIndex: 'posto', render: (v: string | null, l) => (v ? <Space size={4}>{v}{l.chefia && <Tag color="purple">chefia</Tag>}</Space> : <Typography.Text type="secondary">sem postos</Typography.Text>) },

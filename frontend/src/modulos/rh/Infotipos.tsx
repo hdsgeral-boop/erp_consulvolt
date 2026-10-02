@@ -16,6 +16,7 @@ export default function Infotipos() {
         url="/rh/infotipos"
         chave={['rh', 'infotipos']}
         nomeItem="rubrica"
+        tituloImpressao="Lista de rubricas salariais (infotipos)"
         podeGerir={pode('rh_infotipos_gerir')}
         podeEliminar={pode('rh_infotipo_del')}
         pesquisa={(r) => `${r.nome} ${r.tipo}`}

@@ -11,13 +11,16 @@ import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { somar } from '@/utilitarios/decimal';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { EtiquetaActivos } from './comum/componentes';
+import { EtiquetaActivos, rotuloActivos } from './comum/componentes';
 import { accoesActivo, ordemPeriodo, rotuloPeriodo } from './comum/regras';
 import type { AmortizacaoRegisto, FichaActivo } from './comum/tipos';
 import { ModalActivo } from './ModalActivo';
 import { ModalAfectacao, ModalTransferir } from './ModaisActivos';
 import { ModalAbate } from './ModalAbate';
 import { ModalManutencao } from './Manutencao';
+import { pares, tabelaHtml } from '@/componentes/impressao';
+import { COLUNAS_DESCRICOES, scrollTabela } from '@/componentes/responsivo';
+import { seccaoHtml } from './comum/impressao';
 
 /** Ficha do activo com o histórico: amortizações, transferências, manutenções, abates, afectações e lançamento de origem. */
 export function DetalheActivo() {
@@ -40,12 +43,58 @@ export function DetalheActivo() {
   const a = q.data;
   const acc = accoesActivo(a, pode);
   const amortizacoes = [...a.amortizacoes].sort((x, y) => ordemPeriodo(y.periodo_codigo) - ordemPeriodo(x.periodo_codigo));
+  const kz = (v: unknown) => formatarKz(v === null || v === undefined ? null : String(v));
+  const imprimirFicha = () => ({
+    titulo: 'Ficha do activo imobilizado',
+    subtitulo: `${a.codigo ?? ''} — ${a.descricao}`,
+    conteudo: [
+      pares([
+        ['Estado', rotuloActivos(a.estado)], ['Categoria', a.categoria_ativo?.nome ?? '—'],
+        ['Taxa anual', a.categoria_ativo?.taxa_anual ? `${Number(a.categoria_ativo.taxa_anual).toLocaleString('pt-PT')}%` : '—'],
+        ['Centro de custo', a.centro_custo ? `${a.centro_custo.codigo} — ${a.centro_custo.descricao ?? ''}` : '—'], ['Unidade de negócio', a.unidade_negocio?.codigo ?? '—'],
+        ['Fornecedor', a.fornecedor?.nome ?? '—'], ['Data de aquisição', formatarData(a.data_aquisicao)], ['Vida útil', a.vida_util ? `${a.vida_util} meses` : 'Pela taxa da categoria'],
+        ['Quota fixa', a.quota_fixa ? formatarKz(a.quota_fixa, true) : '—'], ['Valor de aquisição', kz(a.valor_aquisicao)], ['Valor residual', kz(a.valor_residual)],
+        ['Amortização acumulada', kz(a.amortizacao_acumulada)], ['Valor líquido', kz(a.valor_liquido)],
+        ['Lançamento de origem', a.origem ? `${a.origem.numero_documento ?? '—'} · ${a.origem.diario?.codigo ?? ''} ${a.origem.numero_lan ?? ''} · ${formatarData(a.origem.data_documento)} · conta ${a.origem.codigo_conta}` : 'Sem lançamento de compra associado'],
+      ]),
+      seccaoHtml(`Amortizações (${a.amortizacoes.length})`, tabelaHtml({ linhas: [...amortizacoes].reverse(), vazio: 'Sem amortizações.', totais: 'Total', colunas: [
+        { titulo: 'Período', valor: (r) => rotuloPeriodo(r.periodo_codigo) },
+        { titulo: 'Data', valor: (r) => r.data, formato: 'data' },
+        { titulo: 'Quota (Kz)', valor: (r) => r.valor, formato: 'moeda', somar: true },
+        { titulo: 'Estado', valor: (r) => (r.contabilizado ? 'Integrado' : 'Rascunho') },
+      ] })),
+      seccaoHtml(`Transferências (${a.transferencias.length})`, tabelaHtml({ linhas: a.transferencias, vazio: 'Sem transferências.', colunas: [
+        { titulo: 'Data', valor: (r) => r.data, formato: 'data' },
+        { titulo: 'Origem', valor: (r) => r.centro_custo_origem?.codigo ?? '—' },
+        { titulo: 'Destino', valor: (r) => r.centro_custo_destino?.codigo ?? '—' },
+      ] })),
+      seccaoHtml(`Manutenções (${a.manutencoes.length})`, tabelaHtml({ linhas: a.manutencoes, vazio: 'Sem manutenções.', colunas: [
+        { titulo: 'Data', valor: (r) => r.data, formato: 'data' },
+        { titulo: 'Tipo', valor: (r) => rotuloActivos(r.tipo) },
+        { titulo: 'Descrição', valor: (r) => r.descricao, quebrar: true },
+        { titulo: 'Custo', valor: (r) => r.custo, formato: 'moeda' },
+        { titulo: 'Estado', valor: (r) => rotuloActivos(r.estado) },
+      ] })),
+      seccaoHtml(`Abates (${a.abates.length})`, tabelaHtml({ linhas: a.abates, vazio: 'Sem abates.', colunas: [
+        { titulo: 'Data', valor: (r) => r.data, formato: 'data' },
+        { titulo: 'Tipo', valor: (r) => rotuloActivos(r.tipo) },
+        { titulo: 'Valor', valor: (r) => r.valor, formato: 'moeda' },
+        { titulo: 'Descrição', valor: (r) => r.descricao, quebrar: true },
+      ] })),
+      seccaoHtml(`Afectações a projectos (${a.afetacoes.length})`, tabelaHtml({ linhas: a.afetacoes, vazio: 'Sem afectações.', colunas: [
+        { titulo: 'Projecto', valor: (r) => (r.projeto ? `${r.projeto.codigo ?? ''} — ${r.projeto.nome}` : String(r.projeto_id)) },
+        { titulo: 'Início', valor: (r) => r.data_inicio, formato: 'data' },
+        { titulo: 'Fim', valor: (r) => r.data_fim, formato: 'data' },
+      ] })),
+    ].join(''),
+  });
 
   return (
     <>
       <CabecalhoPagina
+        impressao={imprimirFicha}
         titulo={
-          <Space>
+          <Space wrap>
             <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navegar('..')} />
             {a.codigo} — {a.descricao}
             <EtiquetaActivos valor={a.estado} />
@@ -99,6 +148,7 @@ export function DetalheActivo() {
                   rowKey="id"
                   size="small"
                   dataSource={amortizacoes}
+                  scroll={scrollTabela()}
                   pagination={{ pageSize: 12 }}
                   columns={[
                     { title: 'Período', dataIndex: 'periodo_codigo', render: (p) => rotuloPeriodo(p) },
@@ -120,14 +170,14 @@ export function DetalheActivo() {
               key: 'origem',
               label: 'Lançamento de origem',
               children: a.origem ? (
-                <Descriptions bordered size="small" column={2}>
+                <Descriptions bordered size="small" column={COLUNAS_DESCRICOES}>
                   <Descriptions.Item label="Documento">{a.origem.numero_documento ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="N.º lançamento">{a.origem.numero_lan ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="Diário">{a.origem.diario?.codigo ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="Data">{formatarData(a.origem.data_documento)}</Descriptions.Item>
                   <Descriptions.Item label="Conta">{a.origem.codigo_conta}</Descriptions.Item>
                   <Descriptions.Item label="Valor"><ValorKz valor={a.origem.valor} /></Descriptions.Item>
-                  <Descriptions.Item label="Descrição" span={2}>{a.origem.descricao ?? '—'}</Descriptions.Item>
+                  <Descriptions.Item label="Descrição" span="filled">{a.origem.descricao ?? '—'}</Descriptions.Item>
                 </Descriptions>
               ) : (
                 <Alert type="info" showIcon message="Activo sem lançamento de compra associado" description="Pode ligá-lo a uma linha 11/12 no ecrã Aquisições pendentes." />
@@ -137,7 +187,7 @@ export function DetalheActivo() {
               key: 'transf',
               label: `Transferências (${a.transferencias.length})`,
               children: (
-                <Table rowKey="id" size="small" dataSource={a.transferencias} pagination={false}
+                <Table rowKey="id" size="small" dataSource={a.transferencias} pagination={false} scroll={scrollTabela()}
                   columns={[
                     { title: 'Data', dataIndex: 'data', render: formatarData },
                     { title: 'Origem', key: 'o', render: (_, r) => r.centro_custo_origem?.codigo ?? '—' },
@@ -149,7 +199,7 @@ export function DetalheActivo() {
               key: 'manut',
               label: `Manutenções (${a.manutencoes.length})`,
               children: (
-                <Table rowKey="id" size="small" dataSource={a.manutencoes} pagination={false}
+                <Table rowKey="id" size="small" dataSource={a.manutencoes} pagination={false} scroll={scrollTabela()}
                   columns={[
                     { title: 'Data', dataIndex: 'data', render: formatarData },
                     { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaActivos valor={v} /> },
@@ -164,7 +214,7 @@ export function DetalheActivo() {
               key: 'abates',
               label: `Abates (${a.abates.length})`,
               children: (
-                <Table rowKey="id" size="small" dataSource={a.abates} pagination={false}
+                <Table rowKey="id" size="small" dataSource={a.abates} pagination={false} scroll={scrollTabela()}
                   columns={[
                     { title: 'Data', dataIndex: 'data', render: formatarData },
                     { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaActivos valor={v} /> },
@@ -177,7 +227,7 @@ export function DetalheActivo() {
               key: 'afect',
               label: `Afectações (${a.afetacoes.length})`,
               children: (
-                <Table rowKey="id" size="small" dataSource={a.afetacoes} pagination={false}
+                <Table rowKey="id" size="small" dataSource={a.afetacoes} pagination={false} scroll={scrollTabela()}
                   columns={[
                     { title: 'Projecto', key: 'p', render: (_, r) => (r.projeto ? `${r.projeto.codigo ?? ''} — ${r.projeto.nome}` : r.projeto_id) },
                     { title: 'Início', dataIndex: 'data_inicio', render: formatarData },

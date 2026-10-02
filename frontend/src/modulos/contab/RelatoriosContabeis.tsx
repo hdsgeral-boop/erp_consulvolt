@@ -6,6 +6,10 @@ import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, pares } from '@/componentes/impressao';
+import { scrollTabela } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
+import { tabelaDeColunas } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, ValorKz } from './comum/Componentes';
@@ -58,12 +62,26 @@ export default function RelatoriosContabeis() {
   });
   const r = deseq.data?.resumo;
 
+  const colunasDeseq: ColunaApi<Desequilibrio>[] = [
+                    { title: 'Diário', dataIndex: 'diario' },
+                    {
+                      title: 'Lançamento',
+                      dataIndex: 'lancamento',
+                      render: (v: string, l) => (abrir ? <Typography.Link onClick={() => abrir(l.primeira_linha_id)}>{v}</Typography.Link> : v),
+                      valorImpressao: (l) => l.lancamento,
+                    },
+                    { title: 'Data', dataIndex: 'data_documento', render: formatarData },
+                    { title: 'Linhas', dataIndex: 'linhas', align: 'right' },
+                    { title: 'Débito', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+                    { title: 'Crédito', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+                    { title: 'Diferença', dataIndex: 'diferenca', align: 'right', render: (v: string) => <ValorKz valor={v} forte /> },
+                  ];
   return (
     <>
       <CabecalhoPagina titulo="Mapas e relatórios" subtitulo="Mapas contabilísticos e controlo de qualidade dos lançamentos" />
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         {mapas.length === 0 && (
-          <Col span={24}>
+          <Col xs={24}>
             <Empty description="Não tem acesso a nenhum mapa contabilístico nesta empresa." />
           </Col>
         )}
@@ -100,7 +118,20 @@ export default function RelatoriosContabeis() {
               <Alert type="success" showIcon message="Todos os lançamentos do período estão equilibrados (débito = crédito)." />
             ) : (
               <>
-                <div style={{ marginBottom: 8 }}>
+                <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <BotoesExportar
+                    obterPedido={async () => ({
+                      titulo: 'Controlo de desequilíbrios',
+                      periodo: periodo?.[0] || periodo?.[1] ? `${periodo?.[0] ? formatarData(dataApi(periodo[0])) : '…'} a ${periodo?.[1] ? formatarData(dataApi(periodo[1])) : '…'}` : 'Todos os períodos',
+                      conteudo:
+                        pares([
+                          ['Total a débito', formatarKz(r.debito)],
+                          ['Total a crédito', formatarKz(r.credito)],
+                          ['Diferença', formatarKz(r.diferenca)],
+                          ['Lançamentos desequilibrados', r.lancamentos_desequilibrados],
+                        ], 4) + (await tabelaDeColunas(colunasDeseq, deseq.data?.lancamentos ?? [])),
+                    })}
+                  />
                   <BotaoCsv<Desequilibrio>
                     nome="desequilibrios"
                     linhas={deseq.data?.lancamentos}
@@ -121,20 +152,8 @@ export default function RelatoriosContabeis() {
                   loading={deseq.isFetching}
                   dataSource={deseq.data?.lancamentos}
                   pagination={{ pageSize: 25 }}
-                  scroll={{ x: 'max-content' }}
-                  columns={[
-                    { title: 'Diário', dataIndex: 'diario' },
-                    {
-                      title: 'Lançamento',
-                      dataIndex: 'lancamento',
-                      render: (v: string, l) => (abrir ? <Typography.Link onClick={() => abrir(l.primeira_linha_id)}>{v}</Typography.Link> : v),
-                    },
-                    { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-                    { title: 'Linhas', dataIndex: 'linhas', align: 'right' },
-                    { title: 'Débito', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                    { title: 'Crédito', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                    { title: 'Diferença', dataIndex: 'diferenca', align: 'right', render: (v: string) => <ValorKz valor={v} forte /> },
-                  ]}
+                  scroll={scrollTabela()}
+                  columns={colunasDeseq}
                 />
               </>
             )}

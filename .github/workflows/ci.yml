@@ -19,6 +19,8 @@ concurrency:
 
 env:
   TZ: Africa/Luanda
+  # repositório público: não publicar os registos de build Docker (.dockerbuild) como artefactos
+  DOCKER_BUILD_RECORD_UPLOAD: "false"
 
 jobs:
   # ------------------------------------------------------------------------------------------
@@ -61,7 +63,7 @@ jobs:
       REDIS_PORT: 6379
       AGT_DRIVER: desligado
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: PHP 8.3 com as extensões do docker/php/Dockerfile
         uses: shivammathur/setup-php@v2
@@ -75,7 +77,7 @@ jobs:
       - name: Cache do Composer
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
@@ -109,9 +111,9 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -137,7 +139,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: ShellCheck dos scripts de operação
         run: shellcheck -s sh ferramentas/operacao/*.sh docker/php/producao/entrypoint.sh
@@ -148,11 +150,11 @@ jobs:
           docker compose -f docker-compose.prod.yml --env-file .env.prod config --quiet
           rm .env.prod
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Só constrói (push: false): nada é publicado em registos.
       - name: Build da imagem app (PHP-FPM)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/php/Dockerfile.prod
@@ -163,7 +165,7 @@ jobs:
           cache-to: type=gha,scope=app,mode=max
 
       - name: Build da imagem web (nginx + SPA)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/php/Dockerfile.prod
@@ -173,7 +175,7 @@ jobs:
           cache-to: type=gha,scope=web,mode=max
 
       - name: Build da imagem copias
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: docker/php/Dockerfile.prod

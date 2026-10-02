@@ -2,7 +2,9 @@ import { Alert, Button, Card, Space, Table, Tabs, Tag, Typography, message } fro
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { scrollTabela, useEcra } from '@/componentes/responsivo';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { tabelaHtml } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { alteracoes, chaveCelula, corpoGravacao, grelhaRubricas, grelhaSistema, type Coluna, type MapeamentoRubrica, type MapeamentoSistema } from './comum/mapeamento';
@@ -57,6 +59,7 @@ export default function MapeamentoSalarios() {
     onError: (e) => notificarErro(e, 'Não foi possível gravar os mapeamentos'),
   });
 
+  const { telemovel } = useEcra();
   const colunas: { chave: Coluna; titulo: string }[] = [...(d?.tipos_organizacao ?? []).map((t) => ({ chave: t.id as Coluna, titulo: t.nome })), { chave: 'AV', titulo: 'Avençados' }];
 
   const grelha = <L extends { chave: string; nome: string; tipo?: string | null }>(linhas: L[], valores: Record<string, string>, definir: (k: string, v: string) => void) => (
@@ -65,15 +68,15 @@ export default function MapeamentoSalarios() {
       size="small"
       pagination={false}
       dataSource={linhas}
-      scroll={{ x: 'max-content' }}
+      scroll={scrollTabela()}
       columns={[
-        { title: 'Rubrica', dataIndex: 'nome', fixed: 'left', render: (v: string, l) => <Space>{v}{l.tipo && <Tag>{l.tipo.toLowerCase()}</Tag>}</Space> },
+        { title: 'Rubrica', dataIndex: 'nome', fixed: telemovel ? undefined : 'left', render: (v: string, l) => <Space wrap>{v}{l.tipo && <Tag>{l.tipo.toLowerCase()}</Tag>}</Space> },
         ...colunas.map((c) => ({
           title: c.titulo,
           key: String(c.chave),
           render: (_: unknown, l: L) => {
             const k = chaveCelula(l.chave, c.chave);
-            return <SeletorConta value={valores[k] || undefined} onChange={(v) => definir(k, v ?? '')} allowClear disabled={!editar} style={{ width: 220 }} placeholder="—" />;
+            return <SeletorConta value={valores[k] || undefined} onChange={(v) => definir(k, v ?? '')} allowClear disabled={!editar} style={{ width: 220, maxWidth: '100%' }} placeholder="—" />;
           },
         })),
       ]}
@@ -85,9 +88,25 @@ export default function MapeamentoSalarios() {
       <CabecalhoPagina
         titulo="Mapeamento contabilístico de salários"
         subtitulo="Contas usadas na contabilização do processamento salarial, por tipo de organização"
+        impressaoDesactivada={!d}
+        impressao={() => {
+          if (!d) return null;
+          const tabela = (legenda: string, linhas: { chave: string; nome: string }[], valores: Record<string, string>) =>
+            tabelaHtml({
+              legenda,
+              linhas,
+              colunas: [{ titulo: 'Rubrica', valor: (l) => l.nome, quebrar: true }, ...colunas.map((c) => ({ titulo: c.titulo, valor: (l: { chave: string }) => valores[chaveCelula(l.chave, c.chave)] || '—' }))],
+            });
+          return {
+            titulo: 'Mapeamento contabilístico de salários',
+            conteudo:
+              tabela('Rubricas salariais', d.infotipos.map((i) => ({ chave: String(i.id), nome: `${i.nome}${i.tipo ? ` (${i.tipo.toLowerCase()})` : ''}` })), editR) +
+              tabela('Contas de sistema', d.codigos_sistema.map((c) => ({ chave: c, nome: NOMES_SISTEMA[c] ?? c })), editS),
+          };
+        }}
         accoes={
           editar && (
-            <Space>
+            <Space wrap>
               <Button disabled={!mudR.length && !mudS.length} onClick={() => { setEditR(originalR); setEditS(originalS); }}>
                 Repor
               </Button>

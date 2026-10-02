@@ -11,6 +11,7 @@ import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { SeletorActivo, SeletorCategoria, SeletorProjecto } from './comum/componentes';
 import { lerCsvImportacao } from './comum/regras';
 import type { Afectacao, LinhaImportacao } from './comum/tipos';
+import { COLUNAS_DESCRICOES, larguraModal } from '@/componentes/responsivo';
 
 // ───────────── Importação ─────────────
 
@@ -71,8 +72,8 @@ export function ModalImportarActivos({ aberto, aoFechar }: { aberto: boolean; ao
       title="Importar activos"
       open={aberto}
       onCancel={fechar}
-      width={860}
-      destroyOnClose
+      width={larguraModal(860)}
+      destroyOnHidden
       footer={[
         <Button key="c" onClick={fechar}>Cancelar</Button>,
         <Button key="s" disabled={!linhas.length} loading={aEnviar} onClick={simular}>Simular</Button>,
@@ -112,7 +113,7 @@ export function ModalImportarActivos({ aberto, aoFechar }: { aberto: boolean; ao
           />
         )}
         {simulacao && (
-          <Descriptions bordered size="small" column={3} title="Resultado da simulação">
+          <Descriptions bordered size="small" column={COLUNAS_DESCRICOES} title="Resultado da simulação">
             <Descriptions.Item label="Novos">{simulacao.novos}</Descriptions.Item>
             <Descriptions.Item label="Já existentes">{existentes}</Descriptions.Item>
             <Descriptions.Item label="Repetidos no ficheiro">{simulacao.repetidos}</Descriptions.Item>
@@ -181,7 +182,7 @@ export function ModalEdicaoMassa({ ids, aberto, aoFechar }: { ids: number[]; abe
       cancelText="Cancelar"
       okButtonProps={{ disabled: !campos.length }}
       confirmLoading={accao.isPending}
-      destroyOnClose
+      destroyOnHidden
     >
       <Checkbox.Group options={CAMPOS_MASSA} value={campos} onChange={(v) => setCampos(v as string[])} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 16 }} />
       <Form form={form} layout="vertical" onFinish={gravar}>
@@ -204,7 +205,7 @@ export function ModalTransferir({ activoId, aberto, aoFechar }: { activoId: numb
     if (aberto) form.setFieldsValue({ data: dayjs(), centro_custo_destino_id: undefined, projeto_id: undefined });
   }, [aberto, form]);
   return (
-    <Modal title="Transferir de centro de custo" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Transferir" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title="Transferir de centro de custo" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Transferir" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -239,7 +240,7 @@ export function ModalAfectacao({ aberto, afectacao, activoId, aoFechar }: { aber
     );
   }, [aberto, afectacao, activoId, form]);
   return (
-    <Modal title={afectacao ? 'Editar afectação' : 'Afectar activo a projecto'} open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title={afectacao ? 'Editar afectação' : 'Afectar activo a projecto'} open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"

@@ -4,6 +4,7 @@ import type { DemonstracaoResultados } from '../api';
 import { TabelaDemonstracao } from '../comum/Demonstracao';
 import { linhasDR } from '../comum/demonstracoes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
+import { filtrosDosParametros, periodoDosParametros } from '../comum/impressao';
 import { useMapa } from '../comum/useMapa';
 
 /** Mapas › Demonstração de resultados (ecrã contab_mapa_dr), por natureza, com comparativo. */
@@ -49,6 +50,11 @@ export default function MapaDR() {
               tipoNota="demonstracao"
               parametros={mapa.parametros ?? {}}
               nomeCsv={`demonstracao_resultados_${d.ano}`}
+              impressao={{
+                titulo: 'Demonstração de resultados por natureza',
+                periodo: periodoDosParametros(mapa.parametros),
+                filtros: [...filtrosDosParametros(mapa.parametros), comparativo ? (homologo ? 'Comparativo: período homólogo' : 'Comparativo: ano anterior') : null],
+              }}
             />
           </Card>
         </>

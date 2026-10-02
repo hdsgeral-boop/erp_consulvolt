@@ -1,9 +1,13 @@
-import { Card, Checkbox, Form, InputNumber, Table } from 'antd';
+import { Card, Checkbox, Flex, Form, InputNumber, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { formatarKz } from '@/utilitarios/formatacao';
 import { NOMES_MESES, type Evolucao } from '../api';
 import { BotaoCsv, ValorKz } from '../comum/Componentes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
+import { filtrosDosParametros, periodoDosParametros } from '../comum/impressao';
 import { useMapa } from '../comum/useMapa';
 
 type LinhaEvolucao = Evolucao['contas'][number];
@@ -13,9 +17,10 @@ export default function MapaEvolucao() {
   const mapa = useMapa<Evolucao>('evolucao', '/contabilidade/relatorios/evolucao');
   const d = mapa.data;
   const meses = d?.meses_ativos?.length ? d.meses_ativos : Array.from({ length: 12 }, (_, i) => i + 1);
+  const pequeno = useEcraPequeno();
 
   const colunas: ColumnsType<LinhaEvolucao> = [
-    { title: 'Conta', dataIndex: 'codigo_conta', fixed: 'left' },
+    { title: 'Conta', dataIndex: 'codigo_conta', fixed: pequeno ? undefined : 'left' },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 220 },
     ...meses.map((m) => ({
       title: NOMES_MESES[m - 1],
@@ -23,7 +28,7 @@ export default function MapaEvolucao() {
       align: 'right' as const,
       render: (_: unknown, r: LinhaEvolucao) => <ValorKz valor={r.meses[String(m)] ?? '0.00'} discretoSeZero />,
     })),
-    { title: 'Saldo', dataIndex: 'saldo', align: 'right', fixed: 'right', render: (v: string) => <ValorKz valor={v} forte /> },
+    { title: 'Saldo', dataIndex: 'saldo', align: 'right', fixed: pequeno ? undefined : 'right', render: (v: string) => <ValorKz valor={v} forte /> },
   ];
 
   return (
@@ -50,6 +55,16 @@ export default function MapaEvolucao() {
       {d && (
         <Card
           extra={
+            <Flex gap={8} wrap>
+            <BotoesExportar
+              obterPedido={() => ({
+                titulo: `Evolução mensal ${d.ano}`,
+                periodo: periodoDosParametros(mapa.parametros),
+                filtros: filtrosDosParametros(mapa.parametros),
+                orientacao: 'paisagem',
+                conteudo: documentoEvolucao(d, meses),
+              })}
+            />
             <BotaoCsv<LinhaEvolucao>
               nome={`evolucao_${d.ano}`}
               linhas={d.contas}
@@ -60,6 +75,7 @@ export default function MapaEvolucao() {
                 { titulo: 'Saldo', valor: (l) => l.saldo, numerico: true },
               ]}
             />
+            </Flex>
           }
         >
           <Table<LinhaEvolucao>
@@ -68,11 +84,12 @@ export default function MapaEvolucao() {
             columns={colunas}
             dataSource={d.contas}
             pagination={false}
-            scroll={{ x: 'max-content' }}
+            scroll={scrollTabela()}
             expandable={{
               rowExpandable: (r) => !!r.terceiros?.length,
               expandedRowRender: (r) => (
                 <Table
+                  scroll={scrollTabela()}
                   rowKey="terceiro_id"
                   size="small"
                   pagination={false}
@@ -112,4 +129,23 @@ export default function MapaEvolucao() {
       )}
     </>
   );
+}
+
+/** Evolução mensal para impressão (contas e, se pedido, os terceiros de cada conta), com os totais por mês. */
+export function documentoEvolucao(d: Evolucao, meses: number[]): string {
+  type Linha = { conta: string; descricao: string; meses: Record<string, string>; saldo: string; terceiro?: boolean };
+  const linhas: Linha[] = d.contas.flatMap((c) => [
+    { conta: c.codigo_conta, descricao: c.descricao ?? '', meses: c.meses, saldo: c.saldo },
+    ...(c.terceiros ?? []).map((t) => ({ conta: '', descricao: `   · ${t.terceiro?.trim() ?? '—'}`, meses: t.meses, saldo: t.saldo, terceiro: true })),
+  ]);
+  return tabelaHtml<Linha>({
+    linhas,
+    totais: 'Totais',
+    colunas: [
+      { titulo: 'Conta', valor: (l) => l.conta, total: 'Totais' },
+      { titulo: 'Descrição', valor: (l) => l.descricao, total: '' },
+      ...meses.map((m) => ({ titulo: NOMES_MESES[m - 1], valor: (l: Linha) => l.meses[String(m)] ?? '0.00', formato: 'moeda' as const, total: formatarKz(d.totais[String(m)] ?? '0.00') })),
+      { titulo: 'Saldo', valor: (l) => l.saldo, formato: 'moeda', total: formatarKz(d.saldo_total) },
+    ],
+  });
 }

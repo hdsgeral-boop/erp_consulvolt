@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { tabelaHtml } from '@/componentes/impressao';
+import { scrollTabela } from '@/componentes/responsivo';
 import { formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { EstadoTag } from '../comum/estados';
+import { EstadoTag, rotuloEstado } from '../comum/estados';
 import { NomeProduto } from '../comum/referencias';
 import { numeroOuId } from '../comum/tipos';
 
@@ -52,10 +54,52 @@ export function QuadroComparativo() {
   const d = consulta.data;
   if (!d) return <Alert type="error" message="Não foi possível obter a comparação." />;
   const melhor = d.propostas[0]?.id;
+  /** Mapa impresso: classificação + matriz de preços (uma coluna por proposta; paisagem/A3 automáticos se não couber). */
+  const pedidoImpressao = () => ({
+    titulo: `Quadro comparativo de propostas — pedido #${pedidoId}`,
+    filtros: ['Pontuação: preço (até 70) + prazo de entrega (até 30)', '* melhor preço por artigo'],
+    conteudo:
+      tabelaHtml({
+        legenda: 'Classificação',
+        colunas: [
+          { titulo: 'Proposta', valor: (r: PropostaComparada) => `${numeroOuId(r.numero_proposta, r.id)}${r.id === melhor ? ' (1.º)' : ''}` },
+          { titulo: 'Referência', valor: (r) => r.referencia },
+          { titulo: 'Fornecedor', valor: (r) => r.fornecedor?.trim() ?? '', quebrar: true },
+          { titulo: 'Total (Kz)', valor: (r) => r.montante_total, formato: 'moeda' },
+          { titulo: 'Moeda', valor: (r) => r.codigo_moeda },
+          { titulo: 'Entrega', valor: (r) => r.data_entrega, formato: 'data' },
+          { titulo: 'Preço', valor: (r) => r.pontuacao.preco, formato: 'numero' },
+          { titulo: 'Prazo', valor: (r) => r.pontuacao.prazo, formato: 'numero' },
+          { titulo: 'Pontuação', valor: (r) => r.pontuacao.total, formato: 'numero' },
+          { titulo: 'Estado', valor: (r) => rotuloEstado(r.estado) },
+        ],
+        linhas: d.propostas,
+      }) +
+      tabelaHtml({
+        legenda: 'Preços unitários por artigo (Kz)',
+        colunas: [
+          { titulo: 'Artigo', valor: (l: Comparacao['matriz'][number]) => l.descricao ?? `Produto #${l.produto_id}`, quebrar: true },
+          { titulo: 'Qtd.', valor: (l) => l.quantidade, formato: 'numero' },
+          ...d.propostas.map((p) => ({
+            titulo: p.referencia,
+            valor: (l: Comparacao['matriz'][number]) => {
+              const v = l.precos[String(p.id)];
+              if (v === null || v === undefined) return 'não cotado';
+              return `${melhorPrecoPorLinha(l.precos) === String(p.id) ? '* ' : ''}${formatarKz(v)}`;
+            },
+            alinhamento: 'direita' as const,
+          })),
+        ],
+        linhas: d.matriz,
+      }),
+  });
 
   return (
     <>
-      <CabecalhoPagina titulo={`Quadro comparativo — pedido #${pedidoId}`} subtitulo="Pontuação: preço (até 70) + prazo de entrega (até 30)" accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
+      <CabecalhoPagina
+        titulo={`Quadro comparativo — pedido #${pedidoId}`}
+        subtitulo="Pontuação: preço (até 70) + prazo de entrega (até 30)"
+        impressao={d.propostas.length ? pedidoImpressao : undefined} accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
       {d.propostas.length === 0 ? (
         <Alert type="info" showIcon message="Ainda não há propostas para este pedido." />
       ) : (
@@ -65,20 +109,20 @@ export function QuadroComparativo() {
               rowKey="id"
               size="small"
               pagination={false}
-              scroll={{ x: 'max-content' }}
+              scroll={scrollTabela()}
               dataSource={d.propostas}
               onRow={(r) => ({ onClick: () => navegar(`../${r.id}`), style: { cursor: 'pointer' } })}
               columns={[
                 { title: '', key: 'melhor', width: 32, render: (_, r) => (r.id === melhor ? <TrophyTwoTone twoToneColor="#faad14" /> : null) },
                 { title: 'Proposta', render: (_, r) => <strong>{numeroOuId(r.numero_proposta, r.id)}</strong> },
-                { title: 'Referência', dataIndex: 'referencia' },
+                { title: 'Referência', dataIndex: 'referencia', responsive: ['md'] },
                 { title: 'Fornecedor', dataIndex: 'fornecedor', render: (v) => v?.trim() || '—' },
                 { title: 'Total (Kz)', dataIndex: 'montante_total', align: 'right', render: (v: string | null) => formatarKz(v) },
-                { title: 'Moeda', dataIndex: 'codigo_moeda' },
-                { title: 'Entrega', dataIndex: 'data_entrega', render: formatarData },
-                { title: 'Preço', key: 'preco', align: 'right', render: (_, r) => formatarNumero(r.pontuacao.preco) },
-                { title: 'Prazo', key: 'prazo', align: 'right', render: (_, r) => formatarNumero(r.pontuacao.prazo) },
-                { title: 'Pontuação', key: 'total', width: 180, render: (_, r) => <Progress percent={r.pontuacao.total} size="small" format={(p) => formatarNumero(p ?? 0)} /> },
+                { title: 'Moeda', dataIndex: 'codigo_moeda', responsive: ['lg'] },
+                { title: 'Entrega', dataIndex: 'data_entrega', responsive: ['md'], render: formatarData },
+                { title: 'Preço', key: 'preco', align: 'right', responsive: ['lg'], render: (_, r) => formatarNumero(r.pontuacao.preco) },
+                { title: 'Prazo', key: 'prazo', align: 'right', responsive: ['lg'], render: (_, r) => formatarNumero(r.pontuacao.prazo) },
+                { title: 'Pontuação', key: 'total', width: 140, render: (_, r) => <Progress percent={r.pontuacao.total} size="small" format={(p) => formatarNumero(p ?? 0)} /> },
                 { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
               ]}
             />
@@ -88,7 +132,7 @@ export function QuadroComparativo() {
               rowKey="item_pedido_id"
               size="small"
               pagination={false}
-              scroll={{ x: 'max-content' }}
+              scroll={scrollTabela()}
               dataSource={d.matriz}
               columns={[
                 { title: 'Artigo', fixed: 'left', render: (_, l) => <NomeProduto id={l.produto_id} descricao={l.descricao} /> },

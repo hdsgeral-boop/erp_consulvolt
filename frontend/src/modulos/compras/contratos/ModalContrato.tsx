@@ -1,4 +1,5 @@
 import { Col, DatePicker, Form, Input, InputNumber, Modal, Progress, Row } from 'antd';
+import { larguraModal } from '@/componentes/responsivo';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect } from 'react';
 import { dataApi } from '@/utilitarios/formatacao';
@@ -48,7 +49,7 @@ export function ModalContrato({ contrato, aberto, aoFechar, aoGravar }: { contra
       onCancel={aoFechar}
       okText="Gravar"
       cancelText="Cancelar"
-      width={680}
+      width={larguraModal(680)}
       confirmLoading={gravar.isPending}
       onOk={() => form.submit()}
     >

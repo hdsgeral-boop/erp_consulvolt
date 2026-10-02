@@ -9,7 +9,10 @@ import { useAccao } from '@/componentes/Accoes';
 import { avaliarFecho, contagensParaApi, DENOMINACOES, deCentimos, formatarCentimos, totalContagem } from '../comum/calculos';
 import { useDefinicoesPOS } from '../comum/dados';
 import { TabelaMeios } from '../comum/DetalheSessao';
-import { htmlRelatorioSessao, lerPreferencias, reimprimir } from '../comum/impressao';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { BotaoImprimir } from '@/componentes/impressao';
+import { pedidoSessao } from '../comum/documentos';
+import { htmlRelatorioSessao, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import type { RelatorioX, SessaoPOS } from '../comum/tipos';
 
 interface TalaoTPA {
@@ -33,6 +36,7 @@ export function useRelatorioX(sessaoId: number | null | undefined, activo = true
  */
 export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; aberto: boolean; aoFechar: () => void }) {
   const { empresa } = useSessao();
+  const cabecalho = useCabecalhoTalao();
   const x = useRelatorioX(sessaoId, aberto);
   const definicoes = useDefinicoesPOS(aberto);
   const [modo, setModo] = useState<'NOTAS' | 'TOTAL'>('NOTAS');
@@ -87,15 +91,15 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
     });
   };
 
-  const imprimirZ = (s: SessaoPOS) => reimprimir(htmlRelatorioSessao(s, { empresa: empresa?.nome ?? '' }, lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id));
+  const imprimirZ = (s: SessaoPOS) => reimprimir(htmlRelatorioSessao(s, cabecalho(), lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id));
 
   return (
     <Modal
       open={aberto}
       onCancel={aoFechar}
-      width={980}
+      width={larguraModal(980)}
       title="Fecho de caixa (Z)"
-      destroyOnClose
+      destroyOnHidden
       maskClosable={false}
       footer={
         fechada ? (
@@ -103,7 +107,7 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
             Concluir
           </Button>
         ) : (
-          <Flex justify="end" gap={8}>
+          <Flex justify="end" gap={8} wrap>
             <Button onClick={aoFechar}>Cancelar</Button>
             <Button type="primary" danger loading={fechar.isPending} disabled={!x.data || talaoEmFalta || contagemEmFalta || faltaJustificacao} onClick={confirmar}>
               Fechar sessão (Z)
@@ -118,20 +122,24 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
           title={`Sessão fechada: ${fechada.numero_z}`}
           subTitle={`Desvio ${formatarKz(fechada.desvio)} Kz · ${fechada.estado_desvio === 'PENDENTE' ? 'desvio por deliberar' : 'desvio regularizado automaticamente ou sem desvio'}`}
           extra={
-            <Button icon={<PrinterOutlined />} onClick={() => imprimirZ(fechada)}>
-              Imprimir relatório Z
-            </Button>
+            <Flex gap={8} wrap justify="center">
+              <Button icon={<PrinterOutlined />} onClick={() => imprimirZ(fechada)}>
+                Imprimir relatório Z
+              </Button>
+              <BotaoImprimir modo="pdf" texto="PDF (A4)" obterPedido={() => pedidoSessao(fechada)} />
+            </Flex>
           }
         />
       ) : !x.data ? (
         <Skeleton active />
       ) : (
-        <Row gutter={16}>
+        <Row gutter={[16, 16]}>
           <Col xs={24} lg={13}>
             <Card size="small" title="Numerário contado" extra={<Segmented size="small" value={modo} onChange={(v) => setModo(v as 'NOTAS' | 'TOTAL')} options={[{ value: 'NOTAS', label: 'Notas e moedas' }, { value: 'TOTAL', label: 'Pelo total' }]} />}>
               {modo === 'NOTAS' ? (
                 <Table
                   size="small"
+                  scroll={scrollTabela()}
                   pagination={false}
                   rowKey={(d) => String(d)}
                   dataSource={[...DENOMINACOES]}
@@ -161,7 +169,7 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
                   precision={2}
                   decimalSeparator=","
                   style={{ width: '100%' }}
-                  addonAfter="Kz"
+                  suffix="Kz"
                   value={totalManual}
                   onChange={setTotalManual}
                   autoFocus
@@ -206,7 +214,7 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
                       </Typography.Text>
                       <Typography.Text type="secondary"> · sistema {formatarKz(m.valor)} Kz em {m.quantidade} operação(ões)</Typography.Text>
                       <Flex gap={8} wrap style={{ marginTop: 4 }}>
-                        <InputNumber<number> aria-label={`Valor do talão ${m.nome}`} placeholder="Valor do talão" min={0} precision={2} decimalSeparator="," style={{ width: 160 }} value={t.valor_talao ?? null} onChange={(v) => alterar({ valor_talao: v })} />
+                        <InputNumber<number> aria-label={`Valor do talão ${m.nome}`} placeholder="Valor do talão" min={0} precision={2} decimalSeparator="," style={{ width: 160, maxWidth: '100%' }} value={t.valor_talao ?? null} onChange={(v) => alterar({ valor_talao: v })} />
                         <InputNumber<number> placeholder="Operações" min={0} precision={0} style={{ width: 110 }} value={t.operacoes_talao ?? null} onChange={(v) => alterar({ operacoes_talao: v })} />
                         <Input placeholder="Lote" maxLength={60} style={{ width: 120 }} value={t.referencia_lote} onChange={(e) => alterar({ referencia_lote: e.target.value })} />
                       </Flex>
@@ -228,7 +236,7 @@ export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; abert
               <Input.TextArea rows={3} maxLength={2000} value={justificacao} onChange={(e) => setJustificacao(e.target.value)} placeholder="Explique o desvio ou a diferença dos talões" />
             </Card>
           </Col>
-          <Col span={24}>
+          <Col xs={24}>
             <Divider orientation="left" plain>
               Totais por meio de pagamento
             </Divider>

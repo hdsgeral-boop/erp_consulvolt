@@ -66,9 +66,9 @@ export function ModalImportar<T>({ aberto, titulo, url, ajuda, campos, extra, co
       title={titulo}
       open={aberto}
       onCancel={fechar}
-      destroyOnClose
+      destroyOnHidden
       footer={
-        <Space>
+        <Space wrap>
           <Button onClick={fechar}>Cancelar</Button>
           {comSimulacao && (
             <Button disabled={!ficheiro} loading={aEnviar} onClick={() => void executar(true)}>

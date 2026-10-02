@@ -1,10 +1,11 @@
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Divider, Drawer, Flex, Form, Input, InputNumber, Modal, Rate, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarNumero } from '@/utilitarios/formatacao';
 import { FASES_AVALIACAO, PERIODOS_AVALIACAO, type Avaliacao as AvaliacaoT, type Colaborador, type ItemAvaliacao, type PeriodoAvaliacao } from './api';
@@ -12,6 +13,8 @@ import { CadastroSimples } from './comum/CadastroSimples';
 import { contem, EstadoTag, FaseTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { classificar, itensAplicaveis } from './comum/regras';
+import { BarraFiltros, COLUNAS_DESCRICOES, larguraGaveta, scrollTabela } from '@/componentes/responsivo';
+import { pedidoTabela, seccaoHtml } from './comum/impressao';
 
 interface Linha {
   colaborador: Colaborador;
@@ -26,7 +29,7 @@ export default function Avaliacao() {
   return (
     <>
       <CabecalhoPagina titulo="Avaliação de desempenho" subtitulo="Critérios (1 a 5) e objectivos; pontuação = critérios × (1 − P) + objectivos × P"
-        accoes={<Space><InputNumber addonBefore="Ano" min={2000} max={2100} value={ano} onChange={(v) => v && setAno(v)} style={{ width: 150 }} /><Select value={periodo} onChange={setPeriodo} options={PERIODOS_AVALIACAO} style={{ width: 170 }} /></Space>} />
+        accoes={<Space wrap><InputNumber prefix="Ano" min={2000} max={2100} value={ano} onChange={(v) => v && setAno(v)} style={{ width: 150 }} /><Select value={periodo} onChange={setPeriodo} options={PERIODOS_AVALIACAO} style={{ width: 170 }} /></Space>} />
       <Tabs items={[
         { key: 'avaliacoes', label: 'Avaliações', children: <ListaAvaliacoes ano={ano} periodo={periodo} /> },
         ...(pode('rh_avaliacao_itens') ? [{ key: 'itens', label: 'Itens de avaliação', children: <Itens /> }] : []),
@@ -50,14 +53,14 @@ function ListaAvaliacoes({ ano, periodo }: { ano: number; periodo: PeriodoAvalia
     .map((c) => ({ colaborador: c, avaliacao: porColab.get(c.id) ?? null }))
     .filter((l) => contem(l.colaborador.nome_completo, termo) && (!fase || (l.avaliacao?.fase ?? 'POR_AVALIAR') === fase));
 
-  const colunas: ColumnsType<Linha> = [
+  const colunas: ColunaApi<Linha>[] = [
     { title: 'Colaborador', render: (_, l) => <strong>{l.colaborador.nome_completo}</strong> },
     { title: 'Fase', render: (_, l) => <FaseTag fase={l.avaliacao?.fase ?? 'POR_AVALIAR'} /> },
-    { title: 'Pontuação', align: 'right', render: (_, l) => (l.avaliacao?.pontuacao ? formatarNumero(l.avaliacao.pontuacao) : '—') },
-    { title: 'Nota 360º', align: 'right', render: (_, l) => (l.avaliacao?.nota_360 ? formatarNumero(l.avaliacao.nota_360) : '—') },
+    { title: 'Pontuação', align: 'right', responsive: ['md'], render: (_, l) => (l.avaliacao?.pontuacao ? formatarNumero(l.avaliacao.pontuacao) : '—') },
+    { title: 'Nota 360º', align: 'right', responsive: ['md'], render: (_, l) => (l.avaliacao?.nota_360 ? formatarNumero(l.avaliacao.nota_360) : '—') },
     { title: 'Nota final', align: 'right', render: (_, l) => (l.avaliacao?.nota_final !== null && l.avaliacao?.nota_final !== undefined ? <strong>{formatarNumero(l.avaliacao.nota_final)}</strong> : '—') },
     { title: 'Classificação', render: (_, l) => l.avaliacao?.classificacao_360 ?? l.avaliacao?.classificacao ?? classificar(l.avaliacao?.nota_final) ?? '—' },
-    { title: 'Avaliador', render: (_, l) => l.avaliacao?.avaliador ?? '—' },
+    { title: 'Avaliador', responsive: ['lg'], render: (_, l) => l.avaliacao?.avaliador ?? '—' },
     {
       title: '',
       key: 'accoes',
@@ -80,11 +83,19 @@ function ListaAvaliacoes({ ano, periodo }: { ano: number; periodo: PeriodoAvalia
 
   return (
     <Card>
-      <Flex gap={8} wrap style={{ marginBottom: 16 }}>
+      <BarraFiltros accoes={
+        <BotoesExportar desactivado={!linhas.length} obterPedido={() => pedidoTabela({
+          titulo: 'Avaliação de desempenho',
+          periodo: `${ano} · ${PERIODOS_AVALIACAO.find((p) => p.value === periodo)?.label ?? periodo}`,
+          filtros: [fase ? `Fase: ${FASES_AVALIACAO[fase]?.rotulo ?? fase}` : null, termo ? `Pesquisa: ${termo}` : null],
+          colunas,
+          linhas,
+        })} />
+      }>
         <PesquisaLocal aoMudar={setTermo} placeholder="Nome" />
         <Select placeholder="Fase" allowClear style={{ width: 220 }} value={fase} onChange={setFase} options={Object.entries(FASES_AVALIACAO).map(([k, f]) => ({ value: k, label: f.rotulo }))} />
-      </Flex>
-      <Table<Linha> rowKey={(l) => l.colaborador.id} size="small" loading={q.isFetching || colaboradores.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={{ x: 'max-content' }} />
+      </BarraFiltros>
+      <Table<Linha> rowKey={(l) => l.colaborador.id} size="small" loading={q.isFetching || colaboradores.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={scrollTabela()} />
       {aberta && <FormularioAvaliacao linha={aberta} ano={ano} periodo={periodo} aoFechar={() => setAberta(null)} />}
     </Card>
   );
@@ -131,27 +142,58 @@ function FormularioAvaliacao({ linha, ano, periodo, aoFechar }: { linha: Linha; 
     dados: { ...v, colaborador_id: cid, ano, periodo, data_avaliacao: dataApi(v.data_avaliacao ?? null) ?? null, concluir },
   })).catch(() => undefined);
 
+  const imprimirFicha = () => a && ({
+    titulo: 'Ficha de avaliação de desempenho',
+    subtitulo: linha.colaborador.nome_completo,
+    periodo: `${ano} · ${PERIODOS_AVALIACAO.find((p) => p.value === periodo)?.label ?? periodo}`,
+    conteudo: [
+      pares([
+        ['Estado', a.estado], ['Fase', FASES_AVALIACAO[a.fase]?.rotulo ?? a.fase], ['Classificação', a.classificacao ?? '—'],
+        ['Critérios', a.pontuacao_criterios ? formatarNumero(a.pontuacao_criterios) : '—'], ['Objectivos', a.pontuacao_objetivos ? formatarNumero(a.pontuacao_objetivos) : '—'],
+        ['Pontuação', a.pontuacao ? formatarNumero(a.pontuacao) : '—'], ['Avaliador', a.avaliador ?? '—'], ['Data', formatarData(a.data_avaliacao)],
+        ['Peso dos objectivos', a.peso_objetivos ? `${formatarNumero(a.peso_objetivos)} %` : '—'],
+      ]),
+      seccaoHtml('Critérios', tabelaHtml({ linhas: criterios, vazio: 'Sem critérios.', colunas: [
+        { titulo: 'Critério', valor: (i) => i.nome, quebrar: true },
+        { titulo: 'Peso', valor: (i) => (i.peso ? formatarNumero(i.peso) : ''), alinhamento: 'direita' },
+        { titulo: 'Nota (1–5)', valor: (i) => a.criterios?.find((c) => c.chave === i.chave)?.nota ?? '—', alinhamento: 'centro' },
+        { titulo: 'Comentário', valor: (i) => a.criterios?.find((c) => c.chave === i.chave)?.comentario ?? '', quebrar: true },
+      ] })),
+      seccaoHtml('Objectivos', tabelaHtml({ linhas: objetivos, vazio: 'Sem objectivos.', colunas: [
+        { titulo: 'Objectivo', valor: (i) => i.nome, quebrar: true },
+        { titulo: 'Meta', valor: (i) => (i.natureza === 'QUALITATIVO' ? 'Qualitativo' : `${formatarNumero(i.meta)} ${i.unidade ?? ''}`) },
+        { titulo: 'Resultado', valor: (i) => { const o = a.objetivos?.find((x) => x.chave === i.chave); return i.natureza === 'QUALITATIVO' ? o?.nota_qual ?? '—' : o?.atingido ?? '—'; }, alinhamento: 'direita' },
+        { titulo: 'Comentário', valor: (i) => a.objetivos?.find((x) => x.chave === i.chave)?.comentario ?? '', quebrar: true },
+      ] })),
+      seccaoHtml('Apreciação', pares([
+        ['Pontos fortes', a.pontos_fortes ?? '—'], ['Pontos a melhorar', a.pontos_melhorar ?? '—'], ['Plano de desenvolvimento', a.plano_desenvolvimento ?? '—'],
+      ], 1)),
+      '<div class="rh-recibo-assinatura" style="display:flex;gap:20mm;margin-top:16mm"><div style="flex:1;border-top:1px solid #555;text-align:center">O avaliador</div><div style="flex:1;border-top:1px solid #555;text-align:center">O colaborador</div></div>',
+    ].join(''),
+  });
+
   return (
-    <Drawer title={`Avaliação — ${linha.colaborador.nome_completo} (${ano} · ${PERIODOS_AVALIACAO.find((p) => p.value === periodo)?.label})`} open width={820} onClose={aoFechar} destroyOnClose
-      extra={<Space>
+    <Drawer title={`Avaliação — ${linha.colaborador.nome_completo} (${ano} · ${PERIODOS_AVALIACAO.find((p) => p.value === periodo)?.label})`} open width={larguraGaveta(820)} onClose={aoFechar} destroyOnHidden
+      extra={<Space wrap>
+        {a && <BotoesExportar tamanho="small" obterPedido={imprimirFicha} />}
         {a?.fase === 'AGUARDA_CONHECIMENTO' && pode('rh_avaliacao_edit') && <Button onClick={() => setConhecimento(true)}>Registar conhecimento (RH)</Button>}
         {editavel && <Button loading={accao.isPending} onClick={() => void enviarAvaliacao(false)}>Gravar rascunho</Button>}
         {editavel && <Button type="primary" loading={accao.isPending} onClick={() => Modal.confirm({ title: 'Concluir a avaliação?', content: 'Exige todas as notas e resultados, o avaliador e a data. Depois de concluída não se altera (salvo reabertura).', okText: 'Concluir', cancelText: 'Cancelar', onOk: () => enviarAvaliacao(true) })}>Concluir</Button>}
       </Space>}>
       {a && (
-        <Descriptions size="small" column={3} bordered style={{ marginBottom: 16 }}>
+        <Descriptions size="small" column={COLUNAS_DESCRICOES} bordered style={{ marginBottom: 16 }}>
           <Descriptions.Item label="Estado"><EstadoTag estado={a.estado} /></Descriptions.Item>
           <Descriptions.Item label="Fase"><FaseTag fase={a.fase} /></Descriptions.Item>
           <Descriptions.Item label="Classificação">{a.classificacao ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="Critérios">{a.pontuacao_criterios ? formatarNumero(a.pontuacao_criterios) : '—'}</Descriptions.Item>
           <Descriptions.Item label="Objectivos">{a.pontuacao_objetivos ? formatarNumero(a.pontuacao_objetivos) : '—'}</Descriptions.Item>
           <Descriptions.Item label="Pontuação">{a.pontuacao ? formatarNumero(a.pontuacao) : '—'}</Descriptions.Item>
-          {a.conhecimento && <Descriptions.Item label="Conhecimento" span={3}>{formatarData(a.conhecimento.em)} {a.comentario_colaborador ? `— «${a.comentario_colaborador}»` : ''}</Descriptions.Item>}
-          {a.contestacao?.fundamentacao && <Descriptions.Item label="Contestação" span={3}>{a.contestacao.fundamentacao}</Descriptions.Item>}
-          {a.contestacao?.decisao && <Descriptions.Item label="Decisão" span={3}>{a.contestacao.decisao.resultado === 'ALTERADA' ? `Alterada (nota ${a.contestacao.decisao.nota})` : 'Mantida'} — {a.contestacao.decisao.justificacao}</Descriptions.Item>}
+          {a.conhecimento && <Descriptions.Item label="Conhecimento" span="filled">{formatarData(a.conhecimento.em)} {a.comentario_colaborador ? `— «${a.comentario_colaborador}»` : ''}</Descriptions.Item>}
+          {a.contestacao?.fundamentacao && <Descriptions.Item label="Contestação" span="filled">{a.contestacao.fundamentacao}</Descriptions.Item>}
+          {a.contestacao?.decisao && <Descriptions.Item label="Decisão" span="filled">{a.contestacao.decisao.resultado === 'ALTERADA' ? `Alterada (nota ${a.contestacao.decisao.nota})` : 'Mantida'} — {a.contestacao.decisao.justificacao}</Descriptions.Item>}
         </Descriptions>
       )}
-      {itens.isLoading ? <Card loading bordered={false} /> : (
+      {itens.isLoading ? <Card loading variant="borderless" /> : (
         <Form form={form} layout="vertical" disabled={!editavel} initialValues={iniciais}>
           <Typography.Title level={5}>Critérios</Typography.Title>
           {criterios.length === 0 && <Alert type="info" message="Sem critérios: na primeira utilização o servidor cria os 8 critérios padrão." />}
@@ -160,16 +202,16 @@ function FormularioAvaliacao({ linha, ano, periodo, aoFechar }: { linha: Linha; 
               const i = criterios[name];
               return (
                 <Row key={key} gutter={8} align="middle">
-                  <Col span={9}><Typography.Text strong>{i?.nome}</Typography.Text>{i?.peso ? <Typography.Text type="secondary"> (peso {formatarNumero(i.peso)})</Typography.Text> : null}</Col>
-                  <Col span={6}><Form.Item name={[name, 'nota']} style={{ marginBottom: 8 }}><Rate count={5} /></Form.Item></Col>
-                  <Col span={9}><Form.Item name={[name, 'comentario']} style={{ marginBottom: 8 }}><Input placeholder="Comentário" maxLength={2000} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={9}><Typography.Text strong>{i?.nome}</Typography.Text>{i?.peso ? <Typography.Text type="secondary"> (peso {formatarNumero(i.peso)})</Typography.Text> : null}</Col>
+                  <Col xs={24} sm={12} md={6}><Form.Item name={[name, 'nota']} style={{ marginBottom: 8 }}><Rate count={5} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={9}><Form.Item name={[name, 'comentario']} style={{ marginBottom: 8 }}><Input placeholder="Comentário" maxLength={2000} /></Form.Item></Col>
                   <Form.Item name={[name, 'chave']} hidden><Input /></Form.Item>
                 </Row>
               );
             })}
           </Form.List>
           <Divider />
-          <Flex justify="space-between" align="center">
+          <Flex justify="space-between" align="center" wrap gap={8}>
             <Typography.Title level={5} style={{ margin: 0 }}>Objectivos</Typography.Title>
             <Form.Item name="peso_objetivos" label="Peso dos objectivos (%)" style={{ marginBottom: 0 }}><InputNumber min={0} max={100} /></Form.Item>
           </Flex>
@@ -179,16 +221,16 @@ function FormularioAvaliacao({ linha, ano, periodo, aoFechar }: { linha: Linha; 
               const qual = i?.natureza === 'QUALITATIVO';
               return (
                 <Row key={key} gutter={8} align="middle" style={{ marginTop: 8 }}>
-                  <Col span={9}>
+                  <Col xs={24} sm={12} md={9}>
                     <Typography.Text strong>{i?.nome}</Typography.Text>
                     <div><Typography.Text type="secondary">{qual ? 'Qualitativo' : `Meta ${formatarNumero(i?.meta)} ${i?.unidade ?? ''} (${i?.sentido === 'MENOR' ? 'menor é melhor' : 'maior é melhor'})`}</Typography.Text></div>
                   </Col>
-                  <Col span={6}>
+                  <Col xs={24} sm={12} md={6}>
                     {qual
                       ? <Form.Item name={[name, 'nota_qual']} style={{ marginBottom: 8 }}><Rate count={5} /></Form.Item>
                       : <Form.Item name={[name, 'atingido']} style={{ marginBottom: 8 }}><InputNumber placeholder="Atingido" style={{ width: '100%' }} /></Form.Item>}
                   </Col>
-                  <Col span={9}><Form.Item name={[name, 'comentario']} style={{ marginBottom: 8 }}><Input placeholder="Comentário" maxLength={2000} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={9}><Form.Item name={[name, 'comentario']} style={{ marginBottom: 8 }}><Input placeholder="Comentário" maxLength={2000} /></Form.Item></Col>
                   <Form.Item name={[name, 'chave']} hidden><Input /></Form.Item>
                 </Row>
               );
@@ -196,8 +238,8 @@ function FormularioAvaliacao({ linha, ano, periodo, aoFechar }: { linha: Linha; 
           </Form.List>
           <Divider />
           <Row gutter={12}>
-            <Col span={12}><Form.Item name="avaliador" label="Avaliador"><Input maxLength={255} /></Form.Item></Col>
-            <Col span={12}><Form.Item name="data_avaliacao" label="Data da avaliação"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="avaliador" label="Avaliador"><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="data_avaliacao" label="Data da avaliação"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
           </Row>
           <Form.Item name="pontos_fortes" label="Pontos fortes"><Input.TextArea rows={2} maxLength={5000} /></Form.Item>
           <Form.Item name="pontos_melhorar" label="Pontos a melhorar"><Input.TextArea rows={2} maxLength={5000} /></Form.Item>
@@ -220,6 +262,7 @@ function Itens() {
       url="/rh/avaliacao/itens"
       chave={['rh', 'avaliacao', 'itens']}
       nomeItem="item de avaliação"
+      tituloImpressao="Itens de avaliação de desempenho"
       podeGerir
       podeEliminar
       larguraModal={720}
@@ -246,22 +289,22 @@ function CamposItem() {
   const natureza = Form.useWatch('natureza', form);
   return (
     <Row gutter={12}>
-      <Col span={8}><Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}><Select options={[{ value: 'CRITERIO', label: 'Critério' }, { value: 'OBJECTIVO', label: 'Objectivo' }]} /></Form.Item></Col>
-      <Col span={8}><Form.Item name="ambito" label="Âmbito" rules={[{ required: true }]}><Select options={[{ value: 'COMUM', label: 'Comum a todos' }, { value: 'ESPECIFICO', label: 'Específico' }]} /></Form.Item></Col>
-      <Col span={8}><Form.Item name="ativo" label=" " valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
-      {ambito === 'ESPECIFICO' && <Col span={24}><Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true }]}><SeletorColaborador style={{ width: '100%' }} /></Form.Item></Col>}
-      <Col span={16}><Form.Item name="nome" label="Nome" rules={[{ required: true }, { max: 255 }]}><Input /></Form.Item></Col>
-      <Col span={4}><Form.Item name="peso" label="Peso"><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item></Col>
-      <Col span={4}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-      <Col span={24}><Form.Item name="descricao" label="Descrição"><Input.TextArea rows={2} maxLength={2000} /></Form.Item></Col>
+      <Col xs={24} sm={12} md={8}><Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}><Select options={[{ value: 'CRITERIO', label: 'Critério' }, { value: 'OBJECTIVO', label: 'Objectivo' }]} /></Form.Item></Col>
+      <Col xs={24} sm={12} md={8}><Form.Item name="ambito" label="Âmbito" rules={[{ required: true }]}><Select options={[{ value: 'COMUM', label: 'Comum a todos' }, { value: 'ESPECIFICO', label: 'Específico' }]} /></Form.Item></Col>
+      <Col xs={24} sm={12} md={8}><Form.Item name="ativo" label=" " valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
+      {ambito === 'ESPECIFICO' && <Col xs={24}><Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true }]}><SeletorColaborador style={{ width: '100%' }} /></Form.Item></Col>}
+      <Col xs={24} md={16}><Form.Item name="nome" label="Nome" rules={[{ required: true }, { max: 255 }]}><Input /></Form.Item></Col>
+      <Col xs={24} sm={12} md={4}><Form.Item name="peso" label="Peso"><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={24} sm={12} md={4}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={24}><Form.Item name="descricao" label="Descrição"><Input.TextArea rows={2} maxLength={2000} /></Form.Item></Col>
       {tipo === 'OBJECTIVO' && (
         <>
-          <Col span={8}><Form.Item name="natureza" label="Natureza"><Select options={[{ value: 'QUANTITATIVO', label: 'Quantitativo' }, { value: 'QUALITATIVO', label: 'Qualitativo' }]} /></Form.Item></Col>
+          <Col xs={24} sm={12} md={8}><Form.Item name="natureza" label="Natureza"><Select options={[{ value: 'QUANTITATIVO', label: 'Quantitativo' }, { value: 'QUALITATIVO', label: 'Qualitativo' }]} /></Form.Item></Col>
           {natureza !== 'QUALITATIVO' && (
             <>
-              <Col span={6}><Form.Item name="meta" label="Meta"><InputNumber min={0.0001} style={{ width: '100%' }} /></Form.Item></Col>
-              <Col span={4}><Form.Item name="unidade" label="Unidade"><Input maxLength={50} /></Form.Item></Col>
-              <Col span={6}><Form.Item name="sentido" label="Sentido"><Select options={[{ value: 'MAIOR', label: 'Maior é melhor' }, { value: 'MENOR', label: 'Menor é melhor' }]} /></Form.Item></Col>
+              <Col xs={24} sm={12} md={6}><Form.Item name="meta" label="Meta"><InputNumber min={0.0001} style={{ width: '100%' }} /></Form.Item></Col>
+              <Col xs={24} sm={12} md={4}><Form.Item name="unidade" label="Unidade"><Input maxLength={50} /></Form.Item></Col>
+              <Col xs={24} sm={12} md={6}><Form.Item name="sentido" label="Sentido"><Select options={[{ value: 'MAIOR', label: 'Maior é melhor' }, { value: 'MENOR', label: 'Menor é melhor' }]} /></Form.Item></Col>
             </>
           )}
         </>

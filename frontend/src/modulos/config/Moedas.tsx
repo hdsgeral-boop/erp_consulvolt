@@ -5,6 +5,8 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
+import { TabelaLocalImprimivel } from './comum/impressao';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -113,28 +115,28 @@ function ListaMoedas({ gerir }: { gerir: boolean }) {
   }, [edicao, form]);
   return (
     <Card>
-      <Flex justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 12 }}>
-        <Typography.Text>
+      <TabelaLocalImprimivel<Moeda>
+        titulo="Lista de moedas"
+        filtros={funcional.data ? [`Moeda funcional da empresa activa: ${funcional.data.codigo_moeda}`] : undefined}
+        filtrosEcra={<Typography.Text>
           {funcional.data ? (
             <>
               Moeda funcional da empresa activa: <strong>{funcional.data.codigo_moeda}</strong>
               {funcional.data.nome ? ` — ${funcional.data.nome}` : ''}
             </>
           ) : null}
-        </Typography.Text>
-        {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova moeda</Button>}
-      </Flex>
-      <Table<Moeda>
+        </Typography.Text>}
+        accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova moeda</Button>}
         rowKey="id"
         size="middle"
         loading={moedas.isLoading}
         dataSource={moedas.data}
         pagination={false}
         columns={[
-          { title: 'Código', dataIndex: 'codigo', width: 90, render: (v: string, m) => (<><strong>{v}</strong>{m.base && <Tag color="gold" style={{ marginLeft: 6 }}>base</Tag>}{funcional.data?.codigo_moeda === v && <Tag color="blue" style={{ marginLeft: 6 }}>funcional</Tag>}</>) },
+          { title: 'Código', dataIndex: 'codigo', width: 90, valorImpressao: (m) => `${m.codigo}${m.base ? ' (base)' : ''}${funcional.data?.codigo_moeda === m.codigo ? ' (funcional)' : ''}`, render: (v: string, m) => (<><strong>{v}</strong>{m.base && <Tag color="gold" style={{ marginLeft: 6 }}>base</Tag>}{funcional.data?.codigo_moeda === v && <Tag color="blue" style={{ marginLeft: 6 }}>funcional</Tag>}</>) },
           { title: 'Nome', dataIndex: 'nome' },
           { title: 'Símbolo', dataIndex: 'simbolo', width: 90 },
-          { title: 'Casas', dataIndex: 'casas_decimais', width: 80 },
+          { title: 'Casas', dataIndex: 'casas_decimais', width: 80, responsive: ['md'] },
           { title: 'Estado', dataIndex: 'ativo', width: 100, render: (a: boolean) => (a ? <Tag color="green">Activa</Tag> : <Tag>Inactiva</Tag>) },
           ...(gerir
             ? [
@@ -161,7 +163,7 @@ function ListaMoedas({ gerir }: { gerir: boolean }) {
             : []),
         ]}
       />
-      <Modal title={edicao === 'nova' ? 'Nova moeda' : `Moeda ${edicao?.codigo ?? ''}`} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={edicao === 'nova' ? 'Nova moeda' : `Moeda ${edicao?.codigo ?? ''}`} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form
           form={form}
           layout="vertical"
@@ -202,28 +204,31 @@ function Cambios({ gerir }: { gerir: boolean }) {
   }, [edicao, form]);
   return (
     <Card>
-      <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 12 }}>
-        <Space wrap>
+      <BarraFiltros style={{ marginBottom: 12 }} accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo câmbio</Button>}>
           <Select allowClear placeholder="Moeda" style={{ width: 140 }} value={filtros.codigo_moeda} onChange={(v?: string) => setFiltros({ ...filtros, codigo_moeda: v })} options={estrangeiras.map((m) => ({ value: m.codigo, label: m.codigo }))} />
           <Select allowClear placeholder="Âmbito" style={{ width: 170 }} value={filtros.ambito} onChange={(v?: string) => setFiltros({ ...filtros, ambito: v })} options={[{ value: 'TODAS', label: 'Todas as empresas' }, { value: 'EMPRESA', label: 'Só esta empresa' }]} />
           <DatePicker.RangePicker format="DD/MM/YYYY" allowEmpty={[true, true]} onChange={(v) => setFiltros({ ...filtros, de: dataApi(v?.[0]), ate: dataApi(v?.[1]) })} />
-        </Space>
-        {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo câmbio</Button>}
-      </Flex>
+      </BarraFiltros>
       <TabelaApi<Cambio>
         url="/sistema/cambios"
         chaveConsulta={[...CHAVE, 'cambios']}
         filtros={filtros}
         porPagina={50}
         size="small"
+        scroll={scrollTabela()}
+        impressao={{
+          titulo: 'Taxas de câmbio',
+          periodo: filtros.de || filtros.ate ? `${filtros.de ? formatarData(filtros.de) : '…'} a ${filtros.ate ? formatarData(filtros.ate) : '…'}` : undefined,
+          filtros: [filtros.codigo_moeda ? `Moeda: ${filtros.codigo_moeda}` : null, filtros.ambito ? `Âmbito: ${filtros.ambito === 'EMPRESA' ? 'Só esta empresa' : 'Todas as empresas'}` : null],
+        }}
         columns={[
           { title: 'Data', dataIndex: 'data_taxa', width: 110, render: formatarData },
           { title: 'Moeda', dataIndex: 'codigo_moeda', width: 90, render: (v: string) => <strong>{v}</strong> },
           { title: 'Taxa (Kz)', dataIndex: 'taxa', align: 'right', render: taxa },
-          { title: 'Compra BAI', dataIndex: 'taxa_compra_bai', align: 'right', render: taxa },
-          { title: 'Venda BAI', dataIndex: 'taxa_venda_bai', align: 'right', render: taxa },
+          { title: 'Compra BAI', dataIndex: 'taxa_compra_bai', align: 'right', responsive: ['md'], render: taxa },
+          { title: 'Venda BAI', dataIndex: 'taxa_venda_bai', align: 'right', responsive: ['md'], render: taxa },
           { title: 'Âmbito', dataIndex: 'ambito', render: (a: string) => (a === 'EMPRESA' ? <Tag color="blue">Esta empresa</Tag> : <Tag>Todas</Tag>) },
-          { title: 'Origem', dataIndex: 'fonte_dados', render: (v: string | null) => v ?? '—' },
+          { title: 'Origem', dataIndex: 'fonte_dados', responsive: ['lg'], render: (v: string | null) => v ?? '—' },
           ...(gerir
             ? [
                 {
@@ -243,7 +248,7 @@ function Cambios({ gerir }: { gerir: boolean }) {
             : []),
         ]}
       />
-      <Modal title={edicao === 'novo' ? 'Novo câmbio' : 'Editar câmbio'} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={edicao === 'novo' ? 'Novo câmbio' : 'Editar câmbio'} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form
           form={form}
           layout="vertical"
@@ -389,6 +394,7 @@ function Bai() {
             size="small"
             rowKey="codigo_moeda"
             pagination={false}
+            scroll={scrollTabela()}
             dataSource={previsao.data.itens}
             rowSelection={{ selectedRowKeys: escolhidas, onChange: (k) => setEscolhidas(k as string[]), getCheckboxProps: (i) => ({ disabled: !i.disponivel }) }}
             columns={[

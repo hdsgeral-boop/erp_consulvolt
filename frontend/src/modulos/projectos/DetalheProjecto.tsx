@@ -74,7 +74,7 @@ export function DetalheProjecto() {
           <Space size="large" wrap>
             {p.cliente && <span>Cliente: {p.cliente.nome}</span>}
             {p.encomenda && <span>Encomenda: {p.encomenda.numero_documento}</span>}
-            <Space>Execução <BarraExecucao valor={p.execucao} largura={160} /></Space>
+            <Space wrap>Execução <BarraExecucao valor={p.execucao} largura={160} /></Space>
           </Space>
         }
         accoes={
@@ -91,7 +91,7 @@ export function DetalheProjecto() {
       <Tabs
         activeKey={separador}
         onChange={(k) => setParams({ sep: k }, { replace: true })}
-        destroyInactiveTabPane
+        destroyOnHidden
         items={[
           { key: 'resumo', label: 'Resumo', children: <SeparadorResumo {...props} aoIr={(s) => setParams({ sep: s }, { replace: true })} /> },
           { key: 'planeamento', label: 'Planeamento (WBS)', children: <SeparadorPlaneamento {...props} /> },

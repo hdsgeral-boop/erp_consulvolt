@@ -6,10 +6,13 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { descarregar, enviar, http, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { accoesAgt, svgComoDataUrl } from './agt/accoesDocumento';
+import { pedidoDocumentoComercial } from './impressao/documentoComercial';
+import { dadosDocumentoVenda, type QrDocumento } from './impressao/documentoVenda';
 import { CONTABILIZAVEIS, CONVERSOES, CORES_ESTADO, FISCAIS, TIPOS_DOCUMENTO, type DocumentoVenda, type LinhaVenda } from './api';
 
 /**
@@ -71,6 +74,19 @@ export function DetalheDocumento() {
       setACarregarAgt(null);
     }
   };
+  /** Documento impresso (A4 retrato); nos documentos selados inclui o QR de consulta AGT, se for possível obtê-lo. */
+  const pedidoImpressao = async () => {
+    let qrDoc: QrDocumento | null = qr;
+    if (!qrDoc && agt.qr) {
+      try {
+        const r = await http.get<string>(`/vendas/documentos/${d.id}/qr`, { params: { formato: 'svg' } });
+        qrDoc = { imagem: svgComoDataUrl(String(r.data)), url: (r.headers['x-url-consulta'] as string | undefined) ?? null };
+      } catch {
+        qrDoc = null; // imprime-se sem QR (a série e o hash continuam no documento)
+      }
+    }
+    return pedidoDocumentoComercial(dadosDocumentoVenda(d, qrDoc));
+  };
   const verPedido = async () => {
     setACarregarAgt('pedido');
     try {
@@ -100,6 +116,7 @@ export function DetalheDocumento() {
       <CabecalhoPagina
         titulo={d.numero_documento}
         subtitulo={TIPOS_DOCUMENTO[d.tipo_documento] ?? d.tipo_documento}
+        impressao={pedidoImpressao}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -139,21 +156,21 @@ export function DetalheDocumento() {
       />
       {anulado && <Alert type="error" showIcon message="Documento anulado." style={{ marginBottom: 16 }} />}
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Cliente">{d.cliente?.nome ?? `#${d.cliente_id}`}{d.cliente?.nif ? ` (NIF ${d.cliente.nif})` : ''}</Descriptions.Item>
           <Descriptions.Item label="Data">{formatarData(d.data_emissao)}</Descriptions.Item>
           <Descriptions.Item label="Estado">{d.estado ? <Tag color={CORES_ESTADO[d.estado]}>{d.estado}</Tag> : '—'}</Descriptions.Item>
           <Descriptions.Item label="Vencimento">{formatarData(d.data_vencimento)}</Descriptions.Item>
           <Descriptions.Item label="Contabilização">{d.contabilizado ? `Contabilizado (${d.numero_lan_contabilizacao ?? '—'})` : 'Por contabilizar'}</Descriptions.Item>
           <Descriptions.Item label="AGT">{d.faturacao_eletronica?.estado ?? '—'}{d.faturacao_eletronica?.hash ? ` · hash ${d.faturacao_eletronica.hash}` : ''}</Descriptions.Item>
-          {d.motivo_nota_credito && <Descriptions.Item label="Motivo da NC" span={3}>{d.motivo_nota_credito}</Descriptions.Item>}
-          {d.observacoes && <Descriptions.Item label="Observações" span={3}>{d.observacoes}</Descriptions.Item>}
+          {d.motivo_nota_credito && <Descriptions.Item label="Motivo da NC" span="filled">{d.motivo_nota_credito}</Descriptions.Item>}
+          {d.observacoes && <Descriptions.Item label="Observações" span="filled">{d.observacoes}</Descriptions.Item>}
         </Descriptions>
       </Card>
       <Card title="Linhas" style={{ marginBottom: 16 }}>
-        <Table<LinhaVenda> rowKey="id" size="small" pagination={false} columns={colunas} dataSource={d.linhas ?? []} scroll={{ x: 'max-content' }} />
+        <Table<LinhaVenda> rowKey="id" size="small" pagination={false} columns={colunas} dataSource={d.linhas ?? []} scroll={scrollTabela()} />
         <Flex justify="end" style={{ marginTop: 16 }}>
-          <Descriptions column={1} size="small" style={{ width: 320 }} bordered>
+          <Descriptions column={1} size="small" style={{ width: '100%', maxWidth: 320 }} bordered>
             <Descriptions.Item label="Líquido">{formatarKz(d.total_liquido)}</Descriptions.Item>
             <Descriptions.Item label="IVA">{formatarKz(d.total_imposto)}</Descriptions.Item>
             <Descriptions.Item label="Total">{formatarKz(d.total_bruto, true)}</Descriptions.Item>
@@ -189,7 +206,7 @@ export function DetalheDocumento() {
         open={qr !== null}
         onCancel={() => setQr(null)}
         footer={
-          <Space>
+          <Space wrap>
             <Button
               onClick={async () => {
                 try {
@@ -207,13 +224,13 @@ export function DetalheDocumento() {
       >
         {qr && (
           <Flex vertical align="center" gap={12}>
-            <img src={qr.imagem} alt={`QR code do documento ${d.numero_documento}`} style={{ width: 240, height: 240 }} />
+            <img src={qr.imagem} alt={`QR code do documento ${d.numero_documento}`} style={{ width: 240, maxWidth: '100%', height: 'auto' }} />
             {qr.url && <Typography.Text copyable={{ text: qr.url }} style={{ wordBreak: 'break-all', fontSize: 12 }}>{qr.url}</Typography.Text>}
           </Flex>
         )}
       </Modal>
 
-      <Modal title="Pedido assinado (não enviado)" open={pedido !== null} onCancel={() => setPedido(null)} footer={<Button type="primary" onClick={() => setPedido(null)}>Fechar</Button>} width={760}>
+      <Modal title="Pedido assinado (não enviado)" open={pedido !== null} onCancel={() => setPedido(null)} footer={<Button type="primary" onClick={() => setPedido(null)}>Fechar</Button>} width={larguraModal(760)}>
         <Typography.Paragraph type="secondary">Pré-visualização do pedido à AGT com a assinatura, para confirmar as chaves e a estrutura. Nada foi enviado.</Typography.Paragraph>
         <pre style={{ maxHeight: 420, overflow: 'auto', fontSize: 12, background: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 6 }}>{JSON.stringify(pedido, null, 2)}</pre>
       </Modal>
@@ -223,7 +240,7 @@ export function DetalheDocumento() {
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}>
             <Input.TextArea rows={3} maxLength={500} />
           </Form.Item>
-          <Space>O lançamento é estornado (fica o rasto no Diário).</Space>
+          <Space wrap>O lançamento é estornado (fica o rasto no Diário).</Space>
         </Form>
       </Modal>
     </>

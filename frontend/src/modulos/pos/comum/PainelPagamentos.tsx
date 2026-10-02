@@ -77,7 +77,7 @@ export function PainelPagamentos({ meios, total, pagamentos, onChange, grande, d
 
       {pagamentos.map((p) => (
         <Flex key={p.chave} gap={8} align="center" wrap>
-          <Tag icon={ICONES[p.tipo]} style={{ minWidth: 130, padding: grande ? '4px 8px' : undefined }}>
+          <Tag icon={ICONES[p.tipo]} style={{ minWidth: 110, padding: grande ? '4px 8px' : undefined }}>
             {p.nome}
           </Tag>
           <InputNumber<number>
@@ -87,17 +87,17 @@ export function PainelPagamentos({ meios, total, pagamentos, onChange, grande, d
             step={100}
             precision={2}
             decimalSeparator=","
-            style={{ width: 170 }}
+            style={{ width: 170, maxWidth: '100%' }}
             value={p.valor / 100}
             disabled={desactivado}
             onChange={(v) => alterar(p.chave, { valor: Math.round((v ?? 0) * 100) })}
-            addonAfter="Kz"
+            suffix="Kz"
           />
           {p.tipo !== 'NUMERARIO' && (
             <Input
               aria-label={`Comprovativo ${p.nome}`}
               size={tamanho}
-              style={{ width: 200 }}
+              style={{ width: 200, maxWidth: '100%' }}
               maxLength={100}
               disabled={desactivado}
               status={p.tipo === 'TRANSFERENCIA' && !p.referencia?.trim() ? 'error' : undefined}

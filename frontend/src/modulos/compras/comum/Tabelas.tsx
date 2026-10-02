@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { obter } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
+import { scrollTabela } from '@/componentes/responsivo';
 
 /*
  * As listagens paginadas no servidor (/api/compras/*, /api/compras/contratos, /api/logistica/guias-saida e inventarios,
@@ -30,7 +31,7 @@ export function TabelaLocal<T extends object>({ url, params, chaveConsulta, filt
     <Table<T>
       rowKey={(r) => String((r as { id?: number | string }).id ?? JSON.stringify(r))}
       size="middle"
-      scroll={{ x: 'max-content' }}
+      scroll={scrollTabela()}
       pagination={{ defaultPageSize: 25, showSizeChanger: true, pageSizeOptions: [10, 25, 50, 100], showTotal: (t) => `${t} registo(s)` }}
       {...props}
       loading={consulta.isFetching}

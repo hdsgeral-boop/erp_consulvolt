@@ -1,6 +1,8 @@
 import { Card, Table, Tooltip, Typography } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, InfoCircleOutlined, MinusOutlined } from '@ant-design/icons';
 import { useCallback, type ReactNode } from 'react';
+import { tabelaHtml } from '@/componentes/impressao';
+import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 
@@ -139,7 +141,7 @@ export function TabelaGestao({ tabela, porPagina = 10, extra }: { tabela: Tabela
         rowKey={(l) => String(l.id ?? l.chave ?? JSON.stringify(l))}
         dataSource={tabela.linhas}
         pagination={tabela.linhas.length > porPagina ? { pageSize: porPagina, size: 'small' } : false}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         locale={{ emptyText: 'Sem registos.' }}
         columns={tabela.colunas.map((c) => ({
           title: c.rotulo,
@@ -155,4 +157,17 @@ export function TabelaGestao({ tabela, porPagina = 10, extra }: { tabela: Tabela
       />
     </Card>
   );
+}
+
+/** Tabela da API de gestão (todas as linhas, sem paginação) em HTML de impressão. */
+export function tabelaGestaoHtml(tabela: TabelaApiGestao): string {
+  return tabelaHtml<Record<string, unknown>>({
+    legenda: tabela.titulo,
+    linhas: tabela.linhas,
+    colunas: tabela.colunas.map((c) => ({
+      titulo: c.rotulo,
+      alinhamento: eNumerico(c.formato) || c.formato === 'valor' ? ('direita' as const) : ('esquerda' as const),
+      valor: (l) => formatarPorFormato(l[c.id], c.formato === 'valor' ? (l.formato as string) : c.formato),
+    })),
+  });
 }

@@ -5,6 +5,9 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { COLUNAS_DESCRICOES, scrollTabela } from '@/componentes/responsivo';
+import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { dadosFaturaCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
@@ -12,7 +15,7 @@ import { numero } from '../comum/calculos';
 import { EstadoTag } from '../comum/estados';
 import { NomeProduto, NomeTerceiro, type RefProduto } from '../comum/referencias';
 import { accoesFatura } from '../comum/regras';
-import type { FaturaCompra, ItemCompra } from '../comum/tipos';
+import { numeroOuId, type FaturaCompra, type ItemCompra } from '../comum/tipos';
 
 /** Linha do JSON `itens` das facturas migradas do legado (sem linhas em itens_compra). */
 interface ItemLegado {
@@ -75,6 +78,23 @@ export function DetalheFatura() {
       <CabecalhoPagina
         titulo={`Factura ${f.numero_fatura}`}
         subtitulo={<NomeTerceiro id={f.fornecedor_id} terceiro={f.fornecedor} />}
+        impressao={() =>
+          pedidoDocumentoComercial(
+            dadosFaturaCompra(
+              f,
+              linhas.map((l) => ({
+                codigo: l.produto?.codigo ?? null,
+                descricao: l.produto?.nome ?? l.descricao ?? `Produto #${l.produto_id}`,
+                quantidade: l.quantidade,
+                preco: l.preco,
+                taxa: l.iva,
+                base: l.liquido,
+                iva: l.imposto || undefined,
+                total: l.liquido,
+              })),
+            ),
+          )
+        }
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -90,12 +110,12 @@ export function DetalheFatura() {
       />
       {f.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Factura anulada${f.motivo_anulacao ? `: ${f.motivo_anulacao}` : '.'}`} />}
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Data">{formatarData(f.data)}</Descriptions.Item>
           <Descriptions.Item label="Vencimento">{formatarData(f.data_vencimento)}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={f.estado} /></Descriptions.Item>
           <Descriptions.Item label="Encomenda">
-            {f.encomenda_compra_id ? (pode('compras_encomendas_view') ? <a onClick={() => navegar(`/m/compras/compras_encomendas/${f.encomenda_compra_id}`)}>#{f.encomenda_compra_id}</a> : `#${f.encomenda_compra_id}`) : 'Factura directa'}
+            {f.encomenda_compra_id ? (pode('compras_encomendas_view') ? <a onClick={() => navegar(`/m/compras/compras_encomendas/${f.encomenda_compra_id}`)}>{numeroOuId(f.numero_encomenda, f.encomenda_compra_id)}</a> : numeroOuId(f.numero_encomenda, f.encomenda_compra_id)) : 'Factura directa'}
           </Descriptions.Item>
           <Descriptions.Item label="Moeda">{moeda}{f.taxa_cambio && moeda !== 'AOA' ? ` (câmbio ${formatarNumero(f.taxa_cambio)})` : ''}</Descriptions.Item>
           <Descriptions.Item label="Contabilização">{f.contabilizado ? `Contabilizada${f.numero_lan_contabilizacao ? ` (${f.numero_lan_contabilizacao})` : ''}` : 'Por contabilizar'}</Descriptions.Item>
@@ -106,7 +126,7 @@ export function DetalheFatura() {
           rowKey="chave"
           size="small"
           pagination={false}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           dataSource={linhas}
           columns={[
             { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
@@ -117,7 +137,7 @@ export function DetalheFatura() {
           ]}
         />
         <Flex justify="end" style={{ marginTop: 16 }}>
-          <Descriptions column={1} size="small" bordered style={{ width: 360 }}>
+          <Descriptions column={1} size="small" bordered style={{ width: '100%', maxWidth: 360 }}>
             <Descriptions.Item label="IVA (Kz)">{formatarKz(f.total_imposto)}</Descriptions.Item>
             <Descriptions.Item label="Total (Kz)">{formatarKz(f.montante_total, true)}</Descriptions.Item>
             {moeda !== 'AOA' && <Descriptions.Item label={`Total (${moeda})`}>{formatarKz(f.montante_total_moeda)}</Descriptions.Item>}

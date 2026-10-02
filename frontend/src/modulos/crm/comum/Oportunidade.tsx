@@ -14,6 +14,8 @@ import { useMapaProdutos } from '@/modulos/compras/comum/referencias';
 import { CHAVE_CRM, useConfigCRM, useFunis } from './dados';
 import { ListaActividades, ModalActividade, ModalEmail, ModalMoverEtapa, SeletorContaCRM, TagSaude } from './componentes';
 import { DOCUMENTOS_CONVERSAO, totalItens, type Actividade, type ContaCRM, type Contacto, type Etapa, type ItemOportunidade, type Oportunidade, type Saude } from './tipos';
+import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { BotoesExportar } from '@/componentes/impressao';
 
 interface DetalheOportunidade {
   oportunidade: Oportunidade;
@@ -69,12 +71,20 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
     <Drawer
       open={id !== null}
       onClose={aoFechar}
-      width={880}
-      destroyOnClose
-      title={o ? <Space>{o.titulo}<TagSaude saude={d?.saude} /></Space> : 'Oportunidade'}
+      width={larguraGaveta(880)}
+      destroyOnHidden
+      rootClassName="crm-ficha-oportunidade"
+      title={o ? <Space wrap>{o.titulo}<TagSaude saude={d?.saude} /></Space> : 'Oportunidade'}
       extra={
         o && (
           <Space wrap>
+            <BotoesExportar
+              tamanho="small"
+              obterPedido={() => {
+                const corpo = document.querySelector('.crm-ficha-oportunidade .ant-drawer-body');
+                return corpo ? { titulo: `Oportunidade: ${o.titulo}`, subtitulo: o.conta_crm?.nome ?? null, conteudo: corpo } : null;
+              }}
+            />
             {editar && (
               <Dropdown
                 menu={{ items: etapas.filter((e) => e.id !== o.etapa_codigo).map((e) => ({ key: e.id, label: e.nome })), onClick: ({ key }) => setMover(etapas.find((e) => e.id === key)) }}
@@ -102,7 +112,7 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
       ) : (
         <>
           {d.saude.motivos.length > 0 && <Alert type={d.saude.nivel === 'RISCO' ? 'error' : 'warning'} showIcon style={{ marginBottom: 12 }} message={d.saude.motivos.join(' · ')} />}
-          <Descriptions size="small" column={2} bordered>
+          <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
             <Descriptions.Item label="Conta">{d.conta?.nome ?? '—'} {d.conta?.tipo === 'PROSPECT' && <Tag>prospect</Tag>}</Descriptions.Item>
             <Descriptions.Item label="Contacto">{d.contactos.find((c) => c.id === o.contacto_crm_id)?.nome ?? '—'}</Descriptions.Item>
             <Descriptions.Item label="Funil / etapa">{d.funil.nome} · <Tag color={d.etapa?.cor ?? undefined}>{d.etapa?.nome ?? o.etapa_codigo}</Tag></Descriptions.Item>
@@ -125,7 +135,7 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
                 children: (
                   <>
                     {editar && (
-                      <Space style={{ marginBottom: 8 }}>
+                      <Space wrap style={{ marginBottom: 8 }}>
                         <Button size="small" icon={<PlusOutlined />} onClick={() => setActividade('nova')}>Actividade</Button>
                         <Button size="small" icon={<MailOutlined />} onClick={() => setEmail(true)}>Email</Button>
                       </Space>
@@ -138,9 +148,9 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
                 key: 'linhas',
                 label: `Linhas (${o.itens?.length ?? 0})`,
                 children: (
-                  <Table<ItemOportunidade>
+                  <Table<ItemOportunidade> scroll={scrollTabela()}
                     size="small"
-                    rowKey={(_, i) => String(i)}
+                    rowKey={(l) => JSON.stringify(l)}
                     pagination={false}
                     dataSource={o.itens ?? []}
                     locale={{ emptyText: 'Sem linhas: o valor é o indicado na oportunidade.' }}
@@ -168,7 +178,7 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
                 key: 'documentos',
                 label: `Documentos (${d.documentos.length})`,
                 children: (
-                  <Table
+                  <Table scroll={scrollTabela()}
                     size="small"
                     rowKey="id"
                     pagination={false}
@@ -196,9 +206,9 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
         open={!!conversao}
         title={`Converter em ${DOCUMENTOS_CONVERSAO.find((x) => x.tipo === conversao?.tipo_documento)?.rotulo ?? ''}`}
         onCancel={() => setConversao(null)}
-        width={720}
+        width={larguraModal(720)}
         footer={
-          <Space>
+          <Space wrap>
             <Button onClick={() => setConversao(null)}>Fechar</Button>
             {pode('vendas_faturacao_view') && (
               <Button type="primary" icon={<FileAddOutlined />} onClick={() => navegar('/m/vendas/vendas_faturacao/novo', { state: { conversaoCrm: conversao } })}>
@@ -213,14 +223,14 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
             {conversao.aviso_atraso && (
               <Alert type="warning" showIcon message={`O cliente tem ${formatarKz(conversao.aviso_atraso.em_atraso)} Kz em atraso (${conversao.aviso_atraso.n_atrasadas} factura(s), até ${conversao.aviso_atraso.max_dias_atraso} dias).`} />
             )}
-            <Descriptions size="small" column={2} bordered>
+            <Descriptions size="small" column={{ xs: 1, sm: 2 }} bordered>
               <Descriptions.Item label="Tipo">{conversao.tipo_documento}</Descriptions.Item>
               <Descriptions.Item label="Data">{formatarData(conversao.data_emissao)}</Descriptions.Item>
               <Descriptions.Item label="Cliente" span={2}>{d?.conta?.nome} {conversao.cliente_id ? <Tag>cliente #{conversao.cliente_id}</Tag> : <Tag color="red">sem cliente</Tag>}</Descriptions.Item>
             </Descriptions>
-            <Table
+            <Table scroll={scrollTabela()}
               size="small"
-              rowKey={(_, i) => String(i)}
+              rowKey={(l) => JSON.stringify(l)}
               pagination={false}
               dataSource={conversao.linhas}
               locale={{ emptyText: 'Sem linhas com produto: acrescente-as na emissão.' }}
@@ -233,8 +243,8 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
             <Typography.Text type="secondary">
               O documento é emitido em Vendas › Facturação com estes dados (o servidor numera e sela). Depois de emitido, ligue-o aqui à oportunidade:
             </Typography.Text>
-            <Flex gap={8}>
-              <InputNumber placeholder="Id do documento emitido" min={1} value={vendaId} onChange={(v) => setVendaId(v)} style={{ width: 220 }} />
+            <Flex gap={8} wrap>
+              <InputNumber placeholder="Id do documento emitido" min={1} value={vendaId} onChange={(v) => setVendaId(v)} style={{ width: 220, maxWidth: '100%' }} />
               <Button icon={<LinkOutlined />} disabled={!vendaId} loading={ligar.isPending} onClick={() => ligar.mutate({ url: `/crm/oportunidades/${o!.id}/documentos`, dados: { venda_id: vendaId } })}>
                 Ligar documento
               </Button>
@@ -296,7 +306,7 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
   const temLinhas = (itens ?? []).length > 0;
 
   return (
-    <Modal open={aberto} title={oportunidade ? 'Editar oportunidade' : 'Nova oportunidade'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={860} destroyOnClose>
+    <Modal open={aberto} title={oportunidade ? 'Editar oportunidade' : 'Nova oportunidade'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(860)} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -310,44 +320,44 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
       >
         <Form.Item name="titulo" label="Título" rules={[{ required: true, message: 'Indique o título.' }]}><Input maxLength={255} /></Form.Item>
         <Row gutter={16}>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item name="conta_crm_id" label="Conta" rules={[{ required: true, message: 'Escolha a conta.' }]}>
               <SeletorContaCRM rotuloInicial={oportunidade?.conta_crm?.nome} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item name="contacto_crm_id" label="Contacto">
               <Select allowClear loading={contactos.isFetching} options={(contactos.data ?? []).map((c) => ({ value: c.id, label: `${c.nome}${c.cargo ? ` — ${c.cargo}` : ''}` }))} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="funil_vendas_crm_id" label="Funil" rules={[{ required: true }]}>
               <Select options={(funis.data ?? []).filter((f) => f.ativo || f.id === oportunidade?.funil_vendas_crm_id).map((f) => ({ value: f.id, label: f.nome }))} onChange={() => form.setFieldValue('etapa_codigo', undefined)} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="etapa_codigo" label="Etapa" extra={oportunidade ? 'Para mudar de etapa use «Mover etapa».' : 'Por omissão, a primeira.'}>
               <Select allowClear disabled={!!oportunidade} options={etapas.filter((e) => e.tipo === 'ABERTA').map((e) => ({ value: e.id, label: e.nome }))} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="data_fecho_prevista" label="Fecho previsto"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="valor" label="Valor (Kz)" extra={temLinhas ? 'Calculado pelas linhas.' : undefined}>
               <InputNumber min={0} decimalSeparator="," style={{ width: '100%' }} disabled={temLinhas} placeholder={temLinhas ? formatarKz(totalLinhas) : undefined} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="probabilidade" label="Probabilidade (%)" extra="Vazio: a da etapa."><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="responsavel" label="Responsável"><Input maxLength={100} /></Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="origem" label="Origem"><Select allowClear options={(config.data?.origens ?? []).map((o) => ({ value: o, label: o }))} /></Form.Item>
           </Col>
-          <Col span={16}>
+          <Col xs={24} sm={16}>
             <Form.Item name="notas" label="Notas"><Input.TextArea rows={1} autoSize={{ minRows: 1, maxRows: 4 }} maxLength={4000} /></Form.Item>
           </Col>
         </Row>
@@ -356,7 +366,7 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
             {(campos, { add, remove }) => (
               <>
                 {campos.map((c) => (
-                  <Flex key={c.key} gap={8} align="start">
+                  <Flex key={c.key} gap={8} align="start" wrap>
                     <Form.Item name={[c.name, 'produto_id']} style={{ flex: 2, marginBottom: 8 }}>
                       <SeletorProduto
                         allowClear

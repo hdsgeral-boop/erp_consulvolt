@@ -1,9 +1,11 @@
-import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Form, InputNumber, Space, Statistic, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, InputNumber, Space, Statistic, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, pares } from '@/componentes/impressao';
+import { scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -11,6 +13,7 @@ import type { Balancete, LinhaBalancete, LinhaIva, MapaIva, MovimentoRazao, Raza
 import { BotaoCsv, ValorKz } from '../comum/Componentes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
 import { enviarFicheiro } from '../comum/ficheiros';
+import { filtrosDosParametros, periodoDosParametros, tabelaDeColunas } from '../comum/impressao';
 import { SeletorConta } from '../comum/Seletores';
 import { rotuloTerceiro } from '../comum/terceiro';
 import { useAbrirLancamento, useMapa } from '../comum/useMapa';
@@ -49,16 +52,24 @@ export default function MapaBalancete() {
 function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, inicio?: string, fim?: string) => void }) {
   const mapa = useMapa<Balancete>('balancete', '/contabilidade/relatorios/balancete');
   const p = mapa.parametros;
-  const colunas: ColumnsType<LinhaBalancete> = [
-    { title: 'Conta', dataIndex: 'codigo_conta', fixed: 'left', render: (v: string) => <Typography.Link onClick={() => aoAbrirConta(v, p?.data_inicio as string, p?.data_fim as string)}>{v}</Typography.Link> },
-    { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null, r) => `${v ?? ''}${r.terceiro ? ` · ${r.terceiro.trim()}` : ''}` },
-    { title: 'Saldo inicial', dataIndex: 'saldo_inicial', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-    { title: 'Débito', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-    { title: 'Crédito', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-    { title: 'Saldo devedor', dataIndex: 'saldo_devedor', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-    { title: 'Saldo credor', dataIndex: 'saldo_credor', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-  ];
+  const pequeno = useEcraPequeno();
   const t = mapa.data?.totais;
+  const total = (k: string) => () => formatarKz(t?.[k]);
+  const colunas: ColunaApi<LinhaBalancete>[] = [
+    {
+      title: 'Conta',
+      dataIndex: 'codigo_conta',
+      fixed: pequeno ? undefined : 'left',
+      render: (v: string) => <Typography.Link onClick={() => aoAbrirConta(v, p?.data_inicio as string, p?.data_fim as string)}>{v}</Typography.Link>,
+      valorImpressao: (l) => l.codigo_conta,
+    },
+    { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null, r) => `${v ?? ''}${r.terceiro ? ` · ${r.terceiro.trim()}` : ''}` },
+    { title: 'Saldo inicial', dataIndex: 'saldo_inicial', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, responsive: ['md'], totalImpressao: total('saldo_inicial') },
+    { title: 'Débito', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('debito') },
+    { title: 'Crédito', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('credito') },
+    { title: 'Saldo devedor', dataIndex: 'saldo_devedor', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('saldo_devedor') },
+    { title: 'Saldo credor', dataIndex: 'saldo_credor', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('saldo_credor') },
+  ];
   return (
     <Card>
       <FiltrosMapa
@@ -93,7 +104,17 @@ function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, in
       />
       {mapa.data && (
         <>
-          <Space style={{ margin: '8px 0 12px' }}>
+          <Space wrap style={{ margin: '8px 0 12px' }}>
+            <BotoesExportar
+              obterPedido={async () =>
+                mapa.data && {
+                  titulo: 'Balancete',
+                  periodo: periodoDosParametros(p),
+                  filtros: filtrosDosParametros(p),
+                  conteudo: await tabelaDeColunas(colunas, mapa.data.linhas),
+                }
+              }
+            />
             <BotaoCsv<LinhaBalancete>
               nome={`balancete_${p?.data_inicio}_${p?.data_fim}`}
               linhas={mapa.data.linhas}
@@ -116,7 +137,7 @@ function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, in
             columns={colunas}
             dataSource={mapa.data.linhas}
             pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (n) => `${n} conta(s)` }}
-            scroll={{ x: 'max-content' }}
+            scroll={scrollTabela()}
             summary={() =>
               t ? (
                 <Table.Summary fixed>
@@ -124,7 +145,7 @@ function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, in
                     <Table.Summary.Cell index={0} colSpan={2}>
                       <strong>Totais</strong>
                     </Table.Summary.Cell>
-                    {['saldo_inicial', 'debito', 'credito', 'saldo_devedor', 'saldo_credor'].map((k, i) => (
+                    {(pequeno ? ['debito', 'credito', 'saldo_devedor', 'saldo_credor'] : ['saldo_inicial', 'debito', 'credito', 'saldo_devedor', 'saldo_credor']).map((k, i) => (
                       <Table.Summary.Cell key={k} index={i + 2} align="right">
                         <ValorKz valor={t[k]} forte />
                       </Table.Summary.Cell>
@@ -152,17 +173,17 @@ function SeparadorRazao({ inicial }: { inicial: { conta: string; inicio?: string
     if (inicial.inicio && inicial.fim) calcular({ codigo_conta: inicial.conta, data_inicio: inicial.inicio, data_fim: inicial.fim });
   }, [inicial, calcular]);
   const d = mapa.data;
-  const colunas: ColumnsType<MovimentoRazao> = [
+  const colunas: ColunaApi<MovimentoRazao>[] = [
     { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-    { title: 'Diário', dataIndex: 'diario' },
-    { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string, r) => (abrir ? <Typography.Link onClick={() => abrir(r.id)}>{v}</Typography.Link> : v) },
-    { title: 'Documento', dataIndex: 'numero_documento' },
+    { title: 'Diário', dataIndex: 'diario', responsive: ['md'] },
+    { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string, r) => (abrir ? <Typography.Link onClick={() => abrir(r.id)}>{v}</Typography.Link> : v), valorImpressao: (r) => r.numero_lan },
+    { title: 'Documento', dataIndex: 'numero_documento', responsive: ['md'] },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300 },
-    { title: 'Terceiro', key: 'terceiro', ellipsis: true, width: 200, render: (_, r) => (r.terceiro_id ? rotuloTerceiro(r.terceiro, r.terceiro_id) : '—') },
-    { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null) },
-    { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null) },
+    { title: 'Terceiro', key: 'terceiro', ellipsis: true, width: 200, responsive: ['lg'], render: (_, r) => (r.terceiro_id ? rotuloTerceiro(r.terceiro, r.terceiro_id) : '—') },
+    { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null), totalImpressao: () => formatarKz(d?.debito) },
+    { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null), totalImpressao: () => formatarKz(d?.credito) },
     { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-    { title: '', render: (_, r) => (r.estorno_de_id ? <Tag color="purple">Estorno</Tag> : r.estornado_por_id ? <Tag color="red">Estornado</Tag> : null) },
+    { title: '', exportar: false, render: (_, r) => (r.estorno_de_id ? <Tag color="purple">Estorno</Tag> : r.estornado_por_id ? <Tag color="red">Estornado</Tag> : null) },
   ];
   return (
     <Card>
@@ -190,6 +211,20 @@ function SeparadorRazao({ inicial }: { inicial: { conta: string; inicio?: string
             <Statistic title="Débitos" value={formatarKz(d.debito)} />
             <Statistic title="Créditos" value={formatarKz(d.credito)} />
             <Statistic title="Saldo final" value={formatarKz(d.saldo_final)} />
+            <BotoesExportar
+              obterPedido={async () => ({
+                titulo: `Razão da conta ${d.codigo_conta}`,
+                periodo: periodoDosParametros(mapa.parametros),
+                filtros: filtrosDosParametros(mapa.parametros).filter((x) => !x.startsWith('Conta:')),
+                conteudo:
+                  pares([
+                    ['Saldo inicial', formatarKz(d.saldo_inicial)],
+                    ['Débitos', formatarKz(d.debito)],
+                    ['Créditos', formatarKz(d.credito)],
+                    ['Saldo final', formatarKz(d.saldo_final)],
+                  ], 4) + (await tabelaDeColunas(colunas, d.movimentos)),
+              })}
+            />
             <BotaoCsv<MovimentoRazao>
               nome={`razao_${d.codigo_conta}`}
               linhas={d.movimentos}
@@ -207,7 +242,7 @@ function SeparadorRazao({ inicial }: { inicial: { conta: string; inicio?: string
               ]}
             />
           </Space>
-          <Table<MovimentoRazao> rowKey="id" size="small" columns={colunas} dataSource={d.movimentos} pagination={{ pageSize: 100, showTotal: (n) => `${n} movimento(s)` }} scroll={{ x: 'max-content' }} />
+          <Table<MovimentoRazao> rowKey="id" size="small" columns={colunas} dataSource={d.movimentos} pagination={{ pageSize: 100, showTotal: (n) => `${n} movimento(s)` }} scroll={scrollTabela()} />
         </>
       )}
     </Card>
@@ -247,19 +282,30 @@ function SeparadorIva() {
     }
   };
 
-  const colunas: ColumnsType<LinhaIva> = [
+  const colunas: ColunaApi<LinhaIva>[] = [
     { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-    { title: 'Diário', dataIndex: 'diario' },
+    { title: 'Diário', dataIndex: 'diario', responsive: ['md'] },
     { title: 'Documento', dataIndex: 'numero_documento', render: (v: string | null) => v?.trim() },
     { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string, r) => <span title={r.descricao_conta ?? ''}>{v}</span> },
-    { title: 'NIF', dataIndex: 'nif' },
-    { title: 'Terceiro', dataIndex: 'nome', ellipsis: true, width: 200 },
-    { title: 'Total doc.', dataIndex: 'total_documento', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-    { title: 'Base', dataIndex: 'base', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-    { title: 'IVA a débito', dataIndex: 'iva_debito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-    { title: 'IVA a crédito', dataIndex: 'iva_credito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
+    { title: 'NIF', dataIndex: 'nif', responsive: ['md'] },
+    { title: 'Terceiro', dataIndex: 'nome', ellipsis: true, width: 200, responsive: ['md'] },
+    { title: 'Total doc.', dataIndex: 'total_documento', align: 'right', render: (v: string) => <ValorKz valor={v} />, responsive: ['lg'], totalImpressao: () => formatarKz(d?.totais.total_documento) },
+    { title: 'Base', dataIndex: 'base', align: 'right', render: (v: string) => <ValorKz valor={v} />, totalImpressao: () => formatarKz(d?.totais.base) },
+    { title: 'IVA a débito', dataIndex: 'iva_debito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: () => formatarKz(d?.totais.iva_debito) },
+    { title: 'IVA a crédito', dataIndex: 'iva_credito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: () => formatarKz(d?.totais.iva_credito) },
   ];
 
+  const colunasAgt: ColunaApi<ReconciliacaoAgt['linhas'][number]>[] = [
+                  { title: 'Estado', dataIndex: 'estado', render: (v: string) => <Tag color={CORES_AGT[v]}>{v.replace(/_/g, ' ')}</Tag> },
+                  { title: 'NIF', dataIndex: 'nif' },
+                  { title: 'Nome', dataIndex: 'nome' },
+                  { title: 'Documento', dataIndex: 'documento' },
+                  { title: 'Base sistema', dataIndex: 'base_sistema', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+                  { title: 'IVA sistema', dataIndex: 'iva_sistema', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+                  { title: 'Base AGT', dataIndex: 'base_agt', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+                  { title: 'IVA AGT', dataIndex: 'iva_agt', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+                  { title: 'Diferença IVA', dataIndex: 'diferenca_iva', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
+                ];
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
       <Card>
@@ -271,6 +317,14 @@ function SeparadorIva() {
               <Statistic title="Base" value={formatarKz(d.totais.base)} />
               <Statistic title="IVA a débito" value={formatarKz(d.totais.iva_debito)} />
               <Statistic title="IVA a crédito" value={formatarKz(d.totais.iva_credito)} />
+              <BotoesExportar
+                obterPedido={async () => ({
+                  titulo: 'Mapa de IVA',
+                  periodo: periodoDosParametros(mapa.parametros),
+                  filtros: filtrosDosParametros(mapa.parametros),
+                  conteudo: await tabelaDeColunas(colunas, d.linhas),
+                })}
+              />
               <BotaoCsv<LinhaIva>
                 nome="mapa_iva"
                 linhas={d.linhas}
@@ -288,7 +342,7 @@ function SeparadorIva() {
                 ]}
               />
             </Space>
-            <Table<LinhaIva> rowKey="id" size="small" columns={colunas} dataSource={d.linhas} pagination={{ pageSize: 50, showTotal: (n) => `${n} linha(s)` }} scroll={{ x: 'max-content' }} />
+            <Table<LinhaIva> rowKey="id" size="small" columns={colunas} dataSource={d.linhas} pagination={{ pageSize: 50, showTotal: (n) => `${n} linha(s)` }} scroll={scrollTabela()} />
           </>
         )}
       </Card>
@@ -316,23 +370,28 @@ function SeparadorIva() {
                   </Space>
                 </Descriptions.Item>
               </Descriptions>
+              <Flex justify="end" style={{ marginBottom: 8 }}>
+                <BotoesExportar
+                  tamanho="small"
+                  obterPedido={async () => ({
+                    titulo: 'Reconciliação do IVA dedutível com a AGT',
+                    periodo: `Mês ${agt.mes}`,
+                    filtros: Object.entries(agt.contagem).map(([k, n]) => `${k.replace(/_/g, ' ').toLowerCase()}: ${n}`),
+                    conteudo:
+                      pares([
+                        ['Sistema', `${agt.sistema.documentos} doc. · base ${formatarKz(agt.sistema.base)} · IVA ${formatarKz(agt.sistema.iva)}`],
+                        ['AGT', `${agt.agt.documentos} doc. · base ${formatarKz(agt.agt.base)} · IVA ${formatarKz(agt.agt.iva)}`],
+                      ], 2) + (await tabelaDeColunas(colunasAgt, agt.linhas)),
+                  })}
+                />
+              </Flex>
               <Table
                 rowKey={(r, i) => `${r.nif}|${r.documento}|${i}`}
                 size="small"
                 dataSource={agt.linhas}
                 pagination={{ pageSize: 50 }}
-                scroll={{ x: 'max-content' }}
-                columns={[
-                  { title: 'Estado', dataIndex: 'estado', render: (v: string) => <Tag color={CORES_AGT[v]}>{v.replace(/_/g, ' ')}</Tag> },
-                  { title: 'NIF', dataIndex: 'nif' },
-                  { title: 'Nome', dataIndex: 'nome' },
-                  { title: 'Documento', dataIndex: 'documento' },
-                  { title: 'Base sistema', dataIndex: 'base_sistema', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                  { title: 'IVA sistema', dataIndex: 'iva_sistema', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                  { title: 'Base AGT', dataIndex: 'base_agt', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                  { title: 'IVA AGT', dataIndex: 'iva_agt', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                  { title: 'Diferença IVA', dataIndex: 'diferenca_iva', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-                ]}
+                scroll={scrollTabela()}
+                columns={colunasAgt}
               />
             </>
           )}

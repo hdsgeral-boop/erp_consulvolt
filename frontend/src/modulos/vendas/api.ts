@@ -18,7 +18,7 @@ export interface DocumentoVenda {
   tipo_documento: string;
   numero_documento: string;
   data_emissao: string;
-  cliente?: { id: number; nome: string; nif: string | null } | null;
+  cliente?: { id: number; nome: string; nif: string | null; endereco?: string | null } | null;
   cliente_id: number;
   total_liquido: string;
   total_imposto: string;

@@ -14,6 +14,9 @@ import { EtiquetaOrc, Kz, rotuloOrc, useRubricas } from './comum/componentes';
 import { GrelhaMensal, type ValoresRubrica } from './comum/GrelhaMensal';
 import { accoesOrcamento, doze, percentagensValidas, repartirPorPesos, totaisMensais } from './comum/regras';
 import type { FichaOrcamento } from './comum/tipos';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pares } from '@/componentes/impressao';
+import { grelhaHtml } from './comum/impressao';
 
 /** Ficha do orçamento: valores mensais editáveis, ciclo de aprovação, versões e hierarquia (top-down / contributos). */
 export function DetalheOrcamento() {
@@ -52,6 +55,20 @@ export function DetalheOrcamento() {
   return (
     <>
       <CabecalhoPagina
+        impressaoDesactivada={rub.isLoading}
+        impressao={() => ({
+          titulo: `Orçamento de ${rotuloOrc(o.tipo).toLowerCase()} ${o.ano}`,
+          subtitulo: `${o.nome ?? rotuloOrc(o.tipo)} · versão ${o.versao} · ${rotuloOrc(o.estado)}${alterado ? ' (com alterações por gravar)' : ''}`,
+          periodo: String(o.ano),
+          conteudo: pares([
+            ['Método', o.metodo === 'BASE_ZERO' ? 'Base zero' : o.metodo === 'HISTORICO' ? 'Histórico' : '—'],
+            ['Abordagem', o.abordagem === 'TOP_DOWN' ? 'Top-down' : o.abordagem === 'BOTTOM_UP' ? 'Bottom-up' : '—'],
+            ['Responsável', o.responsavel ?? '—'],
+            ['Submetido', o.submetido_em ? `${o.submetido_por ?? ''} ${formatarDataHora(o.submetido_em)}` : '—'],
+            ['Aprovado', o.aprovado_em ? `${o.aprovado_por ?? ''} ${formatarDataHora(o.aprovado_em)}` : '—'],
+            ['Criado por', o.criado_por ?? '—'],
+          ]) + grelhaHtml(o.tipo, rubricas, valores, true),
+        })}
         titulo={<Space wrap><Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navegar('..')} />{o.nome ?? rotuloOrc(o.tipo)} {o.ano} · v{o.versao}<EtiquetaOrc valor={o.tipo} /><EtiquetaOrc valor={o.estado} /></Space>}
         subtitulo={o.metodo === 'BASE_ZERO' ? 'Base zero: cada rubrica com valor exige justificação (10+ caracteres)' : undefined}
         accoes={
@@ -109,7 +126,7 @@ export function DetalheOrcamento() {
       </Card>
       {o.filhos.length > 0 && (
         <Card size="small" title={`Orçamentos filhos (${o.filhos.length})`}>
-          <Table rowKey="id" size="small" pagination={false} dataSource={o.filhos} onRow={(f) => ({ onClick: () => navegar(`../${f.id}`, { relative: 'path' }), style: { cursor: 'pointer' } })}
+          <Table rowKey="id" size="small" pagination={false} scroll={scrollTabela()} dataSource={o.filhos} onRow={(f) => ({ onClick: () => navegar(`../${f.id}`, { relative: 'path' }), style: { cursor: 'pointer' } })}
             columns={[
               { title: 'Nome', dataIndex: 'nome' },
               { title: 'Versão', dataIndex: 'versao', render: (v) => `v${v}` },
@@ -151,7 +168,7 @@ function ModalRepartir({ orcamento, aoFechar }: { orcamento: FichaOrcamento | nu
               {filhos.map((f) => (
                 <Space key={f.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                   <Typography.Text>{f.nome}</Typography.Text>
-                  <InputNumber min={0} max={100} precision={2} value={pcts[f.id]} onChange={(v) => setPcts((s) => ({ ...s, [f.id]: v ?? 0 }))} addonAfter="%" style={{ width: 140 }} />
+                  <InputNumber min={0} max={100} precision={2} value={pcts[f.id]} onChange={(v) => setPcts((s) => ({ ...s, [f.id]: v ?? 0 }))} suffix="%" style={{ width: 140 }} />
                 </Space>
               ))}
               <Typography.Text type={valido ? 'success' : 'danger'}>Soma: {Object.values(pcts).reduce((a, b) => a + b, 0).toFixed(2)}% {valido ? '' : '(tem de ser 100%)'}</Typography.Text>
@@ -182,7 +199,7 @@ function ModalContributos({ orcamento, aoFechar }: { orcamento: FichaOrcamento |
   const mudar = (chave: number, campo: keyof LinhaContributo, v: unknown) => setLinhas((s) => s.map((l) => (l.chave === chave ? { ...l, [campo]: v } : l)));
   const valido = linhas.length > 0 && linhas.every((l) => l.responsavel?.trim() && (dim === 'UN' ? l.unidade_negocio_id : dim === 'CC' ? l.centro_custo_id : l.projeto_id));
   return (
-    <Modal title="Pedir contributos (bottom-up)" open={!!orcamento} onCancel={aoFechar} width={760} okText="Pedir" cancelText="Cancelar" okButtonProps={{ disabled: !valido }} confirmLoading={accao.isPending}
+    <Modal title="Pedir contributos (bottom-up)" open={!!orcamento} onCancel={aoFechar} width={larguraModal(760)} okText="Pedir" cancelText="Cancelar" okButtonProps={{ disabled: !valido }} confirmLoading={accao.isPending}
       onOk={() => {
         const v = form.getFieldsValue();
         accao.mutate({ url: `/orcamento/orcamentos/${orcamento?.id}/contributos`, dados: { filhos: linhas.map(({ chave: _c, ...l }) => ({ ...l, responsavel: l.responsavel?.trim() })), prazo: dataApi(v.prazo) ?? null, preencher: !!v.preencher } });

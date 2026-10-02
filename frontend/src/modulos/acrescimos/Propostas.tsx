@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
@@ -21,7 +23,7 @@ export default function Propostas() {
     <>
       <CabecalhoPagina titulo="Proposta mensal" subtitulo="Lançamentos por contabilizar até ao mês (incluindo atrasados): um lançamento por linha, no diário do módulo" />
       <Tabs
-        destroyInactiveTabPane
+        destroyOnHidden
         items={[
           { key: 'proposta', label: 'Proposta', children: <PropostaMes /> },
           { key: 'lancamentos', label: 'Lançamentos', children: <Lancamentos /> },
@@ -53,6 +55,27 @@ function PropostaMes() {
           <Typography.Text type="secondary">{linhas.length} linha(s) · total {formatarKz(q.data?.total, true)}</Typography.Text>
         </Space>
         <Space wrap>
+          <BotoesExportar
+            desactivado={!linhas.length}
+            obterPedido={() => ({
+              titulo: 'Proposta mensal de acréscimos e diferimentos',
+              periodo: `Até ${mes.format('MM/YYYY')}`,
+              filtros: [`${linhas.length} linha(s)`],
+              conteudo: tabelaHtml({
+                linhas,
+                totais: true,
+                colunas: [
+                  { titulo: 'Registo', valor: (l) => `#${l.item.id} ${l.item.descricao}`, quebrar: true },
+                  { titulo: 'Tipo', valor: (l) => l.tipo_rotulo },
+                  { titulo: 'Período', valor: (l) => `${l.periodo}${l.atrasada ? ' (atrasada)' : ''}` },
+                  { titulo: 'Data', valor: (l) => l.data, formato: 'data' },
+                  { titulo: 'Débito', valor: (l) => l.debito },
+                  { titulo: 'Crédito', valor: (l) => l.credito },
+                  { titulo: 'Valor (Kz)', valor: (l) => l.valor, formato: 'moeda', somar: true },
+                ],
+              }),
+            })}
+          />
           <BotaoCsv nome={`proposta-ad-${m}`} linhas={linhas} colunas={[
             { titulo: 'Registo', valor: (l) => l.item.id }, { titulo: 'Descrição', valor: (l) => l.item.descricao }, { titulo: 'Tipo', valor: (l) => l.tipo_rotulo },
             { titulo: 'Período', valor: (l) => l.periodo }, { titulo: 'Data', valor: (l) => l.data }, { titulo: 'Débito', valor: (l) => l.debito }, { titulo: 'Crédito', valor: (l) => l.credito },
@@ -79,7 +102,7 @@ function PropostaMes() {
         loading={q.isFetching}
         dataSource={linhas}
         pagination={false}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         rowSelection={podeContab ? { selectedRowKeys: chaves, onChange: (k) => setChaves(k as string[]) } : undefined}
         columns={[
           { title: 'Registo', key: 'i', render: (_, l) => <><strong>#{l.item.id}</strong> {l.item.descricao}</> },
@@ -107,25 +130,26 @@ function Lancamentos() {
   const accao = useAccao({ invalidar: [['acrescimos']], aoSucesso: () => setDescontab(null) });
   return (
     <Card>
-      <Flex gap={8} wrap style={{ marginBottom: 16 }}>
+      <BarraFiltros>
         <DatePicker picker="month" format="MM/YYYY" placeholder="Período" value={periodo} onChange={setPeriodo} />
         <Select placeholder="Estado" allowClear value={estado} onChange={setEstado} style={{ width: 170 }} options={[{ value: 'CONTABILIZADO', label: 'Contabilizado' }, { value: 'ANULADO', label: 'Anulado (estornado)' }]} />
-      </Flex>
+      </BarraFiltros>
       <TabelaApi<LancamentoAD>
         url="/acrescimos/lancamentos"
         chaveConsulta={['acrescimos', 'lancamentos']}
         filtros={{ periodo: periodo ? mesApi(periodo) : undefined, estado }}
+        impressao={{ titulo: 'Lançamentos de acréscimos e diferimentos', periodo: periodo ? periodo.format('MM/YYYY') : undefined, filtros: [estado && `Estado: ${estado === 'CONTABILIZADO' ? 'Contabilizado' : 'Anulado (estornado)'}`] }}
         columns={[
           { title: 'Registo', dataIndex: 'item_acrescimo_diferimento_id', render: (id) => <Link to={`/m/acrescimos/ad_registos/${id}`}>#{id}</Link> },
           { title: 'Período', dataIndex: 'periodo' },
           { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaAD valor={v} /> },
-          { title: 'Documento', dataIndex: 'numero_documento' },
+          { title: 'Documento', dataIndex: 'numero_documento', responsive: ['md'] },
           { title: 'N.º lanç.', dataIndex: 'numero_lan' },
           { title: 'Data', dataIndex: 'data_documento', render: formatarData },
           { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} /> },
           { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaAD valor={v} /> },
           {
-            title: '', key: 'acc', align: 'right',
+            title: '', key: 'acc', align: 'right', exportar: false,
             render: (_, l) => pode('ad_contabilizar') && l.estado === 'CONTABILIZADO' && <Button size="small" danger icon={<RollbackOutlined />} onClick={() => setDescontab(l)}>Descontabilizar</Button>,
           },
         ]}
@@ -146,6 +170,25 @@ function Reconciliacao() {
       <Flex gap={8} wrap style={{ marginBottom: 16 }} align="center">
         <DatePicker format="DD/MM/YYYY" placeholder="À data (hoje)" value={data} onChange={setData} />
         <Typography.Text type="secondary">Saldo das contas 37 segundo o módulo e segundo o Diário {data ? `em ${data.format('DD/MM/YYYY')}` : 'à data de hoje'}.</Typography.Text>
+        <BotoesExportar
+          tamanho="small"
+          desactivado={!q.data?.length}
+          obterPedido={() => ({
+            titulo: 'Reconciliação das contas 37 (módulo × Diário)',
+            periodo: data ? `Em ${data.format('DD/MM/YYYY')}` : 'À data de hoje',
+            filtros: [divergentes ? `${divergentes} conta(s) com diferença` : 'Módulo e Diário conferem'],
+            conteudo: tabelaHtml({
+              linhas: q.data ?? [],
+              totais: true,
+              colunas: [
+                { titulo: 'Conta', valor: (l) => l.conta },
+                { titulo: 'Módulo (Kz)', valor: (l) => l.modulo, formato: 'moeda', somar: true },
+                { titulo: 'Diário (Kz)', valor: (l) => l.diario, formato: 'moeda', somar: true },
+                { titulo: 'Diferença', valor: (l) => l.diferenca, formato: 'moeda', somar: true },
+              ],
+            }),
+          })}
+        />
       </Flex>
       {q.data && <Alert style={{ marginBottom: 12 }} type={divergentes ? 'warning' : 'success'} showIcon message={divergentes ? `${divergentes} conta(s) com diferença` : 'Módulo e Diário conferem'} />}
       <Table<LinhaReconciliacao>
@@ -154,6 +197,7 @@ function Reconciliacao() {
         loading={q.isFetching}
         dataSource={q.data}
         pagination={false}
+        scroll={scrollTabela()}
         columns={[
           { title: 'Conta', dataIndex: 'conta' },
           { title: 'Módulo (Kz)', dataIndex: 'modulo', align: 'right', render: (v) => <ValorKz valor={v} /> },

@@ -4,11 +4,15 @@ import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { EtiquetaOrc, Kz, SeletorOrcamento, useOrcamentos } from './comum/componentes';
+import { EtiquetaOrc, Kz, rotuloOrc, SeletorOrcamento, useOrcamentos } from './comum/componentes';
 import { MESES, somaValores } from './comum/regras';
 import type { Controlo as DadosControlo, Desvio, LinhaControlo } from './comum/tipos';
+import { COLUNAS_DESCRICOES, larguraGaveta, scrollTabela } from '@/componentes/responsivo';
+import { pares } from '@/componentes/impressao';
+import { pedidoTabela } from './comum/impressao';
 
 /** Orçamento › Controlo orçamental (ecrã orc_controlo): orçado vs realizado por rubrica, piores desvios e análise do desvio. */
 export default function Controlo() {
@@ -33,12 +37,33 @@ export default function Controlo() {
   const exploracao = c?.orcamento.tipo === 'EXPLORACAO';
   const pct = (v: number | null) => (v === null ? '—' : `${v.toLocaleString('pt-PT', { maximumFractionDigits: 1 })}%`);
 
+  const colunas: ColunaApi<LinhaControlo>[] = [
+    { title: 'Rubrica', key: 'r', render: (_, l) => <><strong>{l.codigo}</strong> {l.nome}</>, valorImpressao: (l) => `${l.codigo} ${l.nome}` },
+    { title: 'Natureza', dataIndex: 'natureza', responsive: ['md'], render: (v) => <EtiquetaOrc valor={v} /> },
+    { title: 'Orçado', dataIndex: 'orcado', align: 'right', render: (v) => <Kz valor={v} />, valorImpressao: (l) => formatarKz(l.orcado) },
+    { title: 'Orçado inicial (v1)', dataIndex: 'orcado_inicial', align: 'right', responsive: ['lg'], valorImpressao: (l) => (l.orcado_inicial !== null && l.orcado_inicial !== l.orcado ? formatarKz(l.orcado_inicial) : '='), render: (v, l) => (v !== null && v !== l.orcado ? <Kz valor={v} /> : <Typography.Text type="secondary">=</Typography.Text>) },
+    { title: 'Realizado', dataIndex: 'realizado', align: 'right', render: (v) => <Kz valor={v} forte />, valorImpressao: (l) => formatarKz(l.realizado) },
+    { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v, l) => <Typography.Text type={l.favoravel ? 'success' : 'danger'}>{formatarKz(v)}</Typography.Text> },
+    { title: 'Execução', dataIndex: 'execucao_pct', align: 'right', render: pct },
+    { title: 'Apreciação', key: 'f', valorImpressao: (l) => `${l.favoravel ? 'Favorável' : 'Desfavorável'}${l.desvio_significativo ? ' (> 10%)' : ''}`, render: (_, l) => <>{l.favoravel ? <Tag color="green">Favorável</Tag> : <Tag color="red">Desfavorável</Tag>}{l.desvio_significativo && <Tag color="volcano">&gt; 10%</Tag>}</> },
+  ];
+
   return (
     <>
-      <CabecalhoPagina titulo="Controlo orçamental" subtitulo="Realizado a partir do Diário; desvio = real − orçado (favorável acima do orçado nas entradas e abaixo nas saídas)" />
+      <CabecalhoPagina titulo="Controlo orçamental" subtitulo="Realizado a partir do Diário; desvio = real − orçado (favorável acima do orçado nas entradas e abaixo nas saídas)"
+        impressaoDesactivada={!c}
+        impressao={() => c && pedidoTabela({
+          titulo: 'Mapa de controlo orçamental',
+          subtitulo: `${c.orcamento.nome ?? rotuloOrc(c.orcamento.tipo)} (${rotuloOrc(c.orcamento.estado)})`,
+          periodo: `${vista === 'MES' ? MESES[mes - 1] : vista === 'ANO' ? 'Ano completo' : `Janeiro a ${MESES[mes - 1]}`} de ${c.orcamento.ano}`,
+          antes: pares([['Orçado (Kz)', formatarKz(c.totais.orcado)], ['Realizado (Kz)', formatarKz(c.totais.realizado)],
+            ...(c.saldo_inicial !== undefined ? [['Saldo inicial (Kz)', formatarKz(c.saldo_inicial)] as [string, string]] : [])]),
+          colunas,
+          linhas: c.linhas,
+        })} />
       <Card style={{ marginBottom: 16 }}>
         <Flex gap={8} wrap align="center">
-          <SeletorOrcamento value={orcamento} onChange={setOrcamento} style={{ width: 420 }} />
+          <SeletorOrcamento value={orcamento} onChange={setOrcamento} style={{ width: 420, maxWidth: '100%' }} />
           <Select value={mes} onChange={setMes} style={{ width: 140 }} options={MESES.map((m, i) => ({ value: i + 1, label: `Até ${m}` }))} />
           <Segmented value={vista} onChange={(v) => setVista(v as typeof vista)} options={[{ value: 'MES', label: 'Mês' }, { value: 'ACUMULADO', label: 'Acumulado' }, { value: 'ANO', label: 'Ano' }]} />
           {c && c.orcamento.estado !== 'APROVADO' && <Tag color="gold">Orçamento {c.orcamento.estado.toLowerCase()}</Tag>}
@@ -77,18 +102,9 @@ export default function Controlo() {
               loading={q.isFetching}
               dataSource={c.linhas}
               pagination={false}
-              scroll={{ x: 'max-content' }}
+              scroll={scrollTabela()}
               onRow={(l) => ({ onClick: () => exploracao && setDesvio(l), style: { cursor: exploracao ? 'pointer' : undefined } })}
-              columns={[
-                { title: 'Rubrica', key: 'r', render: (_, l) => <><strong>{l.codigo}</strong> {l.nome}</> },
-                { title: 'Natureza', dataIndex: 'natureza', render: (v) => <EtiquetaOrc valor={v} /> },
-                { title: 'Orçado', dataIndex: 'orcado', align: 'right', render: (v) => <Kz valor={v} /> },
-                { title: 'Orçado inicial (v1)', dataIndex: 'orcado_inicial', align: 'right', render: (v, l) => (v !== null && v !== l.orcado ? <Kz valor={v} /> : <Typography.Text type="secondary">=</Typography.Text>) },
-                { title: 'Realizado', dataIndex: 'realizado', align: 'right', render: (v) => <Kz valor={v} forte /> },
-                { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v, l) => <Typography.Text type={l.favoravel ? 'success' : 'danger'}>{formatarKz(v)}</Typography.Text> },
-                { title: 'Execução', dataIndex: 'execucao_pct', align: 'right', render: pct },
-                { title: '', key: 'f', render: (_, l) => <>{l.favoravel ? <Tag color="green">Favorável</Tag> : <Tag color="red">Desfavorável</Tag>}{l.desvio_significativo && <Tag color="volcano">&gt; 10%</Tag>}</> },
-              ]}
+              columns={colunas}
             />
           </Card>
           {c.sem_rubrica.length > 0 && (
@@ -112,17 +128,17 @@ function DrawerDesvio({ orcamentoId, linha, ate, aoFechar }: { orcamentoId?: num
   });
   const d = q.data;
   return (
-    <Drawer title={linha ? `Desvio — ${linha.codigo} ${linha.nome}` : ''} open={!!linha} onClose={aoFechar} width={860} loading={q.isLoading}>
+    <Drawer title={linha ? `Desvio — ${linha.codigo} ${linha.nome}` : ''} open={!!linha} onClose={aoFechar} width={larguraGaveta(860)} loading={q.isLoading}>
       {q.error && <Alert type="error" showIcon message={(q.error as Error).message} />}
       {d && (
         <>
-          <Descriptions size="small" bordered column={3} style={{ marginBottom: 16 }}>
+          <Descriptions size="small" bordered column={COLUNAS_DESCRICOES} style={{ marginBottom: 16 }}>
             <Descriptions.Item label="Desvio total"><Kz valor={d.desvio_total} forte /></Descriptions.Item>
             <Descriptions.Item label="Classificação"><EtiquetaOrc valor={d.classificacao} /></Descriptions.Item>
             <Descriptions.Item label="Meses desfavoráveis">{d.desfavoraveis}</Descriptions.Item>
-            {d.fecho_estimado && <Descriptions.Item label="Fecho estimado" span={3}><Kz valor={d.fecho_estimado.valor} /> (orçado {formatarKz(d.fecho_estimado.orcado_ano)} · previsão rev. {d.fecho_estimado.revisao} de {d.fecho_estimado.mes_referencia})</Descriptions.Item>}
+            {d.fecho_estimado && <Descriptions.Item label="Fecho estimado" span="filled"><Kz valor={d.fecho_estimado.valor} /> (orçado {formatarKz(d.fecho_estimado.orcado_ano)} · previsão rev. {d.fecho_estimado.revisao} de {d.fecho_estimado.mes_referencia})</Descriptions.Item>}
           </Descriptions>
-          <Table size="small" rowKey="mes" pagination={false} dataSource={d.mensal}
+          <Table size="small" rowKey="mes" pagination={false} scroll={scrollTabela()} dataSource={d.mensal}
             columns={[
               { title: 'Mês', dataIndex: 'mes', render: (m) => MESES[m - 1] },
               { title: 'Orçado', dataIndex: 'orcado', align: 'right', render: (v) => <Kz valor={v} /> },
@@ -131,7 +147,7 @@ function DrawerDesvio({ orcamentoId, linha, ate, aoFechar }: { orcamentoId?: num
               { title: 'Acumulado', dataIndex: 'acumulado', align: 'right', render: (v) => <Kz valor={v} forte /> },
             ]} />
           {d.contas.length > 0 && (
-            <Table style={{ marginTop: 16 }} size="small" rowKey={(x) => String(x.conta)} pagination={false} dataSource={d.contas} title={() => <strong>Contas face ao mesmo período do ano anterior</strong>}
+            <Table style={{ marginTop: 16 }} size="small" rowKey={(x) => String(x.conta)} pagination={false} scroll={scrollTabela()} dataSource={d.contas} title={() => <strong>Contas face ao mesmo período do ano anterior</strong>}
               columns={[
                 { title: 'Conta', dataIndex: 'conta' },
                 { title: 'Real', dataIndex: 'real', align: 'right', render: (v) => <Kz valor={v} /> },
@@ -140,7 +156,7 @@ function DrawerDesvio({ orcamentoId, linha, ate, aoFechar }: { orcamentoId?: num
               ]} />
           )}
           {d.maiores_movimentos.length > 0 && (
-            <Table style={{ marginTop: 16 }} size="small" rowKey={(_, i) => String(i)} pagination={false} dataSource={d.maiores_movimentos} title={() => <strong>Maiores movimentos</strong>}
+            <Table style={{ marginTop: 16 }} size="small" rowKey={(_, i) => String(i)} pagination={false} scroll={scrollTabela()} dataSource={d.maiores_movimentos} title={() => <strong>Maiores movimentos</strong>}
               columns={[
                 { title: 'Data', dataIndex: 'data_documento', render: formatarData },
                 { title: 'Documento', dataIndex: 'numero_documento', render: (v) => v ?? '—' },

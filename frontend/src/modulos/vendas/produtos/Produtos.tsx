@@ -1,11 +1,13 @@
-import { Button, Card, Checkbox, Col, Drawer, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tabs, Tag, Tooltip } from 'antd';
+import { Button, Card, Checkbox, Col, Drawer, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tabs, Tag, Tooltip } from 'antd';
 import { CopyOutlined, DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnsType } from 'antd/es/table';
+
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
+import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, larguraGaveta, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
@@ -58,16 +60,19 @@ function ListaProdutos() {
   const bloquear = useAccao({ invalidar: [['logistica']] });
   const eliminar = useAccao({ invalidar: [['logistica']] });
   const nomeCategoria = (id: number | null) => categorias.data?.find((c) => c.id === id)?.nome ?? '—';
+  const pequeno = useEcraPequeno();
 
-  const colunas: ColumnsType<ProdutoFicha> = [
+  const colunas: ColunaApi<ProdutoFicha>[] = [
     { title: 'Código', dataIndex: 'codigo', render: (v) => <strong>{v || '—'}</strong> },
     { title: 'Nome', dataIndex: 'nome' },
-    { title: 'Categoria', dataIndex: 'categoria_produto_id', render: nomeCategoria },
+    { title: 'Categoria', dataIndex: 'categoria_produto_id', responsive: ['md'], render: nomeCategoria },
     { title: 'Preço (Kz)', dataIndex: 'preco_unitario', align: 'right', render: (v: string | null) => formatarKz(v) },
-    { title: 'IVA %', dataIndex: 'taxa_imposto', align: 'right', render: (v: string | null, r) => (r.codigo_isencao_fe ? <Tooltip title="Motivo de isenção AGT">{formatarNumero(v)} · {r.codigo_isencao_fe}</Tooltip> : formatarNumero(v)) },
+    { title: 'IVA %', dataIndex: 'taxa_imposto', align: 'right', responsive: ['sm'], valorImpressao: (r) => `${formatarNumero(r.taxa_imposto)}${r.codigo_isencao_fe ? ` · ${r.codigo_isencao_fe}` : ''}`, render: (v: string | null, r) => (r.codigo_isencao_fe ? <Tooltip title="Motivo de isenção AGT">{formatarNumero(v)} · {r.codigo_isencao_fe}</Tooltip> : formatarNumero(v)) },
     {
       title: 'Tipo',
       key: 'tipo',
+      responsive: ['lg'],
+      valorImpressao: (r) => [r.movimenta_stock && 'Stock', r.e_servico && 'Serviço', r.e_quarto && 'Quarto', r.lavandaria && 'Lavandaria', r.e_ativo_imobilizado && 'Activo'].filter(Boolean).join(', '),
       render: (_, r) => (
         <Space size={4} wrap>
           {r.movimenta_stock && <Tag color="blue">Stock</Tag>}
@@ -78,14 +83,14 @@ function ListaProdutos() {
         </Space>
       ),
     },
-    { title: 'Conta de venda', key: 'conta', render: (_, r) => r.contas.venda || '—' },
-    { title: 'Estado', dataIndex: 'bloqueado', render: (b: boolean) => (b ? <Tag color="red">Bloqueado</Tag> : <Tag color="green">Activo</Tag>) },
+    { title: 'Conta de venda', key: 'conta', responsive: ['lg'], render: (_, r) => r.contas.venda || '—' },
+    { title: 'Estado', dataIndex: 'bloqueado', responsive: ['sm'], render: (b: boolean) => (b ? <Tag color="red">Bloqueado</Tag> : <Tag color="green">Activo</Tag>) },
     {
       title: '',
       key: 'accoes',
       align: 'right',
       render: (_, r) => (
-        <Space>
+        <Space wrap={false}>
           {podeGerir && (
             <>
               <Tooltip title="Editar"><Button size="small" icon={<EditOutlined />} onClick={() => setEdicao({ modo: 'editar', id: r.id })} /></Tooltip>
@@ -121,20 +126,27 @@ function ListaProdutos() {
 
   return (
     <Card>
-      <Flex gap={8} wrap style={{ marginBottom: 16 }} justify="space-between">
-        <Flex gap={8} wrap>
-          <Input.Search placeholder="Código ou nome" allowClear style={{ width: 260 }} onSearch={setPesquisa} />
-          <Select placeholder="Categoria" allowClear style={{ width: 200 }} value={categoria} onChange={setCategoria} options={(categorias.data ?? []).map((c) => ({ value: c.id, label: c.nome }))} />
+      <BarraFiltros accoes={podeGerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao({ modo: 'novo' })}>Novo produto</Button>}>
+          <Input.Search placeholder="Código ou nome" allowClear style={{ width: 260, maxWidth: '100%' }} onSearch={setPesquisa} />
+          <Select placeholder="Categoria" allowClear style={{ width: 200, maxWidth: '100%' }} value={categoria} onChange={setCategoria} options={(categorias.data ?? []).map((c) => ({ value: c.id, label: c.nome }))} />
           <Select placeholder="Estado" allowClear style={{ width: 150 }} value={bloqueado} onChange={setBloqueado} options={[{ value: '0', label: 'Activos' }, { value: '1', label: 'Bloqueados' }]} />
           <Select placeholder="Stock" allowClear style={{ width: 190 }} value={stock} onChange={setStock} options={[{ value: '1', label: 'Movimentam stock' }, { value: '0', label: 'Não movimentam stock' }]} />
-        </Flex>
-        {podeGerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao({ modo: 'novo' })}>Novo produto</Button>}
-      </Flex>
+      </BarraFiltros>
       <TabelaApi<ProdutoFicha>
         url="/logistica/produtos"
         chaveConsulta={['logistica', 'produtos']}
         filtros={{ pesquisa, categoria_produto_id: categoria, bloqueado, movimenta_stock: stock }}
         columns={colunas}
+        size={pequeno ? 'small' : 'middle'}
+        impressao={{
+          titulo: 'Lista de produtos e serviços',
+          filtros: [
+            pesquisa && `Pesquisa: ${pesquisa}`,
+            categoria !== undefined && `Categoria: ${nomeCategoria(categoria)}`,
+            bloqueado && (bloqueado === '1' ? 'Bloqueados' : 'Activos'),
+            stock && (stock === '1' ? 'Movimentam stock' : 'Não movimentam stock'),
+          ],
+        }}
         onRow={(r) => ({ onDoubleClick: () => podeGerir && setEdicao({ modo: 'editar', id: r.id }) })}
       />
       <FormularioProduto edicao={edicao} aoFechar={() => setEdicao(null)} categorias={categorias.data ?? []} />
@@ -179,11 +191,11 @@ function FormularioProduto({ edicao, aoFechar, categorias }: { edicao: { modo: '
       title={titulo}
       open={!!edicao}
       onClose={aoFechar}
-      width={760}
+      width={larguraGaveta(760)}
       loading={!!edicao?.id && ficha.isLoading}
-      destroyOnClose
+      destroyOnHidden
       extra={
-        <Space>
+        <Space wrap>
           <Button onClick={aoFechar}>Cancelar</Button>
           <Button type="primary" loading={gravar.isPending} onClick={() => form.submit()}>Gravar</Button>
         </Space>
@@ -342,9 +354,20 @@ function Categorias() {
   }, [edicao, form]);
 
   return (
-    <Card extra={podeGerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova categoria</Button>}>
+    <Card
+      extra={
+        <Space wrap>
+          {podeGerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova categoria</Button>}
+          <BotoesExportar
+            desactivado={!consulta.data?.length}
+            obterPedido={() => ({ titulo: 'Categorias de produtos', conteudo: tabelaHtml({ colunas: [{ titulo: 'Categoria', valor: (c: Categoria) => c.nome }], linhas: consulta.data ?? [] }) })}
+          />
+        </Space>
+      }
+    >
       <Table<Categoria>
         rowKey="id"
+        scroll={scrollTabela()}
         loading={consulta.isFetching}
         dataSource={consulta.data ?? []}
         pagination={{ defaultPageSize: 25 }}
@@ -355,7 +378,7 @@ function Categorias() {
             key: 'accoes',
             align: 'right',
             render: (_, c) => (
-              <Space>
+              <Space wrap>
                 {podeGerir && <Button size="small" icon={<EditOutlined />} onClick={() => setEdicao(c)} aria-label="Editar" />}
                 {podeEliminar && (
                   <Button
@@ -379,7 +402,7 @@ function Categorias() {
           },
         ]}
       />
-      <Modal title={edicao === 'nova' ? 'Nova categoria' : 'Editar categoria'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
+      <Modal width={larguraModal(480)} title={edicao === 'nova' ? 'Nova categoria' : 'Editar categoria'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"

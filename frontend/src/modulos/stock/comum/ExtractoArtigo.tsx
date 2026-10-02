@@ -4,9 +4,12 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { NomeArmazem } from '@/modulos/compras/comum/referencias';
+import { NomeArmazem, useArmazens } from '@/modulos/compras/comum/referencias';
+import { BotoesExportar } from '@/componentes/impressao';
+import { pedidoExtractoArtigo } from './impressao';
 import { SeletorArmazem } from '@/modulos/compras/comum/Seletores';
 import { TIPOS_MOVIMENTO, type Extracto } from './tipos';
+import { larguraGaveta, scrollTabela } from '@/componentes/responsivo';
 
 /** Extracto do artigo (GET /logistica/produtos/{id}/extracto): saldo inicial, movimentos com saldo corrido e saldo final. */
 export function ExtractoArtigo({ produtoId, armazemInicial, aoFechar }: { produtoId: number | null; armazemInicial?: number | null; aoFechar: () => void }) {
@@ -18,12 +21,15 @@ export function ExtractoArtigo({ produtoId, armazemInicial, aoFechar }: { produt
     enabled: produtoId !== null,
   });
   const e = consulta.data;
+  const armazens = useArmazens();
+  const nomeArmazem = (id: number | null) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? `#${id}` : '');
 
   return (
-    <Drawer title={e ? `Extracto — ${e.produto.codigo ? `${e.produto.codigo} — ` : ''}${e.produto.nome}` : 'Extracto do artigo'} open={produtoId !== null} onClose={aoFechar} width={980} loading={consulta.isLoading}>
+    <Drawer title={e ? `Extracto — ${e.produto.codigo ? `${e.produto.codigo} — ` : ''}${e.produto.nome}` : 'Extracto do artigo'} open={produtoId !== null} onClose={aoFechar} width={larguraGaveta(980)} loading={consulta.isLoading}>
       <Flex gap={8} wrap style={{ marginBottom: 16 }}>
         <DatePicker.RangePicker format="DD/MM/YYYY" allowClear={false} value={periodo} onChange={(v) => v?.[0] && v?.[1] && setPeriodo([v[0], v[1]])} />
-        <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 240 }} value={armazem} onChange={setArmazem} />
+        <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 240, maxWidth: '100%' }} value={armazem} onChange={setArmazem} />
+        <BotoesExportar desactivado={!e} obterPedido={() => (e ? pedidoExtractoArtigo(e, nomeArmazem) : null)} />
       </Flex>
       {consulta.error && <Alert type="error" showIcon message="Não foi possível obter o extracto." />}
       {e && (
@@ -37,18 +43,18 @@ export function ExtractoArtigo({ produtoId, armazemInicial, aoFechar }: { produt
           <Table
             rowKey="id"
             size="small"
-            scroll={{ x: 'max-content' }}
+            scroll={scrollTabela()}
             pagination={{ defaultPageSize: 50, showSizeChanger: true }}
             dataSource={e.movimentos}
             columns={[
               { title: 'Data', dataIndex: 'data', render: formatarData },
               { title: 'Tipo', dataIndex: 'tipo', render: (t: string) => <Tag>{TIPOS_MOVIMENTO[t] ?? t}</Tag> },
-              { title: 'Armazém', dataIndex: 'armazem_id', render: (v: number) => <NomeArmazem id={v} /> },
-              { title: 'Referência', dataIndex: 'referencia', ellipsis: true },
+              { title: 'Armazém', dataIndex: 'armazem_id', responsive: ['md'], render: (v: number) => <NomeArmazem id={v} /> },
+              { title: 'Referência', dataIndex: 'referencia', ellipsis: true, responsive: ['md'] },
               { title: 'Entrada', dataIndex: 'entrada', align: 'right', render: (v: string | null) => (v ? formatarNumero(v) : '') },
               { title: 'Saída', dataIndex: 'saida', align: 'right', render: (v: string | null) => (v ? formatarNumero(v) : '') },
-              { title: 'Custo unit.', dataIndex: 'custo_unitario', align: 'right', render: (v: string | null) => formatarKz(v) },
-              { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string | null) => formatarKz(v) },
+              { title: 'Custo unit.', dataIndex: 'custo_unitario', align: 'right', responsive: ['lg'], render: (v: string | null) => formatarKz(v) },
+              { title: 'Valor', dataIndex: 'valor', align: 'right', responsive: ['lg'], render: (v: string | null) => formatarKz(v) },
               { title: 'Saldo qtd.', dataIndex: 'saldo_quantidade', align: 'right', render: formatarNumero },
               { title: 'Saldo valor', dataIndex: 'saldo_valor', align: 'right', render: (v: string) => formatarKz(v) },
             ]}

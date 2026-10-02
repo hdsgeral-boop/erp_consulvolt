@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Collapse, Drawer, Empty, Flex, Form, Input, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Statistic, Switch, Table, Tabs, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Collapse, Drawer, Empty, Flex, Form, Input, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Statistic, Switch, Tabs, Tag, Tooltip, Typography, message } from 'antd';
 import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined, ExperimentOutlined, PlusOutlined, SafetyCertificateOutlined, WarningOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -21,6 +21,8 @@ import {
   type Contagem,
   type RegraSegregacao,
 } from './comum/permissoes';
+import { larguraGaveta, useEcra } from '@/componentes/responsivo';
+import { TabelaLocalImprimivel } from './comum/impressao';
 
 interface PerfilResumo {
   id: number;
@@ -99,26 +101,28 @@ function ListaPerfis({ gerir }: { gerir: boolean }) {
 
   return (
     <Card>
-      <Flex justify="space-between" wrap gap={8} style={{ marginBottom: 12 }}>
-        <Input.Search placeholder="Pesquisar perfil" allowClear style={{ width: 280 }} onChange={(e) => setFiltro(e.target.value)} />
-        {gerir && (
+      <TabelaLocalImprimivel<PerfilResumo>
+        titulo="Perfis de permissões"
+        filtros={filtro ? [`Pesquisa: ${filtro}`] : undefined}
+        filtrosEcra={<Input.Search placeholder="Pesquisar perfil" allowClear style={{ width: 280 }} onChange={(e) => setFiltro(e.target.value)} />}
+        accoes={gerir && (
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>
             Novo perfil
           </Button>
         )}
-      </Flex>
-      <Table<PerfilResumo>
         rowKey="id"
         size="middle"
         loading={lista.isLoading}
         dataSource={linhas}
         pagination={{ pageSize: 50, hideOnSinglePage: true }}
         columns={[
-          { title: 'Perfil', dataIndex: 'nome', render: (v: string, p) => (<><strong>{v}</strong>{p.descricao && <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{p.descricao}</div>}</>) },
+          { title: 'Perfil', dataIndex: 'nome', valorImpressao: (p) => [p.nome, p.descricao].filter(Boolean).join(' — '), render: (v: string, p) => (<><strong>{v}</strong>{p.descricao && <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{p.descricao}</div>}</>) },
           {
             title: 'Formato',
             dataIndex: 'formato',
             width: 120,
+            responsive: ['md'],
+            valorImpressao: (p) => (p.formato === 'TOTAL' ? 'Total' : p.formato === 'V2' ? 'Actual' : 'Antigo'),
             render: (f: PerfilResumo['formato']) =>
               f === 'TOTAL' ? <Tag color="purple">Total</Tag> : f === 'V2' ? <Tag color="blue">Actual</Tag> : <Tooltip title="Perfil no formato antigo: abra e grave para converter."><Tag color="orange">Antigo</Tag></Tooltip>,
           },
@@ -240,9 +244,9 @@ function EditorPerfil({ id, gerir, aoFechar, aoGravar }: { id: number | 'novo' |
     <Drawer
       open={aberto}
       onClose={aoFechar}
-      width={980}
+      width={larguraGaveta(980)}
       title={id === 'novo' ? 'Novo perfil' : `Perfil — ${detalhe.data?.nome ?? ''}`}
-      destroyOnClose
+      destroyOnHidden
       extra={
         gerir && (
           <Button type="primary" loading={gravar.isPending} disabled={!nome.trim()} onClick={() => gravar.mutate(false)}>
@@ -456,6 +460,7 @@ function Matriz() {
   const [texto, setTexto] = useState('');
   const [soAtribuidas, setSoAtribuidas] = useState(true);
   const [perfisVisiveis, setPerfisVisiveis] = useState<number[]>([]);
+  const { telemovel } = useEcra();
 
   const linhas = useMemo(() => {
     if (!catalogo.data || !matriz.data) return [];
@@ -465,17 +470,21 @@ function Matriz() {
 
   if (catalogo.isLoading || matriz.isLoading) return <Skeleton active />;
   const perfis = (matriz.data?.perfis ?? []).filter((p) => !perfisVisiveis.length || perfisVisiveis.includes(p.id));
+  const fixarEsquerda = telemovel ? undefined : ('left' as const);
 
   return (
     <Card>
-      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+      <TabelaLocalImprimivel<(typeof linhas)[number]>
+        titulo="Matriz de permissões por perfil"
+        filtros={[modulo ? `Módulo: ${catalogo.data?.modulos.find((m) => m.id === modulo)?.nome ?? modulo}` : null, texto ? `Pesquisa: ${texto}` : null, soAtribuidas ? 'Só permissões atribuídas a algum perfil' : null]}
+        filtrosEcra={<>
         <Select allowClear placeholder="Módulo" style={{ width: 240 }} value={modulo} onChange={setModulo} options={(catalogo.data?.modulos ?? []).map((m) => ({ value: m.id, label: m.nome }))} />
         <Input.Search placeholder="Ecrã ou tarefa" allowClear style={{ width: 240 }} onChange={(e) => setTexto(e.target.value)} />
         <Select
           mode="multiple"
           allowClear
           placeholder="Todos os perfis"
-          style={{ minWidth: 280, flex: 1 }}
+          style={{ minWidth: 240, flex: 1 }}
           value={perfisVisiveis}
           onChange={setPerfisVisiveis}
           optionFilterProp="label"
@@ -484,8 +493,7 @@ function Matriz() {
         <Checkbox checked={soAtribuidas} onChange={(e) => setSoAtribuidas(e.target.checked)}>
           Só permissões atribuídas a algum perfil
         </Checkbox>
-      </Flex>
-      <Table
+        </>}
         size="small"
         bordered
         rowKey="chave"
@@ -493,12 +501,13 @@ function Matriz() {
         pagination={{ pageSize: 100, showSizeChanger: false, showTotal: (n) => `${n} permissão(ões)` }}
         scroll={{ x: 'max-content', y: 560 }}
         columns={[
-          { title: 'Módulo', dataIndex: 'modulo', width: 160, fixed: 'left' },
+          { title: 'Módulo', dataIndex: 'modulo', width: 160, fixed: fixarEsquerda },
           {
             title: 'Permissão',
             dataIndex: 'rotulo',
-            width: 320,
-            fixed: 'left',
+            width: telemovel ? 200 : 320,
+            fixed: fixarEsquerda,
+            valorImpressao: (l) => `${l.rotulo}${l.sensivel ? ' (sensível)' : ''}`,
             render: (v: string, l) => (
               <span style={{ paddingLeft: l.tipo === 'tarefa' ? 16 : 0, fontWeight: l.tipo === 'consulta' ? 600 : 400 }}>
                 {v} {l.sensivel && <Tag color="orange">sensível</Tag>}
@@ -510,6 +519,7 @@ function Matriz() {
             key: `p${p.id}`,
             width: 44,
             align: 'center' as const,
+            valorImpressao: (l: { perfis: Set<number> }) => (l.perfis.has(p.id) ? '✓' : ''),
             render: (_: unknown, l: { perfis: Set<number> }) => (l.perfis.has(p.id) ? <CheckOutlined style={{ color: p.acesso_total ? '#722ed1' : '#389e0d' }} aria-label="Sim" /> : null),
           })),
         ]}

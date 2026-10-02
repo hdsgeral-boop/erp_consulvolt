@@ -74,7 +74,7 @@ final class ServicoVendasPOS
                 'unidade_negocio_id' => $t->unidade_negocio_id, 'centro_custo_id' => $t->centro_custo_id, 'meio_pagamento' => count($tipos) === 1 ? $tipos[0] : 'MISTO',
                 'pos' => ['origem_serie' => $t->codigo, 'percentagem_desconto' => $pct, 'colunas' => $extra + [
                     'sessao_pos_id' => $s->id, 'terminal_pos_id' => $t->id, 'codigo_terminal_pos' => $t->codigo, 'pos_pagamentos' => $pagamentos,
-                    'pos_troco' => $troco, 'pos_operador' => Auth::user()?->nome_utilizador, 'desconto' => bcsub($bruto, $total, 2),
+                    'pos_troco' => $troco, 'pos_operador' => Auth::user()?->nomeApresentacao(), 'desconto' => bcsub($bruto, $total, 2),
                 ]],
             ]);
         });

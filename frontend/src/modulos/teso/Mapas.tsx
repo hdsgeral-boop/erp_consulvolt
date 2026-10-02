@@ -4,12 +4,17 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import { useSessao } from '@/sessao/SessaoContexto';
+import { pedidoDisponibilidades, pedidoExtrato } from './impressao';
+import { MapaPendentes } from './MapaPendentes';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, ValorKz } from '../contab/comum/Componentes';
 import type { Disponibilidades, ExtratoConta } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { extratoConfere } from './regras';
+import { scrollTabela } from '@/componentes/responsivo';
 
 type LinhaDisponivel = Disponibilidades['contas'][number];
 type MovimentoExtrato = ExtratoConta['movimentos'][number];
@@ -24,6 +29,7 @@ export default function Mapas() {
   const [periodo, setPeriodo] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs()]);
   const [conta, setConta] = useState<string>();
   const [separador, setSeparador] = useState('saldos');
+  const { pode } = useSessao();
   const p = { data_inicio: dataApi(periodo[0]), data_fim: dataApi(periodo[1]) };
 
   const saldos = useQuery({
@@ -62,6 +68,8 @@ export default function Mapas() {
                   </Space>
                 }
                 extra={
+                  <Space wrap>
+                  <BotoesExportar desactivado={!saldos.data} obterPedido={() => (saldos.data ? pedidoDisponibilidades(saldos.data) : null)} />
                   <BotaoCsv<LinhaDisponivel>
                     nome={`disponibilidades_${dataApi(data)}`}
                     linhas={saldos.data?.contas ?? []}
@@ -73,6 +81,7 @@ export default function Mapas() {
                       { titulo: 'Saldo', valor: (l) => l.saldo, numerico: true },
                     ]}
                   />
+                  </Space>
                 }
               >
                 {saldos.data && (
@@ -88,13 +97,13 @@ export default function Mapas() {
                   loading={saldos.isFetching}
                   dataSource={saldos.data?.contas ?? []}
                   pagination={false}
-                  scroll={{ x: 'max-content' }}
+                  scroll={scrollTabela()}
                   onRow={(l) => ({ onClick: () => { setConta(l.codigo_conta); setSeparador('extrato'); }, style: { cursor: 'pointer' } })}
                   columns={[
                     { title: 'Conta', dataIndex: 'codigo_conta' },
                     { title: 'Descrição', dataIndex: 'descricao' },
-                    { title: 'Tipo', dataIndex: 'tipo', render: (t: string) => (t === 'CAIXA' ? <Tag color="gold">Caixa</Tag> : <Tag color="blue">Banco</Tag>) },
-                    { title: 'Meio de pagamento', dataIndex: 'meio_pagamento', render: (v: string | null, l) => (v ? `${v}${l.codigo_moeda && l.codigo_moeda !== 'AOA' ? ` (${l.codigo_moeda})` : ''}` : '—') },
+                    { title: 'Tipo', dataIndex: 'tipo', responsive: ['sm'], render: (t: string) => (t === 'CAIXA' ? <Tag color="gold">Caixa</Tag> : <Tag color="blue">Banco</Tag>) },
+                    { title: 'Meio de pagamento', dataIndex: 'meio_pagamento', responsive: ['md'], render: (v: string | null, l) => (v ? `${v}${l.codigo_moeda && l.codigo_moeda !== 'AOA' ? ` (${l.codigo_moeda})` : ''}` : '—') },
                     { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} forte /> },
                   ]}
                 />
@@ -111,6 +120,7 @@ export default function Mapas() {
                   <SeletorContaFinanceira value={conta} onChange={setConta} />
                   <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} allowClear={false} onChange={(v) => v?.[0] && v[1] && setPeriodo([v[0], v[1]])} />
                   <Button onClick={() => void extrato.refetch()} disabled={!conta}>Actualizar</Button>
+                  <BotoesExportar desactivado={!e} obterPedido={() => (e ? pedidoExtrato(e) : null)} />
                 </Space>
                 {e && (
                   <>
@@ -140,14 +150,14 @@ export default function Mapas() {
                       size="small"
                       dataSource={e.movimentos}
                       pagination={{ pageSize: 50 }}
-                      scroll={{ x: 'max-content' }}
+                      scroll={scrollTabela()}
                       columns={[
                         { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-                        { title: 'Diário', dataIndex: 'diario' },
-                        { title: 'Lançamento', dataIndex: 'numero_lan' },
+                        { title: 'Diário', dataIndex: 'diario', responsive: ['lg'] },
+                        { title: 'Lançamento', dataIndex: 'numero_lan', responsive: ['md'] },
                         { title: 'Documento', dataIndex: 'numero_documento' },
-                        { title: 'Terceiro', key: 'terceiro', render: (_, l) => l.terceiro?.nome?.trim() ?? '—' },
-                        { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300 },
+                        { title: 'Terceiro', key: 'terceiro', responsive: ['md'], render: (_, l) => l.terceiro?.nome?.trim() ?? '—' },
+                        { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300, responsive: ['lg'] },
                         { title: 'Entrada', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : null) },
                         { title: 'Saída', align: 'right', render: (_, l) => (l.tipo_dc === 'C' ? <ValorKz valor={l.valor} /> : null) },
                         { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
@@ -158,6 +168,7 @@ export default function Mapas() {
               </Card>
             ),
           },
+          ...(pode('teso_gestao_pagamentos_view') ? [{ key: 'pendentes', label: 'Pendentes', children: <MapaPendentes /> }] : []),
         ]}
       />
     </>

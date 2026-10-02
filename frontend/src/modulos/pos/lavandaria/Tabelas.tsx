@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { colunasParaImpressao, type ColunaApi } from '@/componentes/TabelaApi';
+import { BotoesExportar, prepararTexto, tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { GRUPOS_LAV, UNIDADES_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
 import type { DefinicoesLav, Peca, ServicoLav } from './tipos';
@@ -28,29 +31,45 @@ function TabelaPecas() {
   const servicos = useServicosLav(true);
   const [editar, setEditar] = useState<Peca | 'nova' | null>(null);
   const nomeServico = (id: number) => servicos.data?.find((s) => s.id === id)?.nome ?? `#${id}`;
+  const colunasPecas: ColunaApi<Peca>[] = [
+          { title: 'Código', dataIndex: 'codigo' },
+          { title: 'Peça', dataIndex: 'nome' },
+          { title: 'Tecido', dataIndex: 'tecido', render: (v) => v ?? '—', responsive: ['md'] },
+          { title: 'Cor', dataIndex: 'cor', render: (v) => v ?? '—', responsive: ['md'] },
+          { title: 'Unidade', dataIndex: 'unidade', render: (v: string) => UNIDADES_LAV[v] ?? v },
+          { title: 'Preço base', dataIndex: 'preco', align: 'right', render: (v) => formatarKz(v) },
+          { title: 'Preços por serviço', dataIndex: 'precos_servico', responsive: ['lg'], render: (v: Peca['precos_servico']) => (v ?? []).map((p) => <Tag key={p.produto_id}>{`${nomeServico(p.produto_id)}: ${formatarKz(p.preco)}`}</Tag>) },
+          { title: 'Estado', dataIndex: 'ativo', render: (v) => (v === false ? <Tag>Inactiva</Tag> : <Tag color="green">Activa</Tag>) },
+          { title: '', key: 'a', exportar: false, render: (_, p) => pode('lav_tabelas') && <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(p)} aria-label="Editar" /> },
+        ];
   return (
     <>
-      {pode('lav_tabelas') && (
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginBottom: 12 }} onClick={() => setEditar('nova')}>
-          Nova peça
-        </Button>
-      )}
+      <BarraFiltros
+        accoes={
+          <BotoesExportar
+            tamanho="small"
+            desactivado={!pecas.data?.length}
+            obterPedido={async () => {
+              await prepararTexto();
+              const linhas = pecas.data ?? [];
+              return { titulo: 'Tabela de peças da lavandaria', conteudo: tabelaHtml({ colunas: colunasParaImpressao(colunasPecas, linhas), linhas }) };
+            }}
+          />
+        }
+      >
+        {pode('lav_tabelas') && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('nova')}>
+            Nova peça
+          </Button>
+        )}
+      </BarraFiltros>
       <Table<Peca>
         rowKey="id"
         size="small"
+        scroll={scrollTabela()}
         loading={pecas.isFetching}
         dataSource={pecas.data}
-        columns={[
-          { title: 'Código', dataIndex: 'codigo' },
-          { title: 'Peça', dataIndex: 'nome' },
-          { title: 'Tecido', dataIndex: 'tecido', render: (v) => v ?? '—' },
-          { title: 'Cor', dataIndex: 'cor', render: (v) => v ?? '—' },
-          { title: 'Unidade', dataIndex: 'unidade', render: (v: string) => UNIDADES_LAV[v] ?? v },
-          { title: 'Preço base', dataIndex: 'preco', align: 'right', render: (v) => formatarKz(v) },
-          { title: 'Preços por serviço', dataIndex: 'precos_servico', render: (v: Peca['precos_servico']) => (v ?? []).map((p) => <Tag key={p.produto_id}>{`${nomeServico(p.produto_id)}: ${formatarKz(p.preco)}`}</Tag>) },
-          { title: 'Estado', dataIndex: 'ativo', render: (v) => (v === false ? <Tag>Inactiva</Tag> : <Tag color="green">Activa</Tag>) },
-          { title: '', key: 'a', render: (_, p) => pode('lav_tabelas') && <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(p)} aria-label="Editar" /> },
-        ]}
+        columns={colunasPecas}
       />
       <ModalPeca alvo={editar} servicos={servicos.data ?? []} aoFechar={() => setEditar(null)} />
     </>
@@ -71,35 +90,35 @@ function ModalPeca({ alvo, servicos, aoFechar }: { alvo: Peca | 'nova' | null; s
     );
   }, [alvo, p, form]);
   return (
-    <Modal open={!!alvo} title={p ? `Peça ${p.nome}` : 'Nova peça'} width={640} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!alvo} title={p ? `Peça ${p.nome}` : 'Nova peça'} width={larguraModal(640)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onCancel={aoFechar} onOk={() => form.submit()} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(p ? { metodo: 'put', url: `/pos/lavandaria/pecas/${p.id}`, dados: v } : { url: '/pos/lavandaria/pecas', dados: v })}>
-        <Row gutter={12}>
-          <Col span={12}>
+        <Row gutter={[12, 0]}>
+          <Col xs={24} sm={12}>
             <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}>
               <Input maxLength={255} />
             </Form.Item>
           </Col>
-          <Col span={6}>
+          <Col xs={12} sm={6}>
             <Form.Item name="unidade" label="Unidade">
               <Select options={Object.entries(UNIDADES_LAV).map(([value, label]) => ({ value, label }))} />
             </Form.Item>
           </Col>
-          <Col span={6}>
+          <Col xs={12} sm={6}>
             <Form.Item name="ativo" label="Activa" valuePropName="checked">
               <Switch />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="tecido" label="Tecido">
               <Input maxLength={255} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="cor" label="Cor">
               <Input maxLength={255} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="preco" label="Preço base (c/ IVA)">
               <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} />
             </Form.Item>
@@ -114,7 +133,7 @@ function ModalPeca({ alvo, servicos, aoFechar }: { alvo: Peca | 'nova' | null; s
                     <Select placeholder="Serviço" options={servicos.map((s) => ({ value: s.id, label: s.nome }))} />
                   </Form.Item>
                   <Form.Item name={[c.name, 'preco']}>
-                    <InputNumber<number> min={0} precision={2} decimalSeparator="," placeholder="Preço" style={{ width: 150 }} />
+                    <InputNumber<number> min={0} precision={2} decimalSeparator="," placeholder="Preço" style={{ width: 150, maxWidth: '100%' }} />
                   </Form.Item>
                   <MinusCircleOutlined onClick={() => remove(c.name)} />
                 </Flex>
@@ -134,29 +153,45 @@ function TabelaServicos() {
   const { pode } = useSessao();
   const servicos = useServicosLav(true);
   const [editar, setEditar] = useState<ServicoLav | 'novo' | null>(null);
-  return (
-    <>
-      {pode('lav_tabelas') && (
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginBottom: 12 }} onClick={() => setEditar('novo')}>
-          Novo serviço
-        </Button>
-      )}
-      <Table<ServicoLav>
-        rowKey="id"
-        size="small"
-        loading={servicos.isFetching}
-        dataSource={servicos.data}
-        columns={[
+  const colunasServicos: ColunaApi<ServicoLav>[] = [
           { title: 'Código', dataIndex: 'codigo' },
           { title: 'Serviço', dataIndex: 'nome' },
           { title: 'Grupo', dataIndex: 'lavandaria_grupo', render: (v: string) => GRUPOS_LAV[v] ?? v },
-          { title: 'Conta', dataIndex: 'codigo_conta' },
+          { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['md'] },
           { title: 'IVA', dataIndex: 'taxa_imposto', align: 'right', render: (v) => `${Number(v)}%` },
-          { title: 'Prazo (dias)', dataIndex: 'lavandaria_dias_entrega', align: 'right' },
+          { title: 'Prazo (dias)', dataIndex: 'lavandaria_dias_entrega', align: 'right', responsive: ['md'] },
           { title: 'Orçamento', dataIndex: 'lavandaria_requer_orcamento', render: (v) => (v ? 'Sim' : 'Não') },
           { title: 'Estado', dataIndex: 'lavandaria_ativa', render: (v) => (v === false ? <Tag>Inactivo</Tag> : <Tag color="green">Activo</Tag>) },
-          { title: '', key: 'a', render: (_, s) => pode('lav_tabelas') && <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(s)} aria-label="Editar" /> },
-        ]}
+          { title: '', key: 'a', exportar: false, render: (_, s) => pode('lav_tabelas') && <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(s)} aria-label="Editar" /> },
+        ];
+  return (
+    <>
+      <BarraFiltros
+        accoes={
+          <BotoesExportar
+            tamanho="small"
+            desactivado={!servicos.data?.length}
+            obterPedido={async () => {
+              await prepararTexto();
+              const linhas = servicos.data ?? [];
+              return { titulo: 'Tabela de serviços da lavandaria', conteudo: tabelaHtml({ colunas: colunasParaImpressao(colunasServicos, linhas), linhas }) };
+            }}
+          />
+        }
+      >
+        {pode('lav_tabelas') && (
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('novo')}>
+            Novo serviço
+          </Button>
+        )}
+      </BarraFiltros>
+      <Table<ServicoLav>
+        rowKey="id"
+        size="small"
+        scroll={scrollTabela()}
+        loading={servicos.isFetching}
+        dataSource={servicos.data}
+        columns={colunasServicos}
       />
       <ModalServico alvo={editar} aoFechar={() => setEditar(null)} />
     </>
@@ -177,50 +212,50 @@ function ModalServico({ alvo, aoFechar }: { alvo: ServicoLav | 'novo' | null; ao
     );
   }, [alvo, s, form]);
   return (
-    <Modal open={!!alvo} title={s ? `Serviço ${s.nome}` : 'Novo serviço'} width={620} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onCancel={aoFechar} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!alvo} title={s ? `Serviço ${s.nome}` : 'Novo serviço'} width={larguraModal(620)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onCancel={aoFechar} onOk={() => form.submit()} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(s ? { metodo: 'put', url: `/pos/lavandaria/servicos/${s.id}`, dados: v } : { url: '/pos/lavandaria/servicos', dados: v })}>
-        <Row gutter={12}>
-          <Col span={14}>
+        <Row gutter={[12, 0]}>
+          <Col xs={24} sm={14}>
             <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}>
               <Input maxLength={255} />
             </Form.Item>
           </Col>
-          <Col span={10}>
+          <Col xs={24} sm={10}>
             <Form.Item name="grupo" label="Grupo">
               <Select options={Object.entries(GRUPOS_LAV).map(([value, label]) => ({ value, label }))} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item name="codigo_conta" label="Conta de proveitos (62)" rules={[{ required: true, message: 'Indique a conta.' }]}>
               <SeletorConta prefixo="62" />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item name="conta_iva_liquidado" label="Conta de IVA liquidado">
               <SeletorConta prefixo="34" />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="taxa_imposto" label="IVA (%)">
               <InputNumber<number> min={0} precision={2} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="dias_entrega" label="Prazo (dias)">
               <InputNumber<number> min={0} precision={0} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item name="codigo_isencao_fe" label="Código de isenção">
               <Input maxLength={10} />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item name="requer_orcamento" label="Requer orçamento" valuePropName="checked">
               <Switch />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item name="ativa" label="Activo" valuePropName="checked">
               <Switch />
             </Form.Item>
@@ -259,7 +294,7 @@ function Definicoes() {
   return (
     <Card size="small">
       <Form form={form} layout="vertical" disabled={!pode('lav_tabelas')} onFinish={(v) => gravar.mutate({ metodo: 'put', url: '/pos/lavandaria/definicoes', dados: { ...v, estados_entrada: undefined } })}>
-        <Row gutter={12}>
+        <Row gutter={[12, 0]}>
           <Col xs={24} md={8}>
             <Form.Item name="taxa_armazenagem_ativa" label="Taxa de armazenagem activa" valuePropName="checked">
               <Switch />
@@ -291,7 +326,7 @@ function Definicoes() {
           </Col>
         </Row>
         {pode('lav_tabelas') && (
-          <Space>
+          <Space wrap>
             <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={gravar.isPending}>
               Gravar definições
             </Button>

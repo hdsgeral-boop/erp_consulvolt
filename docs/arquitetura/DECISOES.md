@@ -1903,3 +1903,46 @@ Os índices existentes cobrem as consultas medidas; não se acrescentou nenhum.
 - `GET /api/saude` é público e indica o estado dos componentes (sem mensagens internas);
 - aspecto: o POS mostra o nome de utilizador do operador; a factura de compra mostra o id da encomenda em vez do número;
 - por decidir pelo utilizador: servidor, domínio e HTTPS, SMTP, destino externo das cópias e guarda das chaves, data do dia D.
+
+## ADR-066 — Responsividade, identidade da empresa, impressão/PDF e pendentes da Fase 6
+
+Pedido do utilizador (2026-10-01): sistema 100 % responsivo; logótipo e nome da empresa na barra do menu e nos PDF; ícones SVG profissionais nos menus; impressões na orientação certa, a caber em A4 ou A3, sem barras de deslocação. Feito com 2 agentes para a base comum e 3 agentes por grupos de módulos; o coordenador integrou.
+
+### Decisões do utilizador
+- **Mão de obra nos projectos:** ficam as duas vias — auto de medição e folha de horas (como no legado).
+- **Arredondamento AGT:** fica ao cêntimo (o hotel pode dar 40 499,99 em vez de 40 500).
+
+### Identidade da empresa
+- `GET /api/sistema/identidade` (qualquer utilizador da empresa activa): nome, NIF, morada, contactos, registo comercial, rodapé e logótipo (só data URI de imagem, validado na gravação). No frontend, `useIdentidade()` (`src/sessao/identidade.ts`), lido uma vez por empresa.
+- Barra do menu: logótipo (ou iniciais) e nome da empresa no menu lateral e, em ecrã estreito, na barra superior.
+
+### Layout responsivo e ícones
+- Abaixo de 992 px o menu lateral passa a gaveta («Abrir menu»); em telemóvel a barra é compacta e o menu do utilizador fica no avatar; padding adaptativo; a página nunca ganha deslocação horizontal (tabelas e conteúdos largos deslocam-se dentro do seu contentor).
+- Base para os ecrãs em `src/componentes/responsivo` (`useEcra`, `BarraFiltros`, `DeslocamentoHorizontal`, `larguraModal`, `scrollTabela`, `COL_CAMPO`, `COLUNAS_DESCRICOES`) e CSS global em `src/estilos/global.css`.
+- Ícones `@ant-design/icons` (SVG) por módulo e por tipo de ecrã (`src/componentes/icones/iconesModulos.tsx`); atalhos dos módulos no Início.
+- Os 116 ecrãs revistos (grelhas `xs/sm/md`, tabelas com deslocação própria e colunas secundárias escondidas em ecrã pequeno, modais com largura limitada, linhas de documentos em cartões no telemóvel); APIs obsoletas do Ant Design substituídas (`destroyOnHidden`, `prefix/suffix`, `variant`).
+- Teste E2E permanente `e2e/responsivo.e2e.ts`: todos os ecrãs do menu a 375 px sem deslocação horizontal da página nem do conteúdo.
+
+### Impressão e PDF
+- Motor comum `src/componentes/impressao`: documento numa iframe sem scripts, impresso a partir da janela principal (compatível com a CSP `script-src 'self'`); o PDF é o «Guardar como PDF» do navegador (vectorial, texto seleccionável, nome de ficheiro «Título - Empresa - data»). Sem jsPDF/pdfmake/html2canvas.
+- Cabeçalho em todos os documentos: logótipo e nome da empresa, NIF e morada, título, período/filtros, data e utilizador; rodapé com «Página X de Y» e o rodapé da empresa.
+- Folha e orientação automáticas pela largura real do conteúdo: A4 retrato → A4 paisagem (aceitando até 85 % de redução, porque muitos postos não têm impressora A3) → A3 paisagem → só então escala (mín. 55 %, depois quebra de texto). Tabelas com 9 ou mais colunas vão logo para paisagem. Nunca se cortam colunas.
+- No papel não há barras de deslocação: `overflow: visible`, tabelas Ant Design sem cabeçalho fixo nem corpo com scroll, cabeçalho das tabelas repetido em cada página, linhas e cartões sem quebra a meio.
+- `TabelaApi impressao` imprime todas as páginas do endpoint com os filtros actuais (até 5 000 linhas, com aviso); `tabelaHtml` para mapas; clonagem do DOM para documentos visuais.
+- Aplicado a todos os mapas, relatórios, listagens principais e detalhes de documentos dos módulos. Documentos comerciais (FT/FR/NC/GR/encomendas/propostas) em A4 retrato no formato do legado (`documento_comercial.js`), com IVA, extenso, série/hash/QR AGT e morada do cliente. Talões térmicos do POS mantêm a largura do rolo, agora com logótipo e nome.
+- A CSP de produção deixou de precisar de `'unsafe-hashes'` (já não há handlers inline).
+
+### Pendentes da Fase 6 resolvidos
+- **Recepção de compras:** confirmado no legado (`ui_compras_v2.js`, `postPurchaseDeliveryToAccounting` desactivado) que a recepção só é contabilizada na validação do armazém (`armazem_validar`) — o sistema novo já faz isso; `compras_rec_contabilizar` é uma chave sem efeito, mantida por paridade do catálogo.
+- **Papel de administrador:** deixa de derivar do nome do perfil conter «admin» (um perfil «Administrativo» dava poderes de aprovação na Manutenção de dados). Passa a explícito, definido só por um Super Administrador; utilizadores novos são UTILIZADOR e os existentes mantêm o papel (os migrados mantêm o do legado).
+- **Operador do POS:** sessões, vendas, lavandaria e conferência de caixa guardam o nome completo (ou o nome de utilizador), como o legado (`pos_gestao.js:20`).
+- **Factura de compra:** o detalhe mostra o número da encomenda de origem em vez do id.
+- **Integração contínua:** acções actualizadas para versões sem Node 20 (`checkout@v7`, `setup-node@v7`, `cache@v6`, `setup-buildx-action@v4`, `build-push-action@v7`); os registos de build Docker deixam de ser publicados como artefactos (repositório público).
+
+### Verificação
+- backend: 320 testes PHPUnit; frontend: 300 testes Vitest, `tsc` e build; E2E: 263 testes Playwright (inclui os 116 ecrãs a 375 px e o documento PDF com logótipo e nome).
+- PDFs de exemplo verificados (mapas de RH, balancete, extracto, balanço, relatórios POS, mapa de amortizações, orçamento, factura, encomenda, Gantt): logótipo e nome, folha/orientação certas, nada cortado, sem deslocação.
+
+### Fica registado
+- No Gantt impresso a linha de cabeçalho não se repete nas páginas seguintes (é feita com `div`, não `thead`).
+- O «Página X de Y» usa as caixas de margem `@page` (Chromium/Edge); no Firefox a numeração não aparece.

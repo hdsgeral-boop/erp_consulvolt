@@ -5,6 +5,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, pares } from '@/componentes/impressao';
+import { scrollTabela } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
+import { pedidoTabela } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
@@ -43,7 +47,7 @@ export default function Cenarios() {
       <CabecalhoPagina titulo="Cenários what-if" subtitulo="Volume, preço, matérias, pessoal, outros custos e câmbio aplicados ao orçamento base" />
       <Card style={{ marginBottom: 16 }}>
         <Flex gap={8} wrap>
-          <SeletorOrcamento value={orcamento} onChange={setOrcamento} style={{ width: 420 }} />
+          <SeletorOrcamento value={orcamento} onChange={setOrcamento} style={{ width: 420, maxWidth: '100%' }} />
           {editar && orcamento && (
             <>
               <Button icon={<ThunderboltOutlined />} loading={padrao.isPending} onClick={() => padrao.mutate({ url: `/orcamento/orcamentos/${orcamento}/cenarios/padrao` })}>Criar Otimista / Realista / Pessimista</Button>
@@ -92,10 +96,36 @@ function DetalheCenario({ id, editar, podeVersao, aoEliminar, aoGerar }: { id: n
   const c = r.cenario;
   const variacao = diferenca(r.resultado_cenario, r.resultado_base);
 
+  const colunas: ColunaApi<CalculoCenario['linhas'][number]>[] = [
+    { title: 'Rubrica', key: 'r', render: (_, l) => <><strong>{l.codigo}</strong> {l.nome}</>, valorImpressao: (l) => `${l.codigo} ${l.nome}` },
+    { title: 'Natureza', dataIndex: 'natureza', responsive: ['md'], render: (v) => <EtiquetaOrc valor={v} /> },
+    { title: 'Indutor', dataIndex: 'indutor', responsive: ['lg'], render: (v) => VARIAVEIS.find((x) => x.chave === v)?.rotulo ?? v ?? '—' },
+    { title: 'Base', dataIndex: 'base', align: 'right', render: (v) => <Kz valor={v} /> },
+    { title: 'Cenário', dataIndex: 'cenario', align: 'right', render: (v) => <Kz valor={v} forte /> },
+    { title: 'Variação', dataIndex: 'variacao', align: 'right', render: (v) => <Kz valor={v} /> },
+    {
+      title: 'Ajuste (%)', key: 'aj', align: 'right',
+      valorImpressao: (l) => (ajustes[String(l.rubrica_id)] ? `${ajustes[String(l.rubrica_id)].toLocaleString('pt-PT')}%` : ''),
+      render: (_, l) => <InputNumber size="small" min={-100} max={500} precision={2} style={{ width: 100 }} disabled={!editar} value={ajustes[String(l.rubrica_id)] ?? undefined} placeholder="0"
+        onChange={(x) => { setAjustes((s) => { const n = { ...s }; if (x === null || x === 0) delete n[String(l.rubrica_id)]; else n[String(l.rubrica_id)] = x; return n; }); setAlterado(true); }} />,
+    },
+  ];
+
   return (
-    <Card size="small" title={<Space>{c.nome}{c.tipo && <EtiquetaOrc valor={c.tipo} />}</Space>}
-      extra={editar && (
-        <Space>
+    <Card size="small" title={<Space wrap>{c.nome}{c.tipo && <EtiquetaOrc valor={c.tipo} />}</Space>}
+      extra={(
+        <Space wrap>
+          <BotoesExportar tamanho="small" obterPedido={() => pedidoTabela({
+            titulo: 'Cenário what-if',
+            subtitulo: `${c.nome}${alterado ? ' (com alterações por gravar)' : ''}`,
+            antes: pares([
+              ...VARIAVEIS.map((v): [string, string] => [v.rotulo, `${(variaveis[v.chave] ?? 0).toLocaleString('pt-PT')}%`]),
+              ['Resultado base (Kz)', formatarKz(r.resultado_base)], ['Resultado do cenário (Kz)', formatarKz(r.resultado_cenario)], ['Variação (Kz)', formatarKz(variacao)],
+            ]),
+            colunas,
+            linhas: r.linhas,
+          })} />
+          {editar && <>
           <Button type="primary" size="small" icon={<SaveOutlined />} disabled={!alterado} loading={gravar.isPending}
             onClick={() => gravar.mutate({ metodo: 'put', url: `/orcamento/cenarios/${c.id}`, dados: { nome: c.nome, tipo: c.tipo, variaveis, ajustes, notas: c.notas } })}>Gravar e recalcular</Button>
           {podeVersao && (
@@ -107,6 +137,7 @@ function DetalheCenario({ id, editar, podeVersao, aoEliminar, aoGerar }: { id: n
           <Popconfirm title="Eliminar o cenário?" okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => eliminar.mutate({ metodo: 'delete', url: `/orcamento/cenarios/${c.id}` })}>
             <Button size="small" danger icon={<DeleteOutlined />} />
           </Popconfirm>
+          </>}
         </Space>
       )}>
       {alterado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Grave para recalcular o cenário no servidor." />}
@@ -114,35 +145,23 @@ function DetalheCenario({ id, editar, podeVersao, aoEliminar, aoGerar }: { id: n
         {VARIAVEIS.map((v) => (
           <Col key={v.chave} xs={12} md={8} lg={4}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>{v.rotulo}</Typography.Text>
-            <InputNumber size="small" style={{ width: '100%' }} addonAfter="%" precision={2} disabled={!editar} value={variaveis[v.chave] ?? 0}
+            <InputNumber size="small" style={{ width: '100%' }} suffix="%" precision={2} disabled={!editar} value={variaveis[v.chave] ?? 0}
               onChange={(x) => { setVariaveis((s) => ({ ...s, [v.chave]: x ?? 0 })); setAlterado(true); }} />
           </Col>
         ))}
       </Row>
       <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col xs={8}><Statistic title="Resultado base (Kz)" value={formatarKz(r.resultado_base)} /></Col>
-        <Col xs={8}><Statistic title="Resultado do cenário (Kz)" value={formatarKz(r.resultado_cenario)} /></Col>
-        <Col xs={8}><Statistic title="Variação (Kz)" value={formatarKz(variacao)} valueStyle={{ color: variacao < 0 ? '#cf1322' : '#389e0d' }} /></Col>
+        <Col xs={24} sm={8}><Statistic title="Resultado base (Kz)" value={formatarKz(r.resultado_base)} /></Col>
+        <Col xs={24} sm={8}><Statistic title="Resultado do cenário (Kz)" value={formatarKz(r.resultado_cenario)} /></Col>
+        <Col xs={24} sm={8}><Statistic title="Variação (Kz)" value={formatarKz(variacao)} valueStyle={{ color: variacao < 0 ? '#cf1322' : '#389e0d' }} /></Col>
       </Row>
       <Table
         rowKey="rubrica_id"
         size="small"
         pagination={false}
         dataSource={r.linhas}
-        scroll={{ x: 'max-content', y: 480 }}
-        columns={[
-          { title: 'Rubrica', key: 'r', render: (_, l) => <><strong>{l.codigo}</strong> {l.nome}</> },
-          { title: 'Natureza', dataIndex: 'natureza', render: (v) => <EtiquetaOrc valor={v} /> },
-          { title: 'Indutor', dataIndex: 'indutor', render: (v) => VARIAVEIS.find((x) => x.chave === v)?.rotulo ?? v ?? '—' },
-          { title: 'Base', dataIndex: 'base', align: 'right', render: (v) => <Kz valor={v} /> },
-          { title: 'Cenário', dataIndex: 'cenario', align: 'right', render: (v) => <Kz valor={v} forte /> },
-          { title: 'Variação', dataIndex: 'variacao', align: 'right', render: (v) => <Kz valor={v} /> },
-          {
-            title: 'Ajuste (%)', key: 'aj', align: 'right',
-            render: (_, l) => <InputNumber size="small" min={-100} max={500} precision={2} style={{ width: 100 }} disabled={!editar} value={ajustes[String(l.rubrica_id)] ?? undefined} placeholder="0"
-              onChange={(x) => { setAjustes((s) => { const n = { ...s }; if (x === null || x === 0) delete n[String(l.rubrica_id)]; else n[String(l.rubrica_id)] = x; return n; }); setAlterado(true); }} />,
-          },
-        ]}
+        scroll={scrollTabela(480)}
+        columns={colunas}
       />
     </Card>
   );
@@ -153,7 +172,7 @@ function ModalNovo({ orcamento, aoFechar, aoGravar }: { orcamento: number | null
   const accao = useAccao<Cenario>({ invalidar: [['orcamento', 'cenarios']], aoSucesso: (c) => { aoGravar(c); aoFechar(); } });
   useEffect(() => { if (orcamento) form.setFieldsValue({ nome: '', tipo: 'PERSONALIZADO', notas: '' }); }, [orcamento, form]);
   return (
-    <Modal title="Novo cenário" open={!!orcamento} onCancel={aoFechar} onOk={() => form.submit()} okText="Criar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnClose>
+    <Modal title="Novo cenário" open={!!orcamento} onCancel={aoFechar} onOk={() => form.submit()} okText="Criar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/orcamento/cenarios', dados: { orcamento_anual_id: orcamento, nome: v.nome, tipo: v.tipo, variaveis: {}, ajustes: {}, notas: v.notas || null } })}>
         <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item>
         <Form.Item name="tipo" label="Tipo"><Select options={[{ value: 'OTIMISTA', label: 'Otimista' }, { value: 'REALISTA', label: 'Realista' }, { value: 'PESSIMISTA', label: 'Pessimista' }, { value: 'PERSONALIZADO', label: 'Personalizado' }]} /></Form.Item>

@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { DeslocamentoHorizontal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { GRUPOS_PAGAMENTO, type OrdemPagamento, type ResultadoSalarial } from '../api';
@@ -62,7 +63,7 @@ export function MapaRemuneracoes() {
       accoes={<Button icon={<DownloadOutlined />} disabled={!res.length} onClick={exportar}>Exportar CSV</Button>}>
       <AreaImpressao paisagem>
         <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de remunerações" mesAno={mapa.detalhe.data?.mes_ano} />
-        <div style={{ overflowX: 'auto' }}>
+        <DeslocamentoHorizontal>
           <table className="rh-tabela-mapa">
             <thead>
               <tr>
@@ -94,7 +95,7 @@ export function MapaRemuneracoes() {
               </tr>
             </tfoot>
           </table>
-        </div>
+        </DeslocamentoHorizontal>
       </AreaImpressao>
     </MolduraMapa>
   );
@@ -122,7 +123,7 @@ export function MapaIrt() {
       accoes={<Button icon={<DownloadOutlined />} disabled={!grupoA.length} onClick={exportar}>Exportar CSV</Button>}>
       <AreaImpressao paisagem>
         <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de IRT — Grupo A (trabalhadores por conta de outrem)" mesAno={mapa.detalhe.data?.mes_ano} extra={empresa?.nif ? <div>NIF {String(empresa.nif)}</div> : null} />
-        <div style={{ overflowX: 'auto' }}>
+        <DeslocamentoHorizontal>
           <table className="rh-tabela-mapa">
             <thead>
               <tr><th>Ord.</th><th>NIF</th><th>N.º SS</th><th style={{ textAlign: 'left' }}>Nome</th><th>Província</th><th>Município</th><th>Bruto</th><th>S. Social (3%)</th>
@@ -152,23 +153,25 @@ export function MapaIrt() {
               </tr>
             </tfoot>
           </table>
-        </div>
+        </DeslocamentoHorizontal>
         <Typography.Paragraph type="secondary" className="rh-nao-imprimir" style={{ marginTop: 8 }}>
           O escalão (parcela fixa, taxa e excesso) e o imposto devido são mostrados pela tabela de IRT em vigor; o imposto retido é o calculado pelo servidor no processamento (nos períodos migrados, pelo modo do legado).
         </Typography.Paragraph>
         {grupoB.length > 0 && (
           <>
             <CabecalhoMapa titulo="Retenção de IRT — Grupo B (prestadores de serviço / avençados, 6,5 %)" />
-            <table className="rh-tabela-mapa">
-              <thead><tr><th>Ord.</th><th>NIF</th><th style={{ textAlign: 'left' }}>Nome</th><th>Valor bruto</th><th>Matéria colectável</th><th>IRT retido</th></tr></thead>
-              <tbody>
-                {grupoB.map((r, i) => {
-                  const d = dados(r.colaborador_id, r);
-                  return <tr key={r.colaborador_id}><td className="num">{i + 1}</td><td>{d.nif}</td><td>{d.nome}</td><td className="num">{formatarKz(r.bruto)}</td><td className="num">{formatarKz(r.base_irt)}</td><td className="num">{formatarKz(r.irt)}</td></tr>;
-                })}
-              </tbody>
-              <tfoot><tr><td colSpan={3}>Totais</td><td className="num">{formatarKz(somar(grupoB.map((r) => r.bruto)))}</td><td className="num">{formatarKz(somar(grupoB.map((r) => r.base_irt)))}</td><td className="num">{formatarKz(somar(grupoB.map((r) => r.irt)))}</td></tr></tfoot>
-            </table>
+            <DeslocamentoHorizontal>
+              <table className="rh-tabela-mapa">
+                <thead><tr><th>Ord.</th><th>NIF</th><th style={{ textAlign: 'left' }}>Nome</th><th>Valor bruto</th><th>Matéria colectável</th><th>IRT retido</th></tr></thead>
+                <tbody>
+                  {grupoB.map((r, i) => {
+                    const d = dados(r.colaborador_id, r);
+                    return <tr key={r.colaborador_id}><td className="num">{i + 1}</td><td>{d.nif}</td><td>{d.nome}</td><td className="num">{formatarKz(r.bruto)}</td><td className="num">{formatarKz(r.base_irt)}</td><td className="num">{formatarKz(r.irt)}</td></tr>;
+                  })}
+                </tbody>
+                <tfoot><tr><td colSpan={3}>Totais</td><td className="num">{formatarKz(somar(grupoB.map((r) => r.bruto)))}</td><td className="num">{formatarKz(somar(grupoB.map((r) => r.base_irt)))}</td><td className="num">{formatarKz(somar(grupoB.map((r) => r.irt)))}</td></tr></tfoot>
+              </table>
+            </DeslocamentoHorizontal>
           </>
         )}
       </AreaImpressao>
@@ -191,27 +194,29 @@ export function MapaInss() {
       accoes={<Button icon={<DownloadOutlined />} disabled={!res.length} onClick={exportar}>Exportar CSV</Button>}>
       <AreaImpressao>
         <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de Segurança Social (INSS)" mesAno={mapa.detalhe.data?.mes_ano} />
-        <table className="rh-tabela-mapa">
-          <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>N.º INSS</th><th>Base de incidência</th><th>Trabalhador</th><th>Empresa</th><th>Total</th></tr></thead>
-          <tbody>
-            {res.map((r, i) => {
-              const d = dados(r.colaborador_id, r);
-              return (
-                <tr key={r.colaborador_id}>
-                  <td className="num">{i + 1}</td><td>{d.nome}{r.reformado ? ' (reformado)' : ''}</td><td>{d.inss || '—'}</td><td className="num">{formatarKz(r.base_inss)}</td>
-                  <td className="num">{formatarKz(r.inss_trabalhador)}</td><td className="num">{formatarKz(r.inss_patronal)}</td><td className="num">{formatarKz(somar([r.inss_trabalhador, r.inss_patronal]))}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={3}>Totais ({res.length})</td><td className="num">{formatarKz(somar(res.map((r) => r.base_inss)))}</td>
-              <td className="num">{formatarKz(somar(res.map((r) => r.inss_trabalhador)))}</td><td className="num">{formatarKz(somar(res.map((r) => r.inss_patronal)))}</td>
-              <td className="num">{formatarKz(somar(res.flatMap((r) => [r.inss_trabalhador, r.inss_patronal])))}</td>
-            </tr>
-          </tfoot>
-        </table>
+        <DeslocamentoHorizontal>
+          <table className="rh-tabela-mapa">
+            <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>N.º INSS</th><th>Base de incidência</th><th>Trabalhador</th><th>Empresa</th><th>Total</th></tr></thead>
+            <tbody>
+              {res.map((r, i) => {
+                const d = dados(r.colaborador_id, r);
+                return (
+                  <tr key={r.colaborador_id}>
+                    <td className="num">{i + 1}</td><td>{d.nome}{r.reformado ? ' (reformado)' : ''}</td><td>{d.inss || '—'}</td><td className="num">{formatarKz(r.base_inss)}</td>
+                    <td className="num">{formatarKz(r.inss_trabalhador)}</td><td className="num">{formatarKz(r.inss_patronal)}</td><td className="num">{formatarKz(somar([r.inss_trabalhador, r.inss_patronal]))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={3}>Totais ({res.length})</td><td className="num">{formatarKz(somar(res.map((r) => r.base_inss)))}</td>
+                <td className="num">{formatarKz(somar(res.map((r) => r.inss_trabalhador)))}</td><td className="num">{formatarKz(somar(res.map((r) => r.inss_patronal)))}</td>
+                <td className="num">{formatarKz(somar(res.flatMap((r) => [r.inss_trabalhador, r.inss_patronal])))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </DeslocamentoHorizontal>
       </AreaImpressao>
     </MolduraMapa>
   );
@@ -227,16 +232,18 @@ export function MapaPagamentos() {
     <MolduraMapa titulo="Salários a pagar" subtitulo="Líquido a receber por colaborador" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}>
       <AreaImpressao>
         <CabecalhoMapa empresa={empresa?.nome} titulo="Lista de salários a pagar" mesAno={mapa.detalhe.data?.mes_ano} />
-        <table className="rh-tabela-mapa">
-          <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>NIF</th><th>Líquido a receber (Kz)</th><th>Assinatura</th></tr></thead>
-          <tbody>
-            {res.map((r, i) => {
-              const d = dados(r.colaborador_id, r);
-              return <tr key={r.colaborador_id}><td className="num">{i + 1}</td><td>{d.nome}{r.avencado ? ' (avençado)' : ''}</td><td>{d.nif}</td><td className="num">{formatarKz(r.liquido)}</td><td style={{ width: 180 }} /></tr>;
-            })}
-          </tbody>
-          <tfoot><tr><td colSpan={3}>Total ({res.length})</td><td className="num">{formatarKz(somar(res.map((r) => r.liquido)))}</td><td /></tr></tfoot>
-        </table>
+        <DeslocamentoHorizontal>
+          <table className="rh-tabela-mapa">
+            <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>NIF</th><th>Líquido a receber (Kz)</th><th>Assinatura</th></tr></thead>
+            <tbody>
+              {res.map((r, i) => {
+                const d = dados(r.colaborador_id, r);
+                return <tr key={r.colaborador_id}><td className="num">{i + 1}</td><td>{d.nome}{r.avencado ? ' (avençado)' : ''}</td><td>{d.nif}</td><td className="num">{formatarKz(r.liquido)}</td><td style={{ width: 180 }} /></tr>;
+              })}
+            </tbody>
+            <tfoot><tr><td colSpan={3}>Total ({res.length})</td><td className="num">{formatarKz(somar(res.map((r) => r.liquido)))}</td><td /></tr></tfoot>
+          </table>
+        </DeslocamentoHorizontal>
       </AreaImpressao>
     </MolduraMapa>
   );
@@ -262,22 +269,24 @@ export function MapaBanco() {
       filtros={<Select value={grupo} onChange={setGrupo} options={GRUPOS_PAGAMENTO} style={{ width: 180 }} />}
       accoes={<Button icon={<DownloadOutlined />} disabled={!o?.linhas.length} onClick={exportar}>Exportar CSV</Button>}
       aviso={o && o.sem_iban > 0 ? <Alert className="rh-nao-imprimir" type="warning" showIcon style={{ marginBottom: 16 }} message={`${o.sem_iban} colaborador(es) sem IBAN: registe-os em Coordenadas bancárias antes de emitir a carta.`} /> : null}>
-      {ordem.isLoading ? <Card loading bordered={false} /> : o && (
+      {ordem.isLoading ? <Card loading variant="borderless" /> : o && (
         <AreaImpressao>
           <CabecalhoMapa empresa={empresa?.nome} titulo="Ordem de pagamento bancária" mesAno={mapa.periodo?.mes_ano} extra={<div>Grupo: {GRUPOS_PAGAMENTO.find((g) => g.value === grupo)?.label}</div>} />
-          <table className="rh-tabela-mapa">
-            <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Beneficiário</th><th>Banco</th><th>IBAN</th><th>Valor (Kz)</th><th className="rh-nao-imprimir">Carta</th></tr></thead>
-            <tbody>
-              {o.linhas.map((l, i) => (
-                <tr key={l.colaborador_id}>
-                  <td className="num">{i + 1}</td><td>{l.nome ?? `#${l.colaborador_id}`}</td><td>{l.banco ?? '—'}</td>
-                  <td>{l.iban ? <code>{formatarIban(l.iban)}</code> : <Tag color="volcano">Sem IBAN</Tag>}</td>
-                  <td className="num">{formatarKz(l.liquido)}</td><td className="rh-nao-imprimir">{l.carta_pagamento_id ? `#${l.carta_pagamento_id}` : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot><tr><td colSpan={4}>Total ({o.linhas.length})</td><td className="num">{formatarKz(o.total)}</td><td className="rh-nao-imprimir" /></tr></tfoot>
-          </table>
+          <DeslocamentoHorizontal>
+            <table className="rh-tabela-mapa">
+              <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Beneficiário</th><th>Banco</th><th>IBAN</th><th>Valor (Kz)</th><th className="rh-nao-imprimir">Carta</th></tr></thead>
+              <tbody>
+                {o.linhas.map((l, i) => (
+                  <tr key={l.colaborador_id}>
+                    <td className="num">{i + 1}</td><td>{l.nome ?? `#${l.colaborador_id}`}</td><td>{l.banco ?? '—'}</td>
+                    <td>{l.iban ? <code>{formatarIban(l.iban)}</code> : <Tag color="volcano">Sem IBAN</Tag>}</td>
+                    <td className="num">{formatarKz(l.liquido)}</td><td className="rh-nao-imprimir">{l.carta_pagamento_id ? `#${l.carta_pagamento_id}` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot><tr><td colSpan={4}>Total ({o.linhas.length})</td><td className="num">{formatarKz(o.total)}</td><td className="rh-nao-imprimir" /></tr></tfoot>
+            </table>
+          </DeslocamentoHorizontal>
         </AreaImpressao>
       )}
     </MolduraMapa>

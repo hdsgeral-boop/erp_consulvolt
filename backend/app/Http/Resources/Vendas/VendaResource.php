@@ -20,7 +20,7 @@ final class VendaResource extends JsonResource
             'tipo_documento' => $this->tipo_documento,
             'numero_documento' => $this->numero_documento,
             'data_emissao' => $this->data_emissao?->toDateString(),
-            'cliente' => $this->whenLoaded('cliente', fn () => ['id' => $this->cliente?->id, 'nome' => $this->cliente?->nome, 'nif' => $this->cliente?->nif]),
+            'cliente' => $this->whenLoaded('cliente', fn () => ['id' => $this->cliente?->id, 'nome' => $this->cliente?->nome, 'nif' => $this->cliente?->nif, 'endereco' => $this->cliente?->endereco]),
             'cliente_id' => $this->cliente_id,
             'total_liquido' => $this->total_liquido,
             'total_imposto' => $this->total_imposto,

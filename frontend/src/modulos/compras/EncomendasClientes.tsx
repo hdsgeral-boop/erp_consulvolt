@@ -1,14 +1,16 @@
-import { Alert, Button, Card, Checkbox, Empty, Flex, Form, Input, Modal, Skeleton, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Empty, Form, Input, Modal, Skeleton, Space, Table, Tag, Typography } from 'antd';
 import { ReloadOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { tabelaHtml } from '@/componentes/impressao';
+import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
-import { EstadoTag } from './comum/estados';
+import { EstadoTag, rotuloEstado } from './comum/estados';
 import { contemTexto } from './comum/lista';
 import { numeroOuId, type EncomendaCliente, type LinhaEncomendaCliente, type PedidoCompra } from './comum/tipos';
 
@@ -48,11 +50,47 @@ export default function EncomendasClientes() {
   const selecionaveis = useMemo(() => new Set(linhasSelecionaveis(encomendas)), [encomendas]);
   const alternar = (id: number, marcado: boolean) => setSelecao((s) => (marcado ? [...s, id] : s.filter((x) => x !== id)));
 
+  /** Mapa impresso: linhas agrupadas por nota de encomenda (cliente, quantidades, stock e pedido de compra). */
+  const pedidoImpressao = () => {
+    const linhas = encomendas.flatMap((e) => e.linhas.map((l) => ({ e, l })));
+    return {
+      titulo: 'Encomendas de clientes por satisfazer',
+      filtros: [pesquisa && `Pesquisa: ${pesquisa}`, `${encomendas.length} encomenda(s)`],
+      conteudo: tabelaHtml({
+        colunas: [
+          { titulo: 'Produto', valor: (x: (typeof linhas)[number]) => `${x.l.produto ?? `#${x.l.produto_id}`}${x.l.descricao ? ` — ${x.l.descricao}` : ''}`, quebrar: true },
+          { titulo: 'Encomendado', valor: (x) => x.l.quantidade, formato: 'numero' },
+          { titulo: 'Pendente', valor: (x) => x.l.pendente, formato: 'numero' },
+          { titulo: 'Stock disponível', valor: (x) => x.l.stock_disponivel, formato: 'numero' },
+          {
+            titulo: 'Pedido de compra',
+            valor: (x) =>
+              x.l.pedido_compra
+                ? `${numeroOuId(x.l.pedido_compra.numero_pedido, x.l.pedido_compra.id)} (${rotuloEstado(x.l.pedido_compra.estado)})`
+                : x.l.por_comprar && Number(x.l.pendente) > 0
+                  ? 'Por comprar'
+                  : '',
+          },
+        ],
+        linhas,
+        agrupar: {
+          chave: (x) => String(x.e.id),
+          titulo: (_, ls) => {
+            const e = ls[0].e;
+            return `${e.numero_documento} · ${formatarData(e.data_emissao)} · ${e.cliente?.nome?.trim() ?? ''}${e.estado ? ` · ${rotuloEstado(e.estado)}` : ''}`;
+          },
+        },
+      }),
+    };
+  };
+
   return (
     <>
       <CabecalhoPagina
         titulo="Encomendas de clientes"
         subtitulo="Notas de encomenda com quantidades por satisfazer e respectivos pedidos de compra"
+        impressao={pedidoImpressao}
+        impressaoDesactivada={!encomendas.length}
         accoes={
           <>
             <Button icon={<ReloadOutlined />} onClick={() => void consulta.refetch()} loading={consulta.isFetching}>
@@ -75,15 +113,19 @@ export default function EncomendasClientes() {
         }
       />
       <Card>
-        <Flex gap={8} style={{ marginBottom: 16 }}>
-          <Input.Search placeholder="N.º, cliente ou produto" allowClear style={{ width: 320 }} onSearch={setPesquisa} />
-          {podeGerar && selecionaveis.size > 0 && (
-            <Space>
-              <Button size="small" onClick={() => setSelecao([...selecionaveis])}>Marcar todas por comprar</Button>
-              <Button size="small" onClick={() => setSelecao([])}>Limpar</Button>
-            </Space>
-          )}
-        </Flex>
+        <BarraFiltros
+          accoes={
+            podeGerar &&
+            selecionaveis.size > 0 && (
+              <Space wrap>
+                <Button size="small" onClick={() => setSelecao([...selecionaveis])}>Marcar todas por comprar</Button>
+                <Button size="small" onClick={() => setSelecao([])}>Limpar</Button>
+              </Space>
+            )
+          }
+        >
+          <Input.Search placeholder="N.º, cliente ou produto" allowClear style={{ width: 320, maxWidth: '100%' }} onSearch={setPesquisa} />
+        </BarraFiltros>
         {consulta.isLoading ? (
           <Skeleton active />
         ) : encomendas.length === 0 ? (
@@ -108,6 +150,7 @@ export default function EncomendasClientes() {
                 size="small"
                 pagination={false}
                 dataSource={e.linhas}
+                scroll={scrollTabela()}
                 columns={[
                   {
                     title: '',
@@ -118,12 +161,12 @@ export default function EncomendasClientes() {
                   { title: 'Produto', render: (_, l) => <>{l.produto ?? `#${l.produto_id}`}{l.descricao && <Typography.Text type="secondary"> — {l.descricao}</Typography.Text>}</> },
                   { title: 'Encomendado', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
                   { title: 'Pendente', dataIndex: 'pendente', align: 'right', render: formatarNumero },
-                  { title: 'Stock disponível', dataIndex: 'stock_disponivel', align: 'right', render: (v: string | null) => (v === null ? '—' : formatarNumero(v)) },
+                  { title: 'Stock disponível', dataIndex: 'stock_disponivel', align: 'right', responsive: ['md'], render: (v: string | null) => (v === null ? '—' : formatarNumero(v)) },
                   {
                     title: 'Pedido de compra',
                     render: (_, l) =>
                       l.pedido_compra ? (
-                        <Space>
+                        <Space wrap>
                           <a onClick={() => pode('compras_pedidos_view') && navegar(`/m/compras/compras_pedidos/${l.pedido_compra?.id}`)}>{numeroOuId(l.pedido_compra.numero_pedido, l.pedido_compra.id)}</a>
                           <EstadoTag estado={l.pedido_compra.estado} />
                         </Space>
@@ -139,7 +182,7 @@ export default function EncomendasClientes() {
           ))
         )}
       </Card>
-      <Modal title="Gerar pedido de compra" open={gerar} onCancel={() => setGerar(false)} okText="Gerar pedido" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
+      <Modal width={larguraModal(560)} title="Gerar pedido de compra" open={gerar} onCancel={() => setGerar(false)} okText="Gerar pedido" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/compras/encomendas-clientes/pedido', dados: { itens: selecao, nome_requerente: v.nome_requerente || undefined, descricao: v.descricao || undefined } })}>
           <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`${selecao.length} linha(s) escolhida(s). O pedido é criado com as quantidades pendentes e segue para deliberação.`} />
           <Form.Item name="nome_requerente" label="Requerente" rules={[{ max: 255 }]}>

@@ -89,7 +89,7 @@ export function NovoLancamento() {
       />
       <Form<ValoresForm> form={form} layout="vertical" initialValues={valoresIniciais} onFinish={(v) => gravar.mutate(v)}>
         <Card title="Cabeçalho" style={{ marginBottom: 16 }}>
-          <Row gutter={16}>
+          <Row gutter={[16, 0]}>
             <Col xs={24} md={6}>
               <Form.Item name="diario_id" label="Diário" rules={[{ required: true, message: 'Escolha o diário.' }]}>
                 <SeletorDiario style={{ width: '100%' }} />
@@ -124,7 +124,7 @@ export function NovoLancamento() {
             <Alert style={{ marginTop: 12 }} type="warning" showIcon message="O lançamento só pode ser gravado com o total a débito igual ao total a crédito." />
           )}
         </Card>
-        <Space>
+        <Space wrap>
           <Button type="primary" htmlType="submit" loading={gravar.isPending} disabled={!e.valido}>
             Gravar lançamento
           </Button>

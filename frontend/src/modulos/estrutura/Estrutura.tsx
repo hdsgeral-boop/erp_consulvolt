@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { tabelaHtml } from '@/componentes/impressao';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { useColaboradores, useCargos } from '@/modulos/rh/comum/consultas';
@@ -25,9 +27,37 @@ export function useEstrutura() {
 
 /** Estrutura orgânica › Unidades, cargos e afectação (est_estrutura). */
 export default function Estrutura() {
+  const estrutura = useEstrutura();
+  const cargos = useCargos();
   return (
     <>
-      <CabecalhoPagina titulo="Estrutura orgânica" subtitulo="Unidades orgânicas, postos de trabalho (cargos e vagas) e afectação dos colaboradores" />
+      <CabecalhoPagina
+        titulo="Estrutura orgânica"
+        subtitulo="Unidades orgânicas, postos de trabalho (cargos e vagas) e afectação dos colaboradores"
+        impressaoDesactivada={!estrutura.data?.unidades.length}
+        impressao={() => {
+          const nos = aplanar(construirArvore(estrutura.data?.unidades ?? []));
+          const linhas = nos.flatMap((n) => [
+            { n, posto: null as Posto | null },
+            ...n.unidade.postos.map((p) => ({ n, posto: p as Posto | null })),
+          ]);
+          return {
+            titulo: 'Estrutura orgânica',
+            subtitulo: 'Unidades orgânicas e postos de trabalho',
+            conteudo: tabelaHtml({
+              linhas,
+              colunas: [
+                { titulo: 'Unidade / posto', valor: (l) => (l.posto ? `${'\u00a0\u00a0'.repeat(l.n.nivel + 2)}${l.posto.chefia ? '★ ' : ''}${l.posto.titulo || cargos.nome(l.posto.cargo_funcao_id)}` : `${'\u00a0\u00a0'.repeat(l.n.nivel)}${l.n.unidade.codigo ? `${l.n.unidade.codigo} — ` : ''}${l.n.unidade.nome}`) },
+                { titulo: 'Tipo', valor: (l) => (l.posto ? 'Posto' : l.n.unidade.tipo ? TIPOS_UNIDADE[l.n.unidade.tipo] ?? l.n.unidade.tipo : '') },
+                { titulo: 'Vagas', valor: (l) => (l.posto ? l.posto.vagas ?? 0 : l.n.vagasTotal), formato: 'inteiro' },
+                { titulo: 'Ocupados', valor: (l) => (l.posto ? l.posto.ocupados : l.n.ocupadosTotal), formato: 'inteiro' },
+                { titulo: 'Pessoas', valor: (l) => (l.posto ? '' : l.n.membrosTotal), formato: 'inteiro' },
+                { titulo: 'Estado', valor: (l) => (l.posto ? '' : l.n.unidade.ativo ? 'Activa' : 'Inactiva') },
+              ],
+            }),
+          };
+        }}
+      />
       <Tabs
         items={[
           { key: 'unidades', label: 'Unidades e postos', children: <Unidades /> },
@@ -72,11 +102,11 @@ function Unidades() {
   if (estrutura.isLoading) return <Skeleton active />;
 
   return (
-    <Row gutter={16}>
+    <Row gutter={[16, 16]}>
       <Col xs={24} lg={9}>
         <Card
           size="small"
-          title={<Space><ApartmentOutlined />Unidades</Space>}
+          title={<Space wrap><ApartmentOutlined />Unidades</Space>}
           extra={editar && <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Unidade</Button>}
         >
           <Flex justify="space-between" style={{ marginBottom: 8 }}>
@@ -103,9 +133,9 @@ function Unidades() {
           <Space direction="vertical" size={12} style={{ width: '100%' }}>
             <Card
               size="small"
-              title={<Space>{actual.unidade.nome}{actual.unidade.tipo && <Tag>{TIPOS_UNIDADE[actual.unidade.tipo] ?? actual.unidade.tipo}</Tag>}{!actual.unidade.ativo && <Tag>inactiva</Tag>}</Space>}
+              title={<Space wrap>{actual.unidade.nome}{actual.unidade.tipo && <Tag>{TIPOS_UNIDADE[actual.unidade.tipo] ?? actual.unidade.tipo}</Tag>}{!actual.unidade.ativo && <Tag>inactiva</Tag>}</Space>}
               extra={
-                <Space>
+                <Space wrap>
                   {editar && <Button size="small" icon={<EditOutlined />} onClick={() => setEdicao(actual.unidade)}>Editar</Button>}
                   {eliminar && (
                     <Popconfirm title={`Eliminar «${actual.unidade.nome}»?`} description="Só é possível sem subunidades, postos nem colaboradores." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/estrutura/unidades/${actual.unidade.id}` }).then(() => setSeleccionada(null))}>
@@ -115,7 +145,7 @@ function Unidades() {
                 </Space>
               }
             >
-              <Descriptions size="small" column={2}>
+              <Descriptions size="small" column={{ xs: 1, sm: 2 }}>
                 <Descriptions.Item label="Código">{actual.unidade.codigo ?? '—'}</Descriptions.Item>
                 <Descriptions.Item label="Responsável">{colaboradores.nome(actual.unidade.colaborador_responsavel_id)}</Descriptions.Item>
                 <Descriptions.Item label="Membros">{actual.unidade.membros} (ramo: {actual.membrosTotal})</Descriptions.Item>
@@ -126,6 +156,7 @@ function Unidades() {
             </Card>
             <Card size="small" title="Postos de trabalho" extra={editar && <Button size="small" icon={<PlusOutlined />} onClick={() => setPosto('novo')}>Posto</Button>}>
               <Table<Posto>
+                scroll={scrollTabela()}
                 size="small"
                 rowKey="id"
                 pagination={false}
@@ -141,7 +172,7 @@ function Unidades() {
                     title: '',
                     width: 80,
                     render: (_, p) => (
-                      <Space>
+                      <Space wrap>
                         {editar && <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar posto" onClick={() => setPosto(p)} />}
                         {eliminar && (
                           <Popconfirm title="Eliminar o posto?" okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/estrutura/postos/${p.id}` })}>
@@ -164,7 +195,7 @@ function Unidades() {
                   return (
                     <List.Item>
                       <List.Item.Meta
-                        title={<Space>{c.nome_completo}{c.estado !== 'ACTIVO' && <Tag>{c.estado}</Tag>}{c.id === actual.unidade.colaborador_responsavel_id && <Tag color="gold">responsável</Tag>}</Space>}
+                        title={<Space wrap>{c.nome_completo}{c.estado !== 'ACTIVO' && <Tag>{c.estado}</Tag>}{c.id === actual.unidade.colaborador_responsavel_id && <Tag color="gold">responsável</Tag>}</Space>}
                         description={`${p ? p.titulo || cargos.nome(p.cargo_funcao_id) : 'Sem posto'} · chefia: ${colaboradores.nome(c.colaborador_gestor_id)}`}
                       />
                     </List.Item>
@@ -195,30 +226,30 @@ function FormUnidade({ unidade, arvore, paiInicial, aoFechar }: { unidade: Unida
     form.setFieldsValue(nova ? { unidade_organica_pai_id: paiInicial, tipo: 'DEPARTAMENTO', ativo: true, apoio: false } : { ...unidade, apoio: !!unidade.apoio });
   }, [unidade, nova, paiInicial, form]);
   return (
-    <Modal open={!!unidade} title={nova ? 'Nova unidade orgânica' : 'Editar unidade orgânica'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={760} destroyOnClose>
+    <Modal open={!!unidade} title={nova ? 'Nova unidade orgânica' : 'Editar unidade orgânica'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(760)} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
         onFinish={(v) => accao.mutate({ metodo: nova ? 'post' : 'put', url: nova ? '/rh/estrutura/unidades' : `/rh/estrutura/unidades/${(unidade as Unidade).id}`, dados: { ...v, cor: typeof v.cor === 'string' ? v.cor : null } })}
       >
-        <Row gutter={16}>
-          <Col span={14}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
-          <Col span={6}><Form.Item name="codigo" label="Código"><Input maxLength={50} /></Form.Item></Col>
-          <Col span={4}><Form.Item name="cor" label="Cor" getValueFromEvent={(c) => c?.toHexString?.() ?? c}><ColorPicker /></Form.Item></Col>
-          <Col span={8}><Form.Item name="tipo" label="Tipo"><Select options={Object.entries(TIPOS_UNIDADE).map(([value, label]) => ({ value, label }))} /></Form.Item></Col>
-          <Col span={16}>
+        <Row gutter={[16, 0]}>
+          <Col xs={24} sm={14}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
+          <Col xs={12} sm={6}><Form.Item name="codigo" label="Código"><Input maxLength={50} /></Form.Item></Col>
+          <Col xs={12} sm={4}><Form.Item name="cor" label="Cor" getValueFromEvent={(c) => c?.toHexString?.() ?? c}><ColorPicker /></Form.Item></Col>
+          <Col xs={24} sm={8}><Form.Item name="tipo" label="Tipo"><Select options={Object.entries(TIPOS_UNIDADE).map(([value, label]) => ({ value, label }))} /></Form.Item></Col>
+          <Col xs={24} sm={16}>
             <Form.Item name="unidade_organica_pai_id" label="Unidade superior">
               <Select allowClear showSearch optionFilterProp="label" placeholder="(topo da estrutura)" options={aplanar(arvore).filter((n) => !proibidos.has(n.unidade.id)).map((n) => ({ value: n.unidade.id, label: `${'— '.repeat(n.nivel)}${n.unidade.nome}` }))} />
             </Form.Item>
           </Col>
-          <Col span={12}><Form.Item name="colaborador_responsavel_id" label="Responsável"><SeletorColaborador apenasActivos style={{ width: '100%' }} /></Form.Item></Col>
-          <Col span={6}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-          <Col span={3}><Form.Item name="ativo" label="Activa" valuePropName="checked"><Switch /></Form.Item></Col>
-          <Col span={3}><Form.Item name="apoio" label="Apoio" valuePropName="checked" tooltip="Unidade de apoio (staff), desenhada ao lado no organigrama."><Switch /></Form.Item></Col>
-          <Col span={12}><Form.Item name="centro_custo_id" label="Centro de custo"><Select allowClear showSearch optionFilterProp="label" options={(cc.data ?? []).map((c) => ({ value: c.id, label: `${c.codigo} — ${c.descricao ?? ''}` }))} /></Form.Item></Col>
-          <Col span={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><Select allowClear showSearch optionFilterProp="label" options={(un.data ?? []).map((u) => ({ value: u.id, label: u.nome }))} /></Form.Item></Col>
-          <Col span={24}><Form.Item name="missao" label="Missão"><Input.TextArea rows={2} maxLength={5000} /></Form.Item></Col>
-          <Col span={24}><Form.Item name="atribuicoes" label="Atribuições"><Input.TextArea rows={4} maxLength={5000} /></Form.Item></Col>
+          <Col xs={24} sm={12}><Form.Item name="colaborador_responsavel_id" label="Responsável"><SeletorColaborador apenasActivos style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={12} sm={6}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={12} sm={3}><Form.Item name="ativo" label="Activa" valuePropName="checked"><Switch /></Form.Item></Col>
+          <Col xs={12} sm={3}><Form.Item name="apoio" label="Apoio" valuePropName="checked" tooltip="Unidade de apoio (staff), desenhada ao lado no organigrama."><Switch /></Form.Item></Col>
+          <Col xs={24} sm={12}><Form.Item name="centro_custo_id" label="Centro de custo"><Select allowClear showSearch optionFilterProp="label" options={(cc.data ?? []).map((c) => ({ value: c.id, label: `${c.codigo} — ${c.descricao ?? ''}` }))} /></Form.Item></Col>
+          <Col xs={24} sm={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><Select allowClear showSearch optionFilterProp="label" options={(un.data ?? []).map((u) => ({ value: u.id, label: u.nome }))} /></Form.Item></Col>
+          <Col xs={24}><Form.Item name="missao" label="Missão"><Input.TextArea rows={2} maxLength={5000} /></Form.Item></Col>
+          <Col xs={24}><Form.Item name="atribuicoes" label="Atribuições"><Input.TextArea rows={4} maxLength={5000} /></Form.Item></Col>
         </Row>
       </Form>
     </Modal>
@@ -236,11 +267,11 @@ function FormPosto({ posto, unidade, aoFechar }: { posto: Posto | 'novo' | null;
     form.setFieldsValue(novo ? { vagas: 1, chefia: false } : { ...posto, chefia: !!posto.chefia });
   }, [posto, novo, form]);
   return (
-    <Modal open={!!posto} title={novo ? `Novo posto — ${unidade.nome}` : 'Editar posto'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!posto} title={novo ? `Novo posto — ${unidade.nome}` : 'Editar posto'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: novo ? 'post' : 'put', url: novo ? '/rh/estrutura/postos' : `/rh/estrutura/postos/${(posto as Posto).id}`, dados: { ...v, unidade_organica_id: unidade.id } })}>
         <Form.Item name="cargo_funcao_id" label="Cargo / função"><Select allowClear showSearch optionFilterProp="label" options={cargos.lista.map((c) => ({ value: c.id, label: c.nome }))} /></Form.Item>
         <Form.Item name="titulo" label="Título do posto (se diferente do cargo)"><Input maxLength={255} /></Form.Item>
-        <Space size={16}>
+        <Space size={16} wrap>
           <Form.Item name="vagas" label="Vagas"><InputNumber min={0} max={9999} /></Form.Item>
           <Form.Item name="ordem" label="Ordem"><InputNumber /></Form.Item>
           <Form.Item name="chefia" label="Posto de chefia" valuePropName="checked"><Switch /></Form.Item>
@@ -269,7 +300,7 @@ function ModalAfectar({ aberto, unidade, aoFechar }: { aberto: boolean; unidade:
     if (aberto) form.resetFields();
   }, [aberto, form]);
   return (
-    <Modal open={aberto} title={`Afectar colaboradores a «${unidade.nome}»`} onCancel={aoFechar} okText="Afectar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={620} destroyOnClose>
+    <Modal open={aberto} title={`Afectar colaboradores a «${unidade.nome}»`} onCancel={aoFechar} okText="Afectar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(620)} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -312,6 +343,7 @@ function Cargos() {
     <Card>
       {editar && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo cargo</Button></Flex>}
       <Table
+        scroll={scrollTabela()}
         rowKey="id"
         size="small"
         loading={cargos.isLoading}
@@ -324,7 +356,7 @@ function Cargos() {
             title: '',
             width: 90,
             render: (_, c) => (
-              <Space>
+              <Space wrap>
                 {editar && <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar" onClick={() => setEdicao(c)} />}
                 {eliminar && (
                   <Popconfirm title={`Eliminar «${c.nome}»?`} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/cargos/${c.id}` })}>
@@ -336,7 +368,7 @@ function Cargos() {
           },
         ]}
       />
-      <Modal open={!!edicao} title={edicao === 'novo' ? 'Novo cargo' : 'Editar cargo'} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal open={!!edicao} title={edicao === 'novo' ? 'Novo cargo' : 'Editar cargo'} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: edicao === 'novo' ? 'post' : 'put', url: edicao === 'novo' ? '/rh/cargos' : `/rh/cargos/${(edicao as { id: number }).id}`, dados: v })}>
           <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item>
           <Form.Item name="descricao" label="Descrição"><Input.TextArea rows={4} maxLength={5000} /></Form.Item>

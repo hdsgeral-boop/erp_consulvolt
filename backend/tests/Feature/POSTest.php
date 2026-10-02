@@ -11,6 +11,7 @@ use App\Models\StockArmazem;
 use App\Services\Logistica\ServicoStock;
 use App\Services\Vendas\ServicoConfigVendas;
 use App\Support\Tenancy\ContextoEmpresa;
+use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -107,6 +108,18 @@ final class POSTest extends TestCase
         $this->deleteJson("/api/pos/terminais/{$this->ids['t']}", [], $s)->assertStatus(422)->assertJsonPath('codigo', 'TERMINAL_COM_MOVIMENTO');
         $this->deleteJson("/api/pos/terminais/{$t2}", [], $s)->assertOk();
         $this->assertNotNull($sessao);
+    }
+
+    #[Test]
+    public function operador_aparece_pelo_nome_completo(): void
+    {
+        $u = $this->criarUtilizador(['nome_completo' => 'Operadora Demo', 'perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'all' => true])->id]);
+        $u->empresas()->attach($this->empresa->id);
+        $s = $this->entrar($u) + ['X-Empresa-Id' => $this->empresa->id];
+        $sessao = $this->postJson("/api/pos/terminais/{$this->ids['t']}/sessoes", [], $s)->assertCreated()->json('dados.id');
+        $this->assertSame('Operadora Demo', DB::table('sessoes_pos')->where('id', $sessao)->value('nome_operador'));
+        $this->vender($sessao, [['meio_id' => 'pm_num', 'valor' => 1140]], 1, [], $s)->assertCreated();
+        $this->assertSame('Operadora Demo', DB::table('vendas')->where('sessao_pos_id', $sessao)->value('pos_operador'));
     }
 
     #[Test]

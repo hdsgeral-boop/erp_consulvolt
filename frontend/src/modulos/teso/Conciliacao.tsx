@@ -5,6 +5,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
@@ -13,6 +14,56 @@ import { ModalImportar } from '../contab/comum/ficheiros';
 import type { LinhaExtratoBancario, MapaReconciliacao, ReconciliacaoBancaria, SugestaoReconciliacao } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { somaCorrespondencia } from './regras';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+
+const ROTULO_ESTADO_EXTRATO: Record<string, string> = { PENDENTE: 'Pendente', CONCILIADO: 'Conciliado', ANULADO: 'Anulado' };
+
+/** Mapa de reconciliação impresso: resumo dos saldos e as linhas por reconciliar do diário e do extracto. */
+export function pedidoMapaReconciliacao(d: MapaReconciliacao) {
+  type LD = MapaReconciliacao['por_reconciliar_diario']['linhas'][number];
+  type LE = MapaReconciliacao['por_reconciliar_extrato']['linhas'][number];
+  return {
+    titulo: `Mapa de reconciliação bancária — conta ${d.conta}`,
+    periodo: `Em ${formatarData(d.data)}`,
+    conteudo:
+      pares(
+        [
+          ['Saldo no diário', `${formatarKz(d.saldo_diario)} Kz`],
+          ['Diário por reconciliar (líquido)', `${formatarKz(d.por_reconciliar_diario.total)} Kz`],
+          ['Extracto por reconciliar (líquido)', `${formatarKz(d.por_reconciliar_extrato.total)} Kz`],
+          ['Saldo esperado no banco', `${formatarKz(d.saldo_banco_esperado)} Kz`],
+        ],
+        2,
+      ) +
+      tabelaHtml({
+        legenda: 'Movimentos do diário por reconciliar',
+        colunas: [
+          { titulo: 'Data', valor: (l: LD) => l.data_documento, formato: 'data' },
+          { titulo: 'Lançamento', valor: (l) => l.numero_lan },
+          { titulo: 'Documento', valor: (l) => l.numero_documento ?? '' },
+          { titulo: 'Descrição', valor: (l) => l.descricao ?? '', quebrar: true },
+          { titulo: 'Débito (Kz)', valor: (l) => (l.tipo_dc === 'D' ? l.valor : null), formato: 'moeda', somar: true },
+          { titulo: 'Crédito (Kz)', valor: (l) => (l.tipo_dc === 'C' ? l.valor : null), formato: 'moeda', somar: true },
+        ],
+        linhas: d.por_reconciliar_diario.linhas,
+        totais: true,
+        vazio: 'Sem movimentos do diário por reconciliar.',
+      }) +
+      tabelaHtml({
+        legenda: 'Linhas do extracto por reconciliar',
+        colunas: [
+          { titulo: 'Data', valor: (l: LE) => l.data, formato: 'data' },
+          { titulo: 'Referência', valor: (l) => l.referencia ?? '' },
+          { titulo: 'Descrição', valor: (l) => l.descricao ?? '', quebrar: true },
+          { titulo: 'Entrada (Kz)', valor: (l) => (l.tipo_dc === 'C' ? l.valor : null), formato: 'moeda', somar: true },
+          { titulo: 'Saída (Kz)', valor: (l) => (l.tipo_dc === 'D' ? l.valor : null), formato: 'moeda', somar: true },
+        ],
+        linhas: d.por_reconciliar_extrato.linhas,
+        totais: true,
+        vazio: 'Sem linhas do extracto por reconciliar.',
+      }),
+  };
+}
 
 const CRITERIOS: Record<string, string> = { MESMA_DATA: 'Mesma data', TOLERANCIA_DATA: 'Data próxima', VALOR_UNICO: 'Valor único' };
 
@@ -96,7 +147,7 @@ function Correspondencia({ conta, data }: { conta: string; data: Dayjs }) {
       <Card
         title="Sugestões automáticas (1:1)"
         extra={
-          <Space>
+          <Space wrap>
             <span>Tolerância (dias)</span>
             <InputNumber min={0} max={5} value={tolerancia} onChange={(v) => setTolerancia(v ?? 1)} style={{ width: 70 }} />
             {podeConfirmar && (
@@ -125,7 +176,7 @@ function Correspondencia({ conta, data }: { conta: string; data: Dayjs }) {
           pagination={{ pageSize: 20 }}
           locale={{ emptyText: 'Sem sugestões: importe o extracto ou use a correspondência manual.' }}
           rowSelection={podeConfirmar ? { selectedRowKeys: selSug, onChange: (k) => setSelSug(k as string[]) } : undefined}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           columns={[
             { title: 'Extracto', render: (_, s) => { const e = porIdE.get(s.linha_extrato_id); return e ? `${formatarData(e.data)} · ${e.descricao ?? e.referencia ?? ''}` : `#${s.linha_extrato_id}`; } },
             { title: 'Diário', render: (_, s) => { const d = porIdD.get(s.lancamento_id); return d ? `${formatarData(d.data_documento)} · ${d.numero_lan} · ${d.descricao ?? ''}` : `#${s.lancamento_id}`; } },
@@ -138,7 +189,7 @@ function Correspondencia({ conta, data }: { conta: string; data: Dayjs }) {
         title="Correspondência manual"
         extra={
           podeConfirmar && (
-            <Space>
+            <Space wrap>
               <Typography.Text type={soma.casa ? 'success' : 'secondary'}>
                 Extracto {formatarKz(soma.extrato)} · Diário {formatarKz(soma.diario)} · Diferença {formatarKz(soma.diferenca)}
               </Typography.Text>
@@ -152,7 +203,7 @@ function Correspondencia({ conta, data }: { conta: string; data: Dayjs }) {
         <Row gutter={16}>
           <Col xs={24} lg={12}>
             <Typography.Title level={5}>Extracto por reconciliar</Typography.Title>
-            <Table
+            <Table scroll={scrollTabela()}
               rowKey="id"
               size="small"
               loading={mapa.isLoading}
@@ -169,7 +220,7 @@ function Correspondencia({ conta, data }: { conta: string; data: Dayjs }) {
           </Col>
           <Col xs={24} lg={12}>
             <Typography.Title level={5}>Diário por reconciliar</Typography.Title>
-            <Table
+            <Table scroll={scrollTabela()}
               rowKey="id"
               size="small"
               loading={mapa.isLoading}
@@ -208,9 +259,29 @@ function Extrato({ conta }: { conta: string }) {
   return (
     <Card
       extra={
-        <Space>
+        <Space wrap>
           <Select placeholder="Estado" allowClear value={estado} onChange={setEstado} style={{ width: 160 }} options={[{ value: 'PENDENTE', label: 'Pendentes' }, { value: 'CONCILIADO', label: 'Conciliadas' }, { value: 'ANULADO', label: 'Anuladas' }]} />
           {pode('teso_conc_importar') && <Button icon={<ImportOutlined />} onClick={() => setImportar(true)}>Importar extracto</Button>}
+          <BotoesExportar
+            desactivado={!linhas.data?.length}
+            obterPedido={() => ({
+              titulo: `Extracto bancário importado — conta ${conta}`,
+              filtros: [estado && `Estado: ${ROTULO_ESTADO_EXTRATO[estado] ?? estado}`],
+              conteudo: tabelaHtml({
+                colunas: [
+                  { titulo: 'Data', valor: (l: LinhaExtratoBancario) => l.data, formato: 'data' },
+                  { titulo: 'Referência', valor: (l) => l.referencia ?? '' },
+                  { titulo: 'Descrição', valor: (l) => l.descricao ?? '', quebrar: true },
+                  { titulo: 'Entrada (Kz)', valor: (l) => (l.tipo_dc === 'C' ? l.valor : null), formato: 'moeda', somar: true },
+                  { titulo: 'Saída (Kz)', valor: (l) => (l.tipo_dc === 'D' ? l.valor : null), formato: 'moeda', somar: true },
+                  { titulo: 'Estado', valor: (l) => ROTULO_ESTADO_EXTRATO[l.estado] ?? l.estado },
+                  { titulo: 'Reconciliação', valor: (l) => l.reconciliacao_codigo ?? '' },
+                ],
+                linhas: linhas.data ?? [],
+                totais: true,
+              }),
+            })}
+          />
         </Space>
       }
     >
@@ -220,15 +291,15 @@ function Extrato({ conta }: { conta: string }) {
         loading={linhas.isLoading}
         dataSource={linhas.data}
         pagination={{ pageSize: 50, showTotal: (n) => `${n} linha(s)` }}
-        scroll={{ x: 'max-content' }}
+        scroll={scrollTabela()}
         columns={[
           { title: 'Data', dataIndex: 'data', render: formatarData },
-          { title: 'Referência', dataIndex: 'referencia' },
-          { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 320 },
+          { title: 'Referência', dataIndex: 'referencia', responsive: ['md'] },
+          { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 320, responsive: ['sm'] },
           { title: 'Entrada', align: 'right', render: (_, l) => (l.tipo_dc === 'C' ? <ValorKz valor={l.valor} /> : null) },
           { title: 'Saída', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : null) },
           { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
-          { title: 'Reconciliação', dataIndex: 'reconciliacao_codigo' },
+          { title: 'Reconciliação', dataIndex: 'reconciliacao_codigo', responsive: ['lg'] },
           {
             title: '',
             render: (_, l) =>
@@ -258,7 +329,7 @@ function Mapa({ conta, data }: { conta: string; data: Dayjs }) {
   const d = mapa.data;
   if (!d) return <Card loading />;
   return (
-    <Card title={`Mapa de reconciliação em ${formatarData(d.data)}`}>
+    <Card title={`Mapa de reconciliação em ${formatarData(d.data)}`} extra={<BotoesExportar obterPedido={() => pedidoMapaReconciliacao(d)} />}>
       <Space size={40} wrap>
         <Statistic title="Saldo no diário" value={formatarKz(d.saldo_diario)} />
         <Statistic title="Diário por reconciliar (líquido)" value={formatarKz(d.por_reconciliar_diario.total)} />
@@ -287,8 +358,28 @@ function HistoricoReconciliacoes() {
     onError: (e) => notificarErro(e),
   });
   return (
-    <Card>
-      <Table<ReconciliacaoBancaria>
+    <Card
+      extra={
+        <BotoesExportar
+          desactivado={!lista.data?.length}
+          obterPedido={() => ({
+            titulo: 'Histórico de reconciliações bancárias',
+            conteudo: tabelaHtml({
+              colunas: [
+                { titulo: 'Código', valor: (r: ReconciliacaoBancaria) => r.reconciliacao_codigo },
+                { titulo: 'Data', valor: (r) => formatarDataHora(r.data) },
+                { titulo: 'Conta', valor: (r) => r.codigo_conta ?? '' },
+                { titulo: 'Tipo', valor: (r) => r.tipo ?? '' },
+                { titulo: 'Valor (Kz)', valor: (r) => r.valor_total, formato: 'moeda' },
+                { titulo: 'Estado', valor: (r) => r.estado },
+              ],
+              linhas: lista.data ?? [],
+            }),
+          })}
+        />
+      }
+    >
+      <Table<ReconciliacaoBancaria> scroll={scrollTabela()}
         rowKey="id"
         size="small"
         loading={lista.isLoading}
@@ -302,7 +393,7 @@ function HistoricoReconciliacoes() {
           { title: '', render: (_, r) => (pode('teso_conc_anular') ? <Button size="small" danger type="link" onClick={() => setAnular(r.reconciliacao_codigo)}>Anular</Button> : null) },
         ]}
       />
-      <Modal title={`Anular a reconciliação ${anular ?? ''}`} open={!!anular} onCancel={() => setAnular(null)} okText="Anular" okButtonProps={{ danger: true }} confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
+      <Modal width={larguraModal(520)} title={`Anular a reconciliação ${anular ?? ''}`} open={!!anular} onCancel={() => setAnular(null)} okText="Anular" okButtonProps={{ danger: true }} confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => anular && mutacao.mutate({ codigo: anular, motivo: v.motivo })}>
           <Typography.Paragraph type="secondary">As linhas do extracto e do diário voltam a ficar por reconciliar.</Typography.Paragraph>
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}>

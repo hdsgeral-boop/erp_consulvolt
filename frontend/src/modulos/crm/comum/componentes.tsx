@@ -10,6 +10,7 @@ import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { CHAVE_CRM, useConfigCRM, useContasPesquisa, useModelosEmail } from './dados';
 import { NIVEIS_SAUDE, abrirMailto, exigeMotivo, type Actividade, type Envio, type Etapa, type MensagemEmail, type Saude } from './tipos';
+import { larguraModal } from '@/componentes/responsivo';
 
 export function TagSaude({ saude }: { saude: Saude | null | undefined }) {
   if (!saude) return null;
@@ -70,7 +71,7 @@ export function ModalMoverEtapa({
       okButtonProps={{ danger: perda }}
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
-      destroyOnClose
+      destroyOnHidden
     >
       <Typography.Paragraph>{oportunidade?.titulo}</Typography.Paragraph>
       {etapa?.tipo === 'GANHA' && <Alert type="success" showIcon style={{ marginBottom: 12 }} message="A oportunidade fica ganha. Pode depois convertê-la em documento de venda." />}
@@ -124,7 +125,7 @@ export function ModalActividade({
     else form.setFieldsValue({ ...actividade, titulo: actividade.titulo ?? undefined, descricao: actividade.descricao ?? undefined, responsavel: actividade.responsavel ?? undefined, data_prevista: actividade.data_prevista ? dayjs(actividade.data_prevista) : null, concluida: !!actividade.concluida });
   }, [actividade, form, utilizador]);
   return (
-    <Modal open={!!actividade} title={actividade === 'nova' ? 'Nova actividade' : 'Editar actividade'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+    <Modal open={!!actividade} title={actividade === 'nova' ? 'Nova actividade' : 'Editar actividade'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
       <Form
         form={form}
         layout="vertical"
@@ -245,7 +246,7 @@ export function ModalEmail({ contexto, aoFechar }: { contexto: { conta_crm_id?: 
     onError: (e) => notificarErro(e),
   });
   return (
-    <Modal open={!!contexto} title="Enviar email" onCancel={aoFechar} okText="Registar e abrir no email" cancelText="Cancelar" okButtonProps={{ icon: <MailOutlined /> }} confirmLoading={registar.isPending} onOk={() => form.submit()} width={680} destroyOnClose>
+    <Modal open={!!contexto} title="Enviar email" onCancel={aoFechar} okText="Registar e abrir no email" cancelText="Cancelar" okButtonProps={{ icon: <MailOutlined /> }} confirmLoading={registar.isPending} onOk={() => form.submit()} width={larguraModal(680)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => registar.mutate(v)}>
         <Form.Item name="modelo_email_crm_id" label="Modelo">
           <Select allowClear loading={modelos.isLoading || preparar.isPending} options={(modelos.data ?? []).map((m) => ({ value: m.id, label: m.nome }))} onChange={(m?: number) => preparar.mutate(m)} placeholder="Escolha um modelo para preencher" />

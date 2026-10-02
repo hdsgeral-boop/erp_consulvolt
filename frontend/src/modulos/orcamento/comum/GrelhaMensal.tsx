@@ -2,6 +2,7 @@ import { Button, Dropdown, Input, InputNumber, Modal, Space, Table, Tooltip, Typ
 import { MoreOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMemo, useState } from 'react';
+import { useEcra } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { Kz } from './componentes';
 import { MESES, repartirAnual, sinal, totalAnual, totaisMensais } from './regras';
@@ -35,6 +36,8 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
   comNotas?: boolean;
 }) {
   const [repartir, setRepartir] = useState<{ rubrica: Rubrica; total: number | null } | null>(null);
+  // No telemóvel a coluna da rubrica não fica fixa (260 px fixos ocupariam quase todo o ecrã).
+  const { telemovel } = useEcra();
   const entradas = tipo === 'EXPLORACAO' ? 'Proveitos' : 'Recebimentos';
   const saidas = tipo === 'EXPLORACAO' ? 'Custos' : 'Pagamentos';
 
@@ -67,7 +70,7 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
 
   const colunas: ColumnsType<Linha> = [
     {
-      title: 'Rubrica', key: 'r', fixed: 'left', width: 260,
+      title: 'Rubrica', key: 'r', fixed: telemovel ? undefined : 'left', width: telemovel ? 180 : 260,
       render: (_, l) => {
         if (l.grupo) return <Typography.Text strong type="secondary">{l.grupo}</Typography.Text>;
         if (l.total) return <Typography.Text strong>{l.total === 'entradas' ? `Total ${entradas.toLowerCase()}` : l.total === 'saidas' ? `Total ${saidas.toLowerCase()}` : tipo === 'EXPLORACAO' ? 'Resultado' : 'Saldo do período'}</Typography.Text>;
@@ -103,7 +106,7 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
         return <Kz valor={l.valores[i] ?? 0} forte={!!l.total} />;
       },
     })),
-    { title: 'Total', key: 't', align: 'right', fixed: 'right', render: (_, l) => (l.grupo ? null : <Kz valor={totalAnual(l.valores)} forte />) },
+    { title: 'Total', key: 't', align: 'right', fixed: telemovel ? undefined : 'right', render: (_, l) => (l.grupo ? null : <Kz valor={totalAnual(l.valores)} forte />) },
   ];
   if (comNotas)
     colunas.push({
@@ -140,7 +143,7 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
         }}
       >
         <Typography.Paragraph type="secondary">Valor anual repartido em 12 partes iguais ao cêntimo (Dezembro absorve o arredondamento).</Typography.Paragraph>
-        <InputNumber autoFocus precision={2} style={{ width: 240 }} value={repartir?.total} onChange={(v) => repartir && setRepartir({ ...repartir, total: v })} addonAfter="Kz" />
+        <InputNumber autoFocus precision={2} style={{ width: 240 }} value={repartir?.total} onChange={(v) => repartir && setRepartir({ ...repartir, total: v })} suffix="Kz" />
         {repartir?.total ? <Typography.Paragraph style={{ marginTop: 8 }}>≈ {formatarKz(repartirAnual(repartir.total)[0])} Kz por mês</Typography.Paragraph> : null}
       </Modal>
     </>

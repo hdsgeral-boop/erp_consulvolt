@@ -1,7 +1,9 @@
-import { Alert, Button, Card, DatePicker, Descriptions, Flex, Input, Select, Skeleton, Table } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Input, Select, Skeleton, Table } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnsType } from 'antd/es/table';
+import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { dadosEncomendaCompra } from '../comum/impressao';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
@@ -11,12 +13,12 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { pendente } from '../comum/calculos';
-import { EstadoTag, opcoesEstado } from '../comum/estados';
+import { EstadoTag, opcoesEstado, rotuloEstado } from '../comum/estados';
 import { ModalFaturaEncomenda, ModalRececao } from '../comum/ModaisEncomenda';
 import { NomeProduto, NomeTerceiro } from '../comum/referencias';
 import { accoesEncomenda } from '../comum/regras';
 import { SeletorTerceiro } from '../comum/Seletores';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { numeroOuId, type EncomendaCompra, type FaturaCompra, type ItemCompra, type RececaoCompra } from '../comum/tipos';
 import { ValorMoeda } from '../comum/Valores';
 
@@ -36,14 +38,16 @@ function ListaEncomendas() {
   const [fornecedor, setFornecedor] = useState<number>();
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [pesquisa, setPesquisa] = useState('');
+  const [nomeFornecedor, setNomeFornecedor] = useState<string>();
+  const pequeno = useEcraPequeno();
 
-  const colunas: ColumnsType<EncomendaCompra> = [
+  const colunas: ColunaApi<EncomendaCompra>[] = [
     { title: 'Encomenda', key: 'numero', fixed: 'left', render: (_, r) => <strong>{numeroOuId(r.numero_encomenda, r.id)}</strong> },
-    { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Fornecedor', key: 'fornecedor', render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },
-    { title: 'Total (Kz)', key: 'total', align: 'right', render: (_, r) => <ValorMoeda kz={r.montante_total} moeda={r.codigo_moeda} valorMoeda={r.montante_total_moeda} /> },
-    { title: 'Entrega prevista', dataIndex: 'data_entrega_prevista', render: formatarData },
-    { title: 'Contrato', dataIndex: 'contrato_fornecedor_id', render: (v: number | null) => (v ? `#${v}` : '—') },
+    { title: 'Data', dataIndex: 'data', responsive: ['sm'], render: formatarData },
+    { title: 'Fornecedor', key: 'fornecedor', valorImpressao: (r) => r.fornecedor?.nome?.trim() ?? `#${r.fornecedor_id}`, render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },
+    { title: 'Total (Kz)', key: 'total', align: 'right', valorImpressao: (r) => formatarKz(r.montante_total), render: (_, r) => <ValorMoeda kz={r.montante_total} moeda={r.codigo_moeda} valorMoeda={r.montante_total_moeda} /> },
+    { title: 'Entrega prevista', dataIndex: 'data_entrega_prevista', responsive: ['lg'], render: formatarData },
+    { title: 'Contrato', dataIndex: 'contrato_fornecedor_id', responsive: ['lg'], render: (v: number | null) => (v ? `#${v}` : '—') },
     { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
   ];
 
@@ -51,17 +55,23 @@ function ListaEncomendas() {
     <>
       <CabecalhoPagina titulo="Encomendas a fornecedores" subtitulo="Geradas pela adjudicação; recepções e facturas registam-se a partir da encomenda" />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={opcoesEstado(['EM_PROCESSAMENTO', 'PARCIAL', 'RECEBIDO', 'ANULADA'])} />
-          <SeletorTerceiro papel="FORNECEDOR" style={{ width: 320 }} value={fornecedor} onChange={setFornecedor} />
+        <BarraFiltros>
+          <Select placeholder="Estado" allowClear style={{ width: 200, maxWidth: '100%' }} value={estado} onChange={setEstado} options={opcoesEstado(['EM_PROCESSAMENTO', 'PARCIAL', 'RECEBIDO', 'ANULADA'])} />
+          <SeletorTerceiro papel="FORNECEDOR" style={{ width: 320, maxWidth: '100%' }} value={fornecedor} onChange={(v, o) => { setFornecedor(v); setNomeFornecedor(o && !Array.isArray(o) && o.label ? String(o.label) : undefined); }} />
           <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-          <Input.Search placeholder="N.º da encomenda" allowClear style={{ width: 200 }} onSearch={(v) => setPesquisa(v.trim())} />
-        </Flex>
+          <Input.Search placeholder="N.º da encomenda" allowClear style={{ width: 200, maxWidth: '100%' }} onSearch={(v) => setPesquisa(v.trim())} />
+        </BarraFiltros>
         <TabelaApi<EncomendaCompra>
           url="/compras/encomendas"
           chaveConsulta={['compras', 'encomendas']}
           filtros={{ estado, pesquisa: pesquisa || undefined, fornecedor_id: fornecedor, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
           columns={colunas}
+          size={pequeno ? 'small' : 'middle'}
+          impressao={{
+            titulo: 'Lista de encomendas a fornecedores',
+            periodo: periodo?.[0] && periodo?.[1] ? `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}` : undefined,
+            filtros: [estado && `Estado: ${rotuloEstado(estado)}`, !!fornecedor && `Fornecedor: ${nomeFornecedor ?? `#${fornecedor}`}`, pesquisa && `Pesquisa: ${pesquisa}`],
+          }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
@@ -99,6 +109,7 @@ export function DetalheEncomenda() {
       <CabecalhoPagina
         titulo={`Encomenda ${nome}`}
         subtitulo={<NomeTerceiro id={e.fornecedor_id} terceiro={e.fornecedor} />}
+        impressao={() => pedidoDocumentoComercial(dadosEncomendaCompra(e))}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -110,7 +121,7 @@ export function DetalheEncomenda() {
       />
       {e.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Encomenda anulada${e.motivo_anulacao ? `: ${e.motivo_anulacao}` : '.'}`} />}
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={{ xs: 1, md: 3 }} size="small">
+        <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Data">{formatarData(e.data)}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={e.estado} /></Descriptions.Item>
           <Descriptions.Item label="Entrega prevista">{formatarData(e.data_entrega_prevista)}</Descriptions.Item>
@@ -127,7 +138,7 @@ export function DetalheEncomenda() {
           rowKey="id"
           size="small"
           pagination={false}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           dataSource={e.linhas ?? []}
           columns={[
             { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
@@ -148,6 +159,7 @@ export function DetalheEncomenda() {
             size="small"
             pagination={false}
             dataSource={rececoes.data?.itens}
+            scroll={scrollTabela()}
             onRow={(r) => ({ onClick: () => pode('compras_rececoes_view') && navegar(`/m/compras/compras_rececoes/${r.id}`), style: { cursor: 'pointer' } })}
             columns={[
               { title: 'Recepção', render: (_, r) => numeroOuId(r.numero_rececao, r.id) },
@@ -165,6 +177,7 @@ export function DetalheEncomenda() {
             size="small"
             pagination={false}
             dataSource={faturas.data?.itens}
+            scroll={scrollTabela()}
             onRow={(f) => ({ onClick: () => navegar(`/m/compras/compras_faturacao/${f.id}`), style: { cursor: 'pointer' } })}
             columns={[
               { title: 'Factura', dataIndex: 'numero_fatura' },

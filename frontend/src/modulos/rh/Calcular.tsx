@@ -1,8 +1,7 @@
 import {
-  Alert, Button, Card, Checkbox, Descriptions, Dropdown, Flex, Form, InputNumber, Modal, Popconfirm, Progress, Select, Skeleton, Space, Table, Tabs, Tag, Typography, message,
+  Alert, Button, Card, Checkbox, Descriptions, Dropdown, Form, InputNumber, Modal, Popconfirm, Progress, Select, Skeleton, Space, Table, Tabs, Tag, Typography, message,
 } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, DownOutlined, EditOutlined, ImportOutlined, LockOutlined, PlusOutlined, UsergroupAddOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
@@ -16,6 +15,10 @@ import { useAccaoRh, useAvisarErro, useColaboradores, useInfotipos } from './com
 import { ListaPeriodos } from './comum/ListaPeriodos';
 import { ResumoTotais, TabelaResultados } from './comum/TabelaResultados';
 import { accoesPeriodo } from './comum/regras';
+import { BotoesExportar } from '@/componentes/impressao';
+import { BarraFiltros, larguraModal } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
+import { folhaSalariosHtml, pedidoTabela } from './comum/impressao';
 
 /** RH › Calcular (ecrã calcular): abrir o período salarial, lançar rubricas, importar e encerrar o cálculo. */
 export default function Calcular() {
@@ -109,14 +112,14 @@ function PeriodoCalculo() {
     .filter((l) => !filtroColab || l.colaborador_id === filtroColab)
     .sort((a, b) => colaboradores.nome(a.colaborador_id).localeCompare(colaboradores.nome(b.colaborador_id), 'pt') || a.id - b.id);
 
-  const colunas: ColumnsType<Lancamento> = [
+  const colunas: ColunaApi<Lancamento>[] = [
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v) },
     { title: 'Rubrica', dataIndex: 'infotipo_salarial_id', render: (v: number) => infotipos.nome(v) },
-    { title: 'Tipo', render: (_, l) => { const t = infotipos.mapa.get(l.infotipo_salarial_id)?.tipo; return t ? <Tag color={t === 'VENCIMENTO' ? 'green' : t === 'DESCONTO' ? 'red' : 'default'}>{t}</Tag> : '—'; } },
+    { title: 'Tipo', responsive: ['md'], render: (_, l) => { const t = infotipos.mapa.get(l.infotipo_salarial_id)?.tipo; return t ? <Tag color={t === 'VENCIMENTO' ? 'green' : t === 'DESCONTO' ? 'red' : 'default'}>{t}</Tag> : '—'; } },
     { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => formatarKz(v) },
-    { title: 'Dias trab.', dataIndex: 'dias_trabalhados', align: 'right', render: (v: string | null) => (v ? formatarNumero(v) : '—') },
-    { title: 'Horas', dataIndex: 'horas', align: 'right', render: (v: string | null) => (v ? formatarNumero(v) : '—') },
-    { title: 'Origem', dataIndex: 'origem', render: (o: string | null, l) => (l.bonificacao_avaliacao_id ? <Tag color="purple">Bonificação</Tag> : o ? <Tag>{o}</Tag> : 'Manual') },
+    { title: 'Dias trab.', dataIndex: 'dias_trabalhados', align: 'right', responsive: ['md'], render: (v: string | null) => (v ? formatarNumero(v) : '—') },
+    { title: 'Horas', dataIndex: 'horas', align: 'right', responsive: ['md'], render: (v: string | null) => (v ? formatarNumero(v) : '—') },
+    { title: 'Origem', dataIndex: 'origem', responsive: ['lg'], render: (o: string | null, l) => (l.bonificacao_avaliacao_id ? <Tag color="purple">Bonificação</Tag> : o ? <Tag>{o}</Tag> : 'Manual') },
     {
       title: '',
       key: 'accoes',
@@ -141,7 +144,14 @@ function PeriodoCalculo() {
     <>
       <CabecalhoPagina
         titulo={`Processamento ${p.mes_ano}`}
-        subtitulo={<Space><EstadoTag estado={p.estado} />{p.contabilizado && <Tag color="green">Contabilizado</Tag>}{p.fotografia ? 'Resultados fotografados' : 'Cálculo ao vivo'}</Space>}
+        subtitulo={<Space wrap><EstadoTag estado={p.estado} />{p.contabilizado && <Tag color="green">Contabilizado</Tag>}{p.fotografia ? 'Resultados fotografados' : 'Cálculo ao vivo'}</Space>}
+        impressaoDesactivada={!p.resultados.length}
+        impressao={() => ({
+          titulo: 'Folha de salários',
+          periodo: p.mes_ano,
+          filtros: [p.fotografia ? 'Resultados fotografados' : 'Cálculo ao vivo (valores provisórios)'],
+          conteudo: folhaSalariosHtml(p.resultados, (r) => r.nome ?? colaboradores.nome(r.colaborador_id)),
+        })}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
@@ -184,7 +194,10 @@ function PeriodoCalculo() {
               label: `Lançamentos (${lancamentos.data?.length ?? 0})`,
               children: (
                 <>
-                  <Flex gap={8} style={{ marginBottom: 12 }}><SeletorColaborador value={filtroColab} onChange={setFiltroColab} /></Flex>
+                  <BarraFiltros style={{ marginBottom: 12 }} accoes={
+                    <BotoesExportar tamanho="small" desactivado={!linhas.length} textoImprimir="Imprimir lançamentos"
+                      obterPedido={() => pedidoTabela({ titulo: 'Lançamentos do período salarial', periodo: p.mes_ano, filtros: filtroColab ? [`Colaborador: ${colaboradores.nome(filtroColab)}`] : undefined, colunas, linhas })} />
+                  }><SeletorColaborador value={filtroColab} onChange={setFiltroColab} /></BarraFiltros>
                   <Table<Lancamento> rowKey="id" size="small" loading={lancamentos.isFetching} columns={colunas} dataSource={linhas} scroll={{ x: 'max-content' }}
                     pagination={{ pageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} lançamento(s)` }} />
                 </>
@@ -196,7 +209,7 @@ function PeriodoCalculo() {
       </Card>
 
       <Modal title={lancar === 'novo' ? 'Novo lançamento' : 'Editar lançamento'} open={lancar !== null} onCancel={() => setLancar(null)} okText="Gravar" cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => formL.submit()} destroyOnClose>
+        confirmLoading={accao.isPending} onOk={() => formL.submit()} destroyOnHidden>
         <Typography.Paragraph type="secondary">Há um lançamento por colaborador e rubrica: gravar substitui o existente.</Typography.Paragraph>
         <Form form={formL} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${id}/lancamentos`, dados: { ...v, horas: porHoras(v.infotipo_salarial_id) ? v.horas ?? null : null } })}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
@@ -220,8 +233,8 @@ function PeriodoCalculo() {
         </Form>
       </Modal>
 
-      <Modal title="Lançar em lote" open={lote} width={640} onCancel={() => progressoLote === null && setLote(false)} okText="Lançar" cancelText="Cancelar"
-        confirmLoading={progressoLote !== null} onOk={() => formLote.submit()} destroyOnClose>
+      <Modal title="Lançar em lote" open={lote} width={larguraModal(640)} onCancel={() => progressoLote === null && setLote(false)} okText="Lançar" cancelText="Cancelar"
+        confirmLoading={progressoLote !== null} onOk={() => formLote.submit()} destroyOnHidden>
         <Form form={formLote} layout="vertical" onFinish={(v) => void gravarLote(v)}>
           <Form.Item name="infotipo_salarial_id" label="Rubrica" rules={[{ required: true, message: 'Escolha a rubrica.' }]}>
             <Select showSearch optionFilterProp="label" options={infotipos.lista.filter((i) => !i.calculo_horas || i.calculo_horas === 'NAO').map((i) => ({ value: i.id, label: `${i.nome} (${i.tipo})` }))} />
@@ -238,7 +251,7 @@ function PeriodoCalculo() {
         </Form>
       </Modal>
 
-      <Modal title="Importar efectividade" open={efectividade} onCancel={() => setEfectividade(false)} okText="Importar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formEf.submit()} destroyOnClose>
+      <Modal title="Importar efectividade" open={efectividade} onCancel={() => setEfectividade(false)} okText="Importar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formEf.submit()} destroyOnHidden>
         <Typography.Paragraph type="secondary">Lança as horas extra e as faltas do mês fechado na Efectividade (recalculadas com as ausências aprovadas). Os lançamentos que deixaram de ter horas são retirados.</Typography.Paragraph>
         <Form form={formEf} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-efectividade`, dados: v })}>
           <Form.Item name="infotipo_extra_id" label="Rubrica das horas extra" rules={[{ required: true, message: 'Escolha a rubrica.' }]}><Select options={rubricasHoras('EXTRA')} /></Form.Item>

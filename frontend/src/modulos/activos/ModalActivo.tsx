@@ -7,6 +7,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorCategoria, useCategorias } from './comum/componentes';
 import type { Activo } from './comum/tipos';
+import { larguraModal } from '@/componentes/responsivo';
 
 interface Props {
   aberto: boolean;
@@ -77,8 +78,8 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar }: Props) {
       okText="Gravar"
       cancelText="Cancelar"
       confirmLoading={accao.isPending}
-      width={860}
-      destroyOnClose
+      width={larguraModal(860)}
+      destroyOnHidden
     >
       {bloqueado && (
         <Alert

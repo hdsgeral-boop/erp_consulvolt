@@ -88,6 +88,12 @@ class Utilizador extends Autenticavel
         return $this->morphMany(TokenAcesso::class, 'portador', 'portador_tipo', 'portador_id');
     }
 
+    /** Nome para documentos e sessões (operador POS, caixa): o nome completo, ou o nome de utilizador (legado: pos_gestao.js:20). */
+    public function nomeApresentacao(): string
+    {
+        return trim((string) $this->nome_completo) !== '' ? trim((string) $this->nome_completo) : (string) $this->nome_utilizador;
+    }
+
     public function eSuperAdministrador(): bool
     {
         return $this->papel === self::PAPEL_SUPER_ADMINISTRADOR;

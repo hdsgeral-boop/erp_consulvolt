@@ -270,7 +270,11 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_faturacao_view');
 
-        return RespostaApi::sucesso($this->doc(FaturaCompra::query()->findOrFail($id), 'fatura_compra_id'), 'Factura obtida com sucesso.');
+        $f = FaturaCompra::query()->findOrFail($id);
+        // número da encomenda de origem (o detalhe mostrava só o id)
+        $numeroEncomenda = $f->encomenda_compra_id ? EncomendaCompra::query()->whereKey($f->encomenda_compra_id)->value('numero_encomenda') : null;
+
+        return RespostaApi::sucesso($this->doc($f, 'fatura_compra_id') + ['numero_encomenda' => $numeroEncomenda], 'Factura obtida com sucesso.');
     }
 
     public function faturarEncomenda(Request $r, int $encomenda): JsonResponse

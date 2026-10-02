@@ -149,4 +149,5 @@ Os testes são agora 67 (403 verificações). Com os dados reais, os endpoints d
 | **Testes ponta-a-ponta** | ✅ | Playwright em ambiente isolado (`docker-compose.e2e.yml`, base `_e2e` com dados fictícios): 145 testes — autenticação, Vendas, POS, Compras, Contabilidade, RH, Configurações e os 116 ecrãs do menu |
 | **Segurança e desempenho** | ✅ | Domínio do administrador nos utilizadores e perfis, limites de pedidos e de login, permissões afinadas; amortizações, férias e IVA mais rápidos com resultados iguais |
 | **Produção e CI** | ✅ | Imagens de produção, compose endurecido, CSP, cópias e restauro testados, deploy com rollback, GitHub Actions, runbook com o plano da migração definitiva (`docs/PRODUCAO.md`) — ADR-065 |
+| **Responsividade, identidade e PDF** | ✅ | 116 ecrãs responsivos (telemóvel a ecrã grande), logótipo e nome da empresa na barra e nos documentos, ícones SVG, motor de impressão com A4/A3 automático e sem deslocação; pendentes da Fase 6 resolvidos — ADR-066 |
 | **Migração definitiva** | ⏳ | Depende das decisões do utilizador: servidor, domínio/HTTPS, SMTP, destino das cópias e data do dia D |

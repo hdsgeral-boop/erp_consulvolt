@@ -95,14 +95,14 @@ export function NovaFatura() {
         <Card title="Linhas" style={{ marginBottom: 16 }}>
           <LinhasProdutos form={form} preco precoObrigatorio iva descricao rotuloPreco={`Preço (${moeda})`} />
           <Divider />
-          <Flex justify="end" gap={32}>
+          <Flex justify="end" gap={24} wrap>
             <Statistic title={`Líquido (${moeda})`} value={formatarKz(estimativa.liquido)} />
             <Statistic title="IVA" value={formatarKz(estimativa.imposto)} />
             <Statistic title="Total" value={formatarKz(estimativa.total)} />
           </Flex>
           <Typography.Text type="secondary">Estimativa; o servidor calcula os valores em Kz e o IVA dedutível.</Typography.Text>
         </Card>
-        <Space>
+        <Space wrap>
           <Button type="primary" htmlType="submit" loading={criar.isPending}>
             Registar factura
           </Button>

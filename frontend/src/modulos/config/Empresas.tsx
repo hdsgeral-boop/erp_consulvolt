@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Space, Switch, Table, Tabs, Tag, Upload, Image, message } from 'antd';
+import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Space, Switch, Tabs, Tag, Upload, Image, message } from 'antd';
 import { CheckCircleOutlined, DeleteOutlined, EditOutlined, PlusOutlined, StopOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -8,6 +8,8 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { lerComoDataUrl } from './comum/ficheiros';
+import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { TabelaLocalImprimivel } from './comum/impressao';
 
 export interface EmpresaGestao {
   id: number;
@@ -49,6 +51,7 @@ export default function Empresas() {
   const [edicao, setEdicao] = useState<number | 'nova' | null>(null);
   const lista = useQuery({ queryKey: [...CHAVE, estado], queryFn: () => obter<EmpresaGestao[]>('/sistema/gestao-empresas', { estado: estado === 'todas' ? undefined : estado }) });
   const accao = useAccao({ invalidar: [CHAVE] });
+  const pequeno = useEcraPequeno();
   const linhas = (lista.data ?? []).filter((e) => !filtro || `${e.nome} ${e.nif}`.toLowerCase().includes(filtro.toLowerCase()));
 
   return (
@@ -59,23 +62,25 @@ export default function Empresas() {
         accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova empresa</Button>}
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+        <TabelaLocalImprimivel<EmpresaGestao>
+          titulo="Lista de empresas"
+          filtros={[`Estado: ${estado === 'ATIVO' ? 'Activas' : estado === 'INATIVO' ? 'Inactivas' : 'Todas'}`, filtro ? `Pesquisa: ${filtro}` : null]}
+          filtrosEcra={<>
           <Input.Search placeholder="Nome ou NIF" allowClear style={{ width: 260 }} onChange={(e) => setFiltro(e.target.value)} />
           <Segmented value={estado} onChange={(v) => setEstado(v as typeof estado)} options={[{ value: 'ATIVO', label: 'Activas' }, { value: 'INATIVO', label: 'Inactivas' }, { value: 'todas', label: 'Todas' }]} />
-        </Flex>
-        <Table<EmpresaGestao>
+          </>}
           rowKey="id"
           loading={lista.isLoading}
           dataSource={linhas}
-          size="middle"
+          size={pequeno ? 'small' : 'middle'}
           pagination={{ pageSize: 50, hideOnSinglePage: true }}
-          scroll={{ x: 'max-content' }}
+          scroll={scrollTabela()}
           columns={[
-            { title: 'Empresa', dataIndex: 'nome', render: (v: string, e) => (<><strong>{v}</strong>{e.e_consolidacao && <Tag color="purple" style={{ marginLeft: 6 }}>Holding</Tag>}</>) },
+            { title: 'Empresa', dataIndex: 'nome', valorImpressao: (e) => `${e.nome}${e.e_consolidacao ? ' (holding)' : ''}`, render: (v: string, e) => (<><strong>{v}</strong>{e.e_consolidacao && <Tag color="purple" style={{ marginLeft: 6 }}>Holding</Tag>}</>) },
             { title: 'NIF', dataIndex: 'nif' },
-            { title: 'Moeda', dataIndex: 'moeda_funcional', width: 90 },
-            { title: 'INSS (pat./trab.)', key: 'inss', render: (_, e) => `${e.taxa_inss_patronal ?? '—'}% / ${e.taxa_inss_trabalhador ?? '—'}%` },
-            { title: 'Consolidado até', dataIndex: 'data_fim_consolidacao', render: formatarData },
+            { title: 'Moeda', dataIndex: 'moeda_funcional', width: 90, responsive: ['md'] },
+            { title: 'INSS (pat./trab.)', key: 'inss', responsive: ['md'], render: (_, e) => `${e.taxa_inss_patronal ?? '—'}% / ${e.taxa_inss_trabalhador ?? '—'}%` },
+            { title: 'Consolidado até', dataIndex: 'data_fim_consolidacao', responsive: ['lg'], render: formatarData },
             { title: 'Estado', dataIndex: 'estado', render: (s: string) => (s === 'ATIVO' ? <Tag color="green">Activa</Tag> : <Tag>Inactiva</Tag>) },
             {
               title: '',
@@ -133,13 +138,13 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
       title={id === 'nova' ? 'Nova empresa' : `Empresa — ${ficha.data?.nome ?? ''}`}
       open={id !== null}
       onCancel={aoFechar}
-      width={820}
+      width={larguraModal(820)}
       okText="Gravar"
       cancelText={gerir ? 'Cancelar' : 'Fechar'}
       okButtonProps={{ style: gerir ? undefined : { display: 'none' } }}
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" disabled={!gerir} onFinish={submeter}>
         <Tabs
@@ -150,16 +155,16 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
               forceRender: true,
               children: (
                 <Row gutter={16}>
-                  <Col span={16}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }]}><Input maxLength={30} /></Form.Item></Col>
-                  <Col span={24}><Form.Item name="endereco" label="Endereço"><Input.TextArea rows={2} maxLength={2000} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="provincia" label="Província"><Input maxLength={100} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="municipio" label="Município"><Input maxLength={100} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="comuna" label="Comuna"><Input maxLength={100} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="email" label="Email" rules={[{ type: 'email', message: 'Email inválido.' }]}><Input maxLength={150} /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="website" label="Website"><Input maxLength={255} /></Form.Item></Col>
-                  <Col span={12}><Form.Item name="numero_registo_comercial" label="N.º de registo comercial"><Input maxLength={50} /></Form.Item></Col>
+                  <Col xs={24} md={16}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }]}><Input maxLength={30} /></Form.Item></Col>
+                  <Col xs={24}><Form.Item name="endereco" label="Endereço"><Input.TextArea rows={2} maxLength={2000} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="provincia" label="Província"><Input maxLength={100} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="municipio" label="Município"><Input maxLength={100} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="comuna" label="Comuna"><Input maxLength={100} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="email" label="Email" rules={[{ type: 'email', message: 'Email inválido.' }]}><Input maxLength={150} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="website" label="Website"><Input maxLength={255} /></Form.Item></Col>
+                  <Col xs={24} md={12}><Form.Item name="numero_registo_comercial" label="N.º de registo comercial"><Input maxLength={50} /></Form.Item></Col>
                 </Row>
               ),
             },
@@ -169,11 +174,11 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
               forceRender: true,
               children: (
                 <Row gutter={16}>
-                  <Col span={12}><Form.Item name="taxa_inss_patronal" label="INSS entidade patronal (%)"><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
-                  <Col span={12}><Form.Item name="taxa_inss_trabalhador" label="INSS trabalhador (%)"><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="he_percentagem_1" label="Horas extra: % até ao limite"><InputNumber min={0} max={1000} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="he_limite_horas" label="Limite de horas (mês)"><InputNumber min={0} max={744} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
-                  <Col span={8}><Form.Item name="he_percentagem_2" label="% acima do limite"><InputNumber min={0} max={1000} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
+                  <Col xs={24} md={12}><Form.Item name="taxa_inss_patronal" label="INSS entidade patronal (%)"><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
+                  <Col xs={24} md={12}><Form.Item name="taxa_inss_trabalhador" label="INSS trabalhador (%)"><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="he_percentagem_1" label="Horas extra: % até ao limite"><InputNumber min={0} max={1000} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="he_limite_horas" label="Limite de horas (mês)"><InputNumber min={0} max={744} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="he_percentagem_2" label="% acima do limite"><InputNumber min={0} max={1000} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
                 </Row>
               ),
             },
@@ -183,24 +188,24 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
               forceRender: true,
               children: (
                 <Row gutter={16}>
-                  <Col span={8}>
+                  <Col xs={24} sm={12} md={8}>
                     <Form.Item name="moeda_funcional" label="Moeda funcional" rules={[{ len: 3, message: 'Código ISO de 3 letras.' }]} normalize={(v: string) => v?.toUpperCase()}>
                       <Input maxLength={3} />
                     </Form.Item>
                   </Col>
-                  <Col span={8}>
+                  <Col xs={24} sm={12} md={8}>
                     <Form.Item name="e_consolidacao" label="Empresa de consolidação (holding)" valuePropName="checked">
                       <Switch />
                     </Form.Item>
                   </Col>
                   {consolidacao && (
-                    <Col span={8}>
+                    <Col xs={24} sm={12} md={8}>
                       <Form.Item name="moeda_consolidacao" label="Moeda de consolidação" normalize={(v: string) => v?.toUpperCase()}>
                         <Input maxLength={3} />
                       </Form.Item>
                     </Col>
                   )}
-                  <Col span={24}>
+                  <Col xs={24}>
                     <Alert type="info" showIcon message="Os membros do grupo e as regras de eliminação definem-se em Contabilidade › Consolidação." />
                   </Col>
                 </Row>

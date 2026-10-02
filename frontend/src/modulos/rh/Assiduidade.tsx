@@ -2,7 +2,6 @@ import {
   Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, TimePicker, Tooltip, Typography, Upload, message,
 } from 'antd';
 import { DeleteOutlined, LockOutlined, PlusOutlined, SearchOutlined, UnlockOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -10,6 +9,8 @@ import { useEffect, useState } from 'react';
 import { http, obter } from '@/api/cliente';
 import type { Envelope } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora } from '@/utilitarios/formatacao';
@@ -19,6 +20,8 @@ import {
 import { EstadoTag, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { formatarHoras, horasEntre, mesPorExtenso } from './comum/regras';
+import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pedidoTabela } from './comum/impressao';
 
 /** RH › Efectividade (ecrã rh_assiduidade): registos, importação, apuramento e fecho do mês, ausências e configuração. */
 export default function Assiduidade() {
@@ -92,15 +95,15 @@ function Registos({ mes }: { mes: string }) {
     onError: (e) => notificarErro(e, 'Não foi possível importar o ficheiro'),
   });
 
-  const colunas: ColumnsType<RegistoEfectividade> = [
+  const colunas: ColunaApi<RegistoEfectividade>[] = [
     { title: 'Data', dataIndex: 'data', render: (v: string) => `${formatarData(v)} (${DIAS_SEMANA[dayjs(v).day()].slice(0, 3)})` },
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v) },
     { title: 'Entrada', dataIndex: 'entrada', render: (v: string | null) => v?.slice(0, 5) ?? '—' },
     { title: 'Saída', dataIndex: 'saida', render: (v: string | null) => v?.slice(0, 5) ?? '—' },
     { title: 'Horas', dataIndex: 'horas', align: 'right', render: formatarHoras },
-    { title: 'Origem', dataIndex: 'origem', render: (o: string | null, r) => (o ? <Tooltip title={r.fonte}><Tag>{o}</Tag></Tooltip> : '—') },
-    { title: 'Extra autorizado', dataIndex: 'autorizado_extra', align: 'center', render: (v: boolean | null) => (v ? 'Sim' : '') },
-    { title: 'Observações', dataIndex: 'observacoes', render: (v: string | null) => v ?? '' },
+    { title: 'Origem', dataIndex: 'origem', responsive: ['md'], render: (o: string | null, r) => (o ? <Tooltip title={r.fonte}><Tag>{o}</Tag></Tooltip> : '—') },
+    { title: 'Extra autorizado', dataIndex: 'autorizado_extra', align: 'center', responsive: ['md'], render: (v: boolean | null) => (v ? 'Sim' : '') },
+    { title: 'Observações', dataIndex: 'observacoes', responsive: ['lg'], ellipsis: true, render: (v: string | null) => v ?? '' },
     {
       title: '',
       key: 'accoes',
@@ -115,19 +118,25 @@ function Registos({ mes }: { mes: string }) {
 
   return (
     <Card>
-      <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 16 }}>
-        <SeletorColaborador value={colaborador} onChange={setColaborador} />
-        {pode('rh_assid_registar') && (
-          <Space>
+      <BarraFiltros accoes={
+        <>
+          <BotoesExportar desactivado={!registos.data?.length} obterPedido={() => pedidoTabela({
+            titulo: 'Registos de efectividade', periodo: mesPorExtenso(mes), filtros: colaborador ? [`Colaborador: ${colaboradores.nome(colaborador)}`] : undefined, colunas, linhas: registos.data ?? [],
+          })} />
+          {pode('rh_assid_registar') && (
+          <Space wrap>
             <Button icon={<UploadOutlined />} onClick={() => setImportar(true)}>Importar ficheiro</Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); form.setFieldsValue({ colaborador_id: colaborador, data: dayjs(`${mes}-01`).isSame(dayjs(), 'month') ? dayjs() : dayjs(`${mes}-01`) }); setNovo(true); }}>Novo registo</Button>
           </Space>
-        )}
-      </Flex>
-      <Table<RegistoEfectividade> rowKey="id" size="small" loading={registos.isFetching} columns={colunas} dataSource={registos.data ?? []} scroll={{ x: 'max-content' }}
+          )}
+        </>
+      }>
+        <SeletorColaborador value={colaborador} onChange={setColaborador} />
+      </BarraFiltros>
+      <Table<RegistoEfectividade> rowKey="id" size="small" loading={registos.isFetching} columns={colunas} dataSource={registos.data ?? []} scroll={scrollTabela()}
         pagination={{ pageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} registo(s) em ${mesPorExtenso(mes)}` }} />
 
-      <Modal title="Registo de efectividade" open={novo} onCancel={() => setNovo(false)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title="Registo de efectividade" open={novo} onCancel={() => setNovo(false)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Typography.Paragraph type="secondary">Um registo por colaborador e dia: gravar substitui o existente. Indique entrada/saída ou as horas.</Typography.Paragraph>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({
           metodo: 'post',
@@ -136,9 +145,9 @@ function Registos({ mes }: { mes: string }) {
         })}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}><SeletorColaborador apenasActivos style={{ width: '100%' }} /></Form.Item>
           <Row gutter={12}>
-            <Col span={8}><Form.Item name="data" label="Data" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={8}><Form.Item name="entrada" label="Entrada"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col span={8}><Form.Item name="saida" label="Saída"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="data" label="Data" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="entrada" label="Entrada"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="saida" label="Saída"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
           </Row>
           <Form.Item name="horas" label="Horas (sem entrada/saída)" extra={calculadas !== null ? `Entrada → saída: ${formatarHoras(calculadas)}` : undefined}>
             <InputNumber min={0} max={24} step={0.25} style={{ width: '100%' }} />
@@ -162,7 +171,7 @@ function Registos({ mes }: { mes: string }) {
       <Modal title="Resultado da importação" open={resultado !== null} onCancel={() => setResultado(null)} footer={<Button type="primary" onClick={() => setResultado(null)}>Fechar</Button>}>
         {resultado && (
           <>
-            <Space size="large" style={{ marginBottom: 12 }}>
+            <Space size="large" wrap style={{ marginBottom: 12 }}>
               <Statistic title="Gravados" value={resultado.gravados} />
               <Statistic title="Ignorados" value={resultado.ignorados} />
               <Statistic title="Erros" value={resultado.erros.length} valueStyle={{ color: resultado.erros.length ? '#cf1322' : undefined }} />
@@ -187,12 +196,12 @@ function Apuramento({ mes }: { mes: string }) {
   const a = q.data;
   const fechado = a?.estado === 'FECHADO';
 
-  const colunas: ColumnsType<LinhaApuramento> = [
-    { title: 'Colaborador', dataIndex: 'nome', fixed: 'left', render: (v: string, l) => <Space>{v}{l.avisos?.length > 0 && <Tooltip title={l.avisos.join(' ')}><WarningOutlined style={{ color: '#faad14' }} /></Tooltip>}</Space> },
+  const colunas: ColunaApi<LinhaApuramento>[] = [
+    { title: 'Colaborador', dataIndex: 'nome', fixed: 'left', valorImpressao: (l) => `${l.nome}${l.avisos?.length ? ' (!)' : ''}`, render: (v: string, l) => <Space>{v}{l.avisos?.length > 0 && <Tooltip title={l.avisos.join(' ')}><WarningOutlined style={{ color: '#faad14' }} /></Tooltip>}</Space> },
     { title: 'Dias úteis', dataIndex: 'diasUteis', align: 'right' },
     { title: 'Dias c/ registo', dataIndex: 'diasComRegisto', align: 'right' },
     { title: 'Férias/ausências', dataIndex: 'diasFeriasAusencia', align: 'right', render: (v?: number) => v ?? 0 },
-    { title: 'Dias de falta', dataIndex: 'diasFalta', align: 'right', render: (v: number) => (v > 0 ? <Typography.Text type={v > 3 ? 'danger' : undefined}>{v}</Typography.Text> : 0) },
+    { title: 'Dias de falta', dataIndex: 'diasFalta', align: 'right', valorImpressao: (l) => l.diasFalta ?? 0, render: (v: number) => (v > 0 ? <Typography.Text type={v > 3 ? 'danger' : undefined}>{v}</Typography.Text> : 0) },
     { title: 'Horas trabalhadas', dataIndex: 'horasTrabalhadas', align: 'right', render: formatarHoras },
     { title: 'Horas extra', dataIndex: 'horasExtra', align: 'right', render: formatarHoras },
     { title: 'Horas de falta', dataIndex: 'horasFalta', align: 'right', render: formatarHoras },
@@ -213,6 +222,13 @@ function Apuramento({ mes }: { mes: string }) {
               <Statistic title="Horas de falta" value={formatarHoras(a.totais.horasFalta)} />
             </Space>
             <Space wrap>
+              <BotoesExportar desactivado={!a.linhas.length} obterPedido={() => pedidoTabela({
+                titulo: 'Mapa de efectividade (apuramento mensal)',
+                periodo: mesPorExtenso(mes),
+                filtros: [`Estado: ${fechado ? 'Fechado' : `provisório até ${formatarData(a.apurado_ate)}`}`, `Dias úteis: ${a.dias_uteis}`],
+                colunas,
+                linhas: a.linhas,
+              })} />
               {!fechado && pode('rh_assid_registar') && (
                 <Button icon={<SearchOutlined />} loading={accao.isPending} onClick={() => accao.mutate({ metodo: 'post', url: `/rh/assiduidade/meses/${mes}/detectar-faltas` })}>Detectar faltas</Button>
               )}
@@ -227,19 +243,19 @@ function Apuramento({ mes }: { mes: string }) {
             </Space>
           </Flex>
           {a.fecho && (
-            <Descriptions size="small" column={{ xs: 1, md: 3 }} style={{ marginBottom: 12 }}>
+            <Descriptions size="small" column={{ xs: 1, md: 2, xl: 3 }} style={{ marginBottom: 12 }}>
               <Descriptions.Item label="Fechado">{a.fecho.fechado_em ? `${formatarDataHora(a.fecho.fechado_em)} · ${a.fecho.fechado_por ?? ''}` : '—'}</Descriptions.Item>
               <Descriptions.Item label="Lançado no processamento">{a.fecho.lancado_em ? formatarDataHora(a.fecho.lancado_em) : 'Não'}</Descriptions.Item>
               <Descriptions.Item label="Faltas geradas">{a.fecho.ausencias_geradas ?? 0}</Descriptions.Item>
-              {a.fecho.motivo_reabertura && <Descriptions.Item label="Última reabertura" span={3}>{formatarDataHora(a.fecho.reaberto_em)} — {a.fecho.motivo_reabertura}</Descriptions.Item>}
+              {a.fecho.motivo_reabertura && <Descriptions.Item label="Última reabertura" span="filled">{formatarDataHora(a.fecho.reaberto_em)} — {a.fecho.motivo_reabertura}</Descriptions.Item>}
             </Descriptions>
           )}
           {!fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Apuramento provisório até ${formatarData(a.apurado_ate)} (o mês ainda não está fechado).`} />}
-          <Table<LinhaApuramento> rowKey="employee_id" size="small" columns={colunas} dataSource={a.linhas} scroll={{ x: 'max-content' }} pagination={{ pageSize: 50 }} />
+          <Table<LinhaApuramento> rowKey="employee_id" size="small" columns={colunas} dataSource={a.linhas} scroll={scrollTabela()} pagination={{ pageSize: 50 }} />
         </>
       )}
       <Modal title="Reabrir a efectividade do mês" open={reabrir} onCancel={() => setReabrir(false)} okText="Reabrir" okButtonProps={{ danger: true }} cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/assiduidade/meses/${mes}/reabrir`, dados: v })}>
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}><Input.TextArea rows={3} maxLength={500} /></Form.Item>
           <Typography.Text type="secondary">Exige o processamento salarial do mês aberto.</Typography.Text>
@@ -274,15 +290,15 @@ function Ausencias({ mes }: { mes: string }) {
   const decisao = Form.useWatch('decisao', formD);
   const cat = catalogo.data ?? {};
 
-  const colunas: ColumnsType<Ausencia> = [
+  const colunas: ColunaApi<Ausencia>[] = [
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v) },
     { title: 'Período', render: (_, a) => (a.data_inicio === a.data_fim ? formatarData(a.data_inicio) : `${formatarData(a.data_inicio)} a ${formatarData(a.data_fim)}`) },
     { title: 'Tipo', dataIndex: 'tipo', render: (t: string | null, a) => (t ? <Tooltip title={cat[t]?.artigo ? `Lei 12/23, art.º ${cat[t].artigo}` : undefined}>{cat[t]?.nome ?? t}</Tooltip> : a.ocorrencia ?? '—') },
     { title: 'Dias / horas', align: 'right', render: (_, a) => (a.horas ? formatarHoras(a.horas) : a.dias_uteis ?? a.dias ?? '—') },
-    { title: 'Remunerada', dataIndex: 'remunerada', render: (v: string | null) => (v === 'SIM' ? 'Sim' : v === 'NAO' ? 'Não' : v ?? '—') },
+    { title: 'Remunerada', dataIndex: 'remunerada', responsive: ['md'], render: (v: string | null) => (v === 'SIM' ? 'Sim' : v === 'NAO' ? 'Não' : v ?? '—') },
     { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
-    { title: 'Origem', render: (_, a) => (a.pedido_portal_colaborador_id ? <Tag>Portal</Tag> : a.detectada ? <Tag>Detectada</Tag> : <Tag>RH</Tag>) },
-    { title: 'Motivo / decisão', render: (_, a) => [a.motivo, a.nota_decisao].filter(Boolean).join(' — ') || '' },
+    { title: 'Origem', responsive: ['lg'], render: (_, a) => (a.pedido_portal_colaborador_id ? <Tag>Portal</Tag> : a.detectada ? <Tag>Detectada</Tag> : <Tag>RH</Tag>) },
+    { title: 'Motivo / decisão', responsive: ['md'], ellipsis: true, render: (_, a) => [a.motivo, a.nota_decisao].filter(Boolean).join(' — ') || '' },
     {
       title: '',
       key: 'accoes',
@@ -314,18 +330,26 @@ function Ausencias({ mes }: { mes: string }) {
 
   return (
     <Card>
-      <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 16 }}>
-        <Space wrap>
+      <BarraFiltros accoes={
+        <>
+          <BotoesExportar desactivado={!lista.data?.length} obterPedido={() => pedidoTabela({
+            titulo: 'Ausências e faltas',
+            periodo: doMes ? mesPorExtenso(mes) : undefined,
+            filtros: [colaborador ? `Colaborador: ${colaboradores.nome(colaborador)}` : null, estado ? `Estado: ${estado}` : null],
+            colunas,
+            linhas: lista.data ?? [],
+          })} />
+          {pode('rh_assid_registar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEdicao('nova'); }}>Registar ausência</Button>}
+        </>
+      }>
           <SeletorColaborador value={colaborador} onChange={setColaborador} />
           <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={ESTADOS_AUSENCIA.map((e) => ({ value: e, label: <EstadoTag estado={e} /> }))} />
           <Checkbox checked={doMes} onChange={(e) => setDoMes(e.target.checked)}>Só {mesPorExtenso(mes)}</Checkbox>
-        </Space>
-        {pode('rh_assid_registar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEdicao('nova'); }}>Registar ausência</Button>}
-      </Flex>
-      <Table<Ausencia> rowKey="id" size="small" loading={lista.isFetching} columns={colunas} dataSource={lista.data ?? []} scroll={{ x: 'max-content' }} pagination={{ pageSize: 50, showTotal: (t) => `${t} ausência(s)` }} />
+      </BarraFiltros>
+      <Table<Ausencia> rowKey="id" size="small" loading={lista.isFetching} columns={colunas} dataSource={lista.data ?? []} scroll={scrollTabela()} pagination={{ pageSize: 50, showTotal: (t) => `${t} ausência(s)` }} />
 
-      <Modal title={edicao === 'nova' ? 'Registar ausência' : 'Justificar falta'} open={edicao !== null} width={640} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={edicao === 'nova' ? 'Registar ausência' : 'Justificar falta'} open={edicao !== null} width={larguraModal(640)} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar"
+        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={enviarAusencia}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true }]}><SeletorColaborador style={{ width: '100%' }} disabled={edicao !== 'nova'} /></Form.Item>
           <Form.Item name="periodo" label="Período" rules={[{ required: true, message: 'Indique as datas.' }]}><DatePicker.RangePicker format="DD/MM/YYYY" disabled={edicao !== 'nova'} style={{ width: '100%' }} /></Form.Item>
@@ -341,7 +365,7 @@ function Ausencias({ mes }: { mes: string }) {
         </Form>
       </Modal>
 
-      <Modal title="Decidir ausência" open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnClose>
+      <Modal title="Decidir ausência" open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnHidden>
         {decidir && <Typography.Paragraph>{colaboradores.nome(decidir.colaborador_id)} — {decidir.tipo ? cat[decidir.tipo]?.nome ?? decidir.tipo : ''} ({formatarData(decidir.data_inicio)} a {formatarData(decidir.data_fim)})</Typography.Paragraph>}
         <Form form={formD} layout="vertical" onFinish={(v) => decidir && accao.mutate({ metodo: 'post', url: `/rh/assiduidade/ausencias/${decidir.id}/decidir`, dados: v })}>
           <Form.Item name="decisao" label="Decisão" rules={[{ required: true }]}>
@@ -364,9 +388,7 @@ function Ausencias({ mes }: { mes: string }) {
 function Fechos() {
   const q = useQuery({ queryKey: ['rh', 'assiduidade', 'fechos'], queryFn: () => obter<FechoMensal[]>('/rh/assiduidade/fechos') });
   useAvisarErro(q.error);
-  return (
-    <Card>
-      <Table<FechoMensal> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 24 }} columns={[
+  const colunas: ColunaApi<FechoMensal>[] = [
         { title: 'Mês', dataIndex: 'mes', render: (m: string) => mesPorExtenso(m) },
         { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
         { title: 'Dias úteis', dataIndex: 'dias_uteis', align: 'right' },
@@ -376,7 +398,11 @@ function Fechos() {
         { title: 'Fechado', render: (_, f) => (f.fechado_em ? `${formatarDataHora(f.fechado_em)} · ${f.fechado_por ?? ''}` : '—') },
         { title: 'Lançado', render: (_, f) => (f.lancado_em ? formatarDataHora(f.lancado_em) : '—') },
         { title: 'Faltas geradas', dataIndex: 'ausencias_geradas', align: 'right' },
-      ]} />
+  ];
+  return (
+    <Card>
+      <BarraFiltros accoes={<BotoesExportar desactivado={!q.data?.length} obterPedido={() => pedidoTabela({ titulo: 'Fechos mensais da efectividade', colunas, linhas: q.data ?? [] })} />}>{null}</BarraFiltros>
+      <Table<FechoMensal> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 24 }} scroll={scrollTabela()} columns={colunas} />
     </Card>
   );
 }

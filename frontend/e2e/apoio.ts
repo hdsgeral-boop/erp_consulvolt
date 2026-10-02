@@ -93,7 +93,8 @@ export async function entrarComo(page: Page, utilizador: string, empresa = EMPRE
     window.localStorage.setItem('erp.empresa', e);
   }, [a.token, String(a.empresaId)]);
   await page.goto('/');
-  await expect(page.locator('.ant-layout-sider')).toBeVisible();
+  // a barra superior existe em todas as larguras (em telemóvel o menu lateral passa a gaveta)
+  await expect(page.locator('.ant-layout-header')).toBeVisible();
   return a;
 }
 

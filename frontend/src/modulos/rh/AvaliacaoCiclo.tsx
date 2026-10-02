@@ -1,15 +1,18 @@
 import { Alert, Button, Card, Descriptions, Empty, Flex, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotoesExportar } from '@/componentes/impressao';
+import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { PERIODOS_AVALIACAO, type Avaliacao, type Bonificacao, type Ciclo360 } from './api';
 import { EstadoTag, FaseTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { classificar, somar } from './comum/regras';
+import { BarraFiltros, COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { pedidoTabela } from './comum/impressao';
 
 interface Resultado360 {
   componentes?: Record<string, { media: number | null; n: number; peso: number }>;
@@ -38,7 +41,7 @@ export default function AvaliacaoCiclo() {
   return (
     <>
       <CabecalhoPagina titulo="Acompanhamento do ciclo 360º" subtitulo="A chefia avalia no Portal; aqui o RH acompanha as fases, dá parecer nas contestações e trata as bonificações"
-        accoes={<Select style={{ width: 300 }} placeholder="Ciclo" value={id} onChange={setId} loading={ciclos.isLoading}
+        accoes={<Select style={{ width: 300, maxWidth: '100%' }} placeholder="Ciclo" value={id} onChange={setId} loading={ciclos.isLoading}
           options={(ciclos.data ?? []).map((c) => ({ value: c.id, label: `${c.nome ?? `${c.periodo} ${c.ano}`} — ${c.estado}` }))} />} />
       {!ciclo ? <Empty description="Sem ciclos de avaliação." /> : (
         <>
@@ -77,19 +80,20 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
   const r360 = useQuery({ queryKey: ['rh', 'avaliacao', 'resultado360', resultado?.id], queryFn: () => obter<Resultado360>(`/rh/avaliacao/avaliacoes/${resultado?.id}/resultado-360`), enabled: resultado !== null });
 
   const linhas = (q.data ?? []).filter((a) => !fase || a.fase === fase);
-  const colunas: ColumnsType<Avaliacao> = [
+  const nomeCiclo = `${ciclo.nome ?? `${ciclo.periodo} ${ciclo.ano}`}`;
+  const colunas: ColunaApi<Avaliacao>[] = [
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => <strong>{colaboradores.nome(v)}</strong> },
     { title: 'Fase', dataIndex: 'fase', render: (f: string) => <FaseTag fase={f} /> },
-    { title: 'Pontuação (chefia)', dataIndex: 'pontuacao', align: 'right', render: (v: string | null) => (v ? formatarNumero(v) : '—') },
-    { title: 'Nota 360º', dataIndex: 'nota_360', align: 'right', render: (v: string | null) => (v ? formatarNumero(v) : '—') },
+    { title: 'Pontuação (chefia)', dataIndex: 'pontuacao', align: 'right', responsive: ['md'], render: (v: string | null) => (v ? formatarNumero(v) : '—') },
+    { title: 'Nota 360º', dataIndex: 'nota_360', align: 'right', responsive: ['md'], render: (v: string | null) => (v ? formatarNumero(v) : '—') },
     { title: 'Nota final', dataIndex: 'nota_final', align: 'right', render: (v: number | null) => (v !== null ? <strong>{formatarNumero(v)}</strong> : '—') },
     { title: 'Classificação', render: (_, a) => a.classificacao_360 ?? a.classificacao ?? classificar(a.nota_final) ?? '—' },
-    { title: 'Contestação', render: (_, a) => (a.contestacao?.fundamentacao ? (a.contestacao.decisao ? <Tag color="green">Decidida ({a.contestacao.decisao.resultado === 'ALTERADA' ? 'alterada' : 'mantida'})</Tag> : a.contestacao.parecer_rh ? <Tag color="blue">Com parecer</Tag> : <Tag color="red">Aguarda parecer</Tag>) : '—') },
+    { title: 'Contestação', responsive: ['md'], render: (_, a) => (a.contestacao?.fundamentacao ? (a.contestacao.decisao ? <Tag color="green">Decidida ({a.contestacao.decisao.resultado === 'ALTERADA' ? 'alterada' : 'mantida'})</Tag> : a.contestacao.parecer_rh ? <Tag color="blue">Com parecer</Tag> : <Tag color="red">Aguarda parecer</Tag>) : '—') },
     {
       title: '',
       key: 'accoes',
       render: (_, a) => (
-        <Space size={4}>
+        <Space size={4} wrap>
           <Button size="small" onClick={() => setResultado(a)}>Resultado 360º</Button>
           {a.fase === 'CONTESTADA' && !a.contestacao?.parecer_rh && pode('rh_aval_parecer') && <Button size="small" onClick={() => { formP.resetFields(); setParecer(a); }}>Dar parecer</Button>}
           {a.fase === 'CONTESTADA' && a.contestacao?.parecer_rh && <Button size="small" type="primary" onClick={() => { formD.resetFields(); formD.setFieldsValue({ resultado: 'MANTIDA' }); setDecidir(a); }}>Decidir</Button>}
@@ -101,10 +105,12 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
   const res = r360.data;
   return (
     <Card>
-      <Flex gap={8} style={{ marginBottom: 12 }}>
+      <BarraFiltros style={{ marginBottom: 12 }} accoes={
+        <BotoesExportar desactivado={!linhas.length} obterPedido={() => pedidoTabela({ titulo: 'Avaliações do ciclo 360º', subtitulo: nomeCiclo, filtros: fase ? [`Fase: ${fase}`] : undefined, colunas, linhas })} />
+      }>
         <Select placeholder="Fase" allowClear style={{ width: 220 }} value={fase} onChange={setFase} options={['EM_AVALIACAO', 'AGUARDA_CONHECIMENTO', 'PRAZO_CONTESTACAO', 'CONTESTADA', 'FINAL'].map((f) => ({ value: f, label: <FaseTag fase={f} /> }))} />
-      </Flex>
-      <Table<Avaliacao> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={{ x: 'max-content' }}
+      </BarraFiltros>
+      <Table<Avaliacao> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={scrollTabela()}
         expandable={{ rowExpandable: (a) => Boolean(a.contestacao?.fundamentacao), expandedRowRender: (a) => (
           <Descriptions size="small" column={1} bordered>
             <Descriptions.Item label="Fundamentação">{a.contestacao?.fundamentacao}</Descriptions.Item>
@@ -113,14 +119,14 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
           </Descriptions>
         ) }} />
 
-      <Modal title="Parecer do RH na contestação" open={parecer !== null} onCancel={() => setParecer(null)} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formP.submit()} destroyOnClose>
+      <Modal title="Parecer do RH na contestação" open={parecer !== null} onCancel={() => setParecer(null)} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formP.submit()} destroyOnHidden>
         <Typography.Paragraph type="secondary">{parecer?.contestacao?.fundamentacao}</Typography.Paragraph>
         <Form form={formP} layout="vertical" onFinish={(v) => parecer && accao.mutate({ metodo: 'post', url: `/rh/avaliacao/avaliacoes/${parecer.id}/parecer`, dados: v })}>
           <Form.Item name="texto" label="Parecer" rules={[{ required: true, message: 'Escreva o parecer.' }]}><Input.TextArea rows={5} maxLength={10000} /></Form.Item>
         </Form>
       </Modal>
 
-      <Modal title="Decidir a contestação" open={decidir !== null} onCancel={() => setDecidir(null)} okText="Decidir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnClose>
+      <Modal title="Decidir a contestação" open={decidir !== null} onCancel={() => setDecidir(null)} okText="Decidir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnHidden>
         <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Decide a chefia da chefia avaliadora; o RH só decide quando ela não existe (o servidor verifica)." />
         <Form form={formD} layout="vertical" onFinish={(v) => decidir && accao.mutate({ metodo: 'post', url: `/rh/avaliacao/avaliacoes/${decidir.id}/decidir-contestacao`, dados: v })}>
           <Form.Item name="resultado" label="Resultado" rules={[{ required: true }]}><Select options={[{ value: 'MANTIDA', label: 'Mantida' }, { value: 'ALTERADA', label: 'Alterada' }]} /></Form.Item>
@@ -129,15 +135,15 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
         </Form>
       </Modal>
 
-      <Modal title={`Resultado 360º — ${resultado ? colaboradores.nome(resultado.colaborador_id) : ''}`} open={resultado !== null} width={720} onCancel={() => setResultado(null)} footer={<Button onClick={() => setResultado(null)}>Fechar</Button>}>
-        {r360.isLoading || !res ? <Card loading bordered={false} /> : (
+      <Modal title={`Resultado 360º — ${resultado ? colaboradores.nome(resultado.colaborador_id) : ''}`} open={resultado !== null} width={larguraModal(720)} onCancel={() => setResultado(null)} footer={<Button onClick={() => setResultado(null)}>Fechar</Button>}>
+        {r360.isLoading || !res ? <Card loading variant="borderless" /> : (
           <>
-            <Descriptions size="small" column={2} bordered style={{ marginBottom: 12 }}>
+            <Descriptions size="small" column={COLUNAS_DESCRICOES} bordered style={{ marginBottom: 12 }}>
               {Object.entries(res.respostas ?? {}).map(([g, n]) => <Descriptions.Item key={g} label={`Respostas — ${ROTULO_GRUPO[g] ?? g}`}>{n} / {res.esperadas?.[g] ?? 0}</Descriptions.Item>)}
             </Descriptions>
             {!res.liberado ? <Alert type="info" showIcon message={res.aviso ?? 'Resultados ainda não disponíveis.'} /> : (
               <>
-                <Table size="small" pagination={false} rowKey="grupo" dataSource={Object.entries(res.componentes ?? {}).map(([grupo, c]) => ({ grupo, ...c }))} columns={[
+                <Table size="small" pagination={false} scroll={scrollTabela()} rowKey="grupo" dataSource={Object.entries(res.componentes ?? {}).map(([grupo, c]) => ({ grupo, ...c }))} columns={[
                   { title: 'Grupo', dataIndex: 'grupo', render: (g: string) => ROTULO_GRUPO[g] ?? g },
                   { title: 'Respostas', dataIndex: 'n', align: 'right' },
                   { title: 'Peso', dataIndex: 'peso', align: 'right' },
@@ -158,14 +164,17 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
 function Participantes({ ciclo }: { ciclo: Ciclo360 }) {
   const colaboradores = useColaboradores();
   if (!ciclo.participantes?.length) return <Card><Empty description="A composição é fotografada ao abrir o ciclo." /></Card>;
-  return (
-    <Card>
-      <Table size="small" rowKey="employee_id" dataSource={ciclo.participantes} pagination={{ pageSize: 50 }} columns={[
+  type Participante = NonNullable<Ciclo360['participantes']>[number];
+  const colunas: ColunaApi<Participante>[] = [
         { title: 'Colaborador', dataIndex: 'nome' },
         { title: 'Chefia', dataIndex: 'chefia_id', render: (v: number | null) => colaboradores.nome(v) },
         { title: 'Pares', dataIndex: 'pares', render: (v: number[]) => v?.map((x) => colaboradores.nome(x)).join(', ') || '—' },
         { title: 'Subordinados', dataIndex: 'subordinados', render: (v: number[]) => v?.length ?? 0 },
-      ]} />
+  ];
+  return (
+    <Card>
+      <BarraFiltros style={{ marginBottom: 12 }} accoes={<BotoesExportar obterPedido={() => pedidoTabela({ titulo: 'Participantes do ciclo 360º', subtitulo: ciclo.nome ?? `${ciclo.periodo} ${ciclo.ano}`, colunas, linhas: ciclo.participantes ?? [] })} />}>{null}</BarraFiltros>
+      <Table size="small" rowKey="employee_id" dataSource={ciclo.participantes} pagination={{ pageSize: 50 }} scroll={scrollTabela()} columns={colunas} />
     </Card>
   );
 }
@@ -178,25 +187,12 @@ function Bonificacoes({ ciclo }: { ciclo: Ciclo360 }) {
   const accao = useAccaoRh();
   const lista = q.data ?? [];
   const metodo = ciclo.bonificacao?.metodo ?? 'NENHUM';
-  const post = (url: string, titulo: string, texto: string) => Modal.confirm({ title: titulo, content: texto, okText: 'Confirmar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url }) });
-
-  return (
-    <Card>
-      {metodo === 'NENHUM' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Este ciclo não tem bonificação configurada." />}
-      <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 12 }}>
-        <Typography.Text>Total: <strong>{formatarKz(somar(lista.map((b) => b.valor)), true)}</strong> · {lista.length} proposta(s)</Typography.Text>
-        <Space wrap>
-          {pode('rh_aval_bonus_calcular') && metodo !== 'NENHUM' && <Button onClick={() => post(`/rh/avaliacao/ciclos/${ciclo.id}/bonificacoes/calcular`, 'Calcular as propostas?', 'Só entram avaliações na fase Final e participantes do ciclo.')}>Calcular propostas</Button>}
-          {pode('rh_aval_bonus_aprovar') && lista.some((b) => b.estado === 'PROPOSTA') && <Button type="primary" onClick={() => post(`/rh/avaliacao/ciclos/${ciclo.id}/bonificacoes/aprovar`, 'Aprovar as propostas?', 'Quem calculou não aprova; ninguém aprova o seu próprio bónus.')}>Aprovar</Button>}
-          {pode('rh_aval_bonus_lancar') && lista.some((b) => b.estado === 'APROVADA') && <Button onClick={() => post(`/rh/avaliacao/ciclos/${ciclo.id}/bonificacoes/lancar`, 'Lançar no processamento?', `Lança no processamento de ${ciclo.bonificacao?.mes_lancamento ?? '—'} (tem de estar aberto).`)}>Lançar no processamento</Button>}
-        </Space>
-      </Flex>
-      <Table<Bonificacao> rowKey="id" size="small" loading={q.isFetching} dataSource={lista} pagination={{ pageSize: 50 }} scroll={{ x: 'max-content' }} columns={[
+  const colunas: ColunaApi<Bonificacao>[] = [
         { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v) },
         { title: 'Classificação', dataIndex: 'classificacao' },
         { title: 'Nota', dataIndex: 'nota', align: 'right', render: (v: string | null) => (v ? formatarNumero(v) : '—') },
-        { title: 'Base', dataIndex: 'base', align: 'right', render: (v: string | null) => (v ? formatarKz(v) : '—') },
-        { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong> },
+        { title: 'Base', dataIndex: 'base', align: 'right', responsive: ['md'], render: (v: string | null) => (v ? formatarKz(v) : '—') },
+        { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong>, totalImpressao: (ls) => formatarKz(somar(ls.map((b) => b.valor))) },
         { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
         {
           title: '',
@@ -205,7 +201,22 @@ function Bonificacoes({ ciclo }: { ciclo: Ciclo360 }) {
             <Button size="small" danger onClick={() => post(`/rh/avaliacao/bonificacoes/${b.id}/anular`, 'Anular a bonificação?', 'Volta a proposta (e sai do processamento, se ainda aberto).')}>Anular</Button>
           ),
         },
-      ]} />
+  ];
+  const post = (url: string, titulo: string, texto: string) => Modal.confirm({ title: titulo, content: texto, okText: 'Confirmar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url }) });
+
+  return (
+    <Card>
+      {metodo === 'NENHUM' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Este ciclo não tem bonificação configurada." />}
+      <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 12 }}>
+        <Typography.Text>Total: <strong>{formatarKz(somar(lista.map((b) => b.valor)), true)}</strong> · {lista.length} proposta(s)</Typography.Text>
+        <Space wrap>
+          <BotoesExportar desactivado={!lista.length} obterPedido={() => pedidoTabela({ titulo: 'Bonificações da avaliação de desempenho', subtitulo: ciclo.nome ?? `${ciclo.periodo} ${ciclo.ano}`, colunas, linhas: lista, totais: 'Total' })} />
+          {pode('rh_aval_bonus_calcular') && metodo !== 'NENHUM' && <Button onClick={() => post(`/rh/avaliacao/ciclos/${ciclo.id}/bonificacoes/calcular`, 'Calcular as propostas?', 'Só entram avaliações na fase Final e participantes do ciclo.')}>Calcular propostas</Button>}
+          {pode('rh_aval_bonus_aprovar') && lista.some((b) => b.estado === 'PROPOSTA') && <Button type="primary" onClick={() => post(`/rh/avaliacao/ciclos/${ciclo.id}/bonificacoes/aprovar`, 'Aprovar as propostas?', 'Quem calculou não aprova; ninguém aprova o seu próprio bónus.')}>Aprovar</Button>}
+          {pode('rh_aval_bonus_lancar') && lista.some((b) => b.estado === 'APROVADA') && <Button onClick={() => post(`/rh/avaliacao/ciclos/${ciclo.id}/bonificacoes/lancar`, 'Lançar no processamento?', `Lança no processamento de ${ciclo.bonificacao?.mes_lancamento ?? '—'} (tem de estar aberto).`)}>Lançar no processamento</Button>}
+        </Space>
+      </Flex>
+      <Table<Bonificacao> rowKey="id" size="small" loading={q.isFetching} dataSource={lista} pagination={{ pageSize: 50 }} scroll={scrollTabela()} columns={colunas} />
     </Card>
   );
 }

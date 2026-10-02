@@ -1,11 +1,12 @@
-import { Button, Card, Col, Descriptions, Drawer, Flex, Form, Input, Modal, Row, Space, Table, Tag } from 'antd';
+import { Button, Card, Col, Descriptions, Drawer, Form, Input, Modal, Row, Space, Table, Tag } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnsType } from 'antd/es/table';
+
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { TabelaApi } from '@/componentes/TabelaApi';
+import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
+import { BarraFiltros, larguraGaveta, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import type { FichaTerceiro } from './referencias';
@@ -53,6 +54,7 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
   const [edicao, setEdicao] = useState<FichaTerceiro | 'novo' | null>(null);
   const [vista, setVista] = useState<number | null>(null);
   const [form] = Form.useForm<FichaTerceiro>();
+  const pequeno = useEcraPequeno();
 
   const ficha = useQuery({
     queryKey: ['terceiros', 'ficha-completa', vista],
@@ -82,28 +84,30 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
       onOk: () => eliminar.mutateAsync({ metodo: 'delete', url: `/terceiros/${r.id}` }),
     });
 
-  const colunas: ColumnsType<FichaTerceiro> = [
-    { title: 'Nome', dataIndex: 'nome', render: (v: string) => <strong>{v.trim()}</strong> },
+  const colunas: ColunaApi<FichaTerceiro>[] = [
+    { title: 'Nome', dataIndex: 'nome', ellipsis: true, render: (v: string) => <strong>{v.trim()}</strong> },
     { title: 'NIF', dataIndex: 'nif', render: (v) => v || '—' },
     {
       title: 'Papéis',
+      responsive: ['lg'],
+      valorImpressao: (r) => [r.e_cliente && 'Cliente', r.e_fornecedor && 'Fornecedor'].filter(Boolean).join(', '),
       render: (_, r) => (
-        <Space size={4}>
+        <Space wrap size={4}>
           {r.e_cliente && <Tag color="blue">Cliente</Tag>}
           {r.e_fornecedor && <Tag color="purple">Fornecedor</Tag>}
         </Space>
       ),
     },
-    { title: 'Telefone', dataIndex: 'telefone', render: (v) => v || '—' },
-    { title: 'Email', dataIndex: 'email', render: (v) => v || '—' },
-    { title: 'Conta', dataIndex: 'codigo_conta', render: (v) => v || <Tag color="red">Sem conta</Tag> },
-    { title: 'Moeda', dataIndex: 'codigo_moeda', render: (v) => v || 'AOA' },
+    { title: 'Telefone', dataIndex: 'telefone', responsive: ['md'], render: (v) => v || '—' },
+    { title: 'Email', dataIndex: 'email', responsive: ['lg'], render: (v) => v || '—' },
+    { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['sm'], render: (v) => v || <Tag color="red">Sem conta</Tag> },
+    { title: 'Moeda', dataIndex: 'codigo_moeda', responsive: ['lg'], render: (v) => v || 'AOA' },
     {
       title: '',
       key: 'accoes',
       align: 'right',
       render: (_, r) => (
-        <Space onClick={(e) => e.stopPropagation()}>
+        <Space wrap onClick={(e) => e.stopPropagation()}>
           {podeGerir && <Button size="small" icon={<EditOutlined />} onClick={() => setEdicao(r)} aria-label="Editar" />}
           {podeEliminar && <Button size="small" danger icon={<DeleteOutlined />} onClick={() => confirmarEliminar(r)} aria-label="Eliminar" />}
         </Space>
@@ -126,14 +130,16 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
         }
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 16 }}>
-          <Input.Search placeholder="Nome ou NIF" allowClear style={{ width: 300 }} onSearch={setPesquisa} />
-        </Flex>
+        <BarraFiltros>
+          <Input.Search placeholder="Nome ou NIF" allowClear style={{ width: 300, maxWidth: '100%' }} onSearch={setPesquisa} />
+        </BarraFiltros>
         <TabelaApi<FichaTerceiro>
           url="/terceiros"
           chaveConsulta={['terceiros', 'lista', papel]}
           filtros={{ papel, pesquisa }}
           columns={colunas}
+          size={pequeno ? 'small' : 'middle'}
+          impressao={{ titulo: `Lista de ${t.titulo.toLowerCase()}`, filtros: [pesquisa && `Pesquisa: ${pesquisa}`] }}
           onRow={(r) => ({ onClick: () => setVista(r.id), style: { cursor: 'pointer' } })}
         />
       </Card>
@@ -142,11 +148,11 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
         title={f?.nome?.trim() ?? 'Ficha'}
         open={vista !== null}
         onClose={() => setVista(null)}
-        width={560}
+        width={larguraGaveta(560)}
         loading={ficha.isLoading}
         extra={
           f && (
-            <Space>
+            <Space wrap>
               {podeGerir && <Button icon={<EditOutlined />} onClick={() => setEdicao(f)}>Editar</Button>}
               {podeEliminar && <Button danger icon={<DeleteOutlined />} onClick={() => confirmarEliminar(f)}>Eliminar</Button>}
             </Space>
@@ -173,6 +179,7 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
                   rowKey="id"
                   pagination={false}
                   dataSource={f.enderecos}
+                  scroll={scrollTabela()}
                   columns={[
                     { title: 'Endereço', render: (_, e) => String(e.endereco ?? e.morada ?? e.descricao ?? '—') },
                     { title: 'Localidade', render: (_, e) => String(e.localidade ?? e.cidade ?? '—') },
@@ -192,8 +199,8 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
         cancelText="Cancelar"
         confirmLoading={gravar.isPending}
         onOk={() => form.submit()}
-        width={720}
-        destroyOnClose
+        width={larguraModal(720)}
+        destroyOnHidden
       >
         <Form<FichaTerceiro>
           form={form}
