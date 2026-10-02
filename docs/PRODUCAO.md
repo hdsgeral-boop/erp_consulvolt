@@ -53,7 +53,7 @@ Princípios de segurança das imagens:
 | RAM | 8 GB | 16 GB (os limites do compose somam cerca de 7,5 GB) |
 | Disco | 60 GB SSD | 100 GB SSD para o sistema e os volumes, mais um **disco separado** (ou montagem remota) para as cópias |
 | Software | Docker Engine 26+ com Compose v2.24+ | idem; `git`; reverse proxy com TLS (Caddy recomendado) |
-| Rede | Saída HTTPS para a AGT (`sigt.agt.minfin.gov.ao`) e para o registo de imagens | firewall: só 22 (SSH, restrito) e 80/443 abertos |
+| Rede | Saída HTTPS para a AGT (`sigt.agt.minfin.gov.ao`), para o BAI (`www.bancobai.ao` — «Câmbios do BAI», lido pelo servidor) e para o registo de imagens | firewall: só 22 (SSH, restrito) e 80/443 abertos |
 | Relógio | NTP activo (assinaturas JWS da AGT, sessões) | idem |
 
 Os fusos horários estão fixados: a aplicação corre em `Africa/Luanda` e o PostgreSQL guarda em UTC (`TIMESTAMPTZ`, ADR-011).
