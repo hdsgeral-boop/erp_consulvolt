@@ -62,7 +62,7 @@ function formatarValor<T>(c: ColunaImpressao<T>, v: ValorCelula, linha: T | null
     case 'numero':
       return formatarNumero(v);
     case 'inteiro':
-      return String(Math.round(Number(v)));
+      return formatarNumero(Math.round(Number(v)));
     case 'percentagem':
       return `${formatarNumero(v)} %`;
     case 'data':
@@ -105,7 +105,7 @@ function linhaTotais<T>(colunas: ColunaImpressao<T>[], linhas: T[], rotulo: stri
     if (c.total !== undefined) texto = c.total;
     else if (c.somar) {
       const soma = somar(linhas.map((l, n) => c.valor(l, n) as string | number | null | undefined));
-      texto = c.formatar ? c.formatar(soma, null) : c.formato === 'inteiro' ? String(Math.round(Number(soma))) : formatarKz(soma);
+      texto = c.formatar ? c.formatar(soma, null) : c.formato === 'inteiro' ? formatarNumero(Math.round(Number(soma))) : formatarKz(soma);
       return `<td${attrClasse(classe(c))}${c.formato !== 'percentagem' && !c.formatar ? attrBruto(soma) : ''}>${esc(texto)}</td>`;
     } else if (i === 0) texto = rotulo;
     return `<td${attrClasse(classe(c))}>${esc(texto)}</td>`;

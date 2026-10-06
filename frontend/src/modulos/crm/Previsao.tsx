@@ -101,8 +101,8 @@ export default function Previsao() {
               monetario
               rotulos={p.por_mes.map((m) => rotuloMes(m.mes))}
               series={[
-                { rotulo: 'Valor bruto', valores: p.por_mes.map((m) => m.bruto) },
-                { rotulo: 'Ponderado', valores: p.por_mes.map((m) => m.ponderado) },
+                { rotulo: 'Valor bruto', valores: p.por_mes.map((m) => m.bruto), cor: '#93c5fd' },
+                { rotulo: 'Ponderado', valores: p.por_mes.map((m) => m.ponderado), cor: '#1d4ed8' },
                 { rotulo: 'Compromisso', valores: p.por_mes.map((m) => m.compromisso) },
               ]}
             />

@@ -40,7 +40,16 @@ docker compose exec app php artisan test          # testes (PostgreSQL real, bas
 docker compose exec app vendor/bin/pint           # formatação PSR-12/Laravel
 docker compose exec app composer require <pacote> # dependências SEMPRE dentro do contentor
 docker compose exec app php artisan erp:auditoria:particoes   # partições anuais de logs_auditoria
+sh ferramentas/testes/correr_backend.sh           # suite PHPUnit COMPLETA em ambiente local Windows (ver nota)
+sh ferramentas/testes/correr_backend.sh --filter=Owasp   # argumentos extra seguem para o PHPUnit
 ```
+
+> **Nota (Docker Desktop em Windows):** na pasta montada do Windows, o `DirectoryIterator` do PHP só devolve parte
+> das entradas de `backend/tests/Feature` (48 de 90), embora `ls`, `glob()`, `scandir()` e o Finder do Symfony vejam todas.
+> O PHPUnit descobre os testes iterando a pasta, por isso `php artisan test` localmente corre só ~44 testes e parece verde.
+> `ferramentas/testes/correr_backend.sh` passa a lista explícita de ficheiros (`tests/Feature/*.php tests/Unit/*.php`, expandida pela shell)
+> e deve ser usado sempre que se queira a suite completa localmente. O CI e a produção (sistema de ficheiros Linux) não são
+> afectados. Código que precise de listar pastas usa `scandir()`/`glob()` (como `RegrasCacheTest` e `ChavesAgt`). ADR-069.
 
 Regenerar o dicionário de dados a partir do backup (Node 18+):
 
@@ -126,7 +135,7 @@ sh ferramentas/operacao/prod.sh run --rm --no-deps copias /operacao/restaurar.sh
 | PostgreSQL/Redis sem portas publicadas; web só em 127.0.0.1 atrás do reverse proxy HTTPS | portas em 127.0.0.1 |
 | Logs JSON (stderr) com rotação; serviço `copias` agendado | logs diários em ficheiro |
 
-CI (GitHub Actions, `.github/workflows/ci.yml`) em cada push/PR para `main`: backend (PHP 8.3, PostgreSQL 16, Redis 7, Pint, PHPUnit), frontend (Node 22, tsc, Vitest, build) e build das imagens de produção (sem publicação). Usa só dados fictícios.
+CI (GitHub Actions, `.github/workflows/ci.yml`) em cada push/PR para `main`: backend (PHP 8.3, PostgreSQL 16, Redis 7, `composer audit`, Pint, PHPUnit), frontend (Node 22, `npm audit --omit=dev --audit-level=high`, tsc, Vitest, build) e build das imagens de produção (sem publicação); *actions* fixadas por SHA de commit (ADR-069). Usa só dados fictícios.
 
 ## API
 
@@ -216,7 +225,7 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST/PUT/DELETE | `/api/orcamento/rubricas[/{id}]` · POST `/rubricas/base` | Rubricas orçamentais (exploração e tesouraria) |
 | GET/POST/PUT/DELETE | `/api/orcamento/orcamentos[/{id}]` · PUT `/valores` · POST `/submeter` · `/aprovar` · `/devolver` · `/nova-versao` · `/repartir` · `/contributos` · `/consolidar` | Orçamentos e hierarquia |
 | GET | `/api/orcamento/orcamentos/{id}/controlo` | Orçado × realizado (mês, acumulado, ano) |
-| POST | `/api/orcamento/verificar` | Simulação do controlo orçamental de um documento |
+| POST | `/api/orcamento/verificar` | Simulação do controlo orçamental de um documento (exige uma das permissões de `pedidos-excesso` — ADR-069) |
 | GET/POST | `/api/orcamento/pedidos-excesso` · POST `/{id}/decidir` | Pedidos de aprovação de excesso |
 | GET | `/api/orcamento/alertas` · `/api/orcamento/monitor` | Registo de alertas e consumo orçamental |
 | GET/POST/PUT/DELETE | `/api/orcamento/previsoes[/{id}]` · POST `/revisao` · `/publicar` | Previsões deslizantes (12 meses) |
@@ -295,6 +304,13 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/POST/PUT/DELETE | `/api/tesouraria/documentos/{modelo-importacao,importar,anular,desintegrar}` · `/reconciliacao/{rascunhos,historico,{codigo}/detalhe}` · PUT `/extrato/{id}` | Importação de documentos (A-12), lotes, rascunhos e histórico da reconciliação (M-08) |
 | GET/POST | `/api/logistica/importacao/{produtos,categorias}[/modelo]` | Importação de produtos e categorias (M-07) |
 | POST | `/api/vendas/documentos/{faturar-guias,contabilizar,descontabilizar}` · `/api/vendas/recibos/{contabilizar,descontabilizar}` · `/recibos/{id}/alocar` | Factura de várias guias e adiantamentos (M-18); contabilização em lote (M-06) |
+
+**Simulações e pré-visualizações (ADR-069)** — nada é gravado:
+
+| Método | Endpoint | Descrição |
+| :--- | :--- | :--- |
+| GET | `/api/vendas/documentos/{venda}/contabilizacao/pre-visualizacao` | Lançamento que a contabilização do documento de venda vai gerar (mesma montagem e validações; `vendas_fat_contabilizar`) |
+| GET | `/api/compras/faturas/{id}/contabilizacao/pre-visualizacao` | Lançamento que a contabilização da factura de fornecedor vai gerar (`compras_fact_contabilizar`) |
 
 ## Estrutura
 

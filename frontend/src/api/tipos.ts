@@ -25,6 +25,8 @@ export interface Empresa {
   nome: string;
   nif?: string | null;
   e_consolidacao?: boolean;
+  /** Há logótipo (o próprio só vem no detalhe GET /sistema/empresas/{id}). */
+  tem_logotipo?: boolean;
   [chave: string]: unknown;
 }
 

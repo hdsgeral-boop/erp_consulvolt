@@ -1,4 +1,4 @@
-import { caminhoSector, corSerie, eixoValores, escalaLinear, fatiasDonut, formatarCompacto, paraNumero, passoRedondo } from '@/componentes/graficos/escalas';
+import { agruparOutros, caminhoSector, caminhoSuave, corSerie, eixoValores, escalaLinear, fatiasDonut, formatarCompacto, paraNumero, passoRedondo, passoRotulos, saoInteiros, truncarTexto } from '@/componentes/graficos/escalas';
 import { construirPivot, moverDimensao, pivotParaCsv, rotuloChave, seriesPivot, type ResultadoCubo } from './pivot';
 import { formatarPorFormato } from './componentes';
 
@@ -58,9 +58,40 @@ describe('escalas dos gráficos', () => {
     expect(caminhoSector(50, 50, 40, 24, 0, 2 * Math.PI).match(/M /g)).toHaveLength(2);
   });
 
-  it('usa cores fixas por posição e cinzento a partir da 9.ª série', () => {
-    expect(corSerie(0)).toBe('#2a78d6');
-    expect(corSerie(8)).toBe('#8c8c8c');
+  it('usa a paleta do legado por posição, a cor própria da série e cinzento a partir da 11.ª', () => {
+    expect(corSerie(0)).toBe('#2563eb');
+    expect(corSerie(1)).toBe('#10b981');
+    expect(corSerie(10)).toBe('#94a3b8');
+    expect(corSerie(0, '#ea580c')).toBe('#ea580c');
+  });
+
+  it('eixo de contagens sem passos fraccionários', () => {
+    expect(eixoValores([0, 1], 5, true).marcas).toEqual([0, 1]);
+    expect(eixoValores([0, 1], 5).marcas).toContain(0.2);
+    expect(saoInteiros([1, 2, 0])).toBe(true);
+    expect(saoInteiros([1.5])).toBe(false);
+  });
+
+  it('rótulos do eixo: salta para não sobrepor e corta textos longos', () => {
+    expect(passoRotulos(12, 50, 30)).toBe(1);
+    expect(passoRotulos(12, 20, 30)).toBe(2);
+    expect(truncarTexto('Liquidar salários e obrigações', 60)).toMatch(/…$/);
+    expect(truncarTexto('Curto', 200)).toBe('Curto');
+  });
+
+  it('linha suave passa pelos pontos e não cria picos falsos', () => {
+    const d = caminhoSuave([[0, 10], [10, 10], [20, 0]]);
+    expect(d.startsWith('M 0.0 10.0')).toBe(true);
+    expect(d.endsWith('20.0 0.0')).toBe(true);
+    expect(d).toContain('C 3.3 10.0');
+    expect(caminhoSuave([[0, 1], [5, 2]])).toBe('M 0.0 1.0 L 5.0 2.0');
+  });
+
+  it('donut com muitas fatias junta as menores em «Outros»', () => {
+    const r = agruparOutros(['a', 'b', 'c', 'd'], [5, 4, 3, 1], 3);
+    expect(r.rotulos).toEqual(['a', 'b', 'Outros']);
+    expect(r.valores).toEqual([5, 4, 4]);
+    expect(agruparOutros(['a', 'b'], [1, 0]).rotulos).toEqual(['a']);
   });
 });
 

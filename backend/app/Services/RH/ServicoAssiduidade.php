@@ -12,6 +12,7 @@ use App\Models\InfotipoSalarial;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PlanoFeriasColaborador;
+use App\Support\Seguranca\GuardaUrlSaida;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -149,12 +150,17 @@ final class ServicoAssiduidade
         if ($url === '') {
             throw new ErroNegocio('Configure o endereço do relógio biométrico em RH › Efectividade › Configuração.', 'RELOGIO_SEM_URL', 422);
         }
-        $host = (string) parse_url($url, PHP_URL_HOST);
-        if (! preg_match('#^https?://#i', $url) || $host === '' || (filter_var($host, FILTER_VALIDATE_IP) && str_starts_with($host, '169.254.'))) {
-            throw new ErroNegocio('Endereço do relógio inválido.', 'URL_RELOGIO_INVALIDA', 422);
+        // OWASP A10 (SSRF): esquema, credenciais, loopback/metadados/serviços internos, formas numéricas ambíguas e DNS
+        // rebinding (a ligação fica presa aos IP verificados) — GuardaUrlSaida. Redes privadas aceites (relógio na LAN).
+        $guarda = GuardaUrlSaida::validar($url, 'URL_RELOGIO_INVALIDA');
+        $host = $guarda['host'];
+        // stream: o corpo é lido aos bocados e cortado acima do limite, em vez de carregado todo para a memória
+        $opcoes = ['allow_redirects' => false, 'stream' => true];
+        if ($guarda['resolver'] && defined('CURLOPT_RESOLVE')) {
+            $opcoes['curl'] = [CURLOPT_RESOLVE => $guarda['resolver']];
         }
         try {
-            $resposta = Http::timeout(self::RELOGIO_TIMEOUT)->withOptions(['allow_redirects' => false, 'stream' => false])
+            $resposta = Http::timeout(self::RELOGIO_TIMEOUT)->withOptions($opcoes)
                 ->accept('text/csv, application/json, text/plain')->get($url);
         } catch (\Throwable) {
             throw new ErroNegocio("Não foi possível contactar o relógio em {$host}. Verifique a rede e se o servidor do ERP tem acesso ao equipamento.", 'RELOGIO_INACESSIVEL', 422);
@@ -162,7 +168,12 @@ final class ServicoAssiduidade
         if (! $resposta->successful()) {
             throw new ErroNegocio("O relógio respondeu com o erro {$resposta->status()}.", 'RELOGIO_ERRO', 422);
         }
-        $corpo = $resposta->body();
+        $fluxo = $resposta->toPsrResponse()->getBody();
+        $corpo = '';
+        while (! $fluxo->eof() && strlen($corpo) <= self::RELOGIO_MAX_BYTES) {
+            $corpo .= $fluxo->read(65536);
+        }
+        $fluxo->close();
         if (strlen($corpo) > self::RELOGIO_MAX_BYTES) {
             throw new ErroNegocio('O relógio devolveu mais de 5 MB: exporte um período mais curto.', 'RELOGIO_GRANDE', 422);
         }

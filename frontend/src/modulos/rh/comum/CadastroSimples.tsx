@@ -1,4 +1,4 @@
-import { Button, Card, Form, Modal, Popconfirm, Space, Table } from 'antd';
+import { Button, Card, Form, Modal, Popconfirm, Space } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
@@ -10,7 +10,8 @@ import { notificarErro } from '@/utilitarios/erros';
 import { useAccaoRh } from './consultas';
 import { contem, PesquisaLocal } from './componentes';
 import { pedidoTabela } from './impressao';
-
+
+import { TabelaComModos } from '@/componentes/vistas';
 interface Props<T extends { id: number }> {
   /** Caminho da API (GET lista; POST cria; PUT/DELETE {url}/{id}). */
   url: string;
@@ -96,7 +97,7 @@ export function CadastroSimples<T extends { id: number }>({
       >
         {pesquisa ? <PesquisaLocal aoMudar={setTermo} /> : null}
       </BarraFiltros>
-      <Table<T> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={consulta.isFetching} columns={todas} dataSource={dados} scroll={scrollTabela()}
+      <TabelaComModos<T> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={consulta.isFetching} columns={todas} dataSource={dados} scroll={scrollTabela()}
         pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `${t} registo(s)` }} />
       <Modal
         title={aberto === 'novo' ? `Novo — ${nomeItem}` : `Editar — ${nomeItem}`}

@@ -9,6 +9,8 @@ import { formatarKz } from '@/utilitarios/formatacao';
 import { notificarErro } from '@/utilitarios/erros';
 import type { ResultadoSalarial } from '../api';
 import { folhaSalariosHtml } from './impressao';
+import { pedidoSimulacaoPeriodo } from './simulacao';
+import { ModalSimulacaoColaborador } from './SimulacaoColaborador';
 
 interface Simulacao { mes_ano: string; resultados: ResultadoSalarial[]; ignorados: string[]; totais: Record<string, string> }
 
@@ -17,6 +19,7 @@ export function SimularMassa({ aberto, aoFechar }: { aberto: boolean; aoFechar: 
   const [mes, setMes] = useState<Dayjs | null>(dayjs());
   const [sim, setSim] = useState<Simulacao | null>(null);
   const [aCalcular, setACalcular] = useState(false);
+  const [detalhe, setDetalhe] = useState<ResultadoSalarial | null>(null);
   const simular = async () => {
     if (!mes) return;
     setACalcular(true);
@@ -31,8 +34,10 @@ export function SimularMassa({ aberto, aoFechar }: { aberto: boolean; aoFechar: 
   return (
     <Modal title="Simular massa salarial (contratos)" open={aberto} width={larguraModal(1000)} onCancel={aoFechar} destroyOnHidden
       footer={<Space wrap>
-        <BotoesExportar desactivado={!sim?.resultados.length} obterPedido={() => ({ titulo: 'Simulação da massa salarial (contratos)', periodo: sim?.mes_ano, filtros: ['Simulação: nada foi gravado'],
+        <BotoesExportar chave="rh simulacao massa salarial" desactivado={!sim?.resultados.length} obterPedido={() => ({ titulo: 'Simulação da massa salarial (contratos)', periodo: sim?.mes_ano, filtros: ['Simulação: nada foi gravado'],
           conteudo: folhaSalariosHtml(sim?.resultados ?? [], (r) => r.nome ?? `#${r.colaborador_id}`) })} />
+        <BotoesExportar chave="rh simulacao massa salarial detalhada" excel={false} desactivado={!sim?.resultados.length} textoImprimir="Mapa detalhado" textoPdf="Guardar mapa"
+          obterPedido={() => sim && { ...pedidoSimulacaoPeriodo({ resultados: sim.resultados, nome: (r) => r.nome ?? `#${r.colaborador_id}`, mesAno: sim.mes_ano, estado: 'SIMULACAO' }), titulo: 'Simulação da massa salarial (contratos) — mapa detalhado' }} />
         <Button onClick={aoFechar}>Fechar</Button>
       </Space>}>
       <Space wrap style={{ marginBottom: 12 }}>
@@ -57,7 +62,9 @@ export function SimularMassa({ aberto, aoFechar }: { aberto: boolean; aoFechar: 
             { title: 'IRT', dataIndex: 'irt', align: 'right', render: (v: string) => formatarKz(v) },
             { title: 'Líquido', dataIndex: 'liquido', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong> },
             { title: 'INSS (empresa)', dataIndex: 'inss_patronal', align: 'right', responsive: ['md'], render: (v: string) => formatarKz(v) },
+            { title: '', key: 'det', align: 'right', render: (_, r) => <Button size="small" icon={<CalculatorOutlined />} onClick={() => setDetalhe(r)}>Detalhe</Button> },
           ]} />
+          <ModalSimulacaoColaborador resultado={detalhe} mesAno={sim.mes_ano} nome={detalhe?.nome ?? `#${detalhe?.colaborador_id ?? ''}`} aoFechar={() => setDetalhe(null)} />
         </>
       )}
     </Modal>

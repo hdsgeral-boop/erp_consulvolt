@@ -1,7 +1,8 @@
-import { Alert, Card, Col, Descriptions, Empty, List, Progress, Row, Space, Statistic, Table, Typography, theme } from 'antd';
+import { Alert, Card, Col, Descriptions, Empty, List, Progress, Row, Space, Statistic, Table, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { BotoesExportar } from '@/componentes/impressao';
+import { GraficoLinhas } from '@/componentes/graficos/Graficos';
 import { COLUNAS_DESCRICOES } from '@/componentes/responsivo';
 import { obter } from '@/api/cliente';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
@@ -142,37 +143,7 @@ export function SeparadorResumo({ projecto, aoIr }: PropsSeparador & { aoIr: (se
   );
 }
 
-/** Gráfico de linhas simples em SVG (sem dependências) para a curva S. */
+/** Curva S (acumulado) com o gráfico de linhas comum (eixos, dica, alternância gráfico/tabela e impressão). */
 function CurvaS({ meses, series }: { meses: string[]; series: { nome: string; valores: number[]; cor: string }[] }) {
-  const { token } = theme.useToken();
-  if (!meses.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />;
-  const L = 600, A = 220, m = { e: 70, d: 10, t: 10, b: 30 };
-  const max = Math.max(1, ...series.flatMap((s) => s.valores));
-  const x = (i: number) => m.e + (meses.length === 1 ? (L - m.e - m.d) / 2 : (i * (L - m.e - m.d)) / (meses.length - 1));
-  const y = (v: number) => A - m.b - (v / max) * (A - m.t - m.b);
-  const curto = new Intl.NumberFormat('pt-PT', { notation: 'compact', maximumFractionDigits: 1 });
-  return (
-    <div>
-      <svg viewBox={`0 0 ${L} ${A}`} style={{ width: '100%', height: 'auto' }} role="img" aria-label="Curva S">
-        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
-          <g key={f}>
-            <line x1={m.e} x2={L - m.d} y1={y(max * f)} y2={y(max * f)} stroke={token.colorSplit} />
-            <text x={m.e - 6} y={y(max * f) + 4} fontSize={11} textAnchor="end" fill={token.colorTextSecondary}>{curto.format(max * f)}</text>
-          </g>
-        ))}
-        {meses.map((mes, i) => (
-          <text key={mes + i} x={x(i)} y={A - 10} fontSize={11} textAnchor="middle" fill={token.colorTextSecondary}>{mes}</text>
-        ))}
-        {series.map((s) => (
-          <g key={s.nome}>
-            <polyline fill="none" stroke={s.cor} strokeWidth={2} points={s.valores.map((v, i) => `${x(i)},${y(v)}`).join(' ')} />
-            {s.valores.map((v, i) => <circle key={i} cx={x(i)} cy={y(v)} r={3} fill={s.cor}><title>{`${s.nome} ${meses[i]}: ${formatarKz(v)} Kz`}</title></circle>)}
-          </g>
-        ))}
-      </svg>
-      <Space wrap size="large">
-        {series.map((s) => <span key={s.nome}><span style={{ display: 'inline-block', width: 12, height: 3, background: s.cor, marginRight: 6, verticalAlign: 'middle' }} />{s.nome}</span>)}
-      </Space>
-    </div>
-  );
+  return <GraficoLinhas rotulos={meses} series={series.map((s) => ({ rotulo: s.nome, valores: s.valores, cor: s.cor }))} monetario />;
 }

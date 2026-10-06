@@ -21,6 +21,9 @@ use Illuminate\Support\Facades\Hash;
  */
 final class ServicoAutenticacao
 {
+    /** Argon2id (m=64 MB, t=4, p=1 — os parâmetros por omissão) de um valor aleatório descartado: não corresponde a nada. */
+    private const HASH_FICTICIO = '$argon2id$v=19$m=65536,t=4,p=1$bkZkQUxvL3JVakpReHhJYw$MH9I3Pf+vIbFspAiZQ0VW63mR4LIafms2plCHJEohnU';
+
     public function __construct(
         private readonly VerificadorPasswordLegado $verificadorLegado,
         private readonly ServicoAuditoria $auditoria,
@@ -33,7 +36,14 @@ final class ServicoAutenticacao
     {
         $utilizador = Utilizador::query()->where('nome_utilizador', $nomeUtilizador)->first();
 
-        if (! $utilizador || ! $utilizador->ativo || ! $this->credencialValida($utilizador, $palavraPasse)) {
+        // OWASP A07: verificar SEMPRE uma palavra-passe — sem utilizador, contra um hash fictício com o mesmo custo — para
+        // o tempo de resposta não revelar se o nome existe (antes: ~ms sem utilizador vs. ~100 ms do Argon2id).
+        if (! $utilizador) {
+            password_verify($palavraPasse, self::HASH_FICTICIO);   // directo: independente do HASH_DRIVER/verify
+        }
+        $valida = $utilizador && $this->credencialValida($utilizador, $palavraPasse);
+
+        if (! $utilizador || ! $utilizador->ativo || ! $valida) {
             $this->auditoria->registar('Autenticação', 'Falha de autenticação', "Tentativa falhada para '{$nomeUtilizador}'.",
                 'utilizadores', $utilizador?->getKey(), utilizadorId: $utilizador?->getKey(), nomeUtilizador: $nomeUtilizador);
 

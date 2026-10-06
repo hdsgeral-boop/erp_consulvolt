@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { NavActivos } from './comum/NavActivos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { BotoesExportar } from '@/componentes/impressao';
+import { BotoesExportar, CSS_SIMULACAO_COMUM, marcaSimulacao, tabelaHtml, tabelaLancamentoHtml, type PedidoImpressao } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, IndicadorEquilibrio, ValorKz } from '@/modulos/contab/comum/Componentes';
@@ -152,6 +152,33 @@ function Periodo() {
   );
 }
 
+/**
+ * Impressão da pré-visualização («Simular e Integrar» do legado, js/ui_assets.js `previewAmortizationIntegration`):
+ * linhas do lançamento a gerar (com totais e equilíbrio) e movimentos por activo, marcada «Simulação» — nada integrado.
+ */
+export function pedidoPreVisualizacaoAmortizacoes(p: PreVisualizacao): PedidoImpressao {
+  const linhas = tabelaLancamentoHtml(p.linhas.map((l) => ({ conta: l.codigo_conta, tipo_dc: l.tipo_dc, valor: l.valor, unidade: l.unidade_negocio_codigo ?? (l.unidade_negocio_id ? `#${l.unidade_negocio_id}` : null), centro: l.centro_custo_codigo ?? (l.centro_custo_id ? `#${l.centro_custo_id}` : null) })));
+  const movimentos = tabelaHtml({
+    legenda: `Movimentos por activo (${p.movimentos.length})`,
+    linhas: p.movimentos,
+    totais: 'Total',
+    colunas: [
+      { titulo: 'Activo', valor: (m) => `${m.codigo ?? '—'} — ${m.descricao}`, quebrar: true },
+      { titulo: 'Conta a débito', valor: (m) => m.conta_debito },
+      { titulo: 'Conta a crédito', valor: (m) => m.conta_credito },
+      { titulo: 'Valor (Kz)', valor: (m) => m.valor, formato: 'moeda', somar: true },
+    ],
+  });
+  return {
+    titulo: 'Simulação da integração das amortizações',
+    subtitulo: `Documento ${p.numero_documento}`,
+    periodo: rotuloPeriodo(p.periodo),
+    filtros: [`Total: ${formatarKz(p.total)} Kz`],
+    conteudo: `${marcaSimulacao('pré-visualização do lançamento de integração calculada no servidor; nada foi integrado na contabilidade.')}${linhas}${movimentos}`,
+    cssExtra: CSS_SIMULACAO_COMUM,
+  };
+}
+
 /** Pré-visualização do lançamento de integração (movimentos por activo e linhas agrupadas) e botão para integrar. */
 function ModalPrevisualizar({ periodo, podeIntegrar, aoFechar }: { periodo: string | null; podeIntegrar: boolean; aoFechar: () => void }) {
   const q = useQuery({
@@ -170,6 +197,8 @@ function ModalPrevisualizar({ periodo, podeIntegrar, aoFechar }: { periodo: stri
       width={larguraModal(960)}
       destroyOnHidden
       footer={[
+        <BotoesExportar key="p" chave="activos pre-visualizacao integracao" desactivado={!p} textoImprimir="Imprimir simulação" excel={false}
+          obterPedido={() => p && pedidoPreVisualizacaoAmortizacoes(p)} />,
         <Button key="c" onClick={aoFechar}>Fechar</Button>,
         podeIntegrar && (
           <Button key="i" type="primary" icon={<CloudUploadOutlined />} disabled={!p} loading={integrar.isPending}

@@ -71,6 +71,29 @@ final class CatalogoFluxos
             'etapas' => ['reg' => 'Registo', 'ini' => 'Lançamento inicial', 'recon' => 'Reconhecimentos mensais', 'doc' => 'Documento real / fim do período', 'regul' => 'Regularização ou término', 'saldo' => 'Conta 37 saldada']],
     ];
 
+    /**
+     * Ícones Font Awesome do legado (nomes da versão 5 usados em js/fluxo_*.js): «fluxo» é o do separador
+     * (renderFluxoProcessos, fluxo_processos.js:605-620) e «etapas» o de cada nó do diagrama (const ETAPAS de cada fluxo).
+     * O frontend desenha-os em SVG (componentes/fluxos/iconesFa.ts), com o mesmo desenho.
+     */
+    public const ICONES = [
+        'rh' => ['fluxo' => 'users', 'etapas' => ['base' => 'users', 'calc' => 'calculator', 'fecho' => 'lock', 'valid' => 'check-double', 'integ' => 'book', 'pag' => 'hand-holding-usd']],
+        'ferias' => ['fluxo' => 'umbrella-beach', 'etapas' => ['direito' => 'calendar-alt', 'marcacao' => 'calendar-plus', 'chefia' => 'user-tie', 'rh' => 'check-double', 'gozo' => 'umbrella-beach', 'saldo' => 'balance-scale']],
+        'avaliacao' => ['fluxo' => 'star-half-alt', 'etapas' => ['itens' => 'list-check', 'r360' => 'sync-alt', 'aval' => 'star-half-alt', 'conh' => 'eye', 'cont' => 'balance-scale', 'plano' => 'seedling']],
+        'vendas' => ['fluxo' => 'file-invoice-dollar', 'etapas' => ['orc' => 'file-alt', 'enc' => 'shopping-basket', 'ent' => 'truck', 'fact' => 'file-invoice-dollar', 'contab' => 'book', 'rec' => 'hand-holding-usd']],
+        'pos' => ['fluxo' => 'cash-register', 'etapas' => ['abert' => 'door-open', 'fecho' => 'cash-register', 'desvio' => 'balance-scale-left', 'integ' => 'book', 'prest' => 'hand-holding-usd', 'comp' => 'check-double']],
+        'lavandaria' => ['fluxo' => 'tshirt', 'etapas' => ['recep' => 'inbox', 'orc' => 'cut', 'exec' => 'soap', 'ent' => 'box-open', 'fact' => 'file-invoice-dollar', 'rec' => 'hand-holding-usd']],
+        'projetos' => ['fluxo' => 'hard-hat', 'etapas' => ['abertura' => 'folder-plus', 'planeamento' => 'sitemap', 'equipa_orcamento' => 'calculator', 'execucao' => 'hard-hat', 'faturacao' => 'file-invoice-dollar',
+            'recebimento' => 'hand-holding-usd', 'encerramento' => 'lock']],
+        'compras' => ['fluxo' => 'truck-loading', 'etapas' => ['ped' => 'clipboard-list', 'prosp' => 'search-dollar', 'enc' => 'shopping-cart', 'rec' => 'dolly', 'fact' => 'file-invoice-dollar', 'pag' => 'hand-holding-usd']],
+        'imobilizado' => ['fluxo' => 'couch', 'etapas' => ['fact' => 'file-invoice', 'contab' => 'book', 'invent' => 'barcode', 'cat' => 'tags', 'calc' => 'percent', 'integ' => 'check-double']],
+        'bancos' => ['fluxo' => 'university', 'etapas' => ['lanc' => 'edit', 'integ' => 'book', 'ext' => 'file-upload', 'conc' => 'balance-scale']],
+        'caixa' => ['fluxo' => 'cash-register', 'etapas' => ['abert' => 'door-open', 'mov' => 'receipt', 'fecho' => 'lock', 'dif' => 'balance-scale', 'integ' => 'book']],
+        'orcamento' => ['fluxo' => 'file-invoice-dollar', 'etapas' => ['prep' => 'pencil-ruler', 'contrib' => 'users', 'subm' => 'paper-plane', 'aprov' => 'check-double', 'exec' => 'balance-scale', 'exc' => 'bell']],
+        'crm' => ['fluxo' => 'handshake', 'etapas' => ['lead' => 'lightbulb', 'qual' => 'tasks', 'prop' => 'file-alt', 'fecho' => 'handshake', 'doc' => 'file-invoice-dollar', 'rec' => 'hand-holding-usd']],
+        'acrescimos' => ['fluxo' => 'exchange-alt', 'etapas' => ['reg' => 'file-signature', 'ini' => 'play', 'recon' => 'calendar-check', 'doc' => 'file-invoice', 'regul' => 'exchange-alt', 'saldo' => 'balance-scale']],
+    ];
+
     /** Narrativa do fluxo (textos-base para o ecrã, a impressão do workflow e a apresentação). */
     public static function narrativa(string $id): ?array
     {

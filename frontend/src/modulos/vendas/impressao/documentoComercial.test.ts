@@ -62,7 +62,7 @@ describe('documento comercial impresso', () => {
     expect(html).toContain('NIF: 5000000001');
     expect(html).toContain('Caixa de parafusos');
     expect(html).toContain('IVA 14 %');
-    expect(html).toContain('7980,00 Kz');
+    expect(html).toContain('7 980,00 Kz');
     expect(html).toContain('Sete mil novecentos e oitenta kwanzas');
     expect(html).toContain('Série A2026 / 12');
     expect(html).toContain('Hash: AbCd');
@@ -107,7 +107,7 @@ describe('documento comercial impresso', () => {
       }),
     ));
     expect(enc).toContain('Fornecedor X');
-    expect(enc).toContain('1140,00 Kz');
+    expect(enc).toContain('1 140,00 Kz');
     expect(enc).toContain('O fornecedor (aceitação)');
     const fat = esp(htmlDocumentoComercial(
       dadosFaturaCompra({
@@ -116,8 +116,8 @@ describe('documento comercial impresso', () => {
         montante_total_moeda: null, total_imposto_moeda: null, anulado_em: null, motivo_anulacao: null,
       }, []),
     ));
-    expect(fat).toContain('1000,00 Kz');
-    expect(fat).toContain('1140,00 Kz');
+    expect(fat).toContain('1 000,00 Kz');
+    expect(fat).toContain('1 140,00 Kz');
     expect(fat).toContain('Factura directa');
   });
 });

@@ -8,12 +8,13 @@ import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { SeletorConta, SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarKz } from '@/utilitarios/formatacao';
+import { dataApi, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
+import { somar } from '@/utilitarios/decimal';
 import { EtiquetaProjectos } from '../comum/componentes';
 import type { DetalheRevisao, PropostaFaturacao, Revisao, SimulacaoRevisao } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/responsivo';
-import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
+import { BotoesExportar, CSS_SIMULACAO_COMUM, marcaSimulacao, pares, tabelaHtml } from '@/componentes/impressao';
 import { useRef } from 'react';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
 
@@ -73,6 +74,76 @@ export function pedidoAutoMedicao(d: DetalheRevisao, mes: string) {
           })
         : '') +
       '<div class="imp-sem-quebra" style="display:flex;justify-content:space-around;gap:10mm;margin-top:16mm"><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Pelo empreiteiro</div><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Pelo dono da obra / fiscalização</div></div>',
+  };
+}
+
+/** Avanço do mês nas subempreitadas (% actual − % anterior), só para mostrar. */
+const avanco = (l: SimulacaoRevisao['externos'][number]) =>
+  l.percentagem_atual !== undefined && l.percentagem_anterior !== undefined ? Math.round((Number(l.percentagem_atual) - Number(l.percentagem_anterior)) * 100) / 100 : null;
+
+/**
+ * Simulação da revisão mensal impressa (legado «Simulador de Revisão e Autos de Medição», js/ui_projects.js): mão de obra
+ * a imputar, subempreitadas a facturar (avanço do mês) e equipamentos — calculada no servidor, marcada «Simulação».
+ */
+export function pedidoSimulacaoRevisao(s: SimulacaoRevisao, projecto?: { codigo?: string | null; nome?: string | null }) {
+  type I = SimulacaoRevisao['internos'][number];
+  type X = SimulacaoRevisao['externos'][number];
+  type E = SimulacaoRevisao['equipamentos']['linhas'][number];
+  const totalInternos = somar(s.internos.map((i) => i.custo));
+  const totalExternos = somar(s.externos.map((l) => l.valor ?? l.custo ?? 0));
+  return {
+    titulo: 'Simulação da revisão mensal (auto de medição)',
+    periodo: `${MESES[s.mes - 1]} de ${s.ano}`,
+    filtros: [projecto?.codigo ? `Projecto: ${projecto.codigo}${projecto.nome ? ` — ${projecto.nome}` : ''}` : null, s.revisao_existente ? 'Já existe revisão neste mês: deduz-se o já imputado' : null],
+    orientacao: 'retrato' as const,
+    cssExtra: CSS_SIMULACAO_COMUM,
+    conteudo:
+      marcaSimulacao('cálculo do servidor para o mês escolhido; nada foi gravado até «Executar revisão».') +
+      pares([
+        ['Mão de obra a imputar', `${formatarKz(totalInternos)} Kz`],
+        ['Subempreitadas a facturar', `${formatarKz(totalExternos)} Kz`],
+        ['Equipamentos', `${formatarKz(s.equipamentos.total)} Kz`],
+        ['Total', `${formatarKz(somar([totalInternos, totalExternos, s.equipamentos.total]))} Kz`],
+      ], 2) +
+      tabelaHtml<X>({
+        legenda: 'Subempreitadas (a facturar / autos)',
+        linhas: s.externos,
+        totais: true,
+        vazio: 'Nenhum avanço facturável neste mês para tarefas adjudicadas a subempreiteiros.',
+        colunas: [
+          { titulo: 'Subempreiteiro', valor: (l) => l.nome, quebrar: true },
+          { titulo: '% anterior', valor: (l) => l.percentagem_anterior ?? '', formato: 'percentagem' },
+          { titulo: '% actual', valor: (l) => l.percentagem_atual ?? '', formato: 'percentagem' },
+          { titulo: 'Avanço', valor: (l) => avanco(l) ?? '', formato: 'percentagem' },
+          { titulo: 'A facturar (Kz)', valor: (l) => l.valor ?? l.custo ?? '', formato: 'moeda', somar: true },
+        ],
+      }) +
+      tabelaHtml<I>({
+        legenda: 'Mão de obra interna (a imputar analiticamente)',
+        linhas: s.internos,
+        totais: true,
+        vazio: 'Nenhum recurso interno alocado.',
+        colunas: [
+          { titulo: 'Colaborador', valor: (i) => i.nome, quebrar: true },
+          { titulo: 'h/dia', valor: (i) => i.horas_dia, formato: 'numero' },
+          { titulo: 'Fonte do custo', valor: (i) => i.fonte },
+          { titulo: 'Custo mensal (Kz)', valor: (i) => i.custo_mensal, formato: 'moeda', somar: true },
+          { titulo: 'Já imputado (Kz)', valor: (i) => i.ja_imputado, formato: 'moeda', somar: true },
+          { titulo: 'A imputar (Kz)', valor: (i) => i.custo, formato: 'moeda', somar: true },
+        ],
+      }) +
+      tabelaHtml<E>({
+        legenda: 'Equipamentos / máquinas (amortizações)',
+        linhas: s.equipamentos.linhas,
+        totais: true,
+        vazio: 'Nenhum equipamento alocado/amortizado neste mês.',
+        colunas: [
+          { titulo: 'Código', valor: (e) => e.codigo },
+          { titulo: 'Descrição', valor: (e) => e.descricao, quebrar: true },
+          { titulo: 'Custo a imputar (Kz)', valor: (e) => e.valor, formato: 'moeda', somar: true },
+        ],
+      }) +
+      '<p style="font-size:7.5pt;color:#555">A mão de obra é calculada preferencialmente pelo recibo de vencimento do mês (RH); sem processamento, assume-se o valor contratual. As subempreitadas medem a % de execução das tarefas adjudicadas face à % já facturada no mês anterior.</p>',
   };
 }
 
@@ -148,6 +219,8 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
       destroyOnHidden
       footer={[
         <Button key="c" onClick={aoFechar}>Cancelar</Button>,
+        <BotoesExportar key="p" chave="projectos simulacao revisao" excel={false} desactivado={!simulacao} textoImprimir="Imprimir simulação"
+          obterPedido={() => simulacao && pedidoSimulacaoRevisao(simulacao)} />,
         <Button key="s" icon={<CalculatorOutlined />} loading={aSimular} onClick={simular}>Simular</Button>,
         <Button key="e" type="primary" disabled={!simulacao} loading={accao.isPending}
           onClick={() => accao.mutate({ url: `/projetos/${projectoId}/revisoes`, dados: { mes: mes.month() + 1, ano: mes.year(), confirmar_aditamento: confirmarAdit, produto_subempreitada_id: produto ?? null } })}>
@@ -181,7 +254,8 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
                   { title: 'Subempreiteiro', dataIndex: 'nome' },
                   { title: '% anterior', dataIndex: 'percentagem_anterior', align: 'right' },
                   { title: '% actual', dataIndex: 'percentagem_atual', align: 'right' },
-                  { title: 'Valor', key: 'v', align: 'right', render: (_, l) => <ValorKz valor={l.valor ?? l.custo} forte /> },
+                  { title: 'Avanço', key: 'a', align: 'right', render: (_, l) => { const a = avanco(l); return a === null ? '—' : `${formatarNumero(a)} %`; } },
+                  { title: 'A facturar', key: 'v', align: 'right', render: (_, l) => <ValorKz valor={l.valor ?? l.custo} forte /> },
                 ]} />
             </>
           )}

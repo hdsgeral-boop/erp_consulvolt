@@ -14,6 +14,7 @@ import type { PropsSeparador } from '../DetalheProjecto';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
 import { scrollTabela } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Orçamento base por tarefa e rubrica, orçado vs executado por tarefa, e aditamentos (trabalhos a mais/menos). */
 export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
   const orc = useQuery({ queryKey: ['projectos', 'orcamento', projecto.id], queryFn: () => obter<{ total: string; linhas: LinhaOrcamento[] }>(`/projetos/${projecto.id}/orcamento`) });
@@ -48,7 +49,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
         </Col>
       </Row>
       <Card size="small" title="Orçamento base" extra={acc.gerir && <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setLinha({})}>Rubrica</Button>}>
-        <Table<LinhaOrcamento> scroll={scrollTabela()}
+        <TabelaComModos<LinhaOrcamento> idVista="orcamento-base" scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={orc.isFetching}
@@ -93,7 +94,7 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
         />
       </Card>
       <Card size="small" title="Aditamentos e trabalhos a mais" extra={acc.gerir && <Button size="small" icon={<PlusOutlined />} onClick={() => setAditamento({ estado: 'PENDENTE' })}>Aditamento</Button>}>
-        <Table<Aditamento> scroll={scrollTabela()}
+        <TabelaComModos<Aditamento> idVista="aditamentos" scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={adit.isFetching}

@@ -16,6 +16,7 @@ import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/co
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { htmlTabela, seccaoHtml } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface Plano {
   resumo: ResumoFerias[];
   periodos: PeriodoFerias[];
@@ -149,7 +150,7 @@ export default function Ferias() {
         </BarraFiltros>
         <Tabs items={[
           { key: 'resumo', label: 'Resumo por colaborador', children: <Table<ResumoFerias> rowKey="colaborador_id" size="small" loading={plano.isFetching} columns={colResumo} dataSource={resumo} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
-          { key: 'periodos', label: `Períodos (${periodos.length})`, children: <Table<PeriodoFerias> rowKey="id" size="small" loading={plano.isFetching} columns={colPeriodos} dataSource={periodos} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
+          { key: 'periodos', label: `Períodos (${periodos.length})`, children: <TabelaComModos<PeriodoFerias> idVista="periodos" rowKey="id" size="small" loading={plano.isFetching} columns={colPeriodos} dataSource={periodos} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
           { key: 'regras', label: 'Regras (LGT)', children: <RegrasFerias editar={editar} /> },
         ]} />
       </Card>

@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, Col, Drawer, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tabs, Tag, Tooltip } from 'antd';
+import { Button, Card, Checkbox, Col, Drawer, Form, Input, InputNumber, Modal, Row, Select, Space, Tabs, Tag, Tooltip } from 'antd';
 import { CopyOutlined, DeleteOutlined, EditOutlined, ImportOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
 import { ModalImportarProdutos, type EntidadeImportacao } from './ModalImportarProdutos';
 import { useQuery } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { corpoProduto, produtoParaFormulario, type ProdutoFicha, type ValoresProduto } from './formularioProduto';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface Categoria {
   id: number;
   nome: string;
@@ -378,7 +379,7 @@ function Categorias() {
         </Space>
       }
     >
-      <Table<Categoria>
+      <TabelaComModos<Categoria> idVista="categorias"
         rowKey="id"
         scroll={scrollTabela()}
         loading={consulta.isFetching}

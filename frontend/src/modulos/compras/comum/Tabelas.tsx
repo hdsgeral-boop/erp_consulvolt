@@ -1,9 +1,9 @@
-import { Table, type TableProps } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { obter } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
 import { scrollTabela } from '@/componentes/responsivo';
+import { TabelaComModos, type PropsTabelaComModos } from '@/componentes/vistas';
 
 /*
  * As listagens paginadas no servidor (/api/compras/*, /api/compras/contratos, /api/logistica/guias-saida e inventarios,
@@ -11,7 +11,7 @@ import { scrollTabela } from '@/componentes/responsivo';
  * src/componentes. Aqui fica só a tabela para endpoints que devolvem a lista completa.
  */
 
-interface PropsLocal<T> extends Omit<TableProps<T>, 'dataSource' | 'loading'> {
+interface PropsLocal<T> extends Omit<PropsTabelaComModos<T>, 'dataSource' | 'loading'> {
   url: string;
   params?: Record<string, unknown>;
   chaveConsulta: unknown[];
@@ -28,7 +28,7 @@ export function TabelaLocal<T extends object>({ url, params, chaveConsulta, filt
   const linhas = useMemo(() => (filtrar ? (consulta.data ?? []).filter(filtrar) : consulta.data ?? []), [consulta.data, filtrar]);
 
   return (
-    <Table<T>
+    <TabelaComModos<T>
       rowKey={(r) => String((r as { id?: number | string }).id ?? JSON.stringify(r))}
       size="middle"
       scroll={scrollTabela()}

@@ -24,6 +24,12 @@ use Illuminate\Validation\Rule;
 /** /api/orcamento — rubricas, orçamentos (ciclo, versões, hierarquia) e controlo orçado × realizado. */
 final class OrcamentoController extends Controller
 {
+    /**
+     * Quem grava documentos sujeitos ao controlo orçamental (compras, tesouraria, lançamentos) ou acompanha os alertas:
+     * pode simular a verificação (revela a disponibilidade de uma rubrica) e pedir a aprovação de um excesso (ADR-069).
+     */
+    private const PERMISSOES_DOCUMENTOS_CONTROLADOS = ['compras_ped_criar', 'compras_enc_criar', 'compras_fact_registar', 'teso_doc_emitir', 'lancamentos_post', 'orc_alertas_view'];
+
     public function __construct(
         private readonly ServicoRubricasOrcamentais $rubricas,
         private readonly ServicoOrcamentos $orcamentos,
@@ -207,6 +213,8 @@ final class OrcamentoController extends Controller
     /** POST /verificar — simulação do controlo antes de gravar o documento (nada é registado). */
     public function verificar(Request $r): JsonResponse
     {
+        // OWASP A01: a simulação revela orçado/consumido da rubrica — mesma lista any-of do pedido de excesso
+        $this->exigir(...self::PERMISSOES_DOCUMENTOS_CONTROLADOS);
         $d = $r->validate($this->regrasDocumento());
 
         return $this->ok($this->controlo->verificar($d['tipo'], $d['data'], $d['linhas']), 'Verificação orçamental.', ['documento']);   // aqui «documento» é o valor
@@ -214,8 +222,7 @@ final class OrcamentoController extends Controller
 
     public function pedirExcesso(Request $r): JsonResponse
     {
-        // quem grava documentos sujeitos ao controlo orçamental (compras, tesouraria, lançamentos) ou acompanha os alertas
-        $this->exigir('compras_ped_criar', 'compras_enc_criar', 'compras_fact_registar', 'teso_doc_emitir', 'lancamentos_post', 'orc_alertas_view');
+        $this->exigir(...self::PERMISSOES_DOCUMENTOS_CONTROLADOS);
         $d = $r->validate($this->regrasDocumento() + ['motivo' => ['required', 'string', 'min:5', 'max:1000']]);
 
         return $this->novo($this->controlo->pedirExcesso($d['tipo'], ['origem' => $d['origem'], 'documento' => $d['documento'], 'data' => substr($d['data'], 0, 10)],

@@ -1,5 +1,5 @@
 import { ApiOutlined, CopyOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
-import { Alert, Button, DatePicker, Drawer, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, DatePicker, Drawer, Form, Input, Modal, Popconfirm, Select, Space, Tag, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -8,6 +8,7 @@ import { larguraGaveta, scrollTabela } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /**
  * Power BI (decisão 25, M-02): tokens de leitura do feed OData da empresa activa (config_backup) e instruções de ligação.
  * O valor do token só é mostrado uma vez, ao criar; revogar é imediato.
@@ -86,7 +87,7 @@ export function PainelPowerBI({ aberto, aoFechar }: { aberto: boolean; aoFechar:
       <Space style={{ marginBottom: 12 }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setCriar(true)}>Novo token</Button>
       </Space>
-      <Table<TokenBI>
+      <TabelaComModos<TokenBI>
         size="small"
         rowKey="id"
         loading={dados.isLoading}

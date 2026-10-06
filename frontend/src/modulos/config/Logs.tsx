@@ -44,6 +44,7 @@ export default function Logs() {
           <DatePicker.RangePicker format="DD/MM/YYYY" value={datas} onChange={(v) => setDatas(v)} allowEmpty={[true, true]} />
         </BarraFiltros>
         <TabelaApi<LogAuditoria>
+          modos={false}
           url="/sistema/logs"
           chaveConsulta={['sistema', 'logs']}
           porPagina={50}

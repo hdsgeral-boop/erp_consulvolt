@@ -21,7 +21,8 @@ import type { FormatoPagina } from './tipos';
  *    folhas tenham as mesmas colunas;
  *  - títulos, legendas e linhas de grupo (`tr.imp-grupo`) não ficam sozinhos no fim de uma folha;
  *  - quebras pedidas (`break-before/after: page`, `.imp-quebra-pagina`) são respeitadas;
- *  - um bloco indivisível mais alto do que uma folha inteira é reduzido (`zoom`) para caber.
+ *  - um bloco indivisível mais alto do que uma folha inteira é reduzido (`zoom`) para caber;
+ *  - `.imp-uma-folha` (ex.: as vias de um recibo, original e cópia) nunca se parte, mesmo numa folha vazia: é reduzido.
  *
  * O cabeçalho da empresa (logótipo, nome, emissão) e o título ficam só na primeira folha, como no sistema anterior.
  * Tudo é feito com DOM e CSS no documento da iframe — sem scripts no documento impresso (CSP respeitada).
@@ -87,6 +88,8 @@ function indivisivelPorNatureza(el: HTMLElement): boolean {
  */
 function divisivel(el: HTMLElement, forcar: boolean): boolean {
   if (indivisivelPorNatureza(el)) return false;
+  // vias de um recibo (original e cópia): ficam sempre juntas na mesma folha — reduzidas, se preciso
+  if (el.classList.contains('imp-uma-folha')) return false;
   if (!forcar && el.classList.contains('imp-sem-quebra')) return false;
   const cs = estilo(el);
   if (!cs) return true;

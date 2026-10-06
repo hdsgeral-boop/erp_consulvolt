@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Divider, Drawer, Flex, Form, Input, InputNumber, Modal, Rate, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Divider, Drawer, Flex, Form, Input, InputNumber, Modal, Rate, Row, Select, Space, Tabs, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -16,6 +16,7 @@ import { classificar, itensAplicaveis } from './comum/regras';
 import { BarraFiltros, COLUNAS_DESCRICOES, larguraGaveta, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela, seccaoHtml } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface Linha {
   colaborador: Colaborador;
   avaliacao: AvaliacaoT | null;
@@ -95,7 +96,7 @@ function ListaAvaliacoes({ ano, periodo }: { ano: number; periodo: PeriodoAvalia
         <PesquisaLocal aoMudar={setTermo} placeholder="Nome" />
         <Select placeholder="Fase" allowClear style={{ width: 220 }} value={fase} onChange={setFase} options={Object.entries(FASES_AVALIACAO).map(([k, f]) => ({ value: k, label: f.rotulo }))} />
       </BarraFiltros>
-      <Table<Linha> rowKey={(l) => l.colaborador.id} size="small" loading={q.isFetching || colaboradores.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={scrollTabela()} />
+      <TabelaComModos<Linha> rowKey={(l) => l.colaborador.id} size="small" loading={q.isFetching || colaboradores.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={scrollTabela()} />
       {aberta && <FormularioAvaliacao linha={aberta} ano={ano} periodo={periodo} aoFechar={() => setAberta(null)} />}
     </Card>
   );

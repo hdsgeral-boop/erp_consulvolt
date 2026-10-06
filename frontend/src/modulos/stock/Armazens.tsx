@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, Form, Input, Modal, Space, Table, Tag } from 'antd';
+import { Button, Card, Checkbox, Form, Input, Modal, Space, Tag } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -9,6 +9,7 @@ import { ModalContas } from '@/modulos/compras/comum/ModalContas';
 import { useArmazens, type Armazem } from '@/modulos/compras/comum/referencias';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Armazém › Configuração de armazéns (ecrã armazem_armazens): armazéns da empresa e contas da logística. */
 export default function Armazens() {
   const { pode } = useSessao();
@@ -50,7 +51,7 @@ export default function Armazens() {
         }
       />
       <Card>
-        <Table<Armazem> scroll={scrollTabela()}
+        <TabelaComModos<Armazem> scroll={scrollTabela()}
           rowKey="id"
           loading={consulta.isFetching}
           dataSource={consulta.data ?? []}

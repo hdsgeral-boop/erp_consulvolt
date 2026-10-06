@@ -10,6 +10,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarKz } from '@/utilitarios/formatacao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /**
  * Assistente IA para lançamentos (decisão 26, M-03; legado js/ui_ai_agent.js): descreve-se a operação ou anexa-se o
  * documento (PDF/imagem) e o servidor devolve propostas validadas. NADA é gravado: «Rever no formulário» abre o
@@ -250,7 +251,7 @@ function Regras() {
         montante do texto e <Typography.Text code>percent</Typography.Text> aplica uma percentagem a essa linha (ex.: IVA 14).
       </Typography.Paragraph>
       {gerir && <Button icon={<PlusOutlined />} style={{ marginBottom: 12 }} onClick={() => abrir('nova')}>Nova regra</Button>}
-      <Table<Regra>
+      <TabelaComModos<Regra> idVista="regras"
         size="small"
         rowKey="id"
         loading={regras.isLoading}

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Tooltip, Typography } from 'antd';
 import { AppstoreAddOutlined, CalculatorOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, ImportOutlined, MinusCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -19,6 +19,7 @@ import { contratoVigente, normalizarRemuneracoes, semFim, somar, totalContrato }
 import { BarraFiltros, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface ValoresContrato {
   colaborador_id: number;
   data_inicio: Dayjs;
@@ -169,7 +170,7 @@ export default function Contratos() {
           <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={ESTADOS_COLABORADOR} />
           <PesquisaLocal aoMudar={setTermo} placeholder="Nome do colaborador" />
         </BarraFiltros>
-        <Table<ContratoTrabalho> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={contratos.isFetching} columns={colunas} dataSource={linhas} scroll={scrollTabela()}
+        <TabelaComModos<ContratoTrabalho> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={contratos.isFetching} columns={colunas} dataSource={linhas} scroll={scrollTabela()}
           pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `${t} contrato(s)` }} />
       </Card>
 

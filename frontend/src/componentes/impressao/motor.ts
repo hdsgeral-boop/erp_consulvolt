@@ -54,10 +54,12 @@ async function aguardarRecursos(doc: Document): Promise<void> {
 }
 
 /** Largura natural (px) do conteúdo posto numa coluna de `larguraPx` (a iframe toma essa largura: as media queries batem certo). */
-export function medirConteudo(iframe: HTMLIFrameElement, larguraPx: number, quebrar: boolean): number {
+export function medirConteudo(iframe: HTMLIFrameElement, larguraPx: number, quebrar: boolean, orientacao?: 'retrato' | 'paisagem'): number {
   const doc = iframe.contentDocument!;
   iframe.style.width = `${larguraPx}px`;
   doc.body.classList.toggle('imp-quebrar', quebrar);
+  // a disposição de algumas partes depende da orientação (vias dos recibos lado a lado em paisagem)
+  if (orientacao) doc.body.dataset.orientacao = orientacao;
   const c = doc.querySelector<HTMLElement>('.imp-conteudo')!;
   c.style.zoom = '';
   c.style.width = `${larguraPx}px`;
@@ -79,6 +81,7 @@ function aplicarFormato(doc: Document, f: FormatoPagina, rodape: string | null):
   doc.body.dataset.papel = f.papel;
   doc.body.dataset.orientacao = f.orientacao;
   doc.body.dataset.escala = String(f.escala);
+  doc.body.style.setProperty('--imp-escala', String(f.escala));
   const c = doc.querySelector<HTMLElement>('.imp-conteudo');
   if (c) c.setAttribute('style', estiloConteudo(f));
 }
@@ -120,7 +123,7 @@ async function preparar(o: OpcoesDocumento): Promise<Preparacao> {
     const raiz = doc.querySelector('.imp-conteudo') ?? doc.body;
     let formato: FormatoPagina;
     try {
-      formato = decidirFormato({ medir: (px, q) => medirConteudo(iframe, px, q), colunas: contarColunas(raiz), papel: o.papel, orientacao: o.orientacao });
+      formato = decidirFormato({ medir: (px, q, ori) => medirConteudo(iframe, px, q, ori), colunas: contarColunas(raiz), papel: o.papel, orientacao: o.orientacao });
     } catch {
       formato = FORMATO_PADRAO;
     }

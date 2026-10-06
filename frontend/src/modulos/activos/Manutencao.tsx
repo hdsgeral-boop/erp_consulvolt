@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table } from 'antd';
+import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Select, Space } from 'antd';
 import { CheckOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -17,6 +17,7 @@ import { EtiquetaActivos, SeletorActivo } from './comum/componentes';
 import { filtroPeriodo, useListaPaginada } from './comum/paginacao';
 import type { Manutencao as RegistoManutencao } from './comum/tipos';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Activos › Manutenções (ecrã activos_manutencao): registo de manutenções preventivas e correctivas e respectiva conclusão. */
 export default function Manutencao() {
   const { pode } = useSessao();
@@ -83,7 +84,7 @@ export default function Manutencao() {
               options={[{ value: 'PREVENTIVA', label: 'Preventiva' }, { value: 'CORRECTIVA', label: 'Correctiva' }]} />
             <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} allowEmpty={[true, true]} placeholder={['Desde', 'Até']} />
         </BarraFiltros>
-        <Table<RegistoManutencao>
+        <TabelaComModos<RegistoManutencao>
           rowKey="id"
           size="middle"
           loading={q.isFetching}

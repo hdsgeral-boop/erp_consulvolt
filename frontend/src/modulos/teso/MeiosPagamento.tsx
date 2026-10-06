@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, Form, Input, Modal, Popconfirm, Space, Table, Tag, message } from 'antd';
+import { Button, Card, Checkbox, Form, Input, Modal, Popconfirm, Space, Tag, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -12,6 +12,7 @@ import type { MeioPagamento } from './api';
 import { useMeiosPagamento } from './comum';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface ValoresMeio {
   nome: string;
   codigo_conta: string;
@@ -69,7 +70,7 @@ export default function MeiosPagamento() {
         })}
       />
       <Card>
-        <Table<MeioPagamento>
+        <TabelaComModos<MeioPagamento>
           rowKey="id"
           loading={meios.isLoading}
           dataSource={meios.data}

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Dropdown, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Skeleton, Space, Statistic, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Dropdown, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Skeleton, Space, Statistic, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, DownOutlined, FileDoneOutlined, PlusOutlined, TagsOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -23,6 +23,7 @@ import { SeletorContaFinanceira } from './comum';
 import { accoesSessao } from './regras';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 const ROTULO_SESSAO: Record<string, string> = { ABERTA: 'Aberta', FECHADA: 'Fechada', CONTABILIZADA: 'Contabilizada' };
 
 /** Folha de caixa impressa de uma sessão: resumo de saldos, movimentos (entradas/saídas) com totais e assinaturas. */
@@ -124,7 +125,7 @@ function ListaSessoes() {
         <Space wrap style={{ marginBottom: 16 }}>
           <SeletorContaFinanceira value={conta} onChange={setConta} allowClear prefixos={['45']} placeholder="Conta de caixa" />
         </Space>
-        <Table<SessaoCaixa>
+        <TabelaComModos<SessaoCaixa> idVista="sessoes"
           rowKey="id"
           loading={sessoes.isLoading}
           dataSource={sessoes.data}
@@ -274,7 +275,7 @@ function DetalheSessao() {
           )
         }
       >
-        <Table<MovimentoCaixa>
+        <TabelaComModos<MovimentoCaixa> idVista="movimentos"
           rowKey="id"
           size="small"
           dataSource={s.movimentos ?? []}

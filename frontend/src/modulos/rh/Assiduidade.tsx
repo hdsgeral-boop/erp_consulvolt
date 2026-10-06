@@ -23,6 +23,7 @@ import { formatarHoras, horasEntre, mesPorExtenso } from './comum/regras';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** RH › Efectividade (ecrã rh_assiduidade): registos, importação, apuramento e fecho do mês, ausências e configuração. */
 export default function Assiduidade() {
   const [mes, setMes] = useState<Dayjs>(dayjs().startOf('month'));
@@ -148,7 +149,7 @@ function Registos({ mes }: { mes: string }) {
       }>
         <SeletorColaborador value={colaborador} onChange={setColaborador} />
       </BarraFiltros>
-      <Table<RegistoEfectividade> rowKey="id" size="small" loading={registos.isFetching} columns={colunas} dataSource={registos.data ?? []} scroll={scrollTabela()}
+      <TabelaComModos<RegistoEfectividade> idVista="registos" rowKey="id" size="small" loading={registos.isFetching} columns={colunas} dataSource={registos.data ?? []} scroll={scrollTabela()}
         pagination={{ pageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} registo(s) em ${mesPorExtenso(mes)}` }} />
 
       <Modal title="Registo de efectividade" open={novo} onCancel={() => setNovo(false)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
@@ -361,7 +362,7 @@ function Ausencias({ mes }: { mes: string }) {
           <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={ESTADOS_AUSENCIA.map((e) => ({ value: e, label: <EstadoTag estado={e} /> }))} />
           <Checkbox checked={doMes} onChange={(e) => setDoMes(e.target.checked)}>Só {mesPorExtenso(mes)}</Checkbox>
       </BarraFiltros>
-      <Table<Ausencia> rowKey="id" size="small" loading={lista.isFetching} columns={colunas} dataSource={lista.data ?? []} scroll={scrollTabela()} pagination={{ pageSize: 50, showTotal: (t) => `${t} ausência(s)` }} />
+      <TabelaComModos<Ausencia> idVista="ausencias" rowKey="id" size="small" loading={lista.isFetching} columns={colunas} dataSource={lista.data ?? []} scroll={scrollTabela()} pagination={{ pageSize: 50, showTotal: (t) => `${t} ausência(s)` }} />
 
       <Modal title={edicao === 'nova' ? 'Registar ausência' : 'Justificar falta'} open={edicao !== null} width={larguraModal(640)} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar"
         confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
@@ -417,7 +418,7 @@ function Fechos() {
   return (
     <Card>
       <BarraFiltros accoes={<BotoesExportar desactivado={!q.data?.length} obterPedido={() => pedidoTabela({ titulo: 'Fechos mensais da efectividade', colunas, linhas: q.data ?? [] })} />}>{null}</BarraFiltros>
-      <Table<FechoMensal> rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 24 }} scroll={scrollTabela()} columns={colunas} />
+      <TabelaComModos<FechoMensal> idVista="fechos" rowKey="id" size="small" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 24 }} scroll={scrollTabela()} columns={colunas} />
     </Card>
   );
 }

@@ -1,4 +1,4 @@
-import { Alert, Button, InputNumber, Popconfirm, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, InputNumber, Popconfirm, Space, Tag, Typography } from 'antd';
 import { RollbackOutlined, SaveOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import type { ConfiguracaoRH, EscalaoTabelaIrt } from '../api';
 import { useAccaoRh, useAvisarErro } from './consultas';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Validação local (o servidor valida de novo): limites crescentes e só o último escalão sem limite. */
 export function validarTabelaIrt(t: EscalaoTabelaIrt[]): string | null {
   if (t.length < 2) return 'A tabela tem de ter pelo menos dois escalões.';
@@ -55,7 +56,7 @@ export function TabelaIrt() {
         )}
         {editar && erro && <Typography.Text type="danger">{erro}</Typography.Text>}
       </Space>
-      <Table<EscalaoTabelaIrt> rowKey={(_, i) => String(i)} size="small" pagination={false} loading={q.isFetching} dataSource={tabela} scroll={scrollTabela()} columns={[
+      <TabelaComModos<EscalaoTabelaIrt> rowKey={(_, i) => String(i)} size="small" pagination={false} loading={q.isFetching} dataSource={tabela} scroll={scrollTabela()} columns={[
         { title: 'Escalão', render: (_, __, i) => i + 1, width: 80 },
         { title: 'Até (Kz)', render: (_, e, i) => num(i, 'max', e.max) },
         { title: 'Parcela fixa (Kz)', render: (_, e, i) => num(i, 'fixo', e.fixo) },

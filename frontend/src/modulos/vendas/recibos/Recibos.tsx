@@ -2,8 +2,7 @@ import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, For
 import { BookOutlined, UndoOutlined } from '@ant-design/icons';
 import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { somar } from '@/utilitarios/decimal';
-import { pedidoDocumentoComercial } from '../impressao/documentoComercial';
-import { dadosRecibo } from '../impressao/documentoRecibo';
+import { pedidoRecibo } from '../impressao/documentoRecibo';
 import { ArrowLeftOutlined, CheckCircleTwoTone, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 
@@ -317,7 +316,7 @@ function DetalheRecibo() {
       <CabecalhoPagina
         titulo={`Recibo ${r.numero_recibo}`}
         subtitulo={r.cliente?.nome}
-        impressao={() => pedidoDocumentoComercial(dadosRecibo(r))}
+        impressao={() => pedidoRecibo(r)}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>

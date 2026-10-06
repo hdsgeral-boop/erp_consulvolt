@@ -23,6 +23,7 @@ import { DetalheActivo } from './DetalheActivo';
 import { ModalActivo } from './ModalActivo';
 import { ModalAfectacao, ModalEdicaoMassa, ModalImportarActivos } from './ModaisActivos';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Activos › Cadastro e gestão (ecrã activos): cadastro, ficha com histórico, importação, edição em massa, transferências e afectações. */
 export default function Activos() {
   return (
@@ -191,7 +192,7 @@ function Afectacoes() {
       }>
         <SeletorProjecto allowClear value={projecto} onChange={setProjecto} style={{ width: 300 }} />
       </BarraFiltros>
-      <Table<Afectacao>
+      <TabelaComModos<Afectacao> idVista="afectacoes"
         rowKey="id"
         size="middle"
         loading={q.isFetching}

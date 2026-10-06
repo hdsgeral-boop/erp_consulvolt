@@ -12,7 +12,7 @@ import { EtiquetaEstado, ValorKz } from '../../contab/comum/Componentes';
 import { ROTULO_TIPO, type DocumentoTesouraria, type LinhaDocumentoTesouraria } from '../api';
 import { accoesDocumento } from '../regras';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
-import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
+import { pedidoDuasVias } from '@/modulos/vendas/impressao/documentoRecibo';
 import { dadosDocumentoTesouraria } from '../impressao';
 
 /** Detalhe de um documento de tesouraria, com editar, anular, integrar e desintegrar conforme o estado e as permissões. */
@@ -46,7 +46,7 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
       <CabecalhoPagina
         titulo={d.numero_documento ?? `Documento #${d.id}`}
         subtitulo={ROTULO_TIPO[d.tipo]}
-        impressao={() => pedidoDocumentoComercial(dadosDocumentoTesouraria(d))}
+        impressao={() => pedidoDuasVias(dadosDocumentoTesouraria(d))}
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>

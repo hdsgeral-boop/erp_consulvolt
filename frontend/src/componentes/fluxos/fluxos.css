@@ -1,0 +1,153 @@
+/*
+ * Fluxo de Processos — linguagem visual do sistema anterior (js/fluxo_processos.js:246-330, fluxo_tabela.js:17-58,
+ * fluxo_narrativa.js:189-205): mesmas cores por estado, nós circulares de 44 px com o ícone da etapa, linha de ligação de 2 px
+ * (verde quando a etapa seguinte já começou), pastilhas de estado com ícone, barra de progresso, funil com divisas «›».
+ * Diferença intencional: quando o diagrama é estreito (telemóvel ou gaveta), passa a vertical e a linha de ligação acompanha
+ * os nós (no legado desaparecia).
+ */
+.fluxo-raiz {
+  --fx-ok: #16a34a; --fx-ok-fundo: #dcfce7; --fx-ok-texto: #166534; --fx-ok-linha: #86efac;
+  --fx-curso: #2563eb; --fx-curso-fundo: #dbeafe; --fx-curso-texto: #1e40af;
+  --fx-fazer: #cbd5e1; --fx-fazer-fundo: #f1f5f9; --fx-fazer-texto: #475569;
+  --fx-bloq: #dc2626; --fx-bloq-fundo: #fee2e2; --fx-bloq-texto: #991b1b;
+  --fx-borda: #e2e8f0; --fx-cinza: #64748b; --fx-tinta: #0f172a;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.fluxo-raiz svg.fx-icone { display: inline-block; vertical-align: -0.125em; fill: currentColor; flex: none; }
+
+/* Pastilha de estado */
+.fluxo-pill { display: inline-flex; align-items: center; gap: .3rem; font-size: .7rem; font-weight: 600; padding: .12rem .45rem; border-radius: 4px; white-space: nowrap; line-height: 1.5; }
+.fluxo-pill.ok { background: var(--fx-ok-fundo); color: var(--fx-ok-texto); }
+.fluxo-pill.curso { background: var(--fx-curso-fundo); color: var(--fx-curso-texto); }
+.fluxo-pill.fazer { background: var(--fx-fazer-fundo); color: var(--fx-fazer-texto); }
+.fluxo-pill.bloq { background: var(--fx-bloq-fundo); color: var(--fx-bloq-texto); }
+
+/* Indicadores */
+.fluxo-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .75rem; }
+.fluxo-kpi { background: #fff; border: 1px solid var(--fx-borda); border-radius: 4px; padding: .7rem 1rem; min-width: 0; }
+.fluxo-kpi span { display: block; font-size: .7rem; color: var(--fx-cinza); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.fluxo-kpi strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--fx-tinta); overflow-wrap: anywhere; }
+.fluxo-kpi.bloq strong { color: #b91c1c; }
+
+/* Períodos em falta (RH) */
+.fluxo-buracos { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 4px; padding: .75rem 1rem; display: grid; gap: .6rem; }
+.fluxo-buracos-topo { display: flex; gap: .6rem; align-items: flex-start; color: #9a3412; }
+.fluxo-buracos-topo svg { margin-top: .2rem; }
+.fluxo-buracos-topo strong { display: block; font-size: .9rem; }
+.fluxo-buracos-topo span { display: block; font-size: .8rem; }
+.fluxo-buracos-lista { display: flex; flex-wrap: wrap; gap: .4rem; }
+.fluxo-buraco { display: inline-flex; align-items: center; gap: .35rem; height: 30px; padding: 0 .7rem; border: 1px solid #fdba74; background: #fff; color: #9a3412; border-radius: 4px; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums; }
+.fluxo-buraco:hover { background: #ffedd5; }
+
+.fluxo-titulo-seccao { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--fx-cinza); margin: 0 0 .5rem; }
+
+/* Funil por etapa actual (fluxo_tabela.js) */
+.ft-funil { display: grid; grid-template-columns: repeat(var(--n, 6), minmax(0, 1fr)); gap: .5rem; }
+.ft-coluna { position: relative; text-align: left; background: #fff; border: 1px solid var(--fx-borda); border-radius: 4px; padding: .6rem .75rem; cursor: pointer; font: inherit; color: var(--fx-tinta); display: grid; gap: .2rem; min-width: 0; align-content: start; }
+.ft-coluna:hover { border-color: #94a3b8; }
+.ft-coluna[aria-pressed="true"] { border-color: var(--fx-curso); box-shadow: inset 0 0 0 1px var(--fx-curso); background: #f8fbff; }
+.ft-coluna:not(:last-child)::after { content: ""; position: absolute; right: -.42rem; top: 50%; width: .34rem; height: .34rem; border-top: 1px solid #94a3b8; border-right: 1px solid #94a3b8; transform: translateY(-50%) rotate(45deg); }
+.ft-coluna-nome { font-size: .7rem; font-weight: 600; color: var(--fx-cinza); text-transform: uppercase; letter-spacing: .04em; line-height: 1.25; overflow-wrap: anywhere; }
+.ft-coluna-num { font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ft-coluna-info { font-size: .72rem; color: var(--fx-cinza); font-variant-numeric: tabular-nums; display: flex; gap: .5rem; flex-wrap: wrap; min-height: 1em; }
+.ft-coluna-info .alerta { color: #b91c1c; font-weight: 600; }
+@media (max-width: 1100px) { .ft-funil { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ft-coluna::after { display: none; } }
+@media (max-width: 520px) { .ft-funil { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Filtros rápidos */
+.ft-chips { display: flex; gap: .35rem; flex-wrap: wrap; align-items: center; min-width: 0; }
+.ft-chip { height: 28px; padding: 0 .6rem; border: 1px solid var(--fx-fazer); background: #fff; color: #334155; border-radius: 4px; font: inherit; font-size: .76rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.ft-chip[aria-pressed="true"] { background: #1e40af; border-color: #1e40af; color: #fff; }
+.ft-chip b { font-variant-numeric: tabular-nums; margin-left: .25rem; font-weight: 700; }
+.ft-etapa-activa { display: inline-flex; align-items: center; gap: .4rem; font-size: .76rem; color: #1e40af; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: .15rem .5rem; }
+.ft-etapa-activa button { border: none; background: none; color: inherit; cursor: pointer; padding: 0 .1rem; font-size: .9rem; line-height: 1; }
+
+/* Linhas da tabela */
+.ft-titulo { font-weight: 700; color: #1e40af; }
+.ft-resumo { display: block; font-size: .72rem; color: var(--fx-cinza); margin-top: .15rem; }
+.ft-marca { display: inline-flex; align-items: center; gap: .25rem; font-size: .72rem; font-weight: 600; white-space: nowrap; margin-right: .4rem; }
+.ft-marca.erro { color: #b91c1c; } .ft-marca.aviso { color: #b45309; }
+
+/* Mini-progresso (um segmento por etapa) */
+.fluxo-mini { display: grid; grid-template-columns: repeat(var(--n, 6), 1fr); gap: 3px; min-width: 60px; }
+.fluxo-mini i { height: 5px; border-radius: 2px; background: var(--fx-borda); }
+.fluxo-mini i.ok { background: var(--fx-ok); } .fluxo-mini i.curso { background: var(--fx-curso); } .fluxo-mini i.bloq { background: var(--fx-bloq); }
+
+/* Diagrama */
+.fluxo-diagrama { background: #fff; border: 1px solid var(--fx-borda); border-radius: 4px; padding: 1.1rem 1rem .9rem; container-type: inline-size; }
+.fluxo-diagrama-topo { display: flex; justify-content: space-between; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.fluxo-diagrama-topo strong { font-size: .95rem; }
+.fluxo-etapas { display: grid; grid-template-columns: repeat(var(--n, 6), minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.fluxo-etapa { position: relative; }
+.fluxo-etapa > button { position: relative; z-index: 1; width: 100%; background: none; border: none; padding: 0 .35rem; cursor: pointer; font: inherit; color: var(--fx-tinta); display: grid; justify-items: center; align-content: start; gap: .45rem; text-align: center; }
+/* linha de ligação horizontal (antes de cada etapa, verde se a etapa já começou) */
+.fluxo-etapa::before { content: ''; position: absolute; top: 21px; left: -50%; width: 100%; height: 2px; background: var(--fx-borda); }
+.fluxo-etapa:first-child::before { display: none; }
+.fluxo-etapa.ok::before, .fluxo-etapa.curso::before, .fluxo-etapa.bloq::before { background: var(--fx-ok-linha); }
+.fluxo-no { position: relative; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--fx-fazer); background: #fff; color: var(--fx-cinza); font-size: 1rem; flex: none; }
+.fluxo-etapa.ok .fluxo-no { border-color: var(--fx-ok); background: var(--fx-ok-fundo); color: var(--fx-ok-texto); }
+.fluxo-etapa.curso .fluxo-no { border-color: var(--fx-curso); background: var(--fx-curso-fundo); color: var(--fx-curso-texto); }
+.fluxo-etapa.bloq .fluxo-no { border-color: var(--fx-bloq); background: var(--fx-bloq-fundo); color: var(--fx-bloq-texto); }
+.fluxo-etapa > button[aria-pressed="true"] .fluxo-no { box-shadow: 0 0 0 4px rgba(37, 99, 235, .2); }
+.fluxo-etapa > button:focus-visible { outline: 2px solid var(--fx-curso); outline-offset: 3px; border-radius: 4px; }
+.fluxo-etapa-texto { display: grid; gap: .25rem; justify-items: center; min-width: 0; }
+.fluxo-etapa-nome { font-size: .8rem; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.fluxo-etapa > button[aria-pressed="true"] .fluxo-etapa-nome { color: var(--fx-curso); }
+.fluxo-etapa-resumo { font-size: .72rem; color: var(--fx-cinza); line-height: 1.3; overflow-wrap: anywhere; }
+.fluxo-progresso { display: flex; align-items: center; gap: .6rem; margin-top: 1rem; font-size: .75rem; color: var(--fx-cinza); font-variant-numeric: tabular-nums; }
+.fluxo-progresso-barra { flex: 1; height: 6px; background: var(--fx-borda); border-radius: 3px; overflow: hidden; }
+.fluxo-progresso-barra span { display: block; height: 100%; background: var(--fx-ok); }
+
+/* Diagrama estreito: vertical, nó à esquerda e a linha de ligação a descer até ao nó seguinte */
+@container (max-width: 560px) {
+  .fluxo-etapas { grid-template-columns: 1fr; row-gap: .9rem; }
+  .fluxo-etapa::before { display: none; }
+  .fluxo-etapa:not(:last-child)::after { content: ''; position: absolute; left: 21px; top: 44px; bottom: -.9rem; width: 2px; background: var(--fx-ligacao-seguinte, var(--fx-borda)); }
+  .fluxo-etapa > button { grid-template-columns: 44px 1fr; justify-items: start; text-align: left; align-items: start; gap: .7rem; padding: 0; }
+  .fluxo-etapa-texto { justify-items: start; padding-top: .15rem; }
+}
+
+/* Detalhe da etapa */
+.fluxo-detalhe { background: #fff; border: 1px solid var(--fx-borda); border-radius: 4px; padding: 1rem 1.25rem; display: grid; gap: .85rem; }
+.fluxo-detalhe-topo { display: flex; justify-content: space-between; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.fluxo-detalhe h3 { margin: 0; font-size: 1.05rem; display: flex; align-items: center; gap: .5rem; }
+.fluxo-detalhe h3 svg { color: var(--fx-cinza); }
+.fluxo-factos { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .5rem; }
+.fluxo-facto { background: #f8fafc; border: 1px solid #eef2f7; border-radius: 4px; padding: .45rem .7rem; min-width: 0; }
+.fluxo-facto span { display: block; font-size: .7rem; color: var(--fx-cinza); }
+.fluxo-facto strong { font-size: .9rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fluxo-problemas { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.fluxo-problemas li { display: flex; gap: .5rem; align-items: flex-start; font-size: .84rem; line-height: 1.45; padding: .45rem .65rem; border-radius: 4px; border: 1px solid; }
+.fluxo-problemas li.erro { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+.fluxo-problemas li.aviso { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.fluxo-problemas li svg { margin-top: .2rem; }
+.fluxo-sem-problemas { font-size: .84rem; color: var(--fx-ok-texto); display: flex; gap: .45rem; align-items: center; }
+.fluxo-nota { font-size: .72rem; color: var(--fx-cinza); }
+.fluxo-accoes { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* Narrativa da etapa */
+.fluxo-narrativa { background: #f8fafc; border: 1px solid var(--fx-fazer); border-left: 4px solid #1d4ed8; border-radius: 4px; padding: .8rem 1rem; display: grid; gap: .5rem; }
+.fluxo-narrativa h4 { margin: 0; font-size: .95rem; display: flex; gap: .5rem; align-items: center; }
+.fluxo-narrativa p { margin: 0; font-size: .88rem; line-height: 1.55; color: #1e293b; max-width: 95ch; }
+.fluxo-narrativa dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .4rem .9rem; margin: 0; }
+.fluxo-narrativa dt { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--fx-cinza); font-weight: 700; }
+.fluxo-narrativa dd { margin: 0; font-size: .83rem; color: #334155; }
+
+/* Legenda */
+.fluxo-legenda { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; font-size: .75rem; color: var(--fx-cinza); }
+
+/* Apresentação em ecrã inteiro (ou sobreposta à janela, se o navegador recusar) */
+.fluxo-apresentacao:fullscreen, .fluxo-apresentacao.fluxo-apres-janela { background: #fff; padding: 1.25rem 2rem 2rem; overflow: auto; }
+.fluxo-apresentacao.fluxo-apres-janela { position: fixed; inset: 0; z-index: 1050; }
+.fluxo-apres-topo { display: none; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 2px solid var(--fx-tinta); padding-bottom: .6rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.fluxo-apresentacao:fullscreen .fluxo-apres-topo, .fluxo-apresentacao.fluxo-apres-janela .fluxo-apres-topo { display: flex; }
+.fluxo-apres-topo strong { font-size: 1.3rem; }
+.fluxo-apres-topo span { font-size: .8rem; color: var(--fx-cinza); }
+.fluxo-apresentacao:fullscreen .fluxo-etapa-nome, .fluxo-apres-janela .fluxo-etapa-nome { font-size: .95rem; }
+.fluxo-apresentacao:fullscreen .fluxo-no, .fluxo-apres-janela .fluxo-no { width: 54px; height: 54px; font-size: 1.25rem; }
+.fluxo-apresentacao:fullscreen .fluxo-etapa::before, .fluxo-apres-janela .fluxo-etapa::before { top: 26px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .fluxo-progresso-barra span { transition: width .4s ease; }
+  .fluxo-no { transition: box-shadow .15s ease; }
+}

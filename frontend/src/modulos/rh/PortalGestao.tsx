@@ -18,6 +18,7 @@ import { accoesPedidoRh } from './comum/regras';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 const ESTADOS_PEDIDO = ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'];
 
 /** RH › Pedidos do Portal (ecrã rh_portal_gestao): decidir pedidos, emitir documentos, modelos e ligações utilizador ↔ colaborador. */
@@ -104,7 +105,7 @@ function Pedidos() {
         <Select placeholder="Tipo" allowClear style={{ width: 260 }} value={tipo} onChange={setTipo} options={Object.entries(TIPOS_PEDIDO).map(([v, l]) => ({ value: v, label: l }))} />
         <SeletorColaborador value={colaborador} onChange={setColaborador} />
       </BarraFiltros>
-      <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 25 }} scroll={scrollTabela()}
+      <TabelaComModos<PedidoPortal> idVista="pedidos" rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 25 }} scroll={scrollTabela()}
         expandable={{ expandedRowRender: (p) => <DetalhePedido pedido={p} /> }} />
 
       <Modal title={`Decidir pedido #${decidir?.id ?? ''}`} open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnHidden>
@@ -182,7 +183,7 @@ function Modelos() {
   return (
     <Card>
       {editar && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" onClick={() => { form.resetFields(); form.setFieldsValue({ ativo: true, auto_emitir: false }); setEdicao('novo'); }}>Novo modelo</Button></Flex>}
-      <Table<ModeloDocumento> rowKey="codigo" size="small" loading={q.isFetching} dataSource={q.data?.modelos ?? []} pagination={false} scroll={scrollTabela()} columns={[
+      <TabelaComModos<ModeloDocumento> idVista="modelos" rowKey="codigo" size="small" loading={q.isFetching} dataSource={q.data?.modelos ?? []} pagination={false} scroll={scrollTabela()} columns={[
         { title: 'Código', dataIndex: 'codigo', render: (v: string) => <code>{v}</code> },
         { title: 'Nome', dataIndex: 'nome' },
         { title: 'Origem', render: (_, m) => (m.padrao ? (m.personalizado ? <Tag color="blue">Padrão personalizado</Tag> : <Tag>Padrão</Tag>) : <Tag color="purple">Próprio</Tag>) },
@@ -265,7 +266,7 @@ function Ligacoes({ editar }: { editar: boolean }) {
         <Input.Search placeholder="Utilizador, nome ou colaborador" allowClear onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} style={{ width: 300 }} />
         <Checkbox checked={soSem} onChange={(e) => setSoSem(e.target.checked)}>Só sem ligação</Checkbox>
       </BarraFiltros>
-      <Table<UtilizadorEmpresa> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 20 }} scroll={scrollTabela()} />
+      <TabelaComModos<UtilizadorEmpresa> idVista="utilizadores" rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 20 }} scroll={scrollTabela()} />
       <Modal title={`Ligar ${ligar?.nome_utilizador ?? ''} a um colaborador`} open={ligar !== null} onCancel={() => setLigar(null)} okText="Gravar ligação" cancelText="Cancelar"
         confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => ligar && accao.mutate({ metodo: 'post', url: '/rh/portal/ligacoes', dados: { utilizador_id: ligar.id, colaborador_id: v.colaborador_id ?? null } })}>

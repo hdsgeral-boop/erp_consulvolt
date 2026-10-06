@@ -465,6 +465,8 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/ronda2_g1.php';
         // Ronda 2, grupo 2 (RH, Configurações, Activos, Orçamento)
         require __DIR__.'/api/ronda2_g2.php';
+        // Simulações e pré-visualizações (nada gravado): lançamento antes de contabilizar
+        require __DIR__.'/api/simulacoes.php';
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

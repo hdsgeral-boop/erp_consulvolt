@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag } from 'antd';
+import { Alert, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Tabs, Tag } from 'antd';
 import { DeleteOutlined, EditOutlined, WarningOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -15,6 +15,7 @@ import { useAccaoRh, useAvisarErro, useBancos, useColaboradores } from './comum/
 import { pedidoTabela } from './comum/impressao';
 import { formatarIban, ibanValido } from './comum/regras';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface Linha {
   colaborador: Colaborador;
   coordenada: CoordenadaBancaria | null;
@@ -155,7 +156,7 @@ function IbanColaboradores() {
           { value: 'invalido', label: 'IBAN com formato inválido' },
         ]} />
       </BarraFiltros>
-      <Table<Linha> rowKey={(l) => l.colaborador.id} size={pequeno ? 'small' : 'middle'} loading={colaboradores.isFetching || coordenadas.isFetching} columns={colunas} dataSource={visiveis}
+      <TabelaComModos<Linha> rowKey={(l) => l.colaborador.id} size={pequeno ? 'small' : 'middle'} loading={colaboradores.isFetching || coordenadas.isFetching} columns={colunas} dataSource={visiveis}
         scroll={scrollTabela()} pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `${t} colaborador(es)` }} />
       <Modal title={`Coordenadas bancárias — ${edicao?.colaborador.nome_completo ?? ''}`} open={edicao !== null} onCancel={() => setEdicao(null)}
         okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>

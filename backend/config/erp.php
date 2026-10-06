@@ -30,6 +30,10 @@ return [
     'api' => [
         // Limite geral de pedidos à API por utilizador autenticado (ou por IP, sem sessão).
         'pedidos_por_minuto' => (int) env('ERP_API_PEDIDOS_POR_MINUTO', 300),
+        // Pedidos que chamam sistemas externos a pedido do utilizador (BAI, relógio biométrico) — limitador «externo».
+        'externo_por_minuto' => (int) env('ERP_API_EXTERNO_POR_MINUTO', 6),
+        // Importações de folhas e ZIP de recibos — limitador «pesado».
+        'pesado_por_minuto' => (int) env('ERP_API_PESADO_POR_MINUTO', 30),
     ],
 
     'password' => [
@@ -49,14 +53,19 @@ return [
     ],
 
     'cache' => [
-        // TTL (segundos) das leituras em cache — chaves erp:{empresa_id}:{modulo}:{chave}.
+        // TTL (segundos) das leituras em cache — chaves erp:{empresa_id}:{modulo}:{chave}. O TTL é só a rede de
+        // segurança: a frescura vem das invalidações explícitas (eventos dos models + InvalidacaoCache, depois do
+        // commit). TTL mais curto = dados frios de empresas pouco consultadas saem mais cedo do Redis (docs/arquitetura/CACHE.md).
         'ttl' => [
-            'empresas_utilizador' => 3600,
-            'permissoes_utilizador' => 3600,
-            'plano_contas' => 86400,
-            'catalogo_produtos' => 21600,
-            'taxas_cambio' => 43200,
+            'empresas_utilizador' => 1800,
+            'permissoes_utilizador' => 1800,   // reservado: as permissões ainda não estão em cache (lidas da BD por pedido)
+            'plano_contas' => 14400,
+            'catalogo_produtos' => 7200,
+            'taxas_cambio' => 21600,           // reservado: as taxas de câmbio ainda não estão em cache
         ],
+        // Conjuntos grandes (plano de contas, catálogo) comprimidos pela aplicação acima deste tamanho serializado
+        // (CacheComprimida). NÃO usar Redis::OPT_COMPRESSION na ligação: partiria o INCRBY de Cache::add+increment.
+        'comprimir_acima_de_bytes' => (int) env('ERP_CACHE_COMPRIMIR_ACIMA_DE', 8192),
     ],
 
     /*

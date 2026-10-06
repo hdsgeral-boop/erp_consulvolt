@@ -10,6 +10,7 @@ use App\Services\Vendas\Agt\ClienteAgt;
 use App\Services\Vendas\Agt\ClienteAgtDesligado;
 use App\Services\Vendas\Agt\ClienteAgtDireto;
 use App\Services\Vendas\Agt\ClienteAgtIntermedio;
+use App\Support\Seguranca\ValorSemFormulas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -50,6 +52,9 @@ class AppServiceProvider extends ServiceProvider
         $this->configurarSanctum();
         $this->configurarPermissoes();
         $this->configurarLimites();
+
+        // OWASP A03: textos começados por = + - @ nunca viram fórmulas nos .xlsx gerados (CSV/Excel injection).
+        Cell::setValueBinder(new ValorSemFormulas);
     }
 
     private function configurarSanctum(): void
@@ -97,5 +102,11 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute((int) config('erp.api.pedidos_por_minuto', 300))->by($request->user()?->getKey() ?: $request->ip()));
+
+        // OWASP A04: rotas que fazem pedidos a sistemas EXTERNOS a pedido do utilizador (BAI, relógio biométrico) e
+        // operações pesadas (importações de folhas, ZIP de recibos) têm limites próprios, abaixo do geral.
+        $quem = fn (Request $request) => (string) ($request->user()?->getKey() ?: $request->ip());
+        RateLimiter::for('externo', fn (Request $request) => Limit::perMinute((int) config('erp.api.externo_por_minuto', 6))->by('externo|'.$quem($request)));
+        RateLimiter::for('pesado', fn (Request $request) => Limit::perMinute((int) config('erp.api.pesado_por_minuto', 30))->by('pesado|'.$quem($request)));
     }
 }

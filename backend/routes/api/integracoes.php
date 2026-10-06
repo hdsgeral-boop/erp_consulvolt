@@ -14,7 +14,7 @@ Route::prefix('sistema')->name('sistema.')->group(function () {
     Route::controller(CambiosBAIAutomaticosController::class)->prefix('cambios/bai')->name('cambios.bai.')->group(function () {
         Route::get('automatico', 'estado')->name('automatico');
         Route::put('automatico', 'configurar')->name('automatico.configurar');
-        Route::post('automatico/obter', 'obter')->name('automatico.obter');
+        Route::post('automatico/obter', 'obter')->middleware('throttle:externo')->name('automatico.obter');
         Route::post('pendentes/validar', 'validar')->name('pendentes.validar');
         Route::post('pendentes/rejeitar', 'rejeitar')->name('pendentes.rejeitar');
     });

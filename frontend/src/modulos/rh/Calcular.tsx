@@ -23,6 +23,7 @@ import { useAccaoRh, useAvisarErro, useColaboradores, useInfotipos, usePeriodosS
 import { ImportarExcel } from './comum/ImportarExcel';
 import { ListaPeriodos } from './comum/ListaPeriodos';
 import { ResumoTotais, TabelaResultados } from './comum/TabelaResultados';
+import { BotaoFolhaDetalhada } from './comum/SimulacaoColaborador';
 import { accoesPeriodo } from './comum/regras';
 import { folhaSalariosHtml, pedidoTabela } from './comum/impressao';
 
@@ -371,7 +372,20 @@ function PeriodoCalculo() {
                 </>
               ),
             },
-            { key: 'resultados', label: `Resultados (${p.resultados.length})`, children: <TabelaResultados periodo={p} carregando={periodo.isFetching} /> },
+            {
+              key: 'resultados',
+              label: `Resultados (${p.resultados.length})`,
+              children: (
+                <>
+                  {p.resultados.length > 0 && (
+                    <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                      <BotaoFolhaDetalhada periodo={p} nome={(r) => r.nome ?? colaboradores.nome(r.colaborador_id)} texto="Simulação da folha" />
+                    </div>
+                  )}
+                  <TabelaResultados periodo={p} carregando={periodo.isFetching} />
+                </>
+              ),
+            },
           ]}
         />
       </Card>

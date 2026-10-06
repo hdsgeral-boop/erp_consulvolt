@@ -57,6 +57,10 @@ interface TabelaRel {
   coluna_principal: string | null;
 }
 
+/** Cores do período A (escuras) e do B (claras), como nos relatórios de gestão do legado (relatorios_gestao.js:809). */
+const CORES_A = ['#1d4ed8', '#b45309', '#15803d'];
+const CORES_B = ['#93c5fd', '#fcd34d', '#86efac'];
+
 interface GraficoRel {
   id: string;
   titulo: string;
@@ -282,9 +286,9 @@ function RelatorioDoModulo({ modulo, params }: { modulo: string; params: ParamsP
             titulo={g.titulo}
             rotulos={g.rotulos_a}
             monetario
-            series={g.series.flatMap((s) => [
-              { rotulo: `${s.rotulo} (A)`, valores: s.a },
-              ...(temB && s.b.length ? [{ rotulo: `${s.rotulo} (B)`, valores: s.b }] : []),
+            series={g.series.flatMap((s, i) => [
+              { rotulo: `${s.rotulo} (A)`, valores: s.a, cor: CORES_A[i % 3] },
+              ...(temB && s.b.length ? [{ rotulo: `${s.rotulo} (B)`, valores: s.b, cor: CORES_B[i % 3] }] : []),
             ])}
           />
           {temB && g.rotulos_b.length > 0 && (

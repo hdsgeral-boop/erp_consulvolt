@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, ColorPicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Switch, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, ColorPicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Switch, Tabs, Tag, Typography } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import { CHAVE_CRM, useConfigCRM, useFunis, useModelosEmail } from './comum/dado
 import { marcadoresDesconhecidos, validarFunil, type Etapa, type Funil, type ModeloEmail, type Sequencia } from './comum/tipos';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 const TIPOS_ETAPA = [{ value: 'ABERTA', label: 'Aberta' }, { value: 'GANHA', label: 'Ganha' }, { value: 'PERDIDA', label: 'Perdida' }];
 
 /** CRM › Configuração (crm_config): definições (motivos, origens, prazos), funis com etapas, modelos de email e sequências. */
@@ -69,7 +70,7 @@ function Funis({ gerir }: { gerir: boolean }) {
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo funil</Button>
         </Flex>
       )}
-      <Table<Funil> scroll={scrollTabela()}
+      <TabelaComModos<Funil> idVista="funis" scroll={scrollTabela()}
         rowKey="id"
         loading={funis.isLoading}
         dataSource={funis.data}
@@ -208,7 +209,7 @@ function Modelos({ gerir }: { gerir: boolean }) {
   return (
     <Card>
       {gerir && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo modelo</Button></Flex>}
-      <Table<ModeloEmail> scroll={scrollTabela()}
+      <TabelaComModos<ModeloEmail> idVista="modelos" scroll={scrollTabela()}
         rowKey="id"
         loading={modelos.isLoading}
         dataSource={modelos.data}
@@ -266,7 +267,7 @@ function Sequencias({ gerir }: { gerir: boolean }) {
     <Card>
       <Typography.Paragraph type="secondary">Quando uma oportunidade entra na etapa, são agendados os emails da sequência (até 5 passos) como actividades.</Typography.Paragraph>
       {gerir && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova sequência</Button></Flex>}
-      <Table<Sequencia> scroll={scrollTabela()}
+      <TabelaComModos<Sequencia> idVista="sequencias" scroll={scrollTabela()}
         rowKey="id"
         loading={lista.isLoading}
         dataSource={lista.data}

@@ -1,4 +1,4 @@
-import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Space, Table } from 'antd';
+import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Space } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { NavActivos } from './comum/NavActivos';
@@ -12,6 +12,7 @@ import { useCategorias } from './comum/componentes';
 import type { CategoriaActivo } from './comum/tipos';
 import { larguraModal } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Activos › Categorias e taxas (ecrã activos_categorias): taxa anual, vida útil e contas de gasto, acumulada, venda, perda e activo. */
 export default function Categorias() {
   const { pode } = useSessao();
@@ -55,7 +56,7 @@ export default function Categorias() {
       />
       <NavActivos actual="activos_categorias" />
       <Card>
-        <Table<CategoriaActivo>
+        <TabelaComModos<CategoriaActivo>
           rowKey="id"
           size="middle"
           loading={q.isFetching}

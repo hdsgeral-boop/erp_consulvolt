@@ -4,9 +4,9 @@ namespace App\Services\Contabilidade;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\PlanoConta;
+use App\Support\Cache\CacheComprimida;
 use App\Support\Cache\ChaveCache;
 use App\Support\Tenancy\ContextoEmpresa;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,7 +24,8 @@ final class ServicoPlanoContas
     {
         $empresa = $this->contexto->obrigatorio();
 
-        return Cache::remember(ChaveCache::empresa($empresa, 'contabilidade', 'plano_contas'), config('erp.cache.ttl.plano_contas'), fn () => PlanoConta::query()
+        // comprimido pela aplicação (~200 KB -> ~26 KB por empresa; CacheComprimida)
+        return CacheComprimida::lembrar(ChaveCache::empresa($empresa, 'contabilidade', 'plano_contas'), (int) config('erp.cache.ttl.plano_contas'), fn () => PlanoConta::query()
             ->orderBy('codigo')->get(['id', 'codigo', 'descricao', 'tipo', 'codigo_moeda'])
             ->mapWithKeys(fn (PlanoConta $c) => [$c->codigo => ['id' => $c->id, 'codigo' => $c->codigo, 'descricao' => $c->descricao,
                 'tipo' => $c->tipo ?? PlanoConta::TIPO_MOVIMENTO, 'codigo_moeda' => $c->codigo_moeda]])

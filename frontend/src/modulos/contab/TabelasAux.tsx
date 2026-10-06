@@ -17,6 +17,7 @@ import { usePlanoContas, useTabelaAux, type TabelaAux } from './comum/dados';
 import { ModalImportar } from './comum/ficheiros';
 import { UnidadesNegocio } from '@/modulos/config/UnidadesNegocio';
 
+import { TabelaComModos } from '@/componentes/vistas';
 const TABELAS: { chave: TabelaAux; titulo: string }[] = [
   { chave: 'diarios', titulo: 'Diários' },
   { chave: 'notas-demonstracao', titulo: 'Notas DEMO' },
@@ -119,7 +120,7 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
           {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEdicao('novo'); }}>Novo</Button>}
         </Space>
       </Flex>
-      <Table<RegistoAux>
+      <TabelaComModos<RegistoAux> idVista="registos"
         scroll={scrollTabela()}
         rowKey="id"
         size="small"
@@ -255,7 +256,7 @@ function PlanoContas() {
           {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); form.setFieldsValue({ tipo: 'M' }); setEdicao('novo'); }}>Nova conta</Button>}
         </Space>
       </Flex>
-      <Table<ContaPlano>
+      <TabelaComModos<ContaPlano> idVista="plano"
         scroll={scrollTabela()}
         rowKey="id"
         size="small"

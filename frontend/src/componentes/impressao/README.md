@@ -40,8 +40,36 @@ texto contínuo (um só parágrafo) maior do que uma folha é reduzido em vez de
 
 **Papel/orientação automáticos** (medição real da largura do conteúdo): A4 retrato (190 mm úteis) →
 A4 paisagem (277 mm, aceitando até 85 % de redução) → A3 paisagem (400 mm) → só então reduz a escala (mín. 55 %; abaixo disso deixa o texto
-das células quebrar). Tabelas com ≥ 9 colunas vão logo para paisagem. Pode impor-se `orientacao`/`papel`.
+das células quebrar). As escalas reduzidas levam 1,5 % de margem de segurança (`MARGEM_ESCALA`: com `zoom` o texto não
+encolhe de forma exactamente linear). Tabelas com ≥ 9 colunas vão logo para paisagem. Pode impor-se `orientacao`/`papel`.
 Os talões térmicos do POS ficam fora desta regra.
+
+## Orientação escolhida pelo utilizador — `preferencias.ts`
+
+`BotoesExportar` mostra, ao lado de «Imprimir»/«PDF», o selector **«Automática ▾»** (`SeletorPagina`): Orientação
+**Automática** (a decisão acima, ou a do ecrã) · **Vertical** · **Horizontal**, e Papel **automático** · **A4** · **A3**.
+A escolha é lembrada **por documento** no `localStorage` (`erp.impressao.pagina:<chave>`; chave = prop `chave` ou o
+caminho do ecrã sem identificadores numéricos + o texto do botão — todos os recibos partilham a escolha). «Automática»
+mantém o pedido do ecrã (`aplicarPreferencia`); «Vertical»/«Horizontal» impõem a orientação e o motor ajusta papel e
+escala para caber em largura (mapas longos: nada cortado, sem barras). Com o armazenamento bloqueado volta a «Automática».
+Em telemóvel (< 576 px) os botões ficam só com ícones e com os nomes acessíveis «Imprimir», «PDF», «Excel» e
+«Orientação da página: …». `seletorPagina={false}` esconde o selector. `BotaoImprimir` usa a preferência gravada.
+
+## Recibos: original e cópia na mesma folha — opção `vias`
+
+`vias: true` (ou `['Original', 'Cópia']`, ou `{ rotulos, partes: [{ conteudo, subtitulo }] }` para vários documentos,
+um por folha) repete o documento em vias: **cada via leva o cabeçalho da empresa, o título e o rótulo** (canto direito),
+separadas pela linha de corte «✂ cortar pelo tracejado». **Vertical**: uma via por cima da outra, cada uma em meia folha
+(a linha de corte fica a meio). **Horizontal**: lado a lado, com a linha de corte vertical. O bloco `.imp-vias.imp-uma-folha`
+nunca se parte entre folhas: se não couber, é reduzido. Markup próprio pode usar as mesmas classes (`imp-vias`,
+`imp-via`, `imp-corte`, `imp-uma-folha` — ex.: o recibo de vencimento do RH, que já traz a empresa em cada via e imprime
+com `cabecalho: false, blocoTitulo: false`). Documentos comerciais: `pedidoDuasVias(dados)` em
+`modulos/vendas/impressao/documentoRecibo.ts`. A medição recebe a orientação de cada candidato (`medir(px, quebrar, orientacao)`).
+
+## Simulações e pré-visualizações — `simulacao.ts`
+
+`marcaSimulacao(texto?)` (faixa «SIMULAÇÃO — …», com `CSS_SIMULACAO_COMUM`) e `tabelaLancamentoHtml(linhas)` (lançamento
+por gravar: conta, descrição, UN/CC, débito, crédito, totais e indicação de equilíbrio). Os valores vêm do servidor.
 
 ## Como pôr Imprimir/PDF num ecrã (texto para os prompts)
 
@@ -85,7 +113,10 @@ useImpressao(): { imprimir(pedido), aImprimir, obterIdentidade }
 
 OpcoesDocumento = { titulo, subtitulo?, periodo?, filtros?, identidade?, utilizador?, emitidoEm?,
   conteudo: string | Element, orientacao?: 'auto'|'retrato'|'paisagem', papel?: 'auto'|'A4'|'A3',
-  nomeFicheiro?, rodape?, estilosDaPagina?, cssExtra?, cabecalho?, paginar? }
+  nomeFicheiro?, rodape?, estilosDaPagina?, cssExtra?, cabecalho?, blocoTitulo?, paginar?,
+  vias?: boolean | string[] | { rotulos?, partes? } }
+<SeletorPagina valor={pref} aoMudar={…} />                          // «Automática / Vertical / Horizontal» + papel
+lerPreferencia(chave) / gravarPreferencia(chave, pref) / aplicarPreferencia(pedido, pref)
 ```
 
 O nome de ficheiro sugerido é «Título - Empresa - AAAA-MM-DD» (título do documento e, durante o diálogo, da janela).

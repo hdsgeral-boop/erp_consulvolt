@@ -13,6 +13,11 @@ on:
 permissions:
   contents: read
 
+# Actions fixadas por SHA de commit (OWASP A08 — integridade da cadeia de fornecimento): uma tag móvel (v7) pode ser
+# reapontada; o SHA não. O comentário indica a versão oficial correspondente (confirmada com
+# `gh api repos/<dono>/<repo>/commits/<tag> --jq .sha`, igual ao da tag maior no momento da fixação — ADR-069).
+# Actualizar: escolher a nova tag oficial, obter o SHA da mesma forma e trocar SHA + comentário.
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -63,10 +68,10 @@ jobs:
       REDIS_PORT: 6379
       AGT_DRIVER: desligado
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: PHP 8.3 com as extensões do docker/php/Dockerfile
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: "8.3"
           extensions: pdo_pgsql, pgsql, intl, zip, bcmath, opcache, pcntl, gd, redis
@@ -77,7 +82,7 @@ jobs:
       - name: Cache do Composer
         id: composer-cache
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ runner.os }}-${{ hashFiles('backend/composer.lock') }}
@@ -85,6 +90,11 @@ jobs:
 
       - name: composer install
         run: composer install --no-interaction --prefer-dist --no-progress
+
+      # Falha com qualquer aviso de segurança conhecido (base de dados do Packagist/GitHub) e com pacotes abandonados
+      # (audit.abandoned=fail, valor por omissão do Composer 2.10).
+      - name: Auditoria das dependências (composer audit)
+        run: composer audit --no-interaction
 
       - name: Extensões do PostgreSQL (iguais a docker/postgres/init)
         env:
@@ -111,9 +121,9 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
           cache: npm
@@ -123,6 +133,13 @@ jobs:
       # versões do npm que bloqueiam scripts por omissão (a lista "allowScripts" do package.json também o aprova).
       - name: npm ci
         run: npm ci --ignore-scripts=false --no-audit --no-fund
+
+      # Só dependências de execução (o que vai para o browser) e só a partir de «high»: as 2 moderadas conhecidas do
+      # react-router 6 (GHSA-wrjc-x8rr-h8h6: open redirect com «\» em destinos vindos do utilizador — o frontend só navega
+      # para caminhos internos; GHSA-337j-9hxr-rhxg: hidratação SSR, que não usamos) ficam
+      # registadas no relatório; a correcção exige o react-router 7 (mudança com quebras, adiada — ADR-069).
+      - name: Auditoria das dependências (npm audit)
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Tipos (tsc)
         run: npx tsc --noEmit -p .
@@ -139,10 +156,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: ShellCheck dos scripts de operação
-        run: shellcheck -s sh ferramentas/operacao/*.sh docker/php/producao/entrypoint.sh
+        run: shellcheck -s sh ferramentas/operacao/*.sh ferramentas/testes/*.sh docker/php/producao/entrypoint.sh
 
       - name: Validar docker-compose.prod.yml (com o modelo .env.prod.example)
         run: |
@@ -150,11 +167,11 @@ jobs:
           docker compose -f docker-compose.prod.yml --env-file .env.prod config --quiet
           rm .env.prod
 
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # Só constrói (push: false): nada é publicado em registos.
       - name: Build da imagem app (PHP-FPM)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: docker/php/Dockerfile.prod
@@ -165,7 +182,7 @@ jobs:
           cache-to: type=gha,scope=app,mode=max
 
       - name: Build da imagem web (nginx + SPA)
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: docker/php/Dockerfile.prod
@@ -175,7 +192,7 @@ jobs:
           cache-to: type=gha,scope=web,mode=max
 
       - name: Build da imagem copias
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: docker/php/Dockerfile.prod

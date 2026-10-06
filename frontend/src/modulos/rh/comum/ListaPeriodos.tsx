@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Modal, Table, Tag, Typography } from 'antd';
+import { Button, Card, DatePicker, Modal, Tag, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState, type ReactNode } from 'react';
@@ -13,6 +13,7 @@ import { EstadoTag } from './componentes';
 import { useAccaoRh, useAvisarErro, usePeriodosSalariais } from './consultas';
 import { pedidoTabela } from './impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Listagem dos períodos salariais (ecrãs Calcular e Processamentos); abrir um período só no Calcular. */
 export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra, antes }: { titulo: string; subtitulo: string; permitirAbrir?: boolean; accoesExtra?: ReactNode; antes?: ReactNode }) {
   const navegar = useNavigate();
@@ -47,7 +48,7 @@ export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra, a
       />
       {antes}
       <Card>
-        <Table<PeriodoSalarial> rowKey="id" size={pequeno ? 'small' : 'middle'} scroll={scrollTabela()} loading={periodos.isFetching} columns={colunas} dataSource={periodos.data ?? []}
+        <TabelaComModos<PeriodoSalarial> rowKey="id" size={pequeno ? 'small' : 'middle'} scroll={scrollTabela()} loading={periodos.isFetching} columns={colunas} dataSource={periodos.data ?? []}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })} pagination={{ pageSize: 24, showTotal: (t) => `${t} período(s)` }} />
       </Card>
       <Modal title="Abrir período salarial" open={abrir} onCancel={() => setAbrir(false)} okText="Abrir" cancelText="Cancelar" confirmLoading={accao.isPending}

@@ -15,6 +15,7 @@ import { EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { ListaPeriodos } from './comum/ListaPeriodos';
 import { ResumoTotais, TabelaResultados } from './comum/TabelaResultados';
+import { BotaoFolhaDetalhada } from './comum/SimulacaoColaborador';
 import { accoesPeriodo } from './comum/regras';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
 import { larguraModal } from '@/componentes/responsivo';
@@ -122,7 +123,20 @@ function DetalheProcessamento() {
       <Card>
         <Tabs
           items={[
-            { key: 'resultados', label: 'Resultados', children: <TabelaResultados periodo={p} carregando={periodo.isFetching} /> },
+            {
+              key: 'resultados',
+              label: 'Resultados',
+              children: (
+                <>
+                  {p.resultados.length > 0 && (
+                    <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                      <BotaoFolhaDetalhada periodo={p} nome={(r) => r.nome ?? colaboradores.nome(r.colaborador_id)} texto={p.estado === 'VALIDADO' ? 'Mapa detalhado' : 'Simulação da folha'} />
+                    </div>
+                  )}
+                  <TabelaResultados periodo={p} carregando={periodo.isFetching} recibos={ac.recibos} />
+                </>
+              ),
+            },
             { key: 'cartas', label: 'Cartas e pagamento', children: <CartasPeriodo periodo={p} /> },
             {
               key: 'historico',

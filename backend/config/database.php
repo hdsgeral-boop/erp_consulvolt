@@ -169,6 +169,12 @@ return [
             'backoff_cap' => env('REDIS_BACKOFF_CAP', 1000),
         ],
 
+        // Ligação da cache (base lógica 1). SEM Redis::OPT_COMPRESSION, de propósito: a compressão da ligação aplica-se
+        // a TODOS os valores — o «1» que Cache::add('empresas:versao', 1) grava deixa de ser inteiro e o INCRBY seguinte
+        // falha em silêncio (o phpredis devolve false): a invalidação das listas de empresas acessíveis deixaria de ter
+        // efeito. (O RateLimiter do Laravel 12 protege-se com withoutSerializationOrCompression; o código da aplicação
+        // não.) Além disso o phpredis da imagem não tem LZ4/ZSTD/LZF/ZLIB compilados. Os conjuntos grandes são comprimidos
+        // pela aplicação (App\Support\Cache\CacheComprimida). Prova: tests/Feature/CompressaoCacheRedisTest.php.
         'cache' => [
             'url' => env('REDIS_URL'),
             'host' => env('REDIS_HOST', '127.0.0.1'),

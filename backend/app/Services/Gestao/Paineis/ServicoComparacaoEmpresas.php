@@ -83,12 +83,14 @@ final class ServicoComparacaoEmpresas
     }
 
     /**
-     * Comparação livre entre empresas (cada uma pelos seus lançamentos).
+     * Confirma que o utilizador autenticado acede a TODAS as empresas indicadas (lista de acessos lida em cada pedido, com
+     * a sua própria invalidação). Chamado pelo controlador ANTES da cache do resultado — quem perde o acesso deixa de ver
+     * a comparação de imediato, e não só quando a entrada expira — e de novo em comparar() (defesa em profundidade).
      *
      * @param  list<int>  $ids
-     * @return array<string, mixed>
+     * @return list<int> ids normalizados (inteiros, sem repetidos)
      */
-    public function comparar(array $ids, PeriodoPainel $p, array $f): array
+    public function garantirAcesso(array $ids): array
     {
         $u = $this->utilizador();
         $ids = array_values(array_unique(array_map('intval', $ids)));
@@ -96,6 +98,19 @@ final class ServicoComparacaoEmpresas
         if ($negadas) {
             throw new ErroNegocio('Não tem acesso a todas as empresas indicadas.', 'EMPRESA_SEM_ACESSO', 403, ['empresas' => $negadas]);
         }
+
+        return $ids;
+    }
+
+    /**
+     * Comparação livre entre empresas (cada uma pelos seus lançamentos).
+     *
+     * @param  list<int>  $ids
+     * @return array<string, mixed>
+     */
+    public function comparar(array $ids, PeriodoPainel $p, array $f): array
+    {
+        $ids = $this->garantirAcesso($ids);
         $empresas = DB::table('empresas')->whereIn('id', $ids)->orderBy('nome')->get(['id', 'nome', 'e_consolidacao']);
         $origens = $empresas->map(fn ($e) => self::origem((string) $e->id, $e->nome) + ['holding' => (bool) $e->e_consolidacao])->values()->all();
         [$fs, $fp] = ConsultasPaineis::filtroDimensoes('l', $f);

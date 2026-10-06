@@ -35,7 +35,7 @@ describe('impressão da tesouraria', () => {
     expect(html.indexOf('Bancos (43)')).toBeLessThan(html.indexOf('Caixa (45)'));
     expect(html).toContain('Subtotal Bancos (43)');
     expect(html).toContain('Total disponível');
-    expect(html).toContain('1000,00');
+    expect(html).toContain('1 000,00');
   });
 
   it('extracto com saldo inicial, totais do servidor e saldo final', () => {

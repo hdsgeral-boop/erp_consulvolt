@@ -29,6 +29,11 @@ export const ESCALA_MINIMA = 0.55;
 export const ESCALA_A4_ANTES_A3 = 0.85;
 /** Folga de medição (px) para arredondamentos de sub-píxel. */
 export const TOLERANCIA_PX = 8;
+/**
+ * Margem de segurança das escalas reduzidas: com `zoom` o texto não encolhe de forma exactamente linear (arredondamento
+ * das métricas dos tipos de letra em corpos pequenos), e um mapa muito largo transbordava uns píxeis para a margem.
+ */
+export const MARGEM_ESCALA = 0.985;
 
 interface Candidato {
   papel: 'A4' | 'A3';
@@ -73,8 +78,11 @@ export function candidatos(papel: Papel = 'auto', orientacao: Orientacao = 'auto
 }
 
 export interface EntradaDecisao {
-  /** Largura natural (px) do conteúdo posto numa coluna com `larguraPx`; `quebrar` = células com quebra de linha. */
-  medir: (larguraPx: number, quebrar: boolean) => number;
+  /**
+   * Largura natural (px) do conteúdo posto numa coluna com `larguraPx`; `quebrar` = células com quebra de linha;
+   * `orientacao` = orientação do candidato (as vias dos recibos ficam lado a lado em paisagem).
+   */
+  medir: (larguraPx: number, quebrar: boolean, orientacao?: 'retrato' | 'paisagem') => number;
   colunas?: number;
   papel?: Papel;
   orientacao?: Orientacao;
@@ -85,25 +93,25 @@ export function decidirFormato({ medir, colunas = 0, papel = 'auto', orientacao 
   const lista = candidatos(papel, orientacao, colunas);
   for (const [i, c] of lista.entries()) {
     const px = mmParaPx(c.larguraUtilMm);
-    const natural = medir(px, false);
+    const natural = medir(px, false, c.orientacao);
     if (natural <= px + TOLERANCIA_PX) return { ...c, escala: 1, quebrarTexto: false };
     // A4 paisagem com uma pequena redução antes de saltar para A3
     const seguinte = lista[i + 1];
     if (c.papel === 'A4' && c.orientacao === 'paisagem' && seguinte?.papel === 'A3' && px / natural >= ESCALA_A4_ANTES_A3) {
-      return { ...c, escala: Math.floor((px / natural) * 100) / 100, quebrarTexto: false };
+      return { ...c, escala: Math.floor((px / natural) * MARGEM_ESCALA * 100) / 100, quebrarTexto: false };
     }
   }
   const maior = lista[lista.length - 1];
   const px = mmParaPx(maior.larguraUtilMm);
-  const natural = medir(px, false);
-  let escala = px / natural;
+  const natural = medir(px, false, maior.orientacao);
+  let escala = (px / natural) * MARGEM_ESCALA;
   let quebrarTexto = false;
   if (escala < ESCALA_MINIMA) {
     // Nem a 55 % cabe: deixa o texto quebrar numa coluna com a largura equivalente à escala mínima.
     quebrarTexto = true;
     const larguraEscalada = Math.floor(px / ESCALA_MINIMA);
-    const comQuebra = medir(larguraEscalada, true);
-    escala = comQuebra <= larguraEscalada + TOLERANCIA_PX ? ESCALA_MINIMA : px / comQuebra;
+    const comQuebra = medir(larguraEscalada, true, maior.orientacao);
+    escala = comQuebra <= larguraEscalada + TOLERANCIA_PX ? ESCALA_MINIMA : (px / comQuebra) * MARGEM_ESCALA;
   }
   // Arredonda para baixo (nunca ultrapassar a largura útil).
   return { ...maior, escala: Math.max(0.2, Math.floor(Math.min(1, escala) * 100) / 100), quebrarTexto };

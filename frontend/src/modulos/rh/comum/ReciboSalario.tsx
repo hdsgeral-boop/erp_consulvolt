@@ -1,7 +1,9 @@
 import type { ResultadoSalarial } from '../api';
 import { valorPorExtenso } from '@/modulos/vendas/impressao/documentoComercial';
+import { useIdentidade } from '@/sessao/identidade';
+import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { mesPorExtenso, numeroRecibo } from './regras';
+import { formatarIban, mesPorExtenso, numeroRecibo } from './regras';
 
 export interface DadosReciboColaborador {
   nome: string;
@@ -18,6 +20,22 @@ export interface DadosReciboEmpresa {
   email?: string | null;
   taxa_inss_trabalhador?: number | string | null;
   taxa_inss_patronal?: number | string | null;
+  /** Logótipo (data URI) — sai em cada via. */
+  logotipo?: string | null;
+}
+
+/** Dados da empresa para o recibo (identidade: nome, NIF, morada, contactos e logótipo). */
+export function useEmpresaRecibo(): DadosReciboEmpresa {
+  const { empresa } = useSessao();
+  const identidade = useIdentidade().data;
+  return {
+    nome: identidade?.nome ?? empresa?.nome ?? null,
+    nif: identidade?.nif ?? empresa?.nif ?? null,
+    endereco: identidade?.morada ?? null,
+    telefone: identidade?.telefone ?? null,
+    email: identidade?.email ?? null,
+    logotipo: identidade?.logotipo ?? null,
+  };
 }
 
 /** Nomes completos das rubricas que o cálculo abrevia (RCB_NOMES do legado). */
@@ -48,19 +66,22 @@ function Via({ r, mesAno, colaborador, empresa, via }: { r: ResultadoSalarial; m
   const totalD = linhas.reduce((s, l) => s + (l.d ?? 0), 0);
   const regime = r.avencado ? 'Prestador avençado (IRT Grupo B)' : r.reformado ? 'Reformado' : 'Conta de outrem (IRT Grupo A)';
   const dias = Number(r.dias_contrato) > 0 ? `${formatarNumero(Number(r.dias_trabalhados) || Number(r.dias_contrato))} de ${formatarNumero(r.dias_contrato)}` : '—';
-  const pagamento = r.iban ? `${r.banco || 'Transferência bancária'} · IBAN ${r.iban}` : 'Transferência bancária';
+  const pagamento = r.iban ? `${r.banco || 'Transferência bancária'} · IBAN ${formatarIban(r.iban)}` : r.banco || 'Transferência bancária';
   const info = [
     !r.avencado && Number(r.base_inss) > 0 ? `Base de incidência INSS: ${kz(r.base_inss)} Kz` : null,
     Number(r.inss_patronal) > 0 ? `INSS a cargo da entidade patronal (${taxa(empresa?.taxa_inss_patronal, 8)}%): ${kz(r.inss_patronal)} Kz` : null,
     !r.avencado && Number(r.base_irt) > 0 ? `Matéria colectável IRT: ${kz(r.base_irt)} Kz` : null,
   ].filter(Boolean);
   return (
-    <div className="rh-recibo-via">
+    <div className="rh-recibo-via imp-via" data-via={via}>
       <div className="rh-recibo-topo">
-        <div>
+        <div className="rh-recibo-identidade">
+          {empresa?.logotipo && /^data:image\//.test(empresa.logotipo) && <img className="rh-recibo-logo" src={empresa.logotipo} alt="Logótipo" />}
+          <div>
           <div className="rh-recibo-empresa">{empresa?.nome ?? ''}</div>
           <div className="rh-recibo-sub">NIF {empresa?.nif || '—'}{empresa?.endereco ? ` · ${empresa.endereco}` : ''}</div>
           {(empresa?.telefone || empresa?.email) && <div className="rh-recibo-sub">{[empresa.telefone, empresa.email].filter(Boolean).join(' · ')}</div>}
+          </div>
         </div>
         <div className="rh-recibo-direita">
           <div className="rh-recibo-titulo">Recibo de vencimento</div>
@@ -71,9 +92,9 @@ function Via({ r, mesAno, colaborador, empresa, via }: { r: ResultadoSalarial; m
       </div>
       <div className="rh-recibo-campos">
         <div><span>Colaborador</span>{colaborador.nome}</div>
-        <div><span>Função</span>{colaborador.funcao ?? r.funcao ?? '—'}</div>
-        <div><span>NIF</span>{colaborador.nif ?? r.nif ?? '—'}</div>
-        <div><span>N.º Segurança Social</span>{colaborador.numero_inss ?? r.numero_inss ?? '—'}</div>
+        <div><span>Função</span>{colaborador.funcao || r.funcao || '—'}</div>
+        <div><span>NIF</span>{colaborador.nif || r.nif || '—'}</div>
+        <div><span>N.º Segurança Social</span>{colaborador.numero_inss || r.numero_inss || '—'}</div>
         <div><span>Regime fiscal</span>{regime}</div>
         <div><span>Dias trabalhados</span>{dias}</div>
         <div className="rh-recibo-campo-largo"><span>Forma de pagamento</span>{pagamento}</div>
@@ -108,10 +129,15 @@ function Via({ r, mesAno, colaborador, empresa, via }: { r: ResultadoSalarial; m
   );
 }
 
+/** Rótulos das vias do recibo de vencimento (como no legado). */
+export const VIAS_RECIBO_SALARIO = ['Original — Colaborador', 'Duplicado — Entidade Patronal'] as const;
+
 /**
  * Recibo de vencimento (da fotografia do período validado), no modelo do legado (getReciboHTML, js/app_v2.js:7780):
- * duas vias por página — «Original — Colaborador» e «Duplicado — Entidade Patronal» — com linha de corte, líquido por
+ * duas vias na mesma folha — «Original — Colaborador» e «Duplicado — Entidade Patronal» — com linha de corte, líquido por
  * extenso e forma de pagamento (banco e IBAN). `vias={1}` mostra só o original (portal do colaborador).
+ * Na impressão (motor comum) as classes `imp-vias`/`imp-via`/`imp-corte` dão a disposição: em vertical uma via por cima
+ * da outra (meia folha cada), em horizontal lado a lado; as duas vias nunca se separam (`imp-uma-folha`).
  */
 export function ReciboSalario({ resultado, mesAno, colaborador, empresa, quebra, vias = 2 }: {
   resultado: ResultadoSalarial;
@@ -122,12 +148,12 @@ export function ReciboSalario({ resultado, mesAno, colaborador, empresa, quebra,
   vias?: 1 | 2;
 }) {
   return (
-    <div className={`rh-recibo${quebra ? ' rh-recibo-quebra' : ''}`}>
-      <Via r={resultado} mesAno={mesAno} colaborador={colaborador} empresa={empresa} via="Original — Colaborador" />
+    <div className={`rh-recibo${vias === 2 ? ' imp-vias imp-uma-folha' : ''}${quebra ? ' rh-recibo-quebra imp-quebra-pagina' : ''}`}>
+      <Via r={resultado} mesAno={mesAno} colaborador={colaborador} empresa={empresa} via={VIAS_RECIBO_SALARIO[0]} />
       {vias === 2 && (
         <>
-          <div className="rh-recibo-corte">✂ cortar pelo tracejado</div>
-          <Via r={resultado} mesAno={mesAno} colaborador={colaborador} empresa={empresa} via="Duplicado — Entidade Patronal" />
+          <div className="rh-recibo-corte imp-corte">✂ cortar pelo tracejado</div>
+          <Via r={resultado} mesAno={mesAno} colaborador={colaborador} empresa={empresa} via={VIAS_RECIBO_SALARIO[1]} />
         </>
       )}
     </div>

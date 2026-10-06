@@ -26,7 +26,7 @@ Route::prefix('compras')->name('compras.')->controller(ComprasController::class)
 Route::prefix('tesouraria')->name('tesouraria.')->group(function () {
     // A-12: importação com o modelo do legado; acções em lote sobre a selecção
     Route::get('documentos/modelo-importacao', [ImportacaoTesourariaController::class, 'modelo'])->name('documentos.modelo_importacao');
-    Route::post('documentos/importar', [ImportacaoTesourariaController::class, 'importar'])->name('documentos.importar');
+    Route::post('documentos/importar', [ImportacaoTesourariaController::class, 'importar'])->middleware('throttle:pesado')->name('documentos.importar');
     Route::post('documentos/anular', [ImportacaoTesourariaController::class, 'anularLote'])->name('documentos.anular_lote');
     Route::post('documentos/desintegrar', [ImportacaoTesourariaController::class, 'desintegrarLote'])->name('documentos.desintegrar_lote');
     // M-08: reconciliação bancária — histórico, detalhe, rascunhos e edição do extracto
@@ -43,7 +43,7 @@ Route::prefix('tesouraria')->name('tesouraria.')->group(function () {
 
 Route::prefix('logistica/importacao')->name('logistica.importacao.')->controller(ImportacaoProdutosController::class)->group(function () {
     Route::get('{entidade}/modelo', 'modelo')->whereIn('entidade', ['produtos', 'categorias'])->name('modelo');     // M-07
-    Route::post('{entidade}', 'importar')->whereIn('entidade', ['produtos', 'categorias'])->name('importar');
+    Route::post('{entidade}', 'importar')->whereIn('entidade', ['produtos', 'categorias'])->middleware('throttle:pesado')->name('importar');
 });
 
 Route::prefix('vendas')->name('vendas.')->group(function () {

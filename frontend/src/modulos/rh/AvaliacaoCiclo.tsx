@@ -14,6 +14,7 @@ import { classificar, somar } from './comum/regras';
 import { BarraFiltros, COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface Resultado360 {
   componentes?: Record<string, { media: number | null; n: number; peso: number }>;
   nota?: number | null;
@@ -110,7 +111,7 @@ function Avaliacoes({ ciclo }: { ciclo: Ciclo360 }) {
       }>
         <Select placeholder="Fase" allowClear style={{ width: 220 }} value={fase} onChange={setFase} options={['EM_AVALIACAO', 'AGUARDA_CONHECIMENTO', 'PRAZO_CONTESTACAO', 'CONTESTADA', 'FINAL'].map((f) => ({ value: f, label: <FaseTag fase={f} /> }))} />
       </BarraFiltros>
-      <Table<Avaliacao> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={scrollTabela()}
+      <TabelaComModos<Avaliacao> idVista="avaliacoes" rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={scrollTabela()}
         expandable={{ rowExpandable: (a) => Boolean(a.contestacao?.fundamentacao), expandedRowRender: (a) => (
           <Descriptions size="small" column={1} bordered>
             <Descriptions.Item label="Fundamentação">{a.contestacao?.fundamentacao}</Descriptions.Item>
@@ -216,7 +217,7 @@ function Bonificacoes({ ciclo }: { ciclo: Ciclo360 }) {
           {pode('rh_aval_bonus_lancar') && lista.some((b) => b.estado === 'APROVADA') && <Button onClick={() => post(`/rh/avaliacao/ciclos/${ciclo.id}/bonificacoes/lancar`, 'Lançar no processamento?', `Lança no processamento de ${ciclo.bonificacao?.mes_lancamento ?? '—'} (tem de estar aberto).`)}>Lançar no processamento</Button>}
         </Space>
       </Flex>
-      <Table<Bonificacao> rowKey="id" size="small" loading={q.isFetching} dataSource={lista} pagination={{ pageSize: 50 }} scroll={scrollTabela()} columns={colunas} />
+      <TabelaComModos<Bonificacao> idVista="bonificacoes" rowKey="id" size="small" loading={q.isFetching} dataSource={lista} pagination={{ pageSize: 50 }} scroll={scrollTabela()} columns={colunas} />
     </Card>
   );
 }

@@ -218,6 +218,9 @@ final class GestaoFluxosTest extends TestCase
         foreach ($ids as $id) {
             $r = $this->getJson("/api/gestao/fluxos/{$id}", $admin)->assertOk()->assertJsonStructure(['dados' => ['fluxo' => ['id', 'nome', 'etapas', 'narrativa'], 'total', 'kpis', 'funil']]);
             $this->assertCount(count($r->json('dados.fluxo.etapas')) + 1, $r->json('dados.funil'), $id);
+            // ícones do legado (separador e cada nó do diagrama)
+            $this->assertNotEmpty($r->json('dados.fluxo.icone'), $id);
+            $this->assertNotContains(null, array_column($r->json('dados.fluxo.etapas'), 'icone'), $id);
             $this->getJson("/api/gestao/fluxos/{$id}/processos", $admin)->assertOk();
         }
         $caixa = $this->getJson('/api/gestao/fluxos/caixa/processos', $admin)->json('dados.0');

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Statistic, Switch, Table, Tabs, Tag } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Statistic, Switch, Tabs, Tag } from 'antd';
 import { CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined, SyncOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -14,6 +14,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { EstadoTag } from '@/modulos/compras/comum/estados';
 import { ModalContas } from '@/modulos/compras/comum/ModalContas';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface ConfiguracaoFE {
   ativo: boolean;
   data_inicio: string | null;
@@ -318,7 +319,7 @@ function Series() {
         </Space>
       }
     >
-      <Table<SerieFE>
+      <TabelaComModos<SerieFE> idVista="series"
         rowKey="id"
         size="small"
         loading={consulta.isFetching}

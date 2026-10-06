@@ -9,6 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { descarregar, enviar, http, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { BotaoPreVisualizarLancamento } from '@/componentes/simulacoes/PreVisualizacaoLancamento';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
@@ -135,6 +136,10 @@ export function DetalheDocumento() {
             {podeConverter && <Button onClick={() => { formConv.setFieldsValue({ tipo_destino: destinos[0], data_emissao: dayjs() }); setConversao(true); }}>Converter</Button>}
             {pode('vendas_fat_emitir') && !['NC', 'GD'].includes(d.tipo_documento) && (
               <Button icon={<CopyOutlined />} onClick={() => navegar('../novo', { state: { copia: d } })}>Copiar</Button>
+            )}
+            {podeContabilizar && (
+              <BotaoPreVisualizarLancamento url={`/vendas/documentos/${d.id}/contabilizacao/pre-visualizacao`} titulo={d.numero_documento ?? `#${d.id}`}
+                aoContabilizar={() => accao.mutate({ caminho: 'contabilizar' })} aContabilizar={accao.isPending} />
             )}
             {podeContabilizar && <Button type="primary" loading={accao.isPending} onClick={() => accao.mutate({ caminho: 'contabilizar' })}>Contabilizar</Button>}
             {podeDescontabilizar && <Button danger onClick={() => setDescontab(true)}>Descontabilizar</Button>}

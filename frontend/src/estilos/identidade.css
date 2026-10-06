@@ -734,3 +734,53 @@ button.erp-inicio-mini:focus-visible {
     transform: none;
   }
 }
+
+/* ── Escolher empresa: o cartão cabe no ecrã e só a lista desloca (pesquisa e cabeçalho ficam visíveis) ─────────── */
+.erp-cartao-escolha.ant-card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
+}
+.erp-cartao-escolha.ant-card > .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.erp-lista-escolha {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0 -8px;
+  padding: 0 8px;
+  scrollbar-gutter: stable;
+}
+.erp-lista-escolha:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.erp-logo-escolha {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.erp-logo-escolha img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+@media (max-width: 575.98px) {
+  .erp-cartao-escolha.ant-card {
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+  }
+}

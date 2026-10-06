@@ -50,6 +50,43 @@ final class ServicoContabilizacaoVendas
 
     public function contabilizar(Venda $venda): Venda
     {
+        $this->validarContabilizavel($venda);
+        if (in_array($venda->tipo_documento, ['GR', 'GD'], true)) {
+            return $this->contabilizarGuia($venda);
+        }
+
+        return DB::transaction(function () use ($venda) {
+            $venda = Venda::query()->lockForUpdate()->findOrFail($venda->id);
+            ['dados' => $dados, 'recibo' => $recibo] = $this->montarLancamento($venda);
+            $criadas = $this->lancamentos->criar(['diario_id' => $this->diario(self::DIARIO_VENDAS, 'Vendas')->id] + $dados);
+            $numeroLan = $criadas->first()->numero_lan;
+            $venda->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
+            $recibo?->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
+
+            return $venda;
+        });
+    }
+
+    /**
+     * Pré-visualização do lançamento (showPostingPreview do legado, «Pré-visualização de lançamento»): as mesmas
+     * validações e as mesmas linhas da contabilização (proveitos, IVA, cliente/disponibilidade e CMV), sem gravar nada
+     * (nem criar o diário).
+     *
+     * @return array{diario: string, data_documento: string, numero_documento: string, descricao: string, linhas: list<array<string, mixed>>}
+     */
+    public function previsualizar(Venda $venda): array
+    {
+        $this->validarContabilizavel($venda);
+        $venda = Venda::query()->findOrFail($venda->id);
+        if (in_array($venda->tipo_documento, ['GR', 'GD'], true)) {
+            return ['diario' => 'GR'] + array_diff_key($this->montarGuia($venda), ['tipo_origem' => 1]);
+        }
+
+        return ['diario' => self::DIARIO_VENDAS] + array_diff_key($this->montarLancamento($venda)['dados'], ['tipo_origem' => 1]);
+    }
+
+    private function validarContabilizavel(Venda $venda): void
+    {
         $guia = in_array($venda->tipo_documento, ['GR', 'GD'], true);
         if (! $venda->eFiscal() && ! $guia) {
             throw new ErroNegocio("Documentos {$venda->tipo_documento} não são contabilizáveis (só FT, FR, NC, GR e GD).", 'NAO_CONTABILIZAVEL', 422);
@@ -63,56 +100,52 @@ final class ServicoContabilizacaoVendas
         if ($venda->sessao_pos_id || $venda->sessao_pos_legado_codigo) {   // pos_gestao.js:1135-1149
             throw new ErroNegocio('Venda POS: é contabilizada na integração da sessão (POS › Integração).', 'VENDA_POS', 422);
         }
+    }
 
-        if ($guia) {
-            return $this->contabilizarGuia($venda);
+    /**
+     * Cabeçalho e linhas do lançamento de FT/FR/NC (sem o diário) e o recibo da FR.
+     *
+     * @return array{dados: array<string, mixed>, recibo: ?ReciboVenda}
+     */
+    private function montarLancamento(Venda $venda): array
+    {
+        $cliente = Terceiro::query()->withTrashed()->findOrFail($venda->cliente_id);
+        $nc = $venda->tipo_documento === 'NC';
+        $dc = fn (string $natural) => $nc ? ($natural === 'D' ? 'C' : 'D') : $natural;
+        $comum = ['terceiro_id' => $cliente->id, 'unidade_negocio_id' => $venda->unidade_negocio_id,
+            'centro_custo_id' => $venda->centro_custo_id, 'projeto_id' => $venda->projeto_id];
+
+        $creditos = $this->linhasProveitoEIva($venda);
+        $soma = array_reduce($creditos, fn ($s, $l) => bcadd($s, $l['valor'], 2), '0.00');
+        if (bccomp($soma, (string) $venda->total_bruto, 2) !== 0) {
+            throw new ErroNegocio("As linhas do documento somam {$soma} mas o total é {$venda->total_bruto}: verifique o documento.",
+                'TOTAIS_INCONSISTENTES', 422, ['soma_linhas' => $soma, 'total_bruto' => (string) $venda->total_bruto]);
         }
 
-        return DB::transaction(function () use ($venda) {
-            $venda = Venda::query()->lockForUpdate()->findOrFail($venda->id);
-            $cliente = Terceiro::query()->withTrashed()->findOrFail($venda->cliente_id);
-            $nc = $venda->tipo_documento === 'NC';
-            $dc = fn (string $natural) => $nc ? ($natural === 'D' ? 'C' : 'D') : $natural;
-            $comum = ['terceiro_id' => $cliente->id, 'unidade_negocio_id' => $venda->unidade_negocio_id,
-                'centro_custo_id' => $venda->centro_custo_id, 'projeto_id' => $venda->projeto_id];
+        $recibo = null;
+        if ($venda->tipo_documento === 'FR') {
+            $recibo = ReciboVenda::query()->where('venda_origem_id', $venda->id)->first();
+            $contaDebito = $recibo?->codigo_conta ?? throw new ErroNegocio('Factura-recibo sem recibo/conta de disponibilidade.', 'FR_SEM_RECIBO', 422);
+        } else {
+            $contaDebito = $cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.');
+        }
 
-            $creditos = $this->linhasProveitoEIva($venda);
-            $soma = array_reduce($creditos, fn ($s, $l) => bcadd($s, $l['valor'], 2), '0.00');
-            if (bccomp($soma, (string) $venda->total_bruto, 2) !== 0) {
-                throw new ErroNegocio("As linhas do documento somam {$soma} mas o total é {$venda->total_bruto}: verifique o documento.",
-                    'TOTAIS_INCONSISTENTES', 422, ['soma_linhas' => $soma, 'total_bruto' => (string) $venda->total_bruto]);
-            }
+        // cliente em moeda estrangeira: a linha guarda o valor na moeda (saldo em moeda e diferenças de câmbio na liquidação)
+        $moeda = $venda->codigo_moeda && $venda->codigo_moeda !== 'AOA' && $venda->tipo_documento !== 'FR'
+            ? ['codigo_moeda' => $venda->codigo_moeda, 'valor_moeda' => $venda->total_bruto_moeda, 'taxa_cambio' => $venda->taxa_cambio] : [];
+        $linhas = [['codigo_conta' => $contaDebito, 'tipo_dc' => $dc('D'), 'valor' => $soma] + $moeda + $comum];
+        foreach ($creditos as $c) {
+            $linhas[] = ['codigo_conta' => $c['conta'], 'tipo_dc' => $dc('C'), 'valor' => $c['valor']] + $comum;
+        }
+        foreach ($this->stockVendas->linhasCmv($venda) as $c) {   // custo das mercadorias vendidas (ou devolvidas)
+            $linhas[] = $c + array_diff_key($comum, ['terceiro_id' => 1]);
+        }
 
-            $recibo = null;
-            if ($venda->tipo_documento === 'FR') {
-                $recibo = ReciboVenda::query()->where('venda_origem_id', $venda->id)->first();
-                $contaDebito = $recibo?->codigo_conta ?? throw new ErroNegocio('Factura-recibo sem recibo/conta de disponibilidade.', 'FR_SEM_RECIBO', 422);
-            } else {
-                $contaDebito = $cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.');
-            }
-
-            // cliente em moeda estrangeira: a linha guarda o valor na moeda (saldo em moeda e diferenças de câmbio na liquidação)
-            $moeda = $venda->codigo_moeda && $venda->codigo_moeda !== 'AOA' && $venda->tipo_documento !== 'FR'
-                ? ['codigo_moeda' => $venda->codigo_moeda, 'valor_moeda' => $venda->total_bruto_moeda, 'taxa_cambio' => $venda->taxa_cambio] : [];
-            $linhas = [['codigo_conta' => $contaDebito, 'tipo_dc' => $dc('D'), 'valor' => $soma] + $moeda + $comum];
-            foreach ($creditos as $c) {
-                $linhas[] = ['codigo_conta' => $c['conta'], 'tipo_dc' => $dc('C'), 'valor' => $c['valor']] + $comum;
-            }
-            foreach ($this->stockVendas->linhasCmv($venda) as $c) {   // custo das mercadorias vendidas (ou devolvidas)
-                $linhas[] = $c + array_diff_key($comum, ['terceiro_id' => 1]);
-            }
-
-            $criadas = $this->lancamentos->criar([
-                'diario_id' => $this->diario(self::DIARIO_VENDAS, 'Vendas')->id, 'data_documento' => $venda->data_emissao->toDateString(),
-                'numero_documento' => $venda->numero_documento, 'descricao' => mb_substr("{$venda->numero_documento} - {$cliente->nome}", 0, 1000),
-                'tipo_origem' => 'VENDAS', 'linhas' => $linhas,
-            ]);
-            $numeroLan = $criadas->first()->numero_lan;
-            $venda->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
-            $recibo?->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
-
-            return $venda;
-        });
+        return ['recibo' => $recibo, 'dados' => [
+            'data_documento' => $venda->data_emissao->toDateString(),
+            'numero_documento' => $venda->numero_documento, 'descricao' => mb_substr("{$venda->numero_documento} - {$cliente->nome}", 0, 1000),
+            'tipo_origem' => 'VENDAS', 'linhas' => $linhas,
+        ]];
     }
 
     /** GR/GD: só o CMV (a guia não tem proveitos). */
@@ -120,21 +153,29 @@ final class ServicoContabilizacaoVendas
     {
         return DB::transaction(function () use ($venda) {
             $venda = Venda::query()->lockForUpdate()->findOrFail($venda->id);
-            $linhas = $this->stockVendas->linhasCmv($venda);
-            if (! $linhas) {
-                throw new ErroNegocio('A guia não tem mercadoria de stock com custo: não há nada a contabilizar.', 'NADA_A_CONTABILIZAR', 422);
-            }
-            $comum = ['unidade_negocio_id' => $venda->unidade_negocio_id, 'centro_custo_id' => $venda->centro_custo_id, 'projeto_id' => $venda->projeto_id];
-            $cliente = Terceiro::query()->withTrashed()->find($venda->cliente_id);
-            $criadas = $this->lancamentos->criar([
-                'diario_id' => $this->diario('GR', 'Guias de remessa e devolução')->id, 'data_documento' => $venda->data_emissao->toDateString(),
-                'numero_documento' => $venda->numero_documento, 'descricao' => mb_substr("{$venda->numero_documento} - {$cliente?->nome}", 0, 1000), 'tipo_origem' => 'VENDAS',
-                'linhas' => array_map(fn ($l) => $l + $comum, $linhas),
-            ]);
+            $dados = $this->montarGuia($venda);
+            $criadas = $this->lancamentos->criar(['diario_id' => $this->diario('GR', 'Guias de remessa e devolução')->id] + $dados);
             $venda->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $criadas->first()->numero_lan]);
 
             return $venda;
         });
+    }
+
+    /** Cabeçalho e linhas (só CMV) do lançamento de uma guia GR/GD, sem o diário. */
+    private function montarGuia(Venda $venda): array
+    {
+        $linhas = $this->stockVendas->linhasCmv($venda);
+        if (! $linhas) {
+            throw new ErroNegocio('A guia não tem mercadoria de stock com custo: não há nada a contabilizar.', 'NADA_A_CONTABILIZAR', 422);
+        }
+        $comum = ['unidade_negocio_id' => $venda->unidade_negocio_id, 'centro_custo_id' => $venda->centro_custo_id, 'projeto_id' => $venda->projeto_id];
+        $cliente = Terceiro::query()->withTrashed()->find($venda->cliente_id);
+
+        return [
+            'data_documento' => $venda->data_emissao->toDateString(),
+            'numero_documento' => $venda->numero_documento, 'descricao' => mb_substr("{$venda->numero_documento} - {$cliente?->nome}", 0, 1000), 'tipo_origem' => 'VENDAS',
+            'linhas' => array_map(fn ($l) => $l + $comum, $linhas),
+        ];
     }
 
     public function descontabilizar(Venda $venda, string $motivo): Venda

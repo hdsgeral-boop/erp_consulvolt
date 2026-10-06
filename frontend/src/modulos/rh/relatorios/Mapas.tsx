@@ -13,7 +13,7 @@ import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { GRUPOS_PAGAMENTO, type OrdemPagamento, type ResultadoSalarial } from '../api';
 import { AreaImpressao, CabecalhoMapa, descarregar, SeletorColaborador } from '../comum/componentes';
 import { useAvisarErro, useCargos } from '../comum/consultas';
-import { ReciboSalario } from '../comum/ReciboSalario';
+import { ReciboSalario, useEmpresaRecibo } from '../comum/ReciboSalario';
 import { colunasRubricas, formatarIban, gerarCsv, kzCsv, somar, valoresRubricas } from '../comum/regras';
 import { AvisoNaoValidado, MolduraMapa, useDadosColaborador, usePeriodoMapa } from './comum';
 
@@ -320,7 +320,8 @@ export function MapaBanco() {
  */
 export function MapaRecibos() {
   const mapa = usePeriodoMapa(['VALIDADO']);
-  const { empresa, pode } = useSessao();
+  const { pode } = useSessao();
+  const dadosEmpresa = useEmpresaRecibo();
   const dados = useDadosColaborador();
   const cargos = useCargos();
   const [colaboradores, setColaboradores] = useState<number[]>([]);
@@ -366,7 +367,7 @@ export function MapaRecibos() {
           {visiveis.length === 0 && <Empty />}
           {visiveis.map((r, i) => {
             const d = dados(r.colaborador_id, r);
-            return <ReciboSalario key={r.colaborador_id} resultado={r} mesAno={mesAno} empresa={{ nome: empresa?.nome, nif: empresa?.nif ?? null }}
+            return <ReciboSalario key={r.colaborador_id} resultado={r} mesAno={mesAno} empresa={dadosEmpresa}
               colaborador={{ nome: d.nome, nif: d.nif, numero_inss: d.inss, funcao: d.cargo ? cargos.nome(d.cargo) : r.funcao ?? null }} quebra={i < visiveis.length - 1} />;
           })}
         </AreaImpressao>

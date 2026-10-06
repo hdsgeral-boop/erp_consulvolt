@@ -7,10 +7,10 @@ use App\Models\CatalogoFornecedor;
 use App\Models\CategoriaProduto;
 use App\Models\Produto;
 use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Support\Cache\CacheComprimida;
 use App\Support\Cache\ChaveCache;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -55,7 +55,7 @@ final class ServicoProdutos
     }
 
     /**
-     * Catálogo de venda activo (produtos não bloqueados), em cache Redis 6 h — usado por facturação e POS.
+     * Catálogo de venda activo (produtos não bloqueados), em cache Redis 2 h (comprimido acima de 8 KB) — usado por facturação e POS.
      *
      * @return list<array<string, mixed>>
      */
@@ -63,7 +63,7 @@ final class ServicoProdutos
     {
         $empresa = $this->contexto->obrigatorio();
 
-        return Cache::remember(ChaveCache::empresa($empresa, 'logistica', 'catalogo_produtos'), config('erp.cache.ttl.catalogo_produtos'),
+        return CacheComprimida::lembrar(ChaveCache::empresa($empresa, 'logistica', 'catalogo_produtos'), (int) config('erp.cache.ttl.catalogo_produtos'),
             fn () => Produto::query()->where(fn ($q) => $q->whereNull('bloqueado')->orWhere('bloqueado', false))->orderBy('nome')
                 ->get(['id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'codigo_isencao_fe', 'unidade_fe', 'movimenta_stock', 'e_servico', 'e_quarto', 'categoria_produto_id'])
                 ->toArray());

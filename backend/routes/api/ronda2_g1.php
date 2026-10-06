@@ -30,5 +30,5 @@ Route::prefix('pos')->name('pos.')->controller(MesasPOSController::class)->group
 });
 
 // M-16 — importação das tabelas da lavandaria (peças, serviços, preços por peça e serviço)
-Route::post('pos/lavandaria/importar', ImportacaoLavandariaController::class)->name('pos.lavandaria.importar');
+Route::post('pos/lavandaria/importar', ImportacaoLavandariaController::class)->middleware('throttle:pesado')->name('pos.lavandaria.importar');
 Route::get('pos/lavandaria/ordens/{ordem}/documentos/{venda}', DocumentosLavandariaController::class)->whereNumber(['ordem', 'venda'])->name('pos.lavandaria.ordens.documento');

@@ -14,6 +14,7 @@ import type { PropsSeparador } from '../DetalheProjecto';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
 import { scrollTabela } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Folhas de horas (só colaboradores internos da equipa) e imputação do uso de equipamentos (activos) às tarefas. */
 export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
   const horas = useQuery({ queryKey: ['projectos', 'horas', projecto.id], queryFn: () => obter<FolhaHoras[]>(`/projetos/${projecto.id}/horas`) });
@@ -33,7 +34,7 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
         <ImpressaoSeparador alvo={refSeparador} titulo="Horas e equipamentos" projecto={projecto} />
       </div>
       <Card size="small" title={`Folhas de horas (${formatarNumero(totalHoras)} h)`} extra={acc.execucao && <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setNovaHora(true)}>Registar horas</Button>}>
-        <Table<FolhaHoras> scroll={scrollTabela()}
+        <TabelaComModos<FolhaHoras> idVista="horas" scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={horas.isFetching}
@@ -58,7 +59,7 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
         />
       </Card>
       <Card size="small" title={`Uso de equipamentos (${formatarKz(equip.data?.total ?? '0.00')} Kz)`} extra={acc.execucao && <Button size="small" icon={<PlusOutlined />} onClick={() => setNovoEquip(true)}>Imputar equipamento</Button>}>
-        <Table<UsoEquipamento> scroll={scrollTabela()}
+        <TabelaComModos<UsoEquipamento> idVista="equipamentos" scroll={scrollTabela()}
           rowKey="id"
           size="small"
           loading={equip.isFetching}

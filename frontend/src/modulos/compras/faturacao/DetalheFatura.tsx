@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, scrollTabela } from '@/componentes/responsivo';
+import { BotaoPreVisualizarLancamento } from '@/componentes/simulacoes/PreVisualizacaoLancamento';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosFaturaCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -98,6 +99,10 @@ export function DetalheFatura() {
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
+            {a.contabilizar && (
+              <BotaoPreVisualizarLancamento url={`/compras/faturas/${f.id}/contabilizacao/pre-visualizacao`} titulo={`Factura ${f.numero_fatura}`}
+                aoContabilizar={() => accao.mutate({ url: `/compras/faturas/${f.id}/contabilizar` })} aContabilizar={accao.isPending} />
+            )}
             {a.contabilizar && (
               <Button type="primary" loading={accao.isPending} onClick={() => accao.mutate({ url: `/compras/faturas/${f.id}/contabilizar` })}>
                 Contabilizar

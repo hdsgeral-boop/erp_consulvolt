@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Select, Space, Switch, Table, Tag, Typography } from 'antd';
+import { Button, Card, Checkbox, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Select, Space, Switch, Tag, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -11,6 +11,7 @@ import type { Rubrica, TipoOrcamento } from './comum/tipos';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 const NATUREZAS: Record<TipoOrcamento, { value: string; label: string }[]> = {
   EXPLORACAO: [{ value: 'PROVEITO', label: 'Proveito' }, { value: 'CUSTO', label: 'Custo' }],
   TESOURARIA: [{ value: 'RECEBIMENTO', label: 'Recebimento' }, { value: 'PAGAMENTO', label: 'Pagamento' }],
@@ -71,7 +72,7 @@ export default function Rubricas() {
           <Segmented value={tipo} onChange={(v) => setTipo(v as TipoOrcamento)} options={[{ value: 'EXPLORACAO', label: 'Exploração' }, { value: 'TESOURARIA', label: 'Tesouraria' }]} />
           <Input.Search placeholder="Código, nome, grupo ou conta" allowClear onSearch={setTexto} style={{ width: 280 }} />
         </BarraFiltros>
-        <Table<Rubrica>
+        <TabelaComModos<Rubrica>
           rowKey="id"
           size="middle"
           loading={q.isFetching}

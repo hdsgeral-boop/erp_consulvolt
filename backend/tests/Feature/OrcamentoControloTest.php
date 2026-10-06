@@ -115,6 +115,9 @@ final class OrcamentoControloTest extends TestCase
         $doc = ['tipo' => 'EXPLORACAO', 'origem' => 'FATURA_FORNECEDOR', 'documento' => "{$this->ids['fornecedor']}/F-1", 'data' => $this->hoje,
             'linhas' => [['codigo_conta' => '752', 'valor' => 300]]];
         $this->postJson('/api/orcamento/verificar', $doc, $a)->assertOk()->assertJsonPath('dados.0.estado', 'APROVACAO')->assertJsonPath('dados.0.percentagem', 108.33);
+        // a simulação revela orçado/consumido: exige a mesma lista any-of do pedido de excesso (ADR-069)
+        $this->postJson('/api/orcamento/verificar', $doc, $this->sessao(['dashboard_view']))->assertForbidden();
+        $this->postJson('/api/orcamento/verificar', $doc, $this->sessao(['orc_alertas_view']))->assertOk()->assertJsonPath('dados.0.estado', 'APROVACAO');
         $this->postJson('/api/orcamento/pedidos-excesso', $doc + ['motivo' => 'Sem permissão de documentos'], $this->sessao(['dashboard_view']))->assertForbidden();
         $p = $this->postJson('/api/orcamento/pedidos-excesso', $doc + ['motivo' => 'Transporte urgente de material'], $a)->assertCreated()->json('dados.0');
         $this->assertEquals([1200, 1000, 300, 100], [$p['valor_orcado'], $p['valor_consumido'], $p['valor'], $p['valor_excesso']]);

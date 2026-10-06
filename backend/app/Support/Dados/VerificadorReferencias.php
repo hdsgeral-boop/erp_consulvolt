@@ -16,7 +16,11 @@ final class VerificadorReferencias
     /** @return list<array{tabela: string, coluna: string}> */
     public function referenciasPara(string $tabela): array
     {
-        return Cache::remember("fk_referencias:{$tabela}", 3600, fn () => array_map(fn ($r) => ['tabela' => $r->tabela, 'coluna' => $r->coluna], DB::select(<<<'SQL'
+        // Chave versionada pela última migração (regra de ouro: versionar em vez de esperar pelo TTL): depois de uma
+        // migração que crie uma FK nova, a verificação de «em uso» vê-a logo, e não só ao fim de 1 h.
+        $versao = (string) DB::table(config('database.migrations.table', 'migrations'))->max('migration');
+
+        return Cache::remember("fk_referencias:{$versao}:{$tabela}", 3600, fn () => array_map(fn ($r) => ['tabela' => $r->tabela, 'coluna' => $r->coluna], DB::select(<<<'SQL'
             SELECT cl.relname AS tabela, a.attname AS coluna
               FROM pg_constraint c
               JOIN pg_class cl ON cl.oid = c.conrelid

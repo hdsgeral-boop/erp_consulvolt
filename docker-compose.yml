@@ -99,12 +99,16 @@ services:
       retries: 10
 
   # 4. Redis 7: cache, locks distribuídos e filas
+  # volatile-lru: sob pressão de memória só se despejam chaves COM TTL (cache, limites, locks); as filas e os batimentos
+  # não têm TTL e nunca são despejados. Os locks têm TTL: o maxmemory tem de ter folga para nunca chegar ao despejo
+  # (vigiar evicted_keys — docs/arquitetura/CACHE.md §Política de memória). Reescrita do AOF explícita (100 % / 64 MB).
   redis:
     image: redis:7-alpine
     container_name: erp_redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}",
-              "--maxmemory", "512mb", "--maxmemory-policy", "volatile-lru"]
+              "--maxmemory", "512mb", "--maxmemory-policy", "volatile-lru",
+              "--auto-aof-rewrite-percentage", "100", "--auto-aof-rewrite-min-size", "64mb"]
     ports:
       - "127.0.0.1:${REDIS_PORTA:-6380}:6379"
     volumes:

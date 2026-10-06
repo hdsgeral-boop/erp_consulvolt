@@ -61,6 +61,7 @@ export default function Movimentos() {
           <Input.Search placeholder="Referência" allowClear style={{ width: 220, maxWidth: '100%' }} onSearch={setReferencia} />
         </BarraFiltros>
         <TabelaApi<Movimento>
+          modos={false}
           url="/logistica/movimentos"
           chaveConsulta={['logistica', 'movimentos']}
           porPagina={50}

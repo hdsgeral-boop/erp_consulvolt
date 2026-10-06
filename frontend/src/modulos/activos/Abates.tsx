@@ -18,6 +18,7 @@ import { filtroPeriodo, useListaPaginada } from './comum/paginacao';
 import type { Abate } from './comum/tipos';
 import { ModalAbate } from './ModalAbate';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Activos › Abates e vendas (ecrã activos_abates): simular, abater/vender e anular (por estorno do lançamento). */
 export default function Abates() {
   const { pode } = useSessao();
@@ -73,7 +74,7 @@ export default function Abates() {
             <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 160 }}
               options={[{ value: 'FIM_VIDA', label: 'Fim de vida' }, { value: 'VENDA', label: 'Venda' }, { value: 'SINISTRO', label: 'Sinistro' }]} />
         </BarraFiltros>
-        <Table<Abate>
+        <TabelaComModos<Abate>
           rowKey="id"
           size="middle"
           loading={q.isFetching}

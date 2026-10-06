@@ -10,6 +10,8 @@ const A3P = mmParaPx(400);
 const LOGO = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
 /** Conteúdo com largura mínima fixa: ocupa a coluna se couber, senão transborda. */
+/** Separador de milhares do pt-PT (U+00A0 ou U+202F, conforme o ICU) normalizado para espaço simples. */
+const esp = (s: string) => s.replace(/[\u00a0\u202f]/g, ' ');
 const fixo = (natural: number) => (largura: number) => Math.max(largura, natural);
 
 describe('decisão do papel/orientação', () => {
@@ -141,18 +143,18 @@ describe('tabelaHtml', () => {
   ];
 
   it('números à direita, total geral e texto escapado', () => {
-    const html = tabelaHtml({ colunas, linhas, totais: true });
+    const html = esp(tabelaHtml({ colunas, linhas, totais: true }));
     expect(html).toContain('<thead><tr><th>Nome</th><th class="imp-num">Valor</th></tr></thead>');
     // data-xv/data-xt: valor bruto para a exportação Excel (números como números)
-    expect(html).toContain('<td class="imp-num" data-xv="1000.50" data-xt="n">1000,50</td>');
+    expect(html).toContain('<td class="imp-num" data-xv="1000.50" data-xt="n">1 000,50</td>');
     expect(html).toContain('Rui &lt;x&gt;');
-    expect(html).toMatch(/<tfoot><tr class="imp-total"><td>Total<\/td><td class="imp-num" data-xv="1210.75" data-xt="n">1210,75<\/td><\/tr><\/tfoot>/);
+    expect(html).toMatch(/<tfoot><tr class="imp-total"><td>Total<\/td><td class="imp-num" data-xv="1210.75" data-xt="n">1 210,75<\/td><\/tr><\/tfoot>/);
   });
 
   it('agrupamentos com subtotais', () => {
-    const html = tabelaHtml({ colunas, linhas, agrupar: { chave: (l) => l.dep, titulo: (k) => `Departamento ${k}`, subtotais: true } });
+    const html = esp(tabelaHtml({ colunas, linhas, agrupar: { chave: (l) => l.dep, titulo: (k) => `Departamento ${k}`, subtotais: true } }));
     expect(html).toContain('<tr class="imp-grupo"><td colspan="2">Departamento A</td></tr>');
-    expect(html).toContain('<td>Subtotal A</td><td class="imp-num" data-xv="1200.75" data-xt="n">1200,75</td>');
+    expect(html).toContain('<td>Subtotal A</td><td class="imp-num" data-xv="1200.75" data-xt="n">1 200,75</td>');
     expect(html).toContain('<td>Subtotal B</td><td class="imp-num" data-xv="10.00" data-xt="n">10,00</td>');
   });
 

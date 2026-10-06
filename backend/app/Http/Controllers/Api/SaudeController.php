@@ -30,9 +30,20 @@ final class SaudeController extends Controller
 
     public function __invoke(): JsonResponse
     {
+        // OWASP A05: a rota é pública — as versões exactas do PostgreSQL/Redis (úteis para procurar CVE) só aparecem em
+        // depuração ou a quem chega com um token Sanctum válido; os healthchecks anónimos vêem só o estado.
+        $versoes = config('app.debug') || auth('sanctum')->check();
         $verificacoes = [
-            'base_dados' => $this->verificar(fn () => 'PostgreSQL '.DB::selectOne('show server_version')->server_version),
-            'redis' => $this->verificar(fn () => 'Redis '.(Redis::connection()->info('server')['redis_version'] ?? '?')),
+            'base_dados' => $this->verificar(function () use ($versoes) {
+                $versao = DB::selectOne('show server_version')->server_version;   // a consulta é a própria verificação
+
+                return $versoes ? "PostgreSQL {$versao}" : 'PostgreSQL';
+            }),
+            'redis' => $this->verificar(function () use ($versoes) {
+                $versao = Redis::connection()->info('server')['redis_version'] ?? '?';
+
+                return $versoes ? "Redis {$versao}" : 'Redis';
+            }),
             'filas' => $this->verificar(fn () => $this->estadoFilas()),
             'armazenamento' => $this->verificar(fn () => $this->estadoArmazenamento()),
             // batimentos do scheduler e do worker (R11); a mensagem não tem segredos e mostra-se sempre (excepto se a cache falhar)

@@ -11,6 +11,11 @@ import { tabelaHtml, type ColunaImpressao, type ValorCelula } from './impressao/
 import { prepararTexto, textoDeNo } from './impressao/texto';
 import type { Orientacao, Papel } from './impressao/tipos';
 import { useMensagem, type PedidoImpressao } from './impressao/useImpressao';
+import { AlternarVista } from './vistas/AlternarVista';
+import type { ExtrasColunaVista } from './vistas/derivarCartao';
+import { GradeCartoes } from './vistas/GradeCartoes';
+import { useModoVista } from './vistas/preferenciaVista';
+import type { PropsVistaLista } from './vistas/TabelaComModos';
 
 /** Extras por coluna para a impressão/PDF (opcionais; o resto é o ColumnType do Ant Design). */
 export interface ExtrasColunaImpressao<T> {
@@ -22,7 +27,8 @@ export interface ExtrasColunaImpressao<T> {
   totalImpressao?: (linhas: T[]) => string;
 }
 
-export type ColunaApi<T> = ColumnsType<T>[number] & ExtrasColunaImpressao<T>;
+/** Coluna das listas: ColumnType do Ant Design + extras de impressão + extras do cartão da vista em grade. */
+export type ColunaApi<T> = ColumnsType<T>[number] & ExtrasColunaImpressao<T> & ExtrasColunaVista;
 
 export interface ImpressaoTabelaApi {
   titulo: string;
@@ -41,7 +47,11 @@ export interface ImpressaoTabelaApi {
   excel?: boolean;
 }
 
-interface Props<T> extends Omit<TableProps<T>, 'dataSource' | 'pagination' | 'loading' | 'columns'> {
+/**
+ * Props da TabelaApi. Os modos de vista («Linhas»/«Grade», `PropsVistaLista`) estão ligados por omissão: a chave da
+ * preferência é o caminho do ecrã + `idVista` (por omissão, o `url`); `modos={false}` deixa só as linhas.
+ */
+interface Props<T> extends Omit<TableProps<T>, 'dataSource' | 'pagination' | 'loading' | 'columns'>, PropsVistaLista<T> {
   /** Caminho da API paginada (RespostaApi::paginado). */
   url: string;
   /** Filtros enviados como parâmetros; mudam a consulta e voltam à 1.ª página. */
@@ -148,7 +158,26 @@ export function brutoConsistente(bruto: unknown, texto: ValorCelula): ValorCelul
 }
 
 /** Tabela ligada a uma listagem paginada do servidor (pagina/por_pagina), com a paginação da API. */
-export function TabelaApi<T extends object>({ url, filtros = {}, chaveConsulta, porPagina = 25, impressao, barra, columns, scroll, ...props }: Props<T>) {
+export function TabelaApi<T extends object>({
+  url,
+  filtros = {},
+  chaveConsulta,
+  porPagina = 25,
+  impressao,
+  barra,
+  columns,
+  scroll,
+  idVista,
+  modos = true,
+  modoOmissao,
+  cartao,
+  vista: vistaExterna,
+  rotulo,
+  ...props
+}: Props<T>) {
+  const vistaInterna = useModoVista(idVista ?? url.split('?')[0].replace(/^\/+/, ''), { omissao: modoOmissao });
+  const vista = vistaExterna ?? vistaInterna;
+  const emGrade = modos && vista.modo === 'grade';
   const [pagina, setPagina] = useState(1);
   const [tamanho, setTamanho] = useState(porPagina);
   const mensagem = useMensagem();
@@ -196,37 +225,55 @@ export function TabelaApi<T extends object>({ url, filtros = {}, chaveConsulta, 
     };
   };
 
-  const tabela = (
+  const rowKey = props.rowKey ?? ((r: T) => String((r as { id?: number | string }).id ?? JSON.stringify(r)));
+  const paginacao = {
+    current: consulta.data?.paginacao.pagina_atual ?? pagina,
+    pageSize: tamanho,
+    total: consulta.data?.paginacao.total ?? 0,
+    showSizeChanger: true,
+    pageSizeOptions: [10, 25, 50, 100],
+    showTotal: (t: number) => `${t} registo(s)`,
+    onChange: (p: number, s: number) => {
+      setPagina(s !== tamanho ? 1 : p);
+      setTamanho(s);
+    },
+  };
+  const tabela = emGrade ? (
+    <GradeCartoes<T>
+      linhas={consulta.data?.itens ?? []}
+      colunas={columns ?? []}
+      rowKey={rowKey}
+      carregando={consulta.isFetching}
+      paginacao={paginacao}
+      paginacaoServidor
+      onRow={props.onRow}
+      rowSelection={props.rowSelection}
+      cartao={cartao}
+      vazio={props.locale?.emptyText as ReactNode}
+      rotulo={rotulo ?? impressao?.titulo}
+    />
+  ) : (
     <Table<T>
-      rowKey={(r) => String((r as { id?: number | string }).id ?? JSON.stringify(r))}
       size="middle"
       {...props}
+      rowKey={rowKey}
       // Largura natural das colunas com deslocação horizontal dentro da tabela: nunca alarga a página.
       scroll={{ x: 'max-content', ...scroll }}
       columns={columns as ColumnsType<T> | undefined}
       loading={consulta.isFetching}
       dataSource={consulta.data?.itens}
-      pagination={{
-        current: consulta.data?.paginacao.pagina_atual ?? pagina,
-        pageSize: tamanho,
-        total: consulta.data?.paginacao.total ?? 0,
-        showSizeChanger: true,
-        pageSizeOptions: [10, 25, 50, 100],
-        showTotal: (t) => `${t} registo(s)`,
-        onChange: (p, s) => {
-          setPagina(s !== tamanho ? 1 : p);
-          setTamanho(s);
-        },
-      }}
+      pagination={paginacao}
     />
   );
 
-  if (!impressao && !barra) return tabela;
+  const comAlternar = modos && !vistaExterna;
+  if (!impressao && !barra && !comAlternar) return tabela;
   return (
     <>
       <Flex justify="flex-end" align="center" gap={8} wrap style={{ marginBottom: 8 }}>
         {barra}
         {impressao && <BotoesExportar tamanho="small" obterPedido={obterPedido} desactivado={!consulta.data?.paginacao.total} excel={impressao.excel ?? true} />}
+        {comAlternar && <AlternarVista vista={vista} />}
       </Flex>
       {tabela}
     </>

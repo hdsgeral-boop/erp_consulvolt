@@ -194,7 +194,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\" --maxmemory 512mb --maxmemory-policy volatile-lru --protected-mode yes"]
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\" --maxmemory 512mb --maxmemory-policy volatile-lru --auto-aof-rewrite-percentage 100 --auto-aof-rewrite-min-size 64mb --protected-mode yes"]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?defina REDIS_PASSWORD no .env.prod}
     volumes:

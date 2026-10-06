@@ -35,99 +35,120 @@ final class ServicoContabilizacaoCompras
     {
         return DB::transaction(function () use ($fatura) {
             $fatura = FaturaCompra::query()->lockForUpdate()->findOrFail($fatura->id);
-            if ($fatura->contabilizado) {
-                throw new ErroNegocio('A factura já está contabilizada.', 'JA_CONTABILIZADO', 422);
-            }
-            if ($fatura->estado === 'ANULADA') {
-                throw new ErroNegocio('Factura anulada: não é contabilizável.', 'DOCUMENTO_ANULADO', 422);
-            }
-            $fornecedor = Terceiro::query()->withTrashed()->findOrFail($fatura->fornecedor_id);
-            $contaFornecedor = $fornecedor->codigo_conta ?: throw new ErroNegocio('O fornecedor não tem conta contabilística.', 'FORNECEDOR_SEM_CONTA', 422);
-            $comum = ['terceiro_id' => $fornecedor->id, 'unidade_negocio_id' => $fatura->unidade_negocio_id, 'centro_custo_id' => $fatura->centro_custo_id];
-
-            // decisão 17: a conta é a do produto (não a da rubrica do projecto, como no legado) e a linha leva a imputação analítica
-            // ao projecto da linha (ou da factura); por isso os débitos agregam-se por conta E projecto
-            $debitos = [];   // "conta|projecto" => valor (D positivo, C negativo)
-            $projetoLinha = null;
-            $somar = function (string $conta, string $valor, ?int $projeto = null) use (&$debitos, &$projetoLinha) {
-                $chave = $conta.'|'.($projeto ?? $projetoLinha ?? '');
-                $debitos[$chave] = bcadd($debitos[$chave] ?? '0.00', $valor, 2);
-            };
-            $linhas = ItemCompra::query()->where('fatura_compra_id', $fatura->id)->with(['produto' => fn ($q) => $q->withTrashed()])->orderBy('id')->get();
-            if ($linhas->isEmpty()) {
-                throw new ErroNegocio('A factura não tem linhas.', 'SEM_LINHAS', 422);
-            }
-            foreach ($linhas as $n => $l) {
-                $p = $l->produto;
-                $projetoLinha = $l->projeto_id ?: ($fatura->projeto_id ?: null);
-                $onde = 'Linha '.($n + 1).($p ? " ({$p->codigo})" : '').':';
-                $liquido = number_format((float) ($l->total_kz ?? $l->total), 2, '.', '');
-                if ($p?->movimenta_stock && $l->item_encomenda_id) {
-                    $transitoria = $fornecedor->conta_compra_transitoria ?: $this->config->exigir('transitoria_compras', 'O fornecedor não tem conta transitória de compras.');
-                    // linhas migradas sem valor_transitoria_kz: a transitória salda pelo valor da linha, como o legado quando faltava
-                    // valor_328_kz (ui_compras_v2.js:3364-3370); antes o NULL passava a 0 e todo o líquido ia para diferenças de câmbio (E-STK-2)
-                    $valorTrans = $l->valor_transitoria_kz !== null ? number_format((float) $l->valor_transitoria_kz, 2, '.', '') : $liquido;
-                    $somar($transitoria, $valorTrans);
-                    $diferenca = bcsub($liquido, $valorTrans, 2);
-                    if (bccomp($diferenca, '0', 2) > 0) {
-                        $somar($this->config->exigir('diferencas_cambio_desfavoraveis', "{$onde} diferença entre a factura e a recepção."), $diferenca);
-                    } elseif (bccomp($diferenca, '0', 2) < 0) {
-                        $somar($this->config->exigir('diferencas_cambio_favoraveis', "{$onde} diferença entre a factura e a recepção."), $diferenca);
-                    }
-                } elseif ($p?->movimenta_stock) {
-                    throw new ErroNegocio("{$onde} artigo de stock sem encomenda/recepção.", 'FATURA_DIRETA_COM_STOCK', 422);
-                } elseif ($p?->e_ativo_imobilizado) {
-                    $somar($p->conta_ativo ?: $this->config->exigir('imobilizado', "{$onde} activo sem conta de imobilizado."), $liquido);
-                } else {
-                    $somar($p?->conta_custo ?: ($p?->conta_compra ?: $this->config->exigir('custos_servicos', "{$onde} produto sem conta de custo.")), $liquido);
-                }
-                // IVA gravado na linha (em Kz); linhas do legado sem esse valor: recalculado sobre o líquido
-                $iva = $l->imposto_kz !== null ? number_format((float) $l->imposto_kz, 2, '.', '')
-                    : CalculadoraCompra::calcular([['quantidade' => '1', 'preco_unitario' => $liquido, 'taxa_imposto' => (string) ($l->taxa_imposto ?? 0)]])['imposto'];
-                if (bccomp($iva, '0', 2) > 0) {   // o IVA dedutível não é custo do projecto: fica com o projecto da factura
-                    $somar($p?->conta_iva_dedutivel ?: $this->config->exigir('iva_dedutivel', "{$onde} produto sem conta de IVA dedutível."), $iva, $fatura->projeto_id ?: 0);
-                }
-            }
-
-            $lancamento = [];
-            $totalD = $totalC = '0.00';
-            foreach ($debitos as $chave => $valor) {
-                if (bccomp($valor, '0', 2) === 0) {
-                    continue;
-                }
-                [$conta, $projeto] = explode('|', (string) $chave, 2);
-                $d = bccomp($valor, '0', 2) > 0;
-                $abs = ltrim($valor, '-');
-                $lancamento[] = ['codigo_conta' => $conta, 'tipo_dc' => $d ? 'D' : 'C', 'valor' => $abs, 'projeto_id' => $projeto !== '' && $projeto !== '0' ? (int) $projeto : null] + $comum;
-                $d ? $totalD = bcadd($totalD, $abs, 2) : $totalC = bcadd($totalC, $abs, 2);
-            }
-            $credito = bcsub($totalD, $totalC, 2);
-            if (bccomp($credito, number_format((float) $fatura->montante_total, 2, '.', ''), 2) !== 0) {
-                throw new ErroNegocio("As linhas da factura somam {$credito} mas o total é {$fatura->montante_total}: verifique a factura.", 'TOTAIS_INCONSISTENTES', 422,
-                    ['soma_linhas' => $credito, 'total' => (string) $fatura->montante_total]);
-            }
-            // fornecedor em moeda estrangeira: a linha guarda o valor na moeda (saldo em moeda na liquidação)
-            $moeda = $fatura->codigo_moeda && $fatura->codigo_moeda !== 'AOA'
-                ? ['codigo_moeda' => $fatura->codigo_moeda, 'valor_moeda' => $fatura->montante_total_moeda, 'taxa_cambio' => $fatura->taxa_cambio] : [];
-            $lancamento[] = ['codigo_conta' => $contaFornecedor, 'tipo_dc' => 'C', 'valor' => $credito, 'projeto_id' => $fatura->projeto_id ?: null] + $moeda + $comum;
-            // notas às demonstrações como o legado (ui_compras_v2.js:3452-3460): 321/322/328 → nota 11, 34* → nota 9, 11/12/14 → nota 4
-            // (sem nota as linhas ficavam fora do Balanço e da DR — E-CON-1)
-            $lancamento = $this->notas->aplicarALinhas($lancamento, fn (string $c) => match (true) {
-                str_starts_with($c, '321') || str_starts_with($c, '322') || str_starts_with($c, '328') => '11',
-                str_starts_with($c, '34') => '9',
-                str_starts_with($c, '11') || str_starts_with($c, '12') || str_starts_with($c, '14') => '4',
-                default => null,
-            });
-
+            $dados = $this->montarLancamento($fatura);
             $numeroLan = $this->lancamentos->criar([
-                'diario_id' => $this->localizador->diario('FF', 'Facturas de fornecedor')->id, 'data_documento' => $fatura->data->toDateString(),
-                'numero_documento' => $fatura->numero_fatura, 'referencia' => "FF {$fatura->numero_fatura}",
-                'descricao' => mb_substr("FF {$fatura->numero_fatura} — {$fornecedor->nome}", 0, 1000), 'tipo_origem' => 'COMPRAS_FATURA', 'linhas' => $lancamento,
-            ])->first()->numero_lan;
+                'diario_id' => $this->localizador->diario('FF', 'Facturas de fornecedor')->id] + $dados)->first()->numero_lan;
             $fatura->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
 
             return $fatura;
         });
+    }
+
+    /**
+     * Pré-visualização do lançamento (showAccountingPreviewTooltip do legado, «Simulação contabilística»): as mesmas
+     * validações e as mesmas linhas da contabilização, sem gravar nada (nem criar o diário).
+     *
+     * @return array{diario: string, data_documento: string, numero_documento: string, referencia: string, descricao: string, linhas: list<array<string, mixed>>}
+     */
+    public function previsualizar(FaturaCompra $fatura): array
+    {
+        $dados = $this->montarLancamento(FaturaCompra::query()->findOrFail($fatura->id));
+
+        return ['diario' => 'FF'] + array_diff_key($dados, ['tipo_origem' => 1]);
+    }
+
+    /** Cabeçalho e linhas do lançamento da factura (sem o diário), com as validações da contabilização. */
+    private function montarLancamento(FaturaCompra $fatura): array
+    {
+        if ($fatura->contabilizado) {
+            throw new ErroNegocio('A factura já está contabilizada.', 'JA_CONTABILIZADO', 422);
+        }
+        if ($fatura->estado === 'ANULADA') {
+            throw new ErroNegocio('Factura anulada: não é contabilizável.', 'DOCUMENTO_ANULADO', 422);
+        }
+        $fornecedor = Terceiro::query()->withTrashed()->findOrFail($fatura->fornecedor_id);
+        $contaFornecedor = $fornecedor->codigo_conta ?: throw new ErroNegocio('O fornecedor não tem conta contabilística.', 'FORNECEDOR_SEM_CONTA', 422);
+        $comum = ['terceiro_id' => $fornecedor->id, 'unidade_negocio_id' => $fatura->unidade_negocio_id, 'centro_custo_id' => $fatura->centro_custo_id];
+
+        // decisão 17: a conta é a do produto (não a da rubrica do projecto, como no legado) e a linha leva a imputação analítica
+        // ao projecto da linha (ou da factura); por isso os débitos agregam-se por conta E projecto
+        $debitos = [];   // "conta|projecto" => valor (D positivo, C negativo)
+        $projetoLinha = null;
+        $somar = function (string $conta, string $valor, ?int $projeto = null) use (&$debitos, &$projetoLinha) {
+            $chave = $conta.'|'.($projeto ?? $projetoLinha ?? '');
+            $debitos[$chave] = bcadd($debitos[$chave] ?? '0.00', $valor, 2);
+        };
+        $linhas = ItemCompra::query()->where('fatura_compra_id', $fatura->id)->with(['produto' => fn ($q) => $q->withTrashed()])->orderBy('id')->get();
+        if ($linhas->isEmpty()) {
+            throw new ErroNegocio('A factura não tem linhas.', 'SEM_LINHAS', 422);
+        }
+        foreach ($linhas as $n => $l) {
+            $p = $l->produto;
+            $projetoLinha = $l->projeto_id ?: ($fatura->projeto_id ?: null);
+            $onde = 'Linha '.($n + 1).($p ? " ({$p->codigo})" : '').':';
+            $liquido = number_format((float) ($l->total_kz ?? $l->total), 2, '.', '');
+            if ($p?->movimenta_stock && $l->item_encomenda_id) {
+                $transitoria = $fornecedor->conta_compra_transitoria ?: $this->config->exigir('transitoria_compras', 'O fornecedor não tem conta transitória de compras.');
+                // linhas migradas sem valor_transitoria_kz: a transitória salda pelo valor da linha, como o legado quando faltava
+                // valor_328_kz (ui_compras_v2.js:3364-3370); antes o NULL passava a 0 e todo o líquido ia para diferenças de câmbio (E-STK-2)
+                $valorTrans = $l->valor_transitoria_kz !== null ? number_format((float) $l->valor_transitoria_kz, 2, '.', '') : $liquido;
+                $somar($transitoria, $valorTrans);
+                $diferenca = bcsub($liquido, $valorTrans, 2);
+                if (bccomp($diferenca, '0', 2) > 0) {
+                    $somar($this->config->exigir('diferencas_cambio_desfavoraveis', "{$onde} diferença entre a factura e a recepção."), $diferenca);
+                } elseif (bccomp($diferenca, '0', 2) < 0) {
+                    $somar($this->config->exigir('diferencas_cambio_favoraveis', "{$onde} diferença entre a factura e a recepção."), $diferenca);
+                }
+            } elseif ($p?->movimenta_stock) {
+                throw new ErroNegocio("{$onde} artigo de stock sem encomenda/recepção.", 'FATURA_DIRETA_COM_STOCK', 422);
+            } elseif ($p?->e_ativo_imobilizado) {
+                $somar($p->conta_ativo ?: $this->config->exigir('imobilizado', "{$onde} activo sem conta de imobilizado."), $liquido);
+            } else {
+                $somar($p?->conta_custo ?: ($p?->conta_compra ?: $this->config->exigir('custos_servicos', "{$onde} produto sem conta de custo.")), $liquido);
+            }
+            // IVA gravado na linha (em Kz); linhas do legado sem esse valor: recalculado sobre o líquido
+            $iva = $l->imposto_kz !== null ? number_format((float) $l->imposto_kz, 2, '.', '')
+                : CalculadoraCompra::calcular([['quantidade' => '1', 'preco_unitario' => $liquido, 'taxa_imposto' => (string) ($l->taxa_imposto ?? 0)]])['imposto'];
+            if (bccomp($iva, '0', 2) > 0) {   // o IVA dedutível não é custo do projecto: fica com o projecto da factura
+                $somar($p?->conta_iva_dedutivel ?: $this->config->exigir('iva_dedutivel', "{$onde} produto sem conta de IVA dedutível."), $iva, $fatura->projeto_id ?: 0);
+            }
+        }
+
+        $lancamento = [];
+        $totalD = $totalC = '0.00';
+        foreach ($debitos as $chave => $valor) {
+            if (bccomp($valor, '0', 2) === 0) {
+                continue;
+            }
+            [$conta, $projeto] = explode('|', (string) $chave, 2);
+            $d = bccomp($valor, '0', 2) > 0;
+            $abs = ltrim($valor, '-');
+            $lancamento[] = ['codigo_conta' => $conta, 'tipo_dc' => $d ? 'D' : 'C', 'valor' => $abs, 'projeto_id' => $projeto !== '' && $projeto !== '0' ? (int) $projeto : null] + $comum;
+            $d ? $totalD = bcadd($totalD, $abs, 2) : $totalC = bcadd($totalC, $abs, 2);
+        }
+        $credito = bcsub($totalD, $totalC, 2);
+        if (bccomp($credito, number_format((float) $fatura->montante_total, 2, '.', ''), 2) !== 0) {
+            throw new ErroNegocio("As linhas da factura somam {$credito} mas o total é {$fatura->montante_total}: verifique a factura.", 'TOTAIS_INCONSISTENTES', 422,
+                ['soma_linhas' => $credito, 'total' => (string) $fatura->montante_total]);
+        }
+        // fornecedor em moeda estrangeira: a linha guarda o valor na moeda (saldo em moeda na liquidação)
+        $moeda = $fatura->codigo_moeda && $fatura->codigo_moeda !== 'AOA'
+            ? ['codigo_moeda' => $fatura->codigo_moeda, 'valor_moeda' => $fatura->montante_total_moeda, 'taxa_cambio' => $fatura->taxa_cambio] : [];
+        $lancamento[] = ['codigo_conta' => $contaFornecedor, 'tipo_dc' => 'C', 'valor' => $credito, 'projeto_id' => $fatura->projeto_id ?: null] + $moeda + $comum;
+        // notas às demonstrações como o legado (ui_compras_v2.js:3452-3460): 321/322/328 → nota 11, 34* → nota 9, 11/12/14 → nota 4
+        // (sem nota as linhas ficavam fora do Balanço e da DR — E-CON-1)
+        $lancamento = $this->notas->aplicarALinhas($lancamento, fn (string $c) => match (true) {
+            str_starts_with($c, '321') || str_starts_with($c, '322') || str_starts_with($c, '328') => '11',
+            str_starts_with($c, '34') => '9',
+            str_starts_with($c, '11') || str_starts_with($c, '12') || str_starts_with($c, '14') => '4',
+            default => null,
+        });
+
+        return [
+            'data_documento' => $fatura->data->toDateString(),
+            'numero_documento' => $fatura->numero_fatura, 'referencia' => "FF {$fatura->numero_fatura}",
+            'descricao' => mb_substr("FF {$fatura->numero_fatura} — {$fornecedor->nome}", 0, 1000), 'tipo_origem' => 'COMPRAS_FATURA', 'linhas' => $lancamento,
+        ];
     }
 
     public function descontabilizar(FaturaCompra $fatura, string $motivo): FaturaCompra

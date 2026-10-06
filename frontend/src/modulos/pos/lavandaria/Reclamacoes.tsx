@@ -1,4 +1,4 @@
-import { Button, DatePicker, Flex, Form, Input, InputNumber, Modal, Radio, Select, Space, Table, Tooltip } from 'antd';
+import { Button, DatePicker, Flex, Form, Input, InputNumber, Modal, Radio, Select, Space, Tooltip } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -15,6 +15,7 @@ import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { accoesReclamacao } from '../comum/regras';
 import type { Reclamacao } from './tipos';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /**
  * Danos e reclamações: AGUARDA_COMPROVATIVO → COMPROVADO → APROVADA ou RECUSADA → PAGA. A indemnização exige comprovativo
  * e valor; quem decide não paga (segregação por reclamação); o pagamento é um PAGAMENTO de tesouraria.
@@ -95,7 +96,7 @@ export function Reclamacoes() {
       >
         <Select allowClear placeholder="Estado" style={{ width: 220 }} value={estado} onChange={setEstado} options={opcoesEstadoPOS(['AGUARDA_COMPROVATIVO', 'COMPROVADO', 'APROVADA', 'RECUSADA', 'PAGA'])} />
       </BarraFiltros>
-      <Table<Reclamacao>
+      <TabelaComModos<Reclamacao>
         rowKey="id"
         size={pequeno ? 'small' : 'middle'}
         loading={consulta.isFetching}

@@ -1,4 +1,4 @@
-import { Button, Card, Flex, Form, Input, InputNumber, Modal, Popconfirm, Radio, Space, Table, Typography } from 'antd';
+import { Button, Card, Flex, Form, Input, InputNumber, Modal, Popconfirm, Radio, Space, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { useEffect, useState, useRef } from 'react';
 import { SeletorTerceiro } from '@/modulos/contab/comum/Seletores';
@@ -10,6 +10,7 @@ import type { PropsSeparador } from '../DetalheProjecto';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
 import { scrollTabela } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Equipa do projecto: internos (colaboradores), terceiros e nomes livres, com papel e horas/dia alocadas (1 a 8). */
 export function SeparadorEquipa({ projecto, acc }: PropsSeparador) {
   const e = useEquipa(projecto.id);
@@ -47,7 +48,7 @@ export function SeparadorEquipa({ projecto, acc }: PropsSeparador) {
           )}
         </Flex>
       )}
-      <Table<Membro> scroll={scrollTabela()}
+      <TabelaComModos<Membro> scroll={scrollTabela()}
         rowKey="id"
         size="middle"
         loading={e.isFetching}

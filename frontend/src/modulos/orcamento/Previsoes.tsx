@@ -18,6 +18,7 @@ import type { Previsao, ResumoPrevisao } from './comum/tipos';
 import { larguraModal, scrollTabela, useEcra } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 const METODOS = [
   { value: 'ORCAMENTO', label: 'Orçamento aprovado do mês' },
   { value: 'TENDENCIA', label: 'Tendência (média dos 3 últimos meses reais)' },
@@ -57,7 +58,7 @@ function Lista() {
         impressaoDesactivada={!q.data?.length}
         impressao={() => pedidoTabela({ titulo: 'Previsões deslizantes', colunas: colunasLista, linhas: q.data ?? [] })} />
       <Card>
-        <Table<Previsao>
+        <TabelaComModos<Previsao>
           rowKey="id"
           size="middle"
           loading={q.isFetching}

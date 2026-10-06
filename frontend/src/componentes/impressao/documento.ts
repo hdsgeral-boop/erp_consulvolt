@@ -110,6 +110,26 @@ body.imp-quebrar td, body.imp-quebrar th, body.imp-quebrar td *, body.imp-quebra
 .imp-tabela tfoot td, .imp-tabela tr.imp-total td { font-weight: 700; background: #f0f0f0; border-top: 0.5mm solid #1f1f1f; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .imp-tabela .imp-vazio { text-align: center; color: #666; padding: 4mm; }
 
+/*
+ * Vias na mesma folha (recibos: original e cópia). Retrato: uma por cima da outra, cada uma em meia folha (a linha de
+ * corte fica a meio); paisagem: lado a lado, com a linha de corte vertical. O bloco nunca se parte entre folhas
+ * (.imp-uma-folha): se não couber, o motor reduz-o. Também serve markup próprio (ex.: recibo de salário do RH).
+ */
+.imp-vias { display: flex; flex-direction: column; break-inside: avoid; page-break-inside: avoid; }
+.imp-vias > .imp-via { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; break-inside: avoid; }
+.imp-vias > .imp-via > .imp-via-corpo { flex: 1 1 auto; }
+body.imp-paginado[data-orientacao="retrato"] .imp-vias { min-height: calc((var(--imp-altura-pagina) - 7mm - 2.5mm) / var(--imp-escala, 1)); }
+.imp-via .imp-cabecalho { margin-bottom: 2mm; padding-bottom: 1.8mm; }
+.imp-via .imp-titulo-bloco { display: flex; justify-content: space-between; align-items: baseline; gap: 4mm; flex-wrap: wrap; margin-bottom: 2.5mm; }
+.imp-via .imp-titulo { font-size: 12pt; }
+.imp-via-rotulo { display: inline-block; padding: 0.4mm 2.4mm; border: 0.35mm solid #1f1f1f; border-radius: 1mm; font-size: 7.5pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.imp-corte { display: flex; align-items: center; gap: 2mm; margin: 3mm 0; font-size: 7pt; color: #666; white-space: nowrap; line-height: 1; }
+.imp-corte::before, .imp-corte::after { content: ''; flex: 1 1 auto; border-top: 0.3mm dashed #8c8c8c; }
+body[data-orientacao="paisagem"] .imp-vias { flex-direction: row; align-items: stretch; }
+body[data-orientacao="paisagem"] .imp-vias > .imp-corte { flex: 0 0 auto; width: 0; margin: 0 4mm; border-left: 0.3mm dashed #8c8c8c; font-size: 0; gap: 0; }
+body[data-orientacao="paisagem"] .imp-vias > .imp-corte::before, body[data-orientacao="paisagem"] .imp-vias > .imp-corte::after { display: none; }
+body.imp-paginado[data-orientacao="paisagem"] .imp-vias { min-height: calc((var(--imp-altura-pagina) - 7mm - 2.5mm) / var(--imp-escala, 1)); }
+
 @media screen {
   body.imp-documento { padding: 0; }
   /* pré-visualização (testes, abrir o HTML): folhas separadas como no papel */
@@ -152,6 +172,49 @@ ${filtros ? `<div class="imp-filtros">${esc(filtros)}</div>` : ''}
 </div>`;
 }
 
+/** Rótulos por omissão das vias (como no legado: «Original» e «Duplicado»). */
+export const ROTULOS_VIAS = ['Original', 'Duplicado'] as const;
+
+/** Normaliza a opção `vias` (null = documento normal). */
+export function opcoesVias(v: OpcoesDocumento['vias']): { rotulos: string[]; partes?: { conteudo: string; subtitulo?: string | null }[] } | null {
+  if (!v) return null;
+  if (v === true) return { rotulos: [...ROTULOS_VIAS] };
+  if (Array.isArray(v)) return { rotulos: v.length ? v : [...ROTULOS_VIAS] };
+  return { rotulos: v.rotulos?.length ? v.rotulos : [...ROTULOS_VIAS], partes: v.partes };
+}
+
+/** Título de uma via: título do documento, subtítulo/período e o rótulo da via à direita. */
+function htmlTituloVia(o: OpcoesDocumento, rotulo: string, subtitulo: string | null | undefined): string {
+  const filtros = Array.isArray(o.filtros) ? o.filtros.filter((f): f is string => !!f).join(' · ') : o.filtros;
+  const sub = subtitulo ?? o.subtitulo;
+  return `<div class="imp-titulo-bloco imp-via-titulo"><div>
+<h1 class="imp-titulo">${esc(o.titulo)}</h1>
+${sub ? `<div class="imp-subtitulo">${esc(sub)}</div>` : ''}
+${o.periodo ? `<div class="imp-periodo">Período: ${esc(o.periodo)}</div>` : ''}
+${filtros ? `<div class="imp-filtros">${esc(filtros)}</div>` : ''}
+</div><span class="imp-via-rotulo">${esc(rotulo)}</span></div>`;
+}
+
+/**
+ * Corpo de um documento em vias: para cada parte (ou o conteúdo único), um bloco `.imp-vias.imp-uma-folha` com as vias
+ * (cabeçalho da empresa + título + rótulo + conteúdo) separadas pela linha de corte; partes seguintes em folha nova.
+ */
+export function htmlVias(o: OpcoesDocumento & { conteudo: string }): string {
+  const v = opcoesVias(o.vias);
+  if (!v) return o.conteudo;
+  const partes = v.partes?.length ? v.partes : [{ conteudo: o.conteudo, subtitulo: null }];
+  const cab = o.cabecalho === false ? '' : htmlCabecalho(o);
+  return partes
+    .map((p, i) => {
+      const vias = v.rotulos.map(
+        (r) => `<section class="imp-via" data-via="${esc(r)}">${cab}${o.blocoTitulo === false ? '' : htmlTituloVia(o, r, p.subtitulo)}<div class="imp-via-corpo">${p.conteudo}</div></section>`,
+      );
+      const quebra = i < partes.length - 1 ? ' imp-quebra-pagina' : '';
+      return `<div class="imp-vias imp-uma-folha${quebra}">${vias.join('<div class="imp-corte" aria-hidden="true">✂ cortar pelo tracejado</div>')}</div>`;
+    })
+    .join('');
+}
+
 /** Estilo do contentor do conteúdo para o formato (escala com `zoom`, que afecta a paginação, ao contrário de transform). */
 export function estiloConteudo(f: FormatoPagina): string {
   return f.escala < 1 ? `zoom: ${f.escala};` : '';
@@ -165,14 +228,16 @@ export function estiloConteudo(f: FormatoPagina): string {
 export function construirDocumento(o: OpcoesDocumento & { conteudo: string }, formato: FormatoPagina = FORMATO_PADRAO, estilos = ''): string {
   const rodape = o.rodape ?? o.identidade?.rodape ?? null;
   const titulo = o.nomeFicheiro ? limparNomeFicheiro(o.nomeFicheiro) : nomeFicheiroPadrao(o.titulo, o.identidade?.nome, o.emitidoEm);
+  // Em vias, o cabeçalho da empresa e o título vão dentro de cada via (cada metade da folha é um documento completo).
+  const vias = !!opcoesVias(o.vias);
   return `<!doctype html>
 <html lang="pt"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
 ${estilos}
 <style id="imp-base">${CSS_BASE}${o.cssExtra ?? ''}</style>
 <style id="imp-pagina">${cssPagina(formato, rodape)}</style>
-</head><body class="imp-documento${formato.quebrarTexto ? ' imp-quebrar' : ''}" data-papel="${formato.papel}" data-orientacao="${formato.orientacao}" data-escala="${formato.escala}">
-${o.cabecalho === false ? '' : htmlCabecalho(o)}
-${htmlTitulo(o)}
-<main class="imp-conteudo" style="${estiloConteudo(formato)}">${o.conteudo}</main>
+</head><body class="imp-documento${formato.quebrarTexto ? ' imp-quebrar' : ''}${vias ? ' imp-com-vias' : ''}" data-papel="${formato.papel}" data-orientacao="${formato.orientacao}" data-escala="${formato.escala}" style="--imp-escala: ${formato.escala};">
+${o.cabecalho === false || vias ? '' : htmlCabecalho(o)}
+${o.blocoTitulo === false || vias ? '' : htmlTitulo(o)}
+<main class="imp-conteudo" style="${estiloConteudo(formato)}">${vias ? htmlVias(o) : o.conteudo}</main>
 </body></html>`;
 }

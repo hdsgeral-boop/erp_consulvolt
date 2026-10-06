@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Divider, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tabs, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Divider, Form, Input, InputNumber, Modal, Row, Select, Space, Tabs, Typography } from 'antd';
 import { EditOutlined, LockOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -15,6 +15,7 @@ import { validarPesos360 } from './comum/regras';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 const GRUPOS = [
   { chave: 'CHEFIA', rotulo: 'Chefia' },
   { chave: 'AUTO', rotulo: 'Autoavaliação' },
@@ -101,7 +102,7 @@ export default function AvaliacaoConfig() {
         impressaoDesactivada={!q.data?.length}
         impressao={() => pedidoTabela({ titulo: 'Ciclos de avaliação 360º', colunas, linhas: q.data ?? [] })} />
       <Card>
-        <Table<Ciclo360> rowKey="id" size="middle" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={false} scroll={scrollTabela()} />
+        <TabelaComModos<Ciclo360> rowKey="id" size="middle" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={false} scroll={scrollTabela()} />
       </Card>
       <Modal title={edicao === 'novo' ? 'Novo ciclo de avaliação' : 'Editar ciclo'} open={edicao !== null} width={larguraModal(860)} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar"
         confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>

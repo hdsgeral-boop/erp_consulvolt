@@ -1,4 +1,4 @@
-import { Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Switch, Table, Tabs, Tag } from 'antd';
+import { Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Switch, Tabs, Tag } from 'antd';
 import { EditOutlined, MinusCircleOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -12,6 +12,7 @@ import { GRUPOS_LAV, UNIDADES_LAV, useDefinicoesLav, usePecas, useServicosLav } 
 import type { DefinicoesLav, Peca, ServicoLav } from './tipos';
 import { ImportarTabela } from './ImportarTabela';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Tabelas da lavandaria: peças (com preço por serviço), serviços (conta e IVA) e definições (taxas, adiantamento, contas). */
 export function Tabelas() {
   return (
@@ -68,7 +69,7 @@ function TabelaPecas() {
           </>
         )}
       </BarraFiltros>
-      <Table<Peca>
+      <TabelaComModos<Peca> idVista="pecas"
         rowKey="id"
         size="small"
         scroll={scrollTabela()}
@@ -193,7 +194,7 @@ function TabelaServicos() {
           </>
         )}
       </BarraFiltros>
-      <Table<ServicoLav>
+      <TabelaComModos<ServicoLav> idVista="servicos"
         rowKey="id"
         size="small"
         scroll={scrollTabela()}

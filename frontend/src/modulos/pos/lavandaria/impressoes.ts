@@ -3,7 +3,8 @@
  * js/lavandaria.js:325-395): talão da ordem de serviço em duas vias (cliente e loja) com as condições, etiquetas das
  * peças e recibo RC-LAV. As facturas imprimem-se com o talão de venda do POS (htmlTalaoVenda).
  */
-import { formatarData, formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
+import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
+import { dataDoc, type DadosDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { htmlEtiquetas, htmlTalaoGenerico, type CabecalhoTalao, type PreferenciasImpressao } from '../comum/impressao';
 import { UNIDADES_LAV } from './dados';
 import type { DefinicoesLav, DetalheOrdem, PagamentoLav } from './tipos';
@@ -107,4 +108,32 @@ export function htmlReciboLav(r: PagamentoLav, d: DetalheOrdem, c: CabecalhoTala
     c,
     p,
   );
+}
+
+/**
+ * Recibo RC-LAV em A4, com original e duplicado na mesma folha (documento comercial em duas vias): cliente, ordem de
+ * serviço, meios de pagamento, total recebido (por extenso) e troco. Complementa o talão térmico do posto.
+ */
+export function dadosReciboLavA4(r: PagamentoLav, d: DetalheOrdem): DadosDocumentoComercial {
+  const adiantamento = r.natureza_registo === 'ADIANTAMENTO';
+  const meios = r.pos_pagamentos ?? [];
+  return {
+    tipo: adiantamento ? 'Recibo de adiantamento' : 'Recibo',
+    numero: r.numero_recibo ?? `#${r.id}`,
+    estado: r.estado === 'ANULADO' ? 'ANULADO' : null,
+    entidade: d.cliente ? { rotulo: 'Cliente', nome: d.cliente.nome, nif: d.cliente.nif, contactos: [d.cliente.telefone] } : { rotulo: 'Cliente', nome: 'Consumidor final' },
+    meta: [
+      ['Data', dataDoc(r.data)],
+      ['Ordem de serviço', d.pedido.numero_encomenda],
+      ['Natureza', adiantamento ? 'Adiantamento' : 'Pagamento'],
+      ['Emitido por', r.criado_por],
+      ['Saldo da ordem', `${formatarKz(d.totais.saldo)} Kz`],
+    ],
+    colunas: [{ titulo: 'Meio de pagamento' }, { titulo: 'Referência' }, { titulo: 'Valor (Kz)', alinhar: 'direita' }],
+    linhas: meios.length ? meios.map((m) => [m.nome ?? m.tipo, m.referencia ?? '', formatarKz(m.valor)]) : [['—', '', formatarKz(r.montante)]],
+    totais: { total: r.montante, rotuloTotal: 'Total recebido', extra: Number(r.troco ?? 0) > 0 ? [['Troco', r.troco ?? '0']] : [] },
+    impostos: false,
+    legal: ['Documento processado por computador.', adiantamento ? 'Adiantamento por conta da ordem de serviço.' : null],
+    assinaturas: ['O Cliente', 'A Lavandaria'],
+  };
 }

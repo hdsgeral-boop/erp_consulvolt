@@ -1,4 +1,4 @@
-import { Button, Checkbox, Col, DatePicker, Divider, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, message } from 'antd';
+import { Button, Checkbox, Col, DatePicker, Divider, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Tag, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -9,6 +9,7 @@ import { BarraFiltros, larguraModal, scrollTabela, useEcraPequeno } from '@/comp
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 
+import { TabelaComModos } from '@/componentes/vistas';
 export interface UnidadeNegocio {
   id: number;
   codigo: string;
@@ -96,7 +97,7 @@ export function UnidadesNegocio() {
       }>
         <Select placeholder="Estado" allowClear value={estado} onChange={setEstado} style={{ width: 160 }} options={[{ value: 'ATIVO', label: 'Activas' }, { value: 'INATIVO', label: 'Inactivas' }]} />
       </BarraFiltros>
-      <Table<UnidadeNegocio> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={q.isFetching} dataSource={lista} scroll={scrollTabela()} pagination={{ pageSize: 50 }} columns={[
+      <TabelaComModos<UnidadeNegocio> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={q.isFetching} dataSource={lista} scroll={scrollTabela()} pagination={{ pageSize: 50 }} columns={[
         { title: 'Código', dataIndex: 'codigo', render: (v: string) => <strong>{v}</strong>, sorter: (a, b) => a.codigo.localeCompare(b.codigo, 'pt') },
         { title: 'Nome', dataIndex: 'nome' },
         { title: 'Abreviado', dataIndex: 'nome_abreviado', responsive: ['lg'] },

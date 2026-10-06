@@ -86,10 +86,14 @@ export function BotaoImprimir({ texto = 'Imprimir', desactivado, titulo }: { tex
     const tituloMapa = cab?.querySelector('.rh-mapa-titulo')?.textContent?.trim();
     const periodo = cab?.querySelector('.rh-mapa-periodo')?.textContent?.replace(/^Período:\s*/, '').trim();
     const tituloModal = ancora.current?.closest('.ant-modal-content')?.querySelector('.ant-modal-title')?.textContent?.trim();
+    // Só recibos de vencimento (2 vias por folha): cada via já leva a empresa, o título e o período — sem o cabeçalho
+    // comum por cima, para as duas metades da folha serem iguais (A4; vertical por omissão, horizontal se escolhido).
+    const soRecibos = !!area.querySelector('.rh-recibo.imp-vias') && !area.querySelector('.rh-tabela-mapa, .rh-documento, table:not(.rh-recibo-linhas)');
     return {
       titulo: tituloMapa || titulo || tituloModal || document.title,
       periodo: periodo || undefined,
-      orientacao: area.classList.contains('rh-impressao-paisagem') ? 'paisagem' : 'auto',
+      orientacao: soRecibos ? 'retrato' : area.classList.contains('rh-impressao-paisagem') ? 'paisagem' : 'auto',
+      ...(soRecibos ? { papel: 'A4' as const, cabecalho: false, blocoTitulo: false } : {}),
       conteudo: area,
       cssExtra: CSS_IMPRESSAO_RH,
     };

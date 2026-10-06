@@ -1,4 +1,4 @@
-import { Button, DatePicker, Flex, Form, Input, Modal, Radio, Select, Space, Table, Tag, Typography } from 'antd';
+import { Button, DatePicker, Flex, Form, Input, Modal, Radio, Select, Space, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -17,6 +17,7 @@ import { useColaboradoresLav } from './dados';
 import { DetalheOrdem } from './DetalheOrdem';
 import type { ListaOrdens, OrdemResumo } from './tipos';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Filtros especiais do servidor (ServicoOrdensLavandaria::listar) e os contadores correspondentes. */
 const FILTROS: { valor: string; rotulo: string; contador?: string }[] = [
   { valor: 'ACTIVAS', rotulo: 'Activas' },
@@ -109,7 +110,7 @@ export function Ordens({ terminal }: { terminal: Terminal | undefined }) {
           </Space>
         )}
       </BarraFiltros>
-      <Table<OrdemResumo>
+      <TabelaComModos<OrdemResumo>
         rowKey="id"
         size={pequeno ? 'small' : 'middle'}
         loading={consulta.isFetching}

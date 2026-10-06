@@ -70,6 +70,32 @@ export interface OpcoesDocumento {
    * (só Chromium/Edge mostram a numeração).
    */
   paginar?: boolean;
+  /**
+   * Documento em várias vias na mesma folha (recibos): cada via leva o cabeçalho da empresa, o título e o rótulo da via
+   * («Original», «Duplicado»…), separadas por uma linha de corte. Em retrato as vias ficam uma por cima da outra (cada uma
+   * em meia folha); em paisagem ficam lado a lado. As vias nunca se partem entre folhas: se não couberem, são reduzidas.
+   * `true` → «Original» e «Duplicado». Ver `OpcoesVias` para vários documentos (um por folha).
+   */
+  vias?: boolean | string[] | OpcoesVias;
+  /** Mostra o bloco do título (título, subtítulo, período, filtros). Por omissão: sim. */
+  blocoTitulo?: boolean;
+}
+
+/** Vias na mesma folha. */
+export interface OpcoesVias {
+  /** Rótulos das vias (por omissão «Original» e «Duplicado»). */
+  rotulos?: string[];
+  /**
+   * Vários documentos (ex.: recibos de vários colaboradores), cada um com as suas vias numa folha própria. Sem `partes`
+   * usa-se o `conteudo` do documento.
+   */
+  partes?: { conteudo: string; subtitulo?: string | null }[];
+}
+
+/** Preferência do utilizador para a página (escolhida no botão de impressão; «auto» = decisão do motor/do ecrã). */
+export interface PreferenciaPagina {
+  orientacao: Orientacao;
+  papel: Papel;
 }
 
 export interface OpcoesImpressao extends OpcoesDocumento {

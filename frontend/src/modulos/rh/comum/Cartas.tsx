@@ -1,4 +1,4 @@
-import { Alert, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Skeleton, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, DatePicker, Form, Input, Modal, Popconfirm, Select, Skeleton, Space, Tag, Typography } from 'antd';
 import { DeleteOutlined, DollarOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
@@ -13,6 +13,7 @@ import { useAccaoRh, useAvisarErro } from './consultas';
 import { formatarIban, mesPorExtenso } from './regras';
 import { DeslocamentoHorizontal, larguraModal, scrollTabela } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface ContaPlano {
   codigo: string;
   descricao: string | null;
@@ -75,7 +76,7 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
         {podeEmitir && <Button icon={<PlusOutlined />} onClick={() => { form.setFieldsValue({ data: dayjs(), grupo: 'TODOS' }); setEmitir(true); }}>Emitir carta</Button>}
         {periodo.estado !== 'VALIDADO' && <Typography.Text type="secondary">As cartas emitem-se de períodos validados.</Typography.Text>}
       </Space>
-      <Table<CartaPagamento> rowKey="id" size="small" loading={cartas.isFetching} columns={colunas} dataSource={cartas.data ?? []} pagination={false} scroll={scrollTabela()} />
+      <TabelaComModos<CartaPagamento> rowKey="id" size="small" loading={cartas.isFetching} columns={colunas} dataSource={cartas.data ?? []} pagination={false} scroll={scrollTabela()} />
 
       <Modal title="Emitir carta de pagamento" open={emitir} onCancel={() => setEmitir(false)} okText="Emitir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Typography.Paragraph type="secondary">Inclui os salários líquidos ainda sem carta (do grupo escolhido). É recusada se algum colaborador não tiver IBAN.</Typography.Paragraph>

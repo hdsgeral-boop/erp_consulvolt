@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Card, Checkbox, Col, DatePicker, Empty, Flex, InputNumber, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Badge, Button, Card, Checkbox, Col, DatePicker, Empty, Flex, InputNumber, Row, Select, Skeleton, Space, Tabs, Tag, Typography } from 'antd';
 import { LoginOutlined, LogoutOutlined, SaveOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
@@ -18,6 +18,7 @@ import { Checkout } from './Checkout';
 import { DetalheEstadia, ModalCheckin } from './Estadia';
 import type { Estadia, Quarto } from './tipos';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /**
  * POS › Hotelaria (ecrã pos_hotelaria): mapa de quartos, check-in, consumos, check-out com rateio dos pagamentos,
  * anulação, histórico de estadias e tarifas dos quartos (ADR-050).
@@ -221,7 +222,7 @@ function Tarifas() {
   return (
     <>
       <Typography.Paragraph type="secondary">Os quartos são produtos marcados como quarto (criados no catálogo de produtos). Os preços incluem IVA.</Typography.Paragraph>
-      <Table<Quarto>
+      <TabelaComModos<Quarto> idVista="quartos"
         rowKey="produto_id"
         size="small"
         scroll={scrollTabela()}

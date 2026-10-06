@@ -15,6 +15,7 @@ import type { PropsSeparador } from '../DetalheProjecto';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Requisições de material do projecto: cada requisição gera um pedido de compra (módulo Compras). */
 export function SeparadorRequisicoes({ projecto, acc }: PropsSeparador) {
   const q = useQuery({ queryKey: ['projectos', 'requisicoes', projecto.id], queryFn: () => obter<Requisicao[]>(`/projetos/${projecto.id}/requisicoes`) });
@@ -34,7 +35,7 @@ export function SeparadorRequisicoes({ projecto, acc }: PropsSeparador) {
         </Space>
       }
     >
-      <Table<Requisicao> scroll={scrollTabela()}
+      <TabelaComModos<Requisicao> idVista="requisicoes" scroll={scrollTabela()}
         rowKey="id"
         size="small"
         loading={q.isFetching}

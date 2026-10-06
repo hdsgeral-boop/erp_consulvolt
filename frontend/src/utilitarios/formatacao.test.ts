@@ -10,6 +10,14 @@ describe('formatação', () => {
     expect(formatarKz('')).toBe('—');
   });
 
+  it('agrupa os milhares também com 4 algarismos (pt-PT só agrupava a partir de 5)', () => {
+    // Separador de milhares do pt-PT: espaço inquebrável (U+00A0) ou espaço fino inquebrável (U+202F), conforme o ICU.
+    expect(formatarKz('1000')).toMatch(/^1[\u00a0\u202f]000,00$/);
+    expect(formatarKz('10000')).toMatch(/^10[\u00a0\u202f]000,00$/);
+    expect(formatarKz('999.99')).toBe('999,99');
+    expect(formatarNumero('1500')).toMatch(/^1[\u00a0\u202f]500$/);
+  });
+
   it('formata quantidades sem casas desnecessárias', () => {
     expect(formatarNumero('2.000')).toBe('2');
     expect(formatarNumero('1.5')).toBe('1,5');

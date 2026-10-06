@@ -31,7 +31,7 @@ Internet ──HTTPS──► reverse proxy do host (Caddy / nginx / Traefik; ce
                    scheduler (schedule:work — ciclo AGT 2/2 min, partições da auditoria, contratos)
                       │
           ┌───────────┴───────────┐
-       postgres 16             redis 7 (palavra-passe; cache, locks, filas, sessões)
+       postgres 16             redis 7 (palavra-passe; cache, locks, filas, limites)
        (volume erp_pgdados)     (volume erp_redisdados)
                    copias (pg_dump agendado + storage + segredos cifrados → ERP_PASTA_COPIAS)
 ```
@@ -100,7 +100,8 @@ Todas estão documentadas em `.env.prod.example`. O ficheiro é lido de duas for
 | Redis | `REDIS_PASSWORD` | Obrigatória |
 | Filas | `QUEUE_CONNECTION=redis`, `REDIS_QUEUE_RETRY_AFTER=660` | **Tem de ser maior do que o `--timeout=600` do worker.** Com o valor por omissão (90 s), um trabalho longo seria repetido em paralelo |
 | Logs | `LOG_CHANNEL=stderr`, `LOG_STDERR_FORMATTER=Monolog\Formatter\JsonFormatter`, `LOG_LEVEL=info` | JSON no `docker logs` |
-| Sessão | `SESSION_DRIVER=redis`, `SESSION_SECURE_COOKIE=true`, `ERP_SESSAO_*` | A API usa tokens Bearer (ADR-007) e `SANCTUM_STATEFUL_DOMAINS` fica vazio |
+| Sessão | `SESSION_DRIVER=cookie`, `SESSION_SECURE_COOKIE=true`, `ERP_SESSAO_*` | A API usa tokens Bearer (ADR-007), sem sessões no servidor: `cookie` evita chaves de sessão no Redis (2026-10-06). `SANCTUM_STATEFUL_DOMAINS` fica vazio |
+| Limites e CORS | `ERP_API_PEDIDOS_POR_MINUTO` (300), `ERP_API_EXTERNO_POR_MINUTO` (6: BAI, relógio), `ERP_API_PESADO_POR_MINUTO` (30: importações, ZIP de recibos), `ERP_CORS_ORIGENS` (vazio) | CORS fechado por omissão: o SPA é da mesma origem. Só listar origens se houver um cliente noutro domínio (docs/arquitetura/SEGURANCA_OWASP.md) |
 | Manutenção | `APP_MAINTENANCE_DRIVER=cache`, `APP_MAINTENANCE_STORE=redis` | `artisan down` partilhado pelos contentores |
 | AGT | `AGT_PASTA_SEGREDOS`, `AGT_DRIVER`, `AGT_AMBIENTE`, `AGT_*` | Ver secção 11 |
 | E-mail | `MAIL_*` | `log` até haver envio real (o CRM só regista e-mails, ADR-054) |
@@ -118,6 +119,21 @@ O contentor `web` serve HTTP em `127.0.0.1:${WEB_PORTA}`. O TLS termina num reve
 3. permitir pedidos até 100 MB e timeouts de 180 s.
 
 **Nunca publique o contentor `web` directamente na Internet** (`WEB_ENDERECO=0.0.0.0`) sem o proxy à frente. O nginx confia no `X-Forwarded-For` vindo de redes privadas, e a rede Docker é uma delas. Sem o proxy, um cliente poderia falsificar o IP e contornar o limite de tentativas de login.
+
+> **Restringir a confiança ao reverse proxy (recomendado — ADR-069, `SEGURANCA_OWASP.md`).** Por omissão,
+> `docker/nginx/producao/00-http.conf` aceita o `X-Forwarded-For` de **qualquer** endereço privado
+> (`set_real_ip_from 10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `127.0.0.1`). Se o servidor partilhar a LAN com
+> postos de trabalho, ou se a porta do `web` ficar acessível a outras máquinas, um posto da rede interna pode enviar um
+> `X-Forwarded-For` falso e contornar o limite de tentativas de login por IP (e falsear o IP nos registos). Substitua essas
+> linhas pelo endereço de onde o proxy chega ao contentor:
+> - proxy no próprio host a ligar a `127.0.0.1:${WEB_PORTA}`: dentro do contentor o pedido chega da **gateway da rede
+>   Docker** — veja-a com `docker network inspect <projecto>_default --format '{{(index .IPAM.Config 0).Gateway}}'` e use
+>   `set_real_ip_from <gateway>/32;`;
+> - proxy noutra máquina/contentor: `set_real_ip_from <IP do proxy>/32;` (um por proxy).
+>
+> Mantenha `real_ip_header X-Forwarded-For;` e `real_ip_recursive on;`, reconstrua a imagem `web`
+> (`sh ferramentas/operacao/prod.sh build web`) e confirme no log JSON (`"ip"`) que aparece o IP do cliente e não o do proxy.
+> Para que a gateway não mude, fixe a sub-rede da rede por omissão no `docker-compose.prod.yml` (`networks.default.ipam`).
 
 Exemplo com **Caddy** (certificado Let's Encrypt automático), em `/etc/caddy/Caddyfile`:
 
@@ -256,7 +272,9 @@ Segredos: `openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in segredos.tar.gz.
 
 ## 10. Monitorização, logs e manutenção periódica
 
-**Saúde.** `GET /api/saude` (pública) devolve 200 com `dados.estado = OK`, `dados.versao` e os componentes `base_dados`, `redis`, `filas` (tamanho de cada fila e n.º de trabalhos falhados), `armazenamento` (storage gravável) e `processos` (batimentos do scheduler e do worker). Se algum componente falhar, devolve 503 `SERVICO_INDISPONIVEL`, com o estado de cada componente em `erros`. A rota **não passa pelo limitador da API** (que usa o Redis), para responder 503 com o detalhe mesmo com o Redis em baixo.
+**Saúde.** `GET /api/saude` (pública; as versões exactas do PostgreSQL e do Redis só aparecem com um token Sanctum válido ou em depuração) devolve 200 com `dados.estado = OK`, `dados.versao` e os componentes `base_dados`, `redis`, `filas` (tamanho de cada fila e n.º de trabalhos falhados), `armazenamento` (storage gravável) e `processos` (batimentos do scheduler e do worker). Se algum componente falhar, devolve 503 `SERVICO_INDISPONIVEL`, com o estado de cada componente em `erros`. A rota **não passa pelo limitador da API** (que usa o Redis), para responder 503 com o detalhe mesmo com o Redis em baixo.
+
+**Memória do Redis.** `maxmemory 512mb` com `volatile-lru` (só se despejam chaves com TTL; filas e batimentos nunca) e AOF com reescrita a 100 %/64 MB. Os locks também têm TTL e seriam despejáveis: o uso tem de ficar muito abaixo do limite (hoje ~2 MB). Vigiar `prod.sh exec redis sh -c 'redis-cli -a "$REDIS_PASSWORD" --no-auth-warning INFO stats' | grep evicted_keys` (tem de ser 0) e `used_memory` < 70 % do `maxmemory`. Regras e inventário da cache: docs/arquitetura/CACHE.md.
 
 **Batimentos.** O scheduler grava `batimento:scheduler` na cache a cada minuto e agenda de 5 em 5 min um trabalho na fila `baixa` (`BatimentoWorker`) que grava `batimento:worker`. Em `processos`, um batimento com mais de 5 min (scheduler) ou 15 min (worker) é FALHA, com a idade no detalhe. «sem registo» (ambiente sem scheduler, ou logo depois de um `cache:clear`) é só informativo.
 
@@ -335,9 +353,11 @@ sh ferramentas/operacao/prod.sh exec postgres sh -c 'psql -U "$POSTGRES_USER" -d
 
 | Job | Passos |
 | :--- | :--- |
-| `backend` | PHP 8.3 (extensões do Dockerfile), serviços `postgres:16` e `redis:7`, `composer install`, extensões `unaccent`/`pg_trgm`, `.env` de teste, `vendor/bin/pint --test`, `php artisan test` na base `erp_consulvolt_testes` (ADR-019) |
-| `frontend` | Node 22, `npm ci --ignore-scripts=false` (o esbuild precisa do script de instalação), `npx tsc --noEmit -p .`, `npx vitest run`, `npm run build` |
+| `backend` | PHP 8.3 (extensões do Dockerfile), serviços `postgres:16` e `redis:7`, `composer install`, `composer audit` (avisos de segurança e pacotes abandonados), extensões `unaccent`/`pg_trgm`, `.env` de teste, `vendor/bin/pint --test`, `php artisan test` na base `erp_consulvolt_testes` (ADR-019) |
+| `frontend` | Node 22, `npm ci --ignore-scripts=false` (o esbuild precisa do script de instalação), `npm audit --omit=dev --audit-level=high`, `npx tsc --noEmit -p .`, `npx vitest run`, `npm run build` |
 | `producao` | ShellCheck dos scripts de operação, `docker compose config` do compose de produção (com o modelo de variáveis) e build das 3 imagens, **sem publicação** |
+
+As *actions* estão fixadas por SHA de commit, com a versão oficial em comentário (ADR-069): para actualizar, obter o SHA da nova tag com `gh api repos/<dono>/<repo>/commits/<tag> --jq .sha` e trocar SHA e comentário. O `npm audit` só falha a partir de «high»: as 2 vulnerabilidades moderadas do `react-router` 6 ficam no relatório até à migração para o 7.
 
 As dependências do Composer e do npm e as camadas Docker ficam em cache. Recomendação: proteger o ramo `main`, exigindo os 3 jobs verdes antes do merge.
 

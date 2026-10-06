@@ -1,11 +1,12 @@
 import { Alert, Button, Checkbox, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Skeleton, Space, Table, Tabs, Tag, Timeline, Tooltip, Typography } from 'antd';
-import { CheckOutlined, DollarOutlined, ExclamationCircleOutlined, FileDoneOutlined, PlayCircleOutlined, PrinterOutlined, SendOutlined, StopOutlined, TagsOutlined, ToolOutlined } from '@ant-design/icons';
+import { CheckOutlined, DollarOutlined, ExclamationCircleOutlined, FileDoneOutlined, FileTextOutlined, PlayCircleOutlined, PrinterOutlined, SendOutlined, StopOutlined, TagsOutlined, ToolOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import { BotoesExportar, pares, tabelaHtml, type PedidoImpressao } from '@/componentes/impressao';
+import { aplicarPreferencia, BotoesExportar, lerPreferencia, pares, tabelaHtml, useImpressao, type PedidoImpressao } from '@/componentes/impressao';
+import { pedidoDuasVias } from '@/modulos/vendas/impressao/documentoRecibo';
 import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { SeletorProduto } from '@/modulos/compras/comum/Seletores';
@@ -16,7 +17,7 @@ import { accoesOrdem } from '../comum/regras';
 import type { Terminal, VendaEmitida } from '../comum/tipos';
 import { htmlTalaoVenda, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import { useDefinicoesLav, useOrdem } from './dados';
-import { htmlEtiquetasOS, htmlReciboLav, htmlTalaoOS } from './impressoes';
+import { dadosReciboLavA4, htmlEtiquetasOS, htmlReciboLav, htmlTalaoOS } from './impressoes';
 import type { DetalheOrdem as Detalhe, ItemOrdem, PagamentoLav, SimulacaoEntrega } from './tipos';
 
 const INVALIDAR = [['pos']];
@@ -30,6 +31,7 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
   const consulta = useOrdem(id);
   const definicoes = useDefinicoesLav();
   const cabecalho = useCabecalhoTalao();
+  const { imprimir: imprimirA4 } = useImpressao();
   const d = consulta.data;
   const sessaoId = terminal?.sessao_aberta?.id ?? null;
   const [receber, setReceber] = useState(false);
@@ -67,6 +69,8 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
     const p = lerPreferencias(empresa?.id);
     reimprimir(htmlReciboLav(r, d, cab(), p), p);
   };
+  /** Recibo RC-LAV em A4 com as duas vias na mesma folha (orientação lembrada no navegador). */
+  const imprimirReciboA4 = (r: PagamentoLav) => d && void imprimirA4({ ...aplicarPreferencia(pedidoDuasVias(dadosReciboLavA4(r, d)), lerPreferencia('lavandaria recibo a4')), modo: 'imprimir' });
 
   const a = d ? accoesOrdem(pode, { estado: d.pedido.estado, itens: d.pedido.itens, saldo: d.totais.saldo, por_facturar: d.totais.por_facturar }, !!sessaoId) : null;
   const outroTerminal = !!d && !!terminal && d.pedido.terminal_pos_id !== terminal.id;
@@ -262,7 +266,12 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                           key: 'a',
                           render: (_, p) => (
                             <Space size={4}>
-                              <Button size="small" icon={<PrinterOutlined />} aria-label={`Imprimir o recibo ${p.numero_recibo ?? ''}`} title="Imprimir" onClick={() => imprimirRecibo(p)} />
+                              <Button size="small" icon={<PrinterOutlined />} aria-label={`Imprimir o recibo ${p.numero_recibo ?? ''}`} title="Imprimir (formato do posto)" onClick={() => imprimirRecibo(p)} />
+                              {!(p.venda_id && p.natureza_registo === 'FR') && (
+                                <Button size="small" icon={<FileTextOutlined />} aria-label={`Recibo ${p.numero_recibo ?? ''} em A4 (original e duplicado)`} title="Recibo em A4 — original e duplicado na mesma folha" onClick={() => imprimirReciboA4(p)}>
+                                  A4
+                                </Button>
+                              )}
                               {p.estado === 'REGISTADO' && pode('lav_anular') && (
                                 <Button size="small" danger onClick={() => setAnularRecibo(p)}>
                                   Anular

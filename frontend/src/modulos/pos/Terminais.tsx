@@ -18,6 +18,7 @@ import { classeLiquidacao, meiosPadrao, meiosParaApi, validarMeios } from './com
 import { accoesTerminal } from './comum/regras';
 import type { MeioPagamento, Terminal, TipoTerminal } from './comum/tipos';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /**
  * POS › Terminais (ecrã pos_terminais): terminais, meios de pagamento com as contas transitória/liquidação/comissão,
  * cópia de meios de outro terminal (mesma ou outra empresa), activar/desactivar e eliminar (ADR-047).
@@ -45,7 +46,7 @@ export default function Terminais() {
           )
         }
       />
-      <Table<Terminal>
+      <TabelaComModos<Terminal>
         rowKey="id"
         size={pequeno ? 'small' : 'middle'}
         loading={terminais.isFetching}

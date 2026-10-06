@@ -1,17 +1,31 @@
-import { Descriptions, Flex, Table, Tag, Tooltip, Typography } from 'antd';
-import { WarningOutlined } from '@ant-design/icons';
+import { Button, Descriptions, Flex, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { CalculatorOutlined, FileTextOutlined, WarningOutlined } from '@ant-design/icons';
+import { useState } from 'react';
 import type { ColumnsType } from 'antd/es/table';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import type { DetalhePeriodo, ResultadoSalarial } from '../api';
-import { useColaboradores } from './consultas';
+import { useCargos, useColaboradores } from './consultas';
+import { ModalReciboColaborador, ModalSimulacaoColaborador } from './SimulacaoColaborador';
 import { totaisResultados } from './regras';
 
-/** Resultados do período por colaborador (fotografia ou cálculo ao vivo), com rubricas e avisos no detalhe da linha. */
-export function TabelaResultados({ periodo, carregando }: { periodo: DetalhePeriodo | undefined; carregando?: boolean }) {
+/**
+ * Resultados do período por colaborador (fotografia ou cálculo ao vivo), com rubricas e avisos no detalhe da linha.
+ * Por linha: «Simular» (simulação salarial do colaborador, calculada no servidor — nada é gravado) e, nos períodos
+ * validados, «Recibo» (recibo individual em 2 vias na mesma folha).
+ */
+export function TabelaResultados({ periodo, carregando, recibos }: { periodo: DetalhePeriodo | undefined; carregando?: boolean; recibos?: boolean }) {
   const colaboradores = useColaboradores();
+  const cargos = useCargos();
   const resultados = periodo?.resultados ?? [];
   const totais = periodo?.totais ?? totaisResultados(resultados);
   const nome = (r: ResultadoSalarial) => r.nome ?? colaboradores.nome(r.colaborador_id);
+  const [simular, setSimular] = useState<ResultadoSalarial | null>(null);
+  const [recibo, setRecibo] = useState<ResultadoSalarial | null>(null);
+  const comRecibo = recibos && periodo?.estado === 'VALIDADO';
+  const dadosRecibo = (r: ResultadoSalarial) => {
+    const c = colaboradores.mapa.get(r.colaborador_id);
+    return { nome: nome(r), nif: r.nif ?? c?.nif ?? null, numero_inss: r.numero_inss ?? c?.numero_inss ?? null, funcao: c?.cargo_funcao_id ? cargos.nome(c.cargo_funcao_id) : r.funcao ?? null };
+  };
 
   const colunas: ColumnsType<ResultadoSalarial> = [
     {
@@ -35,9 +49,23 @@ export function TabelaResultados({ periodo, carregando }: { periodo: DetalhePeri
     { title: 'IRT', dataIndex: 'irt', align: 'right', render: (v: string) => formatarKz(v) },
     { title: 'Descontos', dataIndex: 'descontos', align: 'right', render: (v: string) => formatarKz(v) },
     { title: 'Líquido', dataIndex: 'liquido', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong>, sorter: (a, b) => Number(a.liquido) - Number(b.liquido) },
+    {
+      title: '',
+      key: 'accoes',
+      align: 'right',
+      render: (_, r) => (
+        <Space size={4} wrap={false}>
+          <Button size="small" icon={<CalculatorOutlined />} onClick={() => setSimular(r)} aria-label={`Simular ${nome(r)}`}>{periodo?.estado === 'VALIDADO' ? 'Detalhe' : 'Simular'}</Button>
+          {comRecibo && <Button size="small" icon={<FileTextOutlined />} onClick={() => setRecibo(r)} aria-label={`Recibo de ${nome(r)}`}>Recibo</Button>}
+        </Space>
+      ),
+    },
   ];
 
   return (
+    <>
+    <ModalSimulacaoColaborador resultado={simular} mesAno={periodo?.mes_ano ?? ''} nome={simular ? nome(simular) : ''} simulacao={periodo?.estado !== 'VALIDADO'} aoFechar={() => setSimular(null)} />
+    <ModalReciboColaborador resultado={recibo} mesAno={periodo?.mes_ano ?? ''} colaborador={recibo ? dadosRecibo(recibo) : { nome: '' }} aoFechar={() => setRecibo(null)} />
     <Table<ResultadoSalarial>
       rowKey="colaborador_id"
       size="small"
@@ -94,6 +122,7 @@ export function TabelaResultados({ periodo, carregando }: { periodo: DetalhePeri
         ) : null
       }
     />
+    </>
   );
 }
 

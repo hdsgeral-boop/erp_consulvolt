@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, ColorPicker, Descriptions, Empty, Flex, Form, Input, InputNumber, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Switch, Table, Tabs, Tag, Tree, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, ColorPicker, Descriptions, Empty, Flex, Form, Input, InputNumber, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Switch, Tabs, Tag, Tree, Typography } from 'antd';
 import { ApartmentOutlined, BlockOutlined, ClusterOutlined, DeleteOutlined, EditOutlined, PlusOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -15,6 +15,7 @@ import { SeletorColaborador } from '@/modulos/rh/comum/componentes';
 import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { TIPOS_UNIDADE, aplanar, construirArvore, descendentes, type Estrutura as DadosEstrutura, type NoUnidade, type Posto, type Unidade } from './comum/arvore';
 
+import { TabelaComModos } from '@/componentes/vistas';
 interface NoArvore {
   key: number;
   title: ReactNode;
@@ -206,7 +207,7 @@ function Unidades() {
               </Descriptions>
             </Card>
             <Card size="small" title="Postos de trabalho" extra={editar && <Button size="small" icon={<PlusOutlined />} onClick={() => setPosto('novo')}>Posto</Button>}>
-              <Table<Posto>
+              <TabelaComModos<Posto> idVista="postos"
                 scroll={scrollTabela()}
                 size="small"
                 rowKey="id"
@@ -394,7 +395,7 @@ function Cargos() {
   return (
     <Card>
       {editar && <Flex justify="end" style={{ marginBottom: 12 }}><Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo cargo</Button></Flex>}
-      <Table
+      <TabelaComModos idVista="cargos"
         scroll={scrollTabela()}
         rowKey="id"
         size="small"

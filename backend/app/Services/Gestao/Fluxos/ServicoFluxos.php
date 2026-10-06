@@ -41,7 +41,7 @@ final class ServicoFluxos
             if (! $pode($f['vistas'])) {
                 continue;
             }
-            $saida[] = ['id' => $id, 'nome' => $f['nome'], 'sub' => $f['sub'], 'tem_actividade' => $this->avaliador($id)->temActividade(), 'etapas' => self::etapas($id)];
+            $saida[] = ['id' => $id, 'nome' => $f['nome'], 'sub' => $f['sub'], 'icone' => CatalogoFluxos::ICONES[$id]['fluxo'] ?? null, 'tem_actividade' => $this->avaliador($id)->temActividade(), 'etapas' => self::etapas($id)];
         }
 
         return $saida;
@@ -64,7 +64,7 @@ final class ServicoFluxos
         $r = $this->calcular($id);
         $f = self::definicao($id);
 
-        return ['fluxo' => ['id' => $id, 'nome' => $f['nome'], 'sub' => $f['sub'], 'etapas' => self::etapas($id), 'narrativa' => CatalogoFluxos::narrativa($id)],
+        return ['fluxo' => ['id' => $id, 'nome' => $f['nome'], 'sub' => $f['sub'], 'icone' => CatalogoFluxos::ICONES[$id]['fluxo'] ?? null, 'etapas' => self::etapas($id), 'narrativa' => CatalogoFluxos::narrativa($id)],
             'tem_actividade' => $this->avaliador($id)->temActividade(), 'total' => count($r['processos']), 'kpis' => $r['kpis'], 'funil' => $r['funil'], 'extra' => $r['extra']];
     }
 
@@ -216,12 +216,13 @@ final class ServicoFluxos
         return CatalogoFluxos::FLUXOS[$id] ?? throw new ErroNegocio('Fluxo desconhecido.', 'FLUXO_INVALIDO', 404, ['fluxo' => ['Use: '.implode(', ', array_keys(CatalogoFluxos::FLUXOS)).'.']]);
     }
 
-    /** @return list<array{id: string, nome: string}> */
+    /** @return list<array{id: string, nome: string, icone: ?string}> etapas pela ordem do diagrama, com o ícone do legado */
     public static function etapas(string $id): array
     {
         $e = self::definicao($id)['etapas'];
+        $icones = CatalogoFluxos::ICONES[$id]['etapas'] ?? [];
 
-        return array_map(fn ($k, $n) => ['id' => $k, 'nome' => $n], array_keys($e), $e);
+        return array_map(fn ($k, $n) => ['id' => $k, 'nome' => $n, 'icone' => $icones[$k] ?? null], array_keys($e), $e);
     }
 
     private function avaliador(string $id): AvaliadorFluxo

@@ -1,5 +1,5 @@
 import { ImportarExcel } from './comum/ImportarExcel';
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Tabs, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, ImportOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -19,6 +19,7 @@ import { useAccaoRh, useAvisarErro, useInfotipos } from './comum/consultas';
 import { pedidoTabela } from './comum/impressao';
 import { mesPorExtenso, somar } from './comum/regras';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** RH › Subsídio de produtividade (ecrã rh_produtividade): períodos, registos e itens. */
 export default function Produtividade() {
   return (
@@ -114,7 +115,7 @@ function Periodos() {
           )}
         </>
       }>{null}</BarraFiltros>
-      <Table<PeriodoProdutividade> rowKey="id" size="middle" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 24 }} scroll={scrollTabela()}
+      <TabelaComModos<PeriodoProdutividade> idVista="periodos" rowKey="id" size="middle" loading={q.isFetching} dataSource={q.data ?? []} pagination={{ pageSize: 24 }} scroll={scrollTabela()}
         onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         columns={colunas} />
       <Modal title="Abrir período de produtividade" open={novo} onCancel={() => setNovo(false)} okText="Abrir" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
@@ -220,7 +221,7 @@ function DetalhePeriodo() {
       </Card>
       <Card>
         <Typography.Paragraph type="secondary">O mínimo e o máximo do item aplicam-se ao total do colaborador no período; a quantidade considerada reparte-se pelos registos.</Typography.Paragraph>
-        <Table<RegistoProdutividade> rowKey="id" size="small" columns={colunas} dataSource={p.registos} scroll={scrollTabela()} pagination={{ pageSize: 50 }} />
+        <TabelaComModos<RegistoProdutividade> idVista="registos" rowKey="id" size="small" columns={colunas} dataSource={p.registos} scroll={scrollTabela()} pagination={{ pageSize: 50 }} />
       </Card>
       <ImportarExcel aberto={importar} titulo={`Importar produtividade — ${mesPorExtenso(p.mes)}`} url={`/rh/produtividade/periodos/${id}/importar`} modelo="produtividade" comDecisao="IGNORAR"
         ajuda="Folha «Produtividade»: NIF, código do item, quantidade, data (opcional, dentro da janela) e observações. O colaborador tem de ter o item no contrato activo; o mesmo NIF + item + data nunca se duplica."

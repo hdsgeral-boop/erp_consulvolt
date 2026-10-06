@@ -478,6 +478,8 @@ function Matriz() {
     <Card>
       <TabelaLocalImprimivel<(typeof linhas)[number]>
         titulo="Matriz de permissões por perfil"
+        idVista="matriz"
+        cartao={{ maxCampos: 40 }}
         filtros={[modulo ? `Módulo: ${catalogo.data?.modulos.find((m) => m.id === modulo)?.nome ?? modulo}` : null, texto ? `Pesquisa: ${texto}` : null, soAtribuidas ? 'Só permissões atribuídas a algum perfil' : null]}
         filtrosEcra={<>
         <Select allowClear placeholder="Módulo" style={{ width: 240 }} value={modulo} onChange={setModulo} options={(catalogo.data?.modulos ?? []).map((m) => ({ value: m.id, label: m.nome }))} />

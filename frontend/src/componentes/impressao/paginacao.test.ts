@@ -195,4 +195,21 @@ describe('@page e estilos do documento paginado', () => {
     expect(r).toContain('@media not all and (max-width: 600px)');
     expect(r).toContain('media="all"');
   });
+  it('vias de um recibo (.imp-uma-folha): nunca se partem, mesmo numa folha vazia — são reduzidas para caber', () => {
+    const doc = documento('<div class="imp-vias imp-uma-folha"><section class="imp-via"><div data-h="380"></div></section><div class="imp-corte" data-h="20"></div><section class="imp-via"><div data-h="380"></div></section></div>');
+    const { paginas } = paginarDocumento(doc, FORMATO, null);
+    expect(paginas).toBe(1);
+    const vias = doc.querySelector<HTMLElement>('.imp-pagina .imp-vias')!;
+    expect(vias.querySelectorAll('.imp-via')).toHaveLength(2);
+    expect(Number(vias.style.getPropertyValue('zoom'))).toBeLessThan(1);
+  });
+
+  it('vários recibos em vias: um por folha', () => {
+    const via = '<section class="imp-via"><div data-h="150"></div></section>';
+    const bloco = (q: boolean) => `<div class="imp-vias imp-uma-folha${q ? ' imp-quebra-pagina' : ''}">${via}<div class="imp-corte" data-h="10"></div>${via}</div>`;
+    const doc = documento(bloco(true) + bloco(true) + bloco(false));
+    const { paginas } = paginarDocumento(doc, FORMATO, null);
+    expect(paginas).toBe(3);
+    folhas(doc).forEach((f) => expect(f.querySelectorAll('.imp-via')).toHaveLength(2));
+  });
 });

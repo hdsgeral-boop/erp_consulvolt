@@ -10,6 +10,7 @@ use App\Models\LancamentoContabil;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\ResultadoFolhaSalarial;
 use App\Models\Terceiro;
+use App\Models\Utilizador;
 use App\Models\Venda;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
@@ -146,6 +147,7 @@ final class GestaoPaineisTest extends TestCase
         $this->assertCount(12, $vc['rotulos']);
         $this->assertSame('Mar/26', $vc['rotulos'][11]);
         $this->assertSame('400.00', $vc['series'][0]['valores'][9]);   // Janeiro
+        $this->assertSame(['#2563eb', '#ea580c'], array_column($vc['series'], 'cor'));   // cores do legado (vendas, compras)
         $this->assertSame(2026, $g['periodo']['ano']);
 
         $comIva = $this->getJson('/api/gestao/paineis/geral?ano=2026&mes=3&iva=com&actualizar=1', $this->total())->assertOk()->json('dados');
@@ -268,6 +270,23 @@ final class GestaoPaineisTest extends TestCase
         $this->assertSame('250.00', $quadro[(string) $outra->id]['proveitos']);
         $this->assertSame('1250.00', $quadro['TOTAL']['proveitos']);
         $this->getJson('/api/gestao/paineis/comparacao?empresas[]='.$semAcesso->id, $s)->assertForbidden()->assertJsonPath('codigo', 'EMPRESA_SEM_ACESSO');
+    }
+
+    #[Test]
+    public function comparacao_em_cache_deixa_de_ser_vista_logo_que_o_acesso_e_retirado(): void
+    {
+        $outra = $this->criarEmpresa();
+        $s = $this->sessao(['dashboard_view', 'lancamentos_view'], [$this->empresa->id, $outra->id]);
+        $url = '/api/gestao/paineis/comparacao?ano=2026&mes=3&empresas[]='.$this->empresa->id.'&empresas[]='.$outra->id;
+        $this->getJson($url, $s)->assertOk();
+        $this->getJson($url, $s)->assertOk();   // 2.º pedido servido pela cache (gestao:comparacao:*)
+
+        // retirar o acesso à segunda empresa (o pivot invalida a lista de empresas acessíveis do utilizador)
+        Utilizador::query()->latest('id')->firstOrFail()->empresas()->detach($outra->id);
+
+        // a entrada da comparação continua em cache, mas a autorização é verificada antes de a ler
+        $this->getJson($url, $s)->assertForbidden()->assertJsonPath('codigo', 'EMPRESA_SEM_ACESSO')->assertJsonPath('erros.empresas', [$outra->id]);
+        $this->getJson('/api/gestao/paineis/comparacao?ano=2026&mes=3&empresas[]='.$this->empresa->id, $s)->assertOk();
     }
 
     #[Test]

@@ -17,9 +17,9 @@ Route::prefix('rh/salarios')->name('rh.salarios.')->group(function () {
     Route::post('periodos/{id}/lancamentos/lote', [FolhaSalarialController::class, 'lote'])->whereNumber('id')->name('lancamentos.lote');
     Route::put('periodos/{id}/lancamentos/lote', [FolhaSalarialController::class, 'editarLote'])->whereNumber('id')->name('lancamentos.lote.editar');
     Route::delete('periodos/{id}/lancamentos/lote', [FolhaSalarialController::class, 'removerLote'])->whereNumber('id')->name('lancamentos.lote.remover');
-    Route::post('periodos/{id}/importar-excel', [ImportacaoRHController::class, 'calculo'])->whereNumber('id')->name('periodos.importar-excel');
+    Route::post('periodos/{id}/importar-excel', [ImportacaoRHController::class, 'calculo'])->whereNumber('id')->middleware('throttle:pesado')->name('periodos.importar-excel');
     Route::get('periodos/{id}/recibos/{colaborador}/pdf', [ConfiguracaoRHController::class, 'reciboPdf'])->whereNumber(['id', 'colaborador'])->name('recibos.pdf');
-    Route::get('periodos/{id}/recibos-zip', [ConfiguracaoRHController::class, 'recibosZip'])->whereNumber('id')->name('recibos.zip');
+    Route::get('periodos/{id}/recibos-zip', [ConfiguracaoRHController::class, 'recibosZip'])->whereNumber('id')->middleware('throttle:pesado')->name('recibos.zip');
 });
 
 Route::prefix('rh')->name('rh.')->group(function () {
@@ -28,11 +28,11 @@ Route::prefix('rh')->name('rh.')->group(function () {
     Route::put('tabela-irt', [ConfiguracaoRHController::class, 'gravarTabelaIrt'])->name('tabela-irt.gravar');
     Route::delete('tabela-irt', [ConfiguracaoRHController::class, 'reporTabelaIrt'])->name('tabela-irt.repor');
     Route::get('assiduidade/feriados-nacionais', [ConfiguracaoRHController::class, 'feriadosNacionais'])->name('assiduidade.feriados-nacionais');
-    Route::post('assiduidade/registos/importar-relogio', [ConfiguracaoRHController::class, 'importarRelogio'])->name('assiduidade.registos.relogio');
+    Route::post('assiduidade/registos/importar-relogio', [ConfiguracaoRHController::class, 'importarRelogio'])->middleware('throttle:externo')->name('assiduidade.registos.relogio');
 
     Route::get('importacoes/modelos/{entidade}', [ImportacaoRHController::class, 'modelo'])->where('entidade', '[a-z_]+')->name('importacoes.modelo');
-    Route::post('importacoes/colaboradores', [ImportacaoRHController::class, 'colaboradores'])->name('importacoes.colaboradores');
-    Route::post('importacoes/contratos', [ImportacaoRHController::class, 'contratos'])->name('importacoes.contratos');
+    Route::post('importacoes/colaboradores', [ImportacaoRHController::class, 'colaboradores'])->middleware('throttle:pesado')->name('importacoes.colaboradores');
+    Route::post('importacoes/contratos', [ImportacaoRHController::class, 'contratos'])->middleware('throttle:pesado')->name('importacoes.contratos');
     Route::post('produtividade/periodos/{periodo}/importar', [ImportacaoRHController::class, 'produtividade'])->whereNumber('periodo')->name('produtividade.importar');
     Route::get('avaliacao/equipa', [AvaliacaoEquipaController::class, 'equipa'])->name('avaliacao.equipa');
     Route::get('avaliacao/autoavaliacoes', [AvaliacaoEquipaController::class, 'autoavaliacoes'])->name('avaliacao.autoavaliacoes');
@@ -42,5 +42,5 @@ Route::prefix('rh')->name('rh.')->group(function () {
 });
 
 // Activos: importação .xlsx e modelo (paridade com downloadAssetExcelTemplate/handleAssetExcelUpload)
-Route::post('ativos/bens/importar/folha', [AtivosController::class, 'lerFolhaBens'])->name('ativos.bens.importar.folha');
+Route::post('ativos/bens/importar/folha', [AtivosController::class, 'lerFolhaBens'])->middleware('throttle:pesado')->name('ativos.bens.importar.folha');
 Route::get('ativos/bens/importar/modelo', [AtivosController::class, 'modeloBens'])->name('ativos.bens.importar.modelo');

@@ -34,6 +34,8 @@ final class ConfiguracaoRHController extends Controller
     /** PUT /rh/configuracao — a segregação exige quem gere as empresas; as regras das férias exigem rh_ferias_edit. */
     public function gravarConfig(Request $r, ServicoConfiguracaoRH $cfg): JsonResponse
     {
+        // OWASP A01: sem nenhuma das permissões, recusa logo (um corpo vazio passava e devolvia a configuração de RH)
+        $this->exigir('config_empresas_gerir', 'rh_ferias_edit');
         $d = $r->validate(['segregar_encerrar_validar' => ['sometimes', 'boolean'], 'ferias_dias_mes_admissao' => ['sometimes', 'integer', 'between:0,5'],
             'ferias_meses_minimos_gozo' => ['sometimes', 'integer', 'between:0,12'], 'ferias_transporte_saldo' => ['sometimes', 'boolean'],
             'ferias_transporte_max_dias' => ['sometimes', 'integer', 'between:0,66']]);

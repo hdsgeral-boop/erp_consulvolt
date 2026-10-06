@@ -1,4 +1,4 @@
-import { Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Table, Typography } from 'antd';
+import { Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -16,6 +16,7 @@ import { DetalheOrcamento } from './DetalheOrcamento';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Orçamento › Orçamentos (ecrã orc_orcamentos): exploração e tesouraria, versões, aprovação, top-down e contributos. */
 export default function Orcamentos() {
   return (
@@ -60,7 +61,7 @@ function Lista() {
           <InputNumber prefix="Ano" min={2000} max={2100} value={ano} onChange={(v) => setAno(v ?? undefined)} style={{ width: 150 }} />
           <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 160 }} options={[{ value: 'EXPLORACAO', label: 'Exploração' }, { value: 'TESOURARIA', label: 'Tesouraria' }]} />
         </BarraFiltros>
-        <Table<Orcamento>
+        <TabelaComModos<Orcamento>
           rowKey="id"
           size="middle"
           loading={q.isFetching}

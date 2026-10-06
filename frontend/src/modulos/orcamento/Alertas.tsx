@@ -17,6 +17,7 @@ import { EtiquetaOrc, Kz } from './comum/componentes';
 import { corMonitor, MESES } from './comum/regras';
 import type { AlertaOrcamental, LinhaMonitor, PedidoExcesso, RefOrcamento, RefRubrica } from './comum/tipos';
 
+import { TabelaComModos } from '@/componentes/vistas';
 /** Orçamento › Alertas e aprovações (ecrã orc_alertas): pedidos de excesso para decidir, registo de alertas e monitor de consumo. */
 export default function Alertas() {
   return (
@@ -73,7 +74,7 @@ function Pedidos() {
         <Select placeholder="Estado" allowClear value={estado} onChange={setEstado} style={{ width: 180 }}
           options={[{ value: 'PENDENTE', label: 'Pendentes' }, { value: 'APROVADO', label: 'Aprovados' }, { value: 'REJEITADO', label: 'Rejeitados' }, { value: 'UTILIZADO', label: 'Utilizados' }]} />
       </BarraFiltros>
-      <Table<PedidoExcesso>
+      <TabelaComModos<PedidoExcesso> idVista="pedidos"
         rowKey="id"
         size="middle"
         loading={q.isFetching}

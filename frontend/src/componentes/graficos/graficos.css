@@ -1,0 +1,18 @@
+/* Gráficos SVG: animação discreta (respeita «reduzir movimento»), cores preservadas na impressão e dica. */
+.grafico-raiz { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.grafico-raiz svg text { font-family: inherit; font-variant-numeric: tabular-nums; }
+.grafico-legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 6px; padding: 0; list-style: none; font-size: 11px; font-weight: 600; color: rgba(0, 0, 0, 0.75); }
+.grafico-legenda li { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.grafico-legenda i { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+.grafico-dica { position: absolute; background: #fff; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); padding: 6px 10px; font-size: 12px; pointer-events: none; white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: no-preference) {
+  .grafico-anim-v { transform-box: fill-box; transform-origin: bottom; animation: grafico-crescer-v .45s ease-out both; }
+  .grafico-anim-v.negativo { transform-origin: top; }
+  .grafico-anim-h { transform-box: fill-box; transform-origin: left; animation: grafico-crescer-h .45s ease-out both; }
+  .grafico-anim-h.negativo { transform-origin: right; }
+  .grafico-anim-f { animation: grafico-surgir .5s ease-out both; }
+}
+@keyframes grafico-crescer-v { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes grafico-crescer-h { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes grafico-surgir { from { opacity: 0; } to { opacity: 1; } }
+@media print { .grafico-anim-v, .grafico-anim-h, .grafico-anim-f { animation: none !important; } .grafico-dica { display: none; } }
