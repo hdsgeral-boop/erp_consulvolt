@@ -45,12 +45,14 @@ export default function Controlo() {
     { title: 'Realizado', dataIndex: 'realizado', align: 'right', render: (v) => <Kz valor={v} forte />, valorImpressao: (l) => formatarKz(l.realizado) },
     { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v, l) => <Typography.Text type={l.favoravel ? 'success' : 'danger'}>{formatarKz(v)}</Typography.Text> },
     { title: 'Execução', dataIndex: 'execucao_pct', align: 'right', render: pct },
-    { title: 'Apreciação', key: 'f', valorImpressao: (l) => `${l.favoravel ? 'Favorável' : 'Desfavorável'}${l.desvio_significativo ? ' (> 10%)' : ''}`, render: (_, l) => <>{l.favoravel ? <Tag color="green">Favorável</Tag> : <Tag color="red">Desfavorável</Tag>}{l.desvio_significativo && <Tag color="volcano">&gt; 10%</Tag>}</> },
+    // decisão 24: realizado sem orçamento = desvio desfavorável significativo
+    { title: 'Apreciação', key: 'f', valorImpressao: (l) => `${l.favoravel ? 'Favorável' : 'Desfavorável'}${l.sem_orcamento ? ' (sem orçamento)' : l.desvio_significativo ? ' (> 10%)' : ''}`,
+      render: (_, l) => <>{l.favoravel ? <Tag color="green">Favorável</Tag> : <Tag color="red">Desfavorável</Tag>}{l.sem_orcamento && !l.favoravel ? <Tag color="volcano">Sem orçamento</Tag> : l.desvio_significativo && <Tag color="volcano">&gt; 10%</Tag>}</> },
   ];
 
   return (
     <>
-      <CabecalhoPagina titulo="Controlo orçamental" subtitulo="Realizado a partir do Diário; desvio = real − orçado (favorável acima do orçado nas entradas e abaixo nas saídas)"
+      <CabecalhoPagina titulo="Controlo Orçamental" subtitulo="Realizado a partir do Diário; desvio = real − orçado (favorável acima do orçado nas entradas e abaixo nas saídas)"
         impressaoDesactivada={!c}
         impressao={() => c && pedidoTabela({
           titulo: 'Mapa de controlo orçamental',

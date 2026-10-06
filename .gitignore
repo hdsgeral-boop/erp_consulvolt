@@ -31,3 +31,9 @@ backups/
 SHA256SUMS
 wstb_payroll_backup_*.json
 .versoes-implantadas
+
+# credenciais locais do utilizador (nunca publicar)
+credenciais*.txt
+*credenciais*
+# prompts de trabalho do utilizador (locais)
+PROMPT_*.txt

@@ -1,15 +1,15 @@
 import { Alert, Button, Checkbox, DatePicker, Descriptions, Form, InputNumber, Modal, Radio, Select, Space, Table, Typography, Upload, message } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { enviar } from '@/api/cliente';
+import { descarregar, enviar } from '@/api/cliente';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { SeletorActivo, SeletorCategoria, SeletorProjecto } from './comum/componentes';
-import { lerCsvImportacao } from './comum/regras';
+import { lerCsvImportacao, lerLinhasFolha } from './comum/regras';
 import type { Afectacao, LinhaImportacao } from './comum/tipos';
 import { COLUNAS_DESCRICOES, larguraModal } from '@/componentes/responsivo';
 
@@ -45,7 +45,18 @@ export function ModalImportarActivos({ aberto, aoFechar }: { aberto: boolean; ao
   };
 
   const ler = async (f: File) => {
-    const r = lerCsvImportacao(await f.text());
+    let r: ReturnType<typeof lerCsvImportacao>;
+    if (/\.xlsx?$/i.test(f.name)) {
+      // .xlsx/.xls (como o legado): o servidor lê a folha e devolve as linhas pelos cabeçalhos
+      const fd = new FormData();
+      fd.append('ficheiro', f);
+      try {
+        r = lerLinhasFolha((await enviar<Record<string, unknown>[]>('post', '/ativos/bens/importar/folha', fd)).dados);
+      } catch (e) {
+        notificarErro(e);
+        return false;
+      }
+    } else r = lerCsvImportacao(await f.text());
     if (!r.linhas.length) message.error('O ficheiro não tem linhas válidas (a 1.ª linha deve ter os cabeçalhos).');
     setLinhas(r.linhas);
     setIgnoradas(r.ignoradas);
@@ -87,8 +98,9 @@ export function ModalImportarActivos({ aberto, aoFechar }: { aberto: boolean; ao
         ano_amortizacao_acumulada; data_aquisicao</code>. As categorias que não existirem são criadas com taxa de 25%.
       </Typography.Paragraph>
       <Space direction="vertical" style={{ width: '100%' }}>
-        <Upload accept=".csv,.txt" maxCount={1} beforeUpload={ler} showUploadList={false}>
-          <Button icon={<UploadOutlined />}>Escolher ficheiro CSV</Button>
+        <Button icon={<DownloadOutlined />} style={{ marginRight: 8 }} onClick={() => void descarregar('/ativos/bens/importar/modelo', undefined, 'Template_Activos.xlsx').catch(notificarErro)}>Template</Button>
+        <Upload accept=".xlsx,.xls,.csv,.txt" maxCount={1} beforeUpload={ler} showUploadList={false}>
+          <Button icon={<UploadOutlined />}>Escolher ficheiro (Excel ou CSV)</Button>
         </Upload>
         {ignoradas.length > 0 && <Alert type="warning" showIcon message={`Colunas ignoradas: ${ignoradas.join(', ')}`} />}
         <Radio.Group value={decisao} onChange={(e) => { setDecisao(e.target.value); setSimulacao(null); }}>

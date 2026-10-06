@@ -303,3 +303,79 @@ canvas {
     padding: 16px 12px;
   }
 }
+
+/* ------------------------------------------------------------------------------------------------------------------
+   Ronda 2 (R2-G4): ajuda contextual, pesquisa de ecrãs, operações em segundo plano, botão «Voltar», modo responsivo
+   ------------------------------------------------------------------------------------------------------------------ */
+
+/* Botão flutuante «Voltar» (legado #nav-back-button) */
+.erp-botao-voltar {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1000;
+  font-weight: 700;
+  border: 2px solid #ffffff;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.12), 0 4px 6px -2px rgb(0 0 0 / 0.06);
+}
+@media (max-width: 767.98px) {
+  .erp-botao-voltar { right: 12px; bottom: 12px; }
+}
+
+/* Gestor de operações em segundo plano (legado js/tarefas.js) */
+.erp-operacoes {
+  position: fixed;
+  right: 16px;
+  bottom: 76px;
+  z-index: 1001;
+  width: min(360px, calc(100vw - 32px));
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 0.18);
+}
+.erp-operacoes-cabeca { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; }
+.erp-operacoes-lista { list-style: none; margin: 0; padding: 8px 12px; max-height: 40vh; overflow-y: auto; display: grid; gap: 10px; }
+.erp-operacao-linha { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.erp-operacao-titulo { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+
+/* Painel de ajuda (legado js/ajuda.js) */
+.erp-ajuda-titulo { margin-top: 6px; font-size: 18px; line-height: 1.3; }
+.erp-ajuda-corpo { display: grid; gap: 18px; font-size: 14px; color: #1e293b; }
+.erp-ajuda-corpo h4 { margin: 0 0 6px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #64748b; }
+.erp-ajuda-corpo p { margin: 0; line-height: 1.55; }
+.erp-ajuda-corpo ol, .erp-ajuda-corpo ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; line-height: 1.5; }
+.erp-ajuda-regras { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 12px; }
+.erp-ajuda-regras h4 { color: #92400e; }
+.erp-ajuda-ecras { display: flex; flex-wrap: wrap; gap: 6px; }
+.erp-ajuda-ecras button, .erp-ajuda-resultado { border: 1px solid #cbd5e1; background: #ffffff; border-radius: 4px; padding: 4px 10px; font-size: 13px; cursor: pointer; color: #334155; }
+.erp-ajuda-ecras button:hover, .erp-ajuda-resultado:hover { border-color: #2563eb; color: #1d4ed8; }
+.erp-ajuda-resultado { display: grid; gap: 2px; width: 100%; text-align: start; margin-bottom: 6px; padding: 8px 10px; }
+.erp-ajuda-resultado small { color: #64748b; }
+.erp-painel-ajuda kbd, .erp-ajuda-corpo kbd { border: 1px solid #cbd5e1; border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; font-size: 12px; background: #f8fafc; }
+.erp-botao-ajuda { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
+
+/* Pesquisa de ecrãs (CTRL+K) */
+.erp-pesquisa-resultados { list-style: none; margin: 12px 0; padding: 0; max-height: 50vh; overflow-y: auto; }
+.erp-pesquisa-resultados button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; text-align: start; }
+.erp-pesquisa-resultados button.activo { background: #eff6ff; }
+.erp-pesquisa-icone { color: #64748b; font-size: 18px; width: 24px; text-align: center; flex: none; }
+.erp-pesquisa-textos { display: grid; min-width: 0; flex: 1 1 auto; }
+.erp-pesquisa-nome { font-weight: 600; color: #1e293b; overflow-wrap: anywhere; }
+.erp-pesquisa-modulo { font-size: 11px; color: #94a3b8; text-transform: uppercase; }
+
+/* Início: favoritos e módulos arrastáveis */
+.erp-inicio-favoritos { display: flex; flex-wrap: wrap; gap: 8px; }
+.erp-modulo-arrastavel { position: relative; }
+.erp-modulo-arrastavel.a-arrastar { opacity: 0.5; }
+.erp-modulo-arrastavel.alvo { outline: 2px dashed #2563eb; outline-offset: 2px; border-radius: 8px; }
+.erp-modulo-pega { cursor: grab; color: #94a3b8; flex: none; }
+
+/* «Modo responsivo» (legado body.force-mobile-view): conteúdo com a largura de um telemóvel e grelhas empilhadas */
+.erp-aviso-responsivo { background: #eff6ff; color: #1e3a8a; font-size: 13px; padding: 6px 16px; border-bottom: 1px solid #bfdbfe; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+body.erp-modo-responsivo .erp-conteudo { max-width: 430px; width: 100%; margin-inline: auto; padding: 12px !important; box-shadow: 0 0 0 1px #e2e8f0; background-clip: padding-box; }
+body.erp-modo-responsivo .erp-conteudo .ant-col { flex: 0 0 100% !important; max-width: 100% !important; }
+body.erp-modo-responsivo .erp-conteudo .ant-row { margin-inline: 0 !important; }
+@media print {
+  body.erp-modo-responsivo .erp-conteudo { max-width: none; box-shadow: none; }
+}

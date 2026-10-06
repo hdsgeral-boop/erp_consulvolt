@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { BookOutlined, CheckOutlined, FileTextOutlined, SaveOutlined, SettingOutlined, SyncOutlined, TableOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -10,8 +11,10 @@ import { scrollTabela, useEcra } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { BotaoCsv, EtiquetaEstado, ValorKz } from './comum/Componentes';
+import { BotaoCsv, ValorKz } from './comum/Componentes';
 import { accoesRelatorioContas } from './comum/regras';
+import { SeparadorGestao } from './relatorioContas/SeparadorGestao';
+import { SECCOES, tabelaSeccao, textoActual, textoParaHtml, type ConfigGestao, type TextoGravado } from './relatorioContas/textosGestao';
 
 type Indicadores = Record<string, string | number | null>;
 
@@ -82,18 +85,28 @@ const NOMES_ANEXOS: Record<string, string> = {
   amortizacoes: 'Mapa de amortizações',
 };
 
-/** Contabilidade › Relatório e Contas (ecrã relatorio_contas): indicadores, configuração, notas, anexos, concluir/reabrir. */
+/**
+ * Contabilidade › Relatório e Contas (ecrã relatorio_contas; legado: js/relatorio_contas.js:983-1106).
+ * Topo como o legado: exercício, «Actualizar números», «Gravar», «Concluir»/«Reabrir» e «Imprimir / PDF»; alertas;
+ * cartões (activo, capital próprio, vendas, EBITDA, resultado líquido); separadores Relatório de Gestão (M-10),
+ * Demonstrações Financeiras, Notas às Contas e Configuração e Anexos.
+ */
 export default function RelatorioContas() {
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const [ano, setAno] = useState(dayjs().year() - (dayjs().month() < 3 ? 1 : 0));
   const [form] = Form.useForm<Record<string, unknown>>();
   const [notas, setNotas] = useState<Record<string, boolean>>({});
+  const [textos, setTextos] = useState<Record<string, TextoGravado>>({});
+  const [sujo, setSujo] = useState(false);
+  const [aba, setAba] = useState('gestao');
+  const configForm = Form.useWatch([], form) as ConfigGestao | undefined;
 
   const consulta = useQuery({ queryKey: ['contab', 'relatorio-contas', ano], queryFn: () => obter<RelatorioRC>(`/contabilidade/relatorio-contas/${ano}`) });
   const reg = consulta.data?.registo;
   const d = consulta.data?.dados;
   const regras = accoesRelatorioContas(reg?.estado, !!d?.encerrado, pode);
+  const config: ConfigGestao = { ...(reg?.configuracao ?? {}), ...(configForm ?? {}) } as ConfigGestao;
 
   useEffect(() => {
     if (!reg) return;
@@ -101,22 +114,31 @@ export default function RelatorioContas() {
     if (typeof cfg.data === 'string' && cfg.data) cfg.data = dayjs(cfg.data as string);
     form.setFieldsValue(cfg as never);
     setNotas(Array.isArray(reg.notas_incluir) ? {} : reg.notas_incluir ?? {});
+    setTextos(Array.isArray(reg.textos) ? {} : ((reg.textos ?? {}) as Record<string, TextoGravado>));
+    setSujo(false);
   }, [reg, form]);
 
   const invalidar = () => void cliente.invalidateQueries({ queryKey: ['contab', 'relatorio-contas', ano] });
   const gravar = useMutation({
     mutationFn: (corpo: Record<string, unknown>) => enviar('put', `/contabilidade/relatorio-contas/${ano}`, corpo),
-    onSuccess: ({ mensagem }) => { message.success(mensagem); invalidar(); },
+    onSuccess: ({ mensagem }) => {
+      message.success(mensagem);
+      setSujo(false);
+      invalidar();
+    },
     onError: (e) => notificarErro(e, 'Não foi possível gravar'),
   });
   const concluir = useMutation({
     mutationFn: (forcar: boolean) => enviar('post', `/contabilidade/relatorio-contas/${ano}/concluir`, { forcar }),
-    onSuccess: ({ mensagem }) => { message.success(mensagem); invalidar(); },
+    onSuccess: ({ mensagem }) => {
+      message.success(mensagem);
+      invalidar();
+    },
     onError: (e) => {
       if (e instanceof ErroApi && e.codigo === 'RELATORIO_COM_ERROS') {
         Modal.confirm({
           title: 'O relatório tem erros',
-          content: 'Há alertas de erro (ver o separador Alertas). Pretende concluir mesmo assim?',
+          content: 'Há alertas de erro (ver acima). Pretende concluir mesmo assim?',
           okText: 'Concluir mesmo assim',
           cancelText: 'Cancelar',
           onOk: () => concluir.mutateAsync(true),
@@ -126,44 +148,110 @@ export default function RelatorioContas() {
   });
   const reabrir = useMutation({
     mutationFn: () => enviar('post', `/contabilidade/relatorio-contas/${ano}/reabrir`),
-    onSuccess: ({ mensagem }) => { message.success(mensagem); invalidar(); },
+    onSuccess: ({ mensagem }) => {
+      message.success(mensagem);
+      invalidar();
+    },
     onError: (e) => notificarErro(e, 'Não foi possível reabrir'),
   });
 
-  const gravarConfiguracao = (v: Record<string, unknown>) => {
-    const cfg = { ...v };
+  /** «Gravar» do legado: configuração, textos editados e notas a incluir, numa só operação. */
+  const gravarTudo = async () => {
+    const cfg = { ...(await form.validateFields()) };
     if (cfg.data && dayjs.isDayjs(cfg.data)) cfg.data = (cfg.data as Dayjs).format('YYYY-MM-DD');
-    gravar.mutate({ configuracao: cfg });
+    // só se guardam os textos editados; os automáticos regeneram-se sempre a partir dos números
+    const editados = Object.fromEntries(Object.entries(textos).filter(([, t]) => t && t.auto === false));
+    gravar.mutate({ configuracao: cfg, textos: editados, notas_incluir: notas });
+  };
+  const mudarTexto = (id: string, valor: TextoGravado | null) => {
+    setTextos((t) => {
+      const n = { ...t };
+      if (valor) n[id] = valor;
+      else delete n[id];
+      return n;
+    });
+    setSujo(true);
+  };
+  const mudarAno = (novo: number) => {
+    if (sujo) {
+      Modal.confirm({ title: 'Tem alterações por gravar', content: 'Mudar de exercício sem gravar?', okText: 'Mudar sem gravar', cancelText: 'Cancelar', onOk: () => setAno(novo) });
+    } else setAno(novo);
   };
 
   const anos = Array.from({ length: 6 }, (_, i) => dayjs().year() - i);
   const { telemovel } = useEcra();
+  const kpis: [string, string][] = [
+    ['Total do activo', 'activo'],
+    ['Capital próprio', 'capital_proprio'],
+    ['Vendas e prestações', 'vendas_prestacoes'],
+    ['EBITDA', 'ebitda'],
+    ['Resultado líquido', 'rl'],
+  ];
 
   return (
     <>
       <CabecalhoPagina
         titulo="Relatório e Contas"
-        subtitulo={d ? `${d.empresa.nome} · exercício de ${ano}${d.encerrado ? '' : ' (provisório: exercício aberto)'}` : undefined}
+        subtitulo={
+          d ? (
+            <Space wrap size={6}>
+              <span>{`${String(config.nome || d.empresa.nome || '')} · Exercício de ${ano}`}</span>
+              <Tag color={regras.concluido ? 'green' : 'gold'}>{regras.concluido ? 'Concluído' : 'Rascunho'}</Tag>
+              {d.encerrado ? <Tag>Exercício encerrado</Tag> : <Tag color="red">Provisório — exercício em aberto</Tag>}
+              {reg?.atualizado_em && (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  gravado por {reg.atualizado_por ?? '—'} em {formatarDataHora(reg.atualizado_em)}
+                </Typography.Text>
+              )}
+            </Space>
+          ) : undefined
+        }
         impressaoDesactivada={!d}
         impressao={() =>
           d && {
             titulo: `Relatório e Contas · exercício de ${ano}`,
             subtitulo: d.encerrado ? undefined : 'Provisório: exercício aberto',
             filtros: [regras.concluido ? 'Concluído (números fixados)' : 'Rascunho (números recalculados a cada consulta)', `Moeda: ${d.moeda}`],
-            conteudo: documentoRelatorioContas(d, notas),
+            conteudo: documentoRelatorioContas(d, notas, textos, config),
           }
         }
         accoes={
           <Space wrap>
-            <Select value={ano} onChange={setAno} style={{ width: 110 }} options={anos.map((a) => ({ value: a, label: String(a) }))} aria-label="Exercício" />
-            {reg && <EtiquetaEstado estado={reg.estado} />}
+            <Select value={ano} onChange={mudarAno} style={{ width: 110 }} options={anos.map((a) => ({ value: a, label: String(a) }))} aria-label="Exercício" />
+            {regras.podeEditar && (
+              <Button icon={<SyncOutlined />} loading={consulta.isFetching} onClick={() => void consulta.refetch()} title="Recalcular os números e os textos automáticos">
+                Actualizar números
+              </Button>
+            )}
+            {regras.podeEditar && (
+              <Button icon={<SaveOutlined />} loading={gravar.isPending} onClick={() => void gravarTudo()} type={sujo ? 'primary' : 'default'}>
+                Gravar
+              </Button>
+            )}
             {regras.podeConcluir && (
-              <Button type="primary" loading={concluir.isPending} onClick={() => Modal.confirm({ title: `Concluir o Relatório e Contas de ${ano}?`, content: 'Os números ficam fixados (fotografia) até o relatório ser reaberto.', okText: 'Concluir', cancelText: 'Cancelar', onOk: () => concluir.mutateAsync(false) })}>
+              <Button
+                icon={<CheckOutlined />}
+                loading={concluir.isPending}
+                onClick={() =>
+                  Modal.confirm({
+                    title: `Concluir o Relatório e Contas de ${ano}?`,
+                    content: 'Os números ficam fixados (fotografia) até o relatório ser reaberto.',
+                    okText: 'Concluir',
+                    cancelText: 'Cancelar',
+                    onOk: () => concluir.mutateAsync(false),
+                  })
+                }
+              >
                 Concluir
               </Button>
             )}
             {regras.podeReabrir && (
-              <Button danger loading={reabrir.isPending} onClick={() => Modal.confirm({ title: `Reabrir o Relatório e Contas de ${ano}?`, okText: 'Reabrir', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => reabrir.mutateAsync() })}>
+              <Button
+                danger
+                icon={<UnlockOutlined />}
+                loading={reabrir.isPending}
+                onClick={() => Modal.confirm({ title: `Reabrir o Relatório e Contas de ${ano}?`, okText: 'Reabrir', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => reabrir.mutateAsync() })}
+              >
                 Reabrir
               </Button>
             )}
@@ -175,16 +263,43 @@ export default function RelatorioContas() {
       ) : (
         <>
           {!d.encerrado && !regras.concluido && pode('rc_concluir') && (
-            <Alert type="info" showIcon style={{ marginBottom: 16 }} message="A conclusão só fica disponível depois de encerrado o exercício." />
+            <Alert type="info" showIcon style={{ marginBottom: 8 }} message="A conclusão só fica disponível depois de encerrado o exercício." />
           )}
-          {reg.atualizado_em && (
-            <Typography.Paragraph type="secondary">Gravado por {reg.atualizado_por ?? '—'} em {formatarDataHora(reg.atualizado_em)} · números calculados em {formatarDataHora(d.gerado_em)}</Typography.Paragraph>
-          )}
+          {d.alertas.map((a, i) => (
+            <Alert key={i} type={CORES_ALERTA[a.tipo] ?? 'info'} showIcon style={{ marginBottom: 8 }} message={a.texto} />
+          ))}
+          <div className="erp-grelha-auto" style={{ margin: '12px 0 16px' }}>
+            {kpis.map(([rotulo, k]) => (
+              <Card key={k} size="small">
+                <Typography.Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
+                  {rotulo}
+                </Typography.Text>
+                <div style={{ fontSize: 17, fontWeight: 700 }}>
+                  <ValorKz valor={d.n.indicadores[k] as string} forte />
+                </div>
+              </Card>
+            ))}
+          </div>
           <Tabs
+            activeKey={aba}
+            onChange={setAba}
             items={[
               {
-                key: 'indicadores',
-                label: 'Indicadores',
+                key: 'gestao',
+                label: (
+                  <span>
+                    <FileTextOutlined /> Relatório de Gestão
+                  </span>
+                ),
+                children: <SeparadorGestao dados={d} config={config} textos={textos} editavel={regras.podeEditar} aoMudar={mudarTexto} />,
+              },
+              {
+                key: 'demonstracoes',
+                label: (
+                  <span>
+                    <TableOutlined /> Demonstrações Financeiras
+                  </span>
+                ),
                 children: (
                   <Row gutter={[16, 16]}>
                     <Col xs={24} lg={12}>
@@ -218,7 +333,7 @@ export default function RelatorioContas() {
                           ]}
                         />
                         <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-                          Colaboradores no exercício: {d.colaboradores}
+                          Colaboradores no exercício: {d.colaboradores} · números calculados em {formatarDataHora(d.gerado_em)}
                         </Typography.Paragraph>
                       </Card>
                     </Col>
@@ -226,89 +341,14 @@ export default function RelatorioContas() {
                 ),
               },
               {
-                key: 'alertas',
-                label: `Alertas (${d.alertas.length})`,
-                children: (
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    {d.alertas.length === 0 && <Alert type="success" showIcon message="Sem alertas." />}
-                    {d.alertas.map((a, i) => (
-                      <Alert key={i} type={CORES_ALERTA[a.tipo] ?? 'info'} showIcon message={a.texto} />
-                    ))}
-                  </Space>
-                ),
-              },
-              {
-                key: 'configuracao',
-                forceRender: true,
-                label: 'Configuração',
-                children: (
-                  <Card>
-                    <Form form={form} layout="vertical" disabled={!regras.podeEditar} onFinish={gravarConfiguracao}>
-                      <Row gutter={[16, 0]}>
-                        {[
-                          ['nome', 'Denominação'], ['nif', 'NIF'], ['sede', 'Sede'], ['objecto', 'Objecto social'], ['forma', 'Forma jurídica'],
-                          ['sector', 'Sector de actividade'], ['local', 'Local'], ['director', 'Director / gerente'], ['contabilista', 'Contabilista certificado'],
-                        ].map(([k, rotulo]) => (
-                          <Col key={k} xs={24} md={8}>
-                            <Form.Item name={k} label={rotulo}>
-                              <Input maxLength={255} />
-                            </Form.Item>
-                          </Col>
-                        ))}
-                        <Col xs={24} md={8}>
-                          <Form.Item name="data" label="Data do relatório">
-                            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-                          </Form.Item>
-                        </Col>
-                        <Col xs={12} md={4}>
-                          <Form.Item name="capital" label="Capital social (Kz)">
-                            <InputNumber min={0} precision={2} style={{ width: '100%' }} />
-                          </Form.Item>
-                        </Col>
-                        <Col xs={12} md={4}>
-                          <Form.Item name="prejuizos_fiscais" label="Prejuízos fiscais (Kz)">
-                            <InputNumber min={0} precision={2} style={{ width: '100%' }} />
-                          </Form.Item>
-                        </Col>
-                        {[['taxa_imposto', 'Taxa de imposto (%)'], ['pct_reservas', 'Reservas (%)'], ['pct_transitados', 'Resultados transitados (%)'], ['pct_dividendos', 'Dividendos (%)']].map(([k, rotulo]) => (
-                          <Col key={k} xs={12} md={4}>
-                            <Form.Item name={k} label={rotulo}>
-                              <InputNumber min={0} max={100} style={{ width: '100%' }} />
-                            </Form.Item>
-                          </Col>
-                        ))}
-                      </Row>
-                      <Space wrap style={{ marginBottom: 16 }}>
-                        {[['anexo_razao', 'Anexo: balancete razão'], ['anexo_geral', 'Anexo: balancete geral'], ['anexo_amortizacoes', 'Anexo: mapa de amortizações'], ['graficos', 'Gráficos']].map(([k, rotulo]) => (
-                          <Form.Item key={k} name={k} valuePropName="checked" noStyle>
-                            <Checkbox>{rotulo}</Checkbox>
-                          </Form.Item>
-                        ))}
-                      </Space>
-                      {regras.podeEditar && (
-                        <div>
-                          <Button type="primary" htmlType="submit" loading={gravar.isPending}>
-                            Gravar configuração
-                          </Button>
-                        </div>
-                      )}
-                    </Form>
-                  </Card>
-                ),
-              },
-              {
                 key: 'notas',
-                label: 'Notas às contas',
+                label: (
+                  <span>
+                    <BookOutlined /> Notas às Contas
+                  </span>
+                ),
                 children: (
-                  <Card
-                    extra={
-                      regras.podeEditar && (
-                        <Button type="primary" loading={gravar.isPending} onClick={() => gravar.mutate({ notas_incluir: notas })}>
-                          Gravar selecção de notas
-                        </Button>
-                      )
-                    }
-                  >
+                  <>
                     {Object.entries(d.composicao)
                       .sort(([a], [b]) => Number(a) - Number(b))
                       .map(([nota, contas]) => (
@@ -316,9 +356,17 @@ export default function RelatorioContas() {
                           key={nota}
                           size="small"
                           style={{ marginBottom: 12 }}
-                          title={
-                            <Checkbox disabled={!regras.podeEditar} checked={notas[nota] !== false} onChange={(e) => setNotas((n) => ({ ...n, [nota]: e.target.checked }))}>
-                              Nota {nota}
+                          title={`Nota ${nota}`}
+                          extra={
+                            <Checkbox
+                              disabled={!regras.podeEditar}
+                              checked={notas[nota] !== false}
+                              onChange={(e) => {
+                                setNotas((n) => ({ ...n, [nota]: e.target.checked }));
+                                setSujo(true);
+                              }}
+                            >
+                              Incluir
                             </Checkbox>
                           }
                         >
@@ -337,21 +385,126 @@ export default function RelatorioContas() {
                           />
                         </Card>
                       ))}
-                  </Card>
+                  </>
                 ),
               },
               {
-                key: 'anexos',
-                label: 'Anexos',
+                key: 'configuracao',
+                forceRender: true,
+                label: (
+                  <span>
+                    <SettingOutlined /> Configuração e Anexos
+                  </span>
+                ),
                 children: (
-                  <Tabs
-                    tabPosition={telemovel ? 'top' : 'left'}
-                    items={Object.entries(d.anexos).map(([k, linhas]) => ({
-                      key: k,
-                      label: NOMES_ANEXOS[k] ?? k,
-                      children: <TabelaAnexo nome={k} linhas={linhas} />,
-                    }))}
-                  />
+                  <>
+                    <Form form={form} layout="vertical" disabled={!regras.podeEditar} onValuesChange={() => setSujo(true)}>
+                      <Card size="small" title="Identificação da empresa" style={{ marginBottom: 12 }}>
+                        <Row gutter={[16, 0]}>
+                          {[
+                            ['nome', 'Denominação'],
+                            ['nif', 'NIF'],
+                            ['sede', 'Sede social'],
+                            ['forma', 'Forma jurídica'],
+                          ].map(([k, rotulo]) => (
+                            <Col key={k} xs={24} md={12} xl={6}>
+                              <Form.Item name={k} label={rotulo}>
+                                <Input maxLength={255} />
+                              </Form.Item>
+                            </Col>
+                          ))}
+                          <Col xs={24} md={12} xl={6}>
+                            <Form.Item name="capital" label="Capital social (Kz)">
+                              <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={24} md={12} xl={9}>
+                            <Form.Item name="objecto" label="Objecto social">
+                              <Input maxLength={255} />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={24} md={12} xl={9}>
+                            <Form.Item name="sector" label="Sector de actividade">
+                              <Input maxLength={255} />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+                      </Card>
+                      <Card size="small" title="Aprovação e assinaturas" style={{ marginBottom: 12 }}>
+                        <Row gutter={[16, 0]}>
+                          <Col xs={24} md={12} xl={6}>
+                            <Form.Item name="local" label="Local">
+                              <Input maxLength={255} />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={24} md={12} xl={6}>
+                            <Form.Item name="data" label="Data do relatório">
+                              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={24} md={12} xl={6}>
+                            <Form.Item name="director" label="Director Geral / Gerência">
+                              <Input maxLength={255} />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={24} md={12} xl={6}>
+                            <Form.Item name="contabilista" label="Contabilista Certificado">
+                              <Input maxLength={255} />
+                            </Form.Item>
+                          </Col>
+                        </Row>
+                      </Card>
+                      <Card size="small" title="Imposto e aplicação de resultados" style={{ marginBottom: 12 }}>
+                        <Row gutter={[16, 0]}>
+                          <Col xs={12} md={8} xl={4}>
+                            <Form.Item name="taxa_imposto" label="Taxa de imposto (%)">
+                              <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                            </Form.Item>
+                          </Col>
+                          <Col xs={12} md={8} xl={5}>
+                            <Form.Item name="prejuizos_fiscais" label="Prejuízos fiscais a deduzir">
+                              <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+                            </Form.Item>
+                          </Col>
+                          {[
+                            ['pct_reservas', 'Reservas legais (%)'],
+                            ['pct_transitados', 'Resultados transitados (%)'],
+                            ['pct_dividendos', 'Dividendos (%)'],
+                          ].map(([k, rotulo]) => (
+                            <Col key={k} xs={12} md={8} xl={5}>
+                              <Form.Item name={k} label={rotulo}>
+                                <InputNumber min={0} max={100} style={{ width: '100%' }} />
+                              </Form.Item>
+                            </Col>
+                          ))}
+                        </Row>
+                      </Card>
+                      <Card size="small" title="Anexos do relatório impresso" style={{ marginBottom: 12 }}>
+                        <Space direction="vertical">
+                          {[
+                            ['anexo_razao', `Balancete razão (2 dígitos) — abertura a Dezembro e abertura a apuramento (${d.anexos.razao_dezembro?.length ?? 0} contas)`],
+                            ['anexo_geral', `Balancete geral (todas as contas) — abertura a Dezembro e abertura a apuramento (${d.anexos.geral_dezembro?.length ?? 0} contas)`],
+                            ['anexo_amortizacoes', `Mapa de amortizações (${d.anexos.amortizacoes?.length ?? 0} activos)`],
+                            ['graficos', 'Incluir gráficos (no ecrã e no relatório impresso)'],
+                          ].map(([k, rotulo]) => (
+                            <Form.Item key={k} name={k} valuePropName="checked" noStyle>
+                              <Checkbox>{rotulo}</Checkbox>
+                            </Form.Item>
+                          ))}
+                        </Space>
+                      </Card>
+                    </Form>
+                    <Card size="small" title="Consultar anexos">
+                      <Tabs
+                        tabPosition={telemovel ? 'top' : 'left'}
+                        items={Object.entries(d.anexos).map(([k, linhas]) => ({
+                          key: k,
+                          label: NOMES_ANEXOS[k] ?? k,
+                          children: <TabelaAnexo nome={k} linhas={linhas} />,
+                        }))}
+                      />
+                    </Card>
+                  </>
                 ),
               },
             ]}
@@ -393,7 +546,25 @@ function TabelaAnexo({ nome, linhas }: { nome: string; linhas: Record<string, un
 }
 
 /** Relatório e Contas para impressão: indicadores, rácios, alertas, notas seleccionadas e anexos. */
-export function documentoRelatorioContas(d: DadosRC, notas: Record<string, boolean>): string {
+export function documentoRelatorioContas(d: DadosRC, notas: Record<string, boolean>, textos: Record<string, TextoGravado> = {}, config: ConfigGestao = {}): string {
+  // Relatório de Gestão (M-10): títulos, texto em vigor (editado ou automático) e tabelas de indicadores
+  let grupoActual: string | undefined;
+  const gestao = SECCOES.map((s) => {
+    const cab = s.grupo && s.grupo !== grupoActual ? `<h3 style="font-size:10.5pt;text-transform:uppercase;margin:10pt 0 4pt">${esc(s.grupo)}</h3>` : '';
+    if (s.grupo) grupoActual = s.grupo;
+    const linhas = tabelaSeccao(s.tabela, d, config);
+    const tabela = linhas.length
+      ? tabelaHtml<[string, string, string]>({
+          linhas,
+          colunas: [
+            { titulo: s.tabela === 'aplicacao' ? 'Aplicação' : 'Indicador', valor: (r) => r[0] },
+            { titulo: String(d.ano), valor: (r) => r[1], alinhamento: 'direita' },
+            ...(s.tabela === 'aplicacao' ? [] : [{ titulo: String(d.ano_anterior), valor: (r: [string, string, string]) => r[2], alinhamento: 'direita' as const }]),
+          ],
+        })
+      : '';
+    return `${cab}<h4 style="font-size:10pt;margin:8pt 0 3pt">${esc(s.titulo)}</h4><div style="font-size:9pt;line-height:1.45">${textoParaHtml(textoActual(s.id, textos[s.id], d, config).texto)}</div>${tabela}`;
+  }).join('');
   const anoN = String(d.ano);
   const anoN1 = String(d.ano_anterior);
   const grandezas = tabelaHtml({
@@ -457,5 +628,5 @@ export function documentoRelatorioContas(d: DadosRC, notas: Record<string, boole
       });
     })
     .join('');
-  return `${grandezas}${racios}<p style="font-size:8.5pt">Colaboradores no exercício: ${esc(d.colaboradores)}</p>${alertas}${notasHtml}${anexos}`;
+  return `<h2 style="font-size:12pt">Relatório de Gestão</h2>${gestao}<h2 style="font-size:12pt;break-before:page">Demonstrações financeiras e indicadores</h2>${grandezas}${racios}<p style="font-size:8.5pt">Colaboradores no exercício: ${esc(d.colaboradores)}</p>${alertas}${notasHtml}${anexos}`;
 }

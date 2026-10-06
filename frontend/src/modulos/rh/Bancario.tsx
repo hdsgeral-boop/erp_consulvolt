@@ -25,7 +25,7 @@ export default function Bancario() {
   const { pode } = useSessao();
   return (
     <>
-      <CabecalhoPagina titulo="Coordenadas bancárias" subtitulo="IBAN dos colaboradores (usado na ordem de pagamento e nas cartas) e bancos" />
+      <CabecalhoPagina titulo="Configurações Bancárias" subtitulo="IBAN dos colaboradores (usado na ordem de pagamento e nas cartas) e bancos" />
       <Tabs
         items={[
           { key: 'iban', label: 'IBAN dos colaboradores', children: <IbanColaboradores /> },

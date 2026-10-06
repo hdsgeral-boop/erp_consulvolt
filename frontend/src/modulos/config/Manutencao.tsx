@@ -3,6 +3,7 @@ import { ExclamationCircleOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -76,6 +77,7 @@ export default function Manutencao() {
   const [separador, setSeparador] = useState('pedidos');
   return (
     <>
+      <NavConfig actual="config_manutencao" />
       <CabecalhoPagina titulo="Manutenção de dados" subtitulo="Correcções em massa com pedido, aprovação por outro administrador (com palavra-passe) e execução confirmada" />
       <Alert
         type="warning"

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
+import { NavActivos } from './comum/NavActivos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -23,6 +24,7 @@ export default function Amortizacoes() {
   return (
     <>
       <CabecalhoPagina titulo="Amortizações" subtitulo="Quotas constantes mensais; integração no diário AM (D 73 / C 18) por conta, unidade de negócio e centro de custo" />
+      <NavActivos actual="activos_amortizacoes" />
       <Tabs
         destroyOnHidden
         items={[

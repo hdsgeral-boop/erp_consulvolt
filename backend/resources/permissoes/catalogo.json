@@ -322,6 +322,11 @@
               "chave": "rh_infotipo_del",
               "rotulo": "Eliminar rubricas",
               "sensivel": true
+            },
+            {
+              "chave": "rh_tabela_irt_gerir",
+              "rotulo": "Alterar a tabela de IRT (Grupo A), comum a todas as empresas",
+              "sensivel": true
             }
           ]
         },
@@ -1004,6 +1009,11 @@
               "chave": "vendas_fat_emitir",
               "rotulo": "Emitir orçamentos, encomendas, guias, facturas e notas de crédito",
               "sensivel": false
+            },
+            {
+              "chave": "vendas_alterar_preco",
+              "rotulo": "Alterar o preço de venda da ficha do produto nos documentos",
+              "sensivel": true
             },
             {
               "chave": "vendas_recibos",
@@ -2256,6 +2266,11 @@
               "chave": "config_moedas_gerir",
               "rotulo": "Gerir moedas e câmbios",
               "sensivel": false
+            },
+            {
+              "chave": "cambio_manual_fora_tolerancia",
+              "rotulo": "Indicar câmbio manual fora da tolerância face ao câmbio do dia (vendas, compras e tesouraria)",
+              "sensivel": true
             }
           ]
         },
@@ -2569,6 +2584,7 @@
         "contratos_import": true,
         "rh_funcoes_gerir": true,
         "rh_infotipos_gerir": true,
+        "rh_tabela_irt_gerir": true,
         "calcular_lancar": true,
         "calcular_bulk": true,
         "calcular_folha": true,
@@ -2654,6 +2670,7 @@
         "vendas_clientes_gerir": true,
         "vendas_produtos_gerir": true,
         "vendas_fat_emitir": true,
+        "vendas_alterar_preco": true,
         "vendas_recibos": true,
         "crm_converter": true
       }
@@ -3049,7 +3066,8 @@
         "vendas_faturacao_view": true,
         "crm_editar": true,
         "crm_converter": true,
-        "vendas_fat_emitir": true
+        "vendas_fat_emitir": true,
+        "vendas_alterar_preco": true
       }
     },
     {
@@ -3077,6 +3095,7 @@
         "crm_campanhas_enviar": true,
         "crm_configurar": true,
         "vendas_fat_emitir": true,
+        "vendas_alterar_preco": true,
         "orc_contributo": true
       }
     },

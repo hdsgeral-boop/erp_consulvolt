@@ -1,5 +1,7 @@
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Divider, Flex, Input, InputNumber, Radio, Result, Row, Select, Space, Statistic, Switch, Table, Typography } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, PrinterOutlined, TagsOutlined } from '@ant-design/icons';
+import { obter } from '@/api/cliente';
+import { notificarErro } from '@/utilitarios/erros';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -9,8 +11,10 @@ import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { deCentimos, formatarCentimos, pagamentosParaApi, resumirPagamentos, type Pagamento } from '../comum/calculos';
 import { meiosActivos, novaChave, PainelPagamentos } from '../comum/PainelPagamentos';
 import type { Terminal } from '../comum/tipos';
+import { imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
+import { htmlEtiquetasOS, htmlTalaoOS } from './impressoes';
 import { GRUPOS_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
-import { precoPecaServico, type Peca, type PedidoLav } from './tipos';
+import { precoPecaServico, type DetalheOrdem, type Peca, type PedidoLav } from './tipos';
 
 interface LinhaRecepcao {
   chave: string;
@@ -44,7 +48,22 @@ export function estimarOrdem(linhas: { quantidade: number; preco: number }[], ur
 
 /** Recepção de peças: nova ordem de serviço na sessão aberta do terminal de lavandaria, com adiantamento opcional. */
 export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefined; aoRegistar?: (pedido: PedidoLav) => void }) {
-  const { pode } = useSessao();
+  const { pode, empresa } = useSessao();
+  const cabecalho = useCabecalhoTalao();
+  /** Talão da OS e/ou etiquetas da ordem acabada de registar (M-16). */
+  const imprimirRegistada = async (id: number, o: 'talao' | 'etiquetas' | 'ambos') => {
+    try {
+      const d = await obter<DetalheOrdem>(`/pos/lavandaria/ordens/${id}`);
+      const p = lerPreferencias(empresa?.id);
+      const c = cabecalho({ terminal: terminal ? `${terminal.codigo} — ${terminal.nome}` : d.pedido.codigo_terminal });
+      const manual = o !== 'ambos';
+      const enviarParaImpressora = (html: string) => (manual ? reimprimir(html, p) : imprimirHtml(html));
+      if (o !== 'etiquetas') enviarParaImpressora(htmlTalaoOS(d, definicoes.data, c, p));
+      if (o !== 'talao') window.setTimeout(() => enviarParaImpressora(htmlEtiquetasOS(d, c, p)), o === 'ambos' ? 900 : 0);
+    } catch (e) {
+      notificarErro(e, 'Não foi possível imprimir a ordem de serviço');
+    }
+  };
   const pecas = usePecas();
   const servicos = useServicosLav();
   const definicoes = useDefinicoesLav();
@@ -69,6 +88,8 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
     aoSucesso: (r) => {
       setRegistada(r.pedido);
       aoRegistar?.(r.pedido);
+      // como o legado (lavandaria.js:680-681): talão da OS e etiquetas logo a seguir, se o posto imprime automaticamente
+      if (lerPreferencias(empresa?.id).automatico) void imprimirRegistada(r.pedido.id, 'ambos');
     },
   });
 
@@ -146,9 +167,17 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
         title={`Ordem ${registada.numero_encomenda} registada`}
         subTitle={`Etiquetas: ${registada.itens.flatMap((i) => i.etiquetas ?? []).join(', ') || '—'}`}
         extra={
-          <Button type="primary" onClick={limpar}>
-            Nova recepção
-          </Button>
+          <Space wrap style={{ justifyContent: 'center' }}>
+            <Button icon={<PrinterOutlined />} onClick={() => void imprimirRegistada(registada.id, 'talao')}>
+              Imprimir talão
+            </Button>
+            <Button icon={<TagsOutlined />} onClick={() => void imprimirRegistada(registada.id, 'etiquetas')}>
+              Imprimir etiquetas
+            </Button>
+            <Button type="primary" onClick={limpar}>
+              Nova recepção
+            </Button>
+          </Space>
         }
       />
     );

@@ -462,7 +462,7 @@ As sessões contabilizadas no legado, sem ligação aos lançamentos, são estor
 - a assinatura do gerente tem de ser de outra pessoa que não o operador;
 - reabrir = estorno da regularização.
 
-**Contas de tesouraria** (tabela nova `configuracoes_contabeis_tesouraria`): sobras, quebras e diferenças de câmbio. O legado usava 6621/7621 invertidas face ao PGC angolano.
+**Contas de tesouraria** (tabela nova `configuracoes_contabeis_tesouraria`): sobras, quebras e diferenças de câmbio. O legado usava 6621/7621 fixas no código; passam a vir da configuração. *(Correcção, ronda 2, decisão 19: a justificação anterior — «invertidas face ao PGC angolano» — estava errada. No PGC angolano a classe 6 é de proveitos e a 7 de custos, pelo que 6621 = diferenças de câmbio favoráveis e 7621 = desfavoráveis, como no legado; a configuração é pré-preenchida com estas contas onde existem no plano e as Validações de dados assinalam as empresas onde faltam.)*
 
 **Pendente (Tesouraria parte 3):** multi-moeda (documentos e caixas em moeda estrangeira, diferenças de câmbio na liquidação de facturas em moeda) e cartas de pagamento aos bancos (o legado tinha as tabelas, mas nenhum código).
 
@@ -482,7 +482,7 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
   - **Quantidade em moeda liquidada:** é o valor da linha, se a conta for na mesma moeda; se o pagamento for feito a partir de uma conta em Kz, é o valor em Kz convertido ao câmbio do dia.
   - **Limite:** a quantidade tem de ser ≤ saldo em moeda do documento.
   - **Valor histórico em Kz:** é o saldo em Kz, se liquidar tudo; senão, a proporção `moeda liquidada × saldo Kz ÷ saldo moeda`. O terceiro é lançado por este valor, e por isso a conta fica exactamente saldada em Kz e em moeda.
-  - **Diferença de câmbio:** o banco é lançado ao câmbio do documento, e a diferença face ao valor histórico vai para as contas configuradas (favoráveis ou desfavoráveis, conforme o sentido). O legado usava 6621/7621 fixas e trocadas face ao PGC angolano.
+  - **Diferença de câmbio:** o banco é lançado ao câmbio do documento, e a diferença face ao valor histórico vai para as contas configuradas (favoráveis ou desfavoráveis, conforme o sentido). O legado usava 6621 (favoráveis, proveito) e 7621 (desfavoráveis, custo) fixas — contas correctas no PGC angolano (correcção da ronda 2, decisão 19: não estavam trocadas); são as que se pré-preenchem na configuração.
   - Uma conta numa moeda diferente da do documento é recusada (`MOEDAS_DIFERENTES`).
 - **Integração:** recalcula tudo com o saldo actual, de forma a apanhar outros documentos integrados entretanto.
 - **Venda e factura liquidadas:** o pago da venda e o estado da factura de fornecedor são actualizados pelo valor histórico em Kz.
@@ -573,6 +573,11 @@ Sem isto não havia saldo em moeda das facturas e, portanto, não havia maneira 
 - Os 6 restantes são a empresa 1 de 04 a 07/2026 e a empresa 8 em 04 e 05/2026. Os dados foram alterados depois da contabilização, e é esse o problema que a fotografia resolve.
 - Estes 6 períodos aparecem na validação `folhas_salariais_vs_diario` (Sistema › Validações) e em `GET /api/rh/salarios/verificacao-legado`.
 - Em modo ATUAL, com os dados actuais, diferem 4 períodos, todos apenas pelo efeito das correcções: empresa 8 em 04/2026 (isenção sobre o valor pago), empresa 3 em 05/2026 (isenção sobre o valor pago, com o degrau da tabela de IRT a 150 000 Kz), empresa 8 em 05/2026 (precisão dos dias, 1,85 Kz) e empresa 18 em 01/2026 (avençado, `irt=false` e contrato sem validade no mês) — análise de 2026-10-02.
+
+**Decisões do utilizador registadas aqui (ronda 2, 2026-10-06 — ver ADR-068):**
+- **Decisão 2 — `dias_trabalhados` com 3 casas decimais: aceite.** O pro rata usa os dias com 3 casas; a diferença face ao legado é de cêntimos (ex.: empresa 8 em 05/2026, 1,85 Kz) e fica explicada na verificação do legado.
+- **Decisão 4 — desconto com `calculo_horas = FALTA` tratado como falta: aceite.** Uma rubrica de DESCONTO marcada `FALTA` (ou com «falta» no nome, como no legado) fica marcada como falta no recibo e abate à base de INSS e à matéria colectável do IRT (soma das faltas), em vez de ser só um desconto sobre o líquido.
+- Decisões 1, 3, 5, 6 e 7 (tabela de IRT configurável, confirmação dos avisos ao encerrar, horas extra automáticas com aviso e segregação encerrar/validar, feriados de Angola, férias pela Lei Geral do Trabalho): ver ADR-068.
 
 **Glossário:** o `infotypes.inss` do legado é a marcação "sujeito a INSS" (`sujeito_inss`) e não um número.
 
@@ -1987,3 +1992,94 @@ Lista de 27 decisões apresentada em 2026-10-02 (IRT a 150 000 Kz, preço livre,
 
 ### Verificação
 - backend: 353 testes PHPUnit; frontend: 342 testes Vitest, `tsc` e build; E2E: 263 testes Playwright; ETL do backup real recarregada (46 folhas fotografadas, 38 iguais ao diário).
+
+## ADR-068 — Ronda 2 das lacunas: visual ecrã a ecrã, lacunas A/M, 27 decisões do utilizador e integrações
+
+**Contexto.** Depois da análise de paridade (ADR-067), a ronda 2 fechou as lacunas altas que faltavam (A-03, A-05, A-07…A-10, A-12) e as médias (M-01…M-20), aplicou as 27 decisões que o utilizador aceitou em 2026-10-02 (todas «conforme a recomendação, com a melhor prática») e acrescentou os câmbios do BAI automáticos. Quatro agentes trabalharam em paralelo, com ficheiros exclusivos, e a integração final foi feita por um quinto. Em todos os ecrãs tocados houve também uma **aproximação visual ao legado, ecrã a ecrã**: títulos, subtítulos, ordem dos separadores, botões e textos do sistema antigo, sempre sem deslocação horizontal a 375 px e com Imprimir/PDF.
+
+### Lacunas construídas, por grupo
+- **G1 — Contabilidade, POS, Geral, Acréscimos, Estrutura.**
+  - A-05: classificação e notas em massa e edição dos campos não financeiros (`POST /contabilidade/lancamentos/classificacao`), painel de filtros do legado (linhas «sem» nota/UN/CC, contas, referência).
+  - A-07: lançamento manual em moeda estrangeira no frontend (moeda, câmbio, «Equilibrar»).
+  - M-09: transferir um lançamento para outra empresa (estorno na origem + criação no destino, `ServicoTransferenciaLancamentos`).
+  - M-10: Relatório de Gestão no Relatório e Contas (textos automáticos do legado editáveis, KPIs, alertas, impressão).
+  - M-15: mesas do restaurante no servidor (`mesas_pos`, `contas_mesa_pos`, bloqueio optimista entre postos, cobrança → factura-recibo).
+  - M-16: talões e etiquetas da lavandaria, recibo RC-LAV, talão do check-out do hotel e importação das tabelas da lavandaria.
+  - Visual: Acréscimos, Estrutura («Criar estrutura base», «Várias unidades»), POS, Encerramento.
+- **G2 — RH/Salários, Activos, Orçamento, Configurações.**
+  - A-08: copiar o mês anterior, lote com várias rubricas/horas, editar/eliminar seleccionados, eliminar período aberto, importação Excel.
+  - A-09: importação de colaboradores e contratos, contratos e rubricas em massa.
+  - A-10: recibo em PDF (2 vias, valor por extenso, IBAN), ZIP com um PDF por colaborador, UN/CC na ficha, assistente dos mapeamentos em falta.
+  - M-11 (portal: «A minha equipa», autoavaliações, avaliação das chefias), M-12 (leitura do relógio pelo servidor), M-13 (importação da produtividade; resultados com função, banco, IBAN, UN e CC), M-14 (unidades de negócio nas Configurações gerais e, na integração, também em Contabilidade › Tabelas auxiliares, com o mesmo componente).
+- **G3 — Vendas, Compras, Tesouraria, Armazém, Projectos, CRM.**
+  - A-03: condições de pagamento (PRONTO/PRAZO/MARCOS) e moeda estrangeira na emissão de vendas; impressão A4 com prestações e contravalor.
+  - A-12: importação de documentos de tesouraria com o modelo do legado (com simulação), anular/desintegrar em lote.
+  - M-06 (copiar documento; contabilizar/descontabilizar em lote), M-07 (importar produtos e categorias), M-08 (rascunhos da reconciliação em `rascunhos_reconciliacao`, histórico e detalhe, editar linha do extracto), M-17 (editar o IVA da proposta e da encomenda), M-18 (recibo de adiantamento e alocação posterior; factura a partir de várias guias), M-20 (arrastar tarefas na WBS; acções do organigrama).
+  - Visual: Facturação com os separadores do legado, barra do módulo de Compras, Operações de Tesouraria, Armazém (estado Esgotado/Ruptura/Disponível), CRM (só com facturas em atraso).
+- **G4 — Funcionalidades transversais e integrações** (detalhe abaixo): câmbios do BAI automáticos, M-01 Excel, M-02 Power BI, M-03 assistente IA, M-04 ajuda F1, M-05 operações em segundo plano, M-19 preferências, e os botões do legado em falta («Ajuda», «Procurar» Ctrl+K, favoritos, arrastar módulos, «Modo responsivo», «Voltar»).
+
+### As 27 decisões do utilizador e como foram aplicadas
+| # | Decisão | Aplicação |
+| :-: | :--- | :--- |
+| 1 | IRT: manter o degrau de 12 500 Kz a 150 000 Kz | Tabela de IRT (Grupo A) **configurável** e nacional (`configuracoes_sistema.rh_tabela_irt`, RH › Rubricas › Tabela de IRT, permissão nova `rh_tabela_irt_gerir`); por omissão a do `engine_v2.js`, com a nota legal «confirmar com o Código do IRT em vigor»; o modo LEGADO usa sempre a original |
+| 2 | `dias_trabalhados` com 3 casas | Aceite; registado no ADR-036 |
+| 3 | Encerrar com avisos de horas extra/faltas não valorizadas | Exige `confirmar_avisos`; sem ela, recusa |
+| 4 | Desconto com `calculo_horas = FALTA` como falta | Aceite; registado no ADR-036 |
+| 5 | Horas extra automáticas | Mantidas, com aviso visível; segregação encerrar/validar configurável por empresa (`configuracoes_rh`, desligada por omissão) |
+| 6 | Feriados | Feriados nacionais de Angola pré-carregáveis (`GET /rh/assiduidade/feriados-nacionais`); o utilizador confirma/edita por empresa |
+| 7 | Férias pela Lei Geral do Trabalho | Lei n.º 12/23: 22 dias úteis; no ano de admissão 2 dias × meses completos (máx. 22); transporte do saldo não gozado até 22 dias; aviso antes de 6 meses de serviço (o portal recusa). Parâmetros em `configuracoes_rh` (ver `ServicoFerias`) |
+| 8 | Preço livre | Permissão nova `vendas_alterar_preco`, atribuída aos perfis com `vendas_fat_emitir`; o frontend envia o preço só quando alterado |
+| 9 | Câmbio manual | Tolerância configurável (por omissão ±5 %, Moedas › «Câmbio manual nos documentos») em vendas, compras e tesouraria; acima, só com `cambio_manual_fora_tolerancia` e com registo na auditoria. **Excepção de controlo (melhor prática aceite pelo utilizador): a permissão é atribuída só aos perfis que gerem moedas (`config_moedas_gerir`) e ao acesso total — não a todos os que emitem documentos** |
+| 10 | Arredondamento AGT do POS | Campo próprio `vendas.arredondamento_agt`, separado do desconto (`ServicoDocumentosVenda::descontoEArredondamentoPos`), também na pré-visualização do check-out do hotel e no talão |
+| 11 | SAF-T do POS | Preço unitário com a precisão necessária e `SettlementAmount` para os descontos (SAF-T(AO) e AGT) |
+| 12 | FT sem linhas | Validação de dados com orientação para anular/corrigir; sem alteração automática |
+| 13 | Recibo de venda | Nota de fluxo de caixa «recebimentos de clientes» atribuída automaticamente |
+| 14 | Mesas do restaurante | M-15 (acima) |
+| 15 | Stock negativo seguido de entrada | A diferença de valorização das unidades vendidas a descoberto vai para o CMV: recepção de compra, regularização de inventário e, na integração, **também nas devoluções GD e NC com devolução de mercadoria** (`itens_venda.acerto_cmv_kz`, linhas no lançamento do documento) |
+| 16 | Câmbio na adjudicação | Câmbio da data da adjudicação (salvo câmbio manual da proposta) |
+| 17 | Factura de compra com projecto | Conta do produto + imputação analítica ao projecto |
+| 18 | Venda de activos | IVA liquidado (`abates_vendas_ativos.taxa_iva/valor_iva/conta_iva`; D terceiro valor + IVA, C IVA) |
+| 19 | Diferenças de câmbio | 6621 favoráveis / 7621 desfavoráveis, como o legado; justificação corrigida nos ADR-033/034; configuração pré-preenchida (migração de dados, passo pós-carga da ETL e `erp:tesouraria:diferencas-cambio`) e aviso nas Validações onde faltam |
+| 20 | Plano de contas | Diagnóstico nas Validações e correcção assistida antes do primeiro encerramento (`/contabilidade/encerramento/{ano}/plano`) |
+| 21 | Arredondamento do banco em moeda | Acerto na última linha |
+| 22 | Balancete «sem saldo zero» | Totais sempre de todas as contas |
+| 23 | Monitor orçamental no modo NENHUM | EXCEDIDO acima de 100 %, só informativo |
+| 24 | Gasto sem orçamento | Desvio desfavorável (`sem_orcamento`) |
+| 25 | Power BI | M-02 (abaixo) |
+| 26 | Assistente IA | M-03 (abaixo) |
+| 27 | NC sobre factura-recibo | Mantida bloqueada como no legado (anular primeiro o recibo); aviso no ecrã de emissão |
+
+### Integrações e funcionalidades transversais
+**Câmbios do BAI automáticos.** A rotina manual mantém-se. A obtenção diária agendada (`sistema:cambios-bai`, verificada de minuto a minuto) começa a uma hora fixa configurável no ecrã de Moedas (`config_moedas_gerir`; desligada por omissão; até 3 tentativas por dia com 30 min de intervalo; corre na primeira verificação depois da hora se o agendador esteve parado). O resultado fica em `cambios_bai_pendentes` (data, moeda, compra/venda/média, último registado, variação, alerta > 5 %). **Nada é gravado em `taxas_cambio` sem validação**: validar grava os valores obtidos pelo servidor (nunca vindos do cliente) com as regras da gravação manual; rejeitar descarta; uma obtenção nova substitui as pendentes anteriores; auditoria de quem decidiu. Cada obtenção e as falhas ficam em `execucoes_cambios_bai`, mostradas no ecrã e em `/api/saude` (`dados.informacao.cambios_bai`, só informativo).
+
+**M-01 — Excel comum.** Gerado no cliente, a partir do mesmo conteúdo que o motor de impressão recebe, com um escritor XLSX mínimo próprio (ZIP sem compressão + SpreadsheetML, `src/componentes/impressao/excel.ts`, sem dependências e compatível com a CSP). Fica em todos os ecrãs com Imprimir/PDF sem os alterar um a um (o servidor não conhece as colunas visíveis nem os `render`). Números como números, datas como datas, totais a negrito, cabeçalho da empresa e filtros, títulos fixos; códigos (contas, NIF, n.º de documento) ficam texto. `excel={false}` esconde o botão.
+
+**M-02 — Power BI (decisão 25).** Feed OData v4 de leitura `GET /api/bi/odata[/$metadata|/{conjunto}]` sobre a lista branca do cubo (8 conjuntos, com as regras de cada um; dimensões da holding excluídas), 5 000 linhas por página com `@odata.nextLink`, `$top/$skip/$select/$count`, período por parâmetros; `$filter/$orderby` → 501, declarado no `$metadata`. Autenticação fora do Sanctum por **token de leitura por empresa** (`tokens_bi`: só SHA-256, prefixo visível, conjuntos opcionais, expiração, revogação imediata, último uso), como Bearer ou Básica (palavra-passe = token). Gestão com `config_backup`; 120 pedidos/min por token. Corrige o servidor do legado (sem autenticação, upload aberto, todas as empresas misturadas, CSDL sem tipos).
+
+**M-03 — Assistente IA para lançamentos (decisão 26).**
+- Fornecedor Anthropic (Claude), Messages API; modelo `claude-opus-5-5` (configurável em `ERP_IA_MODELO`), pensamento adaptativo, esforço `medium`, saída estruturada em JSON Schema, prompt de sistema em cache.
+- Chave só em `ANTHROPIC_API_KEY` no ambiente do servidor. Cliente HTTP do Laravel (uma chamada, sem dependência nova, testável com `Http::fake`); a passagem ao SDK oficial é directa.
+- **Desligado por omissão em cada empresa** (activado por `config_empresas_gerir`). **Só propõe**: as propostas são validadas no servidor (diário, contas de movimento, D/C, valores, data, equilíbrio — problemas como avisos) e abertas no formulário normal de lançamento; a gravação é a de sempre.
+- Dados enviados, minimizados: o texto/ficheiro escolhido, contas de movimento (código e descrição), diários, regras de negócio da empresa e a data; nunca nome/NIF da empresa, terceiros, saldos ou lançamentos. O conteúdo do documento é tratado como dados.
+- Custos: Opus 5.5 a 4 USD / 20 USD por milhão de tokens (entrada/saída; leituras de cache a 0,20 USD) — tipicamente cêntimos por proposta. Cada pedido fica em `utilizacoes_assistente_ia` (motor, modelo, tokens, custo estimado, resultado — nunca o conteúdo); o ecrã mostra o total do mês.
+- Motor interno (`regras_internas_ia`, formato do legado) com CRUD (`aux_gerir`); com `motor=auto` é tentado primeiro e não envia nada a terceiros. Corrige o legado (chave no `localStorage`, proxy sem autenticação, JSON aplicado sem validar).
+
+**M-04 — Ajuda F1.** `ajuda.js` convertido para `src/componentes/ajuda/conteudo.json` (74 ecrãs com texto próprio; os restantes usam o do ecrã-pai ou o resumo do módulo, como o legado); painel lateral com pesquisa, botão «Ajuda» e tecla F1.
+
+**M-05 — Operações em segundo plano.** `OperacoesProvider` no layout (painel no canto: progresso, minimizar, cancelar) com dois modos: no cliente (`executar`, ex.: recolha de todas as páginas para imprimir/exportar e, na integração, o ZIP de recibos) e no servidor (`ServicoOperacoes::despachar()` sobre `Bus::batch` + `GET /api/sistema/operacoes/{id}`, só o dono). O ZIP de recibos continua a ser gerado num pedido síncrono: passá-lo para um lote na fila exigiria guardar o ficheiro no servidor e um endpoint de descarga do resultado — fica para quando o volume o justificar.
+
+**M-19 — Preferências no servidor.** `preferencias_utilizador` (`GET/PUT/DELETE /api/sistema/preferencias/{tipo}/{nome}`; tipos `favoritos`, `ordem_modulos`, `visoes_cubo`, `interface`): favoritos (estrela na barra, grupo no menu e no Início), ordem dos módulos no Início (arrastar e largar, Alt+↑/↓), visões guardadas da Análise Dinâmica. No legado ficava tudo no `localStorage`.
+
+### Integração (esquema, permissões e dados)
+- **Esquema:** as tabelas e colunas novas passaram das migrações avulsas dos agentes para `ferramentas/gerador/esquema_extra.mjs` (`TABELAS_NOVAS`: `mesas_pos`, `contas_mesa_pos`, `configuracoes_rh`, `rascunhos_reconciliacao`, `cambios_bai_pendentes`, `execucoes_cambios_bai`, `tokens_bi`, `utilizacoes_assistente_ia`, `preferencias_utilizador`; `COLUNAS_NOVAS`: `vendas.arredondamento_agt`, `recibos_venda.tipo_recibo`, `itens_recibo_venda.numero_lan_contabilizacao/data_alocacao`, `abates_vendas_ativos.taxa_iva/valor_iva/conta_iva`, `itens_venda.acerto_cmv_kz`; únicos, CHECK, índices e cascatas). O gerador passou a aceitar, nas colunas de `TABELAS_NOVAS`, um 4.º elemento `{ fk, padrao, nulo }`. As migrações de esquema dos agentes foram apagadas; os models passaram ao padrão Base/concreto (incluindo `ConfiguracaoRH`, antes escrito à mão). As FKs seguem a regra do gerador: RESTRICT, CASCADE só em `mesas_pos.terminal_pos_id` e `preferencias_utilizador.utilizador_id`.
+- **Permissões e configuração depois da ETL:** numa base nova as migrações de dados (`rh_tabela_irt_gerir`, `vendas_alterar_preco`, `cambio_manual_fora_tolerancia`, contas 6621/7621) correm antes de a ETL carregar perfis, empresas e planos. A lógica está em `ServicoPermissoesNovas` (usado pelas migrações) e a migração do legado aplica-a de novo depois do COMMIT (`ServicoMigracaoLegado::aplicarPosCarga`, resultado em `relatorio.pos_carga`; repetível com `php artisan erp:migracao:pos-carga`). Só acrescenta chaves em falta a perfis v2; nunca retira.
+
+### Por fazer
+- **G1:** lacunas BAIXA da contabilidade e do POS de armazém (pré-visualizações de lançamentos, estornos em lote na contabilidade, talão e visto no picking, código de barras no inventário).
+- **G2:** contrato de trabalho em PDF e grupos A/B nos mapas de IRT/INSS (resto de M-13); cópia de tabelas e mapeamentos de salários entre empresas (baixa).
+- **G3:** modelos de importação de lançamentos, extracto e câmbios; atalhos (documento de origem, liquidar, processo do documento); colunas AV%/AH% (baixa).
+- **G4:** ZIP de recibos como lote na fila (M-05, acima); passagem opcional do cliente da IA ao SDK oficial; `erp:instalar`, modo Zen, registo de navegação e imagens dos produtos (baixa).
+- **Integração:** os ficheiros de rotas da ronda (`routes/api/ronda2_g{1,2,3}.php`) mantêm o nome do grupo; podem ser renomeados por módulo numa limpeza futura.
+
+### Verificação
+- backend: 414 testes PHPUnit (6 934 asserções), `pint --test` limpo; frontend: 399 testes Vitest, `tsc` (aplicação e E2E) sem erros. O build e os E2E correm depois de recarregar as bases (`migrate:fresh` + ETL do backup real).

@@ -7,7 +7,8 @@ import { rotuloProduto, useArmazens, useCatalogo, type FichaTerceiro } from './r
 type PropsBase<V> = Omit<SelectProps<V>, 'options' | 'showSearch' | 'filterOption' | 'onSearch' | 'loading'>;
 
 /** Pesquisa de clientes ou fornecedores (GET /terceiros?papel=…&pesquisa=…). */
-export function SeletorTerceiro({ papel, ...props }: PropsBase<number> & { papel: 'CLIENTE' | 'FORNECEDOR' }) {
+/** onEscolher: recebe a ficha do terceiro escolhido (ex.: sugerir a moeda do fornecedor — comprasFxSugerirMoedaFornecedor, M-17). */
+export function SeletorTerceiro({ papel, onEscolher, ...props }: PropsBase<number> & { papel: 'CLIENTE' | 'FORNECEDOR'; onEscolher?: (t: FichaTerceiro | undefined) => void }) {
   const [pesquisa, setPesquisa] = useState('');
   const consulta = useQuery({
     queryKey: ['terceiros', 'pesquisa', papel, pesquisa],
@@ -24,6 +25,7 @@ export function SeletorTerceiro({ papel, ...props }: PropsBase<number> & { papel
       placeholder={papel === 'CLIENTE' ? 'Pesquisar cliente (nome ou NIF)' : 'Pesquisar fornecedor (nome ou NIF)'}
       options={(consulta.data?.itens ?? []).map((t) => ({ value: t.id, label: `${t.nome.trim()}${t.nif ? ` (NIF ${t.nif})` : ''}` }))}
       {...props}
+      onChange={(v, o) => { props.onChange?.(v, o); onEscolher?.((consulta.data?.itens ?? []).find((t) => t.id === v)); }}
     />
   );
 }

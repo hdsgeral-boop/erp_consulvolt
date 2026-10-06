@@ -905,10 +905,23 @@ return new class extends Migration
         DB::statement('CREATE UNIQUE INDEX uq_resultados_folha_salarial_periodo__colabora ON resultados_folha_salarial (periodo_processamento_salarial_id, colaborador_id)');
         DB::statement('CREATE INDEX ix_resultados_folha_salarial_empresa_id ON resultados_folha_salarial (empresa_id)');
         DB::statement('CREATE INDEX ix_resultados_folha_salarial_colaborador_id ON resultados_folha_salarial (colaborador_id)');
+
+        // configuracoes_rh (tabela nova) · 0 linhas reais no backup
+        Schema::create('configuracoes_rh', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->string('chave', 150)->comment('Chave (ver ServicoConfiguracaoRH::PADRAO)');
+            $table->jsonb('valor')->nullable()->comment('Valor');
+            $table->string('atualizado_por', 100)->nullable()->comment('Quem alterou');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_configuracoes_rh_empresa_id_chave ON configuracoes_rh (empresa_id, chave)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('configuracoes_rh');
         Schema::dropIfExists('resultados_folha_salarial');
         Schema::dropIfExists('postos_trabalho');
         Schema::dropIfExists('unidades_organicas');

@@ -11,7 +11,7 @@ export default function Funcoes() {
   const eliminar = pode('rh_funcao_del');
   return (
     <>
-      <CabecalhoPagina titulo="Funções e categorias" subtitulo="Cargos e funções dos colaboradores e tipos de organização (usados no mapeamento contabilístico dos salários)" />
+      <CabecalhoPagina titulo="Gestão de Funções" subtitulo="Cargos e funções dos colaboradores e tipos de organização (usados no mapeamento contabilístico dos salários)" />
       <Tabs
         items={[
           {

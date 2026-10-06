@@ -97,6 +97,12 @@ export const UNICOS = [
   ['configuracoes_faturacao_eletronica', ['empresa_id']],
   // Séries de numeração (AGT e não fiscais): código único por empresa, tipo e ano
   ['series_faturacao_eletronica', ['empresa_id', 'tipo', 'ano', 'codigo']],
+  // Ronda 2 (ADR-068): tabelas novas
+  ['mesas_pos', ['terminal_pos_id', 'nome']],
+  ['contas_mesa_pos', ['mesa_pos_id'], "estado = 'ABERTA'"],   // uma conta aberta por mesa (bloqueio entre postos)
+  ['configuracoes_rh', ['empresa_id', 'chave']],
+  ['tokens_bi', ['hash_token']],
+  ['preferencias_utilizador', ['utilizador_id', 'tipo', 'nome']],
 ];
 
 // Chaves candidatas que o backup VIOLA: ficam como índice normal + relatório de validação (ADR-015).
@@ -128,6 +134,10 @@ export const INDICES = [
   ['linhas_folha_salarial', ['empresa_id', 'periodo_processamento_salarial_id', 'colaborador_id']],
   ['amortizacoes_ativos', ['empresa_id', 'ativo_imobilizado_id', 'periodo_codigo']],
   ['terceiros', ['empresa_id', 'codigo_conta']],
+  ['mesas_pos', ['empresa_id', 'terminal_pos_id']],
+  ['contas_mesa_pos', ['empresa_id', 'terminal_pos_id', 'estado']],
+  ['rascunhos_reconciliacao', ['empresa_id', 'codigo_conta']],
+  ['utilizacoes_assistente_ia', ['empresa_id', 'criado_em']],
 ];
 
 // FKs em cascata (linhas/itens apagados com o cabeçalho). Todas as outras: RESTRICT.
@@ -138,6 +148,8 @@ export const CASCATA = new Set([
   'linhas_revisao_projeto.revisao_mensal_projeto_id', 'linhas_orcamento.orcamento_anual_id',
   'membros_equipa_projeto.equipa_projeto_id', 'membros_consolidacao.grupo_consolidacao_id',
   'coordenadas_bancarias_colaboradores.colaborador_id', 'dependentes_colaboradores.colaborador_id',
+  // Ronda 2 (ADR-068): as mesas pertencem ao terminal; as preferências ao utilizador
+  'mesas_pos.terminal_pos_id', 'preferencias_utilizador.utilizador_id',
 ]);
 
 // FKs polimórficas do legado substituídas por uma FK real por tipo (CHECK: exactamente uma preenchida).
@@ -188,11 +200,15 @@ export const COLUNAS_NOVAS = {
     // ADR-043: stock nas vendas (FT/FR/GR baixam; GD e NC de devolução repõem)
     ['armazem_id', 'bigint', 'armazens', 'Armazém de onde sai (ou para onde volta) a mercadoria'],
     ['devolucao_mercadoria', 'boolean', null, 'NC: a mercadoria volta ao stock (as NC de correcção de preço não mexem no stock)'],
+    // ADR-068 (decisão 10): arredondamento AGT do POS separado do desconto comercial
+    ['arredondamento_agt', 'numeric(15,2)', null, 'POS: arredondamento AGT (valor cobrado − desconto − total do documento), separado do desconto'],
   ],
   itens_venda: [
     ['custo_unitario_kz', 'numeric(18,6)', null, 'Custo médio da saída/entrada de stock da linha (base do CMV)'],
     ['quantidade_stock', 'numeric(12,3)', null, 'Quantidade que movimentou stock (0 numa FT gerada de uma GR)'],
     ['quantidade_devolvida', 'numeric(12,3)', null, 'GR: quantidade já devolvida por guias de devolução'],
+    // ADR-068 (decisão 15): devolução (GD/NC) sobre stock negativo — diferença de valorização das unidades a descoberto
+    ['acerto_cmv_kz', 'numeric(15,2)', null, 'GD/NC com devolução sobre stock negativo: acerto do CMV (custo da devolução − custo médio das unidades a descoberto)'],
   ],
   // ADR-029: recibos com rasto de anulação, série e ligação à factura-recibo que os originou
   recibos_venda: [
@@ -202,6 +218,18 @@ export const COLUNAS_NOVAS = {
     ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento contabilístico do recibo'],
     ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'],
     ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+    // ADR-068 (M-18): recibo de adiantamento de cliente (sem factura), alocado depois
+    ['tipo_recibo', 'varchar(20)', null, 'NORMAL (nulo) ou ADIANTAMENTO (recibo sem factura, alocado depois)'],
+  ],
+  itens_recibo_venda: [
+    ['numero_lan_contabilizacao', 'varchar(30)', null, 'Adiantamento: lançamento da alocação à factura (D adiantamentos / C cliente)'],
+    ['data_alocacao', 'date', null, 'Adiantamento: data da alocação à factura'],
+  ],
+  // ADR-068 (decisão 18): a venda de um activo liquida IVA
+  abates_vendas_ativos: [
+    ['taxa_iva', 'numeric(5,2)', null, 'Venda: taxa de IVA liquidado (0, 5, 7 ou 14 %)'],
+    ['valor_iva', 'numeric(15,2)', null, 'Venda: IVA liquidado (valor × taxa)'],
+    ['conta_iva', 'varchar(20)', null, 'Venda: conta do IVA liquidado creditada'],
   ],
   // ADR-032 (Tesouraria): numeração, rasto de integração/anulação e ligação EXPLÍCITA ao documento liquidado
   // (o legado ligava só pelo texto doc_number; o "pago" das vendas contava até pagamentos por integrar)
@@ -321,6 +349,7 @@ export const CHECKS = [
   ['linhas_extrato_bancario', 'ck_extrato_tipo_dc', "tipo_dc IN ('D','C')", (l) => ['D', 'C'].includes(l.tipo_dc)],
   ['lancamentos_estornados', 'ck_estornados_tipo_dc', "tipo_dc IN ('D','C')", (l) => ['D', 'C'].includes(l.tipo_dc)],
   ['plano_contas', 'ck_plano_contas_tipo', "tipo IN ('M','T')", (l) => l.tipo === null || ['M', 'T'].includes(l.tipo)],
+  ['contas_mesa_pos', 'ck_contas_mesa_pos_estado', "estado IN ('ABERTA','FECHADA','ANULADA')", (l) => ['ABERTA', 'FECHADA', 'ANULADA'].includes(l.estado)],
 ];
 
 // Tabelas novas do desenho (ETL / infraestrutura).
@@ -369,5 +398,109 @@ export const TABELAS_NOVAS = {
       ['resolvido_em', 'timestamptz'], ['resolvido_por', 'varchar(100)'], ['resolucao', 'text'],
     ],
     indices: [['tabela_legado', 'id_legado']],
+  },
+
+  // ── Ronda 2 (ADR-068) ────────────────────────────────────────────────────────────────────────────────────────
+  // Coluna: [nome, tipo, nota, { fk: 'tabela', padrao: valor por omissão, nulo: false }] (4.º elemento opcional).
+  // M-15 (decisão 14): mesas do POS restaurante e contas por mesa no servidor (o legado usava o localStorage)
+  mesas_pos: {
+    modulo: 'POS', model: 'MesaPOS',
+    colunas: [
+      ['terminal_pos_id', 'bigint', 'Terminal RESTAURANTE', { fk: 'terminais_pos', nulo: false }],
+      ['nome', 'varchar(60)', 'Nome da mesa (ex.: Mesa 1, Terraço 2, Take-Away)', { nulo: false }],
+      ['ordem', 'integer', 'Ordem de apresentação', { padrao: 0 }], ['ativo', 'boolean', null, { padrao: true }],
+    ],
+  },
+  contas_mesa_pos: {
+    modulo: 'POS', model: 'ContaMesaPOS',
+    colunas: [
+      ['mesa_pos_id', 'bigint', 'Mesa', { fk: 'mesas_pos', nulo: false }],
+      ['terminal_pos_id', 'bigint', 'Terminal', { fk: 'terminais_pos', nulo: false }],
+      ['sessao_pos_id', 'bigint', 'Sessão em que foi cobrada', { fk: 'sessoes_pos' }],
+      ['estado', 'varchar(12)', 'ABERTA, FECHADA (cobrada) ou ANULADA (libertada sem venda)', { padrao: 'ABERTA', nulo: false }],
+      ['linhas', 'jsonb', '[{produto_id, quantidade, preco_unitario?}] — o preço só quando alterado', { nulo: false }],
+      ['percentagem_desconto', 'numeric(9,4)', null, { padrao: 0 }],
+      ['cliente_id', 'bigint', 'Cliente', { fk: 'terceiros' }],
+      ['observacoes', 'text'], ['operador', 'varchar(150)', 'Quem abriu/actualizou a conta'],
+      ['versao', 'integer', 'Bloqueio optimista entre postos', { padrao: 1 }],
+      ['venda_id', 'bigint', 'Factura-recibo emitida ao cobrar', { fk: 'vendas' }],
+      ['aberta_em', 'timestamptz'], ['fechada_em', 'timestamptz'],
+    ],
+  },
+  // Decisões 5 e 7: configuração de RH por empresa (chave → valor JSON; ver ServicoConfiguracaoRH::PADRAO)
+  configuracoes_rh: {
+    modulo: 'RH', model: 'ConfiguracaoRH',
+    colunas: [
+      ['chave', 'varchar(100)', 'Chave (ver ServicoConfiguracaoRH::PADRAO)', { nulo: false }],
+      ['valor', 'jsonb', 'Valor'], ['atualizado_por', 'varchar(100)', 'Quem alterou'],
+    ],
+  },
+  // M-08: rascunhos da reconciliação bancária (o legado guardava o trabalho em curso no localStorage)
+  rascunhos_reconciliacao: {
+    modulo: 'Tesouraria', model: 'RascunhoReconciliacao',
+    colunas: [
+      ['codigo_conta', 'varchar(20)', 'Conta bancária (43) reconciliada', { nulo: false }],
+      ['periodo_inicio', 'date', 'Início do período trabalhado'], ['periodo_fim', 'date', 'Fim do período trabalhado'],
+      ['grupos', 'jsonb', 'Grupos emparelhados por confirmar: [{extrato: [ids], lancamentos: [ids]}]', { nulo: false }],
+      ['observacoes', 'text', 'Notas do autor'], ['criado_por', 'varchar(100)', 'Utilizador que gravou o rascunho'],
+    ],
+  },
+  // Câmbios do BAI automáticos: pré-visualização por validar e registo das obtenções (globais, como taxas_cambio)
+  cambios_bai_pendentes: {
+    modulo: 'Sistema', model: 'CambioBAIPendente', global: true,
+    colunas: [
+      ['execucao_cambio_bai_id', 'bigint', 'Obtenção que gerou a linha'],
+      ['data_cotacao', 'date', 'Data a que o câmbio fica registado (dia da obtenção)'],
+      ['codigo_moeda', 'varchar(3)'], ['nome_moeda', 'varchar(255)'],
+      ['taxa_compra', 'numeric(18,6)', 'Divisas: compra'], ['taxa_venda', 'numeric(18,6)', 'Divisas: venda'],
+      ['taxa_media', 'numeric(18,6)', 'Média (compra + venda) / 2 — valor a gravar'],
+      ['ultima_taxa', 'numeric(18,6)', 'Último câmbio registado no momento da obtenção'], ['ultima_data', 'date'], ['ultima_fonte', 'varchar(50)'],
+      ['variacao', 'numeric(9,2)', 'Variação % face ao último registado'], ['alerta', 'boolean', 'Variação acima do limiar (5 %)'],
+      ['estado', 'varchar(20)', 'PENDENTE, VALIDADO, REJEITADO ou SUBSTITUIDO'],
+      ['decidido_por_id', 'bigint', 'Utilizador que validou/rejeitou'], ['decidido_por', 'varchar(100)'], ['decidido_em', 'timestamptz'],
+      ['motivo', 'text', 'Motivo da rejeição / resultado da validação'],
+    ],
+    indices: [['estado'], ['execucao_cambio_bai_id']],
+  },
+  execucoes_cambios_bai: {
+    modulo: 'Sistema', model: 'ExecucaoCambioBAI', global: true,
+    colunas: [
+      ['origem', 'varchar(20)', 'AGENDADA ou MANUAL'], ['estado', 'varchar(20)', 'SUCESSO ou FALHA'],
+      ['codigo_erro', 'varchar(50)'], ['mensagem', 'text'], ['moedas', 'integer', 'Moedas deixadas por validar'],
+      ['utilizador_id', 'bigint', 'Quem pediu (obtenção manual)'], ['iniciado_em', 'timestamptz'], ['concluido_em', 'timestamptz'],
+    ],
+    indices: [['iniciado_em']],
+  },
+  // Power BI (decisão 25, M-02): tokens de leitura do feed OData; guarda-se só o hash SHA-256
+  tokens_bi: {
+    modulo: 'Sistema', model: 'TokenBI',
+    colunas: [
+      ['nome', 'varchar(255)', 'Descrição (ex.: Power BI da Direcção Financeira)'],
+      ['prefixo', 'varchar(20)', 'Início do token, para o identificar sem o revelar'],
+      ['hash_token', 'varchar(64)', 'SHA-256 do token (o valor nunca é guardado)'],
+      ['conjuntos', 'jsonb', 'Conjuntos permitidos (NULL = todos os da lista branca)'],
+      ['criado_por_id', 'bigint'], ['criado_por', 'varchar(100)'], ['expira_em', 'timestamptz'], ['ultimo_uso_em', 'timestamptz'],
+      ['utilizacoes', 'bigint'], ['revogado_em', 'timestamptz'], ['revogado_por', 'varchar(100)'],
+    ],
+  },
+  // Assistente IA (decisão 26, M-03): metadados de cada pedido (auditoria e custo) — nunca o texto nem o ficheiro
+  utilizacoes_assistente_ia: {
+    modulo: 'Contabilidade', model: 'UtilizacaoAssistenteIA',
+    colunas: [
+      ['utilizador_id', 'bigint'], ['nome_utilizador', 'varchar(100)'],
+      ['motor', 'varchar(20)', 'IA (Claude) ou REGRAS (motor interno)'], ['modelo', 'varchar(60)'],
+      ['estado', 'varchar(20)', 'SUCESSO, SEM_PROPOSTA, RECUSA ou FALHA'], ['codigo_erro', 'varchar(60)'],
+      ['propostas', 'integer'], ['caracteres_texto', 'integer'], ['tipo_ficheiro', 'varchar(60)'], ['tamanho_ficheiro_kb', 'integer'],
+      ['tokens_entrada', 'integer'], ['tokens_saida', 'integer'], ['custo_estimado_usd', 'numeric(12,6)'], ['duracao_ms', 'integer'],
+    ],
+  },
+  // M-19: preferências do utilizador no servidor (favoritos, ordem dos módulos, visões do cubo, interface)
+  preferencias_utilizador: {
+    modulo: 'Sistema', model: 'PreferenciaUtilizador', global: true,
+    colunas: [
+      ['utilizador_id', 'bigint', 'Utilizador', { fk: 'utilizadores', nulo: false }],
+      ['empresa_id', 'bigint', 'NULL = válida em todas as empresas'],
+      ['tipo', 'varchar(40)', 'favoritos, ordem_modulos, visoes_cubo, interface'], ['nome', 'varchar(150)'], ['valor', 'jsonb'],
+    ],
   },
 };

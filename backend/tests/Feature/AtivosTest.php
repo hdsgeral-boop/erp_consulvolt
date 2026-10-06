@@ -12,6 +12,7 @@ use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Support\Tenancy\ContextoEmpresa;
+use Illuminate\Http\UploadedFile;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -263,5 +264,41 @@ final class AtivosTest extends TestCase
             ->assertStatus(422)->assertJsonPath('codigo', 'SEM_CONTA_ATIVO');
         $this->postJson('/api/ativos/abates', ['ativo_imobilizado_id' => $b, 'tipo' => 'FIM_VIDA', 'data' => '2026-01-31', 'contabilizar' => false], $this->s)
             ->assertCreated()->assertJsonPath('dados.numero_lan', null);
+    }
+
+    #[Test]
+    public function venda_de_activo_liquida_iva(): void
+    {
+        // Decisão 18 do utilizador: a venda liquida IVA sobre o valor (base tributável); a mais-valia apura-se sem IVA
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => PlanoConta::create(['codigo' => '34531', 'descricao' => 'IVA liquidado', 'tipo' => 'M']));
+        $linha = $this->compra('1200', '2026-01-05');
+        $a = $this->postJson("/api/ativos/aquisicoes-pendentes/{$linha}/inventariar", ['itens' => [['descricao' => 'Viatura', 'categoria_ativo_id' => $this->ids['cat'],
+            'valor_aquisicao' => 1200, 'vida_util' => 12]]], $this->s)->assertCreated()->json('dados.ativos.0.id');
+        $venda = ['ativo_imobilizado_id' => $a, 'tipo' => 'VENDA', 'data' => '2026-01-31', 'valor' => 1000, 'terceiro_id' => $this->ids['cli'], 'conta_terceiro' => '3721'];
+        $this->postJson('/api/ativos/abates', $venda + ['taxa_iva' => 9], $this->s)->assertStatus(422);
+        // sem conta indicada nem configurada nas contas de vendas: recusa com indicação do que configurar
+        $this->postJson('/api/ativos/abates', $venda + ['taxa_iva' => 14], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'CONFIG_VENDAS_EM_FALTA');
+        $sim = $this->postJson('/api/ativos/abates/simulacao', $venda + ['taxa_iva' => 14, 'conta_iva' => '34531'], $this->s)->assertOk()->json('dados');
+        $this->assertSame(['140.00', '1140.00', '-200.00'], [$sim['valor_iva'], $sim['total_terceiro'], $sim['resultado']]);
+        $r = $this->postJson('/api/ativos/abates', $venda + ['taxa_iva' => 14, 'conta_iva' => '34531'], $this->s)->assertCreated()->json('dados');
+        $this->assertSame(['C 1141 1200.00', 'D 3721 1140.00', 'C 34531 140.00', 'D 78031 200.00'], $this->linhasDe("ABT-{$r['abate']['id']}"));
+        $this->assertSame(['14.00', '140.00', '34531'], [$r['abate']['taxa_iva'], $r['abate']['valor_iva'], $r['abate']['conta_iva']]);
+        // taxa 0: sem linha de IVA e com aviso
+        $this->postJson("/api/ativos/abates/{$r['abate']['id']}/anular", ['motivo' => 'Teste'], $this->s)->assertOk();
+        $r0 = $this->postJson('/api/ativos/abates', $venda, $this->s)->assertCreated()->json('dados');
+        $this->assertSame(['C 1141 1200.00', 'D 3721 1000.00', 'D 78031 200.00'], $this->linhasDe("ABT-{$r0['abate']['id']}"));
+        $this->assertNotEmpty($r0['avisos']);
+    }
+
+    #[Test]
+    public function importacao_le_o_modelo_xlsx(): void
+    {
+        $modelo = $this->get('/api/ativos/bens/importar/modelo', $this->s)->assertOk();
+        $caminho = tempnam(sys_get_temp_dir(), 'mod').'.xlsx';
+        file_put_contents($caminho, $modelo->streamedContent());
+        $linhas = $this->post('/api/ativos/bens/importar/folha', ['ficheiro' => new UploadedFile($caminho, 'modelo.xlsx', null, null, true)], $this->s)
+            ->assertOk()->json('dados');
+        $this->assertSame('Viatura ligeira', $linhas[0]['Descrição']);
+        $this->assertEquals(4500000, $linhas[0]['Valor de aquisição']);
     }
 }

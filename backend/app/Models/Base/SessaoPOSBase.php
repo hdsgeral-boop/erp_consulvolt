@@ -4,6 +4,7 @@ namespace App\Models\Base;
 
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\ContaMesaPOS;
 use App\Models\DiarioContabil;
 use App\Models\EstadiaHotel;
 use App\Models\LancamentoContabil;
@@ -105,5 +106,10 @@ abstract class SessaoPOSBase extends ModeloBase
     public function pagamentosLavandaria(): HasMany
     {
         return $this->hasMany(PagamentoLavandaria::class, 'sessao_pos_id');
+    }
+
+    public function contasMesaPos(): HasMany
+    {
+        return $this->hasMany(ContaMesaPOS::class, 'sessao_pos_id');
     }
 }

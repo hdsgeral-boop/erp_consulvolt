@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Descriptions, Form, Input, Modal, Skeleton, Table, Tag, Typography, message } from 'antd';
-import { ArrowLeftOutlined, CopyOutlined, RollbackOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CopyOutlined, EditOutlined, RollbackOutlined, SwapOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -16,14 +16,17 @@ import { ValorKz } from '../comum/Componentes';
 import { porId, useDiarios, useTabelaAux } from '../comum/dados';
 import { accoesLancamento } from '../comum/regras';
 import type { EstadoCopia } from './NovoLancamento';
+import { ModalClassificacao, ModalTransferir } from './ModaisLancamento';
 
-/** Detalhe do lançamento (documento) a que pertence a linha :id, com estorno e cópia. */
+/** Detalhe do lançamento (documento) a que pertence a linha :id, com estorno, cópia, transferência (M-09) e classificação por linha (A-05). */
 export function DetalheLancamento() {
   const { id } = useParams();
   const navegar = useNavigate();
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const [estornar, setEstornar] = useState(false);
+  const [transferir, setTransferir] = useState(false);
+  const [editar, setEditar] = useState<LinhaLancamento | null>(null);
   const [form] = Form.useForm<{ motivo: string }>();
   const diarios = useDiarios();
   const centros = useTabelaAux('centros-custo');
@@ -51,14 +54,37 @@ export function DetalheLancamento() {
   const original = d.linhas.find((l) => l.estorno_de_id)?.estorno_de_id;
   const estornadoPor = d.linhas.find((l) => l.estornado_por_id)?.estornado_por_id;
   const l0 = d.linhas[0];
+  const temMoeda = d.linhas.some((l) => !!l.codigo_moeda);
+  const podeClassificar = pode('lancamentos_bulk_notes', 'lancamentos_editar');
 
   const colunas = [
     { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string) => <strong>{v}</strong> },
     { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null) => v ?? '—' },
     { title: 'Terceiro', key: 'terceiro', render: (_: unknown, r: LinhaLancamento) => rotuloTerceiro(r.terceiro, r.terceiro_id, true) },
     { title: 'Centro de custo', dataIndex: 'centro_custo_id', render: (v: number | null) => (v ? nomesCentro.get(v) ?? `#${v}` : '—') },
+    ...(temMoeda
+      ? [
+          {
+            title: 'Moeda',
+            key: 'moeda',
+            render: (_: unknown, r: LinhaLancamento) =>
+              r.codigo_moeda ? `${r.codigo_moeda} ${Number(r.valor_moeda ?? 0).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} × ${Number(r.taxa_cambio ?? 0).toLocaleString('pt-PT', { maximumFractionDigits: 6 })}` : '—',
+          },
+        ]
+      : []),
     { title: 'Débito', align: 'right' as const, render: (_: unknown, r: LinhaLancamento) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null) },
     { title: 'Crédito', align: 'right' as const, render: (_: unknown, r: LinhaLancamento) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null) },
+    ...(podeClassificar
+      ? [
+          {
+            key: 'accoes',
+            width: 48,
+            render: (_: unknown, r: LinhaLancamento) => (
+              <Button type="text" size="small" icon={<EditOutlined />} aria-label={`Editar classificação da linha ${r.codigo_conta}`} title="Editar classificação" onClick={() => setEditar(r)} />
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -95,9 +121,14 @@ export function DetalheLancamento() {
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
-            {pode('lancamentos_post') && situacao !== 'ESTORNO' && (
+            {pode('lancamentos_post', 'lancamentos_editar') && situacao !== 'ESTORNO' && (
               <Button icon={<CopyOutlined />} onClick={() => navegar('../novo', { state: { copia: d } satisfies EstadoCopia })}>
                 Copiar
+              </Button>
+            )}
+            {podeEstornar && (
+              <Button icon={<SwapOutlined />} onClick={() => setTransferir(true)} title="Transferir lançamento para outra empresa">
+                Transferir
               </Button>
             )}
             {podeEstornar && (
@@ -147,20 +178,23 @@ export function DetalheLancamento() {
           scroll={scrollTabela()}
           summary={() => (
             <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={4}>
+              <Table.Summary.Cell index={0} colSpan={temMoeda ? 5 : 4}>
                 <Typography.Text strong>Totais</Typography.Text>
               </Table.Summary.Cell>
-              <Table.Summary.Cell index={4} align="right">
+              <Table.Summary.Cell index={temMoeda ? 5 : 4} align="right">
                 <ValorKz valor={d.debito} forte />
               </Table.Summary.Cell>
-              <Table.Summary.Cell index={5} align="right">
+              <Table.Summary.Cell index={temMoeda ? 6 : 5} align="right">
                 <ValorKz valor={d.credito} forte />
               </Table.Summary.Cell>
+              {podeClassificar && <Table.Summary.Cell index={temMoeda ? 7 : 6} />}
             </Table.Summary.Row>
           )}
         />
       </Card>
 
+      <ModalClassificacao linha={editar} aoFechar={() => setEditar(null)} />
+      <ModalTransferir aberto={transferir} linhaId={Number(id)} numeroLan={d.numero_lan} aoFechar={() => setTransferir(false)} aoConcluir={(estorno) => navegar(`../${estorno}`)} />
       <Modal
         title={`Estornar ${d.numero_lan}`}
         open={estornar}

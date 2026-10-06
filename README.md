@@ -81,6 +81,8 @@ docker compose exec app php artisan erp:migrar-backup-legado /dados/legado/wstb_
 docker compose exec app php artisan erp:migrar-backup-legado /dados/legado/wstb_payroll_backup_2026-09-22.json
 ```
 
+Depois do COMMIT a migração aplica os passos pós-carga (ADR-068): tarefas novas do catálogo atribuídas aos perfis que já faziam a acção e contas de diferenças de câmbio 6621/7621; se falharem, repetir com `php artisan erp:migracao:pos-carga` (idempotente).
+
 O relatório fica em `backend/storage/app/private/migracao/` e em `execucoes_migracao.relatorio`. O detalhe de cada correcção está em `ocorrencias_migracao` e as linhas rejeitadas em `quarentena_migracao`.
 
 ## Testes ponta-a-ponta (Playwright)
@@ -271,6 +273,28 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET | `/api/contabilidade/relatorios/balancete` | `data_inicio`, `data_fim`, `nivel`, `prefixo`, `excluir_estornos`, `so_com_saldo` |
 | GET | `/api/contabilidade/relatorios/razao` | `codigo_conta`, `data_inicio`, `data_fim`, `terceiro_id` |
 | GET | `/api/contabilidade/relatorios/desequilibrios` | Lançamentos com Σ D ≠ Σ C |
+
+**Ronda 2 das lacunas (ADR-068)** — principais endpoints novos:
+
+| Método | Endpoint | Descrição |
+| :--- | :--- | :--- |
+| POST | `/api/contabilidade/lancamentos/classificacao` · `/lancamentos/{id}/transferir` | Notas/classificação em massa (A-05); transferir para outra empresa por estorno + criação (M-09) |
+| GET/POST | `/api/contabilidade/encerramento/{ano}/plano` · POST `/plano/corrigir` | Diagnóstico e correcção assistida do plano antes do encerramento (decisão 20) |
+| GET/PUT/POST/DELETE | `/api/contabilidade/assistente` · `/configuracao` · POST `/propor` · `/regras[/{id}]` | Assistente IA (Claude) — só propõe; regras internas (decisão 26, M-03) |
+| GET/POST/PUT/DELETE | `/api/pos/terminais/{t}/mesas` · `/api/pos/mesas/{m}[/conta]` · POST `/api/pos/sessoes/{s}/mesas/{m}/cobrar` | Mesas do restaurante e contas por mesa no servidor (decisão 14, M-15) |
+| POST/GET | `/api/pos/lavandaria/importar` · `/api/pos/lavandaria/ordens/{o}/documentos/{v}` | Importação de tabelas da lavandaria e documentos da ordem (M-16) |
+| POST/PUT/DELETE | `/api/rh/salarios/periodos/{id}/copiar` · `/lancamentos/lote` · `/importar-excel` · DELETE `/periodos/{id}` | Cálculo: copiar mês anterior, lote, importação Excel, eliminar período aberto (A-08) |
+| GET | `/api/rh/salarios/periodos/{id}/recibos/{colaborador}/pdf` · `/recibos-zip` | Recibo em PDF (2 vias, extenso, IBAN) e ZIP com um PDF por colaborador (A-10) |
+| GET/PUT/DELETE | `/api/rh/configuracao` · `/api/rh/tabela-irt` · GET `/api/rh/assiduidade/feriados-nacionais` | Configuração de RH (segregação, férias LGT), tabela de IRT configurável, feriados de Angola (decisões 1, 5, 6, 7) |
+| GET/POST | `/api/rh/importacoes/{modelos/{entidade},colaboradores,contratos}` · POST `/api/rh/contratos/massa` | Importação de colaboradores e contratos; contratos em massa (A-09) |
+| GET/PUT/POST | `/api/sistema/cambios-manuais/tolerancia` · POST `/validar` | Tolerância do câmbio manual e pré-verificação (decisão 9) |
+| GET/PUT/POST | `/api/sistema/cambios/bai/automatico[/obter]` · POST `/pendentes/{validar,rejeitar}` | Câmbios do BAI automáticos, pendentes de validação |
+| GET/PUT/DELETE | `/api/sistema/preferencias/{tipo}[/{nome}]` · GET `/api/sistema/operacoes/{id}` · POST `/cancelar` | Preferências do utilizador no servidor (M-19); operações em segundo plano (M-05) |
+| GET/POST | `/api/bi/tokens` · POST `/{id}/revogar` · GET `/api/bi/odata[/$metadata\|/{conjunto}]` | Power BI: tokens de leitura por empresa e feed OData v4 (decisão 25, M-02) |
+| PUT | `/api/compras/propostas/{id}/iva` · `/api/compras/encomendas/{id}/iva` | Corrigir o IVA antes de adjudicar/facturar (M-17) |
+| GET/POST/PUT/DELETE | `/api/tesouraria/documentos/{modelo-importacao,importar,anular,desintegrar}` · `/reconciliacao/{rascunhos,historico,{codigo}/detalhe}` · PUT `/extrato/{id}` | Importação de documentos (A-12), lotes, rascunhos e histórico da reconciliação (M-08) |
+| GET/POST | `/api/logistica/importacao/{produtos,categorias}[/modelo]` | Importação de produtos e categorias (M-07) |
+| POST | `/api/vendas/documentos/{faturar-guias,contabilizar,descontabilizar}` · `/api/vendas/recibos/{contabilizar,descontabilizar}` · `/recibos/{id}/alocar` | Factura de várias guias e adiantamentos (M-18); contabilização em lote (M-06) |
 
 ## Estrutura
 

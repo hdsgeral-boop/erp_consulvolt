@@ -29,7 +29,20 @@ export interface CamposEditor {
  * Editor de linhas a débito/crédito (Form.List «linhas»). Usa-se dentro de um <Form>; o equilíbrio e os totais
  * mostram-se fora (IndicadorEquilibrio), porque a regra muda: lançamento manual exige D = C, documento de tesouraria não.
  */
-export function EditorLinhasDC({ nome = 'linhas', campos = {}, minimo = 1, prefixosConta }: { nome?: string; campos?: CamposEditor; minimo?: number; prefixosConta?: string[] }) {
+export function EditorLinhasDC({
+  nome = 'linhas',
+  campos = {},
+  minimo = 1,
+  prefixosConta,
+  rotuloValor = 'Valor (Kz)',
+}: {
+  nome?: string;
+  campos?: CamposEditor;
+  minimo?: number;
+  prefixosConta?: string[];
+  /** Cabeçalho da coluna do valor (ex.: «Valor (USD)» num lançamento em moeda estrangeira). */
+  rotuloValor?: string;
+}) {
   const forma = Form.useFormInstance();
   return (
     <Form.List
@@ -41,7 +54,7 @@ export function EditorLinhasDC({ nome = 'linhas', campos = {}, minimo = 1, prefi
           <Row gutter={8} style={{ marginBottom: 4 }} className="cabecalho-linhas">
             <Col xs={0} md={6}><Typography.Text type="secondary">Conta</Typography.Text></Col>
             <Col xs={0} md={2}><Typography.Text type="secondary">D/C</Typography.Text></Col>
-            <Col xs={0} md={4}><Typography.Text type="secondary">Valor (Kz)</Typography.Text></Col>
+            <Col xs={0} md={4}><Typography.Text type="secondary">{rotuloValor}</Typography.Text></Col>
             <Col xs={0} md={10}><Typography.Text type="secondary">Descrição e analítica</Typography.Text></Col>
           </Row>
           {linhas.map(({ key, name }) => (
@@ -59,7 +72,7 @@ export function EditorLinhasDC({ nome = 'linhas', campos = {}, minimo = 1, prefi
                 </Col>
                 <Col xs={16} md={4}>
                   <Form.Item name={[name, 'valor']} rules={[{ required: true, message: 'Valor' }]}>
-                    <InputNumber min={0.01} precision={2} style={{ width: '100%' }} placeholder="0,00" decimalSeparator="," />
+                    <InputNumber min={0.01} precision={2} style={{ width: '100%' }} placeholder="0,00" decimalSeparator="," aria-label={rotuloValor} />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={10}>

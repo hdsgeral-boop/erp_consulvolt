@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
+import { NavActivos } from './comum/NavActivos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -35,7 +36,8 @@ export default function Activos() {
 function Painel() {
   return (
     <>
-      <CabecalhoPagina titulo="Activos imobilizados" subtitulo="Cadastro, transferências de centro de custo e afectações a projectos" />
+      <CabecalhoPagina titulo="Gestão de Activos Imobilizados" subtitulo="Inventário de activos: cadastro, transferências de centro de custo e afectações a projectos" />
+      <NavActivos actual="activos" />
       <Tabs
         destroyOnHidden
         items={[

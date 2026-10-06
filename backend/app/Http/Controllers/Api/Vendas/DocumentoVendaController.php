@@ -28,6 +28,7 @@ final class DocumentoVendaController extends Controller
         $this->exigir('vendas_faturacao_view');
         $f = $request->validate([
             'tipo_documento' => ['nullable', Rule::in(array_merge(Venda::FISCAIS, Venda::NAO_FISCAIS, ['ND']))],
+            'tipos' => ['nullable', 'string', 'max:40', 'regex:/^[A-Z]{2}(,[A-Z]{2})*$/'],   // separadores do legado (ex.: FT,FR,NC)
             'cliente_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'string', 'max:20'], 'contabilizado' => ['nullable', 'boolean'],
             'data_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_fim' => ['nullable', 'date_format:Y-m-d'],
             'pesquisa' => ['nullable', 'string', 'max:100'], 'pendentes' => ['nullable', 'boolean'],
@@ -42,7 +43,11 @@ final class DocumentoVendaController extends Controller
             ->when(isset($f['contabilizado']), fn ($q) => $q->where('contabilizado', (bool) $f['contabilizado']))
             ->when($f['data_inicio'] ?? null, fn ($q, $v) => $q->where('data_emissao', '>=', $v))
             ->when($f['data_fim'] ?? null, fn ($q, $v) => $q->where('data_emissao', '<', date('Y-m-d', strtotime("{$v} +1 day"))))
-            ->when($f['pesquisa'] ?? null, fn ($q, $v) => $q->where('numero_documento', 'ilike', '%'.str_replace(['%', '_'], ['\%', '\_'], $v).'%'))
+            ->when($f['tipos'] ?? null, fn ($q, $v) => $q->whereIn('tipo_documento', explode(',', $v)))
+            ->when($f['pesquisa'] ?? null, function ($q, $v) {   // n.º do documento ou nome do cliente (pesquisa do legado)
+                $termo = '%'.str_replace(['%', '_'], ['\%', '\_'], $v).'%';
+                $q->where(fn ($x) => $x->where('numero_documento', 'ilike', $termo)->orWhereHas('cliente', fn ($c) => $c->where('nome', 'ilike', $termo)));
+            })
             ->when(! empty($f['pendentes']), fn ($q) => $q->whereIn('tipo_documento', ['FT'])->where('valor_pendente', '>', 0)
                 ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'ANULADO')))
             ->when($f['estado_fe'] ?? null, fn ($q, $v) => self::filtrarEstadoFe($q, $v))
@@ -82,9 +87,47 @@ final class DocumentoVendaController extends Controller
     public function store(EmitirDocumentoRequest $request): JsonResponse
     {
         $this->exigir('vendas_fat_emitir');
-        $venda = $this->documentos->emitir($request->validated());
+        // decisão 8: no ecrã de emissão, um preço diferente do da ficha exige vendas_alterar_preco (verificado no serviço)
+        $venda = $this->documentos->emitir($request->validated(), null, true);
 
         return RespostaApi::criado($this->detalhe($venda), "Documento {$venda->numero_documento} emitido com sucesso.");
+    }
+
+    /** POST /faturar-guias — uma factura a partir de várias guias de remessa do mesmo cliente (M-18). */
+    public function faturarGuias(Request $request): JsonResponse
+    {
+        $this->exigir('vendas_fat_emitir');
+        $d = $request->validate([
+            'guias' => ['required', 'array', 'min:1', 'max:100'], 'guias.*' => ['integer'],
+            'data_emissao' => ['nullable', 'date_format:Y-m-d'], 'observacoes' => ['nullable', 'string', 'max:4000'],
+            'modo_pagamento' => ['nullable', Rule::in(['PRONTO', 'PRAZO', 'MARCOS'])], 'plano_pagamentos' => ['nullable', 'array', 'max:60'],
+            'plano_pagamentos.*.percentagem' => ['required', 'numeric', 'gt:0', 'max:100'], 'plano_pagamentos.*.data' => ['nullable', 'date_format:Y-m-d'],
+            'plano_pagamentos.*.descricao' => ['nullable', 'string', 'max:200'],
+        ], [], ['guias' => 'guias de remessa']);
+        $nova = $this->documentos->faturarGuias($d['guias'], $d);
+
+        return RespostaApi::criado($this->detalhe($nova), "Factura {$nova->numero_documento} emitida a partir de ".count(array_unique($d['guias'])).' guia(s).');
+    }
+
+    /** POST /contabilizar — documentos seleccionados, cada um na sua transacção (M-06, postSelectedSales). */
+    public function contabilizarLote(Request $request): JsonResponse
+    {
+        $this->exigir('vendas_fat_contabilizar');
+        $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer']]);
+        $r = $this->contabilizacao->lote('documentos', true, $d['ids']);
+
+        return RespostaApi::sucesso($r, "{$r['ok']} documento(s) contabilizado(s); {$r['erros']} com erro.");
+    }
+
+    /** POST /descontabilizar — estorno dos documentos seleccionados (unpostSelectedSales), com motivo. */
+    public function descontabilizarLote(Request $request): JsonResponse
+    {
+        $this->exigir('vendas_fat_descontab');
+        $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer'],
+            'motivo' => ['required', 'string', 'min:5', 'max:500']], [], ['motivo' => 'motivo']);
+        $r = $this->contabilizacao->lote('documentos', false, $d['ids'], $d['motivo']);
+
+        return RespostaApi::sucesso($r, "{$r['ok']} documento(s) descontabilizado(s); {$r['erros']} com erro.");
     }
 
     /** POST /{id}/converter — OR/PF → NE/FT, NE → GR/FT, GR → FT/GD, FT/FR → NC. */

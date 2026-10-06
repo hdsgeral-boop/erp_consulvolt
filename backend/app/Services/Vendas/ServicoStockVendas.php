@@ -17,7 +17,9 @@ use App\Services\Logistica\ServicoStock;
  *   - a venda pode deixar o stock negativo (como no legado: o documento fiscal não fica à espera do registo das
  *     entradas); os negativos aparecem em Sistema › Validações;
  *   - CMV em inventário permanente: D custo / C inventário nas saídas, o inverso nas devoluções, no lançamento do
- *     próprio documento.
+ *     próprio documento;
+ *   - decisão 15 (ADR-068): uma devolução (GD, NC de mercadoria) que entra sobre stock negativo leva ao CMV a diferença de
+ *     valorização das unidades vendidas a descoberto (itens_venda.acerto_cmv_kz), como a recepção de compra e o inventário.
  * No legado as FT/FR/GR baixavam o stock sem movimento, a NC repunha sempre (mesmo nas correcções de preço), a GD
  * nem repunha (tipo gravado sem cedilha) e não havia CMV nas facturas — só nas guias, por vezes em duplicado.
  */
@@ -39,7 +41,7 @@ final class ServicoStockVendas
      * Movimenta o stock de uma linha ANTES de a gravar (para o custo ficar na linha na criação).
      *
      * @param  array{produto_id: int, quantidade: string}  $l
-     * @return array{custo_unitario_kz: ?string, quantidade_stock: ?string}
+     * @return array{custo_unitario_kz: ?string, quantidade_stock: ?string, acerto_cmv_kz?: ?string}
      */
     public function movimentarLinha(Venda $venda, array $l, ?ItemVenda $origem, ?Venda $vendaOrigem, ?int $armazem): array
     {
@@ -73,7 +75,10 @@ final class ServicoStockVendas
             $origem->update(['quantidade_entregue' => bcadd((string) ($origem->quantidade_entregue ?? 0), $q, 3)]);
         }
 
-        return ['custo_unitario_kz' => $r['custo_unitario'], 'quantidade_stock' => $q];
+        // decisão 15: devolução sobre stock negativo — o acerto do CMV fica na linha e entra no lançamento do documento
+        $acerto = $sentido === 'E' && bccomp((string) ($r['acerto_cmv'] ?? '0'), '0', 2) !== 0 ? (string) $r['acerto_cmv'] : null;
+
+        return ['custo_unitario_kz' => $r['custo_unitario'], 'quantidade_stock' => $q, 'acerto_cmv_kz' => $acerto];
     }
 
     /** Encomenda → factura: só sai o que ainda não saiu por guia (entregue e ainda não facturado). */
@@ -113,9 +118,16 @@ final class ServicoStockVendas
                 continue;
             }
             $p = Produto::query()->withTrashed()->findOrFail($i->produto_id);
-            foreach ([[$this->config->contaCusto($p), $devolucao ? 'C' : 'D'], [$this->config->contaInventario($p), $devolucao ? 'D' : 'C']] as [$conta, $dc]) {
+            $pares = [[$this->config->contaCusto($p), $devolucao ? 'C' : 'D', $valor], [$this->config->contaInventario($p), $devolucao ? 'D' : 'C', $valor]];
+            // decisão 15: acerto do CMV da devolução sobre stock negativo (D custo / C inventário, ou o inverso)
+            if ($devolucao && $i->acerto_cmv_kz !== null && bccomp((string) $i->acerto_cmv_kz, '0', 2) !== 0) {
+                foreach (ServicoStock::linhasAcertoCmv((string) $i->acerto_cmv_kz, $this->config->contaCusto($p), $this->config->contaInventario($p)) as $a) {
+                    $pares[] = [$a['codigo_conta'], $a['tipo_dc'], $a['valor']];
+                }
+            }
+            foreach ($pares as [$conta, $dc, $v]) {
                 $linhas["{$conta}|{$dc}"] ??= ['codigo_conta' => $conta, 'tipo_dc' => $dc, 'valor' => '0.00'];
-                $linhas["{$conta}|{$dc}"]['valor'] = bcadd($linhas["{$conta}|{$dc}"]['valor'], $valor, 2);
+                $linhas["{$conta}|{$dc}"]['valor'] = bcadd($linhas["{$conta}|{$dc}"]['valor'], $v, 2);
             }
         }
 

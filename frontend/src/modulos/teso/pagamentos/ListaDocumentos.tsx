@@ -1,7 +1,9 @@
-import { Button, Card, DatePicker, Input, Select, Tag, Tooltip } from 'antd';
-import { MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import { Button, Card, DatePicker, Flex, Input, Modal, Segmented, Select, Space, Tag, Tooltip, Typography, message } from 'antd';
+import { CloudUploadOutlined, DeleteOutlined, FileExcelOutlined, MinusCircleOutlined, PlusCircleOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
+import { useAccao } from '@/componentes/Accoes';
+import { descarregarModeloTesouraria, ModalImportacaoTesouraria } from './ModalImportacao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
-import { BarraFiltros } from '@/componentes/responsivo';
+import { BarraFiltros, useEcra } from '@/componentes/responsivo';
 import { somar } from '@/utilitarios/decimal';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -41,42 +43,121 @@ export function textoPeriodo(periodo: [Dayjs | null, Dayjs | null] | null): stri
   return `${periodo?.[0]?.format('DD/MM/YYYY') ?? '…'} a ${periodo?.[1]?.format('DD/MM/YYYY') ?? '…'}`;
 }
 
+type Separador = 'PAGAMENTO' | 'RECEBIMENTO' | 'TODOS';
+
+/**
+ * Tesouraria › Operações, como no legado (renderTesouraria): separadores Pagamentos / Recebimentos / Todos os registos
+ * (e atalho para a Folha de caixa), painel de pesquisa (texto, De, Até, Buscar, Limpar), barra de acções (Baixar modelo,
+ * Carregar dados — A-12 —, Anular seleccionados, Novo pagamento/recebimento) e a lista com selecção.
+ */
 export function ListaDocumentos() {
   const navegar = useNavigate();
   const { pode } = useSessao();
-  const [tipo, setTipo] = useState<TipoDocumento>();
+  const [separador, setSeparador] = useState<Separador>('TODOS');
   const [estado, setEstado] = useState<EstadoDocumento>();
   const [conta, setConta] = useState<string>();
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [texto, setTexto] = useState('');
   const [pesquisa, setPesquisa] = useState('');
+  const [seleccao, setSeleccao] = useState<DocumentoTesouraria[]>([]);
+  const [importar, setImportar] = useState(false);
+  const tipo = separador === 'TODOS' ? undefined : (separador as TipoDocumento);
+  const lote = useAccao<{ ok: { numero_documento: string | null }[]; erros: { numero_documento: string | null; mensagem: string }[] }>({
+    invalidar: [['teso']],
+    aoSucesso: (r) => {
+      setSeleccao([]);
+      if (r.erros.length) Modal.warning({ title: 'Alguns documentos não foram tratados', content: <ul>{r.erros.map((e, i) => <li key={i}><strong>{e.numero_documento ?? '—'}</strong>: {e.mensagem}</li>)}</ul> });
+    },
+  });
+  const comMotivo = (titulo: string, url: string, ids: number[]) => {
+    let motivo = '';
+    Modal.confirm({
+      title: titulo,
+      content: (
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Typography.Text>{ids.length} documento(s); cada um é tratado na sua transacção.</Typography.Text>
+          <Input.TextArea rows={2} maxLength={500} placeholder="Motivo (obrigatório)" aria-label="Motivo" onChange={(e) => { motivo = e.target.value; }} />
+        </Space>
+      ),
+      okText: 'Confirmar', okButtonProps: { danger: true }, cancelText: 'Cancelar',
+      onOk: () => (motivo.trim().length < 5 ? Promise.reject(message.error('Indique o motivo (mínimo 5 caracteres).')) : lote.mutate({ url, dados: { ids, motivo } })),
+    });
+  };
+  const pendentes = seleccao.filter((d) => d.estado === 'PENDENTE').map((d) => d.id);
+  const integrados = seleccao.filter((d) => d.estado === 'INTEGRADO').map((d) => d.id);
 
+  const { telemovel } = useEcra();
   return (
     <>
-      <CabecalhoPagina
-        titulo="Pagamentos e recebimentos"
-        subtitulo="Documentos de tesouraria (por integrar, integrados e anulados)"
-        accoes={
-          pode('teso_doc_emitir') && (
-            <>
-              <Button icon={<MinusCircleOutlined />} onClick={() => navegar('novo?tipo=PAGAMENTO')}>Novo pagamento</Button>
-              <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => navegar('novo?tipo=RECEBIMENTO')}>Novo recebimento</Button>
-            </>
-          )
-        }
-      />
-      <Card>
-        <BarraFiltros>
-          <Input.Search placeholder="N.º, descrição ou referência" allowClear style={{ width: 260, maxWidth: '100%' }} onSearch={setPesquisa} />
-          <Select placeholder="Tipo" allowClear style={{ width: 150 }} value={tipo} onChange={setTipo} options={[{ value: 'PAGAMENTO', label: 'Pagamentos' }, { value: 'RECEBIMENTO', label: 'Recebimentos' }]} />
+      <CabecalhoPagina titulo="Tesouraria — Operações" subtitulo="Movimentos diários de caixa, pagamentos e recebimentos." />
+      <Flex wrap gap="small" style={{ marginBottom: 16 }}>
+        <Segmented<Separador>
+          block={telemovel}
+          value={separador}
+          onChange={(v) => { setSeparador(v); setSeleccao([]); }}
+          options={[
+            { value: 'PAGAMENTO', label: 'Pagamentos', icon: <MinusCircleOutlined /> },
+            { value: 'RECEBIMENTO', label: 'Recebimentos', icon: <PlusCircleOutlined /> },
+            { value: 'TODOS', label: telemovel ? 'Todos' : 'Todos os registos' },
+          ]}
+        />
+        {pode('teso_folha_caixa_view') && <Button onClick={() => navegar('/m/teso/teso_folha_caixa')}>Folha de caixa</Button>}
+      </Flex>
+      <Card style={{ marginBottom: 16 }} styles={{ body: { paddingBottom: 8 } }}>
+        <BarraFiltros
+          accoes={
+            <Space wrap>
+              <Button type="primary" ghost icon={<SearchOutlined />} onClick={() => setPesquisa(texto)}>Buscar</Button>
+              <Button icon={<UndoOutlined />} onClick={() => { setTexto(''); setPesquisa(''); setPeriodo(null); setEstado(undefined); setConta(undefined); }}>Limpar</Button>
+            </Space>
+          }
+        >
+          <Input prefix={<SearchOutlined />} placeholder="Referência / descrição / n.º…" allowClear value={texto} style={{ width: 260, maxWidth: '100%' }} aria-label="Pesquisa"
+            onChange={(e) => { setTexto(e.target.value); if (!e.target.value) setPesquisa(''); }} onPressEnter={() => setPesquisa(texto)} />
+          <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} placeholder={['De', 'Até']} />
           <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={[{ value: 'PENDENTE', label: 'Por integrar' }, { value: 'INTEGRADO', label: 'Integrados' }, { value: 'ANULADO', label: 'Anulados' }]} />
           <SeletorContaFinanceira value={conta} onChange={setConta} allowClear />
-          <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
         </BarraFiltros>
+      </Card>
+      <Card style={{ marginBottom: 16 }} styles={{ body: { padding: 12 } }}>
+        <Flex wrap gap="small" justify="space-between">
+          <Space wrap>
+            {pode('teso_doc_emitir') && (
+              <>
+                <Button icon={<FileExcelOutlined />} style={{ color: '#15803d', borderColor: '#86efac', background: '#f0fdf4' }} onClick={() => void descarregarModeloTesouraria()}>Baixar modelo</Button>
+                <Button icon={<CloudUploadOutlined />} onClick={() => setImportar(true)}>Carregar dados</Button>
+              </>
+            )}
+            {pode('teso_doc_eliminar') && (
+              <Button danger icon={<DeleteOutlined />} disabled={!pendentes.length} onClick={() => comMotivo('Anular os documentos seleccionados (por integrar)', '/tesouraria/documentos/anular', pendentes)}>
+                Anular seleccionados
+              </Button>
+            )}
+            {pode('teso_desintegrar') && (
+              <Button danger icon={<UndoOutlined />} disabled={!integrados.length} onClick={() => comMotivo('Anular a integração dos seleccionados (estorno)', '/tesouraria/documentos/desintegrar', integrados)}>
+                Desintegrar seleccionados
+              </Button>
+            )}
+          </Space>
+          {pode('teso_doc_emitir') && (
+            <Space wrap>
+              {separador !== 'RECEBIMENTO' && <Button type={separador === 'PAGAMENTO' ? 'primary' : 'default'} ghost={separador === 'PAGAMENTO'} icon={<MinusCircleOutlined />} onClick={() => navegar('novo?tipo=PAGAMENTO')}>Novo pagamento</Button>}
+              {separador !== 'PAGAMENTO' && <Button type="primary" ghost icon={<PlusCircleOutlined />} onClick={() => navegar('novo?tipo=RECEBIMENTO')}>Novo recebimento</Button>}
+            </Space>
+          )}
+        </Flex>
+      </Card>
+      <Card>
         <TabelaDocumentos
           filtros={{ tipo, estado, conta_financeira: conta, pesquisa, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
           columns={colunasDocumentos()}
+          rowSelection={{
+            selectedRowKeys: seleccao.map((d) => d.id),
+            onChange: (_, linhas) => setSeleccao(linhas),
+            getCheckboxProps: (r) => ({ disabled: r.estado === 'ANULADO', 'aria-label': `Seleccionar ${r.numero_documento ?? r.id}` }),
+          }}
           impressao={{
-            titulo: 'Lista de pagamentos e recebimentos',
+            titulo: tipo ? `Lista de ${ROTULO_TIPO[tipo].toLowerCase()}s` : 'Lista de pagamentos e recebimentos',
             periodo: textoPeriodo(periodo),
             filtros: [
               tipo && `Tipo: ${ROTULO_TIPO[tipo]}`,
@@ -90,6 +171,8 @@ export function ListaDocumentos() {
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
+      <ModalImportacaoTesouraria aberto={importar} aoFechar={() => setImportar(false)} />
     </>
   );
 }
+

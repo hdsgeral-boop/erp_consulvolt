@@ -22,7 +22,7 @@ abstract class ItemReciboVendaBase extends ModeloBase
     protected string $moduloAuditoria = 'Vendas';
 
     protected $fillable = [
-        'empresa_id', 'recibo_venda_id', 'venda_id', 'montante_pago',
+        'empresa_id', 'recibo_venda_id', 'venda_id', 'montante_pago', 'numero_lan_contabilizacao', 'data_alocacao',
     ];
 
     protected function casts(): array
@@ -32,6 +32,7 @@ abstract class ItemReciboVendaBase extends ModeloBase
             'recibo_venda_id' => 'integer',
             'venda_id' => 'integer',
             'montante_pago' => 'decimal:2',
+            'data_alocacao' => 'date',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

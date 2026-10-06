@@ -4,6 +4,7 @@ namespace App\Services\Gestao\Paineis;
 
 use App\Models\Utilizador;
 use App\Services\Ativos\ServicoAquisicoesAtivos;
+use App\Services\Integracoes\Cambios\ServicoCambiosBAIAutomaticos;
 use App\Services\RH\ServicoAvaliacao360;
 use App\Services\RH\ServicoEstruturaOrg;
 use App\Services\RH\ServicoPortalColaborador;
@@ -115,6 +116,9 @@ final class ServicoInicio
                 fn () => $n('SELECT COUNT(*) AS n FROM atividades_comerciais_crm WHERE empresa_id = ? AND NOT COALESCE(concluida, false) AND data_prevista < ?', [$hoje])],
             ['estrutura_vagas', 'Vagas em aberto', 'est_mapa', fn () => $this->podeVer(['est_mapa']),
                 fn () => (int) collect($this->estrutura->arvore()['unidades'])->flatMap(fn ($x) => $x['postos'])->sum('livres')],
+            // ronda 2: câmbios obtidos automaticamente do BAI à espera de validação (nada é gravado sem validar)
+            ['cambios_bai', 'Câmbios do BAI por validar', 'config_moedas', fn () => $this->podeTarefa('config_moedas_gerir'),
+                fn () => (int) DB::table('cambios_bai_pendentes')->where('estado', ServicoCambiosBAIAutomaticos::PENDENTE)->count()],
             ['portal_pedidos', 'Pedidos de colaboradores por decidir', 'rh_portal', fn () => true, fn () => count($this->portal->pendentesParaMim())],
             ['avaliacao_360', 'Avaliação de desempenho: acções pendentes', 'rh_portal', fn () => true, fn () => $this->pendentes360()],
         ];

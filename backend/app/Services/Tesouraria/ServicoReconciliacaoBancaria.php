@@ -8,9 +8,11 @@ use App\Models\LancamentoContabil;
 use App\Models\LinhaExtratoBancario;
 use App\Models\ReconciliacaoBancaria;
 use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoNumeracao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as DataExcel;
@@ -257,6 +259,137 @@ final class ServicoReconciliacaoBancaria
         $linha->update(['estado' => 'ANULADO']);
 
         return $linha;
+    }
+
+    /**
+     * M-08: editar uma linha de extracto ainda por reconciliar (corrigir data, referência, descrição, valor ou sentido de uma
+     * linha mal lida do ficheiro do banco). As reconciliadas ou anuladas não se alteram.
+     *
+     * @param  array{data?: string, referencia?: ?string, descricao?: ?string, valor?: string|float, tipo_dc?: string}  $d
+     */
+    public function editarLinhaExtrato(LinhaExtratoBancario $linha, array $d): LinhaExtratoBancario
+    {
+        return DB::transaction(function () use ($linha, $d) {
+            $linha = LinhaExtratoBancario::query()->lockForUpdate()->findOrFail($linha->id);
+            if ($linha->estado !== 'PENDENTE') {
+                throw new ErroNegocio('Só linhas de extracto por reconciliar podem ser alteradas (anule primeiro a reconciliação).', 'LINHA_RECONCILIADA', 422);
+            }
+            $novos = [];
+            if (array_key_exists('data', $d) && $d['data']) {
+                $novos['data'] = $d['data'];
+            }
+            if (array_key_exists('referencia', $d)) {
+                $novos['referencia'] = mb_substr(trim((string) $d['referencia']), 0, 50) ?: null;
+            }
+            if (array_key_exists('descricao', $d)) {
+                $novos['descricao'] = trim((string) $d['descricao']) ?: null;
+            }
+            if (isset($d['valor'])) {
+                $novos['valor'] = number_format((float) $d['valor'], 2, '.', '');
+                if (bccomp($novos['valor'], '0', 2) <= 0) {
+                    throw new ErroNegocio('O valor da linha tem de ser positivo.', 'VALOR_INVALIDO', 422);
+                }
+            }
+            if (isset($d['tipo_dc'])) {
+                $novos['tipo_dc'] = $d['tipo_dc'];
+            }
+            $antes = $linha->only(array_keys($novos));
+            $linha->update($novos);
+            app(ServicoAuditoria::class)->registar('Tesouraria/Reconciliação', 'Linha de extracto alterada',
+                "Linha {$linha->id} da conta {$linha->codigo_conta}.", 'linhas_extrato_bancario', $linha->id, $antes, $novos);
+
+            return $linha->refresh();
+        });
+    }
+
+    /** M-08: histórico com filtros (conta, estado, período), incluindo as anuladas. */
+    public function historico(array $f): Collection
+    {
+        return ReconciliacaoBancaria::query()
+            ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
+            ->when($f['codigo_conta'] ?? null, fn ($q, $v) => $q->where('detalhes', 'like', '%"conta":"'.str_replace(['%', '_'], ['\%', '\_'], $v).'"%'))
+            ->when($f['data_inicio'] ?? null, fn ($q, $v) => $q->where('data', '>=', $v))
+            ->when($f['data_fim'] ?? null, fn ($q, $v) => $q->where('data', '<', date('Y-m-d', strtotime("{$v} +1 day"))))
+            ->orderByDesc('data')->orderByDesc('id')->limit(1000)->get()
+            // o filtro textual é só um pré-filtro (detalhes do legado podem não ser JSON): confirma-se a conta no PHP
+            ->filter(fn ($r) => empty($f['codigo_conta']) || ((json_decode((string) $r->detalhes, true) ?: [])['conta'] ?? null) === $f['codigo_conta'])->values()
+            ->map(function ($r) {
+                $det = json_decode((string) $r->detalhes, true) ?: [];
+
+                return ['id' => $r->id, 'reconciliacao_codigo' => $r->reconciliacao_codigo, 'data' => $r->data, 'valor_total' => $r->valor_total,
+                    'estado' => $r->estado, 'conta' => $det['conta'] ?? null, 'tipo' => $det['tipo'] ?? null, 'grupos' => count($det['grupos'] ?? []),
+                    'motivo_anulacao' => $det['anulacao']['motivo'] ?? null];
+            });
+    }
+
+    /** M-08: detalhe de uma reconciliação — grupos com as linhas do extracto e do diário emparelhadas. */
+    public function detalhe(string $codigo): array
+    {
+        $rec = ReconciliacaoBancaria::query()->where('reconciliacao_codigo', $codigo)->firstOrFail();
+        $det = json_decode((string) $rec->detalhes, true) ?: [];
+        $grupos = $det['grupos'] ?? [];
+        $extrato = LinhaExtratoBancario::query()->whereIn('id', collect($grupos)->pluck('extrato')->flatten()->all())->get()->keyBy('id');
+        $diario = LancamentoContabil::query()->whereIn('id', collect($grupos)->pluck('lancamentos')->flatten()->all())->get()->keyBy('id');
+
+        return [
+            'reconciliacao_codigo' => $rec->reconciliacao_codigo, 'data' => $rec->data, 'estado' => $rec->estado, 'valor_total' => $rec->valor_total,
+            'conta' => $det['conta'] ?? null, 'tipo' => $det['tipo'] ?? null, 'anulacao' => $det['anulacao'] ?? null,
+            'grupos' => array_map(fn ($g) => [
+                'extrato' => collect($g['extrato'] ?? [])->map(fn ($id) => $extrato[$id] ?? null)->filter()
+                    ->map(fn ($e) => $e->only(['id', 'data', 'referencia', 'descricao', 'tipo_dc', 'valor']))->values(),
+                'lancamentos' => collect($g['lancamentos'] ?? [])->map(fn ($id) => $diario[$id] ?? null)->filter()
+                    ->map(fn ($l) => $l->only(['id', 'data_documento', 'numero_lan', 'numero_documento', 'descricao', 'tipo_dc', 'valor']))->values(),
+            ], $grupos),
+        ];
+    }
+
+    /** @return Collection<int, object> rascunhos da conta (ou todos) */
+    public function rascunhos(?string $conta): Collection
+    {
+        return DB::table('rascunhos_reconciliacao')->where('empresa_id', $this->contexto->obrigatorio())
+            ->when($conta, fn ($q, $v) => $q->where('codigo_conta', $v))->orderByDesc('atualizado_em')->orderByDesc('id')->limit(200)->get()
+            ->map(function ($r) {
+                $r->grupos = json_decode((string) $r->grupos, true) ?: [];
+
+                return $r;
+            });
+    }
+
+    /**
+     * Grava (cria ou substitui) um rascunho. Os ids têm de ser da conta e ainda por reconciliar no momento da gravação; a
+     * confirmação volta a validar tudo (o rascunho não reserva linhas).
+     *
+     * @param  array{codigo_conta: string, periodo_inicio?: ?string, periodo_fim?: ?string, grupos: list<array{extrato: list<int>, lancamentos: list<int>}>, observacoes?: ?string}  $d
+     */
+    public function gravarRascunho(array $d, ?int $id = null): object
+    {
+        $empresa = $this->contexto->obrigatorio();
+        $this->exigirContaBanco($d['codigo_conta']);
+        $ext = collect($d['grupos'])->pluck('extrato')->flatten()->unique()->values();
+        $lan = collect($d['grupos'])->pluck('lancamentos')->flatten()->unique()->values();
+        $extOk = LinhaExtratoBancario::query()->whereIn('id', $ext)->where('codigo_conta', $d['codigo_conta'])->where('estado', 'PENDENTE')->count();
+        $lanOk = LancamentoContabil::query()->whereIn('id', $lan)->where('codigo_conta', $d['codigo_conta'])->whereNull('reconciliacao_codigo')->count();
+        if ($extOk !== $ext->count() || $lanOk !== $lan->count()) {
+            throw new ErroNegocio('O rascunho tem linhas inexistentes, de outra conta ou já reconciliadas.', 'RASCUNHO_INVALIDO', 422);
+        }
+        $dados = ['codigo_conta' => $d['codigo_conta'], 'periodo_inicio' => $d['periodo_inicio'] ?? null, 'periodo_fim' => $d['periodo_fim'] ?? null,
+            'grupos' => json_encode(array_values($d['grupos'])), 'observacoes' => $d['observacoes'] ?? null, 'atualizado_em' => now()];
+        if ($id) {
+            if (! DB::table('rascunhos_reconciliacao')->where('empresa_id', $empresa)->where('id', $id)->update($dados)) {
+                throw new ErroNegocio('Rascunho inexistente.', 'NAO_ENCONTRADO', 404);
+            }
+        } else {
+            $id = DB::table('rascunhos_reconciliacao')->insertGetId($dados + ['empresa_id' => $empresa, 'criado_por' => Auth::user()?->nome_utilizador, 'criado_em' => now()]);
+        }
+
+        return $this->rascunhos(null)->firstWhere('id', $id);
+    }
+
+    public function eliminarRascunho(int $id): void
+    {
+        if (! DB::table('rascunhos_reconciliacao')->where('empresa_id', $this->contexto->obrigatorio())->where('id', $id)->delete()) {
+            throw new ErroNegocio('Rascunho inexistente.', 'NAO_ENCONTRADO', 404);
+        }
     }
 
     /** Mapa de reconciliação numa data: saldo do diário, pendentes do diário e do extracto. */

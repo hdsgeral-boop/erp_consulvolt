@@ -104,6 +104,60 @@ final class OperacoesTesourariaController extends Controller
         return RespostaApi::sucesso($this->reconciliacao->mapa($f['codigo_conta'], $f['data']), 'Mapa de reconciliação.');
     }
 
+    // ─────────── Reconciliação: histórico, detalhe, rascunhos e edição do extracto (M-08) ───────────
+
+    public function historicoReconciliacoes(Request $r): JsonResponse
+    {
+        $this->exigir('teso_gestao_conciliacao_view', 'teso_contab_historico_view');
+        $f = $r->validate(['codigo_conta' => ['nullable', 'string', 'max:20'], 'estado' => ['nullable', Rule::in(['CONCILIADO_BANCO', 'ANULADA'])],
+            'data_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_fim' => ['nullable', 'date_format:Y-m-d']]);
+
+        return RespostaApi::sucesso($this->reconciliacao->historico($f), 'Histórico de reconciliações bancárias.');
+    }
+
+    public function detalheReconciliacao(string $codigo): JsonResponse
+    {
+        $this->exigir('teso_gestao_conciliacao_view', 'teso_contab_historico_view');
+
+        return RespostaApi::sucesso($this->reconciliacao->detalhe($codigo), "Reconciliação {$codigo}.");
+    }
+
+    public function rascunhos(Request $r): JsonResponse
+    {
+        $this->exigir('teso_gestao_conciliacao_view');
+
+        return RespostaApi::sucesso($this->reconciliacao->rascunhos($r->string('codigo_conta')->toString() ?: null), 'Rascunhos de reconciliação.');
+    }
+
+    public function gravarRascunho(Request $r, ?int $id = null): JsonResponse
+    {
+        $this->exigir('teso_conc_confirmar');
+        $d = $r->validate(['codigo_conta' => ['required', 'string', 'max:20'], 'periodo_inicio' => ['nullable', 'date_format:Y-m-d'], 'periodo_fim' => ['nullable', 'date_format:Y-m-d'],
+            'grupos' => ['present', 'array', 'max:1000'], 'grupos.*.extrato' => ['present', 'array'], 'grupos.*.extrato.*' => ['integer'],
+            'grupos.*.lancamentos' => ['present', 'array'], 'grupos.*.lancamentos.*' => ['integer'], 'observacoes' => ['nullable', 'string', 'max:2000']]);
+        $rascunho = $this->reconciliacao->gravarRascunho($d, $id);
+
+        return $id ? RespostaApi::sucesso($rascunho, 'Rascunho actualizado.') : RespostaApi::criado($rascunho, 'Rascunho gravado.');
+    }
+
+    public function eliminarRascunho(int $id): JsonResponse
+    {
+        $this->exigir('teso_conc_confirmar');
+        $this->reconciliacao->eliminarRascunho($id);
+
+        return RespostaApi::sucesso(null, 'Rascunho eliminado.');
+    }
+
+    public function editarLinhaExtrato(Request $r, int $id): JsonResponse
+    {
+        $this->exigir('teso_conc_importar');
+        $d = $r->validate(['data' => ['sometimes', 'date_format:Y-m-d'], 'referencia' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'descricao' => ['sometimes', 'nullable', 'string', 'max:1000'], 'valor' => ['sometimes', 'numeric', 'gt:0', 'max:9999999999999.99'],
+            'tipo_dc' => ['sometimes', Rule::in(['D', 'C'])]]);
+
+        return RespostaApi::sucesso($this->reconciliacao->editarLinhaExtrato(LinhaExtratoBancario::query()->findOrFail($id), $d), 'Linha do extracto actualizada.');
+    }
+
     // ─────────── Folha de caixa ───────────
 
     public function sessoes(Request $r): JsonResponse

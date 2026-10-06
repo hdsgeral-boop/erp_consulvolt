@@ -1,6 +1,10 @@
-import { Button, Card, Flex, Form, Input, InputNumber, Modal, Select, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Statistic, Tag, Typography } from 'antd';
 import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { obterPagina } from '@/api/cliente';
+import { formatarKz } from '@/utilitarios/formatacao';
+import { indicadoresAD } from './comum/regras';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
@@ -36,6 +40,11 @@ function Lista() {
   const [novo, setNovo] = useState(false);
   const [definicoes, setDefinicoes] = useState(false);
 
+  // cartões do legado (ad_ui.js): acréscimos em curso (já reconhecido) e diferimentos em curso (por reconhecer)
+  const emCurso = useQuery({ queryKey: ['acrescimos', 'itens', 'indicadores'], queryFn: () => obterPagina<ItemAD>('/acrescimos/itens', { estado: 'ABERTOS', por_pagina: 500 }) });
+  const ind = indicadoresAD(emCurso.data?.itens ?? []);
+  const semDefinicoes = !!def.data && (!def.data.diario_id || Object.values(def.data.contas ?? {}).some((c) => !c));
+
   const colunas: ColunaApi<ItemAD>[] = [
     { title: 'N.º', dataIndex: 'id', render: (v) => <strong>#{v}</strong> },
     { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaAD valor={v} /> },
@@ -52,8 +61,13 @@ function Lista() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Acréscimos e diferimentos"
-        subtitulo="Registos, plano de reconhecimento mensal, regularização e término"
+        titulo="Acréscimos e Diferimentos"
+        subtitulo={
+          <>
+            Acréscimos antecipam gastos ou rendimentos do período cujo pagamento/recebimento é futuro; diferimentos transferem para os períodos seguintes o
+            que já foi pago ou recebido. Os lançamentos mensais saem da <strong>Proposta mensal</strong>.
+          </>
+        }
         accoes={
           <>
             {pode('ad_definicoes_edit') && <Button icon={<SettingOutlined />} onClick={() => setDefinicoes(true)}>Definições</Button>}
@@ -61,12 +75,40 @@ function Lista() {
           </>
         }
       />
+      {semDefinicoes && pode('ad_definicoes_edit') && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<SettingOutlined />}
+          style={{ marginBottom: 16 }}
+          message={
+            <>
+              Defina o diário e confirme as contas 37 em <strong>Definições</strong> antes de contabilizar.
+            </>
+          }
+          action={<Button size="small" onClick={() => setDefinicoes(true)}>Definições</Button>}
+        />
+      )}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <Statistic title="Acréscimos em curso" value={ind.acrescimos} loading={emCurso.isLoading} />
+            <Typography.Text type="secondary">{formatarKz(ind.acrescimosReconhecido)} Kz já reconhecidos</Typography.Text>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card size="small">
+            <Statistic title="Diferimentos em curso" value={ind.diferimentos} loading={emCurso.isLoading} />
+            <Typography.Text type="secondary">{formatarKz(ind.diferimentosPorReconhecer)} Kz por reconhecer</Typography.Text>
+          </Card>
+        </Col>
+      </Row>
       <Card>
         <BarraFiltros>
-          <Input.Search placeholder="Descrição, conta, documento, terceiro" allowClear onSearch={setTexto} style={{ width: 300 }} />
-          <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 150 }} options={[{ value: 'ACRESCIMO', label: 'Acréscimos' }, { value: 'DIFERIMENTO', label: 'Diferimentos' }]} />
-          <Select value={estado} onChange={setEstado} style={{ width: 240 }}
-            options={[{ value: 'ABERTOS', label: 'Em aberto' }, { value: 'TODOS', label: 'Todos' }, ...Object.entries(def.data?.estados ?? {}).map(([value, label]) => ({ value, label }))]} />
+          <Select placeholder="Tipo" aria-label="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 150 }} options={[{ value: 'ACRESCIMO', label: 'Acréscimos' }, { value: 'DIFERIMENTO', label: 'Diferimentos' }]} />
+          <Select value={estado} aria-label="Estado" onChange={setEstado} style={{ width: 240 }}
+            options={[{ value: 'ABERTOS', label: 'Em curso' }, { value: 'TODOS', label: 'Todos' }, ...Object.entries(def.data?.estados ?? {}).map(([value, label]) => ({ value, label }))]} />
+          <Input.Search placeholder="Descrição, conta, terceiro, documento…" aria-label="Procurar" allowClear onSearch={setTexto} style={{ width: 320 }} />
         </BarraFiltros>
         <TabelaApi<ItemAD>
           url="/acrescimos/itens"
@@ -76,7 +118,7 @@ function Lista() {
           impressao={{
             titulo: 'Lista de acréscimos e diferimentos',
             filtros: [
-              `Estado: ${estado === 'ABERTOS' ? 'Em aberto' : estado === 'TODOS' ? 'Todos' : def.data?.estados?.[estado] ?? estado}`,
+              `Estado: ${estado === 'ABERTOS' ? 'Em curso' : estado === 'TODOS' ? 'Todos' : def.data?.estados?.[estado] ?? estado}`,
               tipo && `Tipo: ${tipo === 'ACRESCIMO' ? 'Acréscimos' : 'Diferimentos'}`,
               texto && `Pesquisa: ${texto}`,
             ],

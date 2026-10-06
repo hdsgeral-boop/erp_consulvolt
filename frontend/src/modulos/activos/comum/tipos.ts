@@ -263,6 +263,9 @@ export interface SimulacaoAbate {
   amortizacao_acumulada: string;
   valor_liquido: string;
   resultado: string;
+  /** Decisão 18: IVA liquidado na venda e total debitado ao terceiro. */
+  valor_iva?: string;
+  total_terceiro?: string;
 }
 
 /** Linha da importação de activos (POST /ativos/bens/importar). */

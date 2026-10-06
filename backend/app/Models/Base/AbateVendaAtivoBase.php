@@ -22,7 +22,7 @@ abstract class AbateVendaAtivoBase extends ModeloBase
     protected string $moduloAuditoria = 'Activos';
 
     protected $fillable = [
-        'empresa_id', 'ativo_imobilizado_id', 'tipo', 'data', 'descricao', 'valor', 'terceiro_id', 'conta_terceiro',
+        'empresa_id', 'ativo_imobilizado_id', 'tipo', 'data', 'descricao', 'valor', 'terceiro_id', 'conta_terceiro', 'taxa_iva', 'valor_iva', 'conta_iva',
     ];
 
     protected function casts(): array
@@ -33,6 +33,8 @@ abstract class AbateVendaAtivoBase extends ModeloBase
             'data' => 'date',
             'valor' => 'decimal:2',
             'terceiro_id' => 'integer',
+            'taxa_iva' => 'decimal:2',
+            'valor_iva' => 'decimal:2',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

@@ -93,6 +93,9 @@ return new class extends Migration
             $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · do código legado js/ui_assets.js:2514');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id · do código legado js/ui_assets.js:2515');
             $table->string('conta_terceiro', 255)->nullable()->comment('legado: account_third · do código legado js/ui_assets.js:2516');
+            $table->decimal('taxa_iva', 5, 2)->nullable()->comment('Venda: taxa de IVA liquidado (0, 5, 7 ou 14 %)');
+            $table->decimal('valor_iva', 15, 2)->nullable()->comment('Venda: IVA liquidado (valor × taxa)');
+            $table->string('conta_iva', 20)->nullable()->comment('Venda: conta do IVA liquidado creditada');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });

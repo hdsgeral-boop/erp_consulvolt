@@ -10,6 +10,7 @@ use App\Models\Venda;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoPlanoContas;
 use App\Support\Tenancy\ContextoEmpresa;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -19,6 +20,11 @@ use Illuminate\Support\Facades\DB;
  *   - numeração por série "RE <SÉRIE>/<n>" sem colisões; tudo numa transacção;
  *   - actualiza pago/pendente/estado das facturas; anulação com motivo e rasto (nunca se apaga).
  * A contabilização (D disponibilidade / C cliente) é feita por ServicoContabilizacaoVendas.
+ *
+ * Recibo de adiantamento (showDirectReceiptForm do legado, M-18): recibo sem factura, D disponibilidade / C adiantamentos de
+ * clientes (conta configurada em vendas). Depois de contabilizado é alocado a facturas do mesmo cliente, cada alocação com o
+ * seu lançamento (D adiantamentos / C cliente), até ao saldo do adiantamento. Um adiantamento com alocações não se anula
+ * nem se descontabiliza.
  */
 final class ServicoRecibosVenda
 {
@@ -52,23 +58,7 @@ final class ServicoRecibosVenda
         }
 
         return DB::transaction(function () use ($d, $data, $cliente, $empresa) {
-            $vendas = Venda::query()->whereIn('id', array_column($d['alocacoes'], 'venda_id'))->lockForUpdate()->get()->keyBy('id');
-            $total = '0.00';
-            foreach ($d['alocacoes'] as $a) {
-                $v = $vendas[$a['venda_id']] ?? throw new ErroNegocio('Factura inexistente.', 'FACTURA_INEXISTENTE', 422);
-                $montante = number_format((float) $a['montante'], 2, '.', '');
-                if ($v->tipo_documento !== 'FT' || $v->cliente_id !== $cliente->id) {
-                    throw new ErroNegocio("{$v->numero_documento}: só se liquidam facturas (FT) do próprio cliente.", 'FACTURA_INVALIDA', 422);
-                }
-                if ($v->estado === 'ANULADO' || ! $v->contabilizado) {
-                    throw new ErroNegocio("{$v->numero_documento}: a factura tem de estar contabilizada e não anulada.", 'FACTURA_NAO_CONTABILIZADA', 422);
-                }
-                if (bccomp($montante, '0', 2) <= 0 || bccomp($montante, (string) $v->valor_pendente, 2) > 0) {
-                    throw new ErroNegocio("{$v->numero_documento}: o montante tem de ser positivo e não superior ao pendente ({$v->valor_pendente}).",
-                        'MONTANTE_INVALIDO', 422, ['venda_id' => $v->id, 'pendente' => (string) $v->valor_pendente]);
-                }
-                $total = bcadd($total, $montante, 2);
-            }
+            [$vendas, $total] = $this->validarAlocacoes($d['alocacoes'], $cliente);
 
             $reserva = $this->series->reservar($empresa, 'RE', $data, false);
             $recibo = ReciboVenda::create([
@@ -88,6 +78,129 @@ final class ServicoRecibosVenda
 
             return $recibo;
         });
+    }
+
+    /**
+     * Facturas a liquidar: FT do próprio cliente, contabilizadas, não anuladas, montante > 0 e ≤ pendente. Bloqueia as facturas.
+     *
+     * @param  list<array{venda_id: int, montante: string|float}>  $alocacoes
+     * @return array{0: Collection<int, Venda>, 1: string}
+     */
+    private function validarAlocacoes(array $alocacoes, Terceiro $cliente): array
+    {
+        if (! $alocacoes) {
+            throw new ErroNegocio('Indique pelo menos uma factura a liquidar.', 'RECIBO_SEM_FACTURAS', 422);
+        }
+        if (count(array_unique(array_column($alocacoes, 'venda_id'))) !== count($alocacoes)) {
+            throw new ErroNegocio('A mesma factura aparece mais do que uma vez no recibo.', 'FACTURA_REPETIDA', 422);
+        }
+        $vendas = Venda::query()->whereIn('id', array_column($alocacoes, 'venda_id'))->lockForUpdate()->get()->keyBy('id');
+        $total = '0.00';
+        foreach ($alocacoes as $a) {
+            $v = $vendas[$a['venda_id']] ?? throw new ErroNegocio('Factura inexistente.', 'FACTURA_INEXISTENTE', 422);
+            $montante = number_format((float) $a['montante'], 2, '.', '');
+            if ($v->tipo_documento !== 'FT' || $v->cliente_id !== $cliente->id) {
+                throw new ErroNegocio("{$v->numero_documento}: só se liquidam facturas (FT) do próprio cliente.", 'FACTURA_INVALIDA', 422);
+            }
+            if ($v->estado === 'ANULADO' || ! $v->contabilizado) {
+                throw new ErroNegocio("{$v->numero_documento}: a factura tem de estar contabilizada e não anulada.", 'FACTURA_NAO_CONTABILIZADA', 422);
+            }
+            if (bccomp($montante, '0', 2) <= 0 || bccomp($montante, (string) $v->valor_pendente, 2) > 0) {
+                throw new ErroNegocio("{$v->numero_documento}: o montante tem de ser positivo e não superior ao pendente ({$v->valor_pendente}).",
+                    'MONTANTE_INVALIDO', 422, ['venda_id' => $v->id, 'pendente' => (string) $v->valor_pendente]);
+            }
+            $total = bcadd($total, $montante, 2);
+        }
+
+        return [$vendas, $total];
+    }
+
+    /**
+     * Recibo de adiantamento (sem factura).
+     *
+     * @param  array{cliente_id: int, data: string, codigo_conta: string, montante: string|float, meio_pagamento?: string,
+     *               referencia_pagamento?: ?string, observacoes?: ?string, unidade_negocio_id?: ?int, centro_custo_id?: ?int, projeto_id?: ?int}  $d
+     */
+    public function criarAdiantamento(array $d): ReciboVenda
+    {
+        $empresa = $this->contexto->obrigatorio();
+        $data = substr($d['data'], 0, 10);
+        if ($data > now()->toDateString()) {
+            throw new ErroNegocio('A data do recibo não pode ser futura.', 'DATA_FUTURA', 422);
+        }
+        $this->exercicios->exigirAberto($empresa, $data);
+        $cliente = Terceiro::query()->findOrFail($d['cliente_id']);
+        if (! $cliente->eCliente()) {
+            throw new ErroNegocio('O terceiro tem de estar registado como cliente.', 'CLIENTE_INVALIDO', 422);
+        }
+        $this->exigirContaDisponibilidade($d['codigo_conta']);
+        $montante = number_format((float) ($d['montante'] ?? 0), 2, '.', '');
+        if (bccomp($montante, '0', 2) <= 0) {
+            throw new ErroNegocio('O montante do adiantamento tem de ser positivo.', 'MONTANTE_INVALIDO', 422);
+        }
+
+        return DB::transaction(function () use ($d, $data, $cliente, $empresa, $montante) {
+            $reserva = $this->series->reservar($empresa, 'RE', $data, false);
+            $recibo = ReciboVenda::create([
+                'cliente_id' => $cliente->id, 'numero_recibo' => $reserva['numero_documento'], 'data' => $data, 'montante_total' => $montante,
+                'meio_pagamento' => $d['meio_pagamento'] ?? 'TRANSFERENCIA', 'codigo_conta' => $d['codigo_conta'],
+                'referencia_pagamento' => $d['referencia_pagamento'] ?? null, 'referencia' => mb_substr((string) ($d['observacoes'] ?? 'Adiantamento'), 0, 255),
+                'contabilizado' => false, 'estado' => 'EMITIDO', 'serie_faturacao_eletronica_id' => $reserva['serie']->id,
+                'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
+            ]);
+            $recibo->forceFill(['tipo_recibo' => 'ADIANTAMENTO'])->save();
+
+            return $recibo;
+        });
+    }
+
+    /** Saldo por alocar de um recibo de adiantamento. */
+    public function saldoAdiantamento(ReciboVenda $recibo): string
+    {
+        $alocado = (string) ($recibo->itensReciboVenda()->sum('montante_pago') ?: '0');
+
+        return bcsub((string) $recibo->montante_total, number_format((float) $alocado, 2, '.', ''), 2);
+    }
+
+    /**
+     * Aloca um adiantamento (contabilizado) a facturas do mesmo cliente. Devolve as linhas criadas (a contabilização de cada
+     * alocação — D adiantamentos / C cliente — é feita por ServicoContabilizacaoVendas::contabilizarAlocacao, na mesma transacção).
+     *
+     * @param  list<array{venda_id: int, montante: string|float}>  $alocacoes
+     * @return list<ItemReciboVenda>
+     */
+    public function alocarAdiantamento(ReciboVenda $recibo, array $alocacoes, string $data): array
+    {
+        $recibo = ReciboVenda::query()->lockForUpdate()->findOrFail($recibo->id);
+        if (! $recibo->eAdiantamento()) {
+            throw new ErroNegocio('Só os recibos de adiantamento se alocam a facturas.', 'NAO_E_ADIANTAMENTO', 422);
+        }
+        if ($recibo->estado === 'ANULADO' || ! $recibo->contabilizado) {
+            throw new ErroNegocio('O adiantamento tem de estar contabilizado e não anulado.', 'ADIANTAMENTO_NAO_CONTABILIZADO', 422);
+        }
+        $data = substr($data, 0, 10);
+        if ($data > now()->toDateString() || $data < $recibo->data->toDateString()) {
+            throw new ErroNegocio('A data da alocação não pode ser futura nem anterior à do adiantamento.', 'DATA_INVALIDA', 422);
+        }
+        $this->exercicios->exigirAberto($recibo->empresa_id, $data);
+        $cliente = Terceiro::query()->withTrashed()->findOrFail($recibo->cliente_id);
+        [$vendas, $total] = $this->validarAlocacoes($alocacoes, $cliente);
+        $saldo = $this->saldoAdiantamento($recibo);
+        if (bccomp($total, $saldo, 2) > 0) {
+            throw new ErroNegocio("O total a alocar ({$total}) excede o saldo do adiantamento ({$saldo}).", 'ADIANTAMENTO_SALDO_INSUFICIENTE', 422, ['saldo' => $saldo]);
+        }
+        $itens = [];
+        foreach ($alocacoes as $a) {
+            $v = $vendas[$a['venda_id']];
+            $montante = number_format((float) $a['montante'], 2, '.', '');
+            $item = ItemReciboVenda::create(['recibo_venda_id' => $recibo->id, 'venda_id' => $v->id, 'montante_pago' => $montante]);
+            $item->forceFill(['data_alocacao' => $data])->save();
+            $v->update(['valor_pago' => bcadd((string) ($v->valor_pago ?? '0'), $montante, 2)]);
+            $this->estado->recalcular($v);
+            $itens[] = $item;
+        }
+
+        return $itens;
     }
 
     /** Recibo automático da factura-recibo (o FR já nasce pago; o recibo documenta o recebimento). */
@@ -117,6 +230,9 @@ final class ServicoRecibosVenda
         }
         if ($recibo->contabilizado) {
             throw new ErroNegocio('O recibo está contabilizado: descontabilize-o primeiro (estorno).', 'RECIBO_CONTABILIZADO', 422);
+        }
+        if ($recibo->eAdiantamento() && $recibo->itensReciboVenda()->exists()) {
+            throw new ErroNegocio('O adiantamento já foi alocado a facturas: não se anula.', 'ADIANTAMENTO_ALOCADO', 422);
         }
 
         return DB::transaction(function () use ($recibo, $motivo) {

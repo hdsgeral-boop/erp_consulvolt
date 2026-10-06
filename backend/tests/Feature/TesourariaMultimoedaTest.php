@@ -45,7 +45,7 @@ final class TesourariaMultimoedaTest extends TestCase
             TaxaCambio::create(['empresa_id' => null, 'codigo_moeda' => 'USD', 'data_taxa' => now()->subDays(3)->toDateString(), 'taxa' => '900.5']);
             TaxaCambio::create(['empresa_id' => null, 'codigo_moeda' => 'EUR', 'data_taxa' => now()->subDays(3)->toDateString(), 'taxa' => '1100']);
         });
-        $this->s = $this->sessao(['vendas_faturacao_view', 'vendas_fat_emitir', 'vendas_fat_contabilizar', 'compras_faturacao_view', 'compras_fact_registar',
+        $this->s = $this->sessao(['vendas_faturacao_view', 'vendas_fat_emitir', 'vendas_alterar_preco', 'cambio_manual_fora_tolerancia', 'vendas_fat_contabilizar', 'compras_faturacao_view', 'compras_fact_registar',
             'compras_fact_contabilizar', 'teso_gestao_pagamentos_view', 'teso_doc_emitir', 'teso_doc_eliminar', 'teso_integrar', 'teso_desintegrar']);
         $this->putJson('/api/tesouraria/configuracao/contas', ['contas' => ['diferencas_cambio_favoraveis' => '6881', 'diferencas_cambio_desfavoraveis' => '7881']], $this->s)->assertOk();
     }

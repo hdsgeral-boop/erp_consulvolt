@@ -6,6 +6,7 @@ import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoCo
 import { dadosEncomendaCompra } from '../comum/impressao';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
+import { linhaIvaEditavel, ModalIva } from '../comum/ModalIva';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -83,7 +84,7 @@ export function DetalheEncomenda() {
   const { id } = useParams();
   const navegar = useNavigate();
   const { pode } = useSessao();
-  const [modal, setModal] = useState<'rececao' | 'fatura' | 'anular' | null>(null);
+  const [modal, setModal] = useState<'rececao' | 'fatura' | 'anular' | 'iva' | null>(null);
   const consulta = useQuery({ queryKey: ['compras', 'encomenda', id], queryFn: () => obter<EncomendaCompra>(`/compras/encomendas/${id}`) });
   const rececoes = useQuery({
     queryKey: ['compras', 'rececoes', 'da-encomenda', id],
@@ -115,6 +116,7 @@ export function DetalheEncomenda() {
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
             {a.registarRececao && <Button type="primary" onClick={() => setModal('rececao')}>Registar recepção</Button>}
             {a.registarFatura && <Button onClick={() => setModal('fatura')}>Registar factura</Button>}
+            {e.estado !== 'ANULADA' && pode('compras_enc_criar') && (e.linhas ?? []).some((l) => linhaIvaEditavel(l, true)) && <Button onClick={() => setModal('iva')}>Editar IVA</Button>}
             {a.anular && <Button danger onClick={() => setModal('anular')}>Anular</Button>}
           </>
         }
@@ -189,6 +191,7 @@ export function DetalheEncomenda() {
         </Card>
       )}
       <ModalRececao encomenda={e} aberto={modal === 'rececao'} aoFechar={() => setModal(null)} />
+      <ModalIva aberto={modal === 'iva'} encomenda titulo={`IVA da encomenda ${e.numero_encomenda ?? e.id}`} linhas={e.linhas ?? []} url={`/compras/encomendas/${e.id}/iva`} aoFechar={() => setModal(null)} />
       <ModalFaturaEncomenda
         encomenda={e}
         aberto={modal === 'fatura'}

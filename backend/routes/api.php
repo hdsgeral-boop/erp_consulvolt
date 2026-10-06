@@ -57,6 +57,7 @@ use Illuminate\Support\Facades\Route;
 // sem o throttle da API (R5): o limitador usa o Redis e, com ele em baixo, a saúde respondia 500 em vez do 503 com o detalhe por componente
 Route::get('saude', SaudeController::class)->withoutMiddleware('throttle:api')->name('saude');
 Route::get('sistema/logotipo-login', [ConfiguracaoSistemaController::class, 'logotipoLogin'])->name('sistema.logotipo_login');   // ecrã de entrada (sem sessão), ADR-058
+require __DIR__.'/api/bi_odata.php';   // feed OData do Power BI: autenticação por token de leitura da empresa (ronda 2, R2-G4)
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');
@@ -456,6 +457,14 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/afinacao_a.php';
         require __DIR__.'/api/afinacao_b.php';
         require __DIR__.'/api/afinacao_c.php';
+        // Ronda 2, grupo 3 (Vendas, Compras, Tesouraria, Armazém, Projectos e CRM)
+        require __DIR__.'/api/ronda2_g3.php';
+        // Ronda 2, grupo 4 (transversais e integrações): BAI automático, Power BI, assistente IA, preferências, operações
+        require __DIR__.'/api/integracoes.php';
+        // Ronda 2, grupo 1 (Contabilidade, POS, Gestão, Acréscimos, Estrutura)
+        require __DIR__.'/api/ronda2_g1.php';
+        // Ronda 2, grupo 2 (RH, Configurações, Activos, Orçamento)
+        require __DIR__.'/api/ronda2_g2.php';
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

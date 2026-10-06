@@ -1,6 +1,7 @@
 import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Space, Table } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
+import { NavActivos } from './comum/NavActivos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { pedidoTabela } from './comum/impressao';
@@ -52,6 +53,7 @@ export default function Categorias() {
         impressaoDesactivada={!q.data?.length}
         impressao={() => pedidoTabela({ titulo: 'Categorias de activos e taxas de amortização', colunas, linhas: q.data ?? [] })}
       />
+      <NavActivos actual="activos_categorias" />
       <Card>
         <Table<CategoriaActivo>
           rowKey="id"

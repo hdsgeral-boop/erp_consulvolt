@@ -1,5 +1,7 @@
 import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Dropdown, Flex, Form, Input, Modal, Select, Skeleton, Space, Table, Tag, Typography, message } from 'antd';
-import { ArrowLeftOutlined, DownOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CopyOutlined, DownOutlined } from '@ant-design/icons';
+import { useArmazens } from '@/modulos/compras/comum/referencias';
+import { textoContravalor, textoPlano } from './impressao/documentoVenda';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -28,7 +30,8 @@ export function DetalheDocumento() {
   const cliente = useQueryClient();
   const [conversao, setConversao] = useState(false);
   const [descontab, setDescontab] = useState(false);
-  const [formConv] = Form.useForm<{ tipo_destino: string; data_emissao: Dayjs; motivo_nota_credito?: string; devolucao_mercadoria?: boolean }>();
+  const [formConv] = Form.useForm<{ tipo_destino: string; data_emissao: Dayjs; motivo_nota_credito?: string; devolucao_mercadoria?: boolean; armazem_id?: number; ignorar_validade?: boolean }>();
+  const armazens = useArmazens();
   const [formMotivo] = Form.useForm<{ motivo: string }>();
   const tipoDestino = Form.useWatch('tipo_destino', formConv);
   const [qr, setQr] = useState<{ imagem: string; url: string | null } | null>(null);
@@ -61,6 +64,12 @@ export function DetalheDocumento() {
   const agt = accoesAgt(d, pode);
   const estadoAgt = estadoAgtDoDocumento(d.faturacao_eletronica);
   const nomeBase = (d.numero_documento ?? `documento_${d.id}`).replace(/[^\w.-]+/g, '_');
+  // decisão 27 (como o legado): factura paga — e toda a factura-recibo — não admite NC; anula-se primeiro o recibo
+  const pagaSemNc = d.tipo_documento === 'FR' || (d.tipo_documento === 'FT' && Number(d.valor_pago ?? 0) > 0.01);
+  const expirado = ['OR', 'PF'].includes(d.tipo_documento) && !!d.valido_ate && dayjs(d.valido_ate).isBefore(dayjs(), 'day');
+  const movimentaStock = ['GR', 'FT'].includes(tipoDestino ?? '') && ['NE', 'OR', 'PF'].includes(d.tipo_documento);
+  const plano = textoPlano(d);
+  const contravalor = textoContravalor(d);
 
   /**
    * QR em SVG (texto). Sem responseType: o axios tenta ler JSON e, não sendo, devolve o texto do SVG; os erros chegam
@@ -124,6 +133,9 @@ export function DetalheDocumento() {
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
             {podeConverter && <Button onClick={() => { formConv.setFieldsValue({ tipo_destino: destinos[0], data_emissao: dayjs() }); setConversao(true); }}>Converter</Button>}
+            {pode('vendas_fat_emitir') && !['NC', 'GD'].includes(d.tipo_documento) && (
+              <Button icon={<CopyOutlined />} onClick={() => navegar('../novo', { state: { copia: d } })}>Copiar</Button>
+            )}
             {podeContabilizar && <Button type="primary" loading={accao.isPending} onClick={() => accao.mutate({ caminho: 'contabilizar' })}>Contabilizar</Button>}
             {podeDescontabilizar && <Button danger onClick={() => setDescontab(true)}>Descontabilizar</Button>}
             {agt.revalidar && (
@@ -169,6 +181,15 @@ export function DetalheDocumento() {
             {estadoAgt ? <Tag color={INFO_ESTADO_AGT[estadoAgt].cor}>{INFO_ESTADO_AGT[estadoAgt].rotulo}</Tag> : (d.faturacao_eletronica?.estado ?? '—')}
             {d.faturacao_eletronica?.hash ? ` hash ${d.faturacao_eletronica.hash}` : ''}
           </Descriptions.Item>
+          {d.moeda && <Descriptions.Item label="Moeda">{d.moeda.codigo} · câmbio {d.moeda.taxa_cambio}{d.moeda.taxa_cambio_manual ? ' (manual)' : ''}</Descriptions.Item>}
+          {d.modo_pagamento && d.modo_pagamento !== 'PRONTO' && (
+            <Descriptions.Item label="Modalidade">{d.modo_pagamento === 'MARCOS' ? 'Por marcos' : 'A prazo'}</Descriptions.Item>
+          )}
+          {d.arredondamento_agt && Number(d.arredondamento_agt) !== 0 && (
+            <Descriptions.Item label="Arredondamento AGT">{formatarKz(d.arredondamento_agt)} Kz</Descriptions.Item>
+          )}
+          {plano && <Descriptions.Item label="Plano de pagamentos" span="filled"><span style={{ whiteSpace: 'pre-line' }}>{plano.split('\n').slice(1).join('\n')}</span></Descriptions.Item>}
+          {contravalor && <Descriptions.Item label="Contravalor em Kz" span="filled">{contravalor}</Descriptions.Item>}
           {d.motivo_nota_credito && <Descriptions.Item label="Motivo da NC" span="filled">{d.motivo_nota_credito}</Descriptions.Item>}
           {d.observacoes && <Descriptions.Item label="Observações" span="filled">{d.observacoes}</Descriptions.Item>}
         </Descriptions>
@@ -187,11 +208,41 @@ export function DetalheDocumento() {
         </Flex>
       </Card>
 
-      <Modal title="Converter documento" open={conversao} onCancel={() => setConversao(false)} okText="Converter" confirmLoading={accao.isPending} onOk={() => formConv.submit()}>
+      <Modal
+        title="Converter documento"
+        open={conversao}
+        onCancel={() => setConversao(false)}
+        okText="Converter"
+        okButtonProps={{ disabled: tipoDestino === 'NC' && pagaSemNc }}
+        confirmLoading={accao.isPending}
+        onOk={() => formConv.submit()}
+      >
         <Form form={formConv} layout="vertical" onFinish={(v) => accao.mutate({ caminho: 'converter', dados: { ...v, data_emissao: dataApi(v.data_emissao) } })}>
           <Form.Item name="tipo_destino" label="Converter em" rules={[{ required: true }]}>
             <Select options={destinos.map((t) => ({ value: t, label: `${t} — ${TIPOS_DOCUMENTO[t]}` }))} />
           </Form.Item>
+          {tipoDestino === 'NC' && pagaSemNc && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={d.tipo_documento === 'FR' ? 'Factura-recibo: não admite nota de crédito.' : 'Factura liquidada: não admite nota de crédito.'}
+              description={d.tipo_documento === 'FR'
+                ? 'Como no sistema anterior, a nota de crédito sobre uma factura-recibo está bloqueada (o recibo nasce com ela e não se anula sozinho). Corrija com um novo documento e regularize o recebimento na Tesouraria.'
+                : 'Anule primeiro o recibo/pagamento associado (Vendas › Recibos ou Tesouraria) e volte a converter.'}
+              action={d.tipo_documento === 'FT' ? <Button size="small" onClick={() => navegar('../recibos')}>Ver recibos</Button> : undefined}
+            />
+          )}
+          {movimentaStock && (
+            <Form.Item name="armazem_id" label="Armazém de saída" extra="Por omissão, o do documento de origem ou o predefinido.">
+              <Select allowClear loading={armazens.isLoading} options={(armazens.data ?? []).map((a) => ({ value: a.id, label: a.codigo ? `${a.codigo} — ${a.nome}` : a.nome }))} />
+            </Form.Item>
+          )}
+          {expirado && (
+            <Form.Item name="ignorar_validade" valuePropName="checked" extra={`Validade terminada em ${formatarData(d.valido_ate)}.`}>
+              <Checkbox>Converter mesmo assim (documento expirado)</Checkbox>
+            </Form.Item>
+          )}
           <Form.Item name="data_emissao" label="Data">
             <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
           </Form.Item>

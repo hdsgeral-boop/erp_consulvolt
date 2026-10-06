@@ -35,6 +35,10 @@ final class LancamentoResource extends JsonResource
             'nota_demonstracao_id' => $this->nota_demonstracao_id,
             'nota_fluxo_caixa_id' => $this->nota_fluxo_caixa_id,
             'reconciliacao_codigo' => $this->reconciliacao_codigo,
+            // moeda estrangeira da linha (A-07; M7 do legado: colunas Moeda, Valor na moeda e Câmbio da lista)
+            'codigo_moeda' => $this->codigo_moeda,
+            'valor_moeda' => $this->valor_moeda,
+            'taxa_cambio' => $this->taxa_cambio,
             'tipo_origem' => $this->tipo_origem,
             'estorno_de_id' => $this->estorno_de_id,
             'estornado_por_id' => $this->estornado_por_id,

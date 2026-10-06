@@ -17,6 +17,8 @@ namespace App\Services\RH;
  *            e líquido = bruto − INSS − IRT − descontos exacto ao cêntimo (o diário fecha sem "ROUNDING_DIFF").
  *
  * Tabela de IRT: a de js/engine_v2.js (decisão do utilizador, 2026-09-29): IRT = fixo + (base − excesso) × taxa.
+ * Configurável desde 2026-10-06 (decisão 1; ServicoTabelaIRT → $cfg['tabela_irt'], só no modo ATUAL). Nota legal: confirmar
+ * a tabela com o Código do IRT em vigor (degrau de 12 500 Kz a 150 000 Kz, D-SAL-2).
  */
 final class MotorSalarial
 {
@@ -90,7 +92,12 @@ final class MotorSalarial
                 }
                 if (bccomp($wd, $dc, 4) > 0) {
                     $extra = $r(bcmul(bcdiv($v, $dc, self::E), bcsub($wd, $dc, 4), self::E));
-                    $rubricas[] = ['nome' => 'H. Extras', 'infotipo_id' => $info['id'], 'tipo' => 'VENCIMENTO', 'valor' => $extra];
+                    $rubricas[] = ['nome' => 'H. Extras', 'infotipo_id' => $info['id'], 'tipo' => 'VENCIMENTO', 'valor' => $extra, 'automatica' => true];
+                    if ($atual) {
+                        // decisão 5 do utilizador: mantêm-se as horas extra automáticas, com aviso visível (e confirmação ao encerrar)
+                        $avisos[] = 'Horas extra automáticas em «'.$info['nome'].'»: '.rtrim(rtrim($wd, '0'), '.').' dias trabalhados acima dos '
+                            .rtrim(rtrim($dc, '0'), '.').' dias do contrato ('.self::arred($extra).' Kz).';
+                    }
                     $bruto = bcadd($bruto, $extra, self::E);
                     if ($info['inss']) {
                         $baseInss = bcadd($baseInss, $extra, self::E);
@@ -212,7 +219,7 @@ final class MotorSalarial
             if (bccomp($baseIrt, '0', self::E) < 0) {
                 $baseIrt = '0';
             }
-            $irt = self::irt($baseIrt);
+            $irt = self::irt($baseIrt, $atual ? ($cfg['tabela_irt'] ?? null) : null);
             $isencoes = bcadd($isencoes, $faltas, self::E);
         }
         if ($atual) {
@@ -231,12 +238,12 @@ final class MotorSalarial
     }
 
     /** IRT pela tabela: fixo + (base − excesso) × taxa, no primeiro escalão com base ≤ máximo. */
-    public static function irt(string $base): string
+    public static function irt(string $base, ?array $tabela = null): string
     {
         if (bccomp($base, '0', self::E) <= 0) {
             return '0';
         }
-        foreach (self::TABELA_IRT as $e) {
+        foreach ($tabela ?? self::TABELA_IRT as $e) {
             if ($e['max'] === null || bccomp($base, $e['max'], self::E) <= 0) {
                 return bcadd($e['fixo'], bcmul(bcsub($base, $e['excesso'], self::E), $e['taxa'], self::E), self::E);
             }
@@ -252,15 +259,15 @@ final class MotorSalarial
      *
      * @return array{fixo: string, taxa: float, excesso: string, devido: string}
      */
-    public static function escalaoIrt(string $base): array
+    public static function escalaoIrt(string $base, ?array $tabela = null): array
     {
         if (bccomp($base, '0', self::E) <= 0) {
             return ['fixo' => '0.00', 'taxa' => 0.0, 'excesso' => '0.00', 'devido' => '0.00'];
         }
-        foreach (self::TABELA_IRT as $e) {
-            if ($e['max'] === null || bccomp($base, $e['max'], self::E) <= 0) {
-                return ['fixo' => number_format((float) $e['fixo'], 2, '.', ''), 'taxa' => (float) bcmul($e['taxa'], '100', 3),
-                    'excesso' => number_format((float) $e['excesso'], 2, '.', ''), 'devido' => self::arred(self::irt($base))];
+        foreach ($tabela ?? self::TABELA_IRT as $e) {
+            if ($e['max'] === null || bccomp($base, (string) $e['max'], self::E) <= 0) {
+                return ['fixo' => number_format((float) $e['fixo'], 2, '.', ''), 'taxa' => (float) bcmul((string) $e['taxa'], '100', 3),
+                    'excesso' => number_format((float) $e['excesso'], 2, '.', ''), 'devido' => self::arred(self::irt($base, $tabela))];
             }
         }
 

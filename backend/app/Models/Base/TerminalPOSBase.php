@@ -6,7 +6,9 @@ use App\Models\Armazem;
 use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\ContaMesaPOS;
 use App\Models\EstadiaHotel;
+use App\Models\MesaPOS;
 use App\Models\ModeloBase;
 use App\Models\PagamentoLavandaria;
 use App\Models\PedidoLavandaria;
@@ -102,5 +104,15 @@ abstract class TerminalPOSBase extends ModeloBase
     public function pagamentosLavandaria(): HasMany
     {
         return $this->hasMany(PagamentoLavandaria::class, 'terminal_pos_id');
+    }
+
+    public function mesasPos(): HasMany
+    {
+        return $this->hasMany(MesaPOS::class, 'terminal_pos_id');
+    }
+
+    public function contasMesaPos(): HasMany
+    {
+        return $this->hasMany(ContaMesaPOS::class, 'terminal_pos_id');
     }
 }

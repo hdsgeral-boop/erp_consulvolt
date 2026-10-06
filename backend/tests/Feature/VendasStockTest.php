@@ -132,6 +132,36 @@ final class VendasStockTest extends TestCase
     }
 
     #[Test]
+    public function devolucao_sobre_stock_negativo_leva_a_diferenca_de_valorizacao_ao_cmv(): void
+    {
+        // decisão 15 (ADR-068), como na recepção de compra e na regularização de inventário
+        $ft = $this->emitir('FT', 2);   // sai ao custo médio 600
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => app(ServicoStock::class)->entrada($this->ids['p'], $this->ids['a'], '2', '1200', $this->hoje, 'Compra mais cara'));   // 8 × 600 + 2 × 1 200 → médio 720
+        $this->emitir('FT', 14);   // a descoberto: −4 ao custo 720
+        $this->assertSame('-4.000', $this->stock());
+
+        // NC de devolução da 1.ª factura: entram 2 ao custo da factura (600) e cobrem 2 das unidades vendidas a 720 → −240 no CMV
+        $nc = $this->converter($ft['id'], 'NC', ['motivo_nota_credito' => 'Devolução', 'devolucao_mercadoria' => true]);
+        $this->assertSame('-2.000', $this->stock());
+        $item = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => ItemVenda::query()->where('venda_id', $nc['id'])->first());
+        $this->assertSame('-240.00', (string) $item->acerto_cmv_kz);
+        $this->assertSame(['C 311 2280.00', 'C 7111 1440.00', 'D 2611 1440.00', 'D 3452 280.00', 'D 611 2000.00'], $this->lancamento($nc['id']));
+
+        // GD sobre stock negativo: a GR saiu a 600; entretanto uma entrada a 1 500 passou o médio para 1 500 → −900 no CMV
+        $gr = $this->emitir('GR', 1);
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => app(ServicoStock::class)->entrada($this->ids['p'], $this->ids['a'], '1', '1500', $this->hoje, 'Compra'));
+        $this->assertSame('-2.000', $this->stock());
+        $gd = $this->converter($gr['id'], 'GD');
+        $this->assertSame('-1.000', $this->stock());
+        $this->assertSame(['C 7111 1500.00', 'D 2611 1500.00'], $this->lancamento($gd['id']));
+
+        // a devolução sobre stock positivo não tem acerto (ver o teste anterior: NC/GD só com o custo da origem)
+        $this->assertNull(app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => ItemVenda::query()->where('venda_id', $ft['id'])->value('acerto_cmv_kz')));
+    }
+
+    #[Test]
     public function guia_de_consumo_com_numeracao_contabilizacao_e_anulacao(): void
     {
         $g = $this->postJson('/api/logistica/guias-saida', ['armazem_id' => $this->ids['a'], 'data' => $this->hoje, 'area_rececao' => 'Oficina',

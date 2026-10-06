@@ -1,5 +1,9 @@
-import { Alert, Button, Card, Col, Divider, Empty, Flex, Input, InputNumber, List, Modal, Result, Row, Select, Space, Statistic, Typography, type GetRef, type InputRef } from 'antd';
-import { ClearOutlined, DeleteOutlined, MinusOutlined, PlusOutlined, PrinterOutlined, SearchOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, Divider, Empty, Flex, Input, InputNumber, List, Modal, Result, Row, Select, Space, Statistic, Tag, Typography, message, type GetRef, type InputRef } from 'antd';
+import { ClearOutlined, DeleteOutlined, MinusOutlined, PauseCircleOutlined, PlusOutlined, PrinterOutlined, SearchOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
+import { enviar, obter } from '@/api/cliente';
+import { notificarErro } from '@/utilitarios/erros';
+import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useMemo, useRef, useState } from 'react';
 import { larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -23,7 +27,9 @@ import {
   type Pagamento,
 } from '../comum/calculos';
 import { useCatalogoPOS, useCategoriasPOS } from '../comum/dados';
-import { htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
+import { htmlTalaoGenerico, htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
+import { carrinhoDaConta, linhasDaConta, type ContaMesa, type MesaPOS } from './mesas';
+import { PainelMesas } from './PainelMesas';
 import { acrescentarPagamento, meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
 import { filtrarProdutos, lerCodigo, produtosVendaveis } from '../comum/produtos';
 import type { ProdutoPOS, Terminal, VendaEmitida } from '../comum/tipos';
@@ -34,6 +40,8 @@ const MAX_GRELHA = 48;
  * Venda rápida: pesquisa (ou leitor de códigos: «3*COD»), grelha de produtos, carrinho com quantidades, desconto global
  * (com pos_desconto), pagamento misto e emissão da factura-recibo (POST /pos/sessoes/{id}/vendas).
  * Atalhos: F2 pesquisa · F4 cliente · F8 desconto · F9 cobrar · Esc limpa a pesquisa.
+ * Terminal RESTAURANTE (M-15): mapa de mesas; a conta de cada mesa fica no servidor («Suspender»), «Consulta» imprime o
+ * talão de consulta e «Cobrar» emite a FR da mesa e fecha a conta.
  */
 export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessaoId: number }) {
   const { pode, empresa } = useSessao();
@@ -53,6 +61,11 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
   const refPesquisa = useRef<InputRef>(null);
   const refDesconto = useRef<GetRef<typeof InputNumber>>(null);
   const refCliente = useRef<HTMLDivElement>(null);
+  const cliente_q = useQueryClient();
+  const restaurante = terminal.tipo === 'RESTAURANTE';
+  const [mesa, setMesa] = useState<MesaPOS | null>(null);
+  const [versao, setVersao] = useState<number | null>(null);
+  const [aMudarMesa, setAMudarMesa] = useState(false);
 
   const podeDesconto = pode('pos_desconto');
   const meios = meiosActivos(terminal.meios_pagamento);
@@ -80,6 +93,8 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
       setCliente(undefined);
       setPagamentos([]);
       setObservacoes('');
+      setMesa(null);
+      setVersao(null);
       if (lerPreferencias(empresa?.id).automatico) imprimir(v);
     },
   });
@@ -106,15 +121,136 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
   const emitir = () => {
     if (!resumo.valido || vender.isPending) return;
     vender.mutate({
-      url: `/pos/sessoes/${sessaoId}/vendas`,
+      // mesa (M-15): a FR leva o nome da mesa e a conta fecha-se na mesma transacção
+      url: mesa ? `/pos/sessoes/${sessaoId}/mesas/${mesa.id}/cobrar` : `/pos/sessoes/${sessaoId}/vendas`,
       dados: {
         cliente_id: cliente,
         percentagem_desconto: desconto || undefined,
         observacoes: observacoes.trim() || undefined,
         linhas: linhasParaApi(carrinho),
         pagamentos: pagamentosParaApi(pagamentos),
+        ...(mesa && versao ? { versao } : {}),
       },
     });
+  };
+
+  // ───────────── mesas (M-15) ─────────────
+  const limparCarrinho = () => {
+    setCarrinho([]);
+    setDesconto(0);
+    setCliente(undefined);
+    setObservacoes('');
+  };
+  /** Grava a conta da mesa activa no servidor; devolve false se falhou. */
+  const gravarMesa = async (m: MesaPOS, itens: ItemCarrinho[] = carrinho): Promise<boolean> => {
+    try {
+      const { dados } = await enviar<ContaMesa | null>('put', `/pos/mesas/${m.id}/conta`, {
+        linhas: linhasDaConta(itens),
+        percentagem_desconto: desconto || undefined,
+        cliente_id: cliente,
+        observacoes: observacoes.trim() || undefined,
+        ...(versao ? { versao } : {}),
+      });
+      setVersao(dados?.versao ?? null);
+      void cliente_q.invalidateQueries({ queryKey: ['pos', 'mesas'] });
+      return true;
+    } catch (e) {
+      notificarErro(e, `Não foi possível guardar a conta da ${m.nome}`);
+      return false;
+    }
+  };
+  const abrirMesa = async (m: MesaPOS | null, juntar: ItemCarrinho[] = []) => {
+    if (!m) {
+      setMesa(null);
+      setVersao(null);
+      limparCarrinho();
+      return;
+    }
+    const conta = await obter<ContaMesa | null>(`/pos/mesas/${m.id}/conta`);
+    const r = conta ? carrinhoDaConta(conta.linhas, produtos) : { carrinho: [], emFalta: 0 };
+    let itens = r.carrinho;
+    for (const i of juntar) {
+      const p = produtos.find((x) => x.id === i.produto_id);
+      if (p) itens = adicionarProduto(itens, p, i.quantidade);
+    }
+    if (r.emFalta) void message.warning(`${r.emFalta} artigo(s) da conta já não estão no catálogo e foram retirados.`);
+    setMesa(m);
+    setVersao(conta?.versao ?? null);
+    setCarrinho(itens);
+    setDesconto(Number(conta?.percentagem_desconto ?? 0) || 0);
+    setCliente(conta?.cliente_id ?? undefined);
+    setObservacoes(conta?.observacoes ?? '');
+    if (juntar.length) await gravarMesaComVersao(m, itens, conta?.versao ?? null);
+  };
+  const gravarMesaComVersao = async (m: MesaPOS, itens: ItemCarrinho[], v: number | null) => {
+    try {
+      const { dados } = await enviar<ContaMesa | null>('put', `/pos/mesas/${m.id}/conta`, { linhas: linhasDaConta(itens), ...(v ? { versao: v } : {}) });
+      setVersao(dados?.versao ?? null);
+      void cliente_q.invalidateQueries({ queryKey: ['pos', 'mesas'] });
+    } catch (e) {
+      notificarErro(e, `Não foi possível guardar a conta da ${m.nome}`);
+    }
+  };
+  /** Mudar de mesa: guarda a conta da mesa actual (como o legado) e carrega a da nova; o carrinho do balcão pode ir para a mesa. */
+  const escolherMesa = async (m: MesaPOS | null) => {
+    if (aMudarMesa || (m?.id ?? null) === (mesa?.id ?? null)) return;
+    setAMudarMesa(true);
+    try {
+      if (mesa && !(await gravarMesa(mesa))) return;
+      if (!mesa && m && carrinho.length) {
+        const juntar = await new Promise<boolean | null>((resolve) =>
+          Modal.confirm({
+            title: 'O carrinho do balcão tem artigos',
+            content: `Juntar os artigos à conta da ${m.nome}?`,
+            okText: 'Juntar à mesa',
+            cancelText: 'Cancelar',
+            onOk: () => resolve(true),
+            onCancel: () => resolve(null),
+          }),
+        );
+        if (!juntar) return;
+        await abrirMesa(m, carrinho);
+        return;
+      }
+      await abrirMesa(m);
+    } catch (e) {
+      notificarErro(e, 'Não foi possível abrir a mesa');
+    } finally {
+      setAMudarMesa(false);
+    }
+  };
+  /** «Suspender» do legado: guarda a conta da mesa e volta ao balcão. */
+  const suspender = async () => {
+    if (!mesa) return;
+    setAMudarMesa(true);
+    const ok = await gravarMesa(mesa);
+    setAMudarMesa(false);
+    if (!ok) return;
+    void message.success(`Conta da ${mesa.nome} guardada.`);
+    setMesa(null);
+    setVersao(null);
+    limparCarrinho();
+  };
+  /** Talão de consulta da mesa (printPOSConsultation). */
+  const consulta = () => {
+    if (!carrinho.length) return void message.warning('O carrinho está vazio: adicione produtos antes de gerar a consulta de mesa.');
+    const p = lerPreferencias(empresa?.id);
+    const html = htmlTalaoGenerico(
+      'Consulta de mesa',
+      {
+        dados: [mesa ? `Mesa: ${mesa.nome}` : 'Balcão', formatarDataHora(new Date().toISOString())],
+        aviso: 'Documento de consulta — não serve de factura',
+        linhas: carrinho.map((i) => ({ descricao: i.nome, quantidade: i.quantidade, preco: (i.preco / 100).toFixed(2), total: (Math.round(i.quantidade * i.preco) / 100).toFixed(2) })),
+        totais: [
+          ['Subtotal', (totais.bruto / 100).toFixed(2)],
+          ...(totais.desconto ? ([['Desconto', (-totais.desconto / 100).toFixed(2)]] as [string, string][]) : []),
+          ['TOTAL', (totais.total / 100).toFixed(2), true],
+        ],
+      },
+      cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}` }),
+      p,
+    );
+    reimprimir(html, p);
   };
 
   useAtalhos(
@@ -144,6 +280,8 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
   };
 
   return (
+    <>
+    {restaurante && <PainelMesas terminal={terminal.id} activa={mesa?.id ?? null} aoEscolher={(m) => void escolherMesa(m)} ocupado={aMudarMesa || vender.isPending} />}
     <Row gutter={[16, 16]}>
       <Col xs={24} lg={14} xl={15}>
         <Card size="small">
@@ -214,6 +352,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
           title={
             <Space>
               <ShoppingCartOutlined /> Carrinho · {totalUnidades(carrinho)} un.
+              {restaurante && <Tag color={mesa ? 'green' : 'default'}>{mesa ? mesa.nome : 'Balcão'}</Tag>}
             </Space>
           }
           extra={
@@ -311,6 +450,16 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
               Cobrar (F9)
             </Button>
           </Flex>
+          {restaurante && (
+            <Flex gap={8} wrap style={{ marginTop: 8 }}>
+              <Button icon={<PauseCircleOutlined />} disabled={!mesa} loading={aMudarMesa} onClick={() => void suspender()} title="Guardar a conta da mesa e voltar ao balcão" style={{ flex: '1 1 120px' }}>
+                Suspender
+              </Button>
+              <Button icon={<PrinterOutlined />} disabled={!carrinho.length} onClick={consulta} title="Imprimir o talão de consulta da mesa" style={{ flex: '1 1 120px' }}>
+                Consulta
+              </Button>
+            </Flex>
+          )}
         </Card>
       </Col>
 
@@ -342,7 +491,7 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
           <Result
             status="success"
             title={`Factura-recibo ${emitida.numero_documento}`}
-            subTitle={`Total ${formatarKz(emitida.total_bruto)} Kz`}
+            subTitle={`Total ${formatarKz(emitida.total_bruto)} Kz${emitida.nome_tabela ? ` · ${emitida.nome_tabela}` : ''}${Number(emitida.arredondamento_agt ?? 0) !== 0 ? ` · arredondamento AGT ${formatarKz(emitida.arredondamento_agt)} Kz` : ''}`}
             extra={[
               <Statistic key="t" title="Troco" value={formatarKz(emitida.pos_troco ?? '0')} suffix="Kz" valueStyle={{ fontSize: 40, color: '#3f8600' }} style={{ marginBottom: 16 }} />,
               <Flex key="b" gap={8} justify="center" wrap>
@@ -366,5 +515,6 @@ export function PainelVenda({ terminal, sessaoId }: { terminal: Terminal; sessao
         )}
       </Modal>
     </Row>
+    </>
   );
 }

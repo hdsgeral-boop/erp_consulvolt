@@ -5,6 +5,8 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { obterPagina } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
 import { BotoesExportar } from './impressao/BotoesExportar';
+import { lerNumeroPt } from './impressao/excel';
+import { useOperacoes } from './operacoes/Operacoes';
 import { tabelaHtml, type ColunaImpressao, type ValorCelula } from './impressao/tabela';
 import { prepararTexto, textoDeNo } from './impressao/texto';
 import type { Orientacao, Papel } from './impressao/tipos';
@@ -35,6 +37,8 @@ export interface ImpressaoTabelaApi {
   limite?: number;
   /** Rótulo da linha de totais (quando alguma coluna tem `totalImpressao`). */
   rotuloTotal?: string;
+  /** Mostra também «Excel» (por omissão: sim) — o mesmo conteúdo da impressão em .xlsx. */
+  excel?: boolean;
 }
 
 interface Props<T> extends Omit<TableProps<T>, 'dataSource' | 'pagination' | 'loading' | 'columns'> {
@@ -54,8 +58,16 @@ interface Props<T> extends Omit<TableProps<T>, 'dataSource' | 'pagination' | 'lo
 export const LIMITE_IMPRESSAO = 5000;
 const POR_PAGINA_IMPRESSAO = 200;
 
-/** Lê todas as páginas de uma listagem paginada (até `limite` linhas), com os mesmos filtros. */
-export async function obterTodasAsPaginas<T>(url: string, filtros: Record<string, unknown>, limite = LIMITE_IMPRESSAO): Promise<{ itens: T[]; total: number; truncado: boolean }> {
+/**
+ * Lê todas as páginas de uma listagem paginada (até `limite` linhas), com os mesmos filtros. `aoProgresso` (opcional)
+ * recebe a percentagem e o texto «Página X de Y» (gestor de operações em segundo plano).
+ */
+export async function obterTodasAsPaginas<T>(
+  url: string,
+  filtros: Record<string, unknown>,
+  limite = LIMITE_IMPRESSAO,
+  aoProgresso?: (percentagem: number, detalhe: string) => void,
+): Promise<{ itens: T[]; total: number; truncado: boolean }> {
   const itens: T[] = [];
   let pagina = 1;
   let total = 0;
@@ -63,6 +75,8 @@ export async function obterTodasAsPaginas<T>(url: string, filtros: Record<string
     const r = await obterPagina<T>(url, { ...filtros, pagina, por_pagina: POR_PAGINA_IMPRESSAO });
     itens.push(...r.itens);
     total = r.paginacao.total;
+    const ultima = Math.min(r.paginacao.ultima_pagina, Math.ceil(limite / POR_PAGINA_IMPRESSAO));
+    aoProgresso?.((pagina / Math.max(1, ultima)) * 100, `Página ${pagina} de ${Math.max(1, ultima)}`);
     if (!r.itens.length || pagina >= r.paginacao.ultima_pagina || itens.length >= limite) break;
     pagina += 1;
   }
@@ -94,16 +108,43 @@ export function colunasParaImpressao<T>(colunas: ColunaApi<T>[], linhas?: T[]): 
       titulo,
       alinhamento: c.align === 'right' ? 'direita' : c.align === 'center' ? 'centro' : 'esquerda',
       total: c.totalImpressao && linhas ? c.totalImpressao(linhas) : undefined,
-      valor: (linha: T, i: number): ValorCelula => {
-        if (c.valorImpressao) return c.valorImpressao(linha, i);
-        const bruto = valorDe(linha, c.dataIndex);
-        if (!c.render) return bruto === null || bruto === undefined ? '' : typeof bruto === 'object' ? JSON.stringify(bruto) : (bruto as ValorCelula);
-        const r = c.render(bruto, linha, i) as ReactNode | { children?: ReactNode };
-        // render pode devolver { children, props } (RenderedCell).
-        const no = r && typeof r === 'object' && !Array.isArray(r) && !('$$typeof' in r) && 'children' in r ? r.children : (r as ReactNode);
-        return textoDeNo(no);
-      },
+      valor: (linha: T, i: number): ValorCelula => textoColuna(c, linha, i),
+      // Excel: o valor bruto (precisão total) só quando o texto impresso o representa (nunca um id por trás de um nome)
+      bruto: (linha: T, i: number): ValorCelula => brutoConsistente(valorDe(linha, c.dataIndex), textoColuna(c, linha, i)),
     }));
+}
+
+function textoColuna<T>(c: ColumnType<T> & ExtrasColunaImpressao<T>, linha: T, i: number): ValorCelula {
+  if (c.valorImpressao) return c.valorImpressao(linha, i);
+  const bruto = valorDe(linha, c.dataIndex);
+  if (!c.render) return bruto === null || bruto === undefined ? '' : typeof bruto === 'object' ? JSON.stringify(bruto) : (bruto as ValorCelula);
+  const r = c.render(bruto, linha, i) as ReactNode | { children?: ReactNode };
+  // render pode devolver { children, props } (RenderedCell).
+  const no = r && typeof r === 'object' && !Array.isArray(r) && !('$$typeof' in r) && 'children' in r ? r.children : (r as ReactNode);
+  return textoDeNo(no);
+}
+
+/**
+ * Valor bruto de uma célula para o Excel, se for coerente com o texto mostrado: número (ou texto numérico da API, ex.
+ * «1234.50») cujo texto formatado lê o mesmo valor, ou data ISO mostrada como dd/mm/aaaa. Caso contrário `undefined`
+ * (o Excel lê o texto).
+ */
+export function brutoConsistente(bruto: unknown, texto: ValorCelula): ValorCelula {
+  if (texto === null || texto === undefined || typeof texto === 'boolean') return undefined;
+  const t = String(texto).trim();
+  if ((typeof bruto === 'number' && Number.isFinite(bruto)) || (typeof bruto === 'string' && /^-?\d+(\.\d+)?$/.test(bruto.trim()))) {
+    if (/%\s*$/.test(t)) return undefined;
+    // inteiros sem separadores (NIF, códigos, n.º de documento) ficam com a regra do alinhamento do excel.ts
+    const lido = lerNumeroPt(t, false);
+    if (!lido) return undefined;
+    const n = Number(bruto);
+    return Math.abs(lido.valor - n) <= 0.5 * 10 ** -lido.casas + 1e-9 ? (typeof bruto === 'string' ? bruto.trim() : n) : undefined;
+  }
+  if (typeof bruto === 'string' && /^\d{4}-\d{2}-\d{2}/.test(bruto)) {
+    const [a, m, d] = bruto.slice(0, 10).split('-');
+    return t.startsWith(`${d}/${m}/${a}`) ? bruto : undefined;
+  }
+  return undefined;
 }
 
 /** Tabela ligada a uma listagem paginada do servidor (pagina/por_pagina), com a paginação da API. */
@@ -111,6 +152,7 @@ export function TabelaApi<T extends object>({ url, filtros = {}, chaveConsulta, 
   const [pagina, setPagina] = useState(1);
   const [tamanho, setTamanho] = useState(porPagina);
   const mensagem = useMensagem();
+  const operacoes = useOperacoes();
   const consulta = useQuery({
     queryKey: [...chaveConsulta, filtros, pagina, tamanho],
     queryFn: () => obterPagina<T>(url, { ...filtros, pagina, por_pagina: tamanho }),
@@ -127,7 +169,12 @@ export function TabelaApi<T extends object>({ url, filtros = {}, chaveConsulta, 
     const limite = impressao.limite ?? LIMITE_IMPRESSAO;
     let dados: { itens: T[]; total: number; truncado: boolean };
     try {
-      [dados] = await Promise.all([obterTodasAsPaginas<T>(url, filtros, limite), prepararTexto()]);
+      // listagens com várias páginas: a recolha aparece no gestor de operações (progresso «Página X de Y»)
+      const recolher =
+        (consulta.data?.paginacao.total ?? 0) > POR_PAGINA_IMPRESSAO
+          ? operacoes.executar(`A recolher «${impressao.titulo}»`, (progresso) => obterTodasAsPaginas<T>(url, filtros, limite, progresso))
+          : obterTodasAsPaginas<T>(url, filtros, limite);
+      [dados] = await Promise.all([recolher, prepararTexto()]);
     } catch (e) {
       notificarErro(e, 'Não foi possível obter os dados para imprimir');
       return null;
@@ -179,7 +226,7 @@ export function TabelaApi<T extends object>({ url, filtros = {}, chaveConsulta, 
     <>
       <Flex justify="flex-end" align="center" gap={8} wrap style={{ marginBottom: 8 }}>
         {barra}
-        {impressao && <BotoesExportar tamanho="small" obterPedido={obterPedido} desactivado={!consulta.data?.paginacao.total} />}
+        {impressao && <BotoesExportar tamanho="small" obterPedido={obterPedido} desactivado={!consulta.data?.paginacao.total} excel={impressao.excel ?? true} />}
       </Flex>
       {tabela}
     </>

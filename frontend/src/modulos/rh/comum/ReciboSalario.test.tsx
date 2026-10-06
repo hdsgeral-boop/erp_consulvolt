@@ -16,20 +16,25 @@ const base: ResultadoSalarial = {
 };
 
 describe('ReciboSalario', () => {
-  it('mostra vencimentos, descontos, INSS, IRT e líquido; o número do recibo como no servidor', () => {
-    render(<ReciboSalario resultado={base} mesAno="09/2026" colaborador={{ nome: 'Colaborador Teste', nif: '000' }} empresa={{ nome: 'Empresa Teste' }} />);
-    expect(screen.getByText(/N\.º 202609-0012/)).toBeInTheDocument();
-    expect(screen.getByText('Salário Base')).toBeInTheDocument();
-    expect(screen.getByText('Adiantamento')).toBeInTheDocument();
-    expect(screen.getByText('Segurança Social (trabalhador)')).toBeInTheDocument();
-    expect(screen.getByText('IRT')).toBeInTheDocument();
+  it('modelo do legado: duas vias, rubricas, INSS, IRT, líquido por extenso e forma de pagamento', () => {
+    render(<ReciboSalario resultado={{ ...base, banco: 'Banco Fictício', iban: 'AO06004000000000000000000' }} mesAno="09/2026" colaborador={{ nome: 'Colaborador Teste', nif: '000' }} empresa={{ nome: 'Empresa Teste' }} />);
+    expect(screen.getAllByText(/N\.º 202609-0012/)).toHaveLength(2);
+    expect(screen.getByText('Original — Colaborador')).toBeInTheDocument();
+    expect(screen.getByText('Duplicado — Entidade Patronal')).toBeInTheDocument();
+    expect(screen.getAllByText('Salário Base')).toHaveLength(2);
+    expect(screen.getAllByText('Adiantamento')).toHaveLength(2);
+    expect(screen.getAllByText('Segurança Social — INSS (3%)')).toHaveLength(2);
+    expect(screen.getAllByText('Retenção na fonte — IRT Grupo A')).toHaveLength(2);
     expect(screen.queryByText('Dias de Trabalho')).not.toBeInTheDocument();
-    expect(screen.getByText(/Líquido a receber/).textContent).toMatch(/189.460,00 Kz/);
+    expect(screen.getAllByText(/Líquido a receber/)[0].parentElement?.textContent).toMatch(/189.460,00 Kz/);
+    expect(screen.getAllByText(/Cento e oitenta e nove mil quatrocentos e sessenta kwanzas/)).toHaveLength(2);
+    expect(screen.getAllByText(/Banco Fictício · IBAN AO06/)).toHaveLength(2);
   });
 
-  it('avençado: IRT do Grupo B e sem Segurança Social', () => {
-    render(<ReciboSalario resultado={{ ...base, avencado: true, inss_trabalhador: '0.00' }} mesAno="09/2026" colaborador={{ nome: 'Avençado' }} />);
-    expect(screen.getByText('IRT (Grupo B — 6,5 %)')).toBeInTheDocument();
-    expect(screen.queryByText('Segurança Social (trabalhador)')).not.toBeInTheDocument();
+  it('avençado: IRT do Grupo B, sem Segurança Social; uma via no portal', () => {
+    render(<ReciboSalario resultado={{ ...base, avencado: true, inss_trabalhador: '0.00' }} mesAno="09/2026" colaborador={{ nome: 'Avençado' }} vias={1} />);
+    expect(screen.getByText('Retenção na fonte — IRT Grupo B (6,5%)')).toBeInTheDocument();
+    expect(screen.queryByText(/Segurança Social — INSS/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Duplicado — Entidade Patronal')).not.toBeInTheDocument();
   });
 });

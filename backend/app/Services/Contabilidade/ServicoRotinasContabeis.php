@@ -3,6 +3,7 @@
 namespace App\Services\Contabilidade;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\CentroCusto;
 use App\Models\DiarioContabil;
 use App\Models\LancamentoContabil;
 use App\Models\NotaDemonstracao;
@@ -10,6 +11,7 @@ use App\Models\NotaFluxoCaixa;
 use App\Models\Projeto;
 use App\Models\ReconciliacaoBancaria;
 use App\Models\Terceiro;
+use App\Models\UnidadeNegocio;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
@@ -63,6 +65,8 @@ final class ServicoRotinasContabeis
     public const CAMPOS_ACTUALIZAVEIS = [
         'description' => 'descricao', 'account_code' => 'codigo_conta', 'third_party_id' => 'terceiro_id', 'journal_id' => 'diario_id',
         'demo_note_id' => 'nota_demonstracao_id', 'cashflow_note_id' => 'nota_fluxo_caixa_id',
+        // A-05: unidade de negócio e centro de custo também actualizáveis (dimensões analíticas, não financeiras)
+        'business_unit_id' => 'unidade_negocio_id', 'cost_center_id' => 'centro_custo_id',
     ];
 
     private const PREFIXOS_HISTORICO = ['TRF_RECON_' => 'TRANSFERENCIA', 'AUTO_RECON_' => 'COMPENSACAO', 'UPDATE_BATCH_' => 'ACTUALIZACAO'];
@@ -554,7 +558,7 @@ final class ServicoRotinasContabeis
         }
         $id = (int) $valor;
         $modelo = ['terceiro_id' => Terceiro::class, 'diario_id' => DiarioContabil::class, 'nota_demonstracao_id' => NotaDemonstracao::class,
-            'nota_fluxo_caixa_id' => NotaFluxoCaixa::class][$campo];
+            'nota_fluxo_caixa_id' => NotaFluxoCaixa::class, 'unidade_negocio_id' => UnidadeNegocio::class, 'centro_custo_id' => CentroCusto::class][$campo];
         if (! $modelo::query()->whereKey($id)->exists()) {
             throw new ErroNegocio("O registo {$id} indicado em {$campo} não existe nesta empresa.", 'REFERENCIA_INEXISTENTE', 422);
         }

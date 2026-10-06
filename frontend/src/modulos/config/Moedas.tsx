@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, DatePicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Radio, Select, Space, Switch, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, Checkbox, DatePicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Radio, Select, Space, Switch, Table, Tabs, Tag, TimePicker, Typography, Upload, message } from 'antd';
 import { CloudSyncOutlined, DeleteOutlined, EditOutlined, PlusOutlined, StarOutlined, UploadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -86,14 +86,52 @@ function useMoedaFuncional(activo: boolean) {
 export default function Moedas() {
   const { pode } = useSessao();
   const gerir = pode('config_moedas_gerir');
+  const [separador, setSeparador] = useState('cambios');
+  const automatico = useBaiAutomatico(gerir);
+  const porValidar = automatico.data?.pendentes.length ?? 0;
   return (
     <>
       <CabecalhoPagina titulo="Moedas e câmbios" subtitulo="Moedas activas, taxas de câmbio por data (Kz por unidade de moeda) e actualização a partir do BAI" />
+      {gerir && porValidar > 0 && separador !== 'bai' && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={`Câmbios do BAI por validar (${porValidar})`}
+          description="A obtenção automática trouxe câmbios que ainda não foram gravados. Reveja-os e valide ou rejeite."
+          action={<Button size="small" onClick={() => setSeparador('bai')}>Rever</Button>}
+        />
+      )}
       <Tabs
+        activeKey={separador}
+        onChange={setSeparador}
         items={[
           { key: 'cambios', label: 'Câmbios', children: <Cambios gerir={gerir} /> },
-          { key: 'moedas', label: 'Moedas', children: <ListaMoedas gerir={gerir} /> },
-          ...(gerir ? [{ key: 'importar', label: 'Importar', children: <Importar /> }, { key: 'bai', label: 'Câmbios do BAI', children: <Bai /> }] : []),
+          {
+            key: 'moedas',
+            label: 'Moedas',
+            children: (
+              <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <ListaMoedas gerir={gerir} />
+                <ToleranciaCambio gerir={gerir} />
+              </Space>
+            ),
+          },
+          ...(gerir
+            ? [
+                { key: 'importar', label: 'Importar', children: <Importar /> },
+                {
+                  key: 'bai',
+                  label: porValidar ? <span>Câmbios do BAI <Tag color="orange" style={{ marginInlineStart: 4 }}>{porValidar}</Tag></span> : 'Câmbios do BAI',
+                  children: (
+                    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                      <BaiAutomatico />
+                      <Bai />
+                    </Space>
+                  ),
+                },
+              ]
+            : []),
         ]}
       />
     </>
@@ -185,6 +223,59 @@ function ListaMoedas({ gerir }: { gerir: boolean }) {
           )}
         </Form>
       </Modal>
+    </Card>
+  );
+}
+
+/**
+ * Tolerância do câmbio manual face ao câmbio do dia (decisão 9, ADR-068): GET/PUT /api/sistema/cambios-manuais/tolerancia.
+ * Dentro da tolerância o câmbio manual é aceite; acima dela só com a permissão «câmbio manual fora da tolerância».
+ */
+interface Tolerancia {
+  tolerancia_pct: string | number;
+  pode_exceder: boolean;
+}
+
+function ToleranciaCambio({ gerir }: { gerir: boolean }) {
+  const chave = [...CHAVE, 'tolerancia'];
+  const tolerancia = useQuery({ queryKey: chave, queryFn: () => obter<Tolerancia>('/sistema/cambios-manuais/tolerancia') });
+  const [valor, setValor] = useState<number | null>(null);
+  const accao = useAccao({ invalidar: [chave] });
+  useEffect(() => {
+    if (tolerancia.data) setValor(Number(tolerancia.data.tolerancia_pct));
+  }, [tolerancia.data]);
+  const actual = tolerancia.data ? Number(tolerancia.data.tolerancia_pct) : null;
+  return (
+    <Card size="small" title="Câmbio manual nos documentos">
+      <Flex gap={12} align="center" wrap="wrap">
+        <Typography.Text>Tolerância do câmbio manual (%)</Typography.Text>
+        <InputNumber
+          aria-label="Tolerância do câmbio manual (%)"
+          min={0}
+          max={100}
+          step={0.5}
+          precision={2}
+          decimalSeparator=","
+          style={{ width: 120 }}
+          value={valor}
+          disabled={!gerir || tolerancia.isLoading}
+          onChange={(v) => setValor(v)}
+        />
+        {gerir && (
+          <Button
+            type="primary"
+            loading={accao.isPending}
+            disabled={valor === null || valor === actual}
+            onClick={() => accao.mutate({ metodo: 'put', url: '/sistema/cambios-manuais/tolerancia', dados: { tolerancia_pct: valor } })}
+          >
+            Gravar
+          </Button>
+        )}
+      </Flex>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+        Desvio máximo, face ao câmbio do dia, de um câmbio indicado à mão em vendas, compras e tesouraria. Acima deste valor só
+        os utilizadores com a permissão «Indicar câmbio manual fora da tolerância» podem gravar (fica registado na auditoria).
+      </Typography.Paragraph>
     </Card>
   );
 }
@@ -418,6 +509,174 @@ function Bai() {
           </Flex>
         </>
       )}
+    </Card>
+  );
+}
+
+/** Linha pendente de validação (GET /api/sistema/cambios/bai/automatico). */
+interface PendenteBai {
+  id: number;
+  data_cotacao: string;
+  codigo_moeda: string;
+  nome: string | null;
+  compra: number | null;
+  venda: number | null;
+  media: number;
+  ultimo: { taxa: number; data_taxa: string; fonte_dados: string | null } | null;
+  variacao: number | null;
+  alerta: boolean;
+  obtido_em: string | null;
+}
+
+interface ExecucaoBai {
+  id: number;
+  origem: 'AGENDADA' | 'MANUAL';
+  estado: 'SUCESSO' | 'FALHA' | 'EM_CURSO';
+  codigo_erro: string | null;
+  mensagem: string | null;
+  moedas: number | null;
+  iniciado_em: string | null;
+  concluido_em: string | null;
+}
+
+interface EstadoBaiAutomatico {
+  ativo: boolean;
+  hora: string;
+  limiar_variacao: number;
+  pendentes: PendenteBai[];
+  ultima_execucao: ExecucaoBai | null;
+  ultima_falha: ExecucaoBai | null;
+  historico: ExecucaoBai[];
+}
+
+const CHAVE_BAI_AUTO = [...CHAVE, 'bai-automatico'];
+const dataHora = (v: string | null | undefined) => (v ? dayjs(v).format('DD/MM/YYYY HH:mm') : '—');
+
+function useBaiAutomatico(activo: boolean) {
+  return useQuery({ queryKey: CHAVE_BAI_AUTO, queryFn: () => obter<EstadoBaiAutomatico>('/sistema/cambios/bai/automatico'), enabled: activo, staleTime: 60_000 });
+}
+
+/**
+ * Câmbios do BAI automáticos: obtenção diária a hora fixa (activar/desactivar e hora), câmbios pendentes de validação
+ * (nada é gravado sem validar), validar as moedas escolhidas ou rejeitar, e a última falha do BAI.
+ */
+function BaiAutomatico() {
+  const estado = useBaiAutomatico(true);
+  const [escolhidas, setEscolhidas] = useState<string[]>([]);
+  const [rejeitar, setRejeitar] = useState(false);
+  const [motivo, setMotivo] = useState('');
+  const [config, setConfig] = useState<{ ativo: boolean; hora: Dayjs } | null>(null);
+  const accao = useAccao<{ bloqueados?: string[] } | null>({
+    invalidar: [CHAVE],
+    aoSucesso: (d) => {
+      setRejeitar(false);
+      setMotivo('');
+      if (d?.bloqueados?.length) Modal.warning({ title: 'Câmbios não gravados', content: `O câmbio desse dia já está usado em documentos: ${d.bloqueados.join(', ')}.` });
+    },
+  });
+  const d = estado.data;
+  useEffect(() => {
+    if (d) {
+      setConfig({ ativo: d.ativo, hora: dayjs(d.hora, 'HH:mm') });
+      setEscolhidas(d.pendentes.filter((p) => !p.alerta).map((p) => p.codigo_moeda));
+    }
+  }, [d]);
+  if (estado.isLoading || !d || !config) return <Card loading title="Obtenção automática diária" />;
+  const alterado = config.ativo !== d.ativo || config.hora.format('HH:mm') !== d.hora;
+  const parcial = escolhidas.length > 0 && escolhidas.length < d.pendentes.length;
+  const ultima = d.ultima_execucao;
+  return (
+    <Card title="Obtenção automática diária (pendente de validação)">
+      <Flex gap={16} align="center" wrap style={{ marginBottom: 12 }}>
+        <Space>
+          <Switch checked={config.ativo} onChange={(ativo) => setConfig({ ...config, ativo })} aria-label="Obtenção automática activa" />
+          <span>{config.ativo ? 'Activa' : 'Desactivada'}</span>
+        </Space>
+        <Space>
+          <span>Hora diária</span>
+          <TimePicker value={config.hora} format="HH:mm" minuteStep={5} allowClear={false} onChange={(h) => h && setConfig({ ...config, hora: h })} aria-label="Hora da obtenção" />
+        </Space>
+        <Button
+          type="primary"
+          disabled={!alterado}
+          loading={accao.isPending}
+          onClick={() => accao.mutate({ metodo: 'put', url: '/sistema/cambios/bai/automatico', dados: { ativo: config.ativo, hora: config.hora.format('HH:mm') } })}
+        >
+          Gravar configuração
+        </Button>
+        <Button icon={<CloudSyncOutlined />} loading={accao.isPending} onClick={() => accao.mutate({ url: '/sistema/cambios/bai/automatico/obter' })}>
+          Obter agora para validação
+        </Button>
+      </Flex>
+      <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+        O servidor vai buscar os câmbios ao site do BAI a partir da hora indicada (até 3 tentativas por dia). O resultado fica só em pré-visualização: nada é gravado
+        nos câmbios sem alguém validar. Última obtenção:{' '}
+        {ultima ? `${dataHora(ultima.iniciado_em)} (${ultima.origem === 'AGENDADA' ? 'agendada' : 'manual'}, ${ultima.estado === 'SUCESSO' ? 'sucesso' : 'falhou'})` : 'nenhuma'}.
+      </Typography.Paragraph>
+      {d.ultima_falha && (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={`A obtenção de ${dataHora(d.ultima_falha.iniciado_em)} falhou (${d.ultima_falha.codigo_erro ?? 'erro'})`}
+          description={d.ultima_falha.mensagem}
+        />
+      )}
+      {d.pendentes.length ? (
+        <>
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={`Câmbios do BAI por validar (${d.pendentes.length})`}
+            description={`Variações acima de ${formatarNumero(d.limiar_variacao)} % face ao último câmbio não ficam marcadas por omissão.`}
+          />
+          <Table<PendenteBai>
+            size="small"
+            rowKey="codigo_moeda"
+            pagination={false}
+            scroll={scrollTabela()}
+            dataSource={d.pendentes}
+            rowSelection={{ selectedRowKeys: escolhidas, onChange: (k) => setEscolhidas(k as string[]) }}
+            columns={[
+              { title: 'Data', dataIndex: 'data_cotacao', render: (v: string) => formatarData(v) },
+              { title: 'Moeda', dataIndex: 'codigo_moeda', render: (v: string, p) => <><strong>{v}</strong> <Typography.Text type="secondary">{p.nome}</Typography.Text></> },
+              { title: 'Compra', dataIndex: 'compra', align: 'right', responsive: ['md'], render: taxa },
+              { title: 'Venda', dataIndex: 'venda', align: 'right', responsive: ['md'], render: taxa },
+              { title: 'Média (a gravar)', dataIndex: 'media', align: 'right', render: (v: number) => <strong>{taxa(v)}</strong> },
+              { title: 'Último registado', dataIndex: 'ultimo', responsive: ['sm'], render: (u: PendenteBai['ultimo']) => (u ? `${taxa(u.taxa)} em ${formatarData(u.data_taxa)}` : '—') },
+              {
+                title: 'Variação',
+                dataIndex: 'variacao',
+                align: 'right',
+                render: (v: number | null, p) => (v === null ? '—' : <Tag color={p.alerta ? 'red' : undefined}>{v > 0 ? '+' : ''}{formatarNumero(v)}%</Tag>),
+              },
+            ]}
+          />
+          <Flex justify="end" gap={8} wrap style={{ marginTop: 12 }}>
+            <Button danger onClick={() => setRejeitar(true)}>Rejeitar…</Button>
+            <Button type="primary" disabled={!escolhidas.length} loading={accao.isPending} onClick={() => accao.mutate({ url: '/sistema/cambios/bai/pendentes/validar', dados: { moedas: escolhidas } })}>
+              Validar e gravar {escolhidas.length} câmbio(s)
+            </Button>
+          </Flex>
+        </>
+      ) : (
+        <Typography.Text type="secondary">Sem câmbios do BAI por validar.</Typography.Text>
+      )}
+      <Modal
+        title="Rejeitar câmbios do BAI"
+        open={rejeitar}
+        okText="Rejeitar"
+        okButtonProps={{ danger: true }}
+        cancelText="Cancelar"
+        confirmLoading={accao.isPending}
+        onCancel={() => setRejeitar(false)}
+        onOk={() => accao.mutate({ url: '/sistema/cambios/bai/pendentes/rejeitar', dados: { moedas: parcial ? escolhidas : [], motivo } })}
+        destroyOnHidden
+      >
+        <Typography.Paragraph>{parcial ? `Rejeitar ${escolhidas.join(', ')}?` : 'Rejeitar todos os câmbios pendentes?'} Nada é gravado nos câmbios.</Typography.Paragraph>
+        <Input.TextArea rows={3} maxLength={1000} placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} aria-label="Motivo da rejeição" />
+      </Modal>
     </Card>
   );
 }

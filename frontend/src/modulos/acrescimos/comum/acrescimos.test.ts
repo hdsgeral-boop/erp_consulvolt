@@ -54,3 +54,16 @@ describe('plano e proposta', () => {
     expect(mesApi(dayjs('2026-09-30'))).toBe('2026-09');
   });
 });
+
+describe('cartões da lista (indicadoresAD)', () => {
+  it('conta os em curso e soma o reconhecido e o por reconhecer', async () => {
+    const { indicadoresAD } = await import('./regras');
+    expect(
+      indicadoresAD([
+        { tipo: 'ACRESCIMO', valor: '1000.00', reconhecido: '250.50' },
+        { tipo: 'DIFERIMENTO', valor: '1200.00', reconhecido: '200.00' },
+        { tipo: 'DIFERIMENTO', valor: '300.00' },
+      ]),
+    ).toEqual({ acrescimos: 1, diferimentos: 2, acrescimosReconhecido: '250.50', diferimentosPorReconhecer: '1300.00' });
+  });
+});

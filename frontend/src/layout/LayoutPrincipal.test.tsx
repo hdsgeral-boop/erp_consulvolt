@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { definirModoResponsivo } from '@/componentes/responsivo/modoResponsivo';
 import type { ModuloMenu } from '@/api/tipos';
 import { simularLargura } from '@/componentes/responsivo/testes/simularLargura';
 import { LayoutPrincipal } from './LayoutPrincipal';
@@ -26,6 +28,8 @@ vi.mock('@/sessao/SessaoContexto', () => ({
     utilizador: { id: 1, nome_utilizador: 'e2e.admin', nome_completo: 'Utilizador de Teste' },
     escolherEmpresa: vi.fn(() => Promise.resolve()),
     sair: vi.fn(() => Promise.resolve()),
+    pode: () => true,
+    estado: 'autenticado',
   }),
 }));
 
@@ -33,16 +37,28 @@ vi.mock('@/sessao/identidade', () => ({
   useIdentidade: () => ({ data: { id: 1, nome: EMPRESA, logotipo }, isLoading: false }),
 }));
 
+// preferências do utilizador (favoritos): um favorito guardado no servidor
+const enviarMock = vi.fn(() => Promise.resolve({ dados: null, mensagem: 'ok' }));
+vi.mock('@/api/cliente', () => ({
+  obter: vi.fn((url: string) => Promise.resolve(url.includes('/preferencias/favoritos') ? [{ nome: 'lista', valor: [{ modulo: 'config', ecra: 'config_geral' }] }] : [])),
+  enviar: (...a: unknown[]) => (enviarMock as unknown as (...x: unknown[]) => Promise<unknown>)(...a),
+  obterPagina: vi.fn(),
+  http: { post: vi.fn() },
+}));
+
 function montar(caminho = '/') {
+  const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter initialEntries={[caminho]}>
-      <Routes>
-        <Route element={<LayoutPrincipal />}>
-          <Route index element={<p>Página inicial</p>} />
-          <Route path="m/:modulo/:ecra/*" element={<p>Página do ecrã</p>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={cliente}>
+      <MemoryRouter initialEntries={[caminho]}>
+        <Routes>
+          <Route element={<LayoutPrincipal />}>
+            <Route index element={<p>Página inicial</p>} />
+            <Route path="m/:modulo/:ecra/*" element={<p>Página do ecrã</p>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -105,6 +121,8 @@ describe('LayoutPrincipal — telemóvel (375 px)', () => {
     });
     expect(within(gaveta).getByRole('combobox', { name: 'Empresa activa' })).toBeInTheDocument();
     expect(within(gaveta).getByText('Vendas e Facturação')).toBeInTheDocument();
+    // os favoritos (pedido ao servidor) entram no menu: esperar antes de navegar para o menu não se redesenhar a meio
+    expect(await within(gaveta).findByText('Favoritos')).toBeInTheDocument();
 
     // navegar fecha a gaveta
     fireEvent.click(within(gaveta).getByText('Vendas e Facturação'));
@@ -123,5 +141,56 @@ describe('LayoutPrincipal — tablet (800 px)', () => {
     expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeInTheDocument();
     await act(async () => undefined);
     expect(screen.getByText('Utilizador de Teste')).toBeInTheDocument();
+  });
+});
+
+describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
+  beforeEach(() => simularLargura(1366));
+  afterEach(() => definirModoResponsivo(false));
+
+  it('favoritos do servidor no menu e estrela do ecrã actual grava a preferência', async () => {
+    const { container } = montar('/m/vendas/vendas_faturacao');
+    const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    expect(await within(lateral).findByText('Favoritos')).toBeInTheDocument();
+    const estrela = await screen.findByRole('button', { name: 'Adicionar aos favoritos' });
+    fireEvent.click(estrela);
+    await waitFor(() =>
+      expect(enviarMock).toHaveBeenCalledWith('put', '/sistema/preferencias/favoritos/lista', {
+        valor: [
+          { modulo: 'config', ecra: 'config_geral' },
+          { modulo: 'vendas', ecra: 'vendas_faturacao' },
+        ],
+      }),
+    );
+    expect(await screen.findByRole('button', { name: 'Retirar dos favoritos' })).toBeInTheDocument();
+  });
+
+  it('F1 e o botão «Ajuda» abrem o painel de ajuda do ecrã', async () => {
+    montar('/m/vendas/vendas_faturacao');
+    fireEvent.keyDown(window, { key: 'F1' });
+    expect(await screen.findByText('Para que serve')).toBeInTheDocument();
+    expect(screen.getByText(/Emitir facturas, facturas-recibo/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ajuda' })).toBeInTheDocument();
+  });
+
+  it('Ctrl+K abre a pesquisa de ecrãs e Enter navega', async () => {
+    montar('/');
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const entrada = await screen.findByRole('textbox', { name: 'Procurar ecrã' });
+    fireEvent.change(entrada, { target: { value: 'factur' } });
+    fireEvent.keyDown(entrada, { key: 'Enter' });
+    expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
+    // depois de navegar aparece o botão flutuante «Voltar»
+    expect(screen.getByRole('button', { name: /Voltar/ })).toBeInTheDocument();
+  });
+
+  it('«Modo responsivo» força a gaveta do menu num ecrã largo e pode ser desligado', async () => {
+    const { container } = montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Modo responsivo' }));
+    await waitFor(() => expect(container.querySelector('.ant-layout-sider')).toBeNull());
+    expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeInTheDocument();
+    expect(document.body).toHaveClass('erp-modo-responsivo');
+    fireEvent.click(screen.getByRole('button', { name: 'Sair do modo responsivo' }));
+    await waitFor(() => expect(container.querySelector('.ant-layout-sider')).not.toBeNull());
   });
 });

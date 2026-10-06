@@ -27,7 +27,11 @@ final class CriarReciboRequest extends FormRequest
             'meio_pagamento' => ['nullable', Rule::in(['NUMERARIO', 'TPA', 'TRANSFERENCIA', 'CONTA_CORRENTE'])],
             'referencia_pagamento' => ['nullable', 'string', 'max:50'],
             'contabilizar' => ['nullable', 'boolean'],
-            'alocacoes' => ['required', 'array', 'min:1', 'max:200'],
+            // M-18: recibo de adiantamento (sem facturas; alocado depois em /recibos/{id}/alocar)
+            'tipo_recibo' => ['nullable', Rule::in(['NORMAL', 'ADIANTAMENTO'])],
+            'montante' => ['required_if:tipo_recibo,ADIANTAMENTO', 'nullable', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999999.99'],
+            'observacoes' => ['nullable', 'string', 'max:255'],
+            'alocacoes' => ['required_unless:tipo_recibo,ADIANTAMENTO', 'prohibited_if:tipo_recibo,ADIANTAMENTO', 'array', 'min:1', 'max:200'],
             'alocacoes.*.venda_id' => ['required', 'integer', $daEmpresa('vendas')],
             'alocacoes.*.montante' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999999.99'],
             'unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')],

@@ -12,6 +12,7 @@ use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Services\Vendas\ServicoConfigVendas;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,6 +28,9 @@ use Illuminate\Support\Facades\DB;
  *   D conta de perda (7)  menos-valia       = valor líquido contabilístico − valor, se positivo
  * A conta do activo é a indicada, senão a da categoria, senão a da linha de aquisição ligada ao activo. Com
  * contabilizar = false regista-se como no legado (ex.: activos migrados cuja aquisição nunca foi contabilizada).
+ * Decisão 18 do utilizador (2026-10-06): na VENDA o valor indicado é a base tributável e liquida-se IVA à taxa indicada
+ * (0, 5, 7 ou 14 %): D terceiro = valor + IVA; C conta de IVA liquidado (a indicada, senão a «IVA liquidado» das contas de
+ * vendas) = IVA. A mais/menos-valia continua a ser apurada sobre o valor sem IVA.
  * Outras correcções: não se abate com rascunhos de amortização nem com quotas integradas depois da data do abate; um valor
  * de indemnização também exige terceiro e conta; o abate pode ser anulado (estorno do lançamento e reactivação do activo).
  */
@@ -38,7 +42,30 @@ final class ServicoAbatesAtivos
         private readonly ServicoPlanoContas $planoContas,
         private readonly ServicoAtivos $ativos,
         private readonly ServicoAmortizacoes $amortizacoes,
+        private readonly ServicoConfigVendas $configVendas,
     ) {}
+
+    /** Taxas de IVA legais em Angola (as mesmas das compras e vendas). */
+    public const TAXAS_IVA = [0, 5, 7, 14];
+
+    /** @return array{taxa: string, valor: string, conta: ?string} IVA liquidado da venda (zero nos outros tipos). */
+    private function iva(array $d, string $valor): array
+    {
+        if (($d['tipo'] ?? null) !== 'VENDA') {
+            return ['taxa' => '0.00', 'valor' => '0.00', 'conta' => null];
+        }
+        $taxa = CalculadoraAmortizacoes::d($d['taxa_iva'] ?? 0);
+        if (! in_array((float) $taxa, array_map('floatval', self::TAXAS_IVA), true)) {
+            throw new ErroNegocio('Taxa de IVA inválida: use 0, 5, 7 ou 14 %.', 'DADOS_INVALIDOS', 422);
+        }
+        $iva = CalculadoraAmortizacoes::d(round((float) $valor * (float) $taxa / 100, 2));
+        if (bccomp($iva, '0', 2) <= 0) {
+            return ['taxa' => $taxa, 'valor' => '0.00', 'conta' => null];
+        }
+        $conta = trim((string) ($d['conta_iva'] ?? '')) ?: $this->configVendas->exigir('iva_vendas', 'Venda do activo com IVA: indique a conta do IVA liquidado.');
+
+        return ['taxa' => $taxa, 'valor' => $iva, 'conta' => $conta];
+    }
 
     /** @return array{abate: AbateVendaAtivo, numero_lan: ?string, avisos: list<string>} */
     public function registar(array $d): array
@@ -84,8 +111,15 @@ final class ServicoAbatesAtivos
             }
             $a = $this->ativos->recalcularAcumulado($a);
 
-            $abate = AbateVendaAtivo::create(['ativo_imobilizado_id' => $a->id, 'tipo' => $d['tipo'], 'data' => $data, 'descricao' => $d['descricao'] ?? null,
+            $iva = $this->iva($d, $valor);
+            $venda = $d['tipo'] === 'VENDA';
+            $abate = new AbateVendaAtivo(['ativo_imobilizado_id' => $a->id, 'tipo' => $d['tipo'], 'data' => $data, 'descricao' => $d['descricao'] ?? null,
                 'valor' => $valor, 'terceiro_id' => $comTerceiro ? $d['terceiro_id'] : null, 'conta_terceiro' => $comTerceiro ? trim((string) $d['conta_terceiro']) : null]);
+            // colunas da decisão 18 (fora do $fillable gerado até o esquema ser regenerado)
+            $abate->forceFill(['taxa_iva' => $venda ? $iva['taxa'] : null, 'valor_iva' => $venda ? $iva['valor'] : null, 'conta_iva' => $iva['conta']])->save();
+            if ($venda && bccomp($iva['taxa'], '0', 2) === 0) {
+                $avisos[] = 'Venda registada sem IVA (taxa 0 %): confirme que a operação está isenta.';
+            }
             $numeroLan = $contabilizar ? $this->contabilizar($abate, $a, $d['conta_ativo'] ?? null) : null;
             $a->update(['estado' => AtivoImobilizado::ESTADO_ABATIDO]);
 
@@ -118,8 +152,11 @@ final class ServicoAbatesAtivos
     {
         $a = AtivoImobilizado::query()->findOrFail($d['ativo_imobilizado_id'] ?? 0);
         $a = $this->ativos->recalcularAcumulado($a);
-        $abate = new AbateVendaAtivo(['tipo' => $d['tipo'] ?? 'FIM_VIDA', 'valor' => CalculadoraAmortizacoes::d($d['valor'] ?? 0),
+        $valor = CalculadoraAmortizacoes::d($d['valor'] ?? 0);
+        $abate = new AbateVendaAtivo(['tipo' => $d['tipo'] ?? 'FIM_VIDA', 'valor' => $valor,
             'terceiro_id' => $d['terceiro_id'] ?? null, 'conta_terceiro' => $d['conta_terceiro'] ?? null]);
+        $iva = $this->iva($d, $valor);
+        $abate->forceFill(['taxa_iva' => $iva['taxa'], 'valor_iva' => $iva['valor'], 'conta_iva' => $iva['conta']]);
 
         return $this->linhas($abate, $a, $d['conta_ativo'] ?? null);
     }
@@ -158,9 +195,14 @@ final class ServicoAbatesAtivos
             [, $contaAcumulada] = ServicoCategoriasAtivos::exigirContasAmortizacao($cat, (string) $a->codigo);
             $linhas[] = ['codigo_conta' => $contaAcumulada, 'tipo_dc' => 'D', 'valor' => $acumulada, 'descricao' => "Amortizações acumuladas do activo {$a->codigo}"] + $dim;
         }
+        $iva = CalculadoraAmortizacoes::d($abate->valor_iva ?? 0);
         if (bccomp($valor, '0', 2) > 0) {
-            $linhas[] = ['codigo_conta' => (string) $abate->conta_terceiro, 'tipo_dc' => 'D', 'valor' => $valor, 'terceiro_id' => $abate->terceiro_id,
+            $linhas[] = ['codigo_conta' => (string) $abate->conta_terceiro, 'tipo_dc' => 'D', 'valor' => bcadd($valor, $iva, 2), 'terceiro_id' => $abate->terceiro_id,
                 'descricao' => ($abate->tipo === 'VENDA' ? 'Venda' : 'Indemnização')." do activo {$a->codigo}"];
+        }
+        if (bccomp($iva, '0', 2) > 0) {
+            $linhas[] = ['codigo_conta' => (string) $abate->conta_iva, 'tipo_dc' => 'C', 'valor' => $iva, 'terceiro_id' => $abate->terceiro_id,
+                'descricao' => 'IVA liquidado ('.(float) $abate->taxa_iva." %) na venda do activo {$a->codigo}"];
         }
         $cmp = bccomp($resultado, '0', 2);
         if ($cmp !== 0) {
@@ -174,6 +216,7 @@ final class ServicoAbatesAtivos
             $this->planoContas->contaDeMovimento($l['codigo_conta']);
         }
 
-        return ['linhas' => $linhas, 'valor_aquisicao' => $aquisicao, 'amortizacao_acumulada' => $acumulada, 'valor_liquido' => $liquido, 'resultado' => $resultado];
+        return ['linhas' => $linhas, 'valor_aquisicao' => $aquisicao, 'amortizacao_acumulada' => $acumulada, 'valor_liquido' => $liquido, 'resultado' => $resultado,
+            'valor_iva' => $iva, 'total_terceiro' => bcadd($valor, $iva, 2)];
     }
 }

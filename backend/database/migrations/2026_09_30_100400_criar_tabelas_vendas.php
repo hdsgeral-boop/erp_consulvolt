@@ -95,6 +95,7 @@ return new class extends Migration
             $table->string('saft_hash_controlo', 10)->nullable()->comment('Versão da chave usada na assinatura (HashControl); 0 = não assinado');
             $table->bigInteger('armazem_id')->nullable()->comment('Armazém de onde sai (ou para onde volta) a mercadoria');
             $table->boolean('devolucao_mercadoria')->nullable()->comment('NC: a mercadoria volta ao stock (as NC de correcção de preço não mexem no stock)');
+            $table->decimal('arredondamento_agt', 15, 2)->nullable()->comment('POS: arredondamento AGT (valor cobrado − desconto − total do documento), separado do desconto');
             $table->text('estadias_hotel_ids_legado')->nullable()->comment('legado: hotel_stay_ids · lista de ids do legado; normalizada em vendas_estadias_hotel');
             $table->text('documentos_relacionados_legado')->nullable()->comment('legado: related_doc_id · lista de ids do legado; normalizada em vendas_documentos_relacionados');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -150,6 +151,7 @@ return new class extends Migration
             $table->decimal('custo_unitario_kz', 18, 6)->nullable()->comment('Custo médio da saída/entrada de stock da linha (base do CMV)');
             $table->decimal('quantidade_stock', 12, 3)->nullable()->comment('Quantidade que movimentou stock (0 numa FT gerada de uma GR)');
             $table->decimal('quantidade_devolvida', 12, 3)->nullable()->comment('GR: quantidade já devolvida por guias de devolução');
+            $table->decimal('acerto_cmv_kz', 15, 2)->nullable()->comment('GD/NC com devolução sobre stock negativo: acerto do CMV (custo da devolução − custo médio das unidades a descoberto)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -184,6 +186,7 @@ return new class extends Migration
             $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento contabilístico do recibo');
             $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');
             $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
+            $table->string('tipo_recibo', 20)->nullable()->comment('NORMAL (nulo) ou ADIANTAMENTO (recibo sem factura, alocado depois)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -203,6 +206,8 @@ return new class extends Migration
             $table->bigInteger('recibo_venda_id')->nullable()->comment('legado: receipt_id');
             $table->bigInteger('venda_id')->nullable()->comment('legado: sale_id');
             $table->decimal('montante_pago', 15, 2)->nullable()->comment('legado: amount_paid');
+            $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('Adiantamento: lançamento da alocação à factura (D adiantamentos / C cliente)');
+            $table->date('data_alocacao')->nullable()->comment('Adiantamento: data da alocação à factura');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });

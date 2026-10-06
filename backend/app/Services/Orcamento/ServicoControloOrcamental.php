@@ -349,6 +349,8 @@ final class ServicoControloOrcamental
                 $estado = match (true) {
                     $pct === null => 'SEM_DOTACAO',
                     in_array($modo, ['APROVACAO', 'BLOQUEAR'], true) && $pct > (float) $c['limite_pct'] => 'EXCEDIDO',
+                    // Decisão 23 do utilizador: no modo NENHUM (sem controlo) mostra-se EXCEDIDO acima de 100 %, só informativo, como o legado.
+                    $modo === 'NENHUM' && $pct > 100 => 'EXCEDIDO',
                     $pct >= (float) ($c['aviso_pct'] ?? 90) => 'AVISO',   // no modo AVISAR nunca «excedido»
                     default => 'OK',
                 };

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Empty, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Empty, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
 import { ImportOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -8,13 +8,14 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
+import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from '../contab/comum/Componentes';
 import { ModalImportar } from '../contab/comum/ficheiros';
-import type { LinhaExtratoBancario, MapaReconciliacao, ReconciliacaoBancaria, SugestaoReconciliacao } from './api';
+import type { LinhaExtratoBancario, MapaReconciliacao, SugestaoReconciliacao } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { somaCorrespondencia } from './regras';
-import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { BotaoEditarLinha, HistoricoFiltrado, ModalEditarLinhaExtrato, PainelRascunhos } from './ReconciliacaoExtras';
+import { scrollTabela } from '@/componentes/responsivo';
 
 const ROTULO_ESTADO_EXTRATO: Record<string, string> = { PENDENTE: 'Pendente', CONCILIADO: 'Conciliado', ANULADO: 'Anulado' };
 
@@ -91,7 +92,7 @@ export default function Conciliacao() {
             { key: 'corresp', label: 'Correspondência', children: <Correspondencia conta={conta} data={data} /> },
             { key: 'extrato', label: 'Extracto', children: <Extrato conta={conta} /> },
             { key: 'mapa', label: 'Mapa de reconciliação', children: <Mapa conta={conta} data={data} /> },
-            { key: 'hist', label: 'Histórico', children: <HistoricoReconciliacoes /> },
+            { key: 'hist', label: 'Histórico', children: <HistoricoFiltrado contaInicial={conta} /> },
           ]}
         />
       )}
@@ -190,6 +191,17 @@ function Correspondencia({ conta, data }: { conta: string; data: Dayjs }) {
         extra={
           podeConfirmar && (
             <Space wrap>
+              <PainelRascunhos
+                conta={conta}
+                extrato={selExt}
+                lancamentos={selDia}
+                aoAbrir={(r) => {
+                  // repõe a selecção com as linhas do rascunho que ainda estão por reconciliar
+                  setSelExt(r.grupos.flatMap((g) => g.extrato).filter((id) => porIdE.has(id)));
+                  setSelDia(r.grupos.flatMap((g) => g.lancamentos).filter((id) => porIdD.has(id)));
+                  message.info(`Rascunho #${r.id} aberto (${r.grupos.length} grupo(s)).`);
+                }}
+              />
               <Typography.Text type={soma.casa ? 'success' : 'secondary'}>
                 Extracto {formatarKz(soma.extrato)} · Diário {formatarKz(soma.diario)} · Diferença {formatarKz(soma.diferenca)}
               </Typography.Text>
@@ -247,6 +259,7 @@ function Extrato({ conta }: { conta: string }) {
   const cliente = useQueryClient();
   const [estado, setEstado] = useState<string>();
   const [importar, setImportar] = useState(false);
+  const [editar, setEditar] = useState<LinhaExtratoBancario | null>(null);
   const linhas = useQuery({ queryKey: ['teso', 'extrato', conta, estado], queryFn: () => obter<LinhaExtratoBancario[]>('/tesouraria/extrato', { codigo_conta: conta, estado }) });
   const anular = useMutation({
     mutationFn: (id: number) => enviar('post', `/tesouraria/extrato/${id}/anular`),
@@ -302,15 +315,20 @@ function Extrato({ conta }: { conta: string }) {
           { title: 'Reconciliação', dataIndex: 'reconciliacao_codigo', responsive: ['lg'] },
           {
             title: '',
-            render: (_, l) =>
-              pode('teso_conc_anular') && l.estado === 'PENDENTE' ? (
-                <Popconfirm title="Anular esta linha do extracto?" okText="Anular" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => anular.mutateAsync(l.id)}>
-                  <Button size="small" danger type="link">Anular</Button>
-                </Popconfirm>
-              ) : null,
+            render: (_, l) => (
+              <Space size={0}>
+                <BotaoEditarLinha linha={l} aoEditar={setEditar} />
+                {pode('teso_conc_anular') && l.estado === 'PENDENTE' ? (
+                  <Popconfirm title="Anular esta linha do extracto?" okText="Anular" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => anular.mutateAsync(l.id)}>
+                    <Button size="small" danger type="link">Anular</Button>
+                  </Popconfirm>
+                ) : null}
+              </Space>
+            ),
           },
         ]}
       />
+      <ModalEditarLinhaExtrato linha={editar} aoFechar={() => setEditar(null)} />
       <ModalImportar
         aberto={importar}
         titulo={`Importar extracto — conta ${conta}`}
@@ -341,66 +359,4 @@ function Mapa({ conta, data }: { conta: string; data: Dayjs }) {
   );
 }
 
-function HistoricoReconciliacoes() {
-  const { pode } = useSessao();
-  const cliente = useQueryClient();
-  const [anular, setAnular] = useState<string | null>(null);
-  const [form] = Form.useForm<{ motivo: string }>();
-  const lista = useQuery({ queryKey: ['teso', 'reconciliacoes'], queryFn: () => obter<ReconciliacaoBancaria[]>('/tesouraria/reconciliacao') });
-  const mutacao = useMutation({
-    mutationFn: ({ codigo, motivo }: { codigo: string; motivo: string }) => enviar('post', `/tesouraria/reconciliacao/${codigo}/anular`, { motivo }),
-    onSuccess: ({ mensagem }) => {
-      message.success(mensagem);
-      setAnular(null);
-      form.resetFields();
-      void cliente.invalidateQueries({ queryKey: ['teso'] });
-    },
-    onError: (e) => notificarErro(e),
-  });
-  return (
-    <Card
-      extra={
-        <BotoesExportar
-          desactivado={!lista.data?.length}
-          obterPedido={() => ({
-            titulo: 'Histórico de reconciliações bancárias',
-            conteudo: tabelaHtml({
-              colunas: [
-                { titulo: 'Código', valor: (r: ReconciliacaoBancaria) => r.reconciliacao_codigo },
-                { titulo: 'Data', valor: (r) => formatarDataHora(r.data) },
-                { titulo: 'Conta', valor: (r) => r.codigo_conta ?? '' },
-                { titulo: 'Tipo', valor: (r) => r.tipo ?? '' },
-                { titulo: 'Valor (Kz)', valor: (r) => r.valor_total, formato: 'moeda' },
-                { titulo: 'Estado', valor: (r) => r.estado },
-              ],
-              linhas: lista.data ?? [],
-            }),
-          })}
-        />
-      }
-    >
-      <Table<ReconciliacaoBancaria> scroll={scrollTabela()}
-        rowKey="id"
-        size="small"
-        loading={lista.isLoading}
-        dataSource={lista.data}
-        pagination={{ pageSize: 25 }}
-        columns={[
-          { title: 'Código', dataIndex: 'reconciliacao_codigo' },
-          { title: 'Data', dataIndex: 'data', render: formatarDataHora },
-          { title: 'Valor', dataIndex: 'valor_total', align: 'right', render: (v: string | null) => <ValorKz valor={v} /> },
-          { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
-          { title: '', render: (_, r) => (pode('teso_conc_anular') ? <Button size="small" danger type="link" onClick={() => setAnular(r.reconciliacao_codigo)}>Anular</Button> : null) },
-        ]}
-      />
-      <Modal width={larguraModal(520)} title={`Anular a reconciliação ${anular ?? ''}`} open={!!anular} onCancel={() => setAnular(null)} okText="Anular" okButtonProps={{ danger: true }} confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
-        <Form form={form} layout="vertical" onFinish={(v) => anular && mutacao.mutate({ codigo: anular, motivo: v.motivo })}>
-          <Typography.Paragraph type="secondary">As linhas do extracto e do diário voltam a ficar por reconciliar.</Typography.Paragraph>
-          <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}>
-            <Input.TextArea rows={3} maxLength={500} />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </Card>
-  );
-}
+

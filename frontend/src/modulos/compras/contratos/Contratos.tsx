@@ -2,7 +2,7 @@ import { Button, Card, Input, Select } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -29,7 +29,8 @@ function ListaContratos() {
   const { pode } = useSessao();
   const [estado, setEstado] = useState<string>();
   const [fornecedor, setFornecedor] = useState<number>();
-  const [novo, setNovo] = useState(false);
+  const [procura] = useSearchParams();
+  const [novo, setNovo] = useState(procura.get('novo') === '1');   // acção rápida «+ Contrato» da barra do módulo
   const [pesquisa, setPesquisa] = useState('');
   const [nomeFornecedor, setNomeFornecedor] = useState<string>();
   const pequeno = useEcraPequeno();

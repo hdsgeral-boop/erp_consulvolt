@@ -1,9 +1,11 @@
 import { Alert, Button, Card, Checkbox, Col, ColorPicker, Descriptions, Empty, Flex, Form, Input, InputNumber, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Switch, Table, Tabs, Tag, Tree, Typography } from 'antd';
-import { ApartmentOutlined, DeleteOutlined, EditOutlined, PlusOutlined, TeamOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, BlockOutlined, ClusterOutlined, DeleteOutlined, EditOutlined, PlusOutlined, TableOutlined, TeamOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { useNavigate } from 'react-router-dom';
+import { ModalVariasUnidades, useEstruturaBase } from './comum/ModaisCriacao';
 import { tabelaHtml } from '@/componentes/impressao';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -29,11 +31,22 @@ export function useEstrutura() {
 export default function Estrutura() {
   const estrutura = useEstrutura();
   const cargos = useCargos();
+  const navegar = useNavigate();
   return (
     <>
       <CabecalhoPagina
         titulo="Estrutura orgânica"
-        subtitulo="Unidades orgânicas, postos de trabalho (cargos e vagas) e afectação dos colaboradores"
+        subtitulo="Unidades da empresa (órgãos sociais, direcções, departamentos, secções), responsáveis, cargos com vagas e colaboradores afectos. Cada unidade pode ligar-se a um centro de custo e unidade de negócio."
+        accoes={
+          <>
+            <Button icon={<ClusterOutlined />} onClick={() => navegar('../est_organigrama')}>
+              Organigrama
+            </Button>
+            <Button icon={<TableOutlined />} onClick={() => navegar('../est_mapa')}>
+              Mapa de pessoal
+            </Button>
+          </>
+        }
         impressaoDesactivada={!estrutura.data?.unidades.length}
         impressao={() => {
           const nos = aplanar(construirArvore(estrutura.data?.unidades ?? []));
@@ -81,6 +94,8 @@ function Unidades() {
   const editar = pode('est_editar');
   const eliminar = pode('est_eliminar');
   const accao = useAccao({ invalidar: CHAVES });
+  const [varias, setVarias] = useState(false);
+  const base = useEstruturaBase();
 
   const arvore = useMemo(() => construirArvore(estrutura.data?.unidades ?? [], !inactivas), [estrutura.data, inactivas]);
   const nos = useMemo(() => aplanar(arvore), [arvore]);
@@ -107,7 +122,18 @@ function Unidades() {
         <Card
           size="small"
           title={<Space wrap><ApartmentOutlined />Unidades</Space>}
-          extra={editar && <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Unidade</Button>}
+          extra={
+            editar && (
+              <Space size={4} wrap>
+                <Button size="small" icon={<BlockOutlined />} onClick={() => setVarias(true)} title="Criar várias unidades de uma só vez">
+                  Várias
+                </Button>
+                <Button size="small" type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>
+                  Unidade
+                </Button>
+              </Space>
+            )
+          }
         >
           <Flex justify="space-between" style={{ marginBottom: 8 }}>
             <Checkbox checked={inactivas} onChange={(e) => setInactivas(e.target.checked)}>Mostrar inactivas</Checkbox>
@@ -122,7 +148,32 @@ function Unidades() {
               treeData={paraTree(arvore)}
             />
           ) : (
-            <Empty description="Ainda não há unidades orgânicas." />
+            <Empty
+              image={<ApartmentOutlined style={{ fontSize: 40, color: '#94a3b8' }} />}
+              description={
+                <>
+                  <Typography.Text strong>Ainda não há estrutura orgânica</Typography.Text>
+                  <br />
+                  <Typography.Text type="secondary">
+                    Crie as unidades uma a uma ou comece com uma estrutura base (Conselho de Administração, Direcção-Geral, Direcções e Departamentos) e ajuste-a.
+                  </Typography.Text>
+                </>
+              }
+            >
+              {editar && (
+                <Space wrap style={{ justifyContent: 'center' }}>
+                  <Button icon={<EditOutlined />} loading={base.aCriar} onClick={() => base.criar(estrutura.data?.unidades.length ?? 0)}>
+                    Criar estrutura base
+                  </Button>
+                  <Button icon={<BlockOutlined />} onClick={() => setVarias(true)}>
+                    Criar várias unidades
+                  </Button>
+                  <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>
+                    Criar a primeira unidade
+                  </Button>
+                </Space>
+              )}
+            </Empty>
           )}
         </Card>
       </Col>
@@ -209,6 +260,7 @@ function Unidades() {
       <FormUnidade unidade={edicao} arvore={arvore} paiInicial={seleccionada} aoFechar={() => setEdicao(null)} />
       {actual && <FormPosto posto={posto} unidade={actual.unidade} aoFechar={() => setPosto(null)} />}
       {actual && <ModalAfectar aberto={afectar} unidade={actual.unidade} aoFechar={() => setAfectar(false)} />}
+      {varias && <ModalVariasUnidades aberto={varias} unidades={estrutura.data?.unidades ?? []} paiInicial={seleccionada} aoFechar={() => setVarias(false)} />}
     </Row>
   );
 }

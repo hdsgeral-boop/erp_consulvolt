@@ -291,10 +291,27 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE UNIQUE INDEX uq_configuracoes_contabeis_tesouraria_empresa_id_chave ON configuracoes_contabeis_tesouraria (empresa_id, chave)');
+
+        // rascunhos_reconciliacao (tabela nova) · 0 linhas reais no backup
+        Schema::create('rascunhos_reconciliacao', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->string('codigo_conta', 20)->comment('Conta bancária (43) reconciliada');
+            $table->date('periodo_inicio')->nullable()->comment('Início do período trabalhado');
+            $table->date('periodo_fim')->nullable()->comment('Fim do período trabalhado');
+            $table->jsonb('grupos')->comment('Grupos emparelhados por confirmar: [{extrato: [ids], lancamentos: [ids]}]');
+            $table->text('observacoes')->nullable()->comment('Notas do autor');
+            $table->string('criado_por', 100)->nullable()->comment('Utilizador que gravou o rascunho');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_rascunhos_reconciliacao_empresa_id ON rascunhos_reconciliacao (empresa_id)');
+        DB::statement('CREATE INDEX ix_rascunhos_reconciliacao_empresa_id_codigo_conta ON rascunhos_reconciliacao (empresa_id, codigo_conta)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('rascunhos_reconciliacao');
         Schema::dropIfExists('configuracoes_contabeis_tesouraria');
         Schema::dropIfExists('movimentos_caixa');
         Schema::dropIfExists('sessoes_caixa');

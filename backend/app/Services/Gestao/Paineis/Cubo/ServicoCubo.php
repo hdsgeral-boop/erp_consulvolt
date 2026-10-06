@@ -255,13 +255,14 @@ final class ServicoCubo
      * FROM e WHERE do conjunto: empresas do âmbito e período (fonte com os filtros embutidos na tesouraria; linhas construídas
      * pelo razão analítico nos projectos).
      *
+     * @param  list<int>|null  $empresas  empresas lidas (por omissão o âmbito do utilizador e da empresa activa)
      * @return array{0: string, 1: string, 2: list<mixed>}
      */
-    private function fonte(string $conjunto, array $def, array $f): array
+    private function fonte(string $conjunto, array $def, array $f, ?array $empresas = null): array
     {
         $ini = (string) $f['data_inicio'];
         $fim = (string) $f['data_fim'];
-        $empresas = $this->ambito($conjunto);
+        $empresas ??= $this->ambito($conjunto);
         $marcas = implode(', ', array_fill(0, count($empresas), '?'));
         if (! empty($def['json'])) {
             return ['jsonb_to_recordset(?::jsonb) AS x(empresa_id bigint, data text, projeto text, estado_projeto text, tarefa text, tipo text, rubrica text, origem text, colaborador text, valor numeric, horas numeric)',
@@ -297,6 +298,18 @@ final class ServicoCubo
         }
 
         return [$def['tabela'], $where, $params];
+    }
+
+    /**
+     * Feed OData de leitura para o Power BI (ServicoFeedBI, decisão 25): FROM e WHERE de um conjunto da lista branca para UMA
+     * empresa (a do token), sem utilizador nem expansão de holding. Mesmas regras de cada conjunto (anulados, apuramento…).
+     *
+     * @param  array{data_inicio: string, data_fim: string, incluir_apuramento?: bool}  $f
+     * @return array{0: string, 1: string, 2: list<mixed>}
+     */
+    public function fonteFeed(string $conjunto, array $def, array $f, int $empresa): array
+    {
+        return $this->fonte($conjunto, $def, $f, [$empresa]);
     }
 
     /** @return list<int> empresas lidas: a activa; na holding, as do grupo acessíveis (excepto Contabilidade/BI, que lêem a holding) */

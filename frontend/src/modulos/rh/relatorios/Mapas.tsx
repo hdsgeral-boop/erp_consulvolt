@@ -1,10 +1,12 @@
-import { Alert, Button, Card, Col, Empty, Row, Select, Tag, Typography } from 'antd';
-import { DownloadOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, Empty, Row, Select, Space, Tag, Typography } from 'antd';
+import { DownloadOutlined, FilePdfOutlined, FileTextOutlined, FileZipOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { descarregar as descarregarApi, obter } from '@/api/cliente';
+import { notificarErro } from '@/utilitarios/erros';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { useOperacoes } from '@/componentes/operacoes/Operacoes';
 import { DeslocamentoHorizontal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
@@ -14,6 +16,10 @@ import { useAvisarErro, useCargos } from '../comum/consultas';
 import { ReciboSalario } from '../comum/ReciboSalario';
 import { colunasRubricas, formatarIban, gerarCsv, kzCsv, somar, valoresRubricas } from '../comum/regras';
 import { AvisoNaoValidado, MolduraMapa, useDadosColaborador, usePeriodoMapa } from './comum';
+
+/** M-13: filtro Colaboradores / Avençados nos mapas (o legado tinha folhas separadas, folha_salarios.js:262-298). */
+const filtroGrupo = (grupo: string) => (r: ResultadoSalarial) => grupo === 'TODOS' || (grupo === 'AVENCADOS' ? r.avencado : !r.avencado);
+const rotuloGrupo = (grupo: string) => GRUPOS_PAGAMENTO.find((g) => g.value === grupo)?.label ?? grupo;
 
 const ordenarPorNome = (dados: (id: number, r?: ResultadoSalarial) => { nome: string }) => (a: ResultadoSalarial, b: ResultadoSalarial) =>
   dados(a.colaborador_id, a).nome.localeCompare(dados(b.colaborador_id, b).nome, 'pt');
@@ -46,28 +52,30 @@ export function MapaRemuneracoes() {
   const mapa = usePeriodoMapa();
   const { empresa } = useSessao();
   const dados = useDadosColaborador();
-  const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
+  const [grupo, setGrupo] = useState('TODOS');
+  const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter(filtroGrupo(grupo)).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados, grupo]);
   const colunas = colunasRubricas(res);
   const valores = res.map(valoresRubricas);
   const exportar = () => {
-    const cab = ['Colaborador', 'NIF', 'N.º INSS', 'Dias contr.', 'Dias trab.', ...colunas.map((c) => c.nome), 'Bruto', 'INSS trab.', 'IRT', 'Descontos', 'Líquido', 'INSS empresa'];
+    const cab = ['Colaborador', 'NIF', 'N.º INSS', 'UN', 'CC', 'Dias contr.', 'Dias trab.', ...colunas.map((c) => c.nome), 'Bruto', 'INSS trab.', 'IRT', 'Descontos', 'Líquido', 'INSS empresa'];
     const linhas = res.map((r, i) => {
       const d = dados(r.colaborador_id, r);
-      return [d.nome, d.nif, d.inss, r.dias_contrato, r.dias_trabalhados, ...colunas.map((c) => kzCsv(valores[i][c.chave])), kzCsv(r.bruto), kzCsv(r.inss_trabalhador), kzCsv(r.irt), kzCsv(r.descontos), kzCsv(r.liquido), kzCsv(r.inss_patronal)];
+      return [d.nome, d.nif, d.inss, r.unidade_negocio ?? '', r.centro_custo ?? '', r.dias_contrato, r.dias_trabalhados, ...colunas.map((c) => kzCsv(valores[i][c.chave])), kzCsv(r.bruto), kzCsv(r.inss_trabalhador), kzCsv(r.irt), kzCsv(r.descontos), kzCsv(r.liquido), kzCsv(r.inss_patronal)];
     });
-    descarregar(`mapa-remuneracoes-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(cab, linhas));
+    descarregar(`mapa-remuneracoes-${mapa.detalhe.data?.mes_ano.replace('/', '-')}-${grupo.toLowerCase()}.csv`, gerarCsv(cab, linhas));
   };
   const total = (k: keyof ResultadoSalarial) => formatarKz(somar(res.map((r) => r[k] as string)));
   return (
     <MolduraMapa titulo="Mapa de remunerações" subtitulo="Remunerações do mês por colaborador e rubrica" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
+      filtros={<Select value={grupo} onChange={setGrupo} options={GRUPOS_PAGAMENTO} style={{ width: 180 }} aria-label="Grupo" />}
       accoes={<Button icon={<DownloadOutlined />} disabled={!res.length} onClick={exportar}>Exportar CSV</Button>}>
       <AreaImpressao paisagem>
-        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de remunerações" mesAno={mapa.detalhe.data?.mes_ano} />
+        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de remunerações" mesAno={mapa.detalhe.data?.mes_ano} extra={grupo !== 'TODOS' ? <div>Grupo: {rotuloGrupo(grupo)}</div> : null} />
         <DeslocamentoHorizontal>
           <table className="rh-tabela-mapa">
             <thead>
               <tr>
-                <th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>NIF</th><th>N.º INSS</th><th>Dias</th>
+                <th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>NIF</th><th>N.º INSS</th><th>UN</th><th>CC</th><th>Dias</th>
                 {colunas.map((c) => <th key={c.chave} style={{ color: c.tipo === 'DESCONTO' ? '#a8071a' : undefined }}>{c.nome}</th>)}
                 <th>Bruto</th><th>INSS (trab.)</th><th>IRT</th><th>Descontos</th><th>Líquido</th><th>INSS (empresa)</th>
               </tr>
@@ -78,6 +86,7 @@ export function MapaRemuneracoes() {
                 return (
                   <tr key={r.colaborador_id}>
                     <td className="num">{i + 1}</td><td>{d.nome}{r.avencado ? ' (avençado)' : ''}</td><td>{d.nif}</td><td>{d.inss}</td>
+                    <td>{r.unidade_negocio ?? ''}</td><td>{r.centro_custo ?? ''}</td>
                     <td className="num">{formatarNumero(r.dias_trabalhados)}/{formatarNumero(r.dias_contrato)}</td>
                     {colunas.map((c) => <td key={c.chave} className="num">{valores[i][c.chave] ? formatarKz(valores[i][c.chave]) : ''}</td>)}
                     <td className="num">{formatarKz(r.bruto)}</td><td className="num">{formatarKz(r.inss_trabalhador)}</td><td className="num">{formatarKz(r.irt)}</td>
@@ -88,7 +97,7 @@ export function MapaRemuneracoes() {
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={5}>Totais ({res.length})</td>
+                <td colSpan={7}>Totais ({res.length})</td>
                 {colunas.map((c) => <td key={c.chave} className="num">{formatarKz(somar(valores.map((v) => v[c.chave])))}</td>)}
                 <td className="num">{total('bruto')}</td><td className="num">{total('inss_trabalhador')}</td><td className="num">{total('irt')}</td>
                 <td className="num">{total('descontos')}</td><td className="num">{total('liquido')}</td><td className="num">{total('inss_patronal')}</td>
@@ -118,9 +127,15 @@ export function MapaIrt() {
     });
     descarregar(`mapa-irt-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(cab, linhas));
   };
+  // M-13: o CSV do Grupo B (avençados, 6,5 %) também se exporta
+  const exportarB = () => descarregar(`mapa-irt-grupo-b-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(['NIF', 'Nome', 'Valor bruto', 'Matéria colectável', 'IRT retido'],
+    grupoB.map((r) => { const d = dados(r.colaborador_id, r); return [d.nif, d.nome, kzCsv(r.bruto), kzCsv(r.base_irt), kzCsv(r.irt)]; })));
   return (
     <MolduraMapa titulo="Mapa de IRT" subtitulo="Retenções de IRT do mês (modelo oficial)" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
-      accoes={<Button icon={<DownloadOutlined />} disabled={!grupoA.length} onClick={exportar}>Exportar CSV</Button>}>
+      accoes={<>
+        <Button icon={<DownloadOutlined />} disabled={!grupoA.length} onClick={exportar}>Exportar CSV (Grupo A)</Button>
+        <Button icon={<DownloadOutlined />} disabled={!grupoB.length} onClick={exportarB}>Exportar CSV (Grupo B)</Button>
+      </>}>
       <AreaImpressao paisagem>
         <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de IRT — Grupo A (trabalhadores por conta de outrem)" mesAno={mapa.detalhe.data?.mes_ano} extra={empresa?.nif ? <div>NIF {String(empresa.nif)}</div> : null} />
         <DeslocamentoHorizontal>
@@ -227,11 +242,16 @@ export function MapaPagamentos() {
   const mapa = usePeriodoMapa();
   const { empresa } = useSessao();
   const dados = useDadosColaborador();
-  const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter((r) => Number(r.liquido) > 0).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
+  const [grupo, setGrupo] = useState('TODOS');
+  const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter((r) => Number(r.liquido) > 0).filter(filtroGrupo(grupo)).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados, grupo]);
+  const exportar = () => descarregar(`salarios-a-pagar-${mapa.detalhe.data?.mes_ano.replace('/', '-')}-${grupo.toLowerCase()}.csv`, gerarCsv(['Colaborador', 'NIF', 'Banco', 'IBAN', 'Líquido'],
+    res.map((r) => { const d = dados(r.colaborador_id, r); return [d.nome, d.nif, r.banco ?? '', r.iban ?? '', kzCsv(r.liquido)]; })));
   return (
-    <MolduraMapa titulo="Salários a pagar" subtitulo="Líquido a receber por colaborador" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}>
+    <MolduraMapa titulo="Salários a pagar" subtitulo="Líquido a receber por colaborador" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
+      filtros={<Select value={grupo} onChange={setGrupo} options={GRUPOS_PAGAMENTO} style={{ width: 180 }} aria-label="Grupo" />}
+      accoes={<Button icon={<DownloadOutlined />} disabled={!res.length} onClick={exportar}>Exportar CSV</Button>}>
       <AreaImpressao>
-        <CabecalhoMapa empresa={empresa?.nome} titulo="Lista de salários a pagar" mesAno={mapa.detalhe.data?.mes_ano} />
+        <CabecalhoMapa empresa={empresa?.nome} titulo="Lista de salários a pagar" mesAno={mapa.detalhe.data?.mes_ano} extra={grupo !== 'TODOS' ? <div>Grupo: {rotuloGrupo(grupo)}</div> : null} />
         <DeslocamentoHorizontal>
           <table className="rh-tabela-mapa">
             <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>NIF</th><th>Líquido a receber (Kz)</th><th>Assinatura</th></tr></thead>
@@ -293,19 +313,53 @@ export function MapaBanco() {
   );
 }
 
-/** Recibos de salário: individual ou todos (impressão em massa, um por página). Só períodos validados. */
+/**
+ * Recibos de salário (generatePDFRecibo/generateSelectedPDFRecibos/generateAllPDFRecibos): individual, seleccionados ou
+ * todos — impressão no navegador (2 vias por página) e, no servidor, PDF individual e ZIP com um PDF por colaborador (A-10).
+ * Só períodos validados.
+ */
 export function MapaRecibos() {
   const mapa = usePeriodoMapa(['VALIDADO']);
-  const { empresa } = useSessao();
+  const { empresa, pode } = useSessao();
   const dados = useDadosColaborador();
   const cargos = useCargos();
-  const [colaborador, setColaborador] = useState<number>();
+  const [colaboradores, setColaboradores] = useState<number[]>([]);
+  const [aDescarregar, setADescarregar] = useState(false);
+  const operacoes = useOperacoes();
   const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
-  const visiveis = colaborador ? res.filter((r) => r.colaborador_id === colaborador) : res;
+  const visiveis = colaboradores.length ? res.filter((r) => colaboradores.includes(r.colaborador_id)) : res;
   const mesAno = mapa.detalhe.data?.mes_ano ?? '';
+  const id = mapa.periodo?.id;
+  const zip = async () => {
+    if (!id) return;
+    setADescarregar(true);
+    try {
+      // M-05: acompanhado no gestor de operações (o utilizador pode navegar enquanto o servidor gera os PDF); o pedido é
+      // síncrono — o ZIP é gerado e devolvido na mesma resposta (sem trabalho na fila nem ficheiro guardado no servidor)
+      const n = visiveis.length;
+      await operacoes.executar(`Recibos ${mesAno} (ZIP)`, async (progresso) => {
+        progresso(5, `A gerar ${n} recibo(s) em PDF no servidor…`);
+        await descarregarApi(`/rh/salarios/periodos/${id}/recibos-zip`, colaboradores.length ? { colaboradores: colaboradores.join(',') } : undefined, `Recibos_${mesAno.replace('/', '_')}.zip`);
+      });
+    } catch (e) {
+      notificarErro(e);
+    } finally {
+      setADescarregar(false);
+    }
+  };
+  const pdf = () => id && colaboradores.length === 1 && void descarregarApi(`/rh/salarios/periodos/${id}/recibos/${colaboradores[0]}/pdf`, undefined, 'Recibo.pdf').catch(notificarErro);
   return (
-    <MolduraMapa titulo="Recibos de salário" subtitulo="Recibos de vencimento da fotografia do período validado" mapa={mapa} apenas={['VALIDADO']}
-      filtros={<SeletorColaborador value={colaborador} onChange={setColaborador} ids={res.map((r) => r.colaborador_id)} placeholder="Todos os colaboradores" />}
+    <MolduraMapa titulo="Recibos de salário" subtitulo="Recibos de vencimento (2 vias) da fotografia do período validado" mapa={mapa} apenas={['VALIDADO']}
+      filtros={<SeletorColaborador mode="multiple" maxTagCount="responsive" value={colaboradores as unknown as number} onChange={(v) => setColaboradores((v as unknown as number[]) ?? [])}
+        ids={res.map((r) => r.colaborador_id)} placeholder="Todos os colaboradores" style={{ minWidth: 280 }} />}
+      accoes={mapa.periodo?.estado === 'VALIDADO' && pode('rh_recibos_emitir') ? (
+        <Space wrap>
+          <Button icon={<FilePdfOutlined />} disabled={colaboradores.length !== 1} onClick={pdf}>PDF do recibo</Button>
+          <Button icon={<FileZipOutlined />} loading={aDescarregar} disabled={!res.length} onClick={() => void zip()}>
+            {colaboradores.length ? `ZIP dos seleccionados (${colaboradores.length})` : 'ZIP (um PDF por colaborador)'}
+          </Button>
+        </Space>
+      ) : undefined}
       aviso={mapa.periodo && mapa.periodo.estado !== 'VALIDADO' ? <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Os recibos só se emitem de processamentos validados." /> : null}>
       {mapa.periodo?.estado === 'VALIDADO' && (
         <AreaImpressao>
@@ -313,7 +367,7 @@ export function MapaRecibos() {
           {visiveis.map((r, i) => {
             const d = dados(r.colaborador_id, r);
             return <ReciboSalario key={r.colaborador_id} resultado={r} mesAno={mesAno} empresa={{ nome: empresa?.nome, nif: empresa?.nif ?? null }}
-              colaborador={{ nome: d.nome, nif: d.nif, numero_inss: d.inss, funcao: d.cargo ? cargos.nome(d.cargo) : null }} quebra={i < visiveis.length - 1} />;
+              colaborador={{ nome: d.nome, nif: d.nif, numero_inss: d.inss, funcao: d.cargo ? cargos.nome(d.cargo) : r.funcao ?? null }} quebra={i < visiveis.length - 1} />;
           })}
         </AreaImpressao>
       )}

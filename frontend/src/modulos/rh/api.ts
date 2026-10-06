@@ -286,6 +286,61 @@ export interface ResultadoSalarial {
   mes_ano?: string;
   numero_recibo?: string;
   periodo_processamento_salarial_id?: number;
+  /** Ronda 2 (A-10/M-13): função, forma de pagamento e códigos de UN/CC. */
+  funcao?: string | null;
+  banco?: string | null;
+  iban?: string | null;
+  unidade_negocio?: string | null;
+  centro_custo?: string | null;
+}
+
+/** Configuração de RH da empresa (decisões 1, 5 e 7) — GET /rh/configuracao. */
+export interface EscalaoTabelaIrt {
+  max: number | null;
+  /** Taxa em percentagem (ex.: 16). */
+  taxa: number;
+  fixo: number;
+  excesso: number;
+}
+
+export interface ConfiguracaoRH {
+  segregar_encerrar_validar: boolean;
+  ferias_dias_mes_admissao: number;
+  ferias_meses_minimos_gozo: number;
+  ferias_transporte_saldo: boolean;
+  ferias_transporte_max_dias: number;
+  tabela_irt: EscalaoTabelaIrt[];
+  tabela_irt_personalizada: boolean;
+}
+
+/** Relatório de uma importação Excel (simulação ou gravação). */
+export interface RelatorioImportacao {
+  novos?: number;
+  existentes?: string[];
+  repetidos: number;
+  rejeitadas: { linha: number; motivo: string }[];
+  criados: number;
+  actualizados: number;
+  ignorados: number;
+  erros: { linha: number; motivo: string }[];
+  simulacao: boolean;
+}
+
+/** Mapeamento em falta devolvido por MAPEAMENTO_EM_FALTA (erros.em_falta_detalhe). */
+export interface MapeamentoEmFalta {
+  tipo: 'RUBRICA' | 'SISTEMA';
+  descricao: string;
+  infotipo_salarial_id?: number;
+  rubrica?: string | null;
+  codigo?: string;
+  tipo_organizacao_id: number | null;
+  avencado: boolean;
+}
+
+export interface FeriadoNacional {
+  data: string;
+  nome: string;
+  movel: boolean;
 }
 
 /** Escalão do IRT devolvido pelo servidor (MotorSalarial): parcela fixa, taxa (%), excesso e imposto devido. */
@@ -449,6 +504,9 @@ export interface ResumoFerias {
   gozados: number;
   pedidos: number;
   saldo: number;
+  direito_gravado?: boolean;
+  transporte?: number | null;
+  ano_admissao?: boolean;
 }
 
 export interface PeriodoFerias {

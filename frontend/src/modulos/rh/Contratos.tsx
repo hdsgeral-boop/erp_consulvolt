@@ -1,9 +1,13 @@
 import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tooltip, Typography } from 'antd';
-import { DeleteOutlined, EditOutlined, MinusCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import { AppstoreAddOutlined, CalculatorOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, ImportOutlined, MinusCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { obter } from '@/api/cliente';
+import { descarregar, obter } from '@/api/cliente';
+import { notificarErro } from '@/utilitarios/erros';
+import { ContratosMassa } from './comum/ContratosMassa';
+import { SimularMassa } from './comum/SimularMassa';
+import { ImportarExcel } from './comum/ImportarExcel';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -38,6 +42,9 @@ export default function Contratos() {
   const [termo, setTermo] = useState('');
   const [edicao, setEdicao] = useState<ContratoTrabalho | 'novo' | null>(null);
   const [terminar, setTerminar] = useState<ContratoTrabalho | null>(null);
+  const [importarCt, setImportarCt] = useState(false);
+  const [massa, setMassa] = useState(false);
+  const [simular, setSimular] = useState(false);
   const [form] = Form.useForm<ValoresContrato>();
   const [formFim] = Form.useForm<{ data_fim: Dayjs }>();
   const contratos = useQuery({
@@ -87,22 +94,20 @@ export default function Contratos() {
   const vencimentos = infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO');
 
   const pequeno = useEcraPequeno();
+  // colunas do legado (renderContratos): colaborador, rubricas, valor/mês, valor/dia, valor/hora, dias · horas, início, fim, estado
+  const rem = (c: ContratoTrabalho) => normalizarRemuneracoes(c.remuneracoes, c.dias_contrato_mes ?? 22);
+  const moeda = (c: ContratoTrabalho) => (c.codigo_moeda && c.codigo_moeda !== 'AOA' ? ` ${c.codigo_moeda}` : '');
+  const porDia = (c: ContratoTrabalho) => Number(totalContrato(c)) / (Number(c.dias_contrato_mes) || 22);
   const colunas: ColunaApi<ContratoTrabalho>[] = [
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => <strong>{colaboradores.nome(v)}</strong> },
+    { title: 'Rubricas (infotipos)', responsive: ['lg'], ellipsis: true, valorImpressao: (c) => rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id)).join(', '),
+      render: (_, c) => <Tooltip title={rem(c).map((r) => `${infotipos.nome(r.infotipo_salarial_id)}: ${formatarKz(r.valor_mes)}`).join(' · ')}>{rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id)).join(', ')}</Tooltip> },
+    { title: 'Valor/mês (Kz)', align: 'right', valorImpressao: (c) => `${formatarKz(totalContrato(c))}${moeda(c)}`, render: (_, c) => `${formatarKz(totalContrato(c))}${moeda(c)}` },
+    { title: 'Valor/dia (Kz)', align: 'right', responsive: ['md'], valorImpressao: (c) => formatarKz(porDia(c)), render: (_, c) => formatarKz(porDia(c)) },
+    { title: 'Valor/hora (Kz)', align: 'right', responsive: ['lg'], valorImpressao: (c) => formatarKz(porDia(c) / (Number(c.horas_por_dia) || 8)), render: (_, c) => formatarKz(porDia(c) / (Number(c.horas_por_dia) || 8)) },
+    { title: 'Dias · horas', align: 'center', responsive: ['md'], valorImpressao: (c) => `${c.dias_contrato_mes ?? 22} · ${Number(c.horas_por_dia ?? 8)}`, render: (_, c) => `${c.dias_contrato_mes ?? 22} · ${Number(c.horas_por_dia ?? 8)}` },
     { title: 'Início', dataIndex: 'data_inicio', render: formatarData },
     { title: 'Fim', dataIndex: 'data_fim', render: (v: string | null) => (semFim(v) ? 'Sem fim' : formatarData(v)) },
-    { title: 'Dias/mês', dataIndex: 'dias_contrato_mes', align: 'center', responsive: ['md'] },
-    { title: 'Horas/dia', dataIndex: 'horas_por_dia', align: 'center', responsive: ['md'], render: (v: string | null) => (v ? Number(v) : '—') },
-    {
-      title: 'Remuneração mensal',
-      align: 'right',
-      valorImpressao: (c) => `${formatarKz(totalContrato(c))}${c.codigo_moeda && c.codigo_moeda !== 'AOA' ? ` ${c.codigo_moeda}` : ''}`,
-      render: (_, c) => (
-        <Tooltip title={normalizarRemuneracoes(c.remuneracoes, c.dias_contrato_mes ?? 22).map((r) => `${infotipos.nome(r.infotipo_salarial_id)}: ${formatarKz(r.valor_mes)}`).join(' · ')}>
-          {formatarKz(totalContrato(c))} {c.codigo_moeda && c.codigo_moeda !== 'AOA' ? c.codigo_moeda : ''}
-        </Tooltip>
-      ),
-    },
     { title: 'Estado', dataIndex: 'estado', render: (e: string | null, c) => <Space size={4} wrap><EstadoTag estado={e} />{contratoVigente(c, hoje) && <Typography.Text type="success">vigente</Typography.Text>}</Space> },
     {
       title: '',
@@ -129,10 +134,27 @@ export default function Contratos() {
 
   return (
     <>
+      <ImportarExcel aberto={importarCt} titulo="Importar contratos (Excel)" url="/rh/importacoes/contratos" modelo="contratos"
+        ajuda="Modelo vertical: uma linha por rubrica; as linhas com o mesmo NIF formam um contrato (início, dias/mês, horas/dia e estado na 1.ª linha). Quem já tiver contrato nesse período é recusado."
+        aoFechar={() => setImportarCt(false)} />
+      <ContratosMassa aberto={massa} aoFechar={() => setMassa(false)} />
+      <SimularMassa aberto={simular} aoFechar={() => setSimular(false)} />
       <CabecalhoPagina
-        titulo="Contratos"
+        titulo="Gestão de Contratos de Trabalho"
         subtitulo="Contratos de trabalho e remunerações (vários contratos por colaborador, sem sobreposição de datas)"
-        accoes={pode('contratos_new') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo contrato</Button>}
+        accoes={
+          <>
+            <Button icon={<CalculatorOutlined />} onClick={() => setSimular(true)}>Simular massa salarial</Button>
+            {pode('contratos_import') && (
+              <>
+                <Button icon={<DownloadOutlined />} onClick={() => void descarregar('/rh/importacoes/modelos/contratos', undefined, 'Template_Contratos_Vertical.xlsx').catch(notificarErro)}>Template</Button>
+                <Button icon={<ImportOutlined />} onClick={() => setImportarCt(true)}>Importar Excel</Button>
+              </>
+            )}
+            {pode('contratos_new') && <Button icon={<AppstoreAddOutlined />} onClick={() => setMassa(true)}>Aplicar em massa</Button>}
+            {pode('contratos_new') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo contrato</Button>}
+          </>
+        }
         impressaoDesactivada={!linhas.length}
         impressao={() => pedidoTabela({
           titulo: 'Lista de contratos de trabalho',

@@ -1,13 +1,35 @@
-import { Alert, Col, Row, Skeleton } from 'antd';
-import { AppstoreOutlined, BulbOutlined, CheckCircleFilled, EnvironmentFilled, HomeFilled, LineChartOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { Alert, Button, Col, Row, Skeleton } from 'antd';
+import { AppstoreOutlined, BulbOutlined, CheckCircleFilled, EnvironmentFilled, HolderOutlined, HomeFilled, LineChartOutlined, StarFilled, UnorderedListOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
+import type { ModuloMenu } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
 import { iconeModulo } from '@/componentes/icones/iconesModulos';
+import { useFavoritos } from '@/componentes/preferencias/favoritos';
+import { usePreferencia } from '@/componentes/preferencias/usePreferencias';
 import { ecrasDeTopo, rotaEcra } from '@/layout/itensMenu';
+
+const SEM_ORDEM: string[] = [];
+
+/** Move `id` para a posição de `destino` (arrastar e largar dos módulos do Início; legado Sortable em ui_dashboard.js:937). */
+export function moverModulo(ids: string[], id: string, destino: string): string[] {
+  if (id === destino) return ids;
+  const sem = ids.filter((x) => x !== id);
+  const i = sem.indexOf(destino);
+  const original = ids.indexOf(destino);
+  sem.splice(ids.indexOf(id) < original ? i + 1 : i, 0, id);
+  return sem;
+}
+
+/** Módulos do menu pela ordem guardada pelo utilizador (os novos, que não estão na ordem, vão para o fim). */
+export function ordenarModulos(menu: ModuloMenu[], ordem: string[]): ModuloMenu[] {
+  const pos = new Map(ordem.map((id, i) => [id, i]));
+  return [...menu].sort((a, b) => (pos.get(a.id) ?? 1e6 + menu.indexOf(a)) - (pos.get(b.id) ?? 1e6 + menu.indexOf(b)));
+}
 
 interface Pendente {
   id: string;
@@ -54,6 +76,12 @@ export function Inicio() {
   const identidade = useIdentidade();
   const navegar = useNavigate();
   const consulta = useQuery({ queryKey: ['inicio'], queryFn: () => obter<DadosInicio>('/gestao/inicio') });
+  const { favoritos } = useFavoritos();
+  // ordem dos módulos guardada no servidor por utilizador (legado: localStorage welcome_modules_order)
+  const [ordem, definirOrdem] = usePreferencia<string[]>('ordem_modulos', 'inicio', SEM_ORDEM);
+  const modulosOrdenados = useMemo(() => ordenarModulos(menu, ordem), [menu, ordem]);
+  const [arrastado, setArrastado] = useState<string | null>(null);
+  const [alvo, setAlvo] = useState<string | null>(null);
 
   // a vista do pendente aponta para o ecrã do catálogo; procura-se o módulo no menu do utilizador
   const rotaDaVista = (vista?: string | null) => {
@@ -170,6 +198,25 @@ export function Inicio() {
               </Col>
             )}
           </Row>
+
+          <section className="erp-inicio-mini" style={{ marginTop: 16, display: 'block' }} aria-label="Favoritos">
+            <h3 className="erp-inicio-mini-titulo">
+              <StarFilled aria-hidden style={{ color: '#f59e0b' }} /> Favoritos
+            </h3>
+            {favoritos.length ? (
+              <div className="erp-inicio-favoritos">
+                {favoritos.map((f) => (
+                  <Button key={f.rota} size="small" onClick={() => navegar(f.rota)} title={f.nomeModulo}>
+                    {f.nome}
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <p className="erp-inicio-mini-texto" style={{ margin: 0 }}>
+                Ainda não tem favoritos: abra um ecrã e clique na estrela ☆ da barra superior. Use Ctrl+K para procurar um ecrã pelo nome.
+              </p>
+            )}
+          </section>
         </Col>
 
         {menu.length > 0 && (
@@ -179,28 +226,68 @@ export function Inicio() {
                 <AppstoreOutlined aria-hidden style={{ color: '#2563eb' }} /> Módulos
               </h2>
               <div className="erp-inicio-lista-modulos">
-                {menu.map((m) => {
+                {modulosOrdenados.map((m) => {
                   const primeiro = ecrasDeTopo(m)[0];
                   return (
-                    <button
+                    <div
                       key={m.id}
-                      type="button"
-                      className="erp-modulo-botao"
-                      disabled={!primeiro}
-                      aria-label={`Abrir ${m.nome}`}
-                      onClick={primeiro ? () => navegar(rotaEcra(m.id, primeiro.id)) : undefined}
+                      className={`erp-modulo-arrastavel${arrastado === m.id ? ' a-arrastar' : ''}${alvo === m.id && arrastado !== m.id ? ' alvo' : ''}`}
+                      draggable
+                      onDragStart={(e) => {
+                        setArrastado(m.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', m.id);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setAlvo(m.id);
+                      }}
+                      onDragEnd={() => {
+                        setArrastado(null);
+                        setAlvo(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (arrastado) definirOrdem(moverModulo(modulosOrdenados.map((x) => x.id), arrastado, m.id));
+                        setArrastado(null);
+                        setAlvo(null);
+                      }}
                     >
-                      <span className="erp-caixa-icone" aria-hidden>
-                        {iconeModulo(m.id)}
-                      </span>
-                      <span className="erp-modulo-textos">
-                        <span className="erp-modulo-nome">{m.nome}</span>
-                        <span className="erp-modulo-descricao">{DESCRICOES[m.id] ?? (m.ecras.length === 1 ? '1 ecrã' : `${m.ecras.length} ecrãs`)}</span>
-                      </span>
-                    </button>
+                      <button
+                        type="button"
+                        className="erp-modulo-botao"
+                        disabled={!primeiro}
+                        aria-label={`Abrir ${m.nome}`}
+                        title="Clique para abrir; arraste para reordenar (Alt+↑/↓ com o teclado)"
+                        onClick={primeiro ? () => navegar(rotaEcra(m.id, primeiro.id)) : undefined}
+                        onKeyDown={(e) => {
+                          if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+                            e.preventDefault();
+                            const ids = modulosOrdenados.map((x) => x.id);
+                            const i = ids.indexOf(m.id);
+                            const j = e.key === 'ArrowUp' ? i - 1 : i + 1;
+                            if (j >= 0 && j < ids.length) definirOrdem(moverModulo(ids, m.id, ids[j]));
+                          }
+                        }}
+                      >
+                        <span className="erp-caixa-icone" aria-hidden>
+                          {iconeModulo(m.id)}
+                        </span>
+                        <span className="erp-modulo-textos">
+                          <span className="erp-modulo-nome">{m.nome}</span>
+                          <span className="erp-modulo-descricao">{DESCRICOES[m.id] ?? (m.ecras.length === 1 ? '1 ecrã' : `${m.ecras.length} ecrãs`)}</span>
+                        </span>
+                        <HolderOutlined className="erp-modulo-pega" aria-hidden />
+                      </button>
+                    </div>
                   );
                 })}
               </div>
+              {ordem.length > 0 && (
+                <Button type="link" size="small" onClick={() => definirOrdem([])} style={{ paddingInline: 0, marginTop: 8 }}>
+                  Repor a ordem original dos módulos
+                </Button>
+              )}
             </nav>
           </Col>
         )}

@@ -69,6 +69,33 @@ final class CalculadoraDocumento
         return ['linhas' => $saida, 'total_liquido' => $liquido, 'total_imposto' => $imposto, 'total_bruto' => bcadd($liquido, $imposto, 2)];
     }
 
+    /**
+     * Preços de uma linha para o documento AGT e o SAF-T (decisão 11; construir, js/facturacao_agt.js:248-262):
+     *   - preco_base: preço sem IVA ANTES do desconto, a 6 casas (POS: reconstruído do valor e da % de desconto da linha);
+     *   - preco: preço sem IVA já com o desconto = valor ÷ quantidade, a 6 casas (qtd × preço = valor da linha ao cêntimo);
+     *   - desconto: SettlementAmount = arred(qtd × preco_base − valor), nunca negativo.
+     * Fora do POS, quando qtd × preço guardado = valor, os preços ficam com 2 casas e o desconto a zero.
+     *
+     * @return array{preco_base: string, preco: string, desconto: string}
+     */
+    public static function precosLinhaFiscal(string $valor, string|float $quantidade, string|float $precoGuardado, string|float|null $percentagemDesconto): array
+    {
+        $q = self::n($quantidade);
+        if (bccomp($q, '0', 8) <= 0) {
+            return ['preco_base' => '0', 'preco' => '0', 'desconto' => '0.00'];
+        }
+        $p2 = number_format((float) $precoGuardado, 2, '.', '');
+        if ($percentagemDesconto === null && bccomp(self::arredondar(bcmul($q, $p2, 8), 2), $valor, 2) === 0) {
+            return ['preco_base' => $p2, 'preco' => $p2, 'desconto' => '0.00'];
+        }
+        $preco = self::arredondar(bcdiv($valor, $q, 10), 6);
+        $fator = bcsub('1', bcdiv(self::n($percentagemDesconto ?? 0), '100', 8), 8);
+        $base = bccomp($fator, '0', 8) > 0 ? self::arredondar(bcdiv(bcdiv($valor, $fator, 10), $q, 10), 6) : $preco;
+        $desconto = self::arredondar(bcsub(bcmul($q, $base, 8), $valor, 8), 2);
+
+        return ['preco_base' => $base, 'preco' => $preco, 'desconto' => bccomp($desconto, '0', 2) < 0 ? '0.00' : $desconto];
+    }
+
     /** Arredondamento "half away from zero" a $casas decimais. */
     public static function arredondar(string $v, int $casas = 2): string
     {

@@ -1,28 +1,34 @@
-import { FilePdfOutlined, PrinterOutlined } from '@ant-design/icons';
+import { FileExcelOutlined, FilePdfOutlined, PrinterOutlined } from '@ant-design/icons';
 import { Button, Space, Tooltip, type ButtonProps } from 'antd';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { DICA_PDF, useImpressao, type PedidoImpressao } from './useImpressao';
 
 /** Opções do documento, calculadas no momento do clique (pode ser assíncrono: ex. ir buscar todas as páginas). */
 export type ObterPedido = () => PedidoImpressao | null | undefined | Promise<PedidoImpressao | null | undefined>;
 
+type Modo = 'imprimir' | 'pdf' | 'excel';
+
 interface PropsBotao {
   obterPedido: ObterPedido;
-  modo?: 'imprimir' | 'pdf';
+  modo?: Modo;
   texto?: string;
   desactivado?: boolean;
   tamanho?: ButtonProps['size'];
   tipo?: ButtonProps['type'];
 }
 
+export const DICA_EXCEL = 'Exporta para Excel (.xlsx) o mesmo conteúdo da impressão, com os filtros aplicados.';
+
 function useExecutar(obterPedido: ObterPedido) {
-  const { imprimir } = useImpressao();
-  const [ocupado, setOcupado] = useState<'imprimir' | 'pdf' | null>(null);
-  const executar = async (modo: 'imprimir' | 'pdf') => {
+  const { imprimir, exportarExcel } = useImpressao();
+  const [ocupado, setOcupado] = useState<Modo | null>(null);
+  const executar = async (modo: Modo) => {
     setOcupado(modo);
     try {
       const pedido = await obterPedido();
-      if (pedido) await imprimir({ ...pedido, modo });
+      if (!pedido) return;
+      if (modo === 'excel') await exportarExcel(pedido);
+      else await imprimir({ ...pedido, modo });
     } finally {
       setOcupado(null);
     }
@@ -30,31 +36,53 @@ function useExecutar(obterPedido: ObterPedido) {
   return { executar, ocupado };
 }
 
-/** Um botão «Imprimir» (ou «PDF») com o motor comum. */
+const ICONES: Record<Modo, ReactNode> = { imprimir: <PrinterOutlined />, pdf: <FilePdfOutlined />, excel: <FileExcelOutlined /> };
+const TEXTOS: Record<Modo, string> = { imprimir: 'Imprimir', pdf: 'PDF', excel: 'Excel' };
+
+/** Um botão «Imprimir» (ou «PDF», ou «Excel») com o motor comum. */
 export function BotaoImprimir({ obterPedido, modo = 'imprimir', texto, desactivado, tamanho, tipo }: PropsBotao) {
   const { executar, ocupado } = useExecutar(obterPedido);
-  const pdf = modo === 'pdf';
   const botao = (
-    <Button size={tamanho} type={tipo} icon={pdf ? <FilePdfOutlined /> : <PrinterOutlined />} disabled={desactivado} loading={ocupado !== null} onClick={() => void executar(modo)}>
-      {texto ?? (pdf ? 'PDF' : 'Imprimir')}
+    <Button size={tamanho} type={tipo} icon={ICONES[modo]} disabled={desactivado} loading={ocupado !== null} onClick={() => void executar(modo)}>
+      {texto ?? TEXTOS[modo]}
     </Button>
   );
-  return pdf ? <Tooltip title={DICA_PDF}>{botao}</Tooltip> : botao;
+  return modo === 'imprimir' ? botao : <Tooltip title={modo === 'pdf' ? DICA_PDF : DICA_EXCEL}>{botao}</Tooltip>;
 }
 
-/** Par de botões «Imprimir» + «PDF» (o mesmo documento; o PDF sugere o nome do ficheiro e mostra a dica). */
-export function BotoesExportar({ obterPedido, desactivado, tamanho, textoImprimir = 'Imprimir', textoPdf = 'PDF' }: Omit<PropsBotao, 'modo' | 'texto' | 'tipo'> & { textoImprimir?: string; textoPdf?: string }) {
+/**
+ * Botões «Imprimir» + «PDF» + «Excel» (o mesmo documento; o PDF sugere o nome do ficheiro e mostra a dica; o Excel gera
+ * um .xlsx com o cabeçalho da empresa, os filtros e as tabelas — números como números, datas como datas, totais).
+ * `excel={false}` esconde o botão Excel (ex.: documentos comerciais em que só faz sentido o PDF).
+ */
+export function BotoesExportar({
+  obterPedido,
+  desactivado,
+  tamanho,
+  textoImprimir = 'Imprimir',
+  textoPdf = 'PDF',
+  excel = true,
+  textoExcel = 'Excel',
+}: Omit<PropsBotao, 'modo' | 'texto' | 'tipo'> & { textoImprimir?: string; textoPdf?: string; excel?: boolean; textoExcel?: string }) {
   const { executar, ocupado } = useExecutar(obterPedido);
+  const outro = (m: Modo) => ocupado !== null && ocupado !== m;
   return (
     <Space.Compact>
-      <Button size={tamanho} icon={<PrinterOutlined />} disabled={desactivado || ocupado === 'pdf'} loading={ocupado === 'imprimir'} onClick={() => void executar('imprimir')}>
+      <Button size={tamanho} icon={<PrinterOutlined />} disabled={desactivado || outro('imprimir')} loading={ocupado === 'imprimir'} onClick={() => void executar('imprimir')}>
         {textoImprimir}
       </Button>
       <Tooltip title={DICA_PDF}>
-        <Button size={tamanho} icon={<FilePdfOutlined />} disabled={desactivado || ocupado === 'imprimir'} loading={ocupado === 'pdf'} onClick={() => void executar('pdf')}>
+        <Button size={tamanho} icon={<FilePdfOutlined />} disabled={desactivado || outro('pdf')} loading={ocupado === 'pdf'} onClick={() => void executar('pdf')}>
           {textoPdf}
         </Button>
       </Tooltip>
+      {excel && (
+        <Tooltip title={DICA_EXCEL}>
+          <Button size={tamanho} icon={<FileExcelOutlined />} disabled={desactivado || outro('excel')} loading={ocupado === 'excel'} onClick={() => void executar('excel')}>
+            {textoExcel}
+          </Button>
+        </Tooltip>
+      )}
     </Space.Compact>
   );
 }

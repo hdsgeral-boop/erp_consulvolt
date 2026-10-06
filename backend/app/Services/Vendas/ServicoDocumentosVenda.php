@@ -12,10 +12,12 @@ use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\CRM\ServicoOportunidadesCRM;
+use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -30,7 +32,12 @@ use Throwable;
  *   - multi-moeda (js/moedas_documentos.js): moeda e câmbio no cabeçalho; os totais oficiais ficam em Kz e os
  *     valores na moeda em *_moeda. Os valores em Kz são calculados com as regras AGT sobre o preço convertido
  *     (6 casas), para o documento fiscal ser coerente; a NC usa sempre o câmbio da factura de origem;
- *   - Hash SAF-T(AO) calculado na emissão, encadeado por série (ServicoHashSaft).
+ *   - Hash SAF-T(AO) calculado na emissão, encadeado por série (ServicoHashSaft);
+ *   - preço livre (decisão 8): no ecrã de emissão, um preço diferente do da ficha (convertido ao câmbio) exige a tarefa
+ *     vendas_alterar_preco e o preço original fica na auditoria; conversões, NC, POS e projectos usam os preços de origem;
+ *   - câmbio manual (decisão 9): validado contra o câmbio do dia com a tolerância configurável (ServicoCambios::validarManual);
+ *   - POS (decisão 10): o desconto gravado é só o desconto comercial (arred(bruto × % / 100)); o arredondamento AGT
+ *     (diferença entre o valor cobrado e o total das linhas) fica no campo próprio arredondamento_agt.
  * Guias (GR/GD) e stock (ADR-043, ServicoStockVendas): FT/FR/GR baixam, GD e NC de devolução repõem, CMV no lançamento.
  */
 final class ServicoDocumentosVenda
@@ -60,7 +67,7 @@ final class ServicoDocumentosVenda
      *                                   pos {origem_serie, percentagem_desconto, colunas} — venda POS (ServicoVendasPOS): preços com IVA,
      *                                   série do terminal, pagamentos nas contas transitórias do terminal (sem recibo avulso)
      */
-    public function emitir(array $d, ?Venda $origemConversao = null): Venda
+    public function emitir(array $d, ?Venda $origemConversao = null, bool $exigirPermissaoPreco = false): Venda
     {
         $empresa = $this->contexto->obrigatorio();
         $tipo = $d['tipo_documento'];
@@ -83,8 +90,10 @@ final class ServicoDocumentosVenda
         if ($pos && (! in_array($tipo, ['FR', 'FT'], true) || (($d['codigo_moeda'] ?? 'AOA') !== 'AOA'))) {   // FT: lavandaria em conta corrente
             throw new ErroNegocio('No POS só se emitem facturas e facturas-recibo em Kz.', 'POS_TIPO_INVALIDO', 422);
         }
-        $moeda = $this->resolverMoeda($d, $empresa, $data, $origemNcPrevia);
-        $linhas = $this->prepararLinhas($d['linhas'], $fiscal, $config, $moeda['taxa']);
+        $moeda = $this->resolverMoeda($d, $empresa, $data, $origemNcPrevia, $tipo);
+        $precosAlterados = [];
+        $verificarPreco = $exigirPermissaoPreco && ! $pos && $tipo !== 'NC' && ! $origemConversao;
+        $linhas = $this->prepararLinhas($d['linhas'], $fiscal, $config, $moeda['taxa'], $verificarPreco, $precosAlterados);
         if ($origemNcPrevia) {
             $linhas = $this->linhasDaOrigemNc($linhas, $d['linhas'], $origemNcPrevia, $moeda['estrangeira']);
         }
@@ -92,6 +101,7 @@ final class ServicoDocumentosVenda
         $linhasKz = $moeda['estrangeira']
             ? array_map(fn ($l) => ['preco_unitario' => bcmul($l['preco_unitario'], $moeda['taxa'], 6)] + $l, $linhas) : $linhas;
         $calculo = $pos ? CalculadoraDocumento::calcularComIva($linhasKz, $pos['percentagem_desconto'] ?? 0) : CalculadoraDocumento::calcular($linhasKz);
+        $arredondamentoPos = $pos ? self::descontoEArredondamentoPos($linhasKz, (string) ($pos['percentagem_desconto'] ?? 0), $calculo['total_bruto']) : null;
         if ($origemNcPrevia && ! $moeda['estrangeira']) {
             $calculo = $this->calculoDaOrigemNc($linhas, $calculo);
         }
@@ -108,7 +118,7 @@ final class ServicoDocumentosVenda
         }
         $condicoes = $this->condicoesPagamento($tipo, $d, $data);
 
-        return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt, $pos) {
+        return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt, $pos, $arredondamentoPos, $precosAlterados) {
             // dentro da transacção e com a factura de origem bloqueada: duas NC em simultâneo não excedem o saldo
             $origemNc = $tipo === 'NC' ? $this->validarNotaCredito($d, $cliente, $calculo['total_bruto']) : null;
             if ($origemNc) {
@@ -140,6 +150,14 @@ final class ServicoDocumentosVenda
                 'observacoes' => $d['observacoes'] ?? null, 'condicoes_pagamento' => $d['condicoes_pagamento'] ?? null,
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
             ], $condicoes, $pos['colunas'] ?? []));
+            if ($arredondamentoPos) {   // decisão 10: desconto comercial e arredondamento AGT em campos separados
+                $venda->forceFill($arredondamentoPos)->save();
+            }
+            if ($precosAlterados) {   // decisão 8: o preço original da ficha fica na auditoria
+                app(ServicoAuditoria::class)->registar('Vendas/Facturação', 'Preço alterado',
+                    "{$venda->numero_documento}: preço diferente do da ficha em ".count($precosAlterados).' linha(s).', 'vendas', $venda->id,
+                    ['precos_ficha' => array_column($precosAlterados, 'preco_ficha', 'produto')], ['precos_documento' => array_column($precosAlterados, 'preco', 'produto')]);
+            }
 
             $itens = new Collection;
             $itensNc = $origemNc ? $origemNc->itensVenda()->orderBy('id')->get() : collect();
@@ -246,39 +264,122 @@ final class ServicoDocumentosVenda
                 'venda_origem_id' => $destino === 'NC' ? $origem->id : null,
                 // a moeda passa ao documento gerado; o câmbio reavalia-se na nova data, salvo se era manual (cambioParaConversao)
                 'codigo_moeda' => $origem->codigo_moeda ?: ServicoCambios::BASE,
-                'taxa_cambio' => $origem->taxa_cambio_manual ? $origem->taxa_cambio : null,
+                'taxa_cambio' => $origem->taxa_cambio_manual ? $origem->taxa_cambio : null, 'taxa_cambio_herdada' => (bool) $origem->taxa_cambio_manual,
             ], array_intersect_key($extra, array_flip(['motivo_nota_credito', 'observacoes', 'modo_pagamento', 'plano_pagamentos', 'armazem_id', 'devolucao_mercadoria']))),
                 $destino === 'NC' ? null : $origem);
 
             if ($destino !== 'NC') {
-                $campo = match ($destino) {
-                    'GR' => 'quantidade_entregue', 'GD' => 'quantidade_devolvida', default => 'quantidade_faturada'
-                };
-                foreach ($linhas as $l) {
-                    $l['_origem']->refresh()->update([$campo => (float) $l['_origem']->{$campo} + (float) $l['quantidade']]);
+                $this->actualizarOrigemConvertida($origem, $destino, $linhas);
+            }
+
+            return $nova;
+        });
+    }
+
+    /**
+     * Factura a partir de várias guias de remessa do mesmo cliente (fillInvoiceFromGuia do legado, M-18): uma só FT com
+     * as quantidades por facturar de cada GR (linha a linha, com item_origem_id), sem nova saída de stock (já saiu na guia).
+     * Todas as guias ficam ligadas à factura e passam a CONCLUIDO quando totalmente facturadas.
+     *
+     * @param  list<int>  $guias
+     * @param  array<string, mixed>  $extra  data_emissao, observacoes, modo_pagamento, plano_pagamentos
+     */
+    public function faturarGuias(array $guias, array $extra): Venda
+    {
+        $guias = array_values(array_unique(array_map('intval', $guias)));
+        if (count($guias) < 1) {
+            throw new ErroNegocio('Escolha pelo menos uma guia de remessa.', 'SEM_GUIAS', 422);
+        }
+
+        return DB::transaction(function () use ($guias, $extra) {
+            $docs = Venda::query()->whereIn('id', $guias)->lockForUpdate()->orderBy('data_emissao')->orderBy('id')->get();
+            if ($docs->count() !== count($guias)) {
+                throw new ErroNegocio('Uma das guias não existe.', 'GUIA_INEXISTENTE', 422);
+            }
+            $primeira = $docs->first();
+            foreach ($docs as $g) {
+                if ($g->tipo_documento !== 'GR' || $g->estado === 'ANULADO') {
+                    throw new ErroNegocio("{$g->numero_documento}: só se facturam guias de remessa não anuladas.", 'GUIA_INVALIDA', 422);
                 }
-                // FT de uma GR que veio de uma encomenda: a encomenda também fica facturada (senão podia voltar a ser facturada)
-                if ($origem->tipo_documento === 'GR' && in_array($destino, ['FT', 'FR'], true)) {
-                    $ne = Venda::query()->whereIn('id', DB::table('vendas_documentos_relacionados')->where('venda_id', $origem->id)->pluck('venda_relacionada_id'))
-                        ->where('tipo_documento', 'NE')->first();
-                    foreach ($ne ? $linhas : [] as $l) {
-                        $x = $ne->itensVenda()->where('produto_id', $l['produto_id'])->orderBy('id')->first();
-                        $x?->update(['quantidade_faturada' => (float) $x->quantidade_faturada + (float) $l['quantidade']]);
-                    }
-                    if ($ne && ! $ne->itensVenda()->get()->contains(fn ($x) => (float) $x->quantidade - (float) $x->quantidade_faturada > 0.0005)) {
-                        $ne->update(['estado' => 'CONCLUIDO']);
+                if ($g->cliente_id !== $primeira->cliente_id) {
+                    throw new ErroNegocio('As guias têm de ser todas do mesmo cliente.', 'GUIAS_CLIENTES_DIFERENTES', 422);
+                }
+                if (($g->codigo_moeda ?: ServicoCambios::BASE) !== ($primeira->codigo_moeda ?: ServicoCambios::BASE)) {
+                    throw new ErroNegocio('As guias têm de estar todas na mesma moeda.', 'GUIAS_MOEDAS_DIFERENTES', 422);
+                }
+            }
+            $linhas = [];
+            $porGuia = [];
+            foreach ($docs as $g) {
+                foreach ($g->itensVenda()->orderBy('id')->get() as $i) {
+                    $restante = (float) $i->quantidade - (float) $i->quantidade_faturada - (float) $i->quantidade_devolvida;
+                    if ($restante > 0.0005) {
+                        $preco = $g->codigo_moeda && $g->codigo_moeda !== ServicoCambios::BASE && $i->preco_unitario_moeda !== null ? $i->preco_unitario_moeda : $i->preco_unitario;
+                        $l = ['produto_id' => $i->produto_id, 'quantidade' => $restante, 'preco_unitario' => $preco,
+                            'descricao' => $i->descricao, 'item_origem_id' => $i->id, '_origem' => $i];
+                        $linhas[] = $l;
+                        $porGuia[$g->id][] = $l;
                     }
                 }
-                // concluído quando tudo foi facturado (ou, numa GR, facturado ou devolvido)
-                $pendente = $origem->itensVenda()->get()->contains(fn ($x) => (float) $x->quantidade - (float) $x->quantidade_faturada
-                    - ($origem->tipo_documento === 'GR' ? (float) $x->quantidade_devolvida : 0) > 0.0005);
-                if (! $pendente) {
-                    $origem->update(['estado' => 'CONCLUIDO']);
+            }
+            if (! $linhas) {
+                throw new ErroNegocio('As guias escolhidas já foram totalmente facturadas.', 'JA_CONVERTIDO', 422);
+            }
+            $observacoes = $extra['observacoes'] ?? ('Guias: '.$docs->pluck('numero_documento')->implode(', '));
+            $nova = $this->emitir(array_merge([
+                'tipo_documento' => 'FT', 'cliente_id' => $primeira->cliente_id, 'data_emissao' => $extra['data_emissao'] ?? now()->toDateString(),
+                'linhas' => array_map(fn ($l) => array_diff_key($l, ['_origem' => 1]), $linhas),
+                'unidade_negocio_id' => $primeira->unidade_negocio_id, 'centro_custo_id' => $primeira->centro_custo_id, 'projeto_id' => $primeira->projeto_id,
+                'condicoes_pagamento' => $primeira->condicoes_pagamento, 'observacoes' => $observacoes,
+                'codigo_moeda' => $primeira->codigo_moeda ?: ServicoCambios::BASE,
+                'taxa_cambio' => $primeira->taxa_cambio_manual ? $primeira->taxa_cambio : null, 'taxa_cambio_herdada' => (bool) $primeira->taxa_cambio_manual,
+            ], array_intersect_key($extra, array_flip(['modo_pagamento', 'plano_pagamentos']))), $primeira);
+
+            foreach ($docs as $g) {
+                if ($g->id !== $primeira->id && isset($porGuia[$g->id])) {   // a primeira já foi ligada por emitir()
+                    DB::table('vendas_documentos_relacionados')->insert(['venda_id' => $nova->id, 'venda_relacionada_id' => $g->id, 'empresa_id' => $g->empresa_id]);
+                }
+                if (isset($porGuia[$g->id])) {
+                    $this->actualizarOrigemConvertida($g, 'FT', $porGuia[$g->id]);
                 }
             }
 
             return $nova;
         });
+    }
+
+    /**
+     * Depois de uma conversão: quantidades entregues/facturadas/devolvidas na origem, encomenda da guia facturada e estado
+     * CONCLUIDO quando nada fica por converter.
+     *
+     * @param  list<array<string, mixed>>  $linhas  com '_origem' (ItemVenda) e 'quantidade'
+     */
+    private function actualizarOrigemConvertida(Venda $origem, string $destino, array $linhas): void
+    {
+        $campo = match ($destino) {
+            'GR' => 'quantidade_entregue', 'GD' => 'quantidade_devolvida', default => 'quantidade_faturada'
+        };
+        foreach ($linhas as $l) {
+            $l['_origem']->refresh()->update([$campo => (float) $l['_origem']->{$campo} + (float) $l['quantidade']]);
+        }
+        // FT de uma GR que veio de uma encomenda: a encomenda também fica facturada (senão podia voltar a ser facturada)
+        if ($origem->tipo_documento === 'GR' && in_array($destino, ['FT', 'FR'], true)) {
+            $ne = Venda::query()->whereIn('id', DB::table('vendas_documentos_relacionados')->where('venda_id', $origem->id)->pluck('venda_relacionada_id'))
+                ->where('tipo_documento', 'NE')->first();
+            foreach ($ne ? $linhas : [] as $l) {
+                $x = $ne->itensVenda()->where('produto_id', $l['produto_id'])->orderBy('id')->first();
+                $x?->update(['quantidade_faturada' => (float) $x->quantidade_faturada + (float) $l['quantidade']]);
+            }
+            if ($ne && ! $ne->itensVenda()->get()->contains(fn ($x) => (float) $x->quantidade - (float) $x->quantidade_faturada > 0.0005)) {
+                $ne->update(['estado' => 'CONCLUIDO']);
+            }
+        }
+        // concluído quando tudo foi facturado (ou, numa GR, facturado ou devolvido)
+        $pendente = $origem->itensVenda()->get()->contains(fn ($x) => (float) $x->quantidade - (float) $x->quantidade_faturada
+            - ($origem->tipo_documento === 'GR' ? (float) $x->quantidade_devolvida : 0) > 0.0005);
+        if (! $pendente) {
+            $origem->update(['estado' => 'CONCLUIDO']);
+        }
     }
 
     /** Anula um documento NÃO fiscal ainda não convertido. Os fiscais corrigem-se com nota de crédito. */
@@ -321,7 +422,7 @@ final class ServicoDocumentosVenda
      *
      * @return array{codigo: string, taxa: string, taxa_id: ?int, manual: bool, estrangeira: bool}
      */
-    private function resolverMoeda(array $d, int $empresa, string $data, ?Venda $origemNc): array
+    private function resolverMoeda(array $d, int $empresa, string $data, ?Venda $origemNc, string $tipo = 'FT'): array
     {
         $base = ['taxa' => '1', 'taxa_id' => null, 'manual' => false, 'estrangeira' => false];
         if ($origemNc) {
@@ -336,6 +437,11 @@ final class ServicoDocumentosVenda
             return ['codigo' => $codigo] + $base;
         }
         if (! empty($d['taxa_cambio'])) {
+            // decisão 9: câmbio manual dentro da tolerância face ao câmbio do dia (o herdado numa conversão já foi validado na origem)
+            if (empty($d['taxa_cambio_herdada'])) {
+                $this->cambios->validarManual($empresa, $codigo, $data, $d['taxa_cambio'], "Vendas {$tipo}");
+            }
+
             return ['codigo' => $codigo, 'taxa' => number_format((float) $d['taxa_cambio'], 6, '.', ''), 'taxa_id' => null, 'manual' => true, 'estrangeira' => true];
         }
         $c = $this->cambios->obter($empresa, $codigo, $data)
@@ -346,9 +452,12 @@ final class ServicoDocumentosVenda
 
     /**
      * @param  list<array<string, mixed>>  $linhas
+     * @param  bool  $verificarPreco  um preço diferente do da ficha exige vendas_alterar_preco (devolvido em $alterados)
+     * @param  list<array{produto: string, preco_ficha: string, preco: string}>  $alterados
      * @return list<array<string, mixed>>
      */
-    private function prepararLinhas(array $linhas, bool $fiscal, ?ConfigFaturacaoEletronica $config, string $taxaCambio): array
+    private function prepararLinhas(array $linhas, bool $fiscal, ?ConfigFaturacaoEletronica $config, string $taxaCambio,
+        bool $verificarPreco = false, array &$alterados = []): array
     {
         if (! $linhas) {
             throw new ErroNegocio('O documento tem de ter pelo menos uma linha.', 'SEM_LINHAS', 422);
@@ -365,9 +474,17 @@ final class ServicoDocumentosVenda
                 throw new ErroNegocio("Linha {$n}: a quantidade tem de ser positiva.", 'QUANTIDADE_INVALIDA', 422);
             }
             // preço na moeda do documento; sem preço indicado, o da ficha (em Kz) convertido ao câmbio do documento
-            $preco = $l['preco_unitario'] ?? CalculadoraDocumento::arredondar(bcdiv((string) ($p->preco_unitario ?? 0), $taxaCambio, 8));
+            $precoFicha = CalculadoraDocumento::arredondar(bcdiv((string) ($p->preco_unitario ?? 0), $taxaCambio, 8));
+            $preco = isset($l['preco_unitario']) && $l['preco_unitario'] !== '' ? $l['preco_unitario'] : $precoFicha;
             if ((float) $preco < 0) {
                 throw new ErroNegocio("Linha {$n}: o preço não pode ser negativo.", 'PRECO_INVALIDO', 422);
+            }
+            if ($verificarPreco && bccomp(number_format((float) $preco, 2, '.', ''), $precoFicha, 2) !== 0) {
+                if (! Gate::any(['vendas_alterar_preco'])) {
+                    throw new ErroNegocio("Linha {$n}: o preço de {$p->codigo} ({$preco}) é diferente do da ficha ({$precoFicha}). Só quem tem a permissão «Alterar o preço de venda» o pode alterar.",
+                        'PRECO_ALTERADO_SEM_PERMISSAO', 403, ['linha' => $n, 'preco_ficha' => $precoFicha]);
+                }
+                $alterados[] = ['produto' => (string) $p->codigo, 'preco_ficha' => $precoFicha, 'preco' => number_format((float) $preco, 2, '.', '')];
             }
             $taxa = (string) ($p->taxa_imposto ?? '0');   // a taxa vem do produto (paridade: campo IVA só de leitura)
             if ($fiscal && (float) $taxa === 0.0 && ! ($p->codigo_isencao_fe ?: $config?->isencao_padrao)) {
@@ -378,6 +495,22 @@ final class ServicoDocumentosVenda
         }
 
         return $saida;
+    }
+
+    /**
+     * Decisão 10 (POS): desconto comercial = arred(bruto × % / 100), em que bruto = Σ arred(qtd × preço com IVA); o resto da
+     * diferença para o total do documento é o arredondamento AGT (base e IVA por excesso ao cêntimo). Antes, tudo ia para
+     * «desconto», e uma venda sem desconto ficava com 0,01-0,02 de desconto.
+     *
+     * @param  list<array<string, mixed>>  $linhasKz  preços com IVA (antes de passarem à base)
+     * @return array{desconto: string, arredondamento_agt: string}
+     */
+    public static function descontoEArredondamentoPos(array $linhasKz, string $percentagem, string $total): array
+    {
+        $bruto = array_reduce($linhasKz, fn ($c, $l) => bcadd($c, CalculadoraDocumento::arredondar(bcmul((string) $l['quantidade'], (string) $l['preco_unitario'], 8)), 2), '0.00');
+        $desconto = CalculadoraDocumento::arredondar(bcdiv(bcmul($bruto, number_format((float) $percentagem, 4, '.', ''), 8), '100', 8));
+
+        return ['desconto' => $desconto, 'arredondamento_agt' => bcsub(bcsub($bruto, $desconto, 2), $total, 2)];
     }
 
     /** Nota de crédito (js/ui_sales.js:1718-1791; saldoCreditavel facturacao_agt.js:473-480). */

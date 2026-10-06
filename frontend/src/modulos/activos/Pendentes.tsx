@@ -3,6 +3,7 @@ import { DeleteOutlined, LinkOutlined, PlusOutlined, SplitCellsOutlined } from '
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
+import { NavActivos } from './comum/NavActivos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -53,6 +54,7 @@ export default function Pendentes() {
   return (
     <>
       <CabecalhoPagina titulo="Aquisições pendentes" subtitulo="Lançamentos em contas 11/12 ainda não inventariados como activos" />
+      <NavActivos actual="activos_pendentes" />
       <Row gutter={16} style={{ marginBottom: 16 }}>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Linhas por inventariar" value={d?.linhas.length ?? 0} /></Card></Col>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Valor por inventariar (Kz)" value={formatarKz(d?.total_por_inventariar)} /></Card></Col>

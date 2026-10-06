@@ -1,5 +1,6 @@
 import { Button, Card, Checkbox, Col, Drawer, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tabs, Tag, Tooltip } from 'antd';
-import { CopyOutlined, DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined, ImportOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
+import { ModalImportarProdutos, type EntidadeImportacao } from './ModalImportarProdutos';
 import { useQuery } from '@tanstack/react-query';
 
 import { useEffect, useState } from 'react';
@@ -33,9 +34,21 @@ function useCategorias() {
 
 /** Vendas › Produtos e serviços (ecrã vendas_produtos): produtos, serviços, quartos e lavandaria; categorias. */
 export default function Produtos() {
+  const { pode } = useSessao();
+  const [importar, setImportar] = useState<EntidadeImportacao | null>(null);
   return (
     <>
-      <CabecalhoPagina titulo="Produtos e serviços" subtitulo="Catálogo usado na facturação, POS, compras e armazém" />
+      <CabecalhoPagina
+        titulo="Produtos e serviços"
+        subtitulo="Catálogo usado na facturação, POS, compras e armazém"
+        accoes={pode('vendas_produtos_gerir') && (
+          <Space wrap>
+            <Button icon={<ImportOutlined />} onClick={() => setImportar('produtos')}>Importar produtos</Button>
+            <Button icon={<ImportOutlined />} onClick={() => setImportar('categorias')}>Importar categorias</Button>
+          </Space>
+        )}
+      />
+      <ModalImportarProdutos entidade={importar} aoFechar={() => setImportar(null)} />
       <Tabs
         items={[
           { key: 'produtos', label: 'Produtos', children: <ListaProdutos /> },

@@ -33,6 +33,14 @@ use Illuminate\Support\Facades\DB;
  *     campo partilhado com Acréscimos e Amortizações);
  *   - importação dos contratos só de colaboradores ACTIVOS com contrato válido no mês; um lançamento por
  *     (colaborador, rubrica) — o legado tinha 15 duplicados.
+ * Ronda 2 (2026-10-06):
+ *   - decisão 3: encerrar com avisos (horas extra/faltas não valorizadas, horas extra automáticas…) exige confirmação
+ *     explícita (`confirmar_avisos`); sem ela é recusado com a lista (AVISOS_POR_CONFIRMAR);
+ *   - decisão 5: segregação encerrar/validar configurável por empresa (ServicoConfiguracaoRH, desligada por omissão);
+ *   - decisão 1: tabela de IRT configurável (ServicoTabelaIRT) no modo ATUAL;
+ *   - A-08: copiar os lançamentos de outro período, lançamentos em lote (várias rubricas e horas), edição e eliminação
+ *     de vários lançamentos e eliminação do período em aberto (legado: copyPreviousEntries, applyBatchEntries,
+ *     bulkEditSelectedEntries, deleteSelectedPayrollEntries, deleteOpenPeriod).
  */
 final class ServicoFolhaSalarial
 {
@@ -41,6 +49,8 @@ final class ServicoFolhaSalarial
         private readonly ServicoExercicios $exercicios,
         private readonly ServicoLancamentos $lancamentos,
         private readonly LocalizadorLancamentos $localizador,
+        private readonly ServicoTabelaIRT $tabelaIrt,
+        private readonly ServicoConfiguracaoRH $configRH,
     ) {}
 
     // ───────────── Períodos ─────────────
@@ -62,15 +72,23 @@ final class ServicoFolhaSalarial
         });
     }
 
-    public function encerrar(PeriodoProcessamentoSalarial $p): PeriodoProcessamentoSalarial
+    public function encerrar(PeriodoProcessamentoSalarial $p, bool $confirmarAvisos = false): PeriodoProcessamentoSalarial
     {
-        return DB::transaction(function () use ($p) {
+        return DB::transaction(function () use ($p, $confirmarAvisos) {
             $p = $this->bloquear($p);
             $this->exigirEstado($p, ['ABERTO']);
             if (! LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->exists()) {
                 throw new ErroNegocio('O período não tem lançamentos.', 'PERIODO_VAZIO', 422);
             }
             $this->gravarResultados($p, 'ATUAL');
+            // decisão 3 do utilizador: não se fecha um mês com avisos sem confirmação explícita
+            $avisos = ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->get(['colaborador_id', 'avisos'])
+                ->filter(fn ($r) => ! empty($r->avisos))->values();
+            if ($avisos->isNotEmpty() && ! $confirmarAvisos) {
+                $nomes = Colaborador::query()->withTrashed()->whereKey($avisos->pluck('colaborador_id'))->pluck('nome_completo', 'id');
+                throw new ErroNegocio('O cálculo tem avisos em '.$avisos->count().' colaborador(es): reveja-os e confirme para encerrar.', 'AVISOS_POR_CONFIRMAR', 422,
+                    ['avisos' => $avisos->map(fn ($r) => ['colaborador_id' => $r->colaborador_id, 'nome' => $nomes[$r->colaborador_id] ?? null, 'avisos' => $r->avisos])->all()]);
+            }
             $p->update(['estado' => 'FECHADO', 'fechado_em' => now(), 'fechado_por' => Auth::user()?->nome_utilizador, 'modo_calculo' => 'ATUAL']);
 
             return $p;
@@ -82,6 +100,11 @@ final class ServicoFolhaSalarial
         return DB::transaction(function () use ($p) {
             $p = $this->bloquear($p);
             $this->exigirEstado($p, ['FECHADO']);
+            // decisão 5 do utilizador: segregação de funções configurável por empresa (desligada por omissão)
+            $quem = Auth::user()?->nome_utilizador;
+            if ($this->configRH->valor('segregar_encerrar_validar') && $quem !== null && $p->fechado_por === $quem) {
+                throw new ErroNegocio('Segregação de funções: quem encerrou o cálculo não o pode validar. Peça a validação a outro utilizador.', 'SEGREGACAO_FUNCOES', 422);
+            }
             $p->update(['estado' => 'VALIDADO', 'validado_em' => now(), 'validado_por' => Auth::user()?->nome_utilizador]);
 
             return $p;
@@ -179,6 +202,174 @@ final class ServicoFolhaSalarial
         });
     }
 
+    // ───────────── A-08: cópia, lotes e eliminação do período em aberto ─────────────
+
+    /**
+     * Copia os lançamentos de outro período (copyPreviousEntries, app_v2.js:5116): todas as rubricas, valores, horas e dias;
+     * nunca duplica (colaborador, rubrica) — os já existentes ficam, salvo `substituir`. Não se copiam bonificações de
+     * desempenho (nascem da Avaliação) nem lançamentos de colaboradores que deixaram de estar ACTIVOS.
+     *
+     * @return array{copiados: int, substituidos: int, ja_existentes: int, ignorados: list<string>}
+     */
+    public function copiarDe(PeriodoProcessamentoSalarial $p, int $origemId, bool $substituir = false): array
+    {
+        return DB::transaction(function () use ($p, $origemId, $substituir) {
+            $p = $this->bloquear($p);
+            $this->exigirEstado($p, ['ABERTO']);
+            $origem = PeriodoProcessamentoSalarial::query()->findOrFail($origemId);
+            if ($origem->id === $p->id) {
+                throw new ErroNegocio('Escolha um período diferente do actual.', 'MESMO_PERIODO', 422);
+            }
+            $res = ['copiados' => 0, 'substituidos' => 0, 'ja_existentes' => 0, 'ignorados' => []];
+            $activos = Colaborador::query()->where('estado', 'ACTIVO')->pluck('nome_completo', 'id');
+            $existentes = LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->get()->keyBy(fn ($l) => "{$l->colaborador_id}|{$l->infotipo_salarial_id}");
+            $linhas = LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $origem->id)->orderBy('id')->get();
+            if ($linhas->isEmpty()) {
+                throw new ErroNegocio("O período {$origem->mes_ano} não tem lançamentos.", 'PERIODO_VAZIO', 422);
+            }
+            $inactivos = [];
+            foreach ($linhas as $l) {
+                if ($l->bonificacao_avaliacao_id || $l->origem === 'BONIFICACAO') {
+                    continue;
+                }
+                if (! isset($activos[$l->colaborador_id])) {
+                    $inactivos[$l->colaborador_id] = true;
+
+                    continue;
+                }
+                $k = "{$l->colaborador_id}|{$l->infotipo_salarial_id}";
+                $dados = ['valor' => $l->valor, 'dias_trabalhados' => $l->dias_trabalhados, 'horas' => $l->horas, 'origem' => 'COPIA'];
+                if (isset($existentes[$k])) {
+                    if (! $substituir || $existentes[$k]->bonificacao_avaliacao_id) {
+                        $res['ja_existentes']++;
+
+                        continue;
+                    }
+                    $existentes[$k]->update($dados);
+                    $res['substituidos']++;
+
+                    continue;
+                }
+                LinhaFolhaSalarial::create(['periodo_processamento_salarial_id' => $p->id, 'colaborador_id' => $l->colaborador_id, 'infotipo_salarial_id' => $l->infotipo_salarial_id] + $dados);
+                $res['copiados']++;
+            }
+            if ($inactivos) {
+                $res['ignorados'][] = count($inactivos).' colaborador(es) que já não estão activos.';
+            }
+
+            return $res;
+        });
+    }
+
+    /**
+     * Lançamento em lote (applyBatchEntries, app_v2.js:5224): várias rubricas — em valor ou em horas — para vários
+     * colaboradores, numa só transacção; cada (colaborador, rubrica) é gravado ou substituído.
+     *
+     * @param  list<int>  $colaboradores
+     * @param  list<array{infotipo_salarial_id: int, valor?: mixed, horas?: mixed, dias_trabalhados?: mixed}>  $rubricas
+     * @return array{gravados: int}
+     */
+    public function lancarEmLote(PeriodoProcessamentoSalarial $p, array $colaboradores, array $rubricas): array
+    {
+        return DB::transaction(function () use ($p, $colaboradores, $rubricas) {
+            $n = 0;
+            foreach (array_unique($colaboradores) as $c) {
+                foreach ($rubricas as $r) {
+                    $temHoras = isset($r['horas']) && $r['horas'] !== null && $r['horas'] !== '';
+                    if (! $temHoras && (float) ($r['valor'] ?? 0) <= 0) {
+                        continue;
+                    }
+                    $this->gravarLancamento($p, ['colaborador_id' => $c, 'infotipo_salarial_id' => $r['infotipo_salarial_id'], 'valor' => $temHoras ? 0 : $r['valor'],
+                        'horas' => $temHoras ? $r['horas'] : null, 'dias_trabalhados' => $temHoras ? null : ($r['dias_trabalhados'] ?? null)]);
+                    $n++;
+                }
+            }
+            if ($n === 0) {
+                throw new ErroNegocio('Indique pelo menos uma rubrica com valor ou horas.', 'LOTE_VAZIO', 422);
+            }
+
+            return ['gravados' => $n];
+        });
+    }
+
+    /**
+     * Edição em massa dos lançamentos seleccionados (bulkEditSelectedEntries, app_v2.js:5410): rubrica, dias trabalhados,
+     * valor e/ou horas, só nos campos indicados.
+     *
+     * @param  list<int>  $ids
+     * @param  array{infotipo_salarial_id?: int, dias_trabalhados?: mixed, valor?: mixed, horas?: mixed}  $campos
+     */
+    public function editarLancamentos(PeriodoProcessamentoSalarial $p, array $ids, array $campos): int
+    {
+        if ($campos === []) {
+            throw new ErroNegocio('Escolha pelo menos um campo a alterar.', 'SEM_ALTERACOES', 422);
+        }
+
+        return DB::transaction(function () use ($p, $ids, $campos) {
+            $p = $this->bloquear($p);
+            $this->exigirEstado($p, ['ABERTO']);
+            $linhas = LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->whereKey($ids)->lockForUpdate()->get();
+            if ($linhas->count() !== count(array_unique($ids))) {
+                throw new ErroNegocio('Há lançamentos seleccionados que não pertencem a este período.', 'LANCAMENTOS_INVALIDOS', 422);
+            }
+            if (DB::table('bonificacoes_avaliacao_rh')->whereIn('linha_folha_salarial_id', $linhas->pluck('id'))->exists()) {
+                throw new ErroNegocio('A selecção inclui bonificações de desempenho: altere-as na Avaliação.', 'LANCAMENTO_DE_BONIFICACAO', 422);
+            }
+            foreach ($linhas as $l) {
+                $novaRubrica = (int) ($campos['infotipo_salarial_id'] ?? $l->infotipo_salarial_id);
+                $this->gravarLancamento($p, ['colaborador_id' => $l->colaborador_id, 'infotipo_salarial_id' => $novaRubrica,
+                    'valor' => array_key_exists('valor', $campos) ? $campos['valor'] : $l->valor,
+                    'dias_trabalhados' => array_key_exists('dias_trabalhados', $campos) ? $campos['dias_trabalhados'] : $l->dias_trabalhados,
+                    'horas' => array_key_exists('horas', $campos) ? $campos['horas'] : $l->horas, 'origem' => $l->origem ?? 'MANUAL']);
+                if ($novaRubrica !== (int) $l->infotipo_salarial_id) {
+                    $l->delete();   // mudou de rubrica: o lançamento passou para a nova (gravado ou substituído acima)
+                }
+            }
+
+            return $linhas->count();
+        });
+    }
+
+    /** Eliminação dos lançamentos seleccionados (deleteSelectedPayrollEntries, app_v2.js:5332). */
+    public function removerLancamentos(PeriodoProcessamentoSalarial $p, array $ids): int
+    {
+        return DB::transaction(function () use ($p, $ids) {
+            $p = $this->bloquear($p);
+            $this->exigirEstado($p, ['ABERTO']);
+            $q = LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->whereKey($ids);
+            if ((clone $q)->count() !== count(array_unique($ids))) {
+                throw new ErroNegocio('Há lançamentos seleccionados que não pertencem a este período.', 'LANCAMENTOS_INVALIDOS', 422);
+            }
+            if (DB::table('bonificacoes_avaliacao_rh')->whereIn('linha_folha_salarial_id', $ids)->exists()) {
+                throw new ErroNegocio('A selecção inclui bonificações de desempenho: anule-as na Avaliação.', 'LANCAMENTO_DE_BONIFICACAO', 422);
+            }
+
+            return $q->delete();
+        });
+    }
+
+    /**
+     * Elimina o período em aberto e os seus lançamentos (deleteOpenPeriod, app_v2.js:6729). Só ABERTO (nunca encerrado,
+     * validado ou contabilizado) e sem bonificações de desempenho lançadas; a efectividade e a produtividade lançadas
+     * deixam de apontar para o período (podem ser lançadas de novo noutro).
+     */
+    public function eliminarPeriodoAberto(PeriodoProcessamentoSalarial $p): void
+    {
+        DB::transaction(function () use ($p) {
+            $p = $this->bloquear($p);
+            $this->exigirEstado($p, ['ABERTO']);
+            if ($p->contabilizado || DB::table('bonificacoes_avaliacao_rh')->where('periodo_processamento_salarial_id', $p->id)->exists()) {
+                throw new ErroNegocio('O período tem bonificações de desempenho lançadas: anule-as na Avaliação antes de o eliminar.', 'PERIODO_COM_BONIFICACOES', 422);
+            }
+            foreach (['fechos_mensais_assiduidade', 'periodos_produtividade_rh'] as $t) {
+                DB::table($t)->where('empresa_id', $this->contexto->obrigatorio())->where('periodo_processamento_salarial_id', $p->id)->update(['periodo_processamento_salarial_id' => null]);
+            }
+            LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->delete();
+            ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->delete();
+            $p->delete();
+        });
+    }
+
     // ───────────── Cálculo ─────────────
 
     /** Resultado do período: a fotografia gravada (se encerrado) ou o cálculo ao vivo (se aberto). */
@@ -187,15 +378,67 @@ final class ServicoFolhaSalarial
         $res = $p->estado !== 'ABERTO'
             ? ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->orderBy('colaborador_id')->get()->toArray()
             : $this->calcular($p, 'ATUAL');
-        // identificação do colaborador (nome, NIF, INSS) em cada resultado — a fotografia só guarda o id (ADR-064)
+        // identificação do colaborador (nome, NIF, INSS) em cada resultado — a fotografia só guarda o id (ADR-064);
+        // ronda 2 (A-10/M-13): função, banco e IBAN (recibo com forma de pagamento) e códigos de UN/CC (mapas)
         $ids = array_values(array_unique(array_map(fn ($x) => (int) $x['colaborador_id'], $res)));
-        $col = $ids === [] ? collect() : Colaborador::query()->withTrashed()->whereIn('id', $ids)->get(['id', 'nome_completo', 'nif', 'numero_inss'])->keyBy('id');
+        $col = $ids === [] ? collect() : Colaborador::query()->withTrashed()->whereIn('id', $ids)->get(['id', 'nome_completo', 'nif', 'numero_inss', 'cargo_funcao_id'])->keyBy('id');
+        $funcoes = DB::table('cargos_funcoes')->where('empresa_id', $this->contexto->obrigatorio())->pluck('nome', 'id');
+        $iban = $ids === [] ? collect() : DB::table('coordenadas_bancarias_colaboradores as c')->leftJoin('bancos as b', 'b.id', '=', 'c.banco_id')
+            ->where('c.empresa_id', $this->contexto->obrigatorio())->whereIn('c.colaborador_id', $ids)->get(['c.colaborador_id', 'c.iban', 'b.nome as banco'])->keyBy('colaborador_id');
+        $un = DB::table('unidades_negocio')->where('empresa_id', $this->contexto->obrigatorio())->pluck('codigo', 'id');
+        $cc = DB::table('centros_custo')->where('empresa_id', $this->contexto->obrigatorio())->pluck('codigo', 'id');
 
-        return array_map(function (array $x) use ($col) {
+        return array_map(function (array $x) use ($col, $funcoes, $iban, $un, $cc) {
             $c = $col[(int) $x['colaborador_id']] ?? null;
+            $b = $iban[(int) $x['colaborador_id']] ?? null;
 
-            return $x + ['nome' => $c?->nome_completo, 'nif' => $c?->nif, 'numero_inss' => $c?->numero_inss];
+            return $x + ['nome' => $c?->nome_completo, 'nif' => $c?->nif, 'numero_inss' => $c?->numero_inss, 'funcao' => $c ? ($funcoes[$c->cargo_funcao_id] ?? null) : null,
+                'banco' => $b?->banco, 'iban' => $b?->iban, 'unidade_negocio' => $un[$x['unidade_negocio_id'] ?? 0] ?? null, 'centro_custo' => $cc[$x['centro_custo_id'] ?? 0] ?? null];
         }, $res);
+    }
+
+    /**
+     * Simulação da massa salarial a partir dos contratos (simulateContractsPayroll, ui_simulate_contracts.js): sem período nem
+     * gravação — os lançamentos que «Importar dos contratos» criaria para o mês (colaboradores ACTIVOS com contrato válido, em Kz),
+     * calculados pelo motor no modo ATUAL com a tabela de IRT em vigor.
+     *
+     * @return array{mes_ano: string, resultados: list<array<string, mixed>>, ignorados: list<string>, totais: array<string, string>}
+     */
+    public function simularContratos(string $mesAno): array
+    {
+        if (! preg_match('/^(0[1-9]|1[0-2])\/\d{4}$/', $mesAno)) {
+            throw new ErroNegocio('Mês inválido (formato MM/AAAA).', 'MES_INVALIDO', 422);
+        }
+        $empresa = Empresa::query()->findOrFail($this->contexto->obrigatorio());
+        $infotipos = InfotipoSalarial::query()->withTrashed()->get()->mapWithKeys(fn ($i) => [$i->id => $this->infotipoArray($i)])->all();
+        $cfg = ['modo' => 'ATUAL', 'inss_trabalhador' => $empresa->taxa_inss_trabalhador !== null ? (string) $empresa->taxa_inss_trabalhador : '3',
+            'inss_patronal' => $empresa->taxa_inss_patronal !== null ? (string) $empresa->taxa_inss_patronal : '8',
+            'he' => ['p1' => $empresa->he_percentagem_1 ?? 50, 'limite' => $empresa->he_limite_horas ?? 30, 'p2' => $empresa->he_percentagem_2 ?? 75],
+            'tabela_irt' => $this->tabelaIrt->atual()];
+        $contratos = ContratoTrabalho::query()->get()->groupBy('colaborador_id');
+        $res = [];
+        $ignorados = [];
+        foreach (Colaborador::query()->where('estado', 'ACTIVO')->orderBy('nome_completo')->get() as $c) {
+            $contrato = $this->contratoDoMes($contratos[$c->id] ?? collect(), $mesAno, 'ATUAL');
+            if (! $contrato || ($contrato->codigo_moeda && $contrato->codigo_moeda !== 'AOA')) {
+                $ignorados[] = $c->nome_completo.': '.(! $contrato ? "sem contrato activo em {$mesAno}." : "contrato em {$contrato->codigo_moeda}.");
+
+                continue;
+            }
+            $ctr = $this->contratoArray($contrato);
+            $dias = (float) MotorSalarial::diasContrato($ctr);
+            $r = MotorSalarial::calcular(['id' => $c->id, 'avencado' => (bool) $c->avencado, 'reformado' => (bool) $c->reformado,
+                'dias_contrato' => (float) $contrato->dias_contrato_mes > 0 ? $contrato->dias_contrato_mes : ($c->dias_uteis_mes ?: 0), 'contrato' => $ctr,
+                'lancamentos' => array_map(fn ($rem) => ['infotipo_id' => $rem['infotipo_id'], 'valor' => MotorSalarial::arred(MotorSalarial::mensal($rem, $ctr)), 'dias_trabalhados' => $dias],
+                    $ctr['remuneracoes'])], $infotipos, $cfg);
+            $res[] = $r + ['nome' => $c->nome_completo, 'nif' => $c->nif, 'tipo_organizacao_id' => $c->tipo_organizacao_id];
+        }
+        $totais = [];
+        foreach (['bruto', 'inss_trabalhador', 'inss_patronal', 'irt', 'descontos', 'liquido'] as $k) {
+            $totais[$k] = array_reduce($res, fn ($s, $x) => bcadd($s, (string) $x[$k], 2), '0.00');
+        }
+
+        return ['mes_ano' => $mesAno, 'resultados' => $res, 'ignorados' => $ignorados, 'totais' => $totais];
     }
 
     /** @return list<array<string, mixed>> */
@@ -207,7 +450,8 @@ final class ServicoFolhaSalarial
         $contratos = ContratoTrabalho::query()->get()->groupBy('colaborador_id');
         $cfg = ['modo' => $modo, 'inss_trabalhador' => $modo === 'ATUAL' && $empresa->taxa_inss_trabalhador !== null ? (string) $empresa->taxa_inss_trabalhador : '3',
             'inss_patronal' => $modo === 'ATUAL' && $empresa->taxa_inss_patronal !== null ? (string) $empresa->taxa_inss_patronal : '8',
-            'he' => ['p1' => $empresa->he_percentagem_1 ?? 50, 'limite' => $empresa->he_limite_horas ?? 30, 'p2' => $empresa->he_percentagem_2 ?? 75]];
+            'he' => ['p1' => $empresa->he_percentagem_1 ?? 50, 'limite' => $empresa->he_limite_horas ?? 30, 'p2' => $empresa->he_percentagem_2 ?? 75],
+            'tabela_irt' => $modo === 'ATUAL' ? $this->tabelaIrt->atual() : null];
         $saida = [];
         foreach (LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->orderBy('id')->get()->groupBy('colaborador_id') as $cid => $linhas) {
             $c = $colaboradores[$cid] ?? null;
@@ -294,12 +538,15 @@ final class ServicoFolhaSalarial
             $sistema = MapeamentoContabilSistemaRH::query()->get();
             $linhas = [];
             $faltam = [];
-            $somar = function (?string $conta, string $dc, string $valor, $r, string $falta) use (&$linhas, &$faltam) {
+            $detalhe = [];
+            $somar = function (?string $conta, string $dc, string $valor, $r, string $falta, array $chave = []) use (&$linhas, &$faltam, &$detalhe) {
                 if (bccomp($valor, '0', 2) === 0) {
                     return;
                 }
                 if (! $conta) {
                     $faltam[$falta] = true;
+                    // A-10: o assistente de mapeamentos em falta precisa do que mapear (rubrica ou código, tipo de organização, avençado)
+                    $detalhe[$falta] ??= $chave + ['descricao' => $falta, 'tipo_organizacao_id' => ($chave['avencado'] ?? false) ? null : $r->tipo_organizacao_id];
 
                     return;
                 }
@@ -316,16 +563,20 @@ final class ServicoFolhaSalarial
                     }
                     $conta = $this->contaRubrica($mapas, (int) $rub['infotipo_id'], $org, (bool) $r->avencado);
                     $somar($conta, $rub['tipo'] === 'VENCIMENTO' ? 'D' : 'C', number_format((float) $rub['valor'], 2, '.', ''), $r,
-                        'Rubrica '.($nomes[$rub['infotipo_id']] ?? $rub['infotipo_id']).($r->avencado ? ' (avençado)' : " (tipo de organização {$org})"));
+                        'Rubrica '.($nomes[$rub['infotipo_id']] ?? $rub['infotipo_id']).($r->avencado ? ' (avençado)' : " (tipo de organização {$org})"),
+                        ['tipo' => 'RUBRICA', 'infotipo_salarial_id' => (int) $rub['infotipo_id'], 'rubrica' => $nomes[$rub['infotipo_id']] ?? null, 'avencado' => (bool) $r->avencado]);
                 }
-                $somar($this->contaSistema($sistema, 'NET_PAY_CREDIT', $org, (bool) $r->avencado), 'C', (string) $r->liquido, $r, 'NET_PAY_CREDIT');
-                $somar($this->contaSistema($sistema, $r->avencado ? 'IRT_AVENCADO_CREDIT' : 'IRT_CREDIT', $org, false), 'C', (string) $r->irt, $r, $r->avencado ? 'IRT_AVENCADO_CREDIT' : 'IRT_CREDIT');
-                $somar($this->contaSistema($sistema, 'INSS_FUNC_CREDIT', $org, false), 'C', (string) $r->inss_trabalhador, $r, 'INSS_FUNC_CREDIT');
-                $somar($this->contaSistema($sistema, 'INSS_EMP_DEBIT', $org, false), 'D', (string) $r->inss_patronal, $r, 'INSS_EMP_DEBIT');
-                $somar($this->contaSistema($sistema, 'INSS_EMP_CREDIT', $org, false), 'C', (string) $r->inss_patronal, $r, 'INSS_EMP_CREDIT');
+                $sis = fn (string $codigo, bool $avencado = false) => ['tipo' => 'SISTEMA', 'codigo' => $codigo, 'avencado' => $avencado];
+                $somar($this->contaSistema($sistema, 'NET_PAY_CREDIT', $org, (bool) $r->avencado), 'C', (string) $r->liquido, $r, 'NET_PAY_CREDIT', $sis('NET_PAY_CREDIT', (bool) $r->avencado));
+                $irt = $r->avencado ? 'IRT_AVENCADO_CREDIT' : 'IRT_CREDIT';
+                $somar($this->contaSistema($sistema, $irt, $org, false), 'C', (string) $r->irt, $r, $irt, $sis($irt));
+                $somar($this->contaSistema($sistema, 'INSS_FUNC_CREDIT', $org, false), 'C', (string) $r->inss_trabalhador, $r, 'INSS_FUNC_CREDIT', $sis('INSS_FUNC_CREDIT'));
+                $somar($this->contaSistema($sistema, 'INSS_EMP_DEBIT', $org, false), 'D', (string) $r->inss_patronal, $r, 'INSS_EMP_DEBIT', $sis('INSS_EMP_DEBIT'));
+                $somar($this->contaSistema($sistema, 'INSS_EMP_CREDIT', $org, false), 'C', (string) $r->inss_patronal, $r, 'INSS_EMP_CREDIT', $sis('INSS_EMP_CREDIT'));
             }
             if ($faltam) {
-                throw new ErroNegocio('Faltam mapeamentos contabilísticos: '.implode('; ', array_keys($faltam)).'.', 'MAPEAMENTO_EM_FALTA', 422, ['em_falta' => array_keys($faltam)]);
+                throw new ErroNegocio('Faltam mapeamentos contabilísticos: '.implode('; ', array_keys($faltam)).'.', 'MAPEAMENTO_EM_FALTA', 422,
+                    ['em_falta' => array_keys($faltam), 'em_falta_detalhe' => array_values($detalhe)]);
             }
             $this->acertarArredondamento($p, $sistema, $linhas);
             // notas às demonstrações como o legado (integratePayrollToJournal, js/app_v2.js:6313-6315): 72* → nota 28, outras 3* → nota 19

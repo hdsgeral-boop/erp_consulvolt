@@ -197,6 +197,9 @@ final class POSLavandariaTest extends TestCase
         $this->assertSame(['FR', "FR L01{$ano}/1", '1140.00', null, 'ORCAMENTO'],
             [$r['documento']['tipo_documento'], $r['documento']['numero_documento'], $r['documento']['total_bruto'], $r['recibo'], $r['pedido']['itens'][1]['estado']]);
         $os = $r['pedido']['id'];
+        // M-16: reimpressão da factura da OS com as permissões da lavandaria; documento de outra ordem recusado
+        $this->getJson("/api/pos/lavandaria/ordens/{$os}/documentos/{$r['documento']['id']}", $s)->assertOk()->assertJsonPath('dados.numero_documento', "FR L01{$ano}/1");
+        $this->getJson('/api/pos/lavandaria/ordens/'.($os + 999)."/documentos/{$r['documento']['id']}", $s)->assertNotFound();
         $this->assertSame(['FR', '1140.00'], $this->naEmpresa(fn () => [PagamentoLavandaria::first()->natureza_registo, (string) PagamentoLavandaria::first()->montante]));
 
         // orçamento aprovado de 3 000: o valor é o facturável pela regra AGT (preço com IVA a 2 casas)

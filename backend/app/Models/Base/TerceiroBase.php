@@ -7,6 +7,7 @@ use App\Models\AtivoImobilizado;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ContaCRM;
+use App\Models\ContaMesaPOS;
 use App\Models\ContratoFornecedor;
 use App\Models\CotacaoCompra;
 use App\Models\EncomendaCompra;
@@ -181,5 +182,10 @@ abstract class TerceiroBase extends ModeloBase
     public function contasCrm(): HasMany
     {
         return $this->hasMany(ContaCRM::class, 'terceiro_id');
+    }
+
+    public function contasMesaPos(): HasMany
+    {
+        return $this->hasMany(ContaMesaPOS::class, 'cliente_id');
     }
 }

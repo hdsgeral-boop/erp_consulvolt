@@ -15,6 +15,7 @@ import type { ContaPlano, RegistoAux } from './api';
 import { BotaoCsv, ValorKz } from './comum/Componentes';
 import { usePlanoContas, useTabelaAux, type TabelaAux } from './comum/dados';
 import { ModalImportar } from './comum/ficheiros';
+import { UnidadesNegocio } from '@/modulos/config/UnidadesNegocio';
 
 const TABELAS: { chave: TabelaAux; titulo: string }[] = [
   { chave: 'diarios', titulo: 'Diários' },
@@ -23,15 +24,17 @@ const TABELAS: { chave: TabelaAux; titulo: string }[] = [
   { chave: 'centros-custo', titulo: 'Centros de custo' },
 ];
 
-/** Contabilidade › Terceiros e tabelas (ecrã tabelas_aux): diários, notas, centros de custo, plano de contas e reciclagem. Os terceiros têm módulo próprio. */
+/** Contabilidade › Terceiros e tabelas (ecrã tabelas_aux): diários, notas, centros de custo, unidades de negócio, plano de contas e reciclagem. Os terceiros têm módulo próprio. */
 export default function TabelasAux() {
   const { pode } = useSessao();
   return (
     <>
-      <CabecalhoPagina titulo="Tabelas auxiliares" subtitulo="Diários, notas, centros de custo, plano de contas e reciclagem de lançamentos" />
+      <CabecalhoPagina titulo="Tabelas auxiliares" subtitulo="Diários, notas, centros de custo, unidades de negócio, plano de contas e reciclagem de lançamentos" />
       <Tabs
         items={[
           ...TABELAS.map((t) => ({ key: t.chave, label: t.titulo, children: <TabelaSimples tabela={t.chave} titulo={t.titulo} /> })),
+          // M-14 (ADR-068): o mesmo ecrã das Configurações gerais (mesma permissão tabelas_aux_view / aux_gerir), sem duplicar código
+          { key: 'unidades-negocio', label: 'Unidades de negócio', children: <Card><UnidadesNegocio /></Card> },
           { key: 'plano', label: 'Plano de contas', children: <PlanoContas /> },
           ...(pode('aux_reciclagem', 'tabelas_aux_view') ? [{ key: 'reciclagem', label: 'Reciclagem', children: <Reciclagem /> }] : []),
         ]}

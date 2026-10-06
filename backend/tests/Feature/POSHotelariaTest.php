@@ -175,6 +175,11 @@ final class POSHotelariaTest extends TestCase
         $sim = $this->postJson("{$url}/simular", $base, $this->s)->assertOk()->json('dados');
         $this->assertSame(['Quarto 1', 'Quarto 2'], $sim['saidas_por_decidir']);
         $this->assertSame(['quantidade' => '2.000', 'extra' => '1.000'], $sim['facturas'][0]['estadias'][0]['proposta']);
+        // decisão 10: na pré-visualização o arredondamento AGT fica separado do desconto (bruto − desconto − arredondamento = total)
+        foreach ($sim['facturas'] as $f) {
+            $this->assertSame($f['total'], bcsub(bcsub($f['bruto'], $f['desconto'], 2), $f['arredondamento_agt'], 2));
+        }
+        $this->assertSame('570.00', $sim['facturas'][1]['desconto']);   // Q2: 10 % de 5 700, sem o arredondamento
         $pagamentos = [['meio_id' => 'pm_tpa', 'valor' => 20000], ['meio_id' => 'pm_num', 'valor' => 8000]];
         $this->postJson($url, $base + ['pagamentos' => $pagamentos], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'ATRASO_POR_DECIDIR');
         $base['estadias'] = [['id' => $e1, 'opcao_atraso' => 'RECALCULAR'], ['id' => $e2, 'opcao_atraso' => 'MANTER']];

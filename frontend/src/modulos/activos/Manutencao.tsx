@@ -2,6 +2,7 @@ import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, 
 import { CheckOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
+import { NavActivos } from './comum/NavActivos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros } from '@/componentes/responsivo';
@@ -60,6 +61,7 @@ export default function Manutencao() {
         subtitulo="Intervenções preventivas e correctivas nos activos"
         accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNova(true)}>Registar manutenção</Button>}
       />
+      <NavActivos actual="activos_manutencao" />
       <Card>
         <BarraFiltros accoes={<>
           <BotoesExportar desactivado={!q.itens.length} obterPedido={() => pedidoTodasPaginas('/ativos/manutencoes', { ativo_imobilizado_id: activo, estado, tipo, ...filtroPeriodo(periodo) }, {

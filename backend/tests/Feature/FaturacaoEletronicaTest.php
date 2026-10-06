@@ -55,7 +55,7 @@ final class FaturacaoEletronicaTest extends TestCase
             $this->produto = Produto::create(['codigo' => 'P1', 'nome' => 'Produto 1', 'preco_unitario' => 1000, 'taxa_imposto' => 14,
                 'codigo_conta' => '611', 'conta_iva_liquidado' => '3452', 'movimenta_stock' => true]);
         });
-        $this->cabecalhos = $this->sessao(['vendas_faturacao_view', 'vendas_fat_emitir', 'vendas_fe_config', 'vendas_relatorios_view', 'vendas_recibos',
+        $this->cabecalhos = $this->sessao(['vendas_faturacao_view', 'vendas_fat_emitir', 'vendas_alterar_preco', 'cambio_manual_fora_tolerancia', 'vendas_fe_config', 'vendas_relatorios_view', 'vendas_recibos',
             'vendas_fat_contabilizar']);
 
         // Chaves de teste (as reais ficam em /run/segredos/agt, fora do Git)

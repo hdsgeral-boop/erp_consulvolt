@@ -16,6 +16,7 @@ import { PortalAvaliacao } from './comum/PortalAvaliacao';
 import { AreaImpressao, BotaoImprimir, EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro } from './comum/consultas';
 import { DocumentoImpresso, EtapasPedido, resumoPedido } from './comum/Pedidos';
+import { AMinhaEquipa } from './comum/AMinhaEquipa';
 import { ReciboSalario } from './comum/ReciboSalario';
 import { pedidoPendente } from './comum/regras';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -43,6 +44,7 @@ export default function Portal() {
         { key: 'recibos', label: 'Recibos', children: <Recibos resumo={r} /> },
         { key: 'faltas', label: r.faltas_por_justificar ? `Faltas (${r.faltas_por_justificar})` : 'Faltas', children: <MinhasFaltas /> },
         { key: 'avaliacao', label: 'A minha avaliação', children: <PortalAvaliacao /> },
+        { key: 'equipa', label: 'A minha equipa', children: <AMinhaEquipa /> },
         { key: 'aprovacoes', label: `Aprovações (${r.aprovacoes_para_mim})`, children: <Aprovacoes /> },
         {
           key: 'dados',
@@ -197,7 +199,7 @@ function Recibos({ resumo }: { resumo: ResumoPortal }) {
       <Modal title={`Recibo ${ver?.mes_ano ?? ''}`} open={ver !== null} width={larguraModal(820)} onCancel={() => setVer(null)} footer={<Space wrap><BotaoImprimir /><Button onClick={() => setVer(null)}>Fechar</Button></Space>}>
         {ver && (
           <AreaImpressao>
-            <ReciboSalario resultado={ver} mesAno={ver.mes_ano ?? ''} empresa={{ nome: empresa?.nome, nif: empresa?.nif ?? null }} colaborador={{ nome: resumo.colaborador.nome_completo, nif: resumo.colaborador.nif }} />
+            <ReciboSalario vias={1} resultado={ver} mesAno={ver.mes_ano ?? ''} empresa={{ nome: empresa?.nome, nif: empresa?.nif ?? null }} colaborador={{ nome: resumo.colaborador.nome_completo, nif: resumo.colaborador.nif }} />
           </AreaImpressao>
         )}
       </Modal>

@@ -3,6 +3,7 @@ import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, StopOutlined, 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
+import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaApi } from '@/componentes/TabelaApi';
@@ -51,8 +52,9 @@ export default function Utilizadores() {
 
   return (
     <>
+      <NavConfig actual="config_utilizadores" />
       <CabecalhoPagina
-        titulo="Utilizadores"
+        titulo="Gestão de Utilizadores"
         subtitulo="Contas de acesso, perfil de permissões e empresas de cada utilizador"
         accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo utilizador</Button>}
       />

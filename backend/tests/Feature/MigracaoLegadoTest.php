@@ -218,6 +218,49 @@ final class MigracaoLegadoTest extends TestCase
     }
 
     #[Test]
+    public function pos_carga_atribui_as_permissoes_novas_e_as_contas_6621_7621_aos_dados_migrados(): void
+    {
+        // ADR-068: numa base nova as migrações de dados correm antes de haver perfis/planos; a ETL volta a aplicá-las
+        $b = $this->backup();
+        foreach ($b['data']['data'] as &$t) {
+            if ($t['tableName'] === 'user_profiles') {
+                $t['rows'][] = ['id' => 2, 'name' => 'Comercial', 'permissions' => ['_v2' => true, 'vendas_faturacao_view' => true, 'vendas_fat_emitir' => true]];
+                $t['rows'][] = ['id' => 3, 'name' => 'Financeiro', 'permissions' => ['_v2' => true, 'config_moedas_view' => true, 'config_moedas_gerir' => true,
+                    'rh_infotipos_gerir' => true]];
+                $t['rows'][] = ['id' => 4, 'name' => 'Administrador', 'permissions' => ['all' => true]];
+            }
+            if ($t['tableName'] === 'chart_of_accounts') {
+                $t['rows'][] = ['id' => 3, 'company_id' => 1, 'code' => '6621', 'description' => 'Diferenças de câmbio favoráveis', 'type' => 'M'];
+                $t['rows'][] = ['id' => 4, 'company_id' => 1, 'code' => '7621', 'description' => 'Diferenças de câmbio desfavoráveis', 'type' => 'M'];
+            }
+        }
+        unset($t);
+        file_put_contents($this->ficheiro, json_encode($b, JSON_UNESCAPED_UNICODE));
+
+        $this->assertSame(0, $this->migrar());
+
+        $perms = fn (int $id) => json_decode((string) DB::table('perfis_utilizador')->where('id', $id)->value('permissoes'), true);
+        // vendas_alterar_preco segue a emissão de documentos; o câmbio fora da tolerância NÃO (só quem gere moedas)
+        $this->assertTrue($perms(2)['vendas_alterar_preco'] ?? false);
+        $this->assertArrayNotHasKey('cambio_manual_fora_tolerancia', $perms(2));
+        $this->assertTrue($perms(3)['cambio_manual_fora_tolerancia'] ?? false);
+        $this->assertTrue($perms(3)['rh_tabela_irt_gerir'] ?? false);
+        $this->assertArrayNotHasKey('vendas_alterar_preco', $perms(3));
+        $this->assertSame(['all' => true], $perms(4));   // acesso total intacto (já tem tudo)
+        $this->assertSame(['_v2' => true, 'config_logs_view' => true], $perms(1));
+
+        foreach (['configuracoes_contabeis_tesouraria', 'configuracoes_contabeis_compras'] as $tabela) {
+            $this->assertSame(['diferencas_cambio_desfavoraveis' => '7621', 'diferencas_cambio_favoraveis' => '6621'],
+                DB::table($tabela)->where('empresa_id', 1)->orderBy('chave')->pluck('codigo_conta', 'chave')->map(fn ($c) => trim($c))->all());
+        }
+        $relatorio = json_decode(DB::table('execucoes_migracao')->value('relatorio'), true);
+        $this->assertSame(['rh_tabela_irt_gerir' => 1, 'vendas_alterar_preco' => 1, 'cambio_manual_fora_tolerancia' => 1], $relatorio['pos_carga']['permissoes_atribuidas']);
+
+        // idempotente: o comando de recurso não volta a atribuir nada
+        $this->artisan('erp:migracao:pos-carga')->expectsOutputToContain('vendas_alterar_preco: atribuída a 0')->assertSuccessful();
+    }
+
+    #[Test]
     public function recusa_ficheiros_que_nao_sao_exports_dexie(): void
     {
         file_put_contents($this->ficheiro, json_encode(['formatName' => 'outro', 'data' => []]));

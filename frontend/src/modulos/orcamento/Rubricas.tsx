@@ -52,13 +52,13 @@ export default function Rubricas() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Rubricas orçamentais"
+        titulo="Rubricas Orçamentais"
         subtitulo="Cada conta pertence a uma só rubrica do mesmo tipo (exacta ou por prefixo)"
         accoes={gerir && (
           <>
             <Popconfirm title={`Criar as rubricas base do PGC (${tipo === 'EXPLORACAO' ? 'exploração' : 'tesouraria'})?`} description="Só se criam as que existem no plano e não se sobrepõem às actuais." okText="Criar" cancelText="Cancelar"
               onConfirm={() => accao.mutate({ url: '/orcamento/rubricas/base', dados: { tipo } })}>
-              <Button icon={<ThunderboltOutlined />} loading={accao.isPending}>Rubricas base</Button>
+              <Button icon={<ThunderboltOutlined />} loading={accao.isPending}>Criar rubricas base</Button>
             </Popconfirm>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar({ tipo, ativo: true, contas: [] })}>Nova rubrica</Button>
           </>

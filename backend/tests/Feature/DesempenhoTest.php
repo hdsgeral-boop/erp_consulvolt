@@ -61,7 +61,11 @@ final class DesempenhoTest extends TestCase
 
         $this->assertCount(12, $resumo);
         $this->assertSame(25, $resumo[$ids[0]]['direito']);
-        $this->assertSame(22, $resumo[$ids[1]]['direito']);   // o direito de 2025 não conta para 2026
+        // o direito gravado em 2025 não passa a ser o de 2026: 2026 é calculado (22) + o saldo de 2025 transportado (decisão 7 do
+        // utilizador, LGT): 30 − 2 marcados = 28, limitado a 22 (máximo transportável por omissão) → 44
+        $this->assertSame(44, $resumo[$ids[1]]['direito']);
+        $this->assertSame(22, $resumo[$ids[1]]['transporte']);
+        $this->assertSame(22, $resumo[$ids[2]]['direito']);   // sem plano no ano anterior, nada transita
         $this->assertLessThan(12, $consultas, 'O resumo de férias não pode fazer uma consulta por colaborador.');
     }
 

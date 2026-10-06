@@ -4,7 +4,8 @@ import { scrollTabela, useEcra } from '@/componentes/responsivo';
 import { DeleteOutlined, DownloadOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { VisoesGuardadas } from '@/componentes/preferencias/VisoesGuardadas';
 import { enviar, obter } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
@@ -35,6 +36,16 @@ interface Props {
  * Análise dinâmica (tabela dinâmica agregada no servidor): dimensões nas linhas e colunas, medidas com agregação, filtros de
  * inclusão/exclusão, período, gráfico da 1.ª medida e exportação CSV. Usada pelo cubo do Dashboard e pelo BI contabilístico.
  */
+/** Visão gravada do cubo (o que se guarda no servidor). */
+interface VisaoCubo {
+  linhas: string[];
+  colunas: string[];
+  medidas: PedidoMedida[];
+  filtros: Filtro[];
+  apuramento: boolean;
+  datas: [string, string] | null;
+}
+
 export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comValores, periodos }: Props) {
   const [datas, setDatas] = useState<[Dayjs, Dayjs] | null>([dayjs().startOf('year'), dayjs().endOf('month')]);
   const [periodo, setPeriodo] = useState<string | undefined>(periodos ? 'ano_atual' : undefined);
@@ -110,6 +121,17 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
     );
     return [...dims, ...valores];
   }, [r, pivot, telemovel]);
+
+  // M-19: visões gravadas no servidor por utilizador (guardar/aplicar/visão padrão); estável para o efeito da visão padrão
+  const aplicarVisao = useCallback((v: VisaoCubo) => {
+    setLinhas(v.linhas ?? []);
+    setColunas(v.colunas ?? []);
+    setMedidas(v.medidas?.length ? v.medidas : conjunto.padrao.medidas);
+    setFiltros(v.filtros ?? []);
+    setApuramento(!!v.apuramento);
+    if (v.datas?.[0] && v.datas[1]) setDatas([dayjs(v.datas[0]), dayjs(v.datas[1])]);
+  }, [conjunto]);
+  const visaoActual: VisaoCubo = { linhas, colunas, medidas, filtros, apuramento, datas: datas ? [dataApi(datas[0]) ?? '', dataApi(datas[1]) ?? ''] : null };
 
   const grafico = r ? seriesPivot(r) : null;
   const podeAnalisar = (medidas.length > 0 || linhas.length > 0) && (!usarDatas || !!datas);
@@ -200,7 +222,8 @@ export function AnaliseDinamica({ conjunto, urlConsultar, enviarConjunto, comVal
               )}
             </Flex>
           </Space>
-          <Flex justify="end" style={{ marginTop: 12 }}>
+          <Flex justify="end" gap={8} wrap style={{ marginTop: 12 }}>
+            <VisoesGuardadas<VisaoCubo> conjunto={conjunto.id} visao={visaoActual} aoAplicar={aplicarVisao} />
             <Button type="primary" icon={<PlayCircleOutlined />} loading={consulta.isPending} disabled={!podeAnalisar} onClick={() => consulta.mutate()}>
               Analisar
             </Button>

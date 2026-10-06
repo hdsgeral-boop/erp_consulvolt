@@ -18,6 +18,7 @@ use App\Models\RubricaOrcamental;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Orcamento\ServicoControloOrcamental;
+use App\Services\Orcamento\ServicoExecucaoOrcamental;
 use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -206,6 +207,32 @@ final class OrcamentoControloTest extends TestCase
             $this->assertEquals([400.0, 600.0], $valores());   // 600 por facturar na encomenda + 400 na factura (sem dupla contagem)
             $f->update(['contabilizado' => true]);
             $this->assertEquals([600.0], $valores());   // contabilizada: passa ao realizado
+        });
+    }
+
+    #[Test]
+    public function modo_nenhum_mostra_excedido_e_gasto_sem_orcamento_e_desfavoravel(): void
+    {
+        // Decisões 23 e 24 do utilizador (2026-10-06): monitor no modo NENHUM com EXCEDIDO acima de 100 % (informativo);
+        // rubrica de custo sem orçado mas com realizado = desvio desfavorável significativo.
+        $this->em(function () {
+            $ano = (int) now()->format('Y');
+            RubricaOrcamental::query()->whereKey($this->ids['C04'])->update(['controlo' => ['modo' => 'NENHUM', 'aviso_pct' => 90, 'limite_pct' => 100, 'base' => 'ANO']]);
+            $c = app(ServicoControloOrcamental::class);
+            $estado = fn () => collect($c->monitor($ano, 12))->keyBy('rubrica_orcamental_id')[$this->ids['C04']]['estado'];
+            $this->assertSame('OK', $estado());   // 800 de 1 200
+            app(ServicoLancamentos::class)->criar(['diario_id' => $this->ids['diario'], 'data_documento' => $this->hoje, 'numero_documento' => 'X1', 'descricao' => 'Serviços',
+                'linhas' => [['codigo_conta' => '752', 'tipo_dc' => 'D', 'valor' => 300], ['codigo_conta' => '4311', 'tipo_dc' => 'C', 'valor' => 300]]]);
+            $this->assertSame('AVISO', $estado());   // 1 100 = 91,67 %
+            app(ServicoLancamentos::class)->criar(['diario_id' => $this->ids['diario'], 'data_documento' => $this->hoje, 'numero_documento' => 'X2', 'descricao' => 'Serviços',
+                'linhas' => [['codigo_conta' => '752', 'tipo_dc' => 'D', 'valor' => 200], ['codigo_conta' => '4311', 'tipo_dc' => 'C', 'valor' => 200]]]);
+            $this->assertSame('EXCEDIDO', $estado());   // 1 300 = 108,33 %
+
+            app(ServicoLancamentos::class)->criar(['diario_id' => $this->ids['diario'], 'data_documento' => $this->hoje, 'numero_documento' => 'J1', 'descricao' => 'Juros',
+                'linhas' => [['codigo_conta' => '7611', 'tipo_dc' => 'D', 'valor' => 25], ['codigo_conta' => '4311', 'tipo_dc' => 'C', 'valor' => 25]]]);
+            $o = OrcamentoAnual::query()->find($this->ids['orcamento']);
+            $l = collect(app(ServicoExecucaoOrcamental::class)->controlo($o, 12, 'ANO')['linhas'])->firstWhere('codigo', 'C05');
+            $this->assertEquals([0, 25, false, true, true], [$l['orcado'], $l['realizado'], $l['favoravel'], $l['sem_orcamento'], $l['desvio_significativo']]);
         });
     }
 }

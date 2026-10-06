@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
+import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -54,6 +55,7 @@ export default function Perfis() {
   const gerir = pode('config_perfis_gerir');
   return (
     <>
+      <NavConfig actual="config_perfis" />
       <CabecalhoPagina titulo="Perfis e permissões" subtitulo="O que cada perfil pode consultar e fazer, com controlo da segregação de funções" />
       <Tabs
         items={[

@@ -52,7 +52,8 @@ export default function NiveisStock() {
     { title: 'Mínimo', dataIndex: 'stock_minimo', align: 'right', responsive: ['lg'], render: (x: string | null) => (x ? formatarNumero(x) : '—') },
     { title: 'Custo médio (Kz)', dataIndex: 'custo_medio', align: 'right', responsive: ['lg'], render: (x: string | null) => formatarKz(x) },
     { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (x: string | null) => formatarKz(x), sorter: (a, b) => Number(a.valor) - Number(b.valor) },
-    { title: '', dataIndex: 'ruptura', render: (r: boolean) => (r ? <Tag color="red">Ruptura</Tag> : null) },
+    // Estado como no legado (Esgotado / Ruptura / Disponível)
+    { title: 'Estado', key: 'estado', render: (_, l) => (Number(l.quantidade) <= 0 ? <Tag color="red">Esgotado</Tag> : l.ruptura ? <Tag color="orange">Ruptura</Tag> : <Tag color="green">Disponível</Tag>) },
   ];
 
   return (

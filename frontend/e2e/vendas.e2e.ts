@@ -38,7 +38,7 @@ test('emitir uma factura (FT) com 2 linhas, ver o detalhe e contabilizar', async
   await expect(page.locator('.ant-statistic').filter({ hasText: 'Total (estimativa)' })).toContainText('7');
   expect(numeroPt(await page.locator('.ant-statistic').filter({ hasText: 'Total (estimativa)' }).locator('.ant-statistic-content').innerText())).toBe(7980);
 
-  await page.getByRole('button', { name: /^Emitir factura$/ }).click();
+  await page.getByRole('button', { name: /(^| )Emitir factura$/ }).click();
   await esperarSucesso(page);
   await expect(page).toHaveURL(/\/m\/vendas\/vendas_faturacao\/\d+$/);
   ftId = idDoEndereco(page);
@@ -78,7 +78,7 @@ test('emitir uma factura-recibo (FR) paga em numerário', async ({ page }) => {
   await page.locator('#conta_disponibilidade').fill('451');
   await page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option').filter({ hasText: '451 — Caixa principal' }).click();
   await linha(page, 0, 'E2E-A02', 1);
-  await page.getByRole('button', { name: /^Emitir factura-recibo$/ }).click();
+  await page.getByRole('button', { name: /(^| )Emitir factura-recibo$/ }).click();
   await esperarSucesso(page);
   await expect(page).toHaveURL(/\/m\/vendas\/vendas_faturacao\/\d+$/);
   const id = idDoEndereco(page);
@@ -103,7 +103,7 @@ test('nota de crédito (NC) parcial sobre a FT abate o pendente', async ({ page 
   await escolherOpcao(page, page.locator('#venda_origem_id'), ftNumero);
   await page.locator('#motivo_nota_credito').fill('Devolução parcial de uma caixa (teste E2E)');
   await linha(page, 0, 'E2E-A01', 1);
-  await page.getByRole('button', { name: /^Emitir nota de crédito$/ }).click();
+  await page.getByRole('button', { name: /(^| )Emitir nota de crédito$/ }).click();
   await esperarSucesso(page);
   await expect(page).toHaveURL(/\/m\/vendas\/vendas_faturacao\/\d+$/);
 

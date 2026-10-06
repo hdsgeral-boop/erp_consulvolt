@@ -3,6 +3,7 @@ import { CheckCircleOutlined, DeleteOutlined, EditOutlined, PlusOutlined, StopOu
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
+import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData } from '@/utilitarios/formatacao';
@@ -56,8 +57,9 @@ export default function Empresas() {
 
   return (
     <>
+      <NavConfig actual="config_empresas" />
       <CabecalhoPagina
-        titulo="Gestão de empresas"
+        titulo="Gestão de Empresas"
         subtitulo="Dados de identificação, parâmetros de RH, consolidação e documentos de cada empresa"
         accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova empresa</Button>}
       />

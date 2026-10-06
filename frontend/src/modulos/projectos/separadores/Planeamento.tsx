@@ -1,4 +1,4 @@
-import { Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Segmented, Select, Slider, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Segmented, Select, Slider, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { DeleteOutlined, EditOutlined, FlagOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -13,6 +13,7 @@ import { Gantt } from '../comum/Gantt';
 import { linhasGanttWbs, tarefaAtrasada } from '../comum/regras';
 import type { Marco, TarefaWbs } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
+import { descricaoMover, pedidoMover } from '../comum/arrastar';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 type LinhaArvore = (TarefaWbs & { chave: string; children?: LinhaArvore[] }) | { chave: string; grupo: true; marco: Marco | null; execucao: number; children?: LinhaArvore[] };
@@ -31,6 +32,22 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
   const [execucao, setExecucao] = useState<TarefaWbs | null>(null);
   const [eliminar, setEliminar] = useState<{ tipo: 'tarefa' | 'marco'; id: number; nome: string } | null>(null);
   const accEliminar = useAccao({ invalidar: [['projectos']], aoSucesso: () => setEliminar(null) });
+  // M-20: arrastar tarefas (reordenar, passar a subtarefa ou mudar de milestone) — POST /tarefas/{t}/mover
+  const [arrastada, setArrastada] = useState<number | null>(null);
+  const [sobre, setSobre] = useState<string | null>(null);
+  const accMover = useAccao({ invalidar: [['projectos']], tituloErro: 'Não foi possível mover a tarefa' });
+  const largar = (l: LinhaArvore, e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    setSobre(null);
+    if (arrastada === null) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const alvo = 'grupo' in l ? { marco: l.marco?.id ?? null } : { tarefa: l.id };
+    const p = pedidoMover(arrastada, alvo, e.clientY - r.top, r.height, e.shiftKey);
+    setArrastada(null);
+    if (!p) return;
+    accMover.mutate({ url: `/projetos/${projecto.id}/tarefas/${arrastada}/mover`, dados: p });
+    void message.info(`Tarefa movida ${descricaoMover(p, 'grupo' in l ? l.marco?.nome ?? 'Sem milestone' : l.nome)}.`);
+  };
   const nomeMembro = useMemo(() => new Map((equipa.data?.membros ?? []).map((m) => [m.id, m.nome])), [equipa.data]);
   const refGantt = useRef<HTMLDivElement>(null);
 
@@ -132,6 +149,7 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
         </Space>
       </Flex>
       {vista === 'wbs' ? (
+        <>
         <Table<LinhaArvore>
           rowKey="chave"
           size="small"
@@ -142,7 +160,21 @@ export function SeparadorPlaneamento({ projecto, acc }: PropsSeparador) {
           scroll={scrollTabela()}
           expandable={{ defaultExpandAllRows: true }}
           key={arvore.length}
+          onRow={(l) => (acc.gerir ? {
+            draggable: !('grupo' in l),
+            onDragStart: (e) => { if (!('grupo' in l)) { setArrastada(l.id); e.dataTransfer.effectAllowed = 'move'; } },
+            onDragEnd: () => { setArrastada(null); setSobre(null); },
+            onDragOver: (e) => { if (arrastada !== null) { e.preventDefault(); setSobre(l.chave); } },
+            onDrop: (e) => largar(l, e),
+            style: { cursor: 'grab', background: sobre === l.chave ? 'rgba(37, 99, 235, 0.08)' : undefined },
+          } : {})}
         />
+        {acc.gerir && (
+          <Typography.Paragraph type="secondary" style={{ marginTop: 8, fontSize: 12 }} className="imp-nao-imprimir">
+            Arraste uma tarefa para a reordenar: metade de cima da linha = antes, metade de baixo = depois, meio da linha (ou Shift) = subtarefa; sobre um milestone = mudar de milestone.
+          </Typography.Paragraph>
+        )}
+        </>
       ) : (
         <Gantt ref={refGantt} linhas={linhasGanttWbs(w.data)} />
       )}

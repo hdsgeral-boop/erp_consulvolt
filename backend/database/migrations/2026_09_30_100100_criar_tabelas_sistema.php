@@ -182,10 +182,91 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_quarentena_migracao_tabela_legado_id_legado ON quarentena_migracao (tabela_legado, id_legado)');
+
+        // cambios_bai_pendentes (tabela nova) · 0 linhas reais no backup
+        Schema::create('cambios_bai_pendentes', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('execucao_cambio_bai_id')->nullable()->comment('Obtenção que gerou a linha');
+            $table->date('data_cotacao')->nullable()->comment('Data a que o câmbio fica registado (dia da obtenção)');
+            $table->string('codigo_moeda', 50)->nullable();
+            $table->string('nome_moeda', 255)->nullable();
+            $table->decimal('taxa_compra', 18, 6)->nullable()->comment('Divisas: compra');
+            $table->decimal('taxa_venda', 18, 6)->nullable()->comment('Divisas: venda');
+            $table->decimal('taxa_media', 18, 6)->nullable()->comment('Média (compra + venda) / 2 — valor a gravar');
+            $table->decimal('ultima_taxa', 18, 6)->nullable()->comment('Último câmbio registado no momento da obtenção');
+            $table->date('ultima_data')->nullable();
+            $table->string('ultima_fonte', 50)->nullable();
+            $table->decimal('variacao', 9, 2)->nullable()->comment('Variação % face ao último registado');
+            $table->boolean('alerta')->nullable()->comment('Variação acima do limiar (5 %)');
+            $table->string('estado', 20)->nullable()->comment('PENDENTE, VALIDADO, REJEITADO ou SUBSTITUIDO');
+            $table->bigInteger('decidido_por_id')->nullable()->comment('Utilizador que validou/rejeitou');
+            $table->string('decidido_por', 100)->nullable();
+            $table->timestampTz('decidido_em')->nullable();
+            $table->text('motivo')->nullable()->comment('Motivo da rejeição / resultado da validação');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_cambios_bai_pendentes_estado ON cambios_bai_pendentes (estado)');
+        DB::statement('CREATE INDEX ix_cambios_bai_pendentes_execucao_cambio_bai_id ON cambios_bai_pendentes (execucao_cambio_bai_id)');
+
+        // execucoes_cambios_bai (tabela nova) · 0 linhas reais no backup
+        Schema::create('execucoes_cambios_bai', function (Blueprint $table) {
+            $table->id();
+            $table->string('origem', 20)->nullable()->comment('AGENDADA ou MANUAL');
+            $table->string('estado', 20)->nullable()->comment('SUCESSO ou FALHA');
+            $table->string('codigo_erro', 50)->nullable();
+            $table->text('mensagem')->nullable();
+            $table->integer('moedas')->nullable()->comment('Moedas deixadas por validar');
+            $table->bigInteger('utilizador_id')->nullable()->comment('Quem pediu (obtenção manual)');
+            $table->timestampTz('iniciado_em')->nullable();
+            $table->timestampTz('concluido_em')->nullable();
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_execucoes_cambios_bai_iniciado_em ON execucoes_cambios_bai (iniciado_em)');
+
+        // tokens_bi (tabela nova) · 0 linhas reais no backup
+        Schema::create('tokens_bi', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->string('nome', 255)->nullable()->comment('Descrição (ex.: Power BI da Direcção Financeira)');
+            $table->string('prefixo', 20)->nullable()->comment('Início do token, para o identificar sem o revelar');
+            $table->string('hash_token', 64)->nullable()->comment('SHA-256 do token (o valor nunca é guardado)');
+            $table->jsonb('conjuntos')->nullable()->comment('Conjuntos permitidos (NULL = todos os da lista branca)');
+            $table->bigInteger('criado_por_id')->nullable();
+            $table->string('criado_por', 100)->nullable();
+            $table->timestampTz('expira_em')->nullable();
+            $table->timestampTz('ultimo_uso_em')->nullable();
+            $table->bigInteger('utilizacoes')->nullable();
+            $table->timestampTz('revogado_em')->nullable();
+            $table->string('revogado_por', 100)->nullable();
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_tokens_bi_hash_token ON tokens_bi (hash_token)');
+        DB::statement('CREATE INDEX ix_tokens_bi_empresa_id ON tokens_bi (empresa_id)');
+
+        // preferencias_utilizador (tabela nova) · 0 linhas reais no backup
+        Schema::create('preferencias_utilizador', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->nullable()->comment('NULL = válida em todas as empresas');
+            $table->bigInteger('utilizador_id')->comment('Utilizador');
+            $table->string('tipo', 40)->nullable()->comment('favoritos, ordem_modulos, visoes_cubo, interface');
+            $table->string('nome', 255)->nullable();
+            $table->jsonb('valor')->nullable();
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_preferencias_utilizador_utilizador_id_tipo_nome ON preferencias_utilizador (utilizador_id, tipo, nome)');
+        DB::statement('CREATE INDEX ix_preferencias_utilizador_empresa_id ON preferencias_utilizador (empresa_id)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('preferencias_utilizador');
+        Schema::dropIfExists('tokens_bi');
+        Schema::dropIfExists('execucoes_cambios_bai');
+        Schema::dropIfExists('cambios_bai_pendentes');
         Schema::dropIfExists('quarentena_migracao');
         Schema::dropIfExists('ocorrencias_migracao');
         Schema::dropIfExists('documentos_anexos');

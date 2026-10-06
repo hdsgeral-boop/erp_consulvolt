@@ -40,7 +40,7 @@ interface Ficha360 {
 export default function Contas() {
   const { pode } = useSessao();
   const editar = pode('crm_editar');
-  const [filtros, setFiltros] = useState<{ tipo?: string; pesquisa?: string; responsavel?: string }>({});
+  const [filtros, setFiltros] = useState<{ tipo?: string; pesquisa?: string; responsavel?: string; em_atraso?: number }>({});
   const [ficha, setFicha] = useState<number | null>(null);
   const [edicao, setEdicao] = useState<ContaCRM | 'nova' | null>(null);
   const [doCliente, setDoCliente] = useState(false);
@@ -65,6 +65,7 @@ export default function Contas() {
           <Segmented value={filtros.tipo ?? ''} onChange={(v) => setFiltros({ ...filtros, tipo: (v as string) || undefined })} options={[{ value: '', label: 'Todas' }, { value: 'PROSPECT', label: 'Prospects' }, { value: 'CLIENTE', label: 'Clientes' }]} />
           <Input.Search placeholder="Nome, NIF, email ou sector" allowClear style={{ width: 280, maxWidth: '100%' }} onSearch={(v) => setFiltros({ ...filtros, pesquisa: v || undefined })} />
           <Input.Search placeholder="Responsável" allowClear style={{ width: 160, maxWidth: '100%' }} onSearch={(v) => setFiltros({ ...filtros, responsavel: v || undefined })} />
+          <Checkbox checked={!!filtros.em_atraso} onChange={(e) => setFiltros({ ...filtros, em_atraso: e.target.checked ? 1 : undefined })}>Só com facturas em atraso</Checkbox>
         </Flex>
         <TabelaApi<ContaCRM>
           url="/crm/contas"
@@ -74,7 +75,7 @@ export default function Contas() {
           size={pequeno ? 'small' : 'middle'}
           impressao={{
             titulo: 'Contas do CRM',
-            filtros: [filtros.tipo && `Tipo: ${filtros.tipo === 'CLIENTE' ? 'Clientes' : 'Prospects'}`, filtros.pesquisa && `Pesquisa: ${filtros.pesquisa}`, filtros.responsavel && `Responsável: ${filtros.responsavel}`],
+            filtros: [filtros.tipo && `Tipo: ${filtros.tipo === 'CLIENTE' ? 'Clientes' : 'Prospects'}`, filtros.pesquisa && `Pesquisa: ${filtros.pesquisa}`, filtros.responsavel && `Responsável: ${filtros.responsavel}`, !!filtros.em_atraso && 'Só com facturas em atraso'],
           }}
           columns={[
             { title: 'Conta', dataIndex: 'nome', valorImpressao: (c) => [c.nome, c.nif && `NIF ${c.nif}`, c.setor].filter(Boolean).join(' · '), render: (v: string, c) => (<><strong>{v}</strong><div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{[c.nif && `NIF ${c.nif}`, c.setor].filter(Boolean).join(' · ')}</div></>) },

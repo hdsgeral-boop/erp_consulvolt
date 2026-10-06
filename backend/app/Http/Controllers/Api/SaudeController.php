@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Integracoes\Cambios\ServicoCambiosBAIAutomaticos;
 use App\Support\Api\RespostaApi;
 use App\Support\Cache\Batimentos;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,9 @@ use Throwable;
  * Componentes: base de dados (PostgreSQL), Redis, filas (tamanho de cada fila e trabalhos falhados) e
  * armazenamento (storage/ gravável). Responde 503 se algum componente falhar. É pública: as mensagens
  * de erro só são mostradas em modo de depuração e nunca há segredos na resposta.
+ *
+ * `informacao` (só na resposta de sucesso) traz estados meramente informativos que nunca tornam o serviço indisponível:
+ * a obtenção automática dos câmbios do BAI (DESACTIVADO, OK, PENDENTE ou FALHA da última obtenção).
  */
 final class SaudeController extends Controller
 {
@@ -38,8 +42,20 @@ final class SaudeController extends Controller
         $ok = collect($verificacoes)->every(fn ($v) => $v['estado'] === 'OK');
 
         return $ok
-            ? RespostaApi::sucesso(['estado' => 'OK', 'versao' => $this->versao(), 'componentes' => $verificacoes], 'Todos os serviços estão operacionais.')
+            ? RespostaApi::sucesso(['estado' => 'OK', 'versao' => $this->versao(), 'componentes' => $verificacoes, 'informacao' => $this->informacao()], 'Todos os serviços estão operacionais.')
             : RespostaApi::erro('Um ou mais serviços estão indisponíveis.', 503, 'SERVICO_INDISPONIVEL', $verificacoes);
+    }
+
+    /** @return array<string, array{estado: string, detalhe: string}> estados informativos (uma falha aqui não dá 503) */
+    private function informacao(): array
+    {
+        try {
+            $bai = app(ServicoCambiosBAIAutomaticos::class)->informacaoSaude();
+        } catch (Throwable) {
+            $bai = ['estado' => 'DESCONHECIDO', 'detalhe' => 'indisponível'];
+        }
+
+        return ['cambios_bai' => $bai];
     }
 
     /** Tamanho de cada fila e trabalhos falhados (informativo: uma fila longa não torna o serviço indisponível). */

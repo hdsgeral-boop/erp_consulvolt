@@ -23,7 +23,7 @@ final class RelatorioContasController extends Controller
     public function update(Request $request, int $ano): JsonResponse
     {
         $this->exigir('rc_editar');
-        $d = $request->validate(['configuracao' => ['sometimes', 'array'], 'textos' => ['sometimes', 'array'], 'textos.*.html' => ['nullable', 'string', 'max:200000'],
+        $d = $request->validate(['configuracao' => ['sometimes', 'array'], 'textos' => ['sometimes', 'array'], 'textos.*.html' => ['nullable', 'string', 'max:200000'], 'textos.*.texto' => ['nullable', 'string', 'max:100000'],
             'textos.*.auto' => ['nullable', 'boolean'], 'notas_incluir' => ['sometimes', 'array'], 'notas_incluir.*' => ['boolean'],
             'configuracao.taxa_imposto' => ['nullable', 'numeric', 'min:0', 'max:100'], 'configuracao.pct_reservas' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'configuracao.pct_transitados' => ['nullable', 'numeric', 'min:0', 'max:100'], 'configuracao.pct_dividendos' => ['nullable', 'numeric', 'min:0', 'max:100']]);

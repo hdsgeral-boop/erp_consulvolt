@@ -6,6 +6,9 @@ export interface LinhaVenda {
   descricao: string | null;
   quantidade: string;
   quantidade_faturada?: string | null;
+  quantidade_devolvida?: string | null;
+  preco_unitario_moeda?: string | null;
+  total_moeda?: string | null;
   preco_unitario: string;
   taxa_imposto: string;
   valor: string | null;
@@ -34,6 +37,13 @@ export interface DocumentoVenda {
   observacoes: string | null;
   data_vencimento: string | null;
   valido_ate: string | null;
+  /** moeda estrangeira: câmbio e totais na moeda (VendaResource) */
+  moeda?: { codigo: string; taxa_cambio: string | null; taxa_cambio_manual: boolean; total_liquido: string | null; total_imposto: string | null; total_bruto: string | null } | null;
+  modo_pagamento?: 'PRONTO' | 'PRAZO' | 'MARCOS' | null;
+  plano_pagamentos?: { percentagem: number | string; data?: string | null; descricao?: string | null }[] | null;
+  desconto?: string | null;
+  /** decisão 10: arredondamento AGT do POS, separado do desconto */
+  arredondamento_agt?: string | null;
   faturacao_eletronica?: {
     serie: string | null;
     numero: number | null;
@@ -75,6 +85,7 @@ export interface Terceiro {
   nome: string;
   nif: string | null;
   codigo_conta: string | null;
+  codigo_moeda?: string | null;
 }
 
 export const TIPOS_DOCUMENTO: Record<string, string> = {

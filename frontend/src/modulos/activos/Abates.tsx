@@ -2,6 +2,7 @@ import { Button, Card, DatePicker, Input, Select, Table, Typography } from 'antd
 import { PlusOutlined, RollbackOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
+import { NavActivos } from './comum/NavActivos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros } from '@/componentes/responsivo';
@@ -52,6 +53,7 @@ export default function Abates() {
         subtitulo="Saída do imobilizado com lançamento D 18 / C 11-12 e mais-valia (6) ou menos-valia (7)"
         accoes={pode('activos_abater') && <Button type="primary" danger icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo abate / venda</Button>}
       />
+      <NavActivos actual="activos_abates" />
       <Card>
         <BarraFiltros accoes={<>
           <BotoesExportar desactivado={!linhas.length} obterPedido={() => pedidoTodasPaginas('/ativos/abates', { tipo, pesquisa: texto || undefined, ...filtroPeriodo(periodo) }, {

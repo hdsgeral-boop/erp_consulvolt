@@ -1,8 +1,9 @@
-import { Checkbox, Form, Input, Select, Tag } from 'antd';
+import { Card, Checkbox, Form, Input, Select, Tabs, Tag } from 'antd';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { CALCULO_HORAS, REGIMES_IRT, TIPOS_RUBRICA, type Infotipo } from './api';
 import { CadastroSimples } from './comum/CadastroSimples';
+import { TabelaIrt } from './comum/TabelaIrt';
 
 const COR_TIPO: Record<string, string> = { VENCIMENTO: 'green', DESCONTO: 'red', OUTROS: 'default' };
 
@@ -11,7 +12,8 @@ export default function Infotipos() {
   const { pode } = useSessao();
   return (
     <>
-      <CabecalhoPagina titulo="Rubricas (infotipos)" subtitulo="Vencimentos, descontos e rubricas informativas usados nos contratos e no processamento" />
+      <CabecalhoPagina titulo="Infotipos (Rubricas)" subtitulo="Vencimentos, descontos e rubricas informativas usados nos contratos e no processamento" />
+      <Tabs items={[{ key: 'rubricas', label: 'Rubricas', children: (
       <CadastroSimples<Infotipo>
         url="/rh/infotipos"
         chave={['rh', 'infotipos']}
@@ -55,6 +57,7 @@ export default function Infotipos() {
           </>
         }
       />
+      ) }, { key: 'irt', label: 'Tabela de IRT', children: <Card><TabelaIrt /></Card> }]} />
     </>
   );
 }

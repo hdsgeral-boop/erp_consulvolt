@@ -286,13 +286,15 @@ final class ServicoExportacaoSaft
                     : CalculadoraDocumento::arredondar(bcmul((string) $i->quantidade, (string) $i->preco_unitario, 8));
                 $taxa = CatalogoAgt::taxaTexto($i->taxa_imposto ?? 0);
                 $codigo = CatalogoAgt::codigoTaxa($taxa);
+                // decisão 11: preço com a precisão necessária (6 casas no POS) e o desconto da linha em SettlementAmount
+                $pl = CalculadoraDocumento::precosLinhaFiscal($valor, (string) $i->quantidade, (string) $i->preco_unitario, $i->getAttributes()['percentagem_desconto'] ?? null);
                 $x->startElement('Line');
                 $this->el($x, 'LineNumber', (string) ($n + 1));
                 $this->el($x, 'ProductCode', $p?->codigo ?: (string) ($i->produto_id ?? 'SERV'));
                 $this->el($x, 'ProductDescription', $p?->nome ?: ($i->descricao ?: 'Artigo'));
                 $this->el($x, 'Quantity', rtrim(rtrim(number_format((float) $i->quantidade, 3, '.', ''), '0'), '.'));
                 $this->el($x, 'UnitOfMeasure', $p?->unidade_fe ?: 'UN');
-                $this->el($x, 'UnitPrice', number_format((float) $i->preco_unitario, 2, '.', ''));
+                $this->el($x, 'UnitPrice', $pl['preco']);
                 $this->el($x, 'TaxPointDate', $v->data_emissao->toDateString());
                 if ($nc) {
                     $x->startElement('References');
@@ -316,7 +318,7 @@ final class ServicoExportacaoSaft
                     $this->el($x, 'TaxExemptionReason', mb_substr(CatalogoAgt::ISENCOES[$m] ?? 'Isento', 0, 60));
                     $this->el($x, 'TaxExemptionCode', $m ?: 'M00');
                 }
-                $this->el($x, 'SettlementAmount', '0.00');
+                $this->el($x, 'SettlementAmount', $pl['desconto']);
                 $x->endElement();
             }
 

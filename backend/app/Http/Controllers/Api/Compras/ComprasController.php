@@ -175,6 +175,31 @@ final class ComprasController extends Controller
         return RespostaApi::sucesso($this->doc($this->processo->anularProposta(CotacaoCompra::query()->findOrFail($id)), 'cotacao_compra_id'), 'Proposta anulada.');
     }
 
+    /** PUT /propostas/{id}/iva — corrige a taxa de IVA das linhas antes da adjudicação (M-17). */
+    public function ivaProposta(Request $r, int $id): JsonResponse
+    {
+        $this->exigir('compras_new_proposal');
+        $p = $this->processo->editarIva(CotacaoCompra::query()->findOrFail($id), $this->linhasIva($r));
+
+        return RespostaApi::sucesso($this->doc($p, 'cotacao_compra_id'), "IVA da proposta {$p->numero_proposta} actualizado.");
+    }
+
+    /** PUT /encomendas/{id}/iva — corrige a taxa de IVA das linhas ainda por facturar (M-17). */
+    public function ivaEncomenda(Request $r, int $id): JsonResponse
+    {
+        $this->exigir('compras_enc_criar');
+        $e = $this->processo->editarIva(EncomendaCompra::query()->findOrFail($id), $this->linhasIva($r));
+
+        return RespostaApi::sucesso($this->doc($e, 'encomenda_compra_id'), "IVA da encomenda {$e->numero_encomenda} actualizado.");
+    }
+
+    /** @return list<array{item_id: int, taxa_imposto: float|string}> */
+    private function linhasIva(Request $r): array
+    {
+        return $r->validate(['linhas' => ['required', 'array', 'min:1', 'max:500'], 'linhas.*.item_id' => ['required', 'integer'],
+            'linhas.*.taxa_imposto' => ['required', 'numeric', new TaxaIvaLegal]], [], ['linhas.*.taxa_imposto' => 'taxa de IVA'])['linhas'];
+    }
+
     // ─────────── Encomendas ───────────
 
     public function encomendas(Request $r): JsonResponse

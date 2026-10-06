@@ -105,7 +105,8 @@ export function ResumoTotais({ periodo }: { periodo: DetalhePeriodo | undefined 
     ['Bruto', t.bruto], ['INSS trabalhador', t.inss_trabalhador], ['INSS empresa', t.inss_patronal], ['IRT', t.irt], ['Outros descontos', t.descontos], ['Líquido a pagar', t.liquido],
   ];
   return (
-    <Descriptions size="small" bordered column={{ xs: 1, sm: 2, md: 3, xl: 6 }} style={{ marginBottom: 16 }}>
+    <Descriptions size="small" bordered column={{ xs: 1, sm: 2, lg: 3, xxl: 6 }} style={{ marginBottom: 16 }} labelStyle={{ whiteSpace: 'nowrap' }}
+      contentStyle={{ whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 600 }}>
       {itens.map(([r, v]) => <Descriptions.Item key={r} label={r}>{formatarKz(v)}</Descriptions.Item>)}
     </Descriptions>
   );

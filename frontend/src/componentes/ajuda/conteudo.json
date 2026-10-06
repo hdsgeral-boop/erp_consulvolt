@@ -1,0 +1,1002 @@
+{
+ "origem": "payroll_system_web/js/ajuda.js",
+ "modulos": {
+  "inicio": {
+   "nome": "Início",
+   "resumo": "Painel de entrada do sistema, com acesso rápido aos módulos e indicadores gerais da empresa activa.",
+   "regras": [
+    "Todos os dados apresentados são da empresa seleccionada no topo do ecrã. Mude de empresa na caixa de selecção do cabeçalho.",
+    "Use os Favoritos (clique direito num item do menu) para ter à mão os ecrãs que usa todos os dias."
+   ]
+  },
+  "logistica": {
+   "nome": "Logística",
+   "resumo": "Stock por armazém, entradas, guias de saída, POS de armazém e inventários.",
+   "regras": [
+    "Só os produtos marcados como \"inventariáveis\" têm stock controlado.",
+    "O stock é mantido por armazém; o total do produto é a soma dos armazéns.",
+    "Acertos de stock devem ser feitos por inventário (contagem e regularização), para ficarem registados."
+   ]
+  },
+  "vendas": {
+   "nome": "Vendas",
+   "resumo": "Ponto de venda (POS), terminais, produtos e serviços, faturação a clientes e relatórios.",
+   "regras": [
+    "Não existem contas contabilísticas por omissão: mapeie as contas de cada produto, serviço e cliente.",
+    "Só contas de movimento podem ser mapeadas; contas totalizadoras são recusadas.",
+    "Um cliente não pode ser gravado sem a conta contabilística associada.",
+    "As vendas do POS são contabilizadas em massa por sessão (transitórias dos meios de pagamento, proveitos e IVA)."
+   ]
+  },
+  "lavandaria": {
+   "nome": "Lavandaria e Alfaiataria",
+   "resumo": "Ordens de serviço por peça, orçamentos, estados, entregas e relatórios por terminal.",
+   "regras": [
+    "O preço é definido na peça; cada peça pode ter preços diferentes por serviço.",
+    "Clientes de venda directa recebem Factura-Recibo; clientes com conta corrente recebem Factura.",
+    "O estado da peça à entrada é obrigatório na recepção."
+   ]
+  },
+  "compras": {
+   "nome": "Compras",
+   "resumo": "Aprovisionamento, pedidos internos, prospecção, encomendas, recepções, facturas de fornecedores e contratos.",
+   "regras": [
+    "Um fornecedor não pode ser gravado sem a conta de terceiros associada.",
+    "Só contas de movimento podem ser mapeadas.",
+    "Uma encomenda pode ser associada a um contrato; o contrato mostra as encomendas e o total encomendado."
+   ]
+  },
+  "rh": {
+   "nome": "Salários e RH",
+   "resumo": "Colaboradores, contratos, funções, infotipos, cálculo e processamento salarial, recibos e relatórios.",
+   "regras": [
+    "O processamento segue a ordem: colaboradores e contratos → infotipos → calcular período → processar → integrar na contabilidade.",
+    "Um período fechado não deve ser alterado; reabra-o apenas quando necessário.",
+    "Limpezas de processamentos são pedidas em Configurações › Manutenção de dados e exigem aprovação."
+   ]
+  },
+  "tesouraria": {
+   "nome": "Tesouraria",
+   "resumo": "Pagamentos, recebimentos, integração contabilística, extractos, reconciliação e meios de pagamento.",
+   "regras": [
+    "Os meios de pagamento usam contas de disponibilidades de movimento (43/45).",
+    "Anulações e limpezas em massa são pedidas em Configurações › Manutenção de dados."
+   ]
+  },
+  "contabilidade": {
+   "nome": "Contabilidade",
+   "resumo": "Lançamentos nos diários, encerramento, mapas e relatórios, rotinas, consolidação, imposto de selo, terceiros e mapeamentos.",
+   "regras": [
+    "Só contas de movimento recebem lançamentos e mapeamentos; contas totalizadoras são recusadas.",
+    "Cada lançamento tem de estar equilibrado (Débito = Crédito).",
+    "Compensação de movimentos: mesma conta e soma dos débitos e créditos igual a zero. Nas contas da classe 3 e 48 não é preciso ser o mesmo terceiro; nas restantes contas sim.",
+    "Exercícios encerrados não aceitam lançamentos novos nem alterações."
+   ]
+  },
+  "projectos": {
+   "nome": "Projectos e Obras",
+   "resumo": "Carteira de projectos, orçamento por rubrica, extracto analítico e planeamento Gantt.",
+   "regras": [
+    "As linhas de orçamento usam contas de movimento."
+   ]
+  },
+  "activos": {
+   "nome": "Activos",
+   "resumo": "Cadastro de activos, categorias, manutenções, amortizações, abates e integrações.",
+   "regras": [
+    "As categorias definem as contas de gasto, amortização acumulada, venda e perda (sempre contas de movimento)."
+   ]
+  },
+  "sistema": {
+   "nome": "Sistema e Configurações",
+   "resumo": "Backup, empresas, plano de contas, moedas, utilizadores, perfis, registos e manutenção de dados.",
+   "regras": [
+    "Resets e limpezas globais só existem em Manutenção de dados: pedido → aprovação por outro administrador com palavra-passe → execução em 24 h com cópia de segurança.",
+    "No plano de contas, distinga contas de Movimento (recebem lançamentos e mapeamentos) de contas Totalizadoras."
+   ]
+  },
+  "crm": {
+   "nome": "CRM",
+   "resumo": "Pipeline comercial (funis e oportunidades), agenda de actividades, contas e contactos, previsão de vendas e campanhas.",
+   "regras": [
+    "Uma oportunidade ganha pode ser convertida em proposta, encomenda ou factura em Vendas."
+   ]
+  },
+  "acrescimos": {
+   "nome": "Acréscimos e Diferimentos",
+   "resumo": "Registos de gastos e rendimentos a repartir por vários períodos, propostas mensais e contabilização.",
+   "regras": [
+    "A proposta mensal só gera lançamentos depois de confirmada."
+   ]
+  },
+  "orcamento": {
+   "nome": "Gestão Orçamental",
+   "resumo": "Rubricas, orçamentos anuais, controlo orçado vs realizado, previsões, cenários e alertas de excesso.",
+   "regras": [
+    "Documentos que excedem o orçamento podem exigir aprovação, conforme o modo de controlo da empresa."
+   ]
+  },
+  "estrutura": {
+   "nome": "Estrutura Orgânica",
+   "resumo": "Unidades orgânicas, cargos e postos de trabalho, organigrama e mapa de pessoal.",
+   "regras": []
+  }
+ },
+ "moduloPorCatalogo": {
+  "geral": "inicio",
+  "rh": "rh",
+  "contab": "contabilidade",
+  "teso": "tesouraria",
+  "vendas": "vendas",
+  "pos": "vendas",
+  "compras": "compras",
+  "stock": "logistica",
+  "activos": "activos",
+  "projectos": "projectos",
+  "config": "sistema",
+  "crm": "crm",
+  "acrescimos": "acrescimos",
+  "orcamento": "orcamento",
+  "estrutura": "estrutura"
+ },
+ "ecras": {
+  "dashboard": {
+   "modulo": "inicio",
+   "titulo": "Dashboard Global",
+   "serve": "Visão consolidada dos principais indicadores.",
+   "passos": [
+    "Seleccione o período.",
+    "Clique num indicador para ver o detalhe."
+   ],
+   "dicas": []
+  },
+  "fluxo_processos": {
+   "modulo": "inicio",
+   "titulo": "Fluxo de Processos",
+   "serve": "Acompanhar os processos em curso e o que falta para avançar: separadores \"Salários e RH\" (do lançamento das rubricas à liquidação), \"Compras\" (do pedido interno ao pagamento do fornecedor) e \"Imobilizado\" (da factura de compra à integração das amortizações).",
+   "passos": [
+    "Escolha o período no topo; os bloqueados aparecem primeiro seleccionados.",
+    "No diagrama, clique numa etapa para ver os números, as pendências e quem deve agir.",
+    "Use o botão da etapa para abrir o ecrã onde ela é executada, já no período certo.",
+    "O fluxo fecha quando salários líquidos, segurança social, IRT e adiantamentos estão liquidados: por pagamento na Tesouraria (escolha o \"Período salarial\") ou por compensação no extracto de conta."
+   ],
+   "dicas": [
+    "Etapas: Dados base → Lançar rubricas → Fechar cálculo → Processar e validar → Integrar na contabilidade → Liquidar salários e obrigações.",
+    "Compensação das obrigações salariais (contas da classe 3): mesma conta e soma dos débitos e créditos igual a zero, sem precisar de ser o mesmo terceiro.",
+    "\"Períodos em falta\" lista os meses sem processamento entre o primeiro e o último período registados; clique num mês para o abrir em Calcular.",
+    "Vendas: Orçamento/Proforma → Encomenda → Entrega (guia) → Factura → Contabilização → Recebimento, na Tesouraria, por recibo, por nota de crédito ou por compensação.",
+    "POS: Abertura da caixa → Vendas e fecho (Z) → Desvio de caixa → Integração contabilística → Prestação de contas → Compensação das contas transitórias dos meios de pagamento (saldo zero e movimentos compensados).",
+    "Nas linhas de pendência, \"Importar pendentes na Tesouraria\" abre o pagamento ou recebimento já filtrado e \"Ver extracto por compensar\" abre o extracto só com os movimentos em aberto.",
+    "Lavandaria: Recepção → Orçamento (alfaiataria) → Execução → Entrega ao cliente → Facturação e contabilização (integração da sessão POS) → Recebimento na caixa, na Tesouraria ou por compensação. Assinala ordens atrasadas, peças fora do prazo de levantamento e danos por tratar. Como há muitas ordens, o ecrã mostra quantas estão em cada etapa (clique para filtrar) e uma tabela com pesquisa, filtros e páginas; clique numa ordem para abrir o seu fluxo.",
+    "Bancos (43): cada conta de depósitos à ordem em cada mês — Lançamento na Tesouraria → Integração na contabilidade → Extracto bancário carregado → Reconciliação mensal (movimentos da contabilidade e do extracto conciliados). Avisa quando o mês anterior não está reconciliado; \"Reconciliar o mês\" abre a Conciliação já com a conta e o mês.",
+    "Folha de Caixa: cada sessão — Abertura (compara com o saldo contado no fecho anterior) → Movimentos (contas em falta bloqueiam) → Fecho e contagem → Diferença de caixa (regularizada numa Conferência de Caixa finalizada com lançamento) → Integração na contabilidade (sessão contabilizada).",
+    "Compras: Pedido interno → Prospecção e adjudicação → Encomenda → Recepção (e validação no armazém) → Factura e contabilização → Pagamento ao fornecedor, por pagamento na Tesouraria ou por compensação no extracto de conta.",
+    "Imobilizado: Factura de compra → Contabilização → Inventariação do activo → Categoria e vida útil → Cálculo das amortizações → Integração. \"Meses por calcular\" mostra os meses fechados sem amortização calculada; clique num mês para o abrir em Amortizações.",
+    "Bloqueada (vermelho) indica, por exemplo, rubricas sem conta contabilística; a integração faz sempre a verificação final.",
+    "O painel só consulta: fechar, validar, integrar e pagar continuam nos respectivos ecrãs e respeitam as permissões."
+   ]
+  },
+  "colaboradores": {
+   "modulo": "rh",
+   "titulo": "Colaboradores",
+   "serve": "Ficha de cada colaborador.",
+   "passos": [
+    "Crie ou importe colaboradores.",
+    "Preencha dados pessoais, fiscais e bancários."
+   ],
+   "dicas": []
+  },
+  "rh_ferias": {
+   "modulo": "rh",
+   "titulo": "Programa de Férias",
+   "serve": "Planear as férias anuais de cada colaborador e acompanhar o saldo.",
+   "passos": [
+    "Escolha o ano.",
+    "Clique em \"Período\" no colaborador e indique as datas de início e fim.",
+    "Ajuste o direito anual (22 dias úteis por defeito) e o estado: Planeado, Aprovado, Gozado ou Cancelado.",
+    "Consulte o mapa anual e imprima ou exporte para Excel."
+   ],
+   "dicas": [
+    "Os dias úteis contam de segunda a sexta; os feriados não são descontados.",
+    "Períodos sobrepostos do mesmo colaborador ficam assinalados e pedem confirmação ao gravar.",
+    "Cancelar em vez de eliminar mantém o histórico."
+   ]
+  },
+  "rh_avaliacao": {
+   "modulo": "rh",
+   "titulo": "Avaliação de Desempenho",
+   "serve": "Avaliar cada colaborador por critérios (1 a 5) e objectivos, com classificação final.",
+   "passos": [
+    "Escolha o ano e o período (anual ou semestral).",
+    "Clique em \"Avaliar\" e atribua nota e peso a cada critério.",
+    "Acrescente objectivos com peso e resultado (%), se aplicável.",
+    "Grave como rascunho ou conclua a avaliação; imprima-a para assinatura."
+   ],
+   "dicas": [
+    "Classificação: ≥ 4,5 Excelente · ≥ 3,5 Muito Bom · ≥ 2,5 Bom · ≥ 1,5 Suficiente.",
+    "O peso dos objectivos na nota final é 30% por defeito e pode ser alterado em cada avaliação.",
+    "Uma avaliação concluída só pode ser alterada depois de reaberta."
+   ]
+  },
+  "contratos": {
+   "modulo": "rh",
+   "titulo": "Contratos de Trabalho",
+   "serve": "Condições contratuais e remuneração base.",
+   "passos": [
+    "Crie o contrato.",
+    "Defina vencimento, subsídios e datas.",
+    "Gere o PDF do contrato."
+   ],
+   "dicas": []
+  },
+  "funcoes": {
+   "modulo": "rh",
+   "titulo": "Funções",
+   "serve": "Tabela de funções/cargos.",
+   "passos": [
+    "Crie as funções usadas nos contratos."
+   ],
+   "dicas": []
+  },
+  "infotipos": {
+   "modulo": "rh",
+   "titulo": "Infotipos",
+   "serve": "Rubricas de abonos e descontos.",
+   "passos": [
+    "Crie a rubrica e indique se é abono ou desconto.",
+    "Defina sujeição a IRT e Segurança Social."
+   ],
+   "dicas": []
+  },
+  "calcular": {
+   "modulo": "rh",
+   "titulo": "Calcular",
+   "serve": "Lançar as rubricas do período.",
+   "passos": [
+    "Abra o período.",
+    "Importe dos contratos ou copie do período anterior.",
+    "Ajuste lançamentos individuais ou em massa."
+   ],
+   "dicas": [
+    "Use \"Simular\" para ver o recibo de um colaborador antes de processar."
+   ]
+  },
+  "processamento": {
+   "modulo": "rh",
+   "titulo": "Processamentos",
+   "serve": "Calcular salários, validar e integrar na contabilidade.",
+   "passos": [
+    "Calcule o período.",
+    "Valide o processamento.",
+    "Integre no diário contabilístico."
+   ],
+   "dicas": []
+  },
+  "bancario": {
+   "modulo": "rh",
+   "titulo": "Coordenadas Bancárias",
+   "serve": "Bancos da empresa e IBAN dos colaboradores.",
+   "passos": [
+    "Registe os bancos com conta contabilística de movimento.",
+    "Associe o IBAN a cada colaborador."
+   ],
+   "dicas": []
+  },
+  "relatorios": {
+   "modulo": "rh",
+   "titulo": "Relatórios e Recibos",
+   "serve": "Recibos, mapas salariais e ficheiros oficiais.",
+   "passos": [
+    "Escolha o período.",
+    "Gere recibos individuais ou em massa (PDF A4)."
+   ],
+   "dicas": []
+  },
+  "lancamentos": {
+   "modulo": "contabilidade",
+   "titulo": "Lançamentos (Diários)",
+   "serve": "Consultar, criar, importar e corrigir lançamentos contabilísticos.",
+   "passos": [
+    "Nos filtros, escolha o Ano e o Período (preenche as datas fiscais) ou indique datas, contas, diário, nº de lançamento, documento ou referência.",
+    "Clique em \"Filtrar\" para carregar os movimentos.",
+    "Para criar: \"Novo Lançamento\", preencha o cabeçalho e as linhas até Débito = Crédito (\"Equilibrar\" ajuda) e grave.",
+    "Para corrigir notas, UN ou CC de muitas linhas: filtre, escolha os valores em \"Alteração em Massa\" e aplique."
+   ],
+   "dicas": [
+    "No campo Conta(s) pode usar listas e intervalos: 11, 21-25, 31*. O botão ao lado permite colar muitas contas.",
+    "Os botões \"Mostrar linhas sem\" encontram rapidamente linhas sem Nota Demonstrativa, Nota de Fluxo, UN ou CC.",
+    "O botão \"Colunas\" escolhe as colunas visíveis; a linha de filtros por baixo dos títulos filtra cada coluna.",
+    "\"Ecrã Cheio\" dá mais espaço à tabela."
+   ]
+  },
+  "encerramento": {
+   "modulo": "contabilidade",
+   "titulo": "Encerramento",
+   "serve": "Apuramento de resultados e fecho do exercício.",
+   "passos": [
+    "Confirme que não há lançamentos pendentes.",
+    "Execute o apuramento.",
+    "Encerre o exercício."
+   ],
+   "dicas": [
+    "Depois de encerrado, o exercício fica bloqueado para lançamentos."
+   ]
+  },
+  "relatorios_contabeis": {
+   "modulo": "contabilidade",
+   "titulo": "Mapas e Relatórios",
+   "serve": "Balancetes, extractos de conta, balanço, demonstração de resultados e mapa de IVA.",
+   "passos": [
+    "Escolha o mapa e o período.",
+    "Escolha colunas e filtros.",
+    "Exporte ou imprima."
+   ],
+   "dicas": []
+  },
+  "relatorio_contas": {
+   "modulo": "contabilidade",
+   "titulo": "Relatório e Contas",
+   "serve": "Preparar o relatório anual de gestão e contas.",
+   "passos": [
+    "Crie o relatório do exercício.",
+    "Complete as secções.",
+    "Gere o documento final."
+   ],
+   "dicas": []
+  },
+  "contab_rotinas": {
+   "modulo": "contabilidade",
+   "titulo": "Rotinas Contabilísticas",
+   "serve": "Rotinas periódicas, compensações, transferências de saldos, actualizações em massa e o apuramento do Imposto de Selo.",
+   "passos": [
+    "Escolha a rotina nos botões do cabeçalho.",
+    "Preencha os dados e confira o resultado.",
+    "Execute; as rotinas executadas ficam no separador Histórico."
+   ],
+   "dicas": [
+    "O Imposto de Selo está no separador «Imposto de Selo».",
+    "A última rotina aberta fica memorizada."
+   ]
+  },
+  "imposto_selo": {
+   "modulo": "contabilidade",
+   "titulo": "Imposto de Selo",
+   "serve": "Apurar o imposto de selo (1%) sobre recebimentos.",
+   "passos": [
+    "Escolha o período.",
+    "Confira a base e o imposto.",
+    "Gere o lançamento."
+   ],
+   "dicas": []
+  },
+  "consolidacao": {
+   "modulo": "contabilidade",
+   "titulo": "Consolidação de Empresas",
+   "serve": "Consolidar as contas de um grupo de empresas.",
+   "passos": [
+    "Defina o grupo e as participadas.",
+    "Execute a consolidação linha a linha.",
+    "Reveja as eliminações intragrupo."
+   ],
+   "dicas": []
+  },
+  "tabelas_aux": {
+   "modulo": "contabilidade",
+   "titulo": "Terceiros e Tabelas",
+   "serve": "Terceiros (clientes, fornecedores, outros) e tabelas auxiliares.",
+   "passos": [
+    "Crie o terceiro e o tipo.",
+    "Associe a conta contabilística (obrigatória para clientes e fornecedores)."
+   ],
+   "dicas": []
+  },
+  "contabilidade": {
+   "modulo": "contabilidade",
+   "titulo": "Mapeamento Contábil",
+   "serve": "Associar rubricas do sistema às contas do plano.",
+   "passos": [
+    "Escolha a área.",
+    "Seleccione a conta de movimento para cada rubrica.",
+    "Grave os mapeamentos."
+   ],
+   "dicas": [
+    "Pode copiar mapeamentos de outra empresa."
+   ]
+  },
+  "teso_gestao_pagamentos": {
+   "modulo": "tesouraria",
+   "titulo": "Pagamentos",
+   "serve": "Registar pagamentos a fornecedores e outros credores.",
+   "passos": [
+    "Seleccione os documentos em aberto.",
+    "Indique o meio de pagamento e a data.",
+    "Grave e integre."
+   ],
+   "dicas": []
+  },
+  "teso_contab_integracao": {
+   "modulo": "tesouraria",
+   "titulo": "Integração Contabilística",
+   "serve": "Gerar os lançamentos dos movimentos de tesouraria.",
+   "passos": [
+    "Filtre os movimentos pendentes.",
+    "Integre."
+   ],
+   "dicas": []
+  },
+  "teso_contab_historico": {
+   "modulo": "tesouraria",
+   "titulo": "Anulação",
+   "serve": "Anular integrações feitas por engano.",
+   "passos": [
+    "Localize a integração.",
+    "Anule e volte a integrar se necessário."
+   ],
+   "dicas": []
+  },
+  "teso_gestao_mapas": {
+   "modulo": "tesouraria",
+   "titulo": "Extractos",
+   "serve": "Extracto de contas bancárias e caixa.",
+   "passos": [
+    "Escolha a conta e o período.",
+    "Escolha as colunas e exporte."
+   ],
+   "dicas": []
+  },
+  "teso_gestao_conciliacao": {
+   "modulo": "tesouraria",
+   "titulo": "Reconciliação Bancária",
+   "serve": "Conciliar o extracto do banco com a contabilidade.",
+   "passos": [
+    "Importe o extracto.",
+    "Faça a correspondência dos movimentos.",
+    "Grave a reconciliação."
+   ],
+   "dicas": []
+  },
+  "teso_meios_pagamento": {
+   "modulo": "tesouraria",
+   "titulo": "Meios de Pagamento",
+   "serve": "Configurar numerário, TPA, transferências e respectivas contas.",
+   "passos": [
+    "Crie o meio de pagamento.",
+    "Associe a conta de disponibilidades."
+   ],
+   "dicas": []
+  },
+  "vendas_clientes": {
+   "modulo": "vendas",
+   "titulo": "Clientes",
+   "serve": "Gerir clientes e a respectiva conta de terceiros.",
+   "passos": [
+    "Crie o cliente com NIF e conta contabilística.",
+    "Grave."
+   ],
+   "dicas": [
+    "Sem conta associada o cliente não é gravado."
+   ]
+  },
+  "vendas_produtos": {
+   "modulo": "vendas",
+   "titulo": "Produtos e Serviços",
+   "serve": "Manter a tabela de produtos e serviços com preços, IVA e contas.",
+   "passos": [
+    "Crie ou importe os artigos.",
+    "Mapeie as contas (proveito, custo, IVA, existências).",
+    "Use \"Editar em massa\" para alterar vários artigos de uma vez."
+   ],
+   "dicas": [
+    "Seleccione linhas na primeira coluna para mapear contas ou alterar preços em massa."
+   ]
+  },
+  "vendas_faturacao": {
+   "modulo": "vendas",
+   "titulo": "Faturação",
+   "serve": "Emitir facturas, facturas-recibo, notas de crédito, proformas e guias.",
+   "passos": [
+    "Escolha o tipo de documento e o cliente.",
+    "Adicione as linhas.",
+    "Emita e, se necessário, integre na contabilidade."
+   ],
+   "dicas": [
+    "Orçamentos e proformas não são documentos contabilísticos."
+   ]
+  },
+  "vendas_relatorios": {
+   "modulo": "vendas",
+   "titulo": "Relatórios de Vendas",
+   "serve": "Analisar vendas por período, cliente, produto e documento.",
+   "passos": [
+    "Defina os filtros.",
+    "Exporte para Excel ou PDF."
+   ],
+   "dicas": []
+  },
+  "pos": {
+   "modulo": "vendas",
+   "titulo": "Frente de Caixa (POS)",
+   "serve": "Registar vendas ao balcão num terminal.",
+   "passos": [
+    "Abra a sessão do terminal.",
+    "Adicione produtos/serviços e o cliente, se aplicável.",
+    "Registe os pagamentos (numerário, TPA, transferência).",
+    "No fim do dia, feche a sessão (Z)."
+   ],
+   "dicas": [
+    "Terminais de hotelaria e lavandaria têm fluxos próprios (quartos/estadias, ordens de serviço)."
+   ]
+  },
+  "pos_relatorios": {
+   "modulo": "vendas",
+   "titulo": "Relatórios POS",
+   "serve": "Analisar vendas, sessões e meios de pagamento.",
+   "passos": [
+    "Escolha o período e o terminal.",
+    "Exporte ou imprima."
+   ],
+   "dicas": []
+  },
+  "pos_terminais": {
+   "modulo": "vendas",
+   "titulo": "Terminais POS",
+   "serve": "Configurar terminais, tipo (loja, hotelaria, lavandaria) e meios de pagamento.",
+   "passos": [
+    "Crie o terminal e indique o tipo.",
+    "Configure os meios de pagamento com conta transitória e de liquidação.",
+    "Grave."
+   ],
+   "dicas": [
+    "Pode copiar os meios de pagamento de terminais de outras empresas; contas inexistentes no plano ficam a vermelho e impedem a gravação."
+   ]
+  },
+  "pos_config_print": {
+   "modulo": "vendas",
+   "titulo": "Configuração de Impressão",
+   "serve": "Definir o formato do talão e da factura do POS.",
+   "passos": [
+    "Escolha o modelo e a largura do papel.",
+    "Teste a impressão."
+   ],
+   "dicas": []
+  },
+  "pos_integracao": {
+   "modulo": "vendas",
+   "titulo": "Integração contabilística do POS",
+   "serve": "Contabilizar as sessões fechadas do POS.",
+   "passos": [
+    "Seleccione as sessões pendentes.",
+    "Clique em \"Pré-visualizar e contabilizar\".",
+    "Corrija os impedimentos, se existirem, e contabilize."
+   ],
+   "dicas": [
+    "Se um serviço não tiver conta de IVA liquidado, a pré-visualização propõe a conta usada nos outros serviços e permite gravá-la com um clique."
+   ]
+  },
+  "pos_lavandaria": {
+   "modulo": "lavandaria",
+   "titulo": "Lavandaria",
+   "serve": "Registar ordens, acompanhar estados e emitir documentos.",
+   "passos": [
+    "Crie a ordem: cliente, peças, serviços e estado à entrada.",
+    "Aprove o orçamento, se existir.",
+    "Altere o estado à medida que o trabalho avança (individual ou em massa).",
+    "Entregue e emita o documento."
+   ],
+   "dicas": [
+    "Na lista de ordens pode filtrar por terminal e alterar estados ou aprovar/recusar orçamentos em massa.",
+    "A área de Relatórios mostra documentos emitidos por dia, mês ou intervalo, com exportação para Excel."
+   ]
+  },
+  "compras_pedidos": {
+   "modulo": "compras",
+   "titulo": "Pedidos Internos",
+   "serve": "Registar pedidos de compra dos departamentos, com aprovação por escalões de valor.",
+   "passos": [
+    "Crie o pedido com o preço unitário estimado de cada item.",
+    "Veja os níveis de aprovação exigidos pelo valor.",
+    "Cada nível aprova ou recusa por ordem (botão do martelo mostra o estado)."
+   ],
+   "dicas": [
+    "O 1.º nível é o responsável da unidade do requisitante (Estrutura Orgânica).",
+    "Configure os limites em «Escalões de aprovação».",
+    "Se a proposta adjudicada passar de escalão, os níveis em falta são pedidos antes da encomenda.",
+    "Ninguém aprova os próprios pedidos."
+   ]
+  },
+  "compras_prospeccao": {
+   "modulo": "compras",
+   "titulo": "Prospecção",
+   "serve": "Comparar propostas de fornecedores.",
+   "passos": [
+    "Registe as propostas.",
+    "Escolha a vencedora e converta em encomenda."
+   ],
+   "dicas": []
+  },
+  "compras_encomendas": {
+   "modulo": "compras",
+   "titulo": "Encomendas",
+   "serve": "Emitir e acompanhar encomendas a fornecedores.",
+   "passos": [
+    "Crie a encomenda com fornecedor e linhas.",
+    "Associe a um contrato, se aplicável.",
+    "Acompanhe a recepção."
+   ],
+   "dicas": [
+    "A coluna Contrato mostra a que contrato pertence cada encomenda."
+   ]
+  },
+  "compras_rececoes": {
+   "modulo": "compras",
+   "titulo": "Recepções",
+   "serve": "Registar a mercadoria recebida.",
+   "passos": [
+    "Seleccione a encomenda.",
+    "Indique as quantidades recebidas.",
+    "Grave para seguir para validação em armazém."
+   ],
+   "dicas": []
+  },
+  "compras_faturacao": {
+   "modulo": "compras",
+   "titulo": "Faturação de Fornecedores",
+   "serve": "Registar facturas de fornecedores.",
+   "passos": [
+    "Associe a factura à recepção/encomenda.",
+    "Confira valores e IVA.",
+    "Integre na contabilidade."
+   ],
+   "dicas": []
+  },
+  "compras_fornecedores": {
+   "modulo": "compras",
+   "titulo": "Fornecedores",
+   "serve": "Gerir fornecedores e contas de terceiros.",
+   "passos": [
+    "Crie o fornecedor com NIF e conta de terceiros.",
+    "Grave."
+   ],
+   "dicas": [
+    "Seleccione linhas para mapear contas em massa."
+   ]
+  },
+  "compras_encomendas_clientes": {
+   "modulo": "compras",
+   "titulo": "Encomendas de Clientes",
+   "serve": "Acompanhar encomendas recebidas de clientes.",
+   "passos": [
+    "Registe a encomenda.",
+    "Converta em documento de venda quando satisfeita."
+   ],
+   "dicas": []
+  },
+  "compras_contratos": {
+   "modulo": "compras",
+   "titulo": "Contratos de Fornecimento",
+   "serve": "Gerir contratos e as encomendas associadas.",
+   "passos": [
+    "Crie o contrato.",
+    "Associe as encomendas no próprio contrato ou a partir da encomenda."
+   ],
+   "dicas": [
+    "O total encomendado é calculado a partir das encomendas associadas."
+   ]
+  },
+  "armazem_stock": {
+   "modulo": "logistica",
+   "titulo": "Níveis de Stock",
+   "serve": "Consultar a quantidade existente de cada produto por armazém.",
+   "passos": [
+    "Filtre por armazém ou produto.",
+    "Exporte para Excel se precisar de analisar fora do sistema."
+   ],
+   "dicas": [
+    "Um produto sem stock num armazém não aparece no POS de Armazém desse armazém."
+   ]
+  },
+  "armazem_rececoes": {
+   "modulo": "logistica",
+   "titulo": "Validar Entradas",
+   "serve": "Confirmar a entrada em armazém das mercadorias recebidas (compras e transferências).",
+   "passos": [
+    "Abra a entrada pendente.",
+    "Confira quantidades e armazém de destino.",
+    "Valide para actualizar o stock."
+   ],
+   "dicas": [
+    "Enquanto não for validada, a entrada não aumenta o stock."
+   ]
+  },
+  "armazem_guias": {
+   "modulo": "logistica",
+   "titulo": "Guias de Saída",
+   "serve": "Emitir guias de saída/transporte de mercadoria.",
+   "passos": [
+    "Crie a guia e indique armazém de origem.",
+    "Adicione os produtos e quantidades.",
+    "Emita e imprima."
+   ],
+   "dicas": []
+  },
+  "armazem_movimentos": {
+   "modulo": "logistica",
+   "titulo": "Histórico de Movimentos",
+   "serve": "Rastrear todas as entradas e saídas de stock.",
+   "passos": [
+    "Filtre por produto, armazém ou datas."
+   ],
+   "dicas": [
+    "Use este ecrã para explicar diferenças de stock."
+   ]
+  },
+  "armazem_armazens": {
+   "modulo": "logistica",
+   "titulo": "Configuração de Armazéns",
+   "serve": "Criar e gerir os armazéns da empresa.",
+   "passos": [
+    "Crie o armazém com código e nome.",
+    "Defina o armazém por omissão."
+   ],
+   "dicas": [
+    "O armazém por omissão recebe os acertos feitos na ficha do produto."
+   ]
+  },
+  "pos_armazem": {
+   "modulo": "logistica",
+   "titulo": "POS de Armazém",
+   "serve": "Vender directamente a partir de um armazém.",
+   "passos": [
+    "Escolha o armazém.",
+    "Adicione os produtos com stock.",
+    "Conclua a venda."
+   ],
+   "dicas": [
+    "Se um produto não aparecer, verifique se é inventariável e se tem stock nesse armazém; há um aviso com acesso ao acerto de stock."
+   ]
+  },
+  "inventario_sessoes": {
+   "modulo": "logistica",
+   "titulo": "Sessões de Inventário",
+   "serve": "Abrir e acompanhar contagens de inventário.",
+   "passos": [
+    "Crie a sessão por armazém.",
+    "Distribua a contagem.",
+    "Feche a sessão depois da revisão."
+   ],
+   "dicas": []
+  },
+  "inventario_contagem": {
+   "modulo": "logistica",
+   "titulo": "Efetuar Contagem",
+   "serve": "Registar as quantidades contadas.",
+   "passos": [
+    "Seleccione a sessão.",
+    "Introduza as quantidades contadas por produto."
+   ],
+   "dicas": []
+  },
+  "inventario_revisao": {
+   "modulo": "logistica",
+   "titulo": "Revisão e Regularização",
+   "serve": "Comparar contado com o sistema e regularizar diferenças.",
+   "passos": [
+    "Reveja as diferenças.",
+    "Aprove a regularização para ajustar o stock."
+   ],
+   "dicas": [
+    "Sobras e quebras usam as contas de sobras/quebras mapeadas no produto."
+   ]
+  },
+  "activos": {
+   "modulo": "activos",
+   "titulo": "Cadastro e Gestão",
+   "serve": "Ficha de cada activo imobilizado.",
+   "passos": [
+    "Crie o activo com categoria, data e valor de aquisição."
+   ],
+   "dicas": []
+  },
+  "activos_categorias": {
+   "modulo": "activos",
+   "titulo": "Categorias",
+   "serve": "Taxas de amortização e contas por categoria.",
+   "passos": [
+    "Crie a categoria e mapeie as contas."
+   ],
+   "dicas": []
+  },
+  "activos_manutencao": {
+   "modulo": "activos",
+   "titulo": "Manutenções",
+   "serve": "Registar manutenções dos activos.",
+   "passos": [
+    "Seleccione o activo.",
+    "Registe a manutenção e o custo."
+   ],
+   "dicas": []
+  },
+  "activos_amortizacoes": {
+   "modulo": "activos",
+   "titulo": "Amortizações",
+   "serve": "Calcular as amortizações do período.",
+   "passos": [
+    "Escolha o período.",
+    "Calcule e integre."
+   ],
+   "dicas": []
+  },
+  "activos_abates": {
+   "modulo": "activos",
+   "titulo": "Abates e Vendas",
+   "serve": "Registar abates e alienações.",
+   "passos": [
+    "Seleccione o activo.",
+    "Indique a data e o valor de venda, se houver."
+   ],
+   "dicas": []
+  },
+  "activos_pendentes": {
+   "modulo": "activos",
+   "titulo": "Aquisições Pendentes",
+   "serve": "Compras de imobilizado ainda por cadastrar.",
+   "passos": [
+    "Reveja as aquisições.",
+    "Converta em activo."
+   ],
+   "dicas": []
+  },
+  "activos_mapa": {
+   "modulo": "activos",
+   "titulo": "Mapa das Amortizações",
+   "serve": "Mapa oficial das amortizações e integrações.",
+   "passos": [
+    "Escolha o exercício.",
+    "Exporte ou imprima."
+   ],
+   "dicas": []
+  },
+  "projectos_carteira": {
+   "modulo": "projectos",
+   "titulo": "Carteira de Projectos",
+   "serve": "Criar e acompanhar projectos e obras.",
+   "passos": [
+    "Crie o projecto.",
+    "Defina o orçamento por rubrica e conta.",
+    "Acompanhe tarefas no Kanban."
+   ],
+   "dicas": []
+  },
+  "projectos_extracto": {
+   "modulo": "projectos",
+   "titulo": "Extracto Analítico",
+   "serve": "Custos e proveitos imputados a cada projecto.",
+   "passos": [
+    "Escolha o projecto e o período."
+   ],
+   "dicas": []
+  },
+  "projectos_gantt": {
+   "modulo": "projectos",
+   "titulo": "Gantt Global",
+   "serve": "Calendário de todas as tarefas dos projectos.",
+   "passos": [
+    "Filtre por projecto ou responsável."
+   ],
+   "dicas": []
+  },
+  "config_geral": {
+   "modulo": "sistema",
+   "titulo": "Geral / Backup",
+   "serve": "Preferências gerais, exportação e importação da base de dados.",
+   "passos": [
+    "Faça cópias de segurança regulares com \"Exportar\"."
+   ],
+   "dicas": [
+    "Guarde a cópia de segurança fora do computador."
+   ]
+  },
+  "config_empresas": {
+   "modulo": "sistema",
+   "titulo": "Gestão de Empresas",
+   "serve": "Criar e editar empresas.",
+   "passos": [
+    "Crie a empresa com NIF e logotipo."
+   ],
+   "dicas": []
+  },
+  "config_plano": {
+   "modulo": "sistema",
+   "titulo": "Plano de Contas",
+   "serve": "Manter o plano de contas da empresa.",
+   "passos": [
+    "Crie ou importe contas.",
+    "Indique o tipo: Movimento ou Totalizadora."
+   ],
+   "dicas": [
+    "Contas totalizadoras não podem ser usadas em mapeamentos."
+   ]
+  },
+  "config_moedas": {
+   "modulo": "sistema",
+   "titulo": "Moedas e Câmbios",
+   "serve": "Moedas e tabela de câmbios.",
+   "passos": [
+    "Registe as taxas por data ou importe-as."
+   ],
+   "dicas": []
+  },
+  "config_utilizadores": {
+   "modulo": "sistema",
+   "titulo": "Utilizadores",
+   "serve": "Contas de acesso ao sistema.",
+   "passos": [
+    "Crie o utilizador, atribua um perfil e marque as empresas autorizadas."
+   ],
+   "dicas": [
+    "O que o utilizador vê e faz vem do perfil. As alterações ao perfil aplicam-se ao actualizar a página ou no próximo início de sessão."
+   ]
+  },
+  "config_perfis": {
+   "modulo": "sistema",
+   "titulo": "Perfis e Permissões",
+   "serve": "Definir, por tarefa, o que cada perfil pode consultar e executar.",
+   "passos": [
+    "Clique em \"Criar perfis-modelo\" para ter os perfis habituais (Contabilista, Tesoureiro, Operador da Folha de Caixa, Técnico de RH, Responsável de Salários, Comercial, Operador POS/Lavandaria, Comprador, Fiel de Armazém, Auditor/Consulta, Direcção) e ajuste-os, ou crie um perfil novo.",
+    "Em cada módulo marque \"Consultar\" nos ecrãs que o perfil pode abrir e as tarefas que pode executar (marcar uma tarefa activa a consulta do ecrã).",
+    "Veja o resumo: tarefas sensíveis e conflitos de segregação de funções (ex.: emitir pagamentos e integrá-los). Pode gravar com conflitos, mas o sistema pede confirmação.",
+    "Use \"Matriz de perfis\" para comparar todos os perfis e exportar para Excel."
+   ],
+   "dicas": [
+    "As tarefas são verificadas na própria função: os botões sem permissão ficam desactivados e, se chamados, mostram \"Sem permissão\".",
+    "Perfis criados no editor antigo aparecem como \"Modelo antigo\": abra, reveja as marcações deduzidas e grave para converter.",
+    "Restaurar e apagar dados continua a exigir pedido e aprovação na Manutenção de dados."
+   ]
+  },
+  "config_logs": {
+   "modulo": "sistema",
+   "titulo": "Logs de Navegação",
+   "serve": "Consultar o registo de acções dos utilizadores.",
+   "passos": [
+    "Filtre por utilizador, módulo ou data."
+   ],
+   "dicas": []
+  },
+  "config_manutencao": {
+   "modulo": "sistema",
+   "titulo": "Manutenção de dados",
+   "serve": "Pedir, aprovar e executar limpezas e resets com deliberação.",
+   "passos": [
+    "Crie o pedido e indique o motivo.",
+    "Outro administrador aprova com a sua palavra-passe.",
+    "Execute em 24 h: confirme a cópia de segurança e escreva a frase de confirmação."
+   ],
+   "dicas": [
+    "O histórico fica registado e pode ser exportado."
+   ]
+  },
+  "config_migracao": {
+   "modulo": "sistema",
+   "titulo": "Migração de Dados",
+   "serve": "Importar dados de outros sistemas a partir de modelos Excel.",
+   "passos": [
+    "Descarregue o modelo.",
+    "Preencha e importe.",
+    "Reveja as linhas rejeitadas."
+   ],
+   "dicas": []
+  },
+  "inicio": {
+   "modulo": "inicio",
+   "titulo": "Início",
+   "serve": "Ponto de partida depois de entrar no sistema.",
+   "passos": [
+    "Escolha a empresa no cabeçalho.",
+    "Abra o módulo pretendido no menu lateral."
+   ],
+   "dicas": [
+    "O botão ☰ esconde o menu lateral para ganhar espaço; arraste o friso direito do menu para o alargar."
+   ]
+  }
+ }
+}

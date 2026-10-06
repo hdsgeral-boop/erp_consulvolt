@@ -10,6 +10,7 @@ import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsi
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { GRUPOS_LAV, UNIDADES_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
 import type { DefinicoesLav, Peca, ServicoLav } from './tipos';
+import { ImportarTabela } from './ImportarTabela';
 
 /** Tabelas da lavandaria: peças (com preço por serviço), serviços (conta e IVA) e definições (taxas, adiantamento, contas). */
 export function Tabelas() {
@@ -58,9 +59,13 @@ function TabelaPecas() {
         }
       >
         {pode('lav_tabelas') && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('nova')}>
-            Nova peça
-          </Button>
+          <>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('nova')}>
+              Nova peça
+            </Button>
+            <ImportarTabela tipo="pecas" />
+            <ImportarTabela tipo="precos" />
+          </>
         )}
       </BarraFiltros>
       <Table<Peca>
@@ -180,9 +185,12 @@ function TabelaServicos() {
         }
       >
         {pode('lav_tabelas') && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('novo')}>
-            Novo serviço
-          </Button>
+          <>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('novo')}>
+              Novo serviço
+            </Button>
+            <ImportarTabela tipo="servicos" />
+          </>
         )}
       </BarraFiltros>
       <Table<ServicoLav>

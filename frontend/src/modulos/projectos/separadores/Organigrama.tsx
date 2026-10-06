@@ -1,5 +1,9 @@
-import { Alert, Button, Card, Checkbox, Col, Empty, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Tag, Tree, Typography } from 'antd';
-import { ApartmentOutlined, ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, PlusOutlined, UserAddOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, Col, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Tag, Tree, Typography } from 'antd';
+import {
+  ApartmentOutlined, ArrowDownOutlined, ArrowUpOutlined, ColumnHeightOutlined, DeleteOutlined, DollarOutlined, DownOutlined, EditOutlined, OrderedListOutlined,
+  PlusOutlined, UnorderedListOutlined, UserAddOutlined,
+} from '@ant-design/icons';
+import { ModalAssociarTarefas, ModalMapearOrcamento, ModalPosicoesLote, type PosicaoCompleta } from './OrganigramaAccoes';
 import type { DataNode } from 'antd/es/tree';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, useRef } from 'react';
@@ -17,6 +21,10 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
   const q = useQuery({ queryKey: ['projectos', 'organigrama', projecto.id], queryFn: () => obter<Organigrama>(`/projetos/${projecto.id}/organigrama`) });
   const [posicao, setPosicao] = useState<Partial<Posicao> | null>(null);
   const [alocar, setAlocar] = useState<Posicao | null>(null);
+  // M-20: acções do organigrama do legado (posições em lote, tarefas da posição, mapear orçamento, disposição)
+  const [lote, setLote] = useState(false);
+  const [tarefas, setTarefas] = useState<PosicaoCompleta | null>(null);
+  const [mapear, setMapear] = useState(false);
   const accao = useAccao({ invalidar: [['projectos']] });
   const o = q.data;
   const refOrganigrama = useRef<HTMLDivElement>(null);
@@ -41,12 +49,18 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
         <Tag color={CORES[p.cor ?? 'azul'] ?? 'blue'}>{p.area ?? 'Posição'}</Tag>
         <Typography.Text strong>{p.titulo}</Typography.Text>
         {p.apoio && <Tag>Apoio</Tag>}
+        {((p as PosicaoCompleta).tarefas?.length ?? 0) > 0 && <Tag icon={<OrderedListOutlined />}>{(p as PosicaoCompleta).tarefas?.length} tarefa(s)</Tag>}
+        {(p as PosicaoCompleta).disposicao === 'COLUNA' && <Tag>Filhos em coluna</Tag>}
         <Typography.Text type={p.vagas && ocupadas < p.vagas ? 'warning' : 'secondary'}>{ocupadas}/{p.vagas ?? 0} vaga(s)</Typography.Text>
         {p.membros.length > 0 && <Typography.Text type="secondary">{p.membros.map((m) => m.nome).join(', ')}</Typography.Text>}
         {Number(p.valores.orcamento) > 0 && <Typography.Text type="secondary">Orç. {formatarKz(p.valores.orcamento)} · exec. {formatarKz(p.valores.executado)}</Typography.Text>}
         {acc.gerir && (
           <Space wrap size={4} onClick={(e) => e.stopPropagation()}>
             <Button size="small" icon={<UserAddOutlined />} title="Alocar membros" onClick={() => setAlocar(p)} />
+            <Button size="small" icon={<OrderedListOutlined />} title="Associar tarefas" aria-label={`Associar tarefas a ${p.titulo}`} onClick={() => setTarefas(p as PosicaoCompleta)} />
+            <Button size="small" icon={<ColumnHeightOutlined />} title={(p as PosicaoCompleta).disposicao === 'COLUNA' ? 'Filhos em linha' : 'Filhos em coluna'}
+              aria-label={`Disposição dos filhos de ${p.titulo}`}
+              onClick={() => accao.mutate({ url: `/projetos/${projecto.id}/organigrama/disposicao`, dados: { posicoes: [p.id], disposicao: (p as PosicaoCompleta).disposicao === 'COLUNA' ? null : 'COLUNA' } })} />
             <Button size="small" icon={<PlusOutlined />} title="Nova posição subordinada" onClick={() => setPosicao({ no_pai_id: p.id, cor: p.cor })} />
             <Button size="small" icon={<EditOutlined />} onClick={() => setPosicao(p)} />
             <Button size="small" icon={<ArrowUpOutlined />} title="Subir" onClick={() => accao.mutate({ url: `/projetos/${projecto.id}/organigrama/posicoes/${p.id}/arrumar`, dados: { acao: 'SUBIR' } })} />
@@ -79,6 +93,16 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
           {acc.gerir && (
             <Flex gap={8} wrap style={{ marginBottom: 12 }} className="imp-nao-imprimir">
               <Button type="primary" icon={<PlusOutlined />} onClick={() => setPosicao({ cor: 'azul' })}>Nova posição</Button>
+              <Button icon={<UnorderedListOutlined />} onClick={() => setLote(true)}>Várias posições</Button>
+              {o.posicoes.length > 0 && <Button icon={<DollarOutlined />} onClick={() => setMapear(true)}>Mapear orçamento</Button>}
+              {o.posicoes.length > 0 && (
+                <Dropdown menu={{
+                  items: [{ key: 'FINAIS', label: 'Posições finais em coluna' }, { key: 'LINHA', label: 'Tudo em linha' }],
+                  onClick: ({ key }) => accao.mutate({ url: `/projetos/${projecto.id}/organigrama/disposicao`, dados: { global: key } }),
+                }}>
+                  <Button>Disposição <DownOutlined /></Button>
+                </Dropdown>
+              )}
               {o.posicoes.length === 0 && (
                 <Button icon={<ApartmentOutlined />} loading={accao.isPending} onClick={() => accao.mutate({ url: `/projetos/${projecto.id}/organigrama/modelo` })}>Criar a partir do modelo de obra</Button>
               )}
@@ -92,6 +116,9 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
           )}
           <ModalPosicao projectoId={projecto.id} posicao={posicao} posicoes={o.posicoes} aoFechar={() => setPosicao(null)} />
           <ModalAlocar projectoId={projecto.id} posicao={alocar} organigrama={o} aoFechar={() => setAlocar(null)} />
+          <ModalPosicoesLote aberto={lote} projectoId={projecto.id} posicoes={o.posicoes} aoFechar={() => setLote(false)} />
+          <ModalAssociarTarefas projectoId={projecto.id} posicao={tarefas} aoFechar={() => setTarefas(null)} />
+          <ModalMapearOrcamento aberto={mapear} projectoId={projecto.id} organigrama={o} aoFechar={() => setMapear(false)} />
         </>
       )}
     </Card>

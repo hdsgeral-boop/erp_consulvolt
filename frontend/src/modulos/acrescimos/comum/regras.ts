@@ -60,3 +60,22 @@ export function rotuloMes(mes: string): string {
 export function fimPorMeses(inicio: dayjs.Dayjs, meses: number): dayjs.Dayjs {
   return inicio.add(Math.max(1, meses), 'month').subtract(1, 'day');
 }
+
+/** Cartões da lista (legado ad_ui.js): n.º de acréscimos/diferimentos em curso, Kz já reconhecidos e Kz por reconhecer. */
+export function indicadoresAD(itens: { tipo: string; valor: string; reconhecido?: string }[]) {
+  const c = (v: string | undefined) => Math.round(Number(v ?? 0) * 100);
+  let acrescimos = 0;
+  let diferimentos = 0;
+  let reconhecido = 0;
+  let porReconhecer = 0;
+  for (const i of itens) {
+    if (i.tipo === 'ACRESCIMO') {
+      acrescimos += 1;
+      reconhecido += c(i.reconhecido);
+    } else if (i.tipo === 'DIFERIMENTO') {
+      diferimentos += 1;
+      porReconhecer += c(i.valor) - c(i.reconhecido);
+    }
+  }
+  return { acrescimos, diferimentos, acrescimosReconhecido: (reconhecido / 100).toFixed(2), diferimentosPorReconhecer: (porReconhecer / 100).toFixed(2) };
+}

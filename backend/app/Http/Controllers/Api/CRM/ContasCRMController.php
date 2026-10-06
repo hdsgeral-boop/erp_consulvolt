@@ -22,8 +22,14 @@ final class ContasCRMController extends Controller
     {
         $this->exigir(...ConfiguracaoCRMController::VER);
         $f = $r->validate(['tipo' => ['nullable', 'in:PROSPECT,CLIENTE'], 'pesquisa' => ['nullable', 'string', 'max:100'], 'responsavel' => ['nullable', 'string', 'max:100'],
+            'em_atraso' => ['nullable', 'boolean'],
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
         $pagina = ContaCRM::query()->when($f['tipo'] ?? null, fn ($q, $t) => $q->where('tipo', $t))->when($f['responsavel'] ?? null, fn ($q, $x) => $q->where('responsavel', $x))
+            // «Só com facturas em atraso» (crm_ui_gestao.js:34): facturas do cliente pendentes e vencidas
+            ->when(! empty($f['em_atraso']), fn ($q) => $q->whereExists(fn ($s) => $s->from('vendas as v')->whereColumn('v.cliente_id', 'contas_crm.terceiro_id')
+                ->whereColumn('v.empresa_id', 'contas_crm.empresa_id')->whereIn('v.tipo_documento', ['FT', 'ND'])->where('v.valor_pendente', '>', 0)
+                ->where(fn ($e) => $e->whereNull('v.estado')->orWhere('v.estado', '<>', 'ANULADO'))
+                ->whereRaw('COALESCE(v.data_vencimento, CAST(v.data_emissao AS date)) < CURRENT_DATE')))
             ->when($f['pesquisa'] ?? null, function ($q, $p) {
                 $termo = '%'.str_replace(['%', '_'], ['\%', '\_'], $p).'%';
                 $q->where(fn ($s) => $s->where('nome', 'ilike', $termo)->orWhere('nif', 'ilike', $termo)->orWhere('email', 'ilike', $termo)->orWhere('setor', 'ilike', $termo));

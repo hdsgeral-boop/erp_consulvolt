@@ -1,4 +1,5 @@
-import { Alert, Card, Descriptions, Divider, Flex, Input, InputNumber, Modal, Radio, Result, Skeleton, Space, Table, Typography } from 'antd';
+import { Alert, Button, Card, Descriptions, Divider, Flex, Input, InputNumber, Modal, Radio, Result, Skeleton, Space, Table, Typography } from 'antd';
+import { PrinterOutlined } from '@ant-design/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -9,7 +10,8 @@ import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { formatarCentimos, liquidarTroco, pagamentosParaApi, paraCentimos, ratearPagamentos, resumirPagamentos, type Pagamento } from '../comum/calculos';
 import { meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
-import type { Terminal } from '../comum/tipos';
+import type { Terminal, VendaEmitida } from '../comum/tipos';
+import { htmlTalaoVenda, imprimirHtml, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
 import type { SimulacaoCheckout } from './tipos';
 
 interface Props {
@@ -22,9 +24,11 @@ interface Props {
 /**
  * Check-out de um ou mais quartos: decisão da saída tardia (recalcular ou manter), desconto (pos_desconto), factura por
  * quarto ou única, simulação no servidor e pagamento misto rateado pelas facturas (ServicoCheckoutHotel).
+ * M-16: no fim imprime o talão de cada factura-recibo (legado: printPOSThermalReceipt do hotel), automático se o posto o tiver activo.
  */
 export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
-  const { pode } = useSessao();
+  const { pode, empresa } = useSessao();
+  const cabecalho = useCabecalhoTalao();
   const sessaoId = terminal.sessao_aberta?.id;
   const [opcoes, setOpcoes] = useState<Record<number, 'RECALCULAR' | 'MANTER' | undefined>>({});
   const [desconto, setDesconto] = useState(0);
@@ -34,7 +38,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
   const [simulacao, setSimulacao] = useState<SimulacaoCheckout | null>(null);
   const [aSimular, setASimular] = useState(false);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
-  const [concluido, setConcluido] = useState<{ total: string; troco: string; vendas: { numero_documento: string }[] } | null>(null);
+  const [concluido, setConcluido] = useState<{ total: string; troco: string; vendas: VendaEmitida[] } | null>(null);
   const meios = meiosActivos(terminal.meios_pagamento);
   const chaveEstadias = estadias.map((e) => e.id).join(',');
 
@@ -83,9 +87,12 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
     };
   }, [aberto, sessaoId, corpo, modo, cliente]);
 
-  const checkout = useAccao<{ total: string; troco: string; vendas: { numero_documento: string }[] }>({
+  const checkout = useAccao<{ total: string; troco: string; vendas: VendaEmitida[] }>({
     invalidar: [['pos']],
-    aoSucesso: (r) => setConcluido(r),
+    aoSucesso: (r) => {
+      setConcluido(r);
+      if (lerPreferencias(empresa?.id).automatico) imprimirTaloes(r.vendas, false);
+    },
     tituloErro: 'Não foi possível concluir o check-out',
   });
 
@@ -101,6 +108,14 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
       simulacao.facturas.map((f) => paraCentimos(f.total)),
     );
   }, [simulacao, pagamentos, total, resumo.valido]);
+  /** Talão de cada factura do check-out (com o quarto em «Mesa/Quarto»). */
+  const imprimirTaloes = (vendas: VendaEmitida[], manual: boolean) => {
+    const p = lerPreferencias(empresa?.id);
+    vendas.forEach((v, i) => {
+      const html = htmlTalaoVenda(v, cabecalho({ terminal: `${terminal.codigo} — ${terminal.nome}`, rotuloLocal: 'Quarto(s)' }), p);
+      window.setTimeout(() => (manual ? reimprimir(html, p) : imprimirHtml(html)), i * 800);
+    });
+  };
   const nomeMeio = (id: string) => meios.find((m) => m.id === id)?.nome ?? id;
 
   return (
@@ -118,7 +133,16 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
       onOk={() => (concluido ? aoFechar() : checkout.mutate({ url: `/pos/hotelaria/sessoes/${sessaoId}/checkout`, dados: { ...corpo, pagamentos: pagamentosParaApi(pagamentos) } }))}
     >
       {concluido ? (
-        <Result status="success" title="Check-out concluído" subTitle={`Emitido(s): ${concluido.vendas.map((v) => v.numero_documento).join(', ')} · total ${formatarKz(concluido.total)} Kz · troco ${formatarKz(concluido.troco)} Kz`} />
+        <Result
+          status="success"
+          title="Check-out concluído"
+          subTitle={`Emitido(s): ${concluido.vendas.map((v) => v.numero_documento).join(', ')} · total ${formatarKz(concluido.total)} Kz · troco ${formatarKz(concluido.troco)} Kz`}
+          extra={
+            <Button icon={<PrinterOutlined />} onClick={() => imprimirTaloes(concluido.vendas, true)}>
+              Imprimir talão
+            </Button>
+          }
+        />
       ) : !sessaoId ? (
         <Alert type="warning" showIcon message="O terminal não tem sessão aberta: abra-a na frente de caixa." />
       ) : (
@@ -175,6 +199,7 @@ export function Checkout({ aberto, estadias, terminal, aoFechar }: Props) {
                   <Descriptions size="small" column={{ xs: 2, sm: 4 }} style={{ marginTop: 8 }}>
                     <Descriptions.Item label="Bruto">{formatarKz(f.bruto)}</Descriptions.Item>
                     <Descriptions.Item label="Desconto">{formatarKz(f.desconto)}</Descriptions.Item>
+                    {Number(f.arredondamento_agt ?? 0) !== 0 && <Descriptions.Item label="Arredondamento AGT">{formatarKz(f.arredondamento_agt)}</Descriptions.Item>}
                     <Descriptions.Item label="Base">{formatarKz(f.total_liquido)}</Descriptions.Item>
                     <Descriptions.Item label="IVA">{formatarKz(f.total_imposto)}</Descriptions.Item>
                   </Descriptions>

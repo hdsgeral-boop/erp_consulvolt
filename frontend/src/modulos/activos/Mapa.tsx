@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
+import { NavActivos } from './comum/NavActivos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar, tabelaHtml, type ColunaImpressao } from '@/componentes/impressao';
 import { BarraFiltros } from '@/componentes/responsivo';
@@ -26,6 +27,7 @@ export default function Mapa() {
         titulo="Mapa das amortizações"
         accoes={<InputNumber prefix="Ano" min={1900} max={2100} value={ano} onChange={(v) => v && setAno(v)} style={{ width: 150 }} />}
       />
+      <NavActivos actual="activos_mapa" />
       <Tabs
         destroyOnHidden
         items={[

@@ -24,6 +24,9 @@ use Illuminate\Support\Facades\DB;
  *   - recusa movimentar um armazém com inventário em curso (no legado a diferença era calculada contra uma
  *     fotografia desactualizada) — excepto a própria regularização do inventário.
  * As saídas são valorizadas ao custo indicado (ex.: o da entrada que se estorna) ou ao custo médio.
+ * Decisão 15 do utilizador: numa entrada sobre stock negativo, a diferença de valorização das unidades vendidas a descoberto
+ * (custo da entrada − custo médio a que saíram) é devolvida em «acerto_cmv» e lançada no CMV pelo documento de entrada
+ * (recepção de compra, regularização de inventário); sem isto o stock valorizado deixava de bater com a conta 26.
  */
 final class ServicoStock
 {
@@ -133,6 +136,12 @@ final class ServicoStock
             if ($m['sentido'] === 'E') {
                 $custo = (string) ($m['custo'] ?? $custoMedio);
                 $novoTotal = bcadd($total, $quantidade, 3);
+                // decisão 15: stock negativo seguido de entrada — as unidades vendidas a descoberto saíram ao custo médio anterior;
+                // a diferença para o custo desta entrada vai para o CMV (o chamador lança D custo / C inventário, ou o inverso)
+                if (bccomp($total, '0', 3) < 0) {
+                    $cobertas = bccomp(ltrim($total, '-'), $quantidade, 3) < 0 ? ltrim($total, '-') : $quantidade;
+                    $acertoCmv = number_format(round((float) bcmul($cobertas, bcsub($custo, $custoMedio, 8), 8), 2), 2, '.', '');
+                }
                 // custo médio ponderado sobre o stock existente positivo
                 $base = bccomp($total, '0', 3) > 0 ? $total : '0';
                 $custoMedio = bccomp(bcadd($base, $quantidade, 3), '0', 3) > 0
@@ -164,7 +173,25 @@ final class ServicoStock
                 'armazem_contraparte_id' => $m['armazem_contraparte_id'] ?? null, 'criado_por' => Auth::user()?->nome_utilizador,
             ]);
 
-            return ['movimento' => $movimento, 'custo_unitario' => $custo];
+            return ['movimento' => $movimento, 'custo_unitario' => $custo, 'acerto_cmv' => $acertoCmv ?? '0.00'];
         });
+    }
+
+    /**
+     * Linhas do acerto do CMV (decisão 15) para juntar ao lançamento do documento de entrada: acerto > 0 (entrada mais cara
+     * do que o custo a que saíram as unidades a descoberto) = D custo das mercadorias / C inventário; acerto < 0 = o inverso.
+     *
+     * @return list<array{codigo_conta: string, tipo_dc: string, valor: string}>
+     */
+    public static function linhasAcertoCmv(string $acerto, string $contaCusto, string $contaInventario): array
+    {
+        if (bccomp($acerto, '0', 2) === 0) {
+            return [];
+        }
+        $positivo = bccomp($acerto, '0', 2) > 0;
+        $valor = ltrim($acerto, '-');
+
+        return [['codigo_conta' => $contaCusto, 'tipo_dc' => $positivo ? 'D' : 'C', 'valor' => $valor],
+            ['codigo_conta' => $contaInventario, 'tipo_dc' => $positivo ? 'C' : 'D', 'valor' => $valor]];
     }
 }

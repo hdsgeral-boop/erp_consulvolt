@@ -14,12 +14,18 @@ use App\Services\Ativos\ServicoAquisicoesAtivos;
 use App\Services\Ativos\ServicoAtivos;
 use App\Services\Ativos\ServicoCategoriasAtivos;
 use App\Services\Ativos\ServicoManutencaoAtivos;
+use App\Services\Sistema\ServicoLeituraFolha;
 use App\Support\Api\RespostaApi;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /** /api/ativos — categorias, cadastro, transferências, afectações a projectos, manutenções, aquisições pendentes e abates. */
 final class AtivosController extends Controller
@@ -141,6 +147,35 @@ final class AtivosController extends Controller
         $res = $this->ativos->importar($d['linhas'], $d['decisao'] ?? 'IGNORAR', (bool) ($d['simular'] ?? false));
 
         return RespostaApi::sucesso($res, ($d['simular'] ?? false) ? 'Simulação da importação.' : "Importação concluída: {$res['importados']} activo(s) importado(s).");
+    }
+
+    /**
+     * POST /ativos/bens/importar/folha — lê o modelo XLSX (ou XLS/CSV) no servidor e devolve as linhas {cabeçalho: valor};
+     * o ecrã mapeia-as como no CSV e segue o fluxo existente (simular → importar). Lacuna da paridade: o legado importava .xlsx.
+     */
+    public function lerFolhaBens(Request $r, ServicoLeituraFolha $folha): JsonResponse
+    {
+        $this->exigir('activos_gerir');
+        $r->validate(['ficheiro' => ['required', 'file', 'max:20480', 'extensions:xlsx,xls,csv,txt']]);
+
+        return RespostaApi::sucesso(array_values(array_filter($folha->linhas($r->file('ficheiro')))), 'Folha lida.');
+    }
+
+    /** GET /ativos/bens/importar/modelo — modelo XLSX da importação de activos (downloadAssetExcelTemplate do legado). */
+    public function modeloBens(): BinaryFileResponse
+    {
+        $this->exigir('activos_gerir');
+        $livro = new Spreadsheet;
+        $livro->getActiveSheet()->setTitle('Template')->fromArray([['Código', 'Descrição', 'Valor de aquisição', 'Categoria', 'Vida útil (meses)', 'Anos amortizados',
+            'Amortização acumulada', 'Ano da amortização acumulada', 'Data de aquisição'], ['', 'Viatura ligeira', 4500000, 'Equipamento de transporte', 48, '', '', '', '2026-01-15']]);
+        $livro->createSheet()->setTitle('Como_Preencher')->fromArray([['Campo', 'O que preencher'], ['Código', 'Vazio = código automático'], ['Descrição', 'Obrigatório'],
+            ['Valor de aquisição', 'Obrigatório (Kz)'], ['Categoria', 'Nome da categoria (criada se não existir)'], ['Vida útil (meses)', 'Vazio = a da categoria'],
+            ['Anos amortizados / Amortização acumulada', 'Para activos já em uso: o acumulado à data indicada'], ['Data de aquisição', 'AAAA-MM-DD ou data do Excel']]);
+        File::ensureDirectoryExists(storage_path('app/tmp'));
+        $caminho = storage_path('app/tmp/modelo_activos_'.Str::random(10).'.xlsx');
+        (new Xlsx($livro))->save($caminho);
+
+        return response()->download($caminho, 'Template_Activos.xlsx')->deleteFileAfterSend();
     }
 
     // ───────────── Transferências e afectações ─────────────
@@ -344,6 +379,8 @@ final class AtivosController extends Controller
     {
         return ['ativo_imobilizado_id' => ['required', 'integer'], 'tipo' => ['required', Rule::in(AbateVendaAtivo::TIPOS)], 'data' => ['required', 'date'],
             'descricao' => ['nullable', 'string', 'max:2000'], 'valor' => ['nullable', 'numeric', 'min:0'], 'terceiro_id' => ['nullable', 'integer'],
-            'conta_terceiro' => ['nullable', 'string', 'max:20'], 'conta_ativo' => ['nullable', 'string', 'max:20']];
+            'conta_terceiro' => ['nullable', 'string', 'max:20'], 'conta_ativo' => ['nullable', 'string', 'max:20'],
+            // decisão 18: IVA liquidado na venda
+            'taxa_iva' => ['nullable', 'numeric', Rule::in([0, 5, 7, 14])], 'conta_iva' => ['nullable', 'string', 'max:20']];
     }
 }

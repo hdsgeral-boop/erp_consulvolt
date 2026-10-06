@@ -44,7 +44,7 @@ export default function Cenarios() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Cenários what-if" subtitulo="Volume, preço, matérias, pessoal, outros custos e câmbio aplicados ao orçamento base" />
+      <CabecalhoPagina titulo="Cenários (what-if)" subtitulo="Volume, preço, matérias, pessoal, outros custos e câmbio aplicados ao orçamento base" />
       <Card style={{ marginBottom: 16 }}>
         <Flex gap={8} wrap>
           <SeletorOrcamento value={orcamento} onChange={setOrcamento} style={{ width: 420, maxWidth: '100%' }} />

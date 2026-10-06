@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Descriptions, Form, Input, Modal, Skeleton, Table, Tag, Typography, message } from 'antd';
-import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CopyOutlined, EditOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -51,6 +51,7 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
             {permitirEdicao && a.podeEditar && <Button icon={<EditOutlined />} onClick={() => navegar('editar')}>Editar</Button>}
+            {permitirEdicao && pode('teso_doc_emitir') && <Button icon={<CopyOutlined />} onClick={() => navegar(`../novo?tipo=${d.tipo}&copiar=${d.id}`)}>Copiar</Button>}
             {a.podeIntegrar && (
               <Button type="primary" loading={accao.isPending} onClick={() => Modal.confirm({ title: `Integrar ${d.numero_documento ?? 'o documento'} na contabilidade?`, content: 'É gerado o lançamento no diário de bancos/caixa.', okText: 'Integrar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ caminho: 'integrar' }) })}>
                 Integrar

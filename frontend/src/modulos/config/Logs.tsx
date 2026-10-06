@@ -32,7 +32,7 @@ export default function Logs() {
   const campo = (k: string) => (v: string) => setFiltros({ ...filtros, [k]: v.trim() || undefined });
   return (
     <>
-      <CabecalhoPagina titulo="Logs de auditoria" subtitulo="Quem fez o quê, quando e o que mudou" />
+      <CabecalhoPagina titulo="Histórico de Movimentos" subtitulo="Rastreabilidade total de todas as acções no sistema: quem fez o quê, quando e o que mudou" />
       <Card>
         <BarraFiltros style={{ marginBottom: 12 }}>
           <Input.Search placeholder="Pesquisar nos detalhes" allowClear style={{ width: 240 }} onSearch={campo('pesquisa')} />

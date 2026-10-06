@@ -48,8 +48,8 @@ describe('recibos', () => {
   });
 
   it('acções e meios de pagamento', () => {
-    expect(accoesRecibo({ estado: 'EMITIDO', contabilizado: false }, () => true)).toEqual({ contabilizar: true, descontabilizar: false, anular: true });
-    expect(accoesRecibo({ estado: 'ANULADO', contabilizado: false }, () => true)).toEqual({ contabilizar: false, descontabilizar: false, anular: false });
+    expect(accoesRecibo({ estado: 'EMITIDO', contabilizado: false }, () => true)).toEqual({ alocar: false, contabilizar: true, descontabilizar: false, anular: true });
+    expect(accoesRecibo({ estado: 'ANULADO', contabilizado: false }, () => true)).toEqual({ alocar: false, contabilizar: false, descontabilizar: false, anular: false });
     expect(rotuloMeio('Transferencia')).toBe('Transferência');
     expect(rotuloMeio(null)).toBe('—');
   });

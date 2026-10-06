@@ -1,13 +1,17 @@
 import {
   Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Divider, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tabs, Tag,
 } from 'antd';
-import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, ImportOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { descarregar, obter } from '@/api/cliente';
+import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
+import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
+import { notificarErro } from '@/utilitarios/erros';
+import { ImportarExcel } from './comum/ImportarExcel';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { pares, tabelaHtml } from '@/componentes/impressao';
 import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -42,26 +46,48 @@ function ListaColaboradores() {
   const [estado, setEstado] = useState<string | undefined>('ACTIVO');
   const [tipo, setTipo] = useState<number>();
   const [pesquisa, setPesquisa] = useState('');
+  const [importar, setImportar] = useState(false);
   const pequeno = useEcraPequeno();
+  const uns = useUnidadesNegocio();
+  const ccs = useTabelaAux('centros-custo');
+  const codigoUn = (v: number | null) => (v ? uns.data?.find((x) => x.id === v)?.codigo ?? `#${v}` : '—');
+  const codigoCc = (v: number | null) => (v ? ccs.data?.find((x) => x.id === v)?.codigo ?? `#${v}` : '—');
 
+  // colunas da lista do legado (renderColaboradores): nome, NIF, UN, CC, n.º INSS, função, tipo de órgão, estado, tipo, dias contratados
   const colunas: ColunaApi<Colaborador>[] = [
-    { title: 'Nome', dataIndex: 'nome_completo', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
+    { title: 'Nome completo', dataIndex: 'nome_completo', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
     { title: 'NIF', dataIndex: 'nif' },
+    { title: 'UN', dataIndex: 'unidade_negocio_id', responsive: ['lg'], render: (v: number | null) => codigoUn(v) },
+    { title: 'CC', dataIndex: 'centro_custo_id', responsive: ['lg'], render: (v: number | null) => codigoCc(v) },
     { title: 'N.º INSS', dataIndex: 'numero_inss', responsive: ['md'], render: (v: string | null) => v ?? '—' },
     { title: 'Função', dataIndex: 'cargo_funcao_id', render: (v: number | null) => cargos.nome(v) },
-    { title: 'Tipo de organização', dataIndex: 'tipo_organizacao_id', responsive: ['lg'], render: (v: number | null) => tipos.nome(v) },
-    { title: 'Admissão', dataIndex: 'data_admissao', responsive: ['md'], render: formatarData },
-    { title: 'Regime', responsive: ['md'], render: (_, r) => (r.avencado ? <Tag color="purple">Avençado</Tag> : r.reformado ? <Tag>Reformado</Tag> : null), valorImpressao: (r) => (r.avencado ? 'Avençado' : r.reformado ? 'Reformado' : '') },
+    { title: 'Tipo de órgão', dataIndex: 'tipo_organizacao_id', responsive: ['lg'], render: (v: number | null) => tipos.nome(v) },
     { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
+    { title: 'Tipo', responsive: ['md'], render: (_, r) => (r.avencado ? <Tag color="purple">Avençado</Tag> : r.reformado ? <Tag>Reformado</Tag> : 'Normal'), valorImpressao: (r) => (r.avencado ? 'Avençado' : r.reformado ? 'Reformado' : 'Normal') },
+    { title: 'Dias contratados', dataIndex: 'dias_uteis_mes', align: 'right', responsive: ['md'], render: (v: number | null) => v ?? '—' },
+    { title: 'Admissão', dataIndex: 'data_admissao', responsive: ['xl'], render: formatarData },
   ];
 
   return (
     <>
       <CabecalhoPagina
-        titulo="Colaboradores"
+        titulo="Gestão de Colaboradores"
         subtitulo="Ficha dos colaboradores da empresa"
-        accoes={pode('colaboradores_detail') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Novo colaborador</Button>}
+        accoes={
+          <>
+            {pode('colaboradores_import') && (
+              <>
+                <Button icon={<DownloadOutlined />} onClick={() => void descarregar('/rh/importacoes/modelos/colaboradores', undefined, 'Template_Colaboradores.xlsx').catch(notificarErro)}>Template</Button>
+                <Button icon={<ImportOutlined />} onClick={() => setImportar(true)}>Importar Excel</Button>
+              </>
+            )}
+            {pode('colaboradores_detail') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Novo colaborador</Button>}
+          </>
+        }
       />
+      <ImportarExcel aberto={importar} titulo="Importar colaboradores (Excel)" url="/rh/importacoes/colaboradores" modelo="colaboradores" comDecisao="ACTUALIZAR"
+        ajuda="Folha «Colaboradores» do modelo: o NIF identifica o colaborador — se já existir, a ficha é actualizada (as células vazias não apagam dados); senão é criado. Banco e IBAN registam as coordenadas bancárias."
+        aoFechar={() => setImportar(false)} />
       <Card>
         <BarraFiltros>
           <Input.Search placeholder="Nome, NIF ou n.º INSS" allowClear style={{ width: 260 }} onSearch={setPesquisa} />
@@ -336,6 +362,8 @@ function FormularioColaborador() {
                 <Select allowClear showSearch optionFilterProp="label" options={colaboradores.lista.filter((x) => String(x.id) !== id).map((x) => ({ value: x.id, label: x.nome_completo }))} />
               </Form.Item>
             </Col>
+            <Col xs={24} md={8}><Form.Item name="unidade_negocio_id" label="Unidade de negócio" extra="Imputação analítica dos salários."><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={8}><Form.Item name="habilitacao_maxima" label="Habilitação máxima" extra="Vazia: calculada pelas habilitações concluídas."><Select allowClear options={NIVEIS_HABILITACAO.map((n) => ({ value: n, label: n }))} /></Form.Item></Col>
             <Col xs={24} md={8}>
               <Form.Item label="Regime">

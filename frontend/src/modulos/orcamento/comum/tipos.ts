@@ -89,6 +89,8 @@ export interface LinhaControlo {
   desvio_pct: number | null;
   favoravel: boolean;
   desvio_significativo: boolean;
+  /** Realizado sem orçado (decisão 24). */
+  sem_orcamento?: boolean;
   mensal: { orcado: Dinheiro[]; realizado: Dinheiro[] };
 }
 

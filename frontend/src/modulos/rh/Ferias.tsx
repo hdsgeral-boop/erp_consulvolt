@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Progress, Select, Space, Table, Tabs, Tag, message } from 'antd';
+import { Alert, Button, Card, Col, Statistic, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Progress, Row, Select, Space, Switch, Table, Tabs, Tag, Tooltip, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -11,7 +11,7 @@ import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
-import { ESTADOS_FERIAS_RH, ROTULOS_ESTADO, type PeriodoFerias, type ResumoFerias } from './api';
+import { ESTADOS_FERIAS_RH, ROTULOS_ESTADO, type ConfiguracaoRH, type PeriodoFerias, type ResumoFerias } from './api';
 import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { htmlTabela, seccaoHtml } from './comum/impressao';
@@ -54,6 +54,8 @@ export default function Ferias() {
     onError: (e, vars) => {
       if (e instanceof ErroApi && e.codigo === 'SALDO_EXCEDIDO' && !vars.dados.confirmar_excesso) {
         Modal.confirm({ title: 'Exceder o direito a férias?', content: e.message, okText: 'Gravar mesmo assim', cancelText: 'Cancelar', onOk: () => gravar.mutateAsync({ ...vars, dados: { ...vars.dados, confirmar_excesso: true } }) });
+      } else if (e instanceof ErroApi && e.codigo === 'ANTIGUIDADE_INSUFICIENTE' && !vars.dados.confirmar_antiguidade) {
+        Modal.confirm({ title: 'Gozo antes de 6 meses de serviço?', content: e.message, okText: 'Gravar mesmo assim', cancelText: 'Cancelar', onOk: () => gravar.mutateAsync({ ...vars, dados: { ...vars.dados, confirmar_antiguidade: true } }) });
       } else notificarErro(e);
     },
   });
@@ -70,7 +72,10 @@ export default function Ferias() {
 
   const colResumo: ColunaApi<ResumoFerias>[] = [
     { title: 'Colaborador', dataIndex: 'nome', render: (v: string) => <strong>{v}</strong>, sorter: (a, b) => a.nome.localeCompare(b.nome, 'pt') },
-    { title: 'Direito', dataIndex: 'direito', align: 'right' },
+    { title: 'Direito', dataIndex: 'direito', align: 'right', render: (d: number, r) => (
+      <Space size={4}>{d}{r.ano_admissao && <Tooltip title="Ano de admissão: 2 dias úteis por mês completo (LGT)"><Tag color="blue">1.º ano</Tag></Tooltip>}
+        {(r.transporte ?? 0) > 0 && <Tooltip title="Saldo transportado do ano anterior"><Tag color="gold">+{r.transporte}</Tag></Tooltip>}</Space>
+    ), valorImpressao: (r) => `${r.direito}${r.transporte ? ` (incl. ${r.transporte} transportados)` : ''}` },
     { title: 'Marcados', dataIndex: 'marcados', align: 'right' },
     { title: 'Aprovados', dataIndex: 'aprovados', align: 'right' },
     { title: 'Gozados', dataIndex: 'gozados', align: 'right' },
@@ -115,7 +120,7 @@ export default function Ferias() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Programa de férias"
+        titulo="Programa de Férias"
         subtitulo="Dias úteis pelo calendário da empresa (feriados da configuração da Efectividade); os pedidos do portal decidem-se em «Pedidos do Portal»"
         accoes={editar && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Marcar férias</Button>}
         impressaoDesactivada={!resumo.length && !periodos.length}
@@ -126,6 +131,16 @@ export default function Ferias() {
           conteudo: seccaoHtml('Resumo por colaborador', await htmlTabela(colResumo, resumo)) + seccaoHtml(`Períodos (${periodos.length})`, await htmlTabela(colPeriodos, periodos)),
         })}
       />
+      <div className="erp-grelha-auto" style={{ marginBottom: 16 }}>
+        {[
+          ['Colaboradores', resumo.length],
+          ['Dias de direito', resumo.reduce((t, r) => t + r.direito, 0)],
+          ['Dias planeados', resumo.reduce((t, r) => t + r.marcados, 0)],
+          ['Dias gozados', resumo.reduce((t, r) => t + r.gozados, 0)],
+          ['Sem férias planeadas', resumo.filter((r) => r.marcados === 0).length],
+          ['Saldo negativo', resumo.filter((r) => r.saldo < 0).length],
+        ].map(([t, v]) => <Card key={t} size="small"><Statistic title={t} value={v} /></Card>)}
+      </div>
       <Card>
         <BarraFiltros>
           <InputNumber value={ano} min={2000} max={2100} onChange={(v) => v && setAno(v)} prefix="Ano" style={{ width: 150 }} />
@@ -135,6 +150,7 @@ export default function Ferias() {
         <Tabs items={[
           { key: 'resumo', label: 'Resumo por colaborador', children: <Table<ResumoFerias> rowKey="colaborador_id" size="small" loading={plano.isFetching} columns={colResumo} dataSource={resumo} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
           { key: 'periodos', label: `Períodos (${periodos.length})`, children: <Table<PeriodoFerias> rowKey="id" size="small" loading={plano.isFetching} columns={colPeriodos} dataSource={periodos} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
+          { key: 'regras', label: 'Regras (LGT)', children: <RegrasFerias editar={editar} /> },
         ]} />
       </Card>
       <Modal title={edicao === 'novo' ? 'Marcar férias' : 'Editar férias'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar"
@@ -146,10 +162,40 @@ export default function Ferias() {
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true }]}><SeletorColaborador apenasActivos style={{ width: '100%' }} disabled={edicao !== 'novo'} /></Form.Item>
           <Form.Item name="periodo" label="Período" rules={[{ required: true, message: 'Indique as datas.' }]}><DatePicker.RangePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="estado" label="Estado"><Select options={ESTADOS_FERIAS_RH.map((x) => ({ value: x, label: ROTULOS_ESTADO[x] }))} /></Form.Item>
-          <Form.Item name="direito" label="Direito anual (dias úteis)" extra="Vazio = direito em vigor (22 por omissão). Gravar aplica-o a todos os períodos do ano."><InputNumber min={0} max={60} style={{ width: '100%' }} /></Form.Item>
+          <Form.Item name="direito" label="Direito anual (dias úteis)" extra="Vazio = direito calculado (22; no ano de admissão 2 por mês completo; mais o saldo transportado). Gravar aplica-o a todos os períodos do ano."><InputNumber min={0} max={60} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="observacoes" label="Observações"><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
         </Form>
       </Modal>
     </>
+  );
+}
+
+/**
+ * Regras das férias (decisão 7 do utilizador, Lei Geral do Trabalho — Lei n.º 12/23): direito anual de 22 dias úteis;
+ * no ano de admissão 2 dias úteis por mês completo de serviço (máx. 22), com gozo só depois de 6 meses; saldo não gozado
+ * transportado para o ano seguinte até ao limite. O direito gravado no plano prevalece sempre.
+ */
+function RegrasFerias({ editar }: { editar: boolean }) {
+  const q = useQuery({ queryKey: ['rh', 'configuracao'], queryFn: () => obter<ConfiguracaoRH>('/rh/configuracao') });
+  useAvisarErro(q.error);
+  const [form] = Form.useForm<Pick<ConfiguracaoRH, 'ferias_dias_mes_admissao' | 'ferias_meses_minimos_gozo' | 'ferias_transporte_saldo' | 'ferias_transporte_max_dias'>>();
+  const accao = useAccaoRh();
+  return (
+    <Card loading={q.isLoading} variant="borderless">
+      <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Regra da Lei Geral do Trabalho (Lei n.º 12/23) — confirme com o jurista ou o acordo colectivo"
+        description="Direito anual de 22 dias úteis. No ano de admissão: 2 dias úteis por cada mês completo de serviço até 31/12 (máximo 22) e gozo só depois de 6 meses completos. O saldo não gozado de um ano gerido no plano transita para o seguinte, até ao limite indicado. O direito gravado à mão no plano prevalece." />
+      {q.data && (
+        <Form form={form} layout="vertical" disabled={!editar} initialValues={q.data} style={{ maxWidth: 720 }}
+          onFinish={(v) => accao.mutate({ metodo: 'put', url: '/rh/configuracao', dados: v })}>
+          <Row gutter={16}>
+            <Col xs={24} sm={12}><Form.Item name="ferias_dias_mes_admissao" label="Dias por mês completo (ano de admissão)"><InputNumber min={0} max={5} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="ferias_meses_minimos_gozo" label="Meses de serviço antes do gozo"><InputNumber min={0} max={12} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="ferias_transporte_saldo" label="Transportar o saldo para o ano seguinte" valuePropName="checked"><Switch /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="ferias_transporte_max_dias" label="Máximo de dias transportados"><InputNumber min={0} max={66} style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+          {editar && <Button type="primary" htmlType="submit" loading={accao.isPending}>Gravar regras</Button>}
+        </Form>
+      )}
+    </Card>
   );
 }

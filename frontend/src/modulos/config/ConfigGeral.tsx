@@ -3,6 +3,7 @@ import { CloudDownloadOutlined, CopyOutlined, DeleteOutlined, ImportOutlined, Up
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { descarregar, enviar, obter } from '@/api/cliente';
+import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -10,6 +11,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 import { lerComoDataUrl } from './comum/ficheiros';
+import { UnidadesNegocio } from './UnidadesNegocio';
 
 interface ResumoCopia {
   empresa_origem: { id: number; nome: string | null };
@@ -26,10 +28,11 @@ interface ResumoCopia {
 export default function ConfigGeral() {
   const { pode, utilizador } = useSessao();
   const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
-  const nada = !pode('config_backup') && !pode('config_ferramentas') && !superAdmin;
+  const nada = !pode('config_backup') && !pode('config_ferramentas') && !superAdmin && !pode('tabelas_aux_view', 'aux_gerir');
   return (
     <>
-      <CabecalhoPagina titulo="Configurações gerais" subtitulo="Cópias de segurança, clonagem de empresas e logótipo do ecrã de entrada" />
+      <NavConfig actual="config_geral" />
+      <CabecalhoPagina titulo="Configurações e Backup" subtitulo="Cópias de segurança, clonagem de empresas, logótipo do ecrã de entrada e unidades de negócio" />
       {nada && <Alert type="info" showIcon message="Não tem permissões para as ferramentas deste ecrã (cópias de segurança, ferramentas ou administração do sistema)." />}
       <Row gutter={[16, 16]}>
         {pode('config_backup') && (
@@ -50,6 +53,12 @@ export default function ConfigGeral() {
         {superAdmin && (
           <Col xs={24} xl={12}>
             <LogotipoEntrada />
+          </Col>
+        )}
+        {pode('tabelas_aux_view', 'aux_gerir') && (
+          <Col xs={24}>
+            {/* M-14: o legado tinha as unidades de negócio nas configurações (modules/configuracoes/unidades_negocio.js) */}
+            <Card title="Unidades de negócio"><UnidadesNegocio /></Card>
           </Col>
         )}
       </Row>

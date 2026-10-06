@@ -29,7 +29,7 @@ abstract class ReciboVendaBase extends ModeloBase
     protected string $moduloAuditoria = 'Vendas';
 
     protected $fillable = [
-        'empresa_id', 'cliente_id', 'unidade_negocio_id', 'centro_custo_id', 'numero_recibo', 'data', 'montante_total', 'meio_pagamento', 'banco_id', 'codigo_conta', 'referencia_pagamento', 'contabilizado', 'montante_total_moeda', 'referencia', 'projeto_id', 'codigo_projeto', 'estado', 'venda_origem_id', 'serie_faturacao_eletronica_id', 'numero_lan_contabilizacao', 'anulado_em', 'motivo_anulacao',
+        'empresa_id', 'cliente_id', 'unidade_negocio_id', 'centro_custo_id', 'numero_recibo', 'data', 'montante_total', 'meio_pagamento', 'banco_id', 'codigo_conta', 'referencia_pagamento', 'contabilizado', 'montante_total_moeda', 'referencia', 'projeto_id', 'codigo_projeto', 'estado', 'venda_origem_id', 'serie_faturacao_eletronica_id', 'numero_lan_contabilizacao', 'anulado_em', 'motivo_anulacao', 'tipo_recibo',
     ];
 
     protected function casts(): array

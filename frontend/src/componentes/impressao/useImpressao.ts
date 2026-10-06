@@ -5,6 +5,7 @@ import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { chaveIdentidade, type IdentidadeEmpresa } from '@/sessao/identidade';
 import { notificarErro } from '@/utilitarios/erros';
+import { descarregarExcel } from './excel';
 import { imprimirDocumento } from './motor';
 import type { FormatoPagina, IdentidadeImpressao, OpcoesImpressao } from './tipos';
 
@@ -59,5 +60,22 @@ export function useImpressao() {
     [obterIdentidade, utilizador, mensagem],
   );
 
-  return { imprimir, aImprimir, obterIdentidade };
+  /** Exportação Excel (.xlsx) do mesmo documento (M-01): cabeçalho da empresa, filtros, tabelas com números e datas tipados. */
+  const exportarExcel = useCallback(
+    async (pedido: PedidoImpressao): Promise<string | null> => {
+      try {
+        const identidade = pedido.identidade ?? (await obterIdentidade());
+        const nomeUtilizador = pedido.utilizador ?? (utilizador ? utilizador.nome_completo || utilizador.nome_utilizador : null);
+        const nome = descarregarExcel({ ...pedido, identidade, utilizador: nomeUtilizador });
+        mensagem.success({ content: `Ficheiro Excel gerado: ${nome}`, duration: 4 });
+        return nome;
+      } catch (e) {
+        notificarErro(e, 'Não foi possível gerar o ficheiro Excel');
+        return null;
+      }
+    },
+    [obterIdentidade, utilizador, mensagem],
+  );
+
+  return { imprimir, aImprimir, obterIdentidade, exportarExcel };
 }

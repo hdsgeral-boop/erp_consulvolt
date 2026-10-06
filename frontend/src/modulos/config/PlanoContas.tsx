@@ -3,6 +3,7 @@ import { DeleteOutlined, EditOutlined, PlusOutlined, SwapOutlined } from '@ant-d
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { enviar } from '@/api/cliente';
+import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { scrollTabela } from '@/componentes/responsivo';
 import { TabelaLocalImprimivel } from './comum/impressao';
@@ -39,7 +40,8 @@ export default function PlanoContas() {
   const { pode } = useSessao();
   return (
     <>
-      <CabecalhoPagina titulo="Plano de contas" subtitulo="Contas de movimento e totalizadoras da empresa activa" />
+      <NavConfig actual="config_plano" />
+      <CabecalhoPagina titulo="Plano de Contas" subtitulo="Contas de movimento e totalizadoras da empresa activa" />
       <Tabs
         items={[
           { key: 'contas', label: 'Contas', children: <Contas /> },
@@ -75,7 +77,7 @@ function Contas() {
   return (
     <Card>
       <TabelaLocalImprimivel<ContaPlano>
-        titulo="Plano de contas"
+        titulo="Plano de Contas"
         filtros={[tipo ? `Tipo: ${tipo === 'M' ? 'Movimento' : 'Totalizadoras'}` : null, filtro ? `Pesquisa: ${filtro}` : null]}
         filtrosEcra={<>
           <Input.Search placeholder="Código (prefixo) ou descrição" allowClear style={{ width: 280 }} onChange={(e) => setFiltro(e.target.value)} />

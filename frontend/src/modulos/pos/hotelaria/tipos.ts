@@ -70,6 +70,8 @@ export interface FacturaSimulada {
   linhas: { produto_id: number; quantidade: string; preco_unitario: string; descricao: string | null }[];
   bruto: string;
   desconto: string;
+  /** Decisão 10: arredondamento AGT (base e IVA por excesso ao cêntimo), separado do desconto comercial. */
+  arredondamento_agt?: string;
   total_liquido: string;
   total_imposto: string;
   total: string;

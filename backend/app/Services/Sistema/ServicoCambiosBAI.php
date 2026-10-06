@@ -55,19 +55,45 @@ final class ServicoCambiosBAI
     /** @return array{data: string, itens: list<array<string, mixed>>} uma linha por moeda estrangeira activa */
     public function previsualizar(): array
     {
-        $porMoeda = collect($this->obter())->keyBy('moeda');
-        $hoje = now()->toDateString();
+        return $this->compor($this->obter(), now()->toDateString());
+    }
+
+    /**
+     * Linhas de pré-visualização (uma por moeda estrangeira activa) a partir das cotações lidas: último câmbio registado
+     * (âmbito «todas as empresas») até à data, variação e alerta acima de LIMIAR_VARIACAO. Usado pela consulta manual e
+     * pela obtenção automática (ServicoCambiosBAIAutomaticos), que guarda o resultado como pendente de validação.
+     *
+     * @param  list<array{moeda: string, nome: string, compra: float, venda: float, media: float}>  $cotacoes
+     * @return array{data: string, itens: list<array<string, mixed>>}
+     */
+    public function compor(array $cotacoes, string $data): array
+    {
+        $porMoeda = collect($cotacoes)->keyBy('moeda');
         $itens = [];
         foreach (Moeda::query()->where('ativo', true)->where('codigo', '<>', ServicoCambios::BASE)->orderBy('codigo')->get() as $m) {
             $l = $porMoeda[$m->codigo] ?? null;
-            $ultimo = TaxaCambio::query()->whereNull('empresa_id')->where('codigo_moeda', $m->codigo)->where('data_taxa', '<=', $hoje)->orderByDesc('data_taxa')->first();
-            $variacao = $l && $ultimo && (float) $ultimo->taxa > 0 ? round(($l['media'] - (float) $ultimo->taxa) / (float) $ultimo->taxa * 100, 2) : null;
+            $ultimo = $this->ultimoRegistado($m->codigo, $data);
+            $variacao = $l && $ultimo ? self::variacao($l['media'], $ultimo['taxa']) : null;
             $itens[] = ['codigo_moeda' => $m->codigo, 'nome' => $m->nome, 'disponivel' => $l !== null, 'compra' => $l['compra'] ?? null, 'venda' => $l['venda'] ?? null,
-                'media' => $l['media'] ?? null, 'ultimo' => $ultimo ? ['taxa' => (float) $ultimo->taxa, 'data_taxa' => $ultimo->data_taxa->toDateString(), 'fonte_dados' => $ultimo->fonte_dados] : null,
+                'media' => $l['media'] ?? null, 'ultimo' => $ultimo,
                 'variacao' => $variacao, 'alerta' => $variacao !== null && abs($variacao) > self::LIMIAR_VARIACAO];
         }
 
-        return ['data' => $hoje, 'itens' => $itens];
+        return ['data' => $data, 'itens' => $itens];
+    }
+
+    /** @return array{taxa: float, data_taxa: string, fonte_dados: ?string}|null último câmbio «todas as empresas» até à data */
+    public function ultimoRegistado(string $codigo, string $data): ?array
+    {
+        $ultimo = TaxaCambio::query()->whereNull('empresa_id')->where('codigo_moeda', $codigo)->where('data_taxa', '<=', $data)->orderByDesc('data_taxa')->first();
+
+        return $ultimo ? ['taxa' => (float) $ultimo->taxa, 'data_taxa' => $ultimo->data_taxa->toDateString(), 'fonte_dados' => $ultimo->fonte_dados] : null;
+    }
+
+    /** Variação percentual (2 casas) da média face ao último câmbio; null se o último não for positivo. */
+    public static function variacao(float $media, float $ultimo): ?float
+    {
+        return $ultimo > 0 ? round(($media - $ultimo) / $ultimo * 100, 2) : null;
     }
 
     /**
@@ -76,29 +102,41 @@ final class ServicoCambiosBAI
      */
     public function gravar(array $moedas): array
     {
-        $porMoeda = collect($this->obter())->keyBy('moeda');
-        $hoje = now()->toDateString();
+        return $this->gravarCotacoes(collect($this->obter())->keyBy('moeda')->all(), now()->toDateString(), $moedas, 'Câmbios do BAI');
+    }
+
+    /**
+     * Grava em taxas_cambio (âmbito «todas as empresas», origem BAI) as cotações das moedas indicadas, na data indicada.
+     * Os câmbios já registados nessa data são substituídos, excepto os já usados em documentos com taxa diferente
+     * (ficam em `bloqueados`). Uma moeda sem cotação recusa a gravação inteira (422 BAI_MOEDA_INDISPONIVEL).
+     *
+     * @param  array<string, array{compra: float|string|null, venda: float|string|null, media: float|string}>  $porMoeda  cotações por código
+     * @param  list<string>  $moedas
+     * @return array{novos: int, substituidos: int, bloqueados: list<string>, gravados: list<array{codigo_moeda: string, taxa: float}>}
+     */
+    public function gravarCotacoes(array $porMoeda, string $data, array $moedas, string $acaoAuditoria): array
+    {
         $r = ['novos' => 0, 'substituidos' => 0, 'bloqueados' => [], 'gravados' => []];
-        DB::transaction(function () use ($moedas, $porMoeda, $hoje, &$r) {
+        DB::transaction(function () use ($moedas, $porMoeda, $data, &$r) {
             foreach (array_unique(array_map('strtoupper', $moedas)) as $codigo) {
                 $l = $porMoeda[$codigo] ?? null;
                 if (! $l) {
                     throw new ErroNegocio("A moeda {$codigo} não está disponível na página do BAI.", 'BAI_MOEDA_INDISPONIVEL', 422);
                 }
-                $media = number_format($l['media'], 6, '.', '');
-                $ex = TaxaCambio::query()->whereNull('empresa_id')->where('codigo_moeda', $codigo)->whereDate('data_taxa', $hoje)->first();
+                $media = number_format((float) $l['media'], 6, '.', '');
+                $ex = TaxaCambio::query()->whereNull('empresa_id')->where('codigo_moeda', $codigo)->whereDate('data_taxa', $data)->first();
                 if ($ex && bccomp((string) $ex->taxa, $media, 6) !== 0 && $this->moedas->emUso($ex->id)) {
                     $r['bloqueados'][] = $codigo;
 
                     continue;
                 }
-                $this->moedas->gravarCambio(['data_taxa' => $hoje, 'codigo_moeda' => $codigo, 'taxa' => $media, 'ambito' => ServicoMoedas::AMBITO_TODAS,
+                $this->moedas->gravarCambio(['data_taxa' => $data, 'codigo_moeda' => $codigo, 'taxa' => $media, 'ambito' => ServicoMoedas::AMBITO_TODAS,
                     'fonte_dados' => 'BAI', 'taxa_compra_bai' => $l['compra'], 'taxa_venda_bai' => $l['venda'], 'substituir' => true]);
                 $ex ? $r['substituidos']++ : $r['novos']++;
                 $r['gravados'][] = ['codigo_moeda' => $codigo, 'taxa' => (float) $media];
             }
         });
-        $this->auditoria->registar('Sistema/Moedas', 'Câmbios do BAI', "Câmbios do BAI de {$hoje}: {$r['novos']} novo(s), {$r['substituidos']} substituído(s)"
+        $this->auditoria->registar('Sistema/Moedas', $acaoAuditoria, "{$acaoAuditoria} de {$data}: {$r['novos']} novo(s), {$r['substituidos']} substituído(s)"
             .($r['bloqueados'] ? ', não substituídos (em uso): '.implode(', ', $r['bloqueados']) : '').'.');
 
         return $r;

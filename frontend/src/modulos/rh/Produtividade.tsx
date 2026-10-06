@@ -1,5 +1,6 @@
+import { ImportarExcel } from './comum/ImportarExcel';
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
-import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, ImportOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -144,6 +145,7 @@ function DetalhePeriodo() {
   const itens = useQuery({ queryKey: ['rh', 'produtividade', 'itens'], queryFn: () => obter<ItemProdutividade[]>('/rh/produtividade/itens') });
   const [edicao, setEdicao] = useState<RegistoProdutividade | 'novo' | null>(null);
   const [reabrir, setReabrir] = useState(false);
+  const [importar, setImportar] = useState(false);
   const [form] = Form.useForm<ValoresRegisto>();
   const [formR] = Form.useForm<{ motivo: string }>();
   const accao = useAccaoRh(() => { setEdicao(null); setReabrir(false); });
@@ -197,6 +199,7 @@ function DetalhePeriodo() {
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
+            {registar && <Button icon={<ImportOutlined />} onClick={() => setImportar(true)}>Importar Excel</Button>}
             {registar && <Button icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEdicao('novo'); }}>Registo</Button>}
             {aberto && pode('rh_prod_periodo') && (
               <Button type="primary" icon={<LockOutlined />} onClick={() => Modal.confirm({ title: 'Fechar o período?', content: 'Depois de fechado pode ser importado no processamento salarial do mês.', okText: 'Fechar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/produtividade/periodos/${id}/fechar` }) })}>Fechar período</Button>
@@ -219,6 +222,9 @@ function DetalhePeriodo() {
         <Typography.Paragraph type="secondary">O mínimo e o máximo do item aplicam-se ao total do colaborador no período; a quantidade considerada reparte-se pelos registos.</Typography.Paragraph>
         <Table<RegistoProdutividade> rowKey="id" size="small" columns={colunas} dataSource={p.registos} scroll={scrollTabela()} pagination={{ pageSize: 50 }} />
       </Card>
+      <ImportarExcel aberto={importar} titulo={`Importar produtividade — ${mesPorExtenso(p.mes)}`} url={`/rh/produtividade/periodos/${id}/importar`} modelo="produtividade" comDecisao="IGNORAR"
+        ajuda="Folha «Produtividade»: NIF, código do item, quantidade, data (opcional, dentro da janela) e observações. O colaborador tem de ter o item no contrato activo; o mesmo NIF + item + data nunca se duplica."
+        aoFechar={() => setImportar(false)} />
       <Modal title={edicao === 'novo' ? 'Novo registo' : 'Editar registo'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => {
           const dados = { ...v, data: dataApi(v.data ?? null) ?? null, observacoes: v.observacoes ?? null };

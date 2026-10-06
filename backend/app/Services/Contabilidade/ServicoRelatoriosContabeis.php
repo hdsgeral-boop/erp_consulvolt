@@ -66,6 +66,14 @@ final class ServicoRelatoriosContabeis
             $linha = $this->linhaBalancete($r, $f);
             $movimento[$r->codigo] = $linha;
             if ($this->ocultar($linha, $f)) {
+                // decisão 22: com «sem saldo zero» os totais continuam a ser os de todas as contas (como o legado,
+                // que somava todos os movimentos); só a linha deixa de se ver
+                if (! empty($f['sem_saldo_zero']) && ! $this->ocultar($linha, ['sem_saldo_zero' => false] + $f)) {
+                    foreach (array_keys($totais) as $k) {
+                        $totais[$k] = bcadd($totais[$k], $linha[$k], 2);
+                    }
+                }
+
                 continue;
             }
             $linha = ['codigo_conta' => $r->codigo, 'descricao' => $descricoes[$r->codigo] ?? null] + $linha;

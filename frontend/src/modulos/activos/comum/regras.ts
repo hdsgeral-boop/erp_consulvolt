@@ -158,6 +158,29 @@ export function lerCsvImportacao(texto: string): { linhas: LinhaImportacao[]; co
   return { linhas, colunas: mapa.filter((m): m is keyof LinhaImportacao => !!m), ignoradas: cab.filter((_, i) => !mapa[i]) };
 }
 
+/**
+ * Linhas lidas de uma folha Excel no servidor ({cabeçalho: valor}) → linhas da importação, com os mesmos cabeçalhos do CSV.
+ * Os números já vêm como números; as datas do Excel como AAAA-MM-DD.
+ */
+export function lerLinhasFolha(objetos: Record<string, unknown>[]): { linhas: LinhaImportacao[]; colunas: (keyof LinhaImportacao)[]; ignoradas: string[] } {
+  const chave = (c: string) => c.toLowerCase().replace(/\s+/g, ' ').trim();
+  const campo = (c: string) => CABECALHOS[chave(c)] ?? CABECALHOS[chave(c).replace(/ /g, '_')];
+  const todos = [...new Set(objetos.flatMap((o) => Object.keys(o)))];
+  const linhas = objetos.map((o) => {
+    const r: LinhaImportacao = {};
+    for (const [k, v] of Object.entries(o)) {
+      const c = campo(k);
+      if (!c || v === '' || v === null || v === undefined) continue;
+      if (NUMERICOS.includes(c)) {
+        const n = typeof v === 'number' ? v : lerNumero(String(v));
+        if (n !== undefined) (r as Record<string, unknown>)[c] = n;
+      } else (r as Record<string, unknown>)[c] = String(v);
+    }
+    return r;
+  }).filter((r) => Object.keys(r).length);
+  return { linhas, colunas: todos.map(campo).filter((m): m is keyof LinhaImportacao => !!m), ignoradas: todos.filter((c) => !campo(c)) };
+}
+
 /** Reparte um valor em n partes iguais ao cêntimo; a última absorve o resto (a soma bate sempre com o total). */
 export function repartirValor(total: Valor, n: number): string[] {
   const partes = Math.max(1, Math.floor(n));

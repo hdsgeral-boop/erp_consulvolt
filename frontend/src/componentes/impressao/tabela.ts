@@ -26,6 +26,11 @@ export interface ColunaImpressao<T> {
   largura?: string;
   /** Permite quebra de linha (textos longos: descrições, observações). */
   quebrar?: boolean;
+  /**
+   * Valor bruto para a exportação Excel (número ou data ISO), quando o texto impresso não o deixa reconstituir
+   * (ex.: taxas com mais casas do que as mostradas). Por omissão: `valor` nas colunas numéricas e de data.
+   */
+  bruto?: (linha: T, indice: number) => ValorCelula;
 }
 
 export interface OpcoesTabela<T> {
@@ -76,6 +81,24 @@ function attrClasse(c: string): string {
   return c ? ` class="${c}"` : '';
 }
 
+/**
+ * Atributos `data-xv` (valor bruto) e `data-xt` (n = número, d = data) lidos pela exportação Excel (excel.ts) para
+ * gravar números como números e datas como datas. Não afectam a impressão.
+ */
+export function attrBruto(v: ValorCelula): string {
+  if (typeof v === 'number' && Number.isFinite(v)) return ` data-xv="${v}" data-xt="n"`;
+  if (typeof v !== 'string') return '';
+  const t = v.trim();
+  if (/^-?\d+(\.\d+)?$/.test(t)) return ` data-xv="${t}" data-xt="n"`;
+  if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?)?/.test(t)) return ` data-xv="${esc(t.slice(0, 16))}" data-xt="d"`;
+  return '';
+}
+
+function brutoDe<T>(c: ColunaImpressao<T>, l: T, n: number): ValorCelula {
+  if (c.bruto) return c.bruto(l, n);
+  return c.formato && c.formato !== 'texto' && !c.formatar ? c.valor(l, n) : undefined;
+}
+
 function linhaTotais<T>(colunas: ColunaImpressao<T>[], linhas: T[], rotulo: string, cls: string): string {
   const celulas = colunas.map((c, i) => {
     let texto = '';
@@ -83,6 +106,7 @@ function linhaTotais<T>(colunas: ColunaImpressao<T>[], linhas: T[], rotulo: stri
     else if (c.somar) {
       const soma = somar(linhas.map((l, n) => c.valor(l, n) as string | number | null | undefined));
       texto = c.formatar ? c.formatar(soma, null) : c.formato === 'inteiro' ? String(Math.round(Number(soma))) : formatarKz(soma);
+      return `<td${attrClasse(classe(c))}${c.formato !== 'percentagem' && !c.formatar ? attrBruto(soma) : ''}>${esc(texto)}</td>`;
     } else if (i === 0) texto = rotulo;
     return `<td${attrClasse(classe(c))}>${esc(texto)}</td>`;
   });
@@ -94,7 +118,7 @@ export function tabelaHtml<T>({ colunas, linhas, legenda, totais, agrupar, vazio
     .map((c) => `<th${attrClasse(classe(c).replace('imp-quebra', ''))}${c.largura ? ` style="width:${esc(c.largura)}"` : ''}>${esc(c.titulo)}</th>`)
     .join('')}</tr></thead>`;
   const linhaHtml = (l: T, n: number) =>
-    `<tr>${colunas.map((c) => `<td${attrClasse(classe(c))}>${esc(formatarValor(c, c.valor(l, n), l))}</td>`).join('')}</tr>`;
+    `<tr>${colunas.map((c) => `<td${attrClasse(classe(c))}${c.formato === 'percentagem' ? '' : attrBruto(brutoDe(c, l, n))}>${esc(formatarValor(c, c.valor(l, n), l))}</td>`).join('')}</tr>`;
 
   let corpo = '';
   if (!linhas.length) corpo = `<tr><td class="imp-vazio" colspan="${colunas.length}">${esc(vazio)}</td></tr>`;

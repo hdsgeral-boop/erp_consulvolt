@@ -4,6 +4,7 @@ namespace App\Services\Sistema;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\LancamentoContabil;
+use App\Services\Contabilidade\ServicoEncerramento;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 
@@ -40,6 +41,18 @@ final class ServicoValidacoesDados
                 'sql' => "SELECT l.id AS linha_id, l.codigo_conta, l.numero_lan, l.data_documento, l.valor, l.tipo_dc
                           FROM lancamentos_contabeis l JOIN plano_contas p ON p.empresa_id = l.empresa_id AND p.codigo = l.codigo_conta AND p.eliminado_em IS NULL
                           WHERE l.empresa_id = ? AND p.tipo = 'T' ORDER BY l.data_documento, l.id",
+            ],
+            // decisão 20 (ronda 2): contas do apuramento de resultados (ServicoEncerramento::PASSOS) em falta ou totalizadoras;
+            // a correcção assistida está em Contabilidade › Encerramento do exercício («Plano de contas para o encerramento»)
+            'plano_contas_apuramento' => [
+                'titulo' => 'Plano de contas: contas do apuramento em falta ou totalizadoras', 'modulo' => 'Contabilidade', 'gravidade' => 'AVISO',
+                'descricao' => 'Contas usadas nos 5 passos do apuramento (agrupadoras 619…799, 821…886 e 889) que não existem ou são totalizadoras. '
+                    .'Bloqueiam o encerramento: corrija antes do primeiro encerramento em Encerramento do exercício › Plano de contas (criar/converter).',
+                'legado' => 'O legado gravava o apuramento em contas inexistentes ou totalizadoras (ui_closing.js)',
+                'sql' => "SELECT x.codigo, CASE WHEN p.id IS NULL THEN 'Em falta' ELSE 'Totalizadora' END AS problema, p.descricao
+                          FROM (VALUES ".self::valoresContasApuramento().") x(codigo)
+                          LEFT JOIN plano_contas p ON p.empresa_id = ? AND p.codigo = x.codigo AND p.eliminado_em IS NULL
+                          WHERE p.id IS NULL OR p.tipo = 'T' ORDER BY x.codigo",
             ],
             'lancamentos_conta_inexistente' => [
                 'titulo' => 'Movimentos em contas que não existem no plano', 'modulo' => 'Contabilidade', 'gravidade' => 'AVISO',
@@ -367,6 +380,33 @@ final class ServicoValidacoesDados
                 'sql' => "SELECT tipo_documento, numero_documento, COUNT(*) AS registos, string_agg(id::text || ' (' || COALESCE(tipo_documento_original, '') || ')', ', ') AS documentos
                           FROM vendas WHERE empresa_id = ? GROUP BY 1, 2 HAVING COUNT(*) > 1 ORDER BY 3 DESC",
             ],
+            // decisão 19 do utilizador (ronda 2): contas de diferenças de câmbio por configurar
+            'config_diferencas_cambio_em_falta' => [
+                'titulo' => 'Contas de diferenças de câmbio por configurar', 'modulo' => 'Tesouraria', 'gravidade' => 'AVISO',
+                'descricao' => 'Sem estas contas, a liquidação de documentos em moeda estrangeira com diferença de câmbio é recusada. '
+                    .'O legado usava 6621 (favoráveis) e 7621 (desfavoráveis); configure-as em Tesouraria/Compras › Contas (ou crie-as no plano).',
+                'legado' => 'moedas_tesouraria.js: 6621/7621 fixas',
+                'sql' => "SELECT x.configuracao, x.chave FROM (VALUES ('Tesouraria', 'configuracoes_contabeis_tesouraria', 'diferencas_cambio_favoraveis'),
+                              ('Tesouraria', 'configuracoes_contabeis_tesouraria', 'diferencas_cambio_desfavoraveis'),
+                              ('Compras', 'configuracoes_contabeis_compras', 'diferencas_cambio_favoraveis'),
+                              ('Compras', 'configuracoes_contabeis_compras', 'diferencas_cambio_desfavoraveis')) AS x(configuracao, tabela, chave)
+                          WHERE NOT EXISTS (SELECT 1 FROM configuracoes_contabeis_tesouraria t WHERE x.tabela = 'configuracoes_contabeis_tesouraria'
+                                AND t.empresa_id = ? AND t.chave = x.chave AND t.codigo_conta IS NOT NULL)
+                          AND NOT EXISTS (SELECT 1 FROM configuracoes_contabeis_compras c WHERE x.tabela = 'configuracoes_contabeis_compras'
+                                AND c.empresa_id = ? AND c.chave = x.chave AND c.codigo_conta IS NOT NULL)",
+            ],
+            // decisão 12 do utilizador (ronda 2): documento fiscal sem linhas — orientação, sem alteração automática
+            'vendas_fiscais_sem_linhas' => [
+                'titulo' => 'Facturas e notas de crédito sem linhas', 'modulo' => 'Vendas', 'gravidade' => 'ERRO',
+                'descricao' => 'Documento fiscal (FT/FR/NC) sem linhas: não é contabilizável (o legado lançava-o em contas fixas 72/IVA). '
+                    .'Orientação: se o documento não devia existir, emita uma nota de crédito ou anule-o na AGT; se as linhas se perderam no legado, '
+                    .'emita um documento correcto e regularize na Contabilidade. Nada é alterado automaticamente.',
+                'legado' => 'postSale: contas fixas 72/34.5',
+                'sql' => "SELECT v.id, v.tipo_documento, v.numero_documento, v.data_emissao::date AS data, v.total_bruto, v.contabilizado
+                          FROM vendas v WHERE v.empresa_id = ? AND v.tipo_documento IN ('FT', 'FR', 'NC')
+                          AND (v.estado IS NULL OR v.estado <> 'ANULADO')
+                          AND NOT EXISTS (SELECT 1 FROM itens_venda i WHERE i.venda_id = v.id) ORDER BY v.data_emissao, v.id",
+            ],
             'documentos_tesouraria_sem_data' => [
                 'titulo' => 'Documentos de tesouraria sem data', 'modulo' => 'Tesouraria', 'gravidade' => 'AVISO',
                 'descricao' => 'O legado APAGAVA estes documentos e as suas linhas ao abrir a Tesouraria (ui_tesouraria.js:275-286). Agora são listados para decisão.',
@@ -409,6 +449,21 @@ final class ServicoValidacoesDados
                      FROM lancamentos_contabeis WHERE empresa_id = ? AND {$tem('codigo_conta')} GROUP BY codigo_conta";
 
         return implode(' UNION ALL ', $partes).' ORDER BY 1, 2';
+    }
+
+    /** Lista VALUES (SQL) das contas do apuramento: agrupadoras, alvos, agregadoras, resultados e 889 (constantes, sem dados do utilizador). */
+    private static function valoresContasApuramento(): string
+    {
+        $c = [ServicoEncerramento::CONTA_RESULTADO_LIQUIDO];
+        foreach (ServicoEncerramento::PASSOS as $p) {
+            foreach ($p['transferencias'] as [$prefixo, $sufixo, $alvo]) {
+                array_push($c, $prefixo.$sufixo, $alvo);
+            }
+            array_push($c, $p['agregadora'], $p['resultado']);
+        }
+        $c = array_values(array_unique(array_filter($c, fn ($x) => preg_match('/^[0-9]+$/', (string) $x))));
+
+        return implode(', ', array_map(fn ($x) => "('{$x}')", $c));
     }
 
     /** @return list<array<string, mixed>> resumo de todas as validações da empresa activa */

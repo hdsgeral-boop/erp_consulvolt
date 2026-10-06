@@ -140,8 +140,15 @@ final class ServicoInventario
                 $p = Produto::query()->findOrFail($l->produto_id);
                 $custo = $l->custo_personalizado !== null ? (string) $l->custo_personalizado : (string) ($p->custo_medio ?? '0');
                 $sobra = bccomp($dif, '0', 3) > 0;
-                $mov = $this->stock->ajustar($p->id, $s->armazem_id, $sobra ? 'E' : 'S', ltrim($dif, '-'), $custo, $data, "Regularização de inventário {$numero}".($l->justificacao ? ": {$l->justificacao}" : ''),
-                    ['documento_tipo' => 'INVENTARIO', 'documento_id' => $s->id, 'ignorar_inventario' => true, 'permitir_negativo' => true])['movimento'];
+                $ajuste = $this->stock->ajustar($p->id, $s->armazem_id, $sobra ? 'E' : 'S', ltrim($dif, '-'), $custo, $data, "Regularização de inventário {$numero}".($l->justificacao ? ": {$l->justificacao}" : ''),
+                    ['documento_tipo' => 'INVENTARIO', 'documento_id' => $s->id, 'ignorar_inventario' => true, 'permitir_negativo' => true]);
+                $mov = $ajuste['movimento'];
+                // decisão 15: sobra sobre stock negativo — acerto do CMV das unidades vendidas a descoberto
+                if (bccomp($ajuste['acerto_cmv'], '0', 2) !== 0) {
+                    foreach (ServicoStock::linhasAcertoCmv($ajuste['acerto_cmv'], $this->config->contaCusto($p), $this->config->contaInventario($p)) as $a) {
+                        $somar($a['codigo_conta'], $a['tipo_dc'], $a['valor']);
+                    }
+                }
                 $valor = (string) $mov->valor;
                 $l->update(['custo_unitario' => $custo, 'valor_diferenca' => $sobra ? $valor : '-'.$valor]);
                 if (bccomp($valor, '0', 2) > 0) {

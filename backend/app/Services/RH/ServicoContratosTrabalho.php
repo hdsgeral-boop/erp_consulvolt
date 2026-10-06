@@ -69,6 +69,90 @@ final class ServicoContratosTrabalho
         });
     }
 
+    /**
+     * A-09 — aplicar rubricas em massa (aplicarRubricasEmMassa, js/modules/rh/contratos_massa.js): uma ou mais rubricas
+     * de vencimento, cada uma com o MESMO valor mensal para todos, aplicadas aos colaboradores escolhidos:
+     *   - com contrato vigente (ACTIVO e válido hoje; senão o último ACTIVO): acrescenta a rubrica; se já a tiver,
+     *     SUBSTITUIR o valor ou MANTER (à escolha);
+     *   - sem contrato: cria-o (início, dias/mês, horas/dia, moeda) com essas rubricas, se `criar`;
+     *   - colaboradores não ACTIVOS e contratos INACTIVOS não são alterados.
+     * Tudo numa transacção (nada fica a meio); `simular` devolve o plano sem gravar.
+     *
+     * @param  list<int>  $colaboradores
+     * @param  list<array{infotipo_salarial_id: int, valor_mes: mixed}>  $rubricas
+     * @param  array{data_inicio?: string, dias_contrato_mes?: int, horas_por_dia?: mixed, codigo_moeda?: string}  $novos
+     * @return array{actualizados: list<string>, criados: list<string>, sem_alteracao: list<string>, inactivos: list<string>, sem_contrato: list<string>, simulacao: bool}
+     */
+    public function aplicarRubricasEmMassa(array $colaboradores, array $rubricas, string $modo, bool $criar, array $novos, bool $simular): array
+    {
+        if ($rubricas === [] || $colaboradores === []) {
+            throw new ErroNegocio('Escolha pelo menos um colaborador e uma rubrica com valor.', 'DADOS_INVALIDOS', 422);
+        }
+        if ($criar && empty($novos['data_inicio'])) {
+            throw new ErroNegocio('Indique a data de início dos contratos a criar.', 'DADOS_INVALIDOS', 422);
+        }
+        $res = ['actualizados' => [], 'criados' => [], 'sem_alteracao' => [], 'inactivos' => [], 'sem_contrato' => [], 'simulacao' => $simular];
+        DB::beginTransaction();
+        try {
+            $hoje = now()->toDateString();
+            foreach (Colaborador::query()->whereKey(array_unique($colaboradores))->orderBy('nome_completo')->get() as $colab) {
+                if ($colab->estado !== 'ACTIVO') {
+                    $res['inactivos'][] = $colab->nome_completo;
+
+                    continue;
+                }
+                $doColab = ContratoTrabalho::query()->where('colaborador_id', $colab->id)->where('estado', '<>', 'INACTIVO')->orderByDesc('data_inicio')->orderByDesc('id')->get();
+                $vigente = $doColab->first(fn ($c) => (! $c->data_inicio || $c->data_inicio->toDateString() <= $hoje) && (! $c->data_fim || $c->data_fim->toDateString() >= $hoje))
+                    ?? $doColab->first();
+                if (! $vigente) {
+                    if (! $criar) {
+                        $res['sem_contrato'][] = $colab->nome_completo;
+
+                        continue;
+                    }
+                    $this->guardar(['colaborador_id' => $colab->id, 'data_inicio' => $novos['data_inicio'], 'data_fim' => null, 'estado' => 'ACTIVO',
+                        'dias_contrato_mes' => $novos['dias_contrato_mes'] ?? 22, 'horas_por_dia' => $novos['horas_por_dia'] ?? 8, 'codigo_moeda' => $novos['codigo_moeda'] ?? 'AOA',
+                        'remuneracoes' => array_map(fn ($r) => ['infotipo_salarial_id' => (int) $r['infotipo_salarial_id'], 'valor_mes' => $r['valor_mes']], $rubricas)]);
+                    $res['criados'][] = $colab->nome_completo;
+
+                    continue;
+                }
+                $dias = max(1, (int) ($vigente->dias_contrato_mes ?: 22));
+                $actuais = [];
+                foreach ((array) (is_array($vigente->remuneracoes) ? $vigente->remuneracoes : json_decode((string) $vigente->remuneracoes, true)) as $x) {
+                    $id = (int) ($x['infotipo_id'] ?? $x['infotype_id'] ?? 0);
+                    if ($id > 0) {
+                        $mes = $x['valor_mes'] ?? $x['value_month'] ?? null;
+                        $actuais[$id] = round($mes !== null && $mes !== '' ? (float) $mes : (float) ($x['valor_dia'] ?? $x['value_per_day'] ?? 0) * $dias, 2);
+                    }
+                }
+                $muda = false;
+                foreach ($rubricas as $r) {
+                    $id = (int) $r['infotipo_salarial_id'];
+                    $v = round((float) $r['valor_mes'], 2);
+                    if (! array_key_exists($id, $actuais) || ($modo === 'SUBSTITUIR' && $actuais[$id] !== $v)) {
+                        $actuais[$id] = $v;
+                        $muda = true;
+                    }
+                }
+                if (! $muda) {
+                    $res['sem_alteracao'][] = $colab->nome_completo;
+
+                    continue;
+                }
+                $this->guardar(['colaborador_id' => $colab->id, 'data_inicio' => $vigente->data_inicio?->toDateString() ?? $hoje, 'data_fim' => $vigente->data_fim?->toDateString(),
+                    'remuneracoes' => array_map(fn ($id, $v) => ['infotipo_salarial_id' => $id, 'valor_mes' => $v], array_keys($actuais), $actuais)], $vigente);
+                $res['actualizados'][] = $colab->nome_completo;
+            }
+            $simular ? DB::rollBack() : DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        return $res;
+    }
+
     /** Terminar: fixa a data de fim; o estado passa a INACTIVO quando a data já passou. */
     public function terminar(ContratoTrabalho $c, string $dataFim): ContratoTrabalho
     {

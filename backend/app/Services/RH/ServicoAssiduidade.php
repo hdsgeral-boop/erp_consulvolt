@@ -15,6 +15,7 @@ use App\Models\PlanoFeriasColaborador;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
@@ -78,7 +79,7 @@ final class ServicoAssiduidade
      *
      * @return array{gravados: int, ignorados: int, erros: list<string>}
      */
-    public function importar(UploadedFile $ficheiro, bool $substituir = true): array
+    public function importar(UploadedFile $ficheiro, bool $substituir = true, string $origem = 'FICHEIRO', ?string $fonte = null): array
     {
         $folha = IOFactory::load($ficheiro->getRealPath())->getActiveSheet()->toArray(null, true, false, false);
         $cab = array_map(fn ($c) => self::chave((string) $c), array_shift($folha) ?? []);
@@ -117,7 +118,7 @@ final class ServicoAssiduidade
             }
             try {
                 DB::transaction(fn () => $this->gravarRegisto(['colaborador_id' => $c->id, 'data' => $data, 'entrada' => self::horaHHMM($v($l, 'entrada')) ?: null,
-                    'saida' => self::horaHHMM($v($l, 'saida')) ?: null, 'horas' => $v($l, 'horas'), 'observacoes' => $v($l, 'observacoes')], 'FICHEIRO', mb_substr($ficheiro->getClientOriginalName(), 0, 50)));
+                    'saida' => self::horaHHMM($v($l, 'saida')) ?: null, 'horas' => $v($l, 'horas'), 'observacoes' => $v($l, 'observacoes')], $origem, mb_substr($fonte ?? $ficheiro->getClientOriginalName(), 0, 50)));
                 $res['gravados']++;
             } catch (ErroNegocio $e) {
                 $res['erros'][] = "Linha {$linha}: {$e->getMessage()}";
@@ -125,6 +126,76 @@ final class ServicoAssiduidade
         }
 
         return $res;
+    }
+
+    /** Limite do que se lê do relógio (5 MB) e tempo máximo do pedido (segundos). */
+    public const RELOGIO_MAX_BYTES = 5 * 1024 * 1024;
+
+    public const RELOGIO_TIMEOUT = 20;
+
+    /**
+     * M-12 — leitura directa do relógio biométrico pelo SERVIDOR (importarDoRelogio, js/modules/rh/assiduidade.js:436).
+     * O legado fazia o fetch no navegador (falhava por CORS e expunha o endereço da rede interna a cada posto). Aqui:
+     * só http(s) e sem credenciais no URL (já validado ao gravar a configuração), tempo limite, tamanho máximo, formato
+     * CSV ou JSON (lista de objectos com os mesmos nomes de colunas da importação de ficheiro), e o mesmo leitor da
+     * importação de ficheiro. Endereços de metadados da nuvem (169.254.x.x) são recusados.
+     *
+     * @return array{gravados: int, ignorados: int, erros: list<string>, fonte: string}
+     */
+    public function importarDoRelogio(bool $substituir = true): array
+    {
+        $cfg = $this->calendario->config();
+        $url = trim((string) ($cfg['relogio']['url'] ?? ''));
+        if ($url === '') {
+            throw new ErroNegocio('Configure o endereço do relógio biométrico em RH › Efectividade › Configuração.', 'RELOGIO_SEM_URL', 422);
+        }
+        $host = (string) parse_url($url, PHP_URL_HOST);
+        if (! preg_match('#^https?://#i', $url) || $host === '' || (filter_var($host, FILTER_VALIDATE_IP) && str_starts_with($host, '169.254.'))) {
+            throw new ErroNegocio('Endereço do relógio inválido.', 'URL_RELOGIO_INVALIDA', 422);
+        }
+        try {
+            $resposta = Http::timeout(self::RELOGIO_TIMEOUT)->withOptions(['allow_redirects' => false, 'stream' => false])
+                ->accept('text/csv, application/json, text/plain')->get($url);
+        } catch (\Throwable) {
+            throw new ErroNegocio("Não foi possível contactar o relógio em {$host}. Verifique a rede e se o servidor do ERP tem acesso ao equipamento.", 'RELOGIO_INACESSIVEL', 422);
+        }
+        if (! $resposta->successful()) {
+            throw new ErroNegocio("O relógio respondeu com o erro {$resposta->status()}.", 'RELOGIO_ERRO', 422);
+        }
+        $corpo = $resposta->body();
+        if (strlen($corpo) > self::RELOGIO_MAX_BYTES) {
+            throw new ErroNegocio('O relógio devolveu mais de 5 MB: exporte um período mais curto.', 'RELOGIO_GRANDE', 422);
+        }
+        $json = ($cfg['relogio']['formato'] ?? 'CSV') === 'JSON' || str_contains((string) $resposta->header('Content-Type'), 'json');
+        $temp = tempnam(sys_get_temp_dir(), 'relogio_');
+        @unlink($temp);
+        $caminho = $temp.'.csv';
+        try {
+            if ($json) {
+                $dados = json_decode($corpo, true);
+                $dados = is_array($dados) && isset($dados['dados']) && is_array($dados['dados']) ? $dados['dados'] : $dados;
+                if (! is_array($dados) || $dados === [] || ! is_array(reset($dados))) {
+                    throw new ErroNegocio('O relógio não devolveu registos (JSON vazio ou em formato desconhecido).', 'RELOGIO_SEM_REGISTOS', 422);
+                }
+                $colunas = array_keys(array_merge(...array_map(fn ($x) => (array) $x, array_values($dados))));
+                $f = fopen($caminho, 'w');
+                fputcsv($f, $colunas, ',', '"', '\\');
+                foreach ($dados as $x) {
+                    fputcsv($f, array_map(fn ($c) => is_scalar($x[$c] ?? null) ? (string) $x[$c] : '', $colunas), ',', '"', '\\');
+                }
+                fclose($f);
+            } else {
+                if (trim($corpo) === '') {
+                    throw new ErroNegocio('O relógio não devolveu registos.', 'RELOGIO_SEM_REGISTOS', 422);
+                }
+                file_put_contents($caminho, $corpo);
+            }
+            $res = $this->importar(new UploadedFile($caminho, 'relogio.csv', 'text/csv', null, true), $substituir, 'RELOGIO', $host);
+        } finally {
+            @unlink($caminho);
+        }
+
+        return $res + ['fonte' => $host];
     }
 
     // ───────────── Apuramento mensal ─────────────

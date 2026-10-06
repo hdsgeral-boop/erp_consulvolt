@@ -46,16 +46,19 @@ export function FormularioDocumento() {
   const [pendentes, setPendentes] = useState(false);
   const total = totalDocumento(tipo, linhas);
 
-  const existente = useQuery({ queryKey: ['teso', 'documento', id], queryFn: () => obter<DocumentoTesouraria>(`/tesouraria/documentos/${id}`), enabled: !!id });
+  // copiar documento (copyTesourariaDocument do legado): ?copiar=<id> pré-preenche um documento novo com a data de hoje
+  const copiarId = id ? null : procura.get('copiar');
+  const origemId = id ?? copiarId;
+  const existente = useQuery({ queryKey: ['teso', 'documento', origemId], queryFn: () => obter<DocumentoTesouraria>(`/tesouraria/documentos/${origemId}`), enabled: !!origemId });
   useEffect(() => {
     const d = existente.data;
     if (!d) return;
     form.setFieldsValue({
       tipo: d.tipo,
-      data_documento: dayjs(d.data_documento),
+      data_documento: copiarId ? dayjs() : dayjs(d.data_documento),
       conta_financeira: d.conta_financeira,
       descricao: d.descricao ?? undefined,
-      referencia: d.referencia ?? undefined,
+      referencia: copiarId ? undefined : d.referencia ?? undefined,
       taxa_cambio: d.taxa_cambio ? Number(d.taxa_cambio) : undefined,
       linhas: (d.linhas ?? []).map((l) => ({
         codigo_conta: l.codigo_conta,
@@ -71,7 +74,7 @@ export function FormularioDocumento() {
         _terceiro: l.terceiro?.nome?.trim() ?? (l.terceiro_id ? `Terceiro #${l.terceiro_id}` : undefined),
       })),
     });
-  }, [existente.data, form]);
+  }, [existente.data, form, copiarId]);
 
   const excesso = useExcessoOrcamental();
   const gravar = useMutation({
@@ -121,16 +124,17 @@ export function FormularioDocumento() {
     setPendentes(false);
   };
 
-  if (id && existente.isLoading) return <Skeleton active />;
+  if (origemId && existente.isLoading) return <Skeleton active />;
   const tipoInicial = (procura.get('tipo') === 'RECEBIMENTO' ? 'RECEBIMENTO' : 'PAGAMENTO') as TipoDocumento;
 
   return (
     <>
       <CabecalhoPagina
         titulo={id ? `Editar ${existente.data?.numero_documento ?? 'documento'}` : `Novo ${ROTULO_TIPO[tipo].toLowerCase()}`}
+        subtitulo={copiarId && existente.data ? `Cópia de ${existente.data.numero_documento ?? `#${existente.data.id}`}` : undefined}
         accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar(id ? `../${id}` : '..')}>Voltar</Button>}
       />
-      {existente.data && existente.data.estado !== 'PENDENTE' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Um documento ${existente.data.estado} não pode ser alterado.`} />}
+      {id && existente.data && existente.data.estado !== 'PENDENTE' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Um documento ${existente.data.estado} não pode ser alterado.`} />}
       <Form<ValoresForm>
         form={form}
         layout="vertical"

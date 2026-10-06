@@ -156,7 +156,9 @@ final class ServicoExecucaoOrcamental
             $linhas[] = ['rubrica_id' => $r->id, 'codigo' => $r->codigo, 'nome' => $r->nome, 'natureza' => $r->natureza, 'grupo' => $r->grupo,
                 'orcado' => $orc, 'orcado_inicial' => $linhasIniciais ? $soma($linhasIniciais[$r->id]->valores ?? null) : $orc, 'realizado' => $rea, 'desvio' => $desvio,
                 'execucao_pct' => $orc ? round($rea / $orc * 100, 2) : null, 'desvio_pct' => $pct, 'favoravel' => $favoravel,
-                'desvio_significativo' => ! $favoravel && $pct !== null && abs($pct) > 10,
+                // Decisão 24 do utilizador: realizado desfavorável sem orçamento (pct nulo) conta como desvio desfavorável significativo.
+                'sem_orcamento' => ! $orc && $rea != 0.0,
+                'desvio_significativo' => ! $favoravel && ($pct === null || abs($pct) > 10),
                 'mensal' => ['orcado' => array_map('floatval', (array) ($orcadas[$r->id]->valores ?? array_fill(0, 12, 0))), 'realizado' => $real['por_rubrica'][$r->id] ?? array_fill(0, 12, 0.0)]];
         }
         $piores = collect($linhas)->where('favoravel', false)->sortByDesc(fn ($l) => abs($l['desvio']))->take(5)->values()->all();

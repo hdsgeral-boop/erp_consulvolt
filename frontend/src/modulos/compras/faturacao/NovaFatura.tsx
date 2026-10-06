@@ -63,7 +63,7 @@ export function NovaFatura() {
           <Row gutter={16}>
             <Col xs={24} md={10}>
               <Form.Item name="fornecedor_id" label="Fornecedor" rules={[{ required: true, message: 'Escolha o fornecedor.' }]}>
-                <SeletorTerceiro papel="FORNECEDOR" />
+                <SeletorTerceiro papel="FORNECEDOR" onEscolher={(t) => t?.codigo_moeda && form.setFieldsValue({ codigo_moeda: t.codigo_moeda })} />
               </Form.Item>
             </Col>
             <Col xs={24} md={6}>

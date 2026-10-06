@@ -119,6 +119,8 @@ export interface CabecalhoTalao {
   rodapeEmpresa?: string | null;
   /** Utilizador que imprime (A4). */
   utilizador?: string | null;
+  /** Rótulo do local da venda (vendas.nome_tabela): «Mesa» no restaurante, «Quarto(s)» no hotel. */
+  rotuloLocal?: string;
 }
 
 /** Cabeçalho do talão com a identidade da empresa activa (logótipo, nome, NIF, morada) e o utilizador da sessão. */
@@ -154,6 +156,7 @@ ${topoTalao(c)}
 <div class="centro titulo-doc"><b>Factura-recibo ${esc(v.numero_documento)}</b></div>
 <div>${esc(formatarDataHora(String(v.criado_em ?? v.data_emissao)))}</div>
 ${c.terminal ? `<div>Terminal: ${esc(c.terminal)}</div>` : ''}
+${v.nome_tabela ? `<div>${esc(c.rotuloLocal ?? 'Mesa')}: ${esc(v.nome_tabela)}</div>` : ''}
 ${v.pos_operador || c.operador ? `<div>Operador: ${esc(v.pos_operador ?? c.operador)}</div>` : ''}
 <div class="linha"></div>
 <table>${linhas}</table>
@@ -162,6 +165,7 @@ ${v.pos_operador || c.operador ? `<div>Operador: ${esc(v.pos_operador ?? c.opera
 <tr><td>Base</td><td class="direita">${esc(formatarKz(v.total_liquido))}</td></tr>
 <tr><td>IVA</td><td class="direita">${esc(formatarKz(v.total_imposto))}</td></tr>
 ${Number(v.desconto ?? 0) > 0 ? `<tr><td>Desconto</td><td class="direita">-${esc(formatarKz(v.desconto))}</td></tr>` : ''}
+${Number(v.arredondamento_agt ?? 0) !== 0 ? `<tr><td>Arredondamento AGT</td><td class="direita">${esc(formatarKz(v.arredondamento_agt as string))}</td></tr>` : ''}
 <tr class="total"><td>TOTAL</td><td class="direita">${esc(formatarKz(v.total_bruto, true))}</td></tr>
 </table>
 <div class="linha"></div>
@@ -171,6 +175,80 @@ ${Number(v.pos_troco ?? 0) > 0 ? `<tr><td>Troco</td><td class="direita">${esc(fo
 <div class="linha"></div>
 <div class="centro">${esc(p.rodape)}</div>`;
   return documento(`Factura-recibo ${v.numero_documento}`, corpo, p, c);
+}
+
+/** Linha de um talão genérico (consulta de mesa, lavandaria, hotel). Valores já em Kz (texto da API ou número). */
+export interface LinhaTalao {
+  descricao: string;
+  quantidade?: string | number | null;
+  preco?: string | number | null;
+  total?: string | number | null;
+  /** Texto extra por baixo (ex.: peça, serviço, observação). */
+  detalhe?: string | null;
+}
+
+export interface OpcoesTalao {
+  /** Linhas de identificação por baixo do título (ex.: «Mesa 5», «OS n.º …», «Cliente: …»). */
+  dados?: (string | null | undefined | false)[];
+  linhas?: LinhaTalao[];
+  /** Totais [rótulo, valor, destacado]. */
+  totais?: [string, string | number | null | undefined, boolean?][];
+  /** Aviso em destaque (ex.: «Documento de consulta — não serve de factura»). */
+  aviso?: string | null;
+  /** Texto final antes do rodapé (ex.: condições, assinatura). */
+  notas?: string | null;
+  /** Linha de assinatura (ex.: «O cliente (confirmo o estado das peças…)»). */
+  assinatura?: string | null;
+  /** Vias (ex.: «Via do cliente», «Via da loja»): o talão repete-se com quebra de página. */
+  vias?: string[];
+}
+
+/**
+ * Talão genérico (térmico ou A4) com o mesmo aspecto do talão de venda: consulta de mesa (M-15), talão/recibo da
+ * lavandaria e talão do check-out do hotel (M-16). Todos os textos são escapados.
+ */
+export function htmlTalaoGenerico(titulo: string, o: OpcoesTalao, c: CabecalhoTalao, p: PreferenciasImpressao): string {
+  const linhas = (o.linhas ?? [])
+    .map(
+      (l) =>
+        `<tr><td colspan="3">${esc(l.descricao)}${l.detalhe ? `<br><span class="pequeno">${esc(l.detalhe)}</span>` : ''}</td></tr>` +
+        (l.total !== undefined && l.total !== null
+          ? `<tr><td>${l.quantidade !== undefined && l.quantidade !== null ? `${esc(formatarNumero(l.quantidade))}${l.preco !== undefined && l.preco !== null ? ` × ${esc(formatarKz(l.preco))}` : ''}` : ''}</td><td></td><td class="direita">${esc(formatarKz(l.total))}</td></tr>`
+          : ''),
+    )
+    .join('');
+  const totais = (o.totais ?? [])
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([r, v, forte]) => `<tr${forte ? ' class="total"' : ''}><td>${esc(r)}</td><td class="direita">${esc(typeof v === 'number' || /^-?\d+(\.\d+)?$/.test(String(v)) ? formatarKz(v as string, !!forte) : v)}</td></tr>`)
+    .join('');
+  const via = (rotulo?: string) => `
+${topoTalao(c)}
+<div class="centro titulo-doc"><b>${esc(titulo)}</b></div>
+${rotulo ? `<div class="centro">${esc(rotulo)}</div>` : ''}
+${(o.dados ?? []).filter(Boolean).map((d) => `<div>${esc(d)}</div>`).join('')}
+${c.terminal ? `<div>Terminal: ${esc(c.terminal)}</div>` : ''}
+${c.operador ? `<div>Operador: ${esc(c.operador)}</div>` : ''}
+${o.aviso ? `<div class="linha"></div><div class="centro"><b>${esc(o.aviso)}</b></div>` : ''}
+${linhas ? `<div class="linha"></div><table>${linhas}</table>` : ''}
+${totais ? `<div class="linha"></div><table>${totais}</table>` : ''}
+${o.notas ? `<div class="linha"></div><div class="pequeno">${esc(o.notas).replace(/\n/g, '<br>')}</div>` : ''}
+${o.assinatura ? `<br><br><div class="centro">______________________<br>${esc(o.assinatura)}</div>` : ''}
+<div class="linha"></div>
+<div class="centro">${esc(p.rodape)}</div>`;
+  const corpo = o.vias?.length ? o.vias.map((v) => via(v)).join('<div style="page-break-after:always;break-after:page"></div>') : via();
+  return documento(titulo, corpo, p, c);
+}
+
+/** Etiquetas (térmico: uma por «folha» do rolo; A4: grelha), ex.: n.º da OS e da peça na lavandaria (M-16). */
+export function htmlEtiquetas(titulo: string, etiquetas: { titulo: string; linhas: (string | null | undefined)[] }[], c: CabecalhoTalao, p: PreferenciasImpressao): string {
+  const termico = p.formato !== 'A4';
+  const css = termico
+    ? '.etiqueta{page-break-after:always;break-after:page;text-align:center;padding:2mm 0}.etiqueta:last-child{page-break-after:auto;break-after:auto}.etiqueta b{font-size:15px;display:block}'
+    : '.etiquetas{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm}.etiqueta{border:1px dashed #000;padding:3mm;text-align:center;break-inside:avoid}.etiqueta b{font-size:14px;display:block}';
+  const corpo = `<style>${css}</style><div class="etiquetas">${etiquetas
+    .map((e) => `<div class="etiqueta"><div class="pequeno">${esc(c.empresa)}</div><b>${esc(e.titulo)}</b>${e.linhas.filter(Boolean).map((l) => `<div>${esc(l)}</div>`).join('')}</div>`)
+    .join('')}</div>`;
+  return documento(titulo, corpo, p, c);
 }
 
 /** Relatório X (sessão aberta) ou Z (sessão fechada). */

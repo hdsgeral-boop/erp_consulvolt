@@ -287,10 +287,35 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_execucoes_consolidacao_empresa_id ON execucoes_consolidacao (empresa_id)');
         DB::statement('CREATE INDEX ix_execucoes_consolidacao_grupo_consolidacao_id ON execucoes_consolidacao (grupo_consolidacao_id)');
         DB::statement('CREATE INDEX ix_execucoes_consolidacao_empresa_holding_id ON execucoes_consolidacao (empresa_holding_id)');
+
+        // utilizacoes_assistente_ia (tabela nova) · 0 linhas reais no backup
+        Schema::create('utilizacoes_assistente_ia', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->bigInteger('utilizador_id')->nullable();
+            $table->string('nome_utilizador', 255)->nullable();
+            $table->string('motor', 20)->nullable()->comment('IA (Claude) ou REGRAS (motor interno)');
+            $table->string('modelo', 60)->nullable();
+            $table->string('estado', 20)->nullable()->comment('SUCESSO, SEM_PROPOSTA, RECUSA ou FALHA');
+            $table->string('codigo_erro', 60)->nullable();
+            $table->integer('propostas')->nullable();
+            $table->integer('caracteres_texto')->nullable();
+            $table->string('tipo_ficheiro', 60)->nullable();
+            $table->integer('tamanho_ficheiro_kb')->nullable();
+            $table->integer('tokens_entrada')->nullable();
+            $table->integer('tokens_saida')->nullable();
+            $table->decimal('custo_estimado_usd', 12, 6)->nullable();
+            $table->integer('duracao_ms')->nullable();
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_utilizacoes_assistente_ia_empresa_id ON utilizacoes_assistente_ia (empresa_id)');
+        DB::statement('CREATE INDEX ix_utilizacoes_assistente_ia_empresa_id_criado_em ON utilizacoes_assistente_ia (empresa_id, criado_em)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('utilizacoes_assistente_ia');
         Schema::dropIfExists('execucoes_consolidacao');
         Schema::dropIfExists('membros_consolidacao');
         Schema::dropIfExists('grupos_consolidacao');

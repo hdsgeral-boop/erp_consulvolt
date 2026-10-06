@@ -20,6 +20,8 @@ interface Valores {
   valor?: number;
   terceiro_id?: number;
   conta_terceiro?: string;
+  taxa_iva?: number;
+  conta_iva?: string;
   conta_ativo?: string;
   descricao?: string;
   contabilizar: boolean;
@@ -34,6 +36,7 @@ const TIPOS = [
 /**
  * Abate ou venda de um activo: simula o lançamento (D 18 / C 11-12 / D terceiro, C 6 mais-valia ou D 7 menos-valia)
  * e regista. Sem valor não há terceiro; com venda/indemnização o servidor exige o terceiro e a respectiva conta.
+ * Na venda liquida-se IVA (decisão 18): D terceiro = valor + IVA, C IVA liquidado (conta indicada ou a das contas de vendas).
  */
 export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; activo?: Activo | null; aoFechar: () => void }) {
   const [form] = Form.useForm<Valores>();
@@ -48,12 +51,13 @@ export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; acti
   });
   const tipo = Form.useWatch('tipo', form);
   const valor = Form.useWatch('valor', form);
+  const taxaIva = Form.useWatch('taxa_iva', form);
   const comTerceiro = tipo === 'VENDA' || (valor ?? 0) > 0;
 
   useEffect(() => {
     if (!aberto) return;
     form.resetFields();
-    form.setFieldsValue({ ativo_imobilizado_id: activo?.id, tipo: 'FIM_VIDA', data: dayjs(), contabilizar: true });
+    form.setFieldsValue({ ativo_imobilizado_id: activo?.id, tipo: 'FIM_VIDA', data: dayjs(), contabilizar: true, taxa_iva: 14 });
     setSimulacao(null);
   }, [aberto, activo, form]);
 
@@ -64,6 +68,9 @@ export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; acti
     terceiro_id: comTerceiro ? v.terceiro_id ?? null : null,
     conta_terceiro: comTerceiro ? v.conta_terceiro ?? null : null,
     conta_ativo: v.conta_ativo || null,
+    // decisão 18: a venda liquida IVA sobre o valor (base tributável)
+    taxa_iva: v.tipo === 'VENDA' ? v.taxa_iva ?? 0 : null,
+    conta_iva: v.tipo === 'VENDA' ? v.conta_iva || null : null,
   });
 
   const simular = async () => {
@@ -141,6 +148,25 @@ export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; acti
               </Col>
             </>
           )}
+          {tipo === 'VENDA' && (
+            <>
+              <Col xs={12} md={4}>
+                <Form.Item name="taxa_iva" label="IVA (%)" rules={[{ required: true }]}>
+                  <Select options={[0, 5, 7, 14].map((t) => ({ value: t, label: `${t} %` }))} />
+                </Form.Item>
+              </Col>
+              <Col xs={12} md={8}>
+                <Form.Item name="conta_iva" label="Conta do IVA liquidado" tooltip="Vazio = a conta «IVA liquidado» das contas de vendas">
+                  <SeletorConta prefixo="34" placeholder="Automática" />
+                </Form.Item>
+              </Col>
+              {(valor ?? 0) > 0 && (
+                <Col xs={24} md={12} style={{ alignSelf: 'center' }}>
+                  <Typography.Text type="secondary">IVA: {(Math.round((valor ?? 0) * (taxaIva ?? 0)) / 100).toLocaleString('pt-PT', { minimumFractionDigits: 2 })} Kz</Typography.Text>
+                </Col>
+              )}
+            </>
+          )}
           <Col xs={24} md={8}>
             <Form.Item name="conta_ativo" label="Conta do activo (11–14)" tooltip="Vazio = conta da categoria ou do lançamento de compra">
               <SeletorConta prefixo="1" placeholder="Automática" />
@@ -171,6 +197,7 @@ export function ModalAbate({ aberto, activo, aoFechar }: { aberto: boolean; acti
             <Descriptions.Item label="Aquisição"><ValorKz valor={simulacao.valor_aquisicao} /></Descriptions.Item>
             <Descriptions.Item label="Amort. acumulada"><ValorKz valor={simulacao.amortizacao_acumulada} /></Descriptions.Item>
             <Descriptions.Item label="Valor líquido"><ValorKz valor={simulacao.valor_liquido} /></Descriptions.Item>
+            {Number(simulacao.valor_iva ?? 0) > 0 && <Descriptions.Item label="IVA liquidado"><ValorKz valor={simulacao.valor_iva} /></Descriptions.Item>}
             <Descriptions.Item label="Resultado"><ValorKz valor={simulacao.resultado} forte /></Descriptions.Item>
           </Descriptions>
           <Table

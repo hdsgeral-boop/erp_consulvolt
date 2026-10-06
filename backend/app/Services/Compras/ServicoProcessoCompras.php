@@ -12,7 +12,9 @@ use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Orcamento\ServicoControloOrcamental;
+use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
+use App\Services\Vendas\CalculadoraDocumento;
 use App\Services\Vendas\ServicoSeries;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
@@ -98,7 +100,7 @@ final class ServicoProcessoCompras
             throw new ErroNegocio("Só se registam propostas para pedidos aprovados (este está {$pedido->estado}).", 'PEDIDO_NAO_APROVADO', 422);
         }
         $fornecedor = $this->fornecedor($d['fornecedor_id']);
-        $moeda = CalculadoraCompra::moeda($this->cambios, $empresa, $d['codigo_moeda'] ?? $fornecedor->codigo_moeda, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, $data);
+        $moeda = CalculadoraCompra::moeda($this->cambios, $empresa, $d['codigo_moeda'] ?? $fornecedor->codigo_moeda, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, $data, 'Compras proposta');
 
         $itensPedido = ItemCompra::query()->where('pedido_compra_id', $pedido->id)->with('produto')->get()->keyBy('id');
         $linhas = [];
@@ -216,7 +218,9 @@ final class ServicoProcessoCompras
         }
         $pedido = PedidoCompra::query()->findOrFail($cotacao->pedido_compra_id);
         $this->exigirPedidoAdjudicavel($pedido);
-        if ($this->deliberacao->exigeRevisao($pedido, (string) $cotacao->montante_total, $cotacao->id)) {
+        // decisão 16 (como o legado): numa proposta em moeda estrangeira, o valor que decide os níveis de deliberação é o da
+        // data da adjudicação (montante na moeda × câmbio dessa data), salvo câmbio manual; antes ficava o câmbio da proposta
+        if ($this->deliberacao->exigeRevisao($pedido, $this->valorNaAdjudicacao($cotacao, $empresa, $data), $cotacao->id)) {
             throw new ErroNegocio('O valor da proposta exige níveis de aprovação adicionais: o pedido voltou a deliberação.', 'REVISAO_DELIBERACAO', 409);
         }
 
@@ -261,6 +265,63 @@ final class ServicoProcessoCompras
 
             return $encomenda;
         });
+    }
+
+    /**
+     * M-17 (comprasGravarIVAProposta / comprasGravarIVAEncomenda, js/ui_compras_v2.js:1186-1252): corrige a taxa de IVA de
+     * linhas de uma proposta ainda não adjudicada ou de uma encomenda (só linhas por facturar), recalcula o IVA da linha
+     * (na moeda e em Kz) e os totais do documento, com auditoria. Taxas só das legais (TaxaIvaLegal, no pedido).
+     *
+     * @param  list<array{item_id: int, taxa_imposto: float|string}>  $linhas
+     */
+    public function editarIva(CotacaoCompra|EncomendaCompra $doc, array $linhas): CotacaoCompra|EncomendaCompra
+    {
+        $proposta = $doc instanceof CotacaoCompra;
+
+        return DB::transaction(function () use ($doc, $linhas, $proposta) {
+            $doc = $doc::query()->lockForUpdate()->findOrFail($doc->getKey());
+            if ($proposta && ! in_array($doc->estado, ['PROPOSTA', 'PROPOSTA_ADJUDICACAO'], true)) {
+                throw new ErroNegocio("O IVA de uma proposta {$doc->estado} já não se altera (só antes da adjudicação).", 'PROPOSTA_ESTADO_INVALIDO', 422);
+            }
+            if (! $proposta && $doc->estado === 'ANULADA') {
+                throw new ErroNegocio('A encomenda está anulada.', 'DOCUMENTO_ANULADO', 422);
+            }
+            $fk = $proposta ? 'cotacao_compra_id' : 'encomenda_compra_id';
+            $itens = ItemCompra::query()->where($fk, $doc->getKey())->lockForUpdate()->get()->keyBy('id');
+            $taxa = $doc->codigo_moeda && $doc->codigo_moeda !== ServicoCambios::BASE && $doc->taxa_cambio ? (string) $doc->taxa_cambio : null;
+            $antes = $depois = [];
+            foreach ($linhas as $n => $l) {
+                $item = $itens[$l['item_id']] ?? throw new ErroNegocio('Linha '.($n + 1).': não pertence ao documento.', 'LINHA_INVALIDA', 422);
+                if (! $proposta && (float) ($item->quantidade_faturada ?? 0) > 0) {
+                    throw new ErroNegocio('Linha '.($n + 1).': já tem quantidade facturada — o IVA corrige-se na factura do fornecedor.', 'LINHA_JA_FATURADA', 422);
+                }
+                $nova = number_format((float) $l['taxa_imposto'], 2, '.', '');
+                $antes[$item->id] = (string) $item->taxa_imposto;
+                $liquidoMoeda = $taxa && $item->total_moeda !== null ? (string) $item->total_moeda : (string) ($item->total_kz ?? $item->total);
+                $iva = CalculadoraDocumento::arredondar(bcdiv(bcmul($liquidoMoeda, $nova, 8), '100', 8));
+                $item->update(['taxa_imposto' => $nova, 'imposto_kz' => $taxa ? CalculadoraDocumento::arredondar(bcmul($iva, $taxa, 8)) : $iva,
+                    'imposto_moeda' => $taxa ? $iva : null]);
+                $depois[$item->id] = $nova;
+            }
+            $imposto = number_format((float) ItemCompra::query()->where($fk, $doc->getKey())->sum('imposto_kz'), 2, '.', '');
+            $doc->update(['total_imposto' => $imposto, 'total_com_imposto' => bcadd(number_format((float) $doc->montante_total, 2, '.', ''), $imposto, 2)]);
+            app(ServicoAuditoria::class)->registar('Compras', $proposta ? 'IVA da proposta alterado' : 'IVA da encomenda alterado',
+                ($proposta ? "Proposta {$doc->numero_proposta}" : "Encomenda {$doc->numero_encomenda}").': taxa de IVA alterada em '.count($depois).' linha(s).',
+                $doc->getTable(), $doc->getKey(), ['taxas' => $antes], ['taxas' => $depois]);
+
+            return $doc;
+        });
+    }
+
+    /** Valor sem IVA da proposta em Kz ao câmbio da data da adjudicação (decisão 16); em Kz ou com câmbio manual, o da proposta. */
+    public function valorNaAdjudicacao(CotacaoCompra $cotacao, int $empresa, string $data): string
+    {
+        if (! $cotacao->codigo_moeda || $cotacao->codigo_moeda === ServicoCambios::BASE || $cotacao->taxa_cambio_manual || $cotacao->montante_total_moeda === null) {
+            return (string) $cotacao->montante_total;
+        }
+        $moeda = CalculadoraCompra::moeda($this->cambios, $empresa, $cotacao->codigo_moeda, null, $data);
+
+        return CalculadoraDocumento::arredondar(bcmul((string) $cotacao->montante_total_moeda, $moeda['taxa'], 8));
     }
 
     /** Anula uma encomenda sem recepções nem facturas activas; a proposta e o pedido voltam a estar adjudicáveis. */

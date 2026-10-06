@@ -197,6 +197,10 @@ export interface VendaEmitida {
   total_bruto: string;
   desconto: string | null;
   pos_troco: string | null;
+  /** Decisão 10: arredondamento AGT do POS, separado do desconto comercial. */
+  arredondamento_agt?: string | null;
+  /** M-15: mesa do restaurante (coluna do legado table_name). */
+  nome_tabela?: string | null;
   pos_pagamentos: VendaSessao['pos_pagamentos'];
   pos_operador: string | null;
   codigo_terminal_pos?: string | null;

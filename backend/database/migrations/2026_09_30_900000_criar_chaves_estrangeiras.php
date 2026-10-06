@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (501) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (515) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -500,6 +500,20 @@ return new class extends Migration
         DB::statement('ALTER TABLE configuracoes_contabeis_tesouraria ADD CONSTRAINT fk_configuracoes_contabeis_tesouraria_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_contabeis_logistica ADD CONSTRAINT fk_configuracoes_contabeis_logistica_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_contabeis_compras ADD CONSTRAINT fk_configuracoes_contabeis_compras_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE mesas_pos ADD CONSTRAINT fk_mesas_pos_terminal_pos_id FOREIGN KEY (terminal_pos_id) REFERENCES terminais_pos (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE mesas_pos ADD CONSTRAINT fk_mesas_pos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE contas_mesa_pos ADD CONSTRAINT fk_contas_mesa_pos_mesa_pos_id FOREIGN KEY (mesa_pos_id) REFERENCES mesas_pos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE contas_mesa_pos ADD CONSTRAINT fk_contas_mesa_pos_terminal_pos_id FOREIGN KEY (terminal_pos_id) REFERENCES terminais_pos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE contas_mesa_pos ADD CONSTRAINT fk_contas_mesa_pos_sessao_pos_id FOREIGN KEY (sessao_pos_id) REFERENCES sessoes_pos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE contas_mesa_pos ADD CONSTRAINT fk_contas_mesa_pos_cliente_id FOREIGN KEY (cliente_id) REFERENCES terceiros (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE contas_mesa_pos ADD CONSTRAINT fk_contas_mesa_pos_venda_id FOREIGN KEY (venda_id) REFERENCES vendas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE contas_mesa_pos ADD CONSTRAINT fk_contas_mesa_pos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE configuracoes_rh ADD CONSTRAINT fk_configuracoes_rh_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE rascunhos_reconciliacao ADD CONSTRAINT fk_rascunhos_reconciliacao_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE tokens_bi ADD CONSTRAINT fk_tokens_bi_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE utilizacoes_assistente_ia ADD CONSTRAINT fk_utilizacoes_assistente_ia_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE preferencias_utilizador ADD CONSTRAINT fk_preferencias_utilizador_utilizador_id FOREIGN KEY (utilizador_id) REFERENCES utilizadores (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE preferencias_utilizador ADD CONSTRAINT fk_preferencias_utilizador_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas_estadias_hotel ADD CONSTRAINT fk_vendas_estadias_hotel_venda_id FOREIGN KEY (venda_id) REFERENCES vendas (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas_estadias_hotel ADD CONSTRAINT fk_vendas_estadias_hotel_estadia_hotel_id FOREIGN KEY (estadia_hotel_id) REFERENCES estadias_hotel (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE vendas_estadias_hotel ADD CONSTRAINT fk_vendas_estadias_hotel_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -1005,6 +1019,20 @@ return new class extends Migration
         DB::statement('ALTER TABLE configuracoes_contabeis_tesouraria DROP CONSTRAINT IF EXISTS fk_configuracoes_contabeis_tesouraria_empresa_id');
         DB::statement('ALTER TABLE configuracoes_contabeis_logistica DROP CONSTRAINT IF EXISTS fk_configuracoes_contabeis_logistica_empresa_id');
         DB::statement('ALTER TABLE configuracoes_contabeis_compras DROP CONSTRAINT IF EXISTS fk_configuracoes_contabeis_compras_empresa_id');
+        DB::statement('ALTER TABLE mesas_pos DROP CONSTRAINT IF EXISTS fk_mesas_pos_terminal_pos_id');
+        DB::statement('ALTER TABLE mesas_pos DROP CONSTRAINT IF EXISTS fk_mesas_pos_empresa_id');
+        DB::statement('ALTER TABLE contas_mesa_pos DROP CONSTRAINT IF EXISTS fk_contas_mesa_pos_mesa_pos_id');
+        DB::statement('ALTER TABLE contas_mesa_pos DROP CONSTRAINT IF EXISTS fk_contas_mesa_pos_terminal_pos_id');
+        DB::statement('ALTER TABLE contas_mesa_pos DROP CONSTRAINT IF EXISTS fk_contas_mesa_pos_sessao_pos_id');
+        DB::statement('ALTER TABLE contas_mesa_pos DROP CONSTRAINT IF EXISTS fk_contas_mesa_pos_cliente_id');
+        DB::statement('ALTER TABLE contas_mesa_pos DROP CONSTRAINT IF EXISTS fk_contas_mesa_pos_venda_id');
+        DB::statement('ALTER TABLE contas_mesa_pos DROP CONSTRAINT IF EXISTS fk_contas_mesa_pos_empresa_id');
+        DB::statement('ALTER TABLE configuracoes_rh DROP CONSTRAINT IF EXISTS fk_configuracoes_rh_empresa_id');
+        DB::statement('ALTER TABLE rascunhos_reconciliacao DROP CONSTRAINT IF EXISTS fk_rascunhos_reconciliacao_empresa_id');
+        DB::statement('ALTER TABLE tokens_bi DROP CONSTRAINT IF EXISTS fk_tokens_bi_empresa_id');
+        DB::statement('ALTER TABLE utilizacoes_assistente_ia DROP CONSTRAINT IF EXISTS fk_utilizacoes_assistente_ia_empresa_id');
+        DB::statement('ALTER TABLE preferencias_utilizador DROP CONSTRAINT IF EXISTS fk_preferencias_utilizador_utilizador_id');
+        DB::statement('ALTER TABLE preferencias_utilizador DROP CONSTRAINT IF EXISTS fk_preferencias_utilizador_empresa_id');
         DB::statement('ALTER TABLE vendas_estadias_hotel DROP CONSTRAINT IF EXISTS fk_vendas_estadias_hotel_venda_id');
         DB::statement('ALTER TABLE vendas_estadias_hotel DROP CONSTRAINT IF EXISTS fk_vendas_estadias_hotel_estadia_hotel_id');
         DB::statement('ALTER TABLE vendas_estadias_hotel DROP CONSTRAINT IF EXISTS fk_vendas_estadias_hotel_empresa_id');

@@ -106,6 +106,9 @@ final class GestaoPaineisTest extends TestCase
         $this->assertSame(1, $pend['rh_periodos_abertos']);
         $this->assertTrue(collect($r['modulos'])->every(fn ($m) => $m['autorizado']));
 
+        // câmbios do BAI por validar (ronda 2): só para quem gere moedas
+        DB::table('cambios_bai_pendentes')->insert(['data_cotacao' => now()->toDateString(), 'codigo_moeda' => 'USD', 'taxa_media' => 900, 'estado' => 'PENDENTE']);
+        $this->assertSame(1, collect($this->getJson('/api/gestao/inicio', $this->total())->json('dados.pendentes'))->firstWhere('id', 'cambios_bai')['quantidade'] ?? null);
         $restrito = $this->getJson('/api/gestao/inicio', $this->sessao(['vendas_faturacao_view']))->assertOk()->json('dados');
         $this->assertSame(['vendas_por_liquidar'], collect($restrito['pendentes'])->pluck('id')->all());
         $this->assertFalse(collect($restrito['modulos'])->firstWhere('id', 'colaboradores')['autorizado']);

@@ -143,16 +143,17 @@ describe('tabelaHtml', () => {
   it('números à direita, total geral e texto escapado', () => {
     const html = tabelaHtml({ colunas, linhas, totais: true });
     expect(html).toContain('<thead><tr><th>Nome</th><th class="imp-num">Valor</th></tr></thead>');
-    expect(html).toContain('<td class="imp-num">1000,50</td>');
+    // data-xv/data-xt: valor bruto para a exportação Excel (números como números)
+    expect(html).toContain('<td class="imp-num" data-xv="1000.50" data-xt="n">1000,50</td>');
     expect(html).toContain('Rui &lt;x&gt;');
-    expect(html).toMatch(/<tfoot><tr class="imp-total"><td>Total<\/td><td class="imp-num">1210,75<\/td><\/tr><\/tfoot>/);
+    expect(html).toMatch(/<tfoot><tr class="imp-total"><td>Total<\/td><td class="imp-num" data-xv="1210.75" data-xt="n">1210,75<\/td><\/tr><\/tfoot>/);
   });
 
   it('agrupamentos com subtotais', () => {
     const html = tabelaHtml({ colunas, linhas, agrupar: { chave: (l) => l.dep, titulo: (k) => `Departamento ${k}`, subtotais: true } });
     expect(html).toContain('<tr class="imp-grupo"><td colspan="2">Departamento A</td></tr>');
-    expect(html).toContain('<td>Subtotal A</td><td class="imp-num">1200,75</td>');
-    expect(html).toContain('<td>Subtotal B</td><td class="imp-num">10,00</td>');
+    expect(html).toContain('<td>Subtotal A</td><td class="imp-num" data-xv="1200.75" data-xt="n">1200,75</td>');
+    expect(html).toContain('<td>Subtotal B</td><td class="imp-num" data-xv="10.00" data-xt="n">10,00</td>');
   });
 
   it('sem linhas mostra a mensagem', () => {

@@ -30,6 +30,9 @@ final class VendaResource extends JsonResource
             'estado' => $this->estado,
             'contabilizado' => (bool) $this->contabilizado,
             'numero_lan_contabilizacao' => $this->numero_lan_contabilizacao,
+            'desconto' => $this->desconto,
+            // decisão 10: arredondamento AGT do POS separado do desconto (coluna da ronda 2; lida em bruto até o model ser regenerado)
+            'arredondamento_agt' => $this->resource->getAttributes()['arredondamento_agt'] ?? null,
             'codigo_moeda' => $this->codigo_moeda ?: 'AOA',
             'moeda' => $this->codigo_moeda && $this->codigo_moeda !== 'AOA' ? [
                 'codigo' => $this->codigo_moeda, 'taxa_cambio' => $this->taxa_cambio, 'taxa_cambio_manual' => (bool) $this->taxa_cambio_manual,
@@ -61,7 +64,7 @@ final class VendaResource extends JsonResource
             ],
             'linhas' => $this->whenLoaded('itensVenda', fn () => $this->itensVenda->map(fn (ItemVenda $i) => [
                 'id' => $i->id, 'produto_id' => $i->produto_id, 'descricao' => $i->descricao, 'quantidade' => $i->quantidade,
-                'quantidade_faturada' => $i->quantidade_faturada, 'preco_unitario' => $i->preco_unitario, 'taxa_imposto' => $i->taxa_imposto,
+                'quantidade_faturada' => $i->quantidade_faturada, 'quantidade_devolvida' => $i->quantidade_devolvida, 'preco_unitario' => $i->preco_unitario, 'taxa_imposto' => $i->taxa_imposto,
                 'valor' => $i->total_linha, 'total' => $i->total, 'observacoes' => $i->observacoes,
                 'preco_unitario_moeda' => $i->preco_unitario_moeda, 'total_moeda' => $i->total_moeda,
             ])->values()),

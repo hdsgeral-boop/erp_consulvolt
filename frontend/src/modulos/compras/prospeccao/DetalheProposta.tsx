@@ -3,6 +3,7 @@ import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
+import { ModalIva } from '../comum/ModalIva';
 import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -24,6 +25,7 @@ export function DetalheProposta() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [adjudicar, setAdjudicar] = useState(false);
+  const [iva, setIva] = useState(false);
   const [form] = Form.useForm<{ data: Dayjs }>();
   const consulta = useQuery({ queryKey: ['compras', 'proposta', id], queryFn: () => obter<PropostaCompra>(`/compras/propostas/${id}`) });
   const excesso = useExcessoOrcamental();
@@ -59,6 +61,7 @@ export function DetalheProposta() {
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
             <Button onClick={() => navegar(`../comparacao/${c.pedido_compra_id}`)}>Quadro comparativo</Button>
+            {['PROPOSTA', 'PROPOSTA_ADJUDICACAO'].includes(c.estado) && pode('compras_new_proposal') && <Button onClick={() => setIva(true)}>Editar IVA</Button>}
             {a.propor && (
               <Button type="primary" loading={accao.isPending} onClick={() => accao.mutate({ url: `/compras/propostas/${c.id}/propor` })}>
                 Propor adjudicação
@@ -147,6 +150,7 @@ export function DetalheProposta() {
         </Form>
       </Modal>
       {excesso.dialogo}
+      <ModalIva aberto={iva} titulo={`IVA da proposta ${nome}`} linhas={c.linhas ?? []} url={`/compras/propostas/${c.id}/iva`} aoFechar={() => setIva(false)} />
     </>
   );
 }

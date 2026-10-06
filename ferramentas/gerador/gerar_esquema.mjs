@@ -96,7 +96,11 @@ for (const t of mapa.tabelas) {
 for (const [pt, def] of Object.entries(TABELAS_NOVAS)) {
   tabelas.set(pt, { pt, legado: null, model: def.model, modulo: def.modulo, endpoint: null, linhasReais: 0, global: !!def.global,
     fase1: false, colunas: new Map(), unicos: [], indices: (def.indices ?? []).map((c) => c), checks: [], eliminacaoLogica: false, nova: true });
-  for (const [c, tipo, nota] of def.colunas) tabelas.get(pt).colunas.set(c, { pt: c, tipo, nulo: true, origem: 'novo', nota });
+  // 4.º elemento opcional: { fk: 'tabela', padrao: valor por omissão (string/número/booleano), nulo: false }
+  for (const [c, tipo, nota, op = {}] of def.colunas) {
+    tabelas.get(pt).colunas.set(c, { pt: c, tipo, nulo: op.nulo ?? true, origem: 'novo', nota,
+      ...(op.fk ? { fk: { tabela: op.fk } } : {}), ...(op.padrao !== undefined ? { padrao: op.padrao } : {}) });
+  }
 }
 
 const adicionar = (t, col) => { if (!t.colunas.has(col.pt)) t.colunas.set(col.pt, col); };
@@ -348,6 +352,7 @@ function blueprint(col) {
   else if (t === 'timestamptz') expr = `$table->timestampTz(${phpStr(col.pt)})`;
   else throw new Error(`tipo não suportado: ${t} (${col.pt})`);
   if (col.nulo !== false) expr += '->nullable()';
+  if (col.padrao !== undefined) expr += `->default(${typeof col.padrao === 'string' ? phpStr(col.padrao) : String(col.padrao)})`;
   if (['criado_em', 'atualizado_em'].includes(col.pt)) expr += '->useCurrent()';
   if (col.nota || col.legado) expr += `->comment(${phpStr([col.legado ? `legado: ${col.legado}` : null, col.nota].filter(Boolean).join(' · ').slice(0, 250))})`;
   return `            ${expr};`;

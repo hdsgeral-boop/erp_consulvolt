@@ -105,6 +105,7 @@ Todas estão documentadas em `.env.prod.example`. O ficheiro é lido de duas for
 | AGT | `AGT_PASTA_SEGREDOS`, `AGT_DRIVER`, `AGT_AMBIENTE`, `AGT_*` | Ver secção 11 |
 | E-mail | `MAIL_*` | `log` até haver envio real (o CRM só regista e-mails, ADR-054) |
 | Cópias | `ERP_PASTA_COPIAS`, `ERP_COPIAS_CRON`, `ERP_COPIAS_RETER_*`, `ERP_COPIAS_CHAVE` | Ver secção 8 |
+| Assistente IA | `ANTHROPIC_API_KEY`, `ERP_IA_MODELO`, `ERP_IA_ESFORCO`, `ERP_IA_TEMPO_LIMITE` (e, raramente, `ERP_IA_MAX_TOKENS`, `ERP_IA_MAX_FICHEIRO_KB`, `ERP_IA_MAX_CONTAS`, `ERP_IA_PRECO_ENTRADA`, `ERP_IA_PRECO_SAIDA`) | Opcional. Sem chave, o assistente só usa as regras internas. A chave só no `.env.prod` (nunca no Git). Ver secção 11-A |
 | Capacidade | `PHP_FPM_*`, `PG_SHARED_BUFFERS`, `PG_EFFECTIVE_CACHE_SIZE` | Ajustar à RAM do servidor |
 
 Depois de alterar o `.env.prod`, recrie os serviços com `prod.sh up -d` (o `config:cache` corre de novo no arranque).
@@ -308,6 +309,26 @@ sh ferramentas/operacao/prod.sh exec postgres sh -c 'psql -U "$POSTGRES_USER" -d
 - Rotação de uma chave: substituir o ficheiro, incrementar `AGT_VERSAO_CHAVE_SAFT` (se for a do SAF-T) e fazer `prod.sh up -d --force-recreate app worker scheduler`.
 - As chaves entram nas cópias só cifradas (`ERP_COPIAS_CHAVE`). Fazer também uma cópia offline, guardada em cofre.
 
+## 11-A. Integrações: câmbios do BAI, Power BI e assistente IA (ronda 2)
+
+### Câmbios do BAI automáticos
+- A rotina manual mantém-se (*Configurações › Moedas e câmbios › Câmbios do BAI › Consultar BAI*). A obtenção automática diária liga-se no mesmo separador (quem tem `config_moedas_gerir`): interruptor e hora fixa (por omissão **desligada**, 08:30). Guarda-se em `configuracoes_sistema` (`cambios_bai_auto_ativo`, `cambios_bai_auto_hora`).
+- O `scheduler` corre `sistema:cambios-bai` a cada minuto: a partir da hora configurada, se ainda não houve obtenção agendada com sucesso nesse dia, lê a página do BAI (no máximo 3 tentativas por dia, com 30 minutos de intervalo). Precisa de saída HTTPS para `www.bancobai.ao`.
+- O resultado fica **só pendente** (`cambios_bai_pendentes`): nada entra nos câmbios sem alguém validar. O ecrã mostra o aviso «Câmbios do BAI por validar», a variação face ao último câmbio (alerta acima de 5 %) e permite validar as moedas escolhidas (gravadas para todas as empresas, origem BAI, na data da cotação) ou rejeitar. Tudo fica na auditoria (`Validação dos câmbios do BAI`, `Câmbios do BAI rejeitados`).
+- Cada obtenção fica em `execucoes_cambios_bai`. A falha (ex.: `BAI_INDISPONIVEL`, `BAI_ESTRUTURA` se a página mudar) aparece no ecrã e em `GET /api/saude` → `dados.informacao.cambios_bai` (`DESACTIVADO`, `OK`, `PENDENTE` ou `FALHA`). É **só informativo**: nunca torna a saúde 503.
+
+### Power BI (feed OData de leitura)
+- Feed: `https://<domínio>/api/bi/odata` (documento de serviço), `/api/bi/odata/$metadata` (CSDL) e `/api/bi/odata/{conjunto}` — `contabilidade`, `vendas`, `compras`, `tesouraria`, `armazem`, `rh`, `projetos`, `ativos` (lista branca da Análise Dinâmica). 5 000 linhas por página com `@odata.nextLink`; `$top`, `$skip`, `$select`, `$count`; período opcional `data_inicio`/`data_fim` (AAAA-MM-DD); `incluir_apuramento=1` só na contabilidade. `$filter`/`$orderby` respondem 501 (filtrar no Power Query).
+- Tokens: *menu do utilizador › Power BI (feed OData)* (`config_backup`). Um token só lê a empresa onde foi criado (opcionalmente só alguns conjuntos e com data de expiração); o valor é mostrado uma vez e na base fica só o SHA-256 (`tokens_bi`). Revogar é imediato. Limite: 120 pedidos/minuto por token.
+- Power BI Desktop: *Obter dados › Feed OData* › URL do feed › autenticação **Básica** (utilizador qualquer, ex. `bi`; palavra-passe = token). No Power BI Service, configurar a actualização agendada com as mesmas credenciais (o feed é público na Internet via HTTPS; não é preciso gateway).
+- O nginx não precisa de alterações (o feed está em `/api`). Em caso de fuga de um token, revogá-lo e criar outro.
+
+### Assistente IA para lançamentos (Claude, Anthropic)
+- **Desligado por omissão em cada empresa.** Activar: (1) definir `ANTHROPIC_API_KEY` no `.env.prod` (chave da consola da Anthropic, nunca no Git); (2) `prod.sh up -d --force-recreate app worker scheduler`; (3) na empresa, *menu do utilizador › Assistente IA › Configuração* (quem tem `config_empresas_gerir`).
+- Modelo por omissão `claude-opus-5-5` (`ERP_IA_MODELO`), esforço `medium` (`ERP_IA_ESFORCO`), tempo limite 120 s. O servidor precisa de saída HTTPS para `api.anthropic.com`.
+- Só propõe: as propostas abrem no formulário normal de lançamento e só são gravadas pelo utilizador. As regras internas (palavras-chave) funcionam sem chave e sem envio de dados.
+- Dados enviados: o texto/documento escolhido pelo utilizador, as contas de movimento (código e descrição), os diários e as regras de negócio da empresa. Cada pedido fica em `utilizacoes_assistente_ia` (sem o conteúdo), com tokens e custo estimado (Opus 5.5: 4 USD por milhão de tokens de entrada e 20 USD por milhão de saída — tipicamente alguns cêntimos por proposta).
+
 ## 12. Integração contínua (GitHub Actions)
 
 `.github/workflows/ci.yml` corre em cada push e pull request para `main`. O repositório é público, por isso o CI usa só dados fictícios e credenciais descartáveis.
@@ -322,7 +343,7 @@ As dependências do Composer e do npm e as camadas Docker ficam em cache. Recome
 
 ## 13. Plano da migração definitiva (legado → produção)
 
-A ETL `erp:migrar-backup-legado` (ADR-023) lê o export Dexie do legado (`wstb_payroll_backup_<data>.json`) e grava-o tudo numa única transacção. Valida antes do COMMIT: contagens lidas = migradas + quarentena, zero órfãos, D−C por empresa e sequências recalibradas. Se algo falhar, faz ROLLBACK total. Depois do COMMIT, a ETL fotografa os salários (ADR-036), acerta o stock (ADR-042) e normaliza POS, hotelaria, lavandaria, CRM e projectos. Regras aplicadas: dados mestre fictícios descartados (ADR-003), enumerações com código e texto original (ADR-004), inconsistências reportadas sem invenção (ADR-005), `delivery_items` com dois pais (ADR-020), arredondamento a 2 casas com ocorrência por fracção real (ADR-022).
+A ETL `erp:migrar-backup-legado` (ADR-023) lê o export Dexie do legado (`wstb_payroll_backup_<data>.json`) e grava-o tudo numa única transacção. Valida antes do COMMIT: contagens lidas = migradas + quarentena, zero órfãos, D−C por empresa e sequências recalibradas. Se algo falhar, faz ROLLBACK total. Depois do COMMIT, a ETL fotografa os salários (ADR-036), acerta o stock (ADR-042), normaliza POS, hotelaria, lavandaria, CRM e projectos e aplica os passos pós-carga (permissões novas e contas 6621/7621 — ADR-068; repetíveis com `php artisan erp:migracao:pos-carga`). Regras aplicadas: dados mestre fictícios descartados (ADR-003), enumerações com código e texto original (ADR-004), inconsistências reportadas sem invenção (ADR-005), `delivery_items` com dois pais (ADR-020), arredondamento a 2 casas com ocorrência por fracção real (ADR-022).
 
 ### 13.1 Preparação (D−7 a D−1)
 
@@ -366,6 +387,10 @@ sh ferramentas/operacao/prod.sh run --rm --no-deps -v /srv/erp/legado:/dados/leg
 sh ferramentas/operacao/prod.sh run --rm --no-deps -v /srv/erp/legado:/dados/legado:ro app \
    php artisan erp:migrar-backup-legado /dados/legado/wstb_payroll_backup_<data>.json --substituir --force \
    | tee /srv/erp/legado/etl_producao_<data>.log
+# d2) pós-carga (ADR-068): a ETL já atribui, depois do COMMIT, as tarefas novas do catálogo aos perfis que faziam a acção
+#     (rh_tabela_irt_gerir, vendas_alterar_preco e — só a quem gere moedas — cambio_manual_fora_tolerancia) e preenche as
+#     contas 6621/7621. Confirmar «Pós-carga: …» na consola (`pos_carga` no relatório); se aparecer «NÃO APLICADA», repetir:
+sh ferramentas/operacao/prod.sh exec app php artisan erp:migracao:pos-carga
 # e) OBRIGATÓRIO: limpar a cache antes de reabrir a aplicação. O --substituir faz TRUNCATE … RESTART IDENTITY e reutiliza
 #    ids: sem isto, um utilizador novo com o id de um antigo herdava durante até 1 h a lista de empresas acessíveis do antigo,
 #    e o plano de contas (24 h) e o catálogo (6 h) ficavam os do ensaio. A ETL já tenta limpar (linha «Cache: …» na consola

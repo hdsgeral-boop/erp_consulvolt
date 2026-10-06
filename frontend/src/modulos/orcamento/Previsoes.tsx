@@ -52,8 +52,8 @@ function Lista() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Previsões deslizantes" subtitulo="Rolling forecast a 12 meses e estimativa de fecho do ano"
-        accoes={pode('orc_previsoes_edit') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNova(true)}>Nova previsão</Button>}
+      <CabecalhoPagina titulo="Previsões (rolling forecast)" subtitulo="Previsão deslizante de 12 meses: os meses fechados passam a real e cada revisão mensal fica guardada; estimativa do fecho do ano face ao orçamento aprovado"
+        accoes={pode('orc_previsoes_edit') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNova(true)}>Nova série de previsões</Button>}
         impressaoDesactivada={!q.data?.length}
         impressao={() => pedidoTabela({ titulo: 'Previsões deslizantes', colunas: colunasLista, linhas: q.data ?? [] })} />
       <Card>

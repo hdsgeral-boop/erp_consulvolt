@@ -24,7 +24,7 @@ test('abrir o período salarial, importar dos contratos, calcular e ver os resul
   periodoId = Number(new URL(page.url()).pathname.split('/').pop());
   await expect(page.getByRole('heading', { name: /^Processamento \d{2}\/\d{4}$/ })).toBeVisible();
 
-  await page.getByRole('button', { name: /Importar/ }).click();
+  await page.getByRole('button', { name: /Importar( down)?$/ }).click();
   await page.getByText('Importar dos contratos').click();
   await page.locator('.ant-modal-confirm').getByRole('button', { name: 'Importar' }).click();
   await expect(page.getByText(/Importação dos contratos: 9 lançamento\(s\) criado\(s\)/)).toBeVisible();

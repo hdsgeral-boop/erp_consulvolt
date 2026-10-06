@@ -11,6 +11,7 @@ use App\Models\Venda;
 use App\Services\POS\ServicoTerminaisPOS;
 use App\Services\POS\ServicoVendasPOS;
 use App\Services\Vendas\CalculadoraDocumento;
+use App\Services\Vendas\ServicoDocumentosVenda;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -148,8 +149,10 @@ final class ServicoCheckoutHotel
             $calc = CalculadoraDocumento::calcularComIva(array_map(fn ($l) => ['quantidade' => $l['quantidade'], 'preco_unitario' => $l['preco_unitario'],
                 'taxa_imposto' => $taxas[$l['produto_id']] ?? 0], $linhas), $pct);
             $bruto = array_reduce($linhas, fn ($c, $l) => bcadd($c, CalculadoraDocumento::arredondar(bcmul($l['quantidade'], $l['preco_unitario'], 8)), 2), '0.00');
+            // decisão 10: o arredondamento AGT fica separado do desconto comercial (como na venda que o checkout emite)
+            $dr = ServicoDocumentosVenda::descontoEArredondamentoPos($linhas, $pct, $calc['total_bruto']);
             $facturas[] = ['cliente_id' => $g['cliente_id'], 'estadias' => array_column($g['itens'], 'estadia'), 'linhas' => $linhas, 'bruto' => $bruto,
-                'desconto' => bcsub($bruto, $calc['total_bruto'], 2), 'total_liquido' => $calc['total_liquido'], 'total_imposto' => $calc['total_imposto'], 'total' => $calc['total_bruto']];
+                'desconto' => $dr['desconto'], 'arredondamento_agt' => $dr['arredondamento_agt'], 'total_liquido' => $calc['total_liquido'], 'total_imposto' => $calc['total_imposto'], 'total' => $calc['total_bruto']];
             $total = bcadd($total, $calc['total_bruto'], 2);
         }
 

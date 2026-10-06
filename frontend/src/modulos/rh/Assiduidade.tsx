@@ -1,7 +1,7 @@
 import {
   Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, TimePicker, Tooltip, Typography, Upload, message,
 } from 'antd';
-import { DeleteOutlined, LockOutlined, PlusOutlined, SearchOutlined, UnlockOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
+import { CalendarOutlined, ClockCircleOutlined, DeleteOutlined, LockOutlined, PlusOutlined, SearchOutlined, UnlockOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -15,7 +15,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora } from '@/utilitarios/formatacao';
 import {
-  ARREDONDAMENTOS, DIAS_SEMANA, type ApuramentoMes, type Ausencia, type ConfigAssiduidade, type FechoMensal, type LinhaApuramento, type RegistoEfectividade, type TipoAusencia,
+  ARREDONDAMENTOS, DIAS_SEMANA, type ApuramentoMes, type Ausencia, type ConfigAssiduidade, type FechoMensal, type FeriadoNacional, type LinhaApuramento, type RegistoEfectividade, type TipoAusencia,
 } from './api';
 import { EstadoTag, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
@@ -30,7 +30,7 @@ export default function Assiduidade() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Efectividade"
+        titulo="Efectividade (biometria)"
         subtitulo="Assiduidade (biometria): o apuramento do mês fechado alimenta o processamento salarial («Importar efectividade»)"
         accoes={<DatePicker picker="month" format="MM/YYYY" allowClear={false} value={mes} onChange={(v) => v && setMes(v)} />}
       />
@@ -76,6 +76,17 @@ function Registos({ mes }: { mes: string }) {
   const entrada = Form.useWatch('entrada', form);
   const saida = Form.useWatch('saida', form);
   const calculadas = horasEntre(entrada?.format('HH:mm'), saida?.format('HH:mm'));
+
+  /** M-12: o servidor lê o relógio biométrico configurado (CSV ou JSON) com o mesmo leitor da importação de ficheiro. */
+  const relogio = useMutation({
+    mutationFn: async () => (await http.post<Envelope<{ gravados: number; ignorados: number; erros: string[] }>>('/rh/assiduidade/registos/importar-relogio', { substituir })).data,
+    onSuccess: (r) => {
+      message.success(r.mensagem);
+      setResultado(r.dados);
+      void cliente.invalidateQueries({ queryKey: ['rh', 'assiduidade'] });
+    },
+    onError: (e) => notificarErro(e, 'Não foi possível ler o relógio biométrico'),
+  });
 
   const envioFicheiro = useMutation({
     mutationFn: async () => {
@@ -125,6 +136,10 @@ function Registos({ mes }: { mes: string }) {
           })} />
           {pode('rh_assid_registar') && (
           <Space wrap>
+            <Popconfirm title="Ler os registos do relógio biométrico?" description="O servidor lê o endereço configurado; os registos do mesmo dia são substituídos." okText="Ler relógio" cancelText="Cancelar"
+              onConfirm={() => relogio.mutateAsync()}>
+              <Button icon={<ClockCircleOutlined />} loading={relogio.isPending}>Ler relógio</Button>
+            </Popconfirm>
             <Button icon={<UploadOutlined />} onClick={() => setImportar(true)}>Importar ficheiro</Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); form.setFieldsValue({ colaborador_id: colaborador, data: dayjs(`${mes}-01`).isSame(dayjs(), 'month') ? dayjs() : dayjs(`${mes}-01`) }); setNovo(true); }}>Novo registo</Button>
           </Space>
@@ -417,6 +432,20 @@ function Configuracao() {
   const [form] = Form.useForm();
   const accao = useAccaoRh();
   const modo = Form.useWatch('modo_compensacao', form);
+  const [anoFeriados, setAnoFeriados] = useState(dayjs().year());
+  /** Decisão 6: pré-carrega os feriados nacionais de Angola no campo (o utilizador revê e grava). */
+  const preCarregar = async () => {
+    try {
+      const lista = await obter<FeriadoNacional[]>('/rh/assiduidade/feriados-nacionais', { ano: anoFeriados });
+      const actuais: Dayjs[] = form.getFieldValue('feriados') ?? [];
+      const chaves = new Set(actuais.map((d) => d.format('YYYY-MM-DD')));
+      const novos = lista.filter((f) => !chaves.has(f.data));
+      form.setFieldsValue({ feriados: [...actuais, ...novos.map((f) => dayjs(f.data))].sort((a, b) => a.valueOf() - b.valueOf()) });
+      message.info(`${novos.length} feriado(s) nacional(is) de ${anoFeriados} acrescentado(s): confirme a lista e grave.`);
+    } catch (e) {
+      notificarErro(e);
+    }
+  };
   useEffect(() => {
     if (q.data) form.setFieldsValue({ ...q.data, feriados: (q.data.feriados ?? []).map((d) => dayjs(d)), relogio: q.data.relogio ?? {} });
   }, [q.data, form]);
@@ -440,11 +469,17 @@ function Configuracao() {
           {modo === 'LIMITE' && <Col xs={24} md={8}><Form.Item name="limite_compensacao_h" label="Limite (horas)"><InputNumber min={0} max={200} style={{ width: '100%' }} /></Form.Item></Col>}
           <Col xs={24} md={8}><Form.Item name="extra_nao_util_exige_autorizacao" label="Extra em dia não útil" valuePropName="checked"><Checkbox>Exige autorização</Checkbox></Form.Item></Col>
         </Row>
-        <Form.Item name="feriados" label="Feriados">
+        <Form.Item name="feriados" label="Feriados" extra="Lista oficial de Angola (Lei dos Feriados Nacionais): confirme antes de gravar; as pontes e tolerâncias de ponto decretadas acrescentam-se à mão.">
           <DatePicker multiple format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
+        {editar && (
+          <Space wrap style={{ marginTop: -8, marginBottom: 16 }}>
+            <InputNumber value={anoFeriados} min={2000} max={2100} onChange={(v) => v && setAnoFeriados(v)} aria-label="Ano dos feriados" />
+            <Button icon={<CalendarOutlined />} onClick={() => void preCarregar()}>Pré-carregar feriados nacionais de Angola</Button>
+          </Space>
+        )}
         <Row gutter={16}>
-          <Col xs={24} md={16}><Form.Item name={['relogio', 'url']} label="Relógio biométrico — endereço" extra="Leitura directa ainda não disponível; importe o ficheiro exportado."><Input maxLength={500} /></Form.Item></Col>
+          <Col xs={24} md={16}><Form.Item name={['relogio', 'url']} label="Relógio biométrico — endereço" extra="Lido pelo servidor do ERP (botão «Ler relógio» nos registos): http(s), sem credenciais no endereço."><Input maxLength={500} /></Form.Item></Col>
           <Col xs={24} md={8}><Form.Item name={['relogio', 'formato']} label="Formato"><Select allowClear options={[{ value: 'CSV', label: 'CSV' }, { value: 'JSON', label: 'JSON' }]} /></Form.Item></Col>
         </Row>
         {editar && <Button type="primary" htmlType="submit" loading={accao.isPending}>Gravar configuração</Button>}

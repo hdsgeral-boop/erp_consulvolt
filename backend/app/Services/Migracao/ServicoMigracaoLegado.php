@@ -3,6 +3,8 @@
 namespace App\Services\Migracao;
 
 use App\Exceptions\ErroNegocio;
+use App\Services\Sistema\ServicoPermissoesNovas;
+use App\Services\Tesouraria\ServicoConfigTesouraria;
 use App\Support\Cache\LimpezaCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -142,6 +144,13 @@ final class ServicoMigracaoLegado
                 ->update(['estado' => 'FALHADA', 'erro' => mb_substr($e->getMessage(), 0, 10000), 'concluido_em' => now(),
                     'relatorio' => $this->relatorio ? json_encode($this->relatorio, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : null]);
             throw $e;
+        }
+
+        // Pós-carga (ronda 2, ADR-068): as migrações de dados de permissões e de configuração correm numa base nova antes de
+        // a ETL carregar perfis, empresas e planos de contas — aplicam-se aqui outra vez, já sobre os dados migrados
+        if (! $simulacao) {
+            $relatorio['pos_carga'] = self::aplicarPosCarga();
+            $this->informar('Pós-carga: '.json_encode($relatorio['pos_carga'], JSON_UNESCAPED_UNICODE));
         }
 
         // R1: a carga (TRUNCATE … RESTART IDENTITY, inserts sem eventos) não invalida a cache e reutiliza ids — limpar depois
@@ -784,6 +793,26 @@ final class ServicoMigracaoLegado
                 $this->anularFk('empresas', 'execucao_consolidacao_id', $e->execucao_consolidacao_id, 'Execução de consolidação inexistente: FK anulada');
                 DB::table('empresas')->where('id', $e->id)->update(['execucao_consolidacao_id' => null]);
             }
+        }
+    }
+
+    /**
+     * Passos idempotentes a correr depois da carga do legado (também pelo comando erp:migracao:pos-carga):
+     *   - tarefas novas do catálogo atribuídas aos perfis que já faziam a acção (ServicoPermissoesNovas, decisões 1, 8 e 9);
+     *   - contas de diferenças de câmbio 6621/7621 nas configurações de tesouraria e compras (decisão 19).
+     * Uma falha não desfaz a migração já confirmada: fica no relatório, com a indicação do comando a repetir.
+     *
+     * @return array<string, mixed>
+     */
+    public static function aplicarPosCarga(): array
+    {
+        try {
+            return DB::transaction(fn () => [
+                'permissoes_atribuidas' => ServicoPermissoesNovas::aplicar(),
+                'diferencas_cambio' => ServicoConfigTesouraria::preencherDiferencasCambio(),
+            ]);
+        } catch (Throwable $e) {
+            return ['erro' => 'NÃO APLICADA: '.$e->getMessage().' — execute «php artisan erp:migracao:pos-carga».'];
         }
     }
 

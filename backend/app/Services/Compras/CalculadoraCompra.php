@@ -43,10 +43,13 @@ final class CalculadoraCompra
 
     /**
      * Moeda e câmbio de um documento de compra: AOA; câmbio manual; ou o da tabela até à data.
+     * Câmbio manual indicado pelo utilizador (decisão 9): validado contra o câmbio do dia com a tolerância configurável;
+     * o herdado de um documento anterior (proposta → encomenda → recepção/factura) não volta a ser validado ($validarManual = null).
      *
+     * @param  string|null  $validarManual  contexto da auditoria (ex.: «Compras proposta»); null = câmbio herdado
      * @return array{codigo: string, taxa: string, taxa_id: ?int, manual: bool, estrangeira: bool}
      */
-    public static function moeda(ServicoCambios $cambios, int $empresa, ?string $codigo, ?string $manual, string $data): array
+    public static function moeda(ServicoCambios $cambios, int $empresa, ?string $codigo, ?string $manual, string $data, ?string $validarManual = null): array
     {
         $codigo = strtoupper($codigo ?: ServicoCambios::BASE);
         if ($codigo === ServicoCambios::BASE) {
@@ -55,6 +58,9 @@ final class CalculadoraCompra
         if ($manual !== null && $manual !== '') {
             if ((float) $manual <= 0) {
                 throw new ErroNegocio('O câmbio tem de ser positivo.', 'CAMBIO_INVALIDO', 422);
+            }
+            if ($validarManual !== null) {
+                $cambios->validarManual($empresa, $codigo, $data, $manual, $validarManual);
             }
 
             return ['codigo' => $codigo, 'taxa' => number_format((float) $manual, 6, '.', ''), 'taxa_id' => null, 'manual' => true, 'estrangeira' => true];

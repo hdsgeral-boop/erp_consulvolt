@@ -188,6 +188,88 @@ final class ServicoEncerramento
     }
 
     /**
+     * Decisão 20 (ronda 2) — plano de contas pronto para o encerramento: contas do apuramento em falta ou totalizadoras
+     * (ex.: 769 totalizadora; 6211/62/72 totalizadoras com movimento; 8xx em falta), passo a passo, com a correcção
+     * possível: CRIAR (conta de movimento em falta), CONVERTER (totalizadora sem subcontas → movimento) ou MANUAL
+     * (totalizadora com subcontas: reclassificar os movimentos com «Substituir conta»/actualização em massa). Não grava nada.
+     *
+     * @return array{ano: int, pronto: bool, contas: list<array<string, mixed>>}
+     */
+    public function diagnosticoPlano(int $ano): array
+    {
+        $empresa = $this->contexto->obrigatorio();
+        $plano = $this->planoContas->todas();
+        $contas = [];
+        foreach (array_keys(self::PASSOS) as $passo) {
+            $c = $this->calcular($ano, $passo);
+            foreach ([['em_falta', 'EM_FALTA'], ['totalizadoras', 'TOTALIZADORA']] as [$chave, $problema]) {
+                foreach ($c[$chave] as $codigo) {
+                    $contas[$codigo] ??= ['codigo' => (string) $codigo, 'descricao' => $plano[$codigo]['descricao'] ?? null, 'problema' => $problema, 'passos' => []];
+                    $contas[$codigo]['passos'][] = $passo;
+                }
+            }
+        }
+        foreach ($contas as $codigo => &$c) {
+            $c['movimentos_ano'] = (int) DB::table('lancamentos_contabeis')->where('empresa_id', $empresa)->where('codigo_conta', $codigo)
+                ->whereBetween('data_documento', $this->limites($ano))->count();
+            if ($c['problema'] === 'EM_FALTA') {
+                $c += ['subcontas' => 0, 'accao' => 'CRIAR', 'orientacao' => 'Criar como conta de movimento (apuramento de resultados).'];
+
+                continue;
+            }
+            $sub = (int) DB::table('plano_contas')->where('empresa_id', $empresa)->whereNull('eliminado_em')
+                ->where('codigo', 'like', str_replace(['%', '_'], ['\%', '\_'], (string) $codigo).'%')->where('codigo', '<>', $codigo)->count();
+            $c['subcontas'] = $sub;
+            $c['accao'] = $sub ? 'MANUAL' : 'CONVERTER';
+            $c['orientacao'] = $sub
+                ? "Tem {$sub} subconta(s): reclassifique os movimentos para uma subconta de movimento (Configurações › Substituir conta ou Rotinas › Actualização em massa)."
+                : 'Converter em conta de movimento (não tem subcontas).';
+        }
+        unset($c);
+        ksort($contas, SORT_STRING);
+
+        return ['ano' => $ano, 'pronto' => $contas === [], 'contas' => array_values($contas)];
+    }
+
+    /**
+     * Correcção assistida do plano (decisão 20): cria as contas em falta e converte em movimento as totalizadoras sem
+     * subcontas que o diagnóstico indicar. Só aceita códigos com essa acção no diagnóstico actual; audita.
+     *
+     * @param  list<string>  $criar
+     * @param  list<string>  $converter
+     * @return array{criadas: list<string>, convertidas: list<string>, diagnostico: array<string, mixed>}
+     */
+    public function corrigirPlano(int $ano, array $criar, array $converter): array
+    {
+        $empresa = $this->contexto->obrigatorio();
+        $this->exercicios->exigirAberto($empresa, "{$ano}-12-31");
+
+        return DB::transaction(function () use ($ano, $criar, $converter) {
+            $diag = collect($this->diagnosticoPlano($ano)['contas'])->keyBy('codigo');
+            $invalidas = array_merge(
+                array_values(array_filter($criar, fn ($c) => ($diag[$c]['accao'] ?? null) !== 'CRIAR')),
+                array_values(array_filter($converter, fn ($c) => ($diag[$c]['accao'] ?? null) !== 'CONVERTER')),
+            );
+            if ($invalidas) {
+                throw new ErroNegocio('Há contas que não podem ser corrigidas desta forma: '.implode(', ', $invalidas).'.', 'CORRECCAO_PLANO_INVALIDA', 422, ['contas' => $invalidas]);
+            }
+            foreach ($criar as $codigo) {
+                $this->planoContas->criar(['codigo' => $codigo, 'descricao' => "Apuramento de resultados — conta {$codigo}", 'tipo' => PlanoConta::TIPO_MOVIMENTO]);
+            }
+            foreach ($converter as $codigo) {
+                $conta = PlanoConta::query()->where('codigo', $codigo)->firstOrFail();
+                $this->planoContas->atualizar($conta, ['tipo' => PlanoConta::TIPO_MOVIMENTO]);
+            }
+            if ($criar || $converter) {
+                $this->auditoria->registar('Contabilidade', 'Corrigiu o plano de contas para o encerramento',
+                    "Exercício {$ano}: criadas ".($criar ? implode(', ', $criar) : '—').'; convertidas em movimento '.($converter ? implode(', ', $converter) : '—'), 'plano_contas');
+            }
+
+            return ['criadas' => array_values($criar), 'convertidas' => array_values($converter), 'diagnostico' => $this->diagnosticoPlano($ano)];
+        });
+    }
+
+    /**
      * Validações finais (runClosingValidactions). Não grava nada.
      *
      * Divergências bloqueiam o encerramento; avisos (inventário — decisão do utilizador, 2026-10-01) só se reportam.

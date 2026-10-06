@@ -1,4 +1,4 @@
-import { Button, Card, Flex, Input, InputNumber, Modal, Progress, Radio, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Button, Card, Flex, Input, InputNumber, Modal, Progress, Radio, Select, Space, Table, Tabs, Tag, Tooltip, Typography } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -25,8 +25,9 @@ export default function Alertas() {
       <Tabs
         destroyOnHidden
         items={[
-          { key: 'pedidos', label: 'Pedidos de excesso', children: <Pedidos /> },
-          { key: 'monitor', label: 'Monitor de consumo', children: <Monitor /> },
+          // ordem do legado: consumo vs orçamento, pedidos de aprovação, registo de alertas
+          { key: 'monitor', label: 'Consumo vs orçamento', children: <Monitor /> },
+          { key: 'pedidos', label: 'Pedidos de aprovação', children: <Pedidos /> },
           { key: 'registo', label: 'Registo de alertas', children: <Registo /> },
         ]}
       />
@@ -118,7 +119,9 @@ function Monitor() {
     { title: 'Consumido', dataIndex: 'consumido', align: 'right', render: (v) => <Kz valor={v} forte /> },
     { title: 'Disponível', dataIndex: 'disponivel', align: 'right', render: (v) => <Kz valor={v} /> },
     { title: 'Consumo', dataIndex: 'percentagem', width: 180, valorImpressao: (l) => (l.percentagem === null ? '—' : `${Number(l.percentagem).toLocaleString('pt-PT', { maximumFractionDigits: 1 })}%`), render: (v, l) => (v === null ? '—' : <Progress percent={Math.min(100, Math.round(v))} size="small" strokeColor={corMonitor(l.estado) === 'red' ? '#cf1322' : corMonitor(l.estado) === 'orange' ? '#fa8c16' : undefined} format={() => `${Number(v).toLocaleString('pt-PT', { maximumFractionDigits: 1 })}%`} />) },
-    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaOrc valor={v} /> },
+    // decisão 23: no modo NENHUM (sem controlo) o EXCEDIDO acima de 100 % é só informativo
+    { title: 'Estado', dataIndex: 'estado', valorImpressao: (l) => `${l.estado}${l.modo === 'NENHUM' && l.estado === 'EXCEDIDO' ? ' (informativo)' : ''}`,
+      render: (v, l) => (l.modo === 'NENHUM' && v === 'EXCEDIDO' ? <Tooltip title="Rubrica sem controlo: o excesso não bloqueia nem pede aprovação (só informativo)."><span><EtiquetaOrc valor={v} /></span></Tooltip> : <EtiquetaOrc valor={v} />) },
   ];
 
   return (

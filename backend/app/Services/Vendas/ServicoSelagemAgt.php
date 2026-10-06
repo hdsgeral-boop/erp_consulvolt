@@ -110,6 +110,10 @@ final class ServicoSelagemAgt
                 : CalculadoraDocumento::arredondar(bcmul((string) $item->quantidade, $preco, 8));
             $taxa = CatalogoAgt::taxaTexto($item->taxa_imposto);
             $codigoTaxa = CatalogoAgt::codigoTaxa($taxa);
+            // decisão 11: no POS (e sempre que qtd × preço ≠ valor) o preço vai a 6 casas, com o preço antes do desconto e o
+            // desconto da linha (settlementAmount), como o legado; nos restantes documentos os preços já batem com o valor
+            $pl = $estrangeira ? ['preco_base' => $preco, 'preco' => $preco, 'desconto' => '0.00']
+                : CalculadoraDocumento::precosLinhaFiscal($valor, (string) $item->quantidade, $preco, $item->getAttributes()['percentagem_desconto'] ?? null);
             $linha = [
                 'lineNumber' => $i + 1,
                 'operationType' => $item->produto?->tipo_operacao_fe ?: ($item->produto?->movimenta_stock ? 'TB' : 'SG'),
@@ -117,8 +121,8 @@ final class ServicoSelagemAgt
                 'productDescription' => $item->descricao ?: $item->produto?->nome,
                 'quantity' => (float) $item->quantidade,
                 'unitOfMeasure' => $item->produto?->unidade_fe ?: 'UN',
-                'unitPriceBase' => (float) $preco,
-                'unitPrice' => (float) $preco,
+                'unitPriceBase' => (float) $pl['preco_base'],
+                'unitPrice' => (float) $pl['preco'],
                 ($nc ? 'debitAmount' : 'creditAmount') => (float) $valor,
                 'taxes' => [array_filter([
                     'taxType' => 'IVA', 'taxCountryRegion' => 'AO', 'taxCode' => $codigoTaxa, 'taxPercentage' => (float) $taxa,
@@ -126,6 +130,9 @@ final class ServicoSelagemAgt
                     'taxExemptionCode' => $codigoTaxa === 'ISE' ? ($item->produto?->codigo_isencao_fe ?: $config?->isencao_padrao) : null,
                 ], fn ($v) => $v !== null)],
             ];
+            if (bccomp($pl['desconto'], '0', 2) > 0) {
+                $linha['settlementAmount'] = (float) $pl['desconto'];
+            }
             if ($nc) {
                 $linha['referenceInfo'] = ['reference' => $referenciaOrigem, 'reason' => $venda->motivo_nota_credito];
             }

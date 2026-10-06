@@ -12,6 +12,7 @@ use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Logistica\ServicoConfigLogistica;
 use App\Services\Logistica\ServicoStock;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Vendas\CalculadoraDocumento;
@@ -159,8 +160,15 @@ final class ServicoRececoesCompra
                 if (! $armazemId) {
                     throw new ErroNegocio('Indique o armazém de entrada.', 'SEM_ARMAZEM', 422);
                 }
-                $this->stock->entrada($produto->id, $armazemId, $q, $custo, $data, "Recepção {$rececao->numero_rececao} (guia {$rececao->numero_entrega}, enc. {$encomenda->numero_encomenda})",
+                $entrada = $this->stock->entrada($produto->id, $armazemId, $q, $custo, $data, "Recepção {$rececao->numero_rececao} (guia {$rececao->numero_entrega}, enc. {$encomenda->numero_encomenda})",
                     $fornecedor->id, $item->projeto_id, ['documento_tipo' => 'RECECAO', 'documento_id' => $rececao->id]);
+                // decisão 15: entrada sobre stock negativo — a diferença das unidades vendidas a descoberto vai para o CMV
+                $acertos = bccomp($entrada['acerto_cmv'], '0', 2) === 0 ? [] : ServicoStock::linhasAcertoCmv($entrada['acerto_cmv'],
+                    app(ServicoConfigLogistica::class)->contaCusto($produto), app(ServicoConfigLogistica::class)->contaInventario($produto));
+                foreach ($acertos as $acerto) {
+                    $linhasContab[] = $acerto + ['unidade_negocio_id' => $rececao->unidade_negocio_id, 'centro_custo_id' => $rececao->centro_custo_id,
+                        'projeto_id' => $item->projeto_id, 'descricao' => mb_substr("Acerto do CMV (stock negativo) {$produto->codigo}", 0, 1000)];
+                }
                 if (bccomp($valor, '0', 2) <= 0) {
                     continue;
                 }

@@ -21,6 +21,7 @@ final class ServicoConfigVendas
         'proveitos_mercadorias' => 'Proveitos de vendas de mercadorias (produtos que movimentam stock, sem conta própria)',
         'proveitos_servicos' => 'Proveitos de prestações de serviços (sem conta própria)',
         'iva_vendas' => 'IVA liquidado (produtos sem conta de IVA própria)',
+        'adiantamentos_clientes' => 'Adiantamentos de clientes (recibos de adiantamento, sem factura)',
     ];
 
     public function __construct(private readonly ServicoPlanoContas $plano) {}

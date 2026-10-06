@@ -1,5 +1,8 @@
+import { AutoavaliacoesRH, AvaliacaoChefiasRH } from './comum/AvaliacoesPortalRH';
 import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -20,13 +23,17 @@ const ESTADOS_PEDIDO = ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO',
 /** RH › Pedidos do Portal (ecrã rh_portal_gestao): decidir pedidos, emitir documentos, modelos e ligações utilizador ↔ colaborador. */
 export default function PortalGestao() {
   const { pode } = useSessao();
+  const navegar = useNavigate();
   return (
     <>
-      <CabecalhoPagina titulo="Pedidos do Portal" subtitulo="Férias, ausências, documentos e alterações do agregado pedidos pelos colaboradores" />
+      <CabecalhoPagina titulo="Pedidos do Portal do Colaborador" subtitulo="Decisões do RH sobre férias, documentos e agregado familiar; autoavaliações submetidas; avaliação anónima das chefias; ligação dos utilizadores às fichas."
+        accoes={pode('rh_portal_usar') && <Button icon={<UserOutlined />} onClick={() => navegar('/m/rh/rh_portal')}>Abrir o meu portal</Button>} />
       <Tabs items={[
         { key: 'pedidos', label: 'Pedidos', children: <Pedidos /> },
         { key: 'modelos', label: 'Modelos de documentos', children: <Modelos /> },
-        ...(pode('rh_portal_aprovar') || pode('rh_portal_gestao_view') ? [{ key: 'ligacoes', label: 'Ligações utilizador ↔ colaborador', children: <Ligacoes editar={pode('rh_portal_aprovar')} /> }] : []),
+        ...(pode('rh_portal_aprovar') || pode('rh_avaliacao_view') ? [{ key: 'autoavaliacoes', label: 'Autoavaliações', children: <AutoavaliacoesRH /> }] : []),
+        ...(pode('rh_portal_aprovar') ? [{ key: 'chefias', label: 'Avaliação das chefias', children: <AvaliacaoChefiasRH /> }] : []),
+        ...(pode('rh_portal_aprovar') || pode('rh_portal_gestao_view') ? [{ key: 'ligacoes', label: 'Utilizadores e colaboradores', children: <Ligacoes editar={pode('rh_portal_aprovar')} /> }] : []),
       ]} />
     </>
   );

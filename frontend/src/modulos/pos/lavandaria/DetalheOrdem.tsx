@@ -1,7 +1,7 @@
 import { Alert, Button, Checkbox, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Skeleton, Space, Table, Tabs, Tag, Timeline, Tooltip, Typography } from 'antd';
-import { CheckOutlined, DollarOutlined, ExclamationCircleOutlined, FileDoneOutlined, PlayCircleOutlined, SendOutlined, StopOutlined, ToolOutlined } from '@ant-design/icons';
+import { CheckOutlined, DollarOutlined, ExclamationCircleOutlined, FileDoneOutlined, PlayCircleOutlined, PrinterOutlined, SendOutlined, StopOutlined, TagsOutlined, ToolOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
-import { enviar } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
@@ -13,16 +13,23 @@ import { deCentimos, pagamentosParaApi, resumirPagamentos, type Pagamento } from
 import { EstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
 import { accoesOrdem } from '../comum/regras';
-import type { Terminal } from '../comum/tipos';
-import { useOrdem } from './dados';
+import type { Terminal, VendaEmitida } from '../comum/tipos';
+import { htmlTalaoVenda, lerPreferencias, reimprimir, useCabecalhoTalao } from '../comum/impressao';
+import { useDefinicoesLav, useOrdem } from './dados';
+import { htmlEtiquetasOS, htmlReciboLav, htmlTalaoOS } from './impressoes';
 import type { DetalheOrdem as Detalhe, ItemOrdem, PagamentoLav, SimulacaoEntrega } from './tipos';
 
 const INVALIDAR = [['pos']];
 
-/** Ordem de serviço: peças, execução, orçamentos, dinheiro (receber, facturar, entregar), recibos, reclamações e histórico. */
+/**
+ * Ordem de serviço: peças, execução, orçamentos, dinheiro (receber, facturar, entregar), recibos, reclamações e histórico.
+ * M-16: talão da OS (2 vias), etiquetas, recibo RC-LAV e factura imprimem-se daqui (formato do posto: térmico ou A4).
+ */
 export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; terminal: Terminal | undefined; aoFechar: () => void }) {
-  const { pode } = useSessao();
+  const { pode, empresa } = useSessao();
   const consulta = useOrdem(id);
+  const definicoes = useDefinicoesLav();
+  const cabecalho = useCabecalhoTalao();
   const d = consulta.data;
   const sessaoId = terminal?.sessao_aberta?.id ?? null;
   const [receber, setReceber] = useState(false);
@@ -40,6 +47,26 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
       setMaterial(null);
     },
   });
+
+  const cab = () => cabecalho({ terminal: terminal ? `${terminal.codigo} — ${terminal.nome}` : d?.pedido.codigo_terminal });
+  const imprimirTalao = () => d && reimprimir(htmlTalaoOS(d, definicoes.data, cab(), lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id));
+  const imprimirEtiquetas = () => d && reimprimir(htmlEtiquetasOS(d, cab(), lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id));
+  const imprimirFactura = async (vendaId: number) => {
+    if (!d) return;
+    try {
+      const v = await obter<VendaEmitida>(`/pos/lavandaria/ordens/${d.pedido.id}/documentos/${vendaId}`);
+      const p = lerPreferencias(empresa?.id);
+      reimprimir(htmlTalaoVenda(v, cab(), p), p);
+    } catch (e) {
+      notificarErro(e, 'Não foi possível obter o documento');
+    }
+  };
+  const imprimirRecibo = (r: PagamentoLav) => {
+    if (!d) return;
+    if (r.venda_id && r.natureza_registo === 'FR') return void imprimirFactura(r.venda_id);
+    const p = lerPreferencias(empresa?.id);
+    reimprimir(htmlReciboLav(r, d, cab(), p), p);
+  };
 
   const a = d ? accoesOrdem(pode, { estado: d.pedido.estado, itens: d.pedido.itens, saldo: d.totais.saldo, por_facturar: d.totais.por_facturar }, !!sessaoId) : null;
   const outroTerminal = !!d && !!terminal && d.pedido.terminal_pos_id !== terminal.id;
@@ -63,6 +90,12 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
         d &&
         a && (
           <Space wrap>
+            <Button size="small" icon={<PrinterOutlined />} onClick={imprimirTalao} title="Talão da ordem de serviço (via do cliente e via da loja)">
+              Talão
+            </Button>
+            <Button size="small" icon={<TagsOutlined />} onClick={imprimirEtiquetas} title="Etiquetas das peças">
+              Etiquetas
+            </Button>
             <BotoesExportar tamanho="small" obterPedido={() => pedidoOrdem(d)} />
             {a.receber && (
               <Button icon={<DollarOutlined />} onClick={() => setReceber(true)}>
@@ -227,12 +260,16 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                         {
                           title: '',
                           key: 'a',
-                          render: (_, p) =>
-                            p.estado === 'REGISTADO' && pode('lav_anular') ? (
-                              <Button size="small" danger onClick={() => setAnularRecibo(p)}>
-                                Anular
-                              </Button>
-                            ) : null,
+                          render: (_, p) => (
+                            <Space size={4}>
+                              <Button size="small" icon={<PrinterOutlined />} aria-label={`Imprimir o recibo ${p.numero_recibo ?? ''}`} title="Imprimir" onClick={() => imprimirRecibo(p)} />
+                              {p.estado === 'REGISTADO' && pode('lav_anular') && (
+                                <Button size="small" danger onClick={() => setAnularRecibo(p)}>
+                                  Anular
+                                </Button>
+                              )}
+                            </Space>
+                          ),
                         },
                       ]}
                     />
@@ -250,6 +287,13 @@ export function DetalheOrdem({ id, terminal, aoFechar }: { id: number | null; te
                         { title: 'Data', dataIndex: 'data_emissao', render: (v) => formatarData(v) },
                         { title: 'Total', dataIndex: 'total_bruto', align: 'right', render: (v) => formatarKz(v) },
                         { title: 'Estado', dataIndex: 'estado', render: (v) => <EstadoPOS estado={v} /> },
+                        {
+                          title: '',
+                          key: 'i',
+                          render: (_, f) => (
+                            <Button size="small" icon={<PrinterOutlined />} aria-label={`Imprimir ${f.numero_documento}`} title="Imprimir" onClick={() => void imprimirFactura(f.id)} />
+                          ),
+                        },
                       ]}
                     />
                   </>

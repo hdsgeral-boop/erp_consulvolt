@@ -347,6 +347,51 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_pecas_lavandaria_empresa_id ON pecas_lavandaria (empresa_id)');
 
+        // mesas_pos (tabela nova) · 0 linhas reais no backup
+        Schema::create('mesas_pos', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->bigInteger('terminal_pos_id')->comment('Terminal RESTAURANTE');
+            $table->string('nome', 255)->comment('Nome da mesa (ex.: Mesa 1, Terraço 2, Take-Away)');
+            $table->integer('ordem')->nullable()->default(0)->comment('Ordem de apresentação');
+            $table->boolean('ativo')->nullable()->default(true);
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_mesas_pos_terminal_pos_id_nome ON mesas_pos (terminal_pos_id, nome)');
+        DB::statement('CREATE INDEX ix_mesas_pos_empresa_id ON mesas_pos (empresa_id)');
+        DB::statement('CREATE INDEX ix_mesas_pos_empresa_id_terminal_pos_id ON mesas_pos (empresa_id, terminal_pos_id)');
+
+        // contas_mesa_pos (tabela nova) · 0 linhas reais no backup
+        Schema::create('contas_mesa_pos', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->bigInteger('mesa_pos_id')->comment('Mesa');
+            $table->bigInteger('terminal_pos_id')->comment('Terminal');
+            $table->bigInteger('sessao_pos_id')->nullable()->comment('Sessão em que foi cobrada');
+            $table->string('estado', 12)->default('ABERTA')->comment('ABERTA, FECHADA (cobrada) ou ANULADA (libertada sem venda)');
+            $table->jsonb('linhas')->comment('[{produto_id, quantidade, preco_unitario?}] — o preço só quando alterado');
+            $table->decimal('percentagem_desconto', 9, 4)->nullable()->default(0);
+            $table->bigInteger('cliente_id')->nullable()->comment('Cliente');
+            $table->text('observacoes')->nullable();
+            $table->string('operador', 150)->nullable()->comment('Quem abriu/actualizou a conta');
+            $table->integer('versao')->nullable()->default(1)->comment('Bloqueio optimista entre postos');
+            $table->bigInteger('venda_id')->nullable()->comment('Factura-recibo emitida ao cobrar');
+            $table->timestampTz('aberta_em')->nullable();
+            $table->timestampTz('fechada_em')->nullable();
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE UNIQUE INDEX uq_contas_mesa_pos_mesa_pos_id ON contas_mesa_pos (mesa_pos_id) WHERE estado = \'ABERTA\'');
+        DB::statement('CREATE INDEX ix_contas_mesa_pos_empresa_id ON contas_mesa_pos (empresa_id)');
+        DB::statement('CREATE INDEX ix_contas_mesa_pos_mesa_pos_id ON contas_mesa_pos (mesa_pos_id)');
+        DB::statement('CREATE INDEX ix_contas_mesa_pos_terminal_pos_id ON contas_mesa_pos (terminal_pos_id)');
+        DB::statement('CREATE INDEX ix_contas_mesa_pos_sessao_pos_id ON contas_mesa_pos (sessao_pos_id)');
+        DB::statement('CREATE INDEX ix_contas_mesa_pos_cliente_id ON contas_mesa_pos (cliente_id)');
+        DB::statement('CREATE INDEX ix_contas_mesa_pos_venda_id ON contas_mesa_pos (venda_id)');
+        DB::statement('CREATE INDEX ix_contas_mesa_pos_empresa_id_terminal_pos_id_estado ON contas_mesa_pos (empresa_id, terminal_pos_id, estado)');
+        DB::statement('ALTER TABLE contas_mesa_pos ADD CONSTRAINT ck_contas_mesa_pos_estado CHECK (estado IN (\'ABERTA\',\'FECHADA\',\'ANULADA\'))');
+
         // pedidos_lavandaria_faturas (pivô)
         Schema::create('pedidos_lavandaria_faturas', function (Blueprint $table) {
             $table->bigInteger('empresa_id');
@@ -362,6 +407,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('pedidos_lavandaria_faturas');
+        Schema::dropIfExists('contas_mesa_pos');
+        Schema::dropIfExists('mesas_pos');
         Schema::dropIfExists('pecas_lavandaria');
         Schema::dropIfExists('configuracoes_lavandaria');
         Schema::dropIfExists('reclamacoes_lavandaria');

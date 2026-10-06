@@ -14,7 +14,7 @@ import { useAccaoRh, useAvisarErro, usePeriodosSalariais } from './consultas';
 import { pedidoTabela } from './impressao';
 
 /** Listagem dos períodos salariais (ecrãs Calcular e Processamentos); abrir um período só no Calcular. */
-export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra }: { titulo: string; subtitulo: string; permitirAbrir?: boolean; accoesExtra?: ReactNode }) {
+export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra, antes }: { titulo: string; subtitulo: string; permitirAbrir?: boolean; accoesExtra?: ReactNode; antes?: ReactNode }) {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const periodos = usePeriodosSalariais();
@@ -45,6 +45,7 @@ export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra }:
         impressaoDesactivada={!periodos.data?.length}
         impressao={() => pedidoTabela({ titulo: `Períodos salariais — ${titulo}`, colunas, linhas: periodos.data ?? [] })}
       />
+      {antes}
       <Card>
         <Table<PeriodoSalarial> rowKey="id" size={pequeno ? 'small' : 'middle'} scroll={scrollTabela()} loading={periodos.isFetching} columns={colunas} dataSource={periodos.data ?? []}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })} pagination={{ pageSize: 24, showTotal: (t) => `${t} período(s)` }} />

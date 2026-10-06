@@ -43,6 +43,33 @@ final class EncerramentoController extends Controller
         return RespostaApi::sucesso($res, $res['numero_lan'] ? "Passo {$passo} executado: lançamento {$res['numero_lan']} no período 13." : "Não existem saldos a apurar no passo {$passo}.");
     }
 
+    /** GET /{ano}/plano — decisão 20: contas do apuramento em falta ou totalizadoras, com a correcção possível. */
+    public function diagnosticoPlano(int $ano): JsonResponse
+    {
+        $this->exigir('encerramento_view', 'contab_apurar');
+        $r = $this->encerramento->diagnosticoPlano($this->ano($ano));
+
+        return RespostaApi::sucesso($r, $r['pronto'] ? 'O plano de contas está pronto para o apuramento.' : count($r['contas']).' conta(s) a corrigir antes do apuramento.');
+    }
+
+    /** POST /{ano}/plano/corrigir — correcção assistida: criar as contas em falta (contab_apurar) e converter totalizadoras (contab_plano_gerir). */
+    public function corrigirPlano(Request $r, int $ano): JsonResponse
+    {
+        $d = $r->validate(['criar' => ['sometimes', 'array', 'max:100'], 'criar.*' => ['string', 'max:20'], 'converter' => ['sometimes', 'array', 'max:100'], 'converter.*' => ['string', 'max:20']]);
+        if (! empty($d['criar'])) {
+            $this->exigir('contab_apurar');
+        }
+        if (! empty($d['converter'])) {
+            $this->exigir('contab_plano_gerir');
+        }
+        if (empty($d['criar']) && empty($d['converter'])) {
+            $this->exigir('contab_apurar', 'contab_plano_gerir');
+        }
+        $res = $this->encerramento->corrigirPlano($this->ano($ano), array_values($d['criar'] ?? []), array_values($d['converter'] ?? []));
+
+        return RespostaApi::sucesso($res, 'Plano corrigido: '.count($res['criadas']).' conta(s) criada(s), '.count($res['convertidas']).' convertida(s) em movimento.');
+    }
+
     public function validar(int $ano): JsonResponse
     {
         $this->exigir('encerramento_view', 'contab_apurar');

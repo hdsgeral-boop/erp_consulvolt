@@ -13,6 +13,7 @@ import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import type { EstadoExercicio, ExercicioResumo, MapaApuramento, PassoEstado, PrevisualizacaoPasso, ValidacaoExercicio, Verificacao } from './api';
 import { BotaoCsv, ValorKz } from './comum/Componentes';
 import { accoesEncerramento } from './comum/regras';
+import { PainelPlano } from './encerramento/PainelPlano';
 
 /** Contabilidade › Encerramento do exercício (ADR-056): 5 passos de apuramento (período 13), validações, encerrar/reabrir/cancelar. */
 export default function Encerramento() {
@@ -60,12 +61,13 @@ export default function Encerramento() {
   const e = estado.data;
 
   const passoActual = e ? e.passos.findIndex((p) => !p.numero_lan) : 0;
+  const [separador, setSeparador] = useState('passos');
 
   return (
     <>
       <CabecalhoPagina
-        titulo="Encerramento do exercício"
-        subtitulo="Apuramento de resultados no período 13, validações e cadeado do exercício"
+        titulo="Encerramento de Contas e Apuramento de Resultados"
+        subtitulo="Execute as rotinas de fecho em cascata para apuramento dos resultados do exercício (período 13); valide e encerre."
         accoes={
           <Space wrap>
             <Select value={ano} onChange={setAno} style={{ width: 120 }} options={anos.map((a) => ({ value: a, label: String(a) }))} aria-label="Exercício" />
@@ -109,7 +111,10 @@ export default function Encerramento() {
           ) : (
             <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`O exercício de ${ano} está aberto. Execute os passos pela ordem, valide e encerre.`} />
           )}
+          <PainelPlano ano={ano} encerrado={e.encerrado} />
           <Tabs
+            activeKey={separador}
+            onChange={setSeparador}
             items={[
               {
                 key: 'passos',
@@ -124,6 +129,19 @@ export default function Encerramento() {
                         status: p.numero_lan ? 'finish' : 'wait',
                         description: <DescricaoPasso p={p} podeExecutar={regras.podeExecutarPassos} aoPrever={() => { setCriarContas(false); setPrevisto(p.passo); }} />,
                       }))}
+                    />
+                    <Alert
+                      type={e.encerrado ? 'error' : 'success'}
+                      showIcon
+                      icon={<LockOutlined />}
+                      style={{ marginTop: 8 }}
+                      message={<strong>Passo final: validação e encerramento do exercício</strong>}
+                      description="Valida a integridade do Balanço, as amortizações do imobilizado e o inventário do armazém. Após a validação bem-sucedida, o exercício é trancado e não permite mais lançamentos."
+                      action={
+                        <Button onClick={() => setSeparador('validacoes')} disabled={e.encerrado}>
+                          Validar e encerrar
+                        </Button>
+                      }
                     />
                   </Card>
                 ),
@@ -287,8 +305,23 @@ export default function Encerramento() {
   );
 }
 
+/** Texto de cada passo como no legado (ui_closing.js). */
+const TEXTOS_PASSOS: Record<number, string> = {
+  1: 'Transfere os saldos das contas 61 a 65 e 71 a 75 para as respectivas subcontas agrupadoras .9, seguidamente para a classe 82 e por fim para a conta 881 (Resultado Operacional).',
+  2: 'Transfere os saldos das contas 66 e 76 para as respectivas subcontas agrupadoras .9, seguidamente para a classe 83 e por fim para a conta 882 (Resultado Financeiro).',
+  3: 'Transfere as contas 67 e 77 para a classe 84, consolidando em 849, e em seguida para a conta 883, apurando por fim na 889.',
+  4: 'Transfere as contas 68 e 78 para a classe 85, consolidando em 859, e em seguida para a conta 884, apurando por fim na 889.',
+  5: 'Transfere as contas 69 e 79 para a classe 86, consolidando em 869, e em seguida para a conta 886, apurando por fim na 889.',
+};
+
 function DescricaoPasso({ p, podeExecutar, aoPrever }: { p: PassoEstado; podeExecutar: boolean; aoPrever: () => void }) {
   return (
+    <>
+    {TEXTOS_PASSOS[p.passo] && (
+      <Typography.Paragraph type="secondary" style={{ margin: '2px 0 4px' }}>
+        {TEXTOS_PASSOS[p.passo]}
+      </Typography.Paragraph>
+    )}
     <Flex gap={16} wrap align="center" style={{ padding: '4px 0 12px' }}>
       <Typography.Text type="secondary">
         Diário {p.diario} · {p.documento}
@@ -296,9 +329,10 @@ function DescricaoPasso({ p, podeExecutar, aoPrever }: { p: PassoEstado; podeExe
       {p.numero_lan ? <Tag color="green">{p.numero_lan} · {p.linhas} linha(s)</Tag> : <Tag>Por executar</Tag>}
       {p.resultado !== null && <span>Resultado: {formatarKz(p.resultado, true)}</span>}
       <Button size="small" onClick={aoPrever}>
-        {podeExecutar ? (p.numero_lan ? 'Pré-visualizar / repetir' : 'Pré-visualizar e executar') : 'Pré-visualizar'}
+        {podeExecutar ? (p.numero_lan ? `Repetir passo ${p.passo}` : `Executar passo ${p.passo}`) : 'Pré-visualizar'}
       </Button>
     </Flex>
+    </>
   );
 }
 

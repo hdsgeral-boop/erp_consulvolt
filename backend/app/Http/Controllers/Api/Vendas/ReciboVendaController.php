@@ -56,13 +56,57 @@ final class ReciboVendaController extends Controller
         if ($contabilizar) {
             $this->exigir('vendas_fat_contabilizar');
         }
-        $recibo = DB::transaction(function () use ($d, $contabilizar) {
-            $recibo = $this->recibos->criar($d);
+        $adiantamento = ($d['tipo_recibo'] ?? 'NORMAL') === 'ADIANTAMENTO';
+        $recibo = DB::transaction(function () use ($d, $contabilizar, $adiantamento) {
+            $recibo = $adiantamento ? $this->recibos->criarAdiantamento($d) : $this->recibos->criar($d);
 
             return $contabilizar ? $this->contabilizacao->contabilizarRecibo($recibo) : $recibo;
         });
 
-        return RespostaApi::criado($this->detalhe($recibo), "Recibo {$recibo->numero_recibo} emitido com sucesso.");
+        return RespostaApi::criado($this->detalhe($recibo), ($adiantamento ? 'Recibo de adiantamento' : 'Recibo')." {$recibo->numero_recibo} emitido com sucesso.");
+    }
+
+    /** POST /{id}/alocar — aloca um recibo de adiantamento (contabilizado) a facturas do cliente (M-18). */
+    public function alocar(Request $request, int $recibo): JsonResponse
+    {
+        $this->exigir('vendas_recibos');
+        $this->exigir('vendas_fat_contabilizar');
+        $d = $request->validate([
+            'data' => ['nullable', 'date_format:Y-m-d'],
+            'alocacoes' => ['required', 'array', 'min:1', 'max:200'],
+            'alocacoes.*.venda_id' => ['required', 'integer'],
+            'alocacoes.*.montante' => ['required', 'numeric', 'decimal:0,2', 'gt:0', 'max:9999999999999.99'],
+        ], [], ['alocacoes' => 'facturas a liquidar']);
+        $r = DB::transaction(function () use ($d, $recibo) {
+            $r = ReciboVenda::query()->findOrFail($recibo);
+            foreach ($this->recibos->alocarAdiantamento($r, $d['alocacoes'], $d['data'] ?? now()->toDateString()) as $item) {
+                $this->contabilizacao->contabilizarAlocacao($r, $item);
+            }
+
+            return $r->refresh();
+        });
+
+        return RespostaApi::sucesso($this->detalhe($r), "Adiantamento {$r->numero_recibo} alocado (saldo por alocar: {$this->recibos->saldoAdiantamento($r)}).");
+    }
+
+    /** POST /contabilizar e /descontabilizar — recibos seleccionados, cada um na sua transacção (M-06). */
+    public function contabilizarLote(Request $request): JsonResponse
+    {
+        $this->exigir('vendas_fat_contabilizar');
+        $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer']]);
+        $r = $this->contabilizacao->lote('recibos', true, $d['ids']);
+
+        return RespostaApi::sucesso($r, "{$r['ok']} recibo(s) contabilizado(s); {$r['erros']} com erro.");
+    }
+
+    public function descontabilizarLote(Request $request): JsonResponse
+    {
+        $this->exigir('vendas_fat_unpost');
+        $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:500'], 'ids.*' => ['integer'],
+            'motivo' => ['required', 'string', 'min:5', 'max:500']], [], ['motivo' => 'motivo']);
+        $r = $this->contabilizacao->lote('recibos', false, $d['ids'], $d['motivo']);
+
+        return RespostaApi::sucesso($r, "{$r['ok']} recibo(s) descontabilizado(s); {$r['erros']} com erro.");
     }
 
     public function anular(Request $request, int $recibo): JsonResponse
@@ -93,6 +137,8 @@ final class ReciboVendaController extends Controller
 
     private function detalhe(ReciboVenda $recibo): array
     {
-        return (new ReciboVendaResource($recibo->load(['cliente:id,nome,nif', 'itensReciboVenda.venda:id,numero_documento'])))->resolve();
+        $dados = (new ReciboVendaResource($recibo->load(['cliente:id,nome,nif', 'itensReciboVenda.venda:id,numero_documento'])))->resolve();
+
+        return $recibo->eAdiantamento() ? $dados + ['saldo_adiantamento' => $this->recibos->saldoAdiantamento($recibo)] : $dados;
     }
 }

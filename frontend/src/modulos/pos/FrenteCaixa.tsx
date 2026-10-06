@@ -1,5 +1,6 @@
 import { Alert, Badge, Button, Card, Col, Empty, Flex, Form, InputNumber, Result, Row, Skeleton, Space, Tag, Typography } from 'antd';
-import { DesktopOutlined, FileTextOutlined, LockOutlined, SwapOutlined, UnlockOutlined } from '@ant-design/icons';
+import { DesktopOutlined, FileTextOutlined, LockOutlined, ShopOutlined, SwapOutlined, UnlockOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -123,9 +124,32 @@ export default function FrenteCaixa() {
 }
 
 function EscolherTerminal({ terminais, aoEscolher }: { terminais: Terminal[]; aoEscolher: (id: number) => void }) {
+  const { menu } = useSessao();
+  const navegar = useNavigate();
+  // atalhos para os outros ecrãs do POS que o utilizador vê (os separadores do ecrã «Ponto de Venda (POS)» do legado)
+  const outros = (menu.find((m) => m.ecras.some((e) => e.id === 'pos'))?.ecras ?? []).filter((e) => e.id !== 'pos');
   return (
     <>
-      <CabecalhoPagina titulo="Frente de caixa" subtitulo="Escolha o terminal deste posto de trabalho" />
+      <CabecalhoPagina
+        titulo={
+          <>
+            <ShopOutlined /> Ponto de Venda (POS)
+          </>
+        }
+        subtitulo="Escolha o terminal deste posto de trabalho"
+      />
+      {outros.length > 0 && (
+        <Flex wrap gap={8} style={{ marginBottom: 16 }} role="navigation" aria-label="Ecrãs do POS">
+          <Button type="primary" icon={<DesktopOutlined />}>
+            Frente de caixa
+          </Button>
+          {outros.map((e) => (
+            <Button key={e.id} onClick={() => navegar(`../${e.id}`)}>
+              {e.nome}
+            </Button>
+          ))}
+        </Flex>
+      )}
       {terminais.length === 0 ? (
         <Empty description="Não há terminais POS. Crie-os em Terminais POS." />
       ) : (

@@ -35,7 +35,10 @@ use Illuminate\Support\Facades\DB;
  * Multi-moeda (moedas_tesouraria.js, ADR-034): a moeda do documento é a da conta financeira; o câmbio é o da tabela
  * na data (ou manual). Liquidar um documento em moeda estrangeira (a partir de conta na moeda ou em Kz) lança o
  * terceiro pelo VALOR HISTÓRICO em Kz — proporção do saldo em moeda — e a diferença para o valor ao câmbio do dia
- * vai a diferenças de câmbio (contas da configuração; no legado 6621/7621 fixas e invertidas).
+ * vai a diferenças de câmbio (contas da configuração; no legado 6621 favoráveis / 7621 desfavoráveis fixas — correctas no
+ * PGC angolano, decisão 19 — e agora pré-preenchidas com esses valores por ServicoConfigTesouraria::preencherDiferencasCambio).
+ * Decisão 21: em moeda estrangeira com várias linhas, o banco leva o total convertido de uma vez e o arredondamento acerta-se
+ * na última linha. Decisão 9: câmbio manual validado contra o câmbio do dia (ServicoCambios::validarManual).
  */
 final class ServicoDocumentosTesouraria
 {
@@ -65,7 +68,7 @@ final class ServicoDocumentosTesouraria
         $tipo = $d['tipo'];
         $data = substr($d['data_documento'], 0, 10);
         $this->exercicios->exigirAberto($empresa, $data);
-        $moeda = $this->moedaDocumento($d['conta_financeira'], $data, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null);
+        $moeda = $this->moedaDocumento($d['conta_financeira'], $data, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, 'Tesouraria '.strtolower($tipo));
         [$linhas, $total, $totalMoeda] = $this->validarLinhas($tipo, $d['linhas'], $doc?->id, $data, $moeda);
 
         return DB::transaction(function () use ($d, $doc, $tipo, $data, $linhas, $total, $totalMoeda, $moeda, $empresa) {
@@ -287,6 +290,23 @@ final class ServicoDocumentosTesouraria
         }
         $liquido = $tipo === 'PAGAMENTO' ? bcsub($d, $c, 2) : bcsub($c, $d, 2);
         $liquidoMoeda = $tipo === 'PAGAMENTO' ? bcsub($dm, $cm, 2) : bcsub($cm, $dm, 2);
+        // decisão 21 (como o legado): em moeda estrangeira o banco é lançado pelo total convertido de uma vez
+        // (arred(total na moeda × câmbio)) e a diferença de arredondamento acerta-se na última linha — antes o banco
+        // levava a soma dos arredondamentos linha a linha (ex.: 3 × USD 10,01 a 900,555 → 27 043,68 em vez de 27 043,67)
+        if ($moeda['estrangeira'] && count($saida) > 1) {
+            $acerto = bcsub(CalculadoraDocumento::arredondar(bcmul($liquidoMoeda, $moeda['taxa'], 8)), $liquido, 2);
+            if (bccomp($acerto, '0', 2) !== 0) {
+                $i = array_key_last($saida);
+                // sentido da linha face ao documento: num pagamento os débitos somam ao líquido; num recebimento, os créditos
+                $soma = ($tipo === 'PAGAMENTO') === ($saida[$i]['tipo_dc'] === 'D');
+                $ajuste = $soma ? $acerto : bcmul($acerto, '-1', 2);
+                $saida[$i]['valor_kz_documento'] = bcadd((string) $saida[$i]['valor_kz_documento'], $ajuste, 2);
+                if ($saida[$i]['cambial_moeda_documento'] === null) {   // sem documento em moeda ligado: o próprio valor da linha
+                    $saida[$i]['valor'] = bcadd((string) $saida[$i]['valor'], $ajuste, 2);
+                }
+                $liquido = bcadd($liquido, $acerto, 2);
+            }
+        }
         if (bccomp($liquido, '0', 2) <= 0) {
             throw new ErroNegocio($tipo === 'PAGAMENTO' ? 'Num pagamento os débitos das linhas têm de exceder os créditos.'
                 : 'Num recebimento os créditos das linhas têm de exceder os débitos.', 'SENTIDO_INVALIDO', 422, ['debito' => $d, 'credito' => $c]);
@@ -356,7 +376,7 @@ final class ServicoDocumentosTesouraria
     }
 
     /** @return array{codigo: string, taxa: string, taxa_id: ?int, manual: bool, estrangeira: bool} */
-    private function moedaDocumento(string $conta, string $data, ?string $manual): array
+    private function moedaDocumento(string $conta, string $data, ?string $manual, ?string $validarManual = null): array
     {
         $c = $this->plano->contaDeMovimento($conta);
         if (! preg_match('/^4[35]/', $conta)) {
@@ -367,6 +387,11 @@ final class ServicoDocumentosTesouraria
             return ['codigo' => $codigo, 'taxa' => '1', 'taxa_id' => null, 'manual' => false, 'estrangeira' => false];
         }
         if ($manual !== null && (float) $manual > 0) {
+            // decisão 9: câmbio manual dentro da tolerância (só ao gravar; a integração reutiliza o câmbio já validado)
+            if ($validarManual !== null) {
+                $this->cambios->validarManual($this->contexto->obrigatorio(), $codigo, $data, $manual, $validarManual);
+            }
+
             return ['codigo' => $codigo, 'taxa' => number_format((float) $manual, 6, '.', ''), 'taxa_id' => null, 'manual' => true, 'estrangeira' => true];
         }
         $t = $this->cambios->obter($this->contexto->obrigatorio(), $codigo, $data)

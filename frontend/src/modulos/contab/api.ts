@@ -44,6 +44,10 @@ export interface LinhaLancamento {
   nota_demonstracao_id: number | null;
   nota_fluxo_caixa_id: number | null;
   reconciliacao_codigo: string | null;
+  /** Moeda estrangeira da linha (A-07): código, valor na moeda e câmbio (null em Kz). */
+  codigo_moeda?: string | null;
+  valor_moeda?: string | null;
+  taxa_cambio?: string | null;
   tipo_origem: string | null;
   estorno_de_id: number | null;
   estornado_por_id: number | null;

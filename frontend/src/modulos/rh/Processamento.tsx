@@ -1,5 +1,5 @@
-import { Alert, Button, Card, Form, Input, Modal, Skeleton, Space, Table, Tabs, Tag, Typography } from 'antd';
-import { ArrowLeftOutlined, AuditOutlined, CheckOutlined, RollbackOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Form, Input, Modal, Skeleton, Space, Switch, Table, Tabs, Tag, Typography } from 'antd';
+import { ArrowLeftOutlined, AuditOutlined, SettingOutlined, CheckOutlined, FilePdfOutlined, RollbackOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
@@ -7,7 +7,9 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import type { DetalhePeriodo } from './api';
+import { ErroApi } from '@/api/tipos';
+import type { ConfiguracaoRH, DetalhePeriodo, MapeamentoEmFalta } from './api';
+import { MapeamentosEmFalta } from './comum/MapeamentosEmFalta';
 import { CartasPeriodo } from './comum/Cartas';
 import { EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
@@ -33,16 +35,22 @@ interface Verificacao {
 /** RH › Processamentos (ecrã processamento): validar, reabrir, contabilizar/estornar e cartas de pagamento. */
 export default function Processamento() {
   const [verificar, setVerificar] = useState(false);
+  const [configurar, setConfigurar] = useState(false);
+  const { pode } = useSessao();
   return (
     <>
       <Routes>
         <Route index element={
-          <ListaPeriodos titulo="Processamentos" subtitulo="Validação, contabilização e pagamento dos processamentos salariais"
-            accoesExtra={<Button icon={<AuditOutlined />} onClick={() => setVerificar(true)}>Verificar contra o diário</Button>} />
+          <ListaPeriodos titulo="Processamentos (Validação e Consulta)" subtitulo="Validação, contabilização e pagamento dos processamentos salariais"
+            accoesExtra={<>
+              {pode('config_empresas_gerir') && <Button icon={<SettingOutlined />} onClick={() => setConfigurar(true)}>Configuração</Button>}
+              <Button icon={<AuditOutlined />} onClick={() => setVerificar(true)}>Verificar contra o diário</Button>
+            </>} />
         } />
         <Route path=":id" element={<DetalheProcessamento />} />
       </Routes>
       {verificar && <VerificacaoDiario aoFechar={() => setVerificar(false)} />}
+      {configurar && <ConfiguracaoSegregacao aoFechar={() => setConfigurar(false)} />}
     </>
   );
 }
@@ -57,12 +65,24 @@ function DetalheProcessamento() {
   const colaboradores = useColaboradores();
   const [form] = Form.useForm<{ motivo: string }>();
   const accao = useAccaoRh(() => setEstorno(false));
+  const [emFalta, setEmFalta] = useState<MapeamentoEmFalta[] | null>(null);
+  const config = useQuery({ queryKey: ['rh', 'configuracao'], queryFn: () => obter<ConfiguracaoRH>('/rh/configuracao') });
 
   if (periodo.isLoading) return <Skeleton active />;
   const p = periodo.data;
   if (!p) return <Alert type="error" message="Processamento não encontrado." />;
   const ac = accoesPeriodo(p, pode);
   const post = (caminho: string) => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/${caminho}` });
+  /** A-10: quando faltam mapeamentos, abre o assistente em vez de só mostrar a mensagem. */
+  const contabilizar = async () => {
+    try {
+      await post('contabilizar');
+    } catch (e) {
+      if (e instanceof ErroApi && e.codigo === 'MAPEAMENTO_EM_FALTA' && Array.isArray(e.erros?.em_falta_detalhe) && pode('contab_mapeamento')) {
+        setEmFalta(e.erros.em_falta_detalhe as MapeamentoEmFalta[]);
+      }
+    }
+  };
 
   return (
     <>
@@ -83,8 +103,9 @@ function DetalheProcessamento() {
               <Button type="primary" icon={<CheckOutlined />} onClick={() => Modal.confirm({ title: `Validar o processamento de ${p.mes_ano}?`, content: 'Depois de validado emitem-se os recibos, a ordem de pagamento e a contabilização.', okText: 'Validar', cancelText: 'Cancelar', onOk: () => post('validar') })}>Validar</Button>
             )}
             {ac.contabilizar && (
-              <Button type="primary" onClick={() => Modal.confirm({ title: `Contabilizar ${p.mes_ano}?`, content: 'Cria o lançamento no diário SAL a partir da fotografia, com os mapeamentos contabilísticos. Se faltar algum mapeamento a operação é recusada.', okText: 'Contabilizar', cancelText: 'Cancelar', onOk: () => post('contabilizar') })}>Contabilizar</Button>
+              <Button type="primary" onClick={() => Modal.confirm({ title: `Contabilizar ${p.mes_ano}?`, content: 'Cria o lançamento no diário SAL a partir da fotografia, com os mapeamentos contabilísticos. Se faltar algum mapeamento a operação é recusada.', okText: 'Contabilizar', cancelText: 'Cancelar', onOk: () => contabilizar() })}>Contabilizar</Button>
             )}
+            {ac.recibos && <Button icon={<FilePdfOutlined />} onClick={() => navegar('/m/rh/rh_rel_recibos')}>Recibos</Button>}
             {ac.descontabilizar && <Button danger onClick={() => { form.resetFields(); setEstorno(true); }}>Descontabilizar</Button>}
             {ac.reabrir && (
               <Button icon={<RollbackOutlined />} onClick={() => Modal.confirm({ title: `Reabrir ${p.mes_ano}?`, content: 'A fotografia dos resultados é apagada e o período volta a Aberto (lançamentos editáveis no ecrã Calcular).', okText: 'Reabrir', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => post('reabrir') })}>Reabrir</Button>
@@ -93,6 +114,9 @@ function DetalheProcessamento() {
         }
       />
       {p.estado === 'ABERTO' && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Período em cálculo: os resultados são ao vivo. Encerre o cálculo no ecrã Calcular para o validar aqui." />}
+      {p.estado === 'FECHADO' && config.data?.segregar_encerrar_validar && (
+        <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`Segregação de funções activa: o processamento foi encerrado por ${p.fechado_por ?? '—'} e tem de ser validado por outro utilizador.`} />
+      )}
       {(p.estado === 'FECHADO' || p.estado === 'VALIDADO') && p.contabilizado && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Contabilizado: para reabrir, descontabilize primeiro (estorno)." />}
       <ResumoTotais periodo={p} />
       <Card>
@@ -114,6 +138,7 @@ function DetalheProcessamento() {
           ]}
         />
       </Card>
+      <MapeamentosEmFalta lista={emFalta} aoFechar={() => setEmFalta(null)} repetir={() => contabilizar()} />
       <Modal title="Descontabilizar (estorno)" open={estorno} onCancel={() => setEstorno(false)} okText="Descontabilizar" okButtonProps={{ danger: true }} cancelText="Cancelar"
         confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${id}/descontabilizar`, dados: v })}>
@@ -156,6 +181,25 @@ function VerificacaoDiario({ aoFechar }: { aoFechar: () => void }) {
         { title: 'Resultado', render: (_, r) => (r.sem_lancamento ? <Tag color="orange">Sem lançamento</Tag> : r.confere ? <Tag color="green">Confere</Tag> : <Tag color="red">Difere</Tag>) },
         { title: 'Cálculo', dataIndex: 'modo_calculo' },
       ]} />
+    </Modal>
+  );
+}
+
+/** Decisão 5 do utilizador: segregação encerrar/validar por empresa (desligada por omissão). */
+function ConfiguracaoSegregacao({ aoFechar }: { aoFechar: () => void }) {
+  const q = useQuery({ queryKey: ['rh', 'configuracao'], queryFn: () => obter<ConfiguracaoRH>('/rh/configuracao') });
+  useAvisarErro(q.error);
+  const accao = useAccaoRh();
+  return (
+    <Modal title="Configuração dos processamentos" open onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>}>
+      <Space align="start">
+        <Switch checked={Boolean(q.data?.segregar_encerrar_validar)} loading={q.isLoading || accao.isPending}
+          onChange={(v) => accao.mutate({ metodo: 'put', url: '/rh/configuracao', dados: { segregar_encerrar_validar: v } })} aria-label="Segregação de funções" />
+        <div>
+          <Typography.Text strong>Segregação de funções</Typography.Text>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>Quem encerra o cálculo de um mês não o pode validar (outro utilizador valida). Aplica-se a esta empresa.</Typography.Paragraph>
+        </div>
+      </Space>
     </Modal>
   );
 }

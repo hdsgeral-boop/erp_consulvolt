@@ -15,7 +15,12 @@ export interface ReciboVenda {
   venda_origem_id: number | null;
   anulado_em: string | null;
   motivo_anulacao: string | null;
-  alocacoes?: { venda_id: number; numero_documento: string | null; montante: string }[];
+  /** M-18: NORMAL ou ADIANTAMENTO (recibo sem factura, alocado depois) */
+  tipo_recibo?: 'NORMAL' | 'ADIANTAMENTO';
+  referencia?: string | null;
+  /** saldo por alocar (só nos adiantamentos) */
+  saldo_adiantamento?: string;
+  alocacoes?: { venda_id: number; numero_documento: string | null; montante: string; data_alocacao?: string | null; numero_lan?: string | null }[];
 }
 
 export const MEIOS_RECIBO = [
@@ -31,11 +36,14 @@ export function rotuloMeio(meio: string | null | undefined): string {
 }
 
 /** Acções do recibo (ReciboVendaController / ServicoRecibosVenda). */
-export function accoesRecibo(r: Pick<ReciboVenda, 'estado' | 'contabilizado'>, pode: (...c: string[]) => boolean) {
+export function accoesRecibo(r: Pick<ReciboVenda, 'estado' | 'contabilizado'> & Partial<Pick<ReciboVenda, 'tipo_recibo' | 'alocacoes' | 'saldo_adiantamento' | 'venda_origem_id'>>, pode: (...c: string[]) => boolean) {
   const anulado = r.estado === 'ANULADO';
+  const adiantamento = r.tipo_recibo === 'ADIANTAMENTO';
+  const alocado = adiantamento && (r.alocacoes?.length ?? 0) > 0;
   return {
+    alocar: adiantamento && !anulado && r.contabilizado && Number(r.saldo_adiantamento ?? 0) > 0 && pode('vendas_recibos') && pode('vendas_fat_contabilizar'),
     contabilizar: !anulado && !r.contabilizado && pode('vendas_fat_contabilizar'),
-    descontabilizar: r.contabilizado && pode('vendas_fat_unpost'),
-    anular: !anulado && pode('vendas_recibos'),
+    descontabilizar: r.contabilizado && !alocado && !r.venda_origem_id && pode('vendas_fat_unpost'),
+    anular: !anulado && !alocado && !r.contabilizado && !r.venda_origem_id && pode('vendas_recibos'),
   };
 }

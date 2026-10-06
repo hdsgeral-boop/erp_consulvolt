@@ -10,6 +10,8 @@ interface Props {
   impressao?: ObterPedido;
   /** Desactiva os botões de impressão (ex.: dados ainda a carregar). */
   impressaoDesactivada?: boolean;
+  /** Mostra também «Excel» ao lado de «Imprimir/PDF» (por omissão: sim). */
+  excel?: boolean;
 }
 
 /**
@@ -17,7 +19,7 @@ interface Props {
  * passa para a linha seguinte e os botões quebram linha (Space wrap); o título nunca é empurrado para fora.
  * Aspecto do sistema anterior (h2.view-title): título grande cinzento-ardósia e linha por baixo (src/estilos/identidade.css).
  */
-export function CabecalhoPagina({ titulo, subtitulo, accoes, impressao, impressaoDesactivada }: Props) {
+export function CabecalhoPagina({ titulo, subtitulo, accoes, impressao, impressaoDesactivada, excel = true }: Props) {
   const temAccoes = !!accoes || !!impressao;
   return (
     <Flex justify="space-between" align="center" wrap gap={12} style={{ marginBottom: 16 }} className="cabecalho-pagina">
@@ -30,7 +32,7 @@ export function CabecalhoPagina({ titulo, subtitulo, accoes, impressao, impressa
       {temAccoes && (
         <Space wrap size={8} style={{ justifyContent: 'flex-end', maxWidth: '100%' }} className="no-print">
           {accoes}
-          {impressao && <BotoesExportar obterPedido={impressao} desactivado={impressaoDesactivada} />}
+          {impressao && <BotoesExportar obterPedido={impressao} desactivado={impressaoDesactivada} excel={excel} />}
         </Space>
       )}
     </Flex>

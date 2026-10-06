@@ -49,7 +49,7 @@ final class ServicoFaturasCompra
                 throw new ErroNegocio('A encomenda está anulada.', 'ENCOMENDA_ANULADA', 422);
             }
             $this->exigirNumeroLivre($encomenda->fornecedor_id, $d['numero_fatura']);
-            $moeda = CalculadoraCompra::moeda($this->cambios, $empresa, $encomenda->codigo_moeda, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, $data);
+            $moeda = CalculadoraCompra::moeda($this->cambios, $empresa, $encomenda->codigo_moeda, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, $data, 'Compras factura');
             $itens = ItemCompra::query()->where('encomenda_compra_id', $encomenda->id)->with('produto')->lockForUpdate()->get()->keyBy('id');
             $linhas = [];
             foreach (collect($d['linhas'])->filter(fn ($l) => (float) $l['quantidade'] > 0)->values() as $n => $l) {
@@ -92,7 +92,7 @@ final class ServicoFaturasCompra
         $data = substr($d['data'], 0, 10);
         $this->exercicios->exigirAberto($empresa, $data);   // o legado não verificava
         $fornecedor = $this->processo->fornecedor($d['fornecedor_id']);
-        $moeda = CalculadoraCompra::moeda($this->cambios, $empresa, $d['codigo_moeda'] ?? $fornecedor->codigo_moeda, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, $data);
+        $moeda = CalculadoraCompra::moeda($this->cambios, $empresa, $d['codigo_moeda'] ?? $fornecedor->codigo_moeda, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, $data, 'Compras factura directa');
         $produtos = Produto::query()->whereIn('id', array_column($d['linhas'], 'produto_id'))->get()->keyBy('id');
         $linhas = [];
         foreach ($d['linhas'] as $n => $l) {

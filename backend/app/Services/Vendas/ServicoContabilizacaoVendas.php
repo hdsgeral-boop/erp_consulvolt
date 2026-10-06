@@ -4,7 +4,9 @@ namespace App\Services\Vendas;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\DiarioContabil;
+use App\Models\ItemReciboVenda;
 use App\Models\LancamentoContabil;
+use App\Models\NotaFluxoCaixa;
 use App\Models\ReciboVenda;
 use App\Models\Terceiro;
 use App\Models\Venda;
@@ -12,6 +14,7 @@ use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Contabilização de vendas e recibos (postSale / unpostSale do legado, js/ui_sales.js), corrigida:
@@ -23,7 +26,13 @@ use Illuminate\Support\Facades\DB;
  *   - recibo: D disponibilidade / C cliente;
  *   - descontabilizar = estorno com rasto (ADR-016), nunca apagar; encomendas não são contabilizáveis;
  *   - CMV em inventário permanente (ADR-043): as linhas D custo / C inventário (o inverso nas devoluções) entram no
- *     lançamento do próprio documento; as guias GR/GD contabilizam só o CMV (sem proveitos).
+ *     lançamento do próprio documento; as guias GR/GD contabilizam só o CMV (sem proveitos);
+ *   - recibo (decisão 13): a contrapartida da disponibilidade leva a nota de fluxo de caixa dos recebimentos de clientes,
+ *     como o legado (a nota «111» ou, na falta, a primeira com código começado por «1»; sem notas, fica sem nota);
+ *   - recibo de adiantamento (M-18): D disponibilidade / C adiantamentos de clientes; cada alocação a uma factura gera
+ *     D adiantamentos / C cliente;
+ *   - em lote (M-06, postSelectedSales/unpostSelectedSales e recibos): cada documento na sua transacção, com o resultado
+ *     de cada um (um erro num não desfaz os outros), como em Tesouraria › Integração.
  */
 final class ServicoContabilizacaoVendas
 {
@@ -168,17 +177,21 @@ final class ServicoContabilizacaoVendas
             throw new ErroNegocio('O recibo de uma factura-recibo é contabilizado com a própria factura-recibo.', 'RECIBO_DE_FR', 422);
         }
         $cliente = Terceiro::query()->withTrashed()->findOrFail($recibo->cliente_id);
-        $contaCliente = $cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.');
+        $adiantamento = $recibo->eAdiantamento();
+        $contaCredito = $adiantamento
+            ? $this->config->exigir('adiantamentos_clientes', 'Recibo de adiantamento.')
+            : ($cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.'));
         $comum = ['terceiro_id' => $cliente->id, 'unidade_negocio_id' => $recibo->unidade_negocio_id,
             'centro_custo_id' => $recibo->centro_custo_id, 'projeto_id' => $recibo->projeto_id];
 
-        return DB::transaction(function () use ($recibo, $cliente, $contaCliente, $comum) {
+        return DB::transaction(function () use ($recibo, $cliente, $contaCredito, $comum, $adiantamento) {
             $criadas = $this->lancamentos->criar([
                 'diario_id' => $this->diario(self::DIARIO_RECIBOS, 'Recebimentos')->id, 'data_documento' => $recibo->data->toDateString(),
-                'numero_documento' => $recibo->numero_recibo, 'descricao' => mb_substr("{$recibo->numero_recibo} - {$cliente->nome}", 0, 1000),
+                'numero_documento' => $recibo->numero_recibo,
+                'descricao' => mb_substr(($adiantamento ? 'Adiantamento ' : '')."{$recibo->numero_recibo} - {$cliente->nome}", 0, 1000),
                 'tipo_origem' => 'RECIBOS', 'linhas' => [
                     ['codigo_conta' => $recibo->codigo_conta, 'tipo_dc' => 'D', 'valor' => $recibo->montante_total] + $comum,
-                    ['codigo_conta' => $contaCliente, 'tipo_dc' => 'C', 'valor' => $recibo->montante_total] + $comum,
+                    ['codigo_conta' => $contaCredito, 'tipo_dc' => 'C', 'valor' => $recibo->montante_total, 'nota_fluxo_caixa_id' => $this->notaFluxoRecebimentos()] + $comum,
                 ],
             ]);
             $recibo->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $criadas->first()->numero_lan]);
@@ -195,6 +208,9 @@ final class ServicoContabilizacaoVendas
         if ($recibo->venda_origem_id) {
             throw new ErroNegocio('O recibo de uma factura-recibo descontabiliza-se com a própria factura-recibo.', 'RECIBO_DE_FR', 422);
         }
+        if ($recibo->eAdiantamento() && $recibo->itensReciboVenda()->exists()) {
+            throw new ErroNegocio('O adiantamento já foi alocado a facturas: não se descontabiliza.', 'ADIANTAMENTO_ALOCADO', 422);
+        }
 
         return DB::transaction(function () use ($recibo, $motivo) {
             $this->lancamentos->estornar($this->localizar($recibo->numero_lan_contabilizacao, $recibo->numero_recibo, false), $motivo);
@@ -202,6 +218,78 @@ final class ServicoContabilizacaoVendas
 
             return $recibo;
         });
+    }
+
+    /** Alocação de um adiantamento a uma factura: D adiantamentos de clientes / C cliente (diário RC). */
+    public function contabilizarAlocacao(ReciboVenda $recibo, ItemReciboVenda $item): ItemReciboVenda
+    {
+        $cliente = Terceiro::query()->withTrashed()->findOrFail($recibo->cliente_id);
+        $venda = Venda::query()->findOrFail($item->venda_id);
+        $comum = ['terceiro_id' => $cliente->id, 'unidade_negocio_id' => $recibo->unidade_negocio_id,
+            'centro_custo_id' => $recibo->centro_custo_id, 'projeto_id' => $recibo->projeto_id];
+        $criadas = $this->lancamentos->criar([
+            'diario_id' => $this->diario(self::DIARIO_RECIBOS, 'Recebimentos')->id, 'data_documento' => substr((string) ($item->data_alocacao ?: now()->toDateString()), 0, 10),
+            'numero_documento' => $recibo->numero_recibo,
+            'descricao' => mb_substr("Alocação do adiantamento {$recibo->numero_recibo} à factura {$venda->numero_documento} - {$cliente->nome}", 0, 1000),
+            'tipo_origem' => 'RECIBOS', 'linhas' => [
+                ['codigo_conta' => $this->config->exigir('adiantamentos_clientes', 'Alocação de adiantamento.'), 'tipo_dc' => 'D', 'valor' => $item->montante_pago] + $comum,
+                ['codigo_conta' => $cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.'),
+                    'tipo_dc' => 'C', 'valor' => $item->montante_pago, 'numero_documento' => $venda->numero_documento] + $comum,
+            ],
+        ]);
+        $item->forceFill(['numero_lan_contabilizacao' => $criadas->first()->numero_lan])->save();
+
+        return $item;
+    }
+
+    /**
+     * Contabiliza/descontabiliza vários documentos ou recibos, cada um na sua transacção (M-06).
+     *
+     * @param  'documentos'|'recibos'  $tipo
+     * @param  list<int>  $ids
+     * @return array{ok: int, erros: int, resultados: list<array{id: int, numero: ?string, sucesso: bool, mensagem: string, codigo?: string}>}
+     */
+    public function lote(string $tipo, bool $contabilizar, array $ids, ?string $motivo = null): array
+    {
+        $resultados = [];
+        foreach (array_values(array_unique(array_map('intval', $ids))) as $id) {
+            $doc = $tipo === 'recibos' ? ReciboVenda::query()->find($id) : Venda::query()->find($id);
+            $numero = $doc ? ($tipo === 'recibos' ? $doc->numero_recibo : $doc->numero_documento) : null;
+            if (! $doc) {
+                $resultados[] = ['id' => $id, 'numero' => null, 'sucesso' => false, 'mensagem' => 'Documento inexistente.', 'codigo' => 'NAO_ENCONTRADO'];
+
+                continue;
+            }
+            try {
+                $r = match (true) {
+                    $tipo === 'recibos' && $contabilizar => $this->contabilizarRecibo($doc),
+                    $tipo === 'recibos' => $this->descontabilizarRecibo($doc, (string) $motivo),
+                    $contabilizar => $this->contabilizar($doc),
+                    default => $this->descontabilizar($doc, (string) $motivo),
+                };
+                $resultados[] = ['id' => $id, 'numero' => $numero, 'sucesso' => true,
+                    'mensagem' => $contabilizar ? "Contabilizado (lançamento {$r->numero_lan_contabilizacao})." : 'Descontabilizado (estorno registado).'];
+            } catch (ErroNegocio $e) {
+                $resultados[] = ['id' => $id, 'numero' => $numero, 'sucesso' => false, 'mensagem' => $e->getMessage(), 'codigo' => $e->codigo];
+            } catch (Throwable $e) {
+                report($e);
+                $resultados[] = ['id' => $id, 'numero' => $numero, 'sucesso' => false, 'mensagem' => 'Erro inesperado: a operação foi desfeita para este documento.', 'codigo' => 'ERRO_INTERNO'];
+            }
+        }
+        $ok = count(array_filter($resultados, fn ($r) => $r['sucesso']));
+
+        return ['ok' => $ok, 'erros' => count($resultados) - $ok, 'resultados' => $resultados];
+    }
+
+    /**
+     * Decisão 13: nota de fluxo de caixa dos recebimentos de clientes (legado, js/ui_sales.js:4855-4861: a primeira nota com
+     * código começado por «1»; aqui, a «111» — a usada pelo legado no recibo directo — se existir).
+     */
+    public function notaFluxoRecebimentos(): ?int
+    {
+        $notas = NotaFluxoCaixa::query()->where('codigo', 'like', '1%')->orderBy('codigo')->orderBy('id')->get(['id', 'codigo']);
+
+        return ($notas->first(fn ($n) => trim((string) $n->codigo) === '111') ?? $notas->first())?->id;
     }
 
     /**
