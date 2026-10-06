@@ -296,14 +296,14 @@ final class RHRonda2Test extends TestCase
     public function relogio_biometrico_lido_pelo_servidor(): void
     {
         $this->postJson('/api/rh/assiduidade/registos/importar-relogio', [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'RELOGIO_SEM_URL');
-        $this->em(fn () => ConfigAssiduidade::query()->create(['relogio' => ['url' => 'http://relogio.local/export', 'formato' => 'JSON']]));
+        $this->em(fn () => ConfigAssiduidade::query()->create(['relogio' => ['url' => 'http://192.168.1.50/export', 'formato' => 'JSON']]));
         $ontem = now()->subDay()->toDateString();
-        Http::fake(['relogio.local/*' => Http::response(['dados' => [['nif' => '111111111LA011', 'data' => $ontem, 'entrada' => '08:00', 'saida' => '17:00'],
+        Http::fake(['192.168.1.50/*' => Http::response(['dados' => [['nif' => '111111111LA011', 'data' => $ontem, 'entrada' => '08:00', 'saida' => '17:00'],
             ['nif' => '000', 'data' => $ontem, 'entrada' => '08:00', 'saida' => '17:00']]])]);
         $r = $this->postJson('/api/rh/assiduidade/registos/importar-relogio', [], $this->s)->assertOk()->json('dados');
-        $this->assertSame([1, 1, 'relogio.local'], [$r['gravados'], count($r['erros']), $r['fonte']]);
-        $this->em(fn () => ConfigAssiduidade::query()->update(['relogio' => ['url' => 'http://relogio-avariado.local/export', 'formato' => 'CSV']]));
-        Http::fake(['relogio-avariado.local/*' => Http::response('erro', 500)]);
+        $this->assertSame([1, 1, '192.168.1.50'], [$r['gravados'], count($r['erros']), $r['fonte']]);
+        $this->em(fn () => ConfigAssiduidade::query()->update(['relogio' => ['url' => 'http://192.168.1.51/export', 'formato' => 'CSV']]));
+        Http::fake(['192.168.1.51/*' => Http::response('erro', 500)]);
         $this->postJson('/api/rh/assiduidade/registos/importar-relogio', [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'RELOGIO_ERRO');
     }
 

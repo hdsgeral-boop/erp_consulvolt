@@ -43,11 +43,16 @@ final class GuardaUrlSaida
             self::recusar($codigo, 'anfitrião interno do servidor');
         }
         $eIp = filter_var($host, FILTER_VALIDATE_IP) !== false;
-        // só dígitos/pontos/x mas não é um IPv4 canónico: forma numérica ambígua (decimal, octal, hexadecimal)
-        if (! $eIp && preg_match('/^[0-9.x]+$/i', $host) && preg_match('/^(0x[0-9a-f]+|[0-9]+)(\.(0x[0-9a-f]+|[0-9]+))*$/i', $host)) {
+        // só dígitos/hexadecimais/pontos/x mas não é um IPv4 canónico: forma numérica ambígua (decimal, octal, hexadecimal —
+        // ex.: 0x7f.0.0.1, 2852039166); o resolvedor do sistema pode ou não convertê-la (musl converte, glibc nem sempre)
+        if (! $eIp && preg_match('/^[0-9a-fx.]+$/i', $host) && preg_match('/^(0x[0-9a-f]+|[0-9]+)(\.(0x[0-9a-f]+|[0-9]+))*$/i', $host)) {
             self::recusar($codigo, 'endereço numérico não canónico');
         }
         $ips = $eIp ? [$host] : self::resolver($host);
+        if ($ips === []) {
+            // falha fechada: sem IPs verificados não se fixa o CURLOPT_RESOLVE e o cliente HTTP resolveria por conta própria
+            self::recusar($codigo, 'anfitrião sem endereço resolvido');
+        }
         foreach ($ips as $ip) {
             if (self::ipProibido($ip)) {
                 self::recusar($codigo, 'endereço local, de metadados ou reservado');

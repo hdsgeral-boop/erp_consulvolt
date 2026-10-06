@@ -41,6 +41,7 @@ final class OwaspSegurancaTest extends TestCase
             'php-fpm' => ['http://10.0.0.5:9000/', false],
             '0.0.0.0' => ['http://0.0.0.0/', false],
             'esquema file' => ['file:///etc/passwd', false],
+            'anfitrião que não resolve' => ['http://nao-existe.invalid/x', false],
             'esquema gopher' => ['gopher://192.168.1.5/', false],
             'credenciais no URL' => ['http://u:p@192.168.1.50/x', false],
             'relógio na LAN' => ['http://192.168.1.50:8080/export', true],
