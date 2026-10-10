@@ -8,7 +8,6 @@ import {
   MenuFoldOutlined,
   MenuOutlined,
   MenuUnfoldOutlined,
-  MobileOutlined,
   RobotOutlined,
   StarFilled,
   StarOutlined,
@@ -20,7 +19,6 @@ import { Outlet, useLocation, useNavigate, useNavigationType } from 'react-route
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
 import { useEcra } from '@/componentes/responsivo/useEcra';
-import { useModoResponsivo } from '@/componentes/responsivo/modoResponsivo';
 import { larguraGaveta } from '@/componentes/responsivo/utilitarios';
 import { AjudaProvider, BotaoAjuda } from '@/componentes/ajuda/PainelAjuda';
 import { OperacoesProvider } from '@/componentes/operacoes/Operacoes';
@@ -48,16 +46,16 @@ type ItemMenuLateral = NonNullable<MenuProps['items']>[number];
  *
  * Aspecto do sistema anterior (index_arrumado.html + css/styles.css): menu lateral escuro (#121212) de 280 px com a
  * marca no topo, item activo com barra azul à esquerda e sub-níveis com guia tracejada; barra superior branca com o
- * botão quadrado do menu, o nome da empresa e o crachá do NIF à esquerda, «Ajuda», «Modo responsivo», «Trocar empresa»,
+ * botão quadrado do menu, o nome da empresa e o crachá do NIF à esquerda, «Ajuda», «Trocar empresa»,
  * o utilizador e o botão vermelho de sair à direita; botão flutuante «Voltar» (ronda 2, botões do legado em falta).
  *
  * Funcionalidades transversais (ronda 2, R2-G4): ajuda contextual (botão «Ajuda» e F1), pesquisa de ecrãs (Ctrl+K),
- * favoritos (estrela na barra, grupo «Favoritos» no menu e no Início — guardados no servidor), modo responsivo,
+ * favoritos (estrela na barra, grupo «Favoritos» no menu e no Início — guardados no servidor),
  * gestor de operações em segundo plano, Power BI (config_backup) e assistente IA (no menu do utilizador).
  *
  * Menu (VAGA 1B, relatório de verificação visual 0.1): estrutura do legado em menuLegado.ts — itens gerais soltos no topo,
  * Favoritos, «Menu Geral» (módulos e sub-grupos com os rótulos do legado) e «Sistema». Barra superior (0.2): «Ajuda» azul
- * cheio, «Modo Responsivo» com texto (≥ 1200 px), «⇄ Trocar empresa» (volta à escolha de empresa; a seta ao lado,
+ * cheio, «⇄ Trocar empresa» (volta à escolha de empresa; a seta ao lado,
  * «Empresa activa», troca directamente), utilizador com nome e papel sem avatar e sair a vermelho.
  *
  * Responsivo:
@@ -84,7 +82,6 @@ function Estrutura() {
   const local = useLocation();
   const tipoNavegacao = useNavigationType();
   const ecra = useEcra();
-  const [modoResponsivo, definirModoResponsivo] = useModoResponsivo();
   const { favoritos, eFavorito, alternar } = useFavoritos();
   const [recolhido, setRecolhido] = useState(false);
   const [gavetaAberta, setGavetaAberta] = useState(false);
@@ -179,12 +176,6 @@ function Estrutura() {
     return () => window.removeEventListener('keydown', tecla);
   }, []);
 
-  // modo responsivo: classe no <body> para o CSS (grelhas empilhadas, largura de telemóvel)
-  useEffect(() => {
-    document.body.classList.toggle('erp-modo-responsivo', modoResponsivo);
-    return () => document.body.classList.remove('erp-modo-responsivo');
-  }, [modoResponsivo]);
-
   const nomeUtilizador = utilizador?.nome_completo || utilizador?.nome_utilizador || '';
   const papel = rotuloPapel(utilizador?.papel) ?? utilizador?.nome_utilizador ?? null;
   const nomeEmpresa = identidade.data?.nome || empresa?.nome || '';
@@ -255,11 +246,9 @@ function Estrutura() {
   const itensUtilizador: MenuProps['items'] = [
     // em telemóvel o nome não cabe na barra: aparece no topo do menu do utilizador
     ...(ecra.md ? [] : [{ key: 'quem', icon: <UserOutlined />, label: nomeUtilizador, disabled: true }, { type: 'divider' as const }]),
+    { key: 'dados-pessoais', icon: <IconeFa nome="user-edit" />, label: 'Gerir Dados Pessoais', onClick: () => navegar('/dados-pessoais') },
     ...(!ecra.md && noEcra
       ? [{ key: 'favorito', icon: favoritoActual ? <StarFilled style={{ color: '#f59e0b' }} /> : <StarOutlined />, label: textoFavorito, onClick: () => alternar(moduloActual, ecraActual) }]
-      : []),
-    ...(!ecra.lg || modoResponsivo
-      ? [{ key: 'responsivo', icon: <MobileOutlined />, label: modoResponsivo ? 'Sair do modo responsivo' : 'Modo responsivo', onClick: () => definirModoResponsivo(!modoResponsivo) }]
       : []),
     ...(podeIA ? [{ key: 'ia', icon: <RobotOutlined />, label: 'Assistente IA', onClick: () => setPainel('ia') }] : []),
     ...(podeBI ? [{ key: 'powerbi', icon: <ApiOutlined />, label: 'Power BI (feed OData)', onClick: () => setPainel('powerbi') }] : []),
@@ -268,7 +257,7 @@ function Estrutura() {
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }} className={modoResponsivo ? 'erp-layout-responsivo' : undefined}>
+    <Layout style={{ minHeight: '100vh' }}>
       {!ecra.pequeno && (
         <Layout.Sider className="erp-sider" collapsible collapsed={recolhido} trigger={null} width={LARGURA_MENU} theme="dark">
           <div
@@ -361,40 +350,25 @@ function Estrutura() {
                   />
                 </Tooltip>
               )}
-              {ecra.lg && !modoResponsivo && (
-                <Tooltip title="Ver os ecrãs como num telemóvel">
-                  <Button className="erp-botao-responsivo" icon={<IconeFa nome="mobile-alt" />} aria-label="Modo responsivo" aria-pressed={false} onClick={() => definirModoResponsivo(true)}>
-                    {ecra.xl ? 'Modo Responsivo' : null}
-                  </Button>
-                </Tooltip>
-              )}
               {!ecra.pequeno && botaoTrocarEmpresa}
-              <Dropdown menu={{ items: itensUtilizador }} trigger={ecra.pequeno ? ['click'] : ['hover']} placement="bottomRight">
-                <div className={ecra.md ? 'erp-utilizador' : undefined} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }} role="button" tabIndex={0} aria-label="Menu do utilizador">
+              {/* nome + papel e o botão ▾ que mostra as opções (Gerir Dados Pessoais … Terminar sessão); em telemóvel, o avatar */}
+              <Dropdown menu={{ items: itensUtilizador }} trigger={['click']} placement="bottomRight">
+                <button type="button" className={ecra.md ? 'erp-utilizador erp-utilizador-botao' : 'erp-utilizador-botao'} aria-label="Opções do utilizador" aria-haspopup="menu">
                   {ecra.md && (
-                    <div className="erp-utilizador-textos">
+                    <span className="erp-utilizador-textos">
                       <span className="erp-utilizador-nome">{nomeUtilizador}</span>
                       {papel && <span className="erp-utilizador-papel">{papel}</span>}
-                    </div>
+                    </span>
                   )}
-                  {/* legado: nome + papel, sem avatar; em telemóvel o avatar é o único acesso ao menu do utilizador */}
                   {!ecra.md && <Avatar icon={<UserOutlined />} style={{ flex: 'none', background: '#eff6ff', color: '#1d4ed8' }} />}
-                </div>
+                  <span className="erp-utilizador-seta" aria-hidden>
+                    <IconeFa nome="chevron-down" />
+                  </span>
+                </button>
               </Dropdown>
-              {ecra.md && (
-                <Tooltip title="Sair do sistema">
-                  <Button className="erp-botao-sair" icon={<IconeFa nome="sign-out-alt" />} aria-label="Sair do sistema" onClick={() => void sair()} />
-                </Tooltip>
-              )}
             </Flex>
           </Flex>
         </Layout.Header>
-        {modoResponsivo && (
-          <div className="erp-aviso-responsivo no-print" role="status">
-            <MobileOutlined aria-hidden /> Modo responsivo activo — os ecrãs aparecem como num telemóvel.
-            <Button size="small" type="link" onClick={() => definirModoResponsivo(false)}>Sair do modo responsivo</Button>
-          </div>
-        )}
         <Layout.Content className={`erp-conteudo ${classeFundoModulo(local.pathname)}`}>
           <Suspense fallback={<Spin style={{ display: 'block', marginTop: 80 }} />}>
             <Outlet />

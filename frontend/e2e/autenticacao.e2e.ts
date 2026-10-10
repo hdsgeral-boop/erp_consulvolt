@@ -51,8 +51,11 @@ test.describe('Autenticação, empresa activa e menu por permissões', () => {
     await escolherEmpresa(page, EMPRESA_DEMO);
     await expect(nomeEmpresa).toHaveText(EMPRESA_DEMO);
 
-    await page.getByText('Administrador E2E').hover();
-    await page.getByText('Terminar sessão').click();
+    // o botão ▾ junto ao nome mostra as opções; «Gerir Dados Pessoais» é a primeira
+    await page.getByRole('button', { name: 'Opções do utilizador' }).click();
+    const opcoes = page.locator('.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item');
+    await expect(opcoes.first()).toHaveText('Gerir Dados Pessoais');
+    await opcoes.filter({ hasText: 'Terminar sessão' }).click();
     await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
     expect(await page.evaluate(() => window.localStorage.getItem('erp.token'))).toBeNull();
     await semNotificacaoErro(page);

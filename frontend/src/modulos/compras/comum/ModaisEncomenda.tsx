@@ -1,6 +1,6 @@
 import { Alert, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Table, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { dataApi, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { numero, pendente } from './calculos';
@@ -32,13 +32,20 @@ export function ModalRececao({ encomenda, aberto, aoFechar, aoRegistar }: { enco
     tituloErro: 'Não foi possível registar a recepção',
   });
 
+  // preenche uma vez por abertura: um refetch da encomenda não pode apagar o que o utilizador já escreveu
+  const iniciado = useRef(false);
   useEffect(() => {
-    if (aberto)
-      form.setFieldsValue({
-        numero_entrega: '',
-        data: dayjs(),
-        linhas: linhasEnc.map((l) => ({ item_encomenda_id: l.id, quantidade: pendente(l.quantidade, l.quantidade_recebida) })),
-      });
+    if (!aberto) {
+      iniciado.current = false;
+      return;
+    }
+    if (iniciado.current) return;
+    iniciado.current = true;
+    form.setFieldsValue({
+      numero_entrega: '',
+      data: dayjs(),
+      linhas: linhasEnc.map((l) => ({ item_encomenda_id: l.id, quantidade: pendente(l.quantidade, l.quantidade_recebida) })),
+    });
   }, [aberto, form, encomenda]);
 
   return (
@@ -121,18 +128,29 @@ export function ModalFaturaEncomenda({ encomenda, aberto, aoFechar, aoRegistar }
     tituloErro: 'Não foi possível registar a factura',
   });
 
+  const taxaDe = (l: ItemCompra) => (l.taxa_imposto != null ? Number(l.taxa_imposto) : mapa.get(l.produto_id)?.taxa_imposto != null ? Number(mapa.get(l.produto_id)?.taxa_imposto) : 0);
+  // preenche uma vez por abertura (antes, a chegada da lista de produtos voltava a pôr o n.º da factura em branco)
+  const iniciado = useRef(false);
   useEffect(() => {
-    if (aberto)
-      form.setFieldsValue({
-        numero_fatura: '',
-        data: dayjs(),
-        linhas: linhasEnc.map((l) => ({
-          item_encomenda_id: l.id,
-          quantidade: pendente(l.quantidade, l.quantidade_faturada),
-          taxa_imposto: l.taxa_imposto != null ? Number(l.taxa_imposto) : mapa.get(l.produto_id)?.taxa_imposto != null ? Number(mapa.get(l.produto_id)?.taxa_imposto) : 0,
-        })),
-      });
-  }, [aberto, form, encomenda, mapa]);
+    if (!aberto) {
+      iniciado.current = false;
+      return;
+    }
+    if (iniciado.current) return;
+    iniciado.current = true;
+    form.setFieldsValue({
+      numero_fatura: '',
+      data: dayjs(),
+      linhas: linhasEnc.map((l) => ({ item_encomenda_id: l.id, quantidade: pendente(l.quantidade, l.quantidade_faturada), taxa_imposto: taxaDe(l) })),
+    });
+  }, [aberto, form, encomenda]); // eslint-disable-line react-hooks/exhaustive-deps
+  // a lista de produtos pode chegar depois: completa só o IVA das linhas sem taxa própria que o utilizador não alterou
+  useEffect(() => {
+    if (!aberto || !iniciado.current) return;
+    linhasEnc.forEach((l, i) => {
+      if (l.taxa_imposto == null && !form.isFieldTouched(['linhas', i, 'taxa_imposto'])) form.setFieldValue(['linhas', i, 'taxa_imposto'], taxaDe(l));
+    });
+  }, [mapa]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Modal

@@ -16,8 +16,9 @@ const totalDoDetalhe = async (page: Page, rotulo: string) =>
 
 async function novoDocumento(page: Page) {
   await page.goto('/m/vendas/vendas_faturacao');
-  await page.getByRole('button', { name: 'Novo documento' }).click();
-  await expect(page.getByText('Novo documento de venda')).toBeVisible();
+  // como no legado: «+ Factura» (os outros tipos escolhem-se no próprio formulário)
+  await page.getByRole('button', { name: /\+ Factura$/ }).click();
+  await expect(page.getByText('Emitir Novo Documento de Venda')).toBeVisible();
 }
 
 async function linha(page: Page, indice: number, produto: string, quantidade: number) {
@@ -32,7 +33,7 @@ test('emitir uma factura (FT) com 2 linhas, ver o detalhe e contabilizar', async
 
   await escolherOpcao(page, page.locator('#cliente_id'), 'Cliente Demo Alfa', 'Alfa');
   await linha(page, 0, 'E2E-A01', 2);
-  await page.getByRole('button', { name: 'Acrescentar linha' }).click();
+  await page.getByRole('button', { name: /Adicionar Linha$/ }).click();
   await linha(page, 1, 'E2E-S01', 1);
   // estimativa no ecrã: 2 × 1 000 + 5 000 = 7 000 + IVA 980 = 7 980
   await expect(page.locator('.ant-statistic').filter({ hasText: 'Total (estimativa)' })).toContainText('7');
@@ -76,7 +77,7 @@ test('emitir uma factura-recibo (FR) paga em numerário', async ({ page }) => {
   await escolherOpcao(page, page.locator('#tipo_documento'), /^FR — /);
   await escolherOpcao(page, page.locator('#cliente_id'), 'Cliente Demo Beta', 'Beta');
   await page.locator('#conta_disponibilidade').fill('451');
-  await page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option').filter({ hasText: '451 — Caixa principal' }).click();
+  await page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option').filter({ hasText: '451 - Caixa principal' }).click();
   await linha(page, 0, 'E2E-A02', 1);
   await page.getByRole('button', { name: /(^| )Emitir factura-recibo$/ }).click();
   await esperarSucesso(page);
@@ -117,7 +118,8 @@ test('nota de crédito (NC) parcial sobre a FT abate o pendente', async ({ page 
 
   // e a lista mostra os três documentos
   await page.goto('/m/vendas/vendas_faturacao');
-  for (const tipo of ['FT', 'FR', 'NC']) await expect(page.locator('.ant-table-tbody .ant-tag').filter({ hasText: new RegExp(`^${tipo}$`) }).first()).toBeVisible();
+  // como no legado, o tipo vem no n.º do documento (ex.: «FT A2026/1»)
+  for (const tipo of ['FT', 'FR', 'NC']) await expect(page.locator('.ant-table-tbody td').filter({ hasText: new RegExp(`^${tipo} \\S+/\\d+$`) }).first()).toBeVisible();
   expect(erros).toEqual([]);
   await api.fechar();
 });

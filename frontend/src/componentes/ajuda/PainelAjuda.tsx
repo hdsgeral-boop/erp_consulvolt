@@ -137,7 +137,7 @@ function PainelAjuda({ aberta, ecraFixo, aoFechar, aoMudarEcra }: { aberta: bool
                 <li><kbd>F1</kbd> abre esta ajuda em qualquer ecrã; <kbd>Esc</kbd> fecha.</li>
                 <li><kbd>Ctrl</kbd>+<kbd>K</kbd> procura um ecrã pelo nome; a estrela ★ na barra junta o ecrã aos favoritos.</li>
                 <li>«Imprimir», «PDF» e «Excel» exportam o que está filtrado no ecrã.</li>
-                <li>O botão ☰ recolhe o menu lateral; «Modo responsivo» mostra os ecrãs como num telemóvel.</li>
+                <li>O botão ☰ recolhe o menu lateral.</li>
               </ul>
             </section>
           </>

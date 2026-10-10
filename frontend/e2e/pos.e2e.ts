@@ -82,13 +82,13 @@ test('operador abre a sessão, vende com pagamento misto e troco, vê o relatór
   // vendas acumuladas na barra da sessão (relatório X do servidor)
   await expect(page.locator('.pos-saldo-sessao')).toContainText(/Vendas:\s*2\s?000,00 Kz/);
   await page.getByRole('button', { name: 'Fechar Caixa' }).click();
-  const z = page.locator('.ant-modal').filter({ hasText: 'Fecho de caixa (Z)' });
-  await expect(z.getByText('Totais por meio de pagamento')).toBeVisible();
+  const z = page.locator('.ant-modal').filter({ hasText: 'Fecho de caixa' });
+  await expect(z.getByText('Vendas da sessão por meio de pagamento')).toBeVisible();
   await z.getByText('Pelo total').click();
   await z.getByLabel('Total contado').fill('5500');
   await z.getByLabel('Valor do talão Multicaixa (TPA)').fill('1500');
-  await expect(z.getByText('Sem desvio.')).toBeVisible();
-  await z.getByRole('button', { name: 'Fechar sessão (Z)' }).click();
+  await expect(z.getByText(/^0,00 Kz \(dentro da tolerância\)$/)).toBeVisible();
+  await z.getByRole('button', { name: /Fechar caixa e emitir Z$/ }).click();
   await page.locator('.ant-modal-confirm').getByRole('button', { name: 'Fechar sessão' }).click();
   await expect(z.locator('.ant-result-success')).toContainText(/Sessão fechada: Z-T01-\d{4}-\d{4}/);
   // regressão: a lista de terminais recarrega (a sessão deixa de estar aberta: volta a «Abertura de Caixa») e o resultado do Z continua visível

@@ -75,6 +75,12 @@ final class ServicoAutenticacao
         $this->auditoria->registar('Autenticação', 'Sair', 'Sessão terminada.', 'utilizadores', $utilizador->getKey());
     }
 
+    /** Confirma a palavra-passe actual do utilizador (hash moderno ou PBKDF2 do legado), sem iniciar sessão. */
+    public function palavraPasseCorrecta(Utilizador $utilizador, string $palavraPasse): bool
+    {
+        return $this->credencialValida($utilizador, $palavraPasse);
+    }
+
     private function credencialValida(Utilizador $utilizador, string $palavraPasse): bool
     {
         if ($utilizador->palavra_passe !== null) {

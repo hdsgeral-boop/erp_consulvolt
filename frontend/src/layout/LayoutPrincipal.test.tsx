@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { definirModoResponsivo } from '@/componentes/responsivo/modoResponsivo';
 import type { ModuloMenu } from '@/api/tipos';
 import { simularLargura } from '@/componentes/responsivo/testes/simularLargura';
 import { LayoutPrincipal } from './LayoutPrincipal';
@@ -57,6 +56,7 @@ function montar(caminho = '/') {
           <Route element={<LayoutPrincipal />}>
             <Route index element={<p>Página inicial</p>} />
             <Route path="m/:modulo/:ecra/*" element={<p>Página do ecrã</p>} />
+            <Route path="dados-pessoais" element={<p>Página dos dados pessoais</p>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -165,7 +165,6 @@ describe('LayoutPrincipal — tablet (800 px)', () => {
 
 describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
   beforeEach(() => simularLargura(1366));
-  afterEach(() => definirModoResponsivo(false));
 
   it('favoritos do servidor no menu e estrela do ecrã actual grava a preferência', async () => {
     const { container } = montar('/m/vendas/vendas_faturacao');
@@ -203,13 +202,19 @@ describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
     expect(screen.getByRole('button', { name: /Voltar/ })).toBeInTheDocument();
   });
 
-  it('«Modo responsivo» força a gaveta do menu num ecrã largo e pode ser desligado', async () => {
-    const { container } = montar('/');
-    fireEvent.click(screen.getByRole('button', { name: 'Modo responsivo' }));
-    await waitFor(() => expect(container.querySelector('.ant-layout-sider')).toBeNull());
-    expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeInTheDocument();
-    expect(document.body).toHaveClass('erp-modo-responsivo');
-    fireEvent.click(screen.getByRole('button', { name: 'Sair do modo responsivo' }));
-    await waitFor(() => expect(container.querySelector('.ant-layout-sider')).not.toBeNull());
+  it('a barra superior já não tem o botão «Modo responsivo» nem o botão sair ao lado do nome', () => {
+    montar('/');
+    expect(screen.queryByRole('button', { name: 'Modo responsivo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sair do sistema' })).toBeNull();
+  });
+
+  it('o botão junto ao nome mostra as opções: «Gerir Dados Pessoais» primeiro e «Terminar sessão»', async () => {
+    montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Opções do utilizador' }));
+    const itens = await screen.findAllByRole('menuitem');
+    const textos = itens.map((i) => i.textContent?.trim());
+    expect(textos.filter((t) => t === 'Gerir Dados Pessoais' || t === 'Terminar sessão')).toEqual(['Gerir Dados Pessoais', 'Terminar sessão']);
+    fireEvent.click(screen.getByText('Gerir Dados Pessoais'));
+    expect(await screen.findByText('Página dos dados pessoais')).toBeInTheDocument();
   });
 });

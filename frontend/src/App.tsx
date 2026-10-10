@@ -6,6 +6,7 @@ import { Entrar } from '@/paginas/Entrar';
 import { EscolherEmpresa } from '@/paginas/EscolherEmpresa';
 import { Inicio } from '@/paginas/Inicio';
 import { Ecra } from '@/paginas/Ecra';
+import { DadosPessoais } from '@/paginas/DadosPessoais';
 
 /** Encaminhamento: sem sessão → entrar; sem empresa activa → escolher; depois o layout com o menu do utilizador. */
 export function App() {
@@ -19,6 +20,7 @@ export function App() {
         <Route element={<LayoutPrincipal />}>
           <Route index element={<Inicio />} />
           <Route path="m/:modulo/:ecra/*" element={<Ecra />} />
+          <Route path="dados-pessoais" element={<DadosPessoais />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

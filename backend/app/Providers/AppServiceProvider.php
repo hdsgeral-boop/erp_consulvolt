@@ -101,6 +101,9 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Alteração da própria palavra-passe (exige a actual): poucas tentativas por utilizador, contra adivinhação (OWASP A07)
+        RateLimiter::for('palavra-passe', fn (Request $request) => Limit::perMinute(5)->by('pp|'.($request->user()?->getKey() ?: $request->ip())));
+
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute((int) config('erp.api.pedidos_por_minuto', 300))->by($request->user()?->getKey() ?: $request->ip()));
 
         // OWASP A04: rotas que fazem pedidos a sistemas EXTERNOS a pedido do utilizador (BAI, relógio biométrico) e

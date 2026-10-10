@@ -2,7 +2,7 @@ import { QueryClient, QueryClientContext, useQuery } from '@tanstack/react-query
 import { useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { chavePreferencias, type Preferencia } from '@/componentes/preferencias/usePreferencias';
-import { useEcra, useModoResponsivo } from '@/componentes/responsivo';
+import { useEcra } from '@/componentes/responsivo';
 
 /**
  * Modo de vista das listas de registos (pedido do utilizador, 2026-10: «todas as vistas de cadastro/edição com 2
@@ -212,11 +212,9 @@ export interface EstadoModoVista {
   ecra: string;
 }
 
-/** `true` em telemóvel (largura < 768 px) ou com o «modo responsivo» forçado. */
+/** `true` em telemóvel (largura < 768 px). */
 function useTelemovel(): boolean {
   const { telemovel } = useEcra();
-  const [forcado] = useModoResponsivo();
-  if (forcado) return true;
   if (!telemovel) return false;
   // confirmação directa da largura (o simulacro do jsdom responde «não» a tudo e não deve passar por telemóvel)
   try {

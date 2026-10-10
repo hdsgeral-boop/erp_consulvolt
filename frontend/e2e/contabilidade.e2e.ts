@@ -22,9 +22,9 @@ test('lançamento manual equilibrado e o balancete a reflecti-lo', async ({ page
   await escolherOpcao(page, page.locator('#diario_id'), /^OD — /, 'OD');
   await page.locator('#numero_documento').fill('ACTA-E2E-01');
   await page.locator('#descricao').fill('Realização de capital social (teste E2E)');
-  await escolherOpcao(page, page.locator('#linhas_0_codigo_conta'), /^431 — /, '431');
+  await escolherOpcao(page, page.locator('#linhas_0_codigo_conta'), /^431 - /, '431');
   await page.locator('#linhas_0_valor').fill(String(VALOR));
-  await escolherOpcao(page, page.locator('#linhas_1_codigo_conta'), /^511 — /, '511');
+  await escolherOpcao(page, page.locator('#linhas_1_codigo_conta'), /^511 - /, '511');
   // desequilibrado: não se grava
   await page.locator('#linhas_1_valor').fill(String(VALOR - 1));
   await expect(page.getByText('O lançamento só pode ser gravado com o total a débito igual ao total a crédito.')).toBeVisible();
@@ -68,7 +68,7 @@ for (const [ecra, titulo] of [
     await expect(page.getByRole('heading', { name: new RegExp(titulo, 'i') }).first()).toBeVisible();
     const calcular = page.getByRole('button', { name: 'Calcular' }).first();
     if (await calcular.isVisible()) {
-      if (ecra === 'contab_mapa_extrato') await escolherOpcao(page, page.locator('.ant-select').filter({ hasText: /Conta/ }).locator('input').first(), /^511 — /, '511').catch(() => undefined);
+      if (ecra === 'contab_mapa_extrato') await escolherOpcao(page, page.locator('.ant-select').filter({ hasText: /Conta/ }).locator('input').first(), /^511 - /, '511').catch(() => undefined);
       await calcular.click();
       await page.waitForLoadState('networkidle');
     }

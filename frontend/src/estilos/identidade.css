@@ -231,18 +231,53 @@ body {
   color: #1e293b;
 }
 
-/* Sair (legado: botão só com ícone, vermelho) */
-:root .erp-botao-sair.ant-btn.ant-btn-variant-outlined:not(:disabled) {
-  border-color: #fecaca;
-  background: #ffffff;
-  color: #dc2626;
-  box-shadow: none;
+/* Utilizador na barra: nome + papel e a seta que abre as opções (Gerir Dados Pessoais … Terminar sessão) */
+.erp-utilizador-botao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
 }
 
-:root .erp-botao-sair.ant-btn.ant-btn-variant-outlined:not(:disabled):hover {
-  border-color: #dc2626;
-  background: #fef2f2;
-  color: #b91c1c;
+.erp-utilizador.erp-utilizador-botao {
+  padding-inline-start: 12px;
+}
+
+.erp-utilizador-seta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  flex: none;
+  border: 0.8px solid #a6a6a6;
+  border-radius: 2px;
+  color: #333333;
+  font-size: 11px;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.erp-utilizador-botao:hover .erp-utilizador-seta,
+.erp-utilizador-botao:focus-visible .erp-utilizador-seta,
+.erp-utilizador-botao.ant-dropdown-open .erp-utilizador-seta {
+  background: #f0f0f0;
+}
+
+.erp-utilizador-botao.ant-dropdown-open .erp-utilizador-seta svg {
+  transform: rotate(180deg);
+}
+
+.erp-utilizador-botao:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* ── Títulos das páginas (legado: h2.view-title, cinzento-ardósia a 800, linha por baixo) ───────────────────── */
@@ -888,7 +923,7 @@ button.erp-inicio-mini:focus-visible {
   }
 }
 
-:root .erp-cabecalho .ant-btn:not(.erp-botao-ajuda):not(.erp-botao-sair):not(.erp-botao-menu) {
+:root .erp-cabecalho .ant-btn:not(.erp-botao-ajuda):not(.erp-botao-menu) {
   height: 29px !important;
   padding: 0 12px !important;
   border-radius: 2px !important;
@@ -915,21 +950,6 @@ button.erp-inicio-mini:focus-visible {
   background: #dbeafe !important;
 }
 
-:root .erp-cabecalho .ant-btn.erp-botao-sair {
-  width: 36px !important;
-  height: 36px !important;
-  border-radius: 2px !important;
-  border: 0.8px solid #fee2e2 !important;
-  background: transparent !important;
-  color: #ef4444 !important;
-  box-shadow: none !important;
-}
-
-:root .erp-cabecalho .ant-btn.erp-botao-sair:not(:disabled):hover {
-  background: #fef2f2 !important;
-  border-color: #ef4444 !important;
-  color: #dc2626 !important;
-}
 
 /* Nome da empresa e etiqueta do NIF na barra superior (legado: h1 20px/700 #475569; NIF 12px, 5.6px 13.6px, 8px acima) */
 @media (min-width: 992px) {

@@ -305,7 +305,7 @@ canvas {
 }
 
 /* ------------------------------------------------------------------------------------------------------------------
-   Ronda 2 (R2-G4): ajuda contextual, pesquisa de ecrãs, operações em segundo plano, botão «Voltar», modo responsivo
+   Ronda 2 (R2-G4): ajuda contextual, pesquisa de ecrãs, operações em segundo plano, botão «Voltar»
    ------------------------------------------------------------------------------------------------------------------ */
 
 /* Botão flutuante «Voltar» (legado #nav-back-button) */
@@ -371,11 +371,3 @@ canvas {
 .erp-modulo-arrastavel.alvo { outline: 2px dashed #2563eb; outline-offset: 2px; border-radius: 8px; }
 .erp-modulo-pega { cursor: grab; color: #cbd5e1; flex: none; position: absolute; right: 13px; top: 50%; transform: translateY(-50%); font-size: 12.8px; }
 
-/* «Modo responsivo» (legado body.force-mobile-view): conteúdo com a largura de um telemóvel e grelhas empilhadas */
-.erp-aviso-responsivo { background: #eff6ff; color: #1e3a8a; font-size: 13px; padding: 6px 16px; border-bottom: 1px solid #bfdbfe; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-body.erp-modo-responsivo .erp-conteudo { max-width: 430px; width: 100%; margin-inline: auto; padding: 12px !important; box-shadow: 0 0 0 1px #e2e8f0; background-clip: padding-box; }
-body.erp-modo-responsivo .erp-conteudo .ant-col { flex: 0 0 100% !important; max-width: 100% !important; }
-body.erp-modo-responsivo .erp-conteudo .ant-row { margin-inline: 0 !important; }
-@media print {
-  body.erp-modo-responsivo .erp-conteudo { max-width: none; box-shadow: none; }
-}

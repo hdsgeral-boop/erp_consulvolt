@@ -17,6 +17,7 @@ final class UtilizadorResource extends JsonResource
             'nome_utilizador' => $this->nome_utilizador,
             'nome_completo' => $this->nome_completo,
             'email' => $this->email,
+            'telefone' => $this->telefone,
             'papel' => $this->papel,
             'perfil' => $this->whenLoaded('perfil', fn () => $this->perfil ? ['id' => $this->perfil->id, 'nome' => $this->perfil->nome] : null),
             'acesso_todas_empresas' => (bool) $this->acesso_todas_empresas,

@@ -20,6 +20,13 @@ import '@/estilos/identidade.css';
 
 dayjs.locale('pt');
 
+// O «Modo responsivo» foi retirado (2026-10-10): apaga a preferência antiga que ficou guardada nos postos
+try {
+  localStorage.removeItem('erp.modoResponsivo');
+} catch {
+  /* armazenamento indisponível */
+}
+
 // Depois de uma nova publicação os fragmentos antigos deixam de existir: recarrega uma vez para obter o index.html novo
 // (sem isto o ecrã fica em branco). A marca na sessionStorage evita um ciclo de recargas se o fragmento faltar mesmo.
 window.addEventListener('vite:preloadError', (e) => {

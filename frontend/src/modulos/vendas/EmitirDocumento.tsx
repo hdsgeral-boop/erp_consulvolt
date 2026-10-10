@@ -417,7 +417,7 @@ export function EmitirDocumento() {
               <Col xs={24} md={8}>
                 <Form.Item name="conta_disponibilidade" label="Conta de caixa/banco" rules={[{ required: true, message: 'Indique a conta (45 caixa, 43 bancos).' }]}>
                   <AutoComplete
-                    options={(contas.data ?? []).filter((c) => /^4[35]/.test(c.codigo)).map((c) => ({ value: c.codigo, label: `${c.codigo} — ${c.descricao}` }))}
+                    options={(contas.data ?? []).filter((c) => /^4[35]/.test(c.codigo)).map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao}` }))}
                     placeholder="Ex.: 4511"
                     filterOption={(i, o) => String(o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
                   />

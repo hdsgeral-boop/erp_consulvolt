@@ -44,7 +44,7 @@ class Utilizador extends Autenticavel
     protected $rememberTokenName = '';
 
     protected $fillable = [
-        'nome_utilizador', 'nome_completo', 'email', 'palavra_passe', 'papel', 'perfil_utilizador_id',
+        'nome_utilizador', 'nome_completo', 'email', 'telefone', 'palavra_passe', 'papel', 'perfil_utilizador_id',
         'acesso_todas_empresas', 'ativo',
     ];
 

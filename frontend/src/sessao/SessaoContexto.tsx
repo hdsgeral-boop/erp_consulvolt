@@ -25,6 +25,8 @@ interface Sessao {
   largarEmpresa: () => void;
   /** Tem pelo menos uma das permissões (como $this->exigir no backend); '*' = acesso total. */
   pode: (...chaves: string[]) => boolean;
+  /** Actualiza os dados do utilizador na sessão (ex.: depois de «Gerir Dados Pessoais»), sem novo pedido ao servidor. */
+  actualizarUtilizador: (parcial: Partial<Utilizador>) => void;
 }
 
 const Contexto = createContext<Sessao | null>(null);
@@ -142,6 +144,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     cliente.clear();   // os dados em cache são da empresa que se larga
   }, [cliente]);
 
+  const actualizarUtilizador = useCallback((parcial: Partial<Utilizador>) => {
+    setDados((d) => (d ? { ...d, utilizador: { ...d.utilizador, ...parcial } } : d));
+  }, []);
+
   const valor = useMemo<Sessao>(() => {
     const permissoes = permissoesEmpresa ?? dados?.permissoes ?? [];
     const total = permissoes.includes('*');
@@ -158,8 +164,9 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       escolherEmpresa,
       largarEmpresa,
       pode: (...chaves) => total || chaves.some((c) => permissoes.includes(c.toLowerCase())),
+      actualizarUtilizador,
     };
-  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa, largarEmpresa]);
+  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa, largarEmpresa, actualizarUtilizador]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

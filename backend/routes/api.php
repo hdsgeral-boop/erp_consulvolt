@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
+use App\Http\Controllers\Api\Autenticacao\DadosPessoaisController;
 use App\Http\Controllers\Api\Compras\ComprasController;
 use App\Http\Controllers\Api\Compras\ContratosComprasController;
 use App\Http\Controllers\Api\Contabilidade\DiarioController;
@@ -65,6 +66,10 @@ Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('sair', [AutenticacaoController::class, 'sair'])->name('sair');
         Route::get('eu', [AutenticacaoController::class, 'eu'])->name('eu');
+        // «Gerir Dados Pessoais»: o próprio utilizador (sem empresa activa nem permissões do catálogo)
+        Route::get('dados-pessoais', [DadosPessoaisController::class, 'show'])->name('dados_pessoais.show');
+        Route::put('dados-pessoais', [DadosPessoaisController::class, 'update'])->name('dados_pessoais.update');
+        Route::put('palavra-passe', [DadosPessoaisController::class, 'palavraPasse'])->middleware('throttle:palavra-passe')->name('palavra_passe');
     });
 });
 

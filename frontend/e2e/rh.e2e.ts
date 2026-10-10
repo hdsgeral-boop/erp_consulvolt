@@ -55,9 +55,9 @@ test('abrir o período salarial, importar dos contratos, calcular e ver os resul
 });
 
 for (const [ecra, titulo] of [
-  ['rh_rel_irt', 'Mapa de IRT'],
+  ['rh_rel_irt', 'Mapa Fiscal de IRT (Modelo Oficial)'],
   ['rh_rel_remuneracoes', 'Mapa de remunerações'],
-  ['rh_rel_inss', 'Mapa de Segurança Social'],
+  ['rh_rel_inss', 'Mapa de INSS'],
 ] as const) {
   test(`${titulo} abre com o período calculado`, async ({ page }) => {
     const erros = vigiarErros(page);

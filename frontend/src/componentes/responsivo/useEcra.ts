@@ -1,5 +1,4 @@
 import { Grid } from 'antd';
-import { useModoResponsivo } from './modoResponsivo';
 
 /**
  * Pontos de quebra do Ant Design 5 (largura mínima, px). Iguais aos de Row/Col (xs/sm/md/lg/xl/xxl) e aos do CSS
@@ -38,9 +37,6 @@ function correspondeAgora(ponto: PontoQuebra): boolean {
  */
 export function useEcra(): EstadoEcra {
   const bp = Grid.useBreakpoint();
-  const [forcado] = useModoResponsivo();
-  // «Modo responsivo» activo: o ecrã comporta-se como um telemóvel (xs), qualquer que seja a largura real
-  if (forcado) return { sm: false, md: false, lg: false, xl: false, xxl: false, actual: 'xs', telemovel: true, tablet: false, pequeno: true };
   const ler = (p: PontoQuebra) => bp[p] ?? correspondeAgora(p);
   const sm = ler('sm');
   const md = ler('md');
