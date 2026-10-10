@@ -1,6 +1,6 @@
-import { Alert, Button, Card, Col, Empty, Flex, Form, Input, InputNumber, List, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Empty, Flex, Form, Input, InputNumber, List, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Typography } from 'antd';
 import { BranchesOutlined, DeleteOutlined, PlusOutlined, SaveOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
@@ -12,7 +12,10 @@ import { pedidoTabela } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { EtiquetaOrc, Kz, SeletorOrcamento, useOrcamentos } from './comum/componentes';
+import { GraficoBarras } from '@/componentes/graficos/Graficos';
+import { EtiquetaOrc, Kz, SeletorOrcamentoLegado, useOrcamentosLegado } from './comum/componentes';
+import { resultadoPorCenario, variacaoCenario, type LinhaResultadoCenario } from './comum/cenarios';
+import { pct } from './comum/controlo';
 import { diferenca } from './comum/regras';
 import type { CalculoCenario, Cenario } from './comum/tipos';
 
@@ -29,15 +32,18 @@ const VARIAVEIS: { chave: string; rotulo: string }[] = [
 export default function Cenarios() {
   const { pode } = useSessao();
   const navegar = useNavigate();
-  const todos = useOrcamentos({});
+  const todos = useOrcamentosLegado();
   const [orcamento, setOrcamento] = useState<number>();
   const [cenarioId, setCenarioId] = useState<number | null>(null);
   const [novo, setNovo] = useState(false);
   const editar = pode('orc_cenarios_edit');
+  // bases do legado: orçamentos sem pai e não substituídos; por omissão o primeiro aprovado (senão o primeiro)
+  const bases = (todos.data?.orcamentos ?? []).filter(eBase);
+  const base = bases.find((o) => o.id === orcamento);
   useEffect(() => {
-    if (orcamento || !todos.data?.length) return;
-    setOrcamento((todos.data.find((o) => o.estado === 'APROVADO') ?? todos.data[0]).id);
-  }, [todos.data, orcamento]);
+    if (orcamento || !bases.length) return;
+    setOrcamento((bases.find((o) => o.estado === 'APROVADO') ?? bases[0]).id);
+  }, [bases, orcamento]);
   const lista = useQuery({ queryKey: ['orcamento', 'cenarios', orcamento], queryFn: () => obter<Cenario[]>(`/orcamento/orcamentos/${orcamento}/cenarios`), enabled: !!orcamento });
   const padrao = useAccao({ invalidar: [['orcamento', 'cenarios']] });
   useEffect(() => setCenarioId(null), [orcamento]);
@@ -47,7 +53,7 @@ export default function Cenarios() {
       <CabecalhoPagina titulo="Cenários (what-if)" subtitulo="Volume, preço, matérias, pessoal, outros custos e câmbio aplicados ao orçamento base" />
       <Card style={{ marginBottom: 16 }}>
         <Flex gap={8} wrap>
-          <SeletorOrcamento value={orcamento} onChange={setOrcamento} style={{ width: 420, maxWidth: '100%' }} />
+          <SeletorOrcamentoLegado value={orcamento} onChange={setOrcamento} filtrar={eBase} style={{ width: 420, maxWidth: '100%' }} aria-label="Orçamento base" />
           {editar && orcamento && (
             <>
               <Button icon={<ThunderboltOutlined />} loading={padrao.isPending} onClick={() => padrao.mutate({ url: `/orcamento/orcamentos/${orcamento}/cenarios/padrao` })}>Criar Otimista / Realista / Pessimista</Button>
@@ -72,6 +78,11 @@ export default function Cenarios() {
           {cenarioId ? <DetalheCenario id={cenarioId} editar={editar} podeVersao={editar && pode('orc_editar')} aoEliminar={() => setCenarioId(null)} aoGerar={(oid) => navegar(`/m/orcamento/orc_orcamentos/${oid}`)} /> : <Card><Empty description="Escolha um cenário" /></Card>}
         </Col>
       </Row>
+      {base && base.estado !== 'APROVADO' && (
+        <Alert style={{ marginTop: 16 }} type="warning" showIcon
+          message={`O orçamento base está «${base.estado === 'RASCUNHO' ? 'Rascunho' : base.estado === 'SUBMETIDO' ? 'Submetido' : base.estado}». Pode simular, mas só um orçamento aprovado gera uma nova versão a partir de um cenário.`} />
+      )}
+      {orcamento && lista.data && <ResultadoAnual cenarios={lista.data} ano={base?.ano} tipo={base?.tipo ?? 'EXPLORACAO'} />}
       <ModalNovo orcamento={novo ? orcamento ?? null : null} aoFechar={() => setNovo(false)} aoGravar={(c) => setCenarioId(c.id)} />
     </>
   );
@@ -164,6 +175,67 @@ function DetalheCenario({ id, editar, podeVersao, aoEliminar, aoGerar }: { id: n
         columns={colunas}
       />
     </Card>
+  );
+}
+
+/** Orçamento que pode servir de base aos cenários (legado: sem pai e não substituído). */
+function eBase(o: { orcamento_pai_id: number | null; estado: string }): boolean {
+  return !o.orcamento_pai_id && o.estado !== 'SUBSTITUIDO';
+}
+
+/** «Resultado anual por cenário» (tabela RUBRICA / TOTAL ANUAL <ano>, BASE, cenários… e gráfico), como no legado. */
+function ResultadoAnual({ cenarios, ano, tipo }: { cenarios: Cenario[]; ano?: number; tipo: string }) {
+  const [detalhe, setDetalhe] = useState(false);
+  const calculos = useQueries({
+    queries: cenarios.map((c) => ({ queryKey: ['orcamento', 'cenario', c.id], queryFn: () => obter<CalculoCenario>(`/orcamento/cenarios/${c.id}`) })),
+  });
+  if (!cenarios.length) {
+    return <Alert style={{ marginTop: 16 }} type="info" showIcon message="Comece por «Criar otimista / realista / pessimista» e ajuste as percentagens de cada cenário." />;
+  }
+  const prontos = calculos.map((x) => x.data).filter((x): x is CalculoCenario => !!x);
+  const carregando = prontos.length < cenarios.length;
+  const linhas = carregando ? [] : resultadoPorCenario(prontos, tipo, detalhe);
+  const tes = tipo === 'TESOURARIA';
+  const nomes = ['Base', ...prontos.map((c) => c.cenario.nome)];
+  const res = linhas.find((l) => l.tipo === 'resultado');
+  const celula = (l: LinhaResultadoCenario, i: number) => {
+    const v = l.valores[i];
+    if (v === null || v === undefined) return l.tipo === 'margem' ? '—' : null;
+    if (l.tipo === 'margem') return pct(v);
+    const base = l.valores[0] ?? 0;
+    const d = i > 0 ? variacaoCenario(v, base, l.natureza === 'PROVEITO' || l.natureza === 'RECEBIMENTO' || l.tipo === 'resultado') : null;
+    return (
+      <>
+        <span style={{ color: l.tipo === 'resultado' && v < 0 ? '#b91c1c' : undefined }}>{formatarKz(v)}</span>
+        {d && <div style={{ fontSize: 11.2, color: d.favoravel ? '#15803d' : '#b91c1c' }}>{d.d > 0 ? '+' : ''}{d.d.toLocaleString('pt-PT', { maximumFractionDigits: 0 })}{d.pct === null ? '' : ` (${pct(d.pct, true)})`}</div>}
+      </>
+    );
+  };
+  const colunas = [
+    { title: `Rubrica / total anual ${ano ?? ''}`.trim(), key: 'r', render: (_: unknown, l: LinhaResultadoCenario) => (l.tipo === 'rubrica' ? <><strong>{l.codigo}</strong> {l.rotulo}</> : l.rotulo) },
+    ...nomes.map((n, i) => ({ title: n, key: `c${i}`, align: 'right' as const, render: (_: unknown, l: LinhaResultadoCenario) => celula(l, i) })),
+  ];
+  return (
+    <>
+      <Card size="small" style={{ marginTop: 16 }} loading={carregando} title={`${tes ? 'Fluxo de caixa' : 'Resultado'} anual por cenário`}
+        extra={<Checkbox checked={detalhe} onChange={(e) => setDetalhe(e.target.checked)}>Mostrar todas as rubricas</Checkbox>}>
+        <Table<LinhaResultadoCenario>
+          rowKey="chave"
+          size="small"
+          pagination={false}
+          dataSource={linhas}
+          scroll={scrollTabela()}
+          columns={colunas}
+          onRow={(l) => ({ style: l.tipo === 'grupo' ? { background: '#f8fafc', fontWeight: 700 } : l.tipo === 'total' || l.tipo === 'resultado' ? { background: '#e2e8f0', fontWeight: 800, borderTop: l.tipo === 'resultado' ? '2px solid #0f172a' : undefined } : undefined })}
+        />
+      </Card>
+      {res && (
+        <Card size="small" style={{ marginTop: 16 }} title={`${tes ? 'Fluxo de caixa' : 'Resultado'} anual por cenário`}>
+          <GraficoBarras rotulos={nomes} monetario altura={240}
+            series={[{ rotulo: tes ? 'Fluxo de caixa' : 'Resultado', valores: res.valores, cor: '#1d4ed8' }]} />
+        </Card>
+      )}
+    </>
   );
 }
 

@@ -1,8 +1,8 @@
-import { Alert, Button, Card, Col, DatePicker, Empty, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, InputNumber, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography, message } from 'antd';
 import { ImportOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
@@ -11,11 +11,14 @@ import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from '../contab/comum/Componentes';
 import { ModalImportar } from '../contab/comum/ficheiros';
-import type { LinhaExtratoBancario, MapaReconciliacao, SugestaoReconciliacao } from './api';
-import { SeletorContaFinanceira } from './comum';
+import type { LinhaExtratoBancario, MapaReconciliacao, MeioPagamento, SugestaoReconciliacao } from './api';
+import { SeletorContaFinanceira, useMeiosPagamento } from './comum';
+import { EstadoVazio } from '@/componentes/vistas';
 import { somaCorrespondencia } from './regras';
 import { BotaoEditarLinha, HistoricoFiltrado, ModalEditarLinhaExtrato, PainelRascunhos } from './ReconciliacaoExtras';
 import { scrollTabela } from '@/componentes/responsivo';
+
+const PREFIXO_BANCOS = ['43'];
 
 const ROTULO_ESTADO_EXTRATO: Record<string, string> = { PENDENTE: 'Pendente', CONCILIADO: 'Conciliado', ANULADO: 'Anulado' };
 
@@ -68,10 +71,27 @@ export function pedidoMapaReconciliacao(d: MapaReconciliacao) {
 
 const CRITERIOS: Record<string, string> = { MESMA_DATA: 'Mesma data', TOLERANCIA_DATA: 'Data próxima', VALOR_UNICO: 'Valor único' };
 
+/**
+ * Conta bancária inicial (o legado abria com a 1.ª conta 43 do select já escolhida e mostrava logo o conteúdo):
+ * o meio de pagamento predefinido se for de bancos, senão o 1.º meio activo de bancos (43), por código.
+ */
+export function contaBancariaInicial(meios: MeioPagamento[] | undefined): string | undefined {
+  const bancos = (meios ?? []).filter((m) => m.ativo && PREFIXO_BANCOS.some((p) => m.codigo_conta?.startsWith(p)));
+  return (bancos.find((m) => m.predefinido) ?? [...bancos].sort((a, b) => a.codigo_conta.localeCompare(b.codigo_conta))[0])?.codigo_conta;
+}
+
 /** Tesouraria › Reconciliação bancária (ecrã teso_gestao_conciliacao): extracto, correspondência automática/manual, mapa e histórico. */
 export default function Conciliacao() {
   const [conta, setConta] = useState<string>();
   const [data, setData] = useState<Dayjs>(dayjs());
+  const meios = useMeiosPagamento();
+  const [escolhida, setEscolhida] = useState(false);
+  useEffect(() => {
+    if (!escolhida && !conta) {
+      const inicial = contaBancariaInicial(meios.data);
+      if (inicial) setConta(inicial);
+    }
+  }, [meios.data, conta, escolhida]);
   return (
     <>
       <CabecalhoPagina
@@ -79,13 +99,14 @@ export default function Conciliacao() {
         subtitulo="Extracto do banco contra os movimentos do diário"
         accoes={
           <Space wrap>
-            <SeletorContaFinanceira value={conta} onChange={setConta} prefixos={['43']} placeholder="Conta bancária" />
+            <SeletorContaFinanceira value={conta} onChange={(v) => { setEscolhida(true); setConta(v); }} prefixos={PREFIXO_BANCOS} placeholder="Conta bancária" />
             <DatePicker value={data} onChange={(v) => v && setData(v)} format="DD/MM/YYYY" allowClear={false} aria-label="Data de referência" />
           </Space>
         }
       />
       {!conta ? (
-        <Empty description="Escolha a conta bancária." />
+        <EstadoVazio icone="balance-scale" titulo={meios.isLoading ? 'A carregar as contas bancárias…' : 'Escolha a conta bancária'}
+          texto="Seleccione acima a conta bancária (43) e a data de referência para ver a correspondência, o extracto, o mapa e o histórico." />
       ) : (
         <Tabs
           items={[

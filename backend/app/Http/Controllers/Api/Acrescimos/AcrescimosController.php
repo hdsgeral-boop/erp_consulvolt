@@ -12,6 +12,7 @@ use App\Services\Acrescimos\ServicoPropostaAcrescimos;
 use App\Services\Acrescimos\ServicoRecolhaAcrescimos;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -179,10 +180,19 @@ final class AcrescimosController extends Controller
     {
         $this->exigir(...self::VER);
         $f = $r->validate(['item_id' => ['nullable', 'integer'], 'periodo' => ['nullable', 'string', 'size:7'], 'estado' => ['nullable', 'in:CONTABILIZADO,ANULADO'],
+            // «Contabilizados com data de <mês>» da proposta mensal (legado: doc_date do mês)
+            'mes_documento' => ['nullable', 'string', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
-        $q = PeriodoLancamentoAcrescimo::query()->when($f['item_id'] ?? null, fn ($q, $v) => $q->where('item_acrescimo_diferimento_id', $v))
+        $mes = isset($f['mes_documento']) ? CarbonImmutable::createFromFormat('!Y-m', $f['mes_documento']) : null;
+        $q = PeriodoLancamentoAcrescimo::query()->with('itemAcrescimoDiferimento:id,tipo,natureza,descricao')
+            ->when($f['item_id'] ?? null, fn ($q, $v) => $q->where('item_acrescimo_diferimento_id', $v))
             ->when($f['periodo'] ?? null, fn ($q, $v) => $q->where('periodo', $v))->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
+            ->when($mes, fn ($q) => $q->whereBetween('data_documento', [$mes->startOfMonth()->toDateString(), $mes->endOfMonth()->toDateString()]))
             ->orderByDesc('data_documento')->orderByDesc('id');
+        if ($mes) {
+            // como no legado: do mais antigo para o mais recente dentro do mês
+            $q->reorder()->orderBy('data_documento')->orderBy('id');
+        }
 
         return RespostaApi::paginado($q->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1)), null, 'Lançamentos de acréscimos e diferimentos.');
     }

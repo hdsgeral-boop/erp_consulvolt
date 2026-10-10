@@ -47,7 +47,55 @@ export interface DocumentoTesouraria {
   anulado_em: string | null;
   motivo_anulacao: string | null;
   importado: boolean | null;
+  url_documento?: string | null;
   linhas?: LinhaDocumentoTesouraria[];
+  /** GET /tesouraria/documentos (ServicoListagemTesouraria): colunas do legado, agregadas por página. */
+  contrapartidas?: ContrapartidaLista[];
+  entidades?: { nome: string | null; nif: string | null }[];
+  reconciliacao_bancaria?: EstadoReconciliacaoLista | null;
+  compensacao?: EstadoReconciliacaoLista | null;
+}
+
+/** Linha (contrapartida) de um documento na listagem: conta, sentido, valor e as dimensões em código. */
+export interface ContrapartidaLista {
+  codigo_conta: string;
+  tipo_dc: 'D' | 'C';
+  valor: string;
+  unidade_negocio: string | null;
+  centro_custo: string | null;
+  nota_demonstracao: string | null;
+  nota_fluxo_caixa: string | null;
+  numero_documento: string | null;
+  data_documento_original: string | null;
+  descricao: string | null;
+}
+
+/** Reconciliação bancária ou compensação de um documento (código, estado e data do registo). */
+export interface EstadoReconciliacaoLista {
+  codigo: string;
+  estado: string | null;
+  data: string | null;
+}
+
+/** GET /tesouraria/resumo — indicadores dos agregadores («Pendentes», «Integrados»). */
+export interface ResumoTesouraria {
+  pendentes: number;
+  integrados: number;
+  anulados: number;
+}
+
+/** GET /tesouraria/reparacao/integracoes — documento integrado sem lançamento activo no Diário. */
+export interface IntegracaoOrfa {
+  id: number;
+  tipo: TipoDocumento;
+  data_documento: string;
+  conta_financeira: string;
+  descricao: string | null;
+  valor_total: string;
+  referencia: string | null;
+  numero_documento: string | null;
+  numero_lan_contabilizacao: string | null;
+  motivo: 'LANCAMENTO_ESTORNADO' | 'LANCAMENTO_INEXISTENTE' | 'LEGADO_SEM_LIGACAO';
 }
 
 /** POST /tesouraria/documentos/integrar — integração em lote (cada documento na sua transacção). */
@@ -118,6 +166,10 @@ export interface MeioPagamento {
   ativo: boolean;
   predefinido: boolean;
   codigo_moeda: string | null;
+  /** descrição da conta no plano (GET /tesouraria/meios-pagamento) */
+  descricao_conta?: string | null;
+  /** BANCO (43) ou CAIXA (45) */
+  tipo?: 'BANCO' | 'CAIXA';
 }
 
 export type EstadoSessao = 'ABERTA' | 'FECHADA' | 'CONTABILIZADA';

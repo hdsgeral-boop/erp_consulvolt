@@ -50,7 +50,7 @@ final class ServicoProdutos
                 $termo = '%'.str_replace(['%', '_'], ['\%', '\_'], $p).'%';
                 $q->where(fn ($s) => $s->where('nome', 'ilike', $termo)->orWhere('codigo', 'ilike', $termo));
             })
-            ->orderBy('nome')
+            ->orderBy('id') // ordem de criação, como o catálogo do legado (db.products por id)
             ->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
     }
 

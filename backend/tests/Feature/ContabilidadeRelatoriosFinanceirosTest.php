@@ -214,6 +214,32 @@ final class ContabilidadeRelatoriosFinanceirosTest extends TestCase
         $this->postJson('/api/contabilidade/compensacoes', ['linhas' => $ids], $this->sessao(['contab_mapa_extrato_view']))->assertForbidden();
     }
 
+    /** 8.2.1 — o Extrato abre já calculado, como no legado: sem conta nem terceiro mostra o último lançamento da empresa. */
+    #[Test]
+    public function extracto_abre_com_o_ultimo_lancamento_da_empresa(): void
+    {
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () {
+            foreach ([['311', 'D', 226], ['621', 'C', 200], ['3453', 'C', 26]] as [$c, $dc, $v]) {
+                LancamentoContabil::create(['diario_id' => $this->diario, 'data_documento' => '2026-09-20', 'numero_lan' => 'OD2026000077',
+                    'numero_documento' => 'FT 77', 'codigo_conta' => $c, 'tipo_dc' => $dc, 'valor' => $v, 'descricao' => 'Factura fictícia']);
+            }
+        });
+        $url = '/api/contabilidade/relatorios/extrato?data_inicio=1900-01-01&data_fim=2099-12-31';
+        $ex = $this->getJson("{$url}&ultimo_lancamento=1", $this->s)->assertOk()->json('dados');
+        $this->assertSame('ultimo_lancamento', $ex['ambito']);
+        $this->assertSame(['FT 77', 'OD2026000077', 'OD'], [$ex['ultimo']['numero_documento'], $ex['ultimo']['numero_lan'], $ex['ultimo']['diario']]);
+        $this->assertCount(3, $ex['movimentos']);
+        $this->assertSame(['FT 77'], array_values(array_unique(array_column($ex['movimentos'], 'numero_documento'))));
+        $this->assertSame('3453 / 621', collect($ex['movimentos'])->firstWhere('codigo_conta', '311')['contrapartidas']);
+        $this->assertSame(['226.00', '226.00', '0.00'], [$ex['debito'], $ex['credito'], $ex['saldo_final']]);
+
+        // com conta, o critério normal ganha (o parâmetro é ignorado); sem o parâmetro continua a exigir critério
+        $this->assertSame('filtro', $this->getJson("{$url}&ultimo_lancamento=1&filtro_contas=311", $this->s)->json('dados.ambito'));
+        $this->getJson($url, $this->s)->assertStatus(422)->assertJsonPath('codigo', 'EXTRATO_SEM_CRITERIO');
+        $this->getJson("{$url}&ultimo_lancamento=talvez", $this->s)->assertStatus(422);
+        $this->getJson("{$url}&ultimo_lancamento=1", $this->sessao(['contab_mapa_balancete_view']))->assertForbidden();
+    }
+
     #[Test]
     public function evolucao_mensal_e_mapa_de_iva_com_reconciliacao_agt(): void
     {

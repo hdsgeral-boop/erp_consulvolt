@@ -57,9 +57,9 @@ test('lançamento manual equilibrado e o balancete a reflecti-lo', async ({ page
 for (const [ecra, titulo] of [
   ['contab_mapa_balanco', 'Balanço'],
   ['contab_mapa_dr', 'Demonstração de resultados'],
-  ['contab_mapa_extrato', 'Extracto'],
+  ['contab_mapa_extrato', 'Extrato de Conta Corrente'],
   ['contab_mapa_evolucao', 'Evolução'],
-  ['contab_mapa_fluxo', 'Fluxos de caixa'],
+  ['contab_mapa_fluxo', 'Fluxo de Caixa'],
 ] as const) {
   test(`mapa ${ecra} abre e calcula sem erros`, async ({ page }) => {
     const erros = vigiarErros(page);

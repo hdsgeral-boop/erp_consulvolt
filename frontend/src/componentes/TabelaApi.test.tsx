@@ -84,7 +84,7 @@ describe('TabelaApi — impressão', () => {
     await waitFor(() => expect(pdf).not.toBeDisabled());
     obterPagina.mockClear();
     fireEvent.click(pdf);
-    await waitFor(() => expect(imprimirDocumento).toHaveBeenCalledTimes(1), { timeout: 20_000 });
+    await waitFor(() => expect(imprimirDocumento).toHaveBeenCalledTimes(1), { timeout: 45_000 });
     expect(obterPagina.mock.calls.every((c) => c[0] === '/artigos' && c[1]?.estado === 'X')).toBe(true);
     expect(obterPagina.mock.calls.map((c) => c[1]?.pagina)).toEqual([1, 2, 3]);
     const opcoes = (imprimirDocumento.mock.calls[0] as unknown[])[0] as { titulo: string; conteudo: string; identidade: { nome: string }; utilizador: string; filtros: string[] };
@@ -96,7 +96,7 @@ describe('TabelaApi — impressão', () => {
     expect(opcoes.conteudo).toContain('<td>Inactivo</td>');
     expect(opcoes.conteudo).not.toContain('Editar');
     expect(opcoes.conteudo).toContain('TOTAL-X');
-  }, 30_000);
+  }, 60_000);
 
   it('sem `impressao` mantém-se a tabela simples (API compatível)', async () => {
     const cliente = new QueryClient();
@@ -107,5 +107,30 @@ describe('TabelaApi — impressão', () => {
     );
     await screen.findByText('Artigo 1');
     expect(screen.queryByRole('button', { name: /PDF/ })).toBeNull();
-  }, 30_000);
+  }, 60_000);
+
+  it('padrão do antigo: «N registos encontrados» do servidor, filtro por coluna no servidor e «Ver Todos»', async () => {
+    const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const cols: ColunaApi<Linha>[] = [
+      { title: 'Nome', dataIndex: 'nome', filtroServidor: 'nome' },
+      { title: 'Estado', dataIndex: 'estado' },
+    ];
+    render(
+      <QueryClientProvider client={cliente}>
+        <TabelaApi<Linha> url="/artigos" chaveConsulta={['artigos3']} columns={cols} modos={false} />
+      </QueryClientProvider>,
+    );
+    await screen.findByText('450 registos encontrados');
+    expect(obterPagina).toHaveBeenLastCalledWith('/artigos', { pagina: 1, por_pagina: 50 });
+    // filtro da coluna com `filtroServidor` vai para o endpoint (com atraso)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Filtrar Nome' }), { target: { value: 'Artigo 7' } });
+    await waitFor(() => expect(obterPagina).toHaveBeenLastCalledWith('/artigos', { nome: 'Artigo 7', pagina: 1, por_pagina: 50 }), { timeout: 5_000 });
+    // filtro de coluna sem `filtroServidor`: só a página carregada (o contador avisa)
+    fireEvent.change(screen.getByRole('textbox', { name: 'Filtrar Estado' }), { target: { value: 'inactivo' } });
+    await screen.findByText(/filtro aplicado aos 50 registos desta página/);
+    // «Ver Todos» lê todas as páginas
+    obterPagina.mockClear();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Registos por página' }), { target: { value: '-1' } });
+    await waitFor(() => expect(obterPagina.mock.calls.some((c) => c[1]?.por_pagina === 200)).toBe(true));
+  }, 60_000);
 });

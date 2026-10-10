@@ -49,6 +49,14 @@ final class VendaResource extends JsonResource
             'unidade_negocio_id' => $this->unidade_negocio_id,
             'centro_custo_id' => $this->centro_custo_id,
             'projeto_id' => $this->projeto_id,
+            // paridade (RELATORIO 4.2.4/4.8.2): códigos da UN e do CC e o progresso de entrega/facturação (OR/PF/NE)
+            'unidade_negocio' => $this->whenLoaded('unidadeNegocio', fn () => $this->unidadeNegocio ? ['id' => $this->unidadeNegocio->id, 'codigo' => $this->unidadeNegocio->codigo, 'nome' => $this->unidadeNegocio->nome] : null),
+            'centro_custo' => $this->whenLoaded('centroCusto', fn () => $this->centroCusto ? ['id' => $this->centroCusto->id, 'codigo' => $this->centroCusto->codigo, 'descricao' => $this->centroCusto->descricao] : null),
+            'progresso' => $this->when(array_key_exists('soma_quantidade', $this->resource->getAttributes()), fn () => self::progresso(
+                (float) $this->resource->getAttributes()['soma_quantidade'], (float) ($this->resource->getAttributes()['soma_entregue'] ?? 0), (float) ($this->resource->getAttributes()['soma_faturada'] ?? 0))),
+            // paridade 4.2.12: contas dos meios de pagamento mostradas no documento e opção de as ocultar na impressão
+            'contas_pagamento' => self::contasPagamento($this->contas_pagamento),
+            'ocultar_meios_pagamento' => (bool) $this->ocultar_meios_pagamento,
             'faturacao_eletronica' => [
                 'serie' => $this->fe_serie, 'numero' => $this->fe_numero, 'estado' => $this->fe_estado, 'regime' => $this->fe_regime,
                 'selado_em' => $this->fe_selado_em?->toIso8601String(), 'erros' => $this->fe_erros ?? [], 'avisos' => $this->fe_avisos ?? [],
@@ -69,5 +77,37 @@ final class VendaResource extends JsonResource
                 'preco_unitario_moeda' => $i->preco_unitario_moeda, 'total_moeda' => $i->total_moeda,
             ])->values()),
         ];
+    }
+
+    /**
+     * Percentagens entregue/facturada das linhas (barras «ENT» e «FAT» do legado, arredondadas, 0–100).
+     *
+     * @return array{entrega: int, faturacao: int}
+     */
+    public static function progresso(float $quantidade, float $entregue, float $faturada): array
+    {
+        $pct = fn (float $v) => $quantidade > 0 ? (int) max(0, min(100, round($v / $quantidade * 100))) : 0;
+
+        return ['entrega' => $pct($entregue), 'faturacao' => $pct($faturada)];
+    }
+
+    /**
+     * Contas de pagamento do documento: as gravadas pelo ecrã novo (meio_pagamento_id, nome, conta, IBAN, SWIFT) ou as
+     * migradas do legado ({code, desc, amount}).
+     *
+     * @return list<array{meio_pagamento_id: int|null, nome: string|null, codigo_conta: string|null, iban: string|null, swift: string|null}>
+     */
+    public static function contasPagamento(mixed $contas): array
+    {
+        if (! is_array($contas)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(fn ($c) => is_array($c) ? [
+            'meio_pagamento_id' => isset($c['meio_pagamento_id']) ? (int) $c['meio_pagamento_id'] : null,
+            'nome' => isset($c['nome']) ? (string) $c['nome'] : (isset($c['desc']) ? (string) $c['desc'] : null),
+            'codigo_conta' => isset($c['codigo_conta']) ? (string) $c['codigo_conta'] : (isset($c['code']) ? (string) $c['code'] : null),
+            'iban' => isset($c['iban']) ? (string) $c['iban'] : null, 'swift' => isset($c['swift']) ? (string) $c['swift'] : null,
+        ] : null, $contas)));
     }
 }

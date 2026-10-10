@@ -1,11 +1,11 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Radio, Row, Statistic, Table, Tag } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Radio, Row, Tag } from 'antd';
 import { SwapOutlined, ToolOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { TabelaComModos, type ColunaLegado } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
@@ -15,16 +15,20 @@ import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/L
 import { SeletorArmazem, SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import { ExtractoArtigo } from './comum/ExtractoArtigo';
 import type { LinhaStock, RespostaStock } from './comum/tipos';
-import { BarraFiltros, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
-import { pedidoStockPorArmazem } from './comum/impressao';
+import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { statusStock } from './comum/paridade';
 
 /** Armazém › Níveis de stock (ecrã armazem_stock): stock e valorização por armazém, ajustes, transferências e extracto. */
 export default function NiveisStock() {
   const { pode } = useSessao();
-  const [armazem, setArmazem] = useState<number>();
-  const [comStock, setComStock] = useState(true);
+  const [parametros] = useSearchParams();
+  // «Ver Stock» dos Armazens (2.5.2) abre os níveis filtrados pelo armazém (?armazem=ID)
+  const [armazem, setArmazem] = useState<number | undefined>(() => {
+    const id = Number(parametros.get('armazem'));
+    return Number.isInteger(id) && id > 0 ? id : undefined;
+  });
+  const comStock = true;
   const [pesquisa, setPesquisa] = useState('');
-  const [soRupturas, setSoRupturas] = useState(false);
   const [modal, setModal] = useState<'ajuste' | 'transferencia' | null>(null);
   const [extracto, setExtracto] = useState<LinhaStock | null>(null);
 
@@ -37,81 +41,64 @@ export default function NiveisStock() {
   }, [consulta.error]);
 
   const linhas = useMemo(
-    () => (consulta.data?.linhas ?? []).filter((l) => (!soRupturas || l.ruptura) && contemTexto(pesquisa, l.codigo, l.nome, l.armazem)),
-    [consulta.data, pesquisa, soRupturas],
+    () => (consulta.data?.linhas ?? []).filter((l) => contemTexto(pesquisa, l.codigo, l.nome, l.armazem)),
+    [consulta.data, pesquisa],
   );
-  const v = consulta.data?.valorizacao;
   const pequeno = useEcraPequeno();
   const [nomeArmazem, setNomeArmazem] = useState<string>();
 
-  const colunas: ColumnsType<LinhaStock> = [
-    { title: 'Código', dataIndex: 'codigo', render: (x) => x || '—', sorter: (a, b) => String(a.codigo).localeCompare(String(b.codigo)) },
-    { title: 'Produto', dataIndex: 'nome', sorter: (a, b) => a.nome.localeCompare(b.nome) },
-    { title: 'Armazém', dataIndex: 'armazem', responsive: ['md'] },
-    { title: 'Quantidade', dataIndex: 'quantidade', align: 'right', render: (q: string) => <span style={{ color: Number(q) < 0 ? '#cf1322' : undefined }}>{formatarNumero(q)}</span>, sorter: (a, b) => Number(a.quantidade) - Number(b.quantidade) },
-    { title: 'Mínimo', dataIndex: 'stock_minimo', align: 'right', responsive: ['lg'], render: (x: string | null) => (x ? formatarNumero(x) : '—') },
-    { title: 'Custo médio (Kz)', dataIndex: 'custo_medio', align: 'right', responsive: ['lg'], render: (x: string | null) => formatarKz(x) },
-    { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (x: string | null) => formatarKz(x), sorter: (a, b) => Number(a.valor) - Number(b.valor) },
-    // Estado como no legado (Esgotado / Ruptura / Disponível)
-    { title: 'Estado', key: 'estado', render: (_, l) => (Number(l.quantidade) <= 0 ? <Tag color="red">Esgotado</Tag> : l.ruptura ? <Tag color="orange">Ruptura</Tag> : <Tag color="green">Disponível</Tag>) },
+  // Colunas, ordem e nomes do legado (renderStockTab, ui_warehouse.js:186-192); o mínimo e a ruptura ficam em «Colunas ▾».
+  const colunas: ColunaLegado<LinhaStock>[] = [
+    { title: 'Armazém', dataIndex: 'armazem', render: (x: string | null) => x || 'N/D', sorter: (a, b) => String(a.armazem).localeCompare(String(b.armazem)) },
+    { title: 'Código', dataIndex: 'codigo', render: (x) => x || '-', sorter: (a, b) => String(a.codigo).localeCompare(String(b.codigo)) },
+    { title: 'Produto', dataIndex: 'nome', render: (x: string) => <strong>{x}</strong>, sorter: (a, b) => a.nome.localeCompare(b.nome) },
+    { title: 'Stock Local', dataIndex: 'quantidade', align: 'right', render: (q: string) => <strong style={{ color: Number(q) <= 5 ? '#ef4444' : '#1e293b' }}>{formatarNumero(q)}</strong>, sorter: (a, b) => Number(a.quantidade) - Number(b.quantidade) },
+    { title: 'Custo Médio (CMP)', dataIndex: 'custo_medio', align: 'right', total: true, formatoTotal: (t) => <strong>{formatarKz(t)} Kz</strong>, render: (x: string | null) => (x === null ? '-' : `${formatarKz(x)} Kz`) },
+    {
+      title: 'V. Total (CMP)',
+      dataIndex: 'valor',
+      align: 'right',
+      total: true,
+      formatoTotal: (t) => <strong style={{ color: 'var(--ant-color-primary, #2563eb)' }}>{formatarKz(t)} Kz</strong>,
+      render: (x: string | null) => <strong>{x === null ? '-' : `${formatarKz(x)} Kz`}</strong>,
+      sorter: (a, b) => Number(a.valor) - Number(b.valor),
+    },
+    { title: 'Status', key: 'estado', align: 'center', valorImpressao: (l) => statusStock(l.quantidade).rotulo, render: (_, l) => statusStock(l.quantidade).rotulo },
+    { title: 'Mínimo', dataIndex: 'stock_minimo', align: 'right', ocultaPorOmissao: true, render: (x: string | null) => (x ? formatarNumero(x) : '—') },
+    { title: 'Ruptura', key: 'ruptura', align: 'center', ocultaPorOmissao: true, valorImpressao: (l) => (l.ruptura ? 'Sim' : 'Não'), render: (_, l) => (l.ruptura ? <Tag color="orange">Ruptura</Tag> : '—') },
   ];
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Níveis de stock"
-        subtitulo="Quantidades e valorização ao custo médio, por armazém"
-        impressaoDesactivada={!linhas.length}
-        impressao={() =>
-          pedidoStockPorArmazem(linhas, [
-            armazem ? `Armazém: ${nomeArmazem ?? `#${armazem}`}` : 'Todos os armazéns',
-            comStock && 'Só com stock',
-            soRupturas && 'Só rupturas',
-            pesquisa && `Pesquisa: ${pesquisa}`,
-          ])
+      <Card
+        title="Inventário por Armazém"
+        extra={
+          // legado (renderStockTab, ui_warehouse.js:174-180): «Todos os Armazens» e «Procurar produto...» à direita do título;
+          // Transferência e Ajuste manual são funções do sistema novo, em botões pequenos a seguir
+          <Flex gap={8} wrap align="center">
+            <SeletorArmazem allowClear placeholder="Todos os Armazens" style={{ width: 200, maxWidth: '100%' }} value={armazem} onChange={(x, o) => { setArmazem(x); setNomeArmazem(o && !Array.isArray(o) && o.label ? String(o.label) : undefined); }} />
+            <Input placeholder="Procurar produto..." allowClear style={{ width: 280, maxWidth: '100%' }} value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} />
+            {pode('armazem_transferencia', 'armazem_ajuste') && <Button size="small" icon={<SwapOutlined />} title="Transferência entre armazéns" onClick={() => setModal('transferencia')}>Transferência</Button>}
+            {pode('armazem_ajuste') && <Button size="small" icon={<ToolOutlined />} title="Ajuste manual de stock" onClick={() => setModal('ajuste')}>Ajuste manual</Button>}
+          </Flex>
         }
-        accoes={
-          <>
-            {pode('armazem_transferencia', 'armazem_ajuste') && <Button icon={<SwapOutlined />} onClick={() => setModal('transferencia')}>Transferência</Button>}
-            {pode('armazem_ajuste') && <Button icon={<ToolOutlined />} onClick={() => setModal('ajuste')}>Ajuste manual</Button>}
-          </>
-        }
-      />
-      {v && (
-        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={24} sm={12} md={6}>
-            <Card><Statistic title="Valor total do stock (Kz)" value={formatarKz(v.total)} /></Card>
-          </Col>
-          <Col xs={24} sm={12} md={6}>
-            <Card><Statistic title="Artigos em ruptura" value={v.rupturas} valueStyle={v.rupturas ? { color: '#cf1322' } : undefined} /></Card>
-          </Col>
-          <Col xs={24} md={12}>
-            <Card size="small" title="Por armazém">
-              {v.por_armazem.map((a) => (
-                <Flex key={a.armazem} justify="space-between" gap={8} wrap>
-                  <span>{a.armazem} ({a.produtos} artigos)</span>
-                  <strong>{formatarKz(a.valor)} Kz</strong>
-                </Flex>
-              ))}
-            </Card>
-          </Col>
-        </Row>
-      )}
-      <Card>
-        <BarraFiltros>
-          <Input.Search placeholder="Código, produto ou armazém" allowClear style={{ width: 280, maxWidth: '100%' }} onSearch={setPesquisa} onChange={(e) => !e.target.value && setPesquisa('')} />
-          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 240, maxWidth: '100%' }} value={armazem} onChange={(x, o) => { setArmazem(x); setNomeArmazem(o && !Array.isArray(o) && o.label ? String(o.label) : undefined); }} />
-          <Checkbox checked={comStock} onChange={(e) => setComStock(e.target.checked)}>Só com stock</Checkbox>
-          <Checkbox checked={soRupturas} onChange={(e) => setSoRupturas(e.target.checked)}>Só rupturas</Checkbox>
-        </BarraFiltros>
-        <Table<LinhaStock>
+      >
+        <TabelaComModos<LinhaStock>
           rowKey={(r) => `${r.armazem_id}-${r.produto_id}`}
           size={pequeno ? 'small' : 'middle'}
           scroll={scrollTabela()}
           loading={consulta.isFetching}
           dataSource={linhas}
           columns={colunas}
-          pagination={{ defaultPageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} linha(s)` }}
+          rotuloTotal=""
+          impressao={{
+            titulo: 'Inventário por Armazém',
+            rotuloTotal: 'VALOR TOTAL EM STOCK',
+            filtros: [
+              armazem ? `Armazém: ${nomeArmazem ?? (consulta.data?.linhas.find((l) => l.armazem_id === armazem)?.armazem ?? 'N/D')}` : 'Todos os Armazens',
+              pesquisa && `Pesquisa: ${pesquisa}`,
+            ],
+          }}
           onRow={(r) => ({ onClick: () => setExtracto(r), style: { cursor: 'pointer' } })}
         />
       </Card>

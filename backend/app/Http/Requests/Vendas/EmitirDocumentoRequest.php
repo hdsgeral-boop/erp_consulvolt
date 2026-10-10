@@ -52,6 +52,13 @@ final class EmitirDocumentoRequest extends FormRequest
             'oportunidade_crm_id' => ['nullable', 'integer', $daEmpresa('oportunidades_venda_crm')],   // CRM (ADR-054): liga o documento à oportunidade
             'armazem_id' => ['nullable', 'integer', Rule::exists('armazens', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],
             'devolucao_mercadoria' => ['nullable', 'boolean'],   // NC: a mercadoria volta ao stock
+            // paridade com o formulário do legado (RELATORIO 4.2.9–4.2.12)
+            'baixar_stock' => ['nullable', 'boolean'],                                   // «Baixar Stock Autom.» (FT/FR)
+            'guias_saida' => ['nullable', 'array', 'max:50'],                            // guias de saída do armazém facturadas
+            'guias_saida.*' => ['integer', 'distinct', $daEmpresa('guias_saida')],
+            'contas_pagamento' => ['nullable', 'array', 'max:10'],                       // «Adicionar Conta» (meios de pagamento da Tesouraria)
+            'contas_pagamento.*' => ['integer', 'distinct', Rule::exists('meios_pagamento', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],
+            'ocultar_meios_pagamento' => ['nullable', 'boolean'],                        // «Ocultar quadro de Meios de Pagamento na impressão»
         ];
     }
 
@@ -62,6 +69,8 @@ final class EmitirDocumentoRequest extends FormRequest
             'tipo_documento' => 'tipo de documento', 'cliente_id' => 'cliente', 'data_emissao' => 'data de emissão', 'linhas' => 'linhas do documento',
             'linhas.*.produto_id' => 'produto', 'linhas.*.quantidade' => 'quantidade', 'linhas.*.preco_unitario' => 'preço unitário',
             'venda_origem_id' => 'factura de referência', 'motivo_nota_credito' => 'motivo da nota de crédito',
+            'guias_saida' => 'guias de saída', 'guias_saida.*' => 'guia de saída', 'contas_pagamento' => 'contas dos meios de pagamento',
+            'contas_pagamento.*' => 'meio de pagamento',
             'conta_disponibilidade' => 'conta de caixa/banco', 'plano_pagamentos' => 'plano de pagamentos',
         ];
     }

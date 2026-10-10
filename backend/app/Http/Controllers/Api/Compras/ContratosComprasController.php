@@ -9,6 +9,7 @@ use App\Models\MarcoContratoFornecedor;
 use App\Services\Compras\RelacoesNomes;
 use App\Services\Compras\ServicoContratosFornecedores;
 use App\Services\Compras\ServicoEncomendasClientes;
+use App\Services\Compras\ServicoListagensCompras;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
@@ -31,12 +32,15 @@ final class ContratosComprasController extends Controller
             'pesquisa' => ['nullable', 'string', 'max:100'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
         $pesquisa = trim((string) ($f['pesquisa'] ?? ''));
 
-        return RespostaApi::paginado(ContratoFornecedor::query()->with(RelacoesNomes::fornecedor())
+        $pagina = ContratoFornecedor::query()->with(RelacoesNomes::fornecedor())
             ->when($f['fornecedor_id'] ?? null, fn ($q, $v) => $q->where('fornecedor_id', $v))
             ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
             ->when($pesquisa !== '', fn ($q) => $q->where('referencia', 'ilike', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $pesquisa).'%'))
-            ->orderByDesc('data_inicio')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1)),
-            null, 'Contratos de fornecedores.');
+            ->orderByDesc('data_inicio')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
+        // encomendas associadas e total encomendado (colunas da lista do legado), por lote
+        app(ServicoListagensCompras::class)->contratos($pagina->getCollection());
+
+        return RespostaApi::paginado($pagina, null, 'Contratos de fornecedores.');
     }
 
     public function show(int $id): JsonResponse

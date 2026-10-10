@@ -86,7 +86,7 @@ export function SeletorConta({ value, onChange, prefixo, placeholder = 'Código 
       disabled={disabled}
       placeholder={placeholder}
       allowClear
-      options={(consulta.data ?? []).slice(0, 2000).map((c) => ({ value: c.codigo, label: `${c.codigo} — ${c.descricao}` }))}
+      options={(consulta.data ?? []).slice(0, 2000).map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao}` }))}
       filterOption={(i, o) => String(o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
     />
   );

@@ -14,6 +14,7 @@ use App\Models\UnidadeNegocio;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoEmpresas;
+use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 
@@ -41,6 +42,26 @@ final class ServicoTransferenciaLancamentos
     ) {}
 
     /**
+     * Empresas para onde o utilizador pode transferir (8.1.3): acessíveis (activas), diferentes da activa e onde tem a
+     * permissão de registar lançamentos. Só id e nome (nada de NIF ou outros dados da empresa).
+     *
+     * @return list<array{id: int, nome: string}>
+     */
+    public function destinos(Utilizador $actor): array
+    {
+        $origem = $this->contexto->obrigatorio();
+
+        return $this->empresas->acessiveis($actor)
+            ->filter(fn ($e) => (int) $e->id !== $origem && $this->podeLancarEm($actor, (int) $e->id))
+            ->map(fn ($e) => ['id' => (int) $e->id, 'nome' => (string) $e->nome])->values()->all();
+    }
+
+    private function podeLancarEm(Utilizador $actor, int $empresa): bool
+    {
+        return app(ServicoPermissoes::class)->autoriza($actor, 'lancamentos_post', $empresa);
+    }
+
+    /**
      * @return array{destino: array{empresa_id: int, empresa: string, numero_lan: string}, estorno: array{numero_lan: string, primeira_linha_id: int}, avisos: list<string>}
      */
     public function transferir(LancamentoContabil $linha, int $destino, string $motivo, Utilizador $actor): array
@@ -51,6 +72,10 @@ final class ServicoTransferenciaLancamentos
         }
         if (! $this->empresas->podeAceder($actor, $destino)) {
             throw new ErroNegocio('Não tem acesso à empresa de destino.', 'EMPRESA_SEM_ACESSO', 403);
+        }
+        // 8.1.3: além do acesso, é preciso poder registar lançamentos na empresa de destino
+        if (! $this->podeLancarEm($actor, $destino)) {
+            throw new ErroNegocio('Não tem permissão para registar lançamentos na empresa de destino.', 'SEM_PERMISSAO_DESTINO', 403);
         }
         $nomeDestino = (string) DB::table('empresas')->where('id', $destino)->value('nome');
         $nomeOrigem = (string) DB::table('empresas')->where('id', $origem)->value('nome');

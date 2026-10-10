@@ -1,10 +1,12 @@
-import { Alert, Button, Card, Checkbox, Flex, Form, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
-import { CopyOutlined, DeleteOutlined, EditOutlined, ImportOutlined, PlusOutlined, SendOutlined, SyncOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, Col, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { scrollTabela } from '@/componentes/responsivo';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { BotoesExportar } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { tabelaDeColunas } from './comum/impressao';
@@ -16,30 +18,46 @@ import { BotaoCsv, ValorKz } from './comum/Componentes';
 import { usePlanoContas, useTabelaAux, type TabelaAux } from './comum/dados';
 import { ModalImportar } from './comum/ficheiros';
 import { UnidadesNegocio } from '@/modulos/config/UnidadesNegocio';
-
 import { TabelaComModos } from '@/componentes/vistas';
-const TABELAS: { chave: TabelaAux; titulo: string }[] = [
-  { chave: 'diarios', titulo: 'Diários' },
-  { chave: 'notas-demonstracao', titulo: 'Notas DEMO' },
-  { chave: 'notas-fluxo-caixa', titulo: 'Notas de fluxo de caixa' },
-  { chave: 'centros-custo', titulo: 'Centros de custo' },
-];
+import { SeparadorTerceiros } from './tabelasAux/SeparadorTerceiros';
+import { SEPARADORES_AUX, separadorAuxActivo, TEXTOS_TABELA, type ChaveSeparadorAux } from './tabelasAux/tabelasAux';
 
-/** Contabilidade › Terceiros e tabelas (ecrã tabelas_aux): diários, notas, centros de custo, unidades de negócio, plano de contas e reciclagem. Os terceiros têm módulo próprio. */
+/**
+ * Contabilidade › Tabelas Auxiliares da Contabilidade (ecrã tabelas_aux, renderTabelasAuxiliares — js/ui_aux.js:98-491):
+ * separadores-botão do legado (Diários, Terceiros, Notas de Demonstrações, Notas de Fluxo de Caixa, Centros de Custo,
+ * Unidades de Negócio, Reciclagem) + Plano de contas; cada separador tem a rota `?separador=`.
+ */
 export default function TabelasAux() {
   const { pode } = useSessao();
+  const { search } = useLocation();
+  const visiveis = SEPARADORES_AUX.filter((s) => s.chave !== 'reciclagem' || pode('aux_reciclagem', 'tabelas_aux_view'));
+  const activo = separadorAuxActivo(search, visiveis.map((s) => s.chave));
+  const conteudo: Record<ChaveSeparadorAux, () => ReactNode> = {
+    diarios: () => <TabelaSimples key="diarios" tabela="diarios" titulo="Diários" />,
+    terceiros: () => <SeparadorTerceiros />,
+    'notas-demonstracao': () => <TabelaSimples key="nd" tabela="notas-demonstracao" titulo="Notas de Demonstrações" />,
+    'notas-fluxo-caixa': () => <TabelaSimples key="nf" tabela="notas-fluxo-caixa" titulo="Notas de Fluxo de Caixa" />,
+    'centros-custo': () => <TabelaSimples key="cc" tabela="centros-custo" titulo="Centros de Custo" />,
+    // M-14 (ADR-068): o mesmo ecrã das Configurações gerais (mesma permissão tabelas_aux_view / aux_gerir), sem duplicar código
+    'unidades-negocio': () => <UnidadesNegocio />,
+    plano: () => <PlanoContas />,
+    reciclagem: () => <Reciclagem />,
+  };
   return (
     <>
-      <CabecalhoPagina titulo="Tabelas auxiliares" subtitulo="Diários, notas, centros de custo, unidades de negócio, plano de contas e reciclagem de lançamentos" />
-      <Tabs
-        items={[
-          ...TABELAS.map((t) => ({ key: t.chave, label: t.titulo, children: <TabelaSimples tabela={t.chave} titulo={t.titulo} /> })),
-          // M-14 (ADR-068): o mesmo ecrã das Configurações gerais (mesma permissão tabelas_aux_view / aux_gerir), sem duplicar código
-          { key: 'unidades-negocio', label: 'Unidades de negócio', children: <Card><UnidadesNegocio /></Card> },
-          { key: 'plano', label: 'Plano de contas', children: <PlanoContas /> },
-          ...(pode('aux_reciclagem', 'tabelas_aux_view') ? [{ key: 'reciclagem', label: 'Reciclagem', children: <Reciclagem /> }] : []),
-        ]}
+      <CabecalhoModulo
+        titulo="Tabelas Auxiliares da Contabilidade"
+        icone="address-book"
+        activo={activo}
+        separadores={visiveis.map((s) => ({
+          chave: s.chave,
+          rotulo: s.cor ? <span style={{ color: activo === s.chave ? undefined : s.cor }}>{s.rotulo}</span> : s.rotulo,
+          icone: s.icone,
+          destino: `/m/contab/tabelas_aux?separador=${s.chave}`,
+        }))}
       />
+      {/* o Plano de contas e a Reciclagem já desenham o seu cartão */}
+      {activo === 'plano' || activo === 'reciclagem' ? conteudo[activo]() : <Card>{conteudo[activo]()}</Card>}
     </>
   );
 }
@@ -48,8 +66,9 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
   const { pode, empresas, empresa } = useSessao();
   const cliente = useQueryClient();
   const dados = useTabelaAux(tabela);
+  const textos = TEXTOS_TABELA[tabela] ?? { novo: 'Novo registo', registados: `${titulo} registados`, adicionar: 'Adicionar', exCodigo: '', exDescricao: '' };
   const [filtro, setFiltro] = useState('');
-  const [edicao, setEdicao] = useState<RegistoAux | 'novo' | null>(null);
+  const [edicao, setEdicao] = useState<RegistoAux | null>(null);
   const [importar, setImportar] = useState(false);
   const [actualizar, setActualizar] = useState(false);
   const [copiar, setCopiar] = useState(false);
@@ -63,11 +82,15 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
     void cliente.invalidateQueries({ queryKey: ['contab', 'tabelas', tabela] });
     if (tabela === 'diarios') void cliente.invalidateQueries({ queryKey: ['contab', 'diarios'] });
   };
+  const cancelarEdicao = () => {
+    setEdicao(null);
+    form.resetFields();
+  };
   const mutacao = useMutation({
     mutationFn: ({ metodo, caminho, corpo }: { metodo: 'post' | 'put' | 'delete'; caminho: string; corpo?: unknown }) => enviar<unknown>(metodo, `/contabilidade/tabelas/${caminho}`, corpo),
-    onSuccess: ({ mensagem }) => {
+    onSuccess: ({ mensagem }, pedido) => {
       message.success(mensagem);
-      setEdicao(null);
+      if (pedido.metodo !== 'delete') cancelarEdicao();
       setCopiar(false);
       setEnvio(null);
       invalidar();
@@ -77,73 +100,94 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
 
   const linhas = useMemo(() => {
     const f = filtro.toLowerCase();
-    return (dados.data ?? []).filter((r) => !f || r.codigo.toLowerCase().includes(f) || (r.descricao ?? '').toLowerCase().includes(f));
+    // ordem do legado: 1.ª coluna (ID) crescente — o DataTables ordenava pela primeira coluna (js/app_v2.js initDataTables)
+    return (dados.data ?? []).filter((r) => !f || r.codigo.toLowerCase().includes(f) || (r.descricao ?? '').toLowerCase().includes(f)).sort((a, b) => a.id - b.id);
   }, [dados.data, filtro]);
 
   const colunasAux: ColunaApi<RegistoAux>[] = [
-          { title: 'Código', dataIndex: 'codigo', width: 140, render: (v: string) => <strong>{v}</strong> },
-          { title: 'Descrição', dataIndex: 'descricao' },
-          {
-            title: '',
-            width: 140,
-            exportar: false,
-            render: (_, r) => (
-              <Space wrap>
-                {gerir && <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar" title="Editar" onClick={() => { form.setFieldsValue({ codigo: r.codigo, descricao: r.descricao ?? '' }); setEdicao(r); }} />}
-                {gerir && outras.length > 0 && <Button size="small" type="text" icon={<SendOutlined />} aria-label="Enviar para outra empresa" title="Enviar para outra empresa" onClick={() => { formEmpresa.resetFields(); setEnvio(r); }} />}
-                {pode('aux_eliminar') && (
-                  <Popconfirm title={`Eliminar ${r.codigo}?`} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => mutacao.mutateAsync({ metodo: 'delete', caminho: `${tabela}/${r.id}` })}>
-                    <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" title="Eliminar" />
-                  </Popconfirm>
-                )}
-              </Space>
-            ),
-          },
-        ];
+    { title: 'ID', dataIndex: 'id', width: 70, render: (v: number) => <Typography.Text type="secondary" style={{ fontSize: 12 }}>{v}</Typography.Text>, valorImpressao: (r) => r.id },
+    { title: 'Código', dataIndex: 'codigo', width: 140 },
+    { title: 'Descrição', dataIndex: 'descricao' },
+  ];
   return (
-    <Card>
-      <Flex justify="space-between" wrap gap={8} style={{ marginBottom: 12 }}>
-        <Input.Search placeholder="Pesquisar código ou descrição" allowClear style={{ width: 280, maxWidth: '100%' }} onChange={(e) => setFiltro(e.target.value)} />
-        <Space wrap>
-          <BotoesExportar
-            obterPedido={async () => ({ titulo, filtros: [filtro && `Pesquisa: ${filtro}`], conteudo: await tabelaDeColunas(colunasAux, linhas) })}
-            desactivado={!linhas.length}
-          />
-          <BotaoCsv<RegistoAux> nome={tabela} linhas={linhas} colunas={[{ titulo: 'Código', valor: (r) => r.codigo }, { titulo: 'Descrição', valor: (r) => r.descricao }]} />
-          {gerir && tabela === 'centros-custo' && (
-            <Button icon={<SyncOutlined />} loading={mutacao.isPending} onClick={() => mutacao.mutate({ metodo: 'post', caminho: 'centros-custo/sincronizar' })}>
-              Importar do plano de contas
-            </Button>
-          )}
-          {gerir && <Button icon={<CopyOutlined />} onClick={() => { formEmpresa.resetFields(); setCopiar(true); }} disabled={!outras.length}>Copiar de outra empresa</Button>}
-          {gerir && <Button icon={<ImportOutlined />} onClick={() => setImportar(true)}>Importar</Button>}
-          {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEdicao('novo'); }}>Novo</Button>}
-        </Space>
-      </Flex>
-      <TabelaComModos<RegistoAux> idVista="registos"
-        scroll={scrollTabela()}
-        rowKey="id"
-        size="small"
-        loading={dados.isLoading}
-        dataSource={linhas}
-        pagination={{ pageSize: 50, showTotal: (n) => `${n} registo(s)` }}
-        columns={colunasAux}
-      />
-
-      <Modal title={edicao === 'novo' ? `Novo registo — ${titulo}` : `Editar — ${titulo}`} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={(v) => mutacao.mutate(edicao && edicao !== 'novo' ? { metodo: 'put', caminho: `${tabela}/${edicao.id}`, corpo: v } : { metodo: 'post', caminho: tabela, corpo: v })}
-        >
-          <Form.Item name="codigo" label="Código" rules={[{ required: true }]}>
-            <Input maxLength={20} />
-          </Form.Item>
-          <Form.Item name="descricao" label="Descrição" rules={[{ required: true }]}>
-            <Input maxLength={255} />
-          </Form.Item>
-        </Form>
-      </Modal>
+    <Row gutter={[16, 16]}>
+      {gerir && (
+        <Col xs={24} lg={8}>
+          <Card
+            size="small"
+            title={edicao ? `Editar — ${edicao.codigo}` : textos.novo}
+            extra={
+              <Button size="small" icon={<IconeFa nome="file-import" />} onClick={() => setImportar(true)}>
+                Excel
+              </Button>
+            }
+          >
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={(v) => mutacao.mutate(edicao ? { metodo: 'put', caminho: `${tabela}/${edicao.id}`, corpo: v } : { metodo: 'post', caminho: tabela, corpo: v })}
+            >
+              <Form.Item name="codigo" label="Código" rules={[{ required: true, message: 'Indique o código.' }]}>
+                <Input maxLength={20} placeholder={textos.exCodigo} />
+              </Form.Item>
+              <Form.Item name="descricao" label="Descrição" rules={[{ required: true, message: 'Indique a descrição.' }]}>
+                <Input maxLength={255} placeholder={textos.exDescricao} />
+              </Form.Item>
+              <Button type="primary" htmlType="submit" block icon={<IconeFa nome={edicao ? 'save' : 'plus'} />} loading={mutacao.isPending}>
+                {edicao ? 'Gravar alterações' : textos.adicionar}
+              </Button>
+              {edicao && (
+                <Button block style={{ marginTop: 8 }} onClick={cancelarEdicao}>
+                  Cancelar edição
+                </Button>
+              )}
+            </Form>
+          </Card>
+        </Col>
+      )}
+      <Col xs={24} lg={gerir ? 16 : 24}>
+        <Typography.Title level={5} style={{ marginTop: 0 }}>
+          {textos.registados}
+        </Typography.Title>
+        <Flex justify="space-between" wrap gap={8} style={{ marginBottom: 12 }}>
+          <Input.Search placeholder="Pesquisar código ou descrição" allowClear style={{ width: 280, maxWidth: '100%' }} onChange={(e) => setFiltro(e.target.value)} />
+          <Space wrap>
+            <BotaoCsv<RegistoAux> nome={tabela} linhas={linhas} colunas={[{ titulo: 'Código', valor: (r) => r.codigo }, { titulo: 'Descrição', valor: (r) => r.descricao }]} />
+            {gerir && tabela === 'centros-custo' && (
+              <Button icon={<IconeFa nome="sync" />} loading={mutacao.isPending} onClick={() => mutacao.mutate({ metodo: 'post', caminho: 'centros-custo/sincronizar' })}>
+                Importar do plano de contas
+              </Button>
+            )}
+            {gerir && (
+              <Button icon={<IconeFa nome="copy" />} title="Copiar registos de outra empresa" onClick={() => { formEmpresa.resetFields(); setCopiar(true); }} disabled={!outras.length}>
+                Copiar de outra empresa
+              </Button>
+            )}
+          </Space>
+        </Flex>
+        <TabelaComModos<RegistoAux>
+          idVista={`registos_${tabela}`}
+          scroll={scrollTabela()}
+          rowKey="id"
+          size="small"
+          loading={dados.isLoading}
+          dataSource={linhas}
+          columns={colunasAux}
+          impressao={{ titulo: textos.registados, filtros: [filtro && `Pesquisa: ${filtro}`] }}
+          accoes={(r) => [
+            { icone: 'share-square', titulo: 'Enviar para outra empresa', variante: 'sucesso', oculto: !gerir || !outras.length, onClick: () => { formEmpresa.resetFields(); setEnvio(r); } },
+            { icone: 'edit', titulo: 'Editar', variante: 'primario', oculto: !gerir, onClick: () => { form.setFieldsValue({ codigo: r.codigo, descricao: r.descricao ?? '' }); setEdicao(r); } },
+            {
+              icone: 'trash',
+              titulo: 'Eliminar',
+              variante: 'perigo',
+              oculto: !pode('aux_eliminar'),
+              confirmar: { titulo: `Eliminar ${r.codigo}?`, textoOk: 'Eliminar', perigo: true },
+              onClick: () => mutacao.mutateAsync({ metodo: 'delete', caminho: `${tabela}/${r.id}` }),
+            },
+          ]}
+        />
+      </Col>
 
       <Modal title={`Copiar ${titulo.toLowerCase()} de outra empresa`} open={copiar} onCancel={() => setCopiar(false)} okText="Copiar" confirmLoading={mutacao.isPending} onOk={() => formEmpresa.submit()}>
         <Form form={formEmpresa} layout="vertical" onFinish={(v) => mutacao.mutate({ metodo: 'post', caminho: `${tabela}/copiar`, corpo: { empresa_origem_id: v.empresa_id } })}>
@@ -175,7 +219,7 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
         aoFechar={() => setImportar(false)}
         aoConcluir={invalidar}
       />
-    </Card>
+    </Row>
   );
 }
 

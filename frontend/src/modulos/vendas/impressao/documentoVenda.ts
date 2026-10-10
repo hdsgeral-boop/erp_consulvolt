@@ -33,6 +33,21 @@ const SEM_VALOR_FISCAL = ['OR', 'PF', 'NE'];
 const GUIAS = ['GR', 'GD'];
 
 /**
+ * Quadro «Meios de pagamento» impresso (legado: buildDocData, js/ui_sales.js:4645-4653): o meio da factura-recibo e as
+ * contas indicadas no documento («Adicionar Conta» — nome, conta, IBAN/SWIFT), salvo nos documentos sem valor fiscal,
+ * nas guias e quando se escolheu «Ocultar quadro de Meios de Pagamento na impressão».
+ */
+export function pagamentosImpressos(d: Pick<DocumentoVenda, 'tipo_documento' | 'total_bruto' | 'contas_pagamento' | 'ocultar_meios_pagamento'>, meio?: string | null): { descricao: string; valor?: string }[] {
+  if (d.ocultar_meios_pagamento || SEM_VALOR_FISCAL.includes(d.tipo_documento) || GUIAS.includes(d.tipo_documento)) return [];
+  const linhas: { descricao: string; valor?: string }[] = d.tipo_documento === 'FR' && meio ? [{ descricao: meio, valor: d.total_bruto }] : [];
+  for (const c of d.contas_pagamento ?? []) {
+    const banco = [c.iban && `IBAN ${c.iban}`, c.swift && `SWIFT ${c.swift}`].filter(Boolean).join(' · ');
+    linhas.push({ descricao: [c.nome ?? c.codigo_conta ?? 'Conta', banco].filter(Boolean).join(' — ') });
+  }
+  return linhas;
+}
+
+/**
  * Documento de venda (FT, FR, NC, OR, PF, NE, GR, GD) → dados do documento comercial impresso, com os mesmos
  * elementos do ecrã de detalhe: cliente, datas, linhas, resumo do IVA, totais e, nos documentos do regime de
  * facturação electrónica, a série AGT, o excerto do hash e o QR de consulta (quando existe).
@@ -83,7 +98,7 @@ export function dadosDocumentoVenda(d: DocumentoVenda, qr?: QrDocumento | null):
     totais: d.moeda
       ? { subtotal: d.moeda.total_liquido, imposto: d.moeda.total_imposto, total: d.moeda.total_bruto }
       : { subtotal: d.total_liquido, imposto: d.total_imposto, total: d.total_bruto },
-    pagamentos: tipo === 'FR' && meio ? [{ descricao: meio, valor: d.total_bruto }] : [],
+    pagamentos: pagamentosImpressos(d, meio),
     moeda: d.codigo_moeda || 'AOA',
     blocos: [
       ['Motivo da nota de crédito', d.motivo_nota_credito],

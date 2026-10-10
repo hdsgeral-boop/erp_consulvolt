@@ -32,7 +32,16 @@ export function DetalheProjecto() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [params, setParams] = useSearchParams();
-  const [editar, setEditar] = useState(false);
+  // ?editar=1: aberto a partir do ícone «Editar» da Carteira (ui_projects.js:416)
+  const [editar, setEditarEstado] = useState(() => params.get('editar') === '1');
+  const setEditar = (v: boolean) => {
+    setEditarEstado(v);
+    if (!v && params.has('editar')) {
+      const n = new URLSearchParams(params);
+      n.delete('editar');
+      setParams(n, { replace: true });
+    }
+  };
   const q = useQuery({ queryKey: ['projectos', 'ficha', id], queryFn: () => obter<FichaProjecto>(`/projetos/${id}`) });
   const estado = useAccao({ invalidar: [['projectos']] });
 
@@ -104,7 +113,7 @@ export function DetalheProjecto() {
           { key: 'revisoes', label: 'Autos e facturação', children: <SeparadorRevisoes {...props} /> },
         ]}
       />
-      <ModalProjecto aberto={editar} projecto={p} aoFechar={() => setEditar(false)} />
+      <ModalProjecto aberto={editar && acc.editar} projecto={p} aoFechar={() => setEditar(false)} />
     </>
   );
 }

@@ -64,13 +64,21 @@ final class ServicoClassificacaoLancamentos
             ->when($f['diario_id'] ?? null, fn ($q, $v) => $q->where('diario_id', $v))
             ->when($f['codigo_conta'] ?? null, fn ($q, $v) => $q->where('codigo_conta', 'like', $like($v).'%'))
             ->when($f['filtro_contas'] ?? null, function ($q, $v) {
-                [$sql, $p] = FiltroMapas::contas('codigo_conta', (string) $v);
+                // contas coladas (uma por linha, vírgula, «;» ou tab) → expressão do legado, com limite de termos
+                [$sql, $p] = FiltroMapas::contas('codigo_conta', implode(',', self::lista((string) $v, 'contas')));
 
                 return $q->whereRaw($sql, $p);
             })
-            ->when($f['numero_lan'] ?? null, fn ($q, $v) => $q->where('numero_lan', $v))
-            ->when($f['numero_documento'] ?? null, fn ($q, $v) => $q->where('numero_documento', $v))
-            ->when($f['referencia'] ?? null, fn ($q, $v) => $q->where('referencia', 'ilike', '%'.$like($v).'%'))
+            // «Colar múltiplos» (8.1.1): vários números separados por vírgula/linha/tab/«;» → lista exacta (máx. MAXIMO_LISTA)
+            ->when($f['numero_lan'] ?? null, fn ($q, $v) => ($l = self::lista((string) $v, 'números de lançamento')) && count($l) > 1 ? $q->whereIn('numero_lan', $l) : $q->where('numero_lan', $l[0] ?? ''))
+            ->when($f['numero_documento'] ?? null, fn ($q, $v) => ($l = self::lista((string) $v, 'documentos')) && count($l) > 1 ? $q->whereIn('numero_documento', $l) : $q->where('numero_documento', $l[0] ?? ''))
+            ->when($f['referencia'] ?? null, fn ($q, $v) => ($l = self::lista((string) $v, 'referências')) && count($l) > 1
+                ? $q->whereIn('referencia', $l) : $q->where('referencia', 'ilike', '%'.$like($l[0] ?? '').'%'))
+            // Datas do documento (legado entry_date → data_lancamento) e do lançamento no sistema (criado_em)
+            ->when($f['data_doc_inicio'] ?? null, fn ($q, $v) => $q->where('data_lancamento', '>=', $v))
+            ->when($f['data_doc_fim'] ?? null, fn ($q, $v) => $q->where('data_lancamento', '<', date('Y-m-d', strtotime($v.' +1 day'))))
+            ->when($f['criado_inicio'] ?? null, fn ($q, $v) => $q->where('criado_em', '>=', $v))
+            ->when($f['criado_fim'] ?? null, fn ($q, $v) => $q->where('criado_em', '<', date('Y-m-d', strtotime($v.' +1 day'))))
             ->when($f['terceiro_id'] ?? null, fn ($q, $v) => $q->where('terceiro_id', $v))
             ->when($f['unidade_negocio_id'] ?? null, fn ($q, $v) => $q->where('unidade_negocio_id', $v))
             ->when($f['centro_custo_id'] ?? null, fn ($q, $v) => $q->where('centro_custo_id', $v))
@@ -87,6 +95,24 @@ final class ServicoClassificacaoLancamentos
                 return $q;
             })
             ->when(empty($f['incluir_classe_9']), fn ($q) => $q->where('codigo_conta', 'not like', '9%'));
+    }
+
+    /** Máximo de valores colados num filtro («Colar múltiplas contas/documentos»). */
+    public const MAXIMO_LISTA = 500;
+
+    /**
+     * Valores colados (Excel: um por linha; ou separados por vírgula, «;» ou tab), sem vazios nem repetidos.
+     *
+     * @return list<string>
+     */
+    public static function lista(string $texto, string $rotulo = 'valores'): array
+    {
+        $valores = array_values(array_unique(array_filter(array_map('trim', preg_split('/[\r\n,;\t]+/u', $texto) ?: []), fn ($v) => $v !== '')));
+        if (count($valores) > self::MAXIMO_LISTA) {
+            throw new ErroNegocio('Colou '.count($valores)." {$rotulo}: o máximo é ".self::MAXIMO_LISTA.'.', 'FILTRO_LISTA_DEMASIADO_LONGA', 422);
+        }
+
+        return $valores;
     }
 
     /**

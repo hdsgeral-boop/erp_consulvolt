@@ -147,7 +147,7 @@ export function ModalSaldosHistoricos({ aberto, aoFechar }: { aberto: boolean; a
   return (
     <Modal
       open={aberto}
-      title="Saldos históricos (comparativo)"
+      title="Importar Histórico de Exercício (Saldos Iniciais)"
       width={larguraModal(1100)}
       onCancel={fechar}
       destroyOnHidden

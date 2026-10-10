@@ -302,7 +302,7 @@ export function ratearPagamentos(liquidos: PagamentoRateio[], troco: number, tot
 
 // ───────────── Formatação ─────────────
 
-const kz = new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const kz = new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: 'always' as unknown as boolean });
 
 /** Cêntimos → «1 234,50». */
 export function formatarCentimos(c: number): string {

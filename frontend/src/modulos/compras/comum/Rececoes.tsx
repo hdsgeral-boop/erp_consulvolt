@@ -1,7 +1,12 @@
-import { Alert, Button, Card, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Select, Skeleton, Table } from 'antd';
+import { Alert, Button, Card, Descriptions, Form, InputNumber, Modal, Select, Skeleton, Table, Tag } from 'antd';
+import type { AccaoLinha } from '@/componentes/vistas';
+import { useImprimirCompra } from './accoesLista';
+import { colunaUnCc } from './colunasLegado';
+import { ModalFluxoDocumental, type TipoDocumentoCompra } from './FluxoDocumental';
 import { ArrowLeftOutlined, CheckCircleTwoTone, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { BarraFiltros, COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { PainelPesquisaCompras } from './PainelPesquisaCompras';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { somar } from '@/utilitarios/decimal';
 import { dadosRececaoCompra } from './impressao';
@@ -54,21 +59,63 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
   const armazens = useArmazens();
   const nomeArmazem = (id: number | null) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? `#${id}` : '—');
 
+  const [fluxo, setFluxo] = useState<{ tipo: TipoDocumentoCompra; id: number } | null>(null);
+  const [descontabilizar, setDescontabilizar] = useState<RececaoCompra | null>(null);
+  const imprimir = useImprimirCompra();
+  const accao = useAccao<RececaoCompra>({ invalidar: [['compras'], ['logistica']], aoSucesso: () => setDescontabilizar(null) });
+  const encomendaTexto = (r: RececaoCompra) => (r.numero_encomenda ? `${r.numero_encomenda}${r.fornecedor?.nome ? ` — ${r.fornecedor.nome.trim()}` : ''}` : `#${r.encomenda_compra_id}`);
+
   const colunas: ColunaApi<RececaoCompra>[] = [
-    { title: 'Recepção', key: 'numero', fixed: 'left', render: (_, r) => <strong>{numeroOuId(r.numero_rececao, r.id)}</strong> },
-    { title: 'Guia do fornecedor', dataIndex: 'numero_entrega', responsive: ['md'], render: (v) => v || '—' },
-    { title: 'Encomenda', dataIndex: 'encomenda_compra_id', responsive: ['sm'], render: (v: number) => `#${v}` },
+    // «Guia Nº» do legado é a guia de entrega do fornecedor (delivery_number); sem ela, o n.º da recepção
+    { title: 'Guia N', key: 'numero', fixed: 'left', valorImpressao: (r) => r.numero_entrega || numeroOuId(r.numero_rececao, r.id), render: (_, r) => <strong>{r.numero_entrega || numeroOuId(r.numero_rececao, r.id)}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Armazém', dataIndex: 'armazem_id', responsive: ['lg'], valorImpressao: (r) => nomeArmazem(r.armazem_id), render: (v: number | null) => <NomeArmazem id={v} /> },
-    { title: 'Valor (Kz)', dataIndex: 'valor_total_kz', align: 'right', responsive: ['sm'], render: (v: string | null) => (v ? formatarKz(v) : '—'), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => (l.estado === 'ANULADO' ? 0 : l.valor_total_kz)))) },
-    { title: 'Estado', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado === 'RECEBIDO' && !r.validado ? 'PENDENTE' : r.estado), render: (e: string, r) => <EstadoTag estado={e === 'RECEBIDO' && !r.validado ? 'PENDENTE' : e} /> },
-    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', responsive: ['lg'], valorImpressao: (r) => (r.contabilizado ? 'Sim' : 'Não'), render: (c: boolean | null) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
+    { title: 'Encomenda Ref.', key: 'encomenda', valorImpressao: (r) => r.numero_encomenda ?? `#${r.encomenda_compra_id}`, render: (_, r) => r.numero_encomenda ?? `#${r.encomenda_compra_id}` },
+    { title: 'Fornecedor', key: 'fornecedor', valorImpressao: (r) => r.fornecedor?.nome?.trim() ?? '-', render: (_, r) => r.fornecedor?.nome?.trim() ?? '-' },
+    colunaUnCc<RececaoCompra>(),
+    {
+      title: 'Status', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado === 'RECEBIDO' && !r.validado ? 'PENDENTE' : r.estado),
+      render: (e: string, r) => (
+        <>
+          <EstadoTag estado={e === 'RECEBIDO' && !r.validado ? 'PENDENTE' : e} />
+          {!r.contabilizado && e !== 'ANULADO' && (
+            <Tag color={r.validado ? 'green' : 'orange'} title="A receção é contabilizada na validação do Armazém">{r.validado ? 'VALIDADA NO ARMAZÉM' : 'POR VALIDAR NO ARMAZÉM'}</Tag>
+          )}
+        </>
+      ),
+    },
+    { title: 'Guia do fornecedor', dataIndex: 'numero_entrega', ocultaPorOmissao: true, render: (v) => v || '—' },
+    { title: 'Armazém', dataIndex: 'armazem_id', ocultaPorOmissao: true, valorImpressao: (r) => nomeArmazem(r.armazem_id), render: (v: number | null) => <NomeArmazem id={v} /> },
+    { title: 'Valor (Kz)', dataIndex: 'valor_total_kz', align: 'right', ocultaPorOmissao: true, render: (v: string | null) => (v ? formatarKz(v) : '—'), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => (l.estado === 'ANULADO' ? 0 : l.valor_total_kz)))) },
+    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', ocultaPorOmissao: true, valorImpressao: (r) => (r.contabilizado ? 'Sim' : 'Não'), render: (c: boolean | null) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
+  ];
+
+  /** Acções por linha do legado (js/ui_compras_v2.js:530-536): Ver Fluxo, Imprimir Guia de Receção e Descontabilizar. */
+  const accoes = (r: RececaoCompra): AccaoLinha[] => [
+    { icone: 'project-diagram', titulo: 'Ver Fluxo', variante: 'info', onClick: () => setFluxo({ tipo: 'rececao', id: r.id }) },
+    { icone: 'print', titulo: 'Imprimir Guia de Receção', onClick: () => imprimir.rececao(r.id, { encomenda: encomendaTexto(r), armazem: r.armazem_id ? nomeArmazem(r.armazem_id) : null }) },
+    { icone: 'undo', titulo: 'Descontabilizar', cor: '#dc2626', oculto: !r.contabilizado || !pode('armazem_rec_anular'), onClick: () => setDescontabilizar(r) },
   ];
 
   return (
     <>
+      <ModalFluxoDocumental documento={fluxo} aoFechar={() => setFluxo(null)} />
+      <ModalMotivo
+        aberto={!!descontabilizar}
+        titulo={descontabilizar ? `Descontabilizar a recepção ${numeroOuId(descontabilizar.numero_rececao, descontabilizar.id)}` : ''}
+        textoOk="Descontabilizar"
+        aviso="Reverte a validação: dá saída do stock ao custo da entrada e estorna o lançamento. Recusado se a encomenda já tiver facturas."
+        carregando={accao.isPending}
+        aoFechar={() => setDescontabilizar(null)}
+        aoConfirmar={(motivo) => descontabilizar && accao.mutate({ url: `/compras/rececoes/${descontabilizar.id}/reverter-validacao`, dados: { motivo } })}
+      />
+      {/* um só cartão com o painel de pesquisa, o título e a lista, como o legado (js/ui_compras_v2.js:165-233) */}
+      <Card className="compras-cartao-lista">
+      <PainelPesquisaCompras placeholder="N.º da recepção ou guia" aoPesquisar={setPesquisa} periodo={periodo} aoMudarPeriodo={setPeriodo}>
+        <Select placeholder="Estado" allowClear style={{ width: 220, maxWidth: '100%' }} value={estado} onChange={setEstado} options={ESTADOS_FILTRO} />
+        <InputNumber placeholder="N.º interno da encomenda" min={1} style={{ width: 220, maxWidth: '100%' }} value={encomenda} onChange={(v) => setEncomenda(v)} />
+      </PainelPesquisaCompras>
       <CabecalhoPagina
-        titulo={modo === 'armazem' ? 'Validar entradas' : 'Recepções'}
+        titulo={modo === 'armazem' ? 'Validar entradas' : 'Guias de Receção de Mercadoria'}
         subtitulo={modo === 'armazem' ? 'Recepções de compras a validar: a validação dá entrada em stock e contabiliza' : 'Recepções de mercadoria das encomendas a fornecedores'}
         accoes={
           modo === 'compras' &&
@@ -79,21 +126,15 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
           )
         }
       />
-      <Card>
-        <BarraFiltros>
-          <Select placeholder="Estado" allowClear style={{ width: 220, maxWidth: '100%' }} value={estado} onChange={setEstado} options={ESTADOS_FILTRO} />
-          <Input.Search placeholder="N.º da recepção ou guia" allowClear style={{ width: 230, maxWidth: '100%' }} onSearch={(v) => setPesquisa(v.trim())} />
-          <InputNumber placeholder="N.º interno da encomenda" min={1} style={{ width: 220, maxWidth: '100%' }} value={encomenda} onChange={(v) => setEncomenda(v)} />
-          <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-        </BarraFiltros>
         <TabelaApi<RececaoCompra>
           url="/compras/rececoes"
           chaveConsulta={['compras', 'rececoes']}
           filtros={{ estado, pesquisa: pesquisa || undefined, encomenda_compra_id: encomenda ?? undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
           columns={colunas}
+          accoes={accoes}
           size={pequeno ? 'small' : 'middle'}
           impressao={{
-            titulo: modo === 'armazem' ? 'Lista de entradas a validar' : 'Lista de recepções de compras',
+            titulo: modo === 'armazem' ? 'Lista de entradas a validar' : 'Guias de Receção de Mercadoria',
             periodo: periodo?.[0] && periodo?.[1] ? `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}` : undefined,
             filtros: [estado && `Estado: ${ESTADOS_FILTRO.find((e) => e.value === estado)?.label ?? estado}`, !!encomenda && `Encomenda: #${encomenda}`, pesquisa && `Pesquisa: ${pesquisa}`],
             rotuloTotal: 'Total (sem anuladas)',

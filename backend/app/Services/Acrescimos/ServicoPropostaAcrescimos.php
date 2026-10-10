@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\ItemAcrescimoDiferimento;
 use App\Models\LancamentoContabil;
 use App\Models\PeriodoLancamentoAcrescimo;
+use App\Models\PlanoConta;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
@@ -199,9 +200,10 @@ final class ServicoPropostaAcrescimos
     }
 
     /**
-     * Reconciliação: saldo das contas de balanço segundo o módulo × Diário, até à data.
+     * Reconciliação: saldo das contas de balanço segundo o módulo × Diário, até à data. Com a descrição da conta no plano
+     * da empresa, para a faixa «Saldo <conta> <descrição>» dos Registos (descConta de ad_ui.js:92 e 153).
      *
-     * @return list<array{conta: string, modulo: string, diario: string, diferenca: string}>
+     * @return list<array{conta: string, descricao: string, modulo: string, diario: string, diferenca: string}>
      */
     public function reconciliacao(?string $data): array
     {
@@ -218,10 +220,12 @@ final class ServicoPropostaAcrescimos
         $diario = LancamentoContabil::query()->whereIn('codigo_conta', array_map('strval', array_keys($porConta)))
             ->when($data, fn ($q) => $q->where('data_documento', '<=', $data))
             ->selectRaw("codigo_conta, SUM(CASE WHEN tipo_dc = 'D' THEN valor ELSE -valor END) AS saldo")->groupBy('codigo_conta')->pluck('saldo', 'codigo_conta');
+        $descricoes = PlanoConta::query()->whereIn('codigo', array_map('strval', array_keys($porConta)))->pluck('descricao', 'codigo');
         $r = [];
         foreach ($porConta as $conta => $modulo) {
             $d = CalculadoraAcrescimos::dinheiro((string) ($diario[(string) $conta] ?? '0'));
-            $r[] = ['conta' => (string) $conta, 'modulo' => $modulo, 'diario' => $d, 'diferenca' => bcsub($d, $modulo, 2)];
+            $r[] = ['conta' => (string) $conta, 'descricao' => trim((string) ($descricoes[(string) $conta] ?? '')), 'modulo' => $modulo, 'diario' => $d,
+                'diferenca' => bcsub($d, $modulo, 2)];
         }
         usort($r, fn ($a, $b) => strnatcmp($a['conta'], $b['conta']));
 

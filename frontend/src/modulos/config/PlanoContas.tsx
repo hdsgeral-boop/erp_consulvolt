@@ -1,5 +1,5 @@
-import { Alert, Button, Card, Checkbox, Col, Collapse, Flex, Form, Input, Modal, Popconfirm, Radio, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, Col, Collapse, Flex, Form, Input, Modal, Radio, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { enviar } from '@/api/cliente';
@@ -14,6 +14,9 @@ import { useAccao } from '@/componentes/Accoes';
 import { usePlanoContas } from '@/modulos/contab/comum/dados';
 import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import type { ContaPlano } from '@/modulos/contab/api';
+import { IconeFa } from '@/componentes/fluxos';
+import { tituloPlanoContas } from './comum/paridade';
+import { CelulaUso, CopiarOutraEmpresa, ImportarPlano, baixarTemplatePlano, useContasEmUso } from './plano/PlanoContasParidade';
 
 interface ContagemTabela {
   tabela: string;
@@ -35,32 +38,46 @@ interface SimulacaoEmpresa {
   total_informativos: number;
 }
 
-/** Configurações › Plano de contas (config_plano): contas (M/T), criação/edição/eliminação e substituição de conta com simulação. */
+/**
+ * Configurações › Plano de contas (config_plano): contas (M/T), criação/edição/eliminação e substituição de conta com simulação.
+ * Paridade com o antigo (renderPlanoContas, js/app_v2.js:8320-8402): título «Plano de Contas (N contas)», barra
+ * Copiar de outra empresa · Substituir conta · Baixar Template · Importar Excel · Nova Conta, colunas
+ * CÓDIGO · DESCRIÇÃO · TIPO · USO · AÇÕES (Editar, Excluir).
+ */
 export default function PlanoContas() {
   const { pode } = useSessao();
+  const plano = usePlanoContas();
+  const [separador, setSeparador] = useState('contas');
+  const substituir = pode('contab_conta_substituir');
   return (
     <>
       <NavConfig actual="config_plano" />
-      <CabecalhoPagina titulo="Plano de Contas" subtitulo="Contas de movimento e totalizadoras da empresa activa" />
+      <CabecalhoPagina titulo={tituloPlanoContas(plano.data?.length)} subtitulo="Contas de movimento e totalizadoras da empresa activa" />
       <Tabs
+        activeKey={separador}
+        onChange={setSeparador}
         items={[
-          { key: 'contas', label: 'Contas', children: <Contas /> },
-          ...(pode('contab_conta_substituir') ? [{ key: 'substituir', label: 'Substituir conta', children: <Substituir /> }] : []),
+          { key: 'contas', label: 'Contas', children: <Contas aoSubstituir={substituir ? () => setSeparador('substituir') : undefined} /> },
+          ...(substituir ? [{ key: 'substituir', label: 'Substituir conta', children: <Substituir /> }] : []),
         ]}
       />
     </>
   );
 }
 
-function Contas() {
+function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
   const { pode } = useSessao();
   const plano = usePlanoContas();
+  const uso = useContasEmUso(pode('config_plano_view', 'contab_plano_gerir', 'lancamentos_view'));
   const [filtro, setFiltro] = useState('');
   const [tipo, setTipo] = useState<'M' | 'T' | undefined>();
   const [edicao, setEdicao] = useState<ContaPlano | 'nova' | null>(null);
+  const [janela, setJanela] = useState<'copiar' | 'importar' | null>(null);
   const [form] = Form.useForm<{ codigo: string; descricao: string; tipo: 'M' | 'T'; codigo_moeda?: string; natureza_conta?: string }>();
   const gerir = pode('contab_plano_gerir');
+  const eliminar = pode('contab_tabelas_del');
   const accao = useAccao({ invalidar: [['contab', 'plano-contas']], aoSucesso: () => setEdicao(null) });
+  const emUso = (c: ContaPlano) => !!uso.data?.has(c.codigo);
 
   useEffect(() => {
     if (!edicao) return;
@@ -77,19 +94,23 @@ function Contas() {
   return (
     <Card>
       <TabelaLocalImprimivel<ContaPlano>
-        titulo="Plano de Contas"
+        titulo={tituloPlanoContas(plano.data?.length)}
         filtros={[tipo ? `Tipo: ${tipo === 'M' ? 'Movimento' : 'Totalizadoras'}` : null, filtro ? `Pesquisa: ${filtro}` : null]}
         filtrosEcra={<>
           <Input.Search placeholder="Código (prefixo) ou descrição" allowClear style={{ width: 280 }} onChange={(e) => setFiltro(e.target.value)} />
           <Radio.Group value={tipo ?? ''} onChange={(e) => setTipo(e.target.value || undefined)} optionType="button" options={[{ value: '', label: 'Todas' }, { value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadoras' }]} />
         </>}
         accoes={<>
+          {gerir && <Button icon={<IconeFa nome="copy" />} style={{ color: '#1d4ed8' }} onClick={() => setJanela('copiar')}>Copiar de outra empresa</Button>}
+          {aoSubstituir && <Button icon={<IconeFa nome="exchange-alt" />} style={{ color: '#b45309', borderColor: '#f59e0b' }} onClick={aoSubstituir}>Substituir conta</Button>}
+          {gerir && <Button icon={<IconeFa nome="file-download" />} onClick={() => void baixarTemplatePlano()}>Baixar Template</Button>}
+          {gerir && <Button icon={<IconeFa nome="file-import" />} onClick={() => setJanela('importar')}>Importar Excel</Button>}
           <BotaoCsv<ContaPlano>
             nome="plano_contas"
             linhas={linhas}
-            colunas={[{ titulo: 'Código', valor: (c) => c.codigo }, { titulo: 'Descrição', valor: (c) => c.descricao }, { titulo: 'Tipo', valor: (c) => c.tipo }, { titulo: 'Moeda', valor: (c) => c.codigo_moeda }]}
+            colunas={[{ titulo: 'Código', valor: (c) => c.codigo }, { titulo: 'Descrição', valor: (c) => c.descricao }, { titulo: 'Tipo', valor: (c) => c.tipo }, { titulo: 'Moeda', valor: (c) => c.codigo_moeda }, { titulo: 'Uso', valor: (c) => (emUso(c) ? 'Em Uso' : '') }]}
           />
-          {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova conta</Button>}
+          {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova Conta</Button>}
         </>}
         rowKey="id"
         size="small"
@@ -97,26 +118,37 @@ function Contas() {
         dataSource={linhas}
         pagination={{ pageSize: 100, showSizeChanger: false, showTotal: (n) => `${n} conta(s)` }}
         columns={[
-          { title: 'Código', dataIndex: 'codigo', width: 150, render: (v: string, c) => <span style={{ paddingLeft: Math.max(0, v.replace(/\./g, '').length - 1) * 6, fontWeight: c.tipo === 'T' ? 600 : 400 }}>{v}</span> },
+          { title: 'Código', dataIndex: 'codigo', width: 150, render: (v: string, c) => <span style={{ paddingLeft: Math.max(0, v.replace(/\./g, '').length - 1) * 6, fontWeight: c.tipo === 'T' ? 600 : 400, fontFamily: 'monospace' }}>{v}</span> },
           { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null, c) => <span style={{ fontWeight: c.tipo === 'T' ? 600 : 400 }}>{v}</span> },
-          { title: 'Tipo', dataIndex: 'tipo', width: 130, valorImpressao: (c) => (c.tipo === 'T' ? 'Totalizadora' : 'Movimento'), render: (t: string) => (t === 'T' ? <Tag color="blue">Totalizadora</Tag> : <Tag>Movimento</Tag>) },
-          { title: 'Moeda', dataIndex: 'codigo_moeda', width: 90, responsive: ['md'], render: (v: string | null) => v ?? '—' },
           {
-            title: '',
-            width: 90,
-            render: (_, c) => (
-              <Space>
-                {gerir && <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar" title="Editar" onClick={() => setEdicao(c)} />}
-                {pode('contab_tabelas_del') && (
-                  <Popconfirm title={`Eliminar a conta ${c.codigo}?`} description="Só é possível sem movimentos nem subcontas." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/contabilidade/plano-contas/${c.id}` })}>
-                    <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" title="Eliminar" />
-                  </Popconfirm>
-                )}
-              </Space>
+            title: 'Tipo',
+            dataIndex: 'tipo',
+            width: 150,
+            align: 'center',
+            valorImpressao: (c) => `${c.tipo === 'T' ? 'Totalizadora' : 'Movimento'}${c.codigo_moeda && c.codigo_moeda !== 'AOA' ? ` (${c.codigo_moeda})` : ''}`,
+            render: (t: string, c) => (
+              <>
+                {t === 'T' ? <Tag color="green">Totalizadora</Tag> : <Tag color="blue">Movimento</Tag>}
+                {c.codigo_moeda && c.codigo_moeda !== 'AOA' && <Tag title="Moeda da conta">{c.codigo_moeda}</Tag>}
+              </>
             ),
+          },
+          { title: 'Uso', key: 'uso', width: 110, align: 'center', valorImpressao: (c) => (emUso(c) ? 'Em Uso' : '-'), valorFiltro: (c) => (emUso(c) ? 'Em Uso' : '-'), render: (_, c) => <CelulaUso emUso={emUso(c)} /> },
+        ]}
+        accoesLinha={(c) => [
+          gerir && { icone: 'edit', titulo: 'Editar', onClick: () => setEdicao(c) },
+          eliminar && {
+            icone: 'trash',
+            titulo: 'Excluir',
+            variante: 'perigo',
+            desactivado: emUso(c) ? 'Conta em uso: não pode ser eliminada (use «Substituir conta»)' : false,
+            confirmar: { titulo: `Eliminar a conta ${c.codigo}?`, texto: 'Só é possível sem movimentos nem subcontas.', textoOk: 'Eliminar', perigo: true },
+            onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/contabilidade/plano-contas/${c.id}` }),
           },
         ]}
       />
+      <CopiarOutraEmpresa aberto={janela === 'copiar'} aoFechar={() => setJanela(null)} />
+      <ImportarPlano aberto={janela === 'importar'} aoFechar={() => setJanela(null)} />
       <Modal title={edicao === 'nova' ? 'Nova conta' : `Conta ${edicao?.codigo ?? ''}`} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form
           form={form}
@@ -158,7 +190,7 @@ function Substituir() {
   const [form] = Form.useForm<{ origem: string; destino: string; empresas: number[] }>();
   const [simulacao, setSimulacao] = useState<SimulacaoEmpresa[] | null>(null);
   const [confirmado, setConfirmado] = useState(false);
-  const opcoes = (plano.data ?? []).filter((c) => c.tipo === 'M').map((c) => ({ value: c.codigo, label: `${c.codigo} — ${c.descricao ?? ''}` }));
+  const opcoes = (plano.data ?? []).filter((c) => c.tipo === 'M').map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` }));
 
   const simular = useMutation({
     mutationFn: async () => enviar<SimulacaoEmpresa[]>('post', '/sistema/plano-contas/substituir/simular', await form.validateFields()),

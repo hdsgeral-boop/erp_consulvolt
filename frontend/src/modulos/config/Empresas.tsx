@@ -1,5 +1,6 @@
-import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Space, Switch, Tabs, Tag, Upload, Image, message } from 'antd';
-import { CheckCircleOutlined, DeleteOutlined, EditOutlined, PlusOutlined, StopOutlined, UploadOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Segmented, Switch, Tabs, Tag, Upload, Image, message } from 'antd';
+import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
@@ -11,6 +12,8 @@ import { useAccao } from '@/componentes/Accoes';
 import { lerComoDataUrl } from './comum/ficheiros';
 import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaLocalImprimivel } from './comum/impressao';
+import { enderecoSede, podeUsarEmpresa } from './comum/paridade';
+import { notificarErro } from '@/utilitarios/erros';
 
 export interface EmpresaGestao {
   id: number;
@@ -45,8 +48,12 @@ const LOGO_MAX = 1_000_000; // o servidor aceita até 1,5 MB de texto (base64)
 
 /** Configurações › Gestão de empresas (config_empresas): lista, ficha (identificação, RH, consolidação, documentos) e estado. */
 export default function Empresas() {
-  const { pode } = useSessao();
+  const { pode, empresas: acessiveis, empresa, escolherEmpresa } = useSessao();
+  const navegar = useNavigate();
   const gerir = pode('config_empresas_gerir');
+  const idsAcessiveis = new Set(acessiveis.map((e) => e.id));
+  // a mesma troca do selector do cabeçalho (LayoutPrincipal.trocarEmpresa): POST da sessão e volta ao início
+  const usarEmpresa = (id: number) => escolherEmpresa(id).then(() => navegar('/')).catch((e) => notificarErro(e, 'Não foi possível trocar de empresa'));
   const [estado, setEstado] = useState<'ATIVO' | 'INATIVO' | 'todas'>('ATIVO');
   const [filtro, setFiltro] = useState('');
   const [edicao, setEdicao] = useState<number | 'nova' | null>(null);
@@ -78,30 +85,37 @@ export default function Empresas() {
           pagination={{ pageSize: 50, hideOnSinglePage: true }}
           scroll={scrollTabela()}
           columns={[
-            { title: 'Empresa', dataIndex: 'nome', valorImpressao: (e) => `${e.nome}${e.e_consolidacao ? ' (holding)' : ''}`, render: (v: string, e) => (<><strong>{v}</strong>{e.e_consolidacao && <Tag color="purple" style={{ marginLeft: 6 }}>Holding</Tag>}</>) },
+            { title: 'ID', dataIndex: 'id', width: 70, responsive: ['md'] },
+            { title: 'Nome da empresa', dataIndex: 'nome', valorImpressao: (e) => `${e.nome}${e.e_consolidacao ? ' (holding)' : ''}`, render: (v: string, e) => (<><strong>{v}</strong>{e.e_consolidacao && <Tag color="purple" style={{ marginLeft: 6 }}>Holding</Tag>}{e.id === empresa?.id && <Tag color="blue" style={{ marginLeft: 6 }}>Activa</Tag>}</>) },
             { title: 'NIF', dataIndex: 'nif' },
-            { title: 'Moeda', dataIndex: 'moeda_funcional', width: 90, responsive: ['md'] },
-            { title: 'INSS (pat./trab.)', key: 'inss', responsive: ['md'], render: (_, e) => `${e.taxa_inss_patronal ?? '—'}% / ${e.taxa_inss_trabalhador ?? '—'}%` },
-            { title: 'Consolidado até', dataIndex: 'data_fim_consolidacao', responsive: ['lg'], render: formatarData },
+            { title: 'Endereço sede', dataIndex: 'endereco', responsive: ['md'], render: (v: string | null) => enderecoSede(v), valorImpressao: (e) => enderecoSede(e.endereco) },
+            { title: 'Moeda', dataIndex: 'moeda_funcional', width: 90, responsive: ['lg'] },
+            { title: 'INSS (pat./trab.)', key: 'inss', responsive: ['lg'], render: (_, e) => `${e.taxa_inss_patronal ?? '—'}% / ${e.taxa_inss_trabalhador ?? '—'}%` },
+            { title: 'Consolidado até', dataIndex: 'data_fim_consolidacao', responsive: ['xl'], render: formatarData },
             { title: 'Estado', dataIndex: 'estado', render: (s: string) => (s === 'ATIVO' ? <Tag color="green">Activa</Tag> : <Tag>Inactiva</Tag>) },
+          ]}
+          accoesLinha={(e) => [
+            // legado: «Usar Empresa» (fa-sign-in-alt → changeActiveCompany/CompanySwitch.trocarPara) — mesma troca do cabeçalho
             {
-              title: '',
-              width: 110,
-              render: (_, e) => (
-                <Space>
-                  <Button size="small" type="text" icon={<EditOutlined />} aria-label={gerir ? 'Editar' : 'Ver'} title={gerir ? 'Editar' : 'Ver'} onClick={() => setEdicao(e.id)} />
-                  {gerir && (
-                    <Popconfirm
-                      title={e.estado === 'ATIVO' ? `Desactivar «${e.nome}»? Os utilizadores deixam de a poder escolher.` : `Activar «${e.nome}»?`}
-                      okText={e.estado === 'ATIVO' ? 'Desactivar' : 'Activar'}
-                      cancelText="Cancelar"
-                      onConfirm={() => accao.mutateAsync({ metodo: 'put', url: `/sistema/empresas/${e.id}/estado`, dados: { estado: e.estado === 'ATIVO' ? 'INATIVO' : 'ATIVO' } })}
-                    >
-                      <Button size="small" type="text" icon={e.estado === 'ATIVO' ? <StopOutlined /> : <CheckCircleOutlined />} aria-label={e.estado === 'ATIVO' ? 'Desactivar' : 'Activar'} title={e.estado === 'ATIVO' ? 'Desactivar' : 'Activar'} />
-                    </Popconfirm>
-                  )}
-                </Space>
-              ),
+              icone: 'sign-in-alt',
+              titulo: 'Usar Empresa',
+              oculto: !podeUsarEmpresa(e, idsAcessiveis),
+              desactivado: e.id === empresa?.id ? 'Já é a empresa activa' : false,
+              onClick: () => usarEmpresa(e.id),
+            },
+            { icone: 'edit', titulo: gerir ? 'Editar' : 'Ver', onClick: () => setEdicao(e.id) },
+            gerir && {
+              icone: e.estado === 'ATIVO' ? 'ban' : 'check-circle',
+              titulo: e.estado === 'ATIVO' ? 'Desactivar' : 'Activar',
+              variante: e.estado === 'ATIVO' ? 'perigo' : 'sucesso',
+              desactivado: e.estado === 'ATIVO' && e.id === empresa?.id ? 'Não pode desactivar a empresa activa' : false,
+              confirmar: {
+                titulo: e.estado === 'ATIVO' ? `Desactivar «${e.nome}»?` : `Activar «${e.nome}»?`,
+                texto: e.estado === 'ATIVO' ? 'Os utilizadores deixam de a poder escolher.' : undefined,
+                textoOk: e.estado === 'ATIVO' ? 'Desactivar' : 'Activar',
+                perigo: e.estado === 'ATIVO',
+              },
+              onClick: () => accao.mutateAsync({ metodo: 'put', url: `/sistema/empresas/${e.id}/estado`, dados: { estado: e.estado === 'ATIVO' ? 'INATIVO' : 'ATIVO' } }),
             },
           ]}
         />

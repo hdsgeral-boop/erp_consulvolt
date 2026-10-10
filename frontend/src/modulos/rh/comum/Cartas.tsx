@@ -83,7 +83,7 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${periodo.id}/cartas`, dados: { ...v, data: dataApi(v.data) } })}>
           <Form.Item name="codigo_conta_bancaria" label="Conta bancária (43…)" rules={[{ required: true, message: 'Indique a conta.' }, { pattern: /^43/, message: 'Tem de ser uma conta bancária (43).' }]}>
             {verPlano ? (
-              <Select showSearch loading={contas.isLoading} optionFilterProp="label" options={(contas.data ?? []).map((x) => ({ value: x.codigo, label: `${x.codigo} — ${x.descricao ?? ''}` }))} />
+              <Select showSearch loading={contas.isLoading} optionFilterProp="label" options={(contas.data ?? []).map((x) => ({ value: x.codigo, label: `${x.codigo} - ${x.descricao ?? ''}` }))} />
             ) : (
               <Input maxLength={20} placeholder="43…" />
             )}

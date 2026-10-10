@@ -1,21 +1,23 @@
-import { Button, Card, DatePicker, Flex, Input, Modal, Segmented, Select, Space, Tag, Tooltip, Typography, message } from 'antd';
-import { CloudUploadOutlined, DeleteOutlined, FileExcelOutlined, MinusCircleOutlined, PlusCircleOutlined, SearchOutlined, UndoOutlined } from '@ant-design/icons';
+import { Button, Card, DatePicker, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography } from 'antd';
 import { useAccao } from '@/componentes/Accoes';
 import { descarregarModeloTesouraria, ModalImportacaoTesouraria } from './ModalImportacao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
-import { BarraFiltros, useEcra } from '@/componentes/responsivo';
+import { BarraFiltros } from '@/componentes/responsivo';
+import type { AccaoLinha } from '@/componentes/vistas';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { somar } from '@/utilitarios/decimal';
 import type { Dayjs } from 'dayjs';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from '../../contab/comum/Componentes';
 import { ROTULO_TIPO, type DocumentoTesouraria, type EstadoDocumento, type TipoDocumento } from '../api';
+import { colunasOperacoes, bloqueioEdicao, bloqueioExclusao } from '../colunasLegado';
 import { SeletorContaFinanceira, TabelaDocumentos } from '../comum';
+import { pedirMotivo } from '../motivo';
 
-/** Colunas comuns às listagens de documentos de tesouraria (gestão, integração e histórico). */
+/** Colunas genéricas dos documentos de tesouraria (mantidas para ecrãs que não seguem uma lista do legado). */
 export function colunasDocumentos(): ColunaApi<DocumentoTesouraria>[] {
   return [
     { title: 'Documento', dataIndex: 'numero_documento', render: (v: string | null, r) => <strong>{v ?? `#${r.id}`}</strong> },
@@ -45,15 +47,46 @@ export function textoPeriodo(periodo: [Dayjs | null, Dayjs | null] | null): stri
 
 type Separador = 'PAGAMENTO' | 'RECEBIMENTO' | 'TODOS';
 
+/** Separador pedido na query string (?tipo=PAGAMENTO|RECEBIMENTO — menu do legado com duas entradas); outro valor → Todos. */
+export function separadorDaQuery(tipo: string | null): Separador {
+  return tipo === 'PAGAMENTO' || tipo === 'RECEBIMENTO' ? tipo : 'TODOS';
+}
+
 /**
- * Tesouraria › Operações, como no legado (renderTesouraria): separadores Pagamentos / Recebimentos / Todos os registos
- * (e atalho para a Folha de caixa), painel de pesquisa (texto, De, Até, Buscar, Limpar), barra de acções (Baixar modelo,
- * Carregar dados — A-12 —, Anular seleccionados, Novo pagamento/recebimento) e a lista com selecção.
+ * Botão «Novo …» do legado: `Novo ${tipo === 'PAGAMENTO' ? 'Pagamento' : 'Recebimento'}` — no separador «Todos os
+ * Registos» o antigo mostrava «Novo Recebimento» (renderMovimentosTesouraria, js/ui_tesouraria.js:507).
+ */
+export function botaoNovo(separador: Separador): { tipo: TipoDocumento; rotulo: string } {
+  return separador === 'PAGAMENTO' ? { tipo: 'PAGAMENTO', rotulo: 'Novo Pagamento' } : { tipo: 'RECEBIMENTO', rotulo: 'Novo Recebimento' };
+}
+
+/** Acções por linha do legado: Detalhes, Copiar operação, Editar (cadeado se integrado), Excluir (= anular com motivo). */
+export function accoesDocumento(
+  d: DocumentoTesouraria,
+  o: { podeEmitir: boolean; podeEliminar: boolean; abrir: (d: DocumentoTesouraria) => void; copiar: (d: DocumentoTesouraria) => void; editar: (d: DocumentoTesouraria) => void; excluir: (d: DocumentoTesouraria) => void },
+): AccaoLinha[] {
+  const edicao = bloqueioEdicao(d);
+  const exclusao = bloqueioExclusao(d);
+  return [
+    { chave: 'detalhes', icone: 'eye', titulo: 'Detalhes', onClick: () => o.abrir(d) },
+    { chave: 'copiar', icone: 'copy', titulo: 'Copiar operação', cor: '#0891b2', oculto: !o.podeEmitir, onClick: () => o.copiar(d) },
+    { chave: 'editar', icone: d.estado === 'INTEGRADO' ? 'lock' : 'edit', titulo: edicao || 'Editar', desactivado: edicao, oculto: !o.podeEmitir, onClick: () => o.editar(d) },
+    { chave: 'excluir', icone: 'trash', titulo: exclusao || 'Excluir', variante: 'perigo', desactivado: exclusao, oculto: !o.podeEliminar, onClick: () => o.excluir(d) },
+  ];
+}
+
+/**
+ * Tesouraria › Operações, como no legado (renderMovimentosTesouraria): os separadores Pagamentos / Recebimentos / Todos os
+ * Registos / Folha de Caixa estão no cabeçalho agregador (BarraTesouraria) e mudam o ?tipo=; aqui ficam o painel de
+ * pesquisa (Pesquisa, De, Até, Buscar, Limpar), a barra de acções (Baixar Template, Carregar Dados, Eliminar Sel.,
+ * Novo Pagamento/Recebimento) e a lista com as colunas e acções do legado.
  */
 export function ListaDocumentos() {
   const navegar = useNavigate();
   const { pode } = useSessao();
-  const [separador, setSeparador] = useState<Separador>('TODOS');
+  // o menu e o agregador abrem este ecrã já filtrado (?tipo=…; sem dados pessoais na URL)
+  const [parametros] = useSearchParams();
+  const separador = separadorDaQuery(parametros.get('tipo'));
   const [estado, setEstado] = useState<EstadoDocumento>();
   const [conta, setConta] = useState<string>();
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
@@ -61,7 +94,9 @@ export function ListaDocumentos() {
   const [pesquisa, setPesquisa] = useState('');
   const [seleccao, setSeleccao] = useState<DocumentoTesouraria[]>([]);
   const [importar, setImportar] = useState(false);
+  useEffect(() => setSeleccao([]), [separador]);
   const tipo = separador === 'TODOS' ? undefined : (separador as TipoDocumento);
+  const novo = botaoNovo(separador);
   const lote = useAccao<{ ok: { numero_documento: string | null }[]; erros: { numero_documento: string | null; mensagem: string }[] }>({
     invalidar: [['teso']],
     aoSucesso: (r) => {
@@ -69,110 +104,104 @@ export function ListaDocumentos() {
       if (r.erros.length) Modal.warning({ title: 'Alguns documentos não foram tratados', content: <ul>{r.erros.map((e, i) => <li key={i}><strong>{e.numero_documento ?? '—'}</strong>: {e.mensagem}</li>)}</ul> });
     },
   });
-  const comMotivo = (titulo: string, url: string, ids: number[]) => {
-    let motivo = '';
-    Modal.confirm({
-      title: titulo,
-      content: (
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Typography.Text>{ids.length} documento(s); cada um é tratado na sua transacção.</Typography.Text>
-          <Input.TextArea rows={2} maxLength={500} placeholder="Motivo (obrigatório)" aria-label="Motivo" onChange={(e) => { motivo = e.target.value; }} />
-        </Space>
-      ),
-      okText: 'Confirmar', okButtonProps: { danger: true }, cancelText: 'Cancelar',
-      onOk: () => (motivo.trim().length < 5 ? Promise.reject(message.error('Indique o motivo (mínimo 5 caracteres).')) : lote.mutate({ url, dados: { ids, motivo } })),
-    });
-  };
+  const anularUm = useAccao({ invalidar: [['teso']] });
+  const comMotivo = (titulo: string, url: string, ids: number[]) =>
+    pedirMotivo({ titulo, texto: `${ids.length} documento(s); cada um é tratado na sua transacção.`, aoConfirmar: (motivo) => lote.mutateAsync({ url, dados: { ids, motivo } }) });
   const pendentes = seleccao.filter((d) => d.estado === 'PENDENTE').map((d) => d.id);
   const integrados = seleccao.filter((d) => d.estado === 'INTEGRADO').map((d) => d.id);
+  const podeEmitir = pode('teso_doc_emitir');
+  const podeEliminar = pode('teso_doc_eliminar');
 
-  const { telemovel } = useEcra();
   return (
     <>
-      <CabecalhoPagina titulo="Tesouraria — Operações" subtitulo="Movimentos diários de caixa, pagamentos e recebimentos." />
-      <Flex wrap gap="small" style={{ marginBottom: 16 }}>
-        <Segmented<Separador>
-          block={telemovel}
-          value={separador}
-          onChange={(v) => { setSeparador(v); setSeleccao([]); }}
-          options={[
-            { value: 'PAGAMENTO', label: 'Pagamentos', icon: <MinusCircleOutlined /> },
-            { value: 'RECEBIMENTO', label: 'Recebimentos', icon: <PlusCircleOutlined /> },
-            { value: 'TODOS', label: telemovel ? 'Todos' : 'Todos os registos' },
-          ]}
-        />
-        {pode('teso_folha_caixa_view') && <Button onClick={() => navegar('/m/teso/teso_folha_caixa')}>Folha de caixa</Button>}
-      </Flex>
-      <Card style={{ marginBottom: 16 }} styles={{ body: { paddingBottom: 8 } }}>
+      <div className="imp-nao-imprimir" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '14px 16px', borderRadius: 15, marginBottom: 16 }}>
         <BarraFiltros
           accoes={
             <Space wrap>
-              <Button type="primary" ghost icon={<SearchOutlined />} onClick={() => setPesquisa(texto)}>Buscar</Button>
-              <Button icon={<UndoOutlined />} onClick={() => { setTexto(''); setPesquisa(''); setPeriodo(null); setEstado(undefined); setConta(undefined); }}>Limpar</Button>
+              <Button type="primary" icon={<IconeFa nome="search" />} onClick={() => setPesquisa(texto)}>Buscar</Button>
+              <Button icon={<IconeFa nome="undo" />} onClick={() => { setTexto(''); setPesquisa(''); setPeriodo(null); setEstado(undefined); setConta(undefined); }}>Limpar</Button>
             </Space>
           }
         >
-          <Input prefix={<SearchOutlined />} placeholder="Referência / descrição / n.º…" allowClear value={texto} style={{ width: 260, maxWidth: '100%' }} aria-label="Pesquisa"
-            onChange={(e) => { setTexto(e.target.value); if (!e.target.value) setPesquisa(''); }} onPressEnter={() => setPesquisa(texto)} />
-          <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} placeholder={['De', 'Até']} />
+          {/* «Pesquisa:» larga e «De / Até:» com rótulos, como o painel do legado (renderMovimentosTesouraria) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 260 }}>
+            <Typography.Text strong style={{ color: '#475569', whiteSpace: 'nowrap' }}><IconeFa nome="search" style={{ color: '#2563eb' }} /> Pesquisa:</Typography.Text>
+            <Input placeholder="Referência / Descrição..." allowClear value={texto} style={{ width: '100%' }} aria-label="Pesquisa"
+              onChange={(e) => { setTexto(e.target.value); if (!e.target.value) setPesquisa(''); }} onPressEnter={() => setPesquisa(texto)} />
+          </div>
+          <Space size={6} wrap>
+            <Typography.Text strong style={{ color: '#475569' }}><IconeFa nome="calendar-alt" style={{ color: '#2563eb' }} /> De / Até:</Typography.Text>
+            <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} placeholder={['De', 'Até']} />
+          </Space>
           <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={[{ value: 'PENDENTE', label: 'Por integrar' }, { value: 'INTEGRADO', label: 'Integrados' }, { value: 'ANULADO', label: 'Anulados' }]} />
           <SeletorContaFinanceira value={conta} onChange={setConta} allowClear />
         </BarraFiltros>
-      </Card>
-      <Card style={{ marginBottom: 16 }} styles={{ body: { padding: 12 } }}>
-        <Flex wrap gap="small" justify="space-between">
+      </div>
+      <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px', background: '#f8fafc', borderRadius: 12 } }}>
+        <Flex wrap gap="small" justify="space-between" align="center">
           <Space wrap>
-            {pode('teso_doc_emitir') && (
+            {podeEmitir && (
               <>
-                <Button icon={<FileExcelOutlined />} style={{ color: '#15803d', borderColor: '#86efac', background: '#f0fdf4' }} onClick={() => void descarregarModeloTesouraria()}>Baixar modelo</Button>
-                <Button icon={<CloudUploadOutlined />} onClick={() => setImportar(true)}>Carregar dados</Button>
+                <Button icon={<IconeFa nome="file-excel" />} style={{ color: '#fff', background: '#16a34a', borderColor: '#16a34a' }} onClick={() => void descarregarModeloTesouraria()}>Baixar Template</Button>
+                <Button icon={<IconeFa nome="upload" />} style={{ color: '#fff', background: '#0891b2', borderColor: '#0891b2' }} onClick={() => setImportar(true)}>Carregar Dados</Button>
               </>
             )}
-            {pode('teso_doc_eliminar') && (
-              <Button danger icon={<DeleteOutlined />} disabled={!pendentes.length} onClick={() => comMotivo('Anular os documentos seleccionados (por integrar)', '/tesouraria/documentos/anular', pendentes)}>
-                Anular seleccionados
-              </Button>
+            {podeEliminar && (
+              <Tooltip title="Apagar apenas os selecionados (se não integrados)">
+                <Button danger icon={<IconeFa nome="trash-alt" />} disabled={!pendentes.length} onClick={() => comMotivo('Eliminar os documentos seleccionados (por integrar)', '/tesouraria/documentos/anular', pendentes)}>
+                  Eliminar Sel.
+                </Button>
+              </Tooltip>
             )}
-            {pode('teso_desintegrar') && (
-              <Button danger icon={<UndoOutlined />} disabled={!integrados.length} onClick={() => comMotivo('Anular a integração dos seleccionados (estorno)', '/tesouraria/documentos/desintegrar', integrados)}>
-                Desintegrar seleccionados
+            {pode('teso_desintegrar') && integrados.length > 0 && (
+              <Button danger icon={<IconeFa nome="undo" />} onClick={() => comMotivo('Anular a integração dos seleccionados (estorno)', '/tesouraria/documentos/desintegrar', integrados)}>
+                Anular integração ({integrados.length})
               </Button>
             )}
           </Space>
-          {pode('teso_doc_emitir') && (
-            <Space wrap>
-              {separador !== 'RECEBIMENTO' && <Button type={separador === 'PAGAMENTO' ? 'primary' : 'default'} ghost={separador === 'PAGAMENTO'} icon={<MinusCircleOutlined />} onClick={() => navegar('novo?tipo=PAGAMENTO')}>Novo pagamento</Button>}
-              {separador !== 'PAGAMENTO' && <Button type="primary" ghost icon={<PlusCircleOutlined />} onClick={() => navegar('novo?tipo=RECEBIMENTO')}>Novo recebimento</Button>}
-            </Space>
-          )}
+          {podeEmitir && <Button type="primary" icon={<IconeFa nome="plus" />} onClick={() => navegar(`novo?tipo=${novo.tipo}`)}>{novo.rotulo}</Button>}
         </Flex>
       </Card>
       <Card>
         <TabelaDocumentos
           filtros={{ tipo, estado, conta_financeira: conta, pesquisa, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
-          columns={colunasDocumentos()}
+          columns={colunasOperacoes(tipo)}
+          accoes={(d) => accoesDocumento(d, {
+            podeEmitir, podeEliminar,
+            abrir: (x) => navegar(String(x.id)),
+            copiar: (x) => navegar(`novo?copiar=${x.id}`),
+            editar: (x) => navegar(`${x.id}/editar`),
+            excluir: (x) => pedirMotivo({
+              titulo: `Excluir ${x.numero_documento ?? x.referencia ?? `#${x.id}`}?`,
+              texto: 'O documento por integrar é anulado (fica no histórico com o motivo); não é apagado.',
+              textoOk: 'Excluir',
+              aoConfirmar: (motivo) => anularUm.mutateAsync({ url: `/tesouraria/documentos/${x.id}/anular`, dados: { motivo } }),
+            }),
+          })}
           rowSelection={{
             selectedRowKeys: seleccao.map((d) => d.id),
-            onChange: (_, linhas) => setSeleccao(linhas),
+            preserveSelectedRowKeys: true,
+            onChange: (_, linhas) => setSeleccao(linhas.filter(Boolean)),
             getCheckboxProps: (r) => ({ disabled: r.estado === 'ANULADO', 'aria-label': `Seleccionar ${r.numero_documento ?? r.id}` }),
           }}
           impressao={{
             titulo: tipo ? `Lista de ${ROTULO_TIPO[tipo].toLowerCase()}s` : 'Lista de pagamentos e recebimentos',
             periodo: textoPeriodo(periodo),
+            orientacao: 'paisagem',
             filtros: [
               tipo && `Tipo: ${ROTULO_TIPO[tipo]}`,
               estado && `Estado: ${{ PENDENTE: 'Por integrar', INTEGRADO: 'Integrados', ANULADO: 'Anulados' }[estado]}`,
               conta && `Conta: ${conta}`,
               pesquisa && `Pesquisa: ${pesquisa}`,
-              'Total: recebimentos menos pagamentos (sem anulados)',
+              !tipo && 'Total: recebimentos menos pagamentos (sem anulados)',
             ],
-            rotuloTotal: 'Saldo',
+            rotuloTotal: tipo ? 'Total' : 'Saldo',
           }}
-          onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
+          vazio={{ icone: 'money-bill-wave', titulo: 'Nenhum registo encontrado', texto: 'Use a pesquisa ou registe um novo documento.' }}
+          onRow={(r) => ({ onDoubleClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
       <ModalImportacaoTesouraria aberto={importar} aoFechar={() => setImportar(false)} />
     </>
   );
 }
-

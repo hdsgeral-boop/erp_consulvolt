@@ -1,5 +1,5 @@
 import {
-  Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Tabs, Tag, TimePicker, Tooltip, Typography, Upload, message,
+  Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Tabs, Tag, TimePicker, Tooltip, Typography, Upload, message,
 } from 'antd';
 import { CalendarOutlined, ClockCircleOutlined, DeleteOutlined, LockOutlined, PlusOutlined, SearchOutlined, UnlockOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { http, obter } from '@/api/cliente';
 import type { Envelope } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { IconeFa } from '@/componentes/fluxos';
 import { BotoesExportar } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -28,18 +29,27 @@ import { TabelaComModos } from '@/componentes/vistas';
 export default function Assiduidade() {
   const [mes, setMes] = useState<Dayjs>(dayjs().startOf('month'));
   const m = mes.format('YYYY-MM');
+  // Ordem e nomes dos separadores do antigo (abre no «Resumo do mês»); «Fechos mensais» é um extra do sistema novo.
   return (
     <>
       <CabecalhoPagina
         titulo="Efectividade (biometria)"
         subtitulo="Assiduidade (biometria): o apuramento do mês fechado alimenta o processamento salarial («Importar efectividade»)"
-        accoes={<DatePicker picker="month" format="MM/YYYY" allowClear={false} value={mes} onChange={(v) => v && setMes(v)} />}
+        accoes={
+          <Space wrap>
+            <DatePicker picker="month" format="MM/YYYY" allowClear={false} value={mes} onChange={(v) => v && setMes(v)} aria-label="Mês" />
+            <BotaoFecharEfectividade mes={m} />
+          </Space>
+        }
       />
       <Tabs
+        type="card"
+        defaultActiveKey="apuramento"
         items={[
-          { key: 'registos', label: 'Registos', children: <Registos mes={m} /> },
-          { key: 'apuramento', label: 'Apuramento e fecho', children: <Apuramento mes={m} /> },
-          { key: 'ausencias', label: 'Ausências e faltas', children: <Ausencias mes={m} /> },
+          { key: 'apuramento', label: <span><IconeFa nome="calendar-check" /> Resumo do mês</span>, children: <Apuramento mes={m} /> },
+          { key: 'registos', label: <span><IconeFa nome="fingerprint" /> Registos</span>, children: <Registos mes={m} /> },
+          { key: 'importar', label: <span><IconeFa nome="file-import" /> Importar</span>, children: <Registos mes={m} soImportar /> },
+          { key: 'ausencias', label: <span><IconeFa nome="user-clock" /> Ausências justificadas</span>, children: <Ausencias mes={m} /> },
           { key: 'fechos', label: 'Fechos mensais', children: <Fechos /> },
           { key: 'config', label: 'Configuração', children: <Configuracao /> },
         ]}
@@ -60,7 +70,24 @@ interface ValoresRegisto {
   autorizado_extra?: boolean;
 }
 
-function Registos({ mes }: { mes: string }) {
+/** «Fechar efectividade» no topo do ecrã (como no antigo): fecha o apuramento do mês escolhido. */
+function BotaoFecharEfectividade({ mes }: { mes: string }) {
+  const { pode } = useSessao();
+  const permitido = pode('rh_assid_fechar');
+  const q = useQuery({ queryKey: ['rh', 'assiduidade', 'mes', mes], queryFn: () => obter<ApuramentoMes>(`/rh/assiduidade/meses/${mes}`), enabled: permitido });
+  const accao = useAccaoRh();
+  if (!permitido || !q.data) return null;
+  if (q.data.estado === 'FECHADO') return <Tag color="green" style={{ padding: '4px 10px' }}><LockOutlined /> Efectividade fechada</Tag>;
+  return (
+    <Button type="primary" icon={<LockOutlined />} loading={accao.isPending} onClick={() => Modal.confirm({
+      title: `Fechar a efectividade de ${mesPorExtenso(mes)}?`,
+      content: 'O apuramento fica guardado e passa a poder ser lançado no processamento salarial. As faltas por justificar são geradas.',
+      okText: 'Fechar efectividade', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/assiduidade/meses/${mes}/fechar` }),
+    })}>Fechar efectividade</Button>
+  );
+}
+
+function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const colaboradores = useColaboradores();
@@ -128,6 +155,56 @@ function Registos({ mes }: { mes: string }) {
     },
   ];
 
+  const modais = (
+    <>
+        <Modal title="Importar efectividade (CSV / XLSX)" open={importar} onCancel={() => setImportar(false)} okText="Importar" cancelText="Cancelar"
+          okButtonProps={{ disabled: ficheiros.length === 0 }} confirmLoading={envioFicheiro.isPending} onOk={() => envioFicheiro.mutate()}>
+          <Typography.Paragraph type="secondary">
+            Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>, <code>horas</code>, <code>observacoes</code>. Máximo 10 MB.
+          </Typography.Paragraph>
+          <Upload accept=".csv,.txt,.xlsx,.xls" maxCount={1} fileList={ficheiros} beforeUpload={() => false} onChange={({ fileList }) => setFicheiros(fileList.slice(-1))}>
+            <Button icon={<UploadOutlined />}>Escolher ficheiro</Button>
+          </Upload>
+          <Checkbox style={{ marginTop: 12 }} checked={substituir} onChange={(e) => setSubstituir(e.target.checked)}>Substituir os registos existentes do mesmo dia</Checkbox>
+        </Modal>
+  
+        <Modal title="Resultado da importação" open={resultado !== null} onCancel={() => setResultado(null)} footer={<Button type="primary" onClick={() => setResultado(null)}>Fechar</Button>}>
+          {resultado && (
+            <>
+              <Space size="large" wrap style={{ marginBottom: 12 }}>
+                <Statistic title="Gravados" value={resultado.gravados} />
+                <Statistic title="Ignorados" value={resultado.ignorados} />
+                <Statistic title="Erros" value={resultado.erros.length} valueStyle={{ color: resultado.erros.length ? '#cf1322' : undefined }} />
+              </Space>
+              {resultado.erros.length > 0 && <ul style={{ maxHeight: 260, overflow: 'auto', paddingLeft: 18 }}>{resultado.erros.map((e, i) => <li key={i}>{e}</li>)}</ul>}
+            </>
+          )}
+        </Modal>
+    </>
+  );
+
+  if (soImportar) {
+    // Separador «Importar» do antigo: ficheiro do relógio (CSV/XLSX) ou leitura directa do relógio configurado.
+    return (
+      <Card title={<Space><IconeFa nome="file-import" />Importar registos de {mesPorExtenso(mes)}</Space>}>
+        <Typography.Paragraph type="secondary">
+          Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>, <code>horas</code>, <code>observacoes</code>. Máximo 10 MB.
+          Depois de importar, confira o «Resumo do mês» e feche a efectividade.
+        </Typography.Paragraph>
+        {pode('rh_assid_registar') ? (
+          <Space wrap>
+            <Button type="primary" icon={<UploadOutlined />} onClick={() => setImportar(true)}>Importar ficheiro</Button>
+            <Popconfirm title="Ler os registos do relógio biométrico?" description="O servidor lê o endereço configurado; os registos do mesmo dia são substituídos." okText="Ler relógio" cancelText="Cancelar"
+              onConfirm={() => relogio.mutateAsync()}>
+              <Button icon={<ClockCircleOutlined />} loading={relogio.isPending}>Ler relógio</Button>
+            </Popconfirm>
+          </Space>
+        ) : <Alert type="info" showIcon message="Sem permissão para registar efectividade." />}
+        {modais}
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <BarraFiltros accoes={
@@ -173,29 +250,7 @@ function Registos({ mes }: { mes: string }) {
         </Form>
       </Modal>
 
-      <Modal title="Importar efectividade (CSV / XLSX)" open={importar} onCancel={() => setImportar(false)} okText="Importar" cancelText="Cancelar"
-        okButtonProps={{ disabled: ficheiros.length === 0 }} confirmLoading={envioFicheiro.isPending} onOk={() => envioFicheiro.mutate()}>
-        <Typography.Paragraph type="secondary">
-          Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>, <code>horas</code>, <code>observacoes</code>. Máximo 10 MB.
-        </Typography.Paragraph>
-        <Upload accept=".csv,.txt,.xlsx,.xls" maxCount={1} fileList={ficheiros} beforeUpload={() => false} onChange={({ fileList }) => setFicheiros(fileList.slice(-1))}>
-          <Button icon={<UploadOutlined />}>Escolher ficheiro</Button>
-        </Upload>
-        <Checkbox style={{ marginTop: 12 }} checked={substituir} onChange={(e) => setSubstituir(e.target.checked)}>Substituir os registos existentes do mesmo dia</Checkbox>
-      </Modal>
-
-      <Modal title="Resultado da importação" open={resultado !== null} onCancel={() => setResultado(null)} footer={<Button type="primary" onClick={() => setResultado(null)}>Fechar</Button>}>
-        {resultado && (
-          <>
-            <Space size="large" wrap style={{ marginBottom: 12 }}>
-              <Statistic title="Gravados" value={resultado.gravados} />
-              <Statistic title="Ignorados" value={resultado.ignorados} />
-              <Statistic title="Erros" value={resultado.erros.length} valueStyle={{ color: resultado.erros.length ? '#cf1322' : undefined }} />
-            </Space>
-            {resultado.erros.length > 0 && <ul style={{ maxHeight: 260, overflow: 'auto', paddingLeft: 18 }}>{resultado.erros.map((e, i) => <li key={i}>{e}</li>)}</ul>}
-          </>
-        )}
-      </Modal>
+      {modais}
     </Card>
   );
 }
@@ -226,7 +281,7 @@ function Apuramento({ mes }: { mes: string }) {
   ];
 
   return (
-    <Card loading={q.isLoading}>
+    <Card loading={q.isLoading} title={<Space><IconeFa nome="calendar-check" />Apuramento de {mes}</Space>}>
       {a && (
         <>
           <Flex justify="space-between" wrap gap={12} style={{ marginBottom: 16 }}>
@@ -253,7 +308,7 @@ function Apuramento({ mes }: { mes: string }) {
                   title: `Fechar a efectividade de ${mesPorExtenso(mes)}?`,
                   content: 'O apuramento fica guardado e passa a poder ser lançado no processamento salarial. As faltas por justificar são geradas.',
                   okText: 'Fechar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/assiduidade/meses/${mes}/fechar` }),
-                })}>Fechar mês</Button>
+                })}>Fechar efectividade</Button>
               )}
               {fechado && pode('rh_assid_fechar') && <Button icon={<UnlockOutlined />} onClick={() => { form.resetFields(); setReabrir(true); }}>Reabrir mês</Button>}
             </Space>
@@ -267,7 +322,8 @@ function Apuramento({ mes }: { mes: string }) {
             </Descriptions>
           )}
           {!fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Apuramento provisório até ${formatarData(a.apurado_ate)} (o mês ainda não está fechado).`} />}
-          <Table<LinhaApuramento> rowKey="employee_id" size="small" columns={colunas} dataSource={a.linhas} scroll={scrollTabela()} pagination={{ pageSize: 50 }} />
+          <TabelaComModos<LinhaApuramento> idVista="apuramento" rowKey="employee_id" size="small" columns={colunas} dataSource={a.linhas} scroll={scrollTabela()} modos={false}
+            vazio={{ icone: "calendar-check", titulo: "Sem colaboradores no apuramento", texto: "Não há colaboradores activos neste mês." }} />
         </>
       )}
       <Modal title="Reabrir a efectividade do mês" open={reabrir} onCancel={() => setReabrir(false)} okText="Reabrir" okButtonProps={{ danger: true }} cancelText="Cancelar"

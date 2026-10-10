@@ -38,6 +38,6 @@ export const TIPOS_TERMINAL: Record<string, string> = {
 
 export const TIPOS_MEIO: Record<string, string> = {
   NUMERARIO: 'Numerário',
-  TPA: 'TPA (Multicaixa)',
-  TRANSFERENCIA: 'Transferência',
+  TPA: 'Multicaixa (TPA)',
+  TRANSFERENCIA: 'Transferência bancária',
 };

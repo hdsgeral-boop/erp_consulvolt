@@ -132,7 +132,9 @@ export interface ContaCRM {
   oportunidades_abertas?: number;
   valor_aberto?: string;
   ganhas?: number;
-  financeiro?: { em_aberto: string; em_atraso: string; max_dias_atraso: number; n_atrasadas: number } | null;
+  financeiro?: { em_aberto: string; em_atraso: string; max_dias_atraso: number; n_atrasadas: number; facturado_12m?: string } | null;
+  /** Próxima actividade por concluir (lista de contas). */
+  proxima_atividade?: { id: number; tipo: string; titulo: string; data_prevista: string | null } | null;
 }
 
 export interface Contacto {

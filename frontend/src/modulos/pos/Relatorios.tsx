@@ -1,7 +1,8 @@
-import { Button, Card, Col, DatePicker, Empty, Flex, Row, Skeleton, Statistic, Table, Tabs } from 'antd';
-import { DownloadOutlined } from '@ant-design/icons';
+import { Button, Card, Col, DatePicker, Empty, Flex, Row, Skeleton, Table, Tabs } from 'antd';
+import { DownloadOutlined, PrinterOutlined } from '@ant-design/icons';
+import { useSessao } from '@/sessao/SessaoContexto';
 import { useQuery } from '@tanstack/react-query';
-import dayjs, { type Dayjs } from 'dayjs';
+import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -10,23 +11,41 @@ import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { descarregarCsv, gerarCsv } from '@/utilitarios/csv';
 import { useTerminais } from './comum/dados';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
+import { Seccao } from './contas/Seccao';
+import { textoDesvio } from './contas/formatos';
 import { documentoRelatorios } from './comum/documentos';
 import { EstadoPOS } from './comum/estados';
 import { SeletorTerminal } from './comum/Filtros';
-import type { PainelRelatorios } from './comum/tipos';
+import type { PainelRelatorios, SessaoPOS } from './comum/tipos';
+import { htmlRelatorioSessao, lerPreferencias, reimprimir, useCabecalhoTalao } from './comum/impressao';
 
 type Z = PainelRelatorios['zs'][number];
 
+/** «Terminal · operador» como no legado (pos_gestao.js:1123). */
+export const terminalOperador = (z: Pick<Z, 'codigo_terminal' | 'nome_operador'>) => `${z.codigo_terminal ?? '—'} · ${z.nome_operador ?? '—'}`;
+
+/** Estado do desvio no resumo (estadoDesvio, pos_gestao.js:1112). */
+function EstadoDesvioResumo({ estado }: { estado: string | null | undefined }) {
+  if (estado === 'PENDENTE') return <span style={{ color: '#b45309', fontWeight: 700 }}>Por deliberar</span>;
+  return <span style={{ color: '#059669' }}>{estado === 'DELIBERADO' ? 'Deliberado' : 'OK'}</span>;
+}
+
 /**
- * POS › Relatórios (ecrã pos_relatorios): KPIs, totais por meio, fechos Z, diferenças de TPA e vendas por produto,
- * terminal e operador, com filtros por período e terminal (GET /pos/relatorios).
+ * POS › Relatórios (ecrã pos_relatorios) como no sistema anterior (renderRelatoriosPOS, pos_gestao.js:1094-1127): abre SEM
+ * limite de período (todos os dados, como o antigo), cartões KPI com a barra de cor por baixo e, lado a lado, «Por meio de
+ * pagamento» e «Fechos de caixa (relatórios Z)»; o detalhe (Z completos, por produto, por terminal e operador, diferenças
+ * de TPA) fica nos separadores. Os valores das vendas vêm de total_bruto das FR (nunca de valor_pago, vazio nas FR do
+ * POS migradas). GET /pos/relatorios.
  */
 export default function Relatorios() {
-  const [periodo, setPeriodo] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs()]);
+  // sem período = todos os dados (3.2.1)
+  const [periodo, setPeriodo] = useState<[Dayjs, Dayjs] | null>(null);
   const [terminal, setTerminal] = useState<number>();
   const [detalhe, setDetalhe] = useState<number | null>(null);
-  const filtros = { data_inicio: dataApi(periodo[0]), data_fim: dataApi(periodo[1]), terminal_pos_id: terminal };
+  const filtros = { data_inicio: periodo ? dataApi(periodo[0]) : undefined, data_fim: periodo ? dataApi(periodo[1]) : undefined, terminal_pos_id: terminal };
+  const sufixo = periodo ? `${filtros.data_inicio}_${filtros.data_fim}` : 'todos';
   const consulta = useQuery({ queryKey: ['pos', 'relatorios', filtros], queryFn: () => obter<PainelRelatorios>('/pos/relatorios', filtros) });
   useEffect(() => {
     if (consulta.error) notificarErro(consulta.error, 'Erro ao carregar os relatórios do POS');
@@ -36,10 +55,18 @@ export default function Relatorios() {
   const terminais = useTerminais();
   const escolhido = terminal ? terminais.data?.find((t) => t.id === terminal) : undefined;
 
+  const { empresa } = useSessao();
+  const cabecalho = useCabecalhoTalao();
+  // «Reemitir Z» por linha, como o legado (window.reprintZReport, pos_gestao.js:677-682)
+  const reemitirZ = (id: number) =>
+    obter<SessaoPOS>(`/pos/sessoes/${id}`)
+      .then((s) => reimprimir(htmlRelatorioSessao(s, cabecalho(), lerPreferencias(empresa?.id)), lerPreferencias(empresa?.id)))
+      .catch((e) => notificarErro(e, 'Não foi possível reemitir o Z'));
+
   const exportarZ = () =>
     r &&
     descarregarCsv(
-      `pos_fechos_z_${filtros.data_inicio}_${filtros.data_fim}`,
+      `pos_fechos_z_${sufixo}`,
       gerarCsv<Z>(
         [
           { titulo: 'Z', valor: (z) => z.numero_z },
@@ -63,7 +90,7 @@ export default function Relatorios() {
   const exportarProdutos = () =>
     r &&
     descarregarCsv(
-      `pos_vendas_produto_${filtros.data_inicio}_${filtros.data_fim}`,
+      `pos_vendas_produto_${sufixo}`,
       gerarCsv(
         [
           { titulo: 'Código', valor: (p: PainelRelatorios['por_produto'][number]) => p.codigo },
@@ -84,29 +111,93 @@ export default function Relatorios() {
         impressao={() =>
           r && {
             titulo: 'Relatórios POS',
-            periodo: `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}`,
+            periodo: periodo ? `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}` : 'Todos os dados',
             filtros: [`Terminal: ${escolhido ? `${escolhido.codigo} — ${escolhido.nome}` : 'Todos'}`],
             conteudo: documentoRelatorios(r),
           }
         }
       />
       <BarraFiltros>
-        <DatePicker.RangePicker format="DD/MM/YYYY" allowClear={false} value={periodo} onChange={(v) => v?.[0] && v[1] && setPeriodo([v[0], v[1]])} />
+        <DatePicker.RangePicker
+          format="DD/MM/YYYY"
+          allowClear
+          placeholder={['Desde o início', 'Até hoje']}
+          aria-label="Período"
+          value={periodo}
+          onChange={(v) => setPeriodo(v?.[0] && v[1] ? [v[0], v[1]] : null)}
+        />
         <SeletorTerminal value={terminal} onChange={setTerminal} />
       </BarraFiltros>
       {!r ? (
         <Skeleton active />
       ) : (
         <>
-          <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-            <Kpi titulo="Facturação" valor={`${formatarKz(r.kpis.facturacao)} Kz`} />
-            <Kpi titulo="Documentos" valor={r.kpis.documentos} />
-            <Kpi titulo="Ticket médio" valor={`${formatarKz(r.kpis.ticket_medio)} Kz`} />
-            <Kpi titulo="Desvios (soma)" valor={`${formatarKz(r.kpis.desvios)} Kz`} cor={Number(r.kpis.desvios) < 0 ? '#cf1322' : undefined} />
-            <Kpi titulo="Sessões abertas" valor={r.kpis.sessoes_abertas} />
-            <Kpi titulo="Desvios por deliberar" valor={r.kpis.desvios_por_deliberar} cor={r.kpis.desvios_por_deliberar ? '#d46b08' : undefined} />
-            <Kpi titulo="Sessões por integrar" valor={r.kpis.sessoes_por_integrar} cor={r.kpis.sessoes_por_integrar ? '#d46b08' : undefined} />
-            <Kpi titulo="Sessões por prestar" valor={r.kpis.sessoes_por_prestar} cor={r.kpis.sessoes_por_prestar ? '#d46b08' : undefined} />
+          <GrelhaKpi larguraMinima={200} style={{ marginBottom: 16 }}>
+            <CartaoKpi rotulo="Facturação POS" valor={formatarKz(r.kpis.facturacao)} unidade="Kz" cor="#7c3aed" />
+            <CartaoKpi rotulo="Documentos" valor={r.kpis.documentos} cor="#3b82f6" />
+            <CartaoKpi rotulo="Ticket médio" valor={formatarKz(r.kpis.ticket_medio)} unidade="Kz" cor="#10b981" />
+            <CartaoKpi rotulo="Desvios de caixa" valor={textoDesvio(r.kpis.desvios)} unidade="Kz" cor={Number(r.kpis.desvios) < 0 ? '#ef4444' : '#10b981'} corValor={Number(r.kpis.desvios) < 0 ? '#b91c1c' : undefined} />
+            <CartaoKpi rotulo="Sessões abertas" valor={r.kpis.sessoes_abertas} cor="#f59e0b" />
+            <CartaoKpi rotulo="Desvios por deliberar" valor={r.kpis.desvios_por_deliberar} cor={r.kpis.desvios_por_deliberar ? '#ef4444' : '#10b981'} />
+          </GrelhaKpi>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24} lg={8}>
+              <Seccao titulo="Por meio de pagamento" icone="credit-card" nivel={4} style={{ height: '100%', marginBottom: 0 }}>
+                {r.por_meio.length ? (
+                  <table className="pos-resumo-meios" style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
+                    <tbody>
+                      {r.por_meio.map((m) => (
+                        <tr key={`${m.tipo}-${m.nome}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '4px 0' }}>{m.nome}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatarKz(m.valor)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <span style={{ color: '#94a3b8' }}>Sem vendas.</span>
+                )}
+              </Seccao>
+            </Col>
+            <Col xs={24} lg={16}>
+              <Seccao titulo="Fechos de caixa (relatórios Z)" icone="history" nivel={4} style={{ height: '100%', marginBottom: 0 }}>
+                <Table<Z>
+                  size="small"
+                  rowKey="id"
+                  dataSource={r.zs}
+                  scroll={scrollTabela()}
+                  pagination={{ pageSize: 10, hideOnSinglePage: true }}
+                  locale={{ emptyText: 'Sem fechos registados.' }}
+                  onRow={(z) => ({ onClick: () => setDetalhe(z.id), style: { cursor: 'pointer' } })}
+                  columns={[
+                    { title: 'Z', dataIndex: 'numero_z', render: (v) => <b>{v}</b> },
+                    { title: 'Terminal · operador', key: 'terminal', render: (_, z) => terminalOperador(z) },
+                    { title: 'Fecho', dataIndex: 'fechado_em', render: (v) => formatarDataHora(v) },
+                    { title: 'Vendas', dataIndex: 'total_vendas', align: 'right', render: (v) => formatarKz(v) },
+                    { title: 'Esperado', dataIndex: 'numerario_esperado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
+                    { title: 'Contado', dataIndex: 'numerario_contado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
+                    { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v) => <ValorDesvio valor={v} /> },
+                    { title: 'Estado', dataIndex: 'estado_desvio', render: (v) => <EstadoDesvioResumo estado={v} /> },
+                    {
+                      key: 'imprimir',
+                      width: 44,
+                      render: (_, z) => (
+                        <Button
+                          size="small"
+                          title="Reemitir Z"
+                          aria-label={`Reemitir ${z.numero_z}`}
+                          icon={<PrinterOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            reemitirZ(z.id);
+                          }}
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              </Seccao>
+            </Col>
           </Row>
           <Tabs
             items={[
@@ -128,8 +219,7 @@ export default function Relatorios() {
                       onRow={(z) => ({ onClick: () => setDetalhe(z.id), style: { cursor: 'pointer' } })}
                       columns={[
                         { title: 'Z', dataIndex: 'numero_z' },
-                        { title: 'Terminal', dataIndex: 'codigo_terminal' },
-                        { title: 'Operador', dataIndex: 'nome_operador', responsive: ['md'] },
+                        { title: 'Terminal · operador', key: 'terminal', render: (_, z) => terminalOperador(z) },
                         { title: 'Fecho', dataIndex: 'fechado_em', render: (v) => formatarDataHora(v) },
                         { title: 'Vendas', dataIndex: 'numero_vendas', align: 'right' },
                         { title: 'Total', dataIndex: 'total_vendas', align: 'right', render: (v) => formatarKz(v) },
@@ -258,15 +348,5 @@ export default function Relatorios() {
       )}
       <DetalheSessao id={detalhe} aoFechar={() => setDetalhe(null)} />
     </>
-  );
-}
-
-function Kpi({ titulo, valor, cor }: { titulo: string; valor: string | number; cor?: string }) {
-  return (
-    <Col xs={12} md={6} xl={3}>
-      <Card size="small">
-        <Statistic title={titulo} value={valor} valueStyle={{ fontSize: 18, color: cor }} />
-      </Card>
-    </Col>
   );
 }

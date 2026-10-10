@@ -59,7 +59,7 @@ describe('pesquisa de ecrãs, favoritos e ordem dos módulos', () => {
 
   it('favoritos que já não estão no menu são ignorados', () => {
     const r = resolverFavoritos([{ modulo: 'contab', ecra: 'lancamentos' }, { modulo: 'rh', ecra: 'colaboradores' }], MENU);
-    expect(r).toEqual([{ modulo: 'contab', ecra: 'lancamentos', nome: 'Lançamentos', nomeModulo: 'Contabilidade', rota: '/m/contab/lancamentos' }]);
+    expect(r).toEqual([{ modulo: 'contab', ecra: 'lancamentos', nome: 'Lançamentos (Diários)', nomeModulo: 'Contabilidade', rota: '/m/contab/lancamentos' }]);
   });
 
   it('arrastar e largar e ordem guardada (módulos novos no fim)', () => {

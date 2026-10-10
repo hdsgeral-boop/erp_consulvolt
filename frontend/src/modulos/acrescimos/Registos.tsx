@@ -1,10 +1,15 @@
 import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Statistic, Tag, Typography } from 'antd';
-import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { obterPagina } from '@/api/cliente';
+import dayjs from 'dayjs';
+import { obter, obterPagina } from '@/api/cliente';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { tabelaHtml, useImpressao } from '@/componentes/impressao';
+import { obterTodasAsPaginas } from '@/componentes/TabelaApi';
+import { notificarErro } from '@/utilitarios/erros';
+import { colunasExcelRegistos } from './comum/excelRegistos';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { indicadoresAD } from './comum/regras';
+import { faixaSaldosAD, indicadoresAD } from './comum/regras';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
@@ -16,7 +21,7 @@ import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarData } from '@/utilitarios/formatacao';
 import { EtiquetaAD, useDefinicoes } from './comum/componentes';
-import type { ItemAD } from './comum/tipos';
+import type { ItemAD, LinhaReconciliacao } from './comum/tipos';
 import { DetalheItem } from './DetalheItem';
 import { ModalItem } from './ModalItem';
 
@@ -43,6 +48,32 @@ function Lista() {
   // cartões do legado (ad_ui.js): acréscimos em curso (já reconhecido) e diferimentos em curso (por reconhecer)
   const emCurso = useQuery({ queryKey: ['acrescimos', 'itens', 'indicadores'], queryFn: () => obterPagina<ItemAD>('/acrescimos/itens', { estado: 'ABERTOS', por_pagina: 500 }) });
   const ind = indicadoresAD(emCurso.data?.itens ?? []);
+  // faixa do legado (ad_ui.js:153): saldo de cada conta 37 segundo os registos × Diário, à data de hoje
+  const hoje = dayjs().format('YYYY-MM-DD');
+  const reconciliacao = useQuery({ queryKey: ['acrescimos', 'reconciliacao', hoje], queryFn: () => obter<LinhaReconciliacao[]>('/acrescimos/reconciliacao', { data: hoje }) });
+  const saldos = faixaSaldosAD(reconciliacao.data);
+  // estado vazio do legado: frase própria quando a empresa ainda não tem nenhum registo (em qualquer estado)
+  const existentes = useQuery({ queryKey: ['acrescimos', 'itens', 'existem'], queryFn: () => obterPagina<ItemAD>('/acrescimos/itens', { estado: 'TODOS', por_pagina: 1 }) });
+  const semRegistos = existentes.data?.paginacao.total === 0;
+  const { exportarExcel: gerarExcel } = useImpressao();
+  const [aExportar, setAExportar] = useState(false);
+  const rotuloEstado = estado === 'ABERTOS' ? 'Em curso' : estado === 'TODOS' ? 'Todos' : def.data?.estados?.[estado] ?? estado;
+  const exportarExcel = async () => {
+    setAExportar(true);
+    try {
+      const r = await obterTodasAsPaginas<ItemAD>('/acrescimos/itens', { tipo, estado, texto });
+      await gerarExcel({
+        titulo: 'Acréscimos e diferimentos',
+        filtros: [`Estado: ${rotuloEstado}`, tipo && `Tipo: ${tipo === 'ACRESCIMO' ? 'Acréscimos' : 'Diferimentos'}`, texto && `Pesquisa: ${texto}`, `${r.itens.length} registo(s)`],
+        nomeFicheiro: `Acrescimos_Diferimentos_${dayjs().format('YYYY-MM-DD')}`,
+        conteudo: tabelaHtml({ colunas: colunasExcelRegistos(), linhas: r.itens, totais: true }),
+      });
+    } catch (e) {
+      notificarErro(e, 'Não foi possível exportar os registos');
+    } finally {
+      setAExportar(false);
+    }
+  };
   const semDefinicoes = !!def.data && (!def.data.diario_id || Object.values(def.data.contas ?? {}).some((c) => !c));
 
   const colunas: ColunaApi<ItemAD>[] = [
@@ -69,9 +100,11 @@ function Lista() {
           </>
         }
         accoes={
+          // ordem e ícones do legado (ad_ui.js): Definições (fa-cog) · Excel (fa-file-excel) · Novo registo (fa-plus)
           <>
-            {pode('ad_definicoes_edit') && <Button icon={<SettingOutlined />} onClick={() => setDefinicoes(true)}>Definições</Button>}
-            {pode('ad_editar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo registo</Button>}
+            {pode('ad_definicoes_edit') && <Button icon={<IconeFa nome="cog" />} onClick={() => setDefinicoes(true)}>Definições</Button>}
+            <Button icon={<IconeFa nome="file-excel" />} loading={aExportar} onClick={exportarExcel}>Excel</Button>
+            {pode('ad_editar') && <Button type="primary" icon={<IconeFa nome="plus" />} onClick={() => setNovo(true)}>Novo registo</Button>}
           </>
         }
       />
@@ -79,7 +112,7 @@ function Lista() {
         <Alert
           type="warning"
           showIcon
-          icon={<SettingOutlined />}
+          icon={<IconeFa nome="cog" />}
           style={{ marginBottom: 16 }}
           message={
             <>
@@ -102,13 +135,31 @@ function Lista() {
             <Typography.Text type="secondary">{formatarKz(ind.diferimentosPorReconhecer)} Kz por reconhecer</Typography.Text>
           </Card>
         </Col>
+        {saldos.map((s) => (
+          <Col key={s.conta} xs={24} sm={12} lg={6}>
+            <Card size="small">
+              <Statistic title={s.titulo} value={formatarKz(s.modulo, true)} />
+              <Typography.Text style={{ fontSize: 12, color: s.reconciliado ? '#15803d' : '#b91c1c' }}>{s.texto}</Typography.Text>
+            </Card>
+          </Col>
+        ))}
       </Row>
       <Card>
+        {/* legado: filtros com rótulo por cima (Tipo · Estado · Pesquisar, este a ocupar o resto da linha) */}
         <BarraFiltros>
-          <Select placeholder="Tipo" aria-label="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 150 }} options={[{ value: 'ACRESCIMO', label: 'Acréscimos' }, { value: 'DIFERIMENTO', label: 'Diferimentos' }]} />
-          <Select value={estado} aria-label="Estado" onChange={setEstado} style={{ width: 240 }}
-            options={[{ value: 'ABERTOS', label: 'Em curso' }, { value: 'TODOS', label: 'Todos' }, ...Object.entries(def.data?.estados ?? {}).map(([value, label]) => ({ value, label }))]} />
-          <Input.Search placeholder="Descrição, conta, terceiro, documento…" aria-label="Procurar" allowClear onSearch={setTexto} style={{ width: 320 }} />
+          <Flex vertical gap={2}>
+            <Typography.Text style={{ fontSize: 12, color: '#475569' }}>Tipo</Typography.Text>
+            <Select placeholder="Todos" aria-label="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 150 }} options={[{ value: 'ACRESCIMO', label: 'Acréscimos' }, { value: 'DIFERIMENTO', label: 'Diferimentos' }]} />
+          </Flex>
+          <Flex vertical gap={2}>
+            <Typography.Text style={{ fontSize: 12, color: '#475569' }}>Estado</Typography.Text>
+            <Select value={estado} aria-label="Estado" onChange={setEstado} style={{ width: 240 }}
+              options={[{ value: 'ABERTOS', label: 'Em curso' }, { value: 'TODOS', label: 'Todos' }, ...Object.entries(def.data?.estados ?? {}).map(([value, label]) => ({ value, label }))]} />
+          </Flex>
+          <Flex vertical gap={2} style={{ flex: 1, minWidth: 260 }}>
+            <Typography.Text style={{ fontSize: 12, color: '#475569' }}>Pesquisar</Typography.Text>
+            <Input.Search placeholder="Descrição, conta, terceiro, documento…" aria-label="Procurar" allowClear onSearch={setTexto} style={{ width: '100%' }} />
+          </Flex>
         </BarraFiltros>
         <TabelaApi<ItemAD>
           url="/acrescimos/itens"
@@ -124,6 +175,16 @@ function Lista() {
             ],
           }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
+          vazio={
+            semRegistos
+              ? {
+                  icone: 'exchange-alt',
+                  titulo: 'Sem acréscimos nem diferimentos',
+                  texto: 'Ainda não há acréscimos nem diferimentos. Crie um registo ou use «Recolher documentos» para partir de facturas e lançamentos.',
+                  accoes: pode('ad_editar') ? <Button type="primary" icon={<IconeFa nome="plus" />} onClick={() => setNovo(true)}>Novo registo</Button> : undefined,
+                }
+              : { titulo: 'Nenhum registo encontrado', texto: 'Nenhum registo com estes filtros.' }
+          }
         />
       </Card>
       <ModalItem aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(it) => navegar(String(it.id))} />

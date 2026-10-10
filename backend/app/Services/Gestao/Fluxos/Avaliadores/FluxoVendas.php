@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
  * Fluxo de vendas (carregarVendas/avaliarVenda, js/fluxo_vendas.js:84-288). Um processo é a cadeia de documentos ligados
  * pela origem (vendas_documentos_relacionados: venda_id = documento gerado, venda_relacionada_id = origem), a partir do
  * documento raiz. Etapas: orçamento/proforma → encomenda → entrega (guia) → factura → contabilização → recebimento ou
- * compensação. As vendas do POS e da lavandaria ficam de fora (têm fluxo próprio); documentos anulados não contam.
+ * compensação. As vendas do POS e da lavandaria ficam de fora (têm fluxo próprio) — incluindo as FR-POS migradas de sessões
+ * do POS antigo, que só guardam o código da sessão legada; documentos anulados não contam.
  * Recebimento (igual ao legado): débitos na conta do cliente (classe 3) com o número da factura, liquidados por compensação
  * (reconciliacao_codigo), por créditos não compensados na mesma conta com o mesmo número (recebimento integrado da
  * Tesouraria), por recibos contabilizados ou por notas de crédito da factura; o valor pago gravado no documento conta
@@ -28,15 +29,15 @@ final class FluxoVendas extends AvaliadorFluxo
 
     public function temActividade(): bool
     {
-        return DB::table('vendas')->where('empresa_id', $this->empresa())->whereNull('sessao_pos_id')->whereNull('pedido_lavandaria_id')->exists();
+        return DB::table('vendas')->where('empresa_id', $this->empresa())->whereNull('sessao_pos_id')->whereNull('sessao_pos_legado_codigo')->whereNull('pedido_lavandaria_id')->exists();
     }
 
     public function avaliar(): array
     {
         $e = $this->empresa();
         $V = DB::table('vendas as v')->leftJoin('terceiros as c', 'c.id', '=', 'v.cliente_id')->where('v.empresa_id', $e)
-            ->whereNull('v.sessao_pos_id')->whereNull('v.pedido_lavandaria_id')->whereRaw("COALESCE(v.estado, '') !~* '(ANUL|CANCEL)'")
-            ->get(['v.id', 'v.tipo_documento', 'v.numero_documento', 'v.data_emissao', 'v.total_bruto', 'v.total_liquido', 'v.estado', 'v.contabilizado', 'v.valor_pago',
+            ->whereNull('v.sessao_pos_id')->whereNull('v.sessao_pos_legado_codigo')->whereNull('v.pedido_lavandaria_id')->whereRaw("COALESCE(v.estado, '') !~* '(ANUL|CANCEL)'")
+            ->get(['v.id', 'v.tipo_documento', 'v.tipo_documento_original', 'v.numero_documento', 'v.data_emissao', 'v.total_bruto', 'v.total_liquido', 'v.estado', 'v.contabilizado', 'v.valor_pago',
                 'v.cliente_id', 'v.data_entrega', 'v.local_entrega', 'v.numero_lan_contabilizacao', 'c.nome as cliente', 'c.codigo_conta as conta_cliente'])->keyBy('id');
         $pais = DB::table('vendas_documentos_relacionados')->where('empresa_id', $e)->get(['venda_id', 'venda_relacionada_id'])
             ->filter(fn ($r) => isset($V[$r->venda_id], $V[$r->venda_relacionada_id]));
@@ -90,7 +91,8 @@ final class FluxoVendas extends AvaliadorFluxo
     private function avaliarProcesso(object $raiz, Collection $docs, Collection $filhos, Collection $recebido, Collection $linhasPorDoc, Collection $tesPend, ?string $contaPadrao, Collection $V): array
     {
         $tipo = fn (array $t) => $docs->filter(fn ($s) => in_array($s->tipo_documento, $t, true))->values();
-        $orcs = $tipo(['OR', 'PF']);
+        // legado (fluxo_vendas.js:37): só «Orçamento» e «Proforma»; as «Factura Proforma» (facturas de marcos) não são orçamentos
+        $orcs = $tipo(['OR', 'PF'])->reject(fn ($s) => preg_match('/^factura\s*pro\s*-?forma$/iu', trim((string) $s->tipo_documento_original)))->values();
         $encs = $tipo(['NE']);
         $guias = $tipo(['GR']);
         $facts = $tipo(['FT', 'FR']);

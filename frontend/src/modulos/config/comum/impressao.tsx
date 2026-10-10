@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { BotoesExportar, prepararTexto, tabelaHtml, type PedidoImpressao } from '@/componentes/impressao';
 import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
 import { colunasParaImpressao, type ColunaApi, type ExtrasColunaImpressao } from '@/componentes/TabelaApi';
-import { AlternarVista, TabelaComModos, useModoVista, type OpcoesCartao } from '@/componentes/vistas';
+import { AlternarVista, TabelaComModos, useModoVista, type OpcoesCartao, type PropsTabelaComModos } from '@/componentes/vistas';
 
 type Filtros = PedidoImpressao['filtros'];
 
@@ -33,9 +33,11 @@ interface Props<T> extends Omit<TableProps<T>, 'columns'> {
   /** Sufixo da preferência de vista quando há várias tabelas no ecrã. */
   idVista?: string;
   cartao?: OpcoesCartao<T>;
+  /** Botões-ícone por linha (coluna «Ações» do antigo; `accoes` de TabelaComModos). */
+  accoesLinha?: PropsTabelaComModos<T>['accoes'];
 }
 
-export function TabelaLocalImprimivel<T extends object>({ titulo, subtitulo, filtros, filtrosEcra, accoes, columns, dataSource, scroll, modos = true, idVista, cartao, ...props }: Props<T>) {
+export function TabelaLocalImprimivel<T extends object>({ titulo, subtitulo, filtros, filtrosEcra, accoes, columns, dataSource, scroll, modos = true, idVista, cartao, accoesLinha, ...props }: Props<T>) {
   const linhas = (dataSource ?? []) as T[];
   const vista = useModoVista(idVista);
   return (
@@ -52,7 +54,7 @@ export function TabelaLocalImprimivel<T extends object>({ titulo, subtitulo, fil
       >
         {filtrosEcra}
       </BarraFiltros>
-      <TabelaComModos<T> columns={columns} dataSource={dataSource} scroll={scroll ?? scrollTabela()} {...props} modos={modos} vista={vista} cartao={cartao} rotulo={titulo} />
+      <TabelaComModos<T> columns={columns} dataSource={dataSource} scroll={scroll ?? scrollTabela()} {...props} accoes={accoesLinha} modos={modos} vista={vista} cartao={cartao} rotulo={titulo} />
     </>
   );
 }

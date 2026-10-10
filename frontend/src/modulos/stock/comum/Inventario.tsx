@@ -1,5 +1,6 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Skeleton, Space, Statistic, Table, Tag, Typography } from 'antd';
 import { tabelaHtml } from '@/componentes/impressao';
+import { EstadoVazio, type PropsEstadoVazio } from '@/componentes/vistas';
 import { ArrowLeftOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
@@ -7,14 +8,14 @@ import { useArmazens } from '@/modulos/compras/comum/referencias';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { obter, obterPagina } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { notificarErro } from '@/utilitarios/erros';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
-import { EstadoTag, opcoesEstado, rotuloEstado } from '@/modulos/compras/comum/estados';
+import { EstadoTag, rotuloEstado } from '@/modulos/compras/comum/estados';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { NomeArmazem } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem, SeletorProduto } from '@/modulos/compras/comum/Seletores';
@@ -70,11 +71,29 @@ export function pedidoInventario(s: SessaoInventario, nome: string, armazem: str
 /** Modo do ecrã: sessões (gestão), contagem (contagem cega) ou revisão (diferenças e regularização). */
 export type ModoInventario = 'sessoes' | 'contagem' | 'revisao';
 
-const TITULOS: Record<ModoInventario, { titulo: string; subtitulo: string; estado?: string }> = {
-  sessoes: { titulo: 'Sessões de inventário', subtitulo: 'Inventários por armazém: abertura, aprovação, reabertura e anulação' },
-  contagem: { titulo: 'Efectuar contagem', subtitulo: 'Contagem física (cega: a quantidade do sistema não é mostrada)', estado: 'EM_CONTAGEM' },
-  revisao: { titulo: 'Revisão e regularização', subtitulo: 'Diferenças entre o contado e o sistema, custos e justificações', estado: 'REVISAO' },
+/** Títulos, textos e estados vazios do legado (js/ui_inventory.js:75-76, 329-330, 617-618). */
+const TITULOS: Record<ModoInventario, { titulo: string; subtitulo: string; estado?: string; vazio: PropsEstadoVazio }> = {
+  sessoes: {
+    titulo: 'Sessões de Inventário',
+    subtitulo: 'Crie ou consulte as folhas de contagem cega para os Armazens.',
+    vazio: { icone: 'tasks', titulo: 'Sem sessões de Inventário registadas.' },
+  },
+  contagem: {
+    titulo: 'Efetuar Contagem',
+    subtitulo: 'Contagem física (cega: a quantidade do sistema não é mostrada)',
+    estado: 'EM_CONTAGEM',
+    vazio: { icone: 'clipboard-list', titulo: 'Nenhuma Folha de Contagem Ativa', texto: 'Não existem Inventários em fase de contagem no momento.' },
+  },
+  revisao: {
+    titulo: 'Revisão e Regularização',
+    subtitulo: 'Diferenças entre o contado e o sistema, custos e justificações',
+    estado: 'REVISAO',
+    vazio: { icone: 'check-circle', cor: '#059669', titulo: 'Nenhuma Revisão Pendente', texto: 'Não existem contagens a aguardar aprovação e regularização.' },
+  },
 };
+
+/** «# Lote» e tipo como no legado (o tipo das sessões é «GERAL» quando não vem gravado). */
+export const tipoInventario = (s: Pick<SessaoInventario, 'tipo'>) => (s.tipo?.trim() ? s.tipo.trim().toUpperCase() : 'GERAL');
 
 export interface EdicaoContagem {
   quantidade_contada?: number | null;
@@ -117,37 +136,52 @@ function ListaSessoes({ modo }: { modo: ModoInventario }) {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const t = TITULOS[modo];
-  const [armazem, setArmazem] = useState<number>();
-  const [estado, setEstado] = useState<string | undefined>(t.estado);
-  const [pesquisa, setPesquisa] = useState('');
+  const armazem: number | undefined = undefined;
+  const estado: string | undefined = t.estado;
+  const pesquisa = '';
   const [abrir, setAbrir] = useState(false);
+  const [motivo, setMotivo] = useState<{ accao: 'reabrir' | 'anular'; sessao: SessaoInventario } | null>(null);
+  const accao = useAccao({ invalidar: [['logistica']], aoSucesso: () => setMotivo(null) });
   const pequeno = useEcraPequeno();
   const armazens = useArmazens();
-  const nomeArmazem = (id: number | null | undefined) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? `#${id}` : '');
+  const nomeArmazem = (id: number | null | undefined) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? '-' : '-');
+  // legado (ui_inventory.js): sem folhas em contagem / revisões pendentes mostra só o cartão vazio, sem título nem tabela
+  const total = useQuery({
+    queryKey: ['logistica', 'inventarios', 'total', estado],
+    queryFn: () => obterPagina<SessaoInventario>('/logistica/inventarios', { estado, por_pagina: 1 }),
+    enabled: modo !== 'sessoes',
+  });
+  if (modo !== 'sessoes' && total.data && total.data.paginacao.total === 0) {
+    return (
+      <Card>
+        <EstadoVazio {...t.vazio} />
+      </Card>
+    );
+  }
 
+  // Colunas do legado (renderInvsessoesTab, ui_inventory.js:86-94); «Iniciado por» e «Aprovado» ficam em «Colunas ▾».
   const colunas: ColunaApi<SessaoInventario>[] = [
-    { title: 'Inventário', key: 'n', valorImpressao: (s) => `INV ${dayjs(s.data).format('YYYY')}/${s.id}`, render: (_, s) => <strong>INV {dayjs(s.data).format('YYYY')}/{s.id}</strong> },
-    { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Armazém', dataIndex: 'armazem_id', responsive: ['sm'], valorImpressao: (s) => nomeArmazem(s.armazem_id), render: (v: number) => <NomeArmazem id={v} /> },
-    { title: 'Descrição', dataIndex: 'descricao', responsive: ['md'], render: (v) => v || '—' },
-    { title: 'Iniciado por', dataIndex: 'iniciado_por', responsive: ['lg'], render: (v) => v || '—' },
-    { title: 'Aprovado', key: 'ap', responsive: ['lg'], render: (_, s) => (s.aprovado_por ? `${s.aprovado_por} · ${formatarDataHora(s.aprovado_em)}` : '—') },
-    { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
+    { title: '# Lote', dataIndex: 'id', align: 'center', valorImpressao: (s) => String(s.id), render: (v: number) => <strong>{v}</strong> },
+    { title: 'Data', dataIndex: 'data', align: 'center', render: formatarData },
+    { title: 'Armazém', dataIndex: 'armazem_id', valorImpressao: (s) => nomeArmazem(s.armazem_id), render: (v: number) => (armazens.data?.some((a) => a.id === v) ? <NomeArmazem id={v} /> : '-') },
+    { title: 'Descrição', dataIndex: 'descricao', render: (v) => v || 'Inventário Geral' },
+    { title: 'Tipo', dataIndex: 'tipo', align: 'center', valorImpressao: tipoInventario, render: (_, s) => tipoInventario(s) },
+    { title: 'Estado', dataIndex: 'estado', align: 'center', render: (e: string) => rotuloEstado(e) }, // legado: texto simples
+    { title: 'Iniciado por', dataIndex: 'iniciado_por', ocultaPorOmissao: true, render: (v) => v || '—' },
+    { title: 'Aprovado', key: 'ap', ocultaPorOmissao: true, valorImpressao: (s) => (s.aprovado_por ? `${s.aprovado_por} · ${formatarDataHora(s.aprovado_em)}` : '—'), render: (_, s) => (s.aprovado_por ? `${s.aprovado_por} · ${formatarDataHora(s.aprovado_em)}` : '—') },
   ];
 
   return (
     <>
-      <CabecalhoPagina
-        titulo={t.titulo}
-        subtitulo={t.subtitulo}
-        accoes={modo === 'sessoes' && pode('inventario_iniciar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setAbrir(true)}>Novo inventário</Button>}
-      />
+      <Flex justify="space-between" align="center" gap={12} wrap style={{ marginBottom: 16 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--ant-color-primary, #2563eb)' }}>{t.titulo}</h3>
+          <Typography.Text type="secondary" style={{ fontSize: '0.85rem' }}>{t.subtitulo}</Typography.Text>
+        </div>
+        {modo === 'sessoes' && pode('inventario_iniciar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setAbrir(true)}>Iniciar Novo Inventário</Button>}
+      </Flex>
       <Card>
-        <BarraFiltros>
-          <Input.Search placeholder="Descrição" allowClear style={{ width: 240, maxWidth: '100%' }} onSearch={setPesquisa} />
-          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 220, maxWidth: '100%' }} value={armazem} onChange={setArmazem} />
-          {modo === 'sessoes' && <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={opcoesEstado(['EM_CONTAGEM', 'REVISAO', 'CONCLUIDA', 'ANULADA'])} />}
-        </BarraFiltros>
+        {/* legado: sem barra de filtros (os filtros são os da linha por baixo dos cabeçalhos) */}
         <TabelaApi<SessaoInventario>
           url="/logistica/inventarios"
           filtros={{ armazem_id: armazem, estado, pesquisa: pesquisa.trim() || undefined }}
@@ -158,11 +192,37 @@ function ListaSessoes({ modo }: { modo: ModoInventario }) {
             titulo: t.titulo,
             filtros: [!!armazem && `Armazém: ${nomeArmazem(armazem)}`, estado && `Estado: ${rotuloEstado(estado)}`, pesquisa.trim() && `Pesquisa: ${pesquisa.trim()}`],
           }}
-          locale={{ emptyText: modo === 'contagem' ? 'Não há inventários em contagem.' : modo === 'revisao' ? 'Não há inventários em revisão.' : undefined }}
+          vazio={t.vazio}
+          accoes={(s) => {
+            const a = accoesInventario(s, pode);
+            return [
+              { icone: 'eye', titulo: 'Detalhes', onClick: () => navegar(String(s.id)) },
+              modo === 'sessoes' && s.estado === 'EM_CONTAGEM' && a.anular && { icone: 'trash', titulo: 'Anular Sessão', variante: 'perigo', onClick: () => setMotivo({ accao: 'anular', sessao: s }) },
+              modo === 'sessoes' && a.reabrir && { icone: 'undo', titulo: 'Reabrir (Reverter Movimentos)', variante: 'aviso', onClick: () => setMotivo({ accao: 'reabrir', sessao: s }) },
+            ];
+          }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
       <ModalAbrir aberto={abrir} aoFechar={() => setAbrir(false)} aoAbrir={(s) => navegar(String(s.id))} />
+      <ModalMotivo
+        aberto={motivo?.accao === 'reabrir'}
+        titulo={`Reabrir o inventário n.º ${motivo?.sessao.id ?? ''}`}
+        textoOk="Reabrir"
+        aviso="Estorna o lançamento e anula os ajustes da regularização; o inventário volta à revisão."
+        carregando={accao.isPending}
+        aoFechar={() => setMotivo(null)}
+        aoConfirmar={(m) => motivo && accao.mutate({ url: `/logistica/inventarios/${motivo.sessao.id}/reabrir`, dados: { motivo: m } })}
+      />
+      <ModalMotivo
+        aberto={motivo?.accao === 'anular'}
+        titulo={`Anular o inventário n.º ${motivo?.sessao.id ?? ''}`}
+        textoOk="Anular"
+        aviso="O armazém volta a aceitar movimentos; nada é regularizado."
+        carregando={accao.isPending}
+        aoFechar={() => setMotivo(null)}
+        aoConfirmar={(m) => motivo && accao.mutate({ url: `/logistica/inventarios/${motivo.sessao.id}/anular`, dados: { motivo: m } })}
+      />
     </>
   );
 }
@@ -171,7 +231,7 @@ function ModalAbrir({ aberto, aoFechar, aoAbrir }: { aberto: boolean; aoFechar: 
   const [form] = Form.useForm<{ armazem_id: number; data: Dayjs; descricao?: string }>();
   const accao = useAccao<SessaoInventario>({ invalidar: [['logistica']], aoSucesso: (s) => { aoFechar(); aoAbrir(s); }, tituloErro: 'Não foi possível abrir o inventário' });
   return (
-    <Modal width={larguraModal(520)} title="Novo inventário" open={aberto} onCancel={aoFechar} okText="Abrir inventário" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+    <Modal width={larguraModal(520)} title="Nova Sessão de Inventário" open={aberto} onCancel={aoFechar} okText="Abrir inventário" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
       <Form form={form} layout="vertical" preserve={false} initialValues={{ data: dayjs() }} onFinish={(v) => accao.mutate({ url: '/logistica/inventarios', dados: { armazem_id: v.armazem_id, data: dataApi(v.data), descricao: v.descricao || undefined } })}>
         <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Enquanto o inventário estiver aberto, o armazém fica sem movimentos até à aprovação ou anulação." />
         <Form.Item name="armazem_id" label="Armazém" rules={[{ required: true, message: 'Escolha o armazém.' }]}>
@@ -376,7 +436,7 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
               </Button>
             )}
             {a.aprovar && modo !== 'contagem' && <Button type="primary" disabled={Object.keys(revisao).length > 0} onClick={aprovar}>Aprovar</Button>}
-            {a.reabrir && modo === 'sessoes' && <Button danger onClick={() => setModal('reabrir')}>Reabrir</Button>}
+            {a.reabrir && modo === 'sessoes' && <Button style={{ color: '#f59e0b', borderColor: '#f59e0b' }} onClick={() => setModal('reabrir')}>Reabrir</Button>}
             {a.anular && modo === 'sessoes' && <Button danger onClick={() => setModal('anular')}>Anular</Button>}
           </>
         }

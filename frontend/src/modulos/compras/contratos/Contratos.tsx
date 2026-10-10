@@ -1,16 +1,19 @@
-import { Button, Card, Input, Select } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Card, Input, Select, Tag, Typography } from 'antd';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalMotivo, useAccao } from '@/componentes/Accoes';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import type { AccaoLinha } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EstadoTag, opcoesEstado, rotuloEstado } from '../comum/estados';
 import { NomeTerceiro } from '../comum/referencias';
+import { accoesContrato, type Pode } from '../comum/regras';
 import { SeletorTerceiro } from '../comum/Seletores';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
-import type { ContratoCompra } from '../comum/tipos';
+import { numeroOuId, type ContratoCompra } from '../comum/tipos';
 import { DetalheContrato } from './DetalheContrato';
 import { ModalContrato } from './ModalContrato';
 
@@ -24,40 +27,82 @@ export default function Contratos() {
   );
 }
 
+/** Acções por linha do legado (js/ui_compras_v2.js:818-819): Editar e, nos contratos activos, Cancelar Contrato. */
+export function accoesLinhaContrato(c: ContratoCompra, pode: Pode, f: { editar: () => void; cancelar: () => void }): AccaoLinha[] {
+  const a = accoesContrato(c, pode);
+  return [
+    { icone: 'edit', titulo: 'Editar', variante: 'primario', desactivado: !a.editar && (c.estado === 'CANCELADO' ? 'Um contrato cancelado não se altera' : 'Sem permissão para gerir contratos'), onClick: f.editar },
+    { icone: 'ban', titulo: 'Cancelar Contrato', variante: 'perigo', oculto: c.estado !== 'ATIVO', desactivado: !a.cancelar && 'Sem permissão para cancelar contratos', onClick: f.cancelar },
+  ];
+}
+
+/** «Total encomendado» com «N% do previsto» (vermelho acima de 100 %). */
+export function TotalEncomendado({ c }: { c: ContratoCompra }) {
+  const p = c.percentagem_encomendada;
+  return (
+    <>
+      {formatarKz(c.total_encomendado ?? 0)}
+      {p !== null && p !== undefined && <Typography.Text style={{ display: 'block', fontSize: 12, color: p > 100 ? '#b91c1c' : '#64748b' }}>{p}% do previsto</Typography.Text>}
+    </>
+  );
+}
+
 function ListaContratos() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [estado, setEstado] = useState<string>();
   const [fornecedor, setFornecedor] = useState<number>();
-  const [procura] = useSearchParams();
-  const [novo, setNovo] = useState(procura.get('novo') === '1');   // acção rápida «+ Contrato» da barra do módulo
+  const [procura, setProcura] = useSearchParams();
+  const [novo, setNovo] = useState(procura.get('novo') === '1');   // acção rápida «Novo Contrato» da barra do módulo
+  const [edicao, setEdicao] = useState<ContratoCompra | null>(null);
+  const [cancelar, setCancelar] = useState<ContratoCompra | null>(null);
   const [pesquisa, setPesquisa] = useState('');
   const [nomeFornecedor, setNomeFornecedor] = useState<string>();
   const pequeno = useEcraPequeno();
+  const accao = useAccao<ContratoCompra>({ invalidar: [['compras']], aoSucesso: () => setCancelar(null) });
+
+  // a barra do módulo pode pedir «Novo Contrato» com o ecrã já aberto
+  useEffect(() => {
+    if (procura.get('novo') === '1') {
+      setNovo(true);
+      setProcura({}, { replace: true });
+    }
+  }, [procura, setProcura]);
 
   const colunas: ColunaApi<ContratoCompra>[] = [
-    { title: 'Referência', dataIndex: 'referencia', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
+    { title: 'Referência', dataIndex: 'referencia', fixed: 'left', render: (v: string) => <strong>{v || 'N/D'}</strong> },
     { title: 'Fornecedor', key: 'fornecedor', valorImpressao: (r) => r.fornecedor?.nome?.trim() ?? `#${r.fornecedor_id}`, render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, responsive: ['lg'], render: (v) => v || '—' },
-    { title: 'Início', dataIndex: 'data_inicio', responsive: ['md'], render: formatarData },
-    { title: 'Fim', dataIndex: 'data_fim', responsive: ['md'], render: formatarData },
-    { title: 'Valor (Kz)', dataIndex: 'valor_total', align: 'right', render: (v: string) => formatarKz(v) },
-    { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, render: (v) => v || '' },
+    {
+      title: 'Encomendas associadas', key: 'encomendas',
+      valorImpressao: (r) => (r.encomendas ?? []).map((e) => numeroOuId(e.numero_encomenda, e.id)).join(', ') || 'Sem encomendas',
+      valorFiltro: (r) => (r.encomendas ?? []).map((e) => e.numero_encomenda ?? '').join(' '),
+      render: (_, r) =>
+        r.encomendas?.length ? (
+          r.encomendas.map((e) => (
+            <Tag key={e.id} style={{ margin: 1, cursor: pode('compras_encomendas_view') ? 'pointer' : undefined }}
+              onClick={(ev) => { ev.stopPropagation(); if (pode('compras_encomendas_view')) navegar(`/m/compras/compras_encomendas/${e.id}`); }}>
+              <IconeFa nome="link" /> {numeroOuId(e.numero_encomenda, e.id)}
+            </Tag>
+          ))
+        ) : (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>Sem encomendas</Typography.Text>
+        ),
+    },
+    { title: 'Início', dataIndex: 'data_inicio', render: (v: string | null) => (v ? formatarData(v) : '-') },
+    { title: 'Fim', dataIndex: 'data_fim', render: (v: string | null) => (v ? formatarData(v) : '-') },
+    { title: 'Valor Global Previsto', dataIndex: 'valor_total', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong> },
+    {
+      title: 'Total encomendado', key: 'total_encomendado', align: 'right',
+      valorImpressao: (r) => `${formatarKz(r.total_encomendado ?? 0)}${r.percentagem_encomendada != null ? ` (${r.percentagem_encomendada}%)` : ''}`,
+      render: (_, r) => <TotalEncomendado c={r} />,
+    },
+    { title: 'Estado', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado), render: (e: string) => <EstadoTag estado={e} /> },
   ];
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Contratos de compra"
-        subtitulo="Contratos com fornecedores: consumo pelas encomendas, facturas e marcos de pagamento"
-        accoes={
-          pode('compras_contratos_gerir') && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>
-              Novo contrato
-            </Button>
-          )
-        }
-      />
+      <CabecalhoPagina titulo="Contratos de Fornecimento" />
       <Card>
         <BarraFiltros>
           <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={opcoesEstado(['ATIVO', 'EXPIRADO', 'CANCELADO'])} />
@@ -70,14 +115,26 @@ function ListaContratos() {
           chaveConsulta={['compras', 'contratos']}
           columns={colunas}
           size={pequeno ? 'small' : 'middle'}
+          vazio={{ icone: 'file-contract', titulo: 'Nenhum contrato de fornecimento registado.' }}
           impressao={{
-            titulo: 'Lista de contratos de compra',
+            titulo: 'Contratos de Fornecimento',
             filtros: [estado && `Estado: ${rotuloEstado(estado)}`, !!fornecedor && `Fornecedor: ${nomeFornecedor ?? `#${fornecedor}`}`, pesquisa && `Pesquisa: ${pesquisa}`],
           }}
+          accoes={(r) => accoesLinhaContrato(r, pode, { editar: () => setEdicao(r), cancelar: () => setCancelar(r) })}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
       <ModalContrato aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(c) => navegar(String(c.id))} />
+      <ModalContrato aberto={!!edicao} contrato={edicao ?? undefined} aoFechar={() => setEdicao(null)} />
+      <ModalMotivo
+        aberto={!!cancelar}
+        titulo={cancelar ? `Cancelar o contrato ${cancelar.referencia}` : ''}
+        textoOk="Cancelar contrato"
+        aviso="O contrato deixa de aceitar encomendas e marcos (fica o rasto do motivo)."
+        carregando={accao.isPending}
+        aoFechar={() => setCancelar(null)}
+        aoConfirmar={(motivo) => cancelar && accao.mutate({ url: `/compras/contratos/${cancelar.id}/cancelar`, dados: { motivo } })}
+      />
     </>
   );
 }

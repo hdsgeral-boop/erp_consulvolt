@@ -28,10 +28,10 @@ use Illuminate\Support\Facades\DB;
  *     «EM PICKING» não se grava: no legado era só um marcador posto ao abrir o ecrã e nunca retirado («Pausar» deixava-o);
  *     o estado resulta das quantidades entregues (POR_EXPEDIR / EXPEDIDA_PARCIAL) e a encomenda sai da fila quando está
  *     toda entregue. A encomenda só fica CONCLUIDA quando facturada (ADR-043), não na expedição como no legado.
- *   - acerto de stock (posWhAcertarStock, :154-214): não se porta. Espalhava a diferença entre o stock global do produto
- *     e a soma dos armazéns sem movimentos; no sistema novo o total do produto é sempre a soma dos armazéns, obtida dos
- *     movimentos (ADR-042), e as regularizações fazem-se por ajuste ou inventário (Logística).
- *   - senhas (:1130-1254): contador em memória do navegador, sem dados — fica no frontend.
+ *   - acerto de stock (posWhAcertarStock, :154-214): em ServicoAcertoStockPOSArmazem (paridade RELATORIO 2.6.4), com
+ *     movimento AJUSTE do armazém pela via única do stock — o legado espalhava a diferença sem movimentos;
+ *   - senhas (:1130-1254): em ServicoSenhasPOSArmazem (RELATORIO 2.6.1), gravadas por armazém e dia para o monitor público
+ *     (o legado tinha um contador em memória do navegador).
  */
 final class ServicoPOSArmazem
 {

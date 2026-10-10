@@ -1,6 +1,6 @@
 import { Alert, AutoComplete, Button, Card, Checkbox, Col, DatePicker, Flex, Form, Input, InputNumber, Row, Segmented, Select, Space, Statistic, Table, Tag, Tooltip, Typography, message } from 'antd';
 import {
-  ArrowLeftOutlined, CalendarOutlined, CheckOutlined, DeleteOutlined, FlagOutlined, PlusOutlined, ThunderboltOutlined,
+  CalendarOutlined, CheckOutlined, DeleteOutlined, FlagOutlined, PlusOutlined, ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -13,7 +13,9 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
-import { MEIOS_PAGAMENTO, TIPOS_DOCUMENTO, TIPOS_EMITIVEIS, type DocumentoVenda, type ProdutoCatalogo, type Terceiro } from './api';
+import { MEIOS_PAGAMENTO, TIPOS_DOCUMENTO, TIPOS_EMITIVEIS, type DocumentoVenda, type GuiaSaidaPendente, type MeioPagamentoVenda, type ProdutoCatalogo, type Terceiro } from './api';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { GuiasPendentes, MeiosPagamentoDocumento } from './formulario/QuadrosFormulario';
 import {
   DIAS_PRAZO, DIAS_VALIDADE, MODELOS_MARCOS, desvioCambio, erroPlano, estimarTotais, planoMarcos, planoPrazo, somaPercentagens, somarDias,
   valoresPrestacoes, type ModoPagamento, type Prestacao,
@@ -25,6 +27,8 @@ const pequenoGap = (telemovel: boolean) => (telemovel ? 16 : 32);
 interface LinhaForm {
   produto_id?: number;
   quantidade?: number;
+  /** «Qtd Guia» (só de leitura) quando a factura vem de uma guia de saída — não é enviada */
+  qtd_guia?: number;
   preco_unitario?: number;
   /** preço da ficha na moeda do documento — o preço só é enviado quando difere deste (decisão 8) */
   preco_ficha?: number;
@@ -60,6 +64,10 @@ interface ValoresForm {
   unidade_negocio_id?: number;
   centro_custo_id?: number;
   projeto_id?: number;
+  /** «Baixar Stock Autom.» (FT/FR) */
+  baixar_stock?: boolean;
+  /** «Ocultar quadro de Meios de Pagamento na impressão» */
+  ocultar_meios_pagamento?: boolean;
 }
 
 interface Moeda { codigo: string; nome?: string | null }
@@ -100,12 +108,30 @@ export function EmitirDocumento() {
   const dataIso = dataApi(dataEmissao) ?? dayjs().format('YYYY-MM-DD');
   const estrangeira = moeda !== 'AOA' && tipo !== 'NC';
   const comModalidade = !['FR', 'NC'].includes(tipo);
+  const factura = tipo === 'FT' || tipo === 'FR';
+  const comMeios = !['GR', 'GD'].includes(tipo);
+  // paridade 4.2.9: guia de saída do armazém a facturar («FATURAR AGORA →»); 4.2.12: contas dos meios de pagamento
+  const [guia, setGuia] = useState<GuiaSaidaPendente | null>(null);
+  const [contasPag, setContasPag] = useState<(number | undefined)[]>([]);
+  const guiasPendentes = useQuery({
+    queryKey: ['vendas', 'guias-saida-pendentes'],
+    queryFn: () => obter<GuiaSaidaPendente[]>('/vendas/guias-saida-pendentes'),
+    enabled: factura && pode('vendas_fat_emitir'),
+    retry: false,
+    staleTime: 30_000,
+  });
+  const meios = useQuery({ queryKey: ['vendas', 'meios-pagamento'], queryFn: () => obter<MeioPagamentoVenda[]>('/vendas/meios-pagamento'), retry: false, staleTime: 300_000 });
+  // como o legado: o meio de pagamento predefinido entra já no quadro
+  useEffect(() => {
+    const pred = meios.data?.find((m) => m.predefinido);
+    if (pred) setContasPag((c) => (c.length ? c : [pred.id]));
+  }, [meios.data]);
 
   const valoresIniciais = useMemo<Partial<ValoresForm>>(() => {
     const tipoPedido = procura.get('tipo');
     const base: Partial<ValoresForm> = {
       tipo_documento: tipoPedido && (TIPOS_EMITIVEIS as readonly string[]).includes(tipoPedido) ? tipoPedido : 'FT',
-      data_emissao: dayjs(), linhas: [{ quantidade: 1 }], meio_pagamento: 'NUMERARIO', codigo_moeda: 'AOA', dias_validade: 30,
+      data_emissao: dayjs(), linhas: [{ quantidade: 1 }], meio_pagamento: 'NUMERARIO', codigo_moeda: 'AOA', dias_validade: 30, baixar_stock: true,
     };
     if (copia) {   // M-06: copiar documento (copySale do legado) — nova data e novo número; preços da cópia
       return {
@@ -234,6 +260,8 @@ export function EmitirDocumento() {
           preco_unitario: l.preco_unitario != null && l.preco_unitario !== (l.preco_ficha ?? precoFicha(l.produto_id)) ? l.preco_unitario : undefined,
         })),
         oportunidade_crm_id: conversao?.oportunidade_crm_id,   // o servidor liga o documento à oportunidade (FT/FR/NE ganham-na)
+        ...(['FT', 'FR'].includes(v.tipo_documento) ? { baixar_stock: guia ? false : v.baixar_stock !== false, guias_saida: guia ? [guia.id] : undefined } : {}),
+        ...(comMeios ? { contas_pagamento: contasPag.filter((x): x is number => !!x), ocultar_meios_pagamento: !!v.ocultar_meios_pagamento } : {}),
       });
     },
     onSuccess: ({ dados, mensagem }) => {
@@ -250,6 +278,28 @@ export function EmitirDocumento() {
     const ficha = precoFicha(id);
     actuais[indice] = { ...actuais[indice], produto_id: id, preco_unitario: ficha, preco_ficha: ficha, descricao: p?.nome };
     form.setFieldsValue({ linhas: [...actuais] });
+  };
+
+  /**
+   * «FATURAR AGORA →» (loadInvoiceFromGuiaDirect do legado): factura do cliente da guia com as linhas da guia (Qtd Guia
+   * só de leitura, Qtd Faturar editável) e «Baixar Stock Autom.» desligado — o stock já saiu com a guia.
+   */
+  const facturarGuia = (g: GuiaSaidaPendente) => {
+    setGuia(g);
+    form.setFieldsValue({
+      tipo_documento: factura ? tipo : 'FT',
+      cliente_id: g.cliente?.id,
+      projeto_id: g.projeto_id ?? form.getFieldValue('projeto_id'),
+      baixar_stock: false,
+      linhas: g.linhas.map((l) => {
+        const ficha = precoFicha(l.produto_id);
+        return { produto_id: l.produto_id, quantidade: Number(l.quantidade), qtd_guia: Number(l.quantidade), preco_unitario: ficha, preco_ficha: ficha, descricao: l.nome ?? undefined };
+      }),
+    });
+  };
+  const largarGuia = () => {
+    setGuia(null);
+    form.setFieldsValue({ baixar_stock: true, linhas: (form.getFieldValue('linhas') as LinhaForm[]).map(({ qtd_guia: _q, ...l }) => l) });
   };
 
   const submeter = (v: ValoresForm) => {
@@ -272,12 +322,15 @@ export function EmitirDocumento() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Novo documento de venda"
+        titulo="Emitir Novo Documento de Venda"
         subtitulo={conversao?.oportunidade_crm_id ? `A partir da oportunidade #${conversao.oportunidade_crm_id} do CRM` : copia ? `Cópia de ${copia.numero_documento}` : undefined}
-        accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>}
+        accoes={<Button onClick={() => navegar('..')} aria-label="Fechar" title="Fechar" style={{ fontSize: 18, lineHeight: 1 }}>×</Button>}
       />
+      {factura && !!guiasPendentes.data?.length && (
+        <GuiasPendentes guias={guiasPendentes.data} escolhida={guia?.id} aoEscolher={facturarGuia} />
+      )}
       <Form<ValoresForm> form={form} layout="vertical" initialValues={valoresIniciais} onFinish={submeter}>
-        <Card title="Documento" style={{ marginBottom: 16 }}>
+        <Card title="Documento" style={{ marginBottom: 16, borderTop: '4px solid var(--ant-color-primary, #2563eb)' }}>
           <Row gutter={16}>
             <Col xs={24} md={12} lg={8}>
               <Form.Item name="cliente_id" label="Cliente" rules={[{ required: true, message: 'Escolha o cliente.' }]}>
@@ -314,7 +367,7 @@ export function EmitirDocumento() {
           </Row>
           <Row gutter={16}>
             <Col xs={24} sm={12} lg={6}>
-              <Form.Item name="data_emissao" label="Data do documento" rules={[{ required: true }]}>
+              <Form.Item name="data_emissao" label={<><IconeFa nome="calendar-alt" style={{ color: 'var(--ant-color-primary, #2563eb)', marginRight: 4 }} />Data do Doc.</>} rules={[{ required: true }]}>
                 <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -339,6 +392,13 @@ export function EmitirDocumento() {
                   </Form.Item>
                 </Col>
               </>
+            )}
+            {factura && (
+              <Col xs={24} sm={12} lg={5}>
+                <Form.Item name="baixar_stock" valuePropName="checked" label=" " tooltip={guia ? 'O stock já saiu com a guia de saída.' : 'Desligado, a factura não movimenta o stock (como no sistema anterior).'}>
+                  <Checkbox disabled={!!guia}>Baixar Stock Autom.</Checkbox>
+                </Form.Item>
+              </Col>
             )}
             {estrangeira && !!taxaManual && taxaRef > 0 && foraTolerancia && (
               <Col xs={24} lg={9}>
@@ -413,20 +473,29 @@ export function EmitirDocumento() {
           )}
         </Card>
 
-        <Card title="Itens da venda" style={{ marginBottom: 16 }}>
+        <Form.List name="linhas" rules={[{ validator: async (_, v) => (v && v.length ? undefined : Promise.reject(new Error('Acrescente pelo menos uma linha.'))) }]}>
+          {(campos, { add, remove }, { errors }) => (
+        <Card
+          title="Itens da Venda"
+          style={{ marginBottom: 16 }}
+          extra={<Button size="small" onClick={() => add({ quantidade: 1 })}>+ Adicionar Linha</Button>}
+        >
+          {guia && (
+            <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`A facturar a guia de saída ${guia.numero_documento ?? `#${guia.id}`} (o stock já saiu com a guia).`}
+              action={<Button size="small" type="link" onClick={largarGuia}>Não facturar a guia</Button>} />
+          )}
           {!telemovel && (
             <Row gutter={8} style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: '#64748b', marginBottom: 6 }}>
-              <Col md={8}>Produto/Serviço</Col>
-              <Col md={6}>Descrição</Col>
-              <Col md={2}>Qtd.</Col>
-              <Col md={3}>Preço ({simbolo})</Col>
+              <Col md={guia ? 7 : 8}>Produto/Serviço</Col>
+              <Col md={guia ? 5 : 6}>Descrição</Col>
+              {guia && <Col md={2}>Qtd Guia</Col>}
+              <Col md={2}>{factura ? 'Qtd Faturar' : 'Quantidade'}</Col>
+              <Col md={3}>Preço Venda ({simbolo})</Col>
               <Col md={1}>IVA %</Col>
-              <Col md={3} style={{ textAlign: 'right' }}>Total</Col>
+              <Col md={guia ? 3 : 3} style={{ textAlign: 'right' }}>Total</Col>
               <Col md={1} />
             </Row>
           )}
-          <Form.List name="linhas" rules={[{ validator: async (_, v) => (v && v.length ? undefined : Promise.reject(new Error('Acrescente pelo menos uma linha.'))) }]}>
-            {(campos, { add, remove }, { errors }) => (
               <>
                 {campos.map(({ key, name }, n) => {
                   const l = linhas[name] ?? {};
@@ -444,7 +513,7 @@ export function EmitirDocumento() {
                           <Typography.Text type="secondary">Linha {n + 1}</Typography.Text>
                         </Col>
                       )}
-                      <Col xs={24} md={8}>
+                      <Col xs={24} md={guia ? 7 : 8}>
                         <Form.Item name={[name, 'produto_id']} rules={[{ required: true, message: 'Produto' }]}>
                           <Select
                             showSearch
@@ -456,11 +525,18 @@ export function EmitirDocumento() {
                           />
                         </Form.Item>
                       </Col>
-                      <Col xs={24} md={6}>
+                      <Col xs={24} md={guia ? 5 : 6}>
                         <Form.Item name={[name, 'descricao']}>
                           <Input placeholder="Descrição" maxLength={1000} />
                         </Form.Item>
                       </Col>
+                      {guia && (
+                        <Col xs={8} md={2}>
+                          <Form.Item name={[name, 'qtd_guia']}>
+                            <InputNumber disabled style={{ width: '100%', background: '#f1f5f9' }} aria-label={`Qtd guia da linha ${n + 1}`} />
+                          </Form.Item>
+                        </Col>
+                      )}
                       <Col xs={8} md={2}>
                         <Form.Item name={[name, 'quantidade']} rules={[{ required: true, message: 'Qtd.' }]}>
                           <InputNumber min={0.001} step={1} placeholder="Qtd." style={{ width: '100%' }} />
@@ -481,37 +557,48 @@ export function EmitirDocumento() {
                         <Typography.Text strong style={{ lineHeight: '32px' }}>{formatarKz(DOIS(num(l.quantidade) * num(l.preco_unitario)))}</Typography.Text>
                       </Col>
                       <Col xs={4} md={1}>
-                        <Button danger type="text" icon={<DeleteOutlined />} onClick={() => remove(name)} aria-label="Remover linha" />
+                        <Button danger size="small" icon={<IconeFa nome="times" />} onClick={() => remove(name)} aria-label="Remover linha" style={{ marginTop: 4 }} />
                       </Col>
                     </Row>
                   );
                 })}
                 <Form.ErrorList errors={errors} />
-                <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ quantidade: 1 })}>
-                  Acrescentar linha
-                </Button>
               </>
-            )}
-          </Form.List>
         </Card>
+          )}
+        </Form.List>
 
         <Card style={{ marginBottom: 16 }}>
           <Row gutter={16}>
             <Col xs={24} md={12}>
-              <Form.Item name="observacoes" label="Observações (opcional)">
+              <Form.Item name="observacoes" label={<><IconeFa nome="comment-alt" style={{ color: 'var(--ant-color-primary, #2563eb)', marginRight: 6 }} />Observações (opcional)</>}>
                 <Input.TextArea rows={2} maxLength={4000} placeholder="Notas para o cliente, referências internas…" />
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item name="condicoes_pagamento" label="Condições de pagamento (opcional)">
+              <Form.Item name="condicoes_pagamento" label={<><IconeFa nome="handshake" style={{ color: 'var(--ant-color-primary, #2563eb)', marginRight: 6 }} />Condições de Pagamento (opcional)</>}>
                 <Input.TextArea rows={2} maxLength={2000} placeholder="Ex.: pagamento a pronto, 30 dias a prazo, transferência bancária…" />
               </Form.Item>
             </Col>
           </Row>
         </Card>
 
+        {comMeios && (
+          <MeiosPagamentoDocumento
+            meios={meios.data ?? []}
+            carregando={meios.isLoading}
+            contas={contasPag}
+            aoMudar={setContasPag}
+            ocultar={(
+              <Form.Item name="ocultar_meios_pagamento" valuePropName="checked" noStyle>
+                <Checkbox>Ocultar quadro de Meios de Pagamento na impressão</Checkbox>
+              </Form.Item>
+            )}
+          />
+        )}
+
         {comModalidade && (
-          <Card title={<><CalendarOutlined /> Validade e modalidade de pagamento</>} style={{ marginBottom: 16 }}>
+          <Card title={<><IconeFa nome="calendar-alt" style={{ color: 'var(--ant-color-primary, #2563eb)', marginRight: 6 }} />Validade e modalidade de pagamento</>} style={{ marginBottom: 16 }}>
             <Row gutter={16} align="bottom">
               {(tipo === 'OR' || tipo === 'PF') && (
                 <>

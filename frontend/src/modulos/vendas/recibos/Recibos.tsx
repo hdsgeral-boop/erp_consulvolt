@@ -8,7 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
@@ -134,6 +134,7 @@ function NovoRecibo() {
   const { pode } = useSessao();
   const [form] = Form.useForm<ValoresRecibo>();
   const clienteId = Form.useWatch('cliente_id', form);
+  const liquidar = (useLocation().state as { liquidar?: { cliente_id: number; venda_id: number } } | null)?.liquidar;
   const [alocacoes, setAlocacoes] = useState<Record<number, number | null>>({});
   const [recebido, setRecebido] = useState<number | null>(null);
   // M-18: recibo de adiantamento (showDirectReceiptForm do legado) — sem facturas; aloca-se depois no detalhe
@@ -152,6 +153,11 @@ function NovoRecibo() {
   }, [clienteId]);
 
   const facturas = pendentes.data?.itens ?? [];
+  // «Liquidar» na linha da factura (legado: showReciboForm(id)): cliente e factura já escolhidos, pelo pendente
+  useEffect(() => {
+    const f = liquidar ? facturas.find((x) => x.id === liquidar.venda_id) : undefined;
+    if (f) setAlocacoes((a) => (a[f.id] !== undefined ? a : { ...a, [f.id]: Number(f.valor_pendente ?? f.total_bruto) || 0 }));
+  }, [pendentes.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = totalAlocado(alocacoes);
   const distribuicao = recebido !== null ? distribuirMontante(facturas, recebido) : null;
   const emitir = useAccao<ReciboVenda>({ invalidar: [['vendas']], aoSucesso: (r) => navegar(`../${r.id}`), tituloErro: 'Não foi possível emitir o recibo' });
@@ -162,7 +168,7 @@ function NovoRecibo() {
       <Form<ValoresRecibo>
         form={form}
         layout="vertical"
-        initialValues={{ data: dayjs(), meio_pagamento: 'NUMERARIO', contabilizar: pode('vendas_fat_contabilizar') }}
+        initialValues={{ data: dayjs(), meio_pagamento: 'NUMERARIO', contabilizar: pode('vendas_fat_contabilizar'), cliente_id: liquidar?.cliente_id }}
         onFinish={(v) => {
           if (adiantamento) {
             emitir.mutate({

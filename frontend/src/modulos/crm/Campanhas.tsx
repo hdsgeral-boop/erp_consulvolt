@@ -1,7 +1,7 @@
-import { Alert, Button, Card, Col, Empty, Flex, List, Modal, Radio, Row, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, Flex, List, Modal, Radio, Row, Select, Space, Table, Tag, Typography } from 'antd';
 import { MailOutlined, SendOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { obter, enviar } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
@@ -9,7 +9,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import { CHAVE_CRM, useConfigCRM, useFunis, useModelosEmail } from './comum/dados';
-import { abrirMailto, type Envio, type MensagemEmail } from './comum/tipos';
+import { abrirMailto, type Envio, type Funil, type MensagemEmail } from './comum/tipos';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 type Destinatario = MensagemEmail & { conta: { id: number; nome: string; tipo: string }; tem_email: boolean };
@@ -21,8 +21,30 @@ interface ResultadoCampanha {
   sem_email?: number[];
 }
 
+/** Subtítulo do antigo (renderCrmCampanhas, crm_ui_gestao.js:315). */
+export const SUBTITULO_CAMPANHAS_CRM =
+  'Mensagem personalizada para cada destinatário a partir de um modelo. Abre-se no seu programa de email (uma a uma ou em lote) ou exporta-se para uma ferramenta de email marketing. Fica registado no histórico de cada conta.';
+/** «Contas» (crm_ui_gestao.js:318). */
+export const OPCOES_TIPO_CAMPANHA = [{ value: '', label: 'Todas' }, { value: 'PROSPECT', label: 'Prospects' }, { value: 'CLIENTE', label: 'Clientes' }];
+
+/** «Com oportunidade aberta na etapa»: «Qualquer / sem oportunidade» e as etapas em aberto agrupadas por pipeline (crm_ui_gestao.js:319). */
+export const opcoesEtapaCampanha = (funis: Pick<Funil, 'id' | 'nome' | 'etapas'>[]) => [
+  { value: '', label: 'Qualquer / sem oportunidade' },
+  ...funis.map((f) => ({ label: f.nome, title: f.nome, options: f.etapas.filter((e) => e.tipo === 'ABERTA').map((e) => ({ value: `${f.id}|${e.id}`, label: e.nome })) })),
+];
+
+/** Campo com o rótulo por cima, como os filtros do antigo (.crm-filtros .form-group). */
+function Campo({ rotulo, largura, children }: { rotulo: string; largura: number; children: ReactNode }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 2, width: largura, maxWidth: '100%' }}>
+      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>{rotulo}</span>
+      {children}
+    </label>
+  );
+}
+
 /**
- * CRM › Campanhas de email (crm_campanhas): escolher modelo e público, rever destinatários e registar o envio. O servidor não
+ * CRM › Campanhas de email (crm_campanhas, renderCrmCampanhas, crm_ui_gestao.js:310-384): escolher modelo e público, rever destinatários e registar o envio. O servidor não
  * envia emails: regista a actividade em cada conta e devolve ligações mailto para abrir no programa de email.
  */
 export default function Campanhas() {
@@ -32,18 +54,18 @@ export default function Campanhas() {
   const config = useConfigCRM();
   const cliente = useQueryClient();
   const [modelo, setModelo] = useState<number | undefined>();
-  const [tipo, setTipo] = useState<string | undefined>();
-  const [funil, setFunil] = useState<number | undefined>();
-  const [etapa, setEtapa] = useState<string | undefined>();
-  const [origem, setOrigem] = useState<string | undefined>();
+  const [tipo, setTipo] = useState('');
+  const [etapa, setEtapa] = useState(''); // «funil|etapa» (as etapas repetem-se entre pipelines)
+  const [origem, setOrigem] = useState('');
+  const etapaCodigo = etapa.split('|')[1] || undefined;
   const [escolhidos, setEscolhidos] = useState<number[]>([]);
   const [modo, setModo] = useState<'INDIVIDUAL' | 'BCC'>('INDIVIDUAL');
   const [ver, setVer] = useState<Destinatario | null>(null);
   const [resultado, setResultado] = useState<ResultadoCampanha | null>(null);
 
   const destinatarios = useQuery({
-    queryKey: ['crm', 'campanhas', modelo, tipo, etapa, origem],
-    queryFn: () => obter<Destinatario[]>('/crm/campanhas/destinatarios', { modelo_email_crm_id: modelo, tipo, etapa_codigo: etapa, origem }),
+    queryKey: ['crm', 'campanhas', modelo, tipo, etapaCodigo, origem],
+    queryFn: () => obter<Destinatario[]>('/crm/campanhas/destinatarios', { modelo_email_crm_id: modelo, tipo: tipo || undefined, etapa_codigo: etapaCodigo, origem: origem || undefined }),
     enabled: !!modelo,
   });
   useEffect(() => {
@@ -67,31 +89,31 @@ export default function Campanhas() {
     onError: (e) => notificarErro(e, 'Não foi possível registar a campanha'),
   });
 
-  const etapas = funis.data?.find((f) => f.id === funil)?.etapas.filter((e) => e.tipo === 'ABERTA') ?? [];
   const lista = destinatarios.data ?? [];
   const semEmail = lista.filter((d) => !d.tem_email).length;
 
   return (
     <>
-      <CabecalhoPagina titulo="Campanhas de email" subtitulo="Envio de um modelo a um conjunto de contas, com registo no histórico de cada uma" />
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message="O sistema não envia emails directamente"
-        description="Cada envio fica registado como actividade na conta e abre-se no seu programa de email (mailto). No modo Bcc é aberta uma única mensagem com todos os destinatários em cópia oculta."
-      />
+      <CabecalhoPagina titulo="Campanhas de email" subtitulo={SUBTITULO_CAMPANHAS_CRM} />
+      {/* filtros pela ordem do antigo (crm_ui_gestao.js:317-320): Modelo *, Contas, etapa, Origem */}
       <Card size="small" style={{ marginBottom: 12 }}>
-        <Flex gap={8} wrap align="center">
-          <Select placeholder="Modelo de email" style={{ width: 260, maxWidth: '100%' }} value={modelo} onChange={setModelo} loading={modelos.isLoading} options={(modelos.data ?? []).map((m) => ({ value: m.id, label: m.nome }))} />
-          <Select allowClear placeholder="Tipo de conta" style={{ width: 150 }} value={tipo} onChange={setTipo} options={[{ value: 'PROSPECT', label: 'Prospects' }, { value: 'CLIENTE', label: 'Clientes' }]} />
-          <Select allowClear placeholder="Funil" style={{ width: 160 }} value={funil} onChange={(f) => { setFunil(f); setEtapa(undefined); }} options={(funis.data ?? []).map((f) => ({ value: f.id, label: f.nome }))} />
-          <Select allowClear placeholder="Com oportunidade na etapa" style={{ width: 220, maxWidth: '100%' }} disabled={!funil} value={etapa} onChange={setEtapa} options={etapas.map((e) => ({ value: e.id, label: e.nome }))} />
-          <Select allowClear placeholder="Origem" style={{ width: 160 }} value={origem} onChange={setOrigem} options={(config.data?.origens ?? []).map((o) => ({ value: o, label: o }))} />
+        <Flex gap={12} wrap align="end">
+          <Campo rotulo="Modelo *" largura={240}>
+            <Select placeholder="—" value={modelo} onChange={setModelo} loading={modelos.isLoading} options={(modelos.data ?? []).map((m) => ({ value: m.id, label: m.nome }))} />
+          </Campo>
+          <Campo rotulo="Contas" largura={150}>
+            <Select value={tipo} onChange={setTipo} options={OPCOES_TIPO_CAMPANHA} />
+          </Campo>
+          <Campo rotulo="Com oportunidade aberta na etapa" largura={240}>
+            <Select value={etapa} onChange={setEtapa} loading={funis.isLoading} options={opcoesEtapaCampanha(funis.data ?? [])} />
+          </Campo>
+          <Campo rotulo="Origem" largura={180}>
+            <Select value={origem} onChange={setOrigem} options={[{ value: '', label: 'Todas' }, ...(config.data?.origens ?? []).map((o) => ({ value: o, label: o }))]} />
+          </Campo>
         </Flex>
       </Card>
       {!modelo ? (
-        <Empty description="Escolha o modelo de email para ver os destinatários." />
+        <Alert type="info" message="Escolha o modelo de email (crie-os em CRM › Configuração)." />
       ) : (
         <Row gutter={[12, 12]}>
           <Col xs={24} xl={16}>
@@ -126,7 +148,12 @@ export default function Campanhas() {
                 </Space>
               }
             >
-              {semEmail > 0 && <Alert type="warning" showIcon style={{ marginBottom: 8 }} message={`${semEmail} conta(s) sem email não podem receber a campanha.`} />}
+              {/* resumo do antigo (crm_ui_gestao.js:344) */}
+              <Flex gap={18} wrap style={{ fontSize: '0.8rem', color: '#475569', marginBottom: 8 }}>
+                <span>Destinatários: <b>{lista.length}</b></span>
+                <span>Com email: <b>{lista.length - semEmail}</b></span>
+                {semEmail > 0 && <span style={{ color: '#b45309' }}>Sem email: <b>{semEmail}</b></span>}
+              </Flex>
               <Table<Destinatario> scroll={scrollTabela()}
                 size="small"
                 rowKey={(d) => d.conta.id}
@@ -135,9 +162,10 @@ export default function Campanhas() {
                 pagination={{ pageSize: 50, hideOnSinglePage: true }}
                 rowSelection={{ selectedRowKeys: escolhidos, onChange: (k) => setEscolhidos(k as number[]), getCheckboxProps: (d) => ({ disabled: !d.tem_email }) }}
                 columns={[
-                  { title: 'Conta', key: 'c', render: (_, d) => <>{d.conta.nome} {d.conta.tipo === 'PROSPECT' && <Tag>prospect</Tag>}</> },
-                  { title: 'Email', dataIndex: 'para', render: (v: string) => v || <Typography.Text type="danger">sem email</Typography.Text> },
+                  { title: 'Conta', key: 'c', render: (_, d) => <><strong>{d.conta.nome}</strong> {d.conta.tipo === 'PROSPECT' && <Tag>prospect</Tag>}</> },
+                  { title: 'Para', dataIndex: 'para', render: (v: string) => v || <Tag color="warning">sem email</Tag> },
                   { title: 'Assunto', dataIndex: 'assunto', ellipsis: true },
+                  { title: 'Pré-visualização', dataIndex: 'corpo', responsive: ['lg'], render: (c: string) => <span style={{ fontSize: '0.75rem', color: '#475569' }}>{(c ?? '').slice(0, 140)}{(c ?? '').length > 140 ? '…' : ''}</span> },
                   { title: '', key: 'v', width: 80, render: (_, d) => <Button size="small" type="link" onClick={() => setVer(d)}>Ver</Button> },
                 ]}
               />
@@ -147,8 +175,9 @@ export default function Campanhas() {
             <Card size="small" title="Envio">
               <Radio.Group value={modo} onChange={(e) => setModo(e.target.value)} style={{ marginBottom: 12 }}>
                 <Space direction="vertical">
-                  <Radio value="INDIVIDUAL">Um email por destinatário (personalizado)</Radio>
-                  <Radio value="BCC">Uma mensagem em Bcc (marcadores pessoais retirados)</Radio>
+                  {/* botões do antigo (crm_ui_gestao.js:346-347) */}
+                  <Radio value="INDIVIDUAL">Abrir seleccionados um a um (personalizado)</Radio>
+                  <Radio value="BCC">Uma mensagem em Bcc (sem personalização)</Radio>
                 </Space>
               </Radio.Group>
               {pode('crm_campanhas_enviar') ? (

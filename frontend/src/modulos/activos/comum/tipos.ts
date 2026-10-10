@@ -137,6 +137,19 @@ export interface LinhaPeriodo {
   quota_calculada: string | null;
   estado: EstadoQuota | string;
   amortizacao_id: number | null;
+  /** data de aquisição (AAAA-MM-DD) — coluna «Data Aquisição» do legado */
+  data_aquisicao?: string | null;
+  /** amortização acumulada da ficha (inicial + quotas integradas) — coluna «Amort. Acumulada» do legado */
+  amortizacao_acumulada?: string;
+}
+
+/** Período com quotas registadas (GET /ativos/amortizacoes/periodos-registados). */
+export interface PeriodoRegistado {
+  periodo: string;
+  ativos: number;
+  integrados: number;
+  rascunhos: number;
+  valor: string;
 }
 
 export interface PeriodoAmortizacoes {

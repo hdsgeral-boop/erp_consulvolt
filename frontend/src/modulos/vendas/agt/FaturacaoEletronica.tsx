@@ -1,15 +1,17 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Statistic, Switch, Tabs, Tag } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Statistic, Switch, Table, Tag, Typography } from 'antd';
 import { CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined, SyncOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { obter, obterPagina } from '@/api/cliente';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import type { DocumentoVenda } from '../api';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { dataApi, formatarData } from '@/utilitarios/formatacao';
+import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { EstadoTag } from '@/modulos/compras/comum/estados';
 import { ModalContas } from '@/modulos/compras/comum/ModalContas';
@@ -64,13 +66,14 @@ export function FaturacaoEletronica() {
         subtitulo="Envio dos documentos à AGT, regime, estabelecimentos e séries"
         accoes={pode('vendas_faturacao_view', 'vendas_config') && <Button icon={<SettingOutlined />} onClick={() => setContas(true)}>Contas de vendas</Button>}
       />
-      <Tabs
-        items={[
-          { key: 'estado', label: 'Estado do envio', children: <EstadoEnvio /> },
-          ...(config ? [{ key: 'config', label: 'Configuração', children: <Configuracao /> }] : []),
-          { key: 'series', label: 'Séries', children: <Series /> },
-        ]}
-      />
+      {/* 4.7.1: uma página com as secções pela ordem do legado (facturacao_agt_ui.js:render) */}
+      <Flex vertical gap={16}>
+        {config && <Configuracao />}
+        <EstadoEnvio />
+        <DadosARever />
+        <Series />
+        <DocumentosComErros />
+      </Flex>
       <ModalContas url="/vendas/configuracao/contas" titulo="Contas de vendas" chaveConsulta={['vendas', 'contas']} aberto={contas} aoFechar={() => setContas(false)} podeEditar={pode('vendas_config')} />
     </>
   );
@@ -95,13 +98,16 @@ function EstadoEnvio() {
                 Enviar pendentes
               </Button>
               <Button icon={<SyncOutlined />} loading={accao.isPending && accao.variables?.url.endsWith('consultar')} onClick={() => accao.mutate({ url: '/vendas/faturacao-eletronica/consultar' })}>
-                Consultar estados
+                Actualizar estados
               </Button>
             </Space>
           )
         }
-        title="Documentos em regime de facturação electrónica"
+        title={<><IconeFa nome="paper-plane" style={{ marginRight: 6 }} />Ligação à AGT (serviço intermédio)</>}
       >
+        <Typography.Paragraph type="secondary">
+          O serviço intermédio guarda as credenciais e as chaves, assina e envia os documentos à AGT. Nada é enviado enquanto não carregar em «Enviar pendentes» ou o envio automático não estiver ligado.
+        </Typography.Paragraph>
         {resumo.isLoading ? (
           <Skeleton active />
         ) : (
@@ -141,7 +147,7 @@ function EstadoEnvio() {
         )}
       </Card>
       {pode('vendas_fe_config') && (
-        <Card title="Ligação à AGT">
+        <Card size="small" title="Estado da ligação">
           {ligacao.isLoading ? (
             <Skeleton active />
           ) : ligacao.error ? (
@@ -192,7 +198,11 @@ function Configuracao() {
 
   if (consulta.isLoading) return <Skeleton active />;
   return (
-    <Card>
+    <Card title={<><IconeFa nome="stamp" style={{ marginRight: 6 }} />Regime de facturação electrónica{' '}
+      {consulta.data?.ativo ? <Tag color="green">Activo{consulta.data.data_inicio ? ` desde ${formatarData(consulta.data.data_inicio)}` : ''}</Tag> : <Tag>Inactivo</Tag>}</>}>
+      <Typography.Paragraph type="secondary">
+        Facturas (FT), Facturas-Recibo (FR) e Notas de Crédito (NC) passam a ser numeradas por séries e, depois de emitidas, ficam seladas — não se apagam nem se alteram, corrigem-se com Nota de Crédito. Cada documento é validado com as regras publicadas pela AGT e sai impresso com o QR code de consulta.
+      </Typography.Paragraph>
       <Form<ValoresConfig>
         form={form}
         layout="vertical"
@@ -213,12 +223,12 @@ function Configuracao() {
       >
         <Row gutter={16}>
           <Col xs={24} md={6}>
-            <Form.Item name="ativo" label="Regime de facturação electrónica" valuePropName="checked">
+            <Form.Item name="ativo" label="Estado" valuePropName="checked">
               <Switch checkedChildren="Activo" unCheckedChildren="Inactivo" />
             </Form.Item>
           </Col>
           <Col xs={24} md={6}>
-            <Form.Item name="data_inicio" label="Em vigor desde">
+            <Form.Item name="data_inicio" label="Data de início">
               <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
             </Form.Item>
           </Col>
@@ -289,7 +299,7 @@ function Series() {
 
   return (
     <Card
-      title="Séries de documentos"
+      title={<><IconeFa nome="layer-group" style={{ marginRight: 6 }} />Séries de numeração</>}
       extra={
         <Space wrap>
           <InputNumber placeholder="Ano" min={2000} max={2100} value={ano} onChange={setAno} />
@@ -419,6 +429,97 @@ function Series() {
           </Row>
         </Form>
       </Modal>
+    </Card>
+  );
+}
+
+interface BlocoDiagnostico { total: number; exemplos: string[] }
+interface DiagnosticoAgt {
+  empresa_nif: string | null;
+  sem_codigo: BlocoDiagnostico;
+  isentos_sem_motivo: BlocoDiagnostico;
+  taxa_fora: BlocoDiagnostico;
+  clientes_sem_nif: BlocoDiagnostico;
+}
+
+/** 4.7.1 — «Dados a rever antes de activar» (GET /vendas/faturacao-eletronica/diagnostico; só leitura). */
+function DadosARever() {
+  const diag = useQuery({ queryKey: ['vendas', 'fe', 'diagnostico'], queryFn: () => obter<DiagnosticoAgt>('/vendas/faturacao-eletronica/diagnostico'), retry: false, staleTime: 120_000 });
+  const d = diag.data;
+  const itens: [string, BlocoDiagnostico | undefined, string][] = [
+    ['Produtos sem código', d?.sem_codigo, 'Sem código, o documento usa o identificador interno.'],
+    ['Produtos isentos sem motivo', d?.isentos_sem_motivo, 'Indique o motivo no produto ou o motivo por omissão acima.'],
+    ['Produtos com taxa fora de 0/5/7/14%', d?.taxa_fora, 'Vão com o código de taxa «OUT».'],
+    ['Clientes sem NIF', d?.clientes_sem_nif, 'Serão enviados como consumidor final (999999999).'],
+  ];
+  return (
+    <Card title={<><IconeFa nome="list-check" style={{ marginRight: 6 }} />Dados a rever antes de activar</>} loading={diag.isLoading}>
+      <Typography.Paragraph type="secondary">Estes dados entram em cada documento enviado à AGT. Corrija-os nas fichas de produtos, clientes e empresa.</Typography.Paragraph>
+      {diag.error && <Alert type="error" showIcon message="Não foi possível verificar os dados." />}
+      {d?.empresa_nif && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={d.empresa_nif} />}
+      {d && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          {itens.map(([titulo, b, dica]) => (
+            <div key={titulo} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#f8fafc' }}>
+              <Flex justify="space-between" align="center"><span>{titulo}</span><strong style={{ fontSize: 18, color: b?.total ? '#b45309' : '#047857' }}>{b?.total ?? 0}</strong></Flex>
+              {!!b?.total && (
+                <>
+                  <small style={{ display: 'block', color: '#475569', marginTop: 4 }}>{b.exemplos.join(', ')}{b.total > b.exemplos.length ? ` e mais ${b.total - b.exemplos.length}` : ''}</small>
+                  <small style={{ display: 'block', color: '#64748b' }}>{dica}</small>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** 4.7.1 — «Documentos com erros AGT»: documentos do regime com erros locais (seriam rejeitados) e atalhos para os recusados. */
+function DocumentosComErros() {
+  const navegar = useNavigate();
+  const erros = useQuery({
+    queryKey: ['vendas', 'fe', 'com-erros'],
+    queryFn: () => obterPagina<DocumentoVenda>('/vendas/documentos', { estado_fe: 'COM_ERROS_LOCAIS', por_pagina: 50 }),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const lista = erros.data?.itens ?? [];
+  const texto = (d: DocumentoVenda) => {
+    const e = d.faturacao_eletronica?.erros ?? [];
+    return e.map((x) => (typeof x === 'object' && x && 'mensagem' in x ? String((x as { mensagem: unknown }).mensagem) : String(x))).join(' | ') || 'Documento AGT por gerar';
+  };
+  return (
+    <Card title={<><IconeFa nome="exclamation-triangle" style={{ marginRight: 6 }} />Documentos com erros AGT</>} loading={erros.isLoading}>
+      <Typography.Paragraph type="secondary">Os documentos abaixo seriam rejeitados pela AGT: corrija os dados de origem e revalide no detalhe do documento.</Typography.Paragraph>
+      {erros.error ? (
+        <Alert type="error" showIcon message="Não foi possível ler os documentos." />
+      ) : lista.length === 0 ? (
+        <Typography.Text strong style={{ color: '#047857' }}>Nenhum documento com erros locais.</Typography.Text>
+      ) : (
+        <Table<DocumentoVenda>
+          rowKey="id"
+          size="small"
+          pagination={false}
+          dataSource={lista}
+          scroll={scrollTabela()}
+          columns={[
+            { title: 'Documento', dataIndex: 'numero_documento', render: (v: string) => <span style={{ fontFamily: 'monospace' }}>{v}</span> },
+            { title: 'Data', dataIndex: 'data_emissao', render: formatarData },
+            { title: 'Total', dataIndex: 'total_bruto', align: 'right', render: (v: string) => formatarKz(v) },
+            { title: 'Erros', key: 'erros', render: (_, d) => texto(d) },
+            { title: '', key: 'ver', render: (_, d) => <Button size="small" icon={<IconeFa nome="file-code" />} onClick={() => navegar(`/m/vendas/vendas_faturacao/${d.id}`)}>Ver</Button> },
+          ]}
+        />
+      )}
+      <Space wrap style={{ marginTop: 12 }}>
+        {['INVALIDO', 'REJEITADO', 'ERRO'].map((e) => (
+          <Button key={e} size="small" type="link" onClick={() => navegar(`/m/vendas/vendas_faturacao?estado_fe=${e}`)}>
+            Ver documentos: {RESUMO.find((r) => r.chave === e)?.rotulo.toLowerCase()}
+          </Button>
+        ))}
+      </Space>
     </Card>
   );
 }

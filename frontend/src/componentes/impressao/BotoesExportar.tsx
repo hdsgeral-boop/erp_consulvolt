@@ -7,6 +7,7 @@ import {
 } from './preferencias';
 import type { Orientacao, Papel, PreferenciaPagina } from './tipos';
 import { DICA_PDF, useImpressao, type PedidoImpressao } from './useImpressao';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 
 /** Opções do documento, calculadas no momento do clique (pode ser assíncrono: ex. ir buscar todas as páginas). */
 export type ObterPedido = () => PedidoImpressao | null | undefined | Promise<PedidoImpressao | null | undefined>;
@@ -154,5 +155,51 @@ export function BotoesExportar({
         </Tooltip>
       )}
     </Space.Compact>
+  );
+}
+
+/**
+ * Botões da barra das listas na ordem e com os ícones do sistema anterior (DataTables Buttons): **Excel · PDF ·
+ * Imprimir**, mais o selector da página (orientação/papel, só o ícone, colado ao «Imprimir»). Mesmo motor e mesma
+ * preferência de página que `BotoesExportar`.
+ */
+export function BotoesExportarLegado({
+  obterPedido,
+  desactivado,
+  tamanho = 'small',
+  excel = true,
+  seletorPagina = true,
+  chave,
+  textoImprimir = 'Imprimir',
+}: Omit<PropsBotao, 'modo' | 'texto' | 'tipo'> & { excel?: boolean; seletorPagina?: boolean; textoImprimir?: string }) {
+  const chaveFinal = useMemo(() => chave ?? chavePorOmissao(caminhoActual(), textoImprimir), [chave, textoImprimir]);
+  const { pref, mudar } = usePreferenciaPagina(chaveFinal);
+  const { executar, ocupado } = useExecutar(obterPedido, pref);
+  const outro = (m: Modo) => ocupado !== null && ocupado !== m;
+  const compacto = useEcraPequeno('sm');
+  const rotulo = (t: string) => (compacto ? { 'aria-label': t } : {});
+  return (
+    <>
+      {excel && (
+        <Tooltip title={DICA_EXCEL}>
+          <Button size={tamanho} icon={<IconeFa nome="file-excel" className="erp-icone-excel" />} disabled={desactivado || outro('excel')} loading={ocupado === 'excel'} onClick={() => void executar('excel')} {...rotulo('Excel')}>
+            {compacto ? null : 'Excel'}
+          </Button>
+        </Tooltip>
+      )}
+      <Tooltip title={DICA_PDF}>
+        <Button size={tamanho} icon={<IconeFa nome="file-pdf" className="erp-icone-pdf" />} disabled={desactivado || outro('pdf')} loading={ocupado === 'pdf'} onClick={() => void executar('pdf')} {...rotulo('PDF')}>
+          {compacto ? null : 'PDF'}
+        </Button>
+      </Tooltip>
+      <Space.Compact>
+        <Tooltip title={compacto ? textoImprimir : undefined}>
+          <Button size={tamanho} icon={<IconeFa nome="print" />} disabled={desactivado || outro('imprimir')} loading={ocupado === 'imprimir'} onClick={() => void executar('imprimir')} {...rotulo(textoImprimir)}>
+            {compacto ? null : textoImprimir}
+          </Button>
+        </Tooltip>
+        {seletorPagina && <SeletorPagina valor={pref} aoMudar={mudar} tamanho={tamanho} desactivado={desactivado || ocupado !== null} compacto />}
+      </Space.Compact>
+    </>
   );
 }

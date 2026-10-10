@@ -21,6 +21,8 @@ interface Sessao {
   entrar: (nomeUtilizador: string, palavraPasse: string) => Promise<void>;
   sair: (motivo?: string) => Promise<void>;
   escolherEmpresa: (id: number) => Promise<void>;
+  /** Larga a empresa activa e volta ao ecrã de escolha (legado: «Trocar empresa» → #/selecionar-empresa). */
+  largarEmpresa: () => void;
   /** Tem pelo menos uma das permissões (como $this->exigir no backend); '*' = acesso total. */
   pode: (...chaves: string[]) => boolean;
 }
@@ -132,6 +134,14 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     [carregarMenu, cliente],
   );
 
+  const largarEmpresa = useCallback(() => {
+    armazenamento.definirEmpresa(null);
+    setEmpresaId(null);
+    setMenu([]);
+    setPermissoesEmpresa(null);
+    cliente.clear();   // os dados em cache são da empresa que se larga
+  }, [cliente]);
+
   const valor = useMemo<Sessao>(() => {
     const permissoes = permissoesEmpresa ?? dados?.permissoes ?? [];
     const total = permissoes.includes('*');
@@ -146,9 +156,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       entrar,
       sair,
       escolherEmpresa,
+      largarEmpresa,
       pode: (...chaves) => total || chaves.some((c) => permissoes.includes(c.toLowerCase())),
     };
-  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa]);
+  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa, largarEmpresa]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

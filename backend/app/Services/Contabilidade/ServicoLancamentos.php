@@ -237,24 +237,40 @@ final class ServicoLancamentos
         return LancamentoContabil::query()->doMesmoLancamento($linha)->orderBy('id')->get();
     }
 
-    /** Bloqueios do legado à descontabilização (js/ui_lancamentos.js:2959-3078), agora pré-condições do estorno. */
-    private function exigirSemBloqueios(Collection $linhas): void
+    /**
+     * Bloqueios ao estorno sem efeitos (reconciliação bancária, activos imobilizados) — também usados na pré-visualização
+     * da descontabilização em massa (8.1.1).
+     *
+     * @return array{codigo: string, mensagem: string}|null
+     */
+    public function bloqueioEstorno(Collection $linhas): ?array
     {
         $empresa = $this->contexto->obrigatorio();
         $comCodigo = $linhas->filter(fn ($l) => $l->reconciliacao_codigo !== null && $l->reconciliacao_codigo !== '');
         // reconciliação BANCÁRIA — linha de meios monetários (classe 4), código de banco (REC-/MAN-/DFT-) ou código com
         // correspondências de extracto: bloqueia (reverte-se primeiro no banco)
-        $bancarios = DB::table('correspondencias_reconciliacao')->where('empresa_id', $empresa)
+        $bancarios = $comCodigo->isEmpty() ? collect() : DB::table('correspondencias_reconciliacao')->where('empresa_id', $empresa)
             ->whereIn('reconciliacao_codigo', $comCodigo->pluck('reconciliacao_codigo')->unique()->all())->whereNotNull('linha_extrato_bancario_id')
             ->distinct()->pluck('reconciliacao_codigo')->flip();
         if ($comCodigo->contains(fn ($l) => str_starts_with((string) $l->codigo_conta, '4') || preg_match('/^(REC|MAN|DFT)-/', (string) $l->reconciliacao_codigo)
             || isset($bancarios[$l->reconciliacao_codigo]))) {
-            throw new ErroNegocio('O lançamento tem linhas reconciliadas com o banco: reverta primeiro a reconciliação.', 'LANCAMENTO_RECONCILIADO', 422);
+            return ['codigo' => 'LANCAMENTO_RECONCILIADO', 'mensagem' => 'O lançamento tem linhas reconciliadas com o banco: reverta primeiro a reconciliação.'];
         }
-        $ids = $linhas->pluck('id')->all();
-        if (DB::table('ativos_imobilizados')->where('empresa_id', $empresa)->whereIn('lancamento_contabil_id', $ids)->exists()) {
-            throw new ErroNegocio('O lançamento está ligado a activos imobilizados: trate primeiro os activos.', 'LANCAMENTO_COM_ATIVOS', 422);
+        if (DB::table('ativos_imobilizados')->where('empresa_id', $empresa)->whereIn('lancamento_contabil_id', $linhas->pluck('id')->all())->exists()) {
+            return ['codigo' => 'LANCAMENTO_COM_ATIVOS', 'mensagem' => 'O lançamento está ligado a activos imobilizados: trate primeiro os activos.'];
         }
+
+        return null;
+    }
+
+    /** Bloqueios do legado à descontabilização (js/ui_lancamentos.js:2959-3078), agora pré-condições do estorno. */
+    private function exigirSemBloqueios(Collection $linhas): void
+    {
+        $empresa = $this->contexto->obrigatorio();
+        if ($b = $this->bloqueioEstorno($linhas)) {
+            throw new ErroNegocio($b['mensagem'], $b['codigo'], 422);
+        }
+        $comCodigo = $linhas->filter(fn ($l) => $l->reconciliacao_codigo !== null && $l->reconciliacao_codigo !== '');
         // COMPENSAÇÃO de terceiros (factura × pagamento, classe 3): liberta-se nas duas pontas, com rasto
         // (como o legado fazia ao descontabilizar; os códigos REC_/AUTO/TRF_/MATC partilham o mesmo campo)
         $codigos = $comCodigo->pluck('reconciliacao_codigo')->unique()->values()->all();

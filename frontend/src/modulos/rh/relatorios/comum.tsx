@@ -7,24 +7,28 @@ import type { DetalhePeriodo, PeriodoSalarial, ResultadoSalarial } from '../api'
 import { BotaoImprimir, SemPeriodo, SeletorPeriodo } from '../comum/componentes';
 import { useAvisarErro, useColaboradores, usePeriodosSalariais } from '../comum/consultas';
 
-/** Período escolhido nos mapas: por omissão o validado mais recente. */
-export function usePeriodoMapa(apenas?: PeriodoSalarial['estado'][]) {
+/**
+ * Período escolhido nos mapas: por omissão o validado mais recente. Com `idFixo` (mapa embutido no ecrã único
+ * «Relatórios e Recibos») o período é o escolhido nesse ecrã.
+ */
+export function usePeriodoMapa(apenas?: PeriodoSalarial['estado'][], idFixo?: number) {
   const periodos = usePeriodosSalariais();
   useAvisarErro(periodos.error, 'Erro ao carregar os períodos salariais');
-  const [id, setId] = useState<number>();
+  const [idInterno, setId] = useState<number>();
+  const id = idFixo ?? idInterno;
   useEffect(() => {
-    if (id === undefined && periodos.data?.length) {
+    if (idFixo === undefined && id === undefined && periodos.data?.length) {
       const preferido = periodos.data.find((p) => p.estado === 'VALIDADO') ?? (apenas ? undefined : periodos.data[0]);
       if (preferido) setId(preferido.id);
     }
-  }, [periodos.data, id, apenas]);
+  }, [periodos.data, id, apenas, idFixo]);
   const detalhe = useQuery({ queryKey: ['rh', 'salarios', 'periodo', String(id)], queryFn: () => obter<DetalhePeriodo>(`/rh/salarios/periodos/${id}`), enabled: id !== undefined });
   useAvisarErro(detalhe.error, 'Erro ao carregar o período');
   return { periodos, id, setId, detalhe, periodo: periodos.data?.find((p) => p.id === id) };
 }
 
 /** Moldura comum dos mapas: cabeçalho, escolha do período, imprimir e acções extra. */
-export function MolduraMapa({ titulo, subtitulo, mapa, apenas, accoes, filtros, children, aviso }: {
+export function MolduraMapa({ titulo, subtitulo, mapa, apenas, accoes, filtros, children, aviso, embutido }: {
   titulo: string;
   subtitulo: string;
   mapa: ReturnType<typeof usePeriodoMapa>;
@@ -33,7 +37,18 @@ export function MolduraMapa({ titulo, subtitulo, mapa, apenas, accoes, filtros, 
   filtros?: ReactNode;
   aviso?: ReactNode;
   children: ReactNode;
+  /** Dentro do ecrã «Relatórios e Recibos»: sem cabeçalho de página nem selector de período (já escolhido lá). */
+  embutido?: boolean;
 }) {
+  if (embutido) {
+    return (
+      <Card title={titulo} extra={<Space wrap className="rh-nao-imprimir">{accoes}<BotaoImprimir desactivado={!mapa.detalhe.data} titulo={titulo} /></Space>}>
+        {filtros && <Flex className="rh-nao-imprimir" gap={8} wrap align="center" style={{ marginBottom: 12 }}>{filtros}</Flex>}
+        {aviso}
+        {mapa.id === undefined ? <SemPeriodo /> : mapa.detalhe.isLoading ? <Card loading variant="borderless" /> : mapa.detalhe.data ? children : null}
+      </Card>
+    );
+  }
   return (
     <>
       <CabecalhoPagina titulo={titulo} subtitulo={subtitulo} accoes={<Space wrap>{accoes}<BotaoImprimir desactivado={!mapa.detalhe.data} titulo={titulo} /></Space>} />

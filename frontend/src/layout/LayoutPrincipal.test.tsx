@@ -16,6 +16,7 @@ const MENU: ModuloMenu[] = [
 ];
 
 let logotipo: string | null = null;
+const largarEmpresaMock = vi.fn();
 
 vi.mock('@/sessao/SessaoContexto', () => ({
   useSessao: () => ({
@@ -27,6 +28,7 @@ vi.mock('@/sessao/SessaoContexto', () => ({
     ],
     utilizador: { id: 1, nome_utilizador: 'e2e.admin', nome_completo: 'Utilizador de Teste' },
     escolherEmpresa: vi.fn(() => Promise.resolve()),
+    largarEmpresa: largarEmpresaMock,
     sair: vi.fn(() => Promise.resolve()),
     pode: () => true,
     estado: 'autenticado',
@@ -70,19 +72,35 @@ afterEach(() => {
 describe('LayoutPrincipal — portátil (1366 px)', () => {
   beforeEach(() => simularLargura(1366));
 
-  it('mostra o menu lateral com o nome da empresa, iniciais, selector de empresa e módulos com ícone', () => {
+  it('mostra o menu lateral com o nome da empresa, iniciais, «Trocar empresa» e a estrutura do legado com ícones', () => {
     const { container } = montar();
     const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(lateral).not.toBeNull();
     expect(within(lateral).getByText(EMPRESA)).toBeInTheDocument();
     expect(within(lateral).getByText('DE')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Empresa activa' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Trocar empresa' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Empresa activa' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Empresa activa' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Recolher menu' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Abrir menu' })).toBeNull();
     expect(screen.getByText('Utilizador de Teste')).toBeInTheDocument();
-    const modulo = within(lateral).getByText('Vendas e Facturação').closest('.ant-menu-submenu-title') as HTMLElement;
-    expect(modulo.querySelector('.anticon svg')).not.toBeNull();
+    // legado: sem avatar no utilizador (nome + papel) e ajuda azul cheia
+    expect(container.querySelector('.erp-utilizador .ant-avatar')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Ajuda' })).toHaveClass('ant-btn-primary');
+    // Início no topo; módulos dentro de «Menu Geral»; configurações dentro de «Sistema»
+    expect(within(lateral).getByText('Início')).toBeInTheDocument();
+    const geral = within(lateral).getByText('Menu Geral').closest('.ant-menu-submenu-title') as HTMLElement;
+    expect(geral.querySelector('svg.fx-icone')).not.toBeNull();
+    expect(within(lateral).getByText('Sistema')).toBeInTheDocument();
+    expect(within(lateral).queryByText('Vendas e Facturação')).toBeNull();
     expect(screen.getByText('Página inicial')).toBeInTheDocument();
+  });
+
+  it('«Trocar empresa» volta à escolha de empresa', () => {
+    largarEmpresaMock.mockClear();
+    montar('/m/vendas/vendas_faturacao');
+    fireEvent.click(screen.getByRole('button', { name: 'Trocar empresa' }));
+    expect(largarEmpresaMock).toHaveBeenCalledTimes(1);
   });
 
   it('usa o logótipo quando a empresa o tem', () => {
@@ -120,13 +138,14 @@ describe('LayoutPrincipal — telemóvel (375 px)', () => {
       return g as HTMLElement;
     });
     expect(within(gaveta).getByRole('combobox', { name: 'Empresa activa' })).toBeInTheDocument();
-    expect(within(gaveta).getByText('Vendas e Facturação')).toBeInTheDocument();
+    expect(within(gaveta).getByText('Menu Geral')).toBeInTheDocument();
     // os favoritos (pedido ao servidor) entram no menu: esperar antes de navegar para o menu não se redesenhar a meio
     expect(await within(gaveta).findByText('Favoritos')).toBeInTheDocument();
 
-    // navegar fecha a gaveta
-    fireEvent.click(within(gaveta).getByText('Vendas e Facturação'));
-    fireEvent.click(await within(gaveta).findByText('Facturação'));
+    // navegar fecha a gaveta (Menu Geral › Vendas › Faturação, rótulos do legado)
+    fireEvent.click(within(gaveta).getByText('Menu Geral'));
+    fireEvent.click(await within(gaveta).findByText('Vendas'));
+    fireEvent.click(await within(gaveta).findByText('Faturação'));
     expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Abrir menu' })).toHaveAttribute('aria-expanded', 'false'));
   });

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Empty, Flex, Input, Row, Segmented, Select, Skeleton, Space, Statistic, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Empty, Flex, Input, Segmented, Select, Skeleton, Space, Tag, Tooltip, Typography } from 'antd';
 import { CalendarOutlined, DollarOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type DragEvent } from 'react';
@@ -14,6 +14,15 @@ import { CHAVE_CRM, useFunis } from './comum/dados';
 import { ModalMoverEtapa, TagSaude } from './comum/componentes';
 import { FichaOportunidade, FormOportunidade } from './comum/Oportunidade';
 import { filtrarCartoes, podeMover, type Cartao, type Etapa, type Oportunidade, type Quadro } from './comum/tipos';
+
+/** Subtítulo do antigo (crm_ui.js:127) com a legenda das cores dos cartões. */
+export function LegendaCoresPipeline() {
+  return (
+    <span>
+      Arraste os cartões entre etapas. <b style={{ color: '#dc2626' }}>Vermelho</b>: sem actividade agendada ou estagnado; <b style={{ color: '#d97706' }}>âmbar</b>: actividade em atraso ou fecho ultrapassado.
+    </span>
+  );
+}
 
 /** CRM › Pipeline (crm_pipeline): quadro Kanban por etapas do funil, mover com arrastar (motivo na perda), lista e ficha. */
 export default function Pipeline() {
@@ -86,17 +95,20 @@ export default function Pipeline() {
     <>
       <CabecalhoPagina
         titulo="Pipeline de vendas"
-        subtitulo="Oportunidades por etapa do funil; arraste os cartões para mudar de etapa"
+        subtitulo={<LegendaCoresPipeline />}
         accoes={editar && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNova(true)}>Nova oportunidade</Button>}
         impressao={vista === 'quadro' ? pedidoQuadro : undefined}
         impressaoDesactivada={!quadro.data}
       />
       <Card size="small" style={{ marginBottom: 12 }}>
         <Flex gap={8} wrap align="center">
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>Pipeline</span>
           <Select style={{ width: 200, maxWidth: '100%' }} value={funilId} onChange={setFunilId} options={funis.data.map((f) => ({ value: f.id, label: f.ativo ? f.nome : `${f.nome} (inactivo)` }))} aria-label="Funil" />
           <Segmented value={vista} onChange={(v) => setVista(v as 'quadro' | 'lista')} options={[{ value: 'quadro', label: 'Quadro' }, { value: 'lista', label: 'Lista' }]} />
-          <Input.Search placeholder="Título ou conta" allowClear style={{ width: 220, maxWidth: '100%' }} onSearch={setTexto} onChange={(e) => !e.target.value && setTexto('')} />
-          <Input.Search placeholder="Responsável" allowClear style={{ width: 160, maxWidth: '100%' }} onSearch={setResponsavel} />
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>Procurar</span>
+          <Input.Search placeholder="Oportunidade, cliente, contacto..." allowClear style={{ width: 220, maxWidth: '100%' }} onSearch={setTexto} onChange={(e) => !e.target.value && setTexto('')} />
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>Responsável</span>
+          <Input.Search placeholder="Todos" allowClear style={{ width: 160, maxWidth: '100%' }} onSearch={setResponsavel} />
           {vista === 'quadro' ? (
             <Checkbox checked={soRisco} onChange={(e) => setSoRisco(e.target.checked)}>Só em risco ou atenção</Checkbox>
           ) : (
@@ -108,12 +120,14 @@ export default function Pipeline() {
       {vista === 'quadro' ? (
         <>
           {r && (
-            <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
-              <Col xs={12} md={6}><Card size="small"><Statistic title="Abertas" value={r.abertas} /></Card></Col>
-              <Col xs={12} md={6}><Card size="small"><Statistic title="Valor em funil (Kz)" value={formatarKz(r.valor)} /></Card></Col>
-              <Col xs={12} md={6}><Card size="small"><Statistic title="Ponderado (Kz)" value={formatarKz(r.ponderado)} /></Card></Col>
-              <Col xs={12} md={6}><Card size="small"><Statistic title="Em risco / atenção" value={`${r.em_risco} / ${r.atencao}`} valueStyle={{ color: r.em_risco ? '#cf1322' : undefined }} /></Card></Col>
-            </Row>
+            // resumo numa linha, como o legado (Em aberto · Valor do pipeline · Ponderado · Em risco · Atenção)
+            <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#475569', margin: '0 0 0.6rem' }}>
+              <span>Em aberto: <b>{r.abertas}</b></span>
+              <span>Valor do pipeline: <b>{formatarKz(r.valor)} Kz</b></span>
+              <span>Ponderado: <b>{formatarKz(r.ponderado)} Kz</b></span>
+              <span style={{ color: '#b91c1c' }}>Em risco: <b>{r.em_risco}</b></span>
+              <span style={{ color: '#b45309' }}>Atenção: <b>{r.atencao}</b></span>
+            </div>
           )}
           {quadro.isLoading ? (
             <Skeleton active />
@@ -167,7 +181,7 @@ export default function Pipeline() {
               { title: 'Oportunidade', dataIndex: 'titulo', valorImpressao: (o) => `${o.titulo}${o.conta_crm?.nome ? ` — ${o.conta_crm.nome}` : ''}`, render: (v: string, o) => (<><strong>{v}</strong><div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{o.conta_crm?.nome}</div></>) },
               { title: 'Etapa', dataIndex: 'etapa_codigo', responsive: ['sm'], render: (e: string) => funis.data?.find((f) => f.id === funilId)?.etapas.find((x) => x.id === e)?.nome ?? e },
               { title: 'Estado', dataIndex: 'estado', render: (e: string) => <Tag color={e === 'GANHA' ? 'green' : e === 'PERDIDA' ? 'default' : 'blue'}>{e === 'GANHA' ? 'Ganha' : e === 'PERDIDA' ? 'Perdida' : 'Aberta'}</Tag> },
-              { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => formatarKz(v) },
+              { title: 'Valor', dataIndex: 'valor', align: 'right', total: true, render: (v: string) => formatarKz(v) },
               { title: 'Fecho previsto', dataIndex: 'data_fecho_prevista', responsive: ['md'], render: formatarData },
               { title: 'Responsável', dataIndex: 'responsavel', responsive: ['lg'] },
             ]}

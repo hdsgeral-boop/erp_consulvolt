@@ -235,6 +235,82 @@ final class GestaoFluxosTest extends TestCase
         $this->assertSame(['prep', 'Sem valores'], [$orc['etapa_actual'], $orc['etapa_actual_resumo']]);
     }
 
+    /**
+     * Vista de volume do legado (fluxo_tabela.js) nos quatro fluxos em tabela: indicadores, funil «Por etapa actual» com as
+     * colunas de cada fluxo, filtros rápidos (com contagens, filtrados no servidor por lista branca) e colunas da tabela.
+     * Os fluxos com cartões não têm vista nem filtros rápidos.
+     */
+    #[Test]
+    public function fluxos_em_tabela_devolvem_a_vista_do_legado_e_filtram_pelos_chips(): void
+    {
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () {
+            $item = fn (string $estado, array $extra = []) => $extra + ['linha_id' => 1, 'estado' => $estado, 'quantidade' => 1, 'preco' => 1000, 'valor' => '1000.00', 'nome' => 'Camisa'];
+            PedidoLavandaria::create(['numero_encomenda' => 'OS/1', 'recebido_em' => '2025-06-01 09:00:00', 'data_prometida' => '2025-06-03 18:00:00', 'estado' => 'RECEBIDA',
+                'itens' => [$item('RECEBIDA')], 'extras' => [], 'urgente' => true]);
+            PedidoLavandaria::create(['numero_encomenda' => 'OS/2', 'recebido_em' => '2025-06-02 09:00:00', 'data_prometida' => now()->addDays(5)->toDateString().' 18:00:00', 'estado' => 'PRONTA',
+                'itens' => [$item('PRONTA', ['pronta_em' => now()->subDays(40)->toIso8601String()])], 'extras' => []]);
+            $s = SessaoCaixa::create(['codigo_conta' => '4511', 'operador' => 'Ana Lúcia', 'data_abertura' => '2025-06-01', 'data_fecho' => '2025-06-01', 'saldo_abertura' => 0, 'saldo_fecho' => 100,
+                'saldo_fisico' => 90, 'estado' => 'FECHADA', 'codigo_moeda' => 'AOA']);
+            MovimentoCaixa::create(['sessao_caixa_id' => $s->id, 'tipo' => 'REC', 'data_documento' => '2025-06-01', 'valor' => 100, 'conta_debito' => '4511', 'conta_credito' => '62', 'contabilizado' => false]);
+        });
+        $admin = $this->sessao(['all']);
+
+        $lav = $this->getJson('/api/gestao/fluxos/lavandaria', $admin)->assertOk()->json('dados');
+        $this->assertSame(['Ordens em curso', 'Atrasadas', 'Prontas por levantar', 'Fora do prazo de levantamento', 'Valor por receber'], array_column($lav['kpis'], 'rotulo'));
+        $k = collect($lav['kpis'])->keyBy('chave');
+        $this->assertSame([1, true], [$k['fora_prazo']['valor'], $k['fora_prazo']['alerta']]);
+        $v = $lav['vista'];
+        $this->assertSame(['Aguardam orçamento', 'Em execução', 'Por entregar', 'Por facturar ou contabilizar', 'Por receber', 'Concluídas'], array_column($v['funil'], 'rotulo'));
+        $funil = collect($v['funil'])->keyBy('id');
+        $this->assertSame([1, '1000.00', 1], [$funil['exec']['parados'], $funil['exec']['valor'], $funil['exec']['com_pendencias']]);
+        $this->assertSame(1, $funil['ent']['parados']);
+        $this->assertNull($funil['concluidos']['valor']);
+        $this->assertSame(['Por concluir', 'Com pendências', 'Atrasadas', 'Por levantar', 'Fora do prazo de levantamento', 'Com valor por receber', 'Todas'], array_column($v['filtros'], 'rotulo'));
+        $this->assertSame([2, 2, 1, 1, 1, 0, 2], array_column($v['filtros'], 'total'));
+        $this->assertSame('curso', $v['filtro_inicial']);
+        $this->assertSame(['Ordem', 'Cliente', 'Recebida', 'Prazo', 'Etapa actual', 'Progresso', 'Pendências', 'Valor', 'Por receber'], array_column($v['colunas'], 'rotulo'));
+        $this->assertSame([25, 'ordens'], [$v['por_pagina'], $v['nome_itens']]);
+        $fora = $this->getJson('/api/gestao/fluxos/lavandaria/processos?filtro=fora_prazo', $admin)->assertOk()->json('dados');
+        $this->assertSame(['OS/2'], array_column($fora, 'titulo'));
+        $this->assertSame([true, false, true], [$fora[0]['fora_prazo'], $fora[0]['atrasada'], $fora[0]['por_levantar']]);
+        $this->assertSame(['OS/1'], array_column($this->getJson('/api/gestao/fluxos/lavandaria/processos?filtro=atrasadas', $admin)->json('dados'), 'titulo'));
+
+        $b = $this->getJson('/api/gestao/fluxos/bancos', $admin)->assertOk()->json('dados.vista');
+        $this->assertSame(['Por integrar', 'Extracto por carregar', 'Por reconciliar', 'Reconciliados'], array_column($b['funil'], 'rotulo'));
+        $this->assertSame([1, 1, 1, 1], array_column($b['funil'], 'parados'));
+        $this->assertSame(['Por concluir', 'Documentos por integrar', 'Sem extracto', 'Movimentos por conciliar', 'Todos'], array_column($b['filtros'], 'rotulo'));
+        $this->assertSame([3, 1, 2, 2, 4], array_column($b['filtros'], 'total'));
+        $this->assertSame(['Mês', 'Conta', 'Etapa actual', 'Progresso', 'Pendências', 'Documentos', 'Por conciliar', 'Variação do mês'], array_column($b['colunas'], 'rotulo'));
+        $sem = $this->getJson('/api/gestao/fluxos/bancos/processos?filtro=extracto', $admin)->assertOk()->json('dados');
+        $this->assertEqualsCanonicalizing(['06/2025', '07/2025'], array_column($sem, 'titulo'));
+        $junho = collect($sem)->firstWhere('titulo', '06/2025');
+        $this->assertSame([1, 1, '43101'], [$junho['n_docs'], $junho['por_integrar'], $junho['conta']]);
+        // filtro + etapa: os concluídos só aparecem em «Todos»
+        $this->assertSame([], $this->getJson('/api/gestao/fluxos/bancos/processos?filtro=curso&etapa=concluidos', $admin)->json('dados'));
+        $this->assertSame(['08/2025'], array_column($this->getJson('/api/gestao/fluxos/bancos/processos?filtro=todas&etapa=concluidos', $admin)->json('dados'), 'titulo'));
+
+        $c = $this->getJson('/api/gestao/fluxos/caixa', $admin)->assertOk()->json('dados.vista');
+        $this->assertSame(['Caixas abertas', 'Diferença por regularizar', 'Por contabilizar', 'Contabilizadas'], array_column($c['funil'], 'rotulo'));
+        $this->assertSame(['Por concluir', 'Com pendências', 'Abertas', 'Com diferença', 'Por contabilizar', 'Todas'], array_column($c['filtros'], 'rotulo'));
+        $this->assertSame(['Abertura', 'Conta', 'Operador', 'Etapa actual', 'Progresso', 'Pendências', 'Entradas', 'Saídas', 'Diferença'], array_column($c['colunas'], 'rotulo'));
+        $sessao = $this->getJson('/api/gestao/fluxos/caixa/processos?filtro=diferenca', $admin)->assertOk()->json('dados.0');
+        $this->assertSame(['dif', '-10.00', '100.00', '0.00', 'Ana Lúcia'], [$sessao['etapa_actual'], $sessao['diferenca'], $sessao['entradas'], $sessao['saidas'], $sessao['operador']]);
+        // pesquisa sem acentos nem maiúsculas, como o legado
+        $this->assertSame(1, $this->getJson('/api/gestao/fluxos/caixa/processos?pesquisa=ana%20lucia', $admin)->json('metadados.paginacao.total'));
+
+        $p = $this->getJson('/api/gestao/fluxos/projetos', $admin)->assertOk()->json('dados');
+        $this->assertSame(['Projectos activos', 'Com tarefas atrasadas', 'Acima do orçamento', 'Carteira activa (sem IVA)', 'Valor por receber'], array_column($p['kpis'], 'rotulo'));
+        $this->assertSame(['Abertura incompleta', 'Por planear', 'Sem orçamento/equipa', 'Em execução', 'Por facturar', 'Por receber', 'Por encerrar', 'Encerrados'], array_column($p['vista']['funil'], 'rotulo'));
+        $this->assertSame(['Activos', 'Com pendências', 'Com tarefas atrasadas', 'Acima do orçamento', 'Com valor por receber', 'Todos'], array_column($p['vista']['filtros'], 'rotulo'));
+        $this->assertSame(['Projecto', 'Cliente', 'Executado', 'Etapa actual', 'Progresso', 'Pendências', 'Venda s/ IVA', 'Custo', 'Por receber'], array_column($p['vista']['colunas'], 'rotulo'));
+
+        // lista branca: filtro desconhecido no fluxo, formato inválido e fluxos com cartões (sem filtros rápidos)
+        $this->getJson('/api/gestao/fluxos/lavandaria/processos?filtro=xpto', $admin)->assertStatus(422)->assertJsonPath('codigo', 'FILTRO_INVALIDO');
+        $this->getJson('/api/gestao/fluxos/lavandaria/processos?filtro=1%27%20OR', $admin)->assertStatus(422);
+        $this->getJson('/api/gestao/fluxos/vendas/processos?filtro=curso', $admin)->assertStatus(422)->assertJsonPath('codigo', 'FILTRO_INVALIDO');
+        $this->assertNull($this->getJson('/api/gestao/fluxos/vendas', $admin)->json('dados.vista'));
+    }
+
     #[Test]
     public function salarios_bloqueia_a_integracao_sem_mapeamentos_e_assinala_periodos_em_falta(): void
     {
@@ -249,5 +325,34 @@ final class GestaoFluxosTest extends TestCase
         $this->assertContains('Rubrica "Salário Base" sem conta contabilística para Sede.', $textos);
         $this->assertContains('Conta de sistema "Salários a pagar" não mapeada para Sede.', $textos);
         $this->assertSame('aviso', $d['etapas']['base']['problemas'][0]['nivel']);
+    }
+
+    /**
+     * Verificação visual 1.3.2: o aviso «n sem IBAN» é da empresa (igual em todos os períodos). Continua no detalhe dos dados
+     * base, como no legado, mas não conta nas pendências do período: sem outros problemas, a lista não mostra «▲1» e o funil
+     * não diz «com pendências».
+     */
+    #[Test]
+    public function salarios_o_aviso_de_iban_da_empresa_nao_conta_nas_pendencias_do_periodo(): void
+    {
+        $p = collect($this->getJson('/api/gestao/fluxos/rh/processos', $this->h)->assertOk()->json('dados'))->keyBy('titulo');
+        $this->assertSame([0, 0], [$p['03/2025']['n_erros'], $p['03/2025']['n_avisos']]);
+        $comPendencias = array_column($this->getJson('/api/gestao/fluxos/rh/processos?estado=com_pendencias', $this->h)->assertOk()->json('dados'), 'titulo');
+        $this->assertSame(['05/2025'], $comPendencias);
+        $funil = collect($this->getJson('/api/gestao/fluxos/rh', $this->h)->assertOk()->json('dados.funil'))->keyBy('etapa');
+        $this->assertSame(0, $funil['calc']['com_pendencias']);
+        $d = $this->getJson('/api/gestao/fluxos/rh/processos/'.$p['03/2025']['chave'], $this->h)->assertOk()->json('dados');
+        $this->assertStringContainsString('sem IBAN', $d['etapas']['base']['problemas'][0]['texto']);
+        $this->assertSame('empresa', $d['etapas']['base']['problemas'][0]['ambito']);
+        // o período bloqueado continua com os erros dos mapeamentos em falta
+        $this->assertGreaterThan(0, $p['05/2025']['n_erros']);
+        // cartões do topo: mais recentes primeiro (?ordem=recentes); valor desconhecido é recusado
+        $recentes = $this->getJson('/api/gestao/fluxos/vendas/processos?ordem=recentes', $this->h)->assertOk()->json('dados');
+        $datas = array_map('strval', array_column($recentes, 'data'));
+        $ordenadas = $datas;
+        rsort($ordenadas);
+        $this->assertCount(5, $datas);
+        $this->assertSame($ordenadas, $datas);
+        $this->getJson('/api/gestao/fluxos/vendas/processos?ordem=xpto', $this->h)->assertStatus(422);
     }
 }

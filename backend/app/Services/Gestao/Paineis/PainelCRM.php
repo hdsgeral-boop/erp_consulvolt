@@ -41,7 +41,8 @@ final class PainelCRM implements Painel
                 Indicadores::kpi('valor_funil', 'Valor do Pipeline', $k['valor_funil'], 'kz', ($k['funil']['nome'] ?? '').' · em aberto'),
                 Indicadores::kpi('ponderado', 'Previsão Ponderada', $k['ponderado'], 'kz', 'Valor × probabilidade da etapa'),
                 Indicadores::kpi('valor_ganho', "Ganho em {$p->ano}", $k['valor_ganho'], 'kz', "{$k['ganhas']} oportunidade(s)"),
-                Indicadores::kpi('taxa_ganho', 'Taxa de Ganho', $k['taxa_ganho'], 'pct', "{$k['ganhas']} ganhas · {$k['perdidas']} perdidas"),
+                // legado: «0,0 %» (uma casa decimal, vírgula, espaço antes do %)
+                Indicadores::kpi('taxa_ganho', 'Taxa de Ganho', $k['taxa_ganho'] === null ? null : str_replace('.', ',', number_format((float) $k['taxa_ganho'], 1, '.', '')).' %', 'texto', "{$k['ganhas']} ganhas · {$k['perdidas']} perdidas"),
                 Indicadores::kpi('ciclo_medio', 'Ciclo Médio de Venda', $k['ciclo_medio'] === null ? null : (int) round($k['ciclo_medio']), 'dias'),
                 Indicadores::kpi('ticket_medio', 'Ticket Médio', $k['ticket_medio']),
                 Indicadores::kpi('atividades_atraso', 'Actividades em Atraso', $atrasadas, 'num'),

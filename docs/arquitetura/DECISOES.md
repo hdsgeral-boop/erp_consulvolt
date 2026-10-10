@@ -2147,3 +2147,33 @@ Na pasta do Windows montada no Docker Desktop, o `DirectoryIterator` do PHP devo
 ### Verificação
 - backend: 450 testes PHPUnit (7 089 asserções) com a lista explícita de ficheiros (`ferramentas/testes/correr_backend.sh`), `pint --test` limpo (895 ficheiros); `composer audit` sem avisos.
 - frontend: 441 testes Vitest (65 ficheiros), `tsc` (aplicação e E2E) sem erros; `npm audit --omit=dev --audit-level=high` passa (2 moderadas registadas). O build e os E2E correm a seguir, fora da integração.
+
+## ADR-070 — Paridade visual módulo a módulo (2026-10-09/10): decisões do utilizador
+
+**Contexto.** Comparação lado a lado de todos os módulos com o legado (Chrome), com correcções no frontend e acertos pontuais no backend.
+
+**Decisões (utilizador, 2026-10-10).**
+- **Totais de saldos do Balancete:** mantém-se o critério do sistema novo — soma dos saldos devedores e credores de cada conta de movimento (2026, empresa de teste: 23 831 668 674,88). O legado compensava saldos de sinal contrário dentro de cada classe na linha de totais (23 628 578 916,32), escondendo 203 089 758,56 nas classes 1, 3 e 4. Os movimentos (débito/crédito) são iguais nos dois sistemas.
+- **Utilizador «FAFA» do legado:** não se cria no sistema novo (foi criado no legado depois da cópia de 22/09 usada na migração e não deve ser migrado).
+- **Valor do inventário:** não se assume nenhum valor de referência; a comparação incide só sobre as fórmulas e os cálculos.
+- **Movimentos de stock num armazém de outra empresa (erro fatal):** 23 saídas de vendas POS da empresa de teste (produto, cliente e venda da empresa 18) estavam no armazém 1 da empresa 1, porque os terminais POS não tinham armazém e o legado usava o armazém 1 por omissão. Regra: o movimento fica na empresa dona do produto/venda e passa para o armazém dela (o predefinido, senão o primeiro), com acerto de migração para o histórico voltar a bater com o saldo por armazém do legado; se a empresa dona já não existir (ou não tiver armazéns) o movimento é eliminado. Cada correcção fica gravada nos logs de auditoria (acção `CORRECAO_MIGRACAO`) e aparece em Sistema › Validações › «Correcções automáticas de dados do legado»; a validação «Stock: movimentos num armazém de outra empresa» (ERRO) detecta casos novos. Implementado em `ServicoCorrecoesPosMigracao`, chamado pela migração (antes do acerto de stock) e pelo comando `erp:migracao:corrigir-dados [--simular]`. Aplicado aos dados de desenvolvimento em 2026-10-10: 23 movimentos → armazém «Patriota», 2 acertos.
+- **Nota de crédito sobre factura:** a NC abate a factura sobre a qual foi emitida (NC NO 2026/1 → FA 2026/1, que passa a PAGO com pendente 0) e a própria NC não fica pendente — a mesma regra das NC emitidas no sistema novo (`ServicoEstadoVenda`); aplicada na migração e pelo mesmo comando.
+- **Utilizador administrador associado a um colaborador:** mantém-se a associação.
+- **Massa salarial na Estrutura Orgânica:** fica o cálculo do sistema novo.
+
+**Outras decisões de paridade tomadas na comparação** (sem impacto em valores):
+- Listas completas paginadas (o legado mostrava só o último registo até «Buscar») — mantém-se a decisão 4.2.2.
+- Compras: ordem «mais recentes primeiro» (o legado herdava a ordem crescente por omissão do DataTables).
+- Pendentes de Vendas: contam-se só documentos com saldo (o legado contava FR sem estado).
+- Stock no catálogo de produtos: soma do stock por armazém (o campo `stock_qty` do legado estava desactualizado).
+- Activos: o item «Mapa das Amortizações e Integrações» abre o mapa com esse nome (no legado abria o Mapa Fiscal).
+- Mapas contabilísticos abrem no ano civil completo e já calculados, como no legado.
+- Mapeamento contábil: todos os infotipos (também os OUTROS) por ordem alfabética, como no legado. Mantêm-se duas diferenças deliberadas: a linha «Diferenças de Arredondamento» (o legado usava a conta ROUNDING_DIFF mas não tinha onde a configurar) e «Recuperar de Histórico» desactivado (os lançamentos SAL do sistema novo são agregados por conta, sem a rubrica na descrição — não há de onde reconstruir com segurança).
+- Infotipos: a coluna «Por horas» deduz Faltas/Horas extra pelo nome quando `calculo_horas` está vazio (RegrasSalariais.tipoHoras = MotorSalarial::tipoHoras).
+- Coordenadas bancárias: formulário dos bancos dentro do cartão, como no legado; Acréscimos e Diferimentos e Agenda do CRM com os rótulos dos filtros por cima; Agenda com as secções empilhadas.
+
+**Decisões (utilizador, 2026-10-10, fim da ronda).**
+- **Formato das contas:** «36121 - Nome» (hífen, como no legado) nos selectores de contas do plano.
+- **Copiar bancos de outra empresa:** retirado por não ser seguro — botão removido e `POST rh/paridade/cadastros/bancos/copiar` recusado no servidor (403 `RH_COPIA_BANCOS_PROIBIDA`). Funções e Infotipos continuam a poder ser copiados.
+- **SMTP:** o do MEU ERP (versão 3): `smtp.stackmail.com`, porta 465 com SSL (`MAIL_SCHEME=smtps`). As credenciais e o remetente só existem nas variáveis do Vercel da versão 3 (os ficheiros locais vêm ocultados), por isso ficam por preencher em `backend/.env` (`MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`) e `MAIL_MAILER` passa a `smtp` quando estiverem preenchidas.
+- **Migração definitiva para produção:** feita manualmente pelo utilizador.

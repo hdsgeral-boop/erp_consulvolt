@@ -146,7 +146,7 @@ final class ServicoRelatoriosAtivos
             $valor = $g->reduce(fn ($s, $l) => bcadd($s, CalculadoraAmortizacoes::d($l->valor), 2), '0.00');
             $ligados = $g->flatMap(fn ($l) => $porLinha[$l->id] ?? [])->values();
             $inventariado = $ligados->reduce(fn ($s, $a) => bcadd($s, CalculadoraAmortizacoes::d($a->valor_aquisicao), 2), '0.00');
-            $itens[] = $this->avaliar(['chave' => "LAN|{$k}", 'tipo' => 'lancamento', 'titulo' => $l0->numero_lan ?: ($l0->numero_documento ?: "Lançamento {$l0->id}"),
+            $itens[] = $this->avaliar(['chave' => "LAN|{$k}", 'tipo' => 'lancamento', 'titulo' => $l0->numero_documento ?: ($l0->numero_lan ?: "Lançamento {$l0->id}"),
                 'data' => $l0->data_documento?->toDateString(), 'fornecedor' => $l0->terceiro?->nome, 'valor' => $valor, 'inventariado' => $inventariado,
                 'contas' => $g->pluck('codigo_conta')->unique()->values()->all()], $ligados, $cats, $registos, $porCalcular);
         }

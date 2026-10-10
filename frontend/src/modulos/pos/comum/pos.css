@@ -1,0 +1,72 @@
+/* Estilos dos ecrãs de gestão do POS. Editor de terminal com a densidade do legado (pos_gestao.js:775: rótulos 0.78rem/0.72rem a negrito, campos sem margem). */
+.pos-editor-form .ant-form-item {
+  margin-bottom: 0;
+}
+.pos-editor-form .ant-form-item-label {
+  padding-bottom: 2px;
+}
+.pos-editor-form .ant-form-item-label > label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  height: auto;
+}
+.pos-editor-meio .ant-form-item-label > label {
+  font-size: 0.72rem;
+}
+
+/* Definições de caixa: campos empilhados com 0.8rem entre si e rótulos 0.8rem a negrito (pos_gestao.js:1056-1063). */
+.pos-definicoes-form .ant-form-item {
+  margin-bottom: 0.8rem;
+}
+.pos-definicoes-form .ant-form-item-label > label {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* Config. Impressão: grelha de 2 colunas do legado (ui_sales.js:9847); a mensagem ocupa a linha inteira; 1 coluna no telemóvel. */
+.pos-config-grelha {
+  grid-template-columns: 1fr 1fr;
+}
+.pos-config-grelha .pos-config-largo {
+  grid-column: span 2;
+}
+.pos-config-form .ant-form-item {
+  margin-bottom: 0;
+}
+.pos-config-form .ant-form-item-label {
+  padding-bottom: 0.4rem;
+}
+.pos-config-form .ant-select-selector,
+.pos-config-form .ant-select {
+  min-height: 42px;
+  border-radius: 8px !important;
+}
+@media (max-width: 767px) {
+  .pos-config-grelha {
+    grid-template-columns: 1fr;
+  }
+  .pos-config-grelha .pos-config-largo {
+    grid-column: auto;
+  }
+}
+
+/* Lavandaria › Ordens de serviço: tabela a 0.8rem como o legado (lavandaria.js:802), para caberem Estado, Total e Saldo. */
+.lav-ordens-tabela .ant-table {
+  font-size: 0.8rem;
+}
+.lav-ordens-tabela .ant-table-thead > tr > th {
+  font-size: 0.72rem;
+}
+.lav-kpi:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* Lavandaria › Definições: campos da grelha sem margem própria (o espaçamento vem do gap de 0.7rem, como no antigo). */
+.lav-definicoes-form .ant-form-item {
+  margin-bottom: 0;
+}
+.lav-definicoes-form .ant-form-item-label > label {
+  font-size: 0.8rem;
+  font-weight: 700;
+}

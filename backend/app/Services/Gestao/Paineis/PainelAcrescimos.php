@@ -46,7 +46,7 @@ final class PainelAcrescimos implements Painel
                 Indicadores::kpi('diferimentos_aberto', 'Diferimentos em Aberto', Indicadores::dinheiro($t->diferimentos), 'kz', ((int) $t->n_diferimentos).' registo(s)'),
                 Indicadores::kpi('reconhecido_mes', "Reconhecido em {$p->nomeMes()}", Indicadores::dinheiro($porMes[$p->chaveMes] ?? '0')),
                 Indicadores::kpi('por_regularizar', 'Por Regularizar / Terminar', (int) $t->por_regularizar, 'num'),
-                Indicadores::kpi('contas_diferenca', 'Contas com Diferenças', $difs, 'num', $difs ? 'Módulo ≠ Diário' : 'Módulo = Diário'),
+                Indicadores::kpi('contas_diferenca', 'Contas 37 com Diferenças', $difs, 'num', $difs ? 'Módulo ≠ Diário' : 'Módulo = Diário'),
             ],
             'graficos' => [
                 Indicadores::grafico('reconhecimentos', 'Reconhecimentos Contabilizados (12 meses)', 'barras', $p->rotulos(), [Indicadores::serie('valor', 'Valor', $p->serie($porMes))]),

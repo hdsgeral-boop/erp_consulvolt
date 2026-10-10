@@ -1,84 +1,104 @@
-import { Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Switch, Tabs, Tag } from 'antd';
-import { EditOutlined, MinusCircleOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
+import { Button, Checkbox, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Switch } from 'antd';
+import { MinusCircleOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
-import { colunasParaImpressao, type ColunaApi } from '@/componentes/TabelaApi';
-import { BotoesExportar, prepararTexto, tabelaHtml } from '@/componentes/impressao';
-import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { type ColunaApi } from '@/componentes/TabelaApi';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { GRUPOS_LAV, UNIDADES_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
 import type { DefinicoesLav, Peca, ServicoLav } from './tipos';
 import { ImportarTabela } from './ImportarTabela';
 
-import { TabelaComModos } from '@/componentes/vistas';
-/** Tabelas da lavandaria: peças (com preço por serviço), serviços (conta e IVA) e definições (taxas, adiantamento, contas). */
-export function Tabelas() {
-  return (
-    <Tabs
-      size="small"
-      items={[
-        { key: 'pecas', label: 'Peças', children: <TabelaPecas /> },
-        { key: 'servicos', label: 'Serviços', children: <TabelaServicos /> },
-        { key: 'definicoes', label: 'Definições', children: <Definicoes /> },
-      ]}
-    />
-  );
+import { IconeLegado, TabelaComModos } from '@/componentes/vistas';
+import { Seccao } from '../contas/Seccao';
+import '../comum/pos.css';
+import { BotaoModeloLav } from './ImportarTabela';
+
+/** «Venda por» como no antigo (lavandaria.js:1303). */
+export function rotuloVendaPor(unidade: string | null | undefined): string {
+  return unidade === 'KG' ? 'Quilograma (kg)' : 'Peça';
 }
 
-function TabelaPecas() {
+/** Preço da tabela de peças: «1 500,00 / peça» ou «por definir» (lavandaria.js:1304). */
+export function textoPrecoPeca(p: Pick<Peca, 'preco' | 'unidade'>): string {
+  const preco = Number(p.preco ?? 0);
+  return preco > 0 ? `${formatarKz(preco)} / ${p.unidade === 'KG' ? 'kg' : 'peça'}` : 'por definir';
+}
+
+/** Separador «Peças» (renderPecas, lavandaria.js:1288-1307): tabela de peças com modelos e importação. */
+export function TabelaPecas() {
   const { pode } = useSessao();
   const pecas = usePecas(true);
   const servicos = useServicosLav(true);
   const [editar, setEditar] = useState<Peca | 'nova' | null>(null);
-  const nomeServico = (id: number) => servicos.data?.find((s) => s.id === id)?.nome ?? `#${id}`;
+  const gerir = pode('lav_tabelas');
   const colunasPecas: ColunaApi<Peca>[] = [
-          { title: 'Código', dataIndex: 'codigo' },
-          { title: 'Peça', dataIndex: 'nome' },
-          { title: 'Tecido', dataIndex: 'tecido', render: (v) => v ?? '—', responsive: ['md'] },
-          { title: 'Cor', dataIndex: 'cor', render: (v) => v ?? '—', responsive: ['md'] },
-          { title: 'Unidade', dataIndex: 'unidade', render: (v: string) => UNIDADES_LAV[v] ?? v },
-          { title: 'Preço base', dataIndex: 'preco', align: 'right', render: (v) => formatarKz(v) },
-          { title: 'Preços por serviço', dataIndex: 'precos_servico', responsive: ['lg'], render: (v: Peca['precos_servico']) => (v ?? []).map((p) => <Tag key={p.produto_id}>{`${nomeServico(p.produto_id)}: ${formatarKz(p.preco)}`}</Tag>) },
-          { title: 'Estado', dataIndex: 'ativo', render: (v) => (v === false ? <Tag>Inactiva</Tag> : <Tag color="green">Activa</Tag>) },
-          { title: '', key: 'a', exportar: false, render: (_, p) => pode('lav_tabelas') && <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(p)} aria-label="Editar" /> },
-        ];
-  return (
-    <>
-      <BarraFiltros
-        accoes={
-          <BotoesExportar
-            tamanho="small"
-            desactivado={!pecas.data?.length}
-            obterPedido={async () => {
-              await prepararTexto();
-              const linhas = pecas.data ?? [];
-              return { titulo: 'Tabela de peças da lavandaria', conteudo: tabelaHtml({ colunas: colunasParaImpressao(colunasPecas, linhas), linhas }) };
-            }}
-          />
-        }
-      >
-        {pode('lav_tabelas') && (
+    { title: 'Código', dataIndex: 'codigo', render: (v) => <b>{v}</b> },
+    { title: 'Peça', dataIndex: 'nome', render: (v) => <b>{v}</b> },
+    { title: 'Tipo de tecido', dataIndex: 'tecido', render: (v) => v || '—' },
+    { title: 'Cor', dataIndex: 'cor', render: (v) => v || '—' },
+    { title: 'Venda por', dataIndex: 'unidade', render: (v: string) => rotuloVendaPor(v), valorFiltro: (p) => rotuloVendaPor(p.unidade), valorImpressao: (p) => rotuloVendaPor(p.unidade) },
+    {
+      title: 'Preço (IVA incl.)',
+      dataIndex: 'preco',
+      align: 'right',
+      render: (_, p) => {
+        const n = (p.precos_servico ?? []).length;
+        return (
           <>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('nova')}>
+            <span style={{ fontWeight: 700, color: Number(p.preco) > 0 ? undefined : '#b91c1c' }}>{textoPrecoPeca(p)}</span>
+            {n > 0 && (
+              <div>
+                <small style={{ color: '#2563eb', fontWeight: 600 }} title={(p.precos_servico ?? []).map((x) => `${servicos.data?.find((s) => s.id === x.produto_id)?.nome ?? `#${x.produto_id}`}: ${formatarKz(x.preco)}`).join('\n')}>
+                  + {n} preço(s) por serviço
+                </small>
+              </div>
+            )}
+          </>
+        );
+      },
+      valorImpressao: (p) => `${textoPrecoPeca(p)}${(p.precos_servico ?? []).length ? ` (+ ${(p.precos_servico ?? []).length} preço(s) por serviço)` : ''}`,
+    },
+    { title: 'Estado', dataIndex: 'ativo', render: (v) => (v === false ? 'Inactiva' : 'Activa'), valorFiltro: (p) => (p.ativo === false ? 'Inactiva' : 'Activa'), valorImpressao: (p) => (p.ativo === false ? 'Inactiva' : 'Activa') },
+  ];
+  return (
+    <Seccao
+      titulo="Tabela de peças"
+      descricao="Tipo de peça, tecido e cor habituais, unidade de venda (por peça ou por kg) e preço. O código é atribuído automaticamente."
+      extra={
+        gerir && (
+          <>
+            <BotaoModeloLav tipo="pecas" />
+            <ImportarTabela tipo="pecas" />
+            <BotaoModeloLav tipo="precos" />
+            <ImportarTabela tipo="precos" />
+            <Button type="primary" icon={<IconeLegado icone="plus" />} onClick={() => setEditar('nova')}>
               Nova peça
             </Button>
-            <ImportarTabela tipo="pecas" />
-            <ImportarTabela tipo="precos" />
           </>
-        )}
-      </BarraFiltros>
-      <TabelaComModos<Peca> idVista="pecas"
+        )
+      }
+    >
+      <TabelaComModos<Peca>
+        idVista="pecas"
+        modos={false}
         rowKey="id"
         size="small"
         scroll={scrollTabela()}
         loading={pecas.isFetching}
         dataSource={pecas.data}
         columns={colunasPecas}
+        onRow={(p) => ({ style: p.ativo === false ? { opacity: 0.55 } : undefined })}
+        impressao={{ titulo: 'Tabela de peças da lavandaria' }}
+        accoes={(p) => [{ icone: 'edit', titulo: 'Editar', oculto: !gerir, onClick: () => setEditar(p) }]}
+        vazio={{ icone: 'tshirt', titulo: 'Sem peças.', texto: 'Ex.: Camisa, Calças, Fato, Vestido, Edredão, Roupa diversa (kg).' }}
       />
       <ModalPeca alvo={editar} servicos={servicos.data ?? []} aoFechar={() => setEditar(null)} />
-    </>
+    </Seccao>
   );
 }
 
@@ -155,55 +175,72 @@ function ModalPeca({ alvo, servicos, aoFechar }: { alvo: Peca | 'nova' | null; s
   );
 }
 
-function TabelaServicos() {
+/** Separador «Serviços» (renderServicos, lavandaria.js:1375-1396): tabela de serviços com modelo e importação. */
+export function TabelaServicos() {
   const { pode } = useSessao();
   const servicos = useServicosLav(true);
   const [editar, setEditar] = useState<ServicoLav | 'novo' | null>(null);
+  const gerir = pode('lav_tabelas');
+  // nomes das contas de proveitos (a mesma consulta do SeletorConta; sem permissão de contabilidade mostra só o código)
+  const contas = useQuery({
+    queryKey: ['plano', 'movimento', '62'],
+    queryFn: () => obter<{ codigo: string; descricao: string }[]>('/contabilidade/plano-contas', { prefixo: '62', tipo: 'M' }),
+    staleTime: 600_000,
+    retry: false,
+  });
+  const textoConta = (s: ServicoLav) => {
+    if (!String(s.codigo_conta ?? '').startsWith('62')) return 'por definir';
+    const nome = contas.data?.find((c) => c.codigo === s.codigo_conta)?.descricao;
+    return nome ? `${s.codigo_conta} - ${nome}` : String(s.codigo_conta);
+  };
   const colunasServicos: ColunaApi<ServicoLav>[] = [
-          { title: 'Código', dataIndex: 'codigo' },
-          { title: 'Serviço', dataIndex: 'nome' },
-          { title: 'Grupo', dataIndex: 'lavandaria_grupo', render: (v: string) => GRUPOS_LAV[v] ?? v },
-          { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['md'] },
-          { title: 'IVA', dataIndex: 'taxa_imposto', align: 'right', render: (v) => `${Number(v)}%` },
-          { title: 'Prazo (dias)', dataIndex: 'lavandaria_dias_entrega', align: 'right', responsive: ['md'] },
-          { title: 'Orçamento', dataIndex: 'lavandaria_requer_orcamento', render: (v) => (v ? 'Sim' : 'Não') },
-          { title: 'Estado', dataIndex: 'lavandaria_ativa', render: (v) => (v === false ? <Tag>Inactivo</Tag> : <Tag color="green">Activo</Tag>) },
-          { title: '', key: 'a', exportar: false, render: (_, s) => pode('lav_tabelas') && <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(s)} aria-label="Editar" /> },
-        ];
+    { title: 'Código', dataIndex: 'codigo', render: (v) => <b>{v}</b> },
+    { title: 'Serviço', dataIndex: 'nome', render: (v) => <b>{v}</b> },
+    { title: 'Grupo', dataIndex: 'lavandaria_grupo', render: (v: string) => GRUPOS_LAV[v] ?? v, valorFiltro: (s) => GRUPOS_LAV[s.lavandaria_grupo] ?? s.lavandaria_grupo },
+    { title: 'IVA', dataIndex: 'taxa_imposto', align: 'right', render: (v) => `${Number(v)}%` },
+    {
+      title: 'Conta de proveito',
+      dataIndex: 'codigo_conta',
+      render: (_, s) => <span style={{ color: textoConta(s) === 'por definir' ? '#b91c1c' : undefined }}>{textoConta(s)}</span>,
+      valorFiltro: (s) => textoConta(s),
+      valorImpressao: (s) => textoConta(s),
+    },
+    { title: 'Prazo', dataIndex: 'lavandaria_dias_entrega', align: 'right', render: (v) => `${Number(v ?? 0)} dia(s)` },
+    { title: 'Orçamento', dataIndex: 'lavandaria_requer_orcamento', render: (v) => (v ? 'Sim' : 'Não'), valorFiltro: (s) => (s.lavandaria_requer_orcamento ? 'Sim' : 'Não') },
+    { title: 'Estado', dataIndex: 'lavandaria_ativa', render: (v) => (v === false ? 'Inactivo' : 'Activo'), valorFiltro: (s) => (s.lavandaria_ativa === false ? 'Inactivo' : 'Activo') },
+  ];
   return (
-    <>
-      <BarraFiltros
-        accoes={
-          <BotoesExportar
-            tamanho="small"
-            desactivado={!servicos.data?.length}
-            obterPedido={async () => {
-              await prepararTexto();
-              const linhas = servicos.data ?? [];
-              return { titulo: 'Tabela de serviços da lavandaria', conteudo: tabelaHtml({ colunas: colunasParaImpressao(colunasServicos, linhas), linhas }) };
-            }}
-          />
-        }
-      >
-        {pode('lav_tabelas') && (
+    <Seccao
+      titulo="Tabela de serviços"
+      descricao="Cada serviço tem conta de proveitos da classe 62, IVA, prazo e indicação de orçamento. O preço é definido na tabela de peças. O código é automático."
+      extra={
+        gerir && (
           <>
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('novo')}>
+            <BotaoModeloLav tipo="servicos" />
+            <ImportarTabela tipo="servicos" />
+            <Button type="primary" icon={<IconeLegado icone="plus" />} onClick={() => setEditar('novo')}>
               Novo serviço
             </Button>
-            <ImportarTabela tipo="servicos" />
           </>
-        )}
-      </BarraFiltros>
-      <TabelaComModos<ServicoLav> idVista="servicos"
+        )
+      }
+    >
+      <TabelaComModos<ServicoLav>
+        idVista="servicos"
+        modos={false}
         rowKey="id"
         size="small"
         scroll={scrollTabela()}
         loading={servicos.isFetching}
         dataSource={servicos.data}
         columns={colunasServicos}
+        onRow={(s) => ({ style: s.lavandaria_ativa === false ? { opacity: 0.55 } : undefined })}
+        impressao={{ titulo: 'Tabela de serviços da lavandaria' }}
+        accoes={(s) => [{ icone: 'edit', titulo: 'Editar', oculto: !gerir, onClick: () => setEditar(s) }]}
+        vazio={{ icone: 'list', titulo: 'Sem serviços.' }}
       />
       <ModalServico alvo={editar} aoFechar={() => setEditar(null)} />
-    </>
+    </Seccao>
   );
 }
 
@@ -275,7 +312,8 @@ function ModalServico({ alvo, aoFechar }: { alvo: ServicoLav | 'novo' | null; ao
   );
 }
 
-function Definicoes() {
+/** Separador «Definições» (renderDefinicoes, lavandaria.js:1442-1467). */
+export function Definicoes() {
   const { pode } = useSessao();
   const definicoes = useDefinicoesLav();
   const [form] = Form.useForm();
@@ -294,54 +332,54 @@ function Definicoes() {
   }, [definicoes.data, form]);
   if (!definicoes.data) return <Skeleton active />;
   const n = (nome: string, rotulo: string, extra: Record<string, unknown> = {}) => (
-    <Col xs={24} md={8}>
-      <Form.Item name={nome} label={rotulo}>
-        <InputNumber<number> min={0} decimalSeparator="," style={{ width: '100%' }} {...extra} />
-      </Form.Item>
-    </Col>
+    <Form.Item name={nome} label={rotulo}>
+      <InputNumber<number> min={0} decimalSeparator="," style={{ width: '100%' }} {...extra} />
+    </Form.Item>
   );
+  // cartão, rótulos e caixas de verificação do antigo (renderDefinicoes, lavandaria.js:1447-1466)
   return (
-    <Card size="small">
-      <Form form={form} layout="vertical" disabled={!pode('lav_tabelas')} onFinish={(v) => gravar.mutate({ metodo: 'put', url: '/pos/lavandaria/definicoes', dados: { ...v, estados_entrada: undefined } })}>
-        <Row gutter={[12, 0]}>
-          <Col xs={24} md={8}>
-            <Form.Item name="taxa_armazenagem_ativa" label="Taxa de armazenagem activa" valuePropName="checked">
-              <Switch />
+    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4, padding: '1rem', maxWidth: 780 }}>
+      <h3 style={{ margin: '0 0 0.7rem', fontSize: '1.05rem' }}>Definições da lavandaria e alfaiataria</h3>
+      <Form form={form} layout="vertical" className="lav-definicoes-form" disabled={!pode('lav_tabelas')} onFinish={(v) => gravar.mutate({ metodo: 'put', url: '/pos/lavandaria/definicoes', dados: { ...v, estados_entrada: undefined } })}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
+          <Form.Item label="Taxa de armazenagem">
+            <Form.Item name="taxa_armazenagem_ativa" valuePropName="checked" noStyle>
+              <Checkbox style={{ height: 32, display: 'flex', alignItems: 'center' }}>Cobrar peças não levantadas</Checkbox>
             </Form.Item>
-          </Col>
-          {n('dias_armazenagem_gratis', 'Dias de armazenagem grátis', { precision: 0 })}
-          {n('percentagem_armazenagem_dia', 'Armazenagem por dia (%)', { precision: 2 })}
-          {n('percentagem_adiantamento', 'Adiantamento mínimo — Consumidor Final (%)', { precision: 2, max: 100 })}
+          </Form.Item>
+          {n('dias_armazenagem_gratis', 'Prazo de levantamento (dias)', { precision: 0 })}
+          {n('percentagem_armazenagem_dia', 'Taxa de armazenagem (% do serviço por dia)', { precision: 2 })}
+          {n('percentagem_adiantamento', 'Adiantamento mínimo do Consumidor Final (%)', { precision: 2, max: 100 })}
           {n('percentagem_urgencia', 'Taxa de urgência (%)', { precision: 2 })}
-          {n('fator_prazo_urgencia', 'Factor de prazo da urgência', { precision: 2, min: 0.1, max: 1, step: 0.1 })}
-          {n('valor_taxa_recolha', 'Taxa de recolha (Kz)', { precision: 2 })}
-          {n('valor_taxa_entrega', 'Taxa de entrega (Kz)', { precision: 2 })}
-          {n('dias_reclamacao', 'Prazo de reclamação (dias)', { precision: 0 })}
-          <Col xs={24} md={8}>
-            <Form.Item name="conta_extras" label="Conta das taxas (extras)">
-              <SeletorConta prefixo="62" />
-            </Form.Item>
-          </Col>
+          {n('fator_prazo_urgencia', 'Prazo do urgente (fracção do prazo normal)', { precision: 2, min: 0.1, max: 1, step: 0.05 })}
+          {n('valor_taxa_recolha', 'Taxa de recolha ao domicílio', { precision: 2 })}
+          {n('valor_taxa_entrega', 'Taxa de entrega ao domicílio', { precision: 2 })}
+          {n('dias_reclamacao', 'Prazo de reclamação (dias após a entrega)', { precision: 0 })}
+          <Form.Item name="conta_extras" label="Conta de proveitos das taxas (classe 62)">
+            <SeletorConta prefixo="62" placeholder="— seleccionar —" />
+          </Form.Item>
           {n('taxa_extras', 'IVA das taxas (%)', { precision: 2 })}
-          <Col xs={24} md={8}>
-            <Form.Item name="conta_compensacao" label="Conta das indemnizações">
-              <SeletorConta />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="faturar_no_adiantamento" label="Facturar no adiantamento" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-          </Col>
-        </Row>
+          <Form.Item name="conta_compensacao" label="Conta das indemnizações por danos (custo)">
+            <SeletorConta prefixo="7" placeholder="— seleccionar —" />
+          </Form.Item>
+        </div>
+        <Form.Item name="faturar_no_adiantamento" valuePropName="checked" style={{ margin: '0.9rem 0 0' }}>
+          <Checkbox style={{ fontSize: '0.85rem', alignItems: 'flex-start' }}>
+            <strong>Facturar ao receber pagamentos antes da facturação</strong>
+            <br />
+            <small style={{ color: '#64748b' }}>
+              O IVA é exigível no recebimento de adiantamentos: um pagamento numa ordem ainda não facturada emite o documento dos serviços confirmados (Factura-Recibo se pagar exactamente esse valor; senão Factura e Recibo).
+            </small>
+          </Checkbox>
+        </Form.Item>
         {pode('lav_tabelas') && (
-          <Space wrap>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
             <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={gravar.isPending}>
-              Gravar definições
+              Gravar
             </Button>
-          </Space>
+          </div>
         )}
       </Form>
-    </Card>
+    </div>
   );
 }

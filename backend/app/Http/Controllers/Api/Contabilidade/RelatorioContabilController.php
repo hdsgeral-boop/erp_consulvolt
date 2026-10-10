@@ -49,8 +49,11 @@ final class RelatorioContabilController extends Controller
     {
         $this->exigir('contab_mapa_extrato_view');
         $f = $this->filtros($request, ['data_inicio' => ['nullable', 'required_without:data_fim', 'date_format:Y-m-d'],
-            'data_fim' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:data_inicio'], 'tipo' => ['nullable', 'in:todos,aberto,compensado']]);
-        if (empty($f['filtro_contas']) && empty($f['terceiro_id'])) {
+            'data_fim' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:data_inicio'], 'tipo' => ['nullable', 'in:todos,aberto,compensado'],
+            // abertura do ecrã como no legado (8.2.1): sem conta nem terceiro mostra o último lançamento da empresa
+            'ultimo_lancamento' => ['nullable', 'boolean']]);
+        $f['ultimo_lancamento'] = filter_var($f['ultimo_lancamento'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (empty($f['filtro_contas']) && empty($f['terceiro_id']) && ! $f['ultimo_lancamento']) {
             throw new ErroNegocio('Indique pelo menos uma conta ou um terceiro.', 'EXTRATO_SEM_CRITERIO', 422);
         }
 

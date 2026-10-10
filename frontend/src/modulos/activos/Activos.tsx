@@ -1,30 +1,33 @@
-import { Button, Card, Checkbox, Flex, Input, Popconfirm, Select, Space, Table, Tabs, Typography } from 'antd';
-import { DeleteOutlined, EditOutlined, ImportOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Checkbox, Flex, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { descarregar, obter } from '@/api/cliente';
 import { NavActivos } from './comum/NavActivos';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
+import { IconeFa } from '@/componentes/fluxos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux } from '@/modulos/contab/comum/Seletores';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
 import { somarColunas } from '@/utilitarios/decimal';
 import { useAccao } from '@/componentes/Accoes';
+import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { somar } from '@/utilitarios/decimal';
 import { pedidoTabela } from './comum/impressao';
-import { EtiquetaActivos, SeletorActivo, SeletorCategoria, SeletorProjecto } from './comum/componentes';
+import { SeletorActivo, SeletorCategoria, SeletorProjecto } from './comum/componentes';
 import type { Activo, Afectacao, ResumoCategoria, Transferencia } from './comum/tipos';
 import { DetalheActivo } from './DetalheActivo';
 import { ModalActivo } from './ModalActivo';
-import { ModalAfectacao, ModalEdicaoMassa, ModalImportarActivos } from './ModaisActivos';
+import { ModalAfectacao, ModalEdicaoMassa, ModalImportarActivos, ModalTransferir } from './ModaisActivos';
+import { AlertaReconciliacao } from './inventario/AlertaReconciliacao';
+import { BotaoCartao } from './inventario/BotaoCartao';
+import { bloqueioEliminar, corEstadoActivo, dicaEditar, iconeEditar, NOME_TEMPLATE_ACTIVOS, ouTracos, taxaPorVidaUtil, vidaUtilMeses } from './inventario/regrasInventario';
 
 import { TabelaComModos } from '@/componentes/vistas';
-/** Activos › Cadastro e gestão (ecrã activos): cadastro, ficha com histórico, importação, edição em massa, transferências e afectações. */
+/** Activos › Inventário de Activos (ecrã activos): cadastro, ficha com histórico, importação, edição em massa, transferências e afectações. */
 export default function Activos() {
   return (
     <Routes>
@@ -37,12 +40,11 @@ export default function Activos() {
 function Painel() {
   return (
     <>
-      <CabecalhoPagina titulo="Gestão de Activos Imobilizados" subtitulo="Inventário de activos: cadastro, transferências de centro de custo e afectações a projectos" />
       <NavActivos actual="activos" />
       <Tabs
         destroyOnHidden
         items={[
-          { key: 'cadastro', label: 'Cadastro', children: <Cadastro /> },
+          { key: 'cadastro', label: 'Inventário', children: <Cadastro /> },
           { key: 'transferencias', label: 'Transferências', children: <Transferencias /> },
           { key: 'afectacoes', label: 'Afectações a projectos', children: <Afectacoes /> },
           { key: 'categorias', label: 'Resumo por categoria', children: <ResumoCategorias /> },
@@ -52,9 +54,11 @@ function Painel() {
   );
 }
 
+/** Inventário de Imobilizados (renderAssetList do legado): colunas, botões do cabeçalho e acções por linha do antigo. */
 function Cadastro() {
   const navegar = useNavigate();
   const { pode } = useSessao();
+  const [modal, contextoModal] = Modal.useModal();
   const [texto, setTexto] = useState('');
   const [estado, setEstado] = useState<string>();
   const [categoria, setCategoria] = useState<number>();
@@ -62,43 +66,76 @@ function Cadastro() {
   const [semLancamento, setSemLancamento] = useState(false);
   const [seleccao, setSeleccao] = useState<number[]>([]);
   const [novo, setNovo] = useState(false);
+  const [editar, setEditar] = useState<Activo | null>(null);
+  const [transferir, setTransferir] = useState<number | null>(null);
   const [importar, setImportar] = useState(false);
   const [massa, setMassa] = useState(false);
   const eliminar = useAccao<{ eliminados: number }>({ invalidar: [['activos']], aoSucesso: () => setSeleccao([]) });
+  const eliminarUm = useAccao({ invalidar: [['activos']] });
+  const gerir = pode('activos_gerir');
+  const podeEliminar = pode('activos_eliminar');
 
   const pequeno = useEcraPequeno();
   const kz = (v: unknown) => formatarKz(v === null || v === undefined ? null : String(v));
-  const total = (k: keyof Activo) => (ls: Activo[]) => formatarKz(somar(ls.map((l) => l[k] as string)));
   const colunas: ColunaApi<Activo>[] = [
-    { title: 'Código', dataIndex: 'codigo', fixed: pequeno ? undefined : 'left', valorImpressao: (r) => r.codigo ?? '—', render: (v, r) => <Typography.Link strong onClick={() => navegar(String(r.id))}>{v ?? '—'}</Typography.Link> },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 320 },
-    { title: 'Categoria', key: 'cat', responsive: ['md'], render: (_, r) => r.categoria_ativo?.nome ?? '—' },
-    { title: 'Centro de custo', key: 'cc', responsive: ['lg'], render: (_, r) => r.centro_custo?.codigo ?? '—' },
-    { title: 'Aquisição', dataIndex: 'data_aquisicao', responsive: ['md'], render: formatarData },
-    { title: 'Valor (Kz)', dataIndex: 'valor_aquisicao', align: 'right', render: (v) => <ValorKz valor={v} />, valorImpressao: (r) => kz(r.valor_aquisicao), totalImpressao: total('valor_aquisicao') },
-    { title: 'Amort. acumulada', dataIndex: 'amortizacao_acumulada', align: 'right', responsive: ['md'], render: (v) => <ValorKz valor={v} />, valorImpressao: (r) => kz(r.amortizacao_acumulada), totalImpressao: total('amortizacao_acumulada') },
-    { title: 'Valor líquido', dataIndex: 'valor_liquido', align: 'right', render: (v) => <ValorKz valor={v} forte />, valorImpressao: (r) => kz(r.valor_liquido), totalImpressao: total('valor_liquido') },
-    { title: 'Taxa', dataIndex: 'taxa', align: 'right', responsive: ['lg'], render: (v) => (v ? `${Number(v).toLocaleString('pt-PT')}%` : '—') },
-    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
+    {
+      title: 'Nº Inventário', dataIndex: 'codigo', fixed: pequeno ? undefined : 'left', valorImpressao: (r) => r.codigo ?? '—', valorFiltro: (r) => r.codigo ?? '', ocultavel: false,
+      render: (v, r) => (
+        <Button size="small" title="Ficha e histórico do activo" style={{ fontWeight: 700, color: 'var(--ant-color-primary, #2563eb)' }} icon={<IconeFa nome="history" />}
+          onClick={(e) => { e.stopPropagation(); navegar(String(r.id)); }}>
+          {v ?? '—'}
+        </Button>
+      ),
+    },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300, render: (v) => <strong>{v}</strong> },
+    { title: 'Categoria', key: 'cat', valorFiltro: (r) => r.categoria_ativo?.nome ?? '', valorImpressao: (r) => r.categoria_ativo?.nome ?? 'N/A', render: (_, r) => <small>{r.categoria_ativo?.nome ?? 'N/A'}</small> },
+    { title: 'Data Aquisição', dataIndex: 'data_aquisicao', render: formatarData, valorImpressao: (r) => formatarData(r.data_aquisicao) },
+    { title: 'U. Negócio', key: 'un', valorFiltro: (r) => r.unidade_negocio?.codigo ?? '', valorImpressao: (r) => ouTracos(r.unidade_negocio?.codigo), render: (_, r) => <small>{ouTracos(r.unidade_negocio?.codigo)}</small> },
+    { title: 'C. Custo', key: 'cc', valorFiltro: (r) => r.centro_custo?.codigo ?? '', valorImpressao: (r) => ouTracos(r.centro_custo?.codigo), render: (_, r) => <small>{ouTracos(r.centro_custo?.codigo)}</small> },
+    { title: 'Vida útil', dataIndex: 'vida_util', align: 'right', render: (v) => vidaUtilMeses(v), valorImpressao: (r) => vidaUtilMeses(r.vida_util) },
+    { title: 'Taxa %', key: 'taxa', align: 'right', render: (_, r) => taxaPorVidaUtil(r.vida_util), valorImpressao: (r) => taxaPorVidaUtil(r.vida_util) },
+    { title: 'Aquisição', dataIndex: 'valor_aquisicao', align: 'right', total: true, render: (v) => <span style={{ fontWeight: 600 }}>{kz(v)}</span>, valorImpressao: (r) => kz(r.valor_aquisicao) },
+    { title: 'Amort. Acum.', dataIndex: 'amortizacao_acumulada', align: 'right', total: true, render: (v) => <span style={{ color: '#dc2626' }}>{kz(v ?? 0)}</span>, valorImpressao: (r) => kz(r.amortizacao_acumulada ?? 0) },
+    { title: 'V. C. Líquido', dataIndex: 'valor_liquido', align: 'right', total: true, render: (v) => <span style={{ fontWeight: 700, color: '#059669' }}>{kz(v)}</span>, valorImpressao: (r) => kz(r.valor_liquido) },
+    { title: 'Status', dataIndex: 'estado', render: (v) => <Tag color={corEstadoActivo(v)}>{v}</Tag>, valorImpressao: (r) => String(r.estado) },
   ];
 
+  /** Sem selecção o legado avisa («Seleccione pelo menos um activo para …»). */
+  const exigirSeleccao = (accao: string) => {
+    if (seleccao.length) return true;
+    void message.warning(`Seleccione pelo menos um activo para ${accao}.`);
+    return false;
+  };
+
+  const eliminarEmMassa = () => {
+    if (!exigirSeleccao('eliminar')) return;
+    void modal.confirm({
+      title: 'Eliminar em Massa',
+      content: `Tem a certeza que deseja eliminar ${seleccao.length} activo(s)? Esta acção é irreversível. Os activos com amortizações integradas não podem ser eliminados.`,
+      okText: 'Eliminar', cancelText: 'Cancelar', okButtonProps: { danger: true },
+      onOk: () => eliminar.mutateAsync({ url: '/ativos/bens/eliminar', dados: { ids: seleccao } }).catch(() => undefined),
+    });
+  };
+
+  const template = () => void descarregar('/ativos/bens/importar/modelo', undefined, NOME_TEMPLATE_ACTIVOS).catch(notificarErro);
+
   return (
-    <Card>
-      <BarraFiltros accoes={
-        <>
-          {pode('activos_gerir') && seleccao.length > 0 && (
-            <Button icon={<EditOutlined />} onClick={() => setMassa(true)}>Editar {seleccao.length} seleccionado(s)</Button>
-          )}
-          {pode('activos_eliminar') && seleccao.length > 0 && (
-            <Popconfirm title={`Eliminar ${seleccao.length} activo(s)?`} description="Os activos com amortizações, abates ou lançamentos não podem ser eliminados." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
-              onConfirm={() => eliminar.mutate({ url: '/ativos/bens/eliminar', dados: { ids: seleccao } })}>
-              <Button danger icon={<DeleteOutlined />} loading={eliminar.isPending}>Eliminar</Button>
-            </Popconfirm>
-          )}
-          {pode('activos_gerir') && <Button icon={<ImportOutlined />} onClick={() => setImportar(true)}>Importar</Button>}
-          {pode('activos_gerir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo activo</Button>}
-        </>
-      }>
+    <>
+      {contextoModal}
+      <AlertaReconciliacao />
+      <Card
+        title="Inventário de Imobilizados"
+        extra={
+          <Space wrap size={10}>
+            {gerir && <BotaoCartao icone="file-excel" title="Baixar Modelo de Excel para migração" onClick={template}>Template Excel</BotaoCartao>}
+            {gerir && <BotaoCartao icone="upload" title="Importar Imobilizados de Excel" onClick={() => setImportar(true)}>Importar Excel</BotaoCartao>}
+            {podeEliminar && <BotaoCartao icone="trash" variante="perigo" title="Eliminar multiplos activos sem processamento" loading={eliminar.isPending} onClick={eliminarEmMassa}>Eliminar em Massa</BotaoCartao>}
+            {gerir && <BotaoCartao icone="edit" variante="aviso" onClick={() => exigirSeleccao('editar') && setMassa(true)}>Edição em Massa</BotaoCartao>}
+            {gerir && <BotaoCartao icone="plus" variante="primario" onClick={() => setNovo(true)}>Novo Activo</BotaoCartao>}
+          </Space>
+        }
+      >
+        <BarraFiltros>
           <Input.Search placeholder="Código ou descrição" allowClear onSearch={setTexto} style={{ width: 240 }} />
           <Select placeholder="Estado" allowClear value={estado} onChange={setEstado} style={{ width: 140 }}
             options={[{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }, { value: 'ABATIDO', label: 'Abatido' }]} />
@@ -107,28 +144,46 @@ function Cadastro() {
           <Checkbox checked={semLancamento} onChange={(e) => setSemLancamento(e.target.checked)} style={{ alignSelf: 'center' }}>
             Sem lançamento de compra
           </Checkbox>
-      </BarraFiltros>
-      <TabelaApi<Activo>
-        url="/ativos/bens"
-        chaveConsulta={['activos', 'bens']}
-        filtros={{ texto, estado, categoria_ativo_id: categoria, centro_custo_id: centro, sem_lancamento: semLancamento ? 1 : undefined }}
-        porPagina={50}
-        columns={colunas}
-        size={pequeno ? 'small' : 'middle'}
-        scroll={scrollTabela()}
-        impressao={{
-          titulo: 'Cadastro de activos imobilizados',
-          filtros: [texto && `Pesquisa: ${texto}`, estado && `Estado: ${estado}`, categoria !== undefined && `Categoria: #${categoria}`, centro !== undefined && `Centro de custo: #${centro}`, semLancamento && 'Sem lançamento de compra'],
-          rotuloTotal: 'Total',
-        }}
-        rowSelection={pode('activos_gerir', 'activos_eliminar') ? { selectedRowKeys: seleccao, onChange: (k) => setSeleccao(k as number[]), preserveSelectedRowKeys: true } : undefined}
-        rowKey="id"
-        onRow={(r) => ({ onDoubleClick: () => navegar(String(r.id)) })}
-      />
+        </BarraFiltros>
+        <TabelaApi<Activo>
+          url="/ativos/bens"
+          chaveConsulta={['activos', 'bens']}
+          filtros={{ texto, estado, categoria_ativo_id: categoria, centro_custo_id: centro, sem_lancamento: semLancamento ? 1 : undefined }}
+          porPagina={50}
+          columns={colunas}
+          size={pequeno ? 'small' : 'middle'}
+          scroll={scrollTabela()}
+          rotuloTotal="TOTAIS (FILTRADOS):"
+          impressao={{
+            titulo: 'Inventário de Imobilizados',
+            filtros: [texto && `Pesquisa: ${texto}`, estado && `Estado: ${estado}`, categoria !== undefined && `Categoria: #${categoria}`, centro !== undefined && `Centro de custo: #${centro}`, semLancamento && 'Sem lançamento de compra'],
+            rotuloTotal: 'TOTAIS (FILTRADOS):',
+            orientacao: 'paisagem',
+          }}
+          seleccao={gerir || podeEliminar ? {
+            chaves: seleccao,
+            aoMudar: (k) => setSeleccao(k as number[]),
+            ajuda: 'Marque os activos para a Edição em Massa ou a Eliminação em Massa.',
+          } : undefined}
+          accoes={(r) => [
+            gerir && { icone: iconeEditar(r), titulo: dicaEditar(r), onClick: () => setEditar(r) },
+            gerir && { icone: 'exchange-alt', titulo: 'Transferir C.Custo', cor: '#64748b', onClick: () => setTransferir(r.id) },
+            podeEliminar && {
+              icone: 'trash', titulo: 'Apagar', variante: 'perigo' as const, desactivado: bloqueioEliminar(r),
+              confirmar: { titulo: `Deseja realmente apagar o bem "${r.descricao}"?`, textoOk: 'Apagar', perigo: true },
+              onClick: () => eliminarUm.mutateAsync({ metodo: 'delete', url: `/ativos/bens/${r.id}` }).catch(() => undefined),
+            },
+          ]}
+          rowKey="id"
+          onRow={(r) => ({ onDoubleClick: () => navegar(String(r.id)) })}
+        />
+      </Card>
       <ModalActivo aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(a) => navegar(String(a.id))} />
+      <ModalActivo aberto={!!editar} activo={editar} aoFechar={() => setEditar(null)} />
+      <ModalTransferir aberto={transferir !== null} activoId={transferir} aoFechar={() => setTransferir(null)} />
       <ModalImportarActivos aberto={importar} aoFechar={() => setImportar(false)} />
       <ModalEdicaoMassa aberto={massa} ids={seleccao} aoFechar={() => setMassa(false)} />
-    </Card>
+    </>
   );
 }
 

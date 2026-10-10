@@ -1,7 +1,16 @@
-import { Alert, Button, Card, DatePicker, Descriptions, Input, Select, Skeleton, Table } from 'antd';
+import { Alert, Button, Card, Descriptions, Modal, Select, Skeleton, Table, Tag } from 'antd';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import type { AccaoLinha } from '@/componentes/vistas';
+import { larguraModal } from '@/componentes/responsivo';
+import { PainelPesquisaCompras } from '../comum/PainelPesquisaCompras';
+import { ComDocumento, ModalIvaDaLista, useImprimirCompra } from '../comum/accoesLista';
+import { BarrasSatisfacao, colunaUnCc } from '../comum/colunasLegado';
+import { ModalFluxoDocumental, type TipoDocumentoCompra } from '../comum/FluxoDocumental';
+import type { Pode } from '../comum/regras';
+import type { ContratoCompra } from '../comum/tipos';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosEncomendaCompra } from '../comum/impressao';
 import type { Dayjs } from 'dayjs';
@@ -33,43 +42,170 @@ export default function Encomendas() {
   );
 }
 
+/** Acções por linha de «Ordens de Encomenda» do legado (js/ui_compras_v2.js:436-456), com as mesmas condições. */
+export function accoesLinhaEncomenda(
+  e: EncomendaCompra,
+  pode: Pode,
+  f: { ver: () => void; fluxo: () => void; imprimir: () => unknown; iva: () => void; fatura: () => void; rececao: () => void; apagar: () => void },
+): AccaoLinha[] {
+  const a = accoesEncomenda(e, pode);
+  const anulada = e.estado === 'ANULADA';
+  const porFaturar = (e.percentagem_faturada ?? 0) < 100;
+  const porReceber = (e.percentagem_entregue ?? 0) < 100 && e.estado !== 'RECEBIDO';
+  return [
+    { icone: 'eye', titulo: 'Ver Detalhes', onClick: f.ver },
+    { icone: 'project-diagram', titulo: 'Fluxo Documental', variante: 'info', onClick: f.fluxo },
+    { icone: 'print', titulo: 'Imprimir', onClick: f.imprimir },
+    { icone: 'percent', titulo: 'Definir o IVA das linhas', oculto: !porFaturar || anulada || !pode('compras_enc_criar'), onClick: f.iva },
+    { icone: 'file-invoice-dollar', titulo: 'Gerar Fatura de Fornecedor', variante: 'primario', cheio: true, oculto: !porFaturar || anulada, desactivado: !a.registarFatura && 'Sem permissão para registar facturas', onClick: f.fatura },
+    { icone: 'check-double', titulo: 'Totalmente Faturada', cor: '#1e3a8a', oculto: porFaturar, desactivado: 'Totalmente Faturada' },
+    { icone: 'truck-loading', titulo: 'Aguarda receção — registar a recepção (validada no Armazém)', variante: 'sucesso', oculto: !porReceber || anulada, desactivado: !a.registarRececao && 'Sem permissão para registar recepções', onClick: f.rececao },
+    { icone: 'warehouse', titulo: 'Totalmente Recebida', cor: '#16a34a', oculto: porReceber, desactivado: 'Totalmente Recebida' },
+    { icone: 'trash', titulo: 'Apagar Encomenda', variante: 'perigo', cheio: true, onClick: f.apagar,
+      desactivado: anulada ? 'A encomenda já está anulada' : !a.anular ? 'Sem permissão para anular encomendas' : (e.percentagem_entregue ?? 0) > 0 || (e.percentagem_faturada ?? 0) > 0 ? 'Eliminação bloqueada: a encomenda tem recepções ou facturas (anule-as primeiro)' : false },
+  ];
+}
+
+/** «Associar» / alterar o contrato da encomenda (associarContratoEncomenda, js/ui_compras_v2.js:4727). */
+function ModalContratoEncomenda({ encomenda, aoFechar }: { encomenda: EncomendaCompra | null; aoFechar: () => void }) {
+  const [escolha, setEscolha] = useState<number | null | undefined>(undefined);
+  const contratos = useQuery({
+    queryKey: ['compras', 'contratos', 'activos-do-fornecedor', encomenda?.fornecedor_id],
+    queryFn: () => obterPagina<ContratoCompra>('/compras/contratos', { fornecedor_id: encomenda?.fornecedor_id, estado: 'ATIVO', por_pagina: 200 }),
+    enabled: !!encomenda,
+  });
+  const accao = useAccao({ invalidar: [['compras']], aoSucesso: () => { setEscolha(undefined); aoFechar(); } });
+  const atual = encomenda?.contrato?.id ?? null;
+  const valor = escolha === undefined ? atual : escolha;
+  return (
+    <Modal
+      open={!!encomenda}
+      title={encomenda ? `Contrato da encomenda ${numeroOuId(encomenda.numero_encomenda, encomenda.id)}` : ''}
+      width={larguraModal(520)}
+      okText="Gravar"
+      cancelText="Cancelar"
+      okButtonProps={{ disabled: valor === atual }}
+      confirmLoading={accao.isPending}
+      onCancel={() => { setEscolha(undefined); aoFechar(); }}
+      onOk={() => encomenda && accao.mutate({ url: `/compras/encomendas/${encomenda.id}/contrato`, dados: { contrato_fornecedor_id: valor ?? null } })}
+      destroyOnHidden
+    >
+      <Select
+        style={{ width: '100%' }}
+        allowClear
+        loading={contratos.isLoading}
+        placeholder="Sem contrato"
+        value={valor ?? undefined}
+        onChange={(v) => setEscolha(v ?? null)}
+        options={(contratos.data?.itens ?? []).map((c) => ({ value: c.id, label: `${c.referencia}${c.descricao ? ` — ${c.descricao}` : ''}` }))}
+        notFoundContent="O fornecedor não tem contratos activos."
+      />
+    </Modal>
+  );
+}
+
 function ListaEncomendas() {
   const navegar = useNavigate();
+  const { pode } = useSessao();
   const [estado, setEstado] = useState<string>();
   const [fornecedor, setFornecedor] = useState<number>();
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [pesquisa, setPesquisa] = useState('');
   const [nomeFornecedor, setNomeFornecedor] = useState<string>();
+  const [fluxo, setFluxo] = useState<{ tipo: TipoDocumentoCompra; id: number } | null>(null);
+  const [iva, setIva] = useState<{ tipo: 'encomenda'; id: number } | null>(null);
+  const [modal, setModal] = useState<{ tipo: 'fatura' | 'rececao'; id: number } | null>(null);
+  const [anular, setAnular] = useState<EncomendaCompra | null>(null);
+  const [contrato, setContrato] = useState<EncomendaCompra | null>(null);
   const pequeno = useEcraPequeno();
+  const imprimir = useImprimirCompra();
+  const accao = useAccao<EncomendaCompra>({ invalidar: [['compras']], aoSucesso: () => setAnular(null) });
+  const podeAssociar = pode('compras_contratos_gerir', 'compras_enc_criar');
 
   const colunas: ColunaApi<EncomendaCompra>[] = [
-    { title: 'Encomenda', key: 'numero', fixed: 'left', render: (_, r) => <strong>{numeroOuId(r.numero_encomenda, r.id)}</strong> },
-    { title: 'Data', dataIndex: 'data', responsive: ['sm'], render: formatarData },
+    {
+      title: 'Nº Ordem', key: 'numero', fixed: 'left', valorImpressao: (r) => numeroOuId(r.numero_encomenda, r.id),
+      render: (_, r) => <><strong>{numeroOuId(r.numero_encomenda, r.id)}</strong>{r.codigo_moeda && r.codigo_moeda !== 'AOA' && <Tag style={{ marginLeft: 4 }}>{r.codigo_moeda}</Tag>}</>,
+    },
+    { title: 'Data', dataIndex: 'data', render: formatarData },
     { title: 'Fornecedor', key: 'fornecedor', valorImpressao: (r) => r.fornecedor?.nome?.trim() ?? `#${r.fornecedor_id}`, render: (_, r) => <NomeTerceiro id={r.fornecedor_id} terceiro={r.fornecedor} /> },
-    { title: 'Total (Kz)', key: 'total', align: 'right', valorImpressao: (r) => formatarKz(r.montante_total), render: (_, r) => <ValorMoeda kz={r.montante_total} moeda={r.codigo_moeda} valorMoeda={r.montante_total_moeda} /> },
-    { title: 'Entrega prevista', dataIndex: 'data_entrega_prevista', responsive: ['lg'], render: formatarData },
-    { title: 'Contrato', dataIndex: 'contrato_fornecedor_id', responsive: ['lg'], render: (v: number | null) => (v ? `#${v}` : '—') },
-    { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
+    {
+      title: 'Contrato', key: 'contrato', valorImpressao: (r) => r.contrato?.referencia ?? '', valorFiltro: (r) => r.contrato?.referencia ?? '',
+      render: (_, r) =>
+        r.contrato ? (
+          <Tag style={{ cursor: podeAssociar ? 'pointer' : undefined }} title="Alterar o contrato" onClick={(ev) => { ev.stopPropagation(); if (podeAssociar) setContrato(r); }}>
+            <IconeFa nome="file-contract" /> {r.contrato.referencia}
+          </Tag>
+        ) : podeAssociar && r.estado !== 'ANULADA' ? (
+          <Button size="small" icon={<IconeFa nome="link" />} title="Associar a um contrato" onClick={(ev) => { ev.stopPropagation(); setContrato(r); }}>
+            Associar
+          </Button>
+        ) : (
+          '—'
+        ),
+    },
+    {
+      title: 'Satisfação (E/F)', key: 'satisfacao', width: 110, filtravel: false,
+      valorImpressao: (r) => `E ${Math.round(r.percentagem_entregue ?? 0)}% / F ${Math.round(r.percentagem_faturada ?? 0)}%`,
+      render: (_, r) => <BarrasSatisfacao entregue={r.percentagem_entregue ?? 0} faturada={r.percentagem_faturada ?? 0} />,
+    },
+    colunaUnCc<EncomendaCompra>(),
+    { title: 'Status', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado), render: (e: string) => <EstadoTag estado={e} /> },
+    { title: 'Total (Kz)', key: 'total', align: 'right', ocultaPorOmissao: true, valorImpressao: (r) => formatarKz(r.montante_total), render: (_, r) => <ValorMoeda kz={r.montante_total} moeda={r.codigo_moeda} valorMoeda={r.montante_total_moeda} /> },
+    { title: 'Entrega prevista', dataIndex: 'data_entrega_prevista', ocultaPorOmissao: true, render: formatarData },
   ];
 
   return (
     <>
-      <CabecalhoPagina titulo="Encomendas a fornecedores" subtitulo="Geradas pela adjudicação; recepções e facturas registam-se a partir da encomenda" />
-      <Card>
-        <BarraFiltros>
-          <Select placeholder="Estado" allowClear style={{ width: 200, maxWidth: '100%' }} value={estado} onChange={setEstado} options={opcoesEstado(['EM_PROCESSAMENTO', 'PARCIAL', 'RECEBIDO', 'ANULADA'])} />
-          <SeletorTerceiro papel="FORNECEDOR" style={{ width: 320, maxWidth: '100%' }} value={fornecedor} onChange={(v, o) => { setFornecedor(v); setNomeFornecedor(o && !Array.isArray(o) && o.label ? String(o.label) : undefined); }} />
-          <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-          <Input.Search placeholder="N.º da encomenda" allowClear style={{ width: 200, maxWidth: '100%' }} onSearch={(v) => setPesquisa(v.trim())} />
-        </BarraFiltros>
+      {/* um só cartão com o painel de pesquisa, o título e a lista, como o legado (js/ui_compras_v2.js:165-233) */}
+      <Card className="compras-cartao-lista">
+      <PainelPesquisaCompras placeholder="N.º da encomenda" aoPesquisar={setPesquisa} periodo={periodo} aoMudarPeriodo={setPeriodo}>
+        <Select placeholder="Estado" allowClear style={{ width: 200, maxWidth: '100%' }} value={estado} onChange={setEstado} options={opcoesEstado(['EM_PROCESSAMENTO', 'PARCIAL', 'RECEBIDO', 'ANULADA'])} />
+        <SeletorTerceiro papel="FORNECEDOR" style={{ width: 320, maxWidth: '100%' }} value={fornecedor} onChange={(v, o) => { setFornecedor(v); setNomeFornecedor(o && !Array.isArray(o) && o.label ? String(o.label) : undefined); }} />
+      </PainelPesquisaCompras>
+      <CabecalhoPagina titulo="Ordens de Encomenda" />
+      <ModalFluxoDocumental documento={fluxo} aoFechar={() => setFluxo(null)} />
+      <ModalIvaDaLista documento={iva} aoFechar={() => setIva(null)} />
+      <ModalContratoEncomenda encomenda={contrato} aoFechar={() => setContrato(null)} />
+      {modal && (
+        <ComDocumento<EncomendaCompra> url={`/compras/encomendas/${modal.id}`}>
+          {(e) =>
+            modal.tipo === 'rececao' ? (
+              <ModalRececao encomenda={e} aberto aoFechar={() => setModal(null)} />
+            ) : (
+              <ModalFaturaEncomenda encomenda={e} aberto aoFechar={() => setModal(null)} aoRegistar={(f) => pode('compras_faturacao_view') && navegar(`/m/compras/compras_faturacao/${f.id}`)} />
+            )
+          }
+        </ComDocumento>
+      )}
+      <ModalMotivo
+        aberto={!!anular}
+        titulo={anular ? `Apagar (anular) a encomenda ${numeroOuId(anular.numero_encomenda, anular.id)}` : ''}
+        textoOk="Anular"
+        aviso="Só se anulam encomendas sem recepções nem facturas activas. A proposta volta ao estado Proposta e o pedido a Aprovado."
+        carregando={accao.isPending}
+        aoFechar={() => setAnular(null)}
+        aoConfirmar={(motivo) => anular && accao.mutate({ url: `/compras/encomendas/${anular.id}/anular`, dados: { motivo } })}
+      />
         <TabelaApi<EncomendaCompra>
           url="/compras/encomendas"
           chaveConsulta={['compras', 'encomendas']}
           filtros={{ estado, pesquisa: pesquisa || undefined, fornecedor_id: fornecedor, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
           columns={colunas}
           size={pequeno ? 'small' : 'middle'}
+          accoes={(r) =>
+            accoesLinhaEncomenda(r, pode, {
+              ver: () => navegar(String(r.id)),
+              fluxo: () => setFluxo({ tipo: 'encomenda', id: r.id }),
+              imprimir: () => imprimir.encomenda(r.id),
+              iva: () => setIva({ tipo: 'encomenda', id: r.id }),
+              fatura: () => setModal({ tipo: 'fatura', id: r.id }),
+              rececao: () => setModal({ tipo: 'rececao', id: r.id }),
+              apagar: () => setAnular(r),
+            })
+          }
           impressao={{
-            titulo: 'Lista de encomendas a fornecedores',
+            titulo: 'Ordens de Encomenda',
             periodo: periodo?.[0] && periodo?.[1] ? `${periodo[0].format('DD/MM/YYYY')} a ${periodo[1].format('DD/MM/YYYY')}` : undefined,
             filtros: [estado && `Estado: ${rotuloEstado(estado)}`, !!fornecedor && `Fornecedor: ${nomeFornecedor ?? `#${fornecedor}`}`, pesquisa && `Pesquisa: ${pesquisa}`],
           }}

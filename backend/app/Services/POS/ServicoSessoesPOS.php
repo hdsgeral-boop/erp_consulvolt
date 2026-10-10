@@ -60,11 +60,11 @@ final class ServicoSessoesPOS
                 'estado' => 'ABERTA', 'aberto_em' => now(), 'fundo_maneio_abertura' => $fundo, 'operador_id' => $u?->id, 'nome_operador' => $u?->nomeApresentacao(),
                 'estado_contabilizacao' => 'PENDENTE', 'estado_liquidacao' => 'PENDENTE', 'estado_desvio' => 'NAO_APLICAVEL',
             ]);
-            // sessões antigas por fechar noutro terminal do mesmo operador (aviso, como o legado em pos_gestao.js:147)
-            $antigas = SessaoPOS::query()->where('estado', 'ABERTA')->where('operador_id', $u?->id)->whereKeyNot($sessao->id)
-                ->where('aberto_em', '<', now()->startOfDay())->pluck('codigo_sessao')->all();
+            // sessões abertas desde dias anteriores em QUALQUER terminal e operador (avisoSessoesAntigas, pos_gestao.js:147 — o
+            // legado lia a cache de todas as sessões abertas; filtrar pelo operador escondia, p. ex., a de outro caixa)
+            $antigas = array_values(array_filter(app(ServicoFrentePOS::class)->sessoesAntigas(), fn ($a) => $a['id'] !== $sessao->id));
 
-            return ['sessao' => $sessao, 'aviso' => $antigas ? 'Tem sessões abertas de dias anteriores por fechar: '.implode(', ', $antigas).'.' : null];
+            return ['sessao' => $sessao, 'aviso' => ServicoFrentePOS::textoAviso($antigas)];
         });
     }
 

@@ -1,5 +1,6 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, Row, Select, Skeleton, Space, Table, Tag } from 'antd';
-import { ArrowLeftOutlined, CheckCircleTwoTone, PlusOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, Row, Skeleton, Space, Table } from 'antd';
+import { ArrowLeftOutlined } from '@ant-design/icons';
+import { useImpressao } from '@/componentes/impressao/useImpressao';
 import { useQuery } from '@tanstack/react-query';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosGuiaSaida } from './comum/impressao';
@@ -11,14 +12,14 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
-import { EstadoTag, opcoesEstado, rotuloEstado } from '@/modulos/compras/comum/estados';
+import { EstadoTag, rotuloEstado } from '@/modulos/compras/comum/estados';
 import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/LinhasProdutos';
 import { NomeArmazem, NomeProduto, NomeTerceiro, useArmazens } from '@/modulos/compras/comum/referencias';
 import { SeletorArmazem } from '@/modulos/compras/comum/Seletores';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { accoesGuia, guiaGerida } from './comum/regras';
 import { TIPOS_GUIA, type GuiaSaida } from './comum/tipos';
-import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 
 /** Armazém › Guias de saída (ecrã armazem_guias): consumo interno, vendas ao balcão e guias de venda migradas. */
 export default function Guias() {
@@ -36,54 +37,117 @@ function rotuloTipo(g: Pick<GuiaSaida, 'tipo' | 'tipo_original'>): string {
   return TIPOS_GUIA[g.tipo] ?? g.tipo;
 }
 
+/** «Destinatário / Entidade» como no legado: «CONSUMO: área» nas guias de consumo; senão o terceiro ou «N/D». */
+function destinatario(g: GuiaSaida): string {
+  if (g.tipo === 'CONSUMO') return `CONSUMO: ${g.area_rececao || '-'}`;
+  return g.terceiro?.nome?.trim() || g.area_rececao || 'N/D';
+}
+
 function ListaGuias() {
   const navegar = useNavigate();
   const { pode } = useSessao();
-  const [tipo, setTipo] = useState<string>();
-  const [armazem, setArmazem] = useState<number>();
-  const [pesquisa, setPesquisa] = useState('');
-  const [estado, setEstado] = useState<string>();
+  const tipo: string | undefined = undefined;
+  const armazem: number | undefined = undefined;
+  const pesquisa = '';
+  const estado: string | undefined = undefined;
+  const [modal, setModal] = useState<{ accao: 'anular' | 'descontabilizar'; guia: GuiaSaida } | null>(null);
   const pequeno = useEcraPequeno();
   const armazens = useArmazens();
   const nomeArmazem = (id: number | null | undefined) => (id ? armazens.data?.find((a) => a.id === id)?.nome ?? `#${id}` : '');
+  const accao = useAccao<GuiaSaida>({ invalidar: [['logistica']], aoSucesso: () => setModal(null) });
+  const { imprimir } = useImpressao();
+  const imprimirGuia = async (id: number) => {
+    const g = await obter<GuiaSaida>(`/logistica/guias-saida/${id}`);
+    await imprimir(pedidoDocumentoComercial(dadosGuiaSaida(g, g.armazem_id ? nomeArmazem(g.armazem_id) : null)));
+  };
 
+  // Colunas e ordem do legado (renderGuiasSaida, ui_warehouse.js:566-571); o armazém fica disponível em «Colunas ▾».
   const colunas: ColunaApi<GuiaSaida>[] = [
-    { title: 'Guia', dataIndex: 'numero_documento', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Tipo', key: 'tipo', responsive: ['sm'], valorImpressao: (r) => rotuloTipo(r), render: (_, r) => <Tag>{rotuloTipo(r)}</Tag> },
-    { title: 'Armazém', dataIndex: 'armazem_id', responsive: ['md'], valorImpressao: (r) => nomeArmazem(r.armazem_id), render: (v: number | null) => <NomeArmazem id={v} /> },
-    { title: 'Destino', key: 'destino', responsive: ['md'], valorImpressao: (r) => r.area_rececao || r.terceiro?.nome?.trim() || (r.terceiro_id ? `#${r.terceiro_id}` : ''), render: (_, r) => r.area_rececao || (r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} terceiro={r.terceiro} /> : '—') },
-    { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
-    { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', responsive: ['lg'], valorImpressao: (r) => (r.contabilizado ? 'Sim' : 'Não'), render: (c: boolean | null) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null) },
+    { title: 'Nº Guia', dataIndex: 'numero_documento', render: (v: string) => <strong>{v}</strong> },
+    { title: 'Tipo', key: 'tipo', valorImpressao: (r) => rotuloTipo(r), render: (_, r) => r.tipo }, // legado: o código do tipo em texto (VENDA, CONSUMO, BACK_TO_BACK)
+    { title: 'Destinatário / Entidade', key: 'destino', valorImpressao: destinatario, render: (_, r) => (r.tipo !== 'CONSUMO' && !r.terceiro && r.terceiro_id ? <NomeTerceiro id={r.terceiro_id} terceiro={r.terceiro} /> : destinatario(r)) },
+    { title: 'Armazém', dataIndex: 'armazem_id', ocultaPorOmissao: true, valorImpressao: (r) => nomeArmazem(r.armazem_id), render: (v: number | null) => <NomeArmazem id={v} /> },
+    {
+      title: 'Status',
+      dataIndex: 'estado',
+      valorImpressao: (r) => `${rotuloEstado(r.estado ?? 'CONCLUIDO')}${r.contabilizado ? ' · Contabilizada' : ''}`,
+      render: (e: string | null, r) => (
+        <Space size={8} wrap>
+          {/* legado (ui_warehouse.js:582-583): «CONCLUIDO» e «CONTABILIZADA» em texto, em maiúsculas */}
+          <span style={(e ?? 'CONCLUIDO') === 'ANULADA' ? { color: '#dc2626' } : undefined}>{(e ?? 'CONCLUIDO').toUpperCase()}</span>
+          {r.contabilizado && <span>CONTABILIZADA</span>}
+        </Space>
+      ),
+    },
   ];
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Guias de saída"
-        subtitulo="Saídas de stock: consumo interno, vendas ao balcão e guias de venda"
-        accoes={pode('armazem_guias_emitir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Guia de consumo</Button>}
-      />
-      <Card>
-        <BarraFiltros>
-          <Input.Search placeholder="N.º ou destino" allowClear style={{ width: 240, maxWidth: '100%' }} onSearch={setPesquisa} />
-          <Select placeholder="Tipo" allowClear style={{ width: 200, maxWidth: '100%' }} value={tipo} onChange={setTipo} options={['CONSUMO', 'VENDA', 'BACK_TO_BACK'].map((t) => ({ value: t, label: TIPOS_GUIA[t] }))} />
-          <SeletorArmazem allowClear placeholder="Todos os armazéns" style={{ width: 220, maxWidth: '100%' }} value={armazem} onChange={setArmazem} />
-          <Select placeholder="Estado" allowClear style={{ width: 170 }} value={estado} onChange={setEstado} options={opcoesEstado(['CONCLUIDO', 'ANULADA'])} />
-        </BarraFiltros>
+      <Card
+        title="Guias de Saída e Entrega"
+      >
+        {/* legado: sem barra de filtros (só os filtros por coluna); a emissão faz-se pelo «Emitir Guia de Saída» do cabeçalho */}
         <TabelaApi<GuiaSaida>
           url="/logistica/guias-saida"
           filtros={{ tipo, armazem_id: armazem, estado, pesquisa: pesquisa.trim() || undefined }}
           chaveConsulta={['logistica', 'guias']}
           columns={colunas}
           size={pequeno ? 'small' : 'middle'}
-          impressao={{
-            titulo: 'Lista de guias de saída',
-            filtros: [tipo && `Tipo: ${TIPOS_GUIA[tipo] ?? tipo}`, !!armazem && `Armazém: ${nomeArmazem(armazem)}`, estado && `Estado: ${rotuloEstado(estado)}`, pesquisa.trim() && `Pesquisa: ${pesquisa.trim()}`],
+          accoes={(g) => {
+            const a = accoesGuia(g, pode);
+            const gerida = guiaGerida(g);
+            const anulada = g.estado === 'ANULADA';
+            return [
+              { icone: 'print', titulo: 'Imprimir', onClick: () => imprimirGuia(g.id) },
+              g.contabilizado
+                ? { icone: 'undo', titulo: 'Descontabilizar', variante: 'perigo', oculto: !pode('armazem_guias_contab'), desactivado: !a.descontabilizar, onClick: () => setModal({ accao: 'descontabilizar', guia: g }) }
+                : {
+                    icone: 'book',
+                    titulo: 'Contabilizar',
+                    variante: 'primario',
+                    oculto: !pode('armazem_guias_contab') || anulada,
+                    desactivado: !a.contabilizar && (gerida ? true : 'Guia de venda: contabiliza-se pela guia de remessa nas Vendas'),
+                    confirmar: `Contabilizar a guia ${g.numero_documento}?`,
+                    onClick: () => accao.mutateAsync({ url: `/logistica/guias-saida/${g.id}/contabilizar` }),
+                  },
+              {
+                icone: 'trash',
+                titulo: 'Anular Guia',
+                variante: 'perigo',
+                cheio: true,
+                oculto: !pode('armazem_guias_anular') || anulada,
+                desactivado: !a.anular && (!gerida ? 'Guia de venda: anula-se pela guia de remessa nas Vendas' : g.contabilizado ? 'Descontabilize a guia antes de a anular' : true),
+                onClick: () => setModal({ accao: 'anular', guia: g }),
+              },
+            ];
           }}
+          // legado: tabela simples, sem a barra DataTables nem filtros por coluna
+          contador={false}
+          menuColunas={false}
+          filtrosColuna={false}
+          filtroPersonalizado={false}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
+      <ModalMotivo
+        aberto={modal?.accao === 'descontabilizar'}
+        titulo={`Descontabilizar a guia ${modal?.guia.numero_documento ?? ''}`}
+        textoOk="Descontabilizar"
+        aviso="O lançamento do custo das mercadorias é estornado."
+        carregando={accao.isPending}
+        aoFechar={() => setModal(null)}
+        aoConfirmar={(motivo) => modal && accao.mutate({ url: `/logistica/guias-saida/${modal.guia.id}/descontabilizar`, dados: { motivo } })}
+      />
+      <ModalMotivo
+        aberto={modal?.accao === 'anular'}
+        titulo={`Anular a guia ${modal?.guia.numero_documento ?? ''}`}
+        textoOk="Anular"
+        aviso="O stock é reposto no armazém ao custo da saída."
+        carregando={accao.isPending}
+        aoFechar={() => setModal(null)}
+        aoConfirmar={(motivo) => modal && accao.mutate({ url: `/logistica/guias-saida/${modal.guia.id}/anular`, dados: { motivo } })}
+      />
     </>
   );
 }

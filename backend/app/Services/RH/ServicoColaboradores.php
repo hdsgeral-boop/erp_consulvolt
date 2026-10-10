@@ -50,7 +50,7 @@ final class ServicoColaboradores
                 $termo = '%'.str_replace(['%', '_'], ['\%', '\_'], $p).'%';
                 $q->where(fn ($s) => $s->where('nome_completo', 'ilike', $termo)->orWhere('nif', 'ilike', $termo)->orWhere('numero_inss', 'ilike', $termo));
             })
-            ->orderBy('nome_completo')
+            ->orderByRaw('lower(nome_completo)')->orderBy('id') // como o legado: alfabética sem distinguir maiúsculas
             ->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
     }
 

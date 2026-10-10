@@ -1,7 +1,9 @@
-import { Avatar, Button, Drawer, Dropdown, Flex, Layout, Menu, Select, Spin, Tooltip, type MenuProps } from 'antd';
+import { Avatar, Button, Drawer, Dropdown, Flex, Layout, Menu, Select, Space, Spin, Tooltip, type MenuProps } from 'antd';
 import {
   ApiOutlined,
   ArrowLeftOutlined,
+  CheckOutlined,
+  DownOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuOutlined,
@@ -13,7 +15,7 @@ import {
   SwapOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
@@ -24,8 +26,10 @@ import { AjudaProvider, BotaoAjuda } from '@/componentes/ajuda/PainelAjuda';
 import { OperacoesProvider } from '@/componentes/operacoes/Operacoes';
 import { useFavoritos } from '@/componentes/preferencias/favoritos';
 import { notificarErro } from '@/utilitarios/erros';
-import { construirItensMenu, estadoMenu } from './itensMenu';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { CHAVE_MENU_GERAL, construirMenuLateral, estadoMenu } from './itensMenu';
 import { MarcaEmpresa } from './MarcaEmpresa';
+import { classeFundoModulo } from './fundoModulo';
 import { rotuloPapel } from './marca';
 import { BotaoPesquisa, PesquisaEcras } from './PesquisaEcras';
 
@@ -36,6 +40,7 @@ const LARGURA_MENU = 280;
 const ALTURA_CABECALHO = 72;
 const ALTURA_CABECALHO_TELEMOVEL = 56;
 export const PREFIXO_FAVORITO = 'fav:';
+type ItemMenuLateral = NonNullable<MenuProps['items']>[number];
 
 /**
  * Layout da aplicação: menu pelas permissões (GET /sistema/menu), identidade da empresa activa (logótipo + nome),
@@ -50,8 +55,13 @@ export const PREFIXO_FAVORITO = 'fav:';
  * favoritos (estrela na barra, grupo «Favoritos» no menu e no Início — guardados no servidor), modo responsivo,
  * gestor de operações em segundo plano, Power BI (config_backup) e assistente IA (no menu do utilizador).
  *
+ * Menu (VAGA 1B, relatório de verificação visual 0.1): estrutura do legado em menuLegado.ts — itens gerais soltos no topo,
+ * Favoritos, «Menu Geral» (módulos e sub-grupos com os rótulos do legado) e «Sistema». Barra superior (0.2): «Ajuda» azul
+ * cheio, «Modo Responsivo» com texto (≥ 1200 px), «⇄ Trocar empresa» (volta à escolha de empresa; a seta ao lado,
+ * «Empresa activa», troca directamente), utilizador com nome e papel sem avatar e sair a vermelho.
+ *
  * Responsivo:
- *  - ≥ 992 px (lg): menu lateral fixo e recolhível (botão «Recolher menu»), selector de empresa na barra superior;
+ *  - ≥ 992 px (lg): menu lateral fixo e recolhível (botão «Recolher menu»), «Trocar empresa» na barra superior;
  *  - < 992 px: o menu passa a uma gaveta escura aberta pelo botão «Abrir menu» (fecha ao navegar), com o selector de
  *    empresa; a barra superior mostra o logótipo e o nome da empresa; «Ajuda» e «Procurar» só com o ícone;
  *  - < 768 px: barra compacta (56 px) e menu do utilizador só com o avatar (o nome, a estrela do ecrã e o modo
@@ -68,7 +78,7 @@ export function LayoutPrincipal() {
 }
 
 function Estrutura() {
-  const { menu, empresa, empresas, utilizador, escolherEmpresa, sair, pode } = useSessao();
+  const { menu, empresa, empresas, utilizador, escolherEmpresa, largarEmpresa, sair, pode } = useSessao();
   const identidade = useIdentidade();
   const navegar = useNavigate();
   const local = useLocation();
@@ -82,8 +92,50 @@ function Estrutura() {
   const [painel, setPainel] = useState<'powerbi' | 'ia' | null>(null);
   const [historico, setHistorico] = useState<string[]>([]);
 
+  const lateral = useMemo(() => construirMenuLateral(menu), [menu]);
   const itens = useMemo(() => {
-    const base = construirItensMenu(menu);
+    // legado (app_v2.js:11119): «⋮» em cada ecrã do menu (excepto Início e Dashboard) abre o menu de contexto com os favoritos
+    const comPontos = (lista: ItemMenuLateral[]): ItemMenuLateral[] =>
+      lista.map((it) => {
+        if (!it || typeof it !== 'object') return it;
+        const x = it as { key?: string; label?: ReactNode; children?: ItemMenuLateral[] };
+        if (x.children) return { ...it, children: comPontos(x.children) } as ItemMenuLateral;
+        const [, m, mod, ecraId] = String(x.key ?? '').split('?')[0].split('/');
+        if (m !== 'm' || !mod || !ecraId || (mod === 'geral' && ecraId === 'dashboard')) return it;
+        const fav = eFavorito(mod, ecraId);
+        return {
+          ...it,
+          label: (
+            <span className="erp-menu-rotulo">
+              <span className="erp-menu-rotulo-texto">{x.label}</span>
+              <Dropdown
+                trigger={['click']}
+                placement="bottomRight"
+                menu={{
+                  items: [{ key: 'fav', icon: fav ? <StarFilled style={{ color: '#f59e0b' }} /> : <StarOutlined />, label: fav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos' }],
+                  onClick: (e) => {
+                    e.domEvent.stopPropagation();
+                    alternar(mod, ecraId);
+                  },
+                }}
+              >
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="erp-menu-pontos"
+                  aria-label="Mais opções"
+                  title="Mais opções"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <IconeFa nome="ellipsis-v" />
+                </span>
+              </Dropdown>
+            </span>
+          ),
+        } as ItemMenuLateral;
+      });
+    const base = comPontos(lateral.itens as ItemMenuLateral[]);
     if (!favoritos.length) return base;
     const grupo = {
       key: 'grupo:favoritos',
@@ -91,15 +143,12 @@ function Estrutura() {
       label: 'Favoritos',
       children: favoritos.map((f) => ({ key: `${PREFIXO_FAVORITO}${f.rota}`, label: f.nome, title: `${f.nome} (${f.nomeModulo})` })),
     };
-    return [base[0], grupo, ...base.slice(1)];
-  }, [menu, favoritos]);
-  const { seleccionado, abertos } = useMemo(() => {
-    const e = estadoMenu(local.pathname);
-    // ecrã filho (ex. um mapa dentro de Relatórios): abre também o grupo
-    const [, , moduloId, ecraId] = local.pathname.split('/');
-    const pai = menu.find((m) => m.id === moduloId)?.ecras.find((x) => x.id === ecraId)?.pai;
-    return pai ? { ...e, abertos: [...e.abertos, `grupo:/m/${moduloId}/${pai}`] } : e;
-  }, [local.pathname, menu]);
+    // como no legado: Início, Dashboard Global, Relatórios de Gestão, Fluxo de Processos, Favoritos, Menu Geral, Sistema
+    const i = base.findIndex((x) => x?.key === CHAVE_MENU_GERAL);
+    const pos = i < 0 ? base.length : i;
+    return [...base.slice(0, pos), grupo, ...base.slice(pos)];
+  }, [lateral, favoritos]);
+  const { seleccionado, abertos } = useMemo(() => estadoMenu(local.pathname, local.search, lateral, menu), [local.pathname, local.search, lateral, menu]);
   const [, , moduloActual, ecraActual] = local.pathname.split('/');
   const noEcra = local.pathname.startsWith('/m/') && !!moduloActual && !!ecraActual;
   const favoritoActual = noEcra && eFavorito(moduloActual, ecraActual);
@@ -146,6 +195,34 @@ function Estrutura() {
     escolherEmpresa(id)
       .then(() => navegar('/'))
       .catch((e) => notificarErro(e));
+  // legado: «⇄ Trocar empresa» volta sempre à escolha de empresa (CompanySwitch.trocar)
+  const voltarEscolhaEmpresa = () => {
+    navegar('/', { replace: true });
+    largarEmpresa();
+  };
+  const botaoTrocarEmpresa = (
+    <Space.Compact className="erp-trocar-empresa">
+      <Button icon={<IconeFa nome="exchange-alt" />} onClick={voltarEscolhaEmpresa} title="Trocar de empresa">
+        Trocar empresa
+      </Button>
+      {empresas.length > 1 && (
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          menu={{
+            items: empresas.map((e) => ({ key: String(e.id), label: e.nome, icon: e.id === empresa?.id ? <CheckOutlined /> : <span style={{ display: 'inline-block', width: 14 }} /> })),
+            selectedKeys: empresa ? [String(empresa.id)] : [],
+            onClick: (i) => {
+              if (Number(i.key) !== empresa?.id) void trocarEmpresa(Number(i.key));
+            },
+            style: { maxHeight: 360, overflowY: 'auto' },
+          }}
+        >
+          <Button icon={<DownOutlined />} aria-label="Empresa activa" title={`Empresa activa: ${nomeEmpresa}`} />
+        </Dropdown>
+      )}
+    </Space.Compact>
+  );
 
   const seletorEmpresa = (largura: number | string) => (
     <Select
@@ -168,6 +245,7 @@ function Estrutura() {
       items={itens}
       selectedKeys={[seleccionado, `${PREFIXO_FAVORITO}${seleccionado}`]}
       defaultOpenKeys={abertos}
+      inlineIndent={16}
       onClick={(i) => navegar(i.key.startsWith(PREFIXO_FAVORITO) ? i.key.slice(PREFIXO_FAVORITO.length) : i.key)}
       style={{ borderInlineEnd: 0, background: 'transparent' }}
     />
@@ -223,6 +301,9 @@ function Estrutura() {
           <div className="erp-gaveta-empresa">
             <span className="erp-gaveta-empresa-rotulo">Empresa activa</span>
             {seletorEmpresa('100%')}
+            <Button type="link" size="small" icon={<IconeFa nome="exchange-alt" />} onClick={voltarEscolhaEmpresa} style={{ paddingInline: 0, marginTop: 6, color: '#93c5fd' }}>
+              Trocar empresa
+            </Button>
           </div>
           {menuNavegacao}
         </Drawer>
@@ -282,12 +363,12 @@ function Estrutura() {
               )}
               {ecra.lg && !modoResponsivo && (
                 <Tooltip title="Ver os ecrãs como num telemóvel">
-                  <Button className="erp-botao-responsivo" icon={<MobileOutlined />} aria-label="Modo responsivo" aria-pressed={false} onClick={() => definirModoResponsivo(true)}>
-                    {ecra.xxl ? 'Modo responsivo' : null}
+                  <Button className="erp-botao-responsivo" icon={<IconeFa nome="mobile-alt" />} aria-label="Modo responsivo" aria-pressed={false} onClick={() => definirModoResponsivo(true)}>
+                    {ecra.xl ? 'Modo Responsivo' : null}
                   </Button>
                 </Tooltip>
               )}
-              {!ecra.pequeno && seletorEmpresa(ecra.xl ? 280 : 210)}
+              {!ecra.pequeno && botaoTrocarEmpresa}
               <Dropdown menu={{ items: itensUtilizador }} trigger={ecra.pequeno ? ['click'] : ['hover']} placement="bottomRight">
                 <div className={ecra.md ? 'erp-utilizador' : undefined} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }} role="button" tabIndex={0} aria-label="Menu do utilizador">
                   {ecra.md && (
@@ -296,12 +377,13 @@ function Estrutura() {
                       {papel && <span className="erp-utilizador-papel">{papel}</span>}
                     </div>
                   )}
-                  <Avatar icon={<UserOutlined />} style={{ flex: 'none', background: '#eff6ff', color: '#1d4ed8' }} />
+                  {/* legado: nome + papel, sem avatar; em telemóvel o avatar é o único acesso ao menu do utilizador */}
+                  {!ecra.md && <Avatar icon={<UserOutlined />} style={{ flex: 'none', background: '#eff6ff', color: '#1d4ed8' }} />}
                 </div>
               </Dropdown>
               {ecra.md && (
                 <Tooltip title="Sair do sistema">
-                  <Button className="erp-botao-sair" icon={<LogoutOutlined />} aria-label="Sair do sistema" onClick={() => void sair()} />
+                  <Button className="erp-botao-sair" icon={<IconeFa nome="sign-out-alt" />} aria-label="Sair do sistema" onClick={() => void sair()} />
                 </Tooltip>
               )}
             </Flex>
@@ -313,7 +395,7 @@ function Estrutura() {
             <Button size="small" type="link" onClick={() => definirModoResponsivo(false)}>Sair do modo responsivo</Button>
           </div>
         )}
-        <Layout.Content className="erp-conteudo">
+        <Layout.Content className={`erp-conteudo ${classeFundoModulo(local.pathname)}`}>
           <Suspense fallback={<Spin style={{ display: 'block', marginTop: 80 }} />}>
             <Outlet />
           </Suspense>

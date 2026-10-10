@@ -1,5 +1,7 @@
-import { Alert, Button, Card, Checkbox, Col, Descriptions, Drawer, Flex, Form, Input, List, Modal, Popconfirm, Row, Segmented, Select, Skeleton, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
-import { DeleteOutlined, EditOutlined, MailOutlined, PlusOutlined, StarFilled, UserAddOutlined, UserSwitchOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, Col, Descriptions, Drawer, Flex, Form, Input, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { DeleteOutlined, EditOutlined, MailOutlined, PlusOutlined, StarFilled, UserAddOutlined } from '@ant-design/icons';
+import { IconeFa } from '@/componentes/fluxos';
+import { colunasContas } from './comum/colunasContas';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -50,20 +52,26 @@ export default function Contas() {
     <>
       <CabecalhoPagina
         titulo="Contas e contactos"
-        subtitulo="Prospects e clientes com a visão 360º da relação comercial"
+        subtitulo="Prospects e clientes com as suas oportunidades, actividades e situação financeira (facturas em aberto e em atraso)."
         accoes={
           editar && (
             <>
-              <Button icon={<UserSwitchOutlined />} onClick={() => setDoCliente(true)}>A partir de cliente</Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('nova')}>Nova conta</Button>
+              <Button icon={<IconeFa nome="user-check" />} onClick={() => setDoCliente(true)}>Acrescentar cliente existente</Button>
+              <Button type="primary" icon={<IconeFa nome="plus" />} onClick={() => setEdicao('nova')}>Novo prospect</Button>
             </>
           )
         }
       />
       <Card>
-        <Flex gap={8} wrap style={{ marginBottom: 12 }}>
-          <Segmented value={filtros.tipo ?? ''} onChange={(v) => setFiltros({ ...filtros, tipo: (v as string) || undefined })} options={[{ value: '', label: 'Todas' }, { value: 'PROSPECT', label: 'Prospects' }, { value: 'CLIENTE', label: 'Clientes' }]} />
-          <Input.Search placeholder="Nome, NIF, email ou sector" allowClear style={{ width: 280, maxWidth: '100%' }} onSearch={(v) => setFiltros({ ...filtros, pesquisa: v || undefined })} />
+        <Flex gap={8} wrap align="end" style={{ marginBottom: 12 }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span>Tipo</span>
+            <Select value={filtros.tipo ?? ''} style={{ width: 160 }} onChange={(v: string) => setFiltros({ ...filtros, tipo: v || undefined })} options={[{ value: '', label: 'Todos' }, { value: 'PROSPECT', label: 'Prospects' }, { value: 'CLIENTE', label: 'Clientes' }]} />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '1 1 200px', minWidth: 200 }}>
+            <span>Procurar</span>
+            <Input.Search placeholder="Nome, NIF, email, sector…" allowClear onSearch={(v) => setFiltros({ ...filtros, pesquisa: v || undefined })} />
+          </label>
           <Input.Search placeholder="Responsável" allowClear style={{ width: 160, maxWidth: '100%' }} onSearch={(v) => setFiltros({ ...filtros, responsavel: v || undefined })} />
           <Checkbox checked={!!filtros.em_atraso} onChange={(e) => setFiltros({ ...filtros, em_atraso: e.target.checked ? 1 : undefined })}>Só com facturas em atraso</Checkbox>
         </Flex>
@@ -74,18 +82,13 @@ export default function Contas() {
           onRow={(c) => ({ onClick: () => setFicha(c.id), style: { cursor: 'pointer' } })}
           size={pequeno ? 'small' : 'middle'}
           impressao={{
-            titulo: 'Contas do CRM',
+            titulo: 'Contas e contactos',
+            orientacao: 'paisagem',
             filtros: [filtros.tipo && `Tipo: ${filtros.tipo === 'CLIENTE' ? 'Clientes' : 'Prospects'}`, filtros.pesquisa && `Pesquisa: ${filtros.pesquisa}`, filtros.responsavel && `Responsável: ${filtros.responsavel}`, !!filtros.em_atraso && 'Só com facturas em atraso'],
           }}
-          columns={[
-            { title: 'Conta', dataIndex: 'nome', valorImpressao: (c) => [c.nome, c.nif && `NIF ${c.nif}`, c.setor].filter(Boolean).join(' · '), render: (v: string, c) => (<><strong>{v}</strong><div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{[c.nif && `NIF ${c.nif}`, c.setor].filter(Boolean).join(' · ')}</div></>) },
-            { title: 'Tipo', dataIndex: 'tipo', responsive: ['sm'], render: (t: string) => (t === 'CLIENTE' ? <Tag color="green">Cliente</Tag> : <Tag color="blue">Prospect</Tag>) },
-            { title: 'Contacto', key: 'ct', responsive: ['lg'], render: (_, c) => [c.email, c.telefone].filter(Boolean).join(' · ') || '—' },
-            { title: 'Responsável', dataIndex: 'responsavel', responsive: ['md'] },
-            { title: 'Abertas', dataIndex: 'oportunidades_abertas', align: 'right', responsive: ['md'] },
-            { title: 'Valor aberto', dataIndex: 'valor_aberto', align: 'right', render: (v: string) => formatarKz(v) },
-            { title: 'Em atraso', key: 'f', align: 'right', responsive: ['lg'], valorImpressao: (c) => (c.financeiro && Number(c.financeiro.em_atraso) > 0 ? formatarKz(c.financeiro.em_atraso) : ''), render: (_, c) => (c.financeiro && Number(c.financeiro.em_atraso) > 0 ? <Typography.Text type="danger">{formatarKz(c.financeiro.em_atraso)}</Typography.Text> : '—') },
-          ]}
+          columns={colunasContas}
+          tituloAccoes=""
+          accoes={(c) => [{ icone: 'id-card', titulo: 'Ficha 360º', texto: 'Ficha 360º', onClick: () => setFicha(c.id) }]}
         />
       </Card>
       <FichaConta id={ficha} aoFechar={() => setFicha(null)} aoEditar={setEdicao} />
@@ -99,7 +102,7 @@ function ModalDoCliente({ aberto, aoFechar, aoAbrir }: { aberto: boolean; aoFech
   const [terceiro, setTerceiro] = useState<number | undefined>();
   const accao = useAccao<ContaCRM>({ invalidar: [CHAVE_CRM], aoSucesso: (c) => { aoFechar(); aoAbrir(c.id); } });
   return (
-    <Modal open={aberto} title="Conta do CRM a partir de um cliente" onCancel={aoFechar} okText="Abrir conta" cancelText="Cancelar" okButtonProps={{ disabled: !terceiro }} confirmLoading={accao.isPending} onOk={() => accao.mutate({ url: '/crm/contas/do-cliente', dados: { terceiro_id: terceiro } })} destroyOnHidden>
+    <Modal open={aberto} title="Acrescentar cliente existente" onCancel={aoFechar} okText="Abrir conta" cancelText="Cancelar" okButtonProps={{ disabled: !terceiro }} confirmLoading={accao.isPending} onOk={() => accao.mutate({ url: '/crm/contas/do-cliente', dados: { terceiro_id: terceiro } })} destroyOnHidden>
       <Typography.Paragraph type="secondary">Abre a conta do CRM ligada ao cliente; se ainda não existir, é criada com os dados do cliente.</Typography.Paragraph>
       <SeletorTerceiro papel="CLIENTE" value={terceiro} onChange={setTerceiro} style={{ width: '100%' }} />
     </Modal>
@@ -119,7 +122,7 @@ function FormConta({ conta, aoFechar, aoCriar }: { conta: ContaCRM | 'nova' | nu
     else form.setFieldsValue({ ...conta, origem: conta.origem_original ?? conta.origem });
   }, [conta, form, utilizador]);
   return (
-    <Modal open={!!conta} title={nova ? 'Nova conta' : 'Editar conta'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(720)} destroyOnHidden>
+    <Modal open={!!conta} title={nova ? 'Novo prospect' : 'Editar conta'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(720)} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: nova ? 'post' : 'put', url: nova ? '/crm/contas' : `/crm/contas/${(conta as ContaCRM).id}`, dados: v })}>
         <Row gutter={16}>
           <Col xs={24} sm={16}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>

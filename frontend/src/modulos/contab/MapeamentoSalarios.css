@@ -1,0 +1,118 @@
+/*
+ * Contabilidade › Mapeamento contábil — aspecto do ecrã antigo (renderContabilidade, js/app_v2.js:2512-2527:
+ * .contab-map-card .table-accounting-mapping): cabeçalho azul-marinho, coluna «Avençado (Conta)» com cabeçalho castanho e
+ * células amareladas, linhas alternadas, nome da rubrica a negrito com a etiqueta do tipo/natureza e a pílula de contagem.
+ */
+.contab-map-card {
+  margin-bottom: 24px;
+}
+
+.contab-map-card .ant-card-head-title {
+  font-weight: 700;
+}
+
+.contab-map-card .ant-table-thead > tr:not(.erp-linha-filtros) > th {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-align: center;
+}
+
+.contab-map-card .ant-table-thead > tr:not(.erp-linha-filtros) > th:first-child {
+  text-align: left;
+}
+
+.contab-map-card .ant-table-thead > tr:not(.erp-linha-filtros) > th.col-avencado {
+  background: #92400e !important;
+}
+
+.contab-map-card .ant-table-thead > tr > th::before {
+  display: none;
+}
+
+.contab-map-card .ant-table-tbody > tr > td {
+  font-size: 0.88rem;
+  padding: 7px 10px !important;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.contab-map-card .ant-table-tbody > tr:nth-child(even) > td {
+  background-color: #f8fafc;
+}
+
+.contab-map-card .ant-table-tbody > tr > td.col-avencado {
+  background: #fffbeb !important;
+}
+
+.contab-map-card .ant-table-tbody > tr:hover > td {
+  background-color: #eef2ff !important;
+}
+
+.contab-map-card .ant-table-tbody > tr > td:first-child {
+  min-width: 260px;
+  white-space: normal;
+  text-align: left;
+}
+
+.contab-map-card .map-nome {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #0f172a;
+}
+
+.contab-map-card .map-tipo {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.contab-map-card .map-tipo.venc {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.contab-map-card .map-tipo.desc {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.contab-map-card .map-tipo.outro {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.contab-map-card .map-contagem {
+  margin-left: 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+
+.contab-map-card .map-sem-aplicacao {
+  color: #94a3b8;
+}
+
+.contab-map-card .ant-select-selection-placeholder {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.contab-map-card .ant-select-disabled .ant-select-selector {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* legado: o texto da conta no <select> fica alinhado à esquerda (só a célula é centrada) */
+.contab-map-card .ant-select-selector {
+  text-align: left;
+}

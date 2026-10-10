@@ -80,10 +80,11 @@ function Pedidos() {
         const ac = accoesPedidoRh(p, pode);
         return (
           <Space size={4} wrap>
-            {ac.decidir && <Button size="small" type="primary" onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'APROVADO' }); setDecidir(p); }}>Decidir</Button>}
-            {ac.emitir && <Button size="small" type="primary" onClick={() => abrirEmissao(p)}>Emitir documento</Button>}
+            {ac.decidir && <Button size="small" type="primary" onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'APROVADO' }); setDecidir(p); }}>Aprovar</Button>}
+            {ac.decidir && p.tipo !== 'DOCUMENTO' && <Button size="small" danger onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'RECUSADO' }); setDecidir(p); }}>Recusar</Button>}
+            {ac.emitir && <Button size="small" type="primary" onClick={() => abrirEmissao(p)}>Aprovar e emitir</Button>}
             {ac.emitir && <Button size="small" danger onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'RECUSADO' }); setDecidir(p); }}>Recusar</Button>}
-            {p.documento && <Button size="small" onClick={() => setVer(p)}>Ver documento</Button>}
+            {p.documento && <Button size="small" onClick={() => setVer(p)}>Ver</Button>}
           </Space>
         );
       },

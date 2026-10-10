@@ -1,0 +1,138 @@
+/* Dashboard Global — aspecto do sistema anterior (js/ui_painel_modulos.js:1013-1046). */
+
+/* Separadores dos módulos: pílulas com ícone colorido, em várias linhas; activo com a cor do módulo (Visão Geral: escuro). */
+.painel-modulos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  min-width: 0;
+}
+
+.painel-modulo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #334155;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, background 0.15s;
+  font-family: inherit;
+}
+
+.painel-modulo-btn .painel-modulo-icone {
+  color: var(--painel-cor);
+}
+
+.painel-modulo-btn:hover {
+  border-color: var(--painel-cor);
+  transform: translateY(-1px);
+}
+
+.painel-modulo-btn:focus-visible {
+  outline: 2px solid var(--painel-cor);
+  outline-offset: 2px;
+}
+
+.painel-modulo-btn.activo {
+  background: var(--painel-cor);
+  border-color: var(--painel-cor);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.15);
+}
+
+.painel-modulo-btn.activo .painel-modulo-icone {
+  color: #fff;
+}
+
+@media (max-width: 575.98px) {
+  .painel-modulos {
+    gap: 6px;
+    padding: 6px;
+  }
+  .painel-modulo-btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+}
+
+/* Grelha dos cartões (legado .painel-kpis: repeat(auto-fill, minmax(240px, 1fr))). */
+.painel-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (max-width: 575.98px) {
+  .painel-kpis {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* Gráficos (legado .painel-grelha: repeat(auto-fit, minmax(460px, 1fr))). */
+.painel-grelha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
+  gap: 20px;
+  margin-top: 20px;
+  min-width: 0;
+}
+
+.painel-cartao {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  min-width: 0;
+}
+
+/* Legenda centrada com círculos (Chart.js: usePointStyle, boxWidth 8, 11 px a 600); nas linhas o círculo é vazio. */
+.painel-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.75);
+}
+
+.painel-legenda li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.painel-legenda i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-sizing: border-box;
+  flex: none;
+  display: inline-block;
+}
+
+.painel-legenda i.vazio {
+  background: #fff;
+}
+
+/* Ecrã cheio do Dashboard (legado toggleFullscreen): fundo claro e deslocamento próprio */
+.painel-conteudo-wrap:fullscreen { background: #f8fafc; overflow: auto; padding: 24px 32px; }

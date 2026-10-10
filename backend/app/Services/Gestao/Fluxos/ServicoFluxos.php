@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Services\Gestao\Fluxos\Avaliadores\AvaliadorFluxo;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Str;
 
 /**
  * Fluxo de Processos (js/fluxo_processos.js, fluxo_tabela.js, fluxo_narrativa.js e os fluxos por módulo). Para cada fluxo:
@@ -65,13 +66,15 @@ final class ServicoFluxos
         $f = self::definicao($id);
 
         return ['fluxo' => ['id' => $id, 'nome' => $f['nome'], 'sub' => $f['sub'], 'icone' => CatalogoFluxos::ICONES[$id]['fluxo'] ?? null, 'etapas' => self::etapas($id), 'narrativa' => CatalogoFluxos::narrativa($id)],
-            'tem_actividade' => $this->avaliador($id)->temActividade(), 'total' => count($r['processos']), 'kpis' => $r['kpis'], 'funil' => $r['funil'], 'extra' => $r['extra']];
+            'tem_actividade' => $this->avaliador($id)->temActividade(), 'total' => count($r['processos']), 'kpis' => $r['kpis'], 'funil' => $r['funil'], 'extra' => $r['extra'],
+            'vista' => $r['vista'] ? self::vistaPublica($r['vista'], $r['processos']) : null];
     }
 
     /**
-     * Lista paginada dos processos (linhas leves, sem factos), filtrável por etapa actual (ou «concluidos»), estado e texto.
+     * Lista paginada dos processos (linhas leves, sem factos), filtrável por etapa actual (ou «concluidos»), estado, filtro
+     * rápido da vista de volume (chips do legado, só nos fluxos em tabela; lista branca por fluxo) e texto.
      *
-     * @param  array{etapa?: ?string, estado?: ?string, pesquisa?: ?string, pagina?: ?int, por_pagina?: ?int}  $f
+     * @param  array{etapa?: ?string, estado?: ?string, filtro?: ?string, pesquisa?: ?string, pagina?: ?int, por_pagina?: ?int, ordem?: ?string}  $f
      */
     public function processos(string $id, array $f): LengthAwarePaginator
     {
@@ -79,8 +82,19 @@ final class ServicoFluxos
         if (! empty($f['etapa']) && $f['etapa'] !== 'concluidos' && ! in_array($f['etapa'], $etapas, true)) {
             throw new ErroNegocio('Etapa desconhecida neste fluxo.', 'ETAPA_INVALIDA', 422, ['etapa' => ['Use: '.implode(', ', $etapas).' ou concluidos.']]);
         }
-        $lista = array_values(array_filter($this->calcular($id)['processos'], function ($p) use ($f) {
+        $r = $this->calcular($id);
+        $filtro = null;
+        if (! empty($f['filtro'])) {
+            $filtros = array_column($r['vista']['filtros'] ?? [], 'fn', 'id');
+            $filtro = $filtros[$f['filtro']] ?? throw new ErroNegocio('Filtro desconhecido neste fluxo.', 'FILTRO_INVALIDO', 422,
+                ['filtro' => [$filtros ? 'Use: '.implode(', ', array_keys($filtros)).'.' : 'Este fluxo não tem filtros rápidos.']]);
+        }
+        $q = self::normalTexto(trim((string) ($f['pesquisa'] ?? '')));
+        $lista = array_values(array_filter($r['processos'], function ($p) use ($f, $filtro, $q) {
             if (! empty($f['etapa']) && ($f['etapa'] === 'concluidos' ? $p['etapa_actual'] !== null : $p['etapa_actual'] !== $f['etapa'])) {
+                return false;
+            }
+            if ($filtro && ! $filtro($p)) {
                 return false;
             }
             $ok = match ($f['estado'] ?? null) {
@@ -90,10 +104,14 @@ final class ServicoFluxos
             if (! $ok) {
                 return false;
             }
-            $q = trim((string) ($f['pesquisa'] ?? ''));
 
-            return $q === '' || str_contains(mb_strtolower($p['titulo'].' '.$p['subtitulo'].' '.$p['chave']), mb_strtolower($q));
+            // como o legado (normal, fluxo_tabela.js:15): sem acentos e sem distinguir maiúsculas
+            return $q === '' || str_contains(self::normalTexto($p['titulo'].' '.$p['subtitulo'].' '.$p['chave']), $q);
         }));
+        if (($f['ordem'] ?? null) === 'recentes') {
+            // cartões do topo do ecrã (fluxo_vendas.js:304, fluxo_processos.js:56): data mais recente primeiro
+            usort($lista, fn ($x, $y) => strcmp((string) $y['data'], (string) $x['data']));
+        }
         $porPagina = max(1, min(200, (int) ($f['por_pagina'] ?? 50)));
         $pagina = max(1, (int) ($f['pagina'] ?? 1));
         $linhas = array_map(fn ($p) => self::linha($p, $id), array_slice($lista, ($pagina - 1) * $porPagina, $porPagina));
@@ -126,15 +144,42 @@ final class ServicoFluxos
             return $this->cache[$k];
         }
         $etapas = self::etapas($id);
-        $r = $this->avaliador($id)->avaliar();
+        $avaliador = $this->avaliador($id);
+        $r = $avaliador->avaliar();
         $processos = array_map(fn ($p) => self::normalizar($p, $etapas), $r['processos']);
         usort($processos, [self::class, 'ordenar']);
         $extra = $r['extra'] ?? [];
         if (isset($r['buracos'])) {
             $extra['periodos_em_falta'] = $r['buracos'];
         }
+        // Vista de volume (fluxo_tabela.js): só os fluxos em tabela (Lavandaria, Projectos, Bancos, Folha de Caixa) a definem
+        $vista = method_exists($avaliador, 'vista') ? $avaliador->vista() : null;
 
-        return $this->cache[$k] = ['processos' => $processos, 'kpis' => $r['kpis'], 'funil' => self::funil($processos, $etapas), 'extra' => $extra ?: null];
+        return $this->cache[$k] = ['processos' => $processos, 'kpis' => $r['kpis'], 'funil' => self::funil($processos, $etapas), 'extra' => $extra ?: null, 'vista' => $vista];
+    }
+
+    /**
+     * Configuração da vista de volume para o ecrã (fluxo_tabela.js:76-133): funil com as colunas do fluxo (processos parados
+     * na etapa, valor da coluna e quantos têm pendências; «concluidos» = sem etapa actual), filtros rápidos com a contagem em
+     * todos os processos, colunas da tabela, texto da pesquisa, n.º por página e o estado vazio. Sem as funções internas.
+     */
+    public static function vistaPublica(array $v, array $processos): array
+    {
+        $funil = array_map(function ($c) use ($processos) {
+            $grupo = array_values(array_filter($processos, fn ($p) => $c['id'] === 'concluidos' ? $p['etapa_actual'] === null : $p['etapa_actual'] === $c['id']));
+
+            return ['id' => $c['id'], 'rotulo' => $c['rotulo'], 'parados' => count($grupo), 'com_pendencias' => count(array_filter($grupo, fn ($p) => $p['n_erros'] + $p['n_avisos'] > 0)),
+                'valor' => isset($c['valor']) ? AvaliadorFluxo::dinheiro(($c['valor'])($grupo)) : null];
+        }, $v['funil']);
+        $filtros = array_map(fn ($f) => ['id' => $f['id'], 'rotulo' => $f['rotulo'], 'total' => count(array_filter($processos, $f['fn']))], $v['filtros']);
+
+        return ['funil' => $funil, 'filtros' => $filtros, 'filtro_inicial' => $v['filtro_inicial'] ?? $filtros[0]['id'] ?? null, 'colunas' => $v['colunas'],
+            'placeholder' => $v['placeholder'], 'nome_itens' => $v['nome_itens'], 'por_pagina' => $v['por_pagina'] ?? 25, 'vazio' => $v['vazio'] ?? null];
+    }
+
+    private static function normalTexto(string $s): string
+    {
+        return mb_strtolower(Str::ascii($s));
     }
 
     /** Normaliza um processo: estados, contagens, etapa actual, erros e avisos; retira as chaves internas «_». */
@@ -155,7 +200,8 @@ final class ServicoFluxos
                 break;
             }
         }
-        $problemas = array_merge(...array_values(array_map(fn ($x) => $x['problemas'], $E)));
+        // Pendências do processo: os problemas da empresa (ambito = empresa, ex.: colaboradores sem IBAN) ficam só no detalhe
+        $problemas = array_filter(array_merge(...array_values(array_map(fn ($x) => $x['problemas'], $E))), fn ($x) => ($x['ambito'] ?? null) !== 'empresa');
         $terminado = ! empty($p['terminado']);
         foreach (array_keys($p) as $chave) {
             if (str_starts_with($chave, '_')) {

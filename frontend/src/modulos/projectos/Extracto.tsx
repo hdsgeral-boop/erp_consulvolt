@@ -1,43 +1,72 @@
-import { Card, Col, DatePicker, Flex, Input, Row, Select, Statistic, Table, Typography } from 'antd';
+import { Button, Card, Col, DatePicker, Flex, Input, Row, Select, Statistic, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import type dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { IconeFa } from '@/componentes/fluxos';
 import { tabelaHtml } from '@/componentes/impressao';
+import { TabelaComModos, type ColunaLegado } from '@/componentes/vistas';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
-import { somar } from '@/utilitarios/decimal';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
+import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos, rotuloProjectos } from './comum/componentes';
 import { rotuloRubrica } from './comum/regras';
 import type { Extracto as DadosExtracto, MovimentoExtracto } from './comum/tipos';
-import { scrollTabela } from '@/componentes/responsivo';
+import { ModalProjecto } from './ModalProjecto';
 
-/** Projectos › Extracto analítico (ecrã projectos_extracto): custos, proveitos e compromissos por projecto, tarefa e rubrica. */
+type Periodo = [dayjs.Dayjs | null, dayjs.Dayjs | null] | null;
+type Linha = MovimentoExtracto & { _chave: string };
+
+/**
+ * Projectos › Extracto analítico (ecrã projectos_extracto): custos, proveitos e compromissos por projecto, tarefa e rubrica.
+ * Em cima, o formulário de consulta do antigo (ui_projects.js:28-56): projecto, período, «Consultar» e «Novo Projecto».
+ */
 export default function Extracto() {
-  const [projecto, setProjecto] = useState<number>();
-  const [periodo, setPeriodo] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
+  const navegar = useNavigate();
+  const { pode } = useSessao();
+  // rascunho do formulário de consulta; só passa à consulta com «Consultar»
+  const [projectoForm, setProjectoForm] = useState<number>();
+  const [periodoForm, setPeriodoForm] = useState<Periodo>(null);
+  const [consulta, setConsulta] = useState<{ projecto?: number; periodo: Periodo }>({ periodo: null });
   const [natureza, setNatureza] = useState<string>();
   const [texto, setTexto] = useState('');
-  const inicio = dataApi(periodo?.[0]);
-  const fim = dataApi(periodo?.[1]);
+  const [novo, setNovo] = useState(false);
+  const projecto = consulta.projecto;
+  const inicio = dataApi(consulta.periodo?.[0]);
+  const fim = dataApi(consulta.periodo?.[1]);
   const q = useQuery({ queryKey: ['projectos', 'extracto', projecto, inicio, fim], queryFn: () => obter<DadosExtracto>('/projetos/extracto', { projeto_id: projecto, inicio, fim }) });
   const linhas = useMemo(
     () => (q.data?.movimentos ?? []).filter((m) => (!natureza || m.natureza === natureza) && contemTexto(texto, m.documento, m.descricao, m.codigo_projeto, m.tarefa, m.rubrica)),
     [q.data, natureza, texto],
   );
   // chave estável por linha (o índice no rowKey está obsoleto no Ant Design 5)
-  const linhasComChave = useMemo(() => linhas.map((m, i) => ({ ...m, _chave: `${m.fonte}-${m.fonte_id}-${i}` })), [linhas]);
+  const linhasComChave = useMemo<Linha[]>(() => linhas.map((m, i) => ({ ...m, _chave: `${m.fonte}-${m.fonte_id}-${i}` })), [linhas]);
   const t = q.data?.totais;
   const resultado = t ? (Number(t.proveitos) - Number(t.custos)).toFixed(2) : undefined;
+
+  const colunas: ColunaLegado<Linha>[] = [
+    { title: 'Data', dataIndex: 'data', render: formatarData, valorFiltro: (m) => formatarData(m.data) },
+    { title: 'Projecto', dataIndex: 'codigo_projeto' },
+    { title: 'Natureza', dataIndex: 'natureza', responsive: ['sm'], valorFiltro: (m) => rotuloProjectos(m.natureza), render: (v) => <EtiquetaProjectos valor={v} /> },
+    { title: 'Rubrica', key: 'r', responsive: ['md'], valorFiltro: (m) => rotuloRubrica(m.categoria ?? m.rubrica), render: (_, m) => rotuloRubrica(m.categoria ?? m.rubrica) },
+    { title: 'Módulo', dataIndex: 'modulo', responsive: ['lg'] },
+    { title: 'Documento', key: 'doc', valorFiltro: (m) => [m.tipo_documento, m.documento].filter(Boolean).join(' · '), render: (_, m) => [m.tipo_documento, m.documento].filter(Boolean).join(' · ') || '—' },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
+    { title: 'Tarefa', dataIndex: 'tarefa', render: (v) => v ?? '—' },
+    // proveitos e custos não se somam: o total só aparece com a natureza filtrada (como na impressão)
+    { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', total: natureza ? true : undefined, render: (v, m) => <Typography.Text type={m.natureza === 'CUSTO' ? 'danger' : m.natureza === 'PROVEITO' ? 'success' : undefined}>{formatarKz(v)}</Typography.Text> },
+    { title: 'Pendente', dataIndex: 'valor_pendente', align: 'right', total: natureza ? true : undefined, render: (v) => <ValorKz valor={v} discretoSeZero /> },
+  ];
 
   return (
     <>
       <CabecalhoPagina
-        titulo="Extracto analítico"
-        subtitulo="Razão analítico, vendas, facturas de fornecedor, autos e compromissos (encomendas por facturar)"
+        titulo={<><IconeFa nome="hard-hat" /> Extracto Analítico de Projectos</>}
+        subtitulo="Consulta transversal de compromissos, custos, proveitos e facturação."
         impressaoDesactivada={!linhas.length}
         impressao={() => ({
           titulo: 'Extracto analítico de projectos',
@@ -67,6 +96,22 @@ export default function Extracto() {
           }),
         })}
       />
+      <Card style={{ marginBottom: 16 }} className="imp-nao-imprimir">
+        <Flex gap={16} wrap align="end">
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: '1 1 260px', minWidth: 0 }}>
+            <span>Selecione o Projecto</span>
+            <SeletorProjecto allowClear value={projectoForm} onChange={setProjectoForm} style={{ width: '100%' }} placeholder="-- Todos os Projectos --" />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span>Período</span>
+            <DatePicker.RangePicker format="DD/MM/YYYY" allowEmpty={[true, true]} value={periodoForm} onChange={(v) => setPeriodoForm(v)} />
+          </label>
+          <Button type="primary" icon={<IconeFa nome="search" />} loading={q.isFetching} onClick={() => setConsulta({ projecto: projectoForm, periodo: periodoForm })}>Consultar</Button>
+          {pode('proj_gerir') && (
+            <Button icon={<IconeFa nome="plus" />} style={{ background: '#10b981', borderColor: '#10b981', color: '#fff' }} onClick={() => setNovo(true)}>Novo Projecto</Button>
+          )}
+        </Flex>
+      </Card>
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Proveitos (Kz)" value={formatarKz(t?.proveitos)} valueStyle={{ color: '#389e0d' }} /></Card></Col>
         <Col xs={12} md={6}><Card size="small"><Statistic title="Custos (Kz)" value={formatarKz(t?.custos)} valueStyle={{ color: '#cf1322' }} /></Card></Col>
@@ -76,8 +121,6 @@ export default function Extracto() {
       <Card>
         <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 16 }}>
           <Flex gap={8} wrap>
-            <SeletorProjecto allowClear value={projecto} onChange={setProjecto} style={{ width: 280, maxWidth: '100%' }} placeholder="Todos os projectos" />
-            <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
             <Select placeholder="Natureza" allowClear value={natureza} onChange={setNatureza} style={{ width: 150 }}
               options={[{ value: 'CUSTO', label: 'Custos' }, { value: 'PROVEITO', label: 'Proveitos' }, { value: 'COMPROMISSO', label: 'Compromissos' }]} />
             <Input.Search placeholder="Documento, descrição, tarefa" allowClear onSearch={setTexto} style={{ width: 240, maxWidth: '100%' }} />
@@ -89,34 +132,17 @@ export default function Extracto() {
             { titulo: 'Valor', valor: (m) => m.valor, numerico: true }, { titulo: 'Pendente', valor: (m) => m.valor_pendente, numerico: true }, { titulo: 'Contabilizado', valor: (m) => m.contabilizado },
           ]} />
         </Flex>
-        <Table<MovimentoExtracto & { _chave: string }>
+        <TabelaComModos<Linha>
           rowKey="_chave"
           size="small"
+          modos={false}
           loading={q.isFetching}
           dataSource={linhasComChave}
-          scroll={scrollTabela()}
-          pagination={{ defaultPageSize: 50, showSizeChanger: true, showTotal: (n) => `${n} movimento(s)` }}
-          columns={[
-            { title: 'Data', dataIndex: 'data', render: formatarData },
-            { title: 'Projecto', dataIndex: 'codigo_projeto' },
-            { title: 'Natureza', dataIndex: 'natureza', responsive: ['sm'], render: (v) => <EtiquetaProjectos valor={v} /> },
-            { title: 'Rubrica', key: 'r', responsive: ['md'], render: (_, m) => rotuloRubrica(m.categoria ?? m.rubrica) },
-            { title: 'Módulo', dataIndex: 'modulo', responsive: ['lg'] },
-            { title: 'Documento', key: 'doc', render: (_, m) => [m.tipo_documento, m.documento].filter(Boolean).join(' · ') || '—' },
-            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
-            { title: 'Tarefa', dataIndex: 'tarefa', render: (v) => v ?? '—' },
-            { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (v, m) => <Typography.Text type={m.natureza === 'CUSTO' ? 'danger' : m.natureza === 'PROVEITO' ? 'success' : undefined}>{formatarKz(v)}</Typography.Text> },
-            { title: 'Pendente', dataIndex: 'valor_pendente', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
-          ]}
-          summary={() => linhas.length > 0 && (
-            <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={8}><Typography.Text strong>Total mostrado {natureza ? '' : '(proveitos − custos não se somam aqui: filtre por natureza)'}</Typography.Text></Table.Summary.Cell>
-              <Table.Summary.Cell index={8} align="right">{natureza ? <ValorKz valor={somar(linhas.map((m) => m.valor))} forte /> : null}</Table.Summary.Cell>
-              <Table.Summary.Cell index={9} />
-            </Table.Summary.Row>
-          )}
+          columns={colunas}
+          vazio={{ icone: 'hard-hat', titulo: 'Sem movimentos', texto: 'Seleccione um projecto e clique em consultar.' }}
         />
       </Card>
+      <ModalProjecto aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(p) => navegar(`/m/projectos/projectos_carteira/${p.id}`)} />
     </>
   );
 }

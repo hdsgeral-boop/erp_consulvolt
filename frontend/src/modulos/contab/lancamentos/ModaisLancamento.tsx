@@ -1,7 +1,7 @@
-import { Alert, Form, Input, Modal, Select, Typography, message } from 'antd';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Alert, Form, Input, Modal, Select, Skeleton, Typography, message } from 'antd';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { enviar } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -33,7 +33,7 @@ export function pedidoClassificacao(alvo: { ids: number[] } | { filtros: Record<
  * «Editar classificação» de uma linha (legado: editJournalLine/saveJournalLine). A conta, o valor, o D/C e a data não
  * se alteram (correcção por estorno, ADR-016). Descrição e terceiro exigem `lancamentos_editar`.
  */
-export function ModalClassificacao({ linha, aoFechar }: { linha: LinhaLancamento | null; aoFechar: () => void }) {
+export function ModalClassificacao({ linha, aoFechar, titulo = 'Editar classificação' }: { linha: LinhaLancamento | null; aoFechar: () => void; titulo?: string }) {
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const [form] = Form.useForm<CamposClassificacao>();
@@ -69,7 +69,7 @@ export function ModalClassificacao({ linha, aoFechar }: { linha: LinhaLancamento
   });
   return (
     <Modal
-      title="Editar classificação"
+      title={titulo}
       open={!!linha}
       onCancel={aoFechar}
       okText="Gravar"
@@ -122,10 +122,16 @@ export function ModalClassificacao({ linha, aoFechar }: { linha: LinhaLancamento
  * destino e estorna o original (com rasto nos dois lados), numa só operação no servidor.
  */
 export function ModalTransferir({ aberto, linhaId, numeroLan, aoFechar, aoConcluir }: { aberto: boolean; linhaId: number; numeroLan: string; aoFechar: () => void; aoConcluir?: (estornoId: number) => void }) {
-  const { empresas, empresa } = useSessao();
   const cliente = useQueryClient();
   const [form] = Form.useForm<{ empresa_destino_id: number; motivo: string }>();
-  const destinos = empresas.filter((e) => e.id !== empresa?.id);
+  // 8.1.3: só as empresas acessíveis onde o utilizador pode registar lançamentos (o servidor volta a validar na transferência)
+  const consulta = useQuery({
+    queryKey: ['contab', 'lancamentos', 'transferir', 'destinos'],
+    queryFn: () => obter<{ id: number; nome: string }[]>('/contabilidade/lancamentos/transferir/destinos'),
+    enabled: aberto,
+    staleTime: 60_000,
+  });
+  const destinos = consulta.data ?? [];
   const transferir = useMutation({
     mutationFn: (v: { empresa_destino_id: number; motivo: string }) =>
       enviar<{ destino: { numero_lan: string }; estorno: { primeira_linha_id: number }; avisos: string[] }>('post', `/contabilidade/lancamentos/${linhaId}/transferir`, v),
@@ -141,7 +147,7 @@ export function ModalTransferir({ aberto, linhaId, numeroLan, aoFechar, aoConclu
   });
   return (
     <Modal
-      title="Transferir lançamento"
+      title="Transferir Lançamento para Outra Empresa"
       open={aberto}
       onCancel={aoFechar}
       okText="Transferir"
@@ -158,8 +164,10 @@ export function ModalTransferir({ aberto, linhaId, numeroLan, aoFechar, aoConclu
         O lançamento é criado na empresa seleccionada com as mesmas contas, valores e datas (diário pelo código, terceiros pelo NIF) e o original é
         estornado nesta empresa, com referência cruzada.
       </Typography.Paragraph>
-      {!destinos.length ? (
-        <Alert type="warning" showIcon message="Não tem acesso a outras empresas para realizar a transferência." />
+      {consulta.isLoading ? (
+        <Skeleton active paragraph={{ rows: 2 }} />
+      ) : !destinos.length ? (
+        <Alert type="warning" showIcon message="Não tem acesso (com permissão de lançar) a outras empresas para realizar a transferência." />
       ) : (
         <Form form={form} layout="vertical" onFinish={(v) => transferir.mutate(v)}>
           <Form.Item name="empresa_destino_id" label="Empresa destino" rules={[{ required: true, message: 'Escolha a empresa destino.' }]}>

@@ -262,7 +262,7 @@ function EdicaoMassa() {
   const [ids, setIds] = useState<number[]>([]);
   const [form] = Form.useForm();
   const cliente = useQueryClient();
-  const contasMov = (plano.data ?? []).filter((c) => c.tipo === 'M').map((c) => ({ value: c.codigo, label: `${c.codigo} — ${c.descricao ?? ''}` }));
+  const contasMov = (plano.data ?? []).filter((c) => c.tipo === 'M').map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` }));
   const aplicar = useMutation({
     mutationFn: async () => {
       const v = await form.validateFields();

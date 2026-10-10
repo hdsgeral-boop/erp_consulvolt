@@ -93,7 +93,7 @@ export interface DadosDocumentoComercial {
   assinaturas?: string[];
 }
 
-const SEM_DECIMAIS = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 4 });
+const SEM_DECIMAIS = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 4, useGrouping: 'always' as unknown as boolean });
 
 function moeda(v: Valor, m?: string | null): string {
   const t = formatarKz(v);

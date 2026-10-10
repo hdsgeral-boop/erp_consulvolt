@@ -68,7 +68,46 @@ export interface DocumentoVenda {
     } | null;
   };
   linhas?: LinhaVenda[];
+  /** paridade 4.2.4/4.8.2: códigos da UN e do CC e progresso de entrega/facturação (só na listagem) */
+  unidade_negocio?: { id: number; codigo: string | null; nome: string | null } | null;
+  centro_custo?: { id: number; codigo: string | null; descricao: string | null } | null;
+  progresso?: { entrega: number; faturacao: number };
+  /** paridade 4.2.12: contas dos meios de pagamento mostradas no documento e opção de ocultar o quadro na impressão */
+  contas_pagamento?: ContaPagamentoDocumento[];
+  ocultar_meios_pagamento?: boolean;
   [chave: string]: unknown;
+}
+
+/** Conta de um meio de pagamento gravada no documento (cópia dos dados da Tesouraria). */
+export interface ContaPagamentoDocumento {
+  meio_pagamento_id: number | null;
+  nome: string | null;
+  codigo_conta: string | null;
+  iban: string | null;
+  swift: string | null;
+}
+
+/** Meio de pagamento activo (GET /vendas/meios-pagamento). */
+export interface MeioPagamentoVenda {
+  id: number;
+  nome: string | null;
+  codigo_conta: string | null;
+  iban: string | null;
+  swift: string | null;
+  predefinido: boolean;
+  codigo_moeda: string | null;
+}
+
+/** Guia de saída do armazém por facturar (GET /vendas/guias-saida-pendentes). */
+export interface GuiaSaidaPendente {
+  id: number;
+  numero_documento: string | null;
+  data: string | null;
+  estado: string;
+  cliente: { id: number; nome: string | null } | null;
+  armazem_id: number | null;
+  projeto_id: number | null;
+  linhas: { produto_id: number; codigo: string | null; nome: string | null; quantidade: string; preco_unitario: string | null; taxa_imposto: string | null }[];
 }
 
 export interface ProdutoCatalogo {

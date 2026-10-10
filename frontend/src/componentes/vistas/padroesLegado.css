@@ -1,0 +1,605 @@
+/*
+ * Padrões das listas do sistema anterior (payroll_system_web/css/styles.css + DataTables 1.13 / Buttons 2.4):
+ * caixa por cima da tabela («N registos encontrados» a azul à esquerda; Excel · PDF · Imprimir · Colunas à direita),
+ * linha de filtros por coluna (caixa + funil), linha «TOTAL:», paginação «Mostrar [N] registos» / «Anterior · 1 ·
+ * Próximo», botões-ícone das acções por linha (.btn .btn-outline .btn-sm), barra «Seleccionadas: N», cartões KPI com
+ * barra de cor e estado vazio com ícone grande.
+ */
+
+/* ── G.1 Caixa por cima da tabela (legado: .dataTables_wrapper .top) ───────────────────────────────────────── */
+.erp-lista-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  min-width: 0;
+}
+
+.erp-lista-contador {
+  font-weight: 700;
+  color: #2563eb;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.erp-lista-contador-filtro {
+  font-weight: 400;
+  color: #64748b;
+  font-size: 0.8rem;
+  margin-left: 6px;
+  white-space: normal;
+}
+
+.erp-lista-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* Botões da barra (legado: .dt-button .btn .btn-outline .btn-sm) — os degradês vêm de src/estilos/identidade.css */
+:root .erp-lista-botoes .ant-btn {
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 2px;
+}
+
+:root .erp-lista-botoes .ant-btn .fx-icone {
+  opacity: 0.85;
+}
+
+.erp-icone-excel {
+  color: #1d6f42;
+}
+
+.erp-icone-pdf {
+  color: #b91c1c;
+}
+
+/* Telemóvel: a caixa quebra em duas linhas, o contador por cima e os botões por baixo (todos alcançáveis) */
+@media (max-width: 575.98px) {
+  .erp-lista-topo {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px;
+  }
+  .erp-lista-botoes {
+    justify-content: flex-start;
+  }
+}
+
+/* ── G.2 Linha de filtros por coluna (legado: thead tr.filter-row + .column-filter + .column-filter-custom-btn) ── */
+:root .ant-table-wrapper .ant-table-thead > tr.erp-linha-filtros > th {
+  background: #ffffff;
+  padding: 5px 6px;
+  border-bottom: 2px solid #cbd5e1;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+:root .ant-table-wrapper .ant-table-thead > tr.erp-linha-filtros > th::before {
+  display: none;
+}
+
+.erp-filtro-coluna {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 44px; /* colunas curtas (UN, CC, Moeda) ficam estreitas como no antigo */
+}
+
+.erp-input-filtro {
+  width: 100%;
+  min-width: 0;
+  font-family: inherit;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  outline: none;
+  height: 28px;
+  font-size: 0.75rem;
+  padding: 2px 24px 2px 8px;
+  border-color: #cbd5e1;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.erp-input-filtro::placeholder {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 0.75rem;
+}
+
+.erp-input-filtro:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.erp-filtro-funil {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 2px 3px;
+  cursor: pointer;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.erp-filtro-funil:hover,
+.erp-filtro-funil.erp-activo {
+  color: #2563eb;
+}
+
+.erp-filtro-funil:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* Popover do funil (legado: .custom-filter-popover) */
+.erp-popover-filtro {
+  width: 260px;
+  max-width: calc(100vw - 32px);
+}
+
+.erp-popover-filtro-titulo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.erp-popover-filtro-titulo .fx-icone {
+  color: #2563eb;
+}
+
+.erp-popover-filtro label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+/* ── G.3 Linha «TOTAL:» (legado: tfoot th — negrito, azul, fundo claro) ─────────────────────────────────────── */
+:root .ant-table-wrapper .ant-table-summary .erp-linha-total > td {
+  background: #f8fafc;
+  font-weight: 800;
+  color: #2563eb;
+  font-size: 0.85rem;
+  border-top: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+/* ── G.4 Paginação (legado: .bottom — «Mostrar [N] registos» à esquerda; «Anterior · 1 · Próximo» à direita) ── */
+:root .ant-table-wrapper .ant-pagination.erp-paginacao-legado,
+:root .ant-pagination.erp-paginacao-legado {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+:root .ant-pagination.erp-paginacao-legado .ant-pagination-total-text {
+  margin-right: auto;
+  color: #334155;
+  font-size: 0.85rem;
+}
+
+.erp-select-pagina {
+  height: 28px;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 0.85rem;
+  color: #1e293b;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
+
+.erp-select-pagina:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.erp-paginacao-mostrar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+:root .ant-pagination.erp-paginacao-legado .ant-pagination-prev .erp-pag-texto,
+:root .ant-pagination.erp-paginacao-legado .ant-pagination-next .erp-pag-texto {
+  display: inline-block;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.85rem;
+  line-height: 30px;
+}
+
+:root .ant-pagination.erp-paginacao-legado .ant-pagination-disabled .erp-pag-texto {
+  color: #94a3b8;
+  background: #f8fafc;
+}
+
+/* ── Acções por linha (legado: .btn .btn-outline .btn-sm com ícone FA e title) ──────────────────────────────── */
+.erp-accoes-linha {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+}
+
+:root .ant-btn.erp-accao-linha {
+  height: 26px;
+  min-width: 28px;
+  padding: 0 7px;
+  border-radius: 2px;
+  font-size: 0.8rem;
+}
+
+/* contorno transparente (btn-outline) */
+:root .ant-btn.erp-accao-linha.ant-btn-variant-outlined:not(:disabled):not(.ant-btn-disabled) {
+  background: transparent;
+  border-color: #a6a6a6;
+  color: #333333;
+  box-shadow: none;
+}
+
+:root .ant-btn.erp-accao-linha.ant-btn-variant-outlined:not(:disabled):not(.ant-btn-disabled):hover {
+  background: #f0f0f0;
+  border-color: #99c1e5;
+}
+
+:root .ant-btn.erp-accao-linha.erp-accao-primario:not(:disabled):not(.ant-btn-disabled) {
+  color: #2563eb;
+}
+
+:root .ant-btn.erp-accao-linha.erp-accao-perigo:not(:disabled):not(.ant-btn-disabled) {
+  color: #dc2626;
+}
+
+:root .ant-btn.erp-accao-linha.erp-accao-sucesso:not(:disabled):not(.ant-btn-disabled) {
+  color: #047857;
+}
+
+:root .ant-btn.erp-accao-linha.erp-accao-aviso:not(:disabled):not(.ant-btn-disabled) {
+  color: #b45309;
+}
+
+:root .ant-btn.erp-accao-linha.erp-accao-info:not(:disabled):not(.ant-btn-disabled) {
+  color: #0369a1;
+}
+
+/* preenchidos (btn-danger / btn-success / btn-primary / btn-warning do legado) */
+:root .ant-btn.erp-accao-linha.erp-accao-cheio.erp-accao-perigo:not(:disabled):not(.ant-btn-disabled) {
+  background: linear-gradient(to bottom, #fff0f0 0%, #fcd6d6 50%, #fac2c2 100%);
+  border-color: #df8a8a;
+  color: #8e0b0b;
+}
+
+:root .ant-btn.erp-accao-linha.erp-accao-cheio.erp-accao-sucesso:not(:disabled):not(.ant-btn-disabled) {
+  background: linear-gradient(to bottom, #f0fff0 0%, #d6fcd6 50%, #c2fac2 100%);
+  border-color: #8adf8a;
+  color: #0b6e0b;
+}
+
+:root .ant-btn.erp-accao-linha.erp-accao-cheio.erp-accao-primario:not(:disabled):not(.ant-btn-disabled) {
+  background: linear-gradient(to bottom, #f0f8ff 0%, #d4e8fb 50%, #bcdcf9 100%);
+  border-color: #8ab6df;
+  color: #0b4a8e;
+}
+
+:root .ant-btn.erp-accao-linha.erp-accao-cheio.erp-accao-aviso:not(:disabled):not(.ant-btn-disabled) {
+  background: linear-gradient(to bottom, #fffbeb 0%, #fde68a 50%, #fcd34d 100%);
+  border-color: #e0b44a;
+  color: #78350f;
+}
+
+/* desactivado com dica (legado: disabled + opacity 0.4 + cursor not-allowed) */
+:root .ant-btn.erp-accao-linha:disabled,
+:root .ant-btn.erp-accao-linha.ant-btn-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Telemóvel: botões maiores (alvo de toque) e a coluna quebra em várias linhas se for preciso */
+@media (max-width: 575.98px) {
+  .erp-accoes-linha {
+    flex-wrap: wrap;
+  }
+  :root .ant-btn.erp-accao-linha {
+    height: 32px;
+    min-width: 34px;
+  }
+}
+
+/* ── Selecção múltipla (legado: «Seleccionadas: N» + acções em massa) ───────────────────────────────────────── */
+.erp-barra-seleccao {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.erp-barra-seleccao-contador {
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.erp-barra-seleccao-ajuda {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+/* ── Cartões KPI (legado: .stat-card com barra de cor por baixo ou à esquerda, .stat-icon) ──────────────────── */
+.erp-grelha-kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--erp-kpi-min, 220px), 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+  min-width: 0;
+}
+
+@media (max-width: 575.98px) {
+  .erp-grelha-kpi {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+.erp-kpi {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.erp-kpi.erp-kpi-barra-baixo {
+  border-bottom: 4px solid var(--erp-kpi-cor, #2563eb);
+}
+
+.erp-kpi.erp-kpi-barra-esquerda {
+  border-left: 5px solid var(--erp-kpi-cor, #2563eb);
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+.erp-kpi.erp-kpi-clicavel {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  width: 100%;
+}
+
+.erp-kpi.erp-kpi-clicavel:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.erp-kpi.erp-kpi-clicavel:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.erp-kpi.erp-kpi-activo {
+  box-shadow: 0 0 0 2px var(--erp-kpi-cor, #2563eb);
+}
+
+.erp-kpi-textos {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.erp-kpi-rotulo {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 6px;
+  line-height: 1.3;
+}
+
+.erp-kpi-valor {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.erp-kpi-unidade {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-left: 4px;
+  color: #64748b;
+}
+
+.erp-kpi-secundaria {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.erp-kpi-icone {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: var(--erp-kpi-cor, #2563eb);
+  background: var(--erp-kpi-fundo, rgba(37, 99, 235, 0.1));
+}
+
+@media (max-width: 575.98px) {
+  .erp-kpi {
+    padding: 12px 14px;
+  }
+  .erp-kpi-valor {
+    font-size: 1.3rem;
+  }
+}
+
+/* ── G.7 Estado vazio (legado: .card.text-center com ícone de 3rem, título a negrito e frase) ──────────────── */
+.erp-estado-vazio {
+  text-align: center;
+  padding: 40px 16px;
+  color: #475569;
+}
+
+.erp-estado-vazio-icone {
+  font-size: 3rem;
+  color: #94a3b8;
+  margin-bottom: 14px;
+  line-height: 1;
+}
+
+.erp-estado-vazio-titulo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 6px;
+}
+
+.erp-estado-vazio-texto {
+  margin: 0 auto;
+  max-width: 520px;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.erp-estado-vazio-accoes {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media print {
+  .erp-lista-topo,
+  .erp-linha-filtros,
+  .erp-barra-seleccao,
+  .erp-paginacao-legado {
+    display: none !important;
+  }
+}
+
+/* Variante «barra à esquerda» = cartões do Dashboard do legado (.painel-kpi em ui_painel_modulos.js:1030-1036):
+   barra 4px, raio 4px, 16px 17,6px, ícone 46px, rótulo 0,72rem, valor 1,3rem numa só linha com «…», unidade igual ao valor. */
+.erp-kpi.erp-kpi-barra-esquerda {
+  border-left-width: 4px;
+  border-radius: 4px;
+  padding: 16px 17.6px;
+  gap: 14.4px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  min-height: 104px;
+}
+
+.erp-kpi.erp-kpi-barra-esquerda .erp-kpi-rotulo {
+  font-size: 11.52px;
+  letter-spacing: 0.03em;
+  margin-bottom: 2px;
+}
+
+.erp-kpi.erp-kpi-barra-esquerda .erp-kpi-valor {
+  font-size: 20.8px;
+  line-height: 1.35;
+  letter-spacing: normal;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+}
+
+.erp-kpi.erp-kpi-barra-esquerda .erp-kpi-unidade {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  margin-left: 0.25em;
+}
+
+.erp-kpi.erp-kpi-barra-esquerda .erp-kpi-secundaria {
+  margin-top: 0;
+  font-size: 11.52px;
+  color: #94a3b8;
+}
+
+.erp-kpi.erp-kpi-barra-esquerda .erp-kpi-icone {
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  border-radius: 4px;
+  font-size: 19.2px;
+}
+
+/* Densidade da .data-table do antigo (medida no legado): corpo 13,12 px, cabeçalho 12,8 px em maiúsculas,
+   células 4 px × 8,6 px. Faz caber as listas largas (ex.: Faturação, com Nível recb. e Ações) como no antigo. */
+.erp-tabela-legado .ant-table-thead > tr > th,
+.erp-tabela-legado .ant-table-tbody > tr > td,
+.erp-tabela-legado .ant-table-summary > tr > td {
+  padding: 4px 8.6px !important;
+}
+.erp-tabela-legado .ant-table-tbody > tr > td,
+.erp-tabela-legado .ant-table-summary > tr > td {
+  font-size: 13.12px;
+}
+.erp-tabela-legado .ant-table-thead > tr:first-child > th {
+  font-size: 12.8px;
+}
+
+/* Como a .data-table do antigo (width: 100%): as colunas encolhem e o texto quebra linha antes de aparecer a barra de
+   deslocação; esta só surge quando nem o conteúdo mínimo cabe (ecrãs estreitos). Substitui o «max-content» do scroll.x. */
+.erp-tabela-legado .ant-table-content > table,
+.erp-tabela-legado .ant-table-body > table,
+.erp-tabela-legado .ant-table-header > table {
+  width: 100% !important;
+  min-width: 100%;
+  table-layout: auto !important;
+}

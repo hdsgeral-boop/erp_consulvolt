@@ -25,7 +25,7 @@ export const PREFERENCIAS_PADRAO: PreferenciasImpressao = {
   largura: 80,
   automatico: true,
   consulta: 'PREVISUALIZAR',
-  rodape: 'Obrigado pela sua visita!',
+  rodape: 'Obrigado pela preferência!', // por omissão do legado (ui_sales.js:9833)
 };
 
 const chave = (empresaId: number | null | undefined) => `erp.pos.impressao.${empresaId ?? 0}`;

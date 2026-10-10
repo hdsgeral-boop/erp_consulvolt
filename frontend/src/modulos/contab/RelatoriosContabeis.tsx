@@ -1,166 +1,79 @@
-import { Alert, Button, Card, Col, DatePicker, Empty, Row, Space, Statistic, Table, Typography } from 'antd';
-import { BarChartOutlined, FileSearchOutlined, FundOutlined, LineChartOutlined, ProfileOutlined, TableOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
-import type { Dayjs } from 'dayjs';
-import { useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { obter } from '@/api/cliente';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { BotoesExportar, pares } from '@/componentes/impressao';
-import { scrollTabela } from '@/componentes/responsivo';
-import type { ColunaApi } from '@/componentes/TabelaApi';
-import { tabelaDeColunas } from './comum/impressao';
+import { Button } from 'antd';
+import { useState, type ComponentType } from 'react';
+import { useLocation } from 'react-router-dom';
+import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { EstadoVazio } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { BotaoCsv, ValorKz } from './comum/Componentes';
-import { eZero } from '@/utilitarios/decimal';
-import { MovimentosSemNota } from './comum/Demonstracao';
-import { useAbrirLancamento } from './comum/useMapa';
+import { ControloDesequilibrios } from './mapas/ControloDesequilibrios';
+import MapaBalancete, { MapaBalanceteRazao, MapaIvaSeparador } from './mapas/MapaBalancete';
+import MapaBalanco from './mapas/MapaBalanco';
+import MapaDR from './mapas/MapaDR';
+import MapaEvolucao from './mapas/MapaEvolucao';
+import MapaExtrato from './mapas/MapaExtrato';
+import MapaFluxo from './mapas/MapaFluxo';
+import { destinoSeparador, separadorActivo, SEPARADORES_RELATORIOS, type ChaveSeparadorRelatorio } from './mapas/separadoresRelatorios';
 
-interface Desequilibrio {
-  diario: string;
-  diario_id: number;
-  lancamento: string;
-  sem_numero_lan: boolean;
-  data_documento: string;
-  linhas: number;
-  debito: string;
-  credito: string;
-  diferenca: string;
-  primeira_linha_id: number;
-}
-
-interface RelatorioDesequilibrios {
-  resumo: { debito: string; credito: string; diferenca: string; lancamentos_desequilibrados: number; soma_das_diferencas: string };
-  lancamentos: Desequilibrio[];
-}
-
-const ICONES: Record<string, ReactNode> = {
-  contab_mapa_extrato: <FileSearchOutlined />,
-  contab_mapa_balancete: <TableOutlined />,
-  contab_mapa_balanco: <ProfileOutlined />,
-  contab_mapa_dr: <BarChartOutlined />,
-  contab_mapa_fluxo: <FundOutlined />,
-  contab_mapa_evolucao: <LineChartOutlined />,
+const CONTEUDO: Record<ChaveSeparadorRelatorio, ComponentType> = {
+  extrato: MapaExtrato,
+  balancete: MapaBalancete,
+  razao: MapaBalanceteRazao,
+  balanco: MapaBalanco,
+  dr: MapaDR,
+  fluxo: MapaFluxo,
+  evolucao: MapaEvolucao,
+  iva: MapaIvaSeparador,
 };
 
 /**
- * Contabilidade › Mapas e relatórios (ecrã relatorios_contabeis): acesso aos mapas que o utilizador pode ver,
- * controlo de desequilíbrios (D ≠ C por lançamento) e movimentos sem nota DEMO.
+ * Contabilidade › «Relatórios e mapas contabilísticos» (renderRelatoriosContabeis, js/ui_reports.js:80-1700): um só ecrã
+ * com os separadores-botão do legado — Extrato, Balancete, Balancete do Razão, Balanço, Demonstração de resultados,
+ * Fluxo de Caixa, Evolução Mensal e Mapa IVA. Cada separador tem a sua rota (contab_mapa_*); a entrada «Mapas e
+ * relatórios» (relatorios_contabeis) abre o primeiro permitido. O controlo de desequilíbrios (ferramenta do sistema
+ * novo) fica no botão do cabeçalho.
  */
-export default function RelatoriosContabeis() {
-  const { menu } = useSessao();
-  const navegar = useNavigate();
-  const abrir = useAbrirLancamento();
-  const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const [semNota, setSemNota] = useState(false);
-  const mapas = menu.find((m) => m.id === 'contab')?.ecras.filter((e) => e.pai === 'relatorios_contabeis') ?? [];
+export function EcraRelatorios({ separador }: { separador: ChaveSeparadorRelatorio | null }) {
+  const { pode } = useSessao();
+  const { search } = useLocation();
+  const [desequilibrios, setDesequilibrios] = useState(false);
+  const activo = separadorActivo(separador, search, pode);
+  const Conteudo = activo ? CONTEUDO[activo.chave] : null;
 
-  const deseq = useQuery({
-    queryKey: ['contab', 'desequilibrios', dataApi(periodo?.[0]), dataApi(periodo?.[1])],
-    queryFn: () => obter<RelatorioDesequilibrios>('/contabilidade/relatorios/desequilibrios', { data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }),
-  });
-  const r = deseq.data?.resumo;
-
-  const colunasDeseq: ColunaApi<Desequilibrio>[] = [
-                    { title: 'Diário', dataIndex: 'diario' },
-                    {
-                      title: 'Lançamento',
-                      dataIndex: 'lancamento',
-                      render: (v: string, l) => (abrir ? <Typography.Link onClick={() => abrir(l.primeira_linha_id)}>{v}</Typography.Link> : v),
-                      valorImpressao: (l) => l.lancamento,
-                    },
-                    { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-                    { title: 'Linhas', dataIndex: 'linhas', align: 'right' },
-                    { title: 'Débito', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                    { title: 'Crédito', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                    { title: 'Diferença', dataIndex: 'diferenca', align: 'right', render: (v: string) => <ValorKz valor={v} forte /> },
-                  ];
   return (
     <>
-      <CabecalhoPagina titulo="Mapas e relatórios" subtitulo="Mapas contabilísticos e controlo de qualidade dos lançamentos" />
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        {mapas.length === 0 && (
-          <Col xs={24}>
-            <Empty description="Não tem acesso a nenhum mapa contabilístico nesta empresa." />
-          </Col>
-        )}
-        {mapas.map((m) => (
-          <Col key={m.id} xs={24} sm={12} lg={8}>
-            <Card hoverable onClick={() => navegar(`/m/contab/${m.id}`)}>
-              <Space>
-                <span style={{ fontSize: 22 }}>{ICONES[m.id] ?? <TableOutlined />}</span>
-                <Typography.Text strong>{m.nome}</Typography.Text>
-              </Space>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-
-      <Card
-        title="Controlo de desequilíbrios"
-        extra={
-          <Space wrap>
-            <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} allowEmpty={[true, true]} />
-            <Button onClick={() => setSemNota(true)}>Movimentos sem nota DEMO</Button>
-          </Space>
+      <CabecalhoModulo
+        titulo="Relatórios e mapas contabilísticos"
+        icone="chart-line"
+        ecraCheio
+        minimoSeparadores={1}
+        activo={activo?.chave}
+        accoes={
+          pode('relatorios_contabeis_view') && (
+            <Button icon={<IconeFa nome="balance-scale" />} onClick={() => setDesequilibrios(true)}>
+              Controlo de desequilíbrios
+            </Button>
+          )
         }
-      >
-        {r && (
-          <>
-            <Space size={32} wrap style={{ marginBottom: 12 }}>
-              <Statistic title="Total a débito" value={formatarKz(r.debito)} />
-              <Statistic title="Total a crédito" value={formatarKz(r.credito)} />
-              <Statistic title="Diferença" value={formatarKz(r.diferenca)} valueStyle={{ color: eZero(r.diferenca) ? undefined : '#cf1322' }} />
-              <Statistic title="Lançamentos desequilibrados" value={r.lancamentos_desequilibrados} />
-            </Space>
-            {r.lancamentos_desequilibrados === 0 ? (
-              <Alert type="success" showIcon message="Todos os lançamentos do período estão equilibrados (débito = crédito)." />
-            ) : (
-              <>
-                <div style={{ marginBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  <BotoesExportar
-                    obterPedido={async () => ({
-                      titulo: 'Controlo de desequilíbrios',
-                      periodo: periodo?.[0] || periodo?.[1] ? `${periodo?.[0] ? formatarData(dataApi(periodo[0])) : '…'} a ${periodo?.[1] ? formatarData(dataApi(periodo[1])) : '…'}` : 'Todos os períodos',
-                      conteudo:
-                        pares([
-                          ['Total a débito', formatarKz(r.debito)],
-                          ['Total a crédito', formatarKz(r.credito)],
-                          ['Diferença', formatarKz(r.diferenca)],
-                          ['Lançamentos desequilibrados', r.lancamentos_desequilibrados],
-                        ], 4) + (await tabelaDeColunas(colunasDeseq, deseq.data?.lancamentos ?? [])),
-                    })}
-                  />
-                  <BotaoCsv<Desequilibrio>
-                    nome="desequilibrios"
-                    linhas={deseq.data?.lancamentos}
-                    colunas={[
-                      { titulo: 'Diário', valor: (l) => l.diario },
-                      { titulo: 'Lançamento', valor: (l) => l.lancamento },
-                      { titulo: 'Data', valor: (l) => l.data_documento },
-                      { titulo: 'Linhas', valor: (l) => l.linhas },
-                      { titulo: 'Débito', valor: (l) => l.debito, numerico: true },
-                      { titulo: 'Crédito', valor: (l) => l.credito, numerico: true },
-                      { titulo: 'Diferença', valor: (l) => l.diferenca, numerico: true },
-                    ]}
-                  />
-                </div>
-                <Table<Desequilibrio>
-                  rowKey={(l) => `${l.diario_id}|${l.lancamento}`}
-                  size="small"
-                  loading={deseq.isFetching}
-                  dataSource={deseq.data?.lancamentos}
-                  pagination={{ pageSize: 25 }}
-                  scroll={scrollTabela()}
-                  columns={colunasDeseq}
-                />
-              </>
-            )}
-          </>
-        )}
-      </Card>
-      {semNota && <MovimentosSemNota parametros={{ data_fim: dataApi(periodo?.[1]) ?? new Date().toISOString().slice(0, 10), data_inicio: dataApi(periodo?.[0]) }} aoFechar={() => setSemNota(false)} />}
+        separadores={SEPARADORES_RELATORIOS.map((s) => ({
+          chave: s.chave,
+          // Mapa IVA com o realce verde do legado quando não está activo (js/ui_reports.js:124)
+          rotulo: s.chave === 'iva' && activo?.chave !== 'iva' ? <span style={{ color: '#059669' }} title={s.dica}>{s.rotulo}</span> : <span title={s.dica}>{s.rotulo}</span>,
+          destino: destinoSeparador(s),
+          icone: s.icone,
+          permissao: `${s.ecra}_view`,
+        }))}
+      />
+      {Conteudo ? (
+        <Conteudo key={activo?.chave} />
+      ) : (
+        <EstadoVazio icone="lock" titulo="Sem acesso" texto="Não tem permissão para visualizar nenhum mapa contabilístico." />
+      )}
+      <ControloDesequilibrios aberto={desequilibrios} aoFechar={() => setDesequilibrios(false)} />
     </>
   );
+}
+
+/** Entrada «Mapas e relatórios» (ecrã relatorios_contabeis): o mesmo ecrã, no primeiro separador permitido. */
+export default function RelatoriosContabeis() {
+  return <EcraRelatorios separador={null} />;
 }

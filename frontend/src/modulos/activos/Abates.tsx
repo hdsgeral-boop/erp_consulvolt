@@ -1,9 +1,9 @@
 import { Button, Card, DatePicker, Input, Select, Table, Typography } from 'antd';
-import { PlusOutlined, RollbackOutlined } from '@ant-design/icons';
+import { RollbackOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { NavActivos } from './comum/NavActivos';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { BotaoCartao } from './inventario/BotaoCartao';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -49,13 +49,11 @@ export default function Abates() {
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Abates e vendas"
-        subtitulo="Saída do imobilizado com lançamento D 18 / C 11-12 e mais-valia (6) ou menos-valia (7)"
-        accoes={pode('activos_abater') && <Button type="primary" danger icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo abate / venda</Button>}
-      />
       <NavActivos actual="activos_abates" />
-      <Card>
+      <Card
+        title="Histórico de Abates"
+        extra={pode('activos_abater') && <BotaoCartao icone="plus" variante="perigo" onClick={() => setNovo(true)}>Novo Abate</BotaoCartao>}
+      >
         <BarraFiltros accoes={<>
           <BotoesExportar desactivado={!linhas.length} obterPedido={() => pedidoTodasPaginas('/ativos/abates', { tipo, pesquisa: texto || undefined, ...filtroPeriodo(periodo) }, {
             titulo: 'Abates e vendas de activos',

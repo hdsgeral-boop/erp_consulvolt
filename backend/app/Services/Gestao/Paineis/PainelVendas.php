@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class PainelVendas implements Painel
 {
-    private const TIPOS = ['FT' => 'Factura', 'FR' => 'Factura-Recibo', 'NC' => 'Nota de Crédito'];
+    private const TIPOS = ['FT' => 'Fatura', 'FR' => 'Fatura-Recibo', 'NC' => 'Nota de Crédito'];
 
     public function __construct(private readonly ConsultasPaineis $consultas) {}
 
@@ -45,10 +45,10 @@ final class PainelVendas implements Painel
             AND COALESCE(v.estado, '') NOT IN ('ANULADO', 'CANCELADO', 'CONCLUIDO', 'CONVERTIDO', 'FATURADO', 'FECHADO'){$fs}", array_merge([$empresa], $fp))->n;
         $saldoClientes = $this->consultas->saldos($p->fimMes, ['cli' => ['31']], $f)['cli'];
 
-        $tabelas = [Indicadores::tabela('top_clientes', "Top 5 Clientes ({$p->ano})", [['cliente', 'Cliente'], ['total', 'Facturação', 'kz']],
+        $tabelas = [Indicadores::tabela('top_clientes', "Top 5 Clientes ({$p->ano})", [['cliente', 'Cliente'], ['total', 'Faturação', 'kz']],
             array_map(fn ($r) => ['cliente_id' => $r->cliente_id, 'cliente' => $r->cliente, 'total' => Indicadores::dinheiro($r->total)], $top))];
         if ($moedas) {
-            $tabelas[] = Indicadores::tabela('moeda_estrangeira', "Facturação em Moeda Estrangeira ({$p->ano})",
+            $tabelas[] = Indicadores::tabela('moeda_estrangeira', "Faturação em Moeda Estrangeira ({$p->ano})",
                 [['moeda', 'Moeda'], ['documentos', 'Documentos', 'num'], ['total_moeda', 'Total na Moeda', 'moeda'], ['contravalor', 'Contravalor (Kz)', 'kz']],
                 array_map(fn ($r) => ['moeda' => $r->moeda, 'documentos' => (int) $r->documentos, 'total_moeda' => Indicadores::dinheiro($r->total_moeda),
                     'contravalor' => Indicadores::dinheiro($r->contravalor)], $moedas));
@@ -56,18 +56,18 @@ final class PainelVendas implements Painel
 
         return [
             'kpis' => [
-                Indicadores::kpi('faturacao_mes', 'Facturação do Mês', $mes['total'], 'kz', 'Líquida de notas de crédito'),
-                Indicadores::kpi('faturacao_ano', "Facturação {$p->ano}", $p->somaAno(array_map(fn ($x) => $x['total'], $porMes)), 'kz', 'Janeiro a '.$p->nomeMes()),
-                Indicadores::kpi('faturas_mes', 'Facturas Emitidas (Mês)', $mes['faturas'], 'num'),
-                Indicadores::kpi('valor_medio_fatura', 'Valor Médio por Factura', $mes['faturas'] ? bcdiv($mes['valor_faturas'], (string) $mes['faturas'], 2) : '0.00'),
+                Indicadores::kpi('faturacao_mes', 'Faturação do Mês', $mes['total'], 'kz', 'Líquida de notas de crédito'),
+                Indicadores::kpi('faturacao_ano', "Faturação {$p->ano}", $p->somaAno(array_map(fn ($x) => $x['total'], $porMes)), 'kz', 'Janeiro a '.$p->nomeMes()),
+                Indicadores::kpi('faturas_mes', 'Faturas Emitidas (Mês)', $mes['faturas'], 'num'),
+                Indicadores::kpi('valor_medio_fatura', 'Valor Médio por Fatura', $mes['faturas'] ? bcdiv($mes['valor_faturas'], (string) $mes['faturas'], 2) : '0.00'),
                 Indicadores::kpi('notas_credito_mes', 'Notas de Crédito (Mês)', $mes['notas_credito']),
                 Indicadores::kpi('clientes_receber', 'Clientes a Receber', $saldoClientes, 'kz', 'Saldo contabilístico da conta 31'),
                 Indicadores::kpi('por_converter', 'Proformas / Encomendas', $abertos, 'num', 'Por converter'),
             ],
             'graficos' => [
-                Indicadores::grafico('faturacao_mensal', 'Facturação Mensal (12 meses)', 'barras', $p->rotulos(),
-                    [Indicadores::serie('faturacao', 'Facturação', $p->serie(array_map(fn ($x) => $x['total'], $porMes)))]),
-                Indicadores::grafico('por_tipo', "Facturação por Tipo de Documento ({$p->ano})", 'circular', array_map(fn ($r) => self::TIPOS[$r->tipo_documento] ?? $r->tipo_documento, $porTipo),
+                Indicadores::grafico('faturacao_mensal', 'Faturação Mensal (12 meses)', 'barras', $p->rotulos(),
+                    [Indicadores::serie('faturacao', 'Faturação', $p->serie(array_map(fn ($x) => $x['total'], $porMes)))]),
+                Indicadores::grafico('por_tipo', "Faturação por Tipo de Documento ({$p->ano})", 'circular', array_map(fn ($r) => self::TIPOS[$r->tipo_documento] ?? $r->tipo_documento, $porTipo),
                     [Indicadores::serie('total', 'Total', array_map(fn ($r) => Indicadores::dinheiro($r->total), $porTipo))]),
             ],
             'tabelas' => $tabelas,

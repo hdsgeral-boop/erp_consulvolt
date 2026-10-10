@@ -8,6 +8,7 @@ use App\Models\AtivoImobilizado;
 use App\Models\Empresa;
 use App\Models\RelatorioAnualContas;
 use App\Services\Ativos\ServicoRelatoriosAtivos;
+use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,7 @@ final class ServicoRelatorioContas
         private readonly ServicoDemonstracoesFinanceiras $df,
         private readonly ServicoExercicios $exercicios,
         private readonly ServicoRelatoriosAtivos $ativos,
+        private readonly ServicoAuditoria $auditoria,
     ) {}
 
     // ------------------------------------------------------------------ Registo
@@ -77,7 +79,9 @@ final class ServicoRelatorioContas
         $config = $reg->configuracao ?? [];
 
         return ['registo' => ['id' => $reg->id, 'ano' => $ano, 'estado' => $reg->estado ?? 'RASCUNHO', 'configuracao' => $config, 'textos' => $reg->textos ?? (object) [],
-            'notas_incluir' => $reg->notas_incluir ?? (object) [], 'atualizado_por' => $reg->atualizado_por, 'atualizado_em' => $reg->atualizado_em?->toIso8601String()],
+            'notas_incluir' => $reg->notas_incluir ?? (object) [], 'atualizado_por' => $reg->atualizado_por, 'atualizado_em' => $reg->atualizado_em?->toIso8601String(),
+            // «concluído em … por …» do topo do legado (js/relatorio_contas.js:1039)
+            'concluido_em' => $reg->concluido_em?->toIso8601String(), 'concluido_por' => $reg->concluido_por],
             'dados' => $dados];
     }
 
@@ -114,19 +118,32 @@ final class ServicoRelatorioContas
 
         return DB::transaction(function () use ($ano, $dados) {
             $reg = RelatorioAnualContas::query()->where('ano_relatorio', $ano)->lockForUpdate()->first() ?? $this->novo($ano, $dados);
+            if ($reg->estado === 'APROVADO') {
+                throw new ErroNegocio("O Relatório e Contas de {$ano} já está concluído.", 'RELATORIO_CONCLUIDO', 409);
+            }
             $reg->fill(['estado' => 'APROVADO', 'estado_original' => 'COMPLETED', 'fotografia' => $dados, 'concluido_em' => now(),
                 'concluido_por' => Auth::user()?->nome_utilizador, 'atualizado_por' => Auth::user()?->nome_utilizador])->save();
+            // além do registo automático do model (Auditavel), a acção de negócio — como «Encerrou o exercício»
+            $this->auditoria->registar('Contabilidade', 'Concluiu o Relatório e Contas', "Relatório e Contas de {$ano} concluído (números fixados).",
+                $reg->getTable(), $reg->id);
 
             return $this->obter($ano);
         });
     }
 
+    /** rcReabrir (js/relatorio_contas.js:1186-1194): volta a RASCUNHO e larga a fotografia (os números voltam a ser recalculados). */
     public function reabrir(int $ano): array
     {
         DB::transaction(function () use ($ano) {
-            $reg = RelatorioAnualContas::query()->where('ano_relatorio', $ano)->lockForUpdate()->firstOrFail();
+            $reg = RelatorioAnualContas::query()->where('ano_relatorio', $ano)->lockForUpdate()->first();
+            if (! $reg || $reg->estado !== 'APROVADO') {
+                throw new ErroNegocio("O Relatório e Contas de {$ano} não está concluído: não há nada a reabrir.", 'RELATORIO_NAO_CONCLUIDO', 409);
+            }
+            $anterior = ['concluido_em' => $reg->concluido_em?->toIso8601String(), 'concluido_por' => $reg->concluido_por];
             $reg->fill(['estado' => 'RASCUNHO', 'estado_original' => 'DRAFT', 'fotografia' => null, 'concluido_em' => null, 'concluido_por' => null,
                 'atualizado_por' => Auth::user()?->nome_utilizador])->save();
+            $this->auditoria->registar('Contabilidade', 'Reabriu o Relatório e Contas', "Relatório e Contas de {$ano} reaberto.",
+                $reg->getTable(), $reg->id, $anterior);
         });
 
         return $this->obter($ano);
@@ -197,15 +214,15 @@ final class ServicoRelatorioContas
         }
         $dif = bcsub($N['bal']['totais']['activo'], $N['bal']['totais']['capital_proprio_passivo'], 2);
         if (bccomp(ltrim($dif, '-'), '0.01', 2) >= 0) {
-            $alertas[] = ['tipo' => 'erro', 'texto' => "O Balanço de {$ano} não está equilibrado: diferença de Kz {$dif} entre o Activo e o Capital Próprio + Passivo."];
+            $alertas[] = ['tipo' => 'erro', 'texto' => "O Balanço de {$ano} não está equilibrado: diferença de Kz ".self::kz($dif).' entre o Activo e o Capital Próprio + Passivo.'];
         }
         if ($N['bal']['sem_nota']['linhas']) {
             $s = $N['bal']['sem_nota'];
-            $alertas[] = ['tipo' => 'aviso', 'texto' => "Existem {$s['linhas']} linhas até {$ano} sem Nota DEMO (Débitos Kz {$s['debito']} · Créditos Kz {$s['credito']}). Associe-as às notas para que entrem nas demonstrações."];
+            $alertas[] = ['tipo' => 'aviso', 'texto' => "Existem {$s['linhas']} linhas até {$ano} sem Nota DEMO (Débitos Kz ".self::kz($s['debito']).' · Créditos Kz '.self::kz($s['credito']).'). Associe-as às notas para que entrem nas demonstrações.'];
         }
         $difRL = bcsub($nInd['rl'], $N['rl_contas'], 2);
         if (bccomp(ltrim($difRL, '-'), '1', 2) >= 0) {
-            $alertas[] = ['tipo' => 'aviso', 'texto' => "O resultado líquido pelas notas (Kz {$nInd['rl']}) difere do resultado pelas contas das classes 6, 7 e 87 (Kz {$N['rl_contas']}) em Kz {$difRL}. Verifique o mapeamento das notas DEMO."];
+            $alertas[] = ['tipo' => 'aviso', 'texto' => 'O resultado líquido pelas notas (Kz '.self::kz($nInd['rl']).') difere do resultado pelas contas das classes 6, 7 e 87 (Kz '.self::kz($N['rl_contas']).') em Kz '.self::kz($difRL).'. Verifique o mapeamento das notas DEMO.'];
         }
         if ($usouHistorico) {
             $alertas[] = ['tipo' => 'info', 'texto' => 'Os valores comparativos de '.($ano - 1).' vêm dos saldos históricos introduzidos.'];
@@ -441,5 +458,11 @@ final class ServicoRelatorioContas
         usort($out, fn ($a, $b) => strnatcmp((string) $a['codigo'], (string) $b['codigo']));
 
         return $out;
+    }
+
+    /** Valor em Kz nos avisos, como o legado («-23 137 379 936,81»): espaço nos milhares e vírgula decimal. */
+    private static function kz(string|int|float|null $v): string
+    {
+        return number_format((float) $v, 2, ',', ' ');
     }
 }

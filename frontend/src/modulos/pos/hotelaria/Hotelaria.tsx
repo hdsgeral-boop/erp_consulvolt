@@ -1,9 +1,7 @@
 import { Alert, Badge, Button, Card, Checkbox, Col, DatePicker, Empty, Flex, InputNumber, Row, Select, Skeleton, Space, Tabs, Tag, Typography } from 'antd';
 import { LoginOutlined, LogoutOutlined, SaveOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
@@ -14,6 +12,8 @@ import { dataApi, formatarDataHora, formatarKz } from '@/utilitarios/formatacao'
 import { useAccao } from '@/componentes/Accoes';
 import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { BarraSessao, useTerminalDeTrabalho } from '../comum/SessaoTerminal';
+import { useQuartos } from '../frente/PainelQuartos';
+import { contagemQuartos } from '../frente/quartos';
 import { Checkout } from './Checkout';
 import { DetalheEstadia, ModalCheckin } from './Estadia';
 import type { Estadia, Quarto } from './tipos';
@@ -45,10 +45,6 @@ export default function Hotelaria() {
   );
 }
 
-function useQuartos(terminalId: number | undefined) {
-  return useQuery({ queryKey: ['pos', 'hotelaria', 'quartos', terminalId], queryFn: () => obter<Quarto[]>('/pos/hotelaria/quartos', { terminal_pos_id: terminalId }), refetchInterval: 60_000 });
-}
-
 function Mapa({ terminalId, terminal }: { terminalId: number | undefined; terminal: ReturnType<typeof useTerminalDeTrabalho>['terminal'] }) {
   const { pode } = useSessao();
   const quartos = useQuartos(terminalId);
@@ -67,7 +63,7 @@ function Mapa({ terminalId, terminal }: { terminalId: number | undefined; termin
   if (quartos.isLoading) return <Skeleton active />;
   if (!quartos.data?.length) return <Empty description="Não há quartos. Marque produtos como quarto nas tarifas ou no catálogo de produtos." />;
 
-  const contagem = { livres: quartos.data.length - ocupados.length, ocupados: ocupados.length, atrasados: ocupados.filter((q) => q.estadia!.atrasado).length };
+  const contagem = contagemQuartos(quartos.data);
 
   return (
     <>

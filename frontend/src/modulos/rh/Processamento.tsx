@@ -1,23 +1,27 @@
 import { Alert, Button, Card, Form, Input, Modal, Skeleton, Space, Switch, Table, Tabs, Tag, Typography } from 'antd';
-import { ArrowLeftOutlined, AuditOutlined, SettingOutlined, CheckOutlined, FilePdfOutlined, RollbackOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, AuditOutlined, SettingOutlined, CheckOutlined, FilePdfOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ErroApi } from '@/api/tipos';
-import type { ConfiguracaoRH, DetalhePeriodo, MapeamentoEmFalta } from './api';
+import type { ConfiguracaoRH, DetalhePeriodo, MapeamentoEmFalta, ResultadoSalarial } from './api';
+import { IconeFa } from '@/componentes/fluxos';
+import { FolhaDetalhada } from './folha/FolhaDetalhada';
+import { BotaoGerarPagamento } from './folha/GerarPagamento';
+import { ListaProcessamentos } from './folha/ListaProcessamentos';
+import { pedidoSimulacaoColaborador } from './comum/simulacao';
 import { MapeamentosEmFalta } from './comum/MapeamentosEmFalta';
 import { CartasPeriodo } from './comum/Cartas';
 import { EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
-import { ListaPeriodos } from './comum/ListaPeriodos';
 import { ResumoTotais, TabelaResultados } from './comum/TabelaResultados';
-import { BotaoFolhaDetalhada } from './comum/SimulacaoColaborador';
+import { BotaoFolhaDetalhada, ModalSimulacaoColaborador } from './comum/SimulacaoColaborador';
 import { accoesPeriodo } from './comum/regras';
-import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
+import { BotoesExportar, tabelaHtml, useImpressao } from '@/componentes/impressao';
 import { larguraModal } from '@/componentes/responsivo';
 import { folhaSalariosHtml } from './comum/impressao';
 
@@ -42,7 +46,7 @@ export default function Processamento() {
     <>
       <Routes>
         <Route index element={
-          <ListaPeriodos titulo="Processamentos (Validação e Consulta)" subtitulo="Validação, contabilização e pagamento dos processamentos salariais"
+          <ListaProcessamentos
             accoesExtra={<>
               {pode('config_empresas_gerir') && <Button icon={<SettingOutlined />} onClick={() => setConfigurar(true)}>Configuração</Button>}
               <Button icon={<AuditOutlined />} onClick={() => setVerificar(true)}>Verificar contra o diário</Button>
@@ -68,6 +72,9 @@ function DetalheProcessamento() {
   const accao = useAccaoRh(() => setEstorno(false));
   const [emFalta, setEmFalta] = useState<MapeamentoEmFalta[] | null>(null);
   const config = useQuery({ queryKey: ['rh', 'configuracao'], queryFn: () => obter<ConfiguracaoRH>('/rh/configuracao') });
+  const [detalhe, setDetalhe] = useState<ResultadoSalarial | null>(null);
+  const { imprimir } = useImpressao();
+  const nomeResultado = useCallback((r: ResultadoSalarial) => r.nome ?? colaboradores.nome(r.colaborador_id), [colaboradores]);
 
   if (periodo.isLoading) return <Skeleton active />;
   const p = periodo.data;
@@ -101,15 +108,16 @@ function DetalheProcessamento() {
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
             {ac.validar && (
-              <Button type="primary" icon={<CheckOutlined />} onClick={() => Modal.confirm({ title: `Validar o processamento de ${p.mes_ano}?`, content: 'Depois de validado emitem-se os recibos, a ordem de pagamento e a contabilização.', okText: 'Validar', cancelText: 'Cancelar', onOk: () => post('validar') })}>Validar</Button>
+              <Button type="primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} icon={<CheckOutlined />} onClick={() => Modal.confirm({ title: `Validar o processamento de ${p.mes_ano}?`, content: 'Ao validar o processamento, concorda que os cálculos estão correctos. Depois de validado emitem-se os recibos, a ordem de pagamento e a contabilização.', okText: 'Validar', cancelText: 'Cancelar', onOk: () => post('validar') })}>Validar Processamento</Button>
             )}
             {ac.contabilizar && (
-              <Button type="primary" onClick={() => Modal.confirm({ title: `Contabilizar ${p.mes_ano}?`, content: 'Cria o lançamento no diário SAL a partir da fotografia, com os mapeamentos contabilísticos. Se faltar algum mapeamento a operação é recusada.', okText: 'Contabilizar', cancelText: 'Cancelar', onOk: () => contabilizar() })}>Contabilizar</Button>
+              <Button icon={<IconeFa nome="book" />} onClick={() => Modal.confirm({ title: `Integração contábil de ${p.mes_ano}?`, content: 'Cria o lançamento no diário SAL a partir da fotografia, com os mapeamentos contabilísticos. Se faltar algum mapeamento a operação é recusada.', okText: 'Integrar', cancelText: 'Cancelar', onOk: () => contabilizar() })}>Integração contábil</Button>
             )}
             {ac.recibos && <Button icon={<FilePdfOutlined />} onClick={() => navegar('/m/rh/rh_rel_recibos')}>Recibos</Button>}
-            {ac.descontabilizar && <Button danger onClick={() => { form.resetFields(); setEstorno(true); }}>Descontabilizar</Button>}
+            {p.contabilizado && <BotaoGerarPagamento periodo={p} texto="Gerar Pagamento" />}
+            {ac.descontabilizar && <Button danger icon={<IconeFa nome="undo" />} onClick={() => { form.resetFields(); setEstorno(true); }}>Descontabilizar</Button>}
             {ac.reabrir && (
-              <Button icon={<RollbackOutlined />} onClick={() => Modal.confirm({ title: `Reabrir ${p.mes_ano}?`, content: 'A fotografia dos resultados é apagada e o período volta a Aberto (lançamentos editáveis no ecrã Calcular).', okText: 'Reabrir', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => post('reabrir') })}>Reabrir</Button>
+              <Button danger icon={<IconeFa nome="unlock" />} onClick={() => Modal.confirm({ title: `Reabrir ${p.mes_ano} para edição?`, content: 'A fotografia dos resultados é apagada e o período volta a Aberto (lançamentos editáveis no ecrã Calcular).', okText: 'Reabrir', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => post('reabrir') })}>Reabrir para Edição</Button>
             )}
           </>
         }
@@ -124,8 +132,19 @@ function DetalheProcessamento() {
         <Tabs
           items={[
             {
+              key: 'mapa',
+              label: 'Mapa salarial detalhado',
+              children: (
+                <FolhaDetalhada periodo={p} nome={nomeResultado} carregando={periodo.isFetching} titulo={`Mapa Salarial Detalhado — ${p.mes_ano}`}
+                  accoes={(r) => [
+                    { icone: 'search-plus', titulo: 'Detalhe das rubricas', texto: 'Detalhar', onClick: () => setDetalhe(r) },
+                    { icone: 'print', titulo: 'Imprimir', onClick: () => imprimir(pedidoSimulacaoColaborador(r, { nome: nomeResultado(r), mesAno: p.mes_ano, simulacao: p.estado !== 'VALIDADO' })) },
+                  ]} />
+              ),
+            },
+            {
               key: 'resultados',
-              label: 'Resultados',
+              label: 'Resumo por colaborador',
               children: (
                 <>
                   {p.resultados.length > 0 && (
@@ -152,6 +171,7 @@ function DetalheProcessamento() {
           ]}
         />
       </Card>
+      <ModalSimulacaoColaborador resultado={detalhe} mesAno={p.mes_ano} nome={detalhe ? nomeResultado(detalhe) : ''} simulacao={p.estado !== 'VALIDADO'} aoFechar={() => setDetalhe(null)} />
       <MapeamentosEmFalta lista={emFalta} aoFechar={() => setEmFalta(null)} repetir={() => contabilizar()} />
       <Modal title="Descontabilizar (estorno)" open={estorno} onCancel={() => setEstorno(false)} okText="Descontabilizar" okButtonProps={{ danger: true }} cancelText="Cancelar"
         confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>

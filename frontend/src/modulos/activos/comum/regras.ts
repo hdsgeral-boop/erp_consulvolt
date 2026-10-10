@@ -95,6 +95,11 @@ const CABECALHOS: Record<string, keyof LinhaImportacao> = {
   amortizacao_acumulada: 'amortizacao_acumulada', 'amortização acumulada': 'amortizacao_acumulada', 'amortizacao acumulada': 'amortizacao_acumulada',
   ano_amortizacao_acumulada: 'ano_amortizacao_acumulada', 'ano da amortização acumulada': 'ano_amortizacao_acumulada', 'ano acumulada': 'ano_amortizacao_acumulada',
   data_aquisicao: 'data_aquisicao', 'data de aquisição': 'data_aquisicao', 'data aquisicao': 'data_aquisicao', data: 'data_aquisicao',
+  // cabeçalhos do «Template_Migração_Imobilizado.xlsx» do sistema anterior (downloadAssetExcelTemplate), para importar os ficheiros já preenchidos
+  'cd. inventário': 'codigo', 'cd. inventario': 'codigo', 'nº inventário': 'codigo', 'valor aquisição (kz)': 'valor_aquisicao', 'valor aquisição': 'valor_aquisicao',
+  'categoria (nome exacto ou novo)': 'categoria', 'meses de vida total': 'vida_util', 'anos já amortizados': 'anos_amortizados',
+  'amortização acumulada (kz)': 'amortizacao_acumulada', 'ano findo da amort. acumulada (ex: 2025)': 'ano_amortizacao_acumulada',
+  'data aquisição (aaaa-mm-dd)': 'data_aquisicao', 'data aquisição': 'data_aquisicao',
 };
 
 const NUMERICOS: (keyof LinhaImportacao)[] = ['valor_aquisicao', 'vida_util', 'anos_amortizados', 'amortizacao_acumulada', 'ano_amortizacao_acumulada'];

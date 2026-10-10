@@ -40,7 +40,11 @@ final class FluxosController extends Controller
         $this->exigirFluxo($fluxo);
         $f = $r->validate([
             'etapa' => ['nullable', 'string', 'max:40'], 'estado' => ['nullable', Rule::in(['em_curso', 'bloqueado', 'concluido', 'com_pendencias'])],
+            // filtro rápido da vista de volume (chips do legado): formato aqui, lista branca do fluxo no serviço
+            'filtro' => ['nullable', 'string', 'max:40', 'regex:/^[a-z_]+$/'],
             'pesquisa' => ['nullable', 'string', 'max:100'], 'pagina' => ['nullable', 'integer', 'min:1'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:200'],
+            // «recentes»: os cartões do topo (montarLista do legado) — mais recentes primeiro
+            'ordem' => ['nullable', Rule::in(['recentes'])],
         ]);
 
         return RespostaApi::paginado($this->fluxos->processos($fluxo, $f), null, 'Processos do fluxo.');

@@ -37,11 +37,26 @@ final class ServicoTerceiros
         private readonly ServicoPlanoContas $plano,
     ) {}
 
-    /** @param  array<string, mixed>  $f */
+    /**
+     * Lista por papel. Clientes = papel de cliente E também quem tem documentos de venda ou recibos (4.4.2 do relatório de
+     * verificação visual: na empresa 18 havia fornecedores com facturas de venda que não apareciam na lista de clientes);
+     * vêm com `tem_documentos_venda` e, ao gravar a ficha como cliente, ganham o papel (CLIENTE_FORNECEDOR).
+     *
+     * @param  array<string, mixed>  $f
+     */
     public function listar(array $f): LengthAwarePaginator
     {
+        $docsVenda = fn (string $tabela) => fn ($s) => $s->from($tabela)->selectRaw('1')
+            ->whereColumn("{$tabela}.cliente_id", 'terceiros.id')->whereColumn("{$tabela}.empresa_id", 'terceiros.empresa_id');
+
         return Terceiro::query()
-            ->when(($f['papel'] ?? null) === Terceiro::CLIENTE, fn ($q) => $q->whereIn('tipo', Terceiro::TIPOS_CLIENTE))
+            ->select('terceiros.*')
+            ->when(($f['papel'] ?? null) === Terceiro::CLIENTE, fn ($q) => $q
+                ->selectRaw('(EXISTS (SELECT 1 FROM vendas WHERE vendas.cliente_id = terceiros.id AND vendas.empresa_id = terceiros.empresa_id)'
+                    .' OR EXISTS (SELECT 1 FROM recibos_venda WHERE recibos_venda.cliente_id = terceiros.id AND recibos_venda.empresa_id = terceiros.empresa_id)) AS tem_documentos_venda')
+                ->where(fn ($w) => $w->whereIn('terceiros.tipo', Terceiro::TIPOS_CLIENTE)
+                    ->orWhere(fn ($x) => $x->where('terceiros.tipo', '<>', Terceiro::COLABORADOR)
+                        ->where(fn ($y) => $y->whereExists($docsVenda('vendas'))->orWhereExists($docsVenda('recibos_venda'))))))
             ->when(($f['papel'] ?? null) === Terceiro::FORNECEDOR, fn ($q) => $q->whereIn('tipo', Terceiro::TIPOS_FORNECEDOR))
             ->when(($f['papel'] ?? null) === Terceiro::COLABORADOR, fn ($q) => $q->where('tipo', Terceiro::COLABORADOR))
             ->when($f['pesquisa'] ?? null, function ($q, $p) {

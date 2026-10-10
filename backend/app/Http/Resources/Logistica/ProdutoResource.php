@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Logistica;
 
 use App\Models\Produto;
+use App\Services\Vendas\ServicoImagemProduto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -39,6 +40,8 @@ final class ProdutoResource extends JsonResource
                 'dias_entrega' => $this->lavandaria_dias_entrega, 'requer_orcamento' => (bool) $this->lavandaria_requer_orcamento,
                 'preco_peca' => $this->lavandaria_preco_peca, 'preco_kg' => $this->lavandaria_preco_kg]),
             'imagem_base64' => $this->when($detalhe, $this->imagem_base64),
+            // paridade 4.1.5: imagem do produto servida com autenticação (GET /api/vendas/produtos/{id}/imagem; também para o POS)
+            'imagem_url' => ServicoImagemProduto::url($this->resource),
             // Stock informativo do legado (products.stock_qty); o stock real é por armazém (/api/logistica/stock).
             'quantidade_stock_legado' => $this->when($detalhe, $this->quantidade_stock),
         ];

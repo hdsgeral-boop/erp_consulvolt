@@ -77,6 +77,25 @@ body {
   font-size: 15px;
 }
 
+/* Itens gerais soltos no topo (Início, Dashboard Global, Relatórios de Gestão, Fluxo de Processos): grandes e
+   arredondados, como no legado (.nav-item com margin 0.5rem 1rem e border-radius 12px) */
+:root .erp-menu.ant-menu-root > .ant-menu-item.erp-menu-topo {
+  height: 48px;
+  line-height: 48px;
+  margin: 6px 12px;
+  width: calc(100% - 24px);
+  border-radius: 12px;
+  font-size: 16px;
+}
+
+:root .erp-menu .ant-menu-item .fx-icone,
+:root .erp-menu .ant-menu-submenu-title .fx-icone {
+  width: 20px;
+  min-width: 20px;
+  font-size: 16px;
+  opacity: 0.85;
+}
+
 /* Item activo: fundo azul translúcido e barra de 4 px à esquerda (legado: .nav-item.active) */
 :root .erp-menu.ant-menu-dark .ant-menu-item-selected {
   box-shadow: inset 4px 0 0 #3b82f6;
@@ -570,8 +589,12 @@ body {
 }
 
 .erp-inicio-pilula-numero {
-  font-weight: 800;
-  color: #fde68a;
+  font-weight: 700;
+}
+
+/* ícone colorido por tipo de pendente (legado: .pending-pill i, 0.6rem) */
+.erp-inicio-pilula-icone {
+  font-size: 10px;
 }
 
 /* Cartões pequenos (Dica do dia, Painel) */
@@ -649,12 +672,48 @@ button.erp-inicio-mini:focus-visible {
   gap: 12px;
 }
 
+.erp-modulo-arrastavel {
+  position: relative;
+}
+
+/* Legado (ui_dashboard.js:857): estrela redonda à direita, por cima do cartão; marca o ecrã principal do módulo como favorito. */
+.erp-modulo-estrela {
+  position: absolute;
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #cbd5e1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  z-index: 2;
+  transition: transform 0.2s;
+}
+
+.erp-modulo-estrela:hover,
+.erp-modulo-estrela:focus-visible {
+  transform: translateY(-50%) scale(1.1);
+}
+
+.erp-modulo-estrela.activa {
+  background: #fef3c7;
+  color: #f59e0b;
+}
+
 .erp-modulo-botao {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   width: 100%;
-  padding: 14px 16px;
+  padding: 20px 76px 20px 20px;
+  position: relative;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
   background: linear-gradient(145deg, #ffffff, #f8fafc);
@@ -702,15 +761,15 @@ button.erp-inicio-mini:focus-visible {
 
 .erp-modulo-nome {
   display: block;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: #1e293b;
 }
 
 .erp-modulo-descricao {
   display: block;
-  margin-top: 2px;
-  font-size: 12.5px;
+  margin-top: 3px;
+  font-size: 12px;
   line-height: 1.3;
   color: #64748b;
 }
@@ -782,5 +841,219 @@ button.erp-inicio-mini:focus-visible {
   .erp-cartao-escolha.ant-card {
     max-height: calc(100vh - 32px);
     max-height: calc(100dvh - 32px);
+  }
+}
+
+/* Início — cabeçalho da lista «Módulos» com «✥ ARRASTAR» e caixas de ícone grandes (legado: .module-card-btn .icon-box 54 px) */
+.erp-inicio-modulos-cabeca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.erp-inicio-modulos-cabeca .erp-inicio-modulos-titulo {
+  margin: 0;
+}
+
+.erp-inicio-arrastar {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.erp-caixa-icone.erp-caixa-icone-modulo {
+  width: 54px;
+  height: 54px;
+  font-size: 22px;
+}
+
+/* ── Barra superior: medidas exactas do legado (verificação lado a lado, 09/10/2026) ─────────────────────────
+   legado .top-header: padding 24px 48px, borda inferior #e2e8f0, botões .btn-outline 2px de raio, 13,6px, 29px de altura;
+   «Ajuda» azul-claro (#eff6ff / #1d4ed8 / #bfdbfe, 36px); sair com ícone vermelho #ef4444 e contorno #fee2e2. */
+@media (min-width: 992px) {
+  :root .erp-cabecalho.ant-layout-header {
+    height: auto !important;
+    min-height: 72px !important;
+    padding: 24px 48px !important;
+    line-height: normal !important;
+    border-bottom: 0.8px solid #e2e8f0 !important;
+  }
+}
+
+:root .erp-cabecalho .ant-btn:not(.erp-botao-ajuda):not(.erp-botao-sair):not(.erp-botao-menu) {
+  height: 29px !important;
+  padding: 0 12px !important;
+  border-radius: 2px !important;
+  border: 0.8px solid #a6a6a6 !important;
+  font-size: 13.6px !important;
+  color: #333333 !important;
+  background: transparent !important;
+}
+
+:root .erp-cabecalho .ant-btn.erp-botao-ajuda,
+:root .erp-cabecalho .ant-btn.erp-botao-ajuda:not(:disabled):hover {
+  height: 36px !important;
+  padding: 0 12.8px !important;
+  border-radius: 4px !important;
+  border: 0.8px solid #bfdbfe !important;
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  font-size: 13.12px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+:root .erp-cabecalho .ant-btn.erp-botao-ajuda:not(:disabled):hover {
+  background: #dbeafe !important;
+}
+
+:root .erp-cabecalho .ant-btn.erp-botao-sair {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 2px !important;
+  border: 0.8px solid #fee2e2 !important;
+  background: transparent !important;
+  color: #ef4444 !important;
+  box-shadow: none !important;
+}
+
+:root .erp-cabecalho .ant-btn.erp-botao-sair:not(:disabled):hover {
+  background: #fef2f2 !important;
+  border-color: #ef4444 !important;
+  color: #dc2626 !important;
+}
+
+/* Nome da empresa e etiqueta do NIF na barra superior (legado: h1 20px/700 #475569; NIF 12px, 5.6px 13.6px, 8px acima) */
+@media (min-width: 992px) {
+  :root .erp-cabecalho .erp-cabecalho-empresa-nome {
+    font-size: 20px !important;
+    line-height: 32px !important;
+    letter-spacing: -0.2px;
+  }
+  :root .erp-cabecalho .erp-cracha-nif {
+    font-size: 12px !important;
+    padding: 5.6px 13.6px !important;
+    margin-top: 8px !important;
+    letter-spacing: 0.5px;
+  }
+  :root .erp-cabecalho .ant-btn.erp-botao-menu {
+    width: 30px !important;
+    height: 31px !important;
+    border-radius: 2px !important;
+  }
+}
+
+/* ── Menu lateral: medidas do legado (.nav-item: 16px 24px, 58px de altura, ~20px entre itens, raio 4px;
+   activo com fundo azul a 10% e barra azul de 4px à esquerda; «⋮» à direita com opacidade 0,5) ───────────── */
+:root .erp-menu.ant-menu-dark .ant-menu-item.erp-menu-topo {
+  height: 58px !important;
+  line-height: 58px !important;
+  margin-block: 0 20px !important;
+  padding-inline: 20px 24px !important;
+  border-radius: 4px !important;
+  border-left: 4px solid transparent;
+  font-weight: 400 !important;
+}
+
+:root .erp-menu.ant-menu-dark .ant-menu-item.erp-menu-topo.ant-menu-item-selected {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-left-color: #3b82f6;
+  color: #ffffff !important;
+}
+
+:root .erp-menu .ant-menu-item:has(.erp-menu-pontos) {
+  position: relative;
+}
+
+:root .erp-menu .erp-menu-rotulo {
+  display: block;
+  min-width: 0;
+}
+
+:root .erp-menu .erp-menu-rotulo-texto {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:root .erp-menu .erp-menu-pontos {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  line-height: 1;
+  padding: 4px;
+  font-size: 12.8px;
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+:root .erp-menu .erp-menu-pontos:hover,
+:root .erp-menu .erp-menu-pontos:focus-visible {
+  opacity: 1;
+}
+
+/* ── Área de conteúdo e títulos dos ecrãs: iguais ao legado (.view-container / h2.view-title) ─────────────────
+   legado: fundo img/system-bg.png com véu claro (0,7 → 0,95), fixo e a cobrir; margens 24px 48px;
+   título 32px / 800 / #475569 / -0,5px, sem linha por baixo. */
+:root .erp-conteudo.ant-layout-content {
+  --erp-fundo: url('./imagens/fundo-sistema.png');
+  background: linear-gradient(rgba(248, 250, 252, 0.7), rgba(248, 250, 252, 0.95)), var(--erp-fundo) center / cover fixed;
+}
+
+/* Imagem por módulo (legado setModuleBackground — layout/fundoModulo.ts) */
+:root .erp-conteudo.erp-fundo-rh { --erp-fundo: url('./imagens/fundo-hr.png'); }
+:root .erp-conteudo.erp-fundo-contabilidade { --erp-fundo: url('./imagens/fundo-accounting.png'); }
+:root .erp-conteudo.erp-fundo-armazem { --erp-fundo: url('./imagens/fundo-warehouse.png'); }
+:root .erp-conteudo.erp-fundo-vendas { --erp-fundo: url('./imagens/fundo-sales.png'); }
+:root .erp-conteudo.erp-fundo-activos { --erp-fundo: url('./imagens/fundo-assets.png'); }
+
+@media (min-width: 992px) {
+  :root .erp-conteudo.ant-layout-content {
+    padding: 24px 48px !important;
+  }
+  :root .erp-conteudo .erp-inicio {
+    margin: -24px -48px;
+    padding: 24px 48px;
+  }
+}
+
+:root .cabecalho-pagina {
+  border-bottom: 0 !important;
+}
+
+:root .cabecalho-pagina .ant-typography.erp-titulo-pagina {
+  font-size: clamp(22px, 2.6vw, 32px);
+  letter-spacing: -0.5px;
+}
+
+/* Compras: cartão único com painel, título e lista (legado .card: padding 40px, raio 4px; título h3 16,97px a negrito). */
+:root .compras-cartao-lista.ant-card {
+  border-radius: 4px;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+:root .compras-cartao-lista > .ant-card-body {
+  padding: 40px;
+}
+:root .compras-cartao-lista .cabecalho-pagina .ant-typography.erp-titulo-pagina {
+  font-size: 16.97px !important;
+  font-weight: 700;
+  color: #000;
+}
+@media (max-width: 767px) {
+  :root .compras-cartao-lista > .ant-card-body {
+    padding: 16px;
   }
 }

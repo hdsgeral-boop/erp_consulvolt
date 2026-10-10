@@ -62,7 +62,7 @@ export function ModalVariasUnidades({ aberto, unidades, paiInicial, aoFechar }: 
   };
   const n = linhas.filter((l) => l.nome.trim()).length;
   return (
-    <Modal title="Criar várias unidades" open={aberto} onCancel={aoFechar} width={larguraModal(820)} destroyOnHidden okText={`Criar ${n} unidade(s)`} cancelText="Cancelar" onOk={() => void gravar()} confirmLoading={aGravar} okButtonProps={{ disabled: !n }}>
+    <Modal title="Várias unidades no mesmo nível" open={aberto} onCancel={aoFechar} width={larguraModal(820)} destroyOnHidden okText={`Criar ${n} unidade(s)`} cancelText="Cancelar" onOk={() => void gravar()} confirmLoading={aGravar} okButtonProps={{ disabled: !n }}>
       <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
         <Col xs={24} md={10}>
           <Typography.Text strong>Unidade superior</Typography.Text>

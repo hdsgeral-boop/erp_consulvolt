@@ -144,7 +144,7 @@ final class AcrescimosTest extends TestCase
 
         // reconciliação: módulo = Diário (1 200 − 300)
         $rec = collect($this->getJson('/api/acrescimos/reconciliacao', $s)->json('dados'))->keyBy('conta');
-        $this->assertSame(['conta' => '3743', 'modulo' => '900.00', 'diario' => '900.00', 'diferenca' => '0.00'], $rec['3743']);
+        $this->assertSame(['conta' => '3743', 'descricao' => 'Encargos a repartir', 'modulo' => '900.00', 'diario' => '900.00', 'diferenca' => '0.00'], $rec['3743']);
 
         // Abril: fecham-se os três meses em falta → CONCLUIDO
         $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-04', 'chaves' => $this->chaves('2026-04')], $s)->assertOk()->assertJsonCount(3, 'dados.ok');
@@ -224,5 +224,77 @@ final class AcrescimosTest extends TestCase
         $this->assertSame([['conta' => '752331', 'valor' => '2400.00']], $c[0]['linhas']);
         $a = $this->getJson('/api/acrescimos/recolha/acrescimos-abertos?natureza=CUSTO&contas[]=7521', $s)->assertOk()->json('dados');
         $this->assertSame([1], array_column($a, 'afinidade'));
+    }
+
+    #[Test]
+    public function contabilizados_com_data_do_mes_e_documento_usado_na_recolha(): void
+    {
+        $s = $this->s;
+        // proposta mensal (legado): «Contabilizados com data de Mmm/AAAA» = lançamentos activos com data do documento no mês
+        $id = $this->criar(['tipo' => 'DIFERIMENTO', 'descricao' => 'Seguro trimestral', 'valor' => 900, 'conta_balanco' => '3743',
+            'data_inicio' => '2026-01-01', 'data_fim' => '2026-03-31', 'data_documento' => '2026-01-05']);
+        $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-02', 'chaves' => $this->chaves('2026-02')], $s)->assertOk()->assertJsonCount(3, 'dados.ok');
+        $jan = $this->getJson('/api/acrescimos/lancamentos?mes_documento=2026-01&estado=CONTABILIZADO', $s)->assertOk()->json('dados');
+        $this->assertSame([['INICIAL', '2026-01'], ['RECONHECIMENTO', '2026-01']], array_map(fn ($l) => [$l['tipo'], $l['periodo']], $jan));
+        $this->assertSame('Seguro trimestral', $jan[0]['item_acrescimo_diferimento']['descricao']);
+        $fev = $this->getJson('/api/acrescimos/lancamentos?mes_documento=2026-02&estado=CONTABILIZADO', $s)->assertOk()->json('dados');
+        $this->assertCount(1, $fev);
+        $this->postJson("/api/acrescimos/lancamentos/{$fev[0]['id']}/descontabilizar", ['motivo' => 'Teste de paridade'], $s)->assertOk();
+        $this->getJson('/api/acrescimos/lancamentos?mes_documento=2026-02&estado=CONTABILIZADO', $s)->assertOk()->assertJsonCount(0, 'dados');
+        $this->getJson('/api/acrescimos/lancamentos?mes_documento=2026-13', $s)->assertStatus(422);
+        $this->getJson('/api/acrescimos/lancamentos?mes_documento=2026-02', $this->sessao(['pos_view']))->assertForbidden();
+
+        // recolha: o documento usado como origem de um registo continua a vir do servidor, marcado «ligado»
+        // (o ecrã esconde-o por omissão, como o legado, salvo «Mostrar os já usados»)
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoLancamentos::class)->criar(['diario_id' => $this->diario, 'data_documento' => '2026-04-02',
+            'numero_documento' => 'FT 77', 'descricao' => 'Renda', 'linhas' => [['codigo_conta' => '7521', 'tipo_dc' => 'D', 'valor' => 600],
+                ['codigo_conta' => '321', 'tipo_dc' => 'C', 'valor' => 600]]]));
+        $c = $this->getJson('/api/acrescimos/recolha?fonte=DIARIO&de=2026-04-01&ate=2026-04-30', $s)->assertOk()->json('dados');
+        $this->assertSame([false], array_column($c, 'ligado'));
+        $this->criar(['tipo' => 'DIFERIMENTO', 'descricao' => 'FT 77', 'valor' => 600, 'conta_resultado' => '7521', 'conta_balanco' => '3743',
+            'data_inicio' => '2026-04-02', 'data_fim' => '2027-04-01', 'data_documento' => '2026-04-02',
+            'origem' => ['fonte' => 'DIARIO', 'id' => $c[0]['id'], 'doc' => 'FT 77', 'data' => '2026-04-02', 'conta' => '7521']]);
+        $this->assertSame([true], array_column($this->getJson('/api/acrescimos/recolha?fonte=DIARIO&de=2026-04-01&ate=2026-04-30', $s)->json('dados'), 'ligado'));
+    }
+
+    #[Test]
+    public function faixa_de_saldos_reconcilia_modulo_com_diario_por_conta_e_data(): void
+    {
+        // legado (reconciliacao, ad_dados.js:368; faixa «Saldo <conta> <descrição> · Diário … · reconciliado», ad_ui.js:153)
+        $s = $this->s;
+        $this->criar(['tipo' => 'DIFERIMENTO', 'descricao' => 'Seguro', 'valor' => 1200, 'conta_balanco' => '3743',
+            'data_inicio' => '2026-01-01', 'data_fim' => '2026-12-31', 'data_documento' => '2026-01-05']);
+        $this->postJson('/api/acrescimos/proposta/contabilizar', ['mes' => '2026-01', 'chaves' => $this->chaves('2026-01')], $s)->assertOk()->assertJsonCount(2, 'dados.ok');
+        $rec = collect($this->getJson('/api/acrescimos/reconciliacao?data=2026-01-31', $s)->assertOk()->json('dados'))->keyBy('conta');
+        // as quatro contas das definições entram sempre (a zero); o ecrã só mostra as que têm saldo
+        $this->assertSame(['3731', '3743', '3754', '3766'], $rec->pluck('conta')->values()->all());
+        $this->assertSame(['3743', 'Encargos a repartir', '1100.00', '1100.00', '0.00'], array_values($rec['3743']));
+        $this->assertSame(['0.00', '0.00'], [$rec['3754']['modulo'], $rec['3754']['diario']]);
+
+        // lançamento manual na 37 fora do módulo → diferença; antes da data dele continua reconciliado
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoLancamentos::class)->criar(['diario_id' => $this->diario, 'data_documento' => '2026-02-10',
+            'numero_documento' => 'MAN 1', 'descricao' => 'Ajuste manual', 'linhas' => [['codigo_conta' => '3743', 'tipo_dc' => 'D', 'valor' => 50],
+                ['codigo_conta' => '321', 'tipo_dc' => 'C', 'valor' => 50]]]));
+        $fev = collect($this->getJson('/api/acrescimos/reconciliacao?data=2026-02-28', $s)->json('dados'))->keyBy('conta');
+        $this->assertSame(['1100.00', '1150.00', '50.00'], [$fev['3743']['modulo'], $fev['3743']['diario'], $fev['3743']['diferenca']]);
+        $this->assertSame('0.00', collect($this->getJson('/api/acrescimos/reconciliacao?data=2026-01-31', $s)->json('dados'))->keyBy('conta')['3743']['diferenca']);
+
+        // outra empresa com movimentos na mesma conta não entra
+        $outra = $this->criarEmpresa(['nif' => '5417000054']);
+        app(ContextoEmpresa::class)->executarComo($outra->id, function () {
+            foreach (['3743' => 'Outra 3743', '321' => 'Fornecedores'] as $c => $d) {
+                PlanoConta::create(['codigo' => (string) $c, 'descricao' => $d, 'tipo' => 'M']);
+            }
+            app(ServicoLancamentos::class)->criar(['diario_id' => DiarioContabil::create(['codigo' => 'OU', 'nome' => 'Outro'])->id, 'data_documento' => '2026-01-10',
+                'numero_documento' => 'X 1', 'descricao' => 'Outra empresa', 'linhas' => [['codigo_conta' => '3743', 'tipo_dc' => 'D', 'valor' => 999],
+                    ['codigo_conta' => '321', 'tipo_dc' => 'C', 'valor' => 999]]]);
+        });
+        $this->assertSame(['Encargos a repartir', '1150.00'], [$fev['3743']['descricao'],
+            collect($this->getJson('/api/acrescimos/reconciliacao?data=2026-02-28', $s)->json('dados'))->keyBy('conta')['3743']['diario']]);
+
+        // validação e permissões (as mesmas de ver os registos)
+        $this->getJson('/api/acrescimos/reconciliacao?data=31-01-2026', $s)->assertStatus(422);
+        $this->getJson('/api/acrescimos/reconciliacao', $this->sessao(['ad_registos_view']))->assertOk();
+        $this->getJson('/api/acrescimos/reconciliacao', $this->sessao(['pos_view']))->assertForbidden();
     }
 }

@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\DocumentoTesouraria;
 use App\Models\ItemDocumentoTesouraria;
 use App\Models\MeioPagamento;
+use App\Models\PlanoConta;
 use App\Services\Compras\RelacoesNomes;
 use App\Services\Tesouraria\ServicoDocumentosTesouraria;
+use App\Services\Tesouraria\ServicoListagemTesouraria;
 use App\Services\Tesouraria\ServicoMeiosPagamento;
 use App\Services\Tesouraria\ServicoPendentes;
 use App\Support\Api\RespostaApi;
@@ -23,6 +25,7 @@ final class TesourariaController extends Controller
         private readonly ServicoDocumentosTesouraria $documentos,
         private readonly ServicoPendentes $pendentes,
         private readonly ServicoMeiosPagamento $meios,
+        private readonly ServicoListagemTesouraria $listagem,
     ) {}
 
     public function index(Request $r): JsonResponse
@@ -30,14 +33,24 @@ final class TesourariaController extends Controller
         $this->exigir('teso_gestao_pagamentos_view', 'teso_contab_integracao_view', 'teso_contab_historico_view');
         $f = $r->validate(['tipo' => ['nullable', Rule::in(ServicoDocumentosTesouraria::TIPOS)], 'estado' => ['nullable', Rule::in(['PENDENTE', 'INTEGRADO', 'ANULADO'])],
             'conta_financeira' => ['nullable', 'string', 'max:20'], 'data_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_fim' => ['nullable', 'date_format:Y-m-d'],
-            'pesquisa' => ['nullable', 'string', 'max:100'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+            'pesquisa' => ['nullable', 'string', 'max:100'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1'],
+            // filtros do Histórico / Descontabilização do legado (C. Tesouraria e C. Contrapartida por prefixo, Valor exacto)
+            'conta_prefixo' => ['nullable', 'string', 'max:20', 'regex:/^[0-9.]+$/'], 'contrapartida_prefixo' => ['nullable', 'string', 'max:20', 'regex:/^[0-9.]+$/'],
+            'valor' => ['nullable', 'numeric', 'min:0', 'max:9999999999999.99']]);
         $pagina = DocumentoTesouraria::query()
             ->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
             ->when($f['conta_financeira'] ?? null, fn ($q, $v) => $q->where('conta_financeira', $v))
+            ->when($f['conta_prefixo'] ?? null, fn ($q, $v) => $q->where('conta_financeira', 'like', "{$v}%"))
+            ->when($f['contrapartida_prefixo'] ?? null, fn ($q, $v) => $q->whereExists(fn ($s) => $s->selectRaw('1')->from('itens_documento_tesouraria as i')
+                ->whereColumn('i.documento_tesouraria_id', 'documentos_tesouraria.id')->where('i.codigo_conta', 'like', "{$v}%")))
+            ->when(isset($f['valor']), fn ($q) => $q->whereBetween('valor_total', [round((float) $f['valor'] - 0.009, 3), round((float) $f['valor'] + 0.009, 3)]))
             ->when($f['data_inicio'] ?? null, fn ($q, $v) => $q->where('data_documento', '>=', $v))->when($f['data_fim'] ?? null, fn ($q, $v) => $q->where('data_documento', '<=', $v))
             ->when($f['pesquisa'] ?? null, fn ($q, $v) => $q->where(fn ($x) => $x->where('descricao', 'ilike', "%{$v}%")->orWhere('referencia', 'ilike', "%{$v}%")
                 ->orWhere('numero_documento', 'ilike', "%{$v}%")))
             ->orderByDesc('data_documento')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
+
+        // colunas do legado (contrapartida, UN/CC, D/C, entidade, doc. origem, notas, reconciliação) em consultas agregadas
+        $pagina->setCollection(collect($this->listagem->enriquecer($pagina->getCollection())));
 
         return RespostaApi::paginado($pagina, null, 'Documentos de tesouraria.');
     }
@@ -115,7 +128,14 @@ final class TesourariaController extends Controller
     {
         $this->exigir('teso_meios_pagamento_view', 'teso_gestao_pagamentos_view');
 
-        return RespostaApi::sucesso(MeioPagamento::query()->orderByDesc('predefinido')->orderBy('nome')->get(), 'Meios de pagamento.');
+        $meios = MeioPagamento::query()->orderByDesc('predefinido')->orderBy('nome')->get();
+        // «Descrição da conta» e «Tipo» (Banco 43 / Caixa 45) do legado (renderMeiosPagamento): uma consulta ao plano
+        $descricoes = $meios->isEmpty() ? collect() : PlanoConta::query()->whereIn('codigo', $meios->pluck('codigo_conta')->unique()->values())->pluck('descricao', 'codigo');
+
+        return RespostaApi::sucesso($meios->map(fn (MeioPagamento $m) => $m->toArray() + [
+            'descricao_conta' => $descricoes[$m->codigo_conta] ?? null,
+            'tipo' => str_starts_with((string) $m->codigo_conta, '43') ? 'BANCO' : 'CAIXA',
+        ])->values(), 'Meios de pagamento.');
     }
 
     public function gravarMeio(Request $r, ?int $id = null): JsonResponse

@@ -7,6 +7,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { EtiquetaProjectos, rotuloProjectos } from './comum/componentes';
+import { accoesLinhaCarteira } from './comum/regras';
 import type { Projecto } from './comum/tipos';
 import { DetalheProjecto } from './DetalheProjecto';
 import { ModalProjecto } from './ModalProjecto';
@@ -32,18 +33,19 @@ function ListaProjectos() {
 
   const colunas: ColunaApi<Projecto>[] = [
     { title: 'Código', dataIndex: 'codigo', render: (v) => <Typography.Text strong>{v ?? '—'}</Typography.Text> },
-    { title: 'Nome', dataIndex: 'nome', ellipsis: true, width: 320 },
-    { title: 'Cliente', key: 'cliente', ellipsis: true, width: 240, responsive: ['md'], render: (_, p) => p.cliente?.nome ?? (p.cliente_id ? `#${p.cliente_id}` : '—') },
-    { title: 'Tipo', dataIndex: 'tipo', responsive: ['lg'], render: (v) => <EtiquetaProjectos valor={v} /> },
-    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaProjectos valor={v} /> },
+    { title: 'Designação', dataIndex: 'nome', ellipsis: true, width: 320 },
+    { title: 'Cliente', key: 'cliente', ellipsis: true, width: 240, responsive: ['md'], ocultaPorOmissao: true, render: (_, p) => p.cliente?.nome ?? (p.cliente_id ? `#${p.cliente_id}` : '—') },
+    { title: 'Tipo', dataIndex: 'tipo', responsive: ['lg'], ocultaPorOmissao: true, render: (v) => <EtiquetaProjectos valor={v} /> },
+    // como o legado (renderProjectsList, ui_projects.js:403): ACTIVO e EM_CURSO aparecem os dois como «Em Curso»
+    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaProjectos valor={v === 'ACTIVO' || v === 'ATIVO' ? 'EM_CURSO' : v} /> },
   ];
 
   return (
     <>
       <CabecalhoPagina
-        titulo="Carteira de projectos"
-        subtitulo="Projectos internos e obras: planeamento, equipa, orçamento, execução e facturação"
-        accoes={pode('proj_gerir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo projecto</Button>}
+        titulo="Carteira de Projectos"
+        subtitulo="Lista global de projectos e obras."
+        accoes={pode('proj_gerir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo Projecto</Button>}
       />
       <Card>
         <BarraFiltros>
@@ -61,6 +63,8 @@ function ListaProjectos() {
           size={pequeno ? 'small' : 'middle'}
           impressao={{ titulo: 'Carteira de projectos', filtros: [estado && `Estado: ${rotuloProjectos(estado)}`, tipo && `Tipo: ${rotuloProjectos(tipo)}`, pesquisa && `Pesquisa: ${pesquisa}`] }}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
+          tituloAccoes="Acções"
+          accoes={(r) => accoesLinhaCarteira(r, pode).map((a) => ({ icone: a.icone, titulo: a.titulo, onClick: () => navegar(a.destino) }))}
         />
       </Card>
       <ModalProjecto aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(p) => navegar(String(p.id))} />

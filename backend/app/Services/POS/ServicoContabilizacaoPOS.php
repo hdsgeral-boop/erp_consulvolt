@@ -3,6 +3,7 @@
 namespace App\Services\POS;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\LancamentoContabil;
 use App\Models\LiquidacaoPOS;
 use App\Models\SessaoPOS;
 use App\Models\TerminalPOS;
@@ -76,6 +77,45 @@ final class ServicoContabilizacaoPOS
 
             return $s->refresh();
         });
+    }
+
+    /**
+     * Pré-visualização da integração (posPreVisualizarIntegracao, pos_prestacao.js:262-309): executa a MESMA integração
+     * (mesmas validações, contas, lavandaria e desvio automático) numa transacção que é SEMPRE revertida e devolve os
+     * lançamentos que seriam gravados ou os impedimentos. Nada fica gravado: nem lançamentos, nem numeração, nem estados.
+     * O número de lançamento devolvido é provisório (o definitivo é atribuído ao contabilizar).
+     *
+     * @return array{sessao_pos_id: int, numero_z: ?string, codigo_terminal: ?string, nome_terminal: ?string, nome_operador: ?string,
+     *               lancamentos: list<array<string, mixed>>, impedimentos: list<array{codigo: string, mensagem: string}>}
+     */
+    public function previsualizar(SessaoPOS $s): array
+    {
+        $r = ['sessao_pos_id' => $s->id, 'numero_z' => $s->numero_z ?? $s->codigo_sessao, 'codigo_terminal' => $s->codigo_terminal, 'nome_terminal' => $s->nome_terminal,
+            'nome_operador' => $s->nome_operador, 'lancamentos' => [], 'impedimentos' => []];
+        DB::beginTransaction();
+        try {
+            $feita = $this->contabilizar($s);
+            $lans = array_values(array_filter(array_merge($feita->lans_contabilizacao ?? [], [$feita->deliberacao['numero_lan'] ?? null])));
+            $linhas = LancamentoContabil::query()->with('diario:id,codigo')->where('sessao_pos_id', $s->id)->whereIn('numero_lan', $lans)->orderBy('id')->get();
+            foreach ($linhas->groupBy('numero_lan') as $numero => $doLan) {
+                $d = $c = '0.00';
+                foreach ($doLan as $l) {
+                    $l->tipo_dc === 'D' ? $d = bcadd($d, (string) $l->valor, 2) : $c = bcadd($c, (string) $l->valor, 2);
+                }
+                $p = $doLan->first();
+                $r['lancamentos'][] = ['numero_lan_provisorio' => (string) $numero, 'data_documento' => $p->data_documento?->toDateString(), 'diario' => $p->diario?->codigo,
+                    'tipo_origem' => $p->tipo_origem, 'descricao' => $p->descricao,
+                    'linhas' => $doLan->map(fn ($l) => ['codigo_conta' => (string) $l->codigo_conta, 'tipo_dc' => $l->tipo_dc, 'valor' => number_format((float) $l->valor, 2, '.', ''),
+                        'descricao' => $l->descricao, 'terceiro_id' => $l->terceiro_id])->values()->all(),
+                    'total_debito' => $d, 'total_credito' => $c];
+            }
+        } catch (ErroNegocio $e) {
+            $r['impedimentos'][] = ['codigo' => $e->codigo, 'mensagem' => $e->getMessage()];
+        } finally {
+            DB::rollBack();
+        }
+
+        return $r;
     }
 
     public function descontabilizar(SessaoPOS $s, string $motivo): SessaoPOS

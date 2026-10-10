@@ -38,7 +38,8 @@ final class PainelArmazem implements Painel
         $artigos = DB::table('produtos')->where('empresa_id', $empresa)->whereNull('eliminado_em')->where('movimenta_stock', true)->pluck('id')->all();
         $linhas = array_values(array_intersect_key($porProduto, array_flip($artigos)));
         $semFicha = count(array_diff($artigos, array_keys($porProduto)));
-        $baixo = array_values(array_filter($linhas, fn ($l) => (float) $l['quantidade'] > 0 && $l['stock_minimo'] !== null && (float) $l['quantidade'] <= (float) $l['stock_minimo']));
+        // legado (ui_painel_modulos.js:307): stock baixo = quantidade entre 0 e 5 (inclusive), sem olhar ao stock mínimo
+        $baixo = array_values(array_filter($linhas, fn ($l) => (float) $l['quantidade'] > 0 && (float) $l['quantidade'] <= 5));
         usort($baixo, fn ($a, $b) => (float) $a['quantidade'] <=> (float) $b['quantidade']);
         $semStock = count(array_filter($linhas, fn ($l) => (float) $l['quantidade'] <= 0)) + $semFicha;
         $top = $linhas;
@@ -58,9 +59,9 @@ final class PainelArmazem implements Painel
             'kpis' => [
                 Indicadores::kpi('valor_inventario', 'Valor do Inventário', $this->armazens->valorizacao()['total'], 'kz', 'Stock × custo médio ponderado'),
                 Indicadores::kpi('artigos_stock', 'Artigos de Stock', count($artigos), 'num'),
-                Indicadores::kpi('stock_baixo', 'Stock Baixo', count($baixo), 'num', 'Igual ou abaixo do stock mínimo'),
+                Indicadores::kpi('stock_baixo', 'Stock Baixo (≤ 5)', count($baixo), 'num'),
                 Indicadores::kpi('sem_stock', 'Sem Stock', $semStock, 'num'),
-                Indicadores::kpi('rececoes_por_validar', 'Recepções por Validar', $rececoes, 'num', 'Guias de fornecedor pendentes'),
+                Indicadores::kpi('rececoes_por_validar', 'Receções por Validar', $rececoes, 'num', 'Guias de fornecedor pendentes'),
                 Indicadores::kpi('guias_saida_mes', 'Guias de Saída (Mês)', $guias, 'num'),
             ],
             'graficos' => [
@@ -70,7 +71,7 @@ final class PainelArmazem implements Painel
                     [Indicadores::serie('valor', 'Valor', array_map(fn ($l) => $l['valor'], $top))], true, ['horizontal' => true]),
             ],
             'tabelas' => [
-                Indicadores::tabela('stock_baixo', 'Artigos com Stock Baixo', [['nome', 'Artigo'], ['quantidade', 'Quantidade', 'num'], ['stock_minimo', 'Stock mínimo', 'num'],
+                Indicadores::tabela('stock_baixo', 'Artigos com Stock Baixo', [['nome', 'Artigo'], ['quantidade', 'Quantidade', 'num'],
                     ['custo_medio', 'Custo Médio', 'kz'], ['valor', 'Valor', 'kz']], array_slice($baixo, 0, 10)),
             ],
             'atalhos' => [['rotulo' => 'Níveis de Stock', 'vista' => 'armazem_stock'], ['rotulo' => 'Validar Entradas', 'vista' => 'armazem_rececoes'], ['rotulo' => 'Guias de Saída', 'vista' => 'armazem_guias']],

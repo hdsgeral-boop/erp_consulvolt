@@ -128,4 +128,15 @@ final class CadastrosRHController extends Controller
 
         return RespostaApi::sucesso($this->cadastros->gravarMapeamentos($d['rubricas'] ?? [], $d['sistema'] ?? []), 'Mapeamentos gravados.');
     }
+
+    /** POST /rh/mapeamentos-contabeis/copiar — { empresa_origem_id, simular } («Copiar de outra empresa» do legado). */
+    public function copiarMapeamentos(Request $r): JsonResponse
+    {
+        $this->exigir('contab_mapeamento');
+        $d = $r->validate(['empresa_origem_id' => ['required', 'integer', 'min:1'], 'simular' => ['nullable', 'boolean']], [], ['empresa_origem_id' => 'empresa de origem']);
+        $res = $this->cadastros->copiarMapeamentosDe((int) $d['empresa_origem_id'], $r->user(), (bool) ($d['simular'] ?? false));
+
+        return RespostaApi::sucesso($res, ($res['simulacao'] ? 'Simulação (nada foi gravado): ' : '')
+            ."{$res['rubricas']} mapeamento(s) de rubricas e {$res['sistema']} de impostos copiado(s) de {$res['origem']}.");
+    }
 }

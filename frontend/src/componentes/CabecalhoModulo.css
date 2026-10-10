@@ -1,0 +1,210 @@
+/*
+ * Cabeçalho de módulo agregador (CabecalhoModulo.tsx) — aspecto do sistema anterior (payroll_system_web/css/styles.css):
+ * h2.view-title (2rem, 800, #475569), .view-header (linha #f1f5f9 por baixo), .fullscreen-btn, .compras-toolbar e os
+ * separadores .tab-btn uniformes («BOTÕES DE NAVEGAÇÃO DOS MÓDULOS — ESTILO UNIFORME»).
+ */
+.erp-cab-modulo {
+  margin-bottom: 20px;
+}
+
+.erp-cab-modulo-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.erp-cab-modulo-textos {
+  min-width: 0;
+  flex: 1 1 320px;
+}
+
+.erp-cab-modulo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+
+.erp-cab-modulo-icone {
+  display: inline-flex;
+  flex: none;
+}
+
+.erp-cab-modulo-subtitulo {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+.erp-cab-modulo-direita {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px 24px;
+  max-width: 100%;
+}
+
+.erp-cab-modulo-indicadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.erp-cab-modulo-indicador {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.erp-cab-modulo-indicador strong {
+  color: #334155;
+}
+
+.erp-cab-modulo-indicador-icone {
+  display: inline-flex;
+  font-size: 13px;
+}
+
+/* legado .fullscreen-btn */
+.erp-cab-modulo-ecra-cheio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.erp-cab-modulo-ecra-cheio:hover,
+.erp-cab-modulo-ecra-cheio:focus-visible {
+  border-color: #2563eb;
+  background: #e2e8f0;
+  color: #2563eb;
+}
+
+/* legado .compras-toolbar */
+.erp-cab-modulo-rapidas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #f8fafc;
+}
+
+/* separadores-botão (legado .tabs .tab-btn) */
+.erp-cab-modulo-separadores {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.erp-separador-botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.erp-separador-botao:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.erp-separador-botao:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.erp-separador-botao.activo,
+.erp-separador-botao.activo:hover {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.erp-separador-icone {
+  display: inline-flex;
+  font-size: 0.9em;
+}
+
+.erp-separador-contador {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.erp-separador-botao.activo .erp-separador-contador {
+  background: #ffffff;
+  color: #1d4ed8;
+}
+
+/* telemóvel: separadores em várias linhas, mais compactos; o título não empurra os indicadores para fora */
+@media (max-width: 767.98px) {
+  .erp-cab-modulo-topo {
+    align-items: flex-start;
+  }
+
+  .erp-cab-modulo-direita {
+    justify-content: flex-start;
+  }
+
+  .erp-separador-botao {
+    padding: 6px 10px;
+    font-size: 12.5px;
+    white-space: normal;
+  }
+}
+
+@media print {
+  .erp-cab-modulo {
+    display: none;
+  }
+}

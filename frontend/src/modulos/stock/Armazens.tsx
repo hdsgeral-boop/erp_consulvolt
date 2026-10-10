@@ -1,20 +1,34 @@
-import { Button, Card, Checkbox, Form, Input, Modal, Space, Tag } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
-import { useEffect, useState } from 'react';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { tabelaHtml } from '@/componentes/impressao';
+import { Button, Card, Checkbox, Flex, Form, Input, Modal, Tag } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { obter } from '@/api/cliente';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { ModalContas } from '@/modulos/compras/comum/ModalContas';
 import { useArmazens, type Armazem } from '@/modulos/compras/comum/referencias';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { TabelaComModos, type ColunaLegado } from '@/componentes/vistas';
+import { formatarKz } from '@/utilitarios/formatacao';
 
-import { TabelaComModos } from '@/componentes/vistas';
-/** Armazém › Configuração de armazéns (ecrã armazem_armazens): armazéns da empresa e contas da logística. */
+type LinhaArmazem = Armazem & { valor_stock: string };
+
+/**
+ * Armazém › Config. Armazens (ecrã armazem_armazens), como os «Armazens Registados» do legado (renderArmazensTab,
+ * js/ui_warehouse.js:1378): nome, localização, valor em stock (custo médio) com o «VALOR TOTAL GLOBAL», «Ver Stock»
+ * (níveis filtrados pelo armazém), editar e eliminar; as contas da logística continuam aqui.
+ */
 export default function Armazens() {
   const { pode } = useSessao();
+  const navegar = useNavigate();
   const podeGerir = pode('armazem_config');
   const consulta = useArmazens();
+  const valores = useQuery({
+    queryKey: ['logistica', 'paridade', 'armazens-valor'],
+    queryFn: () => obter<{ total: string; por_armazem: { armazem_id: number; valor: string }[] }>('/logistica/paridade/armazens/valor'),
+    enabled: pode('armazem_armazens_view', 'armazem_stock_view'),
+  });
   const [edicao, setEdicao] = useState<Armazem | 'novo' | null>(null);
   const [contas, setContas] = useState(false);
   const [form] = Form.useForm<{ nome: string; codigo?: string; localizacao?: string; predefinido?: boolean }>();
@@ -26,71 +40,68 @@ export default function Armazens() {
     else if (edicao) form.setFieldsValue({ nome: edicao.nome, codigo: edicao.codigo ?? undefined, localizacao: edicao.localizacao ?? undefined, predefinido: !!edicao.predefinido });
   }, [edicao, form]);
 
+  const linhas = useMemo<LinhaArmazem[]>(() => {
+    const porArmazem = new Map((valores.data?.por_armazem ?? []).map((v) => [v.armazem_id, v.valor]));
+    return (consulta.data ?? []).map((a) => ({ ...a, valor_stock: porArmazem.get(a.id) ?? '0.00' }));
+  }, [consulta.data, valores.data]);
+  // 2.5.5: o legado não tem «Código»; só aparece quando algum armazém o tiver preenchido
+  const temCodigo = linhas.some((a) => a.codigo?.trim());
+
+  const colunas: ColunaLegado<LinhaArmazem>[] = [
+    { title: 'Nome', dataIndex: 'nome', valorImpressao: (a) => `${a.nome}${a.predefinido ? ' (predefinido)' : ''}`, render: (v: string, r) => <><strong>{v}</strong>{r.predefinido && <Tag color="blue" style={{ marginLeft: 8 }}>Predefinido</Tag>}</> },
+    ...(temCodigo ? [{ title: 'Código', dataIndex: 'codigo', render: (v: string | null) => v || '—' } as ColunaLegado<LinhaArmazem>] : []),
+    { title: 'Localização', dataIndex: 'localizacao', render: (v: string | null) => <small style={{ color: '#64748b' }}>{v || '-'}</small>, valorImpressao: (a) => a.localizacao || '-' },
+    {
+      title: 'Valor em Stock',
+      dataIndex: 'valor_stock',
+      align: 'right',
+      total: true,
+      formatoTotal: (v) => <span style={{ color: 'var(--ant-color-primary, #2563eb)', fontSize: '1.05rem' }}>{formatarKz(v)}</span>,
+      render: (v: string) => <strong style={{ color: 'var(--ant-color-primary, #2563eb)' }}>{formatarKz(v)}</strong>,
+    },
+  ];
+
   return (
     <>
-      <CabecalhoPagina
-        titulo="Armazéns"
-        subtitulo="Locais de stock da empresa; o predefinido recebe as entradas sem armazém indicado"
-        impressaoDesactivada={!consulta.data?.length}
-        impressao={() => ({
-          titulo: 'Armazéns',
-          conteudo: tabelaHtml({
-            colunas: [
-              { titulo: 'Nome', valor: (a: Armazem) => `${a.nome}${a.predefinido ? ' (predefinido)' : ''}` },
-              { titulo: 'Código', valor: (a) => a.codigo ?? '' },
-              { titulo: 'Localização', valor: (a) => a.localizacao ?? '', quebrar: true },
-            ],
-            linhas: consulta.data ?? [],
-          }),
-        })}
-        accoes={
-          <>
-            {pode('armazem_config', 'armazem_stock_view') && <Button icon={<SettingOutlined />} onClick={() => setContas(true)}>Contas da logística</Button>}
-            {podeGerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo armazém</Button>}
-          </>
+      <Card
+        title="Armazens Registados"
+        extra={
+          <Flex gap={8} wrap>
+            {pode('armazem_config', 'armazem_stock_view') && <Button size="small" icon={<IconeFa nome="cog" />} onClick={() => setContas(true)}>Contas da logística</Button>}
+            {podeGerir && <Button size="small" type="primary" icon={<IconeFa nome="plus" />} onClick={() => setEdicao('novo')}>Novo Armazém</Button>}
+          </Flex>
         }
-      />
-      <Card>
-        <TabelaComModos<Armazem> scroll={scrollTabela()}
+      >
+        <TabelaComModos<LinhaArmazem>
+          scroll={scrollTabela()}
           rowKey="id"
-          loading={consulta.isFetching}
-          dataSource={consulta.data ?? []}
+          loading={consulta.isFetching || valores.isFetching}
+          dataSource={linhas}
           pagination={false}
-          columns={[
-            { title: 'Nome', dataIndex: 'nome', render: (v: string, r) => <><strong>{v}</strong>{r.predefinido && <Tag color="blue" style={{ marginLeft: 8 }}>Predefinido</Tag>}</> },
-            { title: 'Código', dataIndex: 'codigo', render: (v) => v || '—' },
-            { title: 'Localização', dataIndex: 'localizacao', render: (v) => v || '—' },
+          columns={colunas}
+          rotuloTotal={linhas.length ? 'VALOR TOTAL GLOBAL (TODOS Armazens):' : false}
+          vazio={{ icone: 'warehouse', titulo: 'Nenhum Armazém registado.' }}
+          // legado (renderArmazensTab): tabela simples, sem a barra DataTables nem filtros por coluna
+          contador={false}
+          menuColunas={false}
+          filtrosColuna={false}
+          filtroPersonalizado={false}
+          accoes={(r) => [
+            { icone: 'boxes', titulo: 'Ver Stock Detalhado', texto: 'Ver Stock', oculto: !pode('armazem_stock_view'), onClick: () => navegar(`/m/stock/armazem_stock?armazem=${r.id}`) },
+            { icone: 'edit', titulo: 'Editar Armazém', oculto: !podeGerir, onClick: () => setEdicao(r) },
             {
-              title: '',
-              key: 'accoes',
-              align: 'right',
-              render: (_, r) =>
-                podeGerir && (
-                  <Space wrap>
-                    <Button size="small" icon={<EditOutlined />} onClick={() => setEdicao(r)} aria-label="Editar" />
-                    <Button
-                      size="small"
-                      danger
-                      icon={<DeleteOutlined />}
-                      aria-label="Eliminar"
-                      onClick={() =>
-                        Modal.confirm({
-                          title: `Eliminar o armazém ${r.nome}?`,
-                          content: 'É recusado se o armazém tiver stock ou movimentos.',
-                          okText: 'Eliminar',
-                          okButtonProps: { danger: true },
-                          cancelText: 'Cancelar',
-                          onOk: () => eliminar.mutateAsync({ metodo: 'delete', url: `/logistica/armazens/${r.id}` }),
-                        })
-                      }
-                    />
-                  </Space>
-                ),
+              icone: 'trash',
+              titulo: 'Apagar Armazém',
+              variante: 'perigo',
+              cheio: true,
+              oculto: !podeGerir,
+              confirmar: { titulo: `Eliminar o armazém ${r.nome}?`, texto: 'É recusado se o armazém tiver stock ou movimentos.', textoOk: 'Eliminar', perigo: true },
+              onClick: () => eliminar.mutateAsync({ metodo: 'delete', url: `/logistica/armazens/${r.id}` }),
             },
           ]}
         />
       </Card>
-      <Modal width={larguraModal(520)} title={edicao === 'novo' ? 'Novo armazém' : 'Editar armazém'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
+      <Modal width={larguraModal(520)} title={edicao === 'novo' ? 'Registar Armazém' : 'Editar Armazém'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"

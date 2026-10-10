@@ -17,7 +17,11 @@ use Illuminate\Support\Facades\DB;
  *     (ServicoFolhaSalarial::contaSistema; a das rubricas reproduz a regra privada contaRubrica);
  *   - liquidação por componente (salários líquidos, INSS, IRT, adiantamentos): devido = |Σ D−C| das linhas do período nas
  *     contas do componente; liquidado = compensado (reconciliacao_codigo) + pago na Tesouraria com o período salarial;
- *   - períodos em falta = meses sem processamento entre o primeiro e o último (todos os períodos).
+ *   - períodos em falta = meses sem processamento entre o primeiro e o último (todos os períodos);
+ *   - pendências (verificação visual 1.3.2): os avisos da empresa e não do período («n sem IBAN» nos dados base, «contas de
+ *     sistema por mapear» na liquidação) continuam no detalhe da etapa, como no legado, mas levam `ambito = empresa` e não
+ *     contam nas pendências do período (marca ▲ da lista e «com pendências» do funil). O legado não somava pendências no
+ *     fluxo RH (só o detalhe de cada etapa); sem esta regra todos os períodos apareciam com «▲1».
  * As linhas do período no Diário são as do diário SAL com o período (migradas) ou com o documento SAL<MM><AAAA>/o número de
  * lançamento da contabilização (ADR-036), sem os pares estornados.
  */
@@ -116,7 +120,7 @@ final class FluxoSalarios extends AvaliadorFluxo
             ? self::etapa('fazer', 'Sem colaboradores', [self::f('Colaboradores', 0, 'num')], [self::erro('Registe os colaboradores e os contratos antes de lançar o período.')], [self::accao('Abrir Colaboradores', 'colaboradores', true)])
             : self::feito("{$nColab} colaboradores", [self::f('Colaboradores', $nColab, 'num'), self::f('Com IBAN registado', $nColab - $semIban->count(), 'num')],
                 array_merge($semIban->isNotEmpty() ? [self::accao('Registar IBAN', 'bancario', true)] : [], [self::accao('Abrir Colaboradores', 'colaboradores')]),
-                $semIban->isNotEmpty() ? [self::aviso($semIban->count().' sem IBAN: '.$nomes($semIban).'. Não impede o cálculo, mas o pagamento por banco fica incompleto.')] : []);
+                $semIban->isNotEmpty() ? [self::daEmpresa(self::aviso($semIban->count().' sem IBAN: '.$nomes($semIban).'. Não impede o cálculo, mas o pagamento por banco fica incompleto.'))] : []);
         $comLanc = $entradas->pluck('colaborador_id')->unique()->flip();
         $semLanc = $ctx['colab']->reject(fn ($c) => isset($comLanc[$c->id]));
         $nLanc = $entradas->count();
@@ -174,7 +178,7 @@ final class FluxoSalarios extends AvaliadorFluxo
         if ($refs) {
             $factosPag[] = self::f('Pagamento(s) na Tesouraria', $refs);
         }
-        $avisoContas = $semContas ? [self::aviso('Contas de sistema por mapear: '.implode(', ', $semContas).'. Sem elas não é possível acompanhar a liquidação dessas obrigações.')] : [];
+        $avisoContas = $semContas ? [self::daEmpresa(self::aviso('Contas de sistema por mapear: '.implode(', ', $semContas).'. Sem elas não é possível acompanhar a liquidação dessas obrigações.'))] : [];
         $porPagar = array_reduce($pend, fn ($s, $c) => bcadd($s, bcsub($c['devido'], $c['liquidado'], 2), 2), '0.00');
         if (! $integrado) {
             $E['pag'] = self::etapa('fazer', 'Depois de integrar', [], $docs->isNotEmpty() ? [self::aviso('Há '.$docs->count()." pagamento(s) associado(s) a este período antes da integração ({$refs}).")] : []);

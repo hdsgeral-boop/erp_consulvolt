@@ -2,7 +2,7 @@ import { Select, Tag, Typography, type SelectProps } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
 import { formatarKz } from '@/utilitarios/formatacao';
-import type { Orcamento, Rubrica, TipoOrcamento } from './tipos';
+import type { ListaParidade, Orcamento, OrcamentoLista, Rubrica, TipoOrcamento } from './tipos';
 
 /** Componentes e consultas partilhados do Orçamento. Chaves de cache: ['orcamento', ...]. */
 
@@ -60,6 +60,27 @@ export function useRubricas(tipo?: TipoOrcamento) {
 export function useOrcamentos(filtros: { ano?: number; tipo?: TipoOrcamento } = {}) {
   // a lista é paginada no servidor (ADR-064): os seletores e a lista pedem a página máxima (500)
   return useQuery({ queryKey: ['orcamento', 'orcamentos', filtros], queryFn: () => obter<Orcamento[]>('/orcamento/orcamentos', { ...filtros, por_pagina: 500 }) });
+}
+
+/** Lista de paridade (ordem, dimensões, total das rubricas, última acção e orçamento por omissão do sistema anterior). */
+export function useOrcamentosLegado(filtros: { ano?: number; tipo?: TipoOrcamento } = {}) {
+  return useQuery({ queryKey: ['orcamento', 'paridade', 'orcamentos', filtros], queryFn: () => obter<ListaParidade>('/orcamento/paridade/orcamentos', filtros) });
+}
+
+/** Seletor «Orçamento» com os rótulos do legado («2026 · Exploração · Toda a empresa · v1 (Rascunho)»). */
+export function SeletorOrcamentoLegado({ filtrar, ...props }: Omit<SelectProps<number>, 'options' | 'loading'> & { filtrar?: (o: OrcamentoLista) => boolean }) {
+  const q = useOrcamentosLegado();
+  return (
+    <Select<number>
+      showSearch
+      optionFilterProp="label"
+      loading={q.isLoading}
+      placeholder="Orçamento"
+      popupMatchSelectWidth={false}
+      options={(q.data?.orcamentos ?? []).filter((o) => !filtrar || filtrar(o)).map((o) => ({ value: o.id, label: o.rotulo }))}
+      {...props}
+    />
+  );
 }
 
 export function rotuloOrcamento(o: Pick<Orcamento, 'ano' | 'nome' | 'versao' | 'tipo' | 'estado'>): string {

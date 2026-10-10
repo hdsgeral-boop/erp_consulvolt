@@ -117,8 +117,16 @@ final class ServicoDocumentosVenda
                 ?? throw new ErroNegocio('Indique a conta de disponibilidade (caixa/banco) da factura-recibo.', 'CONTA_DISPONIBILIDADE_EM_FALTA', 422));
         }
         $condicoes = $this->condicoesPagamento($tipo, $d, $data);
+        // paridade 4.2.12: contas dos meios de pagamento a mostrar no documento (cópia dos dados da Tesouraria) e a opção
+        // «Ocultar quadro de Meios de Pagamento na impressão»
+        $paridade = app(ServicoParidadeVendas::class);
+        $contasPagamento = ! empty($d['contas_pagamento']) ? $paridade->contasPagamento($d['contas_pagamento']) : null;
 
-        return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt, $pos, $arredondamentoPos, $precosAlterados) {
+        return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt, $pos, $arredondamentoPos, $precosAlterados, $paridade, $contasPagamento) {
+            // paridade 4.2.9/4.2.10: guias de saída do armazém facturadas neste documento (o stock já saiu na guia) e a opção
+            // «Baixar Stock Autom.» — desligada, a FT/FR não movimenta o stock
+            $guiasSaida = $paridade->bloquearGuiasParaFacturar($d['guias_saida'] ?? [], (int) $cliente->id, $tipo);
+            $semStock = in_array($tipo, ['FT', 'FR'], true) && ($guiasSaida || (isset($d['baixar_stock']) && ! filter_var($d['baixar_stock'], FILTER_VALIDATE_BOOLEAN)));
             // dentro da transacção e com a factura de origem bloqueada: duas NC em simultâneo não excedem o saldo
             $origemNc = $tipo === 'NC' ? $this->validarNotaCredito($d, $cliente, $calculo['total_bruto']) : null;
             if ($origemNc) {
@@ -149,6 +157,7 @@ final class ServicoDocumentosVenda
                 'meio_pagamento' => $tipo === 'FR' ? ($d['meio_pagamento'] ?? 'NUMERARIO') : null,
                 'observacoes' => $d['observacoes'] ?? null, 'condicoes_pagamento' => $d['condicoes_pagamento'] ?? null,
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
+                'contas_pagamento' => $contasPagamento, 'ocultar_meios_pagamento' => ! empty($d['ocultar_meios_pagamento']),
             ], $condicoes, $pos['colunas'] ?? []));
             if ($arredondamentoPos) {   // decisão 10: desconto comercial e arredondamento AGT em campos separados
                 $venda->forceFill($arredondamentoPos)->save();
@@ -165,7 +174,8 @@ final class ServicoDocumentosVenda
                 // linha de origem (conversão) ou, na NC directa, a linha da factura com o mesmo produto
                 $idOrigem = $d['linhas'][$i]['item_origem_id'] ?? null;
                 $itemOrigem = $idOrigem ? ItemVenda::query()->find($idOrigem) : $itensNc->firstWhere('produto_id', $l['produto_id']);
-                $stock = $this->stockVendas->movimentarLinha($venda, $l, $itemOrigem, $origemConversao ?? $origemNc, $armazem);
+                $stock = $semStock ? ['custo_unitario_kz' => null, 'quantidade_stock' => null]
+                    : $this->stockVendas->movimentarLinha($venda, $l, $itemOrigem, $origemConversao ?? $origemNc, $armazem);
                 $itens->push(ItemVenda::create($stock + [
                     'venda_id' => $venda->id, 'produto_id' => $l['produto_id'], 'descricao' => $l['descricao'], 'quantidade' => $l['quantidade'],
                     'preco_unitario' => CalculadoraDocumento::arredondar($linhasKz[$i]['preco_unitario']), 'taxa_imposto' => $l['taxa_imposto'],
@@ -176,6 +186,7 @@ final class ServicoDocumentosVenda
                 ]));
             }
 
+            $paridade->marcarGuiasFacturadas($guiasSaida, $venda);
             $relacionada = $origemNc ?? $origemConversao;
             if ($relacionada) {
                 DB::table('vendas_documentos_relacionados')->insert(['venda_id' => $venda->id, 'venda_relacionada_id' => $relacionada->id, 'empresa_id' => $empresa]);

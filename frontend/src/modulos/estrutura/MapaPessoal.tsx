@@ -1,26 +1,128 @@
-import { Card, Checkbox, Col, Flex, Row, Skeleton, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Card, Checkbox, Col, Flex, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
+import { BotaoImprimir, BotoesExportar } from '@/componentes/impressao';
 import { scrollTabela } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { useCargos } from '@/modulos/rh/comum/consultas';
+import { useCargos, useColaboradores } from '@/modulos/rh/comum/consultas';
 import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import { CartaoKpi } from '@/modulos/geral/comum/componentes';
-import { construirArvore, mapaPessoal, type LinhaMapa } from './comum/arvore';
+import { aplanar, construirArvore, mapaPessoal, type LinhaMapa } from './comum/arvore';
+import { documentoMapaLegado, linhasMapaLegado, totaisMapaLegado, type ColaboradorEstrutura } from './comum/legado';
 import { documentoMapaPessoal, linhasPorUnidade, taxaOcupacao, type CargoMapa, type ContagemMapa, type LinhaUnidadeMapa, type MapaPessoalApi } from './comum/mapa';
-import { useEstrutura } from './Estrutura';
+import { useEstrutura, useSalariosEstrutura } from './Estrutura';
+import './comum/estrutura.css';
 
 const contagem = (n: number, cor: string) => (n ? <Tag color={cor}>{n}</Tag> : 0);
 
+type VistaMapa = 'legado' | 'agregadas';
+
 /**
- * Estrutura orgânica › Mapa de pessoal (est_mapa): lugares previstos, ocupados, em aberto e acima do previsto por
- * unidade orgânica, por cargo e por posto (GET /rh/estrutura/mapa, ADR-064). A massa salarial (ilíquido do último
- * processamento fechado) só vem do servidor a quem tem est_ver_salarios.
+ * Estrutura orgânica › Mapa de pessoal (est_mapa). Vista por omissão = a do sistema anterior (estrutura_ui.js
+ * renderEstMapa): uma só tabela UNIDADE · CARGO · VAGAS · OCUPADOS · EM ABERTO · ACIMA · PESSOAS · MASSA SALARIAL.
+ * Alternativa: as vistas agregadas por unidade orgânica, por cargo e por posto (GET /rh/estrutura/mapa, ADR-064).
+ * A massa salarial (ilíquido do último processamento fechado) só aparece com est_ver_salarios.
  */
 export default function MapaPessoal() {
+  const [vista, setVista] = useState<VistaMapa>('legado');
+  const salarios = useSalariosEstrutura();
+  const estrutura = useEstrutura();
+  const colaboradores = useColaboradores();
+  const cargos = useCargos();
+  const [filtro, setFiltro] = useState<'' | 'aberto' | 'exc'>('');
+  const arvore = useMemo(() => construirArvore(estrutura.data?.unidades ?? []), [estrutura.data]);
+  const lista = colaboradores.lista as ColaboradorEstrutura[];
+  const linhas = useMemo(() => linhasMapaLegado(arvore, lista, cargos.nome, salarios.mapa), [arvore, lista, cargos.nome, salarios.mapa]);
+  const visiveis = linhas.filter((l) => !filtro || (filtro === 'aberto' ? l.emAberto > 0 : l.acima > 0));
+  const tot = totaisMapaLegado(linhas);
+  const ids = new Set(aplanar(arvore).map((n) => n.unidade.id));
+  const activos = lista.filter((c) => c.estado === 'ACTIVO');
+  const semUnidade = activos.filter((c) => !c.unidade_organica_id || !ids.has(c.unidade_organica_id));
+  const massaTotal = salarios.mapa ? [...salarios.mapa.values()].reduce((s, v) => s + Math.round(v * 100), 0) / 100 : null;
+  const ind = { activos: activos.length, semUnidade: semUnidade.length, massaTotal };
+  const pedido = (paraExcel: boolean) => ({
+    titulo: 'Mapa de pessoal',
+    filtros: filtro === 'aberto' ? 'Só cargos com vagas em aberto' : filtro === 'exc' ? 'Só cargos acima das vagas' : 'Tudo',
+    orientacao: 'paisagem' as const,
+    conteudo: documentoMapaLegado(visiveis, ind, salarios.ver, paraExcel),
+  });
+
+  return (
+    <>
+      <CabecalhoModulo
+        titulo="Mapa de pessoal"
+        subtitulo={`Por unidade e cargo: vagas previstas, ocupadas, em aberto e acima do previsto, com as pessoas afectas${salarios.ver ? ' e a massa salarial mensal (último processamento fechado)' : ''}.`}
+        accoes={vista === 'legado' ? (
+          <div className="est-accoes">
+            <BotaoImprimir modo="excel" chave="estrutura/mapa_pessoal" desactivado={!linhas.length} obterPedido={() => pedido(true)} />
+            <BotaoImprimir chave="estrutura/mapa_pessoal" desactivado={!linhas.length} obterPedido={() => pedido(false)} />
+          </div>
+        ) : undefined}
+      />
+      <div className="org-barra">
+        <div className="org-grupo">
+          <label className="org-rot" htmlFor="est-m-vista">Vista</label>
+          <Select id="est-m-vista" style={{ minWidth: 230 }} value={vista} onChange={setVista}
+            options={[{ value: 'legado', label: 'Unidade e cargo (uma tabela)' }, { value: 'agregadas', label: 'Por unidade, cargo e posto' }]} />
+        </div>
+        {vista === 'legado' && (
+          <div className="org-grupo">
+            <label className="org-rot" htmlFor="est-m-filtro">Mostrar</label>
+            <Select id="est-m-filtro" style={{ minWidth: 260 }} value={filtro} onChange={setFiltro}
+              options={[{ value: '', label: 'Tudo' }, { value: 'aberto', label: 'Só cargos com vagas em aberto' }, { value: 'exc', label: 'Só cargos acima das vagas' }]} />
+          </div>
+        )}
+      </div>
+      {vista === 'agregadas' ? <VistasAgregadas /> : estrutura.isLoading || colaboradores.isLoading ? <Skeleton active /> : (
+        <>
+          <div className="est-kpis">
+            <div className="est-kpi"><span>Colaboradores activos</span><strong>{activos.length}</strong></div>
+            <div className="est-kpi"><span>Vagas previstas</span><strong>{tot.vagas}</strong></div>
+            <div className="est-kpi"><span>Vagas ocupadas</span><strong>{tot.vagasOcupadas}</strong></div>
+            <div className="est-kpi"><span>Vagas em aberto</span><strong style={{ color: tot.emAberto ? '#b45309' : undefined }}>{tot.emAberto}</strong></div>
+            <div className="est-kpi"><span>Acima das vagas</span><strong style={{ color: tot.acima ? '#b91c1c' : undefined }}>{tot.acima}</strong></div>
+            <div className="est-kpi"><span>Sem unidade</span><strong style={{ color: semUnidade.length ? '#b45309' : undefined }}>{semUnidade.length}</strong></div>
+            {salarios.ver && <div className="est-kpi"><span>Massa salarial mensal</span><strong>{formatarKz((massaTotal ?? 0).toFixed(2))}</strong></div>}
+          </div>
+          {!linhas.length ? <div className="est-info">Defina a estrutura e os cargos para obter o mapa de pessoal.</div> : (
+            <div className="est-painel" style={{ padding: 0, overflowX: 'auto' }}>
+              <table className="est-tabela">
+                <thead>
+                  <tr><th>Unidade</th><th>Cargo</th><th className="n">Vagas</th><th className="n">Ocupados</th><th className="n">Em aberto</th><th className="n">Acima</th><th>Pessoas</th>{salarios.ver && <th className="n">Massa salarial</th>}</tr>
+                </thead>
+                <tbody>
+                  {visiveis.map((l) => (
+                    <tr key={l.chave}>
+                      <td style={{ paddingLeft: `${0.45 + l.nivel * 0.9}rem` }}>{l.unidade}</td>
+                      <td>{l.cargo}{l.chefia && <> <span className="est-tag info">chefia</span></>}</td>
+                      <td className="n">{l.vagas || '—'}</td>
+                      <td className="n">{l.ocupados}</td>
+                      <td className="n">{l.emAberto ? <span className="est-tag aberto">{l.emAberto}</span> : '—'}</td>
+                      <td className="n">{l.acima ? <span className="est-tag exc">{l.acima}</span> : '—'}</td>
+                      <td style={{ fontSize: '0.78rem' }}>{l.pessoas.join(', ')}</td>
+                      {salarios.ver && <td className="n">{formatarKz(l.massa.toFixed(2))}</td>}
+                    </tr>
+                  ))}
+                  <tr className="total">
+                    <td colSpan={2}>Total</td><td className="n">{tot.vagas}</td><td className="n">{tot.ocupados}</td><td className="n">{tot.emAberto}</td><td className="n">{tot.acima}</td><td />
+                    {salarios.ver && <td className="n">{formatarKz(tot.massa.toFixed(2))}</td>}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+          {semUnidade.length > 0 && <div className="est-aviso" style={{ marginTop: '0.6rem' }}><b>Sem unidade:</b> {semUnidade.map((c) => c.nome_completo).join(', ')}</div>}
+        </>
+      )}
+    </>
+  );
+}
+
+/** Vistas agregadas (sistema novo): por unidade orgânica, por cargo e por posto de trabalho. */
+function VistasAgregadas() {
   const mapa = useQuery({ queryKey: ['rh', 'estrutura', 'mapa'], queryFn: () => obter<MapaPessoalApi>('/rh/estrutura/mapa') });
   const estrutura = useEstrutura();
   const cargos = useCargos();
@@ -63,15 +165,15 @@ export default function MapaPessoal() {
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Mapa de pessoal"
-        subtitulo="Lugares previstos e ocupados por unidade orgânica, cargo e posto de trabalho"
-        impressao={() => ({
-          titulo: 'Mapa de pessoal',
-          filtros: [soAlertas ? 'Só com lugares em aberto ou acima do previsto' : 'Todos os lugares', ramo ? 'Unidades com as subunidades' : 'Unidades sem as subunidades'],
-          conteudo: documentoMapaPessoal(d, linhasUnidade, linhasCargo, linhasPosto, { ramo, verSalarios }),
-        })}
-      />
+      <Flex justify="end" style={{ marginBottom: 12 }}>
+        <BotoesExportar
+          obterPedido={() => ({
+            titulo: 'Mapa de pessoal',
+            filtros: [soAlertas ? 'Só com lugares em aberto ou acima do previsto' : 'Todos os lugares', ramo ? 'Unidades com as subunidades' : 'Unidades sem as subunidades'],
+            conteudo: documentoMapaPessoal(d, linhasUnidade, linhasCargo, linhasPosto, { ramo, verSalarios }),
+          })}
+        />
+      </Flex>
       <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
         <Col xs={12} md={kpiCol}><CartaoKpi rotulo="Lugares previstos" valor={t.previstos} formato="num" subtitulo={`${t.postos} posto(s)`} /></Col>
         <Col xs={12} md={kpiCol}><CartaoKpi rotulo="Ocupados" valor={t.ocupados} formato="num" subtitulo={taxa !== null ? `${taxa}% de ocupação` : null} /></Col>

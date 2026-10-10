@@ -5,7 +5,7 @@ import { ArrowLeftOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, Impo
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { descarregar, obter } from '@/api/cliente';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
@@ -13,7 +13,10 @@ import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { notificarErro } from '@/utilitarios/erros';
 import { ImportarExcel } from './comum/ImportarExcel';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { pares, tabelaHtml } from '@/componentes/impressao';
+import { pares, tabelaHtml, useImpressao } from '@/componentes/impressao';
+import { calcularIdade, fichaIndividualHtml } from './colaboradores/fichaIndividual';
+import { IconeFa } from '@/componentes/fluxos';
+import type { Estrutura } from '@/modulos/estrutura/comum/arvore';
 import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -38,11 +41,34 @@ export default function Colaboradores() {
   );
 }
 
+/** Regime do colaborador como na lista do antigo: Avençado · Aposentado · Normal. */
+function tipoColaborador(c: Pick<Colaborador, 'avencado' | 'reformado'>): string {
+  return c.avencado ? 'Avençado' : c.reformado ? 'Aposentado' : 'Normal';
+}
+
+const CORES_TIPO: Record<string, [string, string]> = {
+  'Avençado': ['#dbeafe', '#1d4ed8'],
+  'Aposentado': ['#fef3c7', '#92400e'],
+  'Normal': ['#f1f5f9', '#64748b'],
+};
+
+/** Pílula `.nif-badge` do antigo (fundo claro, texto da cor primária). */
+function Pilula({ children, fundo = '#e0e7ff', cor = '#2563eb' }: { children: ReactNode; fundo?: string; cor?: string }) {
+  return <span className="rh-pilula" style={{ background: fundo, color: cor, padding: '2px 8px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap' }}>{children}</span>;
+}
+
+function PilulaTipo({ c }: { c: Pick<Colaborador, 'avencado' | 'reformado'> }) {
+  const t = tipoColaborador(c);
+  const [fundo, cor] = CORES_TIPO[t];
+  return <Pilula fundo={fundo} cor={cor}>{t}</Pilula>;
+}
+
 function ListaColaboradores() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const tipos = useTiposOrganizacao();
   const cargos = useCargos();
+  const colaboradores = useColaboradores();
   const [estado, setEstado] = useState<string | undefined>('ACTIVO');
   const [tipo, setTipo] = useState<number>();
   const [pesquisa, setPesquisa] = useState('');
@@ -53,6 +79,20 @@ function ListaColaboradores() {
   const codigoUn = (v: number | null) => (v ? uns.data?.find((x) => x.id === v)?.codigo ?? `#${v}` : '—');
   const codigoCc = (v: number | null) => (v ? ccs.data?.find((x) => x.id === v)?.codigo ?? `#${v}` : '—');
 
+  const { imprimir } = useImpressao();
+  const eliminar = useAccaoRh();
+  const imprimirFicha = async (r: Colaborador) => {
+    const [c, contratos] = await Promise.all([
+      obter<FichaColaborador>(`/rh/colaboradores/${r.id}`),
+      obter<ContratoTrabalho[]>('/rh/contratos', { colaborador_id: r.id }).catch(() => [] as ContratoTrabalho[]),
+    ]);
+    await imprimir({
+      titulo: 'Ficha Individual do Colaborador',
+      subtitulo: c.nome_completo,
+      conteudo: fichaIndividualHtml(c, contratos, { funcao: cargos.nome(c.cargo_funcao_id), orgao: tipos.nome(c.tipo_organizacao_id), gestor: colaboradores.nome(c.colaborador_gestor_id) }),
+    });
+  };
+
   // colunas da lista do legado (renderColaboradores): nome, NIF, UN, CC, n.º INSS, função, tipo de órgão, estado, tipo, dias contratados
   const colunas: ColunaApi<Colaborador>[] = [
     { title: 'Nome completo', dataIndex: 'nome_completo', fixed: 'left', render: (v: string) => <strong>{v}</strong> },
@@ -60,13 +100,16 @@ function ListaColaboradores() {
     { title: 'UN', dataIndex: 'unidade_negocio_id', responsive: ['lg'], render: (v: number | null) => codigoUn(v) },
     { title: 'CC', dataIndex: 'centro_custo_id', responsive: ['lg'], render: (v: number | null) => codigoCc(v) },
     { title: 'N.º INSS', dataIndex: 'numero_inss', responsive: ['md'], render: (v: string | null) => v ?? '—' },
-    { title: 'Função', dataIndex: 'cargo_funcao_id', render: (v: number | null) => cargos.nome(v) },
-    { title: 'Tipo de órgão', dataIndex: 'tipo_organizacao_id', responsive: ['lg'], render: (v: number | null) => tipos.nome(v) },
-    { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <EstadoTag estado={e} /> },
-    { title: 'Tipo', responsive: ['md'], render: (_, r) => (r.avencado ? <Tag color="purple">Avençado</Tag> : r.reformado ? <Tag>Reformado</Tag> : 'Normal'), valorImpressao: (r) => (r.avencado ? 'Avençado' : r.reformado ? 'Reformado' : 'Normal') },
-    { title: 'Dias contratados', dataIndex: 'dias_uteis_mes', align: 'right', responsive: ['md'], render: (v: number | null) => v ?? '—' },
-    { title: 'Admissão', dataIndex: 'data_admissao', responsive: ['xl'], render: formatarData },
+    { title: 'Função', dataIndex: 'cargo_funcao_id', render: (v: number | null) => (v ? cargos.nome(v) : 'N/A') },
+    { title: 'Tipo de órgão', dataIndex: 'tipo_organizacao_id', responsive: ['lg'], render: (v: number | null) => <Pilula>{v ? tipos.nome(v) : 'N/A'}</Pilula>, valorImpressao: (r) => (r.tipo_organizacao_id ? tipos.nome(r.tipo_organizacao_id) : 'N/A') },
+    { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => <span style={{ fontSize: '0.75rem', color: e === 'ACTIVO' ? '#334155' : '#b91c1c' }}>{e ?? '—'}</span> }, // texto simples, como o legado
+    { title: 'Tipo', align: 'center', responsive: ['md'], render: (_, r) => <PilulaTipo c={r} />, valorImpressao: (r) => tipoColaborador(r) },
+    { title: 'Dias contratados', dataIndex: 'dias_uteis_mes', align: 'center', responsive: ['md'], render: (v: number | null) => v ?? 22 },
+    { title: 'Admissão', dataIndex: 'data_admissao', responsive: ['xl'], ocultaPorOmissao: true, render: formatarData },
   ];
+
+  const podeEditar = pode('colaboradores_detail');
+  const podeEliminar = pode('rh_colab_del');
 
   return (
     <>
@@ -81,7 +124,7 @@ function ListaColaboradores() {
                 <Button icon={<ImportOutlined />} onClick={() => setImportar(true)}>Importar Excel</Button>
               </>
             )}
-            {pode('colaboradores_detail') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Novo colaborador</Button>}
+            {pode('colaboradores_detail') && <Button type="primary" icon={<PlusOutlined />} onClick={() => navegar('novo')}>Novo Colaborador</Button>}
           </>
         }
       />
@@ -105,6 +148,15 @@ function ListaColaboradores() {
             titulo: 'Lista de colaboradores',
             filtros: [estado && `Estado: ${ESTADOS_COLABORADOR.find((e) => e.value === estado)?.label ?? estado}`, tipo !== undefined && `Tipo de organização: ${tipos.nome(tipo)}`, pesquisa && `Pesquisa: ${pesquisa}`],
           }}
+          accoes={(r) => [
+            { icone: 'id-card', titulo: 'Imprimir ficha individual', onClick: () => imprimirFicha(r).catch((e) => notificarErro(e, 'Não foi possível gerar a ficha')) },
+            podeEditar && { icone: 'edit', titulo: 'Editar', onClick: () => navegar(`${r.id}/editar`) },
+            podeEliminar && {
+              icone: 'trash', titulo: 'Excluir', variante: 'perigo',
+              confirmar: { titulo: `Excluir ${r.nome_completo}?`, texto: 'Só é possível sem utilizações (contratos, processamentos…). Para quem saiu da empresa use o estado Inactivo.', textoOk: 'Excluir', perigo: true },
+              onClick: () => eliminar.mutateAsync({ metodo: 'delete', url: `/rh/colaboradores/${r.id}` }),
+            },
+          ]}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
@@ -318,6 +370,14 @@ function FormularioColaborador() {
     form.setFieldsValue(valores);
   }, [id, ficha.data, form]);
 
+  const estrutura = useQuery({ queryKey: ['rh', 'estrutura'], queryFn: () => obter<Estrutura>('/rh/estrutura'), staleTime: 5 * 60_000, retry: false });
+  const unidades = estrutura.data?.unidades ?? [];
+  const unidadeEscolhida = Form.useWatch('unidade_organica_id', form) as number | null | undefined;
+  const nascimento = Form.useWatch('data_nascimento', form) as Dayjs | null | undefined;
+  const nDependentes = (Form.useWatch('dependentes', form) as unknown[] | undefined)?.length ?? 0;
+  const nHabilitacoes = (Form.useWatch('habilitacoes', form) as unknown[] | undefined)?.length ?? 0;
+  const idade = nascimento ? calcularIdade(nascimento.format('YYYY-MM-DD')) : null;
+
   if (id && ficha.isLoading) return <Skeleton active />;
 
   const enviarFormulario = (v: ValoresFormulario) => {
@@ -331,111 +391,176 @@ function FormularioColaborador() {
     gravar.mutate(id ? { metodo: 'put', url: `/rh/colaboradores/${id}`, dados } : { metodo: 'post', url: '/rh/colaboradores', dados });
   };
 
-  return (
-    <>
-      <CabecalhoPagina
-        titulo={id ? `Editar — ${ficha.data?.nome_completo ?? ''}` : 'Novo colaborador'}
-        accoes={
-          <>
-            <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..', { relative: 'path' })}>Cancelar</Button>
-            <Button type="primary" loading={gravar.isPending} onClick={() => form.submit()}>Gravar</Button>
-          </>
-        }
-      />
-      <Form form={form} layout="vertical" onFinish={enviarFormulario} initialValues={{ estado: 'ACTIVO', dias_uteis_mes: 22, reformado: false, avencado: false, dependentes: [], habilitacoes: [] }}>
-        <Card title="Dados profissionais" style={{ marginBottom: 16 }}>
+  // Separadores internos da ficha do antigo (js/modules/rh/ficha_colaborador.js htmlSeccoes). forceRender: todos os
+  // campos ficam registados no formulário, mesmo nos separadores que não foram abertos (senão o PUT perdia-os).
+  const separadores = [
+    {
+      key: 'pessoais',
+      forceRender: true,
+      label: <span><IconeFa nome="id-card" /> Dados pessoais</span>,
+      children: (
+        <Row gutter={16}>
+          <Col xs={24} md={8}><Form.Item name="sexo" label="Sexo"><Select allowClear placeholder="Seleccionar..." options={[{ value: 'M', label: 'Masculino' }, { value: 'F', label: 'Feminino' }]} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="data_nascimento" label="Data de nascimento" extra={idade !== null ? `${idade} anos` : undefined}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabledDate={(d) => d.isAfter(dayjs())} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="estado_civil" label="Estado civil"><Select allowClear options={ESTADOS_CIVIS} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="nacionalidade" label="Nacionalidade"><Input maxLength={20} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="naturalidade" label="Naturalidade (local de nascimento)"><Input maxLength={20} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="provincia_naturalidade" label="Província de naturalidade"><Input maxLength={20} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="documento_identificacao" label="Nº do BI / Passaporte"><Input maxLength={30} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="documento_validade" label="Validade do documento"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="data_admissao" label="Data de admissão"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
+        </Row>
+      ),
+    },
+    {
+      key: 'contactos',
+      forceRender: true,
+      label: <span><IconeFa nome="map-marker-alt" /> Endereço e contactos</span>,
+      children: (
+        <Row gutter={16}>
+          <Col xs={24}><Form.Item name="endereco" label="Endereço (rua, nº, casa)"><Input.TextArea rows={2} maxLength={1000} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="bairro" label="Bairro"><Input maxLength={150} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="municipio" label="Município"><Input maxLength={150} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="provincia" label="Província"><Input maxLength={150} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="email" label="E-mail" rules={[{ type: 'email', message: 'E-mail inválido.' }]}><Input maxLength={255} autoComplete="off" /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="telefone_alternativo" label="Telefone alternativo"><Input maxLength={50} /></Form.Item></Col>
+          <Col xs={24}><Divider orientation="left" plain style={{ margin: '4px 0 12px' }}>Contacto de emergência</Divider></Col>
+          <Col xs={24} md={8}><Form.Item name="emergencia_nome" label="Nome"><Input maxLength={255} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="emergencia_telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
+          <Col xs={24} md={8}><Form.Item name="emergencia_parentesco" label="Parentesco"><Input maxLength={100} /></Form.Item></Col>
+        </Row>
+      ),
+    },
+    {
+      key: 'agregado',
+      forceRender: true,
+      label: <span><IconeFa nome="users" /> Agregado familiar{nDependentes ? ` (${nDependentes})` : ''}</span>,
+      children: (
+        <Form.List name="dependentes">
+          {(campos, { add, remove }) => (
+            <>
+              {campos.map(({ key, name }) => (
+                <Row gutter={8} key={key} align="middle">
+                  <Col xs={24} md={7}><Form.Item name={[name, 'nome']} rules={[{ required: true, message: 'Nome.' }]}><Input placeholder="Nome" /></Form.Item></Col>
+                  <Col xs={12} md={4}><Form.Item name={[name, 'parentesco']}><Select allowClear placeholder="Parentesco" options={PARENTESCOS} /></Form.Item></Col>
+                  <Col xs={12} md={4}><Form.Item name={[name, 'data_nascimento']}><DatePicker format="DD/MM/YYYY" placeholder="Data de nascimento" style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={12} md={3}><Form.Item name={[name, 'sexo']}><Select allowClear placeholder="Sexo" options={[{ value: 'M', label: 'M' }, { value: 'F', label: 'F' }]} /></Form.Item></Col>
+                  <Col xs={10} md={5}><Form.Item name={[name, 'dependente_fiscal']} valuePropName="checked"><Checkbox>Dependente fiscal</Checkbox></Form.Item></Col>
+                  <Col xs={2} md={1}><Form.Item><MinusCircleOutlined onClick={() => remove(name)} aria-label="Remover" /></Form.Item></Col>
+                </Row>
+              ))}
+              <Space wrap>
+                <Button size="small" icon={<PlusOutlined />} onClick={() => add({ dependente_fiscal: false })}>Adicionar membro</Button>
+                <small style={{ color: '#64748b' }}>As alterações são gravadas com o colaborador.</small>
+              </Space>
+            </>
+          )}
+        </Form.List>
+      ),
+    },
+    {
+      key: 'habilitacoes',
+      forceRender: true,
+      label: <span><IconeFa nome="graduation-cap" /> Habilitações{nHabilitacoes ? ` (${nHabilitacoes})` : ''}</span>,
+      children: (
+        <>
           <Row gutter={16}>
-            <Col xs={24} md={12}><Form.Item name="nome_completo" label="Nome completo" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }, { max: 30 }]}><Input /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item name="numero_inss" label="N.º INSS"><Input maxLength={50} /></Form.Item></Col>
-            <Col xs={24} md={6}>
-              <Form.Item name="tipo_organizacao_id" label="Tipo de organização" rules={[{ required: true, message: 'Escolha o tipo de organização.' }]}>
-                <Select options={tipos.lista.map((t) => ({ value: t.id, label: t.nome }))} loading={tipos.isLoading} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={6}><Form.Item name="cargo_funcao_id" label="Função"><Select allowClear showSearch optionFilterProp="label" options={cargos.lista.map((t) => ({ value: t.id, label: t.nome }))} /></Form.Item></Col>
-            <Col xs={24} md={4}><Form.Item name="estado" label="Estado"><Select options={ESTADOS_COLABORADOR} /></Form.Item></Col>
-            <Col xs={24} md={4}><Form.Item name="dias_uteis_mes" label="Dias úteis/mês"><InputNumber min={1} max={31} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={4}><Form.Item name="data_admissao" label="Admissão"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={8}>
-              <Form.Item name="colaborador_gestor_id" label="Gestor directo">
-                <Select allowClear showSearch optionFilterProp="label" options={colaboradores.lista.filter((x) => String(x.id) !== id).map((x) => ({ value: x.id, label: x.nome_completo }))} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}><Form.Item name="unidade_negocio_id" label="Unidade de negócio" extra="Imputação analítica dos salários."><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={8}><Form.Item name="habilitacao_maxima" label="Habilitação máxima" extra="Vazia: calculada pelas habilitações concluídas."><Select allowClear options={NIVEIS_HABILITACAO.map((n) => ({ value: n, label: n }))} /></Form.Item></Col>
-            <Col xs={24} md={8}>
-              <Form.Item label="Regime">
-                <Space>
-                  <Form.Item name="avencado" valuePropName="checked" noStyle><Checkbox>Avençado</Checkbox></Form.Item>
-                  <Form.Item name="reformado" valuePropName="checked" noStyle><Checkbox>Reformado</Checkbox></Form.Item>
-                </Space>
-              </Form.Item>
-            </Col>
+            <Col xs={24} md={8}><Form.Item name="habilitacao_maxima" label="Habilitação máxima"><Select allowClear placeholder="Calcular das habilitações concluídas" options={NIVEIS_HABILITACAO.map((n) => ({ value: n, label: n }))} /></Form.Item></Col>
           </Row>
-        </Card>
-        <Card title="Dados pessoais e contactos" style={{ marginBottom: 16 }}>
-          <Row gutter={16}>
-            <Col xs={24} md={4}><Form.Item name="sexo" label="Sexo"><Select allowClear options={[{ value: 'M', label: 'Masculino' }, { value: 'F', label: 'Feminino' }]} /></Form.Item></Col>
-            <Col xs={24} md={5}><Form.Item name="data_nascimento" label="Nascimento"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabledDate={(d) => d.isAfter(dayjs())} /></Form.Item></Col>
-            <Col xs={24} md={5}><Form.Item name="estado_civil" label="Estado civil"><Select allowClear options={ESTADOS_CIVIS} /></Form.Item></Col>
-            <Col xs={24} md={5}><Form.Item name="nacionalidade" label="Nacionalidade"><Input maxLength={20} /></Form.Item></Col>
-            <Col xs={24} md={5}><Form.Item name="naturalidade" label="Naturalidade"><Input maxLength={20} /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item name="provincia_naturalidade" label="Província (naturalidade)"><Input maxLength={20} /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item name="documento_identificacao" label="BI / passaporte"><Input maxLength={30} /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item name="documento_validade" label="Validade do documento"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item name="endereco" label="Endereço"><Input maxLength={1000} /></Form.Item></Col>
-            <Col xs={24} md={4}><Form.Item name="bairro" label="Bairro"><Input maxLength={150} /></Form.Item></Col>
-            <Col xs={24} md={4}><Form.Item name="municipio" label="Município"><Input maxLength={150} /></Form.Item></Col>
-            <Col xs={24} md={4}><Form.Item name="provincia" label="Província"><Input maxLength={150} /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item name="telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
-            <Col xs={24} md={6}><Form.Item name="telefone_alternativo" label="Telefone alternativo"><Input maxLength={50} /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item name="email" label="E-mail" rules={[{ type: 'email', message: 'E-mail inválido.' }]}><Input maxLength={255} /></Form.Item></Col>
-            <Col xs={24} md={10}><Form.Item name="emergencia_nome" label="Contacto de emergência"><Input maxLength={255} /></Form.Item></Col>
-            <Col xs={24} md={7}><Form.Item name="emergencia_parentesco" label="Parentesco"><Input maxLength={100} /></Form.Item></Col>
-            <Col xs={24} md={7}><Form.Item name="emergencia_telefone" label="Telefone de emergência"><Input maxLength={50} /></Form.Item></Col>
-          </Row>
-        </Card>
-        <Card title="Agregado familiar" style={{ marginBottom: 16 }}>
-          <Form.List name="dependentes">
-            {(campos, { add, remove }) => (
-              <>
-                {campos.map(({ key, name }) => (
-                  <Row gutter={8} key={key} align="middle">
-                    <Col xs={24} md={7}><Form.Item name={[name, 'nome']} rules={[{ required: true, message: 'Nome.' }]}><Input placeholder="Nome" /></Form.Item></Col>
-                    <Col xs={12} md={4}><Form.Item name={[name, 'parentesco']}><Select allowClear placeholder="Parentesco" options={PARENTESCOS} /></Form.Item></Col>
-                    <Col xs={12} md={4}><Form.Item name={[name, 'data_nascimento']}><DatePicker format="DD/MM/YYYY" placeholder="Nascimento" style={{ width: '100%' }} /></Form.Item></Col>
-                    <Col xs={12} md={3}><Form.Item name={[name, 'sexo']}><Select allowClear placeholder="Sexo" options={[{ value: 'M', label: 'M' }, { value: 'F', label: 'F' }]} /></Form.Item></Col>
-                    <Col xs={10} md={5}><Form.Item name={[name, 'dependente_fiscal']} valuePropName="checked"><Checkbox>Dependente fiscal</Checkbox></Form.Item></Col>
-                    <Col xs={2} md={1}><Form.Item><MinusCircleOutlined onClick={() => remove(name)} aria-label="Retirar" /></Form.Item></Col>
-                  </Row>
-                ))}
-                <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ dependente_fiscal: false })}>Acrescentar dependente</Button>
-              </>
-            )}
-          </Form.List>
-        </Card>
-        <Card title="Habilitações literárias">
           <Form.List name="habilitacoes">
             {(campos, { add, remove }) => (
               <>
                 {campos.map(({ key, name }) => (
                   <Row gutter={8} key={key} align="middle">
                     <Col xs={24} md={5}><Form.Item name={[name, 'nivel']} rules={[{ required: true, message: 'Nível.' }]}><Select placeholder="Nível" options={NIVEIS_HABILITACAO.map((n) => ({ value: n, label: n }))} /></Form.Item></Col>
-                    <Col xs={24} md={6}><Form.Item name={[name, 'curso']}><Input placeholder="Curso" maxLength={255} /></Form.Item></Col>
+                    <Col xs={24} md={6}><Form.Item name={[name, 'curso']}><Input placeholder="Curso / área" maxLength={255} /></Form.Item></Col>
                     <Col xs={24} md={6}><Form.Item name={[name, 'instituicao']}><Input placeholder="Instituição" maxLength={255} /></Form.Item></Col>
-                    <Col xs={12} md={3}><Form.Item name={[name, 'ano_conclusao']} rules={[{ pattern: /^\d{4}$/, message: 'AAAA' }]}><Input placeholder="Ano" maxLength={4} /></Form.Item></Col>
+                    <Col xs={12} md={3}><Form.Item name={[name, 'ano_conclusao']} rules={[{ pattern: /^\d{4}$/, message: 'AAAA' }]}><Input placeholder="Ano de conclusão" maxLength={4} /></Form.Item></Col>
                     <Col xs={10} md={3}><Form.Item name={[name, 'estado']}><Select allowClear placeholder="Estado" options={['Concluído', 'Em curso', 'Interrompido'].map((e) => ({ value: e, label: e }))} /></Form.Item></Col>
-                    <Col xs={2} md={1}><Form.Item><MinusCircleOutlined onClick={() => remove(name)} aria-label="Retirar" /></Form.Item></Col>
+                    <Col xs={2} md={1}><Form.Item><MinusCircleOutlined onClick={() => remove(name)} aria-label="Remover" /></Form.Item></Col>
                   </Row>
                 ))}
-                <Button type="dashed" icon={<PlusOutlined />} onClick={() => add()}>Acrescentar habilitação</Button>
+                <Space wrap>
+                  <Button size="small" icon={<PlusOutlined />} onClick={() => add({ estado: 'Concluído' })}>Adicionar habilitação</Button>
+                  <small style={{ color: '#64748b' }}>As alterações são gravadas com o colaborador.</small>
+                </Space>
               </>
             )}
           </Form.List>
-          <Divider />
-          <Alert type="info" showIcon message="Ao gravar, o agregado e as habilitações substituem os registados (na mesma transacção)." />
+        </>
+      ),
+    },
+    {
+      key: 'estrutura',
+      forceRender: true,
+      label: <span><IconeFa nome="sitemap" /> Estrutura orgânica</span>,
+      children: (
+        <Row gutter={16}>
+          <Col xs={24}>
+            <Form.Item name="unidade_organica_id" label="Unidade orgânica">
+              <Select allowClear showSearch optionFilterProp="label" placeholder="— sem unidade —" loading={estrutura.isLoading}
+                options={unidades.map((u) => ({ value: u.id, label: [u.codigo, u.nome].filter(Boolean).join(' — ') }))}
+                onChange={() => form.setFieldValue('posto_trabalho_id', null)} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={12}>
+            <Form.Item name="posto_trabalho_id" label="Cargo" extra={unidadeEscolhida ? undefined : 'Escolha primeiro a unidade orgânica.'}>
+              <Select allowClear placeholder="— sem cargo —" disabled={!unidadeEscolhida}
+                options={(unidades.find((u) => u.id === unidadeEscolhida)?.postos ?? []).map((p) => ({ value: p.id, label: `${p.titulo || cargos.nome(p.cargo_funcao_id)}${p.chefia ? ' (chefia)' : ''} · ${p.ocupados}/${p.vagas ?? '∞'}` }))} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={12}>
+            <Form.Item name="colaborador_gestor_id" label="Chefia directa" extra="Vazio: o responsável da unidade.">
+              <Select allowClear showSearch optionFilterProp="label" placeholder="— responsável da unidade —" options={colaboradores.lista.filter((x) => String(x.id) !== id).map((x) => ({ value: x.id, label: x.nome_completo }))} />
+            </Form.Item>
+          </Col>
+          {estrutura.isError && <Col xs={24}><Alert type="info" showIcon message="Não foi possível ler a estrutura orgânica (permissões ou ainda sem estrutura definida)." /></Col>}
+          {!estrutura.isError && !estrutura.isLoading && !unidades.length && <Col xs={24}><Alert type="info" showIcon message="Ainda não há estrutura orgânica definida (menu Estrutura Orgânica)." /></Col>}
+        </Row>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <CabecalhoPagina
+        titulo={id ? `Editar Colaborador — ${ficha.data?.nome_completo ?? ''}` : 'Adicionar Novo Colaborador'}
+        accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..', { relative: 'path' })}>Cancelar</Button>}
+      />
+      <Form form={form} layout="vertical" onFinish={enviarFormulario} initialValues={{ estado: 'ACTIVO', dias_uteis_mes: 22, reformado: false, avencado: false, nacionalidade: 'Angolana', dependentes: [], habilitacoes: [] }}>
+        <Card>
+          {/* Campos principais do formulário embutido do antigo (renderColaboradores), na mesma ordem */}
+          <Row gutter={16}>
+            <Col xs={24} md={12}><Form.Item name="nome_completo" label="Nome Completo" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }, { max: 30 }]}><Input /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="numero_inss" label="Número INSS"><Input maxLength={50} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="cargo_funcao_id" label="Função"><Select allowClear showSearch optionFilterProp="label" options={cargos.lista.map((t) => ({ value: t.id, label: t.nome }))} /></Form.Item></Col>
+            <Col xs={24}>
+              <Form.Item name="tipo_organizacao_id" label="Tipo de Órgão" rules={[{ required: true, message: 'Escolha o tipo de órgão.' }]}>
+                <Select options={tipos.lista.map((t) => ({ value: t.id, label: t.nome }))} loading={tipos.isLoading} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}><Form.Item name="unidade_negocio_id" label="Unidade de Negócio" extra="Imputação analítica dos salários."><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="centro_custo_id" label="Centro de Custo"><SeletorAux tabela="centros-custo" placeholder="Nenhum" style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="estado" label="Estado"><Select options={ESTADOS_COLABORADOR} /></Form.Item></Col>
+            <Col xs={24} md={12} style={{ display: 'flex', alignItems: 'center' }}>
+              <Form.Item name="reformado" valuePropName="checked" style={{ marginBottom: 12 }}>
+                <Checkbox onChange={(e) => e.target.checked && form.setFieldValue('avencado', false)}>Aposentado (Isento de INSS)</Checkbox>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12} style={{ display: 'flex', alignItems: 'center' }}>
+              <Form.Item name="avencado" valuePropName="checked" style={{ marginBottom: 12 }}>
+                <Checkbox onChange={(e) => e.target.checked && form.setFieldValue('reformado', false)}>Avençado (Sem INSS · IRT 6,5% fixo)</Checkbox>
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}><Form.Item name="dias_uteis_mes" label="Dias de Trab. Contratados"><InputNumber min={1} max={31} style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+          <Tabs className="rh-ficha-separadores" items={separadores} />
+          <Space style={{ marginTop: 16 }}>
+            <Button type="primary" loading={gravar.isPending} onClick={() => form.submit()}>Salvar Colaborador</Button>
+            <Button onClick={() => navegar('..', { relative: 'path' })}>Cancelar</Button>
+          </Space>
         </Card>
       </Form>
     </>

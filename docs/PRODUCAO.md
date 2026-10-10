@@ -104,7 +104,7 @@ Todas estão documentadas em `.env.prod.example`. O ficheiro é lido de duas for
 | Limites e CORS | `ERP_API_PEDIDOS_POR_MINUTO` (300), `ERP_API_EXTERNO_POR_MINUTO` (6: BAI, relógio), `ERP_API_PESADO_POR_MINUTO` (30: importações, ZIP de recibos), `ERP_CORS_ORIGENS` (vazio) | CORS fechado por omissão: o SPA é da mesma origem. Só listar origens se houver um cliente noutro domínio (docs/arquitetura/SEGURANCA_OWASP.md) |
 | Manutenção | `APP_MAINTENANCE_DRIVER=cache`, `APP_MAINTENANCE_STORE=redis` | `artisan down` partilhado pelos contentores |
 | AGT | `AGT_PASTA_SEGREDOS`, `AGT_DRIVER`, `AGT_AMBIENTE`, `AGT_*` | Ver secção 11 |
-| E-mail | `MAIL_*` | `log` até haver envio real (o CRM só regista e-mails, ADR-054) |
+| E-mail | `MAIL_*` | SMTP do MEU ERP: `MAIL_MAILER=smtp`, `MAIL_SCHEME=smtps`, `MAIL_HOST=smtp.stackmail.com`, `MAIL_PORT=465`, `MAIL_USERNAME`/`MAIL_PASSWORD`/`MAIL_FROM_ADDRESS` do Vercel da versão 3 (ADR-070); `log` enquanto não estiverem preenchidas |
 | Cópias | `ERP_PASTA_COPIAS`, `ERP_COPIAS_CRON`, `ERP_COPIAS_RETER_*`, `ERP_COPIAS_CHAVE` | Ver secção 8 |
 | Assistente IA | `ANTHROPIC_API_KEY`, `ERP_IA_MODELO`, `ERP_IA_ESFORCO`, `ERP_IA_TEMPO_LIMITE` (e, raramente, `ERP_IA_MAX_TOKENS`, `ERP_IA_MAX_FICHEIRO_KB`, `ERP_IA_MAX_CONTAS`, `ERP_IA_PRECO_ENTRADA`, `ERP_IA_PRECO_SAIDA`) | Opcional. Sem chave, o assistente só usa as regras internas. A chave só no `.env.prod` (nunca no Git). Ver secção 11-A |
 | Capacidade | `PHP_FPM_*`, `PG_SHARED_BUFFERS`, `PG_EFFECTIVE_CACHE_SIZE` | Ajustar à RAM do servidor |

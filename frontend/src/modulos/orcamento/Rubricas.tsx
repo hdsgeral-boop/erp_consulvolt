@@ -1,12 +1,12 @@
 import { Button, Card, Checkbox, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Select, Space, Switch, Tag, Typography } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { contemTexto } from '@/modulos/compras/comum/lista';
-import { EtiquetaOrc, useRubricas } from './comum/componentes';
+import { EtiquetaOrc, rotuloOrc, useRubricas } from './comum/componentes';
 import type { Rubrica, TipoOrcamento } from './comum/tipos';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
@@ -29,25 +29,17 @@ export default function Rubricas() {
   const linhas = (q.data ?? []).filter((r) => contemTexto(texto, r.codigo, r.nome, r.grupo, ...r.contas.map((x) => x.codigo)));
 
   const colunas: ColunaApi<Rubrica>[] = [
+    // colunas do legado (orcamento_ui.js:157): Código, Rubrica, Natureza, Contas / prefixos; Grupo/Controlo/Activa em «Colunas ▾»
     { title: 'Código', dataIndex: 'codigo', render: (v) => <strong>{v}</strong> },
-    { title: 'Nome', dataIndex: 'nome' },
-    { title: 'Natureza', dataIndex: 'natureza', render: (v) => <EtiquetaOrc valor={v} /> },
-    { title: 'Grupo', dataIndex: 'grupo', render: (v) => v ?? '—' },
-    { title: 'Contas', dataIndex: 'contas', valorImpressao: (r) => r.contas.map((x) => `${x.codigo}${x.prefixo ? '*' : ''}`).join(', '), render: (cs: Rubrica['contas']) => <Space size={2} wrap>{cs.map((x) => <Tag key={x.codigo}>{x.codigo}{x.prefixo ? '*' : ''}</Tag>)}</Space> },
-    { title: 'Controlo', key: 'ctl', responsive: ['md'], render: (_, r) => (r.controlo?.modo && r.controlo.modo !== 'NENHUM' ? <><EtiquetaOrc valor={r.controlo.modo} /><Typography.Text type="secondary">{r.controlo.aviso_pct ?? 90}% / {r.controlo.limite_pct ?? 100}%</Typography.Text></> : '—') },
-    { title: 'Activa', dataIndex: 'ativo', render: (v) => (v === false ? <Tag>Inactiva</Tag> : <Tag color="green">Sim</Tag>) },
     {
-      title: '', key: 'acc', align: 'right',
-      render: (_, r) => gerir && (
-        <Space>
-          <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(r)} />
-          <Popconfirm title={`Eliminar a rubrica ${r.codigo}?`} description="Rubricas usadas em orçamentos, previsões ou pedidos não se eliminam." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
-            onConfirm={() => accao.mutate({ metodo: 'delete', url: `/orcamento/rubricas/${r.id}` })}>
-            <Button size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
-      ),
+      title: 'Rubrica', dataIndex: 'nome', valorImpressao: (r) => `${r.nome}${r.ativo === false ? ' (inactiva)' : ''}`,
+      render: (v, r) => <>{v}{r.ativo === false && <Tag style={{ marginLeft: 4 }}>inactiva</Tag>}{r.descricao && <div style={{ fontSize: 11.8, color: '#64748b' }}>{r.descricao}</div>}</>,
     },
+    { title: 'Natureza', dataIndex: 'natureza', valorFiltro: (r) => rotuloOrc(r.natureza), render: (v) => <EtiquetaOrc valor={v} /> },
+    { title: 'Contas / prefixos', dataIndex: 'contas', valorFiltro: (r) => r.contas.map((x) => x.codigo).join(' '), valorImpressao: (r) => r.contas.map((x) => `${x.codigo}${x.prefixo ? '*' : ''}`).join(', '), render: (cs: Rubrica['contas']) => <Space size={2} wrap>{cs.map((x) => <Tag key={x.codigo} title={x.prefixo ? 'Prefixo: inclui todas as subcontas' : 'Conta exacta'}>{x.codigo}{x.prefixo ? '*' : ''}</Tag>)}</Space> },
+    { title: 'Grupo', dataIndex: 'grupo', ocultaPorOmissao: true, render: (v) => v ?? '—' },
+    { title: 'Controlo', key: 'ctl', ocultaPorOmissao: true, render: (_, r) => (r.controlo?.modo && r.controlo.modo !== 'NENHUM' ? <><EtiquetaOrc valor={r.controlo.modo} /><Typography.Text type="secondary">{r.controlo.aviso_pct ?? 90}% / {r.controlo.limite_pct ?? 100}%</Typography.Text></> : '—') },
+    { title: 'Activa', dataIndex: 'ativo', ocultaPorOmissao: true, render: (v) => (v === false ? <Tag>Inactiva</Tag> : <Tag color="green">Sim</Tag>) },
   ];
 
   return (
@@ -72,6 +64,11 @@ export default function Rubricas() {
           <Segmented value={tipo} onChange={(v) => setTipo(v as TipoOrcamento)} options={[{ value: 'EXPLORACAO', label: 'Exploração' }, { value: 'TESOURARIA', label: 'Tesouraria' }]} />
           <Input.Search placeholder="Código, nome, grupo ou conta" allowClear onSearch={setTexto} style={{ width: 280 }} />
         </BarraFiltros>
+        <div role="note" style={{ border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1e3a8a', borderRadius: 4, padding: '0.5rem 0.7rem', fontSize: 13, margin: '8px 0' }}>
+          {tipo === 'EXPLORACAO'
+            ? <><b>Exploração:</b> associe contas de proveitos (classe 6) e custos (classe 7). O realizado é o movimento dessas contas no Diário (proveitos C − D, custos D − C).</>
+            : <><b>Tesouraria:</b> associe as contas de <u>contrapartida</u> dos pagamentos e recebimentos (ex.: 31 clientes, 32 fornecedores, 36 pessoal, 34 Estado). O realizado é o dinheiro que entrou ou saiu de bancos/caixa (43/45) contra essas contas.</>}
+        </div>
         <TabelaComModos<Rubrica>
           rowKey="id"
           size="middle"
@@ -80,6 +77,11 @@ export default function Rubricas() {
           pagination={false}
           scroll={scrollTabela()}
           columns={colunas}
+          accoes={gerir ? (r) => [
+            { icone: 'edit', titulo: 'Editar', onClick: () => setEditar(r) },
+            { icone: 'trash', titulo: 'Eliminar', variante: 'perigo', confirmar: { titulo: `Eliminar a rubrica ${r.codigo} — ${r.nome}?`, texto: 'Rubricas usadas em orçamentos, previsões ou pedidos não se eliminam.', textoOk: 'Eliminar', perigo: true },
+              onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/orcamento/rubricas/${r.id}` }) },
+          ] : undefined}
         />
         <Typography.Text type="secondary">* conta por prefixo (abrange as subcontas)</Typography.Text>
       </Card>

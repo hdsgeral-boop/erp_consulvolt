@@ -1,4 +1,5 @@
-import { Card, Checkbox, Flex, Input, Space } from 'antd';
+import { Button, Card, Checkbox, Flex, Input, Space } from 'antd';
+import { IconeFa } from '@/componentes/fluxos';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -30,8 +31,9 @@ export default function GanttGlobal() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Gantt global"
-        subtitulo="Projectos activos e respectivas tarefas; barras tracejadas = sem data de fim"
+        titulo={<><IconeFa nome="stream" /> Gantt Global (Carteira)</>}
+        subtitulo="Visão macro de todos os projectos activos segmentados por tipo. Barras tracejadas = sem data de fim."
+        accoes={podeCarteira && <Button icon={<IconeFa nome="arrow-left" />} onClick={() => navegar('/m/projectos/projectos_carteira')}>Voltar à Carteira</Button>}
         impressaoDesactivada={!linhas.length}
         impressao={() =>
           ref.current

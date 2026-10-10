@@ -56,7 +56,7 @@ final class PainelTesouraria implements Painel
                 Indicadores::kpi('recebimentos_mes', 'Recebimentos do Mês', Indicadores::dinheiro($docs->recebimentos)),
                 Indicadores::kpi('pagamentos_mes', 'Pagamentos do Mês', Indicadores::dinheiro($docs->pagamentos)),
                 Indicadores::kpi('documentos_por_integrar', 'Documentos por Integrar', (int) $docs->por_integrar, 'num'),
-                Indicadores::kpi('movimentos_por_conciliar', 'Movimentos por Conciliar', $porConciliar, 'num', 'Extractos bancários'),
+                Indicadores::kpi('movimentos_por_conciliar', 'Movimentos por Conciliar', $porConciliar, 'num', 'Extratos bancários'),
                 Indicadores::kpi('sessao_caixa', 'Sessão de Caixa', (int) $caixa->abertas > 0 ? 'Aberta' : 'Fechada', 'texto', ((int) $caixa->fechadas).' por contabilizar'),
             ],
             'graficos' => [

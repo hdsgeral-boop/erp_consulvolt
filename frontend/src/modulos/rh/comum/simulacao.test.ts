@@ -53,7 +53,7 @@ describe('simulação salarial (apresentação do cálculo do servidor)', () => 
 
   it('mapa detalhado: todas as rubricas em colunas (as mais comuns primeiro), totais e «-» nos zeros', () => {
     const dados = [r(1, 'Ana'), r(3, 'Bruno', { rubricas: [{ nome: 'Abono de Família', tipo: 'VENCIMENTO', valor: '3000.00', infotipo_id: 9 }, { nome: 'Salário Base', tipo: 'VENCIMENTO', valor: '100000.00', infotipo_id: 1 }] })];
-    expect(colunasRubricasFolha(dados).vencimentos).toEqual(['Salário Base', 'Subsídio de Alimentação', 'Abono de Família']);
+    expect(colunasRubricasFolha(dados).vencimentos).toEqual(['Sal. Base', 'S. Alim', 'Abono de Família']);
     const html = semEspacos(tabelaFolhaDetalhada(dados, (x) => x.nome ?? ''));
     expect(html).toContain('<th class="imp-num">Abono de Família</th>');
     expect(html).toContain('TOTAIS (2)');

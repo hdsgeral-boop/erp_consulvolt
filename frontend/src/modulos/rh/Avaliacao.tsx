@@ -4,17 +4,18 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { IconeFa } from '@/componentes/fluxos';
 import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarNumero } from '@/utilitarios/formatacao';
-import { FASES_AVALIACAO, PERIODOS_AVALIACAO, type Avaliacao as AvaliacaoT, type Colaborador, type ItemAvaliacao, type PeriodoAvaliacao } from './api';
+import { FASES_AVALIACAO, PERIODOS_AVALIACAO, ROTULOS_ESTADO, type Avaliacao as AvaliacaoT, type Colaborador, type ItemAvaliacao, type PeriodoAvaliacao } from './api';
 import { CadastroSimples } from './comum/CadastroSimples';
 import { contem, EstadoTag, FaseTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { classificar, itensAplicaveis } from './comum/regras';
 import { BarraFiltros, COLUNAS_DESCRICOES, larguraGaveta, scrollTabela } from '@/componentes/responsivo';
-import { pedidoTabela, seccaoHtml } from './comum/impressao';
+import { seccaoHtml } from './comum/impressao';
 
 import { TabelaComModos } from '@/componentes/vistas';
 interface Linha {
@@ -27,11 +28,16 @@ export default function Avaliacao() {
   const { pode } = useSessao();
   const [ano, setAno] = useState(dayjs().year());
   const [periodo, setPeriodo] = useState<PeriodoAvaliacao>('ANUAL');
+  const [sep, setSep] = useState('avaliacoes');
   return (
     <>
       <CabecalhoPagina titulo="Avaliação de desempenho" subtitulo="Critérios (1 a 5) e objectivos; pontuação = critérios × (1 − P) + objectivos × P"
-        accoes={<Space wrap><InputNumber prefix="Ano" min={2000} max={2100} value={ano} onChange={(v) => v && setAno(v)} style={{ width: 150 }} /><Select value={periodo} onChange={setPeriodo} options={PERIODOS_AVALIACAO} style={{ width: 170 }} /></Space>} />
-      <Tabs items={[
+        accoes={<Space wrap>
+          <InputNumber prefix="Ano" min={2000} max={2100} value={ano} onChange={(v) => v && setAno(v)} style={{ width: 150 }} />
+          <Select value={periodo} onChange={setPeriodo} options={PERIODOS_AVALIACAO} style={{ width: 170 }} />
+          {pode('rh_avaliacao_itens') && <Button icon={<IconeFa nome="tasks" />} type={sep === 'itens' ? 'primary' : 'default'} onClick={() => setSep(sep === 'itens' ? 'avaliacoes' : 'itens')}>Itens de avaliação</Button>}
+        </Space>} />
+      <Tabs activeKey={sep} onChange={setSep} items={[
         { key: 'avaliacoes', label: 'Avaliações', children: <ListaAvaliacoes ano={ano} periodo={periodo} /> },
         ...(pode('rh_avaliacao_itens') ? [{ key: 'itens', label: 'Itens de avaliação', children: <Itens /> }] : []),
       ]} />
@@ -45,8 +51,11 @@ function ListaAvaliacoes({ ano, periodo }: { ano: number; periodo: PeriodoAvalia
   const [termo, setTermo] = useState('');
   const [fase, setFase] = useState<string>();
   const [aberta, setAberta] = useState<Linha | null>(null);
+  const [especificos, setEspecificos] = useState<Colaborador | null>(null);
   const q = useQuery({ queryKey: ['rh', 'avaliacao', 'avaliacoes', ano, periodo], queryFn: () => obter<AvaliacaoT[]>('/rh/avaliacao/avaliacoes', { ano, periodo }) });
   useAvisarErro(q.error);
+  const itens = useQuery({ queryKey: ['rh', 'avaliacao', 'itens'], queryFn: () => obter<ItemAvaliacao[]>('/rh/avaliacao/itens') });
+  const nEspecificos = (cid: number) => (itens.data ?? []).filter((i) => i.ativo && i.ambito === 'ESPECIFICO' && i.colaborador_id === cid).length;
   const accao = useAccaoRh();
   const porColab = new Map((q.data ?? []).map((a) => [a.colaborador_id, a]));
   const linhas: Linha[] = colaboradores.lista
@@ -54,51 +63,83 @@ function ListaAvaliacoes({ ano, periodo }: { ano: number; periodo: PeriodoAvalia
     .map((c) => ({ colaborador: c, avaliacao: porColab.get(c.id) ?? null }))
     .filter((l) => contem(l.colaborador.nome_completo, termo) && (!fase || (l.avaliacao?.fase ?? 'POR_AVALIAR') === fase));
 
+  // Colunas e acções do antigo (renderAvaliacao): COLABORADOR, ESTADO, PONTUAÇÃO CHEFIA, CLASSIFICAÇÃO, NOTA 360º FINAL,
+  // FASE, AVALIADOR, DATA, ITENS ESPECÍFICOS, ACÇÕES; a nota 360º (pares/subordinados) fica em «Colunas ▾».
   const colunas: ColunaApi<Linha>[] = [
-    { title: 'Colaborador', render: (_, l) => <strong>{l.colaborador.nome_completo}</strong> },
-    { title: 'Fase', render: (_, l) => <FaseTag fase={l.avaliacao?.fase ?? 'POR_AVALIAR'} /> },
-    { title: 'Pontuação', align: 'right', responsive: ['md'], render: (_, l) => (l.avaliacao?.pontuacao ? formatarNumero(l.avaliacao.pontuacao) : '—') },
-    { title: 'Nota 360º', align: 'right', responsive: ['md'], render: (_, l) => (l.avaliacao?.nota_360 ? formatarNumero(l.avaliacao.nota_360) : '—') },
-    { title: 'Nota final', align: 'right', render: (_, l) => (l.avaliacao?.nota_final !== null && l.avaliacao?.nota_final !== undefined ? <strong>{formatarNumero(l.avaliacao.nota_final)}</strong> : '—') },
-    { title: 'Classificação', render: (_, l) => l.avaliacao?.classificacao_360 ?? l.avaliacao?.classificacao ?? classificar(l.avaliacao?.nota_final) ?? '—' },
-    { title: 'Avaliador', responsive: ['lg'], render: (_, l) => l.avaliacao?.avaliador ?? '—' },
-    {
-      title: '',
-      key: 'accoes',
-      render: (_, l) => {
-        const a = l.avaliacao;
-        return (
-          <Space size={4}>
-            <Button size="small" onClick={() => setAberta(l)}>{!a || a.estado === 'RASCUNHO' ? (pode('rh_avaliacao_edit') ? 'Avaliar' : 'Ver') : 'Ver'}</Button>
-            {a?.estado === 'CONCLUIDA' && pode('rh_avaliacao_edit') && (
-              <Button size="small" onClick={() => Modal.confirm({ title: 'Reabrir a avaliação?', okText: 'Reabrir', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/avaliacao/avaliacoes/${a.id}/reabrir` }) })}>Reabrir</Button>
-            )}
-            {a && pode('rh_avaliacao_edit') && !a.conhecimento && (
-              <Button size="small" danger onClick={() => Modal.confirm({ title: 'Eliminar a avaliação?', okText: 'Eliminar', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/avaliacao/avaliacoes/${a.id}` }) })}>Eliminar</Button>
-            )}
-          </Space>
-        );
-      },
-    },
+    { title: 'Colaborador', key: 'colaborador', ocultavel: false, valorFiltro: (l) => l.colaborador.nome_completo, render: (_, l) => <strong>{l.colaborador.nome_completo}</strong> },
+    { title: 'Estado', key: 'estado', valorImpressao: (l) => (l.avaliacao ? (ROTULOS_ESTADO[l.avaliacao.estado] ?? l.avaliacao.estado) : 'Por avaliar'),
+      render: (_, l) => (l.avaliacao ? <EstadoTag estado={l.avaliacao.estado} /> : <Tag>Por avaliar</Tag>) },
+    { title: 'Pontuação chefia', key: 'pontuacao', align: 'right', render: (_, l) => (l.avaliacao?.pontuacao ? formatarNumero(l.avaliacao.pontuacao) : '—') },
+    { title: 'Classificação', key: 'classificacao', render: (_, l) => l.avaliacao?.classificacao_360 ?? l.avaliacao?.classificacao ?? classificar(l.avaliacao?.nota_final) ?? '—' },
+    { title: 'Nota 360º final', key: 'nota_final', align: 'right', render: (_, l) => (l.avaliacao?.nota_final !== null && l.avaliacao?.nota_final !== undefined ? <strong>{formatarNumero(l.avaliacao.nota_final)}</strong> : '—') },
+    { title: 'Nota 360º (pares/subord.)', key: 'nota_360', align: 'right', ocultaPorOmissao: true, render: (_, l) => (l.avaliacao?.nota_360 ? formatarNumero(l.avaliacao.nota_360) : '—') },
+    { title: 'Fase', key: 'fase', valorImpressao: (l) => FASES_AVALIACAO[l.avaliacao?.fase ?? 'POR_AVALIAR']?.rotulo ?? '', render: (_, l) => <FaseTag fase={l.avaliacao?.fase ?? 'POR_AVALIAR'} /> },
+    { title: 'Avaliador', key: 'avaliador', render: (_, l) => l.avaliacao?.avaliador ?? '—' },
+    { title: 'Data', key: 'data', render: (_, l) => (l.avaliacao?.data_avaliacao ? formatarData(l.avaliacao.data_avaliacao) : '—') },
+    { title: 'Itens específicos', key: 'especificos', align: 'center', render: (_, l) => { const n = nEspecificos(l.colaborador.id); return n ? <Tag color="blue">{n}</Tag> : <span style={{ color: '#94a3b8' }}>—</span>; } },
   ];
 
   return (
     <Card>
-      <BarraFiltros accoes={
-        <BotoesExportar desactivado={!linhas.length} obterPedido={() => pedidoTabela({
-          titulo: 'Avaliação de desempenho',
-          periodo: `${ano} · ${PERIODOS_AVALIACAO.find((p) => p.value === periodo)?.label ?? periodo}`,
-          filtros: [fase ? `Fase: ${FASES_AVALIACAO[fase]?.rotulo ?? fase}` : null, termo ? `Pesquisa: ${termo}` : null],
-          colunas,
-          linhas,
-        })} />
-      }>
+      <BarraFiltros>
         <PesquisaLocal aoMudar={setTermo} placeholder="Nome" />
         <Select placeholder="Fase" allowClear style={{ width: 220 }} value={fase} onChange={setFase} options={Object.entries(FASES_AVALIACAO).map(([k, f]) => ({ value: k, label: f.rotulo }))} />
       </BarraFiltros>
-      <TabelaComModos<Linha> rowKey={(l) => l.colaborador.id} size="small" loading={q.isFetching || colaboradores.isFetching} columns={colunas} dataSource={linhas} pagination={{ pageSize: 50 }} scroll={scrollTabela()} />
+      <TabelaComModos<Linha> rowKey={(l) => l.colaborador.id} size="small" loading={q.isFetching || colaboradores.isFetching} columns={colunas} dataSource={linhas} scroll={scrollTabela()} modos={false}
+        impressao={{
+          titulo: 'Avaliação de desempenho',
+          periodo: `${ano} · ${PERIODOS_AVALIACAO.find((p) => p.value === periodo)?.label ?? periodo}`,
+          filtros: [fase ? `Fase: ${FASES_AVALIACAO[fase]?.rotulo ?? fase}` : '', termo ? `Pesquisa: ${termo}` : ''].filter(Boolean),
+          orientacao: 'paisagem',
+        }}
+        vazio={{ icone: 'star', titulo: 'Sem colaboradores', texto: 'Nenhum colaborador corresponde aos filtros.' }}
+        accoes={(l) => {
+          const a = l.avaliacao;
+          const editar = pode('rh_avaliacao_edit');
+          const avaliar = !a || a.estado === 'RASCUNHO';
+          return [
+            pode('rh_avaliacao_itens') && { icone: 'list-ul', titulo: 'Itens específicos deste colaborador', onClick: () => setEspecificos(l.colaborador) },
+            { icone: avaliar ? 'star' : 'eye', titulo: avaliar && editar ? 'Avaliar' : 'Ver', texto: avaliar && editar ? 'Avaliar' : 'Ver', variante: 'primario', onClick: () => setAberta(l) },
+            a?.estado === 'CONCLUIDA' && editar && { icone: 'undo', titulo: 'Reabrir', confirmar: 'Reabrir a avaliação?', onClick: () => accao.mutateAsync({ metodo: 'post', url: `/rh/avaliacao/avaliacoes/${a.id}/reabrir` }) },
+            a && editar && !a.conhecimento && { icone: 'trash', titulo: 'Eliminar', variante: 'perigo', confirmar: { titulo: 'Eliminar a avaliação?', perigo: true, textoOk: 'Eliminar' }, onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/avaliacao/avaliacoes/${a.id}` }) },
+          ];
+        }} />
       {aberta && <FormularioAvaliacao linha={aberta} ano={ano} periodo={periodo} aoFechar={() => setAberta(null)} />}
+      {especificos && <ItensEspecificos colaborador={especificos} itens={(itens.data ?? []).filter((i) => i.ambito === 'ESPECIFICO' && i.colaborador_id === especificos.id)} aoFechar={() => setEspecificos(null)} />}
     </Card>
+  );
+}
+
+/** «Itens específicos deste colaborador» (antigo): critérios/objectivos só deste colaborador — acrescentar e eliminar. */
+function ItensEspecificos({ colaborador, itens, aoFechar }: { colaborador: Colaborador; itens: ItemAvaliacao[]; aoFechar: () => void }) {
+  const [form] = Form.useForm();
+  const [novo, setNovo] = useState(false);
+  const accao = useAccaoRh(() => setNovo(false));
+  const colunas: ColunaApi<ItemAvaliacao>[] = [
+    { title: 'Nome', dataIndex: 'nome', render: (v: string) => <strong>{v}</strong> },
+    { title: 'Tipo', dataIndex: 'tipo', render: (t: string) => (t === 'CRITERIO' ? 'Critério' : 'Objectivo') },
+    { title: 'Peso', dataIndex: 'peso', align: 'right', render: (v: string | null) => (v !== null ? formatarNumero(v) : '—') },
+    { title: 'Meta', key: 'meta', render: (_, r) => (r.tipo === 'OBJECTIVO' ? (r.natureza === 'QUALITATIVO' ? 'Qualitativo' : `${formatarNumero(r.meta)} ${r.unidade ?? ''}`) : '') },
+    { title: 'Activo', dataIndex: 'ativo', render: (v: boolean) => (v ? <Tag color="green">Sim</Tag> : <Tag>Não</Tag>) },
+  ];
+  const abrirNovo = () => {
+    form.resetFields();
+    form.setFieldsValue({ ambito: 'ESPECIFICO', colaborador_id: colaborador.id, tipo: 'OBJECTIVO', ativo: true, natureza: 'QUANTITATIVO', sentido: 'MAIOR' });
+    setNovo(true);
+  };
+  return (
+    <Modal open title={<Space><IconeFa nome="list-ul" />Itens específicos — {colaborador.nome_completo}</Space>} onCancel={aoFechar} width={larguraGaveta(860)} destroyOnHidden
+      footer={<Space wrap><Button onClick={aoFechar}>Fechar</Button><Button type="primary" icon={<IconeFa nome="plus" />} onClick={abrirNovo}>Novo item específico</Button></Space>}>
+      <Typography.Paragraph type="secondary">Somam-se aos itens comuns na avaliação deste colaborador.</Typography.Paragraph>
+      <TabelaComModos<ItemAvaliacao> rowKey="id" size="small" columns={colunas} dataSource={itens} modos={false} contador={false} filtrosColuna={false} filtroPersonalizado={false}
+        vazio={{ icone: 'list-ul', titulo: 'Sem itens específicos', texto: 'Este colaborador só tem os itens comuns.' }}
+        accoes={(r) => [{ icone: 'trash', titulo: 'Eliminar', variante: 'perigo', confirmar: 'Eliminar o item específico?', onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/avaliacao/itens/${r.id}` }) }]} />
+      <Modal open={novo} title="Novo item específico" onCancel={() => setNovo(false)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraGaveta(720)} destroyOnHidden>
+        <Form form={form} layout="vertical" onFinish={(v: Record<string, unknown>) => accao.mutate({ metodo: 'post', url: '/rh/avaliacao/itens', dados: { ...v, ambito: 'ESPECIFICO', colaborador_id: colaborador.id } })}>
+          <CamposItem />
+        </Form>
+      </Modal>
+    </Modal>
   );
 }
 

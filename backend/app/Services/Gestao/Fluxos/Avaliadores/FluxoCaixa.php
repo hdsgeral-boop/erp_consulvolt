@@ -46,6 +46,41 @@ final class FluxoCaixa extends AvaliadorFluxo
         ]];
     }
 
+    /** Vista de volume do legado (vistaCaixa, js/fluxo_tesouraria.js:294-325). */
+    public function vista(): array
+    {
+        return [
+            'nome_itens' => 'sessões', 'placeholder' => 'Pesquisar data, conta ou operador',
+            'funil' => [
+                ['id' => 'mov', 'rotulo' => 'Caixas abertas'],
+                ['id' => 'dif', 'rotulo' => 'Diferença por regularizar'],
+                ['id' => 'integ', 'rotulo' => 'Por contabilizar'],
+                ['id' => 'concluidos', 'rotulo' => 'Contabilizadas'],
+            ],
+            'filtros' => [
+                ['id' => 'curso', 'rotulo' => 'Por concluir', 'fn' => fn ($p) => $p['etapa_actual'] !== null],
+                ['id' => 'alerta', 'rotulo' => 'Com pendências', 'fn' => fn ($p) => $p['n_erros'] + $p['n_avisos'] > 0],
+                ['id' => 'abertas', 'rotulo' => 'Abertas', 'fn' => fn ($p) => $p['aberta']],
+                ['id' => 'diferenca', 'rotulo' => 'Com diferença', 'fn' => fn ($p) => abs((float) $p['diferenca']) > 0.01],
+                ['id' => 'contabilizar', 'rotulo' => 'Por contabilizar', 'fn' => fn ($p) => $p['por_contabilizar']],
+                ['id' => 'todas', 'rotulo' => 'Todas', 'fn' => fn () => true],
+            ],
+            'colunas' => [
+                ['tipo' => 'titulo', 'rotulo' => 'Abertura'],
+                ['tipo' => 'conta', 'rotulo' => 'Conta'],
+                ['tipo' => 'texto', 'rotulo' => 'Operador', 'campo' => 'operador'],
+                ['tipo' => 'etapa', 'rotulo' => 'Etapa actual'],
+                ['tipo' => 'progresso', 'rotulo' => 'Progresso'],
+                ['tipo' => 'pendencias', 'rotulo' => 'Pendências'],
+                ['tipo' => 'moeda', 'rotulo' => 'Entradas', 'campo' => 'entradas'],
+                ['tipo' => 'moeda', 'rotulo' => 'Saídas', 'campo' => 'saidas'],
+                ['tipo' => 'moeda', 'rotulo' => 'Diferença', 'campo' => 'diferenca', 'modo' => 'diferenca'],
+            ],
+            'vazio' => ['icone' => 'cash-register', 'titulo' => 'Ainda não há sessões da Folha de Caixa', 'texto' => 'Abra a primeira sessão na Folha de Caixa; o fluxo aparece aqui.',
+                'botao' => 'Abrir a Folha de Caixa', 'acao' => 'teso_folha_caixa'],
+        ];
+    }
+
     private function sessao(object $s, ?object $ant, ?object $m, $conferencias, string $nomeConta): array
     {
         $E = [];
@@ -116,7 +151,7 @@ final class FluxoCaixa extends AvaliadorFluxo
         return [
             'chave' => 'caixa-'.$s->id, 'titulo' => self::data($s->data_abertura), 'subtitulo' => implode(' · ', array_filter([trim("{$s->codigo_conta} {$nomeConta}"), $s->operador])),
             'data' => substr((string) $s->data_abertura, 0, 10).'|'.str_pad((string) $s->id, 8, '0', STR_PAD_LEFT), 'valor' => $sistema, 'valor_pendente' => ltrim($diferenca, '-'), 'etapas' => $E,
-            'conta' => (string) $s->codigo_conta, 'moeda' => $moeda, 'aberta' => $aberta, 'por_contabilizar' => $s->estado === 'FECHADA' && $n > 0, 'diferenca' => $diferenca,
+            'conta' => (string) $s->codigo_conta, 'conta_nome' => $nomeConta, 'operador' => (string) ($s->operador ?? ''), 'entradas' => $entradas, 'saidas' => $saidas, 'moeda' => $moeda, 'aberta' => $aberta, 'por_contabilizar' => $s->estado === 'FECHADA' && $n > 0, 'diferenca' => $diferenca,
             'documentos' => [['tipo' => 'sessao_caixa', 'id' => $s->id, 'numero' => (string) $s->codigo_conta]],
         ] + self::contagem($E);
     }

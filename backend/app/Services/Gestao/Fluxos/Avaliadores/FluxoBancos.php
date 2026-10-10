@@ -77,6 +77,39 @@ final class FluxoBancos extends AvaliadorFluxo
         ]];
     }
 
+    /** Vista de volume do legado (vistaBancos, js/fluxo_tesouraria.js:142-173). */
+    public function vista(): array
+    {
+        return [
+            'nome_itens' => 'meses', 'placeholder' => 'Pesquisar conta ou mês (MM/AAAA)',
+            'funil' => [
+                ['id' => 'integ', 'rotulo' => 'Por integrar'],
+                ['id' => 'ext', 'rotulo' => 'Extracto por carregar'],
+                ['id' => 'conc', 'rotulo' => 'Por reconciliar'],
+                ['id' => 'concluidos', 'rotulo' => 'Reconciliados'],
+            ],
+            'filtros' => [
+                ['id' => 'curso', 'rotulo' => 'Por concluir', 'fn' => fn ($p) => $p['etapa_actual'] !== null],
+                ['id' => 'integrar', 'rotulo' => 'Documentos por integrar', 'fn' => fn ($p) => $p['por_integrar'] > 0],
+                ['id' => 'extracto', 'rotulo' => 'Sem extracto', 'fn' => fn ($p) => $p['sem_extracto']],
+                ['id' => 'conciliar', 'rotulo' => 'Movimentos por conciliar', 'fn' => fn ($p) => $p['pendentes_razao'] + $p['pendentes_extracto'] > 0],
+                ['id' => 'todas', 'rotulo' => 'Todos', 'fn' => fn () => true],
+            ],
+            'colunas' => [
+                ['tipo' => 'titulo', 'rotulo' => 'Mês'],
+                ['tipo' => 'conta', 'rotulo' => 'Conta'],
+                ['tipo' => 'etapa', 'rotulo' => 'Etapa actual'],
+                ['tipo' => 'progresso', 'rotulo' => 'Progresso'],
+                ['tipo' => 'pendencias', 'rotulo' => 'Pendências'],
+                ['tipo' => 'documentos', 'rotulo' => 'Documentos'],
+                ['tipo' => 'por_conciliar', 'rotulo' => 'Por conciliar'],
+                ['tipo' => 'kz', 'rotulo' => 'Variação do mês', 'campo' => 'valor'],
+            ],
+            'vazio' => ['icone' => 'university', 'titulo' => 'Ainda não há movimentos em contas 43',
+                'texto' => 'Registe pagamentos ou recebimentos na Tesouraria com uma conta de depósitos à ordem; o fluxo aparece aqui.', 'botao' => 'Abrir a Tesouraria', 'acao' => 'teso_gestao_pagamentos'],
+        ];
+    }
+
     private function mes(string $conta, string $ym, ?object $d, ?object $l, ?object $x, string $nome): array
     {
         $E = [];
@@ -129,7 +162,7 @@ final class FluxoBancos extends AvaliadorFluxo
         return [
             'chave' => "banco-{$conta}-{$ym}", 'titulo' => $mesTxt, 'subtitulo' => trim("{$conta} {$nome}"), 'data' => $ym, 'valor' => bcsub($deb, $cred, 2), 'valor_pendente' => self::dinheiro($l->v_pend ?? 0),
             'etapas' => $E, 'conta' => $conta, 'conta_nome' => $nome, 'por_integrar' => $porIntegrar, 'sem_extracto' => ! $nExt && ($nLin || $nDocs),
-            'pendentes_razao' => $pendR, 'pendentes_extracto' => $pendX, 'documentos' => [['tipo' => 'conta', 'numero' => $conta, 'mes' => $ym]],
+            'pendentes_razao' => $pendR, 'pendentes_extracto' => $pendX, 'n_docs' => $nDocs, 'documentos' => [['tipo' => 'conta', 'numero' => $conta, 'mes' => $ym]],
         ] + self::contagem($E);
     }
 }

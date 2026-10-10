@@ -52,6 +52,32 @@ export function alteracoes(original: Record<string, string>, editado: Record<str
   return saida;
 }
 
+/**
+ * Linhas do cartão «Mapeamento de Impostos e Encargos» (sysTaxes, js/app_v2.js:2462-2469): nome e natureza como no
+ * legado; `avencado` = a coluna Avençado (Conta) é editável (só o salário líquido — os avençados não têm INSS e o IRT
+ * avençado tem linha própria; nas outras aparece «—»). ROUNDING_DIFF não aparecia no ecrã antigo (vinha do assistente):
+ * fica numa linha própria, sem tipo de organização.
+ */
+export const IMPOSTOS_SISTEMA: { codigo: string; nome: string; natureza: string; avencado: boolean; semTipo?: boolean }[] = [
+  { codigo: 'NET_PAY_CREDIT', nome: 'Salário Líquido a Pagar', natureza: 'Passivo (CRÉDITO)', avencado: true },
+  { codigo: 'IRT_CREDIT', nome: 'IRT Retido na Fonte (Tabela Progressiva)', natureza: 'Passivo (CRÉDITO)', avencado: false },
+  { codigo: 'IRT_AVENCADO_CREDIT', nome: 'IRT Avençado (Taxa Fixa 6.5%)', natureza: 'Passivo (CRÉDITO)', avencado: false },
+  { codigo: 'INSS_FUNC_CREDIT', nome: 'INSS Trabalhador (3%)', natureza: 'Passivo (CRÉDITO)', avencado: false },
+  { codigo: 'INSS_EMP_DEBIT', nome: 'INSS Encargo Empresa (8%)', natureza: 'Gasto (DÉBITO)', avencado: false },
+  { codigo: 'INSS_EMP_CREDIT', nome: 'INSS Passivo Empresa (8%)', natureza: 'Passivo (CRÉDITO)', avencado: false },
+  { codigo: 'ROUNDING_DIFF', nome: 'Diferenças de Arredondamento', natureza: 'Ajuste (DÉBITO/CRÉDITO)', avencado: false, semTipo: true },
+];
+
+/** «N de M com conta» (nInfMapeados, js/app_v2.js:2460): linhas com pelo menos uma célula preenchida. */
+export function contarComConta(linhas: (string | number)[], valores: Record<string, string>): number {
+  const comConta = new Set(
+    Object.entries(valores)
+      .filter(([, v]) => (v ?? '').trim() !== '')
+      .map(([k]) => k.slice(0, k.lastIndexOf('|'))),
+  );
+  return linhas.filter((l) => comConta.has(String(l))).length;
+}
+
 /** Corpo do PUT a partir das alterações das duas grelhas. */
 export function corpoGravacao(
   rubricas: ReturnType<typeof alteracoes>,

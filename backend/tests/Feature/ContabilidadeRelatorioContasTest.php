@@ -116,4 +116,38 @@ final class ContabilidadeRelatorioContasTest extends TestCase
         $this->assertSame('9000.00', $re['dados']['n']['indicadores']['vendas_prestacoes']);
         $this->postJson('/api/contabilidade/relatorio-contas/2026/reabrir', [], $this->sessao(['relatorio_contas_view']))->assertForbidden();
     }
+
+    #[Test]
+    public function concluir_regista_data_utilizador_e_auditoria_bloqueia_gravacoes_e_exige_permissoes(): void
+    {
+        DB::table('configuracoes_sistema')->insert(['chave' => "closed_year_{$this->empresa->id}_2026", 'valor' => 'true']);
+        // sem rc_concluir / rc_reabrir: 403 e nada muda
+        $soEdita = $this->sessao(['relatorio_contas_view', 'rc_editar']);
+        $this->postJson('/api/contabilidade/relatorio-contas/2026/concluir', [], $soEdita)->assertForbidden();
+        $this->getJson('/api/contabilidade/relatorio-contas/2026', $this->s)->assertJsonPath('dados.registo.estado', 'RASCUNHO')->assertJsonPath('dados.registo.concluido_em', null);
+
+        $r = $this->postJson('/api/contabilidade/relatorio-contas/2026/concluir', [], $this->s)->assertOk()->json('dados.registo');
+        $this->assertSame('APROVADO', $r['estado']);
+        $this->assertNotNull($r['concluido_em']);
+        $this->assertNotEmpty($r['concluido_por']);
+        // o estado chega também na leitura (etiqueta «Concluído» + «concluído em … por …»)
+        $this->getJson('/api/contabilidade/relatorio-contas/2026', $this->s)->assertJsonPath('dados.registo.concluido_por', $r['concluido_por']);
+        $log = DB::table('logs_auditoria')->where('empresa_id', $this->empresa->id)->where('acao', 'Concluiu o Relatório e Contas')->first();
+        $this->assertNotNull($log);
+        $this->assertSame([(string) $r['id'], $r['concluido_por']], [$log->registo_id, $log->nome_utilizador]);
+
+        // concluído: gravar e concluir de novo são recusados; reabrir sem permissão também
+        $this->putJson('/api/contabilidade/relatorio-contas/2026', ['configuracao' => ['director' => 'Outro']], $this->s)->assertStatus(422)
+            ->assertJsonPath('codigo', 'RELATORIO_CONCLUIDO')->assertJsonPath('mensagem', 'O Relatório e Contas de 2026 está concluído: reabra-o para alterar.');
+        $this->postJson('/api/contabilidade/relatorio-contas/2026/concluir', [], $this->s)->assertStatus(409)->assertJsonPath('codigo', 'RELATORIO_CONCLUIDO');
+        $this->postJson('/api/contabilidade/relatorio-contas/2026/reabrir', [], $soEdita)->assertForbidden();
+
+        $re = $this->postJson('/api/contabilidade/relatorio-contas/2026/reabrir', [], $this->s)->assertOk()->json('dados.registo');
+        $this->assertSame(['RASCUNHO', null, null], [$re['estado'], $re['concluido_em'], $re['concluido_por']]);
+        $this->assertTrue(DB::table('logs_auditoria')->where('empresa_id', $this->empresa->id)->where('acao', 'Reabriu o Relatório e Contas')->exists());
+        // reaberto: grava de novo; reabrir outra vez não faz sentido (409)
+        $this->putJson('/api/contabilidade/relatorio-contas/2026', ['configuracao' => ['director' => 'Outro']], $this->s)->assertOk();
+        $this->postJson('/api/contabilidade/relatorio-contas/2026/reabrir', [], $this->s)->assertStatus(409)->assertJsonPath('codigo', 'RELATORIO_NAO_CONCLUIDO');
+        $this->postJson('/api/contabilidade/relatorio-contas/2025/reabrir', [], $this->s)->assertStatus(409);
+    }
 }

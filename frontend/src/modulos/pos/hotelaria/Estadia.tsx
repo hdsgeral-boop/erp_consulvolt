@@ -260,7 +260,7 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
   );
 }
 
-function ModalAlterar({ estadia, carregando, aoFechar, aoConfirmar }: { estadia: Estadia | null; carregando: boolean; aoFechar: () => void; aoConfirmar: (d: Record<string, unknown>) => void }) {
+export function ModalAlterar({ estadia, carregando, aoFechar, aoConfirmar }: { estadia: Estadia | null; carregando: boolean; aoFechar: () => void; aoConfirmar: (d: Record<string, unknown>) => void }) {
   const { pode } = useSessao();
   const [form] = Form.useForm();
   useEffect(() => {

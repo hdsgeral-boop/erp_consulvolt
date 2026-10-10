@@ -1,7 +1,4 @@
-import { Segmented } from 'antd';
-import { CloudUploadOutlined, FileDoneOutlined, FileTextOutlined, ShoppingCartOutlined, TruckOutlined, WalletOutlined } from '@ant-design/icons';
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { useSessao } from '@/sessao/SessaoContexto';
+import { Route, Routes } from 'react-router-dom';
 import { ListaDocumentos } from './ListaDocumentos';
 import { EmitirDocumento } from './EmitirDocumento';
 import { DetalheDocumento } from './DetalheDocumento';
@@ -20,41 +17,21 @@ export function separadorFaturacao(caminho: string): SeparadorFaturacao {
 }
 
 /**
- * Vendas › Facturação (ecrã vendas_faturacao), com os separadores do legado (renderFaturaçãoTab, js/ui_sales.js:648):
- * Orçamentos/Pró-formas, Encomendas, Facturas/N. crédito (por omissão), Guias — mais Recibos de clientes e
- * Facturação electrónica AGT.
+ * Vendas › Faturação (ecrã vendas_faturacao). Os subseparadores do legado (Orçamentos, Encomendas, Faturas / NC, Guias —
+ * mais Recibos) estão no cabeçalho «Gestão de Vendas» (BarraVendas), com o n.º de documentos de cada um; a Facturação
+ * electrónica é um separador principal do agregador, como no legado.
  */
 export default function Faturacao() {
-  const navegar = useNavigate();
-  const { pathname } = useLocation();
-  const { pode } = useSessao();
-  const actual = separadorFaturacao(pathname);
-
   return (
-    <>
-      <Segmented<SeparadorFaturacao>
-        style={{ marginBottom: 16, maxWidth: '100%', overflowX: 'auto' }}
-        value={actual}
-        onChange={(v) => navegar(v === 'documentos' ? BASE : `${BASE}/${v}`)}
-        options={[
-          { value: 'orcamentos', label: 'Orç. / Pró-formas', icon: <FileTextOutlined /> },
-          { value: 'encomendas', label: 'Encomendas', icon: <ShoppingCartOutlined /> },
-          { value: 'documentos', label: 'Facturas / N. crédito', icon: <FileDoneOutlined /> },
-          { value: 'guias', label: 'Guias', icon: <TruckOutlined /> },
-          { value: 'recibos', label: 'Recibos', icon: <WalletOutlined /> },
-          ...(pode('vendas_faturacao_view', 'vendas_fe_config') ? [{ value: 'agt' as const, label: 'Facturação electrónica', icon: <CloudUploadOutlined /> }] : []),
-        ]}
-      />
-      <Routes>
-        <Route index element={<ListaDocumentos grupo="faturas" />} />
-        <Route path="orcamentos" element={<ListaDocumentos grupo="orcamentos" />} />
-        <Route path="encomendas" element={<ListaDocumentos grupo="encomendas" />} />
-        <Route path="guias" element={<ListaDocumentos grupo="guias" />} />
-        <Route path="novo" element={<EmitirDocumento />} />
-        <Route path="recibos/*" element={<Recibos />} />
-        <Route path="agt" element={<FaturacaoEletronica />} />
-        <Route path=":id" element={<DetalheDocumento />} />
-      </Routes>
-    </>
+    <Routes>
+      <Route index element={<ListaDocumentos grupo="faturas" />} />
+      <Route path="orcamentos" element={<ListaDocumentos grupo="orcamentos" />} />
+      <Route path="encomendas" element={<ListaDocumentos grupo="encomendas" />} />
+      <Route path="guias" element={<ListaDocumentos grupo="guias" />} />
+      <Route path="novo" element={<EmitirDocumento />} />
+      <Route path="recibos/*" element={<Recibos />} />
+      <Route path="agt" element={<FaturacaoEletronica />} />
+      <Route path=":id" element={<DetalheDocumento />} />
+    </Routes>
   );
 }

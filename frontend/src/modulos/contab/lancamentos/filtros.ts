@@ -3,10 +3,10 @@
 export type SemCampo = 'demo' | 'fluxo' | 'un' | 'cc';
 
 export const SEM_ROTULOS: { chave: SemCampo; rotulo: string; titulo: string }[] = [
-  { chave: 'demo', rotulo: 'Nota Dem.', titulo: 'Linhas sem nota às demonstrações' },
-  { chave: 'fluxo', rotulo: 'Nota Fluxo', titulo: 'Linhas sem nota de fluxo de caixa' },
-  { chave: 'un', rotulo: 'UN', titulo: 'Linhas sem unidade de negócio' },
-  { chave: 'cc', rotulo: 'CC', titulo: 'Linhas sem centro de custo' },
+  { chave: 'demo', rotulo: 'Nota Dem.', titulo: 'Filtrar linhas sem Nota Demonstrativa' },
+  { chave: 'fluxo', rotulo: 'Nota Fluxo', titulo: 'Filtrar linhas sem Nota de Fluxo' },
+  { chave: 'un', rotulo: 'UN', titulo: 'Filtrar linhas sem Unidade de Negócio' },
+  { chave: 'cc', rotulo: 'CC', titulo: 'Filtrar linhas sem Centro de Custo' },
 ];
 
 /** Valor do selector «alterar em massa» que significa remover (o «[REMOVER NOTA]» do legado). */
@@ -15,8 +15,15 @@ export const REMOVER = -1;
 export interface FiltrosLista {
   ano?: number;
   mes?: number;
+  /** Data fiscal (início/fim) — data_documento. */
   inicio?: string;
   fim?: string;
+  /** Data do documento original (legado entry_date → data_lancamento). */
+  docInicio?: string;
+  docFim?: string;
+  /** Data do lançamento no sistema (legado created_at → criado_em). */
+  criadoInicio?: string;
+  criadoFim?: string;
   contas?: string;
   diario?: number;
   numeroLan?: string;
@@ -37,7 +44,7 @@ export function intervaloPeriodo(ano?: number, mes?: number): { inicio?: string;
   return { inicio: `${ano}-${pad(mes)}-01`, fim: `${ano}-${pad(mes)}-${pad(ultimo)}` };
 }
 
-/** Filtros aplicados → parâmetros da API (GET /contabilidade/lancamentos e classificação por filtro). */
+/** Filtros aplicados → parâmetros da API (GET /contabilidade/lancamentos, classificação e descontabilização por filtro). */
 export function filtrosLancamentos(f: FiltrosLista, sem: SemCampo[]): Record<string, unknown> {
   const t = (v?: string) => (v && v.trim() ? v.trim() : undefined);
   return {
@@ -51,8 +58,20 @@ export function filtrosLancamentos(f: FiltrosLista, sem: SemCampo[]): Record<str
     incluir_classe_9: f.classe9 ? 1 : undefined,
     data_inicio: f.inicio,
     data_fim: f.fim,
+    data_doc_inicio: f.docInicio,
+    data_doc_fim: f.docFim,
+    criado_inicio: f.criadoInicio,
+    criado_fim: f.criadoFim,
     sem: sem.length ? sem : undefined,
   };
+}
+
+/**
+ * Nenhum critério aplicado: as operações «a todas as filtradas» (descontabilizar, alterar em massa) exigem pelo menos um
+ * (o legado exigia data, conta, diário ou documento antes de consultar).
+ */
+export function semCriterios(f: FiltrosLista, sem: SemCampo[]): boolean {
+  return Object.entries(filtrosLancamentos(f, sem)).every(([k, v]) => k === 'incluir_classe_9' || v === undefined);
 }
 
 /** Selectores da alteração em massa → campos do pedido (vazio = manter; REMOVER = null). */

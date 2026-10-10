@@ -27,18 +27,29 @@ test.describe('Autenticação, empresa activa e menu por permissões', () => {
     await expect(page.getByText(EMPRESA_VAZIA)).toBeVisible();
     await escolherEmpresa(page, EMPRESA_DEMO);
 
+    // menu com a estrutura do legado: itens gerais no topo, «Menu Geral» (módulos) e «Sistema» (configurações)
     const menu = page.locator('.ant-layout-sider');
-    for (const modulo of ['Vendas e Facturação', 'Recursos Humanos e Salários', 'Contabilidade', 'Configurações', 'POS, Lavandaria e Hotelaria']) {
+    for (const item of ['Início', 'Dashboard Global', 'Relatórios de Gestão', 'Fluxo de Processos', 'Menu Geral', 'Sistema']) {
+      await expect(menu.getByText(item, { exact: true })).toBeVisible();
+    }
+    await menu.getByText('Menu Geral', { exact: true }).click();
+    for (const modulo of ['Logística', 'Vendas', 'Compras', 'Salários e RH', 'Tesouraria', 'Contabilidade']) {
       await expect(menu.getByText(modulo, { exact: true })).toBeVisible();
     }
-    await expect(page.getByRole('combobox', { name: 'Empresa activa' })).toBeVisible();
-    await expect(page.locator('.ant-select-selection-item').filter({ hasText: EMPRESA_DEMO })).toBeVisible();
+    const nomeEmpresa = page.locator('.erp-cabecalho-empresa-nome');
+    await expect(nomeEmpresa).toHaveText(EMPRESA_DEMO);
 
-    // trocar de empresa pelo selector do cabeçalho
-    await page.getByRole('combobox', { name: 'Empresa activa' }).click({ force: true });
-    await page.locator('.ant-select-item-option').filter({ hasText: EMPRESA_VAZIA }).click();
-    await expect(page.locator('.ant-select-selection-item').filter({ hasText: EMPRESA_VAZIA })).toBeVisible();
+    // trocar de empresa directamente pela seta «Empresa activa» ao lado de «Trocar empresa»
+    await page.getByRole('button', { name: 'Empresa activa' }).click();
+    await page.locator('.ant-dropdown-menu-item').filter({ hasText: EMPRESA_VAZIA }).click();
+    await expect(nomeEmpresa).toHaveText(EMPRESA_VAZIA);
     expect(await page.evaluate(() => window.localStorage.getItem('erp.empresa'))).not.toBeNull();
+
+    // «Trocar empresa» volta à escolha de empresa (como no legado)
+    await page.getByRole('button', { name: 'Trocar empresa' }).click();
+    await expect(page.locator('.ant-list-item')).toHaveCount(2);
+    await escolherEmpresa(page, EMPRESA_DEMO);
+    await expect(nomeEmpresa).toHaveText(EMPRESA_DEMO);
 
     await page.getByText('Administrador E2E').hover();
     await page.getByText('Terminar sessão').click();
@@ -56,12 +67,14 @@ test.describe('Autenticação, empresa activa e menu por permissões', () => {
     await escolherEmpresa(page, EMPRESA_DEMO);
 
     const menu = page.locator('.ant-layout-sider');
-    await expect(menu.getByText('Vendas e Facturação', { exact: true })).toBeVisible();
-    for (const proibido of ['Recursos Humanos e Salários', 'Configurações', 'Contabilidade', 'Compras e Aprovisionamento', 'Tesouraria']) {
+    await expect(menu.getByText('Sistema', { exact: true })).toHaveCount(0);
+    await menu.getByText('Menu Geral', { exact: true }).click();
+    await expect(menu.getByText('Vendas', { exact: true })).toBeVisible();
+    for (const proibido of ['Salários e RH', 'Contabilidade', 'Compras', 'Tesouraria', 'Logística']) {
       await expect(menu.getByText(proibido, { exact: true })).toHaveCount(0);
     }
-    await menu.getByText('Vendas e Facturação', { exact: true }).click();
-    await expect(menu.getByText('Facturação', { exact: true })).toBeVisible();
+    await menu.getByText('Vendas', { exact: true }).click();
+    await expect(menu.getByText('Faturação', { exact: true })).toBeVisible();
 
     // acesso directo pelo endereço a um ecrã de RH: «Sem acesso»
     await page.goto('/m/rh/colaboradores');

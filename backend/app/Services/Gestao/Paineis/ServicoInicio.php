@@ -44,7 +44,7 @@ final class ServicoInicio
         ['contabilidade', 'Contabilidade Geral', 'Diários, balancetes e demonstrações financeiras.', ['contabilidade', 'tabelas_aux', 'relatorios_contabeis', 'lancamentos', 'contab_rotinas', 'ad_registos', 'ad_propostas', 'ad_recolher']],
         ['activos', 'Activos Fixos', 'Imobilizado, amortizações e manutenção.', ['activos', 'activos_categorias', 'activos_amortizacoes', 'activos_manutencao', 'activos_abates', 'activos_mapa']],
         ['projectos', 'Projectos e Obras', 'Carteira de projectos, custos analíticos e planeamento Gantt.', ['projectos_carteira', 'projectos_gantt', 'projectos_extracto']],
-        ['modulo_orcamento', 'Gestão Orçamental', 'Orçamentos, controlo orçado vs realizado, previsões e cenários.', ['orc_rubricas', 'orc_cenarios', 'orc_orcamentos', 'orc_controlo', 'orc_previsoes', 'orc_alertas']],
+        ['modulo_orcamento', 'Gestão Orçamental', 'Orçamentos, controlo orçado vs realizado, previsões e cenários.', ['orc_orcamentos', 'orc_controlo', 'orc_previsoes', 'orc_cenarios', 'orc_alertas', 'orc_rubricas']],
         ['modulo_crm', 'CRM', 'Pipeline comercial, agenda, previsão de vendas e campanhas.', ['crm_contas', 'crm_config', 'crm_pipeline', 'crm_agenda', 'crm_previsao', 'crm_campanhas']],
         ['modulo_estrutura', 'Estrutura Orgânica', 'Unidades, cargos e vagas, organigrama e mapa de pessoal.', ['est_estrutura', 'funcoes', 'est_organigrama', 'est_mapa']],
     ];

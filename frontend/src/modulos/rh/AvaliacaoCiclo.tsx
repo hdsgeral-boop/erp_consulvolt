@@ -15,6 +15,10 @@ import { BarraFiltros, COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/
 import { pedidoTabela } from './comum/impressao';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { useNavigate } from 'react-router-dom';
+import { IconeFa } from '@/componentes/fluxos';
+import { Comunicado, IndicadoresCiclo, Participacao, Reunioes, RotuloSeparador, type Acompanhamento360 } from './avaliacao360/Acompanhamento';
+
 interface Resultado360 {
   componentes?: Record<string, { media: number | null; n: number; peso: number }>;
   nota?: number | null;
@@ -38,26 +42,38 @@ export default function AvaliacaoCiclo() {
     if (id === undefined && ciclos.data?.length) setId((ciclos.data.find((c) => c.estado === 'ABERTO') ?? ciclos.data[0]).id);
   }, [ciclos.data, id]);
   const ciclo = ciclos.data?.find((c) => c.id === id);
+  const { pode } = useSessao();
+  const navegar = useNavigate();
+  const acomp = useQuery({ queryKey: ['rh', 'avaliacao', 'acompanhamento', id], queryFn: () => obter<Acompanhamento360>(`/rh/paridade/avaliacao/ciclos/${id}/acompanhamento`), enabled: id !== undefined });
+  useAvisarErro(acomp.error);
+  const k = acomp.data?.contadores;
 
   return (
     <>
-      <CabecalhoPagina titulo="Acompanhamento do ciclo 360º" subtitulo="A chefia avalia no Portal; aqui o RH acompanha as fases, dá parecer nas contestações e trata as bonificações"
-        accoes={<Select style={{ width: 300, maxWidth: '100%' }} placeholder="Ciclo" value={id} onChange={setId} loading={ciclos.isLoading}
-          options={(ciclos.data ?? []).map((c) => ({ value: c.id, label: `${c.nome ?? `${c.periodo} ${c.ano}`} — ${c.estado}` }))} />} />
+      <CabecalhoPagina titulo="Acompanhamento do Ciclo 360º" subtitulo="Estado de cada colaborador no ciclo, contestações, reuniões de acompanhamento, bonificações e confirmações de leitura do comunicado."
+        accoes={<Space wrap>
+          {pode('rh_avaliacao_config_view') && <Button icon={<IconeFa nome="sliders-h" />} onClick={() => navegar('/m/rh/rh_avaliacao_config')}>Configuração</Button>}
+          {pode('rh_avaliacao_view') && <Button icon={<IconeFa nome="star-half-alt" />} onClick={() => navegar('/m/rh/rh_avaliacao')}>Avaliações</Button>}
+          <Select style={{ width: 300, maxWidth: '100%' }} placeholder="Ciclo" value={id} onChange={setId} loading={ciclos.isLoading} aria-label="Ciclo"
+            options={(ciclos.data ?? []).map((c) => ({ value: c.id, label: `${c.nome ?? `${c.periodo} ${c.ano}`} — ${c.estado}` }))} />
+        </Space>} />
       {!ciclo ? <Empty description="Sem ciclos de avaliação." /> : (
         <>
           <Card style={{ marginBottom: 16 }}>
             <Descriptions size="small" column={{ xs: 1, md: 4 }}>
               <Descriptions.Item label="Estado"><EstadoTag estado={ciclo.estado} /></Descriptions.Item>
               <Descriptions.Item label="Período">{PERIODOS_AVALIACAO.find((p) => p.value === ciclo.periodo)?.label} {ciclo.ano} ({formatarData(ciclo.data_inicio)} a {formatarData(ciclo.data_fim)})</Descriptions.Item>
-              <Descriptions.Item label="Respostas até">{formatarData(ciclo.prazos?.respostas_ate)}</Descriptions.Item>
-              <Descriptions.Item label="Chefia até">{formatarData(ciclo.prazos?.chefia_ate)}</Descriptions.Item>
+              <Descriptions.Item label="Prazos">360º até {formatarData(ciclo.prazos?.respostas_ate)} · chefia até {formatarData(ciclo.prazos?.chefia_ate)} · contestação {ciclo.prazos?.dias_contestacao ?? 10} dias</Descriptions.Item>
             </Descriptions>
           </Card>
-          <Tabs items={[
-            { key: 'avaliacoes', label: 'Avaliações e contestações', children: <Avaliacoes ciclo={ciclo} /> },
-            { key: 'participantes', label: `Participantes (${ciclo.participantes?.length ?? 0})`, children: <Participantes ciclo={ciclo} /> },
-            { key: 'bonificacoes', label: 'Bonificações', children: <Bonificacoes ciclo={ciclo} /> },
+          {acomp.data && <div style={{ marginBottom: 16 }}><IndicadoresCiclo dados={acomp.data} /></div>}
+          <Tabs type="card" items={[
+            { key: 'participacao', label: <RotuloSeparador icone="users" texto="Participação" />, children: <Participacao dados={acomp.data} carregando={acomp.isFetching} /> },
+            { key: 'avaliacoes', label: <RotuloSeparador icone="balance-scale" texto="Conhecimento e contestações" contador={k?.contestacoes} />, children: <Avaliacoes ciclo={ciclo} /> },
+            { key: 'reunioes', label: <RotuloSeparador icone="comments" texto="Reuniões de acompanhamento" contador={k?.reunioes} />, children: <Reunioes dados={acomp.data} carregando={acomp.isFetching} /> },
+            { key: 'bonificacoes', label: <RotuloSeparador icone="gift" texto="Bonificações" />, children: <Bonificacoes ciclo={ciclo} /> },
+            { key: 'comunicado', label: <RotuloSeparador icone="bullhorn" texto="Comunicado" contador={k?.comunicado} />, children: <Comunicado dados={acomp.data} nomeCiclo={ciclo.nome ?? `${ciclo.periodo} ${ciclo.ano}`} /> },
+            { key: 'participantes', label: <RotuloSeparador icone="sitemap" texto={`Composição (${ciclo.participantes?.length ?? 0})`} />, children: <Participantes ciclo={ciclo} /> },
           ]} />
         </>
       )}
@@ -175,7 +191,7 @@ function Participantes({ ciclo }: { ciclo: Ciclo360 }) {
   return (
     <Card>
       <BarraFiltros style={{ marginBottom: 12 }} accoes={<BotoesExportar obterPedido={() => pedidoTabela({ titulo: 'Participantes do ciclo 360º', subtitulo: ciclo.nome ?? `${ciclo.periodo} ${ciclo.ano}`, colunas, linhas: ciclo.participantes ?? [] })} />}>{null}</BarraFiltros>
-      <Table size="small" rowKey="employee_id" dataSource={ciclo.participantes} pagination={{ pageSize: 50 }} scroll={scrollTabela()} columns={colunas} />
+      <TabelaComModos<Participante> idVista="composicao-360" rowKey="employee_id" size="small" dataSource={ciclo.participantes ?? []} scroll={scrollTabela()} columns={colunas} modos={false} />
     </Card>
   );
 }

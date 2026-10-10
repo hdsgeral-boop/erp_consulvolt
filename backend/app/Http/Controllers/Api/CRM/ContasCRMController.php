@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\CRM;
 
 use App\Http\Controllers\Controller;
+use App\Models\AtividadeComercialCRM;
 use App\Models\ContaCRM;
 use App\Models\ContactoCRM;
 use App\Models\OportunidadeVendaCRM;
@@ -35,14 +36,26 @@ final class ContasCRMController extends Controller
                 $q->where(fn ($s) => $s->where('nome', 'ilike', $termo)->orWhere('nif', 'ilike', $termo)->orWhere('email', 'ilike', $termo)->orWhere('setor', 'ilike', $termo));
             })->orderBy('nome')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
         $ids = $pagina->getCollection()->pluck('id');
-        $opps = OportunidadeVendaCRM::query()->whereIn('conta_crm_id', $ids)->get(['id', 'conta_crm_id', 'estado', 'valor'])->groupBy('conta_crm_id');
-        $pagina->setCollection($pagina->getCollection()->map(function ($c) use ($opps) {
+        $todas = OportunidadeVendaCRM::query()->whereIn('conta_crm_id', $ids)->get(['id', 'conta_crm_id', 'estado', 'valor']);
+        $opps = $todas->groupBy('conta_crm_id');
+        // «Próxima actividade» (crm_ui_gestao.js:59): a actividade por concluir mais cedo da conta (directamente ou pela oportunidade)
+        $contaDaOpp = $todas->pluck('conta_crm_id', 'id');
+        $proximas = AtividadeComercialCRM::query()
+            ->where(fn ($q) => $q->whereIn('conta_crm_id', $ids)->orWhereIn('oportunidade_crm_id', $contaDaOpp->keys()))
+            ->where(fn ($q) => $q->whereNull('concluida')->orWhere('concluida', false))
+            ->orderBy('data_prevista')->orderBy('id')
+            ->get(['id', 'conta_crm_id', 'oportunidade_crm_id', 'tipo', 'titulo', 'data_prevista'])
+            ->groupBy(fn ($a) => $a->conta_crm_id ?? $contaDaOpp[$a->oportunidade_crm_id] ?? 0)
+            ->map(fn ($g) => $g->first());
+        $pagina->setCollection($pagina->getCollection()->map(function ($c) use ($opps, $proximas) {
             $os = $opps[$c->id] ?? collect();
             $abertas = $os->where('estado', 'ABERTA');
+            $prox = $proximas[$c->id] ?? null;
 
             return $c->toArray() + ['oportunidades_abertas' => $abertas->count(), 'valor_aberto' => $abertas->reduce(fn ($s, $o) => bcadd($s, (string) $o->valor, 2), '0.00'),
                 'ganhas' => $os->where('estado', 'GANHA')->count(), 'financeiro' => $c->terceiro_id ? array_intersect_key($this->contas->financeiro($c->terceiro_id),
-                    array_flip(['em_aberto', 'em_atraso', 'max_dias_atraso', 'n_atrasadas'])) : null];
+                    array_flip(['em_aberto', 'em_atraso', 'max_dias_atraso', 'n_atrasadas', 'facturado_12m'])) : null,
+                'proxima_atividade' => $prox ? ['id' => $prox->id, 'tipo' => $prox->tipo, 'titulo' => $prox->titulo, 'data_prevista' => $prox->data_prevista?->toDateString()] : null];
         }));
 
         return RespostaApi::paginado($pagina, null, 'Contas do CRM.');

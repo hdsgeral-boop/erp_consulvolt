@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { EcraMenu, ModuloMenu } from '@/api/tipos';
+import { nomeModulo, rotuloEcra } from '@/layout/menuLegado';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { usePreferencia } from './usePreferencias';
 
@@ -22,7 +23,7 @@ export function resolverFavoritos(favoritos: Favorito[], menu: ModuloMenu[]): Fa
   return favoritos.flatMap((f) => {
     const m = menu.find((x) => x.id === f.modulo);
     const e: EcraMenu | undefined = m?.ecras.find((x) => x.id === f.ecra);
-    return m && e ? [{ ...f, nome: e.nome, nomeModulo: m.nome, rota: `/m/${m.id}/${e.id}` }] : [];
+    return m && e ? [{ ...f, nome: rotuloEcra(m.id, e.id, e.nome), nomeModulo: nomeModulo(m.id, m.nome), rota: `/m/${m.id}/${e.id}` }] : [];
   });
 }
 

@@ -59,7 +59,8 @@ export function useAjuda(): ContextoAjuda {
 export function BotaoAjuda({ compacto }: { compacto?: boolean }) {
   const { alternar } = useAjuda();
   return (
-    <Button className="erp-botao-ajuda" icon={<QuestionCircleOutlined />} onClick={alternar} aria-label="Ajuda" title="Ajuda deste ecrã (F1)">
+    // legado: botão azul cheio com «?» (relatório de verificação visual 0.2.1)
+    <Button type="primary" className="erp-botao-ajuda" icon={<QuestionCircleOutlined />} onClick={alternar} aria-label="Ajuda" title="Ajuda deste ecrã (F1)">
       {compacto ? null : 'Ajuda'}
     </Button>
   );

@@ -132,11 +132,13 @@ final class FluxoFerias extends AvaliadorFluxo
                 $E['saldo'] = self::porFazer("Saldo {$saldo} · por gozar ".($direito - $gozados));
             }
             $processos[] = ['chave' => "ferias-{$c->id}-{$ano}", 'titulo' => (string) $c->nome_completo, 'subtitulo' => (string) $ano, 'data' => (string) $ano,
+                // linha do cartão (legado fluxo_rh.js:103 linhaData)
+                'linha_data' => "{$marcados}/{$direito} dias · saldo {$saldo}",
                 'valor' => null, 'valor_pendente' => null, 'etapas' => $E, 'ano' => $ano, 'colaborador_id' => $c->id, 'saldo' => $saldo, 'marcados' => $marcados,
                 'vencidos' => $vencidos->count(), 'por_aprovar' => $pedPend->count() + $plan->count(),
                 'documentos' => $ps->map(fn ($p) => ['tipo' => 'plano_ferias', 'id' => $p->id, 'numero' => self::data($p->data_inicio)])->values()->all()] + self::contagem($E);
         }
-        usort($processos, fn ($a, $b) => $b['ano'] <=> $a['ano'] ?: $a['_concluidas'] <=> $b['_concluidas'] ?: strcmp($a['titulo'], $b['titulo']));
+        usort($processos, fn ($a, $b) => $b['ano'] <=> $a['ano'] ?: $a['_concluidas'] <=> $b['_concluidas'] ?: strcmp(mb_strtolower($a['titulo']), mb_strtolower($b['titulo'])));
         $doAno = array_filter($processos, fn ($p) => $p['ano'] === $anoAct);
 
         return ['processos' => $processos, 'kpis' => [

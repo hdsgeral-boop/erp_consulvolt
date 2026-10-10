@@ -1,6 +1,6 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 
-type Mapa = 'Relatorios' | 'MapaRemuneracoes' | 'MapaIrt' | 'MapaInss' | 'MapaPagamentos' | 'MapaBanco' | 'MapaRecibos';
+type Mapa = 'MapaRemuneracoes' | 'MapaIrt' | 'MapaInss' | 'MapaPagamentos' | 'MapaBanco' | 'MapaRecibos';
 const mapa = (nome: Mapa) => lazy(() => import('./relatorios/Mapas').then((m) => ({ default: m[nome] })));
 
 /** Ecrãs do módulo RH e Salários (ids do catálogo de permissões). */
@@ -20,7 +20,7 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   rh_avaliacao_ciclo: lazy(() => import('./AvaliacaoCiclo')),
   rh_portal: lazy(() => import('./Portal')),
   rh_portal_gestao: lazy(() => import('./PortalGestao')),
-  relatorios: mapa('Relatorios'),
+  relatorios: lazy(() => import('./relatorios/RelatoriosRecibos')),
   rh_rel_remuneracoes: mapa('MapaRemuneracoes'),
   rh_rel_irt: mapa('MapaIrt'),
   rh_rel_inss: mapa('MapaInss'),

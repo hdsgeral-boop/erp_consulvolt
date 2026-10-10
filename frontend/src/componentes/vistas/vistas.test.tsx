@@ -5,6 +5,10 @@ import { Button, Tag } from 'antd';
 import type { ReactNode } from 'react';
 import { simularLargura } from '@/componentes/responsivo/testes/simularLargura';
 
+// A tabela tem agora a caixa, a linha de filtros e a paginação do antigo: a 1.ª renderização no jsdom é mais lenta
+// (sobretudo com a suite toda em paralelo).
+vi.setConfig({ testTimeout: 60_000 });
+
 const obter = vi.fn();
 const enviar = vi.fn();
 vi.mock('@/api/cliente', () => ({

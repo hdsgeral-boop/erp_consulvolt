@@ -1,24 +1,28 @@
-import { Alert, Button, Card, DatePicker, Empty, Flex, Form, InputNumber, List, Modal, Select, Skeleton, Space, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd';
-import { CheckOutlined, EyeOutlined, StopOutlined, SwapOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { Alert, Button, Card, DatePicker, Flex, Form, InputNumber, List, Modal, Select, Skeleton, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
+import { CheckOutlined, EyeOutlined, SwapOutlined } from '@ant-design/icons';
+import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
-import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { IconeLegado } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { somar } from '@/utilitarios/decimal';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
-import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from './comum/estados';
-import { SeletorTerminal, useFiltroTerminal } from './comum/Filtros';
+import { EstadoPOS, rotuloEstadoPOS } from './comum/estados';
 import { accoesItemPrestacao, podeAnularLiquidacao } from './comum/regras';
 import type { FolhaCaixa, ItemPrestacao, Liquidacao, SessaoPrestacao } from './comum/tipos';
+import { destinoLiquidacao } from './contas/formatos';
+import { Seccao } from './contas/Seccao';
+import { TIPOS_MEIO } from './comum/dados';
+
+/** Tipo do movimento com o rótulo do meio do legado (Numerário, Multicaixa (TPA), Transferência bancária). */
+const rotuloTipo = (v: string | null | undefined) => (v && TIPOS_MEIO[v]) || rotuloEstadoPOS(v);
 
 interface Pendentes {
   sessoes: SessaoPrestacao[];
@@ -26,34 +30,65 @@ interface Pendentes {
 }
 
 /**
- * POS › Prestação de contas (ecrã pos_prestacao): saldar as contas transitórias das sessões integradas — numerário na
- * folha de caixa, TPA e transferências na tesouraria (com comissão) — e anular liquidações (ADR-048).
+ * POS › Prestação de contas (ecrã pos_prestacao) como no sistema anterior (renderPrestacao, pos_prestacao.js:558-609): na
+ * mesma página o cabeçalho «Prestação de contas» com a Folha de Caixa aberta (ou o aviso de que não há), as sessões por
+ * regularizar (numerário na Folha de Caixa, TPA e transferências na Tesouraria, com comissão) e a tabela «Movimentos de
+ * prestação de contas» (com «Anular») — ADR-048.
  */
 export default function Prestacao() {
+  const consulta = useQuery({ queryKey: ['pos', 'prestacao'], queryFn: () => obter<Pendentes>('/pos/prestacao') });
+  useEffect(() => {
+    if (consulta.error) notificarErro(consulta.error, 'Erro ao carregar a prestação de contas');
+  }, [consulta.error]);
+  const folha = consulta.data?.folhas_caixa_abertas?.[0];
   return (
     <>
-      <CabecalhoPagina titulo="Prestação de contas POS" subtitulo="Liquidação do numerário, TPA e transferências das sessões integradas" />
-      <Tabs
-        destroyOnHidden
-        items={[
-          { key: 'pendentes', label: 'Por regularizar', children: <PorRegularizar /> },
-          { key: 'liquidacoes', label: 'Liquidações', children: <ListaLiquidacoes /> },
-        ]}
-      />
+      <Seccao
+        titulo="Prestação de contas"
+        icone="hand-holding-usd"
+        cor="#059669"
+        descricao="Regulariza as contas transitórias: o numerário entra na Folha de Caixa, o fecho do TPA e cada transferência geram um recebimento pendente na Tesouraria (integrado depois pelo processo normal)."
+        extra={
+          <BotoesExportar
+            tamanho="small"
+            desactivado={!consulta.data?.sessoes.length}
+            obterPedido={() => ({ titulo: 'Prestação de contas · sessões por regularizar', conteudo: documentoPorRegularizar(consulta.data?.sessoes ?? []) })}
+          />
+        }
+      >
+        <AvisoFolhaCaixa carregando={consulta.isLoading} folha={folha} />
+      </Seccao>
+      <PorRegularizar consulta={consulta} />
+      <Seccao titulo="Movimentos de prestação de contas" icone="history" cor="#334155" nivel={4}>
+        <ListaLiquidacoes />
+      </Seccao>
     </>
   );
 }
 
-function PorRegularizar() {
+/** Linha da Folha de Caixa aberta (ou o aviso «Não há Folha de Caixa aberta…», pos_prestacao.js:598). */
+export function AvisoFolhaCaixa({ carregando, folha }: { carregando: boolean; folha: FolhaCaixa | undefined }) {
+  if (carregando) return null;
+  return (
+    <div style={{ marginTop: '0.5rem', fontSize: '0.8rem' }} role="status">
+      {folha ? (
+        <>
+          <IconeLegado icone="cash-register" style={{ color: '#059669' }} /> Folha de Caixa aberta: conta <strong>{folha.codigo_conta}</strong> · {folha.operador ?? ''} · desde{' '}
+          {formatarData(folha.data_abertura)}
+        </>
+      ) : (
+        <>
+          <IconeLegado icone="exclamation-triangle" style={{ color: '#b45309' }} /> Não há Folha de Caixa aberta: abra uma sessão na Folha de Caixa para receber o numerário.
+        </>
+      )}
+    </div>
+  );
+}
+
+function PorRegularizar({ consulta }: { consulta: UseQueryResult<Pendentes> }) {
   const { pode, utilizador } = useSessao();
-  const [terminal, setTerminal] = useState<number>();
   const [detalhe, setDetalhe] = useState<number | null>(null);
   const [registar, setRegistar] = useState<{ sessao: SessaoPrestacao; item: ItemPrestacao } | null>(null);
-  const filtroTerminal = useFiltroTerminal(terminal);
-  const consulta = useQuery({ queryKey: ['pos', 'prestacao', terminal], queryFn: () => obter<Pendentes>('/pos/prestacao', { terminal_pos_id: terminal }) });
-  useEffect(() => {
-    if (consulta.error) notificarErro(consulta.error, 'Erro ao carregar a prestação de contas');
-  }, [consulta.error]);
 
   const lote = useAccao<{ registadas: unknown[]; erros: { chave_item: string; numero_documento: string | null; mensagem: string }[] }>({
     invalidar: [['pos']],
@@ -70,23 +105,14 @@ function PorRegularizar() {
 
   return (
     <>
-      <BarraFiltros
-        accoes={
-          <BotoesExportar
-            tamanho="small"
-            desactivado={!consulta.data?.sessoes.length}
-            obterPedido={() => ({ titulo: 'Prestação de contas POS · por regularizar', filtros: [filtroTerminal], conteudo: documentoPorRegularizar(consulta.data?.sessoes ?? []) })}
-          />
-        }
-      >
-        <SeletorTerminal value={terminal} onChange={setTerminal} />
-      </BarraFiltros>
       {consulta.isLoading ? (
         <Skeleton active />
       ) : !consulta.data?.sessoes.length ? (
-        <Empty description="Não há sessões por regularizar." />
+        <div style={{ background: 'var(--ant-color-bg-container, #fff)', border: '1px solid #e2e8f0', borderRadius: 4, padding: '1rem', marginBottom: 16, color: '#94a3b8', textAlign: 'center' }}>
+          Sem sessões por regularizar.
+        </div>
       ) : (
-        <Flex vertical gap={16}>
+        <Flex vertical gap={16} style={{ marginBottom: 16 }}>
           {consulta.data.sessoes.map((s) => {
             const transferencias = s.itens.filter((i) => i.natureza === 'TRANSFERENCIA' && accoesItemPrestacao(pode, i, s.operador_id, utilizador?.id).visivel);
             const proprio = !!utilizador?.id && s.operador_id === utilizador.id;
@@ -289,71 +315,64 @@ function ModalRegistar({ alvo, folhas, aoFechar }: { alvo: { sessao: SessaoPrest
   );
 }
 
+/**
+ * «Movimentos de prestação de contas» (pos_prestacao.js:601-607): os movimentos não anulados, do mais recente para o mais
+ * antigo — Data, Sessão, Tipo, Destino, Bruto, Comissão, Líquido, Registado por — com filtros por coluna e «Anular».
+ */
 function ListaLiquidacoes() {
   const { pode } = useSessao();
-  const [estado, setEstado] = useState<string | undefined>('REGISTADO');
-  const [natureza, setNatureza] = useState<string>();
-  const [alvo, setAlvo] = useState<string>();
-  const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [anular, setAnular] = useState<Liquidacao | null>(null);
   const accao = useAccao({ invalidar: [['pos'], ['tesouraria']], aoSucesso: () => setAnular(null) });
 
   return (
     <>
-      <BarraFiltros>
-        <Select allowClear placeholder="Estado" style={{ width: 160 }} value={estado} onChange={setEstado} options={opcoesEstadoPOS(['REGISTADO', 'ANULADO'])} />
-        <Select allowClear placeholder="Natureza" style={{ width: 170 }} value={natureza} onChange={setNatureza} options={opcoesEstadoPOS(['NUMERARIO', 'TPA', 'TRANSFERENCIA'])} />
-        <Select
-          allowClear
-          placeholder="Destino"
-          style={{ width: 170 }}
-          value={alvo}
-          onChange={setAlvo}
-          options={[
-            { value: 'FOLHA_CAIXA', label: 'Folha de caixa' },
-            { value: 'TESOURARIA', label: 'Tesouraria' },
-          ]}
-        />
-        <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
-      </BarraFiltros>
       <TabelaApi<Liquidacao>
+        idVista="prestacao-movimentos"
+        modos={false}
         url="/pos/liquidacoes"
         chaveConsulta={['pos', 'liquidacoes']}
-        filtros={{ estado, natureza_registo: natureza, alvo, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
-        impressao={{
-          titulo: 'Liquidações POS',
-          periodo: periodo?.[0] && periodo[1] ? `${formatarData(dataApi(periodo[0]))} a ${formatarData(dataApi(periodo[1]))}` : undefined,
-          filtros: [
-            `Estado: ${estado ? rotuloEstadoPOS(estado) : 'Todos'}`,
-            natureza && `Natureza: ${rotuloEstadoPOS(natureza)}`,
-            alvo && `Destino: ${alvo === 'FOLHA_CAIXA' ? 'Folha de caixa' : 'Tesouraria'}`,
-          ],
-        }}
+        filtros={{ estado: 'REGISTADO' }}
+        size="small"
+        impressao={{ titulo: 'Movimentos de prestação de contas' }}
         columns={[
           { title: 'Data', dataIndex: 'data', render: (v) => formatarData(v) },
-          { title: 'Z', dataIndex: 'numero_z' },
-          { title: 'Natureza', dataIndex: 'natureza_registo', render: (v) => <EstadoPOS estado={v} /> },
-          { title: 'Destino', dataIndex: 'alvo', render: (v) => (v === 'FOLHA_CAIXA' ? 'Folha de caixa' : 'Tesouraria') },
-          { title: 'Contas', responsive: ['lg'], render: (_, l) => `${l.conta_transitoria ?? '—'} → ${l.conta_destino ?? '—'}` },
-          { title: 'Referência', render: (_, l) => l.numero_documento ?? l.referencia ?? (l.documento_tesouraria_id ? `Doc. #${l.documento_tesouraria_id}` : l.movimento_caixa_id ? `Mov. #${l.movimento_caixa_id}` : '—') },
-          { title: 'Bruto', dataIndex: 'montante_bruto', align: 'right', render: (v) => formatarKz(v), responsive: ['md'], totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.montante_bruto))) },
-          { title: 'Comissão', dataIndex: 'comissao', align: 'right', render: (v) => formatarKz(v), responsive: ['md'], totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.comissao))) },
-          { title: 'Líquido', dataIndex: 'montante_liquido', align: 'right', render: (v) => formatarKz(v), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.montante_liquido))) },
-          { title: 'Estado', dataIndex: 'estado', render: (v, l) => (l.cancelado_em ? <Tooltip title={`${l.cancelado_por ?? ''} · ${formatarDataHora(l.cancelado_em)}`}><span><EstadoPOS estado={v} /></span></Tooltip> : <EstadoPOS estado={v} />) },
-          { title: 'Por', dataIndex: 'criado_por', responsive: ['lg'] },
+          { title: 'Sessão', dataIndex: 'numero_z' },
           {
-            title: '',
-            key: 'accoes',
-            fixed: 'right',
-            exportar: false,
-            render: (_, l) =>
-              podeAnularLiquidacao(pode, l) ? (
-                <Button size="small" danger icon={<StopOutlined />} onClick={() => setAnular(l)}>
-                  Anular
-                </Button>
-              ) : null,
+            title: 'Tipo',
+            dataIndex: 'natureza_registo',
+            render: (v, l) => (
+              <>
+                {rotuloTipo(v)}
+                {l.numero_documento && (
+                  <div>
+                    <small>{l.numero_documento}</small>
+                  </div>
+                )}
+              </>
+            ),
+            valorFiltro: (l) => `${rotuloTipo(l.natureza_registo)} ${l.numero_documento ?? ''}`,
+            valorImpressao: (l) => `${rotuloTipo(l.natureza_registo)}${l.numero_documento ? ` · ${l.numero_documento}` : ''}`,
+          },
+          { title: 'Destino', key: 'destino', render: (_, l) => destinoLiquidacao(l), valorFiltro: (l) => destinoLiquidacao(l), valorImpressao: (l) => destinoLiquidacao(l) },
+          { title: 'Bruto', dataIndex: 'montante_bruto', align: 'right', render: (v) => formatarKz(v), total: true },
+          { title: 'Comissão', dataIndex: 'comissao', align: 'right', render: (v) => formatarKz(v ?? 0), total: true },
+          { title: 'Líquido', dataIndex: 'montante_liquido', align: 'right', render: (v) => <b>{formatarKz(v)}</b>, total: true },
+          {
+            title: 'Registado por',
+            dataIndex: 'criado_por',
+            render: (v, l) => (
+              <>
+                {v ?? ''}
+                <div>
+                  <small>{formatarDataHora(l.criado_em)}</small>
+                </div>
+              </>
+            ),
+            valorImpressao: (l) => `${l.criado_por ?? ''} ${formatarDataHora(l.criado_em)}`.trim(),
           },
         ]}
+        accoes={(l) => [{ icone: 'undo', titulo: 'Anular', texto: 'Anular', variante: 'perigo', oculto: !podeAnularLiquidacao(pode, l), onClick: () => setAnular(l) }]}
+        vazio={{ icone: 'history', titulo: 'Sem movimentos.' }}
       />
       <ModalMotivo
         aberto={!!anular}

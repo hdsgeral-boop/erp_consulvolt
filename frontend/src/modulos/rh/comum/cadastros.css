@@ -1,0 +1,28 @@
+/* RH › cadastros com o formulário dentro do cartão (antigo: «1. Gestão de Bancos», grelha de 3 colunas) */
+.rh-form-em-linha .rh-grelha-bancos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.rh-form-em-linha .rh-grelha-largo {
+  grid-column: span 2;
+}
+
+.rh-form-em-linha .ant-form-item {
+  margin-bottom: 12px;
+}
+
+.rh-form-em-linha .ant-form-item-label > label {
+  font-weight: 600;
+}
+
+@media (max-width: 767px) {
+  .rh-form-em-linha .rh-grelha-bancos {
+    grid-template-columns: 1fr;
+  }
+
+  .rh-form-em-linha .rh-grelha-largo {
+    grid-column: auto;
+  }
+}

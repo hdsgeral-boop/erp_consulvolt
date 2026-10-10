@@ -1,10 +1,9 @@
-import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Space } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { Card, Col, Form, Input, InputNumber, Modal, Row } from 'antd';
 import { useEffect, useState } from 'react';
 import { NavActivos } from './comum/NavActivos';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import type { ColunaApi } from '@/componentes/TabelaApi';
-import { pedidoTabela } from './comum/impressao';
+import { BotaoCartao } from './inventario/BotaoCartao';
+import { ouTracos, percentagem } from './inventario/regrasInventario';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
@@ -21,49 +20,46 @@ export default function Categorias() {
   const eliminar = useAccao({ invalidar: [['activos']] });
   const gerir = pode('activos_cat_gerir');
 
+  // Colunas e rótulos curtos do legado (renderAssetCategories); as contas em falta ficam a vermelho porque sem 73/18 não há integração.
+  const emFalta = <span style={{ color: '#cf1322' }} title="Sem esta conta não é possível integrar amortizações">---</span>;
   const colunas: ColunaApi<CategoriaActivo>[] = [
-    { title: 'Nome', dataIndex: 'nome', render: (v) => <strong>{v}</strong> },
-    { title: 'Taxa anual', dataIndex: 'taxa_anual', align: 'right', render: (v) => (v !== null ? `${Number(v).toLocaleString('pt-PT')}%` : '—') },
-    { title: 'Vida útil (meses)', dataIndex: 'vida_util_padrao', align: 'right', render: (v) => v ?? '—' },
-    { title: 'Gasto', dataIndex: 'conta_gasto', render: (v) => v ?? <span style={{ color: '#cf1322' }}>em falta</span> },
-    { title: 'Amort. acumulada', dataIndex: 'conta_amortizacao_acumulada', render: (v) => v ?? <span style={{ color: '#cf1322' }}>em falta</span> },
-    { title: 'Venda (ganho)', dataIndex: 'conta_venda', render: (v) => v ?? '—' },
-    { title: 'Perda', dataIndex: 'conta_perda', render: (v) => v ?? '—' },
-    { title: 'Activo', dataIndex: 'conta_ativo', render: (v) => v ?? '—' },
-    { title: 'Activos', dataIndex: 'ativos', align: 'right' },
-    {
-      title: '', key: 'acc', align: 'right',
-      render: (_, c) => gerir && (
-        <Space>
-          <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(c)} />
-          <Popconfirm title={`Eliminar a categoria «${c.nome}»?`} disabled={!!c.ativos} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
-            onConfirm={() => eliminar.mutate({ metodo: 'delete', url: `/ativos/categorias/${c.id}` })}>
-            <Button size="small" danger icon={<DeleteOutlined />} disabled={!!c.ativos} title={c.ativos ? 'Categoria com activos' : undefined} />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    { title: 'Nome', dataIndex: 'nome', ocultavel: false, render: (v) => <strong>{v}</strong> },
+    { title: 'Taxa (%)', dataIndex: 'taxa_anual', align: 'center', render: (v) => percentagem(v), valorImpressao: (c) => percentagem(c.taxa_anual) },
+    { title: 'Amort. Exerc.', dataIndex: 'conta_gasto', render: (v) => v ?? emFalta, valorImpressao: (c) => ouTracos(c.conta_gasto) },
+    { title: 'Amort. Acum.', dataIndex: 'conta_amortizacao_acumulada', render: (v) => v ?? emFalta, valorImpressao: (c) => ouTracos(c.conta_amortizacao_acumulada) },
+    { title: 'C. Venda', dataIndex: 'conta_venda', render: (v) => ouTracos(v) },
+    { title: 'C. Perda', dataIndex: 'conta_perda', render: (v) => ouTracos(v) },
+    // extras do sistema novo: escondidos por omissão («Colunas ▾»)
+    { title: 'Vida útil (meses)', dataIndex: 'vida_util_padrao', align: 'right', ocultaPorOmissao: true, render: (v) => ouTracos(v) },
+    { title: 'C. Activo', dataIndex: 'conta_ativo', ocultaPorOmissao: true, render: (v) => ouTracos(v) },
+    { title: 'Activos', dataIndex: 'ativos', align: 'right', ocultaPorOmissao: true },
   ];
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Categorias e taxas"
-        subtitulo="Sem as contas de gasto (73) e de amortização acumulada (18) não é possível integrar amortizações"
-        accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar(null)}>Nova categoria</Button>}
-        impressaoDesactivada={!q.data?.length}
-        impressao={() => pedidoTabela({ titulo: 'Categorias de activos e taxas de amortização', colunas, linhas: q.data ?? [] })}
-      />
       <NavActivos actual="activos_categorias" />
-      <Card>
+      <Card
+        title="Categorias de Imobilizado"
+        extra={gerir && <BotaoCartao icone="plus" variante="primario" onClick={() => setEditar(null)}>Nova Categoria</BotaoCartao>}
+      >
         <TabelaComModos<CategoriaActivo>
+          idVista="activos_categorias"
           rowKey="id"
           size="middle"
           loading={q.isFetching}
           dataSource={q.data}
           scroll={{ x: 'max-content' }}
-          pagination={false}
           columns={colunas}
+          impressao={{ titulo: 'Categorias de Imobilizado' }}
+          accoes={(c) => gerir ? [
+            { icone: 'edit', titulo: 'Editar', onClick: () => setEditar(c) },
+            {
+              icone: 'trash', titulo: 'Excluir', variante: 'perigo',
+              desactivado: c.ativos ? 'Categoria com activos: não pode ser excluída' : false,
+              confirmar: { titulo: `Deseja realmente apagar a categoria "${c.nome}"?`, textoOk: 'Excluir', perigo: true },
+              onClick: () => eliminar.mutateAsync({ metodo: 'delete', url: `/ativos/categorias/${c.id}` }).catch(() => undefined),
+            },
+          ] : []}
         />
       </Card>
       <ModalCategoria categoria={editar} aoFechar={() => setEditar(undefined)} />

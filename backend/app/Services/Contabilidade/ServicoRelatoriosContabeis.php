@@ -250,8 +250,12 @@ final class ServicoRelatoriosContabeis
      * Correcções: as contrapartidas vêm de TODAS as linhas do lançamento (diário + chave, ADR-025) — o legado calculava-as
      * sobre as linhas já filtradas pela conta, mostrando quase sempre a própria conta; exige-se conta ou terceiro (o legado,
      * sem filtros, mostrava só o último lançamento da empresa).
+     * Abertura do ecrã (8.2.1): com `ultimo_lancamento` e sem conta nem terceiro, mostra — como o legado
+     * (js/ui_reports.js:1950-1959) — as linhas do último lançamento da empresa (mesmo diário, n.º de documento e data da
+     * linha mais recente); o resultado traz `ambito = 'ultimo_lancamento'`. É limitado por natureza (um documento).
+     * Sem cache: o extracto muda a cada lançamento gravado (CACHE.md §4.5 exigiria invalidar em todas as escritas).
      *
-     * @param  array<string, mixed>  $f  data_inicio?, data_fim?, filtro_contas?, terceiro_id?, tipo?, incluir_apuramento?
+     * @param  array<string, mixed>  $f  data_inicio?, data_fim?, filtro_contas?, terceiro_id?, tipo?, incluir_apuramento?, ultimo_lancamento?
      */
     public function extrato(array $f): array
     {
@@ -261,6 +265,22 @@ final class ServicoRelatoriosContabeis
         $tipo = $f['tipo'] ?? 'todos';
         // js/ui_reports.js:1937-1944: exclui-se o apuramento do ano da data final (sem data final, o do ano corrente)
         [$filtro, $pf] = FiltroMapas::sql('l', $f, isset($f['data_fim']) ? (int) substr($f['data_fim'], 0, 4) : (int) date('Y'));
+        $ambito = 'filtro';
+        $ultimo = null;
+        if (! empty($f['ultimo_lancamento']) && empty($f['filtro_contas']) && empty($f['terceiro_id'])) {
+            $ambito = 'ultimo_lancamento';
+            // uma leitura pela chave primária; as linhas do documento usam o índice (empresa, n.º de documento)
+            $ultimo = DB::table('lancamentos_contabeis as l')->leftJoin('diarios_contabeis as d', 'd.id', '=', 'l.diario_id')
+                ->where('l.empresa_id', $empresa)->orderByDesc('l.id')
+                ->first(['l.diario_id', 'l.numero_documento', 'l.data_documento', 'l.numero_lan', 'd.codigo as diario']);
+            if (! $ultimo) {
+                return ['data_inicio' => $ini, 'data_fim' => $f['data_fim'] ?? null, 'tipo' => $tipo, 'ambito' => $ambito, 'ultimo' => null,
+                    'saldo_inicial' => '0.00', 'debito' => '0.00', 'credito' => '0.00', 'saldo_final' => '0.00',
+                    'moedas_estrangeiras' => [], 'moeda_saldo' => null, 'movimentos' => []];
+            }
+            $filtro .= ' AND l.diario_id IS NOT DISTINCT FROM ? AND l.numero_documento IS NOT DISTINCT FROM ? AND l.data_documento = ?';
+            $pf = array_merge($pf, [$ultimo->diario_id, $ultimo->numero_documento, $ultimo->data_documento]);
+        }
         $chave = LancamentoContabil::chaveSql('l');
         $chaveO = LancamentoContabil::chaveSql('o');
         // "Apenas em aberto": fora as compensadas e os n.º de documento com saldo nulo (calculado sobre as linhas filtradas)
@@ -321,7 +341,9 @@ final class ServicoRelatoriosContabeis
         }
 
         return [
-            'data_inicio' => $ini, 'data_fim' => $f['data_fim'] ?? null, 'tipo' => $tipo,
+            'data_inicio' => $ini, 'data_fim' => $f['data_fim'] ?? null, 'tipo' => $tipo, 'ambito' => $ambito,
+            'ultimo' => $ultimo ? ['diario' => $ultimo->diario, 'numero_lan' => $ultimo->numero_lan, 'numero_documento' => $ultimo->numero_documento,
+                'data_documento' => $ultimo->data_documento] : null,
             'saldo_inicial' => $this->fmt($inicial->s), 'debito' => $debito, 'credito' => $credito, 'saldo_final' => $saldo,
             'moedas_estrangeiras' => array_keys($moedas), 'moeda_saldo' => $moedaUnica, 'movimentos' => $movimentos,
         ];

@@ -139,6 +139,9 @@ export interface Extrato {
   data_inicio: string | null;
   data_fim: string | null;
   tipo: string;
+  /** «ultimo_lancamento» = abertura do ecrã sem conta nem terceiro (linhas do último lançamento, como no legado) */
+  ambito?: 'filtro' | 'ultimo_lancamento';
+  ultimo?: { diario: string | null; numero_lan: string | null; numero_documento: string | null; data_documento: string } | null;
   saldo_inicial: string;
   debito: string;
   credito: string;

@@ -27,6 +27,8 @@ final class TerceiroResource extends JsonResource
             'conta_compra_transitoria' => $this->conta_compra_transitoria,
             'codigo_moeda' => $this->codigo_moeda,
             'fe_pais' => $this->fe_pais,
+            // só na lista de clientes: tem documentos de venda/recibos (pode ainda não ter o papel de cliente — 4.4.2)
+            'tem_documentos_venda' => $this->when(array_key_exists('tem_documentos_venda', $this->resource->getAttributes()), fn () => (bool) $this->resource->getAttribute('tem_documentos_venda')),
             'enderecos' => $this->when($request->routeIs('terceiros.show'), fn () => EnderecoTerceiro::query()->where('nif', $this->nif)->get()),
         ];
     }

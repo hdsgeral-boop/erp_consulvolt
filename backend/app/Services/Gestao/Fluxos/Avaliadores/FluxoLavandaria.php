@@ -62,8 +62,52 @@ final class FluxoLavandaria extends AvaliadorFluxo
             self::kpi('em_curso', 'Ordens em curso', count(array_filter($processos, fn ($p) => $p['_concluidas'] < 6))),
             self::kpi('atrasadas', 'Atrasadas', $n = count(array_filter($processos, fn ($p) => $p['atrasada'])), 'num', $n > 0),
             self::kpi('por_levantar', 'Prontas por levantar', count(array_filter($processos, fn ($p) => $p['por_levantar']))),
+            self::kpi('fora_prazo', 'Fora do prazo de levantamento', $n = count(array_filter($processos, fn ($p) => $p['fora_prazo'])), 'num', $n > 0),
             self::kpi('por_receber', 'Valor por receber', $porReceber, 'kz', bccomp($porReceber, '0.01', 2) > 0),
         ]];
+    }
+
+    /**
+     * Vista de volume do legado (fluxo_lavandaria.js:242-282): funil por etapa actual (sem a recepção, sempre concluída),
+     * filtros rápidos e colunas da tabela.
+     */
+    public function vista(): array
+    {
+        $valor = fn (array $g) => self::somar($g, fn ($p) => $p['valor']);
+
+        return [
+            'nome_itens' => 'ordens', 'placeholder' => 'Pesquisar ordem ou cliente',
+            'funil' => [
+                ['id' => 'orc', 'rotulo' => 'Aguardam orçamento', 'valor' => $valor],
+                ['id' => 'exec', 'rotulo' => 'Em execução', 'valor' => $valor],
+                ['id' => 'ent', 'rotulo' => 'Por entregar', 'valor' => $valor],
+                ['id' => 'fact', 'rotulo' => 'Por facturar ou contabilizar', 'valor' => $valor],
+                ['id' => 'rec', 'rotulo' => 'Por receber', 'valor' => fn (array $g) => self::somar($g, fn ($p) => $p['valor_pendente'])],
+                ['id' => 'concluidos', 'rotulo' => 'Concluídas'],
+            ],
+            'filtros' => [
+                ['id' => 'curso', 'rotulo' => 'Por concluir', 'fn' => fn ($p) => $p['etapa_actual'] !== null],
+                ['id' => 'alerta', 'rotulo' => 'Com pendências', 'fn' => fn ($p) => $p['n_erros'] + $p['n_avisos'] > 0],
+                ['id' => 'atrasadas', 'rotulo' => 'Atrasadas', 'fn' => fn ($p) => $p['atrasada']],
+                ['id' => 'levantar', 'rotulo' => 'Por levantar', 'fn' => fn ($p) => $p['por_levantar']],
+                ['id' => 'fora_prazo', 'rotulo' => 'Fora do prazo de levantamento', 'fn' => fn ($p) => $p['fora_prazo']],
+                ['id' => 'receber', 'rotulo' => 'Com valor por receber', 'fn' => fn ($p) => bccomp(self::dinheiro($p['valor_pendente']), '0.01', 2) > 0],
+                ['id' => 'todas', 'rotulo' => 'Todas', 'fn' => fn () => true],
+            ],
+            'colunas' => [
+                ['tipo' => 'titulo', 'rotulo' => 'Ordem'],
+                ['tipo' => 'texto', 'rotulo' => 'Cliente', 'campo' => 'cliente'],
+                ['tipo' => 'data', 'rotulo' => 'Recebida', 'campo' => 'data'],
+                ['tipo' => 'data', 'rotulo' => 'Prazo', 'campo' => 'prazo', 'alerta' => 'atrasada'],
+                ['tipo' => 'etapa', 'rotulo' => 'Etapa actual'],
+                ['tipo' => 'progresso', 'rotulo' => 'Progresso'],
+                ['tipo' => 'pendencias', 'rotulo' => 'Pendências', 'marca' => ['campo' => 'urgente', 'texto' => 'Urgente']],
+                ['tipo' => 'kz', 'rotulo' => 'Valor', 'campo' => 'valor'],
+                ['tipo' => 'kz', 'rotulo' => 'Por receber', 'campo' => 'valor_pendente', 'modo' => 'destaque'],
+            ],
+            'vazio' => ['icone' => 'tshirt', 'titulo' => 'Ainda não há ordens de serviço', 'texto' => 'Registe a primeira ordem num terminal de lavandaria; o fluxo aparece aqui.',
+                'botao' => 'Abrir a Frente de Caixa', 'acao' => 'pos'],
+        ];
     }
 
     private function ordem(PedidoLavandaria $o, ?string $cliente, $pagos, $danos, $docs, $linhasPorDoc, $tesPend, array $def): array
@@ -205,7 +249,7 @@ final class FluxoLavandaria extends AvaliadorFluxo
             'data' => $o->recebido_em?->format('Y-m-d H:i:s'), 'valor' => $valorOrdem, 'valor_pendente' => $porReceber, 'etapas' => $E,
             'documentos' => array_merge([['tipo' => 'pedido_lavandaria', 'id' => $o->id, 'numero' => $o->numero_encomenda]],
                 $docs->map(fn ($v) => ['tipo' => 'venda', 'id' => $v->id, 'tipo_documento' => $v->tipo_documento, 'numero' => $v->numero_documento])->values()->all()),
-            'atrasada' => (bool) $atrasada, 'por_levantar' => (bool) $prontas, 'urgente' => (bool) $o->urgente, 'prazo' => $prometida,
+            'atrasada' => (bool) $atrasada, 'por_levantar' => (bool) $prontas, 'fora_prazo' => (bool) $foraPrazo, 'urgente' => (bool) $o->urgente, 'prazo' => $prometida, 'cliente' => $cliente,
         ] + self::contagem($E);
     }
 }

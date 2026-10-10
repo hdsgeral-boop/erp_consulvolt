@@ -17,6 +17,12 @@ final class PainelProjetos implements Painel
 {
     public function __construct(private readonly ServicoAnaliticoProjetos $analitico) {}
 
+    /** Percentagem com 1 casa e vírgula, como o legado (toFixed(1).replace('.', ',')). */
+    private static function pct1(float $v): string
+    {
+        return str_replace('.', ',', number_format($v, 1, '.', ''));
+    }
+
     public function filtraDimensoes(): bool
     {
         return false;
@@ -44,17 +50,18 @@ final class PainelProjetos implements Painel
             'kpis' => [
                 Indicadores::kpi('projetos_activos', 'Projectos Activos', $k['projetos_ativos'], 'num', count($r['linhas']).' no total'),
                 Indicadores::kpi('orcamento', 'Orçamento Total', $k['orcamento']),
-                Indicadores::kpi('custos_ano', "Custos {$p->ano}", $k['custos'], 'kz', $k['desvio_pct'] !== null ? 'Desvio acumulado face ao orçamento: '.$k['desvio_pct'].' %' : 'Sem orçamento'),
-                Indicadores::kpi('proveitos_ano', "Proveitos {$p->ano}", $k['proveitos'], 'kz', 'Facturação sem IVA'),
-                Indicadores::kpi('margem', 'Margem Real', $k['margem'], 'kz', $k['margem_pct'] !== null ? $k['margem_pct'].' % dos proveitos' : null),
+                // rótulos e textos do legado (ui_painel_modulos.js:485-489); valores pela regra única do razão analítico (ADR-052)
+                Indicadores::kpi('custo_realizado', 'Custo Realizado', $k['custo_acumulado'], 'kz', (float) $k['orcamento'] > 0 ? self::pct1((float) $k['custo_acumulado'] / (float) $k['orcamento'] * 100).' % do orçamento' : 'Sem orçamento'),
+                Indicadores::kpi('faturado', 'Faturado', $k['proveitos'], 'kz', 'Faturas ligadas às encomendas'),
+                Indicadores::kpi('margem', 'Margem Real', $margem = bcsub($k['proveitos'], $k['custo_acumulado'], 2), 'kz', (float) $k['proveitos'] > 0 ? self::pct1((float) $margem / (float) $k['proveitos'] * 100).' % da faturação' : null),
                 Indicadores::kpi('aditamentos', 'Aditamentos Aprovados', $k['aditamentos_aprovados']),
-                Indicadores::kpi('tarefas_atrasadas', 'Tarefas Atrasadas', $k['tarefas_atrasadas'], 'num'),
+                Indicadores::kpi('tarefas_concluidas', 'Tarefas Concluídas', $k['tarefas_concluidas'].' / '.$k['tarefas_total'], 'texto', $k['tarefas_bloqueadas'].' bloqueadas'),
                 Indicadores::kpi('horas', "Horas Registadas {$p->ano}", $k['horas'], 'num'),
             ],
             'graficos' => [
                 Indicadores::grafico('custos_mensais', 'Custos Imputados a Projectos (12 meses)', 'barras', $p->rotulos(), [
                     Indicadores::serie('mao_obra_equipamento', 'Mão de obra, equipamento e outros', $p->serie($porMes['outros'])),
-                    Indicadores::serie('compras', 'Facturas de compra e subempreitadas', $p->serie($porMes['compras']))]),
+                    Indicadores::serie('compras', 'Faturas de compra e subempreitadas', $p->serie($porMes['compras']))]),
                 Indicadores::grafico('orcamento_custo_proveito', 'Orçamento vs Custo vs Proveitos por Projecto', 'barras', array_map(fn ($l) => $l['nome'], $top), [
                     Indicadores::serie('orcamento', 'Orçamento', array_column($top, 'orcamento')),
                     Indicadores::serie('custo', 'Custo acumulado', array_column($top, 'custo_acumulado')),

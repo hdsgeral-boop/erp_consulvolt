@@ -1,11 +1,9 @@
-import { Alert, Button, Card, Col, Empty, Row, Select, Space, Tag, Typography } from 'antd';
-import { DownloadOutlined, FilePdfOutlined, FileTextOutlined, FileZipOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Empty, Select, Space, Tag, Typography } from 'antd';
+import { DownloadOutlined, FilePdfOutlined, FileZipOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { descarregar as descarregarApi, obter } from '@/api/cliente';
 import { notificarErro } from '@/utilitarios/erros';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useOperacoes } from '@/componentes/operacoes/Operacoes';
 import { DeslocamentoHorizontal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -24,35 +22,19 @@ const rotuloGrupo = (grupo: string) => GRUPOS_PAGAMENTO.find((g) => g.value === 
 const ordenarPorNome = (dados: (id: number, r?: ResultadoSalarial) => { nome: string }) => (a: ResultadoSalarial, b: ResultadoSalarial) =>
   dados(a.colaborador_id, a).nome.localeCompare(dados(b.colaborador_id, b).nome, 'pt');
 
-/** RH › Relatórios e recibos (ecrã relatorios): entrada para os mapas que o utilizador pode ver. */
-export function Relatorios() {
-  const { menu } = useSessao();
-  const navegar = useNavigate();
-  const filhos = menu.find((m) => m.id === 'rh')?.ecras.filter((e) => e.pai === 'relatorios') ?? [];
-  return (
-    <>
-      <CabecalhoPagina titulo="Relatórios e recibos" subtitulo="Mapas mensais do processamento salarial (impressão no navegador)" />
-      {filhos.length === 0 ? <Empty description="Sem acesso a nenhum mapa nesta empresa." /> : (
-        <Row gutter={[16, 16]}>
-          {filhos.map((e) => (
-            <Col key={e.id} xs={24} sm={12} lg={8}>
-              <Card hoverable onClick={() => navegar(`/m/rh/${e.id}`)}>
-                <Card.Meta avatar={<FileTextOutlined style={{ fontSize: 24 }} />} title={e.nome} />
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      )}
-    </>
-  );
+/** Mapa embutido no ecrã único: período e folha (Colaboradores / Avençados) escolhidos lá. */
+export interface PropsMapa {
+  periodoId?: number;
+  grupo?: 'COLABORADORES' | 'AVENCADOS';
 }
 
 /** Mapa de remunerações: uma coluna por rubrica, encargos e líquido. */
-export function MapaRemuneracoes() {
-  const mapa = usePeriodoMapa();
+export function MapaRemuneracoes({ periodoId, grupo: grupoFixo }: PropsMapa = {}) {
+  const mapa = usePeriodoMapa(undefined, periodoId);
+  const embutido = periodoId !== undefined;
   const { empresa } = useSessao();
   const dados = useDadosColaborador();
-  const [grupo, setGrupo] = useState('TODOS');
+  const [grupo, setGrupo] = useState<string>(grupoFixo ?? 'TODOS');
   const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter(filtroGrupo(grupo)).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados, grupo]);
   const colunas = colunasRubricas(res);
   const valores = res.map(valoresRubricas);
@@ -66,11 +48,11 @@ export function MapaRemuneracoes() {
   };
   const total = (k: keyof ResultadoSalarial) => formatarKz(somar(res.map((r) => r[k] as string)));
   return (
-    <MolduraMapa titulo="Mapa de remunerações" subtitulo="Remunerações do mês por colaborador e rubrica" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
+    <MolduraMapa embutido={embutido} titulo="Mapa de Remunerações" subtitulo="Remunerações do mês por colaborador e rubrica" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
       filtros={<Select value={grupo} onChange={setGrupo} options={GRUPOS_PAGAMENTO} style={{ width: 180 }} aria-label="Grupo" />}
       accoes={<Button icon={<DownloadOutlined />} disabled={!res.length} onClick={exportar}>Exportar CSV</Button>}>
       <AreaImpressao paisagem>
-        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de remunerações" mesAno={mapa.detalhe.data?.mes_ano} extra={grupo !== 'TODOS' ? <div>Grupo: {rotuloGrupo(grupo)}</div> : null} />
+        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de Remunerações" mesAno={mapa.detalhe.data?.mes_ano} extra={grupo !== 'TODOS' ? <div>Grupo: {rotuloGrupo(grupo)}</div> : null} />
         <DeslocamentoHorizontal>
           <table className="rh-tabela-mapa">
             <thead>
@@ -111,8 +93,9 @@ export function MapaRemuneracoes() {
 }
 
 /** Mapa de IRT: Grupo A (trabalhadores, tabela progressiva) e Grupo B (avençados, 6,5 %). */
-export function MapaIrt() {
-  const mapa = usePeriodoMapa();
+export function MapaIrt({ periodoId }: PropsMapa = {}) {
+  const mapa = usePeriodoMapa(undefined, periodoId);
+  const embutido = periodoId !== undefined;
   const { empresa } = useSessao();
   const dados = useDadosColaborador();
   const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
@@ -131,13 +114,13 @@ export function MapaIrt() {
   const exportarB = () => descarregar(`mapa-irt-grupo-b-${mapa.detalhe.data?.mes_ano.replace('/', '-')}.csv`, gerarCsv(['NIF', 'Nome', 'Valor bruto', 'Matéria colectável', 'IRT retido'],
     grupoB.map((r) => { const d = dados(r.colaborador_id, r); return [d.nif, d.nome, kzCsv(r.bruto), kzCsv(r.base_irt), kzCsv(r.irt)]; })));
   return (
-    <MolduraMapa titulo="Mapa de IRT" subtitulo="Retenções de IRT do mês (modelo oficial)" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
+    <MolduraMapa embutido={embutido} titulo="Mapa Fiscal de IRT (Modelo Oficial)" subtitulo="Retenções de IRT do mês (modelo oficial)" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
       accoes={<>
         <Button icon={<DownloadOutlined />} disabled={!grupoA.length} onClick={exportar}>Exportar CSV (Grupo A)</Button>
         <Button icon={<DownloadOutlined />} disabled={!grupoB.length} onClick={exportarB}>Exportar CSV (Grupo B)</Button>
       </>}>
       <AreaImpressao paisagem>
-        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de IRT — Grupo A (trabalhadores por conta de outrem)" mesAno={mapa.detalhe.data?.mes_ano} extra={empresa?.nif ? <div>NIF {String(empresa.nif)}</div> : null} />
+        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa Fiscal de IRT (Modelo Oficial) — Grupo A (trabalhadores por conta de outrem)" mesAno={mapa.detalhe.data?.mes_ano} extra={empresa?.nif ? <div>NIF {String(empresa.nif)}</div> : null} />
         <DeslocamentoHorizontal>
           <table className="rh-tabela-mapa">
             <thead>
@@ -195,8 +178,9 @@ export function MapaIrt() {
 }
 
 /** Mapa de Segurança Social: base de incidência e contribuições (trabalhador e empresa). */
-export function MapaInss() {
-  const mapa = usePeriodoMapa();
+export function MapaInss({ periodoId }: PropsMapa = {}) {
+  const mapa = usePeriodoMapa(undefined, periodoId);
+  const embutido = periodoId !== undefined;
   const { empresa } = useSessao();
   const dados = useDadosColaborador();
   const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter((r) => !r.avencado).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
@@ -205,10 +189,10 @@ export function MapaInss() {
     res.map((r) => { const d = dados(r.colaborador_id, r); return [d.nome, d.nif, d.inss, kzCsv(r.base_inss), kzCsv(r.inss_trabalhador), kzCsv(r.inss_patronal), kzCsv(somar([r.inss_trabalhador, r.inss_patronal]))]; }),
   ));
   return (
-    <MolduraMapa titulo="Mapa de Segurança Social" subtitulo="Contribuições para o INSS do mês" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
+    <MolduraMapa embutido={embutido} titulo="Mapa de INSS" subtitulo="Contribuições para a Segurança Social (INSS) do mês" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
       accoes={<Button icon={<DownloadOutlined />} disabled={!res.length} onClick={exportar}>Exportar CSV</Button>}>
       <AreaImpressao>
-        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de Segurança Social (INSS)" mesAno={mapa.detalhe.data?.mes_ano} />
+        <CabecalhoMapa empresa={empresa?.nome} titulo="Mapa de INSS (Segurança Social)" mesAno={mapa.detalhe.data?.mes_ano} />
         <DeslocamentoHorizontal>
           <table className="rh-tabela-mapa">
             <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Colaborador</th><th>N.º INSS</th><th>Base de incidência</th><th>Trabalhador</th><th>Empresa</th><th>Total</th></tr></thead>
@@ -238,16 +222,17 @@ export function MapaInss() {
 }
 
 /** Salários a pagar: líquido por colaborador. */
-export function MapaPagamentos() {
-  const mapa = usePeriodoMapa();
+export function MapaPagamentos({ periodoId, grupo: grupoFixo }: PropsMapa = {}) {
+  const mapa = usePeriodoMapa(undefined, periodoId);
+  const embutido = periodoId !== undefined;
   const { empresa } = useSessao();
   const dados = useDadosColaborador();
-  const [grupo, setGrupo] = useState('TODOS');
+  const [grupo, setGrupo] = useState<string>(grupoFixo ?? 'TODOS');
   const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter((r) => Number(r.liquido) > 0).filter(filtroGrupo(grupo)).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados, grupo]);
   const exportar = () => descarregar(`salarios-a-pagar-${mapa.detalhe.data?.mes_ano.replace('/', '-')}-${grupo.toLowerCase()}.csv`, gerarCsv(['Colaborador', 'NIF', 'Banco', 'IBAN', 'Líquido'],
     res.map((r) => { const d = dados(r.colaborador_id, r); return [d.nome, d.nif, r.banco ?? '', r.iban ?? '', kzCsv(r.liquido)]; })));
   return (
-    <MolduraMapa titulo="Salários a pagar" subtitulo="Líquido a receber por colaborador" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
+    <MolduraMapa embutido={embutido} titulo="Salários a Pagar" subtitulo="Líquido a receber por colaborador" mapa={mapa} aviso={<AvisoNaoValidado periodo={mapa.periodo} />}
       filtros={<Select value={grupo} onChange={setGrupo} options={GRUPOS_PAGAMENTO} style={{ width: 180 }} aria-label="Grupo" />}
       accoes={<Button icon={<DownloadOutlined />} disabled={!res.length} onClick={exportar}>Exportar CSV</Button>}>
       <AreaImpressao>
@@ -270,10 +255,11 @@ export function MapaPagamentos() {
 }
 
 /** Ordem de pagamento bancária (só períodos validados; IBAN e líquido). */
-export function MapaBanco() {
-  const mapa = usePeriodoMapa(['VALIDADO']);
+export function MapaBanco({ periodoId, grupo: grupoFixo }: PropsMapa = {}) {
+  const mapa = usePeriodoMapa(['VALIDADO'], periodoId);
+  const embutido = periodoId !== undefined;
   const { empresa } = useSessao();
-  const [grupo, setGrupo] = useState('TODOS');
+  const [grupo, setGrupo] = useState<string>(grupoFixo ?? 'TODOS');
   const ordem = useQuery({
     queryKey: ['rh', 'salarios', 'ordem', mapa.id, grupo],
     queryFn: () => obter<OrdemPagamento>(`/rh/salarios/periodos/${mapa.id}/ordem-pagamento`, { grupo }),
@@ -285,13 +271,13 @@ export function MapaBanco() {
     ['Beneficiário', 'Banco', 'IBAN', 'Valor'], o.linhas.map((l) => [l.nome ?? `#${l.colaborador_id}`, l.banco ?? '', l.iban ?? '', kzCsv(l.liquido)]),
   ));
   return (
-    <MolduraMapa titulo="Ordem de pagamento bancária" subtitulo="Transferências dos salários líquidos (contém IBAN)" mapa={mapa} apenas={['VALIDADO']}
+    <MolduraMapa embutido={embutido} titulo="Ordem de Pagamento (Banco)" subtitulo="Transferências dos salários líquidos (contém IBAN)" mapa={mapa} apenas={['VALIDADO']}
       filtros={<Select value={grupo} onChange={setGrupo} options={GRUPOS_PAGAMENTO} style={{ width: 180 }} />}
       accoes={<Button icon={<DownloadOutlined />} disabled={!o?.linhas.length} onClick={exportar}>Exportar CSV</Button>}
       aviso={o && o.sem_iban > 0 ? <Alert className="rh-nao-imprimir" type="warning" showIcon style={{ marginBottom: 16 }} message={`${o.sem_iban} colaborador(es) sem IBAN: registe-os em Coordenadas bancárias antes de emitir a carta.`} /> : null}>
       {ordem.isLoading ? <Card loading variant="borderless" /> : o && (
         <AreaImpressao>
-          <CabecalhoMapa empresa={empresa?.nome} titulo="Ordem de pagamento bancária" mesAno={mapa.periodo?.mes_ano} extra={<div>Grupo: {GRUPOS_PAGAMENTO.find((g) => g.value === grupo)?.label}</div>} />
+          <CabecalhoMapa empresa={empresa?.nome} titulo="Ordem de Pagamento (Banco)" mesAno={mapa.periodo?.mes_ano} extra={<div>Grupo: {GRUPOS_PAGAMENTO.find((g) => g.value === grupo)?.label}</div>} />
           <DeslocamentoHorizontal>
             <table className="rh-tabela-mapa">
               <thead><tr><th>#</th><th style={{ textAlign: 'left' }}>Beneficiário</th><th>Banco</th><th>IBAN</th><th>Valor (Kz)</th><th className="rh-nao-imprimir">Carta</th></tr></thead>
@@ -318,8 +304,9 @@ export function MapaBanco() {
  * todos — impressão no navegador (2 vias por página) e, no servidor, PDF individual e ZIP com um PDF por colaborador (A-10).
  * Só períodos validados.
  */
-export function MapaRecibos() {
-  const mapa = usePeriodoMapa(['VALIDADO']);
+export function MapaRecibos({ periodoId, grupo: grupoFixo }: PropsMapa = {}) {
+  const mapa = usePeriodoMapa(['VALIDADO'], periodoId);
+  const embutido = periodoId !== undefined;
   const { pode } = useSessao();
   const dadosEmpresa = useEmpresaRecibo();
   const dados = useDadosColaborador();
@@ -327,7 +314,7 @@ export function MapaRecibos() {
   const [colaboradores, setColaboradores] = useState<number[]>([]);
   const [aDescarregar, setADescarregar] = useState(false);
   const operacoes = useOperacoes();
-  const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados]);
+  const res = useMemo(() => [...(mapa.detalhe.data?.resultados ?? [])].filter(filtroGrupo(grupoFixo ?? 'TODOS')).sort(ordenarPorNome(dados)), [mapa.detalhe.data, dados, grupoFixo]);
   const visiveis = colaboradores.length ? res.filter((r) => colaboradores.includes(r.colaborador_id)) : res;
   const mesAno = mapa.detalhe.data?.mes_ano ?? '';
   const id = mapa.periodo?.id;
@@ -350,7 +337,7 @@ export function MapaRecibos() {
   };
   const pdf = () => id && colaboradores.length === 1 && void descarregarApi(`/rh/salarios/periodos/${id}/recibos/${colaboradores[0]}/pdf`, undefined, 'Recibo.pdf').catch(notificarErro);
   return (
-    <MolduraMapa titulo="Recibos de salário" subtitulo="Recibos de vencimento (2 vias) da fotografia do período validado" mapa={mapa} apenas={['VALIDADO']}
+    <MolduraMapa embutido={embutido} titulo="Recibos de Salário" subtitulo="Recibos de vencimento (2 vias) da fotografia do período validado" mapa={mapa} apenas={['VALIDADO']}
       filtros={<SeletorColaborador mode="multiple" maxTagCount="responsive" value={colaboradores as unknown as number} onChange={(v) => setColaboradores((v as unknown as number[]) ?? [])}
         ids={res.map((r) => r.colaborador_id)} placeholder="Todos os colaboradores" style={{ minWidth: 280 }} />}
       accoes={mapa.periodo?.estado === 'VALIDADO' && pode('rh_recibos_emitir') ? (

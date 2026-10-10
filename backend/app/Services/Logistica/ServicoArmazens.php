@@ -82,7 +82,7 @@ final class ServicoArmazens
     public function valorizacao(): array
     {
         $linhas = collect($this->stock());
-        $porArmazem = $linhas->groupBy('armazem_id')->map(fn ($g) => ['armazem' => $g->first()['armazem'], 'valor' => number_format($g->sum(fn ($x) => (float) $x['valor']), 2, '.', ''),
+        $porArmazem = $linhas->groupBy('armazem_id')->map(fn ($g) => ['armazem_id' => $g->first()['armazem_id'], 'armazem' => $g->first()['armazem'], 'valor' => number_format($g->sum(fn ($x) => (float) $x['valor']), 2, '.', ''),
             'produtos' => $g->where('quantidade', '<>', '0.000')->count()])->values()->all();
 
         return ['total' => number_format($linhas->sum(fn ($x) => (float) $x['valor']), 2, '.', ''), 'por_armazem' => $porArmazem,

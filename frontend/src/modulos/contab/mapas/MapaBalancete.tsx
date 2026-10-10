@@ -1,82 +1,104 @@
-import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, InputNumber, Space, Statistic, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
+import { Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, InputNumber, Space, Statistic, Table, Tag, Typography, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
-import { useEffect, useState } from 'react';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BotoesExportar, pares } from '@/componentes/impressao';
 import { scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import type { Balancete, LinhaBalancete, LinhaIva, MapaIva, MovimentoRazao, Razao } from '../api';
+import type { Balancete, LinhaBalancete, LinhaIva, MapaIva } from '../api';
 import { BotaoCsv, ValorKz } from '../comum/Componentes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
 import { enviarFicheiro } from '../comum/ficheiros';
 import { filtrosDosParametros, periodoDosParametros, tabelaDeColunas } from '../comum/impressao';
-import { SeletorConta } from '../comum/Seletores';
-import { rotuloTerceiro } from '../comum/terceiro';
-import { useAbrirLancamento, useMapa } from '../comum/useMapa';
+import { useMapa } from '../comum/useMapa';
+import { periodoPorOmissao } from './periodoBalancete';
+import { TituloMapa } from './TituloMapa';
 
-/** Mapas › Balancete, razão e IVA (ecrã contab_mapa_balancete). */
+/** Conta escolhida no balancete → separador Extrato (legado: renderRelatoriosContabeis('extrato', { accCode }), js/ui_reports.js:1660-1666). */
+export interface PedidoExtratoConta {
+  conta: string;
+  terceiroId?: number | null;
+  inicio?: string;
+  fim?: string;
+}
+
+function useAbrirExtrato() {
+  const navegar = useNavigate();
+  return (pedido: PedidoExtratoConta) => navegar('/m/contab/contab_mapa_extrato', { state: { extrato: pedido } });
+}
+
+/** Separador «Balancete» (ecrã contab_mapa_balancete). */
 export default function MapaBalancete() {
-  const [separador, setSeparador] = useState('balancete');
-  const [contaRazao, setContaRazao] = useState<{ conta: string; inicio?: string; fim?: string } | null>(null);
+  return <SeparadorBalancete />;
+}
+
+/**
+ * Separador «Balancete do Razão» (tab 'razao', js/ui_reports.js:711-870): o balancete agregado pelas contas do razão
+ * (2 dígitos, `nivel` 2) — Conta, Descrição, Débito, Crédito, Saldo devedor e Saldo credor.
+ */
+export function MapaBalanceteRazao() {
+  return <SeparadorBalancete razao />;
+}
+
+/** Separador «Mapa IVA» (tab 'iva', js/ui_reports.js:6119-6500). */
+export function MapaIvaSeparador() {
   return (
     <>
-      <CabecalhoPagina titulo="Balancete, razão e IVA" subtitulo="Mapas contabilísticos por período" />
-      <Tabs
-        activeKey={separador}
-        onChange={setSeparador}
-        items={[
-          {
-            key: 'balancete',
-            label: 'Balancete',
-            children: (
-              <SeparadorBalancete
-                aoAbrirConta={(conta, inicio, fim) => {
-                  setContaRazao({ conta, inicio, fim });
-                  setSeparador('razao');
-                }}
-              />
-            ),
-          },
-          { key: 'razao', label: 'Razão (extracto da conta)', children: <SeparadorRazao inicial={contaRazao} /> },
-          { key: 'iva', label: 'Mapa de IVA', children: <SeparadorIva /> },
-        ]}
-      />
+      <TituloMapa titulo="Mapa de Reconciliação de IVA" />
+      <SeparadorIva />
     </>
   );
 }
 
-function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, inicio?: string, fim?: string) => void }) {
-  const mapa = useMapa<Balancete>('balancete', '/contabilidade/relatorios/balancete');
+function SeparadorBalancete({ razao = false }: { razao?: boolean }) {
+  const mapa = useMapa<Balancete>(razao ? 'balancete_razao' : 'balancete', '/contabilidade/relatorios/balancete');
+  const abrirExtrato = useAbrirExtrato();
   const p = mapa.parametros;
   const pequeno = useEcraPequeno();
   const t = mapa.data?.totais;
   const total = (k: string) => () => formatarKz(t?.[k]);
+  const colunaSaldoInicial: ColunaApi<LinhaBalancete> = {
+    title: 'Saldo inicial', dataIndex: 'saldo_inicial', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, responsive: ['md'], totalImpressao: total('saldo_inicial'),
+  };
   const colunas: ColunaApi<LinhaBalancete>[] = [
     {
       title: 'Conta',
       dataIndex: 'codigo_conta',
       fixed: pequeno ? undefined : 'left',
-      render: (v: string) => <Typography.Link onClick={() => aoAbrirConta(v, p?.data_inicio as string, p?.data_fim as string)}>{v}</Typography.Link>,
+      render: (v: string, r) => (
+        <Typography.Link title="Abrir o extrato da conta" onClick={() => abrirExtrato({ conta: razao ? `${v}*` : v, terceiroId: r.terceiro_id, inicio: p?.data_inicio as string, fim: p?.data_fim as string })}>
+          {v}
+        </Typography.Link>
+      ),
       valorImpressao: (l) => l.codigo_conta,
     },
     { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null, r) => `${v ?? ''}${r.terceiro ? ` · ${r.terceiro.trim()}` : ''}` },
-    { title: 'Saldo inicial', dataIndex: 'saldo_inicial', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, responsive: ['md'], totalImpressao: total('saldo_inicial') },
+    ...(razao ? [] : [colunaSaldoInicial]),
     { title: 'Débito', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('debito') },
     { title: 'Crédito', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('credito') },
     { title: 'Saldo devedor', dataIndex: 'saldo_devedor', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('saldo_devedor') },
     { title: 'Saldo credor', dataIndex: 'saldo_credor', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('saldo_credor') },
   ];
+  const titulo = razao ? 'Balancete do Razão' : 'Balancete';
+  const chavesTotais = razao || pequeno ? ['debito', 'credito', 'saldo_devedor', 'saldo_credor'] : ['saldo_inicial', 'debito', 'credito', 'saldo_devedor', 'saldo_credor'];
   return (
     <Card>
+      <TituloMapa titulo={titulo} subtitulo={razao ? 'Saldos agregados pelas contas do razão (2 dígitos)' : undefined} />
       <FiltrosMapa
         modo="periodo"
+        valoresIniciais={{ periodo: periodoPorOmissao() }}
         aCalcular={mapa.isFetching}
-        aoCalcular={mapa.calcular}
+        aoCalcular={(q) => mapa.calcular(razao ? { ...q, nivel: 2 } : q)}
         extra={
+          razao ? (
+            <Form.Item name="excluir_estornos" valuePropName="checked" style={{ marginBottom: 8 }}>
+              <Checkbox>Excluir estornos</Checkbox>
+            </Form.Item>
+          ) : (
           <>
             <Form.Item name="nivel" label="Nível" tooltip="N.º de dígitos da conta (vazio = todas as contas de movimento)" style={{ marginBottom: 8 }}>
               <InputNumber min={1} max={20} style={{ width: 90 }} />
@@ -100,6 +122,7 @@ function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, in
               <Checkbox>Excluir estornos</Checkbox>
             </Form.Item>
           </>
+          )
         }
       />
       {mapa.data && (
@@ -108,7 +131,7 @@ function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, in
             <BotoesExportar
               obterPedido={async () =>
                 mapa.data && {
-                  titulo: 'Balancete',
+                  titulo,
                   periodo: periodoDosParametros(p),
                   filtros: filtrosDosParametros(p),
                   conteudo: await tabelaDeColunas(colunas, mapa.data.linhas),
@@ -116,7 +139,7 @@ function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, in
               }
             />
             <BotaoCsv<LinhaBalancete>
-              nome={`balancete_${p?.data_inicio}_${p?.data_fim}`}
+              nome={`${razao ? 'balancete_razao' : 'balancete'}_${p?.data_inicio}_${p?.data_fim}`}
               linhas={mapa.data.linhas}
               colunas={[
                 { titulo: 'Conta', valor: (l) => l.codigo_conta },
@@ -145,7 +168,7 @@ function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, in
                     <Table.Summary.Cell index={0} colSpan={2}>
                       <strong>Totais</strong>
                     </Table.Summary.Cell>
-                    {(pequeno ? ['debito', 'credito', 'saldo_devedor', 'saldo_credor'] : ['saldo_inicial', 'debito', 'credito', 'saldo_devedor', 'saldo_credor']).map((k, i) => (
+                    {chavesTotais.map((k, i) => (
                       <Table.Summary.Cell key={k} index={i + 2} align="right">
                         <ValorKz valor={t[k]} forte />
                       </Table.Summary.Cell>
@@ -155,94 +178,6 @@ function SeparadorBalancete({ aoAbrirConta }: { aoAbrirConta: (conta: string, in
               ) : null
             }
           />
-        </>
-      )}
-    </Card>
-  );
-}
-
-function SeparadorRazao({ inicial }: { inicial: { conta: string; inicio?: string; fim?: string } | null }) {
-  const mapa = useMapa<Razao>('razao', '/contabilidade/relatorios/razao');
-  const abrir = useAbrirLancamento();
-  const [conta, setConta] = useState<string | undefined>(inicial?.conta);
-  const { calcular } = mapa;
-  // conta escolhida no balancete: actualiza o selector e calcula com o mesmo período
-  useEffect(() => {
-    if (!inicial) return;
-    setConta(inicial.conta);
-    if (inicial.inicio && inicial.fim) calcular({ codigo_conta: inicial.conta, data_inicio: inicial.inicio, data_fim: inicial.fim });
-  }, [inicial, calcular]);
-  const d = mapa.data;
-  const colunas: ColunaApi<MovimentoRazao>[] = [
-    { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-    { title: 'Diário', dataIndex: 'diario', responsive: ['md'] },
-    { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string, r) => (abrir ? <Typography.Link onClick={() => abrir(r.id)}>{v}</Typography.Link> : v), valorImpressao: (r) => r.numero_lan },
-    { title: 'Documento', dataIndex: 'numero_documento', responsive: ['md'] },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300 },
-    { title: 'Terceiro', key: 'terceiro', ellipsis: true, width: 200, responsive: ['lg'], render: (_, r) => (r.terceiro_id ? rotuloTerceiro(r.terceiro, r.terceiro_id) : '—') },
-    { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null), totalImpressao: () => formatarKz(d?.debito) },
-    { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null), totalImpressao: () => formatarKz(d?.credito) },
-    { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-    { title: '', exportar: false, render: (_, r) => (r.estorno_de_id ? <Tag color="purple">Estorno</Tag> : r.estornado_por_id ? <Tag color="red">Estornado</Tag> : null) },
-  ];
-  return (
-    <Card>
-      <FiltrosMapa
-        modo="periodo"
-        aCalcular={mapa.isFetching}
-        aoCalcular={(p) => conta && mapa.calcular({ ...p, codigo_conta: conta })}
-        avancados={{ terceiro: true }}
-        extra={
-          <>
-            <Form.Item label="Conta" required style={{ marginBottom: 8 }}>
-              <SeletorConta value={conta} onChange={setConta} incluirTotalizadoras style={{ width: 260 }} />
-            </Form.Item>
-            <Form.Item name="excluir_estornos" valuePropName="checked" style={{ marginBottom: 8 }}>
-              <Checkbox>Excluir estornos</Checkbox>
-            </Form.Item>
-          </>
-        }
-      />
-      {!conta && <Alert type="info" showIcon message="Escolha a conta e o período e carregue em «Calcular»." style={{ marginTop: 8 }} />}
-      {d && (
-        <>
-          <Space size={32} wrap style={{ margin: '12px 0' }}>
-            <Statistic title="Saldo inicial" value={formatarKz(d.saldo_inicial)} />
-            <Statistic title="Débitos" value={formatarKz(d.debito)} />
-            <Statistic title="Créditos" value={formatarKz(d.credito)} />
-            <Statistic title="Saldo final" value={formatarKz(d.saldo_final)} />
-            <BotoesExportar
-              obterPedido={async () => ({
-                titulo: `Razão da conta ${d.codigo_conta}`,
-                periodo: periodoDosParametros(mapa.parametros),
-                filtros: filtrosDosParametros(mapa.parametros).filter((x) => !x.startsWith('Conta:')),
-                conteudo:
-                  pares([
-                    ['Saldo inicial', formatarKz(d.saldo_inicial)],
-                    ['Débitos', formatarKz(d.debito)],
-                    ['Créditos', formatarKz(d.credito)],
-                    ['Saldo final', formatarKz(d.saldo_final)],
-                  ], 4) + (await tabelaDeColunas(colunas, d.movimentos)),
-              })}
-            />
-            <BotaoCsv<MovimentoRazao>
-              nome={`razao_${d.codigo_conta}`}
-              linhas={d.movimentos}
-              colunas={[
-                { titulo: 'Data', valor: (l) => l.data_documento },
-                { titulo: 'Diário', valor: (l) => l.diario },
-                { titulo: 'N.º lançamento', valor: (l) => l.numero_lan },
-                { titulo: 'Documento', valor: (l) => l.numero_documento },
-                { titulo: 'Descrição', valor: (l) => l.descricao },
-                { titulo: 'NIF', valor: (l) => l.terceiro?.nif },
-                { titulo: 'Terceiro', valor: (l) => l.terceiro?.nome?.trim() },
-                { titulo: 'Débito', valor: (l) => (l.tipo_dc === 'D' ? l.valor : ''), numerico: true },
-                { titulo: 'Crédito', valor: (l) => (l.tipo_dc === 'C' ? l.valor : ''), numerico: true },
-                { titulo: 'Saldo', valor: (l) => l.saldo, numerico: true },
-              ]}
-            />
-          </Space>
-          <Table<MovimentoRazao> rowKey="id" size="small" columns={colunas} dataSource={d.movimentos} pagination={{ pageSize: 100, showTotal: (n) => `${n} movimento(s)` }} scroll={scrollTabela()} />
         </>
       )}
     </Card>

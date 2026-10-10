@@ -8,7 +8,7 @@ export { fixarColunas, paginarDocumento, type ResultadoPaginacao } from './pagin
 export { tabelaHtml, pares, type ColunaImpressao, type FormatoColuna, type OpcoesTabela, type ValorCelula } from './tabela';
 export { prepararTexto, textoDeNo } from './texto';
 export { useImpressao, useMensagem, DICA_PDF, type PedidoImpressao } from './useImpressao';
-export { BotaoImprimir, BotoesExportar, SeletorPagina, DICA_EXCEL, DICA_PAGINA, type ObterPedido } from './BotoesExportar';
+export { BotaoImprimir, BotoesExportar, BotoesExportarLegado, SeletorPagina, DICA_EXCEL, DICA_PAGINA, type ObterPedido } from './BotoesExportar';
 export { aplicarPreferencia, chaveDocumento, chavePorOmissao, descreverPreferencia, gravarPreferencia, lerPreferencia, PREFERENCIA_AUTOMATICA } from './preferencias';
 export { descarregarExcel, gerarXlsx, montarFolha, lerNumeroPt, lerDataPt, interpretarCelula, TIPO_XLSX, type CelulaExcel, type FolhaExcel } from './excel';
 export { CSS_SIMULACAO_COMUM, marcaSimulacao, tabelaLancamentoHtml, type LinhaLancamentoImpressao } from './simulacao';

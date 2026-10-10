@@ -21,6 +21,9 @@ use Illuminate\Support\Facades\DB;
  */
 final class ServicoRelatoriosPOS
 {
+    /** Nomes dos meios padrão (ServicoTerminaisPOS::meiosPadrao) para as vendas sem detalhe dos pagamentos. */
+    private const NOMES_MEIO = ['NUMERARIO' => 'Numerário', 'TPA' => 'Multicaixa (TPA)', 'TRANSFERENCIA' => 'Transferência bancária'];
+
     public function __construct(private readonly ContextoEmpresa $contexto) {}
 
     /**
@@ -71,8 +74,10 @@ final class ServicoRelatoriosPOS
             'zs' => $zs->all(),
             'diferencas_tpa' => $diferencasTpa,
             'por_produto' => $this->porProduto($f),
-            'por_terminal' => (clone $vendas)->groupBy('s.terminal_pos_id', 's.codigo_terminal', 's.nome_terminal')
-                ->selectRaw('s.terminal_pos_id, s.codigo_terminal, s.nome_terminal, COUNT(*) AS documentos, SUM(v.total_bruto) AS total')
+            'por_terminal' => (clone $vendas)
+                ->groupBy(DB::raw('COALESCE(s.terminal_pos_id, v.terminal_pos_id)'), DB::raw("COALESCE(s.codigo_terminal, v.codigo_terminal_pos, '—')"), 's.nome_terminal')
+                ->selectRaw("COALESCE(s.terminal_pos_id, v.terminal_pos_id) AS terminal_pos_id, COALESCE(s.codigo_terminal, v.codigo_terminal_pos, '—') AS codigo_terminal,
+                    COALESCE(s.nome_terminal, 'Sessão do sistema anterior') AS nome_terminal, COUNT(*) AS documentos, SUM(v.total_bruto) AS total")
                 ->orderByDesc('total')->get()->map(fn ($r) => (array) $r + ['total' => number_format((float) $r->total, 2, '.', '')])->all(),
             'por_operador' => (clone $vendas)->groupBy(DB::raw('COALESCE(v.pos_operador, s.nome_operador)'))
                 ->selectRaw('COALESCE(v.pos_operador, s.nome_operador) AS operador, COUNT(*) AS documentos, SUM(v.total_bruto) AS total')
@@ -120,10 +125,21 @@ final class ServicoRelatoriosPOS
             ->groupBy(DB::raw("p->>'tipo'"), DB::raw("p->>'nome'"))
             ->selectRaw("p->>'tipo' AS tipo, COALESCE(p->>'nome', p->>'tipo') AS nome, COUNT(*) AS quantidade, SUM((p->>'valor')::numeric) AS valor")->get();
         $semDetalhe = $this->vendas($f)->where(fn ($q) => $q->whereNull('v.pos_pagamentos')->orWhereRaw("jsonb_typeof(v.pos_pagamentos) <> 'array'"))
-            ->groupBy('v.meio_pagamento')->selectRaw("NULL AS tipo, COALESCE(v.meio_pagamento, 'Sem detalhe') AS nome, COUNT(*) AS quantidade, SUM(v.total_bruto) AS valor")->get();
+            ->groupBy('v.meio_pagamento')->selectRaw('v.meio_pagamento AS meio, COUNT(*) AS quantidade, SUM(v.total_bruto) AS valor')->get()
+            // FR migradas sem detalhe dos pagamentos: o meio da venda com o total, com o nome do meio padrão do legado
+            ->map(fn ($r) => (object) ['tipo' => isset(self::NOMES_MEIO[$r->meio]) ? $r->meio : null, 'nome' => self::NOMES_MEIO[$r->meio] ?? ($r->meio ?: 'Sem detalhe'),
+                'quantidade' => $r->quantidade, 'valor' => $r->valor]);
 
-        return $detalhe->concat($semDetalhe)->map(fn ($r) => ['tipo' => $r->tipo, 'nome' => $r->nome, 'quantidade' => (int) $r->quantidade,
-            'valor' => number_format((float) $r->valor, 2, '.', '')])->sortByDesc(fn ($r) => (float) $r['valor'])->values()->all();
+        // o mesmo meio (tipo + nome) com e sem detalhe fica numa só linha
+        $linhas = [];
+        foreach ($detalhe->concat($semDetalhe) as $r) {
+            $k = ($r->tipo ?? '').'|'.$r->nome;
+            $linhas[$k] ??= ['tipo' => $r->tipo, 'nome' => $r->nome, 'quantidade' => 0, 'valor' => '0.00'];
+            $linhas[$k]['quantidade'] += (int) $r->quantidade;
+            $linhas[$k]['valor'] = bcadd($linhas[$k]['valor'], number_format((float) $r->valor, 2, '.', ''), 2);
+        }
+
+        return collect(array_values($linhas))->sortByDesc(fn ($r) => (float) $r['valor'])->values()->all();
     }
 
     private function porProduto(array $f): array
@@ -137,15 +153,21 @@ final class ServicoRelatoriosPOS
                 'total_liquido' => number_format((float) $r->total_liquido, 2, '.', ''), 'total_bruto' => number_format((float) $r->total_bruto, 2, '.', '')])->all();
     }
 
-    /** Facturas-recibo POS não anuladas, com a sessão, filtradas. */
+    /**
+     * Facturas-recibo POS não anuladas, com a sessão (se existir), filtradas. Conta, como o legado (pos_gestao.js:1101 —
+     * «Factura-Recibo com pos_session_id»), também as FR migradas cuja sessão do legado não passou para sessoes_pos
+     * (só ficou o código em sessao_pos_legado_codigo): com JOIN ficavam de fora (empresa de teste: 11 de 25 FR).
+     * Os valores vêm de total_bruto: valor_pago das FR do POS migradas está vazio e não é usado aqui.
+     */
     private function vendas(array $f): Builder
     {
-        return DB::table('vendas as v')->join('sessoes_pos as s', 's.id', '=', 'v.sessao_pos_id')
+        return DB::table('vendas as v')->leftJoin('sessoes_pos as s', 's.id', '=', 'v.sessao_pos_id')
             ->where('v.empresa_id', $this->contexto->obrigatorio())->where('v.tipo_documento', 'FR')
+            ->where(fn ($q) => $q->whereNotNull('v.sessao_pos_id')->orWhereNotNull('v.sessao_pos_legado_codigo'))
             ->where(fn ($q) => $q->whereNull('v.estado')->orWhere('v.estado', '<>', 'ANULADO'))
             ->when($f['data_inicio'] ?? null, fn ($q, $v) => $q->where('v.data_emissao', '>=', $v))
             ->when($f['data_fim'] ?? null, fn ($q, $v) => $q->where('v.data_emissao', '<', self::diaSeguinte($v)))
-            ->when($f['terminal_pos_id'] ?? null, fn ($q, $v) => $q->where('s.terminal_pos_id', $v))
+            ->when($f['terminal_pos_id'] ?? null, fn ($q, $v) => $q->whereRaw('COALESCE(s.terminal_pos_id, v.terminal_pos_id) = ?', [(int) $v]))
             ->when($f['operador_id'] ?? null, fn ($q, $v) => $q->where('s.operador_id', $v));
     }
 

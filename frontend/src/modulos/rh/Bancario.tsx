@@ -1,5 +1,6 @@
-import { Alert, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Tabs, Tag } from 'antd';
-import { DeleteOutlined, EditOutlined, WarningOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Form, Input, Modal, Select, Space, Tag } from 'antd';
+import { PlusOutlined, WarningOutlined } from '@ant-design/icons';
+import { BotoesCadastroLegado } from './comum/BotoesCadastroLegado';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
@@ -9,8 +10,9 @@ import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/respon
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import type { Banco, Colaborador, CoordenadaBancaria } from './api';
-import { CadastroSimples } from './comum/CadastroSimples';
-import { contem, EstadoTag, PesquisaLocal } from './comum/componentes';
+import { CadastroSimples, useDestinoAccoes } from './comum/CadastroSimples';
+import { SeletorConta } from '@/modulos/contab/comum/Seletores';
+import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useBancos, useColaboradores } from './comum/consultas';
 import { pedidoTabela } from './comum/impressao';
 import { formatarIban, ibanValido } from './comum/regras';
@@ -21,47 +23,65 @@ interface Linha {
   coordenada: CoordenadaBancaria | null;
 }
 
-/** RH › Coordenadas bancárias (ecrã bancario): IBAN dos colaboradores e tabela de bancos. */
+/** Ordem do antigo (DataTables sem `order` → 1.ª coluna «Nome» ascendente). */
+const porNome = (a: Banco, b: Banco) => a.nome.localeCompare(b.nome, 'pt') || a.id - b.id;
+
+/**
+ * RH › Coordenadas bancárias (ecrã bancario): IBAN dos colaboradores e tabela de bancos.
+ * Como no antigo (js/app_v2.js renderConfiguracoesBancarias): título sem subtítulo com Template · Importar Excel à
+ * direita (aqui também «Copiar de outra empresa», como nas Funções/Infotipos); «Adicionar Banco» no cartão dos bancos.
+ */
 export default function Bancario() {
   const { pode } = useSessao();
+  const [destino, elementoDestino] = useDestinoAccoes();
   return (
     <>
-      <CabecalhoPagina titulo="Configurações Bancárias" subtitulo="IBAN dos colaboradores (usado na ordem de pagamento e nas cartas) e bancos" />
-      <Tabs
-        items={[
-          { key: 'iban', label: 'IBAN dos colaboradores', children: <IbanColaboradores /> },
-          {
-            key: 'bancos',
-            label: 'Bancos',
-            children: (
-              <CadastroSimples<Banco>
-                url="/rh/bancos"
-                chave={['rh', 'bancos']}
-                nomeItem="banco"
-                tituloImpressao="Lista de bancos"
-                podeGerir={pode('rh_bancario_gerir')}
-                podeEliminar={pode('rh_banco_del')}
-                pesquisa={(r) => `${r.nome} ${r.codigo ?? ''} ${r.nif ?? ''}`}
-                colunas={[
-                  { title: 'Nome', dataIndex: 'nome', render: (v: string) => <strong>{v}</strong> },
-                  { title: 'Código', dataIndex: 'codigo', render: (v: string | null) => v ?? '—' },
-                  { title: 'NIF', dataIndex: 'nif', render: (v: string | null) => v ?? '—' },
-                  { title: 'Conta (plano)', dataIndex: 'codigo_conta', render: (v: string | null) => v ?? '—' },
-                ]}
-                campos={
-                  <>
-                    <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input autoFocus /></Form.Item>
-                    <Form.Item name="codigo" label="Código"><Input maxLength={50} /></Form.Item>
-                    <Form.Item name="nif" label="NIF"><Input maxLength={30} /></Form.Item>
-                    <Form.Item name="endereco" label="Endereço"><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
-                    <Form.Item name="codigo_conta" label="Conta do plano" extra="Conta de movimento (ex.: 43…)."><Input maxLength={20} /></Form.Item>
-                  </>
-                }
-              />
-            ),
-          },
+      <CabecalhoPagina titulo="Configurações Bancárias" accoes={elementoDestino} />
+      {/* Como no antigo: as duas tabelas na mesma página, Bancos primeiro */}
+      <CadastroSimples<Banco>
+        titulo="1. Gestão de Bancos"
+        url="/rh/bancos"
+        chave={['rh', 'bancos']}
+        nomeItem="banco"
+        rotuloNovo="Adicionar Banco"
+        tituloNovo="Adicionar Banco"
+        accoesExtra={pode('rh_bancario_gerir') ? <BotoesCadastroLegado entidade="bancos" semCopiar /> : undefined}
+        accoesCabecalho={destino}
+        ordemInicial={porNome}
+        camposEmLinha={
+          <div className="rh-grelha-bancos">
+            <Form.Item name="nome" label="Nome do Banco" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input placeholder="Ex: BFA" /></Form.Item>
+            <Form.Item name="codigo" label="Código"><Input placeholder="Ex: 0006" maxLength={50} /></Form.Item>
+            <Form.Item name="nif" label="NIF do Banco"><Input placeholder="NIF" maxLength={30} /></Form.Item>
+            <Form.Item name="endereco" label="Endereço"><Input placeholder="Endereço" maxLength={1000} /></Form.Item>
+            <Form.Item name="codigo_conta" label="Conta Contabilística (Plano de Contas)" className="rh-grelha-largo">
+              <SeletorConta allowClear placeholder="-- Seleccione uma opção --" style={{ width: '100%' }} />
+            </Form.Item>
+          </div>
+        }
+        tituloImpressao="Lista de bancos"
+        podeGerir={pode('rh_bancario_gerir')}
+        podeEliminar={pode('rh_banco_del')}
+        pesquisa={(r) => `${r.nome} ${r.codigo ?? ''} ${r.nif ?? ''}`}
+        colunas={[
+          { title: 'Nome', dataIndex: 'nome', sorter: porNome, defaultSortOrder: 'ascend', render: (v: string) => <strong>{v}</strong> },
+          { title: 'Código', dataIndex: 'codigo', render: (v: string | null) => v ?? '—' },
+          { title: 'NIF', dataIndex: 'nif', render: (v: string | null) => v ?? '—' },
+          { title: 'Endereço', dataIndex: 'endereco', render: (v: string | null) => v ?? '—' },
+          { title: 'Conta Contab.', dataIndex: 'codigo_conta', render: (v: string | null) => v ?? '—' },
         ]}
+        campos={
+          <>
+            <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input autoFocus /></Form.Item>
+            <Form.Item name="codigo" label="Código"><Input maxLength={50} /></Form.Item>
+            <Form.Item name="nif" label="NIF"><Input maxLength={30} /></Form.Item>
+            <Form.Item name="endereco" label="Endereço"><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
+            <Form.Item name="codigo_conta" label="Conta Contab." extra="Conta de movimento do plano (ex.: 43…)."><Input maxLength={20} /></Form.Item>
+          </>
+        }
       />
+      <div style={{ height: 16 }} />
+      <IbanColaboradores />
     </>
   );
 }
@@ -76,7 +96,9 @@ function IbanColaboradores() {
   const [filtro, setFiltro] = useState<'todos' | 'sem' | 'invalido'>('todos');
   const [edicao, setEdicao] = useState<Linha | null>(null);
   const [form] = Form.useForm<{ banco_id: number; iban: string }>();
-  const accao = useAccaoRh(() => setEdicao(null));
+  const [novo, setNovo] = useState(false);
+  const [formNovo] = Form.useForm<{ colaborador_id: number; banco_id: number; iban: string }>();
+  const accao = useAccaoRh(() => { setEdicao(null); setNovo(false); });
 
   const linhas = useMemo<Linha[]>(() => {
     const porColab = new Map((coordenadas.data ?? []).map((c) => [c.colaborador_id, c]));
@@ -110,31 +132,11 @@ function IbanColaboradores() {
           <Tag color="volcano">Sem IBAN</Tag>
         ),
     },
-    {
-      title: '',
-      key: 'accoes',
-      align: 'right',
-      render: (_, l) => (
-        <Space size={4}>
-          {pode('rh_bancario_gerir') && (
-            <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar IBAN" onClick={() => {
-              form.setFieldsValue({ banco_id: l.coordenada?.banco_id, iban: l.coordenada?.iban ?? '' });
-              setEdicao(l);
-            }} />
-          )}
-          {l.coordenada && pode('rh_banco_del') && (
-            <Popconfirm title="Eliminar as coordenadas bancárias?" okText="Eliminar" okButtonProps={{ danger: true }} cancelText="Cancelar"
-              onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/colaboradores/${l.colaborador.id}/coordenada-bancaria` })}>
-              <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar IBAN" />
-            </Popconfirm>
-          )}
-        </Space>
-      ),
-    },
   ];
 
   return (
-    <Card>
+    <Card title="2. IBANs dos Colaboradores"
+      extra={pode('rh_bancario_gerir') ? <Button type="primary" icon={<PlusOutlined />} onClick={() => { formNovo.resetFields(); setNovo(true); }}>Adicionar IBAN</Button> : undefined}>
       {semIban > 0 && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message={`${semIban} colaborador(es) activo(s) sem IBAN: não podem entrar em cartas de pagamento.`} />}
       <BarraFiltros
         accoes={
@@ -157,7 +159,26 @@ function IbanColaboradores() {
         ]} />
       </BarraFiltros>
       <TabelaComModos<Linha> rowKey={(l) => l.colaborador.id} size={pequeno ? 'small' : 'middle'} loading={colaboradores.isFetching || coordenadas.isFetching} columns={colunas} dataSource={visiveis}
-        scroll={scrollTabela()} pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `${t} colaborador(es)` }} />
+        scroll={scrollTabela()}
+        accoes={(l) => [
+          pode('rh_bancario_gerir') && { icone: 'edit', titulo: l.coordenada ? 'Editar IBAN' : 'Adicionar IBAN', onClick: () => { form.setFieldsValue({ banco_id: l.coordenada?.banco_id, iban: l.coordenada?.iban ?? '' }); setEdicao(l); } },
+          l.coordenada && pode('rh_banco_del') && { icone: 'trash', titulo: 'Apagar IBAN', variante: 'perigo', confirmar: { titulo: 'Eliminar as coordenadas bancárias?', textoOk: 'Eliminar', perigo: true },
+            onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/colaboradores/${l.colaborador.id}/coordenada-bancaria` }) },
+        ]} />
+      <Modal title="Adicionar IBAN" open={novo} onCancel={() => setNovo(false)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formNovo.submit()} destroyOnHidden>
+        <Form form={formNovo} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'put', url: `/rh/colaboradores/${v.colaborador_id}/coordenada-bancaria`, dados: { banco_id: v.banco_id, iban: v.iban.replace(/\s+/g, '') } })}>
+          <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
+            <SeletorColaborador style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="banco_id" label="Banco" rules={[{ required: true, message: 'Escolha o banco.' }]}>
+            <Select showSearch optionFilterProp="label" loading={bancos.isLoading} options={(bancos.data ?? []).map((b) => ({ value: b.id, label: b.nome }))} />
+          </Form.Item>
+          <Form.Item name="iban" label="IBAN" extra="AO + 23 dígitos (o NIB de 21 dígitos é convertido para AO06) ou IBAN estrangeiro."
+            rules={[{ required: true, message: 'Indique o IBAN.' }, { validator: (_, v: string) => (!v || ibanValido(v) ? Promise.resolve() : Promise.reject(new Error('IBAN inválido (dígitos de controlo).'))) }]}>
+            <Input maxLength={50} style={{ fontFamily: 'monospace' }} />
+          </Form.Item>
+        </Form>
+      </Modal>
       <Modal title={`Coordenadas bancárias — ${edicao?.colaborador.nome_completo ?? ''}`} open={edicao !== null} onCancel={() => setEdicao(null)}
         okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => edicao && accao.mutate({ metodo: 'put', url: `/rh/colaboradores/${edicao.colaborador.id}/coordenada-bancaria`, dados: { ...v, iban: v.iban.replace(/\s+/g, '') } })}>

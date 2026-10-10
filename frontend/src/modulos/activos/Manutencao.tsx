@@ -1,10 +1,11 @@
-import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Select, Space } from 'antd';
-import { CheckOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Tag } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { NavActivos } from './comum/NavActivos';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
+import { BotaoCartao } from './inventario/BotaoCartao';
+import { corTipoManutencao, destinoActivo, estadoManutencao, manutencaoPlaneada, ouTracos } from './inventario/regrasInventario';
 import { BarraFiltros } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -13,7 +14,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { somar } from '@/utilitarios/decimal';
 import { pedidoTodasPaginas } from './comum/impressao';
-import { EtiquetaActivos, SeletorActivo } from './comum/componentes';
+import { SeletorActivo } from './comum/componentes';
 import { filtroPeriodo, useListaPaginada } from './comum/paginacao';
 import type { Manutencao as RegistoManutencao } from './comum/tipos';
 
@@ -21,6 +22,7 @@ import { TabelaComModos } from '@/componentes/vistas';
 /** Activos › Manutenções (ecrã activos_manutencao): registo de manutenções preventivas e correctivas e respectiva conclusão. */
 export default function Manutencao() {
   const { pode } = useSessao();
+  const navegar = useNavigate();
   const [activo, setActivo] = useState<number>();
   const [estado, setEstado] = useState<string>();
   const [nova, setNova] = useState(false);
@@ -32,38 +34,37 @@ export default function Manutencao() {
   const eliminar = useAccao({ invalidar: [['activos']] });
   const gerir = pode('activos_manut');
 
+  // Colunas do legado (renderMaintenanceView): «Planeado» = descrição do pedido, «Executado» = resolução.
   const colunas: ColunaApi<RegistoManutencao>[] = [
-    { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Activo', key: 'a', render: (_, r) => (r.ativo_imobilizado ? `${r.ativo_imobilizado.codigo} — ${r.ativo_imobilizado.descricao}` : r.ativo_imobilizado_id) },
-    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaActivos valor={v} /> },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
-    { title: 'Custo (Kz)', dataIndex: 'custo', align: 'right', render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.custo))) },
-    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
-    { title: 'Execução', dataIndex: 'data_execucao', responsive: ['md'], render: formatarData },
-    { title: 'Resolução', dataIndex: 'resolucao', ellipsis: true, width: 220, responsive: ['lg'], render: (v) => v ?? '—' },
     {
-      title: '', key: 'acc', align: 'right',
-      render: (_, r) => gerir && (
-        <Space>
-          {r.estado !== 'CONCLUIDA' && <Button size="small" icon={<CheckOutlined />} onClick={() => setConcluir(r)}>Concluir</Button>}
-          <Popconfirm title="Remover esta manutenção?" okText="Remover" cancelText="Cancelar" okButtonProps={{ danger: true }}
-            onConfirm={() => eliminar.mutate({ metodo: 'delete', url: `/ativos/manutencoes/${r.id}` })}>
-            <Button size="small" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
-        </Space>
+      title: 'Nº Inventário', key: 'inv', ocultavel: false, valorFiltro: (r) => r.ativo_imobilizado?.codigo ?? '', valorImpressao: (r) => ouTracos(r.ativo_imobilizado?.codigo),
+      render: (_, r) => (
+        <Button size="small" title="Ficha e histórico do activo" style={{ fontWeight: 700, color: 'var(--ant-color-primary, #2563eb)' }}
+          onClick={(e) => { e.stopPropagation(); navegar(destinoActivo(r.ativo_imobilizado_id)); }}>
+          {ouTracos(r.ativo_imobilizado?.codigo)}
+        </Button>
       ),
     },
+    { title: 'Data', dataIndex: 'data', render: formatarData, valorImpressao: (r) => formatarData(r.data) },
+    { title: 'Activo', key: 'a', valorFiltro: (r) => r.ativo_imobilizado?.descricao ?? '', valorImpressao: (r) => ouTracos(r.ativo_imobilizado?.descricao), render: (_, r) => ouTracos(r.ativo_imobilizado?.descricao) },
+    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <Tag color={corTipoManutencao(v)}>{v}</Tag>, valorImpressao: (r) => r.tipo },
+    { title: 'Planeado', dataIndex: 'descricao', ellipsis: true, width: 260, render: (v) => <small>{v ?? ''}</small>, valorImpressao: (r) => r.descricao ?? '' },
+    { title: 'Executado', dataIndex: 'resolucao', ellipsis: true, width: 220, render: (v) => <small>{ouTracos(v)}</small>, valorImpressao: (r) => ouTracos(r.resolucao) },
+    { title: 'Custo', dataIndex: 'custo', align: 'right', total: true, render: (v) => <ValorKz valor={v ?? 0} />, valorImpressao: (r) => formatarKz(r.custo ?? 0), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.custo ?? '0'))) },
+    {
+      title: 'Estado', dataIndex: 'estado', valorImpressao: (r) => estadoManutencao(r.estado),
+      render: (v) => <Tag color={manutencaoPlaneada(v) ? 'warning' : 'success'}>{estadoManutencao(v)}</Tag>,
+    },
+    { title: 'Execução', dataIndex: 'data_execucao', ocultaPorOmissao: true, render: formatarData, valorImpressao: (r) => formatarData(r.data_execucao) },
   ];
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Manutenções"
-        subtitulo="Intervenções preventivas e correctivas nos activos"
-        accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNova(true)}>Registar manutenção</Button>}
-      />
       <NavActivos actual="activos_manutencao" />
-      <Card>
+      <Card
+        title="Histórico de Manutenções"
+        extra={gerir && <BotaoCartao icone="plus" variante="primario" onClick={() => setNova(true)}>Registar Manutenção</BotaoCartao>}
+      >
         <BarraFiltros accoes={<>
           <BotoesExportar desactivado={!q.itens.length} obterPedido={() => pedidoTodasPaginas('/ativos/manutencoes', { ativo_imobilizado_id: activo, estado, tipo, ...filtroPeriodo(periodo) }, {
             titulo: 'Manutenções de activos',
@@ -72,9 +73,10 @@ export default function Manutencao() {
             colunas,
           })} />
           <BotaoCsv nome="manutencoes_pagina" linhas={q.itens} colunas={[
-            { titulo: 'Data', valor: (l) => formatarData(l.data) }, { titulo: 'Activo', valor: (l) => l.ativo_imobilizado?.codigo },
-            { titulo: 'Tipo', valor: (l) => l.tipo }, { titulo: 'Descrição', valor: (l) => l.descricao }, { titulo: 'Custo', valor: (l) => l.custo, numerico: true },
-            { titulo: 'Estado', valor: (l) => l.estado }, { titulo: 'Resolução', valor: (l) => l.resolucao },
+            { titulo: 'Nº Inventário', valor: (l) => l.ativo_imobilizado?.codigo }, { titulo: 'Data', valor: (l) => formatarData(l.data) },
+            { titulo: 'Activo', valor: (l) => l.ativo_imobilizado?.descricao }, { titulo: 'Tipo', valor: (l) => l.tipo },
+            { titulo: 'Planeado', valor: (l) => l.descricao }, { titulo: 'Executado', valor: (l) => l.resolucao },
+            { titulo: 'Custo', valor: (l) => l.custo, numerico: true }, { titulo: 'Estado', valor: (l) => estadoManutencao(l.estado) },
           ]} />
         </>}>
             <SeletorActivo allowClear value={activo} onChange={setActivo} style={{ width: 320 }} />
@@ -92,6 +94,17 @@ export default function Manutencao() {
           pagination={q.paginacao}
           scroll={{ x: 'max-content' }}
           columns={colunas}
+          tituloAccoes="Acções"
+          accoes={(r) => gerir ? [
+            manutencaoPlaneada(r.estado)
+              ? { icone: 'play', titulo: 'Executar', texto: 'Executar', variante: 'sucesso', cheio: true, onClick: () => setConcluir(r) }
+              : { icone: 'check-double', titulo: 'Manutenção concluída', cor: '#059669', desactivado: 'Manutenção concluída' },
+            {
+              icone: 'trash', titulo: 'Eliminar', variante: 'perigo',
+              confirmar: { titulo: 'Remover esta manutenção?', textoOk: 'Remover', perigo: true },
+              onClick: () => eliminar.mutateAsync({ metodo: 'delete', url: `/ativos/manutencoes/${r.id}` }).catch(() => undefined),
+            },
+          ] : []}
         />
       </Card>
       <ModalManutencao aberto={nova} aoFechar={() => setNova(false)} />
@@ -142,12 +155,17 @@ function ModalConcluir({ registo, aoFechar }: { registo: RegistoManutencao | nul
     if (registo) form.setFieldsValue({ resolucao: '', custo: registo.custo ? Number(registo.custo) : undefined });
   }, [registo, form]);
   return (
-    <Modal title="Concluir manutenção" open={!!registo} onCancel={aoFechar} onOk={() => form.submit()} okText="Concluir" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
+    <Modal title="Executar Manutenção" open={!!registo} onCancel={aoFechar} onOk={() => form.submit()} okText="Finalizar Manutenção" cancelText="Cancelar"
+      okButtonProps={{ style: { background: '#10b981', borderColor: '#10b981' } }} confirmLoading={accao.isPending} destroyOnHidden>
+      <div style={{ marginBottom: 16, background: '#f8fafc', padding: 12, borderRadius: 8 }}>
+        <div style={{ fontSize: '0.9rem', color: '#64748b' }}>Trabalho Planeado:</div>
+        <div style={{ marginTop: 4, fontWeight: 600 }}>{registo?.descricao || '---'}</div>
+      </div>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/ativos/manutencoes/${registo?.id}/executar`, dados: { ...v, custo: v.custo ?? 0 } })}>
-        <Form.Item name="resolucao" label="Resolução" rules={[{ required: true, message: 'Descreva a resolução.' }]}>
-          <Input.TextArea rows={3} maxLength={5000} />
+        <Form.Item name="resolucao" label="Trabalho Efectuado (Resolução)" rules={[{ required: true, message: 'Descreva a resolução.' }]}>
+          <Input.TextArea rows={4} maxLength={5000} placeholder="Indique o que foi feito detalhadamente..." />
         </Form.Item>
-        <Form.Item name="custo" label="Custo (Kz)">
+        <Form.Item name="custo" label="Custo Final (Kz)">
           <InputNumber min={0} precision={2} style={{ width: 200 }} />
         </Form.Item>
       </Form>

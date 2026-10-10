@@ -515,8 +515,10 @@ final class ServicoOrdensLavandaria
 
         return [
             'contadores' => $contadores,
+            // prazo de levantamento (rótulo do cartão «Não levantadas (+N dias)», lavandaria.js:778)
+            'dias_armazenagem_gratis' => (int) $cfg['dias_armazenagem_gratis'],
             'ordens' => $lista->map(fn ($o) => $o->only(['id', 'numero_encomenda', 'codigo_terminal', 'terminal_pos_id', 'cliente_id', 'recebido_em', 'data_prometida', 'urgente',
-                'estado', 'nome_atribuido', 'atribuido_em', 'modo_faturacao']) + [
+                'estado', 'nome_atribuido', 'atribuido_em', 'modo_faturacao', 'entrega']) + [
                     'cliente' => ($c = $clientes[$o->cliente_id] ?? null) ? $c->only(['id', 'nome', 'nif', 'telefone']) : null,
                     'total' => ($t = RegrasLavandaria::totais($o->itens ?? [], $o->extras ?? [], '0.00', RegrasLavandaria::dinheiro($pagos[$o->id] ?? 0)))['total'],
                     'saldo' => $t['saldo'], 'indicadores' => $ind[$o->id], 'nao_levantada' => $naoLevantada($o)])->all(),

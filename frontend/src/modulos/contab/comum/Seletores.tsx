@@ -23,7 +23,7 @@ export function SeletorConta({ id, value, onChange, placeholder = 'Conta', allow
     () =>
       (plano.data ?? [])
         .filter((c) => (incluirTotalizadoras || c.tipo === 'M') && (!prefixos?.length || prefixos.some((p) => c.codigo.startsWith(p))))
-        .map((c) => ({ value: c.codigo, label: `${c.codigo} — ${c.descricao ?? ''}` })),
+        .map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` })),
     [plano.data, prefixos, incluirTotalizadoras],
   );
   if (plano.isError) {

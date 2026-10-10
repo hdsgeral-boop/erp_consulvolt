@@ -1,5 +1,5 @@
 import { Alert, Card, Checkbox, Form } from 'antd';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { TituloMapa } from './TituloMapa';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { FluxoCaixa } from '../api';
 import { eZero } from '@/utilitarios/decimal';
@@ -17,7 +17,7 @@ export default function MapaFluxo() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Fluxos de caixa" subtitulo="Método directo, por notas de fluxo de caixa" />
+      <TituloMapa titulo="Fluxo de Caixa" subtitulo="Método directo, por notas de fluxo de caixa" />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="periodo"

@@ -24,6 +24,8 @@ interface ValoresForm {
   numero_documento?: string;
   referencia?: string;
   descricao?: string;
+  /** Só em «Editar Lançamento Completo»: motivo da correcção (fica no estorno do original). */
+  motivo?: string;
   linhas: LinhaEditor[];
 }
 
@@ -32,6 +34,11 @@ export interface EstadoCopia {
   copia?: DocumentoLancamento;
   /** «assistente_ia»: proposta do assistente IA (M-03) — usa a data proposta em vez da de hoje. */
   origem?: 'assistente_ia';
+  /**
+   * 8.1.3 «Editar Lançamento Completo»: id de uma linha do lançamento `copia` a corrigir. Ao gravar, o servidor estorna o
+   * original e grava o corrigido numa só transacção (POST /contabilidade/lancamentos/{id}/corrigir) — nada se apaga.
+   */
+  corrigir?: number;
 }
 
 interface MoedaApi {
@@ -66,6 +73,7 @@ export function NovoLancamento() {
   const estadoNav = local.state as EstadoCopia | null;
   const copia = estadoNav?.copia;
   const doAssistente = estadoNav?.origem === 'assistente_ia';
+  const corrigir = copia && estadoNav?.corrigir ? estadoNav.corrigir : undefined;
   const excesso = useExcessoOrcamental();
   const estrangeira = emMoeda(moeda);
 
@@ -81,9 +89,10 @@ export function NovoLancamento() {
   const valoresIniciais: Partial<ValoresForm> = copia
     ? {
         diario_id: copia.diario_id,
-        data_documento: doAssistente && copia.data_documento ? dayjs(copia.data_documento) : dayjs(),
+        data_documento: (doAssistente || corrigir) && copia.data_documento ? dayjs(copia.data_documento) : dayjs(),
         codigo_moeda: copia.linhas[0]?.codigo_moeda ?? MOEDA_BASE,
         numero_documento: copia.numero_documento ?? undefined,
+        referencia: corrigir ? copia.linhas[0]?.referencia ?? undefined : undefined,
         descricao: copia.linhas[0]?.descricao ?? undefined,
         linhas: copia.linhas.map((l) => ({
           codigo_conta: l.codigo_conta,
@@ -102,7 +111,8 @@ export function NovoLancamento() {
 
   const gravar = useMutation({
     mutationFn: (v: ValoresForm & { orcamento?: OpcoesOrcamento }) =>
-      enviar<DocumentoLancamento>('post', '/contabilidade/lancamentos', {
+      enviar<DocumentoLancamento>('post', corrigir ? `/contabilidade/lancamentos/${corrigir}/corrigir` : '/contabilidade/lancamentos', {
+        ...(corrigir ? { motivo: v.motivo?.trim() } : {}),
         diario_id: v.diario_id,
         data_documento: dataApi(v.data_documento),
         numero_documento: v.numero_documento || undefined,
@@ -137,8 +147,16 @@ export function NovoLancamento() {
   return (
     <>
       <CabecalhoPagina
-        titulo={doAssistente ? 'Novo lançamento (proposta do assistente IA)' : copia ? `Novo lançamento (cópia de ${copia.numero_lan})` : 'Novo lançamento'}
-        subtitulo="Registar novo lançamento no Diário"
+        titulo={
+          corrigir
+            ? `Editar Lançamento Completo (${copia?.numero_lan})`
+            : doAssistente
+              ? 'Novo lançamento (proposta do assistente IA)'
+              : copia
+                ? `Novo lançamento (cópia de ${copia.numero_lan})`
+                : 'Novo lançamento'
+        }
+        subtitulo={corrigir ? 'Ao gravar, o lançamento original é estornado e é gravado este lançamento corrigido (com rasto no Diário).' : 'Registar novo lançamento no Diário'}
         accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>}
       />
       <Form<ValoresForm> form={form} layout="vertical" initialValues={valoresIniciais} onFinish={(v) => gravar.mutate(v)}>
@@ -199,6 +217,11 @@ export function NovoLancamento() {
           <Form.Item name="descricao" label="Descrição comum (aplica-se às linhas sem descrição)">
             <Input maxLength={1000} placeholder="Descrição que se aplica a todas as linhas…" />
           </Form.Item>
+          {corrigir && (
+            <Form.Item name="motivo" label="Motivo da correcção" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}>
+              <Input maxLength={300} placeholder="Ex.: valor ou conta errados…" />
+            </Form.Item>
+          )}
         </Card>
         <Card title="Linhas do documento" style={{ marginBottom: 16 }}>
           <EditorLinhasDC minimo={2} campos={{ terceiro: true, centroCusto: true, unidade: true, notas: true }} rotuloValor={estrangeira ? `Valor (${moeda})` : 'Valor (Kz)'} />
@@ -220,7 +243,7 @@ export function NovoLancamento() {
         </Card>
         <Space wrap>
           <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={gravar.isPending} disabled={!e.valido || (estrangeira && !taxaEfectiva)}>
-            Gravar lançamento
+            {corrigir ? 'Gravar correcção' : 'Gravar lançamento'}
           </Button>
           <Button onClick={() => navegar('..')}>Cancelar</Button>
         </Space>

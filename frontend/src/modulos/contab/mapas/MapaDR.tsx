@@ -1,5 +1,5 @@
 import { Alert, Card, Checkbox, Form, Select } from 'antd';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { TituloMapa } from './TituloMapa';
 import type { DemonstracaoResultados } from '../api';
 import { TabelaDemonstracao } from '../comum/Demonstracao';
 import { linhasDR } from '../comum/demonstracoes';
@@ -16,7 +16,7 @@ export default function MapaDR() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Demonstração de resultados" subtitulo="Por natureza, com notas DEMO" />
+      <TituloMapa titulo="Demonstração de resultados" subtitulo="Por natureza, com notas DEMO" />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="periodo"

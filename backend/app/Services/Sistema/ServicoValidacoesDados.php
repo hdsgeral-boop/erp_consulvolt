@@ -91,6 +91,22 @@ final class ServicoValidacoesDados
                           JOIN produtos p ON p.id = m.produto_id JOIN armazens a ON a.id = m.armazem_id
                           WHERE m.empresa_id = ? AND m.documento_tipo = 'MIGRACAO' ORDER BY a.nome, p.codigo",
             ],
+            'stock_movimentos_armazem_outra_empresa' => [
+                'titulo' => 'Stock: movimentos num armazém de outra empresa', 'modulo' => 'Logística', 'gravidade' => 'ERRO',
+                'descricao' => 'Erro fatal herdado do legado (o POS sem armazém configurado usava o armazém 1 por omissão). Corrija com «php artisan erp:migracao:corrigir-dados»: '
+                    .'o movimento passa para um armazém da empresa dona ou é eliminado se ela já não existir.',
+                'legado' => 'Armazém por omissão no POS (warehouse_id 1) sem verificar a empresa',
+                'sql' => 'SELECT m.id AS movimento_id, a.nome AS armazem, a.empresa_id AS empresa_do_armazem, p.codigo, m.sentido, m.quantidade, m.referencia FROM movimentos_inventario m
+                          JOIN armazens a ON a.id = m.armazem_id LEFT JOIN produtos p ON p.id = m.produto_id WHERE m.empresa_id = ? AND a.empresa_id <> m.empresa_id ORDER BY m.id',
+            ],
+            'correcoes_pos_migracao' => [
+                'titulo' => 'Correcções automáticas de dados do legado', 'modulo' => 'Sistema', 'gravidade' => 'AVISO',
+                'descricao' => 'Registo das correcções aplicadas aos dados migrados (movimentos de stock em armazém de outra empresa, notas de crédito que abatem a factura). '
+                    .'Os valores anteriores e novos ficam nos logs de auditoria (acção CORRECAO_MIGRACAO).',
+                'legado' => 'Inconsistências do legado corrigidas por decisão do utilizador (ADR-070)',
+                'sql' => "SELECT l.id AS log_id, l.ocorrido_em, l.modulo, l.tabela, l.registo_id, l.detalhes FROM logs_auditoria l
+                          WHERE l.empresa_id = ? AND l.acao = 'CORRECAO_MIGRACAO' ORDER BY l.ocorrido_em, l.id",
+            ],
             'stock_negativo' => [
                 'titulo' => 'Stock negativo', 'modulo' => 'Logística', 'gravidade' => 'AVISO',
                 'descricao' => 'As vendas podem deixar o stock negativo (como no legado, para não bloquear documentos fiscais); regularize com a entrada em falta ou um inventário.',

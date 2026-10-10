@@ -44,6 +44,13 @@ final class LancamentoResource extends JsonResource
             'estornado_por_id' => $this->estornado_por_id,
             'estornado_em' => $this->estornado_em?->toAtomString(),
             'nome_utilizador' => $this->nome_utilizador,
+            // 8.1.2 (colunas do legado): Data lanç. (registo no sistema), URL do documento, câmbio manual, projecto e nome da conta
+            'criado_em' => $this->criado_em?->toAtomString(),
+            'url_documento' => $this->url_documento,
+            'taxa_cambio_manual' => (bool) $this->taxa_cambio_manual,
+            'codigo_projeto' => $this->codigo_projeto ?: ($this->projeto_id !== null && $this->resource->relationLoaded('projeto') ? $this->projeto?->codigo : null),
+            // só na lista (subconsulta ao plano de contas em LancamentoController::index); nunca carregamento preguiçoso
+            'conta_descricao' => $this->when(array_key_exists('conta_descricao', $this->resource->getAttributes()), fn () => $this->resource->getAttribute('conta_descricao')),
         ];
     }
 }

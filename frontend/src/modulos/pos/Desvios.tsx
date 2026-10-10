@@ -1,29 +1,26 @@
-import { Alert, Button, Descriptions, Form, Input, Modal, Radio, Select, Space, Tooltip, Typography } from 'antd';
-import { AuditOutlined, EyeOutlined, StopOutlined } from '@ant-design/icons';
+import { Alert, Form, Input, Modal, Radio, Space, Typography } from 'antd';
 import { useEffect, useState } from 'react';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
-import { BarraFiltros, larguraModal } from '@/componentes/responsivo';
+import { larguraModal } from '@/componentes/responsivo';
+import { IconeLegado, type AccaoLinha } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { useDefinicoesPOS } from './comum/dados';
-import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
-import { EstadoPOS, opcoesEstadoPOS, rotuloEstadoPOS } from './comum/estados';
-import { SeletorTerminal, useFiltroTerminal } from './comum/Filtros';
+import { DetalheSessao } from './comum/DetalheSessao';
 import { accoesDesvio, DECISOES, decisoesPermitidas } from './comum/regras';
 import type { SessaoPOS } from './comum/tipos';
+import { corDesvio, rotuloDecisao, textoDesvio } from './contas/formatos';
+import { Seccao } from './contas/Seccao';
 
 /**
- * POS › Desvios de caixa (ecrã pos_desvios): desvios acima da tolerância por deliberar (sobra, falta como custo, falta do
- * operador ou sem efeito) e anulação de deliberações manuais por estorno. Quem operou a sessão não delibera (ADR-047).
+ * POS › Desvios de caixa (ecrã pos_desvios) como no sistema anterior (renderDesvios, pos_prestacao.js:363-394): «Desvios de
+ * caixa por deliberar» (com a justificação do operador) e o histórico «Deliberações» (decisão, fundamentação, lançamento,
+ * deliberado por, desfazer = anular a deliberação por estorno). Quem operou a sessão não delibera (ADR-047).
  */
 export default function Desvios() {
   const { pode, utilizador } = useSessao();
   const definicoes = useDefinicoesPOS();
-  const [terminal, setTerminal] = useState<number>();
-  const [estado, setEstado] = useState<string | undefined>('PENDENTE');
-  const filtroTerminal = useFiltroTerminal(terminal);
   const [detalhe, setDetalhe] = useState<number | null>(null);
   const [deliberar, setDeliberar] = useState<SessaoPOS | null>(null);
   const [anular, setAnular] = useState<SessaoPOS | null>(null);
@@ -34,75 +31,140 @@ export default function Desvios() {
       setAnular(null);
     },
   });
+  const d = definicoes.data;
+  const conta = (c: string | null | undefined) => <strong>{c || 'conta por definir'}</strong>;
 
-  const botoes = (s: SessaoPOS) => {
+  const accoesPendente = (s: SessaoPOS): AccaoLinha[] => {
     const a = accoesDesvio(pode, s, utilizador?.id);
-    return (
-      <Space size={4}>
-        <Tooltip title="Ver sessão">
-          <Button size="small" icon={<EyeOutlined />} onClick={() => setDetalhe(s.id)} />
-        </Tooltip>
-        {a.deliberar.visivel && (
-          <Tooltip title={a.deliberar.bloqueio}>
-            <Button size="small" type="primary" icon={<AuditOutlined />} disabled={!!a.deliberar.bloqueio} onClick={() => setDeliberar(s)}>
-              Deliberar
-            </Button>
-          </Tooltip>
-        )}
-        {a.anular.visivel && (
-          <Button size="small" danger icon={<StopOutlined />} onClick={() => setAnular(s)}>
-            Anular deliberação
-          </Button>
-        )}
-      </Space>
-    );
+    return [
+      { icone: 'eye', titulo: 'Ver sessão', onClick: () => setDetalhe(s.id) },
+      {
+        icone: 'gavel',
+        titulo: 'Deliberar',
+        texto: 'Deliberar',
+        variante: 'primario',
+        cheio: true,
+        oculto: !a.deliberar.visivel,
+        desactivado: a.deliberar.bloqueio ?? false,
+        onClick: () => setDeliberar(s),
+      },
+    ];
   };
+  const accoesDeliberada = (s: SessaoPOS): AccaoLinha[] => [
+    { icone: 'eye', titulo: 'Ver sessão', onClick: () => setDetalhe(s.id) },
+    { icone: 'undo', titulo: 'Anular deliberação', variante: 'perigo', oculto: !accoesDesvio(pode, s, utilizador?.id).anular.visivel, onClick: () => setAnular(s) },
+  ];
 
   return (
     <>
-      <CabecalhoPagina titulo="Desvios de caixa" subtitulo="Diferenças entre o numerário contado e o esperado no fecho Z" />
-      {definicoes.data && (
-        <Descriptions size="small" column={{ xs: 1, md: 3, xl: 5 }} style={{ marginBottom: 12 }}>
-          <Descriptions.Item label="Tolerância">{formatarKz(definicoes.data.tolerancia_desvio)} Kz</Descriptions.Item>
-          <Descriptions.Item label="Sobras">{definicoes.data.conta_sobra ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="Quebras">{definicoes.data.conta_quebra ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="Operador">{definicoes.data.conta_operador ?? '—'}</Descriptions.Item>
-          <Descriptions.Item label="Diário">{definicoes.data.codigo_diario}</Descriptions.Item>
-        </Descriptions>
-      )}
-      <BarraFiltros>
-        <SeletorTerminal value={terminal} onChange={setTerminal} />
-        <Select allowClear placeholder="Desvio" style={{ width: 200 }} value={estado} onChange={setEstado} options={opcoesEstadoPOS(['PENDENTE', 'DELIBERADO', 'SEM_DESVIO'])} />
-      </BarraFiltros>
-      <TabelaApi<SessaoPOS>
-        url="/pos/sessoes"
-        chaveConsulta={['pos', 'sessoes', 'desvios']}
-        filtros={{ estado: 'FECHADA', terminal_pos_id: terminal, estado_desvio: estado }}
-        impressao={{
-          titulo: 'Desvios de caixa',
-          filtros: [filtroTerminal, `Desvio: ${estado ? rotuloEstadoPOS(estado) : 'Todos'}`, definicoes.data ? `Tolerância: ${formatarKz(definicoes.data.tolerancia_desvio)} Kz` : null],
-        }}
-        columns={[
-          { title: 'Z', dataIndex: 'numero_z' },
-          { title: 'Terminal', render: (_, s) => `${s.codigo_terminal} — ${s.nome_terminal}` },
-          { title: 'Operador', dataIndex: 'nome_operador', responsive: ['md'] },
-          { title: 'Fecho', dataIndex: 'fechado_em', render: (v) => formatarDataHora(v) },
-          { title: 'Esperado', dataIndex: 'numerario_esperado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
-          { title: 'Contado', dataIndex: 'numerario_contado', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
-          { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v) => <ValorDesvio valor={v} /> },
-          { title: 'Estado', dataIndex: 'estado_desvio', render: (v) => <EstadoPOS estado={v} /> },
-          { title: 'Decisão', render: (_, s) => (s.deliberacao ? `${DECISOES[s.deliberacao.decisao]?.rotulo ?? s.deliberacao.decisao}${s.deliberacao.automatica ? ' (auto.)' : ''}` : '—') },
-          { title: 'Integração', dataIndex: 'estado_contabilizacao', render: (v) => <EstadoPOS estado={v} />, responsive: ['lg'] },
-          { title: '', key: 'accoes', fixed: 'right', exportar: false, render: (_, s) => botoes(s) },
-        ]}
-      />
+      <Seccao
+        titulo="Desvios de caixa por deliberar"
+        icone="balance-scale"
+        cor="#b45309"
+        descricao={
+          <>
+            O desvio só é lançado depois de deliberado: sobras para {conta(d?.conta_sobra)}, faltas para {conta(d?.conta_quebra)} ou imputadas ao operador em{' '}
+            {conta(d?.conta_operador)} (Terminais POS → Definições de caixa).
+            {d && ` Tolerância: ${formatarKz(d.tolerancia_desvio)} Kz (abaixo dela a regularização é automática).`}
+          </>
+        }
+      >
+        <TabelaApi<SessaoPOS>
+          idVista="desvios-pendentes"
+          modos={false}
+          url="/pos/sessoes"
+          chaveConsulta={['pos', 'sessoes', 'desvios', 'pendentes']}
+          filtros={{ estado: 'FECHADA', estado_desvio: 'PENDENTE' }}
+          size="small"
+          impressao={{ titulo: 'Desvios de caixa por deliberar' }}
+          columns={[
+            { title: 'Z', dataIndex: 'numero_z', render: (v) => <b>{v}</b> },
+            { title: 'Terminal · operador', key: 'terminal', render: (_, s) => `${s.codigo_terminal} · ${s.nome_operador ?? '—'}` },
+            { title: 'Fecho', dataIndex: 'fechado_em', render: (v) => formatarDataHora(v) },
+            { title: 'Esperado', dataIndex: 'numerario_esperado', align: 'right', render: (v) => formatarKz(v) },
+            { title: 'Contado', dataIndex: 'numerario_contado', align: 'right', render: (v) => formatarKz(v) },
+            {
+              title: 'Desvio',
+              dataIndex: 'desvio',
+              align: 'right',
+              render: (v) => <span style={{ fontWeight: 800, color: corDesvio(v) }}>{textoDesvio(v)}</span>,
+              valorImpressao: (s) => textoDesvio(s.desvio),
+              total: true,
+            },
+            { title: 'Justificação do operador', dataIndex: 'justificacao', render: (v) => <span style={{ display: 'inline-block', maxWidth: 260 }}>{v ?? ''}</span>, valorImpressao: (s) => s.justificacao ?? '' },
+            {
+              title: 'Contabilização',
+              dataIndex: 'estado_contabilizacao',
+              render: (v) => (v === 'CONTABILIZADA' ? <span style={{ color: '#059669' }}>Contabilizada</span> : <span style={{ color: '#b45309' }}>Por contabilizar</span>),
+              valorImpressao: (s) => (s.estado_contabilizacao === 'CONTABILIZADA' ? 'Contabilizada' : 'Por contabilizar'),
+            },
+          ]}
+          accoes={accoesPendente}
+          vazio={{ icone: 'check-circle', cor: '#059669', titulo: 'Sem desvios por deliberar.' }}
+        />
+      </Seccao>
+      <Seccao titulo="Deliberações" icone="history" cor="#334155" nivel={4}>
+        <TabelaApi<SessaoPOS>
+          idVista="desvios-deliberacoes"
+          modos={false}
+          url="/pos/sessoes"
+          chaveConsulta={['pos', 'sessoes', 'desvios', 'deliberacoes']}
+          filtros={{ estado: 'FECHADA', estado_desvio: 'DELIBERADO' }}
+          size="small"
+          impressao={{ titulo: 'Deliberações dos desvios de caixa' }}
+          columns={[
+            { title: 'Z', dataIndex: 'numero_z', render: (v) => <b>{v}</b> },
+            { title: 'Operador', dataIndex: 'nome_operador' },
+            { title: 'Desvio', dataIndex: 'desvio', align: 'right', render: (v) => formatarKz(v), total: true },
+            {
+              title: 'Decisão',
+              key: 'decisao',
+              render: (_, s) => (
+                <>
+                  {rotuloDecisao(s.deliberacao)}
+                  {s.deliberacao?.conta && (
+                    <div>
+                      <small>{s.deliberacao.conta}</small>
+                    </div>
+                  )}
+                </>
+              ),
+              valorFiltro: (s) => rotuloDecisao(s.deliberacao),
+              valorImpressao: (s) => `${rotuloDecisao(s.deliberacao)}${s.deliberacao?.conta ? ` (${s.deliberacao.conta})` : ''}`,
+            },
+            { title: 'Fundamentação', key: 'nota', render: (_, s) => <span style={{ display: 'inline-block', maxWidth: 260 }}>{s.deliberacao?.nota ?? ''}</span>, valorFiltro: (s) => s.deliberacao?.nota ?? '', valorImpressao: (s) => s.deliberacao?.nota ?? '' },
+            { title: 'Lançamento', key: 'lan', render: (_, s) => s.deliberacao?.numero_lan || '—', valorFiltro: (s) => s.deliberacao?.numero_lan ?? '', valorImpressao: (s) => s.deliberacao?.numero_lan || '—' },
+            {
+              title: 'Deliberado por',
+              key: 'por',
+              render: (_, s) => (
+                <>
+                  {s.deliberacao?.por ?? (s.deliberacao?.automatica ? 'Automática' : '')}
+                  <div>
+                    <small>{formatarDataHora(s.deliberacao?.em ?? s.deliberacao?.data ?? null)}</small>
+                  </div>
+                </>
+              ),
+              valorFiltro: (s) => s.deliberacao?.por ?? '',
+              valorImpressao: (s) => `${s.deliberacao?.por ?? ''} ${formatarDataHora(s.deliberacao?.em ?? s.deliberacao?.data ?? null)}`.trim(),
+            },
+          ]}
+          accoes={accoesDeliberada}
+          vazio={{ icone: 'history', titulo: 'Sem deliberações.' }}
+        />
+      </Seccao>
       <DetalheSessao id={detalhe} aoFechar={() => setDetalhe(null)} />
-      <ModalDeliberar sessao={deliberar} carregando={accao.isPending} aoFechar={() => setDeliberar(null)} aoConfirmar={(dados) => deliberar && accao.mutate({ url: `/pos/sessoes/${deliberar.id}/deliberacao`, dados })} />
+      <ModalDeliberar
+        sessao={deliberar}
+        carregando={accao.isPending}
+        aoFechar={() => setDeliberar(null)}
+        aoConfirmar={(dados) => deliberar && accao.mutate({ url: `/pos/sessoes/${deliberar.id}/deliberacao`, dados })}
+      />
       <ModalMotivo
         aberto={!!anular}
-        titulo={`Anular a deliberação de ${anular?.numero_z ?? ''}`}
+        titulo={`Anular a deliberação do desvio de ${anular?.numero_z ?? ''}`}
         textoOk="Anular deliberação"
-        aviso="O lançamento do desvio é estornado e o desvio volta a ficar por deliberar. Fica bloqueado se o numerário já tiver sido prestado."
+        aviso={`${anular?.deliberacao?.numero_lan ? `O lançamento ${anular.deliberacao.numero_lan} é estornado e o` : 'O'} desvio volta a ficar por deliberar. Fica bloqueado se o numerário já tiver sido transferido para a Folha de Caixa.`}
         carregando={accao.isPending}
         aoFechar={() => setAnular(null)}
         aoConfirmar={(motivo) => anular && accao.mutate({ url: `/pos/sessoes/${anular.id}/deliberacao/anular`, dados: { motivo } })}
@@ -111,6 +173,7 @@ export default function Desvios() {
   );
 }
 
+/** Deliberar desvio (posDeliberarDesvio, pos_prestacao.js:396-424): esperado, contado, sobra/falta, justificação e decisão. */
 function ModalDeliberar({
   sessao,
   carregando,
@@ -123,24 +186,51 @@ function ModalDeliberar({
   aoConfirmar: (d: { decisao: string; nota?: string }) => void;
 }) {
   const [form] = Form.useForm<{ decisao: string; nota?: string }>();
-  useEffect(() => {
-    if (sessao) form.resetFields();
-  }, [sessao, form]);
   const opcoes = sessao ? decisoesPermitidas(sessao) : [];
-  const sobra = Number(sessao?.desvio ?? 0) > 0;
+  useEffect(() => {
+    if (sessao) {
+      form.resetFields();
+      form.setFieldsValue({ decisao: opcoes.find((o) => !o.desactivada)?.valor });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessao, form]);
+  const desvio = Number(sessao?.desvio ?? 0);
+  const sobra = desvio > 0;
+  const caixa = (rotulo: string, valor: string, fundo = '#f8fafc') => (
+    <div style={{ background: fundo, border: '1px solid #e2e8f0', borderRadius: 4, padding: '0.5rem' }}>
+      {rotulo}
+      <br />
+      <strong>{valor}</strong>
+    </div>
+  );
   return (
-    <Modal open={!!sessao} title={`Deliberar o desvio de ${sessao?.numero_z ?? ''}`} okText="Deliberar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
+    <Modal
+      open={!!sessao}
+      title={
+        <Space>
+          <IconeLegado icone="gavel" /> Deliberar desvio · {sessao?.numero_z ?? ''}
+        </Space>
+      }
+      okText="Registar deliberação"
+      cancelText="Cancelar"
+      confirmLoading={carregando}
+      onCancel={aoFechar}
+      onOk={() => form.submit()}
+      width={larguraModal(620)}
+      destroyOnHidden
+    >
       {sessao && (
         <>
-          <Alert
-            type={sobra ? 'success' : 'warning'}
-            showIcon
-            style={{ marginBottom: 12 }}
-            message={`${sobra ? 'Sobra' : 'Falta'} de ${formatarKz(Math.abs(Number(sessao.desvio ?? 0)))} Kz`}
-            description={sessao.justificacao ? `Justificação do operador: ${sessao.justificacao}` : undefined}
-          />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.5rem', fontSize: '0.85rem', marginBottom: '0.8rem' }}>
+            {caixa('Esperado', formatarKz(sessao.numerario_esperado))}
+            {caixa('Contado', formatarKz(sessao.numerario_contado))}
+            {caixa(sobra ? 'Sobra' : 'Falta', formatarKz(Math.abs(desvio)), sobra ? '#ecfdf5' : '#fef2f2')}
+          </div>
+          <div style={{ fontSize: '0.82rem', color: '#475569', marginBottom: '0.6rem' }}>
+            <strong>Justificação do operador:</strong> {sessao.justificacao || '—'}
+          </div>
           <Form form={form} layout="vertical" onFinish={(v) => aoConfirmar({ decisao: v.decisao, nota: v.nota?.trim() || undefined })}>
-            <Form.Item name="decisao" label="Decisão" rules={[{ required: true, message: 'Escolha a decisão.' }]}>
+            <Form.Item name="decisao" rules={[{ required: true, message: 'Escolha a decisão.' }]}>
               <Radio.Group>
                 <Space direction="vertical">
                   {opcoes.map((o) => (
@@ -151,10 +241,21 @@ function ModalDeliberar({
                 </Space>
               </Radio.Group>
             </Form.Item>
-            <Form.Item name="nota" label="Nota">
-              <Input.TextArea rows={3} maxLength={1000} showCount />
+            <Form.Item
+              name="nota"
+              label="Fundamentação da deliberação"
+              rules={[{ required: true, whitespace: true, min: 5, message: 'Escreva a fundamentação da deliberação.' }]}
+            >
+              <Input.TextArea rows={2} maxLength={1000} showCount placeholder="Decisão tomada e por quem foi autorizada" />
             </Form.Item>
           </Form>
+          {sessao.estado_contabilizacao !== 'CONTABILIZADA' && sessao.estado_contabilizacao !== 'SEM_MOVIMENTO' && (
+            <Alert
+              type="warning"
+              showIcon
+              message="A sessão ainda não está contabilizada: só é possível deliberar «sem efeito». Para lançar a sobra/falta, contabilize primeiro a sessão."
+            />
+          )}
         </>
       )}
     </Modal>

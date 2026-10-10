@@ -1,5 +1,5 @@
-import { Alert, Button, Col, Row, Skeleton } from 'antd';
-import { AppstoreOutlined, BulbOutlined, CheckCircleFilled, EnvironmentFilled, HolderOutlined, HomeFilled, LineChartOutlined, StarFilled, UnorderedListOutlined } from '@ant-design/icons';
+import { Button, Col, Row, Skeleton } from 'antd';
+import { CheckCircleFilled, EnvironmentFilled, StarFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -8,7 +8,7 @@ import { obter } from '@/api/cliente';
 import type { ModuloMenu } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
-import { iconeModulo } from '@/componentes/icones/iconesModulos';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useFavoritos } from '@/componentes/preferencias/favoritos';
 import { usePreferencia } from '@/componentes/preferencias/usePreferencias';
 import { ecrasDeTopo, rotaEcra } from '@/layout/itensMenu';
@@ -31,6 +31,69 @@ export function ordenarModulos(menu: ModuloMenu[], ordem: string[]): ModuloMenu[
   return [...menu].sort((a, b) => (pos.get(a.id) ?? 1e6 + menu.indexOf(a)) - (pos.get(b.id) ?? 1e6 + menu.indexOf(b)));
 }
 
+/**
+ * Lista «Módulos» do Início pela ordem, nomes, descrições e ícones do legado (ui_dashboard.js:720-732). Os módulos do
+ * sistema novo que o legado não lista (Logística, Acréscimos, Configurações) vêm no fim; «Geral» fica de fora (os seus
+ * ecrãs estão no topo do menu e no cartão «Dashboard Global»).
+ */
+export const MODULOS_INICIO: readonly { id: string; nome: string; icone: string; descricao: string }[] = [
+  { id: 'rh', nome: 'Recursos Humanos', icone: 'users', descricao: 'Gestão de pessoal, contratos e processamento.' },
+  { id: 'teso', nome: 'Tesouraria', icone: 'university', descricao: 'Pagamentos, recebimentos e conciliação.' },
+  { id: 'pos', nome: 'Ponto de Venda (POS)', icone: 'cash-register', descricao: 'Facturação rápida, caixa POS e fecho de turno.' },
+  { id: 'vendas', nome: 'Vendas e Clientes', icone: 'shopping-cart', descricao: 'Facturação, clientes e contas a receber.' },
+  { id: 'compras', nome: 'Compras e Stocks', icone: 'truck-loading', descricao: 'Aprovisionamento, fornecedores e armazém.' },
+  { id: 'contab', nome: 'Contabilidade Geral', icone: 'book', descricao: 'Diários, balancetes e demonstrações financeiras.' },
+  { id: 'activos', nome: 'Ativos Fixos', icone: 'couch', descricao: 'Imobilizado, amortizações e manutenção.' },
+  { id: 'projectos', nome: 'Projectos e Obras', icone: 'hard-hat', descricao: 'Carteira de projectos, custos analíticos e planeamento Gantt.' },
+  { id: 'orcamento', nome: 'Gestão Orçamental', icone: 'file-invoice-dollar', descricao: 'Orçamentos, controlo orçado vs realizado, previsões e cenários.' },
+  { id: 'crm', nome: 'CRM', icone: 'handshake', descricao: 'Pipeline comercial, agenda, previsão de vendas e campanhas.' },
+  { id: 'estrutura', nome: 'Estrutura Orgânica', icone: 'sitemap', descricao: 'Unidades, cargos e vagas, organigrama e mapa de pessoal.' },
+  { id: 'stock', nome: 'Logística', icone: 'warehouse', descricao: 'Níveis de stock, entradas, guias e inventário.' },
+  { id: 'acrescimos', nome: 'Acréscimos e Diferimentos', icone: 'exchange-alt', descricao: 'Registos, propostas mensais e regularização.' },
+  { id: 'config', nome: 'Configurações', icone: 'cogs', descricao: 'Empresas, utilizadores, perfis e parâmetros do sistema.' },
+];
+
+/** Módulos do menu do utilizador na ordem do legado e com os nomes do legado (os que não estão na lista vão para o fim). */
+export function modulosDoInicio(menu: ModuloMenu[]): ModuloMenu[] {
+  const conhecidos = MODULOS_INICIO.flatMap((d) => {
+    const m = menu.find((x) => x.id === d.id);
+    return m ? [{ ...m, nome: d.nome }] : [];
+  });
+  return [...conhecidos, ...menu.filter((m) => m.id !== 'geral' && !MODULOS_INICIO.some((d) => d.id === m.id))];
+}
+
+/** Ícone e cor de cada pendente (legado: pílulas com ícone colorido, ui_dashboard.js:782-794). */
+export const ICONES_PENDENTES: Readonly<Record<string, readonly [string, string]>> = {
+  teso_docs: ['sync', '#fbbf24'],
+  teso_conciliacao: ['check-double', '#60a5fa'],
+  vendas_por_liquidar: ['file-invoice', '#34d399'],
+  compras_pedidos: ['clipboard-list', '#fb923c'],
+  compras_encomendas: ['truck', '#f472b6'],
+  rh_periodos_abertos: ['calculator', '#a78bfa'],
+  ativos_inventariar: ['couch', '#f9a8d4'],
+  ativos_sem_amortizacao: ['percent', '#67e8f9'],
+  ativos_manutencoes: ['tools', '#fde68a'],
+  orc_por_aprovar: ['file-signature', '#93c5fd'],
+  orc_excessos: ['bell', '#fca5a5'],
+  acrescimos_regularizar: ['exchange-alt', '#5eead4'],
+  crm_atraso: ['calendar-times', '#fdba74'],
+  estrutura_vagas: ['user-plus', '#c4b5fd'],
+  cambios_bai: ['coins', '#fcd34d'],
+  portal_pedidos: ['inbox', '#fcd34d'],
+  avaliacao_360: ['star-half-alt', '#a5b4fc'],
+};
+
+/** Texto do comunicado da avaliação (o servidor devolve { nome, comunicado } ou { titulo, texto }); nulo se não houver texto. */
+export function textoComunicado(c: DadosInicio['comunicado_avaliacao']): { titulo: string; texto: string } | null {
+  if (!c) return null;
+  const corpo = c.comunicado;
+  const texto = String(c.texto ?? (typeof corpo === 'string' ? corpo : corpo?.texto ?? corpo?.mensagem ?? '')).trim();
+  if (!texto) return null;
+  const tituloCorpo = typeof corpo === 'object' && corpo ? corpo.titulo : undefined;
+  const titulo = c.titulo || tituloCorpo || (c.nome ? `Avaliação de desempenho — ${c.nome}` : 'Avaliação de desempenho');
+  return { titulo, texto };
+}
+
 interface Pendente {
   id: string;
   rotulo: string;
@@ -44,27 +107,13 @@ interface DadosInicio {
   pendentes?: Pendente[];
   total_pendentes?: number;
   dica_do_dia?: { titulo?: string; texto?: string } | string | null;
-  comunicado_avaliacao?: { titulo?: string; texto?: string } | null;
+  comunicado_avaliacao?: {
+    titulo?: string;
+    texto?: string;
+    nome?: string;
+    comunicado?: string | { titulo?: string; texto?: string; mensagem?: string } | null;
+  } | null;
 }
-
-/** Descrição de cada módulo na lista «Módulos» (textos do ecrã de boas-vindas do sistema anterior). */
-const DESCRICOES: Readonly<Record<string, string>> = {
-  geral: 'Painel de gestão, relatórios e indicadores.',
-  rh: 'Gestão de pessoal, contratos e processamento.',
-  contab: 'Diários, balancetes e demonstrações financeiras.',
-  teso: 'Pagamentos, recebimentos e conciliação.',
-  vendas: 'Facturação, clientes e contas a receber.',
-  pos: 'Facturação rápida, caixa POS e fecho de turno.',
-  compras: 'Aprovisionamento, fornecedores e encomendas.',
-  stock: 'Níveis de stock, entradas, guias e inventário.',
-  activos: 'Imobilizado, amortizações e manutenção.',
-  projectos: 'Carteira de projectos, custos analíticos e planeamento Gantt.',
-  crm: 'Pipeline comercial, agenda, previsão de vendas e campanhas.',
-  acrescimos: 'Registos, propostas mensais e regularização.',
-  orcamento: 'Orçamentos, controlo orçado vs realizado, previsões e cenários.',
-  estrutura: 'Unidades, cargos e vagas, organigrama e mapa de pessoal.',
-  config: 'Empresas, utilizadores, perfis e parâmetros do sistema.',
-};
 
 /**
  * Página inicial (GET /gestao/inicio, ADR-059) com o desenho do ecrã de boas-vindas do sistema anterior
@@ -76,10 +125,10 @@ export function Inicio() {
   const identidade = useIdentidade();
   const navegar = useNavigate();
   const consulta = useQuery({ queryKey: ['inicio'], queryFn: () => obter<DadosInicio>('/gestao/inicio') });
-  const { favoritos } = useFavoritos();
+  const { favoritos, eFavorito, alternar } = useFavoritos();
   // ordem dos módulos guardada no servidor por utilizador (legado: localStorage welcome_modules_order)
   const [ordem, definirOrdem] = usePreferencia<string[]>('ordem_modulos', 'inicio', SEM_ORDEM);
-  const modulosOrdenados = useMemo(() => ordenarModulos(menu, ordem), [menu, ordem]);
+  const modulosOrdenados = useMemo(() => ordenarModulos(modulosDoInicio(menu), ordem), [menu, ordem]);
   const [arrastado, setArrastado] = useState<string | null>(null);
   const [alvo, setAlvo] = useState<string | null>(null);
 
@@ -116,7 +165,8 @@ export function Inicio() {
             )}
           </h1>
           <p className="erp-inicio-subtitulo">Bem-vindo ao seu ecossistema de gestão empresarial.</p>
-          {d.comunicado_avaliacao && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message={d.comunicado_avaliacao.titulo} description={d.comunicado_avaliacao.texto} />}
+          {/* O comunicado da avaliação 360º não aparece aqui: no legado só está no Portal do Colaborador › Avaliação (com
+              confirmação de leitura); no Início conta apenas na pílula «Avaliação de desempenho: acções pendentes». */}
 
           <section className="erp-inicio-empresa" aria-label="Empresa activa">
             <span className="erp-inicio-cracha">Empresa activa</span>
@@ -138,7 +188,7 @@ export function Inicio() {
             </div>
             <div className="erp-inicio-pendentes">
               <div className="erp-inicio-pendentes-cabeca">
-                <UnorderedListOutlined aria-hidden style={{ opacity: 0.75 }} />
+                <IconeFa nome="tasks" style={{ opacity: 0.75 }} />
                 <h3 className="erp-inicio-pendentes-titulo" style={{ margin: 0 }}>
                   Processos pendentes
                 </h3>
@@ -150,10 +200,14 @@ export function Inicio() {
                 <ul className="erp-inicio-pilulas" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                   {pendentes.map((p) => {
                     const rota = rotaDaVista(p.vista);
+                    const [ic, cor] = ICONES_PENDENTES[p.id] ?? ['circle-regular', '#cbd5e1'];
                     return (
                       <li key={p.id}>
                         <button type="button" className="erp-inicio-pilula" disabled={!rota} onClick={rota ? () => navegar(rota) : undefined}>
-                          <span className="erp-inicio-pilula-numero">{p.quantidade}</span> {p.rotulo}
+                          <IconeFa nome={ic} className="erp-inicio-pilula-icone" style={{ color: cor }} />
+                          <span>
+                            <span className="erp-inicio-pilula-numero">{p.quantidade}</span> {p.rotulo}
+                          </span>
                         </button>
                       </li>
                     );
@@ -165,17 +219,17 @@ export function Inicio() {
                 </div>
               )}
             </div>
-            <HomeFilled className="erp-inicio-empresa-marca" aria-hidden />
+            <IconeFa nome="city" className="erp-inicio-empresa-marca" />
           </section>
 
           <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
             <Col xs={24} md={painel ? 12 : 24}>
               <div className="erp-inicio-mini">
                 <span className="erp-caixa-icone" style={{ background: '#eff6ff', color: '#2563eb' }} aria-hidden>
-                  <BulbOutlined />
+                  <IconeFa nome="lightbulb" />
                 </span>
                 <div style={{ minWidth: 0 }}>
-                  <h3 className="erp-inicio-mini-titulo">{dica?.titulo || 'Dica do dia'}</h3>
+                  <h3 className="erp-inicio-mini-titulo">{dica?.titulo || 'Dica do Dia'}</h3>
                   <p className="erp-inicio-mini-texto">{dica?.texto ?? '—'}</p>
                 </div>
               </div>
@@ -184,14 +238,14 @@ export function Inicio() {
               <Col xs={24} md={12}>
                 <button type="button" className="erp-inicio-mini" onClick={() => navegar(painel)}>
                   <span className="erp-caixa-icone" style={{ background: '#f0fdf4', color: '#047857' }} aria-hidden>
-                    <LineChartOutlined />
+                    <IconeFa nome="chart-pie" />
                   </span>
                   <span style={{ minWidth: 0 }}>
                     <span className="erp-inicio-mini-titulo" style={{ display: 'block' }}>
-                      Painel de gestão
+                      Dashboard Global
                     </span>
                     <span className="erp-inicio-mini-texto" style={{ display: 'block' }}>
-                      Clique para ver a performance detalhada.
+                      Clique para ver performance detalhada.
                     </span>
                   </span>
                 </button>
@@ -222,12 +276,18 @@ export function Inicio() {
         {menu.length > 0 && (
           <Col xs={24} xl={8}>
             <nav className="erp-inicio-modulos" aria-label="Atalhos dos módulos">
-              <h2 className="erp-inicio-modulos-titulo">
-                <AppstoreOutlined aria-hidden style={{ color: '#2563eb' }} /> Módulos
-              </h2>
+              <div className="erp-inicio-modulos-cabeca">
+                <h2 className="erp-inicio-modulos-titulo">
+                  <IconeFa nome="th-large" style={{ color: '#2563eb' }} /> Módulos
+                </h2>
+                <span className="erp-inicio-arrastar" title="Arraste os módulos para os reordenar (Alt+↑/↓ com o teclado)">
+                  <IconeFa nome="arrows-alt" /> Arrastar
+                </span>
+              </div>
               <div className="erp-inicio-lista-modulos">
                 {modulosOrdenados.map((m) => {
                   const primeiro = ecrasDeTopo(m)[0];
+                  const def = MODULOS_INICIO.find((x) => x.id === m.id);
                   return (
                     <div
                       key={m.id}
@@ -270,15 +330,27 @@ export function Inicio() {
                           }
                         }}
                       >
-                        <span className="erp-caixa-icone" aria-hidden>
-                          {iconeModulo(m.id)}
+                        <span className="erp-caixa-icone erp-caixa-icone-modulo" aria-hidden>
+                          <IconeFa nome={def?.icone ?? 'circle-regular'} />
                         </span>
                         <span className="erp-modulo-textos">
                           <span className="erp-modulo-nome">{m.nome}</span>
-                          <span className="erp-modulo-descricao">{DESCRICOES[m.id] ?? (m.ecras.length === 1 ? '1 ecrã' : `${m.ecras.length} ecrãs`)}</span>
+                          <span className="erp-modulo-descricao">{def?.descricao ?? (m.ecras.length === 1 ? '1 ecrã' : `${m.ecras.length} ecrãs`)}</span>
                         </span>
-                        <HolderOutlined className="erp-modulo-pega" aria-hidden />
+                        <IconeFa nome="grip-vertical" className="erp-modulo-pega" />
                       </button>
+                      {primeiro && (
+                        <button
+                          type="button"
+                          className={`erp-modulo-estrela${eFavorito(m.id, primeiro.id) ? ' activa' : ''}`}
+                          title="Adicionar/Remover Favorito"
+                          aria-label={`${eFavorito(m.id, primeiro.id) ? 'Remover' : 'Adicionar'} ${m.nome} dos favoritos`}
+                          aria-pressed={eFavorito(m.id, primeiro.id)}
+                          onClick={() => alternar(m.id, primeiro.id)}
+                        >
+                          <IconeFa nome={eFavorito(m.id, primeiro.id) ? 'star' : 'star-regular'} />
+                        </button>
+                      )}
                     </div>
                   );
                 })}

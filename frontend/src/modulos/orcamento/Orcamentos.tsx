@@ -9,14 +9,31 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
-import { formatarDataHora } from '@/utilitarios/formatacao';
-import { EtiquetaOrc, SeletorOrcamento, useOrcamentos } from './comum/componentes';
-import type { Orcamento, TipoOrcamento } from './comum/tipos';
+import { formatarKz } from '@/utilitarios/formatacao';
+import { IconeFa } from '@/componentes/fluxos';
+import { rotuloOrc, SeletorOrcamento, useOrcamentosLegado } from './comum/componentes';
+import { chipsPreparacao, COR_ESTADO, textoPreparacao, textoResponsavel, textoUltimaAccao } from './comum/lista';
+import type { Orcamento, OrcamentoLista, TipoOrcamento } from './comum/tipos';
 import { DetalheOrcamento } from './DetalheOrcamento';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
-import { pedidoTabela } from './comum/impressao';
 
 import { TabelaComModos } from '@/componentes/vistas';
+
+/** Estado com as cores do legado (.orc-estado). */
+function EstadoOrc({ valor }: { valor: string }) {
+  return <span style={{ display: 'inline-block', color: '#fff', background: COR_ESTADO[valor] ?? '#64748b', borderRadius: 4, padding: '0 6px', fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{rotuloOrc(valor)}</span>;
+}
+
+/** Coluna «Preparação»: chips (base zero, top-down/bottom-up) e responsável com prazo. */
+function Preparacao({ o }: { o: OrcamentoLista }) {
+  const resp = textoResponsavel(o);
+  return (
+    <span style={{ fontSize: 12.5 }}>
+      {chipsPreparacao(o).map((c) => <span key={c.texto} style={{ display: 'inline-block', fontSize: 11.5, background: c.fundo, color: c.cor, borderRadius: 4, padding: '0 5px', margin: '1px 2px 1px 0' }}>{c.texto}</span>)}
+      {resp && <div style={{ color: '#475569' }}><IconeFa nome="user" /> {resp}</div>}
+    </span>
+  );
+}
 /** Orçamento › Orçamentos (ecrã orc_orcamentos): exploração e tesouraria, versões, aprovação, top-down e contributos. */
 export default function Orcamentos() {
   return (
@@ -29,46 +46,62 @@ export default function Orcamentos() {
 
 function Lista() {
   const navegar = useNavigate();
-  const { pode } = useSessao();
-  const [ano, setAno] = useState<number | undefined>(dayjs().year());
+  const { pode, utilizador } = useSessao();
+  const [ano, setAno] = useState<number | undefined>();
   const [tipo, setTipo] = useState<TipoOrcamento>();
+  const [soMeus, setSoMeus] = useState(false);
   const [novo, setNovo] = useState(false);
-  const q = useOrcamentos({ ano, tipo });
-  const nomes = new Map((q.data ?? []).map((o) => [o.id, o.nome]));
+  const q = useOrcamentosLegado({ ano, tipo });
+  const todos = q.data?.orcamentos ?? [];
+  const meus = todos.filter((o) => o.estado === 'RASCUNHO' && !!o.responsavel && o.responsavel === utilizador?.nome_utilizador);
+  const linhas = soMeus ? meus : todos;
 
-  const colunas: ColunaApi<Orcamento>[] = [
-    { title: 'Ano', dataIndex: 'ano' },
-    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaOrc valor={v} /> },
-    { title: 'Nome', dataIndex: 'nome', valorImpressao: (o) => `${o.nome ?? '—'}${o.orcamento_pai_id ? ` · contributo de ${nomes.get(o.orcamento_pai_id) ?? `#${o.orcamento_pai_id}`}` : ''}`, render: (v, o) => <><strong>{v ?? '—'}</strong>{o.orcamento_pai_id && <Typography.Text type="secondary"> · contributo de {nomes.get(o.orcamento_pai_id) ?? `#${o.orcamento_pai_id}`}</Typography.Text>}</> },
-    { title: 'Versão', dataIndex: 'versao', render: (v) => `v${v}` },
-    { title: 'Abordagem', dataIndex: 'abordagem', responsive: ['lg'], render: (v) => (v === 'TOP_DOWN' ? 'Top-down' : v === 'BOTTOM_UP' ? 'Bottom-up' : '—') },
-    { title: 'Responsável', dataIndex: 'responsavel', responsive: ['md'], render: (v) => v ?? '—' },
-    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaOrc valor={v} /> },
-    { title: 'Aprovado', key: 'ap', responsive: ['md'], render: (_, o) => (o.aprovado_em ? `${o.aprovado_por ?? ''} ${formatarDataHora(o.aprovado_em)}` : '—') },
+  const colunas: ColunaApi<OrcamentoLista>[] = [
+    { title: 'Ano', dataIndex: 'ano', render: (v) => <strong>{v}</strong> },
+    { title: 'Tipo', dataIndex: 'tipo', valorFiltro: (o) => rotuloOrc(o.tipo), valorImpressao: (o) => rotuloOrc(o.tipo), render: (v) => rotuloOrc(v) },
+    {
+      title: 'Nome', dataIndex: 'nome', valorImpressao: (o) => `${'  '.repeat(o.nivel)}${o.nome ?? '—'}`,
+      render: (v, o) => <span style={{ paddingLeft: `${o.nivel * 1.2}rem` }}>{o.nivel > 0 && <IconeFa nome="level-up-alt" style={{ color: '#94a3b8', marginRight: 4, transform: 'rotate(90deg)' }} />}{v ?? '—'}</span>,
+    },
+    { title: 'Dimensões', dataIndex: 'dimensoes', render: (v) => <span style={{ fontSize: 12.5 }}>{v}</span> },
+    { title: 'Preparação', key: 'prep', valorFiltro: textoPreparacao, valorImpressao: textoPreparacao, render: (_, o) => <Preparacao o={o} /> },
+    { title: 'Versão', dataIndex: 'versao', align: 'right', render: (v) => `v${v}` },
+    { title: 'Estado', dataIndex: 'estado', valorFiltro: (o) => rotuloOrc(o.estado), valorImpressao: (o) => rotuloOrc(o.estado), render: (v) => <EstadoOrc valor={v} /> },
+    { title: 'Total das rubricas', dataIndex: 'total_rubricas', align: 'right', render: (v) => formatarKz(v, true), valorImpressao: (o) => formatarKz(o.total_rubricas, true) },
+    { title: 'Última acção', key: 'ultima', valorFiltro: textoUltimaAccao, valorImpressao: textoUltimaAccao, render: (_, o) => <span style={{ fontSize: 12, color: '#64748b' }}>{textoUltimaAccao(o)}</span> },
   ];
 
   return (
     <>
       <CabecalhoPagina
         titulo="Orçamentos"
-        subtitulo="Rascunho → submetido → aprovado; nova versão a partir do aprovado (o anterior fica substituído)"
+        subtitulo="Orçamento de exploração e de tesouraria por ano, unidade de negócio e centro de custo. Rascunho → submetido → aprovado; alterações a um aprovado fazem-se numa nova versão."
         accoes={pode('orc_editar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo orçamento</Button>}
-        impressaoDesactivada={!q.data?.length}
-        impressao={() => pedidoTabela({ titulo: 'Lista de orçamentos', filtros: [ano ? `Ano: ${ano}` : null, tipo ? `Tipo: ${tipo === 'EXPLORACAO' ? 'Exploração' : 'Tesouraria'}` : null], colunas, linhas: q.data ?? [] })}
       />
+      {meus.length > 0 && (
+        <div style={{ border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1e3a8a', borderRadius: 4, padding: '0.5rem 0.7rem', fontSize: 13, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span><IconeFa nome="user-edit" /> Tem <b>{meus.length}</b> contributo(s) orçamental(is) por preencher como responsável.</span>
+          <Button size="small" onClick={() => setSoMeus((x) => !x)}>{soMeus ? 'Ver todos os orçamentos' : 'Ver só os meus contributos'}</Button>
+        </div>
+      )}
       <Card>
         <BarraFiltros>
-          <InputNumber prefix="Ano" min={2000} max={2100} value={ano} onChange={(v) => setAno(v ?? undefined)} style={{ width: 150 }} />
+          <InputNumber prefix="Ano" min={2000} max={2100} value={ano} onChange={(v) => setAno(v ?? undefined)} style={{ width: 150 }} placeholder="Todos" />
           <Select placeholder="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 160 }} options={[{ value: 'EXPLORACAO', label: 'Exploração' }, { value: 'TESOURARIA', label: 'Tesouraria' }]} />
         </BarraFiltros>
-        <TabelaComModos<Orcamento>
+        <TabelaComModos<OrcamentoLista>
           rowKey="id"
           size="middle"
           loading={q.isFetching}
-          dataSource={q.data}
+          dataSource={linhas}
           scroll={scrollTabela()}
-          onRow={(o) => ({ onClick: () => navegar(String(o.id)), style: { cursor: 'pointer' } })}
           columns={colunas}
+          impressao={{ titulo: 'Lista de orçamentos', filtros: [ano ? `Ano: ${ano}` : null, tipo ? `Tipo: ${rotuloOrc(tipo)}` : null].filter((x): x is string => !!x) }}
+          vazio={{ icone: 'file-invoice-dollar', titulo: 'Ainda não há orçamentos', texto: 'Crie primeiro as rubricas (Rubricas Orçamentais) e depois «Novo orçamento».' }}
+          accoes={(o) => [
+            { icone: o.estado === 'RASCUNHO' ? 'edit' : 'eye', titulo: o.estado === 'RASCUNHO' ? 'Editar' : 'Abrir', texto: o.estado === 'RASCUNHO' ? 'Editar' : 'Abrir', variante: 'primario', cheio: true, onClick: () => navegar(String(o.id)) },
+            { icone: 'balance-scale', titulo: 'Orçado vs realizado', oculto: !pode('orc_controlo_view'), onClick: () => navegar(`/m/orcamento/orc_controlo?orcamento=${o.id}`) },
+          ]}
         />
       </Card>
       <ModalNovoOrcamento aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(o) => navegar(String(o.id))} />

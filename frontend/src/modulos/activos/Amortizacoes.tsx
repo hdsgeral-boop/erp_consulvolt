@@ -1,154 +1,366 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Empty, Flex, Input, InputNumber, List, Modal, Row, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
-import { CalculatorOutlined, CloudUploadOutlined, EyeOutlined, RollbackOutlined, SaveOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Flex, Input, InputNumber, Modal, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { CloudUploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { NavActivos } from './comum/NavActivos';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar, CSS_SIMULACAO_COMUM, marcaSimulacao, tabelaHtml, tabelaLancamentoHtml, type PedidoImpressao } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
+import { IconeFa } from '@/componentes/fluxos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { BotaoCsv, IndicadorEquilibrio, ValorKz } from '@/modulos/contab/comum/Componentes';
-import { paraCentimos, somar } from '@/utilitarios/decimal';
+import { somar } from '@/utilitarios/decimal';
 import { pedidoTabela } from './comum/impressao';
 import { useAccao } from '@/componentes/Accoes';
-import { formatarKz } from '@/utilitarios/formatacao';
+import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaActivos } from './comum/componentes';
-import { accoesPeriodo, codigoPeriodo, ordenarPeriodos, quotaEditavel, rotuloPeriodo } from './comum/regras';
-import type { LinhaPeriodo, MesPendente, PeriodoAmortizacoes, PreVisualizacao, Verificacao } from './comum/tipos';
+import { accoesPeriodo, codigoPeriodo, ordenarPeriodos, rotuloPeriodo } from './comum/regras';
+import type { LinhaPeriodo, MesPendente, PeriodoAmortizacoes, PeriodoRegistado, PreVisualizacao, Verificacao } from './comum/tipos';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { acumuladaLinha, estadoLegado, linhaComAccoes, liquidoLinha, maisRecentesPrimeiro, quotaManual, seleccaoInicial, textoCalcular, totalMeses } from './fiscal/amortizacoes';
 
-/** Activos › Amortizações (ecrã activos_amortizacoes): cálculo, quotas manuais, pré-visualização, integração, reabertura e verificação. */
+type Painel = 'reabrir' | 'calculo' | 'integracao' | null;
+
+/**
+ * Activos › Amortizações (ecrã activos_amortizacoes), como no legado (renderAmortizationView, js/ui_assets.js:1750-1925):
+ * barra com «Mês de Referência», «Estado» e as acções (Calcular/Recalcular Período, Integrar na Contabilidade, Reabrir
+ * Período, Reabrir em Massa, Cálculo em Massa, Integração em Massa), painel das ferramentas em massa e o cartão «Mapa de
+ * Amortizações - Período MM-AAAA» com as acções por linha (cota manual e integração individual dos períodos em falta).
+ * Toda a lógica (cálculo, integração no diário AM, estorno na reabertura) é a do servidor (ServicoAmortizacoes).
+ */
 export default function Amortizacoes() {
-  return (
-    <>
-      <CabecalhoPagina titulo="Amortizações" subtitulo="Quotas constantes mensais; integração no diário AM (D 73 / C 18) por conta, unidade de negócio e centro de custo" />
-      <NavActivos actual="activos_amortizacoes" />
-      <Tabs
-        destroyOnHidden
-        items={[
-          { key: 'periodo', label: 'Período', children: <Periodo /> },
-          { key: 'pendentes', label: 'Meses em falta', children: <MesesEmFalta /> },
-          { key: 'verificacao', label: 'Verificação', children: <VerificacaoAmortizacoes /> },
-        ]}
-      />
-    </>
-  );
-}
-
-function Periodo() {
   const { pode } = useSessao();
-  const [mes, setMes] = useState(dayjs().subtract(1, 'month'));
+  const [mes, setMes] = useState(dayjs()); // mês corrente, como o legado (Mapa de Amortizações - Período MM-AAAA do mês actual)
   const [filtro, setFiltro] = useState('');
-  const [quotas, setQuotas] = useState<Record<number, number | null>>({});
+  const [painel, setPainel] = useState<Painel>(null);
   const [previsao, setPrevisao] = useState(false);
-  const [reabrir, setReabrir] = useState(false);
+  const [reabrir, setReabrir] = useState<string[]>([]);
+  const [cota, setCota] = useState<{ linha: LinhaPeriodo; valor: number | null } | null>(null);
+  const [verificacao, setVerificacao] = useState(false);
   const periodo = codigoPeriodo(mes.year(), mes.month() + 1);
   const q = useQuery({ queryKey: ['activos', 'amortizacoes', 'periodo', periodo], queryFn: () => obter<PeriodoAmortizacoes>('/ativos/amortizacoes', { periodo }) });
   const calcular = useAccao({ invalidar: [['activos']] });
-  const quota = useAccao({ invalidar: [['activos', 'amortizacoes']] });
+  const quota = useAccao({ invalidar: [['activos']], aoSucesso: () => setCota(null) });
+  const individual = useAccao({ invalidar: [['activos']] });
   const p = q.data;
   const acc = accoesPeriodo(p?.estado ?? 'ABERTO', pode);
+  const estado = estadoLegado(p);
+  const integrado = estado.chave === 'INTEGRADO';
+  const temRascunhos = (p?.contagens.RASCUNHO ?? 0) > 0;
   const t = filtro.trim().toLowerCase();
   const linhas = (p?.linhas ?? []).filter((l) => !t || `${l.codigo} ${l.descricao} ${l.categoria}`.toLowerCase().includes(t));
+  const podeCota = pode('activos_amort_calcular', 'activos_mapa_editar');
+  const podeIntegrar = pode('activos_amort_integrar');
 
-  const gravarQuota = (l: LinhaPeriodo) => {
-    const v = quotas[l.ativo_imobilizado_id];
-    quota.mutate(
-      { metodo: 'put', url: '/ativos/amortizacoes/quota', dados: { ativo_imobilizado_id: l.ativo_imobilizado_id, periodo, valor: v ?? 0 } },
-      { onSuccess: () => setQuotas(({ [l.ativo_imobilizado_id]: _, ...resto }) => resto) },
-    );
-  };
+  const integrarIndividual = (l: LinhaPeriodo) => Modal.confirm({
+    title: `Integrar ${l.codigo ?? ''} até ${rotuloPeriodo(periodo)}?`,
+    content: 'Integra individualmente todos os períodos em falta até à data: calcula os meses em falta e gera um lançamento equilibrado por período no diário AM.',
+    okText: 'Integrar', cancelText: 'Cancelar',
+    onOk: () => individual.mutateAsync({ url: `/ativos/bens/${l.ativo_imobilizado_id}/amortizacoes/integrar`, dados: { ate: periodo } }),
+  });
 
   const colunas: ColunaApi<LinhaPeriodo>[] = [
-    { title: 'Código', dataIndex: 'codigo', fixed: 'left' },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
-    { title: 'Categoria', dataIndex: 'categoria', responsive: ['md'] },
-    { title: 'CC', dataIndex: 'centro_custo', responsive: ['lg'], render: (v) => v ?? '—' },
-    { title: 'Aquisição', dataIndex: 'valor_aquisicao', align: 'right', render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor_aquisicao))) },
-    { title: 'Acumulado anterior', dataIndex: 'acumulado_anterior', align: 'right', responsive: ['md'], render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.acumulado_anterior))) },
-    { title: 'Calculada', dataIndex: 'quota_calculada', align: 'right', responsive: ['md'], render: (v) => <ValorKz valor={v} discretoSeZero />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.quota_calculada))) },
     {
-      title: 'Quota', key: 'quota', align: 'right',
-      valorImpressao: (l) => formatarKz(l.quota),
-      totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.quota))),
+      title: 'Nº Inventário', dataIndex: 'codigo', fixed: 'left', valorImpressao: (l) => l.codigo ?? '',
+      render: (v, l) => <Link to={`/m/activos/activos/${l.ativo_imobilizado_id}`}><Button size="small" style={{ fontWeight: 700 }}>{v ?? '—'}</Button></Link>,
+    },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
+    { title: 'Data Aquisição', dataIndex: 'data_aquisicao', render: (v) => (v ? formatarData(v) : '—') },
+    { title: 'Vlr Aquisição', dataIndex: 'valor_aquisicao', align: 'right', render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor_aquisicao))) },
+    {
+      title: 'Amort. Acumulada', key: 'acumulada', align: 'right', valorImpressao: (l) => formatarKz(acumuladaLinha(l)),
+      render: (_, l) => <ValorKz valor={acumuladaLinha(l)} />, totalImpressao: (ls) => formatarKz(somar(ls.map(acumuladaLinha))),
+    },
+    {
+      title: 'Cota do Período', key: 'quota', align: 'right', valorImpressao: (l) => formatarKz(l.quota), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.quota))),
       render: (_, l) => {
-        const editada = l.ativo_imobilizado_id in quotas;
-        if (!acc.quotaManual || !quotaEditavel(l)) return <ValorKz valor={l.quota} forte />;
+        const manual = quotaManual(l);
+        const pendente = l.estado === 'RASCUNHO';
         return (
-          <Space.Compact>
-            <InputNumber
-              size="small"
-              min={0}
-              precision={2}
-              style={{ width: 130 }}
-              value={editada ? quotas[l.ativo_imobilizado_id] : Number(l.quota)}
-              onChange={(v) => setQuotas((s) => ({ ...s, [l.ativo_imobilizado_id]: v }))}
-            />
-            {editada && <Button size="small" type="primary" icon={<SaveOutlined />} loading={quota.isPending} onClick={() => gravarQuota(l)} title="Gravar quota manual" />}
-          </Space.Compact>
+          <span style={{ color: pendente ? '#f59e0b' : '#ef4444', fontWeight: pendente ? 700 : 400, whiteSpace: 'nowrap' }}>
+            {manual && <Tooltip title="Valor Manual"><span><IconeFa nome="hand-paper" /> </span></Tooltip>}
+            {formatarKz(l.quota)}
+          </span>
         );
       },
     },
     {
-      title: 'Diferença', key: 'dif', align: 'right',
-      valorImpressao: (l) => (paraCentimos(l.quota) !== paraCentimos(l.quota_calculada) ? 'manual' : ''),
-      render: (_, l) => (paraCentimos(l.quota) !== paraCentimos(l.quota_calculada) ? <Tag color="gold">manual</Tag> : null),
+      title: 'Vlr Líquido', key: 'liquido', align: 'right', valorImpressao: (l) => formatarKz(liquidoLinha(l)),
+      render: (_, l) => <ValorKz valor={liquidoLinha(l)} forte />, totalImpressao: (ls) => formatarKz(somar(ls.map(liquidoLinha))),
     },
-    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
+    {
+      title: 'Estado', dataIndex: 'estado', valorImpressao: (l) => (l.estado === 'INTEGRADO' ? 'Sim' : 'Não'),
+      render: (v) => (v === 'INTEGRADO'
+        ? <Tag color="success" icon={<IconeFa nome="check" />}> Sim</Tag>
+        : <Tag style={{ color: '#f59e0b', background: 'transparent' }}>Não</Tag>),
+    },
+    {
+      title: 'Ações', key: 'accoes', valorImpressao: () => '',
+      render: (_, l) => (linhaComAccoes(l) && (podeCota || podeIntegrar) ? (
+        <Space size={4} style={{ whiteSpace: 'nowrap' }}>
+          {podeCota && (
+            <Tooltip title="Definir cota manual para este mês">
+              <Button size="small" icon={<IconeFa nome="edit" />} aria-label="Definir cota manual para este mês" onClick={() => setCota({ linha: l, valor: Number(l.quota) })} />
+            </Tooltip>
+          )}
+          {podeIntegrar && (
+            <Tooltip title="Integrar individualmente todos os períodos em falta até à data">
+              <Button size="small" type="primary" style={{ background: '#10b981' }} icon={<IconeFa nome="file-import" />} aria-label="Integrar individualmente todos os períodos em falta até à data"
+                loading={individual.isPending} onClick={() => integrarIndividual(l)} />
+            </Tooltip>
+          )}
+        </Space>
+      ) : <Typography.Text type="secondary" style={{ fontSize: 12 }}>---</Typography.Text>),
+    },
   ];
 
+  const corEstado: Record<string, string> = { success: '#16a34a', warning: '#d97706', default: '#475569' };
+
   return (
-    <Card>
-      <Flex gap={12} wrap justify="space-between" align="center" style={{ marginBottom: 16 }}>
-        <Space wrap>
-          <DatePicker picker="month" format="MM/YYYY" value={mes} onChange={(d) => d && setMes(d)} allowClear={false} />
-          {p && <EtiquetaActivos valor={p.estado} />}
-          <Input.Search placeholder="Filtrar activos" allowClear onSearch={setFiltro} style={{ width: 220 }} />
-        </Space>
-        <Space wrap>
-          <BotoesExportar desactivado={!linhas.length} obterPedido={() => pedidoTabela({
-            titulo: 'Amortizações do período',
-            periodo: rotuloPeriodo(periodo),
-            filtros: [p ? `Estado: ${p.estado}` : null, filtro ? `Filtro: ${filtro}` : null],
-            colunas,
-            linhas,
-            totais: 'Total',
-          })} />
-          {acc.calcular && (
-            <Button icon={<CalculatorOutlined />} loading={calcular.isPending} onClick={() => calcular.mutate({ url: '/ativos/amortizacoes/calcular', dados: { periodos: [periodo] } })}>
-              Calcular {rotuloPeriodo(periodo)}
-            </Button>
-          )}
-          {(p?.contagens.RASCUNHO ?? 0) > 0 && <Button icon={<EyeOutlined />} onClick={() => setPrevisao(true)}>Pré-visualizar e integrar</Button>}
-          {acc.reabrir && <Button danger icon={<RollbackOutlined />} onClick={() => setReabrir(true)}>Reabrir período</Button>}
-        </Space>
-      </Flex>
-      {p && (
-        <Row gutter={16} style={{ marginBottom: 16 }}>
-          <Col xs={12} md={6}><Statistic title="Integrado" value={formatarKz(p.totais.integrado)} /></Col>
-          <Col xs={12} md={6}><Statistic title="Em rascunho" value={formatarKz(p.totais.rascunho)} /></Col>
-          <Col xs={12} md={6}><Statistic title="Por calcular" value={formatarKz(p.totais.por_calcular)} /></Col>
-          <Col xs={12} md={6}>
-            <Statistic title="Activos" value={p.linhas.length} suffix={<Typography.Text type="secondary" style={{ fontSize: 13 }}>
-              {Object.entries(p.contagens).map(([k, n]) => `${n} ${k.replace('_', ' ').toLowerCase()}`).join(' · ')}
-            </Typography.Text>} />
-          </Col>
-        </Row>
-      )}
-      <Table<LinhaPeriodo>
-        rowKey="ativo_imobilizado_id"
-        size="small"
-        loading={q.isFetching}
-        dataSource={linhas}
-        scroll={scrollTabela()}
-        pagination={{ defaultPageSize: 50, showSizeChanger: true, showTotal: (n) => `${n} activo(s)` }}
-        columns={colunas}
-      />
-      <ModalPrevisualizar periodo={previsao ? periodo : null} podeIntegrar={pode('activos_amort_integrar')} aoFechar={() => setPrevisao(false)} />
-      <ModalReabrir periodos={reabrir ? [periodo] : []} aoFechar={() => setReabrir(false)} />
+    <>
+      <NavActivos actual="activos_amortizacoes" />
+      <Card style={{ marginBottom: 24, borderRadius: 12 }} styles={{ body: { padding: 20 } }}>
+        <Flex justify="space-between" align="center" wrap gap={12}>
+          <Flex align="center" gap={16} wrap>
+            <div>
+              <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Mês de Referência</Typography.Text>
+              <DatePicker picker="month" format="MM/YYYY" value={mes} onChange={(d) => d && setMes(d)} allowClear={false} aria-label="Mês de Referência" />
+            </div>
+            <div>
+              <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Estado</Typography.Text>
+              <Tag color={estado.cor === 'default' ? undefined : estado.cor} style={{ padding: '6px 14px', fontSize: 14, color: corEstado[estado.cor] }}
+                icon={<IconeFa nome={estado.icone} />}> {estado.rotulo}</Tag>
+            </div>
+          </Flex>
+          <Space wrap>
+            {!integrado ? (
+              <>
+                {acc.calcular && (
+                  <Button type="primary" icon={<IconeFa nome="calculator" />} loading={calcular.isPending}
+                    onClick={() => calcular.mutate({ url: '/ativos/amortizacoes/calcular', dados: { periodos: [periodo] } })}>
+                    {textoCalcular(p)}
+                  </Button>
+                )}
+                {temRascunhos && podeIntegrar && (
+                  <Button type="primary" style={{ background: '#10b981' }} icon={<IconeFa nome="file-import" />} onClick={() => setPrevisao(true)}>Integrar na Contabilidade</Button>
+                )}
+              </>
+            ) : acc.reabrir && (
+              <Button danger type="primary" size="small" icon={<IconeFa nome="unlock" />} onClick={() => setReabrir([periodo])}>Reabrir Período</Button>
+            )}
+            {pode('activos_amort_anular') && (
+              <Tooltip title="Reabrir multiplos períodos">
+                <Button size="small" icon={<IconeFa nome="history" />} onClick={() => setPainel(painel === 'reabrir' ? null : 'reabrir')}>Reabrir em Massa</Button>
+              </Tooltip>
+            )}
+            {pode('activos_amort_calcular') && (
+              <Tooltip title="Calcular períodos em atraso">
+                <Button size="small" style={{ background: '#f59e0b', color: '#fff', borderColor: '#f59e0b' }} icon={<IconeFa nome="calculator" />}
+                  onClick={() => setPainel(painel === 'calculo' ? null : 'calculo')}>Cálculo em Massa</Button>
+              </Tooltip>
+            )}
+            {podeIntegrar && (
+              <Tooltip title="Integrar todos os Cálculos pendentes">
+                <Button size="small" style={{ background: '#10b981', color: '#fff', borderColor: '#10b981' }} icon={<IconeFa nome="file-import" />}
+                  onClick={() => setPainel(painel === 'integracao' ? null : 'integracao')}>Integração em Massa</Button>
+              </Tooltip>
+            )}
+            <Tooltip title="Confere as quotas registadas com a regra de cálculo e os acumulados das fichas (só leitura)">
+              <Button size="small" icon={<IconeFa nome="check-double" />} onClick={() => setVerificacao(true)}>Verificação</Button>
+            </Tooltip>
+          </Space>
+        </Flex>
+      </Card>
+
+      {painel === 'reabrir' && <PainelReabrir aoFechar={() => setPainel(null)} aoReabrir={setReabrir} />}
+      {painel === 'calculo' && <PainelCalculo aoFechar={() => setPainel(null)} />}
+      {painel === 'integracao' && <PainelIntegracao aoFechar={() => setPainel(null)} />}
+
+      <Card
+        title={`Mapa de Amortizações - Período ${periodo}`}
+        extra={(
+          <Space wrap className="erp-oculto-impressao">
+            <Input.Search placeholder="Filtrar activos" allowClear onSearch={setFiltro} style={{ width: 200 }} size="small" />
+            <BotoesExportar tamanho="small" desactivado={!linhas.length} obterPedido={() => pedidoTabela({
+              titulo: `Mapa de Amortizações - Período ${periodo}`,
+              periodo: rotuloPeriodo(periodo),
+              filtros: [`Estado: ${estado.rotulo}`, filtro ? `Filtro: ${filtro}` : null],
+              colunas: colunas.filter((c) => c.key !== 'accoes'),
+              linhas,
+              totais: 'Total',
+            })} />
+          </Space>
+        )}
+      >
+        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>{linhas.length} registos encontrados</Typography.Text>
+        <Table<LinhaPeriodo>
+          rowKey="ativo_imobilizado_id"
+          size="small"
+          loading={q.isFetching}
+          dataSource={linhas}
+          scroll={scrollTabela()}
+          locale={{ emptyText: 'Nenhum activo elegível para este período.' }}
+          pagination={{ defaultPageSize: 50, showSizeChanger: true, showTotal: (n) => `${n} registos` }}
+          columns={colunas}
+        />
+      </Card>
+
+      <Modal
+        title={cota ? `Definir cota manual para o período ${periodo}` : ''}
+        open={!!cota}
+        onCancel={() => setCota(null)}
+        okText="Gravar"
+        cancelText="Cancelar"
+        confirmLoading={quota.isPending}
+        destroyOnHidden
+        onOk={() => cota && quota.mutate({ metodo: 'put', url: '/ativos/amortizacoes/quota', dados: { ativo_imobilizado_id: cota.linha.ativo_imobilizado_id, periodo, valor: cota.valor ?? 0 } })}
+      >
+        <Typography.Paragraph>{cota?.linha.codigo} — {cota?.linha.descricao}</Typography.Paragraph>
+        <Typography.Paragraph type="secondary">A cota fica em rascunho até à integração do período. Valor 0 retira o rascunho.</Typography.Paragraph>
+        <InputNumber min={0} precision={2} style={{ width: 220 }} value={cota?.valor} onChange={(v) => cota && setCota({ ...cota, valor: v })} suffix="Kz" autoFocus aria-label="Cota do período" />
+      </Modal>
+      <ModalPrevisualizar periodo={previsao ? periodo : null} podeIntegrar={podeIntegrar} aoFechar={() => setPrevisao(false)} />
+      <ModalReabrir periodos={reabrir} aoFechar={() => setReabrir([])} />
+      <Modal title="Verificação das amortizações" open={verificacao} onCancel={() => setVerificacao(false)} footer={null} width={larguraModal(960)} destroyOnHidden>
+        <VerificacaoAmortizacoes />
+      </Modal>
+    </>
+  );
+}
+
+/** Cartão de painel em massa (legado: card com borda superior colorida, título com ícone e «×»). */
+function CartaoPainel({ cor, icone, titulo, aoFechar, children }: { cor: string; icone: string; titulo: string; aoFechar: () => void; children: ReactNode }) {
+  return (
+    <Card style={{ borderTop: `4px solid ${cor}`, marginBottom: 24 }} title={<span><IconeFa nome={icone} /> {titulo}</span>}
+      extra={<Button size="small" aria-label="Fechar" onClick={aoFechar}>×</Button>}>
+      {children}
     </Card>
+  );
+}
+
+/** Grelha de períodos com caixas de selecção (todas marcadas de início) e «Seleccionar Tudo». */
+function GrelhaPeriodos({ lista, escolhidos, aoMudar, fundo, borda, distintivo, largura = 200 }: {
+  lista: { periodo: string }[]; escolhidos: string[]; aoMudar: (v: string[]) => void; fundo: string; borda: string; distintivo?: (p: string) => ReactNode; largura?: number;
+}) {
+  return (
+    <Checkbox.Group value={escolhidos} onChange={(v) => aoMudar(v as string[])} style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${largura}px, 1fr))`, gap: 10, marginBottom: 24, width: '100%' }}>
+      {lista.map((m) => (
+        <label key={m.periodo} style={{ background: fundo, padding: 10, borderRadius: 8, border: `1px solid ${borda}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Checkbox value={m.periodo} /> <strong>{m.periodo}</strong></span>
+          {distintivo?.(m.periodo)}
+        </label>
+      ))}
+    </Checkbox.Group>
+  );
+}
+
+function BotaoTudo({ lista, aoMudar }: { lista: { periodo: string }[]; aoMudar: (v: string[]) => void }) {
+  return <Button size="small" icon={<IconeFa nome="check-double" />} onClick={() => aoMudar(seleccaoInicial(lista))}>Seleccionar Tudo</Button>;
+}
+
+/** «Histórico de Fechos - Reabertura em Massa» (showBulkReopenAmortizations). */
+function PainelReabrir({ aoFechar, aoReabrir }: { aoFechar: () => void; aoReabrir: (p: string[]) => void }) {
+  const q = useQuery({ queryKey: ['activos', 'amortizacoes', 'periodos-registados'], queryFn: () => obter<PeriodoRegistado[]>('/ativos/amortizacoes/periodos-registados') });
+  const lista = maisRecentesPrimeiro(q.data ?? []);
+  const [escolhidos, setEscolhidos] = useState<string[] | null>(null);
+  const sel = escolhidos ?? seleccaoInicial(lista);
+  return (
+    <CartaoPainel cor="#ef4444" icone="history" titulo="Histórico de Fechos - Reabertura em Massa" aoFechar={aoFechar}>
+      {q.isLoading ? <Typography.Text type="secondary">A carregar…</Typography.Text> : !lista.length ? (
+        <Alert type="info" showIcon message="Não existem períodos contabilizados para reabrir." />
+      ) : (
+        <>
+          <Flex justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 16 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>Selecione os períodos que deseja anular. Isto irá estornar os lançamentos na contabilidade e reverter os saldos dos activos.</Typography.Text>
+            <BotaoTudo lista={lista} aoMudar={setEscolhidos} />
+          </Flex>
+          <GrelhaPeriodos lista={lista} escolhidos={sel} aoMudar={setEscolhidos} fundo="#f8fafc" borda="#e2e8f0" largura={180}
+            distintivo={(p) => { const x = lista.find((m) => m.periodo === p); return x ? <Tag color={x.integrados ? 'success' : 'warning'} style={{ fontSize: 11 }}>{x.integrados ? 'integrado' : 'rascunho'}</Tag> : null; }} />
+          <Flex justify="end" gap={10}>
+            <Button onClick={aoFechar}>Cancelar</Button>
+            <Button danger type="primary" icon={<IconeFa nome="unlock" />} disabled={!sel.length} onClick={() => aoReabrir(ordenarPeriodos(sel))}>Reabrir Períodos Seleccionados</Button>
+          </Flex>
+        </>
+      )}
+    </CartaoPainel>
+  );
+}
+
+function usePendentes() {
+  return useQuery({ queryKey: ['activos', 'amortizacoes', 'pendentes'], queryFn: () => obter<{ por_calcular: MesPendente[]; por_integrar: MesPendente[] }>('/ativos/amortizacoes/pendentes') });
+}
+
+/** «Processamento em Massa de Pendentes» (showBulkAmortizationProcessor): meses fechados por calcular. */
+function PainelCalculo({ aoFechar }: { aoFechar: () => void }) {
+  const q = usePendentes();
+  const lista = q.data?.por_calcular ?? [];
+  const [escolhidos, setEscolhidos] = useState<string[] | null>(null);
+  const sel = escolhidos ?? seleccaoInicial(lista);
+  const calcular = useAccao({ invalidar: [['activos']], aoSucesso: aoFechar });
+  const confirmar = () => Modal.confirm({
+    title: `Deseja processar o Cálculo de ${sel.length} período(s)?`, content: 'Os valores serão guardados como rascunho.', okText: 'Processar', cancelText: 'Cancelar',
+    onOk: () => calcular.mutateAsync({ url: '/ativos/amortizacoes/calcular', dados: { periodos: ordenarPeriodos(sel) } }),
+  });
+  return (
+    <CartaoPainel cor="#f59e0b" icone="play" titulo="Processamento em Massa de Pendentes" aoFechar={aoFechar}>
+      {q.isLoading ? <Typography.Text type="secondary">A carregar…</Typography.Text> : !lista.length ? (
+        <Alert type="info" showIcon message="Não foram detectados períodos pendentes de amortização." />
+      ) : (
+        <>
+          <Flex justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 16 }}>
+            <Typography.Text type="secondary" style={{ fontSize: 13 }}>Seleccione os períodos que deseja calcular como rascunho.</Typography.Text>
+            <BotaoTudo lista={lista} aoMudar={setEscolhidos} />
+          </Flex>
+          <GrelhaPeriodos lista={lista} escolhidos={sel} aoMudar={setEscolhidos} fundo="#fffbeb" borda="#fef3c7"
+            distintivo={(p) => <Tag style={{ background: '#fef3c7', color: '#92400e', fontSize: 11, border: 0 }}>{lista.find((m) => m.periodo === p)?.ativos ?? 0} activos</Tag>} />
+          <Flex justify="end" gap={10}>
+            <Button onClick={aoFechar}>Cancelar</Button>
+            <Button style={{ background: '#f59e0b', color: '#fff', borderColor: '#f59e0b' }} icon={<IconeFa nome="play" />} disabled={!sel.length} loading={calcular.isPending} onClick={confirmar}>
+              Dar Ordem de Processamento (Cálculo)
+            </Button>
+          </Flex>
+        </>
+      )}
+    </CartaoPainel>
+  );
+}
+
+/** «Integração em Massa na Contabilidade» (showBulkIntegrationPreview): todos os períodos com rascunhos. */
+function PainelIntegracao({ aoFechar }: { aoFechar: () => void }) {
+  const q = usePendentes();
+  const lista = q.data?.por_integrar ?? [];
+  const periodos = ordenarPeriodos(lista.map((m) => m.periodo));
+  const integrar = useAccao({ invalidar: [['activos']], aoSucesso: aoFechar });
+  const confirmar = () => Modal.confirm({
+    title: `Confirma a integração contabilística de ${periodos.length} períodos?`, content: 'Esta acção irá gerar todos os lançamentos correspondentes no diário AM.', okText: 'Integrar', cancelText: 'Cancelar',
+    onOk: () => integrar.mutateAsync({ url: '/ativos/amortizacoes/integrar', dados: { periodos } }),
+  });
+  return (
+    <CartaoPainel cor="#10b981" icone="file-import" titulo="Integração em Massa na Contabilidade" aoFechar={aoFechar}>
+      {q.isLoading ? <Typography.Text type="secondary">A carregar…</Typography.Text> : !lista.length ? (
+        <Alert type="info" showIcon message="Não existem cálculos pendentes (rascunhos) para integrar." />
+      ) : (
+        <>
+          <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>Serão gerados lançamentos no Diário AM para os seguintes períodos:</Typography.Paragraph>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
+            {lista.map((m) => (
+              <div key={m.periodo} style={{ background: '#f0fdf4', padding: 10, borderRadius: 8, border: '1px solid #dcfce7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <strong>{m.periodo}</strong><Tag color="success" style={{ fontSize: 11, marginInlineEnd: 0 }}>{m.ativos} activos</Tag>
+              </div>
+            ))}
+          </div>
+          <Alert type="info" style={{ marginBottom: 24 }} message={<>Total Global a Contabilizar: <strong>{formatarKz(totalMeses(lista))}</strong></>} />
+          <Flex justify="end" gap={10}>
+            <Button onClick={aoFechar}>Cancelar</Button>
+            <Button type="primary" style={{ background: '#10b981' }} icon={<IconeFa nome="check-double" />} loading={integrar.isPending} onClick={confirmar}>
+              Confirmar Integração de {periodos.length} Períodos
+            </Button>
+          </Flex>
+        </>
+      )}
+    </CartaoPainel>
   );
 }
 
@@ -250,12 +462,14 @@ function ModalPrevisualizar({ periodo, podeIntegrar, aoFechar }: { periodo: stri
   );
 }
 
+/** Reabertura de um ou vários períodos (cancelAmortizationPeriod / executeBulkReopenAmortizations): estorno e anulação dos cálculos. */
 function ModalReabrir({ periodos, aoFechar }: { periodos: string[]; aoFechar: () => void }) {
   const [motivo, setMotivo] = useState('');
   const accao = useAccao({ invalidar: [['activos']], aoSucesso: () => { setMotivo(''); aoFechar(); } });
+  const varios = periodos.length > 1;
   return (
     <Modal
-      title={`Reabrir ${periodos.map(rotuloPeriodo).join(', ')}`}
+      title={varios ? `Reabrir ${periodos.length} período(s)` : `Reabrir ${periodos.map(rotuloPeriodo).join(', ')}`}
       open={periodos.length > 0}
       onCancel={aoFechar}
       okText="Reabrir"
@@ -264,69 +478,12 @@ function ModalReabrir({ periodos, aoFechar }: { periodos: string[]; aoFechar: ()
       confirmLoading={accao.isPending}
       onOk={() => accao.mutate({ url: '/ativos/amortizacoes/reabrir', dados: { periodos, motivo: motivo.trim() || null } })}
     >
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Os lançamentos do período são estornados e os cálculos anulados (incluindo os migrados)." />
+      <Alert type="warning" showIcon style={{ marginBottom: 12 }}
+        message={varios ? `Tem a certeza que deseja reabrir ${periodos.length} período(s)? Os lançamentos são estornados e os cálculos anulados (incluindo os migrados).`
+          : 'Os lançamentos do período são estornados e os cálculos anulados (incluindo os migrados).'}
+        description={varios ? periodos.join(', ') : undefined} />
       <Input.TextArea rows={3} maxLength={500} placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
     </Modal>
-  );
-}
-
-function MesesEmFalta() {
-  const { pode } = useSessao();
-  const [ano, setAno] = useState(dayjs().year());
-  const pend = useQuery({ queryKey: ['activos', 'amortizacoes', 'pendentes'], queryFn: () => obter<{ por_calcular: MesPendente[]; por_integrar: MesPendente[] }>('/ativos/amortizacoes/pendentes') });
-  const noAno = useQuery({
-    queryKey: ['activos', 'amortizacoes', 'por-integrar-ano', ano],
-    queryFn: () => obter<{ ativo_imobilizado_id: number; codigo: string | null; periodos: string[] }[]>('/ativos/amortizacoes/por-integrar-no-ano', { ano }),
-  });
-  const calcular = useAccao({ invalidar: [['activos']] });
-  const integrar = useAccao({ invalidar: [['activos']] });
-  const porCalcular = ordenarPeriodos((pend.data?.por_calcular ?? []).map((m) => m.periodo));
-  const porIntegrar = ordenarPeriodos((pend.data?.por_integrar ?? []).map((m) => m.periodo));
-
-  const lista = (titulo: string, itens: MesPendente[] | undefined, accao: React.ReactNode) => (
-    <Card title={titulo} extra={accao} size="small">
-      {itens?.length ? (
-        <List size="small" dataSource={itens} renderItem={(m) => (
-          <List.Item extra={<ValorKz valor={m.valor} />}>{rotuloPeriodo(m.periodo)} · {m.ativos} activo(s)</List.Item>
-        )} />
-      ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nada pendente" />}
-    </Card>
-  );
-
-  return (
-    <>
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col xs={24} md={12}>
-          {lista('Meses por calcular', pend.data?.por_calcular, pode('activos_amort_calcular') && porCalcular.length > 0 && (
-            <Button size="small" icon={<CalculatorOutlined />} loading={calcular.isPending} onClick={() => calcular.mutate({ url: '/ativos/amortizacoes/calcular', dados: { periodos: porCalcular } })}>
-              Calcular todos
-            </Button>
-          ))}
-        </Col>
-        <Col xs={24} md={12}>
-          {lista('Meses calculados por integrar', pend.data?.por_integrar, pode('activos_amort_integrar') && porIntegrar.length > 0 && (
-            <Button size="small" type="primary" icon={<CloudUploadOutlined />} loading={integrar.isPending}
-              onClick={() => Modal.confirm({ title: `Integrar ${porIntegrar.length} período(s)?`, content: porIntegrar.map(rotuloPeriodo).join(', '), okText: 'Integrar', cancelText: 'Cancelar',
-                onOk: () => integrar.mutateAsync({ url: '/ativos/amortizacoes/integrar', dados: { periodos: porIntegrar } }) })}>
-              Integrar todos
-            </Button>
-          ))}
-        </Col>
-      </Row>
-      <Card size="small" title="Activos com quotas do ano por integrar" extra={<InputNumber min={1900} max={2100} value={ano} onChange={(v) => v && setAno(v)} />}>
-        <Table
-          size="small"
-          rowKey="ativo_imobilizado_id"
-          loading={noAno.isFetching}
-          dataSource={noAno.data}
-          pagination={{ pageSize: 20 }}
-          columns={[
-            { title: 'Activo', dataIndex: 'codigo' },
-            { title: 'Períodos', dataIndex: 'periodos', render: (ps: string[]) => ordenarPeriodos(ps).map((x) => <Tag key={x}>{rotuloPeriodo(x)}</Tag>) },
-          ]}
-        />
-      </Card>
-    </>
   );
 }
 
@@ -334,7 +491,7 @@ function VerificacaoAmortizacoes() {
   const q = useQuery({ queryKey: ['activos', 'amortizacoes', 'verificacao'], queryFn: () => obter<Verificacao>('/ativos/amortizacoes/verificacao') });
   const v = q.data;
   return (
-    <Card loading={q.isLoading}>
+    <Card loading={q.isLoading} variant="borderless">
       {v && (
         <>
           <Alert

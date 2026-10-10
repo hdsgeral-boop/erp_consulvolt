@@ -643,7 +643,11 @@ final class ServicoAnaliticoProjetos
             'margem_pct' => (float) $prov > 0 ? round(((float) $prov - (float) $cust) / (float) $prov * 100, 2) : null, 'horas' => round((float) $horas->sum(), 3),
             'orcamento' => $orcT, 'desvio_pct' => (float) $orcT > 0 ? round(((float) $acum / (float) $orcT - 1) * 100, 2) : null,
             'aditamentos_aprovados' => self::dinheiro(AditamentoAlteracaoProjeto::query()->where('estado', 'APROVADO')->whereIn('projeto_id', $projetos->pluck('id'))->sum('montante')),
-            'tarefas_atrasadas' => $tarefas->flatten(1)->filter(fn ($t) => $t->data_fim && $t->data_fim->toDateString() < $hoje && $t->estadoEfetivo() !== 'CONCLUIDA')->count()],
+            'tarefas_atrasadas' => $tarefas->flatten(1)->filter(fn ($t) => $t->data_fim && $t->data_fim->toDateString() < $hoje && $t->estadoEfetivo() !== 'CONCLUIDA')->count(),
+            // painel do legado (ui_painel_modulos.js:475-476): concluídas = estado CONCLUIDA ou 100 % executada; bloqueadas = estado BLOQUEADA
+            'custo_acumulado' => $acum, 'tarefas_total' => $tarefas->flatten(1)->count(),
+            'tarefas_concluidas' => $tarefas->flatten(1)->filter(fn ($t) => $t->estado === 'CONCLUIDA' || (float) $t->percentagem_execucao >= 100)->count(),
+            'tarefas_bloqueadas' => $tarefas->flatten(1)->filter(fn ($t) => $t->estado === 'BLOQUEADA')->count()],
             'linhas' => $linhas];
     }
 

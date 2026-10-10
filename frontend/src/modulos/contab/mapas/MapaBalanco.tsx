@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Checkbox, Form } from 'antd';
 import { useState } from 'react';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { TituloMapa } from './TituloMapa';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { Balanco } from '../api';
 import { MovimentosSemNota, TabelaDemonstracao } from '../comum/Demonstracao';
@@ -19,7 +19,7 @@ export default function MapaBalanco() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Balanço" subtitulo="Demonstração da posição financeira por notas" />
+      <TituloMapa titulo="Balanço" subtitulo="Demonstração da posição financeira por notas" />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="ate"

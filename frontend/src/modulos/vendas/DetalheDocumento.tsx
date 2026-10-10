@@ -4,8 +4,8 @@ import { useArmazens } from '@/modulos/compras/comum/referencias';
 import { textoContravalor, textoPlano } from './impressao/documentoVenda';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { descarregar, enviar, http, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -15,6 +15,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { accoesAgt, svgComoDataUrl } from './agt/accoesDocumento';
 import { BlocoAgt } from './agt/BlocoAgt';
+import { valorPagoMostrado, valorPendenteMostrado } from './ListaDocumentos';
 import { INFO_ESTADO_AGT, estadoAgtDoDocumento } from './agt/estadoAgt';
 import { pedidoDocumentoComercial } from './impressao/documentoComercial';
 import { dadosDocumentoVenda, type QrDocumento } from './impressao/documentoVenda';
@@ -51,6 +52,20 @@ export function DetalheDocumento() {
     },
     onError: (e) => notificarErro(e),
   });
+
+  // «Converter» na linha da lista (paridade 4.8.3) abre já a janela de conversão
+  const pedidoAbrir = (useLocation().state as { abrir?: string } | null)?.abrir;
+  const abertoAuto = useRef(false);
+  useEffect(() => {
+    const doc = consulta.data;
+    if (pedidoAbrir !== 'converter' || abertoAuto.current || !doc) return;
+    abertoAuto.current = true;
+    const dest = CONVERSOES[doc.tipo_documento] ?? [];
+    if (doc.estado !== 'ANULADO' && dest.length > 0 && pode('vendas_fat_emitir')) {
+      formConv.setFieldsValue({ tipo_destino: dest[0], data_emissao: dayjs() });
+      setConversao(true);
+    }
+  }, [pedidoAbrir, consulta.data, pode, formConv]);
 
   if (consulta.isLoading) return <Skeleton active />;
   const d = consulta.data;
@@ -207,8 +222,8 @@ export function DetalheDocumento() {
             <Descriptions.Item label="Líquido">{formatarKz(d.total_liquido)}</Descriptions.Item>
             <Descriptions.Item label="IVA">{formatarKz(d.total_imposto)}</Descriptions.Item>
             <Descriptions.Item label="Total">{formatarKz(d.total_bruto, true)}</Descriptions.Item>
-            <Descriptions.Item label="Pago">{formatarKz(d.valor_pago)}</Descriptions.Item>
-            <Descriptions.Item label="Pendente">{formatarKz(d.valor_pendente)}</Descriptions.Item>
+            <Descriptions.Item label="Pago">{formatarKz(valorPagoMostrado(d))}</Descriptions.Item>
+            <Descriptions.Item label="Pendente">{formatarKz(valorPendenteMostrado(d))}</Descriptions.Item>
           </Descriptions>
         </Flex>
       </Card>

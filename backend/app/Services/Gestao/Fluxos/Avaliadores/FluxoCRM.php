@@ -111,7 +111,8 @@ final class FluxoCRM extends AvaliadorFluxo
                 $c = ['_concluidas' => 6, '_bloqueado' => false];
             }
             $processos[] = ['chave' => 'oportunidade-'.$o->id, 'titulo' => (string) $o->titulo, 'subtitulo' => (string) ($conta->nome ?? ''),
-                'data' => ($o->atualizado_em ?? $o->criado_em)?->format('Y-m-d H:i:s'), 'valor' => self::dinheiro($o->valor), 'valor_pendente' => $porReceber, 'etapas' => $E,
+                'data' => ($o->atualizado_em ?? $o->criado_em)?->format('Y-m-d H:i:s'), 'valor' => self::dinheiro($o->valor), 'valor_pendente' => $porReceber,
+                'linha_data' => self::kz($o->valor).' · '.($ganha ? 'Ganha' : ($perdida ? 'Perdida' : ($etapa['nome'] ?? ''))), 'etapas' => $E,
                 'estado' => $o->estado, 'saude' => $saude['nivel'], 'perdida' => $perdida, 'ganha' => $ganha, 'terminado' => $perdida,
                 'documentos' => array_merge([['tipo' => 'oportunidade_crm', 'id' => $o->id, 'numero' => $o->titulo]], $docs->map(fn ($s) => ['tipo' => 'venda', 'id' => $s->id, 'tipo_documento' => $s->tipo_documento, 'numero' => $s->numero_documento])->values()->all()),
             ] + $c;

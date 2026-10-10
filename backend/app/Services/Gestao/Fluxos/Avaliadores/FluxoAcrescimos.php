@@ -85,7 +85,7 @@ final class FluxoAcrescimos extends AvaliadorFluxo
                     : self::etapa($feitos->isNotEmpty() ? 'curso' : 'fazer', 'Saldo '.self::kz($saldo), [self::f('Saldo na conta '.$it->conta_balanco, $saldo, 'kz')]));
             $processos[] = ['chave' => 'acrescimo-'.$it->id, 'titulo' => (string) $it->descricao,
                 'subtitulo' => (CalculadoraAcrescimos::TIPOS[$it->tipo] ?? $it->tipo).' · '.(CalculadoraAcrescimos::NATUREZAS[$it->natureza] ?? $it->natureza),
-                'data' => $it->data_inicio?->toDateString(), 'valor' => self::dinheiro($it->valor), 'valor_pendente' => ltrim($saldo, '-'), 'etapas' => $E, 'estado' => $it->estado, 'estado_nome' => $estadoNome,
+                'data' => $it->data_inicio?->toDateString(), 'valor' => self::dinheiro($it->valor), 'valor_pendente' => ltrim($saldo, '-'), 'linha_data' => self::kz($it->valor).' · '.$estadoNome, 'etapas' => $E, 'estado' => $it->estado, 'estado_nome' => $estadoNome,
                 'quotas_em_atraso' => count($atraso), 'documentos' => [['tipo' => 'acrescimo_diferimento', 'id' => $it->id, 'numero' => $it->descricao]]] + self::contagem($E);
         }
 

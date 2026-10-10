@@ -68,6 +68,8 @@ final class ServicoAmortizacoes
             $linhas[] = [
                 'ativo_imobilizado_id' => $a->id, 'codigo' => $a->codigo, 'descricao' => $a->descricao, 'categoria' => $cats[$a->categoria_ativo_id]->nome ?? null,
                 'centro_custo' => $a->centroCusto?->codigo, 'unidade_negocio' => $a->unidadeNegocio?->codigo, 'valor_aquisicao' => CalculadoraAmortizacoes::d($a->valor_aquisicao),
+                // colunas do legado «Data Aquisição» e «Amort. Acumulada» (inicial + quotas integradas, ui_assets.js:1776-1788)
+                'data_aquisicao' => $a->data_aquisicao?->toDateString(), 'amortizacao_acumulada' => CalculadoraAmortizacoes::d($a->amortizacao_acumulada),
                 'acumulado_anterior' => $acumulado, 'quota' => $reg ? CalculadoraAmortizacoes::d($reg->valor) : $calculada, 'quota_calculada' => $calculada,
                 'estado' => $reg ? ($reg->contabilizado ? 'INTEGRADO' : 'RASCUNHO') : 'POR_CALCULAR', 'amortizacao_id' => $reg?->id,
             ];
@@ -99,6 +101,20 @@ final class ServicoAmortizacoes
             'por_calcular' => collect($porCalcular)->sortBy(fn ($x) => CalculadoraAmortizacoes::ordem($x['periodo']))->values()->all(),
             'por_integrar' => $rascunhos->sortBy(fn ($x) => CalculadoraAmortizacoes::ordem($x['periodo']))->values()->all(),
         ];
+    }
+
+    /**
+     * Períodos com quotas registadas (rascunho ou integradas), do mais recente para o mais antigo — lista da «Reabertura em
+     * Massa» do legado (showBulkReopenAmortizations, ui_assets.js:2295-2346).
+     *
+     * @return list<array{periodo: string, ativos: int, integrados: int, rascunhos: int, valor: string}>
+     */
+    public function periodosRegistados(): array
+    {
+        return AmortizacaoAtivo::query()->get(['periodo_codigo', 'contabilizado', 'valor'])->groupBy('periodo_codigo')
+            ->map(fn (Collection $g, $p) => ['periodo' => (string) $p, 'ativos' => $g->count(), 'integrados' => $g->where('contabilizado', true)->count(),
+                'rascunhos' => $g->where('contabilizado', false)->count(), 'valor' => $this->somaValores($g)])
+            ->sortByDesc(fn ($x) => CalculadoraAmortizacoes::ordem($x['periodo']))->values()->all();
     }
 
     /**

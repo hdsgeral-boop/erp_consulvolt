@@ -57,6 +57,13 @@ export interface PedidoCompra {
   motivo_anulacao: string | null;
   linhas?: ItemCompra[];
   valor_estimado?: { valor: string; sem_preco: number };
+  /** Só na lista (ServicoListagensCompras): «Produto (qtd), …», n.º de linhas, quantidade total e se o utilizador pode decidir. */
+  itens_resumo?: string;
+  itens_linhas?: number;
+  itens_quantidade?: string;
+  pode_decidir?: boolean;
+  unidade_negocio_codigo?: string | null;
+  centro_custo_codigo?: string | null;
 }
 
 export interface PropostaCompra {
@@ -76,6 +83,8 @@ export interface PropostaCompra {
   total_imposto: string | null;
   total_com_imposto: string | null;
   linhas?: ItemCompra[];
+  unidade_negocio_codigo?: string | null;
+  centro_custo_codigo?: string | null;
 }
 
 export interface EncomendaCompra {
@@ -99,6 +108,12 @@ export interface EncomendaCompra {
   anulado_em: string | null;
   motivo_anulacao: string | null;
   linhas?: ItemCompra[];
+  /** Só na lista: satisfação (E/F) e contrato associado. */
+  percentagem_entregue?: number;
+  percentagem_faturada?: number;
+  contrato?: { id: number; referencia: string; estado: string } | null;
+  unidade_negocio_codigo?: string | null;
+  centro_custo_codigo?: string | null;
 }
 
 export interface LinhaRececao {
@@ -128,6 +143,11 @@ export interface RececaoCompra {
   anulado_em: string | null;
   motivo_anulacao: string | null;
   linhas?: LinhaRececao[];
+  /** Só na lista: n.º da encomenda e fornecedor (da encomenda). */
+  numero_encomenda?: string | null;
+  fornecedor?: RefTerceiro | null;
+  unidade_negocio_codigo?: string | null;
+  centro_custo_codigo?: string | null;
 }
 
 export interface FaturaCompra {
@@ -152,6 +172,8 @@ export interface FaturaCompra {
   anulado_em: string | null;
   motivo_anulacao: string | null;
   linhas?: ItemCompra[];
+  unidade_negocio_codigo?: string | null;
+  centro_custo_codigo?: string | null;
 }
 
 export interface MarcoContrato {
@@ -178,6 +200,9 @@ export interface ContratoCompra {
   encomendas?: { id: number; numero_encomenda: string | null; data: string | null; estado: string; montante_total: string | null; total_com_imposto: string | null }[];
   marcos?: MarcoContrato[];
   consumo?: { encomendado: string; faturado: string; pago: string; percentagem: number; excedido: boolean };
+  /** Só na lista: total encomendado (sem IVA) e % do valor previsto. */
+  total_encomendado?: string;
+  percentagem_encomendada?: number | null;
 }
 
 export interface LinhaEncomendaCliente {

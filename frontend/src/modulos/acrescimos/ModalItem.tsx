@@ -50,9 +50,11 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
   // conta 37 por omissão quando muda o tipo/natureza (só em registos novos)
   useEffect(() => {
     if (!aberto || editar) return;
+    // valores vindos de «Diferir» (Recolher documentos): mantém a conta 37 indicada enquanto o tipo/natureza não mudam
+    if (item?.conta_balanco && tipo === item.tipo && natureza === item.natureza) return;
     const c = contaBalancoPadrao(def.data, tipo, natureza);
     if (c) form.setFieldValue('conta_balanco', c);
-  }, [aberto, editar, tipo, natureza, def.data, form]);
+  }, [aberto, editar, tipo, natureza, def.data, form, item]);
 
   const aplicarModelo = (id: string) => {
     const m = def.data?.modelos.find((x) => x.id === id);

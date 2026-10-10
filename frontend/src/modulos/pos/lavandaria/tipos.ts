@@ -16,6 +16,8 @@ export interface IndicadoresOrdem {
   atraso: number | null;
   no_prazo: boolean | null;
   situacao: string | null;
+  execucao?: number | null;
+  espera_levantamento?: number | null;
 }
 
 export interface OrdemResumo {
@@ -29,7 +31,10 @@ export interface OrdemResumo {
   urgente: boolean;
   estado: string;
   nome_atribuido: string | null;
+  atribuido_em?: string | null;
   modo_faturacao: 'RECEPCAO' | 'ENTREGA';
+  /** Entrega ao domicílio (data prevista). */
+  entrega?: { ativa?: boolean; morada?: string; data?: string; taxa?: number | null } | null;
   cliente: ClienteLav | null;
   total: string;
   saldo: string;
@@ -39,8 +44,23 @@ export interface OrdemResumo {
 
 export interface ListaOrdens {
   contadores: Record<string, number>;
+  /** Prazo de levantamento (dias) — rótulo «Não levantadas (+N dias)». */
+  dias_armazenagem_gratis?: number;
   ordens: OrdemResumo[];
-  por_responsavel: unknown;
+  por_responsavel: CargaResponsavel[];
+}
+
+/** Carga e desempenho por responsável (concluídas nos últimos 30 dias). */
+export interface CargaResponsavel {
+  responsavel: string | null;
+  em_execucao: number;
+  atrasadas: number;
+  por_levantar: number;
+  concluidas: number;
+  no_prazo: number;
+  percentagem_no_prazo: number | null;
+  execucao_media: number | null;
+  ciclo_medio: number | null;
 }
 
 export interface ItemOrdem {
@@ -166,6 +186,8 @@ export interface Reclamacao {
   linha_pedido_id?: number | null;
   nome_item?: string | null;
   descricao_peca?: string | null;
+  estado_entrada?: string | null;
+  data_comprovativo?: string | null;
   cliente_id?: number | null;
   documento_tesouraria_id?: number | null;
   pago_em?: string | null;

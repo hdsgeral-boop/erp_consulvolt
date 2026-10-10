@@ -1,12 +1,12 @@
-import { Alert, Button, Card, Col, Divider, Drawer, Flex, Form, Input, InputNumber, Modal, Radio, Row, Select, Space, Switch, Table, Tag, TimePicker, Tooltip, Typography } from 'antd';
-import { CopyOutlined, DeleteOutlined, EditOutlined, PlusOutlined, PoweroffOutlined } from '@ant-design/icons';
+import { Alert, Button, Checkbox, Flex, Form, Input, InputNumber, Modal, Radio, Select, Space, Table, Tag, TimePicker, Tooltip, Typography } from 'antd';
+import { CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { pares, tabelaHtml } from '@/componentes/impressao';
-import { larguraGaveta, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
@@ -19,33 +19,75 @@ import { accoesTerminal } from './comum/regras';
 import type { MeioPagamento, Terminal, TipoTerminal } from './comum/tipos';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { ModalDefinicoesCaixa } from './comum/DefinicoesCaixa';
+import { iconeMeio, useSeriesTerminais } from './comum/frente';
+import './comum/pos.css';
+import { AvisoSessoesAntigas } from './frente/AvisoSessoesAntigas';
+
+/** Subtítulo do legado (renderTerminais, pos_gestao.js). */
+export const SUBTITULO_TERMINAIS = 'Série documental, armazém, cliente por omissão e meios de pagamento com a conta transitória de cada meio.';
+
+/** Estado da caixa do terminal: «● Aberta» (sessão, operador, desde) ou «● Fechada» (3.3.1). */
+export function EstadoCaixa({ sessao }: { sessao: Terminal['sessao_aberta'] }) {
+  if (!sessao)
+    return (
+      <span style={{ color: '#b91c1c', fontWeight: 700, whiteSpace: 'nowrap' }}>
+        <span aria-hidden>●</span> Fechada
+      </span>
+    );
+  return (
+    <span style={{ fontSize: '0.8rem' }}>
+      <span style={{ color: '#059669', fontWeight: 700, whiteSpace: 'nowrap' }}>
+        <span aria-hidden>●</span> Aberta
+      </span>{' '}
+      <b>{sessao.codigo_sessao}</b>
+      <div style={{ color: '#64748b' }}>
+        {sessao.nome_operador ?? '—'} · desde {formatarDataHora(sessao.aberto_em)}
+      </div>
+    </span>
+  );
+}
+
 /**
- * POS › Terminais (ecrã pos_terminais): terminais, meios de pagamento com as contas transitória/liquidação/comissão,
- * cópia de meios de outro terminal (mesma ou outra empresa), activar/desactivar e eliminar (ADR-047).
+ * POS › Terminais (ecrã pos_terminais): terminais com a série, o estado da caixa e os meios de pagamento (com ícone), o
+ * aviso das sessões antigas e «Definições de caixa»; meios com as contas transitória/liquidação/comissão, cópia de meios de
+ * outro terminal (mesma ou outra empresa), activar/desactivar e eliminar (ADR-047).
  */
 export default function Terminais() {
   const { pode } = useSessao();
   const terminais = useTerminais();
+  const series = useSeriesTerminais();
   const [editar, setEditar] = useState<Terminal | 'novo' | null>(null);
   const [copiar, setCopiar] = useState<Terminal | null>(null);
+  const [definicoes, setDefinicoes] = useState(false);
   const accao = useAccao({ invalidar: [['pos']] });
   const pequeno = useEcraPequeno();
+  const serie = (t: Terminal) => series.data?.[String(t.id)]?.serie ?? null;
 
   return (
     <>
       <CabecalhoPagina
         titulo="Terminais POS"
-        subtitulo="Terminais de venda, meios de pagamento e contas"
+        subtitulo={SUBTITULO_TERMINAIS}
         impressaoDesactivada={!terminais.data?.length}
-        impressao={() => ({ titulo: 'Lista de terminais POS', conteudo: documentoTerminais(terminais.data ?? []) })}
+        impressao={() => ({ titulo: 'Lista de terminais POS', conteudo: documentoTerminais(terminais.data ?? [], series.data) })}
         accoes={
-          pode('pos_terminais_gerir') && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('novo')}>
-              Novo terminal
-            </Button>
-          )
+          <>
+            {pode('pos_terminais_view', 'pos_terminais_gerir') && (
+              <Button icon={<IconeFa nome="sliders-h" />} onClick={() => setDefinicoes(true)}>
+                Definições de caixa
+              </Button>
+            )}
+            {pode('pos_terminais_gerir') && (
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditar('novo')}>
+                Novo terminal
+              </Button>
+            )}
+          </>
         }
       />
+      <AvisoSessoesAntigas />
       <TabelaComModos<Terminal>
         rowKey="id"
         size={pequeno ? 'small' : 'middle'}
@@ -54,15 +96,42 @@ export default function Terminais() {
         pagination={false}
         scroll={scrollTabela()}
         expandable={{ expandedRowRender: (t) => <TabelaMeiosTerminal meios={t.meios_pagamento ?? []} /> }}
+        onRow={(t) => ({ style: t.ativo ? undefined : { opacity: 0.55 } })}
         columns={[
+          // colunas do legado (pos_gestao.js:744): Código, Terminal, Meios de pagamento, Caixa; as restantes ficam no menu «Colunas»
           { title: 'Código', dataIndex: 'codigo', render: (v) => <b>{v}</b> },
-          { title: 'Nome', dataIndex: 'nome' },
-          { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => TIPOS_TERMINAL[v] ?? v },
-          { title: 'Armazém', dataIndex: 'armazem_id', render: (v) => (v ? <NomeArmazem id={v} /> : 'Predefinido'), responsive: ['lg'] },
-          { title: 'Fundo padrão', dataIndex: 'fundo_maneio_padrao', align: 'right', render: (v) => formatarKz(v), responsive: ['md'] },
-          { title: 'Meios activos', responsive: ['md'], render: (_, t) => (t.meios_pagamento ?? []).filter((m) => m.ativo).map((m) => <Tag key={m.id}>{m.nome}</Tag>) },
-          { title: 'Sessão', dataIndex: 'sessao_aberta', render: (s: Terminal['sessao_aberta']) => (s ? <Tooltip title={`${s.nome_operador ?? ''} · ${formatarDataHora(s.aberto_em)}`}><Tag color="processing">{s.codigo_sessao}</Tag></Tooltip> : '—') },
-          { title: 'Estado', dataIndex: 'ativo', render: (v) => (v ? <Tag color="green">Activo</Tag> : <Tag>Inactivo</Tag>) },
+          {
+            title: 'Terminal',
+            dataIndex: 'nome',
+            render: (v, t) => (
+              <>
+                <b>{v}</b>
+                <div>
+                  <small style={{ color: '#64748b' }}>
+                    {TIPOS_TERMINAL[t.tipo] ?? t.tipo}
+                    {serie(t) && ` · Série ${serie(t)}`}
+                  </small>
+                </div>
+              </>
+            ),
+          },
+          { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => TIPOS_TERMINAL[v] ?? v, responsive: ['xl'], ocultaPorOmissao: true },
+          { title: 'Armazém', dataIndex: 'armazem_id', render: (v) => (v ? <NomeArmazem id={v} /> : 'Predefinido'), responsive: ['lg'], ocultaPorOmissao: true },
+          { title: 'Fundo padrão', dataIndex: 'fundo_maneio_padrao', align: 'right', render: (v) => formatarKz(v), responsive: ['md'], ocultaPorOmissao: true },
+          {
+            title: 'Meios de pagamento',
+            responsive: ['md'],
+            render: (_, t) =>
+              (t.meios_pagamento ?? [])
+                .filter((m) => m.ativo)
+                .map((m) => (
+                  <Tag key={m.id} icon={<IconeFa nome={iconeMeio(m.tipo)} style={{ marginRight: 4 }} />}>
+                    {m.nome}
+                  </Tag>
+                )),
+          },
+          { title: 'Caixa', dataIndex: 'sessao_aberta', render: (s: Terminal['sessao_aberta'], t) => (t.ativo ? <EstadoCaixa sessao={s} /> : <span style={{ color: '#64748b' }}>Inactivo</span>) },
+          { title: 'Estado', dataIndex: 'ativo', render: (v) => (v ? <Tag color="green">Activo</Tag> : <Tag>Inactivo</Tag>), ocultaPorOmissao: true },
           {
             title: '',
             key: 'accoes',
@@ -71,22 +140,18 @@ export default function Terminais() {
               const a = accoesTerminal(pode, t);
               return (
                 <Space size={4} wrap>
-                  {a.editar && <Button size="small" icon={<EditOutlined />} onClick={() => setEditar(t)} aria-label="Editar" />}
+                  {a.editar && <Button size="small" icon={<IconeFa nome="cog" />} onClick={() => setEditar(t)} aria-label="Configurar" title="Configurar" />}
                   {a.copiarMeios && (
                     <Tooltip title="Copiar meios de pagamento de outro terminal">
                       <Button size="small" icon={<CopyOutlined />} onClick={() => setCopiar(t)} aria-label="Copiar meios" />
                     </Tooltip>
                   )}
                   {a.activar && (
-                    <Button size="small" icon={<PoweroffOutlined />} onClick={() => accao.mutate({ url: `/pos/terminais/${t.id}/ativo`, dados: { ativo: true } })}>
-                      Activar
-                    </Button>
+                    <Button size="small" icon={<IconeFa nome="toggle-off" />} aria-label="Activar" title="Activar" onClick={() => accao.mutate({ url: `/pos/terminais/${t.id}/ativo`, dados: { ativo: true } })} />
                   )}
                   {a.desactivar.visivel && (
-                    <Tooltip title={a.desactivar.bloqueio}>
-                      <Button size="small" icon={<PoweroffOutlined />} disabled={!!a.desactivar.bloqueio} onClick={() => accao.mutate({ url: `/pos/terminais/${t.id}/ativo`, dados: { ativo: false } })}>
-                        Desactivar
-                      </Button>
+                    <Tooltip title={a.desactivar.bloqueio ?? 'Desactivar'}>
+                      <Button size="small" icon={<IconeFa nome="toggle-on" />} aria-label="Desactivar" disabled={!!a.desactivar.bloqueio} onClick={() => accao.mutate({ url: `/pos/terminais/${t.id}/ativo`, dados: { ativo: false } })} />
                     </Tooltip>
                   )}
                   {a.eliminar && (
@@ -113,8 +178,9 @@ export default function Terminais() {
           },
         ]}
       />
-      <EditorTerminal alvo={editar} aoFechar={() => setEditar(null)} />
+      <EditorTerminal alvo={editar} terminais={terminais.data ?? []} aoFechar={() => setEditar(null)} />
       <ModalCopiarMeios destino={copiar} terminais={terminais.data ?? []} aoFechar={() => setCopiar(null)} />
+      <ModalDefinicoesCaixa aberto={definicoes} aoFechar={() => setDefinicoes(false)} />
     </>
   );
 }
@@ -158,10 +224,13 @@ interface FormTerminal {
   hotel_bloco_horas_ate?: Dayjs | null;
 }
 
+/** Tipos de negócio com os rótulos do editor do legado (pos_gestao.js:786). */
+const TIPOS_NEGOCIO: Record<string, string> = { LOJA: 'Loja / Supermercado', RESTAURANTE: 'Restaurante', HOTELARIA: 'Hotelaria', LAVANDARIA: 'Lavandaria / Alfaiataria' };
+
 const hora = (v: string | null | undefined) => (v ? dayjs(v, 'HH:mm') : null);
 const textoHora = (v: Dayjs | null | undefined) => (v ? v.format('HH:mm') : null);
 
-function EditorTerminal({ alvo, aoFechar }: { alvo: Terminal | 'novo' | null; aoFechar: () => void }) {
+function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo' | null; terminais: Terminal[]; aoFechar: () => void }) {
   const [form] = Form.useForm<FormTerminal>();
   const [erros, setErros] = useState<string[]>([]);
   const novo = alvo === 'novo';
@@ -184,7 +253,7 @@ function EditorTerminal({ alvo, aoFechar }: { alvo: Terminal | 'novo' | null; ao
             fundo_maneio_padrao: Number(t.fundo_maneio_padrao ?? 0),
             unidade_negocio_id: t.unidade_negocio_id,
             centro_custo_id: t.centro_custo_id,
-            meios_pagamento: t.meios_pagamento?.length ? t.meios_pagamento : meiosPadrao(),
+            meios_pagamento: t.meios_pagamento?.length ? t.meios_pagamento.map((m) => (m.tipo === 'TPA' ? { ...m, comissao_deduzida: m.comissao_deduzida ?? true } : m)) : meiosPadrao(),
             hotel_hora_entrada: hora(t.hotel_hora_entrada ?? '14:00'),
             hotel_hora_saida: hora(t.hotel_hora_saida ?? '12:00'),
             hotel_tolerancia_atraso_min: t.hotel_tolerancia_atraso_min ?? 60,
@@ -225,110 +294,154 @@ function EditorTerminal({ alvo, aoFechar }: { alvo: Terminal | 'novo' | null; ao
     gravar.mutate(t ? { metodo: 'put', url: `/pos/terminais/${t.id}`, dados } : { url: '/pos/terminais', dados });
   };
 
+  // «Copiar de outro terminal» dentro do editor, como o legado (posEditorCopiarMeios): substitui os meios do formulário pelos
+  // do terminal escolhido (fica no editor até gravar) e reaproveita os identificadores dos meios actuais do mesmo tipo.
+  const [aCopiar, setACopiar] = useState(false);
+  const [origem, setOrigem] = useState<number>();
+  const copiarParaEditor = () => {
+    const fonte = terminais.find((x) => x.id === origem);
+    if (!fonte) return;
+    const livres = [...(form.getFieldValue('meios_pagamento') as MeioPagamento[] | undefined ?? [])];
+    const meios = (fonte.meios_pagamento ?? []).map((m) => {
+      const i = livres.findIndex((l) => l.tipo === m.tipo && l.id);
+      const id = i >= 0 ? livres.splice(i, 1)[0].id : undefined;
+      return { ...m, id };
+    });
+    form.setFieldValue('meios_pagamento', meios);
+    setACopiar(false);
+    setOrigem(undefined);
+  };
+
   return (
-    <Drawer
+    <Modal
       open={!!alvo}
-      onClose={aoFechar}
-      width={larguraGaveta(980)}
-      title={novo ? 'Novo terminal' : `Terminal ${t?.codigo ?? ''}`}
+      onCancel={aoFechar}
+      width={larguraModal(980)}
+      className="pos-editor-terminal"
+      title={
+        <span>
+          <IconeFa nome="desktop" style={{ color: 'var(--erp-primaria, #2563eb)' }} /> {novo ? 'Novo terminal' : 'Configurar terminal'}
+        </span>
+      }
       destroyOnHidden
-      extra={
-        <Space>
+      maskClosable={false}
+      footer={
+        <Flex justify="end" gap={8} style={{ borderTop: '1px solid #f1f5f9', paddingTop: '0.9rem' }}>
           <Button onClick={aoFechar}>Cancelar</Button>
-          <Button type="primary" loading={gravar.isPending} onClick={() => form.submit()}>
-            Gravar
+          <Button type="primary" icon={<IconeFa nome="save" />} loading={gravar.isPending} onClick={() => form.submit()}>
+            Gravar terminal
           </Button>
-        </Space>
+        </Flex>
       }
     >
-      <Form form={form} layout="vertical" onFinish={enviar}>
-        <Row gutter={[16, 0]}>
-          <Col xs={24} md={6}>
-            <Form.Item name="codigo" label="Código" rules={[{ required: true, message: 'Indique o código.' }, { pattern: /^[A-Za-z0-9_-]{1,10}$/, message: 'Até 10 letras, algarismos, «-» ou «_».' }]} extra={t ? 'Bloqueado depois da primeira sessão (entra na numeração).' : undefined}>
-              <Input maxLength={10} style={{ textTransform: 'uppercase' }} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}>
-              <Input maxLength={255} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={6}>
-            <Form.Item name="tipo" label="Tipo">
-              <Select options={Object.entries(TIPOS_TERMINAL).map(([value, label]) => ({ value, label }))} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="armazem_id" label="Armazém" extra="Sem armazém: o predefinido.">
-              <SeletorArmazem allowClear />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={10}>
-            <Form.Item name="cliente_padrao_id" label="Cliente padrão" extra="Sem cliente: «Consumidor Final».">
-              <SeletorTerceiro papel="CLIENTE" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={6}>
-            <Form.Item name="fundo_maneio_padrao" label="Fundo de maneio padrão">
-              <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} suffix="Kz" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="unidade_negocio_id" label="Unidade de negócio">
-              <SeletorUnidade style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="centro_custo_id" label="Centro de custo">
-              <SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-        </Row>
+      <Form form={form} layout="vertical" onFinish={enviar} requiredMark={false} className="pos-editor-form">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.7rem', borderTop: '1px solid #f1f5f9', paddingTop: '0.9rem' }}>
+          <Form.Item
+            name="codigo"
+            label="Código (série FR-POS/código/ano)"
+            rules={[{ required: true, message: 'Indique o código.' }, { pattern: /^[A-Za-z0-9_-]{1,10}$/, message: 'Até 10 letras, algarismos, «-» ou «_».' }]}
+            tooltip={t ? 'Bloqueado depois da primeira sessão (entra na numeração).' : undefined}
+          >
+            <Input maxLength={10} style={{ textTransform: 'uppercase' }} />
+          </Form.Item>
+          <Form.Item name="nome" label="Nome do terminal" rules={[{ required: true, message: 'Indique o nome.' }]}>
+            <Input maxLength={255} placeholder="Ex.: Caixa 1 — Loja" />
+          </Form.Item>
+          <Form.Item name="tipo" label="Tipo de negócio">
+            <Select options={Object.entries(TIPOS_NEGOCIO).map(([value, label]) => ({ value, label }))} />
+          </Form.Item>
+          <Form.Item name="fundo_maneio_padrao" label="Fundo de maneio habitual (Kz)">
+            <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="armazem_id" label="Armazém de saída de stock">
+            <SeletorArmazem allowClear placeholder="— armazém por omissão —" />
+          </Form.Item>
+          <Form.Item name="cliente_padrao_id" label="Cliente por omissão">
+            <SeletorTerceiro papel="CLIENTE" placeholder="— Consumidor Final —" />
+          </Form.Item>
+          <Form.Item name="unidade_negocio_id" label="Unidade de negócio">
+            <SeletorUnidade style={{ width: '100%' }} placeholder="— nenhuma —" />
+          </Form.Item>
+          <Form.Item name="centro_custo_id" label="Centro de custo">
+            <SeletorAux tabela="centros-custo" placeholder="— nenhum —" style={{ width: '100%' }} />
+          </Form.Item>
+        </div>
 
         {tipo === 'HOTELARIA' && (
-          <>
-            <Divider orientation="left">Regras da hotelaria</Divider>
-            <Flex gap={16} wrap>
-              <Form.Item name="hotel_hora_entrada" label="Hora de entrada">
-                <TimePicker format="HH:mm" minuteStep={5} />
+          <div style={{ marginTop: '1rem', border: '1px solid #fde68a', background: '#fffbeb', borderRadius: 4, padding: '0.8rem' }}>
+            <h4 style={{ margin: '0 0 0.6rem', fontSize: '0.9rem' }}>
+              <IconeFa nome="hotel" /> Regras da hotelaria
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.7rem' }}>
+              <Form.Item name="hotel_hora_entrada" label="Hora de entrada (check-in)">
+                <TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="hotel_hora_saida" label="Hora de saída">
-                <TimePicker format="HH:mm" minuteStep={5} />
+              <Form.Item name="hotel_hora_saida" label="Hora de saída (check-out)">
+                <TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="hotel_tolerancia_atraso_min" label="Tolerância de atraso (min)">
-                <InputNumber<number> min={0} precision={0} />
+              <Form.Item name="hotel_tolerancia_atraso_min" label="Tolerância na saída (minutos)">
+                <InputNumber<number> min={0} step={5} precision={0} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="hotel_bloco_horas" label="Bloquear venda à hora" valuePropName="checked">
-                <Switch />
+              <Form.Item name="hotel_bloco_horas" label="Venda à hora" valuePropName="checked">
+                <Checkbox>Bloquear no horário abaixo</Checkbox>
               </Form.Item>
-              <Form.Item name="hotel_bloco_horas_de" label="Das">
-                <TimePicker format="HH:mm" minuteStep={5} />
+              <Form.Item name="hotel_bloco_horas_de" label="Bloqueio desde">
+                <TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="hotel_bloco_horas_ate" label="Até">
-                <TimePicker format="HH:mm" minuteStep={5} />
+              <Form.Item name="hotel_bloco_horas_ate" label="Bloqueio até">
+                <TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
               </Form.Item>
-            </Flex>
-          </>
+            </div>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.74rem', color: '#92400e' }}>
+              Diária: a saída prevista é às {textoHora(form.getFieldValue('hotel_hora_saida')) ?? '12:00'} do dia seguinte a cada diária. Depois da tolerância o check-out propõe o recálculo e o operador confirma.
+            </p>
+          </div>
         )}
 
-        <Divider orientation="left">Meios de pagamento</Divider>
-        <Typography.Paragraph type="secondary">
-          Cada meio activo precisa de uma conta transitória própria (saldada na prestação de contas) e da conta de liquidação: caixa (45) no numerário, bancos (43) no TPA e na transferência.
-        </Typography.Paragraph>
         <Form.List name="meios_pagamento">
           {(campos, { add, remove }) => (
-            <Flex vertical gap={12}>
-              {campos.map((campo) => (
-                <EditorMeio key={campo.key} nome={campo.name} aoRemover={() => remove(campo.name)} />
-              ))}
-              <Space wrap>
-                {(['NUMERARIO', 'TPA', 'TRANSFERENCIA'] as const).map((tp) => (
-                  <Button key={tp} icon={<PlusOutlined />} onClick={() => add({ tipo: tp, nome: TIPOS_MEIO[tp], ativo: true, conta_transitoria: null, conta_liquidacao: null, ...(tp === 'TPA' ? { comissao_pct: 0, comissao_deduzida: true } : {}) })}>
-                    {TIPOS_MEIO[tp]}
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1.2rem 0 0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <h4 style={{ margin: 0, fontSize: '0.9rem' }}>
+                  <IconeFa nome="credit-card" /> Meios de pagamento aceites
+                </h4>
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                  <Button size="small" icon={<IconeFa nome="copy" />} onClick={() => setACopiar(true)} disabled={!terminais.some((x) => x.id !== t?.id)}>
+                    Copiar de outro terminal
                   </Button>
-                ))}
-              </Space>
-            </Flex>
+                  {(['NUMERARIO', 'TPA', 'TRANSFERENCIA'] as const).map((tp) => (
+                    <Button
+                      key={tp}
+                      size="small"
+                      icon={<IconeFa nome={iconeMeio(tp)} />}
+                      onClick={() => add({ tipo: tp, nome: TIPOS_MEIO[tp], ativo: true, conta_transitoria: null, conta_liquidacao: null, ...(tp === 'TPA' ? { codigo_tpa: null, comissao_pct: 0, conta_comissao: null, comissao_deduzida: true } : {}) })}
+                    >
+                      + {TIPOS_MEIO[tp]}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
+                A venda debita a <strong>conta transitória</strong> do meio. A prestação de contas transfere-a para a <strong>conta de liquidação</strong>: numerário para a Folha de Caixa, TPA para o banco (com comissão) e transferências comprovativo a comprovativo.
+              </p>
+              {campos.length === 0 && <div style={{ padding: '1rem', color: '#b91c1c' }}>Adicione pelo menos um meio de pagamento.</div>}
+              {campos.map((campo) => (
+                <EditorMeio
+                  key={campo.key}
+                  nome={campo.name}
+                  aoRemover={() =>
+                    Modal.confirm({
+                      title: 'Remover este meio de pagamento?',
+                      content: 'Os documentos já emitidos mantêm as suas contas.',
+                      okText: 'Remover',
+                      okButtonProps: { danger: true },
+                      cancelText: 'Cancelar',
+                      onOk: () => remove(campo.name),
+                    })
+                  }
+                />
+              ))}
+            </>
           )}
         </Form.List>
         {erros.length > 0 && (
@@ -347,69 +460,103 @@ function EditorTerminal({ alvo, aoFechar }: { alvo: Terminal | 'novo' | null; ao
           />
         )}
       </Form>
-    </Drawer>
+      <Modal open={aCopiar} title="Copiar meios de pagamento de outro terminal" okText="Copiar" cancelText="Cancelar" okButtonProps={{ disabled: !origem }} onOk={copiarParaEditor} onCancel={() => setACopiar(false)} width={larguraModal(520)} destroyOnHidden>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="Terminal de origem"
+          value={origem}
+          onChange={setOrigem}
+          options={terminais.filter((x) => x.id !== t?.id).map((x) => ({ value: x.id, label: `${x.codigo} — ${x.nome} (${(x.meios_pagamento ?? []).length} meio(s))` }))}
+        />
+        <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+          Os meios actuais são substituídos no editor; só ficam gravados com «Gravar terminal». Para copiar de outra empresa use o botão de cópia na lista.
+        </Typography.Paragraph>
+      </Modal>
+    </Modal>
   );
 }
+
+/** Cor e ícone de cada tipo de meio (TIPOS_MEIO do legado, pos_gestao.js:26-30). */
+const COR_MEIO: Record<string, string> = { NUMERARIO: '#059669', TPA: '#2563eb', TRANSFERENCIA: '#7c3aed' };
 
 function EditorMeio({ nome, aoRemover }: { nome: number; aoRemover: () => void }) {
   const form = Form.useFormInstance<FormTerminal>();
   const tipo = Form.useWatch(['meios_pagamento', nome, 'tipo'], form) as MeioPagamento['tipo'] | undefined;
   const pct = Form.useWatch(['meios_pagamento', nome, 'comissao_pct'], form) as number | undefined;
+  const ativo = Form.useWatch(['meios_pagamento', nome, 'ativo'], form) as boolean | undefined;
+  const deduzida = Form.useWatch(['meios_pagamento', nome, 'comissao_deduzida'], form) as boolean | undefined;
+  const tpa = tipo === 'TPA';
+  // linha do legado (posEditorDesenharMeios, pos_gestao.js:832-851)
   return (
-    <Card size="small" extra={<Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={aoRemover} aria-label="Retirar meio" />} title={tipo ? TIPOS_MEIO[tipo] : 'Meio'}>
+    <div
+      className="pos-editor-meio"
+      style={{
+        border: `1px solid ${ativo === false ? '#e2e8f0' : '#cbd5e1'}`,
+        borderLeft: `4px solid ${tipo ? COR_MEIO[tipo] ?? '#334155' : '#334155'}`,
+        borderRadius: 4,
+        padding: '0.6rem 0.75rem',
+        marginBottom: '0.5rem',
+        opacity: ativo === false ? 0.6 : 1,
+      }}
+    >
       <Form.Item name={[nome, 'id']} hidden>
         <Input />
       </Form.Item>
       <Form.Item name={[nome, 'tipo']} hidden>
         <Input />
       </Form.Item>
-      <Row gutter={[12, 0]}>
-        <Col xs={24} md={8}>
-          <Form.Item name={[nome, 'nome']} label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}>
-            <Input maxLength={100} />
+      <div style={{ display: 'grid', gridTemplateColumns: `1.2fr 1.4fr 1.4fr ${tpa ? '0.8fr ' : ''}auto`, gap: '0.5rem', alignItems: 'end' }}>
+        <Form.Item
+          name={[nome, 'nome']}
+          label={
+            <span>
+              <IconeFa nome={iconeMeio(tipo)} /> {tipo ? TIPOS_MEIO[tipo] : 'Meio'}
+            </span>
+          }
+          rules={[{ required: true, message: 'Indique o nome.' }]}
+        >
+          <Input maxLength={100} placeholder="Designação" />
+        </Form.Item>
+        <Form.Item name={[nome, 'conta_transitoria']} label="Conta transitória *">
+          <SeletorConta />
+        </Form.Item>
+        <Form.Item name={[nome, 'conta_liquidacao']} label={`Conta de liquidação (${tipo === 'NUMERARIO' ? 'caixa 45' : 'banco 43'}) *`}>
+          <SeletorConta prefixo={tipo ? classeLiquidacao(tipo) : undefined} />
+        </Form.Item>
+        {tpa && (
+          <Form.Item name={[nome, 'codigo_tpa']} label="N.º do TPA">
+            <Input maxLength={30} />
           </Form.Item>
-        </Col>
-        <Col xs={12} md={4}>
-          <Form.Item name={[nome, 'ativo']} label="Activo" valuePropName="checked">
-            <Switch />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item name={[nome, 'conta_transitoria']} label="Conta transitória">
-            <SeletorConta />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={6}>
-          <Form.Item name={[nome, 'conta_liquidacao']} label={`Liquidação (${tipo ? classeLiquidacao(tipo) : '—'})`}>
-            <SeletorConta prefixo={tipo ? classeLiquidacao(tipo) : undefined} />
-          </Form.Item>
-        </Col>
-        {tipo === 'TPA' && (
-          <>
-            <Col xs={12} md={6}>
-              <Form.Item name={[nome, 'codigo_tpa']} label="Código do TPA">
-                <Input maxLength={30} />
-              </Form.Item>
-            </Col>
-            <Col xs={12} md={6}>
-              <Form.Item name={[nome, 'comissao_pct']} label="Comissão (%)">
-                <InputNumber<number> min={0} max={99.99} precision={2} decimalSeparator="," style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={6}>
-              <Form.Item name={[nome, 'conta_comissao']} label="Conta da comissão" rules={[{ required: Number(pct ?? 0) > 0, message: 'Com comissão, indique a conta.' }]}>
-                <SeletorConta />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={6}>
-              <Form.Item name={[nome, 'comissao_deduzida']} label="Comissão deduzida no recebimento" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-          </>
         )}
-      </Row>
-    </Card>
+        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', paddingBottom: '0.3rem' }}>
+          <Form.Item name={[nome, 'ativo']} valuePropName="checked" noStyle>
+            <Checkbox style={{ fontSize: '0.72rem' }}>Activo</Checkbox>
+          </Form.Item>
+          <Button size="small" title="Remover" aria-label="Retirar meio" icon={<IconeFa nome="trash-alt" style={{ color: '#b91c1c' }} />} onClick={aoRemover} />
+        </div>
+      </div>
+      {tpa && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.6fr 1.4fr 1.4fr', gap: '0.5rem', marginTop: '0.4rem' }}>
+          <Form.Item name={[nome, 'conta_comissao']} label="Conta de comissões bancárias" rules={[{ required: Number(pct ?? 0) > 0, message: 'Com comissão, indique a conta.' }]}>
+            <SeletorConta prefixo="7" />
+          </Form.Item>
+          <Form.Item name={[nome, 'comissao_pct']} label="Comissão (%)">
+            <InputNumber<number> min={0} max={99.99} precision={2} decimalSeparator="," style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name={[nome, 'comissao_deduzida']} label="Tratamento da comissão">
+            <Select
+              options={[
+                { value: true, label: 'Deduzida no valor creditado' },
+                { value: false, label: 'Não deduzida (cobrada à parte)' },
+              ]}
+            />
+          </Form.Item>
+          <div style={{ fontSize: '0.72rem', color: '#64748b', alignSelf: 'end', paddingBottom: '0.4rem' }}>
+            {deduzida === false ? 'O banco credita o valor total; a comissão fica como pagamento separado na Tesouraria.' : 'O banco credita o valor líquido (total menos a comissão).'} A comissão é sugerida na liquidação e pode ser acertada pelo extracto.
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -468,16 +615,17 @@ function ModalCopiarMeios({ destino, terminais, aoFechar }: { destino: Terminal 
 }
 
 /** Lista de terminais (com os meios de pagamento de cada um) para impressão em A4. */
-export function documentoTerminais(terminais: Terminal[]): string {
+export function documentoTerminais(terminais: Terminal[], series?: Record<string, { serie: string }>): string {
   const lista = tabelaHtml<Terminal>({
     linhas: terminais,
     colunas: [
       { titulo: 'Código', valor: (t) => t.codigo },
       { titulo: 'Nome', valor: (t) => t.nome },
+      { titulo: 'Série', valor: (t) => series?.[String(t.id)]?.serie ?? '—' },
       { titulo: 'Tipo', valor: (t) => TIPOS_TERMINAL[t.tipo] ?? t.tipo },
       { titulo: 'Fundo padrão', valor: (t) => t.fundo_maneio_padrao, formato: 'moeda' },
       { titulo: 'Meios activos', valor: (t) => (t.meios_pagamento ?? []).filter((m) => m.ativo).map((m) => m.nome).join(', '), quebrar: true },
-      { titulo: 'Sessão', valor: (t) => t.sessao_aberta?.codigo_sessao ?? '—' },
+      { titulo: 'Caixa', valor: (t) => (t.sessao_aberta ? `Aberta · ${t.sessao_aberta.codigo_sessao} · ${t.sessao_aberta.nome_operador ?? '—'} · desde ${formatarDataHora(t.sessao_aberta.aberto_em)}` : 'Fechada') },
       { titulo: 'Estado', valor: (t) => (t.ativo ? 'Activo' : 'Inactivo') },
     ],
   });

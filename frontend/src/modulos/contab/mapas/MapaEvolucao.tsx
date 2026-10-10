@@ -1,6 +1,6 @@
 import { Card, Checkbox, Flex, Form, InputNumber, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { TituloMapa } from './TituloMapa';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
 import { scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
@@ -33,7 +33,7 @@ export default function MapaEvolucao() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Evolução mensal" subtitulo="Balancete de evolução por mês" />
+      <TituloMapa titulo="Evolução Mensal" subtitulo="Balancete de evolução por mês" />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="ano"

@@ -4,12 +4,16 @@ namespace App\Services\RH;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\Banco;
+use App\Models\Empresa;
 use App\Models\InfotipoSalarial;
 use App\Models\MapeamentoContabilRH;
 use App\Models\MapeamentoContabilSistemaRH;
 use App\Models\TipoOrganizacaoRH;
+use App\Models\Utilizador;
 use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Dados\VerificadorReferencias;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -32,6 +36,8 @@ final class ServicoCadastrosRH
     public function __construct(
         private readonly ServicoPlanoContas $plano,
         private readonly VerificadorReferencias $referencias,
+        private readonly ContextoEmpresa $contexto,
+        private readonly ServicoEmpresas $empresas,
     ) {}
 
     // ───────────── Rubricas ─────────────
@@ -128,7 +134,7 @@ final class ServicoCadastrosRH
     {
         return [
             'tipos_organizacao' => TipoOrganizacaoRH::query()->orderBy('nome')->get(['id', 'nome']),
-            'infotipos' => InfotipoSalarial::query()->whereIn('tipo', ['VENCIMENTO', 'DESCONTO'])->orderBy('tipo', 'desc')->orderBy('nome')->get(['id', 'nome', 'tipo']),
+            'infotipos' => InfotipoSalarial::query()->orderBy('nome')->orderBy('id')->get(['id', 'nome', 'tipo']),
             'codigos_sistema' => self::CODIGOS_SISTEMA,
             'rubricas' => MapeamentoContabilRH::query()->whereNotNull('numero_conta')->where('numero_conta', '<>', '')->orderBy('id')
                 ->get(['id', 'infotipo_salarial_id', 'tipo_organizacao_id', 'avencado', 'numero_conta']),
@@ -180,5 +186,112 @@ final class ServicoCadastrosRH
 
             return ['gravados' => $n] + $this->mapeamentos();
         });
+    }
+
+    /**
+     * Copiar o mapeamento de outra empresa (openCopyAccountingMaposModal / _resolveAccountingMaposCopy /
+     * executeCopyAccountingMapos, js/app_v2.js:2563-2702): correspondência pelo NOME da rubrica e do tipo de organização
+     * (a coluna Avençado, org_type_id = -1 no legado, copia-se tal como está) e sem sobrepor as células já mapeadas.
+     * Correcções: só empresas acessíveis ao utilizador (o legado listava todas); só contas que existam no plano da empresa
+     * de destino e sejam de movimento (o legado copiava o número da conta às cegas); `simular` = pré-visualização (o legado
+     * mostrava as contagens antes de confirmar).
+     *
+     * @return array{origem: string, simulacao: bool, rubricas: int, sistema: int, ja_mapeados: int, sem_correspondencia: int, contas_invalidas: list<string>}
+     */
+    public function copiarMapeamentosDe(int $origemId, Utilizador $u, bool $simular): array
+    {
+        $destino = $this->contexto->obrigatorio();
+        if ($origemId === $destino) {
+            throw new ErroNegocio('Escolha uma empresa diferente da empresa activa.', 'ORIGEM_IGUAL_DESTINO', 422);
+        }
+        if (! $this->empresas->podeAceder($u, $origemId)) {
+            // OWASP A01: não revela se a empresa existe
+            throw new ErroNegocio('Não tem acesso à empresa de origem.', 'SEM_ACESSO_EMPRESA', 403);
+        }
+        $comConta = fn (string $modelo) => $modelo::query()->whereNotNull('numero_conta')->where('numero_conta', '<>', '')->orderBy('id');
+        $origem = $this->contexto->executarComo($origemId, fn () => [
+            'infotipos' => InfotipoSalarial::query()->pluck('nome', 'id')->all(),
+            'tipos' => TipoOrganizacaoRH::query()->pluck('nome', 'id')->all(),
+            'rubricas' => $comConta(MapeamentoContabilRH::class)->get(['infotipo_salarial_id', 'tipo_organizacao_id', 'avencado', 'numero_conta'])->all(),
+            'sistema' => $comConta(MapeamentoContabilSistemaRH::class)->get(['codigo', 'tipo_organizacao_id', 'avencado', 'numero_conta'])->all(),
+        ]);
+
+        $nome = fn (?string $n) => mb_strtolower(trim((string) $n));
+        $porNome = function (string $modelo) use ($nome): array {
+            $mapa = [];
+            foreach ($modelo::query()->orderBy('id')->get(['id', 'nome']) as $x) {
+                $mapa[$nome($x->nome)] ??= (int) $x->id;   // nomes repetidos (herdados do legado): fica o primeiro
+            }
+
+            return $mapa;
+        };
+        $infotipos = $porNome(InfotipoSalarial::class);
+        $tipos = $porNome(TipoOrganizacaoRH::class);
+        $coluna = fn (bool $avencado, ?int $org) => $avencado ? 'AV' : (string) ($org ?? 0);
+        $ocupadas = [];
+        foreach ($comConta(MapeamentoContabilRH::class)->get() as $m) {
+            $ocupadas["R|{$m->infotipo_salarial_id}|".$coluna((bool) $m->avencado, $m->tipo_organizacao_id)] = true;
+        }
+        foreach ($comConta(MapeamentoContabilSistemaRH::class)->get() as $m) {
+            $ocupadas["S|{$m->codigo}|".$coluna((bool) $m->avencado, $m->tipo_organizacao_id)] = true;
+        }
+
+        $r = ['origem' => (string) (Empresa::query()->whereKey($origemId)->value('nome') ?? "#{$origemId}"), 'simulacao' => $simular,
+            'rubricas' => 0, 'sistema' => 0, 'ja_mapeados' => 0, 'sem_correspondencia' => 0, 'contas_invalidas' => []];
+        $novos = [];
+        $validas = [];
+        foreach ([['R', MapeamentoContabilRH::class, 'infotipo_salarial_id', $origem['rubricas']], ['S', MapeamentoContabilSistemaRH::class, 'codigo', $origem['sistema']]] as [$t, $modelo, $campo, $lista]) {
+            foreach ($lista as $m) {
+                $avencado = (bool) $m->avencado;
+                // tipo de organização: por nome; a coluna Avençado e as contas sem tipo (ROUNDING_DIFF) não dependem dele
+                $org = $avencado || $m->tipo_organizacao_id === null ? null : ($tipos[$nome($origem['tipos'][$m->tipo_organizacao_id] ?? null)] ?? false);
+                $linha = $t === 'R' ? ($infotipos[$nome($origem['infotipos'][$m->infotipo_salarial_id] ?? null)] ?? false) : $m->codigo;
+                if ($org === false || $linha === false) {
+                    $r['sem_correspondencia']++;
+
+                    continue;
+                }
+                $k = "{$t}|{$linha}|".$coluna($avencado, $org);
+                if (isset($ocupadas[$k])) {
+                    $r['ja_mapeados']++;
+
+                    continue;
+                }
+                $conta = (string) $m->numero_conta;
+                if (! ($validas[$conta] ??= $this->eContaDeMovimento($conta))) {
+                    $r['contas_invalidas'][$conta] = $conta;
+
+                    continue;
+                }
+                $ocupadas[$k] = true;
+                $novos[] = [$modelo, [$campo => $linha, 'tipo_organizacao_id' => $org, 'avencado' => $avencado, 'numero_conta' => $conta]];
+                $r[$t === 'R' ? 'rubricas' : 'sistema']++;
+            }
+        }
+        $r['contas_invalidas'] = array_values($r['contas_invalidas']);
+        if (! $simular && $novos) {
+            DB::transaction(function () use ($novos) {
+                foreach ($novos as [$modelo, $dados]) {
+                    $campo = array_key_first($dados);
+                    // células vazias herdadas do legado (numero_conta '') dão lugar ao mapeamento copiado (um por chave)
+                    $modelo::query()->where($campo, $dados[$campo])->where('avencado', $dados['avencado'])
+                        ->when($dados['tipo_organizacao_id'], fn ($q, $org) => $q->where('tipo_organizacao_id', $org), fn ($q) => $q->whereNull('tipo_organizacao_id'))->delete();
+                    $modelo::create($dados);
+                }
+            });
+        }
+
+        return $r;
+    }
+
+    private function eContaDeMovimento(string $conta): bool
+    {
+        try {
+            $this->plano->contaDeMovimento($conta);
+
+            return true;
+        } catch (ErroNegocio) {
+            return false;
+        }
     }
 }

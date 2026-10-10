@@ -43,6 +43,8 @@ export interface FichaTerceiro {
   conta_compra_transitoria?: string | null;
   codigo_moeda?: string | null;
   fe_pais?: string | null;
+  /** Só na lista de clientes: tem documentos de venda (pode ainda não ter o papel de cliente). */
+  tem_documentos_venda?: boolean;
 }
 
 export function useArmazens() {

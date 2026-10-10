@@ -45,13 +45,13 @@ final class PainelAtivos implements Painel
 
         return [
             'kpis' => [
-                Indicadores::kpi('ativos_em_uso', 'Activos em Uso', (int) $tot->activos, 'num', ((int) $tot->outros).' abatidos/inactivos'),
+                Indicadores::kpi('ativos_em_uso', 'Ativos em Uso', (int) $tot->activos, 'num', ((int) $tot->outros).' abatidos/vendidos'),
                 Indicadores::kpi('valor_aquisicao', 'Valor de Aquisição', $aquisicao),
                 Indicadores::kpi('amortizacao_acumulada', 'Amortização Acumulada', $acumulada),
                 Indicadores::kpi('valor_liquido', 'Valor Líquido Contabilístico', bcsub($aquisicao, $acumulada, 2)),
                 Indicadores::kpi('amortizacoes_ano', "Amortizações {$p->ano}", $p->somaAno($porMes), 'kz', 'Contabilizadas'),
                 Indicadores::kpi('manutencoes_planeadas', 'Manutenções Planeadas', $manut, 'num'),
-                Indicadores::kpi('sem_amortizacao', 'Activos sem Amortização', (int) $tot->sem_amortizacao, 'num'),
+                Indicadores::kpi('sem_amortizacao', 'Ativos sem Amortização', (int) $tot->sem_amortizacao, 'num'),
             ],
             'graficos' => [
                 Indicadores::grafico('amortizacoes', 'Amortizações Contabilizadas (12 meses)', 'barras', $p->rotulos(), [Indicadores::serie('amortizacoes', 'Amortizações', $p->serie($porMes))]),
@@ -59,12 +59,12 @@ final class PainelAtivos implements Painel
                     [Indicadores::serie('liquido', 'VLC', array_map(fn ($r) => Indicadores::dinheiro($r->liquido), $porCat))]),
             ],
             'tabelas' => [
-                Indicadores::tabela('principais_ativos', 'Principais Activos (Valor Líquido)', [['codigo', 'Código'], ['descricao', 'Descrição'], ['valor_aquisicao', 'Aquisição', 'kz'],
+                Indicadores::tabela('principais_ativos', 'Principais Ativos (Valor Líquido)', [['codigo', 'Código'], ['descricao', 'Descrição'], ['valor_aquisicao', 'Aquisição', 'kz'],
                     ['amortizacao_acumulada', 'Amort. Acumulada', 'kz'], ['liquido', 'Valor Líquido', 'kz']],
                     array_map(fn ($r) => ['id' => $r->id, 'codigo' => $r->codigo, 'descricao' => $r->descricao, 'valor_aquisicao' => Indicadores::dinheiro($r->valor_aquisicao),
                         'amortizacao_acumulada' => Indicadores::dinheiro($r->amortizacao_acumulada), 'liquido' => Indicadores::dinheiro($r->liquido)], $top)),
             ],
-            'atalhos' => [['rotulo' => 'Listagem de Activos', 'vista' => 'activos'], ['rotulo' => 'Processar Amortizações', 'vista' => 'activos_amortizacoes'], ['rotulo' => 'Manutenções', 'vista' => 'activos_manutencao']],
+            'atalhos' => [['rotulo' => 'Listagem de Ativos', 'vista' => 'activos'], ['rotulo' => 'Processar Amortizações', 'vista' => 'activos_amortizacoes'], ['rotulo' => 'Manutenções', 'vista' => 'activos_manutencao']],
         ];
     }
 }

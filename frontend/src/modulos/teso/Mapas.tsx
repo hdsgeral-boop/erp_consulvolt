@@ -1,9 +1,9 @@
-import { Alert, Button, Card, DatePicker, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { pedidoDisponibilidades, pedidoExtrato } from './impressao';
@@ -19,12 +19,31 @@ import { scrollTabela } from '@/componentes/responsivo';
 type LinhaDisponivel = Disponibilidades['contas'][number];
 type MovimentoExtrato = ExtratoConta['movimentos'][number];
 
+/** Tipos de Mapa do legado (select teso-map-type): o prefixo da conta. Ambos geram o extracto da conta (razão com saldo corrido). */
+export type TipoMapa = '43' | '45';
+export const TIPOS_MAPA: { valor: TipoMapa; rotulo: string; titulo: string }[] = [
+  { valor: '43', rotulo: 'Extrato Bancário (Contas 43)', titulo: 'Extrato Bancário' },
+  { valor: '45', rotulo: 'Folha de Caixa (Contas 45)', titulo: 'Folha de Caixa' },
+];
+const PREFIXOS_MAPA: Record<TipoMapa, string[]> = { '43': ['43'], '45': ['45'] };
+
+/** Pedido do «Gerar Mapa»: conta e período (nulo sem conta ou com datas trocadas). */
+export function pedidoMapa(conta: string | undefined, inicio: Dayjs, fim: Dayjs): { conta: string; periodo: [Dayjs, Dayjs] } | null {
+  if (!conta || fim.isBefore(inicio, 'day')) return null;
+  return { conta, periodo: [inicio.startOf('day'), fim.startOf('day')] };
+}
+
 /**
  * Tesouraria › Extractos e mapas de disponibilidades (ecrã teso_gestao_mapas). Endpoints próprios da Tesouraria com a
  * permissão do ecrã (ADR-064): GET /tesouraria/disponibilidades (saldos 43/45 à data) e GET /tesouraria/extrato-conta
  * (razão da conta com saldo corrido). Os valores são os do balancete e do razão da Contabilidade.
  */
 export default function Mapas() {
+  const [tipoMapa, setTipoMapa] = useState<TipoMapa>('43');
+  const [contaForm, setContaForm] = useState<string>();
+  // por omissão o mês corrente, do 1.º ao último dia (como o legado)
+  const [dataIni, setDataIni] = useState<Dayjs>(() => dayjs().startOf('month'));
+  const [dataFim, setDataFim] = useState<Dayjs>(() => dayjs().endOf('month').startOf('day'));
   const [data, setData] = useState<Dayjs>(dayjs());
   const [periodo, setPeriodo] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs()]);
   const [conta, setConta] = useState<string>();
@@ -48,7 +67,43 @@ export default function Mapas() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Extractos e disponibilidades" subtitulo="Saldos de bancos (43) e caixa (45) e extracto por conta" />
+      {/* formulário de entrada do legado (renderMapasTesouraria): Tipo de Mapa, Conta, Data Inicial, Data Final, «Gerar Mapa» */}
+      <Card style={{ marginBottom: 16 }} styles={{ body: { background: '#f8fafc' } }}>
+        <h3 style={{ marginTop: 0, color: '#2563eb', display: 'flex', alignItems: 'center', gap: 8 }}><IconeFa nome="print" /> Emissão de Mapas de Tesouraria</h3>
+        <Row gutter={[12, 12]} align="bottom">
+          <Col xs={24} sm={12} lg={5}>
+            <label style={{ fontWeight: 600, fontSize: 13 }}>Tipo de Mapa</label>
+            <Select<TipoMapa> style={{ width: '100%' }} value={tipoMapa} aria-label="Tipo de Mapa" options={TIPOS_MAPA.map((t) => ({ value: t.valor, label: t.rotulo }))}
+              onChange={(v) => { setTipoMapa(v); if (contaForm && !contaForm.startsWith(v)) setContaForm(undefined); }} />
+          </Col>
+          <Col xs={24} sm={12} lg={7}>
+            <label style={{ fontWeight: 600, fontSize: 13 }}>Conta</label>
+            <SeletorContaFinanceira key={tipoMapa} value={contaForm} onChange={setContaForm} prefixos={PREFIXOS_MAPA[tipoMapa]} placeholder="Nenhuma conta seleccionada" style={{ width: '100%' }} />
+          </Col>
+          <Col xs={12} sm={8} lg={4}>
+            <label style={{ fontWeight: 600, fontSize: 13 }}>Data Inicial</label>
+            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} value={dataIni} allowClear={false} onChange={(v) => v && setDataIni(v)} aria-label="Data Inicial" />
+          </Col>
+          <Col xs={12} sm={8} lg={4}>
+            <label style={{ fontWeight: 600, fontSize: 13 }}>Data Final</label>
+            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} value={dataFim} allowClear={false} onChange={(v) => v && setDataFim(v)} aria-label="Data Final" />
+          </Col>
+          <Col xs={24} sm={8} lg={4}>
+            <Button type="primary" block icon={<IconeFa nome="sync" />} disabled={!contaForm || dataFim.isBefore(dataIni)}
+              onClick={() => {
+                const p = pedidoMapa(contaForm, dataIni, dataFim);
+                if (!p) return;
+                const igual = p.conta === conta && p.periodo[0].isSame(periodo[0], 'day') && p.periodo[1].isSame(periodo[1], 'day');
+                setConta(p.conta);
+                setPeriodo(p.periodo);
+                setSeparador('extrato');
+                if (igual) void extrato.refetch();
+              }}>
+              Gerar Mapa
+            </Button>
+          </Col>
+        </Row>
+      </Card>
       {erro && (
         <Alert type="error" showIcon style={{ marginBottom: 16 }} message="Não foi possível obter o mapa." action={<Button size="small" onClick={() => notificarErro(erro)}>Detalhe</Button>} />
       )}

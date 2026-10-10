@@ -64,6 +64,15 @@ abstract class AvaliadorFluxo
         return ['nivel' => 'erro', 'texto' => $texto];
     }
 
+    /**
+     * Marca um problema como da empresa (configuração comum a todos os processos, ex.: colaboradores sem IBAN): continua no
+     * detalhe da etapa, mas não conta nas pendências do processo (n_erros/n_avisos, funil «com pendências»).
+     */
+    protected static function daEmpresa(array $problema): array
+    {
+        return $problema + ['ambito' => 'empresa'];
+    }
+
     protected static function accao(string $rotulo, string $acao, bool $primaria = false): array
     {
         return ['rotulo' => $rotulo, 'acao' => $acao, 'primaria' => $primaria];
@@ -86,7 +95,8 @@ abstract class AvaliadorFluxo
     /** Valor em Kz para os textos das pendências (1 234,56 Kz). */
     protected static function kz(mixed $v): string
     {
-        return number_format((float) $v, 2, ',', '.').' Kz';
+        // como o legado (toLocaleString pt-PT): espaço inseparável nos milhares
+        return number_format((float) $v, 2, ',', "\u{00A0}").' Kz';
     }
 
     protected static function data(mixed $d): string

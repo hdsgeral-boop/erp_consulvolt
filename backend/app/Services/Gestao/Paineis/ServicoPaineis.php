@@ -47,7 +47,7 @@ final class ServicoPaineis
         'tesouraria' => ['nome' => 'Tesouraria', 'classe' => PainelTesouraria::class,
             'vistas' => ['teso_contab_integracao', 'teso_gestao_mapas', 'teso_gestao_pagamentos', 'teso_gestao_recebimentos', 'teso_folha_caixa']],
         'contabilidade' => ['nome' => 'Contabilidade', 'classe' => PainelContabilidade::class, 'vistas' => ['contabilidade', 'lancamentos', 'relatorios_contabeis']],
-        'ativos' => ['nome' => 'Activos Fixos', 'classe' => PainelAtivos::class, 'vistas' => ['activos', 'activos_amortizacoes']],
+        'ativos' => ['nome' => 'Ativos Fixos', 'classe' => PainelAtivos::class, 'vistas' => ['activos', 'activos_amortizacoes']],
         'projetos' => ['nome' => 'Projectos e Obras', 'classe' => PainelProjetos::class, 'vistas' => ['projectos_carteira', 'projectos_extracto', 'projectos_gantt']],
         'orcamento' => ['nome' => 'Gestão Orçamental', 'classe' => PainelOrcamento::class, 'vistas' => ['orc_orcamentos', 'orc_controlo', 'orc_alertas'], 'so_empresa' => true],
         'crm' => ['nome' => 'CRM', 'classe' => PainelCRM::class, 'vistas' => ['crm_pipeline', 'crm_previsao'], 'so_empresa' => true],

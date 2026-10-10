@@ -17,3 +17,45 @@ export {
   type OpcoesModoVista,
 } from './preferenciaVista';
 export { derivarEstrutura, conteudoCelula, textoSimples, type ColunaVista, type ExtrasColunaVista, type EstruturaCartao } from './derivarCartao';
+
+/** Padrões das listas do sistema anterior (ver README_PADROES_LEGADO.md). */
+export {
+  TabelaLegado,
+  paginacaoLegado,
+  OPCOES_TAMANHO_PAGINA,
+  TAMANHO_PAGINA_LEGADO,
+  type PropsTabelaLegado,
+  type PropsPadroesLista,
+  type ImpressaoLista,
+  type OpcoesSeleccao,
+  type ServidorLista,
+} from './TabelaLegado';
+export { AccoesLinha, BotaoAccao, IconeLegado, nomeIconeFa, type AccaoLinha, type ConfirmacaoAccao, type VarianteAccao } from './AccoesLinha';
+export { BarraSeleccao, BotaoEditarEmMassa, type AccaoMassa, type OpcoesEditarEmMassa, type PropsBarraSeleccao } from './BarraSeleccao';
+export { CartaoKpi, GrelhaKpi, CORES_KPI, fundoTranslucido, type PropsCartaoKpi, type PosicaoBarraKpi } from './CartaoKpi';
+export { EstadoVazio, type PropsEstadoVazio } from './EstadoVazio';
+export { FiltroColuna, BotaoFiltroPersonalizado, ModalFiltroPersonalizado, type ColunaDisponivel } from './FiltrosColuna';
+export {
+  aplicarFiltros,
+  passaCondicao,
+  normalizarTexto,
+  normalizarFiltroPersonalizado,
+  OPERADORES_FILTRO,
+  type OperadorFiltro,
+  type CondicaoFiltro,
+  type CondicaoPersonalizada,
+  type FiltroPersonalizado,
+  type EstadoFiltros,
+} from './filtrosLista';
+export {
+  colunasParaImpressao,
+  brutoConsistente,
+  calcularTotal,
+  conteudoTotal,
+  chaveColuna,
+  type ColunaLegado,
+  type ExtrasColunaLegado,
+  type ExtrasColunaImpressao,
+  type TotalColuna,
+} from './colunasTabela';
+export { useColunasEscolhidas, reporPreferenciasColunasLocal, NOME_PREFERENCIA_COLUNAS, CHAVE_LOCAL_COLUNAS } from './preferenciaColunas';

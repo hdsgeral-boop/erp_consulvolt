@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BarraFiltros } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -14,7 +13,9 @@ import { SeletorConta } from '../contab/comum/Seletores';
 import type { DocumentoTesouraria, ResultadoIntegracaoLote, TipoDocumento } from './api';
 import { SeletorContaFinanceira, TabelaDocumentos } from './comum';
 import { DetalheDocumento } from './pagamentos/DetalheDocumento';
-import { colunasDocumentos, textoPeriodo } from './pagamentos/ListaDocumentos';
+import { textoPeriodo } from './pagamentos/ListaDocumentos';
+import { colunasIntegracao } from './colunasLegado';
+import { BannerTeso } from './motivo';
 import { ROTULO_TIPO } from './api';
 import { errosDoLote, LOTE_INTEGRACAO } from './regras';
 
@@ -65,7 +66,14 @@ function PorIntegrar() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Integração no razão" subtitulo="Gerar os lançamentos contabilísticos dos pagamentos e recebimentos" />
+      <BannerTeso
+        icone="check-double"
+        titulo="Integração Contabilística"
+        texto="Selecione os movimentos de tesouraria finalizados para gerar os Lançamentos no Diário da contabilidade."
+        cor="#059669"
+        fundo="#f0fdf4"
+        corTitulo="#064e3b"
+      />
       <Tabs
         items={[
           {
@@ -96,7 +104,7 @@ function PorIntegrar() {
                 )}
                 <TabelaDocumentos
                   filtros={{ estado: 'PENDENTE', tipo, conta_financeira: conta, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
-                  columns={colunasDocumentos()}
+                  columns={colunasIntegracao((d) => navegar(String(d.id)))}
                   impressao={{
                     titulo: 'Documentos de tesouraria por integrar',
                     periodo: textoPeriodo(periodo),

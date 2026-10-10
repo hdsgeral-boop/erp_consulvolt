@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, Statistic, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Progress, Row, Select, Space, Switch, Table, Tabs, Tag, Tooltip, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Progress, Row, Select, Space, Switch, Tabs, Tag, Tooltip, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -16,7 +16,11 @@ import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/co
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { htmlTabela, seccaoHtml } from './comum/impressao';
 
-import { TabelaComModos } from '@/componentes/vistas';
+import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
+import { IconeFa } from '@/componentes/fluxos';
+import { conflitos, contaSaldo, corEstadoFerias, ESTADOS_FERIAS, filtrarPorEstado, periodosPorColaborador, rotuloChip, rotuloEstadoFerias, totaisFerias } from './ferias/regrasFerias';
+import { MapaAnualFerias } from './ferias/MapaAnualFerias';
+
 interface Plano {
   resumo: ResumoFerias[];
   periodos: PeriodoFerias[];
@@ -39,6 +43,7 @@ export default function Ferias() {
   const [ano, setAno] = useState(dayjs().year());
   const [colaborador, setColaborador] = useState<number>();
   const [termo, setTermo] = useState('');
+  const [estadoFiltro, setEstadoFiltro] = useState('');
   const [edicao, setEdicao] = useState<PeriodoFerias | 'novo' | null>(null);
   const [form] = Form.useForm<ValoresFerias>();
   const plano = useQuery({ queryKey: ['rh', 'ferias', ano, colaborador], queryFn: () => obter<Plano>('/rh/ferias', { ano, colaborador_id: colaborador }) });
@@ -61,15 +66,24 @@ export default function Ferias() {
     },
   });
 
-  const abrir = (p: PeriodoFerias | 'novo') => {
+  const abrir = (p: PeriodoFerias | 'novo', colaboradorId?: number) => {
     form.resetFields();
-    if (p === 'novo') form.setFieldsValue({ colaborador_id: colaborador, estado: 'PLANEADO' });
+    if (p === 'novo') form.setFieldsValue({ colaborador_id: colaboradorId ?? colaborador, estado: 'PLANEADO' });
     else form.setFieldsValue({ colaborador_id: p.colaborador_id, periodo: [dayjs(p.data_inicio), dayjs(p.data_fim)], estado: p.estado, direito: p.direito, observacoes: p.observacoes ?? undefined });
     setEdicao(p);
   };
 
-  const resumo = (plano.data?.resumo ?? []).filter((r) => contem(r.nome, termo));
-  const periodos = (plano.data?.periodos ?? []).filter((p) => contem(colaboradores.nome(p.colaborador_id), termo));
+  const todosPeriodos = plano.data?.periodos ?? [];
+  const porColab = periodosPorColaborador(todosPeriodos);
+  const emConflito = conflitos(todosPeriodos);
+  const totais = totaisFerias(plano.data?.resumo ?? [], todosPeriodos);
+  const resumo = filtrarPorEstado((plano.data?.resumo ?? []).filter((r) => contem(r.nome, termo)), porColab, estadoFiltro);
+  const visiveis = new Set(resumo.map((r) => r.colaborador_id));
+  const periodos = todosPeriodos.filter((p) => visiveis.has(p.colaborador_id));
+  /** Clicar num chip (ou numa barra do mapa) abre o período, como no antigo; os pedidos do portal decidem-se em «Pedidos do Portal». */
+  const abrirPeriodo = editar
+    ? (p: PeriodoFerias) => (p.estado !== 'PEDIDO' ? abrir(p) : void message.info('Pedido do portal: decida-o em «Pedidos do Portal».'))
+    : undefined;
 
   const colResumo: ColunaApi<ResumoFerias>[] = [
     { title: 'Colaborador', dataIndex: 'nome', render: (v: string) => <strong>{v}</strong>, sorter: (a, b) => a.nome.localeCompare(b.nome, 'pt') },
@@ -77,12 +91,37 @@ export default function Ferias() {
       <Space size={4}>{d}{r.ano_admissao && <Tooltip title="Ano de admissão: 2 dias úteis por mês completo (LGT)"><Tag color="blue">1.º ano</Tag></Tooltip>}
         {(r.transporte ?? 0) > 0 && <Tooltip title="Saldo transportado do ano anterior"><Tag color="gold">+{r.transporte}</Tag></Tooltip>}</Space>
     ), valorImpressao: (r) => `${r.direito}${r.transporte ? ` (incl. ${r.transporte} transportados)` : ''}` },
-    { title: 'Marcados', dataIndex: 'marcados', align: 'right' },
-    { title: 'Aprovados', dataIndex: 'aprovados', align: 'right' },
+    { title: 'Planeados', dataIndex: 'marcados', align: 'right' },
+    { title: 'Aprovados', dataIndex: 'aprovados', align: 'right', ocultaPorOmissao: true },
     { title: 'Gozados', dataIndex: 'gozados', align: 'right' },
-    { title: 'Pedidos (portal)', dataIndex: 'pedidos', align: 'right', responsive: ['md'] },
+    { title: 'Pedidos (portal)', dataIndex: 'pedidos', align: 'right', ocultaPorOmissao: true },
     { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (s: number) => <Tag color={s < 0 ? 'red' : s === 0 ? 'default' : 'green'}>{s}</Tag>, sorter: (a, b) => a.saldo - b.saldo },
-    { title: 'Utilização', width: 160, responsive: ['md'], valorImpressao: (r) => `${r.direito ? Math.round((r.marcados / r.direito) * 100) : 0} %`, render: (_, r) => <Progress size="small" percent={r.direito ? Math.round((r.marcados / r.direito) * 100) : 0} status={r.saldo < 0 ? 'exception' : 'normal'} /> },
+    {
+      title: `Períodos ${ano}`, key: 'periodos',
+      valorFiltro: (r) => (porColab.get(r.colaborador_id) ?? []).map(rotuloChip).join(' '),
+      valorImpressao: (r) => (porColab.get(r.colaborador_id) ?? []).map((p) => `${rotuloChip(p)} (${rotuloEstadoFerias(p.estado)})`).join('; ') || 'Sem períodos',
+      render: (_, r) => {
+        const ps = porColab.get(r.colaborador_id) ?? [];
+        if (!ps.length) return <small style={{ color: '#94a3b8' }}>Sem períodos</small>;
+        return (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {ps.map((p) => {
+              const conflito = emConflito.has(p.id);
+              return (
+                <button key={p.id} type="button" onClick={() => abrirPeriodo?.(p)}
+                  title={`${rotuloEstadoFerias(p.estado)}${conflito ? ' — sobrepõe outro período' : ''}${p.observacoes ? ` — ${p.observacoes}` : ''}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid #cbd5e1', borderLeft: `4px solid ${corEstadoFerias(p.estado)}`, borderRadius: 4,
+                    padding: '1px 7px', fontSize: '0.78rem', background: '#fff', cursor: abrirPeriodo ? 'pointer' : 'default', boxShadow: conflito ? 'inset 0 0 0 1px #f59e0b' : undefined,
+                    textDecoration: contaSaldo(p) ? undefined : 'line-through' }}>
+                  {rotuloChip(p)}{conflito && <span style={{ color: '#f59e0b' }}><IconeFa nome="exclamation-triangle" /></span>}
+                </button>
+              );
+            })}
+          </div>
+        );
+      },
+    },
+    { title: 'Utilização', width: 160, ocultaPorOmissao: true, valorImpressao: (r) => `${r.direito ? Math.round((r.marcados / r.direito) * 100) : 0} %`, render: (_, r) => <Progress size="small" percent={r.direito ? Math.round((r.marcados / r.direito) * 100) : 0} status={r.saldo < 0 ? 'exception' : 'normal'} /> },
   ];
 
   const colPeriodos: ColunaApi<PeriodoFerias>[] = [
@@ -123,7 +162,7 @@ export default function Ferias() {
       <CabecalhoPagina
         titulo="Programa de Férias"
         subtitulo="Dias úteis pelo calendário da empresa (feriados da configuração da Efectividade); os pedidos do portal decidem-se em «Pedidos do Portal»"
-        accoes={editar && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Marcar férias</Button>}
+        accoes={editar && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo período</Button>}
         impressaoDesactivada={!resumo.length && !periodos.length}
         impressao={async () => ({
           titulo: 'Programa de férias',
@@ -132,24 +171,34 @@ export default function Ferias() {
           conteudo: seccaoHtml('Resumo por colaborador', await htmlTabela(colResumo, resumo)) + seccaoHtml(`Períodos (${periodos.length})`, await htmlTabela(colPeriodos, periodos)),
         })}
       />
-      <div className="erp-grelha-auto" style={{ marginBottom: 16 }}>
-        {[
-          ['Colaboradores', resumo.length],
-          ['Dias de direito', resumo.reduce((t, r) => t + r.direito, 0)],
-          ['Dias planeados', resumo.reduce((t, r) => t + r.marcados, 0)],
-          ['Dias gozados', resumo.reduce((t, r) => t + r.gozados, 0)],
-          ['Sem férias planeadas', resumo.filter((r) => r.marcados === 0).length],
-          ['Saldo negativo', resumo.filter((r) => r.saldo < 0).length],
-        ].map(([t, v]) => <Card key={t} size="small"><Statistic title={t} value={v} /></Card>)}
-      </div>
-      <Card>
+      <GrelhaKpi larguraMinima={150}>
+        <CartaoKpi rotulo="Colaboradores" valor={totais.colaboradores} icone="users" cor="azul" />
+        <CartaoKpi rotulo="Dias de direito" valor={totais.direito} icone="calendar-alt" cor="primario" />
+        <CartaoKpi rotulo="Dias planeados" valor={totais.planeados} icone="calendar-check" cor="cinzento" />
+        <CartaoKpi rotulo="Dias gozados" valor={totais.gozados} icone="umbrella-beach" cor="verde" />
+        <CartaoKpi rotulo="Sem férias planeadas" valor={totais.sem} icone="calendar-times" cor="laranja"
+          aoClicar={() => setEstadoFiltro(estadoFiltro === 'SEM' ? '' : 'SEM')} activo={estadoFiltro === 'SEM'} />
+        <CartaoKpi rotulo="Com sobreposições" valor={totais.sobreposicoes} icone="exclamation-triangle" cor={totais.sobreposicoes ? 'laranja' : 'cinzento'} />
+      </GrelhaKpi>
+      <Card style={{ marginTop: 16 }}>
         <BarraFiltros>
           <InputNumber value={ano} min={2000} max={2100} onChange={(v) => v && setAno(v)} prefix="Ano" style={{ width: 150 }} />
           <SeletorColaborador value={colaborador} onChange={setColaborador} />
-          <PesquisaLocal aoMudar={setTermo} placeholder="Nome" />
+          <PesquisaLocal aoMudar={setTermo} placeholder="Pesquisar colaborador" />
+          <Select<string> value={estadoFiltro} onChange={setEstadoFiltro} style={{ width: 240 }} aria-label="Estado"
+            options={[{ value: '', label: 'Estado: todos' }, ...ESTADOS_FERIAS.map((e) => ({ value: e.k, label: `Com períodos: ${e.r.toLowerCase()}` })), { value: 'SEM', label: 'Sem férias planeadas' }]} />
         </BarraFiltros>
         <Tabs items={[
-          { key: 'resumo', label: 'Resumo por colaborador', children: <Table<ResumoFerias> rowKey="colaborador_id" size="small" loading={plano.isFetching} columns={colResumo} dataSource={resumo} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
+          {
+            key: 'resumo', label: 'Resumo por colaborador', children: (
+              <>
+                <TabelaComModos<ResumoFerias> idVista="resumo-ferias" rowKey="colaborador_id" size="small" loading={plano.isFetching} columns={colResumo} dataSource={resumo} scroll={scrollTabela()} modos={false}
+                  vazio={{ icone: 'umbrella-beach', titulo: 'Sem colaboradores', texto: 'Nenhum colaborador corresponde aos filtros.' }}
+                  accoes={(r) => [editar && { icone: 'plus', titulo: `Adicionar período a ${r.nome}`, texto: 'Período', onClick: () => abrir('novo', r.colaborador_id) }]} />
+                {resumo.length > 0 && <MapaAnualFerias ano={ano} resumo={resumo} porColab={porColab} aoAbrir={abrirPeriodo} />}
+              </>
+            ),
+          },
           { key: 'periodos', label: `Períodos (${periodos.length})`, children: <TabelaComModos<PeriodoFerias> idVista="periodos" rowKey="id" size="small" loading={plano.isFetching} columns={colPeriodos} dataSource={periodos} pagination={{ pageSize: 50 }} scroll={scrollTabela()} /> },
           { key: 'regras', label: 'Regras (LGT)', children: <RegrasFerias editar={editar} /> },
         ]} />

@@ -50,8 +50,8 @@ final class PainelRH implements Painel
             'aviso' => $ult ? "Último processamento fechado até {$p->nomeMes()} {$p->ano}: {$ult['periodo']}" : 'Nenhum processamento fechado até ao período seleccionado.',
             'kpis' => [
                 Indicadores::kpi('iliquido', 'Total Ilíquido', $v('bruto')),
-                Indicadores::kpi('inss_trabalhador', 'INSS Trabalhador', $v('inss_t')),
-                Indicadores::kpi('inss_empresa', 'INSS Empresa', $v('inss_e')),
+                Indicadores::kpi('inss_trabalhador', 'INSS Trabalhador (3%)', $v('inss_t')),
+                Indicadores::kpi('inss_empresa', 'INSS Empresa (8%)', $v('inss_e')),
                 Indicadores::kpi('irt', 'IRT Retido', $v('irt')),
                 Indicadores::kpi('liquido', 'Líquido a Pagar', $v('liquido')),
                 Indicadores::kpi('custo_total', 'Custo Total Empresa', $ult ? $custo($ult) : '0.00', 'kz', 'Ilíquido + INSS empresa'),
@@ -67,8 +67,8 @@ final class PainelRH implements Painel
                     [Indicadores::serie('colaboradores', 'Colaboradores', array_map(fn ($r) => (int) $r->n, $porUN))], false),
             ],
             'tabelas' => [
-                Indicadores::tabela('impostos_periodo', 'Impostos e Contribuições por Período', [['periodo', 'Período'], ['iliquido', 'Ilíquido', 'kz'], ['inss_trabalhador', 'INSS trabalhador', 'kz'],
-                    ['inss_empresa', 'INSS empresa', 'kz'], ['irt', 'IRT', 'kz'], ['liquido', 'Líquido', 'kz']],
+                Indicadores::tabela('impostos_periodo', 'Impostos e Contribuições por Período', [['periodo', 'Período'], ['iliquido', 'Ilíquido', 'kz'], ['inss_trabalhador', 'INSS 3%', 'kz'],
+                    ['inss_empresa', 'INSS 8%', 'kz'], ['irt', 'IRT', 'kz'], ['liquido', 'Líquido', 'kz']],
                     array_map(fn ($s) => ['periodo' => $s['periodo'], 'iliquido' => $s['bruto'], 'inss_trabalhador' => $s['inss_t'], 'inss_empresa' => $s['inss_e'], 'irt' => $s['irt'],
                         'liquido' => $s['liquido']], array_reverse($serie))),
             ],

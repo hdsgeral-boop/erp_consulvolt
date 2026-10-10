@@ -14,6 +14,8 @@ import { dataApi, formatarData, formatarNumero } from '@/utilitarios/formatacao'
 import { useAccao } from '@/componentes/Accoes';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 import { eFolhaExcel, lerTabelaColada } from './comum/regras';
+import { descarregarModeloCambios } from './comum/modeloCambios';
+import { IconeFa } from '@/componentes/fluxos';
 
 interface Moeda {
   id: number;
@@ -63,7 +65,7 @@ interface PrevisaoBai {
 }
 
 const CHAVE = ['sistema', 'moedas'];
-const taxa = (v: number | null | undefined) => (v === null || v === undefined ? '—' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 4, maximumFractionDigits: 6 }).format(v));
+const taxa = (v: number | null | undefined) => (v === null || v === undefined ? '—' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 4, maximumFractionDigits: 6, useGrouping: 'always' as unknown as boolean }).format(v));
 
 function useMoedas() {
   return useQuery({ queryKey: [...CHAVE, 'lista'], queryFn: () => obter<Moeda[]>('/sistema/moedas') });
@@ -106,7 +108,7 @@ export default function Moedas() {
         activeKey={separador}
         onChange={setSeparador}
         items={[
-          { key: 'cambios', label: 'Câmbios', children: <Cambios gerir={gerir} /> },
+          { key: 'cambios', label: 'Câmbios', children: <Cambios gerir={gerir} irPara={setSeparador} /> },
           {
             key: 'moedas',
             label: 'Moedas',
@@ -280,7 +282,7 @@ function ToleranciaCambio({ gerir }: { gerir: boolean }) {
   );
 }
 
-function Cambios({ gerir }: { gerir: boolean }) {
+function Cambios({ gerir, irPara }: { gerir: boolean; irPara?: (separador: string) => void }) {
   const moedas = useMoedas();
   const [filtros, setFiltros] = useState<{ codigo_moeda?: string; ambito?: string; de?: string; ate?: string }>({});
   const [edicao, setEdicao] = useState<Cambio | 'novo' | null>(null);
@@ -295,7 +297,22 @@ function Cambios({ gerir }: { gerir: boolean }) {
   }, [edicao, form]);
   return (
     <Card>
-      <BarraFiltros style={{ marginBottom: 12 }} accoes={gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo câmbio</Button>}>
+      <BarraFiltros
+        style={{ marginBottom: 12 }}
+        accoes={
+          <>
+            {/* barra do antigo (js/moedas.js:274-281): Modelo · Obter do BAI · Importar Excel; «Exportar» = Excel da tabela */}
+            <Button icon={<IconeFa nome="download" />} onClick={descarregarModeloCambios} title="Descarregar o modelo Excel dos câmbios">Modelo</Button>
+            {gerir && irPara && (
+              <Button icon={<IconeFa nome="university" />} style={{ color: '#0369a1', borderColor: '#0369a1' }} onClick={() => irPara('bai')} title="Ler os câmbios de hoje do site do BAI (média de divisas)">
+                Obter do BAI
+              </Button>
+            )}
+            {gerir && irPara && <Button icon={<IconeFa nome="file-import" />} onClick={() => irPara('importar')}>Importar Excel</Button>}
+            {gerir && <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdicao('novo')}>Novo câmbio</Button>}
+          </>
+        }
+      >
           <Select allowClear placeholder="Moeda" style={{ width: 140 }} value={filtros.codigo_moeda} onChange={(v?: string) => setFiltros({ ...filtros, codigo_moeda: v })} options={estrangeiras.map((m) => ({ value: m.codigo, label: m.codigo }))} />
           <Select allowClear placeholder="Âmbito" style={{ width: 170 }} value={filtros.ambito} onChange={(v?: string) => setFiltros({ ...filtros, ambito: v })} options={[{ value: 'TODAS', label: 'Todas as empresas' }, { value: 'EMPRESA', label: 'Só esta empresa' }]} />
           <DatePicker.RangePicker format="DD/MM/YYYY" allowEmpty={[true, true]} onChange={(v) => setFiltros({ ...filtros, de: dataApi(v?.[0]), ate: dataApi(v?.[1]) })} />
@@ -421,6 +438,7 @@ function Importar() {
           >
             <Button icon={<UploadOutlined />}>Carregar ficheiro (.xlsx ou CSV)</Button>
           </Upload>
+          <Button icon={<IconeFa nome="download" />} onClick={descarregarModeloCambios}>Modelo</Button>
           {ficheiro && (
             <Tag closable onClose={() => { setFicheiro(null); setSimulacao(null); }} color="blue">
               {ficheiro.name}

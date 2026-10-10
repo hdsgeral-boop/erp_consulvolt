@@ -20,8 +20,9 @@ final class FluxoAvaliacao extends AvaliadorFluxo
 {
     private const PERIODOS = ['ANUAL' => 'Anual', 'S1' => '1.º semestre', 'S2' => '2.º semestre', 'T1' => '1.º trimestre', 'T2' => '2.º trimestre', 'T3' => '3.º trimestre', 'T4' => '4.º trimestre'];
 
-    private const FASES = ['POR_AVALIAR' => 'Por avaliar', 'EM_AVALIACAO' => 'Em avaliação', 'AGUARDA_CONHECIMENTO' => 'Aguarda conhecimento', 'PRAZO_CONTESTACAO' => 'Em prazo de contestação',
-        'CONTESTADA' => 'Contestada', 'FINAL' => 'Final'];
+    /** Textos das fases como no legado (aval360_dados.js:58). */
+    private const FASES = ['POR_AVALIAR' => 'Por avaliar pela chefia', 'EM_AVALIACAO' => 'Avaliação da chefia em curso', 'AGUARDA_CONHECIMENTO' => 'Aguarda tomada de conhecimento',
+        'PRAZO_CONTESTACAO' => 'Em prazo de contestação', 'CONTESTADA' => 'Contestada — aguarda decisão', 'FINAL' => 'Final'];
 
     public function temActividade(): bool
     {
@@ -72,7 +73,7 @@ final class FluxoAvaliacao extends AvaliadorFluxo
             $auto = $autos->first(fn ($x) => (int) $x->colaborador_id === $colab && (int) $x->ano === $ano && ($x->periodo ?: 'ANUAL') === $periodo);
             $processos[] = $this->processo($emps[$colab], $ano, $periodo, $c, $p, $a, $auto, $itens, $c ? ($respostas["{$c->id}|{$colab}"] ?? collect()) : collect(), $c ? ($bonus["{$c->id}|{$colab}"] ?? null) : null);
         }
-        usort($processos, fn ($x, $y) => $y['ano'] <=> $x['ano'] ?: $x['_concluidas'] <=> $y['_concluidas'] ?: strcmp($x['titulo'], $y['titulo']));
+        usort($processos, fn ($x, $y) => $y['ano'] <=> $x['ano'] ?: $x['_concluidas'] <=> $y['_concluidas'] ?: strcmp(mb_strtolower($x['titulo']), mb_strtolower($y['titulo'])));
         $doAno = array_filter($processos, fn ($x) => $x['ano'] === $anoAct);
 
         return ['processos' => $processos, 'kpis' => [
@@ -168,7 +169,7 @@ final class FluxoAvaliacao extends AvaliadorFluxo
         }
 
         return ['chave' => "avaliacao-{$emp->id}-{$ano}-{$periodo}", 'titulo' => (string) $emp->nome_completo, 'subtitulo' => (self::PERIODOS[$periodo] ?? $periodo)." {$ano}", 'data' => (string) $ano,
-            'valor' => null, 'valor_pendente' => null, 'etapas' => $E, 'ano' => $ano, 'fase' => $fase, 'fase_nome' => self::FASES[$fase] ?? $fase, 'colaborador_id' => $emp->id,
+            'valor' => null, 'valor_pendente' => null, 'etapas' => $E, 'ano' => $ano, 'fase' => $fase, 'fase_nome' => self::FASES[$fase] ?? $fase, 'linha_data' => self::FASES[$fase] ?? ($concluida ? 'Concluída' : 'Por avaliar'), 'colaborador_id' => $emp->id,
             'documentos' => $a ? [['tipo' => 'avaliacao_desempenho', 'id' => $a->id, 'numero' => "{$ano} {$periodo}"]] : []] + self::contagem($E);
     }
 }

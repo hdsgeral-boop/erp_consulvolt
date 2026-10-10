@@ -1,116 +1,34 @@
-import { Alert, Button, Card, Col, Form, Input, InputNumber, Radio, Row, Skeleton, Space, Switch, Typography, message } from 'antd';
-import { PrinterOutlined, SaveOutlined } from '@ant-design/icons';
+import { Button, Form, Input, Select, message } from 'antd';
+import type { ReactNode } from 'react';
 import { useEffect } from 'react';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useAccao } from '@/componentes/Accoes';
-import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { useDefinicoesPOS } from './comum/dados';
 import { gravarPreferencias, htmlTalaoVenda, imprimirHtml, lerPreferencias, useCabecalhoTalao, type PreferenciasImpressao } from './comum/impressao';
-import type { DefinicoesPOS } from './comum/tipos';
+import './comum/pos.css';
+
+/** Rótulo com ícone colorido, como no legado (renderPOSConfigPrintTab, ui_sales.js:9831-9905). */
+function Rotulo({ icone, children }: { icone: string; children: ReactNode }) {
+  return (
+    <span style={{ fontWeight: 700, color: '#334155', fontSize: '0.85rem' }}>
+      <IconeFa nome={icone} style={{ color: 'var(--erp-primaria, #2563eb)', marginRight: 4 }} />
+      {children}
+    </span>
+  );
+}
+
+const ajuda = (texto: string) => <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{texto}</span>;
 
 /**
- * POS › Configuração (ecrã pos_config_print): definições de caixa do servidor (contas dos desvios, tolerância, diário —
- * GET/PUT /pos/definicoes) e preferências de impressão deste posto de trabalho (guardadas no navegador, como no legado).
+ * POS › Config. Impressão (ecrã pos_config_print) como no sistema anterior: só a impressão deste posto de trabalho
+ * (formato, comportamento da consulta de mesa, auto-impressão no fim do checkout e mensagem de rodapé), guardada no
+ * navegador por empresa — cada caixa tem a sua impressora. As «Definições de caixa» abrem-se nos Terminais POS.
  */
 export default function ConfigImpressao() {
-  return (
-    <>
-      <CabecalhoPagina titulo="Configuração do POS" subtitulo="Definições de caixa e impressão de talões" />
-      <Row gutter={[16, 16]}>
-        <Col xs={24} xl={12}>
-          <DefinicoesCaixa />
-        </Col>
-        <Col xs={24} xl={12}>
-          <PreferenciasPosto />
-        </Col>
-      </Row>
-    </>
-  );
-}
-
-interface FormDefinicoes {
-  conta_sobra?: string | null;
-  conta_quebra?: string | null;
-  conta_operador?: string | null;
-  tolerancia_desvio?: number | null;
-  codigo_diario?: string;
-}
-
-function DefinicoesCaixa() {
-  const { pode } = useSessao();
-  const definicoes = useDefinicoesPOS();
-  const [form] = Form.useForm<FormDefinicoes>();
-  const gerir = pode('pos_terminais_gerir');
-  const gravar = useAccao<DefinicoesPOS>({ invalidar: [['pos', 'definicoes']], tituloErro: 'Não foi possível gravar as definições' });
-  useEffect(() => {
-    if (definicoes.data) form.setFieldsValue({ ...definicoes.data, tolerancia_desvio: Number(definicoes.data.tolerancia_desvio) });
-  }, [definicoes.data, form]);
-
-  return (
-    <Card title="Definições de caixa" style={{ marginBottom: 16 }}>
-      {definicoes.isError ? (
-        <Alert type="warning" showIcon message="Não tem acesso às definições de caixa do POS." />
-      ) : !definicoes.data ? (
-        <Skeleton active />
-      ) : (
-        <Form
-          form={form}
-          layout="vertical"
-          disabled={!gerir}
-          onFinish={(v) =>
-            gravar.mutate({
-              metodo: 'put',
-              url: '/pos/definicoes',
-              dados: {
-                conta_sobra: v.conta_sobra?.trim() || null,
-                conta_quebra: v.conta_quebra?.trim() || null,
-                conta_operador: v.conta_operador?.trim() || null,
-                tolerancia_desvio: v.tolerancia_desvio ?? 0,
-                codigo_diario: v.codigo_diario?.trim().toUpperCase() || undefined,
-              },
-            })
-          }
-        >
-          <Form.Item name="conta_sobra" label="Conta de sobras de caixa (proveito, classe 6)">
-            <SeletorConta prefixo="6" />
-          </Form.Item>
-          <Form.Item name="conta_quebra" label="Conta de quebras de caixa (custo, classe 7)">
-            <SeletorConta prefixo="7" />
-          </Form.Item>
-          <Form.Item name="conta_operador" label="Conta de responsabilidade do operador (classe 3)">
-            <SeletorConta prefixo="3" />
-          </Form.Item>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12}>
-              <Form.Item name="tolerancia_desvio" label="Tolerância de desvio" extra="Desvios até este valor ficam deliberados automaticamente.">
-                <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} suffix="Kz" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="codigo_diario" label="Diário da integração">
-                <Input maxLength={10} style={{ textTransform: 'uppercase' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          {gerir ? (
-            <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={gravar.isPending}>
-              Gravar definições
-            </Button>
-          ) : (
-            <Typography.Text type="secondary">Só consulta: alterar exige a permissão de configurar terminais.</Typography.Text>
-          )}
-        </Form>
-      )}
-    </Card>
-  );
-}
-
-function PreferenciasPosto() {
   const { pode, empresa } = useSessao();
   const [form] = Form.useForm<PreferenciasImpressao>();
   const cabecalho = useCabecalhoTalao();
   const podeGravar = pode('pos_print_config');
+  const formato = Form.useWatch('formato', form);
   useEffect(() => {
     form.setFieldsValue(lerPreferencias(empresa?.id));
   }, [empresa?.id, form]);
@@ -139,54 +57,93 @@ function PreferenciasPosto() {
   };
 
   return (
-    <Card title="Impressão neste posto de trabalho">
-      <Typography.Paragraph type="secondary">
-        As preferências ficam guardadas neste navegador (cada caixa tem a sua impressora), por empresa.
-      </Typography.Paragraph>
+    // cartão do legado (renderPOSConfigPrintTab, ui_sales.js:9835-9899): cabeçalho com ícone, grelha de 2 colunas e botão à direita
+    <div className="pos-config-impressao" style={{ borderRadius: 20, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', background: '#fff', padding: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(30, 41, 59, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1e293b', fontSize: '1.25rem', flexShrink: 0 }}>
+          <IconeFa nome="print" />
+        </div>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#1e293b' }}>Configurações de Impressão do POS</h3>
+          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>Configure o formato, comportamento de impressão e mensagens do rodapé do talão térmico.</p>
+        </div>
+      </div>
       <Form
         form={form}
         layout="vertical"
         disabled={!podeGravar}
+        className="pos-config-form"
         onFinish={(v) => {
           gravarPreferencias(empresa?.id, { ...lerPreferencias(empresa?.id), ...v });
-          void message.success('Preferências de impressão gravadas neste posto.');
+          void message.success('Configurações de impressão do POS guardadas com sucesso!');
         }}
       >
-        <Form.Item name="formato" label="Formato">
-          <Radio.Group>
-            <Radio.Button value="TERMICO">Talão térmico</Radio.Button>
-            <Radio.Button value="A4">Documento A4</Radio.Button>
-          </Radio.Group>
-        </Form.Item>
-        <Form.Item name="largura" label="Largura do rolo térmico">
-          <Radio.Group>
-            <Radio value={80}>80 mm</Radio>
-            <Radio value={58}>58 mm</Radio>
-          </Radio.Group>
-        </Form.Item>
-        <Form.Item name="automatico" label="Imprimir automaticamente depois de cada venda" valuePropName="checked">
-          <Switch />
-        </Form.Item>
-        <Form.Item name="consulta" label="Ao reimprimir">
-          <Radio.Group>
-            <Radio value="PREVISUALIZAR">Mostrar a pré-visualização</Radio>
-            <Radio value="DIRECTO">Imprimir directamente</Radio>
-          </Radio.Group>
-        </Form.Item>
-        <Form.Item name="rodape" label="Mensagem de rodapé">
-          <Input maxLength={200} />
-        </Form.Item>
-        <Space wrap>
-          {podeGravar && (
-            <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
-              Gravar preferências
-            </Button>
+        <div className="pos-config-grelha" style={{ display: 'grid', gap: '1.5rem', marginBottom: '2rem' }}>
+          <Form.Item name="formato" label={<Rotulo icone="file-invoice">Formato Padrão do Recibo / Factura:</Rotulo>} extra={ajuda('Determina se o checkout final gera o talão de bobina térmica ou a factura normal A4.')}>
+            <Select
+              aria-label="Formato Padrão do Recibo / Factura"
+              options={[
+                { value: 'TERMICO', label: 'Talão térmico (78mm/80mm)' },
+                { value: 'A4', label: 'Documento A4 Tradicional' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            name="consulta"
+            label={<Rotulo icone="eye">Comportamento da Consulta de Mesa:</Rotulo>}
+            extra={ajuda("Selecione 'Mostrar Pré-visualização' para validar a conta no ecrã antes de accionar a impressora.")}
+          >
+            <Select
+              aria-label="Comportamento da Consulta de Mesa"
+              options={[
+                { value: 'PREVISUALIZAR', label: 'Mostrar Pré-visualização no Ecrã (Recomendado)' },
+                { value: 'DIRECTO', label: 'Imprimir Directamente (Ignorar Pré-visualização)' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="automatico" label={<Rotulo icone="magic">Auto-Impressão no Fim do Checkout:</Rotulo>} extra={ajuda('Define se a impressora térmica é accionada de forma imediata assim que a venda é registada.')}>
+            <Select
+              aria-label="Auto-Impressão no Fim do Checkout"
+              options={[
+                { value: true, label: 'Sim, abrir diálogo de impressão automaticamente' },
+                { value: false, label: 'Não, apenas concluir no ecrã (impressão manual)' },
+              ]}
+            />
+          </Form.Item>
+          {/* acréscimo: largura do rolo (ocupa a célula vazia da grelha do legado) */}
+          {formato !== 'A4' ? (
+            <Form.Item name="largura" label={<Rotulo icone="print">Largura do rolo térmico:</Rotulo>} extra={ajuda('Largura do papel da impressora térmica deste posto.')}>
+              <Select
+                aria-label="Largura do rolo térmico"
+                options={[
+                  { value: 80, label: '80 mm' },
+                  { value: 58, label: '58 mm' },
+                ]}
+              />
+            </Form.Item>
+          ) : (
+            <div />
           )}
-          <Button icon={<PrinterOutlined />} disabled={false} onClick={amostra}>
+          <Form.Item
+            name="rodape"
+            className="pos-config-largo"
+            label={<Rotulo icone="comment-dots">Mensagem de Agradecimento (Rodapé do Talão):</Rotulo>}
+            extra={ajuda('Esta mensagem será impressa no fim de todos os talões térmicos (Facturas e Consultas).')}
+          >
+            <Input.TextArea rows={3} maxLength={200} placeholder="Ex: Obrigado pela sua visita! Siga-nos no Instagram @restaurante" aria-label="Mensagem de Agradecimento (Rodapé do Talão)" />
+          </Form.Item>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem' }}>
+          <Button icon={<IconeFa nome="print" />} disabled={false} onClick={amostra}>
             Imprimir talão de teste
           </Button>
-        </Space>
+          {podeGravar && (
+            <Button type="primary" htmlType="submit" icon={<IconeFa nome="save" />} style={{ fontWeight: 700, borderRadius: 10, padding: '0 1.8rem', height: 40, boxShadow: '0 4px 10px rgba(59,130,246,0.35)' }}>
+              Guardar Configurações
+            </Button>
+          )}
+        </div>
       </Form>
-    </Card>
+    </div>
   );
 }

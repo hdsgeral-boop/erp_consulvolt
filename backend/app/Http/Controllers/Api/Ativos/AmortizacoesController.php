@@ -35,6 +35,14 @@ final class AmortizacoesController extends Controller
         return RespostaApi::sucesso($this->amortizacoes->pendentes(), 'Meses por calcular e por integrar.');
     }
 
+    /** Períodos com quotas registadas (para a «Reabertura em Massa»). Só leitura. */
+    public function periodosRegistados(): JsonResponse
+    {
+        $this->exigir('activos_amortizacoes_view');
+
+        return RespostaApi::sucesso($this->amortizacoes->periodosRegistados(), 'Períodos com amortizações registadas.');
+    }
+
     public function previsualizar(Request $r): JsonResponse
     {
         $this->exigir('activos_amortizacoes_view');

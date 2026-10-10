@@ -143,6 +143,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('documentos', [DocumentoVendaController::class, 'index'])->name('documentos.index');
             Route::post('documentos', [DocumentoVendaController::class, 'store'])->name('documentos.store');
             Route::get('documentos/{venda}', [DocumentoVendaController::class, 'show'])->whereNumber('venda')->name('documentos.show');
+            Route::get('documentos/{venda}/fluxo', [DocumentoVendaController::class, 'fluxo'])->whereNumber('venda')->name('documentos.fluxo');
             Route::post('documentos/{venda}/converter', [DocumentoVendaController::class, 'converter'])->whereNumber('venda')->name('documentos.converter');
             Route::post('documentos/{venda}/anular', [DocumentoVendaController::class, 'anular'])->whereNumber('venda')->name('documentos.anular');
             Route::post('documentos/{venda}/contabilizar', [DocumentoVendaController::class, 'contabilizar'])->whereNumber('venda')->name('documentos.contabilizar');
@@ -467,6 +468,11 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/ronda2_g2.php';
         // Simulações e pré-visualizações (nada gravado): lançamento antes de contabilizar
         require __DIR__.'/api/simulacoes.php';
+        require __DIR__.'/api/paridade_teso_contab.php'; // paridade visual: Tesouraria, Contabilidade e A&D
+        require __DIR__.'/api/paridade_geral_activos.php'; // paridade com o antigo: Geral, CRM, Estrutura, Orçamento, Projectos, Activos, Config.
+        require __DIR__.'/api/paridade_rh.php';   // paridade de RH e Salários com o sistema anterior (secção 6)
+        require __DIR__.'/api/paridade_pos_stock.php';   // paridade do POS e da Logística com o sistema anterior (secções 2 e 3)
+        require __DIR__.'/api/paridade_vendas_compras.php';   // paridade de Vendas e Compras com o sistema anterior (secções 4 e 5)
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');
@@ -547,6 +553,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::delete('bancos/{banco}', 'eliminarBanco')->whereNumber('banco')->name('bancos.destroy');
                 Route::get('mapeamentos-contabeis', 'mapeamentos')->name('mapeamentos.index');
                 Route::put('mapeamentos-contabeis', 'gravarMapeamentos')->name('mapeamentos.gravar');
+                Route::post('mapeamentos-contabeis/copiar', 'copiarMapeamentos')->name('mapeamentos.copiar');
             });
         });
 

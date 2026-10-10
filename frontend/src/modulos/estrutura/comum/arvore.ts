@@ -1,15 +1,20 @@
 /** Estrutura orgânica (GET /rh/estrutura): tipos da API e transformações puras (árvore, totais, mapa de pessoal). */
 
-export const TIPOS_UNIDADE: Record<string, string> = {
-  ORGAO_SOCIAL: 'Órgão social',
-  DIRECCAO_GERAL: 'Direcção-geral',
-  DIRECCAO: 'Direcção',
-  DEPARTAMENTO: 'Departamento',
-  GABINETE: 'Gabinete',
-  SECCAO: 'Secção',
-  EQUIPA: 'Equipa',
-  OUTRO: 'Outro',
+/** Tipos de unidade com o nome, o ícone (Font Awesome 5 do antigo) e a cor do sistema anterior (estrutura_dados.js TIPOS). */
+export const TIPOS_INFO: Record<string, { nome: string; icone: string; cor: string }> = {
+  ORGAO_SOCIAL: { nome: 'Órgão social', icone: 'landmark', cor: '#0f172a' },
+  DIRECCAO_GERAL: { nome: 'Direcção-Geral / Administração', icone: 'crown', cor: '#1e3a8a' },
+  DIRECCAO: { nome: 'Direcção', icone: 'sitemap', cor: '#1d4ed8' },
+  DEPARTAMENTO: { nome: 'Departamento', icone: 'building', cor: '#0891b2' },
+  GABINETE: { nome: 'Gabinete / Assessoria (apoio)', icone: 'user-tie', cor: '#7c3aed' },
+  SECCAO: { nome: 'Secção / Serviço', icone: 'layer-group', cor: '#0d9488' },
+  EQUIPA: { nome: 'Equipa / Núcleo', icone: 'users', cor: '#65a30d' },
+  OUTRO: { nome: 'Outra unidade', icone: 'cube', cor: '#64748b' },
 };
+
+export const tipoInfo = (tipo: string | null | undefined) => TIPOS_INFO[tipo ?? ''] ?? TIPOS_INFO.OUTRO;
+
+export const TIPOS_UNIDADE: Record<string, string> = Object.fromEntries(Object.entries(TIPOS_INFO).map(([k, t]) => [k, t.nome]));
 
 export interface Posto {
   id: number;
@@ -40,6 +45,8 @@ export interface Unidade {
   ativo: boolean;
   apoio: boolean | number | null;
   cor: string | null;
+  /** organigrama vertical: 'COLUNA' = subunidades umas por baixo das outras; nulo = lado a lado */
+  disposicao?: string | null;
   membros: number;
   postos: Posto[];
 }
@@ -57,6 +64,8 @@ export interface NoUnidade {
   membrosTotal: number;
   vagasTotal: number;
   ocupadosTotal: number;
+  /** vagas em aberto (soma por posto de max(0, vagas − ocupados)) da unidade e das descendentes */
+  livresTotal: number;
 }
 
 /**
@@ -91,6 +100,7 @@ export function construirArvore(unidades: Unidade[], apenasActivas = false): NoU
       const filhos = montar(u.id, nivel + 1);
       const vagas = u.postos.reduce((s, p) => s + (p.vagas ?? 0), 0);
       const ocupados = u.postos.reduce((s, p) => s + p.ocupados, 0);
+      const livres = u.postos.reduce((s, p) => s + Math.max(0, (p.vagas ?? 0) - p.ocupados), 0);
       return {
         unidade: u,
         filhos,
@@ -98,6 +108,7 @@ export function construirArvore(unidades: Unidade[], apenasActivas = false): NoU
         membrosTotal: u.membros + filhos.reduce((s, f) => s + f.membrosTotal, 0),
         vagasTotal: vagas + filhos.reduce((s, f) => s + f.vagasTotal, 0),
         ocupadosTotal: ocupados + filhos.reduce((s, f) => s + f.ocupadosTotal, 0),
+        livresTotal: livres + filhos.reduce((s, f) => s + f.livresTotal, 0),
       };
     });
   return montar(null, 0);

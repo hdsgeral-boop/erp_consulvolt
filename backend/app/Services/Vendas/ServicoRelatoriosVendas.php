@@ -36,7 +36,7 @@ final class ServicoRelatoriosVendas
              COALESCE(SUM({$sinal} * COALESCE(v.total_imposto, 0)), 0) AS imposto,
              COALESCE(SUM({$sinal} * COALESCE(v.total_bruto, 0)), 0) AS bruto,
              COALESCE(SUM(CASE WHEN v.tipo_documento = 'NC' THEN COALESCE(v.total_bruto, 0) ELSE 0 END), 0) AS notas_credito,
-             COALESCE(SUM(CASE WHEN v.tipo_documento = 'FT' THEN COALESCE(v.valor_pendente, 0) ELSE 0 END), 0) AS a_receber"
+             COALESCE(SUM(CASE WHEN ".ServicoParidadeVendas::SQL_POR_RECEBER.' THEN '.ServicoParidadeVendas::SQL_SALDO.' ELSE 0 END), 0) AS a_receber'
         )->first();
 
         $porMes = $this->base($inicio, $fim)
@@ -56,9 +56,12 @@ final class ServicoRelatoriosVendas
                 'nif' => $c->nif, 'bruto' => $this->dec($c->bruto), 'documentos' => (int) $c->documentos])
             ->values()->all();
 
-        $pendentes = $this->base($inicio, $fim)->where('v.tipo_documento', 'FT')->where('v.valor_pendente', '>', 0)
+        // saldo das facturas por receber, com a mesma regra do cabeçalho (estado + pendente gravado; sem pendente gravado,
+        // bruto − pago) — paridade 4.0.2/4.3.3
+        $pendentes = $this->base($inicio, $fim)->whereRaw(ServicoParidadeVendas::SQL_POR_RECEBER)
             ->leftJoin('terceiros as t', 't.id', '=', 'v.cliente_id')
-            ->select(['v.id', 'v.numero_documento', 'v.data_emissao', 'v.data_vencimento', 'v.cliente_id', 't.nome as cliente_nome', 'v.total_bruto', 'v.valor_pendente'])
+            ->select(['v.id', 'v.numero_documento', 'v.data_emissao', 'v.data_vencimento', 'v.cliente_id', 't.nome as cliente_nome', 'v.total_bruto'])
+            ->selectRaw(ServicoParidadeVendas::SQL_SALDO.' AS valor_pendente')
             ->orderByDesc('v.data_emissao')->orderByDesc('v.id')->limit($nPendentes)->get()
             ->map(fn ($p) => ['id' => (int) $p->id, 'numero_documento' => $p->numero_documento, 'data_emissao' => substr((string) $p->data_emissao, 0, 10),
                 'data_vencimento' => $p->data_vencimento, 'cliente' => $p->cliente_id !== null ? ['id' => (int) $p->cliente_id, 'nome' => $p->cliente_nome] : null,

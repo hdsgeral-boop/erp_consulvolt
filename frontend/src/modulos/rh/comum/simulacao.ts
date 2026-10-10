@@ -7,6 +7,7 @@ import { esc, tabelaHtml, type ColunaImpressao, type PedidoImpressao } from '@/c
 import { somar } from '@/utilitarios/decimal';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import type { ResultadoSalarial, RubricaResultado } from '../api';
+import { ordenarRotulos, PRIORIDADE_FOLHA, rotuloRubrica } from '../folha/rotulosRubricas';
 
 /** INSS do trabalhador + IRT + outros descontos (o que se tira ao ilíquido para dar o líquido). */
 export function totalDescontos(r: Pick<ResultadoSalarial, 'inss_trabalhador' | 'irt' | 'descontos'>): string {
@@ -83,29 +84,22 @@ export function pedidoSimulacaoColaborador(r: ResultadoSalarial, o: { nome: stri
   };
 }
 
-/** Rubricas mais comuns primeiro (como no legado), depois por ordem alfabética. */
-const PRIORIDADE = ['salário base', 'sal. base', 'subsídio de alimentação', 's. alim', 'subsídio de transporte', 's. transp', 'subsídio de férias', 's. férias', 'horas extraordinárias', 'h. extras'];
-
-function ordenar(nomes: Set<string>): string[] {
-  const p = (n: string) => {
-    const i = PRIORIDADE.indexOf(n.toLowerCase());
-    return i === -1 ? 99 : i;
-  };
-  return [...nomes].sort((a, b) => p(a) - p(b) || a.localeCompare(b, 'pt', { numeric: true }));
-}
-
-/** Colunas de rubricas presentes nos resultados (vencimentos e descontos; faltas primeiro nos descontos). */
+/**
+ * Colunas de rubricas presentes nos resultados, pelo rótulo abreviado do legado (`rotuloRubrica`: «Sal. Base», «S. Alim»…;
+ * rubricas com o mesmo rótulo ficam na mesma coluna), as mais comuns primeiro; faltas primeiro nos descontos.
+ */
 export function colunasRubricasFolha(dados: ResultadoSalarial[]): { vencimentos: string[]; descontos: string[] } {
   const v = new Set<string>();
   const d = new Set<string>();
-  dados.forEach((r) => rubricasVisiveis(r).forEach((x) => (x.tipo === 'DESCONTO' ? d : v).add(x.nome)));
-  const desc = ordenar(d);
-  const faltas = new Set(dados.flatMap((r) => (r.rubricas ?? []).filter((x) => x.falta).map((x) => x.nome)));
-  return { vencimentos: ordenar(v), descontos: [...desc.filter((n) => faltas.has(n)), ...desc.filter((n) => !faltas.has(n))] };
+  dados.forEach((r) => rubricasVisiveis(r).forEach((x) => (x.tipo === 'DESCONTO' ? d : v).add(rotuloRubrica(x.nome))));
+  const desc = ordenarRotulos(d, PRIORIDADE_FOLHA);
+  const faltas = new Set(dados.flatMap((r) => (r.rubricas ?? []).filter((x) => x.falta).map((x) => rotuloRubrica(x.nome))));
+  return { vencimentos: ordenarRotulos(v, PRIORIDADE_FOLHA), descontos: [...desc.filter((n) => faltas.has(n)), ...desc.filter((n) => !faltas.has(n))] };
 }
 
-const somaRubrica = (r: ResultadoSalarial, nome: string, desconto: boolean) =>
-  somar((r.rubricas ?? []).filter((x) => x.nome === nome && !x.informativa && (desconto ? x.tipo === 'DESCONTO' : x.tipo === 'VENCIMENTO')).map((x) => x.valor));
+/** Soma das rubricas com este rótulo (vencimentos ou descontos), como `somaRubrica` do antigo. */
+export const somaRubrica = (r: ResultadoSalarial, rotulo: string, desconto: boolean): string =>
+  somar((r.rubricas ?? []).filter((x) => !x.informativa && rotuloRubrica(x.nome) === rotulo && (desconto ? x.tipo === 'DESCONTO' : x.tipo === 'VENCIMENTO')).map((x) => x.valor));
 
 /**
  * Mapa detalhado da folha (todas as rubricas em colunas): N.º, nome, NIF, dias, vencimentos, ilíquido, descontos, INSS,

@@ -1,5 +1,5 @@
 import {
-  Alert, Button, Card, Checkbox, Col, Descriptions, Dropdown, Empty, Form, Input, InputNumber, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Switch, Table, Tabs,
+  Alert, Button, Card, Checkbox, Col, Descriptions, Dropdown, Empty, Form, Input, InputNumber, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Switch, Tabs,
   Tag, Typography, message, theme,
 } from 'antd';
 import {
@@ -9,7 +9,10 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { descarregar, enviar, obter } from '@/api/cliente';
+import { IconeFa } from '@/componentes/fluxos';
+import { TabelaComModos } from '@/componentes/vistas';
+import { notificarErro } from '@/utilitarios/erros';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
@@ -17,13 +20,14 @@ import { BarraFiltros, larguraModal } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import type { DetalhePeriodo, Lancamento } from './api';
+import type { DetalhePeriodo, Lancamento, PeriodoSalarial, ResultadoSalarial } from './api';
 import { EstadoTag, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores, useInfotipos, usePeriodosSalariais } from './comum/consultas';
 import { ImportarExcel } from './comum/ImportarExcel';
 import { ListaPeriodos } from './comum/ListaPeriodos';
 import { ResumoTotais, TabelaResultados } from './comum/TabelaResultados';
-import { BotaoFolhaDetalhada } from './comum/SimulacaoColaborador';
+import { BotaoFolhaDetalhada, ModalSimulacaoColaborador } from './comum/SimulacaoColaborador';
+import { normalizarMesAno } from './calcular/mesAno';
 import { accoesPeriodo } from './comum/regras';
 import { folhaSalariosHtml, pedidoTabela } from './comum/impressao';
 
@@ -41,23 +45,72 @@ export default function Calcular() {
   );
 }
 
-/** Passo 1 do legado: seleccionar o período (ou abri-lo) e a importação Excel geral. */
+/** Passo 1 do legado (renderCalcular): «Digitar Mês/Ano» ou consultar existente, «Acessar Lançamentos», Template e Importar Excel. */
 function ListaCalculo() {
   const navegar = useNavigate();
+  const { pode } = useSessao();
   const periodos = usePeriodosSalariais();
-  const [escolhido, setEscolhido] = useState<number>();
+  const [mesAno, setMesAno] = useState('');
+  const [importar, setImportar] = useState<{ id: number; mes_ano: string } | null>(null);
+  const [aAbrir, setAAbrir] = useState(false);
+  const podeEditar = pode('calcular_folha');
+
+  /** Período do mês escrito: o existente ou, se não houver e o perfil puder, abre-o (como o antigo). */
+  const resolverPeriodo = async (): Promise<{ id: number; mes_ano: string } | null> => {
+    const m = normalizarMesAno(mesAno);
+    if (!m) {
+      message.warning('Formato inválido. Use MM/AAAA (ex.: 01/2026).');
+      return null;
+    }
+    const existente = (periodos.data ?? []).find((p) => p.mes_ano === m);
+    if (existente) return existente;
+    if (!podeEditar) {
+      message.warning(`Não existe processamento para ${m}.`);
+      return null;
+    }
+    setAAbrir(true);
+    try {
+      const { dados } = await enviar<PeriodoSalarial>('post', '/rh/salarios/periodos', { mes_ano: m });
+      void periodos.refetch();
+      return dados;
+    } catch (e) {
+      notificarErro(e, 'Não foi possível abrir o período');
+      return null;
+    } finally {
+      setAAbrir(false);
+    }
+  };
+
   return (
-    <ListaPeriodos titulo="Calcular" subtitulo="Lançamentos e cálculos do processamento salarial" permitirAbrir
+    <ListaPeriodos titulo="Lançamentos e Cálculos" subtitulo="Lançamentos e cálculos do processamento salarial" permitirAbrir
       antes={
-        <Card size="small" title="1. Seleccionar período ou importar dados" style={{ marginBottom: 16 }}>
-          <Space wrap align="end">
+        <Card size="small" title="1. Selecionar Período ou Importar Dados" style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
             <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>Consultar existente</Typography.Text>
-              <Select<number> placeholder="— Seleccione —" style={{ width: 240 }} value={escolhido} onChange={setEscolhido} allowClear aria-label="Período existente"
-                options={(periodos.data ?? []).map((p) => ({ value: p.id, label: `${p.mes_ano} (${p.estado})` }))} />
+              <Typography.Text style={{ display: 'block', marginBottom: 4 }}>Digitar Mês/Ano (ex: 01/2026)</Typography.Text>
+              <Input placeholder="MM/AAAA" style={{ width: 150 }} value={mesAno} maxLength={7} aria-label="Mês/Ano"
+                onChange={(e) => setMesAno(e.target.value)} onPressEnter={() => void resolverPeriodo().then((p) => p && navegar(String(p.id)))} />
             </div>
-            <Button icon={<FolderOpenOutlined />} disabled={!escolhido} onClick={() => escolhido && navegar(String(escolhido))}>Aceder aos lançamentos</Button>
-          </Space>
+            <div>
+              <Typography.Text style={{ display: 'block', marginBottom: 4 }}>Ou consultar existente:</Typography.Text>
+              <Select<string> placeholder="-- Selecione --" style={{ width: 220 }} allowClear aria-label="Período existente"
+                value={(periodos.data ?? []).some((p) => p.mes_ano === mesAno) ? mesAno : undefined} onChange={(v) => setMesAno(v ?? '')}
+                options={(periodos.data ?? []).map((p) => ({ value: p.mes_ano, label: `${p.mes_ano} (${p.estado})` }))} />
+            </div>
+            <Button type="primary" icon={<FolderOpenOutlined />} loading={aAbrir} onClick={() => void resolverPeriodo().then((p) => p && navegar(String(p.id)))}>Acessar Lançamentos</Button>
+            {podeEditar && (
+              <Space wrap style={{ marginLeft: 'auto' }}>
+                <Button icon={<IconeFa nome="file-download" />} onClick={() => void descarregar('/rh/importacoes/modelos/calculo', undefined, 'Template_Calculo_RH.xlsx').catch(notificarErro)}>Template</Button>
+                <Button icon={<IconeFa nome="file-import" />} loading={aAbrir} onClick={() => {
+                  if (!normalizarMesAno(mesAno)) { message.info('Indique primeiro o Mês/Ano (MM/AAAA) para onde importar os lançamentos.'); return; }
+                  void resolverPeriodo().then((p) => p && setImportar(p));
+                }}>Importar Excel</Button>
+              </Space>
+            )}
+          </div>
+          <ImportarExcel aberto={importar !== null} titulo={`Importar lançamentos (Excel) — ${importar?.mes_ano ?? ''}`} url={`/rh/salarios/periodos/${importar?.id ?? 0}/importar-excel`} modelo="calculo"
+            ajuda="Uma linha por colaborador e rubrica: NIF (ou nome completo), rubrica, valor, horas (rubricas por hora) e dias trabalhados. Os lançamentos existentes do mesmo colaborador e rubrica são substituídos."
+            aoFechar={() => { const p = importar; setImportar(null); if (p) navegar(String(p.id)); }} />
         </Card>
       } />
   );
@@ -114,6 +167,7 @@ function PeriodoCalculo() {
   const [formEf] = Form.useForm<{ infotipo_extra_id: number; infotipo_falta_id: number }>();
   const [formEd] = Form.useForm<{ usar_rubrica?: boolean; infotipo_salarial_id?: number; usar_dias?: boolean; dias_trabalhados?: number | null; usar_valor?: boolean; valor?: number | null }>();
   const [substituir, setSubstituir] = useState(true);
+  const [simular, setSimular] = useState<ResultadoSalarial | null>(null);
   const rubricaL = Form.useWatch('infotipo_salarial_id', formL);
 
   const accao = useAccaoRh<Record<string, unknown>>((dados, pedido) => {
@@ -182,31 +236,25 @@ function PeriodoCalculo() {
     .filter((l) => !filtroColab || l.colaborador_id === filtroColab)
     .sort((a, b) => colaboradores.nome(a.colaborador_id).localeCompare(colaboradores.nome(b.colaborador_id), 'pt') || a.id - b.id);
 
+  // Colunas do «Resumo de Lançamentos do Período» do antigo (refreshEntriesTable): COLABORADOR, DIAS CONT., DIAS TRAB.,
+  // RUBRICA, VALOR (KZ), AÇÕES; as do novo (tipo, horas, origem) ficam disponíveis em «Colunas ▾».
   const colunas: ColunaApi<Lancamento>[] = [
-    { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v) },
-    { title: 'Rubrica', dataIndex: 'infotipo_salarial_id', render: (v: number) => infotipos.nome(v) },
-    { title: 'Tipo', responsive: ['md'], render: (_, l) => { const t = infotipos.mapa.get(l.infotipo_salarial_id)?.tipo; return t ? <Tag color={t === 'VENCIMENTO' ? 'green' : t === 'DESCONTO' ? 'red' : 'default'}>{t}</Tag> : '—'; } },
-    { title: 'Dias trab.', dataIndex: 'dias_trabalhados', align: 'right', responsive: ['md'], render: (v: string | null) => (v ? formatarNumero(v) : '—') },
-    { title: 'Horas', dataIndex: 'horas', align: 'right', responsive: ['md'], render: (v: string | null) => (v ? formatarNumero(v) : '—') },
-    { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v: string) => formatarKz(v) },
-    { title: 'Origem', dataIndex: 'origem', responsive: ['lg'], render: (o: string | null, l) => (l.bonificacao_avaliacao_id ? <Tag color="purple">Bonificação</Tag> : o ? <Tag>{o}</Tag> : 'Manual') },
+    { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v), valorFiltro: (l) => colaboradores.nome(l.colaborador_id) },
+    { title: 'Dias Cont.', key: 'dias_cont', align: 'center', render: (_, l) => colaboradores.mapa.get(l.colaborador_id)?.dias_uteis_mes ?? '-' },
+    { title: 'Dias Trab.', dataIndex: 'dias_trabalhados', align: 'center', render: (v: string | null) => (v !== null && v !== undefined && v !== '' ? <strong style={{ color: token.colorPrimary }}>{formatarNumero(v)}</strong> : '-') },
     {
-      title: '',
-      key: 'accoes',
-      align: 'right',
-      render: (_, l) => (
-        <Space size={4}>
-          {ac.lancar && <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar" onClick={() => abrirLancamento(l)} />}
-          {ac.removerLancamento && !l.bonificacao_avaliacao_id && (
-            <Popconfirm title="Remover o lançamento?" okText="Remover" okButtonProps={{ danger: true }} cancelText="Cancelar"
-              onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/salarios/periodos/${id}/lancamentos/${l.id}` })}>
-              <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Remover" />
-            </Popconfirm>
-          )}
-        </Space>
-      ),
+      title: 'Rubrica', dataIndex: 'infotipo_salarial_id', valorFiltro: (l) => infotipos.nome(l.infotipo_salarial_id),
+      render: (v: number) => { const t = infotipos.mapa.get(v)?.tipo; return <span>{t && <span style={{ color: t === 'VENCIMENTO' ? token.colorSuccess : token.colorError }}>[{t.slice(0, 1)}] </span>}{infotipos.nome(v)}</span>; },
     },
+    {
+      title: 'Valor (Kz)', dataIndex: 'valor', align: 'right',
+      render: (v: string, l) => (l.horas && Number(l.horas) ? <span><strong>{formatarNumero(l.horas)} h</strong><br /><Typography.Text type="secondary" style={{ fontSize: 12 }}>valor apurado no cálculo</Typography.Text></span> : formatarKz(v)),
+    },
+    { title: 'Tipo', key: 'tipo', ocultaPorOmissao: true, render: (_, l) => { const t = infotipos.mapa.get(l.infotipo_salarial_id)?.tipo; return t ? <Tag color={t === 'VENCIMENTO' ? 'green' : t === 'DESCONTO' ? 'red' : 'default'}>{t}</Tag> : '—'; } },
+    { title: 'Horas', dataIndex: 'horas', align: 'right', ocultaPorOmissao: true, render: (v: string | null) => (v ? formatarNumero(v) : '—') },
+    { title: 'Origem', dataIndex: 'origem', ocultaPorOmissao: true, render: (o: string | null, l) => (l.bonificacao_avaliacao_id ? <Tag color="purple">Bonificação</Tag> : o ? <Tag>{o}</Tag> : 'Manual') },
   ];
+  const resultadoDe = (colaboradorId: number) => p.resultados.find((r) => r.colaborador_id === colaboradorId) ?? null;
 
   const rubricasHoras = (tipo: 'EXTRA' | 'FALTA') => infotipos.lista.filter((i) => i.calculo_horas === tipo).map((i) => ({ value: i.id, label: i.nome }));
   const outrosPeriodos = (periodos.data ?? []).filter((x) => x.id !== p.id);
@@ -345,7 +393,8 @@ function PeriodoCalculo() {
       )}
 
       <ResumoTotais periodo={p} />
-      <Card title="Resumo de lançamentos do período">
+      <Card title="Resumo de Lançamentos do Período"
+        extra={<BotaoFolhaDetalhada periodo={p} nome={(r) => r.nome ?? colaboradores.nome(r.colaborador_id)} texto="Imprimir Simulação" />}>
         <Tabs
           items={[
             {
@@ -366,9 +415,18 @@ function PeriodoCalculo() {
                         obterPedido={() => pedidoTabela({ titulo: 'Lançamentos do período salarial', periodo: p.mes_ano, filtros: filtroColab ? [`Colaborador: ${colaboradores.nome(filtroColab)}`] : undefined, colunas, linhas })} />
                     </Space>
                   }><SeletorColaborador value={filtroColab} onChange={setFiltroColab} /></BarraFiltros>
-                  <Table<Lancamento> rowKey="id" size="small" loading={lancamentos.isFetching} columns={colunas} dataSource={linhas} scroll={{ x: 'max-content' }}
+                  <TabelaComModos<Lancamento> rowKey="id" size="small" loading={lancamentos.isFetching} columns={colunas} dataSource={linhas} scroll={{ x: 'max-content' }} modos={false}
                     rowSelection={ac.lancar || ac.removerLancamento ? { selectedRowKeys: selecionados, onChange: (k) => setSelecionados(k as number[]), getCheckboxProps: (l) => ({ disabled: Boolean(l.bonificacao_avaliacao_id) }) } : undefined}
-                    pagination={{ pageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} lançamento(s)` }} />
+                    vazio={{ icone: 'calculator', titulo: 'Nenhum lançamento', texto: 'Nenhum lançamento corresponde aos filtros ou o período está vazio.' }}
+                    accoes={(l) => [
+                      { icone: 'calculator', titulo: 'Simular resultado salarial deste colaborador', texto: 'Simular', cor: '#6366f1',
+                        desactivado: resultadoDe(l.colaborador_id) ? false : 'Sem resultado calculado para este colaborador',
+                        onClick: () => setSimular(resultadoDe(l.colaborador_id)) },
+                      ac.lancar && { icone: 'edit', titulo: 'Editar', onClick: () => abrirLancamento(l) },
+                      ac.removerLancamento && !l.bonificacao_avaliacao_id && { icone: 'trash', titulo: 'Remover', variante: 'perigo', cheio: true, confirmar: 'Remover o lançamento?',
+                        onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/salarios/periodos/${id}/lancamentos/${l.id}` }) },
+                      !ac.lancar && !ac.removerLancamento && { icone: 'lock', titulo: 'Período encerrado', desactivado: 'Período encerrado' },
+                    ]} />
                 </>
               ),
             },
@@ -389,6 +447,9 @@ function PeriodoCalculo() {
           ]}
         />
       </Card>
+
+      <ModalSimulacaoColaborador resultado={simular} mesAno={p.mes_ano} nome={simular ? simular.nome ?? colaboradores.nome(simular.colaborador_id) : ''}
+        simulacao={p.estado !== 'VALIDADO'} aoFechar={() => setSimular(null)} />
 
       <Modal title={lancar === 'novo' ? 'Novo lançamento' : 'Editar lançamento'} open={lancar !== null} onCancel={() => setLancar(null)} okText="Gravar" cancelText="Cancelar"
         confirmLoading={accao.isPending} onOk={() => formL.submit()} destroyOnHidden>

@@ -1,22 +1,26 @@
-import { Alert, Button, Card, DatePicker, Form, Modal, Select, Space, Statistic, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Collapse, DatePicker, Flex, Form, Input, Modal, Select, Space, Tag, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useEffect, useRef, useState, type Key } from 'react';
+import { useLocation } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { BotaoImprimir, pares, type PedidoImpressao } from '@/componentes/impressao';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import type { ColunaApi } from '@/componentes/TabelaApi';
+import { EstadoVazio, TabelaComModos } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { equilibrio, somar } from '@/utilitarios/decimal';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import type { Extrato, MovimentoExtrato } from '../api';
-import { BotoesExportar, pares } from '@/componentes/impressao';
-import { larguraModal, scrollTabela } from '@/componentes/responsivo';
-import type { ColunaApi } from '@/componentes/TabelaApi';
-import { BotaoCsv, IndicadorEquilibrio, ValorKz } from '../comum/Componentes';
+import { IndicadorEquilibrio, ValorKz } from '../comum/Componentes';
 import { filtrosDosParametros, periodoDosParametros, tabelaDeColunas } from '../comum/impressao';
-import { equilibrio } from '@/utilitarios/decimal';
-import { FiltrosMapa } from '../comum/FiltrosMapa';
-import { SeletorConta, SeletorDiario } from '../comum/Seletores';
+import { SeletorAux, SeletorConta, SeletorDiario, SeletorTerceiro, SeletorUnidade } from '../comum/Seletores';
 import { useAbrirLancamento, useMapa } from '../comum/useMapa';
+import type { PedidoExtratoConta } from './MapaBalancete';
+import { contasParaColar, descreverUltimo, normalizarContasColadas } from './separadoresRelatorios';
+import { TituloMapa } from './TituloMapa';
 
 interface Compensacao {
   reconciliacao_codigo: string;
@@ -26,25 +30,93 @@ interface Compensacao {
   linhas: { id: number; data_documento: string; codigo_conta: string; numero_lan: string; numero_documento: string | null; descricao: string | null; tipo_dc: 'D' | 'C'; valor: string }[];
 }
 
-/** Mapas › Extracto de conta corrente (ecrã contab_mapa_extrato), com compensação de movimentos e regularização de diferenças. */
+interface ValoresExtrato {
+  inicio: Dayjs | null;
+  fim: Dayjs | null;
+  ano?: number;
+  mes?: number;
+  filtro_contas?: string;
+  terceiro_id?: number;
+  tipo: 'todos' | 'aberto' | 'compensado';
+  diario_id?: number;
+  centro_custo_id?: number;
+  unidade_negocio_id?: number;
+  incluir_classe_9?: boolean;
+}
+
+/** «Todo histórico» (setExtratoAllDates, js/ui_reports.js:1788-1794). */
+const TODO_HISTORICO = { inicio: dayjs('1900-01-01'), fim: dayjs('2099-12-31') };
+const MES_ACTUAL = () => ({ inicio: dayjs().startOf('month'), fim: dayjs().endOf('month') });
+const ANOS = Array.from({ length: dayjs().year() - 2022 }, (_, i) => 2023 + i);
+
+/** Parâmetros do pedido; sem conta nem terceiro pede o último lançamento da empresa (abertura do legado). */
+function paraParametros(v: ValoresExtrato): Record<string, unknown> {
+  const p: Record<string, unknown> = { data_inicio: dataApi(v.inicio), data_fim: dataApi(v.fim), tipo: v.tipo };
+  for (const k of ['filtro_contas', 'terceiro_id', 'diario_id', 'centro_custo_id', 'unidade_negocio_id'] as const) {
+    const x = v[k];
+    if (x !== undefined && x !== null && x !== '') p[k] = typeof x === 'string' ? x.trim() : x;
+  }
+  if (v.incluir_classe_9) p.incluir_classe_9 = 1;
+  if (!p.filtro_contas && !p.terceiro_id) p.ultimo_lancamento = 1;
+  return p;
+}
+
+/**
+ * Separador «Extrato» (Extrato de Conta Corrente, gerarExtratoContaCorrente — js/ui_reports.js:1480-2300): abre já
+ * calculado («Todo histórico», último lançamento da empresa, como no legado), com Colar múltiplas contas, Gerar Extrato,
+ * Nova Consulta, Imprimir, Extrair, Ver Ecrã Cheio, Excel e Colunas; colunas Data, Conta, Nome conta, Terceiro, Nº Doc,
+ * Contrapartida, Descrição, Comp., Débito, Crédito, Saldo acumulado e Ações («Ver Fluxo Completo»). Mantém a compensação
+ * de movimentos e a regularização de diferenças.
+ */
 export default function MapaExtrato() {
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const abrir = useAbrirLancamento();
+  const { state } = useLocation() as { state?: { extrato?: PedidoExtratoConta } | null };
   const mapa = useMapa<Extrato>('extrato', '/contabilidade/relatorios/extrato');
-  const [seleccao, setSeleccao] = useState<number[]>([]);
+  const [form] = Form.useForm<ValoresExtrato>();
+  const [seleccao, setSeleccao] = useState<Key[]>([]);
   const [regularizar, setRegularizar] = useState(false);
+  const [colar, setColar] = useState<string | null>(null);
   const [codigo, setCodigo] = useState<string | null>(null);
+  const [limpo, setLimpo] = useState(false);
+  const [criterio, setCriterio] = useState(false);
+  const area = useRef<HTMLDivElement>(null);
   const [formReg] = Form.useForm<{ codigo_conta: string; data: Dayjs; diario_id?: number }>();
-  const d = mapa.data;
+  const d = limpo ? undefined : mapa.data;
   const podeCompensar = pode('contab_compensar');
+  const { calcular } = mapa;
+
+  const gerar = (v: ValoresExtrato) => {
+    if (!v.inicio && !v.fim) return void message.warning('Deve preencher pelo menos uma das datas (Data Inicial ou Data Final).');
+    setSeleccao([]);
+    setLimpo(false);
+    calcular(paraParametros(v));
+  };
+
+  // Abertura: conta vinda do balancete (drill-down) ou «Todo histórico» com o último lançamento (js/ui_reports.js:1640-1680)
+  const pedidoInicial = state?.extrato;
+  useEffect(() => {
+    const v: ValoresExtrato = pedidoInicial
+      ? {
+          inicio: pedidoInicial.inicio ? dayjs(pedidoInicial.inicio) : TODO_HISTORICO.inicio,
+          fim: pedidoInicial.fim ? dayjs(pedidoInicial.fim) : TODO_HISTORICO.fim,
+          filtro_contas: pedidoInicial.conta,
+          terceiro_id: pedidoInicial.terceiroId ?? undefined,
+          tipo: 'todos',
+        }
+      : { ...TODO_HISTORICO, tipo: 'todos' };
+    form.setFieldsValue(v);
+    setCriterio(!!pedidoInicial);
+    gerar(v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidoInicial]);
 
   const compensacao = useQuery({
     queryKey: ['contab', 'compensacao', codigo],
     queryFn: () => obter<Compensacao>(`/contabilidade/compensacoes/${codigo}`),
     enabled: !!codigo,
   });
-
   const aposMutacao = (mensagem: string) => {
     message.success(mensagem);
     setSeleccao([]);
@@ -69,131 +141,286 @@ export default function MapaExtrato() {
     onError: (e) => notificarErro(e, 'Não foi possível reverter a compensação'),
   });
 
-  const seleccionadas = (d?.movimentos ?? []).filter((m) => seleccao.includes(m.id));
+  const movimentos = d?.movimentos ?? [];
+  const seleccionadas = movimentos.filter((m) => seleccao.includes(m.id));
   const eq = equilibrio(seleccionadas);
+  const comMoeda = movimentos.some((m) => m.codigo_moeda && m.codigo_moeda !== 'AOA');
+  const somaDC = (linhas: MovimentoExtrato[], dc: 'D' | 'C') => formatarKz(somar(linhas.filter((l) => l.tipo_dc === dc).map((l) => l.valor)));
 
   const colunas: ColunaApi<MovimentoExtrato>[] = [
     { title: 'Data', dataIndex: 'data_documento', render: formatarData, width: 100 },
-    { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string, r) => <span title={r.descricao_conta ?? ''}>{v}</span> },
-    { title: 'Terceiro', dataIndex: 'terceiro', ellipsis: true, width: 180, responsive: ['md'], render: (v: string | null) => v?.trim() ?? '—' },
-    { title: 'Diário', dataIndex: 'diario', responsive: ['lg'] },
-    { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v: string, r) => (abrir ? <Typography.Link onClick={() => abrir(r.id)}>{v}</Typography.Link> : v), valorImpressao: (r) => r.numero_lan },
-    { title: 'Documento', dataIndex: 'numero_documento', responsive: ['md'] },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
-    { title: 'Contrapartidas', dataIndex: 'contrapartidas', responsive: ['lg'] },
-    { title: 'Débito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null), totalImpressao: () => formatarKz(d?.debito) },
-    { title: 'Crédito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null), totalImpressao: () => formatarKz(d?.credito) },
-    { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+    { title: 'Conta', dataIndex: 'codigo_conta' },
+    { title: 'Nome Conta', dataIndex: 'descricao_conta', ellipsis: true, width: 200, render: (v: string | null) => <Typography.Text type="secondary">{v ?? '-'}</Typography.Text>, valorImpressao: (r) => r.descricao_conta ?? '-' },
+    { title: 'Terceiro', dataIndex: 'terceiro', ellipsis: true, width: 180, render: (v: string | null) => <Typography.Text type="secondary">{v?.trim() || '-'}</Typography.Text>, valorImpressao: (r) => r.terceiro?.trim() || '-' },
+    { title: 'Nº Doc', dataIndex: 'numero_documento', render: (v: string | null) => v ?? '' },
+    { title: 'Contrapartida', dataIndex: 'contrapartidas', ellipsis: true, width: 160, render: (v: string | null) => <Typography.Text type="secondary">{v || '-'}</Typography.Text>, valorImpressao: (r) => r.contrapartidas || '-' },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 280, render: (v: string | null) => <span title={v ?? ''}>{v || '-'}</span>, valorImpressao: (r) => r.descricao || '-' },
     {
-      title: 'Compensação',
+      title: 'Comp.',
       dataIndex: 'reconciliacao_codigo',
-      responsive: ['md'],
+      align: 'center',
       valorImpressao: (r) => r.reconciliacao_codigo ?? '',
-      render: (v: string | null) => (v ? <Tag color="blue" style={{ cursor: 'pointer' }} onClick={() => setCodigo(v)}>{v}</Tag> : null),
+      render: (v: string | null) =>
+        v ? (
+          <Tag color="blue" style={{ cursor: 'pointer' }} onClick={() => setCodigo(v)} title="Ver o auto de compensação">
+            <IconeFa nome="link" /> {v.split('_')[2] || v}
+          </Tag>
+        ) : null,
     },
+    { title: 'Débito', key: 'debito', align: 'right', render: (_, r) => (r.tipo_dc === 'D' ? <ValorKz valor={r.valor} /> : null), valorImpressao: (r) => (r.tipo_dc === 'D' ? formatarKz(r.valor) : ''), total: (l) => somaDC(l, 'D'), totalImpressao: (l) => somaDC(l, 'D') },
+    { title: 'Crédito', key: 'credito', align: 'right', render: (_, r) => (r.tipo_dc === 'C' ? <ValorKz valor={r.valor} /> : null), valorImpressao: (r) => (r.tipo_dc === 'C' ? formatarKz(r.valor) : ''), total: (l) => somaDC(l, 'C'), totalImpressao: (l) => somaDC(l, 'C') },
+    ...(comMoeda
+      ? ([
+          { title: 'Moeda', dataIndex: 'codigo_moeda', align: 'center', render: (v: string | null) => (v && v !== 'AOA' ? v : '') },
+          { title: 'Valor na Moeda', dataIndex: 'valor_moeda', align: 'right', render: (v: string | null, r) => (r.codigo_moeda && r.codigo_moeda !== 'AOA' && v ? `${r.tipo_dc === 'C' ? '-' : ''}${formatarKz(v)}` : '') },
+        ] as ColunaApi<MovimentoExtrato>[])
+      : []),
+    { title: 'Saldo Acumulado', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} forte />, ocultavel: false },
   ];
 
+  const parametros = mapa.parametros;
+  const ultimo = d?.ambito === 'ultimo_lancamento';
+  const pedido = async (): Promise<PedidoImpressao | null> =>
+    d
+      ? {
+          titulo: 'Extrato de Conta Corrente',
+          periodo: periodoDosParametros(parametros),
+          filtros: [
+            ...filtrosDosParametros(parametros),
+            ultimo ? 'Último lançamento registado' : null,
+            parametros?.tipo && parametros.tipo !== 'todos' ? `Movimentos: ${parametros.tipo === 'aberto' ? 'apenas em aberto' : 'apenas compensados'}` : null,
+          ].filter((x): x is string => !!x),
+          conteudo:
+            pares([
+              ['Saldo inicial', formatarKz(d.saldo_inicial)],
+              ['Débitos', formatarKz(d.debito)],
+              ['Créditos', formatarKz(d.credito)],
+              ['Saldo final', formatarKz(d.saldo_final)],
+            ], 4) + (await tabelaDeColunas(colunas, d.movimentos)),
+        }
+      : null;
+
+  const ecraCheio = () => {
+    if (document.fullscreenElement) return void document.exitFullscreen?.().catch(() => undefined);
+    void area.current?.requestFullscreen?.().catch(() => undefined);
+  };
+
+  const novaConsulta = () => {
+    form.setFieldsValue({ ...MES_ACTUAL(), ano: undefined, mes: undefined, filtro_contas: undefined, terceiro_id: undefined, tipo: 'todos' });
+    setCriterio(false);
+    setSeleccao([]);
+    setLimpo(true);
+  };
+
+  const aplicarAnoMes = () => {
+    const { ano, mes } = form.getFieldsValue(['ano', 'mes']);
+    if (!ano) return;
+    const base = dayjs(`${ano}-${String(mes ?? 1).padStart(2, '0')}-01`);
+    form.setFieldsValue(mes ? { inicio: base, fim: base.endOf('month') } : { inicio: base.startOf('year'), fim: base.endOf('year') });
+  };
+
   return (
-    <>
-      <CabecalhoPagina titulo="Extracto de conta corrente" subtitulo="Movimentos por conta e/ou terceiro, com compensação" />
-      <Card style={{ marginBottom: 16 }}>
-        <FiltrosMapa
-          modo="periodo"
-          periodoObrigatorio={false}
-          aCalcular={mapa.isFetching}
-          aoCalcular={(p) => {
-            if (!p.filtro_contas && !p.terceiro_id) return void message.warning('Indique pelo menos uma conta ou um terceiro.');
-            if (!p.data_inicio && !p.data_fim) return void message.warning('Indique o período.');
-            setSeleccao([]);
-            mapa.calcular(p);
-          }}
-          avancados={{ contas: true, terceiro: true, diario: true, centro: true, unidade: true, classe9: true }}
-          extra={
-            <Form.Item name="tipo" label="Movimentos" initialValue="todos" style={{ marginBottom: 8 }}>
-              <Select style={{ width: 160 }} options={[{ value: 'todos', label: 'Todos' }, { value: 'aberto', label: 'Em aberto' }, { value: 'compensado', label: 'Compensados' }]} />
-            </Form.Item>
-          }
-        />
-      </Card>
-      {d && (
-        <Card>
-          <Space size={32} wrap style={{ marginBottom: 12 }}>
-            <Statistic title="Saldo inicial" value={formatarKz(d.saldo_inicial)} />
-            <Statistic title="Débitos" value={formatarKz(d.debito)} />
-            <Statistic title="Créditos" value={formatarKz(d.credito)} />
-            <Statistic title="Saldo final" value={formatarKz(d.saldo_final)} />
-            <BotoesExportar
-              obterPedido={async () => ({
-                titulo: 'Extracto de conta corrente',
-                periodo: periodoDosParametros(mapa.parametros),
-                filtros: [...filtrosDosParametros(mapa.parametros), mapa.parametros?.tipo && mapa.parametros.tipo !== 'todos' ? `Movimentos: ${mapa.parametros.tipo === 'aberto' ? 'em aberto' : 'compensados'}` : null],
-                conteudo:
-                  pares([
-                    ['Saldo inicial', formatarKz(d.saldo_inicial)],
-                    ['Débitos', formatarKz(d.debito)],
-                    ['Créditos', formatarKz(d.credito)],
-                    ['Saldo final', formatarKz(d.saldo_final)],
-                  ], 4) + (await tabelaDeColunas(colunas, d.movimentos)),
-              })}
-            />
-            <BotaoCsv<MovimentoExtrato>
-              nome="extracto_conta_corrente"
-              linhas={d.movimentos}
-              colunas={[
-                { titulo: 'Data', valor: (l) => l.data_documento },
-                { titulo: 'Conta', valor: (l) => l.codigo_conta },
-                { titulo: 'NIF', valor: (l) => l.nif_terceiro },
-                { titulo: 'Terceiro', valor: (l) => l.terceiro?.trim() },
-                { titulo: 'Diário', valor: (l) => l.diario },
-                { titulo: 'N.º lançamento', valor: (l) => l.numero_lan },
-                { titulo: 'Documento', valor: (l) => l.numero_documento },
-                { titulo: 'Descrição', valor: (l) => l.descricao },
-                { titulo: 'Débito', valor: (l) => (l.tipo_dc === 'D' ? l.valor : ''), numerico: true },
-                { titulo: 'Crédito', valor: (l) => (l.tipo_dc === 'C' ? l.valor : ''), numerico: true },
-                { titulo: 'Saldo', valor: (l) => l.saldo, numerico: true },
-                { titulo: 'Compensação', valor: (l) => l.reconciliacao_codigo },
+    <Card>
+      <TituloMapa titulo="Extrato de Conta Corrente" />
+      <Form<ValoresExtrato>
+        form={form}
+        layout="vertical"
+        initialValues={{ ...TODO_HISTORICO, tipo: 'todos' }}
+        onFinish={gerar}
+        onValuesChange={(_, todos) => setCriterio(!!(todos.filtro_contas?.trim() || todos.terceiro_id))}
+        style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}
+      >
+        <Flex gap={12} wrap align="end">
+          <Form.Item name="inicio" label="Data Inicial" style={{ marginBottom: 8 }}>
+            <DatePicker format="DD/MM/YYYY" />
+          </Form.Item>
+          <Form.Item name="fim" label="Data Final" style={{ marginBottom: 8 }}>
+            <DatePicker format="DD/MM/YYYY" />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 8 }}>
+            <Button
+              size="small"
+              icon={<IconeFa nome="calendar-alt" />}
+              title="Selecionar Todo o histórico"
+              onClick={() => {
+                form.setFieldsValue({ ...TODO_HISTORICO, ano: undefined, mes: undefined });
+                form.submit();
+              }}
+            >
+              Todo histórico
+            </Button>
+          </Form.Item>
+          <Form.Item name="ano" label="Ano" style={{ marginBottom: 8 }}>
+            <Select allowClear placeholder="-" style={{ width: 90 }} options={ANOS.map((a) => ({ value: a, label: String(a) }))} onChange={aplicarAnoMes} />
+          </Form.Item>
+          <Form.Item name="mes" label="Período" style={{ marginBottom: 8 }}>
+            <Select allowClear placeholder="-" style={{ width: 90 }} options={Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: String(i + 1) }))} onChange={aplicarAnoMes} />
+          </Form.Item>
+          <Form.Item label="Conta(s)" style={{ marginBottom: 8, flex: '1 1 200px' }}>
+            <Space.Compact style={{ width: '100%' }}>
+              <Form.Item name="filtro_contas" noStyle>
+                <Input placeholder="Ex: 11, 21-25, 31*" maxLength={500} allowClear />
+              </Form.Item>
+              <Button icon={<IconeFa nome="paste" />} title="Colar múltiplas contas" aria-label="Colar múltiplas contas" onClick={() => setColar(contasParaColar(form.getFieldValue('filtro_contas')))} />
+            </Space.Compact>
+          </Form.Item>
+          <Form.Item name="terceiro_id" label="Terceiro (Cliente/Fornecedor)" style={{ marginBottom: 8, flex: '1 1 220px' }}>
+            <SeletorTerceiro placeholder="[Todos os Terceiros com Movimento]" style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="tipo" label="Exibir Movimentos" style={{ marginBottom: 8 }}>
+            <Select
+              style={{ width: 190 }}
+              options={[
+                { value: 'todos', label: 'Todos os Movimentos' },
+                { value: 'aberto', label: 'Apenas em Aberto' },
+                { value: 'compensado', label: 'Apenas Compensados' },
               ]}
             />
-          </Space>
-          {podeCompensar && seleccao.length > 0 && (
-            <Alert
-              style={{ marginBottom: 12 }}
-              type={eq.equilibrado ? 'success' : 'warning'}
-              message={
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <IndicadorEquilibrio linhas={seleccionadas} />
-                  <Space wrap>
-                    <Button type="primary" disabled={seleccao.length < 2 || !eq.equilibrado} loading={compensar.isPending} onClick={() => compensar.mutate()}>
-                      Compensar {seleccao.length} movimento(s)
-                    </Button>
-                    <Button disabled={eq.equilibrado} onClick={() => { formReg.setFieldsValue({ data: dayjs() }); setRegularizar(true); }}>
-                      Regularizar a diferença e compensar
-                    </Button>
-                    <Button type="link" onClick={() => setSeleccao([])}>Limpar selecção</Button>
-                  </Space>
-                </Space>
-              }
-            />
-          )}
-          <Table<MovimentoExtrato>
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 8 }}>
+            <Space wrap>
+              <Button type="primary" htmlType="submit" icon={<IconeFa nome="search" />} loading={mapa.isFetching}>
+                Gerar Extrato
+              </Button>
+              <Button icon={<IconeFa nome="sync" />} onClick={novaConsulta}>
+                Nova Consulta
+              </Button>
+              <span title={criterio ? undefined : 'Selecione uma conta ou terceiro para activar'}>
+                <BotaoImprimir obterPedido={pedido} desactivado={!criterio || !d} />
+              </span>
+              <span title={criterio ? undefined : 'Selecione uma conta ou terceiro para activar'}>
+                <BotaoImprimir obterPedido={pedido} modo="pdf" texto="Extrair" tipo="primary" desactivado={!criterio || !d} />
+              </span>
+            </Space>
+          </Form.Item>
+        </Flex>
+        <Collapse
+          ghost
+          size="small"
+          items={[
+            {
+              key: 'mais',
+              label: 'Mais filtros',
+              children: (
+                <Flex gap={12} wrap align="center">
+                  <Form.Item name="diario_id" style={{ marginBottom: 0 }}>
+                    <SeletorDiario allowClear />
+                  </Form.Item>
+                  <Form.Item name="centro_custo_id" style={{ marginBottom: 0 }}>
+                    <SeletorAux tabela="centros-custo" placeholder="Centro de custo" />
+                  </Form.Item>
+                  <Form.Item name="unidade_negocio_id" style={{ marginBottom: 0 }}>
+                    <SeletorUnidade />
+                  </Form.Item>
+                  <Form.Item name="incluir_classe_9" valuePropName="checked" style={{ marginBottom: 0 }}>
+                    <Checkbox>Incluir classe 9</Checkbox>
+                  </Form.Item>
+                </Flex>
+              ),
+            },
+          ]}
+        />
+      </Form>
+
+      {!d ? (
+        <EstadoVazio
+          icone="file-invoice-dollar"
+          titulo={null}
+          texto={
+            mapa.isFetching ? 'A gerar o extrato…' : (
+              <>
+                Utilize os filtros acima e clique em <strong>Gerar Extrato</strong> para visualizar a conta corrente.
+              </>
+            )
+          }
+        />
+      ) : (
+        <div ref={area} style={{ background: '#fff' }}>
+          <Flex justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 12 }}>
+            <div>
+              <Typography.Title level={5} style={{ margin: 0 }}>
+                Extrato de Conta Corrente
+              </Typography.Title>
+              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                Exibindo <strong style={{ color: '#2563eb' }}>{movimentos.length}</strong> movimentos · Saldo inicial {formatarKz(d.saldo_inicial)} · Saldo final{' '}
+                <strong>{formatarKz(d.saldo_final)}</strong>
+              </Typography.Text>
+            </div>
+            <Space wrap className="imp-nao-imprimir">
+              <Button size="small" icon={<IconeFa nome="expand" />} onClick={ecraCheio}>
+                Ver Ecrã Cheio
+              </Button>
+              <BotaoImprimir obterPedido={pedido} tamanho="small" />
+              <BotaoImprimir obterPedido={pedido} modo="pdf" texto="Extrair" tipo="primary" tamanho="small" />
+            </Space>
+          </Flex>
+          {ultimo && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={descreverUltimo(d.ultimo)} />}
+          <TabelaComModos<MovimentoExtrato>
+            idVista="extrato"
+            modos={false}
             rowKey="id"
             size="small"
+            loading={mapa.isFetching}
             columns={colunas}
-            dataSource={d.movimentos}
-            pagination={{ pageSize: 100, showTotal: (n) => `${n} movimento(s)` }}
+            dataSource={movimentos}
             scroll={scrollTabela()}
-            rowSelection={
+            impressao={{ titulo: 'Extrato de Conta Corrente', periodo: periodoDosParametros(parametros), filtros: filtrosDosParametros(parametros), nomeFicheiro: 'extrato_conta_corrente' }}
+            accoes={(r) => [{ icone: 'project-diagram', titulo: 'Ver Fluxo Completo', variante: 'info', oculto: !abrir, onClick: () => abrir?.(r.id) }]}
+            seleccao={
               podeCompensar
                 ? {
-                    selectedRowKeys: seleccao,
-                    onChange: (k) => setSeleccao(k as number[]),
-                    getCheckboxProps: (r) => ({ disabled: !!r.reconciliacao_codigo || !!r.estornado_por_id || !!r.estorno_de_id }),
+                    chaves: seleccao,
+                    aoMudar: (k) => setSeleccao(k),
+                    bloquearLinha: (r) => (r.reconciliacao_codigo ? 'Movimento já compensado' : r.estornado_por_id || r.estorno_de_id ? 'Movimento estornado' : false),
+                    ajuda: seleccao.length > 0 ? <IndicadorEquilibrio linhas={seleccionadas} /> : 'Seleccione movimentos da mesma conta para compensar.',
+                    accoes: [
+                      {
+                        texto: `Compensar ${seleccao.length} movimento(s)`,
+                        icone: 'link',
+                        variante: 'sucesso',
+                        desactivado: seleccao.length < 2 ? 'Seleccione pelo menos dois movimentos' : !eq.equilibrado ? 'A soma D − C dos movimentos tem de ser zero' : false,
+                        confirmar: 'Deseja compensar estes {n} movimentos? Eles deixarão de aparecer como pendentes.',
+                        onClick: () => compensar.mutateAsync(),
+                      },
+                      {
+                        texto: 'Regularizar a diferença e compensar',
+                        icone: 'balance-scale',
+                        desactivado: eq.equilibrado ? 'Os movimentos já estão equilibrados' : false,
+                        onClick: () => {
+                          formReg.setFieldsValue({ data: dayjs() });
+                          setRegularizar(true);
+                        },
+                      },
+                    ],
                   }
                 : undefined
             }
+            vazio={{
+              icone: 'search',
+              titulo: 'Nenhum movimento encontrado',
+              texto: 'Não foram encontrados registos para os filtros selecionados no intervalo de datas indicado.',
+              accoes: <Button size="small" onClick={novaConsulta}>Limpar Filtros</Button>,
+            }}
           />
-        </Card>
+        </div>
       )}
+
+      <Modal
+        title="Colar múltiplas Contas"
+        open={colar !== null}
+        onCancel={() => setColar(null)}
+        okText="Aplicar"
+        cancelText="Cancelar"
+        onOk={() => {
+          const contas = normalizarContasColadas(colar ?? '');
+          form.setFieldsValue({ filtro_contas: contas });
+          setCriterio(!!contas || !!form.getFieldValue('terceiro_id'));
+          setColar(null);
+        }}
+      >
+        <Typography.Paragraph type="secondary">Cole aqui as contas copiadas do Excel (uma por linha) ou separadas por vírgula.</Typography.Paragraph>
+        <Input.TextArea rows={7} value={colar ?? ''} onChange={(e) => setColar(e.target.value)} placeholder={'Ex:\n21\n24\n26'} style={{ fontFamily: 'monospace' }} maxLength={5000} autoFocus />
+      </Modal>
 
       <Modal
         title={`Regularizar diferença de ${formatarKz(eq.diferenca)} Kz`}
@@ -243,11 +470,14 @@ export default function MapaExtrato() {
               {compensacao.data.data ? `Data: ${formatarData(compensacao.data.data)} · ` : ''}
               {compensacao.data.valor_total ? `Valor: ${formatarKz(compensacao.data.valor_total, true)}` : ''}
             </Typography.Paragraph>
-            <Table
+            <TabelaComModos
+              idVista="compensacao"
+              modos={false}
               rowKey="id"
               size="small"
               scroll={scrollTabela()}
               pagination={false}
+              filtrosColuna={false}
               dataSource={compensacao.data.linhas}
               columns={[
                 { title: 'Data', dataIndex: 'data_documento', render: formatarData },
@@ -262,6 +492,6 @@ export default function MapaExtrato() {
           </>
         )}
       </Modal>
-    </>
+    </Card>
   );
 }

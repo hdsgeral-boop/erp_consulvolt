@@ -11,12 +11,18 @@ use Illuminate\Support\Facades\DB;
  * (situação actual, igual nos dois períodos); movimentos de ENTRADA e SAÍDA do período valorizados a |quantidade| × custo
  * médio actual (os ajustes não contam); rotação anualizada = saídas ÷ inventário × 365 ÷ dias; cobertura = inventário ÷
  * consumo médio diário; artigos sem movimento = com stock e sem movimentos no período.
+ * Os acertos técnicos da migração (documento_tipo MIGRACAO — «Saldo inicial de migração») não contam como movimento: não
+ * existem no legado e, datados do dia da migração, faziam desaparecer os artigos sem movimento desse mês (verificação visual
+ * de 2026-10-08, linha 1.2.1: «Artigos sem movimento −100 % (2 → 0)» que o antigo não mostra).
  * A quantidade é o total do produto, que é a soma dos armazéns (ADR-042).
  * Correcção: sem custo médio, o artigo vale 0; o legado caía no preço de venda (unit_price), valorizando o inventário a
  * preços de venda.
  */
 final class ModuloStock extends ModuloGestao
 {
+    /** Tipo de documento dos acertos de saldo inicial gerados pela migração (ServicoMigracaoStock). */
+    public const DOC_MIGRACAO = 'MIGRACAO';
+
     public function id(): string
     {
         return 'stock';
@@ -43,7 +49,8 @@ final class ModuloStock extends ModuloGestao
         $t = $mov()->selectRaw("COALESCE(SUM(CASE WHEN m.tipo = 'ENTRADA' THEN ABS(m.quantidade) * COALESCE(pr.custo_medio, 0) ELSE 0 END), 0) AS ent,
             COALESCE(SUM(CASE WHEN m.tipo = 'SAIDA' THEN ABS(m.quantidade) * COALESCE(pr.custo_medio, 0) ELSE 0 END), 0) AS sai")->first();
         $semMov = DB::table('produtos as pr')->where('pr.empresa_id', $e)->whereNull('pr.eliminado_em')->where('pr.movimenta_stock', true)->where('pr.quantidade_stock', '>', 0)
-            ->whereNotExists(fn ($q) => $q->from('movimentos_inventario as m')->whereColumn('m.produto_id', 'pr.id')->whereRaw('m.data::date BETWEEN ? AND ?', [$p['inicio'], $p['fim']]))
+            ->whereNotExists(fn ($q) => $q->from('movimentos_inventario as m')->whereColumn('m.produto_id', 'pr.id')->whereRaw('m.data::date BETWEEN ? AND ?', [$p['inicio'], $p['fim']])
+                ->where(fn ($x) => $x->whereNull('m.documento_tipo')->orWhere('m.documento_tipo', '<>', self::DOC_MIGRACAO)))
             ->count();
         $top = $mov()->where('m.tipo', 'SAIDA')->groupBy('m.produto_id')
             ->selectRaw('MAX(pr.nome) AS nome, SUM(ABS(m.quantidade)) AS qtd, SUM(ABS(m.quantidade) * COALESCE(pr.custo_medio, 0)) AS valor')

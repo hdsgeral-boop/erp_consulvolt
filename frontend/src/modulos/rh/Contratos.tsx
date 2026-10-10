@@ -1,9 +1,12 @@
-import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Tooltip, Typography } from 'antd';
-import { AppstoreAddOutlined, CalculatorOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, ImportOutlined, MinusCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Tooltip, Typography, message } from 'antd';
+import { AppstoreAddOutlined, CalculatorOutlined, ImportOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
-import { descarregar, obter } from '@/api/cliente';
+import { useState, type Key } from 'react';
+import { descarregar, enviar, obter } from '@/api/cliente';
+import { IconeFa } from '@/componentes/fluxos';
+import { useImpressao } from '@/componentes/impressao';
+import { contratoAssinaturaHtml } from './contratos/contratoAssinatura';
 import { notificarErro } from '@/utilitarios/erros';
 import { ContratosMassa } from './comum/ContratosMassa';
 import { SimularMassa } from './comum/SimularMassa';
@@ -14,7 +17,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ESTADOS_COLABORADOR, type ContratoTrabalho, type ItemProdutividade } from './api';
 import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
-import { useAccaoRh, useAvisarErro, useColaboradores, useInfotipos } from './comum/consultas';
+import { useAccaoRh, useAvisarErro, useCargos, useColaboradores, useInfotipos } from './comum/consultas';
 import { contratoVigente, normalizarRemuneracoes, semFim, somar, totalContrato } from './comum/regras';
 import { BarraFiltros, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
@@ -58,6 +61,7 @@ export default function Contratos() {
     setTerminar(null);
   });
   const remuneracoesForm = Form.useWatch('remuneracoes', form);
+  const cliente = useQueryClient();
   const hoje = dayjs().format('YYYY-MM-DD');
 
   const abrir = (c: ContratoTrabalho | 'novo') => {
@@ -95,6 +99,52 @@ export default function Contratos() {
   const vencimentos = infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO');
 
   const pequeno = useEcraPequeno();
+  const { imprimir, obterIdentidade } = useImpressao();
+  const cargos = useCargos();
+  const [seleccionados, setSeleccionados] = useState<Key[]>([]);
+  const [aEliminar, setAEliminar] = useState(false);
+
+  /** «Gerar PDF para Assinatura»: minuta do contrato (cláusulas do antigo), impressa ou guardada em PDF. */
+  const gerarPdf = async (c: ContratoTrabalho) => {
+    const col = colaboradores.mapa.get(c.colaborador_id);
+    const cargo = col?.cargo_funcao_id ? cargos.lista.find((x) => x.id === col.cargo_funcao_id) : undefined;
+    const id = await obterIdentidade();
+    await imprimir({
+      titulo: 'Contrato de Trabalho',
+      subtitulo: colaboradores.nome(c.colaborador_id),
+      modo: 'pdf',
+      orientacao: 'retrato',
+      nomeFicheiro: `Contrato_${colaboradores.nome(c.colaborador_id)}`,
+      conteudo: contratoAssinaturaHtml({
+        contrato: c,
+        empresa: { nome: id?.nome ?? '', nif: id?.nif, morada: id?.morada },
+        colaborador: { nome: colaboradores.nome(c.colaborador_id), nif: col?.nif, morada: [col?.endereco, col?.bairro, col?.municipio, col?.provincia].filter(Boolean).join(', ') },
+        funcao: cargo ? { nome: cargo.nome, descricao: cargo.descricao } : null,
+        rubrica: (i) => infotipos.nome(i),
+      }),
+    });
+  };
+
+  /** «Eliminar Seleção»: elimina um a um (as mesmas regras do servidor que a eliminação individual). */
+  const eliminarSeleccao = async () => {
+    setAEliminar(true);
+    let ok = 0;
+    const falhas: string[] = [];
+    for (const k of seleccionados) {
+      try {
+        await enviar('delete', `/rh/contratos/${k}`);
+        ok += 1;
+      } catch (e) {
+        const c = (contratos.data ?? []).find((x) => x.id === k);
+        falhas.push(`${c ? colaboradores.nome(c.colaborador_id) : `#${k}`}: ${e instanceof Error ? e.message : 'erro'}`);
+      }
+    }
+    setAEliminar(false);
+    setSeleccionados([]);
+    void cliente.invalidateQueries({ queryKey: ['rh'] });
+    if (ok) message.success(`${ok} contrato(s) eliminado(s).`);
+    if (falhas.length) Modal.warning({ title: `${falhas.length} contrato(s) não eliminado(s)`, content: <ul style={{ paddingLeft: 18 }}>{falhas.slice(0, 20).map((f) => <li key={f}>{f}</li>)}</ul> });
+  };
   // colunas do legado (renderContratos): colaborador, rubricas, valor/mês, valor/dia, valor/hora, dias · horas, início, fim, estado
   const rem = (c: ContratoTrabalho) => normalizarRemuneracoes(c.remuneracoes, c.dias_contrato_mes ?? 22);
   const moeda = (c: ContratoTrabalho) => (c.codigo_moeda && c.codigo_moeda !== 'AOA' ? ` ${c.codigo_moeda}` : '');
@@ -110,27 +160,6 @@ export default function Contratos() {
     { title: 'Início', dataIndex: 'data_inicio', render: formatarData },
     { title: 'Fim', dataIndex: 'data_fim', render: (v: string | null) => (semFim(v) ? 'Sem fim' : formatarData(v)) },
     { title: 'Estado', dataIndex: 'estado', render: (e: string | null, c) => <Space size={4} wrap><EstadoTag estado={e} />{contratoVigente(c, hoje) && <Typography.Text type="success">vigente</Typography.Text>}</Space> },
-    {
-      title: '',
-      key: 'accoes',
-      align: 'right',
-      render: (_, c) => (
-        <Space size={4}>
-          {pode('contratos_new') && <Button size="small" type="text" icon={<EditOutlined />} aria-label="Editar" onClick={() => abrir(c)} />}
-          {pode('contratos_terminate') && semFim(c.data_fim) && (
-            <Tooltip title="Terminar contrato"><Button size="small" type="text" icon={<StopOutlined />} aria-label="Terminar" onClick={() => { formFim.setFieldsValue({ data_fim: dayjs() }); setTerminar(c); }} /></Tooltip>
-          )}
-          {pode('contratos_terminate') && (
-            <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" onClick={() => Modal.confirm({
-              title: 'Eliminar este contrato?',
-              content: 'Os processamentos encerrados guardam a fotografia: nada muda para trás.',
-              okText: 'Eliminar', okButtonProps: { danger: true }, cancelText: 'Cancelar',
-              onOk: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/contratos/${c.id}` }),
-            })} />
-          )}
-        </Space>
-      ),
-    },
   ];
 
   return (
@@ -145,15 +174,27 @@ export default function Contratos() {
         subtitulo="Contratos de trabalho e remunerações (vários contratos por colaborador, sem sobreposição de datas)"
         accoes={
           <>
-            <Button icon={<CalculatorOutlined />} onClick={() => setSimular(true)}>Simular massa salarial</Button>
+            <Button type="primary" style={{ background: '#10b981', borderColor: '#10b981' }} icon={<CalculatorOutlined />} onClick={() => setSimular(true)}>Simular Massa Salarial</Button>
+            <Button icon={<IconeFa nome="file-invoice" />} disabled={!linhas.length} onClick={() => void pedidoTabela({ titulo: 'Lista de Contratos de Trabalho', orientacao: 'paisagem', colunas, linhas }).then(imprimir)}>Extrair</Button>
             {pode('contratos_import') && (
               <>
-                <Button icon={<DownloadOutlined />} onClick={() => void descarregar('/rh/importacoes/modelos/contratos', undefined, 'Template_Contratos_Vertical.xlsx').catch(notificarErro)}>Template</Button>
+                <Button icon={<IconeFa nome="file-download" />} onClick={() => void descarregar('/rh/importacoes/modelos/contratos', undefined, 'Template_Contratos_Vertical.xlsx').catch(notificarErro)}>Template</Button>
                 <Button icon={<ImportOutlined />} onClick={() => setImportarCt(true)}>Importar Excel</Button>
               </>
             )}
-            {pode('contratos_new') && <Button icon={<AppstoreAddOutlined />} onClick={() => setMassa(true)}>Aplicar em massa</Button>}
-            {pode('contratos_new') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo contrato</Button>}
+            {pode('contratos_new') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo Contrato</Button>}
+            {pode('contratos_new') && <Button type="primary" icon={<AppstoreAddOutlined />} title="Escolher rubricas com o mesmo valor mensal e aplicá-las a vários colaboradores (actualiza ou cria os contratos)" onClick={() => setMassa(true)}>Aplicar em massa</Button>}
+            {pode('contratos_terminate') && (
+              <>
+                <Button icon={<IconeFa nome="check-double" />} disabled={!linhas.length} onClick={() => setSeleccionados(linhas.map((c) => c.id))}>Selecionar Tudo</Button>
+                <Button icon={<IconeFa nome="square" />} disabled={!seleccionados.length} onClick={() => setSeleccionados([])}>Desmarcar</Button>
+                <Button danger icon={<IconeFa nome="trash-alt" />} disabled={!seleccionados.length} loading={aEliminar} onClick={() => Modal.confirm({
+                  title: `Eliminar os ${seleccionados.length} contrato(s) seleccionado(s)?`,
+                  content: 'Os processamentos encerrados guardam a fotografia: nada muda para trás.',
+                  okText: 'Eliminar', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: eliminarSeleccao,
+                })}>Eliminar Seleção{seleccionados.length ? ` (${seleccionados.length})` : ''}</Button>
+              </>
+            )}
           </>
         }
         impressaoDesactivada={!linhas.length}
@@ -171,7 +212,18 @@ export default function Contratos() {
           <PesquisaLocal aoMudar={setTermo} placeholder="Nome do colaborador" />
         </BarraFiltros>
         <TabelaComModos<ContratoTrabalho> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={contratos.isFetching} columns={colunas} dataSource={linhas} scroll={scrollTabela()}
-          pagination={{ pageSize: 25, showSizeChanger: true, showTotal: (t) => `${t} contrato(s)` }} />
+          seleccao={pode('contratos_terminate') ? { chaves: seleccionados, aoMudar: (k) => setSeleccionados(k) } : undefined}
+          accoes={(c) => [
+            { icone: 'file-pdf', titulo: 'Gerar PDF para Assinatura', cor: '#dc2626', onClick: () => gerarPdf(c).catch((e) => notificarErro(e, 'Não foi possível gerar o contrato')) },
+            pode('contratos_new') && { icone: 'edit', titulo: 'Editar', onClick: () => abrir(c) },
+            pode('contratos_terminate') && semFim(c.data_fim) && { icone: 'calendar-times', titulo: 'Terminar contrato', variante: 'aviso', onClick: () => { formFim.setFieldsValue({ data_fim: dayjs() }); setTerminar(c); } },
+            pode('contratos_terminate') && {
+              icone: 'trash', titulo: 'Excluir', variante: 'perigo',
+              confirmar: { titulo: 'Eliminar este contrato?', texto: 'Os processamentos encerrados guardam a fotografia: nada muda para trás.', textoOk: 'Eliminar', perigo: true },
+              onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/contratos/${c.id}` }),
+            },
+          ]}
+          vazio={{ icone: 'file-contract', titulo: 'Sem contratos', texto: 'Ainda não há contratos com estes filtros.' }} />
       </Card>
 
       <Modal title={edicao === 'novo' ? 'Novo contrato' : 'Editar contrato'} open={edicao !== null} width={larguraModal(820)} onCancel={() => setEdicao(null)}

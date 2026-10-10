@@ -1,7 +1,9 @@
 import { Alert, Button, Card, DatePicker, Empty, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import ImpostoSelo from './ImpostoSelo';
 import { enviar, obter } from '@/api/cliente';
 import { scrollTabela } from '@/componentes/responsivo';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -13,7 +15,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from './comum/Componentes';
 import { somar } from '@/utilitarios/decimal';
-import { lerLinhasActualizacao } from './comum/rotinas';
+import { lerLinhasActualizacao, seccoesRotinas } from './comum/rotinas';
 import { SeletorAux, SeletorConta, SeletorDiario } from './comum/Seletores';
 
 interface Obra {
@@ -54,23 +56,63 @@ interface RotinaHistorico {
   estado: string;
 }
 
-/** Contabilidade › Rotinas contabilísticas (ecrã contab_rotinas, ADR-056). O Imposto de Selo tem ecrã próprio. */
-export default function Rotinas() {
+/**
+ * Contabilidade › Rotinas Contabilísticas (renderRotinas, js/ui_rotinas.js:5-97, ADR-056): separadores pela ordem do
+ * legado, com o Imposto de Selo lá dentro (a rota imposto_selo abre este ecrã no separador «Imposto de Selo»).
+ * Acesso por separador como no legado: rotinas (contab_rotinas_*) e Imposto de Selo (imposto_selo_view / selo_lancar).
+ */
+export default function Rotinas({ separadorInicial }: { separadorInicial?: string }) {
   const { pode } = useSessao();
   const exec = pode('contab_rotinas_exec');
+  const podeRotinas = pode('contab_rotinas_view', 'contab_rotinas_exec', 'contab_rotinas_anular');
+  const podeSelo = pode('imposto_selo_view', 'selo_lancar');
+  const [activa, setActiva] = useState(() => {
+    let guardada: string | null = null;
+    try {
+      guardada = localStorage.getItem('rotinas.seccao');
+    } catch {
+      guardada = null;
+    }
+    return seccoesRotinas(podeRotinas, podeSelo, separadorInicial, guardada).activa ?? 'capitalizacao';
+  });
+  const { seccoes } = seccoesRotinas(podeRotinas, podeSelo);
+  const mudar = (k: string) => {
+    setActiva(k);
+    try {
+      localStorage.setItem('rotinas.seccao', k);
+    } catch {
+      // preferência só de conveniência
+    }
+  };
+  const conteudo: Record<string, ReactNode> = {
+    capitalizacao: <Capitalizacao exec={exec} />,
+    compensacao: <Compensacao exec={exec} />,
+    transferencia: <Transferencia exec={exec} />,
+    selo: <ImpostoSelo />,
+    actualizacao: <Actualizacao exec={exec} />,
+    limpeza: <Limpeza />,
+    historico: <Historico />,
+  };
   return (
     <>
-      <CabecalhoPagina titulo="Rotinas contabilísticas" subtitulo="Capitalização, compensação, transferência de saldos, actualização em massa e histórico" />
-      <Tabs
-        items={[
-          { key: 'cap', label: 'Capitalização de obras', children: <Capitalizacao exec={exec} /> },
-          { key: 'comp', label: 'Compensação automática', children: <Compensacao exec={exec} /> },
-          { key: 'trf', label: 'Transferência de saldos', children: <Transferencia exec={exec} /> },
-          { key: 'act', label: 'Actualização em massa', children: <Actualizacao exec={exec} /> },
-          { key: 'hist', label: 'Histórico', children: <Historico /> },
-          { key: 'limp', label: 'Limpeza de reconciliações', children: <Limpeza /> },
-        ]}
-      />
+      <CabecalhoPagina titulo="Rotinas Contabilísticas" subtitulo="Processamentos periódicos, ajustes em massa e apuramentos. Escolha a rotina nos botões abaixo." />
+      {seccoes.length === 0 ? (
+        <Empty description="Sem acesso às rotinas contabilísticas." />
+      ) : (
+        <Tabs
+          activeKey={activa}
+          onChange={mudar}
+          items={seccoes.map((s) => ({
+            key: s.chave,
+            label: (
+              <span title={s.dica}>
+                <IconeFa nome={s.icone} /> {s.nome}
+              </span>
+            ),
+            children: conteudo[s.chave],
+          }))}
+        />
+      )}
     </>
   );
 }

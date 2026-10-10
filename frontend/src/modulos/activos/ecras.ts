@@ -8,5 +8,6 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   activos_amortizacoes: lazy(() => import('./Amortizacoes')),
   activos_abates: lazy(() => import('./Abates')),
   activos_pendentes: lazy(() => import('./Pendentes')),
-  activos_mapa: lazy(() => import('./Mapa')),
+  // «Mapa de Amortizações» e, em /fiscal, o «Mapa Fiscal» (mesma permissão no legado)
+  activos_mapa: lazy(() => import('./fiscal/RotaMapa')),
 };

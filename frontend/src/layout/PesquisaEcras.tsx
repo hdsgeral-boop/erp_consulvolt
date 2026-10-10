@@ -6,6 +6,7 @@ import type { ModuloMenu } from '@/api/tipos';
 import { useFavoritos } from '@/componentes/preferencias/favoritos';
 import { iconeModulo } from '@/componentes/icones/iconesModulos';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { nomeModulo, rotuloEcra } from './menuLegado';
 
 /**
  * Pesquisa de ecrãs «Ir para» (CTRL+K / ⌘K; legado ui_dashboard.js:950-1008, citado na Dica do dia): procura nos ecrãs do
@@ -25,9 +26,15 @@ const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 /** Ecrãs do menu que correspondem a todas as palavras do termo (favoritos primeiro; sem termo, só os favoritos e o resto do menu). */
 export function procurarEcras(menu: ModuloMenu[], termo: string, eFavorito: (m: string, e: string) => boolean, limite = 30): ResultadoEcra[] {
   const palavras = normalizar(termo).split(/\s+/).filter(Boolean);
-  const todos = menu.flatMap((m) => m.ecras.map((e) => ({ modulo: m.id, ecra: e.id, nome: e.nome, nomeModulo: m.nome, rota: `/m/${m.id}/${e.id}`, favorito: eFavorito(m.id, e.id) })));
-  const filtrados = palavras.length ? todos.filter((r) => palavras.every((p) => normalizar(`${r.nome} ${r.nomeModulo} ${r.ecra}`).includes(p))) : todos;
-  return filtrados.sort((a, b) => Number(b.favorito) - Number(a.favorito) || (palavras.length ? Number(normalizar(b.nome).startsWith(palavras[0])) - Number(normalizar(a.nome).startsWith(palavras[0])) : 0)).slice(0, limite);
+  // rótulos do menu do legado (menuLegado.ts); a pesquisa também encontra pelo nome do catálogo e do módulo no catálogo
+  const todos = menu.flatMap((m) =>
+    m.ecras.map((e) => ({
+      modulo: m.id, ecra: e.id, nome: rotuloEcra(m.id, e.id, e.nome), nomeModulo: nomeModulo(m.id, m.nome), rota: `/m/${m.id}/${e.id}`, favorito: eFavorito(m.id, e.id),
+      procura: normalizar(`${rotuloEcra(m.id, e.id, e.nome)} ${e.nome} ${nomeModulo(m.id, m.nome)} ${m.nome} ${e.id}`),
+    })),
+  );
+  const filtrados = palavras.length ? todos.filter((r) => palavras.every((p) => r.procura.includes(p))) : todos;
+  return filtrados.sort((a, b) => Number(b.favorito) - Number(a.favorito) || (palavras.length ? Number(normalizar(b.nome).startsWith(palavras[0])) - Number(normalizar(a.nome).startsWith(palavras[0])) : 0)).slice(0, limite).map(({ procura: _p, ...r }) => r);
 }
 
 export function PesquisaEcras({ aberta, aoFechar }: { aberta: boolean; aoFechar: () => void }) {

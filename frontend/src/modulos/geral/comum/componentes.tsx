@@ -1,4 +1,5 @@
 import { Card, Table, Tooltip, Typography } from 'antd';
+import { CartaoKpi as CartaoKpiPartilhado, CORES_KPI, type PosicaoBarraKpi } from '@/componentes/vistas/CartaoKpi';
 import { ArrowDownOutlined, ArrowUpOutlined, InfoCircleOutlined, MinusOutlined } from '@ant-design/icons';
 import { useCallback, type ReactNode } from 'react';
 import { tabelaHtml } from '@/componentes/impressao';
@@ -27,7 +28,7 @@ export function formatarPorFormato(valor: unknown, formato?: string | null, casa
     case 'num':
     case 'nota':
       return casas !== null && casas !== undefined
-        ? new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 0, maximumFractionDigits: casas }).format(Number(valor))
+        ? new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 0, maximumFractionDigits: casas, useGrouping: 'always' as unknown as boolean }).format(Number(valor))
         : formatarNumero(valor as string);
     default:
       return typeof valor === 'boolean' ? (valor ? 'Sim' : 'Não') : String(valor);
@@ -54,7 +55,11 @@ export function useRotaDaVista() {
   );
 }
 
-/** Cartão de indicador (KPI): rótulo, valor formatado, subtítulo e, opcionalmente, variação. */
+/**
+ * Cartão de indicador (KPI): rótulo, valor formatado, subtítulo e, opcionalmente, variação. Desenhado com o cartão
+ * partilhado do sistema anterior (`CartaoKpi` de componentes/vistas — barra de cor à esquerda como no Dashboard Global,
+ * rótulo em maiúsculas, valor grande a negrito, quadrado com ícone se `icone`).
+ */
 export function CartaoKpi({
   rotulo,
   valor,
@@ -66,6 +71,9 @@ export function CartaoKpi({
   alerta,
   aoClicar,
   casas,
+  icone,
+  cor,
+  barra = 'esquerda',
 }: {
   rotulo: string;
   valor: unknown;
@@ -77,42 +85,50 @@ export function CartaoKpi({
   alerta?: boolean;
   aoClicar?: () => void;
   casas?: number | null;
+  /** Ícone Font Awesome do antigo (ex.: «shopping-cart»). */
+  icone?: string;
+  /** Cor da barra/ícone (por omissão: azul; laranja com `alerta`). */
+  cor?: string;
+  barra?: PosicaoBarraKpi;
 }) {
-  const cor = leitura === 'boa' ? '#389e0d' : leitura === 'ma' ? '#cf1322' : 'rgba(0,0,0,0.55)';
+  const corVariacao = leitura === 'boa' ? '#389e0d' : leitura === 'ma' ? '#cf1322' : 'rgba(0,0,0,0.55)';
   const Icone = variacaoPct === null || variacaoPct === undefined || variacaoPct === 0 ? MinusOutlined : variacaoPct > 0 ? ArrowUpOutlined : ArrowDownOutlined;
-  return (
-    <Card
-      size="small"
-      hoverable={!!aoClicar}
-      onClick={aoClicar}
-      style={{ height: '100%', borderLeft: alerta ? '3px solid #fa8c16' : undefined }}
-      styles={{ body: { padding: '12px 16px' } }}
-    >
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        {rotulo}
-        {ajuda && (
-          <Tooltip title={ajuda}>
-            <InfoCircleOutlined style={{ marginLeft: 6 }} aria-label="Ajuda" />
-          </Tooltip>
+  const secundaria =
+    variacaoPct !== undefined || subtitulo ? (
+      <>
+        {variacaoPct !== undefined && (
+          <Typography.Text style={{ fontSize: 12, color: corVariacao, display: 'block' }}>
+            <Icone /> {variacaoPct === null ? 'sem base de comparação' : `${variacaoPct > 0 ? '+' : ''}${formatarNumero(variacaoPct)}%`}
+          </Typography.Text>
         )}
-      </Typography.Text>
-      <div style={{ fontSize: 20, fontWeight: 600, margin: '4px 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {formatarPorFormato(valor, formato, casas)}
-        {formato === 'kz' && valor !== null && valor !== undefined && <span style={{ fontSize: 12, fontWeight: 400, marginLeft: 4 }}>Kz</span>}
-      </div>
-      {variacaoPct !== undefined && (
-        <Typography.Text style={{ fontSize: 12, color: cor }}>
-          <Icone /> {variacaoPct === null ? 'sem base de comparação' : `${variacaoPct > 0 ? '+' : ''}${formatarNumero(variacaoPct)}%`}
-        </Typography.Text>
-      )}
-      {subtitulo && (
-        <div>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        {subtitulo && (
+          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
             {subtitulo}
           </Typography.Text>
-        </div>
-      )}
-    </Card>
+        )}
+      </>
+    ) : undefined;
+  return (
+    <CartaoKpiPartilhado
+      style={{ height: '100%' }}
+      rotulo={
+        <>
+          {rotulo}
+          {ajuda && (
+            <Tooltip title={ajuda}>
+              <InfoCircleOutlined style={{ marginLeft: 6 }} aria-label="Ajuda" />
+            </Tooltip>
+          )}
+        </>
+      }
+      valor={formatarPorFormato(valor, formato, casas)}
+      unidade={formato === 'kz' && valor !== null && valor !== undefined ? 'Kz' : undefined}
+      secundaria={secundaria}
+      icone={icone}
+      cor={cor ?? (alerta ? CORES_KPI.laranja : CORES_KPI.azul)}
+      barra={barra}
+      aoClicar={aoClicar}
+    />
   );
 }
 

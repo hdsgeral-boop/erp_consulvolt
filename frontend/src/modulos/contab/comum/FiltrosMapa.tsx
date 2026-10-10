@@ -1,9 +1,10 @@
 import { Button, Checkbox, Collapse, DatePicker, Flex, Form, Input, InputNumber } from 'antd';
 import { CalculatorOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorAux, SeletorDiario, SeletorTerceiro, SeletorUnidade } from './Seletores';
+import { periodoPorOmissao } from '../mapas/periodoBalancete';
 
 export type ModoDatas = 'periodo' | 'ate' | 'ano';
 
@@ -58,10 +59,17 @@ const TODOS = { contas: true, diario: true, centro: true, unidade: true, terceir
 /** Barra de filtros comum aos mapas contabilísticos: datas conforme o mapa, filtros avançados recolhíveis e «Calcular». */
 export function FiltrosMapa({ modo, aoCalcular, aCalcular, extra, avancados = TODOS, valoresIniciais, periodoObrigatorio = true }: Props) {
   const [form] = Form.useForm<ValoresFiltroMapa>();
+  // como o legado, o mapa aparece calculado ao abrir (com os valores iniciais); depois recalcula-se com «Calcular»
+  useEffect(() => {
+    const t = setTimeout(() => form.submit(), 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const hoje = dayjs();
   const iniciais: Partial<ValoresFiltroMapa> = {
-    periodo: [hoje.startOf('year'), hoje],
-    data_fim_unica: hoje,
+    // ano civil completo, como o legado (período partilhado pelos mapas, js/ui_reports.js:4-8)
+    periodo: periodoPorOmissao(hoje),
+    data_fim_unica: periodoPorOmissao(hoje)[1],
     ano: hoje.year(),
     ...valoresIniciais,
   };

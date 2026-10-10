@@ -39,12 +39,12 @@ final class PainelCompras implements Painel
 
         return [
             'kpis' => [
-                Indicadores::kpi('compras_mes', 'Compras do Mês', $porMes[$p->chaveMes] ?? '0.00', 'kz', 'Facturas de fornecedor'),
+                Indicadores::kpi('compras_mes', 'Compras do Mês', $porMes[$p->chaveMes] ?? '0.00', 'kz', 'Faturas de fornecedor'),
                 Indicadores::kpi('compras_ano', "Compras {$p->ano}", $p->somaAno($porMes)),
                 Indicadores::kpi('fornecedores_pagar', 'Fornecedores a Pagar', $fornecedores, 'kz', 'Saldo contabilístico da conta 32'),
                 Indicadores::kpi('pedidos_por_aprovar', 'Pedidos por Aprovar', $pedidos, 'num'),
                 Indicadores::kpi('encomendas_em_curso', 'Encomendas em Curso', $emCurso, 'num', 'Por receber no Armazém'),
-                Indicadores::kpi('faturas_por_contabilizar', 'Facturas por Contabilizar', $porContabilizar, 'num'),
+                Indicadores::kpi('faturas_por_contabilizar', 'Faturas por Contabilizar', $porContabilizar, 'num'),
             ],
             'graficos' => [
                 Indicadores::grafico('compras_mensais', 'Compras Mensais (12 meses)', 'barras', $p->rotulos(), [Indicadores::serie('compras', 'Compras', $p->serie($porMes))]),
@@ -57,7 +57,7 @@ final class PainelCompras implements Painel
                 Indicadores::tabela('encomendas_em_curso', 'Encomendas em Curso', [['numero_encomenda', 'Encomenda'], ['data', 'Data', 'data'], ['fornecedor', 'Fornecedor'], ['estado', 'Estado'], ['moeda', 'Moeda']],
                     array_map(fn ($r) => (array) $r, $encomendas)),
             ],
-            'atalhos' => [['rotulo' => 'Compras', 'vista' => 'compras'], ['rotulo' => 'Encomendas', 'vista' => 'compras_encomendas'], ['rotulo' => 'Facturas de Fornecedor', 'vista' => 'compras_faturacao']],
+            'atalhos' => [['rotulo' => 'Compras', 'vista' => 'compras'], ['rotulo' => 'Encomendas', 'vista' => 'compras_encomendas'], ['rotulo' => 'Faturas de Fornecedor', 'vista' => 'compras_faturacao']],
         ];
     }
 }

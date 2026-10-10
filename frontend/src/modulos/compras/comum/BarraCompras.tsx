@@ -1,23 +1,29 @@
-import { Button, Card, Flex, Segmented } from 'antd';
-import {
-  AuditOutlined, FileAddOutlined, FileDoneOutlined, FileProtectOutlined, FileSearchOutlined, InboxOutlined, PlusOutlined,
-  ShoppingCartOutlined, SolutionOutlined, TeamOutlined, UnorderedListOutlined,
-} from '@ant-design/icons';
+import { Button } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 
 const BASE = '/m/compras';
 
-/** Separadores do módulo, pela ordem do legado (renderPurchasesModule, js/ui_compras_v2.js). */
+/** Separadores do módulo, pela ordem, rótulos e ícones do legado (renderCompras, js/ui_compras_v2.js:850-875). */
 export const SEPARADORES_COMPRAS = [
-  { ecra: 'compras_pedidos', rotulo: 'Pedidos', icone: <UnorderedListOutlined /> },
-  { ecra: 'compras_prospeccao', rotulo: 'Prospecção', icone: <FileSearchOutlined /> },
-  { ecra: 'compras_encomendas', rotulo: 'Encomendas', icone: <ShoppingCartOutlined /> },
-  { ecra: 'compras_rececoes', rotulo: 'Recepções', icone: <InboxOutlined /> },
-  { ecra: 'compras_faturacao', rotulo: 'Facturação', icone: <FileDoneOutlined /> },
-  { ecra: 'compras_fornecedores', rotulo: 'Fornecedores', icone: <TeamOutlined /> },
-  { ecra: 'compras_encomendas_clientes', rotulo: 'Encomendas clientes', icone: <SolutionOutlined /> },
-  { ecra: 'compras_contratos', rotulo: 'Contratos', icone: <FileProtectOutlined /> },
+  { ecra: 'compras_pedidos', rotulo: 'Pedidos', icone: 'shopping-cart' },
+  { ecra: 'compras_prospeccao', rotulo: 'Prospeção', icone: 'search-dollar' },
+  { ecra: 'compras_encomendas', rotulo: 'Encomendas', icone: 'shopping-cart' },
+  { ecra: 'compras_rececoes', rotulo: 'Receções', icone: 'truck-loading' },
+  { ecra: 'compras_faturacao', rotulo: 'Faturação', icone: 'file-invoice-dollar' },
+  { ecra: 'compras_fornecedores', rotulo: 'Fornecedores', icone: 'users' },
+  { ecra: 'compras_encomendas_clientes', rotulo: 'Encomendas Clientes', icone: 'file-export' },
+  { ecra: 'compras_contratos', rotulo: 'Contratos', icone: 'file-contract' },
+] as const;
+
+/** Acções rápidas do legado (.compras-toolbar, js/ui_compras_v2.js:852-857): rótulos e ícones iguais. */
+export const ACCOES_RAPIDAS_COMPRAS = [
+  { chave: 'pedido', rotulo: 'Novo Pedido', icone: 'plus', permissao: 'compras_ped_criar', destino: `${BASE}/compras_pedidos/novo` },
+  { chave: 'proposta', rotulo: 'Registar Proposta', icone: 'file-contract', permissao: 'compras_new_proposal', destino: `${BASE}/compras_prospeccao/novo` },
+  { chave: 'factura', rotulo: 'Fatura Direta', icone: 'file-invoice-dollar', permissao: 'compras_fact_registar', destino: `${BASE}/compras_faturacao/novo` },
+  { chave: 'contrato', rotulo: 'Novo Contrato', icone: 'file-signature', permissao: 'compras_contratos_gerir', destino: `${BASE}/compras_contratos?novo=1` },
 ] as const;
 
 /** Ecrã de compras do caminho actual (ou nulo). */
@@ -26,45 +32,35 @@ export function ecraCompras(caminho: string): string | null {
   return m ? m[1] : null;
 }
 
+/** A barra de acções rápidas só aparece nas listas (nos formulários e detalhes há botões do ecrã com os mesmos nomes). */
+export function eListaCompras(caminho: string): boolean {
+  return /^\/m\/compras\/[a-z_]+\/?$/.test(caminho);
+}
+
 /**
- * Barra do módulo de Compras, como no legado: acções rápidas (+ Pedido, + Proposta, + Factura directa, + Contrato —
- * rótulos curtos para não repetir os botões dos ecrãs) e os separadores do módulo. Só mostra o que o perfil pode ver/fazer.
+ * Cabeçalho do módulo de Compras, como no legado: título «Módulo de Compras e Aprovisionamento» com ícone, por cima da barra
+ * de acções rápidas («+ Novo Pedido», «Registar Proposta», «Fatura Direta», «Novo Contrato») e dos separadores-botão do
+ * módulo (CabecalhoModulo, G.5). Só mostra o que o perfil pode ver/fazer.
  */
 export function BarraCompras() {
   const navegar = useNavigate();
   const { pathname } = useLocation();
   const { pode } = useSessao();
-  const actual = ecraCompras(pathname);
-  const separadores = SEPARADORES_COMPRAS.filter((s) => pode(`${s.ecra}_view`));
-  const rapidas = [
-    pode('compras_ped_criar') && { chave: 'pedido', rotulo: 'Pedido', icone: <PlusOutlined />, destino: `${BASE}/compras_pedidos/novo` },
-    pode('compras_new_proposal') && { chave: 'proposta', rotulo: 'Proposta', icone: <FileAddOutlined />, destino: `${BASE}/compras_prospeccao/novo` },
-    pode('compras_fact_registar') && { chave: 'factura', rotulo: 'Factura directa', icone: <AuditOutlined />, destino: `${BASE}/compras_faturacao/novo` },
-    pode('compras_contratos_gerir') && { chave: 'contrato', rotulo: 'Contrato', icone: <FileProtectOutlined />, destino: `${BASE}/compras_contratos?novo=1` },
-  ].filter(Boolean) as { chave: string; rotulo: string; icone: JSX.Element; destino: string }[];
+  const rapidas = eListaCompras(pathname) ? ACCOES_RAPIDAS_COMPRAS.filter((r) => pode(r.permissao)) : [];
 
-  if (!separadores.length && !rapidas.length) return null;
   return (
-    <div className="imp-nao-imprimir" style={{ marginBottom: 16 }}>
-      {rapidas.length > 0 && (
-        <Card size="small" style={{ marginBottom: 12 }} styles={{ body: { padding: 10 } }}>
-          <Flex wrap gap="small">
-            {rapidas.map((r, i) => (
-              <Button key={r.chave} type={i === 0 ? 'primary' : 'default'} ghost={i === 0} icon={r.icone} onClick={() => navegar(r.destino)}>
-                {r.rotulo}
-              </Button>
-            ))}
-          </Flex>
-        </Card>
-      )}
-      {separadores.length > 1 && (
-        <Segmented
-          style={{ maxWidth: '100%', overflowX: 'auto' }}
-          value={actual ?? undefined}
-          onChange={(v) => navegar(`${BASE}/${v}`)}
-          options={separadores.map((s) => ({ value: s.ecra, label: s.rotulo, icon: s.icone }))}
-        />
-      )}
-    </div>
+    <CabecalhoModulo
+      titulo="Módulo de Compras e Aprovisionamento"
+      icone="shopping-cart"
+      accoesRapidas={
+        rapidas.length > 0 &&
+        rapidas.map((r) => (
+          <Button key={r.chave} type={r.chave === 'pedido' ? 'primary' : 'default'} icon={<IconeFa nome={r.icone} />} onClick={() => navegar(r.destino)}>
+            {r.rotulo}
+          </Button>
+        ))
+      }
+      separadores={SEPARADORES_COMPRAS.map((s) => ({ chave: s.ecra, rotulo: s.rotulo, icone: s.icone, destino: `${BASE}/${s.ecra}`, permissao: `${s.ecra}_view` }))}
+    />
   );
 }

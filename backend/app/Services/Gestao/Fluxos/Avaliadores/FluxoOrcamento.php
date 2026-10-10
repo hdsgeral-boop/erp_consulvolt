@@ -116,7 +116,7 @@ final class FluxoOrcamento extends AvaliadorFluxo
                             [self::accao('Analisar desvios', 'orc_controlo', true)]));
             }
             $processos[] = ['chave' => 'orcamento-'.$o->id, 'titulo' => (string) $o->nome, 'subtitulo' => "{$o->ano} · ".(self::TIPOS[$o->tipo] ?? $o->tipo)." · v{$o->versao}", 'data' => (string) $o->criado_em,
-                'valor' => $total, 'valor_pendente' => null, 'etapas' => $E, 'ano' => (int) $o->ano, 'estado' => $o->estado, 'estado_nome' => self::ESTADOS[$o->estado] ?? $o->estado,
+                'valor' => $total, 'valor_pendente' => null, 'linha_data' => (self::ESTADOS[$o->estado] ?? $o->estado).' · '.self::kz($total), 'etapas' => $E, 'ano' => (int) $o->ano, 'estado' => $o->estado, 'estado_nome' => self::ESTADOS[$o->estado] ?? $o->estado,
                 'documentos' => [['tipo' => 'orcamento', 'id' => $o->id, 'numero' => "v{$o->versao}"]]] + self::contagem($E);
         }
         usort($processos, fn ($a, $b) => $b['ano'] <=> $a['ano'] ?: strcmp($b['data'], $a['data']));

@@ -1,8 +1,9 @@
 import { Alert, Button, Flex, Modal, Space, Table, Tag, Typography, Upload, message } from 'antd';
-import { DownloadOutlined, ImportOutlined, UploadOutlined } from '@ant-design/icons';
+import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { IconeLegado } from '@/componentes/vistas';
 import { descarregarCsv } from '@/utilitarios/csv';
 import { notificarErro } from '@/utilitarios/erros';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
@@ -48,6 +49,21 @@ const ROTULO_ACCAO: Record<LinhaAnalise['accao'], [string, string]> = {
   IGNORADA: ['Ignorada', 'red'],
 };
 
+/** Descarrega o modelo (cabeçalho e uma linha de exemplo) para importação. */
+export function descarregarModeloLav(tipo: TipoImportacaoLav): void {
+  const m = MODELOS_LAV[tipo];
+  descarregarCsv(`modelo_lavandaria_${tipo}`, [m.colunas, m.exemplo].map((l) => l.join(';')).join('\r\n'));
+}
+
+/** Botões «Modelo» / «Modelo de preços» do antigo (lavandaria.js:1294-1296). */
+export function BotaoModeloLav({ tipo }: { tipo: TipoImportacaoLav }) {
+  return (
+    <Button icon={<IconeLegado icone="file-excel" />} title={tipo === 'precos' ? 'Modelo de preços por peça e serviço' : 'Descarregar o modelo'} onClick={() => descarregarModeloLav(tipo)}>
+      {tipo === 'precos' ? 'Modelo de preços' : 'Modelo'}
+    </Button>
+  );
+}
+
 /**
  * M-16 — importar peças, serviços ou preços por peça e serviço (Excel/CSV): simulação com a acção de cada linha
  * (criar, actualizar, ignorada com o motivo) e importação das linhas válidas (POST /pos/lavandaria/importar, lav_tabelas).
@@ -84,7 +100,7 @@ export function ImportarTabela({ tipo }: { tipo: TipoImportacaoLav }) {
 
   return (
     <>
-      <Button icon={<ImportOutlined />} onClick={() => setAberto(true)}>
+      <Button icon={<IconeLegado icone={tipo === 'precos' ? 'tags' : 'file-import'} />} onClick={() => setAberto(true)}>
         {tipo === 'precos' ? 'Importar preços por serviço' : 'Importar'}
       </Button>
       <Modal
@@ -124,7 +140,7 @@ export function ImportarTabela({ tipo }: { tipo: TipoImportacaoLav }) {
           >
             <Button icon={<UploadOutlined />}>Escolher ficheiro</Button>
           </Upload>
-          <Button icon={<DownloadOutlined />} onClick={() => descarregarCsv(`modelo_lavandaria_${tipo}`, [m.colunas, m.exemplo].map((l) => l.join(';')).join('\r\n'))}>
+          <Button icon={<DownloadOutlined />} onClick={() => descarregarModeloLav(tipo)}>
             Baixar modelo
           </Button>
         </Flex>

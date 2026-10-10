@@ -21,6 +21,18 @@ export function rotuloRubrica(r: string | null | undefined): string {
 
 export const FECHADOS = ['ENCERRADO', 'CANCELADO'];
 
+/**
+ * Ícones de acção da linha da Carteira (ui_projects.js:414-417): só ver detalhes (eye, abrir a ficha) e editar (edit), como
+ * no antigo; o Gantt do projecto abre-se no separador Planeamento da ficha. Devolve os destinos relativos à Carteira.
+ */
+export function accoesLinhaCarteira(p: Pick<Projecto, 'id' | 'estado'>, pode: Pode): { icone: string; titulo: string; destino: string }[] {
+  const a = accoesProjecto(p, pode);
+  return [
+    { icone: 'eye', titulo: 'Ver detalhes', destino: String(p.id) },
+    ...(a.editar ? [{ icone: 'edit', titulo: 'Editar projecto', destino: `${p.id}?editar=1` }] : []),
+  ];
+}
+
 /** Acções sobre o projecto conforme o estado e as permissões (encerrar/cancelar exige proj_estado). */
 export function accoesProjecto(p: Pick<Projecto, 'estado'> | null | undefined, pode: Pode) {
   const fechado = !!p && FECHADOS.includes(p.estado);

@@ -214,7 +214,7 @@ final class StockController extends Controller
         return RespostaApi::paginado(SessaoInventario::query()->when($f['armazem_id'] ?? null, fn ($q, $a) => $q->where('armazem_id', $a))
             ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
             ->when($f['pesquisa'] ?? null, fn ($q, $v) => $q->where('descricao', 'ilike', '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], trim($v)).'%'))
-            ->orderByDesc('data')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1)), null, 'Inventários.');
+            ->orderBy('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1)), null, 'Inventários.');
     }
 
     // ───────────── Recálculo das valorizações (ADR-064) ─────────────

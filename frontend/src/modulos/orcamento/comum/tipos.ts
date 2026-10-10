@@ -119,6 +119,33 @@ export interface Desvio {
   fecho_estimado: { revisao: number; mes_referencia: string; orcado_ano: Dinheiro; valor: Dinheiro } | null;
 }
 
+/** /orcamento/paridade/orcamentos — lista com as colunas e a ordem do sistema anterior. */
+export interface OrcamentoLista extends Orcamento {
+  /** 0 = raiz; 1+ = contributo/meta por baixo do pai */
+  nivel: number;
+  /** «UN x · CC y · Proj. z» ou «Toda a empresa» */
+  dimensoes: string;
+  total_rubricas: Dinheiro;
+  ultima_accao: { accao: 'APROVADO' | 'SUBMETIDO' | 'CRIADO' | string; por: string | null; em: string | null };
+  /** «2026 · Exploração · Toda a empresa · v1 (Rascunho)» */
+  rotulo: string;
+}
+
+export interface ListaParidade {
+  orcamentos: OrcamentoLista[];
+  /** Orçamento por omissão do Controlo: o primeiro aprovado da ordem do legado, senão o primeiro. */
+  por_omissao: number | null;
+}
+
+/** /orcamento/paridade/orcamentos/{id}/desvios/{rubrica} — análise do desvio com as causas («Porquê?»). */
+export interface CausasDesvio extends Omit<Desvio, 'contas' | 'maiores_movimentos'> {
+  contas: { conta: string | number; descricao: string | null; real: Dinheiro; anterior: Dinheiro; variacao: Dinheiro }[];
+  maiores_movimentos: (Desvio['maiores_movimentos'][number] & { valor_rubrica?: Dinheiro })[];
+  terceiros: { terceiro_id: number | null; nome: string; valor: Dinheiro; peso_pct: number }[];
+  periodo: { de: number; ate: number; ano: number };
+  tipo_orcamento: TipoOrcamento;
+}
+
 export interface Previsao {
   id: number;
   tipo: TipoOrcamento;

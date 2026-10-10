@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\CRM\ServicoMigracaoCRM;
 use App\Services\Logistica\ServicoMigracaoStock;
+use App\Services\Migracao\ServicoCorrecoesPosMigracao;
 use App\Services\Migracao\ServicoMigracaoLegado;
 use App\Services\POS\ServicoMigracaoHotelaria;
 use App\Services\POS\ServicoMigracaoLavandaria;
@@ -87,6 +88,11 @@ final class MigrarBackupLegado extends Command
                 }
             }
             $this->info("Salários: {$total['periodos']} períodos fotografados; contabilizados que conferem com o diário: {$total['confere']}, com diferença: {$total['difere']} (ver Sistema › Validações).");
+
+            // Correcções de dados do legado (ADR-070): movimentos em armazém de outra empresa (antes do acerto de stock, que
+            // os inclui) e notas de crédito que abatem a factura; cada correcção fica nos logs de auditoria
+            $cor = DB::transaction(fn () => app(ServicoCorrecoesPosMigracao::class)->aplicar(acertarStock: false));
+            $this->info('Correcções: '.json_encode($cor, JSON_UNESCAPED_UNICODE).'.');
 
             // Stock (ADR-042): saldos por armazém do legado como verdade, acerto do histórico e custo médio inicial
             $st = ['sem_tipo' => 0, 'acertos' => 0, 'totais_corrigidos' => 0, 'com_custo' => 0, 'sem_custo' => 0];

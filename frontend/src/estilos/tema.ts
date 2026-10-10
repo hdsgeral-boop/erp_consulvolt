@@ -107,7 +107,8 @@ export const TEMA: ThemeConfig = {
       cellPaddingInlineSM: 6,
       cellFontSize: 13,
     },
-    Button: { fontWeight: 500, primaryShadow: 'none', defaultShadow: 'none', dangerShadow: 'none' },
+    // legado .btn: 2px de raio, 0,85rem (13,6px), padding 0,35rem 0,75rem → 29px de altura
+    Button: { fontWeight: 500, primaryShadow: 'none', defaultShadow: 'none', dangerShadow: 'none', borderRadius: 2, borderRadiusSM: 2, borderRadiusLG: 2, contentFontSize: 13.6, controlHeight: 29, paddingInline: 12 },
     Tabs: { horizontalItemGutter: 8, itemColor: '#334155' },
     Modal: { titleFontSize: 17 },
     Form: { labelColor: TEXTO },

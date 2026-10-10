@@ -97,7 +97,13 @@ final class FluxoCompras extends AvaliadorFluxo
         usort($processos, fn ($a, $b) => strcmp((string) $b['data'], (string) $a['data']));
         $porPagar = array_reduce($processos, fn ($s, $p) => bcadd($s, $p['valor_pendente'], 2), '0.00');
 
-        return ['processos' => $processos, 'kpis' => array_merge(self::kpisBase($processos, 6), [
+        // Legado (fluxo_compras.js:346-348, 275-277): os indicadores contam a lista dos cartões — até 24 por concluir,
+        // completada com os concluídos mais recentes até 12 —, não todos os processos.
+        $porConcluir = array_slice(array_values(array_filter($processos, fn ($p) => $p['_concluidas'] < 6)), 0, 24);
+        $feitos = array_values(array_filter($processos, fn ($p) => $p['_concluidas'] === 6));
+        $listaCartoes = array_slice(array_merge($porConcluir, $feitos), 0, max(12, count($porConcluir)));
+
+        return ['processos' => $processos, 'kpis' => array_merge(self::kpisBase($listaCartoes, 6), [
             self::kpi('por_aprovar', 'Pedidos por aprovar', count(array_filter($processos, fn ($p) => $p['etapas']['ped']['estado'] === 'curso'))),
             self::kpi('por_pagar', 'Valor por pagar', $porPagar, 'kz', bccomp($porPagar, '0.01', 2) > 0),
         ])];

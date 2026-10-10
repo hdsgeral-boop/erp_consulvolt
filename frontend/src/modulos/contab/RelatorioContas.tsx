@@ -1,18 +1,19 @@
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography, message } from 'antd';
-import { BookOutlined, CheckOutlined, FileTextOutlined, SaveOutlined, SettingOutlined, SyncOutlined, TableOutlined, UnlockOutlined } from '@ant-design/icons';
+import { BookOutlined, FileTextOutlined, SaveOutlined, SettingOutlined, SyncOutlined, TableOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { esc, tabelaHtml } from '@/componentes/impressao';
 import { scrollTabela, useEcra } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, ValorKz } from './comum/Componentes';
-import { accoesRelatorioContas } from './comum/regras';
+import { estadoConclusao, temErros, textosConclusao } from './relatorioContas/conclusao';
 import { SeparadorGestao } from './relatorioContas/SeparadorGestao';
 import { SECCOES, tabelaSeccao, textoActual, textoParaHtml, type ConfigGestao, type TextoGravado } from './relatorioContas/textosGestao';
 
@@ -34,7 +35,7 @@ interface DadosRC {
 }
 
 interface RelatorioRC {
-  registo: { id: number | null; ano: number; estado: string; configuracao: Record<string, unknown>; textos: Record<string, unknown>; notas_incluir: Record<string, boolean>; atualizado_por: string | null; atualizado_em: string | null };
+  registo: { id: number | null; ano: number; estado: string; configuracao: Record<string, unknown>; textos: Record<string, unknown>; notas_incluir: Record<string, boolean>; atualizado_por: string | null; atualizado_em: string | null; concluido_em?: string | null; concluido_por?: string | null };
   dados: DadosRC;
 }
 
@@ -105,7 +106,7 @@ export default function RelatorioContas() {
   const consulta = useQuery({ queryKey: ['contab', 'relatorio-contas', ano], queryFn: () => obter<RelatorioRC>(`/contabilidade/relatorio-contas/${ano}`) });
   const reg = consulta.data?.registo;
   const d = consulta.data?.dados;
-  const regras = accoesRelatorioContas(reg?.estado, !!d?.encerrado, pode);
+  const regras = estadoConclusao(reg, !!d?.encerrado, pode);
   const config: ConfigGestao = { ...(reg?.configuracao ?? {}), ...(configForm ?? {}) } as ConfigGestao;
 
   useEffect(() => {
@@ -156,12 +157,44 @@ export default function RelatorioContas() {
   });
 
   /** «Gravar» do legado: configuração, textos editados e notas a incluir, numa só operação. */
-  const gravarTudo = async () => {
+  const corpoGravacao = async () => {
     const cfg = { ...(await form.validateFields()) };
     if (cfg.data && dayjs.isDayjs(cfg.data)) cfg.data = (cfg.data as Dayjs).format('YYYY-MM-DD');
     // só se guardam os textos editados; os automáticos regeneram-se sempre a partir dos números
     const editados = Object.fromEntries(Object.entries(textos).filter(([, t]) => t && t.auto === false));
-    gravar.mutate({ configuracao: cfg, textos: editados, notas_incluir: notas });
+    return { configuracao: cfg, textos: editados, notas_incluir: notas };
+  };
+  const gravarTudo = async () => gravar.mutate(await corpoGravacao());
+
+  /**
+   * «Concluir» (rcConcluir, js/relatorio_contas.js:1170-1184): exercício em aberto → só o aviso; com erros nos alertas →
+   * confirmação extra; depois a confirmação normal. Como o legado (recolher + gravar), as alterações por gravar vão
+   * primeiro para o servidor; o servidor recalcula os números e guarda a fotografia, a data e o utilizador.
+   */
+  const iniciarConclusao = () => {
+    if (!d) return;
+    if (!regras.concluirDisponivel) {
+      Modal.warning({ title: 'Exercício em aberto', content: textosConclusao.exercicioAberto(ano), okText: 'OK' });
+      return;
+    }
+    const confirmar = (forcar: boolean) =>
+      Modal.confirm({
+        title: textosConclusao.confirmarTitulo(ano),
+        content: textosConclusao.confirmarTexto,
+        okText: 'Concluir',
+        cancelText: 'Cancelar',
+        onOk: async () => {
+          try {
+            if (sujo) await gravar.mutateAsync(await corpoGravacao());
+            await concluir.mutateAsync(forcar);
+          } catch {
+            // os erros já são mostrados pelas mutações (notificarErro)
+          }
+        },
+      });
+    if (temErros(d.alertas)) {
+      Modal.confirm({ title: 'O relatório tem erros', content: textosConclusao.comErros, okText: 'Concluir mesmo assim', cancelText: 'Cancelar', onOk: () => confirmar(true) });
+    } else confirmar(false);
   };
   const mudarTexto = (id: string, valor: TextoGravado | null) => {
     setTextos((t) => {
@@ -198,7 +231,12 @@ export default function RelatorioContas() {
               <span>{`${String(config.nome || d.empresa.nome || '')} · Exercício de ${ano}`}</span>
               <Tag color={regras.concluido ? 'green' : 'gold'}>{regras.concluido ? 'Concluído' : 'Rascunho'}</Tag>
               {d.encerrado ? <Tag>Exercício encerrado</Tag> : <Tag color="red">Provisório — exercício em aberto</Tag>}
-              {reg?.atualizado_em && (
+              {regras.legenda && (
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  {regras.legenda}
+                </Typography.Text>
+              )}
+              {reg?.atualizado_em && !regras.concluido && (
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                   gravado por {reg.atualizado_por ?? '—'} em {formatarDataHora(reg.atualizado_em)}
                 </Typography.Text>
@@ -228,19 +266,15 @@ export default function RelatorioContas() {
                 Gravar
               </Button>
             )}
-            {regras.podeConcluir && (
+            {regras.mostrarConcluir && (
               <Button
-                icon={<CheckOutlined />}
+                color="green"
+                variant="solid"
+                icon={<IconeFa nome="check" />}
                 loading={concluir.isPending}
-                onClick={() =>
-                  Modal.confirm({
-                    title: `Concluir o Relatório e Contas de ${ano}?`,
-                    content: 'Os números ficam fixados (fotografia) até o relatório ser reaberto.',
-                    okText: 'Concluir',
-                    cancelText: 'Cancelar',
-                    onOk: () => concluir.mutateAsync(false),
-                  })
-                }
+                disabled={!d}
+                title={d && !regras.concluirDisponivel ? textosConclusao.dicaIndisponivel : undefined}
+                onClick={iniciarConclusao}
               >
                 Concluir
               </Button>
@@ -248,9 +282,18 @@ export default function RelatorioContas() {
             {regras.podeReabrir && (
               <Button
                 danger
-                icon={<UnlockOutlined />}
+                icon={<IconeFa nome="lock-open" />}
                 loading={reabrir.isPending}
-                onClick={() => Modal.confirm({ title: `Reabrir o Relatório e Contas de ${ano}?`, okText: 'Reabrir', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => reabrir.mutateAsync() })}
+                onClick={() =>
+                  Modal.confirm({
+                    title: textosConclusao.reabrirTitulo(ano),
+                    content: textosConclusao.reabrirTexto,
+                    okText: 'Reabrir',
+                    okButtonProps: { danger: true },
+                    cancelText: 'Cancelar',
+                    onOk: () => reabrir.mutateAsync().catch(() => undefined),
+                  })
+                }
               >
                 Reabrir
               </Button>
@@ -262,9 +305,6 @@ export default function RelatorioContas() {
         <Skeleton active />
       ) : (
         <>
-          {!d.encerrado && !regras.concluido && pode('rc_concluir') && (
-            <Alert type="info" showIcon style={{ marginBottom: 8 }} message="A conclusão só fica disponível depois de encerrado o exercício." />
-          )}
           {d.alertas.map((a, i) => (
             <Alert key={i} type={CORES_ALERTA[a.tipo] ?? 'info'} showIcon style={{ marginBottom: 8 }} message={a.texto} />
           ))}
@@ -511,7 +551,7 @@ export default function RelatorioContas() {
           />
           <Descriptions size="small" style={{ marginTop: 16 }}>
             <Descriptions.Item label="Moeda">{d.moeda}</Descriptions.Item>
-            <Descriptions.Item label="Estado">{regras.concluido ? <Tag color="green">Concluído (números fixados)</Tag> : <Tag>Rascunho (números recalculados a cada consulta)</Tag>}</Descriptions.Item>
+            <Descriptions.Item label="Estado">{regras.concluido ? <Tag color="green">Concluído (números fixados){regras.legenda ? ` — ${regras.legenda}` : ''}</Tag> :<Tag>Rascunho (números recalculados a cada consulta)</Tag>}</Descriptions.Item>
           </Descriptions>
         </>
       )}

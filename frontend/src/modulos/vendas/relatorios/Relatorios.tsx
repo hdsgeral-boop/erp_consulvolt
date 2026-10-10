@@ -1,19 +1,38 @@
-import { Alert, Button, Card, Col, DatePicker, Empty, Flex, Progress, Row, Skeleton, Statistic, Table, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Empty, Row, Skeleton, Table, Tag, Typography, message } from 'antd';
 import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+import { Route, Routes, useNavigate } from 'react-router-dom';
 import { descarregar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { pares, tabelaHtml } from '@/componentes/impressao';
 import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { barrasMensais, type ResumoVendas, type ValidacaoSaft } from './kpis';
+import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
+import { GraficoDonut, GraficoLinhas } from '@/componentes/graficos/Graficos';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
+import { type ResumoVendas, type ValidacaoSaft } from './kpis';
+import { EcraSaft } from './EcraSaft';
 
-/** Vendas › Relatórios de vendas (ecrã vendas_relatorios): indicadores do período (calculados no servidor) e exportação SAF-T(AO). */
+/** Vendas › Dashboard (ecrã vendas_relatorios) e o separador «Exportar SAFT-AO» (vendas_relatorios/saft). */
 export default function Relatorios() {
+  return (
+    <Routes>
+      <Route index element={<DashboardVendas />} />
+      <Route path="saft" element={<EcraSaft />} />
+    </Routes>
+  );
+}
+
+/**
+ * «Dashboard de Vendas» do legado (renderRelatoriosVendasTab, js/ui_sales.js:4060): cartões com barra de cor, evolução
+ * mensal em linha com área, maiores clientes em donut, alertas de stock baixo e facturas pendentes. Valores do servidor.
+ */
+function DashboardVendas() {
+  const navegar = useNavigate();
   const { pode } = useSessao();
   const [periodo, setPeriodo] = useState<[Dayjs, Dayjs]>([dayjs().startOf('year'), dayjs()]);
   const [aExportar, setAExportar] = useState(false);
@@ -28,22 +47,21 @@ export default function Relatorios() {
     staleTime: 120_000,
   });
   const resumo = consulta.data;
-  const barras = useMemo(() => barrasMensais(resumo?.por_mes ?? []), [resumo]);
 
   /** Mapa impresso: indicadores, facturação mensal, maiores clientes e pendentes (A4 retrato, salvo se não couber). */
   const pedidoImpressao = () => {
     if (!resumo) return null;
     return {
-      titulo: 'Relatório de vendas',
+      titulo: 'Dashboard de Vendas',
       periodo: `${formatarData(inicio)} a ${formatarData(fim)}`,
       filtros: ['Facturas e facturas-recibo menos notas de crédito; anulados excluídos'],
       conteudo: [
         pares(
           [
-            ['Vendas líquidas', `${formatarKz(resumo.liquido)} Kz`],
+            ['Vendas totais (com IVA)', `${formatarKz(resumo.bruto)} Kz`],
+            ['Vendas líquidas (sem IVA)', `${formatarKz(resumo.liquido)} Kz`],
             ['IVA liquidado', `${formatarKz(resumo.imposto)} Kz`],
-            ['Total com IVA', `${formatarKz(resumo.bruto)} Kz`],
-            ['A receber', `${formatarKz(resumo.a_receber)} Kz`],
+            ['A receber (saldo)', `${formatarKz(resumo.a_receber)} Kz`],
             ['Notas de crédito', `${formatarKz(resumo.notas_credito)} Kz`],
             ['Documentos', resumo.documentos],
           ],
@@ -106,7 +124,7 @@ export default function Relatorios() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Relatórios de vendas"
+        titulo="Dashboard de Vendas"
         subtitulo="Indicadores de facturação do período (facturas e facturas-recibo menos notas de crédito)"
         impressao={podeResumo ? pedidoImpressao : undefined}
         impressaoDesactivada={!resumo}
@@ -114,6 +132,7 @@ export default function Relatorios() {
           <>
             <DatePicker.RangePicker format="DD/MM/YYYY" allowClear={false} value={periodo} onChange={(v) => v?.[0] && v?.[1] && setPeriodo([v[0], v[1]])} />
             {podeResumo && <Button icon={<ReloadOutlined />} loading={consulta.isFetching} onClick={() => void consulta.refetch()}>Actualizar</Button>}
+            {pode('vendas_faturacao_view') && <Button icon={<IconeFa nome="list" />} onClick={() => navegar('/m/vendas/vendas_faturacao')}>Ver Todas Faturas</Button>}
             {pode('vendas_relatorios_view', 'vendas_fe_config') && (
               <Button type="primary" icon={<DownloadOutlined />} loading={aExportar} onClick={() => void exportarSaft()}>
                 Exportar SAF-T (AO)
@@ -130,37 +149,49 @@ export default function Relatorios() {
         <Alert type="error" showIcon message="Não foi possível calcular os indicadores." description={consulta.error?.message} />
       ) : (
         <>
-          <div className="erp-grelha-auto" style={{ marginBottom: 16 }}>
-            <Card><Statistic title="Vendas líquidas (Kz)" value={formatarKz(resumo.liquido)} /></Card>
-            <Card><Statistic title="IVA liquidado (Kz)" value={formatarKz(resumo.imposto)} /></Card>
-            <Card><Statistic title="A receber (Kz)" value={formatarKz(resumo.a_receber)} valueStyle={{ color: '#d48806' }} /></Card>
-            <Card><Statistic title="Notas de crédito (Kz)" value={formatarKz(resumo.notas_credito)} valueStyle={{ color: '#cf1322' }} /></Card>
+          {/* 4.3.2/4.3.5: cartões do legado (barra de cor por baixo, valor grande a negrito), rótulos explícitos com/sem IVA */}
+          <div style={{ marginBottom: 24 }}>
+            <GrelhaKpi larguraMinima={200}>
+              <CartaoKpi rotulo="Vendas totais (com IVA)" valor={formatarKz(resumo.bruto)} unidade="Kz" cor="verde"
+                ajuda="Total facturado com IVA (o sistema anterior chamava-lhe «Vendas Totais (Líquido)»)" />
+              <CartaoKpi rotulo="Vendas líquidas (sem IVA)" valor={formatarKz(resumo.liquido)} unidade="Kz" cor="verdeAgua" />
+              <CartaoKpi rotulo="IVA liquidado" valor={formatarKz(resumo.imposto)} unidade="Kz" cor="primario" />
+              <CartaoKpi rotulo="A receber (saldo)" valor={formatarKz(resumo.a_receber)} unidade="Kz" cor="laranja"
+                ajuda="Saldo por receber das facturas do período (já descontados recibos parciais e notas de crédito)" />
+              <CartaoKpi rotulo="Notas de crédito" valor={formatarKz(resumo.notas_credito)} unidade="Kz" cor="vermelho" />
+            </GrelhaKpi>
           </div>
-          <Row gutter={[16, 0]}>
-            <Col xs={24} lg={12}>
-              <Card title="Facturação mensal (com IVA)" style={{ marginBottom: 16 }}>
-                {barras.length === 0 ? (
+          <Row gutter={[24, 0]}>
+            <Col xs={24} lg={14}>
+              <Card title="Evolução de Faturação Mensal" style={{ marginBottom: 24 }}>
+                {resumo.por_mes.length === 0 ? (
                   <Empty description="Sem documentos no período." />
                 ) : (
-                  barras.map((m) => (
-                    <Flex key={m.mes} align="center" gap={12} style={{ marginBottom: 6 }}>
-                      <span style={{ flex: '0 0 64px' }}>{dayjs(`${m.mes}-01`).format('MM/YYYY')}</span>
-                      <Progress percent={m.percentagem} showInfo={false} status={m.negativo ? 'exception' : 'normal'} style={{ flex: 1, margin: 0, minWidth: 0 }} />
-                      <span style={{ flex: '0 0 auto', minWidth: 90, textAlign: 'right' }}>{formatarKz(m.bruto)}</span>
-                    </Flex>
-                  ))
+                  <GraficoLinhas
+                    rotulos={resumo.por_mes.map((m) => dayjs(`${m.mes}-01`).format('MM/YYYY'))}
+                    series={[{ rotulo: 'Faturação (com IVA)', valores: resumo.por_mes.map((m) => m.bruto), cor: '#2563eb' }]}
+                    monetario
+                    preenchimento
+                    altura={280}
+                  />
                 )}
                 <Typography.Text type="secondary">{resumo.documentos} documento(s) · total {formatarKz(resumo.bruto, true)}</Typography.Text>
               </Card>
             </Col>
-            <Col xs={24} lg={12}>
-              <Card title="Maiores clientes" style={{ marginBottom: 16 }}>
+            <Col xs={24} lg={10}>
+              <Card title="Maiores Clientes (Faturação)" style={{ marginBottom: 24 }}>
+                {resumo.maiores_clientes.length === 0 ? (
+                  <Empty description="Sem clientes no período." />
+                ) : (
+                  <GraficoDonut rotulos={resumo.maiores_clientes.map((c) => c.nome)} series={[{ rotulo: 'Facturado', valores: resumo.maiores_clientes.map((c) => c.bruto) }]} monetario />
+                )}
                 <Table
                   rowKey={(c) => String(c.cliente_id ?? 'cf')}
                   size="small"
                   pagination={false}
                   dataSource={resumo.maiores_clientes}
                   scroll={scrollTabela()}
+                  style={{ marginTop: 12 }}
                   columns={[
                     { title: 'Cliente', dataIndex: 'nome' },
                     { title: 'Docs.', dataIndex: 'documentos', align: 'right' },
@@ -170,24 +201,67 @@ export default function Relatorios() {
               </Card>
             </Col>
           </Row>
-          <Card title="Facturas pendentes mais recentes">
-            <Table
-              rowKey="id"
-              size="small"
-              pagination={false}
-              dataSource={resumo.pendentes}
-              scroll={scrollTabela()}
-              columns={[
-                { title: 'Documento', dataIndex: 'numero_documento' },
-                { title: 'Data', dataIndex: 'data_emissao', render: formatarData },
-                { title: 'Cliente', key: 'cliente', render: (_, d) => d.cliente?.nome ?? (d.cliente ? `#${d.cliente.id}` : '—') },
-                { title: 'Vencimento', dataIndex: 'data_vencimento', responsive: ['md'], render: formatarData },
-                { title: 'Pendente (Kz)', dataIndex: 'valor_pendente', align: 'right', render: (v: string) => formatarKz(v) },
-              ]}
-            />
-          </Card>
+          <Row gutter={[24, 0]}>
+            <Col xs={24} lg={12}>
+              <AlertasStock />
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card title="Faturas Pendentes (Mais Recentes)" style={{ marginBottom: 24 }}>
+                <Table
+                  rowKey="id"
+                  size="small"
+                  pagination={false}
+                  dataSource={resumo.pendentes}
+                  scroll={scrollTabela()}
+                  columns={[
+                    { title: 'Documento', dataIndex: 'numero_documento' },
+                    { title: 'Data', dataIndex: 'data_emissao', render: formatarData },
+                    { title: 'Cliente', key: 'cliente', render: (_, d) => d.cliente?.nome ?? (d.cliente ? `#${d.cliente.id}` : '—') },
+                    { title: 'Vencimento', dataIndex: 'data_vencimento', responsive: ['md'], render: formatarData },
+                    { title: 'Pendente (Kz)', dataIndex: 'valor_pendente', align: 'right', render: (v: string) => formatarKz(v) },
+                  ]}
+                />
+              </Card>
+            </Col>
+          </Row>
         </>
       )}
     </>
+  );
+}
+
+interface AlertaStock { id: number; codigo: string | null; nome: string | null; stock: string; minimo: string }
+
+/** 4.3.7 — «Alertas de Stock Baixo» do Dashboard de Vendas do legado (produto, código e «N un»). */
+function AlertasStock() {
+  const alertas = useQuery({
+    queryKey: ['vendas', 'relatorio', 'alertas-stock'],
+    queryFn: () => obter<AlertaStock[]>('/vendas/relatorios/alertas-stock'),
+    staleTime: 120_000,
+    retry: false,
+  });
+  return (
+    <Card title="Alertas de Stock Baixo" style={{ marginBottom: 24 }} styles={{ body: { padding: 0 } }} loading={alertas.isLoading}>
+      {alertas.error ? (
+        <Alert type="error" showIcon style={{ margin: 16 }} message="Não foi possível ler os alertas de stock." />
+      ) : !alertas.data?.length ? (
+        <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Nenhum alerta de stock.</div>
+      ) : (
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {alertas.data.map((p) => {
+            const q = Number(p.stock);
+            return (
+              <li key={p.id} style={{ padding: 16, borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontWeight: 600, fontSize: 14 }}>{p.nome}</span>
+                  <small style={{ color: '#64748b' }}>Código: {p.codigo ?? '—'}</small>
+                </div>
+                <Tag color={q <= 0 ? 'red' : 'orange'} style={{ margin: 0 }}>{formatarNumero(q)} un</Tag>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
   );
 }

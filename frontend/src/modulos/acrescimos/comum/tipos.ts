@@ -62,6 +62,8 @@ export interface LancamentoAD {
   diferenca: string | null;
   anulado_por: string | null;
   anulado_em: string | null;
+  /** Registo do lançamento (pedido com `com_registo=1`). */
+  item_acrescimo_diferimento?: Pick<ItemAD, 'id' | 'tipo' | 'natureza' | 'descricao'> | null;
 }
 
 export interface Quota {
@@ -120,6 +122,8 @@ export interface ResultadoContabilizacao {
 
 export interface LinhaReconciliacao {
   conta: string;
+  /** Descrição da conta no plano da empresa (vazia se a conta não existir). */
+  descricao?: string;
   modulo: string;
   diario: string;
   diferenca: string;
@@ -142,4 +146,6 @@ export interface Candidato {
   linhas: { conta: string; valor: string }[];
   total: string;
   ligado: boolean;
+  /** Lançamento do Diário feito directamente numa conta 37 das definições (sem lançamento inicial). */
+  em_balanco?: boolean;
 }

@@ -15,7 +15,7 @@ use Illuminate\Http\Request;
 
 /**
  * /api/pos/armazem — POS de armazém: stock do armazém, venda ao balcão (guia de saída) e picking de encomendas (NE → GR).
- * O acerto de stock do legado não se porta (ADR-050): as regularizações fazem-se na Logística (ajustes e inventário).
+ * Artigos em cartões, acerto de stock e senhas: ParidadePOSArmazemController (routes/api/paridade_pos_stock/pos_armazem.php).
  */
 final class POSArmazemController extends Controller
 {

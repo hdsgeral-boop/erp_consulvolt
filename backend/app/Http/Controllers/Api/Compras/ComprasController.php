@@ -15,6 +15,7 @@ use App\Services\Compras\ServicoConfigCompras;
 use App\Services\Compras\ServicoContabilizacaoCompras;
 use App\Services\Compras\ServicoDeliberacaoCompras;
 use App\Services\Compras\ServicoFaturasCompra;
+use App\Services\Compras\ServicoListagensCompras;
 use App\Services\Compras\ServicoProcessoCompras;
 use App\Services\Compras\ServicoRececoesCompra;
 use App\Support\Api\RespostaApi;
@@ -40,6 +41,7 @@ final class ComprasController extends Controller
         private readonly ServicoFaturasCompra $faturas,
         private readonly ServicoContabilizacaoCompras $contabilizacao,
         private readonly ServicoConfigCompras $config,
+        private readonly ServicoListagensCompras $listagens,
     ) {}
 
     // ─────────── Pedidos ───────────
@@ -48,7 +50,7 @@ final class ComprasController extends Controller
     {
         $this->exigir('compras_pedidos_view');
 
-        return $this->listar($r, PedidoCompra::query(), 'data', ['numero_pedido', 'nome_requerente']);
+        return $this->listar($r, PedidoCompra::query(), 'data', ['numero_pedido', 'nome_requerente'], $this->listagens->pedidos(...));
     }
 
     public function pedido(int $id): JsonResponse
@@ -120,7 +122,7 @@ final class ComprasController extends Controller
         $this->exigir('compras_prospeccao_view');
 
         return $this->listar($r, CotacaoCompra::query()->with(RelacoesNomes::fornecedor())
-            ->when($r->integer('pedido_compra_id'), fn ($q, $v) => $q->where('pedido_compra_id', $v)), 'data', ['numero_proposta', 'referencia']);
+            ->when($r->integer('pedido_compra_id'), fn ($q, $v) => $q->where('pedido_compra_id', $v)), 'data', ['numero_proposta', 'referencia'], $this->listagens->dimensoes(...));
     }
 
     public function proposta(int $id): JsonResponse
@@ -207,7 +209,7 @@ final class ComprasController extends Controller
         $this->exigir('compras_encomendas_view', 'compras_rececoes_view', 'armazem_rececoes_view', 'compras_faturacao_view');
 
         return $this->listar($r, EncomendaCompra::query()->with(RelacoesNomes::fornecedor())
-            ->when($r->integer('fornecedor_id'), fn ($q, $v) => $q->where('fornecedor_id', $v)), 'data', ['numero_encomenda']);
+            ->when($r->integer('fornecedor_id'), fn ($q, $v) => $q->where('fornecedor_id', $v)), 'data', ['numero_encomenda'], $this->listagens->encomendas(...));
     }
 
     public function encomenda(int $id): JsonResponse
@@ -232,7 +234,7 @@ final class ComprasController extends Controller
         $this->exigir('compras_rececoes_view', 'armazem_rececoes_view');
 
         return $this->listar($r, RececaoCompra::query()->when($r->integer('encomenda_compra_id'), fn ($q, $v) => $q->where('encomenda_compra_id', $v)),
-            'data', ['numero_rececao', 'numero_entrega']);
+            'data', ['numero_rececao', 'numero_entrega'], $this->listagens->rececoes(...));
     }
 
     public function rececao(int $id): JsonResponse
@@ -289,7 +291,7 @@ final class ComprasController extends Controller
         return $this->listar($r, FaturaCompra::query()->with(RelacoesNomes::fornecedor())
             ->when($r->integer('fornecedor_id'), fn ($q, $v) => $q->where('fornecedor_id', $v))
             ->when($r->integer('encomenda_compra_id'), fn ($q, $v) => $q->where('encomenda_compra_id', $v))
-            ->when($r->boolean('por_contabilizar'), fn ($q) => $q->where('contabilizado', false)), 'data', ['numero_fatura']);
+            ->when($r->boolean('por_contabilizar'), fn ($q) => $q->where('contabilizado', false)), 'data', ['numero_fatura'], $this->listagens->faturas(...));
     }
 
     public function fatura(int $id): JsonResponse
@@ -376,9 +378,11 @@ final class ComprasController extends Controller
      * Listagem paginada (RespostaApi::paginado — metadados.paginacao, ADR-064) com os filtros comuns: estado, período e
      * `pesquisa` (ilike, sem curingas do utilizador) nas colunas indicadas.
      *
+     * `$enriquecer` acrescenta à página as colunas das listas do legado (ServicoListagensCompras, por lote, sem N+1).
+     *
      * @param  list<string>  $colunasPesquisa
      */
-    private function listar(Request $r, Builder $q, string $data, array $colunasPesquisa = []): JsonResponse
+    private function listar(Request $r, Builder $q, string $data, array $colunasPesquisa = [], ?callable $enriquecer = null): JsonResponse
     {
         $f = $r->validate(['estado' => ['nullable', 'string', 'max:30'], 'data_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_fim' => ['nullable', 'date_format:Y-m-d'],
             'pesquisa' => ['nullable', 'string', 'max:100'], 'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
@@ -395,6 +399,9 @@ final class ComprasController extends Controller
                 });
             })
             ->orderByDesc($data)->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
+        if ($enriquecer) {
+            $enriquecer($pagina->getCollection());
+        }
 
         return RespostaApi::paginado($pagina, null, 'Lista obtida com sucesso.');
     }
