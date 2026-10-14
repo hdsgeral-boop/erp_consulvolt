@@ -333,7 +333,8 @@ function DetalheRecibo() {
           </>
         }
       />
-      {r.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Recibo anulado${r.motivo_anulacao ? `: ${r.motivo_anulacao}` : '.'}`} />}
+      {r.estado === 'ANULADO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Recibo anulado${r.motivo_anulacao ? `: ${r.motivo_anulacao}` : '.'}`}
+        description={r.anulado_por || r.anulado_em ? `Anulado${r.anulado_por ? ` por ${r.anulado_por}` : ''}${r.anulado_em ? ` em ${formatarData(r.anulado_em)}` : ''}.` : undefined} />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Cliente">{r.cliente?.nome ?? `#${r.cliente_id}`}{r.cliente?.nif ? ` (NIF ${r.cliente.nif})` : ''}</Descriptions.Item>

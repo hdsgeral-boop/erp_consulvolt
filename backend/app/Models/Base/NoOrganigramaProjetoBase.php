@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela nos_organigrama_projeto (módulo Projectos). Legado: project_org_nodes · 30 linhas reais no backup.
+ * Tabela nos_organigrama_projeto (módulo Projectos). Legado: project_org_nodes · 48 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\NoOrganigramaProjeto.
  */
 abstract class NoOrganigramaProjetoBase extends ModeloBase

@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela movimentos_caixa (módulo Tesouraria). Legado: cash_lines · 186 linhas reais no backup.
+ * Tabela movimentos_caixa (módulo Tesouraria). Legado: cash_lines · 208 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\MovimentoCaixa.
  */
 abstract class MovimentoCaixaBase extends ModeloBase

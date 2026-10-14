@@ -14,7 +14,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // ad_settings (legado) -> configuracoes_acrescimos_diferimentos · 2 linhas reais no backup
+        // ad_settings (legado) -> configuracoes_acrescimos_diferimentos · 3 linhas reais no backup
         Schema::create('configuracoes_acrescimos_diferimentos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: ad_company_id');

@@ -11,6 +11,7 @@ use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoPlanoContas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -50,6 +51,7 @@ final class ServicoRecibosVenda
         $this->exercicios->exigirAberto($empresa, $data);
         $cliente = Terceiro::query()->findOrFail($d['cliente_id']);
         $this->exigirContaDisponibilidade($d['codigo_conta']);
+        $cliente->exigirContaCliente('Não é possível emitir o recibo:');   // Fase A: conta de cliente do papel (ui_sales.js:3603)
         if (! $d['alocacoes']) {
             throw new ErroNegocio('Indique pelo menos uma factura a liquidar.', 'RECIBO_SEM_FACTURAS', 422);
         }
@@ -134,6 +136,7 @@ final class ServicoRecibosVenda
             throw new ErroNegocio('O terceiro tem de estar registado como cliente.', 'CLIENTE_INVALIDO', 422);
         }
         $this->exigirContaDisponibilidade($d['codigo_conta']);
+        $cliente->exigirContaCliente('Não é possível emitir o recibo:');   // Fase A: conta de cliente do papel (ui_sales.js:3641)
         $montante = number_format((float) ($d['montante'] ?? 0), 2, '.', '');
         if (bccomp($montante, '0', 2) <= 0) {
             throw new ErroNegocio('O montante do adiantamento tem de ser positivo.', 'MONTANTE_INVALIDO', 422);
@@ -244,7 +247,8 @@ final class ServicoRecibosVenda
                     $this->estado->recalcular($v);
                 }
             }
-            $recibo->update(['estado' => 'ANULADO', 'anulado_em' => now(), 'motivo_anulacao' => $motivo]);
+            // autor da anulação (Fase A: anulacao_documentos.js grava anulado_por); forceFill — a coluna não está no $fillable gerado
+            $recibo->forceFill(['estado' => 'ANULADO', 'anulado_em' => now(), 'motivo_anulacao' => $motivo, 'anulado_por' => Auth::user()?->nome_utilizador])->save();
 
             return $recibo;
         });

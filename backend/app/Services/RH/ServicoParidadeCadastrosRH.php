@@ -217,10 +217,10 @@ final class ServicoParidadeCadastrosRH
     private function lerOrigem(string $entidade): array
     {
         return match ($entidade) {
-            'funcoes' => CargoFuncao::query()->orderBy('nome')->get(['nome', 'descricao'])->map(fn ($c) => ['nome' => $c->nome, 'descricao' => $c->descricao])->all(),
-            'infotipos' => InfotipoSalarial::query()->orderBy('nome')->get()->map(fn ($i) => ['nome' => $i->nome, 'tipo' => $i->tipo, 'sujeito_inss' => (bool) $i->sujeito_inss,
+            'funcoes' => CargoFuncao::query()->ordenarPorNome()->get(['nome', 'descricao'])->map(fn ($c) => ['nome' => $c->nome, 'descricao' => $c->descricao])->all(),
+            'infotipos' => InfotipoSalarial::query()->ordenarPorNome()->get()->map(fn ($i) => ['nome' => $i->nome, 'tipo' => $i->tipo, 'sujeito_inss' => (bool) $i->sujeito_inss,
                 'irt' => $i->irt ?? 'true', 'base_horaria' => (bool) $i->base_horaria, 'calculo_horas' => $i->calculo_horas])->all(),
-            'bancos' => Banco::query()->orderBy('nome')->get()->map(fn ($b) => ['nome' => $b->nome, 'codigo' => $b->codigo, 'nif' => $b->nif, 'endereco' => $b->endereco,
+            'bancos' => Banco::query()->ordenarPorNome()->get()->map(fn ($b) => ['nome' => $b->nome, 'codigo' => $b->codigo, 'nif' => $b->nif, 'endereco' => $b->endereco,
                 'codigo_conta' => $b->codigo_conta])->all(),
         };
     }

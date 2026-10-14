@@ -77,7 +77,7 @@ final class TesourariaController extends Controller
     public function store(Request $r): JsonResponse
     {
         $this->exigir('teso_doc_emitir');
-        $d = $this->documentos->gravar($this->validar($r));
+        $d = $this->documentos->gravar($this->validar($r), soBancos: true);   // Fase A: só 42/43; o numerário vai à Folha de Caixa
 
         return RespostaApi::criado($this->doc($d), "Documento {$d->numero_documento} gravado (por integrar).");
     }
@@ -85,7 +85,7 @@ final class TesourariaController extends Controller
     public function update(Request $r, int $id): JsonResponse
     {
         $this->exigir('teso_doc_emitir');
-        $d = $this->documentos->gravar($this->validar($r), DocumentoTesouraria::query()->findOrFail($id));
+        $d = $this->documentos->gravar($this->validar($r), DocumentoTesouraria::query()->findOrFail($id), soBancos: true);
 
         return RespostaApi::sucesso($this->doc($d), "Documento {$d->numero_documento} actualizado.");
     }
@@ -128,7 +128,7 @@ final class TesourariaController extends Controller
     {
         $this->exigir('teso_meios_pagamento_view', 'teso_gestao_pagamentos_view');
 
-        $meios = MeioPagamento::query()->orderByDesc('predefinido')->orderBy('nome')->get();
+        $meios = MeioPagamento::query()->orderByDesc('predefinido')->ordenarPorNome()->get();
         // «Descrição da conta» e «Tipo» (Banco 43 / Caixa 45) do legado (renderMeiosPagamento): uma consulta ao plano
         $descricoes = $meios->isEmpty() ? collect() : PlanoConta::query()->whereIn('codigo', $meios->pluck('codigo_conta')->unique()->values())->pluck('descricao', 'codigo');
 
@@ -174,7 +174,7 @@ final class TesourariaController extends Controller
             'linhas.*.fatura_compra_id' => ['nullable', 'integer', $daEmpresa('faturas_compra')],
             'linhas.*.unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')], 'linhas.*.centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
             'linhas.*.projeto_id' => ['nullable', 'integer', $daEmpresa('projetos')],
-        ], [], ['descricao' => 'descrição', 'conta_financeira' => 'conta de banco/caixa']);
+        ], [], ['descricao' => 'descrição', 'conta_financeira' => 'conta bancária (42/43)']);
     }
 
     private function motivo(Request $r): string

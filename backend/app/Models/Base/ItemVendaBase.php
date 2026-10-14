@@ -2,17 +2,19 @@
 
 namespace App\Models\Base;
 
+use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
 use App\Models\PedidoCompra;
 use App\Models\Produto;
 use App\Models\Projeto;
+use App\Models\UnidadeNegocio;
 use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela itens_venda (módulo Vendas). Legado: sale_items · 95 linhas reais no backup.
+ * Tabela itens_venda (módulo Vendas). Legado: sale_items · 149 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ItemVenda.
  */
 abstract class ItemVendaBase extends ModeloBase
@@ -24,7 +26,7 @@ abstract class ItemVendaBase extends ModeloBase
     protected string $moduloAuditoria = 'Vendas';
 
     protected $fillable = [
-        'empresa_id', 'produto_id', 'quantidade', 'preco_unitario', 'taxa_imposto', 'total', 'venda_id', 'projeto_id', 'codigo_projeto', 'observacoes', 'quantidade_faturada', 'pedido_compra_id', 'quantidade_entregue', 'descricao', 'percentagem_desconto', 'total_linha', 'codigo_conta', 'preco_unitario_moeda', 'total_moeda', 'imposto_moeda', 'fe_selado', 'custo_unitario_kz', 'quantidade_stock', 'quantidade_devolvida', 'acerto_cmv_kz',
+        'empresa_id', 'produto_id', 'quantidade', 'preco_unitario', 'taxa_imposto', 'total', 'venda_id', 'projeto_id', 'codigo_projeto', 'observacoes', 'quantidade_faturada', 'pedido_compra_id', 'quantidade_entregue', 'descricao', 'percentagem_desconto', 'total_linha', 'codigo_conta', 'preco_unitario_moeda', 'total_moeda', 'imposto_moeda', 'unidade_negocio_id', 'centro_custo_id', 'fe_selado', 'custo_unitario_kz', 'quantidade_stock', 'quantidade_devolvida', 'acerto_cmv_kz',
     ];
 
     protected function casts(): array
@@ -46,6 +48,8 @@ abstract class ItemVendaBase extends ModeloBase
             'preco_unitario_moeda' => 'decimal:2',
             'total_moeda' => 'decimal:2',
             'imposto_moeda' => 'decimal:2',
+            'unidade_negocio_id' => 'integer',
+            'centro_custo_id' => 'integer',
             'fe_selado' => 'boolean',
             'custo_unitario_kz' => 'decimal:6',
             'quantidade_stock' => 'decimal:3',
@@ -74,5 +78,15 @@ abstract class ItemVendaBase extends ModeloBase
     public function pedidoCompra(): BelongsTo
     {
         return $this->belongsTo(PedidoCompra::class, 'pedido_compra_id');
+    }
+
+    public function unidadeNegocio(): BelongsTo
+    {
+        return $this->belongsTo(UnidadeNegocio::class, 'unidade_negocio_id');
+    }
+
+    public function centroCusto(): BelongsTo
+    {
+        return $this->belongsTo(CentroCusto::class, 'centro_custo_id');
     }
 }

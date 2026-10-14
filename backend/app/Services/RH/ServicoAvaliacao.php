@@ -94,7 +94,7 @@ final class ServicoAvaliacao
             }
         }
 
-        return CriterioAvaliacaoRH::query()->orderBy('ambito')->orderBy('tipo')->orderBy('ordem')->orderBy('nome')->get()->all();
+        return CriterioAvaliacaoRH::query()->orderBy('ambito')->orderBy('tipo')->orderBy('ordem')->ordenarPorNome()->get()->all();
     }
 
     /** Itens aplicáveis a um colaborador (comuns + específicos activos). */
@@ -104,7 +104,7 @@ final class ServicoAvaliacao
 
         return CriterioAvaliacaoRH::query()->where('ativo', true)->where('tipo', $tipo)
             ->where(fn ($q) => $q->where('ambito', 'COMUM')->orWhere(fn ($x) => $x->where('ambito', 'ESPECIFICO')->where('colaborador_id', $colaborador)))
-            ->orderBy('ordem')->orderBy('nome')->get()->all();
+            ->orderBy('ordem')->ordenarPorNome()->get()->all();
     }
 
     public function guardarItem(array $d, ?CriterioAvaliacaoRH $i = null): CriterioAvaliacaoRH

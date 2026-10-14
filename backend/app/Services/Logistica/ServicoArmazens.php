@@ -67,7 +67,7 @@ final class ServicoArmazens
             ->when($armazem, fn ($q) => $q->where('stock_armazem.armazem_id', $armazem))
             ->when($soComStock, fn ($q) => $q->where('stock_armazem.quantidade_stock', '<>', 0))
             ->where('stock_armazem.empresa_id', DB::raw('p.empresa_id'))->whereNull('p.eliminado_em')
-            ->orderBy('a.nome')->orderBy('p.codigo')
+            ->ordenarPorNome('a.nome')->orderBy('p.codigo')
             ->get(['stock_armazem.armazem_id', 'a.nome as armazem', 'p.id as produto_id', 'p.codigo', 'p.nome', 'stock_armazem.quantidade_stock', 'p.custo_medio', 'p.stock_minimo'])
             ->map(fn ($x) => [
                 'armazem_id' => $x->armazem_id, 'armazem' => $x->armazem, 'produto_id' => $x->produto_id, 'codigo' => $x->codigo, 'nome' => $x->nome,

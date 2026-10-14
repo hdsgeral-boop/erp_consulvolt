@@ -277,7 +277,7 @@ final class ServicoPaineis
         $acessiveis = array_flip($this->empresas->idsAcessiveis($this->utilizador()));
 
         return DB::table('grupos_consolidacao as g')->join('membros_consolidacao as m', 'm.grupo_consolidacao_id', '=', 'g.id')->join('empresas as e', 'e.id', '=', 'm.empresa_membro_id')
-            ->where('g.empresa_holding_id', $this->contexto->obrigatorio())->orderBy('e.nome')->get(['e.id', 'e.nome'])
+            ->where('g.empresa_holding_id', $this->contexto->obrigatorio())->ordenarPorNome('e.nome')->get(['e.id', 'e.nome'])
             ->filter(fn ($e) => isset($acessiveis[(int) $e->id]))->unique('id')->map(fn ($e) => ['id' => (int) $e->id, 'nome' => $e->nome])->values()->all();
     }
 

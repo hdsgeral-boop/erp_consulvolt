@@ -7,7 +7,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
 
 /**
- * Tabela modelos_documentos_rh (módulo RH). Legado: rh_doc_templates · 0 linhas reais no backup.
+ * Tabela modelos_documentos_rh (módulo RH). Legado: rh_doc_templates · 1 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ModeloDocumentoRH.
  */
 abstract class ModeloDocumentoRHBase extends ModeloBase

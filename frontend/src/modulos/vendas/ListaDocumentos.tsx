@@ -123,8 +123,8 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
     }
   };
 
-  /** Pede o motivo do estorno (obrigatório, ≥ 5 caracteres) e chama `fazer(motivo)`. */
-  const pedirMotivo = (titulo: string, explicacao: ReactNode, fazer: (motivo: string) => unknown) => {
+  /** Pede o motivo (estorno ou anulação; obrigatório, ≥ 5 caracteres) e chama `fazer(motivo)`. */
+  const pedirMotivo = (titulo: string, explicacao: ReactNode, fazer: (motivo: string) => unknown, textoOk = 'Descontabilizar') => {
     let motivo = '';
     Modal.confirm({
       title: titulo,
@@ -134,7 +134,7 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
           <Input.TextArea rows={2} maxLength={500} placeholder="Motivo (obrigatório)" onChange={(e) => { motivo = e.target.value; }} aria-label="Motivo" />
         </Space>
       ),
-      okText: 'Descontabilizar',
+      okText: textoOk,
       okButtonProps: { danger: true },
       cancelText: 'Cancelar',
       onOk: () => (motivo.trim().length < 5 ? Promise.reject(message.error('Indique o motivo (mínimo 5 caracteres).')) : fazer(motivo)),
@@ -142,6 +142,10 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
   };
   const contabilizar = (id: number) => accao(`/vendas/documentos/${id}/contabilizar`);
   const descontabilizar = (id: number, numero: string) => pedirMotivo(`Descontabilizar ${numero}?`, 'O estorno fica registado no diário.', (motivo) => accao(`/vendas/documentos/${id}/descontabilizar`, { motivo }));
+  // Fase A (anulacao_documentos.js:anularVenda): não se apaga — anula-se com motivo, autor e data
+  const anular = (id: number, numero: string) => pedirMotivo(`Anular ${numero}?`,
+    'O documento mantém-se no sistema, marcado como ANULADO (o número não é reutilizado) e, nas guias, o stock é reposto. Fica registado quem anulou, quando e porquê.',
+    (motivo) => accao(`/vendas/documentos/${id}/anular`, { motivo }), 'Anular');
   const converter = (id: number) => navegar(`${BASE}/${id}`, { state: { abrir: 'converter' } });
   const liquidar = (clienteId: number | null | undefined, id: number) => navegar(`${BASE}/recibos/novo`, { state: { liquidar: { cliente_id: clienteId, venda_id: id } } });
   const novo = (t: string) => navegar(`${BASE}/novo?tipo=${t}`);
@@ -320,7 +324,7 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
             pedidoCompra: () => accao(`/vendas/documentos/${r.id}/pedido-compra`),
             liquidar: () => liquidar(r.cliente_id, r.id),
             limparEstado: () => accao(`/vendas/documentos/${r.id}/recalcular-estado`),
-            eliminar: () => accao(`/vendas/documentos/${r.id}/anular`),
+            eliminar: () => anular(r.id, r.numero_documento),
           })}
           impressao={{
             titulo: `${cfg.titulo} — documentos de venda`,

@@ -75,7 +75,7 @@ final class PaineisController extends Controller
         /** @var Utilizador $u */
         $u = $r->user();
         $ids = $f['empresas'] ?? DB::table('empresas')->whereIn('id', $this->empresas->idsAcessiveis($u))->where('e_consolidacao', false)
-            ->orderBy('nome')->limit(30)->pluck('id')->map(fn ($x) => (int) $x)->all();
+            ->ordenarPorNome()->limit(30)->pluck('id')->map(fn ($x) => (int) $x)->all();
         // Autorização FORA do Cache::remember: verificada em cada pedido, mesmo quando o resultado vem da cache (até
         // TTL_CACHE segundos) — quem perdeu o acesso a uma das empresas deixa de ver os valores de imediato (OWASP A01).
         $ids = $this->comparacao->garantirAcesso($ids);

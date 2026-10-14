@@ -12,7 +12,7 @@ use App\Models\Terceiro;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela movimentos_inventario (módulo Logística). Legado: inventory_movements · 102 linhas reais no backup.
+ * Tabela movimentos_inventario (módulo Logística). Legado: inventory_movements · 110 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\MovimentoInventario.
  */
 abstract class MovimentoInventarioBase extends ModeloBase

@@ -10,7 +10,7 @@ use App\Models\MovimentoCaixa;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela sessoes_caixa (módulo Tesouraria). Legado: cash_sessions · 12 linhas reais no backup.
+ * Tabela sessoes_caixa (módulo Tesouraria). Legado: cash_sessions · 19 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\SessaoCaixa.
  */
 abstract class SessaoCaixaBase extends ModeloBase

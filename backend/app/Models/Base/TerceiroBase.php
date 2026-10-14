@@ -3,9 +3,11 @@
 namespace App\Models\Base;
 
 use App\Models\AbateVendaAtivo;
+use App\Models\AssuntoMetodoTrabalho;
 use App\Models\AtivoImobilizado;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\ContaBancariaTerceiro;
 use App\Models\ContaCRM;
 use App\Models\ContaMesaPOS;
 use App\Models\ContratoFornecedor;
@@ -15,6 +17,7 @@ use App\Models\EstadiaHotel;
 use App\Models\FaturaCompra;
 use App\Models\GuiaSaida;
 use App\Models\ItemAcrescimoDiferimento;
+use App\Models\ItemCartaPagamento;
 use App\Models\ItemDocumentoTesouraria;
 use App\Models\LancamentoContabil;
 use App\Models\LancamentoEstornado;
@@ -34,7 +37,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela terceiros (módulo Terceiros). Legado: third_parties · 6545 linhas reais no backup.
+ * Tabela terceiros (módulo Terceiros). Legado: third_parties · 6561 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\Terceiro.
  */
 abstract class TerceiroBase extends ModeloBase
@@ -46,7 +49,7 @@ abstract class TerceiroBase extends ModeloBase
     protected string $moduloAuditoria = 'Terceiros';
 
     protected $fillable = [
-        'empresa_id', 'nif', 'nome', 'tipo', 'tipo_original', 'endereco', 'codigo_conta', 'conta_compra_transitoria', 'email', 'codigo_moeda', 'telefone', 'fe_pais',
+        'empresa_id', 'nif', 'nome', 'tipo', 'tipo_original', 'endereco', 'codigo_conta', 'conta_fornecedor', 'conta_compra_transitoria', 'email', 'conta_cliente', 'codigo_moeda', 'fe_pais', 'telefone',
     ];
 
     protected function casts(): array
@@ -112,6 +115,11 @@ abstract class TerceiroBase extends ModeloBase
     public function guiasSaida(): HasMany
     {
         return $this->hasMany(GuiaSaida::class, 'terceiro_id');
+    }
+
+    public function itensCartaPagamento(): HasMany
+    {
+        return $this->hasMany(ItemCartaPagamento::class, 'terceiro_id');
     }
 
     public function itensDocumentoTesouraria(): HasMany
@@ -182,6 +190,16 @@ abstract class TerceiroBase extends ModeloBase
     public function contasCrm(): HasMany
     {
         return $this->hasMany(ContaCRM::class, 'terceiro_id');
+    }
+
+    public function contasBancariasTerceiros(): HasMany
+    {
+        return $this->hasMany(ContaBancariaTerceiro::class, 'terceiro_id');
+    }
+
+    public function assuntosMetodoTrabalho(): HasMany
+    {
+        return $this->hasMany(AssuntoMetodoTrabalho::class, 'cliente_id');
     }
 
     public function contasMesaPos(): HasMany

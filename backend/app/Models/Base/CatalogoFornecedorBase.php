@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela catalogo_fornecedores (módulo Compras). Legado: purchase_catalog · 70 linhas reais no backup.
+ * Tabela catalogo_fornecedores (módulo Compras). Legado: purchase_catalog · 80 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\CatalogoFornecedor.
  */
 abstract class CatalogoFornecedorBase extends ModeloBase

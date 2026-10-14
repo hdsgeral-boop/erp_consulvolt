@@ -119,9 +119,9 @@ final class VendasStockTest extends TestCase
         $gr3 = $this->emitir('GR', 1);
         $this->assertSame('2.000', $this->stock());
         $this->lancamento($gr3['id']);
-        $this->postJson("/api/vendas/documentos/{$gr3['id']}/anular", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'DOCUMENTO_CONTABILIZADO');
+        $this->postJson("/api/vendas/documentos/{$gr3['id']}/anular", ['motivo' => 'Anulação de teste'], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'DOCUMENTO_CONTABILIZADO');
         $this->postJson("/api/vendas/documentos/{$gr3['id']}/descontabilizar", ['motivo' => 'Guia emitida por engano'], $this->s)->assertOk();
-        $this->postJson("/api/vendas/documentos/{$gr3['id']}/anular", [], $this->s)->assertOk()->assertJsonPath('dados.estado', 'ANULADO');
+        $this->postJson("/api/vendas/documentos/{$gr3['id']}/anular", ['motivo' => 'Anulação de teste'], $this->s)->assertOk()->assertJsonPath('dados.estado', 'ANULADO');
         $this->assertSame('3.000', $this->stock());
 
         // a venda não fica bloqueada pelo stock (paridade): o negativo aparece nas validações

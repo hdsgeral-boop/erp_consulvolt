@@ -14,6 +14,7 @@ use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
+use App\Services\Terceiros\ContaTerceiro;
 use App\Services\Vendas\CalculadoraDocumento;
 use App\Services\Vendas\ServicoSeries;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -364,8 +365,11 @@ final class ServicoProcessoCompras
     public function fornecedor(int $id): Terceiro
     {
         $f = Terceiro::query()->findOrFail($id);
-        if (! $f->eFornecedor() || ! $f->codigo_conta) {
+        if (! $f->eFornecedor()) {
             throw new ErroNegocio('O terceiro tem de ser fornecedor e ter conta contabilística.', 'FORNECEDOR_INVALIDO', 422);
+        }
+        if ($f->contaFornecedor() === '') {   // Fase A: conta de fornecedor do papel (32/37.0), sem contas por defeito
+            throw new ErroNegocio(ContaTerceiro::falta($f, ContaTerceiro::FORNECEDOR), 'FORNECEDOR_INVALIDO', 422, ['terceiro_id' => $f->id, 'campo' => 'conta_fornecedor']);
         }
 
         return $f;

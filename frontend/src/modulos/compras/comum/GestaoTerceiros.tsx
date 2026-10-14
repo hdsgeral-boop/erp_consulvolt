@@ -1,4 +1,4 @@
-import { Button, Card, Col, Descriptions, Drawer, Form, Input, Modal, Row, Space, Table, Tag } from 'antd';
+import { Alert, Button, Card, Col, Descriptions, Drawer, Form, Input, Modal, Row, Space, Table, Tag } from 'antd';
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type Key } from 'react';
@@ -11,6 +11,9 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import type { FichaTerceiro } from './referencias';
 import { SeletorConta } from './Seletores';
+import { SeletorConta as SeletorContaPlano } from '@/modulos/contab/comum/Seletores';
+import { ContasBancariasTerceiro } from '@/modulos/contab/tabelasAux/ContasBancariasTerceiro';
+import { contaCliente, contaFornecedor, prefixosConta, temPapel } from '@/modulos/contab/tabelasAux/contasTerceiro';
 
 type Papel = 'CLIENTE' | 'FORNECEDOR';
 
@@ -20,14 +23,44 @@ interface Endereco {
 }
 
 /** Títulos do legado: «Listagem de Clientes (Terceiros)» (js/ui_sales.js:428) e «Base de Dados de Fornecedores» (js/ui_compras_v2.js:678). */
-const TEXTOS: Record<Papel, { titulo: string; singular: string; gerir: string[]; prefixoConta: string }> = {
-  CLIENTE: { titulo: 'Listagem de Clientes (Terceiros)', singular: 'cliente', gerir: ['vendas_clientes_gerir', 'aux_gerir'], prefixoConta: '31' },
-  FORNECEDOR: { titulo: 'Base de Dados de Fornecedores', singular: 'fornecedor', gerir: ['compras_forn_gerir', 'aux_gerir'], prefixoConta: '32' },
+const TEXTOS: Record<Papel, { titulo: string; singular: string; gerir: string[] }> = {
+  CLIENTE: { titulo: 'Listagem de Clientes (Terceiros)', singular: 'cliente', gerir: ['vendas_clientes_gerir', 'aux_gerir'] },
+  FORNECEDOR: { titulo: 'Base de Dados de Fornecedores', singular: 'fornecedor', gerir: ['compras_forn_gerir', 'aux_gerir'] },
 };
+
+/** Conta do papel da ficha (Fase A, contas_terceiro.js): a de cliente nos clientes, a de fornecedor nos fornecedores. */
+const contaDaFicha = (papel: Papel, r: Partial<FichaTerceiro>) => (papel === 'CLIENTE' ? contaCliente(r) : contaFornecedor(r));
+
+/** Aviso «também é fornecedor/cliente» da ficha (ui_sales.js:2093-2096, ui_compras_v2.js:2503-2506). */
+export function avisoOutroPapel(papel: Papel, r: Partial<FichaTerceiro> | null | undefined): string | null {
+  if (!r) return null;
+  if (papel === 'CLIENTE' && temPapel(r.tipo, 'FORNECEDOR')) {
+    return `Esta entidade também é fornecedor (conta ${contaFornecedor(r) || 'por definir'}). Aqui define-se só a conta de cliente; a de fornecedor mantém-se.`;
+  }
+  if (papel === 'FORNECEDOR' && temPapel(r.tipo, 'CLIENTE')) {
+    return `Esta entidade também é cliente (conta ${contaCliente(r) || 'por definir'}). Aqui define-se só a conta de fornecedor; a de cliente mantém-se.`;
+  }
+  return null;
+}
 
 /** Célula de conta como no legado: código em etiqueta com contorno; sem conta, «-» cinzento. */
 function CelulaConta({ codigo }: { codigo: string | null | undefined }) {
   return codigo ? <Tag style={{ fontWeight: 600 }}>{codigo}</Tag> : <span style={{ color: '#cbd5e1' }}>-</span>;
+}
+
+/** Conta do papel + etiqueta «+ fornecedor» / «+ cliente» quando a entidade tem o outro papel (ui_sales.js:468, ui_compras_v2.js:708). */
+function CelulaContaPapel({ papel, r }: { papel: Papel; r: FichaTerceiro }) {
+  const outro = papel === 'CLIENTE' ? temPapel(r.tipo, 'FORNECEDOR') : temPapel(r.tipo, 'CLIENTE');
+  return (
+    <>
+      <CelulaConta codigo={contaDaFicha(papel, r)} />
+      {outro && (
+        <Tag color="blue" title={papel === 'CLIENTE' ? 'Também é fornecedor — a conta de compras é outra' : 'Também é cliente — a conta de vendas é outra'}>
+          {papel === 'CLIENTE' ? '+ fornecedor' : '+ cliente'}
+        </Tag>
+      )}
+    </>
+  );
 }
 
 const papeis = (r: FichaTerceiro) => [r.e_cliente && 'Cliente', r.e_fornecedor && 'Fornecedor'].filter(Boolean).join(', ');
@@ -60,7 +93,7 @@ export function colunasTerceiros(papel: Papel): ColunaApi<FichaTerceiro>[] {
       { title: 'Endereço', dataIndex: 'endereco', ellipsis: true, render: (v) => v || '-' },
       { title: 'Email', dataIndex: 'email', render: (v) => v || '-' },
       moeda,
-      { title: 'Conta contabilística', dataIndex: 'codigo_conta', render: (v: string | null) => <CelulaConta codigo={v} /> },
+      { title: 'Conta contabilística', key: 'conta_cliente', render: (_, r) => <CelulaContaPapel papel="CLIENTE" r={r} />, valorImpressao: (r) => contaCliente(r) || '-' },
       colunaPapeis,
       { title: 'Telefone', dataIndex: 'telefone', render: (v) => v || '—', ocultaPorOmissao: true },
     ];
@@ -79,7 +112,7 @@ export function colunasTerceiros(papel: Papel): ColunaApi<FichaTerceiro>[] {
       ),
     },
     moeda,
-    { title: 'Conta de terceiro (32/37.0)', dataIndex: 'codigo_conta', render: (v: string | null) => <CelulaConta codigo={v} /> },
+    { title: 'Conta de terceiro (32/37.0)', key: 'conta_fornecedor', render: (_, r) => <CelulaContaPapel papel="FORNECEDOR" r={r} />, valorImpressao: (r) => contaFornecedor(r) || '-' },
     { title: 'Compras / trânsito (328)', dataIndex: 'conta_compra_transitoria', render: (v: string | null) => <CelulaConta codigo={v} /> },
     colunaPapeis,
   ];
@@ -95,7 +128,9 @@ export function corpoTerceiro(papel: Papel, v: Partial<FichaTerceiro>): Record<s
     endereco: texto(v.endereco),
     email: texto(v.email),
     telefone: texto(v.telefone),
-    codigo_conta: texto(v.codigo_conta),
+    // Fase A: a ficha grava só a conta do seu papel; a do outro papel mantém-se
+    conta_cliente: papel === 'CLIENTE' ? texto(v.conta_cliente ?? v.codigo_conta) : undefined,
+    conta_fornecedor: papel === 'FORNECEDOR' ? texto(v.conta_fornecedor ?? v.codigo_conta) : undefined,
     conta_compra_transitoria: papel === 'FORNECEDOR' ? texto(v.conta_compra_transitoria) : undefined,
     codigo_moeda: texto(v.codigo_moeda)?.toUpperCase() ?? null,
     fe_pais: texto(v.fe_pais)?.toUpperCase() ?? null,
@@ -160,6 +195,9 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
           title={edicao === 'novo' ? (papel === 'CLIENTE' ? 'Novo Cliente' : 'Novo Fornecedor') : papel === 'CLIENTE' ? 'Editar Cliente' : 'Editar Fornecedor'}
           extra={<Button size="small" onClick={() => setEdicao(null)} aria-label="Fechar">×</Button>}
         >
+          {avisoOutroPapel(papel, edicao === 'novo' ? null : edicao) && (
+            <Alert type="info" showIcon style={{ marginBottom: 12 }} message={avisoOutroPapel(papel, edicao === 'novo' ? null : edicao)} />
+          )}
           <Form<FichaTerceiro>
             form={form}
             layout="vertical"
@@ -199,8 +237,12 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item name="codigo_conta" label="Conta Contabilística (Plano de Contas)" rules={[{ required: true, message: 'Associe a conta contabilística da entidade.' }]}>
-                  <SeletorConta prefixo={t.prefixoConta} placeholder={`Ex.: ${t.prefixoConta}121…`} />
+                <Form.Item
+                  name={papel === 'CLIENTE' ? 'conta_cliente' : 'conta_fornecedor'}
+                  label={papel === 'CLIENTE' ? 'Conta de cliente (classe 31)' : 'Conta de fornecedor (classe 32 ou 37.0)'}
+                  rules={[{ required: true, message: papel === 'CLIENTE' ? 'Indique a conta de cliente (classe 31).' : 'Indique a conta de fornecedor (classe 32 ou 37.0).' }]}
+                >
+                  <SeletorContaPlano prefixos={prefixosConta(papel)} placeholder={papel === 'CLIENTE' ? 'Ex.: 31.1.1' : 'Ex.: 32.1.1'} allowClear style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
               {papel === 'FORNECEDOR' && (
@@ -295,11 +337,20 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
               <Descriptions.Item label="Endereço">{f.endereco || '—'}</Descriptions.Item>
               <Descriptions.Item label="Telefone">{f.telefone || '—'}</Descriptions.Item>
               <Descriptions.Item label="Email">{f.email || '—'}</Descriptions.Item>
-              <Descriptions.Item label="Conta contabilística">{f.codigo_conta || '—'}</Descriptions.Item>
+              {temPapel(f.tipo, 'CLIENTE') && (
+                <Descriptions.Item label="Conta de cliente">{contaCliente(f) || <span style={{ color: '#b91c1c' }}>por definir</span>}</Descriptions.Item>
+              )}
+              {temPapel(f.tipo, 'FORNECEDOR') && (
+                <Descriptions.Item label="Conta de fornecedor">{contaFornecedor(f) || <span style={{ color: '#b91c1c' }}>por definir</span>}</Descriptions.Item>
+              )}
+              {f.codigo_conta && <Descriptions.Item label="Conta antiga">{f.codigo_conta}</Descriptions.Item>}
               {f.e_fornecedor && <Descriptions.Item label="Conta transitória de compras">{f.conta_compra_transitoria || '—'}</Descriptions.Item>}
               <Descriptions.Item label="Moeda">{f.codigo_moeda || 'AOA'}</Descriptions.Item>
               <Descriptions.Item label="País (FE)">{f.fe_pais || '—'}</Descriptions.Item>
             </Descriptions>
+            <div style={{ marginTop: 16 }}>
+              <ContasBancariasTerceiro terceiroId={f.id} podeGerir={podeGerir} />
+            </div>
             {(f.enderecos?.length ?? 0) > 0 && (
               <Card size="small" title="Endereços registados (mesmo NIF)" style={{ marginTop: 16 }}>
                 <Table<Endereco>
@@ -309,8 +360,9 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
                   dataSource={f.enderecos}
                   scroll={scrollTabela()}
                   columns={[
-                    { title: 'Endereço', render: (_, e) => String(e.endereco ?? e.morada ?? e.descricao ?? '—') },
-                    { title: 'Localidade', render: (_, e) => String(e.localidade ?? e.cidade ?? '—') },
+                    // enderecos_terceiros: Rua, Nº Porta, Bairro, Município, Província, País (ui_aux.js:641-649)
+                    { title: 'Endereço', render: (_, e) => [e.rua, e.numero_porta ? `n.º ${String(e.numero_porta)}` : null, e.bairro].filter(Boolean).join(', ') || '—' },
+                    { title: 'Localidade', render: (_, e) => [e.municipio, e.provincia, e.pais].filter(Boolean).join(', ') || '—' },
                   ]}
                 />
               </Card>

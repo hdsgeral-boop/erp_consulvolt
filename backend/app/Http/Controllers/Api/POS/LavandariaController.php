@@ -69,7 +69,7 @@ final class LavandariaController extends Controller
         $this->exigir(...self::VER);
 
         return RespostaApi::sucesso(PecaLavandaria::query()->when(! $r->boolean('incluir_inativas'), fn ($q) => $q->where(fn ($q) => $q->whereNull('ativo')->orWhere('ativo', true)))
-            ->orderBy('nome')->get(), 'Tabela de peças.');
+            ->ordenarPorNome()->get(), 'Tabela de peças.');
     }
 
     public function guardarPeca(Request $r, ?int $peca = null): JsonResponse
@@ -90,7 +90,7 @@ final class LavandariaController extends Controller
 
         return RespostaApi::sucesso(Produto::query()->whereIn('lavandaria_grupo', RegrasLavandaria::GRUPOS)
             ->when(! $r->boolean('incluir_inativos'), fn ($q) => $q->where(fn ($q) => $q->whereNull('lavandaria_ativa')->orWhere('lavandaria_ativa', true)))
-            ->orderBy('lavandaria_grupo')->orderBy('nome')
+            ->orderBy('lavandaria_grupo')->ordenarPorNome()
             ->get(['id', 'codigo', 'nome', 'lavandaria_grupo', 'codigo_conta', 'taxa_imposto', 'lavandaria_dias_entrega', 'lavandaria_requer_orcamento', 'lavandaria_ativa']), 'Tabela de serviços.');
     }
 
@@ -128,7 +128,7 @@ final class LavandariaController extends Controller
         $f = $r->validate(['todos' => ['nullable', 'boolean']]);
 
         return RespostaApi::sucesso(Colaborador::query()->when(! ($f['todos'] ?? false), fn ($q) => $q->where(fn ($x) => $x->whereNull('estado')->orWhere('estado', '<>', 'INACTIVO')))
-            ->orderBy('nome_completo')->get(['id', 'nome_completo', 'estado'])
+            ->ordenarPorNome('nome_completo')->get(['id', 'nome_completo', 'estado'])
             ->map(fn ($c) => ['id' => $c->id, 'nome' => $c->nome_completo, 'activo' => $c->estado !== 'INACTIVO'])->values(), 'Colaboradores.');
     }
 

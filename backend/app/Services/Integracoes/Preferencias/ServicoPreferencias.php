@@ -22,7 +22,7 @@ final class ServicoPreferencias
     {
         $this->exigirTipo($tipo);
 
-        return DB::table('preferencias_utilizador')->where('utilizador_id', $utilizador)->where('tipo', $tipo)->orderBy('nome')
+        return DB::table('preferencias_utilizador')->where('utilizador_id', $utilizador)->where('tipo', $tipo)->ordenarPorNome()
             ->get(['nome', 'valor', 'atualizado_em'])->map(fn ($p) => ['nome' => $p->nome, 'valor' => json_decode((string) $p->valor, true), 'atualizado_em' => $p->atualizado_em])->all();
     }
 

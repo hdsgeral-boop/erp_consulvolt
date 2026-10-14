@@ -266,12 +266,22 @@ function linhasMapeadas(def) {
     return o;
   });
 }
-// Avalia condições simples "col IN ('A','B')" dos índices parciais sobre linhas mapeadas.
+// Avalia as condições dos índices parciais sobre linhas mapeadas: "col IN ('A','B')", "col IS [NOT] NULL" e a sua
+// conjunção com AND (ex.: séries das vendas, Versão Actual).
 function filtroSql(onde) {
-  const m = onde.match(/^(\w+) IN \((.+)\)$/);
-  if (!m) throw new Error(`condição não suportada na verificação: ${onde}`);
-  const valores = new Set(m[2].split(',').map((v) => v.trim().replace(/^'|'$/g, '')));
-  return (l) => valores.has(l[m[1]]);
+  const partes = onde.split(/\s+AND\s+/i).map((p) => {
+    const m = p.match(/^(\w+) IN \((.+)\)$/);
+    if (m) {
+      const valores = new Set(m[2].split(',').map((v) => v.trim().replace(/^'|'$/g, '')));
+      return (l) => valores.has(l[m[1]]);
+    }
+    const q = p.match(/^(\w+) = '([^']*)'$/);
+    if (q) return (l) => l[q[1]] === q[2];
+    const n = p.match(/^(\w+) IS (NOT )?NULL$/i);
+    if (n) return n[2] ? (l) => l[n[1]] !== null && l[n[1]] !== undefined : (l) => l[n[1]] === null || l[n[1]] === undefined;
+    throw new Error(`condição não suportada na verificação: ${onde}`);
+  });
+  return (l) => partes.every((f) => f(l));
 }
 const cacheMapeadas = new Map();
 const mapeadas = (def) => (cacheMapeadas.has(def.pt) ? cacheMapeadas.get(def.pt) : (cacheMapeadas.set(def.pt, linhasMapeadas(def)), cacheMapeadas.get(def.pt)));

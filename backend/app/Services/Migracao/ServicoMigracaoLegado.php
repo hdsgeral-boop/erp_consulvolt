@@ -352,7 +352,16 @@ final class ServicoMigracaoLegado
         while ($pendentes) {
             $prontas = array_keys(array_filter($pendentes, fn (array $d) => array_diff_key($d, $feitas) === []));
             if (! $prontas) {   // ciclo de FKs: avançar a tabela com menos dependências por satisfazer
-                uasort($pendentes, fn (array $a, array $b) => count(array_diff_key($a, $feitas)) <=> count(array_diff_key($b, $feitas)));
+                // em empate, a que mais tabelas pendentes esperam (ex.: assuntos 5W1H ↔ projetos: o histórico dos
+                // assuntos herda deles a empresa e tem de vir depois — Versão Actual, 2026-10-13)
+                $espera = [];
+                foreach ($pendentes as $d) {
+                    foreach (array_keys($d) as $alvo) {
+                        $espera[$alvo] = ($espera[$alvo] ?? 0) + 1;
+                    }
+                }
+                uksort($pendentes, fn (string $a, string $b) => [count(array_diff_key($pendentes[$a], $feitas)), -($espera[$a] ?? 0), $a]
+                    <=> [count(array_diff_key($pendentes[$b], $feitas)), -($espera[$b] ?? 0), $b]);
                 $prontas = [array_key_first($pendentes)];
             }
             sort($prontas);

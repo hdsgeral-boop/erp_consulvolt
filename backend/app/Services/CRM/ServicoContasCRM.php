@@ -118,10 +118,11 @@ final class ServicoContasCRM
             }
             $existente = $conta->nif ? Terceiro::query()->where('nif', $conta->nif)->first() : null;
             $t = $existente
-                ? $this->terceiros->guardar(Terceiro::CLIENTE, ['codigo_conta' => $existente->codigo_conta ?: $codigoConta, 'email' => $existente->email ?: $conta->email,
+                // Fase A (crm_dados.js:165): acrescenta o papel de cliente; a conta de cliente existente mantém-se, senão a escolhida
+                ? $this->terceiros->guardar(Terceiro::CLIENTE, ['conta_cliente' => $existente->contaCliente() ?: $codigoConta, 'email' => $existente->email ?: $conta->email,
                     'endereco' => $existente->endereco ?: $conta->morada], $existente)
                 : $this->terceiros->guardar(Terceiro::CLIENTE, ['nome' => $conta->nome, 'nif' => $conta->nif, 'endereco' => $conta->morada, 'email' => $conta->email,
-                    'telefone' => $conta->telefone, 'codigo_conta' => $codigoConta, 'codigo_moeda' => 'AOA']);
+                    'telefone' => $conta->telefone, 'conta_cliente' => $codigoConta, 'codigo_moeda' => 'AOA']);
             $conta->update(['tipo' => 'CLIENTE', 'terceiro_id' => $t->id]);
 
             return $conta;
@@ -170,7 +171,7 @@ final class ServicoContasCRM
         $abertas = $opps->where('estado', 'ABERTA');
 
         return [
-            'conta' => $conta, 'contactos' => ContactoCRM::query()->where('conta_crm_id', $conta->id)->orderByDesc('principal')->orderBy('nome')->get(),
+            'conta' => $conta, 'contactos' => ContactoCRM::query()->where('conta_crm_id', $conta->id)->orderByDesc('principal')->ordenarPorNome()->get(),
             'oportunidades' => $opps, 'atividades' => AtividadeComercialCRM::query()->where('conta_crm_id', $conta->id)->orderByDesc('data_prevista')->orderByDesc('id')->get(),
             'financeiro' => $this->financeiro($conta->terceiro_id),
             'resumo' => ['abertas' => $abertas->count(), 'valor_aberto' => $abertas->reduce(fn ($s, $o) => bcadd($s, (string) $o->valor, 2), '0.00'),

@@ -20,6 +20,9 @@ import { INFO_ESTADO_AGT, estadoAgtDoDocumento } from './agt/estadoAgt';
 import { pedidoDocumentoComercial } from './impressao/documentoComercial';
 import { dadosDocumentoVenda, type QrDocumento } from './impressao/documentoVenda';
 import { CONTABILIZAVEIS, CONVERSOES, CORES_ESTADO, FISCAIS, TIPOS_DOCUMENTO, type DocumentoVenda, type LinhaVenda } from './api';
+import { ModalMotivo } from '@/componentes/Accoes';
+import { ModalCancelarRecebimentos } from './recebimentos/ModalCancelarRecebimentos';
+import { facturaDoErroNcPaga } from './recebimentos/regrasRecebimentos';
 
 /**
  * Detalhe de um documento de venda, com converter, anular e contabilizar/descontabilizar (mesmas regras do servidor)
@@ -32,6 +35,9 @@ export function DetalheDocumento() {
   const cliente = useQueryClient();
   const [conversao, setConversao] = useState(false);
   const [descontab, setDescontab] = useState(false);
+  const [anular, setAnular] = useState(false);
+  /** Fase A: factura paga → diálogo «cancelar o recebimento» antes da NC (id da factura) */
+  const [cancelarReceb, setCancelarReceb] = useState<number | null>(null);
   const [formConv] = Form.useForm<{ tipo_destino: string; data_emissao: Dayjs; motivo_nota_credito?: string; devolucao_mercadoria?: boolean; armazem_id?: number; ignorar_validade?: boolean }>();
   const armazens = useArmazens();
   const [formMotivo] = Form.useForm<{ motivo: string }>();
@@ -48,9 +54,15 @@ export function DetalheDocumento() {
       void cliente.invalidateQueries({ queryKey: ['vendas'] });
       setConversao(false);
       setDescontab(false);
+      setAnular(false);
       if (caminho === 'converter' && dados?.id) navegar(`../${dados.id}`);
     },
-    onError: (e) => notificarErro(e),
+    onError: (e) => {
+      // a NC foi recusada por a factura estar paga: oferece cancelar o recebimento na hora (o formulário fica aberto)
+      const paga = facturaDoErroNcPaga(e);
+      if (paga !== null) setCancelarReceb(paga);
+      else notificarErro(e);
+    },
   });
 
   // «Converter» na linha da lista (paridade 4.8.3) abre já a janela de conversão
@@ -80,8 +92,10 @@ export function DetalheDocumento() {
   const agt = accoesAgt(d, pode);
   const estadoAgt = estadoAgtDoDocumento(d.faturacao_eletronica);
   const nomeBase = (d.numero_documento ?? `documento_${d.id}`).replace(/[^\w.-]+/g, '_');
-  // decisão 27 (como o legado): factura paga — e toda a factura-recibo — não admite NC; anula-se primeiro o recibo
-  const pagaSemNc = d.tipo_documento === 'FR' || (d.tipo_documento === 'FT' && Number(d.valor_pago ?? 0) > 0.01);
+  // decisão 27 (como o legado): factura paga — e toda a factura-recibo — não admite NC; Fase A: na FT o recebimento
+  // cancela-se aqui mesmo (recibos + tesouraria, com estorno), antes de converter
+  // a FR admite NC (ADR-071): o cliente fica com saldo a favor; só a FT com recebimentos exige cancelá-los antes
+  const pagaSemNc = d.tipo_documento === 'FT' && Number(d.valor_pago ?? 0) > 0.01;
   const expirado = ['OR', 'PF'].includes(d.tipo_documento) && !!d.valido_ate && dayjs(d.valido_ate).isBefore(dayjs(), 'day');
   const movimentaStock = ['GR', 'FT'].includes(tipoDestino ?? '') && ['NE', 'OR', 'PF'].includes(d.tipo_documento);
   const plano = textoPlano(d);
@@ -182,14 +196,28 @@ export function DetalheDocumento() {
               </Dropdown>
             )}
             {podeAnular && (
-              <Button danger onClick={() => Modal.confirm({ title: `Anular ${d.numero_documento}?`, okText: 'Anular', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ caminho: 'anular' }) })}>
+              <Button danger onClick={() => setAnular(true)}>
                 Anular
               </Button>
             )}
           </>
         }
       />
-      {anulado && <Alert type="error" showIcon message="Documento anulado." style={{ marginBottom: 16 }} />}
+      {anulado && (
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Documento anulado."
+          description={d.anulacao && (d.anulacao.motivo || d.anulacao.por) ? (
+            <span>
+              {d.anulacao.motivo && <>Motivo: {d.anulacao.motivo}. </>}
+              {d.anulacao.por && <>Anulado por {d.anulacao.por}</>}
+              {d.anulacao.em && <> em {formatarData(d.anulacao.em)}</>}.
+            </span>
+          ) : undefined}
+        />
+      )}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Cliente">{d.cliente?.nome ?? `#${d.cliente_id}`}{d.cliente?.nif ? ` (NIF ${d.cliente.nif})` : ''}</Descriptions.Item>
@@ -241,16 +269,23 @@ export function DetalheDocumento() {
           <Form.Item name="tipo_destino" label="Converter em" rules={[{ required: true }]}>
             <Select options={destinos.map((t) => ({ value: t, label: `${t} — ${TIPOS_DOCUMENTO[t]}` }))} />
           </Form.Item>
+          {tipoDestino === 'NC' && d.tipo_documento === 'FR' && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="Nota de crédito sobre factura-recibo"
+              description="A factura-recibo já foi paga: a nota de crédito deixa o cliente com saldo a favor. Para devolver o dinheiro, registe depois um pagamento ao cliente na Tesouraria."
+            />
+          )}
           {tipoDestino === 'NC' && pagaSemNc && (
             <Alert
               type="warning"
               showIcon
               style={{ marginBottom: 16 }}
-              message={d.tipo_documento === 'FR' ? 'Factura-recibo: não admite nota de crédito.' : 'Factura liquidada: não admite nota de crédito.'}
-              description={d.tipo_documento === 'FR'
-                ? 'Como no sistema anterior, a nota de crédito sobre uma factura-recibo está bloqueada (o recibo nasce com ela e não se anula sozinho). Corrija com um novo documento e regularize o recebimento na Tesouraria.'
-                : 'Anule primeiro o recibo/pagamento associado (Vendas › Recibos ou Tesouraria) e volte a converter.'}
-              action={d.tipo_documento === 'FT' ? <Button size="small" onClick={() => navegar('../recibos')}>Ver recibos</Button> : undefined}
+              message="Factura liquidada: não admite nota de crédito."
+              description="O recebimento tem de ser cancelado antes da nota de crédito. Pode fazê-lo já: os recibos e os recebimentos de tesouraria desta factura ficam anulados (com estorno se estiverem contabilizados) e depois converte."
+              action={pode('vendas_fat_del') ? <Button size="small" danger onClick={() => setCancelarReceb(d.id)}>Cancelar recebimento…</Button> : undefined}
             />
           )}
           {movimentaStock && (
@@ -312,6 +347,17 @@ export function DetalheDocumento() {
         <Typography.Paragraph type="secondary">Pré-visualização do pedido à AGT com a assinatura, para confirmar as chaves e a estrutura. Nada foi enviado.</Typography.Paragraph>
         <pre style={{ maxHeight: 420, overflow: 'auto', fontSize: 12, background: 'rgba(0,0,0,0.04)', padding: 12, borderRadius: 6 }}>{JSON.stringify(pedido, null, 2)}</pre>
       </Modal>
+
+      <ModalMotivo
+        aberto={anular}
+        titulo={`Anular ${d.numero_documento}?`}
+        textoOk="Anular"
+        aviso="O documento mantém-se no sistema, marcado como ANULADO (o número não é reutilizado). Fica registado quem anulou, quando e porquê."
+        carregando={accao.isPending}
+        aoConfirmar={(motivo) => accao.mutate({ caminho: 'anular', dados: { motivo } })}
+        aoFechar={() => setAnular(false)}
+      />
+      <ModalCancelarRecebimentos vendaId={cancelarReceb} aoFechar={() => setCancelarReceb(null)} aoConcluir={() => void consulta.refetch()} />
 
       <Modal title="Descontabilizar (estorno)" open={descontab} onCancel={() => setDescontab(false)} okText="Descontabilizar" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} onOk={() => formMotivo.submit()}>
         <Form form={formMotivo} layout="vertical" onFinish={(v) => accao.mutate({ caminho: 'descontabilizar', dados: v })}>

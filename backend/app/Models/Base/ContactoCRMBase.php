@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela contactos_crm (módulo CRM). Legado: crm_contacts · 4 linhas reais no backup.
+ * Tabela contactos_crm (módulo CRM). Legado: crm_contacts · 5 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ContactoCRM.
  */
 abstract class ContactoCRMBase extends ModeloBase

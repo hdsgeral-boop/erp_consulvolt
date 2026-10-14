@@ -36,7 +36,7 @@ final class ServicoAcertoStockPOSArmazem
 
         return Produto::query()->where('produtos.movimenta_stock', true)
             ->leftJoin('stock_armazem as sa', fn ($j) => $j->on('sa.produto_id', '=', 'produtos.id')->where('sa.armazem_id', $armazem))
-            ->orderBy('produtos.nome')->orderBy('produtos.id')
+            ->ordenarPorNome('produtos.nome')->orderBy('produtos.id')
             ->get(['produtos.id', 'produtos.codigo', 'produtos.nome', 'produtos.preco_unitario', 'produtos.bloqueado', 'sa.quantidade_stock as stock_local'])
             ->map(fn ($p) => ['produto_id' => $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome, 'preco_unitario' => number_format((float) ($p->preco_unitario ?? 0), 2, '.', ''),
                 'quantidade' => number_format((float) ($p->stock_local ?? 0), 3, '.', ''), 'bloqueado' => (bool) $p->bloqueado])
@@ -51,7 +51,7 @@ final class ServicoAcertoStockPOSArmazem
     public function diferencas(int $armazem): array
     {
         Armazem::query()->findOrFail($armazem);
-        $produtos = Produto::query()->where('movimenta_stock', true)->orderBy('nome')->get(['id', 'codigo', 'nome', 'quantidade_stock']);
+        $produtos = Produto::query()->where('movimenta_stock', true)->ordenarPorNome()->get(['id', 'codigo', 'nome', 'quantidade_stock']);
         if ($produtos->isEmpty()) {
             return [];
         }

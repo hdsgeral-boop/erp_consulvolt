@@ -9,6 +9,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\EstadiaHotel;
 use App\Models\ItemCompra;
 use App\Models\ItemGuiaSaida;
+use App\Models\ItemOrdemManutencao;
 use App\Models\ItemVenda;
 use App\Models\LinhaSessaoInventario;
 use App\Models\ModeloBase;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela produtos (módulo Logística). Legado: products · 100 linhas reais no backup.
+ * Tabela produtos (módulo Logística). Legado: products · 110 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\Produto.
  */
 abstract class ProdutoBase extends ModeloBase
@@ -32,7 +33,7 @@ abstract class ProdutoBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'quantidade_stock', 'movimenta_stock', 'codigo_conta', 'conta_compra', 'conta_inventario', 'conta_custo', 'categoria_produto_id', 'conta_iva', 'conta_iva_liquidado', 'conta_iva_dedutivel', 'conta_quebra', 'conta_sobra', 'imagem_base64', 'e_quarto', 'e_ativo_imobilizado', 'conta_ativo', 'preco_por_hora', 'preco_por_dia', 'horas_minimas', 'e_servico', 'bloqueado', 'lavandaria_grupo', 'lavandaria_unidade', 'lavandaria_dias_entrega', 'lavandaria_requer_orcamento', 'lavandaria_ativa', 'lavandaria_preco_peca', 'lavandaria_preco_kg', 'unidade_fe', 'tipo_operacao_fe', 'codigo_isencao_fe', 'custo_medio', 'stock_minimo',
+        'empresa_id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'quantidade_stock', 'movimenta_stock', 'codigo_conta', 'conta_compra', 'conta_inventario', 'conta_custo', 'categoria_produto_id', 'conta_iva', 'conta_iva_liquidado', 'conta_iva_dedutivel', 'conta_quebra', 'conta_sobra', 'imagem_base64', 'e_quarto', 'e_ativo_imobilizado', 'conta_ativo', 'preco_por_hora', 'preco_por_dia', 'horas_minimas', 'e_servico', 'bloqueado', 'unidade_fe', 'tipo_operacao_fe', 'codigo_isencao_fe', 'lavandaria_grupo', 'lavandaria_unidade', 'lavandaria_dias_entrega', 'lavandaria_requer_orcamento', 'lavandaria_ativa', 'lavandaria_preco_peca', 'lavandaria_preco_kg', 'custo_medio', 'stock_minimo',
     ];
 
     protected function casts(): array
@@ -112,5 +113,10 @@ abstract class ProdutoBase extends ModeloBase
     public function estadiasHotel(): HasMany
     {
         return $this->hasMany(EstadiaHotel::class, 'produto_quarto_id');
+    }
+
+    public function itensOrdemManutencao(): HasMany
+    {
+        return $this->hasMany(ItemOrdemManutencao::class, 'produto_id');
     }
 }

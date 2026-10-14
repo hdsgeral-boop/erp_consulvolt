@@ -10,6 +10,7 @@ use App\Services\Vendas\Agt\ClienteAgt;
 use App\Services\Vendas\Agt\ClienteAgtDesligado;
 use App\Services\Vendas\Agt\ClienteAgtDireto;
 use App\Services\Vendas\Agt\ClienteAgtIntermedio;
+use App\Support\Dados\OrdenacaoTexto;
 use App\Support\Seguranca\ValorSemFormulas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -42,6 +43,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Fora de produção: falhar cedo em lazy loading, atributos inexistentes e mass assignment silencioso.
         Model::shouldBeStrict(! $this->app->isProduction());
+
+        // Listas por nome em ordem alfabética portuguesa (a base usa a ordenação C) — ADR-071.
+        OrdenacaoTexto::registar();
 
         // Tipos polimórficos estáveis (não gravar nomes de classes PHP na base de dados).
         Relation::enforceMorphMap([

@@ -13,7 +13,7 @@ use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela pagamentos_lavandaria (módulo POS). Legado: lav_payments · 5 linhas reais no backup.
+ * Tabela pagamentos_lavandaria (módulo POS). Legado: lav_payments · 6 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\PagamentoLavandaria.
  */
 abstract class PagamentoLavandariaBase extends ModeloBase
@@ -25,7 +25,7 @@ abstract class PagamentoLavandariaBase extends ModeloBase
     protected string $moduloAuditoria = 'POS';
 
     protected $fillable = [
-        'empresa_id', 'pedido_lavandaria_id', 'numero_encomenda', 'sessao_pos_id', 'terminal_pos_id', 'cliente_id', 'data', 'montante', 'troco', 'pos_pagamentos', 'numero_recibo', 'natureza_registo', 'estado', 'criado_por', 'venda_id', 'lans_contabilizacao',
+        'empresa_id', 'pedido_lavandaria_id', 'numero_encomenda', 'sessao_pos_id', 'terminal_pos_id', 'cliente_id', 'data', 'montante', 'troco', 'pos_pagamentos', 'numero_recibo', 'natureza_registo', 'estado', 'criado_por', 'lans_contabilizacao', 'venda_id',
     ];
 
     protected function casts(): array
@@ -40,8 +40,8 @@ abstract class PagamentoLavandariaBase extends ModeloBase
             'montante' => 'decimal:2',
             'troco' => 'decimal:2',
             'pos_pagamentos' => 'array',
-            'venda_id' => 'integer',
             'lans_contabilizacao' => 'array',
+            'venda_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

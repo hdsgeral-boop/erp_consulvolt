@@ -88,6 +88,14 @@ final class ServicoConfigFaturacaoEletronica
         });
     }
 
+    /** Limite do número inicial da série (proximoValido, js/facturacao_agt.js:127-133 do legado novo). */
+    public const NUMERO_MAXIMO = 99_999_999;
+
+    /**
+     * Cria/altera uma série. `proximo_numero` (opcional) é o número inicial — o próximo documento leva-o — e só se altera
+     * enquanto a série não tem documentos emitidos («usada» = tem vendas ou recibos com esta série, e não proximo_numero > 1:
+     * uma série virgem pode arrancar em 501 para continuar um livro em papel ou outro programa).
+     */
     public function gravarSerie(array $d, ?SerieFaturacaoEletronica $serie = null): SerieFaturacaoEletronica
     {
         $tipo = strtoupper((string) $d['tipo']);
@@ -96,12 +104,24 @@ final class ServicoConfigFaturacaoEletronica
         $origem = (string) ($d['origem'] ?? 'GERAL');
         $estabelecimento = (string) ($d['estabelecimento'] ?? ($this->obter()['estabelecimentos'][0]['numero'] ?? '1'));
         $estado = ($d['estado'] ?? 'ATIVA') === 'FECHADA' ? 'FECHADA' : 'ATIVA';
+        $proximo = isset($d['proximo_numero']) && $d['proximo_numero'] !== '' ? self::numeroInicial($d['proximo_numero']) : null;
 
-        return DB::transaction(function () use ($d, $tipo, $ano, $codigo, $origem, $estabelecimento, $estado, $serie) {
+        return DB::transaction(function () use ($d, $tipo, $ano, $codigo, $origem, $estabelecimento, $estado, $serie, $proximo) {
             $outras = SerieFaturacaoEletronica::query()->when($serie, fn ($q) => $q->where('id', '<>', $serie->id))->lockForUpdate()->get();
-            if ($serie && (int) $serie->proximo_numero > 1
-                && ($codigo !== $serie->codigo || $tipo !== $serie->tipo || $ano !== $serie->ano || $origem !== $serie->origem)) {
+            if ($serie) {
+                $serie = SerieFaturacaoEletronica::query()->lockForUpdate()->findOrFail($serie->id);
+            }
+            $emitidos = $serie ? ($this->emitidos([$serie->id])[$serie->id] ?? 0) : 0;
+            if ($emitidos > 0 && ($codigo !== $serie->codigo || $tipo !== $serie->tipo || $ano !== $serie->ano || $origem !== $serie->origem)) {
                 throw new ErroNegocio('A série já tem documentos: só pode mudar o estado ou a indicação de contingência.', 'SERIE_USADA', 422);
+            }
+            if ($serie && $proximo !== null && $proximo !== (int) $serie->proximo_numero && $emitidos > 0) {
+                throw new ErroNegocio("A série {$serie->tipo} {$serie->codigo} já emitiu {$emitidos} documento(s): o número já não pode ser alterado. Feche-a e crie outra série com o número que pretende.",
+                    'SERIE_USADA', 422);
+            }
+            if ($proximo !== null && $serie?->agt_ultimo_numero && ($proximo > (int) $serie->agt_ultimo_numero || $proximo < (int) ($serie->agt_primeiro_numero ?: 1))) {
+                throw new ErroNegocio("O número inicial tem de estar dentro do intervalo autorizado pela AGT ({$serie->agt_primeiro_numero} a {$serie->agt_ultimo_numero}).",
+                    'SERIE_FORA_INTERVALO_AGT', 422);
             }
             if ($estado === 'ATIVA' && $outras->contains(fn ($x) => $x->estado === 'ATIVA' && $x->tipo === $tipo && $x->ano === $ano && $x->origem === $origem)) {
                 throw new ErroNegocio('Já existe outra série activa para este tipo, ano e origem. Feche-a antes.', 'SERIE_ATIVA_DUPLICADA', 422);
@@ -112,18 +132,56 @@ final class ServicoConfigFaturacaoEletronica
             $dados = ['codigo' => $codigo, 'tipo' => $tipo, 'ano' => $ano, 'origem' => $origem,
                 'origem_nome' => $d['origem_nome'] ?? $serie?->origem_nome ?? ($origem === 'GERAL' ? 'Facturação (geral)' : $origem),
                 'estabelecimento' => $estabelecimento, 'contingencia' => (bool) ($d['contingencia'] ?? false), 'estado' => $estado];
+            if ($serie && $proximo !== null) {
+                $dados['proximo_numero'] = $proximo;
+            }
 
             return $serie ? tap($serie)->update($dados)
-                : SerieFaturacaoEletronica::create($dados + ['proximo_numero' => 1, 'criado_por' => Auth::user()?->nome_utilizador]);
+                : SerieFaturacaoEletronica::create($dados + ['proximo_numero' => $proximo ?? 1, 'criado_por' => Auth::user()?->nome_utilizador]);
         });
     }
 
+    /** Série com documentos não se apaga: fecha-se (conta os documentos, não olha ao «próximo», que pode arrancar acima de 1). */
     public function eliminarSerie(SerieFaturacaoEletronica $serie): void
     {
-        if ((int) $serie->proximo_numero > 1 || Venda::query()->where('serie_faturacao_eletronica_id', $serie->id)->exists()
-            || ReciboVenda::query()->where('serie_faturacao_eletronica_id', $serie->id)->exists()) {
-            throw new ErroNegocio('A série já tem documentos emitidos e não pode ser eliminada. Pode fechá-la.', 'SERIE_USADA', 422);
+        $emitidos = $this->emitidos([$serie->id])[$serie->id] ?? 0;
+        if ($emitidos > 0) {
+            throw new ErroNegocio("A série já emitiu {$emitidos} documento(s) e não pode ser eliminada. Pode fechá-la.", 'SERIE_USADA', 422);
         }
         $serie->delete();
+    }
+
+    /**
+     * Documentos emitidos por série (vendas + recibos), da empresa activa.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, int>
+     */
+    public function emitidos(array $ids): array
+    {
+        if (! $ids) {
+            return [];
+        }
+        $contar = fn (string $modelo) => $modelo::query()->whereIn('serie_faturacao_eletronica_id', $ids)
+            ->groupBy('serie_faturacao_eletronica_id')->selectRaw('serie_faturacao_eletronica_id as id, count(*) as n')->pluck('n', 'id');
+        $total = [];
+        foreach ([$contar(Venda::class), $contar(ReciboVenda::class)] as $parcial) {
+            foreach ($parcial as $id => $n) {
+                $total[(int) $id] = ($total[(int) $id] ?? 0) + (int) $n;
+            }
+        }
+
+        return $total;
+    }
+
+    /** Número inicial: inteiro entre 1 e 99 999 999 (proximoValido do legado novo). */
+    public static function numeroInicial(mixed $valor): int
+    {
+        $t = trim((string) $valor);
+        if (! preg_match('/^\d{1,8}$/', $t) || (int) $t < 1 || (int) $t > self::NUMERO_MAXIMO) {
+            throw new ErroNegocio('O número inicial da série tem de ser um inteiro entre 1 e 99 999 999.', 'NUMERO_INICIAL_INVALIDO', 422);
+        }
+
+        return (int) $t;
     }
 }

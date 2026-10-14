@@ -67,7 +67,10 @@ final class ParidadeComprasTerceirosTest extends TestCase
         // a lista de fornecedores não muda
         $this->getJson('/api/terceiros?papel=FORNECEDOR', $this->s)->assertJsonPath('metadados.paginacao.total', 2)->assertJsonMissingPath('dados.0.tem_documentos_venda');
         // gravar a ficha a partir da lista de clientes dá-lhe o papel de cliente
-        $this->putJson("/api/terceiros/{$forn->id}", ['papel' => 'CLIENTE', 'nome' => 'Fornecedor com vendas'], $this->s)->assertOk()->assertJsonPath('dados.tipo', 'CLIENTE_FORNECEDOR');
+        // Fase A: a ficha de cliente exige a conta de cliente (classe 31); a de fornecedor mantém-se
+        $this->putJson("/api/terceiros/{$forn->id}", ['papel' => 'CLIENTE', 'nome' => 'Fornecedor com vendas'], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'CONTA_CLIENTE_OBRIGATORIA');
+        $this->putJson("/api/terceiros/{$forn->id}", ['papel' => 'CLIENTE', 'nome' => 'Fornecedor com vendas', 'conta_cliente' => '31121'], $this->s)->assertOk()
+            ->assertJsonPath('dados.tipo', 'CLIENTE_FORNECEDOR')->assertJsonPath('dados.conta_cliente', '31121')->assertJsonPath('dados.conta_fornecedor', '3211');
     }
 
     #[Test]
@@ -77,9 +80,10 @@ final class ParidadeComprasTerceirosTest extends TestCase
         $b = $this->terceiro('F2', Terceiro::FORNECEDOR, '3211', '200000002');
         $this->postJson('/api/terceiros/edicao-massa', ['papel' => 'FORNECEDOR', 'ids' => [$a->id, $b->id], 'codigo_conta' => '3212', 'conta_compra_transitoria' => '3281'], $this->s)
             ->assertOk()->assertJsonPath('dados.actualizados', 2);
-        $this->getJson("/api/terceiros/{$a->id}", $this->s)->assertJsonPath('dados.codigo_conta', '3212')->assertJsonPath('dados.conta_compra_transitoria', '3281');
+        // Fase A: a «conta de terceiro» dos fornecedores é a conta de fornecedor (o codigo_conta antigo fica como estava)
+        $this->getJson("/api/terceiros/{$a->id}", $this->s)->assertJsonPath('dados.conta_fornecedor', '3212')->assertJsonPath('dados.conta_compra_transitoria', '3281');
         $this->postJson('/api/terceiros/edicao-massa', ['papel' => 'FORNECEDOR', 'ids' => [$a->id], 'retirar_conta_transitoria' => true], $this->s)->assertOk();
-        $this->getJson("/api/terceiros/{$a->id}", $this->s)->assertJsonPath('dados.conta_compra_transitoria', null)->assertJsonPath('dados.codigo_conta', '3212');
+        $this->getJson("/api/terceiros/{$a->id}", $this->s)->assertJsonPath('dados.conta_compra_transitoria', null)->assertJsonPath('dados.conta_fornecedor', '3212');
 
         // conta inexistente, nada a alterar, ids de outra empresa
         $this->postJson('/api/terceiros/edicao-massa', ['papel' => 'FORNECEDOR', 'ids' => [$a->id], 'codigo_conta' => '9999'], $this->s)->assertStatus(422);
@@ -120,7 +124,7 @@ final class ParidadeComprasTerceirosTest extends TestCase
 
         $this->post('/api/terceiros/importacao', ['ficheiro' => $ficheiro(), 'simular' => '0', 'actualizar_existentes' => '1'], $this->s + ['Accept' => 'application/json'])->assertOk()
             ->assertJsonPath('dados.criados', 1)->assertJsonPath('dados.actualizados', 1);
-        $this->getJson('/api/terceiros?papel=CLIENTE&pesquisa=Novo', $this->s)->assertJsonPath('dados.0.endereco', 'Rua Teste 1')->assertJsonPath('dados.0.codigo_conta', '31121');
+        $this->getJson('/api/terceiros?papel=CLIENTE&pesquisa=Novo', $this->s)->assertJsonPath('dados.0.endereco', 'Rua Teste 1')->assertJsonPath('dados.0.conta_cliente', '31121');
         $this->getJson('/api/terceiros?papel=CLIENTE&pesquisa=300000001', $this->s)->assertJsonPath('dados.0.nome', 'Existente Actualizado');
         @unlink($caminho);
 

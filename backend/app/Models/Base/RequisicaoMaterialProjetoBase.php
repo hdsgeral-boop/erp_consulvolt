@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela requisicoes_material_projeto (módulo Projectos). Legado: project_requisitions · 7 linhas reais no backup.
+ * Tabela requisicoes_material_projeto (módulo Projectos). Legado: project_requisitions · 8 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\RequisicaoMaterialProjeto.
  */
 abstract class RequisicaoMaterialProjetoBase extends ModeloBase

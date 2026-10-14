@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela revisoes_mensais_projeto (módulo Projectos). Legado: project_reviews · 20 linhas reais no backup.
+ * Tabela revisoes_mensais_projeto (módulo Projectos). Legado: project_reviews · 21 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\RevisaoMensalProjeto.
  */
 abstract class RevisaoMensalProjetoBase extends ModeloBase

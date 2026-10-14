@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Empresa;
 use App\Models\PlanoConta;
 use App\Models\Terceiro;
+use App\Services\Tesouraria\ServicoDocumentosTesouraria;
 use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -82,7 +83,10 @@ final class AfinacaoTesourariaTest extends TestCase
     {
         $p1 = $this->documento('PAGAMENTO', '4311', '100');
         $p2 = $this->documento('PAGAMENTO', '4311', '250.50');
-        $r1 = $this->documento('RECEBIMENTO', '4511', '500');
+        // Fase A: o ecrã só aceita bancos; o recebimento em caixa é um documento anterior (gravado pelo serviço)
+        $r1 = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoDocumentosTesouraria::class)->gravar(['tipo' => 'RECEBIMENTO', 'data_documento' => $this->hoje,
+            'conta_financeira' => '4511', 'descricao' => 'Serviços diversos', 'linhas' => [['codigo_conta' => '752', 'tipo_dc' => 'C', 'valor' => '500',
+                'terceiro_id' => $this->fornecedor->id]]])->id);
         $this->postJson('/api/tesouraria/documentos/integrar', ['ids' => [$p1, $p2, $r1]], $this->s)->assertOk()->assertJsonCount(3, 'dados.integrados');
 
         $mapas = $this->sessao(['teso_gestao_mapas_view']);

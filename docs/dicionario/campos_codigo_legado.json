@@ -2498,6 +2498,49 @@
           "nota": "também: js/modules/rh/produtividade.js:294"
         }
       }
+    },
+    "third_party_bank_details": {
+      "grupo": "C",
+      "esquema_dexie": "++id, company_id, third_party_id, bank_id, iban, predefinida, is_master_data, [company_id+third_party_id]",
+      "ref_esquema": "js/db_v2.js (v1271)",
+      "linhas_reais_backup": 0,
+      "campos": {
+        "third_party_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/ui_aux.js:976",
+          "nota": "terceiro dono da conta"
+        },
+        "bank_id": {
+          "exemplo": 1,
+          "ref": "js/db_v2.js (v1271, índice)",
+          "nota": "opcional; o legado grava o nome em banco"
+        },
+        "banco": {
+          "exemplo": "BANCO EXEMPLO",
+          "ref": "Versões/Versão Actual/ERP/js/ui_aux.js:976",
+          "nota": "nome do banco"
+        },
+        "numero_conta": {
+          "exemplo": "0000000000",
+          "ref": "Versões/Versão Actual/ERP/js/ui_aux.js:976",
+          "nota": "número da conta"
+        },
+        "iban": {
+          "exemplo": "AO06000000000000000000000",
+          "ref": "Versões/Versão Actual/ERP/js/ui_aux.js:976",
+          "nota": "IBAN sem espaços"
+        },
+        "titular": {
+          "exemplo": "TITULAR EXEMPLO",
+          "ref": "Versões/Versão Actual/ERP/js/ui_aux.js:976",
+          "nota": "titular da conta"
+        },
+        "predefinida": {
+          "exemplo": true,
+          "ref": "Versões/Versão Actual/ERP/js/ui_aux.js:976",
+          "nota": "a primeira conta fica predefinida; só uma por terceiro"
+        }
+      }
     }
   },
   "delivery_items_delivery_id": {

@@ -9,7 +9,7 @@ use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela criterios_avaliacao_rh (módulo RH). Legado: rh_evaluation_items · 26 linhas reais no backup.
+ * Tabela criterios_avaliacao_rh (módulo RH). Legado: rh_evaluation_items · 27 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\CriterioAvaliacaoRH.
  */
 abstract class CriterioAvaliacaoRHBase extends ModeloBase

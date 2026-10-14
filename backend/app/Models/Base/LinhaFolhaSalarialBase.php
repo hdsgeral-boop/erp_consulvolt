@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela linhas_folha_salarial (módulo RH). Legado: payroll_entries · 1114 linhas reais no backup.
+ * Tabela linhas_folha_salarial (módulo RH). Legado: payroll_entries · 1396 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\LinhaFolhaSalarial.
  */
 abstract class LinhaFolhaSalarialBase extends ModeloBase

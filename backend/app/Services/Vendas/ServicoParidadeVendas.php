@@ -105,7 +105,7 @@ final class ServicoParidadeVendas
             ->where('p.movimenta_stock', true)->where(fn ($q) => $q->whereNull('p.bloqueado')->orWhere('p.bloqueado', false))
             ->leftJoinSub($stock, 's', 's.produto_id', '=', 'p.id')
             ->whereRaw('COALESCE(s.q, 0) < COALESCE(NULLIF(p.stock_minimo, 0), ?)', [self::LIMITE_STOCK_BAIXO])
-            ->orderByRaw('COALESCE(s.q, 0)')->orderBy('p.nome')->limit($limite)
+            ->orderByRaw('COALESCE(s.q, 0)')->ordenarPorNome('p.nome')->limit($limite)
             ->get(['p.id', 'p.codigo', 'p.nome', DB::raw('COALESCE(s.q, 0) AS stock'), DB::raw('COALESCE(NULLIF(p.stock_minimo, 0), '.self::LIMITE_STOCK_BAIXO.') AS minimo')])
             ->map(fn ($p) => ['id' => (int) $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome,
                 'stock' => number_format((float) $p->stock, 3, '.', ''), 'minimo' => number_format((float) $p->minimo, 3, '.', '')])
@@ -201,7 +201,7 @@ final class ServicoParidadeVendas
      */
     public function meiosPagamento(): array
     {
-        return MeioPagamento::query()->where(fn ($q) => $q->whereNull('ativo')->orWhere('ativo', true))->orderByDesc('predefinido')->orderBy('nome')
+        return MeioPagamento::query()->where(fn ($q) => $q->whereNull('ativo')->orWhere('ativo', true))->orderByDesc('predefinido')->ordenarPorNome()
             ->get(['id', 'nome', 'codigo_conta', 'iban', 'swift', 'predefinido', 'codigo_moeda'])
             ->map(fn ($m) => ['id' => (int) $m->id, 'nome' => $m->nome, 'codigo_conta' => $m->codigo_conta, 'iban' => $m->iban, 'swift' => $m->swift,
                 'predefinido' => (bool) $m->predefinido, 'codigo_moeda' => $m->codigo_moeda])
@@ -418,7 +418,7 @@ final class ServicoParidadeVendas
         $bloco = function ($consulta, callable $nome) use ($amostra): array {
             $total = (clone $consulta)->count();
 
-            return ['total' => $total, 'exemplos' => $total ? (clone $consulta)->orderBy('nome')->limit($amostra)->get()->map($nome)->values()->all() : []];
+            return ['total' => $total, 'exemplos' => $total ? (clone $consulta)->ordenarPorNome()->limit($amostra)->get()->map($nome)->values()->all() : []];
         };
         $nif = DB::table('empresas')->where('id', $empresa)->value('nif');
         $nifValido = is_string($nif) && preg_match('/^\d{9}$|^\d{10}$|^\d{9}[A-Z]{2}\d{3}$/', trim($nif)) === 1;

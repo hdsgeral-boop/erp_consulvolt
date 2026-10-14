@@ -95,7 +95,7 @@ final class ServicoContratosTrabalho
         DB::beginTransaction();
         try {
             $hoje = now()->toDateString();
-            foreach (Colaborador::query()->whereKey(array_unique($colaboradores))->orderBy('nome_completo')->get() as $colab) {
+            foreach (Colaborador::query()->whereKey(array_unique($colaboradores))->ordenarPorNome('nome_completo')->get() as $colab) {
                 if ($colab->estado !== 'ACTIVO') {
                     $res['inactivos'][] = $colab->nome_completo;
 

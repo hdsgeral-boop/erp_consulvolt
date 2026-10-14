@@ -159,7 +159,7 @@ final class ServicoAtividadesCRM
     {
         $m = ModeloEmailCRM::query()->findOrFail($modeloId);
         $contas = ContaCRM::query()->when($f['tipo'] ?? null, fn ($q, $t) => $q->where('tipo', $t))
-            ->when($f['origem'] ?? null, fn ($q, $o) => $q->where('origem_original', $o))->orderBy('nome')->get();
+            ->when($f['origem'] ?? null, fn ($q, $o) => $q->where('origem_original', $o))->ordenarPorNome()->get();
         $opps = OportunidadeVendaCRM::query()->where('estado', 'ABERTA')->when($f['etapa_codigo'] ?? null, fn ($q, $e) => $q->where('etapa_codigo', $e))
             ->orderByDesc('valor')->orderBy('id')->get()->groupBy('conta_crm_id');
         $r = [];

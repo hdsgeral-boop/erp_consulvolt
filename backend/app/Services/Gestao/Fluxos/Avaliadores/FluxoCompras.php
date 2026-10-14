@@ -2,6 +2,7 @@
 
 namespace App\Services\Gestao\Fluxos\Avaliadores;
 
+use App\Services\Terceiros\ContaTerceiro;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -38,7 +39,7 @@ final class FluxoCompras extends AvaliadorFluxo
         $R = DB::table('rececoes_compra')->where('empresa_id', $e)->get();
         $F = DB::table('faturas_compra')->where('empresa_id', $e)->get();
         $terc = DB::table('terceiros')->where('empresa_id', $e)->whereIn('id', $O->pluck('fornecedor_id')->merge($F->pluck('fornecedor_id'))->merge($Q->pluck('fornecedor_id'))->filter()->unique())
-            ->get(['id', 'nome', 'codigo_conta'])->keyBy('id');
+            ->get(['id', 'nome', DB::raw(ContaTerceiro::sqlConta('terceiros', ContaTerceiro::FORNECEDOR).' as codigo_conta')])->keyBy('id');   // Fase A: conta de fornecedor do papel (fluxo_compras.js:179)
         $itensEnc = DB::table('itens_compra as i')->leftJoin('produtos as p', 'p.id', '=', 'i.produto_id')->where('i.empresa_id', $e)->where('i.tipo_documento_origem', 'ENCOMENDA')
             ->whereNotNull('i.encomenda_compra_id')->get(['i.encomenda_compra_id', 'i.quantidade', 'i.quantidade_recebida', 'i.preco_unitario', 'p.movimenta_stock'])->groupBy('encomenda_compra_id');
         $numeros = $F->pluck('numero_fatura')->filter()->unique()->values();

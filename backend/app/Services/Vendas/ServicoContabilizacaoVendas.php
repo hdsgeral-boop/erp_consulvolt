@@ -127,7 +127,8 @@ final class ServicoContabilizacaoVendas
             $recibo = ReciboVenda::query()->where('venda_origem_id', $venda->id)->first();
             $contaDebito = $recibo?->codigo_conta ?? throw new ErroNegocio('Factura-recibo sem recibo/conta de disponibilidade.', 'FR_SEM_RECIBO', 422);
         } else {
-            $contaDebito = $cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.');
+            // Fase A: conta de cliente (classe 31) do próprio terceiro; sem ela a integração pára (ui_sales.js:3160, sem contas por defeito)
+            $contaDebito = $cliente->exigirContaCliente("O documento {$venda->numero_documento} não pode ser integrado:");
         }
 
         // cliente em moeda estrangeira: a linha guarda o valor na moeda (saldo em moeda e diferenças de câmbio na liquidação)
@@ -193,7 +194,7 @@ final class ServicoContabilizacaoVendas
         }
 
         return DB::transaction(function () use ($venda, $motivo) {
-            $contaCliente = Terceiro::query()->withTrashed()->find($venda->cliente_id)?->codigo_conta;
+            $contaCliente = Terceiro::query()->withTrashed()->find($venda->cliente_id)?->contaCliente() ?: null;   // Fase A: conta de cliente do papel
             $linha = $this->localizar($venda->numero_lan_contabilizacao, $venda->numero_documento, $venda->sessao_pos_id || $venda->sessao_pos_legado_codigo,
                 in_array($venda->tipo_documento, ['FR', 'GR', 'GD'], true) ? null : $contaCliente, $venda->tipo_documento === 'NC' ? 'C' : 'D');
             $this->lancamentos->estornar($linha, $motivo);
@@ -221,7 +222,7 @@ final class ServicoContabilizacaoVendas
         $adiantamento = $recibo->eAdiantamento();
         $contaCredito = $adiantamento
             ? $this->config->exigir('adiantamentos_clientes', 'Recibo de adiantamento.')
-            : ($cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.'));
+            : $this->contaClienteRecibo($cliente, "O recibo {$recibo->numero_recibo} não pode ser integrado:");
         $comum = ['terceiro_id' => $cliente->id, 'unidade_negocio_id' => $recibo->unidade_negocio_id,
             'centro_custo_id' => $recibo->centro_custo_id, 'projeto_id' => $recibo->projeto_id];
 
@@ -274,7 +275,7 @@ final class ServicoContabilizacaoVendas
             'descricao' => mb_substr("Alocação do adiantamento {$recibo->numero_recibo} à factura {$venda->numero_documento} - {$cliente->nome}", 0, 1000),
             'tipo_origem' => 'RECIBOS', 'linhas' => [
                 ['codigo_conta' => $this->config->exigir('adiantamentos_clientes', 'Alocação de adiantamento.'), 'tipo_dc' => 'D', 'valor' => $item->montante_pago] + $comum,
-                ['codigo_conta' => $cliente->codigo_conta ?: $this->config->exigir('clientes_default', 'O cliente não tem conta contabilística.'),
+                ['codigo_conta' => $this->contaClienteRecibo($cliente, "A alocação do adiantamento {$recibo->numero_recibo} não pode ser integrada:"),
                     'tipo_dc' => 'C', 'valor' => $item->montante_pago, 'numero_documento' => $venda->numero_documento] + $comum,
             ],
         ]);
@@ -372,6 +373,16 @@ final class ServicoContabilizacaoVendas
         }
 
         return $this->localizador->localizar($numeroLan, $numeroDocumento, $contaCliente, $dcCliente);
+    }
+
+    /**
+     * Conta de cliente do recibo: a do próprio terceiro (classe 31), como na integração das facturas; sem ela pára e diz o
+     * que falta. Não se recorre à conta de clientes por omissão (ADR-071: sem contas escondidas — o legado novo ainda o fazia
+     * em ui_sales.js:4939, mas a emissão do recibo já exige a conta da ficha).
+     */
+    private function contaClienteRecibo(Terceiro $cliente, string $contexto): string
+    {
+        return $cliente->exigirContaCliente($contexto);
     }
 
     private function diario(string $codigo, string $nome): DiarioContabil

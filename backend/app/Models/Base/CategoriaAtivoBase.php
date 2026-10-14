@@ -6,11 +6,12 @@ use App\Models\AtivoImobilizado;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
+use App\Models\PlanoManutencaoAtivo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela categorias_ativos (módulo Activos). Legado: asset_categories · 11 linhas reais no backup.
+ * Tabela categorias_ativos (módulo Activos). Legado: asset_categories · 17 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\CategoriaAtivo.
  */
 abstract class CategoriaAtivoBase extends ModeloBase
@@ -40,5 +41,10 @@ abstract class CategoriaAtivoBase extends ModeloBase
     public function ativosImobilizados(): HasMany
     {
         return $this->hasMany(AtivoImobilizado::class, 'categoria_ativo_id');
+    }
+
+    public function planosManutencaoAtivos(): HasMany
+    {
+        return $this->hasMany(PlanoManutencaoAtivo::class, 'categoria_ativo_id');
     }
 }

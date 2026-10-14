@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela contas_crm (módulo CRM). Legado: crm_accounts · 5 linhas reais no backup.
+ * Tabela contas_crm (módulo CRM). Legado: crm_accounts · 7 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ContaCRM.
  */
 abstract class ContaCRMBase extends ModeloBase

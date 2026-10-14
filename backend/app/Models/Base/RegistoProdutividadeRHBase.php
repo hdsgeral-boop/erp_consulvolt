@@ -11,7 +11,7 @@ use App\Models\PeriodoProdutividadeRH;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela registos_produtividade_rh (módulo RH). Legado: rh_productivity · 6 linhas reais no backup.
+ * Tabela registos_produtividade_rh (módulo RH). Legado: rh_productivity · 56 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\RegistoProdutividadeRH.
  */
 abstract class RegistoProdutividadeRHBase extends ModeloBase
@@ -23,7 +23,7 @@ abstract class RegistoProdutividadeRHBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'periodo_produtividade_id', 'mes', 'colaborador_id', 'item_produtividade_id', 'data', 'quantidade', 'preco_unitario', 'valor', 'quantidade_considerada', 'observacoes', 'origem', 'criado_por', 'atualizado_por',
+        'empresa_id', 'periodo_produtividade_id', 'mes', 'colaborador_id', 'item_produtividade_id', 'data', 'quantidade', 'preco_unitario', 'valor', 'quantidade_considerada', 'observacoes', 'origem', 'criado_por', 'origem_chave', 'fonte', 'atualizado_por',
     ];
 
     protected function casts(): array
@@ -38,6 +38,7 @@ abstract class RegistoProdutividadeRHBase extends ModeloBase
             'preco_unitario' => 'decimal:4',
             'valor' => 'decimal:2',
             'quantidade_considerada' => 'decimal:3',
+            'fonte' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

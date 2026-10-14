@@ -4,6 +4,7 @@ namespace App\Models\Base;
 
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\ContaBancariaTerceiro;
 use App\Models\CoordenadaBancariaColaborador;
 use App\Models\ModeloBase;
 use App\Models\ReciboVenda;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela bancos (módulo RH). Legado: banks · 13 linhas reais no backup.
+ * Tabela bancos (módulo RH). Legado: banks · 14 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\Banco.
  */
 abstract class BancoBase extends ModeloBase
@@ -44,5 +45,10 @@ abstract class BancoBase extends ModeloBase
     public function coordenadasBancariasColaboradores(): HasMany
     {
         return $this->hasMany(CoordenadaBancariaColaborador::class, 'banco_id');
+    }
+
+    public function contasBancariasTerceiros(): HasMany
+    {
+        return $this->hasMany(ContaBancariaTerceiro::class, 'banco_id');
     }
 }

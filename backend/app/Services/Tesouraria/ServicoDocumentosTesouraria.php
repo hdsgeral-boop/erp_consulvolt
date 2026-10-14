@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\DB;
  * Pagamentos e recebimentos (saveTesouraria / integrateSelectedtreasury / unposttreasuryDocument, js/ui_tesouraria.js),
  * com as correcções:
  *   - n.º por série (PAG/REC); a referência continua texto livre (no legado era a única "chave", repetida em 670 docs);
- *   - validação completa na gravação: conta financeira de movimento das classes 43/45, sentido (pagamento = débitos
+ *   - validação completa na gravação: conta financeira de movimento das classes 42/43/45, sentido (pagamento = débitos
  *     líquidos; recebimento = créditos), exercício aberto, contas das linhas de movimento, e — para linhas que liquidam
  *     um documento — valor ≤ saldo em aberto (o legado permitia pagar duas vezes);
  *   - ligação EXPLÍCITA à venda / factura de fornecedor liquidada: na integração actualiza o pago e o estado da venda
@@ -32,6 +32,11 @@ use Illuminate\Support\Facades\DB;
  *   - integração numa transacção, via ServicoLancamentos (diário BD para bancos, CX para caixa);
  *   - desintegrar = ESTORNO, bloqueado se o lançamento estiver reconciliado com o banco;
  *   - nunca se apaga: anula-se, com motivo.
+ * Só por bancos (Fase A, legado novo ui_tesouraria.js:653-678 e :861-877, desde 2026-10-07): os pagamentos e recebimentos
+ * emitidos no ecrã (soBancos) só movimentam contas bancárias — 42 depósitos a prazo e 43 depósitos à ordem; o numerário (45)
+ * é exclusivo da Folha de Caixa. Um documento anterior que já tinha uma conta 45 continua a abrir, a corrigir-se (mantendo
+ * uma conta 45) e a integrar-se. Os circuitos internos (POS, lavandaria, salários, importação) mantêm as suas regras —
+ * o legado novo também não as alterou.
  * Multi-moeda (moedas_tesouraria.js, ADR-034): a moeda do documento é a da conta financeira; o câmbio é o da tabela
  * na data (ou manual). Liquidar um documento em moeda estrangeira (a partir de conta na moeda ou em Kz) lança o
  * terceiro pelo VALOR HISTÓRICO em Kz — proporção do saldo em moeda — e a diferença para o valor ao câmbio do dia
@@ -43,6 +48,9 @@ use Illuminate\Support\Facades\DB;
 final class ServicoDocumentosTesouraria
 {
     public const TIPOS = ['PAGAMENTO', 'RECEBIMENTO'];
+
+    /** Meio → prefixo da conta financeira (TESO_MEIO_PREFIXO do legado novo); CAIXA só para documentos anteriores. */
+    public const MEIO_PREFIXO = ['BANCO' => '43', 'PRAZO' => '42', 'CAIXA' => '45'];
 
     public function __construct(
         private readonly ContextoEmpresa $contexto,
@@ -57,14 +65,18 @@ final class ServicoDocumentosTesouraria
         private readonly ServicoConfigTesouraria $config,
     ) {}
 
-    /** @param  array<string, mixed>  $d  tipo, data_documento, conta_financeira, descricao, referencia?, taxa_cambio?, linhas[] */
-    public function gravar(array $d, ?DocumentoTesouraria $doc = null): DocumentoTesouraria
+    /**
+     * @param  array<string, mixed>  $d  tipo, data_documento, conta_financeira, descricao, referencia?, taxa_cambio?, linhas[]
+     * @param  bool  $soBancos  emissão no ecrã de pagamentos/recebimentos: só contas 42/43 (exigirContaBancaria)
+     */
+    public function gravar(array $d, ?DocumentoTesouraria $doc = null, bool $soBancos = false): DocumentoTesouraria
     {
         $empresa = $this->contexto->obrigatorio();
         if ($doc && $doc->estado !== 'PENDENTE') {
             throw new ErroNegocio("Um documento {$doc->estado} não pode ser alterado.", 'DOCUMENTO_NAO_EDITAVEL', 422);
         }
         $doc && $this->exigirSemLiquidacaoPOS($doc);
+        $soBancos && $this->exigirContaBancaria((string) $d['conta_financeira'], $doc);
         $tipo = $d['tipo'];
         $data = substr($d['data_documento'], 0, 10);
         $this->exercicios->exigirAberto($empresa, $data);
@@ -229,6 +241,26 @@ final class ServicoDocumentosTesouraria
     }
 
     /**
+     * Pagamentos e recebimentos só por bancos (legado novo, ui_tesouraria.js:653-678/861-877): a conta financeira tem de ser
+     * 42 (depósitos a prazo) ou 43 (depósitos à ordem). Excepção: a edição de um documento anterior que já estava numa conta
+     * de caixa (45) pode manter uma conta 45 («Caixa (45) — documento anterior»); os históricos não se mexem.
+     */
+    public function exigirContaBancaria(string $conta, ?DocumentoTesouraria $doc = null): void
+    {
+        if (preg_match('/^4[23]/', $conta)) {
+            return;
+        }
+        $anteriorEmCaixa = $doc && str_starts_with((string) $doc->getOriginal('conta_financeira'), self::MEIO_PREFIXO['CAIXA']);
+        if ($anteriorEmCaixa && str_starts_with($conta, self::MEIO_PREFIXO['CAIXA'])) {
+            return;
+        }
+        throw new ErroNegocio(str_starts_with($conta, '45')
+            ? 'Os pagamentos e recebimentos só movimentam contas bancárias (42 depósitos a prazo, 43 depósitos à ordem). O numerário (45) passou para a Folha de Caixa.'
+            : 'A conta financeira tem de ser uma conta bancária: depósitos à ordem (43) ou depósitos a prazo (42).',
+            'CONTA_FINANCEIRA_SO_BANCOS', 422, ['conta_financeira' => $conta]);
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $linhas  valores na MOEDA DO DOCUMENTO
      * @param  array{codigo: string, taxa: string, taxa_id: ?int, manual: bool, estrangeira: bool}  $moeda
      * @return array{0: list<array<string, mixed>>, 1: string, 2: string} linhas normalizadas, total em Kz, total na moeda do documento
@@ -379,8 +411,8 @@ final class ServicoDocumentosTesouraria
     private function moedaDocumento(string $conta, string $data, ?string $manual, ?string $validarManual = null): array
     {
         $c = $this->plano->contaDeMovimento($conta);
-        if (! preg_match('/^4[35]/', $conta)) {
-            throw new ErroNegocio('A conta financeira tem de ser de bancos (43) ou de caixa (45).', 'CONTA_FINANCEIRA_INVALIDA', 422);
+        if (! preg_match('/^4[235]/', $conta)) {
+            throw new ErroNegocio('A conta financeira tem de ser de bancos (42/43) ou de caixa (45).', 'CONTA_FINANCEIRA_INVALIDA', 422);
         }
         $codigo = ($c['codigo_moeda'] ?? null) ?: ServicoCambios::BASE;
         if ($codigo === ServicoCambios::BASE) {

@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela membros_equipa_projeto (módulo Projectos). Legado: project_team_members · 29 linhas reais no backup.
+ * Tabela membros_equipa_projeto (módulo Projectos). Legado: project_team_members · 43 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\MembroEquipaProjeto.
  */
 abstract class MembroEquipaProjetoBase extends ModeloBase
@@ -26,7 +26,7 @@ abstract class MembroEquipaProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'equipa_projeto_id', 'colaborador_id', 'terceiro_id', 'nome_externo', 'papel', 'horas_alocadas', 'valor_contrato', 'no_organigrama_projeto_id',
+        'empresa_id', 'equipa_projeto_id', 'colaborador_id', 'terceiro_id', 'nome_externo', 'papel', 'horas_alocadas', 'no_organigrama_projeto_id', 'valor_contrato',
     ];
 
     protected function casts(): array
@@ -37,8 +37,8 @@ abstract class MembroEquipaProjetoBase extends ModeloBase
             'colaborador_id' => 'integer',
             'terceiro_id' => 'integer',
             'horas_alocadas' => 'decimal:3',
-            'valor_contrato' => 'decimal:2',
             'no_organigrama_projeto_id' => 'integer',
+            'valor_contrato' => 'decimal:2',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

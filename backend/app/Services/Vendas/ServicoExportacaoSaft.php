@@ -206,7 +206,7 @@ final class ServicoExportacaoSaft
         foreach ($clientes as $c) {
             $x->startElement('Customer');
             $this->el($x, 'CustomerID', (string) $c->id);
-            $this->el($x, 'AccountID', $c->codigo_conta ?: 'Desconhecido');
+            $this->el($x, 'AccountID', $c->contaCliente() ?: ($c->codigo_conta ?: 'Desconhecido'));   // Fase A: conta de cliente do papel
             $this->el($x, 'CustomerTaxID', preg_replace('/\s+/', '', (string) $c->nif) ?: '999999999');
             $this->el($x, 'CompanyName', $c->nome ?: 'Consumidor Final');
             $x->startElement('BillingAddress');

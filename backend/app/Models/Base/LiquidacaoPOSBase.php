@@ -12,7 +12,7 @@ use App\Models\SessaoPOS;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela liquidacoes_pos (módulo POS). Legado: pos_settlements · 6 linhas reais no backup.
+ * Tabela liquidacoes_pos (módulo POS). Legado: pos_settlements · 7 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\LiquidacaoPOS.
  */
 abstract class LiquidacaoPOSBase extends ModeloBase

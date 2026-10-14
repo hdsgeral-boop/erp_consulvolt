@@ -9,7 +9,7 @@ use App\Models\Projeto;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela configuracoes_projetos (módulo Projectos). Legado: project_settings · 1 linhas reais no backup.
+ * Tabela configuracoes_projetos (módulo Projectos). Legado: project_settings · 2 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ConfiguracaoProjeto.
  */
 abstract class ConfiguracaoProjetoBase extends ModeloBase

@@ -21,11 +21,15 @@ export const NORMALIZACOES = {
     ORCAMENTO: 'OR', OR: 'OR', ENCOMENDA: 'NE', 'NOTA DE ENCOMENDA': 'NE', NE: 'NE', 'GUIA DE REMESSA': 'GR', GR: 'GR',
     'GUIA DE DEVOLUCAO': 'GD', GD: 'GD' } },
   'sales.status': { dominio: ['PENDENTE', 'PARCIAL', 'PAGO', 'CONCLUIDO', 'ANULADO'], mapa: {
-    PENDENTE: 'PENDENTE', PARCIAL: 'PARCIAL', PAGO: 'PAGO', CONCLUIDO: 'CONCLUIDO', ANULADO: 'ANULADO', ANULADA: 'ANULADO' } },
+    PENDENTE: 'PENDENTE', PARCIAL: 'PARCIAL', PAGO: 'PAGO', CONCLUIDO: 'CONCLUIDO', ANULADO: 'ANULADO', ANULADA: 'ANULADO',
+    'EM ABERTO': 'PENDENTE' } },   // EM ABERTO: guia de remessa ainda por concluir (Versão Actual, ui_sales.js:2813)
   'sales.payment_method': { dominio: ['NUMERARIO', 'TPA', 'TRANSFERENCIA', 'CONTA_CORRENTE', 'MISTO'], mapa: {   // MISTO: venda POS com vários meios
     NUMERARIO: 'NUMERARIO', MULTICAIXA: 'TPA', 'MULTICAIXA (TPA)': 'TPA', TPA: 'TPA',
     'TRANSFERENCIA BANCARIA': 'TRANSFERENCIA', TRANSFERENCIA: 'TRANSFERENCIA', 'CONTA CORRENTE': 'CONTA_CORRENTE' } },
   'sales.payment_mode': { dominio: ['PRONTO', 'PRAZO', 'MARCOS'], mapa: { PRONTO: 'PRONTO', PRAZO: 'PRAZO', MARCOS: 'MARCOS' } },
+
+  // séries da facturação (Versão Actual: facturacao_agt.js / vendas_series.js gravam ACTIVA; o sistema novo usa ATIVA)
+  'fe_series.estado': { dominio: ['ATIVA', 'FECHADA'], mapa: { ACTIVA: 'ATIVA', ATIVA: 'ATIVA', FECHADA: 'FECHADA' } },
 
   // ── Compras ──
   'purchase_items.parent_type': { dominio: ['PEDIDO', 'COTACAO', 'ENCOMENDA', 'FATURA'], mapa: {
@@ -63,7 +67,7 @@ export const NORMALIZACOES = {
   'rh_prod_periods.estado': { dominio: ['ABERTO', 'FECHADO'], mapa: { ABERTO: 'ABERTO', FECHADO: 'FECHADO' } },
   'rh_prod_items.metrica': { dominio: ['QUANTIDADE', 'HORAS', 'OBJECTIVO', 'PONTOS', 'TAREFAS'], mapa: {
     QUANTIDADE: 'QUANTIDADE', HORAS: 'HORAS', OBJECTIVO: 'OBJECTIVO', PONTOS: 'PONTOS', TAREFAS: 'TAREFAS' } },
-  'rh_portal_requests.tipo': { dominio: ['FERIAS', 'AUSENCIA', 'DOCUMENTO', 'AGREGADO'], mapa: { FERIAS: 'FERIAS', AUSENCIA: 'AUSENCIA', DOCUMENTO: 'DOCUMENTO', AGREGADO: 'AGREGADO' } },
+  'rh_portal_requests.tipo': { dominio: ['FERIAS', 'AUSENCIA', 'DOCUMENTO', 'AGREGADO', 'EMPRESTIMO'], mapa: { FERIAS: 'FERIAS', AUSENCIA: 'AUSENCIA', DOCUMENTO: 'DOCUMENTO', AGREGADO: 'AGREGADO', EMPRESTIMO: 'EMPRESTIMO' } },
   'rh_portal_requests.estado': { dominio: ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'], mapa: {
     'PENDENTE CHEFIA': 'PENDENTE_CHEFIA', 'PENDENTE RH': 'PENDENTE_RH', APROVADO: 'APROVADO', EMITIDO: 'EMITIDO', RECUSADO: 'RECUSADO', CANCELADO: 'CANCELADO' } },
   'org_units.tipo': { dominio: ['ORGAO_SOCIAL', 'DIRECCAO_GERAL', 'DIRECCAO', 'DEPARTAMENTO', 'GABINETE', 'SECCAO', 'EQUIPA', 'OUTRO'], mapa: {

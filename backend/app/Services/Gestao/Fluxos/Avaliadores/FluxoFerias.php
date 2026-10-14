@@ -27,7 +27,7 @@ final class FluxoFerias extends AvaliadorFluxo
         $e = $this->empresa();
         $anoAct = (int) now()->format('Y');
         $hoje = self::hoje();
-        $emps = DB::table('colaboradores')->where('empresa_id', $e)->whereNull('eliminado_em')->orderBy('nome_completo')->get(['id', 'nome_completo', 'estado', 'reformado'])->keyBy('id');
+        $emps = DB::table('colaboradores')->where('empresa_id', $e)->whereNull('eliminado_em')->ordenarPorNome('nome_completo')->get(['id', 'nome_completo', 'estado', 'reformado'])->keyBy('id');
         $per = DB::table('plano_ferias_colaboradores')->where('empresa_id', $e)->orderBy('data_inicio')->get();
         $pedidos = DB::table('pedidos_portal_colaborador')->where('empresa_id', $e)->where('tipo', 'FERIAS')->get();
         $direitos = DB::table('plano_ferias_colaboradores')->where('empresa_id', $e)->whereNotNull('direito')->orderByDesc('atualizado_em')->orderByDesc('id')

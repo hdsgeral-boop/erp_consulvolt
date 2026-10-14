@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela cotacoes_compra (módulo Compras). Legado: purchase_quotes · 23 linhas reais no backup.
+ * Tabela cotacoes_compra (módulo Compras). Legado: purchase_quotes · 28 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\CotacaoCompra.
  */
 abstract class CotacaoCompraBase extends ModeloBase

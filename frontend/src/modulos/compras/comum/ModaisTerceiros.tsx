@@ -9,6 +9,8 @@ import { notificarErro } from '@/utilitarios/erros';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 import type { FichaTerceiro } from './referencias';
 import { SeletorConta } from './Seletores';
+import { SeletorConta as SeletorContaPlano } from '@/modulos/contab/comum/Seletores';
+import { contaCliente, contaFornecedor, prefixosConta } from '@/modulos/contab/tabelasAux/contasTerceiro';
 
 type Papel = 'CLIENTE' | 'FORNECEDOR';
 
@@ -43,7 +45,10 @@ export function ModalEdicaoMassaTerceiros({ papel, fichas, aoFechar, aoConcluir 
     if (fichas) form.resetFields();
   }, [fichas, form]);
   const n = fichas?.length ?? 0;
-  const comConta = (campo: 'codigo_conta' | 'conta_compra_transitoria') => (fichas ?? []).filter((f) => (f[campo] ?? '').trim()).length;
+  // Fase A: «conta de terceiro» = a conta do papel (de cliente nos clientes, de fornecedor nos fornecedores)
+  const valorConta = (f: FichaTerceiro, campo: 'codigo_conta' | 'conta_compra_transitoria') =>
+    campo === 'codigo_conta' ? (papel === 'CLIENTE' ? contaCliente(f) : contaFornecedor(f)) : (f[campo] ?? '').trim();
+  const comConta = (campo: 'codigo_conta' | 'conta_compra_transitoria') => (fichas ?? []).filter((f) => valorConta(f, campo)).length;
   const resumo = (campo: 'codigo_conta' | 'conta_compra_transitoria') => (comConta(campo) ? `${comConta(campo)} de ${n} já com conta` : 'Nenhum com conta');
   const nomes = (fichas ?? []).slice(0, 6).map((f) => f.nome.trim()).join(', ') + (n > 6 ? '…' : '');
 
@@ -66,8 +71,8 @@ export function ModalEdicaoMassaTerceiros({ papel, fichas, aoFechar, aoConcluir 
         <Form.Item name="codigo_moeda" label="Moeda por omissão">
           <Select allowClear placeholder="— Manter como está —" options={MOEDAS_MASSA.map((m) => ({ value: m, label: m }))} />
         </Form.Item>
-        <Form.Item name="codigo_conta" label={papel === 'CLIENTE' ? 'Conta contabilística do cliente' : 'Conta de terceiro'} extra={resumo('codigo_conta')}>
-          <SeletorConta prefixo={papel === 'CLIENTE' ? '31' : '32'} placeholder="— Manter como está —" />
+        <Form.Item name="codigo_conta" label={papel === 'CLIENTE' ? 'Conta de cliente (classe 31)' : 'Conta de fornecedor (classe 32 ou 37.0)'} extra={resumo('codigo_conta')}>
+          <SeletorContaPlano prefixos={prefixosConta(papel)} placeholder="— Manter como está —" allowClear style={{ width: '100%' }} />
         </Form.Item>
         {papel === 'FORNECEDOR' && (
           <>

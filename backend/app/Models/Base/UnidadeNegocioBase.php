@@ -2,6 +2,7 @@
 
 namespace App\Models\Base;
 
+use App\Models\AssuntoMetodoTrabalho;
 use App\Models\AtivoImobilizado;
 use App\Models\Colaborador;
 use App\Models\Concerns\Auditavel;
@@ -10,7 +11,9 @@ use App\Models\CotacaoCompra;
 use App\Models\EncomendaCompra;
 use App\Models\FaturaCompra;
 use App\Models\ItemAcrescimoDiferimento;
+use App\Models\ItemCompra;
 use App\Models\ItemDocumentoTesouraria;
+use App\Models\ItemVenda;
 use App\Models\LancamentoContabil;
 use App\Models\LancamentoEstornado;
 use App\Models\ModeloBase;
@@ -30,7 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela unidades_negocio (módulo Sistema). Legado: business_units · 16 linhas reais no backup.
+ * Tabela unidades_negocio (módulo Sistema). Legado: business_units · 19 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\UnidadeNegocio.
  */
 abstract class UnidadeNegocioBase extends ModeloBase
@@ -92,6 +95,11 @@ abstract class UnidadeNegocioBase extends ModeloBase
         return $this->hasMany(Venda::class, 'unidade_negocio_id');
     }
 
+    public function itensVenda(): HasMany
+    {
+        return $this->hasMany(ItemVenda::class, 'unidade_negocio_id');
+    }
+
     public function recibosVenda(): HasMany
     {
         return $this->hasMany(ReciboVenda::class, 'unidade_negocio_id');
@@ -120,6 +128,11 @@ abstract class UnidadeNegocioBase extends ModeloBase
     public function faturasCompra(): HasMany
     {
         return $this->hasMany(FaturaCompra::class, 'unidade_negocio_id');
+    }
+
+    public function itensCompra(): HasMany
+    {
+        return $this->hasMany(ItemCompra::class, 'unidade_negocio_id');
     }
 
     public function colaboradores(): HasMany
@@ -170,5 +183,10 @@ abstract class UnidadeNegocioBase extends ModeloBase
     public function itensAcrescimosDiferimentos(): HasMany
     {
         return $this->hasMany(ItemAcrescimoDiferimento::class, 'unidade_negocio_id');
+    }
+
+    public function assuntosMetodoTrabalho(): HasMany
+    {
+        return $this->hasMany(AssuntoMetodoTrabalho::class, 'unidade_negocio_id');
     }
 }

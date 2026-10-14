@@ -90,7 +90,7 @@ final class ServicoUtilizadores
         $dominio = $actor ? $this->dominio($actor) : null;
         $ligacoes = DB::table('utilizador_empresa as ue')->join('empresas as e', 'e.id', '=', 'ue.empresa_id')
             ->leftJoin('colaboradores as c', 'c.id', '=', 'ue.colaborador_id')
-            ->where('ue.utilizador_id', $u->id)->when($dominio !== null, fn ($q) => $q->whereIn('ue.empresa_id', $dominio))->orderBy('e.nome')
+            ->where('ue.utilizador_id', $u->id)->when($dominio !== null, fn ($q) => $q->whereIn('ue.empresa_id', $dominio))->ordenarPorNome('e.nome')
             ->get(['ue.empresa_id', 'e.nome', 'e.estado', 'e.eliminado_em', 'ue.colaborador_id', 'c.nome_completo as colaborador_nome']);
 
         return [
@@ -272,7 +272,7 @@ final class ServicoUtilizadores
             ->when($utilizadorId, fn ($q) => $q->where('ue.utilizador_id', '<>', $utilizadorId))
             ->pluck('u.nome_utilizador', 'ue.colaborador_id');
 
-        return DB::table('colaboradores')->where('empresa_id', $empresaId)->whereNull('eliminado_em')->orderBy('nome_completo')
+        return DB::table('colaboradores')->where('empresa_id', $empresaId)->whereNull('eliminado_em')->ordenarPorNome('nome_completo')
             ->get(['id', 'nome_completo'])
             ->map(fn ($c) => ['id' => (int) $c->id, 'nome' => (string) $c->nome_completo, 'ligado_a' => $ocupados[$c->id] ?? null])->all();
     }

@@ -75,6 +75,8 @@ export interface DocumentoVenda {
   /** paridade 4.2.12: contas dos meios de pagamento mostradas no documento e opção de ocultar o quadro na impressão */
   contas_pagamento?: ContaPagamentoDocumento[];
   ocultar_meios_pagamento?: boolean;
+  /** Fase A: quem anulou, quando e porquê (só no detalhe de um documento ANULADO) */
+  anulacao?: { em: string | null; por: string | null; motivo: string | null } | null;
   [chave: string]: unknown;
 }
 

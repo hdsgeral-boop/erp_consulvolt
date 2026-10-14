@@ -11,7 +11,7 @@ use App\Models\TarefaProjeto;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela razao_analitico_projetos (módulo Projectos). Legado: project_ledger · 30 linhas reais no backup.
+ * Tabela razao_analitico_projetos (módulo Projectos). Legado: project_ledger · 32 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\RazaoAnaliticoProjeto.
  */
 abstract class RazaoAnaliticoProjetoBase extends ModeloBase

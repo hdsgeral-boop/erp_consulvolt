@@ -47,7 +47,7 @@ final class AtivosController extends Controller
         $this->exigir('activos_categorias_view', ...self::VER);
         $n = AtivoImobilizado::query()->selectRaw('categoria_ativo_id, COUNT(*) AS n')->groupBy('categoria_ativo_id')->pluck('n', 'categoria_ativo_id');
 
-        return RespostaApi::sucesso(CategoriaAtivo::query()->orderBy('nome')->get()->map(fn ($c) => $c->toArray() + ['ativos' => (int) ($n[$c->id] ?? 0)]), 'Categorias de imobilizado.');
+        return RespostaApi::sucesso(CategoriaAtivo::query()->ordenarPorNome()->get()->map(fn ($c) => $c->toArray() + ['ativos' => (int) ($n[$c->id] ?? 0)]), 'Categorias de imobilizado.');
     }
 
     public function guardarCategoria(Request $r, ?int $categoria = null): JsonResponse

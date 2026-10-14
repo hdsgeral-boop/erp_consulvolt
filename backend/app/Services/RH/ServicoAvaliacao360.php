@@ -158,7 +158,7 @@ final class ServicoAvaliacao360
     /** Participantes: chefia directa, pares (mesma unidade, sem a chefia nem os próprios subordinados, por nome) e subordinados. */
     public function compor(CicloAvaliacao360 $c): array
     {
-        $emps = Colaborador::query()->where('estado', 'ACTIVO')->orderBy('nome_completo')->get(['id', 'nome_completo', 'unidade_organica_id']);
+        $emps = Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get(['id', 'nome_completo', 'unidade_organica_id']);
         $chefias = $emps->mapWithKeys(fn ($e) => [$e->id => $this->estrutura->chefiaDe($e->id)]);
 
         return $emps->map(fn ($e) => [

@@ -15,7 +15,7 @@ use App\Models\UnidadeNegocio;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela lancamentos_estornados (módulo Contabilidade). Legado: recycled_journal_lines · 2505 linhas reais no backup.
+ * Tabela lancamentos_estornados (módulo Contabilidade). Legado: recycled_journal_lines · 2786 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\LancamentoEstornado.
  */
 abstract class LancamentoEstornadoBase extends ModeloBase

@@ -12,7 +12,7 @@ use App\Models\TarefaProjeto;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela linhas_orcamento_projeto (módulo Projectos). Legado: project_budget_lines · 13 linhas reais no backup.
+ * Tabela linhas_orcamento_projeto (módulo Projectos). Legado: project_budget_lines · 19 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\LinhaOrcamentoProjeto.
  */
 abstract class LinhaOrcamentoProjetoBase extends ModeloBase
@@ -24,7 +24,7 @@ abstract class LinhaOrcamentoProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'projeto_id', 'tarefa_projeto_id', 'rubrica', 'montante', 'numero_conta', 'no_organigrama_projeto_id', 'membro_equipa_projeto_id',
+        'empresa_id', 'projeto_id', 'tarefa_projeto_id', 'rubrica', 'montante', 'numero_conta', 'mapa_quantidades', 'mapas_quantidades', 'descricao', 'no_organigrama_projeto_id', 'membro_equipa_projeto_id',
     ];
 
     protected function casts(): array
@@ -34,6 +34,8 @@ abstract class LinhaOrcamentoProjetoBase extends ModeloBase
             'projeto_id' => 'integer',
             'tarefa_projeto_id' => 'integer',
             'montante' => 'decimal:2',
+            'mapa_quantidades' => 'array',
+            'mapas_quantidades' => 'array',
             'no_organigrama_projeto_id' => 'integer',
             'membro_equipa_projeto_id' => 'integer',
             'criado_em' => 'datetime',

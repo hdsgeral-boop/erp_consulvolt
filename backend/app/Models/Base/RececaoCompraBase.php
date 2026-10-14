@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela rececoes_compra (módulo Compras). Legado: purchase_deliveries · 22 linhas reais no backup.
+ * Tabela rececoes_compra (módulo Compras). Legado: purchase_deliveries · 25 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\RececaoCompra.
  */
 abstract class RececaoCompraBase extends ModeloBase

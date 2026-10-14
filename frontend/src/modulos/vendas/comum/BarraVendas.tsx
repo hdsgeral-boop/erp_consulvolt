@@ -17,6 +17,8 @@ export const SEPARADORES_VENDAS = [
   { chave: 'produtos', rotulo: 'Produtos/Serviços', icone: 'box', destino: `${BASE}/vendas_produtos`, permissao: 'vendas_produtos_view' },
   { chave: 'faturacao', rotulo: 'Faturação', icone: 'file-invoice-dollar', destino: FATURACAO, permissao: 'vendas_faturacao_view' },
   { chave: 'saft', rotulo: 'Exportar SAFT-AO', icone: 'file-code', destino: `${BASE}/vendas_relatorios/saft`, permissao: ['vendas_relatorios_view', 'vendas_fe_config'] },
+  // Fase A (vendas_series.js): séries FT/FR/NC com número inicial — chaves novas vendas_series_view / vendas_series_gerir no catálogo
+  { chave: 'series', rotulo: 'Séries', icone: 'hashtag', destino: `${BASE}/vendas_series`, permissao: ['vendas_series_view', 'vendas_series_gerir'] },
   { chave: 'fe', rotulo: 'Facturação electrónica', icone: 'stamp', destino: `${FATURACAO}/agt`, permissao: ['vendas_faturacao_view', 'vendas_fe_config'] },
 ] as const;
 
@@ -36,6 +38,7 @@ export function separadorVendas(caminho: string, pesquisa = ''): SeparadorVendas
   if (caminho.startsWith(`${BASE}/vendas_relatorios/saft`)) return 'saft';
   if (caminho.startsWith(`${BASE}/vendas_relatorios`)) return 'dashboard';
   if (caminho.startsWith(`${FATURACAO}/agt`)) return 'fe';
+  if (caminho.startsWith(`${BASE}/vendas_series`) || caminho.startsWith(`${FATURACAO}/series`)) return 'series';
   if (caminho.startsWith(FATURACAO)) return 'faturacao';
   if (caminho.startsWith(`${BASE}/vendas_produtos`)) return new URLSearchParams(pesquisa).get('separador') === 'categorias' ? 'categorias' : 'produtos';
   if (caminho.startsWith(`${BASE}/vendas_clientes`)) return 'clientes';

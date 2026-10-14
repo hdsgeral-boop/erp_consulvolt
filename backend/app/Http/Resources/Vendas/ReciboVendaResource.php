@@ -31,6 +31,7 @@ final class ReciboVendaResource extends JsonResource
             'venda_origem_id' => $this->venda_origem_id,
             'anulado_em' => $this->anulado_em?->toIso8601String(),
             'motivo_anulacao' => $this->motivo_anulacao,
+            'anulado_por' => $this->getAttribute('anulado_por'),
             'alocacoes' => $this->whenLoaded('itensReciboVenda', fn () => $this->itensReciboVenda->map(fn ($i) => [
                 'venda_id' => $i->venda_id, 'numero_documento' => $i->venda?->numero_documento, 'montante' => $i->montante_pago,
                 'data_alocacao' => $i->getAttributes()['data_alocacao'] ?? null, 'numero_lan' => $i->getAttributes()['numero_lan_contabilizacao'] ?? null,

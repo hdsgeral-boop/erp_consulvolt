@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela itens_produtividade_rh (módulo RH). Legado: rh_prod_items · 1 linhas reais no backup.
+ * Tabela itens_produtividade_rh (módulo RH). Legado: rh_prod_items · 8 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ItemProdutividadeRH.
  */
 abstract class ItemProdutividadeRHBase extends ModeloBase
@@ -23,7 +23,7 @@ abstract class ItemProdutividadeRHBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'descricao', 'metrica', 'metrica_original', 'unidade', 'preco_unitario', 'infotipo_salarial_id', 'minimo', 'maximo', 'ativo', 'atualizado_por', 'criado_por',
+        'empresa_id', 'codigo', 'descricao', 'metrica', 'metrica_original', 'unidade', 'preco_unitario', 'infotipo_salarial_id', 'minimo', 'maximo', 'ativo', 'atualizado_por', 'criado_por', 'base_calculo',
     ];
 
     protected function casts(): array

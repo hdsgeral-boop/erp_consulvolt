@@ -7,7 +7,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
 
 /**
- * Tabela regras_internas_ia (módulo Sistema). Legado: internal_rules · 1 linhas reais no backup.
+ * Tabela regras_internas_ia (módulo Sistema). Legado: internal_rules · 2 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\RegraInternaIA.
  */
 abstract class RegraInternaIABase extends ModeloBase
@@ -19,13 +19,14 @@ abstract class RegraInternaIABase extends ModeloBase
     protected string $moduloAuditoria = 'Sistema';
 
     protected $fillable = [
-        'empresa_id', 'nome', 'palavras_chave', 'modelo',
+        'empresa_id', 'nome', 'palavras_chave', 'modelo', 'ativo',
     ];
 
     protected function casts(): array
     {
         return [
             'empresa_id' => 'integer',
+            'ativo' => 'boolean',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

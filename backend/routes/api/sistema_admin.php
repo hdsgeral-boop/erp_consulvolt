@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Sistema\ManutencaoDadosController;
 use App\Http\Controllers\Api\Sistema\MigracaoDadosController;
 use App\Http\Controllers\Api\Sistema\MoedaController;
 use App\Http\Controllers\Api\Sistema\PerfilController;
+use App\Http\Controllers\Api\Sistema\RestauroLegadoController;
 use App\Http\Controllers\Api\Sistema\SubstituicaoContaController;
 use App\Http\Controllers\Api\Sistema\UnidadeNegocioController;
 use App\Http\Controllers\Api\Sistema\UtilizadorController;
@@ -97,6 +98,15 @@ Route::prefix('sistema')->name('sistema.')->group(function () {
         Route::get('exportar', 'exportar')->name('exportar');
         Route::post('importar', 'importar')->name('importar');
         Route::post('clonar', 'clonar')->name('clonar');
+    });
+
+    // Restauro da plataforma a partir do backup do legado (só super-administradores; regras em ServicoRestauroLegado)
+    Route::controller(RestauroLegadoController::class)->prefix('restauros-legado')->name('restauros_legado.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'store')->middleware('throttle:palavra-passe')->name('store');
+        Route::post('{id}/aprovar', 'aprovar')->whereNumber('id')->middleware('throttle:palavra-passe')->name('aprovar');
+        Route::post('{id}/executar', 'executar')->whereNumber('id')->middleware('throttle:palavra-passe')->name('executar');
+        Route::post('{id}/cancelar', 'cancelar')->whereNumber('id')->name('cancelar');
     });
 
     Route::controller(MigracaoDadosController::class)->prefix('migracao')->name('migracao.')->group(function () {

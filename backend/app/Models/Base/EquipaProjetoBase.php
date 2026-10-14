@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela equipas_projeto (módulo Projectos). Legado: project_teams · 4 linhas reais no backup.
+ * Tabela equipas_projeto (módulo Projectos). Legado: project_teams · 8 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\EquipaProjeto.
  */
 abstract class EquipaProjetoBase extends ModeloBase

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela marcos_projeto (módulo Projectos). Legado: project_milestones · 15 linhas reais no backup.
+ * Tabela marcos_projeto (módulo Projectos). Legado: project_milestones · 23 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\MarcoProjeto.
  */
 abstract class MarcoProjetoBase extends ModeloBase
@@ -23,7 +23,7 @@ abstract class MarcoProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'projeto_id', 'nome', 'data', 'estado',
+        'empresa_id', 'projeto_id', 'nome', 'data', 'estado', 'data_inicio', 'meta_unidade', 'meta_quantidade',
     ];
 
     protected function casts(): array
@@ -32,6 +32,8 @@ abstract class MarcoProjetoBase extends ModeloBase
             'empresa_id' => 'integer',
             'projeto_id' => 'integer',
             'data' => 'date',
+            'data_inicio' => 'date',
+            'meta_quantidade' => 'decimal:3',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

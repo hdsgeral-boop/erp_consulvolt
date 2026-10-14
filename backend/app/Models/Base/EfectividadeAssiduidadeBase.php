@@ -9,7 +9,7 @@ use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela efectividade_assiduidade (módulo RH). Legado: rh_attendance · 190 linhas reais no backup.
+ * Tabela efectividade_assiduidade (módulo RH). Legado: rh_attendance · 209 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\EfectividadeAssiduidade.
  */
 abstract class EfectividadeAssiduidadeBase extends ModeloBase
@@ -21,7 +21,7 @@ abstract class EfectividadeAssiduidadeBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'data', 'colaborador_id', 'entrada', 'saida', 'horas', 'origem', 'origem_original', 'fonte', 'observacoes', 'atualizado_por', 'criado_por', 'autorizado_extra',
+        'empresa_id', 'data', 'colaborador_id', 'entrada', 'saida', 'horas', 'origem', 'origem_original', 'fonte', 'observacoes', 'atualizado_por', 'criado_por', 'autorizado_extra', 'saida_intervalo', 'entrada_intervalo',
     ];
 
     protected function casts(): array

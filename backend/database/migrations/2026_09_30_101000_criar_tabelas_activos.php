@@ -14,7 +14,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // fixed_assets (legado) -> ativos_imobilizados · 174 linhas reais no backup · eliminação lógica
+        // fixed_assets (legado) -> ativos_imobilizados · 176 linhas reais no backup · eliminação lógica
         Schema::create('ativos_imobilizados', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -22,7 +22,7 @@ return new class extends Migration
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->bigInteger('categoria_ativo_id')->nullable()->comment('legado: category_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
-            $table->decimal('valor_aquisicao', 15, 2)->nullable()->comment('legado: acquisition_value · tipos mistos: decimal=91, inteiro=83');
+            $table->decimal('valor_aquisicao', 15, 2)->nullable()->comment('legado: acquisition_value · tipos mistos: decimal=91, inteiro=85');
             $table->integer('vida_util')->nullable()->comment('legado: useful_life');
             $table->date('data_aquisicao')->nullable()->comment('legado: acquisition_date');
             $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {ACTIVO, INACTIVO, ABATIDO}; texto original em estado_original');
@@ -30,12 +30,16 @@ return new class extends Migration
             $table->bigInteger('lancamento_contabil_id')->nullable()->comment('legado: journal_line_id');
             $table->bigInteger('fornecedor_id')->nullable()->comment('legado: supplier_id');
             $table->decimal('valor_residual', 15, 2)->nullable()->comment('legado: residual_value');
-            $table->decimal('amortizacao_acumulada', 15, 2)->nullable()->comment('legado: accumulated_depreciation · tipos mistos: decimal=127, inteiro=47');
+            $table->decimal('amortizacao_acumulada', 15, 2)->nullable()->comment('legado: accumulated_depreciation · tipos mistos: decimal=127, inteiro=49');
             $table->integer('vida_util_restante')->nullable()->comment('legado: remaining_life');
-            $table->decimal('amortizacao_acumulada_inicial', 15, 2)->nullable()->comment('legado: accumulated_dep_initial · tipos mistos: inteiro=94, decimal=72');
-            $table->decimal('quota_fixa', 15, 2)->nullable()->comment('legado: fixed_quota · tipos mistos: inteiro=10, decimal=32');
+            $table->decimal('amortizacao_acumulada_inicial', 15, 2)->nullable()->comment('legado: accumulated_dep_initial · tipos mistos: inteiro=96, decimal=72');
+            $table->decimal('quota_fixa', 15, 2)->nullable()->comment('legado: fixed_quota · tipos mistos: inteiro=12, decimal=32');
+            $table->bigInteger('edificio_id')->nullable()->comment('legado: building_id');
+            $table->bigInteger('andar_id')->nullable()->comment('legado: floor_id');
+            $table->bigInteger('porta_id')->nullable()->comment('legado: room_id');
             $table->integer('acumulado_fim_ano')->nullable()->comment('legado: accumulated_end_year · tipo forçado (inferido: numeric(15,2))');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
+            $table->string('tipo_ativo', 20)->nullable()->comment('legado: asset_type');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -45,15 +49,18 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_ativos_imobilizados_centro_custo_id ON ativos_imobilizados (centro_custo_id)');
         DB::statement('CREATE INDEX ix_ativos_imobilizados_lancamento_contabil_id ON ativos_imobilizados (lancamento_contabil_id)');
         DB::statement('CREATE INDEX ix_ativos_imobilizados_fornecedor_id ON ativos_imobilizados (fornecedor_id)');
+        DB::statement('CREATE INDEX ix_ativos_imobilizados_edificio_id ON ativos_imobilizados (edificio_id)');
+        DB::statement('CREATE INDEX ix_ativos_imobilizados_andar_id ON ativos_imobilizados (andar_id)');
+        DB::statement('CREATE INDEX ix_ativos_imobilizados_porta_id ON ativos_imobilizados (porta_id)');
         DB::statement('CREATE INDEX ix_ativos_imobilizados_unidade_negocio_id ON ativos_imobilizados (unidade_negocio_id)');
         DB::statement('ALTER TABLE ativos_imobilizados ADD CONSTRAINT ck_ativos_imobilizados_estado CHECK (estado IS NULL OR estado IN (\'ACTIVO\',\'INACTIVO\',\'ABATIDO\'))');
 
-        // asset_categories (legado) -> categorias_ativos · 11 linhas reais no backup · eliminação lógica
+        // asset_categories (legado) -> categorias_ativos · 17 linhas reais no backup · eliminação lógica
         Schema::create('categorias_ativos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('nome', 255)->nullable()->comment('legado: name');
-            $table->decimal('taxa_anual', 9, 4)->nullable()->comment('legado: annual_rate · tipos mistos: inteiro=10, decimal=1');
+            $table->decimal('taxa_anual', 9, 4)->nullable()->comment('legado: annual_rate · tipos mistos: inteiro=15, decimal=2');
             $table->integer('vida_util_padrao')->nullable()->comment('legado: default_useful_life');
             $table->string('conta_gasto', 20)->nullable()->comment('legado: account_expense');
             $table->string('conta_amortizacao_acumulada', 20)->nullable()->comment('legado: account_accumulated');
@@ -103,18 +110,37 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_abates_vendas_ativos_ativo_imobilizado_id ON abates_vendas_ativos (ativo_imobilizado_id)');
         DB::statement('CREATE INDEX ix_abates_vendas_ativos_terceiro_id ON abates_vendas_ativos (terceiro_id)');
 
-        // asset_maintenance_plans (legado) -> planos_manutencao_ativos · 0 linhas reais no backup
+        // asset_maintenance_plans (legado) -> planos_manutencao_ativos · 1 linhas reais no backup
         Schema::create('planos_manutencao_ativos', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('empresa_id')->comment('legado: company_id · do código legado js/db_v2.js:51');
-            $table->bigInteger('ativo_imobilizado_id')->nullable()->comment('legado: asset_id · do código legado js/db_v2.js:51');
-            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->string('codigo', 50)->nullable()->comment('legado: codigo');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
+            $table->bigInteger('ativo_imobilizado_id')->nullable()->comment('legado: asset_id');
+            $table->bigInteger('categoria_ativo_id')->nullable()->comment('legado: category_id');
+            $table->string('tipo', 20)->nullable()->comment('legado: tipo');
+            $table->jsonb('periodicidade')->nullable()->comment('legado: periodicidade');
+            $table->date('proxima_data')->nullable()->comment('legado: proxima_data');
+            $table->decimal('proximo_contador', 15, 2)->nullable()->comment('legado: proximo_contador · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->decimal('contador_atual', 15, 2)->nullable()->comment('legado: contador_actual · tipo forçado (inferido: integer)');
+            $table->integer('antecedencia_dias')->nullable()->comment('legado: antecedencia_dias');
+            $table->decimal('duracao_horas', 12, 3)->nullable()->comment('legado: duracao_horas');
+            $table->text('responsavel')->nullable()->comment('legado: responsavel · sem valores reais: tipo a confirmar no código legado');
+            $table->text('instrucoes')->nullable()->comment('legado: instrucoes · sem valores reais: tipo a confirmar no código legado');
+            $table->jsonb('tarefas')->nullable()->comment('legado: tarefas');
+            $table->jsonb('itens')->nullable()->comment('legado: itens');
+            $table->boolean('ativo')->nullable()->comment('legado: activo');
+            $table->date('ultima_data')->nullable()->comment('legado: ultima_data');
+            $table->integer('execucoes')->nullable()->comment('legado: execucoes');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_planos_manutencao_ativos_empresa_id ON planos_manutencao_ativos (empresa_id)');
         DB::statement('CREATE INDEX ix_planos_manutencao_ativos_ativo_imobilizado_id ON planos_manutencao_ativos (ativo_imobilizado_id)');
+        DB::statement('CREATE INDEX ix_planos_manutencao_ativos_categoria_ativo_id ON planos_manutencao_ativos (categoria_ativo_id)');
 
-        // asset_maintenance_records (legado) -> registos_manutencao_ativos · 1 linhas reais no backup
+        // asset_maintenance_records (legado) -> registos_manutencao_ativos · 2 linhas reais no backup
         Schema::create('registos_manutencao_ativos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -128,11 +154,14 @@ return new class extends Migration
             $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
             $table->text('resolucao')->nullable()->comment('legado: resolution');
             $table->date('data_execucao')->nullable()->comment('legado: execution_date');
+            $table->bigInteger('ordem_manutencao_id')->nullable()->comment('legado: order_id');
+            $table->string('numero_ordem', 50)->nullable()->comment('legado: order_numero');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_registos_manutencao_ativos_empresa_id ON registos_manutencao_ativos (empresa_id)');
         DB::statement('CREATE INDEX ix_registos_manutencao_ativos_ativo_imobilizado_id ON registos_manutencao_ativos (ativo_imobilizado_id)');
+        DB::statement('CREATE INDEX ix_registos_manutencao_ativos_ordem_manutencao_id ON registos_manutencao_ativos (ordem_manutencao_id)');
         DB::statement('ALTER TABLE registos_manutencao_ativos ADD CONSTRAINT ck_registos_manutencao_ativos_tipo CHECK (tipo IS NULL OR tipo IN (\'PREVENTIVA\',\'CORRECTIVA\'))');
         DB::statement('ALTER TABLE registos_manutencao_ativos ADD CONSTRAINT ck_registos_manutencao_ativos_estado CHECK (estado IS NULL OR estado IN (\'PLANEADA\',\'EM_CURSO\',\'CONCLUIDA\'))');
 
@@ -188,10 +217,144 @@ return new class extends Migration
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_pedidos_manutencao_equipamentos_empresa_id ON pedidos_manutencao_equipamentos (empresa_id)');
+
+        // asset_floors (legado) -> andares_edificios · 3 linhas reais no backup
+        Schema::create('andares_edificios', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->bigInteger('edificio_id')->nullable()->comment('legado: building_id');
+            $table->string('numero', 20)->nullable()->comment('legado: numero · tipo forçado (inferido: integer)');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
+            $table->text('notas')->nullable()->comment('legado: notas · sem valores reais: tipo a confirmar no código legado');
+            $table->integer('ordem')->nullable()->comment('legado: ordem');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_andares_edificios_empresa_id ON andares_edificios (empresa_id)');
+        DB::statement('CREATE INDEX ix_andares_edificios_edificio_id ON andares_edificios (edificio_id)');
+
+        // asset_rooms (legado) -> portas_edificios · 8 linhas reais no backup
+        Schema::create('portas_edificios', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->bigInteger('edificio_id')->nullable()->comment('legado: building_id');
+            $table->bigInteger('andar_id')->nullable()->comment('legado: floor_id');
+            $table->string('numero', 20)->nullable()->comment('legado: numero · tipos mistos: string_inteiro=6, string=2; tipo forçado (inferido: varchar(10))');
+            $table->text('nome')->nullable()->comment('legado: nome · sem valores reais: tipo a confirmar no código legado');
+            $table->string('tipo', 50)->nullable()->comment('legado: tipo');
+            $table->integer('capacidade')->nullable()->comment('legado: capacidade');
+            $table->integer('ordem')->nullable()->comment('legado: ordem');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_portas_edificios_empresa_id ON portas_edificios (empresa_id)');
+        DB::statement('CREATE INDEX ix_portas_edificios_edificio_id ON portas_edificios (edificio_id)');
+        DB::statement('CREATE INDEX ix_portas_edificios_andar_id ON portas_edificios (andar_id)');
+
+        // asset_inventories (legado) -> inventarios_fisicos_ativos · 0 linhas reais no backup
+        Schema::create('inventarios_fisicos_ativos', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_inventarios_fisicos_ativos_empresa_id ON inventarios_fisicos_ativos (empresa_id)');
+
+        // asset_inventory_lines (legado) -> linhas_inventario_fisico_ativos · 0 linhas reais no backup
+        Schema::create('linhas_inventario_fisico_ativos', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_linhas_inventario_fisico_ativos_empresa_id ON linhas_inventario_fisico_ativos (empresa_id)');
+
+        // asset_maintenance_orders (legado) -> ordens_manutencao_ativos · 2 linhas reais no backup
+        Schema::create('ordens_manutencao_ativos', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->string('numero', 20)->nullable()->comment('legado: numero');
+            $table->bigInteger('ativo_imobilizado_id')->nullable()->comment('legado: asset_id');
+            $table->bigInteger('plano_manutencao_id')->nullable()->comment('legado: plan_id');
+            $table->string('tipo', 20)->nullable()->comment('legado: tipo');
+            $table->string('prioridade', 10)->nullable()->comment('legado: prioridade');
+            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->date('data_prevista')->nullable()->comment('legado: data_prevista');
+            $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
+            $table->date('data_fim')->nullable()->comment('legado: data_fim');
+            $table->text('descricao')->nullable()->comment('legado: descricao');
+            $table->text('responsavel')->nullable()->comment('legado: responsavel · sem valores reais: tipo a confirmar no código legado');
+            $table->jsonb('tarefas')->nullable()->comment('legado: tarefas');
+            $table->decimal('horas', 12, 3)->nullable()->comment('legado: horas');
+            $table->decimal('custo_mao_obra', 15, 2)->nullable()->comment('legado: custo_mao_obra · tipo forçado (inferido: numeric(15,2))');
+            $table->decimal('custo_materiais', 15, 2)->nullable()->comment('legado: custo_materiais · tipo forçado (inferido: numeric(15,2))');
+            $table->decimal('custo_servicos', 15, 2)->nullable()->comment('legado: custo_servicos · tipo forçado (inferido: numeric(15,2))');
+            $table->text('resolucao')->nullable()->comment('legado: resolucao');
+            $table->decimal('leitura_contador', 15, 2)->nullable()->comment('legado: leitura_contador · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
+            $table->text('motivo_cancelamento')->nullable()->comment('legado: motivo_cancelamento');
+            $table->timestampTz('cancelado_em')->nullable()->comment('legado: cancelado_em');
+            $table->string('cancelado_por', 100)->nullable()->comment('legado: cancelado_por · tipo forçado (inferido: varchar(10))');
+            $table->timestampTz('concluido_em')->nullable()->comment('legado: concluido_em');
+            $table->string('concluido_por', 100)->nullable()->comment('legado: concluido_por · tipo forçado (inferido: varchar(10))');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_ordens_manutencao_ativos_empresa_id ON ordens_manutencao_ativos (empresa_id)');
+        DB::statement('CREATE INDEX ix_ordens_manutencao_ativos_ativo_imobilizado_id ON ordens_manutencao_ativos (ativo_imobilizado_id)');
+        DB::statement('CREATE INDEX ix_ordens_manutencao_ativos_plano_manutencao_id ON ordens_manutencao_ativos (plano_manutencao_id)');
+
+        // asset_maintenance_order_items (legado) -> itens_ordem_manutencao · 1 linhas reais no backup
+        Schema::create('itens_ordem_manutencao', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->bigInteger('ordem_manutencao_id')->nullable()->comment('legado: order_id');
+            $table->string('tipo', 20)->nullable()->comment('legado: tipo');
+            $table->bigInteger('produto_id')->nullable()->comment('legado: product_id');
+            $table->text('descricao')->nullable()->comment('legado: descricao');
+            $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantidade');
+            $table->decimal('quantidade_recebida', 15, 3)->nullable()->comment('legado: quantidade_recebida · tipo forçado (inferido: numeric(12,3))');
+            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->text('destino')->nullable()->comment('legado: destino · sem valores reais: tipo a confirmar no código legado');
+            $table->text('origem_tipo')->nullable()->comment('legado: origem_tipo · sem valores reais: tipo a confirmar no código legado');
+            $table->text('origem_id')->nullable()->comment('legado: origem_id · sem valores reais: tipo a confirmar no código legado');
+            $table->decimal('custo', 15, 2)->nullable()->comment('legado: custo · tipo forçado (inferido: numeric(15,2))');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_itens_ordem_manutencao_empresa_id ON itens_ordem_manutencao (empresa_id)');
+        DB::statement('CREATE INDEX ix_itens_ordem_manutencao_ordem_manutencao_id ON itens_ordem_manutencao (ordem_manutencao_id)');
+        DB::statement('CREATE INDEX ix_itens_ordem_manutencao_produto_id ON itens_ordem_manutencao (produto_id)');
+
+        // maint_requisitions (legado) -> requisicoes_manutencao · 0 linhas reais no backup
+        Schema::create('requisicoes_manutencao', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_requisicoes_manutencao_empresa_id ON requisicoes_manutencao (empresa_id)');
+
+        // maint_requisition_lines (legado) -> linhas_requisicao_manutencao · 0 linhas reais no backup
+        Schema::create('linhas_requisicao_manutencao', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_linhas_requisicao_manutencao_empresa_id ON linhas_requisicao_manutencao (empresa_id)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('linhas_requisicao_manutencao');
+        Schema::dropIfExists('requisicoes_manutencao');
+        Schema::dropIfExists('itens_ordem_manutencao');
+        Schema::dropIfExists('ordens_manutencao_ativos');
+        Schema::dropIfExists('linhas_inventario_fisico_ativos');
+        Schema::dropIfExists('inventarios_fisicos_ativos');
+        Schema::dropIfExists('portas_edificios');
+        Schema::dropIfExists('andares_edificios');
         Schema::dropIfExists('pedidos_manutencao_equipamentos');
         Schema::dropIfExists('transferencias_centros_custo_ativos');
         Schema::dropIfExists('registos_manutencao_ativos');

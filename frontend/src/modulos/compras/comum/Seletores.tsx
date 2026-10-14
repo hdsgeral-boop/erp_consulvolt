@@ -12,7 +12,7 @@ export function SeletorTerceiro({ papel, onEscolher, ...props }: PropsBase<numbe
   const [pesquisa, setPesquisa] = useState('');
   const consulta = useQuery({
     queryKey: ['terceiros', 'pesquisa', papel, pesquisa],
-    queryFn: () => obterPagina<FichaTerceiro>('/terceiros', { papel, pesquisa, por_pagina: 30 }),
+    queryFn: () => obterPagina<FichaTerceiro>('/terceiros', { papel, pesquisa, por_pagina: 30, estrito: 1 }),   // só pelo papel (ehCliente/ehFornecedor do legado)
     retry: false,
   });
   return (

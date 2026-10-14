@@ -31,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela vendas (módulo Vendas). Legado: sales · 102 linhas reais no backup.
+ * Tabela vendas (módulo Vendas). Legado: sales · 128 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\Venda.
  */
 abstract class VendaBase extends ModeloBase
@@ -43,7 +43,7 @@ abstract class VendaBase extends ModeloBase
     protected string $moduloAuditoria = 'Vendas';
 
     protected $fillable = [
-        'empresa_id', 'cliente_id', 'tipo_documento', 'tipo_documento_original', 'numero_documento', 'data_emissao', 'total_liquido', 'total_imposto', 'total_bruto', 'data_entrega', 'valor_pago', 'valor_pendente', 'contabilizado', 'estado', 'estado_original', 'projeto_id', 'codigo_projeto', 'local_entrega', 'observacoes', 'contas_pagamento', 'condicoes_pagamento', 'ocultar_meios_pagamento', 'unidade_negocio_id', 'centro_custo_id', 'desconto', 'sessao_pos_id', 'meio_pagamento', 'meio_pagamento_original', 'nome_tabela', 'terceiro_id', 'data_vencimento', 'subtotal', 'total_desconto', 'montante_total', 'linhas', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'total_liquido_moeda', 'total_imposto_moeda', 'total_bruto_moeda', 'terminal_pos_id', 'codigo_terminal_pos', 'pos_pagamentos', 'pos_troco', 'pos_operador', 'pos_lans_contabilizacao', 'pedido_lavandaria_id', 'numero_pedido_lavandaria', 'montante_pago', 'valido_ate', 'dias_validade', 'modo_pagamento', 'modo_pagamento_original', 'plano_pagamentos', 'oportunidade_crm_id', 'fe_documento', 'fe_erros', 'fe_avisos', 'fe_estado', 'fe_validado_em', 'fe_selado_em', 'fe_envio', 'fe_regime', 'fe_tipo', 'serie_faturacao_eletronica_id', 'fe_serie', 'fe_numero', 'fe_estabelecimento', 'fe_data_entrada_sistema', 'motivo_nota_credito', 'sessao_pos_legado_codigo', 'numero_lan_contabilizacao', 'saft_hash', 'saft_hash_controlo', 'armazem_id', 'devolucao_mercadoria', 'arredondamento_agt', 'estadias_hotel_ids_legado', 'documentos_relacionados_legado',
+        'empresa_id', 'cliente_id', 'tipo_documento', 'tipo_documento_original', 'numero_documento', 'data_emissao', 'total_liquido', 'total_imposto', 'total_bruto', 'data_entrega', 'valor_pago', 'valor_pendente', 'contabilizado', 'estado', 'estado_original', 'projeto_id', 'codigo_projeto', 'local_entrega', 'observacoes', 'contas_pagamento', 'condicoes_pagamento', 'ocultar_meios_pagamento', 'unidade_negocio_id', 'centro_custo_id', 'desconto', 'sessao_pos_id', 'meio_pagamento', 'meio_pagamento_original', 'nome_tabela', 'terceiro_id', 'data_vencimento', 'subtotal', 'total_desconto', 'montante_total', 'linhas', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'total_liquido_moeda', 'total_imposto_moeda', 'total_bruto_moeda', 'terminal_pos_id', 'codigo_terminal_pos', 'pos_pagamentos', 'pos_troco', 'pos_operador', 'pos_lans_contabilizacao', 'pedido_lavandaria_id', 'numero_pedido_lavandaria', 'montante_pago', 'valido_ate', 'dias_validade', 'modo_pagamento', 'modo_pagamento_original', 'plano_pagamentos', 'oportunidade_crm_id', 'unidades_alocadas', 'fe_tipo', 'serie_faturacao_eletronica_id', 'fe_serie', 'fe_numero', 'fe_estabelecimento', 'fe_documento', 'fe_erros', 'fe_avisos', 'fe_estado', 'fe_validado_em', 'fe_selado_em', 'fe_envio', 'fe_regime', 'fe_data_entrada_sistema', 'motivo_nota_credito', 'sessao_pos_legado_codigo', 'numero_lan_contabilizacao', 'saft_hash', 'saft_hash_controlo', 'armazem_id', 'devolucao_mercadoria', 'arredondamento_agt', 'estadias_hotel_ids_legado', 'documentos_relacionados_legado',
     ];
 
     protected function casts(): array
@@ -88,6 +88,8 @@ abstract class VendaBase extends ModeloBase
             'dias_validade' => 'integer',
             'plano_pagamentos' => 'array',
             'oportunidade_crm_id' => 'integer',
+            'serie_faturacao_eletronica_id' => 'integer',
+            'fe_numero' => 'integer',
             'fe_documento' => 'array',
             'fe_erros' => 'array',
             'fe_avisos' => 'array',
@@ -95,8 +97,6 @@ abstract class VendaBase extends ModeloBase
             'fe_selado_em' => 'datetime',
             'fe_envio' => 'array',
             'fe_regime' => 'boolean',
-            'serie_faturacao_eletronica_id' => 'integer',
-            'fe_numero' => 'integer',
             'fe_data_entrada_sistema' => 'datetime',
             'armazem_id' => 'integer',
             'devolucao_mercadoria' => 'boolean',

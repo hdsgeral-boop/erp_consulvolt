@@ -17,7 +17,7 @@ final class ServicoConfigVendas
 {
     /** Chaves suportadas => descrição. */
     public const CHAVES = [
-        'clientes_default' => 'Conta de clientes por omissão (clientes sem conta própria)',
+        'clientes_default' => 'Conta de clientes por omissão (documentos sem cliente e ficha do Consumidor Final criado automaticamente)',
         'proveitos_mercadorias' => 'Proveitos de vendas de mercadorias (produtos que movimentam stock, sem conta própria)',
         'proveitos_servicos' => 'Proveitos de prestações de serviços (sem conta própria)',
         'iva_vendas' => 'IVA liquidado (produtos sem conta de IVA própria)',

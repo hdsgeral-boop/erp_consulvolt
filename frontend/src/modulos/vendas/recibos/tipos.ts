@@ -15,6 +15,8 @@ export interface ReciboVenda {
   venda_origem_id: number | null;
   anulado_em: string | null;
   motivo_anulacao: string | null;
+  /** Fase A: autor da anulação */
+  anulado_por?: string | null;
   /** M-18: NORMAL ou ADIANTAMENTO (recibo sem factura, alocado depois) */
   tipo_recibo?: 'NORMAL' | 'ADIANTAMENTO';
   referencia?: string | null;

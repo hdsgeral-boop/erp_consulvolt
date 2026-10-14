@@ -5,6 +5,7 @@ namespace App\Services\Sistema;
 use App\Exceptions\ErroNegocio;
 use App\Models\LancamentoContabil;
 use App\Services\Contabilidade\ServicoEncerramento;
+use App\Services\Terceiros\ContaTerceiro;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 
@@ -193,11 +194,10 @@ final class ServicoValidacoesDados
             ],
             'lavandaria_clientes_sem_conta' => [
                 'titulo' => 'Lavandaria: clientes sem conta contabilística', 'modulo' => 'POS', 'gravidade' => 'ERRO',
-                'descricao' => 'Clientes com ordens de lavandaria sem conta própria e sem «conta de clientes por omissão»: não se emitem facturas nem se integra a sessão.',
+                'descricao' => 'Clientes com ordens de lavandaria sem conta de cliente na ficha: não se emitem facturas nem se integra a sessão (a conta de clientes por omissão já não os cobre — ADR-071).',
                 'legado' => "Conta fixa '31.1' (js/lavandaria.js:2386)",
-                'sql' => "SELECT DISTINCT t.id AS terceiro_id, t.nome FROM pedidos_lavandaria o JOIN terceiros t ON t.id = o.cliente_id
-                          WHERE o.empresa_id = ? AND COALESCE(t.codigo_conta, '') = ''
-                            AND NOT EXISTS (SELECT 1 FROM configuracoes_contabeis_vendas c WHERE c.empresa_id = o.empresa_id AND c.chave = 'clientes_default' AND COALESCE(c.codigo_conta, '') <> '')",
+                'sql' => 'SELECT DISTINCT t.id AS terceiro_id, t.nome FROM pedidos_lavandaria o JOIN terceiros t ON t.id = o.cliente_id
+                          WHERE o.empresa_id = ? AND '.ContaTerceiro::sqlConta('t', ContaTerceiro::CLIENTE).' IS NULL',
             ],
             'ativos_vida_esgotada_por_amortizar' => [
                 'titulo' => 'Activos com a vida útil esgotada e valor por amortizar', 'modulo' => 'Activos', 'gravidade' => 'AVISO',
@@ -440,7 +440,7 @@ final class ServicoValidacoesDados
                 'titulo' => 'Contas por omissão de clientes/produtos (3112, 71.1, 34.5)', 'modulo' => 'Vendas', 'gravidade' => 'INFO',
                 'descricao' => 'O legado removia estas contas por omissão uma vez por empresa ao abrir Vendas (ui_sales.js:366-393). Listadas para revisão manual.',
                 'legado' => 'Limpeza automática de contas por omissão',
-                'sql' => "SELECT 'terceiros' AS origem, id, nome AS registo, codigo_conta FROM terceiros WHERE empresa_id = ? AND codigo_conta IN ('3112')
+                'sql' => "SELECT 'terceiros' AS origem, id, nome AS registo, COALESCE(conta_cliente, codigo_conta) AS codigo_conta FROM terceiros WHERE empresa_id = ? AND (codigo_conta IN ('3112') OR conta_cliente IN ('3112'))
                           ORDER BY id",
             ],
         ];

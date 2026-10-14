@@ -140,7 +140,7 @@ final class ServicoProdutividade
     {
         $itens = ItemProdutividadeRH::query()->where('ativo', true)->get()->keyBy('id');
         $saida = [];
-        foreach (Colaborador::query()->where('estado', 'ACTIVO')->orderBy('nome_completo')->get() as $c) {
+        foreach (Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get() as $c) {
             $contrato = ContratoTrabalho::query()->where('colaborador_id', $c->id)->where('estado', 'ACTIVO')
                 ->where(fn ($q) => $q->whereNull('data_inicio')->orWhere('data_inicio', '<=', $p->data_fim))
                 ->where(fn ($q) => $q->whereNull('data_fim')->orWhere('data_fim', '>=', $p->data_inicio))->orderBy('id')->first();

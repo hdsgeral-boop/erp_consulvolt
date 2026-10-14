@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela lancamentos_contabeis (módulo Contabilidade). Legado: journal_lines · 44400 linhas reais no backup.
+ * Tabela lancamentos_contabeis (módulo Contabilidade). Legado: journal_lines · 51254 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\LancamentoContabil.
  */
 abstract class LancamentoContabilBase extends ModeloBase

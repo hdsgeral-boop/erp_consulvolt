@@ -13,5 +13,7 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   vendas_clientes: comBarra(() => import('./Clientes')),
   vendas_produtos: comBarra(() => import('./produtos/Produtos')),
   vendas_faturacao: comBarra(() => import('./Faturacao')),
+  // Versão Actual (vendas_series.js): ecrã próprio no menu, com os separadores de Gestão de Vendas por cima
+  vendas_series: comBarra(() => import('./series/SeriesNumeracao')),
   vendas_relatorios: comBarra(() => import('./relatorios/Relatorios')),
 };

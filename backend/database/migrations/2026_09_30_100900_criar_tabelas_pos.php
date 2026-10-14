@@ -14,7 +14,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // pos_terminals (legado) -> terminais_pos · 8 linhas reais no backup · eliminação lógica
+        // pos_terminals (legado) -> terminais_pos · 9 linhas reais no backup · eliminação lógica
         Schema::create('terminais_pos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: pos_company_id');
@@ -55,7 +55,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_terminais_pos_cliente_padrao_id ON terminais_pos (cliente_padrao_id)');
         DB::statement('ALTER TABLE terminais_pos ADD CONSTRAINT ck_terminais_pos_tipo CHECK (tipo IS NULL OR tipo IN (\'LOJA\',\'RESTAURANTE\',\'LAVANDARIA\',\'HOTELARIA\'))');
 
-        // pos_sessions (legado) -> sessoes_pos · 4 linhas reais no backup
+        // pos_sessions (legado) -> sessoes_pos · 5 linhas reais no backup
         Schema::create('sessoes_pos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: pos_company_id');
@@ -103,7 +103,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_sessoes_pos_diario_contabilizacao_id ON sessoes_pos (diario_contabilizacao_id)');
         DB::statement('ALTER TABLE sessoes_pos ADD CONSTRAINT ck_sessoes_pos_estado_desvio CHECK (estado_desvio IS NULL OR estado_desvio IN (\'NAO_APLICAVEL\',\'SEM_DESVIO\',\'DELIBERADO\',\'PENDENTE\'))');
 
-        // pos_settlements (legado) -> liquidacoes_pos · 6 linhas reais no backup
+        // pos_settlements (legado) -> liquidacoes_pos · 7 linhas reais no backup
         Schema::create('liquidacoes_pos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: pos_company_id');
@@ -204,7 +204,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_estadias_hotel_venda_id ON estadias_hotel (venda_id)');
         DB::statement('CREATE INDEX ix_estadias_hotel_sessao_fecho_id ON estadias_hotel (sessao_fecho_id)');
 
-        // lav_orders (legado) -> pedidos_lavandaria · 5 linhas reais no backup
+        // lav_orders (legado) -> pedidos_lavandaria · 6 linhas reais no backup
         Schema::create('pedidos_lavandaria', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: lav_company_id');
@@ -243,7 +243,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_pedidos_lavandaria_sessao_rececao_id ON pedidos_lavandaria (sessao_rececao_id)');
         DB::statement('CREATE INDEX ix_pedidos_lavandaria_colaborador_atribuido_id ON pedidos_lavandaria (colaborador_atribuido_id)');
 
-        // lav_payments (legado) -> pagamentos_lavandaria · 5 linhas reais no backup
+        // lav_payments (legado) -> pagamentos_lavandaria · 6 linhas reais no backup
         Schema::create('pagamentos_lavandaria', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: lav_company_id');
@@ -260,8 +260,8 @@ return new class extends Migration
             $table->string('natureza_registo', 20)->nullable()->comment('legado: kind');
             $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->string('criado_por', 100)->nullable()->comment('legado: created_by');
+            $table->jsonb('lans_contabilizacao')->nullable()->comment('legado: posting_lans · tipo forçado (inferido: jsonb)');
             $table->bigInteger('venda_id')->nullable()->comment('legado: sale_id · do código legado js/lavandaria.js:274');
-            $table->jsonb('lans_contabilizacao')->nullable()->comment('legado: posting_lans · do código legado js/lavandaria.js:2470');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });

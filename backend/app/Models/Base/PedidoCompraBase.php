@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela pedidos_compra (módulo Compras). Legado: purchase_requests · 21 linhas reais no backup.
+ * Tabela pedidos_compra (módulo Compras). Legado: purchase_requests · 27 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\PedidoCompra.
  */
 abstract class PedidoCompraBase extends ModeloBase
@@ -30,7 +30,7 @@ abstract class PedidoCompraBase extends ModeloBase
     protected string $moduloAuditoria = 'Compras';
 
     protected $fillable = [
-        'empresa_id', 'nome_requerente', 'data', 'estado', 'estado_original', 'venda_origem_id', 'projeto_id', 'codigo_projeto', 'descricao', 'data_entrega', 'observacoes', 'deliberacao', 'unidade_negocio_id', 'centro_custo_id', 'data_prevista', 'criado_por', 'colaborador_requerente_id', 'numero_pedido', 'anulado_em', 'motivo_anulacao',
+        'empresa_id', 'nome_requerente', 'data', 'estado', 'estado_original', 'venda_origem_id', 'projeto_id', 'codigo_projeto', 'descricao', 'data_entrega', 'observacoes', 'deliberacao', 'unidade_negocio_id', 'centro_custo_id', 'anulado_em', 'anulado_por', 'motivo_anulacao', 'data_prevista', 'criado_por', 'colaborador_requerente_id', 'unidades_alocadas', 'numero_pedido',
     ];
 
     protected function casts(): array
@@ -44,9 +44,10 @@ abstract class PedidoCompraBase extends ModeloBase
             'deliberacao' => 'array',
             'unidade_negocio_id' => 'integer',
             'centro_custo_id' => 'integer',
+            'anulado_em' => 'datetime',
             'data_prevista' => 'date',
             'colaborador_requerente_id' => 'integer',
-            'anulado_em' => 'datetime',
+            'unidades_alocadas' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

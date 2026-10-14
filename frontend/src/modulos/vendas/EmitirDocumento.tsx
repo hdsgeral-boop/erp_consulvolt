@@ -16,6 +16,8 @@ import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { MEIOS_PAGAMENTO, TIPOS_DOCUMENTO, TIPOS_EMITIVEIS, type DocumentoVenda, type GuiaSaidaPendente, type MeioPagamentoVenda, type ProdutoCatalogo, type Terceiro } from './api';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { GuiasPendentes, MeiosPagamentoDocumento } from './formulario/QuadrosFormulario';
+import { ModalCancelarRecebimentos } from './recebimentos/ModalCancelarRecebimentos';
+import { facturaDoErroNcPaga } from './recebimentos/regrasRecebimentos';
 import {
   DIAS_PRAZO, DIAS_VALIDADE, MODELOS_MARCOS, desvioCambio, erroPlano, estimarTotais, planoMarcos, planoPrazo, somaPercentagens, somarDias,
   valoresPrestacoes, type ModoPagamento, type Prestacao,
@@ -112,6 +114,8 @@ export function EmitirDocumento() {
   const comMeios = !['GR', 'GD'].includes(tipo);
   // paridade 4.2.9: guia de saída do armazém a facturar («FATURAR AGORA →»); 4.2.12: contas dos meios de pagamento
   const [guia, setGuia] = useState<GuiaSaidaPendente | null>(null);
+  /** Fase A: factura de origem paga → diálogo «cancelar o recebimento» antes da NC (id da factura) */
+  const [cancelarReceb, setCancelarReceb] = useState<number | null>(null);
   const [contasPag, setContasPag] = useState<(number | undefined)[]>([]);
   const guiasPendentes = useQuery({
     queryKey: ['vendas', 'guias-saida-pendentes'],
@@ -269,7 +273,11 @@ export function EmitirDocumento() {
       void clienteConsulta.invalidateQueries({ queryKey: ['vendas'] });
       navegar(`../${dados.id}`);
     },
-    onError: (e) => notificarErro(e, 'Não foi possível emitir o documento'),
+    onError: (e) => {
+      const paga = facturaDoErroNcPaga(e);
+      if (paga !== null) setCancelarReceb(paga);
+      else notificarErro(e, 'Não foi possível emitir o documento');
+    },
   });
 
   const escolherProduto = (indice: number, id: number) => {
@@ -305,7 +313,11 @@ export function EmitirDocumento() {
   const submeter = (v: ValoresForm) => {
     const erro = comModalidade ? erroPlano(modo, plano) : null;
     if (erro) return void message.error(erro);
-    if (tipo === 'NC' && origemPaga) return void message.error('A factura de origem está paga: anule primeiro o recibo/pagamento associado (como no sistema anterior).');
+    if (tipo === 'NC' && origemPaga) {
+      // Fase A: na factura (FT) oferece cancelar já o recebimento; a factura-recibo continua bloqueada
+      if (origemEscolhida?.tipo_documento === 'FT' && pode('vendas_fat_del')) return void setCancelarReceb(origemEscolhida.id);
+      return void message.error('A factura de origem está paga: o recebimento tem de ser cancelado antes da nota de crédito.');
+    }
     emitir.mutate(v);
   };
 
@@ -466,7 +478,11 @@ export function EmitirDocumento() {
                   showIcon
                   style={{ marginBottom: 16 }}
                   message={`A ${origemEscolhida?.tipo_documento === 'FR' ? 'factura-recibo' : 'factura'} ${origemEscolhida?.numero_documento} está paga: não admite nota de crédito.`}
-                  description="Como no sistema anterior: anule primeiro o recibo/pagamento associado (Vendas › Recibos ou Tesouraria) e emita depois a nota de crédito. Numa factura-recibo, o recibo não se anula sozinho: corrija com uma nova factura e regularize o recebimento."
+                  description={origemEscolhida?.tipo_documento === 'FR'
+                    ? 'Numa factura-recibo o recebimento faz parte do próprio documento e do mesmo lançamento: não se cancela à parte. Fale com o responsável da contabilidade.'
+                    : 'O recebimento tem de ser cancelado antes da nota de crédito: os recibos e os recebimentos de tesouraria desta factura ficam anulados (com estorno se estiverem contabilizados).'}
+                  action={origemEscolhida?.tipo_documento === 'FT' && pode('vendas_fat_del')
+                    ? <Button size="small" danger onClick={() => setCancelarReceb(origemEscolhida.id)}>Cancelar recebimento…</Button> : undefined}
                 />
               )}
             </>
@@ -700,6 +716,8 @@ export function EmitirDocumento() {
           </Card>
         </Flex>
       </Form>
+      <ModalCancelarRecebimentos vendaId={cancelarReceb} aoFechar={() => setCancelarReceb(null)}
+        aoConcluir={() => { void origens.refetch(); message.info('Recebimento cancelado: já pode emitir a nota de crédito.'); }} />
     </>
   );
 }

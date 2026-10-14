@@ -12,7 +12,7 @@ use App\Models\Terceiro;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela linhas_revisao_projeto (módulo Projectos). Legado: project_review_lines · 55 linhas reais no backup.
+ * Tabela linhas_revisao_projeto (módulo Projectos). Legado: project_review_lines · 58 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\LinhaRevisaoProjeto.
  */
 abstract class LinhaRevisaoProjetoBase extends ModeloBase

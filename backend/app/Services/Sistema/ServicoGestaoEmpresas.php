@@ -68,7 +68,7 @@ final class ServicoGestaoEmpresas
         return Empresa::query()
             ->when(! $this->veTodas($actor), fn ($q) => $q->whereIn('id', $actor->empresas()->select('empresas.id')))
             ->when($estado, fn ($q) => $q->where('estado', $estado))
-            ->orderBy('nome')->get()->map(fn (Empresa $e) => $this->apresentar($e));
+            ->ordenarPorNome()->get()->map(fn (Empresa $e) => $this->apresentar($e));
     }
 
     public function obter(int $id, Utilizador $actor): Empresa

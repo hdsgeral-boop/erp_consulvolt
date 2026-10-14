@@ -9,6 +9,7 @@ use App\Models\PedidoManutencaoEquipamento;
 use App\Models\PlanoConta;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoEmpresas;
+use App\Services\Tesouraria\ServicoDocumentosTesouraria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -91,7 +92,9 @@ final class SistemaManutencaoTest extends TestCase
     public function fluxo_completo_anula_os_pendentes_com_segregacao_e_palavra_passe(): void
     {
         $d1 = $this->documento();
-        $d2 = $this->documento('4511');
+        // Fase A: o ecrã só aceita bancos; um documento anterior em caixa (45) também é pendente
+        $d2 = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoDocumentosTesouraria::class)->gravar(['tipo' => 'PAGAMENTO', 'data_documento' => $this->hoje,
+            'conta_financeira' => '4511', 'descricao' => 'Despesa de serviços', 'linhas' => [['codigo_conta' => '752', 'tipo_dc' => 'D', 'valor' => 100]]])->id);
         $integrado = $this->documento();
         $this->postJson("/api/tesouraria/documentos/{$integrado}/integrar", [], $this->sp)->assertOk();
 

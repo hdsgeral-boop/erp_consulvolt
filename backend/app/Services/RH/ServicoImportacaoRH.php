@@ -129,8 +129,8 @@ final class ServicoImportacaoRH
             $ajuda->getColumnDimension($col)->setWidth($largura);
         }
         $ref = match ($entidade) {
-            'calculo' => ['Rubricas', [['Rubrica', 'Tipo']], InfotipoSalarial::query()->orderBy('nome')->get()->map(fn ($i) => [$i->nome, $i->tipo])->all()],
-            'contratos' => ['Infotipos_Validos', [['Rubrica (vencimento)']], InfotipoSalarial::query()->where('tipo', 'VENCIMENTO')->orderBy('nome')->pluck('nome')->map(fn ($n) => [$n])->all()],
+            'calculo' => ['Rubricas', [['Rubrica', 'Tipo']], InfotipoSalarial::query()->ordenarPorNome()->get()->map(fn ($i) => [$i->nome, $i->tipo])->all()],
+            'contratos' => ['Infotipos_Validos', [['Rubrica (vencimento)']], InfotipoSalarial::query()->where('tipo', 'VENCIMENTO')->ordenarPorNome()->pluck('nome')->map(fn ($n) => [$n])->all()],
             'produtividade' => ['Itens', [['Código', 'Descrição', 'Unidade', 'Preço (Kz)']], ItemProdutividadeRH::query()->where('ativo', true)->orderBy('codigo')->get()
                 ->map(fn ($i) => [$i->codigo, $i->descricao, $i->unidade, (float) $i->preco_unitario])->all()],
             default => ['Listas', [['Funções', 'Tipos de órgão', 'Bancos']], $this->listasColaboradores()],
@@ -492,9 +492,9 @@ final class ServicoImportacaoRH
 
     private function listasColaboradores(): array
     {
-        $a = CargoFuncao::query()->orderBy('nome')->pluck('nome')->all();
+        $a = CargoFuncao::query()->ordenarPorNome()->pluck('nome')->all();
         $b = TipoOrganizacaoRH::query()->orderBy('id')->pluck('nome')->all();
-        $c = Banco::query()->orderBy('nome')->get()->map(fn ($x) => trim(($x->codigo ? "{$x->codigo} — " : '').$x->nome))->all();
+        $c = Banco::query()->ordenarPorNome()->get()->map(fn ($x) => trim(($x->codigo ? "{$x->codigo} — " : '').$x->nome))->all();
         $n = max(count($a), count($b), count($c));
 
         return array_map(fn ($i) => [$a[$i] ?? '', $b[$i] ?? '', $c[$i] ?? ''], $n ? range(0, $n - 1) : []);

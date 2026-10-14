@@ -10,7 +10,7 @@ use App\Models\TarefaProjeto;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela linhas_requisicao_projeto (módulo Projectos). Legado: project_requisition_lines · 10 linhas reais no backup.
+ * Tabela linhas_requisicao_projeto (módulo Projectos). Legado: project_requisition_lines · 11 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\LinhaRequisicaoProjeto.
  */
 abstract class LinhaRequisicaoProjetoBase extends ModeloBase

@@ -40,7 +40,7 @@ final class ServicoPerfis
         $utilizadores = DB::table('utilizadores')->whereNull('eliminado_em')->selectRaw('perfil_utilizador_id, COUNT(*) AS n')
             ->groupBy('perfil_utilizador_id')->pluck('n', 'perfil_utilizador_id');
 
-        return PerfilUtilizador::query()->orderBy('nome')->get()
+        return PerfilUtilizador::query()->ordenarPorNome()->get()
             ->map(fn (PerfilUtilizador $p) => $this->resumo($p) + ['utilizadores' => (int) ($utilizadores[$p->id] ?? 0)])->all();
     }
 
@@ -235,7 +235,7 @@ final class ServicoPerfis
      */
     public function matriz(): array
     {
-        $perfis = PerfilUtilizador::query()->orderBy('nome')->get();
+        $perfis = PerfilUtilizador::query()->ordenarPorNome()->get();
         $chaves = [];
         foreach ($perfis as $p) {
             foreach ($this->chaves($p->permissoes ?? []) as $k) {

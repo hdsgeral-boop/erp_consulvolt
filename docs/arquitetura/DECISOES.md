@@ -2180,3 +2180,96 @@ Na pasta do Windows montada no Docker Desktop, o `DirectoryIterator` do PHP devo
 - **Menu do utilizador:** junto ao nome há um botão ▾ que abre as opções (clique, já não ao passar o rato); o botão vermelho de sair ao lado do nome foi retirado — sai-se por «Terminar sessão». Primeira opção: **«Gerir Dados Pessoais»** (`/dados-pessoais`): o próprio utilizador altera nome, telefone (coluna nova `utilizadores.telefone`) e e-mail (`GET/PUT /api/autenticacao/dados-pessoais`) e a palavra-passe (`PUT /api/autenticacao/palavra-passe`: exige a actual, mínimo de 8, diferente da actual, 5 tentativas/minuto, termina as outras sessões). Nome de utilizador, perfil, papel e empresas continuam só com o administrador; tudo nos logs de auditoria, sem palavras-passe.
 - **«Modo Responsivo» retirado:** sai o botão da barra, a opção do menu do utilizador, o aviso e o estado guardado no navegador (a preferência antiga é apagada ao arrancar). O layout continua responsivo automaticamente pela largura do ecrã (menu em gaveta abaixo de 992 px).
 - **Compras:** os modais de recepção e de factura da encomenda preenchem-se uma vez por abertura (antes, a chegada da lista de produtos ou um refetch apagava o que o utilizador já tinha escrito).
+
+## ADR-071 — Versão Actual do legado (Dexie 1277): novo backup de migração, esquema regenerado e decisões (2026-10-13)
+
+**Contexto.** O legado evoluiu para a «Versão Actual» (`Versões/Versão Actual/ERP`, Dexie 1268–1277): 30 ficheiros JS novos e 49 alterados, 18 tabelas novas e várias tabelas com campos novos. A comparação (código e ecrã a ecrã, empresa 18) está em `docs/paridade/versao_actual/`.
+
+**Decisões do utilizador.**
+- **Ficheiro da migração:** `payroll_system_web/wstb_payroll_backup_2026-10-13.json` (Dexie 1277, 172 tabelas). Não se publica.
+- **Cartas de pagamento (tesouraria):** nascem de um pagamento já gravado (conta 42/43) e não geram lançamentos; servem terceiros e salários.
+- **Cubo/BI:** o NIF de clientes, fornecedores e colaboradores é dimensão visível a todos os que têm acesso ao cubo.
+- **Construção:** começa pela Fase A (base contabilística); o plano por fases está em `docs/paridade/versao_actual/01_RESUMO.md`.
+
+**Esquema regenerado a partir do backup novo** (pipeline de Fase 2/3: `levantar_colunas` → `gerar_dicionario` → `gerar_esquema`):
+- matriz `tabelas.mjs`: as 18 tabelas novas:
+  - `contas_bancarias_terceiros`, `modelos_cartas_pagamento`, `criterios_reparticao_un`, `ficheiros_regras_ia`;
+  - `escalas_trabalho`, `emprestimos_colaboradores`, `prestacoes_emprestimos`, `configuracoes_emprestimos`;
+  - `andares_edificios`, `portas_edificios`, `inventarios_fisicos_ativos`, `linhas_inventario_fisico_ativos`;
+  - `ordens_manutencao_ativos`, `itens_ordem_manutencao`, `requisicoes_manutencao`, `linhas_requisicao_manutencao`;
+  - `assuntos_metodo_trabalho`, `historico_assuntos_metodo`.
+- `glossario.mjs`: 123 colunas novas traduzidas e 3 sobreposições (o `order_id` das ordens de manutenção e a categoria dos planos).
+- `TIPOS_FORCADOS`: 19 colunas fixadas no tipo anterior. Os tipos deduzidos de poucos exemplos estreitavam colunas existentes (ex.: palavras-chave da IA como inteiro, validade do documento como texto, decimais perdidos). Só se aceitaram alargamentos.
+- `normalizacoes.mjs`: `EM ABERTO` (guia de remessa por concluir) → PENDENTE; tipo de pedido do portal `EMPRESTIMO`.
+- `EMPRESA_DERIVADA`: itens de carta (← carta), prestações (← empréstimo), histórico dos assuntos (← assunto) e membros de equipa de projecto (← equipa).
+- `gerar_esquema.mjs`: o verificador das condições dos índices parciais passa a aceitar `AND`, `IS [NOT] NULL` e `= 'x'`.
+- `ServicoMigracaoLegado::ordemTopologica`: nos ciclos de FKs, o desempate favorece a tabela de que mais tabelas pendentes dependem. Antes, o histórico dos assuntos era carregado antes dos assuntos (ciclo assuntos ↔ projetos) e ia todo para a quarentena.
+- **Resultado:**
+  - 187 tabelas e 102 colunas novas em tabelas existentes, sem remoções;
+  - migração real em 62 s, com 0 divergências de contagem e 0 órfãos;
+  - 37 linhas em quarentena, todas legítimas: empresas fictícias #2/#11, 2 contas duplicadas e linhas sem documento-pai;
+  - equilíbrio D − C igual ao do legado.
+- A base de desenvolvimento foi recarregada com os dados de 13/10. A cópia anterior está em `v2/bd/erp_consulvolt_antes_migracao_1013_*.dump` (pg_dump verificado).
+
+**Correcção feita no próprio legado novo** (para restaurar o backup pelo ecrã): `Versões/Versão Actual/ERP/js/manutencao.js`. A guarda da Manutenção de dados e a guarda das permissões chamavam-se uma à outra, e o restauro global, «Apagar BD» e «Eliminar empresa» davam «Maximum call stack size exceeded». No erp_laravel não se aplica (as verificações são feitas no servidor).
+
+**Fase A — base contabilística (2026-10-13/14, 3 agentes em paralelo, integrados nesta ronda).**
+- **Terceiros:**
+  - contas por papel: `conta_cliente` (classe 31) e `conta_fornecedor` (32 ou 37.0). As vendas, recibos, compras, POS, CRM e SAF-T passam a usar a conta do papel; `codigo_conta` continua a ser aceite nas fichas antigas;
+  - endereço estruturado (`enderecos_terceiros`) e tipo «Cliente e Fornecedor» / «Colaborador» nas Tabelas auxiliares;
+  - contas bancárias do terceiro (`contas_bancarias_terceiros`): só uma predefinida por terceiro (índice único parcial); moeda opcional (`COLUNAS_NOVAS`);
+  - a permissão da ficha é verificada no `authorize()` do pedido, antes da validação (OWASP A01).
+- **Tesouraria:**
+  - dados bancários nas contas 42/43 do plano (banco, n.º de conta, IBAN até 34 caracteres);
+  - pagamentos e recebimentos «só por bancos» quando o documento o exige (`CONTA_FINANCEIRA_SO_BANCOS`);
+  - lista `GET /api/tesouraria/contas-bancarias`.
+- **Vendas:**
+  - ecrã «Séries de numeração» (`vendas_series`, com permissões próprias `vendas_series_view`/`vendas_series_gerir`) e número inicial da série;
+  - cancelar os recebimentos de uma factura antes de emitir a NC;
+  - anulação de documentos com motivo obrigatório.
+- **Catálogo de permissões:** regenerado a partir de `js/permissoes.js` da Versão Actual. Os ecrãs ainda não construídos ficam em `ECRAS_ADIADOS` (`extrair_permissoes.mjs`) e são retirados do catálogo, do menu, da segregação e dos perfis-tipo. Cada fase retira da lista os ecrãs que constrói.
+- **Esquema:** 54 tipos adicionais fixados em `TIPOS_FORCADOS` (ex.: IBAN do plano de contas deduzido como inteiro, capital dos empréstimos sem decimais). Os campos das contas bancárias de terceiros foram acrescentados a `campos_codigo_legado.json` (tabela com 0 linhas no backup). Na regeneração houve só 8 alargamentos de tipo e nenhum estreitamento. A migração real repetiu os resultados: 0 divergências, 23 movimentos de stock reatribuídos, 5 facturas abatidas por NC.
+- **Em aberto (decidir antes da Fase B):**
+  - recibos de venda ainda aceitam a conta 45 (o legado novo limita a 42/43);
+  - o Consumidor Final mantém a conta de `clientes_default`;
+  - a regra «fora do regime AGT não cria séries» não foi aplicada: as séries A<ano> mantêm-se por causa do hash do SAF-T;
+  - NC sobre FR não é suportada;
+  - as listas do POS e do Armazém ainda não filtram pela conta do papel.
+
+**Verificação da Fase A no Chrome (2026-10-14, empresa 18, 8080 contra 8091).**
+- **Terceiros:**
+  - 652 nos dois sistemas, com as mesmas colunas e a mesma ficha (endereço estruturado, moeda, conta do papel, conta antiga só de leitura, contas bancárias);
+  - corrigido: a lista vinha em dois blocos alfabéticos, porque a base usa a ordenação `C` e há nomes migrados com espaços iniciais ou duplicados. Passou a ordenar com `pt-PT-x-icu` e com os espaços normalizados (`ServicoTerceiros::listar`).
+  - fica por tratar: há mais 46 `orderBy('nome')` noutros módulos sujeitos à ordenação `C`.
+- **Plano de contas:** 1 420 contas contra 1 421; a diferença é a linha fictícia «000 – REGISTO MESTRE», descartada de propósito. Os dados bancários das contas 42/43 têm os mesmos 6 campos.
+- **Pagamentos só por bancos:**
+  - as mesmas 15 contas 43 nos dois sistemas, sem caixa;
+  - corrigido: no modo estrito, o rótulo passa a ser a descrição do plano, como `filterContasFinanceiras`. Antes era o nome do meio de pagamento.
+- **Séries:**
+  - corrigido: o legado grava `ACTIVA` e o novo usa `ATIVA`. A série migrada aparecia «Fechada» e o motor de numeração ia abrir uma série A<ano> nova em vez de continuar. Acrescentada a normalização `fe_series.estado` (com `estado_original` e CHECK); esquema regenerado e base recarregada;
+  - acrescentada a coluna «Estab.» e o título «Próximo n.º» passou a ser igual ao do legado.
+- **Cabeçalho de Vendas, «Pendentes» (11 contra 18):** a diferença está explicada. São 5 facturas abatidas por NC (decisão do ADR-070) e 2 FR sem saldo, que o legado conta só por não estarem marcadas `PAGO`.
+- **Anulação:** os documentos fiscais têm o «Anular» bloqueado, com indicação para corrigir por NC. O cancelamento de recebimentos não pôde ser visto no ecrã, porque a empresa 18 não tem FT com recebimentos (está coberto por `FaVendasRecebimentosTest`).
+- **Diferença de dados a confirmar com o utilizador:** a «FT teste/1» está `PAGO` no backup, sem recebimento. O novo mostra-a paga; o legado calcula 0% pago.
+
+**Decisões em aberto da Fase A, resolvidas pelo utilizador em 2026-10-14 («aplicar as melhores práticas»).**
+1. **Recibos de venda com conta 45 — mantém-se.** O legado novo continua a aceitar 43 e 45 nos recibos (`ui_sales.js:955-962`, meios de pagamento activos ou contas 43/45). Receber uma factura em numerário é uma operação normal e o dinheiro entra na caixa (Folha de Caixa). A regra «só bancos» vale para os pagamentos e recebimentos avulsos da Tesouraria, não para os recibos de facturas.
+2. **Consumidor Final e contas por omissão — sem contas escondidas.**
+   - Cada cliente usa a conta da sua ficha (classe 31); sem ela, a integração pára e diz o que falta.
+   - Isto vale para as facturas, os recibos e o POS/Lavandaria (`ServicoContabilizacaoVendas::contaClienteRecibo`, `ServicoFontesLavandariaPOS::contaCliente`).
+   - A «conta de clientes por omissão» só serve os documentos sem cliente e é gravada na ficha do Consumidor Final quando este é criado automaticamente (`ServicoVendasPOS`).
+   - A validação `lavandaria_clientes_sem_conta` deixou de considerar a conta por omissão.
+   - Na base de desenvolvimento não há documentos por integrar de clientes sem conta.
+3. **Séries fora do regime AGT — mantém-se a criação automática da série A<ano>.** O SAF-T exige que cada documento pertença a uma série com cadeia de hash; numerar «sem série», como o legado, partiria essa cadeia. A série do utilizador, quando existe, tem prioridade.
+4. **Nota de crédito sobre factura-recibo — passa a ser permitida.**
+   - O pagamento faz parte da própria FR e não há recibo para anular, por isso as guardas `NC_FATURA_PAGA` valem só para a FT.
+   - A NC credita a conta do cliente, que fica com saldo a favor; a devolução do dinheiro faz-se com um pagamento da Tesouraria.
+   - O ecrã de conversão mostra este aviso (`DetalheDocumento.tsx`). Testes: `FaVendasRecebimentosNcTest`, `VendasTest`.
+5. **Listas do POS e do Armazém por papel — modo `estrito`.**
+   - `GET /terceiros?papel=CLIENTE&estrito=1` mostra só quem tem o papel, como `ehCliente`/`ehFornecedor` do legado.
+   - Vendas › Clientes continua a mostrar também quem tem documentos de venda.
+   - Todos os `SeletorTerceiro` (POS, hotelaria, lavandaria, POS Armazém, documentos) usam o modo estrito.
+- **«FT teste/1»:** fica como o novo indica (`PAGO`, como está gravado no backup); o legado recalculava 0% pago por falta de recibo.
+- **Ordenação por nome em todo o sistema:**
+  - macro `ordenarPorNome()` (`App\Support\Dados\OrdenacaoTexto`, registada no `AppServiceProvider`), com colação `pt-PT-x-icu` e espaços normalizados;
+  - substitui os 63 `orderBy('nome' | 'x.nome' | 'nome_completo')` do backend.

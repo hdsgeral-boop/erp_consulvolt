@@ -39,7 +39,7 @@ final class ServicoSubstituicaoConta
 {
     /** tabela => [colunas, rótulo, condição SQL adicional (sobre a própria tabela) ou null] */
     private const ALTERAVEIS = [
-        'terceiros' => [['codigo_conta', 'conta_compra_transitoria'], 'Terceiros', null],
+        'terceiros' => [['codigo_conta', 'conta_cliente', 'conta_fornecedor', 'conta_compra_transitoria'], 'Terceiros', null],   // Fase A: contas por papel
         'produtos' => [['codigo_conta', 'conta_compra', 'conta_custo', 'conta_inventario', 'conta_iva', 'conta_iva_liquidado', 'conta_iva_dedutivel',
             'conta_quebra', 'conta_sobra', 'conta_ativo'], 'Produtos e serviços', null],
         'bancos' => [['codigo_conta'], 'Bancos', null],

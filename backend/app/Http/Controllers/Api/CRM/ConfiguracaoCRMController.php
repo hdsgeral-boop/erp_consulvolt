@@ -83,7 +83,7 @@ final class ConfiguracaoCRMController extends Controller
         $this->exigir(...self::VER);
         $this->config->funis();   // a primeira utilização cria os modelos de partida
 
-        return RespostaApi::sucesso(ModeloEmailCRM::query()->orderBy('nome')->get(), 'Modelos de email.');
+        return RespostaApi::sucesso(ModeloEmailCRM::query()->ordenarPorNome()->get(), 'Modelos de email.');
     }
 
     public function guardarModelo(Request $r, ?int $modelo = null): JsonResponse
@@ -110,7 +110,7 @@ final class ConfiguracaoCRMController extends Controller
     {
         $this->exigir(...self::VER);
 
-        return RespostaApi::sucesso(SequenciaCampanhaCRM::query()->orderBy('nome')->get(), 'Sequências de email.');
+        return RespostaApi::sucesso(SequenciaCampanhaCRM::query()->ordenarPorNome()->get(), 'Sequências de email.');
     }
 
     public function guardarSequencia(Request $r, ?int $sequencia = null): JsonResponse

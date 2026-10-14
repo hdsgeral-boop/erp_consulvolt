@@ -9,7 +9,7 @@ use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela configuracoes_acrescimos_diferimentos (módulo Acréscimos). Legado: ad_settings · 2 linhas reais no backup.
+ * Tabela configuracoes_acrescimos_diferimentos (módulo Acréscimos). Legado: ad_settings · 3 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ConfigAcrescimoDiferimento.
  */
 abstract class ConfigAcrescimoDiferimentoBase extends ModeloBase

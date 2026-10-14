@@ -5,13 +5,17 @@ namespace App\Models\Base;
 use App\Models\AbateVendaAtivo;
 use App\Models\AfetacaoAtivoProjeto;
 use App\Models\AmortizacaoAtivo;
+use App\Models\AndarEdificio;
+use App\Models\AtivoImobilizado;
 use App\Models\CategoriaAtivo;
 use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\LancamentoContabil;
 use App\Models\ModeloBase;
+use App\Models\OrdemManutencaoAtivo;
 use App\Models\PlanoManutencaoAtivo;
+use App\Models\PortaEdificio;
 use App\Models\RegistoManutencaoAtivo;
 use App\Models\Terceiro;
 use App\Models\TransferenciaCentroCustoAtivo;
@@ -21,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela ativos_imobilizados (módulo Activos). Legado: fixed_assets · 174 linhas reais no backup.
+ * Tabela ativos_imobilizados (módulo Activos). Legado: fixed_assets · 176 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\AtivoImobilizado.
  */
 abstract class AtivoImobilizadoBase extends ModeloBase
@@ -33,7 +37,7 @@ abstract class AtivoImobilizadoBase extends ModeloBase
     protected string $moduloAuditoria = 'Activos';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'descricao', 'categoria_ativo_id', 'centro_custo_id', 'valor_aquisicao', 'vida_util', 'data_aquisicao', 'estado', 'estado_original', 'lancamento_contabil_id', 'fornecedor_id', 'valor_residual', 'amortizacao_acumulada', 'vida_util_restante', 'amortizacao_acumulada_inicial', 'quota_fixa', 'acumulado_fim_ano', 'unidade_negocio_id',
+        'empresa_id', 'codigo', 'descricao', 'categoria_ativo_id', 'centro_custo_id', 'valor_aquisicao', 'vida_util', 'data_aquisicao', 'estado', 'estado_original', 'lancamento_contabil_id', 'fornecedor_id', 'valor_residual', 'amortizacao_acumulada', 'vida_util_restante', 'amortizacao_acumulada_inicial', 'quota_fixa', 'edificio_id', 'andar_id', 'porta_id', 'acumulado_fim_ano', 'unidade_negocio_id', 'tipo_ativo',
     ];
 
     protected function casts(): array
@@ -52,6 +56,9 @@ abstract class AtivoImobilizadoBase extends ModeloBase
             'vida_util_restante' => 'integer',
             'amortizacao_acumulada_inicial' => 'decimal:2',
             'quota_fixa' => 'decimal:2',
+            'edificio_id' => 'integer',
+            'andar_id' => 'integer',
+            'porta_id' => 'integer',
             'acumulado_fim_ano' => 'integer',
             'unidade_negocio_id' => 'integer',
             'criado_em' => 'datetime',
@@ -80,9 +87,29 @@ abstract class AtivoImobilizadoBase extends ModeloBase
         return $this->belongsTo(Terceiro::class, 'fornecedor_id');
     }
 
+    public function edificio(): BelongsTo
+    {
+        return $this->belongsTo(AtivoImobilizado::class, 'edificio_id');
+    }
+
+    public function andar(): BelongsTo
+    {
+        return $this->belongsTo(AndarEdificio::class, 'andar_id');
+    }
+
+    public function porta(): BelongsTo
+    {
+        return $this->belongsTo(PortaEdificio::class, 'porta_id');
+    }
+
     public function unidadeNegocio(): BelongsTo
     {
         return $this->belongsTo(UnidadeNegocio::class, 'unidade_negocio_id');
+    }
+
+    public function ativosImobilizadosPorEdificio(): HasMany
+    {
+        return $this->hasMany(AtivoImobilizado::class, 'edificio_id');
     }
 
     public function amortizacoesAtivos(): HasMany
@@ -113,5 +140,20 @@ abstract class AtivoImobilizadoBase extends ModeloBase
     public function afetacoesAtivosProjeto(): HasMany
     {
         return $this->hasMany(AfetacaoAtivoProjeto::class, 'ativo_imobilizado_id');
+    }
+
+    public function andaresEdificios(): HasMany
+    {
+        return $this->hasMany(AndarEdificio::class, 'edificio_id');
+    }
+
+    public function portasEdificios(): HasMany
+    {
+        return $this->hasMany(PortaEdificio::class, 'edificio_id');
+    }
+
+    public function ordensManutencaoAtivos(): HasMany
+    {
+        return $this->hasMany(OrdemManutencaoAtivo::class, 'ativo_imobilizado_id');
     }
 }

@@ -14,7 +14,7 @@ use App\Models\PeriodoProdutividadeRH;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela periodos_processamento_salarial (módulo RH). Legado: payroll_periods · 47 linhas reais no backup.
+ * Tabela periodos_processamento_salarial (módulo RH). Legado: payroll_periods · 60 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\PeriodoProcessamentoSalarial.
  */
 abstract class PeriodoProcessamentoSalarialBase extends ModeloBase

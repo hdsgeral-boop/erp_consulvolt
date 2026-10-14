@@ -4,6 +4,7 @@ namespace App\Models\Base;
 
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\ConfiguracaoEmprestimo;
 use App\Models\ItemProdutividadeRH;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\MapeamentoContabilRH;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela infotipos_salariais (módulo RH). Legado: infotypes · 175 linhas reais no backup.
+ * Tabela infotipos_salariais (módulo RH). Legado: infotypes · 202 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\InfotipoSalarial.
  */
 abstract class InfotipoSalarialBase extends ModeloBase
@@ -24,7 +25,7 @@ abstract class InfotipoSalarialBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'tipo', 'nome', 'sujeito_inss', 'irt', 'base_horaria', 'calculo_horas',
+        'empresa_id', 'tipo', 'nome', 'sujeito_inss', 'irt', 'base_horaria', 'calculo_horas', 'calculo_horas_original',
     ];
 
     protected function casts(): array
@@ -52,5 +53,10 @@ abstract class InfotipoSalarialBase extends ModeloBase
     public function itensProdutividadeRh(): HasMany
     {
         return $this->hasMany(ItemProdutividadeRH::class, 'infotipo_salarial_id');
+    }
+
+    public function configuracoesEmprestimos(): HasMany
+    {
+        return $this->hasMany(ConfiguracaoEmprestimo::class, 'infotipo_desconto_id');
     }
 }

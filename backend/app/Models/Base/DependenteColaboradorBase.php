@@ -9,7 +9,7 @@ use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela dependentes_colaboradores (módulo RH). Legado: rh_dependents · 1 linhas reais no backup.
+ * Tabela dependentes_colaboradores (módulo RH). Legado: rh_dependents · 2 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\DependenteColaborador.
  */
 abstract class DependenteColaboradorBase extends ModeloBase

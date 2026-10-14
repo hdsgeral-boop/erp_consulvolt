@@ -3,6 +3,8 @@ import { useEffect } from 'react';
 import { useAccao } from '@/componentes/Accoes';
 import { larguraModal } from '@/componentes/responsivo';
 import { corpoTerceiro } from '@/modulos/compras/comum/GestaoTerceiros';
+import { SeletorConta } from '@/modulos/contab/comum/Seletores';
+import { prefixosConta } from '@/modulos/contab/tabelasAux/contasTerceiro';
 
 interface FormCliente {
   nome: string;
@@ -10,11 +12,13 @@ interface FormCliente {
   telefone?: string;
   email?: string;
   endereco?: string;
+  conta_cliente?: string;
 }
 
 /**
  * «Criar Novo Cliente» da frente de caixa (showPOSCreateCustomerModal do legado): ficha mínima do cliente
- * (POST /terceiros, papel CLIENTE — o servidor valida o NIF, a conta e a permissão de gerir clientes).
+ * (POST /terceiros, papel CLIENTE — o servidor valida o NIF, a conta e a permissão de gerir clientes). A conta de cliente
+ * (classe 31) é obrigatória, como no legado novo («Conta Contabilística *», ui_sales.js:8792) — sem contas por defeito.
  */
 export function NovoClienteModal({ aberto, aoFechar, aoCriar }: { aberto: boolean; aoFechar: () => void; aoCriar: (id: number) => void }) {
   const [form] = Form.useForm<FormCliente>();
@@ -56,6 +60,9 @@ export function NovoClienteModal({ aberto, aoFechar, aoCriar }: { aberto: boolea
         </Form.Item>
         <Form.Item name="endereco" label="Endereço">
           <Input maxLength={500} />
+        </Form.Item>
+        <Form.Item name="conta_cliente" label="Conta de cliente (classe 31)" rules={[{ required: true, message: 'Obrigatória: conta do cliente no plano de contas da empresa.' }]}>
+          <SeletorConta prefixos={prefixosConta('CLIENTE')} placeholder="Obrigatória — ex.: 31.1.1" allowClear style={{ width: '100%' }} />
         </Form.Item>
       </Form>
     </Modal>

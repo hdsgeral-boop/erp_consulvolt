@@ -38,7 +38,7 @@ final class ServicoEmpresas
     /** @return Collection<int, Empresa> */
     public function acessiveis(Utilizador $utilizador): Collection
     {
-        return Empresa::query()->whereIn('id', $this->idsAcessiveis($utilizador))->orderBy('nome')->get();
+        return Empresa::query()->whereIn('id', $this->idsAcessiveis($utilizador))->ordenarPorNome()->get();
     }
 
     public function podeAceder(Utilizador $utilizador, int $empresaId): bool

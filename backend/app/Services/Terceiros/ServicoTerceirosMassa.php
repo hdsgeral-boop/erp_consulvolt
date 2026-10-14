@@ -15,8 +15,9 @@ use Throwable;
 
 /**
  * Operações em massa sobre as fichas de clientes e fornecedores do legado:
- *   - «Editar em massa (N)» (js/mapeamento_massa.js, entidades clientes/fornecedores): moeda por omissão, conta de terceiro
- *     (31/37 nos clientes, 32/37 nos fornecedores) e, nos fornecedores, conta de compras/trânsito (328) — «Manter como está»
+ *   - «Editar em massa (N)» (js/mapeamento_massa.js, entidades clientes/fornecedores): moeda por omissão, conta do papel
+ *     (conta_cliente classe 31 nos clientes, conta_fornecedor 32/37.0 nos fornecedores — Fase A) e, nos fornecedores, conta
+ *     de compras/trânsito (328) — «Manter como está»
  *     = campo ausente; a conta de terceiro é obrigatória (não se retira), a de trânsito pode retirar-se;
  *   - «Importar» clientes (openImportModal('clientes'), js/ui_sales.js:5536-5690, Template_Clientes_Vendas.xlsx com NIF, Nome,
  *     Endereco, Email, Conta_Contábil): linhas sem conta não entram (como no legado); o existente (mesmo NIF; sem NIF, o mesmo
@@ -44,8 +45,15 @@ final class ServicoTerceirosMassa
             $dados['codigo_moeda'] = mb_strtoupper($campos['codigo_moeda']);
         }
         if (! empty($campos['codigo_conta'])) {
-            $this->plano->contaDeMovimento((string) $campos['codigo_conta']);
-            $dados['codigo_conta'] = (string) $campos['codigo_conta'];
+            // Fase A: a «conta de terceiro» da lista é a conta do papel (mapeamento_massa.js:24-32 → account_client / account_supplier)
+            $conta = (string) $campos['codigo_conta'];
+            $papelConta = $papel === Terceiro::FORNECEDOR ? ContaTerceiro::FORNECEDOR : ContaTerceiro::CLIENTE;
+            if (! ContaTerceiro::classeCorrecta($conta, $papelConta)) {
+                throw new ErroNegocio($papelConta === ContaTerceiro::CLIENTE ? "A conta de cliente {$conta} não é da classe 31."
+                    : "A conta de fornecedor {$conta} não é da classe 32 nem 37.0.", 'CONTA_CLASSE_ERRADA', 422);
+            }
+            $this->plano->contaDeMovimento($conta);
+            $dados[$papelConta === ContaTerceiro::FORNECEDOR ? 'conta_fornecedor' : 'conta_cliente'] = $conta;
         }
         if ($papel === Terceiro::FORNECEDOR) {
             if (! empty($campos['retirar_conta_transitoria'])) {
@@ -120,7 +128,7 @@ final class ServicoTerceirosMassa
         foreach ($linhas[0] as $i => $v) {
             $col[$norm($v)] ??= $i;
         }
-        $col['conta'] = $col['conta_contabil'] ?? $col['conta'] ?? null;
+        $col['conta'] = $col['conta_contabil'] ?? $col['conta_cliente'] ?? $col['conta'] ?? null;   // Conta_Contábil (ou Conta_Cliente) → conta de cliente
         if (! isset($col['nome'])) {
             throw new ErroNegocio('Coluna obrigatória em falta: «Nome». Use o modelo de importação.', 'CABECALHO_INVALIDO', 422);
         }
@@ -163,7 +171,7 @@ final class ServicoTerceirosMassa
 
                     continue;
                 }
-                $dados = ['nome' => mb_substr($nome, 0, 255), 'nif' => $nif !== '' ? mb_substr($nif, 0, 30) : null, 'codigo_conta' => mb_substr($conta, 0, 20)]
+                $dados = ['nome' => mb_substr($nome, 0, 255), 'nif' => $nif !== '' ? mb_substr($nif, 0, 30) : null, 'conta_cliente' => mb_substr($conta, 0, 20)]
                     + array_filter(['endereco' => mb_substr($v('endereco'), 0, 1000), 'email' => filter_var($v('email'), FILTER_VALIDATE_EMAIL) ? mb_substr($v('email'), 0, 150) : null],
                         fn ($x) => $x !== null && $x !== '');
                 try {

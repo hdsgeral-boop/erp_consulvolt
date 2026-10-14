@@ -49,7 +49,8 @@ final class TerceirosProdutosTest extends TestCase
 
         $this->cliente(['nif' => '5000000001', 'nome' => 'Outro'])->assertStatus(422)->assertJsonPath('codigo', 'NIF_DUPLICADO')
             ->assertJsonPath('erros.nome', 'Cliente Lda');
-        $this->cliente(['nif' => '9', 'codigo_conta' => null])->assertStatus(422)->assertJsonPath('erros.codigo_conta.0', 'Associe a conta contabilística da entidade antes de gravar.');
+        // Fase A: a conta do papel (conta de cliente, classe 31) é obrigatória — sem contas por defeito
+        $this->cliente(['nif' => '9', 'codigo_conta' => null])->assertStatus(422)->assertJsonPath('codigo', 'CONTA_CLIENTE_OBRIGATORIA');
         $this->cliente(['nif' => '8', 'codigo_conta' => '31'])->assertStatus(422)->assertJsonPath('codigo', 'CONTA_TOTALIZADORA');
         $this->cliente(['nif' => '7', 'fe_pais' => 'ANG'])->assertStatus(422)->assertJsonPath('codigo', 'VALIDACAO');
         $this->cliente(['nif' => '6', 'codigo_moeda' => 'XYZ'])->assertStatus(422);

@@ -10,7 +10,7 @@ use App\Models\TipoOrganizacaoRH;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela mapeamentos_contabeis_rh (módulo RH). Legado: accounting_mapos · 225 linhas reais no backup.
+ * Tabela mapeamentos_contabeis_rh (módulo RH). Legado: accounting_mapos · 296 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\MapeamentoContabilRH.
  */
 abstract class MapeamentoContabilRHBase extends ModeloBase

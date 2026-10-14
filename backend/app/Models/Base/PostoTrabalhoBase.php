@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela postos_trabalho (módulo RH). Legado: org_positions · 9 linhas reais no backup.
+ * Tabela postos_trabalho (módulo RH). Legado: org_positions · 12 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\PostoTrabalho.
  */
 abstract class PostoTrabalhoBase extends ModeloBase

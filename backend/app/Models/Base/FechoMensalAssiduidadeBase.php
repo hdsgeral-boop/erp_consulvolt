@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela fechos_mensais_assiduidade (módulo RH). Legado: rh_attendance_closures · 2 linhas reais no backup.
+ * Tabela fechos_mensais_assiduidade (módulo RH). Legado: rh_attendance_closures · 3 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\FechoMensalAssiduidade.
  */
 abstract class FechoMensalAssiduidadeBase extends ModeloBase

@@ -14,13 +14,13 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // employees (legado) -> colaboradores · 133 linhas reais no backup · eliminação lógica
+        // employees (legado) -> colaboradores · 141 linhas reais no backup · eliminação lógica
         Schema::create('colaboradores', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('nome_completo', 255)->nullable()->comment('legado: name');
-            $table->string('nif', 30)->nullable()->comment('legado: nif · tipos mistos: string=127, string_inteiro=6');
-            $table->string('numero_inss', 50)->nullable()->comment('legado: inss · tipos mistos: string_inteiro=127, string=5');
+            $table->string('nif', 30)->nullable()->comment('legado: nif · tipos mistos: string=135, string_inteiro=6');
+            $table->string('numero_inss', 50)->nullable()->comment('legado: inss · tipos mistos: string_inteiro=131, string=8');
             $table->bigInteger('cargo_funcao_id')->nullable()->comment('legado: role_id');
             $table->bigInteger('tipo_organizacao_id')->nullable()->comment('legado: org_type_id');
             $table->string('estado', 20)->nullable()->comment('legado: status · código normalizado ∈ {ACTIVO, INACTIVO, SUSPENSO}; texto original em estado_original');
@@ -38,22 +38,23 @@ return new class extends Migration
             $table->string('naturalidade', 20)->nullable()->comment('legado: naturalidade');
             $table->string('provincia_naturalidade', 20)->nullable()->comment('legado: provincia_naturalidade');
             $table->string('documento_identificacao', 30)->nullable()->comment('legado: documento_identificacao');
-            $table->date('documento_validade')->nullable()->comment('legado: documento_validade');
+            $table->date('documento_validade')->nullable()->comment('legado: documento_validade · tipos mistos: string_data=17, string=1; tipo forçado (inferido: varchar(20))');
             $table->date('data_admissao')->nullable()->comment('legado: data_admissao');
             $table->text('endereco')->nullable()->comment('legado: endereco');
             $table->string('bairro', 150)->nullable()->comment('legado: bairro');
             $table->string('municipio', 150)->nullable()->comment('legado: municipio');
             $table->string('provincia', 150)->nullable()->comment('legado: provincia');
-            $table->string('telefone', 50)->nullable()->comment('legado: telefone · tipos mistos: string=5, string_inteiro=10');
+            $table->string('telefone', 50)->nullable()->comment('legado: telefone · tipos mistos: string=5, string_inteiro=11');
             $table->text('telefone_alternativo')->nullable()->comment('legado: telefone_alternativo · sem valores reais: tipo a confirmar no código legado');
-            $table->text('email')->nullable()->comment('legado: email · sem valores reais: tipo a confirmar no código legado');
+            $table->text('email')->nullable()->comment('legado: email · tipo forçado (inferido: varchar(50))');
             $table->text('emergencia_nome')->nullable()->comment('legado: emergencia_nome · sem valores reais: tipo a confirmar no código legado');
             $table->text('emergencia_telefone')->nullable()->comment('legado: emergencia_telefone · sem valores reais: tipo a confirmar no código legado');
             $table->text('emergencia_parentesco')->nullable()->comment('legado: emergencia_parentesco · sem valores reais: tipo a confirmar no código legado');
-            $table->text('habilitacao_maxima')->nullable()->comment('legado: habilitacao_maxima · sem valores reais: tipo a confirmar no código legado');
+            $table->text('habilitacao_maxima')->nullable()->comment('legado: habilitacao_maxima · tipo forçado (inferido: varchar(20))');
             $table->bigInteger('unidade_organica_id')->nullable()->comment('legado: org_unit_id');
             $table->bigInteger('posto_trabalho_id')->nullable()->comment('legado: org_position_id');
             $table->bigInteger('colaborador_gestor_id')->nullable()->comment('legado: manager_employee_id');
+            $table->jsonb('unidades_alocadas')->nullable()->comment('legado: unidades_alocadas');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -69,11 +70,13 @@ return new class extends Migration
         DB::statement('ALTER TABLE colaboradores ADD CONSTRAINT ck_colaboradores_estado CHECK (estado IS NULL OR estado IN (\'ACTIVO\',\'INACTIVO\',\'SUSPENSO\'))');
         DB::statement('ALTER TABLE colaboradores ADD CONSTRAINT ck_colaboradores_estado_civil CHECK (estado_civil IS NULL OR estado_civil IN (\'SOLTEIRO\',\'CASADO\',\'DIVORCIADO\',\'VIUVO\',\'UNIAO_FACTO\'))');
 
-        // roles (legado) -> cargos_funcoes · 76 linhas reais no backup · eliminação lógica
+        // roles (legado) -> cargos_funcoes · 100 linhas reais no backup · eliminação lógica
         Schema::create('cargos_funcoes', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('nome', 255)->nullable()->comment('legado: name');
+            $table->text('objetivo_geral')->nullable()->comment('legado: objectivo_geral');
+            $table->text('responsabilidades')->nullable()->comment('legado: responsabilidades');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -82,7 +85,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_cargos_funcoes_empresa_id ON cargos_funcoes (empresa_id)');
         DB::statement('CREATE INDEX ix_cargos_funcoes_empresa_id_nome ON cargos_funcoes (empresa_id, nome)');
 
-        // org_types (legado) -> tipos_organizacao_rh · 28 linhas reais no backup · eliminação lógica
+        // org_types (legado) -> tipos_organizacao_rh · 34 linhas reais no backup · eliminação lógica
         Schema::create('tipos_organizacao_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -93,24 +96,26 @@ return new class extends Migration
         });
         DB::statement('CREATE UNIQUE INDEX uq_tipos_organizacao_rh_empresa_id_nome ON tipos_organizacao_rh (empresa_id, nome) WHERE eliminado_em IS NULL');
 
-        // infotypes (legado) -> infotipos_salariais · 175 linhas reais no backup · eliminação lógica
+        // infotypes (legado) -> infotipos_salariais · 202 linhas reais no backup · eliminação lógica
         Schema::create('infotipos_salariais', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('tipo', 20)->nullable()->comment('legado: type');
             $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->boolean('sujeito_inss')->nullable()->comment('legado: inss');
-            $table->string('irt', 30)->nullable()->comment('legado: irt · tipos mistos: boolean=149, string=26');
-            $table->boolean('base_horaria')->nullable()->comment('legado: base_horaria · do código legado js/app_v2.js:9161');
-            $table->string('calculo_horas', 10)->nullable()->comment('legado: calculo_horas · do código legado js/app_v2.js:9161');
+            $table->string('irt', 30)->nullable()->comment('legado: irt · tipos mistos: boolean=172, string=30');
+            $table->boolean('base_horaria')->nullable()->comment('legado: base_horaria');
+            $table->string('calculo_horas', 20)->nullable()->comment('legado: calculo_horas · tipo forçado (inferido: numeric(12,3)); código normalizado ∈ {EXTRA, FALTA, NAO}; texto original em calculo_horas_original');
+            $table->string('calculo_horas_original', 100)->nullable()->comment('legado: calculo_horas · texto exacto do legado');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
         });
         DB::statement('CREATE INDEX ix_infotipos_salariais_empresa_id ON infotipos_salariais (empresa_id)');
         DB::statement('CREATE INDEX ix_infotipos_salariais_empresa_id_nome ON infotipos_salariais (empresa_id, nome)');
+        DB::statement('ALTER TABLE infotipos_salariais ADD CONSTRAINT ck_infotipos_salariais_calculo_horas CHECK (calculo_horas IS NULL OR calculo_horas IN (\'EXTRA\',\'FALTA\',\'NAO\'))');
 
-        // contracts (legado) -> contratos_trabalho · 89 linhas reais no backup
+        // contracts (legado) -> contratos_trabalho · 114 linhas reais no backup
         Schema::create('contratos_trabalho', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -120,16 +125,17 @@ return new class extends Migration
             $table->date('data_inicio')->nullable()->comment('legado: start_date');
             $table->date('data_fim')->nullable()->comment('legado: end_date');
             $table->string('estado', 10)->nullable()->comment('legado: status');
-            $table->decimal('horas_por_dia', 12, 3)->nullable()->comment('legado: hours_per_day');
+            $table->decimal('horas_por_dia', 12, 3)->nullable()->comment('legado: hours_per_day · tipos mistos: inteiro=109, decimal=5');
             $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->jsonb('produtividade')->nullable()->comment('legado: produtividade');
+            $table->jsonb('horario')->nullable()->comment('legado: horario');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_contratos_trabalho_empresa_id ON contratos_trabalho (empresa_id)');
         DB::statement('CREATE INDEX ix_contratos_trabalho_colaborador_id ON contratos_trabalho (colaborador_id)');
 
-        // payroll_periods (legado) -> periodos_processamento_salarial · 47 linhas reais no backup
+        // payroll_periods (legado) -> periodos_processamento_salarial · 60 linhas reais no backup
         Schema::create('periodos_processamento_salarial', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -149,16 +155,16 @@ return new class extends Migration
         DB::statement('CREATE UNIQUE INDEX uq_periodos_processamento_salarial_empresa_id_mes_ano ON periodos_processamento_salarial (empresa_id, mes_ano)');
         DB::statement('ALTER TABLE periodos_processamento_salarial ADD CONSTRAINT ck_periodos_processamento_salarial_estado CHECK (estado IS NULL OR estado IN (\'ABERTO\',\'FECHADO\',\'VALIDADO\'))');
 
-        // payroll_entries (legado) -> linhas_folha_salarial · 1114 linhas reais no backup
+        // payroll_entries (legado) -> linhas_folha_salarial · 1396 linhas reais no backup
         Schema::create('linhas_folha_salarial', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('legado: period_id');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
             $table->bigInteger('infotipo_salarial_id')->nullable()->comment('legado: infotype_id');
-            $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · tipos mistos: inteiro=956, decimal=158');
-            $table->decimal('dias_trabalhados', 12, 3)->nullable()->comment('legado: worked_days · tipos mistos: inteiro=533, decimal=3; tipos Dexie: {"undef":80}');
-            $table->decimal('horas', 12, 3)->nullable()->comment('legado: hours · tipos mistos: decimal=11, inteiro=1');
+            $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · tipos mistos: inteiro=1192, decimal=204');
+            $table->decimal('dias_trabalhados', 12, 3)->nullable()->comment('legado: worked_days · tipos mistos: inteiro=683, decimal=3; tipos Dexie: {"undef":96}');
+            $table->decimal('horas', 12, 3)->nullable()->comment('legado: hours · tipos mistos: decimal=15, inteiro=4');
             $table->boolean('origem_efetividade')->nullable()->comment('legado: origem_efectividade');
             $table->boolean('origem_produtividade')->nullable()->comment('legado: origem_produtividade');
             $table->bigInteger('periodo_produtividade_id')->nullable()->comment('legado: prod_period_id');
@@ -175,7 +181,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_linhas_folha_salarial_bonificacao_avaliacao_id ON linhas_folha_salarial (bonificacao_avaliacao_id)');
         DB::statement('CREATE INDEX ix_linhas_folha_salarial_empresa__periodo__colabora ON linhas_folha_salarial (empresa_id, periodo_processamento_salarial_id, colaborador_id)');
 
-        // accounting_mapos (legado) -> mapeamentos_contabeis_rh · 225 linhas reais no backup
+        // accounting_mapos (legado) -> mapeamentos_contabeis_rh · 296 linhas reais no backup
         Schema::create('mapeamentos_contabeis_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -191,7 +197,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_mapeamentos_contabeis_rh_tipo_organizacao_id ON mapeamentos_contabeis_rh (tipo_organizacao_id)');
         DB::statement('CREATE INDEX ix_mapeamentos_contabeis_rh_empresa__infotipo_tipo_org ON mapeamentos_contabeis_rh (empresa_id, infotipo_salarial_id, tipo_organizacao_id)');
 
-        // system_accounting_mapos (legado) -> mapeamentos_contabeis_sistema_rh · 112 linhas reais no backup
+        // system_accounting_mapos (legado) -> mapeamentos_contabeis_sistema_rh · 127 linhas reais no backup
         Schema::create('mapeamentos_contabeis_sistema_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -205,12 +211,12 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_mapeamentos_contabeis_sistema_rh_empresa_id ON mapeamentos_contabeis_sistema_rh (empresa_id)');
         DB::statement('CREATE INDEX ix_mapeamentos_contabeis_sistema_rh_tipo_organizacao_id ON mapeamentos_contabeis_sistema_rh (tipo_organizacao_id)');
 
-        // banks (legado) -> bancos · 13 linhas reais no backup · eliminação lógica
+        // banks (legado) -> bancos · 14 linhas reais no backup · eliminação lógica
         Schema::create('bancos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('nome', 255)->nullable()->comment('legado: name');
-            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string_inteiro=2, string=7');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string_inteiro=2, string=8');
             $table->string('nif', 30)->nullable()->comment('legado: nif');
             $table->text('endereco')->nullable()->comment('legado: address');
             $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code');
@@ -235,42 +241,70 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_coordenadas_bancarias_colaboradores_colaborador_id ON coordenadas_bancarias_colaboradores (colaborador_id)');
         DB::statement('CREATE INDEX ix_coordenadas_bancarias_colaboradores_banco_id ON coordenadas_bancarias_colaboradores (banco_id)');
 
-        // payment_letters (legado) -> cartas_pagamento_bancario · 0 linhas reais no backup
+        // payment_letters (legado) -> cartas_pagamento_bancario · 2 linhas reais no backup
         Schema::create('cartas_pagamento_bancario', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('empresa_id')->comment('legado: company_id · do código legado js/db_v2.js:190');
-            $table->string('mes_ano', 255)->nullable()->comment('legado: month_year · do código legado js/db_v2.js:190');
-            $table->string('codigo_conta_bancaria', 255)->nullable()->comment('legado: bank_account_code · do código legado js/db_v2.js:190');
-            $table->string('nome_assinatura', 255)->nullable()->comment('legado: signature_name · do código legado js/db_v2.js:190');
-            $table->date('data')->nullable()->comment('legado: date · do código legado js/db_v2.js:190');
-            $table->decimal('montante_total', 15, 2)->nullable()->comment('legado: total_amount · do código legado js/db_v2.js:190');
-            $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('Processamento salarial pago por esta carta');
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->string('tipo', 20)->nullable()->comment('legado: tipo');
+            $table->string('numero', 20)->nullable()->comment('legado: numero');
+            $table->integer('sequencia')->nullable()->comment('legado: sequencia');
+            $table->integer('ano')->nullable()->comment('legado: ano');
+            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->date('data')->nullable()->comment('legado: data');
             $table->bigInteger('documento_tesouraria_id')->nullable()->comment('Pagamento (PAG) gerado a partir da carta');
-            $table->string('grupo', 20)->nullable()->comment('COLABORADORES, AVENCADOS ou TODOS');
+            $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('Processamento salarial pago por esta carta');
+            $table->string('mes_ano', 255)->nullable()->comment('legado: month_year · tipo forçado (inferido: varchar(20))');
+            $table->string('referencia_movimento', 50)->nullable()->comment('legado: referencia_movimento');
+            $table->string('codigo_conta_bancaria', 255)->nullable()->comment('legado: bank_account_code · tipo forçado (inferido: varchar(20))');
+            $table->string('banco_nome', 100)->nullable()->comment('legado: bank_name · tipo forçado (inferido: varchar(50))');
+            $table->string('banco_balcao', 100)->nullable()->comment('legado: bank_branch · tipo forçado (inferido: varchar(20))');
+            $table->string('banco_numero_conta', 40)->nullable()->comment('legado: bank_account_number · tipo forçado (inferido: varchar(30))');
+            $table->string('banco_iban', 34)->nullable()->comment('legado: bank_iban · tipo forçado (inferido: integer)');
+            $table->string('banco_swift', 20)->nullable()->comment('legado: bank_swift · tipo forçado (inferido: varchar(20))');
+            $table->string('banco_titular', 150)->nullable()->comment('legado: bank_holder · tipo forçado (inferido: varchar(20))');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
+            $table->string('assunto', 100)->nullable()->comment('legado: assunto');
+            $table->text('corpo')->nullable()->comment('legado: corpo');
+            $table->text('nome_assinatura')->nullable()->comment('legado: signature_name · sem valores reais: tipo a confirmar no código legado');
+            $table->string('cargo_assinatura', 100)->nullable()->comment('legado: signature_role · tipo forçado (inferido: varchar(20))');
+            $table->text('local')->nullable()->comment('legado: local · sem valores reais: tipo a confirmar no código legado');
+            $table->decimal('montante_total', 15, 2)->nullable()->comment('legado: total_amount · tipos mistos: decimal=1, inteiro=1');
             $table->string('criado_por', 100)->nullable()->comment('Quem emitiu a carta');
-            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('anulada_em')->nullable()->comment('legado: anulada_em');
+            $table->string('anulada_por', 100)->nullable()->comment('legado: anulada_por · tipo forçado (inferido: varchar(10))');
+            $table->text('motivo_anulacao')->nullable()->comment('legado: motivo_anulacao');
+            $table->string('grupo', 20)->nullable()->comment('COLABORADORES, AVENCADOS ou TODOS');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_empresa_id ON cartas_pagamento_bancario (empresa_id)');
-        DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_periodo_processamento_salarial_id ON cartas_pagamento_bancario (periodo_processamento_salarial_id)');
         DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_documento_tesouraria_id ON cartas_pagamento_bancario (documento_tesouraria_id)');
+        DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_periodo_processamento_salarial_id ON cartas_pagamento_bancario (periodo_processamento_salarial_id)');
 
-        // payment_letter_items (legado) -> itens_carta_pagamento · 0 linhas reais no backup
+        // payment_letter_items (legado) -> itens_carta_pagamento · 36 linhas reais no backup
         Schema::create('itens_carta_pagamento', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
-            $table->bigInteger('carta_pagamento_bancario_id')->nullable()->comment('legado: letter_id · do código legado js/db_v2.js:191');
-            $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id · do código legado js/db_v2.js:191');
-            $table->decimal('montante', 15, 2)->nullable()->comment('legado: amount · do código legado js/db_v2.js:191');
-            $table->string('iban', 255)->nullable()->comment('legado: iban · do código legado js/db_v2.js:191');
+            $table->bigInteger('empresa_id')->comment('derivada de carta_pagamento_bancario_id -> cartas_pagamento_bancario');
+            $table->bigInteger('carta_pagamento_bancario_id')->nullable()->comment('legado: letter_id');
+            $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
+            $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
+            $table->string('nif', 30)->nullable()->comment('legado: nif');
+            $table->string('banco', 100)->nullable()->comment('legado: banco · tipo forçado (inferido: varchar(50))');
+            $table->string('iban', 255)->nullable()->comment('legado: iban · tipo forçado (inferido: varchar(50))');
+            $table->string('numero_conta', 40)->nullable()->comment('legado: numero_conta · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->string('titular', 150)->nullable()->comment('legado: titular · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->string('referencia', 100)->nullable()->comment('legado: referencia · tipo forçado (inferido: varchar(20))');
+            $table->decimal('montante', 15, 2)->nullable()->comment('legado: amount · tipos mistos: inteiro=32, decimal=4');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_itens_carta_pagamento_empresa_id ON itens_carta_pagamento (empresa_id)');
         DB::statement('CREATE INDEX ix_itens_carta_pagamento_carta_pagamento_bancario_id ON itens_carta_pagamento (carta_pagamento_bancario_id)');
         DB::statement('CREATE INDEX ix_itens_carta_pagamento_colaborador_id ON itens_carta_pagamento (colaborador_id)');
+        DB::statement('CREATE INDEX ix_itens_carta_pagamento_terceiro_id ON itens_carta_pagamento (terceiro_id)');
 
-        // rh_dependents (legado) -> dependentes_colaboradores · 1 linhas reais no backup
+        // rh_dependents (legado) -> dependentes_colaboradores · 2 linhas reais no backup
         Schema::create('dependentes_colaboradores', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
@@ -307,7 +341,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_habilitacoes_colaboradores_empresa_id ON habilitacoes_colaboradores (empresa_id)');
         DB::statement('CREATE INDEX ix_habilitacoes_colaboradores_colaborador_id ON habilitacoes_colaboradores (colaborador_id)');
 
-        // rh_vacations (legado) -> plano_ferias_colaboradores · 4 linhas reais no backup
+        // rh_vacations (legado) -> plano_ferias_colaboradores · 6 linhas reais no backup
         Schema::create('plano_ferias_colaboradores', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
@@ -329,16 +363,16 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_plano_ferias_colaboradores_pedido_portal_colaborador_id ON plano_ferias_colaboradores (pedido_portal_colaborador_id)');
         DB::statement('ALTER TABLE plano_ferias_colaboradores ADD CONSTRAINT ck_plano_ferias_colaboradores_estado CHECK (estado IS NULL OR estado IN (\'PEDIDO\',\'PLANEADO\',\'APROVADO\',\'GOZADO\',\'CANCELADO\'))');
 
-        // rh_absences (legado) -> ausencias_faltas_colaboradores · 34 linhas reais no backup
+        // rh_absences (legado) -> ausencias_faltas_colaboradores · 125 linhas reais no backup
         Schema::create('ausencias_faltas_colaboradores', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
-            $table->string('tipo', 40)->nullable()->comment('legado: tipo · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->string('tipo', 40)->nullable()->comment('legado: tipo · tipo forçado (inferido: varchar(30))');
             $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
             $table->date('data_fim')->nullable()->comment('legado: data_fim');
             $table->integer('dias_uteis')->nullable()->comment('legado: dias_uteis');
-            $table->decimal('horas_falta', 12, 3)->nullable()->comment('legado: horas_falta');
+            $table->decimal('horas_falta', 12, 3)->nullable()->comment('legado: horas_falta · tipos mistos: inteiro=120, decimal=5');
             $table->string('ocorrencia', 50)->nullable()->comment('legado: ocorrencia');
             $table->string('estado', 20)->nullable()->comment('legado: estado · código normalizado ∈ {POR_JUSTIFICAR, PENDENTE_CHEFIA, PENDENTE_RH, APROVADO, RECUSADO, CANCELADO}; texto original em estado_original');
             $table->string('estado_original', 100)->nullable()->comment('legado: estado · texto exacto do legado');
@@ -348,14 +382,15 @@ return new class extends Migration
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->integer('dias')->nullable()->comment('legado: dias');
             $table->decimal('horas', 12, 3)->nullable()->comment('legado: horas');
+            $table->text('motivo')->nullable()->comment('legado: motivo');
+            $table->text('documento_url')->nullable()->comment('legado: documento_url · tipo forçado (inferido: varchar(100))');
+            $table->string('remunerada', 20)->nullable()->comment('legado: remunerada · tipo forçado (inferido: boolean); código normalizado ∈ {SIM, NAO, EMPREGADOR}; texto original em remunerada_original');
+            $table->string('remunerada_original', 100)->nullable()->comment('legado: remunerada · texto exacto do legado');
+            $table->jsonb('avisos')->nullable()->comment('legado: avisos · tipo forçado (inferido: jsonb)');
+            $table->bigInteger('pedido_portal_colaborador_id')->nullable()->comment('legado: portal_request_id');
+            $table->timestampTz('justificada_em')->nullable()->comment('legado: justificada_em');
+            $table->string('justificada_por', 255)->nullable()->comment('legado: justificada_por · tipo forçado (inferido: varchar(20))');
             $table->boolean('pendente_no_fecho')->nullable()->comment('legado: pendente_no_fecho');
-            $table->text('motivo')->nullable()->comment('legado: motivo · do código legado js/modules/rh/ausencias.js:133');
-            $table->text('documento_url')->nullable()->comment('legado: documento_url · do código legado js/modules/rh/ausencias.js:133');
-            $table->string('remunerada', 20)->nullable()->comment('legado: remunerada · do código legado js/modules/rh/ausencias.js:134');
-            $table->jsonb('avisos')->nullable()->comment('legado: avisos · do código legado js/modules/rh/ausencias.js:134');
-            $table->bigInteger('pedido_portal_colaborador_id')->nullable()->comment('legado: portal_request_id · do código legado js/modules/rh/ausencias.js:135');
-            $table->timestampTz('justificada_em')->nullable()->comment('legado: justificada_em · do código legado js/modules/rh/ausencias.js:154');
-            $table->string('justificada_por', 255)->nullable()->comment('legado: justificada_por · do código legado js/modules/rh/ausencias.js:154');
             $table->timestampTz('decidido_em')->nullable()->comment('legado: decidido_em · do código legado js/modules/rh/ausencias.js:167');
             $table->string('decidido_por', 255)->nullable()->comment('legado: decidido_por · do código legado js/modules/rh/ausencias.js:167');
             $table->text('nota_decisao')->nullable()->comment('legado: nota_decisao · do código legado js/modules/rh/ausencias.js:167');
@@ -367,8 +402,9 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_ausencias_faltas_colaboradores_fecho_mensal_assiduidade_id ON ausencias_faltas_colaboradores (fecho_mensal_assiduidade_id)');
         DB::statement('CREATE INDEX ix_ausencias_faltas_colaboradores_pedido_portal_colaborador_id ON ausencias_faltas_colaboradores (pedido_portal_colaborador_id)');
         DB::statement('ALTER TABLE ausencias_faltas_colaboradores ADD CONSTRAINT ck_ausencias_faltas_colaboradores_estado CHECK (estado IS NULL OR estado IN (\'POR_JUSTIFICAR\',\'PENDENTE_CHEFIA\',\'PENDENTE_RH\',\'APROVADO\',\'RECUSADO\',\'CANCELADO\'))');
+        DB::statement('ALTER TABLE ausencias_faltas_colaboradores ADD CONSTRAINT ck_ausencias_faltas_colaboradores_remunerada CHECK (remunerada IS NULL OR remunerada IN (\'SIM\',\'NAO\',\'EMPREGADOR\'))');
 
-        // rh_attendance (legado) -> efectividade_assiduidade · 190 linhas reais no backup
+        // rh_attendance (legado) -> efectividade_assiduidade · 209 linhas reais no backup
         Schema::create('efectividade_assiduidade', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
@@ -376,14 +412,16 @@ return new class extends Migration
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
             $table->string('entrada', 10)->nullable()->comment('legado: entrada');
             $table->string('saida', 10)->nullable()->comment('legado: saida');
-            $table->decimal('horas', 12, 3)->nullable()->comment('legado: horas · tipos mistos: inteiro=24, decimal=166');
+            $table->decimal('horas', 12, 3)->nullable()->comment('legado: horas · tipos mistos: inteiro=43, decimal=166');
             $table->string('origem', 20)->nullable()->comment('legado: origem · código normalizado ∈ {MANUAL, FICHEIRO, RELOGIO}; texto original em origem_original');
             $table->string('origem_original', 100)->nullable()->comment('legado: origem · texto exacto do legado');
             $table->string('fonte', 50)->nullable()->comment('legado: fonte');
             $table->text('observacoes')->nullable()->comment('legado: observacoes · sem valores reais: tipo a confirmar no código legado');
             $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
-            $table->boolean('autorizado_extra')->nullable()->comment('legado: autorizado_extra · do código legado js/modules/rh/assiduidade.js:316');
+            $table->boolean('autorizado_extra')->nullable()->comment('legado: autorizado_extra · tipo forçado (inferido: boolean)');
+            $table->string('saida_intervalo', 10)->nullable()->comment('legado: saida_intervalo');
+            $table->string('entrada_intervalo', 10)->nullable()->comment('legado: entrada_intervalo');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
         });
@@ -391,27 +429,30 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_efectividade_assiduidade_colaborador_id ON efectividade_assiduidade (colaborador_id)');
         DB::statement('ALTER TABLE efectividade_assiduidade ADD CONSTRAINT ck_efectividade_assiduidade_origem CHECK (origem IS NULL OR origem IN (\'MANUAL\',\'FICHEIRO\',\'RELOGIO\'))');
 
-        // rh_attendance_config (legado) -> configuracoes_assiduidade · 0 linhas reais no backup
+        // rh_attendance_config (legado) -> configuracoes_assiduidade · 1 linhas reais no backup
         Schema::create('configuracoes_assiduidade', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('empresa_id')->comment('legado: rh_company_id · do código legado js/modules/rh/assiduidade.js:59');
-            $table->jsonb('dias_uteis')->nullable()->comment('legado: dias_uteis · do código legado js/modules/rh/assiduidade.js:59');
-            $table->integer('tolerancia_min')->nullable()->comment('legado: tolerancia_min · do código legado js/modules/rh/assiduidade.js:60');
-            $table->integer('arredondamento_min')->nullable()->comment('legado: arredondamento_min · do código legado js/modules/rh/assiduidade.js:61');
-            $table->integer('extras_min_minutos')->nullable()->comment('legado: extras_min_minutos · do código legado js/modules/rh/assiduidade.js:62');
-            $table->decimal('minimo_dia_horas', 12, 3)->nullable()->comment('legado: minimo_dia_horas · do código legado js/modules/rh/assiduidade.js:63');
-            $table->jsonb('feriados')->nullable()->comment('legado: feriados · do código legado js/modules/rh/assiduidade.js:64');
-            $table->jsonb('relogio')->nullable()->comment('legado: relogio · do código legado js/modules/rh/assiduidade.js:65');
-            $table->string('modo_compensacao', 10)->nullable()->comment('legado: modo_compensacao · do código legado js/modules/rh/assiduidade.js:66');
-            $table->decimal('limite_compensacao_h', 15, 2)->nullable()->comment('legado: limite_compensacao_h · do código legado js/modules/rh/assiduidade.js:67');
-            $table->boolean('extra_nao_util_exige_autorizacao')->nullable()->comment('legado: extra_nao_util_exige_autorizacao · do código legado js/modules/rh/assiduidade.js:68');
-            $table->string('atualizado_por', 255)->nullable()->comment('legado: actualizado_por · do código legado js/modules/rh/assiduidade.js:69');
-            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em · do código legado js/modules/rh/assiduidade.js:69');
+            $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
+            $table->jsonb('dias_uteis')->nullable()->comment('legado: dias_uteis · tipo forçado (inferido: jsonb)');
+            $table->integer('tolerancia_min')->nullable()->comment('legado: tolerancia_min');
+            $table->integer('arredondamento_min')->nullable()->comment('legado: arredondamento_min · tipo forçado (inferido: integer)');
+            $table->integer('extras_min_minutos')->nullable()->comment('legado: extras_min_minutos');
+            $table->decimal('minimo_dia_horas', 12, 3)->nullable()->comment('legado: minimo_dia_horas');
+            $table->integer('periodos_padrao')->nullable()->comment('legado: periodos_padrao');
+            $table->string('intervalo_saida_padrao', 10)->nullable()->comment('legado: intervalo_saida_padrao');
+            $table->string('intervalo_entrada_padrao', 10)->nullable()->comment('legado: intervalo_entrada_padrao');
+            $table->jsonb('feriados')->nullable()->comment('legado: feriados · tipo forçado (inferido: jsonb)');
+            $table->jsonb('relogio')->nullable()->comment('legado: relogio');
+            $table->string('modo_compensacao', 10)->nullable()->comment('legado: modo_compensacao · tipo forçado (inferido: varchar(10))');
+            $table->decimal('limite_compensacao_h', 15, 2)->nullable()->comment('legado: limite_compensacao_h · tipo forçado (inferido: integer)');
+            $table->boolean('extra_nao_util_exige_autorizacao')->nullable()->comment('legado: extra_nao_util_exige_autorizacao · tipo forçado (inferido: boolean)');
+            $table->string('atualizado_por', 255)->nullable()->comment('legado: actualizado_por · tipo forçado (inferido: varchar(10))');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_configuracoes_assiduidade_empresa_id ON configuracoes_assiduidade (empresa_id)');
 
-        // rh_attendance_closures (legado) -> fechos_mensais_assiduidade · 2 linhas reais no backup
+        // rh_attendance_closures (legado) -> fechos_mensais_assiduidade · 3 linhas reais no backup
         Schema::create('fechos_mensais_assiduidade', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
@@ -439,7 +480,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_fechos_mensais_assiduidade_periodo_processamento_salarial_id ON fechos_mensais_assiduidade (periodo_processamento_salarial_id)');
         DB::statement('ALTER TABLE fechos_mensais_assiduidade ADD CONSTRAINT ck_fechos_mensais_assiduidade_estado CHECK (estado IS NULL OR estado IN (\'FECHADO\',\'REABERTO\'))');
 
-        // rh_prod_items (legado) -> itens_produtividade_rh · 1 linhas reais no backup
+        // rh_prod_items (legado) -> itens_produtividade_rh · 8 linhas reais no backup
         Schema::create('itens_produtividade_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
@@ -448,13 +489,14 @@ return new class extends Migration
             $table->string('metrica', 20)->nullable()->comment('legado: metrica · código normalizado ∈ {QUANTIDADE, HORAS, OBJECTIVO, PONTOS, TAREFAS}; texto original em metrica_original');
             $table->string('metrica_original', 100)->nullable()->comment('legado: metrica · texto exacto do legado');
             $table->string('unidade', 10)->nullable()->comment('legado: unidade');
-            $table->decimal('preco_unitario', 15, 4)->nullable()->comment('legado: preco_unitario · tipo forçado (inferido: numeric(15,2))');
+            $table->decimal('preco_unitario', 15, 4)->nullable()->comment('legado: preco_unitario · tipos mistos: inteiro=6, decimal=2; tipo forçado (inferido: numeric(15,2))');
             $table->bigInteger('infotipo_salarial_id')->nullable()->comment('legado: infotype_id');
-            $table->decimal('minimo', 15, 3)->nullable()->comment('legado: minimo · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->decimal('minimo', 15, 3)->nullable()->comment('legado: minimo · tipo forçado (inferido: integer)');
             $table->decimal('maximo', 15, 3)->nullable()->comment('legado: maximo · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
             $table->boolean('ativo')->nullable()->comment('legado: activo');
             $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
+            $table->string('base_calculo', 20)->nullable()->comment('legado: base_calculo');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
         });
@@ -462,21 +504,21 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_itens_produtividade_rh_infotipo_salarial_id ON itens_produtividade_rh (infotipo_salarial_id)');
         DB::statement('ALTER TABLE itens_produtividade_rh ADD CONSTRAINT ck_itens_produtividade_rh_metrica CHECK (metrica IS NULL OR metrica IN (\'QUANTIDADE\',\'HORAS\',\'OBJECTIVO\',\'PONTOS\',\'TAREFAS\'))');
 
-        // rh_prod_periods (legado) -> periodos_produtividade_rh · 1 linhas reais no backup
+        // rh_prod_periods (legado) -> periodos_produtividade_rh · 5 linhas reais no backup
         Schema::create('periodos_produtividade_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
             $table->string('mes', 20)->nullable()->comment('legado: mes');
             $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
             $table->date('data_fim')->nullable()->comment('legado: data_fim');
-            $table->text('observacoes')->nullable()->comment('legado: observacoes · sem valores reais: tipo a confirmar no código legado');
+            $table->text('observacoes')->nullable()->comment('legado: observacoes');
             $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
             $table->string('estado', 20)->nullable()->comment('legado: estado · código normalizado ∈ {ABERTO, FECHADO}; texto original em estado_original');
             $table->string('estado_original', 100)->nullable()->comment('legado: estado · texto exacto do legado');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->timestampTz('fechado_em')->nullable()->comment('legado: fechado_em');
             $table->string('fechado_por', 100)->nullable()->comment('legado: fechado_por');
-            $table->decimal('total_fecho', 15, 2)->nullable()->comment('legado: total_fecho');
+            $table->decimal('total_fecho', 15, 2)->nullable()->comment('legado: total_fecho · tipos mistos: inteiro=3, decimal=1');
             $table->integer('registos_fecho')->nullable()->comment('legado: registos_fecho');
             $table->timestampTz('lancado_em')->nullable()->comment('legado: lancado_em');
             $table->string('lancado_por', 100)->nullable()->comment('legado: lancado_por');
@@ -491,7 +533,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_periodos_produtividade_rh_periodo_processamento_salarial_id ON periodos_produtividade_rh (periodo_processamento_salarial_id)');
         DB::statement('ALTER TABLE periodos_produtividade_rh ADD CONSTRAINT ck_periodos_produtividade_rh_estado CHECK (estado IS NULL OR estado IN (\'ABERTO\',\'FECHADO\'))');
 
-        // rh_productivity (legado) -> registos_produtividade_rh · 6 linhas reais no backup
+        // rh_productivity (legado) -> registos_produtividade_rh · 56 linhas reais no backup
         Schema::create('registos_produtividade_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
@@ -499,14 +541,16 @@ return new class extends Migration
             $table->string('mes', 20)->nullable()->comment('legado: mes');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
             $table->bigInteger('item_produtividade_id')->nullable()->comment('legado: item_id');
-            $table->date('data')->nullable()->comment('legado: data · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
-            $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantidade');
-            $table->decimal('preco_unitario', 15, 4)->nullable()->comment('legado: preco_unitario · tipo forçado (inferido: numeric(15,2))');
-            $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor');
-            $table->decimal('quantidade_considerada', 12, 3)->nullable()->comment('legado: quantidade_considerada');
-            $table->text('observacoes')->nullable()->comment('legado: observacoes · sem valores reais: tipo a confirmar no código legado');
-            $table->string('origem', 10)->nullable()->comment('legado: origem');
+            $table->date('data')->nullable()->comment('legado: data · tipo forçado (inferido: date)');
+            $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantidade · tipos mistos: inteiro=14, decimal=42');
+            $table->decimal('preco_unitario', 15, 4)->nullable()->comment('legado: preco_unitario · tipos mistos: inteiro=26, decimal=30; tipo forçado (inferido: numeric(15,2))');
+            $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor · tipos mistos: inteiro=16, decimal=40');
+            $table->decimal('quantidade_considerada', 12, 3)->nullable()->comment('legado: quantidade_considerada · tipos mistos: inteiro=14, decimal=42');
+            $table->text('observacoes')->nullable()->comment('legado: observacoes');
+            $table->string('origem', 20)->nullable()->comment('legado: origem');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
+            $table->string('origem_chave', 50)->nullable()->comment('legado: origem_chave');
+            $table->jsonb('fonte')->nullable()->comment('legado: fonte');
             $table->string('atualizado_por', 255)->nullable()->comment('legado: actualizado_por · do código legado js/modules/rh/produtividade.js:222');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em · do código legado js/modules/rh/produtividade.js:222');
@@ -516,47 +560,49 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_registos_produtividade_rh_colaborador_id ON registos_produtividade_rh (colaborador_id)');
         DB::statement('CREATE INDEX ix_registos_produtividade_rh_item_produtividade_id ON registos_produtividade_rh (item_produtividade_id)');
 
-        // rh_evaluations (legado) -> avaliacoes_desempenho_rh · 0 linhas reais no backup
+        // rh_evaluations (legado) -> avaliacoes_desempenho_rh · 1 linhas reais no backup
         Schema::create('avaliacoes_desempenho_rh', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('empresa_id')->comment('legado: rh_company_id · do código legado js/modules/rh/avaliacao.js:654');
-            $table->bigInteger('ciclo_avaliacao_id')->nullable()->comment('legado: ciclo_id · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->decimal('nota_360', 5, 2)->nullable()->comment('legado: nota_360 · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->string('classificacao_360', 30)->nullable()->comment('legado: classificacao_360 · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->jsonb('componentes_360')->nullable()->comment('legado: componentes_360 · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->jsonb('avisos_360')->nullable()->comment('legado: avisos_360 · do código legado js/modules/rh/aval360_dados.js:290');
-            $table->timestampTz('atualizado_360_em')->nullable()->comment('legado: actualizado_360_em · do código legado js/modules/rh/aval360_dados.js:290');
+            $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
+            $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
+            $table->integer('ano')->nullable()->comment('legado: ano · tipo forçado (inferido: integer)');
+            $table->string('periodo', 10)->nullable()->comment('legado: periodo · tipo forçado (inferido: varchar(10))');
+            $table->jsonb('criterios')->nullable()->comment('legado: criterios · tipo forçado (inferido: jsonb)');
+            $table->jsonb('objetivos')->nullable()->comment('legado: objectivos · tipo forçado (inferido: jsonb)');
+            $table->decimal('peso_objetivos', 5, 2)->nullable()->comment('legado: peso_objectivos · tipo forçado (inferido: numeric(9,4))');
+            $table->decimal('pontuacao', 5, 2)->nullable()->comment('legado: pontuacao · tipo forçado (inferido: numeric(15,2))');
+            $table->decimal('pontuacao_criterios', 5, 2)->nullable()->comment('legado: pontuacao_criterios · tipo forçado (inferido: numeric(15,2))');
+            $table->decimal('pontuacao_objetivos', 5, 2)->nullable()->comment('legado: pontuacao_objectivos · tipo forçado (inferido: integer)');
+            $table->string('classificacao', 30)->nullable()->comment('legado: classificacao · tipo forçado (inferido: varchar(10))');
+            $table->string('estado', 20)->nullable()->comment('legado: status · tipo forçado (inferido: varchar(20)); código normalizado ∈ {RASCUNHO, CONCLUIDA}; texto original em estado_original');
+            $table->string('estado_original', 100)->nullable()->comment('legado: status · texto exacto do legado');
+            $table->string('avaliador', 255)->nullable()->comment('legado: avaliador · tipo forçado (inferido: varchar(10))');
+            $table->date('data_avaliacao')->nullable()->comment('legado: data_avaliacao');
+            $table->text('pontos_fortes')->nullable()->comment('legado: pontos_fortes · tipo forçado (inferido: varchar(10))');
+            $table->text('pontos_melhorar')->nullable()->comment('legado: pontos_melhorar · tipo forçado (inferido: text)');
+            $table->text('plano_desenvolvimento')->nullable()->comment('legado: plano_desenvolvimento · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->text('comentario_colaborador')->nullable()->comment('legado: comentario_colaborador · sem valores reais: tipo a confirmar no código legado');
+            $table->timestampTz('concluida_em')->nullable()->comment('legado: concluida_em');
+            $table->string('concluida_por', 255)->nullable()->comment('legado: concluida_por · tipo forçado (inferido: varchar(10))');
+            $table->bigInteger('ciclo_avaliacao_id')->nullable()->comment('legado: ciclo_id');
+            $table->decimal('nota_360', 5, 2)->nullable()->comment('legado: nota_360 · tipo forçado (inferido: numeric(15,2))');
+            $table->string('classificacao_360', 30)->nullable()->comment('legado: classificacao_360 · tipo forçado (inferido: varchar(10))');
+            $table->jsonb('componentes_360')->nullable()->comment('legado: componentes_360 · tipo forçado (inferido: jsonb)');
+            $table->jsonb('avisos_360')->nullable()->comment('legado: avisos_360 · tipo forçado (inferido: jsonb)');
+            $table->timestampTz('atualizado_360_em')->nullable()->comment('legado: actualizado_360_em');
             $table->jsonb('conhecimento')->nullable()->comment('legado: conhecimento · do código legado js/modules/rh/aval360_dados.js:317');
-            $table->text('comentario_colaborador')->nullable()->comment('legado: comentario_colaborador · do código legado js/modules/rh/aval360_dados.js:317');
             $table->jsonb('contestacao')->nullable()->comment('legado: contestacao · do código legado js/modules/rh/aval360_dados.js:343');
-            $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id · do código legado js/modules/rh/avaliacao.js:654');
-            $table->integer('ano')->nullable()->comment('legado: ano · do código legado js/modules/rh/avaliacao.js:654');
-            $table->string('periodo', 10)->nullable()->comment('legado: periodo · do código legado js/modules/rh/avaliacao.js:654');
-            $table->jsonb('criterios')->nullable()->comment('legado: criterios · do código legado js/modules/rh/avaliacao.js:655');
-            $table->jsonb('objetivos')->nullable()->comment('legado: objectivos · do código legado js/modules/rh/avaliacao.js:655');
-            $table->decimal('peso_objetivos', 5, 2)->nullable()->comment('legado: peso_objectivos · do código legado js/modules/rh/avaliacao.js:655');
-            $table->decimal('pontuacao', 5, 2)->nullable()->comment('legado: pontuacao · do código legado js/modules/rh/avaliacao.js:656');
-            $table->decimal('pontuacao_criterios', 5, 2)->nullable()->comment('legado: pontuacao_criterios · do código legado js/modules/rh/avaliacao.js:656');
-            $table->decimal('pontuacao_objetivos', 5, 2)->nullable()->comment('legado: pontuacao_objectivos · do código legado js/modules/rh/avaliacao.js:656');
-            $table->string('classificacao', 30)->nullable()->comment('legado: classificacao · do código legado js/modules/rh/avaliacao.js:657');
-            $table->string('estado', 20)->nullable()->comment('legado: status · do código legado js/modules/rh/avaliacao.js:658');
-            $table->string('avaliador', 255)->nullable()->comment('legado: avaliador · do código legado js/modules/rh/avaliacao.js:659');
-            $table->date('data_avaliacao')->nullable()->comment('legado: data_avaliacao · do código legado js/modules/rh/avaliacao.js:659');
-            $table->text('pontos_fortes')->nullable()->comment('legado: pontos_fortes · do código legado js/modules/rh/avaliacao.js:660');
-            $table->text('pontos_melhorar')->nullable()->comment('legado: pontos_melhorar · do código legado js/modules/rh/avaliacao.js:660');
-            $table->text('plano_desenvolvimento')->nullable()->comment('legado: plano_desenvolvimento · do código legado js/modules/rh/avaliacao.js:661');
-            $table->timestampTz('concluida_em')->nullable()->comment('legado: concluida_em · do código legado js/modules/rh/avaliacao.js:662');
-            $table->string('concluida_por', 255)->nullable()->comment('legado: concluida_por · do código legado js/modules/rh/avaliacao.js:663');
             $table->timestampTz('reaberta_em')->nullable()->comment('legado: reaberta_em · do código legado js/modules/rh/avaliacao.js:713');
             $table->string('reaberta_por', 255)->nullable()->comment('legado: reaberta_por · do código legado js/modules/rh/avaliacao.js:713');
-            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at · do código legado js/modules/rh/avaliacao.js:664');
-            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at · do código legado js/modules/rh/avaliacao.js:668');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: updated_at');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at');
         });
         DB::statement('CREATE UNIQUE INDEX uq_avaliacoes_desempenho_rh_empresa__colabora_ano_periodo ON avaliacoes_desempenho_rh (empresa_id, colaborador_id, ano, periodo)');
-        DB::statement('CREATE INDEX ix_avaliacoes_desempenho_rh_ciclo_avaliacao_id ON avaliacoes_desempenho_rh (ciclo_avaliacao_id)');
         DB::statement('CREATE INDEX ix_avaliacoes_desempenho_rh_colaborador_id ON avaliacoes_desempenho_rh (colaborador_id)');
+        DB::statement('CREATE INDEX ix_avaliacoes_desempenho_rh_ciclo_avaliacao_id ON avaliacoes_desempenho_rh (ciclo_avaliacao_id)');
+        DB::statement('ALTER TABLE avaliacoes_desempenho_rh ADD CONSTRAINT ck_avaliacoes_desempenho_rh_estado CHECK (estado IS NULL OR estado IN (\'RASCUNHO\',\'CONCLUIDA\'))');
 
-        // rh_evaluation_items (legado) -> criterios_avaliacao_rh · 26 linhas reais no backup
+        // rh_evaluation_items (legado) -> criterios_avaliacao_rh · 27 linhas reais no backup
         Schema::create('criterios_avaliacao_rh', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
@@ -719,12 +765,12 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_confirmacoes_avaliacao_rh_empresa_id ON confirmacoes_avaliacao_rh (empresa_id)');
         DB::statement('CREATE INDEX ix_confirmacoes_avaliacao_rh_colaborador_id ON confirmacoes_avaliacao_rh (colaborador_id)');
 
-        // rh_portal_requests (legado) -> pedidos_portal_colaborador · 9 linhas reais no backup
+        // rh_portal_requests (legado) -> pedidos_portal_colaborador · 18 linhas reais no backup
         Schema::create('pedidos_portal_colaborador', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
             $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
-            $table->string('tipo', 20)->nullable()->comment('legado: tipo · código normalizado ∈ {FERIAS, AUSENCIA, DOCUMENTO, AGREGADO}; texto original em tipo_original');
+            $table->string('tipo', 20)->nullable()->comment('legado: tipo · código normalizado ∈ {FERIAS, AUSENCIA, DOCUMENTO, AGREGADO, EMPRESTIMO}; texto original em tipo_original');
             $table->string('tipo_original', 100)->nullable()->comment('legado: tipo · texto exacto do legado');
             $table->jsonb('dados')->nullable()->comment('legado: dados');
             $table->jsonb('etapas')->nullable()->comment('legado: etapas');
@@ -732,9 +778,10 @@ return new class extends Migration
             $table->string('estado_original', 100)->nullable()->comment('legado: estado · texto exacto do legado');
             $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
             $table->bigInteger('plano_ferias_colaborador_id')->nullable()->comment('legado: vacation_id');
-            $table->timestampTz('decidido_em')->nullable()->comment('legado: decidido_em');
             $table->jsonb('documento')->nullable()->comment('legado: documento');
-            $table->bigInteger('ausencia_falta_id')->nullable()->comment('legado: absence_id · do código legado js/modules/rh/portal_dados.js:170');
+            $table->timestampTz('decidido_em')->nullable()->comment('legado: decidido_em');
+            $table->bigInteger('ausencia_falta_id')->nullable()->comment('legado: absence_id');
+            $table->bigInteger('emprestimo_id')->nullable()->comment('legado: loan_id');
             $table->timestampTz('cancelado_em')->nullable()->comment('legado: cancelado_em · do código legado js/modules/rh/portal_dados.js:205');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -743,7 +790,8 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_pedidos_portal_colaborador_colaborador_id ON pedidos_portal_colaborador (colaborador_id)');
         DB::statement('CREATE INDEX ix_pedidos_portal_colaborador_plano_ferias_colaborador_id ON pedidos_portal_colaborador (plano_ferias_colaborador_id)');
         DB::statement('CREATE INDEX ix_pedidos_portal_colaborador_ausencia_falta_id ON pedidos_portal_colaborador (ausencia_falta_id)');
-        DB::statement('ALTER TABLE pedidos_portal_colaborador ADD CONSTRAINT ck_pedidos_portal_colaborador_tipo CHECK (tipo IS NULL OR tipo IN (\'FERIAS\',\'AUSENCIA\',\'DOCUMENTO\',\'AGREGADO\'))');
+        DB::statement('CREATE INDEX ix_pedidos_portal_colaborador_emprestimo_id ON pedidos_portal_colaborador (emprestimo_id)');
+        DB::statement('ALTER TABLE pedidos_portal_colaborador ADD CONSTRAINT ck_pedidos_portal_colaborador_tipo CHECK (tipo IS NULL OR tipo IN (\'FERIAS\',\'AUSENCIA\',\'DOCUMENTO\',\'AGREGADO\',\'EMPRESTIMO\'))');
         DB::statement('ALTER TABLE pedidos_portal_colaborador ADD CONSTRAINT ck_pedidos_portal_colaborador_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE_CHEFIA\',\'PENDENTE_RH\',\'APROVADO\',\'EMITIDO\',\'RECUSADO\',\'CANCELADO\'))');
 
         // rh_self_evaluations (legado) -> autoavaliacoes_colaborador · 1 linhas reais no backup
@@ -800,26 +848,26 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_respostas_ascendentes_rh_empresa_id ON respostas_ascendentes_rh (empresa_id)');
         DB::statement('CREATE INDEX ix_respostas_ascendentes_rh_colaborador_alvo_id ON respostas_ascendentes_rh (colaborador_alvo_id)');
 
-        // rh_doc_templates (legado) -> modelos_documentos_rh · 0 linhas reais no backup
+        // rh_doc_templates (legado) -> modelos_documentos_rh · 1 linhas reais no backup
         Schema::create('modelos_documentos_rh', function (Blueprint $table) {
             $table->id();
-            $table->bigInteger('empresa_id')->comment('legado: rh_company_id · do código legado js/modules/rh/portal_dados.js:310');
-            $table->string('codigo', 50)->nullable()->comment('legado: codigo · do código legado js/modules/rh/portal_dados.js:310');
-            $table->string('nome', 255)->nullable()->comment('legado: nome · do código legado js/modules/rh/portal_dados.js:310');
-            $table->string('titulo', 255)->nullable()->comment('legado: titulo · do código legado js/modules/rh/portal_dados.js:310');
-            $table->text('texto')->nullable()->comment('legado: texto · do código legado js/modules/rh/portal_dados.js:310');
-            $table->boolean('ativo')->nullable()->comment('legado: activo · do código legado js/modules/rh/portal_dados.js:310');
-            $table->boolean('auto_emitir')->nullable()->comment('legado: auto_emitir · do código legado js/modules/rh/portal_dados.js:310');
-            $table->string('assinante', 255)->nullable()->comment('legado: assinante · do código legado js/modules/rh/portal_dados.js:310');
-            $table->string('cargo_assinante', 255)->nullable()->comment('legado: cargo_assinante · do código legado js/modules/rh/portal_dados.js:310');
-            $table->string('local', 255)->nullable()->comment('legado: local · do código legado js/modules/rh/portal_dados.js:310');
-            $table->string('atualizado_por', 255)->nullable()->comment('legado: actualizado_por · do código legado js/modules/rh/portal_dados.js:310');
-            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em · do código legado js/modules/rh/portal_dados.js:310');
+            $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
+            $table->string('codigo', 50)->nullable()->comment('legado: codigo · tipo forçado (inferido: varchar(20))');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
+            $table->string('titulo', 255)->nullable()->comment('legado: titulo');
+            $table->text('texto')->nullable()->comment('legado: texto');
+            $table->boolean('ativo')->nullable()->comment('legado: activo');
+            $table->boolean('auto_emitir')->nullable()->comment('legado: auto_emitir');
+            $table->text('assinante')->nullable()->comment('legado: assinante · sem valores reais: tipo a confirmar no código legado');
+            $table->text('cargo_assinante')->nullable()->comment('legado: cargo_assinante · sem valores reais: tipo a confirmar no código legado');
+            $table->text('local')->nullable()->comment('legado: local · sem valores reais: tipo a confirmar no código legado');
+            $table->string('atualizado_por', 255)->nullable()->comment('legado: actualizado_por · tipo forçado (inferido: varchar(20))');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE UNIQUE INDEX uq_modelos_documentos_rh_empresa_id_codigo ON modelos_documentos_rh (empresa_id, codigo)');
 
-        // org_units (legado) -> unidades_organicas · 16 linhas reais no backup · eliminação lógica
+        // org_units (legado) -> unidades_organicas · 21 linhas reais no backup · eliminação lógica
         Schema::create('unidades_organicas', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: org_company_id');
@@ -853,7 +901,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_unidades_organicas_unidade_negocio_id ON unidades_organicas (unidade_negocio_id)');
         DB::statement('ALTER TABLE unidades_organicas ADD CONSTRAINT ck_unidades_organicas_tipo CHECK (tipo IS NULL OR tipo IN (\'ORGAO_SOCIAL\',\'DIRECCAO_GERAL\',\'DIRECCAO\',\'DEPARTAMENTO\',\'GABINETE\',\'SECCAO\',\'EQUIPA\',\'OUTRO\'))');
 
-        // org_positions (legado) -> postos_trabalho · 9 linhas reais no backup · eliminação lógica
+        // org_positions (legado) -> postos_trabalho · 12 linhas reais no backup · eliminação lógica
         Schema::create('postos_trabalho', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: org_company_id');
@@ -873,6 +921,102 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_postos_trabalho_unidade_organica_id ON postos_trabalho (unidade_organica_id)');
         DB::statement('CREATE INDEX ix_postos_trabalho_cargo_funcao_id ON postos_trabalho (cargo_funcao_id)');
         DB::statement('CREATE INDEX ix_postos_trabalho_posto_superior_id ON postos_trabalho (posto_superior_id)');
+
+        // rh_schedules (legado) -> escalas_trabalho · 21 linhas reais no backup
+        Schema::create('escalas_trabalho', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
+            $table->date('dia')->nullable()->comment('legado: dia');
+            $table->string('entrada', 10)->nullable()->comment('legado: entrada');
+            $table->string('saida', 10)->nullable()->comment('legado: saida');
+            $table->integer('intervalo_minutos')->nullable()->comment('legado: intervalo_min');
+            $table->integer('tolerancia_min')->nullable()->comment('legado: tolerancia_min');
+            $table->boolean('folga')->nullable()->comment('legado: folga');
+            $table->boolean('prioritaria')->nullable()->comment('legado: prioritaria');
+            $table->string('origem', 10)->nullable()->comment('legado: origem');
+            $table->text('nota')->nullable()->comment('legado: nota · sem valores reais: tipo a confirmar no código legado');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
+            $table->integer('periodos')->nullable()->comment('legado: periodos');
+            $table->string('saida_intervalo', 10)->nullable()->comment('legado: saida_intervalo');
+            $table->string('entrada_intervalo', 10)->nullable()->comment('legado: entrada_intervalo');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
+        });
+        DB::statement('CREATE INDEX ix_escalas_trabalho_empresa_id ON escalas_trabalho (empresa_id)');
+        DB::statement('CREATE INDEX ix_escalas_trabalho_colaborador_id ON escalas_trabalho (colaborador_id)');
+
+        // rh_loans (legado) -> emprestimos_colaboradores · 2 linhas reais no backup
+        Schema::create('emprestimos_colaboradores', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
+            $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
+            $table->string('numero', 20)->nullable()->comment('legado: numero');
+            $table->decimal('capital', 15, 2)->nullable()->comment('legado: capital · tipo forçado (inferido: integer)');
+            $table->integer('prestacoes')->nullable()->comment('legado: prestacoes');
+            $table->decimal('taxa_juro', 7, 4)->nullable()->comment('legado: taxa_juro · tipo forçado (inferido: numeric(9,4))');
+            $table->decimal('valor_prestacao', 15, 2)->nullable()->comment('legado: valor_prestacao · tipo forçado (inferido: numeric(15,2))');
+            $table->string('inicio_desconto', 20)->nullable()->comment('legado: inicio_desconto');
+            $table->text('motivo')->nullable()->comment('legado: motivo');
+            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->bigInteger('pedido_portal_colaborador_id')->nullable()->comment('legado: portal_request_id');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
+            $table->decimal('total_juros', 15, 2)->nullable()->comment('legado: total_juros · tipo forçado (inferido: numeric(15,2))');
+            $table->decimal('total_a_pagar', 15, 2)->nullable()->comment('legado: total_a_pagar · tipo forçado (inferido: numeric(15,2))');
+            $table->timestampTz('aprovado_em')->nullable()->comment('legado: aprovado_em');
+            $table->string('aprovado_por', 100)->nullable()->comment('legado: aprovado_por');
+            $table->string('lancamento_referencia', 50)->nullable()->comment('legado: lancamento_ref · tipo forçado (inferido: varchar(20))');
+            $table->timestampTz('lancado_em')->nullable()->comment('legado: lancado_em');
+            $table->string('lancado_por', 100)->nullable()->comment('legado: lancado_por');
+            $table->text('motivo_cancelamento')->nullable()->comment('legado: motivo_cancelamento');
+            $table->timestampTz('cancelado_em')->nullable()->comment('legado: cancelado_em');
+            $table->string('cancelado_por', 100)->nullable()->comment('legado: cancelado_por · tipo forçado (inferido: varchar(10))');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_emprestimos_colaboradores_empresa_id ON emprestimos_colaboradores (empresa_id)');
+        DB::statement('CREATE INDEX ix_emprestimos_colaboradores_colaborador_id ON emprestimos_colaboradores (colaborador_id)');
+        DB::statement('CREATE INDEX ix_emprestimos_colaboradores_pedido_portal_colaborador_id ON emprestimos_colaboradores (pedido_portal_colaborador_id)');
+
+        // rh_loan_instalments (legado) -> prestacoes_emprestimos · 23 linhas reais no backup
+        Schema::create('prestacoes_emprestimos', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('derivada de emprestimo_id -> emprestimos_colaboradores');
+            $table->bigInteger('emprestimo_id')->nullable()->comment('legado: loan_id');
+            $table->bigInteger('colaborador_id')->nullable()->comment('legado: employee_id');
+            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->integer('numero')->nullable()->comment('legado: numero');
+            $table->string('mes_ano', 20)->nullable()->comment('legado: month_year');
+            $table->decimal('capital', 15, 2)->nullable()->comment('legado: capital · tipo forçado (inferido: numeric(15,2))');
+            $table->decimal('juro', 15, 2)->nullable()->comment('legado: juro · tipo forçado (inferido: integer)');
+            $table->decimal('total', 15, 2)->nullable()->comment('legado: total');
+            $table->decimal('saldo', 15, 2)->nullable()->comment('legado: saldo · tipos mistos: decimal=21, inteiro=2; tipo forçado (inferido: numeric(15,2))');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_prestacoes_emprestimos_empresa_id ON prestacoes_emprestimos (empresa_id)');
+        DB::statement('CREATE INDEX ix_prestacoes_emprestimos_emprestimo_id ON prestacoes_emprestimos (emprestimo_id)');
+        DB::statement('CREATE INDEX ix_prestacoes_emprestimos_colaborador_id ON prestacoes_emprestimos (colaborador_id)');
+
+        // rh_loan_settings (legado) -> configuracoes_emprestimos · 2 linhas reais no backup
+        Schema::create('configuracoes_emprestimos', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: rh_company_id');
+            $table->string('conta_emprestimo', 20)->nullable()->comment('legado: conta_emprestimo');
+            $table->string('conta_contrapartida', 20)->nullable()->comment('legado: conta_contrapartida');
+            $table->bigInteger('infotipo_desconto_id')->nullable()->comment('legado: infotype_desconto_id');
+            $table->integer('prestacoes_max')->nullable()->comment('legado: prestacoes_max');
+            $table->decimal('multiplo_salario_max', 7, 2)->nullable()->comment('legado: multiplo_salario_max · tipo forçado (inferido: integer)');
+            $table->decimal('taxa_juro_padrao', 7, 4)->nullable()->comment('legado: taxa_juro_padrao · tipo forçado (inferido: numeric(9,4))');
+            $table->boolean('exige_chefia')->nullable()->comment('legado: exige_chefia');
+            $table->bigInteger('diario_id')->nullable()->comment('legado: journal_id');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_configuracoes_emprestimos_empresa_id ON configuracoes_emprestimos (empresa_id)');
+        DB::statement('CREATE INDEX ix_configuracoes_emprestimos_infotipo_desconto_id ON configuracoes_emprestimos (infotipo_desconto_id)');
+        DB::statement('CREATE INDEX ix_configuracoes_emprestimos_diario_id ON configuracoes_emprestimos (diario_id)');
 
         // resultados_folha_salarial (tabela nova) · 0 linhas reais no backup
         Schema::create('resultados_folha_salarial', function (Blueprint $table) {
@@ -923,6 +1067,10 @@ return new class extends Migration
     {
         Schema::dropIfExists('configuracoes_rh');
         Schema::dropIfExists('resultados_folha_salarial');
+        Schema::dropIfExists('configuracoes_emprestimos');
+        Schema::dropIfExists('prestacoes_emprestimos');
+        Schema::dropIfExists('emprestimos_colaboradores');
+        Schema::dropIfExists('escalas_trabalho');
         Schema::dropIfExists('postos_trabalho');
         Schema::dropIfExists('unidades_organicas');
         Schema::dropIfExists('modelos_documentos_rh');

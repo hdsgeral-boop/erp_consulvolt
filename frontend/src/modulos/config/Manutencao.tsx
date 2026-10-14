@@ -13,6 +13,7 @@ import { accoesPedido, textoConfirmacao, type PedidoResumo } from './comum/regra
 import { larguraGaveta, scrollTabela, useEcra } from '@/componentes/responsivo';
 import { TabelaLocalImprimivel } from './comum/impressao';
 import Validacoes from './validacoes/Validacoes';
+import { RestauroLegado } from './RestauroLegado';
 
 interface ParametroAccao {
   id: string;
@@ -96,6 +97,7 @@ export default function Manutencao() {
             { key: 'pedidos', label: 'Pedidos', children: <Pedidos /> },
             { key: 'novo', label: 'Novo pedido', children: <NovoPedido acoes={catalogo.data?.acoes ?? []} aoCriar={() => setSeparador('pedidos')} /> },
             { key: 'validacoes', label: 'Validações de dados', children: <Validacoes /> },
+            { key: 'restauro', label: 'Restauro do sistema antigo', children: <RestauroLegado /> },
             {
               key: 'legado',
               label: 'Acções do sistema antigo',

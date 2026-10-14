@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela unidades_organicas (módulo RH). Legado: org_units · 16 linhas reais no backup.
+ * Tabela unidades_organicas (módulo RH). Legado: org_units · 21 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\UnidadeOrganica.
  */
 abstract class UnidadeOrganicaBase extends ModeloBase

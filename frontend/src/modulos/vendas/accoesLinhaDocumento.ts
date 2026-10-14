@@ -17,15 +17,19 @@ export interface AccoesDocumento {
   pedidoCompra: () => unknown;
   liquidar: () => void;
   limparEstado: () => unknown;
+  /** «Anular» (chave histórica «eliminar»): o ecrã pede o motivo e chama POST /anular — os documentos não se apagam. */
   eliminar: () => unknown;
 }
 
-/** Razão do bloqueio de «Eliminar» (legado: deleteSale, js/ui_sales.js:1962-2000), ou null quando é permitido. */
+/**
+ * Razão do bloqueio de «Anular» (legado: deleteSale, js/ui_sales.js:1962-2000; legado novo: AnularDocs.anularVenda — os
+ * documentos não se apagam, anulam-se com motivo), ou null quando é permitido.
+ */
 export function bloqueioEliminar(d: Pick<DocumentoVenda, 'tipo_documento' | 'estado' | 'contabilizado' | 'valor_pago'>): string | null {
-  if (FISCAIS.includes(d.tipo_documento)) return 'Documento fiscal: não se elimina, corrige-se com Nota de Crédito';
+  if (FISCAIS.includes(d.tipo_documento)) return 'Documento fiscal: não se anula, corrige-se com Nota de Crédito';
   if (d.estado === 'ANULADO') return 'Documento já anulado';
-  if (d.contabilizado || Number(d.valor_pago ?? 0) > 0.009) return 'Eliminação Bloqueada: Documento com liquidações ou contabilizado';
-  if (d.estado === 'CONCLUIDO' && d.tipo_documento !== 'GD') return 'Eliminação Bloqueada: documento já convertido';
+  if (d.contabilizado || Number(d.valor_pago ?? 0) > 0.009) return 'Anulação Bloqueada: documento com liquidações ou contabilizado';
+  if (d.estado === 'CONCLUIDO' && d.tipo_documento !== 'GD') return 'Anulação Bloqueada: documento já convertido';
   return null;
 }
 
@@ -33,7 +37,7 @@ export function bloqueioEliminar(d: Pick<DocumentoVenda, 'tipo_documento' | 'est
  * Acções por linha da Faturação, pela ordem, com os ícones e as regras do legado (renderFaturaçãoTab, js/ui_sales.js:
  * 685-707): Ver Processo, Documento AGT, Imprimir, Copiar Documento, Contabilizar / Descontabilizar (facturas e guias),
  * Converter (orçamentos, encomendas, guias), Converter em Pedido de Compra (encomendas), Liquidar (factura contabilizada
- * por pagar), Forçar limpeza de estado e Eliminar (bloqueado quando fiscal, contabilizado ou com liquidações). As mesmas
+ * por pagar), Forçar limpeza de estado e Anular (bloqueado quando fiscal, contabilizado ou com liquidações; pede motivo). As mesmas
  * acções continuam no detalhe; o servidor valida cada uma.
  */
 export function accoesLinhaDocumento(d: DocumentoVenda, grupo: GrupoLista, pode: (...p: string[]) => boolean, fazer: AccoesDocumento): AccaoLinha[] {
@@ -67,8 +71,8 @@ export function accoesLinhaDocumento(d: DocumentoVenda, grupo: GrupoLista, pode:
       onClick: fazer.limparEstado,
     },
     pode('vendas_fat_del') && {
-      chave: 'eliminar', icone: 'fa-trash', titulo: 'Eliminar', variante: 'perigo', cheio: true, desactivado: bloqueioEliminar(d) ?? false,
-      confirmar: { titulo: `Eliminar ${d.numero_documento}?`, texto: 'O documento fica anulado (o número não é reutilizado) e, nas guias, o stock é reposto.', textoOk: 'Eliminar', perigo: true },
+      // a confirmação é o próprio pedido do motivo (ecrã)
+      chave: 'eliminar', icone: 'fa-ban', titulo: 'Anular', variante: 'perigo', cheio: true, desactivado: bloqueioEliminar(d) ?? false,
       onClick: fazer.eliminar,
     },
   ];

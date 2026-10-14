@@ -10,7 +10,7 @@ use App\Models\SequenciaCampanhaCRM;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela funis_vendas_crm (módulo CRM). Legado: crm_pipelines · 2 linhas reais no backup.
+ * Tabela funis_vendas_crm (módulo CRM). Legado: crm_pipelines · 4 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\FunilVendasCRM.
  */
 abstract class FunilVendasCRMBase extends ModeloBase

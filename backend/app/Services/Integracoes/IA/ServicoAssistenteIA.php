@@ -224,7 +224,7 @@ final class ServicoAssistenteIA
     /** @return list<array<string, mixed>> */
     public function regras(): array
     {
-        return RegraInternaIA::query()->orderBy('nome')->get()->map(fn ($r) => $this->apresentarRegra($r))->all();
+        return RegraInternaIA::query()->ordenarPorNome()->get()->map(fn ($r) => $this->apresentarRegra($r))->all();
     }
 
     /** @param  array{nome: string, palavras_chave: string, modelo: string|array}  $d */

@@ -22,6 +22,12 @@ return new class extends Migration
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->string('tipo', 10)->nullable()->comment('legado: type');
             $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
+            $table->string('banco_nome', 100)->nullable()->comment('legado: bank_name · tipo forçado (inferido: varchar(50))');
+            $table->string('banco_balcao', 100)->nullable()->comment('legado: bank_branch · tipo forçado (inferido: varchar(20))');
+            $table->string('banco_numero_conta', 40)->nullable()->comment('legado: bank_account_number · tipo forçado (inferido: varchar(30))');
+            $table->string('banco_iban', 34)->nullable()->comment('legado: bank_iban · tipo forçado (inferido: integer)');
+            $table->string('banco_swift', 20)->nullable()->comment('legado: bank_swift · tipo forçado (inferido: varchar(20))');
+            $table->string('banco_titular', 150)->nullable()->comment('legado: bank_holder · tipo forçado (inferido: varchar(20))');
             $table->string('natureza_conta', 255)->nullable()->comment('legado: account_nature · do código legado js/app_v2.js:10836');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -31,11 +37,11 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_plano_contas_empresa_id_tipo ON plano_contas (empresa_id, tipo)');
         DB::statement('ALTER TABLE plano_contas ADD CONSTRAINT ck_plano_contas_tipo CHECK (tipo IN (\'M\',\'T\'))');
 
-        // journals (legado) -> diarios_contabeis · 436 linhas reais no backup · eliminação lógica
+        // journals (legado) -> diarios_contabeis · 454 linhas reais no backup · eliminação lógica
         Schema::create('diarios_contabeis', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string=433, string_inteiro=3');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string=451, string_inteiro=3');
             $table->text('descricao')->nullable()->comment('legado: description');
             $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -44,24 +50,24 @@ return new class extends Migration
         });
         DB::statement('CREATE UNIQUE INDEX uq_diarios_contabeis_empresa_id_codigo ON diarios_contabeis (empresa_id, codigo) WHERE eliminado_em IS NULL');
 
-        // journal_lines (legado) -> lancamentos_contabeis · 44400 linhas reais no backup
+        // journal_lines (legado) -> lancamentos_contabeis · 51254 linhas reais no backup
         Schema::create('lancamentos_contabeis', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('diario_id')->nullable()->comment('legado: journal_id · tipos Dexie: {"nan":9}');
-            $table->date('data_documento')->nullable()->comment('legado: doc_date · tipos mistos: string_data=44344, string_datahora=52, string=4; tipo forçado (inferido: timestamptz)');
-            $table->timestampTz('data_lancamento')->nullable()->comment('legado: entry_date · tipos mistos: string_data=32819, string_datahora=11087, string=492');
-            $table->string('referencia', 100)->nullable()->comment('legado: reference · tipos mistos: string_inteiro=4723, string=39662');
-            $table->string('numero_documento', 100)->nullable()->comment('legado: doc_number · tipos mistos: string_inteiro=6016, string=38377');
+            $table->date('data_documento')->nullable()->comment('legado: doc_date · tipos mistos: string_data=51198, string_datahora=52, string=4; tipo forçado (inferido: timestamptz)');
+            $table->timestampTz('data_lancamento')->nullable()->comment('legado: entry_date · tipos mistos: string_data=39709, string_datahora=11051, string=492');
+            $table->string('referencia', 100)->nullable()->comment('legado: reference · tipos mistos: string_inteiro=4747, string=46492');
+            $table->string('numero_documento', 100)->nullable()->comment('legado: doc_number · tipos mistos: string_inteiro=6170, string=45077');
             $table->text('descricao')->nullable()->comment('legado: description');
-            $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · tipos mistos: inteiro=27330, decimal=17070');
+            $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · tipos mistos: inteiro=33155, decimal=18099');
             $table->string('tipo_dc', 10)->nullable()->comment('legado: type_dc');
-            $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code · tipos mistos: string_inteiro=44386, string=12, string_decimal=2');
+            $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code · tipos mistos: string_inteiro=51240, string=12, string_decimal=2');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id · tipos Dexie: {"undef":2}');
             $table->bigInteger('nota_demonstracao_id')->nullable()->comment('legado: demo_note_id · tipos Dexie: {"undef":4}');
             $table->bigInteger('nota_fluxo_caixa_id')->nullable()->comment('legado: cashflow_note_id · tipos Dexie: {"undef":4,"nan":6}');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id · tipos Dexie: {"undef":10}');
-            $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado; tipos Dexie: {"undef":28}');
+            $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado; tipos Dexie: {"undef":33}');
             $table->string('reconciliacao_codigo', 50)->nullable()->comment('legado: reconciliation_id');
             $table->bigInteger('periodo_id')->nullable()->comment('legado: period_id');
             $table->string('referencia_documento', 50)->nullable()->comment('legado: doc_ref');
@@ -97,7 +103,7 @@ return new class extends Migration
             $table->bigInteger('estorno_de_id')->nullable()->comment('Linha original que esta linha estorna');
             $table->bigInteger('estornado_por_id')->nullable()->comment('Linha de estorno que anulou esta linha');
             $table->timestampTz('estornado_em')->nullable()->comment('Data/hora do estorno');
-            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at · tipos mistos: string_datahora=48, string_data=5495');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: created_at · tipos mistos: string_datahora=52, string_data=12397');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_lancamentos_contabeis_empresa_id ON lancamentos_contabeis (empresa_id)');
@@ -127,25 +133,25 @@ return new class extends Migration
         DB::statement('ALTER TABLE lancamentos_contabeis ADD CONSTRAINT ck_lancamentos_contabeis_tipo_documento_origem CHECK (tipo_documento_origem IS NULL OR tipo_documento_origem IN (\'FATURA_COMPRA\',\'RECECAO_COMPRA\'))');
         DB::statement('ALTER TABLE lancamentos_contabeis ADD CONSTRAINT ck_lancamentos_contabeis_tipo_consolidacao CHECK (tipo_consolidacao IS NULL OR tipo_consolidacao IN (\'AGREGACAO\',\'ELIMINACAO\',\'CONVERSAO\'))');
 
-        // recycled_journal_lines (legado) -> lancamentos_estornados · 2505 linhas reais no backup
+        // recycled_journal_lines (legado) -> lancamentos_estornados · 2786 linhas reais no backup
         Schema::create('lancamentos_estornados', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('diario_id')->nullable()->comment('legado: journal_id');
             $table->date('data_documento')->nullable()->comment('legado: doc_date · tipo forçado (inferido: date)');
-            $table->timestampTz('data_lancamento')->nullable()->comment('legado: entry_date · tipos mistos: string_data=2176, string_datahora=327');
-            $table->string('referencia', 50)->nullable()->comment('legado: reference');
-            $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number · tipos mistos: string=2397, string_inteiro=108');
+            $table->timestampTz('data_lancamento')->nullable()->comment('legado: entry_date · tipos mistos: string_data=2453, string_datahora=331');
+            $table->string('referencia', 50)->nullable()->comment('legado: reference · tipos mistos: string=2782, string_inteiro=2');
+            $table->string('numero_documento', 50)->nullable()->comment('legado: doc_number · tipos mistos: string=2678, string_inteiro=108');
             $table->text('descricao')->nullable()->comment('legado: description');
-            $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · tipos mistos: decimal=985, inteiro=1520');
+            $table->decimal('valor', 15, 2)->nullable()->comment('legado: value · tipos mistos: decimal=1051, inteiro=1735');
             $table->string('tipo_dc', 10)->nullable()->comment('legado: type_dc');
-            $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code · tipos mistos: string_inteiro=2493, string_decimal=12');
+            $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code · tipos mistos: string_inteiro=2774, string_decimal=12');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id');
             $table->bigInteger('nota_demonstracao_id')->nullable()->comment('legado: demo_note_id · tipos Dexie: {"undef":11}');
             $table->bigInteger('nota_fluxo_caixa_id')->nullable()->comment('legado: cashflow_note_id · tipos Dexie: {"undef":11}');
             $table->string('url_documento', 150)->nullable()->comment('legado: doc_url · tipos Dexie: {"undef":24}');
             $table->bigInteger('lancamento_original_id')->nullable()->comment('legado: original_id');
-            $table->text('reconciliacao_codigo')->nullable()->comment('legado: reconciliation_id · sem valores reais: tipo a confirmar no código legado');
+            $table->text('reconciliacao_codigo')->nullable()->comment('legado: reconciliation_id · tipo forçado (inferido: varchar(50))');
             $table->integer('periodo_contabil')->nullable()->comment('legado: acc_period');
             $table->bigInteger('periodo_id')->nullable()->comment('legado: period_id');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');

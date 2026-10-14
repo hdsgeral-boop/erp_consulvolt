@@ -20,6 +20,11 @@ export const EMPRESA_DERIVADA = {
   itens_documento_tesouraria: ['documento_tesouraria_id', 'documentos_tesouraria'],
   linhas_sessao_inventario: ['sessao_inventario_id', 'sessoes_inventario'],
   membros_consolidacao: ['grupo_consolidacao_id', 'grupos_consolidacao'],
+  // Versão Actual (2026-10-13): linhas sem company_id no legado
+  itens_carta_pagamento: ['carta_pagamento_bancario_id', 'cartas_pagamento_bancario'],
+  prestacoes_emprestimos: ['emprestimo_id', 'emprestimos_colaboradores'],
+  historico_assuntos_metodo: ['assunto_id', 'assuntos_metodo_trabalho'],
+  membros_equipa_projeto: ['equipa_projeto_id', 'equipas_projeto'],
   // itens_compra e itens_guia_saida: derivada do documento-pai polimórfico (ver POLIMORFICOS)
 };
 
@@ -338,6 +343,8 @@ export const COLUNAS_NOVAS = {
   // ADR-005: org_type_id = -1 significa "Avençado"
   mapeamentos_contabeis_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
   mapeamentos_contabeis_sistema_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
+  // ADR-071 (Fase A): moeda da conta bancária do terceiro (o legado não a grava; opcional)
+  contas_bancarias_terceiros: [['codigo_moeda', 'varchar(10)', null, 'Moeda da conta (opcional)']],
 };
 
 // CHECKs de negócio (além dos domínios das enumerações normalizadas, gerados automaticamente).

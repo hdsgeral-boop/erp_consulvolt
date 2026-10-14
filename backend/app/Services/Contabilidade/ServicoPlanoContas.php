@@ -4,6 +4,7 @@ namespace App\Services\Contabilidade;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\PlanoConta;
+use App\Services\Tesouraria\ServicoContasBancarias;
 use App\Support\Cache\CacheComprimida;
 use App\Support\Cache\ChaveCache;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -14,10 +15,12 @@ use Illuminate\Support\Facades\DB;
  * invalidada pelo model PlanoConta em qualquer escrita.
  * Regras do legado mantidas: código único por empresa; só contas de movimento (M) aceitam lançamentos
  * (js/db_v2.js:392-449); só contas da classe 4 podem ter moeda estrangeira (js/db_v2.js:695-698).
+ * Fase A (legado novo, app_v2.js:9136-9145): dados bancários só nas contas 42/43 de movimento, validados e limpos se a conta
+ * deixar de ser bancária (ServicoContasBancarias::normalizar).
  */
 final class ServicoPlanoContas
 {
-    public function __construct(private readonly ContextoEmpresa $contexto) {}
+    public function __construct(private readonly ContextoEmpresa $contexto, private readonly ServicoContasBancarias $contasBancarias) {}
 
     /** @return array<string, array{id: int, codigo: string, descricao: ?string, tipo: string, codigo_moeda: ?string}> codigo => conta */
     public function todas(): array
@@ -53,6 +56,7 @@ final class ServicoPlanoContas
         if (PlanoConta::query()->where('codigo', $dados['codigo'])->exists()) {
             throw new ErroNegocio("Já existe a conta {$dados['codigo']}.", 'CONTA_DUPLICADA', 422);
         }
+        $dados = $this->contasBancarias->normalizar($dados, (string) $dados['codigo'], (string) ($dados['tipo'] ?? PlanoConta::TIPO_MOVIMENTO));
 
         return PlanoConta::create($dados);
     }
@@ -72,6 +76,7 @@ final class ServicoPlanoContas
             throw new ErroNegocio('Uma conta com movimentos não pode passar a totalizadora.', 'CONTA_COM_MOVIMENTOS', 422);
         }
         $this->validarMoeda($dados['codigo'] ?? $conta->codigo, array_key_exists('codigo_moeda', $dados) ? $dados['codigo_moeda'] : $conta->codigo_moeda);
+        $dados = $this->contasBancarias->normalizar($dados, (string) ($dados['codigo'] ?? $conta->codigo), (string) ($dados['tipo'] ?? $conta->tipo ?? PlanoConta::TIPO_MOVIMENTO));
         $conta->update($dados);
 
         return $conta;

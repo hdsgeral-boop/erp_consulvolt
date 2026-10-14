@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela cargos_funcoes (módulo RH). Legado: roles · 76 linhas reais no backup.
+ * Tabela cargos_funcoes (módulo RH). Legado: roles · 100 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\CargoFuncao.
  */
 abstract class CargoFuncaoBase extends ModeloBase
@@ -23,7 +23,7 @@ abstract class CargoFuncaoBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'nome', 'descricao',
+        'empresa_id', 'nome', 'objetivo_geral', 'responsabilidades', 'descricao',
     ];
 
     protected function casts(): array

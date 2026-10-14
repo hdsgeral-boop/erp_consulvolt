@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela sessoes_pos (módulo POS). Legado: pos_sessions · 4 linhas reais no backup.
+ * Tabela sessoes_pos (módulo POS). Legado: pos_sessions · 5 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\SessaoPOS.
  */
 abstract class SessaoPOSBase extends ModeloBase

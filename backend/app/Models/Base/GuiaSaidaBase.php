@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela guias_saida (módulo Logística). Legado: delivery_notes · 11 linhas reais no backup.
+ * Tabela guias_saida (módulo Logística). Legado: delivery_notes · 12 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\GuiaSaida.
  */
 abstract class GuiaSaidaBase extends ModeloBase

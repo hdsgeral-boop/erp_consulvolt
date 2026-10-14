@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela tipos_organizacao_rh (módulo RH). Legado: org_types · 28 linhas reais no backup.
+ * Tabela tipos_organizacao_rh (módulo RH). Legado: org_types · 34 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\TipoOrganizacaoRH.
  */
 abstract class TipoOrganizacaoRHBase extends ModeloBase

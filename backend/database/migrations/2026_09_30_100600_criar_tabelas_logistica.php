@@ -28,22 +28,22 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_armazens_empresa_id ON armazens (empresa_id)');
 
-        // products (legado) -> produtos · 100 linhas reais no backup · eliminação lógica
+        // products (legado) -> produtos · 110 linhas reais no backup · eliminação lógica
         Schema::create('produtos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('codigo', 50)->nullable()->comment('legado: code');
             $table->string('nome', 255)->nullable()->comment('legado: name');
-            $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: unit_price · tipos mistos: inteiro=99, decimal=1');
+            $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: unit_price · tipos mistos: inteiro=109, decimal=1');
             $table->decimal('taxa_imposto', 9, 4)->nullable()->comment('legado: tax_rate');
             $table->decimal('quantidade_stock', 12, 3)->nullable()->comment('legado: stock_qty');
-            $table->boolean('movimenta_stock')->nullable()->comment('legado: is_inventory · tipos mistos: boolean=77, inteiro=23');
+            $table->boolean('movimenta_stock')->nullable()->comment('legado: is_inventory · tipos mistos: boolean=86, inteiro=24');
             $table->string('codigo_conta', 20)->nullable()->comment('legado: account_code');
-            $table->string('conta_compra', 20)->nullable()->comment('legado: account_purchase · tipos mistos: string_inteiro=13, inteiro=19');
-            $table->string('conta_inventario', 20)->nullable()->comment('legado: account_inventory · tipos mistos: string_inteiro=13, inteiro=19');
-            $table->string('conta_custo', 20)->nullable()->comment('legado: account_cost · tipos mistos: string_inteiro=17, inteiro=19');
+            $table->string('conta_compra', 20)->nullable()->comment('legado: account_purchase · tipos mistos: string_inteiro=21, inteiro=19');
+            $table->string('conta_inventario', 20)->nullable()->comment('legado: account_inventory · tipos mistos: string_inteiro=21, inteiro=19');
+            $table->string('conta_custo', 20)->nullable()->comment('legado: account_cost · tipos mistos: string_inteiro=26, inteiro=19');
             $table->bigInteger('categoria_produto_id')->nullable()->comment('legado: category_id');
-            $table->string('conta_iva', 20)->nullable()->comment('legado: account_iva · tipos mistos: string_inteiro=26, inteiro=42');
+            $table->string('conta_iva', 20)->nullable()->comment('legado: account_iva · tipos mistos: string_inteiro=34, inteiro=42');
             $table->string('conta_iva_liquidado', 20)->nullable()->comment('legado: account_iva_liquidado');
             $table->string('conta_iva_dedutivel', 20)->nullable()->comment('legado: account_iva_dedutivel');
             $table->string('conta_quebra', 20)->nullable()->comment('legado: account_shortage');
@@ -51,12 +51,15 @@ return new class extends Migration
             $table->text('imagem_base64')->nullable()->comment('legado: image_base64');
             $table->boolean('e_quarto')->nullable()->comment('legado: is_room');
             $table->boolean('e_ativo_imobilizado')->nullable()->comment('legado: is_asset');
-            $table->text('conta_ativo')->nullable()->comment('legado: account_asset · sem valores reais: tipo a confirmar no código legado');
-            $table->decimal('preco_por_hora', 15, 2)->nullable()->comment('legado: pricePerHour · tipos Dexie: {"undef":18}');
-            $table->decimal('preco_por_dia', 15, 2)->nullable()->comment('legado: pricePerDay · tipos Dexie: {"undef":18}');
-            $table->decimal('horas_minimas', 12, 3)->nullable()->comment('legado: minHours · tipos Dexie: {"undef":18}');
-            $table->boolean('e_servico')->nullable()->comment('legado: is_service · tipos mistos: inteiro=24, boolean=7');
+            $table->text('conta_ativo')->nullable()->comment('legado: account_asset · tipo forçado (inferido: varchar(10))');
+            $table->decimal('preco_por_hora', 15, 2)->nullable()->comment('legado: pricePerHour · tipos Dexie: {"undef":27}');
+            $table->decimal('preco_por_dia', 15, 2)->nullable()->comment('legado: pricePerDay · tipos Dexie: {"undef":27}');
+            $table->decimal('horas_minimas', 12, 3)->nullable()->comment('legado: minHours · tipos Dexie: {"undef":27}');
+            $table->boolean('e_servico')->nullable()->comment('legado: is_service · tipos mistos: inteiro=25, boolean=7');
             $table->boolean('bloqueado')->nullable()->comment('legado: is_blocked');
+            $table->string('unidade_fe', 10)->nullable()->comment('legado: fe_unidade');
+            $table->text('tipo_operacao_fe')->nullable()->comment('legado: fe_tipo_operacao · tipo forçado (inferido: varchar(10))');
+            $table->text('codigo_isencao_fe')->nullable()->comment('legado: fe_isencao · sem valores reais: tipo a confirmar no código legado');
             $table->string('lavandaria_grupo', 20)->nullable()->comment('legado: lav_group');
             $table->string('lavandaria_unidade', 10)->nullable()->comment('legado: lav_unit');
             $table->integer('lavandaria_dias_entrega')->nullable()->comment('legado: lav_lead_days');
@@ -64,9 +67,6 @@ return new class extends Migration
             $table->boolean('lavandaria_ativa')->nullable()->comment('legado: lav_active');
             $table->decimal('lavandaria_preco_peca', 15, 2)->nullable()->comment('legado: lav_price_piece');
             $table->decimal('lavandaria_preco_kg', 15, 2)->nullable()->comment('legado: lav_price_kg');
-            $table->string('unidade_fe', 10)->nullable()->comment('legado: fe_unidade');
-            $table->text('tipo_operacao_fe')->nullable()->comment('legado: fe_tipo_operacao · sem valores reais: tipo a confirmar no código legado');
-            $table->text('codigo_isencao_fe')->nullable()->comment('legado: fe_isencao · sem valores reais: tipo a confirmar no código legado');
             $table->decimal('custo_medio', 18, 6)->nullable()->comment('Custo médio ponderado (Kz), actualizado nas entradas de stock');
             $table->decimal('stock_minimo', 12, 3)->nullable()->comment('Stock mínimo (alerta de ruptura; o legado usava ≤ 5 fixo)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -76,7 +76,7 @@ return new class extends Migration
         DB::statement('CREATE UNIQUE INDEX uq_produtos_empresa_id_codigo ON produtos (empresa_id, codigo) WHERE eliminado_em IS NULL');
         DB::statement('CREATE INDEX ix_produtos_categoria_produto_id ON produtos (categoria_produto_id)');
 
-        // product_categories (legado) -> categorias_produtos · 23 linhas reais no backup · eliminação lógica
+        // product_categories (legado) -> categorias_produtos · 24 linhas reais no backup · eliminação lógica
         Schema::create('categorias_produtos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -87,13 +87,13 @@ return new class extends Migration
         });
         DB::statement('CREATE UNIQUE INDEX uq_categorias_produtos_empresa_id_nome ON categorias_produtos (empresa_id, nome) WHERE eliminado_em IS NULL');
 
-        // warehouse_stock (legado) -> stock_armazem · 16 linhas reais no backup
+        // warehouse_stock (legado) -> stock_armazem · 18 linhas reais no backup
         Schema::create('stock_armazem', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id');
             $table->bigInteger('produto_id')->nullable()->comment('legado: product_id');
-            $table->decimal('quantidade_stock', 12, 3)->nullable()->comment('legado: stock_qty · tipos mistos: inteiro=12, decimal=4');
+            $table->decimal('quantidade_stock', 12, 3)->nullable()->comment('legado: stock_qty · tipos mistos: inteiro=14, decimal=4');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -101,7 +101,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_stock_armazem_empresa_id ON stock_armazem (empresa_id)');
         DB::statement('CREATE INDEX ix_stock_armazem_produto_id ON stock_armazem (produto_id)');
 
-        // inventory_movements (legado) -> movimentos_inventario · 102 linhas reais no backup
+        // inventory_movements (legado) -> movimentos_inventario · 110 linhas reais no backup
         Schema::create('movimentos_inventario', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -109,13 +109,13 @@ return new class extends Migration
             $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id');
             $table->string('tipo', 20)->nullable()->comment('legado: type · código normalizado ∈ {ENTRADA, SAIDA, TRANSFERENCIA, AJUSTE}; texto original em tipo_original');
             $table->string('tipo_original', 100)->nullable()->comment('legado: type · texto exacto do legado');
-            $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantity · tipos mistos: inteiro=100, decimal=2');
-            $table->timestampTz('data')->nullable()->comment('legado: date · tipos mistos: string_datahora=79, string_data=23');
+            $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantity · tipos mistos: inteiro=108, decimal=2');
+            $table->timestampTz('data')->nullable()->comment('legado: date · tipos mistos: string_datahora=87, string_data=23');
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id');
             $table->string('referencia', 100)->nullable()->comment('legado: reference');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado');
-            $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: unit_price · tipos mistos: inteiro=55, decimal=15');
+            $table->decimal('preco_unitario', 15, 2)->nullable()->comment('legado: unit_price · tipos mistos: inteiro=42, decimal=38');
             $table->string('sentido', 1)->nullable()->comment('E (entrada) ou S (saída) — os ajustes e transferências também têm sentido');
             $table->decimal('valor', 15, 2)->nullable()->comment('Quantidade × custo unitário (Kz)');
             $table->decimal('custo_medio_apos', 18, 6)->nullable()->comment('Custo médio ponderado do produto depois do movimento');
@@ -135,7 +135,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_movimentos_inventario_empresa_id_produto_id_data ON movimentos_inventario (empresa_id, produto_id, data)');
         DB::statement('ALTER TABLE movimentos_inventario ADD CONSTRAINT ck_movimentos_inventario_tipo CHECK (tipo IS NULL OR tipo IN (\'ENTRADA\',\'SAIDA\',\'TRANSFERENCIA\',\'AJUSTE\'))');
 
-        // delivery_notes (legado) -> guias_saida · 11 linhas reais no backup
+        // delivery_notes (legado) -> guias_saida · 12 linhas reais no backup
         Schema::create('guias_saida', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -168,20 +168,20 @@ return new class extends Migration
         DB::statement('ALTER TABLE guias_saida ADD CONSTRAINT ck_guias_saida_tipo CHECK (tipo IS NULL OR tipo IN (\'VENDA\',\'BACK_TO_BACK\',\'CONSUMO\',\'VENDA_BALCAO\'))');
         DB::statement('ALTER TABLE guias_saida ADD CONSTRAINT ck_guias_saida_estado CHECK (estado IS NULL OR estado IN (\'CONCLUIDO\',\'FATURADA\',\'ANULADA\'))');
 
-        // delivery_items (legado) -> itens_guia_saida · 47 linhas reais no backup
+        // delivery_items (legado) -> itens_guia_saida · 55 linhas reais no backup
         Schema::create('itens_guia_saida', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
             $table->bigInteger('produto_id')->nullable()->comment('legado: product_id');
-            $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantity · tipos mistos: inteiro=45, decimal=2');
+            $table->decimal('quantidade', 12, 3)->nullable()->comment('legado: quantity · tipos mistos: inteiro=53, decimal=2');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->text('codigo_projeto')->nullable()->comment('legado: project_code · sem valores reais: tipo a confirmar no código legado');
             $table->decimal('cambial_q1', 12, 3)->nullable()->comment('legado: fx_q1');
-            $table->decimal('cambial_v1', 15, 2)->nullable()->comment('legado: fx_v1 · tipos mistos: decimal=1, inteiro=2');
+            $table->decimal('cambial_v1', 15, 2)->nullable()->comment('legado: fx_v1 · tipos mistos: decimal=1, inteiro=8');
             $table->decimal('cambial_q2', 12, 3)->nullable()->comment('legado: fx_q2');
             $table->decimal('cambial_v2', 15, 2)->nullable()->comment('legado: fx_v2');
-            $table->decimal('valor_kz', 15, 2)->nullable()->comment('legado: value_kz · tipos mistos: decimal=1, inteiro=2');
-            $table->decimal('custo_unitario_kz', 15, 2)->nullable()->comment('legado: unit_cost_kz · tipos mistos: decimal=1, inteiro=2');
+            $table->decimal('valor_kz', 15, 2)->nullable()->comment('legado: value_kz · tipos mistos: decimal=1, inteiro=8');
+            $table->decimal('custo_unitario_kz', 15, 2)->nullable()->comment('legado: unit_cost_kz · tipos mistos: decimal=1, inteiro=8');
             $table->bigInteger('item_compra_id')->nullable()->comment('Recepção: linha da encomenda recebida');
             $table->bigInteger('guia_saida_id')->nullable()->comment('documento-pai do tipo GUIA_SAIDA');
             $table->bigInteger('rececao_compra_id')->nullable()->comment('documento-pai do tipo RECECAO_COMPRA');

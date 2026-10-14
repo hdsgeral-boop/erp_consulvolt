@@ -37,7 +37,7 @@ final class StockController extends Controller
     {
         $this->exigir('armazem_armazens_view', 'armazem_stock_view', 'vendas_faturacao_view', 'compras_faturacao_view');
 
-        return RespostaApi::sucesso(Armazem::query()->orderByDesc('predefinido')->orderBy('nome')->get(), 'Armazéns.');
+        return RespostaApi::sucesso(Armazem::query()->orderByDesc('predefinido')->ordenarPorNome()->get(), 'Armazéns.');
     }
 
     public function guardarArmazem(Request $r, ?int $armazem = null): JsonResponse

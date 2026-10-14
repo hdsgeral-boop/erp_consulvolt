@@ -34,7 +34,7 @@ final class ContasCRMController extends Controller
             ->when($f['pesquisa'] ?? null, function ($q, $p) {
                 $termo = '%'.str_replace(['%', '_'], ['\%', '\_'], $p).'%';
                 $q->where(fn ($s) => $s->where('nome', 'ilike', $termo)->orWhere('nif', 'ilike', $termo)->orWhere('email', 'ilike', $termo)->orWhere('setor', 'ilike', $termo));
-            })->orderBy('nome')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
+            })->ordenarPorNome()->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
         $ids = $pagina->getCollection()->pluck('id');
         $todas = OportunidadeVendaCRM::query()->whereIn('conta_crm_id', $ids)->get(['id', 'conta_crm_id', 'estado', 'valor']);
         $opps = $todas->groupBy('conta_crm_id');
@@ -107,7 +107,7 @@ final class ContasCRMController extends Controller
         $this->exigir(...ConfiguracaoCRMController::VER);
         $c = ContaCRM::query()->findOrFail($conta);
 
-        return RespostaApi::sucesso(ContactoCRM::query()->where('conta_crm_id', $c->id)->orderByDesc('principal')->orderBy('nome')->get(), 'Contactos da conta.');
+        return RespostaApi::sucesso(ContactoCRM::query()->where('conta_crm_id', $c->id)->orderByDesc('principal')->ordenarPorNome()->get(), 'Contactos da conta.');
     }
 
     public function guardarContacto(Request $r, int $conta, ?int $contacto = null): JsonResponse

@@ -15,6 +15,7 @@ import { SeletorTerceiro } from '../../contab/comum/Seletores';
 import { ROTULO_TIPO, type DocumentoTesouraria, type Pendente, type TipoDocumento } from '../api';
 import { SeletorContaFinanceira } from '../comum';
 import { sentidoPorOmissao, totalDocumento } from '../regras';
+import { AVISO_DOCUMENTO_ANTERIOR, MENSAGEM_SO_BANCOS, PREFIXO_MEIO, contaFinanceiraPermitida, contaParaCopia, documentoAnteriorEmCaixa, meioDaConta, opcoesMeio, type MeioTesouraria } from '../contaFinanceira';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { BotoesExportar } from '@/componentes/impressao';
 import { pedidoPendentes, ROTULO_NATUREZA } from '../impressao';
@@ -34,6 +35,8 @@ interface ValoresForm {
 /**
  * Emissão e edição de pagamentos/recebimentos (POST/PUT /tesouraria/documentos). O documento fica PENDENTE (por integrar);
  * o servidor numera (PAG/REC), valida o saldo em aberto dos documentos liquidados, a moeda da conta e o controlo orçamental.
+ * Fase A (legado novo, ui_tesouraria.js:653-678/861-877): «Meio» depósitos à ordem (43) / a prazo (42) e conta só dessas
+ * classes; o numerário (45) vai à Folha de Caixa. «Caixa (45) — documento anterior» só ao editar um documento já em 45.
  */
 export function FormularioDocumento() {
   const { id } = useParams();
@@ -44,19 +47,25 @@ export function FormularioDocumento() {
   const tipo = (Form.useWatch('tipo', form) ?? 'PAGAMENTO') as TipoDocumento;
   const linhas = Form.useWatch('linhas', form) ?? [];
   const [pendentes, setPendentes] = useState(false);
+  const [meio, setMeio] = useState<MeioTesouraria>('BANCO');
   const total = totalDocumento(tipo, linhas);
 
   // copiar documento (copyTesourariaDocument do legado): ?copiar=<id> pré-preenche um documento novo com a data de hoje
   const copiarId = id ? null : procura.get('copiar');
   const origemId = id ?? copiarId;
   const existente = useQuery({ queryKey: ['teso', 'documento', origemId], queryFn: () => obter<DocumentoTesouraria>(`/tesouraria/documentos/${origemId}`), enabled: !!origemId });
+  // conta com que o documento editado foi gravado (numa cópia não conta: o documento é novo)
+  const contaOriginal = id ? existente.data?.conta_financeira : undefined;
+  const anteriorEmCaixa = documentoAnteriorEmCaixa(contaOriginal);
   useEffect(() => {
     const d = existente.data;
     if (!d) return;
+    const conta = copiarId ? contaParaCopia(d.conta_financeira) : d.conta_financeira;
+    setMeio(meioDaConta(conta));
     form.setFieldsValue({
       tipo: d.tipo,
       data_documento: copiarId ? dayjs() : dayjs(d.data_documento),
-      conta_financeira: d.conta_financeira,
+      conta_financeira: conta,
       descricao: d.descricao ?? undefined,
       referencia: copiarId ? undefined : d.referencia ?? undefined,
       taxa_cambio: d.taxa_cambio ? Number(d.taxa_cambio) : undefined,
@@ -153,12 +162,33 @@ export function FormularioDocumento() {
                 <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col xs={24} md={8}>
-              <Form.Item name="conta_financeira" label="Conta de banco/caixa" rules={[{ required: true, message: 'Indique a conta (43 bancos, 45 caixa).' }]}>
-                <SeletorContaFinanceira style={{ width: '100%' }} />
+            <Col xs={24} md={4}>
+              <Form.Item label="Meio" extra={anteriorEmCaixa ? <Typography.Text style={{ color: '#b45309', fontSize: 12 }}>{AVISO_DOCUMENTO_ANTERIOR}</Typography.Text> : undefined}>
+                <Select<MeioTesouraria>
+                  value={meio}
+                  options={opcoesMeio(contaOriginal)}
+                  popupMatchSelectWidth={false}
+                  onChange={(m) => {
+                    setMeio(m);
+                    // filterContasFinanceiras do legado: a conta passa a ser escolhida entre as do novo meio
+                    if (!String(form.getFieldValue('conta_financeira') ?? '').startsWith(PREFIXO_MEIO[m])) form.setFieldValue('conta_financeira', undefined);
+                  }}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={6}>
+              <Form.Item
+                name="conta_financeira"
+                label="Conta Financeira"
+                rules={[
+                  { required: true, message: 'Selecione a conta bancária (42 depósitos a prazo, 43 depósitos à ordem).' },
+                  { validator: (_, v?: string) => (!v || contaFinanceiraPermitida(v, contaOriginal) ? Promise.resolve() : Promise.reject(new Error(MENSAGEM_SO_BANCOS))) },
+                ]}
+              >
+                <SeletorContaFinanceira style={{ width: '100%' }} prefixos={[PREFIXO_MEIO[meio]]} estrito placeholder={`— contas ${PREFIXO_MEIO[meio]} do plano de contas —`} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={4}>
               <Form.Item name="referencia" label="Referência">
                 <Input maxLength={100} />
               </Form.Item>
@@ -184,8 +214,8 @@ export function FormularioDocumento() {
         >
           <Typography.Paragraph type="secondary">
             {tipo === 'PAGAMENTO'
-              ? 'Num pagamento os débitos das linhas têm de exceder os créditos; a diferença sai da conta de banco/caixa.'
-              : 'Num recebimento os créditos das linhas têm de exceder os débitos; a diferença entra na conta de banco/caixa.'}
+              ? 'Num pagamento os débitos das linhas têm de exceder os créditos; a diferença sai da conta bancária.'
+              : 'Num recebimento os créditos das linhas têm de exceder os débitos; a diferença entra na conta bancária.'}
           </Typography.Paragraph>
           <EditorLinhasDC campos={{ terceiro: true, numeroDocumento: true, centroCusto: true, unidade: true }} />
           <Space wrap size={32} style={{ marginTop: 16 }}>

@@ -12,6 +12,7 @@ use App\Services\Vendas\ServicoFluxoDocumentoVenda;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
@@ -159,11 +160,12 @@ final class DocumentoVendaController extends Controller
         return RespostaApi::criado($this->detalhe($nova), "Documento {$nova->numero_documento} criado a partir da conversão.");
     }
 
-    /** POST /{id}/anular — só documentos não fiscais e não convertidos. */
-    public function anular(int $venda): JsonResponse
+    /** POST /{id}/anular {motivo} — só documentos não fiscais e não convertidos; motivo, autor e data ficam no documento. */
+    public function anular(Request $request, int $venda): JsonResponse
     {
         $this->exigir('vendas_fat_del');
-        $v = $this->documentos->anular(Venda::query()->findOrFail($venda));
+        $d = $request->validate(['motivo' => ['required', 'string', 'min:5', 'max:500']], [], ['motivo' => 'motivo da anulação']);
+        $v = $this->documentos->anular(Venda::query()->findOrFail($venda), trim($d['motivo']));
 
         return RespostaApi::sucesso($this->detalhe($v), "Documento {$v->numero_documento} anulado.");
     }
@@ -196,6 +198,10 @@ final class DocumentoVendaController extends Controller
             ->get(['o.id', 'o.tipo_documento', 'o.numero_documento', 'o.total_bruto', 'o.estado',
                 DB::raw('CASE WHEN r.venda_id = '.(int) $venda->id." THEN 'ORIGEM' ELSE 'DERIVADO' END as relacao")]);
 
-        return (new VendaResource($venda))->resolve() + ['documentos_relacionados' => $relacionados];
+        // Fase A: quem anulou, quando e porquê (colunas da migração 2026_10_13_230100)
+        $anulacao = $venda->estado === 'ANULADO' ? ['em' => $venda->getAttribute('anulado_em') ? Carbon::parse($venda->getAttribute('anulado_em'))->toIso8601String() : null,
+            'por' => $venda->getAttribute('anulado_por'), 'motivo' => $venda->getAttribute('motivo_anulacao')] : null;
+
+        return (new VendaResource($venda))->resolve() + ['documentos_relacionados' => $relacionados, 'anulacao' => $anulacao];
     }
 }

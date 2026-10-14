@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela faturas_compra (módulo Compras). Legado: purchase_invoices · 25 linhas reais no backup.
+ * Tabela faturas_compra (módulo Compras). Legado: purchase_invoices · 26 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\FaturaCompra.
  */
 abstract class FaturaCompraBase extends ModeloBase

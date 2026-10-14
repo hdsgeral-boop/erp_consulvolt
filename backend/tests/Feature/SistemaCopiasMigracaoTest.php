@@ -244,7 +244,8 @@ final class SistemaCopiasMigracaoTest extends TestCase
             ->assertStatus(422)->assertJsonPath('codigo', 'CONTA_OBRIGATORIA');
         $this->postJson('/api/sistema/migracao/edicao-massa/fornecedores', ['ids' => [$this->ids['f']], 'contas' => ['codigo_conta' => '32121'], 'dados' => ['codigo_moeda' => 'USD']], $this->s)
             ->assertOk();
-        $this->assertSame(['32121', 'USD'], array_values((array) DB::table('terceiros')->where('id', $this->ids['f'])->first(['codigo_conta', 'codigo_moeda'])));
+        // Fase A: a conta do fornecedor é a conta de fornecedor do papel (o codigo_conta antigo fica como estava)
+        $this->assertSame(['32121', 'USD'], array_values((array) DB::table('terceiros')->where('id', $this->ids['f'])->first(['conta_fornecedor', 'codigo_moeda'])));
         $this->postJson('/api/sistema/migracao/edicao-massa/clientes', ['ids' => [$this->ids['f']], 'dados' => ['codigo_moeda' => 'EUR']], $this->sessao(['vendas_clientes_gerir']))
             ->assertStatus(422)->assertJsonPath('codigo', 'REGISTOS_INVALIDOS');
     }

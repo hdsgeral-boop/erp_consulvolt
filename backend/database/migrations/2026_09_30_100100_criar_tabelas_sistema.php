@@ -24,11 +24,11 @@ return new class extends Migration
         });
         DB::statement('CREATE UNIQUE INDEX uq_configuracoes_sistema_chave ON configuracoes_sistema (chave)');
 
-        // business_units (legado) -> unidades_negocio · 16 linhas reais no backup · eliminação lógica
+        // business_units (legado) -> unidades_negocio · 19 linhas reais no backup · eliminação lógica
         Schema::create('unidades_negocio', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
-            $table->string('codigo', 50)->nullable()->comment('legado: code');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · tipos mistos: string_inteiro=16, string=3');
             $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->string('nome_abreviado', 255)->nullable()->comment('legado: short_name');
             $table->text('descricao')->nullable()->comment('legado: description');
@@ -86,7 +86,7 @@ return new class extends Migration
         });
         DB::statement('CREATE UNIQUE INDEX uq_moedas_codigo ON moedas (codigo) WHERE eliminado_em IS NULL');
 
-        // exchange_rates (legado) -> taxas_cambio · 36 linhas reais no backup
+        // exchange_rates (legado) -> taxas_cambio · 100 linhas reais no backup
         Schema::create('taxas_cambio', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->nullable()->comment('legado: scope_company_id');
@@ -103,13 +103,14 @@ return new class extends Migration
         });
         DB::statement('CREATE UNIQUE INDEX uq_taxas_cambio_empresa_id_codigo_moeda_data_taxa ON taxas_cambio (empresa_id, codigo_moeda, data_taxa)');
 
-        // internal_rules (legado) -> regras_internas_ia · 1 linhas reais no backup
+        // internal_rules (legado) -> regras_internas_ia · 2 linhas reais no backup
         Schema::create('regras_internas_ia', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('nome', 255)->nullable()->comment('legado: name');
-            $table->text('palavras_chave')->nullable()->comment('legado: keywords');
+            $table->text('palavras_chave')->nullable()->comment('legado: keywords · tipo forçado (inferido: integer)');
             $table->text('modelo')->nullable()->comment('legado: template');
+            $table->boolean('ativo')->nullable()->comment('legado: activo');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -143,6 +144,44 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_documentos_anexos_empresa_id ON documentos_anexos (empresa_id)');
         DB::statement('CREATE INDEX ix_documentos_anexos_tipo_documento_id ON documentos_anexos (tipo_documento_id)');
+
+        // bu_allocation_keys (legado) -> criterios_reparticao_un · 4 linhas reais no backup
+        Schema::create('criterios_reparticao_un', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->string('codigo', 50)->nullable()->comment('legado: codigo');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
+            $table->string('criterio', 20)->nullable()->comment('legado: criterio');
+            $table->string('indicador', 10)->nullable()->comment('legado: indicador');
+            $table->text('periodo_de')->nullable()->comment('legado: periodo_de · sem valores reais: tipo a confirmar no código legado');
+            $table->text('periodo_ate')->nullable()->comment('legado: periodo_ate · sem valores reais: tipo a confirmar no código legado');
+            $table->jsonb('linhas')->nullable()->comment('legado: linhas');
+            $table->text('notas')->nullable()->comment('legado: notas · sem valores reais: tipo a confirmar no código legado');
+            $table->boolean('ativo')->nullable()->comment('legado: activo');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
+        });
+        DB::statement('CREATE INDEX ix_criterios_reparticao_un_empresa_id ON criterios_reparticao_un (empresa_id)');
+
+        // ai_rule_files (legado) -> ficheiros_regras_ia · 1 linhas reais no backup
+        Schema::create('ficheiros_regras_ia', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->string('nome_regra', 255)->nullable()->comment('legado: rule_name');
+            $table->string('nome', 255)->nullable()->comment('legado: nome');
+            $table->string('ficheiro', 100)->nullable()->comment('legado: ficheiro');
+            $table->text('conteudo')->nullable()->comment('legado: conteudo');
+            $table->boolean('ativo')->nullable()->comment('legado: activo');
+            $table->string('motor', 10)->nullable()->comment('legado: motor');
+            $table->timestampTz('importado_em')->nullable()->comment('legado: importado_em');
+            $table->string('importado_por', 100)->nullable()->comment('legado: importado_por · tipo forçado (inferido: varchar(10))');
+            $table->integer('versao')->nullable()->comment('legado: versao');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_ficheiros_regras_ia_empresa_id ON ficheiros_regras_ia (empresa_id)');
 
         // ocorrencias_migracao (tabela nova) · 0 linhas reais no backup
         Schema::create('ocorrencias_migracao', function (Blueprint $table) {
@@ -269,6 +308,8 @@ return new class extends Migration
         Schema::dropIfExists('cambios_bai_pendentes');
         Schema::dropIfExists('quarentena_migracao');
         Schema::dropIfExists('ocorrencias_migracao');
+        Schema::dropIfExists('ficheiros_regras_ia');
+        Schema::dropIfExists('criterios_reparticao_un');
         Schema::dropIfExists('documentos_anexos');
         Schema::dropIfExists('tipos_documento');
         Schema::dropIfExists('regras_internas_ia');

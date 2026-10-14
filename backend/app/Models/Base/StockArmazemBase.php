@@ -10,7 +10,7 @@ use App\Models\Produto;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela stock_armazem (módulo Logística). Legado: warehouse_stock · 16 linhas reais no backup.
+ * Tabela stock_armazem (módulo Logística). Legado: warehouse_stock · 18 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\StockArmazem.
  */
 abstract class StockArmazemBase extends ModeloBase

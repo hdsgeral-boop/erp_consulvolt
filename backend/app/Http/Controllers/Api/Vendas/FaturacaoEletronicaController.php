@@ -158,6 +158,8 @@ final class FaturacaoEletronicaController extends Controller
             'tipo' => ['required', Rule::in(['FT', 'FR', 'NC', 'OR', 'PF', 'NE', 'RE'])], 'ano' => ['required', 'integer', 'min:2000', 'max:2100'],
             'codigo' => ['required', 'regex:/^[A-Za-z0-9]{1,30}$/'], 'origem' => ['nullable', 'string', 'max:30'], 'origem_nome' => ['nullable', 'string', 'max:200'],
             'estabelecimento' => ['nullable', 'string', 'max:20'], 'contingencia' => ['nullable', 'boolean'], 'estado' => ['nullable', Rule::in(['ATIVA', 'FECHADA'])],
+            // número inicial (Fase A): só enquanto a série não tem documentos — validado em ServicoConfigFaturacaoEletronica::gravarSerie
+            'proximo_numero' => ['nullable', 'integer', 'min:1', 'max:99999999'],
         ], [], ['codigo' => 'código da série (letras e números, sem espaços nem "/")']);
     }
 }

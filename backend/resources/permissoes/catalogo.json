@@ -1,6 +1,6 @@
 {
   "origem": "js/permissoes.js",
-  "gerado_em": "2026-09-29T14:36:33.432Z",
+  "gerado_em": "2026-10-13T17:38:18.252Z",
   "modulos": [
     {
       "id": "geral",
@@ -205,7 +205,7 @@
           "tarefas": [
             {
               "chave": "rh_prod_registar",
-              "rotulo": "Registar, importar (Excel) e eliminar produtividade do período",
+              "rotulo": "Registar, importar (Excel ou da execução dos projectos) e eliminar produtividade do período",
               "sensivel": false
             },
             {
@@ -268,7 +268,7 @@
           "tarefas": [
             {
               "chave": "contratos_new",
-              "rotulo": "Criar e editar contratos (incluindo aplicar rubricas em massa)",
+              "rotulo": "Criar e editar contratos (incluindo aplicar rubricas e produtividade em massa)",
               "sensivel": false
             },
             {
@@ -277,8 +277,13 @@
               "sensivel": false
             },
             {
+              "chave": "contratos_suspender",
+              "rotulo": "Suspender e reactivar contratos",
+              "sensivel": false
+            },
+            {
               "chave": "contratos_terminate",
-              "rotulo": "Rescindir e eliminar contratos",
+              "rotulo": "Cessar, rescindir e eliminar contratos",
               "sensivel": true
             }
           ]
@@ -315,7 +320,7 @@
           "tarefas": [
             {
               "chave": "rh_infotipos_gerir",
-              "rotulo": "Criar, editar e importar rubricas",
+              "rotulo": "Criar, editar e importar rubricas e as regras de horas extra",
               "sensivel": false
             },
             {
@@ -748,7 +753,7 @@
           "tarefas": [
             {
               "chave": "aux_gerir",
-              "rotulo": "Criar, editar, importar e copiar (diários, terceiros, notas, centros de custo)",
+              "rotulo": "Criar, editar, importar e copiar (diários, terceiros, notas, centros de custo), incluindo a criação rápida a partir de outro ecrã",
               "sensivel": false
             },
             {
@@ -970,7 +975,7 @@
           "tarefas": [
             {
               "chave": "vendas_clientes_gerir",
-              "rotulo": "Criar e editar clientes",
+              "rotulo": "Criar, importar e editar clientes (inclui a criação rápida no POS)",
               "sensivel": false
             },
             {
@@ -991,7 +996,7 @@
           "tarefas": [
             {
               "chave": "vendas_produtos_gerir",
-              "rotulo": "Criar, copiar, bloquear produtos e categorias",
+              "rotulo": "Criar, copiar, importar, bloquear produtos e categorias",
               "sensivel": false
             }
           ]
@@ -1017,7 +1022,7 @@
             },
             {
               "chave": "vendas_recibos",
-              "rotulo": "Emitir e eliminar recibos (liquidar facturas)",
+              "rotulo": "Emitir e anular recibos (liquidar facturas)",
               "sensivel": true
             },
             {
@@ -1037,7 +1042,7 @@
             },
             {
               "chave": "vendas_fat_del",
-              "rotulo": "Eliminar documentos",
+              "rotulo": "Anular documentos de venda (a factura só com nota de crédito)",
               "sensivel": true
             },
             {
@@ -1053,6 +1058,22 @@
             {
               "chave": "vendas_fe_config",
               "rotulo": "Configurar a facturação electrónica AGT (regime, séries, estabelecimentos)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "vendas_series",
+          "nome": "Séries de numeração das facturas de cliente",
+          "vistas": [
+            "vendas_series"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "vendas_series_gerir",
+              "rotulo": "Atribuir o código e o número das séries (criar, alterar, fechar, eliminar)",
               "sensivel": true
             }
           ]
@@ -1319,7 +1340,7 @@
             },
             {
               "chave": "compras_ped_eliminar",
-              "rotulo": "Eliminar pedidos",
+              "rotulo": "Anular pedidos",
               "sensivel": true
             }
           ]
@@ -1350,7 +1371,7 @@
             },
             {
               "chave": "compras_prop_eliminar",
-              "rotulo": "Eliminar propostas",
+              "rotulo": "Anular propostas",
               "sensivel": true
             }
           ]
@@ -1371,7 +1392,7 @@
             },
             {
               "chave": "compras_enc_eliminar",
-              "rotulo": "Eliminar encomendas",
+              "rotulo": "Anular encomendas",
               "sensivel": true
             }
           ]
@@ -1423,7 +1444,7 @@
             },
             {
               "chave": "compras_fact_eliminar",
-              "rotulo": "Eliminar facturas",
+              "rotulo": "Anular facturas de fornecedor",
               "sensivel": true
             }
           ]
@@ -1717,7 +1738,7 @@
         },
         {
           "id": "activos_manutencao",
-          "nome": "Manutenções",
+          "nome": "Manutenções (planos, ordens e requisições)",
           "vistas": [
             "activos_manutencao"
           ],
@@ -1725,9 +1746,19 @@
           "nota": null,
           "tarefas": [
             {
-              "chave": "activos_manut",
-              "rotulo": "Registar, finalizar e eliminar manutenções",
+              "chave": "activos_manut_gerir",
+              "rotulo": "Criar planos e ordens de manutenção, executar e concluir",
               "sensivel": false
+            },
+            {
+              "chave": "activos_manut_requisitar",
+              "rotulo": "Requisitar material ao armazém e pedir compras a partir da ordem",
+              "sensivel": true
+            },
+            {
+              "chave": "activos_manut",
+              "rotulo": "Eliminar registos do histórico de manutenções",
+              "sensivel": true
             }
           ]
         },
@@ -1827,13 +1858,18 @@
             },
             {
               "chave": "proj_execucao",
-              "rotulo": "Registar a execução em obra (% executada, horas e equipamentos)",
+              "rotulo": "Registar a execução em obra (% executada, quantidades medidas, horas e equipamentos)",
               "sensivel": false
             },
             {
               "chave": "proj_requisitar",
               "rotulo": "Requisitar materiais para o projecto/obra",
               "sensivel": false
+            },
+            {
+              "chave": "proj_orcamento_qtd",
+              "rotulo": "Mapear o orçamento pelas quantidades (define o preço unitário e reparte o valor)",
+              "sensivel": true
             },
             {
               "chave": "proj_estado",
@@ -2206,7 +2242,7 @@
             },
             {
               "chave": "config_ferramentas",
-              "rotulo": "Copiar tabelas entre empresas, clonar empresa e ferramentas de reparação",
+              "rotulo": "Copiar tabelas entre empresas, clonar empresa, importar/limpar a base e ferramentas de reparação",
               "sensivel": true
             }
           ]
@@ -2222,7 +2258,7 @@
           "tarefas": [
             {
               "chave": "config_empresas_gerir",
-              "rotulo": "Criar e editar empresas",
+              "rotulo": "Criar, editar e eliminar empresas",
               "sensivel": true
             }
           ]
@@ -2582,9 +2618,9 @@
         "rh_ferias_edit": true,
         "contratos_new": true,
         "contratos_import": true,
+        "contratos_suspender": true,
         "rh_funcoes_gerir": true,
         "rh_infotipos_gerir": true,
-        "rh_tabela_irt_gerir": true,
         "calcular_lancar": true,
         "calcular_bulk": true,
         "calcular_folha": true,
@@ -2599,7 +2635,8 @@
         "rh_aval_bonus_calcular": true,
         "rh_avaliacao_itens": true,
         "rh_prod_registar": true,
-        "rh_produtividade_view": true
+        "rh_produtividade_view": true,
+        "rh_tabela_irt_gerir": true
       }
     },
     {
@@ -2638,6 +2675,7 @@
         "processamento_integrate": true,
         "processamento_reopen": true,
         "contratos_terminate": true,
+        "contratos_suspender": true,
         "rh_colab_del": true,
         "rh_recibos_emitir": true,
         "rh_ferias_edit": true,
@@ -2670,9 +2708,9 @@
         "vendas_clientes_gerir": true,
         "vendas_produtos_gerir": true,
         "vendas_fat_emitir": true,
-        "vendas_alterar_preco": true,
         "vendas_recibos": true,
-        "crm_converter": true
+        "crm_converter": true,
+        "vendas_alterar_preco": true
       }
     },
     {
@@ -2808,6 +2846,7 @@
         "vendas_clientes_view": true,
         "vendas_produtos_view": true,
         "vendas_faturacao_view": true,
+        "vendas_series_view": true,
         "vendas_relatorios_view": true,
         "pos_view": true,
         "pos_relatorios_view": true,
@@ -2927,6 +2966,7 @@
         "vendas_clientes_view": true,
         "vendas_produtos_view": true,
         "vendas_faturacao_view": true,
+        "vendas_series_view": true,
         "vendas_relatorios_view": true,
         "pos_view": true,
         "pos_relatorios_view": true,
@@ -3095,8 +3135,8 @@
         "crm_campanhas_enviar": true,
         "crm_configurar": true,
         "vendas_fat_emitir": true,
-        "vendas_alterar_preco": true,
-        "orc_contributo": true
+        "orc_contributo": true,
+        "vendas_alterar_preco": true
       }
     },
     {
@@ -3147,7 +3187,8 @@
         "proj_estado": true,
         "proj_revisao": true,
         "proj_eliminar": true,
-        "proj_requisitar": true
+        "proj_requisitar": true,
+        "proj_orcamento_qtd": true
       }
     },
     {
@@ -3166,7 +3207,8 @@
         "armazem_stock_view": true,
         "proj_gerir": true,
         "proj_execucao": true,
-        "proj_requisitar": true
+        "proj_requisitar": true,
+        "proj_orcamento_qtd": true
       }
     },
     {

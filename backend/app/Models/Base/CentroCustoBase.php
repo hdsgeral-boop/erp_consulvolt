@@ -10,7 +10,9 @@ use App\Models\CotacaoCompra;
 use App\Models\EncomendaCompra;
 use App\Models\FaturaCompra;
 use App\Models\ItemAcrescimoDiferimento;
+use App\Models\ItemCompra;
 use App\Models\ItemDocumentoTesouraria;
+use App\Models\ItemVenda;
 use App\Models\LancamentoContabil;
 use App\Models\LancamentoEstornado;
 use App\Models\ModeloBase;
@@ -69,6 +71,11 @@ abstract class CentroCustoBase extends ModeloBase
         return $this->hasMany(Venda::class, 'centro_custo_id');
     }
 
+    public function itensVenda(): HasMany
+    {
+        return $this->hasMany(ItemVenda::class, 'centro_custo_id');
+    }
+
     public function recibosVenda(): HasMany
     {
         return $this->hasMany(ReciboVenda::class, 'centro_custo_id');
@@ -97,6 +104,11 @@ abstract class CentroCustoBase extends ModeloBase
     public function faturasCompra(): HasMany
     {
         return $this->hasMany(FaturaCompra::class, 'centro_custo_id');
+    }
+
+    public function itensCompra(): HasMany
+    {
+        return $this->hasMany(ItemCompra::class, 'centro_custo_id');
     }
 
     public function colaboradores(): HasMany

@@ -13,7 +13,7 @@ use App\Models\RececaoCompra;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela itens_guia_saida (módulo Logística). Legado: delivery_items · 47 linhas reais no backup.
+ * Tabela itens_guia_saida (módulo Logística). Legado: delivery_items · 55 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ItemGuiaSaida.
  */
 abstract class ItemGuiaSaidaBase extends ModeloBase

@@ -2,6 +2,7 @@ import { Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { obter } from '@/api/cliente';
+import type { MoradaTerceiro } from '@/modulos/contab/tabelasAux/contasTerceiro';
 
 /**
  * Dados de referência partilhados (terceiros, produtos, armazéns). Desde a afinação (ADR-064) as respostas de Compras,
@@ -39,12 +40,37 @@ export interface FichaTerceiro {
   endereco?: string | null;
   email?: string | null;
   telefone?: string | null;
+  /** Conta antiga (registo anterior às contas por papel) — só leitura. */
   codigo_conta: string | null;
+  /** Conta de cliente efectiva (classe 31): a própria ou a antiga da classe certa (Fase A, contas_terceiro.js). */
+  conta_cliente?: string | null;
+  /** Conta de fornecedor efectiva (classe 32 ou 37.0). */
+  conta_fornecedor?: string | null;
   conta_compra_transitoria?: string | null;
   codigo_moeda?: string | null;
   fe_pais?: string | null;
+  rotulo_tipo?: string;
   /** Só na lista de clientes: tem documentos de venda (pode ainda não ter o papel de cliente). */
   tem_documentos_venda?: boolean;
+  /** Lista: n.º de contas bancárias e banco da predefinida (coluna «Banco»). */
+  contas_bancarias?: number;
+  banco_predefinido?: string | null;
+  /** Ficha (GET /terceiros/{id}): endereço estruturado e contas bancárias. */
+  morada?: MoradaTerceiro | null;
+  lista_contas_bancarias?: ContaBancariaTerceiro[];
+}
+
+/** Conta bancária do terceiro (contas_bancarias_terceiros; ui_aux.js:920-1005). */
+export interface ContaBancariaTerceiro {
+  id: number;
+  terceiro_id: number;
+  banco_id?: number | null;
+  banco: string | null;
+  numero_conta: string | null;
+  iban: string;
+  titular: string | null;
+  codigo_moeda: string | null;
+  predefinida: boolean;
 }
 
 export function useArmazens() {

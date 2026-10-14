@@ -9,6 +9,7 @@ use App\Models\NotaFluxoCaixa;
 use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\Terceiro;
+use App\Services\Tesouraria\ServicoDocumentosTesouraria;
 use App\Services\Tesouraria\ServicoReconciliacaoBancaria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\UploadedFile;
@@ -182,7 +183,10 @@ final class TesourariaOperacoesTest extends TestCase
     public function conferencia_de_caixa_com_regularizacao_assinatura_e_reabertura(): void
     {
         $this->putJson('/api/tesouraria/configuracao/contas', ['contas' => ['caixa_sobras' => '6881', 'caixa_quebras' => '7881']], $this->s)->assertOk();
-        $this->doc('RECEBIMENTO', '611', '2000', '4511');   // saldo do sistema: 2 000
+        // saldo do sistema: 2 000 — Fase A: o ecrã só aceita bancos; o recebimento em caixa é um documento anterior (gravado pelo serviço)
+        $caixa = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoDocumentosTesouraria::class)->gravar(['tipo' => 'RECEBIMENTO', 'data_documento' => $this->hoje,
+            'conta_financeira' => '4511', 'descricao' => 'Movimento bancário', 'linhas' => [['codigo_conta' => '611', 'tipo_dc' => 'C', 'valor' => '2000']]])->id);
+        $this->postJson("/api/tesouraria/documentos/{$caixa}/integrar", [], $this->s)->assertOk();
         $c = $this->postJson('/api/tesouraria/conferencias', ['codigo_conta' => '4511', 'data_conferencia' => $this->hoje, 'denominacoes' => ['N1000' => 2, 'M100' => 3]], $this->s)
             ->assertCreated()->assertJsonPath('dados.total_fisico', '2300.00')->assertJsonPath('dados.total_sistema', '2000.00')->assertJsonPath('dados.diferenca', '300.00')->json('dados.id');
         $this->postJson("/api/tesouraria/conferencias/{$c}/finalizar", ['regularizar' => true], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'JUSTIFICACAO_EM_FALTA');

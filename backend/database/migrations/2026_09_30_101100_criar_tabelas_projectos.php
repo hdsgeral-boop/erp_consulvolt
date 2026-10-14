@@ -14,18 +14,22 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // projects (legado) -> projetos · 5 linhas reais no backup · eliminação lógica
+        // projects (legado) -> projetos · 8 linhas reais no backup · eliminação lógica
         Schema::create('projetos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->string('codigo', 50)->nullable()->comment('legado: code');
             $table->string('nome', 255)->nullable()->comment('legado: name');
-            $table->string('estado', 10)->nullable()->comment('legado: status');
+            $table->string('estado', 20)->nullable()->comment('legado: status');
             $table->string('tipo', 20)->nullable()->comment('legado: type');
             $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: business_unit_id');
             $table->bigInteger('centro_custo_id')->nullable()->comment('legado: cost_center_id');
             $table->bigInteger('cliente_id')->nullable()->comment('legado: customer_id');
             $table->bigInteger('encomenda_venda_id')->nullable()->comment('legado: sales_order_id');
+            $table->jsonb('calendario')->nullable()->comment('legado: calendario');
+            $table->text('descricao')->nullable()->comment('legado: descricao');
+            $table->string('origem', 30)->nullable()->comment('legado: origem');
+            $table->bigInteger('assunto_metodo_id')->nullable()->comment('legado: mt_assunto_id');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -35,8 +39,9 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_projetos_centro_custo_id ON projetos (centro_custo_id)');
         DB::statement('CREATE INDEX ix_projetos_cliente_id ON projetos (cliente_id)');
         DB::statement('CREATE INDEX ix_projetos_encomenda_venda_id ON projetos (encomenda_venda_id)');
+        DB::statement('CREATE INDEX ix_projetos_assunto_metodo_id ON projetos (assunto_metodo_id)');
 
-        // project_milestones (legado) -> marcos_projeto · 15 linhas reais no backup
+        // project_milestones (legado) -> marcos_projeto · 23 linhas reais no backup
         Schema::create('marcos_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -44,19 +49,22 @@ return new class extends Migration
             $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->date('data')->nullable()->comment('legado: date');
             $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->date('data_inicio')->nullable()->comment('legado: date_start');
+            $table->string('meta_unidade', 20)->nullable()->comment('legado: meta_unidade · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
+            $table->decimal('meta_quantidade', 15, 3)->nullable()->comment('legado: meta_quantidade · tipo forçado (inferido: numeric(12,3))');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_marcos_projeto_empresa_id ON marcos_projeto (empresa_id)');
         DB::statement('CREATE INDEX ix_marcos_projeto_projeto_id ON marcos_projeto (projeto_id)');
 
-        // project_tasks (legado) -> tarefas_projeto · 51 linhas reais no backup
+        // project_tasks (legado) -> tarefas_projeto · 158 linhas reais no backup
         Schema::create('tarefas_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->bigInteger('tarefa_pai_id')->nullable()->comment('legado: parent_task_id');
-            $table->text('codigo')->nullable()->comment('legado: code · sem valores reais: tipo a confirmar no código legado');
+            $table->text('codigo')->nullable()->comment('legado: code · tipo forçado (inferido: varchar(10))');
             $table->string('nome', 255)->nullable()->comment('legado: name');
             $table->date('data_inicio')->nullable()->comment('legado: start_date');
             $table->date('data_fim')->nullable()->comment('legado: end_date');
@@ -66,7 +74,15 @@ return new class extends Migration
             $table->bigInteger('atribuido_a_id')->nullable()->comment('legado: assigned_to_id');
             $table->decimal('percentagem_execucao', 9, 4)->nullable()->comment('legado: execution_pct');
             $table->decimal('valor_contrato', 15, 2)->nullable()->comment('legado: contract_value');
+            $table->bigInteger('tarefa_predecessora_id')->nullable()->comment('legado: depends_on_task_id');
+            $table->string('tipo_dependencia', 10)->nullable()->comment('legado: dependency_type');
+            $table->integer('desfasamento_dias')->nullable()->comment('legado: dependency_lag_days');
+            $table->string('meta_unidade', 20)->nullable()->comment('legado: meta_unidade · tipo forçado (inferido: varchar(10))');
+            $table->decimal('meta_quantidade', 15, 3)->nullable()->comment('legado: meta_quantidade · tipos mistos: inteiro=32, decimal=15; tipo forçado (inferido: numeric(12,3))');
+            $table->decimal('meta_realizado', 15, 3)->nullable()->comment('legado: meta_realizado · tipo forçado (inferido: integer)');
+            $table->timestampTz('concluida_em')->nullable()->comment('legado: concluida_em · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
             $table->integer('ordem')->nullable()->comment('legado: ordem');
+            $table->jsonb('meta_execucoes')->nullable()->comment('legado: meta_execucoes');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -74,9 +90,10 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_tarefas_projeto_projeto_id ON tarefas_projeto (projeto_id)');
         DB::statement('CREATE INDEX ix_tarefas_projeto_tarefa_pai_id ON tarefas_projeto (tarefa_pai_id)');
         DB::statement('CREATE INDEX ix_tarefas_projeto_marco_projeto_id ON tarefas_projeto (marco_projeto_id)');
+        DB::statement('CREATE INDEX ix_tarefas_projeto_tarefa_predecessora_id ON tarefas_projeto (tarefa_predecessora_id)');
         DB::statement('ALTER TABLE tarefas_projeto ADD CONSTRAINT ck_tarefas_projeto_estado CHECK (estado IS NULL OR estado IN (\'PENDENTE\',\'EM_CURSO\',\'CONCLUIDA\',\'BLOQUEADA\'))');
 
-        // project_teams (legado) -> equipas_projeto · 4 linhas reais no backup
+        // project_teams (legado) -> equipas_projeto · 8 linhas reais no backup
         Schema::create('equipas_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -88,7 +105,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_equipas_projeto_empresa_id ON equipas_projeto (empresa_id)');
         DB::statement('CREATE INDEX ix_equipas_projeto_projeto_id ON equipas_projeto (projeto_id)');
 
-        // project_team_members (legado) -> membros_equipa_projeto · 29 linhas reais no backup
+        // project_team_members (legado) -> membros_equipa_projeto · 43 linhas reais no backup
         Schema::create('membros_equipa_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -97,9 +114,9 @@ return new class extends Migration
             $table->bigInteger('terceiro_id')->nullable()->comment('legado: third_party_id');
             $table->text('nome_externo')->nullable()->comment('legado: external_name · sem valores reais: tipo a confirmar no código legado');
             $table->string('papel', 100)->nullable()->comment('legado: role');
-            $table->decimal('horas_alocadas', 12, 3)->nullable()->comment('legado: allocated_hours · tipos mistos: inteiro=22, decimal=1');
-            $table->decimal('valor_contrato', 15, 2)->nullable()->comment('legado: contract_value');
+            $table->decimal('horas_alocadas', 12, 3)->nullable()->comment('legado: allocated_hours · tipos mistos: inteiro=30, decimal=1');
             $table->bigInteger('no_organigrama_projeto_id')->nullable()->comment('legado: org_node_id');
+            $table->decimal('valor_contrato', 15, 2)->nullable()->comment('legado: contract_value');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -109,7 +126,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_membros_equipa_projeto_terceiro_id ON membros_equipa_projeto (terceiro_id)');
         DB::statement('CREATE INDEX ix_membros_equipa_projeto_no_organigrama_projeto_id ON membros_equipa_projeto (no_organigrama_projeto_id)');
 
-        // project_requisitions (legado) -> requisicoes_material_projeto · 7 linhas reais no backup
+        // project_requisitions (legado) -> requisicoes_material_projeto · 8 linhas reais no backup
         Schema::create('requisicoes_material_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -124,7 +141,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_requisicoes_material_projeto_empresa_id ON requisicoes_material_projeto (empresa_id)');
         DB::statement('CREATE INDEX ix_requisicoes_material_projeto_projeto_id ON requisicoes_material_projeto (projeto_id)');
 
-        // project_requisition_lines (legado) -> linhas_requisicao_projeto · 10 linhas reais no backup
+        // project_requisition_lines (legado) -> linhas_requisicao_projeto · 11 linhas reais no backup
         Schema::create('linhas_requisicao_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -141,7 +158,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_linhas_requisicao_projeto_requisicao_material_projeto_id ON linhas_requisicao_projeto (requisicao_material_projeto_id)');
         DB::statement('CREATE INDEX ix_linhas_requisicao_projeto_tarefa_projeto_id ON linhas_requisicao_projeto (tarefa_projeto_id)');
 
-        // project_budget_lines (legado) -> linhas_orcamento_projeto · 13 linhas reais no backup
+        // project_budget_lines (legado) -> linhas_orcamento_projeto · 19 linhas reais no backup
         Schema::create('linhas_orcamento_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -150,6 +167,9 @@ return new class extends Migration
             $table->string('rubrica', 20)->nullable()->comment('legado: rubric');
             $table->decimal('montante', 15, 2)->nullable()->comment('legado: amount');
             $table->string('numero_conta', 20)->nullable()->comment('legado: account_number');
+            $table->jsonb('mapa_quantidades')->nullable()->comment('legado: mapa_qtd');
+            $table->jsonb('mapas_quantidades')->nullable()->comment('legado: mapas_qtd');
+            $table->text('descricao')->nullable()->comment('legado: description');
             $table->bigInteger('no_organigrama_projeto_id')->nullable()->comment('legado: org_node_id · do código legado js/projectos_organigrama.js:477');
             $table->bigInteger('membro_equipa_projeto_id')->nullable()->comment('legado: team_member_id · do código legado js/projectos_organigrama.js:477');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
@@ -161,7 +181,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_linhas_orcamento_projeto_no_organigrama_projeto_id ON linhas_orcamento_projeto (no_organigrama_projeto_id)');
         DB::statement('CREATE INDEX ix_linhas_orcamento_projeto_membro_equipa_projeto_id ON linhas_orcamento_projeto (membro_equipa_projeto_id)');
 
-        // project_ledger (legado) -> razao_analitico_projetos · 30 linhas reais no backup
+        // project_ledger (legado) -> razao_analitico_projetos · 32 linhas reais no backup
         Schema::create('razao_analitico_projetos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -189,7 +209,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE razao_analitico_projetos ADD CONSTRAINT ck_razao_analitico_projetos_tipo_documento_origem CHECK (tipo_documento_origem IS NULL OR tipo_documento_origem IN (\'AUTO_INTERNO\',\'REGISTO_OBRA\',\'FATURA\',\'FATURA_RECIBO\',\'PROCESSAMENTO_SALARIAL\'))');
         DB::statement('ALTER TABLE razao_analitico_projetos ADD CONSTRAINT ck_razao_analitico_projetos_natureza CHECK (natureza IS NULL OR natureza IN (\'CUSTO\',\'CUSTO_REAL\',\'PROVEITO\'))');
 
-        // project_timesheets (legado) -> folhas_horas_projeto · 2 linhas reais no backup
+        // project_timesheets (legado) -> folhas_horas_projeto · 3 linhas reais no backup
         Schema::create('folhas_horas_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -281,7 +301,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_logs_atividades_projeto_empresa_id ON logs_atividades_projeto (empresa_id)');
         DB::statement('CREATE INDEX ix_logs_atividades_projeto_projeto_id ON logs_atividades_projeto (projeto_id)');
 
-        // project_settings (legado) -> configuracoes_projetos · 1 linhas reais no backup
+        // project_settings (legado) -> configuracoes_projetos · 2 linhas reais no backup
         Schema::create('configuracoes_projetos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -296,7 +316,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_configuracoes_projetos_empresa_id ON configuracoes_projetos (empresa_id)');
         DB::statement('CREATE INDEX ix_configuracoes_projetos_projeto_id ON configuracoes_projetos (projeto_id)');
 
-        // project_reviews (legado) -> revisoes_mensais_projeto · 20 linhas reais no backup
+        // project_reviews (legado) -> revisoes_mensais_projeto · 21 linhas reais no backup
         Schema::create('revisoes_mensais_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -310,7 +330,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_revisoes_mensais_projeto_empresa_id ON revisoes_mensais_projeto (empresa_id)');
         DB::statement('CREATE INDEX ix_revisoes_mensais_projeto_projeto_id ON revisoes_mensais_projeto (projeto_id)');
 
-        // project_review_lines (legado) -> linhas_revisao_projeto · 55 linhas reais no backup
+        // project_review_lines (legado) -> linhas_revisao_projeto · 58 linhas reais no backup
         Schema::create('linhas_revisao_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -334,7 +354,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_linhas_revisao_projeto_colaborador_id ON linhas_revisao_projeto (colaborador_id)');
         DB::statement('ALTER TABLE linhas_revisao_projeto ADD CONSTRAINT ck_linhas_revisao_projeto_tipo CHECK (tipo IS NULL OR tipo IN (\'MAO_OBRA\',\'SUBEMPREITADA\'))');
 
-        // project_org_nodes (legado) -> nos_organigrama_projeto · 30 linhas reais no backup
+        // project_org_nodes (legado) -> nos_organigrama_projeto · 48 linhas reais no backup
         Schema::create('nos_organigrama_projeto', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: company_id');
@@ -357,10 +377,66 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_nos_organigrama_projeto_projeto_id ON nos_organigrama_projeto (projeto_id)');
         DB::statement('CREATE INDEX ix_nos_organigrama_projeto_no_pai_id ON nos_organigrama_projeto (no_pai_id)');
         DB::statement('CREATE INDEX ix_nos_organigrama_projeto_membro_responsavel_id ON nos_organigrama_projeto (membro_responsavel_id)');
+
+        // mt_assuntos (legado) -> assuntos_metodo_trabalho · 2 linhas reais no backup
+        Schema::create('assuntos_metodo_trabalho', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('legado: company_id');
+            $table->string('titulo', 255)->nullable()->comment('legado: titulo');
+            $table->text('descricao')->nullable()->comment('legado: descricao');
+            $table->jsonb('responsaveis')->nullable()->comment('legado: responsaveis');
+            $table->string('responsavel_principal', 150)->nullable()->comment('legado: responsavel_principal · tipo forçado (inferido: varchar(30))');
+            $table->integer('responsavel_principal_ref')->nullable()->comment('legado: responsavel_principal_id');
+            $table->date('data_inicio')->nullable()->comment('legado: data_inicio');
+            $table->date('data_fim')->nullable()->comment('legado: data_fim');
+            $table->string('local_tipo', 20)->nullable()->comment('legado: local_tipo');
+            $table->bigInteger('unidade_negocio_id')->nullable()->comment('legado: departamento_id');
+            $table->bigInteger('cliente_id')->nullable()->comment('legado: cliente_id');
+            $table->text('encomenda')->nullable()->comment('legado: encomenda · sem valores reais: tipo a confirmar no código legado');
+            $table->text('morada')->nullable()->comment('legado: morada');
+            $table->string('fundamentacao', 150)->nullable()->comment('legado: fundamentacao');
+            $table->string('causa_raiz', 150)->nullable()->comment('legado: causa_raiz');
+            $table->text('recursos')->nullable()->comment('legado: recursos · tipo forçado (inferido: varchar(200))');
+            $table->decimal('custo_estimado', 15, 2)->nullable()->comment('legado: custo_estimado · tipo forçado (inferido: numeric(15,2))');
+            $table->string('codigo_moeda', 50)->nullable()->comment('legado: moeda');
+            $table->boolean('gerar_pedido_compra')->nullable()->comment('legado: gerar_pedido_compra');
+            $table->jsonb('anexos')->nullable()->comment('legado: anexos');
+            $table->string('atualizado_por', 100)->nullable()->comment('legado: actualizado_por');
+            $table->string('numero', 20)->nullable()->comment('legado: numero');
+            $table->string('estado', 20)->nullable()->comment('legado: estado');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por');
+            $table->text('metodo_resolucao')->nullable()->comment('legado: metodo_resolucao');
+            $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
+            $table->string('projeto_modo', 10)->nullable()->comment('legado: projecto_modo');
+            $table->jsonb('deliberacao')->nullable()->comment('legado: deliberacao');
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
+        });
+        DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_empresa_id ON assuntos_metodo_trabalho (empresa_id)');
+        DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_unidade_negocio_id ON assuntos_metodo_trabalho (unidade_negocio_id)');
+        DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_cliente_id ON assuntos_metodo_trabalho (cliente_id)');
+        DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_projeto_id ON assuntos_metodo_trabalho (projeto_id)');
+
+        // mt_assunto_log (legado) -> historico_assuntos_metodo · 12 linhas reais no backup
+        Schema::create('historico_assuntos_metodo', function (Blueprint $table) {
+            $table->id();
+            $table->bigInteger('empresa_id')->comment('derivada de assunto_id -> assuntos_metodo_trabalho');
+            $table->bigInteger('assunto_id')->nullable()->comment('legado: assunto_id');
+            $table->string('acao', 50)->nullable()->comment('legado: accao');
+            $table->string('detalhe', 150)->nullable()->comment('legado: detalhe');
+            $table->string('por', 100)->nullable()->comment('legado: por · tipo forçado (inferido: varchar(10))');
+            $table->timestampTz('em')->nullable()->comment('legado: em');
+            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->timestampTz('atualizado_em')->nullable()->useCurrent();
+        });
+        DB::statement('CREATE INDEX ix_historico_assuntos_metodo_empresa_id ON historico_assuntos_metodo (empresa_id)');
+        DB::statement('CREATE INDEX ix_historico_assuntos_metodo_assunto_id ON historico_assuntos_metodo (assunto_id)');
     }
 
     public function down(): void
     {
+        Schema::dropIfExists('historico_assuntos_metodo');
+        Schema::dropIfExists('assuntos_metodo_trabalho');
         Schema::dropIfExists('nos_organigrama_projeto');
         Schema::dropIfExists('linhas_revisao_projeto');
         Schema::dropIfExists('revisoes_mensais_projeto');

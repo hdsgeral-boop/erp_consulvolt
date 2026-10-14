@@ -108,7 +108,7 @@ final class EstruturaController extends Controller
     {
         $this->exigir('funcoes_view', 'colaboradores_view', 'est_estrutura_view');
 
-        return RespostaApi::sucesso(CargoFuncao::query()->orderBy('nome')->get(), 'Cargos e funções.');
+        return RespostaApi::sucesso(CargoFuncao::query()->ordenarPorNome()->get(), 'Cargos e funções.');
     }
 
     public function guardarCargo(Request $r, ?int $cargo = null): JsonResponse

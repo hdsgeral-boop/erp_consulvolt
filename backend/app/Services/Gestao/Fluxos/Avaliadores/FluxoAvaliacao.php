@@ -36,7 +36,7 @@ final class FluxoAvaliacao extends AvaliadorFluxo
     {
         $e = $this->empresa();
         $anoAct = (int) now()->format('Y');
-        $emps = DB::table('colaboradores')->where('empresa_id', $e)->whereNull('eliminado_em')->orderBy('nome_completo')->get(['id', 'nome_completo', 'estado', 'reformado'])->keyBy('id');
+        $emps = DB::table('colaboradores')->where('empresa_id', $e)->whereNull('eliminado_em')->ordenarPorNome('nome_completo')->get(['id', 'nome_completo', 'estado', 'reformado'])->keyBy('id');
         $avals = AvaliacaoDesempenhoRH::query()->get();
         $autos = DB::table('autoavaliacoes_colaborador')->where('empresa_id', $e)->get();
         $itens = DB::table('criterios_avaliacao_rh')->where('empresa_id', $e)->where(fn ($q) => $q->whereNull('ativo')->orWhere('ativo', true))->get(['tipo', 'ambito', 'colaborador_id', 'natureza']);

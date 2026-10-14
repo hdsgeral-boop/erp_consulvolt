@@ -27,7 +27,7 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_configuracoes_crm_empresa_id ON configuracoes_crm (empresa_id)');
 
-        // crm_pipelines (legado) -> funis_vendas_crm · 2 linhas reais no backup
+        // crm_pipelines (legado) -> funis_vendas_crm · 4 linhas reais no backup
         Schema::create('funis_vendas_crm', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id');
@@ -40,7 +40,7 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX ix_funis_vendas_crm_empresa_id ON funis_vendas_crm (empresa_id)');
 
-        // crm_accounts (legado) -> contas_crm · 5 linhas reais no backup · eliminação lógica
+        // crm_accounts (legado) -> contas_crm · 7 linhas reais no backup · eliminação lógica
         Schema::create('contas_crm', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id');
@@ -49,8 +49,8 @@ return new class extends Migration
             $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->string('nif', 30)->nullable()->comment('legado: nif');
             $table->string('email', 150)->nullable()->comment('legado: email');
-            $table->string('telefone', 50)->nullable()->comment('legado: telefone · tipos mistos: string=1, string_inteiro=1');
-            $table->text('morada')->nullable()->comment('legado: morada · sem valores reais: tipo a confirmar no código legado');
+            $table->string('telefone', 50)->nullable()->comment('legado: telefone · tipos mistos: string=1, string_inteiro=2');
+            $table->text('morada')->nullable()->comment('legado: morada');
             $table->string('origem', 22)->nullable()->comment('legado: origem · código normalizado ∈ {RECOMENDACAO, CLIENTE_EXISTENTE, SITE, CAMPANHA, OUTRO}; texto original em origem_original');
             $table->string('origem_original', 100)->nullable()->comment('legado: origem · texto exacto do legado');
             $table->string('responsavel', 100)->nullable()->comment('legado: responsavel · tipo forçado (inferido: varchar(10))');
@@ -67,7 +67,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_contas_crm_terceiro_id ON contas_crm (terceiro_id)');
         DB::statement('ALTER TABLE contas_crm ADD CONSTRAINT ck_contas_crm_origem CHECK (origem IS NULL OR origem IN (\'RECOMENDACAO\',\'CLIENTE_EXISTENTE\',\'SITE\',\'CAMPANHA\',\'OUTRO\'))');
 
-        // crm_contacts (legado) -> contactos_crm · 4 linhas reais no backup · eliminação lógica
+        // crm_contacts (legado) -> contactos_crm · 5 linhas reais no backup · eliminação lógica
         Schema::create('contactos_crm', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id');
@@ -75,7 +75,7 @@ return new class extends Migration
             $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->string('cargo', 100)->nullable()->comment('legado: cargo · tipo forçado (inferido: varchar(10))');
             $table->string('email', 150)->nullable()->comment('legado: email');
-            $table->string('telefone', 50)->nullable()->comment('legado: telefone · tipos mistos: string=2, string_inteiro=1');
+            $table->string('telefone', 50)->nullable()->comment('legado: telefone · tipos mistos: string=2, string_inteiro=2');
             $table->boolean('principal')->nullable()->comment('legado: principal');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
@@ -84,7 +84,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_contactos_crm_empresa_id ON contactos_crm (empresa_id)');
         DB::statement('CREATE INDEX ix_contactos_crm_conta_crm_id ON contactos_crm (conta_crm_id)');
 
-        // crm_opportunities (legado) -> oportunidades_venda_crm · 5 linhas reais no backup
+        // crm_opportunities (legado) -> oportunidades_venda_crm · 7 linhas reais no backup
         Schema::create('oportunidades_venda_crm', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id');
@@ -120,7 +120,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_oportunidades_venda_crm_contacto_crm_id ON oportunidades_venda_crm (contacto_crm_id)');
         DB::statement('ALTER TABLE oportunidades_venda_crm ADD CONSTRAINT ck_oportunidades_venda_crm_origem CHECK (origem IS NULL OR origem IN (\'RECOMENDACAO\',\'CLIENTE_EXISTENTE\',\'SITE\',\'CAMPANHA\',\'OUTRO\'))');
 
-        // crm_activities (legado) -> atividades_comerciais_crm · 45 linhas reais no backup
+        // crm_activities (legado) -> atividades_comerciais_crm · 52 linhas reais no backup
         Schema::create('atividades_comerciais_crm', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id');
@@ -150,7 +150,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_atividades_comerciais_crm_modelo_email_crm_id ON atividades_comerciais_crm (modelo_email_crm_id)');
         DB::statement('CREATE INDEX ix_atividades_comerciais_crm_sequencia_campanha_id ON atividades_comerciais_crm (sequencia_campanha_id)');
 
-        // crm_templates (legado) -> modelos_email_crm · 6 linhas reais no backup
+        // crm_templates (legado) -> modelos_email_crm · 12 linhas reais no backup
         Schema::create('modelos_email_crm', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('legado: crm_company_id');

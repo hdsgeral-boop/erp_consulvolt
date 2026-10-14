@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela taxas_cambio (módulo Sistema). Legado: exchange_rates · 36 linhas reais no backup.
+ * Tabela taxas_cambio (módulo Sistema). Legado: exchange_rates · 100 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\TaxaCambio.
  */
 abstract class TaxaCambioBase extends ModeloBase

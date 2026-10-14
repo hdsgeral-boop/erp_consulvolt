@@ -4,6 +4,7 @@ namespace App\Models\Base;
 
 use App\Models\AditamentoAlteracaoProjeto;
 use App\Models\AfetacaoAtivoProjeto;
+use App\Models\AssuntoMetodoTrabalho;
 use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
@@ -46,7 +47,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela projetos (módulo Projectos). Legado: projects · 5 linhas reais no backup.
+ * Tabela projetos (módulo Projectos). Legado: projects · 8 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\Projeto.
  */
 abstract class ProjetoBase extends ModeloBase
@@ -58,7 +59,7 @@ abstract class ProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'nome', 'estado', 'tipo', 'unidade_negocio_id', 'centro_custo_id', 'cliente_id', 'encomenda_venda_id',
+        'empresa_id', 'codigo', 'nome', 'estado', 'tipo', 'unidade_negocio_id', 'centro_custo_id', 'cliente_id', 'encomenda_venda_id', 'calendario', 'descricao', 'origem', 'assunto_metodo_id',
     ];
 
     protected function casts(): array
@@ -69,6 +70,8 @@ abstract class ProjetoBase extends ModeloBase
             'centro_custo_id' => 'integer',
             'cliente_id' => 'integer',
             'encomenda_venda_id' => 'integer',
+            'calendario' => 'array',
+            'assunto_metodo_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',
@@ -93,6 +96,11 @@ abstract class ProjetoBase extends ModeloBase
     public function encomendaVenda(): BelongsTo
     {
         return $this->belongsTo(Venda::class, 'encomenda_venda_id');
+    }
+
+    public function assuntoMetodo(): BelongsTo
+    {
+        return $this->belongsTo(AssuntoMetodoTrabalho::class, 'assunto_metodo_id');
     }
 
     public function lancamentosContabeis(): HasMany
@@ -258,5 +266,10 @@ abstract class ProjetoBase extends ModeloBase
     public function itensAcrescimosDiferimentos(): HasMany
     {
         return $this->hasMany(ItemAcrescimoDiferimento::class, 'projeto_id');
+    }
+
+    public function assuntosMetodoTrabalho(): HasMany
+    {
+        return $this->hasMany(AssuntoMetodoTrabalho::class, 'projeto_id');
     }
 }

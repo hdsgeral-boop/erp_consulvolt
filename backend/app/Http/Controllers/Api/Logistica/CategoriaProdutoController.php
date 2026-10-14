@@ -18,7 +18,7 @@ final class CategoriaProdutoController extends Controller
     {
         $this->exigir('vendas_produtos_view', 'vendas_faturacao_view', 'armazem_stock_view', 'pos_view', 'pos_venda');
 
-        return RespostaApi::sucesso(CategoriaProduto::query()->orderBy('nome')->get(['id', 'nome']), 'Categorias obtidas com sucesso.');
+        return RespostaApi::sucesso(CategoriaProduto::query()->ordenarPorNome()->get(['id', 'nome']), 'Categorias obtidas com sucesso.');
     }
 
     public function store(Request $request): JsonResponse

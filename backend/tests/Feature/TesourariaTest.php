@@ -8,6 +8,7 @@ use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Models\Venda;
+use App\Services\Tesouraria\ServicoDocumentosTesouraria;
 use App\Services\Tesouraria\ServicoMeiosPagamento;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Testing\TestResponse;
@@ -132,7 +133,9 @@ final class TesourariaTest extends TestCase
         $d1 = $this->documento('PAGAMENTO', $pagar('4000'))->assertCreated()->json('dados.id');
         $this->postJson("/api/tesouraria/documentos/{$d1}/integrar", [], $this->s)->assertOk();
         $this->getJson("/api/compras/faturas/{$f}", $this->s)->assertJsonPath('dados.estado', 'PARCIAL');
-        $d2 = $this->documento('PAGAMENTO', $pagar('7400'), '4511')->assertCreated()->json('dados.id');
+        // Fase A: o ecrã só aceita bancos (42/43); um documento anterior em caixa (45) continua a integrar-se no diário CX
+        $d2 = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => app(ServicoDocumentosTesouraria::class)->gravar(['tipo' => 'PAGAMENTO', 'data_documento' => $this->hoje,
+            'conta_financeira' => '4511', 'descricao' => 'Liquidação de documentos', 'linhas' => $pagar('7400')])->id);
         $i2 = $this->postJson("/api/tesouraria/documentos/{$d2}/integrar", [], $this->s)->assertOk();
         $this->assertStringStartsWith('CX', $i2->json('dados.numero_lan_contabilizacao'));
         $this->getJson("/api/compras/faturas/{$f}", $this->s)->assertJsonPath('dados.estado', 'PAGO');
@@ -148,7 +151,7 @@ final class TesourariaTest extends TestCase
     public function validacoes_do_documento_e_permissoes(): void
     {
         $linha = [['codigo_conta' => '752', 'tipo_dc' => 'D', 'valor' => 100]];
-        $this->documento('PAGAMENTO', $linha, '611')->assertStatus(422)->assertJsonPath('codigo', 'CONTA_FINANCEIRA_INVALIDA');
+        $this->documento('PAGAMENTO', $linha, '611')->assertStatus(422)->assertJsonPath('codigo', 'CONTA_FINANCEIRA_SO_BANCOS');   // Fase A: só 42/43
         $this->documento('RECEBIMENTO', $linha)->assertStatus(422)->assertJsonPath('codigo', 'SENTIDO_INVALIDO');
         $this->documento('PAGAMENTO', [['codigo_conta' => '9999', 'tipo_dc' => 'D', 'valor' => 100]])->assertStatus(422)->assertJsonPath('codigo', 'CONTA_INEXISTENTE');
         $this->postJson('/api/tesouraria/documentos', ['tipo' => 'PAGAMENTO', 'data_documento' => $this->hoje, 'conta_financeira' => '4311', 'descricao' => 'abc',

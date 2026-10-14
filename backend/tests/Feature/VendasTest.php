@@ -109,7 +109,7 @@ final class VendasTest extends TestCase
             $this->expectException(ErroNegocio::class);
             ItemVenda::query()->where('venda_id', $id)->first()->update(['quantidade' => 9]);
         });
-        $this->postJson("/api/vendas/documentos/{$id}/anular", [], $this->cabecalhos)->assertStatus(422)->assertJsonPath('codigo', 'DOCUMENTO_SELADO');
+        $this->postJson("/api/vendas/documentos/{$id}/anular", ['motivo' => 'Anulação de teste'], $this->cabecalhos)->assertStatus(422)->assertJsonPath('codigo', 'DOCUMENTO_SELADO');
     }
 
     #[Test]
@@ -168,10 +168,10 @@ final class VendasTest extends TestCase
             ->assertJsonPath('dados.documentos_relacionados.0.relacao', 'ORIGEM');
         $this->getJson("/api/vendas/documentos/{$or}", $this->cabecalhos)->assertJsonPath('dados.estado', 'CONCLUIDO')->assertJsonPath('dados.linhas.0.quantidade_faturada', '2.500');
         $this->postJson("/api/vendas/documentos/{$or}/converter", ['tipo_destino' => 'FT'], $this->cabecalhos)->assertStatus(422);
-        $this->postJson("/api/vendas/documentos/{$or}/anular", [], $this->cabecalhos)->assertStatus(422)->assertJsonPath('codigo', 'DOCUMENTO_CONVERTIDO');
+        $this->postJson("/api/vendas/documentos/{$or}/anular", ['motivo' => 'Anulação de teste'], $this->cabecalhos)->assertStatus(422)->assertJsonPath('codigo', 'DOCUMENTO_CONVERTIDO');
 
         $pf = $this->emitir(['tipo_documento' => 'PF'])->json('dados.id');
-        $this->postJson("/api/vendas/documentos/{$pf}/anular", [], $this->cabecalhos)->assertOk()->assertJsonPath('dados.estado', 'ANULADO');
+        $this->postJson("/api/vendas/documentos/{$pf}/anular", ['motivo' => 'Anulação de teste'], $this->cabecalhos)->assertOk()->assertJsonPath('dados.estado', 'ANULADO');
         $this->assertNotNull($ft->json('dados.id'));
     }
 
@@ -256,9 +256,9 @@ final class VendasTest extends TestCase
         $recibo('1280');
         $this->getJson("/api/vendas/documentos/{$ft}", $this->cabecalhos)->assertJsonPath('dados.estado', 'PAGO');
         $nc()->assertStatus(422)->assertJsonPath('codigo', 'NC_FATURA_PAGA');
-        // a factura-recibo nasce paga
+        // a factura-recibo nasce paga, mas admite NC: o cliente fica com saldo a favor e a devolução é feita pela tesouraria (ADR-071)
         $fr = $this->emitir(['tipo_documento' => 'FR', 'conta_disponibilidade' => '451'])->assertCreated()->json('dados.id');
-        $converter($fr)->assertStatus(422)->assertJsonPath('codigo', 'NC_FATURA_PAGA');
+        $converter($fr)->assertCreated();
     }
 
     #[Test]

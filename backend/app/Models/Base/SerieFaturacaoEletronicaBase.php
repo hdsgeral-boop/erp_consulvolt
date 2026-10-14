@@ -10,7 +10,7 @@ use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela series_faturacao_eletronica (módulo Vendas). Legado: fe_series · 0 linhas reais no backup.
+ * Tabela series_faturacao_eletronica (módulo Vendas). Legado: fe_series · 1 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\SerieFaturacaoEletronica.
  */
 abstract class SerieFaturacaoEletronicaBase extends ModeloBase
@@ -22,7 +22,7 @@ abstract class SerieFaturacaoEletronicaBase extends ModeloBase
     protected string $moduloAuditoria = 'Vendas';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'tipo', 'ano', 'origem', 'origem_nome', 'estabelecimento', 'contingencia', 'estado', 'agt_codigo', 'proximo_numero', 'ultima_data', 'criado_por', 'agt_primeiro_numero', 'agt_ultimo_numero', 'agt_quantidade', 'agt_pedido_em',
+        'empresa_id', 'tipo', 'ano', 'origem', 'origem_nome', 'estabelecimento', 'codigo', 'contingencia', 'proximo_numero', 'ultima_data', 'estado', 'estado_original', 'agt_codigo', 'criado_por', 'agt_primeiro_numero', 'agt_ultimo_numero', 'agt_quantidade', 'agt_pedido_em',
     ];
 
     protected function casts(): array

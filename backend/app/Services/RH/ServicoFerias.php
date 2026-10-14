@@ -138,7 +138,7 @@ final class ServicoFerias
         $cfg = $this->configRH->config();
         $anteriores = PlanoFeriasColaborador::query()->where('ano', $ano - 1)->orderByDesc('atualizado_em')->orderByDesc('id')->get()->groupBy('colaborador_id');
 
-        return Colaborador::query()->where('estado', 'ACTIVO')->orderBy('nome_completo')->get()->map(function ($c) use ($periodos, $direitos, $ano, $cfg, $anteriores) {
+        return Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get()->map(function ($c) use ($periodos, $direitos, $ano, $cfg, $anteriores) {
             $meus = $periodos[$c->id] ?? collect();
             $calculo = isset($direitos[$c->id]) ? null
                 : self::calcular($c->data_admissao ? substr((string) $c->data_admissao, 0, 10) : null, $ano, $cfg, isset($anteriores[$c->id]) ? self::anoAnterior($anteriores[$c->id]) : null);

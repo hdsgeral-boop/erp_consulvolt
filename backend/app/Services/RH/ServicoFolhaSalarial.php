@@ -418,7 +418,7 @@ final class ServicoFolhaSalarial
         $contratos = ContratoTrabalho::query()->get()->groupBy('colaborador_id');
         $res = [];
         $ignorados = [];
-        foreach (Colaborador::query()->where('estado', 'ACTIVO')->orderBy('nome_completo')->get() as $c) {
+        foreach (Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get() as $c) {
             $contrato = $this->contratoDoMes($contratos[$c->id] ?? collect(), $mesAno, 'ATUAL');
             if (! $contrato || ($contrato->codigo_moeda && $contrato->codigo_moeda !== 'AOA')) {
                 $ignorados[] = $c->nome_completo.': '.(! $contrato ? "sem contrato activo em {$mesAno}." : "contrato em {$contrato->codigo_moeda}.");

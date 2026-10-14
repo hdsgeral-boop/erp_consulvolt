@@ -170,7 +170,8 @@ final class CRMTest extends TestCase
         $cliente = $this->postJson("/api/crm/contas/{$conta}/converter-em-cliente", ['codigo_conta' => '311'], $s)->assertOk()
             ->assertJsonPath('dados.tipo', 'CLIENTE')->json('dados.terceiro_id');
         $t = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => DB::table('terceiros')->where('id', $cliente)->first());
-        $this->assertSame(['Gama, SA', '5000888888', '311', 'CLIENTE', 'Rua 1'], [$t->nome, $t->nif, $t->codigo_conta, $t->tipo, $t->endereco]);
+        // Fase A: a conta escolhida é a conta de cliente do papel (crm_dados.js:170)
+        $this->assertSame(['Gama, SA', '5000888888', '311', 'CLIENTE', 'Rua 1'], [$t->nome, $t->nif, $t->conta_cliente, $t->tipo, $t->endereco]);
         // a conta de um cliente existente não se duplica
         $this->assertSame($conta, $this->postJson('/api/crm/contas/do-cliente', ['terceiro_id' => $cliente], $s)->assertOk()->json('dados.id'));
 

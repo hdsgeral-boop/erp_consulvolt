@@ -43,7 +43,7 @@ final class ServicoEstruturaOrg
             'ocupados' => $colabs->where('posto_trabalho_id', $p->id)->count(),
             'livres' => max(0, (int) $p->vagas - $colabs->where('posto_trabalho_id', $p->id)->count())]);
 
-        return ['unidades' => UnidadeOrganica::query()->orderBy('ordem')->orderBy('nome')->get()->map(fn ($u) => $u->toArray() + [
+        return ['unidades' => UnidadeOrganica::query()->orderBy('ordem')->ordenarPorNome()->get()->map(fn ($u) => $u->toArray() + [
             'membros' => $colabs->where('unidade_organica_id', $u->id)->count(), 'postos' => $postos->where('unidade_organica_id', $u->id)->values()])->all(),
             'sem_unidade' => $colabs->whereNull('unidade_organica_id')->count()];
     }
@@ -95,12 +95,12 @@ final class ServicoEstruturaOrg
             return $verSalarios ? $l + ['massa_salarial' => $somaMassa($filtroColab)] : $l;
         };
 
-        $unidades = UnidadeOrganica::query()->orderBy('ordem')->orderBy('nome')->get(['id', 'codigo', 'nome', 'unidade_organica_pai_id', 'ativo'])
+        $unidades = UnidadeOrganica::query()->orderBy('ordem')->ordenarPorNome()->get(['id', 'codigo', 'nome', 'unidade_organica_pai_id', 'ativo'])
             ->map(fn ($u) => ['unidade_organica_id' => $u->id, 'codigo' => $u->codigo, 'nome' => $u->nome, 'unidade_organica_pai_id' => $u->unidade_organica_pai_id, 'ativo' => (bool) $u->ativo]
                 + $linha($postos->where('unidade', $u->id), fn ($c) => (int) $c->unidade_organica_id === $u->id))->values()->all();
         $semUnidade = $linha($postos->whereNull('unidade'), fn ($c) => $c->unidade_organica_id === null);
 
-        $nomesCargo = CargoFuncao::query()->orderBy('nome')->pluck('nome', 'id');
+        $nomesCargo = CargoFuncao::query()->ordenarPorNome()->pluck('nome', 'id');
         $idsCargo = $nomesCargo->keys()->all();
         $cargos = collect($idsCargo)->map(fn ($id) => ['cargo_funcao_id' => (int) $id, 'nome' => $nomesCargo[$id]]
             + $linha($postos->where('cargo', $id), fn ($c) => (int) $c->cargo_funcao_id === (int) $id))

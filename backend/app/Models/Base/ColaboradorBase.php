@@ -17,6 +17,8 @@ use App\Models\CoordenadaBancariaColaborador;
 use App\Models\CriterioAvaliacaoRH;
 use App\Models\DependenteColaborador;
 use App\Models\EfectividadeAssiduidade;
+use App\Models\EmprestimoColaborador;
+use App\Models\EscalaTrabalho;
 use App\Models\FeedbackAvaliacao360;
 use App\Models\FolhaHorasProjeto;
 use App\Models\HabilitacaoColaborador;
@@ -32,6 +34,7 @@ use App\Models\PedidoLavandaria;
 use App\Models\PedidoPortalColaborador;
 use App\Models\PlanoFeriasColaborador;
 use App\Models\PostoTrabalho;
+use App\Models\PrestacaoEmprestimo;
 use App\Models\RegistoProdutividadeRH;
 use App\Models\RespostaAscendenteRH;
 use App\Models\RespostaAvaliacao360;
@@ -43,7 +46,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela colaboradores (módulo RH). Legado: employees · 133 linhas reais no backup.
+ * Tabela colaboradores (módulo RH). Legado: employees · 141 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\Colaborador.
  */
 abstract class ColaboradorBase extends ModeloBase
@@ -55,7 +58,7 @@ abstract class ColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'nome_completo', 'nif', 'numero_inss', 'cargo_funcao_id', 'tipo_organizacao_id', 'estado', 'estado_original', 'dias_uteis_mes', 'reformado', 'unidade_negocio_id', 'centro_custo_id', 'avencado', 'sexo', 'data_nascimento', 'estado_civil', 'estado_civil_original', 'nacionalidade', 'naturalidade', 'provincia_naturalidade', 'documento_identificacao', 'documento_validade', 'data_admissao', 'endereco', 'bairro', 'municipio', 'provincia', 'telefone', 'telefone_alternativo', 'email', 'emergencia_nome', 'emergencia_telefone', 'emergencia_parentesco', 'habilitacao_maxima', 'unidade_organica_id', 'posto_trabalho_id', 'colaborador_gestor_id',
+        'empresa_id', 'nome_completo', 'nif', 'numero_inss', 'cargo_funcao_id', 'tipo_organizacao_id', 'estado', 'estado_original', 'dias_uteis_mes', 'reformado', 'unidade_negocio_id', 'centro_custo_id', 'avencado', 'sexo', 'data_nascimento', 'estado_civil', 'estado_civil_original', 'nacionalidade', 'naturalidade', 'provincia_naturalidade', 'documento_identificacao', 'documento_validade', 'data_admissao', 'endereco', 'bairro', 'municipio', 'provincia', 'telefone', 'telefone_alternativo', 'email', 'emergencia_nome', 'emergencia_telefone', 'emergencia_parentesco', 'habilitacao_maxima', 'unidade_organica_id', 'posto_trabalho_id', 'colaborador_gestor_id', 'unidades_alocadas',
     ];
 
     protected function casts(): array
@@ -75,6 +78,7 @@ abstract class ColaboradorBase extends ModeloBase
             'unidade_organica_id' => 'integer',
             'posto_trabalho_id' => 'integer',
             'colaborador_gestor_id' => 'integer',
+            'unidades_alocadas' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',
@@ -274,5 +278,20 @@ abstract class ColaboradorBase extends ModeloBase
     public function linhasRevisaoProjeto(): HasMany
     {
         return $this->hasMany(LinhaRevisaoProjeto::class, 'colaborador_id');
+    }
+
+    public function escalasTrabalho(): HasMany
+    {
+        return $this->hasMany(EscalaTrabalho::class, 'colaborador_id');
+    }
+
+    public function emprestimosColaboradores(): HasMany
+    {
+        return $this->hasMany(EmprestimoColaborador::class, 'colaborador_id');
+    }
+
+    public function prestacoesEmprestimos(): HasMany
+    {
+        return $this->hasMany(PrestacaoEmprestimo::class, 'colaborador_id');
     }
 }

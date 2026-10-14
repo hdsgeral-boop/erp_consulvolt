@@ -13,7 +13,7 @@ use App\Models\SequenciaCampanhaCRM;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela atividades_comerciais_crm (módulo CRM). Legado: crm_activities · 45 linhas reais no backup.
+ * Tabela atividades_comerciais_crm (módulo CRM). Legado: crm_activities · 52 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\AtividadeComercialCRM.
  */
 abstract class AtividadeComercialCRMBase extends ModeloBase

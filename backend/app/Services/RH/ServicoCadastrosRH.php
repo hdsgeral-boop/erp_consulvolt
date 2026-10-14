@@ -133,8 +133,8 @@ final class ServicoCadastrosRH
     public function mapeamentos(): array
     {
         return [
-            'tipos_organizacao' => TipoOrganizacaoRH::query()->orderBy('nome')->get(['id', 'nome']),
-            'infotipos' => InfotipoSalarial::query()->orderBy('nome')->orderBy('id')->get(['id', 'nome', 'tipo']),
+            'tipos_organizacao' => TipoOrganizacaoRH::query()->ordenarPorNome()->get(['id', 'nome']),
+            'infotipos' => InfotipoSalarial::query()->ordenarPorNome()->orderBy('id')->get(['id', 'nome', 'tipo']),
             'codigos_sistema' => self::CODIGOS_SISTEMA,
             'rubricas' => MapeamentoContabilRH::query()->whereNotNull('numero_conta')->where('numero_conta', '<>', '')->orderBy('id')
                 ->get(['id', 'infotipo_salarial_id', 'tipo_organizacao_id', 'avencado', 'numero_conta']),

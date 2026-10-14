@@ -14,6 +14,7 @@ use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\CRM\ServicoOportunidadesCRM;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
+use App\Services\Terceiros\ContaTerceiro;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -79,10 +80,14 @@ final class ServicoDocumentosVenda
         $this->exercicios->exigirAberto($empresa, $data);
 
         $cliente = Terceiro::query()->findOrFail($d['cliente_id']);
-        // só a FT e a NC lançam na conta do cliente, e a contabilização usa a conta de clientes por omissão quando ele não tem conta própria;
-        // FR (disponibilidade ou transitórias do POS), guias, encomendas e orçamentos não a usam (o legado aceitava clientes sem conta)
-        if (! $cliente->eCliente() || (! $cliente->codigo_conta && in_array($tipo, ['FT', 'NC'], true) && ! $this->configVendas->conta('clientes_default'))) {
+        // só a FT e a NC lançam na conta do cliente — a conta de cliente (classe 31) do próprio terceiro, sem contas por defeito
+        // (Fase A, contas_terceiro.js); FR (disponibilidade ou transitórias do POS), guias, encomendas e orçamentos não a usam
+        if (! $cliente->eCliente()) {
             throw new ErroNegocio('O cliente tem de estar registado como cliente e ter conta contabilística.', 'CLIENTE_INVALIDO', 422);
+        }
+        if (in_array($tipo, ['FT', 'NC'], true) && $cliente->contaCliente() === '') {
+            throw new ErroNegocio(ContaTerceiro::falta($cliente, ContaTerceiro::CLIENTE), 'CLIENTE_INVALIDO', 422,
+                ['terceiro_id' => $cliente->id, 'campo' => 'conta_cliente']);
         }
         $config = ConfigFaturacaoEletronica::query()->first();
         $origemNcPrevia = $tipo === 'NC' ? Venda::query()->find($d['venda_origem_id'] ?? 0) : null;
@@ -236,10 +241,11 @@ final class ServicoDocumentosVenda
         }
 
         // legado (convertDocument, js/ui_sales.js:2750-2753): factura liquidada, mesmo em parte, não se converte em NC
-        if ($destino === 'NC' && ($origem->estado === 'PAGO' && bccomp((string) ($origem->valor_pago ?? '0'), '0.005', 3) > 0
+        // (a FR não entra: o pagamento é do próprio documento — ver validarNotaCredito, ADR-071)
+        if ($destino === 'NC' && $origem->tipo_documento === 'FT' && ($origem->estado === 'PAGO' && bccomp((string) ($origem->valor_pago ?? '0'), '0.005', 3) > 0
             || bccomp((string) ($origem->valor_pago ?? '0'), '0.01', 2) > 0)) {
             throw new ErroNegocio("Não é possível emitir nota de crédito para a factura {$origem->numero_documento}, que está liquidada: desassocie ou anule primeiro os pagamentos na Tesouraria.",
-                'NC_FATURA_PAGA', 422);
+                'NC_FATURA_PAGA', 422, ['venda_id' => $origem->id, 'cancelar_recebimentos' => true]);
         }
 
         $itens = $origem->itensVenda()->orderBy('id')->get();
@@ -393,8 +399,11 @@ final class ServicoDocumentosVenda
         }
     }
 
-    /** Anula um documento NÃO fiscal ainda não convertido. Os fiscais corrigem-se com nota de crédito. */
-    public function anular(Venda $venda): Venda
+    /**
+     * Anula um documento NÃO fiscal ainda não convertido. Os fiscais corrigem-se com nota de crédito.
+     * Fase A (anulacao_documentos.js:anularVenda): o motivo, o autor e a data ficam no documento, que se mantém (ANULADO).
+     */
+    public function anular(Venda $venda, string $motivo): Venda
     {
         if ($venda->eFiscal()) {
             throw new ErroNegocio('Documentos fiscais não se anulam: emita uma nota de crédito.', 'DOCUMENTO_SELADO', 422);
@@ -410,7 +419,7 @@ final class ServicoDocumentosVenda
             throw new ErroNegocio('A guia está contabilizada: descontabilize-a primeiro (estorno).', 'DOCUMENTO_CONTABILIZADO', 422);
         }
 
-        return DB::transaction(function () use ($venda) {
+        return DB::transaction(function () use ($venda, $motivo) {
             if (in_array($venda->tipo_documento, ['GR', 'GD'], true)) {
                 $this->stockVendas->reverter($venda, 'anulação');
                 // a origem (encomenda da GR, GR da GD) volta a ter a quantidade por entregar/devolver
@@ -422,7 +431,10 @@ final class ServicoDocumentosVenda
                 }
                 $origem?->estado === 'CONCLUIDO' && $origem->update(['estado' => 'PENDENTE']);
             }
-            $venda->update(['estado' => 'ANULADO', 'valor_pendente' => '0.00']);
+            // forceFill: as colunas da anulação (migração 2026_10_13_230100) não estão no $fillable gerado
+            $venda->forceFill(['estado' => 'ANULADO', 'valor_pendente' => '0.00', 'anulado_em' => now(),
+                'anulado_por' => auth()->user()?->nome_utilizador, 'motivo_anulacao' => $motivo])->save();
+            app(ServicoAuditoria::class)->registar('Vendas/Facturação', 'Anular documento', "{$venda->tipo_documento} {$venda->numero_documento}: {$motivo}", 'vendas', $venda->id);
 
             return $venda;
         });
@@ -538,9 +550,11 @@ final class ServicoDocumentosVenda
         $disponivel = bcsub((string) $origem->total_bruto, $this->estado->creditado($origem), 2);
         // legado (saveSale, js/ui_sales.js:1725-1728): factura PAGA não admite NC — anule primeiro o recibo/pagamento.
         // Só conta o pago por recibos/tesouraria (valor_pago): uma factura toda creditada por NC cai no saldo creditável abaixo.
-        if ($origem->estado === 'PAGO' && bccomp((string) ($origem->valor_pago ?? '0'), '0.005', 3) > 0) {
+        // A FR fica de fora (ADR-071): o pagamento faz parte do próprio documento e não há recibo a anular. A NC credita a
+        // conta do cliente (fica com saldo a favor) e a devolução do dinheiro faz-se depois por um pagamento da tesouraria.
+        if ($origem->tipo_documento === 'FT' && $origem->estado === 'PAGO' && bccomp((string) ($origem->valor_pago ?? '0'), '0.005', 3) > 0) {
             throw new ErroNegocio("Não é possível emitir nota de crédito para a factura {$origem->numero_documento}, que está paga: anule primeiro o recibo/pagamento associado.",
-                'NC_FATURA_PAGA', 422);
+                'NC_FATURA_PAGA', 422, ['venda_id' => $origem->id, 'cancelar_recebimentos' => true]);
         }
         $disponivel = bcsub((string) $origem->total_bruto, $this->estado->creditado($origem), 2);
         if (bccomp($totalNc, $disponivel, 2) > 0) {

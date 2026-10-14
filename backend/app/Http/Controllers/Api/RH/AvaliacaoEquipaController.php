@@ -41,7 +41,7 @@ final class AvaliacaoEquipaController extends Controller
         $f = $r->validate(['ano' => ['required', 'integer'], 'periodo' => ['required', Rule::in(ServicoAvaliacao::PERIODOS)]]);
         $eu = $this->portal->exigirColaborador()->id;
         $ciclo = CicloAvaliacao360::query()->where('ano', $f['ano'])->where('periodo', $f['periodo'])->first();
-        $equipa = Colaborador::query()->where('estado', 'ACTIVO')->whereKeyNot($eu)->orderBy('nome_completo')->get()
+        $equipa = Colaborador::query()->where('estado', 'ACTIVO')->whereKeyNot($eu)->ordenarPorNome('nome_completo')->get()
             ->filter(fn ($c) => $this->avaliacao->chefiaNoPeriodo($c->id, $ciclo) === $eu)->values();
         $avaliacoes = AvaliacaoDesempenhoRH::query()->where('ano', $f['ano'])->where('periodo', $f['periodo'])->whereIn('colaborador_id', $equipa->pluck('id'))->get()->keyBy('colaborador_id');
         $feedbacks = $ciclo ? FeedbackAvaliacao360::query()->where('ciclo_avaliacao_id', $ciclo->id)->whereIn('colaborador_id', $equipa->pluck('id'))->orderBy('data')->get()->groupBy('colaborador_id') : collect();

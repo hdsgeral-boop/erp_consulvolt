@@ -16,25 +16,40 @@ export function useMeiosPagamento() {
 /**
  * Selector da conta de banco/caixa (43/45): meios de pagamento activos e, se o utilizador tiver acesso ao plano,
  * as restantes contas de movimento 43/45. Sem nenhuma das fontes, texto livre (o servidor valida).
+ * `estrito`: os meios de pagamento também são filtrados pelos prefixos e o rótulo é a descrição do plano (ex.: pagamentos/
+ * recebimentos só por bancos, Fase A).
  */
-export function SeletorContaFinanceira({ value, onChange, allowClear, placeholder = 'Conta de banco/caixa', style, prefixos = ['43', '45'] }: { value?: string; onChange?: (v: string | undefined) => void; allowClear?: boolean; placeholder?: string; style?: React.CSSProperties; prefixos?: string[] }) {
+export function SeletorContaFinanceira({ value, onChange, allowClear, placeholder = 'Conta de banco/caixa', style, prefixos = ['43', '45'], estrito = false }: { value?: string; onChange?: (v: string | undefined) => void; allowClear?: boolean; placeholder?: string; style?: React.CSSProperties; prefixos?: string[]; estrito?: boolean }) {
   const meios = useMeiosPagamento();
   const plano = usePlanoContas();
   const opcoes = useMemo(() => {
     const vistos = new Set<string>();
     const lista: { value: string; label: string }[] = [];
-    for (const m of meios.data ?? []) {
-      if (!m.ativo || vistos.has(m.codigo_conta)) continue;
-      vistos.add(m.codigo_conta);
-      lista.push({ value: m.codigo_conta, label: `${m.codigo_conta} - ${m.nome}${m.codigo_moeda && m.codigo_moeda !== 'AOA' ? ` (${m.codigo_moeda})` : ''}` });
-    }
-    for (const c of plano.data ?? []) {
-      if (c.tipo !== 'M' || vistos.has(c.codigo) || !prefixos.some((p) => c.codigo.startsWith(p))) continue;
-      vistos.add(c.codigo);
-      lista.push({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` });
+    const doMeios = () => {
+      for (const m of meios.data ?? []) {
+        if (!m.ativo || vistos.has(m.codigo_conta) || (estrito && !prefixos.some((p) => m.codigo_conta.startsWith(p)))) continue;
+        vistos.add(m.codigo_conta);
+        lista.push({ value: m.codigo_conta, label: `${m.codigo_conta} - ${m.nome}${m.codigo_moeda && m.codigo_moeda !== 'AOA' ? ` (${m.codigo_moeda})` : ''}` });
+      }
+    };
+    const doPlano = () => {
+      for (const c of plano.data ?? []) {
+        if (c.tipo !== 'M' || vistos.has(c.codigo) || !prefixos.some((p) => c.codigo.startsWith(p))) continue;
+        vistos.add(c.codigo);
+        lista.push({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` });
+      }
+    };
+    // estrito (pagamentos/recebimentos só por bancos): como filterContasFinanceiras do legado, as contas do plano com a
+    // descrição do plano; os meios de pagamento só acrescentam contas que o utilizador não vê no plano
+    if (estrito) {
+      doPlano();
+      doMeios();
+    } else {
+      doMeios();
+      doPlano();
     }
     return lista;
-  }, [meios.data, plano.data, prefixos]);
+  }, [meios.data, plano.data, prefixos, estrito]);
 
   if (!opcoes.length && (meios.isError || !meios.data?.length) && plano.isError) {
     return <Input value={value} onChange={(e) => onChange?.(e.target.value || undefined)} placeholder={placeholder} maxLength={20} style={style} />;

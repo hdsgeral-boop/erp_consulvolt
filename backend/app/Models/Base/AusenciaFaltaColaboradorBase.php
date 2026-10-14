@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela ausencias_faltas_colaboradores (módulo RH). Legado: rh_absences · 34 linhas reais no backup.
+ * Tabela ausencias_faltas_colaboradores (módulo RH). Legado: rh_absences · 125 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\AusenciaFaltaColaborador.
  */
 abstract class AusenciaFaltaColaboradorBase extends ModeloBase
@@ -24,7 +24,7 @@ abstract class AusenciaFaltaColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'tipo', 'data_inicio', 'data_fim', 'dias_uteis', 'horas_falta', 'ocorrencia', 'estado', 'estado_original', 'detectada', 'fecho_mensal_assiduidade_id', 'mes', 'criado_por', 'dias', 'horas', 'pendente_no_fecho', 'motivo', 'documento_url', 'remunerada', 'avisos', 'pedido_portal_colaborador_id', 'justificada_em', 'justificada_por', 'decidido_em', 'decidido_por', 'nota_decisao',
+        'empresa_id', 'colaborador_id', 'tipo', 'data_inicio', 'data_fim', 'dias_uteis', 'horas_falta', 'ocorrencia', 'estado', 'estado_original', 'detectada', 'fecho_mensal_assiduidade_id', 'mes', 'criado_por', 'dias', 'horas', 'motivo', 'documento_url', 'remunerada', 'remunerada_original', 'avisos', 'pedido_portal_colaborador_id', 'justificada_em', 'justificada_por', 'pendente_no_fecho', 'decidido_em', 'decidido_por', 'nota_decisao',
     ];
 
     protected function casts(): array
@@ -40,10 +40,10 @@ abstract class AusenciaFaltaColaboradorBase extends ModeloBase
             'fecho_mensal_assiduidade_id' => 'integer',
             'dias' => 'integer',
             'horas' => 'decimal:3',
-            'pendente_no_fecho' => 'boolean',
             'avisos' => 'array',
             'pedido_portal_colaborador_id' => 'integer',
             'justificada_em' => 'datetime',
+            'pendente_no_fecho' => 'boolean',
             'decidido_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',

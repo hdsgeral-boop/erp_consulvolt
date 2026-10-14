@@ -37,7 +37,7 @@ final class ServicoComparacaoEmpresas
         $holding = $this->contexto->obrigatorio();
         $grupo = DB::table('grupos_consolidacao')->where('empresa_holding_id', $holding)->orderBy('id')->first();
         $membros = $grupo ? DB::table('membros_consolidacao as m')->join('empresas as e', 'e.id', '=', 'm.empresa_membro_id')
-            ->where('m.grupo_consolidacao_id', $grupo->id)->orderBy('e.nome')->get(['e.id', 'e.nome']) : collect();
+            ->where('m.grupo_consolidacao_id', $grupo->id)->ordenarPorNome('e.nome')->get(['e.id', 'e.nome']) : collect();
         $ultima = $grupo ? DB::table('execucoes_consolidacao')->where('grupo_consolidacao_id', $grupo->id)->where('estado', '<>', 'EM_CURSO')
             ->orderByDesc('executado_em')->orderByDesc('id')->first() : null;
         $acessiveis = array_flip($this->empresas->idsAcessiveis($this->utilizador()));
@@ -111,7 +111,7 @@ final class ServicoComparacaoEmpresas
     public function comparar(array $ids, PeriodoPainel $p, array $f): array
     {
         $ids = $this->garantirAcesso($ids);
-        $empresas = DB::table('empresas')->whereIn('id', $ids)->orderBy('nome')->get(['id', 'nome', 'e_consolidacao']);
+        $empresas = DB::table('empresas')->whereIn('id', $ids)->ordenarPorNome()->get(['id', 'nome', 'e_consolidacao']);
         $origens = $empresas->map(fn ($e) => self::origem((string) $e->id, $e->nome) + ['holding' => (bool) $e->e_consolidacao])->values()->all();
         [$fs, $fp] = ConsultasPaineis::filtroDimensoes('l', $f);
         $marcas = implode(',', array_fill(0, count($ids), '?'));

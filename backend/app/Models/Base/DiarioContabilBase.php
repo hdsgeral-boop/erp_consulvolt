@@ -5,6 +5,7 @@ namespace App\Models\Base;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ConfigAcrescimoDiferimento;
+use App\Models\ConfiguracaoEmprestimo;
 use App\Models\LancamentoContabil;
 use App\Models\LancamentoEstornado;
 use App\Models\ModeloBase;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela diarios_contabeis (módulo Contabilidade). Legado: journals · 436 linhas reais no backup.
+ * Tabela diarios_contabeis (módulo Contabilidade). Legado: journals · 454 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\DiarioContabil.
  */
 abstract class DiarioContabilBase extends ModeloBase
@@ -62,5 +63,10 @@ abstract class DiarioContabilBase extends ModeloBase
     public function periodosLancamentoAcrescimos(): HasMany
     {
         return $this->hasMany(PeriodoLancamentoAcrescimo::class, 'diario_id');
+    }
+
+    public function configuracoesEmprestimos(): HasMany
+    {
+        return $this->hasMany(ConfiguracaoEmprestimo::class, 'diario_id');
     }
 }

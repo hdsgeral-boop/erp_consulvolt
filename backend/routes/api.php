@@ -478,6 +478,9 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/paridade_rh.php';   // paridade de RH e Salários com o sistema anterior (secção 6)
         require __DIR__.'/api/paridade_pos_stock.php';   // paridade do POS e da Logística com o sistema anterior (secções 2 e 3)
         require __DIR__.'/api/paridade_vendas_compras.php';   // paridade de Vendas e Compras com o sistema anterior (secções 4 e 5)
+        require __DIR__.'/api/fa_terceiros.php';   // Fase A (Versão Actual): terceiros — contas por papel, endereços, contas bancárias
+        require __DIR__.'/api/fa_tesouraria.php';  // Fase A: dados bancários 42/43 e tesouraria só por bancos
+        require __DIR__.'/api/fa_vendas.php';      // Fase A: séries com número inicial, cancelar recebimentos antes da NC, anulação com motivo
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

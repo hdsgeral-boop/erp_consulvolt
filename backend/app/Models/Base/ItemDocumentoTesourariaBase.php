@@ -18,7 +18,7 @@ use App\Models\Venda;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela itens_documento_tesouraria (módulo Tesouraria). Legado: treasury_items · 6252 linhas reais no backup.
+ * Tabela itens_documento_tesouraria (módulo Tesouraria). Legado: treasury_items · 9326 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ItemDocumentoTesouraria.
  */
 abstract class ItemDocumentoTesourariaBase extends ModeloBase

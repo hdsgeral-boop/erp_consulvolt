@@ -9,7 +9,7 @@ use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela modelos_email_crm (módulo CRM). Legado: crm_templates · 6 linhas reais no backup.
+ * Tabela modelos_email_crm (módulo CRM). Legado: crm_templates · 12 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ModeloEmailCRM.
  */
 abstract class ModeloEmailCRMBase extends ModeloBase

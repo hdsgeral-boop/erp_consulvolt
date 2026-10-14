@@ -23,7 +23,7 @@ final class CadastrosRHController extends Controller
     {
         $this->exigir('infotipos_view', 'contratos_view', 'calcular_view', 'contabilidade_view', 'rh_produtividade_view', 'rh_avaliacao_config_view');
 
-        return RespostaApi::sucesso(InfotipoSalarial::query()->orderBy('tipo', 'desc')->orderBy('nome')->get(), 'Rubricas salariais.');
+        return RespostaApi::sucesso(InfotipoSalarial::query()->orderBy('tipo', 'desc')->ordenarPorNome()->get(), 'Rubricas salariais.');
     }
 
     public function guardarInfotipo(Request $r, ?int $infotipo = null): JsonResponse
@@ -52,7 +52,7 @@ final class CadastrosRHController extends Controller
     {
         $this->exigir('colaboradores_view', 'funcoes_view', 'contabilidade_view');
 
-        return RespostaApi::sucesso(TipoOrganizacaoRH::query()->orderBy('nome')->get(), 'Tipos de organização.');
+        return RespostaApi::sucesso(TipoOrganizacaoRH::query()->ordenarPorNome()->get(), 'Tipos de organização.');
     }
 
     public function guardarTipoOrganizacao(Request $r, ?int $tipo = null): JsonResponse
@@ -79,7 +79,7 @@ final class CadastrosRHController extends Controller
     {
         $this->exigir('bancario_view', 'rh_bancario_gerir', 'colaboradores_view', 'vendas_faturacao_view');
 
-        return RespostaApi::sucesso(Banco::query()->orderBy('nome')->get(), 'Bancos.');
+        return RespostaApi::sucesso(Banco::query()->ordenarPorNome()->get(), 'Bancos.');
     }
 
     public function guardarBanco(Request $r, ?int $banco = null): JsonResponse

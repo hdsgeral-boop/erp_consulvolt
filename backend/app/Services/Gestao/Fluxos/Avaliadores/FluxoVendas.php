@@ -2,6 +2,7 @@
 
 namespace App\Services\Gestao\Fluxos\Avaliadores;
 
+use App\Services\Terceiros\ContaTerceiro;
 use App\Services\Vendas\ServicoConfigVendas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
@@ -38,7 +39,7 @@ final class FluxoVendas extends AvaliadorFluxo
         $V = DB::table('vendas as v')->leftJoin('terceiros as c', 'c.id', '=', 'v.cliente_id')->where('v.empresa_id', $e)
             ->whereNull('v.sessao_pos_id')->whereNull('v.sessao_pos_legado_codigo')->whereNull('v.pedido_lavandaria_id')->whereRaw("COALESCE(v.estado, '') !~* '(ANUL|CANCEL)'")
             ->get(['v.id', 'v.tipo_documento', 'v.tipo_documento_original', 'v.numero_documento', 'v.data_emissao', 'v.total_bruto', 'v.total_liquido', 'v.estado', 'v.contabilizado', 'v.valor_pago',
-                'v.cliente_id', 'v.data_entrega', 'v.local_entrega', 'v.numero_lan_contabilizacao', 'c.nome as cliente', 'c.codigo_conta as conta_cliente'])->keyBy('id');
+                'v.cliente_id', 'v.data_entrega', 'v.local_entrega', 'v.numero_lan_contabilizacao', 'c.nome as cliente', DB::raw(ContaTerceiro::sqlConta('c', ContaTerceiro::CLIENTE).' as conta_cliente')])->keyBy('id');   // Fase A: conta do papel
         $pais = DB::table('vendas_documentos_relacionados')->where('empresa_id', $e)->get(['venda_id', 'venda_relacionada_id'])
             ->filter(fn ($r) => isset($V[$r->venda_id], $V[$r->venda_relacionada_id]));
         $filhos = $pais->groupBy('venda_relacionada_id')->map(fn ($g) => $g->pluck('venda_id')->all());
@@ -147,7 +148,7 @@ final class FluxoVendas extends AvaliadorFluxo
             $E['contab'] = self::porFazer('Depois de facturar');
         } else {
             $porContab = $facts->merge($ncs)->filter(fn ($s) => ! $s->contabilizado)->values();
-            $semConta = $porContab->contains(fn ($s) => in_array($s->tipo_documento, ['FT', 'NC'], true) && $s->cliente_id && ! trim((string) $s->conta_cliente) && ! $contaPadrao);
+            $semConta = $porContab->contains(fn ($s) => in_array($s->tipo_documento, ['FT', 'NC'], true) && $s->cliente_id && ! trim((string) $s->conta_cliente));   // Fase A: sem contas por defeito (fluxo_vendas.js:222)
             $lans = $facts->flatMap(fn ($f) => ($linhasPorDoc[$f->numero_documento] ?? collect())->pluck('numero_lan')->push($f->numero_lan_contabilizacao))->filter()->unique()->values();
             $E['contab'] = $porContab->isNotEmpty()
                 ? self::etapa($semConta ? 'bloqueada' : 'curso', $porContab->count().' por contabilizar', [self::f('Documento(s)', $nums($porContab))],

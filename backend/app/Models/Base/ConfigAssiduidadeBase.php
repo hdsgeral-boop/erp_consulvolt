@@ -7,7 +7,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
 
 /**
- * Tabela configuracoes_assiduidade (módulo RH). Legado: rh_attendance_config · 0 linhas reais no backup.
+ * Tabela configuracoes_assiduidade (módulo RH). Legado: rh_attendance_config · 1 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ConfigAssiduidade.
  */
 abstract class ConfigAssiduidadeBase extends ModeloBase
@@ -19,7 +19,7 @@ abstract class ConfigAssiduidadeBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'dias_uteis', 'tolerancia_min', 'arredondamento_min', 'extras_min_minutos', 'minimo_dia_horas', 'feriados', 'relogio', 'modo_compensacao', 'limite_compensacao_h', 'extra_nao_util_exige_autorizacao', 'atualizado_por',
+        'empresa_id', 'dias_uteis', 'tolerancia_min', 'arredondamento_min', 'extras_min_minutos', 'minimo_dia_horas', 'periodos_padrao', 'intervalo_saida_padrao', 'intervalo_entrada_padrao', 'feriados', 'relogio', 'modo_compensacao', 'limite_compensacao_h', 'extra_nao_util_exige_autorizacao', 'atualizado_por',
     ];
 
     protected function casts(): array
@@ -31,6 +31,7 @@ abstract class ConfigAssiduidadeBase extends ModeloBase
             'arredondamento_min' => 'integer',
             'extras_min_minutos' => 'integer',
             'minimo_dia_horas' => 'decimal:3',
+            'periodos_padrao' => 'integer',
             'feriados' => 'array',
             'relogio' => 'array',
             'limite_compensacao_h' => 'decimal:2',

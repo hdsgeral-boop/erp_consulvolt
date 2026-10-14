@@ -170,7 +170,13 @@ final class ServicoFontesLavandariaPOS
 
     private function contaCliente(?int $clienteId, string $documento): string
     {
-        return Terceiro::query()->withTrashed()->find($clienteId)?->codigo_conta
-            ?: $this->configVendas->exigir('clientes_default', "{$documento}: o cliente não tem conta contabilística.");
+        // Fase A: conta de cliente do papel (classe 31); sem ela pára e diz que conta falta e em que terceiro (ContaTerceiro.exigir
+        // do legado novo). A conta de clientes por omissão só serve o documento sem cliente (ADR-071).
+        $cliente = Terceiro::query()->withTrashed()->find($clienteId);
+        if ($cliente === null) {
+            return $this->configVendas->exigir('clientes_default', "{$documento}: o documento não tem cliente.");
+        }
+
+        return $cliente->exigirContaCliente("{$documento}:");
     }
 }

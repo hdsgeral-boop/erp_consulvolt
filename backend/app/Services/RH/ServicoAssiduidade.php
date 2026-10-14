@@ -233,7 +233,7 @@ final class ServicoAssiduidade
         $cobre = fn ($lista, string $dia) => ($lista ?? collect())->first(fn ($x) => $x->data_inicio && $x->data_fim && $dia >= $x->data_inicio->toDateString() && $dia <= $x->data_fim->toDateString());
 
         $linhas = [];
-        foreach (Colaborador::query()->where('estado', 'ACTIVO')->orderBy('nome_completo')->get() as $e) {
+        foreach (Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get() as $e) {
             $contrato = ($contratos[$e->id] ?? collect())->sortBy('id')->first(fn ($c) => (! $c->data_inicio || $c->data_inicio->toDateString() <= $fim)
                 && (! $c->data_fim || $c->data_fim->toDateString() >= $inicio));
             $horasDia = $contrato && (float) $contrato->horas_por_dia > 0 ? (float) $contrato->horas_por_dia : 8.0;

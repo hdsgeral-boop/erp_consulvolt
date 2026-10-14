@@ -48,7 +48,7 @@ final class ServicoConsolidacaoGrupos
     {
         $acessiveis = $this->empresas->idsAcessiveis($this->utilizador());
 
-        return $this->contexto->semIsolamento(fn () => GrupoConsolidacao::query()->whereIn('empresa_holding_id', $acessiveis)->orderBy('nome')->get()
+        return $this->contexto->semIsolamento(fn () => GrupoConsolidacao::query()->whereIn('empresa_holding_id', $acessiveis)->ordenarPorNome()->get()
             ->map(fn (GrupoConsolidacao $g) => $this->apresentar($g))->all());
     }
 

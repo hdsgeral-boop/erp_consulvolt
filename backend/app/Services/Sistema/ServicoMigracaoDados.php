@@ -14,6 +14,7 @@ use App\Services\Contabilidade\ServicoPlanoContas;
 use App\Services\Logistica\ServicoProdutos;
 use App\Services\RH\ServicoCadastrosRH;
 use App\Services\RH\ServicoEstruturaOrg;
+use App\Services\Terceiros\ContaTerceiro;
 use App\Services\Terceiros\ServicoTerceiros;
 use App\Support\Cache\ChaveCache;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -33,7 +34,7 @@ use Throwable;
  * contadas e ignoradas; linhas incompletas rejeitadas):
  *   plano_contas  (importChartOfAccountsExcel, app_v2.js:8643)  Conta | Descrição | Tipo (M/T)        chave: conta
  *   diarios       (importAuxExcel 'journals', ui_aux.js:843)    Código | Descrição                    chave: código
- *   terceiros     (importAuxExcel 'third_parties')              NIF | Nome | Tipo | Conta             chave: NIF
+ *   terceiros     (importAuxExcel 'third_parties')              NIF | Nome | Tipo | Conta_Cliente | Conta_Fornecedor  chave: NIF
  *   bancos        (importBanksExcel, app_v2.js:9772)            Nome | Código | NIF | Endereço | Conta chave: código (ou nome)
  *   cargos        (importSimpleExcel 'roles', app_v2.js:9609)   Nome | Descrição                      chave: nome
  *   infotipos     (importInfotypesExcel, app_v2.js:9727)        Nome | Tipo | INSS | IRT              chave: nome
@@ -44,7 +45,7 @@ use Throwable;
  *  - importação TRANSACCIONAL: todas as linhas são gravadas numa transacção; se alguma falhar nada fica gravado e o
  *    relatório indica a linha e o motivo (o legado gravava linha a linha e parava a meio, deixando importações parciais);
  *  - a simulação corre exactamente as mesmas validações (dentro de uma transacção desfeita no fim);
- *  - terceiros: a conta contabilística passou a obrigatória (ADR-028) — coluna "Conta" ou conta por omissão no pedido;
+ *  - terceiros: a conta do papel é obrigatória (ADR-028; Fase A: Conta_Cliente e Conta_Fornecedor) — ou a conta por omissão do pedido, só no papel da sua classe;
  *    o tipo desconhecido é rejeitado (o legado gravava qualquer texto); o legado criava como CLIENTE por omissão;
  *  - plano de contas: actualizar o tipo de uma conta com movimentos para T é recusado (regra do plano de contas).
  * Não portadas aqui: colaboradores, contratos, variáveis do processamento e diário de tesouraria (importações
@@ -60,8 +61,10 @@ final class ServicoMigracaoDados
             'colunas' => [['Código', 'codigo', true, 'Abreviatura do diário (letras, números e hífen)', 'COMP'], ['Descrição', 'descricao', true, 'Nome por extenso', 'Diário de Compras']]],
         'terceiros' => ['rotulo' => 'Terceiros', 'permissao' => 'aux_gerir', 'chave' => 'nif',
             'colunas' => [['NIF', 'nif', true, 'Identificação fiscal ou interna', '5412345678'], ['Nome', 'nome', true, 'Razão social ou nome', 'Fornecedor X, Lda'],
-                ['Tipo', 'tipo', false, 'Cliente (por omissão), Fornecedor ou Colaborador', 'Fornecedor'],
-                ['Conta', 'codigo_conta', false, 'Conta de movimento do terceiro (obrigatória se o pedido não indicar a conta por omissão)', '3211']]],
+                ['Tipo', 'tipo', false, 'Cliente (por omissão), Fornecedor, "Cliente, Fornecedor" (os dois) ou Colaborador', 'Fornecedor'],
+                // Fase A (Template_Terceiros.xlsx do legado novo, ui_aux.js:1240-1246): uma conta por papel; «Conta» antiga = conta de cliente
+                ['Conta_Cliente', 'conta_cliente', false, 'Conta da classe 31 — integração das facturas de venda (obrigatória para clientes)', '3111', ['Conta Cliente', 'Conta_Contábil', 'Conta Contabil', 'Conta']],
+                ['Conta_Fornecedor', 'conta_fornecedor', false, 'Conta da classe 32 ou 37.0 — integração das facturas de compra (obrigatória para fornecedores)', '3211', ['Conta Fornecedor']]]],
         'bancos' => ['rotulo' => 'Bancos', 'permissao' => 'rh_bancario_gerir', 'chave' => 'codigo',
             'colunas' => [['Nome', 'nome', true, 'Nome do banco', 'Banco BAI'], ['Código', 'codigo', true, 'Código do banco', '0040'], ['NIF', 'nif', false, 'NIF do banco', ''],
                 ['Endereço', 'endereco', false, 'Morada', ''], ['Conta', 'codigo_conta', false, 'Conta de movimento (classe 43)', '4311']]],
@@ -296,6 +299,35 @@ final class ServicoMigracaoDados
         return $r;
     }
 
+    /**
+     * Tipo do terceiro importado: Cliente (por omissão), Fornecedor, os dois («Cliente, Fornecedor», «Cliente e Fornecedor»,
+     * «Fornecedor + Cliente») ou Colaborador — como o Template_Terceiros.xlsx do legado novo (ui_aux.js:1244).
+     */
+    private function tipoTerceiroImportado(string $texto): string
+    {
+        $partes = array_values(array_filter(array_map('trim', preg_split('/\s*(?:,|;|\/|\+|\be\b)\s*/u', ServicoPermissoes::norm($texto)) ?: [])));
+        $papeis = [];
+        foreach ($partes as $p) {
+            $papeis[] = match ($p) {
+                'cliente', 'clientes' => Terceiro::CLIENTE,
+                'fornecedor', 'fornecedores' => Terceiro::FORNECEDOR,
+                'colaborador', 'colaboradores' => Terceiro::COLABORADOR,
+                'cliente_fornecedor' => Terceiro::CLIENTE_FORNECEDOR,
+                default => throw new ErroNegocio("Tipo de terceiro desconhecido: {$texto} (use Cliente, Fornecedor, \"Cliente, Fornecedor\" ou Colaborador).", 'TIPO_TERCEIRO_INVALIDO', 422),
+            };
+        }
+        $papeis = array_unique($papeis);
+        if ($papeis === []) {
+            return Terceiro::CLIENTE;
+        }
+        if (in_array(Terceiro::COLABORADOR, $papeis, true)) {
+            return count($papeis) === 1 ? Terceiro::COLABORADOR
+                : throw new ErroNegocio("Tipo de terceiro inválido: {$texto} (um colaborador não é também cliente ou fornecedor).", 'TIPO_TERCEIRO_INVALIDO', 422);
+        }
+
+        return count($papeis) === 1 ? reset($papeis) : Terceiro::CLIENTE_FORNECEDOR;
+    }
+
     /** Lê a linha pelos cabeçalhos do modelo (sem acentos/maiúsculas) ou pelos nomes dos campos. */
     private function normalizarLinha(array $def, array $bruta): array
     {
@@ -304,8 +336,12 @@ final class ServicoMigracaoDados
             $porNome[ServicoPermissoes::norm((string) $k)] = is_string($v) ? trim($v) : $v;
         }
         $l = [];
-        foreach ($def['colunas'] as [$cabecalho, $campo]) {
+        foreach ($def['colunas'] as $coluna) {
+            [$cabecalho, $campo] = $coluna;
             $v = $porNome[ServicoPermissoes::norm($cabecalho)] ?? $porNome[$campo] ?? null;
+            foreach ($coluna[5] ?? [] as $alias) {   // cabeçalhos alternativos (ex.: «Conta» antiga = Conta_Cliente)
+                $v ??= $porNome[ServicoPermissoes::norm($alias)] ?? null;
+            }
             $l[$campo] = $v === null ? '' : (is_bool($v) ? $v : trim((string) $v));
         }
 
@@ -329,17 +365,24 @@ final class ServicoMigracaoDados
                 $existente ? $existente->update(['descricao' => $l['descricao']]) : DiarioContabil::create(['codigo' => $codigo, 'descricao' => $l['descricao']]);
                 break;
             case 'terceiros':
-                $tipo = match (ServicoPermissoes::norm((string) $l['tipo'])) {
-                    '', 'cliente', 'clientes' => Terceiro::CLIENTE,
-                    'fornecedor', 'fornecedores' => Terceiro::FORNECEDOR,
-                    'colaborador', 'colaboradores' => Terceiro::COLABORADOR,
-                    default => throw new ErroNegocio("Tipo de terceiro desconhecido: {$l['tipo']} (use Cliente, Fornecedor ou Colaborador).", 'TIPO_TERCEIRO_INVALIDO', 422),
-                };
-                $conta = ($l['codigo_conta'] ?? '') !== '' ? $l['codigo_conta'] : ($opcoes['conta_omissao'] ?? null);
-                if (! $existente && ! $conta) {
-                    throw new ErroNegocio('Associe a conta contabilística do terceiro (coluna Conta ou conta por omissão).', 'CONTA_OBRIGATORIA', 422);
+                $tipo = $this->tipoTerceiroImportado((string) $l['tipo']);
+                // Fase A: uma conta por papel (sem contas por defeito); a «conta por omissão» do pedido só preenche o papel da sua classe
+                $omissao = trim((string) ($opcoes['conta_omissao'] ?? ''));
+                $dados = ['nif' => $l['nif'], 'nome' => $l['nome']];
+                // ficheiro antigo (uma só coluna «Conta», lida como Conta_Cliente) num fornecedor: é a conta de fornecedor se a classe for 32/37.0
+                if ($tipo === Terceiro::FORNECEDOR && trim((string) ($l['conta_fornecedor'] ?? '')) === '' && ContaTerceiro::classeCorrecta(trim((string) ($l['conta_cliente'] ?? '')), ContaTerceiro::FORNECEDOR)) {
+                    [$l['conta_fornecedor'], $l['conta_cliente']] = [$l['conta_cliente'] ?? '', ''];
                 }
-                $this->terceiros->guardar($tipo, ['nif' => $l['nif'], 'nome' => $l['nome']] + ($conta ? ['codigo_conta' => $conta] : []), $existente);
+                foreach (['conta_cliente' => ContaTerceiro::CLIENTE, 'conta_fornecedor' => ContaTerceiro::FORNECEDOR] as $campo => $papel) {
+                    $conta = trim((string) ($l[$campo] ?? ''));
+                    if ($conta === '' && $omissao !== '' && ContaTerceiro::temPapel($tipo, $papel) && ContaTerceiro::classeCorrecta($omissao, $papel)) {
+                        $conta = $omissao;
+                    }
+                    if ($conta !== '') {
+                        $dados[$campo] = $conta;
+                    }
+                }
+                $this->terceiros->guardar($tipo, $dados, $existente);
                 break;
             case 'bancos':
                 $dados = ['nome' => $l['nome'], 'codigo' => $l['codigo']];

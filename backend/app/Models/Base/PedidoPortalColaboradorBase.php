@@ -6,13 +6,14 @@ use App\Models\AusenciaFaltaColaborador;
 use App\Models\Colaborador;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\EmprestimoColaborador;
 use App\Models\ModeloBase;
 use App\Models\PlanoFeriasColaborador;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela pedidos_portal_colaborador (módulo RH). Legado: rh_portal_requests · 9 linhas reais no backup.
+ * Tabela pedidos_portal_colaborador (módulo RH). Legado: rh_portal_requests · 18 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\PedidoPortalColaborador.
  */
 abstract class PedidoPortalColaboradorBase extends ModeloBase
@@ -24,7 +25,7 @@ abstract class PedidoPortalColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'tipo', 'tipo_original', 'dados', 'etapas', 'estado', 'estado_original', 'criado_por', 'plano_ferias_colaborador_id', 'decidido_em', 'documento', 'ausencia_falta_id', 'cancelado_em',
+        'empresa_id', 'colaborador_id', 'tipo', 'tipo_original', 'dados', 'etapas', 'estado', 'estado_original', 'criado_por', 'plano_ferias_colaborador_id', 'documento', 'decidido_em', 'ausencia_falta_id', 'emprestimo_id', 'cancelado_em',
     ];
 
     protected function casts(): array
@@ -35,9 +36,10 @@ abstract class PedidoPortalColaboradorBase extends ModeloBase
             'dados' => 'array',
             'etapas' => 'array',
             'plano_ferias_colaborador_id' => 'integer',
-            'decidido_em' => 'datetime',
             'documento' => 'array',
+            'decidido_em' => 'datetime',
             'ausencia_falta_id' => 'integer',
+            'emprestimo_id' => 'integer',
             'cancelado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
@@ -59,6 +61,11 @@ abstract class PedidoPortalColaboradorBase extends ModeloBase
         return $this->belongsTo(AusenciaFaltaColaborador::class, 'ausencia_falta_id');
     }
 
+    public function emprestimo(): BelongsTo
+    {
+        return $this->belongsTo(EmprestimoColaborador::class, 'emprestimo_id');
+    }
+
     public function planoFeriasColaboradores(): HasMany
     {
         return $this->hasMany(PlanoFeriasColaborador::class, 'pedido_portal_colaborador_id');
@@ -67,5 +74,10 @@ abstract class PedidoPortalColaboradorBase extends ModeloBase
     public function ausenciasFaltasColaboradores(): HasMany
     {
         return $this->hasMany(AusenciaFaltaColaborador::class, 'pedido_portal_colaborador_id');
+    }
+
+    public function emprestimosColaboradores(): HasMany
+    {
+        return $this->hasMany(EmprestimoColaborador::class, 'pedido_portal_colaborador_id');
     }
 }

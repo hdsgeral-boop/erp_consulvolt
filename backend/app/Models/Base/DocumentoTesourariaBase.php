@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela documentos_tesouraria (módulo Tesouraria). Legado: treasury_documents · 5781 linhas reais no backup.
+ * Tabela documentos_tesouraria (módulo Tesouraria). Legado: treasury_documents · 8841 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\DocumentoTesouraria.
  */
 abstract class DocumentoTesourariaBase extends ModeloBase
@@ -28,7 +28,7 @@ abstract class DocumentoTesourariaBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'tipo', 'tipo_original', 'data_documento', 'conta_financeira', 'descricao', 'valor_total', 'estado', 'estado_original', 'referencia', 'projeto_id', 'codigo_projeto', 'importado', 'url_documento', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'valor_total_moeda', 'periodo_processamento_salarial_id', 'reconciliacao_codigo', 'numero_documento', 'numero_lan_contabilizacao', 'integrado_em', 'integrado_por', 'anulado_em', 'motivo_anulacao',
+        'empresa_id', 'tipo', 'tipo_original', 'data_documento', 'conta_financeira', 'descricao', 'valor_total', 'estado', 'estado_original', 'referencia', 'projeto_id', 'codigo_projeto', 'importado', 'url_documento', 'anulado_em', 'anulado_por', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'valor_total_moeda', 'periodo_processamento_salarial_id', 'reconciliacao_codigo', 'numero_documento', 'numero_lan_contabilizacao', 'integrado_em', 'integrado_por', 'motivo_anulacao',
     ];
 
     protected function casts(): array
@@ -39,13 +39,13 @@ abstract class DocumentoTesourariaBase extends ModeloBase
             'valor_total' => 'decimal:2',
             'projeto_id' => 'integer',
             'importado' => 'boolean',
+            'anulado_em' => 'datetime',
             'taxa_cambio' => 'decimal:6',
             'taxa_cambio_id' => 'integer',
             'taxa_cambio_manual' => 'boolean',
             'valor_total_moeda' => 'decimal:2',
             'periodo_processamento_salarial_id' => 'integer',
             'integrado_em' => 'datetime',
-            'anulado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

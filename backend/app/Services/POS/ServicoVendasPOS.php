@@ -10,6 +10,7 @@ use App\Models\Terceiro;
 use App\Models\TerminalPOS;
 use App\Models\Venda;
 use App\Services\Logistica\ServicoArmazens;
+use App\Services\Terceiros\ContaTerceiro;
 use App\Services\Vendas\CalculadoraDocumento;
 use App\Services\Vendas\ServicoConfigVendas;
 use App\Services\Vendas\ServicoDocumentosVenda;
@@ -141,7 +142,9 @@ final class ServicoVendasPOS
 
         return Terceiro::query()->whereIn('nif', ['999999999', '99999999'])->whereIn('tipo', Terceiro::TIPOS_CLIENTE)->orderBy('id')->first()
             ?? Terceiro::query()->where('nome', 'ilike', 'consumidor final')->whereIn('tipo', Terceiro::TIPOS_CLIENTE)->orderBy('id')->first()
-            ?? Terceiro::create(['nome' => 'Consumidor Final', 'nif' => '999999999', 'tipo' => Terceiro::CLIENTE, 'codigo_conta' => $this->configVendas->conta('clientes_default')]);
+            ?? Terceiro::create(['nome' => 'Consumidor Final', 'nif' => '999999999', 'tipo' => Terceiro::CLIENTE,
+                // Fase A: a conta de clientes configurada vai para a conta de cliente do papel (só se for da classe 31)
+                'conta_cliente' => ContaTerceiro::classeCorrecta($c = (string) $this->configVendas->conta('clientes_default'), ContaTerceiro::CLIENTE) && $c !== '' ? $c : null]);
     }
 
     /** Mercadoria em stock no armazém do terminal (o legado recusava sem stock, mas pelo stock global). */

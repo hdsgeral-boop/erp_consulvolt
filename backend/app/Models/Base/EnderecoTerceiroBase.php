@@ -7,7 +7,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
 
 /**
- * Tabela enderecos_terceiros (módulo Terceiros). Legado: third_party_addresses · 54 linhas reais no backup.
+ * Tabela enderecos_terceiros (módulo Terceiros). Legado: third_party_addresses · 59 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\EnderecoTerceiro.
  */
 abstract class EnderecoTerceiroBase extends ModeloBase

@@ -43,7 +43,7 @@ final class ServicoMesasPOS
         $precos = $this->precos($contas->flatMap(fn ($c) => array_column(json_decode($c->linhas, true) ?: [], 'produto_id'))->unique()->all());
 
         return DB::table('mesas_pos')->where('empresa_id', $empresa)->where('terminal_pos_id', $t->id)
-            ->when(! $incluirInactivas, fn ($q) => $q->where('ativo', true))->orderBy('ordem')->orderBy('nome')->get()
+            ->when(! $incluirInactivas, fn ($q) => $q->where('ativo', true))->orderBy('ordem')->ordenarPorNome()->get()
             ->map(function ($m) use ($contas, $precos) {
                 $c = $contas[$m->id] ?? null;
 

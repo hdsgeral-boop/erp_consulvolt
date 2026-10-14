@@ -9,7 +9,7 @@ use App\Models\ModeloBase;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela contratos_trabalho (módulo RH). Legado: contracts · 89 linhas reais no backup.
+ * Tabela contratos_trabalho (módulo RH). Legado: contracts · 114 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ContratoTrabalho.
  */
 abstract class ContratoTrabalhoBase extends ModeloBase
@@ -21,7 +21,7 @@ abstract class ContratoTrabalhoBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'remuneracoes', 'dias_contrato_mes', 'data_inicio', 'data_fim', 'estado', 'horas_por_dia', 'codigo_moeda', 'produtividade',
+        'empresa_id', 'colaborador_id', 'remuneracoes', 'dias_contrato_mes', 'data_inicio', 'data_fim', 'estado', 'horas_por_dia', 'codigo_moeda', 'produtividade', 'horario',
     ];
 
     protected function casts(): array
@@ -35,6 +35,7 @@ abstract class ContratoTrabalhoBase extends ModeloBase
             'data_fim' => 'date',
             'horas_por_dia' => 'decimal:3',
             'produtividade' => 'array',
+            'horario' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

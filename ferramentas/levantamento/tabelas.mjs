@@ -1,4 +1,4 @@
-// Matriz contratual DE/PARA das 154 tabelas (prompt_execucao_migracao_erp_pt.md, secção 2).
+// Matriz contratual DE/PARA das 154 tabelas (+18 da Versão Actual, 2026-10-13) (prompt_execucao_migracao_erp_pt.md, secção 2).
 // [tabela_legado, tabela_pt, model, modulo, endpoint]
 export const TABELAS = [
   ['companies', 'empresas', 'Empresa', 'Sistema', '/api/sistema/empresas'],
@@ -155,4 +155,23 @@ export const TABELAS = [
   ['crm_activities', 'atividades_comerciais_crm', 'AtividadeComercialCRM', 'CRM', '/api/crm/atividades'],
   ['crm_templates', 'modelos_email_crm', 'ModeloEmailCRM', 'CRM', '/api/crm/modelos'],
   ['crm_sequences', 'sequencias_campanhas_crm', 'SequenciaCampanhaCRM', 'CRM', '/api/crm/sequencias'],
+  // ── Versão Actual do legado (Dexie 1268-1277, backup de 2026-10-13) ──
+  ['third_party_bank_details', 'contas_bancarias_terceiros', 'ContaBancariaTerceiro', 'Terceiros', '/api/terceiros/contas-bancarias'],
+  ['payment_letter_templates', 'modelos_cartas_pagamento', 'ModeloCartaPagamento', 'Tesouraria', '/api/tesouraria/cartas/modelos'],
+  ['bu_allocation_keys', 'criterios_reparticao_un', 'CriterioReparticaoUN', 'Sistema', '/api/sistema/criterios-reparticao'],
+  ['ai_rule_files', 'ficheiros_regras_ia', 'FicheiroRegrasIA', 'Sistema', '/api/sistema/regras-ia/ficheiros'],
+  ['rh_schedules', 'escalas_trabalho', 'EscalaTrabalho', 'RH', '/api/rh/escalas'],
+  ['rh_loans', 'emprestimos_colaboradores', 'EmprestimoColaborador', 'RH', '/api/rh/emprestimos'],
+  ['rh_loan_instalments', 'prestacoes_emprestimos', 'PrestacaoEmprestimo', 'RH', '/api/rh/emprestimos/prestacoes'],
+  ['rh_loan_settings', 'configuracoes_emprestimos', 'ConfiguracaoEmprestimo', 'RH', '/api/rh/emprestimos/configuracao'],
+  ['asset_floors', 'andares_edificios', 'AndarEdificio', 'Activos', '/api/activos/andares'],
+  ['asset_rooms', 'portas_edificios', 'PortaEdificio', 'Activos', '/api/activos/portas'],
+  ['asset_inventories', 'inventarios_fisicos_ativos', 'InventarioFisicoAtivo', 'Activos', '/api/activos/inventarios-fisicos'],
+  ['asset_inventory_lines', 'linhas_inventario_fisico_ativos', 'LinhaInventarioFisicoAtivo', 'Activos', '/api/activos/inventarios-fisicos/linhas'],
+  ['asset_maintenance_orders', 'ordens_manutencao_ativos', 'OrdemManutencaoAtivo', 'Activos', '/api/activos/ordens-manutencao'],
+  ['asset_maintenance_order_items', 'itens_ordem_manutencao', 'ItemOrdemManutencao', 'Activos', '/api/activos/ordens-manutencao/itens'],
+  ['maint_requisitions', 'requisicoes_manutencao', 'RequisicaoManutencao', 'Activos', '/api/activos/requisicoes-manutencao'],
+  ['maint_requisition_lines', 'linhas_requisicao_manutencao', 'LinhaRequisicaoManutencao', 'Activos', '/api/activos/requisicoes-manutencao/linhas'],
+  ['mt_assuntos', 'assuntos_metodo_trabalho', 'AssuntoMetodoTrabalho', 'Projectos', '/api/metodo/assuntos'],
+  ['mt_assunto_log', 'historico_assuntos_metodo', 'HistoricoAssuntoMetodo', 'Projectos', '/api/metodo/assuntos/historico'],
 ];

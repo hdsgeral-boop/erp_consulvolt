@@ -11,7 +11,7 @@ use App\Models\TarefaProjeto;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Tabela folhas_horas_projeto (módulo Projectos). Legado: project_timesheets · 2 linhas reais no backup.
+ * Tabela folhas_horas_projeto (módulo Projectos). Legado: project_timesheets · 3 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\FolhaHorasProjeto.
  */
 abstract class FolhaHorasProjetoBase extends ModeloBase

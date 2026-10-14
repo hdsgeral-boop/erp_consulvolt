@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela oportunidades_venda_crm (módulo CRM). Legado: crm_opportunities · 5 linhas reais no backup.
+ * Tabela oportunidades_venda_crm (módulo CRM). Legado: crm_opportunities · 7 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\OportunidadeVendaCRM.
  */
 abstract class OportunidadeVendaCRMBase extends ModeloBase

@@ -7,7 +7,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\ModeloBase;
 
 /**
- * Tabela reconciliacoes_bancarias (módulo Tesouraria). Legado: reconciliations · 2469 linhas reais no backup.
+ * Tabela reconciliacoes_bancarias (módulo Tesouraria). Legado: reconciliations · 2629 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\ReconciliacaoBancaria.
  */
 abstract class ReconciliacaoBancariaBase extends ModeloBase

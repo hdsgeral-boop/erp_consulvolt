@@ -67,7 +67,8 @@ final class ServicoContabilizacaoCompras
             throw new ErroNegocio('Factura anulada: não é contabilizável.', 'DOCUMENTO_ANULADO', 422);
         }
         $fornecedor = Terceiro::query()->withTrashed()->findOrFail($fatura->fornecedor_id);
-        $contaFornecedor = $fornecedor->codigo_conta ?: throw new ErroNegocio('O fornecedor não tem conta contabilística.', 'FORNECEDOR_SEM_CONTA', 422);
+        // Fase A: conta de fornecedor (32 ou 37.0) do próprio terceiro; sem ela a integração pára (ui_compras_v2.js:3298-3302)
+        $contaFornecedor = $fornecedor->exigirContaFornecedor("A factura {$fatura->numero_fatura} não pode ser integrada:");
         $comum = ['terceiro_id' => $fornecedor->id, 'unidade_negocio_id' => $fatura->unidade_negocio_id, 'centro_custo_id' => $fatura->centro_custo_id];
 
         // decisão 17: a conta é a do produto (não a da rubrica do projecto, como no legado) e a linha leva a imputação analítica
@@ -161,7 +162,7 @@ final class ServicoContabilizacaoCompras
             if (in_array($fatura->estado, ['PAGO', 'PARCIAL'], true)) {
                 throw new ErroNegocio('A factura tem pagamentos: anule-os primeiro na Tesouraria.', 'FATURA_COM_PAGAMENTOS', 422);
             }
-            $conta = Terceiro::query()->withTrashed()->whereKey($fatura->fornecedor_id)->value('codigo_conta');
+            $conta = Terceiro::query()->withTrashed()->find($fatura->fornecedor_id)?->contaFornecedor() ?: null;   // Fase A: conta do papel
             // legado: n.º externo sem unicidade → só serve o lançamento que credita a conta DESTE fornecedor, no diário FF
             $linha = $this->localizador->localizar($fatura->numero_lan_contabilizacao, (string) $fatura->numero_fatura, $conta, 'C', $fatura->numero_lan_contabilizacao ? null : 'FF');
             $this->lancamentos->estornar($linha, $motivo);

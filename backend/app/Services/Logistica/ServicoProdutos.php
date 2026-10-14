@@ -64,7 +64,7 @@ final class ServicoProdutos
         $empresa = $this->contexto->obrigatorio();
 
         return CacheComprimida::lembrar(ChaveCache::empresa($empresa, 'logistica', 'catalogo_produtos'), (int) config('erp.cache.ttl.catalogo_produtos'),
-            fn () => Produto::query()->where(fn ($q) => $q->whereNull('bloqueado')->orWhere('bloqueado', false))->orderBy('nome')
+            fn () => Produto::query()->where(fn ($q) => $q->whereNull('bloqueado')->orWhere('bloqueado', false))->ordenarPorNome()
                 ->get(['id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'codigo_isencao_fe', 'unidade_fe', 'movimenta_stock', 'e_servico', 'e_quarto', 'categoria_produto_id'])
                 ->toArray());
     }

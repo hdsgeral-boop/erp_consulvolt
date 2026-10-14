@@ -17,6 +17,8 @@ import type { ContaPlano } from '@/modulos/contab/api';
 import { IconeFa } from '@/componentes/fluxos';
 import { tituloPlanoContas } from './comum/paridade';
 import { CelulaUso, CopiarOutraEmpresa, ImportarPlano, baixarTemplatePlano, useContasEmUso } from './plano/PlanoContasParidade';
+import { DadosBancariosConta, useDadosBancariosConta } from './plano/DadosBancariosConta';
+import { CAMPOS_BANCARIOS, dadosBancariosParaApi, type DadosBancarios } from './plano/contasBancarias';
 
 interface ContagemTabela {
   tabela: string;
@@ -43,6 +45,7 @@ interface SimulacaoEmpresa {
  * Paridade com o antigo (renderPlanoContas, js/app_v2.js:8320-8402): título «Plano de Contas (N contas)», barra
  * Copiar de outra empresa · Substituir conta · Baixar Template · Importar Excel · Nova Conta, colunas
  * CÓDIGO · DESCRIÇÃO · TIPO · USO · AÇÕES (Editar, Excluir).
+ * Fase A (legado novo, app_v2.js:9050-9163): nas contas 42/43 de movimento, o bloco «Dados bancários da conta».
  */
 export default function PlanoContas() {
   const { pode } = useSessao();
@@ -73,11 +76,14 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
   const [tipo, setTipo] = useState<'M' | 'T' | undefined>();
   const [edicao, setEdicao] = useState<ContaPlano | 'nova' | null>(null);
   const [janela, setJanela] = useState<'copiar' | 'importar' | null>(null);
-  const [form] = Form.useForm<{ codigo: string; descricao: string; tipo: 'M' | 'T'; codigo_moeda?: string; natureza_conta?: string }>();
+  const [form] = Form.useForm<{ codigo: string; descricao: string; tipo: 'M' | 'T'; codigo_moeda?: string; natureza_conta?: string } & DadosBancarios>();
   const gerir = pode('contab_plano_gerir');
   const eliminar = pode('contab_tabelas_del');
   const accao = useAccao({ invalidar: [['contab', 'plano-contas']], aoSucesso: () => setEdicao(null) });
   const emUso = (c: ContaPlano) => !!uso.data?.has(c.codigo);
+  // dados bancários gravados (não vêm na lista em cache do plano): lidos ao abrir uma conta 42/43
+  const editada = edicao && edicao !== 'nova' ? edicao : undefined;
+  const bancarios = useDadosBancariosConta(editada?.codigo, editada?.tipo);
 
   useEffect(() => {
     if (!edicao) return;
@@ -85,6 +91,12 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
     if (edicao === 'nova') form.setFieldsValue({ tipo: 'M' });
     else form.setFieldsValue({ ...edicao, descricao: edicao.descricao ?? '', codigo_moeda: edicao.codigo_moeda ?? undefined, natureza_conta: edicao.natureza_conta ?? undefined });
   }, [edicao, form]);
+
+  useEffect(() => {
+    const d = bancarios.data;
+    if (!d || !editada || d.codigo !== editada.codigo) return;
+    form.setFieldsValue(Object.fromEntries(CAMPOS_BANCARIOS.map((c) => [c, d[c] ?? undefined])));
+  }, [bancarios.data, editada, form]);
 
   const linhas = useMemo(() => {
     const f = filtro.toLowerCase();
@@ -157,7 +169,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
             accao.mutate({
               metodo: edicao === 'nova' ? 'post' : 'put',
               url: edicao === 'nova' ? '/contabilidade/plano-contas' : `/contabilidade/plano-contas/${(edicao as ContaPlano).id}`,
-              dados: { ...v, codigo_moeda: v.codigo_moeda || null, natureza_conta: v.natureza_conta || null },
+              dados: { ...v, codigo_moeda: v.codigo_moeda || null, natureza_conta: v.natureza_conta || null, ...dadosBancariosParaApi(v.codigo, v.tipo, v) },
             })
           }
         >
@@ -178,6 +190,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
             <Col xs={24} sm={12} md={10}><Form.Item name="codigo_moeda" label="Moeda (opcional)"><Input maxLength={10} /></Form.Item></Col>
             <Col xs={24} md={14}><Form.Item name="natureza_conta" label="Natureza"><Input maxLength={255} /></Form.Item></Col>
           </Row>
+          <DadosBancariosConta />
         </Form>
       </Modal>
     </Card>

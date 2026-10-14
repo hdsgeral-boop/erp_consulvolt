@@ -71,6 +71,7 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
     ]),
     e('vendas', 'vendas_produtos', 'Produtos/Serviços', 'box'),
     e('vendas', 'vendas_faturacao', 'Faturação', 'file-invoice-dollar'),
+    e('vendas', 'vendas_series', 'Séries de Numeração', 'hashtag'),
     e('vendas', 'vendas_relatorios', 'Relatórios Vendas', 'chart-line'),
   ]),
   g('compras', 'Compras', 'truck-loading', [

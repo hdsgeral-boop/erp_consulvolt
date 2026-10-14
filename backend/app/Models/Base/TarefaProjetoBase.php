@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Tabela tarefas_projeto (módulo Projectos). Legado: project_tasks · 51 linhas reais no backup.
+ * Tabela tarefas_projeto (módulo Projectos). Legado: project_tasks · 158 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\TarefaProjeto.
  */
 abstract class TarefaProjetoBase extends ModeloBase
@@ -31,7 +31,7 @@ abstract class TarefaProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'projeto_id', 'tarefa_pai_id', 'codigo', 'nome', 'data_inicio', 'data_fim', 'estado', 'estado_original', 'marco_projeto_id', 'atribuido_a_id', 'percentagem_execucao', 'valor_contrato', 'ordem',
+        'empresa_id', 'projeto_id', 'tarefa_pai_id', 'codigo', 'nome', 'data_inicio', 'data_fim', 'estado', 'estado_original', 'marco_projeto_id', 'atribuido_a_id', 'percentagem_execucao', 'valor_contrato', 'tarefa_predecessora_id', 'tipo_dependencia', 'desfasamento_dias', 'meta_unidade', 'meta_quantidade', 'meta_realizado', 'concluida_em', 'ordem', 'meta_execucoes',
     ];
 
     protected function casts(): array
@@ -46,7 +46,13 @@ abstract class TarefaProjetoBase extends ModeloBase
             'atribuido_a_id' => 'integer',
             'percentagem_execucao' => 'decimal:4',
             'valor_contrato' => 'decimal:2',
+            'tarefa_predecessora_id' => 'integer',
+            'desfasamento_dias' => 'integer',
+            'meta_quantidade' => 'decimal:3',
+            'meta_realizado' => 'decimal:3',
+            'concluida_em' => 'datetime',
             'ordem' => 'integer',
+            'meta_execucoes' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
@@ -67,6 +73,11 @@ abstract class TarefaProjetoBase extends ModeloBase
         return $this->belongsTo(MarcoProjeto::class, 'marco_projeto_id');
     }
 
+    public function tarefaPredecessora(): BelongsTo
+    {
+        return $this->belongsTo(TarefaProjeto::class, 'tarefa_predecessora_id');
+    }
+
     public function lancamentosContabeis(): HasMany
     {
         return $this->hasMany(LancamentoContabil::class, 'tarefa_projeto_id');
@@ -80,6 +91,11 @@ abstract class TarefaProjetoBase extends ModeloBase
     public function tarefasProjetoPorTarefaPai(): HasMany
     {
         return $this->hasMany(TarefaProjeto::class, 'tarefa_pai_id');
+    }
+
+    public function tarefasProjetoPorTarefaPredecessora(): HasMany
+    {
+        return $this->hasMany(TarefaProjeto::class, 'tarefa_predecessora_id');
     }
 
     public function linhasRequisicaoProjeto(): HasMany

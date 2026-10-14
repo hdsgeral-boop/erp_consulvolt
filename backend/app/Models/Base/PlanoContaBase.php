@@ -20,7 +20,7 @@ abstract class PlanoContaBase extends ModeloBase
     protected string $moduloAuditoria = 'Contabilidade';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'descricao', 'tipo', 'codigo_moeda', 'natureza_conta',
+        'empresa_id', 'codigo', 'descricao', 'tipo', 'codigo_moeda', 'banco_nome', 'banco_balcao', 'banco_numero_conta', 'banco_iban', 'banco_swift', 'banco_titular', 'natureza_conta',
     ];
 
     protected function casts(): array

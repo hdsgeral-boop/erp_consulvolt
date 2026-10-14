@@ -108,9 +108,11 @@ final class ServicoLiquidacoes
         if (! $f || $f->estado === 'ANULADA') {
             return;
         }
-        $conta = Terceiro::query()->withTrashed()->whereKey($f->fornecedor_id)->value('codigo_conta');
+        // Fase A: conta de fornecedor do papel; o codigo_conta antigo continua a contar (facturas integradas antes das contas por papel)
+        $t = Terceiro::query()->withTrashed()->find($f->fornecedor_id);
+        $contas = array_values(array_unique(array_filter([$t?->contaFornecedor(), $t?->codigo_conta])));
         $saldo = (string) DB::table('lancamentos_contabeis')->where('empresa_id', $f->empresa_id)->where('terceiro_id', $f->fornecedor_id)
-            ->where('codigo_conta', $conta)->where('numero_documento', $f->numero_fatura)
+            ->whereIn('codigo_conta', $contas)->where('numero_documento', $f->numero_fatura)
             ->selectRaw("COALESCE(SUM(CASE WHEN tipo_dc = 'C' THEN valor ELSE -valor END), 0) AS s")->value('s');
         $tol = ServicoPendentes::TOLERANCIA;
         $estado = bccomp($saldo, $tol, 3) <= 0 ? 'PAGO' : (bccomp($saldo, bcsub((string) $f->montante_total, $tol, 3), 3) < 0 ? 'PARCIAL' : 'PENDENTE');

@@ -21,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela terminais_pos (módulo POS). Legado: pos_terminals · 8 linhas reais no backup.
+ * Tabela terminais_pos (módulo POS). Legado: pos_terminals · 9 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\TerminalPOS.
  */
 abstract class TerminalPOSBase extends ModeloBase

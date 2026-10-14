@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
- * Tabela categorias_produtos (módulo Logística). Legado: product_categories · 23 linhas reais no backup.
+ * Tabela categorias_produtos (módulo Logística). Legado: product_categories · 24 linhas reais no backup.
  * GERADO por ferramentas/gerador/gerar_esquema.mjs — não editar: o código de negócio vai em App\Models\CategoriaProduto.
  */
 abstract class CategoriaProdutoBase extends ModeloBase
