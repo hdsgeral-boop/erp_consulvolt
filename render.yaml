@@ -74,15 +74,15 @@ services:
       # ---- Base de dados: Supabase (Session pooler, IPv4, porta 5432, SSL obrigatório)
       - key: DB_CONNECTION
         value: pgsql
-      - key: DB_HOST                       # ex.: aws-0-eu-central-1.pooler.supabase.com
-        sync: false
+      - key: DB_HOST                       # Supabase › Session pooler (projeto ysjxfrolufcdjhqxuejo, eu-west-1)
+        value: aws-0-eu-west-1.pooler.supabase.com
       - key: DB_PORT
         value: "5432"
       - key: DB_DATABASE
         value: postgres
-      - key: DB_USERNAME                   # ex.: postgres.<project-ref>
-        sync: false
-      - key: DB_PASSWORD
+      - key: DB_USERNAME                   # postgres.<project-ref>
+        value: postgres.ysjxfrolufcdjhqxuejo
+      - key: DB_PASSWORD                   # segredo: só no painel da Render
         sync: false
       - key: DB_SSLMODE
         value: require

@@ -55,6 +55,23 @@ O que muda em relação à produção AWS:
    contentor local com as mesmas variáveis).
 7. **Verificar:** `https://<api>/up` → 200; `https://<api>/api/saude` → `estado: OK`; abrir o Static Site e entrar.
 
+## Proteção da API REST do Supabase (obrigatório)
+
+O Supabase expõe o schema `public` pela API REST às roles `anon`/`authenticated` (a chave `anon` é pública).
+O ERP liga-se como `postgres`, por isso estes privilégios foram retirados no projeto (já aplicado em 2026-10-15):
+
+```sql
+REVOKE ALL ON ALL TABLES    IN SCHEMA public FROM anon, authenticated;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES    FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated;
+REVOKE USAGE ON SCHEMA public FROM anon, authenticated;
+```
+
+Repetir num projeto Supabase novo **antes** das migrações. Reforço recomendado: *Project Settings › Data API* › desligar.
+
 ## Checklist de variáveis de ambiente
 
 ### API (`erp-consulvolt-render-api`) — a preencher no painel (`sync: false`)
@@ -62,8 +79,6 @@ O que muda em relação à produção AWS:
 | Variável | Onde obter | Exemplo |
 |---|---|---|
 | `APP_KEY` | gerar (passo 2). **Nunca mudar** depois de haver dados cifrados | `base64:3q2+7w…=` |
-| `DB_HOST` | Supabase › Connect › Session pooler › host | `aws-0-eu-central-1.pooler.supabase.com` |
-| `DB_USERNAME` | Supabase › Session pooler › user | `postgres.abcdefghijklmnop` |
 | `DB_PASSWORD` | palavra-passe definida ao criar o projeto Supabase | — |
 | `ANTHROPIC_API_KEY` | opcional; vazio = assistente IA desligado | `sk-ant-…` |
 
@@ -72,6 +87,7 @@ O que muda em relação à produção AWS:
 | Variável | Valor | Rever quando |
 |---|---|---|
 | `APP_URL` | `https://erp-consulvolt-render-api.onrender.com` | o URL real da API for diferente |
+| `DB_HOST` / `DB_USERNAME` | `aws-0-eu-west-1.pooler.supabase.com` / `postgres.ysjxfrolufcdjhqxuejo` | mudar de projeto Supabase |
 | `ERP_CORS_ORIGENS` | `https://erp-consulvolt-render-web.onrender.com` | o URL real do Static Site for diferente / domínio próprio |
 | `DB_PORT` / `DB_DATABASE` / `DB_SSLMODE` | `5432` / `postgres` / `require` | nunca (Session pooler) |
 | `CACHE_STORE` / `SESSION_DRIVER` / `QUEUE_CONNECTION` | `file` / `cookie` / `sync` | se passar a ter Redis (Render Key Value pago) |
