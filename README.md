@@ -1,3 +1,7 @@
+> **🚀 CÓPIA PARA DEPLOY NA RENDER.COM (plano gratuito) — branch `render`.**
+> A produção AWS é o projeto original `erp_laravel` (branch `main`), que não é alterado por esta cópia.
+> Blueprint: [render.yaml](render.yaml) · Imagem da API: [docker/render/](docker/render/) · Guia e checklist: [docs/RENDER.md](docs/RENDER.md)
+
 # ERP Consulvolt — Nova Arquitectura
 
 Migração do ERP legado `payroll_system_web` (Vanilla JS + Dexie/IndexedDB) para

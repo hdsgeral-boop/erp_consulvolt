@@ -1,0 +1,89 @@
+# syntax=docker/dockerfile:1.7
+#
+# ERP_CONSULVOLT — imagem da API para a RENDER.COM (Web Service Docker, plano free).
+# Só existe nesta cópia (erp_laravel_render, branch «render»); a produção AWS continua em docker/php/Dockerfile.prod.
+#
+# Um único contentor com nginx + PHP 8.3-FPM (+ scheduler opcional) geridos pelo supervisord, porque o plano
+# free da Render dá um só serviço/processo exposto. O nginx escuta na porta dinâmica $PORT (a Render injecta-a).
+# O frontend NÃO entra aqui: é um Render Static Site separado (render.yaml).
+#
+# Construção local (contexto = raiz do repositório):
+#   docker build -f docker/render/Dockerfile.render -t erp_consulvolt/render-api .
+#   docker run --rm -p 10000:10000 --env-file docker/render/.env.render erp_consulvolt/render-api
+#
+# Nenhum segredo entra na imagem: APP_KEY e credenciais do Supabase chegam só em tempo de execução.
+
+ARG PHP_IMAGEM=php:8.3-fpm-alpine
+
+# ---------------------------------------------------------------------------------------------
+# 1. Base PHP: mesmas extensões do Dockerfile.prod + nginx + supervisord
+# ---------------------------------------------------------------------------------------------
+FROM ${PHP_IMAGEM} AS php-base
+RUN apk add --no-cache icu-libs libzip libpq libpng tzdata nginx supervisor \
+ && apk add --no-cache --virtual .deps-build $PHPIZE_DEPS icu-dev libzip-dev libpng-dev postgresql-dev linux-headers \
+ && docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql intl zip bcmath opcache pcntl gd \
+ && pecl install redis \
+ && docker-php-ext-enable redis \
+ && apk del .deps-build \
+ && rm -rf /tmp/pear /usr/src/php.tar.* /var/cache/apk/*
+ENV TZ=Africa/Luanda
+
+# ---------------------------------------------------------------------------------------------
+# 2. Dependências PHP (composer --no-dev) + caches de rotas/eventos (não dependem do ambiente)
+# ---------------------------------------------------------------------------------------------
+FROM php-base AS vendor
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+ENV COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_NO_INTERACTION=1
+# Mesmo caminho da imagem final: a cache de rotas guarda caminhos absolutos.
+WORKDIR /var/www/html
+COPY backend/composer.json backend/composer.lock ./
+RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-progress
+COPY backend/ ./
+RUN rm -rf tests phpunit.xml phpunit_b.xml package.json vite.config.js README.md .env.example \
+ && composer dump-autoload --no-dev --optimize \
+ && APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= php artisan route:cache --no-ansi \
+ && APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= php artisan event:cache --no-ansi \
+ && rm -f bootstrap/cache/config.php \
+ && test -f bootstrap/cache/routes-v7.php && test -f bootstrap/cache/events.php
+
+# ---------------------------------------------------------------------------------------------
+# 3. Imagem final: nginx ($PORT) + PHP-FPM (127.0.0.1:9000) + supervisord, tudo como www-data
+# ---------------------------------------------------------------------------------------------
+FROM php-base AS render
+ARG ERP_VERSAO=render
+LABEL org.opencontainers.image.title="erp_consulvolt-render-api" \
+      org.opencontainers.image.version="${ERP_VERSAO}"
+
+# Valores por omissão afinados para 512 MB de RAM / 0,1 CPU (plano free). Todos podem ser alterados no painel.
+ENV APP_ENV=production \
+    APP_DEBUG=false \
+    LOG_CHANNEL=stderr \
+    PORT=10000 \
+    PHP_MEMORY_LIMIT=256M \
+    PHP_FPM_MAX_CHILDREN=4 \
+    ERP_MIGRAR_NO_ARRANQUE=1 \
+    ERP_SCHEDULER=false
+
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
+COPY docker/render/php.ini "$PHP_INI_DIR/conf.d/zz-erp-render.ini"
+COPY docker/render/www.conf /usr/local/etc/php-fpm.d/zz-render.conf
+COPY docker/render/nginx.conf.template /etc/erp-render/nginx.conf.template
+COPY docker/render/supervisord.conf /etc/erp-render/supervisord.conf
+COPY --chmod=755 docker/render/entrypoint.sh /usr/local/bin/erp-render-entrypoint
+
+WORKDIR /var/www/html
+# Código pertence a root e é só de leitura para o PHP; só storage/ e bootstrap/cache/ são graváveis.
+COPY --from=vendor /var/www/html /var/www/html
+RUN printf '%s\n' "${ERP_VERSAO}" > VERSAO \
+ && mkdir -p storage/app/private storage/app/public storage/logs \
+             storage/framework/cache/data storage/framework/views storage/framework/sessions \
+ && chown root:root /var/www/html \
+ && chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R u=rwX,go=rX /var/www/html /etc/erp-render \
+ && chmod -R ug+rwX storage bootstrap/cache
+
+# Sem root (OWASP A05): o nginx escuta numa porta alta ($PORT) e grava pid/temporários em /tmp.
+USER www-data
+EXPOSE 10000
+ENTRYPOINT ["erp-render-entrypoint"]
+CMD ["supervisord", "-c", "/tmp/erp-render/supervisord.conf"]

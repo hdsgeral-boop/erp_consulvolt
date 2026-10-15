@@ -3,10 +3,16 @@ import { ErroApi, type Envelope, type Pagina } from './tipos';
 import { armazenamento } from '@/sessao/armazenamento';
 
 /**
+ * Origem da API. Vazio = mesma origem (nginx do Docker/AWS serve SPA e /api). Na Render o SPA é um Static Site
+ * e a API outro serviço: VITE_API_URL (ex.: https://erp-consulvolt-render-api.onrender.com) é fixado no build.
+ */
+const origemApi = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '');
+
+/**
  * Cliente HTTP da API (/api). Acrescenta o token Bearer e o X-Empresa-Id da sessão, desembrulha o envelope
  * e converte qualquer erro em ErroApi (mensagem em português vinda do servidor, código e detalhes).
  */
-export const http = axios.create({ baseURL: '/api', headers: { Accept: 'application/json' }, timeout: 120_000 });
+export const http = axios.create({ baseURL: `${origemApi}/api`, headers: { Accept: 'application/json' }, timeout: 120_000 });
 
 let aoExpirar: (() => void) | null = null;
 /** A sessão regista aqui o que fazer quando o servidor responde 401 (sessão expirada ou inválida). */

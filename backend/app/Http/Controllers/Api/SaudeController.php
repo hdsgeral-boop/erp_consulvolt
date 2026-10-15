@@ -39,11 +39,14 @@ final class SaudeController extends Controller
 
                 return $versoes ? "PostgreSQL {$versao}" : 'PostgreSQL';
             }),
-            'redis' => $this->verificar(function () use ($versoes) {
-                $versao = Redis::connection()->info('server')['redis_version'] ?? '?';
+            // Sem nenhum store/fila em Redis (deploy Render: cache em ficheiro, filas síncronas) o Redis não é dependência.
+            'redis' => $this->usaRedis()
+                ? $this->verificar(function () use ($versoes) {
+                    $versao = Redis::connection()->info('server')['redis_version'] ?? '?';
 
-                return $versoes ? "Redis {$versao}" : 'Redis';
-            }),
+                    return $versoes ? "Redis {$versao}" : 'Redis';
+                })
+                : ['estado' => 'OK', 'detalhe' => 'não utilizado', 'latencia_ms' => 0.0],
             'filas' => $this->verificar(fn () => $this->estadoFilas()),
             'armazenamento' => $this->verificar(fn () => $this->estadoArmazenamento()),
             // batimentos do scheduler e do worker (R11); a mensagem não tem segredos e mostra-se sempre (excepto se a cache falhar)
@@ -77,6 +80,16 @@ final class SaudeController extends Controller
         $falhados = DB::table((string) config('queue.failed.table', 'trabalhos_falhados'))->count();
 
         return config('queue.default')." ({$tamanhos}); falhados={$falhados}";
+    }
+
+    private function usaRedis(): bool
+    {
+        $cache = (string) config('cache.default');
+        $fila = (string) config('queue.default');
+
+        return config("cache.stores.{$cache}.driver") === 'redis'
+            || config("queue.connections.{$fila}.driver") === 'redis'
+            || config('session.driver') === 'redis';
     }
 
     private function estadoArmazenamento(): string

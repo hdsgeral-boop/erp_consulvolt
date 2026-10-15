@@ -1,0 +1,153 @@
+# nginx da API na RENDER (só /api e /up; o SPA é um Static Site à parte).
+# __PORT__ é substituído pelo entrypoint pelo valor de $PORT injectado pela Render.
+# Corre como www-data: pid, logs e temporários vão para /tmp.
+
+worker_processes 1;
+pid /tmp/erp-render/nginx.pid;
+error_log /dev/stderr warn;
+
+events {
+    worker_connections 512;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    client_body_temp_path /tmp/erp-render/nginx/corpo;
+    proxy_temp_path       /tmp/erp-render/nginx/proxy;
+    fastcgi_temp_path     /tmp/erp-render/nginx/fastcgi;
+    uwsgi_temp_path       /tmp/erp-render/nginx/uwsgi;
+    scgi_temp_path        /tmp/erp-render/nginx/scgi;
+
+    log_format erp_json escape=json
+      '{"ts":"$time_iso8601","ip":"$remote_addr","metodo":"$request_method","uri":"$request_uri",'
+      '"estado":$status,"bytes":$body_bytes_sent,"duracao":$request_time,"upstream":"$upstream_response_time",'
+      '"agente":"$http_user_agent","pedido_id":"$request_id"}';
+    access_log /dev/stdout erp_json;
+
+    sendfile on;
+    keepalive_timeout 30s;
+    server_tokens off;
+
+    # IP real do cliente: o balanceador da Render acrescenta-o ao X-Forwarded-For e liga a partir da rede interna.
+    # Só se confia no cabeçalho vindo de redes privadas (o throttle do login no Laravel e no nginx usa este IP).
+    set_real_ip_from 10.0.0.0/8;
+    set_real_ip_from 172.16.0.0/12;
+    set_real_ip_from 192.168.0.0/16;
+    real_ip_header X-Forwarded-For;
+    real_ip_recursive on;
+
+    # TLS terminado na Render: o Laravel vê HTTPS=on (URLs e cookies seguros) e o browser recebe HSTS.
+    map $http_x_forwarded_proto $erp_https {
+        default "";
+        https   on;
+    }
+    map $http_x_forwarded_proto $erp_hsts {
+        default "";
+        https   "max-age=31536000; includeSubDomains";
+    }
+
+    limit_req_zone $binary_remote_addr zone=erp_login:5m rate=20r/m;
+    limit_req_status 429;
+
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/plain application/json application/javascript application/xml text/csv;
+
+    client_max_body_size 25M;
+    client_body_buffer_size 128k;
+    client_header_timeout 30s;
+    client_body_timeout 120s;
+    send_timeout 120s;
+
+    server {
+        listen __PORT__ default_server;
+        server_name _;
+        root /var/www/html/public;
+
+        # A API só devolve JSON/ficheiros: CSP fechada, nada pode ser embebido.
+        add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header X-Request-Id $request_id always;
+        add_header Strict-Transport-Security $erp_hsts always;
+
+        # Parâmetros FastCGI comuns (o «include» repete-se em cada location com fastcgi_pass).
+        set $erp_script /var/www/html/public/index.php;
+
+        location = /api/autenticacao/entrar {
+            limit_req zone=erp_login burst=10 nodelay;
+            include /etc/nginx/fastcgi_params;
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_param SCRIPT_FILENAME $erp_script;
+            fastcgi_param SCRIPT_NAME /index.php;
+            fastcgi_param DOCUMENT_ROOT /var/www/html/public;
+            fastcgi_param HTTPS $erp_https if_not_empty;
+            fastcgi_param HTTP_X_REQUEST_ID $request_id;
+            fastcgi_param HTTP_PROXY "";
+            fastcgi_hide_header X-Powered-By;
+        }
+
+        # Cópias de empresa (exportação/importação de ficheiros grandes): único sítio com 100 MB.
+        location ^~ /api/sistema/copias {
+            client_max_body_size 100M;
+            include /etc/nginx/fastcgi_params;
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_param SCRIPT_FILENAME $erp_script;
+            fastcgi_param SCRIPT_NAME /index.php;
+            fastcgi_param DOCUMENT_ROOT /var/www/html/public;
+            fastcgi_param HTTPS $erp_https if_not_empty;
+            fastcgi_param HTTP_X_REQUEST_ID $request_id;
+            fastcgi_param HTTP_PROXY "";
+            fastcgi_hide_header X-Powered-By;
+            fastcgi_read_timeout 300s;
+        }
+
+        location ^~ /api/ {
+            include /etc/nginx/fastcgi_params;
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_param SCRIPT_FILENAME $erp_script;
+            fastcgi_param SCRIPT_NAME /index.php;
+            fastcgi_param DOCUMENT_ROOT /var/www/html/public;
+            fastcgi_param HTTPS $erp_https if_not_empty;
+            fastcgi_param HTTP_X_REQUEST_ID $request_id;
+            fastcgi_param HTTP_PROXY "";
+            fastcgi_hide_header X-Powered-By;
+            fastcgi_connect_timeout 5s;
+            fastcgi_send_timeout 180s;
+            fastcgi_read_timeout 180s;
+            fastcgi_buffers 16 16k;
+            fastcgi_buffer_size 32k;
+        }
+
+        # Health check da Render (healthCheckPath: /up) — rota nativa do Laravel, sem tocar na base de dados.
+        location = /up {
+            access_log off;
+            include /etc/nginx/fastcgi_params;
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_param SCRIPT_FILENAME $erp_script;
+            fastcgi_param SCRIPT_NAME /index.php;
+            fastcgi_param DOCUMENT_ROOT /var/www/html/public;
+            fastcgi_param HTTPS $erp_https if_not_empty;
+            fastcgi_param HTTP_PROXY "";
+            fastcgi_hide_header X-Powered-By;
+        }
+
+        location ~ /\. {
+            deny all;
+            access_log off;
+            log_not_found off;
+        }
+
+        # Tudo o resto não existe nesta origem (o SPA está no Static Site).
+        location / {
+            default_type application/json;
+            return 404 '{"sucesso":false,"mensagem":"Recurso não encontrado."}';
+        }
+    }
+}

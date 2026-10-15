@@ -37,3 +37,6 @@ credenciais*.txt
 *credenciais*
 # prompts de trabalho do utilizador (locais)
 PROMPT_*.txt
+
+# Render: variáveis locais para testar a imagem (docker/render/.env.render.example é o modelo)
+docker/render/.env.render
