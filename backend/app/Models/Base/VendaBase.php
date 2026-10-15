@@ -3,6 +3,7 @@
 namespace App\Models\Base;
 
 use App\Models\Armazem;
+use App\Models\AssuntoMetodoTrabalho;
 use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
@@ -88,6 +89,7 @@ abstract class VendaBase extends ModeloBase
             'dias_validade' => 'integer',
             'plano_pagamentos' => 'array',
             'oportunidade_crm_id' => 'integer',
+            'unidades_alocadas' => 'array',
             'serie_faturacao_eletronica_id' => 'integer',
             'fe_numero' => 'integer',
             'fe_documento' => 'array',
@@ -219,6 +221,11 @@ abstract class VendaBase extends ModeloBase
     public function projetos(): HasMany
     {
         return $this->hasMany(Projeto::class, 'encomenda_venda_id');
+    }
+
+    public function assuntosMetodoTrabalho(): HasMany
+    {
+        return $this->hasMany(AssuntoMetodoTrabalho::class, 'encomenda_venda_id');
     }
 
     public function contasMesaPos(): HasMany

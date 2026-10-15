@@ -77,7 +77,8 @@
    "nome": "Projectos e Obras",
    "resumo": "Carteira de projectos, orçamento por rubrica, extracto analítico e planeamento Gantt.",
    "regras": [
-    "As linhas de orçamento usam contas de movimento."
+    "As linhas de orçamento usam contas de movimento.",
+    "Cada projecto tem um calendário de trabalho (por defeito segunda a sexta, 8 h/dia, com a opção de meio sábado). É por ele que se contam as horas previstas das tarefas e se repartem as quantidades pelos períodos."
    ]
   },
   "activos": {
@@ -470,11 +471,12 @@
    "titulo": "Clientes",
    "serve": "Gerir clientes e a respectiva conta de terceiros.",
    "passos": [
-    "Crie o cliente com NIF e conta contabilística.",
+    "Crie o cliente com NIF e a conta de cliente (classe 31).",
     "Grave."
    ],
    "dicas": [
-    "Sem conta associada o cliente não é gravado."
+    "Sem conta associada o cliente não é gravado.",
+    "Se a entidade também for fornecedor, a conta de compras define-se em Compras › Fornecedores: são contas diferentes."
    ]
   },
   "vendas_produtos": {
@@ -809,12 +811,17 @@
   "activos_manutencao": {
    "modulo": "activos",
    "titulo": "Manutenções",
-   "serve": "Registar manutenções dos activos.",
+   "serve": "Planos de manutenção, ordens de trabalho, requisições ao armazém e pedidos de compra.",
    "passos": [
-    "Seleccione o activo.",
-    "Registe a manutenção e o custo."
+    "Em Planos, diga o que se repete e de quanto em quanto tempo (ou de quantas em quantas horas/km), com as tarefas e o material previsto.",
+    "Use «Gerar dos planos» ou abra uma ordem à mão para uma avaria.",
+    "Na ordem, lance as necessidades e carregue em «Requisitar / pedir compra».",
+    "Entregue o material em Requisições; conclua a ordem com o trabalho efectuado."
    ],
-   "dicas": []
+   "dicas": [
+    "O material que o armazém tem vira requisição; os serviços e o que falta viram pedido de compra, já em Compras › Pedidos.",
+    "Ao concluir, o custo (material + serviços + mão-de-obra) vai para o histórico do activo e o plano salta para a próxima data."
+   ]
   },
   "activos_amortizacoes": {
    "modulo": "activos",
@@ -996,6 +1003,118 @@
    ],
    "dicas": [
     "O botão ☰ esconde o menu lateral para ganhar espaço; arraste o friso direito do menu para o alargar."
+   ]
+  },
+  "vendas_series": {
+   "modulo": "vendas",
+   "titulo": "Séries de Numeração",
+   "serve": "Atribuir o código e o número das facturas de cliente (FT, FR, NC), no formato TIPO SÉRIE/N.",
+   "passos": [
+    "Crie a série do ano para cada tipo de documento.",
+    "Indique o código (ex.: A2026) e o número de arranque.",
+    "Emita os documentos: o número sai da série activa."
+   ],
+   "dicas": [
+    "Para continuar um livro que vai no 500, ponha 501 no número de arranque.",
+    "O número de arranque só se atribui enquanto a série não emitir nada.",
+    "Cada terminal POS pode ter série própria; sem ela usa a série geral.",
+    "Sem série criada pelo utilizador, o sistema usa a série automática do ano (necessária à cadeia de hash do SAF-T)."
+   ]
+  },
+  "teso_cartas": {
+   "modulo": "tesouraria",
+   "titulo": "Cartas de Pagamento",
+   "serve": "Emitir a ordem que a empresa dirige ao banco para pagar a terceiros ou aos colaboradores.",
+   "passos": [
+    "A carta nasce sempre de um pagamento já gravado na Tesouraria — nunca sozinha.",
+    "A conta financeira tem de ser bancária (42 ou 43) e ter IBAN no Plano de Contas.",
+    "Escolha os beneficiários a incluir e emita; o mesmo processamento pode ter várias cartas."
+   ],
+   "dicas": [
+    "Quem não tiver conta bancária mapeada não entra na carta: terceiros em Tabelas Auxiliares, colaboradores em Dados Bancários.",
+    "Quem já entrou noutra carta do mesmo mês aparece assinalado e desmarcado, para não se pagar duas vezes.",
+    "O texto padrão altera-se no separador «Modelo de texto» e pode ainda ser ajustado em cada carta."
+   ]
+  },
+  "projectos_metas": {
+   "modulo": "projectos",
+   "titulo": "Metas por quantidade",
+   "serve": "Medir o trabalho pelo que se mede na obra (m², metros, unidades) em vez de uma percentagem estimada.",
+   "passos": [
+    "Na fase ou na tarefa, indique a unidade e a quantidade a atingir.",
+    "«Tarefas por quantidade» reparte uma meta total por várias tarefas, cada uma com responsável — pessoa da equipa ou posição do organigrama do projecto.",
+    "À medida que se executa, registe a quantidade feita; a execução passa a ser realizado ÷ meta.",
+    "Para medir várias tarefas de uma vez, use a «Folha de medição»: uma linha por tarefa, data comum e colagem do Excel pelo código da tarefa."
+   ],
+   "dicas": [
+    "Com subtarefas com meta, a quantidade sobe delas: não se mede duas vezes o mesmo trabalho.",
+    "A execução da fase é ponderada pela quantidade, não é a média das tarefas.",
+    "No Gantt, «Quantidades por período» reparte a meta pelos dias do prazo e soma por dia, semana, mês, trimestre, semestre ou ano.",
+    "O «Mapa de quantidades» mostra o previsto e o executado período a período, uma tabela por unidade de medida, com totais e impressão; «Ver acumulados» diz se a obra está em dia."
+   ]
+  },
+  "projectos_execucao": {
+   "modulo": "projectos",
+   "titulo": "Execução (e ligação ao RH)",
+   "serve": "Reunir o que a obra produziu no período — horas, quantidades medidas e tarefas concluídas — e levar isso ao subsídio de produtividade.",
+   "passos": [
+    "Escolha o intervalo e confira os totais por colaborador.",
+    "«Enviar para Produtividade (RH)» escolhe o período de produtividade e mostra o que cada origem vai alimentar.",
+    "Confirme o item de produtividade de cada origem (horas, cada unidade medida, tarefas) e envie."
+   ],
+   "dicas": [
+    "As quantidades vão ao responsável da tarefa; as horas, a quem as registou. Sem colaborador interno, a produção fica à parte e é explicada.",
+    "Só entra quem tem o item no contrato activo e só datas dentro do intervalo de medição do período.",
+    "Reenviar actualiza o envio anterior em vez de duplicar."
+   ]
+  },
+  "projectos_equipa": {
+   "modulo": "projectos",
+   "titulo": "Equipa e carga de trabalho",
+   "serve": "Ver quem tem o quê em mãos, na mesma estrutura da lista WBS.",
+   "passos": [
+    "Aloque os membros à equipa (internos, entidades externas ou texto livre).",
+    "Atribua o responsável em cada tarefa, no formulário da tarefa ou na folha de medição.",
+    "Em «Carga de trabalho atribuída», abra cada pessoa: fase › tarefa › subtarefa, com quantidade, horas previstas e lançadas."
+   ],
+   "dicas": [
+    "As horas previstas saem do prazo da tarefa pelo calendário do projecto; as lançadas, das folhas de horas dessa pessoa nessa tarefa.",
+    "Um responsável indicado na tarefa manda sempre sobre a área do organigrama.",
+    "As tarefas sem responsável aparecem num grupo à parte, no fim.",
+    "«Ordem de trabalho» imprime o papel a entregar a cada pessoa: o que há para fazer, datas, horas, meta, ritmo exigido e espaço para assinaturas."
+   ]
+  },
+  "projectos_orcamento_qtd": {
+   "modulo": "projectos",
+   "titulo": "Orçamento pelas quantidades",
+   "serve": "Dizer a que trabalho medido corresponde o dinheiro de cada rubrica e reparti-lo por onde esse trabalho está.",
+   "passos": [
+    "No Orçamento Base, use o botão da balança numa rubrica.",
+    "Escolha a unidade, se reparte pela meta ou pelo já executado, e que tarefas entram.",
+    "Indique o valor a mapear — só até ao saldo por mapear, em valor ou em percentagem."
+   ],
+   "dicas": [
+    "Do mapeamento sai um preço por unidade, e o valor espalha-se pelas tarefas com essa quantidade.",
+    "Uma rubrica pode ser mapeada em várias partes, mas nunca acima do total: só se mapeia o saldo que falta.",
+    "O que ficar por mapear aparece numa coluna própria: a rubrica não é alterada."
+   ]
+  },
+  "ia_assistente": {
+   "modulo": "contabilidade",
+   "titulo": "Assistente IA — Regras em ficheiro",
+   "serve": "Propor lançamentos repetitivos (ex.: fecho de caixa diário) a partir de uma regra em ficheiro JSON com as contas, as fórmulas e as validações.",
+   "passos": [
+    "Importe o ficheiro de regras (ou descarregue o modelo e adapte-o). Importar um ficheiro com o mesmo nome de regra substitui-a pela versão seguinte.",
+    "Escolha em que motores a regra aparece: motor interno, IA externa ou ambos.",
+    "Motor interno: escreva os valores lidos no documento (um bloco por dia) e carregue em «Calcular e propor».",
+    "IA externa: anexe o documento; a IA só lê os valores, o ERP faz as contas e as validações.",
+    "Reveja cada dia e abra-o no formulário de lançamento para gravar."
+   ],
+   "dicas": [
+    "Nada é gravado sem passar pelo formulário de lançamento.",
+    "As validações da regra que falharem pedem confirmação antes de abrir o formulário.",
+    "As contas que não existem no plano são assinaladas na lista de regras.",
+    "A chave do serviço de IA fica sempre no servidor; a IA está desligada por omissão em cada empresa."
    ]
   }
  }

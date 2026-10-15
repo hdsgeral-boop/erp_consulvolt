@@ -1,6 +1,6 @@
 {
   "origem": "js/permissoes.js",
-  "gerado_em": "2026-10-13T17:38:18.252Z",
+  "gerado_em": "2026-10-14T23:32:08.974Z",
   "modulos": [
     {
       "id": "geral",
@@ -216,6 +216,32 @@
             {
               "chave": "rh_prod_config",
               "rotulo": "Configurar os itens de produtividade (descrição, unidade, preço, rubrica)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "rh_emprestimos",
+          "nome": "Empréstimos a colaboradores",
+          "vistas": [
+            "rh_emprestimos"
+          ],
+          "pai": null,
+          "nota": "O pedido é feito pelo colaborador no Portal e aprovado pela chefia e pelo RH. As prestações entram no processamento pelo botão «Importar Empréstimos».",
+          "tarefas": [
+            {
+              "chave": "rh_emp_gerir",
+              "rotulo": "Acompanhar e cancelar empréstimos",
+              "sensivel": false
+            },
+            {
+              "chave": "rh_emp_lancar",
+              "rotulo": "Lançar o empréstimo na conta corrente e importar as prestações no cálculo",
+              "sensivel": true
+            },
+            {
+              "chave": "rh_emp_config",
+              "rotulo": "Configurar as contas, a rubrica de desconto e os limites",
               "sensivel": true
             }
           ]
@@ -500,6 +526,27 @@
       "id": "contab",
       "nome": "Contabilidade",
       "ecras": [
+        {
+          "id": "ia_assistente",
+          "nome": "Assistente IA (lançamento assistido)",
+          "vistas": [
+            "ia_assistente"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "ia_regras",
+              "rotulo": "Importar, activar e eliminar ficheiros de regras",
+              "sensivel": false
+            },
+            {
+              "chave": "ia_lancar",
+              "rotulo": "Ler documentos com o agente e gravar no diário os lançamentos propostos",
+              "sensivel": true
+            }
+          ]
+        },
         {
           "id": "lancamentos",
           "nome": "Lançamentos (diários)",
@@ -787,6 +834,33 @@
       ]
     },
     {
+      "id": "metodo",
+      "nome": "Método de Trabalho",
+      "ecras": [
+        {
+          "id": "mt_assuntos",
+          "nome": "Registo de Assuntos (5W1H)",
+          "vistas": [
+            "mt_assuntos"
+          ],
+          "pai": null,
+          "nota": "Por omissão, o criador edita em rascunho e o responsável a partir de «Em curso». A tarefa de aprovação dá acesso a todos os assuntos.",
+          "tarefas": [
+            {
+              "chave": "mt_criar",
+              "rotulo": "Criar e editar assuntos",
+              "sensivel": false
+            },
+            {
+              "chave": "mt_aprovar",
+              "rotulo": "Aprovar pedidos de compra e encerrar assuntos de outros",
+              "sensivel": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "teso",
       "nome": "Tesouraria",
       "ecras": [
@@ -839,6 +913,27 @@
             {
               "chave": "teso_caixa_eliminar",
               "rotulo": "Eliminar sessão fechada",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "teso_cartas",
+          "nome": "Cartas de pagamento",
+          "vistas": [
+            "teso_cartas"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "teso_carta_emitir",
+              "rotulo": "Emitir e anular cartas de ordem de pagamento",
+              "sensivel": false
+            },
+            {
+              "chave": "teso_carta_modelo",
+              "rotulo": "Alterar o texto padrão das cartas",
               "sensivel": true
             }
           ]
@@ -1721,6 +1816,27 @@
           ]
         },
         {
+          "id": "activos_edificios",
+          "nome": "Edifícios e locais",
+          "vistas": [
+            "activos_edificios"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "activos_locais_gerir",
+              "rotulo": "Criar andares e portas e localizar bens",
+              "sensivel": false
+            },
+            {
+              "chave": "activos_inventario_fisico",
+              "rotulo": "Gerar, contar e fechar folhas de inventário",
+              "sensivel": true
+            }
+          ]
+        },
+        {
           "id": "activos_categorias",
           "nome": "Categorias e taxas",
           "vistas": [
@@ -2482,6 +2598,7 @@
         "fluxo_processos_view": true,
         "rh_portal_view": true,
         "rh_portal_usar": true,
+        "ia_assistente_view": true,
         "lancamentos_view": true,
         "encerramento_view": true,
         "relatorios_contabeis_view": true,
@@ -2553,6 +2670,7 @@
         "rh_portal_usar": true,
         "teso_gestao_pagamentos_view": true,
         "teso_folha_caixa_view": true,
+        "teso_cartas_view": true,
         "teso_contab_integracao_view": true,
         "teso_contab_historico_view": true,
         "teso_gestao_mapas_view": true,
@@ -2570,6 +2688,8 @@
         "teso_conc_importar": true,
         "teso_conc_confirmar": true,
         "teso_conf_registar": true,
+        "teso_carta_emitir": true,
+        "teso_carta_modelo": true,
         "pos_prestar": true
       }
     },
@@ -2653,6 +2773,7 @@
         "rh_avaliacao_ciclo_view": true,
         "rh_assiduidade_view": true,
         "rh_produtividade_view": true,
+        "rh_emprestimos_view": true,
         "rh_ferias_view": true,
         "rh_avaliacao_view": true,
         "contratos_view": true,
@@ -2805,6 +2926,7 @@
         "rh_avaliacao_ciclo_view": true,
         "rh_assiduidade_view": true,
         "rh_produtividade_view": true,
+        "rh_emprestimos_view": true,
         "rh_ferias_view": true,
         "rh_avaliacao_view": true,
         "contratos_view": true,
@@ -2820,6 +2942,7 @@
         "rh_rel_pagamentos_view": true,
         "rh_rel_banco_view": true,
         "rh_rel_recibos_view": true,
+        "ia_assistente_view": true,
         "lancamentos_view": true,
         "encerramento_view": true,
         "relatorios_contabeis_view": true,
@@ -2835,8 +2958,10 @@
         "consolidacao_view": true,
         "tabelas_aux_view": true,
         "contabilidade_view": true,
+        "mt_assuntos_view": true,
         "teso_gestao_pagamentos_view": true,
         "teso_folha_caixa_view": true,
+        "teso_cartas_view": true,
         "teso_contab_integracao_view": true,
         "teso_contab_historico_view": true,
         "teso_gestao_mapas_view": true,
@@ -2875,6 +3000,7 @@
         "inventario_contagem_view": true,
         "inventario_revisao_view": true,
         "activos_view": true,
+        "activos_edificios_view": true,
         "activos_categorias_view": true,
         "activos_manutencao_view": true,
         "activos_amortizacoes_view": true,
@@ -2925,6 +3051,7 @@
         "rh_avaliacao_ciclo_view": true,
         "rh_assiduidade_view": true,
         "rh_produtividade_view": true,
+        "rh_emprestimos_view": true,
         "rh_ferias_view": true,
         "rh_avaliacao_view": true,
         "contratos_view": true,
@@ -2940,6 +3067,7 @@
         "rh_rel_pagamentos_view": true,
         "rh_rel_banco_view": true,
         "rh_rel_recibos_view": true,
+        "ia_assistente_view": true,
         "lancamentos_view": true,
         "encerramento_view": true,
         "relatorios_contabeis_view": true,
@@ -2955,8 +3083,10 @@
         "consolidacao_view": true,
         "tabelas_aux_view": true,
         "contabilidade_view": true,
+        "mt_assuntos_view": true,
         "teso_gestao_pagamentos_view": true,
         "teso_folha_caixa_view": true,
+        "teso_cartas_view": true,
         "teso_contab_integracao_view": true,
         "teso_contab_historico_view": true,
         "teso_gestao_mapas_view": true,
@@ -2995,6 +3125,7 @@
         "inventario_contagem_view": true,
         "inventario_revisao_view": true,
         "activos_view": true,
+        "activos_edificios_view": true,
         "activos_categorias_view": true,
         "activos_manutencao_view": true,
         "activos_amortizacoes_view": true,

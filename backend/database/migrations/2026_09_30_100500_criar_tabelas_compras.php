@@ -111,6 +111,7 @@ return new class extends Migration
             $table->decimal('montante_total_moeda', 15, 2)->nullable()->comment('legado: total_amount_currency');
             $table->decimal('total_imposto', 15, 2)->nullable()->comment('legado: total_tax');
             $table->decimal('total_com_imposto', 15, 2)->nullable()->comment('legado: total_with_tax');
+            $table->jsonb('unidades_alocadas')->nullable()->comment('legado: unidades_alocadas · do código legado Versões/Versão Actual/ERP/js/ui_compras_v2.js:3516');
             $table->date('data_entrega_prevista')->nullable()->comment('Prazo de entrega da proposta adjudicada');
             $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');
             $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
@@ -190,6 +191,7 @@ return new class extends Migration
             $table->boolean('taxa_cambio_manual')->nullable()->comment('legado: exchange_rate_manual');
             $table->decimal('montante_total_moeda', 15, 2)->nullable()->comment('legado: total_amount_currency');
             $table->decimal('total_imposto_moeda', 15, 2)->nullable()->comment('legado: total_tax_currency');
+            $table->jsonb('unidades_alocadas')->nullable()->comment('legado: unidades_alocadas · do código legado Versões/Versão Actual/ERP/js/ui_compras_v2.js:2075');
             $table->date('data_vencimento')->nullable()->comment('Data de vencimento');
             $table->string('numero_lan_contabilizacao', 30)->nullable()->comment('N.º do lançamento contabilístico da factura');
             $table->timestampTz('anulado_em')->nullable()->comment('Data/hora da anulação');

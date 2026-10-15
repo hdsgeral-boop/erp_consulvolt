@@ -38,6 +38,9 @@ final class FiltroMapas
                 $p[] = (int) $f[$campo];
             }
         }
+        if (! empty($f['sem_unidade_negocio'])) {   // Fase C: coluna «Sem unidade» do Balanço/DR por unidade de negócio (só uso interno)
+            $sql .= " AND {$a}unidade_negocio_id IS NULL";
+        }
         if (! empty($f['filtro_contas'])) {
             [$s, $pp] = self::contas("{$a}codigo_conta", (string) $f['filtro_contas']);
             $sql .= " AND {$s}";

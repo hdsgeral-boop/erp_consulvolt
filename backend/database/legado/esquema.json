@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-10-14T20:14:39.986Z",
+  "gerado_em": "2026-10-15T00:05:49.330Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -3792,7 +3792,7 @@
         {
           "coluna": "unidades_alocadas",
           "legado": "unidades_alocadas",
-          "tipo": "text",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -4556,6 +4556,15 @@
           "coluna": "codigo_projeto",
           "legado": "project_code",
           "tipo": "varchar(255)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "unidades_alocadas",
+          "legado": "unidades_alocadas",
+          "tipo": "jsonb",
           "nulo": true,
           "origem": "codigo",
           "fk": null,
@@ -5981,6 +5990,15 @@
           "dominio": null
         },
         {
+          "coluna": "unidades_alocadas",
+          "legado": "unidades_alocadas",
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "data_entrega_prevista",
           "legado": null,
           "tipo": "date",
@@ -6541,6 +6559,15 @@
           "tipo": "numeric(15,2)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "unidades_alocadas",
+          "legado": "unidades_alocadas",
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
           "fk": null,
           "dominio": null
         },
@@ -9419,6 +9446,15 @@
           "dominio": null
         },
         {
+          "coluna": "data_cessacao",
+          "legado": "data_cessacao",
+          "tipo": "date",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -9889,6 +9925,42 @@
           "tipo": "jsonb",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "suspensao",
+          "legado": "suspensao",
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "suspensoes",
+          "legado": "suspensoes",
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cessacao",
+          "legado": "cessacao",
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cessacoes_anuladas",
+          "legado": "cessacoes_anuladas",
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "codigo",
           "fk": null,
           "dominio": null
         },
@@ -23269,6 +23341,18 @@
           "dominio": null
         },
         {
+          "coluna": "membro_equipa_projeto_id",
+          "legado": "team_member_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "membros_equipa_projeto",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -27772,6 +27856,24 @@
           "dominio": null
         },
         {
+          "coluna": "nome",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "predefinido",
+          "legado": null,
+          "tipo": "boolean",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -27854,7 +27956,7 @@
         {
           "coluna": "indicador",
           "legado": "indicador",
-          "tipo": "varchar(10)",
+          "tipo": "varchar(100)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -28497,6 +28599,24 @@
           "dominio": null
         },
         {
+          "coluna": "decidido_em",
+          "legado": "decidido_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "liquidado_em",
+          "legado": "liquidado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": "criado_em",
           "tipo": "timestamptz",
@@ -28636,6 +28756,48 @@
           "tipo": "numeric(15,2)",
           "nulo": true,
           "origem": "backup",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "linha_folha_salarial_id",
+          "legado": "payroll_entry_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "linhas_folha_salarial",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "descontado_em",
+          "legado": "descontado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "periodo_processamento_salarial_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "periodos_processamento_salarial",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "descontado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
           "fk": null,
           "dominio": null
         },
@@ -29047,11 +29209,176 @@
           "dominio": null
         },
         {
-          "coluna": "criado_em",
+          "coluna": "edificio_id",
+          "legado": "building_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "ativos_imobilizados",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "ambito",
+          "legado": "ambito",
+          "tipo": "varchar(10)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "andar_id",
+          "legado": "floor_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "porta_id",
+          "legado": "room_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "data",
+          "legado": "data",
+          "tipo": "date",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "responsavel",
+          "legado": "responsavel",
+          "tipo": "varchar(150)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "notas",
+          "legado": "notas",
+          "tipo": "text",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "estado",
+          "legado": "estado",
+          "tipo": "varchar(10)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "esperados",
+          "legado": "esperados",
+          "tipo": "integer",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "valor_esperado",
+          "legado": "valor_esperado",
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "contado_em",
+          "legado": "contado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "aplicado_em",
+          "legado": "aplicado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "fechado_em",
+          "legado": "fechado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "fechado_por",
+          "legado": "fechado_por",
+          "tipo": "varchar(150)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "anulado_em",
           "legado": null,
           "tipo": "timestamptz",
           "nulo": true,
           "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "anulado_por",
+          "legado": null,
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_anulacao",
+          "legado": null,
+          "tipo": "text",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_em",
+          "legado": "criado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
           "fk": null,
           "dominio": null
         },
@@ -29097,6 +29424,102 @@
             "tabela": "empresas",
             "cascata": false
           },
+          "dominio": null
+        },
+        {
+          "coluna": "inventario_fisico_id",
+          "legado": "inventory_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "inventarios_fisicos_ativos",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "ativo_imobilizado_id",
+          "legado": "asset_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "ativos_imobilizados",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "codigo",
+          "legado": "code",
+          "tipo": "varchar(50)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "descricao",
+          "legado": "description",
+          "tipo": "text",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "porta_id",
+          "legado": "room_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "andar_id",
+          "legado": "floor_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "valor",
+          "legado": "valor",
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "resultado",
+          "legado": "resultado",
+          "tipo": "varchar(12)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "porta_encontrada_id",
+          "legado": "room_encontrada_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "notas",
+          "legado": "notas",
+          "tipo": "text",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
           "dominio": null
         },
         {
@@ -29533,6 +29956,48 @@
           "dominio": null
         },
         {
+          "coluna": "requisicao_manutencao_id",
+          "legado": "requisicao_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "requisicoes_manutencao",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "pedido_compra_id",
+          "legado": "purchase_request_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "pedidos_compra",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "quantidade_armazem",
+          "legado": "qtd_armazem",
+          "tipo": "numeric(15,3)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "quantidade_compra",
+          "legado": "qtd_compra",
+          "tipo": "numeric(15,3)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -29586,11 +30051,128 @@
           "dominio": null
         },
         {
-          "coluna": "criado_em",
-          "legado": null,
+          "coluna": "numero",
+          "legado": "numero",
+          "tipo": "varchar(20)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "ordem_manutencao_id",
+          "legado": "order_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "ordens_manutencao_ativos",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "ativo_imobilizado_id",
+          "legado": "asset_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "ativos_imobilizados",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "armazem_id",
+          "legado": "warehouse_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "armazens",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "requerente",
+          "legado": "requerente",
+          "tipo": "varchar(150)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "data",
+          "legado": "data",
+          "tipo": "date",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "estado",
+          "legado": "estado",
+          "tipo": "varchar(12)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_por",
+          "legado": "criado_por",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "satisfeita_em",
+          "legado": "satisfeita_em",
           "tipo": "timestamptz",
           "nulo": true,
-          "origem": "novo",
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_cancelamento",
+          "legado": "motivo_cancelamento",
+          "tipo": "text",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cancelado_em",
+          "legado": "cancelado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cancelado_por",
+          "legado": "cancelado_por",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "criado_em",
+          "legado": "criado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
           "fk": null,
           "dominio": null
         },
@@ -29636,6 +30218,87 @@
             "tabela": "empresas",
             "cascata": false
           },
+          "dominio": null
+        },
+        {
+          "coluna": "requisicao_manutencao_id",
+          "legado": "requisition_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "requisicoes_manutencao",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "item_ordem_manutencao_id",
+          "legado": "order_item_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "itens_ordem_manutencao",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "produto_id",
+          "legado": "product_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "produtos",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "descricao",
+          "legado": "descricao",
+          "tipo": "text",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "quantidade",
+          "legado": "quantidade",
+          "tipo": "numeric(15,3)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "quantidade_entregue",
+          "legado": "quantidade_entregue",
+          "tipo": "numeric(15,3)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "estado",
+          "legado": "estado",
+          "tipo": "varchar(12)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "custo",
+          "legado": "custo",
+          "tipo": "numeric(15,2)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
           "dominio": null
         },
         {
@@ -29808,7 +30471,7 @@
         {
           "coluna": "fundamentacao",
           "legado": "fundamentacao",
-          "tipo": "varchar(150)",
+          "tipo": "varchar(4000)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -29817,7 +30480,7 @@
         {
           "coluna": "causa_raiz",
           "legado": "causa_raiz",
-          "tipo": "varchar(150)",
+          "tipo": "varchar(4000)",
           "nulo": true,
           "origem": "backup",
           "fk": null,
@@ -29944,6 +30607,96 @@
           "dominio": null
         },
         {
+          "coluna": "pedido_compra_id",
+          "legado": "purchase_request_id",
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": {
+            "tabela": "pedidos_compra",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "concluido_em",
+          "legado": "concluido_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "concluido_por",
+          "legado": "concluido_por",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cancelado_em",
+          "legado": "cancelado_em",
+          "tipo": "timestamptz",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "cancelado_por",
+          "legado": "cancelado_por",
+          "tipo": "varchar(100)",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "motivo_cancelamento",
+          "legado": "motivo_cancelamento",
+          "tipo": "text",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "centro_custo_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "centros_custo",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "encomenda_venda_id",
+          "legado": null,
+          "tipo": "bigint",
+          "nulo": true,
+          "origem": "novo",
+          "fk": {
+            "tabela": "vendas",
+            "cascata": false
+          },
+          "dominio": null
+        },
+        {
+          "coluna": "linhas_pedido_compra",
+          "legado": null,
+          "tipo": "jsonb",
+          "nulo": true,
+          "origem": "novo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "atualizado_em",
           "legado": "actualizado_em",
           "tipo": "timestamptz",
@@ -30023,7 +30776,7 @@
         {
           "coluna": "detalhe",
           "legado": "detalhe",
-          "tipo": "varchar(150)",
+          "tipo": "varchar(1000)",
           "nulo": true,
           "origem": "backup",
           "fk": null,

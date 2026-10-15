@@ -8,6 +8,7 @@ use App\Models\LogAtividadeProjeto;
 use App\Models\Produto;
 use App\Models\Projeto;
 use App\Models\TarefaProjeto;
+use App\Services\Projetos\RegrasMetasProjetos;
 use App\Services\Projetos\ServicoAnaliticoProjetos;
 use App\Services\Projetos\ServicoPlaneamentoProjetos;
 use App\Services\Projetos\ServicoProjetos;
@@ -168,6 +169,10 @@ final class ProjetoController extends Controller
             'tipo' => ['nullable', Rule::in(Projeto::TIPOS)], 'estado' => ['nullable', Rule::in([...Projeto::ESTADOS, 'EM_CURSO'])],
             'unidade_negocio_id' => ['nullable', 'integer'], 'centro_custo_id' => ['nullable', 'integer'],
             'cliente_id' => ['nullable', 'integer'], 'encomenda_venda_id' => ['nullable', 'integer'],
+            // Versão Actual: calendário de trabalho (modelo ou dias 0..6 com 0 / 0,5 / 1) e descrição
+            'calendario' => ['nullable', 'array'], 'calendario.modelo' => ['nullable', Rule::in([...array_keys(RegrasMetasProjetos::MODELOS_CAL), 'PERSONALIZADO'])],
+            'calendario.horas_dia' => ['nullable', 'numeric', 'between:0.5,24'], 'calendario.dias' => ['nullable', 'array', 'size:7'],
+            'calendario.dias.*' => ['numeric', Rule::in(['0', '0.5', '1'])], 'descricao' => ['nullable', 'string', 'max:5000'],
         ]);
     }
 }

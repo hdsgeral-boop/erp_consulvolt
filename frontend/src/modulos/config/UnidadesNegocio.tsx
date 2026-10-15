@@ -10,6 +10,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { CriteriosReparticao } from '@/componentes/reparticao';
 export interface UnidadeNegocio {
   id: number;
   codigo: string;
@@ -162,6 +163,8 @@ export function UnidadesNegocio() {
           </Row>
         </Form>
       </Modal>
+      {/* Fase C (unidades_negocio.js:118, #un-chaves): critérios de repartição por unidade de negócio */}
+      <CriteriosReparticao />
     </>
   );
 }

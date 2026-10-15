@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\DB;
  *     sem repetição; o «sem fim» passa a data de fim vazia (o legado gravava 9999-12-31, que continua aceite);
  *   - as remunerações gravam-se com chaves em português (infotipo_id, valor_mes, valor_dia); as migradas mantêm as
  *     chaves do legado — a leitura (ServicoFolhaSalarial::contratoArray) aceita as duas.
+ * Fase B (Versão Actual): horário do contrato (RegrasContrato::validarHorario) e estados SUSPENSO/CESSADO só pelos actos
+ * de ServicoEstadoContrato (editar não reactiva nem suspende; a massa não mexe em contratos cessados).
  */
 final class ServicoContratosTrabalho
 {
@@ -40,8 +42,15 @@ final class ServicoContratosTrabalho
             throw new ErroNegocio('A data de fim não pode ser anterior à data de início.', 'DATAS_INVALIDAS', 422);
         }
         $remuneracoes = $this->remuneracoes($d['remuneracoes'], $dias);
+        $estado = $this->estadoAoGravar($d, $c, $fim);
+        // Fase B (Versão Actual): horário do contrato (1 ou 2 períodos); as «Horas por dia» acompanham o horário (app_v2.js:4751)
+        $horario = array_key_exists('horario', $d) ? RegrasContrato::validarHorario($d['horario'], 'O horário do contrato') : RegrasContrato::horario($c?->horario);
+        $horasDia = $horario ? (string) RegrasContrato::horasPrevistas($horario) : (string) ($d['horas_por_dia'] ?? $c?->horas_por_dia ?? 8);
+        if ((float) $horasDia <= 0 || (float) $horasDia > 24) {
+            throw new ErroNegocio('As horas por dia têm de estar entre 0 e 24.', 'HORAS_INVALIDAS', 422);
+        }
 
-        return DB::transaction(function () use ($d, $c, $colab, $dias, $inicio, $fim, $remuneracoes) {
+        return DB::transaction(function () use ($d, $c, $colab, $dias, $inicio, $fim, $remuneracoes, $estado, $horario, $horasDia) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ["contratos:{$colab->id}"]);
             $sobreposto = ContratoTrabalho::query()->where('colaborador_id', $colab->id)->when($c, fn ($q) => $q->whereKeyNot($c->id))
                 ->where(fn ($q) => $q->whereNull('data_inicio')->orWhere('data_inicio', '<=', $fim ?? self::SEM_FIM))
@@ -52,8 +61,8 @@ final class ServicoContratosTrabalho
                     .'Termine-o antes de criar o novo.', 'CONTRATO_SOBREPOSTO', 422, ['contrato_id' => $sobreposto->id]);
             }
             $dados = ['colaborador_id' => $colab->id, 'remuneracoes' => $remuneracoes, 'dias_contrato_mes' => $dias,
-                'horas_por_dia' => (string) ($d['horas_por_dia'] ?? $c?->horas_por_dia ?? 8), 'data_inicio' => $inicio, 'data_fim' => $fim,
-                'estado' => $d['estado'] ?? $c?->estado ?? 'ACTIVO', 'codigo_moeda' => strtoupper((string) ($d['codigo_moeda'] ?? $c?->codigo_moeda ?? 'AOA'))];
+                'horas_por_dia' => $horasDia, 'data_inicio' => $inicio, 'data_fim' => $fim, 'horario' => $horario,
+                'estado' => $estado, 'codigo_moeda' => strtoupper((string) ($d['codigo_moeda'] ?? $c?->codigo_moeda ?? 'AOA'))];
             if (array_key_exists('produtividade', $d)) {
                 $ids = array_map(fn ($x) => (int) $x['item_id'], $d['produtividade'] ?? []);
                 if (count($ids) !== count(array_unique($ids)) || ItemProdutividadeRH::query()->whereKey($ids)->count() !== count(array_unique($ids))) {
@@ -101,7 +110,7 @@ final class ServicoContratosTrabalho
 
                     continue;
                 }
-                $doColab = ContratoTrabalho::query()->where('colaborador_id', $colab->id)->where('estado', '<>', 'INACTIVO')->orderByDesc('data_inicio')->orderByDesc('id')->get();
+                $doColab = ContratoTrabalho::query()->where('colaborador_id', $colab->id)->whereNotIn('estado', ['INACTIVO', 'CESSADO'])->orderByDesc('data_inicio')->orderByDesc('id')->get();
                 $vigente = $doColab->first(fn ($c) => (! $c->data_inicio || $c->data_inicio->toDateString() <= $hoje) && (! $c->data_fim || $c->data_fim->toDateString() >= $hoje))
                     ?? $doColab->first();
                 if (! $vigente) {
@@ -153,10 +162,37 @@ final class ServicoContratosTrabalho
         return $res;
     }
 
+    /**
+     * Estado ao gravar pelo formulário (Fase B, app_v2.js ≈ 4451 e 4883): editar o contrato NUNCA o reactiva sozinho —
+     * um contrato SUSPENSO ou CESSADO mantém o estado; suspender e cessar fazem-se pelos actos próprios
+     * (ServicoEstadoContrato), que registam o fundamento. A data de fim de um contrato cessado é a da cessação.
+     */
+    private function estadoAoGravar(array $d, ?ContratoTrabalho $c, ?string $fim): string
+    {
+        $actual = $c?->estado;
+        $pedido = $d['estado'] ?? $actual ?? 'ACTIVO';
+        if (in_array($actual, ['SUSPENSO', 'CESSADO'], true)) {
+            if ($actual === 'CESSADO' && $fim !== $c->data_fim?->toDateString()) {
+                throw new ErroNegocio('O contrato está cessado: a data de fim é a da cessação. Para a mudar, anule primeiro a cessação.', 'CONTRATO_CESSADO', 422);
+            }
+
+            return $actual;
+        }
+        if (in_array($pedido, ['SUSPENSO', 'CESSADO'], true)) {
+            throw new ErroNegocio($pedido === 'SUSPENSO' ? 'Para suspender o contrato use a acção «Suspender» (regista o período e o fundamento).'
+                : 'Para cessar o contrato use a acção «Cessar» (regista o fundamento e a compensação).', 'USAR_ACTO_CONTRATO', 422);
+        }
+
+        return $pedido;
+    }
+
     /** Terminar: fixa a data de fim; o estado passa a INACTIVO quando a data já passou. */
     public function terminar(ContratoTrabalho $c, string $dataFim): ContratoTrabalho
     {
         $dataFim = substr($dataFim, 0, 10);
+        if ($c->estado === 'CESSADO') {
+            throw new ErroNegocio('O contrato já está cessado.', 'CONTRATO_CESSADO', 422);
+        }
         if ($c->data_inicio && $dataFim < $c->data_inicio->toDateString()) {
             throw new ErroNegocio('A data de fim não pode ser anterior à data de início.', 'DATAS_INVALIDAS', 422);
         }

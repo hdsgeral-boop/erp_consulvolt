@@ -56,7 +56,10 @@ final class ServicoOrcamentoProjetos
         return ['total' => ServicoAnaliticoProjetos::dinheiro($linhas->reduce(fn ($s, $l) => bcadd($s, (string) $l->montante, 2), '0')),
             'linhas' => $linhas->map(fn ($l) => $l->toArray() + ['tarefa_codigo' => $tarefas[$l->tarefa_projeto_id]->codigo ?? null,
                 'tarefa_nome' => $tarefas[$l->tarefa_projeto_id]->nome ?? null, 'posicao_titulo' => $nos[$l->no_organigrama_projeto_id] ?? null,
-                'membro_nome' => $nomeMembro($l->membro_equipa_projeto_id), 'colaborador_id' => $membros[$l->membro_equipa_projeto_id]->colaborador_id ?? null])->all()];
+                'membro_nome' => $nomeMembro($l->membro_equipa_projeto_id), 'colaborador_id' => $membros[$l->membro_equipa_projeto_id]->colaborador_id ?? null,
+                // Versão Actual: mapeamento pelas quantidades (projectos_orcamento_qtd.js:70-74)
+                'mapeado_qtd' => ServicoOrcamentoQuantidadesProjetos::valorMapeado($l), 'saldo_por_mapear' => ServicoOrcamentoQuantidadesProjetos::saldo($l),
+                'n_mapas' => count(ServicoOrcamentoQuantidadesProjetos::mapasDe($l))])->all()];
     }
 
     /** @param  array<string, mixed>  $d */
@@ -69,6 +72,10 @@ final class ServicoOrcamentoProjetos
         $montante = $d['montante'] ?? $l?->montante;
         if (! is_numeric($montante) || (float) $montante <= 0) {
             throw new ErroNegocio('Insira um valor válido.', 'VALOR_INVALIDO', 422);
+        }
+        // Versão Actual: a rubrica mapeada pelas quantidades não pode ficar abaixo do que já foi mapeado (o saldo ficaria negativo)
+        if ($l && ($mapeado = ServicoOrcamentoQuantidadesProjetos::valorMapeado($l)) - (float) $montante > 0.009) {
+            throw new ErroNegocio('A rubrica já tem '.number_format($mapeado, 2, ',', ' ').' Kz mapeados pelas quantidades: retire mapeamentos antes de baixar o valor.', 'VALOR_ABAIXO_DO_MAPEADO', 422);
         }
         $tarefa = array_key_exists('tarefa_projeto_id', $d) ? ($d['tarefa_projeto_id'] ?: null) : $l?->tarefa_projeto_id;
         if ($tarefa && ! TarefaProjeto::query()->where('projeto_id', $p->id)->whereKey($tarefa)->exists()) {

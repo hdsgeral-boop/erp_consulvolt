@@ -192,6 +192,10 @@ export function SeparadorRevisoes({ projecto, acc }: PropsSeparador) {
 
 function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number; aberto: boolean; aoFechar: () => void }) {
   const [mes, setMes] = useState(dayjs().subtract(1, 'month'));
+  // Versão Actual (projMesesAuto, ui_projects.js:4162-4190): só os meses que o projecto ocupa; por omissão o mais próximo de hoje
+  const meses = useQuery({ queryKey: ['projectos', 'meses-revisao', projectoId], queryFn: () => obter<{ meses: { chave: string }[]; sugerido: string | null }>(`/projetos/${projectoId}/revisoes/meses`), enabled: aberto });
+  const chaves = new Set((meses.data?.meses ?? []).map((m) => m.chave));
+  useEffect(() => { if (aberto && meses.data?.sugerido) setMes(dayjs(`${meses.data.sugerido}-01`)); }, [aberto, meses.data?.sugerido]);
   const [simulacao, setSimulacao] = useState<SimulacaoRevisao | null>(null);
   const [aSimular, setASimular] = useState(false);
   const [confirmarAdit, setConfirmarAdit] = useState(false);
@@ -229,7 +233,8 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
       ]}
     >
       <Space wrap style={{ marginBottom: 12 }}>
-        <DatePicker picker="month" format="MM/YYYY" value={mes} allowClear={false} onChange={(d) => { if (d) { setMes(d); setSimulacao(null); } }} />
+        <DatePicker picker="month" format="MM/YYYY" value={mes} allowClear={false} onChange={(d) => { if (d) { setMes(d); setSimulacao(null); } }}
+          disabledDate={(d) => chaves.size > 0 && !chaves.has(d.format('YYYY-MM'))} />
         <SeletorProduto allowClear placeholder="Artigo da subempreitada (opcional)" value={produto} onChange={setProduto} style={{ width: 300, maxWidth: '100%' }} />
         <Checkbox checked={confirmarAdit} onChange={(e) => setConfirmarAdit(e.target.checked)}>Confirmar excesso sobre o contratado (aditamento)</Checkbox>
       </Space>

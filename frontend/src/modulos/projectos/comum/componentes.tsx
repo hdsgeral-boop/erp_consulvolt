@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
 import { useColaboradores } from '@/modulos/rh/comum/consultas';
 import { achatarWbs } from './regras';
-import type { Membro, Wbs } from './tipos';
+import type { Membro, Organigrama, Wbs } from './tipos';
 
 /** Componentes e consultas partilhados de Projectos. Chaves de cache: ['projectos', ...]. */
 
@@ -88,6 +88,27 @@ export function SeletorMembro({ projectoId, apenasInternos, valorColaborador, ..
       placeholder={apenasInternos ? 'Colaborador da equipa' : 'Membro da equipa'}
       popupMatchSelectWidth={false}
       options={membros.map((m) => ({ value: (valorColaborador ? m.colaborador_id : m.id) ?? m.id, label: `${m.nome}${m.papel ? ` (${m.papel})` : ''}` }))}
+      {...props}
+    />
+  );
+}
+
+/** Consulta do organigrama (a mesma chave do separador Organigrama). */
+export function useOrganigrama(projectoId: number | string | undefined) {
+  return useQuery({ queryKey: ['projectos', 'organigrama', Number(projectoId)], queryFn: () => obter<Organigrama>(`/projetos/${projectoId}/organigrama`), enabled: !!projectoId });
+}
+
+/** Posição do organigrama do projecto (Versão Actual: campo «Posição no organigrama» do modal da tarefa). */
+export function SeletorPosicao({ projectoId, ...props }: PropsSelect<number> & { projectoId: number | string }) {
+  const o = useOrganigrama(projectoId);
+  return (
+    <Select<number>
+      showSearch
+      optionFilterProp="label"
+      loading={o.isLoading}
+      placeholder="Posição no organigrama"
+      popupMatchSelectWidth={false}
+      options={(o.data?.posicoes ?? []).map((p) => ({ value: p.id, label: `${p.titulo}${p.area ? ` (${p.area})` : ''}` }))}
       {...props}
     />
   );

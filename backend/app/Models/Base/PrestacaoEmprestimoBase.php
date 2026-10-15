@@ -6,7 +6,9 @@ use App\Models\Colaborador;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\EmprestimoColaborador;
+use App\Models\LinhaFolhaSalarial;
 use App\Models\ModeloBase;
+use App\Models\PeriodoProcessamentoSalarial;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
@@ -22,7 +24,7 @@ abstract class PrestacaoEmprestimoBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'emprestimo_id', 'colaborador_id', 'estado', 'numero', 'mes_ano', 'capital', 'juro', 'total', 'saldo',
+        'empresa_id', 'emprestimo_id', 'colaborador_id', 'estado', 'numero', 'mes_ano', 'capital', 'juro', 'total', 'saldo', 'linha_folha_salarial_id', 'descontado_em', 'periodo_processamento_salarial_id', 'descontado_por',
     ];
 
     protected function casts(): array
@@ -36,6 +38,9 @@ abstract class PrestacaoEmprestimoBase extends ModeloBase
             'juro' => 'decimal:2',
             'total' => 'decimal:2',
             'saldo' => 'decimal:2',
+            'linha_folha_salarial_id' => 'integer',
+            'descontado_em' => 'datetime',
+            'periodo_processamento_salarial_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
@@ -49,5 +54,15 @@ abstract class PrestacaoEmprestimoBase extends ModeloBase
     public function colaborador(): BelongsTo
     {
         return $this->belongsTo(Colaborador::class, 'colaborador_id');
+    }
+
+    public function linhaFolhaSalarial(): BelongsTo
+    {
+        return $this->belongsTo(LinhaFolhaSalarial::class, 'linha_folha_salarial_id');
+    }
+
+    public function periodoProcessamentoSalarial(): BelongsTo
+    {
+        return $this->belongsTo(PeriodoProcessamentoSalarial::class, 'periodo_processamento_salarial_id');
     }
 }

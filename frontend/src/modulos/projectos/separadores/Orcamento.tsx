@@ -1,5 +1,5 @@
 import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Table, Typography } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { CheckOutlined, DeleteOutlined, EditOutlined, PartitionOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { obter } from '@/api/cliente';
@@ -8,11 +8,15 @@ import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos, ModalEliminar, SeletorTarefa, useWbs } from '../comum/componentes';
-import { achatarWbs, consumo, RUBRICAS, rotuloRubrica, totaisPorRubrica } from '../comum/regras';
+import { achatarWbs, consumo, FECHADOS, RUBRICAS, rotuloRubrica, totaisPorRubrica } from '../comum/regras';
+
+const FECHADO = (estado: string) => FECHADOS.includes(estado);
 import type { Aditamento, CustosTarefa, LinhaOrcamento } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
 import { scrollTabela } from '@/componentes/responsivo';
+import { useSessao } from '@/sessao/SessaoContexto';
+import { ModalMapearQuantidade, QuadroOrcamentoQtd } from './OrcamentoQuantidades';
 
 import { TabelaComModos } from '@/componentes/vistas';
 /** Orçamento base por tarefa e rubrica, orçado vs executado por tarefa, e aditamentos (trabalhos a mais/menos). */
@@ -22,6 +26,8 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
   const custos = useQuery({ queryKey: ['projectos', 'custos-tarefas', projecto.id], queryFn: () => obter<Record<string, CustosTarefa>>(`/projetos/${projecto.id}/custos-tarefas`) });
   const w = useWbs(projecto.id);
   const [linha, setLinha] = useState<Partial<LinhaOrcamento> | null>(null);
+  const [mapear, setMapear] = useState<LinhaOrcamento | null>(null);
+  const { pode } = useSessao();
   const [aditamento, setAditamento] = useState<Partial<Aditamento> | null>(null);
   const [eliminarAdit, setEliminarAdit] = useState<Aditamento | null>(null);
   const accao = useAccao({ invalidar: [['projectos']], aoSucesso: () => setEliminarAdit(null) });
@@ -61,6 +67,13 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
             { title: 'Rubrica', dataIndex: 'rubrica', render: rotuloRubrica },
             { title: 'Conta', dataIndex: 'numero_conta', render: (v) => v ?? '—' },
             { title: 'Montante (Kz)', dataIndex: 'montante', align: 'right', render: (v) => <ValorKz valor={v} /> },
+            // Versão Actual: estado do mapeamento pelas quantidades (✓ = toda mapeada; senão a % mapeada)
+            { title: 'Por quantidade', key: 'qtd', align: 'center', render: (_, l) => {
+              const m = Number(l.mapeado_qtd ?? 0);
+              const pct = Number(l.montante) > 0 ? Math.round((m / Number(l.montante)) * 100) : 0;
+              const texto = !l.n_mapas ? '—' : Number(l.saldo_por_mapear ?? 0) < 0.01 ? <CheckOutlined style={{ color: '#16a34a' }} /> : `${pct}%`;
+              return pode('proj_orcamento_qtd') && !FECHADO(projecto.estado) ? <Button size="small" icon={<PartitionOutlined />} onClick={() => setMapear(l)}>{texto}</Button> : texto;
+            } },
             {
               title: '', key: 'acc', align: 'right',
               render: (_, l) => acc.gerir && (
@@ -76,6 +89,8 @@ export function SeparadorOrcamento({ projecto, acc }: PropsSeparador) {
           ]}
         />
       </Card>
+      <QuadroOrcamentoQtd projectoId={projecto.id} />
+      <ModalMapearQuantidade projectoId={projecto.id} linha={mapear} aoFechar={() => setMapear(null)} />
       <Card size="small" title="Orçado vs executado por tarefa">
         <Table scroll={scrollTabela()}
           rowKey="id"

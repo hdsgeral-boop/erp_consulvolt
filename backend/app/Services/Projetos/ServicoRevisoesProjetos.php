@@ -70,6 +70,7 @@ final class ServicoRevisoesProjetos
     public function simular(Projeto $p, int $mes, int $ano): array
     {
         self::validarMes($mes, $ano);
+        self::exigirMesDoProjeto($p, $mes, $ano);
         $membros = MembroEquipaProjeto::query()->whereIn('equipa_projeto_id', EquipaProjeto::query()->where('projeto_id', $p->id)->select('id'))->orderBy('id')->get();
         $revisoesMes = RevisaoMensalProjeto::query()->where('projeto_id', $p->id)->where('mes', $mes)->where('ano', $ano)->pluck('id');
 
@@ -355,6 +356,47 @@ final class ServicoRevisoesProjetos
     {
         if ($mes < 1 || $mes > 12 || $ano < 2000 || $ano > 2100) {
             throw new ErroNegocio('Mês ou ano inválido.', 'PERIODO_INVALIDO', 422);
+        }
+    }
+
+    /**
+     * Meses em que pode haver auto ou revisão (Versão Actual, projMesesAuto, ui_projects.js:4162-4190): do início da
+     * primeira tarefa ao fim da última. Sem tarefas com datas não há restrição (o projecto não tem datas próprias no
+     * erp_laravel). O mês por omissão é o do projecto mais próximo de hoje.
+     *
+     * @return array{meses: list<array{ano: int, mes: int, chave: string}>, de: ?string, ate: ?string, origem: string, sugerido: ?string}
+     */
+    public static function mesesDoProjeto(Projeto $p): array
+    {
+        $datas = TarefaProjeto::query()->where('projeto_id', $p->id)->get(['data_inicio', 'data_fim'])
+            ->flatMap(fn ($t) => [$t->data_inicio?->toDateString(), $t->data_fim?->toDateString()])->filter()->sort()->values();
+        if ($datas->isEmpty()) {
+            return ['meses' => [], 'de' => null, 'ate' => null, 'origem' => 'nenhuma', 'sugerido' => null];
+        }
+        [$de, $ate] = [$datas->first(), $datas->last()];
+        $meses = [];
+        [$a, $m] = [(int) substr($de, 0, 4), (int) substr($de, 5, 2)];
+        [$aF, $mF] = [(int) substr($ate, 0, 4), (int) substr($ate, 5, 2)];
+        while (($a < $aF || ($a === $aF && $m <= $mF)) && count($meses) < 240) {
+            $meses[] = ['ano' => $a, 'mes' => $m, 'chave' => sprintf('%04d-%02d', $a, $m)];
+            if (++$m > 12) {
+                [$m, $a] = [1, $a + 1];
+            }
+        }
+        $hoje = now()->format('Y-m');
+        $num = fn (string $k) => (int) substr($k, 0, 4) * 12 + (int) substr($k, 5, 2);
+        $sugerido = collect($meses)->sortBy(fn ($x) => abs($num($x['chave']) - $num($hoje)))->first()['chave'] ?? null;
+
+        return ['meses' => $meses, 'de' => $de, 'ate' => $ate, 'origem' => 'tarefas', 'sugerido' => $sugerido];
+    }
+
+    /** O auto/revisão só nos meses que o projecto ocupa (a gravação volta a verificar, ui_projects.js:4201, 4438). */
+    private static function exigirMesDoProjeto(Projeto $p, int $mes, int $ano): void
+    {
+        $r = self::mesesDoProjeto($p);
+        $chave = sprintf('%04d-%02d', $ano, $mes);
+        if ($r['meses'] && ! in_array($chave, array_column($r['meses'], 'chave'), true)) {
+            throw new ErroNegocio("O projecto não tem trabalho planeado em {$chave}: os autos e as revisões só se fazem entre ".substr($r['de'], 0, 7).' e '.substr($r['ate'], 0, 7).'.', 'MES_FORA_DO_PROJETO', 422);
         }
     }
 }

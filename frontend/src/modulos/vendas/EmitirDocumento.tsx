@@ -13,6 +13,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
+import { AlocacaoUN, CamposLinhaUNCC, alocacaoDeApi, alocacaoParaApi, regraAlocacao, unccDaLinha, useCriterios, type Alocacao } from '@/componentes/reparticao';
 import { MEIOS_PAGAMENTO, TIPOS_DOCUMENTO, TIPOS_EMITIVEIS, type DocumentoVenda, type GuiaSaidaPendente, type MeioPagamentoVenda, type ProdutoCatalogo, type Terceiro } from './api';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { GuiasPendentes, MeiosPagamentoDocumento } from './formulario/QuadrosFormulario';
@@ -35,6 +36,9 @@ interface LinhaForm {
   /** preço da ficha na moeda do documento — o preço só é enviado quando difere deste (decisão 8) */
   preco_ficha?: number;
   descricao?: string;
+  /** Fase C (linha_un_cc.js): unidade/centro de custo da linha (vazio = cabeçalho) */
+  unidade_negocio_id?: number;
+  centro_custo_id?: number;
 }
 
 /** Dados enviados pelo CRM ao converter uma oportunidade (GET /crm/oportunidades/{id}/conversao, ADR-054). */
@@ -66,6 +70,8 @@ interface ValoresForm {
   unidade_negocio_id?: number;
   centro_custo_id?: number;
   projeto_id?: number;
+  /** Fase C: repartição do documento por várias unidades de negócio */
+  unidades_alocadas?: Alocacao | null;
   /** «Baixar Stock Autom.» (FT/FR) */
   baixar_stock?: boolean;
   /** «Ocultar quadro de Meios de Pagamento na impressão» */
@@ -145,8 +151,10 @@ export function EmitirDocumento() {
         condicoes_pagamento: (copia.condicoes_pagamento as string | null) ?? undefined,
         unidade_negocio_id: (copia.unidade_negocio_id as number | null) ?? undefined, centro_custo_id: (copia.centro_custo_id as number | null) ?? undefined,
         projeto_id: (copia.projeto_id as number | null) ?? undefined,
+        unidades_alocadas: alocacaoDeApi(copia.unidades_alocadas),
         linhas: (copia.linhas ?? []).map((l) => ({
           produto_id: l.produto_id, quantidade: Number(l.quantidade), descricao: l.descricao ?? undefined,
+          ...unccDaLinha(l as { unidade_negocio_id?: number | null; centro_custo_id?: number | null }),
           preco_unitario: Number(copia.codigo_moeda && copia.codigo_moeda !== 'AOA' && l.preco_unitario_moeda ? l.preco_unitario_moeda : l.preco_unitario),
         })),
       };
@@ -206,6 +214,7 @@ export function EmitirDocumento() {
   const taxaEfectiva = estrangeira ? (taxaManual ? Number(taxaManual) : taxaRef) : 1;
   const desvio = estrangeira && taxaManual && taxaRef ? desvioCambio(Number(taxaManual), taxaRef) : 0;
   const foraTolerancia = tolerancia.data ? Math.abs(desvio) > Number(tolerancia.data.tolerancia_pct) : false;
+  const criterios = useCriterios();
   const estimativa = useMemo(
     () => estimarTotais(linhas.map((l) => ({ quantidade: l?.quantidade, preco: l?.preco_unitario, taxa: num(l?.produto_id ? porId.get(l.produto_id)?.taxa_imposto : 0) })), taxaEfectiva || 1),
     [linhas, porId, taxaEfectiva],
@@ -255,11 +264,13 @@ export function EmitirDocumento() {
         conta_disponibilidade: v.conta_disponibilidade, meio_pagamento: v.meio_pagamento, referencia_pagamento: v.referencia_pagamento,
         observacoes: v.observacoes, condicoes_pagamento: v.condicoes_pagamento,
         unidade_negocio_id: v.unidade_negocio_id, centro_custo_id: v.centro_custo_id, projeto_id: v.projeto_id,
+        // sem repartição não se envia o campo: numa NC/conversão o servidor herda a do documento de origem
+        ...(alocacaoParaApi(v.unidades_alocadas) ? { unidades_alocadas: alocacaoParaApi(v.unidades_alocadas) } : {}),
         ...(['OR', 'PF'].includes(v.tipo_documento) ? { dias_validade: v.dias_validade === 'data' ? undefined : v.dias_validade, valido_ate: validadeData } : {}),
         ...(comModalidade ? { modo_pagamento: modo, plano_pagamentos: modo === 'PRONTO' ? undefined : plano.map((p) => ({ percentagem: p.percentagem, data: p.data || undefined, descricao: p.descricao || undefined })) } : {}),
         ...(v.tipo_documento !== 'NC' ? { codigo_moeda: v.codigo_moeda || 'AOA', taxa_cambio: estrangeira && v.taxa_cambio ? v.taxa_cambio : undefined } : {}),
         linhas: v.linhas.map((l) => ({
-          produto_id: l.produto_id, quantidade: l.quantidade, descricao: l.descricao || undefined,
+          produto_id: l.produto_id, quantidade: l.quantidade, descricao: l.descricao || undefined, ...unccDaLinha(l),
           // decisão 8: o preço só segue quando difere do da ficha (o servidor usa o da ficha, convertido ao câmbio)
           preco_unitario: l.preco_unitario != null && l.preco_unitario !== (l.preco_ficha ?? precoFicha(l.produto_id)) ? l.preco_unitario : undefined,
         })),
@@ -377,6 +388,16 @@ export function EmitirDocumento() {
               </Form.Item>
             </Col>
           </Row>
+          {tipo !== 'NC' && !!criterios.data?.length && (
+            <Row gutter={16}>
+              <Col xs={24} lg={12}>
+                {/* Fase C (alocacao_un.js, ui_sales.js:1207): proveitos e CMV repartidos pelas unidades na contabilização */}
+                <Form.Item name="unidades_alocadas" rules={[regraAlocacao(criterios.data)]}>
+                  <AlocacaoUN valor={estimativa.liquidoKz} titulo="Repartir por várias unidades de negócio" />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
           <Row gutter={16}>
             <Col xs={24} sm={12} lg={6}>
               <Form.Item name="data_emissao" label={<><IconeFa nome="calendar-alt" style={{ color: 'var(--ant-color-primary, #2563eb)', marginRight: 4 }} />Data do Doc.</>} rules={[{ required: true }]}>
@@ -574,6 +595,9 @@ export function EmitirDocumento() {
                       </Col>
                       <Col xs={4} md={1}>
                         <Button danger size="small" icon={<IconeFa nome="times" />} onClick={() => remove(name)} aria-label="Remover linha" style={{ marginTop: 4 }} />
+                      </Col>
+                      <Col xs={24} md={{ span: guia ? 19 : 20, offset: 0 }}>
+                        <CamposLinhaUNCC nome={name} />
                       </Col>
                     </Row>
                   );

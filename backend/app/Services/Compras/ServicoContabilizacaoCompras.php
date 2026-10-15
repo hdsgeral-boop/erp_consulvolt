@@ -3,12 +3,16 @@
 namespace App\Services\Compras;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\EncomendaCompra;
 use App\Models\FaturaCompra;
 use App\Models\ItemCompra;
+use App\Models\PedidoCompra;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoNotasPorConta;
+use App\Services\Reparticao\ServicoReparticao;
+use App\Services\Vendas\ServicoStockVendas;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,6 +33,7 @@ final class ServicoContabilizacaoCompras
         private readonly LocalizadorLancamentos $localizador,
         private readonly ServicoConfigCompras $config,
         private readonly ServicoNotasPorConta $notas,
+        private readonly ServicoReparticao $reparticao,
     ) {}
 
     public function contabilizar(FaturaCompra $fatura): FaturaCompra
@@ -73,11 +78,16 @@ final class ServicoContabilizacaoCompras
 
         // decisão 17: a conta é a do produto (não a da rubrica do projecto, como no legado) e a linha leva a imputação analítica
         // ao projecto da linha (ou da factura); por isso os débitos agregam-se por conta E projecto
-        $debitos = [];   // "conta|projecto" => valor (D positivo, C negativo)
+        // Fase C (R5, linha_un_cc.js): também por unidade/centro de custo da LINHA (o IVA fica com a analítica do cabeçalho)
+        $debitos = [];   // "conta|projecto|un|cc" => valor (D positivo, C negativo)
+        $analiticas = [];   // mesma chave => UN/CC próprios da linha (ServicoStockVendas::analiticaLinha)
         $projetoLinha = null;
-        $somar = function (string $conta, string $valor, ?int $projeto = null) use (&$debitos, &$projetoLinha) {
-            $chave = $conta.'|'.($projeto ?? $projetoLinha ?? '');
+        $analiticaLinha = [];
+        $somar = function (string $conta, string $valor, ?int $projeto = null, bool $comAnalitica = true) use (&$debitos, &$analiticas, &$projetoLinha, &$analiticaLinha) {
+            $a = $comAnalitica ? $analiticaLinha : [];
+            $chave = $conta.'|'.($projeto ?? $projetoLinha ?? '').'|'.($a['unidade_negocio_id'] ?? '').'|'.($a['centro_custo_id'] ?? '');
             $debitos[$chave] = bcadd($debitos[$chave] ?? '0.00', $valor, 2);
+            $analiticas[$chave] = $a;
         };
         $linhas = ItemCompra::query()->where('fatura_compra_id', $fatura->id)->with(['produto' => fn ($q) => $q->withTrashed()])->orderBy('id')->get();
         if ($linhas->isEmpty()) {
@@ -86,6 +96,7 @@ final class ServicoContabilizacaoCompras
         foreach ($linhas as $n => $l) {
             $p = $l->produto;
             $projetoLinha = $l->projeto_id ?: ($fatura->projeto_id ?: null);
+            $analiticaLinha = ServicoStockVendas::analiticaLinha($l);
             $onde = 'Linha '.($n + 1).($p ? " ({$p->codigo})" : '').':';
             $liquido = number_format((float) ($l->total_kz ?? $l->total), 2, '.', '');
             if ($p?->movimenta_stock && $l->item_encomenda_id) {
@@ -111,7 +122,7 @@ final class ServicoContabilizacaoCompras
             $iva = $l->imposto_kz !== null ? number_format((float) $l->imposto_kz, 2, '.', '')
                 : CalculadoraCompra::calcular([['quantidade' => '1', 'preco_unitario' => $liquido, 'taxa_imposto' => (string) ($l->taxa_imposto ?? 0)]])['imposto'];
             if (bccomp($iva, '0', 2) > 0) {   // o IVA dedutível não é custo do projecto: fica com o projecto da factura
-                $somar($p?->conta_iva_dedutivel ?: $this->config->exigir('iva_dedutivel', "{$onde} produto sem conta de IVA dedutível."), $iva, $fatura->projeto_id ?: 0);
+                $somar($p?->conta_iva_dedutivel ?: $this->config->exigir('iva_dedutivel', "{$onde} produto sem conta de IVA dedutível."), $iva, $fatura->projeto_id ?: 0, false);
             }
         }
 
@@ -121,10 +132,11 @@ final class ServicoContabilizacaoCompras
             if (bccomp($valor, '0', 2) === 0) {
                 continue;
             }
-            [$conta, $projeto] = explode('|', (string) $chave, 2);
+            [$conta, $projeto] = explode('|', (string) $chave, 3);
             $d = bccomp($valor, '0', 2) > 0;
             $abs = ltrim($valor, '-');
-            $lancamento[] = ['codigo_conta' => $conta, 'tipo_dc' => $d ? 'D' : 'C', 'valor' => $abs, 'projeto_id' => $projeto !== '' && $projeto !== '0' ? (int) $projeto : null] + $comum;
+            $lancamento[] = $analiticas[$chave] + ['codigo_conta' => $conta, 'tipo_dc' => $d ? 'D' : 'C', 'valor' => $abs,
+                'projeto_id' => $projeto !== '' && $projeto !== '0' ? (int) $projeto : null, '_repartivel' => self::repartivel($conta)] + $comum;
             $d ? $totalD = bcadd($totalD, $abs, 2) : $totalC = bcadd($totalC, $abs, 2);
         }
         $credito = bcsub($totalD, $totalC, 2);
@@ -136,6 +148,10 @@ final class ServicoContabilizacaoCompras
         $moeda = $fatura->codigo_moeda && $fatura->codigo_moeda !== 'AOA'
             ? ['codigo_moeda' => $fatura->codigo_moeda, 'valor_moeda' => $fatura->montante_total_moeda, 'taxa_cambio' => $fatura->taxa_cambio] : [];
         $lancamento[] = ['codigo_conta' => $contaFornecedor, 'tipo_dc' => 'C', 'valor' => $credito, 'projeto_id' => $fatura->projeto_id ?: null] + $moeda + $comum;
+        $descricao = mb_substr("FF {$fatura->numero_fatura} — {$fornecedor->nome}", 0, 1000);
+        // Fase C (R3, ui_compras_v2.js:3500-3570): repartição das linhas de gasto pelas unidades alocadas (factura › encomenda › pedido)
+        $partes = $this->reparticao->partes($this->alocacaoEfectiva($fatura), "A factura {$fatura->numero_fatura} não pode ser integrada:");
+        $lancamento = ServicoReparticao::repartirLinhas($lancamento, $partes, fn (array $l) => ! empty($l['_repartivel']), $descricao);
         // notas às demonstrações como o legado (ui_compras_v2.js:3452-3460): 321/322/328 → nota 11, 34* → nota 9, 11/12/14 → nota 4
         // (sem nota as linhas ficavam fora do Balanço e da DR — E-CON-1)
         $lancamento = $this->notas->aplicarALinhas($lancamento, fn (string $c) => match (true) {
@@ -148,8 +164,32 @@ final class ServicoContabilizacaoCompras
         return [
             'data_documento' => $fatura->data->toDateString(),
             'numero_documento' => $fatura->numero_fatura, 'referencia' => "FF {$fatura->numero_fatura}",
-            'descricao' => mb_substr("FF {$fatura->numero_fatura} — {$fornecedor->nome}", 0, 1000), 'tipo_origem' => 'COMPRAS_FATURA', 'linhas' => $lancamento,
+            'descricao' => $descricao, 'tipo_origem' => 'COMPRAS_FATURA', 'linhas' => $lancamento,
         ];
+    }
+
+    /**
+     * Só se repartem as linhas de gasto/activo: a dívida ao fornecedor (32/37), a transitória (328), o IVA (34) e as contas 22
+     * não (ui_compras_v2.js:3546 — a dívida é uma só e o imposto é da empresa, não da unidade).
+     */
+    private static function repartivel(string $conta): bool
+    {
+        return ! (str_starts_with($conta, '32') || str_starts_with($conta, '34') || str_starts_with($conta, '22') || str_starts_with($conta, '37'));
+    }
+
+    /** Alocação de unidades da factura; sem ela, a da encomenda e, não havendo, a do pedido que lhe deu origem (como a UN/CC). */
+    private function alocacaoEfectiva(FaturaCompra $fatura): mixed
+    {
+        $alocacao = $fatura->getAttributes()['unidades_alocadas'] ?? null;
+        if (ServicoReparticao::vazia($alocacao) && $fatura->encomenda_compra_id) {
+            $encomenda = EncomendaCompra::query()->find($fatura->encomenda_compra_id);
+            $alocacao = $encomenda?->getAttributes()['unidades_alocadas'] ?? null;
+            if (ServicoReparticao::vazia($alocacao) && $encomenda?->pedido_compra_id) {
+                $alocacao = PedidoCompra::query()->find($encomenda->pedido_compra_id)?->getAttributes()['unidades_alocadas'] ?? null;
+            }
+        }
+
+        return $alocacao;
     }
 
     public function descontabilizar(FaturaCompra $fatura, string $motivo): FaturaCompra

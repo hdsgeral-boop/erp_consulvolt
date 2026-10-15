@@ -16,6 +16,7 @@ import { ROTULO_TIPO, type DocumentoTesouraria, type EstadoDocumento, type TipoD
 import { colunasOperacoes, bloqueioEdicao, bloqueioExclusao } from '../colunasLegado';
 import { SeletorContaFinanceira, TabelaDocumentos } from '../comum';
 import { pedirMotivo } from '../motivo';
+import { eContaBancaria } from '../cartas/regras';
 
 /** Colunas genéricas dos documentos de tesouraria (mantidas para ecrãs que não seguem uma lista do legado). */
 export function colunasDocumentos(): ColunaApi<DocumentoTesouraria>[] {
@@ -60,16 +61,22 @@ export function botaoNovo(separador: Separador): { tipo: TipoDocumento; rotulo: 
   return separador === 'PAGAMENTO' ? { tipo: 'PAGAMENTO', rotulo: 'Novo Pagamento' } : { tipo: 'RECEBIMENTO', rotulo: 'Novo Recebimento' };
 }
 
-/** Acções por linha do legado: Detalhes, Copiar operação, Editar (cadeado se integrado), Excluir (= anular com motivo). */
+/**
+ * Acções por linha do legado: Detalhes, Copiar operação, Carta de ordem de pagamento (só pagamentos em conta 42/43 não
+ * anulados, com teso_carta_emitir — ui_tesouraria.js:599 do legado novo), Editar (cadeado se integrado), Excluir (= anular com motivo).
+ */
 export function accoesDocumento(
   d: DocumentoTesouraria,
-  o: { podeEmitir: boolean; podeEliminar: boolean; abrir: (d: DocumentoTesouraria) => void; copiar: (d: DocumentoTesouraria) => void; editar: (d: DocumentoTesouraria) => void; excluir: (d: DocumentoTesouraria) => void },
+  o: { podeEmitir: boolean; podeEliminar: boolean; abrir: (d: DocumentoTesouraria) => void; copiar: (d: DocumentoTesouraria) => void; editar: (d: DocumentoTesouraria) => void; excluir: (d: DocumentoTesouraria) => void; emitirCarta?: (d: DocumentoTesouraria) => void },
 ): AccaoLinha[] {
   const edicao = bloqueioEdicao(d);
   const exclusao = bloqueioExclusao(d);
   return [
     { chave: 'detalhes', icone: 'eye', titulo: 'Detalhes', onClick: () => o.abrir(d) },
     { chave: 'copiar', icone: 'copy', titulo: 'Copiar operação', cor: '#0891b2', oculto: !o.podeEmitir, onClick: () => o.copiar(d) },
+    ...(o.emitirCarta && d.tipo === 'PAGAMENTO' && d.estado !== 'ANULADO' && eContaBancaria(d.conta_financeira)
+      ? [{ chave: 'carta', icone: 'file-signature', titulo: 'Emitir carta de ordem de pagamento', cor: '#7c3aed', onClick: () => o.emitirCarta?.(d) }]
+      : []),
     { chave: 'editar', icone: d.estado === 'INTEGRADO' ? 'lock' : 'edit', titulo: edicao || 'Editar', desactivado: edicao, oculto: !o.podeEmitir, onClick: () => o.editar(d) },
     { chave: 'excluir', icone: 'trash', titulo: exclusao || 'Excluir', variante: 'perigo', desactivado: exclusao, oculto: !o.podeEliminar, onClick: () => o.excluir(d) },
   ];
@@ -171,6 +178,7 @@ export function ListaDocumentos() {
             abrir: (x) => navegar(String(x.id)),
             copiar: (x) => navegar(`novo?copiar=${x.id}`),
             editar: (x) => navegar(`${x.id}/editar`),
+            emitirCarta: pode('teso_carta_emitir') ? (x) => navegar(`/m/teso/teso_cartas?documento=${x.id}`) : undefined,
             excluir: (x) => pedirMotivo({
               titulo: `Excluir ${x.numero_documento ?? x.referencia ?? `#${x.id}`}?`,
               texto: 'O documento por integrar é anulado (fica no histórico com o motivo); não é apagado.',

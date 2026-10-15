@@ -8,11 +8,14 @@ import { linhasBalanco } from '../comum/demonstracoes';
 import { FiltrosMapa } from '../comum/FiltrosMapa';
 import { filtrosDosParametros, periodoDosParametros } from '../comum/impressao';
 import { useMapa } from '../comum/useMapa';
+import { TabelaPorUnidade, useMapaPorUnidade } from '@/componentes/reparticao';
 
 /** Mapas › Balanço (ecrã contab_mapa_balanco), por notas DEMO, com comparativo e controlo de equilíbrio. */
 export default function MapaBalanco() {
   const mapa = useMapa<Balanco>('balanco', '/contabilidade/relatorios/balanco');
   const [semNota, setSemNota] = useState(false);
+  const [porUN, setPorUN] = useState(false);
+  const porUnidade = useMapaPorUnidade<Balanco>('/contabilidade/relatorios/balanco', mapa.parametros, porUN);
   const d = mapa.data;
   const comparativo = !!mapa.parametros?.comparativo;
   const controlo = d?.controlo.atual;
@@ -33,8 +36,15 @@ export default function MapaBalanco() {
             </Form.Item>
           }
         />
+        {/* Fase C (ui_reports.js:376-406): uma coluna por unidade de negócio, «Sem unidade» e o Total */}
+        <Checkbox checked={porUN} onChange={(e) => setPorUN(e.target.checked)}>Por unidade de negócio</Checkbox>
       </Card>
-      {d && controlo && (
+      {porUN && mapa.parametros && (
+        <Card loading={porUnidade.isFetching}>
+          {porUnidade.data && <TabelaPorUnidade dados={porUnidade.data} linhas={linhasBalanco} titulo="Balanço" periodo={periodoDosParametros(mapa.parametros)} />}
+        </Card>
+      )}
+      {!porUN && d && controlo && (
         <>
           {!controlo.equilibrado && (
             <Alert

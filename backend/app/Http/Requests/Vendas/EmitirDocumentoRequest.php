@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Vendas;
 
+use App\Services\Reparticao\ServicoReparticao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -30,6 +31,9 @@ final class EmitirDocumentoRequest extends FormRequest
             'linhas.*.preco_unitario' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999999.99'],
             'linhas.*.descricao' => ['nullable', 'string', 'max:1000'],
             'linhas.*.observacoes' => ['nullable', 'string', 'max:2000'],
+            // Fase C (linha_un_cc.js): unidade/centro de custo da linha (vazio = o do cabeçalho)
+            'linhas.*.unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')],
+            'linhas.*.centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
             'venda_origem_id' => ['required_if:tipo_documento,NC', 'nullable', 'integer', $daEmpresa('vendas')],
             'motivo_nota_credito' => ['required_if:tipo_documento,NC', 'nullable', 'string', 'max:200'],
             'conta_disponibilidade' => ['required_if:tipo_documento,FR', 'nullable', 'string', 'max:20'],
@@ -59,7 +63,7 @@ final class EmitirDocumentoRequest extends FormRequest
             'contas_pagamento' => ['nullable', 'array', 'max:10'],                       // «Adicionar Conta» (meios de pagamento da Tesouraria)
             'contas_pagamento.*' => ['integer', 'distinct', Rule::exists('meios_pagamento', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],
             'ocultar_meios_pagamento' => ['nullable', 'boolean'],                        // «Ocultar quadro de Meios de Pagamento na impressão»
-        ];
+        ] + ServicoReparticao::regras();   // Fase C: repartição do documento por várias unidades de negócio (alocacao_un.js)
     }
 
     /** @return array<string, string> */

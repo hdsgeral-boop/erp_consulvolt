@@ -58,7 +58,7 @@ abstract class ColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'nome_completo', 'nif', 'numero_inss', 'cargo_funcao_id', 'tipo_organizacao_id', 'estado', 'estado_original', 'dias_uteis_mes', 'reformado', 'unidade_negocio_id', 'centro_custo_id', 'avencado', 'sexo', 'data_nascimento', 'estado_civil', 'estado_civil_original', 'nacionalidade', 'naturalidade', 'provincia_naturalidade', 'documento_identificacao', 'documento_validade', 'data_admissao', 'endereco', 'bairro', 'municipio', 'provincia', 'telefone', 'telefone_alternativo', 'email', 'emergencia_nome', 'emergencia_telefone', 'emergencia_parentesco', 'habilitacao_maxima', 'unidade_organica_id', 'posto_trabalho_id', 'colaborador_gestor_id', 'unidades_alocadas',
+        'empresa_id', 'nome_completo', 'nif', 'numero_inss', 'cargo_funcao_id', 'tipo_organizacao_id', 'estado', 'estado_original', 'dias_uteis_mes', 'reformado', 'unidade_negocio_id', 'centro_custo_id', 'avencado', 'sexo', 'data_nascimento', 'estado_civil', 'estado_civil_original', 'nacionalidade', 'naturalidade', 'provincia_naturalidade', 'documento_identificacao', 'documento_validade', 'data_admissao', 'endereco', 'bairro', 'municipio', 'provincia', 'telefone', 'telefone_alternativo', 'email', 'emergencia_nome', 'emergencia_telefone', 'emergencia_parentesco', 'habilitacao_maxima', 'unidade_organica_id', 'posto_trabalho_id', 'colaborador_gestor_id', 'unidades_alocadas', 'data_cessacao',
     ];
 
     protected function casts(): array
@@ -79,6 +79,7 @@ abstract class ColaboradorBase extends ModeloBase
             'posto_trabalho_id' => 'integer',
             'colaborador_gestor_id' => 'integer',
             'unidades_alocadas' => 'array',
+            'data_cessacao' => 'date',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',

@@ -1,4 +1,6 @@
 import { Alert, Card, Checkbox, Form, Select } from 'antd';
+import { useState } from 'react';
+import { TabelaPorUnidade, useMapaPorUnidade } from '@/componentes/reparticao';
 import { TituloMapa } from './TituloMapa';
 import type { DemonstracaoResultados } from '../api';
 import { TabelaDemonstracao } from '../comum/Demonstracao';
@@ -13,6 +15,8 @@ export default function MapaDR() {
   const d = mapa.data;
   const comparativo = !!mapa.parametros?.comparativo;
   const homologo = mapa.parametros?.modo_comparativo === 'homologo';
+  const [porUN, setPorUN] = useState(false);
+  const porUnidade = useMapaPorUnidade<DemonstracaoResultados>('/contabilidade/relatorios/demonstracao-resultados', mapa.parametros, porUN);
 
   return (
     <>
@@ -35,8 +39,15 @@ export default function MapaDR() {
             </>
           }
         />
+        {/* Fase C (ui_reports.js:376-406): uma coluna por unidade de negócio, «Sem unidade» e o Total */}
+        <Checkbox checked={porUN} onChange={(e) => setPorUN(e.target.checked)}>Por unidade de negócio</Checkbox>
       </Card>
-      {d && (
+      {porUN && mapa.parametros && (
+        <Card loading={porUnidade.isFetching}>
+          {porUnidade.data && <TabelaPorUnidade dados={porUnidade.data} linhas={linhasDR} titulo="Demonstração de resultados" periodo={periodoDosParametros(mapa.parametros)} />}
+        </Card>
+      )}
+      {!porUN && d && (
         <>
           {comparativo && !d.historico_anterior && (
             <Alert type="info" showIcon style={{ marginBottom: 16 }} message="O comparativo é calculado a partir dos lançamentos (sem saldos históricos importados)." />

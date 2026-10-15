@@ -49,8 +49,11 @@ final class ServicoExecucaoProjetos
         $folhas = FolhaHorasProjeto::query()->where('projeto_id', $p->id)->orderByDesc('data')->orderByDesc('id')->get();
         $nomes = Colaborador::query()->withTrashed()->whereIn('id', $folhas->pluck('colaborador_id')->filter()->unique()->values()->all())->pluck('nome_completo', 'id');
         $tarefas = self::tarefasDoProjeto($p);
+        // Versão Actual: horas de membros externos (sem colaborador) mostram o nome do membro
+        $externos = $folhas->whereNull('colaborador_id')->pluck('membro_equipa_projeto_id')->filter()->unique()->values()->all();
+        $nomesMembros = $externos ? collect(app(ServicoEquipasProjetos::class)->membros($p))->whereIn('id', $externos)->pluck('nome', 'id') : collect();
 
-        return $folhas->map(fn ($f) => $f->toArray() + ['colaborador_nome' => $nomes[$f->colaborador_id] ?? null,
+        return $folhas->map(fn ($f) => $f->toArray() + ['colaborador_nome' => $nomes[$f->colaborador_id] ?? $nomesMembros[$f->membro_equipa_projeto_id] ?? null,
             'tarefa_codigo' => $tarefas[$f->tarefa_projeto_id]['codigo'] ?? null, 'tarefa_nome' => $tarefas[$f->tarefa_projeto_id]['nome'] ?? null])->all();
     }
 
@@ -81,7 +84,21 @@ final class ServicoExecucaoProjetos
             ->map(fn ($f) => ['id' => $f->id, 'ativo_imobilizado_id' => $f->ativo_imobilizado_id, 'ativo_codigo' => $f->ativoImobilizado?->codigo,
                 'ativo_descricao' => $f->ativoImobilizado?->descricao, 'data_inicio' => $f->data_inicio?->toDateString(), 'data_fim' => $f->data_fim?->toDateString()])->all();
 
-        return ['usos' => $lista, 'total' => $total, 'afetacoes' => $afetacoes];
+        // Versão Actual (projectos_dashboard.js:381-407, 498-537): agregado por equipamento — horas (da descrição «(Xh a Y/h)»),
+        // custo, custo/hora médio, período de uso, tarefas e peso no custo total do projecto
+        $custoProjeto = (string) RazaoAnaliticoProjeto::query()->where('projeto_id', $p->id)->whereIn('natureza', ['CUSTO', 'CUSTO_REAL'])->sum('montante');
+        $porEquipamento = collect($lista)->groupBy(fn ($u) => $u['ativo_codigo'] ?? '—')->map(function ($us, $codigo) use ($custoProjeto) {
+            $horas = $us->sum(fn ($u) => preg_match('/\(([\d.,]+)\s*h\b/u', (string) $u['descricao'], $m) ? (float) str_replace(',', '.', $m[1]) : 0.0);
+            $custo = $us->reduce(fn ($s, $u) => bcadd($s, $u['montante'], 2), '0.00');
+
+            return ['ativo_codigo' => $codigo === '—' ? null : $codigo, 'ativo_imobilizado_id' => $us->first()['ativo_imobilizado_id'], 'ativo_descricao' => $us->first()['ativo_descricao'],
+                'usos' => $us->count(), 'horas' => round($horas, 2), 'custo' => $custo, 'custo_hora_medio' => $horas > 0 ? round((float) $custo / $horas, 2) : null,
+                'de' => $us->pluck('data')->filter()->min(), 'ate' => $us->pluck('data')->filter()->max(),
+                'tarefas' => $us->map(fn ($u) => trim(($u['tarefa_codigo'] ? "{$u['tarefa_codigo']} " : '').($u['tarefa_nome'] ?? '')))->filter()->unique()->values()->all(),
+                'peso_pct' => (float) $custoProjeto > 0 ? round((float) $custo / (float) $custoProjeto * 100, 1) : null];
+        })->sortByDesc(fn ($x) => (float) $x['custo'])->values()->all();
+
+        return ['usos' => $lista, 'total' => $total, 'afetacoes' => $afetacoes, 'por_equipamento' => $porEquipamento];
     }
 
     /** @return array<int, array{codigo: ?string, nome: ?string}> */
@@ -91,7 +108,14 @@ final class ServicoExecucaoProjetos
             ->mapWithKeys(fn ($t) => [$t->id => ['codigo' => $t->codigo, 'nome' => $t->nome]])->all();
     }
 
-    /** @param  array{tarefa_projeto_id: int, colaborador_id: int, data: string, horas: mixed}  $d */
+    /**
+     * Regista horas numa tarefa. Versão Actual (ui_projects.js:5068-5125): grava o membro da equipa
+     * (`membro_equipa_projeto_id`) e só preenche o colaborador quando o membro é interno — as horas de uma subempreitada ou
+     * de um externo contam para a carga e para o mapa de horas, nunca para a imputação salarial nem para o subsídio.
+     * Continua a aceitar `colaborador_id` (colaborador interno da equipa), como antes.
+     *
+     * @param  array{tarefa_projeto_id: int, colaborador_id?: ?int, membro_equipa_projeto_id?: ?int, data: string, horas: mixed}  $d
+     */
     public function registarHoras(Projeto $p, array $d): FolhaHorasProjeto
     {
         $this->projetos->exigirAberto($p);
@@ -100,14 +124,26 @@ final class ServicoExecucaoProjetos
         if ($horas <= 0 || $horas > 24) {
             throw new ErroNegocio('As horas têm de ser maiores que 0 e no máximo 24.', 'HORAS_INVALIDAS', 422);
         }
-        $interno = MembroEquipaProjeto::query()->where('colaborador_id', (int) $d['colaborador_id'])
-            ->whereIn('equipa_projeto_id', EquipaProjeto::query()->where('projeto_id', $p->id)->select('id'))->exists();
-        if (! $interno) {
-            throw new ErroNegocio('Só os colaboradores internos da equipa do projecto registam horas.', 'COLABORADOR_FORA_DA_EQUIPA', 422);
+        $daEquipa = MembroEquipaProjeto::query()->whereIn('equipa_projeto_id', EquipaProjeto::query()->where('projeto_id', $p->id)->select('id'));
+        if (! empty($d['membro_equipa_projeto_id'])) {
+            $m = (clone $daEquipa)->find((int) $d['membro_equipa_projeto_id'])
+                ?? throw new ErroNegocio('O membro não pertence à equipa do projecto.', 'MEMBRO_FORA_DA_EQUIPA', 422);
+            if (! empty($d['colaborador_id']) && (int) $d['colaborador_id'] !== (int) $m->colaborador_id) {
+                throw new ErroNegocio('O colaborador não corresponde ao membro da equipa indicado.', 'COLABORADOR_FORA_DA_EQUIPA', 422);
+            }
+        } else {
+            $m = empty($d['colaborador_id']) ? null : (clone $daEquipa)->where('colaborador_id', (int) $d['colaborador_id'])->orderBy('id')->first();
+            if (! $m) {
+                throw new ErroNegocio('Só os colaboradores internos da equipa do projecto registam horas.', 'COLABORADOR_FORA_DA_EQUIPA', 422);
+            }
         }
 
-        return FolhaHorasProjeto::create(['projeto_id' => $p->id, 'tarefa_projeto_id' => $t->id, 'colaborador_id' => (int) $d['colaborador_id'],
+        $f = new FolhaHorasProjeto(['projeto_id' => $p->id, 'tarefa_projeto_id' => $t->id, 'colaborador_id' => $m->colaborador_id ?: null,
             'data' => $d['data'], 'horas' => number_format($horas, 3, '.', ''), 'estado' => 'REGISTADO']);
+        $f->membro_equipa_projeto_id = $m->id;   // coluna nova, fora do contrato gerado (ver FolhaHorasProjeto)
+        $f->save();
+
+        return $f;
     }
 
     public function eliminarHoras(FolhaHorasProjeto $f): void
@@ -162,8 +198,9 @@ final class ServicoExecucaoProjetos
         $fim = ServicoAnaliticoProjetos::ultimoDia($ano, $mes);
 
         return DB::transaction(function () use ($per, $inicio, $fim) {
-            $folhas = FolhaHorasProjeto::query()->whereBetween('data', [$inicio, $fim])->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'PROCESSADO'))
-                ->lockForUpdate()->orderBy('id')->get();
+            // só as horas de colaboradores internos (as de membros externos — Versão Actual — não têm custo salarial)
+            $folhas = FolhaHorasProjeto::query()->whereBetween('data', [$inicio, $fim])->whereNotNull('colaborador_id')
+                ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'PROCESSADO'))->lockForUpdate()->orderBy('id')->get();
             $resultados = ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $per->id)->whereIn('colaborador_id', $folhas->pluck('colaborador_id')->filter())->get()->keyBy('colaborador_id');
             $nomes = Colaborador::query()->withTrashed()->whereIn('id', $folhas->pluck('colaborador_id')->filter())->pluck('nome_completo', 'id');
             $codigo = ServicoProjetos::codigoAceite('razao_analitico_projetos', 'tipo_documento_origem', 'PROCESSAMENTO_SALARIAL') ? 'PROCESSAMENTO_SALARIAL' : null;

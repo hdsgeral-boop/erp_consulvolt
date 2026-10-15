@@ -91,6 +91,7 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
     e('rh', 'rh_ferias', 'Programa de Férias', 'umbrella-beach'),
     e('rh', 'rh_assiduidade', 'Efectividade (Biometria)', 'fingerprint'),
     e('rh', 'rh_produtividade', 'Produtividade', 'chart-line'),
+    e('rh', 'rh_emprestimos', 'Empréstimos', 'hand-holding-usd'),   // Versão Actual (ADR-071, Fase B)
     e('rh', 'rh_avaliacao', 'Avaliação de Desempenho', 'star-half-alt'),
     e('rh', 'rh_avaliacao_ciclo', 'Acompanhamento 360º', 'tasks'),
     e('rh', 'rh_avaliacao_config', 'Configuração da Avaliação', 'sliders-h'),
@@ -102,11 +103,16 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
     e('rh', 'bancario', 'Coordenadas Bancárias', 'university'),
     e('rh', 'relatorios', 'Relatórios e Recibos', 'chart-pie'),
   ]),
+  // Versão Actual (ADR-071, Fase G): módulo novo, entre o RH e a Tesouraria como no legado novo
+  g('metodo', 'Método de Trabalho', 'clipboard-list', [
+    e('metodo', 'mt_assuntos', 'Registo de Assuntos (5W1H)', 'clipboard-check'),
+  ]),
   g('teso', 'Tesouraria', 'university', [
     g('teso-operacoes', 'Operações', 'money-bill-wave', [
       e('teso', 'teso_gestao_pagamentos', 'Pagamentos', undefined, { query: 'tipo=PAGAMENTO' }),
       e('teso', 'teso_gestao_pagamentos', 'Recebimentos', undefined, { query: 'tipo=RECEBIMENTO' }),
       e('teso', 'teso_folha_caixa', 'Folha de Caixa'),
+      e('teso', 'teso_cartas', 'Cartas de Pagamento', 'file-signature'),   // Versão Actual (ADR-071, Fase D)
     ]),
     g('teso-contabil', 'Contábil', 'file-invoice-dollar', [
       e('teso', 'teso_contab_integracao', 'Integração'),
@@ -121,6 +127,7 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
   ]),
   g('contab', 'Contabilidade', 'book', [
     e('contab', 'lancamentos', 'Lançamentos (Diários)', 'book-open'),
+    e('contab', 'ia_assistente', 'Assistente IA (regras)', 'robot'),   // Fase H: no legado abre a partir dos Lançamentos
     e('acrescimos', 'ad_registos', 'Acréscimos e Diferimentos', 'exchange-alt'),
     e('acrescimos', 'ad_propostas', 'Acrésc./Difer. — Proposta Mensal', 'calendar-check'),
     e('acrescimos', 'ad_recolher', 'Acrésc./Difer. — Recolher Documentos', 'inbox'),

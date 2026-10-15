@@ -11,12 +11,15 @@ use App\Models\CategoriaAtivo;
 use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\InventarioFisicoAtivo;
 use App\Models\LancamentoContabil;
+use App\Models\LinhaInventarioFisicoAtivo;
 use App\Models\ModeloBase;
 use App\Models\OrdemManutencaoAtivo;
 use App\Models\PlanoManutencaoAtivo;
 use App\Models\PortaEdificio;
 use App\Models\RegistoManutencaoAtivo;
+use App\Models\RequisicaoManutencao;
 use App\Models\Terceiro;
 use App\Models\TransferenciaCentroCustoAtivo;
 use App\Models\UnidadeNegocio;
@@ -152,8 +155,23 @@ abstract class AtivoImobilizadoBase extends ModeloBase
         return $this->hasMany(PortaEdificio::class, 'edificio_id');
     }
 
+    public function inventariosFisicosAtivos(): HasMany
+    {
+        return $this->hasMany(InventarioFisicoAtivo::class, 'edificio_id');
+    }
+
+    public function linhasInventarioFisicoAtivos(): HasMany
+    {
+        return $this->hasMany(LinhaInventarioFisicoAtivo::class, 'ativo_imobilizado_id');
+    }
+
     public function ordensManutencaoAtivos(): HasMany
     {
         return $this->hasMany(OrdemManutencaoAtivo::class, 'ativo_imobilizado_id');
+    }
+
+    public function requisicoesManutencao(): HasMany
+    {
+        return $this->hasMany(RequisicaoManutencao::class, 'ativo_imobilizado_id');
     }
 }

@@ -12,6 +12,7 @@ use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Orcamento\ServicoControloOrcamental;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Terceiros\ContaTerceiro;
@@ -49,20 +50,23 @@ final class ServicoProcessoCompras
         $empresa = $this->contexto->obrigatorio();
         $data = substr($d['data'] ?? now()->toDateString(), 0, 10);
         $produtos = $this->produtos($d['linhas']);
+        $alocacao = app(ServicoReparticao::class)->normalizar($d['unidades_alocadas'] ?? null);   // Fase C (R2, ui_compras_v2.js:1073)
 
-        return DB::transaction(function () use ($d, $data, $empresa, $produtos) {
+        return DB::transaction(function () use ($d, $data, $empresa, $produtos, $alocacao) {
             $reserva = $this->series->reservar($empresa, 'PC', $data, false);
             $pedido = PedidoCompra::create([
                 'numero_pedido' => $reserva['numero_documento'], 'nome_requerente' => $d['nome_requerente'], 'data' => $data.' '.now()->format('H:i:s'),
                 'estado' => 'PENDENTE', 'descricao' => $d['descricao'] ?? null, 'data_entrega' => $d['data_entrega'] ?? null, 'observacoes' => $d['observacoes'] ?? null,
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
-                'criado_por' => Auth::user()?->nome_utilizador,
+                'criado_por' => Auth::user()?->nome_utilizador, 'unidades_alocadas' => $alocacao,
             ]);
             foreach ($d['linhas'] as $l) {
                 $preco = number_format((float) ($l['preco_unitario'] ?? 0), 2, '.', '');
                 ItemCompra::create(['tipo_documento_origem' => 'PEDIDO', 'pedido_compra_id' => $pedido->id, 'produto_id' => $l['produto_id'],
                     'descricao' => $l['descricao'] ?? $produtos[$l['produto_id']]->nome, 'quantidade' => (string) $l['quantidade'], 'preco_unitario' => $preco,
-                    'total' => bcmul((string) $l['quantidade'], $preco, 2), 'projeto_id' => $d['projeto_id'] ?? null]);
+                    'total' => bcmul((string) $l['quantidade'], $preco, 2), 'projeto_id' => $d['projeto_id'] ?? null,
+                    // Fase C (R5): UN/CC da linha; seguem para a proposta, a encomenda e a factura (linha())
+                    'unidade_negocio_id' => $l['unidade_negocio_id'] ?? null, 'centro_custo_id' => $l['centro_custo_id'] ?? null]);
             }
             $this->deliberacao->iniciar($pedido);
 
@@ -386,6 +390,9 @@ final class ServicoProcessoCompras
             'preco_unitario' => $c['preco_kz'], 'total' => $c['liquido_kz'], 'total_kz' => $c['liquido_kz'], 'imposto_kz' => $c['imposto_kz'],
             'imposto_moeda' => $moeda['estrangeira'] ? $c['imposto'] : null,
             'preco_unitario_moeda' => $moeda['estrangeira'] ? $l['preco_unitario'] : null, 'total_moeda' => $moeda['estrangeira'] ? $c['liquido'] : null,
+            // Fase C (R5): a UN/CC da linha segue o documento de origem (proposta/encomenda/factura seguem o pedido, ui_compras_v2.js:1450,1689)
+            'unidade_negocio_id' => $item?->unidade_negocio_id ?? ($l['unidade_negocio_id'] ?? null),
+            'centro_custo_id' => $item?->centro_custo_id ?? ($l['centro_custo_id'] ?? null),
         ];
     }
 

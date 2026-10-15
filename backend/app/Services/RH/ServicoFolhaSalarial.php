@@ -17,6 +17,7 @@ use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoNotasPorConta;
 use App\Services\Projetos\ServicoExecucaoProjetos;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -158,6 +159,7 @@ final class ServicoFolhaSalarial
             if (DB::table('bonificacoes_avaliacao_rh')->where('linha_folha_salarial_id', $l->id)->exists()) {
                 throw new ErroNegocio('Este lançamento é uma bonificação de desempenho: anule-a na Avaliação.', 'LANCAMENTO_DE_BONIFICACAO', 422);
             }
+            ServicoEmprestimos::libertarPrestacoes([$l->id]);   // Fase B: a prestação do empréstimo volta a «por descontar»
             $l->delete();
         });
     }
@@ -170,13 +172,24 @@ final class ServicoFolhaSalarial
             $this->exigirEstado($p, ['ABERTO']);
             $criados = $existentes = 0;
             $ignorados = [];
+            $avisos = [];
             $contratos = ContratoTrabalho::query()->get()->groupBy('colaborador_id');
-            foreach (Colaborador::query()->where('estado', 'ACTIVO')->orderBy('id')->get() as $c) {
+            [$mes, $ano] = explode('/', $p->mes_ano);
+            $inicioMes = "{$ano}-{$mes}-01";
+            $fimMes = $this->ultimoDia($p->mes_ano);
+            // Fase B: quem cessou o contrato neste mês (ou depois) continua a ser processado até à data da cessação
+            foreach (Colaborador::query()->where(fn ($q) => $q->where('estado', 'ACTIVO')->orWhere(fn ($q) => $q->where('estado', 'INACTIVO')
+                ->where('data_cessacao', '>=', $inicioMes)))->orderBy('id')->get() as $c) {
                 $contrato = $this->contratoDoMes($contratos[$c->id] ?? collect(), $p->mes_ano, 'ATUAL');
                 if (! $contrato) {
-                    $ignorados[] = "{$c->nome_completo}: sem contrato activo em {$p->mes_ano}.";
+                    // regras_salariais.js:95 / app_v2.js:5547 — diz porque é que o contrato ficou fora (suspenso todo o mês)
+                    $suspenso = ($contratos[$c->id] ?? collect())->first(fn ($x) => $x->estado === 'SUSPENSO' && RegrasContrato::abrange($x, $inicioMes, $fimMes));
+                    $ignorados[] = $suspenso ? "{$c->nome_completo}: contrato suspenso durante todo o mês {$p->mes_ano}." : "{$c->nome_completo}: sem contrato activo em {$p->mes_ano}.";
 
                     continue;
+                }
+                foreach (RegrasContrato::avisos($contrato, $inicioMes, $fimMes) as $aviso) {
+                    $avisos[] = "{$c->nome_completo}: {$aviso}";
                 }
                 if ($contrato->codigo_moeda && $contrato->codigo_moeda !== 'AOA') {
                     $ignorados[] = "{$c->nome_completo}: contrato em {$contrato->codigo_moeda} (processamento só em Kz).";
@@ -198,7 +211,7 @@ final class ServicoFolhaSalarial
                 }
             }
 
-            return ['criados' => $criados, 'ja_existentes' => $existentes, 'ignorados' => $ignorados];
+            return ['criados' => $criados, 'ja_existentes' => $existentes, 'ignorados' => $ignorados, 'avisos' => $avisos];
         });
     }
 
@@ -322,6 +335,7 @@ final class ServicoFolhaSalarial
                     'dias_trabalhados' => array_key_exists('dias_trabalhados', $campos) ? $campos['dias_trabalhados'] : $l->dias_trabalhados,
                     'horas' => array_key_exists('horas', $campos) ? $campos['horas'] : $l->horas, 'origem' => $l->origem ?? 'MANUAL']);
                 if ($novaRubrica !== (int) $l->infotipo_salarial_id) {
+                    ServicoEmprestimos::libertarPrestacoes([$l->id]);
                     $l->delete();   // mudou de rubrica: o lançamento passou para a nova (gravado ou substituído acima)
                 }
             }
@@ -344,6 +358,8 @@ final class ServicoFolhaSalarial
                 throw new ErroNegocio('A selecção inclui bonificações de desempenho: anule-as na Avaliação.', 'LANCAMENTO_DE_BONIFICACAO', 422);
             }
 
+            ServicoEmprestimos::libertarPrestacoes(array_map('intval', $ids));
+
             return $q->delete();
         });
     }
@@ -364,6 +380,7 @@ final class ServicoFolhaSalarial
             foreach (['fechos_mensais_assiduidade', 'periodos_produtividade_rh'] as $t) {
                 DB::table($t)->where('empresa_id', $this->contexto->obrigatorio())->where('periodo_processamento_salarial_id', $p->id)->update(['periodo_processamento_salarial_id' => null]);
             }
+            ServicoEmprestimos::libertarPrestacoes(LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->pluck('id')->all());
             LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->delete();
             ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->delete();
             $p->delete();
@@ -539,7 +556,21 @@ final class ServicoFolhaSalarial
             $linhas = [];
             $faltam = [];
             $detalhe = [];
-            $somar = function (?string $conta, string $dc, string $valor, $r, string $falta, array $chave = []) use (&$linhas, &$faltam, &$detalhe) {
+            // Fase C (R3, js/app_v2.js:6477-6584): o custo, os impostos e o líquido de quem tem `unidades_alocadas` na ficha
+            // dividem-se pelas unidades (cada valor com a última parcela a absorver o arredondamento, para o lançamento fechar);
+            // sem alocação vai tudo para a unidade do resultado, como antes
+            $reparticao = app(ServicoReparticao::class);
+            $partesPorColaborador = [];
+            $partesDe = function ($r) use ($reparticao, &$partesPorColaborador): ?array {
+                if (! array_key_exists($r->colaborador_id, $partesPorColaborador)) {
+                    $col = Colaborador::query()->withTrashed()->find($r->colaborador_id);
+                    $partesPorColaborador[$r->colaborador_id] = $col
+                        ? $reparticao->partes($col->getAttributes()['unidades_alocadas'] ?? null, "Repartição do colaborador {$col->nome_completo}:") : null;
+                }
+
+                return $partesPorColaborador[$r->colaborador_id];
+            };
+            $somar = function (?string $conta, string $dc, string $valor, $r, string $falta, array $chave = []) use (&$linhas, &$faltam, &$detalhe, $partesDe) {
                 if (bccomp($valor, '0', 2) === 0) {
                     return;
                 }
@@ -550,9 +581,17 @@ final class ServicoFolhaSalarial
 
                     return;
                 }
-                $k = "{$conta}|{$dc}|{$r->unidade_negocio_id}|{$r->centro_custo_id}";
-                $linhas[$k] ??= ['codigo_conta' => $conta, 'tipo_dc' => $dc, 'valor' => '0.00', 'unidade_negocio_id' => $r->unidade_negocio_id, 'centro_custo_id' => $r->centro_custo_id];
-                $linhas[$k]['valor'] = bcadd($linhas[$k]['valor'], $valor, 2);
+                $partes = $partesDe($r);
+                $valores = $partes ? ServicoReparticao::dividir($valor, array_column($partes, 'indutor')) : [$valor];
+                foreach ($valores as $n => $parcela) {
+                    if (bccomp($parcela, '0', 2) === 0) {
+                        continue;
+                    }
+                    $un = $partes ? $partes[$n]['unidade_negocio_id'] : $r->unidade_negocio_id;
+                    $k = "{$conta}|{$dc}|{$un}|{$r->centro_custo_id}";
+                    $linhas[$k] ??= ['codigo_conta' => $conta, 'tipo_dc' => $dc, 'valor' => '0.00', 'unidade_negocio_id' => $un, 'centro_custo_id' => $r->centro_custo_id];
+                    $linhas[$k]['valor'] = bcadd($linhas[$k]['valor'], $parcela, 2);
+                }
             };
             $nomes = InfotipoSalarial::query()->withTrashed()->pluck('nome', 'id');
             foreach (ResultadoFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->get() as $r) {
@@ -700,6 +739,8 @@ final class ServicoFolhaSalarial
     /**
      * Contrato do mês. ATUAL: ACTIVO e válido no mês (o legado comparava 'MM/AAAA-01' com datas ISO e nunca filtrava);
      * LEGADO: o comportamento efectivo antigo (primeiro ACTIVO).
+     * Fase B (Versão Actual, regras_salariais.js:95): também o SUSPENSO fora da suspensão e o CESSADO até à data da
+     * cessação (RegrasContrato::emVigor).
      */
     private function contratoDoMes($contratos, string $mesAno, string $modo): ?ContratoTrabalho
     {
@@ -708,19 +749,13 @@ final class ServicoFolhaSalarial
             return $contratos->first(fn ($c) => $c->estado === 'ACTIVO') ?? $contratos->first();
         }
         [$mes, $ano] = explode('/', $mesAno);
-        $inicio = "{$ano}-{$mes}-01";
-        $fim = $this->ultimoDia($mesAno);
-        $validos = $contratos->filter(fn ($c) => (! $c->data_inicio || $c->data_inicio->toDateString() <= $fim) && (! $c->data_fim || $c->data_fim->toDateString() >= $inicio));
 
-        return $validos->first(fn ($c) => $c->estado === 'ACTIVO');
+        return RegrasContrato::emVigor($contratos, "{$ano}-{$mes}-01", $this->ultimoDia($mesAno));
     }
 
     private function contratoArray(ContratoTrabalho $c): array
     {
-        return ['dias' => $c->dias_contrato_mes, 'horas' => $c->horas_por_dia, 'remuneracoes' => array_values(array_filter(array_map(fn ($r) => [
-            'infotipo_id' => (int) ($r['infotype_id'] ?? $r['infotipo_id'] ?? 0), 'valor_mes' => $r['value_month'] ?? $r['valor_mes'] ?? null,
-            'valor_dia' => $r['value_per_day'] ?? $r['valor_dia'] ?? null], is_array($c->remuneracoes) ? $c->remuneracoes : (json_decode((string) $c->remuneracoes, true) ?: [])),
-            fn ($r) => $r['infotipo_id'] > 0))];
+        return RegrasContrato::paraMotor($c);
     }
 
     private function infotipoArray(InfotipoSalarial $i): array

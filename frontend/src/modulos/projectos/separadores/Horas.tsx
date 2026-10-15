@@ -42,7 +42,7 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
           pagination={{ pageSize: 20 }}
           columns={[
             { title: 'Data', dataIndex: 'data', render: formatarData },
-            { title: 'Colaborador', dataIndex: 'colaborador_nome', render: (v: string | null | undefined, h) => v ?? `#${h.colaborador_id}` },
+            { title: 'Colaborador / membro', dataIndex: 'colaborador_nome', render: (v: string | null | undefined, h) => v ?? (h.colaborador_id ? `#${h.colaborador_id}` : '—') },
             { title: 'Tarefa', key: 't', render: (_, h) => tarefa(h.tarefa_codigo, h.tarefa_nome, h.tarefa_projeto_id) },
             { title: 'Horas', dataIndex: 'horas', align: 'right', render: formatarNumero },
             { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaProjectos valor={v} /> },
@@ -82,6 +82,21 @@ export function SeparadorHoras({ projecto, acc }: PropsSeparador) {
             },
           ]}
         />
+        {(equip.data?.por_equipamento ?? []).length > 0 && (
+          <>
+            <Typography.Text strong style={{ display: 'block', marginTop: 12 }}>Equipamentos alocados ao projecto</Typography.Text>
+            <Table scroll={scrollTabela()} size="small" rowKey={(x) => x.ativo_codigo ?? '—'} pagination={false} dataSource={equip.data?.por_equipamento ?? []} style={{ marginTop: 8 }}
+              columns={[
+                { title: 'Equipamento', key: 'e', render: (_, x) => `${x.ativo_codigo ?? '—'}${x.ativo_descricao ? ` — ${x.ativo_descricao}` : ''}` },
+                { title: 'Usos', dataIndex: 'usos', align: 'right' },
+                { title: 'Horas', dataIndex: 'horas', align: 'right', render: formatarNumero },
+                { title: 'Custo/hora médio', dataIndex: 'custo_hora_medio', align: 'right', render: (v: number | null) => (v === null ? '—' : formatarKz(v)) },
+                { title: 'Custo (Kz)', dataIndex: 'custo', align: 'right', render: (v) => <ValorKz valor={v} /> },
+                { title: 'Período', key: 'p', render: (_, x) => `${formatarData(x.de)} a ${formatarData(x.ate)}` },
+                { title: 'Peso no custo', dataIndex: 'peso_pct', align: 'right', render: (v: number | null) => (v === null ? '—' : `${v.toLocaleString('pt-PT')}%`) },
+              ]} />
+          </>
+        )}
         {(equip.data?.afetacoes ?? []).length > 0 && (
           <>
             <Typography.Text strong style={{ display: 'block', marginTop: 12 }}>Activos afectos ao projecto</Typography.Text>
@@ -108,8 +123,9 @@ function ModalHoras({ projectoId, aberto, aoFechar }: { projectoId: number; aber
   return (
     <Modal title="Registar horas" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/projetos/${projectoId}/horas`, dados: { ...v, data: dataApi(v.data) } })}>
-        <Form.Item name="colaborador_id" label="Colaborador (interno da equipa)" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
-          <SeletorMembro projectoId={projectoId} apenasInternos valorColaborador />
+        {/* Versão Actual (ui_projects.js:5068-5125): grava o membro da equipa; externos e entidades contam para a carga e o mapa de horas, nunca para o subsídio */}
+        <Form.Item name="membro_equipa_projeto_id" label="Membro da equipa" extra="Horas de externos ou subempreitadas não entram na imputação salarial nem no subsídio de produtividade." rules={[{ required: true, message: 'Escolha o membro da equipa.' }]}>
+          <SeletorMembro projectoId={projectoId} />
         </Form.Item>
         <Form.Item name="tarefa_projeto_id" label="Tarefa" rules={[{ required: true, message: 'Escolha a tarefa.' }]}><SeletorTarefa projectoId={projectoId} /></Form.Item>
         <Space wrap>

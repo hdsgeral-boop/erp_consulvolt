@@ -14,6 +14,7 @@ import { ecras as acrescimos } from './acrescimos/ecras';
 import { ecras as orcamento } from './orcamento/ecras';
 import { ecras as estrutura } from './estrutura/ecras';
 import { ecras as config } from './config/ecras';
+import { ecras as metodo } from './metodo/ecras';
 
 /**
  * Ecrãs disponíveis no frontend, pelo id do ecrã do catálogo de permissões (resources/permissoes/catalogo.json).
@@ -22,5 +23,5 @@ import { ecras as config } from './config/ecras';
  */
 export const ECRAS: Record<string, LazyExoticComponent<ComponentType>> = {
   ...geral, ...rh, ...contab, ...teso, ...vendas, ...pos, ...compras, ...stock,
-  ...activos, ...projectos, ...crm, ...acrescimos, ...orcamento, ...estrutura, ...config,
+  ...activos, ...projectos, ...crm, ...acrescimos, ...orcamento, ...estrutura, ...config, ...metodo,
 };

@@ -1,5 +1,5 @@
 import { Button, Card, Flex, Form, Input, InputNumber, Modal, Popconfirm, Radio, Space, Typography } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusOutlined, ScheduleOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { useEffect, useState, useRef } from 'react';
 import { SeletorTerceiro } from '@/modulos/contab/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
@@ -8,6 +8,7 @@ import { EtiquetaProjectos, SeletorColaborador, useEquipa } from '../comum/compo
 import type { Membro } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
+import { ModalCargaTrabalho } from './CargaTrabalho';
 import { scrollTabela } from '@/componentes/responsivo';
 
 import { TabelaComModos } from '@/componentes/vistas';
@@ -18,6 +19,7 @@ export function SeparadorEquipa({ projecto, acc }: PropsSeparador) {
   const [membro, setMembro] = useState<Partial<Membro> | null>(null);
   const [massa, setMassa] = useState(false);
   const [alterar, setAlterar] = useState(false);
+  const [carga, setCarga] = useState(false);
   const remover = useAccao({ invalidar: [['projectos']], aoSucesso: () => setSeleccao([]) });
   const membros = e.data?.membros ?? [];
   const horas = membros.reduce((t, m) => t + Number(m.horas_alocadas ?? 0), 0);
@@ -31,6 +33,8 @@ export function SeparadorEquipa({ projecto, acc }: PropsSeparador) {
       extra={
         <Space wrap>
           <Typography.Text type="secondary">{membros.length} membro(s) · {formatarNumero(horas)} h/dia alocadas</Typography.Text>
+          {/* Versão Actual (ui_projects.js:2637-2673): carga de trabalho por responsável e ordem de trabalho */}
+          <Button size="small" icon={<ScheduleOutlined />} onClick={() => setCarga(true)} disabled={!membros.length}>Carga de trabalho</Button>
           <ImpressaoSeparador alvo={refSeparador} titulo="Equipa do projecto" projecto={projecto} desactivado={!membros.length} />
         </Space>
       }
@@ -67,6 +71,7 @@ export function SeparadorEquipa({ projecto, acc }: PropsSeparador) {
       <ModalMembro projectoId={projecto.id} membro={membro} aoFechar={() => setMembro(null)} />
       <ModalMassa projectoId={projecto.id} aberto={massa} aoFechar={() => setMassa(false)} />
       <ModalAlterar projectoId={projecto.id} ids={seleccao} aberto={alterar} aoFechar={() => { setAlterar(false); setSeleccao([]); }} />
+      <ModalCargaTrabalho projectoId={projecto.id} aberto={carga} aoFechar={() => setCarga(false)} />
     </Card>
   );
 }

@@ -43,6 +43,14 @@ export interface Activo {
   centro_custo?: { id: number; codigo: string; descricao?: string | null } | null;
   unidade_negocio?: { id: number; codigo: string | null } | null;
   fornecedor?: { id: number; nome: string } | null;
+  /** Fase F (Versão Actual): BEM ou EDIFICIO (null nos migrados = BEM) e localização Edifício › Andar › Porta. */
+  tipo_ativo?: 'BEM' | 'EDIFICIO' | null;
+  edificio_id?: number | null;
+  andar_id?: number | null;
+  porta_id?: number | null;
+  edificio?: { id: number; codigo: string | null; descricao: string } | null;
+  andar?: { id: number; numero: string | null; nome: string | null } | null;
+  porta?: { id: number; numero: string; nome: string | null } | null;
 }
 
 export interface AmortizacaoRegisto {
@@ -86,6 +94,9 @@ export interface Manutencao {
   estado: string;
   resolucao: string | null;
   data_execucao: string | null;
+  /** Ordem de manutenção que deu origem ao registo (Fase F). */
+  ordem_manutencao_id?: number | null;
+  numero_ordem?: string | null;
   ativo_imobilizado?: { id: number; codigo: string | null; descricao: string } | null;
 }
 

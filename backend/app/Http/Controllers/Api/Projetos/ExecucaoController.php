@@ -103,7 +103,8 @@ final class ExecucaoController extends Controller
     public function registarHoras(Request $r, int $projeto): JsonResponse
     {
         $this->exigir('proj_gerir', 'proj_execucao');
-        $d = $r->validate(['tarefa_projeto_id' => ['required', 'integer'], 'colaborador_id' => ['required', 'integer'], 'data' => ['required', 'date'], 'horas' => ['required', 'numeric']]);
+        $d = $r->validate(['tarefa_projeto_id' => ['required', 'integer'], 'colaborador_id' => ['required_without:membro_equipa_projeto_id', 'nullable', 'integer'],
+            'membro_equipa_projeto_id' => ['nullable', 'integer'], 'data' => ['required', 'date'], 'horas' => ['required', 'numeric']]);   // Versão Actual: membro da equipa (team_member_id)
 
         return RespostaApi::criado($this->execucao->registarHoras(Projeto::query()->findOrFail($projeto), $d), 'Horas registadas.');
     }

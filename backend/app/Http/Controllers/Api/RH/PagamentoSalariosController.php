@@ -42,12 +42,14 @@ final class PagamentoSalariosController extends Controller
 
     public function emitir(Request $r, int $id): JsonResponse
     {
+        // Fase D (ADR-071): grava o pagamento do período na Tesouraria e emite a carta a partir dele — exige também emitir pagamentos
         $this->exigir('processamento_integrate');
+        $this->exigir('teso_doc_emitir');
         $d = $r->validate(['codigo_conta_bancaria' => ['required', 'string', 'max:20'], 'data' => ['required', 'date'], 'nome_assinatura' => ['nullable', 'string', 'max:255'],
             'grupo' => ['nullable', 'in:'.implode(',', ServicoPagamentoSalarios::GRUPOS)], 'colaboradores' => ['nullable', 'array', 'max:10000'], 'colaboradores.*' => ['integer']]);
         $c = $this->pagamentos->emitirCarta(PeriodoProcessamentoSalarial::query()->findOrFail($id), $d);
 
-        return RespostaApi::criado($this->pagamentos->carta($c), 'Carta de pagamento emitida.');
+        return RespostaApi::criado($this->pagamentos->carta($c), "Carta {$c->numero} emitida a partir do pagamento gravado na Tesouraria (pendente de integração).");
     }
 
     public function eliminar(int $carta): JsonResponse

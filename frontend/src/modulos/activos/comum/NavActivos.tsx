@@ -18,6 +18,8 @@ export interface SeccaoActivos {
  */
 export const SECCOES_ACTIVOS: SeccaoActivos[] = [
   { id: 'activos', rotulo: 'Inventário de Activos', icone: 'list', ecra: 'activos' },
+  // separador «Edifícios e Locais» do legado novo (ui_assets.js:41,59; permissão activos_edificios)
+  { id: 'activos_edificios', rotulo: 'Edifícios e Locais', icone: 'city', ecra: 'activos_edificios' },
   { id: 'activos_categorias', rotulo: 'Categorias e Taxas', icone: 'tags', ecra: 'activos_categorias' },
   { id: 'activos_manutencao', rotulo: 'Manutenções', icone: 'tools', ecra: 'activos_manutencao' },
   { id: 'activos_amortizacoes', rotulo: 'Amortizações', icone: 'percent', ecra: 'activos_amortizacoes' },

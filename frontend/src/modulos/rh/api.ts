@@ -5,6 +5,9 @@
 
 export type EstadoColaborador = 'ACTIVO' | 'INACTIVO' | 'SUSPENSO';
 
+/** Estado do contrato (Fase B, Versão Actual): CESSADO pela acção «Cessar» (Lei 12/23). */
+export type EstadoContrato = EstadoColaborador | 'CESSADO';
+
 export interface Colaborador {
   id: number;
   nome_completo: string;
@@ -197,10 +200,16 @@ export interface ContratoTrabalho {
   dias_contrato_mes: number | null;
   data_inicio: string | null;
   data_fim: string | null;
-  estado: EstadoColaborador | null;
+  estado: EstadoContrato | null;
   horas_por_dia: string | null;
   codigo_moeda: string | null;
   produtividade: { item_id: number; preco_unitario: number | null }[] | null;
+  /** Fase B: horário (1 ou 2 períodos), suspensão e cessação — tipos em ./faseB/tipos. */
+  horario?: import('./faseB/tipos').HorarioTrabalho | null;
+  suspensao?: import('./faseB/tipos').RegistoSuspensao | null;
+  suspensoes?: import('./faseB/tipos').RegistoSuspensao[] | null;
+  cessacao?: import('./faseB/tipos').RegistoCessacao | null;
+  cessacoes_anuladas?: import('./faseB/tipos').RegistoCessacao[] | null;
 }
 
 export type TipoRubrica = 'VENCIMENTO' | 'DESCONTO' | 'OUTROS';
@@ -404,6 +413,10 @@ export interface ConfigAssiduidade {
   modo_compensacao: 'DIA' | 'MENSAL' | 'LIMITE';
   limite_compensacao_h: number | null;
   extra_nao_util_exige_autorizacao: boolean;
+  /** Fase B: regime de picagem por omissão (1 = período corrido, 2 = dois períodos) e horas do intervalo. */
+  periodos_padrao?: 1 | 2;
+  intervalo_saida_padrao?: string | null;
+  intervalo_entrada_padrao?: string | null;
 }
 
 export interface RegistoEfectividade {
@@ -417,6 +430,9 @@ export interface RegistoEfectividade {
   fonte: string | null;
   observacoes: string | null;
   autorizado_extra: boolean | null;
+  /** Fase B: picagens do intervalo (regime de dois períodos). */
+  saida_intervalo?: string | null;
+  entrada_intervalo?: string | null;
 }
 
 export interface LinhaApuramento {
@@ -433,6 +449,15 @@ export interface LinhaApuramento {
   horasNaoAutorizadas?: number;
   diasFeriasAusencia?: number;
   avisos: string[];
+  /** Fase B (horário e escala). */
+  horasDia?: number;
+  horasAtraso?: number;
+  diasAtraso?: number;
+  horasSaidaAntecipada?: number;
+  diasEscala?: number;
+  diasEscalaPrioritaria?: number;
+  semPicagemIntervalo?: number;
+  diasSuspenso?: number;
 }
 
 export interface ApuramentoMes {
@@ -571,7 +596,7 @@ export interface DetalheProdutividade extends PeriodoProdutividade {
 
 // ───────────── Portal ─────────────
 
-export type TipoPedido = 'FERIAS' | 'AUSENCIA' | 'DOCUMENTO' | 'AGREGADO';
+export type TipoPedido = 'FERIAS' | 'AUSENCIA' | 'DOCUMENTO' | 'AGREGADO' | 'EMPRESTIMO';
 
 export interface EtapaPedido {
   nivel: 'CHEFIA' | 'RH';
@@ -772,8 +797,11 @@ export const ESTADOS_COLABORADOR: { value: EstadoColaborador; label: string }[] 
   { value: 'SUSPENSO', label: 'Suspenso' },
 ];
 
+/** Filtro de estados do contrato (Fase B: + Cessado). */
+export const ESTADOS_CONTRATO: { value: EstadoContrato; label: string }[] = [...ESTADOS_COLABORADOR, { value: 'CESSADO', label: 'Cessado' }];
+
 export const CORES_ESTADO: Record<string, string> = {
-  ACTIVO: 'green', INACTIVO: 'default', SUSPENSO: 'orange',
+  ACTIVO: 'green', INACTIVO: 'default', SUSPENSO: 'orange', CESSADO: 'red', LIQUIDADO: 'geekblue', DESCONTADO: 'green', ISENTO: 'default',
   ABERTO: 'blue', FECHADO: 'gold', VALIDADO: 'green', REABERTO: 'purple', RASCUNHO: 'default',
   PEDIDO: 'cyan', PLANEADO: 'blue', APROVADO: 'green', APROVADA: 'green', GOZADO: 'geekblue', CANCELADO: 'default', RECUSADO: 'red',
   PENDENTE_CHEFIA: 'orange', PENDENTE_RH: 'gold', EMITIDO: 'green', POR_JUSTIFICAR: 'volcano', CONCLUIDA: 'green',
@@ -785,7 +813,7 @@ export const ROTULOS_ESTADO: Record<string, string> = {
   RASCUNHO: 'Rascunho', PEDIDO: 'Pedido (portal)', PLANEADO: 'Planeado', APROVADO: 'Aprovado', APROVADA: 'Aprovada', GOZADO: 'Gozado',
   CANCELADO: 'Cancelado', RECUSADO: 'Recusado', PENDENTE_CHEFIA: 'Pendente (chefia)', PENDENTE_RH: 'Pendente (RH)', EMITIDO: 'Emitido',
   POR_JUSTIFICAR: 'Por justificar', CONCLUIDA: 'Concluída', PROPOSTA: 'Proposta', LANCADA: 'Lançada', DISPENSADA: 'Dispensada',
-  AGUARDA: 'Aguarda', PENDENTE: 'Pendente',
+  AGUARDA: 'Aguarda', PENDENTE: 'Pendente', CESSADO: 'Cessado', LIQUIDADO: 'Liquidado', DESCONTADO: 'Descontada', ISENTO: 'Dispensada',
 };
 
 export const TIPOS_RUBRICA: { value: TipoRubrica; label: string }[] = [
@@ -839,6 +867,7 @@ export const TIPOS_PEDIDO: Record<TipoPedido, string> = {
   AUSENCIA: 'Ausência / justificação de falta',
   DOCUMENTO: 'Documento (declaração)',
   AGREGADO: 'Alteração do agregado familiar',
+  EMPRESTIMO: 'Empréstimo',
 };
 
 export const PERIODOS_AVALIACAO: { value: PeriodoAvaliacao; label: string }[] = [

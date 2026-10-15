@@ -2,6 +2,7 @@
 
 namespace App\Models\Base;
 
+use App\Models\AssuntoMetodoTrabalho;
 use App\Models\CentroCusto;
 use App\Models\Colaborador;
 use App\Models\Concerns\Auditavel;
@@ -9,6 +10,7 @@ use App\Models\Concerns\PertenceEmpresa;
 use App\Models\CotacaoCompra;
 use App\Models\EncomendaCompra;
 use App\Models\ItemCompra;
+use App\Models\ItemOrdemManutencao;
 use App\Models\ItemVenda;
 use App\Models\ModeloBase;
 use App\Models\Projeto;
@@ -96,5 +98,15 @@ abstract class PedidoCompraBase extends ModeloBase
     public function itensCompra(): HasMany
     {
         return $this->hasMany(ItemCompra::class, 'pedido_compra_id');
+    }
+
+    public function itensOrdemManutencao(): HasMany
+    {
+        return $this->hasMany(ItemOrdemManutencao::class, 'pedido_compra_id');
+    }
+
+    public function assuntosMetodoTrabalho(): HasMany
+    {
+        return $this->hasMany(AssuntoMetodoTrabalho::class, 'pedido_compra_id');
     }
 }

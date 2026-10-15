@@ -18,6 +18,7 @@ use App\Services\Compras\ServicoFaturasCompra;
 use App\Services\Compras\ServicoListagensCompras;
 use App\Services\Compras\ServicoProcessoCompras;
 use App\Services\Compras\ServicoRececoesCompra;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\Eloquent\Builder;
@@ -431,7 +432,10 @@ final class ComprasController extends Controller
     private function dimensoes(): array
     {
         return ['unidade_negocio_id' => ['nullable', 'integer', $this->daEmpresa('unidades_negocio')], 'centro_custo_id' => ['nullable', 'integer', $this->daEmpresa('centros_custo')],
-            'projeto_id' => ['nullable', 'integer', $this->daEmpresa('projetos')]];
+            'projeto_id' => ['nullable', 'integer', $this->daEmpresa('projetos')],
+            // Fase C (linha_un_cc.js / alocacao_un.js): UN/CC da linha (vazio = cabeçalho) e repartição do documento por unidades
+            'linhas.*.unidade_negocio_id' => ['nullable', 'integer', $this->daEmpresa('unidades_negocio')],
+            'linhas.*.centro_custo_id' => ['nullable', 'integer', $this->daEmpresa('centros_custo')]] + ServicoReparticao::regras();
     }
 
     private function daEmpresa(string $tabela): Exists

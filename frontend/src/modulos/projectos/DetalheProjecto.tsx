@@ -20,6 +20,7 @@ import { SeparadorOrcamento } from './separadores/Orcamento';
 import { SeparadorHoras } from './separadores/Horas';
 import { SeparadorRequisicoes } from './separadores/Requisicoes';
 import { SeparadorRevisoes } from './separadores/Revisoes';
+import { SeparadorExecucao } from './separadores/Execucao';
 
 export interface PropsSeparador {
   projecto: FichaProjecto;
@@ -109,6 +110,8 @@ export function DetalheProjecto() {
           { key: 'organigrama', label: 'Organigrama', children: <SeparadorOrganigrama {...props} /> },
           { key: 'orcamento', label: 'Orçamento e aditamentos', children: <SeparadorOrcamento {...props} /> },
           { key: 'horas', label: 'Horas e equipamentos', children: <SeparadorHoras {...props} /> },
+          // Versão Actual (ui_projects.js:539): horas, quantidades medidas e tarefas concluídas por colaborador e período
+          { key: 'execucao', label: 'Execução', children: <SeparadorExecucao {...props} /> },
           { key: 'requisicoes', label: 'Requisições', children: <SeparadorRequisicoes {...props} /> },
           { key: 'revisoes', label: 'Autos e facturação', children: <SeparadorRevisoes {...props} /> },
         ]}

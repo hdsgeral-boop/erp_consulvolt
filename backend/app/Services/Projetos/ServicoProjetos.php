@@ -85,6 +85,13 @@ final class ServicoProjetos
                 throw new ErroNegocio("A encomenda {$enc->numero_documento} é de outro cliente.", 'ENCOMENDA_OUTRO_CLIENTE', 422);
             }
         }
+        // Versão Actual: calendário de trabalho (ui_projects.js:246-334; regras em projectos_metas.js:127-185)
+        if (array_key_exists('calendario', $d)) {
+            $campos['calendario'] = $d['calendario'] === null ? null : RegrasMetasProjetos::validarCalendario((array) $d['calendario']);
+        }
+        if (array_key_exists('descricao', $d)) {
+            $campos['descricao'] = trim((string) $d['descricao']) ?: null;
+        }
 
         return DB::transaction(function () use ($d, $p, $empresa, $tipo, $nome, $estado, $campos) {
             $codigo = trim((string) ($d['codigo'] ?? $p?->codigo ?? ''));

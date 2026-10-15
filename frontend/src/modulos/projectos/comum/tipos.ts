@@ -19,6 +19,9 @@ export interface Projecto {
 
 export interface FichaProjecto extends Projecto {
   execucao: number;
+  /** Versão Actual: calendário de trabalho (dias 0 = domingo … 6 = sábado com 0, 0,5 ou 1) e descrição. */
+  calendario?: Calendario | null;
+  descricao?: string | null;
   encomenda: { id: number; numero_documento: string; cliente_id: number; total_liquido: string; estado: string | null } | null;
   cliente: { id: number; nome: string } | null;
 }
@@ -79,6 +82,10 @@ export interface Marco {
   nome: string;
   estado: string;
   data: string | null;
+  /** Versão Actual: data de início e meta da fase. */
+  data_inicio?: string | null;
+  meta_unidade?: string | null;
+  meta_quantidade?: string | null;
 }
 
 export interface TarefaWbs {
@@ -98,13 +105,29 @@ export interface TarefaWbs {
   execucao: number;
   nivel: number;
   horas: number;
-  posicoes: { id: number; titulo: string }[] | number[];
+  posicoes: { id: number; titulo: string }[] | number[] | string[];
   subtarefas: TarefaWbs[];
+  // Versão Actual (Fase E)
+  tarefa_predecessora_id?: number | null;
+  tipo_dependencia?: 'FS' | 'SS' | 'FF' | string | null;
+  desfasamento_dias?: number | null;
+  meta_unidade?: string | null;
+  meta_quantidade?: string | null;
+  meta_realizado?: string | null;
+  concluida_em?: string | null;
+  horas_previstas?: number;
+  posicoes_ids?: number[];
+  meta?: MetaRamo | null;
+  /** Tem meta própria e não tem subtarefas com meta: é aqui que se regista a quantidade executada. */
+  mede_se?: boolean;
+  n_medicoes?: number;
+  precedencia?: Precedencia;
 }
 
 export interface Wbs {
   execucao_global: number;
-  grupos: { marco: Marco | null; execucao: number; tarefas: TarefaWbs[] }[];
+  calendario?: Calendario;
+  grupos: { marco: Marco | null; execucao: number; meta?: MetaFase | null; tarefas: TarefaWbs[] }[];
 }
 
 export interface TarefaKanban {
@@ -156,6 +179,8 @@ export interface ValoresPosicao {
   requisicoes: number;
   desvio: string;
   consumo_pct: number | null;
+  /** Versão Actual: orçamento mapeado pelas quantidades que chega à posição pelas tarefas. */
+  orcamento_qtd?: number;
 }
 
 export interface Posicao {
@@ -171,6 +196,8 @@ export interface Posicao {
   apoio: boolean | null;
   membros: Membro[];
   valores: ValoresPosicao;
+  /** Versão Actual: valores da posição com as subposições (união das tarefas e linhas, sem contar duas vezes). */
+  valores_ramo?: ValoresPosicao & { subposicoes: number };
 }
 
 export interface Organigrama {
@@ -193,6 +220,10 @@ export interface LinhaOrcamento {
   posicao_titulo?: string | null;
   membro_nome?: string | null;
   colaborador_id?: number | null;
+  /** Versão Actual: mapeamento pelas quantidades. */
+  mapeado_qtd?: number;
+  saldo_por_mapear?: number;
+  n_mapas?: number;
 }
 
 export interface Aditamento {
@@ -207,7 +238,9 @@ export interface Aditamento {
 export interface FolhaHoras {
   id: number;
   tarefa_projeto_id: number;
-  colaborador_id: number;
+  colaborador_id: number | null;
+  /** Versão Actual: membro da equipa (externos sem colaborador). */
+  membro_equipa_projeto_id?: number | null;
   data: string;
   horas: string;
   estado: string;
@@ -235,6 +268,8 @@ export interface UsoEquipamento {
 export interface EquipamentosProjecto {
   usos: UsoEquipamento[];
   total: string;
+  /** Versão Actual (projectos_dashboard.js:381-407): agregado por equipamento. */
+  por_equipamento?: { ativo_codigo: string | null; ativo_imobilizado_id: number | null; ativo_descricao: string | null; usos: number; horas: number; custo: string; custo_hora_medio: number | null; de: string | null; ate: string | null; tarefas: string[]; peso_pct: number | null }[];
   afetacoes: { id: number; ativo_imobilizado_id: number; ativo_codigo: string | null; ativo_descricao: string | null; data_inicio: string | null; data_fim: string | null }[];
 }
 
@@ -329,4 +364,244 @@ export interface MovimentoExtracto {
 export interface Extracto {
   totais: { custos: string; proveitos: string; compromissos: string };
   movimentos: MovimentoExtracto[];
+}
+
+// ───────────── Versão Actual (Fase E): execução medida, mapa, carga, orçamento por quantidades, ponte RH ─────────────
+
+export interface Calendario {
+  horas_dia: number;
+  dias: Record<string, number>;
+  modelo?: string | null;
+}
+
+export interface MetaRamo {
+  meta: number;
+  feito: number;
+  unidade: string;
+  /** A quantidade sobe das subtarefas (o realizado do pai não se escreve). */
+  dos_filhos: boolean;
+}
+
+export interface Precedencia {
+  predecessora: { id: number; nome: string; tipo: 'FS' | 'SS' | 'FF' | string; desf: number; rotulo: string } | null;
+  n_seguintes: number;
+  seguintes: string[];
+}
+
+export interface MetaFase {
+  meta: number | null;
+  unidade: string | null;
+  repartido: number;
+  feito: number;
+  unidade_tarefas: string;
+  aviso: string | null;
+}
+
+export interface Medicao {
+  q: number;
+  data: string;
+  nota: string;
+  por: string;
+  em: string;
+}
+
+export interface LinhaFolhaMedicao {
+  id: number;
+  codigo: string | null;
+  nome: string;
+  fase: string | null;
+  atribuido_a_id: number | null;
+  unidade: string;
+  meta: number;
+  realizado: number;
+  falta: number;
+  medicoes: Medicao[];
+}
+
+export interface ResultadoLote {
+  gravadas: number;
+  falhadas: { tarefa_id: number; nome: string | null; erro: string; codigo: string }[];
+  resultados: { tarefa_id: number; realizado: number; pct: number }[];
+}
+
+export interface ColunaEscala {
+  de: string;
+  ate: string;
+  rotulo: string;
+  titulo: string;
+  fds: boolean;
+}
+
+export interface LinhaMapa {
+  chave: string;
+  tipo: 'fase' | 'tarefa';
+  id: number | null;
+  nivel: number;
+  nome: string;
+  previsto: number[];
+  realizado: number[];
+  total_previsto: number;
+  total_realizado: number;
+}
+
+export interface TabelaMapa {
+  linhas: LinhaMapa[];
+  totais: { previsto: number[]; realizado: number[]; total_previsto: number; total_realizado: number; rendimento_pct?: number | null };
+}
+
+export interface MapaQuantidades {
+  escala: string;
+  de: string | null;
+  ate: string | null;
+  colunas: ColunaEscala[];
+  calendario: Calendario;
+  quantidades: (TabelaMapa & { unidade: string; meta: number })[];
+  horas: TabelaMapa;
+  valor: TabelaMapa & { total_mapeado: number };
+}
+
+export interface Ritmo {
+  dias: number;
+  corridos: number;
+  uteis: number;
+  horas: number;
+  por_calendario: boolean;
+  dia: number;
+  semana: number;
+  mes: number;
+  hora: number;
+  unidade: string;
+}
+
+export interface TarefaCarga {
+  tarefa_id: number;
+  codigo: string | null;
+  nome: string;
+  fase: string | null;
+  caminho: string[];
+  nivel: number;
+  inicio: string | null;
+  fim: string | null;
+  estado: string;
+  execucao: number;
+  quota: number;
+  da_area: boolean;
+  areas: string[];
+  areas_sem_gente: string[];
+  meta: { unidade: string; quantidade: number; realizado: number } | null;
+  horas_previstas: number;
+  horas_lancadas: number;
+  ritmo: Ritmo | null;
+}
+
+export interface GrupoCarga {
+  chave: string;
+  membro_id: number | null;
+  nome: string;
+  tipo: string | null;
+  papel: string | null;
+  horas_alocadas: number;
+  posicao: string | { id: number; titulo: string } | null;
+  tarefas: TarefaCarga[];
+  n_tarefas: number;
+  horas_previstas: number;
+  horas_lancadas: number;
+  quantidades: Record<string, number>;
+}
+
+export interface CargaTrabalho {
+  projeto: { id: number; codigo: string | null; nome: string };
+  calendario: Calendario;
+  grupos: GrupoCarga[];
+  areas_sem_gente: string[];
+}
+
+export interface LinhaRecolha {
+  tipo: 'HORAS' | 'QUANTIDADE' | 'TAREFAS';
+  unidade: string;
+  colaborador_id?: number;
+  nome?: string;
+  motivo?: string;
+  quantidade: number;
+  registos: number;
+  ultima: string;
+  projetos: number[];
+  tarefas: number[];
+}
+
+export interface ExecucaoProjecto {
+  de: string;
+  ate: string;
+  cartoes: {
+    horas: { total: number; atribuivel: number; registos: number };
+    quantidades: { unidade: string; total: number; atribuivel: number }[];
+    tarefas: { total: number; atribuivel: number };
+  };
+  por_colaborador: { colaborador_id: number; nome: string; horas: number; tarefas: number; quantidades: Record<string, number> }[];
+  sem_dono: LinhaRecolha[];
+  folhas: { id: number; data: string; tarefa_id: number; tarefa: string; colaborador: string | null; horas: number; estado: string }[];
+  medicoes: { tarefa_id: number; tarefa: string; unidade: string; data: string; quantidade: number; nota: string; por: string; responsavel: string | null }[];
+  concluidas: { tarefa_id: number; tarefa: string; concluida_em: string; responsavel: string | null }[];
+}
+
+export interface GrupoRecolha {
+  chave: string;
+  tipo: LinhaRecolha['tipo'];
+  unidade: string;
+  colaboradores: number;
+  quantidade: number;
+  item_sugerido_id: number | null;
+  candidatos: { id: number; codigo: string; descricao: string | null; unidade: string | null }[];
+}
+
+export interface RecolhaProdutividade {
+  de: string;
+  ate: string;
+  projetos: { id: number; nome: string }[];
+  linhas: LinhaRecolha[];
+  orfas: LinhaRecolha[];
+  grupos: GrupoRecolha[];
+  periodos: { id: number; mes: string; estado: string; data_inicio: string; data_fim: string }[];
+}
+
+export interface AnaliseProdutividade {
+  periodo: { id: number; mes: string; estado: string; data_inicio: string; data_fim: string };
+  validas: { linha: LinhaRecolha; item: { id: number; codigo: string; descricao: string | null; unidade: string | null }; chave: string; data: string; preco_unitario: number; valor: number; registo_existente_id: number | null }[];
+  erros: { linha: LinhaRecolha; item: { id: number; codigo: string }; erro: string }[];
+  sem_item: LinhaRecolha[];
+  orfas: LinhaRecolha[];
+  total: number;
+}
+
+export interface MapaOrcamentoQtd {
+  indice: number;
+  unidade: string;
+  base: 'META' | 'EXECUTADO' | string;
+  escopo: { tipo: 'UNIDADE' | 'FASE' | 'TAREFAS' | string; ids: number[] };
+  valor: number;
+  preco_unitario: number;
+  quantidade_mapeada: number;
+  criado_em?: string;
+  criado_por?: string;
+}
+
+export interface ResumoOrcamentoQtd {
+  unidades: string[];
+  rubricas: { linha_id: number; rubrica: string; montante: number; mapeado: number; saldo: number; pct_mapeado: number; totalmente_mapeada: boolean; mapas: MapaOrcamentoQtd[] }[];
+  por_tarefa: { tarefa_id: number; codigo: string | null; nome: string; unidade: string; quantidade: number; valor: number }[];
+  por_fase: { nome: string; valor: number; quantidade: number }[];
+  por_area: { nome: string; valor: number; quantidade: number }[];
+  por_pessoa: { nome: string; valor: number; quantidade: number }[];
+  total_mapeado: number;
+}
+
+export interface DistribuicaoQtd {
+  unidade: string;
+  base: string;
+  quantidade: number;
+  valor: number;
+  preco_unitario: number;
+  linhas: { tarefa_id: number; codigo: string | null; nome: string; quantidade: number; valor: number }[];
+  saldo: number;
+  sobra?: number;
 }

@@ -9,6 +9,7 @@ use App\Models\ItemOrdemManutencao;
 use App\Models\ModeloBase;
 use App\Models\PlanoManutencaoAtivo;
 use App\Models\RegistoManutencaoAtivo;
+use App\Models\RequisicaoManutencao;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -68,5 +69,10 @@ abstract class OrdemManutencaoAtivoBase extends ModeloBase
     public function itensOrdemManutencao(): HasMany
     {
         return $this->hasMany(ItemOrdemManutencao::class, 'ordem_manutencao_id');
+    }
+
+    public function requisicoesManutencao(): HasMany
+    {
+        return $this->hasMany(RequisicaoManutencao::class, 'ordem_manutencao_id');
     }
 }

@@ -10,6 +10,7 @@ use App\Models\InfotipoSalarial;
 use App\Models\ModeloBase;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PeriodoProdutividadeRH;
+use App\Models\PrestacaoEmprestimo;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -76,5 +77,10 @@ abstract class LinhaFolhaSalarialBase extends ModeloBase
     public function bonificacoesAvaliacaoRh(): HasMany
     {
         return $this->hasMany(BonificacaoAvaliacaoRH::class, 'linha_folha_salarial_id');
+    }
+
+    public function prestacoesEmprestimos(): HasMany
+    {
+        return $this->hasMany(PrestacaoEmprestimo::class, 'linha_folha_salarial_id');
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Services\Tesouraria;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\CartaPagamentoBancario;
 use App\Models\DiarioContabil;
 use App\Models\DocumentoTesouraria;
 use App\Models\ItemDocumentoTesouraria;
@@ -125,6 +126,12 @@ final class ServicoDocumentosTesouraria
                     'DOCUMENTO_NAO_ANULAVEL', 422);
             }
             $this->exigirSemLiquidacaoPOS($doc);
+            // ADR-071 (Fase D): a carta de pagamento nasce do pagamento; com cartas activas, anulam-se primeiro as cartas
+            $cartas = CartaPagamentoBancario::query()->where('documento_tesouraria_id', $doc->id)->where('estado', 'EMITIDA')->pluck('numero')->all();
+            if ($cartas) {
+                throw new ErroNegocio('O pagamento tem cartas de pagamento emitidas ('.implode(', ', $cartas).'): anule primeiro as cartas em Tesouraria › Cartas de Pagamento.',
+                    'PAGAMENTO_COM_CARTAS', 422, ['cartas' => $cartas]);
+            }
             $doc->update(['estado' => 'ANULADO', 'anulado_em' => now(), 'motivo_anulacao' => $motivo]);
 
             return $doc;

@@ -23,6 +23,8 @@ import { DetalheActivo } from './DetalheActivo';
 import { ModalActivo } from './ModalActivo';
 import { ModalAfectacao, ModalEdicaoMassa, ModalImportarActivos, ModalTransferir } from './ModaisActivos';
 import { AlertaReconciliacao } from './inventario/AlertaReconciliacao';
+import { useOpcoesLocais } from './edificios/locais';
+import { textoLocal } from './edificios/regras';
 import { BotaoCartao } from './inventario/BotaoCartao';
 import { bloqueioEliminar, corEstadoActivo, dicaEditar, iconeEditar, NOME_TEMPLATE_ACTIVOS, ouTracos, taxaPorVidaUtil, vidaUtilMeses } from './inventario/regrasInventario';
 
@@ -76,6 +78,9 @@ function Cadastro() {
   const podeEliminar = pode('activos_eliminar');
 
   const pequeno = useEcraPequeno();
+  const locais = useOpcoesLocais();
+  // coluna «Localização» do legado novo (ui_assets.js:217): selo EDIFÍCIO ou Edifício · Andar · Porta
+  const local = (r: Activo) => (r.tipo_ativo === 'EDIFICIO' ? 'EDIFÍCIO' : textoLocal(locais.data, r.porta_id));
   const kz = (v: unknown) => formatarKz(v === null || v === undefined ? null : String(v));
   const colunas: ColunaApi<Activo>[] = [
     {
@@ -89,6 +94,8 @@ function Cadastro() {
     },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300, render: (v) => <strong>{v}</strong> },
     { title: 'Categoria', key: 'cat', valorFiltro: (r) => r.categoria_ativo?.nome ?? '', valorImpressao: (r) => r.categoria_ativo?.nome ?? 'N/A', render: (_, r) => <small>{r.categoria_ativo?.nome ?? 'N/A'}</small> },
+    { title: 'Localização', key: 'local', valorFiltro: local, valorImpressao: (r) => local(r) || '—',
+      render: (_, r) => (r.tipo_ativo === 'EDIFICIO' ? <Tag icon={<IconeFa nome="city" />}>EDIFÍCIO</Tag> : <small>{local(r) || '—'}</small>) },
     { title: 'Data Aquisição', dataIndex: 'data_aquisicao', render: formatarData, valorImpressao: (r) => formatarData(r.data_aquisicao) },
     { title: 'U. Negócio', key: 'un', valorFiltro: (r) => r.unidade_negocio?.codigo ?? '', valorImpressao: (r) => ouTracos(r.unidade_negocio?.codigo), render: (_, r) => <small>{ouTracos(r.unidade_negocio?.codigo)}</small> },
     { title: 'C. Custo', key: 'cc', valorFiltro: (r) => r.centro_custo?.codigo ?? '', valorImpressao: (r) => ouTracos(r.centro_custo?.codigo), render: (_, r) => <small>{ouTracos(r.centro_custo?.codigo)}</small> },

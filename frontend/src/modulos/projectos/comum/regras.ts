@@ -153,18 +153,40 @@ export function linhasGanttGlobal(g: GanttGlobal | undefined, comTarefas = true)
   return res;
 }
 
-/** Linhas do Gantt de um projecto a partir da WBS: marco → tarefas → subtarefas. */
-export function linhasGanttWbs(wbs: Wbs | undefined): LinhaGantt[] {
+/**
+ * Linhas do Gantt de um projecto a partir da WBS: marco → tarefas → subtarefas. Versão Actual: a fase vai da data de
+ * início à data alvo; com `periodo`, só ficam as tarefas que tocam o intervalo e os pais delas (ganttPeriodo);
+ * `fasesFechadas` recolhe as fases indicadas (toggleGanttFase); `nivelMaximo` 0 = só fases, 1 = fases e tarefas.
+ */
+export function linhasGanttWbs(wbs: Wbs | undefined, opcoes: { periodo?: { de?: string | null; ate?: string | null }; fasesFechadas?: Set<string>; nivelMaximo?: number } = {}): LinhaGantt[] {
   const res: LinhaGantt[] = [];
+  const de = opcoes.periodo?.de ?? null;
+  const ate = opcoes.periodo?.ate ?? null;
+  const toca = (t: TarefaWbs) => (!de && !ate) || (!!t.data_inicio && (!ate || t.data_inicio <= ate) && (!de || (t.data_fim ?? t.data_inicio) >= de));
+  const fica = (t: TarefaWbs): boolean => toca(t) || (t.subtarefas ?? []).some(fica);
   const visitar = (t: TarefaWbs, nivel: number) => {
+    if (!fica(t) || (opcoes.nivelMaximo !== undefined && nivel > opcoes.nivelMaximo)) return;
     res.push({ chave: `t-${t.id}`, id: t.id, nome: t.nome, rotulo: t.codigo ?? undefined, nivel, tipo: 'tarefa', inicio: t.data_inicio, fim: t.data_fim, progresso: t.execucao, estado: t.estado });
     t.subtarefas?.forEach((s) => visitar(s, nivel + 1));
   };
   for (const g of wbs?.grupos ?? []) {
     if (!g.marco && !g.tarefas.length) continue;
-    res.push({ chave: `m-${g.marco?.id ?? 'sem'}`, nome: g.marco?.nome ?? 'Sem milestone', nivel: 0, tipo: 'marco', inicio: g.marco?.data ?? null, fim: g.marco?.data ?? null, progresso: g.execucao });
-    g.tarefas.forEach((t) => visitar(t, 1));
+    if ((de || ate) && !g.tarefas.some(fica)) continue;
+    const chave = `m-${g.marco?.id ?? 'sem'}`;
+    res.push({ chave, nome: g.marco?.nome ?? 'Sem milestone', nivel: 0, tipo: 'marco', inicio: g.marco?.data_inicio ?? g.marco?.data ?? null, fim: g.marco?.data ?? g.marco?.data_inicio ?? null, progresso: g.execucao });
+    if (!opcoes.fasesFechadas?.has(chave)) g.tarefas.forEach((t) => visitar(t, 1));
   }
+  return res;
+}
+
+/** Ligações de precedência para o Gantt (o componente só desenha as que ligam duas linhas visíveis). */
+export function ligacoesWbs(wbs: Wbs | undefined): { de: string; para: string; tipo: string; desf?: number }[] {
+  const res: { de: string; para: string; tipo: string; desf?: number }[] = [];
+  const visitar = (t: TarefaWbs) => {
+    if (t.tarefa_predecessora_id) res.push({ de: `t-${t.tarefa_predecessora_id}`, para: `t-${t.id}`, tipo: t.tipo_dependencia || 'FS', desf: t.desfasamento_dias ?? 0 });
+    t.subtarefas?.forEach(visitar);
+  };
+  wbs?.grupos.forEach((g) => g.tarefas.forEach(visitar));
   return res;
 }
 

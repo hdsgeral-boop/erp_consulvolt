@@ -54,6 +54,11 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
         <Typography.Text type={p.vagas && ocupadas < p.vagas ? 'warning' : 'secondary'}>{ocupadas}/{p.vagas ?? 0} vaga(s)</Typography.Text>
         {p.membros.length > 0 && <Typography.Text type="secondary">{p.membros.map((m) => m.nome).join(', ')}</Typography.Text>}
         {Number(p.valores.orcamento) > 0 && <Typography.Text type="secondary">Orç. {formatarKz(p.valores.orcamento)} · exec. {formatarKz(p.valores.executado)}</Typography.Text>}
+        {/* Versão Actual (projectos_organigrama.js:134-162): a chefia responde pelo que está abaixo; orçamento mapeado pelas quantidades */}
+        {Number(p.valores.orcamento_qtd ?? 0) > 0 && <Typography.Text type="secondary" style={{ display: 'block' }}>Mapeado por qtd. {formatarKz(p.valores.orcamento_qtd)}</Typography.Text>}
+        {(p.valores_ramo?.subposicoes ?? 0) > 0 && Number(p.valores_ramo?.orcamento ?? 0) + Number(p.valores_ramo?.orcamento_qtd ?? 0) > 0 && (
+          <Typography.Text type="secondary" style={{ display: 'block' }}>Com as subposições: orç. {formatarKz(p.valores_ramo?.orcamento)} · exec. {formatarKz(p.valores_ramo?.executado)}{Number(p.valores_ramo?.orcamento_qtd ?? 0) > 0 ? ` · qtd. ${formatarKz(p.valores_ramo?.orcamento_qtd)}` : ''}</Typography.Text>
+        )}
         {acc.gerir && (
           <Space wrap size={4} onClick={(e) => e.stopPropagation()}>
             <Button size="small" icon={<UserAddOutlined />} title="Alocar membros" onClick={() => setAlocar(p)} />

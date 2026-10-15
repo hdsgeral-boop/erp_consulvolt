@@ -17,7 +17,7 @@ final class ContratoTrabalhoController extends Controller
     public function index(Request $r): JsonResponse
     {
         $this->exigir('contratos_view', 'colaboradores_view');
-        $f = $r->validate(['colaborador_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'in:ACTIVO,INACTIVO,SUSPENSO']]);
+        $f = $r->validate(['colaborador_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'in:ACTIVO,INACTIVO,SUSPENSO,CESSADO']]);
 
         return RespostaApi::sucesso(ContratoTrabalho::query()->when($f['colaborador_id'] ?? null, fn ($q, $c) => $q->where('colaborador_id', $c))
             ->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))->orderBy('colaborador_id')->orderBy('data_inicio')->get(), 'Contratos de trabalho.');
@@ -68,11 +68,16 @@ final class ContratoTrabalhoController extends Controller
         return $r->validate([
             'colaborador_id' => ['required', 'integer'], 'data_inicio' => ['required', 'date'], 'data_fim' => ['nullable', 'date'],
             'dias_contrato_mes' => ['sometimes', 'integer', 'min:1', 'max:31'], 'horas_por_dia' => ['sometimes', 'numeric', 'gt:0', 'max:24'],
-            'estado' => ['sometimes', 'in:ACTIVO,INACTIVO,SUSPENSO'], 'codigo_moeda' => ['sometimes', 'string', 'size:3'],
+            'estado' => ['sometimes', 'in:ACTIVO,INACTIVO,SUSPENSO,CESSADO'], 'codigo_moeda' => ['sometimes', 'string', 'size:3'],
             'remuneracoes' => ['required', 'array', 'min:1', 'max:50'], 'remuneracoes.*.infotipo_salarial_id' => ['required', 'integer'],
             'remuneracoes.*.valor_mes' => ['required', 'numeric', 'min:0', 'max:9999999999999.99'],
             'produtividade' => ['sometimes', 'nullable', 'array'], 'produtividade.*.item_id' => ['required', 'integer'],
             'produtividade.*.preco_unitario' => ['nullable', 'numeric', 'min:0'],
+            // Fase B (Versão Actual, app_v2.js:4751): horário do contrato; as regras de coerência estão em RegrasContrato::validarHorario
+            'horario' => ['sometimes', 'nullable', 'array'], 'horario.entrada' => ['nullable', 'date_format:H:i'], 'horario.saida' => ['nullable', 'date_format:H:i'],
+            'horario.periodos' => ['nullable', 'integer', 'in:1,2'], 'horario.saida_intervalo' => ['nullable', 'date_format:H:i'],
+            'horario.entrada_intervalo' => ['nullable', 'date_format:H:i'], 'horario.intervalo_min' => ['nullable', 'integer', 'between:0,480'],
+            'horario.tolerancia_min' => ['nullable', 'integer', 'between:0,120'], 'horario.dias' => ['nullable', 'array', 'max:7'], 'horario.dias.*' => ['integer', 'between:0,6'],
         ], [], ['remuneracoes' => 'remunerações', 'dias_contrato_mes' => 'dias do contrato', 'horas_por_dia' => 'horas por dia']);
     }
 }

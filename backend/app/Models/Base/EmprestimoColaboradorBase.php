@@ -24,7 +24,7 @@ abstract class EmprestimoColaboradorBase extends ModeloBase
     protected string $moduloAuditoria = 'RH';
 
     protected $fillable = [
-        'empresa_id', 'colaborador_id', 'numero', 'capital', 'prestacoes', 'taxa_juro', 'valor_prestacao', 'inicio_desconto', 'motivo', 'estado', 'pedido_portal_colaborador_id', 'criado_por', 'total_juros', 'total_a_pagar', 'aprovado_em', 'aprovado_por', 'lancamento_referencia', 'lancado_em', 'lancado_por', 'motivo_cancelamento', 'cancelado_em', 'cancelado_por',
+        'empresa_id', 'colaborador_id', 'numero', 'capital', 'prestacoes', 'taxa_juro', 'valor_prestacao', 'inicio_desconto', 'motivo', 'estado', 'pedido_portal_colaborador_id', 'criado_por', 'total_juros', 'total_a_pagar', 'aprovado_em', 'aprovado_por', 'lancamento_referencia', 'lancado_em', 'lancado_por', 'motivo_cancelamento', 'cancelado_em', 'cancelado_por', 'decidido_em', 'liquidado_em',
     ];
 
     protected function casts(): array
@@ -42,6 +42,8 @@ abstract class EmprestimoColaboradorBase extends ModeloBase
             'aprovado_em' => 'datetime',
             'lancado_em' => 'datetime',
             'cancelado_em' => 'datetime',
+            'decidido_em' => 'datetime',
+            'liquidado_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

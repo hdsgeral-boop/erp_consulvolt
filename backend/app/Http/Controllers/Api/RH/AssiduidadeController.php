@@ -43,6 +43,8 @@ final class AssiduidadeController extends Controller
             'relogio' => ['nullable', 'array'], 'relogio.url' => ['nullable', 'string', 'max:500'], 'relogio.formato' => ['nullable', 'in:CSV,JSON'],
             'modo_compensacao' => ['required', Rule::in(ServicoCalendarioRH::MODOS_COMPENSACAO)], 'limite_compensacao_h' => ['nullable', 'numeric', 'between:0,200'],
             'extra_nao_util_exige_autorizacao' => ['required', 'boolean'],
+            // Versão Actual: regime de picagem por omissão (assiduidade.js:75)
+            'periodos_padrao' => ['nullable', 'integer', 'in:1,2'], 'intervalo_saida_padrao' => ['nullable', 'date_format:H:i'], 'intervalo_entrada_padrao' => ['nullable', 'date_format:H:i'],
         ]);
 
         return RespostaApi::sucesso($this->calendario->gravarConfig($d), 'Configuração da assiduidade gravada.');
@@ -64,7 +66,8 @@ final class AssiduidadeController extends Controller
     {
         $this->exigir('rh_assid_registar');
         $d = $r->validate(['colaborador_id' => ['required', 'integer'], 'data' => ['required', 'date_format:Y-m-d'], 'entrada' => ['nullable', 'date_format:H:i'],
-            'saida' => ['nullable', 'date_format:H:i'], 'horas' => ['nullable', 'numeric'], 'observacoes' => ['nullable', 'string', 'max:1000'],
+            'saida' => ['nullable', 'date_format:H:i'], 'saida_intervalo' => ['nullable', 'date_format:H:i'], 'entrada_intervalo' => ['nullable', 'date_format:H:i'],
+            'horas' => ['nullable', 'numeric'], 'observacoes' => ['nullable', 'string', 'max:1000'],
             'autorizado_extra' => ['nullable', 'boolean']]);
 
         return RespostaApi::sucesso($this->assiduidade->gravarRegisto($d), 'Registo de efectividade gravado.');

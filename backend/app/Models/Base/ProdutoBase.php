@@ -11,6 +11,7 @@ use App\Models\ItemCompra;
 use App\Models\ItemGuiaSaida;
 use App\Models\ItemOrdemManutencao;
 use App\Models\ItemVenda;
+use App\Models\LinhaRequisicaoManutencao;
 use App\Models\LinhaSessaoInventario;
 use App\Models\ModeloBase;
 use App\Models\MovimentoCaixa;
@@ -118,5 +119,10 @@ abstract class ProdutoBase extends ModeloBase
     public function itensOrdemManutencao(): HasMany
     {
         return $this->hasMany(ItemOrdemManutencao::class, 'produto_id');
+    }
+
+    public function linhasRequisicaoManutencao(): HasMany
+    {
+        return $this->hasMany(LinhaRequisicaoManutencao::class, 'produto_id');
     }
 }

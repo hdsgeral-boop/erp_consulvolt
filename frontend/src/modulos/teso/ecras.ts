@@ -20,4 +20,6 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   teso_gestao_conferencia: comBarra('teso_gestao_conferencia', () => import('./Conferencia')),
   // página própria no legado (renderMeiosPagamentoPage), com o seu cabeçalho e «Ecrã Cheio»
   teso_meios_pagamento: lazy(() => import('./MeiosPagamento')),
+  // página própria no legado novo (renderCartasPagamento): Cartas emitidas / Emitir / Modelo de texto (Fase D, ADR-071)
+  teso_cartas: lazy(() => import('./cartas/CartasPagamento')),
 };

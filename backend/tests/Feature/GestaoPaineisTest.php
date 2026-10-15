@@ -294,7 +294,7 @@ final class GestaoPaineisTest extends TestCase
     {
         $s = $this->total();
         $conj = $this->getJson('/api/gestao/cubo/conjuntos', $s)->assertOk()->json('dados');
-        $this->assertSame(['contabilidade', 'vendas', 'compras', 'tesouraria', 'armazem', 'rh', 'projetos', 'ativos'], array_column($conj, 'id'));
+        $this->assertSame(['contabilidade', 'vendas', 'compras', 'tesouraria', 'armazem', 'rh', 'rh_rubricas', 'projetos', 'ativos'], array_column($conj, 'id'));
 
         $pedido = ['conjunto' => 'contabilidade', 'data_inicio' => '2026-01-01', 'data_fim' => '2026-03-31', 'linhas' => ['classe'], 'colunas' => ['mes'],
             'medidas' => [['medida' => 'saldo', 'agregacao' => 'soma'], ['agregacao' => 'contagem']]];

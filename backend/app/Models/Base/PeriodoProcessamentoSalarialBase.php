@@ -11,6 +11,7 @@ use App\Models\FechoMensalAssiduidade;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\ModeloBase;
 use App\Models\PeriodoProdutividadeRH;
+use App\Models\PrestacaoEmprestimo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -69,5 +70,10 @@ abstract class PeriodoProcessamentoSalarialBase extends ModeloBase
     public function documentosTesouraria(): HasMany
     {
         return $this->hasMany(DocumentoTesouraria::class, 'periodo_processamento_salarial_id');
+    }
+
+    public function prestacoesEmprestimos(): HasMany
+    {
+        return $this->hasMany(PrestacaoEmprestimo::class, 'periodo_processamento_salarial_id');
     }
 }

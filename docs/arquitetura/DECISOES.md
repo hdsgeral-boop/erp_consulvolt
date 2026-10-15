@@ -2273,3 +2273,35 @@ Na pasta do Windows montada no Docker Desktop, o `DirectoryIterator` do PHP devo
 - **Ordenação por nome em todo o sistema:**
   - macro `ordenarPorNome()` (`App\Support\Dados\OrdenacaoTexto`, registada no `AppServiceProvider`), com colação `pt-PT-x-icu` e espaços normalizados;
   - substitui os 63 `orderBy('nome' | 'x.nome' | 'nome_completo')` do backend.
+
+**Fases B a H (2026-10-14/15, agentes em paralelo, integradas por esta ordem: H, F, B, E, G, C, D e esquema).**
+- **B (RH):**
+  - suspensão e cessação do contrato (Lei 12/23; compensação dos arts. 307.º, 308.º e 310.º, só registada), com efeito na folha: suspenso no mês inteiro fica fora; suspensão parcial e mês da cessação entram, com aviso;
+  - horário de 1 ou 2 períodos e escala do mês (prioritária e normal), que definem as horas previstas no apuramento;
+  - empréstimos: portal → chefia → RH → plano francês → desconto na folha, com conta corrente;
+  - portal com os separadores Escala, Contrato e Empréstimos;
+  - por fazer: o portal autónomo (rota e layout próprios).
+- **C (Repartição por UN):**
+  - 6 critérios de repartição, alocação nos documentos e no colaborador, e UN/CC por linha;
+  - na contabilização reparte só proveitos, CMV e gastos (a linha manda), e nos salários o custo, os impostos e o líquido. A última parcela absorve o arredondamento;
+  - «Repartir linha» nos lançamentos e na tesouraria; Balanço e DR por unidade;
+  - sem peso ou com critério inexistente a integração pára; um critério em uso não se elimina.
+- **D (Cartas de pagamento):**
+  - nascem de um pagamento gravado (42/43 com IBAN), sem lançamentos, para terceiros e salários;
+  - modelos de texto com um predefinido por tipo; numeração CP AAAA/NNN; anulação com motivo;
+  - o pagamento com cartas emitidas não se anula (`PAGAMENTO_COM_CARTAS`);
+  - o RH grava o pagamento do período e emite a carta a partir dele.
+- **E (Projectos):** calendário, metas por quantidade, execução medida, dependências FS/SS/FF, mapa de quantidades e orçamento mapeado, separador Execução e ponte idempotente para a Produtividade do RH, Gantt, carga da equipa e ordem de trabalho.
+- **F (Activos):**
+  - tipo BEM/EDIFÍCIO e localização edifício › andar › porta, planta e inventário físico (a folha anula-se com motivo);
+  - manutenção: planos por tempo ou contador, ordens, requisições ao armazém (saída ao custo médio) e pedidos de compra.
+- **G (Método de Trabalho 5W1H):**
+  - assuntos com deliberação pela chefia no organigrama; ao aprovar nasce o projecto ou o pedido de compra;
+  - sem colaborador ligado, a aprovação só é automática para quem tem `mt_aprovar`;
+  - o `departamento_id` do legado (unidade orgânica) é anulado no ETL.
+- **H (Núcleo):**
+  - regras de IA em ficheiro JSON, com avaliador de expressões sem `eval` e chave só no servidor;
+  - tela nocturna (botão, Ctrl+Shift+N e Alt+Shift+N), aspecto do menu e filtro em linha na árvore do menu, textos de ajuda;
+  - cubo com dimensões novas (NIF incluído) e cubo de rubricas de RH.
+- **Esquema:** 78 colunas novas em `campos_codigo_legado.json`/`COLUNAS_NOVAS`; 5 alargamentos e `vendas.unidades_alocadas` passa a jsonb; 0 estreitamentos. O ETL ganhou as conversões de cada fase (ids das alocações, `data_fim` 9999-12-31 → NULL, `concluida_em` ao meio-dia, ligações portal ↔ empréstimo, motor IA, modelo de carta predefinido). A recarga de 13/10 deu os mesmos números de antes.
+- **Menu:** Empréstimos (RH), Método de Trabalho › Registo de Assuntos (5W1H), Cartas de Pagamento (Tesouraria) e Assistente IA (Contabilidade). Edifícios e Locais é um separador dos Activos. `ECRAS_ADIADOS` ficou vazio.

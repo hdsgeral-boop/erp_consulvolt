@@ -74,7 +74,7 @@ return new class extends Migration
             $table->string('modo_pagamento_original', 100)->nullable()->comment('legado: payment_mode · texto exacto do legado');
             $table->jsonb('plano_pagamentos')->nullable()->comment('legado: payment_schedule');
             $table->bigInteger('oportunidade_crm_id')->nullable()->comment('legado: crm_opportunity_id');
-            $table->text('unidades_alocadas')->nullable()->comment('legado: unidades_alocadas · sem valores reais: tipo a confirmar no código legado');
+            $table->jsonb('unidades_alocadas')->nullable()->comment('legado: unidades_alocadas · sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text)');
             $table->string('fe_tipo', 5)->nullable()->comment('legado: fe_tipo · tipo forçado (inferido: varchar(10))');
             $table->bigInteger('serie_faturacao_eletronica_id')->nullable()->comment('legado: fe_serie_id');
             $table->string('fe_serie', 50)->nullable()->comment('legado: fe_serie · tipo forçado (inferido: varchar(10))');
@@ -185,6 +185,7 @@ return new class extends Migration
             $table->string('referencia', 255)->nullable()->comment('legado: reference · do código legado js/ui_sales.js:3692');
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id · do código legado js/db_v2.js:568');
             $table->string('codigo_projeto', 255)->nullable()->comment('legado: project_code · do código legado js/db_v2.js:569');
+            $table->jsonb('unidades_alocadas')->nullable()->comment('legado: unidades_alocadas · do código legado Versões/Versão Actual/ERP/js/ui_sales.js:3797');
             $table->string('estado', 20)->nullable()->comment('EMITIDO ou ANULADO (nulo nos recibos do legado = EMITIDO)');
             $table->bigInteger('venda_origem_id')->nullable()->comment('Factura-recibo que gerou automaticamente o recibo');
             $table->bigInteger('serie_faturacao_eletronica_id')->nullable()->comment('Série de numeração do recibo');

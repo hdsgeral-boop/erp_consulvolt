@@ -177,7 +177,8 @@ function PeriodoCalculo() {
     setEditarLote(false);
     setSelecionados([]);
     if (pedido.url.endsWith('importar-contratos') && dados) {
-      const ign = (dados.ignorados as string[] | undefined) ?? [];
+      // Fase B: avisos de contratos suspensos em parte do mês ou cessados a meio (ajustar os dias trabalhados)
+      const ign = [...((dados.avisos as string[] | undefined) ?? []).map((x) => `Aviso — ${x}`), ...((dados.ignorados as string[] | undefined) ?? [])];
       setResultadoImport({ titulo: `Importação dos contratos: ${dados.criados ?? 0} lançamento(s) criado(s), ${dados.ja_existentes ?? 0} já existente(s).`, linhas: ign });
     }
     if (pedido.url.endsWith('/copiar') && dados) {
@@ -282,12 +283,16 @@ function PeriodoCalculo() {
                   { key: 'contratos', label: 'Importar dos contratos' },
                   { key: 'efectividade', label: 'Importar efectividade (horas extra e faltas)' },
                   { key: 'produtividade', label: 'Importar produtividade' },
+                  // Fase B (Versão Actual, app_v2.js:5406): prestações do mês dos empréstimos aprovados
+                  ...(pode('rh_emp_lancar') ? [{ key: 'emprestimos', label: 'Importar empréstimos (prestações do mês)' }, { key: 'anular-emprestimos', label: 'Anular empréstimos importados', danger: true }] : []),
                   ...(ac.lancar ? [{ type: 'divider' as const }, { key: 'excel', label: 'Importar Excel (lançamentos)', icon: <FileExcelOutlined /> }] : []),
                 ],
                 onClick: ({ key }) => {
                   if (key === 'contratos') Modal.confirm({ title: 'Importar lançamentos dos contratos?', content: 'Cria os lançamentos em falta a partir do contrato activo no mês (colaboradores activos, em Kz). Os existentes mantêm-se.', okText: 'Importar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-contratos` }) });
                   if (key === 'efectividade') { formEf.resetFields(); setEfectividade(true); }
                   if (key === 'produtividade') { setSubstituir(true); setProdutividade(true); }
+                  if (key === 'emprestimos') Modal.confirm({ title: `Importar as prestações dos empréstimos de ${p.mes_ano}?`, content: 'Cria um desconto por colaborador na rubrica configurada (RH › Empréstimos), com o valor da prestação do mês. As prestações passam a descontadas; o empréstimo fica liquidado quando já não houver prestações. Um desconto já existente na mesma rubrica não é alterado.', okText: 'Importar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-emprestimos`, dados: { substituir: false } }) });
+                  if (key === 'anular-emprestimos') Modal.confirm({ title: 'Anular os descontos de empréstimos deste período?', content: 'Retira os lançamentos criados por «Importar empréstimos» e repõe as prestações por descontar.', okText: 'Anular', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/anular-emprestimos` }) });
                   if (key === 'excel') setImportarExcel(true);
                 },
               }}>

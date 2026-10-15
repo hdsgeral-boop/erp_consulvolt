@@ -53,6 +53,7 @@ final class ServicoAtivos
         private readonly ContextoEmpresa $contexto,
         private readonly ServicoNumeracao $numeracao,
         private readonly VerificadorReferencias $referencias,
+        private readonly ServicoLocaisAtivos $locais,
     ) {}
 
     // ───────────── Ficha ─────────────
@@ -81,6 +82,8 @@ final class ServicoAtivos
     public function validar(array $d, ?AtivoImobilizado $a = null): array
     {
         unset($d['amortizacao_acumulada'], $d['lancamento_contabil_id'], $d['empresa_id']);
+        // Fase F (Versão Actual): tipo BEM/EDIFICIO e localização Edifício › Andar › Porta (ui_assets.js:465-480)
+        $d = $this->locais->normalizarFicha($d, $a);
         foreach (['codigo', 'descricao'] as $c) {
             if (array_key_exists($c, $d)) {
                 $d[$c] = trim((string) $d[$c]);
@@ -391,7 +394,7 @@ final class ServicoAtivos
     {
         $origem = $a->lancamento_contabil_id ? LancamentoContabil::query()->with('diario:id,codigo,nome')->find($a->lancamento_contabil_id) : null;
 
-        return $a->load(['categoriaAtivo', 'centroCusto:id,codigo,descricao', 'unidadeNegocio:id,codigo,nome', 'fornecedor:id,nome'])->toArray() + [
+        return $a->load(['categoriaAtivo', 'centroCusto:id,codigo,descricao', 'unidadeNegocio:id,codigo,nome', 'fornecedor:id,nome', 'edificio:id,codigo,descricao', 'andar:id,numero,nome', 'porta:id,numero,nome'])->toArray() + [
             'valor_liquido' => bcsub(CalculadoraAmortizacoes::d($a->valor_aquisicao), CalculadoraAmortizacoes::d($a->amortizacao_acumulada), 2),
             'bloqueado' => $this->temAmortizacoes($a),
             'origem' => $origem ? $origem->only(['id', 'numero_lan', 'numero_documento', 'data_documento', 'codigo_conta', 'valor', 'descricao', 'terceiro_id']) + ['diario' => $origem->diario?->only(['codigo', 'nome'])] : null,

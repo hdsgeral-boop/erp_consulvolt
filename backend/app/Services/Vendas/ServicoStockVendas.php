@@ -105,10 +105,11 @@ final class ServicoStockVendas
 
     /**
      * Linhas de CMV do documento (agregadas por conta): saídas D custo / C inventário; devoluções o inverso.
+     * Com `porUnidade` (Fase C, R5) agregam-se também pela unidade/centro de custo da linha do artigo (ver analiticaLinha).
      *
-     * @return list<array{codigo_conta: string, tipo_dc: string, valor: string}>
+     * @return list<array<string, mixed>>
      */
-    public function linhasCmv(Venda $venda): array
+    public function linhasCmv(Venda $venda, bool $porUnidade = false): array
     {
         $devolucao = in_array($venda->tipo_documento, ['NC', 'GD'], true);
         $linhas = [];
@@ -125,12 +126,35 @@ final class ServicoStockVendas
                     $pares[] = [$a['codigo_conta'], $a['tipo_dc'], $a['valor']];
                 }
             }
+            $analitica = $porUnidade ? self::analiticaLinha($i) : [];
+            $sufixo = $analitica ? '|'.($analitica['unidade_negocio_id'] ?? '').'|'.($analitica['centro_custo_id'] ?? '') : '';
             foreach ($pares as [$conta, $dc, $v]) {
-                $linhas["{$conta}|{$dc}"] ??= ['codigo_conta' => $conta, 'tipo_dc' => $dc, 'valor' => '0.00'];
-                $linhas["{$conta}|{$dc}"]['valor'] = bcadd($linhas["{$conta}|{$dc}"]['valor'], $v, 2);
+                $linhas["{$conta}|{$dc}{$sufixo}"] ??= $analitica + ['codigo_conta' => $conta, 'tipo_dc' => $dc, 'valor' => '0.00'];
+                $linhas["{$conta}|{$dc}{$sufixo}"]['valor'] = bcadd($linhas["{$conta}|{$dc}{$sufixo}"]['valor'], $v, 2);
             }
         }
 
         return array_values($linhas);
+    }
+
+    /**
+     * Unidade de negócio / centro de custo próprios da linha do artigo (js/shared/linha_un_cc.js): só as chaves escolhidas
+     * (as outras seguem o cabeçalho); com unidade própria a linha fica marcada `_propria` e não entra na repartição do
+     * documento (precedência linha › repartição do documento › cabeçalho).
+     *
+     * @return array<string, mixed>
+     */
+    public static function analiticaLinha(object $item): array
+    {
+        $a = [];
+        if (! empty($item->unidade_negocio_id)) {
+            $a['unidade_negocio_id'] = (int) $item->unidade_negocio_id;
+            $a['_propria'] = true;
+        }
+        if (! empty($item->centro_custo_id)) {
+            $a['centro_custo_id'] = (int) $item->centro_custo_id;
+        }
+
+        return $a;
     }
 }

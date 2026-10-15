@@ -259,6 +259,11 @@
           "exemplo": "",
           "ref": "js/db_v2.js:569",
           "nota": "upgrade v1236: addProjectFields (modify) — default ''"
+        },
+        "unidades_alocadas": {
+          "exemplo": "expr: alocacaoRecibo",
+          "ref": "Versões/Versão Actual/ERP/js/ui_sales.js:3797",
+          "nota": "herdada da 1.ª factura liquidada (Fase C)"
         }
       }
     },
@@ -315,6 +320,19 @@
         "total_with_tax": {
           "exemplo": "number (Math.round((netEnc + ivaEnc) * 100) / 100)",
           "ref": "js/ui_compras_v2.js:2156"
+        },
+        "unidades_alocadas": {
+          "exemplo": {
+            "criterio_id": 1,
+            "unidades": [
+              {
+                "business_unit_id": 1,
+                "peso": 50
+              }
+            ]
+          },
+          "ref": "Versões/Versão Actual/ERP/js/ui_compras_v2.js:3516",
+          "nota": "lido na contabilização da factura (o legado não o grava na encomenda)"
         }
       }
     },
@@ -2539,6 +2557,404 @@
           "exemplo": true,
           "ref": "Versões/Versão Actual/ERP/js/ui_aux.js:976",
           "nota": "a primeira conta fica predefinida; só uma por terceiro"
+        }
+      }
+    },
+    "contracts": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, employee_id, infotype_id, value_per_day, contract_days_month, start_date, end_date, status, [company_id+employee_id], is_master_data",
+      "ref_esquema": "js/db_v2.js:10",
+      "linhas_reais_backup": 114,
+      "campos": {
+        "suspensao": {
+          "exemplo": {
+            "de": "2026-01-01",
+            "ate": "2026-02-01",
+            "motivo_codigo": "DOENCA",
+            "artigo": "art. 0.º",
+            "registado_por": "utilizador.exemplo"
+          },
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:153",
+          "nota": "suspensão em vigor (Fase B)"
+        },
+        "suspensoes": {
+          "exemplo": [],
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:153",
+          "nota": "histórico das suspensões"
+        },
+        "cessacao": {
+          "exemplo": {
+            "data": "2026-03-31",
+            "modalidade": "MUTUO_ACORDO",
+            "motivo_codigo": "EXEMPLO"
+          },
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:213",
+          "nota": "cessação do contrato"
+        },
+        "cessacoes_anuladas": {
+          "exemplo": [],
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:236",
+          "nota": "histórico das cessações anuladas"
+        }
+      }
+    },
+    "employees": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, name, nif, inss, role_id, org_type_id, status, work_days, is_retired, is_avencado, is_master_data",
+      "ref_esquema": "js/db_v2.js:613",
+      "linhas_reais_backup": 141,
+      "campos": {
+        "data_cessacao": {
+          "exemplo": "2026-03-31",
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:217",
+          "nota": "data da cessação do contrato (null ao anular)"
+        }
+      }
+    },
+    "rh_loans": {
+      "grupo": "B",
+      "esquema_dexie": "++id, rh_company_id, employee_id, estado, numero, [rh_company_id+estado], [rh_company_id+employee_id]",
+      "ref_esquema": "js/db_v2.js:939",
+      "linhas_reais_backup": 2,
+      "campos": {
+        "decidido_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/emprestimos.js:168"
+        },
+        "liquidado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/emprestimos.js:258"
+        }
+      }
+    },
+    "rh_loan_instalments": {
+      "grupo": "B",
+      "esquema_dexie": "++id, loan_id, employee_id, month_year, estado, [loan_id+month_year], [employee_id+month_year]",
+      "ref_esquema": "js/db_v2.js:940",
+      "linhas_reais_backup": 23,
+      "campos": {
+        "payroll_entry_id": {
+          "exemplo": "expr: entryId",
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/emprestimos.js:254",
+          "nota": "lançamento do processamento que descontou a prestação"
+        },
+        "descontado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "Versões/Versão Actual/ERP/js/modules/rh/emprestimos.js:254"
+        }
+      }
+    },
+    "project_timesheets": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, project_id, task_id, employee_id, date, hours, status, is_master_data",
+      "ref_esquema": "js/db_v2.js:558",
+      "linhas_reais_backup": 3,
+      "campos": {
+        "team_member_id": {
+          "exemplo": "expr: parseInt(membroId)",
+          "ref": "Versões/Versão Actual/ERP/js/ui_projects.js:5121",
+          "nota": "membro da equipa do projecto (externos e entidades)"
+        }
+      }
+    },
+    "purchase_invoices": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, order_id, supplier_id, invoice_number, date, total_amount, status, is_posted, is_master_data",
+      "ref_esquema": "js/db_v2.js:40",
+      "linhas_reais_backup": 26,
+      "campos": {
+        "unidades_alocadas": {
+          "exemplo": {
+            "criterio_id": 1,
+            "unidades": [
+              {
+                "business_unit_id": 1,
+                "peso": 50
+              }
+            ]
+          },
+          "ref": "Versões/Versão Actual/ERP/js/ui_compras_v2.js:2075",
+          "nota": "repartição por unidades de negócio (Fase C)"
+        }
+      }
+    },
+    "asset_inventories": {
+      "grupo": "C",
+      "esquema_dexie": "++id, company_id, building_id, estado, data",
+      "ref_esquema": "js/db_v2.js:871 (v1268)",
+      "linhas_reais_backup": 0,
+      "campos": {
+        "building_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:596"
+        },
+        "ambito": {
+          "exemplo": "EDIFICIO",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:596",
+          "nota": "EDIFICIO | ANDAR | PORTA"
+        },
+        "floor_id": {
+          "exemplo": null,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:597"
+        },
+        "room_id": {
+          "exemplo": null,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:597"
+        },
+        "data": {
+          "exemplo": "2026-01-15",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:598"
+        },
+        "responsavel": {
+          "exemplo": "RESPONSÁVEL EXEMPLO",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:598"
+        },
+        "notas": {
+          "exemplo": "",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:598"
+        },
+        "estado": {
+          "exemplo": "ABERTO",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:599",
+          "nota": "ABERTO | FECHADO"
+        },
+        "criado_em": {
+          "exemplo": "ISO datetime",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:599"
+        },
+        "esperados": {
+          "exemplo": 10,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:599"
+        },
+        "valor_esperado": {
+          "exemplo": 1000.5,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:599"
+        },
+        "contado_em": {
+          "exemplo": "ISO datetime",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:799"
+        },
+        "aplicado_em": {
+          "exemplo": "ISO datetime",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:899"
+        },
+        "fechado_em": {
+          "exemplo": "ISO datetime",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:910"
+        },
+        "fechado_por": {
+          "exemplo": "UTILIZADOR EXEMPLO",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:910"
+        }
+      }
+    },
+    "asset_inventory_lines": {
+      "grupo": "C",
+      "esquema_dexie": "++id, company_id, inventory_id, asset_id, room_id",
+      "ref_esquema": "js/db_v2.js:872 (v1268)",
+      "linhas_reais_backup": 0,
+      "campos": {
+        "inventory_id": {
+          "exemplo": "expr: invId",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:602"
+        },
+        "asset_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:602"
+        },
+        "code": {
+          "exemplo": "BEM-0001",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:603",
+          "nota": "fotografia do código do bem"
+        },
+        "description": {
+          "exemplo": "BEM EXEMPLO",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:603"
+        },
+        "room_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:604",
+          "nota": "porta esperada (fotografia)"
+        },
+        "floor_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:604"
+        },
+        "valor": {
+          "exemplo": 100.25,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:605"
+        },
+        "resultado": {
+          "exemplo": "",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:605",
+          "nota": "ENCONTRADO | EM_FALTA | DESLOCADO | EXTRA; '' = por contar"
+        },
+        "room_encontrada_id": {
+          "exemplo": null,
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:605"
+        },
+        "notas": {
+          "exemplo": "",
+          "ref": "Versões/Versão Actual/ERP/js/activos_edificios.js:605"
+        }
+      }
+    },
+    "maint_requisitions": {
+      "grupo": "C",
+      "esquema_dexie": "++id, company_id, numero, order_id, asset_id, estado, data, [company_id+estado], is_master_data",
+      "ref_esquema": "js/db_v2.js:1005 (v1277)",
+      "linhas_reais_backup": 0,
+      "campos": {
+        "numero": {
+          "exemplo": "RQ 2026/0001",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:462"
+        },
+        "order_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:462"
+        },
+        "asset_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:462"
+        },
+        "warehouse_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:463"
+        },
+        "requerente": {
+          "exemplo": "REQUERENTE EXEMPLO",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:463"
+        },
+        "data": {
+          "exemplo": "2026-01-15",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:463"
+        },
+        "estado": {
+          "exemplo": "PENDENTE",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:463",
+          "nota": "PENDENTE | PARCIAL | SATISFEITA | CANCELADA"
+        },
+        "criado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:464"
+        },
+        "criado_por": {
+          "exemplo": "utilizador()",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:464"
+        },
+        "satisfeita_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:595"
+        },
+        "motivo_cancelamento": {
+          "exemplo": "MOTIVO EXEMPLO",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:618"
+        },
+        "cancelado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:618"
+        },
+        "cancelado_por": {
+          "exemplo": "utilizador()",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:618"
+        }
+      }
+    },
+    "maint_requisition_lines": {
+      "grupo": "C",
+      "esquema_dexie": "++id, company_id, requisition_id, order_item_id, product_id, estado, is_master_data",
+      "ref_esquema": "js/db_v2.js:1006 (v1277)",
+      "linhas_reais_backup": 0,
+      "campos": {
+        "requisition_id": {
+          "exemplo": "expr: reqId",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:468"
+        },
+        "order_item_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:468"
+        },
+        "product_id": {
+          "exemplo": 1,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:469"
+        },
+        "descricao": {
+          "exemplo": "MATERIAL EXEMPLO",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:469"
+        },
+        "quantidade": {
+          "exemplo": 2.5,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:470"
+        },
+        "quantidade_entregue": {
+          "exemplo": 0,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:470"
+        },
+        "estado": {
+          "exemplo": "PENDENTE",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:470",
+          "nota": "PENDENTE | PARCIAL | ENTREGUE | CANCELADA"
+        },
+        "custo": {
+          "exemplo": 10.5,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:571"
+        }
+      }
+    },
+    "asset_maintenance_order_items": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, order_id, tipo, product_id, estado, purchase_request_id, requisicao_id, is_master_data",
+      "ref_esquema": "js/db_v2.js:1004 (v1277)",
+      "linhas_reais_backup": 1,
+      "campos": {
+        "requisicao_id": {
+          "exemplo": "expr: reqId",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:508"
+        },
+        "purchase_request_id": {
+          "exemplo": "expr: prId",
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:509",
+          "nota": "pedido de compra das necessidades (também em purchase_items.maintenance_item_id)"
+        },
+        "qtd_armazem": {
+          "exemplo": 1.5,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:510"
+        },
+        "qtd_compra": {
+          "exemplo": 0,
+          "ref": "Versões/Versão Actual/ERP/js/activos_manutencao.js:510"
+        }
+      }
+    },
+    "mt_assuntos": {
+      "grupo": "B",
+      "esquema_dexie": "++id, company_id, numero, estado, responsavel_principal_id, departamento_id, cliente_id, data_inicio, data_fim, purchase_request_id, [company_id+estado]",
+      "ref_esquema": "js/db_v2.js:955 (v1274)",
+      "linhas_reais_backup": 2,
+      "campos": {
+        "purchase_request_id": {
+          "exemplo": "expr: prId",
+          "ref": "Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:336"
+        },
+        "concluido_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:305"
+        },
+        "concluido_por": {
+          "exemplo": "utilizador()",
+          "ref": "Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:305"
+        },
+        "cancelado_em": {
+          "exemplo": "ISO datetime (agora())",
+          "ref": "Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:306"
+        },
+        "cancelado_por": {
+          "exemplo": "utilizador()",
+          "ref": "Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:306"
+        },
+        "motivo_cancelamento": {
+          "exemplo": "expr: txt(nota)",
+          "ref": "Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:306"
         }
       }
     }

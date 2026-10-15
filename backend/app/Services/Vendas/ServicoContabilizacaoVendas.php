@@ -12,6 +12,7 @@ use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -46,6 +47,7 @@ final class ServicoContabilizacaoVendas
         private readonly ServicoConfigVendas $config,
         private readonly LocalizadorLancamentos $localizador,
         private readonly ServicoStockVendas $stockVendas,
+        private readonly ServicoReparticao $reparticao,
     ) {}
 
     public function contabilizar(Venda $venda): Venda
@@ -115,7 +117,7 @@ final class ServicoContabilizacaoVendas
         $comum = ['terceiro_id' => $cliente->id, 'unidade_negocio_id' => $venda->unidade_negocio_id,
             'centro_custo_id' => $venda->centro_custo_id, 'projeto_id' => $venda->projeto_id];
 
-        $creditos = $this->linhasProveitoEIva($venda);
+        $creditos = $this->creditos($venda, true);   // Fase C: por conta E unidade/centro de custo da linha
         $soma = array_reduce($creditos, fn ($s, $l) => bcadd($s, $l['valor'], 2), '0.00');
         if (bccomp($soma, (string) $venda->total_bruto, 2) !== 0) {
             throw new ErroNegocio("As linhas do documento somam {$soma} mas o total é {$venda->total_bruto}: verifique o documento.",
@@ -135,18 +137,34 @@ final class ServicoContabilizacaoVendas
         $moeda = $venda->codigo_moeda && $venda->codigo_moeda !== 'AOA' && $venda->tipo_documento !== 'FR'
             ? ['codigo_moeda' => $venda->codigo_moeda, 'valor_moeda' => $venda->total_bruto_moeda, 'taxa_cambio' => $venda->taxa_cambio] : [];
         $linhas = [['codigo_conta' => $contaDebito, 'tipo_dc' => $dc('D'), 'valor' => $soma] + $moeda + $comum];
-        foreach ($creditos as $c) {
-            $linhas[] = ['codigo_conta' => $c['conta'], 'tipo_dc' => $dc('C'), 'valor' => $c['valor']] + $comum;
+        foreach ($creditos as $c) {   // a UN/CC da linha do artigo prevalece sobre o cabeçalho (linha_un_cc.js); o IVA não se reparte
+            $linhas[] = $c['analitica'] + ['codigo_conta' => $c['conta'], 'tipo_dc' => $dc('C'), 'valor' => $c['valor'], '_repartivel' => ! $c['iva']] + $comum;
         }
-        foreach ($this->stockVendas->linhasCmv($venda) as $c) {   // custo das mercadorias vendidas (ou devolvidas)
-            $linhas[] = $c + array_diff_key($comum, ['terceiro_id' => 1]);
+        foreach ($this->stockVendas->linhasCmv($venda, true) as $c) {   // custo das mercadorias vendidas (ou devolvidas)
+            $linhas[] = $c + ['_repartivel' => true] + array_diff_key($comum, ['terceiro_id' => 1]);
         }
+        $descricao = mb_substr("{$venda->numero_documento} - {$cliente->nome}", 0, 1000);
 
         return ['recibo' => $recibo, 'dados' => [
             'data_documento' => $venda->data_emissao->toDateString(),
-            'numero_documento' => $venda->numero_documento, 'descricao' => mb_substr("{$venda->numero_documento} - {$cliente->nome}", 0, 1000),
-            'tipo_origem' => 'VENDAS', 'linhas' => $linhas,
+            'numero_documento' => $venda->numero_documento, 'descricao' => $descricao,
+            'tipo_origem' => 'VENDAS', 'linhas' => $this->repartirPorUnidades($venda, $linhas, $descricao),
         ]];
+    }
+
+    /**
+     * Fase C (R3, ui_sales.js:3357-3386): com `unidades_alocadas` no documento, as linhas de proveitos e de CMV dividem-se
+     * pelas unidades (a última parcela absorve o arredondamento); a conta do cliente/disponibilidade (31/45) e o IVA (34) não
+     * se repartem, e as linhas com unidade própria (escolhida na linha do artigo) ficam como estão.
+     *
+     * @param  list<array<string, mixed>>  $linhas
+     * @return list<array<string, mixed>>
+     */
+    private function repartirPorUnidades(Venda $venda, array $linhas, string $descricao): array
+    {
+        $partes = $this->reparticao->partes($venda->getAttributes()['unidades_alocadas'] ?? null, "O documento {$venda->numero_documento} não pode ser integrado:");
+
+        return ServicoReparticao::repartirLinhas($linhas, $partes, fn (array $l) => ! empty($l['_repartivel']), $descricao);
     }
 
     /** GR/GD: só o CMV (a guia não tem proveitos). */
@@ -165,17 +183,18 @@ final class ServicoContabilizacaoVendas
     /** Cabeçalho e linhas (só CMV) do lançamento de uma guia GR/GD, sem o diário. */
     private function montarGuia(Venda $venda): array
     {
-        $linhas = $this->stockVendas->linhasCmv($venda);
+        $linhas = $this->stockVendas->linhasCmv($venda, true);   // Fase C: por conta E unidade/centro de custo da linha
         if (! $linhas) {
             throw new ErroNegocio('A guia não tem mercadoria de stock com custo: não há nada a contabilizar.', 'NADA_A_CONTABILIZAR', 422);
         }
         $comum = ['unidade_negocio_id' => $venda->unidade_negocio_id, 'centro_custo_id' => $venda->centro_custo_id, 'projeto_id' => $venda->projeto_id];
         $cliente = Terceiro::query()->withTrashed()->find($venda->cliente_id);
+        $descricao = mb_substr("{$venda->numero_documento} - {$cliente?->nome}", 0, 1000);
 
         return [
             'data_documento' => $venda->data_emissao->toDateString(),
-            'numero_documento' => $venda->numero_documento, 'descricao' => mb_substr("{$venda->numero_documento} - {$cliente?->nome}", 0, 1000), 'tipo_origem' => 'VENDAS',
-            'linhas' => array_map(fn ($l) => $l + $comum, $linhas),
+            'numero_documento' => $venda->numero_documento, 'descricao' => $descricao, 'tipo_origem' => 'VENDAS',
+            'linhas' => $this->repartirPorUnidades($venda, array_map(fn ($l) => $l + ['_repartivel' => true] + $comum, $linhas), $descricao),
         ];
     }
 
@@ -342,7 +361,25 @@ final class ServicoContabilizacaoVendas
      */
     public function linhasProveitoEIva(Venda $venda): array
     {
+        return array_map(fn ($c) => ['conta' => $c['conta'], 'valor' => $c['valor']], $this->creditos($venda, false));
+    }
+
+    /**
+     * Créditos do documento. Sem `porUnidade`, agrupados só por conta (POS, acréscimos, lavandaria — como antes); com
+     * `porUnidade` (Fase C, R5), os proveitos agrupam-se por conta + unidade/centro de custo da LINHA, e a linha com unidade
+     * própria fica marcada para não entrar na repartição do documento (precedência linha › repartição › cabeçalho). O IVA
+     * fica sempre com a analítica do cabeçalho: o imposto é da empresa, não da unidade.
+     *
+     * @return list<array{conta: string, valor: string, iva: bool, analitica: array<string, mixed>}>
+     */
+    private function creditos(Venda $venda, bool $porUnidade): array
+    {
         $contas = [];
+        $somar = function (string $conta, string $valor, bool $iva, array $analitica) use (&$contas) {
+            $chave = $conta.'|'.($iva ? 'I' : 'P').'|'.($analitica['unidade_negocio_id'] ?? '').'|'.($analitica['centro_custo_id'] ?? '');
+            $contas[$chave] ??= ['conta' => $conta, 'valor' => '0.00', 'iva' => $iva, 'analitica' => $analitica];
+            $contas[$chave]['valor'] = bcadd($contas[$chave]['valor'], $valor, 2);
+        };
         foreach ($venda->itensVenda()->with(['produto' => fn ($q) => $q->withTrashed()])->orderBy('id')->get() as $i => $item) {
             $p = $item->produto;
             $valor = $item->total_linha !== null ? (string) $item->total_linha
@@ -351,19 +388,26 @@ final class ServicoContabilizacaoVendas
 
             $contaProveito = $item->codigo_conta ?: $p?->codigo_conta
                 ?: $this->config->exigir($p?->movimenta_stock ? 'proveitos_mercadorias' : 'proveitos_servicos', 'Linha '.($i + 1).': produto sem conta de proveitos.');
-            $contas[$contaProveito] = bcadd($contas[$contaProveito] ?? '0.00', $valor, 2);
+            $somar((string) $contaProveito, $valor, false, $porUnidade ? ServicoStockVendas::analiticaLinha($item) : []);
 
             if (bccomp($imposto, '0', 2) !== 0) {
                 $contaIva = $p?->conta_iva_liquidado ?: $p?->conta_iva ?: $this->config->exigir('iva_vendas', 'Linha '.($i + 1).': produto sem conta de IVA liquidado.');
-                $contas[$contaIva] = bcadd($contas[$contaIva] ?? '0.00', $imposto, 2);
+                $somar((string) $contaIva, $imposto, true, []);
             }
         }
         if (! $contas) {
             throw new ErroNegocio('O documento não tem linhas.', 'SEM_LINHAS', 422);
         }
+        if (! $porUnidade) {   // como antes: uma linha por conta (proveitos e IVA na mesma conta somam-se)
+            $porConta = [];
+            foreach ($contas as $c) {
+                $porConta[$c['conta']] ??= ['conta' => $c['conta'], 'valor' => '0.00', 'iva' => $c['iva'], 'analitica' => []];
+                $porConta[$c['conta']]['valor'] = bcadd($porConta[$c['conta']]['valor'], $c['valor'], 2);
+            }
+            $contas = $porConta;
+        }
 
-        return array_values(array_map(fn ($c, $v) => ['conta' => (string) $c, 'valor' => $v],
-            array_keys(array_filter($contas, fn ($v) => bccomp($v, '0', 2) !== 0)), array_filter($contas, fn ($v) => bccomp($v, '0', 2) !== 0)));
+        return array_values(array_filter($contas, fn ($c) => bccomp($c['valor'], '0', 2) !== 0));
     }
 
     private function localizar(?string $numeroLan, string $numeroDocumento, bool $pos, ?string $contaCliente = null, string $dcCliente = 'D'): LancamentoContabil

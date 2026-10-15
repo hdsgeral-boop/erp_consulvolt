@@ -8,6 +8,7 @@ import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorCategoria, useCategorias } from './comum/componentes';
 import type { Activo } from './comum/tipos';
 import { larguraModal } from '@/componentes/responsivo';
+import { CamposLocalizacao } from './edificios/locais';
 
 interface Props {
   aberto: boolean;
@@ -15,6 +16,8 @@ interface Props {
   activo?: Activo | null;
   aoFechar: () => void;
   aoGravar?: (a: Activo) => void;
+  /** Tipo proposto num activo novo (botão «Novo Edifício / Local» — assetNovoEdificio). */
+  tipoInicial?: 'BEM' | 'EDIFICIO';
 }
 
 interface Valores {
@@ -33,12 +36,16 @@ interface Valores {
   quota_fixa?: number;
   amortizacao_acumulada_inicial?: number;
   acumulado_fim_ano?: number;
+  tipo_ativo?: 'BEM' | 'EDIFICIO';
+  edificio_id?: number;
+  andar_id?: number;
+  porta_id?: number;
 }
 
 const num = (v: string | number | null | undefined) => (v === null || v === undefined || v === '' ? undefined : Number(v));
 
 /** Ficha do activo (criar/editar). Com a ficha bloqueada (amortizações integradas ou compra lançada) o servidor recusa mexer nos valores. */
-export function ModalActivo({ aberto, activo, aoFechar, aoGravar }: Props) {
+export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 'BEM' }: Props) {
   const [form] = Form.useForm<Valores>();
   const categorias = useCategorias();
   const accao = useAccao<Activo>({ invalidar: [['activos']], aoSucesso: (a) => { aoGravar?.(a); aoFechar(); } });
@@ -47,6 +54,8 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar }: Props) {
   useEffect(() => {
     if (!aberto) return;
     form.resetFields();
+    // edifício novo: vida útil longa por omissão, como no legado (assetNovoEdificio :155, 600 meses)
+    if (!activo) form.setFieldsValue(tipoInicial === 'EDIFICIO' ? { tipo_ativo: 'EDIFICIO', vida_util: 600, vida_util_restante: 600 } : { tipo_ativo: 'BEM' });
     if (activo)
       form.setFieldsValue({
         codigo: activo.codigo ?? undefined, descricao: activo.descricao, categoria_ativo_id: activo.categoria_ativo_id ?? undefined, estado: activo.estado,
@@ -54,8 +63,11 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar }: Props) {
         data_aquisicao: activo.data_aquisicao ? dayjs(activo.data_aquisicao) : undefined, valor_aquisicao: num(activo.valor_aquisicao),
         valor_residual: num(activo.valor_residual), vida_util: num(activo.vida_util), vida_util_restante: num(activo.vida_util_restante),
         quota_fixa: num(activo.quota_fixa), amortizacao_acumulada_inicial: num(activo.amortizacao_acumulada_inicial), acumulado_fim_ano: num(activo.acumulado_fim_ano),
+        tipo_ativo: activo.tipo_ativo === 'EDIFICIO' ? 'EDIFICIO' : 'BEM', edificio_id: activo.edificio_id ?? undefined, andar_id: activo.andar_id ?? undefined,
+        porta_id: activo.porta_id ?? undefined,
       });
-  }, [aberto, activo, form]);
+  }, [aberto, activo, form, tipoInicial]);
+  const tipo = Form.useWatch('tipo_ativo', form);
 
   const aoMudarCategoria = (id: number) => {
     const c = categorias.data?.find((x) => x.id === id);
@@ -66,6 +78,9 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar }: Props) {
     const dados: Record<string, unknown> = { ...v, data_aquisicao: dataApi(v.data_aquisicao) };
     for (const k of Object.keys(dados)) if (dados[k] === undefined) dados[k] = null;
     if (!activo) delete dados.estado;
+    // o tipo não muda depois de criado; um edifício não tem localização (o servidor confirma)
+    if (activo) delete dados.tipo_ativo;
+    if (v.tipo_ativo === 'EDIFICIO' || activo?.tipo_ativo === 'EDIFICIO') { delete dados.edificio_id; delete dados.andar_id; delete dados.porta_id; }
     accao.mutate(activo ? { metodo: 'put', url: `/ativos/bens/${activo.id}`, dados } : { url: '/ativos/bens', dados });
   };
 
@@ -91,6 +106,26 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar }: Props) {
         />
       )}
       <Form form={form} layout="vertical" onFinish={gravar}>
+        <Row gutter={12} align="bottom">
+          <Col xs={24} md={8}>
+            <Form.Item name="tipo_ativo" label="Tipo de Activo" tooltip={activo ? 'O tipo não muda depois de criado' : undefined}>
+              <Select disabled={!!activo} options={[{ value: 'BEM', label: 'Bem (equipamento, mobiliário, viatura...)' }, { value: 'EDIFICIO', label: 'Edifício / Local (contém outros bens)' }]} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={16}>
+            <p style={{ color: '#64748b', fontSize: 13 }}>
+              {tipo === 'EDIFICIO'
+                ? 'Depois de gravado, abra «Edifícios e Locais» para criar os andares e numerar as portas, e arraste para elas os bens já existentes.'
+                : 'Um bem pode ficar localizado numa porta de um edifício já criado.'}
+            </p>
+          </Col>
+        </Row>
+        {tipo !== 'EDIFICIO' && (
+          <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '8px 12px', marginBottom: 12 }}>
+            <legend style={{ fontSize: 12, textTransform: 'uppercase', color: '#64748b', width: 'auto', margin: 0, padding: '0 4px' }}>Localização física</legend>
+            <CamposLocalizacao form={form} />
+          </fieldset>
+        )}
         <Row gutter={12}>
           <Col xs={24} md={6}>
             <Form.Item name="codigo" label="Código" tooltip="Vazio = numeração automática AST-NNN">

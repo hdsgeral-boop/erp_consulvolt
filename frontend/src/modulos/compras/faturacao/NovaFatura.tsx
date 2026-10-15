@@ -8,6 +8,8 @@ import { useAccao } from '@/componentes/Accoes';
 import { comOpcoesOrcamentoPedido, useExcessoOrcamental } from '@/componentes/orcamento';
 import { totaisLinhas } from '../comum/calculos';
 import { LinhasProdutos, type LinhaProdutoForm } from '../comum/LinhasProdutos';
+import { AlocacaoUN, alocacaoParaApi, regraAlocacao, unccDaLinha, useCriterios, type Alocacao } from '@/componentes/reparticao';
+import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { SeletorTerceiro } from '../comum/Seletores';
 import type { FaturaCompra } from '../comum/tipos';
 
@@ -19,6 +21,10 @@ interface ValoresFatura {
   codigo_moeda: string;
   taxa_cambio?: number;
   linhas: LinhaProdutoForm[];
+  unidade_negocio_id?: number;
+  centro_custo_id?: number;
+  /** Fase C: repartição das linhas de gasto por várias unidades de negócio (alocacao_un.js) */
+  unidades_alocadas?: Alocacao | null;
 }
 
 /** Factura directa de fornecedor, sem encomenda (POST /compras/faturas). */
@@ -28,6 +34,7 @@ export function NovaFatura() {
   const linhas = Form.useWatch('linhas', form) ?? [];
   const moeda = (Form.useWatch('codigo_moeda', form) ?? 'AOA').toUpperCase();
   const estimativa = totaisLinhas(linhas);
+  const criterios = useCriterios();
   const excesso = useExcessoOrcamental();
   const criar: ReturnType<typeof useAccao<FaturaCompra>> = useAccao<FaturaCompra>({
     invalidar: [['compras']],
@@ -54,7 +61,9 @@ export function NovaFatura() {
               data_vencimento: dataApi(v.data_vencimento),
               codigo_moeda: v.codigo_moeda?.toUpperCase() || undefined,
               taxa_cambio: moeda !== 'AOA' ? v.taxa_cambio : undefined,
-              linhas: v.linhas.map((l) => ({ produto_id: l.produto_id, quantidade: l.quantidade, preco_unitario: l.preco_unitario ?? 0, taxa_imposto: l.taxa_imposto ?? 0, descricao: l.descricao || undefined })),
+              unidade_negocio_id: v.unidade_negocio_id, centro_custo_id: v.centro_custo_id,
+              unidades_alocadas: alocacaoParaApi(v.unidades_alocadas),
+              linhas: v.linhas.map((l) => ({ produto_id: l.produto_id, quantidade: l.quantidade, preco_unitario: l.preco_unitario ?? 0, taxa_imposto: l.taxa_imposto ?? 0, descricao: l.descricao || undefined, ...unccDaLinha(l) })),
             },
           })
         }
@@ -98,10 +107,27 @@ export function NovaFatura() {
                 </Form.Item>
               </Col>
             )}
+            <Col xs={12} md={6}>
+              <Form.Item name="unidade_negocio_id" label="Unidade de negócio">
+                <SeletorUnidade style={{ width: '100%' }} placeholder="N/A" />
+              </Form.Item>
+            </Col>
+            <Col xs={12} md={6}>
+              <Form.Item name="centro_custo_id" label="Centro de custo">
+                <SeletorAux tabela="centros-custo" style={{ width: '100%' }} placeholder="N/A" />
+              </Form.Item>
+            </Col>
+            {!!criterios.data?.length && (
+              <Col xs={24} md={12}>
+                <Form.Item name="unidades_alocadas" rules={[regraAlocacao(criterios.data)]}>
+                  <AlocacaoUN valor={estimativa.liquido} titulo="Repartir por várias unidades de negócio" />
+                </Form.Item>
+              </Col>
+            )}
           </Row>
         </Card>
         <Card title="Linhas" style={{ marginBottom: 16 }}>
-          <LinhasProdutos form={form} preco precoObrigatorio iva descricao rotuloPreco={`Preço (${moeda})`} />
+          <LinhasProdutos form={form} preco precoObrigatorio iva descricao rotuloPreco={`Preço (${moeda})`} unidadeLinha />
           <Divider />
           <Flex justify="end" gap={24} wrap>
             <Statistic title={`Líquido (${moeda})`} value={formatarKz(estimativa.liquido)} />

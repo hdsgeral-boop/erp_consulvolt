@@ -19,6 +19,7 @@ import { useAccaoRh, useAvisarErro, useInfotipos } from './comum/consultas';
 import { mesPorExtenso, somar } from './comum/regras';
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 import { periodoActualProdutividade, resumoProdutividade, type LinhaResumoProdutividade } from './produtividade/regrasProdutividade';
+import { PonteProdutividade } from '@/modulos/projectos/comum/PonteProdutividade';
 
 /**
  * RH › Subsídio de produtividade (ecrã rh_produtividade), como no antigo (js/modules/rh/produtividade_ui.js): abre
@@ -40,6 +41,8 @@ const SEPARADORES = [
   ['importar', 'Importar Excel', 'file-excel'],
   ['itens', 'Itens de produtividade', 'tags'],
   ['elegiveis', 'Colaboradores elegíveis', 'user-check'],
+  // Versão Actual (produtividade_projectos.js:251-386): horas, quantidades medidas e tarefas concluídas dos projectos
+  ['projectos', 'Execução de projectos', 'hard-hat'],
   ['periodos', 'Períodos', 'list'],
 ] as const;
 type Separador = (typeof SEPARADORES)[number][0];
@@ -75,12 +78,33 @@ function EcraProdutividade() {
       <Tabs type="card" activeKey={sep} onChange={(k) => setSep(k as Separador)}
         items={SEPARADORES.map(([k, rotulo, icone]) => ({ key: k, label: <span><IconeFa nome={icone} /> {rotulo}</span> }))} />
       {sep === 'itens' && <ItensProdutividade />}
+      {sep === 'projectos' && <ExecucaoProjectos />}
       {sep === 'periodos' && <ListaPeriodos aoAbrir={(pid) => { irPara(pid); setSep('registos'); }} />}
-      {sep !== 'itens' && sep !== 'periodos' && (periodoId === undefined
+      {sep !== 'itens' && sep !== 'periodos' && sep !== 'projectos' && (periodoId === undefined
         ? <Card loading={periodos.isLoading}>{!periodos.isLoading && <Alert type="info" showIcon message="Crie primeiro o período de cálculo da produtividade (botão «Novo período»)." />}</Card>
         : <PainelPeriodo id={periodoId} separador={sep} />)}
       <NovoPeriodo aberto={novo} aoFechar={() => setNovo(false)} aoCriar={(p) => { setNovo(false); irPara(p.id); setSep('registos'); }} />
     </>
+  );
+}
+
+/**
+ * Separador «Execução de projectos» (Versão Actual): intervalo e projectos a recolher; a análise contra o período e os
+ * contratos e o envio (sem duplicar) são os da ponte comum com o separador Execução do projecto.
+ */
+function ExecucaoProjectos() {
+  const [intervalo, setIntervalo] = useState<[Dayjs, Dayjs]>([dayjs().subtract(1, 'month').startOf('month'), dayjs().subtract(1, 'month').endOf('month')]);
+  const [projetos, setProjetos] = useState<number[]>([]);
+  const lista = useQuery({ queryKey: ['projectos', 'carteira-ponte'], queryFn: () => obter<{ id: number; codigo: string | null; nome: string }[]>('/projetos/ativos'), retry: false });
+  return (
+    <Card size="small" title="Execução de projectos → produtividade">
+      <Space wrap style={{ marginBottom: 12 }}>
+        <DatePicker.RangePicker format="DD/MM/YYYY" value={intervalo} allowClear={false} onChange={(v) => v?.[0] && v[1] && setIntervalo([v[0], v[1]])} />
+        <Select mode="multiple" allowClear style={{ minWidth: 320 }} placeholder="Todos os projectos" value={projetos} onChange={setProjetos} loading={lista.isLoading}
+          optionFilterProp="label" options={(lista.data ?? []).map((p) => ({ value: p.id, label: `${p.codigo ? `${p.codigo} · ` : ''}${p.nome}` }))} />
+      </Space>
+      <PonteProdutividade de={intervalo[0].format('YYYY-MM-DD')} ate={intervalo[1].format('YYYY-MM-DD')} projetos={projetos.length ? projetos : undefined} />
+    </Card>
   );
 }
 

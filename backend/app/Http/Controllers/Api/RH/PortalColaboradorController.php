@@ -7,6 +7,7 @@ use App\Models\PedidoPortalColaborador;
 use App\Services\RH\ServicoAusencias;
 use App\Services\RH\ServicoAvaliacao360;
 use App\Services\RH\ServicoDocumentosRH;
+use App\Services\RH\ServicoEmprestimos;
 use App\Services\RH\ServicoPortalColaborador;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
@@ -83,10 +84,46 @@ final class PortalColaboradorController extends Controller
             'dependentes' => ['present_if:tipo,AGREGADO', 'nullable', 'array', 'max:30'], 'dependentes.*.nome' => ['required', 'string', 'max:255'],
             'dependentes.*.parentesco' => ['nullable', 'string', 'max:30'], 'dependentes.*.data_nascimento' => ['nullable', 'date_format:Y-m-d'],
             'dependentes.*.sexo' => ['nullable', 'in:M,F'], 'dependentes.*.dependente_fiscal' => ['nullable', 'boolean'],
+            // Versão Actual (portal_ui.js:398): pedido de empréstimo — os limites (máximo de prestações, tecto) estão em ServicoEmprestimos
+            'capital' => ['required_if:tipo,EMPRESTIMO', 'nullable', 'numeric', 'gt:0', 'max:9999999999999.99'],
+            'prestacoes' => ['required_if:tipo,EMPRESTIMO', 'nullable', 'integer', 'between:1,120'],
+            'inicio_desconto' => ['required_if:tipo,EMPRESTIMO', 'nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
         ]);
         $dados = $d['tipo'] === 'AUSENCIA' ? ['tipo' => $d['ausencia_tipo']] + $d : $d;   // nos dados, «tipo» é o tipo de ausência
 
         return RespostaApi::criado($this->portal->criar($d['tipo'], $dados), 'Pedido enviado.');
+    }
+
+    // ───────────── Versão Actual (Fase B): escala, contrato e empréstimos do próprio ─────────────
+    // Só o próprio: exigirColaborador no serviço recusa (403) quem não está ligado a um colaborador da empresa.
+
+    public function escala(Request $r): JsonResponse
+    {
+        $this->portal->exigirColaborador();
+        $f = $r->validate(['mes' => ['nullable', 'string', 'max:7']]);
+
+        return RespostaApi::sucesso($this->portal->minhaEscala($f['mes'] ?? now()->format('Y-m')), 'A minha escala.');
+    }
+
+    public function contrato(): JsonResponse
+    {
+        return RespostaApi::sucesso($this->portal->meuContrato(), 'O meu contrato.');
+    }
+
+    public function emprestimos(): JsonResponse
+    {
+        return RespostaApi::sucesso($this->portal->meusEmprestimos(), 'Os meus empréstimos.');
+    }
+
+    /** Simulação do plano antes de pedir (o mesmo cálculo que o pedido usa). */
+    public function simularEmprestimo(Request $r, ServicoEmprestimos $emprestimos): JsonResponse
+    {
+        $this->portal->exigirColaborador();
+        $d = $r->validate(['capital' => ['required', 'numeric', 'gt:0', 'max:9999999999999.99'], 'prestacoes' => ['required', 'integer', 'between:1,120'],
+            'inicio_desconto' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/']]);
+
+        return RespostaApi::sucesso(ServicoEmprestimos::plano($d['capital'], (int) $d['prestacoes'], $emprestimos->definicoes()['taxa_juro_padrao'], $d['inicio_desconto']),
+            'Simulação do plano.');
     }
 
     public function cancelar(int $pedido): JsonResponse

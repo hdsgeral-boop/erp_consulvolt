@@ -345,6 +345,25 @@ export const COLUNAS_NOVAS = {
   mapeamentos_contabeis_sistema_rh: [['avencado', 'boolean', null, "Coluna 'Avençado' do mapeamento (legado: org_type_id = -1)"]],
   // ADR-071 (Fase A): moeda da conta bancária do terceiro (o legado não a grava; opcional)
   contas_bancarias_terceiros: [['codigo_moeda', 'varchar(10)', null, 'Moeda da conta (opcional)']],
+  // ADR-071 (Fase D): vários modelos de carta por tipo, com nome e um predefinido por empresa e tipo
+  modelos_cartas_pagamento: [['nome', 'varchar(100)', null, 'Nome do modelo (sistema novo)'], ['predefinido', 'boolean', null, 'Modelo usado por omissão no tipo']],
+  // ADR-071 (Fase B): processamento em que a prestação foi descontada e quem a importou (o legado só grava payroll_entry_id)
+  prestacoes_emprestimos: [
+    ['periodo_processamento_salarial_id', 'bigint', 'periodos_processamento_salarial', 'Processamento salarial em que a prestação foi descontada'],
+    ['descontado_por', 'varchar(100)', null, 'Utilizador que importou a prestação no cálculo'],
+  ],
+  // ADR-071 (Fase F): a folha de inventário não se apaga — anula-se com motivo; quem a gerou
+  inventarios_fisicos_ativos: [
+    ['criado_por', 'varchar(100)', null, 'Utilizador que gerou a folha'],
+    ['anulado_em', 'timestamptz', null, 'Anulação em vez de eliminação'], ['anulado_por', 'varchar(100)', null, 'Utilizador que anulou'],
+    ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+  ],
+  // ADR-071 (Fase G): o projecto interno exige centro de custo, o externo a NE do cliente; o pedido de compra tem linhas
+  assuntos_metodo_trabalho: [
+    ['centro_custo_id', 'bigint', 'centros_custo', 'Centro de custo do projecto interno'],
+    ['encomenda_venda_id', 'bigint', 'vendas', 'NE do cliente para o projecto externo'],
+    ['linhas_pedido_compra', 'jsonb', null, 'Artigos do pedido de compra [{produto_id, quantidade, preco_unitario, descricao}]'],
+  ],
 };
 
 // CHECKs de negócio (além dos domínios das enumerações normalizadas, gerados automaticamente).

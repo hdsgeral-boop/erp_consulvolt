@@ -152,7 +152,7 @@ return new class extends Migration
             $table->string('codigo', 50)->nullable()->comment('legado: codigo');
             $table->string('nome', 255)->nullable()->comment('legado: nome');
             $table->string('criterio', 20)->nullable()->comment('legado: criterio');
-            $table->string('indicador', 10)->nullable()->comment('legado: indicador');
+            $table->string('indicador', 100)->nullable()->comment('legado: indicador · tipo forçado (inferido: varchar(10))');
             $table->text('periodo_de')->nullable()->comment('legado: periodo_de · sem valores reais: tipo a confirmar no código legado');
             $table->text('periodo_ate')->nullable()->comment('legado: periodo_ate · sem valores reais: tipo a confirmar no código legado');
             $table->jsonb('linhas')->nullable()->comment('legado: linhas');

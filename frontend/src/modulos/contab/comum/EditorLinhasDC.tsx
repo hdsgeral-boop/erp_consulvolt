@@ -1,5 +1,7 @@
-import { Button, Col, Form, Input, InputNumber, Row, Select, Space, Typography } from 'antd';
-import { CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Col, Form, Input, InputNumber, Row, Select, Space, Typography, message } from 'antd';
+import { ApartmentOutlined, CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { ModalRepartirLinha, linhasRepartidas } from '@/componentes/reparticao';
 import { SeletorAux, SeletorConta, SeletorTerceiro, SeletorUnidade } from './Seletores';
 
 export interface LinhaEditor {
@@ -44,6 +46,15 @@ export function EditorLinhasDC({
   rotuloValor?: string;
 }) {
   const forma = Form.useFormInstance();
+  // Fase C (R4): «Repartir linha» por unidades de negócio (ui_lancamentos.js:1495, ui_tesouraria.js:1113) — só com a coluna da unidade
+  const [aRepartir, setARepartir] = useState<number | null>(null);
+  const linhaARepartir = aRepartir !== null ? (forma.getFieldValue([nome, aRepartir]) as LinhaEditor | undefined) : undefined;
+  const substituirLinha = (indice: number, novas: LinhaEditor[]) => {
+    const actuais = [...((forma.getFieldValue(nome) as LinhaEditor[] | undefined) ?? [])];
+    actuais.splice(indice, 1, ...novas);
+    forma.setFieldValue(nome, actuais);
+    message.success(`Linha repartida por ${novas.length} unidades.`);
+  };
   return (
     <Form.List
       name={nome}
@@ -92,6 +103,9 @@ export function EditorLinhasDC({
                         add({ ...l, tipo_dc: l?.tipo_dc === 'D' ? 'C' : 'D' }, name + 1);
                       }}
                     />
+                    {campos.unidade && (
+                      <Button type="text" icon={<ApartmentOutlined />} aria-label="Repartir linha por unidades" title="Repartir a linha por unidades de negócio" onClick={() => setARepartir(name)} />
+                    )}
                     <Button danger type="text" icon={<DeleteOutlined />} aria-label="Remover linha" title="Remover linha" onClick={() => remove(name)} />
                   </Space>
                 </Col>
@@ -148,6 +162,17 @@ export function EditorLinhasDC({
           <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ tipo_dc: 'D' })}>
             Acrescentar linha
           </Button>
+          {aRepartir !== null && (
+            <ModalRepartirLinha
+              valor={Number(linhaARepartir?.valor) || 0}
+              subtitulo={linhaARepartir?.codigo_conta ? `Conta ${linhaARepartir.codigo_conta}` : undefined}
+              aoFechar={() => setARepartir(null)}
+              aoRepartir={(r) => {
+                if (linhaARepartir) substituirLinha(aRepartir, linhasRepartidas(linhaARepartir, r));
+                setARepartir(null);
+              }}
+            />
+          )}
         </>
       )}
     </Form.List>

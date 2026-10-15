@@ -36,7 +36,8 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
   });
   const detalhe = useQuery({ queryKey: ['rh', 'salarios', 'carta', ver], queryFn: () => obter<CartaPagamento>(`/rh/salarios/cartas/${ver}`), enabled: ver !== null });
   const accao = useAccaoRh(() => setEmitir(false));
-  const podeEmitir = periodo.estado === 'VALIDADO' && pode('processamento_integrate');
+  // Fase D (ADR-071): emitir grava o pagamento do período na Tesouraria e a carta nasce dele — período contabilizado e as duas permissões
+  const podeEmitir = !!periodo.contabilizado && pode('processamento_integrate') && pode('teso_doc_emitir');
 
   const colunas: ColumnsType<CartaPagamento> = [
     { title: 'N.º', dataIndex: 'id', render: (v: number) => <strong>#{v}</strong> },
@@ -74,7 +75,7 @@ export function CartasPeriodo({ periodo }: { periodo: PeriodoSalarial }) {
     <>
       <Space wrap style={{ marginBottom: 12 }}>
         {podeEmitir && <Button icon={<PlusOutlined />} onClick={() => { form.setFieldsValue({ data: dayjs(), grupo: 'TODOS' }); setEmitir(true); }}>Emitir carta</Button>}
-        {periodo.estado !== 'VALIDADO' && <Typography.Text type="secondary">As cartas emitem-se de períodos validados.</Typography.Text>}
+        {!periodo.contabilizado && <Typography.Text type="secondary">As cartas emitem-se de períodos contabilizados: o pagamento é gravado na Tesouraria e a carta nasce dele.</Typography.Text>}
       </Space>
       <TabelaComModos<CartaPagamento> rowKey="id" size="small" loading={cartas.isFetching} columns={colunas} dataSource={cartas.data ?? []} pagination={false} scroll={scrollTabela()} />
 

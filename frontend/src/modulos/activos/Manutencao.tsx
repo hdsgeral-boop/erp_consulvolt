@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Tag } from 'antd';
+import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Tabs, Tag } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -19,8 +19,36 @@ import { filtroPeriodo, useListaPaginada } from './comum/paginacao';
 import type { Manutencao as RegistoManutencao } from './comum/tipos';
 
 import { TabelaComModos } from '@/componentes/vistas';
-/** Activos › Manutenções (ecrã activos_manutencao): registo de manutenções preventivas e correctivas e respectiva conclusão. */
+import { IconeFa } from '@/componentes/fluxos';
+import { Ordens } from './manutencao/Ordens';
+import { Planos } from './manutencao/Planos';
+import { Requisicoes } from './manutencao/Requisicoes';
+
+const SEPARADORES = ['ordens', 'planos', 'requisicoes', 'historico'] as const;
+type Separador = (typeof SEPARADORES)[number];
+
+/**
+ * Activos › Manutenção (ecrã activos_manutencao): separadores do legado novo (renderMaintenanceView,
+ * js/activos_manutencao_ui.js:78-105) — Ordens de manutenção, Planos, Requisições ao armazém e Histórico.
+ */
 export default function Manutencao() {
+  const [aba, setAba] = useState<Separador>('ordens');
+  return (
+    <>
+      <NavActivos actual="activos_manutencao" />
+      <Tabs activeKey={aba} onChange={(k) => setAba(k as Separador)} destroyOnHidden
+        items={[
+          { key: 'ordens', label: <span><IconeFa nome="clipboard-check" /> Ordens de manutenção</span>, children: <Ordens aoIrPlanos={() => setAba('planos')} /> },
+          { key: 'planos', label: <span><IconeFa nome="calendar-check" /> Planos</span>, children: <Planos aoAbrirOrdens={() => setAba('ordens')} /> },
+          { key: 'requisicoes', label: <span><IconeFa nome="dolly" /> Requisições ao armazém</span>, children: <Requisicoes /> },
+          { key: 'historico', label: <span><IconeFa nome="history" /> Histórico</span>, children: <Historico /> },
+        ]} />
+    </>
+  );
+}
+
+/** Histórico de manutenções (areaHistorico, UI :806-840): registo simples e o que as ordens concluídas escrevem. */
+function Historico() {
   const { pode } = useSessao();
   const navegar = useNavigate();
   const [activo, setActivo] = useState<number>();
@@ -56,11 +84,11 @@ export default function Manutencao() {
       render: (v) => <Tag color={manutencaoPlaneada(v) ? 'warning' : 'success'}>{estadoManutencao(v)}</Tag>,
     },
     { title: 'Execução', dataIndex: 'data_execucao', ocultaPorOmissao: true, render: formatarData, valorImpressao: (r) => formatarData(r.data_execucao) },
+    { title: 'Ordem', dataIndex: 'numero_ordem', render: (v) => v ?? '—', valorImpressao: (r) => r.numero_ordem ?? '—' },
   ];
 
   return (
     <>
-      <NavActivos actual="activos_manutencao" />
       <Card
         title="Histórico de Manutenções"
         extra={gerir && <BotaoCartao icone="plus" variante="primario" onClick={() => setNova(true)}>Registar Manutenção</BotaoCartao>}

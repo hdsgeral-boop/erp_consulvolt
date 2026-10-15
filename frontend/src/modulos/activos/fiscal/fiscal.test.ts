@@ -12,11 +12,11 @@ const linha = (x: Partial<LinhaFiscal> = {}): LinhaFiscal => ({
 });
 
 describe('agregador dos Activos', () => {
-  it('tem os 8 separadores do legado pela mesma ordem, com o Mapa Fiscal', () => {
+  it('tem os 9 separadores do legado (Versão Actual, com Edifícios e Locais) pela mesma ordem, com o Mapa Fiscal', () => {
     expect(SECCOES_ACTIVOS.map((s) => s.rotulo)).toEqual([
-      'Inventário de Activos', 'Categorias e Taxas', 'Manutenções', 'Amortizações', 'Mapa de Amortizações', 'Mapa Fiscal', 'Abates e Vendas', 'Aquisições Pendentes',
+      'Inventário de Activos', 'Edifícios e Locais', 'Categorias e Taxas', 'Manutenções', 'Amortizações', 'Mapa de Amortizações', 'Mapa Fiscal', 'Abates e Vendas', 'Aquisições Pendentes',
     ]);
-    expect(SECCOES_ACTIVOS.map((s) => s.icone)).toEqual(['list', 'tags', 'tools', 'percent', 'table', 'file-invoice', 'trash-alt', 'hourglass-start']);
+    expect(SECCOES_ACTIVOS.map((s) => s.icone)).toEqual(['list', 'city', 'tags', 'tools', 'percent', 'table', 'file-invoice', 'trash-alt', 'hourglass-start']);
   });
 
   it('o Mapa Fiscal usa a permissão do mapa e a sub-rota /fiscal', () => {

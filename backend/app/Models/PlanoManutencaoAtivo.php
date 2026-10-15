@@ -5,7 +5,17 @@ namespace App\Models;
 use App\Models\Base\PlanoManutencaoAtivoBase;
 
 /**
- * planos_manutencao_ativos — sem uso no legado: a tabela só existia no esquema Dexie (js/db_v2.js:51), sem ecrã nem
- * escrita, e só tem activo e empresa. Fica sem API até haver campos (periodicidade, próxima data) — ver ADR-051.
+ * planos_manutencao_ativos — /api/ativos/manutencao/planos (Fase F, Versão Actual; ServicoPlanosManutencao).
+ * Legado novo: asset_maintenance_plans (Dexie v1277; js/activos_manutencao.js:116-217): plano PM-AAAA/NNNN para um activo
+ * ou para toda uma categoria, periodicidade por TEMPO (dias/semanas/meses/anos) ou por CONTADOR (horas/km).
+ * `periodicidade` = {modo, intervalo, unidade}; `tarefas` = lista de textos; `itens` = [{tipo, produto_id, descricao, quantidade}].
  */
-class PlanoManutencaoAtivo extends PlanoManutencaoAtivoBase {}
+class PlanoManutencaoAtivo extends PlanoManutencaoAtivoBase
+{
+    /** Tipos de manutenção (TIPOS, activos_manutencao.js:54-60). */
+    public const TIPOS = ['PREVENTIVA', 'CORRECTIVA', 'LEGAL', 'CALIBRACAO', 'MELHORIA'];
+
+    public const UNIDADES_TEMPO = ['DIAS', 'SEMANAS', 'MESES', 'ANOS'];
+
+    public const UNIDADES_CONTADOR = ['HORAS', 'KM'];
+}

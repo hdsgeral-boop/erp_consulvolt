@@ -35,4 +35,6 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   consolidacao: lazy(() => import('./Consolidacao')),
   tabelas_aux: lazy(() => import('./TabelasAux')),
   contabilidade: lazy(() => import('./MapeamentoSalarios')),
+  // Versão Actual (Fase H): Assistente IA com regras em ficheiro JSON
+  ia_assistente: lazy(() => import('./IAAssistente')),
 };

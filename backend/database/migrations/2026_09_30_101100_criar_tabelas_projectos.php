@@ -219,6 +219,7 @@ return new class extends Migration
             $table->date('data')->nullable()->comment('legado: date');
             $table->decimal('horas', 12, 3)->nullable()->comment('legado: hours');
             $table->string('estado', 20)->nullable()->comment('legado: status');
+            $table->bigInteger('membro_equipa_projeto_id')->nullable()->comment('legado: team_member_id · do código legado Versões/Versão Actual/ERP/js/ui_projects.js:5121');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -226,6 +227,7 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_folhas_horas_projeto_projeto_id ON folhas_horas_projeto (projeto_id)');
         DB::statement('CREATE INDEX ix_folhas_horas_projeto_tarefa_projeto_id ON folhas_horas_projeto (tarefa_projeto_id)');
         DB::statement('CREATE INDEX ix_folhas_horas_projeto_colaborador_id ON folhas_horas_projeto (colaborador_id)');
+        DB::statement('CREATE INDEX ix_folhas_horas_projeto_membro_equipa_projeto_id ON folhas_horas_projeto (membro_equipa_projeto_id)');
 
         // project_billings (legado) -> faturacao_projetos · 0 linhas reais no backup
         Schema::create('faturacao_projetos', function (Blueprint $table) {
@@ -394,8 +396,8 @@ return new class extends Migration
             $table->bigInteger('cliente_id')->nullable()->comment('legado: cliente_id');
             $table->text('encomenda')->nullable()->comment('legado: encomenda · sem valores reais: tipo a confirmar no código legado');
             $table->text('morada')->nullable()->comment('legado: morada');
-            $table->string('fundamentacao', 150)->nullable()->comment('legado: fundamentacao');
-            $table->string('causa_raiz', 150)->nullable()->comment('legado: causa_raiz');
+            $table->string('fundamentacao', 4000)->nullable()->comment('legado: fundamentacao · tipo forçado (inferido: varchar(150))');
+            $table->string('causa_raiz', 4000)->nullable()->comment('legado: causa_raiz · tipo forçado (inferido: varchar(150))');
             $table->text('recursos')->nullable()->comment('legado: recursos · tipo forçado (inferido: varchar(200))');
             $table->decimal('custo_estimado', 15, 2)->nullable()->comment('legado: custo_estimado · tipo forçado (inferido: numeric(15,2))');
             $table->string('codigo_moeda', 50)->nullable()->comment('legado: moeda');
@@ -409,6 +411,15 @@ return new class extends Migration
             $table->bigInteger('projeto_id')->nullable()->comment('legado: project_id');
             $table->string('projeto_modo', 10)->nullable()->comment('legado: projecto_modo');
             $table->jsonb('deliberacao')->nullable()->comment('legado: deliberacao');
+            $table->bigInteger('pedido_compra_id')->nullable()->comment('legado: purchase_request_id · do código legado Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:336');
+            $table->timestampTz('concluido_em')->nullable()->comment('legado: concluido_em · do código legado Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:305');
+            $table->string('concluido_por', 100)->nullable()->comment('legado: concluido_por · do código legado Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:305');
+            $table->timestampTz('cancelado_em')->nullable()->comment('legado: cancelado_em · do código legado Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:306');
+            $table->string('cancelado_por', 100)->nullable()->comment('legado: cancelado_por · do código legado Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:306');
+            $table->text('motivo_cancelamento')->nullable()->comment('legado: motivo_cancelamento · do código legado Versões/Versão Actual/ERP/js/modules/metodo/assuntos.js:306');
+            $table->bigInteger('centro_custo_id')->nullable()->comment('Centro de custo do projecto interno');
+            $table->bigInteger('encomenda_venda_id')->nullable()->comment('NE do cliente para o projecto externo');
+            $table->jsonb('linhas_pedido_compra')->nullable()->comment('Artigos do pedido de compra [{produto_id, quantidade, preco_unitario, descricao}]');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent()->comment('legado: actualizado_em');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
         });
@@ -416,6 +427,9 @@ return new class extends Migration
         DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_unidade_negocio_id ON assuntos_metodo_trabalho (unidade_negocio_id)');
         DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_cliente_id ON assuntos_metodo_trabalho (cliente_id)');
         DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_projeto_id ON assuntos_metodo_trabalho (projeto_id)');
+        DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_pedido_compra_id ON assuntos_metodo_trabalho (pedido_compra_id)');
+        DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_centro_custo_id ON assuntos_metodo_trabalho (centro_custo_id)');
+        DB::statement('CREATE INDEX ix_assuntos_metodo_trabalho_encomenda_venda_id ON assuntos_metodo_trabalho (encomenda_venda_id)');
 
         // mt_assunto_log (legado) -> historico_assuntos_metodo · 12 linhas reais no backup
         Schema::create('historico_assuntos_metodo', function (Blueprint $table) {
@@ -423,7 +437,7 @@ return new class extends Migration
             $table->bigInteger('empresa_id')->comment('derivada de assunto_id -> assuntos_metodo_trabalho');
             $table->bigInteger('assunto_id')->nullable()->comment('legado: assunto_id');
             $table->string('acao', 50)->nullable()->comment('legado: accao');
-            $table->string('detalhe', 150)->nullable()->comment('legado: detalhe');
+            $table->string('detalhe', 1000)->nullable()->comment('legado: detalhe · tipo forçado (inferido: varchar(150))');
             $table->string('por', 100)->nullable()->comment('legado: por · tipo forçado (inferido: varchar(10))');
             $table->timestampTz('em')->nullable()->comment('legado: em');
             $table->timestampTz('criado_em')->nullable()->useCurrent();

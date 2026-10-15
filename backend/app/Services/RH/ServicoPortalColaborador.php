@@ -5,10 +5,16 @@ namespace App\Services\RH;
 use App\Exceptions\ErroNegocio;
 use App\Models\AusenciaFaltaColaborador;
 use App\Models\Colaborador;
+use App\Models\ContratoTrabalho;
 use App\Models\DependenteColaborador;
+use App\Models\EmprestimoColaborador;
+use App\Models\EscalaTrabalho;
+use App\Models\InfotipoSalarial;
+use App\Models\ItemProdutividadeRH;
 use App\Models\PedidoPortalColaborador;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PlanoFeriasColaborador;
+use App\Models\PrestacaoEmprestimo;
 use App\Models\ResultadoFolhaSalarial;
 use App\Models\UtilizadorEmpresa;
 use App\Services\Sistema\ServicoAuditoria;
@@ -31,10 +37,15 @@ use Illuminate\Support\Facades\Gate;
  *     alterações do RH em silêncio);
  *   - a passagem chefia → RH não marca a ausência como decidida;
  *   - recibos do portal a partir da FOTOGRAFIA do processamento (o legado recalculava com os dados actuais).
+ * Versão Actual (Fase B, portal_dados.js:34-135 e :263; portal_ui.js:398-620):
+ *   - pedido de EMPRÉSTIMO: chefia (se a configuração dos empréstimos o exigir) e RH; o empréstimo nasce pendente e
+ *     segue as decisões do pedido (ServicoEmprestimos::aoDecidir); aprovado gera o plano;
+ *   - consultas novas: a minha escala do mês (com o horário do contrato nos dias sem escala), o meu contrato (o vigente,
+ *     mesmo suspenso ou cessado — só consulta) e os meus empréstimos (limites, simulação e plano).
  */
 final class ServicoPortalColaborador
 {
-    public const TIPOS = ['FERIAS', 'AUSENCIA', 'DOCUMENTO', 'AGREGADO'];
+    public const TIPOS = ['FERIAS', 'AUSENCIA', 'DOCUMENTO', 'AGREGADO', 'EMPRESTIMO'];
 
     private const PARENTESCOS = ['FILHO' => 'FILHO', 'FILHA' => 'FILHO', 'FILHO(A)' => 'FILHO', 'CONJUGE' => 'CONJUGE', 'CÔNJUGE' => 'CONJUGE', 'ESPOSA' => 'CONJUGE',
         'MARIDO' => 'CONJUGE', 'COMPANHEIRO(A)' => 'CONJUGE', 'PAI' => 'PAI', 'MAE' => 'MAE', 'MÃE' => 'MAE'];
@@ -46,6 +57,7 @@ final class ServicoPortalColaborador
         private readonly ServicoAusencias $ausencias,
         private readonly ServicoDocumentosRH $documentos,
         private readonly ServicoAuditoria $auditoria,
+        private readonly ServicoEmprestimos $emprestimos,
     ) {}
 
     // ───────────── Ligação utilizador ↔ colaborador ─────────────
@@ -89,7 +101,9 @@ final class ServicoPortalColaborador
     /** Circuito de aprovação no momento do pedido. */
     public function etapasPara(Colaborador $c, string $tipo): array
     {
-        if (! in_array($tipo, ['FERIAS', 'AUSENCIA'], true)) {
+        // empréstimos: a chefia dá o primeiro parecer se a configuração o exigir (portal_dados.js:107)
+        $comChefia = in_array($tipo, ['FERIAS', 'AUSENCIA'], true) || ($tipo === 'EMPRESTIMO' && $this->emprestimos->definicoes()['exige_chefia']);
+        if (! $comChefia) {
             return [['nivel' => 'RH', 'estado' => 'PENDENTE']];
         }
         $chefe = $this->estrutura->chefiaDe($c->id);
@@ -117,8 +131,12 @@ final class ServicoPortalColaborador
                 'AUSENCIA' => $this->prepararAusencia($p, $c, $dados, $estado),
                 'DOCUMENTO' => $this->prepararDocumento($p, $c, $dados),
                 'AGREGADO' => $this->prepararAgregado($p, $c, $dados),
+                'EMPRESTIMO' => $this->prepararEmprestimo($p, $c, $dados, $estado),
             };
             $p->save();
+            if ($p->emprestimo_id) {
+                EmprestimoColaborador::query()->find($p->emprestimo_id)?->update(['pedido_portal_colaborador_id' => $p->id]);
+            }
             if ($p->plano_ferias_colaborador_id) {
                 PlanoFeriasColaborador::query()->whereKey($p->plano_ferias_colaborador_id)->update(['pedido_portal_colaborador_id' => $p->id]);
             }
@@ -199,6 +217,9 @@ final class ServicoPortalColaborador
             }
             if ($p->ausencia_falta_id && ($a = AusenciaFaltaColaborador::query()->find($p->ausencia_falta_id))) {
                 $this->ausencias->cancelar($a);
+            }
+            if ($p->tipo === 'EMPRESTIMO') {
+                $this->emprestimos->aoDecidir($p, 'CANCELADO');
             }
             $p->update(['estado' => 'CANCELADO', 'cancelado_em' => now()]);
 
@@ -381,6 +402,93 @@ final class ServicoPortalColaborador
             'observacoes' => trim((string) ($d['observacoes'] ?? ''))];
     }
 
+    /** Empréstimo (pedir, emprestimos.js:99): valida os limites e cria o empréstimo pendente ligado ao pedido. */
+    private function prepararEmprestimo(PedidoPortalColaborador $p, Colaborador $c, array $d, string $estado): void
+    {
+        $e = $this->emprestimos->criarPedido($c, ['capital' => $d['capital'] ?? null, 'prestacoes' => $d['prestacoes'] ?? null,
+            'inicio_desconto' => (string) ($d['inicio_desconto'] ?? ''), 'motivo' => $d['motivo'] ?? null], $estado);
+        $p->fill(['emprestimo_id' => $e->id, 'dados' => ['numero' => $e->numero, 'capital' => (string) $e->capital, 'prestacoes' => $e->prestacoes,
+            'taxa_juro' => (string) $e->taxa_juro, 'valor_prestacao' => (string) $e->valor_prestacao, 'inicio_desconto' => $e->inicio_desconto, 'motivo' => $e->motivo]]);
+    }
+
+    // ───────────── Versão Actual: escala, contrato e empréstimos do próprio ─────────────
+
+    /** A minha escala do mês (desenharEscala, portal_ui.js:501): só consulta; a prioritária é a que vale no dia. */
+    public function minhaEscala(string $mes): array
+    {
+        $c = $this->exigirColaborador();
+        $mes = ServicoCalendarioRH::mes($mes);
+        $de = "{$mes}-01";
+        $ate = date('Y-m-t', strtotime($de));
+        $mapa = ServicoEscalas::indexar(EscalaTrabalho::query()->where('colaborador_id', $c->id)->whereBetween('dia', [$de, $ate])->get());
+        $contrato = RegrasContrato::emVigor(ContratoTrabalho::query()->where('colaborador_id', $c->id)->get(), $de, $ate);
+        $horario = RegrasContrato::horario($contrato?->horario);
+        $dias = [];
+        $horas = 0.0;
+        $trab = $folgas = 0;
+        foreach (ServicoCalendarioRH::dias($de, $ate) as $d) {
+            $e = $mapa["{$c->id}|{$d}"] ?? null;
+            if ($e) {
+                $e->folga ? $folgas++ : $trab++;
+                $horas += ServicoEscalas::horasDe($e);
+                $dias[] = ['dia' => $d, 'folga' => (bool) $e->folga, 'entrada' => $e->entrada, 'saida' => $e->saida, 'periodos' => (int) ($e->periodos ?: 1),
+                    'saida_intervalo' => $e->saida_intervalo, 'entrada_intervalo' => $e->entrada_intervalo, 'intervalo_minutos' => (int) $e->intervalo_minutos,
+                    'prioritaria' => (bool) $e->prioritaria, 'nota' => $e->nota, 'horas' => ServicoEscalas::horasDe($e)];
+            }
+        }
+
+        return ['mes' => $mes, 'dias' => $dias, 'dias_trabalho' => $trab, 'folgas' => $folgas, 'horas' => round($horas, 2),
+            'horario_contrato' => $horario ? $horario + ['horas_previstas' => RegrasContrato::horasPrevistas($horario)] : null];
+    }
+
+    /**
+     * O meu contrato (desenharContrato, portal_ui.js:551): o VIGENTE (regras_salariais.js:107), mesmo suspenso ou cessado,
+     * só para consulta; com as remunerações, a base para faltas e horas extra e os itens de produtividade.
+     */
+    public function meuContrato(): array
+    {
+        $c = $this->exigirColaborador();
+        $ct = RegrasContrato::vigente(ContratoTrabalho::query()->where('colaborador_id', $c->id)->get(), now()->toDateString());
+        if (! $ct) {
+            return ['contrato' => null];
+        }
+        $ctr = RegrasContrato::paraMotor($ct);
+        $nomes = InfotipoSalarial::query()->withTrashed()->whereKey(array_column($ctr['remuneracoes'], 'infotipo_id'))->pluck('nome', 'id');
+        $rem = array_map(fn ($r) => ['infotipo_id' => $r['infotipo_id'], 'nome' => $nomes[$r['infotipo_id']] ?? "Rubrica {$r['infotipo_id']}",
+            'valor_mes' => MotorSalarial::arred(MotorSalarial::mensal($r, $ctr))], $ctr['remuneracoes']);
+        $total = RegrasContrato::salarioBase($ct);
+        $dias = (float) MotorSalarial::diasContrato($ctr);
+        $horasDia = (float) $ct->horas_por_dia > 0 ? (float) $ct->horas_por_dia : 8.0;
+        $itens = ItemProdutividadeRH::query()->whereKey(array_column((array) ($ct->produtividade ?? []), 'item_id'))->get()->keyBy('id');
+        $horario = RegrasContrato::horario($ct->horario);
+
+        return ['contrato' => ['id' => $ct->id, 'estado' => $ct->estado, 'data_inicio' => $ct->data_inicio?->toDateString(),
+            'data_fim' => $ct->data_fim && $ct->data_fim->toDateString() !== ServicoContratosTrabalho::SEM_FIM ? $ct->data_fim->toDateString() : null,
+            'dias_contrato_mes' => $ct->dias_contrato_mes, 'horas_por_dia' => $horasDia, 'codigo_moeda' => $ct->codigo_moeda ?: 'AOA',
+            'suspensao' => $ct->estado === 'SUSPENSO' ? array_intersect_key((array) $ct->suspensao, array_flip(['de', 'ate', 'motivo', 'artigo'])) : null,
+            'cessacao' => $ct->estado === 'CESSADO' ? array_intersect_key((array) $ct->cessacao, array_flip(['data', 'modalidade', 'motivo', 'artigo'])) : null,
+            'horario' => $horario ? $horario + ['horas_previstas' => RegrasContrato::horasPrevistas($horario)] : null,
+            'remuneracoes' => $rem, 'total_mensal' => $total,
+            'valor_dia' => bcdiv($total, (string) max(1, $dias), 2), 'valor_hora' => bcdiv($total, (string) max(0.01, $dias * $horasDia), 2),
+            'produtividade' => array_map(fn ($p) => ['item_id' => (int) $p['item_id'], 'codigo' => $itens[$p['item_id']]->codigo ?? null,
+                'descricao' => $itens[$p['item_id']]->descricao ?? null, 'unidade' => $itens[$p['item_id']]->unidade ?? null,
+                'preco_unitario' => isset($p['preco_unitario']) && (float) $p['preco_unitario'] > 0 ? (string) $p['preco_unitario'] : (string) ($itens[$p['item_id']]->preco_unitario ?? '0'),
+                'preco_proprio' => isset($p['preco_unitario']) && (float) $p['preco_unitario'] > 0], array_values((array) ($ct->produtividade ?? [])))]];
+    }
+
+    /** Os meus empréstimos (desenharEmprestimos, portal_ui.js:398): limites para pedir e cada empréstimo com o plano. */
+    public function meusEmprestimos(): array
+    {
+        $c = $this->exigirColaborador();
+        $lista = EmprestimoColaborador::query()->where('colaborador_id', $c->id)->orderByDesc('id')->get();
+        $prest = PrestacaoEmprestimo::query()->whereIn('emprestimo_id', $lista->pluck('id')->all() ?: [0])->orderBy('numero')->get()->groupBy('emprestimo_id');
+
+        return ['limites' => $this->emprestimos->limites($c->id), 'emprestimos' => $lista->map(fn ($e) => $e->only(['id', 'numero', 'capital', 'prestacoes', 'taxa_juro',
+            'valor_prestacao', 'inicio_desconto', 'motivo', 'estado', 'total_juros', 'total_a_pagar', 'aprovado_em', 'criado_em', 'motivo_cancelamento'])
+            + ['plano' => ($prest[$e->id] ?? collect())->map(fn ($p) => $p->only(['numero', 'mes_ano', 'capital', 'juro', 'total', 'saldo', 'estado']))->values()->all(),
+                'em_divida' => ($prest[$e->id] ?? collect())->where('estado', 'PENDENTE')->reduce(fn ($s, $p) => bcadd($s, (string) $p->total, 2), '0.00')])->all()];
+    }
+
     private function prepararAgregado(PedidoPortalColaborador $p, Colaborador $c, array $d): void
     {
         if (PedidoPortalColaborador::query()->where('colaborador_id', $c->id)->where('tipo', 'AGREGADO')->where('estado', 'like', 'PENDENTE%')->exists()) {
@@ -408,6 +516,9 @@ final class ServicoPortalColaborador
 
     private function efeitos(PedidoPortalColaborador $p, string $estado, ?string $remunerada, ?string $nota): void
     {
+        if ($p->tipo === 'EMPRESTIMO') {   // portal_dados.js:265 — o empréstimo acompanha o pedido; aprovado gera o plano
+            $this->emprestimos->aoDecidir($p, $estado);
+        }
         if ($p->tipo === 'FERIAS' && $p->plano_ferias_colaborador_id && in_array($estado, ['APROVADO', 'RECUSADO'], true)) {
             PlanoFeriasColaborador::query()->whereKey($p->plano_ferias_colaborador_id)->update(['estado' => $estado === 'APROVADO' ? 'APROVADO' : 'CANCELADO']);
         }

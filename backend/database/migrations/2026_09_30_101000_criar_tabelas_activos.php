@@ -255,19 +255,50 @@ return new class extends Migration
         Schema::create('inventarios_fisicos_ativos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
-            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->bigInteger('edificio_id')->nullable()->comment('legado: building_id · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:596');
+            $table->string('ambito', 10)->nullable()->comment('legado: ambito · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:596');
+            $table->bigInteger('andar_id')->nullable()->comment('legado: floor_id · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:597');
+            $table->bigInteger('porta_id')->nullable()->comment('legado: room_id · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:597');
+            $table->date('data')->nullable()->comment('legado: data · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:598');
+            $table->string('responsavel', 150)->nullable()->comment('legado: responsavel · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:598');
+            $table->text('notas')->nullable()->comment('legado: notas · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:598');
+            $table->string('estado', 10)->nullable()->comment('legado: estado · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:599');
+            $table->integer('esperados')->nullable()->comment('legado: esperados · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:599');
+            $table->decimal('valor_esperado', 15, 2)->nullable()->comment('legado: valor_esperado · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:599');
+            $table->timestampTz('contado_em')->nullable()->comment('legado: contado_em · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:799');
+            $table->timestampTz('aplicado_em')->nullable()->comment('legado: aplicado_em · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:899');
+            $table->timestampTz('fechado_em')->nullable()->comment('legado: fechado_em · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:910');
+            $table->string('fechado_por', 150)->nullable()->comment('legado: fechado_por · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:910');
+            $table->string('criado_por', 100)->nullable()->comment('Utilizador que gerou a folha');
+            $table->timestampTz('anulado_em')->nullable()->comment('Anulação em vez de eliminação');
+            $table->string('anulado_por', 100)->nullable()->comment('Utilizador que anulou');
+            $table->text('motivo_anulacao')->nullable()->comment('Motivo da anulação');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:599');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_inventarios_fisicos_ativos_empresa_id ON inventarios_fisicos_ativos (empresa_id)');
+        DB::statement('CREATE INDEX ix_inventarios_fisicos_ativos_edificio_id ON inventarios_fisicos_ativos (edificio_id)');
 
         // asset_inventory_lines (legado) -> linhas_inventario_fisico_ativos · 0 linhas reais no backup
         Schema::create('linhas_inventario_fisico_ativos', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->bigInteger('inventario_fisico_id')->nullable()->comment('legado: inventory_id · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:602');
+            $table->bigInteger('ativo_imobilizado_id')->nullable()->comment('legado: asset_id · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:602');
+            $table->string('codigo', 50)->nullable()->comment('legado: code · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:603');
+            $table->text('descricao')->nullable()->comment('legado: description · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:603');
+            $table->bigInteger('porta_id')->nullable()->comment('legado: room_id · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:604');
+            $table->bigInteger('andar_id')->nullable()->comment('legado: floor_id · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:604');
+            $table->decimal('valor', 15, 2)->nullable()->comment('legado: valor · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:605');
+            $table->string('resultado', 12)->nullable()->comment('legado: resultado · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:605');
+            $table->bigInteger('porta_encontrada_id')->nullable()->comment('legado: room_encontrada_id · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:605');
+            $table->text('notas')->nullable()->comment('legado: notas · do código legado Versões/Versão Actual/ERP/js/activos_edificios.js:605');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_linhas_inventario_fisico_ativos_empresa_id ON linhas_inventario_fisico_ativos (empresa_id)');
+        DB::statement('CREATE INDEX ix_linhas_inventario_fisico_ativos_inventario_fisico_id ON linhas_inventario_fisico_ativos (inventario_fisico_id)');
+        DB::statement('CREATE INDEX ix_linhas_inventario_fisico_ativos_ativo_imobilizado_id ON linhas_inventario_fisico_ativos (ativo_imobilizado_id)');
 
         // asset_maintenance_orders (legado) -> ordens_manutencao_ativos · 2 linhas reais no backup
         Schema::create('ordens_manutencao_ativos', function (Blueprint $table) {
@@ -319,30 +350,62 @@ return new class extends Migration
             $table->text('origem_tipo')->nullable()->comment('legado: origem_tipo · sem valores reais: tipo a confirmar no código legado');
             $table->text('origem_id')->nullable()->comment('legado: origem_id · sem valores reais: tipo a confirmar no código legado');
             $table->decimal('custo', 15, 2)->nullable()->comment('legado: custo · tipo forçado (inferido: numeric(15,2))');
+            $table->bigInteger('requisicao_manutencao_id')->nullable()->comment('legado: requisicao_id · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:508');
+            $table->bigInteger('pedido_compra_id')->nullable()->comment('legado: purchase_request_id · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:509');
+            $table->decimal('quantidade_armazem', 15, 3)->nullable()->comment('legado: qtd_armazem · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:510');
+            $table->decimal('quantidade_compra', 15, 3)->nullable()->comment('legado: qtd_compra · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:510');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_itens_ordem_manutencao_empresa_id ON itens_ordem_manutencao (empresa_id)');
         DB::statement('CREATE INDEX ix_itens_ordem_manutencao_ordem_manutencao_id ON itens_ordem_manutencao (ordem_manutencao_id)');
         DB::statement('CREATE INDEX ix_itens_ordem_manutencao_produto_id ON itens_ordem_manutencao (produto_id)');
+        DB::statement('CREATE INDEX ix_itens_ordem_manutencao_requisicao_manutencao_id ON itens_ordem_manutencao (requisicao_manutencao_id)');
+        DB::statement('CREATE INDEX ix_itens_ordem_manutencao_pedido_compra_id ON itens_ordem_manutencao (pedido_compra_id)');
 
         // maint_requisitions (legado) -> requisicoes_manutencao · 0 linhas reais no backup
         Schema::create('requisicoes_manutencao', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
-            $table->timestampTz('criado_em')->nullable()->useCurrent();
+            $table->string('numero', 20)->nullable()->comment('legado: numero · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:462');
+            $table->bigInteger('ordem_manutencao_id')->nullable()->comment('legado: order_id · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:462');
+            $table->bigInteger('ativo_imobilizado_id')->nullable()->comment('legado: asset_id · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:462');
+            $table->bigInteger('armazem_id')->nullable()->comment('legado: warehouse_id · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:463');
+            $table->string('requerente', 150)->nullable()->comment('legado: requerente · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:463');
+            $table->date('data')->nullable()->comment('legado: data · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:463');
+            $table->string('estado', 12)->nullable()->comment('legado: estado · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:463');
+            $table->string('criado_por', 100)->nullable()->comment('legado: criado_por · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:464');
+            $table->timestampTz('satisfeita_em')->nullable()->comment('legado: satisfeita_em · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:595');
+            $table->text('motivo_cancelamento')->nullable()->comment('legado: motivo_cancelamento · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:618');
+            $table->timestampTz('cancelado_em')->nullable()->comment('legado: cancelado_em · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:618');
+            $table->string('cancelado_por', 100)->nullable()->comment('legado: cancelado_por · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:618');
+            $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:464');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_requisicoes_manutencao_empresa_id ON requisicoes_manutencao (empresa_id)');
+        DB::statement('CREATE INDEX ix_requisicoes_manutencao_ordem_manutencao_id ON requisicoes_manutencao (ordem_manutencao_id)');
+        DB::statement('CREATE INDEX ix_requisicoes_manutencao_ativo_imobilizado_id ON requisicoes_manutencao (ativo_imobilizado_id)');
+        DB::statement('CREATE INDEX ix_requisicoes_manutencao_armazem_id ON requisicoes_manutencao (armazem_id)');
 
         // maint_requisition_lines (legado) -> linhas_requisicao_manutencao · 0 linhas reais no backup
         Schema::create('linhas_requisicao_manutencao', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('empresa_id')->comment('tenant (derivado no ETL)');
+            $table->bigInteger('requisicao_manutencao_id')->nullable()->comment('legado: requisition_id · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:468');
+            $table->bigInteger('item_ordem_manutencao_id')->nullable()->comment('legado: order_item_id · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:468');
+            $table->bigInteger('produto_id')->nullable()->comment('legado: product_id · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:469');
+            $table->text('descricao')->nullable()->comment('legado: descricao · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:469');
+            $table->decimal('quantidade', 15, 3)->nullable()->comment('legado: quantidade · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:470');
+            $table->decimal('quantidade_entregue', 15, 3)->nullable()->comment('legado: quantidade_entregue · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:470');
+            $table->string('estado', 12)->nullable()->comment('legado: estado · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:470');
+            $table->decimal('custo', 15, 2)->nullable()->comment('legado: custo · do código legado Versões/Versão Actual/ERP/js/activos_manutencao.js:571');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_linhas_requisicao_manutencao_empresa_id ON linhas_requisicao_manutencao (empresa_id)');
+        DB::statement('CREATE INDEX ix_linhas_requisicao_manutencao_requisicao_manutencao_id ON linhas_requisicao_manutencao (requisicao_manutencao_id)');
+        DB::statement('CREATE INDEX ix_linhas_requisicao_manutencao_item_ordem_manutencao_id ON linhas_requisicao_manutencao (item_ordem_manutencao_id)');
+        DB::statement('CREATE INDEX ix_linhas_requisicao_manutencao_produto_id ON linhas_requisicao_manutencao (produto_id)');
     }
 
     public function down(): void

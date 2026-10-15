@@ -40,3 +40,28 @@ describe('Gantt (responsivo e impressão)', () => {
     expect(container.querySelectorAll('.imp-cor').length).toBeGreaterThan(0);
   });
 });
+
+describe('Gantt (Versão Actual: escala e precedências)', () => {
+  afterEach(() => simularLargura(null));
+
+  it('desenha as setas de precedência entre barras visíveis e a coluna extra (só em ecrã largo)', () => {
+    simularLargura(1400);
+    const { getByTestId, container, getByText } = render(
+      <Gantt
+        inicio="2026-09-01"
+        fim="2026-09-30"
+        escala="semana"
+        ligacoes={[{ de: 't-1', para: 't-2', tipo: 'FS' }, { de: 't-1', para: 't-9', tipo: 'SS' }]}
+        colunaExtra={{ titulo: 'Precedência', valor: (l) => (l.chave === 't-2' ? '← T1' : null) }}
+        linhas={[
+          { chave: 't-1', nome: 'T1', nivel: 0, tipo: 'tarefa', inicio: '2026-09-01', fim: '2026-09-10' },
+          { chave: 't-2', nome: 'T2', nivel: 0, tipo: 'tarefa', inicio: '2026-09-11', fim: '2026-09-20' },
+        ]}
+      />,
+    );
+    // só a ligação entre duas linhas visíveis (a de t-9 é ignorada): 2 segmentos em cotovelo
+    expect(getByTestId('gantt-precedencias').querySelectorAll('g line').length).toBe(2);
+    expect(getByText('← T1')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-bar]').length).toBe(2);
+  });
+});

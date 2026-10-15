@@ -28,6 +28,8 @@ final class SalariosPagamentoTest extends TestCase
                 '4312' => 'Banco USD'] as $c => $d) {
                 PlanoConta::create(['codigo' => (string) $c, 'descricao' => $d, 'tipo' => 'M']);
             }
+            // Fase D (ADR-071): a carta emite-se sobre uma conta 42/43 com IBAN (fictício)
+            PlanoConta::query()->where('codigo', '4311')->firstOrFail()->update(['banco_nome' => 'Banco Ficticio', 'banco_iban' => RHCadastrosTest::ibanValido('0055000000000000001')]);
 
             return ['org' => TipoOrganizacaoRH::create(['nome' => 'Colaboradores'])->id,
                 'base' => InfotipoSalarial::create(['tipo' => 'VENCIMENTO', 'nome' => 'Salário Base', 'sujeito_inss' => true, 'irt' => 'true'])->id];
@@ -67,18 +69,18 @@ final class SalariosPagamentoTest extends TestCase
         foreach ([$ana => '0040000012345678901', $rui => '0040000098765432101'] as $c => $prefixo) {
             $this->putJson("/api/rh/colaboradores/{$c}/coordenada-bancaria", ['banco_id' => $banco, 'iban' => RHCadastrosTest::ibanValido($prefixo)], $this->s)->assertOk();
         }
-        // carta só da Ana; depois a do Rui (ninguém entra em duas cartas)
+        // Fase D: a carta nasce do pagamento gravado — o pagamento exige o período contabilizado
+        $this->postJson("/api/rh/salarios/periodos/{$p}/cartas", $carta + ['colaboradores' => [$ana]], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'PERIODO_NAO_CONTABILIZADO');
+        $this->postJson("/api/rh/salarios/periodos/{$p}/contabilizar", [], $this->s)->assertOk();
+        // carta só da Ana; depois a do Rui (ninguém entra em duas cartas); cada carta grava o seu pagamento (PAG, PENDENTE)
         $c1 = $this->postJson("/api/rh/salarios/periodos/{$p}/cartas", $carta + ['colaboradores' => [$ana]], $this->s)->assertCreated()
-            ->assertJsonPath('dados.montante_total', '243370.00')->assertJsonCount(1, 'dados.itens')->json('dados.id');
+            ->assertJsonPath('dados.montante_total', '243370.00')->assertJsonCount(1, 'dados.itens')->assertJsonPath('dados.tipo', 'SALARIOS')
+            ->assertJsonPath('dados.documento_tesouraria.estado', 'PENDENTE')->assertJsonPath('dados.documento_tesouraria.valor_total', '243370.00')->json('dados');
+        [$c1, $doc] = [$c1['id'], $c1['documento_tesouraria_id']];
         $this->postJson("/api/rh/salarios/periodos/{$p}/cartas", $carta + ['colaboradores' => [$ana]], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'COLABORADOR_INVALIDO');
         $c2 = $this->postJson("/api/rh/salarios/periodos/{$p}/cartas", $carta, $this->s)->assertCreated()->assertJsonPath('dados.montante_total', '145500.00')->json('dados.id');
         $this->postJson("/api/rh/salarios/periodos/{$p}/cartas", $carta, $this->s)->assertStatus(422)->assertJsonPath('codigo', 'SEM_SALARIOS_A_PAGAR');
-
-        // pagamento exige o período contabilizado
-        $this->postJson("/api/rh/salarios/cartas/{$c1}/pagamento", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'PERIODO_NAO_CONTABILIZADO');
-        $this->postJson("/api/rh/salarios/periodos/{$p}/contabilizar", [], $this->s)->assertOk();
-        $doc = $this->postJson("/api/rh/salarios/cartas/{$c1}/pagamento", [], $this->s)->assertCreated()->assertJsonPath('dados.estado', 'PENDENTE')
-            ->assertJsonPath('dados.valor_total', '243370.00')->assertJsonPath('dados.periodo_processamento_salarial_id', $p)->json('dados.id');
+        $this->assertSame($p, app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => DocumentoTesouraria::query()->find($doc)->periodo_processamento_salarial_id));
         $this->postJson("/api/rh/salarios/cartas/{$c1}/pagamento", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'CARTA_COM_PAGAMENTO');
         $this->deleteJson("/api/rh/salarios/cartas/{$c1}", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'CARTA_COM_PAGAMENTO');
         $this->getJson("/api/rh/salarios/periodos/{$p}/ordem-pagamento", $this->s)->assertJsonPath('dados.sem_iban', 0)->assertJsonPath('dados.linhas.0.carta_pagamento_id', $c1);
@@ -90,8 +92,8 @@ final class SalariosPagamentoTest extends TestCase
         $this->assertSame(['C 4311 243370.00 '.app(ContextoEmpresa::class)->executarComo($this->empresa->id,
             fn () => DocumentoTesouraria::query()->find($doc)->numero_documento), "D 3611 243370.00 SAL{$mm}{$aaaa}"], $linhas);
 
-        // a segunda carta paga o resto; a carta sem pagamento pode ser eliminada
-        $this->postJson("/api/rh/salarios/cartas/{$c2}/pagamento", [], $this->s)->assertCreated();
+        // a segunda carta já trouxe o pagamento do resto
+        $this->postJson("/api/rh/salarios/cartas/{$c2}/pagamento", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'CARTA_COM_PAGAMENTO');
         $this->getJson("/api/rh/salarios/cartas?periodo_id={$p}", $this->s)->assertJsonCount(2, 'dados');
     }
 }

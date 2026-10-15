@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-10-14T20:14:38.199Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-10-14T23:42:38.824Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 
@@ -697,7 +697,7 @@ Linhas reais: **128** · fictícias descartadas: 18
 | `payment_mode` | `modo_pagamento_original` | varchar(10) | sim | 18% |  | texto exacto do legado |
 | `payment_schedule` | `plano_pagamentos` | jsonb | sim | 18% |  |  |
 | `crm_opportunity_id` | `oportunidade_crm_id` | bigint | sim | 2% | `oportunidades_venda_crm.id` |  |
-| `unidades_alocadas` | `unidades_alocadas` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
+| `unidades_alocadas` | `unidades_alocadas` | jsonb | sim | 0% |  | sem valores reais: tipo a confirmar no código legado; tipo forçado (inferido: text) |
 | `fe_tipo` | `fe_tipo` | varchar(5) | sim | 1% |  | tipo forçado (inferido: varchar(10)) |
 | `fe_serie_id` | `serie_faturacao_eletronica_id` | bigint | sim | 1% | `series_faturacao_eletronica.id` |  |
 | `fe_serie` | `fe_serie` | varchar(50) | sim | 1% |  | tipo forçado (inferido: varchar(10)) |
@@ -3197,7 +3197,7 @@ Linhas reais: **4** · fictícias descartadas: 7
 | `codigo` | `codigo` | varchar(20) | sim | 100% |  |  |
 | `nome` | `nome` | varchar(30) | sim | 100% |  |  |
 | `criterio` | `criterio` | varchar(20) | sim | 100% |  |  |
-| `indicador` | `indicador` | varchar(10) | sim | 25% |  |  |
+| `indicador` | `indicador` | varchar(100) | sim | 25% |  | tipo forçado (inferido: varchar(10)) |
 | `periodo_de` | `periodo_de` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `periodo_ate` | `periodo_ate` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `linhas` | `linhas` | jsonb | sim | 25% |  |  |
@@ -3451,8 +3451,8 @@ Linhas reais: **2** · fictícias descartadas: 7
 | `cliente_id` | `cliente_id` | bigint | sim | 0% | `terceiros.id` |  |
 | `encomenda` | `encomenda` | text | sim | 0% |  | sem valores reais: tipo a confirmar no código legado |
 | `morada` | `morada` | text | sim | 100% |  |  |
-| `fundamentacao` | `fundamentacao` | varchar(150) | sim | 100% |  |  |
-| `causa_raiz` | `causa_raiz` | varchar(150) | sim | 100% |  |  |
+| `fundamentacao` | `fundamentacao` | varchar(4000) | sim | 100% |  | tipo forçado (inferido: varchar(150)) |
+| `causa_raiz` | `causa_raiz` | varchar(4000) | sim | 100% |  | tipo forçado (inferido: varchar(150)) |
 | `recursos` | `recursos` | text | sim | 100% |  | tipo forçado (inferido: varchar(200)) |
 | `custo_estimado` | `custo_estimado` | numeric(15,2) | sim | 100% |  | tipo forçado (inferido: numeric(15,2)) |
 | `moeda` | `codigo_moeda` | varchar(10) | sim | 100% |  |  |
@@ -3478,7 +3478,7 @@ Linhas reais: **12** · fictícias descartadas: 0
 | :--- | :--- | :--- | :---: | ---: | :--- | :--- |
 | `assunto_id` | `assunto_id` | bigint | sim | 100% | `assuntos_metodo_trabalho.id` |  |
 | `accao` | `acao` | varchar(50) | sim | 100% |  |  |
-| `detalhe` | `detalhe` | varchar(150) | sim | 92% |  |  |
+| `detalhe` | `detalhe` | varchar(1000) | sim | 92% |  | tipo forçado (inferido: varchar(150)) |
 | `por` | `por` | varchar(100) | sim | 100% |  | tipo forçado (inferido: varchar(10)) |
 | `em` | `em` | timestamptz | sim | 100% |  |  |
 | `id` | `id` | bigint | não | 100% |  | PK preservada do backup |

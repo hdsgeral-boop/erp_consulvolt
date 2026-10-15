@@ -5,6 +5,7 @@ namespace App\Models\Base;
 use App\Models\Colaborador;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\MembroEquipaProjeto;
 use App\Models\ModeloBase;
 use App\Models\Projeto;
 use App\Models\TarefaProjeto;
@@ -23,7 +24,7 @@ abstract class FolhaHorasProjetoBase extends ModeloBase
     protected string $moduloAuditoria = 'Projectos';
 
     protected $fillable = [
-        'empresa_id', 'projeto_id', 'tarefa_projeto_id', 'colaborador_id', 'data', 'horas', 'estado',
+        'empresa_id', 'projeto_id', 'tarefa_projeto_id', 'colaborador_id', 'data', 'horas', 'estado', 'membro_equipa_projeto_id',
     ];
 
     protected function casts(): array
@@ -35,6 +36,7 @@ abstract class FolhaHorasProjetoBase extends ModeloBase
             'colaborador_id' => 'integer',
             'data' => 'date',
             'horas' => 'decimal:3',
+            'membro_equipa_projeto_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
@@ -53,5 +55,10 @@ abstract class FolhaHorasProjetoBase extends ModeloBase
     public function colaborador(): BelongsTo
     {
         return $this->belongsTo(Colaborador::class, 'colaborador_id');
+    }
+
+    public function membroEquipaProjeto(): BelongsTo
+    {
+        return $this->belongsTo(MembroEquipaProjeto::class, 'membro_equipa_projeto_id');
     }
 }

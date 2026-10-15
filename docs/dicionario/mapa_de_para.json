@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-10-14T20:14:38.199Z",
+  "gerado_em": "2026-10-14T23:42:38.824Z",
   "convencoes": {
     "timestamps": {
       "criado_em": "CREATED_AT",
@@ -4473,12 +4473,13 @@
         {
           "legado": "unidades_alocadas",
           "pt": "unidades_alocadas",
-          "tipo_pg": "text",
+          "tipo_pg": "jsonb",
           "nulo": true,
           "preenchimento": 0,
           "max_comprimento": 0,
           "notas": [
-            "sem valores reais: tipo a confirmar no código legado"
+            "sem valores reais: tipo a confirmar no código legado",
+            "tipo forçado (inferido: text)"
           ]
         },
         {
@@ -24945,11 +24946,13 @@
         {
           "legado": "indicador",
           "pt": "indicador",
-          "tipo_pg": "varchar(10)",
+          "tipo_pg": "varchar(100)",
           "nulo": true,
           "preenchimento": 0.25,
           "max_comprimento": 4,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(10))"
+          ]
         },
         {
           "legado": "periodo_de",
@@ -26798,20 +26801,24 @@
         {
           "legado": "fundamentacao",
           "pt": "fundamentacao",
-          "tipo_pg": "varchar(150)",
+          "tipo_pg": "varchar(4000)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 81,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(150))"
+          ]
         },
         {
           "legado": "causa_raiz",
           "pt": "causa_raiz",
-          "tipo_pg": "varchar(150)",
+          "tipo_pg": "varchar(4000)",
           "nulo": true,
           "preenchimento": 1,
           "max_comprimento": 82,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(150))"
+          ]
         },
         {
           "legado": "recursos",
@@ -27012,11 +27019,13 @@
         {
           "legado": "detalhe",
           "pt": "detalhe",
-          "tipo_pg": "varchar(150)",
+          "tipo_pg": "varchar(1000)",
           "nulo": true,
           "preenchimento": 0.9167,
           "max_comprimento": 72,
-          "notas": []
+          "notas": [
+            "tipo forçado (inferido: varchar(150))"
+          ]
         },
         {
           "legado": "por",

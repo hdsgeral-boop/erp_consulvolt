@@ -67,6 +67,8 @@ function montar(caminho = '/') {
 afterEach(() => {
   simularLargura(null);
   logotipo = null;
+  // o aspecto do menu fica no navegador por utilizador: cada teste começa com o padrão
+  localStorage.clear();
 });
 
 describe('LayoutPrincipal — portátil (1366 px)', () => {
@@ -216,5 +218,76 @@ describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
     expect(textos.filter((t) => t === 'Gerir Dados Pessoais' || t === 'Terminar sessão')).toEqual(['Gerir Dados Pessoais', 'Terminar sessão']);
     fireEvent.click(screen.getByText('Gerir Dados Pessoais'));
     expect(await screen.findByText('Página dos dados pessoais')).toBeInTheDocument();
+  });
+});
+
+describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela nocturna', () => {
+  beforeEach(() => simularLargura(1366));
+  afterEach(() => {
+    localStorage.clear();
+    document.documentElement.classList.remove('erp-tela-nocturna');
+  });
+
+  it('filtra a árvore em linha sem acentos, conta os resultados e abre o escolhido com setas e Enter', async () => {
+    const { container } = montar('/');
+    const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    const campo = within(lateral).getByRole('textbox', { name: 'Procurar no menu' });
+    fireEvent.change(campo, { target: { value: 'FATURACAO' } });
+    expect(await within(lateral).findByText('Faturação')).toBeInTheDocument();
+    expect(within(lateral).getByRole('status')).toHaveTextContent('1 operação encontrada');
+    // o grupo «Sistema» (sem resultados) desaparece durante a busca
+    expect(within(lateral).queryByText('Sistema')).toBeNull();
+    fireEvent.keyDown(campo, { key: 'ArrowDown' });
+    await waitFor(() => expect(lateral.querySelector('.erp-menu-focado')).not.toBeNull());
+    fireEvent.keyDown(campo, { key: 'Enter' });
+    expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
+    expect(campo).toHaveValue('');
+  });
+
+  it('nunca revela ecrãs sem permissão e Esc limpa a busca e repõe a árvore', async () => {
+    const { container } = montar('/');
+    const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    const campo = within(lateral).getByRole('textbox', { name: 'Procurar no menu' });
+    fireEvent.change(campo, { target: { value: 'compras' } });
+    expect(within(lateral).getByRole('status')).toHaveTextContent('Nada encontrado');
+    fireEvent.keyDown(campo, { key: 'Escape' });
+    expect(campo).toHaveValue('');
+    expect(within(lateral).getByRole('status')).toHaveTextContent('');
+    expect(within(lateral).getByText('Sistema')).toBeInTheDocument();
+  });
+
+  it('tela nocturna: botão na barra superior e Ctrl+Shift+N, guardada nas preferências do utilizador', async () => {
+    enviarMock.mockClear();
+    montar('/');
+    const botao = screen.getByRole('button', { name: 'Tela nocturna' });
+    expect(botao).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(botao);
+    await waitFor(() => expect(document.documentElement).toHaveClass('erp-tela-nocturna'));
+    expect(screen.getByRole('button', { name: 'Tela nocturna' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() =>
+      expect(enviarMock).toHaveBeenCalledWith('put', '/sistema/preferencias/interface/aspecto_nucleo', { valor: { tema: 'escuro', menu: 'completo' } }),
+    );
+    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toEqual({ tema: 'escuro', menu: 'completo' });
+    fireEvent.keyDown(window, { key: 'N', ctrlKey: true, shiftKey: true });
+    await waitFor(() => expect(document.documentElement).not.toHaveClass('erp-tela-nocturna'));
+  });
+
+  it('aspecto do menu do utilizador: «só nomes» retira os símbolos e «só símbolos» recolhe o menu', () => {
+    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'nomes' }));
+    const { container, unmount } = montar('/');
+    let lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    const geral = within(lateral).getByText('Menu Geral').closest('.ant-menu-submenu-title') as HTMLElement;
+    expect(geral.querySelector('svg.fx-icone')).toBeNull();
+    expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
+    unmount();
+
+    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'icones' }));
+    const segundo = montar('/');
+    lateral = segundo.container.querySelector('.ant-layout-sider') as HTMLElement;
+    expect(lateral).toHaveClass('ant-layout-sider-collapsed');
+    // com o menu só em símbolos não há caixa de busca; «Recolher menu» volta ao aspecto anterior
+    expect(within(lateral).queryByRole('textbox', { name: 'Procurar no menu' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
   });
 });

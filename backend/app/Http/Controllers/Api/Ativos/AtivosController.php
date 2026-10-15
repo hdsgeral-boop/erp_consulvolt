@@ -81,9 +81,13 @@ final class AtivosController extends Controller
         $this->exigir(...self::VER);
         $f = $r->validate(['estado' => ['nullable', Rule::in(AtivoImobilizado::ESTADOS)], 'categoria_ativo_id' => ['nullable', 'integer'], 'centro_custo_id' => ['nullable', 'integer'],
             'unidade_negocio_id' => ['nullable', 'integer'], 'texto' => ['nullable', 'string', 'max:100'], 'sem_lancamento' => ['nullable', 'boolean'],
-            'por_pagina' => ['nullable', 'integer', 'min:1', 'max:1000'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+            'por_pagina' => ['nullable', 'integer', 'min:1', 'max:1000'], 'pagina' => ['nullable', 'integer', 'min:1'],
+            'tipo_ativo' => ['nullable', Rule::in(['BEM', 'EDIFICIO'])], 'edificio_id' => ['nullable', 'integer'], 'porta_id' => ['nullable', 'integer']]);
         $q = AtivoImobilizado::query()->with(['categoriaAtivo:id,nome,taxa_anual', 'centroCusto:id,codigo', 'unidadeNegocio:id,codigo', 'fornecedor:id,nome']);
-        foreach (['estado', 'categoria_ativo_id', 'centro_custo_id', 'unidade_negocio_id'] as $c) {
+        // Fase F: filtro por tipo (BEM inclui os migrados sem tipo) e por local
+        $q->when($f['tipo_ativo'] ?? null, fn ($q, $t) => $t === 'EDIFICIO' ? $q->where('tipo_ativo', 'EDIFICIO')
+            : $q->where(fn ($x) => $x->whereNull('tipo_ativo')->orWhere('tipo_ativo', '<>', 'EDIFICIO')));
+        foreach (['estado', 'categoria_ativo_id', 'centro_custo_id', 'unidade_negocio_id', 'edificio_id', 'porta_id'] as $c) {
             $q->when($f[$c] ?? null, fn ($q, $v) => $q->where($c, $v));
         }
         $q->when($f['texto'] ?? null, fn ($q, $t) => $q->where(fn ($q) => $q->where('codigo', 'ilike', "%{$t}%")->orWhere('descricao', 'ilike', "%{$t}%")));
@@ -372,6 +376,9 @@ final class AtivosController extends Controller
             'data_aquisicao' => [$s, 'date'], 'valor_aquisicao' => [$s, 'numeric', 'min:0'], 'valor_residual' => [$s, 'nullable', 'numeric', 'min:0'],
             'vida_util' => [$s, 'nullable', 'integer', 'min:0'], 'vida_util_restante' => [$s, 'nullable', 'integer', 'min:0'], 'quota_fixa' => [$s, 'nullable', 'numeric', 'min:0'],
             'amortizacao_acumulada_inicial' => [$s, 'nullable', 'numeric', 'min:0'], 'acumulado_fim_ano' => [$s, 'nullable', 'integer', 'between:1900,2100'],
+            // Fase F (Versão Actual): tipo e localização física (o serviço valida a coerência porta › andar › edifício)
+            'tipo_ativo' => [$s, 'nullable', Rule::in(['BEM', 'EDIFICIO'])], 'edificio_id' => [$s, 'nullable', 'integer'], 'andar_id' => [$s, 'nullable', 'integer'],
+            'porta_id' => [$s, 'nullable', 'integer'],
         ];
     }
 

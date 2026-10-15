@@ -53,7 +53,9 @@ final class ServicoCopiaEmpresa
         'configuracoes_contabeis_tesouraria', 'configuracoes_contabeis_vendas', 'configuracoes_crm', 'configuracoes_deliberacao_compras', 'configuracoes_lavandaria',
         'configuracoes_pos', 'configuracoes_projetos', 'infotipos_salariais', 'tipos_organizacao_rh', 'cargos_funcoes', 'bancos', 'meios_pagamento', 'categorias_produtos',
         'categorias_ativos', 'rubricas_orcamentais', 'mapeamentos_contabeis_rh', 'mapeamentos_contabeis_sistema_rh', 'regras_internas_ia', 'modelos_documentos_rh',
-        'modelos_email_crm', 'funis_vendas_crm', 'criterios_avaliacao_rh', 'armazens'];
+        'modelos_email_crm', 'funis_vendas_crm', 'criterios_avaliacao_rh', 'armazens',
+        // Versão Actual (ADR-071): regras de IA em ficheiro, configuração dos empréstimos e modelos das cartas de pagamento
+        'ficheiros_regras_ia', 'configuracoes_emprestimos', 'modelos_cartas_pagamento'];
 
     /** Referências a ids dentro de colunas JSON (chave => tabela). */
     private const CHAVES_JSON = [

@@ -1,5 +1,5 @@
 import { Steps } from 'antd';
-import { formatarData, formatarDataHora } from '@/utilitarios/formatacao';
+import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ROTULOS_ESTADO, type DocumentoEmitido, type PedidoPortal } from '../api';
 
 /** Texto curto do pedido (datas das férias/ausência, documento pedido, n.º de dependentes). */
@@ -18,6 +18,9 @@ export function resumoPedido(p: Pick<PedidoPortal, 'tipo' | 'dados'>): string {
         const lista = Array.isArray(d.depois) ? d.depois : Array.isArray(d.dependentes) ? d.dependentes : [];
         return `${lista.length} dependente(s) propostos`;
       }
+    case 'EMPRESTIMO':   // Fase B (Versão Actual): pedido de empréstimo
+      return [d.numero ? String(d.numero) : '', d.capital ? `${formatarKz(String(d.capital), true)} em ${String(d.prestacoes ?? '')} prestações` : '',
+        d.inicio_desconto ? `desde ${String(d.inicio_desconto)}` : ''].filter(Boolean).join(' · ');
     default:
       return '';
   }

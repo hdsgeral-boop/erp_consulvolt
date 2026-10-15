@@ -292,6 +292,8 @@ return new class extends Migration
             $table->text('nome_assinatura')->nullable()->comment('legado: signature_name · sem valores reais: tipo a confirmar no código legado');
             $table->string('cargo_assinatura', 100)->nullable()->comment('legado: signature_role · tipo forçado (inferido: varchar(20))');
             $table->text('local')->nullable()->comment('legado: local · sem valores reais: tipo a confirmar no código legado');
+            $table->string('nome', 100)->nullable()->comment('Nome do modelo (sistema novo)');
+            $table->boolean('predefinido')->nullable()->comment('Modelo usado por omissão no tipo');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });

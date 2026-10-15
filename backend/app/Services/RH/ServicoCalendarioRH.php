@@ -20,7 +20,9 @@ final class ServicoCalendarioRH
     /** Valores por omissão do legado (CONFIG_PADRAO). */
     public const PADRAO = ['dias_uteis' => [1, 2, 3, 4, 5], 'tolerancia_min' => 10, 'arredondamento_min' => 15, 'extras_min_minutos' => 15,
         'feriados' => [], 'relogio' => ['url' => '', 'formato' => 'CSV'], 'modo_compensacao' => 'DIA', 'limite_compensacao_h' => 0,
-        'extra_nao_util_exige_autorizacao' => false];
+        'extra_nao_util_exige_autorizacao' => false,
+        // Versão Actual (assiduidade.js:41): regime de picagem por omissão da empresa (1 = período corrido, 2 = dois períodos)
+        'periodos_padrao' => 1, 'intervalo_saida_padrao' => '12:00', 'intervalo_entrada_padrao' => '13:00'];
 
     /** @var array<int, array<string, mixed>> */
     private array $cache = [];
@@ -40,6 +42,7 @@ final class ServicoCalendarioRH
         $cfg['dias_uteis'] = array_values(array_map('intval', (array) $cfg['dias_uteis']));
         $cfg['feriados'] = array_values(array_map('strval', (array) $cfg['feriados']));
         $cfg['limite_compensacao_h'] = (float) $cfg['limite_compensacao_h'];
+        $cfg['periodos_padrao'] = (int) $cfg['periodos_padrao'] === 2 ? 2 : 1;
 
         return $cfg;
     }

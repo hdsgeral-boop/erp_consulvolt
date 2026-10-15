@@ -42,6 +42,20 @@ use Illuminate\Support\Facades\DB;
  *     estado NULL e «BLOQUEADA» em estado_original — ServicoProjetos::codigoAceite);
  *   - coluna do Kanban em estado_original, com o estado-base da coluna em `estado` (o legado gravava o id da coluna
  *     personalizada como estado, ex.: FAZENDO, que o resto do sistema não reconhecia).
+ * Fase E — Versão Actual (2026-10-11: projectos_metas.js, projectos_hierarquia.js, ui_projects.js:2380-2475):
+ *   - meta por quantidade na tarefa (unidade obrigatória com meta; quantidades ≥ 0); com meta a % deixa de se escrever
+ *     à mão: pct = realizado ÷ meta; ao chegar a 100 % a tarefa fica CONCLUÍDA; com subtarefas com meta o realizado
+ *     sobe delas e não se escreve no pai;
+ *   - progresso ponderado pela quantidade quando os filhos têm todos meta na mesma unidade (progresso, :51-63) e
+ *     execução de um conjunto (fase, global) ponderada quando possível (progressoConjunto, :105-110);
+ *   - fase com data de início e meta (unidade + quantidade); a data alvo não pode ser anterior à de início;
+ *   - datas dentro do nível acima e dependência FS/SS/FF validadas ao gravar e ao mover (ServicoHierarquiaProjetos);
+ *   - `concluida_em` posta quando a tarefa passa a CONCLUÍDA (modal, Kanban ou meta atingida) e retirada quando sai;
+ *     reeditar uma tarefa concluída mantém a data original;
+ *   - posição do organigrama escolhida no modal da tarefa (a ligação vive no nó, project_org_nodes.tarefas);
+ *   - WBS ordenada por data e precedência entre irmãos (sem datas vale a ordem manual).
+ *   Correcções: eliminar uma tarefa retira a dependência das tarefas que dependiam dela (a FK é RESTRICT; o legado
+ *   deixava-as a apontar para um id inexistente); a % manual é recusada numa tarefa com meta (só se mede).
  */
 final class ServicoPlaneamentoProjetos
 {
@@ -57,8 +71,9 @@ final class ServicoPlaneamentoProjetos
     // ───────────── Execução (%) ─────────────
 
     /**
-     * Execução por tarefa (calcProgress, ui_projects.js:716-731): folha = percentagem própria; com subtarefas = média
-     * arredondada das subtarefas.
+     * Execução por tarefa (calcProgress, ui_projects.js:716-731; Versão Actual: ProjMetas.progresso,
+     * projectos_metas.js:51-63): folha = % da meta (com meta) ou a percentagem própria; com subtarefas que têm todas
+     * meta na mesma unidade = Σ min(feito, meta) ÷ Σ meta; senão a média arredondada das subtarefas.
      *
      * @param  Collection<int, TarefaProjeto>  $tarefas
      * @return array<int, int>
@@ -73,7 +88,14 @@ final class ServicoPlaneamentoProjetos
             }
             $f = ($filhos[$t->id] ?? collect())->reject(fn ($x) => isset($pilha[$x->id]));
             if ($f->isEmpty()) {
-                return $memo[$t->id] = (int) round((float) $t->percentagem_execucao);
+                return $memo[$t->id] = $t->pctDaMeta() ?? (int) round((float) $t->percentagem_execucao);
+            }
+            $unidades = $f->map(fn ($x) => trim((string) $x->meta_unidade))->filter()->unique();
+            if ($f->every(fn ($x) => $x->temMeta()) && $unidades->count() === 1) {
+                $meta = $f->sum(fn ($x) => (float) $x->meta_quantidade);
+                $feito = $f->sum(fn ($x) => min((float) $x->meta_realizado, (float) $x->meta_quantidade));
+
+                return $memo[$t->id] = $meta > 0 ? (int) round($feito / $meta * 100) : 0;
             }
             $soma = $f->sum(fn ($x) => $calc($x, $pilha + [$t->id => true]));
 
@@ -87,49 +109,119 @@ final class ServicoPlaneamentoProjetos
         return $saida;
     }
 
-    /** Execução global (média das tarefas principais) e por milestone (calcMilestoneProgress). */
+    /**
+     * Execução global (tarefas principais) e por milestone (calcMilestoneProgress; Versão Actual: progressoConjunto,
+     * projectos_metas.js:105-110): ponderada pela quantidade quando todas as tarefas do conjunto têm meta numa só
+     * unidade, média simples nos outros casos.
+     */
     public static function progresso(Collection $tarefas): array
     {
         $exec = self::execucoes($tarefas);
+        $filhos = $tarefas->groupBy(fn ($t) => (int) $t->tarefa_pai_id);
         $raiz = $tarefas->whereNull('tarefa_pai_id');
-        $media = fn (Collection $c) => $c->isEmpty() ? 0 : (int) round($c->sum(fn ($t) => $exec[$t->id]) / $c->count());
+        $conjunto = function (Collection $c) use ($exec, $filhos) {
+            if ($c->isEmpty()) {
+                return 0;
+            }
+            $s = RegrasMetasProjetos::somaRamo($filhos, $c);
+            if ($s['houve'] && $s['unidade'] !== '' && $s['meta'] > 0 && $c->every(fn ($t) => RegrasMetasProjetos::somaRamo($filhos, [$t])['houve'])) {
+                return (int) round($s['feito'] / $s['meta'] * 100);
+            }
+
+            return (int) round($c->sum(fn ($t) => $exec[$t->id]) / $c->count());
+        };
         $porMarco = [];
         foreach ($raiz->groupBy(fn ($t) => (int) $t->marco_projeto_id) as $marco => $ts) {
-            $porMarco[$marco] = $media($ts);
+            $porMarco[$marco] = $conjunto($ts);
         }
 
-        return ['global' => $media($raiz), 'por_tarefa' => $exec, 'por_marco' => $porMarco];
+        return ['global' => $conjunto($raiz), 'por_tarefa' => $exec, 'por_marco' => $porMarco];
     }
 
-    /** WBS: milestones com as tarefas em árvore, execução e horas (renderProjectPlaneamento, vista «Lista / WBS»). */
-    public function wbs(Projeto $p): array
+    /**
+     * WBS: milestones com as tarefas em árvore, execução e horas (renderProjectPlaneamento, vista «Lista / WBS»).
+     * Versão Actual: meta (feito / meta, das subtarefas quando as há), precedência, estrutura orgânica, horas previstas
+     * pelo calendário e aviso da meta da fase («faltam repartir X», ui_projects.js:690-706). Os irmãos vêm por data e
+     * precedência (`$ordenacao = 'auto'`, ProjHierarquia.ordenar) ou pela ordem manual (`'manual'`).
+     */
+    public function wbs(Projeto $p, string $ordenacao = 'auto'): array
     {
         $tarefas = $this->tarefas($p);
-        $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->orderBy('data')->orderBy('id')->get();
+        $porId = $tarefas->keyBy('id');
+        $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->orderByRaw('COALESCE(data_inicio, data)')->orderBy('data')->orderBy('id')->get();
         $prog = self::progresso($tarefas);
+        $cal = RegrasMetasProjetos::calendario($p->calendario);
         $horas = FolhaHorasProjeto::query()->where('projeto_id', $p->id)->groupBy('tarefa_projeto_id')->selectRaw('tarefa_projeto_id, SUM(horas) AS h')->pluck('h', 'tarefa_projeto_id');
         $posicoes = [];
-        foreach (NoOrganigramaProjeto::query()->where('projeto_id', $p->id)->get() as $n) {
+        $posicoesIds = [];
+        foreach (NoOrganigramaProjeto::query()->where('projeto_id', $p->id)->orderBy('id')->get() as $n) {
             foreach ($n->tarefas ?? [] as $tid) {
                 $posicoes[(int) $tid][] = $n->titulo.($n->area ? " ({$n->area})" : '');
+                $posicoesIds[(int) $tid][] = $n->id;
             }
         }
         $filhos = $tarefas->groupBy(fn ($t) => (int) $t->tarefa_pai_id);
-        $no = function (TarefaProjeto $t, int $nivel = 0) use (&$no, $filhos, $prog, $horas, $posicoes) {
-            return $t->only(['id', 'codigo', 'nome', 'tarefa_pai_id', 'marco_projeto_id', 'atribuido_a_id', 'valor_contrato', 'ordem', 'estado_original'])
+        $porPred = $tarefas->filter(fn ($t) => $t->tarefa_predecessora_id)->groupBy(fn ($t) => (int) $t->tarefa_predecessora_id);
+        $ordenar = fn (Collection $c) => $ordenacao === 'manual' ? $c->values() : ServicoHierarquiaProjetos::ordenarIrmaos($c);
+        $no = function (TarefaProjeto $t, int $nivel = 0) use (&$no, $filhos, $prog, $horas, $posicoes, $posicoesIds, $porId, $porPred, $cal, $ordenar) {
+            $meta = RegrasMetasProjetos::metaDoRamo($filhos, $t);
+            $temFilhoComMeta = ($filhos[$t->id] ?? collect())->contains(fn ($f) => $f->temMeta());
+
+            return $t->only(['id', 'codigo', 'nome', 'tarefa_pai_id', 'marco_projeto_id', 'atribuido_a_id', 'valor_contrato', 'ordem', 'estado_original',
+                'tarefa_predecessora_id', 'desfasamento_dias', 'meta_unidade', 'meta_quantidade', 'meta_realizado'])
                 + ['estado' => $t->estadoEfetivo(), 'data_inicio' => $t->data_inicio?->toDateString(), 'data_fim' => $t->data_fim?->toDateString(),
+                    'tipo_dependencia' => $t->tarefa_predecessora_id ? ($t->tipo_dependencia ?: 'FS') : $t->tipo_dependencia,
+                    'concluida_em' => $t->concluida_em?->toDateString(),
                     'percentagem_execucao' => (int) round((float) $t->percentagem_execucao), 'execucao' => $prog['por_tarefa'][$t->id], 'nivel' => $nivel,
-                    'horas' => (float) ($horas[$t->id] ?? 0), 'posicoes' => $posicoes[$t->id] ?? [],
-                    'subtarefas' => ($filhos[$t->id] ?? collect())->map(fn ($f) => $no($f, $nivel + 1))->values()->all()];
+                    'horas' => (float) ($horas[$t->id] ?? 0), 'horas_previstas' => RegrasMetasProjetos::horasPrevistas($t->data_inicio?->toDateString(), $t->data_fim?->toDateString(), $cal),
+                    'posicoes' => $posicoes[$t->id] ?? [], 'posicoes_ids' => $posicoesIds[$t->id] ?? [],
+                    'meta' => $meta, 'mede_se' => $t->temMeta() && ! $temFilhoComMeta, 'n_medicoes' => count($t->medicoes()),
+                    'precedencia' => ServicoHierarquiaProjetos::simbolos($t, $porId, $porPred),
+                    'subtarefas' => $ordenar($filhos[$t->id] ?? collect())->map(fn ($f) => $no($f, $nivel + 1))->values()->all()];
         };
         $raiz = $tarefas->whereNull('tarefa_pai_id');
         $idsMarcos = $marcos->pluck('id')->all();
-        $grupos = $marcos->map(fn ($m) => ['marco' => $m->only(['id', 'nome', 'estado']) + ['data' => $m->data?->toDateString()],
-            'execucao' => $prog['por_marco'][$m->id] ?? 0, 'tarefas' => $raiz->where('marco_projeto_id', $m->id)->map(fn ($t) => $no($t))->values()->all()])->all();
-        $grupos[] = ['marco' => null, 'execucao' => $prog['por_marco'][0] ?? 0,
-            'tarefas' => $raiz->filter(fn ($t) => ! $t->marco_projeto_id || ! in_array($t->marco_projeto_id, $idsMarcos, true))->map(fn ($t) => $no($t))->values()->all()];
+        $grupos = $marcos->map(function ($m) use ($raiz, $filhos, $prog, $no, $ordenar) {
+            $ts = $raiz->where('marco_projeto_id', $m->id);
 
-        return ['execucao_global' => $prog['global'], 'grupos' => $grupos];
+            return ['marco' => $m->only(['id', 'nome', 'estado', 'meta_unidade', 'meta_quantidade']) + ['data' => $m->data?->toDateString(), 'data_inicio' => $m->data_inicio?->toDateString()],
+                'execucao' => $prog['por_marco'][$m->id] ?? 0, 'meta' => self::metaDaFase($m, $filhos, $ts),
+                'tarefas' => $ordenar($ts)->map(fn ($t) => $no($t))->values()->all()];
+        })->all();
+        $grupos[] = ['marco' => null, 'execucao' => $prog['por_marco'][0] ?? 0, 'meta' => null,
+            'tarefas' => $ordenar($raiz->filter(fn ($t) => ! $t->marco_projeto_id || ! in_array($t->marco_projeto_id, $idsMarcos, true)))->map(fn ($t) => $no($t))->values()->all()];
+
+        return ['execucao_global' => $prog['global'], 'calendario' => $cal + ['modelo' => RegrasMetasProjetos::modeloDe($cal)], 'grupos' => $grupos];
+    }
+
+    /**
+     * Meta da fase face às tarefas (metaDaFase, ui_projects.js:690-706): realizado que sobe das tarefas e o aviso
+     * «faltam repartir X» / «tarefas X acima da meta».
+     *
+     * @return array{meta: ?float, unidade: ?string, repartido: float, feito: float, unidade_tarefas: string, aviso: ?string}|null
+     */
+    private static function metaDaFase(MarcoProjeto $m, Collection $filhos, Collection $tarefas): ?array
+    {
+        $s = RegrasMetasProjetos::somaRamo($filhos, $tarefas);
+        $meta = (float) $m->meta_quantidade > 0 ? (float) $m->meta_quantidade : null;
+        if (! $meta && ! $s['houve']) {
+            return null;
+        }
+        $aviso = null;
+        if ($meta) {
+            $dif = RegrasMetasProjetos::r2($meta - $s['meta']);
+            $un = trim((string) $m->meta_unidade) ?: 'un';
+            $fmt = fn ($v) => rtrim(rtrim(number_format($v, 2, ',', ' '), '0'), ',');
+            if ($s['houve'] && $s['unidade'] !== '' && RegrasMetasProjetos::chaveUnidade($s['unidade']) !== RegrasMetasProjetos::chaveUnidade($un)) {
+                $aviso = "As tarefas medem-se em {$s['unidade']} e a fase em {$un}.";
+            } elseif ($dif > 0.004) {
+                $aviso = "Faltam repartir {$fmt($dif)} {$un} pelas tarefas.";
+            } elseif ($dif < -0.004) {
+                $aviso = "As tarefas somam {$fmt(-$dif)} {$un} acima da meta da fase.";
+            }
+        }
+
+        return ['meta' => $meta, 'unidade' => $m->meta_unidade, 'repartido' => $s['meta'], 'feito' => $s['feito'], 'unidade_tarefas' => $s['unidade'], 'aviso' => $aviso];
     }
 
     /** @return Collection<int, TarefaProjeto> tarefas pela ordem da árvore (projOrdemTarefa: sem ordem ficam no fim, pela criação) */
@@ -141,20 +233,45 @@ final class ServicoPlaneamentoProjetos
 
     // ───────────── Milestones ─────────────
 
-    public function guardarMarco(Projeto $p, array $d, ?MarcoProjeto $m = null): MarcoProjeto
+    /**
+     * Fase / milestone (saveMilestone, ui_projects.js:2481-2560): designação, data de início (Versão Actual), data alvo
+     * e meta (unidade + quantidade). A data alvo não pode ser anterior à de início; com meta a unidade é obrigatória.
+     * Ao apertar o intervalo, as tarefas que ficam fora vêm em `avisos` (não se mexe nas datas delas sem o dizer).
+     *
+     * @return array{marco: MarcoProjeto, avisos: list<string>}
+     */
+    public function guardarMarcoComAvisos(Projeto $p, array $d, ?MarcoProjeto $m = null): array
     {
         $nome = trim((string) ($d['nome'] ?? $m?->nome ?? ''));
         if ($nome === '') {
             throw new ErroNegocio('Indique a designação do milestone.', 'NOME_OBRIGATORIO', 422);
         }
-        $dados = ['projeto_id' => $p->id, 'nome' => $nome, 'data' => array_key_exists('data', $d) ? $d['data'] : $m?->data?->toDateString(), 'estado' => $m?->estado ?? 'PENDENTE'];
-        if ($m) {
-            $m->update($dados);
-
-            return $m->refresh();
+        $data = array_key_exists('data', $d) ? $d['data'] : $m?->data?->toDateString();
+        $inicio = array_key_exists('data_inicio', $d) ? $d['data_inicio'] : $m?->data_inicio?->toDateString();
+        if ($inicio && $data && substr((string) $data, 0, 10) < substr((string) $inicio, 0, 10)) {
+            throw new ErroNegocio('A data alvo da fase não pode ser anterior à data de início.', 'DATAS_INVALIDAS', 422);
         }
+        $metaQ = array_key_exists('meta_quantidade', $d) ? (float) ($d['meta_quantidade'] ?? 0) : (float) ($m?->meta_quantidade ?? 0);
+        $metaUn = array_key_exists('meta_unidade', $d) ? trim((string) ($d['meta_unidade'] ?? '')) : trim((string) ($m?->meta_unidade ?? ''));
+        if ($metaQ < 0) {
+            throw new ErroNegocio('A meta da fase não pode ser negativa.', 'META_INVALIDA', 422);
+        }
+        if ($metaQ > 0 && $metaUn === '') {
+            throw new ErroNegocio('Indique a unidade de medida da meta (m², metros, unidades…).', 'META_SEM_UNIDADE', 422);
+        }
+        $dados = ['projeto_id' => $p->id, 'nome' => $nome, 'data' => $data ?: null, 'data_inicio' => $inicio ?: null, 'estado' => $m?->estado ?? 'PENDENTE',
+            'meta_quantidade' => $metaQ > 0 ? number_format($metaQ, 3, '.', '') : null, 'meta_unidade' => $metaQ > 0 ? mb_substr($metaUn, 0, 20) : null];
+        $m ? $m->update($dados) : $m = MarcoProjeto::create($dados);
+        $fora = ! $inicio && ! $data ? collect() : TarefaProjeto::query()->where('projeto_id', $p->id)->whereNull('tarefa_pai_id')->where('marco_projeto_id', $m->id)
+            ->where(fn ($q) => $q->when($inicio, fn ($x) => $x->orWhere('data_inicio', '<', $inicio))->when($data, fn ($x) => $x->orWhere('data_fim', '>', $data)))->pluck('nome');
+        $avisos = $fora->isEmpty() ? [] : ["{$fora->count()} tarefa(s) ficam com datas fora da fase: ".$fora->take(5)->implode(', ').($fora->count() > 5 ? '…' : '').'. Reveja as datas.'];
 
-        return MarcoProjeto::create($dados);
+        return ['marco' => $m->refresh(), 'avisos' => $avisos];
+    }
+
+    public function guardarMarco(Projeto $p, array $d, ?MarcoProjeto $m = null): MarcoProjeto
+    {
+        return $this->guardarMarcoComAvisos($p, $d, $m)['marco'];
     }
 
     /** Elimina o milestone; as tarefas passam a «sem milestone» (projEliminarMilestone). */
@@ -176,59 +293,182 @@ final class ServicoPlaneamentoProjetos
     /** @param  array<string, mixed>  $d */
     public function guardarTarefa(Projeto $p, array $d, ?TarefaProjeto $t = null): TarefaProjeto
     {
+        return $this->guardarTarefaComAvisos($p, $d, $t)['tarefa'];
+    }
+
+    /**
+     * Grava a tarefa (saveTask, ui_projects.js:2380-2475) e devolve os avisos que o legado mostrava em confirmação:
+     * subtarefas que ficam fora das novas datas e tarefas dependentes que deixam de cumprir a precedência.
+     * `encaixar_datas` = true encaixa as datas no nível acima em vez de recusar (ProjHierarquia.encaixar).
+     *
+     * @param  array<string, mixed>  $d
+     * @return array{tarefa: TarefaProjeto, avisos: list<string>}
+     */
+    public function guardarTarefaComAvisos(Projeto $p, array $d, ?TarefaProjeto $t = null): array
+    {
         $nome = trim((string) ($d['nome'] ?? $t?->nome ?? ''));
         if ($nome === '') {
             throw new ErroNegocio('A designação é obrigatória.', 'NOME_OBRIGATORIO', 422);
         }
-        $pai = array_key_exists('tarefa_pai_id', $d) ? $d['tarefa_pai_id'] : $t?->tarefa_pai_id;
-        if ($pai) {
-            $tp = TarefaProjeto::query()->where('projeto_id', $p->id)->find($pai) ?? throw new ErroNegocio('A tarefa-pai não pertence ao projecto.', 'TAREFA_PAI_INVALIDA', 422);
-            if ($t && ($tp->id === $t->id || in_array($tp->id, $this->descendentes($t), true))) {
-                throw new ErroNegocio('Uma tarefa não pode ser subtarefa dela própria nem de uma subtarefa sua.', 'CICLO_TAREFAS', 422);
-            }
-        }
-        $marco = array_key_exists('marco_projeto_id', $d) ? $d['marco_projeto_id'] : $t?->marco_projeto_id;
-        if ($marco && ! MarcoProjeto::query()->where('projeto_id', $p->id)->whereKey($marco)->exists()) {
-            throw new ErroNegocio('O milestone não pertence ao projecto.', 'MARCO_INVALIDO', 422);
-        }
-        $atribuido = array_key_exists('atribuido_a_id', $d) ? $d['atribuido_a_id'] : $t?->atribuido_a_id;
-        if ($atribuido && ! $this->membroDoProjeto($p, (int) $atribuido)) {
-            throw new ErroNegocio('O responsável tem de ser membro da equipa do projecto.', 'RESPONSAVEL_INVALIDO', 422);
-        }
-        $inicio = array_key_exists('data_inicio', $d) ? $d['data_inicio'] : $t?->data_inicio?->toDateString();
-        $fim = array_key_exists('data_fim', $d) ? $d['data_fim'] : $t?->data_fim?->toDateString();
-        if ($inicio && $fim && $fim < $inicio) {
-            throw new ErroNegocio('A data de fim não pode ser anterior à de início.', 'DATAS_INVALIDAS', 422);
-        }
-        $estado = $d['estado'] ?? $t?->estadoEfetivo() ?? 'PENDENTE';
-        if (! in_array($estado, TarefaProjeto::ESTADOS, true)) {
-            throw new ErroNegocio('Estado da tarefa inválido.', 'ESTADO_INVALIDO', 422);
-        }
-        $pct = array_key_exists('percentagem_execucao', $d) ? (int) $d['percentagem_execucao'] : (int) round((float) ($t?->percentagem_execucao ?? 0));
-        $pct = $estado === 'CONCLUIDA' ? 100 : max(0, min(100, $pct));
-        $valor = array_key_exists('valor_contrato', $d) ? $d['valor_contrato'] : $t?->valor_contrato;
-        if ($valor !== null && (float) $valor < 0) {
-            throw new ErroNegocio('O valor adjudicado não pode ser negativo.', 'VALOR_INVALIDO', 422);
-        }
-        $dados = ['projeto_id' => $p->id, 'tarefa_pai_id' => $pai ?: null, 'codigo' => array_key_exists('codigo', $d) ? ($d['codigo'] ?: null) : $t?->codigo,
-            'nome' => $nome, 'data_inicio' => $inicio ?: null, 'data_fim' => $fim ?: null, 'percentagem_execucao' => $pct,
-            'marco_projeto_id' => $marco ?: null, 'atribuido_a_id' => $atribuido ?: null,
-            'valor_contrato' => $valor === null || $valor === '' ? null : number_format((float) $valor, 2, '.', '')] + $this->colunasEstado($estado, $t);
 
-        return DB::transaction(function () use ($t, $dados) {
+        return DB::transaction(function () use ($p, $d, $t, $nome) {
+            $todas = TarefaProjeto::query()->where('projeto_id', $p->id)->lockForUpdate()->get()->keyBy('id');
+            $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->get()->keyBy('id');
+            $t = $t ? ($todas[$t->id] ?? $t) : null;
+            $pai = array_key_exists('tarefa_pai_id', $d) ? $d['tarefa_pai_id'] : $t?->tarefa_pai_id;
+            if ($pai) {
+                $tp = $todas[(int) $pai] ?? throw new ErroNegocio('A tarefa-pai não pertence ao projecto.', 'TAREFA_PAI_INVALIDA', 422);
+                if ($t && ($tp->id === $t->id || in_array($tp->id, $this->descendentes($t, $todas), true))) {
+                    throw new ErroNegocio('Uma tarefa não pode ser subtarefa dela própria nem de uma subtarefa sua.', 'CICLO_TAREFAS', 422);
+                }
+            }
+            $marco = array_key_exists('marco_projeto_id', $d) ? $d['marco_projeto_id'] : $t?->marco_projeto_id;
+            if ($marco && ! isset($marcos[(int) $marco])) {
+                throw new ErroNegocio('O milestone não pertence ao projecto.', 'MARCO_INVALIDO', 422);
+            }
+            // uma subtarefa vive na fase da tarefa-mãe (o agrupamento da WBS é pela fase da raiz)
+            if ($pai && ! array_key_exists('marco_projeto_id', $d)) {
+                $marco = $todas[(int) $pai]->marco_projeto_id;
+            }
+            $atribuido = array_key_exists('atribuido_a_id', $d) ? $d['atribuido_a_id'] : $t?->atribuido_a_id;
+            if ($atribuido && ! $this->membroDoProjeto($p, (int) $atribuido)) {
+                throw new ErroNegocio('O responsável tem de ser membro da equipa do projecto.', 'RESPONSAVEL_INVALIDO', 422);
+            }
+            $inicio = array_key_exists('data_inicio', $d) ? $d['data_inicio'] : $t?->data_inicio?->toDateString();
+            $fim = array_key_exists('data_fim', $d) ? $d['data_fim'] : $t?->data_fim?->toDateString();
+            if ($inicio && $fim && $fim < $inicio) {
+                throw new ErroNegocio('A data de fim não pode ser anterior à de início.', 'DATAS_INVALIDAS', 422);
+            }
+            // datas dentro do nível acima (validarDatas, projectos_hierarquia.js:80-90)
+            if ($erro = ServicoHierarquiaProjetos::validarDatas($inicio, $fim, $pai ? (int) $pai : null, $pai ? null : ($marco ? (int) $marco : null), $todas, $marcos)) {
+                if (empty($d['encaixar_datas'])) {
+                    throw new ErroNegocio($erro, 'DATAS_FORA_DO_NIVEL', 422);
+                }
+                ['inicio' => $inicio, 'fim' => $fim] = ServicoHierarquiaProjetos::encaixar($inicio, $fim, $pai ? (int) $pai : null, $pai ? null : ($marco ? (int) $marco : null), $todas, $marcos);
+            }
+            // dependência (validarDependencia / criaCiclo, projectos_hierarquia.js:131-172)
+            $pred = array_key_exists('tarefa_predecessora_id', $d) ? $d['tarefa_predecessora_id'] : $t?->tarefa_predecessora_id;
+            $tipoDep = strtoupper((string) (array_key_exists('tipo_dependencia', $d) ? ($d['tipo_dependencia'] ?? 'FS') : ($t?->tipo_dependencia ?? 'FS'))) ?: 'FS';
+            $desf = (int) (array_key_exists('desfasamento_dias', $d) ? ($d['desfasamento_dias'] ?? 0) : ($t?->desfasamento_dias ?? 0));
+            if (! in_array($tipoDep, TarefaProjeto::TIPOS_DEPENDENCIA, true)) {
+                throw new ErroNegocio('Tipo de dependência inválido (FS, SS ou FF).', 'DEPENDENCIA_INVALIDA', 422);
+            }
+            $predT = null;
+            if ($pred) {
+                $predT = $todas[(int) $pred] ?? throw new ErroNegocio('A tarefa predecessora não pertence ao projecto.', 'DEPENDENCIA_INVALIDA', 422);
+                if ($t && ($predT->id === $t->id || in_array($predT->id, $this->descendentes($t, $todas), true))) {
+                    throw new ErroNegocio('Uma tarefa não pode depender dela própria nem de uma subtarefa sua.', 'DEPENDENCIA_CIRCULAR', 422);
+                }
+                if ($t && ServicoHierarquiaProjetos::criaCiclo($t->id, $predT->id, $todas)) {
+                    throw new ErroNegocio('Essa dependência é circular: a tarefa escolhida já depende desta.', 'DEPENDENCIA_CIRCULAR', 422);
+                }
+                if ($erro = ServicoHierarquiaProjetos::validarDependencia($inicio, $fim, $predT, $tipoDep, $desf)) {
+                    throw new ErroNegocio($erro, 'DEPENDENCIA_DATA', 422, ['data_minima' => ServicoHierarquiaProjetos::dataMinima($predT, $tipoDep, $desf)]);
+                }
+            }
+            $estado = $d['estado'] ?? $t?->estadoEfetivo() ?? 'PENDENTE';
+            if (! in_array($estado, TarefaProjeto::ESTADOS, true)) {
+                throw new ErroNegocio('Estado da tarefa inválido.', 'ESTADO_INVALIDO', 422);
+            }
+            // meta por quantidade (saveTask, ui_projects.js:2397-2411)
+            $metaQ = round((float) (array_key_exists('meta_quantidade', $d) ? ($d['meta_quantidade'] ?? 0) : ($t?->meta_quantidade ?? 0)), 3);
+            $metaUn = trim((string) (array_key_exists('meta_unidade', $d) ? ($d['meta_unidade'] ?? '') : ($t?->meta_unidade ?? '')));
+            $filhosComMeta = $t ? $todas->filter(fn ($x) => (int) $x->tarefa_pai_id === $t->id && $x->temMeta()) : collect();
+            $metaF = $filhosComMeta->isNotEmpty() ? (float) ($t?->meta_realizado ?? 0)   // com subtarefas com meta, o realizado sobe delas
+                : round((float) (array_key_exists('meta_realizado', $d) ? ($d['meta_realizado'] ?? 0) : ($t?->meta_realizado ?? 0)), 3);
+            if ($metaQ < 0 || $metaF < 0) {
+                throw new ErroNegocio('As quantidades da meta não podem ser negativas.', 'META_INVALIDA', 422);
+            }
+            if ($metaQ > 0 && $metaUn === '') {
+                throw new ErroNegocio('Indique a unidade de medida da meta (m², metros, unidades…).', 'META_SEM_UNIDADE', 422);
+            }
+            $pct = array_key_exists('percentagem_execucao', $d) ? (int) $d['percentagem_execucao'] : (int) round((float) ($t?->percentagem_execucao ?? 0));
+            if ($metaQ > 0) {
+                $pct = max(0, min(100, (int) round($metaF / $metaQ * 100)));
+                if ($pct >= 100 && ! isset($d['estado'])) {
+                    $estado = 'CONCLUIDA';
+                }
+            }
+            $pct = $estado === 'CONCLUIDA' ? 100 : max(0, min(100, $pct));
+            $valor = array_key_exists('valor_contrato', $d) ? $d['valor_contrato'] : $t?->valor_contrato;
+            if ($valor !== null && (float) $valor < 0) {
+                throw new ErroNegocio('O valor adjudicado não pode ser negativo.', 'VALOR_INVALIDO', 422);
+            }
+            $dados = ['projeto_id' => $p->id, 'tarefa_pai_id' => $pai ?: null, 'codigo' => array_key_exists('codigo', $d) ? ($d['codigo'] ?: null) : $t?->codigo,
+                'nome' => $nome, 'data_inicio' => $inicio ?: null, 'data_fim' => $fim ?: null, 'percentagem_execucao' => $pct,
+                'marco_projeto_id' => $marco ?: null, 'atribuido_a_id' => $atribuido ?: null,
+                'valor_contrato' => $valor === null || $valor === '' ? null : number_format((float) $valor, 2, '.', ''),
+                'tarefa_predecessora_id' => $predT?->id, 'tipo_dependencia' => $predT ? $tipoDep : null, 'desfasamento_dias' => $predT ? $desf : null,
+                'meta_unidade' => $metaQ > 0 ? mb_substr($metaUn, 0, 20) : null, 'meta_quantidade' => $metaQ > 0 ? $metaQ : null, 'meta_realizado' => $metaQ > 0 ? $metaF : null,
+                'concluida_em' => self::concluidaEm($estado, $t)] + $this->colunasEstado($estado, $t);
+            $acerto = $t && $t->temMeta() && $metaQ > 0 && abs((float) $t->meta_realizado - $metaF) > 0.0005 && $filhosComMeta->isEmpty();
             if ($t) {
                 $t->update($dados);
-
-                return $t->refresh();
+            } else {
+                $t = TarefaProjeto::create($dados + ['meta_execucoes' => $metaQ > 0 ? [] : null]);
+            }
+            if ($acerto) {
+                $this->projetos->registar($p->id, 'Acerto do realizado', trim("{$t->codigo} {$t->nome}").": realizado passa a {$metaF} {$metaUn} (sem medição)");
+            }
+            if (array_key_exists('no_organigrama_projeto_id', $d)) {
+                $this->definirPosicao($p, $t->id, $d['no_organigrama_projeto_id'] ? (int) $d['no_organigrama_projeto_id'] : null);
+            }
+            $t->refresh();
+            $todas[$t->id] = $t;
+            $avisos = [];
+            if ($fora = ServicoHierarquiaProjetos::conflitosAbaixo($t, $todas)) {
+                $avisos[] = count($fora).' subtarefa(s) ficam com datas fora desta tarefa: '.implode(', ', array_slice(array_column($fora, 'nome'), 0, 5)).(count($fora) > 5 ? '…' : '').'.';
+            }
+            $dependentes = $todas->filter(fn ($x) => (int) $x->tarefa_predecessora_id === $t->id
+                && ServicoHierarquiaProjetos::validarDependencia($x->data_inicio?->toDateString(), $x->data_fim?->toDateString(), $t, $x->tipo_dependencia ?: 'FS', (int) $x->desfasamento_dias));
+            if ($dependentes->isNotEmpty()) {
+                $avisos[] = "{$dependentes->count()} tarefa(s) que dependem desta deixam de cumprir a precedência: ".$dependentes->take(5)->pluck('nome')->implode(', ').'.';
             }
 
-            return TarefaProjeto::create($dados);
+            return ['tarefa' => $t, 'avisos' => $avisos];
         });
     }
 
-    /** Actualiza só a execução (updateTaskExecution, ui_projects.js:2047). */
+    /** Liga a tarefa a uma posição do organigrama (ou a nenhuma); a ligação vive no nó (saveTask, ui_projects.js:2460-2472). */
+    private function definirPosicao(Projeto $p, int $tarefaId, ?int $noId): void
+    {
+        $nos = NoOrganigramaProjeto::query()->where('projeto_id', $p->id)->lockForUpdate()->get();
+        if ($noId && ! $nos->contains('id', $noId)) {
+            throw new ErroNegocio('A posição do organigrama não pertence ao projecto.', 'POSICAO_INVALIDA', 422);
+        }
+        foreach ($nos as $n) {
+            $lista = array_map('intval', $n->tarefas ?? []);
+            $tem = in_array($tarefaId, $lista, true);
+            if ($n->id === $noId && ! $tem) {
+                $n->update(['tarefas' => [...$lista, $tarefaId]]);
+            } elseif ($n->id !== $noId && $tem) {
+                $n->update(['tarefas' => array_values(array_filter($lista, fn ($x) => $x !== $tarefaId))]);
+            }
+        }
+    }
+
+    /**
+     * Data de conclusão (ui_projects.js:2396, 2434): só se põe uma vez — reeditar uma tarefa concluída mantém a data; sai
+     * quando a tarefa deixa de estar CONCLUÍDA. Grava-se ao meio-dia para a data não mudar com o fuso.
+     */
+    public static function concluidaEm(string $estado, ?TarefaProjeto $t, ?string $data = null): ?string
+    {
+        if ($estado !== 'CONCLUIDA') {
+            return null;
+        }
+        if ($t?->concluida_em && $t->estadoEfetivo() === 'CONCLUIDA') {
+            return $t->concluida_em->toDateTimeString();
+        }
+
+        return substr($data ?: now()->toDateString(), 0, 10).' 12:00:00';
+    }
+
+    /** Actualiza só a execução (updateTaskExecution, ui_projects.js:2047). Com meta, a % vem das medições. */
     public function atualizarExecucao(TarefaProjeto $t, int $pct): TarefaProjeto
     {
+        if ($t->temMeta()) {
+            throw new ErroNegocio('Esta tarefa tem meta por quantidade: registe a quantidade executada (a % é calculada).', 'TAREFA_COM_META', 422);
+        }
         $t->update(['percentagem_execucao' => max(0, min(100, $pct))]);
 
         return $t->refresh();
@@ -239,10 +479,23 @@ final class ServicoPlaneamentoProjetos
      *
      * @param  array{tipo: string, alvo_id?: ?int, marco_projeto_id?: ?int}  $destino  tipo: ANTES | DEPOIS | DENTRO | MARCO
      */
-    public function mover(TarefaProjeto $t, array $destino): TarefaProjeto
+    public function mover(TarefaProjeto $t, array $destino, bool $encaixar = true): TarefaProjeto
     {
-        return DB::transaction(function () use ($t, $destino) {
+        return $this->moverComDatas($t, $destino, $encaixar)['tarefa'];
+    }
+
+    /**
+     * Mover com as datas verificadas contra o novo nível acima (Versão Actual, projMoverTarefa com encaixarDatas,
+     * projectos_hierarquia.js:63-125): se não couberem, encaixa-as (`$encaixar`) ou recusa; as subtarefas que ficam
+     * fora vêm em `avisos`.
+     *
+     * @return array{tarefa: TarefaProjeto, avisos: list<string>}
+     */
+    public function moverComDatas(TarefaProjeto $t, array $destino, bool $encaixar = true): array
+    {
+        return DB::transaction(function () use ($t, $destino, $encaixar) {
             $todas = TarefaProjeto::query()->where('projeto_id', $t->projeto_id)->lockForUpdate()->get()->keyBy('id');
+            $t = $todas[$t->id];
             $desc = $this->descendentes($t, $todas);
             $tipo = strtoupper((string) $destino['tipo']);
             $alvo = null;
@@ -273,7 +526,27 @@ final class ServicoPlaneamentoProjetos
             $lista = $irmaos->all();
             array_splice($lista, $pos, 0, [$t]);
             $mudou = (int) $t->tarefa_pai_id !== (int) $novoPai || (int) $t->marco_projeto_id !== (int) $novoMarco;
-            $t->update(['tarefa_pai_id' => $novoPai ?: null, 'marco_projeto_id' => $novoMarco ?: null]);
+            $datas = [];
+            $avisos = [];
+            if ($mudou) {
+                $marcos = MarcoProjeto::query()->where('projeto_id', $t->projeto_id)->get()->keyBy('id');
+                $ini = $t->data_inicio?->toDateString();
+                $fim = $t->data_fim?->toDateString();
+                $paiV = $novoPai ? (int) $novoPai : null;
+                $marcoV = $novoPai ? null : ($novoMarco ? (int) $novoMarco : null);
+                if ($erro = ServicoHierarquiaProjetos::validarDatas($ini, $fim, $paiV, $marcoV, $todas, $marcos)) {
+                    if (! $encaixar) {
+                        throw new ErroNegocio($erro, 'DATAS_FORA_DO_NIVEL', 422);
+                    }
+                    $novas = ServicoHierarquiaProjetos::encaixar($ini, $fim, $paiV, $marcoV, $todas, $marcos);
+                    $datas = ['data_inicio' => $novas['inicio'], 'data_fim' => $novas['fim']];
+                    $avisos[] = 'As datas foram encaixadas no novo nível acima: '.($novas['inicio'] ?? '—').' a '.($novas['fim'] ?? '—').'.';
+                    if ($fora = ServicoHierarquiaProjetos::conflitosAbaixo($t, $todas, ['inicio' => $novas['inicio'], 'fim' => $novas['fim']])) {
+                        $avisos[] = count($fora).' subtarefa(s) ficaram com datas fora do novo intervalo: '.implode(', ', array_slice(array_column($fora, 'nome'), 0, 3)).(count($fora) > 3 ? '…' : '').'. Reveja as datas.';
+                    }
+                }
+            }
+            $t->update(['tarefa_pai_id' => $novoPai ?: null, 'marco_projeto_id' => $novoMarco ?: null] + $datas);
             if ($desc) {
                 TarefaProjeto::query()->whereIn('id', $desc)->update(['marco_projeto_id' => $novoMarco ?: null]);
             }
@@ -286,7 +559,7 @@ final class ServicoPlaneamentoProjetos
                 $this->projetos->registar($t->projeto_id, 'Mover tarefa', trim("{$t->codigo} {$t->nome}").' → '.($novoPai ? 'subtarefa de '.$todas[$novoPai]->nome : 'tarefa principal'));
             }
 
-            return $t->refresh();
+            return ['tarefa' => $t->refresh(), 'avisos' => $avisos];
         });
     }
 
@@ -325,11 +598,15 @@ final class ServicoPlaneamentoProjetos
                     $n->update(['tarefas' => $restantes]);
                 }
             }
+            // as tarefas que dependiam destas ficam sem predecessora (a FK é RESTRICT; o legado deixava um id órfão)
+            $soltas = TarefaProjeto::query()->whereIn('tarefa_predecessora_id', $ids)->whereNotIn('id', $ids)->count();
+            TarefaProjeto::query()->whereIn('tarefa_predecessora_id', $ids)->update(['tarefa_predecessora_id' => null, 'tipo_dependencia' => null, 'desfasamento_dias' => null]);
             $porId = TarefaProjeto::query()->whereIn('id', $ids)->get()->keyBy('id');
             foreach (array_reverse($ids) as $id) {
                 $porId[$id]->delete();
             }
-            $this->projetos->registar($t->projeto_id, $t->tarefa_pai_id ? 'Eliminar subtarefa' : 'Eliminar tarefa', trim("{$t->codigo} {$t->nome}").(count($ids) > 1 ? ' + '.(count($ids) - 1).' subtarefa(s)' : ''));
+            $this->projetos->registar($t->projeto_id, $t->tarefa_pai_id ? 'Eliminar subtarefa' : 'Eliminar tarefa', trim("{$t->codigo} {$t->nome}").(count($ids) > 1 ? ' + '.(count($ids) - 1).' subtarefa(s)' : '')
+                .($soltas ? " · {$soltas} tarefa(s) ficaram sem predecessora" : ''));
 
             return $ids;
         });
@@ -402,6 +679,7 @@ final class ServicoPlaneamentoProjetos
         $estado = $col['estado'] ?? $t->estadoEfetivo();
         $dados = $this->colunasEstado($estado, $t);
         $dados['estado_original'] = $col['id'];
+        $dados['concluida_em'] = self::concluidaEm($estado, $t);
         if ($estado === 'CONCLUIDA') {
             $dados['percentagem_execucao'] = 100;
         }

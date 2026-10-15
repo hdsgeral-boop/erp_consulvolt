@@ -15,7 +15,9 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { ESTADOS_COLABORADOR, type ContratoTrabalho, type ItemProdutividade } from './api';
+import { ESTADOS_COLABORADOR, ESTADOS_CONTRATO, type ContratoTrabalho, type ItemProdutividade } from './api';
+import { accoesEstadoContrato, ModaisEstadoContrato, type AccaoEstado } from './contratos/EstadoContrato';
+import { CamposHorario, horarioParaApi, horarioParaForm, type ValoresHorario } from './contratos/HorarioContrato';
 import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useCargos, useColaboradores, useInfotipos } from './comum/consultas';
 import { contratoVigente, normalizarRemuneracoes, semFim, somar, totalContrato } from './comum/regras';
@@ -23,7 +25,7 @@ import { BarraFiltros, larguraModal, scrollTabela, useEcraPequeno } from '@/comp
 import { pedidoTabela } from './comum/impressao';
 
 import { TabelaComModos } from '@/componentes/vistas';
-interface ValoresContrato {
+interface ValoresContrato extends ValoresHorario {
   colaborador_id: number;
   data_inicio: Dayjs;
   data_fim?: Dayjs | null;
@@ -46,6 +48,8 @@ export default function Contratos() {
   const [termo, setTermo] = useState('');
   const [edicao, setEdicao] = useState<ContratoTrabalho | 'novo' | null>(null);
   const [terminar, setTerminar] = useState<ContratoTrabalho | null>(null);
+  // Fase B (Versão Actual): suspender, reactivar, cessar, anular a cessação e ver o estado (contrato_estado_ui.js)
+  const [accaoEstado, setAccaoEstado] = useState<{ tipo: AccaoEstado; contrato: ContratoTrabalho } | null>(null);
   const [importarCt, setImportarCt] = useState(false);
   const [massa, setMassa] = useState(false);
   const [simular, setSimular] = useState(false);
@@ -61,13 +65,15 @@ export default function Contratos() {
     setTerminar(null);
   });
   const remuneracoesForm = Form.useWatch('remuneracoes', form);
+  const usarHorario = Boolean(Form.useWatch('usar_horario', form));
+  const estadoActo = edicao !== null && edicao !== 'novo' && (edicao.estado === 'SUSPENSO' || edicao.estado === 'CESSADO');
   const cliente = useQueryClient();
   const hoje = dayjs().format('YYYY-MM-DD');
 
   const abrir = (c: ContratoTrabalho | 'novo') => {
     form.resetFields();
     if (c === 'novo') {
-      form.setFieldsValue({ colaborador_id: colaborador, data_inicio: dayjs(), dias_contrato_mes: 22, horas_por_dia: 8, estado: 'ACTIVO', codigo_moeda: 'AOA', remuneracoes: [{} as ValoresContrato['remuneracoes'][number]], produtividade: [] });
+      form.setFieldsValue({ colaborador_id: colaborador, data_inicio: dayjs(), dias_contrato_mes: 22, horas_por_dia: 8, estado: 'ACTIVO', codigo_moeda: 'AOA', remuneracoes: [{} as ValoresContrato['remuneracoes'][number]], produtividade: [], ...horarioParaForm(null) });
     } else {
       form.setFieldsValue({
         colaborador_id: c.colaborador_id,
@@ -79,14 +85,17 @@ export default function Contratos() {
         codigo_moeda: c.codigo_moeda ?? 'AOA',
         remuneracoes: normalizarRemuneracoes(c.remuneracoes, c.dias_contrato_mes ?? 22),
         produtividade: (c.produtividade ?? []).map((p) => ({ item_id: p.item_id, preco_unitario: p.preco_unitario })),
+        ...horarioParaForm(c.horario),
       });
     }
     setEdicao(c);
   };
 
   const gravar = (v: ValoresContrato) => {
+    const { usar_horario: _usar, horario: _h, ...resto } = v;
     const dados = {
-      ...v,
+      ...resto,
+      horario: horarioParaApi(v),
       data_inicio: dataApi(v.data_inicio),
       data_fim: dataApi(v.data_fim ?? null) ?? null,
       produtividade: (v.produtividade ?? []).map((p) => ({ item_id: p.item_id, preco_unitario: p.preco_unitario ?? null })),
@@ -208,7 +217,7 @@ export default function Contratos() {
       <Card>
         <BarraFiltros>
           <SeletorColaborador value={colaborador} onChange={setColaborador} />
-          <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={ESTADOS_COLABORADOR} />
+          <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={ESTADOS_CONTRATO} />
           <PesquisaLocal aoMudar={setTermo} placeholder="Nome do colaborador" />
         </BarraFiltros>
         <TabelaComModos<ContratoTrabalho> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={contratos.isFetching} columns={colunas} dataSource={linhas} scroll={scrollTabela()}
@@ -216,12 +225,13 @@ export default function Contratos() {
           accoes={(c) => [
             { icone: 'file-pdf', titulo: 'Gerar PDF para Assinatura', cor: '#dc2626', onClick: () => gerarPdf(c).catch((e) => notificarErro(e, 'Não foi possível gerar o contrato')) },
             pode('contratos_new') && { icone: 'edit', titulo: 'Editar', onClick: () => abrir(c) },
-            pode('contratos_terminate') && semFim(c.data_fim) && { icone: 'calendar-times', titulo: 'Terminar contrato', variante: 'aviso', onClick: () => { formFim.setFieldsValue({ data_fim: dayjs() }); setTerminar(c); } },
+            pode('contratos_terminate') && semFim(c.data_fim) && c.estado !== 'CESSADO' && { icone: 'calendar-times', titulo: 'Terminar contrato', variante: 'aviso', onClick: () => { formFim.setFieldsValue({ data_fim: dayjs() }); setTerminar(c); } },
             pode('contratos_terminate') && {
               icone: 'trash', titulo: 'Excluir', variante: 'perigo',
               confirmar: { titulo: 'Eliminar este contrato?', texto: 'Os processamentos encerrados guardam a fotografia: nada muda para trás.', textoOk: 'Eliminar', perigo: true },
               onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/contratos/${c.id}` }),
             },
+            ...accoesEstadoContrato(c, pode, (tipo, x) => setAccaoEstado({ tipo, contrato: x })),
           ]}
           vazio={{ icone: 'file-contract', titulo: 'Sem contratos', texto: 'Ainda não há contratos com estes filtros.' }} />
       </Card>
@@ -244,10 +254,15 @@ export default function Contratos() {
               </Form.Item>
             </Col>
             <Col xs={12} md={6}><Form.Item name="dias_contrato_mes" label="Dias do contrato/mês"><InputNumber min={1} max={31} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item name="horas_por_dia" label="Horas por dia"><InputNumber min={0.5} max={24} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} md={6}><Form.Item name="estado" label="Estado"><Select options={ESTADOS_COLABORADOR} /></Form.Item></Col>
+            <Col xs={12} md={6}><Form.Item name="horas_por_dia" label="Horas por dia" extra={usarHorario ? 'Acompanha o horário.' : undefined}><InputNumber min={0.5} max={24} step={0.5} style={{ width: '100%' }} disabled={usarHorario} /></Form.Item></Col>
+            <Col xs={12} md={6}>
+              <Form.Item name="estado" label="Estado" extra={estadoActo ? 'Use Reactivar ou Anular cessação.' : undefined}>
+                <Select disabled={estadoActo} options={estadoActo ? ESTADOS_CONTRATO : ESTADOS_COLABORADOR.filter((e) => e.value !== 'SUSPENSO')} />
+              </Form.Item>
+            </Col>
             <Col xs={12} md={6}><Form.Item name="codigo_moeda" label="Moeda" rules={[{ len: 3, message: '3 letras.' }]} extra="O processamento é só em Kz (AOA)."><Input maxLength={3} style={{ textTransform: 'uppercase' }} /></Form.Item></Col>
           </Row>
+          <CamposHorario form={form} />
           {!pode('contratos_terminate') && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Terminar um contrato (data de fim ou estado Inactivo) exige a permissão de rescisão." />}
           <Typography.Title level={5}>Remunerações mensais</Typography.Title>
           <Form.List name="remuneracoes" rules={[{ validator: (_, v: unknown[]) => (v && v.length > 0 ? Promise.resolve() : Promise.reject(new Error('Pelo menos uma remuneração.'))) }]}>
@@ -305,6 +320,8 @@ export default function Contratos() {
           )}
         </Form>
       </Modal>
+
+      <ModaisEstadoContrato accao={accaoEstado} nome={(id) => colaboradores.nome(id)} aoFechar={() => setAccaoEstado(null)} />
 
       <Modal title="Terminar contrato" open={terminar !== null} onCancel={() => setTerminar(null)} okText="Terminar" okButtonProps={{ danger: true }} cancelText="Cancelar"
         confirmLoading={accao.isPending} onOk={() => formFim.submit()} destroyOnHidden>

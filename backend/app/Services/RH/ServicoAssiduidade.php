@@ -7,6 +7,7 @@ use App\Models\AusenciaFaltaColaborador;
 use App\Models\Colaborador;
 use App\Models\ContratoTrabalho;
 use App\Models\EfectividadeAssiduidade;
+use App\Models\EscalaTrabalho;
 use App\Models\FechoMensalAssiduidade;
 use App\Models\InfotipoSalarial;
 use App\Models\LinhaFolhaSalarial;
@@ -35,6 +36,10 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  *   - lançar exige permissão (o legado não tinha guarda) e retira os lançamentos de assiduidade que deixaram de
  *     ter horas (o legado deixava-os ficar);
  *   - um fecho por mês (estado FECHADO/REABERTO), o histórico fica na auditoria.
+ * Versão Actual (Fase B, assiduidade.js:135-226 e 674): as horas previstas de cada dia vêm da escala do mês (prioritária ›
+ * normal), senão do horário do contrato, senão das horas/dia do contrato, senão 8; os dias úteis do horário mandam sobre os
+ * da empresa; regime de 1 ou 2 períodos (4 picagens); atrasos e saídas antecipadas informativos; dias com o contrato
+ * suspenso não contam; colaboradores cessados no mês apurados até à cessação.
  */
 final class ServicoAssiduidade
 {
@@ -44,7 +49,11 @@ final class ServicoAssiduidade
 
     // ───────────── Registos ─────────────
 
-    /** @param  array<string, mixed>  $d  colaborador_id, data, entrada?, saida?, horas?, observacoes?, autorizado_extra? */
+    /**
+     * @param  array<string, mixed>  $d  colaborador_id, data, entrada?, saida?, saida_intervalo?, entrada_intervalo?, horas?, observacoes?, autorizado_extra?
+     *                                   Versão Actual: com as 4 picagens (dois períodos) as horas são a soma dos dois períodos; as duas
+     *                                   picagens do intervalo vão sempre juntas.
+     */
     public function gravarRegisto(array $d, string $origem = 'MANUAL', ?string $fonte = null): EfectividadeAssiduidade
     {
         $data = substr((string) $d['data'], 0, 10);
@@ -52,7 +61,18 @@ final class ServicoAssiduidade
             throw new ErroNegocio('A data do registo não pode ser futura.', 'DATA_FUTURA', 422);
         }
         $this->exigirMesAberto(substr($data, 0, 7));
-        $horas = isset($d['horas']) && $d['horas'] !== '' && $d['horas'] !== null ? round((float) $d['horas'], 2) : self::horasEntre($d['entrada'] ?? null, $d['saida'] ?? null);
+        $si = RegrasContrato::hhmm($d['saida_intervalo'] ?? null) ?: null;
+        $ei = RegrasContrato::hhmm($d['entrada_intervalo'] ?? null) ?: null;
+        if (($si === null) !== ($ei === null)) {
+            throw new ErroNegocio('Indique as duas picagens do intervalo (saída e entrada) ou nenhuma.', 'PICAGENS_INTERVALO', 422);
+        }
+        $quatro = $si !== null && ! empty($d['entrada']) && ! empty($d['saida'])
+            ? (($m = RegrasContrato::horasEntre($d['entrada'], $si)) !== null && ($t = RegrasContrato::horasEntre($ei, $d['saida'])) !== null ? round($m + $t, 2) : null) : null;
+        $d['horas'] = is_string($d['horas'] ?? null) ? str_replace(',', '.', trim($d['horas'])) : ($d['horas'] ?? null);   // «7,5» (vírgula decimal)
+        if ($d['horas'] !== null && $d['horas'] !== '' && ! is_numeric($d['horas'])) {
+            throw new ErroNegocio('As horas do dia têm de ser um número.', 'HORAS_INVALIDAS', 422);
+        }
+        $horas = isset($d['horas']) && $d['horas'] !== '' && $d['horas'] !== null ? round((float) $d['horas'], 2) : ($quatro ?? self::horasEntre($d['entrada'] ?? null, $d['saida'] ?? null));
         if ($horas === null) {
             throw new ErroNegocio('Indique as horas ou a entrada e a saída (HH:MM).', 'HORAS_EM_FALTA', 422);
         }
@@ -63,7 +83,7 @@ final class ServicoAssiduidade
         $user = Auth::user()?->nome_utilizador;
 
         return EfectividadeAssiduidade::query()->updateOrCreate(['colaborador_id' => $colab->id, 'data' => $data], [
-            'entrada' => $d['entrada'] ?? null, 'saida' => $d['saida'] ?? null, 'horas' => $horas, 'origem' => $origem, 'fonte' => $fonte,
+            'entrada' => $d['entrada'] ?? null, 'saida' => $d['saida'] ?? null, 'saida_intervalo' => $si, 'entrada_intervalo' => $ei, 'horas' => $horas, 'origem' => $origem, 'fonte' => $fonte,
             'observacoes' => $d['observacoes'] ?? null, 'autorizado_extra' => (bool) ($d['autorizado_extra'] ?? false), 'atualizado_por' => $user,
         ] + (EfectividadeAssiduidade::query()->where('colaborador_id', $colab->id)->where('data', $data)->exists() ? [] : ['criado_por' => $user]));
     }
@@ -87,28 +107,44 @@ final class ServicoAssiduidade
         $col = fn (array $nomes) => collect($cab)->search(fn ($c) => in_array($c, $nomes, true));
         $idx = ['nif' => $col(['nif']), 'inss' => $col(['inss', 'numero_inss', 'n_inss']), 'id' => $col(['numero', 'id', 'colaborador_id', 'n']),
             'nome' => $col(['nome', 'colaborador', 'nome_completo']), 'data' => $col(['data', 'dia']), 'entrada' => $col(['entrada', 'hora_entrada']),
-            'saida' => $col(['saida', 'hora_saida']), 'horas' => $col(['horas', 'total_horas']), 'observacoes' => $col(['observacoes', 'obs'])];
+            'saida' => $col(['saida', 'hora_saida']), 'horas' => $col(['horas', 'total_horas']), 'observacoes' => $col(['observacoes', 'obs']),
+            // Versão Actual (assiduidade.js): picagens do intervalo (dois períodos), com sinónimos
+            'saida_intervalo' => $col(['saida_intervalo', 'saida_para_intervalo', 'inicio_intervalo', 'saida_almoco']),
+            'entrada_intervalo' => $col(['entrada_intervalo', 'regresso_intervalo', 'fim_intervalo', 'entrada_almoco', 'regresso_almoco'])];
         if ($idx['data'] === false || ($idx['nif'] === false && $idx['inss'] === false && $idx['id'] === false && $idx['nome'] === false)) {
             throw new ErroNegocio('O ficheiro tem de ter as colunas «data» e uma identificação do colaborador (nif, inss, numero ou nome).', 'FICHEIRO_INVALIDO', 422);
         }
         $colabs = Colaborador::query()->get();
         $porNif = $colabs->filter(fn ($c) => $c->nif)->keyBy(fn ($c) => ServicoColaboradores::normalizarNif($c->nif));
         $porInss = $colabs->filter(fn ($c) => $c->numero_inss)->keyBy(fn ($c) => trim($c->numero_inss));
+        // índices sem zeros à esquerda (o Excel tira-os aos números), usados só quando não são ambíguos
+        $semZeros = fn ($lista, callable $chave) => $lista->groupBy(fn ($c) => ltrim((string) $chave($c), '0'))->filter(fn ($g) => $g->count() === 1)->map->first();
+        $porNifSemZeros = $semZeros($colabs->filter(fn ($c) => $c->nif), fn ($c) => ServicoColaboradores::normalizarNif($c->nif));
+        $porInssSemZeros = $semZeros($colabs->filter(fn ($c) => $c->numero_inss), fn ($c) => trim($c->numero_inss));
         $porNome = $colabs->keyBy(fn ($c) => mb_strtolower(trim($c->nome_completo)));
-        $res = ['gravados' => 0, 'ignorados' => 0, 'erros' => []];
+        $res = ['gravados' => 0, 'ignorados' => 0, 'em_branco' => 0, 'erros' => []];
         $v = fn (array $l, string $k) => $idx[$k] === false ? null : (is_string($l[$idx[$k]] ?? null) ? trim($l[$idx[$k]]) : ($l[$idx[$k]] ?? null));
+        $exemploNif = $porNif->keys()->first();
         foreach ($folha as $n => $l) {
             $linha = $n + 2;
             if (! array_filter($l, fn ($x) => $x !== null && $x !== '')) {
                 continue;
             }
-            $c = ($v($l, 'nif') ? $porNif[ServicoColaboradores::normalizarNif((string) $v($l, 'nif'))] ?? null : null)
-                ?? ($v($l, 'inss') ? $porInss[(string) $v($l, 'inss')] ?? null : null)
+            $nif = $v($l, 'nif') ? ServicoColaboradores::normalizarNif((string) $v($l, 'nif')) : null;
+            $c = ($nif ? $porNif[$nif] ?? $porNifSemZeros[ltrim($nif, '0')] ?? null : null)
+                ?? ($v($l, 'inss') ? $porInss[(string) $v($l, 'inss')] ?? $porInssSemZeros[ltrim((string) $v($l, 'inss'), '0')] ?? null : null)
                 ?? ($v($l, 'id') ? $colabs->firstWhere('id', (int) $v($l, 'id')) : null)
                 ?? ($v($l, 'nome') ? $porNome[mb_strtolower((string) $v($l, 'nome'))] ?? null : null);
             $data = self::dataIso($v($l, 'data'));
+            // linha do modelo pré-preenchido deixada em branco (sem entrada, saída nem horas): não é erro
+            if (in_array($v($l, 'entrada'), [null, ''], true) && in_array($v($l, 'saida'), [null, ''], true) && in_array($v($l, 'horas'), [null, ''], true)) {
+                $res['em_branco']++;
+
+                continue;
+            }
             if (! $c || ! $data) {
-                $res['erros'][] = "Linha {$linha}: ".(! $c ? 'colaborador não encontrado' : 'data inválida').'.';
+                $res['erros'][] = "Linha {$linha}: ".(! $c ? 'colaborador não encontrado'.($nif ? " (NIF {$v($l, 'nif')}".($exemploNif ? "; exemplo de NIF registado: {$exemploNif}" : '').')' : '')
+                    : 'data inválida').'.';
 
                 continue;
             }
@@ -119,7 +155,8 @@ final class ServicoAssiduidade
             }
             try {
                 DB::transaction(fn () => $this->gravarRegisto(['colaborador_id' => $c->id, 'data' => $data, 'entrada' => self::horaHHMM($v($l, 'entrada')) ?: null,
-                    'saida' => self::horaHHMM($v($l, 'saida')) ?: null, 'horas' => $v($l, 'horas'), 'observacoes' => $v($l, 'observacoes')], $origem, mb_substr($fonte ?? $ficheiro->getClientOriginalName(), 0, 50)));
+                    'saida' => self::horaHHMM($v($l, 'saida')) ?: null, 'saida_intervalo' => self::horaHHMM($v($l, 'saida_intervalo')) ?: null,
+                    'entrada_intervalo' => self::horaHHMM($v($l, 'entrada_intervalo')) ?: null, 'horas' => $v($l, 'horas'), 'observacoes' => $v($l, 'observacoes')], $origem, mb_substr($fonte ?? $ficheiro->getClientOriginalName(), 0, 50)));
                 $res['gravados']++;
             } catch (ErroNegocio $e) {
                 $res['erros'][] = "Linha {$linha}: {$e->getMessage()}";
@@ -228,36 +265,61 @@ final class ServicoAssiduidade
         $registos = EfectividadeAssiduidade::query()->whereBetween('data', [$inicio, $fim])->get()->groupBy('colaborador_id');
         $ferias = PlanoFeriasColaborador::query()->whereIn('estado', ['APROVADO', 'GOZADO'])->where('data_inicio', '<=', $fim)->where('data_fim', '>=', $inicio)->get()->groupBy('colaborador_id');
         $ausencias = AusenciaFaltaColaborador::query()->where('estado', 'APROVADO')->where('data_inicio', '<=', $fim)->where('data_fim', '>=', $inicio)->get()->groupBy('colaborador_id');
-        $contratos = ContratoTrabalho::query()->where('estado', 'ACTIVO')->get()->groupBy('colaborador_id');
+        // Versão Actual: o contrato em vigor (suspensos fora do período, cessados até à cessação) e a escala do mês
+        $contratos = ContratoTrabalho::query()->get()->groupBy('colaborador_id');
+        $escalas = ServicoEscalas::indexar(EscalaTrabalho::query()->whereBetween('dia', [$inicio, $fim])->get());
         $arred = (int) $cfg['arredondamento_min'];
         $cobre = fn ($lista, string $dia) => ($lista ?? collect())->first(fn ($x) => $x->data_inicio && $x->data_fim && $dia >= $x->data_inicio->toDateString() && $dia <= $x->data_fim->toDateString());
 
         $linhas = [];
-        foreach (Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get() as $e) {
-            $contrato = ($contratos[$e->id] ?? collect())->sortBy('id')->first(fn ($c) => (! $c->data_inicio || $c->data_inicio->toDateString() <= $fim)
-                && (! $c->data_fim || $c->data_fim->toDateString() >= $inicio));
-            $horasDia = $contrato && (float) $contrato->horas_por_dia > 0 ? (float) $contrato->horas_por_dia : 8.0;
+        // quem cessou o contrato neste mês continua a ser apurado até à data da cessação
+        $colaboradores = Colaborador::query()->where(fn ($q) => $q->where('estado', 'ACTIVO')->orWhere(fn ($q) => $q->where('estado', 'INACTIVO')
+            ->where('data_cessacao', '>=', $inicio)))->ordenarPorNome('nome_completo')->get();
+        foreach ($colaboradores as $e) {
+            $contrato = RegrasContrato::emVigor($contratos[$e->id] ?? collect(), $inicio, $fim);
+            // horário do contrato: manda nas horas/dia e nos dias da semana deste colaborador (assiduidade.js:704)
+            $horario = RegrasContrato::horario($contrato?->horario);
+            $horasDia = RegrasContrato::horasPrevistas($horario) ?? ($contrato && (float) $contrato->horas_por_dia > 0 ? (float) $contrato->horas_por_dia : 8.0);
             // dias do colaborador: desde a admissão (ou início do contrato) até ao fim do contrato
             $desde = max(array_filter([$inicio, $e->data_admissao?->toDateString(), $contrato?->data_inicio?->toDateString()]));
             $ate = min(array_filter([$ateDia, $contrato?->data_fim?->toDateString()]));
             $porDia = ($registos[$e->id] ?? collect())->keyBy(fn ($r) => $r->data->toDateString());
-            $t = ['trab' => 0.0, 'extra' => 0.0, 'falta' => 0.0, 'comRegisto' => 0, 'diasFalta' => 0, 'feriasAus' => 0, 'naoAut' => 0.0];
+            $t = ['trab' => 0.0, 'extra' => 0.0, 'falta' => 0.0, 'comRegisto' => 0, 'diasFalta' => 0, 'feriasAus' => 0, 'naoAut' => 0.0,
+                'atraso' => 0.0, 'antecipada' => 0.0, 'diasAtraso' => 0, 'diasEscala' => 0, 'diasPrioritaria' => 0, 'semIntervalo' => 0, 'suspenso' => 0];
             $ocorrencias = [];
             $diasFaltaLista = [];
+            $uteisColab = 0;
             foreach ($dias as $dia) {
+                $esc = $escalas["{$e->id}|{$dia}"] ?? null;
+                // dias úteis do colaborador: a escala decide folga ou trabalho; sem escala, os dias do horário mandam sobre os da empresa
+                $util = $esc ? ! $esc->folga : $this->diaUtilDo($dia, $cfg, $horario);
+                $uteisColab += $util ? 1 : 0;
                 $reg = $porDia[$dia] ?? null;
                 // fora da admissão/contrato só se ignoram os dias SEM registo (não há falta antes de admitido);
                 // o trabalho registado conta sempre (ex.: contrato registado depois do início efectivo)
                 if ($dia > $ateDia || (! $reg && ($dia < $desde || $dia > $ate))) {
                     continue;
                 }
-                $util = $this->calendario->diaUtil($dia, $cfg);
+                // contrato suspenso nesse dia: não há falta nem horas previstas (Lei 12/23, arts. 267.º e 270.º)
+                if ($contrato && RegrasContrato::suspensoEm($contrato, $dia)) {
+                    $t['suspenso']++;
+
+                    continue;
+                }
+                if ($esc) {
+                    $t['diasEscala']++;
+                    $t['diasPrioritaria'] += $esc->prioritaria ? 1 : 0;
+                }
+                $horasDoDia = $esc ? ServicoEscalas::horasDe($esc) : $horasDia;
+                // regime do dia (1 ou 2 períodos): escala › contrato › empresa (regimeDoDia, assiduidade.js:204)
+                $regime = $this->regimeDoDia($esc, $horario, $cfg);
+                $horarioDoDia = $esc ? ($esc->folga ? null : ServicoEscalas::comoHorario($esc)) : $horario;
                 $deFerias = (bool) $cobre($ferias[$e->id] ?? null, $dia);
                 $aprovada = $cobre($ausencias[$e->id] ?? null, $dia);
                 $ausente = $aprovada && $aprovada->remunerada !== 'NAO' ? $aprovada : null;
-                $h = $reg ? self::arredondar((float) $reg->horas, $arred) : 0.0;
+                $h = $reg ? self::arredondar(self::horasDoRegisto($reg, $regime) ?? (float) $reg->horas, $arred) : 0.0;
                 if ($aprovada && ! $ausente && $util) {   // justificada NÃO remunerada: continua descontada, não é falta injustificada
-                    $t['falta'] += $reg ? max(0, $horasDia - $h) : $horasDia;
+                    $t['falta'] += $reg ? max(0, $horasDoDia - $h) : $horasDoDia;
                     if ($reg) {
                         $t['comRegisto']++;
                         $t['trab'] += $h;
@@ -268,8 +330,19 @@ final class ServicoAssiduidade
                 if ($reg) {
                     $t['comRegisto']++;
                     $t['trab'] += $h;
+                    if ($regime['periodos'] === 2 && RegrasContrato::minutos($reg->saida_intervalo) === null) {
+                        $t['semIntervalo']++;
+                    }
+                    if ($util && $horarioDoDia) {   // atraso e saída antecipada: só informativos (desvioDoDia, assiduidade.js:226)
+                        [$atraso, $antecipada] = self::desvioDoDia($reg, $horarioDoDia);
+                        if ($atraso > 0) {
+                            $t['atraso'] += $atraso;
+                            $t['diasAtraso']++;
+                        }
+                        $t['antecipada'] += $antecipada;
+                    }
                     if ($util) {
-                        $extra = $h - $horasDia;
+                        $extra = $h - $horasDoDia;
                         if ($extra > 0 && $extra * 60 >= (int) $cfg['extras_min_minutos']) {
                             $t['extra'] += $extra;
                         } elseif ($extra < 0 && abs($extra) * 60 > (int) $cfg['tolerancia_min'] && ! $deFerias && ! $ausente) {
@@ -293,9 +366,9 @@ final class ServicoAssiduidade
                     continue;
                 }
                 $t['diasFalta']++;
-                $t['falta'] += $horasDia;
+                $t['falta'] += $horasDoDia;
                 $diasFaltaLista[] = $dia;
-                $ocorrencias[] = ['data' => $dia, 'tipo' => 'DIA', 'horas' => $horasDia];
+                $ocorrencias[] = ['data' => $dia, 'tipo' => 'DIA', 'horas' => $horasDoDia];
             }
             $extraBruta = round($t['extra'], 2);
             $faltaBruta = round($t['falta'], 2);
@@ -321,10 +394,25 @@ final class ServicoAssiduidade
             if ($porDia->isEmpty()) {
                 $avisos[] = 'Sem qualquer registo de efectividade no mês.';
             }
-            $linhas[] = ['colaborador_id' => $e->id, 'nome' => $e->nome_completo, 'horas_dia' => $horasDia, 'dias_uteis' => $uteisMes, 'dias_com_registo' => $t['comRegisto'],
+            if ($t['diasAtraso'] > 0) {
+                $avisos[] = "{$t['diasAtraso']} dia(s) com entrada depois da hora prevista, já descontada a tolerância (".self::h($t['atraso']).' h no total). Os atrasos não descontam no salário.';
+            }
+            if ($t['diasPrioritaria'] > 0) {
+                $avisos[] = "{$t['diasPrioritaria']} dia(s) com escala prioritária, que se sobrepôs à escala prevista.";
+            }
+            if ($t['semIntervalo'] > 0) {
+                $avisos[] = "{$t['semIntervalo']} dia(s) em regime de dois períodos sem as picagens do intervalo: as horas foram apuradas só pela entrada e pela saída.";
+            }
+            if ($t['suspenso'] > 0) {
+                $avisos[] = "{$t['suspenso']} dia(s) com o contrato suspenso: não contam faltas nem horas previstas.";
+            }
+            $linhas[] = ['colaborador_id' => $e->id, 'nome' => $e->nome_completo, 'horas_dia' => $horasDia, 'dias_uteis' => $uteisColab, 'dias_com_registo' => $t['comRegisto'],
                 'dias_ferias_ausencia' => $t['feriasAus'], 'horas_trabalhadas' => round($t['trab'], 2), 'horas_extra' => round($extraBruta - $comp, 2),
                 'horas_falta' => round($faltaBruta - $comp, 2), 'horas_extra_bruta' => $extraBruta, 'horas_falta_bruta' => $faltaBruta, 'horas_compensadas' => $comp,
                 'horas_nao_autorizadas' => round($t['naoAut'], 2), 'dias_falta' => $t['diasFalta'], 'dias_falta_lista' => $diasFaltaLista,
+                'horario' => $horario ? $horario + ['horas_previstas' => RegrasContrato::horasPrevistas($horario)] : null,
+                'dias_escala' => $t['diasEscala'], 'dias_escala_prioritaria' => $t['diasPrioritaria'], 'sem_picagem_intervalo' => $t['semIntervalo'],
+                'horas_atraso' => round($t['atraso'], 2), 'dias_atraso' => $t['diasAtraso'], 'horas_saida_antecipada' => round($t['antecipada'], 2), 'dias_suspenso' => $t['suspenso'],
                 'ocorrencias' => $ocorrencias, 'avisos' => $avisos];
         }
         $totais = ['horas_extra' => round(array_sum(array_column($linhas, 'horas_extra')), 2), 'horas_falta' => round(array_sum(array_column($linhas, 'horas_falta')), 2),
@@ -518,6 +606,75 @@ final class ServicoAssiduidade
         $p = PeriodoProcessamentoSalarial::query()->where('mes_ano', ServicoCalendarioRH::mesSalarial(ServicoCalendarioRH::mes($mes)))->first();
 
         return ! $p || $p->estado === 'ABERTO';
+    }
+
+    // ───────────── Versão Actual: horário, escala e regime de picagem ─────────────
+
+    /** Dia útil para o colaborador: os dias do horário mandam sobre os da empresa; os feriados mantêm-se (ehUtilDo, assiduidade.js:201). */
+    private function diaUtilDo(string $dia, array $cfg, ?array $horario): bool
+    {
+        if (! $horario || ! $horario['dias']) {
+            return $this->calendario->diaUtil($dia, $cfg);
+        }
+
+        return in_array((int) date('w', strtotime("{$dia} 12:00:00")), $horario['dias'], true) && ! in_array($dia, $cfg['feriados'], true);
+    }
+
+    /**
+     * Regime de picagem do dia: escala (prioritária › normal) › horário do contrato › configuração da empresa (regimeDoDia, assiduidade.js:204).
+     *
+     * @return array{periodos: int, intervalo_min: int, fonte: string}
+     */
+    private function regimeDoDia(?EscalaTrabalho $esc, ?array $horario, array $cfg): array
+    {
+        if ($esc) {
+            $h = $esc->folga ? null : RegrasContrato::horario(ServicoEscalas::comoHorario($esc));
+
+            return ['periodos' => $h['periodos'] ?? 1, 'intervalo_min' => $h['intervalo_min'] ?? 0, 'fonte' => $esc->prioritaria ? 'ESCALA_PRIORITARIA' : 'ESCALA'];
+        }
+        if ($horario) {
+            return ['periodos' => $horario['periodos'], 'intervalo_min' => $horario['intervalo_min'], 'fonte' => 'CONTRATO'];
+        }
+
+        return ['periodos' => (int) ($cfg['periodos_padrao'] ?? 1) === 2 ? 2 : 1, 'intervalo_min' => 0, 'fonte' => 'EMPRESA'];
+    }
+
+    /**
+     * Horas efectivas do registo pelo regime (horasDoRegisto, assiduidade.js:184): com 4 picagens soma os dois períodos;
+     * com 2 picagens, entrada→saída menos o intervalo previsto (período corrido). Sem picagens: nulo (vale o total gravado).
+     */
+    public static function horasDoRegisto(EfectividadeAssiduidade $reg, array $regime): ?float
+    {
+        if (RegrasContrato::minutos($reg->entrada) === null || RegrasContrato::minutos($reg->saida) === null) {
+            return null;
+        }
+        if (RegrasContrato::minutos($reg->saida_intervalo) !== null && RegrasContrato::minutos($reg->entrada_intervalo) !== null) {
+            return round((float) RegrasContrato::horasEntre($reg->entrada, $reg->saida_intervalo) + (float) RegrasContrato::horasEntre($reg->entrada_intervalo, $reg->saida), 2);
+        }
+        $bruto = (float) self::horasEntre($reg->entrada, $reg->saida);
+        $desconto = $regime['periodos'] === 1 ? $regime['intervalo_min'] / 60 : 0;
+
+        return round(max(0, $bruto - $desconto), 2);
+    }
+
+    /** Atraso (entrada − prevista − tolerância) e saída antecipada, em horas (desvioDoDia, assiduidade.js:226). @return array{0: float, 1: float} */
+    public static function desvioDoDia(EfectividadeAssiduidade $reg, array $hor): array
+    {
+        [$prevE, $prevS] = [RegrasContrato::minutos($hor['entrada'] ?? null), RegrasContrato::minutos($hor['saida'] ?? null)];
+        [$realE, $realS] = [RegrasContrato::minutos($reg->entrada), RegrasContrato::minutos($reg->saida)];
+        $atraso = $antecipada = 0.0;
+        if ($realE !== null && $prevE !== null) {
+            $d = $realE - $prevE;
+            $d += $d < -720 ? 1440 : 0;   // entrada do outro lado da meia-noite
+            $atraso = $d > (int) ($hor['tolerancia_min'] ?? 0) ? ($d - (int) ($hor['tolerancia_min'] ?? 0)) / 60 : 0.0;
+        }
+        if ($realS !== null && $prevS !== null) {
+            $d = $prevS - $realS;
+            $d += $d < -720 ? 1440 : 0;
+            $antecipada = $d > 0 ? $d / 60 : 0.0;
+        }
+
+        return [round(max(0, $atraso), 2), round(max(0, $antecipada), 2)];
     }
 
     public static function horasEntre(?string $entrada, ?string $saida): ?float

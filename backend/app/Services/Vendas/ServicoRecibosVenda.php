@@ -9,6 +9,7 @@ use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -70,6 +71,13 @@ final class ServicoRecibosVenda
                 'serie_faturacao_eletronica_id' => $reserva['serie']->id,
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
             ]);
+            // Fase C (R2, ui_sales.js:3784-3797): o recibo herda a repartição por unidades da 1.ª factura liquidada
+            // (jsonb com cast 'array' no model gerado: grava-se o array — json_encode duplicaria a codificação)
+            $alocacao = $vendas[$d['alocacoes'][0]['venda_id']]->getAttributes()['unidades_alocadas'] ?? null;
+            if (! ServicoReparticao::vazia($alocacao)) {
+                $lida = ServicoReparticao::ler($alocacao);
+                $recibo->forceFill(['unidades_alocadas' => $recibo->hasCast('unidades_alocadas') ? $lida : json_encode($lida)])->save();
+            }
             foreach ($d['alocacoes'] as $a) {
                 $v = $vendas[$a['venda_id']];
                 $montante = number_format((float) $a['montante'], 2, '.', '');

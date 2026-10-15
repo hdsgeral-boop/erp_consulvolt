@@ -8,6 +8,7 @@ use App\Models\GuiaSaida;
 use App\Models\ModeloBase;
 use App\Models\MovimentoInventario;
 use App\Models\RececaoCompra;
+use App\Models\RequisicaoManutencao;
 use App\Models\SessaoInventario;
 use App\Models\StockArmazem;
 use App\Models\TerminalPOS;
@@ -80,5 +81,10 @@ abstract class ArmazemBase extends ModeloBase
     public function terminaisPos(): HasMany
     {
         return $this->hasMany(TerminalPOS::class, 'armazem_id');
+    }
+
+    public function requisicoesManutencao(): HasMany
+    {
+        return $this->hasMany(RequisicaoManutencao::class, 'armazem_id');
     }
 }

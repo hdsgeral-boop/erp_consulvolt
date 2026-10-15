@@ -53,7 +53,7 @@ final class PowerBIFeedTest extends TestCase
         $r = $this->criarToken(['conjuntos' => ['contabilidade']]);
         $this->assertStringStartsWith('erpbi_', $r['token']);
         $this->assertSame(hash('sha256', $r['token']), DB::table('tokens_bi')->value('hash_token'));
-        $lista = $this->getJson('/api/sistema/bi/tokens', $this->admin)->assertOk()->assertJsonCount(1, 'dados.tokens')->assertJsonCount(8, 'dados.conjuntos');
+        $lista = $this->getJson('/api/sistema/bi/tokens', $this->admin)->assertOk()->assertJsonCount(1, 'dados.tokens')->assertJsonCount(9, 'dados.conjuntos');
         $this->assertStringNotContainsString($r['token'], $lista->getContent());
         $this->assertStringNotContainsString('hash_token', $lista->getContent());
         $this->postJson('/api/sistema/bi/tokens', ['nome' => 'Mau', 'conjuntos' => ['salarios_iban']], $this->admin)->assertStatus(422)->assertJsonPath('codigo', 'BI_CONJUNTO_INVALIDO');
@@ -112,7 +112,7 @@ final class PowerBIFeedTest extends TestCase
         $this->get('/api/bi/odata/contabilidade?data_inicio=ontem', $h)->assertStatus(400);
         $this->get('/api/bi/odata/inexistente', $h)->assertStatus(404);
 
-        // os 8 conjuntos respondem (SQL de cada um válido, mesmo sem dados)
+        // os 9 conjuntos respondem (SQL de cada um válido, mesmo sem dados)
         foreach (array_keys(ServicoFeedBI::conjuntos()) as $c) {
             $this->get("/api/bi/odata/{$c}?\$top=5", $h)->assertOk()->assertJsonStructure(['@odata.context', 'value']);
         }

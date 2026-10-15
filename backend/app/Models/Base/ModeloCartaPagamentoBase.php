@@ -19,13 +19,14 @@ abstract class ModeloCartaPagamentoBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'tipo', 'assunto', 'corpo', 'nome_assinatura', 'cargo_assinatura', 'local',
+        'empresa_id', 'tipo', 'assunto', 'corpo', 'nome_assinatura', 'cargo_assinatura', 'local', 'nome', 'predefinido',
     ];
 
     protected function casts(): array
     {
         return [
             'empresa_id' => 'integer',
+            'predefinido' => 'boolean',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

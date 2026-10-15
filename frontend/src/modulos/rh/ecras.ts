@@ -20,6 +20,7 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   rh_avaliacao_ciclo: lazy(() => import('./AvaliacaoCiclo')),
   rh_portal: lazy(() => import('./Portal')),
   rh_portal_gestao: lazy(() => import('./PortalGestao')),
+  rh_emprestimos: lazy(() => import('./Emprestimos')),   // Fase B (Versão Actual): empréstimos a colaboradores
   relatorios: lazy(() => import('./relatorios/RelatoriosRecibos')),
   rh_rel_remuneracoes: mapa('MapaRemuneracoes'),
   rh_rel_irt: mapa('MapaIrt'),

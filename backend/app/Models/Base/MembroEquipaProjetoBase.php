@@ -6,6 +6,7 @@ use App\Models\Colaborador;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
 use App\Models\EquipaProjeto;
+use App\Models\FolhaHorasProjeto;
 use App\Models\LinhaOrcamentoProjeto;
 use App\Models\ModeloBase;
 use App\Models\NoOrganigramaProjeto;
@@ -67,6 +68,11 @@ abstract class MembroEquipaProjetoBase extends ModeloBase
     public function linhasOrcamentoProjeto(): HasMany
     {
         return $this->hasMany(LinhaOrcamentoProjeto::class, 'membro_equipa_projeto_id');
+    }
+
+    public function folhasHorasProjeto(): HasMany
+    {
+        return $this->hasMany(FolhaHorasProjeto::class, 'membro_equipa_projeto_id');
     }
 
     public function nosOrganigramaProjeto(): HasMany

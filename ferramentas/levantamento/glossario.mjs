@@ -523,6 +523,14 @@ export const GLOSSARIO = {
   motor: 'motor',
   importado_em: 'importado_em',
   importado_por: 'importado_por',
+  // ── Versão Actual: campos das Fases B/E/F/G (só o código os grava; docs/dicionario/campos_codigo_legado.json) ──
+  // RH (Fase B): suspensão/cessação do contrato (contrato_estado.js) e empréstimos (emprestimos.js)
+  suspensao: 'suspensao', suspensoes: 'suspensoes', cessacao: 'cessacao', cessacoes_anuladas: 'cessacoes_anuladas',
+  data_cessacao: 'data_cessacao', descontado_em: 'descontado_em', liquidado_em: 'liquidado_em',
+  // Activos (Fase F): inventário físico (activos_edificios.js) e requisições de manutenção (activos_manutencao.js)
+  esperados: 'esperados', valor_esperado: 'valor_esperado', contado_em: 'contado_em', aplicado_em: 'aplicado_em',
+  requerente: 'requerente', satisfeita_em: 'satisfeita_em', quantidade_entregue: 'quantidade_entregue',
+  qtd_armazem: 'quantidade_armazem', qtd_compra: 'quantidade_compra',
 };
 
 // Destinos que dependem da tabela. Chave: tabela legado -> { coluna_legado: destino }.
@@ -610,12 +618,45 @@ export const TIPOS_FORCADOS = {
   'maintenance_requests.cancelled_by': 'jsonb',
   'pos_settlements.pm_id': 'varchar(40)', 'pos_settlements.item_key': 'varchar(60)', 'pos_settlements.reference': 'varchar(100)', 'pos_settlements.commission_deducted': 'boolean',
 
+  // ── Versão Actual: Fases B, C, E, F e G (2026-10-14). Os tipos são os das migrations aditivas de cada fase
+  // (2026_10_14_*), para que estas passem a não fazer nada sobre uma base gerada de novo.
+  // Fase B (RH)
+  'contracts.suspensao': 'jsonb', 'contracts.suspensoes': 'jsonb', 'contracts.cessacao': 'jsonb', 'contracts.cessacoes_anuladas': 'jsonb',
+  'employees.data_cessacao': 'date', 'rh_loan_instalments.descontado_em': 'timestamptz',
+  'rh_loans.decidido_em': 'timestamptz', 'rh_loans.liquidado_em': 'timestamptz',
+  // Fase C (repartição por unidades de negócio): alocação {criterio_id, unidades[]} em jsonb; indicador é um nome livre
+  'sales.unidades_alocadas': 'jsonb', 'purchase_invoices.unidades_alocadas': 'jsonb', 'purchase_orders.unidades_alocadas': 'jsonb',
+  'receipts.unidades_alocadas': 'jsonb', 'bu_allocation_keys.indicador': 'varchar(100)',
+  // Fase F (activos): inventário físico e requisições de manutenção (tabelas sem linhas no backup)
+  'asset_inventories.ambito': 'varchar(10)', 'asset_inventories.floor_id': 'bigint', 'asset_inventories.room_id': 'bigint', 'asset_inventories.data': 'date',
+  'asset_inventories.responsavel': 'varchar(150)', 'asset_inventories.notas': 'text', 'asset_inventories.estado': 'varchar(10)',
+  'asset_inventories.esperados': 'integer', 'asset_inventories.valor_esperado': 'numeric(15,2)', 'asset_inventories.contado_em': 'timestamptz',
+  'asset_inventories.aplicado_em': 'timestamptz', 'asset_inventories.fechado_em': 'timestamptz', 'asset_inventories.fechado_por': 'varchar(150)',
+  'asset_inventory_lines.code': 'varchar(50)', 'asset_inventory_lines.description': 'text', 'asset_inventory_lines.room_id': 'bigint',
+  'asset_inventory_lines.floor_id': 'bigint', 'asset_inventory_lines.valor': 'numeric(15,2)', 'asset_inventory_lines.resultado': 'varchar(12)',
+  'asset_inventory_lines.room_encontrada_id': 'bigint', 'asset_inventory_lines.notas': 'text',
+  'maint_requisitions.numero': 'varchar(20)', 'maint_requisitions.requerente': 'varchar(150)', 'maint_requisitions.data': 'date',
+  'maint_requisitions.estado': 'varchar(12)', 'maint_requisitions.satisfeita_em': 'timestamptz', 'maint_requisitions.motivo_cancelamento': 'text',
+  'maint_requisitions.cancelado_em': 'timestamptz', 'maint_requisitions.cancelado_por': 'varchar(100)', 'maint_requisitions.criado_por': 'varchar(100)',
+  'maint_requisition_lines.descricao': 'text', 'maint_requisition_lines.quantidade': 'numeric(15,3)', 'maint_requisition_lines.quantidade_entregue': 'numeric(15,3)',
+  'maint_requisition_lines.estado': 'varchar(12)', 'maint_requisition_lines.custo': 'numeric(15,2)',
+  'asset_maintenance_order_items.qtd_armazem': 'numeric(15,3)', 'asset_maintenance_order_items.qtd_compra': 'numeric(15,3)',
+  // Fase G (método 5W1H): fundamentação ≥ 50 caracteres sem limite no legado
+  'mt_assuntos.fundamentacao': 'varchar(4000)', 'mt_assuntos.causa_raiz': 'varchar(4000)', 'mt_assunto_log.detalhe': 'varchar(1000)',
+  'mt_assuntos.concluido_em': 'timestamptz', 'mt_assuntos.concluido_por': 'varchar(100)', 'mt_assuntos.cancelado_em': 'timestamptz',
+  'mt_assuntos.cancelado_por': 'varchar(100)', 'mt_assuntos.motivo_cancelamento': 'text',
+
 };
 
 export const SOBREPOSICOES = {
   // Versão Actual (2026-10-13): o pai das ordens de manutenção, a categoria dos planos e o empréstimo do pedido do portal
   asset_maintenance_records: { order_id: ['ordem_manutencao_id', 'asset_maintenance_orders'] },
-  asset_maintenance_order_items: { order_id: ['ordem_manutencao_id', 'asset_maintenance_orders'] },
+  asset_maintenance_order_items: { order_id: ['ordem_manutencao_id', 'asset_maintenance_orders'], requisicao_id: ['requisicao_manutencao_id', 'maint_requisitions'] },
+  // Fase F: o local da folha e das linhas é uma fotografia (sem FK: eliminar uma porta não apaga nem bloqueia o histórico)
+  asset_inventories: { floor_id: 'andar_id', room_id: 'porta_id' },
+  asset_inventory_lines: { inventory_id: ['inventario_fisico_id', 'asset_inventories'], floor_id: 'andar_id', room_id: 'porta_id', room_encontrada_id: 'porta_encontrada_id' },
+  maint_requisitions: { order_id: ['ordem_manutencao_id', 'asset_maintenance_orders'] },
+  maint_requisition_lines: { requisition_id: ['requisicao_manutencao_id', 'maint_requisitions'], order_item_id: ['item_ordem_manutencao_id', 'asset_maintenance_order_items'] },
   asset_maintenance_plans: { category_id: ['categoria_ativo_id', 'asset_categories'] },
   // Nas empresas 10 e 18 (antigas linhas "dado mestre") sobraram colunas de enchimento sem significado.
   companies: { company_id: null, consolidation_run_id: ['execucao_consolidacao_id', 'consolidation_runs'],

@@ -9,6 +9,7 @@ use App\Models\ItemCompra;
 use App\Models\Produto;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Orcamento\ServicoControloOrcamental;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Vendas\CalculadoraDocumento;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -104,16 +105,21 @@ final class ServicoFaturasCompra
                 throw new ErroNegocio('Linha '.($n + 1).': quantidade e preço inválidos.', 'LINHA_INVALIDA', 422);
             }
             $linhas[] = ['produto_id' => $p->id, 'descricao' => $l['descricao'] ?? $p->nome, 'quantidade' => (string) $l['quantidade'],
-                'preco_unitario' => number_format((float) $l['preco_unitario'], 2, '.', ''), 'taxa_imposto' => (string) ($l['taxa_imposto'] ?? $p->taxa_imposto ?? 0)];
+                'preco_unitario' => number_format((float) $l['preco_unitario'], 2, '.', ''), 'taxa_imposto' => (string) ($l['taxa_imposto'] ?? $p->taxa_imposto ?? 0),
+                'unidade_negocio_id' => $l['unidade_negocio_id'] ?? null, 'centro_custo_id' => $l['centro_custo_id'] ?? null];   // Fase C (R5)
         }
         if (! $linhas) {
             throw new ErroNegocio('Indique pelo menos uma linha.', 'SEM_LINHAS', 422);
         }
         $calc = CalculadoraCompra::calcular($linhas, $moeda['taxa']);
+        $alocacao = app(ServicoReparticao::class)->normalizar($d['unidades_alocadas'] ?? null);   // Fase C (R2, ui_compras_v2.js:2075)
 
-        return DB::transaction(function () use ($d, $fornecedor, $data, $moeda, $calc, $linhas) {
+        return DB::transaction(function () use ($d, $fornecedor, $data, $moeda, $calc, $linhas, $alocacao) {
             $this->exigirNumeroLivre($fornecedor->id, $d['numero_fatura']);
             $fatura = $this->criarCabecalho($fornecedor->id, null, $d, $data, $moeda, $calc);
+            if ($alocacao) {   // jsonb com cast 'array' no model gerado: grava-se o array (json_encode duplicaria a codificação)
+                $fatura->forceFill(['unidades_alocadas' => $fatura->hasCast('unidades_alocadas') ? $alocacao : json_encode($alocacao)])->save();
+            }
             foreach ($linhas as $i => $l) {
                 ItemCompra::create($this->processo->linha('FATURA', ['fatura_compra_id' => $fatura->id], $l, $calc['linhas'][$i], $moeda) + ['projeto_id' => $d['projeto_id'] ?? null]);
             }

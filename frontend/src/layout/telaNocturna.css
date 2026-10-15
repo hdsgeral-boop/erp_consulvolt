@@ -1,0 +1,132 @@
+/*
+ * Tela nocturna (Versão Actual, css/tela_noturna.css) — estilos que não vêm dos tokens do Ant Design (temaNocturno.ts).
+ * Activa com a classe `erp-tela-nocturna` no <html> (layout/aspecto.ts). Só no ecrã: a impressão continua clara.
+ * Os seletores começam por `html.erp-tela-nocturna` para ganharem aos de identidade.css (`:root …`) sem !important.
+ */
+@media screen {
+  html.erp-tela-nocturna,
+  html.erp-tela-nocturna body {
+    background: #0b1220;
+    color: #e2e8f0;
+  }
+
+  /* barra superior */
+  html.erp-tela-nocturna .erp-cabecalho {
+    background: #111a2b;
+    border-bottom-color: #1f2a3d;
+  }
+  html.erp-tela-nocturna .erp-cabecalho-empresa-nome { color: #cbd5e1; }
+  html.erp-tela-nocturna .erp-cracha-nif { background: #1e293b; color: #93c5fd; }
+  html.erp-tela-nocturna .erp-utilizador-nome { color: #e2e8f0; }
+  html.erp-tela-nocturna .erp-utilizador-papel { color: #94a3b8; }
+  html.erp-tela-nocturna .erp-utilizador-seta { color: #cbd5e1; }
+  html.erp-tela-nocturna .erp-utilizador-botao.ant-dropdown-open .erp-utilizador-seta { background: #1e293b; }
+  html.erp-tela-nocturna .erp-botao-menu.ant-btn { border-color: #475569; color: #e2e8f0; }
+  html.erp-tela-nocturna .erp-botao-menu.ant-btn:hover { background: #1e293b; color: #ffffff; }
+  html.erp-tela-nocturna .erp-cabecalho .ant-btn.erp-botao-ajuda:not(:disabled):hover { background: #1e3a8a !important; }
+
+  /* área de trabalho: a imagem de fundo do módulo fica escurecida */
+  html.erp-tela-nocturna .erp-conteudo.ant-layout-content {
+    background: linear-gradient(rgba(11, 18, 32, 0.9), rgba(11, 18, 32, 0.97)), var(--erp-fundo) center / cover fixed;
+  }
+  html.erp-tela-nocturna .erp-titulo-pagina { color: #e2e8f0; }
+
+  /* botões em degradê do legado */
+  html.erp-tela-nocturna .ant-btn.ant-btn-variant-outlined.ant-btn-color-default:not(:disabled):not(.ant-btn-disabled) {
+    background: linear-gradient(to bottom, #1e293b 0%, #172236 100%);
+    border-color: #475569;
+    color: #e2e8f0;
+  }
+  html.erp-tela-nocturna .ant-btn.ant-btn-variant-outlined.ant-btn-color-default:not(:disabled):not(.ant-btn-disabled):hover {
+    background: linear-gradient(to bottom, #22324d 0%, #1b2a44 100%);
+    border-color: #60a5fa;
+    color: #ffffff;
+  }
+  html.erp-tela-nocturna .ant-btn.ant-btn-variant-solid.ant-btn-color-primary:not(:disabled):not(.ant-btn-disabled) {
+    background: linear-gradient(to bottom, #2563eb 0%, #1d4ed8 100%);
+    border-color: #1d4ed8;
+    color: #ffffff;
+  }
+  html.erp-tela-nocturna .ant-btn.ant-btn-variant-solid.ant-btn-color-primary:not(:disabled):not(.ant-btn-disabled):hover {
+    background: linear-gradient(to bottom, #3b82f6 0%, #2563eb 100%);
+    color: #ffffff;
+  }
+  html.erp-tela-nocturna .ant-btn.ant-btn-variant-solid.ant-btn-color-dangerous:not(:disabled):not(.ant-btn-disabled) {
+    background: linear-gradient(to bottom, #b91c1c 0%, #991b1b 100%);
+    border-color: #991b1b;
+    color: #ffffff;
+  }
+
+  /* separadores em botão */
+  html.erp-tela-nocturna .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab { background: #111a2b; border-color: #334155; }
+  html.erp-tela-nocturna .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab:hover { background: #1b2a44; }
+  html.erp-tela-nocturna .ant-tabs-top:not(.ant-tabs-card) > .ant-tabs-nav .ant-tabs-tab.ant-tabs-tab-disabled { background: #0f172a; }
+
+  /* Início */
+  html.erp-tela-nocturna .erp-inicio {
+    background: linear-gradient(rgba(11, 18, 32, 0.88), rgba(11, 18, 32, 0.95)), url('../estilos/imagens/fundo-inicio.jpg') center / cover no-repeat;
+  }
+  html.erp-tela-nocturna .erp-inicio-mini,
+  html.erp-tela-nocturna .erp-inicio-modulos,
+  html.erp-tela-nocturna .erp-modulo-botao {
+    background: linear-gradient(145deg, #111a2b, #0f172a);
+    border-color: #334155;
+  }
+  html.erp-tela-nocturna .erp-modulo-nome { color: #e2e8f0; }
+  html.erp-tela-nocturna .erp-modulo-estrela { background: #1e293b; }
+  html.erp-tela-nocturna .erp-modulo-estrela.activa { background: #78350f; }
+  html.erp-tela-nocturna .erp-logo-escolha { background: #111a2b; }
+
+  /* painéis transversais (operações, ajuda, pesquisa) */
+  html.erp-tela-nocturna .erp-operacoes { background: #111a2b; border-color: #334155; }
+  html.erp-tela-nocturna .erp-operacoes-cabeca { border-bottom-color: #334155; }
+  html.erp-tela-nocturna .erp-ajuda-corpo { color: #e2e8f0; }
+  html.erp-tela-nocturna .erp-ajuda-corpo h4 { color: #94a3b8; }
+  html.erp-tela-nocturna .erp-ajuda-regras { background: #422006; border-color: #92400e; }
+  html.erp-tela-nocturna .erp-ajuda-regras h4 { color: #fcd34d; }
+  html.erp-tela-nocturna .erp-ajuda-ecras button,
+  html.erp-tela-nocturna .erp-ajuda-resultado { background: #111a2b; border-color: #334155; color: #e2e8f0; }
+  html.erp-tela-nocturna .erp-painel-ajuda kbd,
+  html.erp-tela-nocturna .erp-ajuda-corpo kbd { background: #1e293b; border-color: #475569; }
+  html.erp-tela-nocturna .erp-pesquisa-resultados button.activo { background: #1e3a8a; }
+  html.erp-tela-nocturna .erp-pesquisa-nome { color: #e2e8f0; }
+}
+
+/* ------------------------------------------------------------------ busca no menu (filtro em linha) */
+.erp-menu-busca {
+  padding: 8px 12px 6px;
+}
+.erp-menu-busca .ant-input-affix-wrapper {
+  background: #1c1c1c;
+  border-color: #3a3a3a;
+}
+.erp-menu-busca .ant-input-affix-wrapper input,
+.erp-menu-busca .ant-input-affix-wrapper .ant-input {
+  background: transparent;
+  color: #e5e5e5;
+}
+.erp-menu-busca .ant-input::placeholder { color: #a3a3a3; }
+.erp-menu-busca .ant-input-prefix,
+.erp-menu-busca .ant-input-clear-icon { color: #a3a3a3; }
+.erp-menu-busca-contador {
+  display: block;
+  min-height: 0;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: #a3a3a3;
+}
+.erp-menu-busca-contador.vazio { color: #fca5a5; }
+.erp-menu mark.erp-menu-realce {
+  background: rgba(250, 204, 21, 0.35);
+  color: inherit;
+  padding: 0;
+  border-radius: 2px;
+}
+:root .erp-menu .ant-menu-item.erp-menu-focado {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+  background: rgba(59, 130, 246, 0.18);
+}
+
+/* botão da tela nocturna na barra superior */
+.erp-botao-tema.ant-btn { flex: none; }

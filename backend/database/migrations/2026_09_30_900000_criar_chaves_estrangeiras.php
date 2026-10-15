@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Todas as chaves estrangeiras (566) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
+ * Todas as chaves estrangeiras (583) — GERADO por ferramentas/gerador/gerar_esquema.mjs.
  * DEFERRABLE INITIALLY IMMEDIATE: comportamento normal na aplicação; o ETL adia a verificação para o COMMIT
  * (SET CONSTRAINTS ALL DEFERRED) e a transacção falha se sobrar algum órfão.
  * RESTRICT para entidades; CASCADE só para linhas/itens do próprio documento.
@@ -428,6 +428,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE folhas_horas_projeto ADD CONSTRAINT fk_folhas_horas_projeto_projeto_id FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE folhas_horas_projeto ADD CONSTRAINT fk_folhas_horas_projeto_tarefa_projeto_id FOREIGN KEY (tarefa_projeto_id) REFERENCES tarefas_projeto (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE folhas_horas_projeto ADD CONSTRAINT fk_folhas_horas_projeto_colaborador_id FOREIGN KEY (colaborador_id) REFERENCES colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE folhas_horas_projeto ADD CONSTRAINT fk_folhas_horas_projeto_membro_equipa_projeto_id FOREIGN KEY (membro_equipa_projeto_id) REFERENCES membros_equipa_projeto (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE faturacao_projetos ADD CONSTRAINT fk_faturacao_projetos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE faturacao_projetos ADD CONSTRAINT fk_faturacao_projetos_projeto_id FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE afetacoes_ativos_projeto ADD CONSTRAINT fk_afetacoes_ativos_projeto_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -522,7 +523,9 @@ return new class extends Migration
         DB::statement('ALTER TABLE emprestimos_colaboradores ADD CONSTRAINT fk_emprestimos_colaboradores_pedido_portal_colaborador_id FOREIGN KEY (pedido_portal_colaborador_id) REFERENCES pedidos_portal_colaborador (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE prestacoes_emprestimos ADD CONSTRAINT fk_prestacoes_emprestimos_emprestimo_id FOREIGN KEY (emprestimo_id) REFERENCES emprestimos_colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE prestacoes_emprestimos ADD CONSTRAINT fk_prestacoes_emprestimos_colaborador_id FOREIGN KEY (colaborador_id) REFERENCES colaboradores (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE prestacoes_emprestimos ADD CONSTRAINT fk_prestacoes_emprestimos_linha_folha_salarial_id FOREIGN KEY (linha_folha_salarial_id) REFERENCES linhas_folha_salarial (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE prestacoes_emprestimos ADD CONSTRAINT fk_prestacoes_emprestimos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE prestacoes_emprestimos ADD CONSTRAINT fk_prestacoes_emprestimos_periodo_processamento_salarial_id FOREIGN KEY (periodo_processamento_salarial_id) REFERENCES periodos_processamento_salarial (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_emprestimos ADD CONSTRAINT fk_configuracoes_emprestimos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_emprestimos ADD CONSTRAINT fk_configuracoes_emprestimos_infotipo_desconto_id FOREIGN KEY (infotipo_desconto_id) REFERENCES infotipos_salariais (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE configuracoes_emprestimos ADD CONSTRAINT fk_configuracoes_emprestimos_diario_id FOREIGN KEY (diario_id) REFERENCES diarios_contabeis (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -531,7 +534,10 @@ return new class extends Migration
         DB::statement('ALTER TABLE portas_edificios ADD CONSTRAINT fk_portas_edificios_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE portas_edificios ADD CONSTRAINT fk_portas_edificios_edificio_id FOREIGN KEY (edificio_id) REFERENCES ativos_imobilizados (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE portas_edificios ADD CONSTRAINT fk_portas_edificios_andar_id FOREIGN KEY (andar_id) REFERENCES andares_edificios (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE inventarios_fisicos_ativos ADD CONSTRAINT fk_inventarios_fisicos_ativos_edificio_id FOREIGN KEY (edificio_id) REFERENCES ativos_imobilizados (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE inventarios_fisicos_ativos ADD CONSTRAINT fk_inventarios_fisicos_ativos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE linhas_inventario_fisico_ativos ADD CONSTRAINT fk_linhas_inventario_fisico_ativos_inventario_fisico_id FOREIGN KEY (inventario_fisico_id) REFERENCES inventarios_fisicos_ativos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE linhas_inventario_fisico_ativos ADD CONSTRAINT fk_linhas_inventario_fisico_ativos_ativo_imobilizado_id FOREIGN KEY (ativo_imobilizado_id) REFERENCES ativos_imobilizados (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE linhas_inventario_fisico_ativos ADD CONSTRAINT fk_linhas_inventario_fisico_ativos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE ordens_manutencao_ativos ADD CONSTRAINT fk_ordens_manutencao_ativos_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE ordens_manutencao_ativos ADD CONSTRAINT fk_ordens_manutencao_ativos_ativo_imobilizado_id FOREIGN KEY (ativo_imobilizado_id) REFERENCES ativos_imobilizados (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -539,12 +545,23 @@ return new class extends Migration
         DB::statement('ALTER TABLE itens_ordem_manutencao ADD CONSTRAINT fk_itens_ordem_manutencao_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_ordem_manutencao ADD CONSTRAINT fk_itens_ordem_manutencao_ordem_manutencao_id FOREIGN KEY (ordem_manutencao_id) REFERENCES ordens_manutencao_ativos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE itens_ordem_manutencao ADD CONSTRAINT fk_itens_ordem_manutencao_produto_id FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE itens_ordem_manutencao ADD CONSTRAINT fk_itens_ordem_manutencao_requisicao_manutencao_id FOREIGN KEY (requisicao_manutencao_id) REFERENCES requisicoes_manutencao (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE itens_ordem_manutencao ADD CONSTRAINT fk_itens_ordem_manutencao_pedido_compra_id FOREIGN KEY (pedido_compra_id) REFERENCES pedidos_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE requisicoes_manutencao ADD CONSTRAINT fk_requisicoes_manutencao_ordem_manutencao_id FOREIGN KEY (ordem_manutencao_id) REFERENCES ordens_manutencao_ativos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE requisicoes_manutencao ADD CONSTRAINT fk_requisicoes_manutencao_ativo_imobilizado_id FOREIGN KEY (ativo_imobilizado_id) REFERENCES ativos_imobilizados (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE requisicoes_manutencao ADD CONSTRAINT fk_requisicoes_manutencao_armazem_id FOREIGN KEY (armazem_id) REFERENCES armazens (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE requisicoes_manutencao ADD CONSTRAINT fk_requisicoes_manutencao_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE linhas_requisicao_manutencao ADD CONSTRAINT fk_linhas_requisicao_manutencao_requisicao_manutencao_id FOREIGN KEY (requisicao_manutencao_id) REFERENCES requisicoes_manutencao (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE linhas_requisicao_manutencao ADD CONSTRAINT fk_linhas_requisicao_manutencao_item_ordem_manutencao_id FOREIGN KEY (item_ordem_manutencao_id) REFERENCES itens_ordem_manutencao (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE linhas_requisicao_manutencao ADD CONSTRAINT fk_linhas_requisicao_manutencao_produto_id FOREIGN KEY (produto_id) REFERENCES produtos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE linhas_requisicao_manutencao ADD CONSTRAINT fk_linhas_requisicao_manutencao_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE assuntos_metodo_trabalho ADD CONSTRAINT fk_assuntos_metodo_trabalho_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE assuntos_metodo_trabalho ADD CONSTRAINT fk_assuntos_metodo_trabalho_unidade_negocio_id FOREIGN KEY (unidade_negocio_id) REFERENCES unidades_negocio (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE assuntos_metodo_trabalho ADD CONSTRAINT fk_assuntos_metodo_trabalho_cliente_id FOREIGN KEY (cliente_id) REFERENCES terceiros (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE assuntos_metodo_trabalho ADD CONSTRAINT fk_assuntos_metodo_trabalho_projeto_id FOREIGN KEY (projeto_id) REFERENCES projetos (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE assuntos_metodo_trabalho ADD CONSTRAINT fk_assuntos_metodo_trabalho_pedido_compra_id FOREIGN KEY (pedido_compra_id) REFERENCES pedidos_compra (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE assuntos_metodo_trabalho ADD CONSTRAINT fk_assuntos_metodo_trabalho_centro_custo_id FOREIGN KEY (centro_custo_id) REFERENCES centros_custo (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
+        DB::statement('ALTER TABLE assuntos_metodo_trabalho ADD CONSTRAINT fk_assuntos_metodo_trabalho_encomenda_venda_id FOREIGN KEY (encomenda_venda_id) REFERENCES vendas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE historico_assuntos_metodo ADD CONSTRAINT fk_historico_assuntos_metodo_assunto_id FOREIGN KEY (assunto_id) REFERENCES assuntos_metodo_trabalho (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE historico_assuntos_metodo ADD CONSTRAINT fk_historico_assuntos_metodo_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
         DB::statement('ALTER TABLE resultados_folha_salarial ADD CONSTRAINT fk_resultados_folha_salarial_empresa_id FOREIGN KEY (empresa_id) REFERENCES empresas (id) ON DELETE RESTRICT DEFERRABLE INITIALLY IMMEDIATE');
@@ -998,6 +1015,7 @@ return new class extends Migration
         DB::statement('ALTER TABLE folhas_horas_projeto DROP CONSTRAINT IF EXISTS fk_folhas_horas_projeto_projeto_id');
         DB::statement('ALTER TABLE folhas_horas_projeto DROP CONSTRAINT IF EXISTS fk_folhas_horas_projeto_tarefa_projeto_id');
         DB::statement('ALTER TABLE folhas_horas_projeto DROP CONSTRAINT IF EXISTS fk_folhas_horas_projeto_colaborador_id');
+        DB::statement('ALTER TABLE folhas_horas_projeto DROP CONSTRAINT IF EXISTS fk_folhas_horas_projeto_membro_equipa_projeto_id');
         DB::statement('ALTER TABLE faturacao_projetos DROP CONSTRAINT IF EXISTS fk_faturacao_projetos_empresa_id');
         DB::statement('ALTER TABLE faturacao_projetos DROP CONSTRAINT IF EXISTS fk_faturacao_projetos_projeto_id');
         DB::statement('ALTER TABLE afetacoes_ativos_projeto DROP CONSTRAINT IF EXISTS fk_afetacoes_ativos_projeto_empresa_id');
@@ -1092,7 +1110,9 @@ return new class extends Migration
         DB::statement('ALTER TABLE emprestimos_colaboradores DROP CONSTRAINT IF EXISTS fk_emprestimos_colaboradores_pedido_portal_colaborador_id');
         DB::statement('ALTER TABLE prestacoes_emprestimos DROP CONSTRAINT IF EXISTS fk_prestacoes_emprestimos_emprestimo_id');
         DB::statement('ALTER TABLE prestacoes_emprestimos DROP CONSTRAINT IF EXISTS fk_prestacoes_emprestimos_colaborador_id');
+        DB::statement('ALTER TABLE prestacoes_emprestimos DROP CONSTRAINT IF EXISTS fk_prestacoes_emprestimos_linha_folha_salarial_id');
         DB::statement('ALTER TABLE prestacoes_emprestimos DROP CONSTRAINT IF EXISTS fk_prestacoes_emprestimos_empresa_id');
+        DB::statement('ALTER TABLE prestacoes_emprestimos DROP CONSTRAINT IF EXISTS fk_prestacoes_emprestimos_periodo_processamento_salarial_id');
         DB::statement('ALTER TABLE configuracoes_emprestimos DROP CONSTRAINT IF EXISTS fk_configuracoes_emprestimos_empresa_id');
         DB::statement('ALTER TABLE configuracoes_emprestimos DROP CONSTRAINT IF EXISTS fk_configuracoes_emprestimos_infotipo_desconto_id');
         DB::statement('ALTER TABLE configuracoes_emprestimos DROP CONSTRAINT IF EXISTS fk_configuracoes_emprestimos_diario_id');
@@ -1101,7 +1121,10 @@ return new class extends Migration
         DB::statement('ALTER TABLE portas_edificios DROP CONSTRAINT IF EXISTS fk_portas_edificios_empresa_id');
         DB::statement('ALTER TABLE portas_edificios DROP CONSTRAINT IF EXISTS fk_portas_edificios_edificio_id');
         DB::statement('ALTER TABLE portas_edificios DROP CONSTRAINT IF EXISTS fk_portas_edificios_andar_id');
+        DB::statement('ALTER TABLE inventarios_fisicos_ativos DROP CONSTRAINT IF EXISTS fk_inventarios_fisicos_ativos_edificio_id');
         DB::statement('ALTER TABLE inventarios_fisicos_ativos DROP CONSTRAINT IF EXISTS fk_inventarios_fisicos_ativos_empresa_id');
+        DB::statement('ALTER TABLE linhas_inventario_fisico_ativos DROP CONSTRAINT IF EXISTS fk_linhas_inventario_fisico_ativos_inventario_fisico_id');
+        DB::statement('ALTER TABLE linhas_inventario_fisico_ativos DROP CONSTRAINT IF EXISTS fk_linhas_inventario_fisico_ativos_ativo_imobilizado_id');
         DB::statement('ALTER TABLE linhas_inventario_fisico_ativos DROP CONSTRAINT IF EXISTS fk_linhas_inventario_fisico_ativos_empresa_id');
         DB::statement('ALTER TABLE ordens_manutencao_ativos DROP CONSTRAINT IF EXISTS fk_ordens_manutencao_ativos_empresa_id');
         DB::statement('ALTER TABLE ordens_manutencao_ativos DROP CONSTRAINT IF EXISTS fk_ordens_manutencao_ativos_ativo_imobilizado_id');
@@ -1109,12 +1132,23 @@ return new class extends Migration
         DB::statement('ALTER TABLE itens_ordem_manutencao DROP CONSTRAINT IF EXISTS fk_itens_ordem_manutencao_empresa_id');
         DB::statement('ALTER TABLE itens_ordem_manutencao DROP CONSTRAINT IF EXISTS fk_itens_ordem_manutencao_ordem_manutencao_id');
         DB::statement('ALTER TABLE itens_ordem_manutencao DROP CONSTRAINT IF EXISTS fk_itens_ordem_manutencao_produto_id');
+        DB::statement('ALTER TABLE itens_ordem_manutencao DROP CONSTRAINT IF EXISTS fk_itens_ordem_manutencao_requisicao_manutencao_id');
+        DB::statement('ALTER TABLE itens_ordem_manutencao DROP CONSTRAINT IF EXISTS fk_itens_ordem_manutencao_pedido_compra_id');
+        DB::statement('ALTER TABLE requisicoes_manutencao DROP CONSTRAINT IF EXISTS fk_requisicoes_manutencao_ordem_manutencao_id');
+        DB::statement('ALTER TABLE requisicoes_manutencao DROP CONSTRAINT IF EXISTS fk_requisicoes_manutencao_ativo_imobilizado_id');
+        DB::statement('ALTER TABLE requisicoes_manutencao DROP CONSTRAINT IF EXISTS fk_requisicoes_manutencao_armazem_id');
         DB::statement('ALTER TABLE requisicoes_manutencao DROP CONSTRAINT IF EXISTS fk_requisicoes_manutencao_empresa_id');
+        DB::statement('ALTER TABLE linhas_requisicao_manutencao DROP CONSTRAINT IF EXISTS fk_linhas_requisicao_manutencao_requisicao_manutencao_id');
+        DB::statement('ALTER TABLE linhas_requisicao_manutencao DROP CONSTRAINT IF EXISTS fk_linhas_requisicao_manutencao_item_ordem_manutencao_id');
+        DB::statement('ALTER TABLE linhas_requisicao_manutencao DROP CONSTRAINT IF EXISTS fk_linhas_requisicao_manutencao_produto_id');
         DB::statement('ALTER TABLE linhas_requisicao_manutencao DROP CONSTRAINT IF EXISTS fk_linhas_requisicao_manutencao_empresa_id');
         DB::statement('ALTER TABLE assuntos_metodo_trabalho DROP CONSTRAINT IF EXISTS fk_assuntos_metodo_trabalho_empresa_id');
         DB::statement('ALTER TABLE assuntos_metodo_trabalho DROP CONSTRAINT IF EXISTS fk_assuntos_metodo_trabalho_unidade_negocio_id');
         DB::statement('ALTER TABLE assuntos_metodo_trabalho DROP CONSTRAINT IF EXISTS fk_assuntos_metodo_trabalho_cliente_id');
         DB::statement('ALTER TABLE assuntos_metodo_trabalho DROP CONSTRAINT IF EXISTS fk_assuntos_metodo_trabalho_projeto_id');
+        DB::statement('ALTER TABLE assuntos_metodo_trabalho DROP CONSTRAINT IF EXISTS fk_assuntos_metodo_trabalho_pedido_compra_id');
+        DB::statement('ALTER TABLE assuntos_metodo_trabalho DROP CONSTRAINT IF EXISTS fk_assuntos_metodo_trabalho_centro_custo_id');
+        DB::statement('ALTER TABLE assuntos_metodo_trabalho DROP CONSTRAINT IF EXISTS fk_assuntos_metodo_trabalho_encomenda_venda_id');
         DB::statement('ALTER TABLE historico_assuntos_metodo DROP CONSTRAINT IF EXISTS fk_historico_assuntos_metodo_assunto_id');
         DB::statement('ALTER TABLE historico_assuntos_metodo DROP CONSTRAINT IF EXISTS fk_historico_assuntos_metodo_empresa_id');
         DB::statement('ALTER TABLE resultados_folha_salarial DROP CONSTRAINT IF EXISTS fk_resultados_folha_salarial_empresa_id');

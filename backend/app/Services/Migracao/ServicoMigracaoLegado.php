@@ -273,6 +273,7 @@ final class ServicoMigracaoLegado
         $this->carregarLinhasFaturasCompra();
         $this->carregarLigacoesUtilizadorEmpresa();
         $this->carregarAuditoria();
+        $this->posCargaFases();
     }
 
     /**
@@ -528,6 +529,38 @@ final class ServicoMigracaoLegado
                 }
                 break;
 
+                // ── Versão Actual: Fases B, C, E, G e H (ADR-071) ──
+            case 'contratos_trabalho':   // o legado grava 9999-12-31 como «sem fim» (contrato_estado.js:236); o sistema novo usa NULL
+                if (str_starts_with((string) ($linha['data_fim'] ?? ''), '9999-')) {
+                    $linha['data_fim'] = null;
+                }
+                break;
+
+            case 'tarefas_projeto':   // concluida_em só com a data (projectos_metas.js): meio-dia, para não mudar de dia com o fuso
+                if (is_string($orig['concluida_em'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($orig['concluida_em'])) && $linha['concluida_em'] !== null) {
+                    $linha['concluida_em'] = trim($orig['concluida_em']).' 12:00:00';
+                }
+                break;
+
+            case 'registos_produtividade_rh':
+                $this->rechavearProdutividade($linha);
+                break;
+
+            case 'assuntos_metodo_trabalho':
+                $this->ajustarAssuntoMetodo($linha);
+                break;
+
+            case 'criterios_reparticao_un':   // código do critério em maiúsculas (reparticao.js grava-o assim nos registos novos)
+                if (($linha['codigo'] ?? null) !== null && $linha['codigo'] !== mb_strtoupper($linha['codigo'])) {
+                    $this->informacao('criterios_reparticao_un', 'codigo', 'NORMALIZACAO', $linha['codigo'], mb_strtoupper($linha['codigo']), 'Código do critério em maiúsculas');
+                    $linha['codigo'] = mb_strtoupper($linha['codigo']);
+                }
+                break;   // as linhas (unidades e pesos) acertam-se em posCargaFases, com as unidades de negócio já carregadas
+
+            case 'ficheiros_regras_ia':   // motor vazio = as duas IAs (ai_regras_ficheiro.js)
+                $linha['motor'] ??= 'AMBOS';
+                break;
+
             case 'itens_compra':
                 return $this->resolverItemCompra($orig, $linha);
 
@@ -601,6 +634,192 @@ final class ServicoMigracaoLegado
         }
 
         return null;
+    }
+
+    /**
+     * Fase E: a chave de idempotência da execução dos projectos (PRJ|tipo|unidade|colaborador|item|período,
+     * produtividade_projectos.js:208) leva ids; refaz-se com os ids da linha migrada, no formato do sistema novo
+     * (ServicoProdutividadeProjetos::chave — unidade resumida quando a chave passa os 50 caracteres).
+     *
+     * @param  array<string, mixed>  $linha
+     */
+    private function rechavearProdutividade(array &$linha): void
+    {
+        $original = $linha['origem_chave'] ?? null;
+        $partes = is_string($original) ? explode('|', $original) : [];
+        if (count($partes) !== 6 || $partes[0] !== 'PRJ') {
+            return;
+        }
+        $ids = [$linha['colaborador_id'] ?? null, $linha['item_produtividade_id'] ?? null, $linha['periodo_produtividade_id'] ?? null];
+        if (in_array(null, $ids, true)) {
+            return;   // sem os três ids não há chave a refazer: fica a do legado
+        }
+        $chave = "PRJ|{$partes[1]}|{$partes[2]}|".implode('|', $ids);
+        if (strlen($chave) > 50) {
+            $chave = "PRJ|{$partes[1]}|".substr(md5($partes[2]), 0, 8).'|'.implode('|', $ids);
+        }
+        if ($chave !== $original) {
+            $this->informacao('registos_produtividade_rh', 'origem_chave', 'SEMANTICA', $original, $chave, 'Chave da execução dos projectos refeita com os ids migrados');
+            $linha['origem_chave'] = $chave;
+        }
+    }
+
+    /**
+     * Fase G: no legado, departamento_id dos assuntos 5W1H aponta para uma unidade ORGÂNICA (org_units), não para uma
+     * unidade de negócio — mantê-lo ligaria o assunto a uma unidade de negócio qualquer (até de outra empresa): anula-se.
+     * A deliberação passa a guardar o aprovador com a chave do sistema novo (aprovador_colaborador_id).
+     *
+     * @param  array<string, mixed>  $linha
+     */
+    private function ajustarAssuntoMetodo(array &$linha): void
+    {
+        if (($linha['unidade_negocio_id'] ?? null) !== null) {
+            $this->informacao('assuntos_metodo_trabalho', 'unidade_negocio_id', 'SEMANTICA', $linha['unidade_negocio_id'], null,
+                'departamento_id do legado é uma unidade orgânica, não uma unidade de negócio: anulado');
+            $linha['unidade_negocio_id'] = null;
+        }
+        $deliberacao = is_string($linha['deliberacao'] ?? null) ? json_decode($linha['deliberacao'], true) : null;
+        if (! is_array($deliberacao) || ! array_key_exists('aprovador_employee_id', $deliberacao)) {
+            return;
+        }
+        $aprovador = $this->conversorChave($deliberacao['aprovador_employee_id']);
+        if ($aprovador !== null && ! $this->existe('colaboradores', $aprovador)) {
+            $this->anularFk('assuntos_metodo_trabalho', 'deliberacao', $aprovador, "Aprovador da deliberação (colaborador #{$aprovador}) inexistente: anulado");
+            $aprovador = null;
+        }
+        unset($deliberacao['aprovador_employee_id']);
+        $deliberacao = ['aprovador_colaborador_id' => $aprovador] + $deliberacao;
+        $linha['deliberacao'] = json_encode($deliberacao, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+    }
+
+    /**
+     * Acertos da Versão Actual que precisam de várias tabelas já carregadas (Fases B, C e F — ADR-071). Os ids do legado
+     * são preservados, por isso «remapear» é validar que o id existe na mesma empresa e trocar as chaves do legado
+     * pelas do sistema novo.
+     */
+    private function posCargaFases(): void
+    {
+        $resumo = function (string $tabela, ?string $coluna, int $n, string $descricao): void {
+            if ($n > 0) {
+                $this->linhaAtual = ['tabela' => $this->esquema[$tabela]['legado'] ?? $tabela, 'id' => null, 'destino' => $tabela, 'coluna' => $coluna, 'empresa' => null];
+                $this->informacao($tabela, $coluna, 'POS_CARGA', $n, null, $descricao);
+            }
+        };
+
+        // D: o legado tinha um texto por empresa e tipo — o mais antigo fica predefinido e com nome (o índice único exige um só)
+        $resumo('modelos_cartas_pagamento', 'predefinido', DB::update(<<<'SQL'
+            UPDATE modelos_cartas_pagamento m SET predefinido = true, nome = COALESCE(m.nome, 'Texto padrão')
+            WHERE m.id = (SELECT o.id FROM modelos_cartas_pagamento o WHERE o.empresa_id = m.empresa_id AND o.tipo IS NOT DISTINCT FROM m.tipo ORDER BY o.id LIMIT 1)
+              AND NOT EXISTS (SELECT 1 FROM modelos_cartas_pagamento o WHERE o.empresa_id = m.empresa_id AND o.tipo IS NOT DISTINCT FROM m.tipo AND o.predefinido)
+        SQL), 'Modelo de carta predefinido por empresa e tipo (o mais antigo)');
+
+        // B: a prestação descontada fica no processamento do lançamento que a descontou (o legado só grava payroll_entry_id)
+        $resumo('prestacoes_emprestimos', 'periodo_processamento_salarial_id', DB::update(<<<'SQL'
+            UPDATE prestacoes_emprestimos p SET periodo_processamento_salarial_id = l.periodo_processamento_salarial_id
+            FROM linhas_folha_salarial l
+            WHERE l.id = p.linha_folha_salarial_id AND p.periodo_processamento_salarial_id IS NULL
+        SQL), 'Processamento das prestações descontadas derivado do lançamento (payroll_entry_id)');
+
+        // B: pedido do portal ↔ empréstimo (rh_portal_requests.loan_id e rh_loans.portal_request_id), nos dois sentidos
+        $resumo('emprestimos_colaboradores', 'pedido_portal_colaborador_id', DB::update(<<<'SQL'
+            UPDATE emprestimos_colaboradores e SET pedido_portal_colaborador_id = p.id
+            FROM pedidos_portal_colaborador p
+            WHERE p.emprestimo_id = e.id AND p.empresa_id = e.empresa_id AND e.pedido_portal_colaborador_id IS NULL
+        SQL), 'Empréstimo ligado ao pedido do portal que o refere (loan_id)');
+        $resumo('pedidos_portal_colaborador', 'emprestimo_id', DB::update(<<<'SQL'
+            UPDATE pedidos_portal_colaborador p SET emprestimo_id = e.id
+            FROM emprestimos_colaboradores e
+            WHERE e.pedido_portal_colaborador_id = p.id AND e.empresa_id = p.empresa_id AND p.emprestimo_id IS NULL
+        SQL), 'Pedido do portal ligado ao empréstimo que o refere (portal_request_id)');
+
+        // F: necessidade da ordem de manutenção → pedido de compra (purchase_items.maintenance_item_id, activos_manutencao.js:491)
+        $ligadas = 0;
+        foreach ($this->linhasDe('purchase_items') as $o) {
+            $item = $this->conversorChave($o['maintenance_item_id'] ?? null);
+            $pedido = $this->conversorChave($o['parent_id'] ?? null);
+            if ($item === null || $pedido === null || mb_strtoupper((string) ($o['parent_type'] ?? '')) !== 'REQUEST'
+                || ! array_key_exists($pedido, $this->validos['pedidos_compra'] ?? [])) {
+                continue;
+            }
+            $ligadas += DB::table('itens_ordem_manutencao')->where('id', $item)->whereNull('pedido_compra_id')
+                ->where('empresa_id', $this->validos['pedidos_compra'][$pedido])->update(['pedido_compra_id' => $pedido]);
+        }
+        $resumo('itens_ordem_manutencao', 'pedido_compra_id', $ligadas, 'Necessidades da manutenção ligadas ao pedido de compra (purchase_items.maintenance_item_id)');
+
+        // C: repartição por unidades de negócio — {criterio_id, unidades:[{business_unit_id, peso}]} → unidade_negocio_id
+        foreach (['colaboradores', 'vendas', 'pedidos_compra', 'faturas_compra', 'encomendas_compra', 'recibos_venda'] as $tabela) {
+            foreach (DB::table($tabela)->whereNotNull('unidades_alocadas')->orderBy('id')->get(['id', 'empresa_id', 'unidades_alocadas']) as $r) {
+                $this->linhaAtual = ['tabela' => $this->esquema[$tabela]['legado'], 'id' => (string) $r->id, 'destino' => $tabela, 'coluna' => 'unidades_alocadas', 'empresa' => $r->empresa_id];
+                $valor = json_decode((string) $r->unidades_alocadas, true);
+                $novo = $this->normalizarAlocacao(is_string($valor) ? json_decode($valor, true) : $valor, (int) $r->empresa_id, $tabela);
+                if ($novo !== $valor) {
+                    DB::table($tabela)->where('id', $r->id)->update(['unidades_alocadas' => $novo === null ? null : json_encode($novo, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION)]);
+                }
+            }
+        }
+        foreach (DB::table('criterios_reparticao_un')->whereNotNull('linhas')->orderBy('id')->get(['id', 'empresa_id', 'linhas']) as $r) {
+            $this->linhaAtual = ['tabela' => 'bu_allocation_keys', 'id' => (string) $r->id, 'destino' => 'criterios_reparticao_un', 'coluna' => 'linhas', 'empresa' => $r->empresa_id];
+            $valor = json_decode((string) $r->linhas, true);
+            if (! is_array($valor)) {
+                continue;
+            }
+            $novo = $this->unidadesValidas($valor, (int) $r->empresa_id, 'criterios_reparticao_un', 'linhas');
+            if ($novo !== $valor) {
+                DB::table('criterios_reparticao_un')->where('id', $r->id)->update(['linhas' => json_encode($novo, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION)]);
+            }
+        }
+        $this->registo->descarregar();
+    }
+
+    /**
+     * Alocação do legado {criterio_id, unidades:[{business_unit_id, peso}]} → {criterio_id, unidades:[{unidade_negocio_id, peso}]},
+     * com o critério e as unidades validados na empresa do documento (os inexistentes saem, com ocorrência).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function normalizarAlocacao(mixed $valor, int $empresa, string $tabela): ?array
+    {
+        if (! is_array($valor)) {
+            $this->anularFk($tabela, 'unidades_alocadas', is_scalar($valor) ? $valor : json_encode($valor), 'Repartição por unidades de negócio ilegível: anulada');
+
+            return null;
+        }
+        $criterio = $this->conversorChave($valor['criterio_id'] ?? null);
+        if ($criterio !== null && ($this->validos['criterios_reparticao_un'][$criterio] ?? false) !== $empresa) {
+            $this->anularFk($tabela, 'unidades_alocadas', $criterio, "Critério de repartição #{$criterio} inexistente na empresa #{$empresa}: critério anulado");
+            $criterio = null;
+        }
+        $unidades = $this->unidadesValidas(is_array($valor['unidades'] ?? null) ? $valor['unidades'] : [], $empresa, $tabela, 'unidades_alocadas');
+        if ($criterio === null && $unidades === []) {
+            return null;
+        }
+
+        return ['criterio_id' => $criterio, 'unidades' => $unidades] + array_diff_key($valor, ['criterio_id' => 1, 'unidades' => 1]);
+    }
+
+    /**
+     * Lista [{business_unit_id|unidade_negocio_id, peso, …}] → [{unidade_negocio_id, peso, …}], só com unidades de negócio da empresa.
+     *
+     * @param  array<int|string, mixed>  $lista
+     * @return list<array<string, mixed>>
+     */
+    private function unidadesValidas(array $lista, int $empresa, string $tabela, string $coluna): array
+    {
+        $saida = [];
+        foreach ($lista as $u) {
+            if (! is_array($u)) {
+                continue;
+            }
+            $id = $this->conversorChave($u['unidade_negocio_id'] ?? $u['business_unit_id'] ?? null);
+            if ($id === null || ($this->validos['unidades_negocio'][$id] ?? false) !== $empresa) {
+                $this->anularFk($tabela, $coluna, $id, "Unidade de negócio #{$id} inexistente na empresa #{$empresa}: retirada da repartição");
+
+                continue;
+            }
+            $saida[] = ['unidade_negocio_id' => $id, 'peso' => $u['peso'] ?? null] + array_diff_key($u, ['business_unit_id' => 1, 'unidade_negocio_id' => 1, 'peso' => 1]);
+        }
+
+        return $saida;
     }
 
     /**

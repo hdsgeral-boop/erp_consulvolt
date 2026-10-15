@@ -2,6 +2,7 @@
 
 namespace App\Models\Base;
 
+use App\Models\AssuntoMetodoTrabalho;
 use App\Models\AtivoImobilizado;
 use App\Models\Colaborador;
 use App\Models\Concerns\Auditavel;
@@ -169,5 +170,10 @@ abstract class CentroCustoBase extends ModeloBase
     public function itensAcrescimosDiferimentos(): HasMany
     {
         return $this->hasMany(ItemAcrescimoDiferimento::class, 'centro_custo_id');
+    }
+
+    public function assuntosMetodoTrabalho(): HasMany
+    {
+        return $this->hasMany(AssuntoMetodoTrabalho::class, 'centro_custo_id');
     }
 }

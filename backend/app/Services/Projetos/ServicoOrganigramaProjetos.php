@@ -52,8 +52,10 @@ final class ServicoOrganigramaProjetos
         $saida = [];
         $vistasTarefas = [];
         $vistasLinhas = [];
+        $tarefasDoNo = [];
         foreach ($nos as $n) {
             $tarefas = array_values(array_filter(array_map('intval', $n->tarefas ?? []), fn ($id) => isset($idsT[$id])));
+            $tarefasDoNo[$n->id] = $tarefas;
             $directas = $orcamento->filter(fn ($l) => (int) $l->no_organigrama_projeto_id === $n->id && ! in_array((int) $l->tarefa_projeto_id, $tarefas, true));
             $saida[] = $n->toArray() + ['tarefas' => $tarefas, 'membros' => $membros->where('no_organigrama_projeto_id', $n->id)->values()->all(),
                 'valores' => self::somar($tarefas, $custos, $directas)];
@@ -66,9 +68,33 @@ final class ServicoOrganigramaProjetos
         }
         $totais = self::somar(array_keys($vistasTarefas), $custos, collect($vistasLinhas));
 
+        // Versão Actual (projectos_organigrama.js:134-162, 172-234): uma chefia responde pelo que está abaixo — valores do
+        // ramo (união das tarefas e das linhas da posição e das subposições, sem contar duas vezes) — e a parte do
+        // orçamento mapeada pelas quantidades chega à posição pelas tarefas (repartida pelas posições da tarefa).
+        $valorQtd = ServicoOrcamentoQuantidadesProjetos::valorPorTarefa($orcamento, TarefaProjeto::query()->where('projeto_id', $p->id)->get());
+        $posicoesDaTarefa = [];
+        foreach ($tarefasDoNo as $noId => $ts) {
+            foreach ($ts as $t) {
+                $posicoesDaTarefa[$t][] = $noId;
+            }
+        }
+        // valor da tarefa × (posições da tarefa dentro do conjunto ÷ posições da tarefa): partes iguais por área
+        $qtdDe = fn (array $tarefas, array $posicoes) => RegrasMetasProjetos::r2(array_sum(array_map(fn ($t) => ($valorQtd[$t] ?? 0)
+            * count(array_intersect($posicoesDaTarefa[$t] ?? [], $posicoes)) / max(1, count($posicoesDaTarefa[$t] ?? [])), $tarefas)));
+        foreach ($saida as $i => $s) {
+            $ramo = [$s['id'], ...self::descendentes($nos, $s['id'])];
+            $tarefasRamo = array_values(array_unique(array_merge([], ...array_map(fn ($id) => $tarefasDoNo[$id] ?? [], $ramo))));
+            $linhasRamo = $orcamento->filter(fn ($l) => in_array((int) $l->no_organigrama_projeto_id, $ramo, true) && ! in_array((int) $l->tarefa_projeto_id, $tarefasRamo, true));
+            $saida[$i]['valores']['orcamento_qtd'] = $qtdDe($tarefasDoNo[$s['id']] ?? [], [$s['id']]);
+            $saida[$i]['valores_ramo'] = self::somar($tarefasRamo, $custos, $linhasRamo) + ['orcamento_qtd' => $qtdDe($tarefasRamo, $ramo), 'subposicoes' => count($ramo) - 1];
+        }
+        $totais['orcamento_qtd'] = RegrasMetasProjetos::r2(array_sum($valorQtd));
+
         return ['posicoes' => $saida, 'sem_posicao' => $membros->whereNull('no_organigrama_projeto_id')->values()->all(),
             'totais' => $totais + ['tarefas_sem_posicao' => $idsT->keys()->diff(array_keys($vistasTarefas))->count(),
-                'orcamento_sem_responsavel' => $orcamento->filter(fn ($l) => ! $l->no_organigrama_projeto_id && ! ($l->tarefa_projeto_id && isset($vistasTarefas[$l->tarefa_projeto_id])))->count(),
+                // Versão Actual: a rubrica inteiramente mapeada pelas quantidades já chega às posições pelas tarefas
+                'orcamento_sem_responsavel' => $orcamento->filter(fn ($l) => ! $l->no_organigrama_projeto_id && ! ($l->tarefa_projeto_id && isset($vistasTarefas[$l->tarefa_projeto_id]))
+                    && ! (ServicoOrcamentoQuantidadesProjetos::mapasDe($l) && ServicoOrcamentoQuantidadesProjetos::saldo($l) < 0.01))->count(),
                 'vagas' => (int) $nos->sum('vagas'), 'membros' => $membros->count(), 'alocados' => $membros->whereNotNull('no_organigrama_projeto_id')->count()]];
     }
 

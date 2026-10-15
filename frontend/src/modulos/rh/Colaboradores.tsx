@@ -9,6 +9,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { descarregar, obter } from '@/api/cliente';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
+import { AlocacaoUN, alocacaoDeApi, alocacaoParaApi, gravarAlocacao, obterAlocacao, useCriterios, validarAlocacao, type Alocacao } from '@/componentes/reparticao';
 import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { notificarErro } from '@/utilitarios/erros';
 import { ImportarExcel } from './comum/ImportarExcel';
@@ -357,7 +358,22 @@ function FormularioColaborador() {
   const cargos = useCargos();
   const colaboradores = useColaboradores();
   const ficha = useQuery({ queryKey: ['rh', 'colaborador', id], queryFn: () => obter<FichaColaborador>(`/rh/colaboradores/${id}`), enabled: Boolean(id) });
-  const gravar = useAccaoRh<FichaColaborador>((d) => navegar(id ? '..' : `../${d.id}`, { relative: 'path' }));
+  // Fase C (R2/R3, app_v2.js:9598-9679): repartição do custo do colaborador por várias unidades de negócio. Grava-se à parte
+  // (PUT /reparticao/alocacoes/colaborador/{id}) depois da ficha; `undefined` = não mexida.
+  const criteriosRep = useCriterios();
+  const [alocacao, setAlocacao] = useState<Alocacao | null | undefined>(undefined);
+  const alocGravada = useQuery({ queryKey: ['reparticao', 'alocacao', 'colaborador', id], queryFn: () => obterAlocacao('colaborador', Number(id)), enabled: Boolean(id), retry: false });
+  const valorAlocacao = alocacao !== undefined ? alocacao : alocacaoDeApi(alocGravada.data?.unidades_alocadas);
+  const gravar = useAccaoRh<FichaColaborador>(async (d) => {
+    if (alocacao !== undefined) {
+      try {
+        await gravarAlocacao('colaborador', d.id, alocacaoParaApi(alocacao));
+      } catch (e) {
+        notificarErro(e, 'A ficha foi gravada, mas não a repartição por unidades de negócio');
+      }
+    }
+    navegar(id ? '..' : `../${d.id}`, { relative: 'path' });
+  });
 
   useEffect(() => {
     const d = ficha.data;
@@ -381,6 +397,11 @@ function FormularioColaborador() {
   if (id && ficha.isLoading) return <Skeleton active />;
 
   const enviarFormulario = (v: ValoresFormulario) => {
+    const erroAlocacao = alocacao ? validarAlocacao(alocacao, criteriosRep.data?.find((c) => c.id === alocacao.criterio_id)?.criterio) : null;
+    if (erroAlocacao) {
+      notificarErro(new Error(erroAlocacao), 'Repartição por unidades de negócio');
+      return;
+    }
     const dados = {
       ...v,
       ...Object.fromEntries(CAMPOS_DATA.map((k) => [k, dataApi((v[k] as Dayjs | null | undefined) ?? null) ?? null])),
@@ -543,6 +564,11 @@ function FormularioColaborador() {
             </Col>
             <Col xs={24} md={12}><Form.Item name="unidade_negocio_id" label="Unidade de Negócio" extra="Imputação analítica dos salários."><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} md={12}><Form.Item name="centro_custo_id" label="Centro de Custo"><SeletorAux tabela="centros-custo" placeholder="Nenhum" style={{ width: '100%' }} /></Form.Item></Col>
+            {!!criteriosRep.data?.length && (
+              <Col xs={24} style={{ marginBottom: 12 }}>
+                <AlocacaoUN value={valorAlocacao} onChange={setAlocacao} titulo="Repartir o custo salarial por várias unidades de negócio" />
+              </Col>
+            )}
             <Col xs={24} md={12}><Form.Item name="estado" label="Estado"><Select options={ESTADOS_COLABORADOR} /></Form.Item></Col>
             <Col xs={24} md={12} style={{ display: 'flex', alignItems: 'center' }}>
               <Form.Item name="reformado" valuePropName="checked" style={{ marginBottom: 12 }}>

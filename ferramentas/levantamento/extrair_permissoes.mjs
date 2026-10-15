@@ -36,7 +36,7 @@ const MODELOS_EXTRA = {
 };
 // Ecrãs da Versão Actual do legado ainda não construídos no sistema novo (ADR-071): ficam fora do catálogo, do menu e
 // dos perfis-tipo até a fase que os constrói os retirar desta lista.
-const ECRAS_ADIADOS = new Set(['activos_edificios', 'ia_assistente', 'mt_assuntos', 'rh_emprestimos', 'teso_cartas']);
+const ECRAS_ADIADOS = new Set([]);   // todos os ecrãs da Versão Actual estão construídos ou em construção (ADR-071)
 const chavesAdiadas = new Set(catalogo.modulos.flatMap((m) => m.ecras.filter((e) => ECRAS_ADIADOS.has(e.id))
   .flatMap((e) => [e.id, ...e.vistas, ...e.vistas.map((v) => `${v}_view`), ...e.tarefas.map((t) => t.chave)])));
 for (const m of catalogo.modulos) m.ecras = m.ecras.filter((e) => !ECRAS_ADIADOS.has(e.id));

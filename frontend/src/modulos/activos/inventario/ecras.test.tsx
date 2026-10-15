@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -91,6 +91,8 @@ describe('Manutenções (13.3.1)', () => {
     permissoes = new Set(['activos_manutencao_view', 'activos_manut']);
     const { default: Manutencao } = await import('../Manutencao');
     envolver(<Manutencao />);
+    // Versão Actual: a Manutenção abre nas Ordens; o registo simples passou para o separador «Histórico»
+    fireEvent.click(await screen.findByRole('tab', { name: /Histórico/ }));
     await screen.findByText('Revisão anual', undefined, { timeout: 60_000 });
     expect(screen.getByText('Histórico de Manutenções')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Registar Manutenção/ })).toBeTruthy();

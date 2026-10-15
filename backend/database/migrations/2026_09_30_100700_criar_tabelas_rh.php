@@ -55,6 +55,7 @@ return new class extends Migration
             $table->bigInteger('posto_trabalho_id')->nullable()->comment('legado: org_position_id');
             $table->bigInteger('colaborador_gestor_id')->nullable()->comment('legado: manager_employee_id');
             $table->jsonb('unidades_alocadas')->nullable()->comment('legado: unidades_alocadas');
+            $table->date('data_cessacao')->nullable()->comment('legado: data_cessacao · do código legado Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:217');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
             $table->timestampTz('eliminado_em')->nullable();
@@ -129,6 +130,10 @@ return new class extends Migration
             $table->string('codigo_moeda', 50)->nullable()->comment('legado: currency');
             $table->jsonb('produtividade')->nullable()->comment('legado: produtividade');
             $table->jsonb('horario')->nullable()->comment('legado: horario');
+            $table->jsonb('suspensao')->nullable()->comment('legado: suspensao · do código legado Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:153');
+            $table->jsonb('suspensoes')->nullable()->comment('legado: suspensoes · do código legado Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:153');
+            $table->jsonb('cessacao')->nullable()->comment('legado: cessacao · do código legado Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:213');
+            $table->jsonb('cessacoes_anuladas')->nullable()->comment('legado: cessacoes_anuladas · do código legado Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:236');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -972,6 +977,8 @@ return new class extends Migration
             $table->text('motivo_cancelamento')->nullable()->comment('legado: motivo_cancelamento');
             $table->timestampTz('cancelado_em')->nullable()->comment('legado: cancelado_em');
             $table->string('cancelado_por', 100)->nullable()->comment('legado: cancelado_por · tipo forçado (inferido: varchar(10))');
+            $table->timestampTz('decidido_em')->nullable()->comment('legado: decidido_em · do código legado Versões/Versão Actual/ERP/js/modules/rh/emprestimos.js:168');
+            $table->timestampTz('liquidado_em')->nullable()->comment('legado: liquidado_em · do código legado Versões/Versão Actual/ERP/js/modules/rh/emprestimos.js:258');
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -992,12 +999,18 @@ return new class extends Migration
             $table->decimal('juro', 15, 2)->nullable()->comment('legado: juro · tipo forçado (inferido: integer)');
             $table->decimal('total', 15, 2)->nullable()->comment('legado: total');
             $table->decimal('saldo', 15, 2)->nullable()->comment('legado: saldo · tipos mistos: decimal=21, inteiro=2; tipo forçado (inferido: numeric(15,2))');
+            $table->bigInteger('linha_folha_salarial_id')->nullable()->comment('legado: payroll_entry_id · do código legado Versões/Versão Actual/ERP/js/modules/rh/emprestimos.js:254');
+            $table->timestampTz('descontado_em')->nullable()->comment('legado: descontado_em · do código legado Versões/Versão Actual/ERP/js/modules/rh/emprestimos.js:254');
+            $table->bigInteger('periodo_processamento_salarial_id')->nullable()->comment('Processamento salarial em que a prestação foi descontada');
+            $table->string('descontado_por', 100)->nullable()->comment('Utilizador que importou a prestação no cálculo');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
         DB::statement('CREATE INDEX ix_prestacoes_emprestimos_empresa_id ON prestacoes_emprestimos (empresa_id)');
         DB::statement('CREATE INDEX ix_prestacoes_emprestimos_emprestimo_id ON prestacoes_emprestimos (emprestimo_id)');
         DB::statement('CREATE INDEX ix_prestacoes_emprestimos_colaborador_id ON prestacoes_emprestimos (colaborador_id)');
+        DB::statement('CREATE INDEX ix_prestacoes_emprestimos_linha_folha_salarial_id ON prestacoes_emprestimos (linha_folha_salarial_id)');
+        DB::statement('CREATE INDEX ix_prestacoes_emprestimos_periodo_processamento_salarial_id ON prestacoes_emprestimos (periodo_processamento_salarial_id)');
 
         // rh_loan_settings (legado) -> configuracoes_emprestimos · 2 linhas reais no backup
         Schema::create('configuracoes_emprestimos', function (Blueprint $table) {

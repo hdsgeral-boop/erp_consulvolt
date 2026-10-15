@@ -17,11 +17,12 @@ final class PlaneamentoController extends Controller
 {
     public function __construct(private readonly ServicoPlaneamentoProjetos $planeamento) {}
 
-    public function wbs(int $projeto): JsonResponse
+    public function wbs(Request $r, int $projeto): JsonResponse
     {
         $this->exigir(...ProjetoController::LER);
+        $f = $r->validate(['ordenacao' => ['nullable', Rule::in(['auto', 'manual'])]]);
 
-        return RespostaApi::sucesso($this->planeamento->wbs(Projeto::query()->findOrFail($projeto)), 'Planeamento (WBS).');
+        return RespostaApi::sucesso($this->planeamento->wbs(Projeto::query()->findOrFail($projeto), $f['ordenacao'] ?? 'auto'), 'Planeamento (WBS).');
     }
 
     // ───────────── Milestones ─────────────
@@ -30,11 +31,14 @@ final class PlaneamentoController extends Controller
     {
         $this->exigir('proj_gerir');
         $p = Projeto::query()->findOrFail($projeto);
-        $d = $r->validate(['nome' => [$marco ? 'sometimes' : 'required', 'string', 'max:255'], 'data' => ['nullable', 'date']]);
+        $d = $r->validate(['nome' => [$marco ? 'sometimes' : 'required', 'string', 'max:255'], 'data' => ['nullable', 'date'],
+            // Versão Actual: data de início e meta da fase (ui_projects.js:2481-2560)
+            'data_inicio' => ['nullable', 'date'], 'meta_unidade' => ['nullable', 'string', 'max:20'], 'meta_quantidade' => ['nullable', 'numeric', 'min:0', 'max:1000000000']]);
         $m = $marco ? MarcoProjeto::query()->where('projeto_id', $p->id)->findOrFail($marco) : null;
-        $res = $this->planeamento->guardarMarco($p, $d, $m);
+        $res = $this->planeamento->guardarMarcoComAvisos($p, $d, $m);
+        $dados = $res['marco']->toArray() + ['avisos' => $res['avisos']];
 
-        return $m ? RespostaApi::sucesso($res, 'Milestone actualizado.') : RespostaApi::criado($res, 'Milestone criado.');
+        return $m ? RespostaApi::sucesso($dados, 'Milestone actualizado.') : RespostaApi::criado($dados, 'Milestone criado.');
     }
 
     public function eliminarMarco(Request $r, int $projeto, int $marco): JsonResponse
@@ -57,11 +61,17 @@ final class PlaneamentoController extends Controller
             'tarefa_pai_id' => ['nullable', 'integer'], 'marco_projeto_id' => ['nullable', 'integer'], 'atribuido_a_id' => ['nullable', 'integer'],
             'data_inicio' => ['nullable', 'date'], 'data_fim' => ['nullable', 'date'], 'estado' => ['nullable', Rule::in(TarefaProjeto::ESTADOS)],
             'percentagem_execucao' => ['nullable', 'integer', 'between:0,100'], 'valor_contrato' => ['nullable', 'numeric', 'min:0'],
+            // Versão Actual: meta por quantidade, dependência, posição do organigrama e encaixe das datas (ui_projects.js:2188-2258)
+            'meta_unidade' => ['nullable', 'string', 'max:20'], 'meta_quantidade' => ['nullable', 'numeric', 'min:0', 'max:1000000000'],
+            'meta_realizado' => ['nullable', 'numeric', 'min:0', 'max:1000000000'], 'tarefa_predecessora_id' => ['nullable', 'integer'],
+            'tipo_dependencia' => ['nullable', Rule::in(TarefaProjeto::TIPOS_DEPENDENCIA)], 'desfasamento_dias' => ['nullable', 'integer', 'between:-3650,3650'],
+            'no_organigrama_projeto_id' => ['nullable', 'integer'], 'encaixar_datas' => ['nullable', 'boolean'],
         ]);
         $t = $tarefa ? TarefaProjeto::query()->where('projeto_id', $p->id)->findOrFail($tarefa) : null;
-        $res = $this->planeamento->guardarTarefa($p, $d, $t);
+        $res = $this->planeamento->guardarTarefaComAvisos($p, $d, $t);
+        $dados = $res['tarefa']->toArray() + ['avisos' => $res['avisos']];
 
-        return $t ? RespostaApi::sucesso($res, 'Tarefa actualizada.') : RespostaApi::criado($res, 'Tarefa criada.');
+        return $t ? RespostaApi::sucesso($dados, 'Tarefa actualizada.') : RespostaApi::criado($dados, 'Tarefa criada.');
     }
 
     public function execucao(Request $r, int $projeto, int $tarefa): JsonResponse
@@ -76,10 +86,12 @@ final class PlaneamentoController extends Controller
     public function mover(Request $r, int $projeto, int $tarefa): JsonResponse
     {
         $this->exigir('proj_gerir');
-        $d = $r->validate(['tipo' => ['required', Rule::in(['ANTES', 'DEPOIS', 'DENTRO', 'MARCO'])], 'alvo_id' => ['nullable', 'integer'], 'marco_projeto_id' => ['nullable', 'integer']]);
+        $d = $r->validate(['tipo' => ['required', Rule::in(['ANTES', 'DEPOIS', 'DENTRO', 'MARCO'])], 'alvo_id' => ['nullable', 'integer'], 'marco_projeto_id' => ['nullable', 'integer'],
+            'encaixar_datas' => ['nullable', 'boolean']]);
         $t = TarefaProjeto::query()->where('projeto_id', $projeto)->findOrFail($tarefa);
+        $res = $this->planeamento->moverComDatas($t, $d, (bool) ($d['encaixar_datas'] ?? true));
 
-        return RespostaApi::sucesso($this->planeamento->mover($t, $d), 'Tarefa movida.');
+        return RespostaApi::sucesso($res['tarefa']->toArray() + ['avisos' => $res['avisos']], 'Tarefa movida.');
     }
 
     public function eliminarTarefa(Request $r, int $projeto, int $tarefa): JsonResponse

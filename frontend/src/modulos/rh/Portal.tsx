@@ -18,6 +18,7 @@ import { useAccaoRh, useAvisarErro } from './comum/consultas';
 import { DocumentoImpresso, EtapasPedido, resumoPedido } from './comum/Pedidos';
 import { AMinhaEquipa } from './comum/AMinhaEquipa';
 import { ReciboSalario } from './comum/ReciboSalario';
+import { PortalContrato, PortalEmprestimos, PortalEscala } from './portal/PortalFaseB';
 import { pedidoPendente } from './comum/regras';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
@@ -43,6 +44,10 @@ export default function Portal() {
         { key: 'pedidos', label: 'Os meus pedidos', children: <MeusPedidos resumo={r} /> },
         { key: 'recibos', label: 'Recibos', children: <Recibos resumo={r} /> },
         { key: 'faltas', label: r.faltas_por_justificar ? `Faltas (${r.faltas_por_justificar})` : 'Faltas', children: <MinhasFaltas /> },
+        // Versão Actual (portal_ui.js:398-620): escala, contrato e empréstimos
+        { key: 'escala', label: 'Escala', children: <PortalEscala /> },
+        { key: 'contrato', label: 'Contrato', children: <PortalContrato /> },
+        { key: 'emprestimos', label: 'Empréstimos', children: <PortalEmprestimos /> },
         { key: 'avaliacao', label: 'A minha avaliação', children: <PortalAvaliacao /> },
         { key: 'equipa', label: 'A minha equipa', children: <AMinhaEquipa /> },
         { key: 'aprovacoes', label: `Aprovações (${r.aprovacoes_para_mim})`, children: <Aprovacoes /> },
@@ -112,7 +117,7 @@ function MeusPedidos({ resumo }: { resumo: ResumoPortal }) {
   return (
     <Card>
       <Space wrap style={{ marginBottom: 12 }}>
-        {(Object.keys(TIPOS_PEDIDO) as TipoPedido[]).map((t) => <Button key={t} icon={<PlusOutlined />} onClick={() => { form.resetFields(); setTipo(t); }}>{TIPOS_PEDIDO[t]}</Button>)}
+        {(Object.keys(TIPOS_PEDIDO) as TipoPedido[]).filter((t) => t !== 'EMPRESTIMO').map((t) => <Button key={t} icon={<PlusOutlined />} onClick={() => { form.resetFields(); setTipo(t); }}>{TIPOS_PEDIDO[t]}</Button>)}
       </Space>
       <Table<PedidoPortal> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 20 }} scroll={scrollTabela()}
         expandable={{ expandedRowRender: (p) => <EtapasPedido pedido={p} /> }} />

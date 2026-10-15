@@ -12,6 +12,7 @@ use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\CRM\ServicoOportunidadesCRM;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Services\Sistema\ServicoCambios;
 use App\Services\Terceiros\ContaTerceiro;
@@ -126,8 +127,13 @@ final class ServicoDocumentosVenda
         // «Ocultar quadro de Meios de Pagamento na impressão»
         $paridade = app(ServicoParidadeVendas::class);
         $contasPagamento = ! empty($d['contas_pagamento']) ? $paridade->contasPagamento($d['contas_pagamento']) : null;
+        // Fase C (R2): repartição do documento por unidades de negócio — a indicada no formulário (validada) ou, numa conversão
+        // ou NC, a do documento de origem (ui_sales.js:888: a conversão mantém a alocação)
+        $alocacao = array_key_exists('unidades_alocadas', $d) ? app(ServicoReparticao::class)->normalizar($d['unidades_alocadas'])
+            : ServicoReparticao::ler(($origemConversao ?? $origemNcPrevia)?->getAttributes()['unidades_alocadas'] ?? null);
+        $alocacao = ServicoReparticao::vazia($alocacao) ? null : $alocacao;   // jsonb com cast 'array' (esquema regenerado)
 
-        return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt, $pos, $arredondamentoPos, $precosAlterados, $paridade, $contasPagamento) {
+        return DB::transaction(function () use ($d, $tipo, $fiscal, $data, $cliente, $linhas, $linhasKz, $calculo, $calculoMoeda, $moeda, $config, $condicoes, $empresa, $origemConversao, $exigirSerieAgt, $pos, $arredondamentoPos, $precosAlterados, $paridade, $contasPagamento, $alocacao) {
             // paridade 4.2.9/4.2.10: guias de saída do armazém facturadas neste documento (o stock já saiu na guia) e a opção
             // «Baixar Stock Autom.» — desligada, a FT/FR não movimenta o stock
             $guiasSaida = $paridade->bloquearGuiasParaFacturar($d['guias_saida'] ?? [], (int) $cliente->id, $tipo);
@@ -163,6 +169,7 @@ final class ServicoDocumentosVenda
                 'observacoes' => $d['observacoes'] ?? null, 'condicoes_pagamento' => $d['condicoes_pagamento'] ?? null,
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
                 'contas_pagamento' => $contasPagamento, 'ocultar_meios_pagamento' => ! empty($d['ocultar_meios_pagamento']),
+                'unidades_alocadas' => $alocacao,
             ], $condicoes, $pos['colunas'] ?? []));
             if ($arredondamentoPos) {   // decisão 10: desconto comercial e arredondamento AGT em campos separados
                 $venda->forceFill($arredondamentoPos)->save();
@@ -188,6 +195,9 @@ final class ServicoDocumentosVenda
                     'percentagem_desconto' => $pos ? ($pos['percentagem_desconto'] ?? 0) : null,
                     'preco_unitario_moeda' => $calculoMoeda ? $l['preco_unitario'] : null, 'total_moeda' => $calculoMoeda['linhas'][$i]['total'] ?? null,
                     'imposto_moeda' => $calculoMoeda['linhas'][$i]['imposto'] ?? null,
+                    // Fase C (R5): unidade/centro de custo da linha; numa conversão/NC seguem a linha de origem
+                    'unidade_negocio_id' => $d['linhas'][$i]['unidade_negocio_id'] ?? $itemOrigem?->unidade_negocio_id,
+                    'centro_custo_id' => $d['linhas'][$i]['centro_custo_id'] ?? $itemOrigem?->centro_custo_id,
                 ]));
             }
 

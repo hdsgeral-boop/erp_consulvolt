@@ -21,6 +21,8 @@ import {
 import { EstadoTag, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
 import { formatarHoras, horasEntre, mesPorExtenso } from './comum/regras';
+import { EscalaMes } from './assiduidade/EscalaMes';
+import { normalizarLinhaApuramento, normalizarTotais } from './faseB/regras';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
@@ -48,6 +50,8 @@ export default function Assiduidade() {
         items={[
           { key: 'apuramento', label: <span><IconeFa nome="calendar-check" /> Resumo do mês</span>, children: <Apuramento mes={m} /> },
           { key: 'registos', label: <span><IconeFa nome="fingerprint" /> Registos</span>, children: <Registos mes={m} /> },
+          // Versão Actual (assiduidade_ui.js:82): turnos por colaborador e dia, escala prioritária, migrar do contrato, copiar, Excel
+          { key: 'escala', label: <span><IconeFa nome="calendar-alt" /> Escala do mês</span>, children: <EscalaMes mes={m} /> },
           { key: 'importar', label: <span><IconeFa nome="file-import" /> Importar</span>, children: <Registos mes={m} soImportar /> },
           { key: 'ausencias', label: <span><IconeFa nome="user-clock" /> Ausências justificadas</span>, children: <Ausencias mes={m} /> },
           { key: 'fechos', label: 'Fechos mensais', children: <Fechos /> },
@@ -65,6 +69,8 @@ interface ValoresRegisto {
   data: Dayjs;
   entrada?: Dayjs | null;
   saida?: Dayjs | null;
+  saida_intervalo?: Dayjs | null;
+  entrada_intervalo?: Dayjs | null;
   horas?: number | null;
   observacoes?: string;
   autorizado_extra?: boolean;
@@ -139,6 +145,7 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v) },
     { title: 'Entrada', dataIndex: 'entrada', render: (v: string | null) => v?.slice(0, 5) ?? '—' },
     { title: 'Saída', dataIndex: 'saida', render: (v: string | null) => v?.slice(0, 5) ?? '—' },
+    { title: 'Intervalo', key: 'intervalo', responsive: ['md'], render: (_, r) => (r.saida_intervalo ? `${r.saida_intervalo.slice(0, 5)}–${r.entrada_intervalo?.slice(0, 5) ?? ''}` : '—') },
     { title: 'Horas', dataIndex: 'horas', align: 'right', render: formatarHoras },
     { title: 'Origem', dataIndex: 'origem', responsive: ['md'], render: (o: string | null, r) => (o ? <Tooltip title={r.fonte}><Tag>{o}</Tag></Tooltip> : '—') },
     { title: 'Extra autorizado', dataIndex: 'autorizado_extra', align: 'center', responsive: ['md'], render: (v: boolean | null) => (v ? 'Sim' : '') },
@@ -234,13 +241,18 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({
           metodo: 'post',
           url: '/rh/assiduidade/registos',
-          dados: { colaborador_id: v.colaborador_id, data: dataApi(v.data), entrada: v.entrada?.format('HH:mm') ?? null, saida: v.saida?.format('HH:mm') ?? null, horas: v.horas ?? null, observacoes: v.observacoes ?? null, autorizado_extra: v.autorizado_extra ?? null },
+          dados: { colaborador_id: v.colaborador_id, data: dataApi(v.data), entrada: v.entrada?.format('HH:mm') ?? null, saida: v.saida?.format('HH:mm') ?? null, saida_intervalo: v.saida_intervalo?.format('HH:mm') ?? null, entrada_intervalo: v.entrada_intervalo?.format('HH:mm') ?? null, horas: v.horas ?? null, observacoes: v.observacoes ?? null, autorizado_extra: v.autorizado_extra ?? null },
         })}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}><SeletorColaborador apenasActivos style={{ width: '100%' }} /></Form.Item>
           <Row gutter={12}>
             <Col xs={24} sm={12} md={8}><Form.Item name="data" label="Data" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} sm={12} md={8}><Form.Item name="entrada" label="Entrada"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={24} sm={12} md={8}><Form.Item name="saida" label="Saída"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+          {/* Versão Actual: regime de dois períodos (4 picagens) — as duas picagens do intervalo vão juntas */}
+          <Row gutter={12}>
+            <Col xs={24} sm={12}><Form.Item name="saida_intervalo" label="Saída para o intervalo" dependencies={['entrada_intervalo']} rules={[({ getFieldValue }) => ({ validator: (_, x) => (!x === !getFieldValue('entrada_intervalo') ? Promise.resolve() : Promise.reject(new Error('Indique as duas picagens do intervalo.'))) })]}><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="entrada_intervalo" label="Regresso do intervalo"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
           </Row>
           <Form.Item name="horas" label="Horas (sem entrada/saída)" extra={calculadas !== null ? `Entrada → saída: ${formatarHoras(calculadas)}` : undefined}>
             <InputNumber min={0} max={24} step={0.25} style={{ width: '100%' }} />
@@ -264,7 +276,8 @@ function Apuramento({ mes }: { mes: string }) {
   const [reabrir, setReabrir] = useState(false);
   const [form] = Form.useForm<{ motivo: string }>();
   const accao = useAccaoRh(() => setReabrir(false));
-  const a = q.data;
+  // o servidor devolve snake_case; os fechos migrados do legado guardam as linhas em camelCase
+  const a = q.data ? { ...q.data, linhas: (q.data.linhas ?? []).map((l) => normalizarLinhaApuramento(l as unknown as Record<string, unknown>)), totais: normalizarTotais(q.data.totais as unknown as Record<string, unknown>) } : undefined;
   const fechado = a?.estado === 'FECHADO';
 
   const colunas: ColunaApi<LinhaApuramento>[] = [
@@ -278,6 +291,11 @@ function Apuramento({ mes }: { mes: string }) {
     { title: 'Horas de falta', dataIndex: 'horasFalta', align: 'right', render: formatarHoras },
     { title: 'Compensadas', dataIndex: 'horasCompensadas', align: 'right', render: formatarHoras },
     { title: 'Não autorizadas', dataIndex: 'horasNaoAutorizadas', align: 'right', render: formatarHoras },
+    // Versão Actual: horas previstas do dia (escala › horário › contrato), atrasos (informativos) e dias com escala
+    { title: 'Horas/dia', dataIndex: 'horasDia', align: 'right', responsive: ['lg'], render: formatarHoras },
+    { title: 'Atrasos', key: 'atrasos', align: 'right', responsive: ['lg'], valorImpressao: (l) => `${l.diasAtraso ?? 0} · ${formatarHoras(l.horasAtraso ?? 0)}`,
+      render: (_, l) => (l.diasAtraso ? <Tooltip title="Informativo: os atrasos não descontam no salário.">{l.diasAtraso} · {formatarHoras(l.horasAtraso ?? 0)}</Tooltip> : 0) },
+    { title: 'Dias c/ escala', dataIndex: 'diasEscala', align: 'right', responsive: ['lg'], render: (v?: number, l?: LinhaApuramento) => (v ? `${v}${l?.diasEscalaPrioritaria ? ` (${l.diasEscalaPrioritaria} prior.)` : ''}` : 0) },
   ];
 
   return (
@@ -525,6 +543,10 @@ function Configuracao() {
           </Col>
           {modo === 'LIMITE' && <Col xs={24} md={8}><Form.Item name="limite_compensacao_h" label="Limite (horas)"><InputNumber min={0} max={200} style={{ width: '100%' }} /></Form.Item></Col>}
           <Col xs={24} md={8}><Form.Item name="extra_nao_util_exige_autorizacao" label="Extra em dia não útil" valuePropName="checked"><Checkbox>Exige autorização</Checkbox></Form.Item></Col>
+          {/* Versão Actual (assiduidade.js:41): regime de picagem de quem não tem horário nem escala */}
+          <Col xs={24} md={8}><Form.Item name="periodos_padrao" label="Regime por omissão"><Select options={[{ value: 1, label: 'Período corrido (2 picagens)' }, { value: 2, label: 'Dois períodos (4 picagens)' }]} /></Form.Item></Col>
+          <Col xs={12} md={8}><Form.Item name="intervalo_saida_padrao" label="Saída p/ intervalo (omissão)" rules={[{ pattern: /^([01]d|2[0-3]):[0-5]d$/, message: 'HH:MM' }]}><Input type="time" /></Form.Item></Col>
+          <Col xs={12} md={8}><Form.Item name="intervalo_entrada_padrao" label="Regresso do intervalo (omissão)" rules={[{ pattern: /^([01]d|2[0-3]):[0-5]d$/, message: 'HH:MM' }]}><Input type="time" /></Form.Item></Col>
         </Row>
         <Form.Item name="feriados" label="Feriados" extra="Lista oficial de Angola (Lei dos Feriados Nacionais): confirme antes de gravar; as pontes e tolerâncias de ponto decretadas acrescentam-se à mão.">
           <DatePicker multiple format="DD/MM/YYYY" style={{ width: '100%' }} />

@@ -19,6 +19,8 @@ import { AVISO_DOCUMENTO_ANTERIOR, MENSAGEM_SO_BANCOS, PREFIXO_MEIO, contaFinanc
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { BotoesExportar } from '@/componentes/impressao';
 import { pedidoPendentes, ROTULO_NATUREZA } from '../impressao';
+import { useSessao } from '@/sessao/SessaoContexto';
+import { oferecerCarta } from '../cartas/comum';
 
 type Linha = LinhaEditor & { venda_id?: number; fatura_compra_id?: number };
 
@@ -43,6 +45,7 @@ export function FormularioDocumento() {
   const [procura] = useSearchParams();
   const navegar = useNavigate();
   const cliente = useQueryClient();
+  const { pode } = useSessao();
   const [form] = Form.useForm<ValoresForm>();
   const tipo = (Form.useWatch('tipo', form) ?? 'PAGAMENTO') as TipoDocumento;
   const linhas = Form.useWatch('linhas', form) ?? [];
@@ -104,6 +107,8 @@ export function FormularioDocumento() {
       message.success(mensagem);
       void cliente.invalidateQueries({ queryKey: ['teso'] });
       navegar(id ? `../${id}` : `../${dados.id}`);
+      // Fase D: convite discreto para a carta de ordem de pagamento (só se o pagamento reunir as condições)
+      void oferecerCarta(dados, pode('teso_carta_emitir'), navegar);
     },
     onError: (e, v) => {
       // controlo orçamental de tesouraria (só pagamentos): pedir a aprovação ou aprovar no acto (A-02).

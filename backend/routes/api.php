@@ -481,6 +481,13 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/fa_terceiros.php';   // Fase A (Versão Actual): terceiros — contas por papel, endereços, contas bancárias
         require __DIR__.'/api/fa_tesouraria.php';  // Fase A: dados bancários 42/43 e tesouraria só por bancos
         require __DIR__.'/api/fa_vendas.php';      // Fase A: séries com número inicial, cancelar recebimentos antes da NC, anulação com motivo
+        require __DIR__.'/api/fb_rh.php';          // Fase B (Versão Actual): RH — cessação/suspensão, horário e escala, empréstimos, portal
+        require __DIR__.'/api/fe_projectos.php';   // Fase E: Projectos — metas, execução, dependências, orçamento por quantidades
+        require __DIR__.'/api/ff_activos.php';     // Fase F: Activos — edifícios, inventário físico, manutenção
+        require __DIR__.'/api/fc_reparticao.php';  // Fase C: repartição por unidades de negócio
+        require __DIR__.'/api/fg_metodo.php';      // Fase G: Método de Trabalho 5W1H
+        require __DIR__.'/api/fd_cartas.php';      // Fase D: Tesouraria › Cartas de pagamento
+        require __DIR__.'/api/fh_nucleo.php';      // Fase H: IA com regras em ficheiro, cubo
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

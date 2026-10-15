@@ -1,5 +1,6 @@
 import { Button, Col, Flex, Form, Input, InputNumber, Row, Typography, type FormInstance } from 'antd';
 import { useEcra } from '@/componentes/responsivo';
+import { CamposLinhaUNCC } from '@/componentes/reparticao';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMapaProdutos } from './referencias';
 import { SeletorProduto } from './Seletores';
@@ -10,6 +11,9 @@ export interface LinhaProdutoForm {
   preco_unitario?: number;
   taxa_imposto?: number;
   descricao?: string;
+  /** Fase C (linha_un_cc.js): unidade/centro de custo da linha (vazio = cabeçalho) */
+  unidade_negocio_id?: number;
+  centro_custo_id?: number;
 }
 
 /**
@@ -25,6 +29,7 @@ export function LinhasProdutos({
   descricao = false,
   apenasStock = false,
   rotuloPreco = 'Preço unit.',
+  unidadeLinha = false,
 }: {
   form: FormInstance;
   nome?: string;
@@ -34,6 +39,8 @@ export function LinhasProdutos({
   descricao?: boolean;
   apenasStock?: boolean;
   rotuloPreco?: string;
+  /** Mostra a unidade de negócio e o centro de custo em cada linha (pedido e factura directa). */
+  unidadeLinha?: boolean;
 }) {
   const mapa = useMapaProdutos();
   // em telemóvel cada linha fica num cartão próprio: produto e descrição na largura toda, quantidade/preço/IVA lado a lado
@@ -104,6 +111,11 @@ export function LinhasProdutos({
               {!telemovel && (
                 <Col xs={2} md={1}>
                   <Button danger type="text" icon={<DeleteOutlined />} onClick={() => remove(name)} aria-label="Remover linha" />
+                </Col>
+              )}
+              {unidadeLinha && (
+                <Col xs={24}>
+                  <CamposLinhaUNCC nome={name} />
                 </Col>
               )}
             </Row>
