@@ -2,6 +2,7 @@
  * Regras da Tesouraria no cliente: totais dos documentos e visibilidade das acções (espelham o servidor, que valida sempre).
  */
 import { deCentimos, paraCentimos, type LinhaDC } from '@/utilitarios/decimal';
+import { formatarKz } from '@/utilitarios/formatacao';
 import type { Pode } from '../contab/comum/regras';
 import type { ConferenciaCaixa, DocumentoTesouraria, ExtratoConta, ResultadoIntegracaoLote, SessaoCaixa, TipoDocumento } from './api';
 import { DENOMINACOES } from './api';
@@ -39,19 +40,21 @@ export function accoesDocumento(doc: Pick<DocumentoTesouraria, 'estado' | 'perio
   };
 }
 
-export function accoesSessao(s: Pick<SessaoCaixa, 'estado' | 'movimentos'> | undefined, pode: Pode) {
+export function accoesSessao(s: (Pick<SessaoCaixa, 'estado'> & Partial<Pick<SessaoCaixa, 'movimentos' | 'n_movimentos'>>) | undefined, pode: Pode) {
   const aberta = s?.estado === 'ABERTA';
+  // detalhe: a lista de movimentos; lista de sessões: a contagem do servidor; sem nenhuma das duas não se sabe → não elimina
+  const nMovimentos = s?.movimentos ? s.movimentos.length : s?.n_movimentos;
   return {
     podeRegistar: aberta && pode('teso_caixa_operar'),
     podeFechar: aberta && pode('teso_caixa_fechar'),
     podeContabilizar: s?.estado === 'FECHADA' && pode('teso_caixa_contabilizar'),
     podeDescontabilizar: s?.estado === 'CONTABILIZADA' && pode('teso_caixa_contabilizar'),
     /** O servidor só elimina sessões abertas sem movimentos. */
-    podeEliminar: aberta && !(s?.movimentos?.length ?? 0) && pode('teso_caixa_eliminar'),
+    podeEliminar: aberta && nMovimentos === 0 && pode('teso_caixa_eliminar'),
     /** Reabrir: só sessões fechadas e por contabilizar, com a permissão de fechar (ServicoCaixaAjustes::reabrir; A-11). */
     podeReabrir: s?.estado === 'FECHADA' && pode('teso_caixa_fechar'),
     /** Notas DEMO/fluxo, UN e CC dos movimentos: enquanto a sessão não está contabilizada. */
-    podeClassificar: (aberta || s?.estado === 'FECHADA') && !!(s?.movimentos?.length ?? 0) && pode('teso_caixa_operar'),
+    podeClassificar: (aberta || s?.estado === 'FECHADA') && !!(nMovimentos ?? 0) && pode('teso_caixa_operar'),
   };
 }
 
@@ -110,4 +113,20 @@ export function extratoConfere(e: Pick<ExtratoConta, 'saldo_inicial' | 'saldo_fi
   let s = paraCentimos(e.saldo_inicial);
   for (const m of e.movimentos) s += m.tipo_dc === 'D' ? paraCentimos(m.valor) : -paraCentimos(m.valor);
   return s === paraCentimos(e.saldo_final);
+}
+
+/** Símbolo da moeda como no legado (PayrollEngine.formatMoney / Moedas.formatar): sem moeda ou AOA → «Kz», USD → «US$». */
+const SIMBOLOS_MOEDA: Record<string, string> = { AOA: 'Kz', USD: 'US$', EUR: '€' };
+export function simboloMoeda(codigo: string | null | undefined): string {
+  return !codigo ? 'Kz' : SIMBOLOS_MOEDA[codigo] ?? codigo;
+}
+
+/** Valor da lista de sessões com o sufixo da moeda da sessão («1 234,00 Kz» / «50,00 US$»); vazio → «—». */
+export function valorComMoeda(valor: string | number | null | undefined, codigo: string | null | undefined): string {
+  return valor === null || valor === undefined || valor === '' ? '—' : `${formatarKz(valor)} ${simboloMoeda(codigo)}`;
+}
+
+/** Sessão para o sub-separador «Caixa Aberta» do legado: a aberta mais recente (o legado só tinha uma por empresa). */
+export function sessaoAbertaRecente<T extends Pick<SessaoCaixa, 'estado' | 'data_abertura' | 'id'>>(sessoes: T[] | undefined): T | undefined {
+  return (sessoes ?? []).filter((s) => s.estado === 'ABERTA').sort((a, b) => b.data_abertura.localeCompare(a.data_abertura) || b.id - a.id)[0];
 }

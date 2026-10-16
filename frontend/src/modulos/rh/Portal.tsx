@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import {
@@ -19,6 +18,7 @@ import { useAccaoRh, useAvisarErro } from './comum/consultas';
 import { DocumentoImpresso, EtapasPedido, resumoPedido } from './comum/Pedidos';
 import { AMinhaEquipa } from './comum/AMinhaEquipa';
 import { ReciboSalario } from './comum/ReciboSalario';
+import { IndicadoresPortal } from './portal/IndicadoresPortal';
 import { PortalContrato, PortalEmprestimos, PortalEscala } from './portal/PortalFaseB';
 import { pedidoPendente } from './comum/regras';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -26,6 +26,7 @@ import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 /** Portal do Colaborador (ecrã rh_portal): os próprios dados, recibos, pedidos e aprovações da equipa. */
 export default function Portal() {
   const resumo = useQuery({ queryKey: ['rh', 'portal', 'resumo'], queryFn: () => obter<ResumoPortal>('/rh/portal/resumo'), retry: false });
+  const [separador, setSeparador] = useState('pedidos');
   if (resumo.isLoading) return <Card loading />;
   if (resumo.error || !resumo.data) {
     const msg = resumo.error instanceof ErroApi ? resumo.error.message : 'Não foi possível abrir o portal.';
@@ -35,14 +36,8 @@ export default function Portal() {
   return (
     <>
       <CabecalhoPagina titulo={`Olá, ${r.colaborador.nome_completo.split(' ')[0]}`} subtitulo="Portal do Colaborador" />
-      {/* antigo (portal_ui.js:176, .pc-kpis): caixas sem ícone; «Ausências por justificar» e «Aprovações à sua espera» a vermelho quando há */}
-      <GrelhaKpi larguraMinima={170} style={{ marginBottom: 16 }}>
-        <CartaoKpi barra="nenhuma" rotulo={`Férias disponíveis ${r.ano}`} valor={r.ferias.saldo} unidade={`de ${r.ferias.direito} dias`} />
-        <CartaoKpi barra="nenhuma" rotulo="Pedidos em curso" valor={r.pedidos_pendentes} />
-        <CartaoKpi barra="nenhuma" rotulo="Ausências por justificar" valor={r.faltas_por_justificar} cor="vermelho" corValor={r.faltas_por_justificar ? '#b91c1c' : undefined} />
-        <CartaoKpi barra="nenhuma" rotulo="Aprovações à sua espera" valor={r.aprovacoes_para_mim} cor="vermelho" corValor={r.aprovacoes_para_mim ? '#b91c1c' : undefined} />
-      </GrelhaKpi>
-      <Tabs items={[
+      <IndicadoresPortal resumo={r} aoAbrirFaltas={() => setSeparador('faltas')} />
+      <Tabs activeKey={separador} onChange={setSeparador} items={[
         { key: 'pedidos', label: 'Os meus pedidos', children: <MeusPedidos resumo={r} /> },
         { key: 'recibos', label: 'Recibos', children: <Recibos resumo={r} /> },
         { key: 'faltas', label: r.faltas_por_justificar ? `Faltas (${r.faltas_por_justificar})` : 'Faltas', children: <MinhasFaltas resumo={r} /> },

@@ -4,19 +4,20 @@ import { deCentimos, paraCentimos } from '@/utilitarios/decimal';
 import { ImportOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from '../contab/comum/Componentes';
-import { ModalImportar } from '../contab/comum/ficheiros';
+import { enviarFicheiro, ModalImportar } from '../contab/comum/ficheiros';
+import { descarregarModeloExtrato } from './modeloExtrato';
 import type { LinhaExtratoBancario, MapaReconciliacao, MeioPagamento, SugestaoReconciliacao } from './api';
 import { SeletorContaFinanceira, useMeiosPagamento } from './comum';
 import { CartaoKpi, EstadoVazio, GrelhaKpi } from '@/componentes/vistas';
 import { somaCorrespondencia } from './regras';
-import { BotaoEditarLinha, HistoricoFiltrado, ModalEditarLinhaExtrato, PainelRascunhos } from './ReconciliacaoExtras';
+import { BotaoEditarLinha, HistoricoFiltrado, ModalEditarLinhaExtrato, ModalRascunhos, PainelRascunhos, type RascunhoReconciliacao } from './ReconciliacaoExtras';
 import { scrollTabela } from '@/componentes/responsivo';
 
 const PREFIXO_BANCOS = ['43'];
@@ -128,39 +129,114 @@ export default function Conciliacao() {
   const [separador, setSeparador] = useState('auto');
   const meios = useMeiosPagamento();
   const [escolhida, setEscolhida] = useState(false);
+  const [verRascunhos, setVerRascunhos] = useState(false);
+  const [rascunho, setRascunho] = useState<RascunhoReconciliacao | null>(null);
+  const { pode } = useSessao();
+  const cliente = useQueryClient();
+  const ficheiro = useRef<HTMLInputElement>(null);
+  const mapa = useQuery({ ...opcoesMapa(conta ?? '', data), enabled: !!conta });
   useEffect(() => {
     if (!escolhida && !conta) {
       const inicial = contaBancariaInicial(meios.data);
       if (inicial) setConta(inicial);
     }
   }, [meios.data, conta, escolhida]);
+  const escolherConta = (v: string | undefined) => { setEscolhida(true); setConta(v); };
+  /** Correspondência automática de novo sobre o que já está carregado (reprocessStoredReconciliation do legado). */
+  const correrAutomatica = () => {
+    setSeparador('auto');
+    void cliente.invalidateQueries({ queryKey: ['teso', 'reconciliacao'] });
+  };
+  const reprocessar = () => {
+    if (mapa.data && !mapa.data.por_reconciliar_extrato.linhas.length) {
+      message.warning('Não existem movimentos carregados pendentes para esta conta no período selecionado.');
+      return;
+    }
+    correrAutomatica();
+  };
+  // «Carregar e conciliar»: o mesmo endpoint de importação do separador do extracto, seguido da correspondência automática
+  const carregar = useMutation({
+    mutationFn: (f: File) => enviarFicheiro<{ lote: string; importadas: number; duplicadas: number; ignoradas: string[] }>('/tesouraria/extrato/importar', f, { codigo_conta: conta }),
+    onSuccess: ({ dados }) => {
+      message.success(`Extracto carregado: ${dados.importadas} linha(s) nova(s)${dados.duplicadas ? `, ${dados.duplicadas} já existente(s)` : ''}${dados.ignoradas?.length ? `, ${dados.ignoradas.length} ignorada(s)` : ''}. Correspondência automática actualizada.`);
+      void cliente.invalidateQueries({ queryKey: ['teso'] });
+      correrAutomatica();
+    },
+    onError: (e) => notificarErro(e, 'Não foi possível carregar o extracto'),
+  });
+  const aoEscolherFicheiro = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    const erro = validarFicheiroExtrato(f);
+    if (erro) message.error(erro);
+    else carregar.mutate(f);
+  };
   return (
     <>
+      {/* cartão do legado (ui_tesouraria.js:3943-4005): botões do cabeçalho e, à direita do corpo, REPROCESSAR EXISTENTES e CARREGAR E CONCILIAR */}
       <Card style={{ marginBottom: 12 }} title={<><IconeFa nome="plus-circle" /> Nova conciliação ou Reprocessamento</>}
-        extra={conta && (
+        extra={
           <Space wrap>
-            <Button icon={<IconeFa nome="exclamation-triangle" style={{ color: '#f59e0b' }} />} onClick={() => setSeparador('manual')}>Gerir Divergências (Pendentes)</Button>
-            <Button icon={<IconeFa nome="file-invoice" />} onClick={() => setSeparador('extrato')}>Extratos Carregados</Button>
+            <Button size="small" icon={<IconeFa nome="balance-scale" />} disabled={!conta} onClick={() => setSeparador('manual')}>Gerir Divergências (Pendentes)</Button>
+            <Button size="small" icon={<IconeFa nome="university" />} disabled={!conta} onClick={() => setSeparador('extrato')}>Extratos Carregados</Button>
+            <Button size="small" icon={<IconeFa nome="edit" />} style={{ color: '#d97706', borderColor: '#d97706' }} onClick={() => setVerRascunhos(true)}>Rascunhos</Button>
+            <Button size="small" icon={<IconeFa nome="file-excel" />} style={{ color: 'var(--ant-color-primary)', borderColor: 'var(--ant-color-primary)' }} onClick={descarregarModeloExtrato}>Modelo</Button>
           </Space>
-        )}>
-        <Space wrap>
-          <SeletorContaFinanceira value={conta} onChange={(v) => { setEscolhida(true); setConta(v); }} prefixos={PREFIXO_BANCOS} placeholder="Conta bancária" />
-          <DatePicker value={data} onChange={(v) => v && setData(v)} format="DD/MM/YYYY" allowClear={false} aria-label="Data de referência" />
-        </Space>
+        }>
+        <Flex wrap gap={12} align="flex-end" justify="space-between">
+          <Space wrap>
+            <SeletorContaFinanceira value={conta} onChange={escolherConta} prefixos={PREFIXO_BANCOS} placeholder="Conta bancária" />
+            <DatePicker value={data} onChange={(v) => v && setData(v)} format="DD/MM/YYYY" allowClear={false} aria-label="Data de referência" />
+          </Space>
+          <Space wrap>
+            <Button icon={<IconeFa nome="sync-alt" />} style={{ color: '#0891b2', borderColor: '#0891b2' }} disabled={!conta} onClick={reprocessar}>REPROCESSAR EXISTENTES</Button>
+            {pode('teso_conc_importar') && (
+              <>
+                <input ref={ficheiro} type="file" accept={ACEITAR_EXTRATO} style={{ display: 'none' }} onChange={aoEscolherFicheiro} data-testid="ficheiro-extrato" aria-label="Ficheiro do extracto" />
+                <Button type="primary" icon={<IconeFa nome="file-upload" />} style={{ background: '#0891b2', border: 'none' }} disabled={!conta} loading={carregar.isPending} onClick={() => ficheiro.current?.click()}>
+                  CARREGAR E CONCILIAR
+                </Button>
+              </>
+            )}
+          </Space>
+        </Flex>
       </Card>
+      <ModalRascunhos
+        aberto={verRascunhos}
+        aoFechar={() => setVerRascunhos(false)}
+        aoContinuar={(r) => {
+          setVerRascunhos(false);
+          escolherConta(r.codigo_conta);
+          setSeparador('manual');
+          setRascunho(r);
+        }}
+      />
       {!conta ? (
         <EstadoVazio icone="balance-scale" titulo={meios.isLoading ? 'A carregar as contas bancárias…' : 'Escolha a conta bancária'}
           texto="Seleccione acima a conta bancária (43) e a data de referência para ver a correspondência, o extracto, o mapa e o histórico." />
       ) : (
         <>
           <QuadroResumo conta={conta} data={data} aoTratar={() => setSeparador('manual')} />
-          <Separadores conta={conta} data={data} separador={separador} setSeparador={setSeparador} />
-          <Typography.Title level={5} style={{ marginTop: 16 }}><IconeFa nome="history" /> Histórico de reconciliações</Typography.Title>
-          <HistoricoFiltrado contaInicial={conta} />
+          <Separadores conta={conta} data={data} separador={separador} setSeparador={setSeparador} rascunho={rascunho} aoAplicarRascunho={() => setRascunho(null)} />
+          <div style={{ marginTop: 16 }}>
+            <HistoricoFiltrado contaInicial={conta} aoReprocessar={(c) => { if (c) escolherConta(c); correrAutomatica(); }} />
+          </div>
         </>
       )}
     </>
   );
+}
+
+/** Ficheiros que o servidor aceita no extracto (XLSX, XLS ou CSV, até 10 MB — a validação definitiva é a do servidor). */
+export const ACEITAR_EXTRATO = '.xlsx,.xls,.csv';
+const MAXIMO_EXTRATO = 10 * 1024 * 1024;
+
+export function validarFicheiroExtrato(f: Pick<File, 'name' | 'size'>): string | null {
+  if (!/\.(xlsx|xls|csv)$/i.test(f.name)) return 'Use um ficheiro XLSX, XLS ou CSV.';
+  if (f.size > MAXIMO_EXTRATO) return 'O ficheiro excede 10 MB.';
+  if (f.size === 0) return 'O ficheiro está vazio.';
+  return null;
 }
 
 function QuadroResumo({ conta, data, aoTratar }: { conta: string; data: Dayjs; aoTratar: () => void }) {
@@ -199,8 +275,12 @@ function QuadroResumo({ conta, data, aoTratar }: { conta: string; data: Dayjs; a
   );
 }
 
+function opcoesMapa(conta: string, data: Dayjs) {
+  return { queryKey: ['teso', 'reconciliacao', 'mapa', conta, dataApi(data)], queryFn: () => obter<MapaReconciliacao>('/tesouraria/reconciliacao/mapa', { codigo_conta: conta, data: dataApi(data) }) };
+}
+
 function useMapaReconciliacao(conta: string, data: Dayjs) {
-  return useQuery({ queryKey: ['teso', 'reconciliacao', 'mapa', conta, dataApi(data)], queryFn: () => obter<MapaReconciliacao>('/tesouraria/reconciliacao/mapa', { codigo_conta: conta, data: dataApi(data) }) });
+  return useQuery(opcoesMapa(conta, data));
 }
 
 function useConfirmar(conta: string, aoConcluir: () => void) {
@@ -217,7 +297,9 @@ function useConfirmar(conta: string, aoConcluir: () => void) {
   });
 }
 
-function Separadores({ conta, data, separador, setSeparador }: { conta: string; data: Dayjs; separador: string; setSeparador: (s: string) => void }) {
+function Separadores({ conta, data, separador, setSeparador, rascunho, aoAplicarRascunho }: {
+  conta: string; data: Dayjs; separador: string; setSeparador: (s: string) => void; rascunho?: RascunhoReconciliacao | null; aoAplicarRascunho?: () => void;
+}) {
   const { pode } = useSessao();
   const podeConfirmar = pode('teso_conc_confirmar');
   const mapa = useMapaReconciliacao(conta, data);
@@ -243,6 +325,18 @@ function Separadores({ conta, data, separador, setSeparador }: { conta: string; 
   const chaveS = (s: SugestaoReconciliacao) => `${s.linha_extrato_id}-${s.lancamento_id}`;
   const nSug = sugestoes.data?.length ?? 0;
   const nPend = extrato.length + diario.length;
+  // repõe a selecção com as linhas do rascunho que ainda estão por reconciliar (do painel do separador ou de «Rascunhos» no topo)
+  const abrirRascunho = (r: RascunhoReconciliacao) => {
+    setSelExt(r.grupos.flatMap((g) => g.extrato).filter((id) => porIdE.has(id)));
+    setSelDia(r.grupos.flatMap((g) => g.lancamentos).filter((id) => porIdD.has(id)));
+    message.info(`Rascunho #${r.id} aberto (${r.grupos.length} grupo(s)).`);
+  };
+  useEffect(() => {
+    if (rascunho && rascunho.codigo_conta === conta && mapa.data && !mapa.isFetching) {
+      abrirRascunho(rascunho);
+      aoAplicarRascunho?.();
+    }
+  }, [rascunho, conta, mapa.data, mapa.isFetching]);
 
   const automatica = (
     <Card
@@ -303,12 +397,7 @@ function Separadores({ conta, data, separador, setSeparador }: { conta: string; 
           conta={conta}
           extrato={selExt}
           lancamentos={selDia}
-          aoAbrir={(r) => {
-            // repõe a selecção com as linhas do rascunho que ainda estão por reconciliar
-            setSelExt(r.grupos.flatMap((g) => g.extrato).filter((id) => porIdE.has(id)));
-            setSelDia(r.grupos.flatMap((g) => g.lancamentos).filter((id) => porIdD.has(id)));
-            message.info(`Rascunho #${r.id} aberto (${r.grupos.length} grupo(s)).`);
-          }}
+          aoAbrir={abrirRascunho}
         />
       )}
     >

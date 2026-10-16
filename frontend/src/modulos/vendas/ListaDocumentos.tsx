@@ -290,6 +290,8 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
             )}
             {(faturas || guias) && pode('vendas_fat_descontab') && (
               <Button size="small" danger icon={<IconeFa nome="undo" />} disabled={!algum}
+                // btn-outline com color/border-color var(--danger) no legado (ui_sales.js:714): vermelho mesmo sem selecção (só esbatido)
+                style={{ color: '#ef4444', borderColor: '#ef4444', background: 'transparent', opacity: algum ? 1 : 0.6 }}
                 onClick={() => pedirMotivo('Descontabilizar Selecionados', `${seleccao.length} documento(s). O estorno fica registado (cada documento na sua transacção).`, (motivo) => lote.mutate({ url: '/vendas/documentos/descontabilizar', motivo, titulo: 'Descontabilizar Selecionados' }))}>
                 Descontabilizar Selecionados
               </Button>

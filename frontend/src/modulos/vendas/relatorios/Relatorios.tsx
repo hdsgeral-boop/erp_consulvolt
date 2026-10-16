@@ -20,6 +20,12 @@ import { EcraSaft } from './EcraSaft';
 /** Cores das fatias do donut «Maiores Clientes» no legado (ui_sales.js:4283), em ciclo como no Chart.js. */
 const CORES_CLIENTES = (_r: string, i: number) => ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][i % 5];
 
+/** Os 2 cartões lado a lado (evolução mensal e maiores clientes) ocupam a altura da linha, como a grelha do legado. */
+const ESTILO_CARTAO_PAR = { marginBottom: 24, height: 'calc(100% - 24px)' } as const;
+
+/** N.º de clientes no donut do legado (topCustomers.slice(0, 5), ui_sales.js:4154). */
+const TOP_CLIENTES = 5;
+
 /** Vendas › Dashboard (ecrã vendas_relatorios) e o separador «Exportar SAFT-AO» (vendas_relatorios/saft). */
 export default function Relatorios() {
   return (
@@ -50,6 +56,7 @@ function DashboardVendas() {
     staleTime: 120_000,
   });
   const resumo = consulta.data;
+  const top5 = [...(resumo?.maiores_clientes ?? [])].sort((a, b) => Number(b.bruto) - Number(a.bruto)).slice(0, TOP_CLIENTES);
 
   /** Mapa impresso: indicadores, facturação mensal, maiores clientes e pendentes (A4 retrato, salvo se não couber). */
   const pedidoImpressao = () => {
@@ -166,7 +173,7 @@ function DashboardVendas() {
           </div>
           <Row gutter={[24, 0]}>
             <Col xs={24} lg={14}>
-              <Card title="Evolução de Faturação Mensal" style={{ marginBottom: 24 }}>
+              <Card title="Evolução de Faturação Mensal" style={ESTILO_CARTAO_PAR}>
                 {resumo.por_mes.length === 0 ? (
                   <Empty description="Sem documentos no período." />
                 ) : (
@@ -182,25 +189,13 @@ function DashboardVendas() {
               </Card>
             </Col>
             <Col xs={24} lg={10}>
-              <Card title="Maiores Clientes (Faturação)" style={{ marginBottom: 24 }}>
-                {resumo.maiores_clientes.length === 0 ? (
+              {/* Legado (ui_sales.js:4151, 4280): top 5 clientes, 2 cartões de 300px lado a lado, legenda curta por baixo — sem tabela */}
+              <Card title="Maiores Clientes (Faturação)" style={ESTILO_CARTAO_PAR}>
+                {top5.length === 0 ? (
                   <Empty description="Sem clientes no período." />
                 ) : (
-                  <GraficoDonut coresCategorias={CORES_CLIENTES} rotulos={resumo.maiores_clientes.map((c) => c.nome)} series={[{ rotulo: 'Facturado', valores: resumo.maiores_clientes.map((c) => c.bruto) }]} monetario altura={300} />
+                  <GraficoDonut coresCategorias={CORES_CLIENTES} rotulos={top5.map((c) => c.nome)} series={[{ rotulo: 'Facturado', valores: top5.map((c) => c.bruto) }]} monetario altura={200} />
                 )}
-                <Table
-                  rowKey={(c) => String(c.cliente_id ?? 'cf')}
-                  size="small"
-                  pagination={false}
-                  dataSource={resumo.maiores_clientes}
-                  scroll={scrollTabela()}
-                  style={{ marginTop: 12 }}
-                  columns={[
-                    { title: 'Cliente', dataIndex: 'nome' },
-                    { title: 'Docs.', dataIndex: 'documentos', align: 'right' },
-                    { title: 'Facturado (Kz)', dataIndex: 'bruto', align: 'right', render: (v: string) => formatarKz(v) },
-                  ]}
-                />
               </Card>
             </Col>
           </Row>

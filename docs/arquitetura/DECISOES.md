@@ -2338,3 +2338,16 @@ Na pasta do Windows montada no Docker Desktop, o `DirectoryIterator` do PHP devo
   - o cubo calcula os dados no servidor, sem o «Carregar dados» do legado;
   - totais de formulário em `Statistic` (os E2E lêem-nos);
   - funcionalidades a mais do sistema novo mantidas, sem mudar a ordem do que é comum.
+
+### Verificação lado a lado (2026-10-16)
+- **Tabelas (todo o sistema):** células numa só linha e densas, como `th, td { white-space: nowrap }` do legado; a tabela desliza na horizontal. Uma coluna que deva quebrar o texto usa a classe `erp-quebra`, equivalente ao `.allow-wrap` do legado.
+- **Cartões KPI:** o valor fica numa linha com reticências (1,35rem), com o valor completo no `title`; os cartões são mais compactos (enchimento 14 px, espaço 0,8rem).
+- **Vendas:**
+  - «Séries» antes de «Exportar SAFT-AO»;
+  - «Descontabilizar Selecionados» com contorno vermelho;
+  - donut «Maiores Clientes» só com os 5 maiores (`slice(0,5)` do legado) e com a mesma altura do gráfico ao lado.
+- **Lançamentos:**
+  - filtros em 4 caixas numa linha compacta; «Terceiro e descrição» passa a fazer parte de «Conta, diário e terceiro» (decisão do utilizador);
+  - o Ano vem pré-seleccionado com o ano corrente (decisão do utilizador); por isso «Alterar em massa» e «Descontabilizar» sem selecção actuam sobre o ano filtrado.
+- **Folha de Caixa:** título próprio, sub-separadores «Sessões | Caixa Aberta» e cartão «Histórico de Sessões» dentro da faixa «Tesouraria - Operações», como no legado (`app_v2.js`). A conta fica numa linha, os valores levam o sufixo «Kz»/«US$» e o estado é texto simples.
+- **Dashboard Global:** a fórmula do legado aplicada ao backup de 13/10 dá os mesmos valores do novo. A diferença vista vinha dos dados do legado aberto no navegador (FC 48 em EUR, que domina as compras e os custos da empresa 18), não do cálculo.

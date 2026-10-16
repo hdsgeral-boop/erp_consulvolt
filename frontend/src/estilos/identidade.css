@@ -739,6 +739,20 @@ body {
   border-bottom: 1px dashed #cbd5e1;
 }
 
+/* legado (styles.css th, td): células numa só linha, densas; a tabela desliza na horizontal em vez de quebrar o texto.
+   Colunas que devam quebrar usam a classe «erp-quebra» (equivalente ao .allow-wrap do legado). */
+:root .ant-table-wrapper .ant-table-thead > tr > th,
+:root .ant-table-wrapper .ant-table-tbody > tr > td {
+  white-space: nowrap;
+}
+:root .ant-table-wrapper .ant-table-tbody > tr > td.erp-quebra,
+:root .ant-table-wrapper .ant-table-thead > tr > th.erp-quebra {
+  white-space: normal;
+}
+:root .ant-table-wrapper .ant-table-content {
+  overflow-x: auto;
+}
+
 :root .ant-table-wrapper .ant-table:not(.ant-table-bordered) .ant-table-tbody > tr > td:not(:last-child) {
   border-inline-end: 1px dashed #e2e8f0;
 }

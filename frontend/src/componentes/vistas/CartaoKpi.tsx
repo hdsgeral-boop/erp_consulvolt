@@ -62,6 +62,8 @@ export function fundoTranslucido(cor: string): string {
 
 export function CartaoKpi({ rotulo, valor, unidade, secundaria, icone, cor, barra = 'baixo', corValor, ajuda, aoClicar, activo, className, style }: PropsCartaoKpi) {
   const c = corDe(cor);
+  // o valor fica numa só linha com reticências (legado): o texto completo aparece ao passar o rato
+  const tituloValor = typeof valor === 'string' || typeof valor === 'number' ? `${valor}${typeof unidade === 'string' ? ` ${unidade}` : ''}` : undefined;
   const classes = [
     'erp-kpi',
     barra === 'baixo' ? 'erp-kpi-barra-baixo' : barra === 'esquerda' ? 'erp-kpi-barra-esquerda' : '',
@@ -76,7 +78,7 @@ export function CartaoKpi({ rotulo, valor, unidade, secundaria, icone, cor, barr
     <>
       <div className="erp-kpi-textos">
         <div className="erp-kpi-rotulo">{rotulo}</div>
-        <div className="erp-kpi-valor" style={corValor ? { color: corValor } : undefined}>
+        <div className="erp-kpi-valor" style={corValor ? { color: corValor } : undefined} title={tituloValor}>
           {valor}
           {unidade !== undefined && unidade !== null && <span className="erp-kpi-unidade">{unidade}</span>}
         </div>

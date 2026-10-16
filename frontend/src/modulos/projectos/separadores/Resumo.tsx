@@ -13,6 +13,7 @@ import { pct1, ritmoPrazo, rotuloRubrica } from '../comum/regras';
 import { formatarQtd } from '../comum/regrasMetas';
 import type { EquipamentosProjecto, ResumoProjecto } from '../comum/tipos';
 import { OrigemProjecto, textoOrigem } from '../comum/OrigemProjecto';
+import { AnelProgresso } from '../comum/AnelProgresso';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { scrollTabela } from '@/componentes/responsivo';
 
@@ -98,9 +99,10 @@ export function SeparadorResumo({ projecto, aoIr }: PropsSeparador & { aoIr: (se
 
       {/* Linha de cartões (.pdash-kpis: auto-fit, mínimo 235 px; barra de 4 px à esquerda) */}
       <GrelhaKpi larguraMinima={235}>
-        <CartaoKpi barra="esquerda" cor={COR.azul} rotulo="Progresso global" valor={`${i.execucao}%`}
-          secundaria={<><Barra pct={i.execucao} cor={COR.azul} /><Linha>Execução física</Linha>
-            <Linha>{i.execucao_ponderada !== null ? `Ponderado pelo orçamento: ${i.execucao_ponderada}%` : 'Média dos ramos do WBS'}</Linha></>} />
+        {/* legado (projectos_dashboard.js:418-420): mostrador em anel SVG com a legenda «Execução física» ao lado */}
+        <CartaoKpi barra="esquerda" cor={COR.azul} rotulo="Progresso global"
+          valor={<AnelProgresso valor={i.execucao} cor={COR.azul} legenda="Execução física"
+            nota={i.execucao_ponderada !== null ? <>Ponderado pelo orçamento: <strong>{i.execucao_ponderada}%</strong></> : 'Média dos ramos do WBS'} />} />
         <CartaoKpi barra="esquerda" cor={COR.verde} rotulo="Tarefas (WBS)" valor={`${est.CONCLUIDA ?? 0} / ${i.tarefas}`} unidade="concluídas"
           secundaria={<><BarraEstados partes={[
             { n: est.CONCLUIDA ?? 0, cor: COR.verde, rotulo: 'concluídas' }, { n: est.EM_CURSO ?? 0, cor: COR.azul, rotulo: 'em curso' },

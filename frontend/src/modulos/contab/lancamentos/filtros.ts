@@ -44,6 +44,11 @@ export function intervaloPeriodo(ano?: number, mes?: number): { inicio?: string;
   return { inicio: `${ano}-${pad(mes)}-01`, fim: `${ano}-${pad(mes)}-${pad(ultimo)}` };
 }
 
+/** Filtros iniciais da lista: o Ano vem pré-seleccionado com o ano corrente (intervalo 01/01–31/12); o utilizador pode limpá-lo. */
+export function filtrosIniciais(ano: number = new Date().getFullYear()): FiltrosLista {
+  return { ano, ...intervaloPeriodo(ano) };
+}
+
 /** Filtros aplicados → parâmetros da API (GET /contabilidade/lancamentos, classificação e descontabilização por filtro). */
 export function filtrosLancamentos(f: FiltrosLista, sem: SemCampo[]): Record<string, unknown> {
   const t = (v?: string) => (v && v.trim() ? v.trim() : undefined);

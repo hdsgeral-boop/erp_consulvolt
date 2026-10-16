@@ -36,14 +36,13 @@ export function paraCaixa(texto?: string): string {
 
 // --- Secções do painel de filtros («Mostrar/Ocultar todas») ---------------------------------------------------------
 
-export type Seccao = 'periodo' | 'datas' | 'conta' | 'ident' | 'terceiro' | 'sem' | 'massa';
+export type Seccao = 'periodo' | 'datas' | 'conta' | 'ident' | 'sem' | 'massa';
 
 export const SECCOES: { chave: Seccao; rotulo: string }[] = [
   { chave: 'periodo', rotulo: 'Período fiscal' },
   { chave: 'datas', rotulo: 'Datas doc./lanç.' },
-  { chave: 'conta', rotulo: 'Conta e diário' },
+  { chave: 'conta', rotulo: 'Conta, diário e terceiro' },
   { chave: 'ident', rotulo: 'Identificação' },
-  { chave: 'terceiro', rotulo: 'Terceiro e descrição' },
   { chave: 'sem', rotulo: 'Linhas sem' },
   { chave: 'massa', rotulo: 'Alterar em massa' },
 ];

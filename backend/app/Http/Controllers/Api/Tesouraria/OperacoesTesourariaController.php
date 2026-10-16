@@ -171,11 +171,14 @@ final class OperacoesTesourariaController extends Controller
                 ->whereColumn('pc.codigo', 'sessoes_caixa.codigo_conta')->whereNull('pc.eliminado_em')->limit(1), 'descricao_conta')
             ->withSum(['movimentosCaixa as total_entradas' => fn ($q) => $q->where('tipo', 'REC')], 'valor')
             ->withSum(['movimentosCaixa as total_saidas' => fn ($q) => $q->where('tipo', 'PAG')], 'valor')
+            // acções na linha (eliminar só sem movimentos, como o detalhe): contagem na mesma consulta
+            ->withCount('movimentosCaixa as n_movimentos')
             ->orderByDesc('data_abertura')->orderByDesc('id')->limit(200)->get();
         $dinheiro = fn ($v) => bcadd((string) ($v ?? '0'), '0', 2);
 
         return RespostaApi::sucesso($sessoes->map(fn (SessaoCaixa $s) => array_merge($s->toArray(), [
             'total_entradas' => $dinheiro($s->getAttribute('total_entradas')), 'total_saidas' => $dinheiro($s->getAttribute('total_saidas')),
+            'n_movimentos' => (int) $s->getAttribute('n_movimentos'),
         ]))->values(), 'Sessões de caixa.');
     }
 

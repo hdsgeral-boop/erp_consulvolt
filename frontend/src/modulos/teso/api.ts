@@ -222,6 +222,8 @@ export interface SessaoCaixa {
   descricao_conta?: string | null;
   total_entradas?: string | null;
   total_saidas?: string | null;
+  /** Lista de sessões: número de movimentos (acções na linha — eliminar só sem movimentos). */
+  n_movimentos?: number;
 }
 
 export type EstadoConferencia = 'RASCUNHO' | 'FINALIZADO';

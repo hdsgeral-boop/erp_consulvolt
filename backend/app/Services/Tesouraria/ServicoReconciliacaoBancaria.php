@@ -305,6 +305,45 @@ final class ServicoReconciliacaoBancaria
     /** M-08: histórico com filtros (conta, estado, período), incluindo as anuladas. */
     public function historico(array $f): Collection
     {
+        $lista = $this->listaHistorico($f);
+        $agregados = $this->agregadosHistorico($lista->pluck('reconciliacao_codigo')->filter()->unique()->values()->all());
+
+        // colunas do legado (renderReconciliationHistory, ui_tesouraria.js:5209-5300): Período (datas mínima e máxima das
+        // linhas do extracto e do diário) e Itens (correspondências)
+        return $lista->map(fn (array $r) => $r + [
+            'periodo_inicio' => $agregados[$r['reconciliacao_codigo']]->inicio ?? null,
+            'periodo_fim' => $agregados[$r['reconciliacao_codigo']]->fim ?? null,
+            'itens' => (int) ($agregados[$r['reconciliacao_codigo']]->itens ?? 0),
+        ]);
+    }
+
+    /**
+     * Uma só consulta agregada por código (sem N+1), isolada pela empresa activa (escopo do modelo e junções pela empresa).
+     * As correspondências não se apagam ao anular, por isso o período e os itens das anuladas também saem.
+     *
+     * @param  list<string>  $codigos
+     * @return array<string, object>
+     */
+    private function agregadosHistorico(array $codigos): array
+    {
+        if (! $codigos) {
+            return [];
+        }
+        $c = 'correspondencias_reconciliacao';
+
+        return CorrespondenciaReconciliacao::query()
+            ->leftJoin('linhas_extrato_bancario as le', fn ($j) => $j->on('le.id', '=', "{$c}.linha_extrato_bancario_id")->whereColumn('le.empresa_id', "{$c}.empresa_id"))
+            ->leftJoin('lancamentos_contabeis as lc', fn ($j) => $j->on('lc.id', '=', "{$c}.lancamento_contabil_id")->whereColumn('lc.empresa_id', "{$c}.empresa_id"))
+            ->whereIn("{$c}.reconciliacao_codigo", $codigos)
+            ->groupBy("{$c}.reconciliacao_codigo")
+            ->selectRaw("{$c}.reconciliacao_codigo as codigo, count(*) as itens,"
+                ." to_char(least(min(le.data)::date, min(lc.data_documento)::date), 'YYYY-MM-DD') as inicio,"
+                ." to_char(greatest(max(le.data)::date, max(lc.data_documento)::date), 'YYYY-MM-DD') as fim")
+            ->toBase()->get()->keyBy('codigo')->all();
+    }
+
+    private function listaHistorico(array $f): Collection
+    {
         return ReconciliacaoBancaria::query()
             ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
             ->when($f['codigo_conta'] ?? null, fn ($q, $v) => $q->where('detalhes', 'like', '%"conta":"'.str_replace(['%', '_'], ['\%', '\_'], $v).'"%'))

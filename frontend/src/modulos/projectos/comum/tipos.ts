@@ -15,6 +15,21 @@ export interface Projecto {
   encomenda_venda_id: number | null;
   /** Na carteira: o cliente por nome (ADR-064). */
   cliente?: { id: number; nome: string; nif?: string | null } | null;
+  /** Na carteira: indicadores de prazo e orçamento para o semáforo (ver comum/regraSemaforo.ts). */
+  semaforo?: IndicadoresSemaforo | null;
+}
+
+/** GET /projetos (carteira): os números dos alertas de prazo e orçamento do Resumo, por projecto. */
+export interface IndicadoresSemaforo {
+  tarefas: number;
+  tarefas_atrasadas: number;
+  execucao: number;
+  /** Execução ÷ tempo decorrido (null sem datas ou antes do início). */
+  desempenho: number | null;
+  restantes_dias: number | null;
+  orcamento: number;
+  consumo_pct: number;
+  rubricas_excedidas: number;
 }
 
 export interface FichaProjecto extends Projecto {

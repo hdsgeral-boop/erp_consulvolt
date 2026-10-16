@@ -16,9 +16,9 @@ export const SEPARADORES_VENDAS = [
   { chave: 'categorias', rotulo: 'Categorias', icone: 'tags', destino: `${BASE}/vendas_produtos?separador=categorias`, permissao: 'vendas_produtos_view' },
   { chave: 'produtos', rotulo: 'Produtos/Serviços', icone: 'box', destino: `${BASE}/vendas_produtos`, permissao: 'vendas_produtos_view' },
   { chave: 'faturacao', rotulo: 'Faturação', icone: 'file-invoice-dollar', destino: FATURACAO, permissao: 'vendas_faturacao_view' },
-  { chave: 'saft', rotulo: 'Exportar SAFT-AO', icone: 'file-code', destino: `${BASE}/vendas_relatorios/saft`, permissao: ['vendas_relatorios_view', 'vendas_fe_config'] },
   // Fase A (vendas_series.js): séries FT/FR/NC com número inicial — chaves novas vendas_series_view / vendas_series_gerir no catálogo
   { chave: 'series', rotulo: 'Séries', icone: 'hashtag', destino: `${BASE}/vendas_series`, permissao: ['vendas_series_view', 'vendas_series_gerir'] },
+  { chave: 'saft', rotulo: 'Exportar SAFT-AO', icone: 'file-code', destino: `${BASE}/vendas_relatorios/saft`, permissao: ['vendas_relatorios_view', 'vendas_fe_config'] },
   { chave: 'fe', rotulo: 'Facturação electrónica', icone: 'stamp', destino: `${FATURACAO}/agt`, permissao: ['vendas_faturacao_view', 'vendas_fe_config'] },
 ] as const;
 

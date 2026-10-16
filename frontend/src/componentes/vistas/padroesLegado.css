@@ -366,8 +366,9 @@
 .erp-grelha-kpi {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--erp-kpi-min, 220px), 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
+  /* legado (pos_gestao.js, ui_painel_modulos.js): gap 0,8rem e cartões densos */
+  gap: 12.8px;
+  margin-bottom: 16px;
   min-width: 0;
 }
 
@@ -385,11 +386,11 @@
   /* legado: .stat-card/.painel-kpi e os cartões gerados pelo JS ficam todos com 4 px (styles.css, «limites pouco arredondados») */
   border-radius: 4px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
-  padding: 16px 20px;
+  padding: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -441,13 +442,15 @@
 }
 
 .erp-kpi-valor {
-  font-size: 1.6rem;
+  /* legado: 1,35rem a 800, numa só linha com reticências (.painel-kpi-valor) */
+  font-size: 1.35rem;
   font-weight: 800;
-  color: #1e293b;
-  line-height: 1.1;
-  letter-spacing: -0.5px;
+  color: #0f172a;
+  line-height: 1.2;
   margin: 0;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .erp-kpi-unidade {
@@ -482,7 +485,7 @@
     padding: 12px 14px;
   }
   .erp-kpi-valor {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
   }
 }
 

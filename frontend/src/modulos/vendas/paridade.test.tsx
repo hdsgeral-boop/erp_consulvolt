@@ -18,7 +18,7 @@ const chaves = (d: DocumentoVenda, g: Parameters<typeof accoesLinhaDocumento>[1]
 
 describe('agregador «Gestão de Vendas» (4.0.1)', () => {
   it('tem os separadores do legado pela mesma ordem', () => {
-    expect(SEPARADORES_VENDAS.map((s) => s.rotulo)).toEqual(['Dashboard', 'Clientes', 'Categorias', 'Produtos/Serviços', 'Faturação', 'Exportar SAFT-AO', 'Séries', 'Facturação electrónica']);
+    expect(SEPARADORES_VENDAS.map((s) => s.rotulo)).toEqual(['Dashboard', 'Clientes', 'Categorias', 'Produtos/Serviços', 'Faturação', 'Séries', 'Exportar SAFT-AO', 'Facturação electrónica']);
   });
   it('identifica o separador e o subseparador activos', () => {
     expect(separadorVendas('/m/vendas/vendas_relatorios/saft')).toBe('saft');

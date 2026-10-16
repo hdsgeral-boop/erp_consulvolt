@@ -9,6 +9,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { EtiquetaProjectos, rotuloProjectos } from './comum/componentes';
 import { accoesLinhaCarteira } from './comum/regras';
 import type { Projecto } from './comum/tipos';
+import { CabecalhoSemaforo, Semaforo } from './comum/Semaforo';
 import { DetalheProjecto } from './DetalheProjecto';
 import { ModalProjecto } from './ModalProjecto';
 
@@ -42,6 +43,8 @@ function ListaProjectos() {
   const pequeno = useEcraPequeno();
 
   const colunas: ColunaApi<Projecto>[] = [
+    // semáforo (legado: ícone verde fixo, ui_projects.js:468) — agora com a regra dos alertas de prazo e orçamento do Resumo (comum/regraSemaforo.ts)
+    { title: <CabecalhoSemaforo />, key: 'semaforo', width: 50, align: 'center', filtravel: false, render: (_, p) => <Semaforo estado={p.estado} indicadores={p.semaforo} /> },
     { title: 'Código', dataIndex: 'codigo', width: 150, render: (v) => <Typography.Text strong>{v ?? '—'}</Typography.Text> },
     { title: 'Designação', dataIndex: 'nome', ellipsis: true, width: 320 },
     { title: 'Cliente', key: 'cliente', ellipsis: true, width: 240, responsive: ['md'], ocultaPorOmissao: true, render: (_, p) => p.cliente?.nome ?? (p.cliente_id ? `#${p.cliente_id}` : '—') },

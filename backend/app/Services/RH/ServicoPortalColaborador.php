@@ -4,6 +4,7 @@ namespace App\Services\RH;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\AusenciaFaltaColaborador;
+use App\Models\AutoavaliacaoColaborador;
 use App\Models\Colaborador;
 use App\Models\ContratoTrabalho;
 use App\Models\DependenteColaborador;
@@ -314,11 +315,19 @@ final class ServicoPortalColaborador
         $faltas = $this->assiduidade->faltasDoColaborador($c->id)
             ?? ['mes' => $this->diasDeFalta($c->id, now()->format('Y-m-01'), now()->format('Y-m-t')), 'ano' => $this->diasDeFalta($c->id, "{$ano}-01-01", "{$ano}-12-31")];
 
+        $auto = AutoavaliacaoColaborador::query()->where('colaborador_id', $c->id)->where('ano', $ano)->where('periodo', 'ANUAL')->value('estado');
+
         return ['colaborador' => $c->only(['id', 'nome_completo', 'nif', 'estado', 'cargo_funcao_id', 'unidade_organica_id', 'data_admissao']),
             'chefia_colaborador_id' => $this->estrutura->chefiaDe($c->id), 'ferias' => $ferias, 'ano' => $ano,
             'faltas_por_justificar' => AusenciaFaltaColaborador::query()->where('colaborador_id', $c->id)->where('estado', 'POR_JUSTIFICAR')->count(),
             'faltas_injustificadas_mes' => $faltas['mes'], 'faltas_injustificadas_ano' => $faltas['ano'],
             'pedidos_pendentes' => PedidoPortalColaborador::query()->where('colaborador_id', $c->id)->where('estado', 'like', 'PENDENTE%')->count(),
+            // portal_ui.js:179-180 — documentos emitidos para o próprio e a autoavaliação ANUAL do ano (Submetida / Rascunho / Por fazer);
+            // só o colaborador ligado ao utilizador e, pelo âmbito PertenceEmpresa, só a empresa activa
+            'documentos_emitidos' => PedidoPortalColaborador::query()->where('colaborador_id', $c->id)->where('estado', 'EMITIDO')->count(),
+            'autoavaliacao' => ['ano' => $ano, 'periodo' => 'ANUAL', 'estado' => match ($auto) {
+                null => 'POR_FAZER', 'SUBMETIDA' => 'SUBMETIDA', default => 'RASCUNHO'
+            }],
             'aprovacoes_para_mim' => count($this->pendentesParaMim())];
     }
 

@@ -39,7 +39,12 @@ final class ProjetoController extends Controller
             ->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))
             ->when($f['pesquisa'] ?? null, fn ($q, $v) => $q->where(fn ($x) => $x->where('codigo', 'ilike', "%{$v}%")->orWhere('nome', 'ilike', "%{$v}%")));
 
-        return RespostaApi::paginado($q->orderBy('codigo')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), null, 'Carteira de projectos.');
+        $pagina = $q->orderBy('codigo')->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1);
+        // semáforo da carteira: indicadores de prazo e orçamento só dos projectos desta página (a regra da cor está no ecrã)
+        $semaforo = $this->analitico->indicadoresSemaforo($pagina->getCollection()->pluck('id')->all());
+        $pagina->getCollection()->transform(fn (Projeto $p) => $p->toArray() + ['semaforo' => $semaforo[$p->id] ?? null]);
+
+        return RespostaApi::paginado($pagina, null, 'Carteira de projectos.');
     }
 
     public function ativos(): JsonResponse

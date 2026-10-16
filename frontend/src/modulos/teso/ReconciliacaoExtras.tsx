@@ -1,9 +1,11 @@
-import { Button, Card, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography } from 'antd';
+import { Button, Card, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd';
 import { DeleteOutlined, EditOutlined, FolderOpenOutlined, SaveOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
-import { obter } from '@/api/cliente';
+import { useEffect, useMemo, useState } from 'react';
+import { enviar, obter } from '@/api/cliente';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { notificarErro } from '@/utilitarios/erros';
 import { ModalFormulario } from '@/componentes/formularios';
 import { useAccao } from '@/componentes/Accoes';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
@@ -25,7 +27,11 @@ export interface RascunhoReconciliacao {
   criado_por: string | null;
   atualizado_em: string | null;
 }
-interface ItemHistorico { id: number; reconciliacao_codigo: string; data: string; valor_total: string | null; estado: string; conta: string | null; tipo: string | null; grupos: number; motivo_anulacao: string | null }
+export interface ItemHistorico {
+  id: number; reconciliacao_codigo: string; data: string; valor_total: string | null; estado: string; conta: string | null; tipo: string | null; grupos: number; motivo_anulacao: string | null;
+  /** período (datas mínima e máxima das linhas) e número de correspondências — colunas do legado */
+  periodo_inicio?: string | null; periodo_fim?: string | null; itens?: number;
+}
 interface DetalheReconciliacao {
   reconciliacao_codigo: string; data: string; estado: string; valor_total: string | null; conta: string | null; tipo: string | null;
   anulacao: { motivo: string; em: string } | null;
@@ -128,46 +134,101 @@ export function BotaoEditarLinha({ linha, aoEditar }: { linha: LinhaExtratoBanca
     : null;
 }
 
-/** M-08: histórico com filtros (conta, estado, período), incluindo as anuladas, e o detalhe dos grupos emparelhados. */
-export function HistoricoFiltrado({ contaInicial }: { contaInicial?: string }) {
+/** «De a até b» do legado (ui_tesouraria.js:5252-5258): uma data só se coincidem; «---» sem linhas. */
+export function textoPeriodo(inicio: string | null | undefined, fim: string | null | undefined): string {
+  if (!inicio || !fim) return '---';
+  const a = formatarData(inicio);
+  const b = formatarData(fim);
+  return a === b ? a : `${a} a ${b}`;
+}
+
+/** Colunas do histórico do legado (renderReconciliationHistory, ui_tesouraria.js:5278-5288), pela mesma ordem; «Tipo» é do novo. */
+export const COLUNAS_HISTORICO = ['ID Reconciliação', 'Banco', 'Período', 'Data Proc.', 'Itens', 'Valor Total', 'Estado', 'Tipo', 'Ações'] as const;
+
+interface PedidoAnulacao { codigos: string[]; reprocessar: boolean; conta: string | null }
+
+/**
+ * Histórico de conciliações bancárias com as colunas e as acções do legado (ui_tesouraria.js:5265-5330): selecção e
+ * «Reabrir Selecionadas», pesquisa por ID e «Consultar histórico», e em cada linha Ver Detalhes, Reprocessar e Anular.
+ * Do novo mantêm-se os filtros (conta, estado, período), as anuladas e o motivo obrigatório (anular não apaga).
+ * Reprocessar = anular (com motivo) e voltar à correspondência automática da conta (`aoReprocessar`).
+ */
+export function HistoricoFiltrado({ contaInicial, aoReprocessar }: { contaInicial?: string; aoReprocessar?: (conta: string | null) => void }) {
   const { pode } = useSessao();
+  const cliente = useQueryClient();
   const [conta, setConta] = useState<string | undefined>(contaInicial);
+  useEffect(() => setConta(contaInicial), [contaInicial]);
   const [estado, setEstado] = useState<string>();
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [textoId, setTextoId] = useState('');
+  const [pesquisaId, setPesquisaId] = useState('');
+  const [seleccao, setSeleccao] = useState<string[]>([]);
   const [detalhe, setDetalhe] = useState<string | null>(null);
-  const [anular, setAnular] = useState<string | null>(null);
+  const [anular, setAnular] = useState<PedidoAnulacao | null>(null);
   const [form] = Form.useForm<{ motivo: string }>();
+  const podeAnular = pode('teso_conc_anular');
   const lista = useQuery({
     queryKey: ['teso', 'reconciliacoes', 'historico', conta, estado, dataApi(periodo?.[0]), dataApi(periodo?.[1])],
     queryFn: () => obter<ItemHistorico[]>('/tesouraria/reconciliacao/historico', { codigo_conta: conta, estado, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }),
   });
+  const linhas = useMemo(() => {
+    const q = pesquisaId.trim().toUpperCase();
+    return (lista.data ?? []).filter((r) => !q || r.reconciliacao_codigo.toUpperCase().includes(q));
+  }, [lista.data, pesquisaId]);
   const det = useQuery({ queryKey: ['teso', 'reconciliacao', 'detalhe', detalhe], queryFn: () => obter<DetalheReconciliacao>(`/tesouraria/reconciliacao/${detalhe}/detalhe`), enabled: !!detalhe });
-  const accao = useAccao({ invalidar: [['teso']], aoSucesso: () => { setAnular(null); form.resetFields(); } });
+  // a mesma anulação do servidor (com motivo) para uma, várias («Reabrir Selecionadas») ou antes de reprocessar
+  const anulacao = useMutation({
+    mutationFn: async ({ codigos, motivo }: PedidoAnulacao & { motivo: string }) => {
+      for (const c of codigos) await enviar('post', `/tesouraria/reconciliacao/${encodeURIComponent(c)}/anular`, { motivo });
+      return codigos.length;
+    },
+    onSuccess: (n, p) => {
+      message.success(p.reprocessar ? 'Conciliação anulada e movimentos carregados para revisão.' : n === 1 ? 'Reconciliação anulada.' : `${n} conciliações reabertas com sucesso.`);
+      setAnular(null);
+      setSeleccao([]);
+      form.resetFields();
+      if (p.reprocessar) aoReprocessar?.(p.conta);
+    },
+    onError: (e) => notificarErro(e, 'Não foi possível anular a reconciliação'),
+    onSettled: () => void cliente.invalidateQueries({ queryKey: ['teso'] }),
+  });
+  const titulo = !anular ? '' : anular.reprocessar ? `Reprocessar a reconciliação ${anular.codigos[0]}`
+    : anular.codigos.length === 1 ? `Anular a reconciliação ${anular.codigos[0]}` : `Reabrir ${anular.codigos.length} conciliações`;
 
   return (
-    <Card>
+    <Card title="Histórico de Conciliações Bancárias">
       <BarraFiltros
         accoes={
-          <BotoesExportar
-            desactivado={!lista.data?.length}
-            obterPedido={() => ({
-              titulo: 'Histórico de reconciliações bancárias',
-              filtros: [conta && `Conta: ${conta}`, estado && `Estado: ${estado === 'ANULADA' ? 'Anuladas' : 'Conciliadas'}`],
-              conteudo: tabelaHtml({
-                colunas: [
-                  { titulo: 'Código', valor: (r: ItemHistorico) => r.reconciliacao_codigo },
-                  { titulo: 'Data', valor: (r) => formatarDataHora(r.data) },
-                  { titulo: 'Conta', valor: (r) => r.conta ?? '' },
-                  { titulo: 'Tipo', valor: (r) => r.tipo ?? '' },
-                  { titulo: 'Grupos', valor: (r) => r.grupos, formato: 'inteiro' },
-                  { titulo: 'Valor (Kz)', valor: (r) => r.valor_total, formato: 'moeda' },
-                  { titulo: 'Estado', valor: (r) => r.estado },
-                  { titulo: 'Motivo da anulação', valor: (r) => r.motivo_anulacao ?? '', quebrar: true },
-                ],
-                linhas: lista.data ?? [],
-              }),
-            })}
-          />
+          <Space wrap>
+            <Input placeholder="Pesquisar ID (ex: REC-)" value={textoId} onChange={(e) => setTextoId(e.target.value)} onPressEnter={() => setPesquisaId(textoId)} style={{ width: 180 }} aria-label="Pesquisar ID" allowClear />
+            <Button type="primary" icon={<IconeFa nome="search" />} onClick={() => { setPesquisaId(textoId); void lista.refetch(); }}>Consultar histórico</Button>
+            {podeAnular && (
+              <Button danger icon={<IconeFa nome="undo" />} onClick={() => (seleccao.length ? setAnular({ codigos: seleccao, reprocessar: false, conta: null }) : message.warning('Selecione pelo menos uma conciliação para reabrir.'))}>
+                Reabrir Selecionadas
+              </Button>
+            )}
+            <BotoesExportar
+              desactivado={!linhas.length}
+              obterPedido={() => ({
+                titulo: 'Histórico de Conciliações Bancárias',
+                filtros: [conta && `Conta: ${conta}`, estado && `Estado: ${estado === 'ANULADA' ? 'Anuladas' : 'Conciliadas'}`, pesquisaId && `ID: ${pesquisaId}`],
+                conteudo: tabelaHtml({
+                  colunas: [
+                    { titulo: 'ID Reconciliação', valor: (r: ItemHistorico) => r.reconciliacao_codigo },
+                    { titulo: 'Banco', valor: (r) => r.conta ?? '---' },
+                    { titulo: 'Período', valor: (r) => textoPeriodo(r.periodo_inicio, r.periodo_fim) },
+                    { titulo: 'Data Proc.', valor: (r) => formatarDataHora(r.data) },
+                    { titulo: 'Itens', valor: (r) => r.itens ?? r.grupos, formato: 'inteiro' },
+                    { titulo: 'Valor Total (Kz)', valor: (r) => r.valor_total, formato: 'moeda' },
+                    { titulo: 'Estado', valor: (r) => r.estado },
+                    { titulo: 'Tipo', valor: (r) => r.tipo ?? '' },
+                    { titulo: 'Motivo da anulação', valor: (r) => r.motivo_anulacao ?? '', quebrar: true },
+                  ],
+                  linhas,
+                }),
+              })}
+            />
+          </Space>
         }
       >
         <SeletorContaFinanceira value={conta} onChange={setConta} prefixos={['43']} placeholder="Conta bancária" allowClear />
@@ -175,23 +236,42 @@ export function HistoricoFiltrado({ contaInicial }: { contaInicial?: string }) {
         <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />
       </BarraFiltros>
       <Table<ItemHistorico>
-        rowKey="id"
+        rowKey="reconciliacao_codigo"
         size="small"
         loading={lista.isFetching}
-        dataSource={lista.data}
+        dataSource={linhas}
         scroll={scrollTabela()}
         pagination={{ pageSize: 25 }}
+        locale={{ emptyText: 'Nenhuma conciliação registada.' }}
+        rowSelection={podeAnular ? {
+          selectedRowKeys: seleccao,
+          onChange: (k) => setSeleccao(k as string[]),
+          getCheckboxProps: (r) => ({ disabled: r.estado !== 'CONCILIADO_BANCO', 'aria-label': `Seleccionar ${r.reconciliacao_codigo}` }),
+        } : undefined}
         columns={[
-          { title: 'Código', dataIndex: 'reconciliacao_codigo', render: (v: string) => <Button type="link" size="small" onClick={() => setDetalhe(v)}>{v}</Button> },
-          { title: 'Data', dataIndex: 'data', render: formatarDataHora },
-          { title: 'Conta', dataIndex: 'conta', responsive: ['md'] },
-          { title: 'Tipo', dataIndex: 'tipo', responsive: ['lg'], render: (v: string | null) => (v ? <Tag>{v === 'AUTOMATICA' ? 'Automática' : 'Manual'}</Tag> : '—') },
-          { title: 'Grupos', dataIndex: 'grupos', align: 'right', responsive: ['lg'] },
-          { title: 'Valor (Kz)', dataIndex: 'valor_total', align: 'right', render: (v: string | null) => <ValorKz valor={v} /> },
-          { title: 'Estado', dataIndex: 'estado', render: (v: string, r) => <span title={r.motivo_anulacao ?? undefined}><EtiquetaEstado estado={v} /></span> },
+          { title: COLUNAS_HISTORICO[0], dataIndex: 'reconciliacao_codigo', render: (v: string) => <strong>{v}</strong> },
+          { title: COLUNAS_HISTORICO[1], dataIndex: 'conta', render: (v: string | null) => <Tag style={{ fontWeight: 600 }}>{v ?? '---'}</Tag> },
+          { title: COLUNAS_HISTORICO[2], key: 'periodo', render: (_, r) => <Typography.Text type="secondary" style={{ fontSize: 12 }}>{textoPeriodo(r.periodo_inicio, r.periodo_fim)}</Typography.Text> },
+          { title: COLUNAS_HISTORICO[3], dataIndex: 'data', render: formatarDataHora },
+          { title: COLUNAS_HISTORICO[4], key: 'itens', align: 'center', render: (_, r) => <Tag style={{ fontWeight: 700 }}>{r.itens ?? r.grupos}</Tag> },
+          { title: COLUNAS_HISTORICO[5], dataIndex: 'valor_total', align: 'right', render: (v: string | null) => <ValorKz valor={v} /> },
+          { title: COLUNAS_HISTORICO[6], dataIndex: 'estado', render: (v: string, r) => <span title={r.motivo_anulacao ?? undefined}><EtiquetaEstado estado={v} /></span> },
+          { title: COLUNAS_HISTORICO[7], dataIndex: 'tipo', responsive: ['lg'], render: (v: string | null) => (v ? <Tag>{v === 'AUTOMATICA' ? 'Automática' : 'Manual'}</Tag> : '—') },
           {
-            title: '', key: 'a',
-            render: (_, r) => pode('teso_conc_anular') && r.estado === 'CONCILIADO_BANCO' ? <Button size="small" danger type="link" onClick={() => setAnular(r.reconciliacao_codigo)}>Anular</Button> : null,
+            title: COLUNAS_HISTORICO[8], key: 'a', align: 'center',
+            render: (_, r) => (
+              <Space size={4}>
+                <Button size="small" icon={<IconeFa nome="eye" />} title="Ver Detalhes" aria-label={`Ver Detalhes ${r.reconciliacao_codigo}`} onClick={() => setDetalhe(r.reconciliacao_codigo)} />
+                {podeAnular && r.estado === 'CONCILIADO_BANCO' && (
+                  <>
+                    <Button size="small" icon={<IconeFa nome="sync-alt" />} style={{ color: '#0891b2' }} title="Reprocessar" aria-label={`Reprocessar ${r.reconciliacao_codigo}`}
+                      onClick={() => setAnular({ codigos: [r.reconciliacao_codigo], reprocessar: true, conta: r.conta })} />
+                    <Button size="small" danger icon={<IconeFa nome="undo" />} title="Anular conciliação" aria-label={`Anular conciliação ${r.reconciliacao_codigo}`}
+                      onClick={() => setAnular({ codigos: [r.reconciliacao_codigo], reprocessar: false, conta: r.conta })} />
+                  </>
+                )}
+              </Space>
+            ),
           },
         ]}
       />
@@ -218,12 +298,54 @@ export function HistoricoFiltrado({ contaInicial }: { contaInicial?: string }) {
           </>
         )}
       </Modal>
-      <Modal open={!!anular} title={`Anular a reconciliação ${anular ?? ''}`} okText="Anular" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} onCancel={() => setAnular(null)} onOk={() => form.submit()}>
-        <Form form={form} layout="vertical" onFinish={(v) => anular && accao.mutate({ url: `/tesouraria/reconciliacao/${anular}/anular`, dados: v })}>
+      <Modal open={!!anular} title={titulo} okText={anular?.reprocessar ? 'Anular e reprocessar' : anular && anular.codigos.length > 1 ? 'Reabrir' : 'Anular'} okButtonProps={{ danger: true }}
+        confirmLoading={anulacao.isPending} onCancel={() => setAnular(null)} onOk={() => form.submit()} destroyOnHidden>
+        <Form form={form} layout="vertical" onFinish={(v) => anular && anulacao.mutate({ ...anular, motivo: v.motivo })}>
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}><Input.TextArea rows={3} maxLength={500} /></Form.Item>
-          <Typography.Text type="secondary">As linhas do extracto e do diário voltam a ficar por reconciliar.</Typography.Text>
+          <Typography.Text type="secondary">
+            {anular?.reprocessar ? 'A conciliação é anulada e os movimentos voltam à correspondência automática da conta para revisão.' : 'As linhas do extracto e do diário voltam a ficar por reconciliar.'}
+          </Typography.Text>
         </Form>
       </Modal>
     </Card>
+  );
+}
+
+/**
+ * «Rascunhos» do cartão de topo (listReconciliationDrafts, ui_tesouraria.js:6405-6455): os rascunhos gravados no servidor,
+ * de todas as contas, com Data Gravação · ID Rascunho · Conta · Grupos e as acções Continuar e Eliminar.
+ */
+export function ModalRascunhos({ aberto, aoFechar, aoContinuar }: { aberto: boolean; aoFechar: () => void; aoContinuar: (r: RascunhoReconciliacao) => void }) {
+  const { pode } = useSessao();
+  const rascunhos = useQuery({ queryKey: ['teso', 'reconciliacao', 'rascunhos', null], queryFn: () => obter<RascunhoReconciliacao[]>('/tesouraria/reconciliacao/rascunhos'), enabled: aberto });
+  const accao = useAccao({ invalidar: [['teso', 'reconciliacao', 'rascunhos']] });
+  return (
+    <Modal open={aberto} title={<><IconeFa nome="edit" /> Rascunhos de conciliação</>} onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>} width={larguraModal(860)}>
+      <Table<RascunhoReconciliacao>
+        rowKey="id" size="small" loading={rascunhos.isFetching} dataSource={rascunhos.data} pagination={{ pageSize: 15 }} scroll={scrollTabela()}
+        locale={{ emptyText: 'Nenhum rascunho encontrado.' }}
+        columns={[
+          { title: 'Data Gravação', dataIndex: 'atualizado_em', render: formatarDataHora },
+          { title: 'ID Rascunho', dataIndex: 'id', render: (v: number) => <Tag style={{ fontFamily: 'monospace' }}>#{v}</Tag> },
+          { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string) => <strong>{v || '---'}</strong> },
+          { title: 'Grupos', key: 'g', align: 'right', render: (_, r) => <strong>{r.grupos.length}</strong> },
+          { title: 'Utilizador', dataIndex: 'criado_por', responsive: ['md'] },
+          {
+            title: 'Ações', key: 'a', align: 'center',
+            render: (_, r) => (
+              <Space size={4}>
+                <Button size="small" type="primary" icon={<IconeFa nome="play" />} onClick={() => aoContinuar(r)}>Continuar</Button>
+                {pode('teso_conc_confirmar') && (
+                  <Popconfirm title="Eliminar este rascunho?" okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
+                    onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/tesouraria/reconciliacao/rascunhos/${r.id}` })}>
+                    <Button size="small" danger icon={<IconeFa nome="trash" />} aria-label={`Eliminar rascunho ${r.id}`} />
+                  </Popconfirm>
+                )}
+              </Space>
+            ),
+          },
+        ]}
+      />
+    </Modal>
   );
 }

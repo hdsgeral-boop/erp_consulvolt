@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, Col, DatePicker, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
+import { Button, Card, Checkbox, DatePicker, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -31,7 +31,7 @@ import { ModalSaldosHistoricos } from './ModalSaldosHistoricos';
 import { ModalClassificacao, ModalTransferir, pedidoClassificacao, type CamposClassificacao } from './ModaisLancamento';
 import { ModalColar, ModalDescontabilizar, ModalEstornar, ModalFluxoLancamento, abrirOrigem, obterOrigem, type AlvoMassa } from './ModaisParidade';
 import type { EstadoCopia } from './NovoLancamento';
-import { camposMassa, filtrosLancamentos, intervaloPeriodo, REMOVER, SEM_ROTULOS, semCriterios, type FiltrosLista, type SemCampo } from './filtros';
+import { camposMassa, filtrosIniciais, filtrosLancamentos, intervaloPeriodo, REMOVER, SEM_ROTULOS, semCriterios, type FiltrosLista, type SemCampo } from './filtros';
 
 // «Agente IA (Ler Documento)» do legado → Assistente IA (M-03, ecrã do grupo Geral), carregado só quando se abre
 const AssistenteIA = lazy(() => import('@/modulos/geral/integracoes/AssistenteIA').then((m) => ({ default: m.AssistenteIA })));
@@ -74,8 +74,9 @@ type Colar = { campo: 'contas' | 'numeroLan' | 'numeroDoc' | 'referencia'; titul
 /**
  * Contabilidade › Lançamentos Contabilísticos (legado: renderLancamentos, js/ui_lancamentos.js:66-950; 8.1.1–8.1.3).
  * Barra de botões pela ordem do legado (Ecrã Cheio, Agente IA (Ler Documento), Baixar Template, Importar Lançamentos,
- * Descontabilizar Selecionados, Importar Histórico, Novo Lançamento); painel de filtros por secções que se mostram/ocultam
- * («Secções», preferência do browser), com «Colar múltiplos» nas contas e na identificação, «Mostrar linhas sem» e
+ * Descontabilizar Selecionados, Importar Histórico, Novo Lançamento); painel de filtros com as secções compactas lado a lado
+ * numa só linha (como «.filtros-grupos» do legado; quebram em ecrãs estreitos), que se mostram/ocultam («Secções», preferência
+ * do browser), Ano pré-seleccionado com o ano corrente, com «Colar múltiplos» nas contas e na identificação, «Mostrar linhas sem» e
  * «Alterar em massa» (selecção ou todas as filtradas, com pré-visualização do n.º de linhas); lista com todas as colunas
  * do legado («Colunas ▾»), totais D/C e as 6 acções por linha. Todas as regras (equilíbrio, exercício, origem do
  * documento, permissões) são verificadas no servidor.
@@ -96,8 +97,8 @@ export function ListaLancamentos() {
   const codigo = (lista: { id: number; codigo: string | null }[] | undefined) => new Map((lista ?? []).map((x) => [x.id, x.codigo ?? String(x.id)]));
 
   // rascunho dos filtros (só se aplicam com «Filtrar», como no legado) e filtros aplicados
-  const [rascunho, setRascunho] = useState<FiltrosLista>({});
-  const [aplicados, setAplicados] = useState<FiltrosLista>({});
+  const [rascunho, setRascunho] = useState<FiltrosLista>(filtrosIniciais);
+  const [aplicados, setAplicados] = useState<FiltrosLista>(filtrosIniciais);
   const [sem, setSem] = useState<SemCampo[]>([]);
   const [selec, setSelec] = useState<number[]>([]);
   const [massa, setMassa] = useState<Record<string, number | undefined>>({});
@@ -129,9 +130,8 @@ export function ListaLancamentos() {
   const comValores: Record<Seccao, boolean> = {
     periodo: !!(rascunho.ano || rascunho.inicio || rascunho.fim),
     datas: !!(rascunho.docInicio || rascunho.docFim || rascunho.criadoInicio || rascunho.criadoFim),
-    conta: !!(rascunho.contas || rascunho.diario),
+    conta: !!(rascunho.contas || rascunho.diario || rascunho.terceiro || rascunho.pesquisa || rascunho.classe9),
     ident: !!(rascunho.numeroLan || rascunho.numeroDoc || rascunho.referencia),
-    terceiro: !!(rascunho.terceiro || rascunho.pesquisa || rascunho.classe9),
     sem: sem.length > 0,
     massa: false,
   };
@@ -292,38 +292,36 @@ export function ListaLancamentos() {
 
   // «Secções» (legado: filtros-vistas): mostrar/ocultar cada secção ou todas
   const barraSeccoes: ReactNode = (
-    <Col span={24}>
-      <Flex wrap gap={6} align="center" role="toolbar" aria-label="Mostrar ou ocultar secções dos filtros" style={{ fontSize: 12 }}>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          <IconeFa nome="sliders-h" /> Secções
-        </Typography.Text>
-        {seccoesDisponiveis.map((s) => {
-          const on = visivel(s.chave);
-          return (
-            <Button
-              key={s.chave}
-              size="small"
-              type={on ? 'primary' : 'default'}
-              ghost={on}
-              aria-pressed={on}
-              title={`${on ? 'Ocultar' : 'Mostrar'} ${s.rotulo}`}
-              icon={<IconeFa nome={on ? 'eye' : 'eye-slash'} />}
-              onClick={() => mudarSeccoes(s.chave)}
-            >
-              {s.rotulo}
-              {!on && comValores[s.chave] && <span title="Tem filtros preenchidos" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 3, background: token.colorWarning, marginLeft: 4 }} />}
-            </Button>
-          );
-        })}
-        <span style={{ width: 1, height: 16, background: token.colorBorder, margin: '0 4px' }} />
-        <Button size="small" type="link" disabled={ocultas.length === 0} onClick={() => mudarSeccoes('todas')}>
-          Mostrar todas
-        </Button>
-        <Button size="small" type="link" disabled={ocultas.length >= seccoesDisponiveis.length} onClick={() => mudarSeccoes('nenhuma')}>
-          Ocultar todas
-        </Button>
-      </Flex>
-    </Col>
+    <Flex wrap gap={6} align="center" role="toolbar" aria-label="Mostrar ou ocultar secções dos filtros" style={{ fontSize: 12 }}>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        <IconeFa nome="sliders-h" /> Secções
+      </Typography.Text>
+      {seccoesDisponiveis.map((s) => {
+        const on = visivel(s.chave);
+        return (
+          <Button
+            key={s.chave}
+            size="small"
+            type={on ? 'primary' : 'default'}
+            ghost={on}
+            aria-pressed={on}
+            title={`${on ? 'Ocultar' : 'Mostrar'} ${s.rotulo}`}
+            icon={<IconeFa nome={on ? 'eye' : 'eye-slash'} />}
+            onClick={() => mudarSeccoes(s.chave)}
+          >
+            {s.rotulo}
+            {!on && comValores[s.chave] && <span title="Tem filtros preenchidos" style={{ display: 'inline-block', width: 6, height: 6, borderRadius: 3, background: token.colorWarning, marginLeft: 4 }} />}
+          </Button>
+        );
+      })}
+      <span style={{ width: 1, height: 16, background: token.colorBorder, margin: '0 4px' }} />
+      <Button size="small" type="link" disabled={ocultas.length === 0} onClick={() => mudarSeccoes('todas')}>
+        Mostrar todas
+      </Button>
+      <Button size="small" type="link" disabled={ocultas.length >= seccoesDisponiveis.length} onClick={() => mudarSeccoes('nenhuma')}>
+        Ocultar todas
+      </Button>
+    </Flex>
   );
 
   return (
@@ -374,6 +372,7 @@ export function ListaLancamentos() {
       <div ref={ecra.ref} style={{ background: token.colorBgContainer, overflow: ecra.cheio ? 'auto' : undefined, padding: ecra.cheio ? 16 : undefined }}>
         <PainelFiltros
           aria="Filtros dos lançamentos"
+          topo={barraSeccoes}
           rodape={
             <>
               <Flex wrap gap={8} align="center" style={{ flex: '1 1 auto', minWidth: 0 }}>
@@ -419,9 +418,8 @@ export function ListaLancamentos() {
             </>
           }
         >
-          {barraSeccoes}
           {visivel('periodo') && (
-            <GrupoFiltros titulo="Período fiscal" icone={<IconeFa nome="calendar-alt" />} largura={12}>
+            <GrupoFiltros titulo="Período fiscal" icone={<IconeFa nome="calendar-alt" />}>
               <CampoFiltro rotulo="Ano" htmlFor="filt-quick-year">
                 <Select
                   id="filt-quick-year"
@@ -430,7 +428,8 @@ export function ListaLancamentos() {
                   style={{ width: '100%' }}
                   value={rascunho.ano}
                   options={ANOS.map((a) => ({ value: a, label: String(a) }))}
-                  onChange={(ano?: number) => muda({ ano, mes: ano ? rascunho.mes : undefined, ...intervaloPeriodo(ano, ano ? rascunho.mes : undefined) })}
+                  // com Ano, as datas fiscais são as do ano/período; ao limpar o Ano, limpam-se também (vinham dele)
+                  onChange={(ano?: number) => muda(ano ? { ano, mes: rascunho.mes, ...intervaloPeriodo(ano, rascunho.mes) } : { ano: undefined, mes: undefined, inicio: undefined, fim: undefined })}
                 />
               </CampoFiltro>
               <CampoFiltro rotulo="Período" htmlFor="filt-quick-month">
@@ -454,7 +453,7 @@ export function ListaLancamentos() {
             </GrupoFiltros>
           )}
           {visivel('datas') && (
-            <GrupoFiltros titulo="Datas do documento e do lançamento" icone={<IconeFa nome="clock" />} largura={12}>
+            <GrupoFiltros titulo="Datas do documento e do lançamento" icone={<IconeFa nome="clock" />}>
               <CampoFiltro rotulo="Data doc. (início)" htmlFor="filt-doc-date-start">
                 <CampoData id="filt-doc-date-start" rotulo="Data doc. (início)" valor={rascunho.docInicio} aoMudar={(docInicio) => muda({ docInicio })} />
               </CampoFiltro>
@@ -470,7 +469,7 @@ export function ListaLancamentos() {
             </GrupoFiltros>
           )}
           {visivel('conta') && (
-            <GrupoFiltros titulo="Conta e diário" icone={<IconeFa nome="sitemap" />}>
+            <GrupoFiltros titulo="Conta, diário e terceiro" icone={<IconeFa nome="sitemap" />}>
               <CampoFiltro rotulo="Conta(s)" htmlFor="filt-account" largo>
                 <CampoColar
                   id="filt-account"
@@ -484,6 +483,17 @@ export function ListaLancamentos() {
               </CampoFiltro>
               <CampoFiltro rotulo="Diário" htmlFor="filt-journal" largo>
                 <SeletorDiario id="filt-journal" placeholder="[Todos os diários]" allowClear style={{ width: '100%' }} value={rascunho.diario} onChange={(diario) => muda({ diario })} />
+              </CampoFiltro>
+              <CampoFiltro rotulo="Terceiro" htmlFor="filt-terceiro" largo>
+                <SeletorTerceiro id="filt-terceiro" style={{ width: '100%' }} value={rascunho.terceiro} onChange={(terceiro) => muda({ terceiro })} />
+              </CampoFiltro>
+              <CampoFiltro rotulo="Descrição contém" htmlFor="filt-desc">
+                <Input id="filt-desc" placeholder="Texto…" allowClear value={rascunho.pesquisa} onChange={(e) => muda({ pesquisa: e.target.value })} onPressEnter={filtrar} />
+              </CampoFiltro>
+              <CampoFiltro rotulo="Contas de ordem">
+                <Checkbox checked={!!rascunho.classe9} onChange={(e) => muda({ classe9: e.target.checked })}>
+                  Incluir classe 9
+                </Checkbox>
               </CampoFiltro>
             </GrupoFiltros>
           )}
@@ -521,21 +531,6 @@ export function ListaLancamentos() {
                   aoColar={() => setColar({ campo: 'referencia', titulo: 'Colar Referências' })}
                   aoConfirmar={filtrar}
                 />
-              </CampoFiltro>
-            </GrupoFiltros>
-          )}
-          {visivel('terceiro') && (
-            <GrupoFiltros titulo="Terceiro e descrição" icone={<IconeFa nome="user" />}>
-              <CampoFiltro rotulo="Terceiro" htmlFor="filt-terceiro" largo>
-                <SeletorTerceiro id="filt-terceiro" style={{ width: '100%' }} value={rascunho.terceiro} onChange={(terceiro) => muda({ terceiro })} />
-              </CampoFiltro>
-              <CampoFiltro rotulo="Descrição contém" htmlFor="filt-desc">
-                <Input id="filt-desc" placeholder="Texto…" allowClear value={rascunho.pesquisa} onChange={(e) => muda({ pesquisa: e.target.value })} onPressEnter={filtrar} />
-              </CampoFiltro>
-              <CampoFiltro rotulo="Contas de ordem">
-                <Checkbox checked={!!rascunho.classe9} onChange={(e) => muda({ classe9: e.target.checked })}>
-                  Incluir classe 9
-                </Checkbox>
               </CampoFiltro>
             </GrupoFiltros>
           )}

@@ -16,7 +16,7 @@ import {
   urlSegura,
   urlsDasDescricoes,
 } from './ferramentas';
-import { filtrosLancamentos, semCriterios } from './filtros';
+import { filtrosIniciais, filtrosLancamentos, semCriterios } from './filtros';
 import { destinoOrigem } from './ModaisParidade';
 
 const vazio = new Map<number, string>();
@@ -51,6 +51,12 @@ describe('8.1.1 — colar múltiplas contas/documentos', () => {
   it('envia as listas e as datas do documento/lançamento à API', () => {
     const p = filtrosLancamentos({ numeroDoc: 'A, B', docInicio: '2026-01-01', docFim: '2026-01-31', criadoInicio: '2026-02-01', criadoFim: '2026-02-02' }, []);
     expect(p).toMatchObject({ numero_documento: 'A, B', data_doc_inicio: '2026-01-01', data_doc_fim: '2026-01-31', criado_inicio: '2026-02-01', criado_fim: '2026-02-02' });
+  });
+  it('o Ano vem pré-seleccionado com o ano corrente (intervalo fiscal do ano inteiro)', () => {
+    const ano = new Date().getFullYear();
+    expect(filtrosIniciais()).toEqual({ ano, inicio: `${ano}-01-01`, fim: `${ano}-12-31` });
+    expect(filtrosLancamentos(filtrosIniciais(2026), [])).toMatchObject({ data_inicio: '2026-01-01', data_fim: '2026-12-31' });
+    expect(semCriterios(filtrosIniciais(2026), [])).toBe(false);
   });
   it('sem critérios, as operações «a todas as filtradas» não são permitidas (classe 9 não conta)', () => {
     expect(semCriterios({}, [])).toBe(true);

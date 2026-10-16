@@ -488,6 +488,57 @@ final class ServicoAnaliticoProjetos
         }
     }
 
+    /**
+     * Indicadores do semáforo da carteira, por projecto (só os ids pedidos — a página da listagem). São os números de que
+     * dependem os alertas de PRAZO e ORÇAMENTO do Resumo (alertas(), abaixo), calculados da mesma forma: tarefas em atraso,
+     * ritmo (execução ÷ tempo decorrido), consumo do orçamento, rubricas acima do orçado e dias até ao fim. A cor decide-se
+     * no ecrã (frontend/src/modulos/projectos/comum/regraSemaforo.ts) com os mesmos limiares.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, array<string, mixed>>
+     */
+    public function indicadoresSemaforo(array $ids): array
+    {
+        if (! $ids) {
+            return [];
+        }
+        $hoje = now()->toDateString();
+        $tarefas = TarefaProjeto::query()->whereIn('projeto_id', $ids)->get()->groupBy('projeto_id');
+        $orc = LinhaOrcamentoProjeto::query()->whereIn('projeto_id', $ids)->get()->groupBy('projeto_id');
+        $movs = collect($this->movimentos($ids))->groupBy('projeto_id');
+        $saida = [];
+        foreach ($ids as $id) {
+            $ts = $tarefas[$id] ?? collect();
+            $prog = ServicoPlaneamentoProjetos::progresso($ts);
+            $prazo = self::prazo($ts, $prog['global'], $hoje);
+            $linhas = $orc[$id] ?? collect();
+            $orcTotal = (float) $linhas->sum(fn ($l) => (float) $l->montante);
+            $orcPorRubrica = [];
+            foreach ($linhas as $l) {
+                $orcPorRubrica[$l->rubrica ?: 'DIVERSOS'] = ($orcPorRubrica[$l->rubrica ?: 'DIVERSOS'] ?? 0) + (float) $l->montante;
+            }
+            $realPorRubrica = [];
+            $custo = 0.0;
+            foreach ($movs[$id] ?? [] as $m) {
+                if ($m['natureza'] === 'CUSTO') {
+                    $realPorRubrica[$m['categoria']] = ($realPorRubrica[$m['categoria']] ?? 0) + (float) $m['valor'];
+                    $custo += (float) $m['valor'];
+                }
+            }
+            $saida[$id] = [
+                'tarefas' => $ts->count(),
+                // o mesmo critério do alerta TAREFAS_ATRASADAS
+                'tarefas_atrasadas' => $ts->filter(fn ($t) => $t->data_fim && $t->data_fim->toDateString() < $hoje && $t->estadoEfetivo() !== 'CONCLUIDA'
+                    && (float) $t->percentagem_execucao < 100)->count(),
+                'execucao' => $prog['global'], 'desempenho' => $prazo['desempenho'], 'restantes_dias' => $prazo['restantes_dias'],
+                'orcamento' => round($orcTotal, 2), 'consumo_pct' => $orcTotal > 0 ? round($custo / $orcTotal * 100, 2) : 0.0,
+                'rubricas_excedidas' => count(array_filter($orcPorRubrica, fn ($v, $r) => $v > 0 && ($realPorRubrica[$r] ?? 0) > $v, ARRAY_FILTER_USE_BOTH)),
+            ];
+        }
+
+        return $saida;
+    }
+
     /** Alertas e pontos de atenção (projectos_dashboard.js:347-369). */
     private function alertas(Projeto $p, Collection $tarefas, array $prog, array $prazo, Collection $orcamento, array $orcTarefa, array $orcPorRubrica, array $realPorRubrica,
         float $consumo, Collection $requisicoes, Collection $aditamentos, Collection $membros, Collection $nos, float $vendaGlobal, float $factPct, string $hoje): array

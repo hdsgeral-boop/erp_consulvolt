@@ -660,6 +660,10 @@ export interface ResumoPortal {
   faltas_injustificadas_mes?: number;
   faltas_injustificadas_ano?: number;
   pedidos_pendentes: number;
+  /** Pedidos de documentos do próprio já emitidos (portal_ui.js:179). */
+  documentos_emitidos?: number;
+  /** Autoavaliação ANUAL do ano corrente (portal_ui.js:180). */
+  autoavaliacao?: { ano: number; periodo: string; estado: 'SUBMETIDA' | 'RASCUNHO' | 'POR_FAZER' };
   aprovacoes_para_mim: number;
 }
 

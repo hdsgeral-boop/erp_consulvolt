@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Skeleton, Space, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Skeleton, Space, Tabs, Tag, Typography, message } from 'antd';
 import { ArrowLeftOutlined, DeleteOutlined, TagsOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -6,11 +6,11 @@ import { useMemo, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { pares, tabelaHtml } from '@/componentes/impressao';
+import { pares, tabelaHtml, useImpressao } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { EtiquetaEstado, ValorKz } from '../contab/comum/Componentes';
+import { EtiquetaEstado } from '../contab/comum/Componentes';
 import { deCentimos, paraCentimos } from '@/utilitarios/decimal';
 import { SeletorAux, SeletorConta, SeletorTerceiro, SeletorUnidade } from '../contab/comum/Seletores';
 import { porId, usePlanoContas, useTabelaAux, useUnidadesNegocio } from '../contab/comum/dados';
@@ -21,7 +21,7 @@ import { ModalClassificarMovimentos } from './caixa/ModalClassificarMovimentos';
 import type { ModoLiquidacao } from './caixaLiquidacao';
 import type { MovimentoCaixa, SessaoCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';
-import { accoesSessao } from './regras';
+import { accoesSessao, sessaoAbertaRecente, valorComMoeda } from './regras';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
@@ -68,6 +68,34 @@ export function pedidoFolhaCaixa(s: SessaoCaixa) {
   };
 }
 
+/** Pedido de uma acção sobre a sessão de caixa (contabilizar, eliminar, movimentos, fecho…), igual no detalhe e na lista. */
+export interface PedidoAccaoSessao { id: number | string; metodo?: 'post' | 'put' | 'delete'; caminho: string; dados?: unknown }
+
+/**
+ * Acções da sessão de caixa (POST/PUT/DELETE /tesouraria/caixa/sessoes/{id}{caminho}) com a mensagem do servidor e a
+ * invalidação da Tesouraria e da Contabilidade — partilhada pelo detalhe e pelas acções na linha da lista de sessões.
+ */
+export function useAccaoSessaoCaixa(aoSucesso?: (v: PedidoAccaoSessao) => void) {
+  const cliente = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, metodo = 'post', caminho, dados }: PedidoAccaoSessao) => enviar<SessaoCaixa | null>(metodo, `/tesouraria/caixa/sessoes/${id}${caminho}`, dados),
+    onSuccess: ({ mensagem }, v) => {
+      message.success(mensagem);
+      void cliente.invalidateQueries({ queryKey: ['teso'] });
+      void cliente.invalidateQueries({ queryKey: ['contab'] });
+      aoSucesso?.(v);
+    },
+    onError: (e) => notificarErro(e),
+  });
+}
+
+/** Confirmação da contabilização da sessão (a mesma no detalhe e na linha da lista). */
+export function confirmarContabilizacao(executar: () => Promise<unknown>) {
+  Modal.confirm({ title: 'Contabilizar a sessão?', content: 'São gerados os lançamentos no diário de caixa.', okText: 'Contabilizar', cancelText: 'Cancelar', onOk: executar });
+}
+
+export const TITULO_ELIMINAR_SESSAO = 'Eliminar esta sessão (sem movimentos)?';
+
 /** Tesouraria › Folha de Caixa (ecrã teso_folha_caixa): sessões por conta 45, movimentos, fecho com contagem e contabilização (diário CX). */
 export default function FolhaCaixa() {
   return (
@@ -75,6 +103,29 @@ export default function FolhaCaixa() {
       <Route index element={<ListaSessoes />} />
       <Route path=":id" element={<DetalheSessao />} />
     </Routes>
+  );
+}
+
+/**
+ * Sub-separadores do legado (ui_folha_caixa.js:66-70): «Sessões» e, havendo sessão aberta, «Caixa Aberta» — aqui o
+ * detalhe dessa sessão (rota :id). Mostram-se na lista e no detalhe da sessão aberta.
+ */
+function SubSeparadoresCaixa({ activo, idAberta }: { activo: 'sessoes' | 'caixa'; idAberta?: number }) {
+  const navegar = useNavigate();
+  const itens = [
+    { key: 'sessoes', label: <><IconeFa nome="list" /> Sessões</> },
+    ...(idAberta !== undefined ? [{ key: 'caixa', label: <><IconeFa nome="receipt" /> Caixa Aberta</> }] : []),
+  ];
+  return (
+    <Tabs
+      activeKey={activo}
+      items={itens}
+      style={{ marginBottom: 8 }}
+      onChange={(k) => {
+        if (k === activo) return;
+        navegar(k === 'sessoes' ? '..' : String(idAberta), { relative: 'path' });
+      }}
+    />
   );
 }
 
@@ -101,8 +152,8 @@ function ListaSessoes() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Folha de Caixa"
-        subtitulo="Sessões de caixa por conta"
+        titulo={<><IconeFa nome="cash-register" /> Folha de Caixa</>}
+        subtitulo="Gestão de sessões de caixa, pagamentos e recebimentos diários."
         impressaoDesactivada={!sessoes.data?.length}
         impressao={() => ({
           titulo: 'Sessões de caixa',
@@ -124,7 +175,8 @@ function ListaSessoes() {
         })}
         accoes={pode('teso_caixa_operar') && <Button icon={<IconeFa nome="door-open" />} style={{ color: '#059669', borderColor: '#059669' }} onClick={() => { form.setFieldsValue({ data: dayjs() }); setAbrir(true); }}>Abrir sessão</Button>}
       />
-      <Card>
+      <SubSeparadoresCaixa activo="sessoes" idAberta={sessaoAbertaRecente(sessoes.data)?.id} />
+      <Card title={<><IconeFa nome="history" /> Histórico de Sessões</>}>
         <Space wrap style={{ marginBottom: 16 }}>
           <SeletorContaFinanceira value={conta} onChange={setConta} allowClear prefixos={['45']} placeholder="Conta de caixa" />
         </Space>
@@ -139,22 +191,38 @@ function ListaSessoes() {
           columns={[
             { title: 'Data Abertura', dataIndex: 'data_abertura', render: formatarData },
             {
-              title: 'Conta', dataIndex: 'codigo_conta', responsive: ['sm'], valorImpressao: (r) => `${r.codigo_conta}${r.descricao_conta ? ` ${r.descricao_conta}` : ''}`,
-              render: (v: string, r) => <><strong>{v}</strong>{r.descricao_conta && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{r.descricao_conta}</Typography.Text>}</>,
+              // uma só linha como no legado: «<strong>código</strong> <small>descrição</small>», com reticências
+              title: 'Conta', dataIndex: 'codigo_conta', responsive: ['sm'], ellipsis: { showTitle: false }, width: 240,
+              valorImpressao: (r) => `${r.codigo_conta}${r.descricao_conta ? ` ${r.descricao_conta}` : ''}`,
+              render: (v: string, r) => (
+                <span title={`${v}${r.descricao_conta ? ` ${r.descricao_conta}` : ''}`} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <strong>{v}</strong>{r.descricao_conta && <Typography.Text type="secondary" style={{ fontSize: 12 }}> {r.descricao_conta}</Typography.Text>}
+                </span>
+              ),
             },
-            { title: 'Operador', dataIndex: 'operador', responsive: ['lg'] },
-            { title: 'Saldo Inicial', dataIndex: 'saldo_abertura', align: 'right', responsive: ['lg'], render: (v: string | null) => <ValorKz valor={v} /> },
-            { title: 'Entradas', dataIndex: 'total_entradas', align: 'right', responsive: ['md'], render: (v: string | null | undefined) => (v === undefined || v === null ? '—' : <span style={{ color: '#059669', whiteSpace: 'nowrap' }}>{formatarKz(v)}</span>) },
-            { title: 'Saídas', dataIndex: 'total_saidas', align: 'right', responsive: ['md'], render: (v: string | null | undefined) => (v === undefined || v === null ? '—' : <span style={{ color: '#dc2626', whiteSpace: 'nowrap' }}>{formatarKz(v)}</span>) },
-            { title: 'Saldo Final', key: 'saldo_final', align: 'right', render: (_, r) => <strong><ValorKz valor={r.saldo_fecho ?? r.saldo_sistema ?? null} /></strong>, valorImpressao: (r) => formatarKz(r.saldo_fecho ?? r.saldo_sistema ?? null) },
-            { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
+            { title: 'Operador', dataIndex: 'operador', responsive: ['lg'], render: (v: string | null) => v || '-' },
+            {
+              title: 'Saldo Inicial', dataIndex: 'saldo_abertura', align: 'right', responsive: ['lg'], valorImpressao: (r) => valorComMoeda(r.saldo_abertura ?? 0, r.codigo_moeda),
+              render: (v: string | null, r) => <span style={{ whiteSpace: 'nowrap' }}>{valorComMoeda(v ?? 0, r.codigo_moeda)}</span>,
+            },
+            {
+              title: 'Entradas', dataIndex: 'total_entradas', align: 'right', responsive: ['md'], valorImpressao: (r) => valorComMoeda(r.total_entradas, r.codigo_moeda),
+              render: (v: string | null | undefined, r) => <span style={{ color: '#059669', whiteSpace: 'nowrap' }}>{valorComMoeda(v, r.codigo_moeda)}</span>,
+            },
+            {
+              title: 'Saídas', dataIndex: 'total_saidas', align: 'right', responsive: ['md'], valorImpressao: (r) => valorComMoeda(r.total_saidas, r.codigo_moeda),
+              render: (v: string | null | undefined, r) => <span style={{ color: '#dc2626', whiteSpace: 'nowrap' }}>{valorComMoeda(v, r.codigo_moeda)}</span>,
+            },
+            {
+              title: 'Saldo Final', key: 'saldo_final', align: 'right', valorImpressao: (r) => valorComMoeda(r.saldo_fecho ?? r.saldo_sistema ?? null, r.codigo_moeda),
+              render: (_, r) => <strong style={{ whiteSpace: 'nowrap' }}>{valorComMoeda(r.saldo_fecho ?? r.saldo_sistema ?? null, r.codigo_moeda)}</strong>,
+            },
+            // texto simples, como o legado mostra o estado da sessão (ABERTA / FECHADA / CONTABILIZADA)
+            { title: 'Estado', dataIndex: 'estado' },
             { title: 'Sessão', dataIndex: 'id', ocultaPorOmissao: true, render: (v: number) => <strong>#{v}</strong> },
             { title: 'Fecho', dataIndex: 'data_fecho', ocultaPorOmissao: true, render: formatarData },
-            { title: 'Contado', dataIndex: 'saldo_fisico', align: 'right', ocultaPorOmissao: true, render: (v: string | null) => <ValorKz valor={v} /> },
-            {
-              title: 'Acções', key: 'accoes', valorImpressao: () => '',
-              render: (_, r) => <Button size="small" icon={<IconeFa nome={r.estado === 'ABERTA' ? 'cash-register' : 'eye'} />} onClick={(e) => { e.stopPropagation(); navegar(String(r.id)); }}>{r.estado === 'ABERTA' ? 'Ir para a caixa' : 'Ver'}</Button>,
-            },
+            { title: 'Contado', dataIndex: 'saldo_fisico', align: 'right', ocultaPorOmissao: true, render: (v: string | null, r) => <span style={{ whiteSpace: 'nowrap' }}>{valorComMoeda(v, r.codigo_moeda)}</span> },
+            { title: 'Acções', key: 'accoes', align: 'right', valorImpressao: () => '', render: (_, r) => <AccoesLinhaSessao sessao={r} /> },
           ]}
         />
       </Card>
@@ -172,6 +240,46 @@ function ListaSessoes() {
         </Form>
       </Modal>
     </>
+  );
+}
+
+/**
+ * Acções na linha da lista de sessões, como no legado (ui_folha_caixa.js:120-126): ir para a caixa (aberta), ver, imprimir
+ * (a mesma folha do detalhe, lida do servidor com os movimentos), contabilizar e eliminar — com as mesmas regras
+ * (`accoesSessao`), a mesma acção (`useAccaoSessaoCaixa`) e as mesmas confirmações do detalhe. Ao contrário do legado,
+ * eliminar só aparece na sessão aberta sem movimentos (o servidor recusa as outras); a fechada reabre-se no detalhe.
+ */
+export function AccoesLinhaSessao({ sessao: r }: { sessao: SessaoCaixa }) {
+  const navegar = useNavigate();
+  const { pode } = useSessao();
+  const cliente = useQueryClient();
+  const { imprimir, aImprimir } = useImpressao();
+  const accao = useAccaoSessaoCaixa();
+  const a = accoesSessao(r, pode);
+  const parar = (e?: React.MouseEvent) => e?.stopPropagation();
+  const imprimirFolha = async () => {
+    try {
+      const s = await cliente.fetchQuery({ queryKey: ['teso', 'caixa', 'sessao', String(r.id)], queryFn: () => obter<SessaoCaixa>(`/tesouraria/caixa/sessoes/${r.id}`) });
+      await imprimir(pedidoFolhaCaixa(s));
+    } catch (e) {
+      notificarErro(e, 'Não foi possível imprimir a folha de caixa');
+    }
+  };
+  return (
+    <Space size={4} onClick={parar}>
+      {r.estado === 'ABERTA' && <Button size="small" type="primary" icon={<IconeFa nome="arrow-right" />} title="Ir para Caixa" aria-label="Ir para Caixa" onClick={() => navegar(String(r.id))} />}
+      <Button size="small" icon={<IconeFa nome="eye" />} title="Ver Detalhes" aria-label="Ver Detalhes" onClick={() => navegar(String(r.id))} />
+      <Button size="small" icon={<IconeFa nome="print" />} title="Imprimir" aria-label="Imprimir" loading={aImprimir} onClick={() => void imprimirFolha()} />
+      {a.podeContabilizar && (
+        <Button size="small" icon={<IconeFa nome="check-double" />} style={{ color: '#059669', borderColor: '#059669' }} title="Contabilizar" aria-label="Contabilizar" loading={accao.isPending}
+          onClick={() => confirmarContabilizacao(() => accao.mutateAsync({ id: r.id, caminho: '/contabilizar' }))} />
+      )}
+      {a.podeEliminar && (
+        <Popconfirm title={TITULO_ELIMINAR_SESSAO} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ id: r.id, metodo: 'delete', caminho: '' })}>
+          <Button size="small" danger icon={<IconeFa nome="trash" />} title="Eliminar" aria-label="Eliminar" />
+        </Popconfirm>
+      )}
+    </Space>
   );
 }
 
@@ -248,7 +356,6 @@ function DetalheSessao() {
   const { id } = useParams();
   const navegar = useNavigate();
   const { pode } = useSessao();
-  const cliente = useQueryClient();
   const [movimento, setMovimento] = useState(false);
   const [fecho, setFecho] = useState(false);
   const [descontab, setDescontab] = useState(false);
@@ -268,23 +375,16 @@ function DetalheSessao() {
   const contado = Form.useWatch('saldo_fisico', formFecho);
   const consulta = useQuery({ queryKey: ['teso', 'caixa', 'sessao', id], queryFn: () => obter<SessaoCaixa>(`/tesouraria/caixa/sessoes/${id}`) });
 
-  const accao = useMutation({
-    mutationFn: ({ metodo = 'post', caminho, dados }: { metodo?: 'post' | 'put' | 'delete'; caminho: string; dados?: unknown }) => enviar<SessaoCaixa | null>(metodo, `/tesouraria/caixa/sessoes/${id}${caminho}`, dados),
-    onSuccess: ({ mensagem }, { caminho, metodo }) => {
-      message.success(mensagem);
-      setMovimento(false);
-      setFecho(false);
-      setDescontab(false);
-      setClassificar(false);
-      setReabrir(false);
-      setSeleccionados([]);
-      formMov.resetFields();
-      formMotivo.resetFields();
-      void cliente.invalidateQueries({ queryKey: ['teso'] });
-      void cliente.invalidateQueries({ queryKey: ['contab'] });
-      if (metodo === 'delete' && caminho === '') navegar('..');
-    },
-    onError: (e) => notificarErro(e),
+  const accao = useAccaoSessaoCaixa(({ caminho, metodo }) => {
+    setMovimento(false);
+    setFecho(false);
+    setDescontab(false);
+    setClassificar(false);
+    setReabrir(false);
+    setSeleccionados([]);
+    formMov.resetFields();
+    formMotivo.resetFields();
+    if (metodo === 'delete' && caminho === '') navegar('..');
   });
 
   if (consulta.isLoading) return <Skeleton active />;
@@ -305,16 +405,17 @@ function DetalheSessao() {
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
             {a.podeReabrir && <Button icon={<UnlockOutlined />} onClick={() => setReabrir(true)}>Reabrir sessão</Button>}
-            {a.podeContabilizar && <Button type="primary" loading={accao.isPending} onClick={() => Modal.confirm({ title: 'Contabilizar a sessão?', content: 'São gerados os lançamentos no diário de caixa.', okText: 'Contabilizar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ caminho: '/contabilizar' }) })}>Contabilizar</Button>}
+            {a.podeContabilizar && <Button type="primary" loading={accao.isPending} onClick={() => confirmarContabilizacao(() => accao.mutateAsync({ id: id!, caminho: '/contabilizar' }))}>Contabilizar</Button>}
             {a.podeDescontabilizar && <Button danger onClick={() => setDescontab(true)}>Descontabilizar</Button>}
             {a.podeEliminar && (
-              <Popconfirm title="Eliminar esta sessão (sem movimentos)?" okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', caminho: '' })}>
+              <Popconfirm title={TITULO_ELIMINAR_SESSAO} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ id: id!, metodo: 'delete', caminho: '' })}>
                 <Button danger icon={<DeleteOutlined />}>Eliminar</Button>
               </Popconfirm>
             )}
           </>
         }
       />
+      {s.estado === 'ABERTA' && <SubSeparadoresCaixa activo="caixa" idAberta={s.id} />}
       <Card style={{ marginBottom: 16 }}>
         {/* resumo da sessão do legado (ui_folha_caixa.js:147-175 e 1246-1263): saldo inicial, entradas, saídas, saldo actual / diferença */}
         <GrelhaKpi larguraMinima={180}>
@@ -394,7 +495,7 @@ function DetalheSessao() {
               title: '',
               render: (_, m) =>
                 a.podeRegistar && !m.contabilizado ? (
-                  <Popconfirm title="Remover este movimento?" okText="Remover" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ metodo: 'delete', caminho: `/movimentos/${m.id}` })}>
+                  <Popconfirm title="Remover este movimento?" okText="Remover" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => accao.mutateAsync({ id: id!, metodo: 'delete', caminho: `/movimentos/${m.id}` })}>
                     <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Remover" />
                   </Popconfirm>
                 ) : null,
@@ -407,7 +508,7 @@ function DetalheSessao() {
         nomeRegistos="movimentos de caixa" invalidar={[['teso'], ['contab']]} gravarLinha={(r) => enviar('post', `/tesouraria/caixa/sessoes/${id}/movimentos`, dadosMovimento(r))}
         nota="Um movimento por linha (entrada ou saída desta sessão), com a conta de contrapartida. Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário. Campos com * são obrigatórios."
         okText="Registar" confirmLoading={accao.isPending} onOk={() => formMov.submit()} width={larguraModal(720)}>
-        <Form form={formMov} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/movimentos', dados: dadosMovimento(v as unknown as Record<string, unknown>) })}>
+        <Form form={formMov} layout="vertical" onFinish={(v) => accao.mutate({ id: id!, caminho: '/movimentos', dados: dadosMovimento(v as unknown as Record<string, unknown>) })}>
           <Row gutter={12}>
             <Col xs={24} sm={10}>
               <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
@@ -450,7 +551,7 @@ function DetalheSessao() {
       </ModalFormulario>
 
       <Modal width={larguraModal(480)} title="Fechar sessão (contagem)" open={fecho} onCancel={() => setFecho(false)} okText="Fechar sessão" confirmLoading={accao.isPending} onOk={() => formFecho.submit()}>
-        <Form form={formFecho} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/fechar', dados: { saldo_fisico: v.saldo_fisico, data: dataApi(v.data) } })}>
+        <Form form={formFecho} layout="vertical" onFinish={(v) => accao.mutate({ id: id!, caminho: '/fechar', dados: { saldo_fisico: v.saldo_fisico, data: dataApi(v.data) } })}>
           <Typography.Paragraph>Saldo do sistema: <strong>{formatarKz(s.saldo_sistema, true)}</strong></Typography.Paragraph>
           <Form.Item name="saldo_fisico" label="Saldo contado (Kz)" rules={[{ required: true }]}>
             <InputNumber min={0} precision={2} style={{ width: '100%' }} />
@@ -470,7 +571,7 @@ function DetalheSessao() {
           quantidade={seleccionados.length}
           carregando={accao.isPending}
           aoFechar={() => setClassificar(false)}
-          aoConfirmar={(campos) => accao.mutate({ metodo: 'put', caminho: '/movimentos/classificacao', dados: { movimentos: seleccionados, ...campos } })}
+          aoConfirmar={(campos) => accao.mutate({ id: id!, metodo: 'put', caminho: '/movimentos/classificacao', dados: { movimentos: seleccionados, ...campos } })}
         />
       )}
       <ModalMotivo
@@ -479,12 +580,12 @@ function DetalheSessao() {
         textoOk="Reabrir"
         aviso="A sessão volta a ficar aberta com os mesmos movimentos; a contagem e o fecho anteriores ficam na auditoria e terá de a fechar de novo."
         carregando={accao.isPending}
-        aoConfirmar={(motivo) => accao.mutate({ caminho: '/reabrir', dados: { motivo } })}
+        aoConfirmar={(motivo) => accao.mutate({ id: id!, caminho: '/reabrir', dados: { motivo } })}
         aoFechar={() => setReabrir(false)}
       />
 
       <Modal width={larguraModal(480)} title="Descontabilizar a sessão (estorno)" open={descontab} onCancel={() => setDescontab(false)} okText="Descontabilizar" okButtonProps={{ danger: true }} confirmLoading={accao.isPending} onOk={() => formMotivo.submit()}>
-        <Form form={formMotivo} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/descontabilizar', dados: v })}>
+        <Form form={formMotivo} layout="vertical" onFinish={(v) => accao.mutate({ id: id!, caminho: '/descontabilizar', dados: v })}>
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, min: 5, message: 'Indique o motivo (pelo menos 5 caracteres).' }]}>
             <Input.TextArea rows={3} maxLength={500} />
           </Form.Item>
