@@ -13,7 +13,12 @@ import { CartasPeriodo } from '../comum/Cartas';
  * No sistema novo o documento de pagamento nasce da carta de pagamento (serviço ServicoPagamentoSalarios, regras no
  * servidor): emitir a carta (conta 43) e «Gerar pagamento» cria o documento PENDENTE na Tesouraria.
  */
-export function BotaoGerarPagamento({ periodo, texto = 'Gerar Pagamento de Salários' }: { periodo: PeriodoSalarial; texto?: string }) {
+export function BotaoGerarPagamento({ periodo, texto = 'Gerar Pagamento de Salários', contorno = false }: {
+  periodo: PeriodoSalarial;
+  texto?: string;
+  /** Botão de contorno (btn-outline) como em Processamentos; verde cheio (btn-success) em Relatórios e Recibos. */
+  contorno?: boolean;
+}) {
   const { pode } = useSessao();
   const navegar = useNavigate();
   const [aberto, setAberto] = useState(false);
@@ -33,7 +38,7 @@ export function BotaoGerarPagamento({ periodo, texto = 'Gerar Pagamento de Salá
 
   return (
     <>
-      <Button type="primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} icon={<IconeFa nome="money-check-alt" />} onClick={abrir}
+      <Button type={contorno ? 'default' : 'primary'} style={contorno ? undefined : { background: '#16a34a', borderColor: '#16a34a' }} icon={<IconeFa nome="money-check-alt" />} onClick={abrir}
         title="Abre a Tesouraria com o período salarial e os salários a pagar pendentes">{texto}</Button>
       <Modal open={aberto} width={larguraModal(980)} onCancel={() => setAberto(false)} destroyOnHidden
         title={<Space><IconeFa nome="money-check-alt" />Pagamento de salários — {periodo.mes_ano}</Space>}

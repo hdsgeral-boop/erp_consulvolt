@@ -3,6 +3,7 @@
 namespace App\Services\Ativos;
 
 use App\Models\AbateVendaAtivo;
+use App\Models\AlocacaoAquisicaoAtivo;
 use App\Models\AmortizacaoAtivo;
 use App\Models\AtivoImobilizado;
 use App\Models\CategoriaAtivo;
@@ -138,14 +139,22 @@ final class ServicoRelatoriosAtivos
         $porCalcular = collect($this->amortizacoes->mesesPorCalcular($ultimo))->groupBy('ativo_imobilizado_id');
         $linhas = LancamentoContabil::query()->where('tipo_dc', 'D')->where(fn ($q) => $q->where('codigo_conta', 'like', '11%')->orWhere('codigo_conta', 'like', '12%'))
             ->whereNull('estorno_de_id')->whereNull('estornado_por_id')->with('terceiro:id,nome')->orderByDesc('data_documento')->get();
-        $porLinha = $ativos->whereNotNull('lancamento_contabil_id')->groupBy('lancamento_contabil_id');
+        // activos combinados (várias linhas) contam pelas alocações; os restantes pela FK e valor de aquisição
+        $porId = $ativos->keyBy('id');
+        $alocacoes = AlocacaoAquisicaoAtivo::query()->get(['ativo_imobilizado_id', 'lancamento_contabil_id', 'valor'])->filter(fn ($x) => isset($porId[$x->ativo_imobilizado_id]));
+        $combinados = $alocacoes->pluck('ativo_imobilizado_id')->flip();
+        $porLinha = $ativos->whereNotNull('lancamento_contabil_id')->reject(fn ($a) => isset($combinados[$a->id]))
+            ->map(fn ($a) => ['l' => $a->lancamento_contabil_id, 'a' => $a, 'v' => CalculadoraAmortizacoes::d($a->valor_aquisicao)])
+            ->concat($alocacoes->map(fn ($x) => ['l' => $x->lancamento_contabil_id, 'a' => $porId[$x->ativo_imobilizado_id], 'v' => CalculadoraAmortizacoes::d($x->valor)]))
+            ->groupBy('l');
 
         $itens = [];
         foreach ($linhas->groupBy(fn ($l) => $l->diario_id.'|'.$l->chave()) as $k => $g) {
             $l0 = $g->first();
             $valor = $g->reduce(fn ($s, $l) => bcadd($s, CalculadoraAmortizacoes::d($l->valor), 2), '0.00');
-            $ligados = $g->flatMap(fn ($l) => $porLinha[$l->id] ?? [])->values();
-            $inventariado = $ligados->reduce(fn ($s, $a) => bcadd($s, CalculadoraAmortizacoes::d($a->valor_aquisicao), 2), '0.00');
+            $partes = $g->flatMap(fn ($l) => $porLinha[$l->id] ?? []);
+            $ligados = $partes->pluck('a')->unique('id')->values();
+            $inventariado = $partes->reduce(fn ($s, $p) => bcadd($s, $p['v'], 2), '0.00');
             $itens[] = $this->avaliar(['chave' => "LAN|{$k}", 'tipo' => 'lancamento', 'titulo' => $l0->numero_documento ?: ($l0->numero_lan ?: "Lançamento {$l0->id}"),
                 'data' => $l0->data_documento?->toDateString(), 'fornecedor' => $l0->terceiro?->nome, 'valor' => $valor, 'inventariado' => $inventariado,
                 'contas' => $g->pluck('codigo_conta')->unique()->values()->all()], $ligados, $cats, $registos, $porCalcular);

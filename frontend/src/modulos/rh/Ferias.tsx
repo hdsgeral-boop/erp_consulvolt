@@ -125,7 +125,8 @@ export default function Ferias() {
     { title: 'Aprovados', dataIndex: 'aprovados', align: 'right', ocultaPorOmissao: true },
     { title: 'Gozados', dataIndex: 'gozados', align: 'right' },
     { title: 'Pedidos (portal)', dataIndex: 'pedidos', align: 'right', ocultaPorOmissao: true },
-    { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (s: number) => <Tag color={s < 0 ? 'red' : s === 0 ? 'default' : 'green'}>{s}</Tag>, sorter: (a, b) => a.saldo - b.saldo },
+    { title: 'Saldo', dataIndex: 'saldo', align: 'right', // antigo: número simples, a vermelho quando negativo (.rhf-saldo-neg)
+      render: (s: number) => <span style={s < 0 ? { color: '#dc2626', fontWeight: 600 } : undefined}>{s}</span>, sorter: (a, b) => a.saldo - b.saldo },
     {
       title: `Períodos ${ano}`, key: 'periodos',
       valorFiltro: (r) => (porColab.get(r.colaborador_id) ?? []).map(rotuloChip).join(' '),
@@ -191,7 +192,7 @@ export default function Ferias() {
     <>
       <CabecalhoPagina
         titulo="Programa de Férias"
-        subtitulo="Dias úteis pelo calendário da empresa (feriados da configuração da Efectividade); os pedidos do portal decidem-se em «Pedidos do Portal»"
+        subtitulo="Plano anual de férias por colaborador: direito, períodos, saldo e mapa anual."
         accoes={editar && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo período</Button>}
         impressaoDesactivada={!resumo.length && !periodos.length}
         impressao={async () => ({

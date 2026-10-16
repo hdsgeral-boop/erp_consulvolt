@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Descriptions, Empty, Flex, Form, Input, List, Modal, Row, Select, Skeleton, Space, Steps, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Descriptions, Empty, Flex, Form, Input, List, Modal, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import { CheckCircleTwoTone, CloseCircleTwoTone, ExclamationCircleTwoTone, LockOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -60,7 +60,6 @@ export default function Encerramento() {
   const regras = accoesEncerramento(estado.data, validacao.data, pode);
   const e = estado.data;
 
-  const passoActual = e ? e.passos.findIndex((p) => !p.numero_lan) : 0;
   const [separador, setSeparador] = useState('passos');
 
   return (
@@ -107,7 +106,8 @@ export default function Encerramento() {
       ) : (
         <>
           {e.encerrado ? (
-            <Alert type="error" showIcon icon={<LockOutlined />} style={{ marginBottom: 16 }} message={`O exercício de ${ano} está encerrado.`} />
+            // legado: faixa verde «Exercício Encerrado» com cadeado (#closed-year-banner, js/ui_closing.js:18-20)
+            <Alert type="success" showIcon icon={<LockOutlined />} style={{ marginBottom: 16, fontWeight: 700 }} message={`Exercício Encerrado (${ano})`} />
           ) : (
             <Alert type="info" showIcon style={{ marginBottom: 16 }} message={`O exercício de ${ano} está aberto. Execute os passos pela ordem, valide e encerre.`} />
           )}
@@ -121,28 +121,37 @@ export default function Encerramento() {
                 label: 'Passos de apuramento',
                 children: (
                   <Card>
-                    <Steps
-                      direction="vertical"
-                      current={passoActual < 0 ? e.passos.length : passoActual}
-                      items={e.passos.map((p) => ({
-                        title: `${p.passo}. ${p.titulo}`,
-                        status: p.numero_lan ? 'finish' : 'wait',
-                        description: <DescricaoPasso p={p} podeExecutar={regras.podeExecutarPassos} aoPrever={() => { setCriarContas(false); setPrevisto(p.passo); }} />,
-                      }))}
-                    />
-                    <Alert
-                      type={e.encerrado ? 'error' : 'success'}
-                      showIcon
-                      icon={<LockOutlined />}
-                      style={{ marginTop: 8 }}
-                      message={<strong>Passo final: validação e encerramento do exercício</strong>}
-                      description="Valida a integridade do Balanço, as amortizações do imobilizado e o inventário do armazém. Após a validação bem-sucedida, o exercício é trancado e não permite mais lançamentos."
-                      action={
-                        <Button onClick={() => setSeparador('validacoes')} disabled={e.encerrado}>
-                          Validar e encerrar
+                    {/* legado (renderEncerramento, js/ui_closing.js:24-110): um cartão por passo — «Passo N: título» a azul,
+                        descrição, Diário | Data | Período e «Executar Passo N» à direita; o passo final num cartão verde */}
+                    {e.passos.map((p) => (
+                      <CartaoPasso
+                        key={p.passo}
+                        p={p}
+                        ano={ano}
+                        podeExecutar={regras.podeExecutarPassos}
+                        aoPrever={() => {
+                          setCriarContas(false);
+                          setPrevisto(p.passo);
+                        }}
+                      />
+                    ))}
+                    <div style={{ border: '1px solid #16a34a', borderRadius: 4, padding: '1.5rem', marginTop: 32, background: '#f0fdf4' }}>
+                      <Flex justify="space-between" align="center" gap={16} wrap>
+                        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+                          <Typography.Title level={4} style={{ marginTop: 0, color: '#166534' }}>
+                            <LockOutlined /> Passo Final: Validação e Encerramento do Exercício
+                          </Typography.Title>
+                          <Typography.Paragraph style={{ color: '#166534', marginBottom: 0 }}>
+                            Valida a integridade do Balanço, Amortizações do Imobilizado e Inventário de Armazém.
+                            <br />
+                            Após validação bem sucedida, o exercício será <strong>trancado</strong> e não permitirá mais lançamentos.
+                          </Typography.Paragraph>
+                        </div>
+                        <Button style={{ background: '#16a34a', borderColor: '#16a34a', color: '#fff' }} onClick={() => setSeparador('validacoes')} disabled={e.encerrado}>
+                          Validar e Encerrar
                         </Button>
-                      }
-                    />
+                      </Flex>
+                    </div>
                   </Card>
                 ),
               },
@@ -314,25 +323,34 @@ const TEXTOS_PASSOS: Record<number, string> = {
   5: 'Transfere as contas 69 e 79 para a classe 86, consolidando em 869, e em seguida para a conta 886, apurando por fim na 889.',
 };
 
-function DescricaoPasso({ p, podeExecutar, aoPrever }: { p: PassoEstado; podeExecutar: boolean; aoPrever: () => void }) {
+function CartaoPasso({ p, ano, podeExecutar, aoPrever }: { p: PassoEstado; ano: number; podeExecutar: boolean; aoPrever: () => void }) {
   return (
-    <>
-    {TEXTOS_PASSOS[p.passo] && (
-      <Typography.Paragraph type="secondary" style={{ margin: '2px 0 4px' }}>
-        {TEXTOS_PASSOS[p.passo]}
-      </Typography.Paragraph>
-    )}
-    <Flex gap={16} wrap align="center" style={{ padding: '4px 0 12px' }}>
-      <Typography.Text type="secondary">
-        Diário {p.diario} · {p.documento}
-      </Typography.Text>
-      {p.numero_lan ? <Tag color="green">{p.numero_lan} · {p.linhas} linha(s)</Tag> : <Tag>Por executar</Tag>}
-      {p.resultado !== null && <span>Resultado: {formatarKz(p.resultado, true)}</span>}
-      <Button size="small" onClick={aoPrever}>
-        {podeExecutar ? (p.numero_lan ? `Repetir passo ${p.passo}` : `Executar passo ${p.passo}`) : 'Pré-visualizar'}
-      </Button>
-    </Flex>
-    </>
+    <div style={{ border: '1px solid var(--ant-color-border-secondary, #e2e8f0)', borderRadius: 4, padding: '1.5rem', marginBottom: 16 }}>
+      <Flex justify="space-between" align="center" gap={16} wrap>
+        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+          <Typography.Title level={4} style={{ marginTop: 0, color: 'var(--ant-color-primary, #2563eb)' }}>
+            Passo {p.passo}: {p.titulo}
+          </Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+            {TEXTOS_PASSOS[p.passo] && (
+              <>
+                {TEXTOS_PASSOS[p.passo]}
+                <br />
+              </>
+            )}
+            <strong>Diário:</strong> {p.diario} | <strong>Data:</strong> 31-12-{ano} | <strong>Período:</strong> 13
+            {p.documento ? <> | <strong>Documento:</strong> {p.documento}</> : null}
+          </Typography.Paragraph>
+          <Flex gap={8} wrap align="center" style={{ marginTop: 8 }}>
+            {p.numero_lan ? <Tag color="green">{p.numero_lan} · {p.linhas} linha(s)</Tag> : <Tag>Por executar</Tag>}
+            {p.resultado !== null && <span>Resultado: {formatarKz(p.resultado, true)}</span>}
+          </Flex>
+        </div>
+        <Button type={podeExecutar ? 'primary' : 'default'} onClick={aoPrever}>
+          {podeExecutar ? (p.numero_lan ? `Repetir Passo ${p.passo}` : `Executar Passo ${p.passo}`) : 'Pré-visualizar'}
+        </Button>
+      </Flex>
+    </div>
   );
 }
 

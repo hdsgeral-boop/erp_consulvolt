@@ -303,17 +303,29 @@ final class AtivosController extends Controller
         return RespostaApi::sucesso($this->aquisicoes->pendentes() + ['ativos_sem_lancamento' => $this->aquisicoes->semLancamento()], 'Aquisições por inventariar.');
     }
 
+    private const REGRAS_ITENS = ['itens' => ['required', 'array', 'min:1', 'max:1000'], 'itens.*.codigo' => ['nullable', 'string', 'max:50'],
+        'itens.*.descricao' => ['required', 'string', 'max:2000'], 'itens.*.categoria_ativo_id' => ['required', 'integer'],
+        'itens.*.valor_aquisicao' => ['required', 'numeric', 'min:0'], 'itens.*.vida_util' => ['nullable', 'integer', 'min:0'],
+        'itens.*.vida_util_restante' => ['nullable', 'integer', 'min:0'], 'itens.*.amortizacao_acumulada_inicial' => ['nullable', 'numeric', 'min:0'],
+        'itens.*.unidade_negocio_id' => ['nullable', 'integer'], 'itens.*.centro_custo_id' => ['nullable', 'integer']];
+
     public function inventariar(Request $r, int $linha): JsonResponse
     {
         $this->exigir('activos_inventariar');
-        $d = $r->validate(['itens' => ['required', 'array', 'min:1', 'max:1000'], 'itens.*.codigo' => ['nullable', 'string', 'max:50'],
-            'itens.*.descricao' => ['required', 'string', 'max:2000'], 'itens.*.categoria_ativo_id' => ['required', 'integer'],
-            'itens.*.valor_aquisicao' => ['required', 'numeric', 'min:0'], 'itens.*.vida_util' => ['nullable', 'integer', 'min:0'],
-            'itens.*.vida_util_restante' => ['nullable', 'integer', 'min:0'], 'itens.*.amortizacao_acumulada_inicial' => ['nullable', 'numeric', 'min:0'],
-            'itens.*.unidade_negocio_id' => ['nullable', 'integer'], 'itens.*.centro_custo_id' => ['nullable', 'integer']]);
+        $d = $r->validate(self::REGRAS_ITENS);
         $res = $this->aquisicoes->inventariar($linha, $d['itens']);
 
         return RespostaApi::criado($res, count($res['ativos']).' item(ns) de imobilizado inventariado(s).');
+    }
+
+    /** «Inventariar Seleccionados (Combinar)» — várias linhas de aquisição num só inventário (ui_assets.js:3208-3217). */
+    public function combinar(Request $r): JsonResponse
+    {
+        $this->exigir('activos_inventariar');
+        $d = $r->validate(['linhas' => ['required', 'array', 'min:2', 'max:500'], 'linhas.*' => ['integer', 'min:1', 'distinct']] + self::REGRAS_ITENS);
+        $res = $this->aquisicoes->combinar($d['linhas'], $d['itens']);
+
+        return RespostaApi::criado($res, count($res['ativos']).' item(ns) de imobilizado inventariado(s) a partir de '.count($d['linhas']).' linhas.');
     }
 
     public function ligar(Request $r, int $linha): JsonResponse

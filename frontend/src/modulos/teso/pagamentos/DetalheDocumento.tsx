@@ -8,6 +8,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
+import { somar } from '@/utilitarios/decimal';
 import { EtiquetaEstado, ValorKz } from '../../contab/comum/Componentes';
 import { ROTULO_TIPO, type DocumentoTesouraria, type LinhaDocumentoTesouraria } from '../api';
 import { accoesDocumento } from '../regras';
@@ -66,6 +67,7 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
       {d.periodo_processamento_salarial_id && <Alert type="info" showIcon style={{ marginBottom: 16 }} message="Documento gerado pelo processamento salarial." />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
+          <Descriptions.Item label="Tipo / Natureza"><strong style={{ color: d.tipo === 'PAGAMENTO' ? '#dc2626' : '#059669' }}>{d.tipo}</strong></Descriptions.Item>
           <Descriptions.Item label="Data">{formatarData(d.data_documento)}</Descriptions.Item>
           <Descriptions.Item label="Conta de banco/caixa">{d.conta_financeira}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EtiquetaEstado estado={d.estado} /></Descriptions.Item>
@@ -87,12 +89,21 @@ export function DetalheDocumento({ permitirEdicao = true }: { permitirEdicao?: b
           columns={[
             { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string) => <strong>{v}</strong> },
             { title: 'Terceiro', key: 'terceiro', render: (_, l) => (l.terceiro ? `${l.terceiro.nome.trim()}${l.terceiro.nif ? ` (NIF ${l.terceiro.nif})` : ''}` : l.terceiro_id ? `#${l.terceiro_id}` : '—') },
-            { title: 'Documento liquidado', dataIndex: 'numero_documento', responsive: ['sm'], render: (v: string | null) => v ?? '—' },
-            { title: 'Descrição', dataIndex: 'descricao', responsive: ['md'] },
+            { title: 'Documento liquidado', dataIndex: 'numero_documento', render: (v: string | null) => v ?? '—' },
+            { title: 'Descrição', dataIndex: 'descricao' },
             { title: 'Débito', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : null) },
             { title: 'Crédito', align: 'right', render: (_, l) => (l.tipo_dc === 'C' ? <ValorKz valor={l.valor} /> : null) },
             { title: 'Moeda', render: (_, l) => (l.codigo_moeda ? `${l.valor_moeda} ${l.codigo_moeda}` : '') },
           ]}
+          // linha «TOTAIS:» do detalhe do legado (viewTesoMovementDetail, ui_tesouraria.js:3809-3815)
+          summary={(ls) => (
+            <Table.Summary.Row>
+              <Table.Summary.Cell index={0} colSpan={4} align="right">TOTAIS:</Table.Summary.Cell>
+              <Table.Summary.Cell index={4} align="right">{formatarKz(somar(ls.filter((l) => l.tipo_dc === 'D').map((l) => l.valor)))}</Table.Summary.Cell>
+              <Table.Summary.Cell index={5} align="right">{formatarKz(somar(ls.filter((l) => l.tipo_dc === 'C').map((l) => l.valor)))}</Table.Summary.Cell>
+              <Table.Summary.Cell index={6} />
+            </Table.Summary.Row>
+          )}
         />
       </Card>
       <Modal

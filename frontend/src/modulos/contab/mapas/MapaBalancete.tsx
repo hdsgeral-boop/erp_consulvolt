@@ -1,14 +1,16 @@
 import { Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, InputNumber, Space, Table, Tag, Typography, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BotoesExportar, pares } from '@/componentes/impressao';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { CartaoKpi, CORES_KPI, GrelhaKpi } from '@/componentes/vistas';
 import { scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
+import { eZero, somar } from '@/utilitarios/decimal';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import type { Balancete, LinhaBalancete, LinhaIva, MapaIva } from '../api';
 import { BotaoCsv, ValorKz } from '../comum/Componentes';
@@ -18,6 +20,7 @@ import { filtrosDosParametros, periodoDosParametros, tabelaDeColunas } from '../
 import { useMapa } from '../comum/useMapa';
 import { periodoPorOmissao } from './periodoBalancete';
 import { TituloMapa } from './TituloMapa';
+import './mapas.css';
 
 /** Conta escolhida no balancete → separador Extrato (legado: renderRelatoriosContabeis('extrato', { accCode }), js/ui_reports.js:1660-1666). */
 export interface PedidoExtratoConta {
@@ -38,11 +41,11 @@ export default function MapaBalancete() {
 }
 
 /**
- * Separador «Balancete do Razão» (tab 'razao', js/ui_reports.js:711-870): o balancete agregado pelas contas do razão
- * (2 dígitos, `nivel` 2) — Conta, Descrição, Débito, Crédito, Saldo devedor e Saldo credor.
+ * Separador «Balancete do Razão» (tab 'razao', js/ui_reports.js:742-891): o balancete agregado pelas contas do razão
+ * (2 dígitos, `nivel` 2) — Conta, Descrição, Movimento (Débito, Crédito) e Saldo (Débito, Crédito).
  */
 export function MapaBalanceteRazao() {
-  return <SeparadorBalancete razao />;
+  return <SeparadorRazao />;
 }
 
 /** Separador «Mapa IVA» (tab 'iva', js/ui_reports.js:6119-6500). */
@@ -55,75 +58,149 @@ export function MapaIvaSeparador() {
   );
 }
 
-function SeparadorBalancete({ razao = false }: { razao?: boolean }) {
-  const mapa = useMapa<Balancete>(razao ? 'balancete_razao' : 'balancete', '/contabilidade/relatorios/balancete');
+/** Linha do balancete como aparece na tabela: chave, conta «filha» de uma totalizadora e os terceiros como sub-linhas. */
+export type LinhaBalanceteVista = LinhaBalancete & { chave: string; filha?: boolean; eTerceiro?: boolean; filhos?: LinhaBalanceteVista[] };
+
+const semPontos = (c: string) => String(c).replace(/\./g, '');
+
+/**
+ * Linhas da tabela do balancete (js/ui_reports.js:530-650): as contas de movimento debaixo de uma totalizadora ficam
+ * recuadas e com a descrição mais clara; os terceiros («Quebrar por Terceiros») são sub-linhas da conta.
+ */
+export function linhasVistaBalancete(linhas: LinhaBalancete[]): LinhaBalanceteVista[] {
+  const prefixos = linhas.filter((l) => l.totalizadora).map((l) => semPontos(l.codigo_conta));
+  return linhas.map((l) => {
+    const cod = semPontos(l.codigo_conta);
+    const filhos = l.terceiros?.length
+      ? l.terceiros.map((t) => ({ ...t, codigo_conta: l.codigo_conta, descricao: t.nome ?? null, chave: `${l.codigo_conta}|t${t.terceiro_id}`, eTerceiro: true }))
+      : undefined;
+    return {
+      ...l,
+      chave: `${l.codigo_conta}|${l.terceiro_id ?? ''}${l.totalizadora ? '|T' : ''}`,
+      filha: !l.totalizadora && prefixos.some((p) => cod.startsWith(p) && cod.length > p.length),
+      filhos,
+    };
+  });
+}
+
+/** Classe da linha (totalizadora Σ — 1.º nível mais carregada —, terceiro, conta de movimento). */
+export function classeLinhaBalancete(l: LinhaBalanceteVista): string {
+  if (l.totalizadora) return `erp-bal-totalizadora${semPontos(l.codigo_conta).length === 1 ? ' erp-bal-classe' : ''}`;
+  if (l.eTerceiro) return 'erp-bal-terceiro';
+  return `erp-bal-movimento${l.filha ? ' erp-bal-filha' : ''}`;
+}
+
+/** Valor do balancete como no legado: «-» quando é zero (js/ui_reports.js:575-582). */
+function ValorBal({ valor, classe }: { valor: string | null | undefined; classe?: string }) {
+  if (eZero(valor)) return <span className="erp-bal-vazio">-</span>;
+  return (
+    <span className={classe} style={{ whiteSpace: 'nowrap' }}>
+      {formatarKz(valor)}
+    </span>
+  );
+}
+
+function SeparadorBalancete() {
+  const mapa = useMapa<Balancete>('balancete', '/contabilidade/relatorios/balancete');
   const abrirExtrato = useAbrirExtrato();
   const p = mapa.parametros;
   const pequeno = useEcraPequeno();
   const t = mapa.data?.totais;
+  const linhas = mapa.data ? linhasVistaBalancete(mapa.data.linhas) : [];
+  // SI devedor/credor: soma das contas de movimento mostradas (o legado preenchia-os ao filtrar, js/ui_reports.js:3523)
+  const movimento = linhas.filter((l) => !l.totalizadora);
+  const totaisSi = { saldo_inicial_devedor: somar(movimento.map((l) => l.saldo_inicial_devedor)), saldo_inicial_credor: somar(movimento.map((l) => l.saldo_inicial_credor)) };
   const total = (k: string) => () => formatarKz(t?.[k]);
-  const colunaSaldoInicial: ColunaApi<LinhaBalancete> = {
-    title: 'Saldo inicial', dataIndex: 'saldo_inicial', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, responsive: ['md'], totalImpressao: total('saldo_inicial'),
-  };
-  const colunas: ColunaApi<LinhaBalancete>[] = [
+  const extrato = (r: LinhaBalanceteVista) => abrirExtrato({ conta: r.codigo_conta, terceiroId: r.terceiro_id, inicio: p?.data_inicio as string, fim: p?.data_fim as string });
+
+  // colunas do legado (js/ui_reports.js:686-696): Conta · Descrição · SI Devedor · SI Credor · Débitos · Créditos · S. Devedor · S. Credor
+  const colunas: ColunaApi<LinhaBalanceteVista>[] = [
     {
       title: 'Conta',
       dataIndex: 'codigo_conta',
       fixed: pequeno ? undefined : 'left',
-      render: (v: string, r) => (
-        <Typography.Link title="Abrir o extrato da conta" onClick={() => abrirExtrato({ conta: razao ? `${v}*` : v, terceiroId: r.terceiro_id, inicio: p?.data_inicio as string, fim: p?.data_fim as string })}>
-          {v}
-        </Typography.Link>
-      ),
-      valorImpressao: (l) => l.codigo_conta,
+      render: (v: string, r) =>
+        r.eTerceiro ? null : r.totalizadora ? (
+          <span className="erp-bal-codigo">{v}</span>
+        ) : (
+          <span className="erp-bal-codigo">
+            <Typography.Link title="Abrir o extrato da conta" onClick={() => extrato(r)}>
+              {v}
+            </Typography.Link>
+          </span>
+        ),
+      valorImpressao: (l) => (l.eTerceiro ? '' : l.codigo_conta),
     },
-    { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null, r) => `${v ?? ''}${r.terceiro ? ` · ${r.terceiro.trim()}` : ''}` },
-    ...(razao ? [] : [colunaSaldoInicial]),
-    { title: 'Débito', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('debito') },
-    { title: 'Crédito', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('credito') },
-    { title: 'Saldo devedor', dataIndex: 'saldo_devedor', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('saldo_devedor') },
-    { title: 'Saldo credor', dataIndex: 'saldo_credor', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: total('saldo_credor') },
+    {
+      title: 'Descrição',
+      dataIndex: 'descricao',
+      render: (v: string | null, r) =>
+        r.eTerceiro ? (
+          <span className="erp-bal-descricao">
+            <IconeFa nome="user-tag" style={{ fontSize: '0.75em', marginRight: 4 }} />
+            <Typography.Link title="Abrir o extrato da conta deste terceiro" onClick={() => extrato(r)}>
+              {v?.trim() || 'Terceiro desconhecido'}
+            </Typography.Link>
+          </span>
+        ) : (
+          <span className="erp-bal-descricao">{`${r.totalizadora ? 'Σ ' : ''}${v ?? (r.totalizadora ? '' : 'Conta desconhecida')}${r.terceiro ? ` · ${r.terceiro.trim()}` : ''}`}</span>
+        ),
+      valorImpressao: (l) => `${l.totalizadora ? 'Σ ' : ''}${l.descricao ?? ''}${l.terceiro ? ` · ${l.terceiro.trim()}` : ''}`,
+    },
+    { title: 'SI Devedor', dataIndex: 'saldo_inicial_devedor', align: 'right', render: (v: string) => <ValorBal valor={v} />, responsive: ['md'], totalImpressao: () => formatarKz(totaisSi.saldo_inicial_devedor) },
+    { title: 'SI Credor', dataIndex: 'saldo_inicial_credor', align: 'right', render: (v: string) => <ValorBal valor={v} />, responsive: ['md'], totalImpressao: () => formatarKz(totaisSi.saldo_inicial_credor) },
+    { title: 'Débitos', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorBal valor={v} />, totalImpressao: total('debito') },
+    { title: 'Créditos', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorBal valor={v} />, totalImpressao: total('credito') },
+    { title: 'S. Devedor', dataIndex: 'saldo_devedor', align: 'right', render: (v: string) => <ValorBal valor={v} classe="erp-bal-sd" />, totalImpressao: total('saldo_devedor') },
+    { title: 'S. Credor', dataIndex: 'saldo_credor', align: 'right', render: (v: string) => <ValorBal valor={v} classe="erp-bal-sc" />, totalImpressao: total('saldo_credor') },
   ];
-  const titulo = razao ? 'Balancete do Razão' : 'Balancete';
-  const chavesTotais = razao || pequeno ? ['debito', 'credito', 'saldo_devedor', 'saldo_credor'] : ['saldo_inicial', 'debito', 'credito', 'saldo_devedor', 'saldo_credor'];
+  const totaisVisiveis: { valor: string | undefined; classe?: string }[] = [
+    ...(pequeno ? [] : [{ valor: totaisSi.saldo_inicial_devedor }, { valor: totaisSi.saldo_inicial_credor }]),
+    { valor: t?.debito },
+    { valor: t?.credito },
+    { valor: t?.saldo_devedor, classe: 'erp-bal-sd' },
+    { valor: t?.saldo_credor, classe: 'erp-bal-sc' },
+  ];
+  const marcador = (texto: ReactNode, dica: string, destaque = false) => (
+    <span title={dica} style={destaque ? { color: 'var(--ant-color-primary, #2563eb)', fontWeight: 600 } : undefined}>
+      {texto}
+    </span>
+  );
   return (
     <Card>
-      <TituloMapa titulo={titulo} subtitulo={razao ? 'Saldos agregados pelas contas do razão (2 dígitos)' : undefined} />
+      <TituloMapa titulo="Balancete" subtitulo={periodoDosParametros(p)} />
       <FiltrosMapa
         modo="periodo"
-        valoresIniciais={{ periodo: periodoPorOmissao() }}
+        // como o legado, as contas totalizadoras (Σ) aparecem sempre — salvo com «Apenas Movimento (S/ Totalizadoras)»
+        valoresIniciais={{ periodo: periodoPorOmissao(), totalizadoras: true }}
         aCalcular={mapa.isFetching}
-        aoCalcular={(q) => mapa.calcular(razao ? { ...q, nivel: 2 } : q)}
+        aoCalcular={(q) => mapa.calcular(q)}
         extra={
-          razao ? (
-            <Form.Item name="excluir_estornos" valuePropName="checked" style={{ marginBottom: 8 }}>
-              <Checkbox>Excluir estornos</Checkbox>
-            </Form.Item>
-          ) : (
           <>
-            <Form.Item name="nivel" label="Nível" tooltip="N.º de dígitos da conta (vazio = todas as contas de movimento)" style={{ marginBottom: 8 }}>
-              <InputNumber min={1} max={20} style={{ width: 90 }} />
+            {/* opções do legado, pela mesma ordem e com os mesmos rótulos (js/ui_reports.js:202-221) */}
+            <Form.Item name="por_terceiro" valuePropName="checked" style={{ marginBottom: 8 }}>
+              <Checkbox>Quebrar por Terceiros</Checkbox>
             </Form.Item>
+            <Form.Item name="so_movimento" valuePropName="checked" style={{ marginBottom: 8 }}>
+              <Checkbox>{marcador('Apenas Movimento (S/ Totalizadoras)', 'Apenas contas com movimento no período (exclui totalizadoras)')}</Checkbox>
+            </Form.Item>
+            <Form.Item name="sem_saldo_inicial" valuePropName="checked" style={{ marginBottom: 8 }}>
+              <Checkbox>{marcador('S/ Saldos Iniciais (Apenas Período)', 'Ver apenas os movimentos do período seleccionado')}</Checkbox>
+            </Form.Item>
+            <Form.Item name="sem_saldo_zero" valuePropName="checked" style={{ marginBottom: 8 }}>
+              <Checkbox>{marcador('Ocultar Saldo 0', 'Ocultar contas cujo saldo final (SD ou SC) seja 0', true)}</Checkbox>
+            </Form.Item>
+            {/* opções do sistema novo */}
             <Form.Item name="totalizadoras" valuePropName="checked" style={{ marginBottom: 8 }}>
               <Checkbox>Com totalizadoras</Checkbox>
             </Form.Item>
-            <Form.Item name="por_terceiro" valuePropName="checked" style={{ marginBottom: 8 }}>
-              <Checkbox>Por terceiro</Checkbox>
-            </Form.Item>
-            <Form.Item name="so_movimento" valuePropName="checked" style={{ marginBottom: 8 }}>
-              <Checkbox>Só com movimento</Checkbox>
-            </Form.Item>
-            <Form.Item name="sem_saldo_zero" valuePropName="checked" style={{ marginBottom: 8 }}>
-              <Checkbox>Sem saldo zero</Checkbox>
-            </Form.Item>
-            <Form.Item name="sem_saldo_inicial" valuePropName="checked" style={{ marginBottom: 8 }}>
-              <Checkbox>Sem saldo inicial</Checkbox>
+            <Form.Item name="nivel" label="Nível" tooltip="N.º de dígitos da conta (vazio = todas as contas de movimento)" style={{ marginBottom: 8 }}>
+              <InputNumber min={1} max={20} style={{ width: 90 }} />
             </Form.Item>
             <Form.Item name="excluir_estornos" valuePropName="checked" style={{ marginBottom: 8 }}>
               <Checkbox>Excluir estornos</Checkbox>
             </Form.Item>
           </>
-          )
         }
       />
       {mapa.data && (
@@ -132,23 +209,144 @@ function SeparadorBalancete({ razao = false }: { razao?: boolean }) {
             <BotoesExportar
               obterPedido={async () =>
                 mapa.data && {
-                  titulo,
+                  titulo: 'Balancete',
                   periodo: periodoDosParametros(p),
                   filtros: filtrosDosParametros(p),
-                  conteudo: await tabelaDeColunas(colunas, mapa.data.linhas),
+                  conteudo: await tabelaDeColunas(colunas, linhas.flatMap((l) => [l, ...(l.filhos ?? [])])),
+                }
+              }
+            />
+            <BotaoCsv<LinhaBalanceteVista>
+              nome={`balancete_${p?.data_inicio}_${p?.data_fim}`}
+              linhas={linhas.flatMap((l) => [l, ...(l.filhos ?? [])])}
+              colunas={[
+                { titulo: 'Conta', valor: (l) => l.codigo_conta },
+                { titulo: 'Descrição', valor: (l) => (l.eTerceiro ? null : l.descricao) },
+                { titulo: 'Terceiro', valor: (l) => (l.eTerceiro ? l.descricao : l.terceiro?.trim()) },
+                { titulo: 'SI Devedor', valor: (l) => l.saldo_inicial_devedor, numerico: true },
+                { titulo: 'SI Credor', valor: (l) => l.saldo_inicial_credor, numerico: true },
+                { titulo: 'Débitos', valor: (l) => l.debito, numerico: true },
+                { titulo: 'Créditos', valor: (l) => l.credito, numerico: true },
+                { titulo: 'S. Devedor', valor: (l) => l.saldo_devedor, numerico: true },
+                { titulo: 'S. Credor', valor: (l) => l.saldo_credor, numerico: true },
+              ]}
+            />
+            {t && t.debito !== t.credito && <Tag color="red">Débito ≠ crédito: verifique os desequilíbrios</Tag>}
+          </Space>
+          <Table<LinhaBalanceteVista>
+            // remonta a cada cálculo para abrir a quebra por terceiros (o legado mostrava-a aberta com a opção ligada)
+            key={JSON.stringify(p)}
+            className="erp-mapa-contab"
+            rowKey="chave"
+            size="small"
+            columns={colunas}
+            dataSource={linhas}
+            rowClassName={classeLinhaBalancete}
+            expandable={{ childrenColumnName: 'filhos', defaultExpandAllRows: true, indentSize: 0 }}
+            pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (n) => `${n} conta(s)` }}
+            scroll={scrollTabela()}
+            summary={() =>
+              t ? (
+                <Table.Summary fixed>
+                  <Table.Summary.Row>
+                    <Table.Summary.Cell index={0} colSpan={2} align="right">
+                      <strong>TOTAIS:</strong>
+                    </Table.Summary.Cell>
+                    {totaisVisiveis.map((c, i) => (
+                      <Table.Summary.Cell key={i} index={i + 2} align="right">
+                        <strong>
+                          <ValorBal valor={c.valor} classe={c.classe} />
+                        </strong>
+                      </Table.Summary.Cell>
+                    ))}
+                  </Table.Summary.Row>
+                </Table.Summary>
+              ) : null
+            }
+          />
+        </>
+      )}
+    </Card>
+  );
+}
+
+/** «Balancete do razão» (js/ui_reports.js:829-891): cabeçalho azul em duas linhas (Movimento / Saldo) e «Total Geral». */
+function SeparadorRazao() {
+  const mapa = useMapa<Balancete>('balancete_razao', '/contabilidade/relatorios/balancete');
+  const abrirExtrato = useAbrirExtrato();
+  const p = mapa.parametros;
+  const t = mapa.data?.totais;
+  const kz = (v: string) => <span style={{ whiteSpace: 'nowrap' }}>{formatarKz(v)}</span>;
+  const total = (k: string) => () => formatarKz(t?.[k]);
+  const colunaConta: ColunaApi<LinhaBalancete> = {
+    title: 'Conta',
+    dataIndex: 'codigo_conta',
+    render: (v: string) => (
+      <Typography.Link className="erp-mapa-conta" title="Abrir o extrato da conta" onClick={() => abrirExtrato({ conta: `${v}*`, inicio: p?.data_inicio as string, fim: p?.data_fim as string })}>
+        {v}
+      </Typography.Link>
+    ),
+    valorImpressao: (l) => l.codigo_conta,
+  };
+  const colunaDescricao: ColunaApi<LinhaBalancete> = { title: 'Descrição', dataIndex: 'descricao' };
+  const valor = (titulo: string, k: keyof LinhaBalancete & string): ColunaApi<LinhaBalancete> => ({ title: titulo, dataIndex: k, align: 'right', render: kz, totalImpressao: total(k) });
+  // impressão/PDF: colunas simples (o motor de impressão não agrupa cabeçalhos)
+  const colunasImpressao: ColunaApi<LinhaBalancete>[] = [
+    colunaConta,
+    colunaDescricao,
+    valor('Movimento — Débito', 'debito'),
+    valor('Movimento — Crédito', 'credito'),
+    valor('Saldo — Débito', 'saldo_devedor'),
+    valor('Saldo — Crédito', 'saldo_credor'),
+  ];
+  const colunas = [
+    colunaConta,
+    colunaDescricao,
+    { title: 'Movimento', children: [valor('DÉBITO', 'debito'), valor('CRÉDITO', 'credito')] },
+    { title: 'Saldo', children: [valor('DÉBITO', 'saldo_devedor'), valor('CRÉDITO', 'saldo_credor')] },
+  ];
+  return (
+    <Card>
+      <TituloMapa
+        titulo={
+          <span style={{ color: 'var(--ant-color-primary, #2563eb)' }}>
+            <IconeFa nome="balance-scale" /> Balancete do razão
+          </span>
+        }
+        subtitulo={periodoDosParametros(p) ?? 'Saldos agregados pelas contas do razão (2 dígitos)'}
+      />
+      <FiltrosMapa
+        modo="periodo"
+        valoresIniciais={{ periodo: periodoPorOmissao() }}
+        aCalcular={mapa.isFetching}
+        aoCalcular={(q) => mapa.calcular({ ...q, nivel: 2 })}
+        extra={
+          <Form.Item name="excluir_estornos" valuePropName="checked" style={{ marginBottom: 8 }}>
+            <Checkbox>Excluir estornos</Checkbox>
+          </Form.Item>
+        }
+      />
+      {mapa.data && (
+        <>
+          <Space wrap style={{ margin: '8px 0 12px' }}>
+            <BotoesExportar
+              obterPedido={async () =>
+                mapa.data && {
+                  titulo: 'Balancete do razão',
+                  periodo: periodoDosParametros(p),
+                  filtros: filtrosDosParametros(p),
+                  conteudo: await tabelaDeColunas(colunasImpressao, mapa.data.linhas),
                 }
               }
             />
             <BotaoCsv<LinhaBalancete>
-              nome={`${razao ? 'balancete_razao' : 'balancete'}_${p?.data_inicio}_${p?.data_fim}`}
+              nome={`balancete_razao_${p?.data_inicio}_${p?.data_fim}`}
               linhas={mapa.data.linhas}
               colunas={[
                 { titulo: 'Conta', valor: (l) => l.codigo_conta },
                 { titulo: 'Descrição', valor: (l) => l.descricao },
-                { titulo: 'Terceiro', valor: (l) => l.terceiro?.trim() },
-                { titulo: 'Saldo inicial', valor: (l) => l.saldo_inicial, numerico: true },
-                { titulo: 'Débito', valor: (l) => l.debito, numerico: true },
-                { titulo: 'Crédito', valor: (l) => l.credito, numerico: true },
+                { titulo: 'Movimento débito', valor: (l) => l.debito, numerico: true },
+                { titulo: 'Movimento crédito', valor: (l) => l.credito, numerico: true },
                 { titulo: 'Saldo devedor', valor: (l) => l.saldo_devedor, numerico: true },
                 { titulo: 'Saldo credor', valor: (l) => l.saldo_credor, numerico: true },
               ]}
@@ -156,22 +354,24 @@ function SeparadorBalancete({ razao = false }: { razao?: boolean }) {
             {t && t.debito !== t.credito && <Tag color="red">Débito ≠ crédito: verifique os desequilíbrios</Tag>}
           </Space>
           <Table<LinhaBalancete>
-            rowKey={(r) => `${r.codigo_conta}|${r.terceiro_id ?? ''}`}
+            className="erp-mapa-contab erp-mapa-razao"
+            rowKey="codigo_conta"
             size="small"
+            bordered
             columns={colunas}
             dataSource={mapa.data.linhas}
-            pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (n) => `${n} conta(s)` }}
+            pagination={false}
             scroll={scrollTabela()}
             summary={() =>
               t ? (
                 <Table.Summary fixed>
                   <Table.Summary.Row>
-                    <Table.Summary.Cell index={0} colSpan={2}>
-                      <strong>Totais</strong>
+                    <Table.Summary.Cell index={0} colSpan={2} align="center">
+                      <strong>Total Geral</strong>
                     </Table.Summary.Cell>
-                    {chavesTotais.map((k, i) => (
+                    {(['debito', 'credito', 'saldo_devedor', 'saldo_credor'] as const).map((k, i) => (
                       <Table.Summary.Cell key={k} index={i + 2} align="right">
-                        <ValorKz valor={t[k]} forte />
+                        <ValorKz valor={t[k]} />
                       </Table.Summary.Cell>
                     ))}
                   </Table.Summary.Row>

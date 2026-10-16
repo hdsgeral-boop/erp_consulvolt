@@ -15,8 +15,8 @@ describe('Fase B — acções de estado do contrato', () => {
   it('suspender exige contratos_suspender; cessar e anular exigem contratos_terminate', () => {
     expect(titulos(contrato('ACTIVO'), ['contratos_suspender'])).toEqual(['Suspender contrato']);
     expect(titulos(contrato('ACTIVO'), ['contratos_terminate'])).toEqual(['Cessar contrato (Lei 12/23)']);
-    expect(titulos(contrato('SUSPENSO'), ['contratos_suspender', 'contratos_terminate'])).toEqual(['Reactivar contrato', 'Cessar contrato (Lei 12/23)', 'Ver estado e histórico']);
-    expect(titulos(contrato('CESSADO'), ['contratos_suspender', 'contratos_terminate'])).toEqual(['Anular cessação', 'Ver estado e histórico']);
+    expect(titulos(contrato('SUSPENSO'), ['contratos_suspender', 'contratos_terminate'])).toEqual(['Ver estado e histórico', 'Reactivar contrato', 'Cessar contrato (Lei 12/23)']);
+    expect(titulos(contrato('CESSADO'), ['contratos_suspender', 'contratos_terminate'])).toEqual(['Ver estado e histórico', 'Anular cessação']);
     expect(titulos(contrato('CESSADO'), [])).toEqual(['Ver estado e histórico']);
   });
 });

@@ -1,4 +1,4 @@
-import { Modal, Skeleton, Space, Statistic, Table, Typography, theme, type GlobalToken } from 'antd';
+import { Modal, Skeleton, Space, Statistic, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
@@ -6,8 +6,10 @@ import { BotoesExportar } from '@/componentes/impressao';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { obter } from '@/api/cliente';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
+import { negativo } from '@/utilitarios/decimal';
 import { BotaoCsv, ValorKz } from './Componentes';
 import { useTabelaAux } from './dados';
+import '../mapas/mapas.css';
 import type { LinhaPlana } from './demonstracoes';
 import { useAbrirLancamento } from './useMapa';
 
@@ -23,15 +25,32 @@ interface LinhaMovimento {
   valor: string;
 }
 
-/** Estilo de cada tipo de linha (cores do tema: a tela nocturna troca-as). */
-const estiloLinha = (tipo: LinhaPlana['tipo'], token: GlobalToken): React.CSSProperties =>
-  tipo === 'seccao'
-    ? { fontWeight: 600, textTransform: 'none', background: token.colorFillAlter }
-    : tipo === 'subtotal'
-      ? { fontWeight: 600 }
-      : tipo === 'total'
-        ? { fontWeight: 700, borderTop: `2px solid ${token.colorBorder}` }
-        : {};
+/** Classe de cada linha (secção, subsecção, nota, subtotal, total, realces da DR) — mapas.css, como o legado. */
+export function classeLinhaDemonstracao(l: LinhaPlana): string {
+  if (l.estilo === 'proveitos' || l.estilo === 'custos' || l.estilo === 'resultado') return `erp-dem-${l.estilo}`;
+  if (l.estilo === 'subseccao') return 'erp-dem-subseccao';
+  return `erp-dem-${l.tipo}${l.estilo === 'final' ? ' erp-dem-final' : ''}`;
+}
+
+/** Análise vertical (AV %): valor sobre a base do agregado; sem base → «-» (js/ui_reports.js:1256-1260). */
+export function analiseVertical(valor: string | undefined, base: string | undefined): string {
+  const b = Number(base ?? 0);
+  if (valor === undefined || !b) return '-';
+  return `${((Number(valor) / b) * 100).toFixed(1)}%`;
+}
+
+/** Análise horizontal (AH %): variação sobre o ano anterior, com sinal; anterior zero e actual ≠ 0 → «+100.0%» (js/ui_reports.js:1262-1273). */
+export function analiseHorizontal(atual: string | undefined, anterior: string | undefined): { texto: string; sentido: 'sobe' | 'desce' | 'igual' } {
+  const c = Number(atual ?? 0);
+  const p = Number(anterior ?? 0);
+  const diff = c - p;
+  const sentido = diff > 0.004 ? 'sobe' : diff < -0.004 ? 'desce' : 'igual';
+  if (p !== 0) {
+    const pct = (diff / Math.abs(p)) * 100;
+    return { texto: pct > 0 ? `+${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`, sentido };
+  }
+  return { texto: c !== 0 ? '+100.0%' : '-', sentido };
+}
 
 /**
  * Tabela de uma demonstração financeira (linhas planas) com coluna comparativa e drill-down pelas notas
@@ -57,30 +76,75 @@ export function TabelaDemonstracao({
   /** Título/período/filtros do documento impresso (Imprimir/PDF da demonstração tal como está no ecrã). */
   impressao?: { titulo: string; periodo?: string; filtros?: (string | null | undefined | false)[] };
 }) {
-  const { token } = theme.useToken();
   const refTabela = useRef<HTMLDivElement>(null);
   const notas = useTabelaAux(tipoNota === 'demonstracao' ? 'notas-demonstracao' : 'notas-fluxo-caixa');
   const [notaAberta, setNotaAberta] = useState<{ id: number; codigo: string } | null>(null);
   const idNota = (codigo: string | null | undefined) => (codigo ? notas.data?.find((n) => n.codigo === codigo)?.id : undefined);
 
+  const comAV = linhas.some((l) => l.base !== undefined);
+  const semValor = (l: LinhaPlana) => l.tipo === 'seccao';
+  // colunas do legado (js/ui_reports.js:1155-1165 e 1322-1332): Designação · Notas · Ano N · AV % · Ano N-1 · AH %
   const colunas: ColumnsType<LinhaPlana> = [
     {
-      title: 'Rubrica',
+      title: 'Designação',
       dataIndex: 'descricao',
-      render: (v: string, l) => <span style={{ paddingLeft: l.tipo === 'linha' ? 16 : 0 }}>{v}</span>,
+      render: (v: string) => <span className="erp-dem-designacao" style={{ whiteSpace: 'nowrap' }}>{v}</span>,
     },
     {
-      title: 'Nota',
+      title: 'Notas',
       dataIndex: 'nota',
-      width: 80,
+      width: 70,
+      align: 'center',
       render: (v: string | null, l) => {
         if (!v || l.tipo === 'seccao') return null;
         const id = idNota(v);
-        return id ? <Typography.Link onClick={() => setNotaAberta({ id, codigo: v })}>{v}</Typography.Link> : v;
+        return id ? (
+          <Typography.Link strong onClick={() => setNotaAberta({ id, codigo: v })}>
+            {v}
+          </Typography.Link>
+        ) : (
+          v
+        );
       },
     },
-    { title: rotuloAtual, dataIndex: 'atual', align: 'right', render: (v: string | undefined) => (v === undefined ? null : <ValorKz valor={v} />) },
-    ...(comparativo ? [{ title: rotuloAnterior, dataIndex: 'anterior', align: 'right' as const, render: (v: string | undefined) => (v === undefined ? null : <ValorKz valor={v} />) }] : []),
+    { title: rotuloAtual, dataIndex: 'atual', align: 'right', render: (v: string | undefined, l) => (v === undefined || semValor(l) ? null : <ValorKz valor={v} forte={negativo(v)} />) },
+    ...(comAV
+      ? [
+          {
+            title: 'AV %',
+            key: 'av',
+            align: 'right' as const,
+            onHeaderCell: () => ({ className: 'erp-mapa-av' }),
+            onCell: (l: LinhaPlana) => ({ className: semValor(l) ? undefined : 'erp-mapa-av' }),
+            render: (_: unknown, l: LinhaPlana) => (semValor(l) ? null : analiseVertical(l.atual, l.base)),
+          },
+        ]
+      : []),
+    ...(comparativo
+      ? [
+          {
+            title: rotuloAnterior,
+            dataIndex: 'anterior',
+            align: 'right' as const,
+            render: (v: string | undefined, l: LinhaPlana) =>
+              v === undefined || semValor(l) ? null : (
+                <span className={negativo(v) ? undefined : 'erp-mapa-anterior'}>
+                  <ValorKz valor={v} forte={negativo(v)} />
+                </span>
+              ),
+          },
+          {
+            title: 'AH %',
+            key: 'ah',
+            align: 'right' as const,
+            render: (_: unknown, l: LinhaPlana) => {
+              if (semValor(l) || l.atual === undefined) return null;
+              const ah = analiseHorizontal(l.atual, l.anterior);
+              return <span className={`erp-mapa-ah erp-mapa-ah-${ah.sentido}`}>{ah.texto}</span>;
+            },
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -91,21 +155,28 @@ export function TabelaDemonstracao({
           nome={nomeCsv}
           linhas={linhas}
           colunas={[
-            { titulo: 'Rubrica', valor: (l) => l.descricao },
-            { titulo: 'Nota', valor: (l) => l.nota },
+            { titulo: 'Designação', valor: (l) => l.descricao },
+            { titulo: 'Notas', valor: (l) => l.nota },
             { titulo: rotuloAtual, valor: (l) => l.atual, numerico: true },
-            ...(comparativo ? [{ titulo: rotuloAnterior, valor: (l: LinhaPlana) => l.anterior, numerico: true }] : []),
+            ...(comAV ? [{ titulo: 'AV %', valor: (l: LinhaPlana) => (l.tipo === 'seccao' ? null : analiseVertical(l.atual, l.base)) }] : []),
+            ...(comparativo
+              ? [
+                  { titulo: rotuloAnterior, valor: (l: LinhaPlana) => l.anterior, numerico: true },
+                  { titulo: 'AH %', valor: (l: LinhaPlana) => (l.tipo === 'seccao' || l.atual === undefined ? null : analiseHorizontal(l.atual, l.anterior).texto) },
+                ]
+              : []),
           ]}
         />
       </div>
       <div ref={refTabela}>
         <Table<LinhaPlana>
+          className="erp-mapa-contab"
           rowKey="chave"
           size="small"
           pagination={false}
           columns={colunas}
           dataSource={linhas}
-          onRow={(l) => ({ style: estiloLinha(l.tipo, token) })}
+          rowClassName={classeLinhaDemonstracao}
           scroll={scrollTabela()}
         />
       </div>

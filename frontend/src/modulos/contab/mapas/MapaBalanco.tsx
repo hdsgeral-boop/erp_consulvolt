@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Checkbox, Form } from 'antd';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useState } from 'react';
 import { TituloMapa } from './TituloMapa';
 import { formatarKz } from '@/utilitarios/formatacao';
@@ -22,7 +23,8 @@ export default function MapaBalanco() {
 
   return (
     <>
-      <TituloMapa titulo="Balanço" subtitulo="Demonstração da posição financeira por notas" />
+      {/* legado: <h3>Balanço patrimonial comparativo</h3> com «Por unidade de negócio: ON/OFF» à direita (js/ui_reports.js:1137-1150) */}
+      <TituloMapa titulo="Balanço patrimonial comparativo" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Demonstração da posição financeira por notas'} accoes={<BotaoPorUN ligado={porUN} aoMudar={setPorUN} />} />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="ate"
@@ -36,8 +38,6 @@ export default function MapaBalanco() {
             </Form.Item>
           }
         />
-        {/* Fase C (ui_reports.js:376-406): uma coluna por unidade de negócio, «Sem unidade» e o Total */}
-        <Checkbox checked={porUN} onChange={(e) => setPorUN(e.target.checked)}>Por unidade de negócio</Checkbox>
       </Card>
       {porUN && mapa.parametros && (
         <Card loading={porUnidade.isFetching}>
@@ -67,8 +67,8 @@ export default function MapaBalanco() {
             <TabelaDemonstracao
               linhas={linhasBalanco(d)}
               comparativo={comparativo}
-              rotuloAtual={String(d.ano)}
-              rotuloAnterior={String(d.ano_anterior)}
+              rotuloAtual={`Ano ${d.ano}`}
+              rotuloAnterior={`Ano ${d.ano_anterior}`}
               tipoNota="demonstracao"
               parametros={mapa.parametros ?? {}}
               nomeCsv={`balanco_${d.data_fim}`}
@@ -79,5 +79,24 @@ export default function MapaBalanco() {
       )}
       {semNota && mapa.parametros && <MovimentosSemNota parametros={{ data_fim: mapa.parametros.data_fim, data_inicio: d?.data_inicio }} aoFechar={() => setSemNota(false)} />}
     </>
+  );
+}
+
+/**
+ * «Por unidade de negócio: ON/OFF» (botaoPorUN, js/ui_reports.js:402): uma coluna por unidade de negócio, «Sem unidade» e
+ * o Total (Fase C, ui_reports.js:376-406).
+ */
+export function BotaoPorUN({ ligado, aoMudar }: { ligado: boolean; aoMudar: (v: boolean) => void }) {
+  return (
+    <Button
+      size="small"
+      type={ligado ? 'primary' : 'default'}
+      icon={<IconeFa nome="sitemap" />}
+      aria-pressed={ligado}
+      title="Mostrar uma coluna com os valores de cada unidade de negócio"
+      onClick={() => aoMudar(!ligado)}
+    >
+      Por unidade de negócio: {ligado ? 'ON' : 'OFF'}
+    </Button>
   );
 }

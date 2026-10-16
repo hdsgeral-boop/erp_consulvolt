@@ -1,6 +1,7 @@
 import { Card, Checkbox, Flex, Form, InputNumber, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { TituloMapa } from './TituloMapa';
+import './mapas.css';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
 import { scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
@@ -79,6 +80,8 @@ export default function MapaEvolucao() {
           }
         >
           <Table<LinhaEvolucao>
+            // cabeçalho escuro (#0f172a) do legado (js/ui_reports.js:3137-3143)
+            className="erp-mapa-contab"
             rowKey="codigo_conta"
             size="small"
             columns={colunas}

@@ -1,8 +1,8 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Empty, Flex, Input, Modal, Row, Skeleton, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Empty, Flex, Input, Modal, Skeleton, Space, Table, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoModulo, type SeparadorModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -33,6 +33,8 @@ type Separador = (typeof SEPARADORES)[number];
  * balcão» (histórico das guias, só do sistema novo). O separador vai na query (?separador=…), sem dados pessoais.
  */
 export default function PosArmazem() {
+  const { pode } = useSessao();
+  const navegar = useNavigate();
   const armazens = useArmazens();
   const [params] = useSearchParams();
   const [armazem, setArmazem] = useState<number>();
@@ -61,6 +63,11 @@ export default function PosArmazem() {
         <IconeFa nome="exclamation-triangle" style={{ fontSize: '3rem', color: '#f59e0b', marginBottom: '1rem' }} />
         <h3>Nenhum Armazém Configurado</h3>
         <Typography.Paragraph type="secondary">Por favor, configure pelo menos um Armazém antes de aceder ao POS.</Typography.Paragraph>
+        {pode('armazem_armazens_view') && (
+          <Button type="primary" style={{ marginTop: '1rem' }} onClick={() => navegar('/m/stock/armazem_armazens')}>
+            Configurar Armazens
+          </Button>
+        )}
       </Card>
     );
   } else if (!armazem) {
@@ -68,7 +75,7 @@ export default function PosArmazem() {
   } else if (activo === 'balcao') {
     conteudo = <Balcao armazem={armazem} aoMudarArmazem={setArmazem} />;
   } else if (activo === 'picking') {
-    conteudo = <>{seletor}<Picking armazem={armazem} /></>;
+    conteudo = <Picking armazem={armazem} aoMudarArmazem={setArmazem} />; // legado: o armazém escolhe-se na «Checklist de Recolha»
   } else if (activo === 'senhas') {
     conteudo = <>{seletor}<Senhas armazem={armazem} /></>;
   } else {
@@ -145,11 +152,37 @@ function VendasBalcao({ armazem }: { armazem?: number }) {
   );
 }
 
-/** «📋 Fila de Picking» (renderPOSPickingTab/startOrderPicking, js/ui_pos_armazem.js:804-1120). */
-function Picking({ armazem }: { armazem: number }) {
+/** Lista de recolha impressa (folha para o operador assinar). */
+function pedidoListaRecolha(lista: ListaRecolha) {
+  return {
+    titulo: `Lista de recolha — ${lista.encomenda.numero_documento}`,
+    filtros: ['Picking de encomenda de cliente'],
+    conteudo:
+      tabelaHtml({
+        colunas: [
+          { titulo: 'Código', valor: (l: ListaRecolha['linhas'][number]) => l.codigo ?? '' },
+          { titulo: 'Produto', valor: (l) => l.nome, quebrar: true },
+          { titulo: 'Por expedir', valor: (l) => l.por_expedir, formato: 'numero' },
+          { titulo: 'Stock no armazém', valor: (l) => (l.movimenta_stock ? formatarNumero(l.stock_armazem) : 'serviço'), alinhamento: 'direita' },
+          { titulo: 'Situação', valor: (l) => (l.disponivel ? 'Disponível' : 'Sem stock') },
+          { titulo: 'Recolhido', valor: () => '', largura: '24mm' },
+        ],
+        linhas: lista.linhas,
+      }) +
+      '<div class="imp-sem-quebra" style="display:flex;justify-content:space-around;gap:10mm;margin-top:14mm"><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Recolhido por</div><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Conferido por</div></div>',
+  };
+}
+
+/**
+ * «📋 Fila de Picking» (renderPOSPickingTab/startOrderPicking, js/ui_pos_armazem.js:804-1120): a fila de encomendas e, ao
+ * «Iniciar Picking», a janela «Checklist de Recolha» com o «Armazém de Saída Física», os artigos a marcar como recolhidos
+ * («Verificado»), «Pausar» e «Finalizar Picking & Expedir» (só com todos os artigos marcados).
+ */
+function Picking({ armazem, aoMudarArmazem }: { armazem: number; aoMudarArmazem: (id: number) => void }) {
   const { pode } = useSessao();
   const [encomenda, setEncomenda] = useState<number>();
   const [observacoes, setObservacoes] = useState('');
+  const [recolhidos, setRecolhidos] = useState<number[]>([]);
   const fila = useQuery({ queryKey: ['logistica', 'pos-armazem', 'picking'], queryFn: () => obter<EncomendaPicking[]>('/pos/armazem/picking') });
   const podeVerLista = pode('pos_armazem_picking', 'pos_armazem_expedir');
   const lista = useQuery({
@@ -157,142 +190,171 @@ function Picking({ armazem }: { armazem: number }) {
     queryFn: () => obter<ListaRecolha>(`/pos/armazem/picking/${encomenda}`, { armazem_id: armazem }),
     enabled: !!encomenda && podeVerLista,
   });
-  const expedir = useAccao({
-    invalidar: [['logistica'], ['vendas']],
-    aoSucesso: () => {
-      setEncomenda(undefined);
-      setObservacoes('');
-    },
-    tituloErro: 'Não foi possível expedir',
-  });
+  useEffect(() => setRecolhidos([]), [encomenda, armazem]);
+  const fechar = () => {
+    setEncomenda(undefined);
+    setObservacoes('');
+  };
+  const expedir = useAccao({ invalidar: [['logistica'], ['vendas']], aoSucesso: fechar, tituloErro: 'Não foi possível expedir' });
+
+  const linhas = lista.data?.linhas ?? [];
+  const todosMarcados = linhas.length > 0 && linhas.every((l) => recolhidos.includes(l.item_id));
+  const unidades = (v: string | null) => `${formatarNumero(v)} U`;
 
   return (
-    <Row gutter={[16, 16]}>
-      <Col xs={24} xl={encomenda ? 10 : 24}>
-        <Card
-          title={
-            <div style={{ whiteSpace: 'normal', padding: '8px 0' }}>
-              <IconeFa nome="tasks" /> Fila de Atendimento de Encomendas
-              <Typography.Paragraph type="secondary" style={{ margin: 0, fontWeight: 400, fontSize: 13 }}>
-                Lista de pedidos de clientes aguardando recolha física nas prateleiras do Armazém.
-              </Typography.Paragraph>
+    <>
+      <Card
+        title={
+          <div style={{ whiteSpace: 'normal', padding: '8px 0' }}>
+            <IconeFa nome="tasks" /> Fila de Atendimento de Encomendas
+            <Typography.Paragraph type="secondary" style={{ margin: 0, fontWeight: 400, fontSize: 13 }}>
+              Lista de pedidos de clientes aguardando recolha física nas prateleiras do Armazém.
+            </Typography.Paragraph>
+          </div>
+        }
+      >
+        <TabelaComModos<EncomendaPicking>
+          rowKey="id"
+          size="small"
+          idVista="fila_picking"
+          loading={fila.isFetching}
+          dataSource={fila.data ?? []}
+          impressao={{ titulo: 'Fila de Picking', subtitulo: 'Encomendas de clientes aguardando recolha' }}
+          vazio={{ icone: 'clipboard-list', titulo: 'Nenhuma encomenda na fila de picking hoje.' }}
+          rowClassName={(r) => (r.id === encomenda ? 'ant-table-row-selected' : '')}
+          columns={[
+            { title: 'Data Pedido', dataIndex: 'data_emissao', render: formatarData },
+            { title: 'Nº Encomenda', dataIndex: 'numero_documento', render: (v: string) => <strong>{v}</strong> },
+            { title: 'Cliente', dataIndex: 'cliente', render: (v) => v?.trim() || 'Cliente Geral' },
+            { title: 'Valor Total', dataIndex: 'total_bruto', align: 'right', total: true, render: (v: string) => <strong>{formatarKz(v)}</strong> },
+            { title: 'Linhas', dataIndex: 'linhas_por_expedir', align: 'right', ocultaPorOmissao: true },
+            { title: 'Estado', dataIndex: 'estado_picking', render: (e: string) => <EstadoTag estado={e} /> },
+            {
+              title: 'Operação',
+              key: 'op',
+              align: 'right',
+              filtravel: false,
+              ocultavel: false,
+              render: (_, r) =>
+                podeVerLista ? (
+                  <Button type="primary" size="small" onClick={() => setEncomenda(r.id)}>
+                    <IconeFa nome="dolly" /> Iniciar Picking
+                  </Button>
+                ) : null,
+            },
+          ]}
+        />
+      </Card>
+
+      <Modal
+        open={!!encomenda}
+        onCancel={fechar}
+        width={larguraModal(800)}
+        destroyOnHidden
+        title={
+          <Flex justify="space-between" align="flex-start" gap={8} wrap style={{ paddingRight: 32 }}>
+            <div>
+              <Tag color="orange" style={{ marginBottom: 4 }}>PICKING EM CURSO</Tag>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800 }}>Checklist de Recolha: {lista.data?.encomenda.numero_documento ?? fila.data?.find((e) => e.id === encomenda)?.numero_documento ?? ''}</div>
             </div>
-          }
-        >
-          <TabelaComModos<EncomendaPicking>
-            rowKey="id"
-            size="small"
-            idVista="fila_picking"
-            loading={fila.isFetching}
-            dataSource={fila.data ?? []}
-            impressao={{ titulo: 'Fila de Picking', subtitulo: 'Encomendas de clientes aguardando recolha' }}
-            vazio={{ icone: 'clipboard-list', titulo: 'Nenhuma encomenda na fila de picking hoje.' }}
-            rowClassName={(r) => (r.id === encomenda ? 'ant-table-row-selected' : '')}
-            columns={[
-              { title: 'Data Pedido', dataIndex: 'data_emissao', render: formatarData },
-              { title: 'Nº Encomenda', dataIndex: 'numero_documento', render: (v: string) => <strong>{v}</strong> },
-              { title: 'Cliente', dataIndex: 'cliente', render: (v) => v?.trim() || 'Cliente Geral' },
-              { title: 'Valor Total', dataIndex: 'total_bruto', align: 'right', total: true, render: (v: string) => <strong>{formatarKz(v)}</strong> },
-              { title: 'Linhas', dataIndex: 'linhas_por_expedir', align: 'right', ocultaPorOmissao: true },
-              { title: 'Estado', dataIndex: 'estado_picking', render: (e: string) => <EstadoTag estado={e} /> },
-              {
-                title: 'Operação',
-                key: 'op',
-                align: 'right',
-                filtravel: false,
-                ocultavel: false,
-                render: (_, r) =>
-                  podeVerLista ? (
-                    <Button type="primary" size="small" onClick={() => setEncomenda(r.id)}>
-                      <IconeFa nome="dolly" /> Iniciar Picking
-                    </Button>
-                  ) : null,
-              },
-            ]}
-          />
-        </Card>
-      </Col>
-      {encomenda && (
-        <Col xs={24} xl={14}>
-          <Card title={<><IconeFa nome="dolly" /> Checklist de Recolha</>} extra={<Button size="small" onClick={() => setEncomenda(undefined)}>Fechar</Button>}>
-            {!podeVerLista ? (
-              <Alert type="info" showIcon message="Sem permissão para iniciar o picking." />
-            ) : lista.isLoading ? (
-              <Skeleton active />
-            ) : !lista.data ? (
-              <Empty description="Escolha uma encomenda da fila." />
-            ) : (
-              <>
-                <Flex justify="space-between" align="center" gap={8} wrap style={{ marginBottom: 8 }}>
-                  <Typography.Title level={5} style={{ margin: 0 }}>
-                    <Tag color="orange">PICKING EM CURSO</Tag> {lista.data.encomenda.numero_documento} · {formatarKz(lista.data.encomenda.total_bruto)} Kz
-                  </Typography.Title>
-                  <BotoesExportar
-                    tamanho="small"
-                    obterPedido={() =>
-                      lista.data
-                        ? {
-                            titulo: `Lista de recolha — ${lista.data.encomenda.numero_documento}`,
-                            filtros: ['Picking de encomenda de cliente'],
-                            conteudo:
-                              tabelaHtml({
-                                colunas: [
-                                  { titulo: 'Código', valor: (l: (typeof lista.data.linhas)[number]) => l.codigo ?? '' },
-                                  { titulo: 'Produto', valor: (l) => l.nome, quebrar: true },
-                                  { titulo: 'Por expedir', valor: (l) => l.por_expedir, formato: 'numero' },
-                                  { titulo: 'Stock no armazém', valor: (l) => (l.movimenta_stock ? formatarNumero(l.stock_armazem) : 'serviço'), alinhamento: 'direita' },
-                                  { titulo: 'Situação', valor: (l) => (l.disponivel ? 'Disponível' : 'Sem stock') },
-                                  { titulo: 'Recolhido', valor: () => '', largura: '24mm' },
-                                ],
-                                linhas: lista.data.linhas,
-                              }) +
-                              '<div class="imp-sem-quebra" style="display:flex;justify-content:space-around;gap:10mm;margin-top:14mm"><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Recolhido por</div><div style="flex:0 1 38%;text-align:center;border-top:0.3mm solid #1f1f1f;padding-top:1mm;font-size:8pt">Conferido por</div></div>',
-                          }
-                        : null
-                    }
-                  />
-                </Flex>
-                <Table scroll={scrollTabela()}
-                  rowKey="item_id"
-                  size="small"
-                  pagination={false}
-                  dataSource={lista.data.linhas}
-                  columns={[
-                    { title: 'Código', dataIndex: 'codigo', render: (v) => v || '—' },
-                    { title: 'Produto', dataIndex: 'nome' },
-                    { title: 'Qtd Pedida', dataIndex: 'por_expedir', align: 'right', render: formatarNumero },
-                    { title: 'Stock Local', dataIndex: 'stock_armazem', align: 'right', responsive: ['sm'], render: (v: string | null, l) => (l.movimenta_stock ? formatarNumero(v) : 'serviço') },
-                    { title: 'Verificado', dataIndex: 'disponivel', render: (d: boolean) => (d ? <Tag color="green">Disponível</Tag> : <Tag color="red">Sem stock</Tag>) },
-                  ]}
-                />
-                {!lista.data.pode_expedir && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Há artigos sem stock suficiente neste armazém: não é possível expedir." />}
-                {pode('pos_armazem_expedir') && (
-                  <>
-                    <Input.TextArea rows={2} maxLength={2000} style={{ marginTop: 12 }} placeholder="Observações da expedição" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
-                    <Button
-                      type="primary"
-                      style={{ marginTop: 12 }}
-                      disabled={!lista.data.pode_expedir}
-                      loading={expedir.isPending}
-                      onClick={() =>
-                        Modal.confirm({
-                          title: `Confirmar a expedição de ${lista.data?.encomenda.numero_documento}?`,
-                          content: 'É emitida a guia de remessa e o stock sai do armazém.',
-                          okText: 'Expedir',
-                          cancelText: 'Cancelar',
-                          onOk: () => expedir.mutateAsync({ url: `/pos/armazem/picking/${encomenda}/expedir`, dados: { armazem_id: armazem, observacoes: observacoes || undefined } }).catch(() => undefined),
-                        })
-                      }
+            {lista.data && <BotoesExportar tamanho="small" obterPedido={() => (lista.data ? pedidoListaRecolha(lista.data) : null)} />}
+          </Flex>
+        }
+        footer={
+          <Flex justify="space-between" align="center" gap={12} wrap>
+            <Typography.Text type="secondary" style={{ fontSize: '0.85rem', textAlign: 'left' }}>
+              <IconeFa nome="info-circle" /> Marque todos os itens recolhidos nas prateleiras para habilitar a expedição.
+            </Typography.Text>
+            <Space wrap>
+              <Button onClick={fechar}>Pausar</Button>
+              {pode('pos_armazem_expedir') && (
+                <Button
+                  className="erp-accao-cheio erp-accao-sucesso"
+                  type="primary"
+                  disabled={!lista.data?.pode_expedir || !todosMarcados}
+                  loading={expedir.isPending}
+                  icon={<IconeFa nome="truck-loading" />}
+                  onClick={() =>
+                    Modal.confirm({
+                      title: `Confirmar a expedição de ${lista.data?.encomenda.numero_documento}?`,
+                      content: 'É emitida a guia de remessa e o stock sai do armazém.',
+                      okText: 'Expedir',
+                      cancelText: 'Cancelar',
+                      onOk: () => expedir.mutateAsync({ url: `/pos/armazem/picking/${encomenda}/expedir`, dados: { armazem_id: armazem, observacoes: observacoes || undefined } }).catch(() => undefined),
+                    })
+                  }
+                >
+                  Finalizar Picking &amp; Expedir
+                </Button>
+              )}
+            </Space>
+          </Flex>
+        }
+      >
+        <div style={{ maxWidth: 300, marginBottom: 24 }}>
+          <label htmlFor="picking-armazem" style={{ display: 'block', fontWeight: 600, marginBottom: 4 }}>Armazém de Saída Física</label>
+          <SeletorArmazem id="picking-armazem" style={{ width: '100%' }} value={armazem} allowClear={false} onChange={(v) => v && aoMudarArmazem(v)} />
+        </div>
+        {!podeVerLista ? (
+          <Alert type="info" showIcon message="Sem permissão para iniciar o picking." />
+        ) : lista.isLoading ? (
+          <Skeleton active />
+        ) : !lista.data ? (
+          <Empty description="Escolha uma encomenda da fila." />
+        ) : (
+          <>
+            <Table
+              scroll={scrollTabela()}
+              rowKey="item_id"
+              size="small"
+              pagination={false}
+              dataSource={linhas}
+              columns={[
+                { key: 'i', width: 40, align: 'center', render: () => <IconeFa nome="dolly-flatbed" style={{ fontSize: '1.15rem', color: '#64748b' }} /> },
+                {
+                  title: 'Produto',
+                  key: 'p',
+                  render: (_, l) => (
+                    <>
+                      <strong>{l.nome}</strong>
+                      <Typography.Text type="secondary" style={{ display: 'block', fontFamily: 'monospace', fontSize: '0.8rem' }}>{l.codigo || '-'}</Typography.Text>
+                    </>
+                  ),
+                },
+                {
+                  title: 'Stock Local',
+                  dataIndex: 'stock_armazem',
+                  align: 'center',
+                  width: 120,
+                  render: (v: string | null, l) =>
+                    l.movimenta_stock ? <span style={{ fontWeight: 700, color: l.disponivel ? '#059669' : '#dc2626' }}>{unidades(v)}</span> : <Typography.Text type="secondary">serviço</Typography.Text>,
+                },
+                { title: 'Qtd Pedida', dataIndex: 'por_expedir', align: 'center', width: 120, render: (v: string) => <span style={{ fontWeight: 800, fontSize: '1.05rem' }}>{unidades(v)}</span> },
+                {
+                  title: 'Verificado',
+                  key: 'v',
+                  width: 140,
+                  render: (_, l) => (
+                    <Checkbox
+                      checked={recolhidos.includes(l.item_id)}
+                      disabled={!l.disponivel}
+                      title={l.disponivel ? undefined : 'Stock insuficiente no Armazém selecionado!'}
+                      aria-label={`Recolhido: ${l.nome}`}
+                      onChange={(e) => setRecolhidos((r) => (e.target.checked ? [...r, l.item_id] : r.filter((x) => x !== l.item_id)))}
                     >
-                      <IconeFa nome="check-circle" /> Confirmar expedição
-                    </Button>
-                  </>
-                )}
-              </>
+                      <Typography.Text type="secondary" style={{ fontSize: '0.75rem', fontWeight: 600 }}>OK</Typography.Text>
+                    </Checkbox>
+                  ),
+                },
+              ]}
+            />
+            {!lista.data.pode_expedir && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Há artigos sem stock suficiente neste armazém: não é possível expedir." />}
+            {pode('pos_armazem_expedir') && (
+              <Input.TextArea rows={2} maxLength={2000} style={{ marginTop: 12 }} placeholder="Observações da expedição" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
             )}
-          </Card>
-        </Col>
-      )}
-    </Row>
+          </>
+        )}
+      </Modal>
+    </>
   );
 }

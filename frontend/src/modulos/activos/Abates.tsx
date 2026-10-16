@@ -1,4 +1,5 @@
-import { Button, Card, DatePicker, Input, Select } from 'antd';
+import { Button, Card, DatePicker, Input, Select, Tag, Typography } from 'antd';
+import { Link } from 'react-router-dom';
 import { RollbackOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -13,7 +14,6 @@ import { somar } from '@/utilitarios/decimal';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { pedidoTodasPaginas } from './comum/impressao';
-import { EtiquetaActivos } from './comum/componentes';
 import { filtroPeriodo, useListaPaginada } from './comum/paginacao';
 import type { Abate } from './comum/tipos';
 import { ModalAbate } from './ModalAbate';
@@ -34,13 +34,31 @@ export default function Abates() {
 
   const colunas: ColunaApi<Abate>[] = [
     // colunas e ordem do legado (renderDisposalsView, ui_assets.js:2378-2384); Documento e Aquisição são extras em «Colunas ▾»
-    { title: 'Nº Inventário', key: 'inv', render: (_, r) => <strong>{r.ativo_imobilizado?.codigo ?? '—'}</strong>, valorImpressao: (r) => r.ativo_imobilizado?.codigo ?? '—' },
+    // Nº Inventário: botão com contorno que abre a ficha/histórico do activo (showAssetHistoryModal)
+    {
+      title: 'Nº Inventário', key: 'inv', valorImpressao: (r) => r.ativo_imobilizado?.codigo ?? '---',
+      render: (_, r) => (
+        <Link to={`/m/activos/activos/${r.ativo_imobilizado_id}`}>
+          <Button size="small" style={{ fontWeight: 700, color: 'var(--ant-color-primary, #2563eb)' }}>{r.ativo_imobilizado?.codigo ?? '---'}</Button>
+        </Link>
+      ),
+    },
     { title: 'Data', dataIndex: 'data', render: formatarData, valorImpressao: (r) => formatarData(r.data) },
-    { title: 'Activo', key: 'a', render: (_, r) => r.ativo_imobilizado?.descricao ?? `#${r.ativo_imobilizado_id}`, valorImpressao: (r) => r.ativo_imobilizado?.descricao ?? `#${r.ativo_imobilizado_id}` },
-    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaActivos valor={v} />, valorImpressao: (r) => r.tipo },
-    { title: 'Terceiro / Conta', key: 't', render: (_, r) => r.terceiro?.nome ?? '—', valorImpressao: (r) => r.terceiro?.nome ?? '—' },
-    { title: 'Motivo', dataIndex: 'descricao', ellipsis: true, width: 220, render: (v) => v ?? '—', valorImpressao: (r) => r.descricao ?? '—' },
-    { title: 'Valor', dataIndex: 'valor', align: 'right', total: true, render: (v) => <ValorKz valor={v} discretoSeZero />, valorImpressao: (r) => formatarKz(r.valor), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor))) },
+    { title: 'Activo', key: 'a', render: (_, r) => r.ativo_imobilizado?.descricao ?? '---', valorImpressao: (r) => r.ativo_imobilizado?.descricao ?? '---' },
+    // tipo em bruto num selo: VENDA azul (badge-primary), os restantes a vermelho (badge-danger)
+    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <Tag color={v === 'VENDA' ? 'blue' : 'red'}>{v}</Tag>, valorImpressao: (r) => r.tipo },
+    // só a venda tem terceiro: nome a negrito e a conta 372 por baixo; nos outros tipos «---»
+    {
+      title: 'Terceiro / Conta', key: 't', valorImpressao: (r) => (r.tipo === 'VENDA' ? `${r.terceiro?.nome ?? '---'} ${r.conta_terceiro ?? '---'}` : '---'),
+      render: (_, r) => (r.tipo === 'VENDA' ? (
+        <div style={{ fontSize: '0.85rem' }}>
+          <strong>{r.terceiro?.nome ?? '---'}</strong><br />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{r.conta_terceiro ?? '---'}</Typography.Text>
+        </div>
+      ) : '---'),
+    },
+    { title: 'Motivo', dataIndex: 'descricao', ellipsis: true, width: 220, render: (v) => v ?? '', valorImpressao: (r) => r.descricao ?? '' },
+    { title: 'Valor', dataIndex: 'valor', align: 'right', total: true, render: (v) => <ValorKz valor={v} />, valorImpressao: (r) => formatarKz(r.valor), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor))) },
     { title: 'Documento', dataIndex: 'numero_documento', ocultaPorOmissao: true, render: (v) => v ?? '—' },
     { title: 'Aquisição', key: 'aq', align: 'right', ocultaPorOmissao: true, render: (_, r) => <ValorKz valor={r.ativo_imobilizado?.valor_aquisicao} /> },
     {

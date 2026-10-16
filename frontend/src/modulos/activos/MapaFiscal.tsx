@@ -45,7 +45,7 @@ const COLUNAS: ColumnsType<LinhaFiscal> = [
         ],
       },
       { title: 'Amortizações Acumuladas', key: 'acumuladas', ...valor('acumuladas') },
-      { title: 'Valor Contabilístico (Residual)', key: 'liquido', ...valor('liquido', true) },
+      { title: 'Valor Contabilístico (Residual)', key: 'liquido', ...valor('liquido') },
     ],
   },
 ];
@@ -70,7 +70,7 @@ export default function MapaFiscal() {
     periodo: String(ano),
     filtros: texto ? [`Pesquisa: ${texto}`] : undefined,
     orientacao: 'paisagem',
-    conteudo: htmlMapaFiscal(linhas, totais, filtrado ? 'TOTAIS FILTRADOS' : 'TOTAIS'),
+    conteudo: htmlMapaFiscal(linhas, totais, 'TOTAIS FILTRADOS'),
   });
 
   return (
@@ -99,14 +99,14 @@ export default function MapaFiscal() {
           loading={q.isFetching}
           dataSource={linhas}
           columns={COLUNAS}
-          style={{ fontSize: 12 }}
+          style={{ fontSize: '0.7rem' }}
           scroll={{ x: 'max-content', y: 560 }}
           pagination={false}
           locale={{ emptyText: 'Sem activos para o ano.' }}
           summary={() => linhas.length > 0 && (
             <Table.Summary fixed>
               <Table.Summary.Row>
-                <Table.Summary.Cell index={0} colSpan={7} align="right"><Typography.Text strong>{filtrado ? 'TOTAIS FILTRADOS' : 'TOTAIS'}:</Typography.Text></Table.Summary.Cell>
+                <Table.Summary.Cell index={0} colSpan={7} align="right"><Typography.Text strong>TOTAIS FILTRADOS:</Typography.Text></Table.Summary.Cell>
                 <Table.Summary.Cell index={7} align="right"><ValorKz valor={totais.valor_aquisicao} forte /></Table.Summary.Cell>
                 <Table.Summary.Cell index={8} colSpan={4} />
                 <Table.Summary.Cell index={12} align="right"><ValorKz valor={totais.anteriores} forte /></Table.Summary.Cell>

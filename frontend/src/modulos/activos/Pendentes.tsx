@@ -1,11 +1,12 @@
-import { Alert, Button, Card, Flex, Input, InputNumber, Modal, Select, Space, Table, Typography } from 'antd';
-import { DeleteOutlined, LinkOutlined, PlusOutlined, SplitCellsOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Flex, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography } from 'antd';
+import { DeleteOutlined, PlusOutlined, SplitCellsOutlined } from '@ant-design/icons';
+import { IconeFa } from '@/componentes/fluxos';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { NavActivos } from './comum/NavActivos';
 import { BotoesExportar } from '@/componentes/impressao';
-import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
+import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { pedidoTabela } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -14,38 +15,57 @@ import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaActivos, SeletorCategoria, useCategorias } from './comum/componentes';
-import { repartirValor, validarInventariacao } from './comum/regras';
+import { combinarPendentes, repartirValor, validarInventariacao } from './comum/regras';
 import type { AquisicoesPendentes, LinhaPendente } from './comum/tipos';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { somar } from '@/utilitarios/decimal';
+
+const VERDE = '#059669'; // var(--success) do legado
+const VERMELHO = '#ef4444'; // var(--danger)
+const kz = (v: unknown) => formatarKz(v === null || v === undefined ? null : String(v));
 
 /** Activos › Aquisições pendentes (ecrã activos_pendentes): linhas 11/12 do Diário por inventariar e activos sem lançamento de compra. */
 export default function Pendentes() {
   const { pode } = useSessao();
   const q = useQuery({ queryKey: ['activos', 'pendentes'], queryFn: () => obter<AquisicoesPendentes>('/ativos/aquisicoes-pendentes') });
-  const [inventariar, setInventariar] = useState<LinhaPendente | null>(null);
+  const [inventariar, setInventariar] = useState<LinhaPendente[] | null>(null);
   const [ligar, setLigar] = useState<LinhaPendente | null>(null);
+  const [seleccao, setSeleccao] = useState<number[]>([]);
   const d = q.data;
   const gerir = pode('activos_inventariar');
+  // caixas de selecção do legado (pending-check, ui_assets.js:2793/2810): só as linhas ainda pendentes
+  const seleccionadas = (d?.linhas ?? []).filter((l) => seleccao.includes(l.id));
+  useEffect(() => {
+    if (d) setSeleccao((s) => s.filter((id) => d.linhas.some((l) => l.id === id)));
+  }, [d]);
 
+  // colunas, ordem e cores do legado (renderPendingAcquisitions, ui_assets.js:2786-2845); Diário, N.º lanç. e
+  // Fornecedor são extras do sistema novo, escondidos por omissão («Colunas ▾»)
   const colunas: ColunaApi<LinhaPendente>[] = [
-    { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-    { title: 'Diário', dataIndex: 'diario', responsive: ['md'] },
-    { title: 'Nº Doc', dataIndex: 'numero_documento' },
-    { title: 'N.º lanç.', dataIndex: 'numero_lan', responsive: ['lg'], render: (v) => v ?? '—' },
-    { title: 'Conta', dataIndex: 'codigo_conta' },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 240 },
-    { title: 'Fornecedor', dataIndex: 'terceiro', ellipsis: true, width: 200, responsive: ['md'], render: (v) => v ?? '—' },
-    { title: 'Valor Total', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor))) },
-    { title: 'Inventariado', dataIndex: 'inventariado', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
-    { title: 'Restante', dataIndex: 'por_inventariar', align: 'right', render: (v) => <ValorKz valor={v} forte />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.por_inventariar))) },
-    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
+    { title: 'Data', dataIndex: 'data_documento', render: formatarData, valorImpressao: (l) => formatarData(l.data_documento) },
+    { title: 'Diário', dataIndex: 'diario', ocultaPorOmissao: true, render: (v) => v ?? '—' },
+    { title: 'Nº Doc', dataIndex: 'numero_documento', render: (v) => <Tag>{v ?? '—'}</Tag>, valorImpressao: (l) => l.numero_documento ?? '—' },
+    { title: 'N.º lanç.', dataIndex: 'numero_lan', ocultaPorOmissao: true, render: (v) => v ?? '—' },
+    { title: 'Conta', dataIndex: 'codigo_conta', render: (v) => <strong>{v}</strong> },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
+    { title: 'Fornecedor', dataIndex: 'terceiro', ellipsis: true, width: 200, ocultaPorOmissao: true, render: (v) => v ?? '—' },
+    { title: 'Valor Total', dataIndex: 'valor', align: 'right', total: true, render: (v) => kz(v), valorImpressao: (l) => kz(l.valor), totalImpressao: (ls) => kz(somar(ls.map((l) => l.valor))) },
     {
-      title: 'Acção', key: 'acc', align: 'right',
+      title: 'Inventariado', dataIndex: 'inventariado', align: 'right', total: true, formatoTotal: (v) => <span style={{ color: VERDE }}>{kz(v)}</span>,
+      render: (v) => <span style={{ color: VERDE, whiteSpace: 'nowrap' }}>{kz(v)}</span>, valorImpressao: (l) => kz(l.inventariado), totalImpressao: (ls) => kz(somar(ls.map((l) => l.inventariado))),
+    },
+    {
+      title: 'Restante', dataIndex: 'por_inventariar', align: 'right', total: true, formatoTotal: (v) => <span style={{ color: VERMELHO }}>{kz(v)}</span>,
+      render: (v) => <strong style={{ color: VERMELHO, whiteSpace: 'nowrap' }}>{kz(v)}</strong>, valorImpressao: (l) => kz(l.por_inventariar), totalImpressao: (ls) => kz(somar(ls.map((l) => l.por_inventariar))),
+    },
+    // badge-warning «PARCIAL» / badge-outline «PENDENTE»
+    { title: 'Estado', dataIndex: 'estado', render: (v) => (v === 'PARCIAL' ? <Tag color="warning">PARCIAL</Tag> : <Tag>{v ?? 'PENDENTE'}</Tag>), valorImpressao: (l) => l.estado },
+    {
+      title: 'Acção', key: 'acc', valorImpressao: () => '',
       render: (_, l) => gerir && (
-        <Space>
-          <Button size="small" type="primary" onClick={() => setInventariar(l)}>Inventariar</Button>
-          <Button size="small" icon={<LinkOutlined />} disabled={!d?.ativos_sem_lancamento.length} onClick={() => setLigar(l)}>Ligar</Button>
+        <Space size={5} style={{ whiteSpace: 'nowrap' }}>
+          <Button size="small" icon={<IconeFa nome="link" />} title="Ligar a Activos Existentes/Migrados" disabled={!d?.ativos_sem_lancamento.length} onClick={() => setLigar(l)}>Ligar</Button>
+          <Button size="small" type="primary" icon={<IconeFa nome="plus" />} onClick={() => setInventariar([l])}>{l.estado === 'PARCIAL' ? 'Continuar' : 'Inventariar'}</Button>
         </Space>
       ),
     },
@@ -61,15 +81,29 @@ export default function Pendentes() {
         <CartaoKpi icone="unlink" cor="cinzento" rotulo="Activos sem lançamento" valor={d?.ativos_sem_lancamento.length ?? 0} />
       </GrelhaKpi>
       <Card title="Movimentos Contabilísticos Sem Activo Associado" style={{ marginBottom: 16 }}
-        extra={<BotoesExportar tamanho="small" desactivado={!d?.linhas.length} obterPedido={() => pedidoTabela({ titulo: 'Aquisições pendentes de inventariação (contas 11/12)', colunas, linhas: d?.linhas ?? [], totais: 'Total' })} />}>
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Estes lançamentos foram detectados no Diário (classes 11 e 12). Pode inventariar o valor total ou parcial de cada linha." />
-        <Table<LinhaPendente>
+        extra={(
+          <Space wrap>
+            {/* inventorySelectedPendingMovements (ui_assets.js:2784, 3208-3217): junta as linhas seleccionadas num só inventário */}
+            {gerir && (
+              <Button size="small" type="primary" icon={<IconeFa nome="layer-group" />} disabled={!seleccionadas.length} onClick={() => setInventariar(seleccionadas)}
+                title={seleccionadas.length ? `${seleccionadas.length} linha(s) — ${formatarKz(combinarPendentes(seleccionadas).total)} Kz` : 'Seleccione pelo menos um movimento.'}>
+                Inventariar Seleccionados (Combinar)
+              </Button>
+            )}
+            <BotoesExportar tamanho="small" desactivado={!d?.linhas.length} obterPedido={() => pedidoTabela({ titulo: 'Aquisições pendentes de inventariação (contas 11/12)', colunas, linhas: d?.linhas ?? [], totais: 'Total' })} />
+          </Space>
+        )}>
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Estes Lançamentos foram detectados no Diário (Classes 11 e 12). Pode inventariar o valor total ou parcial de cada linha." />
+        <TabelaComModos<LinhaPendente>
+          idVista="activos_pendentes"
           rowKey="id"
           size="middle"
           loading={q.isFetching}
           dataSource={d?.linhas}
           scroll={{ x: 'max-content' }}
           columns={colunas}
+          rotuloTotal="TOTAIS (FILTRADOS):"
+          rowSelection={gerir ? { selectedRowKeys: seleccao, onChange: (k) => setSeleccao(k as number[]) } : undefined}
         />
       </Card>
       <Card title="Activos sem lançamento de compra">
@@ -90,7 +124,7 @@ export default function Pendentes() {
           ]}
         />
       </Card>
-      <ModalInventariar linha={inventariar} aoFechar={() => setInventariar(null)} />
+      <ModalInventariar linhas={inventariar} aoFechar={() => setInventariar(null)} aoConcluir={() => setSeleccao([])} />
       <ModalLigar linha={ligar} activos={d?.ativos_sem_lancamento ?? []} aoFechar={() => setLigar(null)} />
     </>
   );
@@ -109,17 +143,27 @@ interface ItemInventario {
 
 let sequencia = 1;
 
-/** Inventaria uma linha 11/12 em um ou mais activos (a soma não pode exceder o valor por inventariar). */
-function ModalInventariar({ linha, aoFechar }: { linha: LinhaPendente | null; aoFechar: () => void }) {
+/**
+ * Inventaria uma linha 11/12 — ou várias combinadas (openAssetCreationModalFromJournal com "ID1,ID2", ui_assets.js:511-606) —
+ * em um ou mais activos; a soma não pode exceder o valor por inventariar (somado, nas combinadas). O primeiro item vem
+ * pré-preenchido com a descrição da primeira linha e o valor total.
+ */
+export function ModalInventariar({ linhas, aoFechar, aoConcluir }: { linhas: LinhaPendente[] | null; aoFechar: () => void; aoConcluir?: () => void }) {
   const [itens, setItens] = useState<ItemInventario[]>([]);
   const [partes, setPartes] = useState(2);
   const categorias = useCategorias();
-  const accao = useAccao({ invalidar: [['activos']], aoSucesso: () => aoFechar() });
+  const accao = useAccao({ invalidar: [['activos']], aoSucesso: () => { aoConcluir?.(); aoFechar(); } });
+  const combinada = (linhas?.length ?? 0) > 1;
+  const comb = combinarPendentes(linhas ?? []);
+  const linha = comb.ordenadas[0] ?? null;
+  const porInventariar = comb.total;
 
   useEffect(() => {
-    if (linha)
-      setItens([{ chave: sequencia++, descricao: linha.descricao ?? '', valor_aquisicao: Number(linha.por_inventariar), centro_custo_id: linha.centro_custo_id ?? undefined, unidade_negocio_id: linha.unidade_negocio_id ?? undefined }]);
-  }, [linha]);
+    const l = linhas ? combinarPendentes(linhas) : null;
+    const p = l?.ordenadas[0];
+    if (l && p)
+      setItens([{ chave: sequencia++, descricao: p.descricao ?? '', valor_aquisicao: Number(l.total), centro_custo_id: p.centro_custo_id ?? undefined, unidade_negocio_id: p.unidade_negocio_id ?? undefined }]);
+  }, [linhas]);
 
   const mudar = (chave: number, campo: keyof ItemInventario, valor: unknown) =>
     setItens((s) => s.map((i) => {
@@ -132,15 +176,18 @@ function ModalInventariar({ linha, aoFechar }: { linha: LinhaPendente | null; ao
   const dividir = () => {
     if (!linha) return;
     const base = itens[0];
-    setItens(repartirValor(linha.por_inventariar, partes).map((v, i) => ({ ...base, chave: sequencia++, codigo: undefined, descricao: `${base.descricao}${partes > 1 ? ` (${i + 1}/${partes})` : ''}`, valor_aquisicao: Number(v) })));
+    setItens(repartirValor(porInventariar, partes).map((v, i) => ({ ...base, chave: sequencia++, codigo: undefined, descricao: `${base.descricao}${partes > 1 ? ` (${i + 1}/${partes})` : ''}`, valor_aquisicao: Number(v) })));
   };
 
-  const validacao = validarInventariacao(itens, linha?.por_inventariar);
+  const validacao = validarInventariacao(itens, porInventariar);
+  const contas = [...new Set(comb.ordenadas.map((l) => l.codigo_conta))];
   const valido = itens.length > 0 && !validacao.excede && itens.every((i) => i.descricao.trim() && i.categoria_ativo_id && (i.valor_aquisicao ?? -1) >= 0);
 
   return (
     <Modal
-      title={`Inventariar ${linha?.numero_documento ?? ''} — conta ${linha?.codigo_conta ?? ''}`}
+      title={combinada
+        ? `Inventariar ${comb.ids.length} linhas combinadas — ${contas.length > 1 ? `múltiplas contas (${contas.join(', ')})` : `conta ${contas[0]}`}`
+        : `Inventariar ${linha?.numero_documento ?? ''} — conta ${linha?.codigo_conta ?? ''}`}
       open={!!linha}
       onCancel={aoFechar}
       width={larguraModal(1100)}
@@ -148,9 +195,19 @@ function ModalInventariar({ linha, aoFechar }: { linha: LinhaPendente | null; ao
       cancelText="Cancelar"
       okButtonProps={{ disabled: !valido }}
       confirmLoading={accao.isPending}
-      onOk={() => accao.mutate({ url: `/ativos/aquisicoes-pendentes/${linha?.id}/inventariar`, dados: { itens: itens.map(({ chave: _c, ...r }) => ({ ...r, codigo: r.codigo || null })) } })}
+      onOk={() => {
+        const dados = { itens: itens.map(({ chave: _c, ...r }) => ({ ...r, codigo: r.codigo || null })) };
+        accao.mutate(combinada
+          ? { url: '/ativos/aquisicoes-pendentes/combinar', dados: { linhas: comb.ids, ...dados } }
+          : { url: `/ativos/aquisicoes-pendentes/${linha?.id}/inventariar`, dados });
+      }}
       destroyOnHidden
     >
+      {combinada && (
+        <Alert type="info" showIcon style={{ marginBottom: 12 }}
+          message={`Linhas combinadas: ${comb.ordenadas.map((l) => `${l.numero_documento ?? `#${l.id}`} (${l.codigo_conta}, ${formatarKz(l.por_inventariar)})`).join(' · ')}`}
+          description="Data de aquisição e fornecedor da primeira linha; o valor dos activos é repartido pelas linhas por esta ordem." />
+      )}
       <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 12 }}>
         <Space wrap>
           <Typography.Text>Dividir em</Typography.Text>
@@ -159,12 +216,12 @@ function ModalInventariar({ linha, aoFechar }: { linha: LinhaPendente | null; ao
           <Button icon={<PlusOutlined />} onClick={() => setItens((s) => [...s, { chave: sequencia++, descricao: linha?.descricao ?? '', centro_custo_id: linha?.centro_custo_id ?? undefined }])}>Linha</Button>
         </Space>
         <Space size="large" wrap>
-          <span>Por inventariar: <ValorKz valor={linha?.por_inventariar} forte /></span>
+          <span>Por inventariar: <ValorKz valor={porInventariar} forte /></span>
           <span>Itens: <ValorKz valor={validacao.total} forte /></span>
           <span>Resto: <ValorKz valor={validacao.restante} forte /></span>
         </Space>
       </Flex>
-      {validacao.excede && <Alert type="error" showIcon style={{ marginBottom: 12 }} message="A soma dos itens excede o valor por inventariar da linha." />}
+      {validacao.excede && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={`A soma dos itens excede o valor por inventariar ${combinada ? 'das linhas seleccionadas' : 'da linha'}.`} />}
       <Table<ItemInventario>
         size="small"
         rowKey="chave"

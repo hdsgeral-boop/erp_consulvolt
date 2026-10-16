@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, Flex, Form, Input, Tag } from 'antd';
+import { Button, Card, Checkbox, Flex, Form, Input, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -65,7 +65,7 @@ export default function Armazens() {
   const colunas: ColunaLegado<LinhaArmazem>[] = [
     { title: 'Nome', dataIndex: 'nome', valorImpressao: (a) => `${a.nome}${a.predefinido ? ' (predefinido)' : ''}`, render: (v: string, r) => <><strong>{v}</strong>{r.predefinido && <Tag color="blue" style={{ marginLeft: 8 }}>Predefinido</Tag>}</> },
     ...(temCodigo ? [{ title: 'Código', dataIndex: 'codigo', render: (v: string | null) => v || '—' } as ColunaLegado<LinhaArmazem>] : []),
-    { title: 'Localização', dataIndex: 'localizacao', render: (v: string | null) => <small style={{ color: '#64748b' }}>{v || '-'}</small>, valorImpressao: (a) => a.localizacao || '-' },
+    { title: 'Localização', dataIndex: 'localizacao', render: (v: string | null) => <Typography.Text type="secondary"><small>{v || '-'}</small></Typography.Text>, valorImpressao: (a) => a.localizacao || '-' },
     {
       title: 'Valor em Stock',
       dataIndex: 'valor_stock',
@@ -120,7 +120,7 @@ export default function Armazens() {
         criacao={edicao === 'novo'} campos={CAMPOS_ARMAZEM} nomeRegistos="armazéns" invalidar={[['logistica']]} larguraLinhas={820} destroyOnHidden={false}
         gravarLinha={(r) => enviar('post', '/logistica/armazens', dadosArmazem(r))}
         nota="Uma linha por armazém. Só o nome é obrigatório. Linhas deixadas em branco são ignoradas."
-        okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
+        okText="Guardar Armazém" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"
@@ -129,13 +129,13 @@ export default function Armazens() {
             gravar.mutate(edicao && edicao !== 'novo' ? { metodo: 'put', url: `/logistica/armazens/${edicao.id}`, dados } : { url: '/logistica/armazens', dados });
           }}
         >
-          <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}>
+          <Form.Item name="nome" label="Nome / Identificação" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}>
             <Input />
           </Form.Item>
           <Form.Item name="codigo" label="Código" rules={[{ max: 20 }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="localizacao" label="Localização" rules={[{ max: 150 }]}>
+          <Form.Item name="localizacao" label="Localização / Endereço" rules={[{ max: 150 }]}>
             <Input />
           </Form.Item>
           <Form.Item name="predefinido" valuePropName="checked">

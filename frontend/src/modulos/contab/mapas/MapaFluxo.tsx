@@ -17,13 +17,16 @@ export default function MapaFluxo() {
 
   return (
     <>
-      <TituloMapa titulo="Fluxo de Caixa" subtitulo="Método directo, por notas de fluxo de caixa" />
+      {/* legado: <h3>Demonstração de fluxo de caixa</h3> (js/ui_reports.js:1490-1499) */}
+      <TituloMapa titulo="Demonstração de fluxo de caixa" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Método directo, por notas de fluxo de caixa'} />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="periodo"
           aCalcular={mapa.isFetching}
           aoCalcular={mapa.calcular}
           avancados={{ unidade: true, centro: true, diario: true }}
+          // o legado mostra o ano anterior por omissão (reportOptions.showPrevious = true)
+          valoresIniciais={{ comparativo: true }}
           extra={
             <Form.Item name="comparativo" valuePropName="checked" style={{ marginBottom: 8 }}>
               <Checkbox>Comparativo</Checkbox>
@@ -46,8 +49,8 @@ export default function MapaFluxo() {
             <TabelaDemonstracao
               linhas={linhasFluxo(d)}
               comparativo={comparativo}
-              rotuloAtual={String(d.ano)}
-              rotuloAnterior={String(d.ano - 1)}
+              rotuloAtual={`Ano ${d.ano}`}
+              rotuloAnterior={`Ano ${d.ano - 1}`}
               tipoNota="fluxo"
               parametros={mapa.parametros ?? {}}
               nomeCsv={`fluxos_caixa_${d.ano}`}

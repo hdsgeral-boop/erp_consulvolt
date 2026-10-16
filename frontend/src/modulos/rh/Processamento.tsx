@@ -107,18 +107,30 @@ function DetalheProcessamento() {
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
-            {ac.validar && (
-              <Button type="primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} icon={<CheckOutlined />} onClick={() => Modal.confirm({ title: `Validar o processamento de ${p.mes_ano}?`, content: 'Ao validar o processamento, concorda que os cálculos estão correctos. Depois de validado emitem-se os recibos, a ordem de pagamento e a contabilização.', okText: 'Validar', cancelText: 'Cancelar', onOk: () => post('validar') })}>Validar Processamento</Button>
+            {/* ordem do antigo (loadClosedProcessings, app_v2.js:6878): Reabrir · Integração contábil · Descontabilizar · Exportar CSV (no mapa) · Gerar Pagamento · Validar */}
+            {ac.reabrir && (
+              <Button danger icon={<IconeFa nome="unlock" />} onClick={() => Modal.confirm({ title: `Reabrir ${p.mes_ano} para edição?`, content: 'A fotografia dos resultados é apagada e o período volta a Aberto (lançamentos editáveis no ecrã Calcular).', okText: 'Reabrir', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => post('reabrir') })}>Reabrir para Edição</Button>
+            )}
+            {!ac.reabrir && p.contabilizado && p.estado !== 'ABERTO' && pode('processamento_reopen') && (
+              <Button disabled icon={<IconeFa nome="lock" />} title="Não é possível reabrir: processamento já integrado na contabilidade">Reabrir (Bloqueado)</Button>
             )}
             {ac.contabilizar && (
               <Button icon={<IconeFa nome="book" />} onClick={() => Modal.confirm({ title: `Integração contábil de ${p.mes_ano}?`, content: 'Cria o lançamento no diário SAL a partir da fotografia, com os mapeamentos contabilísticos. Se faltar algum mapeamento a operação é recusada.', okText: 'Integrar', cancelText: 'Cancelar', onOk: () => contabilizar() })}>Integração contábil</Button>
             )}
-            {ac.recibos && <Button icon={<FilePdfOutlined />} onClick={() => navegar('/m/rh/rh_rel_recibos')}>Recibos</Button>}
-            {p.contabilizado && <BotaoGerarPagamento periodo={p} texto="Gerar Pagamento" />}
-            {ac.descontabilizar && <Button danger icon={<IconeFa nome="undo" />} onClick={() => { form.resetFields(); setEstorno(true); }}>Descontabilizar</Button>}
-            {ac.reabrir && (
-              <Button danger icon={<IconeFa nome="unlock" />} onClick={() => Modal.confirm({ title: `Reabrir ${p.mes_ano} para edição?`, content: 'A fotografia dos resultados é apagada e o período volta a Aberto (lançamentos editáveis no ecrã Calcular).', okText: 'Reabrir', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => post('reabrir') })}>Reabrir para Edição</Button>
+            {p.estado === 'FECHADO' && !p.contabilizado && pode('processamento_integrate') && (
+              <Button disabled icon={<IconeFa nome="book" />} title="O processamento precisa estar validado para integrar">Integração contábil</Button>
             )}
+            {p.contabilizado && (
+              <span style={{ color: '#3b82f6', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6 }}
+                title={p.numero_lan_contabilizacao ?? undefined}><IconeFa nome="book" /> Contabilizado</span>
+            )}
+            {ac.descontabilizar && <Button danger icon={<IconeFa nome="undo" />} onClick={() => { form.resetFields(); setEstorno(true); }}>Descontabilizar</Button>}
+            {ac.recibos && <Button icon={<FilePdfOutlined />} onClick={() => navegar('/m/rh/rh_rel_recibos')}>Recibos</Button>}
+            {p.contabilizado && <BotaoGerarPagamento periodo={p} texto="Gerar Pagamento" contorno />}
+            {ac.validar && (
+              <Button type="primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} icon={<CheckOutlined />} onClick={() => Modal.confirm({ title: `Validar o processamento de ${p.mes_ano}?`, content: 'Ao validar o processamento, concorda que os cálculos estão correctos. Depois de validado emitem-se os recibos, a ordem de pagamento e a contabilização.', okText: 'Validar', cancelText: 'Cancelar', onOk: () => post('validar') })}>Validar Processamento</Button>
+            )}
+            {p.estado === 'VALIDADO' && <span style={{ color: '#10b981', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconeFa nome="check-double" /> Validado</span>}
           </>
         }
       />

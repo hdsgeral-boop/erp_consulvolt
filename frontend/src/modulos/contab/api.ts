@@ -79,6 +79,10 @@ export interface LinhaBalancete {
   saldo_credor: string;
   terceiro_id?: number | null;
   terceiro?: string | null;
+  /** Linha Σ de uma conta totalizadora (tipo T) — não entra nos totais. */
+  totalizadora?: boolean;
+  /** Quebra por terceiro («Quebrar por Terceiros»): saldos de cada terceiro da conta. */
+  terceiros?: (Omit<LinhaBalancete, 'codigo_conta' | 'descricao' | 'terceiros'> & { terceiro_id: number; nif?: string | null; nome?: string | null })[];
 }
 
 export interface Balancete {

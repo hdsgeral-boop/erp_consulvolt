@@ -6,6 +6,7 @@ import { useRef, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { larguraModal, scrollTabela, useEcra } from '@/componentes/responsivo';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -112,7 +113,12 @@ export default function Consolidacao() {
   return (
     <>
       <CabecalhoPagina
-        titulo="Consolidação de empresas"
+        // legado: «<i class="fas fa-sitemap"></i> Consolidação de Empresas» (renderConsolidacao, js/consolidacao.js:773)
+        titulo={
+          <>
+            <IconeFa nome="sitemap" /> Consolidação de Empresas
+          </>
+        }
         subtitulo="Holdings, eliminações intragrupo por NIF e conversão cambial"
         accoes={
           <Space wrap>
@@ -125,7 +131,7 @@ export default function Consolidacao() {
                 <Button danger icon={<DeleteOutlined />}>Eliminar</Button>
               </Popconfirm>
             )}
-            {pode('consol_gerir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrirEdicao('novo')}>Novo grupo</Button>}
+            {pode('consol_gerir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrirEdicao('novo')}>Nova Holding</Button>}
           </Space>
         }
       />
@@ -248,9 +254,11 @@ function PainelGrupo({ grupo }: { grupo: Grupo }) {
                     <Space wrap>
                       <DatePicker value={dataFim} onChange={(v) => v && setDataFim(v)} format="DD/MM/YYYY" allowClear={false} />
                       <Input value={moeda} onChange={(e) => setMoeda(e.target.value.toUpperCase())} maxLength={3} style={{ width: 80 }} aria-label="Moeda" />
+                      {/* legado: «Consolidar» a roxo (#7c3aed, js/consolidacao.js:824) */}
                       <Button
                         type="primary"
                         icon={<PlayCircleOutlined />}
+                        style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
                         loading={executar.isPending}
                         onClick={() =>
                           Modal.confirm({
@@ -262,7 +270,7 @@ function PainelGrupo({ grupo }: { grupo: Grupo }) {
                           })
                         }
                       >
-                        Executar consolidação
+                        Consolidar
                       </Button>
                     </Space>
                   )
@@ -278,11 +286,12 @@ function PainelGrupo({ grupo }: { grupo: Grupo }) {
                   onRow={(r) => ({ onClick: () => setExecucaoAberta(r.id), style: { cursor: 'pointer' } })}
                   columns={[
                     { title: 'N.º', dataIndex: 'id', render: (v: number) => (v === grupo.ultima_execucao_id ? <Space>{v}<Tag color="blue">Última</Tag></Space> : v) },
-                    { title: 'Executada em', dataIndex: 'executado_em', render: formatarDataHora },
+                    // ordem do legado (js/consolidacao.js:833): Execução · Até · Moeda · Utilizador · Linhas · Estado
+                    { title: 'Execução', dataIndex: 'executado_em', render: formatarDataHora },
                     { title: 'Até', dataIndex: 'data_fim', render: formatarData },
                     { title: 'Moeda', dataIndex: 'moeda' },
-                    { title: 'Linhas', dataIndex: 'linhas', align: 'right' },
                     { title: 'Utilizador', dataIndex: 'utilizador' },
+                    { title: 'Linhas', dataIndex: 'linhas', align: 'right' },
                     { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
                   ]}
                 />

@@ -106,17 +106,18 @@ export default function Infotipos() {
                 <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
                   <Select options={TIPOS_RUBRICA} />
                 </Form.Item>
-                <Form.Item name="irt" label="Sujeito a IRT?" rules={[{ required: true }]}>
-                  <Select options={REGIMES_IRT} />
-                </Form.Item>
-                <Form.Item name="calculo_horas" label="Por horas" extra="Rubricas de horas extra ou de faltas por hora (efectividade).">
-                  <Select options={CALCULO_HORAS} />
-                </Form.Item>
+                {/* ordem do antigo (Adicionar Novo Infotipo): Nome · Tipo · INSS · IRT · valor dia/hora · cálculo por horas */}
                 <Form.Item name="sujeito_inss" valuePropName="checked">
                   <Checkbox>Sujeito a INSS (3%)</Checkbox>
                 </Form.Item>
+                <Form.Item name="irt" label="Sujeito a IRT?" rules={[{ required: true }]}>
+                  <Select options={REGIMES_IRT} />
+                </Form.Item>
                 <Form.Item name="base_horaria" valuePropName="checked">
                   <Checkbox>Entra no valor dia/hora (base das faltas e horas extra)</Checkbox>
+                </Form.Item>
+                <Form.Item name="calculo_horas" label="Cálculo por horas" extra="Rubricas de horas extra ou de faltas por hora (efectividade).">
+                  <Select options={CALCULO_HORAS} />
                 </Form.Item>
               </>
             }

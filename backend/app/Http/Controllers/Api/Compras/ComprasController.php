@@ -9,6 +9,7 @@ use App\Models\FaturaCompra;
 use App\Models\ItemCompra;
 use App\Models\PedidoCompra;
 use App\Models\RececaoCompra;
+use App\Models\Terceiro;
 use App\Rules\TaxaIvaLegal;
 use App\Services\Compras\RelacoesNomes;
 use App\Services\Compras\ServicoConfigCompras;
@@ -293,7 +294,7 @@ final class ComprasController extends Controller
         return $this->listar($r, FaturaCompra::query()->with(RelacoesNomes::fornecedor())
             ->when($r->integer('fornecedor_id'), fn ($q, $v) => $q->where('fornecedor_id', $v))
             ->when($r->integer('encomenda_compra_id'), fn ($q, $v) => $q->where('encomenda_compra_id', $v))
-            ->when($r->boolean('por_contabilizar'), fn ($q) => $q->where('contabilizado', false)), 'data', ['numero_fatura'], $this->listagens->faturas(...));
+            ->when($r->boolean('por_contabilizar'), fn ($q) => $q->where('contabilizado', false)), 'data', ['numero_fatura', 'fornecedor.nome'], $this->listagens->faturas(...));
     }
 
     public function fatura(int $id): JsonResponse
@@ -305,6 +306,10 @@ final class ComprasController extends Controller
         $numeroEncomenda = $f->encomenda_compra_id ? EncomendaCompra::query()->whereKey($f->encomenda_compra_id)->value('numero_encomenda') : null;
 
         $dados = $this->doc($f, 'fatura_compra_id') + ['numero_encomenda' => $numeroEncomenda, 'alocacao_un_origem' => null];
+        // morada do fornecedor no bloco «Dados do Fornecedor» do detalhe (legado: viewPurchaseInvoice)
+        if ($f->fornecedor_id && is_array($dados['fornecedor'] ?? null)) {
+            $dados['fornecedor']['endereco'] = Terceiro::query()->withTrashed()->whereKey($f->fornecedor_id)->value('endereco');
+        }
         // ADR-071 (R5): sem alocação própria, a contabilização usa a da encomenda e, não havendo, a do pedido (alocacaoEfectiva)
         if (! $dados['alocacao_un'] && $f->encomenda_compra_id) {
             $enc = EncomendaCompra::query()->find($f->encomenda_compra_id, ['id', 'pedido_compra_id', 'unidades_alocadas']);
@@ -410,7 +415,13 @@ final class ComprasController extends Controller
                 $termo = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $pesquisa).'%';
                 $x->where(function ($w) use ($termo, $colunasPesquisa) {
                     foreach ($colunasPesquisa as $coluna) {
-                        $w->orWhere($coluna, 'ilike', $termo);
+                        if (str_contains($coluna, '.')) {
+                            // «relação.coluna» (ex.: fornecedor.nome, como a pesquisa do legado); nomes fixos no código, nunca do pedido
+                            [$relacao, $campo] = explode('.', $coluna, 2);
+                            $w->orWhereHas($relacao, fn ($t) => $t->withTrashed()->where($campo, 'ilike', $termo));
+                        } else {
+                            $w->orWhere($coluna, 'ilike', $termo);
+                        }
                     }
                 });
             })

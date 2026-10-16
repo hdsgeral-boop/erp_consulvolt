@@ -194,6 +194,16 @@ export function repartirValor(total: Valor, n: number): string[] {
   return Array.from({ length: partes }, (_, i) => deCentimos(i === partes - 1 ? c - base * (partes - 1) : base));
 }
 
+/**
+ * «Inventariar Seleccionados (Combinar)» (ui_assets.js:3208-3217): as linhas seleccionadas pela ordem da lista (data, id),
+ * com o restante somado. O servidor reparte o valor dos activos pelas linhas por esta mesma ordem.
+ */
+export function combinarPendentes<T extends { id: number; data_documento?: string | null; por_inventariar: Valor }>(linhas: T[]): { ids: number[]; total: string; ordenadas: T[] } {
+  const dia = (l: T) => String(l.data_documento ?? '').slice(0, 10);
+  const ordenadas = [...linhas].sort((a, b) => dia(a).localeCompare(dia(b)) || a.id - b.id);
+  return { ids: ordenadas.map((l) => l.id), total: deCentimos(ordenadas.reduce((t, l) => t + paraCentimos(l.por_inventariar), 0)), ordenadas };
+}
+
 /** Valida a inventariação de uma linha 11/12: a soma dos itens não pode exceder o valor por inventariar. */
 export function validarInventariacao(itens: { valor_aquisicao?: Valor }[], porInventariar: Valor): { total: string; restante: string; excede: boolean } {
   const total = itens.reduce((t, i) => t + paraCentimos(i.valor_aquisicao), 0);

@@ -6,6 +6,7 @@ import { Route, Routes, useNavigate } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { BarraFiltros } from '@/componentes/responsivo';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
@@ -75,6 +76,14 @@ function PorIntegrar() {
         cor="#059669"
         fundo="#f0fdf4"
         corTitulo="#064e3b"
+        // legado: «INTEGRAR SELECIONADOS» (btn-warning, varinha) à direita do cartão-título
+        accoes={podeIntegrar && (
+          <Button color="gold" variant="solid" size="large" style={{ fontWeight: 700, paddingInline: 32 }} icon={<IconeFa nome="magic" />}
+            disabled={!seleccao.length || !!(progresso && progresso.feitos < progresso.total)}
+            onClick={() => Modal.confirm({ title: `Integrar ${seleccao.length} documento(s)?`, okText: 'Integrar', cancelText: 'Cancelar', onOk: () => void integrarSeleccionados() })}>
+            INTEGRAR SELECIONADOS{seleccao.length ? ` (${seleccao.length})` : ''}
+          </Button>
+        )}
       />
       <Tabs
         items={[
@@ -83,15 +92,7 @@ function PorIntegrar() {
             label: 'Por integrar',
             children: (
               <Card title="Documentos Pendentes de Contabilização" extra={<Tag color="#059669" data-testid="total-integracao">Total: {totalPendentes ?? '…'}</Tag>}>
-                <BarraFiltros
-                  accoes={
-                    podeIntegrar && (
-                      <Button type="primary" disabled={!seleccao.length || !!(progresso && progresso.feitos < progresso.total)} onClick={() => Modal.confirm({ title: `Integrar ${seleccao.length} documento(s)?`, okText: 'Integrar', cancelText: 'Cancelar', onOk: () => void integrarSeleccionados() })}>
-                        Integrar seleccionados ({seleccao.length})
-                      </Button>
-                    )
-                  }
-                >
+                <BarraFiltros>
                   <Select placeholder="Tipo" allowClear style={{ width: 150 }} value={tipo} onChange={setTipo} options={[{ value: 'PAGAMENTO', label: 'Pagamentos' }, { value: 'RECEBIMENTO', label: 'Recebimentos' }]} />
                   <SeletorContaFinanceira value={conta} onChange={setConta} allowClear />
                   <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} />

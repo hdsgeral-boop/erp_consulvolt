@@ -87,7 +87,7 @@ export default function Bancario() {
           { title: 'Código', dataIndex: 'codigo', render: (v: string | null) => v ?? '—' },
           { title: 'NIF', dataIndex: 'nif', render: (v: string | null) => v ?? '—' },
           { title: 'Endereço', dataIndex: 'endereco', render: (v: string | null) => v ?? '—' },
-          { title: 'Conta Contab.', dataIndex: 'codigo_conta', render: (v: string | null) => v ?? '—' },
+          { title: 'Conta Contab.', dataIndex: 'codigo_conta', render: (v: string | null) => (v ? <code style={{ color: 'var(--ant-color-primary, #2563eb)' }}>{v}</code> : '-') },
         ]}
         campos={
           <>
@@ -139,8 +139,9 @@ function IbanColaboradores() {
   const pequeno = useEcraPequeno();
   const colunas: ColunaApi<Linha>[] = [
     { title: 'Colaborador', render: (_, l) => <strong>{l.colaborador.nome_completo}</strong> },
-    { title: 'NIF', render: (_, l) => l.colaborador.nif },
-    { title: 'Estado', responsive: ['md'], render: (_, l) => <EstadoTag estado={l.colaborador.estado} /> },
+    { title: 'NIF', render: (_, l) => <small>{l.colaborador.nif}</small>, valorImpressao: (l) => l.colaborador.nif },
+    // colunas do antigo: Colaborador · NIF · Banco · IBAN · Ações; o estado do colaborador fica em «Colunas ▾»
+    { title: 'Estado', responsive: ['md'], ocultaPorOmissao: true, valorImpressao: (l) => l.colaborador.estado, render: (_, l) => <EstadoTag estado={l.colaborador.estado} /> },
     { title: 'Banco', render: (_, l) => l.coordenada?.banco?.nome ?? (l.coordenada ? `#${l.coordenada.banco_id}` : '—') },
     {
       title: 'IBAN',

@@ -140,29 +140,30 @@ export default function EncomendasClientes() {
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Itens de Encomendas de Clientes (Necessidades)"
-        impressao={vista === 'cartoes' ? pedidoImpressao : undefined}
-        impressaoDesactivada={!encomendas.length}
-        accoes={
-          <>
-            <Segmented
-              value={vista}
-              onChange={(v) => setVista(v as 'tabela' | 'cartoes')}
-              options={[{ value: 'tabela', label: 'Tabela' }, { value: 'cartoes', label: 'Por encomenda' }]}
-            />
-            <Button icon={<ReloadOutlined />} onClick={() => void consulta.refetch()} loading={consulta.isFetching}>
-              Actualizar
-            </Button>
-            {podeGerar && (
-              <Button type="primary" icon={<IconeFa nome="shopping-basket" />} disabled={selecao.length === 0} onClick={() => abrirGerar(selecao)}>
-                Gerar Pedido de Compra ({selecao.length})
+      {/* título e «Gerar Pedido de Compra» dentro do cartão, por cima da tabela, como o legado (js/ui_compras_v2.js:729-733) */}
+      <Card className="compras-cartao-lista">
+        <CabecalhoPagina
+          titulo="Itens de Encomendas de Clientes (Necessidades)"
+          impressao={vista === 'cartoes' ? pedidoImpressao : undefined}
+          impressaoDesactivada={!encomendas.length}
+          accoes={
+            <>
+              <Segmented
+                value={vista}
+                onChange={(v) => setVista(v as 'tabela' | 'cartoes')}
+                options={[{ value: 'tabela', label: 'Tabela' }, { value: 'cartoes', label: 'Por encomenda' }]}
+              />
+              <Button icon={<ReloadOutlined />} onClick={() => void consulta.refetch()} loading={consulta.isFetching}>
+                Actualizar
               </Button>
-            )}
-          </>
-        }
-      />
-      <Card>
+              {podeGerar && (
+                <Button type="primary" icon={<IconeFa nome="shopping-basket" />} disabled={selecao.length === 0} onClick={() => abrirGerar(selecao)}>
+                  Gerar Pedido de Compra ({selecao.length})
+                </Button>
+              )}
+            </>
+          }
+        />
         <BarraFiltros
           accoes={
             vista === 'cartoes' &&

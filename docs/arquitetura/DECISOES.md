@@ -2351,3 +2351,21 @@ Na pasta do Windows montada no Docker Desktop, o `DirectoryIterator` do PHP devo
   - o Ano vem pré-seleccionado com o ano corrente (decisão do utilizador); por isso «Alterar em massa» e «Descontabilizar» sem selecção actuam sobre o ano filtrado.
 - **Folha de Caixa:** título próprio, sub-separadores «Sessões | Caixa Aberta» e cartão «Histórico de Sessões» dentro da faixa «Tesouraria - Operações», como no legado (`app_v2.js`). A conta fica numa linha, os valores levam o sufixo «Kz»/«US$» e o estado é texto simples.
 - **Dashboard Global:** sem diferença. A fórmula do legado aplicada ao backup e à base do próprio legado (IndexedDB da porta 8091) dá os mesmos valores do novo: compras de Set/2026 = 23 140 747 156,11 Kz, dominadas pela FC 48 em EUR. A diferença anotada foi um erro de leitura do eixo do gráfico do legado.
+
+### Paridade dos restantes ecrãs, comparados pelo código do legado (2026-10-16)
+- **Âmbito:** Activos, Compras, RH (salários, contratos, férias, efectividade, empréstimos, pedidos do portal), Contabilidade (mapas, Relatório e Contas, encerramento, consolidação), Tesouraria (pagamentos/recebimentos, extractos, integração, conferência, cartas) e Stock (validar entradas, guias, armazéns, inventário, POS de armazém).
+- **O que foi feito:** apresentação igualada ao legado (títulos, ordem dos botões, colunas, totais e cores), sem mudar regras de negócio.
+- **Balancete:** colunas do legado (SI Devedor, SI Credor, Débitos, Créditos, S. Devedor, S. Credor), com «Com totalizadoras» ligada por omissão e terceiros em sub-linhas. Os critérios de cálculo continuam os do novo.
+- **Extracto da tesouraria:** «Saldo anterior ao período» passa a 1.ª linha, com o valor na coluna Saldo (antes aparecia no rodapé, na coluna Crédito).
+- **Pagamentos e recebimentos:** a cor do valor segue a natureza D/C da contrapartida, como no legado.
+- **Compras:** a pesquisa das facturas também procura pelo nome do fornecedor; o detalhe mostra a morada do fornecedor.
+- **Activos — «Inventariar Seleccionados (Combinar)»:** substitui o «não suportado» do ADR-051.
+  - Tabela nova `alocacoes_aquisicao_ativos` com a parte de cada linha coberta por cada activo.
+  - O legado dava todas as linhas por consumidas; no novo cada linha só fica coberta pelo valor inventariado e o resto continua pendente.
+  - A data e o fornecedor vêm da primeira linha; a FK do activo aponta para a primeira linha coberta.
+  - O estorno de qualquer linha coberta é bloqueado (`LANCAMENTO_COM_ATIVOS`).
+- **Diferenças que ficam:**
+  - na Consolidação, escolha do grupo num seletor (no legado, um cartão por holding);
+  - passos do Encerramento pela ordem 1→5;
+  - Contagem e Revisão de inventário paginadas a 50 artigos;
+  - ícones `wrench`/`bolt`/`user-secret` substituídos por equivalentes do catálogo.

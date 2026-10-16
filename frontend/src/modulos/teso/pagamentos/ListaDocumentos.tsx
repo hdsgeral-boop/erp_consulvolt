@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Card, DatePicker, Divider, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import { useAccao } from '@/componentes/Accoes';
 import { descarregarModeloTesouraria, ModalImportacaoTesouraria } from './ModalImportacao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -137,9 +137,14 @@ export function ListaDocumentos() {
             <Input placeholder="Referência / Descrição..." allowClear value={texto} style={{ width: '100%' }} aria-label="Pesquisa"
               onChange={(e) => { setTexto(e.target.value); if (!e.target.value) setPesquisa(''); }} onPressEnter={() => setPesquisa(texto)} />
           </div>
-          <Space size={6} wrap>
-            <Typography.Text strong style={{ color: token.colorTextSecondary }}><IconeFa nome="calendar-alt" style={{ color: token.colorPrimary }} /> De / Até:</Typography.Text>
-            <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} placeholder={['De', 'Até']} />
+          {/* «De:» e «Até:» em dois campos, como o painel do legado (ui_tesouraria.js:466-473) */}
+          <Space size={6}>
+            <Typography.Text strong style={{ color: token.colorTextSecondary, whiteSpace: 'nowrap' }}><IconeFa nome="calendar-alt" style={{ color: token.colorPrimary }} /> De:</Typography.Text>
+            <DatePicker format="DD/MM/YYYY" value={periodo?.[0] ?? null} onChange={(v) => setPeriodo([v, periodo?.[1] ?? null])} style={{ width: 140 }} aria-label="De" />
+          </Space>
+          <Space size={6}>
+            <Typography.Text strong style={{ color: token.colorTextSecondary, whiteSpace: 'nowrap' }}><IconeFa nome="calendar-alt" style={{ color: token.colorPrimary }} /> Até:</Typography.Text>
+            <DatePicker format="DD/MM/YYYY" value={periodo?.[1] ?? null} onChange={(v) => setPeriodo([periodo?.[0] ?? null, v])} style={{ width: 140 }} aria-label="Até" />
           </Space>
           <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={[{ value: 'PENDENTE', label: 'Por integrar' }, { value: 'INTEGRADO', label: 'Integrados' }, { value: 'ANULADO', label: 'Anulados' }]} />
           <SeletorContaFinanceira value={conta} onChange={setConta} allowClear />
@@ -154,6 +159,7 @@ export function ListaDocumentos() {
                 <Button icon={<IconeFa nome="upload" />} style={{ color: '#0891b2', borderColor: '#0891b2' }} onClick={() => setImportar(true)}>Carregar Dados</Button>
               </>
             )}
+            {podeEmitir && podeEliminar && <Divider type="vertical" style={{ height: 24 }} />}
             {podeEliminar && (
               <Tooltip title="Apagar apenas os selecionados (se não integrados)">
                 <Button danger icon={<IconeFa nome="trash-alt" />} disabled={!pendentes.length} onClick={() => comMotivo('Eliminar os documentos seleccionados (por integrar)', '/tesouraria/documentos/anular', pendentes)}>

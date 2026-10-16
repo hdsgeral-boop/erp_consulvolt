@@ -1,0 +1,211 @@
+/*
+ * Contabilidade › Relatórios e mapas contabilísticos — aspecto das tabelas dos mapas do ecrã antigo
+ * (renderRelatoriosContabeis, js/ui_reports.js): cabeçalho escuro (#0f172a, «Balancete do razão» #1e3a8a), linhas
+ * totalizadoras Σ a negrito com fundo cinzento e filete por cima (as de 1.º nível mais carregadas), saldo devedor a azul e
+ * credor a vermelho, secções/subtotais/totais das demonstrações (Balanço, DR) e as colunas AV % / AH %.
+ */
+
+/* ── cabeçalho escuro dos mapas ── */
+.erp-mapa-contab .ant-table-thead > tr:not(.erp-linha-filtros) > th {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.erp-mapa-contab .ant-table-thead > tr:not(.erp-linha-filtros) > th::before {
+  display: none;
+}
+
+/* «AV %» com o fundo claro do legado (th style="background:#f8fafc") */
+.erp-mapa-contab .ant-table-thead > tr > th.erp-mapa-av {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Balancete do razão: cabeçalho azul (#1e3a8a) em duas linhas — Movimento / Saldo */
+.erp-mapa-razao .ant-table-thead > tr > th {
+  background: #1e3a8a !important;
+  color: #ffffff !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.erp-mapa-razao .ant-table-thead > tr > th.ant-table-cell[colspan] {
+  text-align: center !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.erp-mapa-razao .erp-mapa-conta {
+  font-weight: 600;
+  color: var(--ant-color-primary, #2563eb);
+  white-space: nowrap;
+}
+
+/* ── Balancete ── */
+.erp-mapa-contab .erp-bal-totalizadora > td {
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+  border-top: 1px solid #cbd5e1;
+}
+
+.erp-mapa-contab .erp-bal-totalizadora.erp-bal-classe > td {
+  background: #f1f5f9;
+  border-top: 2px solid #334155;
+}
+
+.erp-mapa-contab .erp-bal-totalizadora .erp-bal-codigo {
+  font-family: monospace;
+  letter-spacing: 0.03em;
+}
+
+.erp-mapa-contab .erp-bal-movimento > td {
+  font-weight: 600;
+}
+
+.erp-mapa-contab .erp-bal-filha .erp-bal-codigo {
+  padding-left: 14px;
+}
+
+.erp-mapa-contab .erp-bal-filha .erp-bal-descricao {
+  color: #475569;
+}
+
+.erp-mapa-contab .erp-bal-terceiro > td {
+  font-size: 0.92em;
+  color: #94a3b8;
+}
+
+.erp-mapa-contab .erp-bal-terceiro .erp-bal-descricao {
+  padding-left: 2rem;
+  color: #64748b;
+}
+
+.erp-mapa-contab .erp-bal-sd {
+  color: var(--ant-color-primary, #2563eb);
+  font-weight: 700;
+}
+
+.erp-mapa-contab .erp-bal-sc {
+  color: var(--ant-color-error, #dc2626);
+  font-weight: 700;
+}
+
+.erp-mapa-contab .erp-bal-totalizadora .erp-bal-sd {
+  color: #166534;
+}
+
+.erp-mapa-contab .erp-bal-totalizadora .erp-bal-sc {
+  color: #991b1b;
+}
+
+.erp-mapa-contab .erp-bal-vazio {
+  color: #94a3b8;
+  font-weight: normal;
+}
+
+/* ── Demonstrações (Balanço, DR, Fluxo) ── */
+.erp-mapa-contab .erp-dem-seccao > td {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+.erp-mapa-contab .erp-dem-subseccao > td {
+  background: #f1f5f9;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+.erp-mapa-contab .erp-dem-subtotal > td {
+  background: #f1f5f9;
+  color: #1e293b;
+  font-weight: 700;
+  border-top: 1px solid #cbd5e1;
+}
+
+.erp-mapa-contab .erp-dem-total > td {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.erp-mapa-contab .erp-dem-total > td * {
+  color: inherit !important;
+}
+
+.erp-mapa-contab .erp-dem-total.erp-dem-final > td {
+  font-size: 1.1em;
+  border-top: 2px solid #000000;
+}
+
+.erp-mapa-contab .erp-dem-proveitos > td {
+  background: #f8fafc;
+  color: #10b981;
+  font-weight: 700;
+}
+
+.erp-mapa-contab .erp-dem-custos > td {
+  background: #f8fafc;
+  color: var(--ant-color-error, #dc2626);
+  font-weight: 700;
+}
+
+.erp-mapa-contab .erp-dem-resultado > td {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.erp-mapa-contab .erp-dem-proveitos > td *,
+.erp-mapa-contab .erp-dem-custos > td *,
+.erp-mapa-contab .erp-dem-resultado > td * {
+  color: inherit;
+}
+
+.erp-mapa-contab .erp-dem-linha .erp-dem-designacao {
+  padding-left: 16px;
+}
+
+.erp-mapa-contab td.erp-mapa-av {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.95em;
+}
+
+.erp-mapa-contab .erp-mapa-anterior {
+  color: #64748b;
+}
+
+.erp-mapa-contab .erp-mapa-ah {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.erp-mapa-contab .erp-mapa-ah-sobe {
+  color: #10b981;
+}
+
+.erp-mapa-contab .erp-mapa-ah-desce {
+  color: var(--ant-color-error, #dc2626);
+}
+
+.erp-mapa-contab .erp-mapa-ah-igual {
+  color: #64748b;
+}
+
+/* tela nocturna: os fundos claros das linhas passam aos tons do tema */
+html.erp-tela-nocturna .erp-mapa-contab .erp-bal-totalizadora > td,
+html.erp-tela-nocturna .erp-mapa-contab .erp-dem-seccao > td,
+html.erp-tela-nocturna .erp-mapa-contab .erp-dem-subseccao > td,
+html.erp-tela-nocturna .erp-mapa-contab .erp-dem-subtotal > td,
+html.erp-tela-nocturna .erp-mapa-contab .erp-dem-proveitos > td,
+html.erp-tela-nocturna .erp-mapa-contab .erp-dem-custos > td,
+html.erp-tela-nocturna .erp-mapa-contab .erp-dem-resultado > td,
+html.erp-tela-nocturna .erp-mapa-contab td.erp-mapa-av {
+  background: var(--ant-color-fill-alter, rgba(255, 255, 255, 0.04));
+  color: inherit;
+}
+
+html.erp-tela-nocturna .erp-mapa-contab .erp-bal-totalizadora.erp-bal-classe > td {
+  background: var(--ant-color-fill-secondary, rgba(255, 255, 255, 0.08));
+}

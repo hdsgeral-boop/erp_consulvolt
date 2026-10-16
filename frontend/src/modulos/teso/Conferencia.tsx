@@ -68,7 +68,7 @@ export function leituraDiferenca(dif: number | string | null | undefined): { cor
   return c > 0 ? { cor: '#f59e0b', texto: 'Sobra' } : { cor: '#ef4444', texto: 'Quebra' };
 }
 
-const cartaoNumerado = (cor: string): CSSProperties => ({ borderTop: `3px solid ${cor}`, marginBottom: 12 });
+const cartaoNumerado = (cor: string): CSSProperties => ({ borderTop: `4px solid ${cor}`, marginBottom: 12 });
 
 /**
  * Tesouraria › Conferência de caixa (ecrã teso_gestao_conferencia), como no legado (ui_tesouraria.js:7150-7356): sem título
@@ -180,10 +180,10 @@ export default function Conferencia() {
 
   const formulario = (
     <Form form={form} layout="vertical" onFinish={gravar} initialValues={{ data_conferencia: dayjs(), denominacoes: {} }}>
-      <Card size="small" style={cartaoNumerado('#7c3aed')} title={<><IconeFa nome="id-card" /> 1. Identificação{edicao ? ` — rascunho de ${formatarData(edicao.data_conferencia)}` : ''}</>}>
+      <Card size="small" style={cartaoNumerado('#7c3aed')} title={<><IconeFa nome="id-card" /> 1. Identificação da Conferência{edicao ? ` — rascunho de ${formatarData(edicao.data_conferencia)}` : ''}</>}>
         <Row gutter={12}>
           <Col xs={24} sm={14}>
-            <Form.Item name="codigo_conta" label="Conta de caixa" rules={[{ required: true }]} style={{ marginBottom: 0 }}>
+            <Form.Item name="codigo_conta" label="Conta de Caixa (Classe 45)" rules={[{ required: true }]} style={{ marginBottom: 0 }}>
               <SeletorContaFinanceira prefixos={['45']} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
@@ -196,15 +196,15 @@ export default function Conferencia() {
       </Card>
       <Row gutter={12}>
         <Col xs={24} lg={14}>
-          <Card size="small" style={cartaoNumerado('#0891b2')} title={<><IconeFa nome="money-bill-wave" /> 2. Contagem Física</>}>
+          <Card size="small" style={cartaoNumerado('#0891b2')} title={<><IconeFa nome="money-bill-wave" /> 2. Contagem Física do Numerário</>}>
             <Table<(typeof linhasContagem)[number]>
               rowKey="chave" size="small" pagination={false} dataSource={linhasContagem} data-testid="tabela-contagem"
               onRow={(l) => ({ style: l.grupo ? { background: token.colorFillAlter, fontWeight: 700 } : undefined })}
               columns={[
                 { title: 'Denominação', key: 'den', onCell: (l) => (l.grupo ? { colSpan: 4 } : {}), render: (_, l) => l.grupo ?? l.d!.rotulo },
-                { title: 'Tipo', key: 'tipo', onCell: juntar, render: (_, l) => (l.d ? (l.d.chave.startsWith('N') ? <Tag color="blue">Nota</Tag> : <Tag color="gold">Moeda</Tag>) : null) },
+                { title: 'Tipo', key: 'tipo', align: 'center', onCell: juntar, render: (_, l) => (l.d ? (l.d.chave.startsWith('N') ? <Tag color="blue">Nota</Tag> : <Tag color="gold">Moeda</Tag>) : null) },
                 {
-                  title: 'Quantidade', key: 'q', align: 'right', onCell: juntar,
+                  title: 'Quantidade', key: 'q', align: 'center', onCell: juntar,
                   render: (_, l) => (l.d ? (
                     <Form.Item name={['denominacoes', l.d.chave]} noStyle>
                       <InputNumber min={0} precision={0} size="small" style={{ width: 96 }} aria-label={`Quantidade ${l.d.rotulo}`} />
@@ -240,13 +240,13 @@ export default function Conferencia() {
       </Row>
       <div hidden={diferenca === null || !paraCentimos(diferenca)}>
         <Card size="small" style={cartaoNumerado('#ef4444')} title={<><IconeFa nome="exclamation-triangle" /> 4. Justificação do Desvio e Regularização</>}>
-          <Form.Item name="justificacao" label="Justificação de diferenças" style={{ marginBottom: 0 }}>
+          <Form.Item name="justificacao" label="Justificação do Desvio" style={{ marginBottom: 0 }}>
             <Input.TextArea rows={2} maxLength={4000} />
           </Form.Item>
         </Card>
       </div>
       <Flex wrap gap={8} justify="flex-end">
-        <Button icon={<IconeFa nome="eraser" />} onClick={limpar}>Limpar</Button>
+        <Button icon={<IconeFa nome="undo" />} onClick={limpar}>Limpar</Button>
         <Button htmlType="submit" loading={mutacao.isPending} icon={<IconeFa nome="save" />} style={{ color: '#92400e', background: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.5)' }}>Guardar Rascunho</Button>
       </Flex>
       <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>O saldo do sistema e a diferença são recalculados pelo servidor na data da conferência. Finalize o rascunho no Histórico.</Typography.Paragraph>
@@ -276,7 +276,7 @@ export default function Conferencia() {
           {
             title: 'Diferença', dataIndex: 'diferenca', align: 'right',
             render: (v: string, c) => (c.estado !== 'FINALIZADO' && !paraCentimos(v) ? '—'
-              : <strong style={{ color: leituraDiferenca(v).cor, whiteSpace: 'nowrap' }}>{formatarKz(v)}</strong>),
+              : <strong style={{ color: leituraDiferenca(v).cor, whiteSpace: 'nowrap' }}>{paraCentimos(v) >= 0 ? '+' : ''}{formatarKz(v)}</strong>),
           },
           {
             title: 'Estado', dataIndex: 'estado',

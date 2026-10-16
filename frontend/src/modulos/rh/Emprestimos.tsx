@@ -36,9 +36,10 @@ export default function Emprestimos() {
   const comConfig = pode('rh_emp_config') || pode('rh_emprestimos_view');
   return (
     <>
-      <CabecalhoPagina titulo="Empréstimos a colaboradores" subtitulo="Pedidos do portal, plano de amortização (prestação constante), conta corrente e desconto no salário" />
+      <CabecalhoPagina titulo="Empréstimos a Colaboradores" subtitulo="Pedidos do portal, plano de amortização (prestação constante), conta corrente e desconto no salário" />
+      {/* antigo (emprestimos_ui.js:31): botões «Empréstimos» e «Configurações» */}
       <Tabs type="card" activeKey={separador} onChange={setSeparador} items={[
-        { key: 'lista', label: <span><IconeFa nome="hand-holding-usd" /> Lista</span>, children: <Lista aoConfigurar={comConfig ? () => setSeparador('config') : undefined} /> },
+        { key: 'lista', label: <span><IconeFa nome="hand-holding-usd" /> Empréstimos</span>, children: <Lista aoConfigurar={comConfig ? () => setSeparador('config') : undefined} /> },
         ...(comConfig ? [{ key: 'config', label: <span><IconeFa nome="cog" /> Configurações</span>, children: <Configuracoes /> }] : []),
       ]} />
     </>
@@ -96,7 +97,9 @@ function Lista({ aoConfigurar }: { aoConfigurar?: () => void }) {
     { title: 'Plano', key: 'prest', align: 'center', valorImpressao: (e) => `${e.prestacoes} × ${formatarKz(e.valor_prestacao)}`, render: (_, e) => `${e.prestacoes} × ${formatarKz(e.valor_prestacao)}` },
     { title: 'Início', dataIndex: 'inicio_desconto', align: 'center', responsive: ['md'] },
     { title: 'Juro/ano', dataIndex: 'taxa_juro', align: 'right', responsive: ['lg'], ocultaPorOmissao: true, render: (v: string) => (Number(v) > 0 ? `${Number(v)} %` : 'Sem juros') },
-    { title: 'Em dívida', dataIndex: 'em_divida', align: 'right', render: (v: string | undefined) => formatarKz(v ?? 0) },
+    // antigo: em dívida só nos aprovados (a negrito); nos outros estados «—»
+    { title: 'Em dívida', dataIndex: 'em_divida', align: 'right', valorImpressao: (e) => (e.estado === 'APROVADO' ? formatarKz(e.em_divida ?? 0) : '—'),
+      render: (v: string | undefined, e) => (e.estado === 'APROVADO' ? <strong>{formatarKz(v ?? 0)}</strong> : '—') },
     { title: 'Estado', dataIndex: 'estado', align: 'center', render: (v: string) => <EstadoTag estado={v} /> },
     { title: 'Conta corrente', dataIndex: 'lancamento_referencia', align: 'center', responsive: ['lg'], render: (v: string | null) => v ?? '—' },
   ];
@@ -110,7 +113,7 @@ function Lista({ aoConfigurar }: { aoConfigurar?: () => void }) {
       </BarraFiltros>
       <TabelaComModos<Emprestimo> rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} scroll={scrollTabela()}
         accoes={(e) => [
-          { icone: 'list-ol', titulo: 'Ver o plano de amortização', variante: 'info', onClick: () => setVer(e.id) },
+          { icone: 'file-contract', titulo: 'Plano e documento', onClick: () => setVer(e.id) },
           pode('rh_emp_lancar') && ['APROVADO', 'LIQUIDADO'].includes(e.estado) && !e.lancamento_referencia && { icone: 'book', titulo: 'Lançar na conta corrente', variante: 'primario',
             onClick: () => { formLancar.setFieldsValue({ data: dayjs() }); setLancar(e); } },
           pode('rh_emp_gerir') && ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO'].includes(e.estado) && !(e.descontadas ?? 0) && { icone: 'ban', titulo: 'Cancelar empréstimo', variante: 'perigo',
@@ -180,24 +183,25 @@ function Configuracoes() {
       <AvisoPorConfigurar porConfigurar={q.data?.por_configurar ?? []} />
       <Form form={form} layout="vertical" disabled={!editar} style={{ maxWidth: 820 }} onFinish={(v) => accao.mutate({ metodo: 'put', url: '/rh/emprestimos/configuracao', dados: v })}>
         <Row gutter={16}>
-          <Col xs={24} md={12}><Form.Item name="conta_emprestimo" label="Conta de empréstimos ao pessoal (conta corrente)" extra="Debitada quando o empréstimo é concedido; é aqui que fica a dívida do colaborador."><SeletorConta allowClear placeholder="Conta de movimento" style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={24} md={12}><Form.Item name="conta_contrapartida" label="Conta de contrapartida" extra="Creditada ao entregar o dinheiro — normalmente o banco (43) ou a caixa (45)."><SeletorConta allowClear placeholder="Conta de movimento" style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="diario_id" label="Diário" extra={diarios.isError ? 'Sem acesso à lista de diários.' : 'É neste diário que fica o lançamento do empréstimo na conta corrente do colaborador.'}>
+          {/* disposição do antigo (emprestimos_ui.js:106): contas, diário e rubrica a toda a largura; limites em duas colunas */}
+          <Col xs={24}><Form.Item name="conta_emprestimo" required label="Conta de empréstimos a colaboradores (conta corrente)" extra="Debitada quando o empréstimo é concedido: é aqui que fica a dívida do colaborador."><SeletorConta allowClear placeholder="— escolher —" style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24}><Form.Item name="conta_contrapartida" required label="Conta de contrapartida do pagamento" extra="Creditada ao entregar o dinheiro — normalmente o banco (43) ou a caixa (45)."><SeletorConta allowClear placeholder="— escolher —" style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24}>
+            <Form.Item name="diario_id" required label="Diário onde o empréstimo é integrado" extra={diarios.isError ? 'Sem acesso à lista de diários.' : 'É neste diário que fica o lançamento do empréstimo na conta corrente do colaborador.'}>
               <Select allowClear showSearch optionFilterProp="label" options={(diarios.data ?? []).map((d) => ({ value: d.id, label: `${d.codigo} — ${d.nome ?? d.descricao ?? ''}` }))} />
             </Form.Item>
           </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="infotipo_desconto_id" label="Rubrica de desconto no cálculo" extra="É com esta rubrica que a prestação entra no processamento. Tem de ser do tipo DESCONTO.">
+          <Col xs={24}>
+            <Form.Item name="infotipo_desconto_id" required label="Rubrica de desconto no cálculo salarial" extra="É com esta rubrica que a prestação entra no processamento. Tem de ser do tipo DESCONTO.">
               <Select allowClear showSearch optionFilterProp="label" options={infotipos.lista.filter((i) => i.tipo === 'DESCONTO').map((i) => ({ value: i.id, label: i.nome }))} />
             </Form.Item>
           </Col>
-          <Col xs={12} md={6}><Form.Item name="prestacoes_max" label="Máximo de prestações" rules={[{ required: true }]}><InputNumber min={1} max={120} style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={12} md={6}><Form.Item name="multiplo_salario_max" label="Limite: múltiplo do salário base" rules={[{ required: true }]} extra="0 = sem limite."><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={12} md={6}><Form.Item name="taxa_juro_padrao" label="Taxa de juro anual (%)" rules={[{ required: true }]} extra="0 = empréstimo sem juros."><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24} md={12}><Form.Item name="prestacoes_max" label="Máximo de prestações" rules={[{ required: true }]}><InputNumber min={1} max={120} style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24} md={12}><Form.Item name="multiplo_salario_max" label="Limite: múltiplo do salário base" rules={[{ required: true }]} extra="0 = sem limite."><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24} md={12}><Form.Item name="taxa_juro_padrao" label="Taxa de juro anual (%)" rules={[{ required: true }]} extra="0 = empréstimo sem juros."><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={24} md={12}><Form.Item name="exige_chefia" label=" " valuePropName="checked"><Checkbox>Exigir parecer da chefia directa antes do RH</Checkbox></Form.Item></Col>
         </Row>
-        {editar && <Button type="primary" htmlType="submit" loading={accao.isPending}>Gravar configuração</Button>}
+        {editar && <Button type="primary" htmlType="submit" icon={<IconeFa nome="save" />} loading={accao.isPending}>Guardar configurações</Button>}
       </Form>
     </Card>
   );

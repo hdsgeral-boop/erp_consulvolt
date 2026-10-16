@@ -1,6 +1,6 @@
 import { AutoavaliacoesRH, AvaliacaoChefiasRH } from './comum/AvaliacoesPortalRH';
 import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
+import { IconeFa } from '@/componentes/fluxos';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -29,13 +29,14 @@ export default function PortalGestao() {
   return (
     <>
       <CabecalhoPagina titulo="Pedidos do Portal do Colaborador" subtitulo="Decisões do RH sobre férias, documentos e agregado familiar; autoavaliações submetidas; avaliação anónima das chefias; ligação dos utilizadores às fichas."
-        accoes={pode('rh_portal_usar') && <Button icon={<UserOutlined />} onClick={() => navegar('/m/rh/rh_portal')}>Abrir o meu portal</Button>} />
-      <Tabs items={[
-        { key: 'pedidos', label: 'Pedidos', children: <Pedidos /> },
-        { key: 'modelos', label: 'Modelos de documentos', children: <Modelos /> },
-        ...(pode('rh_portal_aprovar') || pode('rh_avaliacao_view') ? [{ key: 'autoavaliacoes', label: 'Autoavaliações', children: <AutoavaliacoesRH /> }] : []),
-        ...(pode('rh_portal_aprovar') ? [{ key: 'chefias', label: 'Avaliação das chefias', children: <AvaliacaoChefiasRH /> }] : []),
-        ...(pode('rh_portal_aprovar') || pode('rh_portal_gestao_view') ? [{ key: 'ligacoes', label: 'Utilizadores e colaboradores', children: <Ligacoes editar={pode('rh_portal_aprovar')} /> }] : []),
+        accoes={pode('rh_portal_usar') && <Button icon={<IconeFa nome="id-badge" />} onClick={() => navegar('/m/rh/rh_portal')}>Abrir o meu portal</Button>} />
+      <Tabs type="card" items={[
+        // separadores do antigo (portal_ui.js:833), com os ícones
+        { key: 'pedidos', label: <span><IconeFa nome="inbox" /> Pedidos</span>, children: <Pedidos /> },
+        { key: 'modelos', label: <span><IconeFa nome="file-alt" /> Modelos de documentos</span>, children: <Modelos /> },
+        ...(pode('rh_portal_aprovar') || pode('rh_avaliacao_view') ? [{ key: 'autoavaliacoes', label: <span><IconeFa nome="user-check" /> Autoavaliações</span>, children: <AutoavaliacoesRH /> }] : []),
+        ...(pode('rh_portal_aprovar') ? [{ key: 'chefias', label: <span><IconeFa nome="user-shield" /> Avaliação das chefias</span>, children: <AvaliacaoChefiasRH /> }] : []),
+        ...(pode('rh_portal_aprovar') || pode('rh_portal_gestao_view') ? [{ key: 'ligacoes', label: <span><IconeFa nome="link" /> Utilizadores e colaboradores</span>, children: <Ligacoes editar={pode('rh_portal_aprovar')} /> }] : []),
       ]} />
     </>
   );
@@ -71,11 +72,12 @@ function Pedidos() {
   }, [prop, formE]);
 
   const colunas: ColunaApi<PedidoPortal>[] = [
-    { title: 'N.º', dataIndex: 'id', render: (v: number) => `#${v}` },
-    { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => <strong>{colaboradores.nome(v)}</strong> },
+    // colunas do antigo (portal_ui.js:858): Data · Colaborador · Tipo · Detalhe · Estado · acções; o n.º do pedido fica em «Colunas ▾»
+    { title: 'Data', dataIndex: 'criado_em', render: formatarData },
+    { title: 'N.º', dataIndex: 'id', ocultaPorOmissao: true, render: (v: number) => `#${v}` },
+    { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => colaboradores.nome(v) },
     { title: 'Tipo', dataIndex: 'tipo', render: (t: TipoPedido) => TIPOS_PEDIDO[t] ?? t },
-    { title: 'Resumo', render: (_, p) => resumoPedido(p) },
-    { title: 'Pedido em', dataIndex: 'criado_em', responsive: ['md'], render: formatarData },
+    { title: 'Detalhe', render: (_, p) => resumoPedido(p) },
     { title: 'Estado', dataIndex: 'estado', render: (e: string) => <EstadoTag estado={e} /> },
     {
       title: '',
@@ -112,8 +114,9 @@ function Pedidos() {
           linhas: q.data ?? [],
         })} />
       }>
-        <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={ESTADOS_PEDIDO.map((e) => ({ value: e, label: <EstadoTag estado={e} /> }))} />
+        {/* ordem do antigo: Tipo · Estado */}
         <Select placeholder="Tipo" allowClear style={{ width: 260 }} value={tipo} onChange={setTipo} options={Object.entries(TIPOS_PEDIDO).map(([v, l]) => ({ value: v, label: l }))} />
+        <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={ESTADOS_PEDIDO.map((e) => ({ value: e, label: <EstadoTag estado={e} /> }))} />
         <SeletorColaborador value={colaborador} onChange={setColaborador} />
       </BarraFiltros>
       <TabelaComModos<PedidoPortal> idVista="pedidos" rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 25 }} scroll={scrollTabela()}

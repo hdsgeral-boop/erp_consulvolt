@@ -36,6 +36,7 @@ Route::prefix('ativos')->name('ativos.')->group(function () {
         Route::delete('manutencoes/{manutencao}', 'eliminarManutencao')->whereNumber('manutencao')->name('manutencoes.destroy');
 
         Route::get('aquisicoes-pendentes', 'aquisicoesPendentes')->name('aquisicoes.index');
+        Route::post('aquisicoes-pendentes/combinar', 'combinar')->name('aquisicoes.combinar');
         Route::post('aquisicoes-pendentes/{linha}/inventariar', 'inventariar')->whereNumber('linha')->name('aquisicoes.inventariar');
         Route::post('aquisicoes-pendentes/{linha}/ligar', 'ligar')->whereNumber('linha')->name('aquisicoes.ligar');
 

@@ -158,8 +158,12 @@ function Integrados() {
 
       <Card size="small" style={{ marginBottom: 16 }} title={<span><IconeFa nome="filter" /> Filtros de Pesquisa</span>} styles={{ body: { background: token.colorFillAlter } }}>
         <Row gutter={[10, 10]} align="bottom">
-          <Col xs={12} md={6} lg={5}>{rotulo('Data Inicial / Data Final')}
-            <DatePicker.RangePicker format="DD/MM/YYYY" style={{ width: '100%' }} value={rascunho.periodo ?? null} onChange={(v) => muda({ periodo: v })} placeholder={['Data Inicial', 'Data Final']} />
+          {/* «Data Inicial» e «Data Final» em dois campos, como os filtros do legado (ui_tesouraria.js:3207-3214) */}
+          <Col xs={12} md={4} lg={3}>{rotulo('Data Inicial')}
+            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} aria-label="Data Inicial" value={rascunho.periodo?.[0] ?? null} onChange={(v) => muda({ periodo: [v, rascunho.periodo?.[1] ?? null] })} />
+          </Col>
+          <Col xs={12} md={4} lg={3}>{rotulo('Data Final')}
+            <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} aria-label="Data Final" value={rascunho.periodo?.[1] ?? null} onChange={(v) => muda({ periodo: [rascunho.periodo?.[0] ?? null, v] })} />
           </Col>
           <Col xs={12} md={4} lg={3}>{rotulo('Valor (Kz)')}<InputNumber style={{ width: '100%' }} min={0} step={0.01} placeholder="Ex: 1500" value={rascunho.valor ?? null} onChange={(v) => muda({ valor: v })} /></Col>
           <Col xs={12} md={4} lg={3}>{rotulo('Referência')}<Input placeholder="RC 2026/1" maxLength={100} value={rascunho.referencia} onChange={(e) => muda({ referencia: e.target.value })} /></Col>
@@ -169,7 +173,7 @@ function Integrados() {
           </Col>
           <Col xs={12} md={3} lg={3}>{rotulo('C. Tesouraria')}<Input placeholder="Ex: 43.1.1" maxLength={20} value={rascunho.contaTesouraria} status={CONTA_VALIDA.test(rascunho.contaTesouraria ?? '') ? undefined : 'error'} onChange={(e) => muda({ contaTesouraria: e.target.value.trim() })} /></Col>
           <Col xs={12} md={3} lg={3}>{rotulo('C. Contrapartida')}<Input placeholder="Ex: 31.1.2.1" maxLength={20} value={rascunho.contaContrapartida} status={CONTA_VALIDA.test(rascunho.contaContrapartida ?? '') ? undefined : 'error'} onChange={(e) => muda({ contaContrapartida: e.target.value.trim() })} /></Col>
-          <Col xs={24} md={24} lg={4} style={{ display: 'flex', gap: 6 }}>
+          <Col xs={24} md={24} lg={3} style={{ display: 'flex', gap: 6 }}>
             <Tooltip title="Limpar Filtros"><Button aria-label="Limpar Filtros" icon={<IconeFa nome="eraser" />} onClick={() => { setRascunho({}); setFiltros({}); }} /></Tooltip>
             <Button type="primary" icon={<IconeFa nome="search" />} disabled={!contasValidas} onClick={() => setFiltros(rascunho)}>Pesquisar</Button>
           </Col>

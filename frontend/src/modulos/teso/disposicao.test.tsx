@@ -62,8 +62,8 @@ describe('Conferência de caixa — no próprio ecrã, com sub-separadores', () 
   it('«Nova Conferência» com a contagem por denominação na página; «Histórico» com a contagem e as colunas do legado', async () => {
     const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={cliente}><MemoryRouter><Conferencia /></MemoryRouter></QueryClientProvider>);
-    expect(await screen.findByText('1. Identificação')).toBeInTheDocument();
-    expect(screen.getByText('2. Contagem Física')).toBeInTheDocument();
+    expect(await screen.findByText('1. Identificação da Conferência')).toBeInTheDocument();
+    expect(screen.getByText('2. Contagem Física do Numerário')).toBeInTheDocument();
     expect(screen.getByText('3. Comparação')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Quantidade Nota 5 000'), { target: { value: '2' } });
     fireEvent.change(screen.getByLabelText('Quantidade Moeda 10'), { target: { value: '3' } });

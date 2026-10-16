@@ -2,6 +2,7 @@ import { Alert, Card, Checkbox, Form, Select } from 'antd';
 import { useState } from 'react';
 import { TabelaPorUnidade, useMapaPorUnidade } from '@/componentes/reparticao';
 import { TituloMapa } from './TituloMapa';
+import { BotaoPorUN } from './MapaBalanco';
 import type { DemonstracaoResultados } from '../api';
 import { TabelaDemonstracao } from '../comum/Demonstracao';
 import { linhasDR } from '../comum/demonstracoes';
@@ -20,7 +21,8 @@ export default function MapaDR() {
 
   return (
     <>
-      <TituloMapa titulo="Demonstração de resultados" subtitulo="Por natureza, com notas DEMO" />
+      {/* legado: <h3>Demonstração de resultados comparativa</h3> (js/ui_reports.js:1305-1318) */}
+      <TituloMapa titulo="Demonstração de resultados comparativa" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Por natureza, com notas DEMO'} accoes={<BotaoPorUN ligado={porUN} aoMudar={setPorUN} />} />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="periodo"
@@ -39,8 +41,6 @@ export default function MapaDR() {
             </>
           }
         />
-        {/* Fase C (ui_reports.js:376-406): uma coluna por unidade de negócio, «Sem unidade» e o Total */}
-        <Checkbox checked={porUN} onChange={(e) => setPorUN(e.target.checked)}>Por unidade de negócio</Checkbox>
       </Card>
       {porUN && mapa.parametros && (
         <Card loading={porUnidade.isFetching}>
@@ -56,8 +56,8 @@ export default function MapaDR() {
             <TabelaDemonstracao
               linhas={linhasDR(d)}
               comparativo={comparativo}
-              rotuloAtual={String(d.ano)}
-              rotuloAnterior={homologo ? `${d.ano - 1} (homólogo)` : String(d.ano - 1)}
+              rotuloAtual={`Ano ${d.ano}`}
+              rotuloAnterior={homologo ? `Ano ${d.ano - 1} (homólogo)` : `Ano ${d.ano - 1}`}
               tipoNota="demonstracao"
               parametros={mapa.parametros ?? {}}
               nomeCsv={`demonstracao_resultados_${d.ano}`}

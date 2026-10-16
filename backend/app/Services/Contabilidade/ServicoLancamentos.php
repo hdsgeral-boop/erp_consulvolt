@@ -256,7 +256,10 @@ final class ServicoLancamentos
             || isset($bancarios[$l->reconciliacao_codigo]))) {
             return ['codigo' => 'LANCAMENTO_RECONCILIADO', 'mensagem' => 'O lançamento tem linhas reconciliadas com o banco: reverta primeiro a reconciliação.'];
         }
-        if (DB::table('ativos_imobilizados')->where('empresa_id', $empresa)->whereIn('lancamento_contabil_id', $linhas->pluck('id')->all())->exists()) {
+        $idsLinhas = $linhas->pluck('id')->all();
+        // ligação directa (FK do activo) ou parte de uma inventariação combinada (alocacoes_aquisicao_ativos)
+        if (DB::table('ativos_imobilizados')->where('empresa_id', $empresa)->whereIn('lancamento_contabil_id', $idsLinhas)->exists()
+            || DB::table('alocacoes_aquisicao_ativos')->where('empresa_id', $empresa)->whereIn('lancamento_contabil_id', $idsLinhas)->exists()) {
             return ['codigo' => 'LANCAMENTO_COM_ATIVOS', 'mensagem' => 'O lançamento está ligado a activos imobilizados: trate primeiro os activos.'];
         }
 

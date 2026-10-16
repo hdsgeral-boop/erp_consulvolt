@@ -2,13 +2,11 @@ import { Card, Input, Select, Tag, Typography } from 'antd';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import type { AccaoLinha } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { EstadoTag, opcoesEstado, rotuloEstado } from '../comum/estados';
 import { NomeTerceiro } from '../comum/referencias';
 import { accoesContrato, type Pode } from '../comum/regras';
 import { SeletorTerceiro } from '../comum/Seletores';
@@ -34,6 +32,19 @@ export function accoesLinhaContrato(c: ContratoCompra, pode: Pode, f: { editar: 
     { icone: 'edit', titulo: 'Editar', variante: 'primario', desactivado: !a.editar && (c.estado === 'CANCELADO' ? 'Um contrato cancelado não se altera' : 'Sem permissão para gerir contratos'), onClick: f.editar },
     { icone: 'ban', titulo: 'Cancelar Contrato', variante: 'perigo', oculto: c.estado !== 'ATIVO', desactivado: !a.cancelar && 'Sem permissão para cancelar contratos', onClick: f.cancelar },
   ];
+}
+
+/** Estados dos contratos com os rótulos e as cores do legado (js/ui_compras_v2.js:791-795). */
+const ESTADOS_CONTRATO: Record<string, { rotulo: string; cor: string }> = {
+  ATIVO: { rotulo: 'Ativo', cor: 'green' },
+  CANCELADO: { rotulo: 'Cancelado', cor: 'red' },
+  EXPIRADO: { rotulo: 'Expirado', cor: 'orange' },
+};
+
+export const rotuloEstadoContrato = (e: string | null | undefined) => (e ? ESTADOS_CONTRATO[e]?.rotulo ?? e : '—');
+
+export function EstadoContratoTag({ estado }: { estado: string | null | undefined }) {
+  return <Tag color={estado ? ESTADOS_CONTRATO[estado]?.cor : undefined}>{rotuloEstadoContrato(estado)}</Tag>;
 }
 
 /** «Total encomendado» com «N% do previsto» (vermelho acima de 100 %). */
@@ -97,15 +108,15 @@ function ListaContratos() {
       valorImpressao: (r) => `${formatarKz(r.total_encomendado ?? 0)}${r.percentagem_encomendada != null ? ` (${r.percentagem_encomendada}%)` : ''}`,
       render: (_, r) => <TotalEncomendado c={r} />,
     },
-    { title: 'Estado', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado), render: (e: string) => <EstadoTag estado={e} /> },
+    { title: 'Estado', dataIndex: 'estado', valorImpressao: (r) => rotuloEstadoContrato(r.estado), render: (e: string) => <EstadoContratoTag estado={e} /> },
   ];
 
   return (
     <>
-      <CabecalhoPagina titulo="Contratos de Fornecimento" />
-      <Card>
+      {/* o legado mostra só a tabela no cartão do módulo, sem título (js/ui_compras_v2.js:828-848); os filtros são do sistema novo */}
+      <Card className="compras-cartao-lista">
         <BarraFiltros>
-          <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={opcoesEstado(['ATIVO', 'EXPIRADO', 'CANCELADO'])} />
+          <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={['ATIVO', 'EXPIRADO', 'CANCELADO'].map((e) => ({ value: e, label: rotuloEstadoContrato(e) }))} />
           <SeletorTerceiro papel="FORNECEDOR" style={{ width: 320, maxWidth: '100%' }} value={fornecedor} onChange={(v, o) => { setFornecedor(v); setNomeFornecedor(o && !Array.isArray(o) && o.label ? String(o.label) : undefined); }} />
           <Input.Search placeholder="Referência" allowClear style={{ width: 200, maxWidth: '100%' }} onSearch={(v) => setPesquisa(v.trim())} />
         </BarraFiltros>
@@ -118,7 +129,7 @@ function ListaContratos() {
           vazio={{ icone: 'file-contract', titulo: 'Nenhum contrato de fornecimento registado.' }}
           impressao={{
             titulo: 'Contratos de Fornecimento',
-            filtros: [estado && `Estado: ${rotuloEstado(estado)}`, !!fornecedor && `Fornecedor: ${nomeFornecedor ?? `#${fornecedor}`}`, pesquisa && `Pesquisa: ${pesquisa}`],
+            filtros: [estado && `Estado: ${rotuloEstadoContrato(estado)}`, !!fornecedor && `Fornecedor: ${nomeFornecedor ?? `#${fornecedor}`}`, pesquisa && `Pesquisa: ${pesquisa}`],
           }}
           accoes={(r) => accoesLinhaContrato(r, pode, { editar: () => setEdicao(r), cancelar: () => setCancelar(r) })}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}

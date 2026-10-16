@@ -15,6 +15,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, ValorKz } from './comum/Componentes';
 import { estadoConclusao, temErros, textosConclusao } from './relatorioContas/conclusao';
+import { DemonstracoesRC } from './relatorioContas/DemonstracoesRC';
 import { SeparadorGestao } from './relatorioContas/SeparadorGestao';
 import { SECCOES, tabelaSeccao, textoActual, textoParaHtml, type ConfigGestao, type TextoGravado } from './relatorioContas/textosGestao';
 
@@ -264,7 +265,8 @@ export default function RelatorioContas() {
               </Button>
             )}
             {regras.podeEditar && (
-              <Button icon={<SaveOutlined />} loading={gravar.isPending} onClick={() => void gravarTudo()} type={sujo ? 'primary' : 'default'}>
+              // legado: «Gravar» btn-warning (laranja); com alterações por gravar fica cheio
+              <Button icon={<SaveOutlined />} loading={gravar.isPending} onClick={() => void gravarTudo()} color="orange" variant={sujo ? 'solid' : 'outlined'}>
                 Gravar
               </Button>
             )}
@@ -338,6 +340,9 @@ export default function RelatorioContas() {
                   </span>
                 ),
                 children: (
+                  <>
+                  {/* legado: Balanço, DR e Fluxos de caixa (relatorio_contas.js:1003-1006); grandezas e rácios são do sistema novo */}
+                  <DemonstracoesRC ano={ano} concluido={regras.concluido} />
                   <Row gutter={[16, 16]}>
                     <Col xs={24} lg={12}>
                       <Card title="Grandezas (Kz)" size="small">
@@ -375,6 +380,7 @@ export default function RelatorioContas() {
                       </Card>
                     </Col>
                   </Row>
+                  </>
                 ),
               },
               {

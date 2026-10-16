@@ -62,7 +62,8 @@ describe('Edifícios e Locais (Fase F)', () => {
     expect(screen.getByText(/4 bem\(ns\) ainda sem porta atribuída/)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Novo Edifício \/ Local/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Planta/ })).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /Folhas de Inventário/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Folhas de Inventário/ })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: /Folhas de Inventário/ })).toBeNull();
   });
 
   it('planta: portas com bens, «Bens sem porta» e arrastar um bem para a porta', async () => {

@@ -87,20 +87,22 @@ describe('Categorias e Taxas (13.2.1)', () => {
 });
 
 describe('Manutenções (13.3.1)', () => {
-  it('colunas Nº Inventário, Planeado e Executado; «Executar» só nas planeadas', async () => {
+  it('colunas do Histórico do legado (Data, Activo, Ordem, Tipo, Trabalho, Resolução, Custo); «Executar» só nas planeadas', async () => {
     permissoes = new Set(['activos_manutencao_view', 'activos_manut']);
     const { default: Manutencao } = await import('../Manutencao');
     envolver(<Manutencao />);
     // Versão Actual: a Manutenção abre nas Ordens; o registo simples passou para o separador «Histórico»
     fireEvent.click(await screen.findByRole('tab', { name: /Histórico/ }));
     await screen.findByText('Revisão anual', undefined, { timeout: 60_000 });
-    expect(screen.getByText('Histórico de Manutenções')).toBeTruthy();
+    expect(screen.getByText(/Histórico de manutenções/)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Registar Manutenção/ })).toBeTruthy();
     const h = cabecalhos();
-    const ordem = ['Nº INVENTÁRIO', 'DATA', 'ACTIVO', 'TIPO', 'PLANEADO', 'EXECUTADO', 'CUSTO', 'ESTADO', 'ACÇÕES'].map((t) => h.findIndex((x) => x.startsWith(t)));
+    const ordem = ['DATA', 'ACTIVO', 'ORDEM', 'TIPO', 'TRABALHO', 'RESOLUÇÃO', 'CUSTO', 'ESTADO', 'ACÇÕES'].map((t) => h.findIndex((x) => x.startsWith(t)));
     expect(ordem.every((i) => i >= 0)).toBe(true);
     expect([...ordem].sort((a, b) => a - b)).toEqual(ordem);
-    expect(screen.getAllByRole('button', { name: 'AST-009' })).toHaveLength(2);
+    expect(screen.getAllByText('AST-009 — Portátil de teste')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Ficha do activo' })).toHaveLength(2);
+    expect(screen.getByText('Custo acumulado:')).toBeTruthy();
     const planeada = screen.getByText('Revisão anual').closest('tr')!;
     expect(within(planeada).getByRole('button', { name: /Executar/ })).toBeTruthy();
     const concluida = screen.getByText('Limpar').closest('tr')!;

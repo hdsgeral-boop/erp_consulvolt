@@ -112,7 +112,7 @@ export default function Contratos() {
   // Fase B (Versão Actual): suspender, reactivar, cessar, anular a cessação e ver o estado (contrato_estado_ui.js)
   const [accaoEstado, setAccaoEstado] = useState<{ tipo: AccaoEstado; contrato: ContratoTrabalho } | null>(null);
   const [importarCt, setImportarCt] = useState(false);
-  const [massa, setMassa] = useState(false);
+  const [massa, setMassa] = useState<'RUBRICAS' | 'PRODUTIVIDADE' | null>(null);
   const [simular, setSimular] = useState(false);
   const [subsidios, setSubsidios] = useState(false);
   const [form] = Form.useForm<ValoresContrato>();
@@ -236,15 +236,15 @@ export default function Contratos() {
   const porDia = (c: ContratoTrabalho) => Number(totalContrato(c)) / (Number(c.dias_contrato_mes) || 22);
   const colunas: ColunaApi<ContratoTrabalho>[] = [
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => <strong>{colaboradores.nome(v)}</strong> },
-    { title: 'Rubricas (infotipos)', responsive: ['lg'], ellipsis: true, valorImpressao: (c) => rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id)).join(', '),
+    { title: 'Rubricas (Infotipos)', responsive: ['lg'], ellipsis: true, valorImpressao: (c) => rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id)).join(', '),
       render: (_, c) => <Tooltip title={rem(c).map((r) => `${infotipos.nome(r.infotipo_salarial_id)}: ${formatarKz(r.valor_mes)}`).join(' · ')}>{rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id)).join(', ')}</Tooltip> },
-    { title: 'Valor/mês (Kz)', align: 'right', valorImpressao: (c) => `${formatarKz(totalContrato(c))}${moeda(c)}`, render: (_, c) => `${formatarKz(totalContrato(c))}${moeda(c)}` },
-    { title: 'Valor/dia (Kz)', align: 'right', responsive: ['md'], valorImpressao: (c) => formatarKz(porDia(c)), render: (_, c) => formatarKz(porDia(c)) },
-    { title: 'Valor/hora (Kz)', align: 'right', responsive: ['lg'], valorImpressao: (c) => formatarKz(porDia(c) / (Number(c.horas_por_dia) || 8)), render: (_, c) => formatarKz(porDia(c) / (Number(c.horas_por_dia) || 8)) },
-    { title: 'Dias · horas', align: 'center', responsive: ['md'], valorImpressao: (c) => `${c.dias_contrato_mes ?? 22} · ${Number(c.horas_por_dia ?? 8)}`, render: (_, c) => `${c.dias_contrato_mes ?? 22} · ${Number(c.horas_por_dia ?? 8)}` },
-    { title: 'Início', dataIndex: 'data_inicio', render: formatarData },
-    { title: 'Fim', dataIndex: 'data_fim', render: (v: string | null) => (semFim(v) ? 'Sem fim' : formatarData(v)) },
-    { title: 'Estado', dataIndex: 'estado', render: (e: string | null, c) => <Space size={4} wrap><EstadoTag estado={e} />{contratoVigente(c, hoje) && <Typography.Text type="success">vigente</Typography.Text>}</Space> },
+    { title: 'Valor/Mês (Kz)', align: 'right', valorImpressao: (c) => `${formatarKz(totalContrato(c))}${moeda(c)}`, render: (_, c) => `${formatarKz(totalContrato(c))}${moeda(c)}` },
+    { title: 'Valor/Dia (Kz)', align: 'right', responsive: ['md'], valorImpressao: (c) => formatarKz(porDia(c)), render: (_, c) => formatarKz(porDia(c)) },
+    { title: 'Valor/Hora (Kz)', align: 'right', responsive: ['lg'], valorImpressao: (c) => formatarKz(porDia(c) / (Number(c.horas_por_dia) || 8)), render: (_, c) => formatarKz(porDia(c) / (Number(c.horas_por_dia) || 8)) },
+    { title: 'Dias · Horas', align: 'center', responsive: ['md'], valorImpressao: (c) => `${c.dias_contrato_mes ?? 22} d · ${Number(c.horas_por_dia ?? 8)} h`, render: (_, c) => `${c.dias_contrato_mes ?? 22} d · ${Number(c.horas_por_dia ?? 8)} h` },
+    { title: 'Início', dataIndex: 'data_inicio', align: 'center', render: formatarData },
+    { title: 'Fim', dataIndex: 'data_fim', align: 'center', render: (v: string | null) => (semFim(v) ? '-' : formatarData(v)) },
+    { title: 'Estado', dataIndex: 'estado', align: 'center', render: (e: string | null, c) => <Space size={4} wrap><EstadoTag estado={e} />{contratoVigente(c, hoje) && <Typography.Text type="success">vigente</Typography.Text>}</Space> },
   ];
 
   return (
@@ -252,7 +252,7 @@ export default function Contratos() {
       <ImportarExcel aberto={importarCt} titulo="Importar contratos (Excel)" url="/rh/importacoes/contratos" modelo="contratos"
         ajuda="Modelo vertical: uma linha por rubrica; as linhas com o mesmo NIF formam um contrato (início, dias/mês, horas/dia e estado na 1.ª linha). Quem já tiver contrato nesse período é recusado."
         aoFechar={() => setImportarCt(false)} />
-      <ContratosMassa aberto={massa} aoFechar={() => setMassa(false)} contratos={seleccionados.map(Number)} />
+      <ContratosMassa aberto={massa !== null} tipoInicial={massa ?? 'RUBRICAS'} aoFechar={() => setMassa(null)} contratos={seleccionados.map(Number)} />
       <SubsidiosMinuta aberto={subsidios} aoFechar={() => setSubsidios(false)} />
       <SimularMassa aberto={simular} aoFechar={() => setSimular(false)} />
       <CabecalhoPagina
@@ -269,7 +269,8 @@ export default function Contratos() {
               </>
             )}
             {pode('contratos_new') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo Contrato</Button>}
-            {pode('contratos_new') && <Button type="primary" icon={<AppstoreAddOutlined />} title="Rubricas com o mesmo valor mensal ou itens de produtividade, aplicados a vários colaboradores (ou aos contratos marcados)" onClick={() => setMassa(true)}>Aplicar em massa</Button>}
+            {pode('contratos_new') && <Button type="primary" icon={<AppstoreAddOutlined />} title="Escolher rubricas com o mesmo valor mensal e aplicá-las a vários colaboradores (actualiza ou cria os contratos)" onClick={() => setMassa('RUBRICAS')}>Aplicar em massa</Button>}
+            {pode('contratos_new') && <Button type="primary" icon={<IconeFa nome="chart-line" />} title="Aplicar itens de produtividade a vários contratos de uma vez (parte dos contratos marcados na lista)" onClick={() => setMassa('PRODUTIVIDADE')}>Produtividade em massa</Button>}
             {pode('config_empresas_gerir', 'contratos_new') && <Button icon={<IconeFa nome="percent" />} title="Percentagens dos subsídios de férias e de Natal na minuta (mínimo legal 50 %)" onClick={() => setSubsidios(true)}>Subsídios na minuta</Button>}
             {pode('contratos_terminate') && (
               <>
@@ -292,7 +293,7 @@ export default function Contratos() {
           linhas,
         })}
       />
-      <Card>
+      <Card title="Lista de Contratos Registados">
         <BarraFiltros>
           <SeletorColaborador value={colaborador} onChange={setColaborador} />
           <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={ESTADOS_CONTRATO} />
@@ -303,13 +304,14 @@ export default function Contratos() {
           accoes={(c) => [
             { icone: 'file-pdf', titulo: 'Gerar PDF para Assinatura', cor: '#dc2626', onClick: () => gerarPdf(c).catch((e) => notificarErro(e, 'Não foi possível gerar o contrato')) },
             pode('contratos_new') && { icone: 'edit', titulo: 'Editar', onClick: () => abrir(c) },
+            // ordem do antigo: PDF · Editar · estado (ver / anular / reactivar / suspender · cessar) · Excluir; «Terminar» é do sistema novo
+            ...accoesEstadoContrato(c, pode, (tipo, x) => setAccaoEstado({ tipo, contrato: x })),
             pode('contratos_terminate') && semFim(c.data_fim) && c.estado !== 'CESSADO' && { icone: 'calendar-times', titulo: 'Terminar contrato', variante: 'aviso', onClick: () => { formFim.setFieldsValue({ data_fim: dayjs() }); setTerminar(c); } },
             pode('contratos_terminate') && {
               icone: 'trash', titulo: 'Excluir', variante: 'perigo',
               confirmar: { titulo: 'Eliminar este contrato?', texto: 'Os processamentos encerrados guardam a fotografia: nada muda para trás.', textoOk: 'Eliminar', perigo: true },
               onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/contratos/${c.id}` }),
             },
-            ...accoesEstadoContrato(c, pode, (tipo, x) => setAccaoEstado({ tipo, contrato: x })),
           ]}
           vazio={{ icone: 'file-contract', titulo: 'Sem contratos', texto: 'Ainda não há contratos com estes filtros.' }} />
       </Card>

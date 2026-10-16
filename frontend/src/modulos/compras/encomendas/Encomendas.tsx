@@ -67,6 +67,14 @@ export function accoesLinhaEncomenda(
   ];
 }
 
+/** Cores dos estados das encomendas como no legado (js/ui_compras_v2.js:432): recebida a verde, parcial a laranja, o resto a azul. */
+export function corEstadoEncomenda(estado: string | null | undefined): string {
+  if (estado === 'RECEBIDO') return 'green';
+  if (estado === 'PARCIAL') return 'orange';
+  if (estado === 'ANULADA') return 'red';
+  return 'blue';
+}
+
 /** «Associar» / alterar o contrato da encomenda (associarContratoEncomenda, js/ui_compras_v2.js:4727). */
 function ModalContratoEncomenda({ encomenda, aoFechar }: { encomenda: EncomendaCompra | null; aoFechar: () => void }) {
   const [escolha, setEscolha] = useState<number | null | undefined>(undefined);
@@ -151,7 +159,7 @@ function ListaEncomendas() {
       render: (_, r) => <BarrasSatisfacao entregue={r.percentagem_entregue ?? 0} faturada={r.percentagem_faturada ?? 0} />,
     },
     colunaUnCc<EncomendaCompra>(),
-    { title: 'Status', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado), render: (e: string) => <EstadoTag estado={e} /> },
+    { title: 'Status', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado), render: (e: string) => <Tag color={corEstadoEncomenda(e)}>{rotuloEstado(e)}</Tag> },
     { title: 'Total (Kz)', key: 'total', align: 'right', ocultaPorOmissao: true, valorImpressao: (r) => formatarKz(r.montante_total), render: (_, r) => <ValorMoeda kz={r.montante_total} moeda={r.codigo_moeda} valorMoeda={r.montante_total_moeda} /> },
     { title: 'Entrega prevista', dataIndex: 'data_entrega_prevista', ocultaPorOmissao: true, render: formatarData },
   ];

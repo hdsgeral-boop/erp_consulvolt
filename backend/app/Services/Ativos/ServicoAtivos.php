@@ -194,7 +194,7 @@ final class ServicoAtivos
                     ['ativos' => $ativos->whereIn('id', $integrados)->pluck('codigo')->values()->all()]);
             }
             foreach ($ativos as $a) {
-                $this->referencias->exigirLivre('ativos_imobilizados', $a->id, "o activo {$a->codigo}", ['amortizacoes_ativos']);
+                $this->referencias->exigirLivre('ativos_imobilizados', $a->id, "o activo {$a->codigo}", ['amortizacoes_ativos', 'alocacoes_aquisicao_ativos']);
             }
             AmortizacaoAtivo::query()->whereIn('ativo_imobilizado_id', $ids)->where('contabilizado', false)->delete();
             foreach ($ativos as $a) {

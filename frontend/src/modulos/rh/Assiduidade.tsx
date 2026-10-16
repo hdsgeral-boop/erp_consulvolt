@@ -44,7 +44,7 @@ export default function Assiduidade() {
     <>
       <CabecalhoPagina
         titulo="Efectividade (biometria)"
-        subtitulo="Assiduidade (biometria): o apuramento do mês fechado alimenta o processamento salarial («Importar efectividade»)"
+        subtitulo="Dias e horas trabalhados: registo manual, importação de ficheiro do relógio biométrico ou ligação directa. Base do apuramento de faltas e horas extra no processamento salarial."
         accoes={
           <Space wrap>
             <DatePicker picker="month" format="MM/YYYY" allowClear={false} value={mes} onChange={(v) => v && setMes(v)} aria-label="Mês" />
@@ -56,14 +56,14 @@ export default function Assiduidade() {
         type="card"
         defaultActiveKey="apuramento"
         items={[
-          { key: 'apuramento', label: <span><IconeFa nome="calendar-check" /> Resumo do mês</span>, children: <Apuramento mes={m} /> },
-          { key: 'registos', label: <span><IconeFa nome="fingerprint" /> Registos</span>, children: <Registos mes={m} /> },
-          // Versão Actual (assiduidade_ui.js:82): turnos por colaborador e dia, escala prioritária, migrar do contrato, copiar, Excel
+          { key: 'apuramento', label: <span><IconeFa nome="calculator" /> Resumo do mês</span>, children: <Apuramento mes={m} /> },
+          // Versão Actual (assiduidade_ui.js:58 e :82): turnos por colaborador e dia, escala prioritária, migrar do contrato, copiar, Excel
           { key: 'escala', label: <span><IconeFa nome="calendar-alt" /> Escala do mês</span>, children: <EscalaMes mes={m} /> },
+          { key: 'registos', label: <span><IconeFa nome="clock" /> Registos</span>, children: <Registos mes={m} /> },
           { key: 'importar', label: <span><IconeFa nome="file-import" /> Importar</span>, children: <Registos mes={m} soImportar /> },
           { key: 'ausencias', label: <span><IconeFa nome="user-clock" /> Ausências justificadas</span>, children: <Ausencias mes={m} /> },
           { key: 'fechos', label: 'Fechos mensais', children: <Fechos /> },
-          { key: 'config', label: 'Configuração', children: <Configuracao /> },
+          { key: 'config', label: <span><IconeFa nome="sliders-h" /> Configuração</span>, children: <Configuracao /> },
         ]}
       />
     </>

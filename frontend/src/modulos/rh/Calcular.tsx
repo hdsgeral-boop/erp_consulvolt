@@ -253,6 +253,19 @@ function PeriodoCalculo() {
     }
   };
 
+  // Importações do RH (menu «Importar ▾» do cabeçalho e coluna «Dados do RH:» do antigo)
+  const importarContratos = () => Modal.confirm({ title: 'Importar lançamentos dos contratos?', content: 'Cria os lançamentos em falta a partir do contrato activo no mês (colaboradores activos, em Kz). Os existentes mantêm-se.', okText: 'Importar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-contratos` }) });
+  const abrirEfectividade = () => { formEf.resetFields(); setEfectividade(true); };
+  const abrirProdutividade = () => { setSubstituir(true); setProdutividade(true); };
+  const importarEmprestimos = () => Modal.confirm({ title: `Importar as prestações dos empréstimos de ${p.mes_ano}?`, content: 'Cria um desconto por colaborador na rubrica configurada (RH › Empréstimos), com o valor da prestação do mês. As prestações passam a descontadas; o empréstimo fica liquidado quando já não houver prestações. Um desconto já existente na mesma rubrica não é alterado.', okText: 'Importar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-emprestimos`, dados: { substituir: false } }) });
+  const anularEmprestimos = () => Modal.confirm({ title: 'Anular os descontos de empréstimos deste período?', content: 'Retira os lançamentos criados por «Importar empréstimos» e repõe as prestações por descontar.', okText: 'Anular', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/anular-emprestimos` }) });
+  const encerrarComConfirmacao = () => Modal.confirm({
+    title: `Encerrar o cálculo de ${p.mes_ano}?`,
+    content: 'Os resultados ficam fotografados (imutáveis) e o período passa a Fechado, para validação no ecrã Processamentos.',
+    okText: 'Encerrar', cancelText: 'Cancelar',
+    onOk: () => encerrar(),
+  });
+
   const gravarLote = () => {
     const rubricas = Object.entries(rubricasLote).filter(([, l]) => l.marcada).map(([k, l]) => {
       const horas = tipoHoras(Number(k));
@@ -320,11 +333,11 @@ function PeriodoCalculo() {
                   ...(ac.lancar ? [{ type: 'divider' as const }, { key: 'excel', label: 'Importar Excel (lançamentos)', icon: <FileExcelOutlined /> }] : []),
                 ],
                 onClick: ({ key }) => {
-                  if (key === 'contratos') Modal.confirm({ title: 'Importar lançamentos dos contratos?', content: 'Cria os lançamentos em falta a partir do contrato activo no mês (colaboradores activos, em Kz). Os existentes mantêm-se.', okText: 'Importar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-contratos` }) });
-                  if (key === 'efectividade') { formEf.resetFields(); setEfectividade(true); }
-                  if (key === 'produtividade') { setSubstituir(true); setProdutividade(true); }
-                  if (key === 'emprestimos') Modal.confirm({ title: `Importar as prestações dos empréstimos de ${p.mes_ano}?`, content: 'Cria um desconto por colaborador na rubrica configurada (RH › Empréstimos), com o valor da prestação do mês. As prestações passam a descontadas; o empréstimo fica liquidado quando já não houver prestações. Um desconto já existente na mesma rubrica não é alterado.', okText: 'Importar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-emprestimos`, dados: { substituir: false } }) });
-                  if (key === 'anular-emprestimos') Modal.confirm({ title: 'Anular os descontos de empréstimos deste período?', content: 'Retira os lançamentos criados por «Importar empréstimos» e repõe as prestações por descontar.', okText: 'Anular', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/anular-emprestimos` }) });
+                  if (key === 'contratos') importarContratos();
+                  if (key === 'efectividade') abrirEfectividade();
+                  if (key === 'produtividade') abrirProdutividade();
+                  if (key === 'emprestimos') importarEmprestimos();
+                  if (key === 'anular-emprestimos') anularEmprestimos();
                   if (key === 'excel') setImportarExcel(true);
                 },
               }}>
@@ -332,26 +345,28 @@ function PeriodoCalculo() {
               </Dropdown>
             )}
             {ac.lancar && <Button icon={<PlusOutlined />} onClick={() => abrirLancamento('novo')}>Lançamento</Button>}
-            {ac.encerrar && (
-              <Button type="primary" danger icon={<CheckCircleOutlined />} loading={accao.isPending} onClick={() => Modal.confirm({
-                title: `Encerrar o cálculo de ${p.mes_ano}?`,
-                content: 'Os resultados ficam fotografados (imutáveis) e o período passa a Fechado, para validação no ecrã Processamentos.',
-                okText: 'Encerrar', cancelText: 'Cancelar',
-                onOk: () => encerrar(),
-              })}>Encerrar cálculo</Button>
-            )}
           </>
         }
       />
+      {/* antigo (renderPeriodWorkspace, app_v2.js:5398): título do período e «Eliminar Lançamentos em Aberto» à direita */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0, fontSize: '1.1rem', color: token.colorTextSecondary }}>Lançamentos de {p.mes_ano}</Typography.Title>
+        {ac.importar && pode('rh_lanc_del') && (
+          <Popconfirm title="Eliminar este período em aberto e todos os seus lançamentos?" description="Esta acção não se desfaz." okText="Eliminar" okButtonProps={{ danger: true }} cancelText="Cancelar"
+            onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/salarios/periodos/${id}` })}>
+            <Button danger icon={<DeleteOutlined />}>Eliminar Lançamentos em Aberto</Button>
+          </Popconfirm>
+        )}
+      </div>
       {p.estado !== 'ABERTO' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message="Este período já foi encerrado. Vá ao ecrã Processamentos para ver os relatórios e os recibos (para corrigir, reabra-o lá)." />}
 
       {ac.importar && (
         <Card size="small" style={{ marginBottom: 16, background: token.colorPrimaryBg, borderStyle: 'dashed', borderColor: token.colorPrimary }}>
-          <Row gutter={[16, 12]} align="bottom">
-            <Col xs={24} lg={14}>
-              <Typography.Text strong style={{ color: token.colorPrimary, display: 'block', marginBottom: 6 }}>Copiar de mês anterior</Typography.Text>
+          <Row gutter={[16, 12]}>
+            <Col xs={24} lg={14} style={{ alignSelf: 'flex-end' }}>
+              <Typography.Text strong style={{ color: token.colorPrimary, display: 'block', marginBottom: 6 }}>Copiar de Mês Anterior:</Typography.Text>
               <Space wrap>
-                <Select<number> placeholder="— Seleccione o mês anterior —" style={{ width: 240 }} value={origemCopia} onChange={setOrigemCopia} allowClear aria-label="Mês a copiar"
+                <Select<number> placeholder="-- Selecione o mês anterior --" style={{ width: 250 }} value={origemCopia} onChange={setOrigemCopia} allowClear aria-label="Mês a copiar"
                   options={outrosPeriodos.map((x) => ({ value: x.id, label: `${x.mes_ano} (${x.estado})` }))} />
                 <Checkbox checked={substituirCopia} onChange={(e) => setSubstituirCopia(e.target.checked)}>Substituir os existentes</Checkbox>
                 <Button icon={<CopyOutlined />} disabled={!origemCopia} onClick={() => Modal.confirm({
@@ -359,27 +374,30 @@ function PeriodoCalculo() {
                   content: 'Copia todos os lançamentos (salários, subsídios, descontos, horas) para este mês. Não se duplica colaborador × rubrica; as bonificações e os colaboradores inactivos ficam de fora.',
                   okText: 'Copiar', cancelText: 'Cancelar',
                   onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/copiar`, dados: { origem_id: origemCopia, substituir: substituirCopia } }),
-                })}>Importar mês anterior</Button>
+                })}>Importar Mês Anterior</Button>
               </Space>
             </Col>
-            <Col xs={24} lg={10} style={{ textAlign: 'right' }}>
-              {pode('rh_lanc_del') && (
-                <Popconfirm title="Eliminar este período em aberto e todos os seus lançamentos?" description="Esta acção não se desfaz." okText="Eliminar" okButtonProps={{ danger: true }} cancelText="Cancelar"
-                  onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/salarios/periodos/${id}` })}>
-                  <Button danger icon={<DeleteOutlined />}>Eliminar lançamentos em aberto</Button>
-                </Popconfirm>
-              )}
+            {/* coluna «Dados do RH:» do antigo (app_v2.js:5384): botões empilhados com a explicação de cada importação */}
+            <Col xs={24} lg={10} style={{ borderLeft: `1px solid ${token.colorPrimary}`, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <Typography.Text strong style={{ color: token.colorPrimary }}>Dados do RH:</Typography.Text>
+              <Button type="primary" block icon={<IconeFa nome="file-contract" />} onClick={importarContratos}>Importar Lançamentos de Contratos</Button>
+              <Typography.Text type="secondary" style={{ fontSize: '0.75rem' }}>Gera lançamentos automáticos com base nos contratos activos.</Typography.Text>
+              <Button block icon={<IconeFa nome="fingerprint" />} onClick={abrirEfectividade}>Importar Efectividade</Button>
+              <Typography.Text type="secondary" style={{ fontSize: '0.75rem' }}>Horas extra e horas de falta apuradas na biometria (RH ▸ Efectividade), já sem férias e ausências justificadas.</Typography.Text>
+              <Button block icon={<IconeFa nome="chart-line" />} onClick={abrirProdutividade}>Importar Produtividade</Button>
+              {pode('rh_emp_lancar') && <Button block icon={<IconeFa nome="hand-holding-usd" />} onClick={importarEmprestimos}>Importar Empréstimos</Button>}
+              <Typography.Text type="secondary" style={{ fontSize: '0.75rem' }}>Subsídio de produtividade do período fechado (RH ▸ Produtividade): quantidade × preço de cada item do contrato.</Typography.Text>
             </Col>
           </Row>
         </Card>
       )}
 
       {editarSel && (
-        <Card size="small" title={<>2. Lançamento em lote para: <strong>{p.mes_ano}</strong></>} style={{ marginBottom: 16, borderLeft: `4px solid ${token.colorPrimary}` }}>
+        <Card size="small" title={<>2. Lançamento em Lote para: <strong>{p.mes_ano}</strong></>} style={{ marginBottom: 16, borderLeft: `4px solid ${token.colorPrimary}` }}>
           <Row gutter={[24, 16]}>
             <Col xs={24} md={12}>
               <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
-                Seleccione os colaboradores: <Typography.Text type="secondary">{colabsLote.length} de {activos.length}</Typography.Text>
+                Selecione os Colaboradores: <Typography.Text type="secondary">{colabsLote.length} de {activos.length}</Typography.Text>
               </Typography.Text>
               <Input allowClear prefix={<SearchOutlined />} placeholder="Procurar por nome, NIF ou n.º INSS…" value={buscaLote} onChange={(e) => setBuscaLote(e.target.value)} style={{ marginBottom: 8 }} aria-label="Procurar colaborador" />
               <div style={{ maxHeight: 280, overflowY: 'auto', border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius, padding: 8 }}>
@@ -392,12 +410,12 @@ function PeriodoCalculo() {
                 ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nenhum colaborador corresponde à pesquisa." />}
               </div>
               <Space style={{ marginTop: 8 }}>
-                <Button size="small" onClick={() => setColabsLote([...new Set([...colabsLote, ...visiveisLote.map((c) => c.id)])])}>Seleccionar visíveis</Button>
+                <Button size="small" onClick={() => setColabsLote([...new Set([...colabsLote, ...visiveisLote.map((c) => c.id)])])}>Selecionar Visíveis</Button>
                 <Button size="small" onClick={() => setColabsLote([])}>Limpar</Button>
               </Space>
             </Col>
             <Col xs={24} md={12}>
-              <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>Seleccione as rubricas (infotipos):</Typography.Text>
+              <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>Selecione as Rubricas (Infotipos):</Typography.Text>
               <div style={{ maxHeight: 320, overflowY: 'auto', border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius, padding: 8 }}>
                 <List size="small" dataSource={ordemRubricas} renderItem={(i) => {
                   const l = rubricasLote[i.id] ?? { marcada: false };
@@ -425,13 +443,26 @@ function PeriodoCalculo() {
               </div>
             </Col>
           </Row>
-          <Button type="primary" icon={<SaveOutlined />} style={{ marginTop: 16 }} loading={accao.isPending} onClick={gravarLote}>Gravar lançamentos seleccionados</Button>
+          <Button type="primary" icon={<SaveOutlined />} style={{ marginTop: 16 }} loading={accao.isPending} onClick={gravarLote}>Gravar Lançamentos Selecionados</Button>
         </Card>
       )}
 
       <ResumoTotais periodo={p} />
       <Card title="Resumo de Lançamentos do Período"
-        extra={<BotaoFolhaDetalhada periodo={p} nome={(r) => r.nome ?? colaboradores.nome(r.colaborador_id)} texto="Imprimir Simulação" />}>
+        extra={
+          // ordem do antigo (app_v2.js:5466): Imprimir Simulação · Editar Selecionados · Eliminar Selecionados · Encerrar Cálculo
+          <Space wrap>
+            <BotaoFolhaDetalhada periodo={p} nome={(r) => r.nome ?? colaboradores.nome(r.colaborador_id)} texto="Imprimir Simulação" />
+            {editarSel && <Button icon={<EditOutlined />} disabled={!selecionados.length} onClick={() => { formEd.resetFields(); setEditarLote(true); }}>Editar Selecionados</Button>}
+            {ac.removerLancamento && (
+              <Popconfirm title={`Eliminar os ${selecionados.length} lançamento(s) seleccionado(s)?`} okText="Eliminar" okButtonProps={{ danger: true }} cancelText="Cancelar" disabled={!selecionados.length}
+                onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/salarios/periodos/${id}/lancamentos/lote`, dados: { ids: selecionados } })}>
+                <Button danger icon={<DeleteOutlined />} disabled={!selecionados.length}>Eliminar Selecionados</Button>
+              </Popconfirm>
+            )}
+            {ac.encerrar && <Button type="primary" danger icon={<CheckCircleOutlined />} loading={accao.isPending} onClick={encerrarComConfirmacao}>Encerrar Cálculo</Button>}
+          </Space>
+        }>
         <Tabs
           items={[
             {
@@ -441,13 +472,6 @@ function PeriodoCalculo() {
                 <>
                   <BarraFiltros style={{ marginBottom: 12 }} accoes={
                     <Space wrap>
-                      {editarSel && <Button size="small" icon={<EditOutlined />} disabled={!selecionados.length} onClick={() => { formEd.resetFields(); setEditarLote(true); }}>Editar seleccionados</Button>}
-                      {ac.removerLancamento && (
-                        <Popconfirm title={`Eliminar os ${selecionados.length} lançamento(s) seleccionado(s)?`} okText="Eliminar" okButtonProps={{ danger: true }} cancelText="Cancelar" disabled={!selecionados.length}
-                          onConfirm={() => accao.mutateAsync({ metodo: 'delete', url: `/rh/salarios/periodos/${id}/lancamentos/lote`, dados: { ids: selecionados } })}>
-                          <Button size="small" danger icon={<DeleteOutlined />} disabled={!selecionados.length}>Eliminar seleccionados</Button>
-                        </Popconfirm>
-                      )}
                       <BotoesExportar tamanho="small" desactivado={!linhas.length} textoImprimir="Imprimir lançamentos"
                         obterPedido={() => pedidoTabela({ titulo: 'Lançamentos do período salarial', periodo: p.mes_ano, filtros: filtroColab ? [`Colaborador: ${colaboradores.nome(filtroColab)}`] : undefined, colunas, linhas })} />
                     </Space>

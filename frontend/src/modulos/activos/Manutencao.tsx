@@ -1,15 +1,16 @@
-import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Tabs, Tag, theme } from 'antd';
+import { Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Tabs, Tag, theme } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { NavActivos } from './comum/NavActivos';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BotaoCartao } from './inventario/BotaoCartao';
-import { corTipoManutencao, destinoActivo, estadoManutencao, manutencaoPlaneada, ouTracos } from './inventario/regrasInventario';
+import { destinoActivo, estadoManutencao, manutencaoPlaneada } from './inventario/regrasInventario';
+import { TIPOS } from './manutencao/regras';
 import { BarraFiltros } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
+import { BotaoCsv } from '@/modulos/contab/comum/Componentes';
 import { useAccao } from '@/componentes/Accoes';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { somar } from '@/utilitarios/decimal';
@@ -52,6 +53,7 @@ export default function Manutencao() {
 /** Histórico de manutenções (areaHistorico, UI :806-840): registo simples e o que as ordens concluídas escrevem. */
 function Historico() {
   const { pode } = useSessao();
+  const { token } = theme.useToken();
   const navegar = useNavigate();
   const [activo, setActivo] = useState<number>();
   const [estado, setEstado] = useState<string>();
@@ -64,36 +66,42 @@ function Historico() {
   const eliminar = useAccao({ invalidar: [['activos']] });
   const gerir = pode('activos_manut');
 
-  // Colunas do legado (renderMaintenanceView): «Planeado» = descrição do pedido, «Executado» = resolução.
+  // Colunas e ordem do legado (areaHistorico, js/activos_manutencao_ui.js:806-840): Data, Activo («código — descrição»),
+  // Ordem, Tipo, Trabalho, Resolução, Custo e Acções. Estado e Execução são extras do sistema novo (registo simples
+  // planeado → «Executar»); a Execução fica escondida por omissão («Colunas ▾»).
+  const nomeActivo = (r: RegistoManutencao) => (r.ativo_imobilizado
+    ? `${r.ativo_imobilizado.codigo ? `${r.ativo_imobilizado.codigo} — ` : ''}${r.ativo_imobilizado.descricao ?? ''}`.trim()
+    : '—');
   const colunas: ColunaApi<RegistoManutencao>[] = [
-    {
-      title: 'Nº Inventário', key: 'inv', ocultavel: false, valorFiltro: (r) => r.ativo_imobilizado?.codigo ?? '', valorImpressao: (r) => ouTracos(r.ativo_imobilizado?.codigo),
-      render: (_, r) => (
-        <Button size="small" title="Ficha e histórico do activo" style={{ fontWeight: 700, color: 'var(--ant-color-primary, #2563eb)' }}
-          onClick={(e) => { e.stopPropagation(); navegar(destinoActivo(r.ativo_imobilizado_id)); }}>
-          {ouTracos(r.ativo_imobilizado?.codigo)}
-        </Button>
-      ),
-    },
     { title: 'Data', dataIndex: 'data', render: formatarData, valorImpressao: (r) => formatarData(r.data) },
-    { title: 'Activo', key: 'a', valorFiltro: (r) => r.ativo_imobilizado?.descricao ?? '', valorImpressao: (r) => ouTracos(r.ativo_imobilizado?.descricao), render: (_, r) => ouTracos(r.ativo_imobilizado?.descricao) },
-    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <Tag color={corTipoManutencao(v)}>{v}</Tag>, valorImpressao: (r) => r.tipo },
-    { title: 'Planeado', dataIndex: 'descricao', ellipsis: true, width: 260, render: (v) => <small>{v ?? ''}</small>, valorImpressao: (r) => r.descricao ?? '' },
-    { title: 'Executado', dataIndex: 'resolucao', ellipsis: true, width: 220, render: (v) => <small>{ouTracos(v)}</small>, valorImpressao: (r) => ouTracos(r.resolucao) },
-    { title: 'Custo', dataIndex: 'custo', align: 'right', total: true, render: (v) => <ValorKz valor={v ?? 0} />, valorImpressao: (r) => formatarKz(r.custo ?? 0), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.custo ?? '0'))) },
+    { title: 'Activo', key: 'a', ocultavel: false, valorFiltro: nomeActivo, valorImpressao: nomeActivo, render: (_, r) => nomeActivo(r) },
+    { title: 'Ordem', dataIndex: 'numero_ordem', render: (v) => v ?? '—', valorImpressao: (r) => r.numero_ordem ?? '—' },
+    { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => TIPOS[v as keyof typeof TIPOS] ?? v, valorImpressao: (r) => TIPOS[r.tipo as keyof typeof TIPOS] ?? r.tipo },
+    { title: 'Trabalho', dataIndex: 'descricao', ellipsis: true, width: 260, render: (v) => <small>{v ?? ''}</small>, valorImpressao: (r) => r.descricao ?? '' },
+    { title: 'Resolução', dataIndex: 'resolucao', ellipsis: true, width: 220, render: (v) => <small>{v || '—'}</small>, valorImpressao: (r) => r.resolucao || '—' },
+    { title: 'Custo', dataIndex: 'custo', align: 'right', total: true, render: (v) => <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{formatarKz(v ?? '0')}</span>, valorImpressao: (r) => formatarKz(r.custo ?? 0), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.custo ?? '0'))) },
     {
       title: 'Estado', dataIndex: 'estado', valorImpressao: (r) => estadoManutencao(r.estado),
       render: (v) => <Tag color={manutencaoPlaneada(v) ? 'warning' : 'success'}>{estadoManutencao(v)}</Tag>,
     },
     { title: 'Execução', dataIndex: 'data_execucao', ocultaPorOmissao: true, render: formatarData, valorImpressao: (r) => formatarData(r.data_execucao) },
-    { title: 'Ordem', dataIndex: 'numero_ordem', render: (v) => v ?? '—', valorImpressao: (r) => r.numero_ordem ?? '—' },
   ];
+  // «Custo acumulado» do cabeçalho do legado: só quando a lista inteira cabe na página (paginada no servidor)
+  const completa = q.itens.length >= (q.paginacao.total ?? 0);
+  const custoAcumulado = completa ? somar(q.itens.map((l) => l.custo ?? '0')) : null;
 
   return (
     <>
       <Card
-        title="Histórico de Manutenções"
-        extra={gerir && <BotaoCartao icone="plus" variante="primario" onClick={() => setNova(true)}>Registar Manutenção</BotaoCartao>}
+        title={<span><IconeFa nome="history" /> Histórico de manutenções</span>}
+        extra={(
+          <Space wrap size={16}>
+            {custoAcumulado !== null && (
+              <span style={{ fontSize: '0.9rem', color: token.colorTextSecondary, fontWeight: 400 }}>Custo acumulado: <strong style={{ color: token.colorText }}>{formatarKz(custoAcumulado)}</strong></span>
+            )}
+            {gerir && <BotaoCartao icone="plus" variante="primario" onClick={() => setNova(true)}>Registar Manutenção</BotaoCartao>}
+          </Space>
+        )}
       >
         <BarraFiltros accoes={<>
           <BotoesExportar desactivado={!q.itens.length} obterPedido={() => pedidoTodasPaginas('/ativos/manutencoes', { ativo_imobilizado_id: activo, estado, tipo, ...filtroPeriodo(periodo) }, {
@@ -125,16 +133,18 @@ function Historico() {
           scroll={{ x: 'max-content' }}
           columns={colunas}
           tituloAccoes="Acções"
-          accoes={(r) => gerir ? [
-            manutencaoPlaneada(r.estado)
-              ? { icone: 'play', titulo: 'Executar', texto: 'Executar', variante: 'sucesso', cheio: true, onClick: () => setConcluir(r) }
+          locale={{ emptyText: 'Sem manutenções registadas.' }}
+          accoes={(r) => [
+            { icone: 'eye', titulo: 'Ficha do activo', onClick: () => navegar(destinoActivo(r.ativo_imobilizado_id)) },
+            ...(gerir ? [manutencaoPlaneada(r.estado)
+              ? { icone: 'play', titulo: 'Executar', texto: 'Executar', variante: 'sucesso' as const, cheio: true, onClick: () => setConcluir(r) }
               : { icone: 'check-double', titulo: 'Manutenção concluída', cor: '#059669', desactivado: 'Manutenção concluída' },
             {
-              icone: 'trash', titulo: 'Eliminar', variante: 'perigo',
+              icone: 'trash', titulo: 'Eliminar o registo', variante: 'perigo' as const,
               confirmar: { titulo: 'Remover esta manutenção?', textoOk: 'Remover', perigo: true },
               onClick: () => eliminar.mutateAsync({ metodo: 'delete', url: `/ativos/manutencoes/${r.id}` }).catch(() => undefined),
-            },
-          ] : []}
+            }] : []),
+          ]}
         />
       </Card>
       <ModalManutencao aberto={nova} aoFechar={() => setNova(false)} />

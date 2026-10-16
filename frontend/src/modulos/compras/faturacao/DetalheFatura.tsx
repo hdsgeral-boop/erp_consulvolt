@@ -1,11 +1,11 @@
-import { Alert, Button, Card, Descriptions, Flex, Skeleton, Table } from 'antd';
+import { Alert, Button, Card, Col, Descriptions, Flex, Row, Skeleton, Table, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
-import { COLUNAS_DESCRICOES, scrollTabela } from '@/componentes/responsivo';
+import { scrollTabela } from '@/componentes/responsivo';
 import { CartaoAlocacaoUN, bloqueioAlocacao, useColunasUNCC, type LinhaComUNCC, type ResumoAlocacao } from '@/componentes/reparticao';
 import { BotaoPreVisualizarLancamento } from '@/componentes/simulacoes/PreVisualizacaoLancamento';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
@@ -85,7 +85,12 @@ export function DetalheFatura() {
     <>
       <CabecalhoPagina
         titulo={`Factura ${f.numero_fatura}`}
-        subtitulo={<NomeTerceiro id={f.fornecedor_id} terceiro={f.fornecedor} />}
+        subtitulo={
+          <>
+            Registo Interno #{f.id} | Status:{' '}
+            {f.estado === 'ANULADA' ? <EstadoTag estado="ANULADA" /> : <Tag color={f.contabilizado ? 'green' : 'orange'}>{f.contabilizado ? 'CONTABILIZADO' : 'PENDENTE'}</Tag>}
+          </>
+        }
         impressao={() =>
           pedidoDocumentoComercial(
             dadosFaturaCompra(
@@ -121,19 +126,41 @@ export function DetalheFatura() {
         }
       />
       {f.estado === 'ANULADA' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Factura anulada${f.motivo_anulacao ? `: ${f.motivo_anulacao}` : '.'}`} />}
-      <Card style={{ marginBottom: 16 }}>
-        <Descriptions column={COLUNAS_DESCRICOES} size="small">
-          <Descriptions.Item label="Data">{formatarData(f.data)}</Descriptions.Item>
-          <Descriptions.Item label="Vencimento">{formatarData(f.data_vencimento)}</Descriptions.Item>
-          <Descriptions.Item label="Estado"><EstadoTag estado={f.estado} /></Descriptions.Item>
-          <Descriptions.Item label="Encomenda">
-            {f.encomenda_compra_id ? (pode('compras_encomendas_view') ? <a onClick={() => navegar(`/m/compras/compras_encomendas/${f.encomenda_compra_id}`)}>{numeroOuId(f.numero_encomenda, f.encomenda_compra_id)}</a> : numeroOuId(f.numero_encomenda, f.encomenda_compra_id)) : 'Factura directa'}
-          </Descriptions.Item>
-          <Descriptions.Item label="Moeda">{moeda}{f.taxa_cambio && moeda !== 'AOA' ? ` (câmbio ${formatarNumero(f.taxa_cambio)})` : ''}</Descriptions.Item>
-          <Descriptions.Item label="Contabilização">{f.contabilizado ? `Contabilizada${f.numero_lan_contabilizacao ? ` (${f.numero_lan_contabilizacao})` : ''}` : 'Por contabilizar'}</Descriptions.Item>
-        </Descriptions>
-      </Card>
-      <Card title="Linhas">
+      {/* «Dados do Fornecedor» e «Informação do Documento» lado a lado, como o legado (viewPurchaseInvoice, js/ui_compras_v2.js:3776-3790) */}
+      <Row gutter={[24, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={16}>
+          <div style={{ background: '#f1f5f9', padding: '1.5rem', borderRadius: 8, height: '100%' }}>
+            <Typography.Title level={5} style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#475569', textTransform: 'uppercase' }}>Dados do Fornecedor</Typography.Title>
+            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1e293b' }}><NomeTerceiro id={f.fornecedor_id} terceiro={f.fornecedor} /></div>
+            <div style={{ color: '#64748b' }}>NIF: {f.fornecedor?.nif || '---'}</div>
+          </div>
+        </Col>
+        <Col xs={24} md={8}>
+          <div style={{ background: '#eff6ff', padding: '1.5rem', borderRadius: 8, border: '1px solid #dbeafe', height: '100%' }}>
+            <Typography.Title level={5} style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#1e40af', textTransform: 'uppercase' }}>Informação do Documento</Typography.Title>
+            <div style={{ marginBottom: '0.5rem' }}>Fatura Nº: <strong>{f.numero_fatura}</strong></div>
+            <div style={{ marginBottom: '0.5rem' }}>Data: <strong>{formatarData(f.data)}</strong></div>
+            <div style={{ fontSize: '1.1rem', color: '#1e3a8a' }}>Total: <strong style={{ fontSize: '1.3rem' }}>{formatarKz(f.montante_total, true)}</strong></div>
+            {moeda !== 'AOA' && (
+              <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '0.35rem' }}>
+                Moeda: <strong>{moeda}</strong> · Total: <strong>{formatarKz(f.montante_total_moeda)} {moeda}</strong>
+                {f.taxa_cambio && <><br />Câmbio: 1 {moeda} = {formatarNumero(f.taxa_cambio)} Kz</>}
+              </div>
+            )}
+            {/* dados do sistema novo (vencimento, pagamento, encomenda e contabilização) */}
+            <div style={{ fontSize: '0.8rem', color: '#475569', marginTop: '0.75rem' }}>
+              <div>Vencimento: {formatarData(f.data_vencimento)}</div>
+              <div>Pagamento: <EstadoTag estado={f.estado} /></div>
+              <div>
+                Encomenda:{' '}
+                {f.encomenda_compra_id ? (pode('compras_encomendas_view') ? <a onClick={() => navegar(`/m/compras/compras_encomendas/${f.encomenda_compra_id}`)}>{numeroOuId(f.numero_encomenda, f.encomenda_compra_id)}</a> : numeroOuId(f.numero_encomenda, f.encomenda_compra_id)) : 'Factura directa'}
+              </div>
+              <div>Contabilização: {f.contabilizado ? `Contabilizada${f.numero_lan_contabilizacao ? ` (${f.numero_lan_contabilizacao})` : ''}` : 'Por contabilizar'}</div>
+            </div>
+          </div>
+        </Col>
+      </Row>
+      <Card title="Itens da Fatura">
         <Table
           rowKey="chave"
           size="small"
@@ -141,11 +168,20 @@ export function DetalheFatura() {
           scroll={scrollTabela()}
           dataSource={linhas}
           columns={[
-            { title: 'Produto', render: (_, l) => <NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /> },
-            { title: 'Qtd.', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
-            { title: 'Preço (Kz)', dataIndex: 'preco', align: 'right', render: (v: number) => formatarKz(v) },
+            // colunas do legado: Produto / Descrição (nome + «Ref:»), Quantidade (centro), Preço Unit. e Total (líquido); IVA % do sistema novo
+            {
+              title: 'Produto / Descrição',
+              render: (_, l) => (
+                <>
+                  <strong><NomeProduto id={l.produto_id} produto={l.produto} descricao={l.descricao} /></strong>
+                  <Typography.Text style={{ display: 'block', fontSize: 12, color: '#64748b' }}>Ref: {l.produto?.codigo || '---'}</Typography.Text>
+                </>
+              ),
+            },
+            { title: 'Quantidade', dataIndex: 'quantidade', align: 'center', render: formatarNumero },
+            { title: 'Preço Unit.', dataIndex: 'preco', align: 'right', render: (v: number) => formatarKz(v) },
             { title: 'IVA %', dataIndex: 'iva', align: 'right', render: formatarNumero },
-            { title: 'Líquido (Kz)', dataIndex: 'liquido', align: 'right', render: (v: number) => formatarKz(v) },
+            { title: 'Total', dataIndex: 'liquido', align: 'right', render: (v: number) => <span style={{ fontWeight: 600 }}>{formatarKz(v)}</span> },
             ...colunasUNCC,
           ]}
         />

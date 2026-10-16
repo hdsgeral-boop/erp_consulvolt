@@ -1,4 +1,4 @@
-import { Alert, Badge, Button, Card, Col, Empty, Row, Select, Space, Table, Tabs, Tag, theme, Typography } from 'antd';
+import { Alert, Badge, Button, Card, Col, Empty, Row, Select, Space, Table, Tag, theme, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
@@ -12,7 +12,8 @@ import { useListaPaginada } from '../comum/paginacao';
 import { ModalActivo } from '../ModalActivo';
 import { ComparacaoInventarioEcra, FolhaInventarioEcra } from './Folha';
 import { PlantaEdificio } from './Planta';
-import type { Inventario, ResumoEdificios } from './tipos';
+import { ModalGerarInventario } from './Modais';
+import type { Inventario, Planta, ResumoEdificios } from './tipos';
 
 /**
  * Activos › Edifícios e Locais (ecrã activos_edificios — Fase F, Versão Actual; js/activos_edificios.js). Cartões dos
@@ -29,23 +30,28 @@ export default function Edificios() {
   );
 }
 
+/**
+ * O legado não tem separadores aqui (renderAssetBuildings :133-143): o topo dos edifícios tem o botão «Folhas de
+ * Inventário (N)» e a lista das folhas tem «← Edifícios» (renderAssetInventories :623-628). `?separador=inventarios`
+ * mantém o endereço da lista das folhas.
+ */
 function Painel() {
   const [params, setParams] = useSearchParams();
-  const separador = params.get('separador') === 'inventarios' ? 'inventarios' : 'edificios';
+  const folhas = params.get('separador') === 'inventarios';
   return (
     <>
       <NavActivos actual="activos_edificios" />
-      <Tabs
-        activeKey={separador}
-        onChange={(k) => setParams(k === 'inventarios' ? { separador: k } : {})}
-        destroyOnHidden
-        items={[
-          { key: 'edificios', label: <span><IconeFa nome="city" /> Edifícios e Locais</span>, children: <Cartoes /> },
-          { key: 'inventarios', label: <span><IconeFa nome="clipboard-check" /> Folhas de Inventário</span>, children: <Folhas /> },
-        ]}
-      />
+      {folhas
+        ? <Folhas aoVoltar={() => setParams({})} />
+        : <Cartoes aoAbrirFolhas={() => setParams({ separador: 'inventarios' })} />}
     </>
   );
+}
+
+/** «Inventário» do cartão (assetInventarioModal do edifício): carrega a planta e abre a geração da folha. */
+function GerarFolhaEdificio({ edificioId, aoFechar }: { edificioId: number; aoFechar: () => void }) {
+  const q = useQuery({ queryKey: ['activos', 'edificios', 'planta', edificioId], queryFn: () => obter<Planta>(`/ativos/edificios/${edificioId}/planta`) });
+  return <ModalGerarInventario planta={q.data} pedido={q.data ? { ambito: 'EDIFICIO' } : null} aoFechar={aoFechar} />;
 }
 
 /** Número pequeno com rótulo por cima, como os `.aed-num` do legado (activos_edificios.js:39-41). */
@@ -60,18 +66,29 @@ function Numero({ rotulo, children }: { rotulo: string; children: ReactNode }) {
 }
 
 /** Cartões por edifício (renderAssetBuildings :99-153). */
-function Cartoes() {
+function Cartoes({ aoAbrirFolhas }: { aoAbrirFolhas: () => void }) {
   const { token } = theme.useToken();
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [novo, setNovo] = useState(false);
+  const [inventariar, setInventariar] = useState<number | null>(null);
   const q = useQuery({ queryKey: ['activos', 'edificios'], queryFn: () => obter<ResumoEdificios>('/ativos/edificios') });
   const d = q.data;
+  const podeNovo = pode('activos_gerir');
+  const podeInventariar = pode('activos_inventario_fisico');
+  const botaoNovo = () => podeNovo && <Button type="primary" size="small" icon={<IconeFa nome="plus" />} onClick={() => setNovo(true)}>Novo Edifício / Local</Button>;
   return (
     <Card
       loading={q.isLoading}
       title={<span><IconeFa nome="city" /> Edifícios e Locais <small style={{ fontWeight: 400 }}>({d?.edificios.length ?? 0})</small></span>}
-      extra={pode('activos_gerir') && <Button type="primary" size="small" icon={<IconeFa nome="plus" />} onClick={() => setNovo(true)}>Novo Edifício / Local</Button>}
+      extra={(
+        <Space wrap size={8}>
+          <Button size="small" icon={<IconeFa nome="clipboard-check" />} onClick={aoAbrirFolhas}>
+            Folhas de Inventário <Badge count={d?.inventarios ?? 0} showZero color="#64748b" size="small" />
+          </Button>
+          {botaoNovo()}
+        </Space>
+      )}
     >
       <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>Activos do tipo edifício/local com andares e portas numeradas; os restantes bens ficam localizados numa porta.</Typography.Paragraph>
       {!!d?.sem_local && (
@@ -79,7 +96,10 @@ function Cartoes() {
           message={`${d.sem_local} bem(ns) ainda sem porta atribuída (sem localização) — abra a planta de um edifício e arraste-os para a porta respectiva.`} />
       )}
       {d && !d.edificios.length && (
-        <Empty description={<>Ainda não há edifícios ou locais registados.<br />Crie um activo do tipo «Edifício / Local» e depois acrescente os andares e as portas.</>} />
+        <Empty image={<IconeFa nome="city" style={{ fontSize: 32, color: '#cbd5e1' }} />}
+          description={<>Ainda não há edifícios ou locais registados.<br /><small>Crie um activo do tipo «Edifício / Local» e depois acrescente os andares e as portas.</small></>}>
+          {botaoNovo()}
+        </Empty>
       )}
       <Row gutter={[16, 16]}>
         {d?.edificios.map((e) => (
@@ -87,8 +107,11 @@ function Cartoes() {
             <Card size="small" style={{ borderLeft: '4px solid #b45309' }}
               title={<div><div style={{ fontSize: 12, color: token.colorTextSecondary, fontWeight: 700 }}>{e.codigo}</div>{e.descricao || 'Edifício sem descrição'}</div>}
               actions={[
-                <Button key="p" type="link" icon={<IconeFa nome="building" />} onClick={() => navegar(`planta/${e.id}`)}>Planta</Button>,
-                <Button key="f" type="link" title="Editar a ficha do activo" icon={<IconeFa nome="edit" />} onClick={() => navegar(`/m/activos/activos/${e.id}`)}>Ficha</Button>,
+                <Space key="a" size={6} wrap style={{ padding: '0 12px', width: '100%' }}>
+                  <Button type="primary" size="small" icon={<IconeFa nome="building" />} onClick={() => navegar(`planta/${e.id}`)}>Planta</Button>
+                  {podeInventariar && <Button size="small" icon={<IconeFa nome="clipboard-list" />} onClick={() => setInventariar(e.id)}>Inventário</Button>}
+                  <Button size="small" title="Editar a ficha do activo" aria-label="Editar a ficha do activo" icon={<IconeFa nome="edit" />} onClick={() => navegar(`/m/activos/activos/${e.id}`)} />
+                </Space>,
               ]}>
               <Space size={18} wrap>
                 <Numero rotulo="Andares">{e.andares}</Numero>
@@ -102,12 +125,13 @@ function Cartoes() {
         ))}
       </Row>
       <ModalActivo aberto={novo} tipoInicial="EDIFICIO" aoFechar={() => setNovo(false)} />
+      {inventariar !== null && <GerarFolhaEdificio edificioId={inventariar} aoFechar={() => setInventariar(null)} />}
     </Card>
   );
 }
 
 /** Lista das folhas de inventário (renderAssetInventories :612-661). A folha anula-se com motivo (não se apaga). */
-function Folhas() {
+function Folhas({ aoVoltar }: { aoVoltar: () => void }) {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [estado, setEstado] = useState<string>();
@@ -115,7 +139,8 @@ function Folhas() {
   const q = useListaPaginada<Inventario>(['activos', 'inventarios-fisicos'], '/ativos/inventarios-fisicos', { estado });
   const accao = useAccao({ invalidar: [['activos']], aoSucesso: () => setAnular(null) });
   return (
-    <Card title={<span>Folhas de Inventário <Badge count={q.paginacao.total} showZero color="#64748b" /></span>}
+    <Card title={<Space wrap><Button size="small" icon={<IconeFa nome="arrow-left" />} onClick={aoVoltar}>Edifícios</Button>
+      <span>Folhas de Inventário <small style={{ fontWeight: 400 }}>({q.paginacao.total ?? 0})</small></span></Space>}
       extra={<Select allowClear placeholder="Em uso (abertas e fechadas)" value={estado} onChange={setEstado} style={{ width: 220 }}
         options={[{ value: 'ABERTO', label: 'Abertas' }, { value: 'FECHADO', label: 'Fechadas' }, { value: 'ANULADO', label: 'Anuladas' }]} />}>
       <Table<Inventario> rowKey="id" size="middle" loading={q.isFetching} dataSource={q.itens} pagination={q.paginacao} scroll={{ x: 'max-content' }}

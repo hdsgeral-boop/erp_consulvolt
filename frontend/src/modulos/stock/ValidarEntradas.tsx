@@ -1,12 +1,17 @@
-import { Card, Drawer, Space, Tag, Typography } from 'antd';
+import { Button, Card, Drawer, Space, Table, Tag, Typography } from 'antd';
 import { CheckCircleTwoTone } from '@ant-design/icons';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
-import { DiagramaFluxo, RaizFluxo } from '@/componentes/fluxos';
-import { larguraGaveta, useEcraPequeno } from '@/componentes/responsivo';
+import { obter, obterPagina } from '@/api/cliente';
+import { DiagramaFluxo, IconeFa, RaizFluxo } from '@/componentes/fluxos';
+import { larguraGaveta, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
+import { pendente } from '@/modulos/compras/comum/calculos';
+import { ModalRececao } from '@/modulos/compras/comum/ModaisEncomenda';
 import { DetalheRececao } from '@/modulos/compras/comum/Rececoes';
+import { numeroOuId, type EncomendaCompra } from '@/modulos/compras/comum/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { somar } from '@/utilitarios/decimal';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
@@ -67,6 +72,7 @@ function ListaEntradas() {
 
   return (
     <>
+      <EncomendasPorReceber />
       <Card
         title="histórico e Validação de Entradas"
         extra={!pequeno && <Typography.Text type="secondary">Gestão de receções de fornecedores e validação física de stock.</Typography.Text>}
@@ -97,6 +103,83 @@ function ListaEntradas() {
       </Card>
       <FluxoRececao rececao={fluxo} aoFechar={() => setFluxo(null)} />
     </>
+  );
+}
+
+/** Texto «Por receber» do legado: «Produto: quantidade» das linhas com quantidade por receber, separados por « · ». */
+export function textoPorReceber(linhas: EncomendaCompra['linhas']): string {
+  return (linhas ?? [])
+    .map((l) => ({ l, q: pendente(l.quantidade, l.quantidade_recebida) }))
+    .filter((x) => x.q > 0)
+    .map((x) => `${x.l.produto?.nome ?? x.l.descricao ?? 'Item'}: ${x.q.toLocaleString('pt-PT')}`)
+    .join(' · ');
+}
+
+/**
+ * «Encomendas por Receber» do legado (armazemRenderEncomendasPorReceber, js/ui_warehouse.js:353-396): ordens de encomenda
+ * enviadas pelas Compras com quantidades por receber, por cima do histórico; «Receber» regista a guia do fornecedor
+ * (a validação da entrada faz-se depois na lista). Sem encomendas pendentes o cartão não aparece.
+ */
+function EncomendasPorReceber() {
+  const { pode } = useSessao();
+  const qc = useQueryClient();
+  const [aberta, setAberta] = useState<EncomendaCompra | null>(null);
+  const lista = useQuery({
+    queryKey: ['compras', 'encomendas', 'por-receber'],
+    queryFn: () => obterPagina<EncomendaCompra>('/compras/encomendas', { por_pagina: 500 }),
+  });
+  const candidatas = (lista.data?.itens ?? []).filter((e) => e.estado !== 'ANULADA' && e.estado !== 'RECEBIDO' && (e.percentagem_entregue ?? 0) < 100);
+  const detalhes = useQueries({
+    queries: candidatas.map((e) => ({ queryKey: ['compras', 'encomenda', String(e.id)], queryFn: () => obter<EncomendaCompra>(`/compras/encomendas/${e.id}`) })),
+  });
+  const linhas = candidatas
+    .map((e, i) => ({ ...e, ...(detalhes[i]?.data ? { linhas: detalhes[i].data!.linhas } : {}) }))
+    .filter((e) => !e.linhas || textoPorReceber(e.linhas) !== '');
+  if (!linhas.length) return null;
+
+  return (
+    <Card
+      style={{ marginBottom: 24, borderTop: '4px solid var(--ant-color-success, #059669)' }}
+      title={<><IconeFa nome="truck-loading" /> Encomendas por Receber</>}
+      extra={<Typography.Text type="secondary">Ordens de encomenda enviadas pelas Compras. Registe a guia do fornecedor e valide a entrada em stock.</Typography.Text>}
+    >
+      <Table<EncomendaCompra>
+        rowKey="id"
+        size="small"
+        pagination={false}
+        scroll={scrollTabela()}
+        dataSource={linhas}
+        columns={[
+          { title: 'Encomenda', key: 'n', render: (_, e) => <><strong>{numeroOuId(e.numero_encomenda, e.id)}</strong>{e.codigo_moeda && e.codigo_moeda !== 'AOA' && <Tag style={{ marginLeft: 4 }}>{e.codigo_moeda}</Tag>}</> },
+          { title: 'Data', dataIndex: 'data', render: (v: string | null) => (v ? formatarData(v) : '-') },
+          { title: 'Fornecedor', key: 'f', render: (_, e) => e.fornecedor?.nome?.trim() || 'N/D' },
+          {
+            title: 'Por receber',
+            key: 'p',
+            render: (_, e) => (e.linhas ? <Typography.Text type="secondary" style={{ fontSize: '0.8rem', whiteSpace: 'normal' }}>{textoPorReceber(e.linhas)}</Typography.Text> : '…'),
+          },
+          {
+            title: 'Ações',
+            key: 'a',
+            align: 'right',
+            render: (_, e) =>
+              pode('compras_rec_registar') && (
+                <Button size="small" className="erp-accao-linha erp-accao-cheio erp-accao-sucesso" title="Registar a guia do fornecedor" disabled={!e.linhas} onClick={() => setAberta(e)}>
+                  <IconeFa nome="truck-loading" /> Receber
+                </Button>
+              ),
+          },
+        ]}
+      />
+      {aberta && (
+        <ModalRececao
+          encomenda={aberta}
+          aberto
+          aoFechar={() => setAberta(null)}
+          aoRegistar={() => qc.invalidateQueries({ queryKey: ['logistica'] })}
+        />
+      )}
+    </Card>
   );
 }
 

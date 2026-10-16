@@ -1,4 +1,4 @@
-import { Alert, Button, Col, Collapse, DatePicker, Form, Input, Modal, Result, Row, Select, Skeleton, Space, Table, Typography } from 'antd';
+import { Alert, Button, Col, Collapse, DatePicker, Flex, Form, Input, Modal, Result, Row, Select, Skeleton, Space, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -148,11 +148,14 @@ export function ModalEmissaoCarta({ documentoId, aoFechar, aoEmitida }: { docume
             message={`${semConta.length} beneficiário(s) fica(m) de fora por não ter(em) conta bancária configurada`}
             description={<>{semConta.slice(0, 6).map((b) => b.nome).join(', ')}{semConta.length > 6 ? `, e mais ${semConta.length - 6}` : ''}. {e.tipo === 'SALARIOS' ? 'Configure os IBAN em RH › Dados Bancários.' : 'Registe a conta na ficha do terceiro (Contas bancárias).'}</>} />
         )}
-        <Space style={{ marginBottom: 6 }} wrap>
+        {/* legado (abrirEmissaoCarta): «Beneficiários» à esquerda, «Marcar todos» / «Desmarcar» à direita */}
+        <Flex wrap gap={6} justify="space-between" align="center" style={{ marginBottom: 6 }}>
           <strong>Beneficiários</strong>
-          <Button size="small" onClick={() => setSeleccao(seleccionaveis.map(chaveBeneficiario))}>Marcar todos</Button>
-          <Button size="small" onClick={() => setSeleccao([])}>Desmarcar</Button>
-        </Space>
+          <Space wrap size={6}>
+            <Button size="small" onClick={() => setSeleccao(seleccionaveis.map(chaveBeneficiario))}>Marcar todos</Button>
+            <Button size="small" onClick={() => setSeleccao([])}>Desmarcar</Button>
+          </Space>
+        </Flex>
         <Table<BeneficiarioCarta> rowKey={chaveBeneficiario} size="small" pagination={false} columns={colunas} dataSource={beneficiarios} scroll={{ ...scrollTabela(), y: 300 }}
           rowSelection={{ selectedRowKeys: seleccao, onChange: (k) => setSeleccao(k as string[]), getCheckboxProps: (b) => ({ disabled: !b.iban && !b.contas.some((c) => c.iban), 'aria-label': `Seleccionar ${b.nome}` }) }}
           rowClassName={(b) => (!b.iban ? 'cp-sem-conta' : '')} />

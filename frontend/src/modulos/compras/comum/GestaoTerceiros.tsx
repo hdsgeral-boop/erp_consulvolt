@@ -8,6 +8,7 @@ import { enviar, obter } from '@/api/cliente';
 import { AlternarFormulario, PainelLinhas, useVistaFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { emailInvalido } from '@/modulos/vendas/comum/valoresFormulario';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
+import { BotaoEditarEmMassa } from '@/componentes/vistas';
 import { BarraFiltros, larguraGaveta, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
@@ -95,7 +96,7 @@ export function colunasTerceiros(papel: Papel): ColunaApi<FichaTerceiro>[] {
       { title: 'Endereço', dataIndex: 'endereco', ellipsis: true, render: (v) => v || '-' },
       { title: 'Email', dataIndex: 'email', render: (v) => v || '-' },
       moeda,
-      { title: 'Conta contabilística', key: 'conta_cliente', render: (_, r) => <CelulaContaPapel papel="CLIENTE" r={r} />, valorImpressao: (r) => contaCliente(r) || '-' },
+      { title: <span title="Conta contabilística do cliente (classe 31)">Conta contabilística</span>, key: 'conta_cliente', render: (_, r) => <CelulaContaPapel papel="CLIENTE" r={r} />, valorImpressao: (r) => contaCliente(r) || '-' },
       colunaPapeis,
       { title: 'Telefone', dataIndex: 'telefone', render: (v) => v || '—', ocultaPorOmissao: true },
     ];
@@ -114,8 +115,8 @@ export function colunasTerceiros(papel: Papel): ColunaApi<FichaTerceiro>[] {
       ),
     },
     moeda,
-    { title: 'Conta de terceiro (32/37.0)', key: 'conta_fornecedor', render: (_, r) => <CelulaContaPapel papel="FORNECEDOR" r={r} />, valorImpressao: (r) => contaFornecedor(r) || '-' },
-    { title: 'Compras / trânsito (328)', dataIndex: 'conta_compra_transitoria', render: (v: string | null) => <CelulaConta codigo={v} /> },
+    { title: <span title="Conta de fornecedor (classe 32 ou 37.0) — creditada na factura de compra">Conta de fornecedor (32/37.0)</span>, key: 'conta_fornecedor', render: (_, r) => <CelulaContaPapel papel="FORNECEDOR" r={r} />, valorImpressao: (r) => contaFornecedor(r) || '-' },
+    { title: <span title="Conta de compras / trânsito usada na recepção (classe 328)">Compras / trânsito (328)</span>, dataIndex: 'conta_compra_transitoria', render: (v: string | null) => <CelulaConta codigo={v} /> },
     colunaPapeis,
   ];
 }
@@ -340,15 +341,14 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
         extra={
           podeGerir && (
             <Space wrap>
-              <Button icon={<IconeFa nome="edit" />} disabled={!linhasSel.length} onClick={() => setMassa(linhasSel)}>
-                Editar em massa ( {linhasSel.length} )
-              </Button>
+              {/* «Editar em massa (N)» do legado (mapeamento_massa.js:310), botões pequenos (btn-sm) */}
+              <BotaoEditarEmMassa linhas={linhasSel} chaves={seleccao} opcoes={{ onClick: () => setMassa(linhasSel) }} />
               {papel === 'CLIENTE' && (
-                <Button icon={<IconeFa nome="file-import" />} onClick={() => setImportar(true)}>
+                <Button size="small" icon={<IconeFa nome="file-import" />} onClick={() => setImportar(true)}>
                   Importar
                 </Button>
               )}
-              <Button type="primary" icon={<IconeFa nome={papel === 'CLIENTE' ? 'user-plus' : 'plus'} />} onClick={() => setEdicao('novo')}>
+              <Button size="small" type="primary" icon={<IconeFa nome={papel === 'CLIENTE' ? 'user-plus' : 'plus'} />} onClick={() => setEdicao('novo')}>
                 {papel === 'CLIENTE' ? '+ Novo Cliente' : 'Novo Fornecedor'}
               </Button>
             </Space>

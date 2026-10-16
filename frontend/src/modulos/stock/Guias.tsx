@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, Row, Skeleton, Space, Table } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, Row, Skeleton, Space, Table, Typography } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useImpressao } from '@/componentes/impressao/useImpressao';
 import { useQuery } from '@tanstack/react-query';
@@ -73,11 +73,19 @@ function ListaGuias() {
       dataIndex: 'estado',
       valorImpressao: (r) => `${rotuloEstado(r.estado ?? 'CONCLUIDO')}${r.contabilizado ? ' · Contabilizada' : ''}`,
       render: (e: string | null, r) => (
-        <Space size={8} wrap>
-          {/* legado (ui_warehouse.js:582-583): «CONCLUIDO» e «CONTABILIZADA» em texto, em maiúsculas */}
-          <span style={(e ?? 'CONCLUIDO') === 'ANULADA' ? { color: '#dc2626' } : undefined}>{(e ?? 'CONCLUIDO').toUpperCase()}</span>
-          {r.contabilizado && <span>CONTABILIZADA</span>}
-        </Space>
+        <>
+          <Space size={8} wrap>
+            {/* legado (ui_warehouse.js:582-583): «CONCLUIDO» e «CONTABILIZADA» em texto, em maiúsculas */}
+            <span style={(e ?? 'CONCLUIDO') === 'ANULADA' ? { color: '#dc2626' } : undefined}>{(e ?? 'CONCLUIDO').toUpperCase()}</span>
+            {r.contabilizado && <span>CONTABILIZADA</span>}
+          </Space>
+          {/* legado (ui_warehouse.js:584): o motivo da anulação por baixo, em letra pequena (30 caracteres; completo na dica) */}
+          {r.motivo_anulacao && (
+            <Typography.Text type="secondary" style={{ display: 'block', fontSize: '0.7rem' }} title={r.motivo_anulacao}>
+              {r.motivo_anulacao.slice(0, 30)}
+            </Typography.Text>
+          )}
+        </>
       ),
     },
   ];

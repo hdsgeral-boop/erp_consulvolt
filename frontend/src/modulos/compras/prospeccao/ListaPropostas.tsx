@@ -2,8 +2,10 @@ import { Button, Card, InputNumber, Select, Tag, Space } from 'antd';
 import { useEcraPequeno } from '@/componentes/responsivo';
 import { PainelPesquisaCompras } from '../comum/PainelPesquisaCompras';
 import dayjs, { type Dayjs } from 'dayjs';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -12,12 +14,20 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ModalIvaDaLista, useImprimirCompra } from '../comum/accoesLista';
 import { colunasMoeda, colunaUnCc } from '../comum/colunasLegado';
-import { EstadoTag, opcoesEstado, rotuloEstado } from '../comum/estados';
+import { opcoesEstado, rotuloEstado } from '../comum/estados';
 import { ModalFluxoDocumental, type TipoDocumentoCompra } from '../comum/FluxoDocumental';
 import { NomeTerceiro } from '../comum/referencias';
 import { accoesProposta, type Pode } from '../comum/regras';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
-import { numeroOuId, type EncomendaCompra, type PropostaCompra } from '../comum/tipos';
+import { numeroOuId, type EncomendaCompra, type PedidoCompra, type PropostaCompra } from '../comum/tipos';
+
+/** Cores dos estados das propostas como no legado (js/ui_compras_v2.js:308): adjudicado a verde, proposta de adjudicação a laranja, o resto a azul. */
+export function corEstadoProposta(estado: string | null | undefined): string {
+  if (estado === 'ADJUDICADO') return 'green';
+  if (estado === 'PROPOSTA_ADJUDICACAO') return 'orange';
+  if (estado === 'RECUSADA' || estado === 'ANULADA') return 'red';
+  return 'blue';
+}
 
 /** Acções por linha de «Propostas de Fornecedores» do legado (js/ui_compras_v2.js:313-323), com as mesmas condições. */
 export function accoesLinhaProposta(
@@ -53,6 +63,16 @@ export function ListaPropostas() {
   const [iva, setIva] = useState<{ tipo: 'proposta'; id: number } | null>(null);
   const pequeno = useEcraPequeno();
   const imprimir = useImprimirCompra();
+  // «Comparar por Pedido...» do legado: lista dos pedidos aprovados («Pedido #N - requisitante»); também os já adjudicados
+  const podeVerPedidos = pode('compras_pedidos_view');
+  const pedidos = useQuery({
+    queryKey: ['compras', 'pedidos', 'para-comparar'],
+    queryFn: async () => {
+      const [a, b] = await Promise.all(['APROVADO', 'ADJUDICADO'].map((e) => obterPagina<PedidoCompra>('/compras/pedidos', { estado: e, por_pagina: 200 })));
+      return [...a.itens, ...b.itens];
+    },
+    enabled: podeVerPedidos,
+  });
   const accao = useAccao<PropostaCompra | EncomendaCompra>({
     invalidar: [['compras']],
     aoSucesso: (d, p) => {
@@ -68,7 +88,7 @@ export function ListaPropostas() {
     { title: 'Valor Total (Kz)', dataIndex: 'montante_total', align: 'right', total: true, render: (v: string | null) => formatarKz(v) },
     ...colunasMoeda<PropostaCompra>(),
     colunaUnCc<PropostaCompra>(),
-    { title: 'Status', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado), render: (e: string) => <EstadoTag estado={e} /> },
+    { title: 'Status', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado), render: (e: string) => <Tag color={corEstadoProposta(e)}>{rotuloEstado(e)}</Tag> },
     { title: 'Proposta', key: 'numero', ocultaPorOmissao: true, valorImpressao: (r) => numeroOuId(r.numero_proposta, r.id), render: (_, r) => numeroOuId(r.numero_proposta, r.id) },
     { title: 'Data', dataIndex: 'data', ocultaPorOmissao: true, render: formatarData },
   ];
@@ -84,7 +104,22 @@ export function ListaPropostas() {
           titulo={
             <Space wrap size={12}>
               <span>Propostas de Fornecedores</span>
-              <InputNumber placeholder="Comparar por Pedido..." min={1} style={{ width: 200, maxWidth: '100%' }} value={pedido} onChange={(v) => setPedido(v)} />
+              {podeVerPedidos ? (
+                <Select
+                  placeholder="Comparar por Pedido..."
+                  aria-label="Comparar por Pedido"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  loading={pedidos.isLoading}
+                  style={{ width: 220, maxWidth: '100%' }}
+                  value={pedido ?? undefined}
+                  onChange={(v?: number) => setPedido(v ?? null)}
+                  options={(pedidos.data ?? []).map((p) => ({ value: p.id, label: `Pedido ${numeroOuId(p.numero_pedido, p.id)} - ${p.nome_requerente}` }))}
+                />
+              ) : (
+                <InputNumber placeholder="Comparar por Pedido..." min={1} style={{ width: 220, maxWidth: '100%' }} value={pedido} onChange={(v) => setPedido(v)} />
+              )}
               {pedido && <Button onClick={() => navegar(`comparacao/${pedido}`)}>Quadro comparativo do pedido</Button>}
             </Space>
           }

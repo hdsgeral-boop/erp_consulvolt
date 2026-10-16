@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Row, Select, Space, Table, Tabs, Tag, Typography, theme } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Flex, Row, Select, Space, Table, Tabs, Tag, Typography, theme } from 'antd';
 import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useQuery } from '@tanstack/react-query';
@@ -19,6 +19,17 @@ import { scrollTabela } from '@/componentes/responsivo';
 
 type LinhaDisponivel = Disponibilidades['contas'][number];
 type MovimentoExtrato = ExtratoConta['movimentos'][number];
+/** Linha da tabela do extracto: os movimentos e, à cabeça, a linha «SALDO ANTERIOR AO PERÍODO» do legado. */
+export type LinhaExtrato = MovimentoExtrato & { saldoAnterior?: true };
+
+/** Linhas do extracto como no legado (ui_tesouraria.js:3562-3570): a 1.ª é o saldo anterior ao período, só com o saldo. */
+export function linhasExtrato(e: ExtratoConta): LinhaExtrato[] {
+  const anterior: LinhaExtrato = {
+    id: -1, saldoAnterior: true, data_documento: e.data_inicio, numero_lan: null, numero_documento: null, descricao: null, tipo_dc: 'D', valor: '0',
+    saldo: e.saldo_inicial, diario: null, terceiro_id: null, terceiro: null, estorno_de_id: null, estornado_por_id: null,
+  };
+  return [anterior, ...e.movimentos];
+}
 
 /** Tipos de Mapa do legado (select teso-map-type): o prefixo da conta. Ambos geram o extracto da conta (razão com saldo corrido). */
 export type TipoMapa = '43' | '45';
@@ -180,70 +191,74 @@ export default function Mapas() {
                   <SeletorContaFinanceira value={conta} onChange={setConta} />
                   <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} allowClear={false} onChange={(v) => v?.[0] && v[1] && setPeriodo([v[0], v[1]])} />
                   <Button onClick={() => void extrato.refetch()} disabled={!conta}>Actualizar</Button>
-                  <BotoesExportar desactivado={!e} obterPedido={() => (e ? pedidoExtrato(e) : null)} />
                 </Space>
                 {e && (
                   <>
-                    {/* cabeçalho do mapa do legado (ui_tesouraria.js:3532-3546): título, conta, período e n.º de movimentos */}
-                    <Space wrap style={{ marginBottom: 12, width: '100%', justifyContent: 'space-between' }}>
+                    {/* cabeçalho do mapa do legado (ui_tesouraria.js:3532-3546): título, conta, período, n.º de movimentos e, à direita, Imprimir/Extrair/Excel */}
+                    <Flex wrap gap={12} justify="space-between" align="flex-end" style={{ marginBottom: 16, paddingBottom: 12, borderBottom: `2px solid ${token.colorBorderSecondary}` }}>
                       <div>
-                        <h3 style={{ margin: 0, color: token.colorPrimary }}>{e.codigo_conta.startsWith('45') ? 'Folha de Caixa' : 'Extrato Bancário'}</h3>
-                        <Typography.Text type="secondary">{e.codigo_conta}{e.descricao ? ` – ${e.descricao}` : ''} · Período: {formatarData(e.data_inicio)} a {formatarData(e.data_fim)} · Exibindo <strong>{e.movimentos.length}</strong> movimentos</Typography.Text>
+                        <h2 style={{ margin: 0, color: token.colorPrimary }}>{e.codigo_conta.startsWith('45') ? 'Folha de Caixa' : 'Extrato Bancário'}</h2>
+                        <p style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>{e.codigo_conta}{e.descricao ? ` - ${e.descricao}` : ''}</p>
+                        <p style={{ margin: '3px 0 0', color: token.colorTextSecondary }}>Periodo: {formatarData(e.data_inicio)} a {formatarData(e.data_fim)}</p>
+                        <div style={{ marginTop: 8, fontSize: 13, color: token.colorTextSecondary }}>Exibindo <strong style={{ color: token.colorPrimary }}>{e.movimentos.length}</strong> movimentos</div>
                       </div>
-                      <BotaoCsv<MovimentoExtrato>
-                        nome={`extracto_${e.codigo_conta}`}
-                        linhas={e.movimentos}
-                        colunas={[
-                          { titulo: 'Data', valor: (l) => l.data_documento },
-                          { titulo: 'Lançamento', valor: (l) => l.numero_lan },
-                          { titulo: 'Documento', valor: (l) => l.numero_documento },
-                          { titulo: 'Terceiro', valor: (l) => l.terceiro?.nome ?? '' },
-                          { titulo: 'Descrição', valor: (l) => l.descricao },
-                          { titulo: 'Entrada', valor: (l) => (l.tipo_dc === 'D' ? l.valor : ''), numerico: true },
-                          { titulo: 'Saída', valor: (l) => (l.tipo_dc === 'C' ? l.valor : ''), numerico: true },
-                          { titulo: 'Saldo', valor: (l) => l.saldo, numerico: true },
-                        ]}
-                      />
-                    </Space>
+                      <Space wrap>
+                        <BotoesExportar desactivado={!e} obterPedido={() => (e ? pedidoExtrato(e) : null)} />
+                        <BotaoCsv<MovimentoExtrato>
+                          nome={`extracto_${e.codigo_conta}`}
+                          linhas={e.movimentos}
+                          colunas={[
+                            { titulo: 'Data', valor: (l) => l.data_documento },
+                            { titulo: 'Lançamento', valor: (l) => l.numero_lan },
+                            { titulo: 'Documento', valor: (l) => l.numero_documento },
+                            { titulo: 'Terceiro', valor: (l) => l.terceiro?.nome ?? '' },
+                            { titulo: 'Descrição', valor: (l) => l.descricao },
+                            { titulo: 'Entrada', valor: (l) => (l.tipo_dc === 'D' ? l.valor : ''), numerico: true },
+                            { titulo: 'Saída', valor: (l) => (l.tipo_dc === 'C' ? l.valor : ''), numerico: true },
+                            { titulo: 'Saldo', valor: (l) => l.saldo, numerico: true },
+                          ]}
+                        />
+                      </Space>
+                    </Flex>
                     {!extratoConfere(e) && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O saldo corrido não confere com o saldo final; actualize o extracto." />}
-                    {/* colunas do legado (ui_tesouraria.js:3551-3580): saldo anterior na 1.ª linha e «TOTAIS DO PERÍODO» no fim */}
-                    <Table<MovimentoExtrato>
+                    {/* colunas do legado pela ordem (ui_tesouraria.js:3551-3580): «SALDO ANTERIOR AO PERÍODO» na 1.ª linha e
+                        «TOTAIS DO PERÍODO» no rodapé, alinhados com Débito / Crédito / Saldo; Diário e Lançamento só no sistema novo */}
+                    <Table<LinhaExtrato>
                       rowKey="id"
                       size="small"
-                      dataSource={e.movimentos}
+                      dataSource={linhasExtrato(e)}
                       pagination={{ pageSize: 50 }}
                       scroll={scrollTabela()}
+                      onRow={(l) => (l.saldoAnterior ? { style: { fontStyle: 'italic', background: token.colorFillAlter } } : {})}
                       columns={[
-                        { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-                        { title: 'Referência', dataIndex: 'numero_documento', render: (v: string | null) => <span style={{ color: token.colorPrimary, fontWeight: 600 }}>{v ?? '—'}</span> },
-                        { title: 'Terceiro', key: 'terceiro', responsive: ['md'], render: (_, l) => <Typography.Text type="secondary" style={{ fontSize: 12.8 }}>{l.terceiro?.nome?.trim() ?? '—'}</Typography.Text> },
-                        { title: 'Descrição / histórico', dataIndex: 'descricao', ellipsis: true, width: 300, responsive: ['lg'] },
-                        { title: 'Contrapartida', key: 'contrapartidas', responsive: ['lg'], render: (_, l) => (l.contrapartidas?.length ? <Typography.Text style={{ fontSize: 12.8 }}>{l.contrapartidas.join(' / ')}</Typography.Text> : '—') },
-                        { title: 'Débito', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : null) },
-                        { title: 'Crédito', align: 'right', render: (_, l) => (l.tipo_dc === 'C' ? <ValorKz valor={l.valor} /> : null) },
-                        { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <strong style={{ color: Number(v) < 0 ? token.colorError : token.colorPrimary, whiteSpace: 'nowrap' }}>{formatarKz(v)}</strong> },
-                        { title: 'Estado Recon.', key: 'recon', responsive: ['md'], render: (_, l) => (l.reconciliacao_codigo ? <Tag color="green">Conciliado{l.reconciliacao_data ? ` · ${formatarData(l.reconciliacao_data)}` : ''}</Tag> : <Tag>Por conciliar</Tag>) },
-                        { title: 'Diário', dataIndex: 'diario', responsive: ['lg'] },
-                        { title: 'Lançamento', dataIndex: 'numero_lan', responsive: ['md'] },
+                        { title: 'Data', dataIndex: 'data_documento', render: (v: string, l) => (l.saldoAnterior ? null : formatarData(v)) },
+                        { title: 'Referência', dataIndex: 'numero_documento', render: (v: string | null, l) => (l.saldoAnterior ? null : <span style={{ color: token.colorPrimary, fontWeight: 600 }}>{v ?? `#${l.id}`}</span>) },
+                        { title: 'Contrapartida', key: 'contrapartidas', render: (_, l) => (l.saldoAnterior ? null : <Typography.Text type="secondary" style={{ fontSize: 12.8 }}>{l.contrapartidas?.length ? l.contrapartidas.join(' / ') : '-'}</Typography.Text>) },
+                        { title: 'Terceiro', key: 'terceiro', render: (_, l) => (l.saldoAnterior ? null : <Typography.Text type="secondary" style={{ fontSize: 12.8 }}>{l.terceiro?.nome?.trim() ?? ''}</Typography.Text>) },
+                        {
+                          title: 'Descrição / histórico', dataIndex: 'descricao', ellipsis: true, width: 300,
+                          onCell: (l) => (l.saldoAnterior ? { style: { textAlign: 'right', fontWeight: 600 } } : {}),
+                          render: (v: string | null, l) => (l.saldoAnterior ? 'SALDO ANTERIOR AO PERÍODO:' : v),
+                        },
+                        { title: 'Débito', align: 'right', render: (_, l) => (l.saldoAnterior ? null : l.tipo_dc === 'D' ? formatarKz(l.valor) : '-') },
+                        { title: 'Crédito', align: 'right', render: (_, l) => (l.saldoAnterior ? null : l.tipo_dc === 'C' ? formatarKz(l.valor) : '-') },
+                        { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string, l) => <strong style={{ color: l.saldoAnterior ? undefined : Number(v) < 0 ? token.colorError : token.colorPrimary, fontWeight: l.saldoAnterior ? 700 : 600, whiteSpace: 'nowrap' }}>{formatarKz(v)}</strong> },
+                        { title: 'Estado Recon.', key: 'recon', align: 'center', render: (_, l) => (l.saldoAnterior ? null : l.reconciliacao_codigo ? <Tag color="green">Conciliado{l.reconciliacao_data ? ` · ${formatarData(l.reconciliacao_data)}` : ''}</Tag> : <Tag>Por conciliar</Tag>) },
+                        { title: 'Diário', dataIndex: 'diario', render: (v: string | null, l) => (l.saldoAnterior ? null : v) },
+                        { title: 'Lançamento', dataIndex: 'numero_lan', render: (v: string | null, l) => (l.saldoAnterior ? null : v) },
                       ]}
                       summary={() => (
-                        <Table.Summary fixed="top">
-                          <Table.Summary.Row>
-                            <Table.Summary.Cell index={0} colSpan={4}><em>SALDO ANTERIOR AO PERÍODO:</em></Table.Summary.Cell>
-                            <Table.Summary.Cell index={4} />
-                            <Table.Summary.Cell index={5} />
-                            <Table.Summary.Cell index={6} align="right"><em>{formatarKz(e.saldo_inicial)}</em></Table.Summary.Cell>
-                            <Table.Summary.Cell index={7} colSpan={2} />
+                        <Table.Summary>
+                          <Table.Summary.Row className="erp-linha-total">
+                            <Table.Summary.Cell index={0} colSpan={5} align="right">TOTAIS DO PERÍODO:</Table.Summary.Cell>
+                            <Table.Summary.Cell index={5} align="right">{formatarKz(e.debito)}</Table.Summary.Cell>
+                            <Table.Summary.Cell index={6} align="right">{formatarKz(e.credito)}</Table.Summary.Cell>
+                            <Table.Summary.Cell index={7} align="right"><span style={{ fontSize: 16 }}>{formatarKz(e.saldo_final)}</span></Table.Summary.Cell>
+                            <Table.Summary.Cell index={8} colSpan={3} />
                           </Table.Summary.Row>
                         </Table.Summary>
                       )}
                     />
-                    <div className="erp-linha-total" style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 24, padding: '8px 12px', fontWeight: 800, color: token.colorPrimary, background: token.colorFillAlter }}>
-                      <span>TOTAIS DO PERÍODO:</span>
-                      <span>Débito {formatarKz(e.debito)}</span>
-                      <span>Crédito {formatarKz(e.credito)}</span>
-                      <span>Saldo final {formatarKz(e.saldo_final)}</span>
-                    </div>
                   </>
                 )}
               </Card>

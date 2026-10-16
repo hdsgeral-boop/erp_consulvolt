@@ -3,12 +3,12 @@ import dayjs from 'dayjs';
 import type { ContrapartidaLista, DocumentoTesouraria, IntegracaoOrfa, MeioPagamento } from './api';
 import { GRUPOS_TESOURARIA, GRUPO_DO_ECRA, indicadoresTesouraria, separadorActivoTesouraria } from './BarraTesouraria';
 import {
-  bloqueioAnulacao, bloqueioEdicao, bloqueioExclusao, colunasHistorico, colunasOperacoes, docsOrigem, textoDocOrigem, textoNotas, textosEntidade, textoUnCc,
+  bloqueioAnulacao, bloqueioEdicao, bloqueioExclusao, colunasHistorico, corValorDc, colunasOperacoes, docsOrigem, textoDocOrigem, textoNotas, textosEntidade, textoUnCc,
   totalValor, urlSegura,
 } from './colunasLegado';
 import { contaBancariaInicial } from './Conciliacao';
 import { accoesHistorico, FERRAMENTAS_DISPENSADAS, parametrosHistorico } from './Historico';
-import { pedidoMapa, TIPOS_MAPA } from './Mapas';
+import { linhasExtrato, pedidoMapa, TIPOS_MAPA } from './Mapas';
 import { resumoMeios, tipoMeio } from './MeiosPagamento';
 import { pedidoValido, preSeleccao } from './ModalReparacao';
 import { motivoValido } from './motivo';
@@ -58,6 +58,11 @@ describe('7.1.1 Pagamentos / Recebimentos', () => {
   it('colunas do legado pela ordem', () => {
     expect(colunasOperacoes().map((c) => c.title)).toEqual(['Data', 'Tipo', 'Referencia', 'Conta Fin.', 'Contrapartida', 'U. Negocio / C. Custo', 'D/C',
       'Entidade (NIF)', 'Doc. Origem', 'Notas (D/F)', 'Descrição', 'Valor', 'Estado Recon.', 'Estado Contab.']);
+  });
+  it('valor a verde no débito da contrapartida e a vermelho no crédito (legado)', () => {
+    expect(corValorDc('D')).toBe('#059669');
+    expect(corValorDc('C')).toBe('#dc2626');
+    expect(corValorDc(undefined)).toBe('#dc2626');
   });
   it('textos das colunas compostas', () => {
     expect(textoUnCc(linha({ unidade_negocio: 'UN1' }))).toBe('UN1 / ---');
@@ -130,6 +135,11 @@ describe('7.5.1 / 7.6.1 / 7.7.1', () => {
     expect(pedidoMapa(undefined, dayjs('2026-01-01'), dayjs('2026-01-31'))).toBeNull();
     expect(pedidoMapa('4311', dayjs('2026-02-01'), dayjs('2026-01-31'))).toBeNull();
     expect(pedidoMapa('4311', dayjs('2026-01-01'), dayjs('2026-01-31'))?.conta).toBe('4311');
+  });
+  it('extracto: 1.ª linha «saldo anterior ao período» com o saldo inicial', () => {
+    const ls = linhasExtrato({ codigo_conta: '43.1', descricao: null, data_inicio: '2026-10-01', data_fim: '2026-10-31', saldo_inicial: '500.00', debito: '0', credito: '0', saldo_final: '500.00', movimentos: [] });
+    expect(ls).toHaveLength(1);
+    expect(ls[0]).toMatchObject({ saldoAnterior: true, saldo: '500.00' });
   });
   it('conciliação abre na conta bancária padrão (ou na 1.ª conta 43 activa)', () => {
     const m = (codigo_conta: string, p: Partial<MeioPagamento> = {}) => ({ codigo_conta, ativo: true, predefinido: false, ...p }) as MeioPagamento;

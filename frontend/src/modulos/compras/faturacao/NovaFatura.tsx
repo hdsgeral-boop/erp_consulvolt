@@ -1,5 +1,5 @@
 import { Button, Card, Col, DatePicker, Divider, Flex, Form, Input, InputNumber, Row, Space, Statistic, Typography } from 'antd';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SaveOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -46,7 +46,7 @@ export function NovaFatura() {
 
   return (
     <>
-      <CabecalhoPagina titulo="Factura directa de fornecedor" accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
+      <CabecalhoPagina titulo="Nova Fatura Direta (sem encomenda)" accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
       <Form<ValoresFatura>
         form={form}
         layout="vertical"
@@ -68,7 +68,7 @@ export function NovaFatura() {
           })
         }
       >
-        <Card title="Factura" style={{ marginBottom: 16 }}>
+        <Card style={{ marginBottom: 16, borderTop: '4px solid var(--erp-primaria, #2563eb)' }}>
           <Row gutter={16}>
             <Col xs={24} md={10}>
               <Form.Item name="fornecedor_id" label="Fornecedor" rules={[{ required: true, message: 'Escolha o fornecedor.' }]}>
@@ -76,12 +76,12 @@ export function NovaFatura() {
               </Form.Item>
             </Col>
             <Col xs={24} md={6}>
-              <Form.Item name="numero_fatura" label="N.º da factura" rules={[{ required: true, message: 'Indique o n.º da factura.' }, { max: 50 }]}>
-                <Input />
+              <Form.Item name="numero_fatura" label="Número da Fatura (Externo)" rules={[{ required: true, message: 'Indique o n.º da factura.' }, { max: 50 }]}>
+                <Input placeholder="Ex: FR 2024/123" />
               </Form.Item>
             </Col>
             <Col xs={12} md={4}>
-              <Form.Item name="data" label="Data" rules={[{ required: true }]}>
+              <Form.Item name="data" label="Data da Fatura" rules={[{ required: true }]}>
                 <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -108,13 +108,13 @@ export function NovaFatura() {
               </Col>
             )}
             <Col xs={12} md={6}>
-              <Form.Item name="unidade_negocio_id" label="Unidade de negócio">
-                <SeletorUnidade style={{ width: '100%' }} placeholder="N/A" />
+              <Form.Item name="unidade_negocio_id" label="Unidade de Negócio">
+                <SeletorUnidade style={{ width: '100%' }} placeholder="Nenhuma" />
               </Form.Item>
             </Col>
             <Col xs={12} md={6}>
-              <Form.Item name="centro_custo_id" label="Centro de custo">
-                <SeletorAux tabela="centros-custo" style={{ width: '100%' }} placeholder="N/A" />
+              <Form.Item name="centro_custo_id" label="Centro de Custo">
+                <SeletorAux tabela="centros-custo" style={{ width: '100%' }} placeholder="Nenhum" />
               </Form.Item>
             </Col>
             {!!criterios.data?.length && (
@@ -126,22 +126,25 @@ export function NovaFatura() {
             )}
           </Row>
         </Card>
-        <Card title="Linhas" style={{ marginBottom: 16 }}>
-          <LinhasProdutos form={form} preco precoObrigatorio iva descricao rotuloPreco={`Preço (${moeda})`} unidadeLinha />
+        <Card title="Itens da Fatura" style={{ marginBottom: 16 }}>
+          <LinhasProdutos form={form} preco precoObrigatorio iva descricao rotuloPreco={`Preço Unit. s/ IVA (${moeda})`} unidadeLinha />
           <Divider />
           <Flex justify="end" gap={24} wrap>
-            <Statistic title={`Líquido (${moeda})`} value={formatarKz(estimativa.liquido)} />
-            <Statistic title="IVA" value={formatarKz(estimativa.imposto)} />
-            <Statistic title="Total" value={formatarKz(estimativa.total)} />
+            <Statistic title={`Subtotal (Líquido) (${moeda})`} value={formatarKz(estimativa.liquido)} />
+            <Statistic title="IVA Total" value={formatarKz(estimativa.imposto)} />
+            <Statistic title="Total Final (Bruto)" value={formatarKz(estimativa.total)} />
           </Flex>
           <Typography.Text type="secondary">Estimativa; o servidor calcula os valores em Kz e o IVA dedutível.</Typography.Text>
         </Card>
-        <Space wrap>
-          <Button type="primary" htmlType="submit" loading={criar.isPending}>
-            Registar factura
-          </Button>
-          <Button onClick={() => navegar('..')}>Cancelar</Button>
-        </Space>
+        {/* «Cancelar» e «Gravar Fatura» à direita, como o legado (js/ui_compras_v2.js:1816-1821) */}
+        <Flex justify="end">
+          <Space wrap>
+            <Button onClick={() => navegar('..')}>Cancelar</Button>
+            <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={criar.isPending}>
+              Gravar Fatura
+            </Button>
+          </Space>
+        </Flex>
       </Form>
       {excesso.dialogo}
     </>

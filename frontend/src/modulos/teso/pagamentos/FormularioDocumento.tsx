@@ -1,5 +1,6 @@
-import { Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Segmented, Select, Skeleton, Space, Statistic, Table, Typography, message } from 'antd';
-import { ArrowLeftOutlined, FileSearchOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Segmented, Select, Skeleton, Space, Statistic, Table, Typography, message } from 'antd';
+import { ArrowLeftOutlined } from '@ant-design/icons';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
@@ -144,8 +145,8 @@ export function FormularioDocumento() {
   return (
     <>
       <CabecalhoPagina
-        titulo={id ? `Editar ${existente.data?.numero_documento ?? 'documento'}` : `Novo ${ROTULO_TIPO[tipo].toLowerCase()}`}
-        subtitulo={copiarId && existente.data ? `Cópia de ${existente.data.numero_documento ?? `#${existente.data.id}`}` : undefined}
+        titulo={`${id ? 'Editar' : 'Novo'} ${ROTULO_TIPO[tipo]}`}
+        subtitulo={copiarId && existente.data ? `Cópia de ${existente.data.numero_documento ?? `#${existente.data.id}`}` : id ? existente.data?.numero_documento ?? undefined : undefined}
         accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar(id ? `../${id}` : '..')}>Voltar</Button>}
       />
       {id && existente.data && existente.data.estado !== 'PENDENTE' && <Alert type="error" showIcon style={{ marginBottom: 16 }} message={`Um documento ${existente.data.estado} não pode ser alterado.`} />}
@@ -155,7 +156,8 @@ export function FormularioDocumento() {
         initialValues={{ tipo: tipoInicial, data_documento: dayjs(), linhas: [{ tipo_dc: sentidoPorOmissao(tipoInicial) }] }}
         onFinish={(v) => gravar.mutate(v)}
       >
-        <Card title="Documento" style={{ marginBottom: 16 }}>
+        {/* legado (showTesourariaForm): cartão com friso superior vermelho (pagamento) ou verde (recebimento) */}
+        <Card title="Documento" style={{ marginBottom: 16, borderTop: `4px solid ${tipo === 'PAGAMENTO' ? '#ef4444' : '#10b981'}` }}>
           <Row gutter={16}>
             <Col xs={24} md={6}>
               <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
@@ -201,7 +203,7 @@ export function FormularioDocumento() {
           </Row>
           <Row gutter={16}>
             <Col xs={24} md={18}>
-              <Form.Item name="descricao" label="Descrição" rules={[{ required: true, min: 5, message: 'Descreva o documento (pelo menos 5 caracteres).' }]}>
+              <Form.Item name="descricao" label="Descrição Geral" rules={[{ required: true, min: 5, message: 'Descreva o documento (pelo menos 5 caracteres).' }]}>
                 <Input maxLength={1000} />
               </Form.Item>
             </Col>
@@ -213,8 +215,8 @@ export function FormularioDocumento() {
           </Row>
         </Card>
         <Card
-          title="Linhas (contrapartidas)"
-          extra={<Button icon={<FileSearchOutlined />} onClick={() => setPendentes(true)}>Documentos em aberto</Button>}
+          title="Itens de Contrapartida"
+          extra={<Button icon={<IconeFa nome="search-plus" />} onClick={() => setPendentes(true)}>Importar Pendentes</Button>}
           style={{ marginBottom: 16 }}
         >
           <Typography.Paragraph type="secondary">
@@ -223,17 +225,18 @@ export function FormularioDocumento() {
               : 'Num recebimento os créditos das linhas têm de exceder os débitos; a diferença entra na conta bancária.'}
           </Typography.Paragraph>
           <EditorLinhasDC campos={{ terceiro: true, numeroDocumento: true, centroCusto: true, unidade: true }} />
-          <Space wrap size={32} style={{ marginTop: 16 }}>
-            <Statistic title={`Valor do ${ROTULO_TIPO[tipo].toLowerCase()} (Kz)`} value={formatarKz(total.total)} valueStyle={{ color: total.valido ? undefined : '#cf1322' }} />
-          </Space>
           {!total.valido && linhas.length > 0 && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="O valor do documento tem de ser positivo (veja o sentido D/C das linhas)." />}
         </Card>
-        <Space wrap>
-          <Button type="primary" htmlType="submit" loading={gravar.isPending} disabled={!total.valido || (!!existente.data && existente.data.estado !== 'PENDENTE')}>
-            Gravar (por integrar)
-          </Button>
-          <Button onClick={() => navegar(id ? `../${id}` : '..')}>Cancelar</Button>
-        </Space>
+        {/* legado: «Gravar Documento» à esquerda e o TOTAL à direita */}
+        <Flex wrap gap={16} justify="space-between" align="center">
+          <Space wrap>
+            <Button type="primary" htmlType="submit" loading={gravar.isPending} disabled={!total.valido || (!!existente.data && existente.data.estado !== 'PENDENTE')}>
+              Gravar Documento
+            </Button>
+            <Button onClick={() => navegar(id ? `../${id}` : '..')}>Cancelar</Button>
+          </Space>
+          <Statistic style={{ textAlign: 'right' }} title="TOTAL" value={formatarKz(total.total)} suffix="Kz" valueStyle={{ color: total.valido ? undefined : '#cf1322' }} />
+        </Flex>
       </Form>
       {pendentes && <ModalPendentes tipo={tipo} aoFechar={() => setPendentes(false)} aoEscolher={acrescentarPendentes} />}
       {excesso.dialogo}

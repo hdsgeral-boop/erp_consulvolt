@@ -107,7 +107,7 @@ export default function Mapa() {
       children: MESES_CURTOS.map((nome, i) => ({ title: nome, key: `m${i + 1}`, align: 'right' as const, render: (_: unknown, l: LinhaMapa) => celulaMes(l, i) })),
     },
     { title: 'Total Ano', dataIndex: 'ano', align: 'right', render: (v) => <span style={{ fontWeight: 700 }}>{kz(v)}</span> },
-    { title: 'Acumulado Final', dataIndex: 'acumulado', align: 'right', render: (v) => <span style={{ fontWeight: 700, color: '#dc2626' }}>{kz(v)}</span> },
+    { title: 'Acumulado Final', dataIndex: 'acumulado', align: 'right', render: (v) => <span style={{ fontWeight: 700, color: '#ef4444' }}>{kz(v)}</span> },
     { title: 'V.C. Líquido', dataIndex: 'liquido', align: 'right', onHeaderCell: () => ({ style: { borderLeft: `2px solid ${token.colorBorderSecondary}` } }),
       onCell: () => ({ style: { background: token.colorFillAlter, borderLeft: `2px solid ${token.colorBorderSecondary}` } }), render: (v) => <span style={{ fontWeight: 700, color: '#059669' }}>{kz(v)}</span> },
   ];
@@ -161,7 +161,7 @@ export default function Mapa() {
                 {celulaTotal(7, totais.acumulado_anterior)}
                 {MESES_CURTOS.map((_, i) => celulaTotal(8 + i, totais.meses[String(i + 1)]))}
                 {celulaTotal(20, totais.ano)}
-                {celulaTotal(21, totais.acumulado, { color: '#dc2626' })}
+                {celulaTotal(21, totais.acumulado, { color: '#ef4444' })}
                 {celulaTotal(22, totais.liquido, { color: '#059669' })}
               </Table.Summary.Row>
             </Table.Summary>

@@ -79,6 +79,11 @@ export function totalValor(ls: DocumentoTesouraria[], tipo?: TipoDocumento): str
   return formatarKz(somar(validos.map((l) => (l.tipo === 'PAGAMENTO' ? `-${l.valor_total}` : l.valor_total))));
 }
 
+/** Cor do valor na lista de Operações (legado, ui_tesouraria.js:550): débito da contrapartida a verde, crédito (ou sem linhas) a vermelho. */
+export function corValorDc(dc: 'D' | 'C' | null | undefined): string {
+  return dc === 'D' ? '#059669' : '#dc2626';
+}
+
 const pilha = (itens: ReactNode[], vazio: ReactNode = '-') => (itens.length ? <>{itens.map((i, k) => <div key={k} style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{i}</div>)}</> : vazio);
 const etiquetaConta = (c: string, cor?: string) => <Tag style={{ fontFamily: 'monospace', marginInlineEnd: 0, color: cor }}>{c}</Tag>;
 const moeda = (r: DocumentoTesouraria) => (r.codigo_moeda && r.codigo_moeda !== 'AOA' && r.valor_total_moeda ? <div style={{ fontSize: 12, opacity: 0.7 }}>{r.valor_total_moeda} {r.codigo_moeda}</div> : null);
@@ -118,7 +123,12 @@ export function colunasOperacoes(tipo?: TipoDocumento): ColunaApi<DocumentoTesou
       title: 'Valor', dataIndex: 'valor_total', key: 'valor', align: 'right',
       total: (ls) => totalValor(ls, tipo), totalImpressao: (ls) => totalValor(ls, tipo),
       valorImpressao: (r) => `${formatarKz(r.valor_total)}${r.codigo_moeda && r.codigo_moeda !== 'AOA' && r.valor_total_moeda ? ` (${r.valor_total_moeda} ${r.codigo_moeda})` : ''}`,
-      render: (v: string, r) => <><strong style={{ color: r.tipo === 'RECEBIMENTO' ? '#059669' : '#dc2626' }}>{formatarKz(v)}</strong>{moeda(r)}</>,
+      render: (v: string, r) => {
+        // legado: uma linha por contrapartida, com o valor da linha a verde (D) ou vermelho (C)
+        const ls = linhas(r);
+        if (ls.length > 1) return pilha(ls.map((c) => <strong style={{ color: corValorDc(c.tipo_dc) }}>{formatarKz(c.valor)}</strong>));
+        return <><strong style={{ color: corValorDc(ls[0]?.tipo_dc) }}>{formatarKz(v)}</strong>{moeda(r)}</>;
+      },
     },
     { title: 'Estado Recon.', key: 'estado_recon', align: 'center', valorImpressao: (r) => (r.reconciliacao_bancaria ? 'Recon.' : 'Aberto'), render: (_, r) => <EstadoRecon d={r} /> },
     { title: 'Estado Contab.', dataIndex: 'estado', key: 'estado_contab', render: (e: DocumentoTesouraria['estado']) => <EstadoContab estado={e} /> },

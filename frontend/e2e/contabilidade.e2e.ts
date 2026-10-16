@@ -43,9 +43,9 @@ test('lançamento manual equilibrado e o balancete a reflecti-lo', async ({ page
   const linha = page.locator('.ant-table-tbody tr.ant-table-row').filter({ has: page.getByText('511', { exact: true }) });
   await expect(linha).toHaveCount(1);
   const celulas = await linha.locator('td').allInnerTexts();
-  // colunas: conta, descrição, saldo inicial, débito, crédito, saldo devedor, saldo credor
-  expect(numeroPt(celulas[4])).toBe(antes + VALOR);
-  expect(numeroPt(celulas[6])).toBe(antes + VALOR);
+  // colunas (legado): conta, descrição, SI devedor, SI credor, débitos, créditos, saldo devedor, saldo credor
+  expect(numeroPt(celulas[5])).toBe(antes + VALOR);
+  expect(numeroPt(celulas[7])).toBe(antes + VALOR);
 
   // e pela API
   expect(Number((await balancete511())?.credito)).toBe(antes + VALOR);

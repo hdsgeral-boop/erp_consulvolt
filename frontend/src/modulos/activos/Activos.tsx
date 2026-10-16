@@ -102,7 +102,7 @@ function Cadastro() {
     { title: 'Vida útil', dataIndex: 'vida_util', align: 'right', render: (v) => vidaUtilMeses(v), valorImpressao: (r) => vidaUtilMeses(r.vida_util) },
     { title: 'Taxa %', key: 'taxa', align: 'right', render: (_, r) => taxaPorVidaUtil(r.vida_util), valorImpressao: (r) => taxaPorVidaUtil(r.vida_util) },
     { title: 'Aquisição', dataIndex: 'valor_aquisicao', align: 'right', total: true, render: (v) => <span style={{ fontWeight: 600 }}>{kz(v)}</span>, valorImpressao: (r) => kz(r.valor_aquisicao) },
-    { title: 'Amort. Acum.', dataIndex: 'amortizacao_acumulada', align: 'right', total: true, render: (v) => <span style={{ color: '#dc2626' }}>{kz(v ?? 0)}</span>, valorImpressao: (r) => kz(r.amortizacao_acumulada ?? 0) },
+    { title: 'Amort. Acum.', dataIndex: 'amortizacao_acumulada', align: 'right', total: true, render: (v) => <span style={{ color: '#ef4444' }}>{kz(v ?? 0)}</span>, valorImpressao: (r) => kz(r.amortizacao_acumulada ?? 0) },
     { title: 'V. C. Líquido', dataIndex: 'valor_liquido', align: 'right', total: true, render: (v) => <span style={{ fontWeight: 700, color: '#059669' }}>{kz(v)}</span>, valorImpressao: (r) => kz(r.valor_liquido) },
     { title: 'Status', dataIndex: 'estado', render: (v) => <Tag color={corEstadoActivo(v)}>{v}</Tag>, valorImpressao: (r) => String(r.estado) },
   ];

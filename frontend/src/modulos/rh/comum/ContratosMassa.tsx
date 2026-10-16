@@ -2,7 +2,7 @@ import { Alert, Button, Checkbox, Col, DatePicker, Form, InputNumber, Modal, Rad
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { larguraModal } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
@@ -28,8 +28,17 @@ interface Resultado { actualizados: string[]; criados: string[]; sem_alteracao: 
  * opcionalmente, cria o contrato a quem não tem. Primeiro simula; depois aplica.
  * Versão Actual (#13/#26): opção «Itens de produtividade» (ProdutividadeMassa), a partir dos contratos marcados na lista.
  */
-export function ContratosMassa({ aberto, aoFechar, contratos = [] }: { aberto: boolean; aoFechar: () => void; contratos?: number[] }) {
-  const [tipo, setTipo] = useState<'RUBRICAS' | 'PRODUTIVIDADE'>('RUBRICAS');
+export function ContratosMassa({ aberto, aoFechar, contratos = [], tipoInicial = 'RUBRICAS' }: {
+  aberto: boolean;
+  aoFechar: () => void;
+  contratos?: number[];
+  /** Botão do antigo que abriu o assistente: «Aplicar em massa» (rubricas) ou «Produtividade em massa». */
+  tipoInicial?: 'RUBRICAS' | 'PRODUTIVIDADE';
+}) {
+  const [tipo, setTipo] = useState<'RUBRICAS' | 'PRODUTIVIDADE'>(tipoInicial);
+  useEffect(() => {
+    if (aberto) setTipo(tipoInicial);
+  }, [aberto, tipoInicial]);
   const cliente = useQueryClient();
   const colaboradores = useColaboradores();
   const infotipos = useInfotipos();

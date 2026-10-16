@@ -19,12 +19,13 @@ export type AccaoEstado = 'suspender' | 'reactivar' | 'cessar' | 'anular' | 'ver
 
 export function accoesEstadoContrato(c: ContratoTrabalho, pode: (p: string) => boolean, abrir: (a: AccaoEstado, c: ContratoTrabalho) => void): (AccaoLinha | false)[] {
   const estado = c.estado ?? 'ACTIVO';
+  // ordem do antigo (app_v2.js renderContratos, accoesEstado): ver o acto · anular / reactivar / suspender · cessar
   return [
-    pode('contratos_suspender') && estado === 'ACTIVO' && { icone: 'pause-circle', titulo: 'Suspender contrato', variante: 'aviso', onClick: () => abrir('suspender', c) },
-    pode('contratos_suspender') && estado === 'SUSPENSO' && { icone: 'play-circle', titulo: 'Reactivar contrato', variante: 'sucesso', onClick: () => abrir('reactivar', c) },
-    pode('contratos_terminate') && (estado === 'ACTIVO' || estado === 'SUSPENSO') && { icone: 'user-times', titulo: 'Cessar contrato (Lei 12/23)', variante: 'perigo', onClick: () => abrir('cessar', c) },
-    pode('contratos_terminate') && estado === 'CESSADO' && { icone: 'undo', titulo: 'Anular cessação', variante: 'aviso', onClick: () => abrir('anular', c) },
     (estado !== 'ACTIVO' || (c.suspensoes ?? []).length > 0 || (c.cessacoes_anuladas ?? []).length > 0) && { icone: 'history', titulo: 'Ver estado e histórico', variante: 'info', onClick: () => abrir('ver', c) },
+    pode('contratos_terminate') && estado === 'CESSADO' && { icone: 'undo', titulo: 'Anular cessação', variante: 'aviso', onClick: () => abrir('anular', c) },
+    pode('contratos_suspender') && estado === 'SUSPENSO' && { icone: 'play-circle', titulo: 'Reactivar contrato', variante: 'sucesso', onClick: () => abrir('reactivar', c) },
+    pode('contratos_suspender') && estado === 'ACTIVO' && { icone: 'pause-circle', titulo: 'Suspender contrato', variante: 'aviso', onClick: () => abrir('suspender', c) },
+    pode('contratos_terminate') && (estado === 'ACTIVO' || estado === 'SUSPENSO') && { icone: 'user-times', titulo: 'Cessar contrato (Lei 12/23)', variante: 'perigo', onClick: () => abrir('cessar', c) },
   ];
 }
 
