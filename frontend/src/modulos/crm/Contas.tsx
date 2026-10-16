@@ -1,11 +1,13 @@
-import { Alert, Button, Card, Checkbox, Col, Descriptions, Drawer, Flex, Form, Input, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Descriptions, Drawer, Flex, Form, Input, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, MailOutlined, PlusOutlined, StarFilled, UserAddOutlined } from '@ant-design/icons';
 import { IconeFa } from '@/componentes/fluxos';
 import { colunasContas } from './comum/colunasContas';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
+import { camposConta, CAMPOS_CONTACTO, dadosConta, dadosContacto } from './comum/formularios';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { TabelaApi } from '@/componentes/TabelaApi';
 import { BotoesExportar } from '@/componentes/impressao';
@@ -15,7 +17,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { SeletorConta } from '@/modulos/contab/comum/Seletores';
 import { CHAVE_CRM, useConfigCRM } from './comum/dados';
-import { ListaActividades, ModalActividade, ModalEmail } from './comum/componentes';
+import { GrelhaKpiCrm, KpiCrm, ListaActividades, ModalActividade, ModalEmail } from './comum/componentes';
 import { FichaOportunidade, FormOportunidade } from './comum/Oportunidade';
 import type { Actividade, ContaCRM, Contacto, Oportunidade } from './comum/tipos';
 import { larguraGaveta, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -121,23 +123,51 @@ function FormConta({ conta, aoFechar, aoCriar }: { conta: ContaCRM | 'nova' | nu
     if (conta === 'nova') form.setFieldsValue({ responsavel: utilizador?.nome_utilizador });
     else form.setFieldsValue({ ...conta, origem: conta.origem_original ?? conta.origem });
   }, [conta, form, utilizador]);
+  const campos = useMemo(() => camposConta(config.data?.origens ?? [], utilizador?.nome_utilizador), [config.data, utilizador]);
   return (
-    <Modal open={!!conta} title={nova ? 'Novo prospect' : 'Editar conta'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(720)} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: nova ? 'post' : 'put', url: nova ? '/crm/contas' : `/crm/contas/${(conta as ContaCRM).id}`, dados: v })}>
-        <Row gutter={16}>
-          <Col xs={24} sm={16}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
-          <Col xs={24} sm={8}><Form.Item name="nif" label="NIF"><Input maxLength={30} /></Form.Item></Col>
-          <Col xs={24} sm={12}><Form.Item name="email" label="Email"><Input maxLength={150} /></Form.Item></Col>
-          <Col xs={24} sm={12}><Form.Item name="telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
-          <Col xs={24} sm={12}><Form.Item name="setor" label="Sector"><Input maxLength={255} /></Form.Item></Col>
-          <Col xs={24} sm={12}><Form.Item name="website" label="Website"><Input maxLength={255} /></Form.Item></Col>
-          <Col xs={24} sm={12}><Form.Item name="origem" label="Origem"><Select allowClear options={(config.data?.origens ?? []).map((o) => ({ value: o, label: o }))} /></Form.Item></Col>
-          <Col xs={24} sm={12}><Form.Item name="responsavel" label="Responsável"><Input maxLength={100} /></Form.Item></Col>
-          <Col span={24}><Form.Item name="morada" label="Morada"><Input.TextArea rows={2} maxLength={1000} /></Form.Item></Col>
-          <Col span={24}><Form.Item name="notas" label="Notas"><Input.TextArea rows={2} maxLength={4000} /></Form.Item></Col>
-        </Row>
+    <ModalFormulario
+      chave="crm.contas"
+      titulo={nova ? 'Novo prospect' : 'Editar conta'}
+      aberto={!!conta}
+      aoFechar={aoFechar}
+      criacao={nova}
+      form={form}
+      campos={campos}
+      nomeRegistos="prospects"
+      invalidar={[CHAVE_CRM]}
+      gravarLinha={(r) => enviar('post', '/crm/contas', dadosConta(r))}
+      nota="Uma linha por prospect (conta do CRM). Para clientes que já existem use «Acrescentar cliente existente». Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário."
+      okText="Gravar"
+      cancelText="Cancelar"
+      confirmLoading={accao.isPending}
+      onOk={() => form.submit()}
+      width={larguraModal(720)}
+    >
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: nova ? 'post' : 'put', url: nova ? '/crm/contas' : `/crm/contas/${(conta as ContaCRM).id}`, dados: dadosConta(v) })}>
+        <SeccaoFormulario titulo="Identificação">
+          <Row gutter={16}>
+            <Col xs={24} sm={16}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item name="nif" label="NIF"><Input maxLength={30} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="email" label="Email"><Input maxLength={150} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="telefone" label="Telefone"><Input maxLength={50} /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Classificação">
+          <Row gutter={16}>
+            <Col xs={24} sm={12}><Form.Item name="setor" label="Sector"><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="website" label="Website"><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="origem" label="Origem"><Select allowClear options={(config.data?.origens ?? []).map((o) => ({ value: o, label: o }))} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="responsavel" label="Responsável"><Input maxLength={100} /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Morada e notas" recolhida={nova}>
+          <Row gutter={16}>
+            <Col span={24}><Form.Item name="morada" label="Morada"><Input.TextArea rows={2} maxLength={1000} /></Form.Item></Col>
+            <Col span={24}><Form.Item name="notas" label="Notas"><Input.TextArea rows={2} maxLength={4000} /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
@@ -190,12 +220,18 @@ function FichaConta({ id, aoFechar, aoEditar }: { id: number | null; aoFechar: (
         <Skeleton active />
       ) : (
         <>
-          <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
-            <Col xs={12} md={6}><Card size="small"><Statistic title="Oportunidades abertas" value={d.resumo.abertas} /></Card></Col>
-            <Col xs={12} md={6}><Card size="small"><Statistic title="Valor aberto (Kz)" value={formatarKz(d.resumo.valor_aberto)} /></Card></Col>
-            <Col xs={12} md={6}><Card size="small"><Statistic title="Ganhas / perdidas" value={`${d.resumo.ganhas} / ${d.resumo.perdidas}`} suffix={d.resumo.taxa_ganho !== null ? <span style={{ fontSize: 12 }}>({d.resumo.taxa_ganho}%)</span> : undefined} /></Card></Col>
-            <Col xs={12} md={6}><Card size="small"><Statistic title="Facturado 12 meses (Kz)" value={formatarKz(d.financeiro.facturado_12m)} /></Card></Col>
-          </Row>
+          {/* quatro indicadores .crm-kpi da ficha do antigo (crm_ui_gestao.js:116-121), pela mesma ordem */}
+          <GrelhaKpiCrm>
+            <KpiCrm rotulo="Facturado nos últimos 12 meses" valor={formatarKz(d.financeiro.facturado_12m)} secundaria={`última venda ${d.financeiro.ultima_venda ? formatarData(d.financeiro.ultima_venda) : '—'}`} />
+            <KpiCrm
+              rotulo="Em aberto"
+              valor={formatarKz(d.financeiro.em_aberto)}
+              secundaria={Number(d.financeiro.em_atraso) > 0 ? `${formatarKz(d.financeiro.em_atraso)} em atraso` : 'sem atrasos'}
+              corSecundaria={Number(d.financeiro.em_atraso) > 0 ? '#b91c1c' : undefined}
+            />
+            <KpiCrm rotulo="Oportunidades abertas" valor={d.resumo.abertas} secundaria={formatarKz(d.resumo.valor_aberto)} />
+            <KpiCrm rotulo="Taxa de ganho" valor={d.resumo.taxa_ganho === null ? '—' : `${Math.round(d.resumo.taxa_ganho)} %`} secundaria={`${d.resumo.ganhas} ganhas · ${d.resumo.perdidas} perdidas`} />
+          </GrelhaKpiCrm>
           {Number(d.financeiro.em_atraso) > 0 && (
             <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={`${formatarKz(d.financeiro.em_atraso)} Kz em atraso em ${d.financeiro.n_atrasadas} factura(s) (até ${d.financeiro.max_dias_atraso} dias).`} />
           )}
@@ -346,11 +382,27 @@ function FormContacto({ contaId, contacto, aoFechar }: { contaId?: number; conta
     if (contacto !== 'novo') form.setFieldsValue({ ...contacto, principal: !!contacto.principal });
   }, [contacto, form]);
   return (
-    <Modal open={!!contacto} title={contacto === 'novo' ? 'Novo contacto' : 'Editar contacto'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+    <ModalFormulario
+      chave="crm.contactos"
+      titulo={contacto === 'novo' ? 'Novo contacto' : 'Editar contacto'}
+      aberto={!!contacto}
+      aoFechar={aoFechar}
+      criacao={contacto === 'novo'}
+      form={form}
+      campos={CAMPOS_CONTACTO}
+      nomeRegistos="contactos"
+      invalidar={[CHAVE_CRM]}
+      gravarLinha={(r) => enviar('post', `/crm/contas/${contaId}/contactos`, dadosContacto(r))}
+      nota="Uma linha por contacto desta conta. Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário."
+      okText="Gravar"
+      cancelText="Cancelar"
+      confirmLoading={accao.isPending}
+      onOk={() => form.submit()}
+    >
       <Form
         form={form}
         layout="vertical"
-        onFinish={(v) => accao.mutate({ metodo: contacto === 'novo' ? 'post' : 'put', url: contacto === 'novo' ? `/crm/contas/${contaId}/contactos` : `/crm/contas/${contaId}/contactos/${(contacto as Contacto).id}`, dados: v })}
+        onFinish={(v) => accao.mutate({ metodo: contacto === 'novo' ? 'post' : 'put', url: contacto === 'novo' ? `/crm/contas/${contaId}/contactos` : `/crm/contas/${contaId}/contactos/${(contacto as Contacto).id}`, dados: dadosContacto(v) })}
       >
         <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item>
         <Form.Item name="cargo" label="Cargo"><Input maxLength={100} /></Form.Item>
@@ -358,6 +410,6 @@ function FormContacto({ contaId, contacto, aoFechar }: { contaId?: number; conta
         <Form.Item name="telefone" label="Telefone"><Input maxLength={50} /></Form.Item>
         <Form.Item name="principal" valuePropName="checked"><Checkbox>Contacto principal</Checkbox></Form.Item>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }

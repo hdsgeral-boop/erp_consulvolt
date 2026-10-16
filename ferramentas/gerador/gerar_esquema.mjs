@@ -179,7 +179,11 @@ for (const def of tabelas.values()) {
 for (const [tab, cols] of Object.entries(COLUNAS_NOVAS)) {
   const def = tabelas.get(tab);
   if (!def) { erros.push(`COLUNAS_NOVAS: tabela inexistente ${tab}`); continue; }
-  for (const [c, tipo, fkTab, nota] of cols) def.colunas.set(c, { pt: c, tipo, nulo: true, origem: 'novo', nota, ...(fkTab ? { fk: { tabela: fkTab } } : {}) });
+  // 5.º elemento opcional: { padrao: valor por omissão, nulo: false } (ex.: o predefinido dos modelos de carta, boolean NOT NULL DEFAULT false)
+  for (const [c, tipo, fkTab, nota, op = {}] of cols) {
+    def.colunas.set(c, { pt: c, tipo, nulo: op.nulo ?? true, origem: 'novo', nota, ...(fkTab ? { fk: { tabela: fkTab } } : {}),
+      ...(op.padrao !== undefined ? { padrao: op.padrao } : {}) });
+  }
 }
 for (const [tab, p] of Object.entries(POLIMORFICOS)) {
   const def = tabelas.get(tab);
@@ -266,8 +270,9 @@ function linhasMapeadas(def) {
     return o;
   });
 }
-// Avalia as condições dos índices parciais sobre linhas mapeadas: "col IN ('A','B')", "col IS [NOT] NULL" e a sua
-// conjunção com AND (ex.: séries das vendas, Versão Actual).
+// Avalia as condições dos índices parciais sobre linhas mapeadas: "col IN ('A','B')", "col = 'x'", "col IS [NOT] NULL",
+// uma coluna booleana sozinha ("predefinido" = verdadeira) e a sua conjunção com AND (ex.: séries das vendas, Versão Actual).
+const verdadeiro = (v) => v === true || v === 1 || v === 'true' || v === '1';
 function filtroSql(onde) {
   const partes = onde.split(/\s+AND\s+/i).map((p) => {
     const m = p.match(/^(\w+) IN \((.+)\)$/);
@@ -279,6 +284,8 @@ function filtroSql(onde) {
     if (q) return (l) => l[q[1]] === q[2];
     const n = p.match(/^(\w+) IS (NOT )?NULL$/i);
     if (n) return n[2] ? (l) => l[n[1]] !== null && l[n[1]] !== undefined : (l) => l[n[1]] === null || l[n[1]] === undefined;
+    const b = p.match(/^(NOT )?(\w+)$/i);
+    if (b) return b[1] ? (l) => !verdadeiro(l[b[2]]) : (l) => verdadeiro(l[b[2]]);
     throw new Error(`condição não suportada na verificação: ${onde}`);
   });
   return (l) => partes.every((f) => f(l));

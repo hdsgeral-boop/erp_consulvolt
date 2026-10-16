@@ -1,4 +1,4 @@
-import { Alert, Button, Descriptions, Flex, Form, Input, Modal, Skeleton, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Descriptions, Flex, Form, Input, Modal, Skeleton, Space, Table, Tag, Typography, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, type NavigateFunction } from 'react-router-dom';
@@ -244,6 +244,7 @@ export function abrirOrigem(r: RespostaOrigem, navegar: NavigateFunction): void 
 
 /** Fluxo do lançamento (legado showFlowFromAccounting: fluxo de RH, de venda ou de lançamento manual). */
 export function ModalFluxoLancamento({ linhaId, aoFechar, aoDescontabilizar }: { linhaId: number | null; aoFechar: () => void; aoDescontabilizar?: (ids: number[]) => void }) {
+  const { token } = theme.useToken();
   const navegar = useNavigate();
   const { pode } = useSessao();
   const doc = useQuery({ queryKey: ['contab', 'lancamento', String(linhaId)], queryFn: () => obter<DocumentoLancamento>(`/contabilidade/lancamentos/${linhaId}`), enabled: linhaId !== null });
@@ -256,10 +257,11 @@ export function ModalFluxoLancamento({ linhaId, aoFechar, aoDescontabilizar }: {
   const urls = d ? [...new Set([urlSegura(origem.data?.url_documento), ...urlsDasDescricoes(d.linhas.map((l) => l.descricao))].filter((u): u is string => !!u))] : [];
   const estornado = d?.linhas.some((l) => l.estornado_por_id || l.estorno_de_id);
   const podeDescontabilizar = !o && !estornado && pode('contab_lanc_del') && !!aoDescontabilizar;
+  const corFluxo = o ? token.colorPrimary : token.colorInfo;
   return (
     <Modal
       title={
-        <Space style={{ color: o ? '#2563eb' : '#0284c7' }}>
+        <Space style={{ color: corFluxo }}>
           <IconeFa nome={icone} /> {titulo}
         </Space>
       }
@@ -277,7 +279,7 @@ export function ModalFluxoLancamento({ linhaId, aoFechar, aoDescontabilizar }: {
             gap={12}
             justify="space-between"
             align="center"
-            style={{ background: o ? '#f8fafc' : '#f0f9ff', padding: 16, borderRadius: 10, marginBottom: 16, borderLeft: `5px solid ${o ? '#2563eb' : '#0284c7'}` }}
+            style={{ background: o ? token.colorFillAlter : token.colorInfoBg, padding: 16, borderRadius: token.borderRadius, marginBottom: 16, borderLeft: `5px solid ${corFluxo}` }}
           >
             <div>
               <Typography.Title level={5} style={{ margin: 0 }}>
@@ -317,8 +319,8 @@ export function ModalFluxoLancamento({ linhaId, aoFechar, aoDescontabilizar }: {
             </Space>
           </Flex>
           {urls.length > 0 && (
-            <Flex wrap gap={8} align="center" style={{ marginBottom: 16, padding: 12, background: '#f0f9ff', borderRadius: 10, border: '1px solid #bae6fd' }}>
-              <Typography.Text strong style={{ fontSize: 12, color: '#0369a1', textTransform: 'uppercase' }}>
+            <Flex wrap gap={8} align="center" style={{ marginBottom: 16, padding: 12, background: token.colorInfoBg, borderRadius: token.borderRadius, border: `1px solid ${token.colorInfoBorder}` }}>
+              <Typography.Text strong style={{ fontSize: 12, color: token.colorInfoText, textTransform: 'uppercase' }}>
                 <IconeFa nome="link" /> Documentos Externos:
               </Typography.Text>
               {urls.map((u) => (

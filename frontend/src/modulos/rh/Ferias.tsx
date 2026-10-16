@@ -1,16 +1,17 @@
-import { Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Progress, Row, Select, Space, Switch, Tabs, Tag, Tooltip, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Progress, Row, Select, Space, Switch, Tabs, Tag, Tooltip, message, theme } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarData } from '@/utilitarios/formatacao';
+import { formatarData } from '@/utilitarios/formatacao';
 import { ESTADOS_FERIAS_RH, ROTULOS_ESTADO, type ConfiguracaoRH, type PeriodoFerias, type ResumoFerias } from './api';
 import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores } from './comum/consultas';
@@ -20,6 +21,7 @@ import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 import { IconeFa } from '@/componentes/fluxos';
 import { conflitos, contaSaldo, corEstadoFerias, ESTADOS_FERIAS, filtrarPorEstado, periodosPorColaborador, rotuloChip, rotuloEstadoFerias, totaisFerias } from './ferias/regrasFerias';
 import { MapaAnualFerias } from './ferias/MapaAnualFerias';
+import { dataDe, numeroDe, opcoesColaboradores, textoDe } from './comum/linhasRh';
 
 interface Plano {
   resumo: ResumoFerias[];
@@ -34,10 +36,37 @@ interface ValoresFerias {
   observacoes?: string;
 }
 
+/** Corpo do POST/PUT /rh/ferias (grade: `periodo` em intervalo de datas; linhas: `data_inicio` / `data_fim`). */
+export function dadosFerias(v: Record<string, unknown>) {
+  const periodo = Array.isArray(v.periodo) ? v.periodo : null;
+  return {
+    colaborador_id: v.colaborador_id,
+    data_inicio: dataDe(periodo ? periodo[0] : v.data_inicio),
+    data_fim: dataDe(periodo ? periodo[1] : v.data_fim),
+    estado: v.estado ?? 'PLANEADO',
+    direito: numeroDe(v.direito),
+    observacoes: textoDe(v.observacoes),
+  };
+}
+
+/** Vista Linhas de «Marcar férias» (um período por linha). */
+export function camposFerias(colaboradores: CampoFormulario['opcoes']): CampoFormulario[] {
+  return [
+    { nome: 'colaborador_id', rotulo: 'Colaborador', tipo: 'select', obrigatorio: true, largura: 260, opcoes: colaboradores, aliases: ['Nome', 'NIF', 'Funcionário'] },
+    { nome: 'data_inicio', rotulo: 'Início', tipo: 'data', obrigatorio: true, largura: 140, aliases: ['Data início', 'De'] },
+    { nome: 'data_fim', rotulo: 'Fim', tipo: 'data', obrigatorio: true, largura: 140, aliases: ['Data fim', 'Até'],
+      validar: (f, r) => (f && r.data_inicio && String(f) < String(r.data_inicio) ? 'O fim é anterior ao início.' : null) },
+    { nome: 'estado', rotulo: 'Estado', tipo: 'select', largura: 150, omissao: 'PLANEADO', opcoes: ESTADOS_FERIAS_RH.map((x) => ({ value: x, label: ROTULOS_ESTADO[x] ?? x })) },
+    { nome: 'direito', rotulo: 'Direito anual (dias úteis)', tipo: 'numero', largura: 120, min: 0, max: 60, emLinhas: 'opcional', aliases: ['Direito'] },
+    { nome: 'observacoes', rotulo: 'Observações', largura: 220, maxLength: 1000, emLinhas: 'opcional' },
+  ];
+}
+
 /** RH › Programa de férias (ecrã rh_ferias): direito, marcação, aprovação e gozo das férias. */
 export default function Ferias() {
   const { pode } = useSessao();
   const editar = pode('rh_ferias_edit');
+  const { token } = theme.useToken();
   const cliente = useQueryClient();
   const colaboradores = useColaboradores();
   const [ano, setAno] = useState(dayjs().year());
@@ -49,6 +78,7 @@ export default function Ferias() {
   const plano = useQuery({ queryKey: ['rh', 'ferias', ano, colaborador], queryFn: () => obter<Plano>('/rh/ferias', { ano, colaborador_id: colaborador }) });
   useAvisarErro(plano.error);
   const accao = useAccaoRh();
+  const camposLinhas = useMemo(() => camposFerias(opcoesColaboradores(colaboradores.lista, true)), [colaboradores.lista]);
 
   const gravar = useMutation({
     mutationFn: ({ dados, id }: { dados: Record<string, unknown>; id?: number }) => enviar(id ? 'put' : 'post', id ? `/rh/ferias/${id}` : '/rh/ferias', dados),
@@ -110,8 +140,8 @@ export default function Ferias() {
               return (
                 <button key={p.id} type="button" onClick={() => abrirPeriodo?.(p)}
                   title={`${rotuloEstadoFerias(p.estado)}${conflito ? ' — sobrepõe outro período' : ''}${p.observacoes ? ` — ${p.observacoes}` : ''}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid #cbd5e1', borderLeft: `4px solid ${corEstadoFerias(p.estado)}`, borderRadius: 4,
-                    padding: '1px 7px', fontSize: '0.78rem', background: '#fff', cursor: abrirPeriodo ? 'pointer' : 'default', boxShadow: conflito ? 'inset 0 0 0 1px #f59e0b' : undefined,
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: `1px solid ${token.colorBorder}`, borderLeft: `4px solid ${corEstadoFerias(p.estado)}`, borderRadius: 4,
+                    padding: '1px 7px', fontSize: '0.78rem', background: token.colorBgContainer, color: token.colorText, cursor: abrirPeriodo ? 'pointer' : 'default', boxShadow: conflito ? 'inset 0 0 0 1px #f59e0b' : undefined,
                     textDecoration: contaSaldo(p) ? undefined : 'line-through' }}>
                   {rotuloChip(p)}{conflito && <span style={{ color: '#f59e0b' }}><IconeFa nome="exclamation-triangle" /></span>}
                 </button>
@@ -171,14 +201,15 @@ export default function Ferias() {
           conteudo: seccaoHtml('Resumo por colaborador', await htmlTabela(colResumo, resumo)) + seccaoHtml(`Períodos (${periodos.length})`, await htmlTabela(colPeriodos, periodos)),
         })}
       />
+      {/* antigo (ferias.js:231, .rhf-kpis): seis caixas sem ícone, «Com sobreposições» em âmbar quando há conflitos */}
       <GrelhaKpi larguraMinima={150}>
-        <CartaoKpi rotulo="Colaboradores" valor={totais.colaboradores} icone="users" cor="azul" />
-        <CartaoKpi rotulo="Dias de direito" valor={totais.direito} icone="calendar-alt" cor="primario" />
-        <CartaoKpi rotulo="Dias planeados" valor={totais.planeados} icone="calendar-check" cor="cinzento" />
-        <CartaoKpi rotulo="Dias gozados" valor={totais.gozados} icone="umbrella-beach" cor="verde" />
-        <CartaoKpi rotulo="Sem férias planeadas" valor={totais.sem} icone="calendar-times" cor="laranja"
+        <CartaoKpi barra="nenhuma" rotulo="Colaboradores" valor={totais.colaboradores} />
+        <CartaoKpi barra="nenhuma" rotulo="Dias de direito" valor={totais.direito} />
+        <CartaoKpi barra="nenhuma" rotulo="Dias planeados" valor={totais.planeados} />
+        <CartaoKpi barra="nenhuma" rotulo="Dias gozados" valor={totais.gozados} />
+        <CartaoKpi barra="nenhuma" rotulo="Sem férias planeadas" valor={totais.sem} cor="laranja"
           aoClicar={() => setEstadoFiltro(estadoFiltro === 'SEM' ? '' : 'SEM')} activo={estadoFiltro === 'SEM'} />
-        <CartaoKpi rotulo="Com sobreposições" valor={totais.sobreposicoes} icone="exclamation-triangle" cor={totais.sobreposicoes ? 'laranja' : 'cinzento'} />
+        <CartaoKpi barra="nenhuma" rotulo="Com sobreposições" valor={totais.sobreposicoes} cor="laranja" corValor={totais.sobreposicoes ? '#b45309' : undefined} />
       </GrelhaKpi>
       <Card style={{ marginTop: 16 }}>
         <BarraFiltros>
@@ -203,11 +234,14 @@ export default function Ferias() {
           { key: 'regras', label: 'Regras (LGT)', children: <RegrasFerias editar={editar} /> },
         ]} />
       </Card>
-      <Modal title={edicao === 'novo' ? 'Marcar férias' : 'Editar férias'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar"
-        confirmLoading={gravar.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="rh.ferias" titulo={edicao === 'novo' ? 'Marcar férias' : 'Editar férias'} aberto={edicao !== null} aoFechar={() => setEdicao(null)}
+        criacao={edicao === 'novo'} form={form} campos={camposLinhas} nomeRegistos="períodos de férias" invalidar={[['rh']]}
+        nota="Um período por linha. As linhas que excedam o direito ou caiam antes dos 6 meses de serviço ficam por gravar com a mensagem do servidor: marque-as na grade para confirmar. Linhas deixadas em branco são ignoradas."
+        gravarLinha={(r) => enviar('post', '/rh/ferias', dadosFerias(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate({
           id: edicao && edicao !== 'novo' ? edicao.id : undefined,
-          dados: { colaborador_id: v.colaborador_id, data_inicio: dataApi(v.periodo[0]), data_fim: dataApi(v.periodo[1]), estado: v.estado, direito: v.direito ?? null, observacoes: v.observacoes ?? null },
+          dados: dadosFerias(v as unknown as Record<string, unknown>),
         })}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true }]}><SeletorColaborador apenasActivos style={{ width: '100%' }} disabled={edicao !== 'novo'} /></Form.Item>
           <Form.Item name="periodo" label="Período" rules={[{ required: true, message: 'Indique as datas.' }]}><DatePicker.RangePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item>
@@ -215,7 +249,7 @@ export default function Ferias() {
           <Form.Item name="direito" label="Direito anual (dias úteis)" extra="Vazio = direito calculado (22; no ano de admissão 2 por mês completo; mais o saldo transportado). Gravar aplica-o a todos os períodos do ano."><InputNumber min={0} max={60} style={{ width: '100%' }} /></Form.Item>
           <Form.Item name="observacoes" label="Observações"><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </>
   );
 }

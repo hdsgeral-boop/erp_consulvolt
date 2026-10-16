@@ -1,4 +1,4 @@
-import { Alert, AutoComplete, Button, Card, Checkbox, Col, DatePicker, Flex, Form, Input, InputNumber, Row, Segmented, Select, Space, Statistic, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, AutoComplete, Button, Card, Checkbox, Col, DatePicker, Flex, Form, Input, InputNumber, Row, Segmented, Select, Space, Statistic, Table, Tag, Tooltip, Typography, message, theme } from 'antd';
 import {
   CalendarOutlined, CheckOutlined, DeleteOutlined, FlagOutlined, PlusOutlined, ThunderboltOutlined,
 } from '@ant-design/icons';
@@ -110,6 +110,7 @@ export function EmitirDocumento() {
   const [modo, setModo] = useState<ModoPagamento>('PRONTO');
   const [plano, setPlano] = useState<Prestacao[]>([]);
   const { telemovel } = useEcra();
+  const { token } = theme.useToken();
   const estado = useLocation().state as { conversaoCrm?: ConversaoCrm; copia?: DocumentoVenda } | null;
   const conversao = estado?.conversaoCrm;
   const copia = estado?.copia;
@@ -543,7 +544,7 @@ export function EmitirDocumento() {
                       key={key}
                       gutter={8}
                       align="top"
-                      style={telemovel ? { border: '1px solid rgba(5, 5, 5, 0.12)', borderRadius: 8, padding: '8px 4px 0', margin: '0 0 12px' } : undefined}
+                      style={telemovel ? { border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, padding: '8px 4px 0', margin: '0 0 12px' } : undefined}
                     >
                       {telemovel && (
                         <Col span={24} style={{ marginBottom: 4 }}>

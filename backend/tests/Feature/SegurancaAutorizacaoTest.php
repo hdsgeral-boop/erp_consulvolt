@@ -52,6 +52,7 @@ final class SegurancaAutorizacaoTest extends TestCase
     #[Test]
     public function login_tem_tambem_um_limite_por_ip_contra_password_spraying(): void
     {
+        $this->freezeTime();   // 61 tentativas podem passar de 60 s numa máquina lenta e a janela do limite reiniciava a meio
         RateLimiter::clear('ip|127.0.0.1');
         $estados = [];
         for ($i = 1; $i <= 61; $i++) {

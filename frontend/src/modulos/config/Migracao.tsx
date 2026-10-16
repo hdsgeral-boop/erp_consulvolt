@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Empty, Flex, Form, Input, InputNumber, List, Radio, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Empty, Flex, Form, Input, InputNumber, List, Radio, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography, Upload, message, theme } from 'antd';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -62,6 +62,7 @@ export default function Migracao() {
 }
 
 function Importacao() {
+  const { token } = theme.useToken();
   const cliente = useQueryClient();
   const modelos = useQuery({ queryKey: ['sistema', 'migracao', 'modelos'], queryFn: () => obter<Modelo[]>('/sistema/migracao/modelos'), staleTime: 3_600_000 });
   const [entidade, setEntidade] = useState<string | undefined>();
@@ -111,7 +112,7 @@ function Importacao() {
                   setConteudo('');
                   setFicheiro(null);
                 }}
-                style={{ cursor: 'pointer', background: m.entidade === entidade ? '#e6f4ff' : undefined, paddingLeft: 8 }}
+                style={{ cursor: 'pointer', background: m.entidade === entidade ? token.colorPrimaryBg : undefined, paddingLeft: 8 }}
               >
                 {m.rotulo}
               </List.Item>

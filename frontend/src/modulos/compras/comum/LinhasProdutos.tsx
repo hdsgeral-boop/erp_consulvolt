@@ -1,4 +1,4 @@
-import { Button, Col, Flex, Form, Input, InputNumber, Row, Typography, type FormInstance } from 'antd';
+import { Button, Col, Flex, Form, Input, InputNumber, Row, Typography, theme, type FormInstance } from 'antd';
 import { useEcra } from '@/componentes/responsivo';
 import { CamposLinhaUNCC } from '@/componentes/reparticao';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
@@ -42,6 +42,7 @@ export function LinhasProdutos({
   /** Mostra a unidade de negócio e o centro de custo em cada linha (pedido e factura directa). */
   unidadeLinha?: boolean;
 }) {
+  const { token } = theme.useToken();
   const mapa = useMapaProdutos();
   // em telemóvel cada linha fica num cartão próprio: produto e descrição na largura toda, quantidade/preço/IVA lado a lado
   const { telemovel } = useEcra();
@@ -67,7 +68,7 @@ export function LinhasProdutos({
               key={key}
               gutter={8}
               align="top"
-              style={telemovel ? { border: '1px solid rgba(5, 5, 5, 0.12)', borderRadius: 8, padding: '8px 4px 0', margin: '0 0 12px' } : undefined}
+              style={telemovel ? { border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, padding: '8px 4px 0', margin: '0 0 12px' } : undefined}
             >
               {telemovel && (
                 <Col span={24}>

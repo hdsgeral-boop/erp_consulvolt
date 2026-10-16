@@ -72,10 +72,10 @@ describe('Método de Trabalho — Registo de Assuntos (Fase G)', () => {
     expect(screen.getByText('Decisão sua')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Novo assunto/ })).toBeTruthy();
     // vista por responsável: um grupo por nome
-    fireEvent.click(screen.getByRole('button', { name: /Por responsável/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /Por responsável/ }));
     expect((await screen.findAllByText('Ana Fictícia')).length).toBe(2);   // título do grupo e célula
     // vista por custo: painel
-    fireEvent.click(screen.getByRole('button', { name: /Por custo/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /Por custo/ }));
     expect(await screen.findByText('Custo estimado total')).toBeTruthy();
   });
 
@@ -100,5 +100,20 @@ describe('Método de Trabalho — Registo de Assuntos (Fase G)', () => {
     expect(within(dialogo).getByText('Directora Fictícia')).toBeTruthy();
     fireEvent.click(within(dialogo).getByRole('button', { name: /Aprovar e pôr em curso/ }));
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('post', '/metodo/assuntos/5/decidir', { accao: 'APROVAR', nota: undefined }));
+  });
+
+  it('«Novo assunto»: os blocos 5W1H abrem e fecham (Grade com secções), com os campos montados', async () => {
+    permissoes = new Set(['mt_assuntos_view', 'mt_criar']);
+    const { default: Assuntos } = await import('./Assuntos');
+    envolver(<Assuntos />);
+    await screen.findByText('Bomba de água avariada', undefined, { timeout: 60_000 });
+    fireEvent.click(screen.getByRole('button', { name: /Novo assunto/ }));
+    const dialogo = await screen.findByRole('dialog', {}, { timeout: 60_000 });
+    const why = within(dialogo).getByRole('button', { name: /WHY/ });
+    expect(why).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(why);
+    expect(why).toHaveAttribute('aria-expanded', 'false');
+    expect(dialogo.querySelector('#' + CSS.escape(why.getAttribute('aria-controls') ?? ''))).toHaveAttribute('hidden');
+    expect(within(dialogo).getAllByRole('button', { name: /WHAT|WHO|WHEN|WHERE|WHY|HOW/ })).toHaveLength(6);
   });
 });

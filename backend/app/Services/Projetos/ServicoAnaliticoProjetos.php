@@ -23,6 +23,7 @@ use App\Models\TarefaProjeto;
 use App\Models\Terceiro;
 use App\Models\UnidadeNegocio;
 use App\Models\Venda;
+use App\Services\Gestao\ServicoVendaProjetos;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +37,13 @@ use Illuminate\Support\Facades\DB;
  *   - compras: linhas de facturas de fornecedor não anuladas com projeto_id na linha ou no cabeçalho (a subempreitada
  *     facturada pelos autos entra por aqui, pela sua factura);
  *   - compromissos: linhas de encomendas de compra não anuladas, pela parte ainda por facturar (regra do ADR-045);
- *   - autos de subempreitada SEM documento (membro externo sem ficha de terceiro): o valor da linha do auto.
+ *   - autos de subempreitada SEM factura válida (sem documento — membro externo sem ficha de terceiro —, ou com um
+ *     documento que não é factura deste projecto e fornecedor: facturas AUTO apagadas no legado, encomendas AUTO de
+ *     versões antigas): o valor da linha do auto (FJ: sem isto o custo medido desaparecia do projecto).
+ * Custo realizado do resumo do legado (projectos_dashboard.js:205-218) = TODAS as linhas dos autos + TODAS as linhas
+ * de compra com project_id (pedidos, encomendas, facturas e linhas órfãs) + razão com nature exactamente 'custo'
+ * (equipamentos; a mão de obra do razão 'C'/'custo_real' ficava de fora e entrava pelos autos). A subempreitada contava
+ * duas vezes (auto + documento que o auto gerou); aqui conta uma vez.
  * Os proveitos do razão gravados na facturação de um auto (origem VENDAS) referem-se às mesmas facturas e não se
  * contam duas vezes (ui_projects.js:94).
  * Correcções face ao legado (os ecrãs somavam as mesmas despesas de formas diferentes):
@@ -94,10 +101,21 @@ final class ServicoAnaliticoProjetos
                 'valor' => self::dinheiro($r->montante ?? $r->valor), 'fonte' => 'RAZAO', 'fonte_id' => $r->id];
         }
 
-        // 3. Compras: linhas de facturas de fornecedor
-        $faturasAutos = LinhaRevisaoProjeto::query()->where('tipo', LinhaRevisaoProjeto::SUBEMPREITADA)->whereNotNull('documento_gerado_id')
+        // 3. Compras: linhas de facturas de fornecedor. Uma linha de auto de subempreitada só se considera facturada pela
+        // factura que gerou quando essa factura existe, é do mesmo projecto e do mesmo fornecedor
+        // (mesmo critério da validação «projetos_autos_sem_factura»; anulada, o custo sai com ela); caso contrário o auto conta pelo seu valor (passo 5).
+        $linhasAutos = LinhaRevisaoProjeto::query()->where('tipo', LinhaRevisaoProjeto::SUBEMPREITADA)
             ->join('revisoes_mensais_projeto as r', 'r.id', '=', 'linhas_revisao_projeto.revisao_mensal_projeto_id')->whereIn('r.projeto_id', $pids)
-            ->get(['r.projeto_id', 'linhas_revisao_projeto.documento_gerado_id'])->map(fn ($x) => $x->projeto_id.':'.$x->documento_gerado_id)->flip();
+            ->get(['linhas_revisao_projeto.*', 'r.projeto_id', 'r.mes', 'r.ano']);
+        $docsAutos = $linhasAutos->pluck('documento_gerado_id')->filter(fn ($d) => ctype_digit((string) $d))->map(fn ($d) => (int) $d)->unique()->values();
+        $faturasDosAutos = $docsAutos->isEmpty() ? collect() : FaturaCompra::query()->whereIn('id', $docsAutos)->whereIn('projeto_id', $pids)->get()->keyBy('id');
+        $faturaValida = function ($l) use ($faturasDosAutos): bool {
+            $f = ctype_digit((string) $l->documento_gerado_id) ? ($faturasDosAutos[(int) $l->documento_gerado_id] ?? null) : null;
+
+            return $f && (int) $f->projeto_id === (int) $l->projeto_id
+                && ($l->terceiro_id === null || (int) $f->fornecedor_id === (int) $l->terceiro_id);
+        };
+        $faturasAutos = $linhasAutos->filter($faturaValida)->map(fn ($x) => $x->projeto_id.':'.$x->documento_gerado_id)->flip();
         $itens = ItemCompra::query()->where('tipo_documento_origem', 'FATURA')->whereNotNull('fatura_compra_id')
             ->where(fn ($q) => $q->whereIn('projeto_id', $pids)->orWhere(fn ($x) => $x->whereNull('projeto_id')
                 ->whereIn('fatura_compra_id', FaturaCompra::query()->whereIn('projeto_id', $pids)->select('id'))))->orderBy('id')->get();
@@ -138,14 +156,14 @@ final class ServicoAnaliticoProjetos
             }
         }
 
-        // 5. Autos de subempreitada sem documento
-        $semDoc = LinhaRevisaoProjeto::query()->where('tipo', LinhaRevisaoProjeto::SUBEMPREITADA)->whereNull('documento_gerado_id')
-            ->join('revisoes_mensais_projeto as r', 'r.id', '=', 'linhas_revisao_projeto.revisao_mensal_projeto_id')->whereIn('r.projeto_id', $pids)
-            ->get(['linhas_revisao_projeto.*', 'r.projeto_id', 'r.mes', 'r.ano']);
-        foreach ($semDoc as $l) {
+        // 5. Autos de subempreitada sem factura válida: sem documento (membro externo sem ficha de terceiro) ou com um
+        // documento que não é uma factura deste projecto e fornecedor (facturas AUTO apagadas no legado, ou encomendas AUTO
+        // geradas por versões antigas e facturadas sem projecto). O custo medido conta uma vez, pelo valor do auto.
+        foreach ($linhasAutos->reject($faturaValida) as $l) {
             $saida[] = ['data' => self::ultimoDia((int) $l->ano, (int) $l->mes), 'projeto_id' => $l->projeto_id, 'tarefa_projeto_id' => $l->tarefa_projeto_id,
                 'natureza' => 'CUSTO', 'rubrica' => 'SUBEMPREITADAS', 'categoria' => 'SUBCONTRATOS', 'origem' => 'AUTOS_SUBEMPREITADAS', 'modulo' => 'PROJECTOS',
-                'tipo_documento' => 'Auto de medição', 'documento' => "REV-{$l->revisao_mensal_projeto_id}", 'descricao' => 'Auto de subempreitada (sem documento)',
+                'tipo_documento' => 'Auto de medição', 'documento' => "REV-{$l->revisao_mensal_projeto_id}",
+                'descricao' => $l->documento_gerado_id ? 'Auto de subempreitada (factura do auto inexistente)' : 'Auto de subempreitada (sem documento)',
                 'valor' => self::dinheiro($l->valor_calculado), 'fonte' => 'AUTO', 'fonte_id' => $l->id];
         }
 
@@ -328,11 +346,11 @@ final class ServicoAnaliticoProjetos
         }
         $custo = $tot['custos'];
 
-        $venda = $p->encomenda_venda_id ? self::semIva(Venda::query()->find($p->encomenda_venda_id)) : '0.00';
+        // venda e facturação: o mesmo cálculo do relatório de gestão (ServicoVendaProjetos — encomenda sem IVA, não
+        // anulada, + aditamentos aprovados; facturado = FT/FR − NC, como projFacturacaoSemIva no legado)
+        $vp = app(ServicoVendaProjetos::class)->porProjeto(collect([$p->id => $p]))[$p->id];
         $aditamentos = AditamentoAlteracaoProjeto::query()->where('projeto_id', $p->id)->get();
-        $extras = self::dinheiro($aditamentos->where('estado', 'APROVADO')->sum(fn ($a) => (float) $a->montante));
-        $vendaGlobal = bcadd($venda, $extras, 2);
-        $facturado = $tot['proveitos'];
+        [$venda, $extras, $vendaGlobal, $facturado] = [$vp['venda'], $vp['aditamentos'], $vp['venda_global'], $vp['faturado']];
         $pct = fn ($a, $b) => (float) $b > 0 ? round((float) $a / (float) $b * 100, 2) : 0.0;
         $consumo = $pct($custo, $orcTotal);
         $factPct = $pct($facturado, $vendaGlobal);
@@ -343,7 +361,7 @@ final class ServicoAnaliticoProjetos
         $horas = FolhaHorasProjeto::query()->where('projeto_id', $p->id)->whereNotNull('colaborador_id')->groupBy('colaborador_id')->selectRaw('colaborador_id, SUM(horas) AS h')->pluck('h', 'colaborador_id');
         $nomes = Colaborador::query()->withTrashed()->whereIn('id', $horas->keys())->pluck('nome_completo', 'id');
         $papeis = $membros->groupBy(fn ($m) => trim((string) $m->papel) ?: 'Membro')->map->count();
-        $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->orderBy('data')->orderBy('id')->get();
+        $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->orderBy('id')->get(); // ordem do legado (Dexie, por id)
         $porMarco = $marcos->filter(fn ($m) => $tarefas->where('marco_projeto_id', $m->id)->isNotEmpty())->map(fn ($m) => ['marco' => $m->nome, 'execucao' => $prog['por_marco'][$m->id] ?? 0,
             'tarefas' => $tarefas->where('marco_projeto_id', $m->id)->count()])->values()->all();
         if ($tarefas->whereNull('marco_projeto_id')->isNotEmpty()) {
@@ -376,7 +394,7 @@ final class ServicoAnaliticoProjetos
             'equipa_por_papel' => $papeis->all(),
             'alertas' => $this->alertas($p, $tarefas, $prog, $prazo, $orcamento, $orcTarefa, $orcPorRubrica, $realPorRubrica, $consumo, $requisicoes, $aditamentos, $membros, $nos,
                 (float) $vendaGlobal, $factPct, $hoje),
-            'ficha' => $this->ficha($p, $membros, $marcos->count(), $revisoes, $nos->count(), (float) $horas->sum()),
+            'ficha' => $this->ficha($p, $membros, $marcos->count(), $revisoes, $nos->count(), (float) FolhaHorasProjeto::query()->where('projeto_id', $p->id)->sum('horas')),   // todas as folhas, também as de membros externos (como o legado)
             'contabilidade' => $this->contabilidade($p),
         ];
     }

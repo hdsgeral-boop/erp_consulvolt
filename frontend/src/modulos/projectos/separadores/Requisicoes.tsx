@@ -59,9 +59,10 @@ export function SeparadorRequisicoes({ projecto, acc }: PropsSeparador) {
           ),
         }}
         columns={[
-          { title: 'N.º', dataIndex: 'id' },
-          { title: 'Data', dataIndex: 'data', render: formatarData },
+          // colunas do legado (ui_projects.js:651-684): REQ-n, requerente, data, estado
+          { title: 'N.º', dataIndex: 'id', render: (id: number) => <strong>REQ-{id}</strong> },
           { title: 'Requerente', dataIndex: 'nome_requerente' },
+          { title: 'Data', dataIndex: 'data', render: formatarData },
           { title: 'Data prevista', dataIndex: 'data_prevista', render: formatarData },
           { title: 'Linhas', key: 'n', align: 'right', render: (_, r) => r.linhas.length },
           { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaProjectos valor={v} /> },

@@ -1,7 +1,7 @@
 import { Input, Select, type TableProps } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { obter } from '@/api/cliente';
+import { obter, obterPagina } from '@/api/cliente';
 import { TabelaApi, type ColunaApi, type ImpressaoTabelaApi } from '@/componentes/TabelaApi';
 import { useEcraPequeno } from '@/componentes/responsivo';
 import type { PropsPadroesLista } from '@/componentes/vistas';
@@ -74,6 +74,16 @@ export function SeletorContaFinanceira({ value, onChange, allowClear, placeholde
  * Tabela dos documentos de tesouraria: GET /tesouraria/documentos no formato paginado comum (metadados.paginacao, ADR-064),
  * mostrado pelo TabelaApi de src/componentes.
  */
+/** Total de documentos de tesouraria com os filtros dados (etiqueta «Total: N» dos cartões do legado). */
+export function useTotalDocumentos(filtros: Record<string, unknown>): number | undefined {
+  const q = useQuery({
+    queryKey: ['teso', 'documentos', 'total', filtros],
+    queryFn: () => obterPagina<DocumentoTesouraria>('/tesouraria/documentos', { ...filtros, pagina: 1, por_pagina: 1 }),
+    retry: false,
+  });
+  return q.data?.paginacao.total;
+}
+
 export function TabelaDocumentos({
   filtros,
   ...props

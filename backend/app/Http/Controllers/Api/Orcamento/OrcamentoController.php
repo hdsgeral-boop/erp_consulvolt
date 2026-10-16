@@ -103,8 +103,14 @@ final class OrcamentoController extends Controller
     {
         $this->exigir('orc_orcamentos_view', 'orc_controlo_view', 'orc_contributo');
         $o = OrcamentoAnual::query()->findOrFail($orcamento);
+        // Coluna «Real. {ano-1}» do legado: realizado do ano anterior por rubrica (total anual), com as mesmas regras do
+        // controlo orçamental (ServicoExecucaoOrcamental::realizado — natureza/contas da rubrica, âmbito UN/CC/projecto).
+        $realAnterior = [];
+        foreach ($this->execucao->realizado($o, $o->ano - 1)['por_rubrica'] as $rubrica => $mensal) {
+            $realAnterior[(string) $rubrica] = array_reduce($mensal, fn (string $s, $v) => bcadd($s, FormatoOrcamento::dinheiro($v), 2), '0.00');
+        }
 
-        return $this->ok($o->toArray() + ['linhas' => LinhaOrcamento::query()->where('orcamento_anual_id', $o->id)->get(),
+        return $this->ok($o->toArray() + ['real_anterior' => (object) $realAnterior, 'linhas' => LinhaOrcamento::query()->where('orcamento_anual_id', $o->id)->get(),
             'filhos' => OrcamentoAnual::query()->where('orcamento_pai_id', $o->id)->get(['id', 'nome', 'versao', 'estado', 'unidade_negocio_id', 'centro_custo_id', 'projeto_id', 'responsavel'])],
             'Orçamento.');
     }

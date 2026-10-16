@@ -55,7 +55,10 @@ final class ServicoCopiaEmpresa
         'categorias_ativos', 'rubricas_orcamentais', 'mapeamentos_contabeis_rh', 'mapeamentos_contabeis_sistema_rh', 'regras_internas_ia', 'modelos_documentos_rh',
         'modelos_email_crm', 'funis_vendas_crm', 'criterios_avaliacao_rh', 'armazens',
         // Versão Actual (ADR-071): regras de IA em ficheiro, configuração dos empréstimos e modelos das cartas de pagamento
-        'ficheiros_regras_ia', 'configuracoes_emprestimos', 'modelos_cartas_pagamento'];
+        'ficheiros_regras_ia', 'configuracoes_emprestimos', 'modelos_cartas_pagamento',
+        // Fecho (ADR-071): critérios de repartição por UN (as UN de cada critério são remapeadas — CHAVES_JSON) e a
+        // configuração de RH (chave → valor, sem referências a registos: é configuração, como as restantes)
+        'criterios_reparticao_un', 'configuracoes_rh'];
 
     /** Referências a ids dentro de colunas JSON (chave => tabela). */
     private const CHAVES_JSON = [
@@ -63,6 +66,14 @@ final class ServicoCopiaEmpresa
         'employee_id' => 'colaboradores', 'colaborador_id' => 'colaboradores', 'chefia_id' => 'colaboradores', 'aprovador_employee_id' => 'colaboradores',
         'pares' => 'colaboradores', 'subordinados' => 'colaboradores',
         'product_id' => 'produtos', 'produto_id' => 'produtos', 'venda_id' => 'vendas', 'meio_id' => 'meios_pagamento', 'diario_id' => 'diarios_contabeis',
+        // repartição por UN: unidades_alocadas {criterio_id, unidades: [{unidade_negocio_id|business_unit_id, peso}]} em
+        // colaboradores, vendas, recibos, pedidos/encomendas/faturas de compra; criterios_reparticao_un.linhas
+        'criterio_id' => 'criterios_reparticao_un', 'unidade_negocio_id' => 'unidades_negocio', 'business_unit_id' => 'unidades_negocio',
+    ];
+
+    /** Referências polimórficas dentro de listas JSON: tabela => coluna => [chave do tipo, chave do id, tipo => tabela]; outros tipos ficam vazios. */
+    private const REFERENCIAS_JSON_POLIMORFICAS = [
+        'assuntos_metodo_trabalho' => ['responsaveis' => ['tipo', 'ref_id', ['COLABORADOR' => 'colaboradores', 'FORNECEDOR' => 'terceiros']]],
     ];
 
     /** Marca de uma referência polimórfica de tipo desconhecido (fica vazia). */
@@ -76,6 +87,8 @@ final class ServicoCopiaEmpresa
         'lancamentos_estornados' => ['periodo_id' => 'periodos_processamento_salarial', 'lancamento_original_id' => 'lancamentos_contabeis'],
         'tarefas_projeto' => ['atribuido_a_id' => 'membros_equipa_projeto'],
         'sessoes_pos' => ['operador_id' => 'utilizadores'],
+        'inventarios_fisicos_ativos' => ['andar_id' => 'andares_edificios', 'porta_id' => 'portas_edificios'],
+        'linhas_inventario_fisico_ativos' => ['andar_id' => 'andares_edificios', 'porta_id' => 'portas_edificios', 'porta_encontrada_id' => 'portas_edificios'],
     ];
 
     /** Referências polimórficas: coluna => [coluna discriminadora, valor => tabela]; tipos desconhecidos ficam vazios. */
@@ -313,6 +326,9 @@ final class ServicoCopiaEmpresa
     private function transformar(string $tabela, array $linha, array $mapa, int $origem, int $destino, array $daEmpresa, array $copiadas, bool $tolerante, array &$nulificadas): ?array
     {
         $colunas = $this->colunas($tabela);
+        if (isset(self::REFERENCIAS_JSON_POLIMORFICAS[$tabela])) {
+            $linha = $this->remapearJsonPolimorfico($tabela, $linha, $mapa, $copiadas);
+        }
         $fks = $this->fks($tabela) + (self::REFERENCIAS_SEM_FK[$tabela] ?? []);
         foreach (self::REFERENCIAS_POLIMORFICAS[$tabela] ?? [] as $coluna => [$discriminador, $tabelas]) {
             if (($linha[$coluna] ?? null) !== null) {
@@ -361,6 +377,57 @@ final class ServicoCopiaEmpresa
         }
 
         return $nova;
+    }
+
+    /**
+     * Listas JSON com referências polimórficas (ex.: responsáveis de um assunto 5W1H: {tipo, ref_id, nome}): o id é
+     * remapeado pela tabela do tipo; tipos desconhecidos ou tabelas não copiadas ficam sem referência (o nome mantém-se).
+     * No assunto, o responsável principal («TIPO:ref» e responsavel_principal_ref) segue o remapeamento.
+     *
+     * @param  array<string, mixed>  $linha
+     * @param  array<string, array<int, int>>  $mapa
+     * @param  array<string, int>  $copiadas
+     * @return array<string, mixed>
+     */
+    private function remapearJsonPolimorfico(string $tabela, array $linha, array $mapa, array $copiadas): array
+    {
+        $chave = fn (array $r): string => ($r['tipo'] ?? '').':'.(($r['ref_id'] ?? null) !== null && $r['ref_id'] !== '' ? $r['ref_id'] : trim((string) ($r['nome'] ?? '')));
+        // assunto 5W1H: posição do responsável principal antes do remapeamento (a chave «TIPO:ref» muda com o id)
+        $principal = null;
+        if ($tabela === 'assuntos_metodo_trabalho' && is_array($linha['responsaveis'] ?? null) && is_string($linha['responsavel_principal'] ?? null)) {
+            foreach ($linha['responsaveis'] as $i => $r) {
+                if (is_array($r) && $chave($r) === $linha['responsavel_principal']) {
+                    $principal = $i;
+                    break;
+                }
+            }
+        }
+        foreach (self::REFERENCIAS_JSON_POLIMORFICAS[$tabela] as $coluna => [$chaveTipo, $chaveId, $tipos]) {
+            if (! is_array($linha[$coluna] ?? null)) {
+                continue;
+            }
+            $linha[$coluna] = array_map(function ($item) use ($chaveTipo, $chaveId, $tipos, $mapa, $copiadas) {
+                if (! is_array($item) || ($item[$chaveId] ?? null) === null) {
+                    return $item;
+                }
+                $ref = $tipos[strtoupper((string) ($item[$chaveTipo] ?? ''))] ?? null;
+                $id = $item[$chaveId];
+                $item[$chaveId] = $ref !== null && isset($copiadas[$ref]) && (is_int($id) || ctype_digit((string) $id)) ? ($mapa[$ref][(int) $id] ?? null) : null;
+
+                return $item;
+            }, $linha[$coluna]);
+        }
+        if ($tabela === 'assuntos_metodo_trabalho' && array_key_exists('responsavel_principal_ref', $linha)) {
+            $r = $principal !== null ? $linha['responsaveis'][$principal] : null;
+            if ($r !== null) {
+                $linha['responsavel_principal'] = $chave($r);
+            } elseif (is_string($linha['responsavel_principal'] ?? null) && preg_match('/:\d+$/', $linha['responsavel_principal'])) {
+                $linha['responsavel_principal'] = null;   // referência a um id antigo que não está na lista: não fica a apontar para outro registo
+            }
+            $linha['responsavel_principal_ref'] = $r['ref_id'] ?? null;
+        }
+
+        return $linha;
     }
 
     private function remapearJson(mixed $v, array $mapa, array $copiadas, ?string $chave = null): mixed

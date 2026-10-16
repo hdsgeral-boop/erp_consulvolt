@@ -1,6 +1,6 @@
 {
   "origem": "js/permissoes.js",
-  "gerado_em": "2026-10-14T23:32:08.974Z",
+  "gerado_em": "2026-10-15T15:02:28.283Z",
   "modulos": [
     {
       "id": "geral",
@@ -542,7 +542,7 @@
             },
             {
               "chave": "ia_lancar",
-              "rotulo": "Ler documentos com o agente e gravar no diário os lançamentos propostos",
+              "rotulo": "Calcular com as regras e ler documentos com o agente (a gravação no diário exige a tarefa de lançamentos)",
               "sensivel": true
             }
           ]
@@ -1873,7 +1873,7 @@
             },
             {
               "chave": "activos_manut",
-              "rotulo": "Eliminar registos do histórico de manutenções",
+              "rotulo": "Registar, executar e eliminar manutenções no histórico do activo",
               "sensivel": true
             }
           ]
@@ -2657,7 +2657,9 @@
         "compras_fact_contabilizar": true,
         "vendas_fat_contabilizar": true,
         "ad_editar": true,
-        "ad_contabilizar": true
+        "ad_contabilizar": true,
+        "ia_regras": true,
+        "ia_lancar": true
       }
     },
     {
@@ -2756,7 +2758,10 @@
         "rh_avaliacao_itens": true,
         "rh_prod_registar": true,
         "rh_produtividade_view": true,
-        "rh_tabela_irt_gerir": true
+        "rh_tabela_irt_gerir": true,
+        "rh_emprestimos_view": true,
+        "rh_emp_gerir": true,
+        "rh_emp_lancar": true
       }
     },
     {
@@ -2807,7 +2812,10 @@
         "rh_aval_bonus_aprovar": true,
         "rh_aval_bonus_lancar": true,
         "rh_prod_periodo": true,
-        "rh_prod_config": true
+        "rh_prod_config": true,
+        "rh_emp_gerir": true,
+        "rh_emp_lancar": true,
+        "rh_emp_config": true
       }
     },
     {
@@ -2831,7 +2839,8 @@
         "vendas_fat_emitir": true,
         "vendas_recibos": true,
         "crm_converter": true,
-        "vendas_alterar_preco": true
+        "vendas_alterar_preco": true,
+        "vendas_series_view": true
       }
     },
     {
@@ -2907,7 +2916,9 @@
         "pos_armazem_expedir": true,
         "inventario_iniciar": true,
         "inventario_count": true,
-        "inventario_rever": true
+        "inventario_rever": true,
+        "activos_manutencao_view": true,
+        "activos_manut_requisitar": true
       }
     },
     {
@@ -3172,7 +3183,8 @@
         "orc_aprovar": true,
         "orc_aprovar_excesso": true,
         "est_ver_salarios": true,
-        "rh_aval_bonus_aprovar": true
+        "rh_aval_bonus_aprovar": true,
+        "mt_aprovar": true
       }
     },
     {
@@ -3217,7 +3229,10 @@
         "orc_controlo_view": true,
         "orc_alertas_view": true,
         "crm_agenda_view": true,
-        "orc_contributo": true
+        "orc_contributo": true,
+        "mt_assuntos_view": true,
+        "mt_criar": true,
+        "mt_aprovar": true
       }
     },
     {
@@ -3277,7 +3292,9 @@
         "dashboard_view": true,
         "fluxo_processos_view": true,
         "rh_portal_view": true,
-        "rh_portal_usar": true
+        "rh_portal_usar": true,
+        "mt_assuntos_view": true,
+        "mt_criar": true
       }
     },
     {

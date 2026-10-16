@@ -3,10 +3,12 @@
 namespace App\Services\Tesouraria;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\LancamentoContabil;
 use App\Models\MeioPagamento;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\ServicoRelatoriosContabeis;
 use App\Support\Tenancy\ContextoEmpresa;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -67,13 +69,50 @@ final class ServicoMapasTesouraria
         $razao = $this->relatorios->razao(['codigo_conta' => $conta, 'data_inicio' => $inicio, 'data_fim' => $fim]);
         $ids = collect($razao['movimentos'])->pluck('terceiro_id')->filter()->unique()->values();
         $terceiros = $ids->isEmpty() ? collect() : Terceiro::withTrashed()->whereIn('id', $ids)->get(['id', 'nome', 'nif'])->keyBy('id');
-        $movimentos = array_map(function ($m) use ($terceiros) {
+        $extra = $this->contrapartidasEReconciliacao($conta, $inicio, $fim);
+        $movimentos = array_map(function ($m) use ($terceiros, $extra) {
             $t = $m->terceiro_id ? ($terceiros[$m->terceiro_id] ?? null) : null;
+            $x = $extra[(int) $m->id] ?? null;
 
-            return (array) $m + ['terceiro' => $t ? ['id' => $t->id, 'nome' => $t->nome, 'nif' => $t->nif] : null];
+            return (array) $m + ['terceiro' => $t ? ['id' => $t->id, 'nome' => $t->nome, 'nif' => $t->nif] : null,
+                'contrapartidas' => $x['contrapartidas'] ?? [], 'reconciliacao_codigo' => $x['reconciliacao_codigo'] ?? null,
+                'reconciliacao_data' => $x['reconciliacao_data'] ?? null];
         }, $razao['movimentos']);
         $descricao = DB::table('plano_contas')->where('empresa_id', $this->contexto->obrigatorio())->where('codigo', $conta)->whereNull('eliminado_em')->value('descricao');
 
         return array_merge(['codigo_conta' => $conta, 'descricao' => $descricao, 'data_inicio' => $inicio, 'data_fim' => $fim], $razao, ['movimentos' => $movimentos]);
+    }
+
+    /**
+     * Colunas «Contrapartida» e «Estado Recon.» do extracto do legado (ui_tesouraria.js:3455-3511), numa só consulta
+     * agregada pelo mesmo âmbito do razão (empresa, conta, período): as contrapartidas são as contas distintas das
+     * OUTRAS linhas do mesmo lançamento (diário + chave, ADR-025 — a mesma regra do extracto de conta corrente da
+     * contabilidade, ServicoRelatoriosContabeis::extrato); a reconciliação é o código guardado na linha do Diário e a
+     * data do registo da reconciliação (anuladas não contam).
+     *
+     * @return array<int, array{contrapartidas: list<string>, reconciliacao_codigo: ?string, reconciliacao_data: ?string}>
+     */
+    private function contrapartidasEReconciliacao(string $conta, string $inicio, string $fim): array
+    {
+        $chave = LancamentoContabil::chaveSql('l');
+        $chaveO = LancamentoContabil::chaveSql('o');
+        $linhas = DB::select("SELECT l.id, NULLIF(l.reconciliacao_codigo, '') AS reconciliacao_codigo,
+                (SELECT MAX(r.data) FROM reconciliacoes_bancarias r WHERE r.empresa_id = l.empresa_id AND r.reconciliacao_codigo = l.reconciliacao_codigo
+                    AND (r.estado IS NULL OR r.estado <> 'ANULADA')) AS reconciliacao_data,
+                (SELECT string_agg(DISTINCT o.codigo_conta, '|' ORDER BY o.codigo_conta) FROM lancamentos_contabeis o
+                  WHERE o.empresa_id = l.empresa_id AND o.diario_id = l.diario_id AND {$chaveO} = {$chave} AND o.id <> l.id) AS contrapartidas
+            FROM lancamentos_contabeis l
+            WHERE l.empresa_id = ? AND l.codigo_conta = ? AND l.data_documento BETWEEN ? AND ?", [$this->contexto->obrigatorio(), $conta, $inicio, $fim]);
+        $fuso = (string) config('app.timezone');
+        $out = [];
+        foreach ($linhas as $l) {
+            $out[(int) $l->id] = [
+                'contrapartidas' => $l->contrapartidas !== null && $l->contrapartidas !== '' ? explode('|', $l->contrapartidas) : [],
+                'reconciliacao_codigo' => $l->reconciliacao_codigo,
+                'reconciliacao_data' => $l->reconciliacao_data !== null ? Carbon::parse($l->reconciliacao_data)->setTimezone($fuso)->toDateString() : null,
+            ];
+        }
+
+        return $out;
     }
 }

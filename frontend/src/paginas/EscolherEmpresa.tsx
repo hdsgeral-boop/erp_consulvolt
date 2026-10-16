@@ -7,6 +7,7 @@ import type { Empresa } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { iniciais } from '@/layout/marca';
 import { notificarErro } from '@/utilitarios/erros';
+import { naRotaPortal } from '@/portal/rota';
 
 /** Texto normalizado para pesquisa: sem acentos, minúsculas e sem espaços a mais. */
 export const normalizarPesquisa = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -76,7 +77,7 @@ export function EscolherEmpresa() {
         }
       >
         <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-          Escolha a empresa com que vai trabalhar.
+          {naRotaPortal() ? 'Portal do Colaborador — escolha a empresa.' : 'Escolha a empresa com que vai trabalhar.'}
         </Typography.Paragraph>
         {empresas.length === 0 ? (
           <Empty description="Não tem acesso a nenhuma empresa. Contacte o administrador." />

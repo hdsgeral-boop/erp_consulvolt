@@ -1,5 +1,6 @@
 import { Alert, Form, InputNumber, Modal, Select, Space, Typography } from 'antd';
 import { useAccao } from '@/componentes/Accoes';
+import { SeccaoFormulario } from '@/componentes/formularios';
 import { larguraModal } from '@/componentes/responsivo';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import type { ProdutoFicha } from './formularioProduto';
@@ -74,7 +75,7 @@ export function ModalEditarMassaProdutos({ linhas, categorias, aoFechar }: { lin
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>{nomes}</Typography.Paragraph>
       <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Só os campos escolhidos são alterados; «— Manter como está —» deixa o valor de cada registo." />
       <Form<Valores> form={form} layout="horizontal" labelCol={{ flex: '230px' }} labelWrap onFinish={(v) => gravar.mutate({ url: '/vendas/produtos/editar-em-massa', dados: corpoEdicaoMassa(lista.map((p) => p.id), v) })}>
-        <Typography.Title level={5} style={{ textTransform: 'uppercase', fontSize: 12, color: '#475569' }}>Dados</Typography.Title>
+        <SeccaoFormulario titulo="Dados">
         <Form.Item label="Preço unitário">
           <Space.Compact style={{ width: '100%' }}>
             <Form.Item name="preco_modo" noStyle>
@@ -91,15 +92,19 @@ export function ModalEditarMassaProdutos({ linhas, categorias, aoFechar }: { lin
         <Form.Item name="movimenta_stock" label="Controla stock (armazém)"><Select allowClear placeholder="— Manter como está —" options={SIM_NAO} /></Form.Item>
         <Form.Item name="e_servico" label="É serviço"><Select allowClear placeholder="— Manter como está —" options={SIM_NAO} /></Form.Item>
         <Form.Item name="bloqueado" label="Bloqueado para venda"><Select allowClear placeholder="— Manter como está —" options={SIM_NAO} /></Form.Item>
-        <Typography.Title level={5} style={{ textTransform: 'uppercase', fontSize: 12, color: '#475569' }}>Contas</Typography.Title>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Contas">
         {CONTAS_MASSA.map((c) => (
           <Form.Item key={c.campo} name={['contas', c.campo]} label={c.rotulo} extra={resumoConta(lista, c.chave)}>
             <SeletorConta prefixo={c.prefixo} />
           </Form.Item>
         ))}
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Retirar contas" recolhida>
         <Form.Item name="retirar" label="Retirar a conta">
           <Select mode="multiple" allowClear placeholder="— Nenhuma —" options={CONTAS_MASSA.map((c) => ({ value: c.campo, label: c.rotulo }))} />
         </Form.Item>
+        </SeccaoFormulario>
       </Form>
     </Modal>
   );

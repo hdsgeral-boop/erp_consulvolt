@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Projetos;
 
 use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
+use App\Models\AssuntoMetodoTrabalho;
 use App\Models\LogAtividadeProjeto;
 use App\Models\Produto;
 use App\Models\Projeto;
@@ -56,7 +57,20 @@ final class ProjetoController extends Controller
 
         return RespostaApi::sucesso($p->toArray() + ['execucao' => ServicoPlaneamentoProjetos::progresso($tarefas)['global'],
             'encomenda' => $p->encomendaVenda()->first(['id', 'numero_documento', 'cliente_id', 'total_liquido', 'estado']),
-            'cliente' => $p->cliente()->withTrashed()->first(['id', 'nome'])], 'Projecto.');
+            'cliente' => $p->cliente()->withTrashed()->first(['id', 'nome']),
+            // Versão Actual (projectos_dashboard.js:400-402, 555-557): projecto nascido de um assunto do Método de Trabalho
+            'assunto_metodo' => self::assuntoDeOrigem($p)], 'Projecto.');
+    }
+
+    /** Número e título do assunto de origem (da mesma empresa do projecto); null quando o projecto não nasceu de um assunto. */
+    private static function assuntoDeOrigem(Projeto $p): ?array
+    {
+        if (! $p->assunto_metodo_id) {
+            return null;
+        }
+        $a = AssuntoMetodoTrabalho::query()->where('empresa_id', $p->empresa_id)->whereKey($p->assunto_metodo_id)->first(['id', 'numero', 'titulo', 'estado']);
+
+        return $a ? ['id' => $a->id, 'numero' => $a->numero, 'titulo' => $a->titulo, 'estado' => $a->estado] : null;
     }
 
     public function store(Request $r): JsonResponse

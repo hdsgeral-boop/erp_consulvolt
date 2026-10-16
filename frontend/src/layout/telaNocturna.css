@@ -92,41 +92,77 @@
   html.erp-tela-nocturna .erp-pesquisa-nome { color: #e2e8f0; }
 }
 
-/* ------------------------------------------------------------------ busca no menu (filtro em linha) */
-.erp-menu-busca {
-  padding: 8px 12px 6px;
-}
-.erp-menu-busca .ant-input-affix-wrapper {
-  background: #1c1c1c;
-  border-color: #3a3a3a;
-}
-.erp-menu-busca .ant-input-affix-wrapper input,
-.erp-menu-busca .ant-input-affix-wrapper .ant-input {
-  background: transparent;
-  color: #e5e5e5;
-}
-.erp-menu-busca .ant-input::placeholder { color: #a3a3a3; }
-.erp-menu-busca .ant-input-prefix,
-.erp-menu-busca .ant-input-clear-icon { color: #a3a3a3; }
-.erp-menu-busca-contador {
-  display: block;
-  min-height: 0;
-  margin-top: 4px;
-  font-size: 11.5px;
-  color: #a3a3a3;
-}
-.erp-menu-busca-contador.vazio { color: #fca5a5; }
-.erp-menu mark.erp-menu-realce {
-  background: rgba(250, 204, 21, 0.35);
-  color: inherit;
-  padding: 0;
-  border-radius: 2px;
-}
-:root .erp-menu .ant-menu-item.erp-menu-focado {
-  outline: 2px solid #3b82f6;
-  outline-offset: -2px;
-  background: rgba(59, 130, 246, 0.18);
-}
+/* (busca no menu, realce e resultado escolhido: src/estilos/identidade.css, secção do menu lateral) */
 
 /* botão da tela nocturna na barra superior */
 .erp-botao-tema.ant-btn { flex: none; }
+
+/* ------------------------------------------------------------------ tema base (gl_tema, 2026-10-15)
+   Coerência da tela nocturna com o tema global e com css/tela_noturna.css do legado: menu lateral mais escuro (#0b1119),
+   cartões de indicador e de painel, tabelas (zebra e realce ao passar, como no legado), totais, títulos, botões da barra
+   superior e gráficos (texto, grelha e eixos claros). */
+@media screen {
+  html.erp-tela-nocturna .erp-sider,
+  html.erp-tela-nocturna .erp-gaveta-menu.ant-drawer-content,
+  html.erp-tela-nocturna .erp-gaveta-menu .ant-drawer-content {
+    background: #0b1119;
+  }
+  html.erp-tela-nocturna .erp-menu-puxador::after { background: #334155; }
+
+  /* barra superior: botões com contorno, «Ajuda» e separador do utilizador (as regras claras usam !important) */
+  html.erp-tela-nocturna .erp-cabecalho .ant-btn:not(.erp-botao-ajuda):not(.erp-botao-menu) {
+    border-color: #475569 !important;
+    color: #e2e8f0 !important;
+  }
+  html.erp-tela-nocturna .erp-cabecalho .ant-btn.erp-botao-ajuda {
+    border-color: #1e3a8a !important;
+    background: #1b2b47 !important;
+    color: #93c5fd !important;
+  }
+  html.erp-tela-nocturna .erp-utilizador { border-inline-start-color: #1f2a3d; }
+
+  /* títulos e cartões */
+  html.erp-tela-nocturna .cabecalho-pagina .ant-typography.erp-titulo-pagina { color: #e2e8f0; }
+  html.erp-tela-nocturna .ant-card:not(.ant-card-type-inner) { border-color: #1f2a3d; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.45); }
+  html.erp-tela-nocturna .ant-card .ant-card-head-title { color: #e2e8f0; }
+
+  /* cartões de indicador (CartaoKpi — legado .stat-card/.painel-kpi) */
+  html.erp-tela-nocturna .erp-kpi { background: #111a2b; border-color: #1f2a3d; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.45); }
+  html.erp-tela-nocturna .erp-kpi .erp-kpi-valor { color: #e2e8f0; }
+  html.erp-tela-nocturna .erp-kpi .erp-kpi-rotulo,
+  html.erp-tela-nocturna .erp-kpi .erp-kpi-unidade,
+  html.erp-tela-nocturna .erp-kpi .erp-kpi-secundaria { color: #94a3b8; }
+
+  /* Dashboard Global: separadores dos módulos e cartões dos gráficos */
+  html.erp-tela-nocturna .painel-modulos { background: rgba(17, 26, 43, 0.85); border-color: #1f2a3d; }
+  html.erp-tela-nocturna .painel-modulo-btn:not(.activo) { background: #111a2b; border-color: #334155; color: #cbd5e1; }
+  html.erp-tela-nocturna .painel-cartao { background: #111a2b; border-color: #1f2a3d; }
+  html.erp-tela-nocturna .painel-conteudo-wrap:fullscreen { background: #0b1220; }
+
+  /* listas (barra do topo, filtros) */
+  html.erp-tela-nocturna .erp-lista-topo { background: #152035; border-color: #1f2a3d; }
+
+  /* tabelas: limites escuros, zebra e realce ao passar (legado: pares rgba(255,255,255,.025), hover azul a 12 %) */
+  html.erp-tela-nocturna .ant-table-wrapper .ant-table-thead > tr > th,
+  html.erp-tela-nocturna .ant-table-wrapper .ant-table-thead > tr > td { border-bottom-color: #334155; }
+  html.erp-tela-nocturna .ant-table-wrapper .ant-table-tbody > tr > td { border-bottom-color: #1f2a3d; }
+  html.erp-tela-nocturna .ant-table-wrapper .ant-table:not(.ant-table-bordered) .ant-table-tbody > tr > td:not(:last-child) { border-inline-end-color: #1f2a3d; }
+  html.erp-tela-nocturna .ant-table-wrapper .ant-table-tbody > tr.ant-table-row:nth-child(even):not(.ant-table-row-selected) > td { background: rgba(255, 255, 255, 0.025); }
+  html.erp-tela-nocturna .ant-table-wrapper .ant-table-tbody > tr.ant-table-row:hover > td { background: rgba(59, 130, 246, 0.12); }
+  html.erp-tela-nocturna .ant-table-wrapper .ant-table-summary td,
+  html.erp-tela-nocturna .ant-table-wrapper .ant-table-summary .erp-linha-total > td { background: #0f172a; color: #93c5fd; border-top-color: #334155; }
+
+  /* gráficos SVG (componentes/graficos/estiloGraficos.ts): texto, grelha, eixos, contornos e dica */
+  html.erp-tela-nocturna .grafico-raiz svg text[fill='rgba(0,0,0,0.6)'] { fill: #94a3b8; }
+  html.erp-tela-nocturna .grafico-raiz svg text[fill='rgba(0,0,0,0.88)'] { fill: #e2e8f0; }
+  html.erp-tela-nocturna .grafico-raiz svg [stroke='rgba(0,0,0,0.08)'] { stroke: rgba(148, 163, 184, 0.16); }
+  html.erp-tela-nocturna .grafico-raiz svg [stroke='rgba(0,0,0,0.3)'] { stroke: rgba(148, 163, 184, 0.45); }
+  html.erp-tela-nocturna .grafico-raiz svg [stroke='rgba(0,0,0,0.25)'] { stroke: rgba(148, 163, 184, 0.4); }
+  html.erp-tela-nocturna .grafico-raiz svg [stroke='#fff'] { stroke: #111a2b; }
+  html.erp-tela-nocturna .grafico-legenda,
+  html.erp-tela-nocturna .painel-legenda { color: #cbd5e1; }
+  html.erp-tela-nocturna .painel-legenda i.vazio { background: #111a2b; }
+  html.erp-tela-nocturna .grafico-dica { background: #172236; border-color: #334155; color: #e2e8f0; box-shadow: 0 4px 12px rgb(0 0 0 / 0.5); }
+  html.erp-tela-nocturna .grafico-raiz [style*='rgba(0, 0, 0, 0.6)'] { color: #94a3b8 !important; }
+  html.erp-tela-nocturna .grafico-raiz [style*='rgba(0, 0, 0, 0.88)'] { color: #e2e8f0 !important; }
+}

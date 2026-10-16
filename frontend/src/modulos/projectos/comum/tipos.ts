@@ -24,6 +24,10 @@ export interface FichaProjecto extends Projecto {
   descricao?: string | null;
   encomenda: { id: number; numero_documento: string; cliente_id: number; total_liquido: string; estado: string | null } | null;
   cliente: { id: number; nome: string } | null;
+  /** Versão Actual (#25b): origem do projecto e assunto do Método de Trabalho de onde nasceu. */
+  origem?: string | null;
+  assunto_metodo_id?: number | null;
+  assunto_metodo?: { id: number; numero: string | null; titulo: string | null; estado: string | null } | null;
 }
 
 export interface Alerta {
@@ -47,6 +51,16 @@ export interface ResumoProjecto {
     consumo_pct: number | null;
     desvio_orcamental_pct: number | null;
     compromissos: string;
+    // só nos projectos EXTERNOS (projectos_dashboard.js:337-343, 437-457)
+    venda?: string;
+    aditamentos_aprovados?: string;
+    venda_global?: string;
+    faturado?: string;
+    faturado_pct?: number;
+    margem_prevista?: string;
+    margem_prevista_pct?: number;
+    margem_real?: string;
+    margem_real_pct?: number;
   };
   curva_s: { meses: string[]; previsto: number[]; realizado: number[]; faturado: number[] | null };
   orcado_realizado: { rubrica: string; orcado: string; realizado: string }[];
@@ -269,8 +283,10 @@ export interface EquipamentosProjecto {
   usos: UsoEquipamento[];
   total: string;
   /** Versão Actual (projectos_dashboard.js:381-407): agregado por equipamento. */
-  por_equipamento?: { ativo_codigo: string | null; ativo_imobilizado_id: number | null; ativo_descricao: string | null; usos: number; horas: number; custo: string; custo_hora_medio: number | null; de: string | null; ate: string | null; tarefas: string[]; peso_pct: number | null }[];
+  por_equipamento?: { ativo_codigo: string | null; ativo_imobilizado_id: number | null; ativo_descricao: string | null; ativo_categoria?: string | null; ativo_estado?: string | null; usos: number; horas: number; custo: string; custo_hora_medio: number | null; de: string | null; ate: string | null; tarefas: string[]; peso_pct: number | null }[];
   afetacoes: { id: number; ativo_imobilizado_id: number; ativo_codigo: string | null; ativo_descricao: string | null; data_inicio: string | null; data_fim: string | null }[];
+  /** Custo total do projecto (razão analítico), para o peso dos equipamentos. */
+  custo_projeto?: string;
 }
 
 export interface Requisicao {

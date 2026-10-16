@@ -9,6 +9,7 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useAccao } from '@/componentes/Accoes';
 import { avaliarFecho, contagensParaApi, DENOMINACOES, deCentimos, formatarCentimos, paraCentimos, totalContagem } from '../comum/calculos';
 import { iconeMeio } from '../comum/frente';
+import { useCoresPos } from '../comum/cores';
 import { RelatorioXModal } from './RelatorioXModal';
 import { useDefinicoesPOS } from '../comum/dados';
 import { larguraModal } from '@/componentes/responsivo';
@@ -21,7 +22,7 @@ import type { RelatorioX, SessaoPOS } from '../comum/tipos';
 const NOTAS = DENOMINACOES.filter((d) => d !== 2);
 const COR_MEIO: Record<string, string> = { NUMERARIO: '#059669', TPA: '#2563eb', TRANSFERENCIA: '#7c3aed' };
 const SECCAO = { margin: '1rem 0 0.5rem', fontSize: '0.8rem', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 700 } as const;
-const CAIXA = { background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 4, padding: '0.5rem' } as const;
+const caixaZ = (c: ReturnType<typeof useCoresPos>) => ({ background: c.fundoAlt, border: `1px solid ${c.borda}`, borderRadius: 4, padding: '0.5rem' }) as const;
 
 interface TalaoTPA {
   valor_talao?: number | null;
@@ -44,6 +45,7 @@ export function useRelatorioX(sessaoId: number | null | undefined, activo = true
  */
 export function FechoZ({ sessaoId, aberto, aoFechar }: { sessaoId: number; aberto: boolean; aoFechar: () => void }) {
   const { empresa } = useSessao();
+  const CAIXA = caixaZ(useCoresPos());
   const cabecalho = useCabecalhoTalao();
   const x = useRelatorioX(sessaoId, aberto);
   const definicoes = useDefinicoesPOS(aberto);

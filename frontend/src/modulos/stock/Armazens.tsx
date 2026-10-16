@@ -1,8 +1,9 @@
-import { Button, Card, Checkbox, Flex, Form, Input, Modal, Tag } from 'antd';
+import { Button, Card, Checkbox, Flex, Form, Input, Tag } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
@@ -13,6 +14,20 @@ import { TabelaComModos, type ColunaLegado } from '@/componentes/vistas';
 import { formatarKz } from '@/utilitarios/formatacao';
 
 type LinhaArmazem = Armazem & { valor_stock: string };
+
+/** Regras de gravação do armazém, comuns à grade e à vista Linhas. */
+export function dadosArmazem(v: Record<string, unknown>): Record<string, unknown> {
+  const t = (x: unknown) => (typeof x === 'string' && x.trim() ? x.trim() : null);
+  return { nome: typeof v.nome === 'string' ? v.nome.trim() : v.nome, codigo: t(v.codigo), localizacao: t(v.localizacao), predefinido: v.predefinido === true || v.predefinido === 'S' };
+}
+
+/** Vista Linhas: um armazém por linha (nome, código, localização, predefinido). */
+const CAMPOS_ARMAZEM: CampoFormulario[] = [
+  { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 220, maxLength: 255, aliases: ['Armazém', 'Armazem'] },
+  { nome: 'codigo', rotulo: 'Código', largura: 110, maxLength: 20 },
+  { nome: 'localizacao', rotulo: 'Localização', largura: 240, maxLength: 150, aliases: ['Local', 'Morada'] },
+  { nome: 'predefinido', rotulo: 'Predefinido', tipo: 'select', largura: 110, emLinhas: 'opcional', seccao: 'Outros', opcoes: [{ value: 'S', label: 'Sim' }, { value: 'N', label: 'Não' }] },
+];
 
 /**
  * Armazém › Config. Armazens (ecrã armazem_armazens), como os «Armazens Registados» do legado (renderArmazensTab,
@@ -101,12 +116,16 @@ export default function Armazens() {
           ]}
         />
       </Card>
-      <Modal width={larguraModal(520)} title={edicao === 'novo' ? 'Registar Armazém' : 'Editar Armazém'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
+      <ModalFormulario width={larguraModal(520)} chave="stock.armazens" titulo={edicao === 'novo' ? 'Registar Armazém' : 'Editar Armazém'} aberto={edicao !== null} aoFechar={() => setEdicao(null)}
+        criacao={edicao === 'novo'} campos={CAMPOS_ARMAZEM} nomeRegistos="armazéns" invalidar={[['logistica']]} larguraLinhas={820} destroyOnHidden={false}
+        gravarLinha={(r) => enviar('post', '/logistica/armazens', dadosArmazem(r))}
+        nota="Uma linha por armazém. Só o nome é obrigatório. Linhas deixadas em branco são ignoradas."
+        okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"
           onFinish={(v) => {
-            const dados = { nome: v.nome, codigo: v.codigo || null, localizacao: v.localizacao || null, predefinido: !!v.predefinido };
+            const dados = dadosArmazem(v);
             gravar.mutate(edicao && edicao !== 'novo' ? { metodo: 'put', url: `/logistica/armazens/${edicao.id}`, dados } : { url: '/logistica/armazens', dados });
           }}
         >
@@ -123,7 +142,7 @@ export default function Armazens() {
             <Checkbox>Armazém predefinido</Checkbox>
           </Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
       <ModalContas url="/logistica/configuracao/contas" titulo="Contas da logística" chaveConsulta={['logistica', 'contas']} aberto={contas} aoFechar={() => setContas(false)} podeEditar={podeGerir} />
     </>
   );

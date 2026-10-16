@@ -110,3 +110,35 @@ export function corDesvio(natureza: NaturezaRubrica, d: number | string): string
   if (Math.abs(n) < 0.005) return undefined;
   return sinal(natureza) * n >= 0 ? '#15803d' : '#b91c1c';
 }
+
+/** Linha da tabela do Controlo: rubrica, cabeçalho da natureza, «Total <natureza>» ou o resultado (fluxo de caixa). */
+export type LinhaTabelaControlo = LinhaControlo & { tipo_linha?: 'natureza' | 'total' | 'resultado' };
+
+const linhaSintetica = (id: number, tipo: 'natureza' | 'total' | 'resultado', nome: string, natureza: NaturezaRubrica, orcado = 0, realizado = 0, inicial: number | null = null): LinhaTabelaControlo => {
+  const desvio = diferenca(realizado, orcado);
+  return {
+    rubrica_id: id, tipo_linha: tipo, codigo: '', nome, natureza, grupo: null, orcado: String(orcado), orcado_inicial: inicial === null ? null : String(inicial), realizado: String(realizado),
+    desvio: String(desvio), execucao_pct: tipo !== 'natureza' && orcado ? (realizado / orcado) * 100 : null, desvio_pct: tipo !== 'natureza' && orcado ? (desvio / Math.abs(orcado)) * 100 : null,
+    favoravel: true, desvio_significativo: false, mensal: { orcado: [], realizado: [] },
+  };
+};
+
+/**
+ * Linhas da tabela como no legado (orcamento_ui.js:772-806): cabeçalho de cada natureza, as suas rubricas, «Total <natureza>»
+ * e, no fim, «Resultado» (ou «Fluxo de caixa» na tesouraria).
+ */
+export function linhasTabelaControlo(c: Pick<Controlo, 'linhas' | 'orcamento'>): LinhaTabelaControlo[] {
+  const tes = c.orcamento.tipo === 'TESOURARIA';
+  const totais = totaisPorNatureza(c);
+  const res = resultado(c);
+  const out: LinhaTabelaControlo[] = [];
+  naturezas(c.orcamento.tipo).forEach((n, i) => {
+    out.push(linhaSintetica(-1 - i, 'natureza', NOME_NATUREZA[n], n));
+    out.push(...c.linhas.filter((l) => l.natureza === n));
+    const t = totais[i];
+    out.push(linhaSintetica(-10 - i, 'total', `Total ${NOME_NATUREZA[n].toLowerCase()}`, n, t.orcado, t.realizado, t.inicial));
+  });
+  out.push(linhaSintetica(-20, 'resultado', tes ? 'Fluxo de caixa' : 'Resultado', naturezas(c.orcamento.tipo)[0], res.orcado, res.realizado,
+    diferenca(totais[0].inicial, totais[1].inicial)));
+  return out;
+}

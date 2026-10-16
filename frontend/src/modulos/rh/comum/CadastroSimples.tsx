@@ -4,7 +4,8 @@ import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros, larguraModal as limitarLargura, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
@@ -59,6 +60,11 @@ interface Props<T extends { id: number }> {
    * «+ Adicionar Banco» por baixo). Editar preenche este mesmo formulário («Actualizar» / «Cancelar»), sem modal.
    */
   camposEmLinha?: ReactNode;
+  /**
+   * Vistas «Grade | Linhas» no modal de criação (legado: js/shared/formulario_linhas.js): `chave` da preferência e
+   * colunas da tabela. Cada linha é enviada pelo mesmo POST e pelo mesmo `paraEnvio` da grade.
+   */
+  linhas?: { chave: string; campos: CampoFormulario[]; nomeRegistos?: string; nota?: ReactNode };
 }
 
 /** Destino dos botões no cabeçalho da página (ver `accoesCabecalho`): `[destino, elemento a pôr nas accoes do CabecalhoPagina]`. */
@@ -70,7 +76,7 @@ export function useDestinoAccoes(): [HTMLElement | null, ReactNode] {
 /** Tabela de suporte com criar/editar num modal e eliminar (cargos, tipos de organização, bancos, rubricas, itens). */
 export function CadastroSimples<T extends { id: number }>({
   url, chave, colunas, campos, podeGerir, podeEliminar, nomeItem, paraFormulario, valoresNovos, paraEnvio, pesquisa, accoesExtra, larguraModal = 560, tituloImpressao,
-  rotuloNovo, tituloNovo, titulo, accoesCabecalho, novoNoCartao, ordemInicial, camposEmLinha,
+  rotuloNovo, tituloNovo, titulo, accoesCabecalho, novoNoCartao, ordemInicial, camposEmLinha, linhas,
 }: Props<T>) {
   const pequeno = useEcraPequeno();
   const [form] = Form.useForm();
@@ -153,25 +159,30 @@ export function CadastroSimples<T extends { id: number }>({
       )}
       <TabelaComModos<T> rowKey="id" size={pequeno ? 'small' : 'middle'} loading={consulta.isFetching} columns={colunas} dataSource={dados} scroll={scrollTabela()}
         accoes={accoesLinha} impressao={noCabecalho && tituloImpressao ? { titulo: tituloImpressao } : undefined} />
-      <Modal
-        title={aberto === 'novo' ? tituloNovo ?? `Novo — ${nomeItem}` : `Editar — ${nomeItem}`}
-        open={aberto !== null}
-        width={limitarLargura(larguraModal)}
-        onCancel={() => setAberto(null)}
-        okText="Gravar"
-        cancelText="Cancelar"
-        confirmLoading={accao.isPending}
-        onOk={() => form.submit()}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical" onFinish={(v: Record<string, unknown>) => {
-          const dadosEnvio = paraEnvio ? paraEnvio(v) : v;
-          if (aberto === 'novo') accao.mutate({ metodo: 'post', url, dados: dadosEnvio });
-          else if (aberto) accao.mutate({ metodo: 'put', url: `${url}/${aberto.id}`, dados: dadosEnvio });
-        }}>
-          {campos}
-        </Form>
-      </Modal>
+      {(() => {
+        const formulario = (
+          <Form form={form} layout="vertical" onFinish={(v: Record<string, unknown>) => {
+            const dadosEnvio = paraEnvio ? paraEnvio(v) : v;
+            if (aberto === 'novo') accao.mutate({ metodo: 'post', url, dados: dadosEnvio });
+            else if (aberto) accao.mutate({ metodo: 'put', url: `${url}/${aberto.id}`, dados: dadosEnvio });
+          }}>
+            {campos}
+          </Form>
+        );
+        const comum = { width: limitarLargura(larguraModal), okText: 'Gravar', cancelText: 'Cancelar', confirmLoading: accao.isPending, onOk: () => form.submit() };
+        const titulo = aberto === 'novo' ? tituloNovo ?? `Novo — ${nomeItem}` : `Editar — ${nomeItem}`;
+        return linhas ? (
+          <ModalFormulario {...comum} chave={linhas.chave} titulo={titulo} aberto={aberto !== null} aoFechar={() => setAberto(null)} criacao={aberto === 'novo'} form={form}
+            campos={linhas.campos} nomeRegistos={linhas.nomeRegistos} nota={linhas.nota} invalidar={[chave, ['rh']]}
+            gravarLinha={(r) => enviar('post', url, paraEnvio ? paraEnvio(r) : r)}>
+            {formulario}
+          </ModalFormulario>
+        ) : (
+          <Modal {...comum} title={titulo} open={aberto !== null} onCancel={() => setAberto(null)} destroyOnHidden>
+            {formulario}
+          </Modal>
+        );
+      })()}
     </Card>
   );
 }

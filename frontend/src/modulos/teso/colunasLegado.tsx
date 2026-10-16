@@ -156,8 +156,8 @@ function Compensacao({ d }: { d: DocumentoTesouraria }) {
   if (!c) return <Tag style={{ color: '#94a3b8' }} icon={<IconeFa nome="clock" />}> Pendente</Tag>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
-      <code style={{ fontSize: 11, background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', borderRadius: 4, padding: '2px 6px', wordBreak: 'break-all' }} title="ID de Compensação">{c.codigo}</code>
-      <Tag bordered={false} style={{ background: '#ffedd5', color: '#c2410c', fontSize: 10 }}>Compensado</Tag>
+      <code style={{ fontSize: 11, background: 'rgba(249,115,22,0.1)', color: '#c2410c', border: '1px solid rgba(249,115,22,0.35)', borderRadius: 4, padding: '2px 6px', wordBreak: 'break-all' }} title="ID de Compensação">{c.codigo}</code>
+      <Tag bordered={false} style={{ background: 'rgba(249,115,22,0.15)', color: '#c2410c', fontSize: 10 }}>Compensado</Tag>
     </div>
   );
 }
@@ -167,9 +167,9 @@ function ReconciliacaoBancaria({ d }: { d: DocumentoTesouraria }) {
   if (!r) return <Tag style={{ color: '#94a3b8' }} icon={<IconeFa nome="clock" />}> Sem conciliação</Tag>;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
-      <code style={{ fontSize: 11, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 4, padding: '2px 6px', wordBreak: 'break-all' }} title="ID de Sessão de conciliação Bancária">{r.codigo}</code>
+      <code style={{ fontSize: 11, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 4, padding: '2px 6px', wordBreak: 'break-all' }} title="ID de Sessão de conciliação Bancária">{r.codigo}</code>
       {r.data && <span style={{ fontSize: 11, color: '#6b7280' }}><IconeFa nome="calendar-check" style={{ color: '#059669', marginRight: 3 }} />{formatarData(r.data)}</span>}
-      <Tag bordered={false} style={{ background: '#dcfce7', color: '#166534', fontSize: 10 }}>{r.estado ?? 'CONCILIADO_BANCO'}</Tag>
+      <Tag bordered={false} style={{ background: 'rgba(16,185,129,0.15)', color: '#059669', fontSize: 10 }}>{r.estado ?? 'CONCILIADO_BANCO'}</Tag>
     </div>
   );
 }

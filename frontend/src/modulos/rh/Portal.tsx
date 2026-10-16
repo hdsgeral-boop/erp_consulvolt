@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Result, Row, Select, Space, Statistic, Table, Tabs, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Result, Row, Select, Space, Table, Tabs, Typography } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import {
@@ -34,16 +35,17 @@ export default function Portal() {
   return (
     <>
       <CabecalhoPagina titulo={`Olá, ${r.colaborador.nome_completo.split(' ')[0]}`} subtitulo="Portal do Colaborador" />
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={12} md={6}><Card><Statistic title={`Saldo de férias ${r.ano}`} value={r.ferias.saldo} suffix={`/ ${r.ferias.direito} dias`} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Faltas por justificar" value={r.faltas_por_justificar} valueStyle={{ color: r.faltas_por_justificar ? '#cf1322' : undefined }} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Pedidos pendentes" value={r.pedidos_pendentes} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Aprovações para mim" value={r.aprovacoes_para_mim} valueStyle={{ color: r.aprovacoes_para_mim ? '#d48806' : undefined }} /></Card></Col>
-      </Row>
+      {/* antigo (portal_ui.js:176, .pc-kpis): caixas sem ícone; «Ausências por justificar» e «Aprovações à sua espera» a vermelho quando há */}
+      <GrelhaKpi larguraMinima={170} style={{ marginBottom: 16 }}>
+        <CartaoKpi barra="nenhuma" rotulo={`Férias disponíveis ${r.ano}`} valor={r.ferias.saldo} unidade={`de ${r.ferias.direito} dias`} />
+        <CartaoKpi barra="nenhuma" rotulo="Pedidos em curso" valor={r.pedidos_pendentes} />
+        <CartaoKpi barra="nenhuma" rotulo="Ausências por justificar" valor={r.faltas_por_justificar} cor="vermelho" corValor={r.faltas_por_justificar ? '#b91c1c' : undefined} />
+        <CartaoKpi barra="nenhuma" rotulo="Aprovações à sua espera" valor={r.aprovacoes_para_mim} cor="vermelho" corValor={r.aprovacoes_para_mim ? '#b91c1c' : undefined} />
+      </GrelhaKpi>
       <Tabs items={[
         { key: 'pedidos', label: 'Os meus pedidos', children: <MeusPedidos resumo={r} /> },
         { key: 'recibos', label: 'Recibos', children: <Recibos resumo={r} /> },
-        { key: 'faltas', label: r.faltas_por_justificar ? `Faltas (${r.faltas_por_justificar})` : 'Faltas', children: <MinhasFaltas /> },
+        { key: 'faltas', label: r.faltas_por_justificar ? `Faltas (${r.faltas_por_justificar})` : 'Faltas', children: <MinhasFaltas resumo={r} /> },
         // Versão Actual (portal_ui.js:398-620): escala, contrato e empréstimos
         { key: 'escala', label: 'Escala', children: <PortalEscala /> },
         { key: 'contrato', label: 'Contrato', children: <PortalContrato /> },
@@ -213,7 +215,7 @@ function Recibos({ resumo }: { resumo: ResumoPortal }) {
 }
 
 /** Pedidos à espera do utilizador (chefia directa; o RH decide em «Pedidos do Portal»). */
-function Aprovacoes() {
+export function Aprovacoes() {
   const q = useQuery({ queryKey: ['rh', 'portal', 'aprovacoes'], queryFn: () => obter<PedidoPortal[]>('/rh/portal/aprovacoes') });
   useAvisarErro(q.error);
   const [decidir, setDecidir] = useState<PedidoPortal | null>(null);
@@ -245,7 +247,7 @@ function Aprovacoes() {
 
 
 /** As minhas faltas (GET /rh/portal/ausencias): justificar uma falta por justificar cria um pedido «Ausência» ligado à falta. */
-function MinhasFaltas() {
+function MinhasFaltas({ resumo }: { resumo?: ResumoPortal }) {
   const [historico, setHistorico] = useState(false);
   const q = useQuery({ queryKey: ['rh', 'portal', 'ausencias', historico], queryFn: () => obter<MinhaAusencia[]>('/rh/portal/ausencias', historico ? { estado: 'TODOS' } : undefined) });
   useAvisarErro(q.error);
@@ -264,6 +266,12 @@ function MinhasFaltas() {
   ];
   return (
     <Card>
+      {/* art. 230.º da Lei 12/23 (assiduidade e portal do legado novo): texto informativo com o acumulado do colaborador */}
+      <Alert type={(resumo?.faltas_injustificadas_mes ?? 0) > 3 || (resumo?.faltas_injustificadas_ano ?? 0) > 12 ? 'warning' : 'info'} showIcon style={{ marginBottom: 12 }}
+        message={resumo?.faltas_injustificadas_ano !== undefined
+          ? `Faltas injustificadas: ${resumo.faltas_injustificadas_mes ?? 0} dia(s) este mês · ${resumo.faltas_injustificadas_ano} dia(s) em ${resumo.ano}`
+          : 'Faltas detectadas na efectividade'}
+        description="Pode justificar as faltas enquanto o processamento salarial do mês estiver aberto: a justificação vai para aprovação da chefia e do RH e só depois de aprovada a falta fica justificada, sem desconto (salvo as ausências não remuneradas por lei). Sem justificação aprovada, contam como faltas injustificadas: perda de remuneração e, acima de 3 num mês ou 12 no ano, infracção disciplinar (art.º 230.º da Lei 12/23)." />
       <Space style={{ marginBottom: 12 }}>
         <Checkbox checked={historico} onChange={(e) => setHistorico(e.target.checked)}>Ver o histórico (todas as ausências)</Checkbox>
       </Space>

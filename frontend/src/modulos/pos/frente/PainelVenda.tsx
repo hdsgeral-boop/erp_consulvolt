@@ -39,6 +39,7 @@ import { PainelQuartos, useQuartos } from './PainelQuartos';
 import { carrinhoDosConsumos, consumosDoCarrinho } from './quartos';
 import { acrescentarPagamento, meiosActivos, PainelPagamentos } from '../comum/PainelPagamentos';
 import { lerCodigo, produtosVendaveis } from '../comum/produtos';
+import { useCoresPos } from '../comum/cores';
 import type { ProdutoPOS, Terminal, VendaEmitida } from '../comum/tipos';
 import { GrelhaProdutos } from './GrelhaProdutos';
 import { NovoClienteModal } from './NovoClienteModal';
@@ -69,6 +70,7 @@ const linhaTotais = { display: 'flex', justifyContent: 'space-between', fontSize
  * abre o check-out da hotelaria.
  */
 export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, preferencias: prefs, aoMudarPreferencias }: Props) {
+  const cores = useCoresPos();
   const { pode, empresa } = useSessao();
   const cabecalho = useCabecalhoTalao();
   const catalogo = useCatalogoPOS();
@@ -432,15 +434,15 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
     });
 
   const carrinhoCartao = (
-    <section aria-label="Carrinho" className="pos-carrinho" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 20, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', minWidth: 0 }}>
-      <div style={{ padding: '1.25rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+    <section aria-label="Carrinho" className="pos-carrinho" style={{ background: cores.fundo, border: `1px solid ${cores.borda}`, borderRadius: 4, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', minWidth: 0 }}>
+      <div style={{ padding: '1.25rem', background: cores.fundoAlt, borderBottom: `1px solid ${cores.borda}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: cores.texto, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <IconeFa nome="shopping-basket" style={{ color: '#2563eb' }} /> Carrinho
           <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>· {totalUnidades(carrinho)} un.</span>
           {restaurante && <Tag color={mesa ? 'green' : 'default'}>{mesa ? mesa.nome : 'Balcão'}</Tag>}
           {hotelaria && <Tag color={quartoId !== null ? 'green' : 'default'}>{quarto ? quarto.nome : 'Balcão'}</Tag>}
         </h3>
-        <Button size="small" danger disabled={!carrinho.length} onClick={limpar} icon={<IconeFa nome="trash-alt" />} style={{ borderRadius: 8 }}>
+        <Button size="small" danger disabled={!carrinho.length} onClick={limpar} icon={<IconeFa nome="trash-alt" />} style={{ borderRadius: 4 }}>
           Limpar
         </Button>
       </div>
@@ -462,7 +464,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
           <CheckinQuarto key={quarto.produto_id} quarto={quarto} terminal={terminal} clienteActual={cliente} aoConcluir={(h) => setCliente(h)} />
         ))}
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: '#fafbfd', maxHeight: colunas === 2 ? 420 : undefined, minHeight: 160 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', background: cores.fundoAlt, maxHeight: colunas === 2 ? 420 : undefined, minHeight: 160 }}>
         {carrinho.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#94a3b8', padding: '2rem 0' }}>
             <IconeFa nome="cash-register" style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#cbd5e1' }} />
@@ -471,9 +473,9 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
           </div>
         ) : (
           carrinho.map((i) => (
-            <div key={i.produto_id} className="pos-item-carrinho" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
+            <div key={i.produto_id} className="pos-item-carrinho" style={{ background: cores.fundo, border: `1px solid ${cores.borda}`, borderRadius: 4, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <strong style={{ fontSize: '0.85rem', color: '#1e293b', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={i.nome}>
+                <strong style={{ fontSize: '0.85rem', color: cores.texto, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={i.nome}>
                   {i.nome}
                 </strong>
                 {/* preço unitário editável em linha, como o legado (ui_sales.js:6820-6824); inválido repõe o do catálogo */}
@@ -486,14 +488,14 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
                     controls={false}
                     disabled={!podeDesconto}
                     title={podeDesconto ? 'Alterar o preço' : 'Sem permissão para alterar preços'}
-                    style={{ width: 90, fontSize: '0.75rem', fontWeight: 700, background: '#f8fafc', borderRadius: 6 }}
+                    style={{ width: 90, fontSize: '0.75rem', fontWeight: 700, background: cores.fundoAlt, borderRadius: 4 }}
                     value={i.preco / 100}
                     onChange={(v) => setCarrinho((c) => alterarPreco(c, i.produto_id, v === null || v < 0 ? i.preco_catalogo : Math.round(v * 100)))}
                   />
                   <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>Kz</span>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#f1f5f9', borderRadius: 8, padding: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: cores.fundoSuave, borderRadius: 4, padding: 2 }}>
                 <Button size="small" type="text" aria-label="Menos" onClick={() => setCarrinho((c) => alterarQuantidade(c, i.produto_id, i.quantidade - 1))}>
                   −
                 </Button>
@@ -512,14 +514,14 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
                   +
                 </Button>
               </div>
-              <strong style={{ fontSize: '0.85rem', color: '#1e293b', minWidth: 85, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatarCentimos(Math.round(i.quantidade * i.preco))} Kz</strong>
+              <strong style={{ fontSize: '0.85rem', color: cores.texto, minWidth: 85, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatarCentimos(Math.round(i.quantidade * i.preco))} Kz</strong>
               <Button type="text" size="small" aria-label="Retirar" onClick={() => setCarrinho((c) => removerLinha(c, i.produto_id))} icon={<IconeFa nome="trash-alt" style={{ color: '#94a3b8' }} />} />
             </div>
           ))
         )}
       </div>
 
-      <div style={{ padding: '1.25rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+      <div style={{ padding: '1.25rem', background: cores.fundoAlt, borderTop: `1px solid ${cores.borda}`, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>
             <IconeFa nome="tag" style={{ color: '#f59e0b' }} /> Desconto (%):
@@ -541,7 +543,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
           </Tooltip>
         </div>
         {exigeDesconto(carrinho, desconto) && !podeDesconto && <Alert type="warning" showIcon message="A venda tem preços alterados: precisa da permissão de descontos." />}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.6rem 0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', padding: '0.6rem 0', borderTop: `1px solid ${cores.borda}`, borderBottom: `1px solid ${cores.borda}` }}>
           <div style={linhaTotais}>
             <span>Subtotal Líquido:</span>
             <span>{formatarCentimos(totais.liquido)} Kz</span>
@@ -558,7 +560,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 800, color: '#1e293b', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 800, color: cores.texto, alignItems: 'center' }}>
           <span>Total Geral:</span>
           <span className="pos-total-geral" data-total={totais.total} style={{ color: '#2563eb', fontSize: '1.4rem' }}>
             {formatarCentimos(totais.total)} Kz
@@ -567,15 +569,15 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
         <div style={{ display: 'grid', gridTemplateColumns: restaurante ? '1fr 1.2fr 1.2fr' : '1fr', gap: '0.5rem' }}>
           {restaurante && (
             <>
-              <Button size="large" disabled={!mesa} loading={aMudarMesa} onClick={() => void suspender()} title="Guardar a conta da mesa e voltar ao balcão" icon={<IconeFa nome="pause-circle" />} style={{ borderRadius: 12, fontWeight: 600 }}>
+              <Button size="large" disabled={!mesa} loading={aMudarMesa} onClick={() => void suspender()} title="Guardar a conta da mesa e voltar ao balcão" icon={<IconeFa nome="pause-circle" />} style={{ borderRadius: 4, fontWeight: 600 }}>
                 Suspender
               </Button>
-              <Button size="large" disabled={!carrinho.length} onClick={consulta} title="Imprimir o talão de consulta da mesa" icon={<IconeFa nome="print" />} style={{ borderRadius: 12, fontWeight: 600, color: '#d97706', borderColor: '#f59e0b' }}>
+              <Button size="large" disabled={!carrinho.length} onClick={consulta} title="Imprimir o talão de consulta da mesa" icon={<IconeFa nome="print" />} style={{ borderRadius: 4, fontWeight: 600, color: '#d97706', borderColor: '#f59e0b' }}>
                 Consulta
               </Button>
             </>
           )}
-          <Button type="primary" size="large" disabled={hotelaria && quartoId !== null ? aMudarQuarto : !carrinho.length} onClick={abrirCobranca} title="Checkout (F9)" icon={<IconeFa nome="check-double" />} style={{ borderRadius: 12, fontWeight: 800 }}>
+          <Button type="primary" size="large" disabled={hotelaria && quartoId !== null ? aMudarQuarto : !carrinho.length} onClick={abrirCobranca} title="Checkout (F9)" icon={<IconeFa nome="check-double" />} style={{ borderRadius: 4, fontWeight: 800 }}>
             Checkout
           </Button>
         </div>
@@ -587,7 +589,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
     <div className="pos-wrapper" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div
         className="pos-topbar"
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.8rem 1.25rem', borderRadius: 15, flexWrap: 'wrap', gap: '1rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: cores.fundoAlt, border: `1px solid ${cores.borda}`, padding: '0.8rem 1.25rem', borderRadius: 4, flexWrap: 'wrap', gap: '1rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>{barraSessao}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: '1 1 300px', maxWidth: 450 }}>
@@ -605,7 +607,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
             />
           </div>
           {podeCriarCliente && (
-            <Button aria-label="Criar Novo Cliente" title="Criar Novo Cliente" onClick={() => setNovoCliente(true)} icon={<IconeFa nome="user-plus" />} style={{ borderColor: '#2563eb', color: '#2563eb', borderRadius: 8 }} />
+            <Button aria-label="Criar Novo Cliente" title="Criar Novo Cliente" onClick={() => setNovoCliente(true)} icon={<IconeFa nome="user-plus" />} style={{ borderColor: '#2563eb', color: '#2563eb', borderRadius: 4 }} />
           )}
         </div>
       </div>

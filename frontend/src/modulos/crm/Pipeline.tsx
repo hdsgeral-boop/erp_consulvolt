@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Empty, Flex, Input, Segmented, Select, Skeleton, Space, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Empty, Flex, Input, Segmented, Select, Skeleton, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import { CalendarOutlined, DollarOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type DragEvent } from 'react';
@@ -27,6 +27,7 @@ export function LegendaCoresPipeline() {
 /** CRM › Pipeline (crm_pipeline): quadro Kanban por etapas do funil, mover com arrastar (motivo na perda), lista e ficha. */
 export default function Pipeline() {
   const { pode } = useSessao();
+  const { token } = theme.useToken();
   const funis = useFunis();
   const [funilId, setFunilId] = useState<number | undefined>();
   const [vista, setVista] = useState<'quadro' | 'lista'>('quadro');
@@ -121,12 +122,12 @@ export default function Pipeline() {
         <>
           {r && (
             // resumo numa linha, como o legado (Em aberto · Valor do pipeline · Ponderado · Em risco · Atenção)
-            <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', fontSize: '0.8rem', color: '#475569', margin: '0 0 0.6rem' }}>
+            <div style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', fontSize: '0.8rem', color: token.colorTextSecondary, margin: '0 0 0.6rem' }}>
               <span>Em aberto: <b>{r.abertas}</b></span>
               <span>Valor do pipeline: <b>{formatarKz(r.valor)} Kz</b></span>
               <span>Ponderado: <b>{formatarKz(r.ponderado)} Kz</b></span>
-              <span style={{ color: '#b91c1c' }}>Em risco: <b>{r.em_risco}</b></span>
-              <span style={{ color: '#b45309' }}>Atenção: <b>{r.atencao}</b></span>
+              <span style={{ color: token.colorErrorText }}>Em risco: <b>{r.em_risco}</b></span>
+              <span style={{ color: token.colorWarningText }}>Atenção: <b>{r.atencao}</b></span>
             </div>
           )}
           {quadro.isLoading ? (
@@ -143,7 +144,7 @@ export default function Pipeline() {
                     role="listitem"
                     onDragOver={(e) => editar && e.preventDefault()}
                     onDrop={(e) => editar && largar(e, col.etapa)}
-                    style={{ minWidth: pequeno ? 240 : 270, width: pequeno ? 240 : 270, flex: 'none', background: '#fafafa', border: '1px solid #f0f0f0', borderTop: `3px solid ${col.etapa.cor ?? '#d9d9d9'}`, borderRadius: 8, padding: 8 }}
+                    style={{ minWidth: pequeno ? 240 : 272, width: pequeno ? 240 : 272, flex: 'none', background: token.colorFillTertiary, borderTop: `3px solid ${col.etapa.cor ?? '#64748b'}`, borderRadius: 4, padding: 8 }}
                   >
                     <Flex justify="space-between" align="baseline" style={{ marginBottom: 8 }}>
                       <Typography.Text strong>{col.etapa.nome}</Typography.Text>
@@ -196,8 +197,12 @@ export default function Pipeline() {
   );
 }
 
+/** Barra à esquerda do cartão pela saúde (.crm-card.OK / .ATENCAO / .RISCO do antigo, crm_ui.js:47). */
+const COR_SAUDE: Record<string, string> = { OK: '#15803d', ATENCAO: '#d97706', RISCO: '#dc2626' };
+
 function CartaoOportunidade({ cartao, arrastavel, aoAbrir }: { cartao: Cartao; arrastavel: boolean; aoAbrir: () => void }) {
   const o = cartao.oportunidade;
+  const { token } = theme.useToken();
   return (
     <Card
       size="small"
@@ -212,7 +217,7 @@ function CartaoOportunidade({ cartao, arrastavel, aoAbrir }: { cartao: Cartao; a
       tabIndex={0}
       aria-label={`${o.titulo}, ${o.conta_crm?.nome ?? ''}`}
       styles={{ body: { padding: 10 } }}
-      style={{ cursor: arrastavel ? 'grab' : 'pointer', borderLeft: cartao.saude.nivel === 'RISCO' ? '3px solid #cf1322' : cartao.saude.nivel === 'ATENCAO' ? '3px solid #fa8c16' : undefined }}
+      style={{ cursor: arrastavel ? 'grab' : 'pointer', borderLeft: `4px solid ${COR_SAUDE[cartao.saude.nivel] ?? '#94a3b8'}` }}
     >
       <Typography.Text strong style={{ display: 'block' }} ellipsis>{o.titulo}</Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }} ellipsis>{o.conta_crm?.nome}</Typography.Text>
@@ -220,7 +225,7 @@ function CartaoOportunidade({ cartao, arrastavel, aoAbrir }: { cartao: Cartao; a
         <Typography.Text style={{ fontSize: 12 }}><DollarOutlined /> {formatarKz(o.valor)}</Typography.Text>
         <TagSaude saude={cartao.saude} />
       </Flex>
-      <Flex justify="space-between" style={{ marginTop: 4, fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>
+      <Flex justify="space-between" style={{ marginTop: 4, fontSize: 12, color: token.colorTextSecondary }}>
         <span>{o.responsavel ?? '—'}</span>
         {o.data_fecho_prevista && <span><CalendarOutlined /> {formatarData(o.data_fecho_prevista)}</span>}
       </Flex>

@@ -11,6 +11,7 @@ import { type ColunaApi } from '@/componentes/TabelaApi';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { IconeLegado, TabelaComModos } from '@/componentes/vistas';
 import { EstadoPOS } from '../comum/estados';
+import { useCoresPos } from '../comum/cores';
 import { SeletorTerminal, useFiltroTerminal } from '../comum/Filtros';
 import type { Terminal } from '../comum/tipos';
 import { useColaboradoresLav } from './dados';
@@ -27,6 +28,7 @@ import '../comum/pos.css';
  */
 export function Ordens({ terminal, aoNovaOrdem }: { terminal: Terminal | undefined; aoNovaOrdem?: () => void }) {
   const { pode } = useSessao();
+  const cores = useCoresPos();
   const [estado, setEstado] = useState('ACTIVAS');
   const [texto, setTexto] = useState('');
   const [terminalFiltro, setTerminalFiltro] = useState<number>();
@@ -161,14 +163,14 @@ export function Ordens({ terminal, aoNovaOrdem }: { terminal: Terminal | undefin
             className="lav-kpi"
             onClick={() => setEstado(c.filtro)}
             aria-pressed={estado === c.filtro && c.chave !== 'hoje'}
-            style={{ textAlign: 'left', background: '#fff', border: '1px solid #e2e8f0', borderBottom: `3px solid ${c.cor}`, borderRadius: 4, padding: '0.55rem 0.8rem', cursor: 'pointer', font: 'inherit' }}
+            style={{ textAlign: 'left', background: cores.fundo, border: `1px solid ${cores.borda}`, borderBottom: `3px solid ${c.cor}`, borderRadius: 4, padding: '0.55rem 0.8rem', cursor: 'pointer', font: 'inherit' }}
           >
             <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{c.rotulo}</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a' }}>{contadores[c.contador] ?? 0}</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: cores.texto }}>{contadores[c.contador] ?? 0}</div>
           </button>
         ))}
       </div>
-      <div className="lav-ordens-cartao" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4, padding: '0.9rem' }}>
+      <div className="lav-ordens-cartao" style={{ background: cores.fundo, border: `1px solid ${cores.borda}`, borderRadius: 4, padding: '0.9rem' }}>
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.6rem' }}>
         <Input
           allowClear

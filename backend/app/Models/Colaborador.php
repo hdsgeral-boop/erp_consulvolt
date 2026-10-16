@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Base\ColaboradorBase;
+use App\Models\Concerns\InvalidaFaltasDoAno;
 
 /**
  * colaboradores — /api/rh/colaboradores.
@@ -11,6 +12,14 @@ use App\Models\Base\ColaboradorBase;
  */
 class Colaborador extends ColaboradorBase
 {
+    use InvalidaFaltasDoAno;   // acumulado anual de faltas em cache (CacheFaltasDoAno)
+
+    /** Só o estado e as datas mudam quem é apurado na efectividade (resumoMes). */
+    public function camposFaltasDoAno(): ?array
+    {
+        return ['estado', 'data_admissao', 'data_cessacao', 'eliminado_em'];
+    }
+
     protected function casts(): array
     {
         return parent::casts() + ['data_cessacao' => 'date'];

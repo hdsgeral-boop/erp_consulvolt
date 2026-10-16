@@ -2,13 +2,15 @@ import { Alert, Button, Checkbox, DatePicker, Descriptions, Form, InputNumber, M
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { descarregar, enviar } from '@/api/cliente';
+import { useQuery } from '@tanstack/react-query';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { descarregar, enviar, obter } from '@/api/cliente';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
-import { SeletorActivo, SeletorCategoria, SeletorProjecto } from './comum/componentes';
+import { campoActivoLinhas, SeletorActivo, SeletorCategoria, SeletorProjecto, type ProjectoResumo } from './comum/componentes';
 import { lerCsvImportacao, lerLinhasFolha } from './comum/regras';
 import type { Afectacao, LinhaImportacao } from './comum/tipos';
 import { COLUNAS_DESCRICOES, larguraModal } from '@/componentes/responsivo';
@@ -239,9 +241,28 @@ export function ModalTransferir({ activoId, aberto, aoFechar }: { activoId: numb
 
 // ───────────── Afectação a projecto ─────────────
 
+/** Data da grade (dayjs) ou da vista Linhas ('AAAA-MM-DD') → API. */
+const dataDe = (d: unknown): string | null => (dayjs.isDayjs(d) ? dataApi(d) ?? null : typeof d === 'string' && d ? d : null);
+
+/** Regras de gravação da afectação, comuns à grade e à vista Linhas. */
+export function dadosAfectacao(v: Record<string, unknown>): Record<string, unknown> {
+  return { ativo_imobilizado_id: v.ativo_imobilizado_id, projeto_id: v.projeto_id, data_inicio: dataDe(v.data_inicio), data_fim: dataDe(v.data_fim) };
+}
+
+const fimAntesDoInicio = (fim: unknown, r: Record<string, unknown>) =>
+  (typeof fim === 'string' && fim && typeof r.data_inicio === 'string' && r.data_inicio && fim < r.data_inicio ? 'O fim é anterior ao início.' : null);
+
 export function ModalAfectacao({ aberto, afectacao, activoId, aoFechar }: { aberto: boolean; afectacao?: Afectacao | null; activoId?: number; aoFechar: () => void }) {
   const [form] = Form.useForm<{ ativo_imobilizado_id: number; projeto_id: number; data_inicio: dayjs.Dayjs; data_fim?: dayjs.Dayjs }>();
   const accao = useAccao({ invalidar: [['activos']], aoSucesso: () => aoFechar() });
+  // Vista Linhas: uma afectação por linha (vários activos no mesmo projecto, ou o mesmo activo em períodos seguidos)
+  const projectos = useQuery({ queryKey: ['projectos', 'activos-resumo'], queryFn: () => obter<ProjectoResumo[]>('/projetos/ativos'), staleTime: 300_000, retry: false, enabled: aberto && !afectacao });
+  const campos: CampoFormulario[] = [
+    ...(activoId ? [] : [campoActivoLinhas()]),
+    { nome: 'projeto_id', rotulo: 'Projecto', tipo: 'select', obrigatorio: true, largura: 240, opcoes: (projectos.data ?? []).map((p) => ({ value: p.id, label: `${p.codigo ?? ''} — ${p.nome}` })) },
+    { nome: 'data_inicio', rotulo: 'Início', tipo: 'data', obrigatorio: true, omissao: () => dayjs().format('YYYY-MM-DD'), largura: 140 },
+    { nome: 'data_fim', rotulo: 'Fim', tipo: 'data', largura: 140, validar: fimAntesDoInicio },
+  ];
   useEffect(() => {
     if (!aberto) return;
     form.resetFields();
@@ -252,12 +273,16 @@ export function ModalAfectacao({ aberto, afectacao, activoId, aoFechar }: { aber
     );
   }, [aberto, afectacao, activoId, form]);
   return (
-    <Modal title={afectacao ? 'Editar afectação' : 'Afectar activo a projecto'} open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
+    <ModalFormulario chave="activos.afectacoes" titulo={afectacao ? 'Editar afectação' : 'Afectar activo a projecto'} aberto={aberto} aoFechar={aoFechar}
+      criacao={!afectacao} form={form} campos={campos} nomeRegistos="afectações" invalidar={[['activos']]} larguraLinhas={900}
+      gravarLinha={(r) => enviar('post', '/ativos/afetacoes', dadosAfectacao(activoId ? { ...r, ativo_imobilizado_id: activoId } : r))}
+      nota="Uma linha por afectação de um activo a um projecto. Linhas deixadas em branco são ignoradas."
+      onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending}>
       <Form
         form={form}
         layout="vertical"
         onFinish={(v) => {
-          const dados = { ...v, data_inicio: dataApi(v.data_inicio), data_fim: dataApi(v.data_fim) ?? null };
+          const dados = dadosAfectacao(v);
           accao.mutate(afectacao ? { metodo: 'put', url: `/ativos/afetacoes/${afectacao.id}`, dados } : { url: '/ativos/afetacoes', dados });
         }}
       >
@@ -276,6 +301,6 @@ export function ModalAfectacao({ aberto, afectacao, activoId, aoFechar }: { aber
           </Form.Item>
         </Space>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }

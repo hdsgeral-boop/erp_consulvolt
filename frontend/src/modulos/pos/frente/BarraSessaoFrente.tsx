@@ -15,13 +15,13 @@ const MODOS: Record<string, { cor: string; icone: string }> = {
 
 const distintivo = (cor: string): CSSProperties => ({
   background: `${cor}26`, color: cor, border: `1px solid ${cor}40`, fontWeight: 800, fontSize: '0.8rem', padding: '0.35rem 0.85rem',
-  borderRadius: 20, display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap',
+  borderRadius: 4, display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap',
 });
 const separador = <span aria-hidden style={{ width: 1, background: '#cbd5e1', height: 20, margin: '0 0.25rem' }} />;
 const pilula = (fundo: string, borda: string, cor: string): CSSProperties => ({
-  background: fundo, border: `1px solid ${borda}`, borderRadius: 12, padding: '2px 8px', fontSize: '0.75rem', color: cor, display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
+  background: fundo, border: `1px solid ${borda}`, borderRadius: 4, padding: '2px 8px', fontSize: '0.75rem', color: cor, display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
 });
-const botao: CSSProperties = { borderRadius: 20, padding: '0.35rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' };
+const botao: CSSProperties = { borderRadius: 4, padding: '0.35rem 0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' };
 
 /**
  * Parte esquerda da barra superior da frente de caixa (renderPOSTab + ajustarEcraPOS do legado): «Modo: Loja», terminal

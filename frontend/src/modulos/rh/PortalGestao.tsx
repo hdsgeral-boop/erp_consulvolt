@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { SeccaoFormulario } from '@/componentes/formularios';
 import { BotoesExportar } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -18,7 +19,7 @@ import { accoesPedidoRh } from './comum/regras';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
-import { TabelaComModos } from '@/componentes/vistas';
+import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 const ESTADOS_PEDIDO = ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'];
 
 /** RH › Pedidos do Portal (ecrã rh_portal_gestao): decidir pedidos, emitir documentos, modelos e ligações utilizador ↔ colaborador. */
@@ -54,6 +55,9 @@ function Pedidos() {
   const decisao = Form.useWatch('decisao', formD);
   const q = useQuery({ queryKey: ['rh', 'portal', 'pedidos', { estado, tipo, colaborador }], queryFn: () => obter<PedidoPortal[]>('/rh/portal/pedidos', { estado, tipo, colaborador_id: colaborador }) });
   useAvisarErro(q.error);
+  // indicadores do antigo (portal_ui.js:850): contados sobre todos os pedidos, independentemente dos filtros
+  const todos = useQuery({ queryKey: ['rh', 'portal', 'pedidos', 'todos'], queryFn: () => obter<PedidoPortal[]>('/rh/portal/pedidos') });
+  const contar = (e: string) => (todos.data ?? []).filter((p) => p.estado === e).length;
   const proposta = useQuery({ queryKey: ['rh', 'portal', 'proposta', emitir?.id], queryFn: () => obter<PropostaDocumento>(`/rh/portal/pedidos/${emitir?.id}/proposta`), enabled: emitir !== null, gcTime: 0 });
   const accao = useAccaoRh(() => { setDecidir(null); setEmitir(null); });
 
@@ -94,6 +98,12 @@ function Pedidos() {
   const dadosD = (decidir?.dados ?? {}) as Record<string, unknown>;
   return (
     <Card>
+      <GrelhaKpi larguraMinima={170} style={{ marginBottom: 16 }}>
+        <CartaoKpi barra="nenhuma" rotulo="A aguardar o RH" valor={contar('PENDENTE_RH')} aoClicar={() => setEstado('PENDENTE_RH')} activo={estado === 'PENDENTE_RH'} />
+        <CartaoKpi barra="nenhuma" rotulo="A aguardar chefias" valor={contar('PENDENTE_CHEFIA')} aoClicar={() => setEstado('PENDENTE_CHEFIA')} activo={estado === 'PENDENTE_CHEFIA'} />
+        <CartaoKpi barra="nenhuma" rotulo="Documentos emitidos" valor={contar('EMITIDO')} aoClicar={() => setEstado('EMITIDO')} activo={estado === 'EMITIDO'} />
+        <CartaoKpi barra="nenhuma" rotulo="Recusados" valor={contar('RECUSADO')} aoClicar={() => setEstado('RECUSADO')} activo={estado === 'RECUSADO'} />
+      </GrelhaKpi>
       <BarraFiltros style={{ marginBottom: 12 }} accoes={
         <BotoesExportar desactivado={!q.data?.length} obterPedido={() => pedidoTabela({
           titulo: 'Pedidos do Portal do Colaborador',
@@ -207,21 +217,31 @@ function Modelos() {
         },
       ]} />
       <Modal title={edicao === 'novo' ? 'Novo modelo' : 'Editar modelo'} open={edicao !== null} width={larguraModal(860)} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+        {/* Grade com secções (um modelo de cada vez: textos longos, sem vista Linhas); as menos usadas ficam fechadas */}
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'put', url: '/rh/portal/modelos', dados: v })}>
-          <Row gutter={12}>
-            <Col xs={24} sm={12} md={8}><Form.Item name="codigo" label="Código" rules={[{ pattern: /^[A-Z0-9_]+$/, message: 'Maiúsculas, números e _.' }]} extra="Vazio = gerado."><Input maxLength={50} disabled={edicao !== 'novo'} /></Form.Item></Col>
-            <Col xs={24} md={16}><Form.Item name="nome" label="Nome" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
-            <Col xs={24}><Form.Item name="titulo" label="Título" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
-            <Col xs={24}><Form.Item name="texto" label="Texto" rules={[{ required: true, min: 30 }]}><Input.TextArea rows={8} maxLength={20000} /></Form.Item></Col>
-            <Col xs={24} sm={12} md={8}><Form.Item name="assinante" label="Assinante"><Input maxLength={255} /></Form.Item></Col>
-            <Col xs={24} sm={12} md={8}><Form.Item name="cargo_assinante" label="Cargo"><Input maxLength={255} /></Form.Item></Col>
-            <Col xs={24} sm={12} md={8}><Form.Item name="local" label="Local"><Input maxLength={255} /></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item name="ativo" valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
-            <Col xs={24} md={12}><Form.Item name="auto_emitir" valuePropName="checked"><Checkbox>Emissão automática (sem variáveis em falta e com assinante)</Checkbox></Form.Item></Col>
-          </Row>
+          <SeccaoFormulario titulo="Identificação">
+            <Row gutter={12}>
+              <Col xs={24} sm={12} md={8}><Form.Item name="codigo" label="Código" rules={[{ pattern: /^[A-Z0-9_]+$/, message: 'Maiúsculas, números e _.' }]} extra="Vazio = gerado."><Input maxLength={50} disabled={edicao !== 'novo'} /></Form.Item></Col>
+              <Col xs={24} md={16}><Form.Item name="nome" label="Nome" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item></Col>
+            </Row>
+          </SeccaoFormulario>
+          <SeccaoFormulario titulo="Documento">
+            <Form.Item name="titulo" label="Título" rules={[{ required: true }]}><Input maxLength={255} /></Form.Item>
+            <Form.Item name="texto" label="Texto" rules={[{ required: true, min: 30 }]}><Input.TextArea rows={8} maxLength={20000} /></Form.Item>
+          </SeccaoFormulario>
+          <SeccaoFormulario titulo="Assinatura e emissão" recolhida={edicao !== 'novo'}>
+            <Row gutter={12}>
+              <Col xs={24} sm={12} md={8}><Form.Item name="assinante" label="Assinante"><Input maxLength={255} /></Form.Item></Col>
+              <Col xs={24} sm={12} md={8}><Form.Item name="cargo_assinante" label="Cargo"><Input maxLength={255} /></Form.Item></Col>
+              <Col xs={24} sm={12} md={8}><Form.Item name="local" label="Local"><Input maxLength={255} /></Form.Item></Col>
+              <Col xs={24} md={12}><Form.Item name="ativo" valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
+              <Col xs={24} md={12}><Form.Item name="auto_emitir" valuePropName="checked"><Checkbox>Emissão automática (sem variáveis em falta e com assinante)</Checkbox></Form.Item></Col>
+            </Row>
+          </SeccaoFormulario>
         </Form>
-        <Typography.Text strong>Variáveis disponíveis</Typography.Text>
-        <div style={{ marginTop: 4 }}>{Object.entries(q.data?.variaveis ?? {}).map(([k, r]) => <Tag key={k} title={r} style={{ marginBottom: 4 }}>{`{{${k}}}`}</Tag>)}</div>
+        <SeccaoFormulario titulo="Variáveis disponíveis" recolhida>
+          <div>{Object.entries(q.data?.variaveis ?? {}).map(([k, r]) => <Tag key={k} title={r} style={{ marginBottom: 4 }}>{`{{${k}}}`}</Tag>)}</div>
+        </SeccaoFormulario>
       </Modal>
     </Card>
   );

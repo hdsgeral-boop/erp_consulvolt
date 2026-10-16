@@ -4,7 +4,7 @@
  * Endpoints: GET /config/plano-contas/uso · POST /config/plano-contas/copiar[/simular] · POST /config/plano-contas/importar
  * · GET /sistema/migracao/modelos/plano_contas (modelo).
  */
-import { Alert, Button, Modal, Select, Space, Table, Tag, Typography, Upload, message } from 'antd';
+import { Alert, Button, Modal, Select, Space, Table, Tag, Typography, Upload, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { descarregar, enviar, obter } from '@/api/cliente';
@@ -60,6 +60,7 @@ export function CopiarOutraEmpresa({ aberto, aoFechar }: { aberto: boolean; aoFe
   const { empresas, empresa } = useSessao();
   const cliente = useQueryClient();
   const outras = empresas.filter((e) => e.id !== empresa?.id);
+  const { token } = theme.useToken();
   const [origem, setOrigem] = useState<number | undefined>();
   const previa = useQuery({
     queryKey: ['config', 'plano-contas', 'copiar', empresa?.id, origem],
@@ -131,9 +132,9 @@ export function CopiarOutraEmpresa({ aberto, aoFechar }: { aberto: boolean; aoFe
       {previa.error && <Alert style={{ marginTop: 12 }} type="error" showIcon message={(previa.error as Error).message} />}
       {p && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ background: 'var(--erp-fundo-suave, #f1f5f9)', borderRadius: 8, padding: '0.6rem 1rem' }}>
+          <div style={{ background: token.colorFillAlter, borderRadius: 4, padding: '0.6rem 1rem' }}>
             <strong>{formatarNumero(p.registos_origem)}</strong> na origem · <strong style={{ color: '#16a34a' }}>{formatarNumero(p.novas)} novos</strong> a copiar ·{' '}
-            <strong style={{ color: '#64748b' }}>{formatarNumero(p.existentes)} já existem</strong>
+            <strong style={{ color: token.colorTextSecondary }}>{formatarNumero(p.existentes)} já existem</strong>
           </div>
           {p.amostra.length > 0 && (
             <Table

@@ -108,6 +108,10 @@ export const UNICOS = [
   ['configuracoes_rh', ['empresa_id', 'chave']],
   ['tokens_bi', ['hash_token']],
   ['preferencias_utilizador', ['utilizador_id', 'tipo', 'nome']],
+  // ADR-071 (Fase D): cartas de pagamento — um modelo predefinido por empresa e tipo; numeração CP AAAA/NNN por empresa e ano
+  // (só as cartas numeradas: as antigas do RH não têm número). Antes só na migração 2026_10_15_700100_fd_cartas_modelos_numeracao.
+  ['modelos_cartas_pagamento', ['empresa_id', 'tipo'], 'predefinido'],
+  ['cartas_pagamento_bancario', ['empresa_id', 'ano', 'sequencia'], 'ano IS NOT NULL AND sequencia IS NOT NULL'],
 ];
 
 // Chaves candidatas que o backup VIOLA: ficam como índice normal + relatório de validação (ADR-015).
@@ -180,7 +184,7 @@ export const PIVOS = [
   { tabela: 'contratos_fornecedores_encomendas', de: ['contratos_fornecedores', 'encomendas_ids'], a: ['encomendas_compra', 'encomenda_compra_id'], chave: 'contrato_fornecedor_id' },
 ];
 
-// Colunas novas do desenho (não existem no legado).
+// Colunas novas do desenho (não existem no legado): [nome, tipo, tabela da FK | null, nota, { padrao, nulo: false }?].
 export const COLUNAS_NOVAS = {
   // ADR-055: fotografia do Relatório e Contas concluído (legado: annual_reports.snapshot/completed_em/completed_por, js/relatorio_contas.js:1179-1181)
   relatorios_anuais_contas: [
@@ -346,7 +350,8 @@ export const COLUNAS_NOVAS = {
   // ADR-071 (Fase A): moeda da conta bancária do terceiro (o legado não a grava; opcional)
   contas_bancarias_terceiros: [['codigo_moeda', 'varchar(10)', null, 'Moeda da conta (opcional)']],
   // ADR-071 (Fase D): vários modelos de carta por tipo, com nome e um predefinido por empresa e tipo
-  modelos_cartas_pagamento: [['nome', 'varchar(100)', null, 'Nome do modelo (sistema novo)'], ['predefinido', 'boolean', null, 'Modelo usado por omissão no tipo']],
+  modelos_cartas_pagamento: [['nome', 'varchar(100)', null, 'Nome do modelo (sistema novo)'],
+    ['predefinido', 'boolean', null, 'Modelo usado por omissão no tipo (um por empresa e tipo)', { padrao: false, nulo: false }]],
   // ADR-071 (Fase B): processamento em que a prestação foi descontada e quem a importou (o legado só grava payroll_entry_id)
   prestacoes_emprestimos: [
     ['periodo_processamento_salarial_id', 'bigint', 'periodos_processamento_salarial', 'Processamento salarial em que a prestação foi descontada'],

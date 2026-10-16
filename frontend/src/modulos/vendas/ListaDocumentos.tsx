@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Flex, Input, List, Modal, Select, Space, Tag, Tooltip, Typography, message } from 'antd';
+import { Button, Card, DatePicker, Flex, Input, List, Modal, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
 import { CheckCircleTwoTone } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -65,6 +65,7 @@ const ROTULO_ESTADO: Record<string, string> = { PAGO: 'Pago', PARCIAL: 'Parcial'
  * Ações) e a linha TOTAL. DECIDIDO (4.2.2): lista completa paginada (não só o último documento até «Buscar»).
  */
 export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos }) {
+  const { token } = theme.useToken();
   const navegar = useNavigate();
   const consulta = useQueryClient();
   const { pode } = useSessao();
@@ -249,7 +250,7 @@ export function ListaDocumentos({ grupo = 'faturas' }: { grupo?: GrupoDocumentos
 
   return (
     <>
-      <Card style={{ marginBottom: 16, background: '#f8fafc', borderRadius: 15 }} styles={{ body: { paddingBottom: 8 } }}>
+      <Card style={{ marginBottom: 16, background: token.colorFillAlter }} styles={{ body: { paddingBottom: 8 } }}>
         <BarraFiltros
           accoes={
             <Space wrap>

@@ -108,13 +108,21 @@ final class EstruturaController extends Controller
     {
         $this->exigir('funcoes_view', 'colaboradores_view', 'est_estrutura_view');
 
-        return RespostaApi::sucesso(CargoFuncao::query()->ordenarPorNome()->get(), 'Cargos e funções.');
+        // #10 (Versão Actual): com os cargos da estrutura orgânica que usam cada função («Unidade — título»)
+        $unidades = UnidadeOrganica::query()->withTrashed()->pluck('nome', 'id');
+        $usos = PostoTrabalho::query()->whereNotNull('cargo_funcao_id')->orderBy('unidade_organica_id')->orderBy('ordem')->orderBy('id')
+            ->get(['id', 'cargo_funcao_id', 'unidade_organica_id', 'titulo'])->groupBy('cargo_funcao_id');
+
+        return RespostaApi::sucesso(CargoFuncao::query()->ordenarPorNome()->get()->map(fn ($c) => $c->toArray() + ['cargos_estrutura' => ($usos[$c->id] ?? collect())
+            ->map(fn ($p) => trim(($unidades[$p->unidade_organica_id] ?? '—').($p->titulo ? " — {$p->titulo}" : '')))->values()->all()]), 'Cargos e funções.');
     }
 
     public function guardarCargo(Request $r, ?int $cargo = null): JsonResponse
     {
         $this->exigir('rh_funcoes_gerir', 'est_editar');
-        $d = $r->validate(['nome' => ['required', 'string', 'max:255'], 'descricao' => ['nullable', 'string', 'max:5000']]);
+        $d = $r->validate(['nome' => ['required', 'string', 'max:255'], 'descricao' => ['nullable', 'string', 'max:5000'],
+            // #10 (Versão Actual): objectivo geral e principais responsabilidades (uma por linha) — saem na Cláusula 1.ª do contrato
+            'objetivo_geral' => ['nullable', 'string', 'max:5000'], 'responsabilidades' => ['nullable', 'string', 'max:10000']]);
         $c = $cargo ? CargoFuncao::query()->findOrFail($cargo) : null;
         $res = $this->estrutura->guardarCargo($d, $c);
 

@@ -5,6 +5,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { TIPOS_TERMINAL, useTerminais } from './comum/dados';
 import { gravarPreferenciasFrente, lerPreferenciasFrente, type PreferenciasFrente } from './comum/frente';
 import { accoesFrente } from './comum/regras';
+import { useCoresPos } from './comum/cores';
 import { AberturaCaixa } from './frente/AberturaCaixa';
 import { AvisoSessoesAntigas } from './frente/AvisoSessoesAntigas';
 import { BarraSessaoFrente } from './frente/BarraSessaoFrente';
@@ -47,12 +48,13 @@ export default function FrenteCaixa() {
 
 /** Cartão de entrada do legado (renderPOS separador «Frente de Caixa», js/ui_sales.js:158-172). */
 function EntradaPOS({ aoIniciar }: { aoIniciar: () => void }) {
+  const cores = useCoresPos();
   return (
-    <div style={{ padding: '3rem 1.5rem', textAlign: 'center', background: 'var(--ant-color-bg-container, #fff)', borderRadius: 20, boxShadow: '0 10px 30px rgba(0,0,0,0.03)', maxWidth: 600, margin: '2rem auto' }}>
+    <div style={{ padding: '3rem 1.5rem', textAlign: 'center', background: cores.fundo, borderRadius: 4, boxShadow: '0 10px 30px rgba(0,0,0,0.03)', maxWidth: 600, margin: '2rem auto' }}>
       <div style={{ width: 80, height: 80, background: 'rgba(16,185,129,0.1)', color: '#10b981', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', fontSize: '2.5rem' }}>
         <IconeFa nome="cash-register" />
       </div>
-      <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.75rem' }}>Frente de Caixa Imersiva</h3>
+      <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: cores.texto, marginBottom: '0.75rem' }}>Frente de Caixa Imersiva</h3>
       <p style={{ color: '#64748b', marginBottom: '2rem', fontSize: '0.95rem', lineHeight: 1.6, maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
         Inicie o ponto de venda dedicado para o registo rápido de vendas. Optimizado para ecrãs tácteis, computadores, tablets ou dispositivos móveis.
       </p>
@@ -60,7 +62,7 @@ function EntradaPOS({ aoIniciar }: { aoIniciar: () => void }) {
         type="button"
         onClick={aoIniciar}
         autoFocus
-        style={{ background: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: '1rem', padding: '0.85rem 2.5rem', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 10px 20px -3px rgba(16,185,129,0.3)' }}
+        style={{ background: '#10b981', color: '#fff', border: 'none', fontWeight: 700, fontSize: '1rem', padding: '0.85rem 2.5rem', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', boxShadow: '0 10px 20px -3px rgba(16,185,129,0.3)' }}
       >
         <IconeFa nome="external-link-alt" /> Iniciar Ponto de Venda (POS)
       </button>

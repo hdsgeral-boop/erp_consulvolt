@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Flex, Row, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Flex, Row, Typography, message, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -59,6 +59,9 @@ export const COLUNAS_SAFT: ColunaLegado<LinhaSaft>[] = [
  */
 export function EcraSaft() {
   const { pode } = useSessao();
+  // cores do tema onde o antigo escrevia cinzentos claros (tela nocturna); raios a 4 px, como a regra global do antigo
+  const { token } = theme.useToken();
+  const rotuloCampo = { display: 'block', fontSize: 12, fontWeight: 800, color: token.colorTextSecondary, textTransform: 'uppercase', marginBottom: 6 } as const;
   const [datas, setDatas] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs().endOf('month')]);
   const [periodo, setPeriodo] = useState<{ inicio: string; fim: string }>({ inicio: dataApi(datas[0]) as string, fim: dataApi(datas[1]) as string });
   const [aGerar, setAGerar] = useState(false);
@@ -100,7 +103,7 @@ export function EcraSaft() {
 
   return (
     <>
-      <div style={{ background: 'linear-gradient(135deg, #db2777 0%, #be185d 100%)', color: '#fff', borderRadius: 20, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: 'linear-gradient(135deg, #db2777 0%, #be185d 100%)', color: '#fff', borderRadius: 4, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
         <IconeFa nome="file-code" style={{ position: 'absolute', right: -10, bottom: -20, fontSize: 120, opacity: 0.12, transform: 'rotate(-15deg)' }} />
         <h3 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 800, color: '#fff' }}><IconeFa nome="file-invoice-dollar" /> Ficheiro Fiscal SAFT-AO</h3>
         <p style={{ margin: 0, fontSize: 14, opacity: 0.95, maxWidth: 650 }}>
@@ -108,21 +111,21 @@ export function EcraSaft() {
         </p>
       </div>
 
-      <Card style={{ borderRadius: 20, marginBottom: 24 }}>
+      <Card style={{ marginBottom: 24 }}>
         <h4 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           <IconeFa nome="filter" style={{ color: ROSA }} /> Parâmetros do Lote de Faturação
         </h4>
         <Row gutter={16}>
           <Col xs={24} sm={12}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }} htmlFor="saft-inicio">Data de Início</label>
+            <label style={rotuloCampo} htmlFor="saft-inicio">Data de Início</label>
             <DatePicker id="saft-inicio" format="DD/MM/YYYY" allowClear={false} value={datas[0]} onChange={(d) => d && setDatas([d, datas[1]])} style={{ width: '100%' }} />
           </Col>
           <Col xs={24} sm={12}>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }} htmlFor="saft-fim">Data de Fim</label>
+            <label style={rotuloCampo} htmlFor="saft-fim">Data de Fim</label>
             <DatePicker id="saft-fim" format="DD/MM/YYYY" allowClear={false} value={datas[1]} onChange={(d) => d && setDatas([datas[0], d])} style={{ width: '100%' }} />
           </Col>
         </Row>
-        <Flex justify="space-between" wrap gap={12} style={{ borderTop: '1px solid #f1f5f9', marginTop: 20, paddingTop: 20 }}>
+        <Flex justify="space-between" wrap gap={12} style={{ borderTop: `1px solid ${token.colorSplit}`, marginTop: 20, paddingTop: 20 }}>
           <Button icon={<IconeFa nome="search-dollar" />} loading={analise.isFetching} onClick={analisar} disabled={datas[0].isAfter(datas[1])}>Analisar Registos</Button>
           <Button type="primary" icon={<IconeFa nome="file-download" />} loading={aGerar} onClick={() => void gerar()} disabled={datas[0].isAfter(datas[1])}>Gerar e Descarregar XML</Button>
         </Flex>
@@ -132,8 +135,8 @@ export function EcraSaft() {
       {analise.error ? (
         <Alert type="error" showIcon message="Não foi possível analisar os registos." description={analise.error.message} />
       ) : s && analise.data ? (
-        <Card style={{ borderRadius: 20 }}>
-          <h4 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
+        <Card>
+          <h4 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${token.colorSplit}`, paddingBottom: 12 }}>
             <IconeFa nome="chart-bar" style={{ color: ROSA }} /> Sumário do Lote Fiscal
             <Typography.Text type="secondary" style={{ fontWeight: 400, textTransform: 'none', marginLeft: 8 }}>
               {formatarData(analise.data.periodo.inicio)} a {formatarData(analise.data.periodo.fim)}
@@ -141,23 +144,23 @@ export function EcraSaft() {
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 16, marginBottom: 20 }}>
             {[
-              ['Faturas', s.faturas, '#1e293b'],
+              ['Faturas', s.faturas, token.colorText],
               ['Notas CRÉDITO', s.notas_credito, '#ef4444'],
               ['Clientes', s.clientes, '#3b82f6'],
               ['Artigos', s.artigos, '#7c3aed'],
             ].map(([r, v, cor]) => (
-              <div key={r as string} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 14, padding: 16, textAlign: 'center' }}>
-                <span style={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 800, display: 'block', marginBottom: 4 }}>{r}</span>
+              <div key={r as string} style={{ background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, padding: 16, textAlign: 'center' }}>
+                <span style={{ fontSize: 11, color: token.colorTextSecondary, textTransform: 'uppercase', fontWeight: 800, display: 'block', marginBottom: 4 }}>{r}</span>
                 <strong style={{ fontSize: 22, color: cor as string, fontWeight: 800 }}>{v}</strong>
               </div>
             ))}
           </div>
-          <div style={{ background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, color: '#451a03', fontWeight: 600 }}>
-            <Flex justify="space-between" style={{ borderBottom: '1px dashed #fde68a', paddingBottom: 6 }}><span>Total Líquido do Lote:</span><span style={{ color: '#1e293b', fontWeight: 700 }}>{formatarKz(s.total_liquido)} Kz</span></Flex>
-            <Flex justify="space-between" style={{ borderBottom: '1px dashed #fde68a', paddingBottom: 6 }}><span>Total IVA Liquidado:</span><span style={{ color: '#059669', fontWeight: 700 }}>{formatarKz(s.total_imposto)} Kz</span></Flex>
-            <Flex justify="space-between" style={{ fontSize: 16, fontWeight: 900, color: '#1e293b' }}><span>Valor Bruto Total a Declarar:</span><span style={{ color: ROSA }}>{formatarKz(s.total_bruto)} Kz</span></Flex>
+          <div style={{ background: token.colorWarningBg, border: `1px solid ${token.colorWarningBorder}`, borderRadius: 4, padding: 16, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, color: token.colorText, fontWeight: 600 }}>
+            <Flex justify="space-between" style={{ borderBottom: `1px dashed ${token.colorWarningBorder}`, paddingBottom: 6 }}><span>Total Líquido do Lote:</span><span style={{ fontWeight: 700 }}>{formatarKz(s.total_liquido)} Kz</span></Flex>
+            <Flex justify="space-between" style={{ borderBottom: `1px dashed ${token.colorWarningBorder}`, paddingBottom: 6 }}><span>Total IVA Liquidado:</span><span style={{ color: '#059669', fontWeight: 700 }}>{formatarKz(s.total_imposto)} Kz</span></Flex>
+            <Flex justify="space-between" style={{ fontSize: 16, fontWeight: 900 }}><span>Valor Bruto Total a Declarar:</span><span style={{ color: ROSA }}>{formatarKz(s.total_bruto)} Kz</span></Flex>
           </div>
-          <div style={{ marginTop: 24, borderTop: '1px solid #e2e8f0', paddingTop: 20 }}>
+          <div style={{ marginTop: 24, borderTop: `1px solid ${token.colorSplit}`, paddingTop: 20 }}>
             <h4 style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 800 }}><IconeFa nome="table" /> Dados Detalhados</h4>
             <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
               Uma linha por artigo de cada documento que consta do ficheiro SAF-T (use «Excel» para exportar).

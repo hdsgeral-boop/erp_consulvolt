@@ -2,15 +2,30 @@ import { Alert, Button, Checkbox, DatePicker, Form, Input, List, Modal, Popconfi
 import { CheckOutlined, DeleteOutlined, EditOutlined, MailOutlined, RollbackOutlined } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { enviar } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarData } from '@/utilitarios/formatacao';
+import { formatarData } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
+import { ModalFormulario } from '@/componentes/formularios';
+import { camposActividade, dadosActividade } from './formularios';
 import { CHAVE_CRM, useConfigCRM, useContasPesquisa, useModelosEmail } from './dados';
 import { NIVEIS_SAUDE, abrirMailto, exigeMotivo, type Actividade, type Envio, type Etapa, type MensagemEmail, type Saude } from './tipos';
 import { larguraModal } from '@/componentes/responsivo';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
+
+/**
+ * Indicador do CRM (.crm-kpi do antigo, crm_ui.js:88-90): caixa simples com moldura, rótulo, valor e linha pequena — sem
+ * ícone nem barra de cor —, em grelha de colunas com pelo menos 190 px.
+ */
+export function KpiCrm({ rotulo, valor, secundaria, corSecundaria }: { rotulo: ReactNode; valor: ReactNode; secundaria?: ReactNode; corSecundaria?: string }) {
+  return <CartaoKpi rotulo={rotulo} valor={valor} secundaria={corSecundaria ? <span style={{ color: corSecundaria, fontWeight: 700 }}>{secundaria}</span> : secundaria} barra="nenhuma" cor="cinzento" />;
+}
+
+export function GrelhaKpiCrm({ children }: { children: ReactNode }) {
+  return <GrelhaKpi larguraMinima={190} style={{ marginBottom: 12 }}>{children}</GrelhaKpi>;
+}
 
 export function TagSaude({ saude }: { saude: Saude | null | undefined }) {
   if (!saude) return null;
@@ -124,8 +139,25 @@ export function ModalActividade({
     if (actividade === 'nova') form.setFieldsValue({ tipo: 'TAREFA', data_prevista: dayjs(), responsavel: utilizador?.nome_utilizador });
     else form.setFieldsValue({ ...actividade, titulo: actividade.titulo ?? undefined, descricao: actividade.descricao ?? undefined, responsavel: actividade.responsavel ?? undefined, data_prevista: actividade.data_prevista ? dayjs(actividade.data_prevista) : null, concluida: !!actividade.concluida });
   }, [actividade, form, utilizador]);
+  const campos = useMemo(() => camposActividade(config.data?.tipos_atividade ?? {}, utilizador?.nome_utilizador), [config.data, utilizador]);
   return (
-    <Modal open={!!actividade} title={actividade === 'nova' ? 'Nova actividade' : 'Editar actividade'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+    <ModalFormulario
+      chave="crm.atividades"
+      titulo={actividade === 'nova' ? 'Nova actividade' : 'Editar actividade'}
+      aberto={!!actividade}
+      aoFechar={aoFechar}
+      criacao={actividade === 'nova'}
+      form={form}
+      campos={campos}
+      nomeRegistos="actividades"
+      invalidar={[CHAVE_CRM]}
+      gravarLinha={(r) => enviar('post', '/crm/atividades', dadosActividade(r, contexto ?? {}))}
+      nota="Uma linha por actividade (chamada, email, reunião, tarefa, nota), ligada ao mesmo registo. Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário."
+      okText="Gravar"
+      cancelText="Cancelar"
+      confirmLoading={accao.isPending}
+      onOk={() => form.submit()}
+    >
       <Form
         form={form}
         layout="vertical"
@@ -134,7 +166,7 @@ export function ModalActividade({
           accao.mutate({
             metodo: actividade === 'nova' ? 'post' : 'put',
             url: actividade === 'nova' ? '/crm/atividades' : `/crm/atividades/${actividade!.id}`,
-            dados: { ...base, ...v, data_prevista: dataApi(v.data_prevista) ?? null },
+            dados: dadosActividade(v as unknown as Record<string, unknown>, base),
           });
         }}
       >
@@ -159,7 +191,7 @@ export function ModalActividade({
           <Checkbox>Já concluída</Checkbox>
         </Form.Item>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 

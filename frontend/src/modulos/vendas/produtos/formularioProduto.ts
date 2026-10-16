@@ -1,3 +1,5 @@
+import type { CampoFormulario } from '@/componentes/formularios';
+
 /** Conversão entre a ficha do produto (ProdutoResource) e o formulário / corpo do pedido (GuardarProdutoRequest). */
 
 export interface ProdutoFicha {
@@ -127,4 +129,57 @@ export function corpoProduto(v: ValoresProduto): Record<string, unknown> {
       lavandaria_preco_kg: v.lavandaria_preco_kg ?? null,
     });
   return corpo;
+}
+
+/** Categoria: o mesmo corpo na grade, na edição e na vista Linhas. */
+export function corpoCategoria(v: Record<string, unknown>): { nome: string } {
+  return { nome: String(v.nome ?? '').trim() };
+}
+
+/** Vista Linhas das categorias (legado: formularios_linhas_config.js › categorias). */
+export const CAMPOS_CATEGORIA: CampoFormulario[] = [
+  { nome: 'nome', rotulo: 'Nome da categoria', obrigatorio: true, maxLength: 255, largura: 320, aliases: ['Nome', 'Categoria'] },
+];
+
+const SIM_NAO = [{ value: 'S', label: 'Sim' }, { value: 'N', label: 'Não' }];
+
+const CONTAS_LINHAS: [keyof ValoresProduto, string, string[]][] = [
+  ['codigo_conta', 'Conta de venda/receita', ['Conta_Venda_Receita', 'Conta de Receita']],
+  ['conta_custo', 'Conta de custo', ['Conta_Custo']],
+  ['conta_iva_liquidado', 'IVA liquidado', ['Conta_IVA']],
+  ['conta_iva_dedutivel', 'IVA dedutível', []],
+  ['conta_compra', 'Conta de compras', ['Conta_Compras']],
+  ['conta_inventario', 'Conta de existências', ['Conta_Existencias']],
+];
+
+/**
+ * Vista Linhas dos produtos e serviços (legado: formularios_linhas_config.js › produtos — código, nome, preço, IVA,
+ * categoria, gerir stock e contas). O «stock inicial» do legado não entra: aqui o stock só muda por movimentos de inventário.
+ */
+export function camposProdutoLinhas(categorias: { id: number; nome: string }[]): CampoFormulario[] {
+  return [
+    { nome: 'codigo', rotulo: 'Código', obrigatorio: true, maxLength: 50, largura: 110, aliases: ['Codigo'] },
+    { nome: 'nome', rotulo: 'Nome do produto / serviço', obrigatorio: true, maxLength: 255, largura: 230, aliases: ['Nome'] },
+    { nome: 'preco_unitario', rotulo: 'Preço unitário', tipo: 'numero', min: 0, precisao: 2, largura: 110, aliases: ['Preco_Unitario', 'Preço'] },
+    { nome: 'taxa_imposto', rotulo: 'IVA %', tipo: 'numero', min: 0, max: 100, omissao: 14, largura: 80, aliases: ['Taxa_IVA', 'IVA', 'Taxa IVA'] },
+    { nome: 'categoria_produto_id', rotulo: 'Categoria', tipo: 'select', largura: 150, opcoes: categorias.map((c) => ({ value: c.id, label: c.nome })) },
+    { nome: 'movimenta_stock_sn', rotulo: 'Gerir stock', tipo: 'select', omissao: 'S', largura: 90, aliases: ['Gerir_Stock'], opcoes: SIM_NAO },
+    { nome: 'e_servico_sn', rotulo: 'Serviço', tipo: 'select', omissao: 'N', largura: 90, emLinhas: 'opcional', seccao: 'Tipo', opcoes: SIM_NAO },
+    ...CONTAS_LINHAS.map(([nome, rotulo, aliases]): CampoFormulario => ({ nome, rotulo, aliases, maxLength: 20, largura: 150, emLinhas: 'opcional', seccao: 'Contas', placeholder: 'Código da conta' })),
+    { nome: 'codigo_isencao_fe', rotulo: 'Motivo de isenção (AGT)', maxLength: 3, largura: 110, emLinhas: 'opcional', seccao: 'Dados fiscais (AGT)',
+      validar: (v) => (String(v ?? '').trim() && !/^[Mm]\d{2}$/.test(String(v).trim()) ? 'Motivo de isenção: código AGT (M00 a M99).' : null) },
+  ];
+}
+
+/** Linha da vista Linhas → corpo do pedido (pela mesma `corpoProduto` da grade). */
+export function corpoProdutoLinha(r: Record<string, unknown>): Record<string, unknown> {
+  const v: ValoresProduto = {
+    ...(r as ValoresProduto),
+    movimenta_stock: r.movimenta_stock_sn !== 'N',
+    e_servico: r.e_servico_sn === 'S',
+    e_quarto: false,
+    e_ativo_imobilizado: false,
+    lavandaria_ativa: false,
+  };
+  return corpoProduto(v);
 }

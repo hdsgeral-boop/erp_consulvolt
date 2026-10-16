@@ -69,13 +69,13 @@ interface PropsConta {
 }
 
 /**
- * Conta do plano (só contas de movimento). Sugere as contas do plano quando o utilizador as pode consultar;
+ * Conta do plano (só se escolhem contas de movimento; as totalizadoras aparecem bloqueadas). Sugere as contas do plano quando o utilizador as pode consultar;
  * caso contrário, aceita o código escrito (o servidor valida a conta).
  */
 export function SeletorConta({ value, onChange, prefixo, placeholder = 'Código da conta', disabled }: PropsConta) {
   const consulta = useQuery({
-    queryKey: ['plano', 'movimento', prefixo ?? ''],
-    queryFn: () => obter<{ codigo: string; descricao: string }[]>('/contabilidade/plano-contas', { prefixo, tipo: 'M' }),
+    queryKey: ['plano', 'contas', prefixo ?? ''],
+    queryFn: () => obter<{ codigo: string; descricao: string; tipo?: string | null }[]>('/contabilidade/plano-contas', { prefixo }),
     staleTime: 600_000,
     retry: false,
   });
@@ -86,7 +86,10 @@ export function SeletorConta({ value, onChange, prefixo, placeholder = 'Código 
       disabled={disabled}
       placeholder={placeholder}
       allowClear
-      options={(consulta.data ?? []).slice(0, 2000).map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao}` }))}
+      options={(consulta.data ?? []).slice(0, 2000).map((c) => {
+        const bloqueada = c.tipo != null && c.tipo !== 'M';
+        return { value: c.codigo, label: `${c.codigo} - ${c.descricao}${bloqueada ? ' (totalizadora — não pode ser mapeada)' : ''}`, disabled: bloqueada };
+      })}
       filterOption={(i, o) => String(o?.label ?? '').toLowerCase().includes(i.toLowerCase())}
     />
   );

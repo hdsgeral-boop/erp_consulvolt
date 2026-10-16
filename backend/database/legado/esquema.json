@@ -1,5 +1,5 @@
 {
-  "gerado_em": "2026-10-15T00:05:49.330Z",
+  "gerado_em": "2026-10-15T17:51:59.413Z",
   "tabelas": [
     {
       "tabela": "configuracoes_sistema",
@@ -9965,6 +9965,24 @@
           "dominio": null
         },
         {
+          "coluna": "motivo_termo",
+          "legado": "motivo_termo",
+          "tipo": "text",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
+          "coluna": "periodo_experimental_dias",
+          "legado": "periodo_experimental_dias",
+          "tipo": "integer",
+          "nulo": true,
+          "origem": "codigo",
+          "fk": null,
+          "dominio": null
+        },
+        {
           "coluna": "criado_em",
           "legado": null,
           "tipo": "timestamptz",
@@ -11026,7 +11044,16 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "ano",
+            "sequencia"
+          ],
+          "onde": "ano IS NOT NULL AND sequencia IS NOT NULL"
+        }
+      ],
       "checks": []
     },
     {
@@ -27868,7 +27895,7 @@
           "coluna": "predefinido",
           "legado": null,
           "tipo": "boolean",
-          "nulo": true,
+          "nulo": false,
           "origem": "novo",
           "fk": null,
           "dominio": null
@@ -27892,7 +27919,15 @@
           "dominio": null
         }
       ],
-      "unicos": [],
+      "unicos": [
+        {
+          "colunas": [
+            "empresa_id",
+            "tipo"
+          ],
+          "onde": "predefinido"
+        }
+      ],
       "checks": []
     },
     {

@@ -1,6 +1,6 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Skeleton, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Skeleton, Space, Table, Tag, Typography } from 'antd';
 import { tabelaHtml } from '@/componentes/impressao';
-import { EstadoVazio, type PropsEstadoVazio } from '@/componentes/vistas';
+import { CartaoKpi, CORES_KPI, EstadoVazio, GrelhaKpi, type PropsEstadoVazio } from '@/componentes/vistas';
 import { ArrowLeftOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import type { ColumnsType } from 'antd/es/table';
@@ -457,12 +457,15 @@ function DetalheSessao({ modo }: { modo: ModoInventario }) {
       </Card>
 
       {!emContagem && s.estado !== 'ANULADA' && (
-        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={12} md={6}><Card><Statistic title={`Sobras (${previsao.sobras.linhas})`} value={formatarKz(previsao.sobras.valor)} suffix="Kz" valueStyle={{ color: '#389e0d' }} /></Card></Col>
-          <Col xs={12} md={6}><Card><Statistic title={`Quebras (${previsao.quebras.linhas})`} value={formatarKz(previsao.quebras.valor)} suffix="Kz" valueStyle={{ color: '#cf1322' }} /></Card></Col>
-          <Col xs={12} md={6}><Card><Statistic title="Saldo da regularização" value={formatarKz(previsao.sobras.valor - previsao.quebras.valor)} suffix="Kz" /></Card></Col>
-          <Col xs={12} md={6}><Card><Statistic title="Diferenças por justificar" value={previsao.porJustificar} valueStyle={previsao.porJustificar ? { color: '#d48806' } : undefined} /></Card></Col>
-        </Row>
+        // resumo financeiro do legado (ui_inventory.js:756-770): artigos com diferença, quebras e sobras, barra à esquerda; saldo e
+        // diferenças por justificar são do sistema novo e ficam a seguir
+        <GrelhaKpi larguraMinima={200} style={{ marginBottom: 16 }}>
+          <CartaoKpi barra="esquerda" cor="laranja" rotulo="Artigos com Diferença" valor={previsao.sobras.linhas + previsao.quebras.linhas} />
+          <CartaoKpi barra="esquerda" cor="vermelho" rotulo={`Custo Global Quebras (${previsao.quebras.linhas})`} valor={formatarKz(previsao.quebras.valor)} unidade="Kz" corValor={CORES_KPI.vermelho} />
+          <CartaoKpi barra="esquerda" cor="verde" rotulo={`Custo Global Sobras (${previsao.sobras.linhas})`} valor={formatarKz(previsao.sobras.valor)} unidade="Kz" corValor={CORES_KPI.verde} />
+          <CartaoKpi barra="esquerda" cor="azul" rotulo="Saldo da regularização" valor={formatarKz(previsao.sobras.valor - previsao.quebras.valor)} unidade="Kz" />
+          <CartaoKpi barra="esquerda" cor={previsao.porJustificar ? 'laranja' : 'cinzento'} rotulo="Diferenças por justificar" valor={previsao.porJustificar} />
+        </GrelhaKpi>
       )}
 
       <Card

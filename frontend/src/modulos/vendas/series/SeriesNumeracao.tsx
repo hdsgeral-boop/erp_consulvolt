@@ -1,9 +1,10 @@
-import { Alert, Button, Card, Checkbox, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tag, Tooltip, Typography, theme } from 'antd';
 import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { useEffect, useMemo, useState } from 'react';
+import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { useAccao } from '@/componentes/Accoes';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -33,6 +34,17 @@ interface FormSerie {
  * série actual, «+ Nova série» e a tabela das séries. O número inicial só se atribui enquanto a série não emitiu nada;
  * uma série com documentos não se apaga, fecha-se. Gerir exige vendas_series_gerir (ou vendas_fe_config, de quem configura a AGT).
  */
+function CartaoTipoSerie({ tipo, nome, numero, nota, atribuida }: { tipo: string; nome: string; numero: string; nota: string; atribuida: boolean }) {
+  const { token } = theme.useToken();
+  return (
+    <div style={{ border: `1px solid ${atribuida ? token.colorSuccessBorder : token.colorWarningBorder}`, background: atribuida ? token.colorSuccessBg : token.colorWarningBg, borderRadius: 4, padding: '0.8rem 0.9rem' }}>
+      <Typography.Text type="secondary" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 700 }}>{tipo} · {nome}</Typography.Text>
+      <div style={{ fontSize: '1.05rem', fontWeight: 700, fontFamily: 'ui-monospace, monospace', margin: '0.35rem 0 0.15rem' }}>{numero}</div>
+      <Typography.Text style={{ fontSize: '0.8rem', color: atribuida ? token.colorSuccessText : token.colorWarningText }}>{nota}</Typography.Text>
+    </div>
+  );
+}
+
 export default function SeriesNumeracao() {
   const { pode } = useSessao();
   const podeGerir = pode('vendas_series_gerir', 'vendas_fe_config');
@@ -74,20 +86,12 @@ export default function SeriesNumeracao() {
             A série dá o número ao documento, no formato <code>TIPO SÉRIE/N</code> (ex.: <code>FT A{dados.ano}/1</code>). Pode atribuir o código e o número
             de arranque — útil para continuar a numeração que já vem de outro sistema ou de um livro.
           </Typography.Paragraph>
-          <Row gutter={[12, 12]}>
-            {dados.resumo.map((r) => {
-              const c = textoCartao(r, dados.regime);
-              return (
-                <Col xs={24} md={8} key={r.tipo}>
-                  <div style={{ border: `1px solid ${c.atribuida ? '#b7eb8f' : '#ffe58f'}`, background: c.atribuida ? '#f6ffed' : '#fffbe6', borderRadius: 6, padding: '10px 12px' }}>
-                    <Typography.Text type="secondary" style={{ fontSize: 12, textTransform: 'uppercase', fontWeight: 600 }}>{r.tipo} · {r.nome}</Typography.Text>
-                    <div style={{ fontSize: 17, fontWeight: 700, fontFamily: 'ui-monospace, monospace', margin: '4px 0 2px' }}>{c.numero}</div>
-                    <Typography.Text style={{ fontSize: 12, color: c.atribuida ? '#237804' : '#ad6800' }}>{c.nota}</Typography.Text>
-                  </div>
-                </Col>
-              );
-            })}
-          </Row>
+          {/* cartões do antigo (vendas_series.js:121-130): grelha auto-fit de 240 px, verde com série, âmbar sem série */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '0.9rem' }}>
+            {dados.resumo.map((r) => (
+              <CartaoTipoSerie key={r.tipo} tipo={r.tipo} nome={r.nome} {...textoCartao(r, dados.regime)} />
+            ))}
+          </div>
           <Alert
             style={{ marginTop: 12 }}
             type={dados.regime.ativo ? 'info' : undefined}
@@ -164,12 +168,62 @@ export default function SeriesNumeracao() {
         aGravar={accao.isPending}
         aoFechar={() => setEdicao(null)}
         aoGravar={(v) => {
-          const corpo = { ...v, estabelecimento: v.estabelecimento || null, codigo: v.codigo.trim() };
+          const corpo = dadosSerie(v as unknown as Record<string, unknown>);
           accao.mutate(edicao && edicao !== 'nova' ? { metodo: 'put', url: `/vendas/series/${edicao.id}`, dados: corpo } : { url: '/vendas/series', dados: corpo });
         }}
       />
     </>
   );
+}
+
+/**
+ * Corpo do pedido da série — o mesmo na grade e na vista Linhas. Nas linhas, o código em branco recebe o código sugerido
+ * (A<ano> ou <terminal><ano>), como a grade o preenche enquanto não é escrito à mão.
+ */
+export function dadosSerie(v: Record<string, unknown>): FormSerie {
+  const ano = Number(v.ano ?? dayjs().year());
+  const origem = String(v.origem || 'GERAL');
+  // grade: `codigo` (preenchido com a sugestão); linhas: `codigo_serie` (em branco = a sugestão da origem e do ano da linha)
+  const codigo = String(v.codigo ?? v.codigo_serie ?? '').trim() || codigoSugerido(origem, ano);
+  // grade: caixa de selecção (`contingencia`); linhas: Sim/Não (`contingencia_sn`)
+  const contingencia = v.contingencia === true || v.contingencia_sn === 'S';
+  return {
+    tipo: String(v.tipo ?? 'FT'),
+    ano,
+    origem,
+    codigo,
+    proximo_numero: v.proximo_numero === null || v.proximo_numero === undefined || v.proximo_numero === '' ? 1 : Number(v.proximo_numero),
+    estabelecimento: (v.estabelecimento as string | null | undefined) || null,
+    estado: v.estado === 'FECHADA' ? 'FECHADA' : 'ATIVA',
+    contingencia,
+  };
+}
+
+/** Colunas da vista Linhas das séries (as regras da grade: código, número inicial e uma só série activa por tipo, ano e origem). */
+export function camposSerie(dados: DadosSeries): CampoFormulario[] {
+  return [
+    { nome: 'tipo', rotulo: 'Tipo de documento', tipo: 'select', obrigatorio: true, omissao: 'FT', largura: 170, aliases: ['Tipo'],
+      opcoes: TIPOS_SERIE.map((t) => ({ value: t.tipo, label: `${t.tipo} — ${t.nome}` })) },
+    { nome: 'ano', rotulo: 'Ano', tipo: 'numero', obrigatorio: true, min: 2000, max: 2100, precisao: 0, omissao: () => dayjs().year(), largura: 90 },
+    { nome: 'origem', rotulo: 'Origem', tipo: 'select', obrigatorio: true, omissao: 'GERAL', largura: 170, opcoes: dados.origens.map((o) => ({ value: o.valor, label: o.rotulo })) },
+    { nome: 'codigo_serie', rotulo: 'Código da série', maxLength: 30, largura: 130, aliases: ['Código', 'Série'], placeholder: 'Sugerido',
+      validar: (c) => (String(c ?? '').trim() ? erroCodigo(String(c)) : null) },
+    { nome: 'proximo_numero', rotulo: 'Número de arranque', tipo: 'numero', min: 1, max: 99_999_999, precisao: 0, omissao: 1, largura: 120, aliases: ['Número inicial', 'Próximo n.º'],
+      validar: (n) => erroNumeroInicial(n as number | null) },
+    dados.estabelecimentos.length
+      ? { nome: 'estabelecimento', rotulo: 'Estabelecimento', tipo: 'select', largura: 150, omissao: dados.estabelecimentos[0]?.numero ?? null,
+          opcoes: dados.estabelecimentos.map((e) => ({ value: e.numero, label: e.nome ? `${e.numero} — ${e.nome}` : e.numero })) }
+      : { nome: 'estabelecimento', rotulo: 'Estabelecimento', maxLength: 20, largura: 120, emLinhas: 'opcional' },
+    { nome: 'estado', rotulo: 'Estado', tipo: 'select', omissao: 'ATIVA', largura: 120,
+      opcoes: [{ value: 'ATIVA', label: 'Activa' }, { value: 'FECHADA', label: 'Fechada' }],
+      validar: (_, r) => {
+        const d = dadosSerie(r);
+        const outra = outraActiva(dados.series, { tipo: d.tipo, ano: d.ano, origem: d.origem, estado: d.estado });
+        return outra ? `Já existe outra série activa para este tipo, ano e origem (${outra.codigo}).` : null;
+      } },
+    { nome: 'contingencia_sn', rotulo: 'Contingência', tipo: 'select', omissao: 'N', largura: 110, emLinhas: 'opcional', seccao: 'AGT',
+      opcoes: [{ value: 'N', label: 'Não' }, { value: 'S', label: 'Sim' }] },
+  ];
 }
 
 function FormularioSerie({ edicao, dados, aGravar, aoFechar, aoGravar }: {
@@ -208,19 +262,27 @@ function FormularioSerie({ edicao, dados, aGravar, aoFechar, aoGravar }: {
     form.setFieldValue('codigo', codigoSugerido(v.origem ?? 'GERAL', v.ano ?? dayjs().year()));
   };
   const previsao = proximoDocumento(tipo ?? 'FT', codigo, numero);
+  const campos = useMemo(() => camposSerie(dados), [dados]);
 
   return (
-    <Modal
+    <ModalFormulario
+      chave="vendas.series"
       width={larguraModal(640)}
-      title={serie ? `Alterar série ${serie.tipo} ${serie.codigo}` : 'Nova série'}
-      open={edicao !== null}
-      onCancel={aoFechar}
+      titulo={serie ? `Alterar série ${serie.tipo} ${serie.codigo}` : 'Nova série'}
+      aberto={edicao !== null}
+      aoFechar={aoFechar}
+      criacao={!serie}
+      form={form}
+      campos={campos}
+      nomeRegistos="séries"
+      invalidar={[CHAVE, ['vendas', 'fe', 'series']]}
+      gravarLinha={(r) => enviar('post', '/vendas/series', dadosSerie(r))}
+      nota="Uma linha por série (FT, FR ou NC). Código em branco = código sugerido (A<ano>, ou o do terminal). Só pode haver uma série activa por tipo, ano e origem. Linhas deixadas em branco são ignoradas."
       okText="Guardar série"
       cancelText="Cancelar"
       confirmLoading={aGravar}
       okButtonProps={{ disabled: !!conflito }}
       onOk={() => form.submit()}
-      destroyOnHidden
     >
       <Typography.Paragraph type="secondary">
         {serie && !livre
@@ -285,6 +347,6 @@ function FormularioSerie({ edicao, dados, aGravar, aoFechar, aoGravar }: {
       </Form>
       {conflito && <Alert type="error" showIcon message={`Já existe outra série activa para este tipo, ano e origem (${conflito.codigo}). Feche-a antes ou grave esta como fechada.`} />}
       <Alert style={{ marginTop: 8 }} type="info" message={previsao ? <>O próximo documento será <code style={{ fontWeight: 700 }}>{previsao}</code>.</> : 'Indique o código da série para ver o número.'} />
-    </Modal>
+    </ModalFormulario>
   );
 }

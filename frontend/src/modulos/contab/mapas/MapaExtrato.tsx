@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Collapse, DatePicker, Flex, Form, Input, Modal, Select, Space, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Collapse, DatePicker, Flex, Form, Input, Modal, Select, Space, Tag, Typography, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useRef, useState, type Key } from 'react';
@@ -69,6 +69,7 @@ function paraParametros(v: ValoresExtrato): Record<string, unknown> {
  * de movimentos e a regularização de diferenças.
  */
 export default function MapaExtrato() {
+  const { token } = theme.useToken();
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const abrir = useAbrirLancamento();
@@ -228,7 +229,7 @@ export default function MapaExtrato() {
         initialValues={{ ...TODO_HISTORICO, tipo: 'todos' }}
         onFinish={gerar}
         onValuesChange={(_, todos) => setCriterio(!!(todos.filtro_contas?.trim() || todos.terceiro_id))}
-        style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}
+        style={{ background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius, padding: '12px 16px', marginBottom: 16 }}
       >
         <Flex gap={12} wrap align="end">
           <Form.Item name="inicio" label="Data Inicial" style={{ marginBottom: 8 }}>
@@ -335,14 +336,14 @@ export default function MapaExtrato() {
           }
         />
       ) : (
-        <div ref={area} style={{ background: '#fff' }}>
+        <div ref={area} style={{ background: token.colorBgContainer }}>
           <Flex justify="space-between" align="center" wrap gap={8} style={{ marginBottom: 12 }}>
             <div>
               <Typography.Title level={5} style={{ margin: 0 }}>
                 Extrato de Conta Corrente
               </Typography.Title>
               <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                Exibindo <strong style={{ color: '#2563eb' }}>{movimentos.length}</strong> movimentos · Saldo inicial {formatarKz(d.saldo_inicial)} · Saldo final{' '}
+                Exibindo <strong style={{ color: token.colorPrimary }}>{movimentos.length}</strong> movimentos · Saldo inicial {formatarKz(d.saldo_inicial)} · Saldo final{' '}
                 <strong>{formatarKz(d.saldo_final)}</strong>
               </Typography.Text>
             </div>

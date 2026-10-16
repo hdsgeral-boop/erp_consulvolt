@@ -1,9 +1,10 @@
-import { Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, InputNumber, Space, Statistic, Table, Tag, Typography, Upload, message } from 'antd';
+import { Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, InputNumber, Space, Table, Tag, Typography, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BotoesExportar, pares } from '@/componentes/impressao';
+import { CartaoKpi, CORES_KPI, GrelhaKpi } from '@/componentes/vistas';
 import { scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -217,41 +218,60 @@ function SeparadorIva() {
     }
   };
 
+  // colunas pela ordem do legado (ui_reports.js:6542-6555): Data · Diário · NIF · Nome Terceiro · Nº Documento · Conta IVA ·
+  // Desc. Conta · Descrição do Lançamento · Total Documento · Base Sujeita · IVA Débito · IVA Crédito
   const colunas: ColunaApi<LinhaIva>[] = [
     { title: 'Data', dataIndex: 'data_documento', render: formatarData },
     { title: 'Diário', dataIndex: 'diario', responsive: ['md'] },
-    { title: 'Documento', dataIndex: 'numero_documento', render: (v: string | null) => v?.trim() },
-    { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string, r) => <span title={r.descricao_conta ?? ''}>{v}</span> },
     { title: 'NIF', dataIndex: 'nif', responsive: ['md'] },
-    { title: 'Terceiro', dataIndex: 'nome', ellipsis: true, width: 200, responsive: ['md'] },
-    { title: 'Total doc.', dataIndex: 'total_documento', align: 'right', render: (v: string) => <ValorKz valor={v} />, responsive: ['lg'], totalImpressao: () => formatarKz(d?.totais.total_documento) },
-    { title: 'Base', dataIndex: 'base', align: 'right', render: (v: string) => <ValorKz valor={v} />, totalImpressao: () => formatarKz(d?.totais.base) },
-    { title: 'IVA a débito', dataIndex: 'iva_debito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: () => formatarKz(d?.totais.iva_debito) },
-    { title: 'IVA a crédito', dataIndex: 'iva_credito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: () => formatarKz(d?.totais.iva_credito) },
+    { title: 'Nome Terceiro', dataIndex: 'nome', ellipsis: true, width: 200, responsive: ['md'] },
+    { title: 'Nº Documento', dataIndex: 'numero_documento', render: (v: string | null) => v?.trim() },
+    { title: 'Conta IVA', dataIndex: 'codigo_conta' },
+    { title: 'Desc. Conta', dataIndex: 'descricao_conta', ellipsis: true, responsive: ['xl'] },
+    { title: 'Descrição do Lançamento', dataIndex: 'descricao', ellipsis: true, responsive: ['lg'] },
+    { title: 'Total Documento', dataIndex: 'total_documento', align: 'right', render: (v: string) => <ValorKz valor={v} />, responsive: ['lg'], totalImpressao: () => formatarKz(d?.totais.total_documento) },
+    { title: 'Base Sujeita', dataIndex: 'base', align: 'right', render: (v: string) => <ValorKz valor={v} />, totalImpressao: () => formatarKz(d?.totais.base) },
+    { title: 'IVA Débito', dataIndex: 'iva_debito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: () => formatarKz(d?.totais.iva_debito) },
+    { title: 'IVA Crédito', dataIndex: 'iva_credito', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero />, totalImpressao: () => formatarKz(d?.totais.iva_credito) },
   ];
 
+  // ordem do legado (ui_reports.js:6479-6490): Estado · NIF · Nome / Entidade · Documento · Data Doc. · Base (Sist) · Base (AGT) ·
+  // IVA (Sist) · IVA (AGT) · Dif. IVA
   const colunasAgt: ColunaApi<ReconciliacaoAgt['linhas'][number]>[] = [
-                  { title: 'Estado', dataIndex: 'estado', render: (v: string) => <Tag color={CORES_AGT[v]}>{v.replace(/_/g, ' ')}</Tag> },
-                  { title: 'NIF', dataIndex: 'nif' },
-                  { title: 'Nome', dataIndex: 'nome' },
-                  { title: 'Documento', dataIndex: 'documento' },
-                  { title: 'Base sistema', dataIndex: 'base_sistema', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                  { title: 'IVA sistema', dataIndex: 'iva_sistema', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                  { title: 'Base AGT', dataIndex: 'base_agt', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                  { title: 'IVA AGT', dataIndex: 'iva_agt', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
-                  { title: 'Diferença IVA', dataIndex: 'diferenca_iva', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
-                ];
+    { title: 'Estado', dataIndex: 'estado', render: (v: string) => <Tag color={CORES_AGT[v]}>{v.replace(/_/g, ' ')}</Tag> },
+    { title: 'NIF', dataIndex: 'nif' },
+    { title: 'Nome / Entidade', dataIndex: 'nome' },
+    { title: 'Documento', dataIndex: 'documento' },
+    { title: 'Data Doc.', dataIndex: 'data', render: (v: string | null) => formatarData(v) },
+    { title: 'Base (Sist)', dataIndex: 'base_sistema', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+    { title: 'Base (AGT)', dataIndex: 'base_agt', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+    { title: 'IVA (Sist)', dataIndex: 'iva_sistema', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+    { title: 'IVA (AGT)', dataIndex: 'iva_agt', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+    { title: 'Dif. IVA', dataIndex: 'diferenca_iva', align: 'right', render: (v: string) => <ValorKz valor={v} discretoSeZero /> },
+  ];
+  // IVA apurado (legado: crédito − débito; ≥ 0 «IVA a Pagar» a laranja, < 0 «IVA a Receber» a verde)
+  const apurado = d ? Number(d.totais.iva_credito) - Number(d.totais.iva_debito) : 0;
+  const aPagar = apurado >= 0;
   return (
     <Space direction="vertical" style={{ width: '100%' }} size={16}>
       <Card>
         <FiltrosMapa modo="periodo" periodoObrigatorio={false} aCalcular={mapa.isFetching} aoCalcular={(p) => (p.data_fim ? mapa.calcular(p) : message.warning('Indique pelo menos a data final.'))} />
         {d && (
           <>
-            <Space size={32} wrap style={{ margin: '12px 0' }}>
-              <Statistic title="Linhas" value={d.totais.linhas} />
-              <Statistic title="Base" value={formatarKz(d.totais.base)} />
-              <Statistic title="IVA a débito" value={formatarKz(d.totais.iva_debito)} />
-              <Statistic title="IVA a crédito" value={formatarKz(d.totais.iva_credito)} />
+            {/* cartões do legado (#iva-summary-cards, ui_reports.js:6499-6536): 5 por linha, pela mesma ordem e cores */}
+            <GrelhaKpi larguraMinima={180} style={{ margin: '12px 0' }}>
+              <CartaoKpi barra="nenhuma" icone="balance-scale" cor={aPagar ? '#d97706' : CORES_KPI.sucesso} corValor={aPagar ? '#d97706' : CORES_KPI.sucesso}
+                rotulo="IVA Apurado" valor={formatarKz(Math.abs(apurado).toFixed(2))} secundaria={aPagar ? 'IVA a Pagar' : 'IVA a Receber'} />
+              <CartaoKpi barra="nenhuma" icone="arrow-up" cor={CORES_KPI.primario} corValor={CORES_KPI.primario}
+                rotulo="IVA Débito (Cl.345)" valor={formatarKz(d.totais.iva_debito)} secundaria="IVA liquidado / suportado" />
+              <CartaoKpi barra="nenhuma" icone="arrow-down" cor="#dc2626" corValor="#dc2626"
+                rotulo="IVA Crédito (Cl.345)" valor={formatarKz(d.totais.iva_credito)} secundaria="IVA dedutível / reembolsável" />
+              <CartaoKpi barra="nenhuma" icone="calculator" cor="#1d4ed8" corValor="#1d4ed8"
+                rotulo="Base Tributável Total" valor={formatarKz(d.totais.base)} secundaria="Valor sujeito a IVA" />
+              <CartaoKpi barra="nenhuma" icone="file-invoice-dollar" cor={CORES_KPI.cinzento}
+                rotulo="Volume Transaccional" valor={formatarKz(d.totais.total_documento)} secundaria={`${d.totais.linhas} lançamentos`} />
+            </GrelhaKpi>
+            <Space wrap style={{ marginBottom: 12 }}>
               <BotoesExportar
                 obterPedido={async () => ({
                   titulo: 'Mapa de IVA',
@@ -294,6 +314,13 @@ function SeparadorIva() {
           </Space>
           {agt && (
             <>
+              {/* legado (#agt-rec-summary, ui_reports.js:6468-6473): 4 cartões com barra à esquerda */}
+              <GrelhaKpi larguraMinima={180} style={{ marginTop: 16 }}>
+                <CartaoKpi barra="esquerda" cor={CORES_KPI.verde} corValor={CORES_KPI.verde} rotulo="Conciliados" valor={agt.contagem.CONCILIADO ?? 0} />
+                <CartaoKpi barra="esquerda" cor={CORES_KPI.laranja} corValor={CORES_KPI.laranja} rotulo="Divergentes" valor={agt.contagem.DIVERGENTE ?? 0} />
+                <CartaoKpi barra="esquerda" cor={CORES_KPI.azul} corValor={CORES_KPI.azul} rotulo="Falta no Sist." valor={agt.contagem.FALTA_NO_SISTEMA ?? 0} />
+                <CartaoKpi barra="esquerda" cor={CORES_KPI.vermelho} corValor={CORES_KPI.vermelho} rotulo="Falta na AGT" valor={agt.contagem.FALTA_NA_AGT ?? 0} />
+              </GrelhaKpi>
               <Descriptions size="small" bordered column={{ xs: 1, md: 3 }} style={{ margin: '16px 0' }}>
                 <Descriptions.Item label="Sistema">{agt.sistema.documentos} doc. · base {formatarKz(agt.sistema.base)} · IVA {formatarKz(agt.sistema.iva)}</Descriptions.Item>
                 <Descriptions.Item label="AGT">{agt.agt.documentos} doc. · base {formatarKz(agt.agt.base)} · IVA {formatarKz(agt.agt.iva)}</Descriptions.Item>

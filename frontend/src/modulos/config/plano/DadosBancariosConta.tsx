@@ -4,6 +4,7 @@
  * n.º de conta, IBAN (validado), SWIFT/BIC e titular (vazio = nome da empresa). Os dados saem nas cartas de pagamento.
  */
 import { AutoComplete, Col, Form, Input, Row, Typography } from 'antd';
+import { SeccaoFormulario } from '@/componentes/formularios';
 import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos';
@@ -32,7 +33,7 @@ function useSugestoesBancos(activo: boolean) {
   });
 }
 
-/** Dentro de um <Form> com os campos codigo e tipo: mostra o bloco só para contas bancárias de movimento. */
+/** Dentro de um <Form> com os campos codigo e tipo: mostra o bloco (secção recolhível) só para contas bancárias de movimento. */
 export function DadosBancariosConta() {
   const form = Form.useFormInstance();
   const codigo = Form.useWatch('codigo', form) as string | undefined;
@@ -41,10 +42,7 @@ export function DadosBancariosConta() {
   const sugestoes = useSugestoesBancos(visivel);
   if (!visivel) return null;
   return (
-    <div style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '1rem', background: '#f8fafc', marginBottom: 16 }}>
-      <Typography.Title level={5} style={{ margin: '0 0 0.25rem', fontSize: '0.95rem' }}>
-        <IconeFa nome="university" style={{ color: '#0891b2' }} /> Dados bancários da conta
-      </Typography.Title>
+    <SeccaoFormulario titulo={<><IconeFa nome="university" style={{ color: '#0891b2' }} /> Dados bancários da conta</>}>
       <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
         Saem no cabeçalho da carta de ordem de pagamento. Sem o IBAN preenchido, esta conta não pode emitir cartas.
       </Typography.Text>
@@ -89,6 +87,6 @@ export function DadosBancariosConta() {
           <Form.Item name="banco_titular" label="Titular da conta"><Input placeholder="Deixe vazio para usar o nome da empresa" maxLength={150} /></Form.Item>
         </Col>
       </Row>
-    </div>
+    </SeccaoFormulario>
   );
 }

@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 final class ConfiguracaoRHController extends Controller
 {
     /** Quem consulta o RH vê a configuração (o cálculo, as férias e os mapas dependem dela). */
-    private const VER = ['calcular_view', 'processamento_view', 'rh_ferias_view', 'infotipos_view', 'rh_assiduidade_view', 'colaboradores_view'];
+    private const VER = ['calcular_view', 'processamento_view', 'rh_ferias_view', 'infotipos_view', 'rh_assiduidade_view', 'colaboradores_view', 'contratos_view'];
 
     public function config(ServicoConfiguracaoRH $cfg, ServicoTabelaIRT $irt): JsonResponse
     {
@@ -35,16 +35,24 @@ final class ConfiguracaoRHController extends Controller
     public function gravarConfig(Request $r, ServicoConfiguracaoRH $cfg): JsonResponse
     {
         // OWASP A01: sem nenhuma das permissões, recusa logo (um corpo vazio passava e devolvia a configuração de RH)
-        $this->exigir('config_empresas_gerir', 'rh_ferias_edit');
-        $d = $r->validate(['segregar_encerrar_validar' => ['sometimes', 'boolean'], 'ferias_dias_mes_admissao' => ['sometimes', 'integer', 'between:0,5'],
-            'ferias_meses_minimos_gozo' => ['sometimes', 'integer', 'between:0,12'], 'ferias_transporte_saldo' => ['sometimes', 'boolean'],
-            'ferias_transporte_max_dias' => ['sometimes', 'integer', 'between:0,66']]);
-        if (array_key_exists('segregar_encerrar_validar', $d)) {
+        $this->exigir('config_empresas_gerir', 'rh_ferias_edit', 'contratos_new');
+        $subsidios = ['subsidio_ferias_pct', 'subsidio_natal_pct'];
+        // as permissões de cada grupo de chaves verificam-se antes da validação (OWASP A01)
+        if ($r->has('segregar_encerrar_validar')) {
             $this->exigir('config_empresas_gerir');
         }
-        if (array_diff(array_keys($d), ['segregar_encerrar_validar'])) {
+        if ($r->hasAny(['ferias_dias_mes_admissao', 'ferias_meses_minimos_gozo', 'ferias_transporte_saldo', 'ferias_transporte_max_dias'])) {
             $this->exigir('rh_ferias_edit');
         }
+        if ($r->hasAny($subsidios)) {
+            $this->exigir('config_empresas_gerir', 'contratos_new');
+        }
+        $pct = ['sometimes', 'integer', 'between:'.ServicoConfiguracaoRH::SUBSIDIO_MINIMO_PCT.','.ServicoConfiguracaoRH::SUBSIDIO_MAXIMO_PCT];
+        $d = $r->validate(['segregar_encerrar_validar' => ['sometimes', 'boolean'], 'ferias_dias_mes_admissao' => ['sometimes', 'integer', 'between:0,5'],
+            'ferias_meses_minimos_gozo' => ['sometimes', 'integer', 'between:0,12'], 'ferias_transporte_saldo' => ['sometimes', 'boolean'],
+            'ferias_transporte_max_dias' => ['sometimes', 'integer', 'between:0,66'], 'subsidio_ferias_pct' => $pct, 'subsidio_natal_pct' => $pct],
+            ['subsidio_ferias_pct.between' => 'O subsídio de férias tem de estar entre :min % (mínimo legal, art. 238.º da Lei 12/23) e :max %.',
+                'subsidio_natal_pct.between' => 'O subsídio de Natal tem de estar entre :min % (mínimo legal, art. 238.º da Lei 12/23) e :max %.']);
 
         return RespostaApi::sucesso($cfg->gravar($d), 'Configuração de RH gravada.');
     }

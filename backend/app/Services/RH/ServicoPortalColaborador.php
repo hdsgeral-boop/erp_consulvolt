@@ -58,6 +58,7 @@ final class ServicoPortalColaborador
         private readonly ServicoDocumentosRH $documentos,
         private readonly ServicoAuditoria $auditoria,
         private readonly ServicoEmprestimos $emprestimos,
+        private readonly ServicoAssiduidade $assiduidade,
     ) {}
 
     // ───────────── Ligação utilizador ↔ colaborador ─────────────
@@ -74,6 +75,28 @@ final class ServicoPortalColaborador
         $id = $this->colaboradorDe() ?? throw new ErroNegocio('O seu utilizador não está ligado a um colaborador desta empresa.', 'SEM_COLABORADOR', 403);
 
         return Colaborador::query()->findOrFail($id);
+    }
+
+    /**
+     * Portal autónomo (Versão Actual, portal.html — ADR-071): só entra quem tem colaborador associado nesta empresa,
+     * quem tem aprovações à sua espera ou quem decide os pedidos como RH (rh_portal_aprovar). Lido sempre do servidor
+     * (utilizador_empresa da empresa activa): a rota /portal do frontend não é a guarda. Devolve só os dados do próprio.
+     *
+     * @return array{colaborador: array{id: int, nome_completo: string}|null, aprovacoes_pendentes: int, aprova_rh: bool}
+     */
+    public function exigirAcessoPortal(): array
+    {
+        $id = $this->colaboradorDe();
+        $colaborador = $id ? Colaborador::query()->find($id, ['id', 'nome_completo']) : null;
+        $pendentes = count($this->pendentesParaMim());
+        $aprovaRh = Gate::any(['rh_portal_aprovar']);
+        if (! $colaborador && $pendentes === 0 && ! $aprovaRh) {
+            throw new ErroNegocio('O portal do colaborador só está disponível para utilizadores associados a um colaborador desta empresa ou com aprovações pendentes. Peça ao RH que associe o seu utilizador ao seu registo de colaborador, ou escolha outra empresa.',
+                'SEM_ACESSO_PORTAL', 403);
+        }
+
+        return ['colaborador' => $colaborador ? ['id' => (int) $colaborador->id, 'nome_completo' => (string) $colaborador->nome_completo] : null,
+            'aprovacoes_pendentes' => $pendentes, 'aprova_rh' => $aprovaRh];
     }
 
     /** Um utilizador por colaborador em cada empresa; nulo retira a ligação. */
@@ -214,6 +237,7 @@ final class ServicoPortalColaborador
             }
             if ($p->plano_ferias_colaborador_id) {
                 PlanoFeriasColaborador::query()->whereKey($p->plano_ferias_colaborador_id)->update(['estado' => 'CANCELADO']);
+                CacheFaltasDoAno::invalidar((int) $p->empresa_id);   // escrita em massa (sem eventos do modelo)
             }
             if ($p->ausencia_falta_id && ($a = AusenciaFaltaColaborador::query()->find($p->ausencia_falta_id))) {
                 $this->ausencias->cancelar($a);
@@ -272,16 +296,28 @@ final class ServicoPortalColaborador
 
     // ───────────── Consultas do colaborador ─────────────
 
+    /** Estimativa (empresa sem efectividade no ano): dias inteiros de falta injustificada (detectados, por justificar ou recusados) com início no intervalo. */
+    private function diasDeFalta(int $colaborador, string $de, string $ate): int
+    {
+        return (int) AusenciaFaltaColaborador::query()->where('colaborador_id', $colaborador)->where('detectada', true)->whereNull('horas')
+            ->whereIn('estado', ['POR_JUSTIFICAR', 'RECUSADO'])->whereBetween('data_inicio', [$de, $ate])->sum('dias_uteis');
+    }
+
     public function resumo(): array
     {
         $c = $this->exigirColaborador();
         $ano = (int) now()->format('Y');
         $ferias = collect($this->ferias->resumo($ano))->firstWhere('colaborador_id', $c->id)
             ?? ['direito' => $this->ferias->direito($c->id, $ano), 'marcados' => 0, 'saldo' => $this->ferias->direito($c->id, $ano)];
+        // art. 230.º da Lei 12/23 (mais de 3 no mês ou 12 no ano): o mesmo apuramento da efectividade (acumulado anual em cache),
+        // só com os números do próprio colaborador; sem efectividade no ano, a estimativa pelas faltas detectadas e não justificadas
+        $faltas = $this->assiduidade->faltasDoColaborador($c->id)
+            ?? ['mes' => $this->diasDeFalta($c->id, now()->format('Y-m-01'), now()->format('Y-m-t')), 'ano' => $this->diasDeFalta($c->id, "{$ano}-01-01", "{$ano}-12-31")];
 
         return ['colaborador' => $c->only(['id', 'nome_completo', 'nif', 'estado', 'cargo_funcao_id', 'unidade_organica_id', 'data_admissao']),
             'chefia_colaborador_id' => $this->estrutura->chefiaDe($c->id), 'ferias' => $ferias, 'ano' => $ano,
             'faltas_por_justificar' => AusenciaFaltaColaborador::query()->where('colaborador_id', $c->id)->where('estado', 'POR_JUSTIFICAR')->count(),
+            'faltas_injustificadas_mes' => $faltas['mes'], 'faltas_injustificadas_ano' => $faltas['ano'],
             'pedidos_pendentes' => PedidoPortalColaborador::query()->where('colaborador_id', $c->id)->where('estado', 'like', 'PENDENTE%')->count(),
             'aprovacoes_para_mim' => count($this->pendentesParaMim())];
     }
@@ -521,6 +557,7 @@ final class ServicoPortalColaborador
         }
         if ($p->tipo === 'FERIAS' && $p->plano_ferias_colaborador_id && in_array($estado, ['APROVADO', 'RECUSADO'], true)) {
             PlanoFeriasColaborador::query()->whereKey($p->plano_ferias_colaborador_id)->update(['estado' => $estado === 'APROVADO' ? 'APROVADO' : 'CANCELADO']);
+            CacheFaltasDoAno::invalidar((int) $p->empresa_id);   // férias aprovadas deixam de ser falta (escrita em massa, sem eventos)
         }
         if ($p->tipo === 'AUSENCIA' && $p->ausencia_falta_id && ($a = AusenciaFaltaColaborador::query()->lockForUpdate()->find($p->ausencia_falta_id))) {
             $this->ausencias->aplicarDecisaoPortal($a, $estado, $remunerada, $nota);

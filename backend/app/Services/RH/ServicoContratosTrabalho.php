@@ -7,6 +7,7 @@ use App\Models\Colaborador;
 use App\Models\ContratoTrabalho;
 use App\Models\InfotipoSalarial;
 use App\Models\ItemProdutividadeRH;
+use App\Services\Sistema\ServicoAuditoria;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -25,10 +26,20 @@ use Illuminate\Support\Facades\DB;
  *     chaves do legado — a leitura (ServicoFolhaSalarial::contratoArray) aceita as duas.
  * Fase B (Versão Actual): horário do contrato (RegrasContrato::validarHorario) e estados SUSPENSO/CESSADO só pelos actos
  * de ServicoEstadoContrato (editar não reactiva nem suspende; a massa não mexe em contratos cessados).
+ * Fecho da Versão Actual (#8 e #13): motivo do termo e período experimental (Lei 12/23, arts. 13.º e 18.º — colunas fora do
+ * esquema gerado, gravadas com forceFill) e itens de produtividade em massa (contratos_produtividade.js).
  */
 final class ServicoContratosTrabalho
 {
     public const SEM_FIM = '9999-12-31';
+
+    /** Modos da produtividade em massa (contratos_produtividade.js:257): acrescentar, substituir a lista toda, retirar. */
+    public const MODOS_PRODUTIVIDADE = ['ACRESCENTAR', 'SUBSTITUIR', 'RETIRAR'];
+
+    /** Período experimental máximo (art. 18.º da Lei 12/23): 180 dias (direcção) sem termo; 30 dias nos contratos a termo. */
+    public const EXPERIMENTAL_MAX_SEM_TERMO = 180;
+
+    public const EXPERIMENTAL_MAX_A_TERMO = 30;
 
     /** @param  array<string, mixed>  $d */
     public function guardar(array $d, ?ContratoTrabalho $c = null): ContratoTrabalho
@@ -43,6 +54,7 @@ final class ServicoContratosTrabalho
         }
         $remuneracoes = $this->remuneracoes($d['remuneracoes'], $dias);
         $estado = $this->estadoAoGravar($d, $c, $fim);
+        $minuta = $this->camposMinuta($d, $c, $fim);
         // Fase B (Versão Actual): horário do contrato (1 ou 2 períodos); as «Horas por dia» acompanham o horário (app_v2.js:4751)
         $horario = array_key_exists('horario', $d) ? RegrasContrato::validarHorario($d['horario'], 'O horário do contrato') : RegrasContrato::horario($c?->horario);
         $horasDia = $horario ? (string) RegrasContrato::horasPrevistas($horario) : (string) ($d['horas_por_dia'] ?? $c?->horas_por_dia ?? 8);
@@ -50,7 +62,7 @@ final class ServicoContratosTrabalho
             throw new ErroNegocio('As horas por dia têm de estar entre 0 e 24.', 'HORAS_INVALIDAS', 422);
         }
 
-        return DB::transaction(function () use ($d, $c, $colab, $dias, $inicio, $fim, $remuneracoes, $estado, $horario, $horasDia) {
+        return DB::transaction(function () use ($d, $c, $colab, $dias, $inicio, $fim, $remuneracoes, $estado, $horario, $horasDia, $minuta) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ["contratos:{$colab->id}"]);
             $sobreposto = ContratoTrabalho::query()->where('colaborador_id', $colab->id)->when($c, fn ($q) => $q->whereKeyNot($c->id))
                 ->where(fn ($q) => $q->whereNull('data_inicio')->orWhere('data_inicio', '<=', $fim ?? self::SEM_FIM))
@@ -72,10 +84,176 @@ final class ServicoContratosTrabalho
                 $dados['produtividade'] = array_map(fn ($x) => ['item_id' => (int) $x['item_id'], 'preco_unitario' => isset($x['preco_unitario']) && (float) $x['preco_unitario'] > 0
                     ? (float) $x['preco_unitario'] : null], $d['produtividade'] ?? []);
             }
-            $c ? $c->update($dados) : $c = ContratoTrabalho::create($dados);
+            // motivo do termo e período experimental: colunas fora do esquema gerado (forceFill), gravadas no mesmo save
+            $c ??= new ContratoTrabalho;
+            $c->fill($dados)->forceFill($minuta)->save();
 
             return $c->refresh();
         });
+    }
+
+    /**
+     * Minuta do contrato (Lei n.º 12/23): motivo do termo (art. 13.º/2 — só nos contratos a termo; a falta dele não bloqueia,
+     * a minuta sai com o aviso do art. 13.º/3) e período experimental (art. 18.º: até 180 dias sem termo, até 30 a termo).
+     *
+     * @return array<string, mixed>
+     */
+    private function camposMinuta(array $d, ?ContratoTrabalho $c, ?string $fim): array
+    {
+        $saida = [];
+        if (array_key_exists('motivo_termo', $d)) {
+            $motivo = trim((string) ($d['motivo_termo'] ?? ''));
+            $saida['motivo_termo'] = $motivo === '' ? null : mb_substr($motivo, 0, 2000);
+        }
+        $dias = array_key_exists('periodo_experimental_dias', $d) ? $d['periodo_experimental_dias'] : $c?->getAttribute('periodo_experimental_dias');
+        $dias = $dias === null || $dias === '' ? null : (int) $dias;
+        if ($dias !== null) {
+            $max = $fim === null ? self::EXPERIMENTAL_MAX_SEM_TERMO : self::EXPERIMENTAL_MAX_A_TERMO;
+            if ($dias < 0 || $dias > $max) {
+                throw new ErroNegocio($fim === null
+                    ? 'O período experimental não pode exceder 180 dias (art. 18.º da Lei n.º 12/23: 60 dias, alargável por escrito até 120, ou 180 em funções de direcção).'
+                    : 'Nos contratos a termo o período experimental não pode exceder 30 dias (art. 18.º, n.º 3, da Lei n.º 12/23).', 'PERIODO_EXPERIMENTAL_INVALIDO', 422);
+            }
+        }
+        if (array_key_exists('periodo_experimental_dias', $d)) {
+            $saida['periodo_experimental_dias'] = $dias;
+        }
+
+        return $saida;
+    }
+
+    /**
+     * #13/#26 — itens de produtividade em massa (aplicarProdutividadeEmMassa, js/modules/rh/contratos_produtividade.js:235):
+     *   - ACRESCENTAR: junta os itens aos que o contrato já tem; se o item já lá estiver, SUBSTITUIR o preço ou MANTER o actual;
+     *   - SUBSTITUIR: o contrato fica só com estes itens;
+     *   - RETIRAR: tira estes itens do contrato;
+     *   - preço próprio (> 0) ou nulo (= preço do item, lido ao registar a produtividade);
+     *   - contratos INACTIVOS/CESSADOS e colaboradores sem contrato ficam de fora (listados no resultado);
+     *   - tudo numa transacção, com auditoria; `simular` devolve o plano sem gravar.
+     * A selecção vem por contratos (ids) e/ou por colaboradores (o contrato vigente de cada um).
+     *
+     * @param  list<int>  $contratos
+     * @param  list<int>  $colaboradores
+     * @param  list<array{item_id: int, preco_unitario?: mixed}>  $itens
+     * @return array{actualizados: list<string>, sem_alteracao: list<string>, inactivos: list<string>, sem_contrato: list<string>, simulacao: bool}
+     */
+    public function aplicarProdutividadeEmMassa(array $contratos, array $colaboradores, array $itens, string $modo, string $precoExistente, bool $simular): array
+    {
+        $modo = $modo === 'SUBSTITUIR_LISTA' ? 'SUBSTITUIR' : $modo;
+        if (! in_array($modo, self::MODOS_PRODUTIVIDADE, true)) {
+            throw new ErroNegocio('Modo inválido: use ACRESCENTAR, SUBSTITUIR ou RETIRAR.', 'DADOS_INVALIDOS', 422);
+        }
+        if ($itens === [] || ($contratos === [] && $colaboradores === [])) {
+            throw new ErroNegocio('Escolha pelo menos um item de produtividade e um contrato.', 'DADOS_INVALIDOS', 422);
+        }
+        $its = [];
+        foreach ($itens as $i) {
+            $id = (int) $i['item_id'];
+            $preco = isset($i['preco_unitario']) && $i['preco_unitario'] !== '' && (float) $i['preco_unitario'] > 0 ? round((float) $i['preco_unitario'], 4) : null;
+            $its[$id] = ['item_id' => $id, 'preco_unitario' => $preco];
+        }
+        $catalogo = ItemProdutividadeRH::query()->whereKey(array_keys($its))->get()->keyBy('id');
+        if ($catalogo->count() !== count($its)) {
+            throw new ErroNegocio('Há itens de produtividade inexistentes na selecção.', 'ITEM_PRODUTIVIDADE_INVALIDO', 422);
+        }
+        if ($modo !== 'RETIRAR' && ($inactivo = $catalogo->first(fn ($i) => ! $i->ativo))) {
+            throw new ErroNegocio("O item {$inactivo->codigo} está inactivo: active-o antes de o aplicar aos contratos.", 'ITEM_PRODUTIVIDADE_INACTIVO', 422);
+        }
+        $res = ['actualizados' => [], 'sem_alteracao' => [], 'inactivos' => [], 'sem_contrato' => [], 'simulacao' => $simular];
+        $alvos = ContratoTrabalho::query()->whereKey(array_unique($contratos))->get()->keyBy('id');
+        $nomes = Colaborador::query()->whereKey($alvos->pluck('colaborador_id')->merge($colaboradores)->unique()->values()->all())->pluck('nome_completo', 'id');
+        $hoje = now()->toDateString();
+        foreach (array_unique($colaboradores) as $colab) {
+            $doColab = ContratoTrabalho::query()->where('colaborador_id', $colab)->orderByDesc('data_inicio')->orderByDesc('id')->get();
+            $abertos = $doColab->whereNotIn('estado', ['INACTIVO', 'CESSADO']);
+            $vigente = $abertos->first(fn ($c) => (! $c->data_inicio || $c->data_inicio->toDateString() <= $hoje) && (! $c->data_fim || $c->data_fim->toDateString() >= $hoje))
+                ?? $abertos->first();
+            if ($vigente) {
+                $alvos[$vigente->id] = $vigente;
+            } else {
+                $res[$doColab->isEmpty() ? 'sem_contrato' : 'inactivos'][] = (string) ($nomes[$colab] ?? "#{$colab}");
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            foreach ($alvos->sortBy(fn ($c) => mb_strtolower((string) ($nomes[$c->colaborador_id] ?? ''))) as $c) {
+                $nome = (string) ($nomes[$c->colaborador_id] ?? "Contrato #{$c->id}");
+                if (in_array($c->estado, ['INACTIVO', 'CESSADO'], true)) {
+                    $res['inactivos'][] = $nome;
+
+                    continue;
+                }
+                $c = ContratoTrabalho::query()->lockForUpdate()->findOrFail($c->id);
+                $antes = self::listaProdutividade($c->produtividade);
+                $depois = self::regraProdutividade($antes, array_values($its), $modo, $precoExistente);
+                if (self::ordenarProdutividade($antes) === self::ordenarProdutividade($depois)) {
+                    $res['sem_alteracao'][] = $nome;
+
+                    continue;
+                }
+                $c->update(['produtividade' => $depois]);
+                $res['actualizados'][] = $nome;
+            }
+            if ($simular) {
+                DB::rollBack();
+            } else {
+                app(ServicoAuditoria::class)->registar('RH', 'Aplicar produtividade em massa', "{$modo} · ".count($res['actualizados']).' contrato(s) · itens '
+                    .$catalogo->pluck('codigo')->implode(', '), 'contratos_trabalho');
+                DB::commit();
+            }
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        return $res;
+    }
+
+    /** @return list<array{item_id: int, preco_unitario: ?float}> lista do contrato normalizada (preço 0/vazio = preço do item) */
+    public static function listaProdutividade(mixed $lista): array
+    {
+        $lista = is_array($lista) ? $lista : (json_decode((string) $lista, true) ?: []);
+
+        return array_values(array_map(fn ($x) => ['item_id' => (int) $x['item_id'], 'preco_unitario' => isset($x['preco_unitario']) && (float) $x['preco_unitario'] > 0
+            ? round((float) $x['preco_unitario'], 4) : null], array_filter($lista, fn ($x) => is_array($x) && (int) ($x['item_id'] ?? 0) > 0)));
+    }
+
+    /**
+     * Regra única da massa (aplicarRegra, contratos_produtividade.js:257).
+     *
+     * @param  list<array{item_id: int, preco_unitario: ?float}>  $antes
+     * @param  list<array{item_id: int, preco_unitario: ?float}>  $its
+     * @return list<array{item_id: int, preco_unitario: ?float}>
+     */
+    public static function regraProdutividade(array $antes, array $its, string $modo, string $precoExistente): array
+    {
+        if ($modo === 'SUBSTITUIR') {
+            return $its;
+        }
+        if ($modo === 'RETIRAR') {
+            $fora = array_column($its, 'item_id');
+
+            return array_values(array_filter($antes, fn ($x) => ! in_array($x['item_id'], $fora, true)));
+        }
+        $out = $antes;
+        foreach ($its as $i) {
+            $k = array_search($i['item_id'], array_column($out, 'item_id'), true);
+            if ($k === false) {
+                $out[] = $i;
+            } elseif ($precoExistente === 'SUBSTITUIR') {
+                $out[$k] = $i;
+            }
+        }
+
+        return array_values($out);
+    }
+
+    private static function ordenarProdutividade(array $l): string
+    {
+        usort($l, fn ($a, $b) => $a['item_id'] <=> $b['item_id']);
+
+        return (string) json_encode($l);
     }
 
     /**

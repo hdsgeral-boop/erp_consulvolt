@@ -1,10 +1,11 @@
-import { Alert, Button, Card, Col, Flex, Input, InputNumber, Modal, Row, Select, Space, Statistic, Table, Typography } from 'antd';
+import { Alert, Button, Card, Flex, Input, InputNumber, Modal, Select, Space, Table, Typography } from 'antd';
 import { DeleteOutlined, LinkOutlined, PlusOutlined, SplitCellsOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { NavActivos } from './comum/NavActivos';
 import { BotoesExportar } from '@/componentes/impressao';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { pedidoTabela } from './comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -30,17 +31,17 @@ export default function Pendentes() {
   const colunas: ColunaApi<LinhaPendente>[] = [
     { title: 'Data', dataIndex: 'data_documento', render: formatarData },
     { title: 'Diário', dataIndex: 'diario', responsive: ['md'] },
-    { title: 'Documento', dataIndex: 'numero_documento' },
+    { title: 'Nº Doc', dataIndex: 'numero_documento' },
     { title: 'N.º lanç.', dataIndex: 'numero_lan', responsive: ['lg'], render: (v) => v ?? '—' },
     { title: 'Conta', dataIndex: 'codigo_conta' },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 240 },
     { title: 'Fornecedor', dataIndex: 'terceiro', ellipsis: true, width: 200, responsive: ['md'], render: (v) => v ?? '—' },
-    { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor))) },
+    { title: 'Valor Total', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor))) },
     { title: 'Inventariado', dataIndex: 'inventariado', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
-    { title: 'Por inventariar', dataIndex: 'por_inventariar', align: 'right', render: (v) => <ValorKz valor={v} forte />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.por_inventariar))) },
+    { title: 'Restante', dataIndex: 'por_inventariar', align: 'right', render: (v) => <ValorKz valor={v} forte />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.por_inventariar))) },
     { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaActivos valor={v} /> },
     {
-      title: '', key: 'acc', align: 'right',
+      title: 'Acção', key: 'acc', align: 'right',
       render: (_, l) => gerir && (
         <Space>
           <Button size="small" type="primary" onClick={() => setInventariar(l)}>Inventariar</Button>
@@ -53,13 +54,15 @@ export default function Pendentes() {
   return (
     <>
       <NavActivos actual="activos_pendentes" />
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Linhas por inventariar" value={d?.linhas.length ?? 0} /></Card></Col>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Valor por inventariar (Kz)" value={formatarKz(d?.total_por_inventariar)} /></Card></Col>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Activos sem lançamento" value={d?.ativos_sem_lancamento.length ?? 0} /></Card></Col>
-      </Row>
-      <Card title="Linhas do Diário (contas 11/12)" style={{ marginBottom: 16 }}
+      {/* indicadores do sistema novo (o legado só tem a tabela): cartões KPI do tema */}
+      <GrelhaKpi style={{ marginBottom: 16 }}>
+        <CartaoKpi icone="list" cor="laranja" rotulo="Linhas por inventariar" valor={d?.linhas.length ?? 0} />
+        <CartaoKpi icone="coins" cor="azul" rotulo="Valor por inventariar" valor={formatarKz(d?.total_por_inventariar)} unidade="Kz" />
+        <CartaoKpi icone="unlink" cor="cinzento" rotulo="Activos sem lançamento" valor={d?.ativos_sem_lancamento.length ?? 0} />
+      </GrelhaKpi>
+      <Card title="Movimentos Contabilísticos Sem Activo Associado" style={{ marginBottom: 16 }}
         extra={<BotoesExportar tamanho="small" desactivado={!d?.linhas.length} obterPedido={() => pedidoTabela({ titulo: 'Aquisições pendentes de inventariação (contas 11/12)', colunas, linhas: d?.linhas ?? [], totais: 'Total' })} />}>
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Estes lançamentos foram detectados no Diário (classes 11 e 12). Pode inventariar o valor total ou parcial de cada linha." />
         <Table<LinhaPendente>
           rowKey="id"
           size="middle"

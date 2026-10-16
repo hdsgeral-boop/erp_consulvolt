@@ -13,17 +13,29 @@ interface PropsBase<V> {
   style?: React.CSSProperties;
 }
 
+/** Sufixo das contas totalizadoras mostradas mas bloqueadas nos selectores (Versão Actual: visíveis, não escolhíveis). */
+export const SUFIXO_TOTALIZADORA = ' (totalizadora — não pode ser mapeada)';
+
+/** Opções do selector: as contas de movimento escolhíveis; as totalizadoras visíveis mas bloqueadas (salvo `incluirTotalizadoras`). */
+export function opcoesConta(contas: { codigo: string; descricao?: string | null; tipo?: string | null }[], prefixos?: string[], incluirTotalizadoras = false) {
+  return contas
+    .filter((c) => !prefixos?.length || prefixos.some((p) => c.codigo.startsWith(p)))
+    .map((c) => {
+      const bloqueada = !incluirTotalizadoras && c.tipo !== 'M';
+      return { value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}${bloqueada ? SUFIXO_TOTALIZADORA : ''}`, disabled: bloqueada };
+    });
+}
+
 /**
- * Selector de conta do plano (pesquisa por código ou descrição). Por omissão só contas de movimento (tipo M),
- * que são as únicas onde o servidor aceita lançamentos. Sem acesso ao plano, cai num campo de texto livre.
+ * Selector de conta do plano (pesquisa por código ou descrição). Por omissão só se escolhem contas de movimento
+ * (tipo M), as únicas onde o servidor aceita lançamentos; as totalizadoras aparecem bloqueadas, com o sufixo
+ * «(totalizadora — não pode ser mapeada)», para se ver a árvore. Sem acesso ao plano, cai num campo de texto livre.
  */
 export function SeletorConta({ id, value, onChange, placeholder = 'Conta', allowClear, disabled, style, prefixos, incluirTotalizadoras = false }: PropsBase<string | undefined> & { prefixos?: string[]; incluirTotalizadoras?: boolean }) {
   const plano = usePlanoContas();
   const opcoes = useMemo(
     () =>
-      (plano.data ?? [])
-        .filter((c) => (incluirTotalizadoras || c.tipo === 'M') && (!prefixos?.length || prefixos.some((p) => c.codigo.startsWith(p))))
-        .map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` })),
+      opcoesConta(plano.data ?? [], prefixos, incluirTotalizadoras),
     [plano.data, prefixos, incluirTotalizadoras],
   );
   if (plano.isError) {

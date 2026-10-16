@@ -10,6 +10,18 @@ import { BotoesCadastroLegado } from './comum/BotoesCadastroLegado';
 import { CadastroSimples, useDestinoAccoes } from './comum/CadastroSimples';
 import { useAccaoRh, useAvisarErro } from './comum/consultas';
 import { TabelaIrt } from './comum/TabelaIrt';
+import type { CampoFormulario } from '@/componentes/formularios';
+import { campoSimNao } from './comum/linhasRh';
+
+/** Vista Linhas do «Novo Infotipo» (uma rubrica por linha; mesmas regras e mesmo POST da grade). */
+export const CAMPOS_LINHAS_INFOTIPO: CampoFormulario[] = [
+  { nome: 'nome', rotulo: 'Nome da Rubrica', obrigatorio: true, largura: 240, maxLength: 255, aliases: ['Nome', 'Rubrica', 'Infotipo'] },
+  { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, largura: 170, opcoes: TIPOS_RUBRICA, omissao: 'VENCIMENTO' },
+  { nome: 'irt', rotulo: 'Sujeito a IRT?', tipo: 'select', obrigatorio: true, largura: 240, opcoes: REGIMES_IRT, omissao: 'true', aliases: ['IRT'] },
+  { nome: 'calculo_horas', rotulo: 'Por horas', tipo: 'select', largura: 140, opcoes: CALCULO_HORAS.filter((o) => o.value !== ''), emLinhas: 'opcional' },
+  campoSimNao('sujeito_inss', 'Sujeito a INSS (3%)', { omissao: true, largura: 120, aliases: ['INSS'] }),
+  campoSimNao('base_horaria', 'Base dia/hora', { largura: 110, emLinhas: 'opcional' }),
+];
 
 /** Etiqueta do tipo como no antigo (verde VENCIMENTO, vermelho DESCONTO). */
 function EtiquetaTipo({ tipo }: { tipo: string }) {
@@ -74,6 +86,7 @@ export default function Infotipos() {
             valoresNovos={{ tipo: 'VENCIMENTO', sujeito_inss: true, irt: 'true', base_horaria: false, calculo_horas: '' }}
             paraFormulario={(r) => ({ ...r, irt: r.irt ?? 'true', calculo_horas: r.calculo_horas ?? '', sujeito_inss: Boolean(r.sujeito_inss), base_horaria: Boolean(r.base_horaria) })}
             paraEnvio={(v) => ({ ...v, calculo_horas: v.calculo_horas || null })}
+            linhas={{ chave: 'rh.infotipos', campos: CAMPOS_LINHAS_INFOTIPO, nomeRegistos: 'infotipos' }}
             colunas={[
               { title: 'Tipo', dataIndex: 'tipo', sorter: porTipo, defaultSortOrder: 'ascend', render: (t: string) => <EtiquetaTipo tipo={t} /> },
               { title: 'Nome da Rubrica', dataIndex: 'nome', sorter: (a, b) => a.nome.localeCompare(b.nome, 'pt') },

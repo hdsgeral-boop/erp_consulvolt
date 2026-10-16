@@ -1,5 +1,5 @@
 import { theme, type ThemeConfig } from 'antd';
-import { MENU_FUNDO, TEMA } from '@/estilos/tema';
+import { TEMA } from '@/estilos/tema';
 
 /**
  * Tela nocturna (Versão Actual, css/tela_noturna.css): tema escuro do Ant Design (`darkAlgorithm`) com as cores próprias do
@@ -14,6 +14,8 @@ export const FUNDO_NOCTURNO = '#0b1220';
 export const FUNDO_CARTAO = '#111a2b';
 export const FUNDO_ELEVADO = '#172236';
 export const LIMITE_NOCTURNO = '#334155';
+/** Menu lateral na tela nocturna (legado tela_noturna.css: .sidebar #0b1119). */
+export const MENU_FUNDO_NOCTURNO = '#0b1119';
 const TEXTO = '#e2e8f0';
 const TEXTO_SECUNDARIO = '#cbd5e1';
 const TEXTO_TERCIARIO = '#94a3b8';
@@ -21,6 +23,8 @@ const PRIMARIA = '#3b82f6';
 
 export const TEMA_NOCTURNO: ThemeConfig = {
   inherit: false,
+  // com inherit: false é preciso voltar a ligar as variáveis CSS (`var(--ant-color-primary)` passa a #3b82f6 no escuro)
+  cssVar: true,
   algorithm: theme.darkAlgorithm,
   token: {
     ...TEMA.token,
@@ -42,7 +46,7 @@ export const TEMA_NOCTURNO: ThemeConfig = {
   },
   components: {
     ...TEMA.components,
-    Layout: { headerBg: FUNDO_CARTAO, siderBg: MENU_FUNDO, bodyBg: FUNDO_NOCTURNO },
+    Layout: { headerBg: FUNDO_CARTAO, siderBg: MENU_FUNDO_NOCTURNO, bodyBg: FUNDO_NOCTURNO },
     Card: { ...TEMA.components?.Card, headerBg: 'transparent' },
     Table: {
       ...TEMA.components?.Table,

@@ -98,14 +98,17 @@ export function construirItensMenu(menu: ModuloMenu[]): NonNullable<MenuProps['i
 
 /**
  * Chave seleccionada e grupos abertos para um caminho (e query string). Pagamentos/Recebimentos: o mesmo ecrã com
- * `?tipo=`. Ecrãs escondidos do menu (ex.: os mapas de Relatórios e Recibos) seleccionam o ecrã pai.
+ * `?tipo=`; Aprovisionamento/Pedidos Internos: `?vista=`. Ecrãs escondidos do menu (ex.: os mapas de Relatórios e Recibos) seleccionam o ecrã pai.
  */
 export function estadoMenu(caminho: string, pesquisa = '', lateral?: MenuLateral, menu: ModuloMenu[] = []): { seleccionado: string; abertos: string[] } {
   if (!caminho.startsWith('/m/')) return { seleccionado: '/', abertos: [] };
   const [, , moduloId, ecraId] = caminho.split('/');
   let seleccionado = rotaEcra(moduloId, ecraId);
-  const tipo = new URLSearchParams(pesquisa).get('tipo');
+  const parametros = new URLSearchParams(pesquisa);
+  const tipo = parametros.get('tipo');
+  const vista = parametros.get('vista');
   if (tipo && lateral?.ancestrais.has(`${seleccionado}?tipo=${tipo}`)) seleccionado = `${seleccionado}?tipo=${tipo}`;
+  else if (vista && lateral?.ancestrais.has(`${seleccionado}?vista=${vista}`)) seleccionado = `${seleccionado}?vista=${vista}`;
   if (lateral && !lateral.ancestrais.has(seleccionado)) {
     const pai = menu.find((m) => m.id === moduloId)?.ecras.find((x) => x.id === ecraId)?.pai;
     if (pai && lateral.ancestrais.has(rotaEcra(moduloId, pai))) seleccionado = rotaEcra(moduloId, pai);

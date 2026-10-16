@@ -65,3 +65,23 @@ describe('Gantt (Versão Actual: escala e precedências)', () => {
     expect(container.querySelectorAll('[data-bar]').length).toBe(2);
   });
 });
+
+describe('Gantt (cores: por estado ou por nível)', () => {
+  const linhas = [
+    { chave: 'p-1', nome: 'Projecto', nivel: 1, tipo: 'projecto' as const, inicio: '2026-09-01', fim: '2026-09-30' },
+    { chave: 't-1', nome: 'Tarefa', nivel: 2, tipo: 'tarefa' as const, inicio: '2026-09-01', fim: '2026-09-10', estado: 'CONCLUIDA' },
+  ];
+  const bordas = (c: HTMLElement) => [...c.querySelectorAll<HTMLElement>('[data-bar]')].map((e) => e.style.border);
+
+  it('por omissão pinta por estado (Planeamento)', () => {
+    const { container } = render(<Gantt inicio="2026-09-01" fim="2026-09-30" linhas={linhas} />);
+    expect(bordas(container)[1]).toContain('rgb(16, 185, 129)'); // CONCLUIDA #10b981
+  });
+
+  it('corPor="nivel" pinta como o Gantt Global do legado: projecto roxo, tarefas azuis', () => {
+    const { container } = render(<Gantt inicio="2026-09-01" fim="2026-09-30" linhas={linhas} corPor="nivel" />);
+    const b = bordas(container);
+    expect(b[0]).toContain('rgb(139, 92, 246)'); // #8b5cf6
+    expect(b[1]).toContain('rgb(59, 130, 246)'); // #3b82f6
+  });
+});

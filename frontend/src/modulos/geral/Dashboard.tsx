@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Empty, Flex, Form, InputNumber, Popover, Select, Skeleton, Space, Tag, Typography } from 'antd';
-import { FilterOutlined, ReloadOutlined, RightOutlined } from '@ant-design/icons';
+import { FilterOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useRef, useState, type CSSProperties } from 'react';
@@ -271,6 +271,8 @@ export function ConteudoPainel({ dados, aoIrPara, tituloImpressao }: { dados: Da
   const refVisual = useRef<HTMLDivElement>(null);
   const rotaDaVista = useRotaDaVista();
   const atalhos = (dados.atalhos ?? []).map((a) => ({ ...a, rota: rotaDaVista(a.vista) })).filter((a) => a.rota);
+  // cor do módulo: barra do aviso e contorno dos atalhos (legado htmlConteudo: border-left-color / border-color = mod.cor)
+  const corModulo = estiloPainel(dados.modulo.id).cor;
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Flex justify="end">
@@ -285,7 +287,12 @@ export function ConteudoPainel({ dados, aoIrPara, tituloImpressao }: { dados: Da
           })}
         />
       </Flex>
-      {dados.aviso && <Alert type="info" showIcon message={dados.aviso} />}
+      {/* legado .painel-aviso: caixa branca com barra de 4 px na cor do módulo */}
+      {dados.aviso && (
+        <div className="painel-aviso" role="note" style={{ borderLeftColor: corModulo }}>
+          {dados.aviso}
+        </div>
+      )}
       {!!dados.filtros_ignorados?.length && <Alert type="warning" showIcon message="Este painel não suporta os filtros por unidade de negócio ou centro de custo; foram ignorados." />}
       <div ref={refVisual}>
       {dados.kpis.length > 0 && (
@@ -318,18 +325,29 @@ export function ConteudoPainel({ dados, aoIrPara, tituloImpressao }: { dados: Da
         </div>
       )}
       </div>
-      {(dados.tabelas ?? []).map((t) => (
-        <TabelaGestao key={t.id} tabela={t} />
-      ))}
+      {/* legado: as tabelas ficam na mesma grelha de duas colunas dos gráficos; `largo` (ou mais de 5 colunas, como o
+          quadro «Comparação por Empresa») ocupa a linha toda */}
+      {!!dados.tabelas?.length && (
+        <div className="painel-grelha painel-grelha-tabelas">
+          {dados.tabelas.map((t) => (
+            <div key={t.id} className={(t.largo ?? t.colunas.length > 5) ? 'painel-largo' : undefined} style={{ minWidth: 0 }}>
+              <TabelaGestao tabela={t} />
+            </div>
+          ))}
+        </div>
+      )}
+      {/* legado .painel-atalhos: «Ir para:» com botões contornados na cor do módulo */}
       {atalhos.length > 0 && (
-        <Flex gap={8} wrap align="center">
-          <Typography.Text type="secondary">Ir para:</Typography.Text>
+        <div className="painel-atalhos">
+          <span className="painel-atalhos-rotulo">
+            <IconeFa nome="external-link-alt" /> Ir para:
+          </span>
           {atalhos.map((a) => (
-            <Button key={a.vista} icon={<RightOutlined />} onClick={() => navegar(a.rota!)}>
+            <Button key={a.vista} size="small" style={{ borderColor: corModulo, color: corModulo }} onClick={() => navegar(a.rota!)}>
               {a.rotulo}
             </Button>
           ))}
-        </Flex>
+        </div>
       )}
       {dados.calculado_em && (
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>

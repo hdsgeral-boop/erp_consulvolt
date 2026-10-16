@@ -248,3 +248,26 @@
     flex-wrap: wrap;
   }
 }
+
+/* Tela nocturna (cores do layout/telaNocturna.css): barra, cartões, indicadores e tabelas deixam de ficar claros. */
+@media screen {
+  html.erp-tela-nocturna .rg-barra,
+  html.erp-tela-nocturna .rg-cartao,
+  html.erp-tela-nocturna .rg-kpi { background: #111a2b; border-color: #1f2a3d; }
+  html.erp-tela-nocturna .rg-periodo { background: #0f172a; border-color: #334155; }
+  html.erp-tela-nocturna .rg-periodo.a { border-left-color: #3b82f6; }
+  html.erp-tela-nocturna .rg-campo label,
+  html.erp-tela-nocturna .rg-legenda,
+  html.erp-tela-nocturna .rg-tab,
+  html.erp-tela-nocturna .rg-kpi-rot,
+  html.erp-tela-nocturna .rg-kpi-b { color: #94a3b8; }
+  html.erp-tela-nocturna .rg-tab[aria-selected='true'] { color: #93c5fd; border-bottom-color: #3b82f6; }
+  html.erp-tela-nocturna .rg-tabs { border-bottom-color: #1f2a3d; }
+  html.erp-tela-nocturna .rg-kpi-a,
+  html.erp-tela-nocturna .rg-cartao h4 { color: #e2e8f0; }
+  html.erp-tela-nocturna .rg-tag { background: #1e293b; color: #cbd5e1; }
+  html.erp-tela-nocturna .rg-tabela th { background: #1e293b; color: #cbd5e1; border-bottom-color: #334155; }
+  html.erp-tela-nocturna .rg-tabela td { border-bottom-color: #1f2a3d; }
+  html.erp-tela-nocturna .rg-nota { background: #3b2a0a; border-color: #92400e; color: #fde68a; }
+  html.erp-tela-nocturna .rg { --rg-boa: #4ade80; --rg-ma: #f87171; --rg-neutra: #94a3b8; }
+}

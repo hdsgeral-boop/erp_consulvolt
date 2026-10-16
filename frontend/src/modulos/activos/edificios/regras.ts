@@ -43,14 +43,37 @@ export function previaPortas(prefixo: string, de: number | null | undefined, ate
   return { valida: true, n, texto: `Vão ser criadas ${n} porta(s): ${primeiras.join(', ')}${n > 3 ? ` … ${p}${ate}` : ''}` };
 }
 
-/** Texto da localização para listas («Edifício · Andar · Porta», assetLocalTexto :1015-1027). */
-export function textoLocal(opcoes: OpcoesLocais | undefined, portaId: number | null | undefined): string {
-  if (!opcoes?.portas || !portaId) return '';
+/**
+ * Texto da localização para listas («Edifício · Andar · Porta», assetLocalTexto :1015-1027). Sem porta mas com edifício
+ * (ADR-071, A2) dá «Edifício · [Andar ·] sem porta».
+ */
+export function textoLocal(opcoes: OpcoesLocais | undefined, portaId: number | null | undefined, edificioId?: number | null, andarId?: number | null): string {
+  if (!opcoes?.portas) return '';
+  if (!portaId) {
+    if (!edificioId) return '';
+    const e = opcoes.edificios.find((x) => x.id === edificioId);
+    const a = andarId ? opcoes.andares.find((x) => x.id === andarId) : undefined;
+    return [e?.codigo || e?.descricao || '', a ? nomeAndar(a) : '', 'sem porta'].filter(Boolean).join(' · ');
+  }
   const p = opcoes.portas.find((x) => x.id === portaId);
   if (!p) return '';
   const e = opcoes.edificios.find((x) => x.id === p.edificio_id);
   const a = opcoes.andares.find((x) => x.id === p.andar_id);
   return [e?.codigo || e?.descricao || '', nomeAndar(a), p.numero].filter(Boolean).join(' · ');
+}
+
+/** Localização da ficha do activo (edifício › andar › porta) a partir das relações que vêm em GET /ativos/bens/{id}. */
+export function textoLocalFicha(a: {
+  tipo_ativo?: string | null;
+  edificio?: { codigo: string | null; descricao: string } | null;
+  andar?: { numero: string | null; nome: string | null } | null;
+  porta?: { numero: string; nome: string | null } | null;
+}): string {
+  if (a.tipo_ativo === 'EDIFICIO') return 'É um edifício / local';
+  if (!a.edificio) return 'Sem localização';
+  const edificio = [a.edificio.codigo, a.edificio.descricao].filter(Boolean).join(' — ');
+  const porta = a.porta ? `Porta ${a.porta.numero}${a.porta.nome ? ` (${a.porta.nome})` : ''}` : 'sem porta';
+  return [edificio, a.andar ? nomeAndar(a.andar) : '', porta].filter(Boolean).join(' › ');
 }
 
 /** Filtra os bens por código ou descrição (caixa «Procurar bem…» da planta). */

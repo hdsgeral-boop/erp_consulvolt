@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, Flex, List, Modal, Radio, Row, Select, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, Flex, List, Modal, Radio, Row, Select, Space, Table, Tag, Typography, theme } from 'antd';
 import { MailOutlined, SendOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -49,6 +49,7 @@ function Campo({ rotulo, largura, children }: { rotulo: string; largura: number;
  */
 export default function Campanhas() {
   const { pode } = useSessao();
+  const { token } = theme.useToken();
   const modelos = useModelosEmail();
   const funis = useFunis();
   const config = useConfigCRM();
@@ -219,7 +220,7 @@ export default function Campanhas() {
       )}
       <Modal open={!!ver} title={ver?.assunto} onCancel={() => setVer(null)} footer={null} width={larguraModal(640)}>
         <Typography.Paragraph type="secondary">Para: {ver?.para || '—'}</Typography.Paragraph>
-        <div style={{ whiteSpace: 'pre-wrap', border: '1px solid #f0f0f0', borderRadius: 6, padding: 12 }}>{ver?.corpo}</div>
+        <div style={{ whiteSpace: 'pre-wrap', border: `1px solid ${token.colorSplit}`, borderRadius: 4, padding: 12 }}>{ver?.corpo}</div>
       </Modal>
     </>
   );

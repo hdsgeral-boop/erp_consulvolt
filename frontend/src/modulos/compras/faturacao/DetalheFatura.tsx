@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, scrollTabela } from '@/componentes/responsivo';
+import { CartaoAlocacaoUN, bloqueioAlocacao, useColunasUNCC, type LinhaComUNCC, type ResumoAlocacao } from '@/componentes/reparticao';
 import { BotaoPreVisualizarLancamento } from '@/componentes/simulacoes/PreVisualizacaoLancamento';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosFaturaCompra } from '../comum/impressao';
@@ -30,11 +31,16 @@ interface ItemLegado {
 }
 
 /** Linhas para mostrar: as linhas normalizadas ou, nas facturas migradas, o JSON do legado. */
-export function linhasFatura(f: FaturaCompra & { itens?: ItemLegado[] | null }): { chave: string; produto_id: number; produto?: RefProduto | null; descricao: string | null; quantidade: number; preco: number; iva: number; liquido: number; imposto: number }[] {
+export function linhasFatura(f: FaturaCompra & { itens?: ItemLegado[] | null }): ({ chave: string; produto_id: number; produto?: RefProduto | null; descricao: string | null; quantidade: number; preco: number; iva: number; liquido: number; imposto: number } & LinhaComUNCC)[] {
   if (f.linhas && f.linhas.length > 0) {
     return f.linhas.map((l: ItemCompra) => {
       const liquido = numero(l.total_kz ?? l.total ?? numero(l.quantidade) * numero(l.preco_unitario));
+      const uncc = l as LinhaComUNCC;   // ADR-071 (R5): UN/CC da linha (id + nome)
       return {
+        unidade_negocio_id: uncc.unidade_negocio_id ?? null,
+        centro_custo_id: uncc.centro_custo_id ?? null,
+        unidade_negocio: uncc.unidade_negocio ?? null,
+        centro_custo: uncc.centro_custo ?? null,
         chave: String(l.id),
         produto_id: l.produto_id,
         produto: l.produto ?? null,
@@ -64,8 +70,9 @@ export function DetalheFatura() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [modal, setModal] = useState<'anular' | 'descontabilizar' | null>(null);
-  const consulta = useQuery({ queryKey: ['compras', 'fatura', id], queryFn: () => obter<FaturaCompra & { itens?: ItemLegado[] | null }>(`/compras/faturas/${id}`) });
+  const consulta = useQuery({ queryKey: ['compras', 'fatura', id], queryFn: () => obter<FaturaCompra & { itens?: ItemLegado[] | null; alocacao_un?: ResumoAlocacao | null; alocacao_un_origem?: 'ENCOMENDA' | 'PEDIDO' | null }>(`/compras/faturas/${id}`) });
   const accao = useAccao<FaturaCompra>({ invalidar: [['compras']], aoSucesso: () => setModal(null) });
+  const colunasUNCC = useColunasUNCC(consulta.data ? linhasFatura(consulta.data) : []);
 
   if (consulta.isLoading) return <Skeleton active />;
   const f = consulta.data;
@@ -139,6 +146,7 @@ export function DetalheFatura() {
             { title: 'Preço (Kz)', dataIndex: 'preco', align: 'right', render: (v: number) => formatarKz(v) },
             { title: 'IVA %', dataIndex: 'iva', align: 'right', render: formatarNumero },
             { title: 'Líquido (Kz)', dataIndex: 'liquido', align: 'right', render: (v: number) => formatarKz(v) },
+            ...colunasUNCC,
           ]}
         />
         <Flex justify="end" style={{ marginTop: 16 }}>
@@ -148,6 +156,10 @@ export function DetalheFatura() {
             {moeda !== 'AOA' && <Descriptions.Item label={`Total (${moeda})`}>{formatarKz(f.montante_total_moeda)}</Descriptions.Item>}
           </Descriptions>
         </Flex>
+        {/* ADR-071 (R2/R5): repartição por UN — alterável (com permissão) enquanto a factura não estiver contabilizada nem anulada */}
+        <CartaoAlocacaoUN tipo="fatura_compra" id={f.id} resumo={f.alocacao_un} valor={numero(f.montante_total)} invalidar={[['compras']]}
+          podeAlterar={pode('compras_fact_registar')} bloqueio={bloqueioAlocacao(f)}
+          nota={f.alocacao_un_origem ? `Herdada ${f.alocacao_un_origem === 'PEDIDO' ? 'do pedido' : 'da encomenda'} (a factura não tem repartição própria)` : null} />
       </Card>
       <ModalMotivo
         aberto={modal === 'descontabilizar'}

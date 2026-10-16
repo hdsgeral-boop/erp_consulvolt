@@ -53,6 +53,7 @@ function montar(caminho = '/') {
     <QueryClientProvider client={cliente}>
       <MemoryRouter initialEntries={[caminho]}>
         <Routes>
+          <Route path="portal/*" element={<p>Página do portal</p>} />
           <Route element={<LayoutPrincipal />}>
             <Route index element={<p>Página inicial</p>} />
             <Route path="m/:modulo/:ecra/*" element={<p>Página do ecrã</p>} />
@@ -289,5 +290,151 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     expect(within(lateral).queryByRole('textbox', { name: 'Procurar no menu' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
     expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
+  });
+});
+
+describe('LayoutPrincipal — fecho Versão Actual: portal autónomo e renomear favorito', () => {
+  beforeEach(() => simularLargura(1366));
+
+  it('«Abrir o portal» no menu do utilizador leva a /portal (sem o menu do ERP)', async () => {
+    const { container } = montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Opções do utilizador' }));
+    fireEvent.click(await screen.findByText('Abrir o portal'));
+    expect(await screen.findByText('Página do portal')).toBeInTheDocument();
+    expect(container.querySelector('.ant-layout-sider')).toBeNull();
+  });
+
+  it('o lápis «Renomear favorito» no menu «⋮» grava o rótulo próprio com a preferência', async () => {
+    enviarMock.mockClear();
+    const { container } = montar('/m/config/config_geral');
+    const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    expect(await within(lateral).findByText('Favoritos')).toBeInTheDocument();
+    const pontos = await waitFor(() => {
+      const el = within(lateral).getAllByText('Geral / Backup').map((x) => x.closest('li')?.querySelector('.erp-menu-pontos')).find(Boolean);
+      if (!el) throw new Error('sem «⋮»');
+      return el as HTMLElement;
+    });
+    fireEvent.click(pontos);
+    fireEvent.click(await screen.findByText('Renomear favorito'));
+    const campo = await screen.findByRole('textbox', { name: 'Nome do favorito' });
+    fireEvent.change(campo, { target: { value: '  Cópias   de segurança ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() =>
+      expect(enviarMock).toHaveBeenCalledWith('put', '/sistema/preferencias/favoritos/lista', {
+        valor: [{ modulo: 'config', ecra: 'config_geral', rotulo: 'Cópias de segurança' }],
+      }),
+    );
+  });
+});
+
+describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, aspecto e expandir/recolher', () => {
+  beforeEach(() => simularLargura(1366));
+
+  const lateralDe = (container: HTMLElement) => container.querySelector('.ant-layout-sider') as HTMLElement;
+
+  it('arrastar o friso com o rato muda a largura entre 220 e 800 px e guarda-a por utilizador; duplo clique repõe', async () => {
+    const { container } = montar('/');
+    const lateral = lateralDe(container);
+    const friso = within(lateral).getByRole('separator', { name: 'Largura do menu' });
+    expect(friso).toHaveAttribute('aria-valuenow', '280');
+    expect(friso).toHaveAttribute('aria-valuemin', '220');
+    expect(friso).toHaveAttribute('aria-valuemax', '800');
+    expect(lateral.style.width).toBe('280px');
+
+    fireEvent.mouseDown(friso, { button: 0, clientX: 280 });
+    expect(friso).toHaveClass('a-arrastar');
+    expect(document.body.style.cursor).toBe('col-resize');
+    fireEvent.mouseMove(document, { clientX: 420 });
+    await waitFor(() => expect(friso).toHaveAttribute('aria-valuenow', '420'));
+    expect(lateral.style.width).toBe('420px');
+    // limite máximo e mínimo do legado
+    fireEvent.mouseMove(document, { clientX: 5000 });
+    await waitFor(() => expect(friso).toHaveAttribute('aria-valuenow', '800'));
+    fireEvent.mouseMove(document, { clientX: 10 });
+    await waitFor(() => expect(friso).toHaveAttribute('aria-valuenow', '220'));
+    fireEvent.mouseMove(document, { clientX: 380 });
+    fireEvent.mouseUp(document);
+    await waitFor(() => expect(friso).toHaveAttribute('aria-valuenow', '380'));
+    expect(friso).not.toHaveClass('a-arrastar');
+    expect(document.body.style.cursor).toBe('');
+    expect(localStorage.getItem('erp.menu.largura.1')).toBe('380');
+
+    // depois de largar, o rato já não mexe na largura
+    fireEvent.mouseMove(document, { clientX: 600 });
+    expect(friso).toHaveAttribute('aria-valuenow', '380');
+
+    fireEvent.doubleClick(friso);
+    expect(friso).toHaveAttribute('aria-valuenow', '280');
+    expect(localStorage.getItem('erp.menu.largura.1')).toBeNull();
+  });
+
+  it('o friso é acessível pelo teclado e a largura guardada é lida ao entrar', () => {
+    localStorage.setItem('erp.menu.largura.1', '500');
+    const { container } = montar('/');
+    const friso = within(lateralDe(container)).getByRole('separator', { name: 'Largura do menu' });
+    expect(friso).toHaveAttribute('aria-valuenow', '500');
+    expect(friso).toHaveAttribute('tabindex', '0');
+    fireEvent.keyDown(friso, { key: 'ArrowRight' });
+    expect(friso).toHaveAttribute('aria-valuenow', '510');
+    fireEvent.keyDown(friso, { key: 'ArrowLeft', shiftKey: true });
+    expect(friso).toHaveAttribute('aria-valuenow', '460');
+    fireEvent.keyDown(friso, { key: 'Home' });
+    expect(friso).toHaveAttribute('aria-valuenow', '220');
+    fireEvent.keyDown(friso, { key: 'End' });
+    expect(friso).toHaveAttribute('aria-valuenow', '800');
+    expect(localStorage.getItem('erp.menu.largura.1')).toBe('800');
+    fireEvent.keyDown(friso, { key: 'Enter' });
+    expect(friso).toHaveAttribute('aria-valuenow', '280');
+  });
+
+  it('recolher continua a funcionar: menu de 76 px sem friso, e ao expandir volta à largura escolhida', () => {
+    localStorage.setItem('erp.menu.largura.1', '450');
+    const { container } = montar('/');
+    const lateral = lateralDe(container);
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    expect(lateral).toHaveClass('ant-layout-sider-collapsed');
+    expect(lateral.style.width).toBe('76px');
+    expect(within(lateral).queryByRole('separator')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    expect(lateral.style.width).toBe('450px');
+  });
+
+  it('botões do aspecto no próprio menu (completo, só símbolos, só nomes) e «Expandir/Recolher tudo»', async () => {
+    const { container } = montar('/');
+    const lateral = lateralDe(container);
+    const grupo = within(lateral).getByRole('radiogroup', { name: 'Aspecto do menu' });
+    expect(within(grupo).getByRole('radio', { name: 'Completo (símbolos e nomes)' })).toHaveAttribute('aria-checked', 'true');
+    // «Expandir tudo» abre os grupos e sub-grupos (Menu Geral › Vendas); «Recolher tudo» fecha-os
+    expect(within(lateral).queryByText('Faturação')).toBeNull();
+    fireEvent.click(within(lateral).getByRole('button', { name: 'Expandir tudo' }));
+    expect(await within(lateral).findByText('Faturação')).toBeVisible();
+    fireEvent.click(within(lateral).getByRole('button', { name: 'Recolher tudo' }));
+    await waitFor(() => expect(within(lateral).getByText('Menu Geral').closest('.ant-menu-submenu')).not.toHaveClass('ant-menu-submenu-open'));
+    // seta do grupo (fa-chevron-down) roda quando o grupo abre
+    const titulo = within(lateral).getByText('Sistema').closest('.ant-menu-submenu-title') as HTMLElement;
+    expect(titulo.querySelector('.erp-menu-seta')).not.toHaveClass('aberta');
+    fireEvent.click(titulo);
+    await waitFor(() => expect(titulo.querySelector('.erp-menu-seta')).toHaveClass('aberta'));
+
+    fireEvent.click(within(grupo).getByRole('radio', { name: 'Só símbolos' }));
+    expect(lateral).toHaveClass('ant-layout-sider-collapsed');
+    expect(within(grupo).getByRole('radio', { name: 'Só símbolos' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(within(grupo).getByRole('radio', { name: 'Só nomes' }));
+    expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
+    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toEqual({ tema: 'claro', menu: 'nomes' });
+  });
+
+  it('a gaveta dos ecrãs pequenos não tem friso nem botões do aspecto', async () => {
+    simularLargura(375);
+    montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu' }));
+    const gaveta = await waitFor(() => {
+      const g = document.querySelector('.erp-gaveta-menu') as HTMLElement | null;
+      expect(g).not.toBeNull();
+      return g as HTMLElement;
+    });
+    expect(within(gaveta).getByText('Menu Geral')).toBeInTheDocument();
+    expect(within(gaveta).queryByRole('separator')).toBeNull();
+    expect(within(gaveta).queryByRole('radiogroup')).toBeNull();
   });
 });

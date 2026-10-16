@@ -1,12 +1,15 @@
-import { Alert, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Select } from 'antd';
+import { Alert, Col, DatePicker, Form, Input, InputNumber, Row, Select, Typography } from 'antd';
 import dayjs from 'dayjs';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { enviar } from '@/api/cliente';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
+import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorCategoria, useCategorias } from './comum/componentes';
-import type { Activo } from './comum/tipos';
+import type { Activo, CategoriaActivo } from './comum/tipos';
 import { larguraModal } from '@/componentes/responsivo';
 import { CamposLocalizacao } from './edificios/locais';
 
@@ -44,6 +47,31 @@ interface Valores {
 
 const num = (v: string | number | null | undefined) => (v === null || v === undefined || v === '' ? undefined : Number(v));
 
+/** Data da grade (dayjs) ou da vista Linhas ('AAAA-MM-DD') → API. */
+const dataDe = (d: unknown): string | null => (dayjs.isDayjs(d) ? dataApi(d) ?? null : typeof d === 'string' && d ? d : null);
+
+/**
+ * Regras de gravação do activo, comuns à grade e à vista Linhas: vazios a nulo; o estado só na edição; o tipo não muda
+ * depois de criado; um edifício não tem localização (o servidor confirma).
+ */
+export function dadosActivo(v: Record<string, unknown>, activo?: Pick<Activo, 'tipo_ativo'> | null): Record<string, unknown> {
+  const dados: Record<string, unknown> = { ...v, data_aquisicao: dataDe(v.data_aquisicao) };
+  for (const k of Object.keys(dados)) if (dados[k] === undefined || dados[k] === '') dados[k] = null;
+  if (!activo) delete dados.estado;
+  if (activo) delete dados.tipo_ativo;
+  if (v.tipo_ativo === 'EDIFICIO' || activo?.tipo_ativo === 'EDIFICIO') { delete dados.edificio_id; delete dados.andar_id; delete dados.porta_id; }
+  return dados;
+}
+
+/** Vida útil por omissão da categoria quando a linha não a traz (o mesmo que a grade faz ao escolher a categoria). */
+export function comVidaDaCategoria(r: Record<string, unknown>, categorias: CategoriaActivo[] | undefined): Record<string, unknown> {
+  if (r.vida_util !== null && r.vida_util !== undefined && r.vida_util !== '') return r;
+  const c = categorias?.find((x) => x.id === r.categoria_ativo_id);
+  return c?.vida_util_padrao ? { ...r, vida_util: c.vida_util_padrao } : r;
+}
+
+const TIPOS_ACTIVO = [{ value: 'BEM', label: 'Bem (equipamento, mobiliário, viatura...)' }, { value: 'EDIFICIO', label: 'Edifício / Local (contém outros bens)' }];
+
 /** Ficha do activo (criar/editar). Com a ficha bloqueada (amortizações integradas ou compra lançada) o servidor recusa mexer nos valores. */
 export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 'BEM' }: Props) {
   const [form] = Form.useForm<Valores>();
@@ -75,26 +103,55 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
   };
 
   const gravar = (v: Valores) => {
-    const dados: Record<string, unknown> = { ...v, data_aquisicao: dataApi(v.data_aquisicao) };
-    for (const k of Object.keys(dados)) if (dados[k] === undefined) dados[k] = null;
-    if (!activo) delete dados.estado;
-    // o tipo não muda depois de criado; um edifício não tem localização (o servidor confirma)
-    if (activo) delete dados.tipo_ativo;
-    if (v.tipo_ativo === 'EDIFICIO' || activo?.tipo_ativo === 'EDIFICIO') { delete dados.edificio_id; delete dados.andar_id; delete dados.porta_id; }
+    const dados = dadosActivo(v as unknown as Record<string, unknown>, activo);
     accao.mutate(activo ? { metodo: 'put', url: `/ativos/bens/${activo.id}`, dados } : { url: '/ativos/bens', dados });
   };
 
+  // Vista Linhas (legado: formularios_linhas_config.js › activos — um activo por linha, pela ordem do legado)
+  const unidades = useUnidadesNegocio(aberto);
+  const centros = useTabelaAux('centros-custo', aberto);
+  const camposLinhas = useMemo<CampoFormulario[]>(() => [
+    { nome: 'codigo', rotulo: 'Código / Nº inventário', largura: 130, maxLength: 50, placeholder: 'Automático', aliases: ['Cd. Inventário', 'Cd Inventario', 'Código'] },
+    { nome: 'descricao', rotulo: 'Descrição do bem', obrigatorio: true, largura: 230, maxLength: 2000, aliases: ['Descrição', 'Descricao'] },
+    { nome: 'categoria_ativo_id', rotulo: 'Categoria', tipo: 'select', obrigatorio: true, largura: 170, aliases: ['Categoria (Nome Exacto ou Novo)'],
+      opcoes: (categorias.data ?? []).map((c) => ({ value: c.id, label: c.nome })) },
+    { nome: 'unidade_negocio_id', rotulo: 'Unidade de negócio', tipo: 'select', largura: 160,
+      opcoes: (unidades.data ?? []).map((u) => ({ value: u.id, label: `${u.codigo ? `${u.codigo} - ` : ''}${u.nome}` })) },
+    { nome: 'centro_custo_id', rotulo: 'Centro de custo', tipo: 'select', largura: 160,
+      opcoes: (centros.data ?? []).map((c) => ({ value: c.id, label: `${c.codigo} - ${c.descricao ?? ''}` })) },
+    { nome: 'fornecedor_id', rotulo: 'Fornecedor / origem', tipo: 'personalizado', largura: 190, emLinhas: 'opcional', seccao: 'Origem',
+      celula: (p) => <SeletorTerceiro papel="FORNECEDOR" aria-label={p.rotulo} status={p.erro ? 'error' : undefined} size="small" style={{ width: '100%' }} value={(p.valor as number | null) ?? undefined} onChange={(v) => p.aoMudar(v ?? null)} />,
+      converter: (t) => (/^\d+$/.test(t) ? Number(t) : undefined) },
+    { nome: 'data_aquisicao', rotulo: 'Data de aquisição', tipo: 'data', obrigatorio: true, largura: 140, aliases: ['Data Aquisição (AAAA-MM-DD)', 'Data Aquisição'] },
+    { nome: 'valor_aquisicao', rotulo: 'Valor de aquisição', tipo: 'numero', obrigatorio: true, min: 0, precisao: 2, largura: 130, aliases: ['Valor Aquisição (Kz)', 'Valor Aquisição', 'Valor'] },
+    { nome: 'valor_residual', rotulo: 'Valor residual', tipo: 'numero', min: 0, precisao: 2, largura: 120 },
+    { nome: 'vida_util', rotulo: 'Vida útil (meses)', tipo: 'numero', min: 0, precisao: 0, largura: 100, aliases: ['Meses de Vida Total', 'Vida útil'] },
+    { nome: 'vida_util_restante', rotulo: 'Vida remanescente', tipo: 'numero', min: 0, precisao: 0, largura: 100, aliases: ['Vida útil restante (meses)'] },
+    { nome: 'quota_fixa', rotulo: 'Cota fixa mensal', tipo: 'numero', min: 0, precisao: 2, largura: 120, aliases: ['Quota mensal fixa (Kz)'] },
+    { nome: 'amortizacao_acumulada_inicial', rotulo: 'Valor já amortizado (Kz)', tipo: 'numero', min: 0, precisao: 2, largura: 130, aliases: ['Amortização Acumulada (Kz)', 'Amortização Acumulada'] },
+    { nome: 'acumulado_fim_ano', rotulo: 'Acumulado até ao fim do ano', tipo: 'numero', min: 1900, max: 2100, precisao: 0, largura: 110, emLinhas: 'opcional', seccao: 'Saldo inicial' },
+    { nome: 'tipo_ativo', rotulo: 'Tipo de Activo', tipo: 'select', opcoes: TIPOS_ACTIVO, omissao: 'BEM', largura: 170, emLinhas: 'opcional', seccao: 'Tipo' },
+  ], [categorias.data, unidades.data, centros.data]);
+
   return (
-    <Modal
-      title={activo ? `Editar activo ${activo.codigo ?? ''}` : 'Novo activo'}
-      open={aberto}
-      onCancel={aoFechar}
+    <ModalFormulario
+      chave="activos.activos"
+      titulo={activo ? `Editar activo ${activo.codigo ?? ''}` : 'Novo activo'}
+      aberto={aberto}
+      aoFechar={aoFechar}
+      criacao={!activo}
+      form={form}
+      campos={camposLinhas}
+      nomeRegistos="activos imobilizados"
+      invalidar={[['activos']]}
+      gravarLinha={(r) => enviar('post', '/ativos/bens', dadosActivo(comVidaDaCategoria(r, categorias.data)))}
+      nota="Uma linha por activo. Descrição, categoria, data e valor de aquisição são obrigatórios; sem código, o sistema numera (AST-NNN). Sem vida útil, usa a da categoria. A localização física escolhe-se na grade."
+      larguraLinhas={1400}
       onOk={() => form.submit()}
       okText="Gravar"
       cancelText="Cancelar"
       confirmLoading={accao.isPending}
       width={larguraModal(860)}
-      destroyOnHidden
     >
       {bloqueado && (
         <Alert
@@ -109,57 +166,32 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
         <Row gutter={12} align="bottom">
           <Col xs={24} md={8}>
             <Form.Item name="tipo_ativo" label="Tipo de Activo" tooltip={activo ? 'O tipo não muda depois de criado' : undefined}>
-              <Select disabled={!!activo} options={[{ value: 'BEM', label: 'Bem (equipamento, mobiliário, viatura...)' }, { value: 'EDIFICIO', label: 'Edifício / Local (contém outros bens)' }]} />
+              <Select disabled={!!activo} options={TIPOS_ACTIVO} />
             </Form.Item>
           </Col>
           <Col xs={24} md={16}>
-            <p style={{ color: '#64748b', fontSize: 13 }}>
+            <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
               {tipo === 'EDIFICIO'
                 ? 'Depois de gravado, abra «Edifícios e Locais» para criar os andares e numerar as portas, e arraste para elas os bens já existentes.'
                 : 'Um bem pode ficar localizado numa porta de um edifício já criado.'}
-            </p>
+            </Typography.Paragraph>
           </Col>
         </Row>
         {tipo !== 'EDIFICIO' && (
-          <fieldset style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '8px 12px', marginBottom: 12 }}>
-            <legend style={{ fontSize: 12, textTransform: 'uppercase', color: '#64748b', width: 'auto', margin: 0, padding: '0 4px' }}>Localização física</legend>
+          <SeccaoFormulario titulo="Localização física" recolhida={!!activo && !activo.edificio_id}>
             <CamposLocalizacao form={form} />
-          </fieldset>
+          </SeccaoFormulario>
         )}
+        {/* grupos do legado (showAssetForm, ui_assets.js:265-420): identificação; UN/CC/fornecedor; aquisição; vida e cota; já amortizado */}
         <Row gutter={12}>
           <Col xs={24} md={6}>
             <Form.Item name="codigo" label="Código" tooltip="Vazio = numeração automática AST-NNN">
               <Input maxLength={50} placeholder="Automático" />
             </Form.Item>
           </Col>
-          <Col xs={24} md={18}>
+          <Col xs={24} md={activo ? 12 : 18}>
             <Form.Item name="descricao" label="Descrição" rules={[{ required: true, message: 'Indique a descrição.' }]}>
               <Input maxLength={2000} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="categoria_ativo_id" label="Categoria" rules={[{ required: true, message: 'Escolha a categoria.' }]}>
-              <SeletorCategoria onChange={aoMudarCategoria} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="centro_custo_id" label="Centro de custo">
-              <SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="unidade_negocio_id" label="Unidade de negócio">
-              <SeletorUnidade style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="fornecedor_id" label="Fornecedor">
-              <SeletorTerceiro papel="FORNECEDOR" style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={6}>
-            <Form.Item name="data_aquisicao" label="Data de aquisição" rules={[{ required: !activo, message: 'Indique a data.' }]}>
-              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloqueado} />
             </Form.Item>
           </Col>
           {activo && (
@@ -169,43 +201,80 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
               </Form.Item>
             </Col>
           )}
-          <Col xs={24} md={6}>
-            <Form.Item name="valor_aquisicao" label="Valor de aquisição (Kz)" rules={[{ required: !activo, message: 'Indique o valor.' }]}>
-              <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={6}>
-            <Form.Item name="valor_residual" label="Valor residual (Kz)">
-              <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={6}>
-            <Form.Item name="vida_util" label="Vida útil (meses)" tooltip="Vazio = amortiza pela taxa da categoria">
-              <InputNumber min={0} precision={0} style={{ width: '100%' }} disabled={bloqueado} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={6}>
-            <Form.Item name="quota_fixa" label="Quota mensal fixa (Kz)" tooltip="Opcional: substitui a quota calculada">
-              <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
-            </Form.Item>
-          </Col>
           <Col xs={24} md={8}>
-            <Form.Item name="amortizacao_acumulada_inicial" label="Amortização acumulada inicial (Kz)" tooltip="Activos vindos de outro sistema">
-              <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="acumulado_fim_ano" label="Acumulado até ao fim do ano" tooltip="Ano a que respeita a amortização acumulada inicial">
-              <InputNumber min={1900} max={2100} precision={0} style={{ width: '100%' }} disabled={bloqueado} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="vida_util_restante" label="Vida útil restante (meses)">
-              <InputNumber min={0} precision={0} style={{ width: '100%' }} disabled={bloqueado} />
+            <Form.Item name="categoria_ativo_id" label="Categoria" rules={[{ required: true, message: 'Escolha a categoria.' }]}>
+              <SeletorCategoria onChange={aoMudarCategoria} />
             </Form.Item>
           </Col>
         </Row>
+        <SeccaoFormulario titulo="Imputação e origem">
+          <Row gutter={12}>
+            <Col xs={24} md={8}>
+              <Form.Item name="unidade_negocio_id" label="Unidade de negócio">
+                <SeletorUnidade style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="centro_custo_id" label="Centro de custo">
+                <SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="fornecedor_id" label="Fornecedor">
+                <SeletorTerceiro papel="FORNECEDOR" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Aquisição e amortização">
+          <Row gutter={12}>
+            <Col xs={24} md={8}>
+              <Form.Item name="data_aquisicao" label="Data de aquisição" rules={[{ required: !activo, message: 'Indique a data.' }]}>
+                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloqueado} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="valor_aquisicao" label="Valor de aquisição (Kz)" rules={[{ required: !activo, message: 'Indique o valor.' }]}>
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="valor_residual" label="Valor residual (Kz)">
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="vida_util" label="Vida útil (meses)" tooltip="Vazio = amortiza pela taxa da categoria">
+                <InputNumber min={0} precision={0} style={{ width: '100%' }} disabled={bloqueado} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="vida_util_restante" label="Vida útil restante (meses)">
+                <InputNumber min={0} precision={0} style={{ width: '100%' }} disabled={bloqueado} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="quota_fixa" label="Quota mensal fixa (Kz)" tooltip="Opcional: substitui a quota calculada">
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Saldo inicial (activos vindos de outro sistema)" recolhida={!Number(activo?.amortizacao_acumulada_inicial ?? 0)}>
+          <Row gutter={12}>
+            <Col xs={24} md={12}>
+              <Form.Item name="amortizacao_acumulada_inicial" label="Amortização acumulada inicial (Kz)" tooltip="Activos vindos de outro sistema">
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item name="acumulado_fim_ano" label="Acumulado até ao fim do ano" tooltip="Ano a que respeita a amortização acumulada inicial">
+                <InputNumber min={1900} max={2100} precision={0} style={{ width: '100%' }} disabled={bloqueado} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }

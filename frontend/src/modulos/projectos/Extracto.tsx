@@ -1,4 +1,4 @@
-import { Button, Card, Col, DatePicker, Flex, Input, Row, Select, Statistic, Typography } from 'antd';
+import { Button, Card, DatePicker, Flex, Input, Select, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import type dayjs from 'dayjs';
 import { useMemo, useState } from 'react';
@@ -7,7 +7,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos';
 import { tabelaHtml } from '@/componentes/impressao';
-import { TabelaComModos, type ColunaLegado } from '@/componentes/vistas';
+import { CartaoKpi, GrelhaKpi, TabelaComModos, type ColunaLegado } from '@/componentes/vistas';
 import { BotaoCsv, ValorKz } from '@/modulos/contab/comum/Componentes';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
@@ -48,17 +48,19 @@ export default function Extracto() {
   const t = q.data?.totais;
   const resultado = t ? (Number(t.proveitos) - Number(t.custos)).toFixed(2) : undefined;
 
+  // colunas pela ordem do legado (loadProjectExtract): Data, Projecto, WBS / Tarefa, Natureza, Rubrica, Origem, Documento, Descrição, Valor
   const colunas: ColunaLegado<Linha>[] = [
     { title: 'Data', dataIndex: 'data', render: formatarData, valorFiltro: (m) => formatarData(m.data) },
     { title: 'Projecto', dataIndex: 'codigo_projeto' },
+    { title: 'WBS / Tarefa', dataIndex: 'tarefa', render: (v, m) => (m.marco && !v ? <Typography.Text type="danger"><IconeFa nome="flag" /> {m.marco}</Typography.Text> : v ?? '—') },
     { title: 'Natureza', dataIndex: 'natureza', responsive: ['sm'], valorFiltro: (m) => rotuloProjectos(m.natureza), render: (v) => <EtiquetaProjectos valor={v} /> },
     { title: 'Rubrica', key: 'r', responsive: ['md'], valorFiltro: (m) => rotuloRubrica(m.categoria ?? m.rubrica), render: (_, m) => rotuloRubrica(m.categoria ?? m.rubrica) },
-    { title: 'Módulo', dataIndex: 'modulo', responsive: ['lg'] },
+    { title: 'Origem', dataIndex: 'modulo', responsive: ['lg'] },
     { title: 'Documento', key: 'doc', valorFiltro: (m) => [m.tipo_documento, m.documento].filter(Boolean).join(' · '), render: (_, m) => [m.tipo_documento, m.documento].filter(Boolean).join(' · ') || '—' },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
-    { title: 'Tarefa', dataIndex: 'tarefa', render: (v) => v ?? '—' },
     // proveitos e custos não se somam: o total só aparece com a natureza filtrada (como na impressão)
-    { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', total: natureza ? true : undefined, render: (v, m) => <Typography.Text type={m.natureza === 'CUSTO' ? 'danger' : m.natureza === 'PROVEITO' ? 'success' : undefined}>{formatarKz(v)}</Typography.Text> },
+    { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', total: natureza ? true : undefined,
+      render: (v, m) => <Typography.Text strong type={m.natureza === 'CUSTO' ? 'danger' : m.natureza === 'PROVEITO' ? 'success' : m.natureza === 'COMPROMISSO' ? 'warning' : undefined}>{formatarKz(v)}</Typography.Text> },
     { title: 'Pendente', dataIndex: 'valor_pendente', align: 'right', total: natureza ? true : undefined, render: (v) => <ValorKz valor={v} discretoSeZero /> },
   ];
 
@@ -112,12 +114,13 @@ export default function Extracto() {
           )}
         </Flex>
       </Card>
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Proveitos (Kz)" value={formatarKz(t?.proveitos)} valueStyle={{ color: '#389e0d' }} /></Card></Col>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Custos (Kz)" value={formatarKz(t?.custos)} valueStyle={{ color: '#cf1322' }} /></Card></Col>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Resultado (Kz)" value={formatarKz(resultado)} /></Card></Col>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Compromissos (Kz)" value={formatarKz(t?.compromissos)} /></Card></Col>
-      </Row>
+      {/* legado (loadProjectExtract, ui_projects.js:28-208): Compromissos (âmbar), Custos reais (vermelho), Proveitos (verde), barra à esquerda; «Resultado» é do sistema novo */}
+      <GrelhaKpi style={{ marginBottom: 16 }}>
+        <CartaoKpi barra="esquerda" cor="laranja" icone="file-contract" rotulo="Total compromissos" valor={formatarKz(t?.compromissos)} unidade="Kz" corValor="#d97706" />
+        <CartaoKpi barra="esquerda" cor="vermelho" icone="arrow-down" rotulo="Custos reais (execução)" valor={formatarKz(t?.custos)} unidade="Kz" corValor="#dc2626" />
+        <CartaoKpi barra="esquerda" cor="verde" icone="arrow-up" rotulo="Proveitos (rédito)" valor={formatarKz(t?.proveitos)} unidade="Kz" corValor="#059669" />
+        <CartaoKpi barra="esquerda" cor="azul" icone="balance-scale" rotulo="Resultado" valor={formatarKz(resultado)} unidade="Kz" corValor={Number(resultado) < 0 ? '#dc2626' : undefined} />
+      </GrelhaKpi>
       <Card>
         <Flex gap={8} wrap justify="space-between" style={{ marginBottom: 16 }}>
           <Flex gap={8} wrap>

@@ -27,12 +27,96 @@ use Illuminate\Support\Facades\DB;
  *   - elegibilidade: colaborador ACTIVO com contrato válido na janela do período (o legado usava o primeiro contrato
  *     ACTIVO, sem datas, e ignorava o estado do colaborador);
  *   - relançar retira os lançamentos de produtividade que deixaram de ter valor (o legado deixava-os ficar).
+ * Fecho da Versão Actual (#11, produtividade.js:36-160): base de cálculo por item — UNITARIO (quantidade considerada × preço,
+ * a regra de sempre; os itens sem base valem como UNITARIO) ou PREMIO, só na métrica OBJECTIVO (prémio a 100 % × % considerada
+ * ÷ 100) — e a explicação do cálculo por extenso (fórmula da métrica, conta com os números do caso e cortes de mínimo e tecto).
  */
 final class ServicoProdutividade
 {
     public const METRICAS = ['QUANTIDADE', 'HORAS', 'OBJECTIVO', 'PONTOS', 'TAREFAS'];
 
+    public const BASES = ['UNITARIO', 'PREMIO'];
+
     public const ORIGEM_LANCAMENTO = 'PRODUTIVIDADE';
+
+    /** Rótulos, fórmula e exemplo de cada métrica (METRICAS, produtividade.js:36) — alimentam o ecrã e a explicação do cálculo. */
+    public const DESCRICAO_METRICAS = [
+        'QUANTIDADE' => ['nome' => 'Quantidade produzida', 'rotulo_quantidade' => 'Quantidade produzida no período', 'rotulo_preco' => 'Valor por unidade',
+            'rotulo_minimo' => 'Quantidade mínima para pagar', 'rotulo_maximo' => 'Quantidade máxima paga',
+            'formula' => 'Subsídio = quantidade produzida × valor por unidade', 'exemplo' => '40 m³ × 2 000 Kz/m³ = 80 000 Kz',
+            'ajuda' => 'Paga-se o que foi produzido, à peça. Escreve-se a quantidade do período e o sistema multiplica pelo valor da unidade.', 'base_premio' => false],
+        'HORAS' => ['nome' => 'Horas produtivas', 'rotulo_quantidade' => 'Horas produtivas no período', 'rotulo_preco' => 'Valor por hora',
+            'rotulo_minimo' => 'Horas mínimas para pagar', 'rotulo_maximo' => 'Horas máximas pagas',
+            'formula' => 'Subsídio = horas produtivas × valor por hora', 'exemplo' => '120 h × 800 Kz/h = 96 000 Kz',
+            'ajuda' => 'Paga-se o tempo efectivamente produtivo ou de máquina. Não confundir com horas extraordinárias, que se tratam na Efectividade.', 'base_premio' => false],
+        'OBJECTIVO' => ['nome' => 'Cumprimento de objectivo (%)', 'rotulo_quantidade' => 'Percentagem atingida do objectivo', 'rotulo_preco' => 'Prémio a 100% do objectivo',
+            'rotulo_minimo' => '% mínima para haver prémio', 'rotulo_maximo' => '% máxima considerada (tecto)',
+            'formula' => 'Subsídio = prémio a 100% × (% atingida ÷ 100)', 'exemplo' => 'objectivo cumprido a 95% com prémio de 50 000 Kz → 50 000 × 0,95 = 47 500 Kz',
+            'ajuda' => 'Define-se quanto vale o objectivo cumprido a 100% e paga-se na proporção do que foi atingido. Use a % mínima (ex.: 80%) para não pagar abaixo disso e o tecto (ex.: 120%) para limitar o excesso.',
+            'base_premio' => true],
+        'PONTOS' => ['nome' => 'Pontos de desempenho/qualidade', 'rotulo_quantidade' => 'Pontos obtidos na grelha', 'rotulo_preco' => 'Valor por ponto',
+            'rotulo_minimo' => 'Pontos mínimos para pagar', 'rotulo_maximo' => 'Pontos máximos pagos',
+            'formula' => 'Subsídio = pontos obtidos × valor por ponto', 'exemplo' => '85 pontos × 300 Kz/ponto = 25 500 Kz',
+            'ajuda' => 'Para grelhas de avaliação ou de qualidade (ex.: 0 a 100 pontos). Cada ponto vale um valor fixo. Ponha o tecto igual ao máximo da grelha.', 'base_premio' => false],
+        'TAREFAS' => ['nome' => 'Tarefas / ordens concluídas', 'rotulo_quantidade' => 'Tarefas concluídas no período', 'rotulo_preco' => 'Valor por tarefa concluída',
+            'rotulo_minimo' => 'Tarefas mínimas para pagar', 'rotulo_maximo' => 'Tarefas máximas pagas',
+            'formula' => 'Subsídio = tarefas concluídas × valor por tarefa', 'exemplo' => '12 entregas × 2 000 Kz/entrega = 24 000 Kz',
+            'ajuda' => 'Paga-se por trabalho concluído: ordem de serviço, visita, entrega ou contrato. Só contam as concluídas no período.', 'base_premio' => false],
+    ];
+
+    /** Bases de cálculo (BASES, produtividade.js:86). */
+    public const DESCRICAO_BASES = [
+        'UNITARIO' => ['nome' => 'Valor por unidade (quantidade × preço)', 'formula' => 'quantidade × valor unitário'],
+        'PREMIO' => ['nome' => 'Prémio proporcional à percentagem atingida', 'formula' => 'prémio × (% atingida ÷ 100)'],
+    ];
+
+    /** Base efectiva do item: só PREMIO quando gravado assim; os itens antigos (sem base) valem como UNITARIO (baseDe, produtividade.js:92). */
+    public static function baseDe(?ItemProdutividadeRH $i): string
+    {
+        return $i && $i->base_calculo === 'PREMIO' ? 'PREMIO' : 'UNITARIO';
+    }
+
+    /**
+     * Valor de uma quantidade (total do colaborador no item e no período) ao preço indicado, com os cortes de mínimo e tecto.
+     * UNITARIO: considerada × preço; PREMIO: preço × (considerada ÷ 100) — calcularValor, produtividade.js:149.
+     */
+    public static function valor(ItemProdutividadeRH $i, float $quantidade, float $preco): string
+    {
+        $q = self::considerar($quantidade, $i->minimo !== null ? (float) $i->minimo : null, $i->maximo !== null ? (float) $i->maximo : null);
+        $qs = number_format($q, 3, '.', '');
+        $bruto = self::baseDe($i) === 'PREMIO' ? bcdiv(bcmul((string) $preco, $qs, 10), '100', 10) : bcmul($qs, (string) $preco, 10);
+
+        return self::arred($bruto, 2);
+    }
+
+    /**
+     * A conta escrita por extenso, com os números do caso (explicarCalculo, produtividade.js:155).
+     *
+     * @return array{metrica: string, base_calculo: string, formula: string, conta: string, cortes: list<string>, quantidade: float, quantidade_considerada: float, preco: float, valor: string}
+     */
+    public static function explicar(ItemProdutividadeRH $i, float $quantidade, float $preco): array
+    {
+        $metrica = in_array($i->metrica, self::METRICAS, true) ? $i->metrica : 'QUANTIDADE';
+        $base = self::baseDe($i);
+        $min = $i->minimo !== null ? (float) $i->minimo : null;
+        $max = $i->maximo !== null ? (float) $i->maximo : null;
+        $qc = self::considerar($quantidade, $min, $max);
+        $un = (string) ($i->unidade ?: '');
+        $n = fn (float $v) => rtrim(rtrim(number_format($v, 4, ',', ' '), '0'), ',');
+        $cortes = [];
+        if ($min !== null && $quantidade < $min) {
+            $cortes[] = "abaixo do mínimo de {$n($min)} {$un} — não há subsídio";
+        }
+        if ($max !== null && $max > 0 && $quantidade > $max) {
+            $cortes[] = "acima do tecto de {$n($max)} {$un} — conta {$n($max)}";
+        }
+        $conta = $base === 'PREMIO' ? "{$n($preco)} Kz × ({$n($qc)} ÷ 100)" : trim("{$n($qc)} {$un}")." × {$n($preco)} Kz";
+        $valor = self::valor($i, $quantidade, $preco);
+
+        return ['metrica' => $metrica, 'base_calculo' => $base, 'formula' => $base === 'PREMIO' ? self::DESCRICAO_METRICAS['OBJECTIVO']['formula'] : self::DESCRICAO_METRICAS[$metrica]['formula'],
+            'conta' => $conta.' = '.number_format((float) $valor, 2, ',', ' ').' Kz', 'cortes' => array_map(fn ($c) => trim(preg_replace('/\s+/', ' ', $c)), $cortes),
+            'quantidade' => $quantidade, 'quantidade_considerada' => $qc, 'preco' => $preco, 'valor' => $valor];
+    }
 
     // ───────────── Itens ─────────────
 
@@ -52,8 +136,26 @@ final class ServicoProdutividade
         if (isset($d['minimo'], $d['maximo']) && (float) $d['maximo'] < (float) $d['minimo']) {
             throw new ErroNegocio('O máximo não pode ser inferior ao mínimo.', 'LIMITES_INVALIDOS', 422);
         }
+        // base «prémio» só no cumprimento de objectivo (produtividade.js:118); sem base indicada mantém-se a gravada (ou UNITARIO)
+        $metrica = $d['metrica'] ?? $i?->metrica ?? 'QUANTIDADE';
+        $base = $d['base_calculo'] ?? $i?->base_calculo ?? 'UNITARIO';
+        if ($base === 'PREMIO' && $metrica !== 'OBJECTIVO') {
+            if (isset($d['base_calculo'])) {
+                throw new ErroNegocio('A base «prémio» só se aplica à métrica «Cumprimento de objectivo (%)»; nas outras métricas o subsídio é sempre quantidade × preço.',
+                    'BASE_CALCULO_INVALIDA', 422);
+            }
+            $base = 'UNITARIO';
+        }
+        $d['base_calculo'] = $base === 'PREMIO' ? 'PREMIO' : 'UNITARIO';
+        $mudaBase = $i && self::baseDe($i) !== $d['base_calculo'];
         $user = Auth::user()?->nome_utilizador;
         $i ? $i->update($d + ['atualizado_por' => $user]) : $i = ItemProdutividadeRH::create($d + ['metrica' => 'QUANTIDADE', 'ativo' => true, 'criado_por' => $user]);
+        if ($mudaBase) {   // a base mudou: os registos dos períodos ainda abertos passam a valer pela nova conta
+            $abertos = PeriodoProdutividadeRH::query()->where('estado', 'ABERTO')->pluck('id');
+            RegistoProdutividadeRH::query()->where('item_produtividade_id', $i->id)->whereIn('periodo_produtividade_id', $abertos)
+                ->select(['periodo_produtividade_id', 'colaborador_id'])->distinct()->get()
+                ->each(fn ($r) => $this->recalcular((int) $r->periodo_produtividade_id, (int) $r->colaborador_id, $i->id));
+        }
 
         return $i->refresh();
     }
@@ -220,7 +322,9 @@ final class ServicoProdutividade
         $total = $regs->reduce(fn ($c, $r) => bcadd($c, (string) ($r->quantidade ?? 0), 3), '0.000');
         $considerada = number_format(self::considerar((float) $total, $i->minimo !== null ? (float) $i->minimo : null, $i->maximo !== null ? (float) $i->maximo : null), 3, '.', '');
         $positivo = bccomp($total, '0', 3) > 0;
-        $exactos = $regs->map(fn ($r) => $positivo ? bcdiv(bcmul(bcmul((string) $r->quantidade, $considerada, 10), (string) ($r->preco_unitario ?? 0), 10), $total, 10) : '0');
+        // #11: na base «prémio» o preço é o prémio a 100 % e a quantidade é a % atingida → divide-se por 100
+        $divisor = self::baseDe($i) === 'PREMIO' ? bcmul($total, '100', 10) : $total;
+        $exactos = $regs->map(fn ($r) => $positivo ? bcdiv(bcmul(bcmul((string) $r->quantidade, $considerada, 10), (string) ($r->preco_unitario ?? 0), 10), $divisor, 10) : '0');
         $alvo = self::arred($exactos->reduce(fn ($c, $v) => bcadd($c, $v, 10), '0'), 2);
         $acumulado = '0.00';
         foreach ($regs->values() as $n => $r) {

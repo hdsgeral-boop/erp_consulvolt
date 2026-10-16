@@ -10,11 +10,16 @@ export interface CartaoEdificio {
   bens: number;
   valor_bens: string;
   inventarios: number;
+  /** Bens deste edifício ainda sem porta (ADR-071, A2). */
+  sem_porta?: number;
 }
 
 export interface ResumoEdificios {
   edificios: CartaoEdificio[];
+  /** Bens sem localização nenhuma. */
   sem_local: number;
+  /** Bens num edifício mas sem porta (ADR-071, A2). */
+  sem_porta?: number;
   inventarios: number;
 }
 
@@ -25,6 +30,10 @@ export interface BemNaPlanta {
   valor_aquisicao: string;
   categoria?: string | null;
   estado?: string;
+  /** Na lista «Bens sem porta»: EDIFICIO = neste edifício sem porta; SEM_LOCAL = sem localização; OUTRO = noutro edifício. */
+  grupo?: 'EDIFICIO' | 'SEM_LOCAL' | 'OUTRO';
+  /** Andar (grupo EDIFICIO) ou «Edifício · Andar · Porta» actual (grupo OUTRO). */
+  local?: string | null;
 }
 
 export interface PortaPlanta {
@@ -56,7 +65,9 @@ export interface Planta {
   edificio: { id: number; codigo: string | null; descricao: string; estado: string };
   andares: AndarPlanta[];
   sem_local: BemNaPlanta[];
-  totais: { andares: number; portas: number; bens: number; valor: string };
+  /** Bens de outros edifícios, para os arrastar para este (activos_edificios.js:92). */
+  outros_edificios?: BemNaPlanta[];
+  totais: { andares: number; portas: number; bens: number; valor: string; sem_porta?: number };
 }
 
 export interface OpcoesLocais {

@@ -67,9 +67,9 @@ final class FfActivosLocaisTest extends TestCase
         $this->getJson("/api/ativos/bens/{$b}", $this->h)->assertJsonPath('dados.tipo_ativo', 'BEM')->assertJsonPath('dados.edificio_id', $e)
             ->assertJsonPath('dados.andar_id', $andar)->assertJsonPath('dados.porta.numero', 'A2');
 
-        // edifício e andar sem porta é recusado (ui_assets.js:475); porta de outro andar também
+        // ADR-071 (A2): edifício e andar sem porta é aceite (o bem fica no edifício, sem porta); porta de outro andar é recusada
         $this->postJson('/api/ativos/bens', ['descricao' => 'X', 'categoria_ativo_id' => $this->cat, 'edificio_id' => $e, 'andar_id' => $andar], $this->h)
-            ->assertStatus(422)->assertJsonPath('codigo', 'PORTA_EM_FALTA');
+            ->assertCreated()->assertJsonPath('dados.edificio_id', $e)->assertJsonPath('dados.andar_id', $andar)->assertJsonPath('dados.porta_id', null);
         $outroAndar = $this->postJson("/api/ativos/edificios/{$e}/andares", ['numero' => '1'], $this->h)->assertCreated()->assertJsonPath('dados.nome', '1.º andar')->json('dados.id');
         $this->putJson("/api/ativos/bens/{$b}", ['andar_id' => $outroAndar, 'porta_id' => $p['A1']], $this->h)->assertStatus(422)->assertJsonPath('codigo', 'LOCAL_INCOERENTE');
 

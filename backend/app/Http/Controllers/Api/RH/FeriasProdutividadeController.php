@@ -77,7 +77,9 @@ final class FeriasProdutividadeController extends Controller
         $this->exigir('rh_prod_config');
         $d = $r->validate(['codigo' => ['required', 'string', 'max:20'], 'descricao' => ['required', 'string', 'max:500'], 'metrica' => ['nullable', Rule::in(ServicoProdutividade::METRICAS)],
             'unidade' => ['nullable', 'string', 'max:10'], 'preco_unitario' => ['required', 'numeric', 'gt:0', 'max:99999999999'], 'infotipo_salarial_id' => ['required', 'integer'],
-            'minimo' => ['nullable', 'numeric', 'min:0'], 'maximo' => ['nullable', 'numeric', 'gt:0'], 'ativo' => ['nullable', 'boolean']]);
+            'minimo' => ['nullable', 'numeric', 'min:0'], 'maximo' => ['nullable', 'numeric', 'gt:0'], 'ativo' => ['nullable', 'boolean'],
+            // #11 (Versão Actual): base de cálculo — PREMIO só na métrica OBJECTIVO (regra no serviço)
+            'base_calculo' => ['nullable', Rule::in(ServicoProdutividade::BASES)]]);
         $i = $item ? ItemProdutividadeRH::query()->findOrFail($item) : null;
         $res = $this->produtividade->gravarItem($d, $i);
 

@@ -1,20 +1,21 @@
 import {
-  Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Tabs, Tag, TimePicker, Tooltip, Typography, Upload, message,
+  Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Tabs, Tag, TimePicker, Tooltip, Typography, Upload, message,
 } from 'antd';
 import { CalendarOutlined, ClockCircleOutlined, DeleteOutlined, LockOutlined, PlusOutlined, SearchOutlined, UnlockOutlined, UploadOutlined, WarningOutlined } from '@ant-design/icons';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState } from 'react';
-import { http, obter } from '@/api/cliente';
+import { useEffect, useMemo, useState } from 'react';
+import { descarregar, enviar, http, obter } from '@/api/cliente';
 import type { Envelope } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { IconeFa } from '@/componentes/fluxos';
 import { BotoesExportar } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarData, formatarDataHora } from '@/utilitarios/formatacao';
+import { formatarData, formatarDataHora } from '@/utilitarios/formatacao';
 import {
   ARREDONDAMENTOS, DIAS_SEMANA, type ApuramentoMes, type Ausencia, type ConfigAssiduidade, type FechoMensal, type FeriadoNacional, type LinhaApuramento, type RegistoEfectividade, type TipoAusencia,
 } from './api';
@@ -26,7 +27,14 @@ import { normalizarLinhaApuramento, normalizarTotais } from './faseB/regras';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoTabela } from './comum/impressao';
 
-import { TabelaComModos } from '@/componentes/vistas';
+import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
+import { campoHora, campoSimNao, dataDe, horaDe, numeroDe, opcoesColaboradores, propsHora, textoDe } from './comum/linhasRh';
+
+/** Cores dos valores dos indicadores do antigo (assiduidade_ui.js, .ef-kpi strong). */
+const COR_EXTRA = '#166534';
+const COR_ALERTA = '#b45309';
+const COR_FALTA = '#b91c1c';
+
 /** RH › Efectividade (ecrã rh_assiduidade): registos, importação, apuramento e fecho do mês, ausências e configuração. */
 export default function Assiduidade() {
   const [mes, setMes] = useState<Dayjs>(dayjs().startOf('month'));
@@ -67,13 +75,48 @@ export default function Assiduidade() {
 interface ValoresRegisto {
   colaborador_id: number;
   data: Dayjs;
-  entrada?: Dayjs | null;
-  saida?: Dayjs | null;
-  saida_intervalo?: Dayjs | null;
-  entrada_intervalo?: Dayjs | null;
+  /** 'HH:mm' (o TimePicker guarda texto: o mesmo valor da vista Linhas). */
+  entrada?: string | null;
+  saida?: string | null;
+  saida_intervalo?: string | null;
+  entrada_intervalo?: string | null;
   horas?: number | null;
   observacoes?: string;
   autorizado_extra?: boolean;
+}
+
+/** Corpo do POST /rh/assiduidade/registos — o mesmo na grade e em cada linha. */
+export function dadosRegistoEfectividade(v: Record<string, unknown>) {
+  return {
+    colaborador_id: v.colaborador_id,
+    data: dataDe(v.data),
+    entrada: horaDe(v.entrada),
+    saida: horaDe(v.saida),
+    saida_intervalo: horaDe(v.saida_intervalo),
+    entrada_intervalo: horaDe(v.entrada_intervalo),
+    horas: numeroDe(v.horas),
+    observacoes: textoDe(v.observacoes),
+    autorizado_extra: v.autorizado_extra ? true : null,
+  };
+}
+
+/** As duas picagens do intervalo vão juntas (regime de dois períodos). */
+const validarIntervalo = (_: unknown, r: Record<string, unknown>) => (!r.saida_intervalo === !r.entrada_intervalo ? null : 'Indique as duas picagens do intervalo.');
+
+/** Colunas da vista Linhas do «Registo de efectividade» (um registo por colaborador e dia). */
+export function camposRegistoEfectividade(colaboradores: CampoFormulario['opcoes']): CampoFormulario[] {
+  return [
+    { nome: 'colaborador_id', rotulo: 'Colaborador', tipo: 'select', obrigatorio: true, largura: 240, opcoes: colaboradores, aliases: ['Nome', 'NIF', 'Funcionário'] },
+    { nome: 'data', rotulo: 'Data', tipo: 'data', obrigatorio: true, largura: 140 },
+    campoHora('entrada', 'Entrada'),
+    campoHora('saida', 'Saída', { aliases: ['Saida'] }),
+    campoHora('saida_intervalo', 'Saída para o intervalo', { emLinhas: 'opcional', seccao: 'Intervalo', aliases: ['Saída intervalo', 'Saída almoço'], validar: validarIntervalo }),
+    campoHora('entrada_intervalo', 'Regresso do intervalo', { emLinhas: 'opcional', seccao: 'Intervalo', aliases: ['Entrada intervalo', 'Regresso almoço'] }),
+    { nome: 'horas', rotulo: 'Horas', tipo: 'numero', largura: 90, min: 0, max: 24, precisao: 2,
+      validar: (h, r) => (!r.entrada && !r.saida && (h === null || h === undefined || h === '') ? 'Indique a entrada/saída ou as horas.' : null) },
+    campoSimNao('autorizado_extra', 'Extra autorizado', { emLinhas: 'opcional', aliases: ['Autorizado'] }),
+    { nome: 'observacoes', rotulo: 'Observações', largura: 200, maxLength: 1000, emLinhas: 'opcional', aliases: ['Observacoes'] },
+  ];
 }
 
 /** «Fechar efectividade» no topo do ecrã (como no antigo): fecha o apuramento do mês escolhido. */
@@ -102,14 +145,27 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
   const [importar, setImportar] = useState(false);
   const [ficheiros, setFicheiros] = useState<UploadFile[]>([]);
   const [substituir, setSubstituir] = useState(true);
-  const [resultado, setResultado] = useState<{ gravados: number; ignorados: number; erros: string[] } | null>(null);
+  const [resultado, setResultado] = useState<ResultadoImportacaoEfectividade | null>(null);
+  const [aDescarregar, setADescarregar] = useState(false);
+  /** Modelo Excel pré-preenchido do mês (uma linha por colaborador activo e dia de trabalho, NIF em texto). */
+  const descarregarModelo = async () => {
+    setADescarregar(true);
+    try {
+      await descarregar('/rh/assiduidade/modelo', { mes }, `Modelo_Efectividade_${mes}.xlsx`);
+    } catch (e) {
+      notificarErro(e, 'Não foi possível descarregar o modelo');
+    } finally {
+      setADescarregar(false);
+    }
+  };
   const [form] = Form.useForm<ValoresRegisto>();
   const registos = useQuery({ queryKey: ['rh', 'assiduidade', 'registos', mes, colaborador], queryFn: () => obter<RegistoEfectividade[]>('/rh/assiduidade/registos', { mes, colaborador_id: colaborador }) });
   useAvisarErro(registos.error);
   const accao = useAccaoRh(() => setNovo(false));
   const entrada = Form.useWatch('entrada', form);
   const saida = Form.useWatch('saida', form);
-  const calculadas = horasEntre(entrada?.format('HH:mm'), saida?.format('HH:mm'));
+  const calculadas = horasEntre(entrada, saida);
+  const camposLinhas = useMemo(() => camposRegistoEfectividade(opcoesColaboradores(colaboradores.lista, true)), [colaboradores.lista]);
 
   /** M-12: o servidor lê o relógio biométrico configurado (CSV ou JSON) com o mesmo leitor da importação de ficheiro. */
   const relogio = useMutation({
@@ -127,7 +183,7 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
       const fd = new FormData();
       fd.append('ficheiro', ficheiros[0].originFileObj as File);
       fd.append('substituir', substituir ? '1' : '0');
-      const r = await http.post<Envelope<{ gravados: number; ignorados: number; erros: string[] }>>('/rh/assiduidade/registos/importar', fd);
+      const r = await http.post<Envelope<ResultadoImportacaoEfectividade>>('/rh/assiduidade/registos/importar', fd);
       return r.data;
     },
     onSuccess: (r) => {
@@ -167,7 +223,9 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
         <Modal title="Importar efectividade (CSV / XLSX)" open={importar} onCancel={() => setImportar(false)} okText="Importar" cancelText="Cancelar"
           okButtonProps={{ disabled: ficheiros.length === 0 }} confirmLoading={envioFicheiro.isPending} onOk={() => envioFicheiro.mutate()}>
           <Typography.Paragraph type="secondary">
-            Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>, <code>horas</code>, <code>observacoes</code>. Máximo 10 MB.
+            Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>,
+            <code>saida intervalo</code> e <code>entrada intervalo</code> (dois períodos; também «saída almoço» / «regresso almoço»), <code>horas</code> (aceita «7,5»), <code>autorizado</code> e <code>observacoes</code>.
+            As linhas sem entrada, saída nem horas (do modelo, deixadas em branco) não contam como erro. Máximo 10 MB.
           </Typography.Paragraph>
           <Upload accept=".csv,.txt,.xlsx,.xls" maxCount={1} fileList={ficheiros} beforeUpload={() => false} onChange={({ fileList }) => setFicheiros(fileList.slice(-1))}>
             <Button icon={<UploadOutlined />}>Escolher ficheiro</Button>
@@ -178,11 +236,13 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
         <Modal title="Resultado da importação" open={resultado !== null} onCancel={() => setResultado(null)} footer={<Button type="primary" onClick={() => setResultado(null)}>Fechar</Button>}>
           {resultado && (
             <>
-              <Space size="large" wrap style={{ marginBottom: 12 }}>
-                <Statistic title="Gravados" value={resultado.gravados} />
-                <Statistic title="Ignorados" value={resultado.ignorados} />
-                <Statistic title="Erros" value={resultado.erros.length} valueStyle={{ color: resultado.erros.length ? '#cf1322' : undefined }} />
-              </Space>
+              {/* antigo (assiduidade_ui.js, resultado da importação): .ef-kpis — rótulo em maiúsculas e valor grande, sem ícone */}
+              <GrelhaKpi larguraMinima={110} style={{ marginBottom: 12 }}>
+                <CartaoKpi barra="nenhuma" rotulo="Gravados" valor={resultado.gravados} corValor={COR_EXTRA} />
+                <CartaoKpi barra="nenhuma" rotulo="Ignorados" valor={resultado.ignorados} />
+                {resultado.em_branco !== undefined && <CartaoKpi barra="nenhuma" rotulo="Linhas em branco" valor={resultado.em_branco} />}
+                <CartaoKpi barra="nenhuma" rotulo="Erros" valor={resultado.erros.length} corValor={resultado.erros.length ? COR_FALTA : COR_EXTRA} />
+              </GrelhaKpi>
               {resultado.erros.length > 0 && <ul style={{ maxHeight: 260, overflow: 'auto', paddingLeft: 18 }}>{resultado.erros.map((e, i) => <li key={i}>{e}</li>)}</ul>}
             </>
           )}
@@ -195,12 +255,16 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
     return (
       <Card title={<Space><IconeFa nome="file-import" />Importar registos de {mesPorExtenso(mes)}</Space>}>
         <Typography.Paragraph type="secondary">
-          Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>, <code>horas</code>, <code>observacoes</code>. Máximo 10 MB.
-          Depois de importar, confira o «Resumo do mês» e feche a efectividade.
+          Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>,
+            <code>saida intervalo</code> e <code>entrada intervalo</code> (dois períodos; também «saída almoço» / «regresso almoço»), <code>horas</code> (aceita «7,5»), <code>autorizado</code> e <code>observacoes</code>.
+            As linhas sem entrada, saída nem horas (do modelo, deixadas em branco) não contam como erro. Máximo 10 MB.
+          Comece por «Descarregar o modelo»: traz uma linha por colaborador activo e dia de trabalho, com o NIF e o horário previsto. Depois de importar, confira o «Resumo do mês» e feche a efectividade.
         </Typography.Paragraph>
         {pode('rh_assid_registar') ? (
           <Space wrap>
             <Button type="primary" icon={<UploadOutlined />} onClick={() => setImportar(true)}>Importar ficheiro</Button>
+            {/* #4 (Versão Actual): modelo Excel já preenchido com os colaboradores activos e os dias de trabalho do mês */}
+            <Button icon={<IconeFa nome="file-excel" />} loading={aDescarregar} onClick={() => void descarregarModelo()}>Descarregar o modelo</Button>
             <Popconfirm title="Ler os registos do relógio biométrico?" description="O servidor lê o endereço configurado; os registos do mesmo dia são substituídos." okText="Ler relógio" cancelText="Cancelar"
               onConfirm={() => relogio.mutateAsync()}>
               <Button icon={<ClockCircleOutlined />} loading={relogio.isPending}>Ler relógio</Button>
@@ -236,23 +300,22 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
       <TabelaComModos<RegistoEfectividade> idVista="registos" rowKey="id" size="small" loading={registos.isFetching} columns={colunas} dataSource={registos.data ?? []} scroll={scrollTabela()}
         pagination={{ pageSize: 50, showSizeChanger: true, showTotal: (t) => `${t} registo(s) em ${mesPorExtenso(mes)}` }} />
 
-      <Modal title="Registo de efectividade" open={novo} onCancel={() => setNovo(false)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="rh.efectividade.registos" titulo="Registo de efectividade" aberto={novo} aoFechar={() => setNovo(false)} criacao form={form} campos={camposLinhas}
+        nomeRegistos="registos de efectividade" invalidar={[['rh', 'assiduidade']]} gravarLinha={(r) => enviar('post', '/rh/assiduidade/registos', dadosRegistoEfectividade(r))}
+        nota="Uma linha por colaborador e dia (gravar substitui o registo existente). Indique entrada/saída ou as horas. Linhas deixadas em branco são ignoradas."
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Typography.Paragraph type="secondary">Um registo por colaborador e dia: gravar substitui o existente. Indique entrada/saída ou as horas.</Typography.Paragraph>
-        <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({
-          metodo: 'post',
-          url: '/rh/assiduidade/registos',
-          dados: { colaborador_id: v.colaborador_id, data: dataApi(v.data), entrada: v.entrada?.format('HH:mm') ?? null, saida: v.saida?.format('HH:mm') ?? null, saida_intervalo: v.saida_intervalo?.format('HH:mm') ?? null, entrada_intervalo: v.entrada_intervalo?.format('HH:mm') ?? null, horas: v.horas ?? null, observacoes: v.observacoes ?? null, autorizado_extra: v.autorizado_extra ?? null },
-        })}>
+        <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: '/rh/assiduidade/registos', dados: dadosRegistoEfectividade(v as unknown as Record<string, unknown>) })}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}><SeletorColaborador apenasActivos style={{ width: '100%' }} /></Form.Item>
           <Row gutter={12}>
             <Col xs={24} sm={12} md={8}><Form.Item name="data" label="Data" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} sm={12} md={8}><Form.Item name="entrada" label="Entrada"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} sm={12} md={8}><Form.Item name="saida" label="Saída"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="entrada" label="Entrada" {...propsHora}><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12} md={8}><Form.Item name="saida" label="Saída" {...propsHora}><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
           </Row>
           {/* Versão Actual: regime de dois períodos (4 picagens) — as duas picagens do intervalo vão juntas */}
           <Row gutter={12}>
-            <Col xs={24} sm={12}><Form.Item name="saida_intervalo" label="Saída para o intervalo" dependencies={['entrada_intervalo']} rules={[({ getFieldValue }) => ({ validator: (_, x) => (!x === !getFieldValue('entrada_intervalo') ? Promise.resolve() : Promise.reject(new Error('Indique as duas picagens do intervalo.'))) })]}><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} sm={12}><Form.Item name="entrada_intervalo" label="Regresso do intervalo"><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="saida_intervalo" label="Saída para o intervalo" {...propsHora} dependencies={['entrada_intervalo']} rules={[({ getFieldValue }) => ({ validator: (_, x) => (!x === !getFieldValue('entrada_intervalo') ? Promise.resolve() : Promise.reject(new Error('Indique as duas picagens do intervalo.'))) })]}><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="entrada_intervalo" label="Regresso do intervalo" {...propsHora}><TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} /></Form.Item></Col>
           </Row>
           <Form.Item name="horas" label="Horas (sem entrada/saída)" extra={calculadas !== null ? `Entrada → saída: ${formatarHoras(calculadas)}` : undefined}>
             <InputNumber min={0} max={24} step={0.25} style={{ width: '100%' }} />
@@ -260,14 +323,26 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
           <Form.Item name="autorizado_extra" valuePropName="checked"><Checkbox>Trabalho extra autorizado (dia não útil)</Checkbox></Form.Item>
           <Form.Item name="observacoes" label="Observações"><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
 
       {modais}
     </Card>
   );
 }
 
+/** Resultado da importação do ficheiro da efectividade (as linhas do modelo deixadas em branco não são erro). */
+interface ResultadoImportacaoEfectividade { gravados: number; ignorados: number; em_branco?: number; erros: string[] }
+
 // ───────────── Apuramento ─────────────
+
+/** Horário previsto por baixo do nome: «08:00–17:00 · 8h/dia» (com o intervalo nos dois períodos). */
+function textoHorario(l: Pick<LinhaApuramento, 'horario' | 'horasDia'>): string {
+  const h = l.horario;
+  const hd = l.horasDia ? `${formatarHoras(l.horasDia)}/dia` : '';
+  if (!h?.entrada || !h.saida) return hd;
+  const dois = h.periodos === 2 && h.saida_intervalo && h.entrada_intervalo;
+  return `${h.entrada.slice(0, 5)}–${dois ? `${h.saida_intervalo!.slice(0, 5)} · ${h.entrada_intervalo!.slice(0, 5)}–` : ''}${h.saida.slice(0, 5)}${hd ? ` · ${hd}` : ''}`;
+}
 
 function Apuramento({ mes }: { mes: string }) {
   const { pode } = useSessao();
@@ -280,36 +355,56 @@ function Apuramento({ mes }: { mes: string }) {
   const a = q.data ? { ...q.data, linhas: (q.data.linhas ?? []).map((l) => normalizarLinhaApuramento(l as unknown as Record<string, unknown>)), totais: normalizarTotais(q.data.totais as unknown as Record<string, unknown>) } : undefined;
   const fechado = a?.estado === 'FECHADO';
 
+  const horas = (v: number) => formatarHoras(v);
   const colunas: ColunaApi<LinhaApuramento>[] = [
-    { title: 'Colaborador', dataIndex: 'nome', fixed: 'left', valorImpressao: (l) => `${l.nome}${l.avisos?.length ? ' (!)' : ''}`, render: (v: string, l) => <Space>{v}{l.avisos?.length > 0 && <Tooltip title={l.avisos.join(' ')}><WarningOutlined style={{ color: '#faad14' }} /></Tooltip>}</Space> },
-    { title: 'Dias úteis', dataIndex: 'diasUteis', align: 'right' },
-    { title: 'Dias c/ registo', dataIndex: 'diasComRegisto', align: 'right' },
-    { title: 'Férias/ausências', dataIndex: 'diasFeriasAusencia', align: 'right', render: (v?: number) => v ?? 0 },
-    { title: 'Dias de falta', dataIndex: 'diasFalta', align: 'right', valorImpressao: (l) => l.diasFalta ?? 0, render: (v: number) => (v > 0 ? <Typography.Text type={v > 3 ? 'danger' : undefined}>{v}</Typography.Text> : 0) },
-    { title: 'Horas trabalhadas', dataIndex: 'horasTrabalhadas', align: 'right', render: formatarHoras },
-    { title: 'Horas extra', dataIndex: 'horasExtra', align: 'right', render: formatarHoras },
-    { title: 'Horas de falta', dataIndex: 'horasFalta', align: 'right', render: formatarHoras },
-    { title: 'Compensadas', dataIndex: 'horasCompensadas', align: 'right', render: formatarHoras },
-    { title: 'Não autorizadas', dataIndex: 'horasNaoAutorizadas', align: 'right', render: formatarHoras },
-    // Versão Actual: horas previstas do dia (escala › horário › contrato), atrasos (informativos) e dias com escala
+    {
+      title: 'Colaborador', dataIndex: 'nome', fixed: 'left', valorImpressao: (l) => `${l.nome}${textoHorario(l) ? ` (${textoHorario(l)})` : ''}${l.avisos?.length ? ` — ${l.avisos.join(' ')}` : ''}`,
+      // Versão Actual: horário previsto por baixo do nome e os avisos escritos em linha (assiduidade_ui.js, resumo do mês)
+      render: (v: string, l) => (
+        <div style={{ minWidth: 220 }}>
+          <strong>{v}</strong>
+          {textoHorario(l) && <div style={{ fontSize: 11, color: '#64748b' }}>{textoHorario(l)}</div>}
+          {(l.avisos ?? []).map((x) => <div key={x} style={{ fontSize: 11, color: '#b45309', whiteSpace: 'normal' }}><WarningOutlined /> {x}</div>)}
+        </div>
+      ),
+    },
+    { title: 'Dias úteis', dataIndex: 'diasUteis', align: 'right', total: true, formatoTotal: (x) => x },
+    { title: 'Dias c/ registo', dataIndex: 'diasComRegisto', align: 'right', total: true, formatoTotal: (x) => x },
+    { title: 'Férias/ausências', dataIndex: 'diasFeriasAusencia', align: 'right', render: (v?: number) => v ?? 0, total: true, formatoTotal: (x) => x },
+    { title: 'Dias de falta', dataIndex: 'diasFalta', align: 'right', valorImpressao: (l) => l.diasFalta ?? 0, render: (v: number) => (v > 0 ? <Typography.Text type={v > 3 ? 'danger' : undefined}>{v}</Typography.Text> : 0), total: true, formatoTotal: (x) => x },
+    // art. 230.º da Lei 12/23: mais de 3 faltas injustificadas no mês ou 12 no ano
+    { title: 'Faltas no ano', dataIndex: 'diasFaltaAno', align: 'right', valorImpressao: (l) => l.diasFaltaAno ?? '',
+      render: (v?: number) => (v === undefined ? '—' : v > 12 ? <Tooltip title="Acima de 12 faltas injustificadas no ano há infracção disciplinar (art.º 230.º da Lei 12/23)."><Typography.Text type="danger">{v}</Typography.Text></Tooltip> : v) },
+    { title: 'Horas trabalhadas', dataIndex: 'horasTrabalhadas', align: 'right', render: formatarHoras, total: true, formatoTotal: horas },
+    { title: 'Horas extra', dataIndex: 'horasExtra', align: 'right', render: formatarHoras, total: true, formatoTotal: horas },
+    { title: 'Horas de falta', dataIndex: 'horasFalta', align: 'right', render: formatarHoras, total: true, formatoTotal: horas },
+    { title: 'Compensadas', dataIndex: 'horasCompensadas', align: 'right', render: formatarHoras, total: true, formatoTotal: horas },
+    { title: 'Não autorizadas', dataIndex: 'horasNaoAutorizadas', align: 'right', render: formatarHoras, total: true, formatoTotal: horas },
+    // Versão Actual: horas previstas do dia (escala › horário › contrato), atrasos e saídas antecipadas (informativos) e dias com escala
     { title: 'Horas/dia', dataIndex: 'horasDia', align: 'right', responsive: ['lg'], render: formatarHoras },
     { title: 'Atrasos', key: 'atrasos', align: 'right', responsive: ['lg'], valorImpressao: (l) => `${l.diasAtraso ?? 0} · ${formatarHoras(l.horasAtraso ?? 0)}`,
       render: (_, l) => (l.diasAtraso ? <Tooltip title="Informativo: os atrasos não descontam no salário.">{l.diasAtraso} · {formatarHoras(l.horasAtraso ?? 0)}</Tooltip> : 0) },
+    { title: 'Saída antec.', dataIndex: 'horasSaidaAntecipada', align: 'right', responsive: ['lg'], render: (v?: number) => (v ? <Tooltip title="Informativo: horas de saída antes da hora prevista.">{formatarHoras(v)}</Tooltip> : 0),
+      total: true, formatoTotal: horas },
     { title: 'Dias c/ escala', dataIndex: 'diasEscala', align: 'right', responsive: ['lg'], render: (v?: number, l?: LinhaApuramento) => (v ? `${v}${l?.diasEscalaPrioritaria ? ` (${l.diasEscalaPrioritaria} prior.)` : ''}` : 0) },
   ];
+  const comFaltas = a ? (a as { colaboradores_com_faltas?: number }).colaboradores_com_faltas ?? a.linhas.filter((l) => (l.diasFalta ?? 0) > 0).length : 0;
 
   return (
     <Card loading={q.isLoading} title={<Space><IconeFa nome="calendar-check" />Apuramento de {mes}</Space>}>
       {a && (
         <>
-          <Flex justify="space-between" wrap gap={12} style={{ marginBottom: 16 }}>
-            <Space size="large" wrap>
-              <Statistic title="Estado" valueRender={() => <EstadoTag estado={a.estado} />} />
-              <Statistic title="Dias úteis" value={a.dias_uteis} />
-              <Statistic title="Dias de falta" value={a.totais.diasFalta} />
-              <Statistic title="Horas extra" value={formatarHoras(a.totais.horasExtra)} />
-              <Statistic title="Horas de falta" value={formatarHoras(a.totais.horasFalta)} />
-            </Space>
+          {/* antigo (assiduidade_ui.js:494, resumo do mês): .ef-kpis com a mesma ordem e as mesmas cores; «Dias de falta» e «Estado» são do sistema novo */}
+          <GrelhaKpi larguraMinima={150} style={{ marginBottom: 12 }}>
+            <CartaoKpi barra="nenhuma" rotulo="Dias úteis do mês" valor={a.dias_uteis} />
+            <CartaoKpi barra="nenhuma" rotulo="Colaboradores" valor={a.linhas.length} />
+            <CartaoKpi barra="nenhuma" rotulo="Horas extra" valor={formatarHoras(a.totais.horasExtra)} corValor={COR_EXTRA} />
+            <CartaoKpi barra="nenhuma" rotulo="Horas de falta" valor={formatarHoras(a.totais.horasFalta)} corValor={COR_ALERTA} />
+            <CartaoKpi barra="nenhuma" rotulo="Com faltas por justificar" valor={comFaltas} corValor={comFaltas ? COR_FALTA : COR_EXTRA} />
+            <CartaoKpi barra="nenhuma" rotulo="Dias de falta" valor={a.totais.diasFalta} />
+            <CartaoKpi barra="nenhuma" rotulo="Estado" valor={<EstadoTag estado={a.estado} />} />
+          </GrelhaKpi>
+          <Flex justify="flex-end" wrap gap={12} style={{ marginBottom: 16 }}>
             <Space wrap>
               <BotoesExportar desactivado={!a.linhas.length} obterPedido={() => pedidoTabela({
                 titulo: 'Mapa de efectividade (apuramento mensal)',
@@ -340,7 +435,11 @@ function Apuramento({ mes }: { mes: string }) {
             </Descriptions>
           )}
           {!fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Apuramento provisório até ${formatarData(a.apurado_ate)} (o mês ainda não está fechado).`} />}
-          <TabelaComModos<LinhaApuramento> idVista="apuramento" rowKey="employee_id" size="small" columns={colunas} dataSource={a.linhas} scroll={scrollTabela()} modos={false}
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+            As faltas descontam férias aprovadas e ausências justificadas aprovadas. Acima de 3 faltas injustificadas num mês (ou 12 no ano) há infracção disciplinar,
+            além da perda de remuneração (art.º 230.º da Lei 12/23). A coluna «Faltas no ano» acumula as faltas de Janeiro até este mês.
+          </Typography.Paragraph>
+          <TabelaComModos<LinhaApuramento> idVista="apuramento" rowKey={(l) => String(l.employeeId ?? l.employee_id ?? l.nome)} size="small" columns={colunas} dataSource={a.linhas} scroll={scrollTabela()} modos={false}
             vazio={{ icone: "calendar-check", titulo: "Sem colaboradores no apuramento", texto: "Não há colaboradores activos neste mês." }} />
         </>
       )}
@@ -358,6 +457,39 @@ function Apuramento({ mes }: { mes: string }) {
 // ───────────── Ausências ─────────────
 
 const ESTADOS_AUSENCIA = ['POR_JUSTIFICAR', 'PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'RECUSADO', 'CANCELADO'];
+
+/**
+ * Corpo do POST /rh/assiduidade/ausencias (registo novo) — o mesmo na grade (período em `periodo`, intervalo de datas)
+ * e em cada linha (`data_inicio` / `data_fim`).
+ */
+export function dadosAusenciaNova(v: Record<string, unknown>) {
+  const periodo = Array.isArray(v.periodo) ? v.periodo : null;
+  return {
+    tipo: v.tipo,
+    motivo: textoDe(v.motivo),
+    documento_url: textoDe(v.documento_url),
+    colaborador_id: v.colaborador_id,
+    data_inicio: dataDe(periodo ? periodo[0] : v.data_inicio),
+    data_fim: dataDe(periodo ? periodo[1] : v.data_fim ?? v.data_inicio),
+    horas: numeroDe(v.horas),
+  };
+}
+
+/** Colunas da vista Linhas de «Registar ausência» (uma ausência por linha). */
+export function camposAusencia(colaboradores: CampoFormulario['opcoes'], cat: Record<string, TipoAusencia>): CampoFormulario[] {
+  return [
+    { nome: 'colaborador_id', rotulo: 'Colaborador', tipo: 'select', obrigatorio: true, largura: 240, opcoes: colaboradores, aliases: ['Nome', 'NIF', 'Funcionário'] },
+    { nome: 'data_inicio', rotulo: 'Início', tipo: 'data', obrigatorio: true, largura: 140, aliases: ['Data início', 'De'] },
+    { nome: 'data_fim', rotulo: 'Fim', tipo: 'data', obrigatorio: true, largura: 140, aliases: ['Data fim', 'Até'],
+      validar: (f, r) => (f && r.data_inicio && String(f) < String(r.data_inicio) ? 'O fim é anterior ao início.' : null) },
+    { nome: 'tipo', rotulo: 'Tipo (Lei 12/23)', tipo: 'select', obrigatorio: true, largura: 220, aliases: ['Tipo'],
+      opcoes: Object.entries(cat).map(([k, t]) => ({ value: k, label: t.nome })) },
+    { nome: 'horas', rotulo: 'Horas', tipo: 'numero', largura: 90, min: 0.5, max: 744, precisao: 2,
+      validar: (h, r) => (cat[String(r.tipo)]?.unidade === 'HORAS' && (h === null || h === undefined || h === '') ? 'Indique as horas (tipo em horas).' : null) },
+    { nome: 'motivo', rotulo: 'Motivo', tipo: 'textoLongo', obrigatorio: true, largura: 260, maxLength: 1000 },
+    { nome: 'documento_url', rotulo: 'Documento de prova (ligação)', largura: 220, maxLength: 1000, emLinhas: 'opcional', aliases: ['Documento', 'Prova'] },
+  ];
+}
 
 function Ausencias({ mes }: { mes: string }) {
   const { pode } = useSessao();
@@ -412,9 +544,10 @@ function Ausencias({ mes }: { mes: string }) {
   ];
 
   const tipoSel = tipoForm ? cat[tipoForm] : undefined;
+  const camposLinhas = useMemo(() => camposAusencia(opcoesColaboradores(colaboradores.lista), cat), [colaboradores.lista, cat]);
   const enviarAusencia = (v: { colaborador_id: number; tipo: string; periodo: [Dayjs, Dayjs]; horas?: number; motivo: string; documento_url?: string }) => {
     const base = { tipo: v.tipo, motivo: v.motivo, documento_url: v.documento_url || null };
-    if (edicao === 'nova') accao.mutate({ metodo: 'post', url: '/rh/assiduidade/ausencias', dados: { ...base, colaborador_id: v.colaborador_id, data_inicio: dataApi(v.periodo[0]), data_fim: dataApi(v.periodo[1]), horas: v.horas ?? null } });
+    if (edicao === 'nova') accao.mutate({ metodo: 'post', url: '/rh/assiduidade/ausencias', dados: dadosAusenciaNova(v as unknown as Record<string, unknown>) });
     else if (edicao) accao.mutate({ metodo: 'post', url: `/rh/assiduidade/ausencias/${edicao.id}/justificar`, dados: base });
   };
 
@@ -438,8 +571,10 @@ function Ausencias({ mes }: { mes: string }) {
       </BarraFiltros>
       <TabelaComModos<Ausencia> idVista="ausencias" rowKey="id" size="small" loading={lista.isFetching} columns={colunas} dataSource={lista.data ?? []} scroll={scrollTabela()} pagination={{ pageSize: 50, showTotal: (t) => `${t} ausência(s)` }} />
 
-      <Modal title={edicao === 'nova' ? 'Registar ausência' : 'Justificar falta'} open={edicao !== null} width={larguraModal(640)} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="rh.efectividade.ausencias" titulo={edicao === 'nova' ? 'Registar ausência' : 'Justificar falta'} aberto={edicao !== null} width={larguraModal(640)} aoFechar={() => setEdicao(null)}
+        criacao={edicao === 'nova'} form={form} campos={camposLinhas} nomeRegistos="ausências" invalidar={[['rh', 'assiduidade']]}
+        gravarLinha={(r) => enviar('post', '/rh/assiduidade/ausencias', dadosAusenciaNova(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={enviarAusencia}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true }]}><SeletorColaborador style={{ width: '100%' }} disabled={edicao !== 'nova'} /></Form.Item>
           <Form.Item name="periodo" label="Período" rules={[{ required: true, message: 'Indique as datas.' }]}><DatePicker.RangePicker format="DD/MM/YYYY" disabled={edicao !== 'nova'} style={{ width: '100%' }} /></Form.Item>
@@ -453,7 +588,7 @@ function Ausencias({ mes }: { mes: string }) {
           <Form.Item name="motivo" label="Motivo" rules={[{ required: true, message: 'Indique o motivo.' }]}><Input.TextArea rows={3} maxLength={1000} /></Form.Item>
           <Form.Item name="documento_url" label="Documento de prova (ligação)" extra="Endereço do documento digitalizado."><Input maxLength={1000} /></Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
 
       <Modal title="Decidir ausência" open={decidir !== null} onCancel={() => setDecidir(null)} okText="Confirmar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formD.submit()} destroyOnHidden>
         {decidir && <Typography.Paragraph>{colaboradores.nome(decidir.colaborador_id)} — {decidir.tipo ? cat[decidir.tipo]?.nome ?? decidir.tipo : ''} ({formatarData(decidir.data_inicio)} a {formatarData(decidir.data_fim)})</Typography.Paragraph>}

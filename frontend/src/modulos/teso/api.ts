@@ -135,6 +135,10 @@ export interface ExtratoConta {
     terceiro: RefTerceiro | null;
     estorno_de_id: number | null;
     estornado_por_id: number | null;
+    /** contas das outras linhas do mesmo lançamento (como o extracto do legado) */
+    contrapartidas?: string[];
+    reconciliacao_codigo?: string | null;
+    reconciliacao_data?: string | null;
   }[];
 }
 
@@ -214,6 +218,10 @@ export interface SessaoCaixa {
   diferenca?: string | null;
   movimentos?: MovimentoCaixa[];
   aviso?: string | null;
+  /** Lista de sessões (colunas do legado): descrição da conta e totais de entradas/saídas — o servidor ainda não os devolve. */
+  descricao_conta?: string | null;
+  total_entradas?: string | null;
+  total_saidas?: string | null;
 }
 
 export type EstadoConferencia = 'RASCUNHO' | 'FINALIZADO';
@@ -280,6 +288,13 @@ export interface MapaReconciliacao {
   saldo_banco_esperado: string;
   por_reconciliar_diario: { total: string; linhas: { id: number; data_documento: string; numero_lan: string; numero_documento: string | null; descricao: string | null; tipo_dc: 'D' | 'C'; valor: string }[] };
   por_reconciliar_extrato: { total: string; linhas: { id: number; data: string; referencia: string | null; descricao: string | null; tipo_dc: 'D' | 'C'; valor: string }[] };
+  /** Quadro-resumo do legado (ERP / Banco): totais à data — o servidor ainda não os devolve. */
+  diario_debito?: string | null;
+  diario_credito?: string | null;
+  extrato_debito?: string | null;
+  extrato_credito?: string | null;
+  /** Saldo do extracto do banco à data (crédito − débito, mais o saldo de abertura do extracto). */
+  saldo_extrato?: string | null;
 }
 
 export interface ReconciliacaoBancaria {

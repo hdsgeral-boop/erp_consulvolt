@@ -59,6 +59,7 @@ export default function GanttGlobal() {
           linhas={linhas}
           inicio={q.data?.inicio}
           fim={q.data?.fim}
+          corPor="nivel"
           aoClicar={podeCarteira ? (l) => l.tipo === 'projecto' && navegar(`/m/projectos/projectos_carteira/${l.id}?sep=planeamento`) : undefined}
         />
       </Card>

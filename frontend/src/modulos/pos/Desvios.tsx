@@ -12,6 +12,7 @@ import { accoesDesvio, DECISOES, decisoesPermitidas } from './comum/regras';
 import type { SessaoPOS } from './comum/tipos';
 import { corDesvio, rotuloDecisao, textoDesvio } from './contas/formatos';
 import { Seccao } from './contas/Seccao';
+import { useCoresPos } from './comum/cores';
 
 /**
  * POS › Desvios de caixa (ecrã pos_desvios) como no sistema anterior (renderDesvios, pos_prestacao.js:363-394): «Desvios de
@@ -196,8 +197,9 @@ function ModalDeliberar({
   }, [sessao, form]);
   const desvio = Number(sessao?.desvio ?? 0);
   const sobra = desvio > 0;
-  const caixa = (rotulo: string, valor: string, fundo = '#f8fafc') => (
-    <div style={{ background: fundo, border: '1px solid #e2e8f0', borderRadius: 4, padding: '0.5rem' }}>
+  const cores = useCoresPos();
+  const caixa = (rotulo: string, valor: string, fundo = cores.fundoAlt) => (
+    <div style={{ background: fundo, border: `1px solid ${cores.borda}`, borderRadius: 4, padding: '0.5rem' }}>
       {rotulo}
       <br />
       <strong>{valor}</strong>

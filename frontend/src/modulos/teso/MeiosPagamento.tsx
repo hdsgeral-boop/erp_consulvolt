@@ -1,12 +1,14 @@
-import { Button, Card, Checkbox, Form, Input, Modal, Space, Tag, Tooltip, message } from 'antd';
+import { Button, Card, Checkbox, Form, Input, Space, Tag, Tooltip, message, theme } from 'antd';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { enviar } from '@/api/cliente';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { SeletorConta } from '../contab/comum/Seletores';
+import { usePlanoContas } from '../contab/comum/dados';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import type { MeioPagamento } from './api';
 import { useMeiosPagamento } from './comum';
 import { larguraModal } from '@/componentes/responsivo';
@@ -36,8 +38,36 @@ export function resumoMeios(meios: MeioPagamento[]): { bancos: number; caixas: n
   };
 }
 
-const codigo = (v: string | null, cor: { fundo: string; borda: string; texto?: string }) =>
-  v ? <code style={{ fontSize: 12, background: cor.fundo, padding: '2px 6px', borderRadius: 4, border: `1px solid ${cor.borda}`, color: cor.texto, letterSpacing: 0.5 }}>{v}</code> : <span style={{ color: '#94a3b8' }}>—</span>;
+const codigo = (v: string | null, cor: { fundo: string; borda: string; texto?: string }, vazio: string) =>
+  v ? <code style={{ fontSize: 12, background: cor.fundo, padding: '2px 6px', borderRadius: 4, border: `1px solid ${cor.borda}`, color: cor.texto, letterSpacing: 0.5 }}>{v}</code> : <span style={{ color: vazio }}>—</span>;
+
+const SIM_NAO = [{ value: 'S', label: 'Sim' }, { value: 'N', label: 'Não' }];
+const simNao = (v: unknown, omissao: boolean) => (typeof v === 'boolean' ? v : v === 'S' ? true : v === 'N' ? false : omissao);
+
+/** Regras de gravação do meio de pagamento, comuns à grade e à vista Linhas (caixas de verificação ou «Sim/Não»). */
+export function dadosMeio(v: Record<string, unknown>): Record<string, unknown> {
+  const txt = (x: unknown) => (typeof x === 'string' && x.trim() ? x.trim() : undefined);
+  return {
+    nome: typeof v.nome === 'string' ? v.nome.trim() : v.nome,
+    codigo_conta: v.codigo_conta,
+    iban: txt(v.iban),
+    swift: txt(v.swift),
+    ativo: simNao(v.ativo ?? v.activo_sn, true),
+    predefinido: simNao(v.predefinido ?? v.padrao_sn, false),
+  };
+}
+
+/** Vista Linhas do «Novo Meio de Pagamento»: um meio por linha; a conta escolhe-se entre as contas de movimento 43/45. */
+export function camposMeio(contas: { value: string; label: string }[]): CampoFormulario[] {
+  return [
+    { nome: 'nome', rotulo: 'Nome / Designação', obrigatorio: true, largura: 220, maxLength: 255, aliases: ['Nome', 'Designação'] },
+    { nome: 'codigo_conta', rotulo: 'Conta (43/45)', tipo: 'select', obrigatorio: true, opcoes: contas, largura: 240, aliases: ['Conta', 'Conta (Plano)'] },
+    { nome: 'iban', rotulo: 'IBAN', largura: 230, maxLength: 40 },
+    { nome: 'swift', rotulo: 'SWIFT / BIC', largura: 120, maxLength: 11, aliases: ['SWIFT', 'BIC'] },
+    { nome: 'activo_sn', rotulo: 'Ativo', tipo: 'select', opcoes: SIM_NAO, omissao: 'S', largura: 90, aliases: ['Estado'] },
+    { nome: 'padrao_sn', rotulo: 'Padrão', tipo: 'select', opcoes: SIM_NAO, omissao: 'N', largura: 90, emLinhas: 'opcional', seccao: 'Outros' },
+  ];
+}
 
 /**
  * Tesouraria › Meios de pagamento (ecrã teso_meios_pagamento), como renderMeiosPagamentoPage do legado: página própria com
@@ -50,6 +80,9 @@ export default function MeiosPagamento() {
   const meios = useMeiosPagamento();
   const [edicao, setEdicao] = useState<MeioPagamento | 'novo' | null>(null);
   const [form] = Form.useForm<ValoresMeio>();
+  const { token } = theme.useToken();
+  const plano = usePlanoContas(edicao === 'novo');
+  const campos = useMemo(() => camposMeio((plano.data ?? []).filter((c) => c.tipo === 'M' && (c.codigo.startsWith('43') || c.codigo.startsWith('45'))).map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` }))), [plano.data]);
   const gerir = pode('teso_meios_gerir');
   const lista = meios.data ?? [];
   const resumo = resumoMeios(lista);
@@ -73,9 +106,9 @@ export default function MeiosPagamento() {
     mutacao.mutateAsync({ metodo: 'put', url: `/tesouraria/meios-pagamento/${m.id}`, corpo: { nome: m.nome, codigo_conta: m.codigo_conta, iban: m.iban, swift: m.swift, ativo: m.ativo, predefinido: true } });
 
   const colunas: ColunaLegado<MeioPagamento>[] = [
-    { title: 'Nome / Designação', dataIndex: 'nome', key: 'nome', render: (v: string, m) => <><strong style={{ color: '#1e293b' }}>{v}</strong>{m.predefinido && <IconeFa nome="star" rotulo="Meio padrão" style={{ color: '#f59e0b', fontSize: 11, marginLeft: 6 }} />}</> },
+    { title: 'Nome / Designação', dataIndex: 'nome', key: 'nome', render: (v: string, m) => <><strong style={{ color: token.colorText }}>{v}</strong>{m.predefinido && <IconeFa nome="star" rotulo="Meio padrão" style={{ color: '#f59e0b', fontSize: 11, marginLeft: 6 }} />}</> },
     { title: 'Conta (Plano)', dataIndex: 'codigo_conta', key: 'conta', render: (v: string) => <Tag style={{ fontFamily: 'monospace' }}>{v || '—'}</Tag> },
-    { title: 'Descrição da Conta', dataIndex: 'descricao_conta', key: 'descricao_conta', width: 220, render: (v: string | null) => (v ? <span style={{ fontSize: 13, color: '#475569' }}>{v}</span> : <em style={{ color: '#94a3b8' }}>Conta não encontrada no plano</em>) },
+    { title: 'Descrição da Conta', dataIndex: 'descricao_conta', key: 'descricao_conta', width: 220, render: (v: string | null) => (v ? <span style={{ fontSize: 13, color: token.colorTextSecondary }}>{v}</span> : <em style={{ color: token.colorTextQuaternary }}>Conta não encontrada no plano</em>) },
     {
       title: 'Tipo', key: 'tipo', valorImpressao: (m) => (tipoMeio(m) === 'BANCO' ? 'Banco' : 'Caixa'),
       render: (_, m) => (tipoMeio(m) === 'BANCO'
@@ -83,8 +116,8 @@ export default function MeiosPagamento() {
         : <Tag style={{ background: 'rgba(16,185,129,0.1)', color: '#059669', borderColor: 'rgba(16,185,129,0.3)' }} icon={<IconeFa nome="coins" />}> Caixa</Tag>),
     },
     { title: 'Moeda', dataIndex: 'codigo_moeda', key: 'moeda', render: (c: string | null) => (!c || c === 'AOA' ? <Tag>AOA</Tag> : <Tag style={{ background: 'rgba(3,105,161,0.1)', color: '#0369a1', borderColor: 'rgba(3,105,161,0.35)', fontWeight: 700 }}>{c}</Tag>), valorImpressao: (m) => m.codigo_moeda || 'AOA' },
-    { title: 'IBAN', dataIndex: 'iban', key: 'iban', render: (v: string | null) => codigo(v, { fundo: '#f8fafc', borda: '#e2e8f0' }) },
-    { title: 'SWIFT / BIC', dataIndex: 'swift', key: 'swift', render: (v: string | null) => codigo(v, { fundo: '#f0f9ff', borda: '#bae6fd', texto: '#0369a1' }) },
+    { title: 'IBAN', dataIndex: 'iban', key: 'iban', render: (v: string | null) => codigo(v, { fundo: token.colorFillTertiary, borda: token.colorBorderSecondary }, token.colorTextQuaternary) },
+    { title: 'SWIFT / BIC', dataIndex: 'swift', key: 'swift', render: (v: string | null) => codigo(v, { fundo: 'rgba(3,105,161,0.1)', borda: 'rgba(3,105,161,0.35)', texto: '#0369a1' }, token.colorTextQuaternary) },
     {
       title: 'Padrão', dataIndex: 'predefinido', key: 'padrao', align: 'center', valorImpressao: (m) => (m.predefinido ? 'Padrão' : ''),
       render: (v: boolean, m) => (v
@@ -112,7 +145,7 @@ export default function MeiosPagamento() {
         title={
           <div style={{ whiteSpace: 'normal', padding: '8px 0' }}>
             <span><IconeFa nome="credit-card" style={{ color: '#7c3aed' }} /> Meios de Pagamento</span>
-            <p style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 400, color: '#64748b' }}>
+            <p style={{ margin: '4px 0 0', fontSize: 12, fontWeight: 400, color: token.colorTextSecondary }}>
               Contas bancárias (43) e caixas (45) associadas ao plano de contas — usadas nas faturas e recibos. O meio <IconeFa nome="star" style={{ color: '#f59e0b' }} /> <strong>Padrão</strong> é pre-selecionado automaticamente nas faturas.
             </p>
           </div>
@@ -137,13 +170,18 @@ export default function MeiosPagamento() {
           <CartaoKpi rotulo="Ativos" valor={resumo.activos} icone="check-circle" cor="#7c3aed" corValor="#7c3aed" />
         </GrelhaKpi>
       </div>
-      <Modal width={larguraModal(560)} title={edicao === 'novo' ? 'Novo Meio de Pagamento' : 'Editar Meio de Pagamento'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
+      <ModalFormulario chave="teso.meios_pagamento" width={larguraModal(560)} titulo={edicao === 'novo' ? 'Novo Meio de Pagamento' : 'Editar Meio de Pagamento'} aberto={edicao !== null} aoFechar={() => setEdicao(null)}
+        criacao={edicao === 'novo'} form={form} campos={campos} nomeRegistos="meios de pagamento" invalidar={[['teso', 'meios']]}
+        gravarLinha={(r) => enviar('post', '/tesouraria/meios-pagamento', dadosMeio(r))}
+        nota="Um meio de pagamento por linha. A conta é uma conta de movimento 43 (bancos) ou 45 (caixa) do plano. Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário. Campos com * são obrigatórios."
+        okText="Gravar" confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"
-          onFinish={(v) =>
-            mutacao.mutate(edicao && edicao !== 'novo' ? { metodo: 'put', url: `/tesouraria/meios-pagamento/${edicao.id}`, corpo: v } : { metodo: 'post', url: '/tesouraria/meios-pagamento', corpo: v })
-          }
+          onFinish={(v) => {
+            const corpo = dadosMeio(v as unknown as Record<string, unknown>);
+            mutacao.mutate(edicao && edicao !== 'novo' ? { metodo: 'put', url: `/tesouraria/meios-pagamento/${edicao.id}`, corpo } : { metodo: 'post', url: '/tesouraria/meios-pagamento', corpo });
+          }}
         >
           <Form.Item name="nome" label="Nome / Designação" rules={[{ required: true }]}>
             <Input maxLength={255} />
@@ -168,7 +206,7 @@ export default function MeiosPagamento() {
             </Form.Item>
           </Space>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </>
   );
 }

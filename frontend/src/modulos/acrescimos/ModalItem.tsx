@@ -1,10 +1,12 @@
-import { Alert, Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, Modal, Radio, Row, Select, Table, Typography } from 'antd';
+import { Alert, Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, Radio, Row, Select, Table, Typography } from 'antd';
 import { larguraModal } from '@/componentes/responsivo';
 import { CalculatorOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { enviar } from '@/api/cliente';
+import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { SeletorAux, SeletorTerceiro, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
+import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
@@ -12,6 +14,7 @@ import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
 import { useDefinicoes } from './comum/componentes';
+import { camposItem, dadosItem, OPCOES_NATUREZA_AD, OPCOES_REPARTICAO, OPCOES_TIPO_AD } from './comum/formularioItem';
 import { contaBalancoPadrao, diferencaPlano, fimPorMeses, somaQuotas } from './comum/regras';
 import type { ItemAD, Origem, Quota } from './comum/tipos';
 
@@ -22,6 +25,10 @@ export interface ValoresIniciais extends Partial<Omit<ItemAD, 'origem'>> {
 /**
  * Registo de acréscimo/diferimento (criar/editar). Com lançamentos, o servidor só aceita alterar as notas e a data limite.
  * «Ver plano» simula a repartição (POST /acrescimos/quotas, sem gravar).
+ *
+ * Criação com as vistas «Grade | Linhas» (vários registos de uma vez, cada linha pelo mesmo POST e pelo mesmo
+ * `dadosItem` da grade); a grade fica em secções recolhíveis (Imputação analítica fechada por omissão). Quando o registo
+ * nasce de um documento («Diferir» em Recolher documentos) só há a grade: a origem é desse documento.
  */
 export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { aberto: boolean; item?: ValoresIniciais | null; parcial?: boolean; aoFechar: () => void; aoGravar?: (it: ItemAD) => void }) {
   const [form] = Form.useForm();
@@ -32,6 +39,19 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
   const natureza = Form.useWatch('natureza', form);
   const accao = useAccao<{ item: ItemAD; parcial: boolean }>({ invalidar: [['acrescimos']], aoSucesso: (r) => { aoGravar?.(r.item); aoFechar(); } });
   const editar = !!item?.id;
+  const criacao = !editar && !item?.origem;
+  const unidades = useUnidadesNegocio(aberto && criacao);
+  const centros = useTabelaAux('centros-custo', aberto && criacao);
+  const campos = useMemo(
+    () =>
+      camposItem({
+        definicoes: def.data,
+        unidades: (unidades.data ?? []).map((u) => ({ value: u.id, label: `${u.codigo ? `${u.codigo} — ` : ''}${u.nome}` })),
+        centros: (centros.data ?? []).map((c) => ({ value: c.id, label: `${c.codigo} — ${c.descricao ?? ''}` })),
+      }),
+    [def.data, unidades.data, centros.data],
+  );
+  const temImputacao = !!(item?.terceiro_id || item?.projeto_id || item?.unidade_negocio_id || item?.centro_custo_id);
 
   useEffect(() => {
     if (!aberto) return;
@@ -78,11 +98,7 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
   };
 
   const gravar = (v: Record<string, unknown>) => {
-    const dados: Record<string, unknown> = { ...v };
-    for (const k of ['data_inicio', 'data_fim', 'data_documento', 'data_limite']) dados[k] = dataApi(v[k] as dayjs.Dayjs) ?? null;
-    for (const k of ['terceiro_id', 'unidade_negocio_id', 'centro_custo_id', 'projeto_id', 'notas']) if (dados[k] === undefined || dados[k] === '') dados[k] = null;
-    delete dados.modelo;
-    dados.origem = item?.origem ?? null;
+    const dados = dadosItem(v, { origem: item?.origem, definicoes: def.data });
     accao.mutate(editar ? { metodo: 'put', url: `/acrescimos/itens/${item?.id}`, dados } : { url: '/acrescimos/itens', dados });
   };
 
@@ -90,12 +106,18 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
   const bloq = !!parcial;
 
   return (
-    <Modal
-      title={editar ? `Editar registo #${item?.id}` : 'Novo registo de acréscimo / diferimento'}
-      open={aberto}
-      onCancel={aoFechar}
+    <ModalFormulario
+      chave="acrescimos.itens"
+      titulo={editar ? `Editar registo #${item?.id}` : 'Novo registo de acréscimo / diferimento'}
+      aberto={aberto}
+      aoFechar={aoFechar}
+      criacao={criacao}
+      form={form}
+      campos={campos}
+      nomeRegistos="registos de acréscimo / diferimento"
+      invalidar={[['acrescimos']]}
+      gravarLinha={(r) => enviar('post', '/acrescimos/itens', dadosItem(r, { definicoes: def.data }))}
       width={larguraModal(920)}
-      destroyOnHidden
       footer={[
         <Button key="p" icon={<CalculatorOutlined />} loading={aSimular} onClick={simular}>Ver plano</Button>,
         <Button key="c" onClick={aoFechar}>Cancelar</Button>,
@@ -105,77 +127,89 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
       {bloq && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="O registo já tem lançamentos: só as notas e a data limite podem ser alteradas." />}
       {item?.origem?.doc && <Alert type="success" showIcon style={{ marginBottom: 12 }} message={`Documento de origem: ${item.origem.fonte ?? ''} ${item.origem.doc}${item.origem.data ? ` de ${dayjs(item.origem.data).format('DD/MM/YYYY')}` : ''}`} />}
       <Form form={form} layout="vertical" onFinish={gravar} onValuesChange={() => setQuotas(null)}>
-        <Row gutter={[12, 0]}>
-          {!editar && (
-            <Col xs={24}>
-              <Form.Item name="modelo" label="Modelo (opcional)">
-                <Select allowClear placeholder="Seguro anual, renda adiantada, férias a pagar…" onChange={aplicarModelo} options={(def.data?.modelos ?? []).map((m) => ({ value: m.id, label: m.rotulo }))} />
+        {!editar && (
+          <Form.Item name="modelo" label="Modelo (opcional)">
+            <Select allowClear placeholder="Seguro anual, renda adiantada, férias a pagar…" onChange={aplicarModelo} options={(def.data?.modelos ?? []).map((m) => ({ value: m.id, label: m.rotulo }))} />
+          </Form.Item>
+        )}
+        <SeccaoFormulario titulo="Registo">
+          <Row gutter={[12, 0]}>
+            <Col xs={24} md={8}>
+              <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
+                <Radio.Group optionType="button" disabled={bloq} options={OPCOES_TIPO_AD} />
               </Form.Item>
             </Col>
-          )}
-          <Col xs={24} md={8}>
-            <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
-              <Radio.Group optionType="button" disabled={bloq} options={[{ value: 'ACRESCIMO', label: 'Acréscimo' }, { value: 'DIFERIMENTO', label: 'Diferimento' }]} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="natureza" label="Natureza" rules={[{ required: true }]}>
-              <Radio.Group optionType="button" disabled={bloq} options={[{ value: 'CUSTO', label: 'Gasto' }, { value: 'PROVEITO', label: 'Rendimento' }]} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="valor" label="Valor (Kz, sem IVA)" rules={[{ required: true, message: 'Indique o valor.' }]}>
-              <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloq} />
-            </Form.Item>
-          </Col>
-          <Col xs={24}>
-            <Form.Item name="descricao" label="Descrição" rules={[{ required: true, message: 'Indique a descrição.' }]}><Input maxLength={1000} disabled={bloq} /></Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="conta_resultado" label={`Conta de resultados (${prefixoResultado})`} rules={[{ required: true, message: 'Indique a conta.' }]}>
-              <SeletorConta prefixo={prefixoResultado} disabled={bloq} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="conta_balanco" label="Conta de balanço (37)" rules={[{ required: true, message: 'Indique a conta 37.' }]}>
-              <SeletorConta prefixo="37" disabled={bloq} />
-            </Form.Item>
-          </Col>
-          <Col xs={12} md={6}><Form.Item name="data_inicio" label="Início" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
-          <Col xs={12} md={6}>
-            <Form.Item name="data_fim" label="Fim" dependencies={['data_inicio']} rules={[{ required: true }, ({ getFieldValue }) => ({
-              validator: (_, v) => (!v || !getFieldValue('data_inicio') || !v.isBefore(getFieldValue('data_inicio'), 'day') ? Promise.resolve() : Promise.reject(new Error('Fim anterior ao início.'))),
-            })]}>
-              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloq} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item name="reparticao" label="Repartição">
-              <Radio.Group disabled={bloq} options={[{ value: 'MESES', label: 'Por meses (cada mês vale 1)' }, { value: 'DIAS', label: 'Por dias' }]} />
-            </Form.Item>
-          </Col>
-          {tipo === 'DIFERIMENTO' ? (
-            <>
-              <Col xs={12} md={6}><Form.Item name="data_documento" label="Data do documento" rules={[{ required: true, message: 'Obrigatória num diferimento.' }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
-              <Col xs={24} md={18}>
-                <Form.Item name="documento_em_balanco" valuePropName="checked" label=" " tooltip="O documento já foi lançado directamente na conta 37 (não gera o lançamento inicial)">
-                  <Checkbox disabled={bloq}>Documento já lançado na conta de balanço</Checkbox>
+            <Col xs={24} md={8}>
+              <Form.Item name="natureza" label="Natureza" rules={[{ required: true }]}>
+                <Radio.Group optionType="button" disabled={bloq} options={OPCOES_NATUREZA_AD} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item name="valor" label="Valor (Kz, sem IVA)" rules={[{ required: true, message: 'Indique o valor.' }]}>
+                <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloq} />
+              </Form.Item>
+            </Col>
+            <Col xs={24}>
+              <Form.Item name="descricao" label="Descrição" rules={[{ required: true, message: 'Indique a descrição.' }]}><Input maxLength={1000} disabled={bloq} /></Form.Item>
+            </Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Contas">
+          <Row gutter={[12, 0]}>
+            <Col xs={24} md={12}>
+              <Form.Item name="conta_resultado" label={`Conta de resultados (${prefixoResultado})`} rules={[{ required: true, message: 'Indique a conta.' }]}>
+                <SeletorConta prefixo={prefixoResultado} disabled={bloq} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item name="conta_balanco" label="Conta de balanço (37)" rules={[{ required: true, message: 'Indique a conta 37.' }]}>
+                <SeletorConta prefixo="37" disabled={bloq} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Período e documento">
+          <Row gutter={[12, 0]}>
+            <Col xs={12} md={6}><Form.Item name="data_inicio" label="Início" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
+            <Col xs={12} md={6}>
+              <Form.Item name="data_fim" label="Fim" dependencies={['data_inicio']} rules={[{ required: true }, ({ getFieldValue }) => ({
+                validator: (_, v) => (!v || !getFieldValue('data_inicio') || !v.isBefore(getFieldValue('data_inicio'), 'day') ? Promise.resolve() : Promise.reject(new Error('Fim anterior ao início.'))),
+              })]}>
+                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloq} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item name="reparticao" label="Repartição">
+                <Radio.Group disabled={bloq} options={OPCOES_REPARTICAO} />
+              </Form.Item>
+            </Col>
+            {tipo === 'DIFERIMENTO' ? (
+              <>
+                <Col xs={12} md={6}><Form.Item name="data_documento" label="Data do documento" rules={[{ required: true, message: 'Obrigatória num diferimento.' }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
+                <Col xs={24} md={18}>
+                  <Form.Item name="documento_em_balanco" valuePropName="checked" label=" " tooltip="O documento já foi lançado directamente na conta 37 (não gera o lançamento inicial)">
+                    <Checkbox disabled={bloq}>Documento já lançado na conta de balanço</Checkbox>
+                  </Form.Item>
+                </Col>
+              </>
+            ) : (
+              <Col xs={12} md={6}>
+                <Form.Item name="data_limite" label="Data limite do documento" tooltip={`Vazio = fim do período + ${def.data?.prazo_documento_dias ?? 60} dias`}>
+                  <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
-            </>
-          ) : (
-            <Col xs={12} md={6}>
-              <Form.Item name="data_limite" label="Data limite do documento" tooltip={`Vazio = fim do período + ${def.data?.prazo_documento_dias ?? 60} dias`}>
-                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          )}
-          <Col xs={24} md={12}><Form.Item name="terceiro_id" label="Terceiro"><SeletorTerceiro style={{ width: '100%' }} disabled={bloq} rotuloInicial={item?.terceiro?.nome} /></Form.Item></Col>
-          <Col xs={24} md={12}><Form.Item name="projeto_id" label="Projecto"><SeletorProjecto allowClear disabled={bloq} /></Form.Item></Col>
-          <Col xs={24} md={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
-          <Col xs={24} md={12}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
-          <Col xs={24}><Form.Item name="notas" label="Notas"><Input.TextArea rows={2} maxLength={4000} /></Form.Item></Col>
-        </Row>
+            )}
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario key={item?.id ?? 'novo'} titulo="Imputação analítica" recolhida={!temImputacao}>
+          <Row gutter={[12, 0]}>
+            <Col xs={24} md={12}><Form.Item name="terceiro_id" label="Terceiro"><SeletorTerceiro style={{ width: '100%' }} disabled={bloq} rotuloInicial={item?.terceiro?.nome} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="projeto_id" label="Projecto"><SeletorProjecto allowClear disabled={bloq} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
+            <Col xs={24} md={12}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} disabled={bloq} /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
+        <Form.Item name="notas" label="Notas"><Input.TextArea rows={2} maxLength={4000} /></Form.Item>
       </Form>
       {quotas && (
         <>
@@ -191,6 +225,6 @@ export function ModalItem({ aberto, item, parcial, aoFechar, aoGravar }: { abert
           {Number(diferencaPlano(form.getFieldValue('valor'), quotas)) !== 0 && <Alert type="warning" showIcon message="A soma das quotas difere do valor." />}
         </>
       )}
-    </Modal>
+    </ModalFormulario>
   );
 }

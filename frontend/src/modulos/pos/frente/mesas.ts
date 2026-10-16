@@ -65,3 +65,8 @@ export function estadoMesa(m: MesaPOS, activa: number | null): 'ACTIVA' | 'OCUPA
   if (m.id === activa) return 'ACTIVA';
   return m.conta && m.conta.itens > 0 ? 'OCUPADA' : 'LIVRE';
 }
+
+/** Corpo de POST /pos/terminais/{id}/mesas («Criar mesa», grade e linhas). */
+export function dadosMesa(v: Record<string, unknown>): { nome: string } {
+  return { nome: String(v.nome ?? '').trim() };
+}

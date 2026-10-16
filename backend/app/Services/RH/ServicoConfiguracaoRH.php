@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\DB;
  *       · transporte do saldo não gozado do ano anterior para o ano seguinte, até ao limite configurado
  *         (por omissão 22 dias = um ano de direito; o saldo de anos mais antigos não se acumula para lá do limite).
  *     Os parâmetros são configuráveis por empresa porque a lei e os acordos colectivos podem fixar regras diferentes.
+ * Fecho da Versão Actual (#8, minuta do contrato): percentagens do subsídio de férias e do subsídio de Natal sobre o salário
+ * base (art. 238.º/1 da Lei n.º 12/23: mínimo legal de 50 %; legado companies.subsidio_ferias_pct/subsidio_natal_pct).
  */
 final class ServicoConfiguracaoRH
 {
@@ -27,7 +29,14 @@ final class ServicoConfiguracaoRH
         'ferias_meses_minimos_gozo' => 6,
         'ferias_transporte_saldo' => true,
         'ferias_transporte_max_dias' => 22,
+        'subsidio_ferias_pct' => 50,
+        'subsidio_natal_pct' => 50,
     ];
+
+    /** Mínimo legal dos subsídios de férias e de Natal (art. 238.º/1 da Lei n.º 12/23) e um tecto de sanidade. */
+    public const SUBSIDIO_MINIMO_PCT = 50;
+
+    public const SUBSIDIO_MAXIMO_PCT = 300;
 
     /** @return array<string, mixed> */
     public function config(): array
@@ -37,6 +46,10 @@ final class ServicoConfiguracaoRH
             if ($r->valor !== null) {
                 $cfg[$r->chave] = is_bool(self::PADRAO[$r->chave]) ? (bool) $r->valor : (int) $r->valor;
             }
+        }
+        // a minuta nunca promete menos do que a lei (valores antigos ou gravados à mão abaixo do mínimo)
+        foreach (['subsidio_ferias_pct', 'subsidio_natal_pct'] as $k) {
+            $cfg[$k] = max(self::SUBSIDIO_MINIMO_PCT, (int) $cfg[$k]);
         }
 
         return $cfg;
@@ -58,6 +71,10 @@ final class ServicoConfiguracaoRH
                 $valor = is_bool(self::PADRAO[$chave]) ? (bool) $valor : (int) $valor;
                 if (! is_bool($valor) && $valor < 0) {
                     throw new ErroNegocio('Os valores das férias não podem ser negativos.', 'DADOS_INVALIDOS', 422);
+                }
+                if (str_starts_with($chave, 'subsidio_') && ($valor < self::SUBSIDIO_MINIMO_PCT || $valor > self::SUBSIDIO_MAXIMO_PCT)) {
+                    throw new ErroNegocio('Os subsídios de férias e de Natal não podem ser inferiores a '.self::SUBSIDIO_MINIMO_PCT.' % do salário base (art. 238.º, n.º 1, da Lei n.º 12/23) nem superiores a '
+                        .self::SUBSIDIO_MAXIMO_PCT.' %.', 'SUBSIDIO_ABAIXO_DO_MINIMO', 422);
                 }
                 ConfiguracaoRH::query()->updateOrCreate(['chave' => $chave], ['valor' => $valor, 'atualizado_por' => Auth::user()?->nome_utilizador]);
             }

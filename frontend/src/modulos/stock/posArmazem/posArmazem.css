@@ -13,7 +13,7 @@
 .pa-painel {
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   padding: 1.5rem;
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
@@ -55,7 +55,7 @@
   display: inline-flex;
   background: rgba(255, 255, 255, 0.6);
   padding: 4px;
-  border-radius: 12px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   border: 1px solid rgba(0, 0, 0, 0.08);
   gap: 4px;
   align-items: center;
@@ -64,7 +64,7 @@
 }
 .pa-grupo button {
   border: none;
-  border-radius: 8px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   padding: 0 0.75rem;
   height: 30px;
   font-weight: 700;
@@ -116,7 +116,7 @@
 
 .pa-cartao {
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   padding: 1rem;
   text-align: center;
   position: relative;
@@ -155,7 +155,7 @@
 
 .pa-linha {
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   padding: 0.6rem 1rem;
   display: flex;
   align-items: center;
@@ -208,7 +208,7 @@
   margin-bottom: 0.75rem;
   background: rgba(248, 250, 252, 0.9);
   padding: 0.5rem;
-  border-radius: 10px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   border: 1px solid #f1f5f9;
 }
 .pa-item-nome { flex: 1; min-width: 0; }
@@ -240,7 +240,7 @@
   .pa-senhas { grid-template-columns: minmax(0, 1fr); }
 }
 .pa-senhas-botoes { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
-.pa-senhas-botoes .ant-btn { flex: 1 1 180px; height: auto; padding: 1rem; font-weight: 700; font-size: 1rem; border-radius: 12px; white-space: normal; }
+.pa-senhas-botoes .ant-btn { flex: 1 1 180px; height: auto; padding: 1rem; font-weight: 700; font-size: 1rem; border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */ white-space: normal; }
 .pa-btn-chamar.ant-btn { background: #059669; border-color: #059669; }
 .pa-btn-chamar.ant-btn:not(:disabled):hover { background: #047857 !important; border-color: #047857 !important; }
 .pa-fila {
@@ -250,7 +250,7 @@
   min-height: 80px;
   padding: 1rem;
   background: rgba(248, 250, 252, 0.9);
-  border-radius: 12px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   border: 1px solid rgba(0, 0, 0, 0.06);
   align-content: flex-start;
 }
@@ -259,7 +259,7 @@
   color: #fff;
   font-weight: 700;
   padding: 0.4rem 0.8rem;
-  border-radius: 8px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   font-size: 0.95rem;
   font-family: monospace;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -269,7 +269,7 @@
   padding: 2rem;
   background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   color: #fff;
-  border-radius: 24px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   text-align: center;
   position: relative;
 }
@@ -278,7 +278,7 @@
   background: rgba(255, 255, 255, 0.1);
   color: #e2e8f0;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */
   padding: 0.3rem 0.7rem;
   font-size: 0.75rem;
   cursor: pointer;
@@ -315,7 +315,7 @@
 .pa-historico-bloco { border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 1.5rem; margin-top: 2rem; text-align: left; }
 .pa-historico-bloco h5 { margin: 0 0 1rem; color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
 .pa-historico { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
-.pa-historico div { background: rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 0.5rem; text-align: center; font-family: monospace; font-weight: 700; font-size: 0.9rem; color: #e2e8f0; }
+.pa-historico div { background: rgba(255, 255, 255, 0.1); border-radius: 4px; /* legado: raio escrito no HTML, forçado a 4 px (styles.css) */ padding: 0.5rem; text-align: center; font-family: monospace; font-weight: 700; font-size: 0.9rem; color: #e2e8f0; }
 .pa-historico .pa-sem-registos { grid-column: 1 / -1; background: none; color: #94a3b8; font-family: inherit; font-weight: 400; font-size: 0.75rem; text-align: left; padding: 0; }
 
 /* ecrã inteiro (Fullscreen API): o monitor ocupa o ecrã todo, para o público */

@@ -3,8 +3,9 @@ import { PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import { BotoesCadastroLegado } from './comum/BotoesCadastroLegado';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -18,6 +19,24 @@ import { pedidoTabela } from './comum/impressao';
 import { formatarIban, ibanValido } from './comum/regras';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { opcoesColaboradores } from './comum/linhasRh';
+
+/** URL e corpo do PUT das coordenadas bancárias (grade e linhas): o IBAN vai sem espaços. */
+export const pedidoIban = (v: Record<string, unknown>) => ({
+  url: `/rh/colaboradores/${v.colaborador_id}/coordenada-bancaria`,
+  dados: { banco_id: v.banco_id, iban: String(v.iban ?? '').replace(/\s+/g, '') },
+});
+
+/** Vista Linhas de «Adicionar IBAN» (um colaborador por linha). */
+export function camposIban(colaboradores: CampoFormulario['opcoes'], bancos: CampoFormulario['opcoes']): CampoFormulario[] {
+  return [
+    { nome: 'colaborador_id', rotulo: 'Colaborador', tipo: 'select', obrigatorio: true, largura: 260, opcoes: colaboradores, aliases: ['Nome', 'NIF', 'Funcionário'] },
+    { nome: 'banco_id', rotulo: 'Banco', tipo: 'select', obrigatorio: true, largura: 180, opcoes: bancos },
+    { nome: 'iban', rotulo: 'IBAN', obrigatorio: true, largura: 260, maxLength: 50, aliases: ['NIB', 'Conta'],
+      validar: (v) => (v && !ibanValido(String(v)) ? 'IBAN inválido (dígitos de controlo).' : null) },
+  ];
+}
+
 interface Linha {
   colaborador: Colaborador;
   coordenada: CoordenadaBancaria | null;
@@ -99,6 +118,10 @@ function IbanColaboradores() {
   const [novo, setNovo] = useState(false);
   const [formNovo] = Form.useForm<{ colaborador_id: number; banco_id: number; iban: string }>();
   const accao = useAccaoRh(() => { setEdicao(null); setNovo(false); });
+  const camposLinhas = useMemo(
+    () => camposIban(opcoesColaboradores(colaboradores.lista), (bancos.data ?? []).map((b) => ({ value: b.id, label: b.codigo ? `${b.nome} (${b.codigo})` : b.nome }))),
+    [colaboradores.lista, bancos.data],
+  );
 
   const linhas = useMemo<Linha[]>(() => {
     const porColab = new Map((coordenadas.data ?? []).map((c) => [c.colaborador_id, c]));
@@ -165,8 +188,10 @@ function IbanColaboradores() {
           l.coordenada && pode('rh_banco_del') && { icone: 'trash', titulo: 'Apagar IBAN', variante: 'perigo', confirmar: { titulo: 'Eliminar as coordenadas bancárias?', textoOk: 'Eliminar', perigo: true },
             onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/colaboradores/${l.colaborador.id}/coordenada-bancaria` }) },
         ]} />
-      <Modal title="Adicionar IBAN" open={novo} onCancel={() => setNovo(false)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formNovo.submit()} destroyOnHidden>
-        <Form form={formNovo} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'put', url: `/rh/colaboradores/${v.colaborador_id}/coordenada-bancaria`, dados: { banco_id: v.banco_id, iban: v.iban.replace(/\s+/g, '') } })}>
+      <ModalFormulario chave="rh.bancario.iban" titulo="Adicionar IBAN" aberto={novo} aoFechar={() => setNovo(false)} criacao form={formNovo} campos={camposLinhas}
+        nomeRegistos="IBAN" invalidar={[['rh', 'coordenadas'], ['rh']]} gravarLinha={(r) => { const p = pedidoIban(r); return enviar('put', p.url, p.dados); }}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formNovo.submit()}>
+        <Form form={formNovo} layout="vertical" onFinish={(v) => { const p = pedidoIban(v); accao.mutate({ metodo: 'put', url: p.url, dados: p.dados }); }}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
             <SeletorColaborador style={{ width: '100%' }} />
           </Form.Item>
@@ -178,7 +203,7 @@ function IbanColaboradores() {
             <Input maxLength={50} style={{ fontFamily: 'monospace' }} />
           </Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
       <Modal title={`Coordenadas bancárias — ${edicao?.colaborador.nome_completo ?? ''}`} open={edicao !== null} onCancel={() => setEdicao(null)}
         okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => edicao && accao.mutate({ metodo: 'put', url: `/rh/colaboradores/${edicao.colaborador.id}/coordenada-bancaria`, dados: { ...v, iban: v.iban.replace(/\s+/g, '') } })}>

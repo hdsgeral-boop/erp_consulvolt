@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Tabs, Tag } from 'antd';
+import { Button, Card, DatePicker, Form, Input, InputNumber, Modal, Select, Space, Tabs, Tag, theme } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,7 +14,9 @@ import { useAccao } from '@/componentes/Accoes';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { somar } from '@/utilitarios/decimal';
 import { pedidoTodasPaginas } from './comum/impressao';
-import { SeletorActivo } from './comum/componentes';
+import { campoActivoLinhas, SeletorActivo } from './comum/componentes';
+import { enviar } from '@/api/cliente';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { filtroPeriodo, useListaPaginada } from './comum/paginacao';
 import type { Manutencao as RegistoManutencao } from './comum/tipos';
 
@@ -141,6 +143,24 @@ function Historico() {
   );
 }
 
+/** Data da grade (dayjs) ou da vista Linhas ('AAAA-MM-DD') → API. */
+const dataDe = (d: unknown): string | null => (dayjs.isDayjs(d) ? dataApi(d) ?? null : typeof d === 'string' && d ? d : null);
+
+/** Regras de gravação da manutenção, comuns à grade e à vista Linhas (sem custo = 0; com custo o servidor conclui-a). */
+export function dadosManutencao(v: Record<string, unknown>): Record<string, unknown> {
+  return { ativo_imobilizado_id: v.ativo_imobilizado_id, tipo: v.tipo, data: dataDe(v.data), descricao: v.descricao || null, custo: v.custo ?? 0 };
+}
+
+const TIPOS_MANUTENCAO = [{ value: 'PREVENTIVA', label: 'Preventiva' }, { value: 'CORRECTIVA', label: 'Correctiva' }];
+
+const CAMPOS_MANUTENCAO: CampoFormulario[] = [
+  campoActivoLinhas(),
+  { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, opcoes: TIPOS_MANUTENCAO, omissao: 'PREVENTIVA', largura: 130 },
+  { nome: 'data', rotulo: 'Data', tipo: 'data', obrigatorio: true, omissao: () => dayjs().format('YYYY-MM-DD'), largura: 140 },
+  { nome: 'custo', rotulo: 'Custo (Kz)', tipo: 'numero', min: 0, precisao: 2, largura: 130, aliases: ['Custo'] },
+  { nome: 'descricao', rotulo: 'Descrição', tipo: 'textoLongo', maxLength: 5000, largura: 280, aliases: ['Planeado'] },
+];
+
 /** Registo de uma manutenção. Com custo > 0 o servidor grava-a logo como concluída. */
 export function ModalManutencao({ aberto, activoId, aoFechar }: { aberto: boolean; activoId?: number; aoFechar: () => void }) {
   const [form] = Form.useForm<{ ativo_imobilizado_id: number; tipo: string; data: dayjs.Dayjs; descricao?: string; custo?: number }>();
@@ -152,14 +172,19 @@ export function ModalManutencao({ aberto, activoId, aoFechar }: { aberto: boolea
     }
   }, [aberto, activoId, form]);
   return (
-    <Modal title="Registar manutenção" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/ativos/manutencoes', dados: { ...v, data: dataApi(v.data), custo: v.custo ?? 0 } })}>
+    <ModalFormulario chave="activos.manutencoes" titulo="Registar manutenção" aberto={aberto} aoFechar={aoFechar} criacao form={form}
+      campos={activoId ? CAMPOS_MANUTENCAO.filter((c) => c.nome !== 'ativo_imobilizado_id') : CAMPOS_MANUTENCAO}
+      nomeRegistos="manutenções" invalidar={[['activos']]} larguraLinhas={1000}
+      gravarLinha={(r) => enviar('post', '/ativos/manutencoes', dadosManutencao(activoId ? { ...r, ativo_imobilizado_id: activoId } : r))}
+      nota="Uma linha por manutenção. Com custo, a manutenção fica concluída. Linhas deixadas em branco são ignoradas."
+      onOk={() => form.submit()} okText="Registar" cancelText="Cancelar" confirmLoading={accao.isPending}>
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/ativos/manutencoes', dados: dadosManutencao(v) })}>
         <Form.Item name="ativo_imobilizado_id" label="Activo" rules={[{ required: true, message: 'Escolha o activo.' }]}>
           <SeletorActivo disabled={!!activoId} />
         </Form.Item>
         <Space wrap>
           <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
-            <Select style={{ width: 160 }} options={[{ value: 'PREVENTIVA', label: 'Preventiva' }, { value: 'CORRECTIVA', label: 'Correctiva' }]} />
+            <Select style={{ width: 160 }} options={TIPOS_MANUTENCAO} />
           </Form.Item>
           <Form.Item name="data" label="Data" rules={[{ required: true }]}>
             <DatePicker format="DD/MM/YYYY" />
@@ -172,21 +197,22 @@ export function ModalManutencao({ aberto, activoId, aoFechar }: { aberto: boolea
           <Input.TextArea rows={3} maxLength={5000} />
         </Form.Item>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
 function ModalConcluir({ registo, aoFechar }: { registo: RegistoManutencao | null; aoFechar: () => void }) {
   const [form] = Form.useForm<{ resolucao: string; custo?: number }>();
+  const { token } = theme.useToken();
   const accao = useAccao({ invalidar: [['activos']], aoSucesso: () => aoFechar() });
   useEffect(() => {
     if (registo) form.setFieldsValue({ resolucao: '', custo: registo.custo ? Number(registo.custo) : undefined });
   }, [registo, form]);
   return (
     <Modal title="Executar Manutenção" open={!!registo} onCancel={aoFechar} onOk={() => form.submit()} okText="Finalizar Manutenção" cancelText="Cancelar"
-      okButtonProps={{ style: { background: '#10b981', borderColor: '#10b981' } }} confirmLoading={accao.isPending} destroyOnHidden>
-      <div style={{ marginBottom: 16, background: '#f8fafc', padding: 12, borderRadius: 8 }}>
-        <div style={{ fontSize: '0.9rem', color: '#64748b' }}>Trabalho Planeado:</div>
+      okButtonProps={{ style: { background: token.colorSuccess, borderColor: token.colorSuccess } }} confirmLoading={accao.isPending} destroyOnHidden>
+      <div style={{ marginBottom: 16, background: token.colorFillAlter, padding: 12, borderRadius: token.borderRadius }}>
+        <div style={{ fontSize: '0.9rem', color: token.colorTextSecondary }}>Trabalho Planeado:</div>
         <div style={{ marginTop: 4, fontWeight: 600 }}>{registo?.descricao || '---'}</div>
       </div>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/ativos/manutencoes/${registo?.id}/executar`, dados: { ...v, custo: v.custo ?? 0 } })}>

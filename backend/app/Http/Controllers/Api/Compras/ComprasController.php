@@ -18,6 +18,7 @@ use App\Services\Compras\ServicoFaturasCompra;
 use App\Services\Compras\ServicoListagensCompras;
 use App\Services\Compras\ServicoProcessoCompras;
 use App\Services\Compras\ServicoRececoesCompra;
+use App\Services\Gestao\ResumoAlocacaoUN;
 use App\Services\Reparticao\ServicoReparticao;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -303,7 +304,21 @@ final class ComprasController extends Controller
         // número da encomenda de origem (o detalhe mostrava só o id)
         $numeroEncomenda = $f->encomenda_compra_id ? EncomendaCompra::query()->whereKey($f->encomenda_compra_id)->value('numero_encomenda') : null;
 
-        return RespostaApi::sucesso($this->doc($f, 'fatura_compra_id') + ['numero_encomenda' => $numeroEncomenda], 'Factura obtida com sucesso.');
+        $dados = $this->doc($f, 'fatura_compra_id') + ['numero_encomenda' => $numeroEncomenda, 'alocacao_un_origem' => null];
+        // ADR-071 (R5): sem alocação própria, a contabilização usa a da encomenda e, não havendo, a do pedido (alocacaoEfectiva)
+        if (! $dados['alocacao_un'] && $f->encomenda_compra_id) {
+            $enc = EncomendaCompra::query()->find($f->encomenda_compra_id, ['id', 'pedido_compra_id', 'unidades_alocadas']);
+            [$herdada, $origem] = [$enc?->getAttributes()['unidades_alocadas'] ?? null, 'ENCOMENDA'];
+            if (ServicoReparticao::vazia($herdada) && $enc?->pedido_compra_id) {
+                [$herdada, $origem] = [PedidoCompra::query()->whereKey($enc->pedido_compra_id)->value('unidades_alocadas'), 'PEDIDO'];
+            }
+            if (! ServicoReparticao::vazia($herdada)) {
+                $dados['alocacao_un'] = app(ResumoAlocacaoUN::class)->resumo($herdada, $f->getAttributes()['montante_total'] ?? null);
+                $dados['alocacao_un_origem'] = $origem;
+            }
+        }
+
+        return RespostaApi::sucesso($dados, 'Factura obtida com sucesso.');
     }
 
     public function faturarEncomenda(Request $r, int $encomenda): JsonResponse
@@ -415,7 +430,10 @@ final class ComprasController extends Controller
             $m->load(RelacoesNomes::fornecedor());
         }
 
-        return $m->toArray() + ['linhas' => ItemCompra::query()->where($fk, $m->getKey())->with(RelacoesNomes::produto())->orderBy('id')->get()->toArray()];
+        // ADR-071 (R5): UN/CC de cada linha (id + nome; vazio = cabeçalho) e o bloco só de leitura da alocação por unidades
+        return $m->toArray() + ['linhas' => ItemCompra::query()->where($fk, $m->getKey())
+            ->with([...RelacoesNomes::produto(), 'unidadeNegocio:id,codigo,nome', 'centroCusto:id,codigo,descricao'])->orderBy('id')->get()->toArray(),
+            'alocacao_un' => app(ResumoAlocacaoUN::class)->resumo($m->getAttributes()['unidades_alocadas'] ?? null, $m->getAttributes()['montante_total'] ?? null)];
     }
 
     private function motivo(Request $r): string

@@ -59,7 +59,7 @@ export function ModoImersivo({ dispositivo, aoMudarDispositivo, aoSair, children
             <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Ambiente Imersivo Dedicado</span>
           </div>
         </div>
-        <div role="group" aria-label="Dispositivo" style={{ display: 'flex', background: '#0f172a', padding: 4, borderRadius: 10, border: '1px solid #334155', gap: 4 }}>
+        <div role="group" aria-label="Dispositivo" style={{ display: 'flex', background: '#0f172a', padding: 4, borderRadius: 4, border: '1px solid #334155', gap: 4 }}>
           {DISPOSITIVOS.map((d) => {
             const activo = d.valor === dispositivo;
             return (
@@ -68,7 +68,7 @@ export function ModoImersivo({ dispositivo, aoMudarDispositivo, aoSair, children
                 type="button"
                 aria-pressed={activo}
                 onClick={() => aoMudarDispositivo(d.valor)}
-                style={{ background: activo ? '#2563eb' : 'transparent', color: activo ? '#fff' : '#94a3b8', border: 'none', padding: '6px 14px', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: activo ? '0 4px 6px -1px rgba(37,99,235,0.3)' : 'none' }}
+                style={{ background: activo ? '#2563eb' : 'transparent', color: activo ? '#fff' : '#94a3b8', border: 'none', padding: '6px 14px', borderRadius: 4, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, boxShadow: activo ? '0 4px 6px -1px rgba(37,99,235,0.3)' : 'none' }}
               >
                 <IconeFa nome={d.icone} /> {d.rotulo}
               </button>
@@ -78,7 +78,7 @@ export function ModoImersivo({ dispositivo, aoMudarDispositivo, aoSair, children
         <button
           type="button"
           onClick={aoSair}
-          style={{ background: '#ef444415', color: '#f87171', border: '1px solid #ef444430', padding: '8px 16px', borderRadius: 10, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+          style={{ background: '#ef444415', color: '#f87171', border: '1px solid #ef444430', padding: '8px 16px', borderRadius: 4, fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
         >
           <IconeFa nome="arrow-left" /> Voltar ao Office ERP
         </button>

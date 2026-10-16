@@ -1,9 +1,9 @@
-import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Segmented, Switch, Tabs, Tag, Upload, Image, message } from 'antd';
+import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Row, Segmented, Switch, Tag, Upload, Image, message } from 'antd';
 import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -14,6 +14,8 @@ import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/respon
 import { TabelaLocalImprimivel } from './comum/impressao';
 import { enderecoSede, podeUsarEmpresa } from './comum/paridade';
 import { notificarErro } from '@/utilitarios/erros';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { OPCOES_SIM_NAO, PROPS_SIM_NAO, simNao } from './comum/formularios';
 
 export interface EmpresaGestao {
   id: number;
@@ -44,6 +46,38 @@ export interface EmpresaGestao {
 }
 
 const CHAVE = ['sistema', 'gestao-empresas'];
+
+/** Corpo do pedido da empresa (comum à grade e à vista Linhas): textos vazios como nulos, moedas em maiúsculas. */
+export function dadosEmpresa(v: Record<string, unknown>): Record<string, unknown> {
+  const dados: Record<string, unknown> = { ...v };
+  for (const k of Object.keys(dados)) if (dados[k] === '') dados[k] = null;
+  for (const k of ['moeda_funcional', 'moeda_consolidacao']) if (typeof dados[k] === 'string') dados[k] = (dados[k] as string).trim().toUpperCase();
+  if ('e_consolidacao' in dados) dados.e_consolidacao = simNao(dados.e_consolidacao);
+  return dados;
+}
+
+const emailInvalido = (e: unknown) => (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim()) ? 'Email inválido.' : null);
+const IDENT = 'Identificação';
+const RH = 'RH e salários';
+
+/** Vista Linhas das empresas: identificação, moeda e INSS (o logótipo, o rodapé e as regras IA ficam para a ficha). */
+const CAMPOS_EMPRESA: CampoFormulario[] = [
+  { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 240, maxLength: 255, aliases: ['Empresa', 'Nome da empresa'] },
+  { nome: 'nif', rotulo: 'NIF', obrigatorio: true, largura: 130, maxLength: 30 },
+  { nome: 'endereco', rotulo: 'Endereço', largura: 220, maxLength: 2000, aliases: ['Endereço sede', 'Morada'] },
+  { nome: 'provincia', rotulo: 'Província', largura: 120, maxLength: 100 },
+  { nome: 'municipio', rotulo: 'Município', largura: 120, maxLength: 100, emLinhas: 'opcional', seccao: IDENT },
+  { nome: 'comuna', rotulo: 'Comuna', largura: 120, maxLength: 100, emLinhas: 'opcional', seccao: IDENT },
+  { nome: 'telefone', rotulo: 'Telefone', largura: 120, maxLength: 50 },
+  { nome: 'email', rotulo: 'Email', largura: 180, maxLength: 150, validar: emailInvalido },
+  { nome: 'website', rotulo: 'Website', largura: 160, maxLength: 255, emLinhas: 'opcional', seccao: IDENT },
+  { nome: 'numero_registo_comercial', rotulo: 'N.º de registo comercial', largura: 150, maxLength: 50, emLinhas: 'opcional', seccao: IDENT },
+  { nome: 'moeda_funcional', rotulo: 'Moeda funcional', largura: 110, maxLength: 3, omissao: 'AOA', aliases: ['Moeda'],
+    validar: (m) => (m && String(m).trim().length !== 3 ? 'Código ISO de 3 letras.' : null) },
+  { nome: 'taxa_inss_patronal', rotulo: 'INSS entidade patronal (%)', tipo: 'numero', min: 0, max: 100, omissao: 8, largura: 130, emLinhas: 'opcional', seccao: RH },
+  { nome: 'taxa_inss_trabalhador', rotulo: 'INSS trabalhador (%)', tipo: 'numero', min: 0, max: 100, omissao: 3, largura: 130, emLinhas: 'opcional', seccao: RH },
+  { nome: 'e_consolidacao', rotulo: 'Holding', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 0, largura: 100, emLinhas: 'opcional', seccao: 'Consolidação' },
+];
 const LOGO_MAX = 1_000_000; // o servidor aceita até 1,5 MB de texto (base64)
 
 /** Configurações › Gestão de empresas (config_empresas): lista, ficha (identificação, RH, consolidação, documentos) e estado. */
@@ -136,40 +170,40 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
     if (id === null) return;
     form.resetFields();
     setLogotipo(undefined);
-    if (id === 'nova') form.setFieldsValue({ moeda_funcional: 'AOA', taxa_inss_patronal: 8, taxa_inss_trabalhador: 3, e_consolidacao: false } as Partial<EmpresaGestao>);
+    if (id === 'nova') form.setFieldsValue({ moeda_funcional: 'AOA', taxa_inss_patronal: 8, taxa_inss_trabalhador: 3, e_consolidacao: 0 } as unknown as Partial<EmpresaGestao>);
     else if (ficha.data) form.setFieldsValue(ficha.data);
   }, [id, ficha.data, form]);
 
   const logoActual = logotipo === undefined ? ficha.data?.logotipo : logotipo;
 
   const submeter = (v: EmpresaGestao) => {
-    const dados: Record<string, unknown> = { ...v };
+    const dados = dadosEmpresa(v as unknown as Record<string, unknown>);
     if (logotipo !== undefined) dados.logotipo = logotipo;
-    for (const k of Object.keys(dados)) if (dados[k] === '') dados[k] = null;
     accao.mutate({ metodo: id === 'nova' ? 'post' : 'put', url: id === 'nova' ? '/sistema/empresas' : `/sistema/empresas/${id}`, dados });
   };
+  const nova = id === 'nova';
 
   return (
-    <Modal
-      title={id === 'nova' ? 'Nova empresa' : `Empresa — ${ficha.data?.nome ?? ''}`}
-      open={id !== null}
-      onCancel={aoFechar}
+    <ModalFormulario
+      chave="config.empresas"
+      titulo={nova ? 'Nova empresa' : `Empresa — ${ficha.data?.nome ?? ''}`}
+      aberto={id !== null}
+      aoFechar={aoFechar}
+      criacao={nova && gerir}
+      form={form}
+      campos={CAMPOS_EMPRESA}
+      nomeRegistos="empresas"
+      invalidar={[CHAVE, ['sistema', 'empresas']]}
+      gravarLinha={(r) => enviar('post', '/sistema/empresas', dadosEmpresa(r))}
       width={larguraModal(820)}
       okText="Gravar"
       cancelText={gerir ? 'Cancelar' : 'Fechar'}
       okButtonProps={{ style: gerir ? undefined : { display: 'none' } }}
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
-      destroyOnHidden
     >
       <Form form={form} layout="vertical" disabled={!gerir} onFinish={submeter}>
-        <Tabs
-          items={[
-            {
-              key: 'id',
-              label: 'Identificação',
-              forceRender: true,
-              children: (
+        <SeccaoFormulario titulo="Identificação">
                 <Row gutter={16}>
                   <Col xs={24} md={16}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
                   <Col xs={24} sm={12} md={8}><Form.Item name="nif" label="NIF" rules={[{ required: true, message: 'Indique o NIF.' }]}><Input maxLength={30} /></Form.Item></Col>
@@ -182,13 +216,8 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
                   <Col xs={24} sm={12} md={8}><Form.Item name="website" label="Website"><Input maxLength={255} /></Form.Item></Col>
                   <Col xs={24} md={12}><Form.Item name="numero_registo_comercial" label="N.º de registo comercial"><Input maxLength={50} /></Form.Item></Col>
                 </Row>
-              ),
-            },
-            {
-              key: 'rh',
-              label: 'RH e salários',
-              forceRender: true,
-              children: (
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="RH e salários" recolhida={!nova}>
                 <Row gutter={16}>
                   <Col xs={24} md={12}><Form.Item name="taxa_inss_patronal" label="INSS entidade patronal (%)"><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
                   <Col xs={24} md={12}><Form.Item name="taxa_inss_trabalhador" label="INSS trabalhador (%)"><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
@@ -196,13 +225,8 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
                   <Col xs={24} sm={12} md={8}><Form.Item name="he_limite_horas" label="Limite de horas (mês)"><InputNumber min={0} max={744} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
                   <Col xs={24} sm={12} md={8}><Form.Item name="he_percentagem_2" label="% acima do limite"><InputNumber min={0} max={1000} style={{ width: '100%' }} decimalSeparator="," /></Form.Item></Col>
                 </Row>
-              ),
-            },
-            {
-              key: 'consolidacao',
-              label: 'Moeda e consolidação',
-              forceRender: true,
-              children: (
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Moeda e consolidação" recolhida={!nova}>
                 <Row gutter={16}>
                   <Col xs={24} sm={12} md={8}>
                     <Form.Item name="moeda_funcional" label="Moeda funcional" rules={[{ len: 3, message: 'Código ISO de 3 letras.' }]} normalize={(v: string) => v?.toUpperCase()}>
@@ -210,7 +234,7 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
                     </Form.Item>
                   </Col>
                   <Col xs={24} sm={12} md={8}>
-                    <Form.Item name="e_consolidacao" label="Empresa de consolidação (holding)" valuePropName="checked">
+                    <Form.Item name="e_consolidacao" label="Empresa de consolidação (holding)" {...PROPS_SIM_NAO}>
                       <Switch />
                     </Form.Item>
                   </Col>
@@ -225,14 +249,8 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
                     <Alert type="info" showIcon message="Os membros do grupo e as regras de eliminação definem-se em Contabilidade › Consolidação." />
                   </Col>
                 </Row>
-              ),
-            },
-            {
-              key: 'documentos',
-              label: 'Documentos',
-              forceRender: true,
-              children: (
-                <>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Documentos" recolhida>
                   <Form.Item label="Logótipo (documentos impressos)">
                     <Flex gap={16} align="center" wrap>
                       {logoActual ? <Image src={logoActual} alt="Logótipo da empresa" height={64} /> : <Tag>{ficha.data?.tem_logotipo && logotipo === undefined ? 'A carregar…' : 'Sem logótipo'}</Tag>}
@@ -261,12 +279,8 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
                   </Form.Item>
                   <Form.Item name="rodape_documento" label="Rodapé dos documentos"><Input.TextArea rows={3} maxLength={2000} showCount /></Form.Item>
                   <Form.Item name="regras_ia" label="Regras para o assistente (IA)" extra="Instruções específicas desta empresa usadas pelo assistente."><Input.TextArea rows={4} maxLength={20000} /></Form.Item>
-                </>
-              ),
-            },
-          ]}
-        />
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }

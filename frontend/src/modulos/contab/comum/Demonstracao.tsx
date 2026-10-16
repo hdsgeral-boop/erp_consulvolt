@@ -1,4 +1,4 @@
-import { Modal, Skeleton, Space, Statistic, Table, Typography } from 'antd';
+import { Modal, Skeleton, Space, Statistic, Table, Typography, theme, type GlobalToken } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
@@ -23,12 +23,15 @@ interface LinhaMovimento {
   valor: string;
 }
 
-const ESTILO: Record<LinhaPlana['tipo'], React.CSSProperties> = {
-  seccao: { fontWeight: 600, textTransform: 'none', background: '#fafafa' },
-  linha: {},
-  subtotal: { fontWeight: 600 },
-  total: { fontWeight: 700, borderTop: '2px solid #d9d9d9' },
-};
+/** Estilo de cada tipo de linha (cores do tema: a tela nocturna troca-as). */
+const estiloLinha = (tipo: LinhaPlana['tipo'], token: GlobalToken): React.CSSProperties =>
+  tipo === 'seccao'
+    ? { fontWeight: 600, textTransform: 'none', background: token.colorFillAlter }
+    : tipo === 'subtotal'
+      ? { fontWeight: 600 }
+      : tipo === 'total'
+        ? { fontWeight: 700, borderTop: `2px solid ${token.colorBorder}` }
+        : {};
 
 /**
  * Tabela de uma demonstração financeira (linhas planas) com coluna comparativa e drill-down pelas notas
@@ -54,6 +57,7 @@ export function TabelaDemonstracao({
   /** Título/período/filtros do documento impresso (Imprimir/PDF da demonstração tal como está no ecrã). */
   impressao?: { titulo: string; periodo?: string; filtros?: (string | null | undefined | false)[] };
 }) {
+  const { token } = theme.useToken();
   const refTabela = useRef<HTMLDivElement>(null);
   const notas = useTabelaAux(tipoNota === 'demonstracao' ? 'notas-demonstracao' : 'notas-fluxo-caixa');
   const [notaAberta, setNotaAberta] = useState<{ id: number; codigo: string } | null>(null);
@@ -101,7 +105,7 @@ export function TabelaDemonstracao({
           pagination={false}
           columns={colunas}
           dataSource={linhas}
-          onRow={(l) => ({ style: ESTILO[l.tipo] })}
+          onRow={(l) => ({ style: estiloLinha(l.tipo, token) })}
           scroll={scrollTabela()}
         />
       </div>

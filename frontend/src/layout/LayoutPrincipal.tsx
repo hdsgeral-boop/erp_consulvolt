@@ -1,9 +1,13 @@
-import { Avatar, Button, ConfigProvider, Drawer, Dropdown, Flex, Input, Layout, Menu, Select, Space, Spin, Tooltip, type InputRef, type MenuProps } from 'antd';
+import { Avatar, Button, ConfigProvider, Drawer, Dropdown, Flex, Input, Layout, Menu, Modal, Select, Space, Spin, Tooltip, Typography, type InputRef, type MenuProps } from 'antd';
 import {
   ApiOutlined,
+  AppstoreOutlined,
   ArrowLeftOutlined,
   CheckOutlined,
   DownOutlined,
+  EditOutlined,
+  FontSizeOutlined,
+  IdcardOutlined,
   LayoutOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -16,6 +20,7 @@ import {
   StarOutlined,
   SunOutlined,
   SwapOutlined,
+  UnorderedListOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as EventoTeclado, type ReactNode } from 'react';
@@ -26,9 +31,10 @@ import { useEcra } from '@/componentes/responsivo/useEcra';
 import { larguraGaveta } from '@/componentes/responsivo/utilitarios';
 import { AjudaProvider, BotaoAjuda } from '@/componentes/ajuda/PainelAjuda';
 import { OperacoesProvider } from '@/componentes/operacoes/Operacoes';
-import { useFavoritos } from '@/componentes/preferencias/favoritos';
+import { MAX_ROTULO_FAVORITO, nomeOriginalFavorito, useFavoritos } from '@/componentes/preferencias/favoritos';
 import { notificarErro } from '@/utilitarios/erros';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { ICONES_FA } from '@/componentes/fluxos/iconesFa';
 import { CHAVE_MENU_GERAL, construirMenuLateral, estadoMenu } from './itensMenu';
 import { MarcaEmpresa } from './MarcaEmpresa';
 import { classeFundoModulo } from './fundoModulo';
@@ -37,16 +43,59 @@ import { BotaoPesquisa, PesquisaEcras } from './PesquisaEcras';
 import { ROTULOS_MENU, useAspecto, type AspectoMenu } from './aspecto';
 import { filtrarMenu, moverFoco, posicaoRealce, semIcones, textoContador, type ItemMenu } from './filtroMenu';
 import { TEMA_NOCTURNO } from './temaNocturno';
+import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
+import { PuxadorMenu } from './PuxadorMenu';
 import './telaNocturna.css';
 
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
 const AssistenteIA = lazy(() => import('@/modulos/geral/integracoes/AssistenteIA').then((m) => ({ default: m.AssistenteIA })));
 
-const LARGURA_MENU = 280;
 const ALTURA_CABECALHO = 72;
 const ALTURA_CABECALHO_TELEMOVEL = 56;
 export const PREFIXO_FAVORITO = 'fav:';
 type ItemMenuLateral = ItemMenu;
+
+/** Botões do aspecto da árvore no próprio menu (legado: .nav-aspecto — «Símbolo e nome», «Só símbolos», «Só nomes»). */
+const OPCOES_ASPECTO: { menu: AspectoMenu; icone: ReactNode; titulo: string }[] = [
+  { menu: 'completo', icone: <UnorderedListOutlined />, titulo: 'Símbolo e nome' },
+  { menu: 'icones', icone: <AppstoreOutlined />, titulo: 'Só símbolos (passe o rato para ver o nome)' },
+  { menu: 'nomes', icone: <FontSizeOutlined />, titulo: 'Só nomes' },
+];
+
+const temFilhos = (it: ItemMenuLateral): boolean => !!it && typeof it === 'object' && Array.isArray((it as { children?: unknown }).children);
+
+/** Chaves de todos os grupos (para «Expandir tudo»). */
+function chavesDosGrupos(lista: ItemMenuLateral[]): string[] {
+  const r: string[] = [];
+  const percorrer = (l: ItemMenuLateral[]) =>
+    l.forEach((it) => {
+      if (!temFilhos(it)) return;
+      const g = it as { key?: React.Key; children: ItemMenuLateral[] };
+      r.push(String(g.key));
+      percorrer(g.children);
+    });
+  percorrer(lista);
+  return r;
+}
+
+/**
+ * Seta dos grupos (legado: fa-chevron-down à direita, roda 180° quando o grupo está aberto). Desenhada à parte do IconeFa
+ * (sem a classe fx-icone) para não contar como símbolo do item no aspecto «só nomes».
+ */
+const [LARGURA_SETA, ALTURA_SETA, CAMINHO_SETA] = ICONES_FA['chevron-down'];
+const setaGrupo = ({ isOpen }: { isOpen?: boolean }) => (
+  <svg
+    className={`ant-menu-submenu-expand-icon erp-menu-seta${isOpen ? ' aberta' : ''}`}
+    viewBox={`0 0 ${LARGURA_SETA} ${ALTURA_SETA}`}
+    width="1em"
+    height="1em"
+    fill="currentColor"
+    aria-hidden
+    focusable="false"
+  >
+    <path d={CAMINHO_SETA} />
+  </svg>
+);
 
 /** Rótulo com o pedaço encontrado pela busca do menu realçado (<mark>). */
 function realcar(rotulo: string, termo: string): ReactNode {
@@ -66,7 +115,9 @@ function realcar(rotulo: string, termo: string): ReactNode {
  * selector de empresa e menu do utilizador.
  *
  * Aspecto do sistema anterior (index_arrumado.html + css/styles.css): menu lateral escuro (#121212) de 280 px com a
- * marca no topo, item activo com barra azul à esquerda e sub-níveis com guia tracejada; barra superior branca com o
+ * marca no topo, item activo com barra azul à esquerda e sub-níveis com guia tracejada; largura ajustável à mão pelo
+ * friso do bordo direito (220–800 px, guardada por utilizador, duplo clique repõe — larguraMenu.ts/PuxadorMenu.tsx);
+ * botões do aspecto da árvore e «Expandir/Recolher tudo» entre os itens do topo e os grupos; barra superior branca com o
  * botão quadrado do menu, o nome da empresa e o crachá do NIF à esquerda, «Ajuda», «Trocar empresa»,
  * o utilizador e o botão vermelho de sair à direita; botão flutuante «Voltar» (ronda 2, botões do legado em falta).
  *
@@ -112,8 +163,26 @@ function Estrutura() {
   const local = useLocation();
   const tipoNavegacao = useNavigationType();
   const ecra = useEcra();
-  const { favoritos, eFavorito, alternar } = useFavoritos();
-  const { aspecto, definir } = useAspecto(utilizador?.id ?? utilizador?.nome_utilizador ?? null);
+  const { favoritos, eFavorito, alternar, renomear } = useFavoritos();
+  // renomear favorito (lápis no menu «⋮» do item): rótulo próprio guardado com a preferência
+  const [aRenomear, setARenomear] = useState<{ modulo: string; ecra: string; original: string } | null>(null);
+  const [rotuloNovo, setRotuloNovo] = useState('');
+  const abrirRenomear = useCallback(
+    (modulo: string, ecra: string) => {
+      const f = favoritos.find((x) => x.modulo === modulo && x.ecra === ecra);
+      if (!f) return;
+      setRotuloNovo(f.nome);
+      setARenomear({ modulo, ecra, original: nomeOriginalFavorito(modulo, ecra, menu) });
+    },
+    [favoritos, menu],
+  );
+  const confirmarRenomear = () => {
+    if (aRenomear) renomear(aRenomear.modulo, aRenomear.ecra, rotuloNovo);
+    setARenomear(null);
+  };
+  const idUtilizador = utilizador?.id ?? utilizador?.nome_utilizador ?? null;
+  const { aspecto, definir } = useAspecto(idUtilizador);
+  const { largura: larguraMenu, puxador } = useLarguraMenu(idUtilizador);
   const escuro = aspecto.tema === 'escuro';
   const recolhido = aspecto.menu === 'icones';
   const colapsado = recolhido && !ecra.pequeno;
@@ -151,6 +220,7 @@ function Estrutura() {
     return [...lista.slice(0, pos), grupo, ...lista.slice(pos)];
   }, [lateral, favoritos]);
   const filtro = useMemo(() => filtrarMenu(base, busca), [base, busca]);
+  const todosGrupos = useMemo(() => chavesDosGrupos(base), [base]);
   const chaveFocada = aBuscar && focado >= 0 ? (filtro.folhas[focado]?.key ?? null) : null;
 
   const itens = useMemo(() => {
@@ -172,10 +242,14 @@ function Estrutura() {
                 trigger={['click']}
                 placement="bottomRight"
                 menu={{
-                  items: [{ key: 'fav', icon: fav ? <StarFilled style={{ color: '#f59e0b' }} /> : <StarOutlined />, label: fav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos' }],
+                  items: [
+                    { key: 'fav', icon: fav ? <StarFilled style={{ color: '#f59e0b' }} /> : <StarOutlined />, label: fav ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos' },
+                    ...(fav ? [{ key: 'renomear', icon: <EditOutlined />, label: 'Renomear favorito' }] : []),
+                  ],
                   onClick: (e) => {
                     e.domEvent.stopPropagation();
-                    alternar(mod, ecraId);
+                    if (e.key === 'renomear') abrirRenomear(mod, ecraId);
+                    else alternar(mod, ecraId);
                   },
                 }}
               >
@@ -199,7 +273,10 @@ function Estrutura() {
     if (aspecto.menu === 'nomes' && !ecra.pequeno) lista = semIcones(lista);
     return comPontos(lista);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, busca, aBuscar, chaveFocada, aspecto.menu, ecra.pequeno, favoritos]);
+  }, [base, busca, aBuscar, chaveFocada, aspecto.menu, ecra.pequeno, favoritos, abrirRenomear]);
+  // como no legado, os itens soltos (Início, Dashboard Global, …) ficam por cima dos botões do aspecto e os grupos por baixo
+  const itensTopo = useMemo(() => itens.filter((i) => !temFilhos(i)), [itens]);
+  const itensGrupos = useMemo(() => itens.filter(temFilhos), [itens]);
   const { seleccionado, abertos } = useMemo(() => estadoMenu(local.pathname, local.search, lateral, menu), [local.pathname, local.search, lateral, menu]);
   const [, , moduloActual, ecraActual] = local.pathname.split('/');
   const noEcra = local.pathname.startsWith('/m/') && !!moduloActual && !!ecraActual;
@@ -335,10 +412,9 @@ function Estrutura() {
     <div className="erp-menu-busca" role="search">
       <Input
         ref={campoBusca}
-        size="small"
         allowClear
         prefix={<SearchOutlined aria-hidden />}
-        placeholder="Procurar no menu"
+        placeholder="Procurar operação..."
         aria-label="Procurar no menu"
         aria-describedby="erp-menu-busca-contador"
         value={busca}
@@ -355,27 +431,65 @@ function Estrutura() {
     </div>
   );
 
-  const menuNavegacao = (
+  const propsMenu: MenuProps = {
+    theme: 'dark',
+    mode: 'inline',
+    selectedKeys: [seleccionado, `${PREFIXO_FAVORITO}${seleccionado}`],
+    inlineIndent: 16,
+    expandIcon: setaGrupo,
+    onClick: (i) => {
+      // escolher um resultado fecha a busca e devolve a árvore ao estado anterior (legado)
+      if (aBuscar) limparBusca(false);
+      irPara(i.key);
+    },
+    style: { borderInlineEnd: 0, background: 'transparent' },
+  };
+  const classeMenu = `erp-menu${aspecto.menu === 'nomes' && !ecra.pequeno ? ' erp-menu-so-nomes' : ''}`;
+  const menuTopo = itensTopo.length > 0 && <Menu {...propsMenu} className={`${classeMenu} erp-menu-lista-topo`} items={itensTopo} />;
+  const menuGrupos = itensGrupos.length > 0 && (
     <Menu
-      className={`erp-menu${aspecto.menu === 'nomes' && !ecra.pequeno ? ' erp-menu-so-nomes' : ''}`}
-      theme="dark"
-      mode="inline"
-      items={itens}
-      selectedKeys={[seleccionado, `${PREFIXO_FAVORITO}${seleccionado}`]}
+      {...propsMenu}
+      className={`${classeMenu} erp-menu-lista-grupos`}
+      items={itensGrupos}
       openKeys={gruposAbertos}
       onOpenChange={(chaves) => {
         if (aBuscar) return;
         if (colapsado) setAbertosFlutuantes(chaves);
         else setAbertosMenu(chaves);
       }}
-      inlineIndent={16}
-      onClick={(i) => {
-        // escolher um resultado fecha a busca e devolve a árvore ao estado anterior (legado)
-        if (aBuscar) limparBusca(false);
-        irPara(i.key);
-      }}
-      style={{ borderInlineEnd: 0, background: 'transparent' }}
     />
+  );
+
+  // aspecto da árvore e «Expandir/Recolher tudo» no próprio menu (legado: .nav-aspecto e os dois botões por baixo)
+  const controlosMenu = !ecra.pequeno && (
+    <div className="erp-menu-controlos">
+      <div className="erp-menu-aspecto" role="radiogroup" aria-label="Aspecto do menu">
+        {OPCOES_ASPECTO.map((o) => (
+          <button
+            key={o.menu}
+            type="button"
+            role="radio"
+            aria-checked={aspecto.menu === o.menu}
+            aria-label={ROTULOS_MENU[o.menu]}
+            title={o.titulo}
+            className="erp-menu-aspecto-botao"
+            onClick={() => definir({ menu: o.menu })}
+          >
+            {o.icone}
+          </button>
+        ))}
+      </div>
+      {!colapsado && !aBuscar && todosGrupos.length > 0 && (
+        <div className="erp-menu-expandir">
+          <button type="button" title="Expandir Tudo" aria-label="Expandir tudo" onClick={() => setAbertosMenu(todosGrupos)}>
+            <IconeFa nome="expand-alt" />
+          </button>
+          <button type="button" title="Recolher Tudo" aria-label="Recolher tudo" onClick={() => setAbertosMenu([])}>
+            <IconeFa nome="compress-alt" />
+          </button>
+        </div>
+      )}
+    </div>
   );
 
   const textoFavorito = favoritoActual ? 'Retirar dos favoritos' : 'Adicionar aos favoritos';
@@ -384,6 +498,8 @@ function Estrutura() {
     // em telemóvel o nome não cabe na barra: aparece no topo do menu do utilizador
     ...(ecra.md ? [] : [{ key: 'quem', icon: <UserOutlined />, label: nomeUtilizador, disabled: true }, { type: 'divider' as const }]),
     { key: 'dados-pessoais', icon: <IconeFa nome="user-edit" />, label: 'Gerir Dados Pessoais', onClick: () => navegar('/dados-pessoais') },
+    // portal autónomo do colaborador (Versão Actual: portal.html); o servidor decide se o utilizador lá pode entrar
+    { key: 'portal', icon: <IdcardOutlined />, label: 'Abrir o portal', onClick: () => navegar('/portal') },
     ...(!ecra.md && noEcra
       ? [{ key: 'favorito', icon: favoritoActual ? <StarFilled style={{ color: '#f59e0b' }} /> : <StarOutlined />, label: textoFavorito, onClick: () => alternar(moduloActual, ecraActual) }]
       : []),
@@ -412,21 +528,25 @@ function Estrutura() {
     <ConfigProvider theme={escuro ? TEMA_NOCTURNO : undefined}>
       <Layout style={{ minHeight: '100vh' }}>
         {!ecra.pequeno && (
-          <Layout.Sider className="erp-sider" collapsible collapsed={recolhido} trigger={null} width={LARGURA_MENU} theme="dark">
-            <div
-              className="erp-sider-topo"
-              style={{
-                height: ALTURA_CABECALHO,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: recolhido ? 'center' : 'flex-start',
-                padding: recolhido ? '0 8px' : '0 20px',
-              }}
-            >
-              <MarcaEmpresa soIcone={recolhido} tamanho={recolhido ? 34 : 40} comProduto escuro />
+          <Layout.Sider
+            className={`erp-sider${puxador.aArrastar ? ' erp-sider-a-redimensionar' : ''}`}
+            collapsible
+            collapsed={recolhido}
+            collapsedWidth={LARGURA_MENU_RECOLHIDO}
+            trigger={null}
+            width={larguraMenu}
+            theme="dark"
+          >
+            <div className={`erp-sider-topo${recolhido ? ' recolhido' : ''}`}>
+              <MarcaEmpresa soIcone={recolhido} tamanho={40} comProduto escuro />
             </div>
-            {caixaBusca}
-            {menuNavegacao}
+            <nav className="erp-sider-rolagem" aria-label="Menu principal">
+              {caixaBusca}
+              {menuTopo}
+              {controlosMenu}
+              {menuGrupos}
+            </nav>
+            {!recolhido && <PuxadorMenu largura={larguraMenu} puxador={puxador} />}
           </Layout.Sider>
         )}
 
@@ -449,7 +569,8 @@ function Estrutura() {
               </Button>
             </div>
             {caixaBusca}
-            {menuNavegacao}
+            {menuTopo}
+            {menuGrupos}
           </Drawer>
         )}
 
@@ -542,6 +663,30 @@ function Estrutura() {
           </Button>
         )}
         <PesquisaEcras aberta={pesquisa} aoFechar={() => setPesquisa(false)} />
+        <Modal
+          title="Renomear favorito"
+          open={aRenomear !== null}
+          okText="Guardar"
+          cancelText="Cancelar"
+          onOk={confirmarRenomear}
+          onCancel={() => setARenomear(null)}
+          destroyOnHidden
+        >
+          <Input
+            autoFocus
+            aria-label="Nome do favorito"
+            value={rotuloNovo}
+            maxLength={MAX_ROTULO_FAVORITO}
+            showCount
+            onChange={(ev) => setRotuloNovo(ev.target.value)}
+            onPressEnter={confirmarRenomear}
+          />
+          {aRenomear && (
+            <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+              Nome do ecrã: {aRenomear.original}. Deixe vazio para voltar a este nome.
+            </Typography.Paragraph>
+          )}
+        </Modal>
         <Suspense fallback={null}>
           {painel === 'powerbi' && <PainelPowerBI aberto aoFechar={() => setPainel(null)} />}
           {painel === 'ia' && <AssistenteIA aberto aoFechar={() => setPainel(null)} />}

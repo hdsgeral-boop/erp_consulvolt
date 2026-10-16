@@ -1,8 +1,8 @@
-import { Alert, Button, Checkbox, Col, ColorPicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Skeleton, Space, Tabs } from 'antd';
+import { Alert, Button, Checkbox, Col, ColorPicker, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Skeleton, Space, Tabs, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -16,6 +16,7 @@ import { useTabelaAux, useUnidadesNegocio } from '@/modulos/contab/comum/dados';
 import { ModalVariasUnidades, useEstruturaBase } from './comum/ModaisCriacao';
 import { TIPOS_UNIDADE, aplanar, construirArvore, descendentes, tipoInfo, type Estrutura as DadosEstrutura, type NoUnidade, type Posto, type Unidade } from './comum/arvore';
 import { caminho, estadoVagas, linhasMembros, mapaSalarios, nomePosto, ocupantesPorPosto, type ColaboradorEstrutura, type SalariosApi } from './comum/legado';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import './comum/estrutura.css';
 
 const CHAVES = [['rh', 'estrutura'], ['rh', 'colaboradores'], ['rh', 'cargos'], ['gestao']];
@@ -45,6 +46,22 @@ function caminhos(arvore: NoUnidade[]): Map<number, string> {
   });
   ir(arvore, []);
   return m;
+}
+
+const OPCOES_SIM_NAO = [{ value: 1, label: 'Sim' }, { value: 0, label: 'Não' }];
+/** Booleano da grade (checkbox) ou das linhas (1/0); `omissao` quando vazio. */
+const simNao = (v: unknown, omissao = false): boolean => (v === undefined || v === null || v === '' ? omissao : v === true || v === 1 || v === '1');
+/** Caixas da grade guardadas como 1/0 (passam sem conversão para as omissões das colunas «Sim/Não» das linhas). */
+const PROPS_SIM_NAO = { valuePropName: 'checked', getValueProps: (v: unknown) => ({ checked: v === true || v === 1 || v === '1' }), normalize: (v: unknown) => (v ? 1 : 0) } as const;
+
+/** Unidade orgânica: corpo do pedido comum à grade e à vista Linhas (cor só em texto; apoio e activa em booleano). */
+export function dadosUnidade(v: Record<string, unknown>): Record<string, unknown> {
+  return { ...v, cor: typeof v.cor === 'string' && v.cor ? v.cor : null, apoio: simNao(v.apoio), ativo: simNao(v.ativo, true) };
+}
+
+/** Cargo (posto) da unidade: corpo do pedido comum à grade e à vista Linhas. */
+export function dadosPosto(v: Record<string, unknown>, unidadeId: number): Record<string, unknown> {
+  return { ...v, chefia: simNao(v.chefia), unidade_organica_id: unidadeId };
 }
 
 const Icone = ({ nome, cor }: { nome: string; cor?: string }) => <IconeFa nome={nome} style={cor ? { color: cor } : undefined} />;
@@ -370,6 +387,7 @@ function FormUnidade({ edicao, arvore, aoFechar }: { edicao: { unidade: Unidade 
   const unidade = edicao?.unidade ?? null;
   const un = useUnidadesNegocio(!!unidade);
   const cc = useTabelaAux('centros-custo', !!unidade);
+  const colaboradores = useColaboradores();
   const accao = useAccao<{ id: number }>({ invalidar: CHAVES, aoSucesso: (d) => aoFechar(d?.id) });
   const nova = unidade === 'nova';
   const proibidos = unidade && unidade !== 'nova' ? descendentes(arvore, unidade.id) : new Set<number>();
@@ -377,36 +395,69 @@ function FormUnidade({ edicao, arvore, aoFechar }: { edicao: { unidade: Unidade 
   useEffect(() => {
     if (!edicao) return;
     form.resetFields();
-    form.setFieldsValue(edicao.unidade === 'nova' ? { unidade_organica_pai_id: edicao.pai, tipo: 'DEPARTAMENTO', ativo: true, apoio: false } : { ...edicao.unidade, apoio: !!edicao.unidade.apoio });
+    form.setFieldsValue(edicao.unidade === 'nova' ? { unidade_organica_pai_id: edicao.pai, tipo: 'DEPARTAMENTO', ativo: 1, apoio: 0 } : { ...edicao.unidade, apoio: !!edicao.unidade.apoio });
   }, [edicao, form]);
+  const opcoesTipo = Object.entries(TIPOS_UNIDADE).map(([value, label]) => ({ value, label }));
+  const opcoesPai = aplanar(arvore).filter((n) => !proibidos.has(n.unidade.id)).map((n) => ({ value: n.unidade.id, label: cams.get(n.unidade.id) ?? n.unidade.nome }));
+  const opcoesCc = (cc.data ?? []).map((c) => ({ value: c.id, label: `${c.codigo} ${c.descricao ?? ''}`.trim() }));
+  const opcoesUn = (un.data ?? []).map((x) => ({ value: x.id, label: x.nome }));
+  // vista Linhas: várias unidades orgânicas de uma vez (a unidade superior escolhida ao abrir é a omissão)
+  const campos: CampoFormulario[] = [
+    { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 220, maxLength: 255, aliases: ['Unidade', 'Designação'] },
+    { nome: 'codigo', rotulo: 'Código', largura: 100, maxLength: 50 },
+    { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, opcoes: opcoesTipo, omissao: 'DEPARTAMENTO', largura: 170 },
+    { nome: 'unidade_organica_pai_id', rotulo: 'Unidade superior', tipo: 'select', opcoes: opcoesPai, largura: 240, aliases: ['Superior', 'Pai'] },
+    { nome: 'colaborador_responsavel_id', rotulo: 'Responsável (colaborador)', tipo: 'select', largura: 200, aliases: ['Responsável'],
+      opcoes: colaboradores.lista.filter((c) => c.estado === 'ACTIVO').map((c) => ({ value: c.id, label: c.nome_completo })) },
+    { nome: 'centro_custo_id', rotulo: 'Centro de custo', tipo: 'select', opcoes: opcoesCc, largura: 180, emLinhas: 'opcional', seccao: 'Ligações', aliases: ['CC'] },
+    { nome: 'unidade_negocio_id', rotulo: 'Unidade de negócio', tipo: 'select', opcoes: opcoesUn, largura: 180, emLinhas: 'opcional', seccao: 'Ligações', aliases: ['UN'] },
+    { nome: 'missao', rotulo: 'Missão', tipo: 'textoLongo', largura: 220, maxLength: 5000, emLinhas: 'opcional', seccao: 'Missão e atribuições' },
+    { nome: 'ordem', rotulo: 'Ordem', tipo: 'numero', precisao: 0, largura: 80, emLinhas: 'opcional', seccao: 'Apresentação' },
+    { nome: 'apoio', rotulo: 'Unidade de apoio', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 0, largura: 110, emLinhas: 'opcional', seccao: 'Apresentação' },
+    { nome: 'ativo', rotulo: 'Activa', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 1, largura: 90, emLinhas: 'opcional', seccao: 'Apresentação' },
+  ];
   return (
-    <Modal open={!!unidade} title={nova ? 'Nova unidade orgânica' : `Editar ${(unidade as Unidade | null)?.nome ?? ''}`} onCancel={() => aoFechar()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(860)} destroyOnHidden>
+    <ModalFormulario chave="estrutura.unidades" titulo={nova ? 'Nova unidade orgânica' : `Editar ${(unidade as Unidade | null)?.nome ?? ''}`} aberto={!!unidade} aoFechar={() => aoFechar()}
+      criacao={nova} form={form} campos={campos} nomeRegistos="unidades orgânicas" invalidar={CHAVES} gravarLinha={(r) => enviar('post', '/rh/estrutura/unidades', dadosUnidade(r))}
+      okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(860)}>
       <Form
         form={form}
         layout="vertical"
-        onFinish={(v) => accao.mutate({ metodo: nova ? 'post' : 'put', url: nova ? '/rh/estrutura/unidades' : `/rh/estrutura/unidades/${(unidade as Unidade).id}`, dados: { ...v, cor: typeof v.cor === 'string' ? v.cor : null } })}
+        onFinish={(v) => accao.mutate({ metodo: nova ? 'post' : 'put', url: nova ? '/rh/estrutura/unidades' : `/rh/estrutura/unidades/${(unidade as Unidade).id}`, dados: dadosUnidade(v) })}
       >
-        <Row gutter={[16, 0]}>
-          <Col xs={24} sm={12}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
-          <Col xs={12} sm={6}><Form.Item name="codigo" label="Código"><Input maxLength={50} /></Form.Item></Col>
-          <Col xs={12} sm={6}><Form.Item name="tipo" label="Tipo" rules={[{ required: true, message: 'Indique o tipo.' }]}><Select options={Object.entries(TIPOS_UNIDADE).map(([value, label]) => ({ value, label }))} /></Form.Item></Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="unidade_organica_pai_id" label="Unidade superior">
-              <Select allowClear showSearch optionFilterProp="label" placeholder="— topo da estrutura —" options={aplanar(arvore).filter((n) => !proibidos.has(n.unidade.id)).map((n) => ({ value: n.unidade.id, label: cams.get(n.unidade.id) ?? n.unidade.nome }))} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}><Form.Item name="colaborador_responsavel_id" label="Responsável (colaborador)"><SeletorColaborador apenasActivos style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={24} sm={12}><Form.Item name="centro_custo_id" label="Centro de custo"><Select allowClear showSearch optionFilterProp="label" options={(cc.data ?? []).map((c) => ({ value: c.id, label: `${c.codigo} ${c.descricao ?? ''}` }))} /></Form.Item></Col>
-          <Col xs={24} sm={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><Select allowClear showSearch optionFilterProp="label" options={(un.data ?? []).map((x) => ({ value: x.id, label: x.nome }))} /></Form.Item></Col>
-          <Col xs={24}><Form.Item name="missao" label="Missão"><Input.TextArea rows={2} maxLength={5000} /></Form.Item></Col>
-          <Col xs={24}><Form.Item name="atribuicoes" label="Atribuições (uma por linha)"><Input.TextArea rows={4} maxLength={5000} /></Form.Item></Col>
-          <Col xs={12} sm={6}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={12} sm={6}><Form.Item name="cor" label="Cor no organigrama" getValueFromEvent={(c) => c?.toHexString?.() ?? c}><ColorPicker /></Form.Item></Col>
-          <Col xs={24} sm={8}><Form.Item name="apoio" valuePropName="checked" label=" "><Checkbox>Unidade de apoio (staff / assessoria)</Checkbox></Form.Item></Col>
-          <Col xs={24} sm={4}><Form.Item name="ativo" valuePropName="checked" label=" "><Checkbox>Activa</Checkbox></Form.Item></Col>
-        </Row>
+        <SeccaoFormulario titulo="Identificação">
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={12}><Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item></Col>
+            <Col xs={12} sm={6}><Form.Item name="codigo" label="Código"><Input maxLength={50} /></Form.Item></Col>
+            <Col xs={12} sm={6}><Form.Item name="tipo" label="Tipo" rules={[{ required: true, message: 'Indique o tipo.' }]}><Select options={opcoesTipo} /></Form.Item></Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="unidade_organica_pai_id" label="Unidade superior">
+                <Select allowClear showSearch optionFilterProp="label" placeholder="— topo da estrutura —" options={opcoesPai} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}><Form.Item name="colaborador_responsavel_id" label="Responsável (colaborador)"><SeletorColaborador apenasActivos style={{ width: '100%' }} /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Centro de custo e unidade de negócio">
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={12}><Form.Item name="centro_custo_id" label="Centro de custo"><Select allowClear showSearch optionFilterProp="label" options={opcoesCc} /></Form.Item></Col>
+            <Col xs={24} sm={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><Select allowClear showSearch optionFilterProp="label" options={opcoesUn} /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Missão e atribuições" recolhida={nova}>
+          <Form.Item name="missao" label="Missão"><Input.TextArea rows={2} maxLength={5000} /></Form.Item>
+          <Form.Item name="atribuicoes" label="Atribuições (uma por linha)"><Input.TextArea rows={4} maxLength={5000} /></Form.Item>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Apresentação no organigrama" recolhida>
+          <Row gutter={[16, 0]}>
+            <Col xs={12} sm={6}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={12} sm={6}><Form.Item name="cor" label="Cor no organigrama" getValueFromEvent={(c) => c?.toHexString?.() ?? c}><ColorPicker /></Form.Item></Col>
+            <Col xs={24} sm={8}><Form.Item name="apoio" {...PROPS_SIM_NAO} label=" "><Checkbox>Unidade de apoio (staff / assessoria)</Checkbox></Form.Item></Col>
+            <Col xs={24} sm={4}><Form.Item name="ativo" {...PROPS_SIM_NAO} label=" "><Checkbox>Activa</Checkbox></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
@@ -419,27 +470,60 @@ function FormPosto({ posto, unidade, arvore, aoFechar }: { posto: Posto | 'novo'
   useEffect(() => {
     if (!posto) return;
     form.resetFields();
-    form.setFieldsValue(posto === 'novo' ? { vagas: 1, chefia: false } : { ...posto, chefia: !!posto.chefia });
+    form.setFieldsValue(posto === 'novo' ? { vagas: 1, chefia: 0 } : { ...posto, chefia: !!posto.chefia });
   }, [posto, form]);
   const outros = aplanar(arvore).flatMap((n) => n.unidade.postos.map((p) => ({ p, unidade: n.unidade.nome }))).filter((x) => posto === 'novo' || x.p.id !== posto?.id);
+  const opcoesFuncao = cargos.lista.map((c) => ({ value: c.id, label: c.nome }));
+  const opcoesSuperior = outros.map((x) => ({ value: x.p.id, label: `${nomePosto(x.p, cargos.nome)} · ${x.unidade}` }));
+  // vista Linhas: vários cargos da unidade de uma vez (a função é obrigatória num cargo novo — #10)
+  const campos: CampoFormulario[] = [
+    { nome: 'cargo_funcao_id', rotulo: 'Função', tipo: 'select', obrigatorio: true, opcoes: opcoesFuncao, largura: 220, aliases: ['Cargo'] },
+    { nome: 'titulo', rotulo: 'Título do cargo', largura: 200, maxLength: 255, aliases: ['Título'] },
+    { nome: 'vagas', rotulo: 'Vagas', tipo: 'numero', min: 0, max: 9999, precisao: 0, omissao: 1, largura: 80 },
+    { nome: 'posto_superior_id', rotulo: 'Reporta ao cargo', tipo: 'select', opcoes: opcoesSuperior, largura: 240, aliases: ['Reporta a'] },
+    { nome: 'chefia', rotulo: 'Chefia', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 0, largura: 90 },
+    { nome: 'ordem', rotulo: 'Ordem', tipo: 'numero', precisao: 0, largura: 80, emLinhas: 'opcional', seccao: 'Outros' },
+    { nome: 'responsabilidades', rotulo: 'Responsabilidades próprias', tipo: 'textoLongo', maxLength: 5000, largura: 240, emLinhas: 'opcional', seccao: 'Outros' },
+  ];
   return (
-    <Modal open={!!posto} title={novo ? `Novo cargo — ${unidade.nome}` : 'Editar cargo'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(760)} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: novo ? 'post' : 'put', url: novo ? '/rh/estrutura/postos' : `/rh/estrutura/postos/${(posto as Posto).id}`, dados: { ...v, unidade_organica_id: novo ? unidade.id : (posto as Posto).unidade_organica_id } })}>
+    <ModalFormulario chave="estrutura.postos" titulo={novo ? `Novo cargo — ${unidade.nome}` : 'Editar cargo'} aberto={!!posto} aoFechar={aoFechar} criacao={novo} form={form} campos={campos}
+      nomeRegistos="cargos" invalidar={CHAVES} gravarLinha={(r) => enviar('post', '/rh/estrutura/postos', dadosPosto(r, unidade.id))}
+      okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(760)}>
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: novo ? 'post' : 'put', url: novo ? '/rh/estrutura/postos' : `/rh/estrutura/postos/${(posto as Posto).id}`, dados: dadosPosto(v, novo ? unidade.id : (posto as Posto).unidade_organica_id) })}>
         <Row gutter={[16, 0]}>
-          <Col xs={24} sm={12}><Form.Item name="cargo_funcao_id" label="Função"><Select allowClear showSearch optionFilterProp="label" placeholder="—" options={cargos.lista.map((c) => ({ value: c.id, label: c.nome }))} /></Form.Item></Col>
+          {/* #10 (Versão Actual, estrutura_dados.js:168): um cargo novo tem de ter função; os antigos sem função continuam editáveis */}
+          <Col xs={24} sm={12}><Form.Item name="cargo_funcao_id" label="Função" rules={novo ? [{ required: true, message: 'Escolha a função: é dela que vêm o objectivo geral e as responsabilidades.' }] : []}><Select allowClear showSearch optionFilterProp="label" placeholder="—" options={opcoesFuncao} /></Form.Item></Col>
           <Col xs={24} sm={12}><Form.Item name="titulo" label="Título do cargo (se diferente da função)"><Input maxLength={255} placeholder="Ex.: Director Financeiro" /></Form.Item></Col>
           <Col xs={12} sm={6}><Form.Item name="vagas" label="Vagas"><InputNumber min={0} max={9999} style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={12} sm={6}><Form.Item name="ordem" label="Ordem"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={24} sm={12}>
             <Form.Item name="posto_superior_id" label="Reporta ao cargo">
-              <Select allowClear showSearch optionFilterProp="label" placeholder="— responsável da unidade —" options={outros.map((x) => ({ value: x.p.id, label: `${nomePosto(x.p, cargos.nome)} · ${x.unidade}` }))} />
+              <Select allowClear showSearch optionFilterProp="label" placeholder="— responsável da unidade —" options={opcoesSuperior} />
             </Form.Item>
           </Col>
-          <Col xs={24}><Form.Item name="chefia" valuePropName="checked"><Checkbox>Cargo de chefia da unidade</Checkbox></Form.Item></Col>
-          <Col xs={24}><Form.Item name="responsabilidades" label="Responsabilidades / descrição de funções"><Input.TextArea rows={4} maxLength={5000} /></Form.Item></Col>
+          <Col xs={24}><Form.Item name="chefia" {...PROPS_SIM_NAO}><Checkbox>Cargo de chefia da unidade</Checkbox></Form.Item></Col>
         </Row>
+        <SeccaoFormulario titulo="Descritivo e responsabilidades">
+          {/* descritivo herdado da função (estrutura_ui.js:440-466) */}
+          <Form.Item noStyle shouldUpdate={(a, b) => a.cargo_funcao_id !== b.cargo_funcao_id}>
+            {({ getFieldValue }) => {
+              const f = cargos.lista.find((c) => c.id === getFieldValue('cargo_funcao_id'));
+              const resp = String(f?.responsabilidades || f?.descricao || '').trim();
+              return f && (f.objetivo_geral || resp) ? (
+                <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Descritivo herdado da função «${f.nome}»`}
+                  description={<div style={{ whiteSpace: 'pre-line' }}>
+                    {f.objetivo_geral && <div><b>Objectivo geral:</b> {f.objetivo_geral}</div>}
+                    {resp && <div style={{ marginTop: 4 }}><b>Principais responsabilidades:</b>{'\n'}{resp}</div>}
+                  </div>} />
+              ) : null;
+            }}
+          </Form.Item>
+          <Form.Item name="responsabilidades" label="Responsabilidades próprias do cargo (opcional)" extra="Se preenchidas, substituem as da função no contrato dos ocupantes deste cargo.">
+            <Input.TextArea rows={4} maxLength={5000} />
+          </Form.Item>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
@@ -503,6 +587,7 @@ function ModalAfectarEmMassa({ arvore, unidadeInicial, soSemUnidade, aoFechar }:
   const [aGravar, setAGravar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const accao = useAccao<{ avisos: string[] }>({ invalidar: CHAVES });
+  const { token } = theme.useToken();
   const postos = nos.find((n) => n.unidade.id === unidade)?.unidade.postos ?? [];
   const ids = new Set(nos.map((n) => n.unidade.id));
   const q = procura.trim().toLocaleLowerCase('pt');
@@ -560,7 +645,7 @@ function ModalAfectarEmMassa({ arvore, unidadeInicial, soSemUnidade, aoFechar }:
         </Col>
       </Row>
       </Form>
-      <div style={{ maxHeight: '45vh', overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 4 }}>
+      <div style={{ maxHeight: '45vh', overflow: 'auto', border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4 }}>
         <table className="est-tabela">
           <thead>
             <tr>
@@ -587,6 +672,12 @@ function ModalAfectarEmMassa({ arvore, unidadeInicial, soSemUnidade, aoFechar }:
     </Modal>
   );
 }
+
+/** Vista Linhas dos cargos / funções (legado: formularios_linhas_config.js › funcoes — nome e descrição). */
+const CAMPOS_CARGO: CampoFormulario[] = [
+  { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 240, maxLength: 255, aliases: ['Cargo', 'Função', 'Nome da função'] },
+  { nome: 'descricao', rotulo: 'Descrição', tipo: 'textoLongo', largura: 320, maxLength: 5000 },
+];
 
 function Cargos() {
   const { pode } = useSessao();
@@ -620,12 +711,14 @@ function Cargos() {
           { icone: 'trash', titulo: 'Eliminar', variante: 'perigo', oculto: !eliminar, confirmar: `Eliminar «${c.nome}»?`, onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/cargos/${c.id}` }) },
         ]}
       />
-      <Modal open={!!edicao} title={edicao === 'novo' ? 'Novo cargo' : 'Editar cargo'} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(560)} destroyOnHidden>
+      <ModalFormulario chave="estrutura.cargos" titulo={edicao === 'novo' ? 'Novo cargo' : 'Editar cargo'} aberto={!!edicao} aoFechar={() => setEdicao(null)} criacao={edicao === 'novo'} form={form}
+        campos={CAMPOS_CARGO} nomeRegistos="cargos" invalidar={CHAVES} gravarLinha={(r) => enviar('post', '/rh/cargos', { nome: String(r.nome ?? '').trim(), descricao: r.descricao || null })}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(560)}>
         <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: edicao === 'novo' ? 'post' : 'put', url: edicao === 'novo' ? '/rh/cargos' : `/rh/cargos/${(edicao as { id: number }).id}`, dados: v })}>
           <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item>
           <Form.Item name="descricao" label="Descrição"><Input.TextArea rows={4} maxLength={5000} /></Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { dataApi, formatarDataHora, formatarKz, formatarNumero } from '@/utilita
 import { descarregarCsv, gerarCsv } from '@/utilitarios/csv';
 import { useTerminais } from './comum/dados';
 import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
+import { GraficoDonut } from '@/componentes/graficos/Graficos';
 import { DetalheSessao, ValorDesvio } from './comum/DetalheSessao';
 import { Seccao } from './contas/Seccao';
 import { textoDesvio } from './contas/formatos';
@@ -39,6 +40,9 @@ function EstadoDesvioResumo({ estado }: { estado: string | null | undefined }) {
  * de TPA) fica nos separadores. Os valores das vendas vêm de total_bruto das FR (nunca de valor_pago, vazio nas FR do
  * POS migradas). GET /pos/relatorios.
  */
+/** Cores dos meios de pagamento no donut do legado (ui_sales.js:4572). */
+const CORES_MEIO: Record<string, string> = { NUMERARIO: '#f59e0b', TPA: '#10b981', TRANSFERENCIA: '#3b82f6' };
+
 export default function Relatorios() {
   // sem período = todos os dados (3.2.1)
   const [periodo, setPeriodo] = useState<[Dayjs, Dayjs] | null>(null);
@@ -142,7 +146,13 @@ export default function Relatorios() {
           </GrelhaKpi>
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
             <Col xs={24} lg={8}>
-              <Seccao titulo="Por meio de pagamento" icone="credit-card" nivel={4} style={{ height: '100%', marginBottom: 0 }}>
+              <Seccao titulo="Divisão por métodos de pagamento" icone="credit-card" nivel={4} style={{ height: '100%', marginBottom: 0 }}>
+                {r.por_meio.some((m) => Number(m.valor) > 0) && (
+                  // como o legado (ui_sales.js:4566-4575): donut Numerário âmbar, Multicaixa verde, Transferência azul
+                  <GraficoDonut monetario altura={240} rotulos={r.por_meio.map((m) => m.nome)}
+                    series={[{ rotulo: 'Valor', valores: r.por_meio.map((m) => Number(m.valor)) }]}
+                    coresCategorias={r.por_meio.map((m) => CORES_MEIO[m.tipo ?? ''] ?? '#94a3b8')} />
+                )}
                 {r.por_meio.length ? (
                   <table className="pos-resumo-meios" style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
                     <tbody>

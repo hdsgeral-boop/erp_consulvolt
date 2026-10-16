@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Statistic, Tag, Tree, Typography } from 'antd';
+import { Button, Card, Checkbox, Col, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Tag, Tree, Typography } from 'antd';
 import {
   ApartmentOutlined, ArrowDownOutlined, ArrowUpOutlined, ColumnHeightOutlined, DeleteOutlined, DollarOutlined, DownOutlined, EditOutlined, OrderedListOutlined,
   PlusOutlined, UnorderedListOutlined, UserAddOutlined,
@@ -7,14 +7,18 @@ import { ModalAssociarTarefas, ModalMapearOrcamento, ModalPosicoesLote, type Pos
 import type { DataNode } from 'antd/es/tree';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { Organigrama, Posicao } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
+import { CORES_POSICAO as CORES, dadosPosicao, simNao } from '../comum/linhas';
+import { consumo } from '../comum/regras';
 
-const CORES: Record<string, string> = { azul: 'blue', verde: 'green', laranja: 'orange', roxo: 'purple', cinza: 'default', vermelho: 'red', ciano: 'cyan' };
+/** Cor do executado face ao orçamento (legado: > 100 % vermelho, ≥ 85 % âmbar, abaixo verde). */
+const corConsumo = (c: number | null): 'danger' | 'warning' | 'success' | 'secondary' => (c === null ? 'secondary' : c > 100 ? 'danger' : c >= 85 ? 'warning' : 'success');
 
 /** Organigrama do projecto em árvore: posições com vagas, membros alocados e orçamento/executado por posição. */
 export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
@@ -84,17 +88,20 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
     <Card loading={q.isLoading} ref={refOrganigrama} title="Organigrama" extra={<ImpressaoSeparador alvo={refOrganigrama} titulo="Organigrama" projecto={projecto} desactivado={!o} />}>
       {o && (
         <>
-          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            <Col xs={12} md={4}><Statistic title="Posições" value={o.posicoes.length} /></Col>
-            <Col xs={12} md={4}><Statistic title="Vagas" value={o.totais.vagas} /></Col>
-            <Col xs={12} md={4}><Statistic title="Membros alocados" value={`${o.totais.alocados}/${o.totais.membros}`} /></Col>
-            <Col xs={12} md={6}><Statistic title="Orçamento (Kz)" value={formatarKz(o.totais.orcamento)} /></Col>
-            <Col xs={12} md={6}><Statistic title="Executado (Kz)" value={formatarKz(o.totais.executado)} /></Col>
-          </Row>
-          {(o.totais.tarefas_sem_posicao > 0 || o.totais.orcamento_sem_responsavel > 0) && (
-            <Alert type="info" showIcon style={{ marginBottom: 12 }}
-              message={`${o.totais.tarefas_sem_posicao} tarefa(s) sem posição · ${o.totais.orcamento_sem_responsavel} linha(s) de orçamento sem responsável`} />
-          )}
+          {/* Indicadores em linha, como no legado (.porg-kpis, projectos_organigrama.js:249-352) */}
+          <Flex gap={16} wrap style={{ marginBottom: 12, fontSize: 13 }} data-testid="kpis-organigrama">
+            <Typography.Text type="secondary">Posições: <Typography.Text strong>{o.posicoes.length}</Typography.Text></Typography.Text>
+            <Typography.Text type="secondary">Membros alocados: <Typography.Text strong>{o.totais.alocados} de {o.totais.membros}</Typography.Text></Typography.Text>
+            {o.totais.vagas > 0 && <Typography.Text type="secondary">Vagas previstas: <Typography.Text strong>{o.totais.vagas}</Typography.Text></Typography.Text>}
+            {o.sem_posicao.length > 0 && <Typography.Text type="warning">Sem posição: <strong>{o.sem_posicao.length}</strong></Typography.Text>}
+            <Typography.Text type="secondary">
+              Mapeado: orçamentado <Typography.Text strong>{formatarKz(o.totais.orcamento)}</Typography.Text> · executado{' '}
+              <Typography.Text strong type={corConsumo(consumo(o.totais.executado, o.totais.orcamento))}>{formatarKz(o.totais.executado)}</Typography.Text>
+              {consumo(o.totais.executado, o.totais.orcamento) !== null && ` (${consumo(o.totais.executado, o.totais.orcamento)?.toLocaleString('pt-PT')}%)`}
+            </Typography.Text>
+            {o.totais.tarefas_sem_posicao > 0 && <Typography.Text type="warning">Tarefas sem posição: <strong>{o.totais.tarefas_sem_posicao}</strong></Typography.Text>}
+            {o.totais.orcamento_sem_responsavel > 0 && <Typography.Text type="warning">Orçamento sem responsável: <strong>{o.totais.orcamento_sem_responsavel}</strong> linha(s)</Typography.Text>}
+          </Flex>
           {acc.gerir && (
             <Flex gap={8} wrap style={{ marginBottom: 12 }} className="imp-nao-imprimir">
               <Button type="primary" icon={<PlusOutlined />} onClick={() => setPosicao({ cor: 'azul' })}>Nova posição</Button>
@@ -113,12 +120,19 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
               )}
             </Flex>
           )}
-          {arvore.length ? <Tree treeData={arvore} defaultExpandAll blockNode selectable={false} titleRender={titulo} key={arvore.length} /> : <Empty description="Organigrama vazio" />}
-          {o.sem_posicao.length > 0 && (
-            <Card size="small" title="Membros sem posição" style={{ marginTop: 16 }}>
-              <Space wrap>{o.sem_posicao.map((m) => <Tag key={m.id}>{m.nome}{m.papel ? ` · ${m.papel}` : ''}</Tag>)}</Space>
-            </Card>
-          )}
+          {/* legado (.porg-grid): árvore à esquerda e, à direita, a equipa sem posição */}
+          <Row gutter={[16, 16]}>
+            <Col xs={24} xl={o.sem_posicao.length > 0 ? 18 : 24}>
+              {arvore.length ? <Tree treeData={arvore} defaultExpandAll blockNode selectable={false} titleRender={titulo} key={arvore.length} /> : <Empty description="Organigrama vazio" />}
+            </Col>
+            {o.sem_posicao.length > 0 && (
+              <Col xs={24} xl={6}>
+                <Card size="small" title={`Equipa sem posição (${o.sem_posicao.length})`}>
+                  <Space wrap>{o.sem_posicao.map((m) => <Tag key={m.id}>{m.nome}{m.papel ? ` · ${m.papel}` : ''}</Tag>)}</Space>
+                </Card>
+              </Col>
+            )}
+          </Row>
           <ModalPosicao projectoId={projecto.id} posicao={posicao} posicoes={o.posicoes} aoFechar={() => setPosicao(null)} />
           <ModalAlocar projectoId={projecto.id} posicao={alocar} organigrama={o} aoFechar={() => setAlocar(null)} />
           <ModalPosicoesLote aberto={lote} projectoId={projecto.id} posicoes={o.posicoes} aoFechar={() => setLote(false)} />
@@ -130,16 +144,35 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
   );
 }
 
+/**
+ * Posição do organigrama. Na criação há «Grade | Linhas»: uma posição por linha, pelo mesmo POST e com as mesmas regras
+ * (`dadosPosicao`); a posição superior escolhida na grade (ex.: «Nova posição subordinada») fica como omissão.
+ */
 function ModalPosicao({ projectoId, posicao, posicoes, aoFechar }: { projectoId: number; posicao: Partial<Posicao> | null; posicoes: Posicao[]; aoFechar: () => void }) {
   const [form] = Form.useForm();
   const accao = useAccao({ invalidar: [['projectos']], aoSucesso: () => aoFechar() });
+  const campos = useMemo<CampoFormulario[]>(() => [
+    { nome: 'titulo', rotulo: 'Título', obrigatorio: true, largura: 220, maxLength: 255, aliases: ['Posição', 'Cargo'] },
+    { nome: 'area', rotulo: 'Área', largura: 140, maxLength: 30 },
+    { nome: 'vagas', rotulo: 'Vagas', tipo: 'numero', min: 0, precisao: 0, omissao: 1, largura: 80 },
+    { nome: 'no_pai_id', rotulo: 'Posição superior', tipo: 'select', largura: 200, aliases: ['Superior'], placeholder: 'Nenhuma (topo)',
+      opcoes: posicoes.map((p) => ({ value: p.id, label: p.titulo })) },
+    { nome: 'cor', rotulo: 'Cor', tipo: 'select', omissao: 'azul', largura: 110, opcoes: Object.keys(CORES).map((c) => ({ value: c, label: c })) },
+    { nome: 'descricao', rotulo: 'Descrição', emLinhas: 'opcional', largura: 220, maxLength: 5000 },
+    { nome: 'apoio', rotulo: 'Apoio (staff)', tipo: 'personalizado', emLinhas: 'opcional', omissao: false, largura: 90, aliases: ['Apoio'], converter: simNao,
+      celula: ({ valor, aoMudar, rotulo }) => <Checkbox aria-label={rotulo} checked={!!valor} onChange={(e) => aoMudar(e.target.checked)} /> },
+  ], [posicoes]);
   useEffect(() => {
     if (posicao) { form.resetFields(); form.setFieldsValue({ vagas: 1, ...posicao, apoio: !!posicao.apoio }); }
   }, [posicao, form]);
   return (
-    <Modal title={posicao?.id ? `Editar «${posicao.titulo}»` : 'Nova posição'} open={!!posicao} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
+    <ModalFormulario chave="projectos.organigrama" titulo={posicao?.id ? `Editar «${posicao.titulo}»` : 'Nova posição'} aberto={!!posicao} aoFechar={aoFechar}
+      criacao={!!posicao && !posicao.id} form={form} campos={campos} nomeRegistos="posições do organigrama" invalidar={[['projectos']]}
+      gravarLinha={(r) => enviar('post', `/projetos/${projectoId}/organigrama/posicoes`, dadosPosicao(r))}
+      nota="Uma linha por posição. A posição superior tem de existir já (para criar uma árvore nova de uma vez use «Várias posições»). Linhas deixadas em branco são ignoradas."
+      onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending}>
       <Form form={form} layout="vertical" onFinish={(v) => {
-        const dados = { titulo: v.titulo, area: v.area || null, descricao: v.descricao || null, vagas: v.vagas ?? 0, no_pai_id: v.no_pai_id ?? null, cor: v.cor ?? 'azul', apoio: !!v.apoio };
+        const dados = dadosPosicao(v);
         accao.mutate(posicao?.id ? { metodo: 'put', url: `/projetos/${projectoId}/organigrama/posicoes/${posicao.id}`, dados } : { url: `/projetos/${projectoId}/organigrama/posicoes`, dados });
       }}>
         <Form.Item name="titulo" label="Título" rules={[{ required: true, message: 'Indique o título.' }]}><Input maxLength={255} /></Form.Item>
@@ -154,7 +187,7 @@ function ModalPosicao({ projectoId, posicao, posicoes, aoFechar }: { projectoId:
         <Form.Item name="descricao" label="Descrição"><Input.TextArea rows={2} maxLength={5000} /></Form.Item>
         <Form.Item name="apoio" valuePropName="checked"><Checkbox>Posição de apoio (staff)</Checkbox></Form.Item>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 

@@ -1,8 +1,9 @@
-import { Alert, Button, Card, Col, Descriptions, Dropdown, Modal, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Descriptions, Dropdown, Modal, Space, Table, Tag, Typography } from 'antd';
 import { CalculatorOutlined, DownOutlined, FileTextOutlined, PrinterOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { aplicarPreferencia, BotoesExportar, gravarPreferencia, lerPreferencia, SeletorPagina, useImpressao } from '@/componentes/impressao';
 import { larguraModal } from '@/componentes/responsivo';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import type { DetalhePeriodo, ResultadoSalarial, RubricaResultado } from '../api';
 import { AreaImpressao, BotaoImprimir } from './componentes';
@@ -65,11 +66,12 @@ export function DetalheSimulacao({ r, mesAno, simulacao }: { r: ResultadoSalaria
       <Typography.Paragraph type="secondary" style={{ marginTop: -4 }}>
         Período {mesAno}{r.avencado ? ' · Prestador avençado (IRT Grupo B)' : r.reformado ? ' · Reformado' : ''} · Dias {formatarNumero(r.dias_trabalhados)} de {formatarNumero(r.dias_contrato)}
       </Typography.Paragraph>
-      <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-        <Col xs={24} sm={8}><Card size="small"><Statistic title="Ilíquido" value={formatarKz(r.bruto)} valueStyle={{ color: '#15803d', fontSize: 18 }} /></Card></Col>
-        <Col xs={24} sm={8}><Card size="small"><Statistic title="Descontos" value={formatarKz(totalDescontos(r))} valueStyle={{ color: '#dc2626', fontSize: 18 }} /></Card></Col>
-        <Col xs={24} sm={8}><Card size="small"><Statistic title="Líquido" value={formatarKz(r.liquido)} valueStyle={{ color: '#1d4ed8', fontSize: 20, fontWeight: 700 }} /></Card></Col>
-      </Row>
+      {/* antigo (app_v2.js simularColaborador): três caixas lado a lado — ilíquido (verde), descontos (vermelho), líquido (azul) */}
+      <GrelhaKpi larguraMinima={150} style={{ marginBottom: 12 }}>
+        <CartaoKpi barra="nenhuma" rotulo="Ilíquido" valor={formatarKz(r.bruto)} cor="sucesso" corValor="#15803d" />
+        <CartaoKpi barra="nenhuma" rotulo="Descontos" valor={formatarKz(totalDescontos(r))} cor="vermelho" corValor="#dc2626" />
+        <CartaoKpi barra="nenhuma" rotulo="Líquido" valor={formatarKz(r.liquido)} cor="primario" corValor="#1d4ed8" />
+      </GrelhaKpi>
       <TabelaRubricas titulo="Vencimentos" linhas={vencimentos} cor="#166534" />
       <TabelaRubricas titulo="Faltas / absentismo" linhas={faltas} cor="#b45309" />
       <TabelaRubricas titulo="Outros descontos" linhas={descontos} cor="#dc2626" />

@@ -1,4 +1,4 @@
-import { Card, Col, Form, Input, InputNumber, Modal, Row } from 'antd';
+import { Card, Col, Form, Input, InputNumber, Row } from 'antd';
 import { useEffect, useState } from 'react';
 import { NavActivos } from './comum/NavActivos';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -8,8 +8,11 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { useCategorias } from './comum/componentes';
+import { contaForaDaClasse } from './comum/regras';
 import type { CategoriaActivo } from './comum/tipos';
 import { larguraModal } from '@/componentes/responsivo';
+import { enviar } from '@/api/cliente';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 
 import { TabelaComModos } from '@/componentes/vistas';
 /** Activos › Categorias e taxas (ecrã activos_categorias): taxa anual, vida útil e contas de gasto, acumulada, venda, perda e activo. */
@@ -67,7 +70,26 @@ export default function Categorias() {
   );
 }
 
-function ModalCategoria({ categoria, aoFechar }: { categoria: CategoriaActivo | null | undefined; aoFechar: () => void }) {
+/** Regras de gravação da categoria, comuns à grade e à vista Linhas: vazios passam a nulos. */
+export function dadosCategoria(v: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, x === undefined || x === '' ? null : x]));
+}
+
+const contaDaClasse = (prefixo: string) => (c: unknown) => (contaForaDaClasse(c, prefixo) ? `A conta tem de ser da classe ${prefixo}.` : null);
+
+/** Vista Linhas das categorias (uma categoria por linha; as contas escrevem-se pelo código). */
+export const CAMPOS_CATEGORIA: CampoFormulario[] = [
+  { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 220, maxLength: 255, aliases: ['Categoria', 'Nome da categoria'] },
+  { nome: 'taxa_anual', rotulo: 'Taxa anual (%)', tipo: 'numero', min: 0, max: 100, precisao: 4, largura: 110, aliases: ['Taxa', 'Taxa (%)'] },
+  { nome: 'vida_util_padrao', rotulo: 'Vida útil (meses)', tipo: 'numero', min: 0, precisao: 0, largura: 110, aliases: ['Vida útil'] },
+  { nome: 'conta_gasto', rotulo: 'Conta de gasto (73)', largura: 130, placeholder: 'Conta 73…', aliases: ['Amort. Exerc.'], validar: contaDaClasse('73') },
+  { nome: 'conta_amortizacao_acumulada', rotulo: 'Conta de amortização acumulada (18)', largura: 130, placeholder: 'Conta 18…', aliases: ['Amort. Acum.'], validar: contaDaClasse('18') },
+  { nome: 'conta_venda', rotulo: 'Conta de ganho na venda (68)', largura: 130, placeholder: 'Conta 68…', emLinhas: 'opcional', seccao: 'Contas', aliases: ['C. Venda'], validar: contaDaClasse('68') },
+  { nome: 'conta_perda', rotulo: 'Conta de perda / sinistro (78)', largura: 130, placeholder: 'Conta 78…', emLinhas: 'opcional', seccao: 'Contas', aliases: ['C. Perda'], validar: contaDaClasse('78') },
+  { nome: 'conta_ativo', rotulo: 'Conta do activo (11–14)', largura: 130, placeholder: 'Conta 1…', emLinhas: 'opcional', seccao: 'Contas', aliases: ['C. Activo'], validar: contaDaClasse('1') },
+];
+
+export function ModalCategoria({ categoria, aoFechar }: { categoria: CategoriaActivo | null | undefined; aoFechar: () => void }) {
   const [form] = Form.useForm<Partial<CategoriaActivo> & { taxa_anual?: number }>();
   const aberto = categoria !== undefined;
   const accao = useAccao({ invalidar: [['activos']], aoSucesso: () => aoFechar() });
@@ -77,21 +99,28 @@ function ModalCategoria({ categoria, aoFechar }: { categoria: CategoriaActivo | 
     if (categoria) form.setFieldsValue({ ...categoria, taxa_anual: categoria.taxa_anual !== null ? Number(categoria.taxa_anual) : undefined } as never);
   }, [aberto, categoria, form]);
 
+  const valores = Form.useWatch([], form) as Partial<Record<keyof CategoriaActivo, unknown>> | undefined;
+  // mapeamento anterior fora da classe (ui_assets.js:1136-1150): mostra-se assinalado e não se bloqueia — o servidor aceita se não mudar
   const conta = (nome: keyof CategoriaActivo, rotulo: string, prefixo: string) => (
     <Col xs={24} md={12}>
-      <Form.Item name={nome} label={rotulo}>
+      <Form.Item name={nome} label={rotulo}
+        {...(contaForaDaClasse(valores?.[nome], prefixo) ? { validateStatus: 'warning' as const, help: `Fora da classe ${prefixo} (mapeamento anterior) — troque-a por uma conta ${prefixo}.` } : {})}>
         <SeletorConta prefixo={prefixo} placeholder={`Conta ${prefixo}…`} />
       </Form.Item>
     </Col>
   );
 
   return (
-    <Modal title={categoria ? `Editar categoria «${categoria.nome}»` : 'Nova categoria'} open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(720)} destroyOnHidden>
+    <ModalFormulario chave="activos.categorias" titulo={categoria ? `Editar categoria «${categoria.nome}»` : 'Nova categoria'} aberto={aberto} aoFechar={aoFechar}
+      criacao={!categoria} form={form} campos={CAMPOS_CATEGORIA} nomeRegistos="categorias" invalidar={[['activos']]}
+      gravarLinha={(r) => enviar('post', '/ativos/categorias', dadosCategoria(r))}
+      nota="Uma linha por categoria. As contas escrevem-se pelo código (gasto 73, amortização acumulada 18, venda 68, perda 78, activo 11–14). Linhas deixadas em branco são ignoradas."
+      onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(720)}>
       <Form
         form={form}
         layout="vertical"
         onFinish={(v) => {
-          const dados = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, x === undefined || x === '' ? null : x]));
+          const dados = dadosCategoria(v);
           accao.mutate(categoria ? { metodo: 'put', url: `/ativos/categorias/${categoria.id}`, dados } : { url: '/ativos/categorias', dados });
         }}
       >
@@ -111,13 +140,22 @@ function ModalCategoria({ categoria, aoFechar }: { categoria: CategoriaActivo | 
               <InputNumber min={0} precision={0} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
-          {conta('conta_gasto', 'Conta de gasto (73)', '73')}
-          {conta('conta_amortizacao_acumulada', 'Conta de amortização acumulada (18)', '18')}
-          {conta('conta_venda', 'Conta de ganho na venda (6)', '6')}
-          {conta('conta_perda', 'Conta de perda (7)', '7')}
-          {conta('conta_ativo', 'Conta do activo (11–14)', '1')}
         </Row>
+        {/* grupos do legado (renderAssetCategories): amortização (73/18) e venda/perda (68/78); a conta do activo é do sistema novo */}
+        <SeccaoFormulario titulo="Contas de amortização">
+          <Row gutter={12}>
+            {conta('conta_gasto', 'Conta de gasto (73)', '73')}
+            {conta('conta_amortizacao_acumulada', 'Conta de amortização acumulada (18)', '18')}
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Contas de venda, perda e do activo" recolhida={!!categoria && !categoria.conta_venda && !categoria.conta_perda && !categoria.conta_ativo}>
+          <Row gutter={12}>
+            {conta('conta_venda', 'Conta de ganho na venda (68)', '68')}
+            {conta('conta_perda', 'Conta de perda / sinistro (78)', '78')}
+            {conta('conta_ativo', 'Conta do activo (11–14)', '1')}
+          </Row>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }

@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Statistic, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Flex, Form, Input, InputNumber, Select, Tag, Typography, theme } from 'antd';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -12,6 +12,8 @@ import { formatarKz } from '@/utilitarios/formatacao';
 import { faixaSaldosAD, indicadoresAD } from './comum/regras';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { BarraFiltros, larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -37,6 +39,7 @@ export default function Registos() {
 
 function Lista() {
   const navegar = useNavigate();
+  const { token } = theme.useToken();
   const { pode } = useSessao();
   const def = useDefinicoes();
   const [tipo, setTipo] = useState<string>();
@@ -122,42 +125,31 @@ function Lista() {
           action={<Button size="small" onClick={() => setDefinicoes(true)}>Definições</Button>}
         />
       )}
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="Acréscimos em curso" value={ind.acrescimos} loading={emCurso.isLoading} />
-            <Typography.Text type="secondary">{formatarKz(ind.acrescimosReconhecido)} Kz já reconhecidos</Typography.Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small">
-            <Statistic title="Diferimentos em curso" value={ind.diferimentos} loading={emCurso.isLoading} />
-            <Typography.Text type="secondary">{formatarKz(ind.diferimentosPorReconhecer)} Kz por reconhecer</Typography.Text>
-          </Card>
-        </Col>
+      {/* legado (ad_ui.js:150-153, .ad-kpis): caixas simples (sem ícone nem barra) em grelha auto-fill de 210 px, rótulo, valor e uma linha */}
+      <GrelhaKpi larguraMinima={210} style={{ marginBottom: 16 }}>
+        <CartaoKpi barra="nenhuma" rotulo="Acréscimos em curso" valor={emCurso.isLoading ? '…' : ind.acrescimos}
+          secundaria={`${formatarKz(ind.acrescimosReconhecido)} Kz já reconhecidos`} />
+        <CartaoKpi barra="nenhuma" rotulo="Diferimentos em curso" valor={emCurso.isLoading ? '…' : ind.diferimentos}
+          secundaria={`${formatarKz(ind.diferimentosPorReconhecer)} Kz por reconhecer`} />
         {saldos.map((s) => (
-          <Col key={s.conta} xs={24} sm={12} lg={6}>
-            <Card size="small">
-              <Statistic title={s.titulo} value={formatarKz(s.modulo, true)} />
-              <Typography.Text style={{ fontSize: 12, color: s.reconciliado ? '#15803d' : '#b91c1c' }}>{s.texto}</Typography.Text>
-            </Card>
-          </Col>
+          <CartaoKpi key={s.conta} barra="nenhuma" rotulo={s.titulo} valor={formatarKz(s.modulo, true)}
+            secundaria={<span style={{ color: s.reconciliado ? token.colorSuccess : token.colorError }}>{s.texto}</span>} />
         ))}
-      </Row>
+      </GrelhaKpi>
       <Card>
         {/* legado: filtros com rótulo por cima (Tipo · Estado · Pesquisar, este a ocupar o resto da linha) */}
         <BarraFiltros>
           <Flex vertical gap={2}>
-            <Typography.Text style={{ fontSize: 12, color: '#475569' }}>Tipo</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>Tipo</Typography.Text>
             <Select placeholder="Todos" aria-label="Tipo" allowClear value={tipo} onChange={setTipo} style={{ width: 150 }} options={[{ value: 'ACRESCIMO', label: 'Acréscimos' }, { value: 'DIFERIMENTO', label: 'Diferimentos' }]} />
           </Flex>
           <Flex vertical gap={2}>
-            <Typography.Text style={{ fontSize: 12, color: '#475569' }}>Estado</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>Estado</Typography.Text>
             <Select value={estado} aria-label="Estado" onChange={setEstado} style={{ width: 240 }}
               options={[{ value: 'ABERTOS', label: 'Em curso' }, { value: 'TODOS', label: 'Todos' }, ...Object.entries(def.data?.estados ?? {}).map(([value, label]) => ({ value, label }))]} />
           </Flex>
           <Flex vertical gap={2} style={{ flex: 1, minWidth: 260 }}>
-            <Typography.Text style={{ fontSize: 12, color: '#475569' }}>Pesquisar</Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>Pesquisar</Typography.Text>
             <Input.Search placeholder="Descrição, conta, terceiro, documento…" aria-label="Procurar" allowClear onSearch={setTexto} style={{ width: '100%' }} />
           </Flex>
         </BarraFiltros>
@@ -202,19 +194,25 @@ function ModalDefinicoes({ aberto, aoFechar }: { aberto: boolean; aoFechar: () =
     if (aberto && def.data) form.setFieldsValue({ contas: def.data.contas, diario_id: def.data.diario_id ?? undefined, prazo_documento_dias: def.data.prazo_documento_dias });
   }, [aberto, def.data, form]);
   return (
-    <Modal title="Definições de acréscimos e diferimentos" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(640)} destroyOnHidden>
+    // edição das definições: grade em secções (não é criação de registos — sem «Linhas»)
+    <ModalFormulario chave="acrescimos.definicoes" titulo="Definições de acréscimos e diferimentos" aberto={aberto} aoFechar={aoFechar} criacao={false} campos={[]}
+      gravarLinha={async () => undefined} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={larguraModal(640)}>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'put', url: '/acrescimos/definicoes', dados: { ...v, diario_id: v.diario_id ?? null } })}>
-        {Object.entries(def.data?.rotulos_contas ?? {}).map(([chave, rotulo]) => (
-          <Form.Item key={chave} name={['contas', chave]} label={`${rotulo} (${chave.replace('_', ' / ').toLowerCase()})`}>
-            <SeletorConta prefixo="37" />
-          </Form.Item>
-        ))}
-        <Flex gap={12} wrap>
-          <Form.Item name="diario_id" label="Diário dos lançamentos"><SeletorDiario allowClear style={{ width: 280, maxWidth: '100%' }} /></Form.Item>
-          <Form.Item name="prazo_documento_dias" label="Prazo do documento real (dias)"><InputNumber min={0} max={3650} style={{ width: 160 }} /></Form.Item>
-        </Flex>
-        <Typography.Text type="secondary">O prazo define a data limite dos acréscimos sem data indicada (fim do período + prazo).</Typography.Text>
+        <SeccaoFormulario titulo="Contas de balanço (37)">
+          {Object.entries(def.data?.rotulos_contas ?? {}).map(([chave, rotulo]) => (
+            <Form.Item key={chave} name={['contas', chave]} label={`${rotulo} (${chave.replace('_', ' / ').toLowerCase()})`}>
+              <SeletorConta prefixo="37" />
+            </Form.Item>
+          ))}
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Lançamentos e prazo">
+          <Flex gap={12} wrap>
+            <Form.Item name="diario_id" label="Diário dos lançamentos"><SeletorDiario allowClear style={{ width: 280, maxWidth: '100%' }} /></Form.Item>
+            <Form.Item name="prazo_documento_dias" label="Prazo do documento real (dias)"><InputNumber min={0} max={3650} style={{ width: 160 }} /></Form.Item>
+          </Flex>
+          <Typography.Text type="secondary">O prazo define a data limite dos acréscimos sem data indicada (fim do período + prazo).</Typography.Text>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }

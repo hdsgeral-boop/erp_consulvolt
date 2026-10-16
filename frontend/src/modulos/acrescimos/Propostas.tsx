@@ -167,7 +167,7 @@ function PropostaMes() {
                 { title: 'Registo', key: 'i', render: (_, l) => <><EtiquetaAD valor={l.item.tipo} /> <strong>{l.item.descricao}</strong></> },
                 {
                   title: 'Lançamento', dataIndex: 'tipo_rotulo',
-                  render: (v, l) => <>{v}{l.diferenca != null && <div style={{ fontSize: '0.72rem', color: '#92400e' }}>diferença {formatarKz(l.diferenca)}</div>}</>,
+                  render: (v, l) => <>{v}{l.diferenca != null && <Typography.Text type="warning" style={{ display: 'block', fontSize: '0.72rem' }}>diferença {formatarKz(l.diferenca)}</Typography.Text>}</>,
                 },
                 { title: 'Período', dataIndex: 'periodo', render: (p, l) => <>{mesCurto(p)}{l.atrasada && <Tag color="orange" style={{ marginLeft: 6 }} title="Mês anterior ainda por lançar">em atraso</Tag>}</> },
                 { title: 'Data', dataIndex: 'data', render: formatarData },

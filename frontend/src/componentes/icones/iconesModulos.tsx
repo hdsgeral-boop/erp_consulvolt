@@ -50,6 +50,7 @@ export const ICONES_MODULOS: Readonly<Record<string, ComponenteIcone>> = {
   compras: TruckOutlined, // Compras e Aprovisionamento (legado: fa-truck-loading)
   stock: GoldOutlined, // Armazém e Inventário (legado: fa-warehouse / fa-boxes — caixas empilhadas)
   activos: ToolOutlined, // Activos (Imobilizado): equipamentos, manutenção, amortizações (legado: fa-couch — sem equivalente)
+  metodo: SolutionOutlined, // Método de Trabalho 5W1H (legado: fa-clipboard-list)
   projectos: ProjectOutlined, // Projectos (legado: fa-hard-hat — sem equivalente; planeamento)
   crm: ContactsOutlined, // CRM (legado: fa-handshake — sem equivalente)
   acrescimos: SwapOutlined, // Acréscimos e Diferimentos (legado: fa-exchange-alt)

@@ -47,6 +47,10 @@ export const FONTE = "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Robo
  * (ver src/componentes/responsivo/README.md).
  */
 export const TEMA: ThemeConfig = {
+  // Variáveis CSS do AntD (`--ant-color-primary`, `--ant-color-border`…): os estilos próprios (CSS e `style` inline) que
+  // usam `var(--ant-…)` seguem o tema activo — também a tela nocturna (TEMA_NOCTURNO volta a ligá-las, com inherit: false).
+  // As variáveis ficam declaradas na classe `css-var-…` da raiz de cada componente AntD (Layout, Modal…) e herdam-se.
+  cssVar: true,
   token: {
     colorPrimary: COR_PRIMARIA,
     colorInfo: COR_PRIMARIA,
@@ -73,18 +77,20 @@ export const TEMA: ThemeConfig = {
   },
   components: {
     Layout: { headerBg: '#ffffff', siderBg: MENU_FUNDO, bodyBg: FUNDO },
+    // legado .nav-item/.nav-group-header: a toda a largura (sem margem), hover branco a 3 %, activo azul a 10 %; o fundo
+    // é o do menu lateral (transparente, para a tela nocturna o poder escurecer); medidas por nível em identidade.css
     Menu: {
-      itemMarginInline: 8,
+      itemMarginInline: 0,
       itemBorderRadius: 4,
       subMenuItemBg: 'transparent',
-      darkItemBg: MENU_FUNDO,
-      darkSubMenuItemBg: MENU_FUNDO,
+      darkItemBg: 'transparent',
+      darkSubMenuItemBg: 'transparent',
       darkPopupBg: '#1c1c1c',
       darkItemColor: MENU_TEXTO,
       darkItemHoverColor: '#ffffff',
-      darkItemHoverBg: 'rgba(255, 255, 255, 0.06)',
+      darkItemHoverBg: 'rgba(255, 255, 255, 0.03)',
       darkItemSelectedColor: '#ffffff',
-      darkItemSelectedBg: 'rgba(59, 130, 246, 0.18)',
+      darkItemSelectedBg: 'rgba(59, 130, 246, 0.1)',
       darkGroupTitleColor: MENU_TEXTO_NIVEL3,
       itemHeight: 42,
       iconSize: 16,

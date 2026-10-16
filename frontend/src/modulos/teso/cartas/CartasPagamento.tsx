@@ -92,10 +92,10 @@ function ListaCartas({ podeEmitir, ver, imprimir, irParaEmitir }: { podeEmitir: 
     { title: 'Número', dataIndex: 'numero', render: (v: string | null, c) => <strong>{v ?? `#${c.id}`}</strong> },
     { title: 'Data', dataIndex: 'data', render: formatarData },
     { title: 'Tipo', dataIndex: 'tipo_efectivo', valorImpressao: (c) => ROTULO_TIPO_CARTA[c.tipo_efectivo],
-      render: (t: TipoCarta, c) => <>{ROTULO_TIPO_CARTA[t]}{t === 'SALARIOS' && c.mes_ano ? <div style={{ fontSize: 12, color: '#64748b' }}>{mesPorExtenso(c.mes_ano)}</div> : null}</> },
+      render: (t: TipoCarta, c) => <>{ROTULO_TIPO_CARTA[t]}{t === 'SALARIOS' && c.mes_ano ? <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{mesPorExtenso(c.mes_ano)}</Typography.Text> : null}</> },
     { title: 'Banco / Conta', dataIndex: 'banco_nome', responsive: ['md'], valorImpressao: (c) => `${c.banco_nome ?? ''} ${c.codigo_conta_bancaria ?? ''}`,
-      render: (v: string | null, c) => <>{v ?? '—'}<div style={{ fontSize: 12, color: '#64748b' }}>{c.codigo_conta_bancaria}</div></> },
-    { title: 'Pagamento', dataIndex: 'referencia_movimento', responsive: ['lg'], valorImpressao: (c) => c.documento?.numero_documento ?? c.referencia_movimento ?? '',
+      render: (v: string | null, c) => <>{v ?? '—'}<Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{c.codigo_conta_bancaria}</Typography.Text></> },
+    { title: 'Movimento', dataIndex: 'referencia_movimento', responsive: ['lg'], valorImpressao: (c) => c.documento?.numero_documento ?? c.referencia_movimento ?? '',
       render: (v: string | null, c) => <>{c.documento?.numero_documento ?? v ?? '—'}{c.documento?.estado === 'ANULADO' && <Tag color="red" style={{ marginLeft: 4 }}>pag. anulado</Tag>}</> },
     { title: 'Benef.', dataIndex: 'n_beneficiarios', align: 'center' },
     { title: 'Total', dataIndex: 'montante_total', align: 'right', valorImpressao: (c) => valorMoeda(c.montante_total, c.codigo_moeda),
@@ -125,7 +125,7 @@ function ListaCartas({ podeEmitir, ver, imprimir, irParaEmitir }: { podeEmitir: 
         impressao={{ titulo: 'Lista de cartas de pagamento', filtros: [estado && `Estado: ${estado}`, tipo && `Tipo: ${ROTULO_TIPO_CARTA[tipo]}`, ano ? `Ano: ${ano}` : null, q && `Pesquisa: ${q}`] }}
         vazio={{ icone: 'envelope-open-text', titulo: 'Ainda não há cartas emitidas', texto: 'A carta emite-se a partir de um pagamento já gravado, na Tesouraria.',
           accoes: podeEmitir ? <Button type="primary" onClick={irParaEmitir}>Escolher um pagamento</Button> : undefined }}
-        onRow={(c) => ({ onDoubleClick: () => ver(c), style: { cursor: 'pointer' } })} />
+        onRow={(c) => ({ onDoubleClick: () => ver(c), style: { cursor: 'pointer', opacity: c.estado_efectivo === 'ANULADA' ? 0.6 : undefined } })} />
     </Card>
   );
 }
@@ -201,7 +201,7 @@ function DetalheCarta({ id, aoFechar, imprimir, podeEmitir }: { id: number | nul
           <Typography.Paragraph type="secondary" style={{ whiteSpace: 'pre-wrap' }} ellipsis={{ rows: 4, expandable: true, symbol: 'ver texto completo' }}>{c.corpo}</Typography.Paragraph>
           <Table<ItemCarta> rowKey="id" size="small" pagination={false} scroll={scrollTabela()} dataSource={c.itens ?? []} columns={[
             { title: '#', key: 'n', width: 40, render: (_, __, i) => i + 1 },
-            { title: 'Beneficiário', dataIndex: 'nome', render: (v: string | null, l) => <>{v ?? '—'}{l.nif && <div style={{ fontSize: 12, color: '#64748b' }}>NIF {l.nif}</div>}</> },
+            { title: 'Beneficiário', dataIndex: 'nome', render: (v: string | null, l) => <>{v ?? '—'}{l.nif && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>NIF {l.nif}</Typography.Text>}</> },
             { title: 'Banco', dataIndex: 'banco', responsive: ['md'] },
             { title: 'IBAN', dataIndex: 'iban', render: (v: string | null) => <code style={{ fontSize: 12 }}>{formatarIban(v)}</code> },
             { title: 'Valor', dataIndex: 'montante', align: 'right', render: (v: string) => valorMoeda(v, moeda) },

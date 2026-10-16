@@ -488,6 +488,10 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/fg_metodo.php';      // Fase G: Método de Trabalho 5W1H
         require __DIR__.'/api/fd_cartas.php';      // Fase D: Tesouraria › Cartas de pagamento
         require __DIR__.'/api/fh_nucleo.php';      // Fase H: IA com regras em ficheiro, cubo
+        require __DIR__.'/api/fi_rh.php';   // Fecho Versão Actual: RH (funções, minuta, produtividade, efectividade)
+        require __DIR__.'/api/fi_projectos.php';   // Fecho: Projectos (Gantt, origem)
+        require __DIR__.'/api/fi_gestao.php';   // Fecho: Activos, repartição nos detalhes, gestão de projectos
+        require __DIR__.'/api/fi_portal.php';   // Fecho: portal autónomo e núcleo
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');

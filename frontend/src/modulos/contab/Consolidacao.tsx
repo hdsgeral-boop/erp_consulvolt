@@ -1,9 +1,10 @@
-import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Empty, Form, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Empty, Form, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message, theme } from 'antd';
 import { DeleteOutlined, EditOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useRef, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { larguraModal, scrollTabela, useEcra } from '@/componentes/responsivo';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotoesExportar } from '@/componentes/impressao';
@@ -136,45 +137,58 @@ export default function Consolidacao() {
         <PainelGrupo key={grupo.id} grupo={grupo} />
       )}
 
-      <Modal
-        title={edicao === 'novo' ? 'Novo grupo de consolidação' : 'Editar grupo de consolidação'}
-        open={edicao !== null}
-        onCancel={() => setEdicao(null)}
+      {/*
+        Grade com secções (sem «Linhas»): cada grupo leva a sua lista de empresas e é raro criar vários de uma vez.
+        «Moeda e eliminações» fica recolhida (valores por omissão AOA / eliminações activas).
+      */}
+      <ModalFormulario
+        chave="contab.consolidacao.grupos"
+        titulo={edicao === 'novo' ? 'Novo grupo de consolidação' : 'Editar grupo de consolidação'}
+        aberto={edicao !== null}
+        aoFechar={() => setEdicao(null)}
+        criacao={false}
+        campos={[]}
+        gravarLinha={async () => undefined}
+        destroyOnHidden={false}
         okText="Gravar"
         confirmLoading={gravar.isPending}
         onOk={() => form.submit()}
         width={larguraModal(640)}
       >
         <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(v)}>
-          <Form.Item name="nome" label="Nome da holding" rules={[{ required: true }]}>
-            <Input maxLength={255} />
-          </Form.Item>
-          <Form.Item name="nif" label="NIF da holding" rules={[{ required: true }]}>
-            <Input maxLength={30} />
-          </Form.Item>
-          <Form.Item name="membros" label="Empresas a consolidar (100%, método integral)" rules={[{ required: true, message: 'Escolha pelo menos uma empresa.' }]}>
-            <Select mode="multiple" optionFilterProp="label" options={empresas.filter((e) => !e.e_consolidacao).map((e) => ({ value: e.id, label: e.nome }))} />
-          </Form.Item>
-          <Space wrap>
-            <Form.Item name="moeda_apresentacao" label="Moeda de apresentação">
-              <Input maxLength={3} style={{ width: 100 }} />
+          <SeccaoFormulario titulo="Holding e empresas">
+            <Form.Item name="nome" label="Nome da holding" rules={[{ required: true }]}>
+              <Input maxLength={255} />
             </Form.Item>
-            <Form.Item name="conta_reserva_cambial" label="Conta de reserva cambial">
-              <Input maxLength={20} placeholder="599" style={{ width: 160 }} />
+            <Form.Item name="nif" label="NIF da holding" rules={[{ required: true }]}>
+              <Input maxLength={30} />
             </Form.Item>
-            <Form.Item name="conta_diferenca_eliminacao" label="Conta de diferenças de eliminação">
-              <Input maxLength={20} placeholder="598" style={{ width: 160 }} />
+            <Form.Item name="membros" label="Empresas a consolidar (100%, método integral)" rules={[{ required: true, message: 'Escolha pelo menos uma empresa.' }]}>
+              <Select mode="multiple" optionFilterProp="label" options={empresas.filter((e) => !e.e_consolidacao).map((e) => ({ value: e.id, label: e.nome }))} />
             </Form.Item>
-          </Space>
-          <Form.Item name="eliminacao_ativa" valuePropName="checked">
-            <Checkbox>Eliminações intragrupo activas</Checkbox>
-          </Form.Item>
-          <Form.Item name="prefixos_excluidos_eliminacao" label="Prefixos excluídos das eliminações">
-            <Input maxLength={10} />
-          </Form.Item>
+          </SeccaoFormulario>
+          <SeccaoFormulario key={edicao === 'novo' ? 'novo' : edicao?.id ?? 'fechado'} titulo="Moeda e eliminações" recolhida={edicao === 'novo'}>
+            <Space wrap>
+              <Form.Item name="moeda_apresentacao" label="Moeda de apresentação">
+                <Input maxLength={3} style={{ width: 100 }} />
+              </Form.Item>
+              <Form.Item name="conta_reserva_cambial" label="Conta de reserva cambial">
+                <Input maxLength={20} placeholder="599" style={{ width: 160 }} />
+              </Form.Item>
+              <Form.Item name="conta_diferenca_eliminacao" label="Conta de diferenças de eliminação">
+                <Input maxLength={20} placeholder="598" style={{ width: 160 }} />
+              </Form.Item>
+            </Space>
+            <Form.Item name="eliminacao_ativa" valuePropName="checked">
+              <Checkbox>Eliminações intragrupo activas</Checkbox>
+            </Form.Item>
+            <Form.Item name="prefixos_excluidos_eliminacao" label="Prefixos excluídos das eliminações">
+              <Input maxLength={10} />
+            </Form.Item>
+          </SeccaoFormulario>
           <Typography.Text type="secondary">É exigido acesso à holding e a todas as empresas do grupo.</Typography.Text>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </>
   );
 }
@@ -326,6 +340,7 @@ function DetalheExecucao({ id, aoFechar }: { id: number; aoFechar: () => void })
 }
 
 function PainelMapa({ grupo }: { grupo: Grupo }) {
+  const { token } = theme.useToken();
   const [filtros, setFiltros] = useState<Record<string, unknown>>({ nivel: '2', modo: 'saldo', ocultar_zeros: 1 });
   const [form] = Form.useForm();
   const { telemovel } = useEcra();
@@ -333,7 +348,7 @@ function PainelMapa({ grupo }: { grupo: Grupo }) {
   const d = mapa.data;
   type Linha = MapaConsolidacao['linhas'][number];
   const refMapa = useRef<HTMLDivElement>(null);
-  const estilo = (l: Linha) => (l.tipo === 'cabecalho' ? { fontWeight: 600, background: '#fafafa' } : l.tipo === 'subtotal' ? { fontWeight: 600 } : {});
+  const estilo = (l: Linha) => (l.tipo === 'cabecalho' ? { fontWeight: 600, background: token.colorFillAlter } : l.tipo === 'subtotal' ? { fontWeight: 600 } : {});
 
   return (
     <Card>

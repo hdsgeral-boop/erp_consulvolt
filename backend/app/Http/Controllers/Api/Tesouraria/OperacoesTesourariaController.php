@@ -164,8 +164,19 @@ final class OperacoesTesourariaController extends Controller
     {
         $this->exigir('teso_folha_caixa_view');
 
-        return RespostaApi::sucesso(SessaoCaixa::query()->when($r->string('codigo_conta')->toString(), fn ($q, $v) => $q->where('codigo_conta', $v))
-            ->orderByDesc('data_abertura')->orderByDesc('id')->limit(200)->get(), 'Sessões de caixa.');
+        $sessoes = SessaoCaixa::query()->when($r->string('codigo_conta')->toString(), fn ($q, $v) => $q->where('codigo_conta', $v))
+            ->select('sessoes_caixa.*')
+            // colunas da lista do legado (Conta + descrição, Entradas, Saídas): subconsultas correlacionadas na mesma consulta (sem N+1)
+            ->selectSub(DB::table('plano_contas as pc')->select('pc.descricao')->whereColumn('pc.empresa_id', 'sessoes_caixa.empresa_id')
+                ->whereColumn('pc.codigo', 'sessoes_caixa.codigo_conta')->whereNull('pc.eliminado_em')->limit(1), 'descricao_conta')
+            ->withSum(['movimentosCaixa as total_entradas' => fn ($q) => $q->where('tipo', 'REC')], 'valor')
+            ->withSum(['movimentosCaixa as total_saidas' => fn ($q) => $q->where('tipo', 'PAG')], 'valor')
+            ->orderByDesc('data_abertura')->orderByDesc('id')->limit(200)->get();
+        $dinheiro = fn ($v) => bcadd((string) ($v ?? '0'), '0', 2);
+
+        return RespostaApi::sucesso($sessoes->map(fn (SessaoCaixa $s) => array_merge($s->toArray(), [
+            'total_entradas' => $dinheiro($s->getAttribute('total_entradas')), 'total_saidas' => $dinheiro($s->getAttribute('total_saidas')),
+        ]))->values(), 'Sessões de caixa.');
     }
 
     public function sessao(int $id): JsonResponse

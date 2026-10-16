@@ -72,6 +72,8 @@ export interface LinhaOrcamento {
 
 export interface FichaOrcamento extends Orcamento {
   linhas: LinhaOrcamento[];
+  /** Realizado do ano anterior por rubrica (total anual) — coluna «Real. {ano-1}» do legado; o servidor ainda não o devolve. */
+  real_anterior?: Record<number, Dinheiro> | null;
   filhos: Pick<Orcamento, 'id' | 'nome' | 'versao' | 'estado' | 'unidade_negocio_id' | 'centro_custo_id' | 'projeto_id' | 'responsavel'>[];
 }
 

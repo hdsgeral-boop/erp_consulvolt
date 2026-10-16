@@ -1,7 +1,8 @@
-import { Alert, Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, Modal, Radio, Row, Select, Space, Spin, Tag, Typography, message } from 'antd';
+import { Alert, Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, Modal, Radio, Row, Select, Space, Spin, Tag, Typography, message, theme } from 'antd';
+import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { ModalMotivo } from '@/componentes/Accoes';
@@ -38,16 +39,26 @@ interface Campos {
 
 type Motivo = { tipo: 'DEVOLVER' | 'RECUSAR' | 'CANCELAR' } | null;
 
-/** Bloco de uma das seis perguntas (bloco, assuntos_ui.js:192-197). */
-function Bloco({ n, titulo, sub, children }: { n: string; titulo: string; sub: string; children: ReactNode }) {
+/**
+ * Bloco de uma das seis perguntas (bloco, assuntos_ui.js:192-197), com o aspecto do legado (moldura, cabeçalho claro e
+ * etiqueta escura). O cabeçalho é um botão que recolhe/abre o bloco (`aria-expanded`); o conteúdo continua montado
+ * quando recolhido, para os campos manterem os valores e as regras. Todos abrem por omissão, como no legado.
+ */
+export function Bloco({ n, titulo, sub, children, recolhido = false }: { n: string; titulo: string; sub: string; children: ReactNode; recolhido?: boolean }) {
+  const { token } = theme.useToken();
+  const [fechado, setFechado] = useState(recolhido);
+  const id = useId();
   return (
-    <div style={{ border: '1px solid #e2e8f0', borderRadius: 4, marginBottom: 14 }}>
-      <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '6px 12px', display: 'flex', gap: 8, alignItems: 'baseline' }}>
-        <span style={{ background: '#1e293b', color: '#fff', borderRadius: 3, padding: '1px 7px', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>{n}</span>
+    <section style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, marginBottom: 14 }}>
+      <button type="button" aria-expanded={!fechado} aria-controls={id} onClick={() => setFechado((f) => !f)}
+        style={{ width: '100%', background: token.colorFillAlter, border: 'none', borderBottom: fechado ? 'none' : `1px solid ${token.colorBorderSecondary}`, padding: '6px 12px',
+          display: 'flex', gap: 8, alignItems: 'baseline', cursor: 'pointer', font: 'inherit', color: token.colorText, textAlign: 'left' }}>
+        {fechado ? <RightOutlined style={{ fontSize: 10 }} /> : <DownOutlined style={{ fontSize: 10 }} />}
+        <span style={{ background: token.colorText, color: token.colorBgContainer, borderRadius: 3, padding: '1px 7px', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>{n}</span>
         <strong>{titulo}</strong><Typography.Text type="secondary" style={{ fontSize: 12 }}>{sub}</Typography.Text>
-      </div>
-      <div style={{ padding: 12 }}>{children}</div>
-    </div>
+      </button>
+      <div id={id} hidden={fechado} style={{ padding: 12 }}>{children}</div>
+    </section>
   );
 }
 
@@ -57,6 +68,7 @@ function Bloco({ n, titulo, sub, children }: { n: string; titulo: string; sub: s
  */
 export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'novo' | null; aoFechar: () => void; aoCriar: (id: number) => void }) {
   const [form] = Form.useForm<Campos>();
+  const { token } = theme.useToken();
   const cliente = useQueryClient();
   const navegar = useNavigate();
   const aberto = id !== null;
@@ -200,7 +212,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
   const nTarefas = tarefasDosRecursos(recursos, titulo).length;
 
   return (
-    <Modal open={aberto} onCancel={aoFechar} width={960} destroyOnHidden maskClosable={false}
+    <Modal open={aberto} onCancel={aoFechar} width={920} destroyOnHidden maskClosable={false}
       title={<Space><IconeFa nome="clipboard-list" />{a ? `Assunto ${a.numero}` : 'Novo assunto'}{a && <Tag color={CORES_ESTADO[a.estado]}>{ESTADOS[a.estado]}</Tag>}</Space>}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -249,7 +261,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
               {resp.length ? (
                 <Radio.Group value={principal} onChange={(e) => setPrincipal(e.target.value as string)} style={{ width: '100%' }} disabled={so}>
                   {resp.map((r, i) => (
-                    <div key={chaveResp(r)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', border: '1px solid #e2e8f0', borderRadius: 4, marginBottom: 4 }}>
+                    <div key={chaveResp(r)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, marginBottom: 4 }}>
                       <Radio value={chaveResp(r)} title="Responsável principal" />
                       <div style={{ flex: 1 }}><strong>{r.nome}</strong> <Typography.Text type="secondary">{TIPOS_RESP[r.tipo]}</Typography.Text></div>
                       {!so && <Button size="small" danger icon={<IconeFa nome="times" />} aria-label={`Retirar ${r.nome}`} onClick={() => {
@@ -269,7 +281,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
                 <Col span={12}><Form.Item name="data_inicio" label="Data de início" style={{ marginBottom: 0 }}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
                 <Col span={12}><Form.Item name="data_fim" label="Data de fim" style={{ marginBottom: 0 }}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
               </Row>
-              {prazo && <div style={{ fontSize: 12, marginTop: 6, color: prazo.tipo === 'erro' ? '#b91c1c' : prazo.tipo === 'aviso' ? '#b45309' : '#64748b' }}>{prazo.texto}</div>}
+              {prazo && <div style={{ fontSize: 12, marginTop: 6, color: prazo.tipo === 'erro' ? token.colorError : prazo.tipo === 'aviso' ? token.colorWarningText : token.colorTextSecondary }}>{prazo.texto}</div>}
             </Bloco>
 
             <Bloco n="WHERE" titulo="Onde?" sub="localização do assunto">
@@ -290,7 +302,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
 
             <Bloco n="WHY" titulo="Porquê?" sub="fundamentação">
               <Form.Item name="fundamentacao" label="Fundamentação (mín. 50 caracteres)"
-                extra={<span style={{ color: fund.trim().length >= 50 ? '#166534' : '#b91c1c' }}>{fund.trim().length >= 50 ? `${fund.trim().length} caracteres` : `${fund.trim().length} de 50 caracteres`}</span>}>
+                extra={<span style={{ color: fund.trim().length >= 50 ? token.colorSuccessText : token.colorError }}>{fund.trim().length >= 50 ? `${fund.trim().length} caracteres` : `${fund.trim().length} de 50 caracteres`}</span>}>
                 <Input.TextArea rows={3} maxLength={4000} />
               </Form.Item>
               <Form.Item name="causa_raiz" label="Causa raiz (opcional — 5 porquês)" style={{ marginBottom: 0 }}><Input.TextArea rows={2} maxLength={4000} /></Form.Item>
@@ -367,7 +379,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
               <div style={{ marginTop: 12 }}>
                 <Typography.Text strong style={{ fontSize: 13 }}>Anexos <Typography.Text type="secondary" style={{ fontWeight: 400 }}>(orçamentos, facturas, propostas — por endereço)</Typography.Text></Typography.Text>
                 {anexos.map((x, i) => (
-                  <div key={`${x.url}-${i}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 8px', border: '1px solid #e2e8f0', borderRadius: 4, marginTop: 4 }}>
+                  <div key={`${x.url}-${i}`} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 8px', border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, marginTop: 4 }}>
                     <IconeFa nome="paperclip" />
                     {/^https?:\/\//i.test(x.url) ? <a href={x.url} target="_blank" rel="noopener noreferrer" style={{ flex: 1 }}>{x.nome}</a> : <span style={{ flex: 1 }}>{x.nome}</span>}
                     {!so && <Button size="small" danger icon={<IconeFa nome="times" />} aria-label={`Retirar ${x.nome}`} onClick={() => setAnexos(anexos.filter((_, j) => j !== i))} />}

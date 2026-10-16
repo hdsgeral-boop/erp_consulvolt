@@ -1,4 +1,4 @@
-import { AutoComplete, Button, Col, Empty, Form, Input, Modal, Radio, Row, Space, Typography } from 'antd';
+import { AutoComplete, Button, Col, Empty, Form, Input, Modal, Radio, Row, Space, Typography, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
@@ -27,6 +27,8 @@ interface Banco {
  */
 export function ContasBancariasTerceiro({ terceiroId, podeGerir }: { terceiroId: number | null; podeGerir: boolean }) {
   const [form] = Form.useForm<ValoresConta>();
+  // cores do tema (a tela nocturna troca-as sozinha); o legado usava #f8fafc / #e2e8f0 / #86efac / #f0fdf4 fixos
+  const { token } = theme.useToken();
   const chave = ['terceiros', 'contas-bancarias', terceiroId];
   const contas = useQuery({
     queryKey: chave,
@@ -46,15 +48,15 @@ export function ContasBancariasTerceiro({ terceiroId, podeGerir }: { terceiroId:
   const lista = contas.data ?? [];
 
   return (
-    <div style={{ border: '1px solid #e2e8f0', borderRadius: 4, padding: '0.9rem', marginBottom: 16, background: '#f8fafc' }}>
+    <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: token.borderRadius, padding: '0.9rem', marginBottom: 16, background: token.colorFillAlter }}>
       <Typography.Title level={5} style={{ margin: '0 0 0.2rem', fontSize: '0.92rem' }}>
-        <IconeFa nome="university" style={{ color: '#0891b2' }} /> Contas bancárias
+        <IconeFa nome="university" style={{ color: token.colorInfo }} /> Contas bancárias
       </Typography.Title>
       <Typography.Text type="secondary" style={{ display: 'block', marginBottom: '0.7rem', fontSize: 12 }}>
         Sem conta bancária aqui, este terceiro não pode receber carta de ordem de pagamento.
       </Typography.Text>
       {lista.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sem contas bancárias registadas." style={{ margin: '4px 0', border: '1px dashed #cbd5e1', borderRadius: 4, padding: 8 }} />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Sem contas bancárias registadas." style={{ margin: '4px 0', border: `1px dashed ${token.colorBorder}`, borderRadius: token.borderRadius, padding: 8 }} />
       ) : (
         lista.map((c) => (
           <div
@@ -64,9 +66,9 @@ export function ContasBancariasTerceiro({ terceiroId, podeGerir }: { terceiroId:
               alignItems: 'center',
               gap: '0.5rem',
               padding: '0.45rem 0.5rem',
-              border: `1px solid ${c.predefinida ? '#86efac' : '#e2e8f0'}`,
-              borderRadius: 4,
-              background: c.predefinida ? '#f0fdf4' : '#fff',
+              border: `1px solid ${c.predefinida ? token.colorSuccessBorder : token.colorBorderSecondary}`,
+              borderRadius: token.borderRadius,
+              background: c.predefinida ? token.colorSuccessBg : token.colorBgContainer,
               marginBottom: '0.35rem',
             }}
           >
@@ -80,14 +82,14 @@ export function ContasBancariasTerceiro({ terceiroId, podeGerir }: { terceiroId:
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>
                 {c.banco || '—'}
-                {c.predefinida && <span style={{ color: '#16a34a', fontWeight: 500, fontSize: '0.75rem' }}> · predefinida</span>}
+                {c.predefinida && <span style={{ color: token.colorSuccess, fontWeight: 500, fontSize: '0.75rem' }}> · predefinida</span>}
               </div>
-              <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: '#475569', wordBreak: 'break-all' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: token.colorTextSecondary, wordBreak: 'break-all' }}>
                 {formatarIban(c.iban)}
                 {c.numero_conta ? ` · ${c.numero_conta}` : ''}
                 {c.codigo_moeda ? ` · ${c.codigo_moeda}` : ''}
               </div>
-              {c.titular && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Titular: {c.titular}</div>}
+              {c.titular && <div style={{ fontSize: '0.75rem', color: token.colorTextTertiary }}>Titular: {c.titular}</div>}
             </div>
             {podeGerir && (
               <Button

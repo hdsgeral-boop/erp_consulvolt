@@ -114,10 +114,12 @@ final class LocaisAtivosController extends Controller
     public function moverBem(Request $r, int $bem): JsonResponse
     {
         $this->exigir('activos_locais_gerir');
-        $d = $r->validate(['porta_id' => ['present', 'nullable', 'integer']]);
-        $res = $this->locais->moverBem(AtivoImobilizado::query()->findOrFail($bem), $d['porta_id'] ? (int) $d['porta_id'] : null);
+        $d = $r->validate(['porta_id' => ['present', 'nullable', 'integer'], 'edificio_id' => ['nullable', 'integer'], 'andar_id' => ['nullable', 'integer']]);
+        $res = $this->locais->moverBem(AtivoImobilizado::query()->findOrFail($bem), $d['porta_id'] ? (int) $d['porta_id'] : null,
+            empty($d['edificio_id']) ? null : (int) $d['edificio_id'], empty($d['andar_id']) ? null : (int) $d['andar_id']);
+        $msg = $res->porta_id ? 'Bem movido para a porta seleccionada.' : ($res->edificio_id ? 'Bem deixado no edifício, sem porta.' : 'Bem retirado do local.');
 
-        return RespostaApi::sucesso($res->only(['id', 'codigo', 'edificio_id', 'andar_id', 'porta_id']), $d['porta_id'] ? 'Bem movido para a porta seleccionada.' : 'Bem retirado do local.');
+        return RespostaApi::sucesso($res->only(['id', 'codigo', 'edificio_id', 'andar_id', 'porta_id']), $msg);
     }
 
     // ───────────── Folhas de inventário físico ─────────────

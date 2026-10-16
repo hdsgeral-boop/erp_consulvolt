@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography } from 'antd';
+import { Button, Card, DatePicker, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import { useAccao } from '@/componentes/Accoes';
 import { descarregarModeloTesouraria, ModalImportacaoTesouraria } from './ModalImportacao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -118,10 +118,11 @@ export function ListaDocumentos() {
   const integrados = seleccao.filter((d) => d.estado === 'INTEGRADO').map((d) => d.id);
   const podeEmitir = pode('teso_doc_emitir');
   const podeEliminar = pode('teso_doc_eliminar');
+  const { token } = theme.useToken();
 
   return (
     <>
-      <div className="imp-nao-imprimir" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '14px 16px', borderRadius: 15, marginBottom: 16 }}>
+      <div className="imp-nao-imprimir" style={{ background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, padding: '14px 16px', borderRadius: 4, marginBottom: 16 }}>
         <BarraFiltros
           accoes={
             <Space wrap>
@@ -132,25 +133,25 @@ export function ListaDocumentos() {
         >
           {/* «Pesquisa:» larga e «De / Até:» com rótulos, como o painel do legado (renderMovimentosTesouraria) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 260 }}>
-            <Typography.Text strong style={{ color: '#475569', whiteSpace: 'nowrap' }}><IconeFa nome="search" style={{ color: '#2563eb' }} /> Pesquisa:</Typography.Text>
+            <Typography.Text strong style={{ color: token.colorTextSecondary, whiteSpace: 'nowrap' }}><IconeFa nome="search" style={{ color: token.colorPrimary }} /> Pesquisa:</Typography.Text>
             <Input placeholder="Referência / Descrição..." allowClear value={texto} style={{ width: '100%' }} aria-label="Pesquisa"
               onChange={(e) => { setTexto(e.target.value); if (!e.target.value) setPesquisa(''); }} onPressEnter={() => setPesquisa(texto)} />
           </div>
           <Space size={6} wrap>
-            <Typography.Text strong style={{ color: '#475569' }}><IconeFa nome="calendar-alt" style={{ color: '#2563eb' }} /> De / Até:</Typography.Text>
+            <Typography.Text strong style={{ color: token.colorTextSecondary }}><IconeFa nome="calendar-alt" style={{ color: token.colorPrimary }} /> De / Até:</Typography.Text>
             <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} placeholder={['De', 'Até']} />
           </Space>
           <Select placeholder="Estado" allowClear style={{ width: 150 }} value={estado} onChange={setEstado} options={[{ value: 'PENDENTE', label: 'Por integrar' }, { value: 'INTEGRADO', label: 'Integrados' }, { value: 'ANULADO', label: 'Anulados' }]} />
           <SeletorContaFinanceira value={conta} onChange={setConta} allowClear />
         </BarraFiltros>
       </div>
-      <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px', background: '#f8fafc', borderRadius: 12 } }}>
+      <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 16px' } }}>
         <Flex wrap gap="small" justify="space-between" align="center">
           <Space wrap>
             {podeEmitir && (
               <>
-                <Button icon={<IconeFa nome="file-excel" />} style={{ color: '#fff', background: '#16a34a', borderColor: '#16a34a' }} onClick={() => void descarregarModeloTesouraria()}>Baixar Template</Button>
-                <Button icon={<IconeFa nome="upload" />} style={{ color: '#fff', background: '#0891b2', borderColor: '#0891b2' }} onClick={() => setImportar(true)}>Carregar Dados</Button>
+                <Button icon={<IconeFa nome="file-excel" />} style={{ color: '#059669', borderColor: '#059669' }} onClick={() => void descarregarModeloTesouraria()}>Baixar Template</Button>
+                <Button icon={<IconeFa nome="upload" />} style={{ color: '#0891b2', borderColor: '#0891b2' }} onClick={() => setImportar(true)}>Carregar Dados</Button>
               </>
             )}
             {podeEliminar && (

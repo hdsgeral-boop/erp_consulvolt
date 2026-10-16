@@ -1,4 +1,4 @@
-import { Button, Card, Input, Select, Typography } from 'antd';
+import { Button, Card, Input, Select, Tag, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { useState } from 'react';
@@ -22,6 +22,16 @@ export default function Carteira() {
   );
 }
 
+/** Estado na Carteira, com as cores dos badges do legado (success / warning / secondary / danger). */
+const ESTADO_CARTEIRA: Record<string, { rotulo: string; cor: string }> = {
+  ACTIVO: { rotulo: 'Em curso', cor: 'success' },
+  ATIVO: { rotulo: 'Em curso', cor: 'success' },
+  EM_CURSO: { rotulo: 'Em curso', cor: 'success' },
+  PREPARACAO: { rotulo: 'Em preparação', cor: 'warning' },
+  ENCERRADO: { rotulo: 'Encerrado', cor: 'default' },
+  CANCELADO: { rotulo: 'Cancelado', cor: 'error' },
+};
+
 function ListaProjectos() {
   const navegar = useNavigate();
   const { pode } = useSessao();
@@ -32,12 +42,12 @@ function ListaProjectos() {
   const pequeno = useEcraPequeno();
 
   const colunas: ColunaApi<Projecto>[] = [
-    { title: 'Código', dataIndex: 'codigo', render: (v) => <Typography.Text strong>{v ?? '—'}</Typography.Text> },
+    { title: 'Código', dataIndex: 'codigo', width: 150, render: (v) => <Typography.Text strong>{v ?? '—'}</Typography.Text> },
     { title: 'Designação', dataIndex: 'nome', ellipsis: true, width: 320 },
     { title: 'Cliente', key: 'cliente', ellipsis: true, width: 240, responsive: ['md'], ocultaPorOmissao: true, render: (_, p) => p.cliente?.nome ?? (p.cliente_id ? `#${p.cliente_id}` : '—') },
     { title: 'Tipo', dataIndex: 'tipo', responsive: ['lg'], ocultaPorOmissao: true, render: (v) => <EtiquetaProjectos valor={v} /> },
-    // como o legado (renderProjectsList, ui_projects.js:403): ACTIVO e EM_CURSO aparecem os dois como «Em Curso»
-    { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaProjectos valor={v === 'ACTIVO' || v === 'ATIVO' ? 'EM_CURSO' : v} /> },
+    // como o legado (renderProjectsList, ui_projects.js:456-512): ACTIVO e EM_CURSO aparecem os dois como «Em Curso» (verde); preparação âmbar; encerrado cinzento; cancelado vermelho
+    { title: 'Estado', dataIndex: 'estado', width: 150, render: (v: string) => <Tag color={ESTADO_CARTEIRA[v]?.cor ?? 'default'}>{ESTADO_CARTEIRA[v]?.rotulo ?? rotuloProjectos(v)}</Tag> },
   ];
 
   return (

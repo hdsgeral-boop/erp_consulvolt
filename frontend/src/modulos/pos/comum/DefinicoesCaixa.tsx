@@ -1,12 +1,14 @@
-import { Alert, Button, Form, Input, InputNumber, Modal, Skeleton, Typography } from 'antd';
+import { Alert, Button, Form, Input, InputNumber, Skeleton, Typography } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import { useEffect } from 'react';
 import { useAccao } from '@/componentes/Accoes';
+import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { useDefinicoesPOS } from './dados';
+import { SO_GRADE } from './formularios';
 import type { DefinicoesPOS } from './tipos';
 import './pos.css';
 
@@ -34,12 +36,13 @@ export function ModalDefinicoesCaixa({ aberto, aoFechar }: { aberto: boolean; ao
   }, [aberto, definicoes.data, form]);
 
   return (
-    <Modal
-      open={aberto}
-      onCancel={aoFechar}
+    <ModalFormulario
+      chave="pos.definicoes_caixa"
+      {...SO_GRADE}
+      aberto={aberto}
+      aoFechar={aoFechar}
       width={larguraModal(620)}
-      destroyOnHidden
-      title={
+      titulo={
         <span>
           <IconeFa nome="sliders-h" /> Definições de caixa (POS)
         </span>
@@ -79,7 +82,8 @@ export function ModalDefinicoesCaixa({ aberto, aoFechar }: { aberto: boolean; ao
             })
           }
         >
-          {/* campos, rótulos e ajudas do legado (posDefinicoesCaixa, pos_gestao.js:1063-1069) */}
+          {/* campos, rótulos e ajudas do legado (posDefinicoesCaixa, pos_gestao.js:1063-1069), em dois blocos recolhíveis */}
+          <SeccaoFormulario titulo="Contas dos desvios de caixa">
           <Form.Item name="conta_sobra" label="Conta de sobras de caixa (proveito)" extra="Usada quando a deliberação aceita a sobra como proveito.">
             <SeletorConta prefixo="6" />
           </Form.Item>
@@ -89,15 +93,18 @@ export function ModalDefinicoesCaixa({ aberto, aoFechar }: { aberto: boolean; ao
           <Form.Item name="conta_operador" label="Conta a receber do operador (faltas imputadas)" extra="Usada quando a deliberação imputa a falta ao operador de caixa.">
             <SeletorConta prefixo="3" />
           </Form.Item>
+          </SeccaoFormulario>
+          <SeccaoFormulario titulo="Tolerância e integração">
           <Form.Item name="tolerancia_desvio" label="Tolerância de desvio (Kz)" extra="Desvios até este valor não ficam pendentes de deliberação.">
             <InputNumber<number> min={0} precision={2} decimalSeparator="," style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="codigo_diario" label="Código do diário da integração POS">
             <Input maxLength={10} style={{ textTransform: 'uppercase' }} />
           </Form.Item>
+          </SeccaoFormulario>
           {!gerir && <Typography.Text type="secondary">Só consulta: alterar exige a permissão de configurar terminais.</Typography.Text>}
         </Form>
       )}
-    </Modal>
+    </ModalFormulario>
   );
 }

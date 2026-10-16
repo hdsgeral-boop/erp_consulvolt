@@ -1,4 +1,4 @@
-import { Alert, Button, Flex, Modal, Skeleton, Tag, Typography } from 'antd';
+import { Alert, Button, Flex, Modal, Skeleton, Tag, Typography, theme, type GlobalToken } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import type { CSSProperties, ReactNode } from 'react';
 import { obter } from '@/api/cliente';
@@ -24,7 +24,8 @@ export interface AccoesFluxo {
   emitirRecibo: (id: number) => void;
 }
 
-const vazio: CSSProperties = { padding: '1.5rem', textAlign: 'center', background: '#f9fafb', borderRadius: 10, color: '#999', border: '1px dashed #ccc', fontSize: '0.85rem' };
+/** Caixa «vazia» do antigo (tracejada); cores do tema e raio de 4 px. */
+const estiloVazio = (t: GlobalToken): CSSProperties => ({ padding: '1.5rem', textAlign: 'center', background: t.colorFillAlter, borderRadius: 4, color: t.colorTextTertiary, border: `1px dashed ${t.colorBorder}`, fontSize: '0.85rem' });
 const tituloColuna = (cor: string): CSSProperties => ({ borderLeft: `4px solid ${cor}`, paddingLeft: 10, marginTop: 0, marginBottom: '1.5rem', fontSize: '1rem' });
 
 /** Linha tracejada com os pontos (timeline do legado). */
@@ -33,9 +34,10 @@ function Linha({ cor, children }: { cor: string; children: ReactNode }) {
 }
 
 function Passo({ ponto, anel, children }: { ponto: string; anel: string; children: ReactNode }) {
+  const { token } = theme.useToken();
   return (
     <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
-      <div style={{ position: 'absolute', left: -36, top: 0, width: 20, height: 20, borderRadius: '50%', background: ponto, border: '4px solid white', boxShadow: `0 0 0 2px ${anel}`, boxSizing: 'border-box' }} />
+      <div style={{ position: 'absolute', left: -36, top: 0, width: 20, height: 20, borderRadius: '50%', background: ponto, border: `4px solid ${token.colorBgContainer}`, boxShadow: `0 0 0 2px ${anel}`, boxSizing: 'border-box' }} />
       {children}
     </div>
   );
@@ -48,6 +50,10 @@ function Passo({ ponto, anel, children }: { ponto: string; anel: string; childre
  */
 export function ModalFluxoProcesso({ id, onFechar, accoes }: { id: number | null; onFechar: () => void; accoes: AccoesFluxo }) {
   const { pode } = useSessao();
+  const { token } = theme.useToken();
+  const vazio = estiloVazio(token);
+  // o «negro» da coluna 1 do antigo passa a ser a cor do texto (legível na tela nocturna)
+  const negro = token.colorText;
   const consulta = useQuery({
     queryKey: ['vendas', 'fluxo', id],
     queryFn: () => obter<FluxoProcesso>(`/vendas/documentos/${id}/fluxo`),
@@ -69,7 +75,7 @@ export function ModalFluxoProcesso({ id, onFechar, accoes }: { id: number | null
       destroyOnHidden
       title={<span style={{ color: PRIMARIA, fontSize: '1.17rem' }}><IconeFa nome="project-diagram" /> Fluxo Completo do Processo</span>}
       footer={
-        <Flex wrap gap={10} justify="space-between" align="center" style={{ marginTop: '1rem', paddingTop: '1.25rem', borderTop: '2px solid #eee' }}>
+        <Flex wrap gap={10} justify="space-between" align="center" style={{ marginTop: '1rem', paddingTop: '1.25rem', borderTop: `2px solid ${token.colorSplit}` }}>
           <Typography.Text strong style={{ color: SECUNDARIA, fontSize: '0.9rem' }}>Ações de Fluxo Sugeridas:</Typography.Text>
           <Flex wrap gap={10} justify="end">
             {id !== null && <Button icon={<IconeFa nome="print" />} onClick={() => accoes.imprimir(id)}>Imprimir</Button>}
@@ -97,18 +103,18 @@ export function ModalFluxoProcesso({ id, onFechar, accoes }: { id: number | null
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', paddingTop: '1rem' }}>
           {/* Coluna 1: Aprovisionamento (opcional) */}
           <div>
-            <h4 style={tituloColuna('#000')}>1. Aprovisionamento (B2B)</h4>
+            <h4 style={tituloColuna(negro)}>1. Aprovisionamento (B2B)</h4>
             {fluxo.aprovisionamento.length === 0 ? (
               <div style={vazio}>Venda direta de stock.</div>
             ) : (
-              <Linha cor="#000">
+              <Linha cor={negro}>
                 {fluxo.aprovisionamento.map((p) => (
-                  <Passo key={`${p.tipo}-${p.id}`} ponto="#000" anel="#000">
-                    <div style={{ background: '#f1f5f9', padding: '0.8rem', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                  <Passo key={`${p.tipo}-${p.id}`} ponto={negro} anel={negro}>
+                    <div style={{ background: token.colorFillSecondary, padding: '0.8rem', borderRadius: 4, border: `1px solid ${token.colorBorderSecondary}` }}>
                       <strong style={{ fontSize: '0.85rem', display: 'block' }}>{p.tipo}</strong>
                       <span style={{ fontSize: '0.8rem' }}>{p.documento}</span>
-                      {p.data && <small style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: 8 }}>{formatarData(p.data)}</small>}
-                      <div style={{ marginTop: '0.4rem' }}><Tag style={{ fontSize: '0.65rem', background: '#000', color: 'white', borderColor: '#000', marginInlineEnd: 0 }}>{p.estado ?? '—'}</Tag></div>
+                      {p.data && <small style={{ fontSize: '0.75rem', color: token.colorTextSecondary, marginLeft: 8 }}>{formatarData(p.data)}</small>}
+                      <div style={{ marginTop: '0.4rem' }}><Tag style={{ fontSize: '0.65rem', background: negro, color: token.colorBgContainer, borderColor: negro, marginInlineEnd: 0 }}>{p.estado ?? '—'}</Tag></div>
                     </div>
                   </Passo>
                 ))}
@@ -121,8 +127,8 @@ export function ModalFluxoProcesso({ id, onFechar, accoes }: { id: number | null
             <h4 style={tituloColuna(PRIMARIA)}>2. Ciclo de Vendas</h4>
             <Linha cor={PRIMARIA}>
               {fluxo.vendas.map((s) => (
-                <Passo key={s.id} ponto={s.actual ? PRIMARIA : '#ddd'} anel="#ddd">
-                  <div style={{ background: s.actual ? '#eff6ff' : '#f8fafc', padding: '0.8rem', borderRadius: 8, border: '1px solid #eee', ...(s.actual ? { borderLeft: `4px solid ${PRIMARIA}` } : {}) }}>
+                <Passo key={s.id} ponto={s.actual ? PRIMARIA : token.colorBorder} anel={token.colorBorder}>
+                  <div style={{ background: s.actual ? token.colorPrimaryBg : token.colorFillAlter, padding: '0.8rem', borderRadius: 4, border: `1px solid ${token.colorBorderSecondary}`, ...(s.actual ? { borderLeft: `4px solid ${PRIMARIA}` } : {}) }}>
                     <strong style={{ fontSize: '0.85rem', display: 'block' }}>{rotuloDocumentoFluxo(s)}</strong>
                     <small style={{ fontSize: '0.75rem' }}>{formatarData(s.data_emissao)}</small>
                     <Flex justify="space-between" align="center" style={{ marginTop: '0.4rem' }}>
@@ -134,7 +140,7 @@ export function ModalFluxoProcesso({ id, onFechar, accoes }: { id: number | null
               ))}
               {fluxo.recibos.map((r) => (
                 <Passo key={`${r.id}-${r.venda_id}`} ponto={SUCESSO} anel={SUCESSO}>
-                  <div style={{ background: '#f0fdf4', padding: '0.8rem', borderRadius: 8, border: '1px solid #dcfce7', borderLeft: `4px solid ${SUCESSO}` }}>
+                  <div style={{ background: token.colorSuccessBg, padding: '0.8rem', borderRadius: 4, border: `1px solid ${token.colorSuccessBorder}`, borderLeft: `4px solid ${SUCESSO}` }}>
                     <strong style={{ fontSize: '0.85rem', display: 'block' }}>{r.numero}{r.estado === 'ANULADO' && <Tag color="error" style={{ fontSize: '0.6rem', marginInlineStart: 6 }}>ANULADO</Tag>}</strong>
                     <small style={{ fontSize: '0.75rem' }}>{formatarData(r.data)}{fluxo.vendas.length > 1 && r.numero_documento ? ` · ${r.numero_documento}` : ''}</small>
                     <div style={{ marginTop: '0.4rem', color: SUCESSO, fontWeight: 'bold', fontSize: '0.8rem' }}>Pago: {formatarKz(r.valor)}</div>
@@ -152,15 +158,15 @@ export function ModalFluxoProcesso({ id, onFechar, accoes }: { id: number | null
             ) : (
               <Flex vertical gap="1.2rem">
                 {fluxo.lancamentos.map((l) => (
-                  <div key={`${l.referencia}-${l.numero_lan ?? ''}`} style={{ background: 'white', border: '1px solid #eee', borderRadius: 8, overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                    <div style={{ background: '#f1f5f9', padding: '0.5rem 0.8rem', fontWeight: 600, fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                      <span>{l.referencia}{l.numero_lan && <span style={{ color: '#64748b', fontWeight: 400 }}> · {l.numero_lan}</span>}</span>
+                  <div key={`${l.referencia}-${l.numero_lan ?? ''}`} style={{ background: token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
+                    <div style={{ background: token.colorFillSecondary, padding: '0.5rem 0.8rem', fontWeight: 600, fontSize: '0.75rem', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                      <span>{l.referencia}{l.numero_lan && <span style={{ color: token.colorTextSecondary, fontWeight: 400 }}> · {l.numero_lan}</span>}</span>
                       <IconeFa nome="check-circle" style={{ color: SUCESSO }} rotulo="Contabilizado" />
                     </div>
                     <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse' }}>
-                      <tbody style={{ background: 'white' }}>
+                      <tbody style={{ background: token.colorBgContainer }}>
                         {l.linhas.map((x, i) => (
-                          <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
+                          <tr key={i} style={{ borderBottom: `1px solid ${token.colorSplit}` }}>
                             <td style={{ padding: '4px 8px' }}>{x.conta}</td>
                             <td style={{ padding: '4px 8px', textAlign: 'right' }}>{x.debito !== null ? formatarKz(x.debito) : ''}</td>
                             <td style={{ padding: '4px 8px', textAlign: 'right' }}>{x.credito !== null ? formatarKz(x.credito) : ''}</td>

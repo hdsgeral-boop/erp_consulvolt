@@ -5,12 +5,14 @@ import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
+import { naRotaPortal } from '@/portal/rota';
 
 /** Entrada no sistema, com o aspecto do sistema anterior: fotografia de fundo e cartão translúcido ao centro. */
 export function Entrar() {
   const { entrar, motivoSaida } = useSessao();
   const [erro, setErro] = useState<string | null>(null);
   const [aEntrar, setAEntrar] = useState(false);
+  const portal = naRotaPortal();
   const logotipo = useQuery({ queryKey: ['logotipo-login'], queryFn: () => obter<{ logotipo: string | null }>('/sistema/logotipo-login'), retry: false });
 
   const submeter = async (v: { nome_utilizador: string; palavra_passe: string }) => {
@@ -30,8 +32,8 @@ export function Entrar() {
       <Card className="erp-cartao-entrada" style={{ width: '100%', maxWidth: 440 }} styles={{ body: { padding: 'clamp(24px, 6vw, 44px)' } }}>
         <Flex vertical align="center" gap={8} style={{ marginBottom: 24, textAlign: 'center' }}>
           {logotipo.data?.logotipo ? <img src={logotipo.data.logotipo} alt="Logótipo" style={{ maxHeight: 110, maxWidth: 'min(240px, 100%)', objectFit: 'contain', marginBottom: 8 }} /> : null}
-          <h1 className="erp-entrada-titulo">ERP Consulvolt</h1>
-          <Typography.Text type="secondary">Aceda à sua conta para continuar</Typography.Text>
+          <h1 className="erp-entrada-titulo">{portal ? 'Portal do Colaborador' : 'ERP Consulvolt'}</h1>
+          <Typography.Text type="secondary">{portal ? 'Entre com o seu utilizador para aceder ao portal' : 'Aceda à sua conta para continuar'}</Typography.Text>
         </Flex>
         {motivoSaida && <Alert type="info" showIcon message={motivoSaida} style={{ marginBottom: 16 }} />}
         {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}

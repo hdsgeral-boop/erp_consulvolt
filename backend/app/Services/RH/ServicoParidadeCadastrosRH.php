@@ -36,7 +36,11 @@ final class ServicoParidadeCadastrosRH
     public const ENTIDADES = [
         'funcoes' => ['rotulo' => 'Funções', 'modelo' => 'Template_Funcoes', 'colunas' => [
             ['Nome', 'nome', true, 'Nome da função (único na empresa)', 'Técnico Administrativo'],
-            ['Descrição', 'descricao', false, 'Descrição da função (obrigações; aparece no contrato para assinatura)', ''],
+            // #10 (Versão Actual, app_v2.js:4071-4105): as 3 colunas do legado novo; o «Descrição» dos ficheiros antigos vale como responsabilidades
+            ['Objectivo Geral do Cargo', 'objetivo_geral', false, 'Para que existe o cargo, numa frase ou duas (sai na Cláusula 1.ª do contrato)',
+                'Assegurar o apoio administrativo da direcção, garantindo o arquivo e o expediente em dia.'],
+            ['Principais Responsabilidades', 'responsabilidades', false, 'Uma responsabilidade por linha (Alt+Enter na mesma célula); saem numeradas no contrato',
+                "Tratar o expediente;\nOrganizar o arquivo;\nApoiar a direcção."],
         ]],
         'infotipos' => ['rotulo' => 'Infotipos', 'modelo' => 'Template_Infotipos', 'colunas' => [
             ['Nome', 'nome', true, 'Nome da rubrica (único na empresa)', 'Subsídio de Alimentação'],
@@ -217,7 +221,8 @@ final class ServicoParidadeCadastrosRH
     private function lerOrigem(string $entidade): array
     {
         return match ($entidade) {
-            'funcoes' => CargoFuncao::query()->ordenarPorNome()->get(['nome', 'descricao'])->map(fn ($c) => ['nome' => $c->nome, 'descricao' => $c->descricao])->all(),
+            'funcoes' => CargoFuncao::query()->ordenarPorNome()->get(['nome', 'objetivo_geral', 'responsabilidades', 'descricao'])
+                ->map(fn ($c) => ['nome' => $c->nome, 'objetivo_geral' => $c->objetivo_geral, 'responsabilidades' => $c->responsabilidades ?: $c->descricao])->all(),
             'infotipos' => InfotipoSalarial::query()->ordenarPorNome()->get()->map(fn ($i) => ['nome' => $i->nome, 'tipo' => $i->tipo, 'sujeito_inss' => (bool) $i->sujeito_inss,
                 'irt' => $i->irt ?? 'true', 'base_horaria' => (bool) $i->base_horaria, 'calculo_horas' => $i->calculo_horas])->all(),
             'bancos' => Banco::query()->ordenarPorNome()->get()->map(fn ($b) => ['nome' => $b->nome, 'codigo' => $b->codigo, 'nif' => $b->nif, 'endereco' => $b->endereco,
@@ -288,6 +293,10 @@ final class ServicoParidadeCadastrosRH
         foreach ($def['colunas'] as [$cab, $campo]) {
             $l[$campo] = mb_substr($porNome[ServicoPermissoes::norm($cab)] ?? $porNome[$campo] ?? '', 0, 5000);
         }
+        // Funções: ficheiros do template antigo (coluna «Descrição») — vale como responsabilidades, como no legado novo
+        if (array_key_exists('responsabilidades', $l) && $l['responsabilidades'] === '') {
+            $l['responsabilidades'] = mb_substr($porNome[ServicoPermissoes::norm('Descrição')] ?? $porNome['descricao'] ?? '', 0, 5000);
+        }
 
         return $l;
     }
@@ -300,7 +309,8 @@ final class ServicoParidadeCadastrosRH
         }
 
         return match ($entidade) {
-            'funcoes' => ['nome' => $l['nome'], 'descricao' => $l['descricao'] !== '' ? $l['descricao'] : null],
+            'funcoes' => ['nome' => $l['nome'], 'objetivo_geral' => $l['objetivo_geral'] !== '' ? $l['objetivo_geral'] : null,
+                'responsabilidades' => $l['responsabilidades'] !== '' ? $l['responsabilidades'] : null],
             'infotipos' => [
                 'nome' => $l['nome'],
                 'tipo' => $this->dominio($l['tipo'], ['VENCIMENTO' => 'VENCIMENTO', 'PROVENTO' => 'VENCIMENTO', 'DESCONTO' => 'DESCONTO', 'OUTROS' => 'OUTROS'], 'VENCIMENTO', 'Tipo'),

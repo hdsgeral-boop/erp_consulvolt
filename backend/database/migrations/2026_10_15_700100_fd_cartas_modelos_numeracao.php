@@ -12,7 +12,11 @@ use Illuminate\Support\Facades\Schema;
  *     cada empresa/tipo fica predefinido (os dados migrados continuam a valer como o texto padrão do legado).
  *   - cartas_pagamento_bancario: numeração própria por empresa e ano (CP 2026/001) — índice único parcial (só as cartas
  *     numeradas; as cartas antigas do RH não têm número).
- * Aditiva, com guardas: as colunas novas não estão no esquema.json (gravadas com forceFill no serviço).
+ * Aditiva, com guardas — numa base nova NÃO faz nada: as colunas nome/predefinido (boolean NOT NULL DEFAULT false), os dois índices
+ * únicos parciais (uq_modelos_cartas_pagamento_empresa_id_tipo WHERE predefinido e uq_cartas_pagamento_bancario_empresa_id_ano_sequencia
+ * WHERE ano/sequencia preenchidos) vêm do gerador (esquema_extra.mjs: COLUNAS_NOVAS e UNICOS; esquema.json). Só numa base anterior à
+ * regeneração cria as colunas, acerta o predefinido (NOT NULL DEFAULT false) e cria os índices com os nomes antigos (ux_…), se não
+ * existir já um índice equivalente. A marcação do modelo predefinido na migração do legado é do ETL (posCargaFases).
  */
 return new class extends Migration
 {
@@ -27,17 +31,32 @@ return new class extends Migration
                     $table->boolean('predefinido')->default(false)->comment('Modelo usado por omissão no tipo (um por empresa e tipo)');
                 }
             });
+            // base com a coluna gerada antes de ter o valor por omissão (nullable): passa a NOT NULL DEFAULT false
+            if (DB::selectOne("SELECT is_nullable FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'modelos_cartas_pagamento' AND column_name = 'predefinido'")?->is_nullable === 'YES') {
+                DB::statement('UPDATE modelos_cartas_pagamento SET predefinido = false WHERE predefinido IS NULL');
+                DB::statement('ALTER TABLE modelos_cartas_pagamento ALTER COLUMN predefinido SET DEFAULT false, ALTER COLUMN predefinido SET NOT NULL');
+            }
             DB::statement(<<<'SQL'
                 UPDATE modelos_cartas_pagamento m SET predefinido = true
                 WHERE m.id IN (SELECT MIN(id) FROM modelos_cartas_pagamento GROUP BY empresa_id, tipo)
                   AND NOT EXISTS (SELECT 1 FROM modelos_cartas_pagamento o WHERE o.empresa_id = m.empresa_id AND o.tipo IS NOT DISTINCT FROM m.tipo AND o.predefinido)
             SQL);
-            DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS ux_modelos_cartas_pagamento_predefinido ON modelos_cartas_pagamento (empresa_id, tipo) WHERE predefinido');
+            if (! $this->existeIndice('uq_modelos_cartas_pagamento_empresa_id_tipo')) {
+                DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS ux_modelos_cartas_pagamento_predefinido ON modelos_cartas_pagamento (empresa_id, tipo) WHERE predefinido');
+            }
         }
 
         if (Schema::hasTable('cartas_pagamento_bancario')) {
-            DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS ux_cartas_pagamento_bancario_numeracao ON cartas_pagamento_bancario (empresa_id, ano, sequencia) WHERE ano IS NOT NULL AND sequencia IS NOT NULL');
+            if (! $this->existeIndice('uq_cartas_pagamento_bancario_empresa_id_ano_sequencia')) {
+                DB::statement('CREATE UNIQUE INDEX IF NOT EXISTS ux_cartas_pagamento_bancario_numeracao ON cartas_pagamento_bancario (empresa_id, ano, sequencia) WHERE ano IS NOT NULL AND sequencia IS NOT NULL');
+            }
         }
+    }
+
+    /** Índice do gerador (esquema novo) já presente: não se cria o equivalente com o nome antigo. */
+    private function existeIndice(string $nome): bool
+    {
+        return DB::selectOne('SELECT 1 AS existe FROM pg_indexes WHERE schemaname = current_schema() AND indexname = ?', [$nome]) !== null;
     }
 
     public function down(): void

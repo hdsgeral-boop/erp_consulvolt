@@ -237,9 +237,9 @@ function Pedidos() {
         locale={{ emptyText: <Empty description="Sem pedidos." /> }}
         columns={[
           { title: 'N.º', dataIndex: 'id', width: 70 },
-          { title: 'Acção', dataIndex: 'rotulo_acao', render: (v: string, p) => (<>{v}{p.resumo_parametros && <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{p.resumo_parametros}</div>}</>) },
+          { title: 'Acção', dataIndex: 'rotulo_acao', render: (v: string, p) => (<>{v}{p.resumo_parametros && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{p.resumo_parametros}</Typography.Text>}</>) },
           { title: 'Âmbito', key: 'ambito', responsive: ['md'], render: (_, p) => (p.ambito === 'sistema' ? <Tag>Sistema</Tag> : p.nome_empresa_ambito) },
-          { title: 'Pedido por', key: 'por', render: (_, p) => <>{p.pedido_por?.nome_utilizador}<div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{formatarDataHora(p.pedido_em)}</div></> },
+          { title: 'Pedido por', key: 'por', render: (_, p) => <>{p.pedido_por?.nome_utilizador}<Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{formatarDataHora(p.pedido_em)}</Typography.Text></> },
           { title: 'Aprovado por', key: 'apr', responsive: ['lg'], render: (_, p) => p.aprovado_por?.nome_utilizador ?? '—' },
           { title: 'Estado', dataIndex: 'estado', render: (e: string) => <Tag color={CORES[e]}>{ROTULOS[e] ?? e}</Tag> },
           { title: 'Expira', dataIndex: 'expira_em', responsive: ['md'], render: formatarDataHora },

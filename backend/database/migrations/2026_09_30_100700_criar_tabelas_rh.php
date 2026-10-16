@@ -134,6 +134,8 @@ return new class extends Migration
             $table->jsonb('suspensoes')->nullable()->comment('legado: suspensoes · do código legado Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:153');
             $table->jsonb('cessacao')->nullable()->comment('legado: cessacao · do código legado Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:213');
             $table->jsonb('cessacoes_anuladas')->nullable()->comment('legado: cessacoes_anuladas · do código legado Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:236');
+            $table->text('motivo_termo')->nullable()->comment('legado: motivo_termo · do código legado Versões/v4/ERP/js/app_v2.js:5063');
+            $table->integer('periodo_experimental_dias')->nullable()->comment('legado: periodo_experimental_dias · do código legado Versões/v4/ERP/js/app_v2.js:5066');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
@@ -282,6 +284,7 @@ return new class extends Migration
             $table->timestampTz('criado_em')->nullable()->useCurrent()->comment('legado: criado_em');
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_cartas_pagamento_bancario_empresa_id_ano_sequencia ON cartas_pagamento_bancario (empresa_id, ano, sequencia) WHERE ano IS NOT NULL AND sequencia IS NOT NULL');
         DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_empresa_id ON cartas_pagamento_bancario (empresa_id)');
         DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_documento_tesouraria_id ON cartas_pagamento_bancario (documento_tesouraria_id)');
         DB::statement('CREATE INDEX ix_cartas_pagamento_bancario_periodo_processamento_salarial_id ON cartas_pagamento_bancario (periodo_processamento_salarial_id)');

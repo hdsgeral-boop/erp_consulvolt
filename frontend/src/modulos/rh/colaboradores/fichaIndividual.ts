@@ -36,11 +36,17 @@ function refNome(r: ReferenciaNome | null | undefined): string {
   return r ? [r.codigo, r.nome].filter(Boolean).join(' — ') : '';
 }
 
-/** Contrato em vigor: o activo mais recente (como o antigo). */
-export function contratoEmVigor(contratos: ContratoTrabalho[]): ContratoTrabalho | null {
-  return [...contratos]
-    .filter((c) => String(c.estado ?? '').toUpperCase() === 'ACTIVO')
-    .sort((x, y) => String(y.data_inicio ?? '').localeCompare(String(x.data_inicio ?? '')))[0] ?? null;
+/**
+ * Contrato «vigente» (#7, Versão Actual; RegrasContrato::vigente no servidor): o que abrange a data e não está INACTIVO
+ * (ACTIVO, SUSPENSO ou CESSADO — a ficha de quem tem o contrato suspenso ou cessado continua a mostrá-lo); senão o
+ * ACTIVO mais recente; senão o mais recente de todos.
+ */
+export function contratoEmVigor(contratos: ContratoTrabalho[], hoje: string = new Date().toISOString().slice(0, 10)): ContratoTrabalho | null {
+  const recentes = [...contratos].sort((x, y) => String(y.data_inicio ?? '').localeCompare(String(x.data_inicio ?? '')) || y.id - x.id);
+  const estado = (c: ContratoTrabalho) => String(c.estado ?? 'ACTIVO').toUpperCase();
+  const abrange = (c: ContratoTrabalho) => (!c.data_inicio || c.data_inicio.slice(0, 10) <= hoje) && (!c.data_fim || c.data_fim.slice(0, 10) >= hoje);
+  const naData = recentes.filter((c) => abrange(c) && estado(c) !== 'INACTIVO');
+  return naData.find((c) => estado(c) === 'ACTIVO') ?? naData[0] ?? recentes.find((c) => estado(c) === 'ACTIVO') ?? recentes[0] ?? null;
 }
 
 export function fichaIndividualHtml(c: FichaColaborador, contratos: ContratoTrabalho[], ctx: ContextoFicha): string {
@@ -49,7 +55,7 @@ export function fichaIndividualHtml(c: FichaColaborador, contratos: ContratoTrab
   const sexo = c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : '';
   const idade = calcularIdade(c.data_nascimento, ctx.hoje);
   const tipo = [c.avencado ? 'Avençado' : '', c.reformado ? 'Aposentado' : ''].filter(Boolean).join(', ') || 'Normal';
-  const contrato = contratoEmVigor(contratos);
+  const contrato = contratoEmVigor(contratos, ctx.hoje ?? undefined);
   const estadoCivil = ESTADOS_CIVIS.find((e) => e.value === c.estado_civil)?.label ?? c.estado_civil;
   const parentesco = (p: string | null | undefined) => PARENTESCOS.find((x) => x.value === p)?.label ?? p ?? '';
 

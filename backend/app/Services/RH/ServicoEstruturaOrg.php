@@ -174,6 +174,11 @@ final class ServicoEstruturaOrg
     public function guardarPosto(array $d, ?PostoTrabalho $p = null): PostoTrabalho
     {
         UnidadeOrganica::query()->findOrFail($d['unidade_organica_id']);
+        // #10 (Versão Actual, estrutura_dados.js:168): um cargo NOVO tem de ter função — é dela que herda o objectivo geral e as
+        // responsabilidades; os cargos antigos sem função continuam editáveis
+        if (! $p && empty($d['cargo_funcao_id'])) {
+            throw new ErroNegocio('Escolha a função do cargo: é dela que vêm o objectivo geral e as responsabilidades (RH › Funções).', 'POSTO_SEM_FUNCAO', 422);
+        }
         if (empty($d['cargo_funcao_id']) && trim((string) ($d['titulo'] ?? '')) === '') {
             throw new ErroNegocio('Indique o cargo ou o título do posto.', 'POSTO_SEM_CARGO', 422);
         }
@@ -214,14 +219,43 @@ final class ServicoEstruturaOrg
         if (CargoFuncao::query()->whereRaw('lower(nome) = lower(?)', [$d['nome']])->when($c, fn ($q) => $q->whereKeyNot($c->id))->exists()) {
             throw new ErroNegocio("Já existe o cargo «{$d['nome']}».", 'CARGO_DUPLICADO', 422);
         }
+        // #10 (Versão Actual, app_v2.js:4126): objectivo geral e responsabilidades; o `descricao` antigo fica a espelhar as
+        // responsabilidades (template antigo, cópias e leituras antigas nunca divergem)
+        foreach (['objetivo_geral', 'responsabilidades', 'descricao'] as $k) {
+            if (array_key_exists($k, $d)) {
+                $d[$k] = trim((string) $d[$k]) === '' ? null : trim((string) $d[$k]);
+            }
+        }
+        if (! array_key_exists('responsabilidades', $d) && array_key_exists('descricao', $d)) {
+            $d['responsabilidades'] = $d['descricao'];
+        }
+        if (array_key_exists('responsabilidades', $d)) {
+            $d['descricao'] = $d['responsabilidades'];
+        }
         $c ? $c->update($d) : $c = CargoFuncao::create($d);
 
         return $c->refresh();
     }
 
+    /** Cargos da estrutura orgânica que usam a função (herdam o descritivo): «Unidade — título». @return list<string> */
+    public function cargosDaFuncao(int $funcao): array
+    {
+        $unidades = UnidadeOrganica::query()->withTrashed()->pluck('nome', 'id');
+
+        return PostoTrabalho::query()->where('cargo_funcao_id', $funcao)->orderBy('unidade_organica_id')->orderBy('ordem')->orderBy('id')->get()
+            ->map(fn ($p) => trim(($unidades[$p->unidade_organica_id] ?? '—').($p->titulo ? " — {$p->titulo}" : '')))->all();
+    }
+
     public function eliminarCargo(CargoFuncao $c): void
     {
-        $this->referencias->exigirLivre('cargos_funcoes', $c->id, "o cargo {$c->nome}");
+        // #10 (app_v2.js:4196-4205): uma função que descreve cargos da estrutura orgânica não se elimina (ficariam sem descritivo)
+        $cargos = $this->cargosDaFuncao($c->id);
+        if ($cargos) {
+            throw new ErroNegocio("Não é possível eliminar a função «{$c->nome}»: há ".count($cargos).' cargo(s) da estrutura orgânica a usá-la: '
+                .implode('; ', array_slice($cargos, 0, 20)).(count($cargos) > 20 ? '; …' : '').'. Altere ou elimine esses cargos em RH › Estrutura Orgânica primeiro.',
+                'REGISTO_EM_USO', 422, ['cargos' => $cargos]);
+        }
+        $this->referencias->exigirLivre('cargos_funcoes', $c->id, "a função {$c->nome}");
         $c->delete();
     }
 

@@ -1,10 +1,11 @@
-import { Alert, Button, Checkbox, Flex, Form, Input, InputNumber, Modal, Radio, Select, Space, Table, Tag, TimePicker, Tooltip, Typography } from 'antd';
+import { Alert, Button, Checkbox, Flex, Form, Input, InputNumber, Modal, Radio, Select, Space, Table, Tag, TimePicker, Tooltip, Typography, theme } from 'antd';
 import { CopyOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { pares, tabelaHtml } from '@/componentes/impressao';
 import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -16,6 +17,7 @@ import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { TIPOS_MEIO, TIPOS_TERMINAL, useTerminais } from './comum/dados';
 import { classeLiquidacao, meiosPadrao, meiosParaApi, validarMeios } from './comum/meios';
 import { accoesTerminal } from './comum/regras';
+import { SO_GRADE } from './comum/formularios';
 import type { MeioPagamento, Terminal, TipoTerminal } from './comum/tipos';
 
 import { TabelaComModos } from '@/componentes/vistas';
@@ -236,6 +238,7 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
   const novo = alvo === 'novo';
   const t = alvo && alvo !== 'novo' ? alvo : null;
   const tipo = Form.useWatch('tipo', form);
+  const { token } = theme.useToken();
   const gravar = useAccao({ invalidar: [['pos']], aoSucesso: aoFechar, tituloErro: 'Não foi possível gravar o terminal' });
 
   useEffect(() => {
@@ -313,20 +316,23 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
   };
 
   return (
-    <Modal
-      open={!!alvo}
-      onCancel={aoFechar}
+    // Só grade (também em «Novo terminal»): cada terminal tem série, meios de pagamento e contas próprias, que não cabem
+    // numa linha; os campos ficam em secções recolhíveis como os blocos do editor do legado (pos_gestao.js:783-851).
+    <ModalFormulario
+      chave="pos.terminais"
+      {...SO_GRADE}
+      aberto={!!alvo}
+      aoFechar={aoFechar}
       width={larguraModal(980)}
       className="pos-editor-terminal"
-      title={
+      titulo={
         <span>
-          <IconeFa nome="desktop" style={{ color: 'var(--erp-primaria, #2563eb)' }} /> {novo ? 'Novo terminal' : 'Configurar terminal'}
+          <IconeFa nome="desktop" style={{ color: token.colorPrimary }} /> {novo ? 'Novo terminal' : 'Configurar terminal'}
         </span>
       }
-      destroyOnHidden
       maskClosable={false}
       footer={
-        <Flex justify="end" gap={8} style={{ borderTop: '1px solid #f1f5f9', paddingTop: '0.9rem' }}>
+        <Flex justify="end" gap={8} style={{ borderTop: `1px solid ${token.colorSplit}`, paddingTop: '0.9rem' }}>
           <Button onClick={aoFechar}>Cancelar</Button>
           <Button type="primary" icon={<IconeFa nome="save" />} loading={gravar.isPending} onClick={() => form.submit()}>
             Gravar terminal
@@ -335,7 +341,8 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
       }
     >
       <Form form={form} layout="vertical" onFinish={enviar} requiredMark={false} className="pos-editor-form">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.7rem', borderTop: '1px solid #f1f5f9', paddingTop: '0.9rem' }}>
+        <SeccaoFormulario titulo="Identificação e operação">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.7rem' }}>
           <Form.Item
             name="codigo"
             label="Código (série FR-POS/código/ano)"
@@ -359,6 +366,10 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
           <Form.Item name="cliente_padrao_id" label="Cliente por omissão">
             <SeletorTerceiro papel="CLIENTE" placeholder="— Consumidor Final —" />
           </Form.Item>
+        </div>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Contabilidade analítica" recolhida={!t?.unidade_negocio_id && !t?.centro_custo_id}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.7rem' }}>
           <Form.Item name="unidade_negocio_id" label="Unidade de negócio">
             <SeletorUnidade style={{ width: '100%' }} placeholder="— nenhuma —" />
           </Form.Item>
@@ -366,12 +377,17 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
             <SeletorAux tabela="centros-custo" placeholder="— nenhum —" style={{ width: '100%' }} />
           </Form.Item>
         </div>
+        </SeccaoFormulario>
 
         {tipo === 'HOTELARIA' && (
-          <div style={{ marginTop: '1rem', border: '1px solid #fde68a', background: '#fffbeb', borderRadius: 4, padding: '0.8rem' }}>
-            <h4 style={{ margin: '0 0 0.6rem', fontSize: '0.9rem' }}>
-              <IconeFa nome="hotel" /> Regras da hotelaria
-            </h4>
+          <SeccaoFormulario
+            titulo={
+              <span>
+                <IconeFa nome="hotel" /> Regras da hotelaria
+              </span>
+            }
+          >
+          <div style={{ border: `1px solid ${token.colorWarningBorder}`, background: token.colorWarningBg, borderRadius: 4, padding: '0.8rem' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.7rem' }}>
               <Form.Item name="hotel_hora_entrada" label="Hora de entrada (check-in)">
                 <TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
@@ -392,19 +408,22 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
                 <TimePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
               </Form.Item>
             </div>
-            <p style={{ margin: '0.5rem 0 0', fontSize: '0.74rem', color: '#92400e' }}>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.74rem', color: token.colorWarningText }}>
               Diária: a saída prevista é às {textoHora(form.getFieldValue('hotel_hora_saida')) ?? '12:00'} do dia seguinte a cada diária. Depois da tolerância o check-out propõe o recálculo e o operador confirma.
             </p>
           </div>
+          </SeccaoFormulario>
         )}
 
         <Form.List name="meios_pagamento">
           {(campos, { add, remove }) => (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1.2rem 0 0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <h4 style={{ margin: 0, fontSize: '0.9rem' }}>
+            <SeccaoFormulario
+              titulo={
+                <span>
                   <IconeFa nome="credit-card" /> Meios de pagamento aceites
-                </h4>
+                </span>
+              }
+              extra={
                 <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                   <Button size="small" icon={<IconeFa nome="copy" />} onClick={() => setACopiar(true)} disabled={!terminais.some((x) => x.id !== t?.id)}>
                     Copiar de outro terminal
@@ -420,11 +439,12 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
                     </Button>
                   ))}
                 </div>
-              </div>
-              <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
+              }
+            >
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: token.colorTextSecondary }}>
                 A venda debita a <strong>conta transitória</strong> do meio. A prestação de contas transfere-a para a <strong>conta de liquidação</strong>: numerário para a Folha de Caixa, TPA para o banco (com comissão) e transferências comprovativo a comprovativo.
               </p>
-              {campos.length === 0 && <div style={{ padding: '1rem', color: '#b91c1c' }}>Adicione pelo menos um meio de pagamento.</div>}
+              {campos.length === 0 && <div style={{ padding: '1rem', color: token.colorError }}>Adicione pelo menos um meio de pagamento.</div>}
               {campos.map((campo) => (
                 <EditorMeio
                   key={campo.key}
@@ -441,7 +461,7 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
                   }
                 />
               ))}
-            </>
+            </SeccaoFormulario>
           )}
         </Form.List>
         {erros.length > 0 && (
@@ -472,7 +492,7 @@ function EditorTerminal({ alvo, terminais, aoFechar }: { alvo: Terminal | 'novo'
           Os meios actuais são substituídos no editor; só ficam gravados com «Gravar terminal». Para copiar de outra empresa use o botão de cópia na lista.
         </Typography.Paragraph>
       </Modal>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
@@ -486,12 +506,13 @@ function EditorMeio({ nome, aoRemover }: { nome: number; aoRemover: () => void }
   const ativo = Form.useWatch(['meios_pagamento', nome, 'ativo'], form) as boolean | undefined;
   const deduzida = Form.useWatch(['meios_pagamento', nome, 'comissao_deduzida'], form) as boolean | undefined;
   const tpa = tipo === 'TPA';
+  const { token } = theme.useToken();
   // linha do legado (posEditorDesenharMeios, pos_gestao.js:832-851)
   return (
     <div
       className="pos-editor-meio"
       style={{
-        border: `1px solid ${ativo === false ? '#e2e8f0' : '#cbd5e1'}`,
+        border: `1px solid ${ativo === false ? token.colorBorderSecondary : token.colorBorder}`,
         borderLeft: `4px solid ${tipo ? COR_MEIO[tipo] ?? '#334155' : '#334155'}`,
         borderRadius: 4,
         padding: '0.6rem 0.75rem',
@@ -551,7 +572,7 @@ function EditorMeio({ nome, aoRemover }: { nome: number; aoRemover: () => void }
               ]}
             />
           </Form.Item>
-          <div style={{ fontSize: '0.72rem', color: '#64748b', alignSelf: 'end', paddingBottom: '0.4rem' }}>
+          <div style={{ fontSize: '0.72rem', color: token.colorTextSecondary, alignSelf: 'end', paddingBottom: '0.4rem' }}>
             {deduzida === false ? 'O banco credita o valor total; a comissão fica como pagamento separado na Tesouraria.' : 'O banco credita o valor líquido (total menos a comissão).'} A comissão é sugerida na liquidação e pode ser acertada pelo extracto.
           </div>
         </div>

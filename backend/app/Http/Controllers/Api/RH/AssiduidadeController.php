@@ -87,7 +87,8 @@ final class AssiduidadeController extends Controller
         $d = $r->validate(['ficheiro' => ['required', 'file', 'max:10240', 'mimes:csv,txt,xlsx,xls'], 'substituir' => ['nullable', 'boolean']]);
         $res = $this->assiduidade->importar($d['ficheiro'], (bool) ($d['substituir'] ?? true));
 
-        return RespostaApi::sucesso($res, "Importação: {$res['gravados']} registo(s) gravado(s), {$res['ignorados']} ignorado(s), ".count($res['erros']).' erro(s).');
+        return RespostaApi::sucesso($res, "Importação: {$res['gravados']} registo(s) gravado(s), {$res['ignorados']} ignorado(s), {$res['em_branco']} linha(s) em branco, "
+            .count($res['erros']).' erro(s).');
     }
 
     // ───────────── Mês ─────────────
@@ -98,6 +99,8 @@ final class AssiduidadeController extends Controller
         $f = $this->assiduidade->estadoMes($mes);
         $resumo = $f?->estado === 'FECHADO' ? ['mes' => $f->mes, 'dias_uteis' => $f->dias_uteis, 'apurado_ate' => $f->apurado_ate?->toDateString(), 'linhas' => $f->linhas, 'totais' => $f->totais]
             : $this->assiduidade->resumoMes($mes);
+        // art. 230.º da Lei 12/23: acumulado anual das faltas injustificadas (mais de 12 no ano) e n.º de colaboradores com faltas
+        $resumo = $this->assiduidade->comFaltasDoAno($resumo);
 
         return RespostaApi::sucesso($resumo + ['estado' => $f?->estado ?? 'ABERTO', 'fecho' => $f?->only(['id', 'fechado_em', 'fechado_por', 'reaberto_em', 'reaberto_por',
             'motivo_reabertura', 'lancado_em', 'lancado_por', 'periodo_processamento_salarial_id', 'ausencias_geradas'])], 'Apuramento do mês.');

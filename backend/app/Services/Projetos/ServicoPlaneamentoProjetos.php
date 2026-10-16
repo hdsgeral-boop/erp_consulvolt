@@ -148,7 +148,8 @@ final class ServicoPlaneamentoProjetos
     {
         $tarefas = $this->tarefas($p);
         $porId = $tarefas->keyBy('id');
-        $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->orderByRaw('COALESCE(data_inicio, data)')->orderBy('data')->orderBy('id')->get();
+        // fases pela ordem de criação (id), como o legado (project_milestones.where('project_id') no Dexie, ui_projects.js:753)
+        $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->orderBy('id')->get();
         $prog = self::progresso($tarefas);
         $cal = RegrasMetasProjetos::calendario($p->calendario);
         $horas = FolhaHorasProjeto::query()->where('projeto_id', $p->id)->groupBy('tarefa_projeto_id')->selectRaw('tarefa_projeto_id, SUM(horas) AS h')->pluck('h', 'tarefa_projeto_id');

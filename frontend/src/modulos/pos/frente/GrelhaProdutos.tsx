@@ -5,6 +5,7 @@ import { formatarKz } from '@/utilitarios/formatacao';
 import { useImagemProduto } from '@/modulos/vendas/produtos/imagemProduto';
 import { contarCategorias, corStock, eServico, filtrarPorStock, iconeCategoria, urlImagemSegura, stockDe, type FiltroStock, type PreferenciasFrente, type StockFrente } from '../comum/frente';
 import { filtrarProdutos } from '../comum/produtos';
+import { useCoresPos } from '../comum/cores';
 import type { ProdutoPOS } from '../comum/tipos';
 
 const MAX_GRELHA = 48;
@@ -28,17 +29,19 @@ interface Props {
 }
 
 const pilula = (activo: boolean, cor: string, fundo: string): CSSProperties => ({
-  border: 'none', borderRadius: 20, padding: '0 0.85rem', height: 38, fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer',
+  border: 'none', borderRadius: 4, padding: '0 0.85rem', height: 38, fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer',
   color: activo ? cor : '#64748b', background: activo ? fundo : 'transparent',
 });
 
-const caixa: CSSProperties = { display: 'flex', background: '#fff', padding: 4, borderRadius: 30, border: '1px solid #e2e8f0', gap: 4, height: 46, alignItems: 'center', flexShrink: 0 };
+const caixaFiltro = (fundo: string, borda: string): CSSProperties => ({ display: 'flex', background: fundo, padding: 4, borderRadius: 30, border: `1px solid ${borda}`, gap: 4, height: 46, alignItems: 'center', flexShrink: 0 });
 
 /**
  * Pesquisa, filtro de stock, «Ocultar Imagens», grelha/lista, chips de categoria com contagem e cartões de produto do
  * legado (renderPOSTab + renderPOSProductsGrid, js/ui_sales.js:6602-6650 e 6893-7044).
  */
 export function GrelhaProdutos({ produtos, categorias, stock, imagens, pesquisa, aoPesquisar, aoLer, aoEscolher, preferencias, aoMudarPreferencias, refPesquisa, carregando, erro }: Props) {
+  const cores = useCoresPos();
+  const caixa = caixaFiltro(cores.fundo, cores.borda);
   const [categoria, setCategoria] = useState<number | null>(null);
   const [limite, setLimite] = useState(MAX_GRELHA);
   const lista = preferencias.disposicao === 'list';
@@ -114,11 +117,11 @@ export function GrelhaProdutos({ produtos, categorias, stock, imagens, pesquisa,
                   setCategoria(c.id);
                   setLimite(MAX_GRELHA);
                 }}
-                style={{ fontSize: '0.8rem', padding: '0.45rem 1rem', borderRadius: 20, display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: 600,
-                  border: `1px solid ${activo ? '#2563eb' : '#cbd5e1'}`, background: activo ? '#2563eb' : '#fff', color: activo ? '#fff' : '#475569' }}
+                style={{ fontSize: '0.8rem', padding: '0.45rem 1rem', borderRadius: 4, display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap', cursor: 'pointer', fontWeight: 600,
+                  border: `1px solid ${activo ? '#2563eb' : '#cbd5e1'}`, background: activo ? '#2563eb' : cores.fundo, color: activo ? '#fff' : '#475569' }}
               >
                 <IconeFa nome={c.icone} /> {c.nome}
-                <span style={{ background: activo ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.06)', fontSize: '0.7rem', borderRadius: 10, padding: '1px 6px', marginLeft: 3 }}>{c.total}</span>
+                <span style={{ background: activo ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.06)', fontSize: '0.7rem', borderRadius: 4, padding: '1px 6px', marginLeft: 3 }}>{c.total}</span>
               </button>
             );
           })}
@@ -161,25 +164,26 @@ export function GrelhaProdutos({ produtos, categorias, stock, imagens, pesquisa,
 }
 
 function CartaoProduto({ produto: p, lista, stock, urlImagem, ocultarAvatar, icone, aoEscolher }: { produto: ProdutoPOS; lista: boolean; stock: number | null; urlImagem: string | null; ocultarAvatar: boolean; icone: string; aoEscolher: (p: ProdutoPOS) => void }) {
+  const cores = useCoresPos();
   const servico = eServico(p);
   // imagem do produto (módulo de Vendas): lida com autenticação e mostrada como blob; sem imagem fica o ícone da categoria
   const imagem = useImagemProduto(urlImagem);
   // como no legado, um produto de inventário esgotado não se adiciona (o servidor também recusa a venda)
   const esgotado = !servico && stock !== null && stock <= 0;
   const etiqueta = servico ? (
-    <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: 10, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontWeight: 700 }}>Serviço</span>
+    <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: 4, background: 'rgba(124,58,237,0.1)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.2)', fontWeight: 700 }}>Serviço</span>
   ) : stock !== null ? (
-    <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: 10, fontWeight: 700, background: COR_ETIQUETA[corStock(stock)].fundo, color: COR_ETIQUETA[corStock(stock)].texto }}>
+    <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: 4, fontWeight: 700, background: COR_ETIQUETA[corStock(stock)].fundo, color: COR_ETIQUETA[corStock(stock)].texto }}>
       Stock: {Number.isInteger(stock) ? stock : stock.toLocaleString('pt-PT')}
     </span>
   ) : null;
   const avatar = ocultarAvatar ? null : (
-    <div style={{ width: lista ? 36 : 50, height: lista ? 36 : 50, borderRadius: lista ? 8 : 12, background: 'rgba(59,130,246,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ width: lista ? 36 : 50, height: lista ? 36 : 50, borderRadius: lista ? 4 : 4, background: 'rgba(59,130,246,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
       {imagem ? <img src={imagem} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <IconeFa nome={icone} style={{ fontSize: lista ? '1.1rem' : '1.5rem', color: '#2563eb' }} />}
     </div>
   );
   const comum: CSSProperties = {
-    background: '#fff', border: '1px solid #e2e8f0', cursor: esgotado ? 'not-allowed' : 'pointer', position: 'relative', overflow: 'hidden', textAlign: 'left',
+    background: cores.fundo, border: `1px solid ${cores.borda}`, cursor: esgotado ? 'not-allowed' : 'pointer', position: 'relative', overflow: 'hidden', textAlign: 'left',
     boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', opacity: esgotado ? 0.65 : 1, font: 'inherit', color: 'inherit', width: '100%',
   };
   const codigo = <small style={{ fontSize: '0.65rem', color: '#94a3b8', display: 'block', marginTop: 2 }}>Cd: {p.codigo?.trim() || '—'}</small>;
@@ -187,14 +191,14 @@ function CartaoProduto({ produto: p, lista, stock, urlImagem, ocultarAvatar, ico
 
   return (
     <button type="button" className="pos-cartao-produto" title={p.nome} aria-disabled={esgotado} onClick={() => !esgotado && aoEscolher(p)}
-      style={lista ? { ...comum, borderRadius: 12, padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' } : { ...comum, borderRadius: 15, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
+      style={lista ? { ...comum, borderRadius: 4, padding: '0.6rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' } : { ...comum, borderRadius: 4, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
     >
       {lista ? (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
             {avatar}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <strong style={{ fontSize: '0.82rem', color: '#1e293b', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nome}</strong>
+              <strong style={{ fontSize: '0.82rem', color: cores.texto, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nome}</strong>
               {codigo}
             </div>
           </div>
@@ -209,7 +213,7 @@ function CartaoProduto({ produto: p, lista, stock, urlImagem, ocultarAvatar, ico
           {avatar && <div style={{ marginBottom: '0.25rem' }}>{avatar}</div>}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: '100%', marginTop: avatar ? 0 : 18 }}>
             <div>
-              <strong style={{ fontSize: '0.8rem', color: '#1e293b', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3, height: '2.6em' }}>{p.nome}</strong>
+              <strong style={{ fontSize: '0.8rem', color: cores.texto, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3, height: '2.6em' }}>{p.nome}</strong>
               {codigo}
             </div>
             <div style={{ marginTop: '0.75rem', textAlign: 'right' }}>{preco}</div>

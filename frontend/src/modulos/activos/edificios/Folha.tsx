@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, Empty, Input, Modal, Row, Select, Space, Spin, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Input, Modal, Select, Space, Spin, Table, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos';
 import { BotaoImprimir } from '@/componentes/impressao';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { SeletorActivo } from '../comum/componentes';
@@ -186,14 +187,15 @@ export function ComparacaoInventarioEcra() {
           </Space>
         }
       >
-        <Row gutter={[12, 12]}>
-          <Col xs={12} md={5}><Statistic title="Encontrados" value={r.encontrados.n} /><small>{formatarKz(r.encontrados.valor)}</small></Col>
-          <Col xs={12} md={5}><Statistic title="Em falta" value={r.em_falta.n} valueStyle={{ color: r.em_falta.n ? '#dc2626' : undefined }} /><small>{formatarKz(r.em_falta.valor)}</small></Col>
-          <Col xs={12} md={5}><Statistic title="Noutro local" value={r.deslocados.n} /><small>{formatarKz(r.deslocados.valor)}</small></Col>
-          <Col xs={12} md={5}><Statistic title="Não previstos" value={r.extras.n} /><small>{formatarKz(r.extras.valor)}</small></Col>
-          <Col xs={24} md={4}><Statistic title="Conformidade" value={r.conformidade} precision={1} suffix="%" decimalSeparator="," />
-            <small>{r.por_contar ? `${r.por_contar} por contar` : 'contagem completa'}</small></Col>
-        </Row>
+        {/* cartões do legado (assetComparacao, js/activos_edificios.js:873-879): barra à esquerda com a cor de cada resultado */}
+        <GrelhaKpi larguraMinima={165}>
+          <CartaoKpi barra="esquerda" cor="#16a34a" rotulo="Encontrados" valor={r.encontrados.n} secundaria={formatarKz(r.encontrados.valor)} />
+          <CartaoKpi barra="esquerda" cor="#dc2626" rotulo="Em falta" valor={r.em_falta.n} corValor={r.em_falta.n ? '#dc2626' : undefined} secundaria={formatarKz(r.em_falta.valor)} />
+          <CartaoKpi barra="esquerda" cor="#d97706" rotulo="Noutro local" valor={r.deslocados.n} secundaria={formatarKz(r.deslocados.valor)} />
+          <CartaoKpi barra="esquerda" cor="#7c3aed" rotulo="Não previstos" valor={r.extras.n} secundaria={formatarKz(r.extras.valor)} />
+          <CartaoKpi barra="esquerda" cor="#2563eb" rotulo="Conformidade" valor={`${Number(r.conformidade ?? 0).toFixed(1).replace('.', ',')}%`}
+            secundaria={r.por_contar ? `${r.por_contar} por contar` : 'contagem completa'} />
+        </GrelhaKpi>
         {!!r.por_contar && <Alert style={{ marginTop: 12 }} type="warning" showIcon message={`Ainda há ${r.por_contar} bem(ns) por contar — a comparação só fica completa depois de todos marcados.`} />}
       </Card>
       {bloco('Em falta', '#dc2626', grupo('EM_FALTA'), false)}

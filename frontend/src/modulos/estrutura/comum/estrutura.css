@@ -120,3 +120,36 @@
   .org-caixa .tgl, .org-caixa .dsp { display: none; }
   .org-caixa:has(> .dsp) .t { padding-right: 0; }
 }
+
+/*
+ * Tela nocturna (cores do layout/telaNocturna.css): os painéis, a árvore, os indicadores, as tabelas e a barra do
+ * organigrama deixam de ficar claros no escuro. As caixas do organigrama mantêm a cor própria de cada unidade.
+ */
+@media screen {
+  html.erp-tela-nocturna .est-arvore,
+  html.erp-tela-nocturna .est-painel,
+  html.erp-tela-nocturna .org-palco,
+  html.erp-tela-nocturna .org-palco:fullscreen { background: #111a2b; border-color: #1f2a3d; }
+  html.erp-tela-nocturna .est-arvore ul { border-left-color: #334155; }
+  html.erp-tela-nocturna .est-no { color: #e2e8f0; }
+  html.erp-tela-nocturna .est-no:hover { background: #1e293b; }
+  html.erp-tela-nocturna .est-no[aria-current='true'] { background: #1e3a8a; color: #dbeafe; }
+  html.erp-tela-nocturna .est-no .tg,
+  html.erp-tela-nocturna .est-no .n { color: #94a3b8; }
+  html.erp-tela-nocturna .est-kpi { background: #0f172a; border-color: #1f2a3d; }
+  html.erp-tela-nocturna .est-kpi span { color: #94a3b8; }
+  html.erp-tela-nocturna .est-kpi strong { color: #e2e8f0; }
+  html.erp-tela-nocturna .est-tabela th { background: #1e293b; color: #cbd5e1; border-bottom-color: #334155; }
+  html.erp-tela-nocturna .est-tabela td { border-bottom-color: #1f2a3d; }
+  html.erp-tela-nocturna .est-tabela tr.total td { background: #1e293b; }
+  html.erp-tela-nocturna .est-texto { background: #0f172a; color: #cbd5e1; border-left-color: #334155; }
+  html.erp-tela-nocturna .est-aviso { background: #3b2a0a; border-color: #92400e; color: #fde68a; }
+  html.erp-tela-nocturna .est-info { background: #172554; border-color: #1e3a8a; color: #bfdbfe; }
+  html.erp-tela-nocturna .est-ligacao { color: #93c5fd; }
+  html.erp-tela-nocturna .est-tag.neutro { background: #1e293b; color: #cbd5e1; }
+  html.erp-tela-nocturna .org-barra { background: #111a2b; border-color: #1f2a3d; }
+  html.erp-tela-nocturna .org-barra .org-rot { color: #94a3b8; }
+  html.erp-tela-nocturna .org-seg { border-color: #334155; }
+  html.erp-tela-nocturna .org-seg button { background: #0f172a; color: #cbd5e1; border-right-color: #1f2a3d; }
+  html.erp-tela-nocturna .org-seg button[aria-pressed='true'] { background: #1d4ed8; color: #fff; }
+}

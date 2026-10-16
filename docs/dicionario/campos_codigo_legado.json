@@ -2595,6 +2595,16 @@
           "exemplo": [],
           "ref": "Versões/Versão Actual/ERP/js/modules/rh/contrato_estado.js:236",
           "nota": "histórico das cessações anuladas"
+        },
+        "motivo_termo": {
+          "exemplo": "expr: contract.motivo_termo",
+          "ref": "Versões/v4/ERP/js/app_v2.js:5063",
+          "nota": "razões determinantes do contrato a termo (art. 13.º/2-3 da Lei n.º 12/23); lido pela minuta, sem linhas no backup"
+        },
+        "periodo_experimental_dias": {
+          "exemplo": "expr: parseInt(contract.periodo_experimental_dias)",
+          "ref": "Versões/v4/ERP/js/app_v2.js:5066",
+          "nota": "período experimental em dias (art. 18.º; vazio = 60 sem termo, 30 a termo); lido pela minuta, sem linhas no backup"
         }
       }
     },

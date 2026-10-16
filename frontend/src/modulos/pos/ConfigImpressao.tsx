@@ -5,6 +5,7 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { gravarPreferencias, htmlTalaoVenda, imprimirHtml, lerPreferencias, useCabecalhoTalao, type PreferenciasImpressao } from './comum/impressao';
 import './comum/pos.css';
+import { useCoresPos } from './comum/cores';
 
 /** Rótulo com ícone colorido, como no legado (renderPOSConfigPrintTab, ui_sales.js:9831-9905). */
 function Rotulo({ icone, children }: { icone: string; children: ReactNode }) {
@@ -25,6 +26,7 @@ const ajuda = (texto: string) => <span style={{ fontSize: '0.75rem', color: '#64
  */
 export default function ConfigImpressao() {
   const { pode, empresa } = useSessao();
+  const cores = useCoresPos();
   const [form] = Form.useForm<PreferenciasImpressao>();
   const cabecalho = useCabecalhoTalao();
   const podeGravar = pode('pos_print_config');
@@ -58,13 +60,13 @@ export default function ConfigImpressao() {
 
   return (
     // cartão do legado (renderPOSConfigPrintTab, ui_sales.js:9835-9899): cabeçalho com ícone, grelha de 2 colunas e botão à direita
-    <div className="pos-config-impressao" style={{ borderRadius: 20, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0', background: '#fff', padding: '2rem' }}>
+    <div className="pos-config-impressao" style={{ borderRadius: 4, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', border: `1px solid ${cores.borda}`, background: cores.fundo, padding: '2rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(30, 41, 59, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1e293b', fontSize: '1.25rem', flexShrink: 0 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 4, background: 'rgba(30, 41, 59, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1e293b', fontSize: '1.25rem', flexShrink: 0 }}>
           <IconeFa nome="print" />
         </div>
         <div>
-          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#1e293b' }}>Configurações de Impressão do POS</h3>
+          <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: cores.texto }}>Configurações de Impressão do POS</h3>
           <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>Configure o formato, comportamento de impressão e mensagens do rodapé do talão térmico.</p>
         </div>
       </div>
@@ -138,7 +140,7 @@ export default function ConfigImpressao() {
             Imprimir talão de teste
           </Button>
           {podeGravar && (
-            <Button type="primary" htmlType="submit" icon={<IconeFa nome="save" />} style={{ fontWeight: 700, borderRadius: 10, padding: '0 1.8rem', height: 40, boxShadow: '0 4px 10px rgba(59,130,246,0.35)' }}>
+            <Button type="primary" htmlType="submit" icon={<IconeFa nome="save" />} style={{ fontWeight: 700, borderRadius: 4, padding: '0 1.8rem', height: 40, boxShadow: '0 4px 10px rgba(59,130,246,0.35)' }}>
               Guardar Configurações
             </Button>
           )}

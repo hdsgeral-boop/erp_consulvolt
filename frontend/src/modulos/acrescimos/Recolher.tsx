@@ -66,7 +66,7 @@ export default function Recolher() {
       render: (v, c) => (
         <>
           <strong>{v}</strong>
-          {c.descricao && <div style={{ fontSize: '0.74rem', color: '#64748b' }}>{c.descricao}</div>}
+          {c.descricao && <Typography.Text type="secondary" style={{ display: 'block', fontSize: '0.74rem' }}>{c.descricao}</Typography.Text>}
           {!c.contabilizado && <div><Tag color="gold">por contabilizar</Tag></div>}
           {c.em_balanco && <div><Tag color="cyan">lançado na 37</Tag></div>}
           {c.ligado && <div><Tag color="red">já usado</Tag></div>}

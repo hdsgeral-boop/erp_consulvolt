@@ -90,7 +90,7 @@ final class EstruturaPortalTest extends TestCase
 
         // postos: do departamento, 1 vaga; posto sem unidade na afectação → a unidade é a do posto; acima das vagas é aviso
         $p1 = $this->postJson('/api/rh/estrutura/postos', ['unidade_organica_id' => $this->ids['dep'], 'cargo_funcao_id' => $this->ids['cargo'], 'vagas' => 1], $rh)->assertCreated()->json('dados.id');
-        $p2 = $this->postJson('/api/rh/estrutura/postos', ['unidade_organica_id' => $this->ids['dir'], 'titulo' => 'Director', 'posto_superior_id' => $p1], $rh)->assertCreated()->json('dados.id');
+        $p2 = $this->postJson('/api/rh/estrutura/postos', ['unidade_organica_id' => $this->ids['dir'], 'cargo_funcao_id' => $this->ids['cargo'], 'titulo' => 'Director', 'posto_superior_id' => $p1], $rh)->assertCreated()->json('dados.id');
         $this->putJson("/api/rh/estrutura/postos/{$p1}", ['unidade_organica_id' => $this->ids['dep'], 'titulo' => 'Técnico', 'posto_superior_id' => $p2], $rh)
             ->assertStatus(422)->assertJsonPath('codigo', 'CICLO_HIERARQUIA');
         $this->postJson('/api/rh/estrutura/afectacao', ['colaboradores' => [$this->ids['ana']], 'unidade_organica_id' => $this->ids['dir'], 'posto_trabalho_id' => $p1], $rh)

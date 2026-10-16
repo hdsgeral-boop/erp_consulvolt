@@ -6,6 +6,7 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { Quarto } from '../hotelaria/tipos';
 import { contagemQuartos, estadoQuarto } from './quartos';
+import { useCoresPos } from '../comum/cores';
 
 /** Mapa de quartos com a ocupação (GET /pos/hotelaria/quartos), partilhado pela frente de caixa e pelo ecrã da hotelaria. */
 export function useQuartos(terminalId: number | undefined, activo = true) {
@@ -20,10 +21,11 @@ const corPrimaria = '#2563eb';
  * prevista e o total (âmbar; vermelho com a saída atrasada); barra com as contagens e «Balcão (venda directa)».
  */
 export function PainelQuartos({ quartos, carregando, erro, activo, aoEscolher, ocupado }: { quartos: Quarto[] | undefined; carregando?: boolean; erro?: boolean; activo: number | null; aoEscolher: (q: Quarto | null) => void; ocupado?: boolean }) {
+  const cores = useCoresPos();
   const lista = quartos ?? [];
   const c = contagemQuartos(lista);
   return (
-    <div id="pos-tables-panel" style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: 15, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+    <div id="pos-tables-panel" style={{ background: cores.fundo, border: `1px solid ${cores.borda}`, padding: '1.25rem', borderRadius: 4, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', gap: '0.5rem', flexWrap: 'wrap' }}>
         <h4 style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
           <IconeFa nome="door-open" style={{ color: '#10b981' }} /> Mapa de Quartos / Hospedagem em Aberto
@@ -41,10 +43,10 @@ export function PainelQuartos({ quartos, carregando, erro, activo, aoEscolher, o
               fontSize: '0.75rem',
               fontWeight: 600,
               padding: '0.2rem 0.6rem',
-              borderRadius: 6,
+              borderRadius: 4,
               cursor: ocupado ? 'wait' : 'pointer',
               border: `1px solid ${activo === null ? corPrimaria : '#cbd5e1'}`,
-              background: activo === null ? corPrimaria : '#fff',
+              background: activo === null ? corPrimaria : cores.fundo,
               color: activo === null ? '#fff' : '#334155',
             }}
           >
@@ -60,7 +62,7 @@ export function PainelQuartos({ quartos, carregando, erro, activo, aoEscolher, o
             const e = estadoQuarto(q, activo);
             const s = q.estadia;
             const cor = e.situacao === 'ATRASADO' ? '#ef4444' : e.situacao === 'OCUPADO' ? '#f59e0b' : '#e2e8f0';
-            const fundo = e.situacao === 'ATRASADO' ? 'rgba(239,68,68,0.05)' : e.situacao === 'OCUPADO' ? 'rgba(245,158,11,0.05)' : '#fff';
+            const fundo = e.situacao === 'ATRASADO' ? 'rgba(239,68,68,0.05)' : e.situacao === 'OCUPADO' ? 'rgba(245,158,11,0.05)' : cores.fundo;
             return (
               <button
                 key={q.produto_id}
@@ -71,7 +73,7 @@ export function PainelQuartos({ quartos, carregando, erro, activo, aoEscolher, o
                 aria-pressed={e.activo}
                 style={{
                   padding: '0.75rem',
-                  borderRadius: 12,
+                  borderRadius: 4,
                   border: `2px solid ${e.activo ? corPrimaria : cor}`,
                   background: e.activo ? 'rgba(59,130,246,0.05)' : fundo,
                   cursor: ocupado ? 'wait' : 'pointer',

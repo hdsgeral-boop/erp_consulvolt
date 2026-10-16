@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Drawer, Form, Input, InputNumber, Modal, Select, Space, Table, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Drawer, Form, Input, InputNumber, Modal, Select, Space, Table, Typography, theme } from 'antd';
 import { CalculatorOutlined, FileDoneOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -152,6 +152,7 @@ const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julh
 /** Autos de medição (revisões mensais: mão de obra, subempreitadas e equipamentos) e facturação do auto em Vendas. */
 export function SeparadorRevisoes({ projecto, acc }: PropsSeparador) {
   const refSeparador = useRef<HTMLDivElement>(null);
+  const { token } = theme.useToken();
   const q = useQuery({ queryKey: ['projectos', 'revisoes', projecto.id], queryFn: () => obter<Revisao[]>(`/projetos/${projecto.id}/revisoes`) });
   const [nova, setNova] = useState(false);
   const [detalhe, setDetalhe] = useState<number | null>(null);
@@ -168,11 +169,12 @@ export function SeparadorRevisoes({ projecto, acc }: PropsSeparador) {
         pagination={{ pageSize: 24 }}
         onRow={(r) => ({ onClick: () => setDetalhe(r.id), style: { cursor: 'pointer' } })}
         columns={[
+          // colunas do legado (ui_projects.js:689-741): autos (empreiteiros) a verde, mão de obra (interna) a azul, equipamentos (amortização) a âmbar
           { title: 'Referência', dataIndex: 'referencia', render: (v) => <strong>{v}</strong> },
           { title: 'Mês', key: 'm', render: (_, r) => `${MESES[r.mes - 1]} ${r.ano}` },
-          { title: 'Mão de obra', dataIndex: 'total_mao_obra', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
-          { title: 'Subempreitadas', dataIndex: 'total_subempreitadas', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
-          { title: 'Equipamentos', dataIndex: 'total_equipamentos', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero /> },
+          { title: 'Total autos (empreiteiros)', dataIndex: 'total_subempreitadas', align: 'right', render: (v) => <Typography.Text type="success"><ValorKz valor={v} discretoSeZero /></Typography.Text> },
+          { title: 'Total mão de obra (interna)', dataIndex: 'total_mao_obra', align: 'right', render: (v) => <Typography.Text style={{ color: token.colorPrimary }}><ValorKz valor={v} discretoSeZero /></Typography.Text> },
+          { title: 'Total equipamentos (amortização)', dataIndex: 'total_equipamentos', align: 'right', render: (v) => <Typography.Text type="warning"><ValorKz valor={v} discretoSeZero /></Typography.Text> },
           { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaProjectos valor={v} /> },
           { title: 'Facturação', key: 'f', render: (_, r) => faturada(r.faturada) ?? (r.faturavel ? 'Por facturar' : '—') },
           {

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Base\ContratoTrabalhoBase;
+use App\Models\Concerns\InvalidaFaltasDoAno;
 
 /**
  * contratos_trabalho — /api/rh/contratos.
@@ -15,6 +16,8 @@ use App\Models\Base\ContratoTrabalhoBase;
  */
 class ContratoTrabalho extends ContratoTrabalhoBase
 {
+    use InvalidaFaltasDoAno;   // horário, horas/dia, datas, suspensão e cessação entram no apuramento (CacheFaltasDoAno)
+
     public const ESTADOS = ['ACTIVO', 'INACTIVO', 'SUSPENSO', 'CESSADO'];
 
     /** Colunas da Fase B (JSON da suspensão e da cessação). */

@@ -1,4 +1,4 @@
-import { Alert, Card, DatePicker, Flex, Select, Skeleton, Table, Typography } from 'antd';
+import { Alert, Card, DatePicker, Flex, Select, Skeleton, Table, Typography, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -6,14 +6,23 @@ import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { GraficoBarras } from '@/componentes/graficos/Graficos';
 import { scrollTabela } from '@/componentes/responsivo';
-import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { useFunis } from './comum/dados';
+import { GrelhaKpiCrm, KpiCrm } from './comum/componentes';
 import { linhasMotivosPerda, previsaoPorResponsavel, rotuloMesPrevisao, totaisPrevisao } from './comum/previsao';
 import type { IndicadoresCRM, PrevisaoCRM } from './comum/previsao';
 
 const H4: CSSProperties = { margin: '0 0 0.4rem', fontSize: '0.92rem' };
 const pct = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${Math.round(v)} %`);
+
+function BarraConversao({ taxa }: { taxa: number | null }) {
+  const { token } = theme.useToken();
+  return (
+    <div style={{ height: 8, background: token.colorFillSecondary, borderRadius: 4, overflow: 'hidden', minWidth: 80 }} aria-hidden>
+      <div style={{ width: `${Math.min(100, Math.max(0, taxa ?? 0))}%`, height: '100%', background: '#1d4ed8' }} />
+    </div>
+  );
+}
 
 function Bloco({ titulo, children }: { titulo: ReactNode; children: ReactNode }) {
   return (
@@ -96,22 +105,21 @@ export default function Previsao() {
         <Alert type="error" showIcon message="Não foi possível calcular a previsão." />
       ) : (
         <div ref={ref}>
-          <GrelhaKpi larguraMinima={200}>
-            <CartaoKpi rotulo="Valor do pipeline (em aberto)" valor={formatarKz(k.valor_funil)} secundaria={`ponderado ${formatarKz(k.ponderado)}`} icone="funnel-dollar" cor="azul" />
-            <CartaoKpi
+          {/* seis indicadores .crm-kpi do antigo (crm_ui_gestao.js:260-267): caixas simples, sem ícone nem barra */}
+          <GrelhaKpiCrm>
+            <KpiCrm rotulo="Valor do pipeline (em aberto)" valor={formatarKz(k.valor_funil)} secundaria={`ponderado ${formatarKz(k.ponderado)}`} />
+            <KpiCrm
               rotulo={`Receita prevista · ${meses} meses`}
               valor={formatarKz(tot.ponderado)}
               secundaria={p.atrasadas.n ? `+ ${formatarKz(p.atrasadas.ponderado)} com fecho já ultrapassado (${p.atrasadas.n})` : 'ponderada pela probabilidade'}
-              icone="chart-line"
-              cor="primario"
             />
-            <CartaoKpi rotulo="Taxa de ganho" valor={pct(k.taxa_ganho)} secundaria={`${k.ganhas} ganhas · ${k.perdidas} perdidas no período`} icone="trophy" cor="verde" />
-            <CartaoKpi rotulo="Conversão lead → ganho" valor={pct(k.conversao_lead_ganho)} secundaria={`das ${k.criadas} criadas no período`} icone="percentage" cor="verdeAgua" />
-            <CartaoKpi rotulo="Ciclo médio de venda" valor={k.ciclo_medio === null ? '—' : `${Math.round(k.ciclo_medio)} dias`} secundaria={k.ciclo_mediana === null ? 'sem negócios ganhos' : `mediana ${k.ciclo_mediana} dias`} icone="clock" cor="laranja" />
-            <CartaoKpi rotulo="Ticket médio (ganhos)" valor={k.ticket_medio === null ? '—' : formatarKz(k.ticket_medio)} secundaria={`valor ganho ${formatarKz(k.valor_ganho)}`} icone="coins" cor="roxo" />
-          </GrelhaKpi>
+            <KpiCrm rotulo="Taxa de ganho" valor={pct(k.taxa_ganho)} secundaria={`${k.ganhas} ganhas · ${k.perdidas} perdidas no período`} />
+            <KpiCrm rotulo="Conversão lead → ganho" valor={pct(k.conversao_lead_ganho)} secundaria={`das ${k.criadas} criadas no período`} />
+            <KpiCrm rotulo="Ciclo médio de venda" valor={k.ciclo_medio === null ? '—' : `${Math.round(k.ciclo_medio)} dias`} secundaria={k.ciclo_mediana === null ? 'sem negócios ganhos' : `mediana ${k.ciclo_mediana} dias`} />
+            <KpiCrm rotulo="Ticket médio (ganhos)" valor={k.ticket_medio === null ? '—' : formatarKz(k.ticket_medio)} secundaria={`valor ganho ${formatarKz(k.valor_ganho)}`} />
+          </GrelhaKpiCrm>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))', gap: '0.75rem', marginTop: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))', gap: '0.75rem' }}>
             <Bloco titulo="Receita prevista por mês de fecho">
               <GraficoBarras
                 monetario
@@ -137,7 +145,7 @@ export default function Previsao() {
                   { title: 'Compromisso (≥75%)', dataIndex: 'compromisso', align: 'right', render: (v: string) => formatarKz(v) },
                 ]}
                 summary={() => (
-                  <Table.Summary.Row style={{ fontWeight: 600 }}>
+                  <Table.Summary.Row>
                     <Table.Summary.Cell index={0}>Total</Table.Summary.Cell>
                     <Table.Summary.Cell index={1} align="right">{tot.n}</Table.Summary.Cell>
                     <Table.Summary.Cell index={2} align="right">{formatarKz(tot.bruto)}</Table.Summary.Cell>
@@ -184,11 +192,7 @@ export default function Previsao() {
                   { title: 'Taxa', dataIndex: 'taxa', align: 'right', render: (v: number | null) => pct(v) },
                   {
                     title: '', key: 'barra', width: 110,
-                    render: (_, c) => (
-                      <div style={{ height: 8, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden', minWidth: 80 }} aria-hidden>
-                        <div style={{ width: `${Math.min(100, Math.max(0, c.taxa ?? 0))}%`, height: '100%', background: '#1d4ed8' }} />
-                      </div>
-                    ),
+                    render: (_, c) => <BarraConversao taxa={c.taxa} />,
                   },
                 ]}
               />

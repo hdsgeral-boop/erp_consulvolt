@@ -1,4 +1,4 @@
-import { Alert, Button, Card, DatePicker, Form, Modal, Progress, Select, Tabs, Typography, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Form, Modal, Progress, Select, Tabs, Tag, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -11,7 +11,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { dataApi } from '@/utilitarios/formatacao';
 import { SeletorConta } from '../contab/comum/Seletores';
 import type { DocumentoTesouraria, ResultadoIntegracaoLote, TipoDocumento } from './api';
-import { SeletorContaFinanceira, TabelaDocumentos } from './comum';
+import { SeletorContaFinanceira, TabelaDocumentos, useTotalDocumentos } from './comum';
 import { DetalheDocumento } from './pagamentos/DetalheDocumento';
 import { textoPeriodo } from './pagamentos/ListaDocumentos';
 import { colunasIntegracao } from './colunasLegado';
@@ -36,6 +36,8 @@ function PorIntegrar() {
   const [tipo, setTipo] = useState<TipoDocumento>();
   const [conta, setConta] = useState<string>();
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const filtrosPendentes = { estado: 'PENDENTE', tipo, conta_financeira: conta, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) };
+  const totalPendentes = useTotalDocumentos(filtrosPendentes);
   const [seleccao, setSeleccao] = useState<DocumentoTesouraria[]>([]);
   const [progresso, setProgresso] = useState<{ feitos: number; total: number; erros: string[] } | null>(null);
   const podeIntegrar = pode('teso_integrar');
@@ -80,7 +82,7 @@ function PorIntegrar() {
             key: 'pendentes',
             label: 'Por integrar',
             children: (
-              <Card>
+              <Card title="Documentos Pendentes de Contabilização" extra={<Tag color="#059669" data-testid="total-integracao">Total: {totalPendentes ?? '…'}</Tag>}>
                 <BarraFiltros
                   accoes={
                     podeIntegrar && (
@@ -103,7 +105,7 @@ function PorIntegrar() {
                   </div>
                 )}
                 <TabelaDocumentos
-                  filtros={{ estado: 'PENDENTE', tipo, conta_financeira: conta, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
+                  filtros={filtrosPendentes}
                   columns={colunasIntegracao((d) => navegar(String(d.id)))}
                   impressao={{
                     titulo: 'Documentos de tesouraria por integrar',

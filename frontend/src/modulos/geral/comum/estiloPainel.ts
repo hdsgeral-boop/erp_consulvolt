@@ -118,7 +118,13 @@ const KPIS: Record<string, Record<string, EstiloKpi>> = {
   },
   projetos: {
     projetos_activos: { icone: 'hard-hat', cor: '#b45309' },
-    orcamento: { icone: 'file-invoice-dollar', cor: '#7c3aed' },
+    // Versão Actual (ADR-071, G2 — ui_painel_modulos.js:485-495)
+    venda_contratada: { icone: 'handshake', cor: '#8b5cf6' },
+    venda_global: { icone: 'file-contract', cor: '#7c3aed' },
+    faturado_venda: { icone: 'receipt', cor: '#2563eb' },
+    por_faturar: { icone: 'hourglass-half', cor: '#f59e0b' },
+    margem_prevista: { icone: 'bullseye', cor: '#0891b2' },
+    orcamento: { icone: 'file-invoice-dollar', cor: '#0d9488' },
     custo_realizado: { icone: 'coins', cor: '#ef4444' },
     faturado: { icone: 'receipt', cor: '#2563eb' },
     margem: { icone: 'chart-line', cor: VERDE, regra: sinal },

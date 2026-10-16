@@ -1,3 +1,4 @@
+import { theme } from 'antd';
 import type { PeriodoFerias, ResumoFerias } from '../api';
 import { barraNoAno, corEstadoFerias, ESTADOS_FERIAS, rotuloEstadoFerias } from './regrasFerias';
 
@@ -14,24 +15,25 @@ export function MapaAnualFerias({ ano, resumo, porColab, aoAbrir }: {
   porColab: Map<number, PeriodoFerias[]>;
   aoAbrir?: (p: PeriodoFerias) => void;
 }) {
+  const { token } = theme.useToken();
   const hoje = new Date();
   const hojePct = hoje.getFullYear() === ano
     ? ((Math.round((Date.UTC(ano, hoje.getMonth(), hoje.getDate()) - Date.UTC(ano, 0, 1)) / 86_400_000) + 0.5) / (Date.UTC(ano + 1, 0, 1) / 86_400_000 - Date.UTC(ano, 0, 1) / 86_400_000)) * 100
     : null;
-  const grelha = { backgroundImage: 'linear-gradient(to right, #e2e8f0 1px, transparent 1px)', backgroundSize: 'calc(100% / 12) 100%' };
+  const grelha = { backgroundImage: `linear-gradient(to right, ${token.colorBorderSecondary} 1px, transparent 1px)`, backgroundSize: 'calc(100% / 12) 100%' };
   return (
     <div>
       <h3 style={{ fontSize: '0.95rem', margin: '1.25rem 0 0.5rem' }}>Mapa anual {ano}</h3>
-      <div style={{ border: '1px solid #e2e8f0', borderRadius: 4, overflowX: 'auto' }} role="figure" aria-label={`Mapa anual de férias ${ano}`}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 200px) 1fr', minWidth: 760, borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-          <div style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', fontWeight: 600, color: '#475569', borderRight: '1px solid #e2e8f0' }}>Colaborador</div>
+      <div style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, overflowX: 'auto' }} role="figure" aria-label={`Mapa anual de férias ${ano}`}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 200px) 1fr', minWidth: 760, borderBottom: `1px solid ${token.colorSplit}`, background: token.colorFillAlter }}>
+          <div style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', fontWeight: 600, color: token.colorTextSecondary, borderRight: `1px solid ${token.colorBorderSecondary}` }}>Colaborador</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)' }}>
-            {MESES.map((m) => <div key={m} style={{ fontSize: '0.75rem', color: '#475569', textAlign: 'center', padding: '0.3rem 0', borderLeft: '1px solid #e2e8f0', fontWeight: 600 }}>{m}</div>)}
+            {MESES.map((m) => <div key={m} style={{ fontSize: '0.75rem', color: token.colorTextSecondary, textAlign: 'center', padding: '0.3rem 0', borderLeft: `1px solid ${token.colorBorderSecondary}`, fontWeight: 600 }}>{m}</div>)}
           </div>
         </div>
         {resumo.map((r) => (
-          <div key={r.colaborador_id} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 200px) 1fr', minWidth: 760, borderBottom: '1px solid #f1f5f9' }}>
-            <div title={r.nome} style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderRight: '1px solid #e2e8f0' }}>{r.nome}</div>
+          <div key={r.colaborador_id} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 200px) 1fr', minWidth: 760, borderBottom: `1px solid ${token.colorSplit}` }}>
+            <div title={r.nome} style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', borderRight: `1px solid ${token.colorBorderSecondary}` }}>{r.nome}</div>
             <div style={{ position: 'relative', height: 26, ...grelha }}>
               {(porColab.get(r.colaborador_id) ?? []).map((p) => {
                 const b = barraNoAno(p, ano);
@@ -48,7 +50,7 @@ export function MapaAnualFerias({ ano, resumo, porColab, aoAbrir }: {
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem', fontSize: '0.78rem', color: '#475569', marginTop: '0.5rem' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.8rem', fontSize: '0.78rem', color: token.colorTextSecondary, marginTop: '0.5rem' }}>
         {ESTADOS_FERIAS.map((e) => <span key={e.k}><i style={{ display: 'inline-block', width: 12, height: 12, borderRadius: 2, verticalAlign: -2, marginRight: 4, background: e.cor }} />{e.r}</span>)}
         {hojePct !== null && <span><i style={{ display: 'inline-block', width: 3, height: 12, verticalAlign: -2, marginRight: 4, background: '#f59e0b' }} />Hoje</span>}
       </div>

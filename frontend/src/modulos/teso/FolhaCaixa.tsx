@@ -1,8 +1,8 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Dropdown, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Skeleton, Space, Statistic, Tag, Typography, message } from 'antd';
-import { ArrowLeftOutlined, DeleteOutlined, DownOutlined, FileDoneOutlined, PlusOutlined, TagsOutlined, UnlockOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Segmented, Skeleton, Space, Tag, Typography, message } from 'antd';
+import { ArrowLeftOutlined, DeleteOutlined, TagsOutlined, UnlockOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -13,17 +13,20 @@ import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from '../contab/comum/Componentes';
 import { deCentimos, paraCentimos } from '@/utilitarios/decimal';
 import { SeletorAux, SeletorConta, SeletorTerceiro, SeletorUnidade } from '../contab/comum/Seletores';
-import { porId, useTabelaAux } from '../contab/comum/dados';
+import { porId, usePlanoContas, useTabelaAux, useUnidadesNegocio } from '../contab/comum/dados';
+import type { RegistoAux } from '../contab/api';
 import { ModalMotivo } from '@/componentes/Accoes';
 import { ModalLiquidarFacturas } from './caixa/ModalLiquidarFacturas';
 import { ModalClassificarMovimentos } from './caixa/ModalClassificarMovimentos';
-import { CONFIG_LIQUIDACAO, type ModoLiquidacao } from './caixaLiquidacao';
+import type { ModoLiquidacao } from './caixaLiquidacao';
 import type { MovimentoCaixa, SessaoCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { accoesSessao } from './regras';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 
-import { TabelaComModos } from '@/componentes/vistas';
+import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 const ROTULO_SESSAO: Record<string, string> = { ABERTA: 'Aberta', FECHADA: 'Fechada', CONTABILIZADA: 'Contabilizada' };
 
 /** Folha de caixa impressa de uma sessão: resumo de saldos, movimentos (entradas/saídas) com totais e assinaturas. */
@@ -119,7 +122,7 @@ function ListaSessoes() {
             linhas: sessoes.data ?? [],
           }),
         })}
-        accoes={pode('teso_caixa_operar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.setFieldsValue({ data: dayjs() }); setAbrir(true); }}>Abrir sessão</Button>}
+        accoes={pode('teso_caixa_operar') && <Button icon={<IconeFa nome="door-open" />} style={{ color: '#059669', borderColor: '#059669' }} onClick={() => { form.setFieldsValue({ data: dayjs() }); setAbrir(true); }}>Abrir sessão</Button>}
       />
       <Card>
         <Space wrap style={{ marginBottom: 16 }}>
@@ -134,15 +137,24 @@ function ListaSessoes() {
           scroll={scrollTabela()}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
           columns={[
-            { title: 'Sessão', dataIndex: 'id', render: (v: number) => <strong>#{v}</strong> },
-            { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['sm'] },
-            { title: 'Abertura', dataIndex: 'data_abertura', render: formatarData },
-            { title: 'Fecho', dataIndex: 'data_fecho', responsive: ['md'], render: formatarData },
+            { title: 'Data Abertura', dataIndex: 'data_abertura', render: formatarData },
+            {
+              title: 'Conta', dataIndex: 'codigo_conta', responsive: ['sm'], valorImpressao: (r) => `${r.codigo_conta}${r.descricao_conta ? ` ${r.descricao_conta}` : ''}`,
+              render: (v: string, r) => <><strong>{v}</strong>{r.descricao_conta && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{r.descricao_conta}</Typography.Text>}</>,
+            },
             { title: 'Operador', dataIndex: 'operador', responsive: ['lg'] },
-            { title: 'Saldo de abertura', dataIndex: 'saldo_abertura', align: 'right', responsive: ['lg'], render: (v: string | null) => <ValorKz valor={v} /> },
-            { title: 'Saldo de fecho', dataIndex: 'saldo_fecho', align: 'right', responsive: ['md'], render: (v: string | null) => <ValorKz valor={v} /> },
-            { title: 'Contado', dataIndex: 'saldo_fisico', align: 'right', responsive: ['lg'], render: (v: string | null) => <ValorKz valor={v} /> },
+            { title: 'Saldo Inicial', dataIndex: 'saldo_abertura', align: 'right', responsive: ['lg'], render: (v: string | null) => <ValorKz valor={v} /> },
+            { title: 'Entradas', dataIndex: 'total_entradas', align: 'right', responsive: ['md'], render: (v: string | null | undefined) => (v === undefined || v === null ? '—' : <span style={{ color: '#059669', whiteSpace: 'nowrap' }}>{formatarKz(v)}</span>) },
+            { title: 'Saídas', dataIndex: 'total_saidas', align: 'right', responsive: ['md'], render: (v: string | null | undefined) => (v === undefined || v === null ? '—' : <span style={{ color: '#dc2626', whiteSpace: 'nowrap' }}>{formatarKz(v)}</span>) },
+            { title: 'Saldo Final', key: 'saldo_final', align: 'right', render: (_, r) => <strong><ValorKz valor={r.saldo_fecho ?? r.saldo_sistema ?? null} /></strong>, valorImpressao: (r) => formatarKz(r.saldo_fecho ?? r.saldo_sistema ?? null) },
             { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
+            { title: 'Sessão', dataIndex: 'id', ocultaPorOmissao: true, render: (v: number) => <strong>#{v}</strong> },
+            { title: 'Fecho', dataIndex: 'data_fecho', ocultaPorOmissao: true, render: formatarData },
+            { title: 'Contado', dataIndex: 'saldo_fisico', align: 'right', ocultaPorOmissao: true, render: (v: string | null) => <ValorKz valor={v} /> },
+            {
+              title: 'Acções', key: 'accoes', valorImpressao: () => '',
+              render: (_, r) => <Button size="small" icon={<IconeFa nome={r.estado === 'ABERTA' ? 'cash-register' : 'eye'} />} onClick={(e) => { e.stopPropagation(); navegar(String(r.id)); }}>{r.estado === 'ABERTA' ? 'Ir para a caixa' : 'Ver'}</Button>,
+            },
           ]}
         />
       </Card>
@@ -161,6 +173,60 @@ function ListaSessoes() {
       </Modal>
     </>
   );
+}
+
+const TIPOS_MOVIMENTO = [{ value: 'REC', label: 'Entrada (recebimento)' }, { value: 'PAG', label: 'Saída (pagamento)' }];
+
+/** Totais de entradas e saídas dos movimentos da sessão (resumo do legado). */
+export function totaisMovimentos(movs: Pick<MovimentoCaixa, 'tipo' | 'valor'>[]): { entradas: number; saidas: number } {
+  let e = 0;
+  let sa = 0;
+  for (const m of movs) {
+    if (m.tipo === 'REC') e += paraCentimos(m.valor ?? 0);
+    else if (m.tipo === 'PAG') sa += paraCentimos(m.valor ?? 0);
+  }
+  return { entradas: Number(deCentimos(e)), saidas: Number(deCentimos(sa)) };
+}
+
+/** Data do formulário (dayjs) ou da vista Linhas ('AAAA-MM-DD') → API. */
+const dataDe = (d: unknown): string | undefined => (dayjs.isDayjs(d) ? dataApi(d) : typeof d === 'string' && d ? d : undefined);
+
+/** Regras de gravação do movimento de caixa, comuns à grade e à vista Linhas: data na API e textos vazios omitidos. */
+export function dadosMovimento(v: Record<string, unknown>): Record<string, unknown> {
+  const dados: Record<string, unknown> = {};
+  for (const [k, x] of Object.entries(v)) if (x !== undefined && x !== null && !(typeof x === 'string' && !x.trim())) dados[k] = typeof x === 'string' ? x.trim() : x;
+  dados.data_documento = dataDe(v.data_documento);
+  return dados;
+}
+
+const opcoesAux = (l: RegistoAux[] | undefined) => (l ?? []).map((r) => ({ value: r.id, label: `${r.codigo} — ${r.descricao ?? ''}` }));
+const SO_DIGITOS = /^\d+$/;
+
+/** Vista Linhas do «Registar movimento de caixa»: um movimento por linha, com as mesmas regras do formulário. */
+function useCamposMovimento(activo: boolean): CampoFormulario[] {
+  const plano = usePlanoContas(activo);
+  const un = useUnidadesNegocio(activo);
+  const cc = useTabelaAux('centros-custo', activo);
+  const nd = useTabelaAux('notas-demonstracao', activo);
+  const nf = useTabelaAux('notas-fluxo-caixa', activo);
+  return useMemo<CampoFormulario[]>(() => [
+    { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, opcoes: [{ value: 'REC', label: 'Entrada' }, { value: 'PAG', label: 'Saída' }], largura: 110, aliases: ['Entrada/Saída'] },
+    { nome: 'data_documento', rotulo: 'Data', tipo: 'data', obrigatorio: true, largura: 140 },
+    { nome: 'valor', rotulo: 'Valor (Kz)', tipo: 'numero', obrigatorio: true, min: 0.01, precisao: 2, largura: 130, aliases: ['Valor'] },
+    { nome: 'conta_contrapartida', rotulo: 'Conta de contrapartida', tipo: 'select', obrigatorio: true, largura: 230, aliases: ['Contrapartida', 'Conta'],
+      opcoes: (plano.data ?? []).filter((c) => c.tipo === 'M').map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` })) },
+    { nome: 'descricao', rotulo: 'Descrição', obrigatorio: true, largura: 240, maxLength: 1000, validar: (d) => (typeof d === 'string' && d.trim() && d.trim().length < 3 ? 'A descrição tem de ter pelo menos 3 caracteres.' : null) },
+    { nome: 'terceiro_id', rotulo: 'Terceiro', tipo: 'personalizado', largura: 220, emLinhas: 'opcional', seccao: 'Terceiro e documento',
+      celula: ({ valor, aoMudar, rotulo }) => <div aria-label={rotulo}><SeletorTerceiro value={(valor as number | undefined) ?? undefined} onChange={(x) => aoMudar(x ?? null)} style={{ width: '100%' }} /></div>,
+      converter: (t) => (SO_DIGITOS.test(t.trim()) ? Number(t.trim()) : undefined) },
+    { nome: 'numero_documento', rotulo: 'N.º documento', largura: 130, maxLength: 100, emLinhas: 'opcional', seccao: 'Terceiro e documento', aliases: ['Nº Doc.', 'Documento'] },
+    { nome: 'referencia', rotulo: 'Referência', largura: 130, maxLength: 100, emLinhas: 'opcional', seccao: 'Terceiro e documento' },
+    { nome: 'unidade_negocio_id', rotulo: 'Unidade de negócio', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['UN'],
+      opcoes: (un.data ?? []).map((x) => ({ value: x.id, label: `${x.codigo ? `${x.codigo} — ` : ''}${x.nome}` })) },
+    { nome: 'centro_custo_id', rotulo: 'Centro de custo', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['CC'], opcoes: opcoesAux(cc.data) },
+    { nome: 'nota_demonstracao_id', rotulo: 'Nota DEMO', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['Nota às demonstrações'], opcoes: opcoesAux(nd.data) },
+    { nome: 'nota_fluxo_caixa_id', rotulo: 'Nota fluxo', tipo: 'select', largura: 170, emLinhas: 'opcional', seccao: 'Classificação', aliases: ['Nota de fluxo de caixa'], opcoes: opcoesAux(nf.data) },
+  ], [plano.data, un.data, cc.data, nd.data, nf.data]);
 }
 
 interface ValoresMovimento {
@@ -193,7 +259,10 @@ function DetalheSessao() {
   const [reabrir, setReabrir] = useState(false);
   const notasDemo = porId(useTabelaAux('notas-demonstracao').data, (n) => n.codigo);
   const notasFluxo = porId(useTabelaAux('notas-fluxo-caixa').data, (n) => n.codigo);
+  const unidades = porId(useUnidadesNegocio().data, (u) => `${u.codigo ? `${u.codigo} ` : ''}${u.nome}`);
+  const centros = porId(useTabelaAux('centros-custo').data, (c) => c.codigo);
   const [formMov] = Form.useForm<ValoresMovimento>();
+  const camposMov = useCamposMovimento(movimento);
   const [formFecho] = Form.useForm<{ saldo_fisico: number; data: Dayjs }>();
   const [formMotivo] = Form.useForm<{ motivo: string }>();
   const contado = Form.useWatch('saldo_fisico', formFecho);
@@ -222,6 +291,8 @@ function DetalheSessao() {
   const s = consulta.data;
   if (!s) return <Alert type="error" message="Sessão não encontrada." />;
   const a = accoesSessao(s, pode);
+  const totais = totaisMovimentos(s.movimentos ?? []);
+  const registar = (tipo: 'REC' | 'PAG') => { formMov.setFieldsValue({ tipo, data_documento: dayjs(s.data_abertura) }); setMovimento(true); };
   const diferencaFecho = contado !== undefined && contado !== null && s.saldo_sistema !== undefined ? deCentimos(paraCentimos(contado) - paraCentimos(s.saldo_sistema)) : null;
 
   return (
@@ -233,14 +304,7 @@ function DetalheSessao() {
         accoes={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
-            {a.podeRegistar && <Button icon={<PlusOutlined />} onClick={() => { formMov.setFieldsValue({ tipo: 'REC', data_documento: dayjs(s.data_abertura) }); setMovimento(true); }}>Registar movimento</Button>}
-            {a.podeRegistar && (
-              <Dropdown menu={{ items: (['PAGAR', 'RECEBER'] as const).map((m) => ({ key: m, label: CONFIG_LIQUIDACAO[m].botao })), onClick: ({ key }) => setLiquidar(key as ModoLiquidacao) }}>
-                <Button icon={<FileDoneOutlined />}>Facturas <DownOutlined /></Button>
-              </Dropdown>
-            )}
             {a.podeReabrir && <Button icon={<UnlockOutlined />} onClick={() => setReabrir(true)}>Reabrir sessão</Button>}
-            {a.podeFechar && <Button type="primary" onClick={() => { formFecho.setFieldsValue({ data: dayjs(), saldo_fisico: Number(s.saldo_sistema ?? 0) }); setFecho(true); }}>Fechar sessão</Button>}
             {a.podeContabilizar && <Button type="primary" loading={accao.isPending} onClick={() => Modal.confirm({ title: 'Contabilizar a sessão?', content: 'São gerados os lançamentos no diário de caixa.', okText: 'Contabilizar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ caminho: '/contabilizar' }) })}>Contabilizar</Button>}
             {a.podeDescontabilizar && <Button danger onClick={() => setDescontab(true)}>Descontabilizar</Button>}
             {a.podeEliminar && (
@@ -252,12 +316,31 @@ function DetalheSessao() {
         }
       />
       <Card style={{ marginBottom: 16 }}>
-        <Space size={[40, 16]} wrap>
-          <Statistic title="Saldo de abertura" value={formatarKz(s.saldo_abertura)} />
-          <Statistic title="Saldo do sistema" value={formatarKz(s.saldo_sistema)} />
-          {s.saldo_fisico !== null && <Statistic title="Saldo contado" value={formatarKz(s.saldo_fisico)} />}
-          {s.diferenca !== null && s.diferenca !== undefined && <Statistic title="Diferença" value={formatarKz(s.diferenca)} valueStyle={{ color: paraCentimos(s.diferenca) === 0 ? undefined : '#cf1322' }} />}
-        </Space>
+        {/* resumo da sessão do legado (ui_folha_caixa.js:147-175 e 1246-1263): saldo inicial, entradas, saídas, saldo actual / diferença */}
+        <GrelhaKpi larguraMinima={180}>
+          <CartaoKpi rotulo="Saldo Inicial" valor={formatarKz(s.saldo_abertura)} unidade="Kz" cor="cinzento" />
+          <CartaoKpi rotulo="Entradas" valor={`+${formatarKz(totais.entradas)}`} unidade="Kz" cor="sucesso" corValor="#059669" />
+          <CartaoKpi rotulo="Saídas" valor={`-${formatarKz(totais.saidas)}`} unidade="Kz" cor="#dc2626" corValor="#dc2626" />
+          <CartaoKpi rotulo="Saldo Actual" valor={formatarKz(s.saldo_sistema)} unidade="Kz" cor="primario" corValor={paraCentimos(s.saldo_sistema ?? 0) < 0 ? '#dc2626' : '#2563eb'} />
+          {s.saldo_fisico !== null && <CartaoKpi rotulo="Saldo contado" valor={formatarKz(s.saldo_fisico)} unidade="Kz" cor="roxo" />}
+          {s.diferenca !== null && s.diferenca !== undefined && (
+            <CartaoKpi rotulo="Diferença" valor={formatarKz(s.diferenca)} unidade="Kz" cor={paraCentimos(s.diferenca) === 0 ? '#059669' : '#f59e0b'} corValor={paraCentimos(s.diferenca) === 0 ? '#059669' : '#f59e0b'}
+              secundaria={paraCentimos(s.diferenca) === 0 ? 'Sem desvio' : paraCentimos(s.diferenca) > 0 ? 'Sobra' : 'Quebra'} />
+          )}
+        </GrelhaKpi>
+        {(a.podeRegistar || a.podeFechar) && (
+          <Flex wrap gap={8} justify="space-between" style={{ marginTop: 16 }} data-testid="botoes-sessao">
+            <Space wrap>
+              {a.podeRegistar && <>
+                <Button danger icon={<IconeFa nome="arrow-circle-down" />} onClick={() => registar('PAG')}>Registar Saída / Despesa</Button>
+                <Button icon={<IconeFa nome="arrow-circle-up" />} style={{ color: '#059669', borderColor: '#059669' }} onClick={() => registar('REC')}>Registar Entrada / Receita</Button>
+                <Button icon={<IconeFa nome="file-invoice-dollar" />} style={{ color: '#0284c7', borderColor: '#0284c7' }} onClick={() => setLiquidar('PAGAR')}>Pagar Faturas Fornecedor</Button>
+                <Button icon={<IconeFa nome="hand-holding-usd" />} style={{ color: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => setLiquidar('RECEBER')}>Receber Faturas Cliente</Button>
+              </>}
+            </Space>
+            {a.podeFechar && <Button icon={<IconeFa nome="lock" />} style={{ color: '#d97706', borderColor: '#f59e0b' }} onClick={() => { formFecho.setFieldsValue({ data: dayjs(), saldo_fisico: Number(s.saldo_sistema ?? 0) }); setFecho(true); }}>Fechar Sessão</Button>}
+          </Flex>
+        )}
         <Descriptions size="small" column={COLUNAS_DESCRICOES} style={{ marginTop: 16 }}>
           <Descriptions.Item label="Estado"><EtiquetaEstado estado={s.estado} /></Descriptions.Item>
           <Descriptions.Item label="Operador">{s.operador ?? '—'}</Descriptions.Item>
@@ -266,7 +349,7 @@ function DetalheSessao() {
         </Descriptions>
       </Card>
       <Card
-        title="Movimentos"
+        title={`Movimentos da Sessão (${(s.movimentos ?? []).length})`}
         extra={
           a.podeClassificar && (
             <Button size="small" icon={<TagsOutlined />} disabled={!seleccionados.length} onClick={() => setClassificar(true)}>
@@ -284,17 +367,29 @@ function DetalheSessao() {
           rowSelection={a.podeClassificar ? { selectedRowKeys: seleccionados, onChange: (k) => setSeleccionados(k as number[]), getCheckboxProps: (m) => ({ disabled: !!m.contabilizado }) } : undefined}
           columns={[
             { title: 'Data', dataIndex: 'data_documento', render: formatarData },
-            { title: 'Tipo', dataIndex: 'tipo', render: (v: string) => (v === 'REC' ? <Tag color="green">Entrada</Tag> : <Tag color="volcano">Saída</Tag>) },
-            { title: 'Documento', dataIndex: 'numero_documento', responsive: ['sm'] },
-            { title: 'Terceiro', key: 'terceiro', responsive: ['md'], render: (_, m) => m.terceiro?.nome?.trim() ?? (m.terceiro_id ? `#${m.terceiro_id}` : '—') },
-            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300, responsive: ['md'] },
-            { title: 'Débito', dataIndex: 'conta_debito', responsive: ['lg'] },
-            { title: 'Crédito', dataIndex: 'conta_credito', responsive: ['lg'] },
-            { title: 'Entrada', align: 'right', render: (_, m) => (m.tipo === 'REC' ? <ValorKz valor={m.valor} /> : null) },
-            { title: 'Saída', align: 'right', render: (_, m) => (m.tipo === 'PAG' ? <ValorKz valor={m.valor} /> : null) },
-            { title: 'Origem', dataIndex: 'tipo_origem', responsive: ['lg'], render: (v: string | null) => (v ? <Tag>{v}</Tag> : 'Manual') },
+            {
+              title: 'Tipo', dataIndex: 'tipo', valorImpressao: (m) => (m.tipo === 'REC' ? 'Entrada' : 'Saída'),
+              render: (v: string) => (v === 'REC' ? <Tag color="success" icon={<IconeFa nome="arrow-up" />}> Entrada</Tag> : <Tag color="error" icon={<IconeFa nome="arrow-down" />}> Saída</Tag>),
+            },
+            { title: 'Nº Doc.', dataIndex: 'numero_documento', responsive: ['sm'] },
+            { title: 'Referência', dataIndex: 'referencia', responsive: ['md'], render: (v: string | null) => v ?? '—' },
+            { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260, responsive: ['md'] },
+            { title: 'Terceiro', key: 'terceiro', responsive: ['md'], render: (_, m) => m.terceiro?.nome?.trim() ?? (m.terceiro_id ? `#${m.terceiro_id}` : '—'), valorImpressao: (m) => m.terceiro?.nome?.trim() ?? '' },
+            { title: 'UN', dataIndex: 'unidade_negocio_id', responsive: ['lg'], render: (v: number | null) => (v ? unidades.get(v) ?? `#${v}` : '—') },
+            { title: 'CC', dataIndex: 'centro_custo_id', responsive: ['lg'], render: (v: number | null) => (v ? centros.get(v) ?? `#${v}` : '—') },
             { title: 'Nota DEMO', dataIndex: 'nota_demonstracao_id', responsive: ['lg'], render: (v: number | null) => (v ? notasDemo.get(v) ?? `#${v}` : <Typography.Text type="warning">—</Typography.Text>) },
-            { title: 'Nota fluxo', dataIndex: 'nota_fluxo_caixa_id', responsive: ['lg'], render: (v: number | null) => (v ? notasFluxo.get(v) ?? `#${v}` : <Typography.Text type="warning">—</Typography.Text>) },
+            { title: 'Nota Fluxo', dataIndex: 'nota_fluxo_caixa_id', responsive: ['lg'], render: (v: number | null) => (v ? notasFluxo.get(v) ?? `#${v}` : <Typography.Text type="warning">—</Typography.Text>) },
+            {
+              title: 'Valor', dataIndex: 'valor', align: 'right', valorImpressao: (m) => `${m.tipo === 'REC' ? '+' : '-'}${formatarKz(m.valor)}`,
+              render: (v: string, m) => <strong style={{ color: m.tipo === 'REC' ? '#059669' : '#dc2626', whiteSpace: 'nowrap' }}>{m.tipo === 'REC' ? '+' : '-'}{formatarKz(v)}</strong>,
+            },
+            { title: 'Débito', dataIndex: 'conta_debito', ocultaPorOmissao: true },
+            { title: 'Crédito', dataIndex: 'conta_credito', ocultaPorOmissao: true },
+            { title: 'Origem', dataIndex: 'tipo_origem', ocultaPorOmissao: true, render: (v: string | null) => (v ? <Tag>{v}</Tag> : 'Manual') },
+            {
+              title: 'Acções', key: 'integrado', valorImpressao: (m) => (m.contabilizado ? 'Integrado' : ''),
+              render: (_, m) => (m.contabilizado ? <Tag color="blue" icon={<IconeFa nome="check-double" />}> Integrado</Tag> : null),
+            },
             {
               title: '',
               render: (_, m) =>
@@ -308,12 +403,15 @@ function DetalheSessao() {
         />
       </Card>
 
-      <Modal title="Registar movimento de caixa" open={movimento} onCancel={() => setMovimento(false)} okText="Registar" confirmLoading={accao.isPending} onOk={() => formMov.submit()} width={larguraModal(720)}>
-        <Form form={formMov} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/movimentos', dados: { ...v, data_documento: dataApi(v.data_documento) } })}>
+      <ModalFormulario chave="teso.caixa_movimentos" titulo="Registar movimento de caixa" aberto={movimento} aoFechar={() => setMovimento(false)} criacao form={formMov} campos={camposMov}
+        nomeRegistos="movimentos de caixa" invalidar={[['teso'], ['contab']]} gravarLinha={(r) => enviar('post', `/tesouraria/caixa/sessoes/${id}/movimentos`, dadosMovimento(r))}
+        nota="Um movimento por linha (entrada ou saída desta sessão), com a conta de contrapartida. Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário. Campos com * são obrigatórios."
+        okText="Registar" confirmLoading={accao.isPending} onOk={() => formMov.submit()} width={larguraModal(720)}>
+        <Form form={formMov} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/movimentos', dados: dadosMovimento(v as unknown as Record<string, unknown>) })}>
           <Row gutter={12}>
             <Col xs={24} sm={10}>
               <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
-                <Segmented block options={[{ value: 'REC', label: 'Entrada (recebimento)' }, { value: 'PAG', label: 'Saída (pagamento)' }]} />
+                <Segmented block options={TIPOS_MOVIMENTO} />
               </Form.Item>
             </Col>
             <Col xs={24} sm={7}>
@@ -333,17 +431,23 @@ function DetalheSessao() {
           <Form.Item name="descricao" label="Descrição" rules={[{ required: true, min: 3 }]}>
             <Input maxLength={1000} />
           </Form.Item>
-          <Row gutter={12}>
-            <Col xs={24} sm={12}><Form.Item name="terceiro_id" label="Terceiro"><SeletorTerceiro style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} sm={6}><Form.Item name="numero_documento" label="N.º documento"><Input maxLength={100} /></Form.Item></Col>
-            <Col xs={24} sm={6}><Form.Item name="referencia" label="Referência"><Input maxLength={100} /></Form.Item></Col>
-            <Col xs={24} sm={12}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} sm={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} sm={12}><Form.Item name="nota_demonstracao_id" label="Nota às demonstrações"><SeletorAux tabela="notas-demonstracao" placeholder="Sem nota" style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={24} sm={12}><Form.Item name="nota_fluxo_caixa_id" label="Nota de fluxo de caixa"><SeletorAux tabela="notas-fluxo-caixa" placeholder="Sem nota" style={{ width: '100%' }} /></Form.Item></Col>
-          </Row>
+          <SeccaoFormulario titulo="Terceiro e documento">
+            <Row gutter={12}>
+              <Col xs={24} sm={12}><Form.Item name="terceiro_id" label="Terceiro"><SeletorTerceiro style={{ width: '100%' }} /></Form.Item></Col>
+              <Col xs={24} sm={6}><Form.Item name="numero_documento" label="N.º documento"><Input maxLength={100} /></Form.Item></Col>
+              <Col xs={24} sm={6}><Form.Item name="referencia" label="Referência"><Input maxLength={100} /></Form.Item></Col>
+            </Row>
+          </SeccaoFormulario>
+          <SeccaoFormulario titulo="Classificação (UN, CC e notas)" recolhida>
+            <Row gutter={12}>
+              <Col xs={24} sm={12}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" style={{ width: '100%' }} /></Form.Item></Col>
+              <Col xs={24} sm={12}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
+              <Col xs={24} sm={12}><Form.Item name="nota_demonstracao_id" label="Nota às demonstrações"><SeletorAux tabela="notas-demonstracao" placeholder="Sem nota" style={{ width: '100%' }} /></Form.Item></Col>
+              <Col xs={24} sm={12}><Form.Item name="nota_fluxo_caixa_id" label="Nota de fluxo de caixa"><SeletorAux tabela="notas-fluxo-caixa" placeholder="Sem nota" style={{ width: '100%' }} /></Form.Item></Col>
+            </Row>
+          </SeccaoFormulario>
         </Form>
-      </Modal>
+      </ModalFormulario>
 
       <Modal width={larguraModal(480)} title="Fechar sessão (contagem)" open={fecho} onCancel={() => setFecho(false)} okText="Fechar sessão" confirmLoading={accao.isPending} onOk={() => formFecho.submit()}>
         <Form form={formFecho} layout="vertical" onFinish={(v) => accao.mutate({ caminho: '/fechar', dados: { saldo_fisico: v.saldo_fisico, data: dataApi(v.data) } })}>

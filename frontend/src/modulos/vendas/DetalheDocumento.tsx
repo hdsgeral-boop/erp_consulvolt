@@ -9,6 +9,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { descarregar, enviar, http, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { CartaoAlocacaoUN, bloqueioAlocacao, useColunasUNCC, type LinhaComUNCC, type ResumoAlocacao } from '@/componentes/reparticao';
 import { BotaoPreVisualizarLancamento } from '@/componentes/simulacoes/PreVisualizacaoLancamento';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -46,7 +47,9 @@ export function DetalheDocumento() {
   const [pedido, setPedido] = useState<unknown>(null);
   const [aCarregarAgt, setACarregarAgt] = useState<string | null>(null);
 
-  const consulta = useQuery({ queryKey: ['vendas', 'documento', id], queryFn: () => obter<DocumentoVenda>(`/vendas/documentos/${id}`) });
+  const consulta = useQuery({ queryKey: ['vendas', 'documento', id], queryFn: () => obter<DocumentoVenda & { alocacao_un?: ResumoAlocacao | null; linhas?: (LinhaVenda & LinhaComUNCC)[] }>(`/vendas/documentos/${id}`) });
+  // ADR-071 (R5): colunas «Un. negócio» / «C. custo» por linha
+  const colunasUNCC = useColunasUNCC<LinhaVenda & LinhaComUNCC>(consulta.data?.linhas ?? []);
   const accao = useMutation({
     mutationFn: ({ caminho, dados }: { caminho: string; dados?: unknown }) => enviar<DocumentoVenda>('post', `/vendas/documentos/${id}/${caminho}`, dados),
     onSuccess: ({ dados, mensagem }, { caminho }) => {
@@ -151,6 +154,7 @@ export function DetalheDocumento() {
     { title: 'IVA %', dataIndex: 'taxa_imposto', align: 'right' as const, render: formatarNumero },
     { title: 'Valor', dataIndex: 'valor', align: 'right' as const, render: (v: string | null) => formatarKz(v) },
     { title: 'Total', dataIndex: 'total', align: 'right' as const, render: (v: string | null) => formatarKz(v) },
+    ...colunasUNCC,
   ];
 
   return (
@@ -244,7 +248,7 @@ export function DetalheDocumento() {
       </Card>
       <BlocoAgt documento={d} />
       <Card title="Linhas" style={{ marginBottom: 16 }}>
-        <Table<LinhaVenda> rowKey="id" size="small" pagination={false} columns={colunas} dataSource={d.linhas ?? []} scroll={scrollTabela()} />
+        <Table<LinhaVenda & LinhaComUNCC> rowKey="id" size="small" pagination={false} columns={colunas} dataSource={d.linhas ?? []} scroll={scrollTabela()} />
         <Flex justify="end" style={{ marginTop: 16 }}>
           <Descriptions column={1} size="small" style={{ width: '100%', maxWidth: 320 }} bordered>
             <Descriptions.Item label="Líquido">{formatarKz(d.total_liquido)}</Descriptions.Item>
@@ -254,6 +258,9 @@ export function DetalheDocumento() {
             <Descriptions.Item label="Pendente">{formatarKz(valorPendenteMostrado(d))}</Descriptions.Item>
           </Descriptions>
         </Flex>
+        {/* ADR-071 (R2/R5): repartição por UN do documento — alterável enquanto não estiver contabilizado nem anulado */}
+        <CartaoAlocacaoUN tipo="venda" id={d.id} resumo={d.alocacao_un} valor={Number(d.total_liquido ?? 0)} invalidar={[['vendas']]}
+          podeAlterar={pode('vendas_fat_emitir')} bloqueio={bloqueioAlocacao(d)} />
       </Card>
 
       <Modal

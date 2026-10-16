@@ -8,6 +8,7 @@ import { TIPOS_TERMINAL } from '../comum/dados';
 import { meiosActivos } from '../comum/PainelPagamentos';
 import { accoesFrente } from '../comum/regras';
 import type { Terminal } from '../comum/tipos';
+import { useCoresPos } from '../comum/cores';
 import { AvisoSessoesAntigas } from './AvisoSessoesAntigas';
 
 const rotulo = { fontWeight: 700, color: '#334155', fontSize: '0.85rem' } as const;
@@ -19,6 +20,7 @@ const rotulo = { fontWeight: 700, color: '#334155', fontSize: '0.85rem' } as con
  * a sessão aberta, oferece continuar nela.
  */
 export function AberturaCaixa({ terminais, terminalId, aoEscolher, aoContinuar }: { terminais: Terminal[]; terminalId: number | null; aoEscolher: (id: number) => void; aoContinuar: () => void }) {
+  const cores = useCoresPos();
   const { pode, utilizador } = useSessao();
   const [form] = Form.useForm<{ fundo_maneio: number | null }>();
   const terminal = terminais.find((t) => t.id === terminalId) ?? null;
@@ -34,12 +36,12 @@ export function AberturaCaixa({ terminais, terminalId, aoEscolher, aoContinuar }
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-      <div className="pos-abertura-caixa" style={{ maxWidth: 480, width: '95%', background: '#fff', borderTop: '4px solid #2563eb', borderRadius: 16, padding: '2.5rem', boxShadow: '0 15px 40px rgba(0,0,0,0.1)' }}>
+      <div className="pos-abertura-caixa" style={{ maxWidth: 480, width: '95%', background: cores.fundo, borderTop: '4px solid #2563eb', borderRadius: 4, padding: '2.5rem', boxShadow: '0 15px 40px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ background: 'rgba(59,130,246,0.1)', color: '#2563eb', width: 70, height: 70, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', fontSize: '2.2rem' }}>
             <IconeFa nome="cash-register" />
           </div>
-          <h2 style={{ margin: 0, fontWeight: 800, color: '#1e293b' }}>Abertura de Caixa</h2>
+          <h2 style={{ margin: 0, fontWeight: 800, color: cores.texto }}>Abertura de Caixa</h2>
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>Selecione o terminal e o fundo de maneio inicial.</p>
         </div>
 
@@ -72,7 +74,7 @@ export function AberturaCaixa({ terminais, terminalId, aoEscolher, aoContinuar }
           <AvisoSessoesAntigas />
 
           {terminal && (
-            <div style={{ fontSize: '0.8rem', color: '#475569', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 4, padding: '0.6rem 0.8rem', marginBottom: '1rem', lineHeight: 1.7 }}>
+            <div style={{ fontSize: '0.8rem', color: '#475569', background: cores.fundoAlt, border: `1px solid ${cores.borda}`, borderRadius: 4, padding: '0.6rem 0.8rem', marginBottom: '1rem', lineHeight: 1.7 }}>
               <div>
                 <IconeFa nome="user" /> Operador: <strong>{operador}</strong>
               </div>
@@ -89,7 +91,7 @@ export function AberturaCaixa({ terminais, terminalId, aoEscolher, aoContinuar }
           )}
 
           {sessao ? (
-            <Button type="primary" size="large" block onClick={aoContinuar} disabled={!pode('pos_venda')} icon={<IconeFa nome="cash-register" />} style={{ borderRadius: 12, fontWeight: 800, height: 52 }}>
+            <Button type="primary" size="large" block onClick={aoContinuar} disabled={!pode('pos_venda')} icon={<IconeFa nome="cash-register" />} style={{ borderRadius: 4, fontWeight: 800, height: 52 }}>
               Continuar a vender nesta caixa
             </Button>
           ) : terminal && !accoes.abrir ? (
@@ -104,7 +106,7 @@ export function AberturaCaixa({ terminais, terminalId, aoEscolher, aoContinuar }
               disabled={!terminal || !meios.length}
               title={terminal && !meios.length ? 'Configure os meios de pagamento do terminal em Terminais POS' : undefined}
               icon={<IconeFa nome="key" />}
-              style={{ borderRadius: 12, fontWeight: 800, height: 52 }}
+              style={{ borderRadius: 4, fontWeight: 800, height: 52 }}
             >
               Abrir Caixa &amp; Iniciar Vendas
             </Button>

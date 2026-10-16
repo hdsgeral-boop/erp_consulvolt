@@ -14,8 +14,10 @@ const PLANTA = {
   andares: [{ id: 10, numero: '0', nome: 'Rés-do-chão', notas: null, ordem: 0, n_portas: 1, n_bens: 1, valor: '1500.00',
     portas: [{ id: 100, numero: 'A1', nome: null, tipo: 'Gabinete', capacidade: null, ordem: 1, andar_id: 10, n_bens: 1, valor: '1500.00',
       bens: [{ id: 5, codigo: 'AST-005', descricao: 'Secretária fictícia', valor_aquisicao: '1500.00', categoria: 'Mobiliário' }] }] }],
-  sem_local: [{ id: 6, codigo: 'AST-006', descricao: 'Cadeira fictícia', valor_aquisicao: '200.00' }],
-  totais: { andares: 1, portas: 1, bens: 1, valor: '1500.00' },
+  sem_local: [{ id: 6, codigo: 'AST-006', descricao: 'Cadeira fictícia', valor_aquisicao: '200.00', grupo: 'SEM_LOCAL' },
+    { id: 7, codigo: 'AST-007', descricao: 'Estante fictícia', valor_aquisicao: '300.00', grupo: 'EDIFICIO', local: 'Rés-do-chão' }],
+  outros_edificios: [{ id: 8, codigo: 'AST-008', descricao: 'Mesa fictícia', valor_aquisicao: '90.00', grupo: 'OUTRO', local: 'AST-200 · 1.º andar · B2' }],
+  totais: { andares: 1, portas: 1, bens: 2, valor: '1800.00', sem_porta: 1 },
 };
 const PLANOS = [{ id: 1, codigo: 'PM-2026/0001', nome: 'Revisão trimestral do gerador', ativo_imobilizado_id: 9, categoria_ativo_id: null, tipo: 'PREVENTIVA',
   periodicidade: { modo: 'TEMPO', intervalo: 3, unidade: 'MESES' }, proxima_data: '2026-10-10', proximo_contador: null, contador_atual: '0.00', antecedencia_dias: 7,
@@ -69,12 +71,20 @@ describe('Edifícios e Locais (Fase F)', () => {
     envolver(<Edificios />, '/planta/1');
     const porta = await screen.findByRole('button', { name: 'Porta A1' }, { timeout: 60_000 });
     expect(within(porta).getByText(/Secretária fictícia/)).toBeTruthy();
-    expect(screen.getByText('Bens sem porta (1)')).toBeTruthy();
+    expect(screen.getByText('Bens sem porta (2)')).toBeTruthy();
+    expect(screen.getByText('Bens noutros edifícios (1)')).toBeTruthy();
+    expect(screen.getByText('Rés-do-chão', { selector: '.ant-tag' })).toBeTruthy();
     for (const b of ['Andar', 'Portas', 'Inventário', 'Imprimir planta']) expect(screen.getByRole('button', { name: new RegExp(b) })).toBeTruthy();
     const dados = { getData: () => '6', setData: () => undefined };
     fireEvent.dragOver(porta, { dataTransfer: dados });
     fireEvent.drop(porta, { dataTransfer: dados });
     await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('post', '/ativos/bens/6/localizacao', { porta_id: 100 }));
+    // largar em «Bens sem porta» deixa o bem neste edifício, sem porta (ADR-071, A2)
+    const sem = document.querySelector('[data-zona="sem-local"]') as HTMLElement;
+    const dados5 = { getData: () => '5', setData: () => undefined };
+    fireEvent.dragOver(sem, { dataTransfer: dados5 });
+    fireEvent.drop(sem, { dataTransfer: dados5 });
+    await waitFor(() => expect(enviarMock).toHaveBeenCalledWith('post', '/ativos/bens/5/localizacao', { porta_id: null, edificio_id: 1 }));
   });
 
   it('só de leitura: sem botões de gestão na planta', async () => {

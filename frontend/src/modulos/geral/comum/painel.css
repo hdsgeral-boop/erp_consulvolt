@@ -9,7 +9,7 @@
   padding: 8px;
   background: rgba(255, 255, 255, 0.85);
   border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  border-radius: 4px; /* legado: .painel-modulos com 4 px (styles.css, «limites pouco arredondados») */
   min-width: 0;
 }
 
@@ -21,7 +21,7 @@
   background: #fff;
   color: #334155;
   padding: 8px 16px;
-  border-radius: 10px;
+  border-radius: 4px;
   font-weight: 600;
   font-size: 0.85rem;
   line-height: 1.3;
@@ -93,7 +93,7 @@
 .painel-cartao {
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 4px;
   padding: 18px 20px;
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
   min-width: 0;
@@ -136,3 +136,37 @@
 
 /* Ecrã cheio do Dashboard (legado toggleFullscreen): fundo claro e deslocamento próprio */
 .painel-conteudo-wrap:fullscreen { background: #f8fafc; overflow: auto; padding: 24px 32px; }
+
+/* Tabelas do painel na mesma grelha dos gráficos (legado: segunda .painel-grelha; `largo` → grid-column 1 / -1). */
+.painel-grelha-tabelas { margin-top: 0; }
+.painel-grelha .painel-largo { grid-column: 1 / -1; }
+
+/* Aviso do painel (legado .painel-aviso): caixa com barra de 4 px na cor do módulo (definida no elemento). As cores vêm das
+   variáveis do AntD (cssVar), que acompanham a tela nocturna. */
+.painel-aviso {
+  background: var(--ant-color-bg-container, #fff);
+  border: 1px solid var(--ant-color-border-secondary, #e2e8f0);
+  border-left: 4px solid;
+  border-radius: 4px;
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  color: var(--ant-color-text, #334155);
+}
+
+/* Atalhos (legado .painel-atalhos): faixa com «Ir para:» e botões contornados na cor do módulo. */
+.painel-atalhos {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--ant-color-bg-container, #fff);
+  border: 1px solid var(--ant-color-border-secondary, #e2e8f0);
+  border-radius: 4px;
+}
+.painel-atalhos-rotulo {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ant-color-text-tertiary, #64748b);
+  margin-right: 4px;
+}

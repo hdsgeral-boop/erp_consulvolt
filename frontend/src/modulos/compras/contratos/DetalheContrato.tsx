@@ -4,13 +4,15 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { obter, obterPagina } from '@/api/cliente';
+import { enviar, obter, obterPagina } from '@/api/cliente';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { dataDe } from '@/modulos/vendas/comum/valoresFormulario';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosContratoCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
+import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { EstadoTag } from '../comum/estados';
 import { NomeTerceiro } from '../comum/referencias';
@@ -19,6 +21,18 @@ import { numeroOuId, type ContratoCompra, type EncomendaCompra, type FaturaCompr
 import { ConsumoContrato, ModalContrato } from './ModalContrato';
 
 type Encomenda = NonNullable<ContratoCompra['encomendas']>[number];
+
+/** Corpo do pedido do marco de pagamento — o mesmo na grade e na vista Linhas. */
+export function dadosMarco(v: Record<string, unknown>): Record<string, unknown> {
+  return { titulo: String(v.titulo ?? '').trim(), data_prevista: dataDe(v.data_prevista), montante: v.montante };
+}
+
+/** Vista Linhas dos marcos (título, data prevista, montante > 0 — as regras da grade). */
+export const CAMPOS_MARCO: CampoFormulario[] = [
+  { nome: 'titulo', rotulo: 'Título', obrigatorio: true, maxLength: 255, largura: 260, aliases: ['Marco'] },
+  { nome: 'data_prevista', rotulo: 'Data prevista', tipo: 'data', largura: 150, aliases: ['Data'] },
+  { nome: 'montante', rotulo: 'Montante (Kz)', tipo: 'numero', obrigatorio: true, min: 0.01, precisao: 2, largura: 150, aliases: ['Montante', 'Valor'] },
+];
 
 export function DetalheContrato() {
   const { id } = useParams();
@@ -217,7 +231,25 @@ export function DetalheContrato() {
           </Form.Item>
         </Form>
       </Modal>
-      <Modal width={larguraModal(520)} title={marco ? 'Editar marco' : 'Novo marco'} open={modal === 'marco'} onCancel={() => setModal(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formMarco.submit()}>
+      <ModalFormulario
+        chave="compras.contratos.marcos"
+        destroyOnHidden={false}
+        width={larguraModal(520)}
+        titulo={marco ? 'Editar marco' : 'Novo marco'}
+        aberto={modal === 'marco'}
+        aoFechar={() => setModal(null)}
+        criacao={!marco}
+        form={formMarco}
+        campos={CAMPOS_MARCO}
+        nomeRegistos="marcos de pagamento"
+        invalidar={[['compras']]}
+        gravarLinha={(r) => enviar('post', `/compras/contratos/${c.id}/marcos`, dadosMarco(r))}
+        nota="Uma linha por marco de pagamento (datas dentro da vigência do contrato). Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário."
+        okText="Gravar"
+        cancelText="Cancelar"
+        confirmLoading={accao.isPending}
+        onOk={() => formMarco.submit()}
+      >
         <Form
           form={formMarco}
           layout="vertical"
@@ -225,7 +257,7 @@ export function DetalheContrato() {
             accao.mutate({
               metodo: marco ? 'put' : 'post',
               url: marco ? `/compras/contratos/${c.id}/marcos/${marco.id}` : `/compras/contratos/${c.id}/marcos`,
-              dados: { titulo: v.titulo, data_prevista: dataApi(v.data_prevista) ?? null, montante: v.montante },
+              dados: dadosMarco(v as unknown as Record<string, unknown>),
             })
           }
         >
@@ -245,7 +277,7 @@ export function DetalheContrato() {
             </Col>
           </Row>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </>
   );
 }

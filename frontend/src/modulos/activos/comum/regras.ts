@@ -200,3 +200,9 @@ export function validarInventariacao(itens: { valor_aquisicao?: Valor }[], porIn
   const resto = paraCentimos(porInventariar) - total;
   return { total: deCentimos(total), restante: deCentimos(resto), excede: resto < 0 };
 }
+
+/** A conta está fora da classe? Compara só os dígitos (68.1.1 = 6811 — ui_assets.js:989). Vazio nunca está fora. */
+export function contaForaDaClasse(conta: unknown, prefixo: string): boolean {
+  const t = String(conta ?? '').trim();
+  return t !== '' && !t.replace(/\D/g, '').startsWith(prefixo);
+}

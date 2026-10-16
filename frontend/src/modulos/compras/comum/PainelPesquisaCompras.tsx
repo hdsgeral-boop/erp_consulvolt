@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Input, Space, Typography } from 'antd';
+import { Button, Card, DatePicker, Input, Space, Typography, theme } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useState, type ReactNode } from 'react';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -24,6 +24,7 @@ export function PainelPesquisaCompras({
   aoLimpar?: () => void;
   children?: ReactNode;
 }) {
+  const { token } = theme.useToken();
   const [texto, setTexto] = useState('');
   const limpar = () => {
     setTexto('');
@@ -32,7 +33,7 @@ export function PainelPesquisaCompras({
     aoLimpar?.();
   };
   return (
-    <Card style={{ marginBottom: 16, background: '#f8fafc', borderRadius: 15 }} styles={{ body: { paddingBottom: 8 } }}>
+    <Card style={{ marginBottom: 16, background: token.colorFillAlter }} styles={{ body: { paddingBottom: 8 } }}>
       <BarraFiltros
         accoes={
           <Space wrap>
@@ -46,8 +47,8 @@ export function PainelPesquisaCompras({
         }
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 260 }}>
-          <Typography.Text strong style={{ color: '#475569', whiteSpace: 'nowrap' }}>
-            <IconeFa nome="search" style={{ color: '#2563eb' }} /> Pesquisa:
+          <Typography.Text strong type="secondary" style={{ whiteSpace: 'nowrap' }}>
+            <IconeFa nome="search" style={{ color: token.colorPrimary }} /> Pesquisa:
           </Typography.Text>
           <Input
             placeholder={placeholder}

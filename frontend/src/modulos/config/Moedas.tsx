@@ -16,6 +16,8 @@ import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 import { eFolhaExcel, lerTabelaColada } from './comum/regras';
 import { descarregarModeloCambios } from './comum/modeloCambios';
 import { IconeFa } from '@/componentes/fluxos';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { dataDe, OPCOES_SIM_NAO, PROPS_SIM_NAO } from './comum/formularios';
 
 interface Moeda {
   id: number;
@@ -65,6 +67,30 @@ interface PrevisaoBai {
 }
 
 const CHAVE = ['sistema', 'moedas'];
+
+/** Moeda nova: regras comuns à grade e à vista Linhas (código em maiúsculas). */
+export function dadosMoeda(v: Record<string, unknown>): Record<string, unknown> {
+  return { codigo: String(v.codigo ?? '').trim().toUpperCase(), nome: v.nome, simbolo: v.simbolo, casas_decimais: v.casas_decimais ?? null };
+}
+
+const codigoIso = (v: unknown) => (v && !/^[A-Za-z]{3}$/.test(String(v).trim()) ? '3 letras (ex.: USD).' : null);
+
+/** Vista Linhas das moedas (código ISO, nome, símbolo, casas decimais). */
+const CAMPOS_MOEDA: CampoFormulario[] = [
+  { nome: 'codigo', rotulo: 'Código ISO 4217', obrigatorio: true, largura: 110, maxLength: 3, aliases: ['Código', 'Moeda', 'ISO'], validar: codigoIso },
+  { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 220, maxLength: 255, aliases: ['Designação'] },
+  { nome: 'simbolo', rotulo: 'Símbolo', obrigatorio: true, largura: 100, maxLength: 10 },
+  { nome: 'casas_decimais', rotulo: 'Casas decimais', tipo: 'numero', min: 0, max: 6, precisao: 0, omissao: 2, largura: 110, aliases: ['Casas'] },
+];
+
+/** Câmbio novo: regras comuns à grade e à vista Linhas (data em 'AAAA-MM-DD', taxa em texto). */
+export function dadosCambio(v: Record<string, unknown>): Record<string, unknown> {
+  const dados: Record<string, unknown> = { ...v, data_taxa: dataDe(v.data_taxa), taxa: v.taxa === null || v.taxa === undefined ? v.taxa : String(v.taxa) };
+  if ('substituir' in dados) dados.substituir = !!dados.substituir;
+  return dados;
+}
+
+const AMBITOS = [{ value: 'TODAS', label: 'Todas as empresas' }, { value: 'EMPRESA', label: 'Só a empresa activa' }];
 const taxa = (v: number | null | undefined) => (v === null || v === undefined ? '—' : new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 4, maximumFractionDigits: 6, useGrouping: 'always' as unknown as boolean }).format(v));
 
 function useMoedas() {
@@ -203,13 +229,15 @@ function ListaMoedas({ gerir }: { gerir: boolean }) {
             : []),
         ]}
       />
-      <Modal title={edicao === 'nova' ? 'Nova moeda' : `Moeda ${edicao?.codigo ?? ''}`} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="config.moedas" titulo={edicao === 'nova' ? 'Nova moeda' : `Moeda ${edicao?.codigo ?? ''}`} aberto={!!edicao} aoFechar={() => setEdicao(null)} criacao={edicao === 'nova'} form={form}
+        campos={CAMPOS_MOEDA} nomeRegistos="moedas" invalidar={[CHAVE, ['sistema', 'gestao-empresas']]} gravarLinha={(r) => enviar('post', '/sistema/moedas', dadosMoeda(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"
           onFinish={(v) =>
             edicao === 'nova'
-              ? accao.mutate({ url: '/sistema/moedas', dados: { codigo: v.codigo.toUpperCase(), nome: v.nome, simbolo: v.simbolo, casas_decimais: v.casas_decimais } })
+              ? accao.mutate({ url: '/sistema/moedas', dados: dadosMoeda(v) })
               : accao.mutate({ metodo: 'put', url: `/sistema/moedas/${(edicao as Moeda).id}`, dados: { nome: v.nome, simbolo: v.simbolo, ativo: v.ativo } })
           }
         >
@@ -224,7 +252,7 @@ function ListaMoedas({ gerir }: { gerir: boolean }) {
             <Form.Item name="ativo" label="Activa" valuePropName="checked"><Switch disabled={typeof edicao === 'object' && !!edicao?.base} /></Form.Item>
           )}
         </Form>
-      </Modal>
+      </ModalFormulario>
     </Card>
   );
 }
@@ -289,6 +317,16 @@ function Cambios({ gerir, irPara }: { gerir: boolean; irPara?: (separador: strin
   const [form] = Form.useForm<{ data_taxa: Dayjs; codigo_moeda: string; taxa: number; ambito: 'TODAS' | 'EMPRESA'; fonte_dados?: string; substituir?: boolean }>();
   const accao = useAccao({ invalidar: [CHAVE], aoSucesso: () => setEdicao(null) });
   const estrangeiras = (moedas.data ?? []).filter((m) => !m.base && m.ativo);
+  // vista Linhas dos câmbios (data, moeda, taxa; âmbito, origem e «substituir» opcionais)
+  const camposCambio: CampoFormulario[] = [
+    { nome: 'data_taxa', rotulo: 'Data', tipo: 'data', obrigatorio: true, largura: 140, omissao: () => dayjs().format('YYYY-MM-DD') },
+    { nome: 'codigo_moeda', rotulo: 'Moeda', tipo: 'select', obrigatorio: true, largura: 160, opcoes: estrangeiras.map((m) => ({ value: m.codigo, label: `${m.codigo} — ${m.nome}` })) },
+    { nome: 'taxa', rotulo: 'Taxa (Kz por 1 unidade)', tipo: 'numero', obrigatorio: true, min: 0.000001, precisao: 6, largura: 170, aliases: ['Taxa', 'Câmbio'],
+      validar: (t) => (typeof t === 'number' && t <= 0 ? 'A taxa tem de ser positiva.' : null) },
+    { nome: 'ambito', rotulo: 'Âmbito', tipo: 'select', opcoes: AMBITOS, omissao: 'TODAS', largura: 170, emLinhas: 'opcional', seccao: 'Outros' },
+    { nome: 'fonte_dados', rotulo: 'Origem', omissao: 'MANUAL', maxLength: 50, largura: 120, emLinhas: 'opcional', seccao: 'Outros' },
+    { nome: 'substituir', rotulo: 'Substituir se já existir', tipo: 'select', opcoes: OPCOES_SIM_NAO, largura: 140, emLinhas: 'opcional', seccao: 'Outros' },
+  ];
   useEffect(() => {
     if (!edicao) return;
     form.resetFields();
@@ -356,7 +394,9 @@ function Cambios({ gerir, irPara }: { gerir: boolean; irPara?: (separador: strin
             : []),
         ]}
       />
-      <Modal title={edicao === 'novo' ? 'Novo câmbio' : 'Editar câmbio'} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="config.cambios" titulo={edicao === 'novo' ? 'Novo câmbio' : 'Editar câmbio'} aberto={!!edicao} aoFechar={() => setEdicao(null)} criacao={edicao === 'novo'} form={form}
+        campos={camposCambio} nomeRegistos="câmbios" invalidar={[CHAVE]} gravarLinha={(r) => enviar('post', '/sistema/cambios', dadosCambio(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"
@@ -364,7 +404,7 @@ function Cambios({ gerir, irPara }: { gerir: boolean; irPara?: (separador: strin
             accao.mutate({
               metodo: edicao === 'novo' ? 'post' : 'put',
               url: edicao === 'novo' ? '/sistema/cambios' : `/sistema/cambios/${(edicao as Cambio).id}`,
-              dados: { ...v, data_taxa: dataApi(v.data_taxa), taxa: String(v.taxa) },
+              dados: dadosCambio(v),
             })
           }
         >
@@ -378,12 +418,12 @@ function Cambios({ gerir, irPara }: { gerir: boolean; irPara?: (separador: strin
             </Form.Item>
           </Space>
           <Form.Item name="ambito" label="Âmbito">
-            <Radio.Group options={[{ value: 'TODAS', label: 'Todas as empresas' }, { value: 'EMPRESA', label: 'Só a empresa activa' }]} />
+            <Radio.Group options={AMBITOS} />
           </Form.Item>
           <Form.Item name="fonte_dados" label="Origem"><Input maxLength={50} /></Form.Item>
-          <Form.Item name="substituir" valuePropName="checked"><Checkbox>Substituir se já existir câmbio nesta data</Checkbox></Form.Item>
+          <Form.Item name="substituir" {...PROPS_SIM_NAO}><Checkbox>Substituir se já existir câmbio nesta data</Checkbox></Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </Card>
   );
 }

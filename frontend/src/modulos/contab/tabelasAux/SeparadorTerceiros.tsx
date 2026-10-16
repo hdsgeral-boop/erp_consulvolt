@@ -1,7 +1,8 @@
-import { Alert, Button, Card, Col, Form, Input, Modal, Row, Select, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Col, Form, Input, Modal, Row, Select, Space, Tag, Typography, theme } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { descarregar, obter } from '@/api/cliente';
+import { descarregar, enviar, obter } from '@/api/cliente';
+import { SeccaoFormulario, useVistaFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
@@ -10,6 +11,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { ModalImportar } from '../comum/ficheiros';
 import { SeletorConta } from '../comum/Seletores';
+import { CartaoGradeLinhas } from './CartaoGradeLinhas';
 import { ContasBancariasTerceiro } from './ContasBancariasTerceiro';
 import {
   OPCOES_TIPO,
@@ -53,16 +55,46 @@ export function corpoTerceiroAux(v: ValoresTerceiro): Record<string, unknown> {
   };
 }
 
+const MOEDAS_TERCEIRO = ['AOA', 'USD', 'EUR', 'ZAR', 'CNY'];
+
+/**
+ * Colunas da vista Linhas (legado `terceiros`, formularios_linhas_config.js): NIF, Nome, Tipo, a conta de cada papel,
+ * Moeda e o endereço (colunas opcionais). Cada linha passa pelas mesmas regras da grade (validarContasTerceiro) e pelo
+ * mesmo corpo (corpoTerceiroAux).
+ */
+export const CAMPOS_TERCEIRO: CampoFormulario[] = [
+  { nome: 'nif', rotulo: 'NIF', obrigatorio: true, largura: 130, maxLength: 30, aliases: ['NIF / Identificação', 'Contribuinte'] },
+  { nome: 'nome', rotulo: 'Nome / Entidade', obrigatorio: true, largura: 220, maxLength: 255, aliases: ['Nome', 'Entidade'] },
+  {
+    nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, largura: 170, omissao: 'CLIENTE', opcoes: OPCOES_TIPO,
+    validar: (_, r) => validarContasTerceiro(r.tipo as string, r.conta_cliente as string, r.conta_fornecedor as string),
+  },
+  { nome: 'conta_cliente', rotulo: 'Conta de cliente (31)', largura: 150, maxLength: 20, aliases: ['Conta_Cliente', 'Conta Cliente', 'Conta_Contábil', 'Conta Contabil', 'Conta'] },
+  { nome: 'conta_fornecedor', rotulo: 'Conta de fornecedor (32/37.0)', largura: 170, maxLength: 20, aliases: ['Conta_Fornecedor', 'Conta Fornecedor'] },
+  { nome: 'codigo_moeda', rotulo: 'Moeda', tipo: 'select', largura: 90, omissao: 'AOA', opcoes: MOEDAS_TERCEIRO.map((m) => ({ value: m, label: m })) },
+  { nome: 'rua', rotulo: 'Rua', largura: 160, maxLength: 150, aliases: ['Endereco', 'Endereço', 'Morada'], emLinhas: 'opcional', seccao: 'Endereço' },
+  { nome: 'numero_porta', rotulo: 'Nº porta', largura: 80, maxLength: 50, emLinhas: 'opcional', seccao: 'Endereço' },
+  { nome: 'bairro', rotulo: 'Bairro', largura: 120, maxLength: 150, emLinhas: 'opcional', seccao: 'Endereço' },
+  { nome: 'municipio', rotulo: 'Município', largura: 120, maxLength: 150, emLinhas: 'opcional', seccao: 'Endereço' },
+  { nome: 'provincia', rotulo: 'Província', largura: 120, maxLength: 150, emLinhas: 'opcional', seccao: 'Endereço' },
+  { nome: 'pais', rotulo: 'País', largura: 100, maxLength: 150, emLinhas: 'opcional', seccao: 'Endereço' },
+];
+
+/** Nota do legado para a vista Linhas dos terceiros. */
+const NOTA_TERCEIROS =
+  'Uma linha por terceiro. O mesmo terceiro pode ser cliente e fornecedor (Tipo «Cliente e Fornecedor»): a venda integra pela conta de cliente (31) e a compra pela de fornecedor (32/37.0), ambas de movimento.';
+
 /** Célula de conta por papel (ui_aux.js:184-186): código em etiqueta; sem conta, «por definir» a vermelho; sem o papel, «—». */
 function CelulaContaPapel({ t, papel }: { t: FichaTerceiro; papel: PapelConta }) {
-  if (!temPapel(t.tipo, papel)) return <span style={{ color: '#cbd5e1' }}>—</span>;
+  const { token } = theme.useToken();
+  if (!temPapel(t.tipo, papel)) return <span style={{ color: token.colorTextQuaternary }}>—</span>;
   const codigo = papel === 'FORNECEDOR' ? contaFornecedor(t) : contaCliente(t);
   return codigo ? (
     <Tag title={`Conta de ${papel === 'FORNECEDOR' ? 'fornecedor' : 'cliente'}`} style={{ fontWeight: 600 }}>
       {codigo}
     </Tag>
   ) : (
-    <span style={{ color: '#b91c1c' }} title="Sem conta associada — a integração do documento vai parar aqui">
+    <span style={{ color: token.colorError }} title="Sem conta associada — a integração do documento vai parar aqui">
       por definir
     </span>
   );
@@ -70,8 +102,9 @@ function CelulaContaPapel({ t, papel }: { t: FichaTerceiro; papel: PapelConta })
 
 /** Coluna «Banco» (ui_aux.js:194-196): contas bancárias mapeadas (pode receber carta de pagamento). */
 function CelulaBanco({ t }: { t: FichaTerceiro }) {
+  const { token } = theme.useToken();
   const n = t.contas_bancarias ?? 0;
-  if (!n) return <span style={{ color: '#cbd5e1' }} title="Sem conta bancária mapeada — não pode receber carta de pagamento">—</span>;
+  if (!n) return <span style={{ color: token.colorTextQuaternary }} title="Sem conta bancária mapeada — não pode receber carta de pagamento">—</span>;
   return (
     <Tag color="green" title={`Pode receber carta de ordem de pagamento${t.banco_predefinido ? ` · predefinida: ${t.banco_predefinido}` : ''}`} style={{ fontWeight: 600 }}>
       <IconeFa nome="university" /> {n}
@@ -101,6 +134,10 @@ export function SeparadorTerceiros() {
   const [importar, setImportar] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const contas = camposConta(tipo);
+  const { token } = theme.useToken();
+  const [vista, setVista] = useVistaFormulario('contab.terceiros');
+  const emLinhas = gerir && !edicao && vista === 'linhas';
+  const temMorada = !!edicao && CAMPOS_MORADA.some((c) => !!edicao.morada?.[c]?.trim());
 
   const limpar = () => {
     setEdicao(null);
@@ -161,10 +198,19 @@ export function SeparadorTerceiros() {
   return (
     <Row gutter={[16, 16]}>
       {gerir && (
-        <Col xs={24} lg={8}>
-          <Card
-            size="small"
-            title={edicao ? `Editar Terceiro ${edicao.id}` : 'Novo Terceiro'}
+        <Col xs={24} lg={emLinhas ? 24 : 8}>
+          <CartaoGradeLinhas
+            chave="contab.terceiros"
+            titulo={edicao ? `Editar Terceiro ${edicao.id}` : 'Novo Terceiro'}
+            criacao={!edicao}
+            vista={vista}
+            aoMudarVista={setVista}
+            campos={CAMPOS_TERCEIRO}
+            form={form}
+            nota={NOTA_TERCEIROS}
+            nomeRegistos="terceiros"
+            invalidar={[['terceiros']]}
+            gravarLinha={(r) => enviar('post', '/terceiros', corpoTerceiroAux(r as unknown as ValoresTerceiro))}
             extra={
               <Space size={4}>
                 <Button size="small" icon={<IconeFa nome="file-download" />} onClick={() => void descarregarModelo()}>
@@ -198,89 +244,91 @@ export function SeparadorTerceiros() {
                 <Select options={OPCOES_TIPO} onChange={() => setAviso(null)} />
               </Form.Item>
 
-              <Typography.Title level={5} style={{ margin: '1.25rem 0 0.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: 5 }}>
-                Endereço
-              </Typography.Title>
-              <Form.Item name="rua" label="Rua" rules={[{ max: 150 }]}>
-                <Input placeholder="Nome da rua" />
-              </Form.Item>
-              <Row gutter={8}>
-                <Col span={8}>
-                  <Form.Item name="numero_porta" label="Nº Porta" rules={[{ max: 50 }]}>
-                    <Input placeholder="Nº" />
-                  </Form.Item>
-                </Col>
-                <Col span={16}>
-                  <Form.Item name="bairro" label="Bairro" rules={[{ max: 150 }]}>
-                    <Input placeholder="Bairro" />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Row gutter={8}>
-                <Col span={12}>
-                  <Form.Item name="municipio" label="Município" rules={[{ max: 150 }]}>
-                    <Input placeholder="Município" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="provincia" label="Província" rules={[{ max: 150 }]}>
-                    <Input placeholder="Província" />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Form.Item name="pais" label="País" rules={[{ max: 150 }]}>
-                <Input placeholder="País" />
-              </Form.Item>
+              {/* Endereço estruturado: secção recolhível (aberta quando a ficha já tem morada) */}
+              <SeccaoFormulario key={edicao?.id ?? 'novo'} titulo="Endereço" recolhida={!temMorada}>
+                <Form.Item name="rua" label="Rua" rules={[{ max: 150 }]}>
+                  <Input placeholder="Nome da rua" />
+                </Form.Item>
+                <Row gutter={8}>
+                  <Col span={8}>
+                    <Form.Item name="numero_porta" label="Nº Porta" rules={[{ max: 50 }]}>
+                      <Input placeholder="Nº" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={16}>
+                    <Form.Item name="bairro" label="Bairro" rules={[{ max: 150 }]}>
+                      <Input placeholder="Bairro" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+                <Row gutter={8}>
+                  <Col span={12}>
+                    <Form.Item name="municipio" label="Município" rules={[{ max: 150 }]}>
+                      <Input placeholder="Município" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="provincia" label="Província" rules={[{ max: 150 }]}>
+                      <Input placeholder="Província" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+                <Form.Item name="pais" label="País" rules={[{ max: 150 }]}>
+                  <Input placeholder="País" />
+                </Form.Item>
+              </SeccaoFormulario>
 
-              <Form.Item name="codigo_moeda" label="Moeda por omissão">
-                <Select options={['AOA', 'USD', 'EUR', 'ZAR', 'CNY'].map((m) => ({ value: m, label: m }))} />
-              </Form.Item>
+              <SeccaoFormulario titulo="Moeda e contas contabilísticas">
+                <Form.Item name="codigo_moeda" label="Moeda por omissão">
+                  <Select options={['AOA', 'USD', 'EUR', 'ZAR', 'CNY'].map((m) => ({ value: m, label: m }))} />
+                </Form.Item>
 
-              {/* Um terceiro pode ser cliente e fornecedor: cada papel tem a sua conta (a venda integra pela 31, a compra pela 32/37.0) */}
-              {contas.cliente && (
-                <Form.Item
-                  name="conta_cliente"
-                  label={
-                    <span>
-                      Conta de cliente (classe 31) <span style={{ color: '#b91c1c' }}>*</span>{' '}
-                      <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
-                        (integração das facturas de venda)
-                      </Typography.Text>
-                    </span>
-                  }
-                >
-                  <SeletorConta prefixos={prefixosConta('CLIENTE')} placeholder="Ex.: 31.1.1" allowClear style={{ width: '100%' }} />
-                </Form.Item>
-              )}
-              {contas.fornecedor && (
-                <Form.Item
-                  name="conta_fornecedor"
-                  label={
-                    <span>
-                      Conta de fornecedor (classe 32 ou 37.0) <span style={{ color: '#b91c1c' }}>*</span>{' '}
-                      <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
-                        (integração das facturas de compra)
-                      </Typography.Text>
-                    </span>
-                  }
-                >
-                  <SeletorConta prefixos={prefixosConta('FORNECEDOR')} placeholder="Ex.: 32.1.1" allowClear style={{ width: '100%' }} />
-                </Form.Item>
-              )}
-              {edicao?.codigo_conta?.trim() && (
-                <Form.Item
-                  label={
-                    <span>
-                      Conta antiga{' '}
-                      <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
-                        (registo anterior às contas por papel — só leitura)
-                      </Typography.Text>
-                    </span>
-                  }
-                >
-                  <Input value={edicao.codigo_conta} readOnly style={{ background: '#f8fafc' }} />
-                </Form.Item>
-              )}
+                {/* Um terceiro pode ser cliente e fornecedor: cada papel tem a sua conta (a venda integra pela 31, a compra pela 32/37.0) */}
+                {contas.cliente && (
+                  <Form.Item
+                    name="conta_cliente"
+                    label={
+                      <span>
+                        Conta de cliente (classe 31) <span style={{ color: token.colorError }}>*</span>{' '}
+                        <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
+                          (integração das facturas de venda)
+                        </Typography.Text>
+                      </span>
+                    }
+                  >
+                    <SeletorConta prefixos={prefixosConta('CLIENTE')} placeholder="Ex.: 31.1.1" allowClear style={{ width: '100%' }} />
+                  </Form.Item>
+                )}
+                {contas.fornecedor && (
+                  <Form.Item
+                    name="conta_fornecedor"
+                    label={
+                      <span>
+                        Conta de fornecedor (classe 32 ou 37.0) <span style={{ color: token.colorError }}>*</span>{' '}
+                        <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
+                          (integração das facturas de compra)
+                        </Typography.Text>
+                      </span>
+                    }
+                  >
+                    <SeletorConta prefixos={prefixosConta('FORNECEDOR')} placeholder="Ex.: 32.1.1" allowClear style={{ width: '100%' }} />
+                  </Form.Item>
+                )}
+                {edicao?.codigo_conta?.trim() && (
+                  <Form.Item
+                    label={
+                      <span>
+                        Conta antiga{' '}
+                        <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>
+                          (registo anterior às contas por papel — só leitura)
+                        </Typography.Text>
+                      </span>
+                    }
+                  >
+                    <Input value={edicao.codigo_conta} readOnly variant="filled" />
+                  </Form.Item>
+                )}
+              </SeccaoFormulario>
               {aviso && <Alert type="error" showIcon message={aviso} style={{ marginBottom: 12 }} />}
 
               {/* Contas bancárias: a carta de ordem de pagamento só se emite a quem tiver uma mapeada */}
@@ -295,10 +343,10 @@ export function SeparadorTerceiros() {
                 </Button>
               )}
             </Form>
-          </Card>
+          </CartaoGradeLinhas>
         </Col>
       )}
-      <Col xs={24} lg={gerir ? 16 : 24}>
+      <Col xs={24} lg={gerir && !emLinhas ? 16 : 24}>
         <Typography.Title level={5} style={{ marginTop: 0 }}>
           Terceiros Registados
         </Typography.Title>

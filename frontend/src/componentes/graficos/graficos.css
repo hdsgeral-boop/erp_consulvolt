@@ -1,7 +1,7 @@
-/* Gráficos SVG: animação discreta (respeita «reduzir movimento»), cores preservadas na impressão e dica. */
+/* Gráficos SVG (estilo único em estiloGraficos.ts — o do Chart.js do legado): legenda centrada no topo, animação discreta (respeita «reduzir movimento»), cores preservadas na impressão e dica. Tela nocturna: layout/telaNocturna.css. */
 .grafico-raiz { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .grafico-raiz svg text { font-family: inherit; font-variant-numeric: tabular-nums; }
-.grafico-legenda { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 6px; padding: 0; list-style: none; font-size: 11px; font-weight: 600; color: rgba(0, 0, 0, 0.75); }
+.grafico-legenda { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 0 0 6px; padding: 0; list-style: none; font-size: 11px; font-weight: 600; color: rgba(0, 0, 0, 0.75); }
 .grafico-legenda li { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .grafico-legenda i { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
 .grafico-dica { position: absolute; background: #fff; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); padding: 6px 10px; font-size: 12px; pointer-events: none; white-space: nowrap; z-index: 2; font-variant-numeric: tabular-nums; }

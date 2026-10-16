@@ -18,6 +18,19 @@ export function corSerie(indice: number, propria?: string | null): string {
   return propria || (CORES_SERIES[indice] ?? COR_OUTROS);
 }
 
+/**
+ * Cores por categoria (por barra/fatia), como o `backgroundColor: [...]` do Chart.js no legado: lista pela ordem dos
+ * rótulos ou função `(rotulo, indice) => cor`. Uma entrada vazia (null/undefined/'') cai na cor da série (paleta).
+ */
+export type CoresCategorias = readonly (string | null | undefined)[] | ((rotulo: string, indice: number) => string | null | undefined);
+
+/** Cor da categoria `indice` (rótulo `rotulo`) segundo `fonte`; `undefined` quando não há cor própria. */
+export function corCategoria(fonte: CoresCategorias | null | undefined, rotulo: string, indice: number): string | undefined {
+  if (!fonte) return undefined;
+  const c = typeof fonte === 'function' ? fonte(rotulo, indice) : fonte[indice];
+  return c || undefined;
+}
+
 /** Largura aproximada (px) de um texto na fonte da interface (média de 0,6 em por carácter; dígitos tabulares). */
 export function larguraTexto(texto: string, tamanho = 11): number {
   return texto.length * tamanho * 0.6;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { htmlFolha, htmlPlanta } from './impressao';
-import { filtrarBens, marcarTodosEncontrados, nomeAndar, nomeAndarPorOmissao, previaPortas, textoLocal } from './regras';
+import { filtrarBens, marcarTodosEncontrados, nomeAndar, nomeAndarPorOmissao, previaPortas, textoLocal, textoLocalFicha } from './regras';
 import type { FolhaInventario, OpcoesLocais, Planta } from './tipos';
 
 // dados fictícios
@@ -29,6 +29,14 @@ describe('Edifícios e Locais — regras (js/activos_edificios.js)', () => {
     expect(textoLocal(OPCOES, 100)).toBe('AST-100 · Rés-do-chão · A1');
     expect(textoLocal(OPCOES, null)).toBe('');
     expect(textoLocal([] as unknown as OpcoesLocais, 100)).toBe('');
+    // ADR-071 (A2): no edifício sem porta (andar opcional)
+    expect(textoLocal(OPCOES, null, 1)).toBe('AST-100 · sem porta');
+    expect(textoLocal(OPCOES, null, 1, 10)).toBe('AST-100 · Rés-do-chão · sem porta');
+    expect(textoLocalFicha({ tipo_ativo: 'EDIFICIO' })).toBe('É um edifício / local');
+    expect(textoLocalFicha({ tipo_ativo: 'BEM', edificio: null })).toBe('Sem localização');
+    expect(textoLocalFicha({ edificio: { codigo: 'AST-100', descricao: 'Sede fictícia' }, andar: { numero: '0', nome: 'Rés-do-chão' }, porta: { numero: 'A1', nome: null } }))
+      .toBe('AST-100 — Sede fictícia › Rés-do-chão › Porta A1');
+    expect(textoLocalFicha({ edificio: { codigo: 'AST-100', descricao: 'Sede fictícia' } })).toBe('AST-100 — Sede fictícia › sem porta');
     expect(filtrarBens([{ codigo: 'AST-1', descricao: 'Mesa' }, { codigo: 'AST-2', descricao: 'Cadeira' }], 'cad')).toHaveLength(1);
     const linhas = marcarTodosEncontrados([{ id: 1, resultado: null }, { id: 2, resultado: 'EM_FALTA' as const }]);
     expect(linhas.map((l) => l.resultado)).toEqual(['ENCONTRADO', 'EM_FALTA']);

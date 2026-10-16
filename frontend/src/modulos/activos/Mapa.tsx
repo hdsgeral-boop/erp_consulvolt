@@ -1,4 +1,4 @@
-import { Card, Flex, Input, InputNumber, Modal, Select, Table, Tooltip, Typography } from 'antd';
+import { Card, Flex, Input, InputNumber, Modal, Select, Table, theme, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -16,7 +16,6 @@ import type { LinhaMapa, MapaAmortizacoes } from './comum/tipos';
 import { BotaoCartao } from './inventario/BotaoCartao';
 import { anosMapa, anosTexto, taxaMapa, valorOuHifen } from './inventario/regrasInventario';
 
-const VERDE_AQUISICOES = '#f0fdf4';
 const kz = (v: string | number | null | undefined) => formatarKz(v ?? '0');
 const kzOuHifen = (v: string | number | null | undefined) => valorOuHifen(v, formatarKz);
 
@@ -27,6 +26,9 @@ const kzOuHifen = (v: string | number | null | undefined) => valorOuHifen(v, for
  */
 export default function Mapa() {
   const { pode } = useSessao();
+  // fundos do legado (#f0fdf4 nas aquisições, #f8fafc no líquido) pelos tokens do tema, para a tela nocturna
+  const { token } = theme.useToken();
+  const VERDE_AQUISICOES = token.colorSuccessBg;
   const { imprimir, exportarExcel, aImprimir } = useImpressao();
   const [ano, setAno] = useState(dayjs().year());
   const [texto, setTexto] = useState('');
@@ -106,8 +108,8 @@ export default function Mapa() {
     },
     { title: 'Total Ano', dataIndex: 'ano', align: 'right', render: (v) => <span style={{ fontWeight: 700 }}>{kz(v)}</span> },
     { title: 'Acumulado Final', dataIndex: 'acumulado', align: 'right', render: (v) => <span style={{ fontWeight: 700, color: '#dc2626' }}>{kz(v)}</span> },
-    { title: 'V.C. Líquido', dataIndex: 'liquido', align: 'right', onHeaderCell: () => ({ style: { borderLeft: '2px solid #e2e8f0' } }),
-      onCell: () => ({ style: { background: '#f8fafc', borderLeft: '2px solid #e2e8f0' } }), render: (v) => <span style={{ fontWeight: 700, color: '#059669' }}>{kz(v)}</span> },
+    { title: 'V.C. Líquido', dataIndex: 'liquido', align: 'right', onHeaderCell: () => ({ style: { borderLeft: `2px solid ${token.colorBorderSecondary}` } }),
+      onCell: () => ({ style: { background: token.colorFillAlter, borderLeft: `2px solid ${token.colorBorderSecondary}` } }), render: (v) => <span style={{ fontWeight: 700, color: '#059669' }}>{kz(v)}</span> },
   ];
 
   const celulaTotal = (indice: number, valor: string | undefined, estilo?: CSSProperties) => (
@@ -151,7 +153,7 @@ export default function Mapa() {
           pagination={false}
           summary={() => totais && (
             <Table.Summary fixed>
-              <Table.Summary.Row style={{ background: '#f8fafc' }}>
+              <Table.Summary.Row style={{ background: token.colorFillAlter }}>
                 <Table.Summary.Cell index={0} colSpan={3}><strong>TOTAIS (FILTRADOS):</strong></Table.Summary.Cell>
                 {celulaTotal(3, totais.aquisicao_anos_anteriores)}
                 {celulaTotal(4, totais.aquisicao_ano, { background: VERDE_AQUISICOES })}

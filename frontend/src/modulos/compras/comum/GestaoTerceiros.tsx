@@ -1,10 +1,12 @@
 import { Alert, Button, Card, Col, Descriptions, Drawer, Form, Input, Modal, Row, Space, Table, Tag } from 'antd';
 import { DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState, type Key } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState, type Key } from 'react';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { ModalEdicaoMassaTerceiros, ModalImportarClientes } from './ModaisTerceiros';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { AlternarFormulario, PainelLinhas, useVistaFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { emailInvalido } from '@/modulos/vendas/comum/valoresFormulario';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { BarraFiltros, larguraGaveta, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -138,6 +140,41 @@ export function corpoTerceiro(papel: Papel, v: Partial<FichaTerceiro>): Record<s
 }
 
 /**
+ * Vista Linhas da ficha de cliente / fornecedor (legado: formularios_linhas_config.js › terceiros — NIF, nome, conta do
+ * papel, moeda e endereço), com as regras da grade: nome e conta obrigatórios, conta da classe do papel, moeda ISO de 3
+ * letras e país ISO de 2. Cada linha é gravada pelo mesmo POST /terceiros (`corpoTerceiro`).
+ */
+export function camposTerceiro(papel: Papel): CampoFormulario[] {
+  const prefixos = prefixosConta(papel);
+  const conta: CampoFormulario = {
+    nome: papel === 'CLIENTE' ? 'conta_cliente' : 'conta_fornecedor',
+    rotulo: papel === 'CLIENTE' ? 'Conta de cliente (31)' : 'Conta de fornecedor (32/37.0)',
+    obrigatorio: true,
+    maxLength: 20,
+    largura: 160,
+    aliases: papel === 'CLIENTE' ? ['Conta_Cliente', 'Conta Cliente', 'Conta'] : ['Conta_Fornecedor', 'Conta Fornecedor', 'Conta'],
+    validar: (v) => {
+      const c = String(v ?? '').trim();
+      return c && !prefixos.some((x) => c.replace(/\./g, '').startsWith(x.replace(/\./g, ''))) ? `A conta tem de ser da classe ${prefixos.filter((x) => x !== '370').join(' ou ')}.` : null;
+    },
+  };
+  return [
+    { nome: 'nif', rotulo: 'NIF', maxLength: 30, largura: 130 },
+    { nome: 'nome', rotulo: papel === 'CLIENTE' ? 'Nome do cliente' : 'Nome / entidade', obrigatorio: true, maxLength: 255, largura: 220, aliases: ['Nome', 'Entidade'] },
+    conta,
+    ...(papel === 'FORNECEDOR'
+      ? [{ nome: 'conta_compra_transitoria', rotulo: 'Conta transitória de compras', maxLength: 20, largura: 150, emLinhas: 'opcional', seccao: 'Contas' } as CampoFormulario]
+      : []),
+    { nome: 'codigo_moeda', rotulo: 'Moeda', maxLength: 3, largura: 80, omissao: 'AOA', validar: (v) => (String(v ?? '').trim() && !/^[A-Za-z]{3}$/.test(String(v).trim()) ? 'Moeda: código ISO de 3 letras.' : null) },
+    { nome: 'endereco', rotulo: 'Endereço', maxLength: 1000, largura: 200, aliases: ['Endereco', 'Morada', 'Rua'] },
+    { nome: 'telefone', rotulo: 'Telefone', maxLength: 50, largura: 120 },
+    { nome: 'email', rotulo: 'Email', maxLength: 150, largura: 180, aliases: ['E-mail'], validar: emailInvalido },
+    { nome: 'fe_pais', rotulo: 'País (ISO)', maxLength: 2, largura: 80, omissao: 'AO', emLinhas: 'opcional', seccao: 'Facturação electrónica', aliases: ['País', 'Pais'],
+      validar: (v) => (String(v ?? '').trim() && !/^[A-Za-z]{2}$/.test(String(v).trim()) ? 'País: código ISO de 2 letras (ex.: AO).' : null) },
+  ];
+}
+
+/**
  * Gestão de clientes (vendas_clientes) ou fornecedores (compras_fornecedores) sobre /api/terceiros.
  * A mesma entidade pode ser cliente e fornecedor: gravar com outro papel acrescenta-o à ficha.
  */
@@ -155,6 +192,11 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
   const [importar, setImportar] = useState(false);
   const [form] = Form.useForm<FichaTerceiro>();
   const pequeno = useEcraPequeno();
+  // «Grade | Linhas» no cabeçalho da ficha, só em «Novo» (legado: formularios_linhas_config.js › terceiros)
+  const [vistaForm, guardarVistaForm] = useVistaFormulario(papel === 'CLIENTE' ? 'vendas.clientes' : 'compras.fornecedores');
+  const emLinhas = edicao === 'novo' && vistaForm === 'linhas';
+  const camposLinhas = useMemo(() => camposTerceiro(papel), [papel]);
+  const cliente = useQueryClient();
 
   const ficha = useQuery({
     queryKey: ['terceiros', 'ficha-completa', vista],
@@ -193,8 +235,27 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
         <Card
           style={{ borderTop: '4px solid var(--erp-primaria, #2563eb)', marginBottom: '2rem' }}
           title={edicao === 'novo' ? (papel === 'CLIENTE' ? 'Novo Cliente' : 'Novo Fornecedor') : papel === 'CLIENTE' ? 'Editar Cliente' : 'Editar Fornecedor'}
-          extra={<Button size="small" onClick={() => setEdicao(null)} aria-label="Fechar">×</Button>}
+          extra={
+            <Space>
+              {edicao === 'novo' && <AlternarFormulario vista={emLinhas ? 'linhas' : 'grade'} aoMudar={guardarVistaForm} />}
+              <Button size="small" onClick={() => setEdicao(null)} aria-label="Fechar">×</Button>
+            </Space>
+          }
         >
+          {emLinhas && (
+            <PainelLinhas
+              chave={papel === 'CLIENTE' ? 'vendas.clientes' : 'compras.fornecedores'}
+              campos={camposLinhas}
+              nomeRegistos={papel === 'CLIENTE' ? 'clientes' : 'fornecedores'}
+              nota={`Uma linha por ${t.singular}. Se a entidade já existir com o outro papel (mesmo NIF), o papel é acrescentado à ficha. Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário.`}
+              gravar={(r) => enviar('post', '/terceiros', corpoTerceiro(papel, r as Partial<FichaTerceiro>))}
+              aoConcluir={(r) => {
+                if (r.gravadas) void cliente.invalidateQueries({ queryKey: ['terceiros'] });
+                if (r.gravadas && !r.falhadas) setEdicao(null);
+              }}
+            />
+          )}
+          <div hidden={emLinhas}>
           {avisoOutroPapel(papel, edicao === 'novo' ? null : edicao) && (
             <Alert type="info" showIcon style={{ marginBottom: 12 }} message={avisoOutroPapel(papel, edicao === 'novo' ? null : edicao)} />
           )}
@@ -270,6 +331,7 @@ export function GestaoTerceiros({ papel }: { papel: Papel }) {
             </Button>
             <Button onClick={() => setEdicao(null)}>Cancelar</Button>
           </Space>
+          </div>
         </Card>
       )}
       {/* título e botões dentro do cartão, como o legado (js/ui_sales.js:425-437) */}

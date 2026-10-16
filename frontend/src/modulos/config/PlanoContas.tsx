@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Collapse, Flex, Form, Input, Modal, Radio, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Collapse, Flex, Form, Input, Radio, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import { PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,7 +18,36 @@ import { IconeFa } from '@/componentes/fluxos';
 import { tituloPlanoContas } from './comum/paridade';
 import { CelulaUso, CopiarOutraEmpresa, ImportarPlano, baixarTemplatePlano, useContasEmUso } from './plano/PlanoContasParidade';
 import { DadosBancariosConta, useDadosBancariosConta } from './plano/DadosBancariosConta';
-import { CAMPOS_BANCARIOS, dadosBancariosParaApi, type DadosBancarios } from './plano/contasBancarias';
+import { CAMPOS_BANCARIOS, dadosBancariosParaApi, ibanContaValido, swiftValido, type DadosBancarios } from './plano/contasBancarias';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+
+/** Conta do plano: regras comuns à grade e à vista Linhas (vazios = null; dados bancários só nas 42/43 de movimento). */
+export function dadosConta(v: Record<string, unknown>): Record<string, unknown> {
+  const codigo = String(v.codigo ?? '').trim();
+  const tipo = String(v.tipo ?? 'M');
+  return { ...v, codigo, tipo, codigo_moeda: v.codigo_moeda || null, natureza_conta: v.natureza_conta || null, ...dadosBancariosParaApi(codigo, tipo, v as DadosBancarios) };
+}
+
+const TIPOS_CONTA = [{ value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadora' }];
+const BANCARIOS = 'Dados bancários (42/43)';
+
+/** Vista Linhas das contas (legado: formularios_linhas_config.js › plano_contas — código, descrição, tipo, moeda). */
+export const CAMPOS_CONTA: CampoFormulario[] = [
+  { nome: 'codigo', rotulo: 'Código da conta', obrigatorio: true, largura: 140, maxLength: 20, aliases: ['Código', 'Codigo', 'Conta'],
+    validar: (c) => (c && !/^[0-9A-Za-z.]+$/.test(String(c).trim()) ? 'Só algarismos, letras e pontos.' : null) },
+  { nome: 'descricao', rotulo: 'Descrição', obrigatorio: true, largura: 260, maxLength: 255, aliases: ['Descricao', 'Designação', 'Nome'] },
+  { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, opcoes: TIPOS_CONTA, omissao: 'M', largura: 140, aliases: ['M/T', 'Tipo (M/T)'] },
+  { nome: 'codigo_moeda', rotulo: 'Moeda', largura: 90, maxLength: 10, aliases: ['Moeda da conta'] },
+  { nome: 'natureza_conta', rotulo: 'Natureza', largura: 160, maxLength: 255, emLinhas: 'opcional', seccao: 'Outros' },
+  { nome: 'banco_nome', rotulo: 'Banco', largura: 180, maxLength: 100, emLinhas: 'opcional', seccao: BANCARIOS },
+  { nome: 'banco_balcao', rotulo: 'Balcão / Agência', largura: 150, maxLength: 100, emLinhas: 'opcional', seccao: BANCARIOS },
+  { nome: 'banco_numero_conta', rotulo: 'Nº de conta', largura: 150, maxLength: 40, emLinhas: 'opcional', seccao: BANCARIOS },
+  { nome: 'banco_iban', rotulo: 'IBAN', largura: 230, maxLength: 50, emLinhas: 'opcional', seccao: BANCARIOS,
+    validar: (v) => (v && String(v).trim() && !ibanContaValido(String(v)) ? 'IBAN inválido.' : null) },
+  { nome: 'banco_swift', rotulo: 'SWIFT / BIC', largura: 120, maxLength: 15, emLinhas: 'opcional', seccao: BANCARIOS,
+    validar: (v) => (v && String(v).trim() && !swiftValido(String(v)) ? 'SWIFT/BIC inválido.' : null) },
+  { nome: 'banco_titular', rotulo: 'Titular da conta', largura: 180, maxLength: 150, emLinhas: 'opcional', seccao: BANCARIOS },
+];
 
 interface ContagemTabela {
   tabela: string;
@@ -161,7 +190,9 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
       />
       <CopiarOutraEmpresa aberto={janela === 'copiar'} aoFechar={() => setJanela(null)} />
       <ImportarPlano aberto={janela === 'importar'} aoFechar={() => setJanela(null)} />
-      <Modal title={edicao === 'nova' ? 'Nova conta' : `Conta ${edicao?.codigo ?? ''}`} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="config.plano_contas" titulo={edicao === 'nova' ? 'Nova conta' : `Conta ${edicao?.codigo ?? ''}`} aberto={!!edicao} aoFechar={() => setEdicao(null)} criacao={edicao === 'nova'} form={form}
+        campos={CAMPOS_CONTA} nomeRegistos="contas" invalidar={[['contab', 'plano-contas']]} gravarLinha={(r) => enviar('post', '/contabilidade/plano-contas', dadosConta(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form
           form={form}
           layout="vertical"
@@ -169,7 +200,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
             accao.mutate({
               metodo: edicao === 'nova' ? 'post' : 'put',
               url: edicao === 'nova' ? '/contabilidade/plano-contas' : `/contabilidade/plano-contas/${(edicao as ContaPlano).id}`,
-              dados: { ...v, codigo_moeda: v.codigo_moeda || null, natureza_conta: v.natureza_conta || null, ...dadosBancariosParaApi(v.codigo, v.tipo, v) },
+              dados: dadosConta(v),
             })
           }
         >
@@ -181,7 +212,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
             </Col>
             <Col xs={24} md={14}>
               <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
-                <Radio.Group options={[{ value: 'M', label: 'Movimento' }, { value: 'T', label: 'Totalizadora' }]} />
+                <Radio.Group options={TIPOS_CONTA} />
               </Form.Item>
             </Col>
           </Row>
@@ -192,7 +223,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
           </Row>
           <DadosBancariosConta />
         </Form>
-      </Modal>
+      </ModalFormulario>
     </Card>
   );
 }

@@ -260,7 +260,7 @@ final class ServicoValidacoesDados
             ],
             'projetos_autos_sem_factura' => [
                 'titulo' => 'Projectos: autos de subempreitada cuja factura não existe ou é de outro projecto/fornecedor', 'modulo' => 'Projectos', 'gravidade' => 'AVISO',
-                'descricao' => 'Facturas AUTO apagadas no legado ou ids reutilizados; o custo conta pela factura, não pela linha.', 'legado' => 'executeReview, js/ui_projects.js:2714-2738',
+                'descricao' => 'Facturas AUTO apagadas no legado ou ids reutilizados: sem factura válida (mesmo projecto e fornecedor), o custo do projecto conta pelo valor do auto; com factura, pela factura (cada auto conta uma vez).', 'legado' => 'executeReview, js/ui_projects.js:2714-2738',
                 'sql' => "SELECT l.id AS linha_id, r.projeto_id, r.mes, r.ano, l.terceiro_id, l.tarefa_projeto_id, l.valor_calculado, l.documento_gerado_id FROM linhas_revisao_projeto l
                           JOIN revisoes_mensais_projeto r ON r.id = l.revisao_mensal_projeto_id WHERE l.empresa_id = ? AND l.tipo = 'SUBEMPREITADA' AND l.documento_gerado_id IS NOT NULL
                           AND NOT EXISTS (SELECT 1 FROM faturas_compra f WHERE f.empresa_id = l.empresa_id AND f.id::text = l.documento_gerado_id AND f.projeto_id = r.projeto_id AND f.fornecedor_id = l.terceiro_id)

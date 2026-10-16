@@ -1,6 +1,6 @@
 # Dicionário de Dados — Migração ERP_CONSULVOLT (legado Dexie → PostgreSQL)
 
-> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-10-14T23:42:38.824Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
+> Gerado automaticamente por `ferramentas/levantamento/gerar_dicionario.mjs` em 2026-10-15T15:50:16.570Z. **Não editar à mão**: alterar `glossario.mjs` / `tabelas.mjs` e regenerar.
 
 ## Resumo
 

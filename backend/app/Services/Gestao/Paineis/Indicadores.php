@@ -32,7 +32,7 @@ final class Indicadores
         'entradas_saidas.entradas' => '#10b981', 'entradas_saidas.saidas' => '#ef4444',
         'top_artigos.valor' => '#0d9488', 'evolucao_saldo.saldo' => '#0891b2',
         'custos_mensais.mao_obra_equipamento' => '#b45309', 'custos_mensais.compras' => '#ef4444',
-        'orcamento_custo_proveito.orcamento' => '#7c3aed', 'orcamento_custo_proveito.custo' => '#ef4444', 'orcamento_custo_proveito.proveitos' => '#2563eb',
+        'orcamento_custo_proveito.venda_global' => '#8b5cf6', 'orcamento_custo_proveito.orcamento' => '#0d9488', 'orcamento_custo_proveito.custo' => '#ef4444', 'orcamento_custo_proveito.proveitos' => '#2563eb',
         'amortizacoes.amortizacoes' => '#db2777',
         'orcado_consumido.orcado' => '#1d4ed8', 'orcado_consumido.consumido' => '#ef4444',
         'previsao_fecho.bruto' => '#93c5fd', 'previsao_fecho.ponderado' => '#1d4ed8',

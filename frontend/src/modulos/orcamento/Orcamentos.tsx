@@ -8,6 +8,7 @@ import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { SeletorAux, SeletorUnidade } from '@/modulos/contab/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
+import { SeccaoFormulario } from '@/componentes/formularios';
 import { SeletorProjecto } from '@/modulos/activos/comum/componentes';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { IconeFa } from '@/componentes/fluxos';
@@ -68,7 +69,7 @@ function Lista() {
     { title: 'Versão', dataIndex: 'versao', align: 'right', render: (v) => `v${v}` },
     { title: 'Estado', dataIndex: 'estado', valorFiltro: (o) => rotuloOrc(o.estado), valorImpressao: (o) => rotuloOrc(o.estado), render: (v) => <EstadoOrc valor={v} /> },
     { title: 'Total das rubricas', dataIndex: 'total_rubricas', align: 'right', render: (v) => formatarKz(v, true), valorImpressao: (o) => formatarKz(o.total_rubricas, true) },
-    { title: 'Última acção', key: 'ultima', valorFiltro: textoUltimaAccao, valorImpressao: textoUltimaAccao, render: (_, o) => <span style={{ fontSize: 12, color: '#64748b' }}>{textoUltimaAccao(o)}</span> },
+    { title: 'Última acção', key: 'ultima', valorFiltro: textoUltimaAccao, valorImpressao: textoUltimaAccao, render: (_, o) => <Typography.Text type="secondary" style={{ fontSize: 12 }}>{textoUltimaAccao(o)}</Typography.Text> },
   ];
 
   return (
@@ -79,7 +80,7 @@ function Lista() {
         accoes={pode('orc_editar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setNovo(true)}>Novo orçamento</Button>}
       />
       {meus.length > 0 && (
-        <div style={{ border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1e3a8a', borderRadius: 4, padding: '0.5rem 0.7rem', fontSize: 13, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ border: '1px solid rgba(37,99,235,0.35)', background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', borderRadius: 4, padding: '0.5rem 0.7rem', fontSize: 13, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span><IconeFa nome="user-edit" /> Tem <b>{meus.length}</b> contributo(s) orçamental(is) por preencher como responsável.</span>
           <Button size="small" onClick={() => setSoMeus((x) => !x)}>{soMeus ? 'Ver todos os orçamentos' : 'Ver só os meus contributos'}</Button>
         </div>
@@ -125,31 +126,46 @@ function ModalNovoOrcamento({ aberto, aoFechar, aoGravar }: { aberto: boolean; a
         for (const k of Object.keys(dados)) if (dados[k] === undefined || dados[k] === '') dados[k] = null;
         accao.mutate({ url: '/orcamento/orcamentos', dados });
       }}>
+        {/* legado (orcamento_ui.js:332-351): ano, tipo, dimensões e nome; «Como construir»; hierarquia — Grade com secções */}
         <Row gutter={12}>
           <Col xs={12} md={4}><Form.Item name="ano" label="Ano" rules={[{ required: true }]}><InputNumber min={2000} max={2100} style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={12} md={6}><Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}><Select options={[{ value: 'EXPLORACAO', label: 'Exploração' }, { value: 'TESOURARIA', label: 'Tesouraria' }]} /></Form.Item></Col>
           <Col xs={24} md={14}><Form.Item name="nome" label="Nome"><Input maxLength={255} placeholder="Ex.: Conta de exploração 2027" /></Form.Item></Col>
-          <Col xs={24} md={8}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={24} md={8}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={24} md={8}><Form.Item name="projeto_id" label="Projecto"><SeletorProjecto allowClear /></Form.Item></Col>
-          <Col xs={24} md={8}>
-            <Form.Item name="metodo" label="Método">
-              <Select options={[{ value: 'HISTORICO', label: 'Histórico (com crescimento)' }, { value: 'BASE_ZERO', label: 'Base zero (justificar cada rubrica)' }]} />
-            </Form.Item>
-          </Col>
-          {metodo === 'HISTORICO' && (
-            <>
-              <Col xs={24} md={8}><Form.Item name="origem" label="Base"><Select options={[{ value: 'REALIZADO_ANTERIOR', label: 'Realizado do ano anterior' }, { value: 'ORCAMENTO_ANTERIOR', label: 'Orçamento aprovado anterior' }]} /></Form.Item></Col>
-              <Col xs={8} md={8}><Form.Item name="inflacao_pct" label="Inflação (%)"><InputNumber min={-100} max={1000} style={{ width: '100%' }} /></Form.Item></Col>
-              <Col xs={8} md={8}><Form.Item name="crescimento_proveitos_pct" label={tipo === 'TESOURARIA' ? 'Cresc. recebimentos (%)' : 'Cresc. proveitos (%)'}><InputNumber min={-100} max={1000} style={{ width: '100%' }} /></Form.Item></Col>
-              <Col xs={8} md={8}><Form.Item name="crescimento_custos_pct" label={tipo === 'TESOURARIA' ? 'Cresc. pagamentos (%)' : 'Cresc. custos (%)'}><InputNumber min={-100} max={1000} style={{ width: '100%' }} /></Form.Item></Col>
-            </>
-          )}
-          {tipo === 'TESOURARIA' && <Col xs={24} md={8}><Form.Item name="saldo_inicial" label="Saldo inicial (Kz)" tooltip="Vazio = calculado pelo Diário"><InputNumber precision={2} style={{ width: '100%' }} /></Form.Item></Col>}
-          <Col xs={24} md={8}><Form.Item name="abordagem" label="Abordagem hierárquica"><Select allowClear options={[{ value: 'TOP_DOWN', label: 'Top-down (repartir metas)' }, { value: 'BOTTOM_UP', label: 'Bottom-up (contributos)' }]} /></Form.Item></Col>
-          {abordagem && <Col xs={24} md={8}><Form.Item name="dimensao_filhos" label="Dimensão dos filhos"><Select options={[{ value: 'UN', label: 'Unidades de negócio' }, { value: 'CC', label: 'Centros de custo' }, { value: 'PROJETO', label: 'Projectos' }]} /></Form.Item></Col>}
-          <Col xs={24} md={8}><Form.Item name="orcamento_pai_id" label="Orçamento pai (opcional)"><SeletorOrcamento allowClear ano={anoForm} tipo={tipo} /></Form.Item></Col>
-          <Col xs={24} md={8}><Form.Item name="responsavel" label="Responsável (utilizador)"><Input maxLength={100} /></Form.Item></Col>
+        </Row>
+        <SeccaoFormulario titulo="Dimensões">
+          <Row gutter={12}>
+            <Col xs={24} md={8}><Form.Item name="unidade_negocio_id" label="Unidade de negócio"><SeletorUnidade style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="centro_custo_id" label="Centro de custo"><SeletorAux tabela="centros-custo" placeholder="Centro de custo" style={{ width: '100%' }} /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="projeto_id" label="Projecto"><SeletorProjecto allowClear /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Como construir">
+          <Row gutter={12}>
+            <Col xs={24} md={8}>
+              <Form.Item name="metodo" label="Método">
+                <Select options={[{ value: 'HISTORICO', label: 'Histórico (com crescimento)' }, { value: 'BASE_ZERO', label: 'Base zero (justificar cada rubrica)' }]} />
+              </Form.Item>
+            </Col>
+            {metodo === 'HISTORICO' && (
+              <>
+                <Col xs={24} md={8}><Form.Item name="origem" label="Base"><Select options={[{ value: 'REALIZADO_ANTERIOR', label: 'Realizado do ano anterior' }, { value: 'ORCAMENTO_ANTERIOR', label: 'Orçamento aprovado anterior' }]} /></Form.Item></Col>
+                <Col xs={8} md={8}><Form.Item name="inflacao_pct" label="Inflação (%)"><InputNumber min={-100} max={1000} style={{ width: '100%' }} /></Form.Item></Col>
+                <Col xs={8} md={8}><Form.Item name="crescimento_proveitos_pct" label={tipo === 'TESOURARIA' ? 'Cresc. recebimentos (%)' : 'Cresc. proveitos (%)'}><InputNumber min={-100} max={1000} style={{ width: '100%' }} /></Form.Item></Col>
+                <Col xs={8} md={8}><Form.Item name="crescimento_custos_pct" label={tipo === 'TESOURARIA' ? 'Cresc. pagamentos (%)' : 'Cresc. custos (%)'}><InputNumber min={-100} max={1000} style={{ width: '100%' }} /></Form.Item></Col>
+              </>
+            )}
+            {tipo === 'TESOURARIA' && <Col xs={24} md={8}><Form.Item name="saldo_inicial" label="Saldo inicial (Kz)" tooltip="Vazio = calculado pelo Diário"><InputNumber precision={2} style={{ width: '100%' }} /></Form.Item></Col>}
+          </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Hierarquia e responsável" recolhida>
+          <Row gutter={12}>
+            <Col xs={24} md={8}><Form.Item name="abordagem" label="Abordagem hierárquica"><Select allowClear options={[{ value: 'TOP_DOWN', label: 'Top-down (repartir metas)' }, { value: 'BOTTOM_UP', label: 'Bottom-up (contributos)' }]} /></Form.Item></Col>
+            {abordagem && <Col xs={24} md={8}><Form.Item name="dimensao_filhos" label="Dimensão dos filhos"><Select options={[{ value: 'UN', label: 'Unidades de negócio' }, { value: 'CC', label: 'Centros de custo' }, { value: 'PROJETO', label: 'Projectos' }]} /></Form.Item></Col>}
+            <Col xs={24} md={8}><Form.Item name="orcamento_pai_id" label="Orçamento pai (opcional)"><SeletorOrcamento allowClear ano={anoForm} tipo={tipo} /></Form.Item></Col>
+            <Col xs={24} md={8}><Form.Item name="responsavel" label="Responsável (utilizador)"><Input maxLength={100} /></Form.Item></Col>
+          </Row>
+        </SeccaoFormulario>
+        <Row gutter={12}>
           <Col xs={24}><Form.Item name="descricao" label="Descrição"><Input.TextArea rows={2} maxLength={2000} /></Form.Item></Col>
         </Row>
       </Form>

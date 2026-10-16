@@ -304,7 +304,10 @@ final class ServicoInventarioFisicoAtivos
         $portas = PortaEdificio::query()->where('edificio_id', $edificioId)
             ->when($andarId, fn ($q) => $q->where('andar_id', $andarId))->when($portaId, fn ($q) => $q->whereKey($portaId))->pluck('id');
 
-        return AtivoImobilizado::query()->whereIn('porta_id', $portas)
+        // bens nas portas do âmbito e, numa folha do edifício ou do andar, também os que lá estão sem porta (ADR-071)
+        return AtivoImobilizado::query()
+            ->where(fn ($q) => $q->whereIn('porta_id', $portas)->when(! $portaId, fn ($o) => $o->orWhere(fn ($s) => $s->whereNull('porta_id')
+                ->where('edificio_id', $edificioId)->when($andarId, fn ($a) => $a->where('andar_id', $andarId)))))
             ->where(fn ($q) => $q->whereNull('tipo_ativo')->orWhere('tipo_ativo', '<>', ServicoLocaisAtivos::TIPO_EDIFICIO))
             ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', AtivoImobilizado::ESTADO_ABATIDO))
             ->orderBy('codigo')->get();

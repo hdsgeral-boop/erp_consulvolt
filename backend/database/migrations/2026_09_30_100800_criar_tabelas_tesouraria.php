@@ -293,10 +293,11 @@ return new class extends Migration
             $table->string('cargo_assinatura', 100)->nullable()->comment('legado: signature_role · tipo forçado (inferido: varchar(20))');
             $table->text('local')->nullable()->comment('legado: local · sem valores reais: tipo a confirmar no código legado');
             $table->string('nome', 100)->nullable()->comment('Nome do modelo (sistema novo)');
-            $table->boolean('predefinido')->nullable()->comment('Modelo usado por omissão no tipo');
+            $table->boolean('predefinido')->default(false)->comment('Modelo usado por omissão no tipo (um por empresa e tipo)');
             $table->timestampTz('criado_em')->nullable()->useCurrent();
             $table->timestampTz('atualizado_em')->nullable()->useCurrent();
         });
+        DB::statement('CREATE UNIQUE INDEX uq_modelos_cartas_pagamento_empresa_id_tipo ON modelos_cartas_pagamento (empresa_id, tipo) WHERE predefinido');
         DB::statement('CREATE INDEX ix_modelos_cartas_pagamento_empresa_id ON modelos_cartas_pagamento (empresa_id)');
 
         // configuracoes_contabeis_tesouraria (tabela nova) · 0 linhas reais no backup

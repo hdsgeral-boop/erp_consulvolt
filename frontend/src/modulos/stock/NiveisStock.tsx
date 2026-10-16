@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { TabelaComModos, type ColunaLegado } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
@@ -13,6 +14,7 @@ import { useAccao } from '@/componentes/Accoes';
 import { contemTexto } from '@/modulos/compras/comum/lista';
 import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/LinhasProdutos';
 import { SeletorArmazem, SeletorProduto } from '@/modulos/compras/comum/Seletores';
+import { rotuloProduto, useArmazens, useCatalogo } from '@/modulos/compras/comum/referencias';
 import { ExtractoArtigo } from './comum/ExtractoArtigo';
 import type { LinhaStock, RespostaStock } from './comum/tipos';
 import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -52,7 +54,7 @@ export default function NiveisStock() {
     { title: 'Armazém', dataIndex: 'armazem', render: (x: string | null) => x || 'N/D', sorter: (a, b) => String(a.armazem).localeCompare(String(b.armazem)) },
     { title: 'Código', dataIndex: 'codigo', render: (x) => x || '-', sorter: (a, b) => String(a.codigo).localeCompare(String(b.codigo)) },
     { title: 'Produto', dataIndex: 'nome', render: (x: string) => <strong>{x}</strong>, sorter: (a, b) => a.nome.localeCompare(b.nome) },
-    { title: 'Stock Local', dataIndex: 'quantidade', align: 'right', render: (q: string) => <strong style={{ color: Number(q) <= 5 ? '#ef4444' : '#1e293b' }}>{formatarNumero(q)}</strong>, sorter: (a, b) => Number(a.quantidade) - Number(b.quantidade) },
+    { title: 'Stock Local', dataIndex: 'quantidade', align: 'right', render: (q: string) => <strong style={Number(q) <= 5 ? { color: '#ef4444' } : undefined}>{formatarNumero(q)}</strong>, sorter: (a, b) => Number(a.quantidade) - Number(b.quantidade) },
     { title: 'Custo Médio (CMP)', dataIndex: 'custo_medio', align: 'right', total: true, formatoTotal: (t) => <strong>{formatarKz(t)} Kz</strong>, render: (x: string | null) => (x === null ? '-' : `${formatarKz(x)} Kz`) },
     {
       title: 'V. Total (CMP)',
@@ -109,6 +111,20 @@ export default function NiveisStock() {
   );
 }
 
+/** Data da grade (dayjs) ou da vista Linhas ('AAAA-MM-DD') → API. */
+const dataDe = (d: unknown): string | null => (dayjs.isDayjs(d) ? dataApi(d) ?? null : typeof d === 'string' && d ? d : null);
+
+/** Regras de gravação do ajuste, comuns à grade e à vista Linhas: o custo unitário só conta nas entradas. */
+export function dadosAjuste(v: Record<string, unknown>): Record<string, unknown> {
+  const sentido = v.sentido ?? 'E';
+  return {
+    produto_id: v.produto_id, armazem_id: v.armazem_id, sentido, quantidade: v.quantidade, data: dataDe(v.data), motivo: typeof v.motivo === 'string' ? v.motivo.trim() : v.motivo,
+    custo_unitario: sentido === 'E' && v.custo_unitario !== null && v.custo_unitario !== '' ? v.custo_unitario ?? undefined : undefined,
+  };
+}
+
+const SENTIDOS = [{ value: 'E', label: 'Entrada' }, { value: 'S', label: 'Saída' }];
+
 function ModalAjuste({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => void }) {
   const [form] = Form.useForm<{ produto_id: number; armazem_id: number; sentido: 'E' | 'S'; quantidade: number; custo_unitario?: number; data: Dayjs; motivo: string }>();
   const sentido = Form.useWatch('sentido', form);
@@ -116,9 +132,28 @@ function ModalAjuste({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => vo
   useEffect(() => {
     if (aberto) form.setFieldsValue({ sentido: 'E', data: dayjs(), quantidade: undefined, custo_unitario: undefined, motivo: '' });
   }, [aberto, form]);
+  // Vista Linhas: um ajuste por linha (cada linha é um movimento com o seu motivo)
+  const catalogo = useCatalogo();
+  const armazens = useArmazens();
+  const campos = useMemo<CampoFormulario[]>(() => [
+    { nome: 'produto_id', rotulo: 'Produto', tipo: 'select', obrigatorio: true, largura: 260, aliases: ['Artigo', 'Código'],
+      opcoes: (catalogo.data ?? []).filter((p) => p.movimenta_stock).map((p) => ({ value: p.id, label: rotuloProduto(p) })) },
+    { nome: 'armazem_id', rotulo: 'Armazém', tipo: 'select', obrigatorio: true, largura: 170, opcoes: (armazens.data ?? []).map((a) => ({ value: a.id, label: a.nome })) },
+    { nome: 'data', rotulo: 'Data', tipo: 'data', obrigatorio: true, omissao: () => dayjs().format('YYYY-MM-DD'), largura: 140 },
+    { nome: 'sentido', rotulo: 'Sentido', tipo: 'select', obrigatorio: true, opcoes: SENTIDOS, omissao: 'E', largura: 110 },
+    { nome: 'quantidade', rotulo: 'Quantidade', tipo: 'numero', obrigatorio: true, min: 0.001, largura: 110 },
+    { nome: 'custo_unitario', rotulo: 'Custo unit. (Kz)', tipo: 'numero', min: 0, precisao: 2, largura: 120, aliases: ['Custo unitário'],
+      validar: (c, r) => (r.sentido === 'S' && c !== null && c !== undefined ? 'O custo unitário só se indica nas entradas.' : null) },
+    { nome: 'motivo', rotulo: 'Motivo', tipo: 'textoLongo', obrigatorio: true, maxLength: 500, largura: 240,
+      validar: (m) => (typeof m === 'string' && m.trim() && m.trim().length < 5 ? 'Motivo: pelo menos 5 caracteres.' : null) },
+  ], [catalogo.data, armazens.data]);
   return (
-    <Modal title="Ajuste manual de stock" open={aberto} onCancel={aoFechar} okText="Registar ajuste" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(620)}>
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/logistica/ajustes', dados: { ...v, data: dataApi(v.data), custo_unitario: v.sentido === 'E' ? v.custo_unitario : undefined } })}>
+    <ModalFormulario chave="stock.ajustes" titulo="Ajuste manual de stock" aberto={aberto} aoFechar={aoFechar} criacao form={form} campos={campos}
+      nomeRegistos="ajustes de stock" invalidar={[['logistica']]} larguraLinhas={1250} destroyOnHidden={false}
+      gravarLinha={(r) => enviar('post', '/logistica/ajustes', dadosAjuste(r))}
+      nota="Uma linha por ajuste (produto, armazém e sentido). Sem custo unitário, a entrada usa o custo médio actual. Os ajustes ficam registados com o motivo; para regularizações de contagem física use o inventário."
+      okText="Registar ajuste" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(620)}>
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/logistica/ajustes', dados: dadosAjuste(v) })}>
         <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Os ajustes ficam registados com o motivo. Para regularizações de contagem física use o inventário." />
         <Row gutter={16}>
           <Col xs={24}>
@@ -138,7 +173,7 @@ function ModalAjuste({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => vo
           </Col>
           <Col xs={24} md={8}>
             <Form.Item name="sentido" label="Sentido">
-              <Radio.Group optionType="button" options={[{ value: 'E', label: 'Entrada' }, { value: 'S', label: 'Saída' }]} />
+              <Radio.Group optionType="button" options={SENTIDOS} />
             </Form.Item>
           </Col>
           <Col xs={12} md={8}>
@@ -160,7 +195,7 @@ function ModalAjuste({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => vo
           </Col>
         </Row>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 

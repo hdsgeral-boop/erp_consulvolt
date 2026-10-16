@@ -39,7 +39,7 @@
 .pos-config-form .ant-select-selector,
 .pos-config-form .ant-select {
   min-height: 42px;
-  border-radius: 8px !important;
+  border-radius: 4px !important;
 }
 @media (max-width: 767px) {
   .pos-config-impressao {

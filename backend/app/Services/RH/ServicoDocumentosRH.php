@@ -143,14 +143,13 @@ final class ServicoDocumentosRH
         ];
     }
 
-    /** Contrato ACTIVO vigente hoje. */
+    /**
+     * Contrato vigente hoje (#7, Versão Actual): o em vigor; senão o suspenso ou o cessado que abrange hoje; senão o mais recente
+     * (RegrasContrato::vigente) — uma declaração de um trabalhador com o contrato suspenso ou cessado continua a mostrar o contrato.
+     */
     public function contratoVigente(int $colaborador): ?ContratoTrabalho
     {
-        $hoje = now()->toDateString();
-
-        return ContratoTrabalho::query()->where('colaborador_id', $colaborador)->where('estado', 'ACTIVO')
-            ->where(fn ($q) => $q->whereNull('data_inicio')->orWhere('data_inicio', '<=', $hoje))->where(fn ($q) => $q->whereNull('data_fim')->orWhere('data_fim', '>=', $hoje))
-            ->orderBy('id')->first();
+        return RegrasContrato::vigente(ContratoTrabalho::query()->where('colaborador_id', $colaborador)->get(), now()->toDateString());
     }
 
     /** Remuneração mensal ilíquida do contrato vigente (Σ das remunerações). */

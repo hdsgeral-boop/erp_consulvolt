@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Vendas\CriarReciboRequest;
 use App\Http\Resources\Vendas\ReciboVendaResource;
 use App\Models\ReciboVenda;
+use App\Services\Gestao\ResumoAlocacaoUN;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Vendas\ServicoContabilizacaoVendas;
 use App\Services\Vendas\ServicoRecibosVenda;
 use App\Support\Api\RespostaApi;
@@ -138,6 +140,11 @@ final class ReciboVendaController extends Controller
     private function detalhe(ReciboVenda $recibo): array
     {
         $dados = (new ReciboVendaResource($recibo->load(['cliente:id,nome,nif', 'itensReciboVenda.venda:id,numero_documento'])))->resolve();
+
+        // ADR-071 (R2/R5): alocação por unidades de negócio do recibo e bloco só de leitura
+        $alocacao = $recibo->getAttributes()['unidades_alocadas'] ?? null;
+        $dados += ['unidade_negocio_id' => $recibo->unidade_negocio_id, 'unidades_alocadas' => ServicoReparticao::vazia($alocacao) ? null : ServicoReparticao::ler($alocacao),
+            'alocacao_un' => app(ResumoAlocacaoUN::class)->resumo($alocacao, $recibo->montante_total)];
 
         return $recibo->eAdiantamento() ? $dados + ['saldo_adiantamento' => $this->recibos->saldoAdiantamento($recibo)] : $dados;
     }

@@ -75,6 +75,10 @@ final class VendaResource extends JsonResource
                 'quantidade_faturada' => $i->quantidade_faturada, 'quantidade_devolvida' => $i->quantidade_devolvida, 'preco_unitario' => $i->preco_unitario, 'taxa_imposto' => $i->taxa_imposto,
                 'valor' => $i->total_linha, 'total' => $i->total, 'observacoes' => $i->observacoes,
                 'preco_unitario_moeda' => $i->preco_unitario_moeda, 'total_moeda' => $i->total_moeda,
+                // ADR-071 (R5): UN/CC da linha (vazio = cabeçalho); nomes só quando as relações vêm carregadas (detalhe)
+                'unidade_negocio_id' => $i->unidade_negocio_id, 'centro_custo_id' => $i->centro_custo_id,
+                'unidade_negocio' => $i->relationLoaded('unidadeNegocio') && $i->unidadeNegocio ? ['id' => $i->unidadeNegocio->id, 'codigo' => $i->unidadeNegocio->codigo, 'nome' => $i->unidadeNegocio->nome] : null,
+                'centro_custo' => $i->relationLoaded('centroCusto') && $i->centroCusto ? ['id' => $i->centroCusto->id, 'codigo' => $i->centroCusto->codigo, 'descricao' => $i->centroCusto->descricao] : null,
             ])->values()),
         ];
     }

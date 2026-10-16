@@ -1,4 +1,4 @@
-import { Button, Card, DatePicker, Input, Select, Table, Typography } from 'antd';
+import { Button, Card, DatePicker, Input, Select } from 'antd';
 import { RollbackOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
@@ -33,16 +33,18 @@ export default function Abates() {
   const linhas = q.itens;
 
   const colunas: ColunaApi<Abate>[] = [
-    { title: 'Data', dataIndex: 'data', render: formatarData },
-    { title: 'Documento', dataIndex: 'numero_documento', render: (v) => v ?? '—' },
-    { title: 'Activo', key: 'a', render: (_, r) => (r.ativo_imobilizado ? `${r.ativo_imobilizado.codigo} — ${r.ativo_imobilizado.descricao}` : r.ativo_imobilizado_id) },
-    { title: 'Aquisição', key: 'aq', align: 'right', render: (_, r) => <ValorKz valor={r.ativo_imobilizado?.valor_aquisicao} /> },
-    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaActivos valor={v} /> },
-    { title: 'Valor (Kz)', dataIndex: 'valor', align: 'right', render: (v) => <ValorKz valor={v} discretoSeZero />, totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor))) },
-    { title: 'Terceiro', key: 't', render: (_, r) => r.terceiro?.nome ?? '—' },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 220, render: (v) => v ?? '—' },
+    // colunas e ordem do legado (renderDisposalsView, ui_assets.js:2378-2384); Documento e Aquisição são extras em «Colunas ▾»
+    { title: 'Nº Inventário', key: 'inv', render: (_, r) => <strong>{r.ativo_imobilizado?.codigo ?? '—'}</strong>, valorImpressao: (r) => r.ativo_imobilizado?.codigo ?? '—' },
+    { title: 'Data', dataIndex: 'data', render: formatarData, valorImpressao: (r) => formatarData(r.data) },
+    { title: 'Activo', key: 'a', render: (_, r) => r.ativo_imobilizado?.descricao ?? `#${r.ativo_imobilizado_id}`, valorImpressao: (r) => r.ativo_imobilizado?.descricao ?? `#${r.ativo_imobilizado_id}` },
+    { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaActivos valor={v} />, valorImpressao: (r) => r.tipo },
+    { title: 'Terceiro / Conta', key: 't', render: (_, r) => r.terceiro?.nome ?? '—', valorImpressao: (r) => r.terceiro?.nome ?? '—' },
+    { title: 'Motivo', dataIndex: 'descricao', ellipsis: true, width: 220, render: (v) => v ?? '—', valorImpressao: (r) => r.descricao ?? '—' },
+    { title: 'Valor', dataIndex: 'valor', align: 'right', total: true, render: (v) => <ValorKz valor={v} discretoSeZero />, valorImpressao: (r) => formatarKz(r.valor), totalImpressao: (ls) => formatarKz(somar(ls.map((l) => l.valor))) },
+    { title: 'Documento', dataIndex: 'numero_documento', ocultaPorOmissao: true, render: (v) => v ?? '—' },
+    { title: 'Aquisição', key: 'aq', align: 'right', ocultaPorOmissao: true, render: (_, r) => <ValorKz valor={r.ativo_imobilizado?.valor_aquisicao} /> },
     {
-      title: '', key: 'acc', align: 'right',
+      title: '', key: 'acc', align: 'right', valorImpressao: () => '',
       render: (_, r) => pode('activos_abater') && <Button size="small" danger icon={<RollbackOutlined />} onClick={() => setAnular(r)}>Anular</Button>,
     },
   ];
@@ -80,13 +82,6 @@ export default function Abates() {
           pagination={q.paginacao}
           scroll={{ x: 'max-content' }}
           columns={colunas}
-          summary={() => linhas.length > 0 && (
-            <Table.Summary.Row>
-              <Table.Summary.Cell index={0} colSpan={5}><Typography.Text strong>Total da página</Typography.Text></Table.Summary.Cell>
-              <Table.Summary.Cell index={5} align="right"><ValorKz valor={somar(linhas.map((l) => l.valor))} forte /></Table.Summary.Cell>
-              <Table.Summary.Cell index={6} colSpan={3} />
-            </Table.Summary.Row>
-          )}
         />
       </Card>
       <ModalAbate aberto={novo} aoFechar={() => setNovo(false)} />

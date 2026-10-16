@@ -1,4 +1,5 @@
-import { Alert, Button, Card, Col, DatePicker, Row, Select, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Row, Select, Space, Table, Tabs, Tag, Typography, theme } from 'antd';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -48,6 +49,7 @@ export default function Mapas() {
   const [periodo, setPeriodo] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs()]);
   const [conta, setConta] = useState<string>();
   const [separador, setSeparador] = useState('saldos');
+  const { token } = theme.useToken();
   const { pode } = useSessao();
   const p = { data_inicio: dataApi(periodo[0]), data_fim: dataApi(periodo[1]) };
 
@@ -68,8 +70,8 @@ export default function Mapas() {
   return (
     <>
       {/* formulário de entrada do legado (renderMapasTesouraria): Tipo de Mapa, Conta, Data Inicial, Data Final, «Gerar Mapa» */}
-      <Card style={{ marginBottom: 16 }} styles={{ body: { background: '#f8fafc' } }}>
-        <h3 style={{ marginTop: 0, color: '#2563eb', display: 'flex', alignItems: 'center', gap: 8 }}><IconeFa nome="print" /> Emissão de Mapas de Tesouraria</h3>
+      <Card style={{ marginBottom: 16 }} styles={{ body: { background: token.colorFillAlter } }}>
+        <h3 style={{ marginTop: 0, color: token.colorPrimary, display: 'flex', alignItems: 'center', gap: 8 }}><IconeFa nome="print" /> Emissão de Mapas de Tesouraria</h3>
         <Row gutter={[12, 12]} align="bottom">
           <Col xs={24} sm={12} lg={5}>
             <label style={{ fontWeight: 600, fontSize: 13 }}>Tipo de Mapa</label>
@@ -140,11 +142,14 @@ export default function Mapas() {
                 }
               >
                 {saldos.data && (
-                  <Space size={32} wrap style={{ marginBottom: 12 }}>
-                    <Statistic title="Bancos (43)" value={formatarKz(saldos.data.totais.bancos)} />
-                    <Statistic title="Caixa (45)" value={formatarKz(saldos.data.totais.caixa)} />
-                    <Statistic title="Total disponível" value={formatarKz(saldos.data.totais.total)} />
-                  </Space>
+                  <div style={{ marginBottom: 12 }}>
+                    {/* só no sistema novo; cartões com as cores dos meios de pagamento (bancos / caixa) */}
+                    <GrelhaKpi larguraMinima={200}>
+                      <CartaoKpi rotulo="Bancos (43)" valor={formatarKz(saldos.data.totais.bancos)} unidade="Kz" icone="university" cor="#0891b2" />
+                      <CartaoKpi rotulo="Caixa (45)" valor={formatarKz(saldos.data.totais.caixa)} unidade="Kz" icone="coins" cor="#059669" />
+                      <CartaoKpi rotulo="Total disponível" valor={formatarKz(saldos.data.totais.total)} unidade="Kz" icone="wallet" cor="primario" />
+                    </GrelhaKpi>
+                  </div>
                 )}
                 <Table<LinhaDisponivel>
                   rowKey="codigo_conta"
@@ -179,11 +184,12 @@ export default function Mapas() {
                 </Space>
                 {e && (
                   <>
-                    <Space size={32} wrap style={{ marginBottom: 12 }}>
-                      <Statistic title="Saldo inicial" value={formatarKz(e.saldo_inicial)} />
-                      <Statistic title="Entradas" value={formatarKz(e.debito)} />
-                      <Statistic title="Saídas" value={formatarKz(e.credito)} />
-                      <Statistic title="Saldo final" value={formatarKz(e.saldo_final)} />
+                    {/* cabeçalho do mapa do legado (ui_tesouraria.js:3532-3546): título, conta, período e n.º de movimentos */}
+                    <Space wrap style={{ marginBottom: 12, width: '100%', justifyContent: 'space-between' }}>
+                      <div>
+                        <h3 style={{ margin: 0, color: token.colorPrimary }}>{e.codigo_conta.startsWith('45') ? 'Folha de Caixa' : 'Extrato Bancário'}</h3>
+                        <Typography.Text type="secondary">{e.codigo_conta}{e.descricao ? ` – ${e.descricao}` : ''} · Período: {formatarData(e.data_inicio)} a {formatarData(e.data_fim)} · Exibindo <strong>{e.movimentos.length}</strong> movimentos</Typography.Text>
+                      </div>
                       <BotaoCsv<MovimentoExtrato>
                         nome={`extracto_${e.codigo_conta}`}
                         linhas={e.movimentos}
@@ -200,6 +206,7 @@ export default function Mapas() {
                       />
                     </Space>
                     {!extratoConfere(e) && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O saldo corrido não confere com o saldo final; actualize o extracto." />}
+                    {/* colunas do legado (ui_tesouraria.js:3551-3580): saldo anterior na 1.ª linha e «TOTAIS DO PERÍODO» no fim */}
                     <Table<MovimentoExtrato>
                       rowKey="id"
                       size="small"
@@ -208,16 +215,35 @@ export default function Mapas() {
                       scroll={scrollTabela()}
                       columns={[
                         { title: 'Data', dataIndex: 'data_documento', render: formatarData },
+                        { title: 'Referência', dataIndex: 'numero_documento', render: (v: string | null) => <span style={{ color: token.colorPrimary, fontWeight: 600 }}>{v ?? '—'}</span> },
+                        { title: 'Terceiro', key: 'terceiro', responsive: ['md'], render: (_, l) => <Typography.Text type="secondary" style={{ fontSize: 12.8 }}>{l.terceiro?.nome?.trim() ?? '—'}</Typography.Text> },
+                        { title: 'Descrição / histórico', dataIndex: 'descricao', ellipsis: true, width: 300, responsive: ['lg'] },
+                        { title: 'Contrapartida', key: 'contrapartidas', responsive: ['lg'], render: (_, l) => (l.contrapartidas?.length ? <Typography.Text style={{ fontSize: 12.8 }}>{l.contrapartidas.join(' / ')}</Typography.Text> : '—') },
+                        { title: 'Débito', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : null) },
+                        { title: 'Crédito', align: 'right', render: (_, l) => (l.tipo_dc === 'C' ? <ValorKz valor={l.valor} /> : null) },
+                        { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <strong style={{ color: Number(v) < 0 ? token.colorError : token.colorPrimary, whiteSpace: 'nowrap' }}>{formatarKz(v)}</strong> },
+                        { title: 'Estado Recon.', key: 'recon', responsive: ['md'], render: (_, l) => (l.reconciliacao_codigo ? <Tag color="green">Conciliado{l.reconciliacao_data ? ` · ${formatarData(l.reconciliacao_data)}` : ''}</Tag> : <Tag>Por conciliar</Tag>) },
                         { title: 'Diário', dataIndex: 'diario', responsive: ['lg'] },
                         { title: 'Lançamento', dataIndex: 'numero_lan', responsive: ['md'] },
-                        { title: 'Documento', dataIndex: 'numero_documento' },
-                        { title: 'Terceiro', key: 'terceiro', responsive: ['md'], render: (_, l) => l.terceiro?.nome?.trim() ?? '—' },
-                        { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300, responsive: ['lg'] },
-                        { title: 'Entrada', align: 'right', render: (_, l) => (l.tipo_dc === 'D' ? <ValorKz valor={l.valor} /> : null) },
-                        { title: 'Saída', align: 'right', render: (_, l) => (l.tipo_dc === 'C' ? <ValorKz valor={l.valor} /> : null) },
-                        { title: 'Saldo', dataIndex: 'saldo', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
                       ]}
+                      summary={() => (
+                        <Table.Summary fixed="top">
+                          <Table.Summary.Row>
+                            <Table.Summary.Cell index={0} colSpan={4}><em>SALDO ANTERIOR AO PERÍODO:</em></Table.Summary.Cell>
+                            <Table.Summary.Cell index={4} />
+                            <Table.Summary.Cell index={5} />
+                            <Table.Summary.Cell index={6} align="right"><em>{formatarKz(e.saldo_inicial)}</em></Table.Summary.Cell>
+                            <Table.Summary.Cell index={7} colSpan={2} />
+                          </Table.Summary.Row>
+                        </Table.Summary>
+                      )}
                     />
+                    <div className="erp-linha-total" style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 24, padding: '8px 12px', fontWeight: 800, color: token.colorPrimary, background: token.colorFillAlter }}>
+                      <span>TOTAIS DO PERÍODO:</span>
+                      <span>Débito {formatarKz(e.debito)}</span>
+                      <span>Crédito {formatarKz(e.credito)}</span>
+                      <span>Saldo final {formatarKz(e.saldo_final)}</span>
+                    </div>
                   </>
                 )}
               </Card>

@@ -91,13 +91,13 @@ export function CartaoKpi({
   cor?: string;
   barra?: PosicaoBarraKpi;
 }) {
-  const corVariacao = leitura === 'boa' ? '#389e0d' : leitura === 'ma' ? '#cf1322' : 'rgba(0,0,0,0.55)';
+  const corVariacao = leitura === 'boa' ? '#389e0d' : leitura === 'ma' ? '#cf1322' : undefined; // neutra: texto secundário do tema (tela nocturna)
   const Icone = variacaoPct === null || variacaoPct === undefined || variacaoPct === 0 ? MinusOutlined : variacaoPct > 0 ? ArrowUpOutlined : ArrowDownOutlined;
   const secundaria =
     variacaoPct !== undefined || subtitulo ? (
       <>
         {variacaoPct !== undefined && (
-          <Typography.Text style={{ fontSize: 12, color: corVariacao, display: 'block' }}>
+          <Typography.Text type={corVariacao ? undefined : 'secondary'} style={{ fontSize: 12, color: corVariacao, display: 'block' }}>
             <Icone /> {variacaoPct === null ? 'sem base de comparação' : `${variacaoPct > 0 ? '+' : ''}${formatarNumero(variacaoPct)}%`}
           </Typography.Text>
         )}
@@ -143,6 +143,8 @@ export interface TabelaApiGestao {
   titulo: string;
   colunas: ColunaApi[];
   linhas: Record<string, unknown>[];
+  /** ocupa a linha toda da grelha do Dashboard (legado: `largo`, p. ex. «Comparação por Empresa») */
+  largo?: boolean;
 }
 
 /**

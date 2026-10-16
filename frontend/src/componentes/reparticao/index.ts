@@ -2,6 +2,19 @@
 export { AlocacaoUN, regraAlocacao, type PropsAlocacaoUN } from './AlocacaoUN';
 export { CamposLinhaUNCC, unccDaLinha, useLinhaUNCCDisponivel } from './CamposLinhaUNCC';
 export { CriteriosReparticao, corpoCriterio } from './CriteriosReparticao';
+export {
+  CartaoAlocacaoUN,
+  ModalAlocacaoUN,
+  ResumoAlocacaoUN,
+  SEM_UNCC_LINHA,
+  bloqueioAlocacao,
+  textoCCLinha,
+  textoUNLinha,
+  useColunasUNCC,
+  type LinhaComUNCC,
+  type PropsModalAlocacaoUN,
+  type ResumoAlocacao,
+} from './DetalheReparticao';
 export { ModalRepartirLinha, type PropsModalRepartirLinha } from './ModalRepartirLinha';
 export { TabelaPorUnidade, juntarColunas, type LinhaDemonstracaoUN, type MapaPorUnidade } from './TabelaPorUnidade';
 export { CHAVE_CRITERIOS, gravarAlocacao, obterAlocacao, simularReparticao, useCriterios, useFormas, type TipoObjectoAlocacao } from './api';

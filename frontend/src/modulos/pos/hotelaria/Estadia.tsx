@@ -7,6 +7,7 @@ import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
+import { ModalFormulario } from '@/componentes/formularios';
 import { BotoesExportar, pares, tabelaHtml, type PedidoImpressao } from '@/componentes/impressao';
 import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorProduto, SeletorTerceiro } from '@/modulos/compras/comum/Seletores';
@@ -14,6 +15,7 @@ import { formatarCentimos } from '../comum/calculos';
 import { useCatalogoPOS } from '../comum/dados';
 import { EstadoPOS, rotuloEstadoPOS } from '../comum/estados';
 import { accoesEstadia } from '../comum/regras';
+import { SO_GRADE } from '../comum/formularios';
 import type { Terminal } from '../comum/tipos';
 import { precoQuarto, quantidadeMinima, type ConsumoEstadia, type Estadia, type Quarto } from './tipos';
 
@@ -275,7 +277,7 @@ export function ModalAlterar({ estadia, carregando, aoFechar, aoConfirmar }: { e
       });
   }, [estadia, form]);
   return (
-    <Modal open={!!estadia} title="Alterar estadia" okText="Gravar" cancelText="Cancelar" confirmLoading={carregando} onCancel={aoFechar} onOk={() => form.submit()} width={larguraModal(600)} destroyOnHidden>
+    <ModalFormulario chave="pos.hotelaria.estadia" {...SO_GRADE} titulo="Alterar estadia" aberto={!!estadia} aoFechar={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={carregando} onOk={() => form.submit()} width={larguraModal(600)}>
       <Form
         form={form}
         layout="vertical"
@@ -311,7 +313,7 @@ export function ModalAlterar({ estadia, carregando, aoFechar, aoConfirmar }: { e
           <Input.TextArea rows={2} maxLength={2000} />
         </Form.Item>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 

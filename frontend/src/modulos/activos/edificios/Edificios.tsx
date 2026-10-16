@@ -1,6 +1,6 @@
-import { Alert, Badge, Button, Card, Col, Empty, Row, Select, Space, Statistic, Table, Tabs, Tag } from 'antd';
+import { Alert, Badge, Button, Card, Col, Empty, Row, Select, Space, Table, Tabs, Tag, theme, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
@@ -48,8 +48,20 @@ function Painel() {
   );
 }
 
+/** Número pequeno com rótulo por cima, como os `.aed-num` do legado (activos_edificios.js:39-41). */
+function Numero({ rotulo, children }: { rotulo: string; children: ReactNode }) {
+  const { token } = theme.useToken();
+  return (
+    <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
+      {rotulo}
+      <strong style={{ display: 'block', fontSize: 16, color: token.colorText, fontVariantNumeric: 'tabular-nums' }}>{children}</strong>
+    </div>
+  );
+}
+
 /** Cartões por edifício (renderAssetBuildings :99-153). */
 function Cartoes() {
+  const { token } = theme.useToken();
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [novo, setNovo] = useState(false);
@@ -61,10 +73,10 @@ function Cartoes() {
       title={<span><IconeFa nome="city" /> Edifícios e Locais <small style={{ fontWeight: 400 }}>({d?.edificios.length ?? 0})</small></span>}
       extra={pode('activos_gerir') && <Button type="primary" size="small" icon={<IconeFa nome="plus" />} onClick={() => setNovo(true)}>Novo Edifício / Local</Button>}
     >
-      <p style={{ color: '#64748b', marginTop: 0 }}>Activos do tipo edifício/local com andares e portas numeradas; os restantes bens ficam localizados numa porta.</p>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>Activos do tipo edifício/local com andares e portas numeradas; os restantes bens ficam localizados numa porta.</Typography.Paragraph>
       {!!d?.sem_local && (
         <Alert type="info" showIcon style={{ marginBottom: 12 }}
-          message={`${d.sem_local} bem(ns) ainda sem porta atribuída — abra a planta de um edifício e arraste-os para a porta respectiva.`} />
+          message={`${d.sem_local} bem(ns) ainda sem porta atribuída (sem localização) — abra a planta de um edifício e arraste-os para a porta respectiva.`} />
       )}
       {d && !d.edificios.length && (
         <Empty description={<>Ainda não há edifícios ou locais registados.<br />Crie um activo do tipo «Edifício / Local» e depois acrescente os andares e as portas.</>} />
@@ -73,17 +85,17 @@ function Cartoes() {
         {d?.edificios.map((e) => (
           <Col key={e.id} xs={24} sm={12} xl={8}>
             <Card size="small" style={{ borderLeft: '4px solid #b45309' }}
-              title={<div><div style={{ fontSize: 12, color: '#64748b' }}>{e.codigo}</div>{e.descricao || 'Edifício sem descrição'}</div>}
+              title={<div><div style={{ fontSize: 12, color: token.colorTextSecondary, fontWeight: 700 }}>{e.codigo}</div>{e.descricao || 'Edifício sem descrição'}</div>}
               actions={[
                 <Button key="p" type="link" icon={<IconeFa nome="building" />} onClick={() => navegar(`planta/${e.id}`)}>Planta</Button>,
                 <Button key="f" type="link" title="Editar a ficha do activo" icon={<IconeFa nome="edit" />} onClick={() => navegar(`/m/activos/activos/${e.id}`)}>Ficha</Button>,
               ]}>
-              <Row gutter={8}>
-                <Col span={6}><Statistic title="Andares" value={e.andares} /></Col>
-                <Col span={6}><Statistic title="Portas" value={e.portas} /></Col>
-                <Col span={6}><Statistic title="Bens" value={e.bens} /></Col>
-                <Col span={6}><div style={{ fontSize: 12, color: '#64748b' }}>Valor dos bens</div><strong>{formatarKz(e.valor_bens)}</strong></Col>
-              </Row>
+              <Space size={18} wrap>
+                <Numero rotulo="Andares">{e.andares}</Numero>
+                <Numero rotulo="Portas">{e.portas}</Numero>
+                <Numero rotulo="Bens dentro">{e.bens}{e.sem_porta ? <small title="Bens no edifício sem porta" style={{ fontWeight: 400 }}> ({e.sem_porta} s/ porta)</small> : null}</Numero>
+                <Numero rotulo="Valor dos bens"><span style={{ fontSize: 13.6 }}>{formatarKz(e.valor_bens)}</span></Numero>
+              </Space>
               {e.estado !== 'ACTIVO' && <Tag style={{ marginTop: 8 }}>{e.estado}</Tag>}
             </Card>
           </Col>
@@ -115,7 +127,7 @@ function Folhas() {
           { title: 'Data', dataIndex: 'data', render: formatarData },
           { title: 'Responsável', dataIndex: 'responsavel', render: (v) => v || '—' },
           { title: 'Esperados', dataIndex: 'previstos', align: 'right' },
-          { title: 'Contados', key: 'c', align: 'right', render: (_, i) => <>{i.contados}{i.por_contar ? <small style={{ color: '#64748b' }}> ({i.por_contar} por contar)</small> : null}</> },
+          { title: 'Contados', key: 'c', align: 'right', render: (_, i) => <>{i.contados}{i.por_contar ? <Typography.Text type="secondary" style={{ fontSize: 12 }}> ({i.por_contar} por contar)</Typography.Text> : null}</> },
           { title: 'Diferenças', dataIndex: 'diferencas', align: 'right', render: (v) => <strong style={{ color: v ? '#dc2626' : undefined }}>{v}</strong> },
           { title: 'Estado', key: 's', render: (_, i) => <Space size={4}><Tag color={i.estado === 'ABERTO' ? 'green' : i.estado === 'ANULADO' ? 'red' : 'default'}>{i.estado}</Tag>
             {i.aplicado_em && <Tag color="blue">aplicado</Tag>}</Space> },

@@ -63,7 +63,11 @@ final class ServicoIntegracoesMetodo
         return $a;
     }
 
-    /** gerarPedidoCompra (:321-347). */
+    /**
+     * gerarPedidoCompra (:321-347). O legado grava o custo estimado em purchase_requests.valor_estimado (:328); pedidos_compra
+     * não tem campo próprio para isso (ADR-071, M3: não se cria coluna), por isso o custo estimado fica na observação do pedido.
+     * A deliberação por valor de Compras usa o valor das linhas (ServicoDeliberacaoCompras::valorEstimado).
+     */
     public function gerarPedidoCompra(AssuntoMetodoTrabalho $a): int
     {
         $forn = collect((array) $a->responsaveis)->first(fn ($r) => ($r['tipo'] ?? null) === 'FORNECEDOR')

@@ -11,6 +11,7 @@ import type { ContratoCompra } from '../comum/tipos';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { CartaoAlocacaoUN, bloqueioAlocacao, useColunasUNCC, type LinhaComUNCC, type ResumoAlocacao } from '@/componentes/reparticao';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosEncomendaCompra } from '../comum/impressao';
 import type { Dayjs } from 'dayjs';
@@ -221,7 +222,9 @@ export function DetalheEncomenda() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [modal, setModal] = useState<'rececao' | 'fatura' | 'anular' | 'iva' | null>(null);
-  const consulta = useQuery({ queryKey: ['compras', 'encomenda', id], queryFn: () => obter<EncomendaCompra>(`/compras/encomendas/${id}`) });
+  const consulta = useQuery({ queryKey: ['compras', 'encomenda', id], queryFn: () => obter<EncomendaCompra & { alocacao_un?: ResumoAlocacao | null }>(`/compras/encomendas/${id}`) });
+  // ADR-071 (R5): colunas «Un. negócio» / «C. custo» por linha
+  const colunasUNCC = useColunasUNCC((consulta.data?.linhas ?? []) as (ItemCompra & LinhaComUNCC)[]);
   const rececoes = useQuery({
     queryKey: ['compras', 'rececoes', 'da-encomenda', id],
     queryFn: () => obterPagina<RececaoCompra>('/compras/rececoes', { encomenda_compra_id: id, por_pagina: 100 }),
@@ -287,8 +290,12 @@ export function DetalheEncomenda() {
             ...(moeda !== 'AOA' ? [{ title: `Preço (${moeda})`, dataIndex: 'preco_unitario_moeda', align: 'right' as const, render: (v: string | null) => formatarKz(v) }] : []),
             { title: 'Preço (Kz)', dataIndex: 'preco_unitario', align: 'right', render: (v: string | null) => formatarKz(v) },
             { title: 'Total (Kz)', key: 'total', align: 'right', render: (_, l) => formatarKz(l.total_kz ?? l.total) },
+            ...colunasUNCC,
           ]}
         />
+        {/* ADR-071 (R2): alterar a repartição por UN (passa às facturas da encomenda) enquanto não estiver contabilizada nem anulada */}
+        <CartaoAlocacaoUN tipo="encomenda_compra" id={e.id} resumo={e.alocacao_un} valor={Number(e.montante_total ?? 0)} invalidar={[['compras']]}
+          podeAlterar={pode('compras_enc_criar')} bloqueio={bloqueioAlocacao(e)} />
       </Card>
       {(rececoes.data?.itens.length ?? 0) > 0 && (
         <Card title="Recepções" style={{ marginBottom: 16 }}>

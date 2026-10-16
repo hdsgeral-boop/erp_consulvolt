@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
-import { scrollTabela } from '@/componentes/responsivo';
+import { ModalFormulario, useVistaFormulario } from '@/componentes/formularios';
+import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { BotoesExportar } from '@/componentes/impressao';
@@ -20,7 +21,20 @@ import { ModalImportar } from './comum/ficheiros';
 import { UnidadesNegocio } from '@/modulos/config/UnidadesNegocio';
 import { TabelaComModos } from '@/componentes/vistas';
 import { SeparadorTerceiros } from './tabelasAux/SeparadorTerceiros';
-import { SEPARADORES_AUX, separadorAuxActivo, TEXTOS_TABELA, type ChaveSeparadorAux } from './tabelasAux/tabelasAux';
+import { CartaoGradeLinhas } from './tabelasAux/CartaoGradeLinhas';
+import {
+  CAMPOS_CONTA,
+  CHAVE_LINHAS_TABELA,
+  OPCOES_TIPO_CONTA,
+  PADRAO_CODIGO_CONTA,
+  SEPARADORES_AUX,
+  TEXTOS_TABELA,
+  camposRegistoAux,
+  dadosConta,
+  dadosRegistoAux,
+  separadorAuxActivo,
+  type ChaveSeparadorAux,
+} from './tabelasAux/tabelasAux';
 
 /**
  * Contabilidade › Tabelas Auxiliares da Contabilidade (ecrã tabelas_aux, renderTabelasAuxiliares — js/ui_aux.js:98-491):
@@ -78,10 +92,11 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
   const gerir = pode('aux_gerir');
   const outras = empresas.filter((e) => e.id !== empresa?.id).map((e) => ({ value: e.id, label: e.nome }));
 
-  const invalidar = () => {
-    void cliente.invalidateQueries({ queryKey: ['contab', 'tabelas', tabela] });
-    if (tabela === 'diarios') void cliente.invalidateQueries({ queryKey: ['contab', 'diarios'] });
-  };
+  const chavesInvalidar: unknown[][] = tabela === 'diarios' ? [['contab', 'tabelas', tabela], ['contab', 'diarios']] : [['contab', 'tabelas', tabela]];
+  const invalidar = () => chavesInvalidar.forEach((k) => void cliente.invalidateQueries({ queryKey: k }));
+  const chaveLinhas = CHAVE_LINHAS_TABELA[tabela] ?? `contab.${tabela}`;
+  const [vista, setVista] = useVistaFormulario(chaveLinhas);
+  const camposLinhas = useMemo(() => camposRegistoAux(textos), [textos]);
   const cancelarEdicao = () => {
     setEdicao(null);
     form.resetFields();
@@ -109,13 +124,22 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
     { title: 'Código', dataIndex: 'codigo', width: 140 },
     { title: 'Descrição', dataIndex: 'descricao' },
   ];
+  const emLinhas = gerir && !edicao && vista === 'linhas';
   return (
     <Row gutter={[16, 16]}>
       {gerir && (
-        <Col xs={24} lg={8}>
-          <Card
-            size="small"
-            title={edicao ? `Editar — ${edicao.codigo}` : textos.novo}
+        <Col xs={24} lg={emLinhas ? 24 : 8}>
+          <CartaoGradeLinhas
+            chave={chaveLinhas}
+            titulo={edicao ? `Editar — ${edicao.codigo}` : textos.novo}
+            criacao={!edicao}
+            vista={vista}
+            aoMudarVista={setVista}
+            campos={camposLinhas}
+            form={form}
+            nomeRegistos={titulo.toLowerCase()}
+            invalidar={chavesInvalidar}
+            gravarLinha={(r) => enviar('post', `/contabilidade/tabelas/${tabela}`, dadosRegistoAux(r))}
             extra={
               <Button size="small" icon={<IconeFa nome="file-import" />} onClick={() => setImportar(true)}>
                 Excel
@@ -125,7 +149,10 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
             <Form
               form={form}
               layout="vertical"
-              onFinish={(v) => mutacao.mutate(edicao ? { metodo: 'put', caminho: `${tabela}/${edicao.id}`, corpo: v } : { metodo: 'post', caminho: tabela, corpo: v })}
+              onFinish={(v) => {
+                const corpo = dadosRegistoAux(v);
+                mutacao.mutate(edicao ? { metodo: 'put', caminho: `${tabela}/${edicao.id}`, corpo } : { metodo: 'post', caminho: tabela, corpo });
+              }}
             >
               <Form.Item name="codigo" label="Código" rules={[{ required: true, message: 'Indique o código.' }]}>
                 <Input maxLength={20} placeholder={textos.exCodigo} />
@@ -142,10 +169,10 @@ function TabelaSimples({ tabela, titulo }: { tabela: TabelaAux; titulo: string }
                 </Button>
               )}
             </Form>
-          </Card>
+          </CartaoGradeLinhas>
         </Col>
       )}
-      <Col xs={24} lg={gerir ? 16 : 24}>
+      <Col xs={24} lg={gerir && !emLinhas ? 16 : 24}>
         <Typography.Title level={5} style={{ marginTop: 0 }}>
           {textos.registados}
         </Typography.Title>
@@ -309,22 +336,39 @@ function PlanoContas() {
         pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (n) => `${n} conta(s)` }}
         columns={colunasPlano}
       />
-      <Modal title={edicao === 'novo' ? 'Nova conta' : `Editar conta ${edicao?.codigo ?? ''}`} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" confirmLoading={mutacao.isPending} onOk={() => form.submit()}>
+      <ModalFormulario
+        chave="contab.plano_contas"
+        titulo={edicao === 'novo' ? 'Nova conta' : `Editar conta ${edicao?.codigo ?? ''}`}
+        aberto={edicao !== null}
+        aoFechar={() => setEdicao(null)}
+        criacao={edicao === 'novo'}
+        form={form}
+        campos={CAMPOS_CONTA}
+        nomeRegistos="contas"
+        invalidar={[['contab', 'plano-contas']]}
+        gravarLinha={(r) => enviar('post', '/contabilidade/plano-contas', dadosConta(r))}
+        okText="Gravar"
+        cancelText="Cancelar"
+        confirmLoading={mutacao.isPending}
+        onOk={() => form.submit()}
+        width={larguraModal(520)}
+      >
         <Form
           form={form}
           layout="vertical"
-          onFinish={(v) =>
-            mutacao.mutate(edicao && edicao !== 'novo' ? { metodo: 'put', url: `/contabilidade/plano-contas/${edicao.id}`, corpo: v } : { metodo: 'post', url: '/contabilidade/plano-contas', corpo: v })
-          }
+          onFinish={(v) => {
+            const corpo = dadosConta(v);
+            mutacao.mutate(edicao && edicao !== 'novo' ? { metodo: 'put', url: `/contabilidade/plano-contas/${edicao.id}`, corpo } : { metodo: 'post', url: '/contabilidade/plano-contas', corpo });
+          }}
         >
-          <Form.Item name="codigo" label="Código" rules={[{ required: true }, { pattern: /^[0-9A-Za-z.]+$/, message: 'Só algarismos, letras e pontos.' }]}>
+          <Form.Item name="codigo" label="Código" rules={[{ required: true }, { pattern: PADRAO_CODIGO_CONTA, message: 'Só algarismos, letras e pontos.' }]}>
             <Input maxLength={20} />
           </Form.Item>
           <Form.Item name="descricao" label="Descrição" rules={[{ required: true }]}>
             <Input maxLength={255} />
           </Form.Item>
           <Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}>
-            <Select options={[{ value: 'M', label: 'Movimento (aceita lançamentos)' }, { value: 'T', label: 'Totalizadora' }]} />
+            <Select options={OPCOES_TIPO_CONTA} />
           </Form.Item>
           <Space wrap>
             <Form.Item name="codigo_moeda" label="Moeda">
@@ -335,7 +379,7 @@ function PlanoContas() {
             </Form.Item>
           </Space>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </Card>
   );
 }

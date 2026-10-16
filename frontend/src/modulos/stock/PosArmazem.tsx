@@ -203,7 +203,7 @@ function Picking({ armazem }: { armazem: number }) {
                 ocultavel: false,
                 render: (_, r) =>
                   podeVerLista ? (
-                    <Button type="primary" size="small" style={{ borderRadius: 8 }} onClick={() => setEncomenda(r.id)}>
+                    <Button type="primary" size="small" onClick={() => setEncomenda(r.id)}>
                       <IconeFa nome="dolly" /> Iniciar Picking
                     </Button>
                   ) : null,

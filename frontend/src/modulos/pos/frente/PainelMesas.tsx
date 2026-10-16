@@ -1,13 +1,17 @@
-import { Button, Card, Empty, Form, Input, Modal, Spin, Typography, theme } from 'antd';
+import { Button, Card, Empty, Form, Input, Spin, Typography, theme } from 'antd';
 import { AppstoreOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { estadoMesa, type MesaPOS } from './mesas';
+import { dadosMesa, estadoMesa, type MesaPOS } from './mesas';
+
+/** Coluna da vista Linhas de «Criar mesa» (várias mesas de uma vez: Mesa 1, Mesa 2, Terraço 3…). */
+const CAMPOS_MESA: CampoFormulario[] = [{ nome: 'nome', rotulo: 'Nome da mesa', obrigatorio: true, largura: 260, maxLength: 60, aliases: ['Mesa', 'Nome'], placeholder: 'Ex.: Mesa 9' }];
 
 export function useMesas(terminal: number, activo = true) {
   return useQuery({ queryKey: ['pos', 'mesas', terminal], queryFn: () => obter<MesaPOS[]>(`/pos/terminais/${terminal}/mesas`), enabled: activo, refetchInterval: 30_000 });
@@ -42,7 +46,7 @@ export function PainelMesas({ terminal, activa, aoEscolher, ocupado }: { termina
         aria-pressed={estado === 'ACTIVA'}
         style={{
           padding: '10px 8px',
-          borderRadius: 10,
+          borderRadius: 4,
           border: `2px solid ${cor}`,
           background: estado === 'ACTIVA' ? token.colorPrimaryBg : estado === 'OCUPADA' ? token.colorWarningBg : token.colorBgContainer,
           cursor: ocupado ? 'wait' : 'pointer',
@@ -84,22 +88,31 @@ export function PainelMesas({ terminal, activa, aoEscolher, ocupado }: { termina
         </div>
       )}
       {!mesas.isLoading && !mesas.data?.length && <Empty image={<ShopOutlined style={{ fontSize: 32 }} />} description="Sem mesas: crie a primeira." />}
-      <Modal
-        title="Criar mesa"
-        open={criar}
-        onCancel={() => setCriar(false)}
+      <ModalFormulario
+        chave="pos.mesas"
+        titulo="Criar mesa"
+        aberto={criar}
+        aoFechar={() => setCriar(false)}
+        criacao
+        form={form}
+        campos={CAMPOS_MESA}
+        nomeRegistos="mesas"
+        larguraLinhas={640}
+        invalidar={[['pos', 'mesas', terminal]]}
+        gravarLinha={(r) => enviar('post', `/pos/terminais/${terminal}/mesas`, dadosMesa(r))}
         okText="Adicionar"
         cancelText="Cancelar"
         confirmLoading={nova.isPending}
         onOk={() => form.submit()}
         width={larguraModal(400)}
+        destroyOnHidden={false}
       >
-        <Form form={form} layout="vertical" onFinish={(v) => nova.mutate({ url: `/pos/terminais/${terminal}/mesas`, dados: { nome: v.nome.trim() } })}>
+        <Form form={form} layout="vertical" onFinish={(v) => nova.mutate({ url: `/pos/terminais/${terminal}/mesas`, dados: dadosMesa(v) })}>
           <Form.Item name="nome" label="Nome da mesa" rules={[{ required: true, whitespace: true, message: 'Introduza um nome para a mesa.' }]}>
             <Input maxLength={60} placeholder="Ex.: Mesa 9, Terraço 3" autoFocus />
           </Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </Card>
   );
 }

@@ -5,8 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { IconeFa } from '@/componentes/fluxos';
 import { scrollTabela } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -18,8 +19,36 @@ import { EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useInfotipos } from './comum/consultas';
 import { mesPorExtenso, somar } from './comum/regras';
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
-import { periodoActualProdutividade, resumoProdutividade, type LinhaResumoProdutividade } from './produtividade/regrasProdutividade';
+import { BASES_CALCULO, baseDe, explicarCalculo, METRICAS, metricaDe, periodoActualProdutividade, resumoProdutividade, type LinhaResumoProdutividade } from './produtividade/regrasProdutividade';
 import { PonteProdutividade } from '@/modulos/projectos/comum/PonteProdutividade';
+import { campoSimNao, dataDe, numeroDe, textoDe } from './comum/linhasRh';
+
+/** Vista Linhas dos «Itens de produtividade» (um item por linha; o mesmo POST e o mesmo `paraEnvio` da grade). */
+export function camposItemProdutividade(rubricas: CampoFormulario['opcoes']): CampoFormulario[] {
+  return [
+    { nome: 'codigo', rotulo: 'Código', obrigatorio: true, largura: 110, maxLength: 20 },
+    { nome: 'descricao', rotulo: 'Descrição', obrigatorio: true, largura: 240, maxLength: 500 },
+    { nome: 'metrica', rotulo: 'Métrica', tipo: 'select', largura: 190, omissao: 'QUANTIDADE', opcoes: METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: metricaDe(m).nome })) },
+    { nome: 'unidade', rotulo: 'Unidade', largura: 90, maxLength: 10 },
+    { nome: 'base_calculo', rotulo: 'Base de cálculo', tipo: 'select', largura: 240, omissao: 'UNITARIO', emLinhas: 'opcional',
+      opcoes: (['UNITARIO', 'PREMIO'] as const).map((b) => ({ value: b, label: BASES_CALCULO[b].nome })),
+      validar: (b, r) => (b === 'PREMIO' && r.metrica !== 'OBJECTIVO' ? 'O prémio só se aplica ao cumprimento de objectivo.' : null) },
+    { nome: 'preco_unitario', rotulo: 'Preço / prémio', tipo: 'numero', obrigatorio: true, largura: 120, min: 0.0001, precisao: 4, aliases: ['Preço', 'Valor por unidade'] },
+    { nome: 'minimo', rotulo: 'Mínimo (total)', tipo: 'numero', largura: 110, min: 0, emLinhas: 'opcional' },
+    { nome: 'maximo', rotulo: 'Máximo (total)', tipo: 'numero', largura: 110, min: 0, emLinhas: 'opcional' },
+    { nome: 'infotipo_salarial_id', rotulo: 'Rubrica (vencimento)', tipo: 'select', obrigatorio: true, largura: 220, opcoes: rubricas, aliases: ['Rubrica'] },
+    campoSimNao('ativo', 'Activo', { omissao: true }),
+  ];
+}
+
+/** Corpo do POST/PUT de um registo de produtividade (grade e linhas). */
+export const dadosRegistoProdutividade = (v: Record<string, unknown>) => ({
+  colaborador_id: v.colaborador_id,
+  item_produtividade_id: v.item_produtividade_id,
+  quantidade: numeroDe(v.quantidade),
+  data: dataDe(v.data),
+  observacoes: textoDe(v.observacoes),
+});
 
 /**
  * RH › Subsídio de produtividade (ecrã rh_produtividade), como no antigo (js/modules/rh/produtividade_ui.js): abre
@@ -62,7 +91,7 @@ function EcraProdutividade() {
     <>
       <CabecalhoPagina
         titulo={<Space><IconeFa nome="chart-line" />Subsídio de produtividade</Space>}
-        subtitulo="Produtividade medida por quantidade, horas, objectivo, pontos ou tarefas; valor = quantidade × preço unitário. Só colaboradores com itens de produtividade no contrato. O período fechado é importado no cálculo salarial."
+        subtitulo="Produtividade medida por quantidade, horas, objectivo, pontos ou tarefas; valor = quantidade × preço unitário (no cumprimento de objectivo pode ser prémio a 100 % × % atingida). Só colaboradores com itens de produtividade no contrato. O período fechado é importado no cálculo salarial."
       />
       <Card size="small" style={{ marginBottom: 12 }}>
         <Space wrap align="end" style={{ width: '100%' }}>
@@ -181,6 +210,7 @@ function ListaPeriodos({ aoAbrir }: { aoAbrir: (id: number) => void }) {
 function ItensProdutividade() {
   const { pode } = useSessao();
   const infotipos = useInfotipos();
+  const camposLinhas = camposItemProdutividade(infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO').map((i) => ({ value: i.id, label: i.nome })));
   return (
     <CadastroSimples<ItemProdutividade>
       url="/rh/produtividade/itens"
@@ -190,14 +220,18 @@ function ItensProdutividade() {
       podeGerir={pode('rh_prod_config')}
       podeEliminar={pode('rh_prod_config')}
       pesquisa={(r) => `${r.codigo} ${r.descricao}`}
-      valoresNovos={{ metrica: 'QUANTIDADE', ativo: true }}
-      paraFormulario={(r) => ({ ...r, preco_unitario: Number(r.preco_unitario), minimo: r.minimo !== null ? Number(r.minimo) : null, maximo: r.maximo !== null ? Number(r.maximo) : null })}
+      valoresNovos={{ metrica: 'QUANTIDADE', base_calculo: 'UNITARIO', ativo: true }}
+      paraFormulario={(r) => ({ ...r, base_calculo: baseDe(r), preco_unitario: Number(r.preco_unitario), minimo: r.minimo !== null ? Number(r.minimo) : null, maximo: r.maximo !== null ? Number(r.maximo) : null })}
+      // #11: a base «prémio» só se envia na métrica OBJECTIVO (o servidor recusa noutras)
+      paraEnvio={(v) => ({ ...v, base_calculo: v.metrica === 'OBJECTIVO' ? v.base_calculo ?? 'UNITARIO' : 'UNITARIO' })}
+      linhas={{ chave: 'rh.produtividade.itens', campos: camposLinhas, nomeRegistos: 'itens de produtividade' }}
       colunas={[
         { title: 'Código', dataIndex: 'codigo', render: (v: string) => <strong>{v}</strong> },
         { title: 'Descrição', dataIndex: 'descricao' },
-        { title: 'Métrica', dataIndex: 'metrica' },
+        { title: 'Métrica', dataIndex: 'metrica', render: (v: string | null) => metricaDe(v).nome },
+        { title: 'Base de cálculo', key: 'base', render: (_, r) => (baseDe(r) === 'PREMIO' ? <Tag color="purple">Prémio × % atingida</Tag> : 'Quantidade × preço') },
         { title: 'Unidade', dataIndex: 'unidade', render: (v: string | null) => v ?? '—' },
-        { title: 'Preço unitário', dataIndex: 'preco_unitario', align: 'right', render: (v: string) => formatarKz(v) },
+        { title: 'Preço / prémio', dataIndex: 'preco_unitario', align: 'right', render: (v: string) => formatarKz(v) },
         { title: 'Mín./máx. (total)', render: (_, r) => `${r.minimo !== null ? formatarNumero(r.minimo) : '—'} / ${r.maximo !== null ? formatarNumero(r.maximo) : '—'}` },
         { title: 'Rubrica', dataIndex: 'infotipo_salarial_id', render: (v: number) => infotipos.nome(v) },
         { title: 'Activo', dataIndex: 'ativo', render: (v: boolean) => (v ? <Tag color="green">Sim</Tag> : <Tag>Não</Tag>) },
@@ -206,11 +240,44 @@ function ItensProdutividade() {
         <Row gutter={12}>
           <Col xs={24} sm={12} md={8}><Form.Item name="codigo" label="Código" rules={[{ required: true }, { max: 20 }]}><Input /></Form.Item></Col>
           <Col xs={24} md={16}><Form.Item name="descricao" label="Descrição" rules={[{ required: true }, { max: 500 }]}><Input /></Form.Item></Col>
-          <Col xs={24} sm={12} md={8}><Form.Item name="metrica" label="Métrica"><Select options={METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: m }))} /></Form.Item></Col>
+          <Col xs={24} sm={12} md={8}><Form.Item name="metrica" label="Métrica"><Select options={METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: metricaDe(m).nome }))} /></Form.Item></Col>
           <Col xs={24} sm={12} md={8}><Form.Item name="unidade" label="Unidade"><Input maxLength={10} /></Form.Item></Col>
-          <Col xs={24} sm={12} md={8}><Form.Item name="preco_unitario" label="Preço unitário" rules={[{ required: true }]}><InputNumber min={0.0001} precision={4} decimalSeparator="," style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={24} sm={12} md={8}><Form.Item name="minimo" label="Mínimo (total)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={24} sm={12} md={8}><Form.Item name="maximo" label="Máximo (total)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+          {/* #11: rótulos, fórmula e exemplo da métrica; base «prémio» só no cumprimento de objectivo (produtividade.js:36-160) */}
+          <Form.Item noStyle shouldUpdate={(a, b) => a.metrica !== b.metrica || a.base_calculo !== b.base_calculo || a.preco_unitario !== b.preco_unitario
+            || a.minimo !== b.minimo || a.maximo !== b.maximo || a.unidade !== b.unidade}>
+            {({ getFieldValue }) => {
+              const metrica = getFieldValue('metrica') as string | undefined;
+              const m = metricaDe(metrica);
+              const premio = metrica === 'OBJECTIVO' && getFieldValue('base_calculo') === 'PREMIO';
+              const item = { metrica: metrica ?? null, base_calculo: premio ? 'PREMIO' as const : 'UNITARIO' as const, unidade: getFieldValue('unidade') ?? null,
+                minimo: getFieldValue('minimo') ?? null, maximo: getFieldValue('maximo') ?? null };
+              const preco = Number(getFieldValue('preco_unitario')) || 0;
+              const exemplo = metrica === 'OBJECTIVO' ? 95 : 10;
+              const exp = preco > 0 ? explicarCalculo(item, exemplo, preco) : null;
+              return (
+                <>
+                  {m.basePremio && (
+                    <Col xs={24} sm={12} md={8}>
+                      <Form.Item name="base_calculo" label="Base de cálculo">
+                        <Select options={(['UNITARIO', 'PREMIO'] as const).map((b) => ({ value: b, label: BASES_CALCULO[b].nome }))} />
+                      </Form.Item>
+                    </Col>
+                  )}
+                  <Col xs={24} sm={12} md={8}><Form.Item name="preco_unitario" label={premio ? m.rotuloPreco : metrica === 'OBJECTIVO' ? 'Valor por ponto percentual' : m.rotuloPreco} rules={[{ required: true }]}><InputNumber min={0.0001} precision={4} decimalSeparator="," style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="minimo" label={`${m.rotuloMinimo} (total)`}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={24} sm={12} md={8}><Form.Item name="maximo" label={`${m.rotuloMaximo} (total)`}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={24}>
+                    <Alert type="info" showIcon style={{ marginBottom: 12 }} message={premio ? METRICAS.OBJECTIVO.formula : metrica === 'OBJECTIVO' ? 'Subsídio = % atingida × valor por ponto percentual' : m.formula}
+                      description={<>
+                        <div>{m.ajuda}</div>
+                        <div style={{ marginTop: 4 }}><b>Exemplo:</b> {m.exemplo}</div>
+                        {exp && <div style={{ marginTop: 4 }}><b>Com estes valores, para {exemplo}{metrica === 'OBJECTIVO' ? ' %' : ` ${item.unidade ?? ''}`}:</b> {exp.conta}{exp.cortes.length ? ` (${exp.cortes.join('; ')})` : ''}</div>}
+                      </>} />
+                  </Col>
+                </>
+              );
+            }}
+          </Form.Item>
           <Col xs={24} sm={12} md={8}><Form.Item name="ativo" label=" " valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
           <Col xs={24}>
             <Form.Item name="infotipo_salarial_id" label="Rubrica (vencimento)" rules={[{ required: true }]}>
@@ -222,6 +289,19 @@ function ItensProdutividade() {
       larguraModal={720}
     />
   );
+}
+
+/** GET /rh/produtividade/periodos/{id}/explicacao — a conta de cada colaborador e item. */
+interface ExplicacaoProdutividade {
+  colaborador_id: number;
+  item_produtividade_id: number;
+  codigo: string;
+  formula: string;
+  conta: string;
+  cortes: string[];
+  valor: string;
+  valor_gravado: string;
+  precos_diferentes: boolean;
 }
 
 interface ValoresRegisto {
@@ -243,6 +323,12 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
   const [form] = Form.useForm<ValoresRegisto>();
   const accao = useAccaoRh(() => setEdicao(null));
   const colabForm = Form.useWatch('colaborador_id', form);
+  // #11: a conta por extenso de cada colaborador e item (o mínimo e o tecto aplicam-se ao total do período)
+  const explicacao = useQuery({
+    queryKey: ['rh', 'produtividade', 'periodo', String(id), 'explicacao'],
+    queryFn: () => obter<ExplicacaoProdutividade[]>(`/rh/produtividade/periodos/${id}/explicacao`),
+    enabled: separador === 'resumo',
+  });
   const p = q.data;
   if (!p) return <Card loading={q.isLoading}>{!q.isLoading && <Alert type="error" message="Período não encontrado." />}</Card>;
 
@@ -252,6 +338,18 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
   const item = (iid: number) => itens.data?.find((i) => i.id === iid);
   const itensDoColab = p.elegiveis.find((e) => e.colaborador_id === colabForm)?.itens ?? {};
   const total = somar(p.registos.map((r) => r.valor));
+  // vista Linhas de «Novo registo»: o item tem de estar no contrato do colaborador da linha
+  const camposLinhas: CampoFormulario[] = [
+    { nome: 'colaborador_id', rotulo: 'Colaborador (elegível)', tipo: 'select', obrigatorio: true, largura: 240, opcoes: p.elegiveis.map((e) => ({ value: e.colaborador_id, label: e.nome })), aliases: ['Colaborador', 'Nome'] },
+    { nome: 'item_produtividade_id', rotulo: 'Item do contrato', tipo: 'select', obrigatorio: true, largura: 220, aliases: ['Item', 'Código'],
+      opcoes: (itens.data ?? []).map((i) => ({ value: i.id, label: `${i.codigo} - ${i.descricao}` })),
+      validar: (v, r) => (v && r.colaborador_id && !Object.values(p.elegiveis.find((e) => e.colaborador_id === r.colaborador_id)?.itens ?? {}).some((i) => i.item_id === v)
+        ? 'O item não está no contrato deste colaborador.' : null) },
+    { nome: 'quantidade', rotulo: 'Quantidade', tipo: 'numero', obrigatorio: true, largura: 110, min: 0 },
+    { nome: 'data', rotulo: 'Data', tipo: 'data', largura: 140,
+      validar: (d) => (d && (String(d) < p.data_inicio.slice(0, 10) || String(d) > p.data_fim.slice(0, 10)) ? `A data tem de estar na janela de medição (${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)}).` : null) },
+    { nome: 'observacoes', rotulo: 'Observações', largura: 220, maxLength: 1000, emLinhas: 'opcional' },
+  ];
 
   const colunas: ColunaApi<RegistoProdutividade>[] = [
     { title: 'Data', dataIndex: 'data', render: formatarData },
@@ -270,6 +368,15 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
     { title: 'Itens (quantidade → valor)', key: 'itens', valorImpressao: (l) => l.itens.map((i) => `${i.rotulo}: ${formatarNumero(i.quantidade)} → ${formatarKz(i.valor)}`).join('; '),
       render: (_, l) => l.itens.map((i) => <div key={i.rotulo}>{i.rotulo}: {formatarNumero(i.quantidade)} → {formatarKz(i.valor)}</div>) },
     { title: 'Rubrica(s)', key: 'rubricas', valorImpressao: (l) => l.rubricas.map((r) => infotipos.nome(r)).join(', '), render: (_, l) => l.rubricas.map((r) => <div key={r}>{infotipos.nome(r)}</div>) },
+    { title: 'Como foi calculado', key: 'explicacao',
+      valorImpressao: (l) => (explicacao.data ?? []).filter((x) => x.colaborador_id === l.colaborador_id).map((x) => `${x.codigo}: ${x.conta}${x.cortes.length ? ` (${x.cortes.join('; ')})` : ''}`).join('; '),
+      render: (_, l) => (explicacao.data ?? []).filter((x) => x.colaborador_id === l.colaborador_id).map((x) => (
+        <div key={x.item_produtividade_id} style={{ fontSize: 12 }}>
+          <Typography.Text type="secondary">{x.codigo} · {x.formula}</Typography.Text><br />{x.conta}
+          {x.cortes.map((c) => <div key={c}><Typography.Text type="warning">{c}</Typography.Text></div>)}
+          {x.precos_diferentes && <div><Typography.Text type="secondary">Preços diferentes entre registos: vale o valor gravado ({formatarKz(x.valor_gravado)}).</Typography.Text></div>}
+        </div>
+      )) },
     { title: 'Registos', dataIndex: 'registos', align: 'right' },
     { title: 'Total', dataIndex: 'total', align: 'right', render: (v: string) => <strong>{formatarKz(v)}</strong>, total: true },
   ];
@@ -298,11 +405,11 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
 
       {separador === 'resumo' && (
         <>
-          <GrelhaKpi larguraMinima={180}>
-            <CartaoKpi rotulo="Colaboradores" valor={resumo.length} icone="users" cor="azul" />
-            <CartaoKpi rotulo="Registos" valor={p.registos.length} icone="list" cor="cinzento" />
-            <CartaoKpi rotulo="Total a pagar" valor={formatarKz(total)} unidade="Kz" icone="coins" cor="verde" />
-            <CartaoKpi rotulo="Medição" valor={`${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)}`} icone="calendar-alt" cor="roxo" />
+          <GrelhaKpi larguraMinima={150}>
+            <CartaoKpi barra="nenhuma" rotulo="Colaboradores" valor={resumo.length} />
+            <CartaoKpi barra="nenhuma" rotulo="Registos" valor={p.registos.length} />
+            <CartaoKpi barra="nenhuma" rotulo="Total a pagar" valor={formatarKz(total)} unidade="Kz" />
+            <CartaoKpi barra="nenhuma" rotulo="Medição" valor={`${formatarData(p.data_inicio)} a ${formatarData(p.data_fim)}`} />
           </GrelhaKpi>
           <Card style={{ marginTop: 12 }} title={`Produtividade de ${mesPorExtenso(p.mes)}`}>
             <Descriptions size="small" column={{ xs: 1, md: 3 }} style={{ marginBottom: 8 }}>
@@ -334,9 +441,12 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
       <ImportarExcel aberto={importar} titulo={`Importar produtividade — ${mesPorExtenso(p.mes)}`} url={`/rh/produtividade/periodos/${id}/importar`} modelo="produtividade" comDecisao="IGNORAR"
         ajuda="Folha «Produtividade»: NIF, código do item, quantidade, data (opcional, dentro da janela) e observações. O colaborador tem de ter o item no contrato activo; o mesmo NIF + item + data nunca se duplica."
         aoFechar={() => setImportar(false)} />
-      <Modal title={edicao === 'novo' ? 'Novo registo' : 'Editar registo'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="rh.produtividade.registos" titulo={edicao === 'novo' ? 'Novo registo' : 'Editar registo'} aberto={edicao !== null} aoFechar={() => setEdicao(null)}
+        criacao={edicao === 'novo'} form={form} campos={camposLinhas} nomeRegistos="registos de produtividade" invalidar={[['rh', 'produtividade']]}
+        gravarLinha={(r) => enviar('post', `/rh/produtividade/periodos/${id}/registos`, dadosRegistoProdutividade(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => {
-          const dados = { ...v, data: dataApi(v.data ?? null) ?? null, observacoes: v.observacoes ?? null };
+          const dados = dadosRegistoProdutividade(v as unknown as Record<string, unknown>);
           if (edicao === 'novo') accao.mutate({ metodo: 'post', url: `/rh/produtividade/periodos/${id}/registos`, dados });
           else if (edicao) accao.mutate({ metodo: 'put', url: `/rh/produtividade/periodos/${id}/registos/${edicao.id}`, dados });
         }}>
@@ -352,7 +462,7 @@ function PainelPeriodo({ id, separador }: { id: number; separador: Exclude<Separ
           </Row>
           <Form.Item name="observacoes" label="Observações"><Input.TextArea rows={2} maxLength={1000} /></Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </>
   );
 }

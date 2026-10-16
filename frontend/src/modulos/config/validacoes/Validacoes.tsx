@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Descriptions, Drawer, Empty, Input, Select, Skeleton, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Checkbox, Descriptions, Drawer, Empty, Input, Select, Skeleton, Table, Tag, Typography } from 'antd';
 import { ExportOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -8,6 +8,7 @@ import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
 import { BarraFiltros, COLUNAS_DESCRICOES, larguraGaveta, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarNumero } from '@/utilitarios/formatacao';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import {
   COR_GRAVIDADE,
   LIMITE_DETALHE,
@@ -63,15 +64,17 @@ export default function Validacoes() {
         Verificações só de leitura aos dados da empresa activa (substituem as rotinas do sistema antigo que corrigiam ou apagavam dados sem aviso). Corrija cada caso no
         ecrã indicado; as correcções em massa fazem-se por pedido no separador «Novo pedido».
       </Typography.Paragraph>
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <Space size={[40, 12]} wrap>
-          <Statistic title="Validações com ocorrências" value={`${resumo.comOcorrencias} de ${resumo.total}`} />
-          <Statistic title="Erros" value={resumo.porGravidade.ERRO ?? 0} valueStyle={{ color: (resumo.porGravidade.ERRO ?? 0) > 0 ? '#cf1322' : undefined }} />
-          <Statistic title="Avisos" value={resumo.porGravidade.AVISO ?? 0} valueStyle={{ color: (resumo.porGravidade.AVISO ?? 0) > 0 ? '#d46b08' : undefined }} />
-          <Statistic title="Informações" value={resumo.porGravidade.INFO ?? 0} />
-          <Statistic title="Registos assinalados" value={formatarNumero(resumo.ocorrencias)} />
-        </Space>
-      </Card>
+      {/* indicadores em cartões do tema (CartaoKpi); os de gravidade filtram a lista */}
+      <GrelhaKpi larguraMinima={200} style={{ marginBottom: 16 }}>
+        <CartaoKpi rotulo="Validações com ocorrências" valor={`${resumo.comOcorrencias} de ${resumo.total}`} icone="clipboard-check" cor="azul" />
+        <CartaoKpi rotulo="Erros" valor={resumo.porGravidade.ERRO ?? 0} icone="times-circle" cor="vermelho" corValor={(resumo.porGravidade.ERRO ?? 0) > 0 ? '#dc2626' : undefined}
+          aoClicar={() => setGravidade((g) => (g === 'ERRO' ? undefined : 'ERRO'))} activo={gravidade === 'ERRO'} />
+        <CartaoKpi rotulo="Avisos" valor={resumo.porGravidade.AVISO ?? 0} icone="exclamation-triangle" cor="laranja" corValor={(resumo.porGravidade.AVISO ?? 0) > 0 ? '#b45309' : undefined}
+          aoClicar={() => setGravidade((g) => (g === 'AVISO' ? undefined : 'AVISO'))} activo={gravidade === 'AVISO'} />
+        <CartaoKpi rotulo="Informações" valor={resumo.porGravidade.INFO ?? 0} icone="info-circle" cor="cinzento"
+          aoClicar={() => setGravidade((g) => (g === 'INFO' ? undefined : 'INFO'))} activo={gravidade === 'INFO'} />
+        <CartaoKpi rotulo="Registos assinalados" valor={formatarNumero(resumo.ocorrencias)} icone="flag" cor="roxo" />
+      </GrelhaKpi>
       <BarraFiltros
         style={{ marginBottom: 12 }}
         accoes={

@@ -1,8 +1,10 @@
-import { Alert, Button, Card, Col, Empty, Input, Modal, Row, Space, Spin, Statistic, Table, Tag, Timeline, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Input, Modal, Space, Spin, Table, Tabs, Tag, Timeline, Typography, theme } from 'antd';
+import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -20,11 +22,23 @@ export const CHAVE = ['metodo', 'assuntos'];
  */
 export default function Assuntos() {
   const { pode } = useSessao();
+  const { token } = theme.useToken();
   const navegar = useNavigate();
   const [vista, setVista] = useState<Vista>('lista');
   const [pesquisa, setPesquisa] = useState('');
   const [aberto, setAberto] = useState<number | 'novo' | null>(null);
   const [historico, setHistorico] = useState<number | null>(null);
+  // ?assunto=ID (ligação a partir do projecto que nasceu do assunto): abre-o e limpa o parâmetro
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    const id = Number(params.get('assunto'));
+    if (Number.isInteger(id) && id > 0) {
+      setAberto(id);
+      const resto = new URLSearchParams(params);
+      resto.delete('assunto');
+      setParams(resto, { replace: true });
+    }
+  }, [params, setParams]);
   const q = useQuery({ queryKey: [...CHAVE, 'lista', pesquisa], queryFn: () => obter<ListaAssuntos>('/metodo/assuntos', { pesquisa: pesquisa || undefined }) });
   const lista = useMemo(() => q.data?.assuntos ?? [], [q.data]);
   const al = q.data?.alertas;
@@ -70,17 +84,18 @@ export default function Assuntos() {
 
   return (
     <>
-      <Card style={{ marginBottom: 16 }}
-        title={<span><IconeFa nome="clipboard-list" /> Método de Trabalho <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}>Registo de Assunto — 5W1H</Typography.Text></span>}
-        extra={podeCriar && <Button type="primary" icon={<IconeFa nome="plus" />} onClick={() => setAberto('novo')}>Novo assunto</Button>}>
-        <Space wrap>
-          {VISTAS.map((v) => (
-            <Button key={v.chave} size="small" type={vista === v.chave ? 'primary' : 'default'} icon={<IconeFa nome={v.icone} />} onClick={() => setVista(v.chave)}>{v.rotulo}</Button>
-          ))}
-          <Input.Search size="small" allowClear placeholder="Número ou título" onSearch={setPesquisa} style={{ width: 220 }} />
-        </Space>
+      {/* legado (assuntos_ui.js:52-123): título com subtítulo e «Novo assunto»; separadores das vistas (tab-btn); alertas */}
+      <CabecalhoPagina
+        titulo={<span><IconeFa nome="clipboard-list" /> Método de Trabalho</span>}
+        subtitulo="Registo de Assunto — 5W1H"
+        accoes={podeCriar && <Button type="primary" icon={<IconeFa nome="plus" />} onClick={() => setAberto('novo')}>Novo assunto</Button>}
+      />
+      <Card style={{ marginBottom: 16 }} size="small">
+        <Tabs activeKey={vista} onChange={(k) => setVista(k as Vista)} style={{ marginBottom: 0 }}
+          tabBarExtraContent={<Input.Search size="small" allowClear placeholder="Número ou título" onSearch={setPesquisa} style={{ width: 220, maxWidth: '100%' }} />}
+          items={VISTAS.map((v) => ({ key: v.chave, label: <span><IconeFa nome={v.icone} /> {v.rotulo}</span> }))} />
         {al && nAlertas > 0 && (
-          <Alert style={{ marginTop: 12 }} type="warning" showIcon message="A precisar de atenção"
+          <Alert style={{ marginTop: 12 }} type="warning" showIcon message="A precisar de atenção:"
             description={
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {al.aguardam_minha_decisao.length > 0 && <li>{al.aguardam_minha_decisao.length} assunto(s) à espera da sua decisão: {tres(al.aguardam_minha_decisao)}</li>}
@@ -94,7 +109,7 @@ export default function Assuntos() {
 
       {q.isLoading ? <Spin /> : !lista.length ? (
         <Card>
-          <Empty image={<IconeFa nome="clipboard-list" style={{ fontSize: 40, color: '#cbd5e1' }} />}
+          <Empty image={<IconeFa nome="clipboard-list" style={{ fontSize: 40, color: token.colorTextQuaternary }} />}
             description={<><strong>Ainda não há assuntos registados</strong><br />Cada assunto responde às seis perguntas: o quê, quem, quando, onde, porquê e como.</>}>
             {podeCriar && <Button type="primary" onClick={() => setAberto('novo')}>Registar o primeiro</Button>}
           </Empty>
@@ -104,7 +119,7 @@ export default function Assuntos() {
           <Card key={g.chave || 'todos'} style={{ marginBottom: 16 }} size="small"
             title={vista === 'lista' ? undefined : <span>{g.chave || '—'} <Typography.Text type="secondary" style={{ fontWeight: 400 }}>({g.itens.length} · {formatarKz(g.custo)})</Typography.Text></span>}>
             <Table<ResumoAssunto> rowKey="id" size="small" dataSource={g.itens} columns={colunas} pagination={vista === 'lista' ? { pageSize: 20, hideOnSinglePage: true } : false}
-              scroll={{ x: 'max-content' }} loading={q.isFetching} onRow={(a) => ({ onDoubleClick: () => setAberto(a.id), style: a.em_atraso ? { background: '#fef2f2' } : undefined })} />
+              scroll={{ x: 'max-content' }} loading={q.isFetching} onRow={(a) => ({ onDoubleClick: () => setAberto(a.id), style: a.em_atraso ? { background: token.colorErrorBg } : undefined })} />
           </Card>
         ))
       )}
@@ -118,15 +133,17 @@ export default function Assuntos() {
 /** Vista «Por custo»: pequeno painel financeiro (desenharCusto, assuntos_ui.js:131-160). */
 function VistaCusto({ lista }: { lista: ResumoAssunto[] }) {
   const k = resumoCusto(lista);
+  const { token } = theme.useToken();
   const ordenada = [...lista].sort((a, b) => Number(b.custo_estimado ?? 0) - Number(a.custo_estimado ?? 0));
   return (
     <>
-      <Row gutter={12} style={{ marginBottom: 16 }}>
-        {[['Custo estimado total', k.total, undefined], ['Comprometido (em curso e concluído)', k.comprometido, '#1e40af'], ['Ainda em rascunho', k.rascunho, '#64748b'], ['Cancelado', k.cancelado, '#b91c1c']]
-          .map(([t, v, c]) => (
-            <Col key={String(t)} xs={12} md={6}><Card size="small"><Statistic title={String(t)} value={formatarKz(Number(v))} valueStyle={{ color: c as string | undefined, fontSize: 20 }} /></Card></Col>
-          ))}
-      </Row>
+      {/* legado: quatro cartões sem barra de cor; a cor está no valor */}
+      <GrelhaKpi larguraMinima={176} style={{ marginBottom: 16 }}>
+        <CartaoKpi barra="nenhuma" rotulo="Custo estimado total" valor={formatarKz(k.total)} />
+        <CartaoKpi barra="nenhuma" rotulo="Comprometido (em curso e concluído)" valor={formatarKz(k.comprometido)} corValor={token.colorPrimaryText} />
+        <CartaoKpi barra="nenhuma" rotulo="Ainda em rascunho" valor={formatarKz(k.rascunho)} corValor={token.colorTextSecondary} />
+        <CartaoKpi barra="nenhuma" rotulo="Cancelado" valor={formatarKz(k.cancelado)} corValor={token.colorError} />
+      </GrelhaKpi>
       <Card size="small">
         <Table<ResumoAssunto> rowKey="id" size="small" dataSource={ordenada} pagination={false} scroll={{ x: 'max-content' }}
           columns={[

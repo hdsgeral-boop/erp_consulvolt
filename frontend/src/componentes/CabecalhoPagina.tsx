@@ -17,7 +17,8 @@ interface Props {
 /**
  * Cabeçalho das páginas: título/subtítulo à esquerda e acções à direita. Em ecrãs estreitos o bloco das acções
  * passa para a linha seguinte e os botões quebram linha (Space wrap); o título nunca é empurrado para fora.
- * Aspecto do sistema anterior (h2.view-title): título grande cinzento-ardósia e linha por baixo (src/estilos/identidade.css).
+ * Aspecto do sistema anterior (h2.view-title): título de 2rem a 800, cinzento-ardósia (#475569), sem linha por baixo
+ * (src/estilos/identidade.css). Use-o em todos os ecrãs em vez de títulos próprios (guia: docs/paridade/versao_actual/08_tema_visual.md).
  */
 export function CabecalhoPagina({ titulo, subtitulo, accoes, impressao, impressaoDesactivada, excel = true }: Props) {
   const temAccoes = !!accoes || !!impressao;

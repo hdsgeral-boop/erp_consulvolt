@@ -1,16 +1,17 @@
-import { Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Radio, Row, Select, Space, Table, Tag } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Popconfirm, Radio, Row, Select, Space, Table, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { useEffect, useMemo, useState } from 'react';
+import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
-import { SeletorActivo, SeletorCategoria } from '../comum/componentes';
+import { campoActivoLinhas, SeletorActivo, SeletorCategoria, useCategorias } from '../comum/componentes';
 import { SeletorArtigo } from './comum';
 import { ModalOrdemAvulsa } from './Ordens';
-import { COR_SITUACAO, textoPeriodicidade, TIPOS, UNIDADES, unidadesDoModo } from './regras';
+import { COR_SITUACAO, textoPeriodicidade, TIPOS, UNIDADES, UNIDADES_CONTADOR, UNIDADES_TEMPO, unidadesDoModo } from './regras';
 import type { ItemPrevisto, Periodicidade, Plano, TipoManutencao } from './tipos';
 
 /**
@@ -38,10 +39,10 @@ export function Planos({ aoAbrirOrdens }: { aoAbrirOrdens: () => void }) {
             <Button size="small" type="primary" icon={<IconeFa nome="plus" />} onClick={() => setPlano(null)}>Novo plano</Button>
           </Space>
         )}>
-        <p style={{ margin: 0, color: '#64748b' }}>
+        <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
           O plano diz o que se repete e de quanto em quanto tempo (ou de quantas em quantas horas/km). <strong>As ordens de manutenção abrem-se aqui</strong>: no botão de
           cada plano, de uma vez em «Gerar ordens dos planos vencidos», ou avulsas para uma avaria. A ordem leva as tarefas e o material que o plano prevê.
-        </p>
+        </Typography.Paragraph>
         {!!porVencer.length && (
           <Alert style={{ marginTop: 12 }} type="warning" showIcon
             message={`${porVencer.length} plano(s) vencido(s) ou a vencer: ${porVencer.slice(0, 4).map((p) => p.nome).join('; ')}${porVencer.length > 4 ? '…' : ''}`} />
@@ -102,6 +103,36 @@ interface ValoresPlano {
   itens?: ItemPrevisto[];
 }
 
+/** Data da grade (dayjs) ou da vista Linhas ('AAAA-MM-DD') → API. */
+const dataDe = (d: unknown): string | null => (dayjs.isDayjs(d) ? dataApi(d) ?? null : typeof d === 'string' && d ? d : null);
+
+/**
+ * Regras de gravação do plano, comuns à grade e à vista Linhas. Na vista Linhas não há «Aplica-se a»: aplica-se à
+ * categoria quando a linha a traz, senão ao activo. Tarefas e material só na grade.
+ */
+export function dadosPlano(v: Record<string, unknown>): Record<string, unknown> {
+  const aplica = v.aplica ?? (v.categoria_ativo_id ? 'CATEGORIA' : 'ATIVO');
+  const modo = (v.modo as Periodicidade['modo'] | undefined) ?? 'TEMPO';
+  const tarefas = (v.tarefas as string[] | undefined) ?? [];
+  const itens = (v.itens as ItemPrevisto[] | undefined) ?? [];
+  const texto = (x: unknown) => (typeof x === 'string' && x.trim() ? x : null);
+  return {
+    codigo: texto(v.codigo), nome: v.nome, tipo: v.tipo, ativo_imobilizado_id: aplica === 'ATIVO' ? v.ativo_imobilizado_id ?? null : null,
+    categoria_ativo_id: aplica === 'CATEGORIA' ? v.categoria_ativo_id ?? null : null,
+    periodicidade: { modo, intervalo: v.intervalo, unidade: v.unidade },
+    proxima_data: modo === 'TEMPO' ? dataDe(v.proxima_data) : null,
+    contador_atual: modo === 'CONTADOR' ? v.contador_atual ?? 0 : null, proximo_contador: modo === 'CONTADOR' ? v.proximo_contador ?? null : null,
+    antecedencia_dias: v.antecedencia_dias ?? 0, duracao_horas: v.duracao_horas ?? 0, responsavel: texto(v.responsavel), instrucoes: texto(v.instrucoes),
+    tarefas: tarefas.filter((t) => t && t.trim()), itens: itens.filter((x) => x && (x.produto_id || x.descricao)),
+  };
+}
+
+const OPCOES_MODO = [{ value: 'TEMPO', label: 'Tempo' }, { value: 'CONTADOR', label: 'Contador (horas / km)' }];
+const unidadeDoModo = (u: unknown, r: Record<string, unknown>) => {
+  const validas: string[] = r.modo === 'CONTADOR' ? UNIDADES_CONTADOR : UNIDADES_TEMPO;
+  return u && !validas.includes(String(u)) ? `Unidade inválida para «${r.modo === 'CONTADOR' ? 'Contador' : 'Tempo'}».` : null;
+};
+
 /** Formulário do plano (formularioPlano, UI :173-318). */
 function ModalPlano({ plano, aoFechar }: { plano: Plano | null | undefined; aoFechar: () => void }) {
   const [form] = Form.useForm<ValoresPlano>();
@@ -123,20 +154,38 @@ function ModalPlano({ plano, aoFechar }: { plano: Plano | null | undefined; aoFe
   const aplica = Form.useWatch('aplica', form);
   const modo = Form.useWatch('modo', form);
   const gravar = (v: ValoresPlano) => {
-    const dados = {
-      codigo: v.codigo || null, nome: v.nome, tipo: v.tipo, ativo_imobilizado_id: v.aplica === 'ATIVO' ? v.ativo_imobilizado_id ?? null : null,
-      categoria_ativo_id: v.aplica === 'CATEGORIA' ? v.categoria_ativo_id ?? null : null,
-      periodicidade: { modo: v.modo, intervalo: v.intervalo, unidade: v.unidade },
-      proxima_data: v.modo === 'TEMPO' ? dataApi(v.proxima_data) ?? null : null,
-      contador_atual: v.modo === 'CONTADOR' ? v.contador_atual ?? 0 : null, proximo_contador: v.modo === 'CONTADOR' ? v.proximo_contador ?? null : null,
-      antecedencia_dias: v.antecedencia_dias ?? 0, duracao_horas: v.duracao_horas ?? 0, responsavel: v.responsavel ?? null, instrucoes: v.instrucoes ?? null,
-      tarefas: (v.tarefas ?? []).filter((t) => t && t.trim()), itens: (v.itens ?? []).filter((i) => i && (i.produto_id || i.descricao)),
-    };
+    const dados = dadosPlano(v as unknown as Record<string, unknown>);
     accao.mutate(plano ? { metodo: 'put', url: `/ativos/manutencao/planos/${plano.id}`, dados } : { url: '/ativos/manutencao/planos', dados });
   };
+  // Vista Linhas: um plano por linha (sem tarefas nem material, que se acrescentam depois na grade)
+  const categorias = useCategorias();
+  const camposLinhas = useMemo<CampoFormulario[]>(() => [
+    { nome: 'nome', rotulo: 'Nome do plano', obrigatorio: true, largura: 230, maxLength: 255, aliases: ['Plano', 'Nome'] },
+    { nome: 'codigo', rotulo: 'Código', largura: 100, maxLength: 50, placeholder: 'automático' },
+    campoActivoLinhas({ obrigatorio: false, largura: 240,
+      validar: (a, r) => (!a && !r.categoria_ativo_id ? 'Escolha o activo ou a categoria.' : a && r.categoria_ativo_id ? 'Escolha o activo ou a categoria, não os dois.' : null) }),
+    { nome: 'categoria_ativo_id', rotulo: 'Categoria', tipo: 'select', largura: 170, opcoes: (categorias.data ?? []).map((c) => ({ value: c.id, label: c.nome })) },
+    { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, opcoes: Object.entries(TIPOS).map(([value, label]) => ({ value, label })), omissao: 'PREVENTIVA', largura: 150 },
+    { nome: 'modo', rotulo: 'Repete-se por', tipo: 'select', opcoes: OPCOES_MODO, omissao: 'TEMPO', largura: 140 },
+    { nome: 'intervalo', rotulo: 'Cada', tipo: 'numero', obrigatorio: true, min: 1, precisao: 0, omissao: 3, largura: 80, aliases: ['Intervalo'] },
+    { nome: 'unidade', rotulo: 'Unidade', tipo: 'select', obrigatorio: true, opcoes: Object.entries(UNIDADES).map(([value, label]) => ({ value, label })), omissao: 'MESES', largura: 150, validar: unidadeDoModo },
+    { nome: 'proxima_data', rotulo: 'Próxima manutenção', tipo: 'data', largura: 140, aliases: ['Próxima'],
+      validar: (d, r) => (r.modo !== 'CONTADOR' && !d ? 'Indique a data da próxima manutenção.' : null) },
+    { nome: 'proximo_contador', rotulo: 'Devida na leitura', tipo: 'numero', min: 0, largura: 110, emLinhas: 'opcional', seccao: 'Contador',
+      validar: (c, r) => (r.modo === 'CONTADOR' && (c === null || c === undefined) ? 'Indique a leitura em que é devida.' : null) },
+    { nome: 'contador_atual', rotulo: 'Leitura actual', tipo: 'numero', min: 0, largura: 110, emLinhas: 'opcional', seccao: 'Contador' },
+    { nome: 'antecedencia_dias', rotulo: 'Antecedência (dias)', tipo: 'numero', min: 0, precisao: 0, omissao: 7, largura: 100, emLinhas: 'opcional', seccao: 'Execução' },
+    { nome: 'duracao_horas', rotulo: 'Duração prevista (horas)', tipo: 'numero', min: 0, largura: 100, emLinhas: 'opcional', seccao: 'Execução' },
+    { nome: 'responsavel', rotulo: 'Responsável', largura: 150, maxLength: 150 },
+    { nome: 'instrucoes', rotulo: 'Instruções', tipo: 'textoLongo', maxLength: 5000, largura: 240, emLinhas: 'opcional', seccao: 'Execução' },
+  ], [categorias.data]);
+  const vazio = (l?: unknown[] | null) => !l || l.length === 0;
   return (
-    <Modal title={plano ? `Plano ${plano.codigo ?? ''}` : 'Novo plano de manutenção'} open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar"
-      width={880} confirmLoading={accao.isPending} destroyOnHidden>
+    <ModalFormulario chave="activos.manutencao.planos" titulo={plano ? `Plano ${plano.codigo ?? ''}` : 'Novo plano de manutenção'} aberto={aberto} aoFechar={aoFechar}
+      criacao={!plano} form={form} campos={camposLinhas} nomeRegistos="planos de manutenção" invalidar={[['activos']]} larguraLinhas={1400}
+      gravarLinha={(r) => enviar('post', '/ativos/manutencao/planos', dadosPlano(r))}
+      nota="Uma linha por plano: escolha o activo ou a categoria. Por tempo indique a próxima data; por contador, a leitura em que é devida (coluna opcional). As tarefas e o material previstos acrescentam-se depois, ao alterar o plano."
+      onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" width={880} confirmLoading={accao.isPending}>
       <Form form={form} layout="vertical" onFinish={gravar}>
         <Row gutter={12}>
           <Col xs={24} md={16}><Form.Item name="nome" label="Nome do plano" rules={[{ required: true, message: 'Dê um nome ao plano (ex.: «Revisão trimestral do gerador»).' }]}><Input maxLength={255} placeholder="Ex.: Revisão trimestral do gerador" /></Form.Item></Col>
@@ -148,9 +197,12 @@ function ModalPlano({ plano, aoFechar }: { plano: Plano | null | undefined; aoFe
               : <Form.Item name="ativo_imobilizado_id" label="Activo" rules={[{ required: true, message: 'Escolha o activo.' }]}><SeletorActivo style={{ width: '100%' }} rotuloInicial={plano?.alvo} /></Form.Item>}
           </Col>
           <Col xs={24} md={6}><Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}><Select options={Object.entries(TIPOS).map(([value, label]) => ({ value, label }))} /></Form.Item></Col>
+        </Row>
+        <SeccaoFormulario titulo="Periodicidade">
+        <Row gutter={12}>
           <Col xs={24} md={6}><Form.Item name="modo" label="Repete-se por">
             <Select onChange={(m: Periodicidade['modo']) => form.setFieldValue('unidade', unidadesDoModo(m)[m === 'CONTADOR' ? 0 : 2])}
-              options={[{ value: 'TEMPO', label: 'Tempo' }, { value: 'CONTADOR', label: 'Contador (horas / km)' }]} /></Form.Item></Col>
+              options={OPCOES_MODO} /></Form.Item></Col>
           <Col xs={12} md={4}><Form.Item name="intervalo" label="Cada" rules={[{ required: true, message: 'Indique o intervalo.' }]}><InputNumber min={1} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={12} md={6}><Form.Item name="unidade" label="Unidade" rules={[{ required: true }]}><Select options={unidadesDoModo(modo ?? 'TEMPO').map((u) => ({ value: u, label: UNIDADES[u] }))} /></Form.Item></Col>
           {modo === 'CONTADOR' ? (
@@ -161,26 +213,31 @@ function ModalPlano({ plano, aoFechar }: { plano: Plano | null | undefined; aoFe
           ) : (
             <Col xs={24} md={8}><Form.Item name="proxima_data" label="Próxima manutenção" rules={[{ required: true, message: 'Indique a data da próxima manutenção.' }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
           )}
+        </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Execução" recolhida={!!plano && !plano.responsavel && !plano.instrucoes}>
+        <Row gutter={12}>
           <Col xs={12} md={6}><Form.Item name="antecedencia_dias" label="Antecedência (dias)" tooltip="Abrir a ordem com esta antecedência"><InputNumber min={0} precision={0} style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={12} md={6}><Form.Item name="duracao_horas" label="Duração prevista (horas)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={24} md={12}><Form.Item name="responsavel" label="Responsável"><Input maxLength={150} placeholder="Quem executa" /></Form.Item></Col>
           <Col span={24}><Form.Item name="instrucoes" label="Instruções"><Input.TextArea rows={2} maxLength={5000} placeholder="O que há a fazer, cuidados, normas a cumprir..." /></Form.Item></Col>
         </Row>
+        </SeccaoFormulario>
         <Form.List name="tarefas">
           {(campos, { add, remove }) => (
-            <Card size="small" title="Tarefas" extra={<Button size="small" icon={<IconeFa nome="plus" />} onClick={() => add('')}>Tarefa</Button>} style={{ marginBottom: 12 }}>
+            <SeccaoFormulario titulo="Tarefas" recolhida={!!plano && vazio(plano.tarefas)} extra={<Button size="small" icon={<IconeFa nome="plus" />} onClick={() => add('')}>Tarefa</Button>}>
               {campos.map((c) => (
                 <Space key={c.key} style={{ display: 'flex' }} align="baseline">
                   <Form.Item name={c.name} style={{ flex: 1, minWidth: 420 }}><Input maxLength={500} placeholder="Ex.: Trocar o óleo" /></Form.Item>
                   <Button size="small" danger title="Retirar" icon={<IconeFa nome="times" />} onClick={() => remove(c.name)} />
                 </Space>
               ))}
-            </Card>
+            </SeccaoFormulario>
           )}
         </Form.List>
         <Form.List name="itens">
           {(campos, { add, remove }) => (
-            <Card size="small" title="Material e serviços previstos" extra={<Button size="small" icon={<IconeFa nome="plus" />} onClick={() => add({ tipo: 'MATERIAL', quantidade: 1 })}>Linha</Button>}>
+            <SeccaoFormulario titulo="Material e serviços previstos" recolhida={!!plano && vazio(plano.itens)} extra={<Button size="small" icon={<IconeFa nome="plus" />} onClick={() => add({ tipo: 'MATERIAL', quantidade: 1 })}>Linha</Button>}>
               {campos.map((c) => (
                 <Space key={c.key} wrap align="baseline">
                   <Form.Item name={[c.name, 'tipo']}><Select style={{ width: 120 }} options={[{ value: 'MATERIAL', label: 'Material' }, { value: 'SERVICO', label: 'Serviço' }]} /></Form.Item>
@@ -189,10 +246,10 @@ function ModalPlano({ plano, aoFechar }: { plano: Plano | null | undefined; aoFe
                   <Button size="small" danger title="Retirar" icon={<IconeFa nome="times" />} onClick={() => remove(c.name)} />
                 </Space>
               ))}
-            </Card>
+            </SeccaoFormulario>
           )}
         </Form.List>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }

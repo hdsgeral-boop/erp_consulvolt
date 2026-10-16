@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { enviar } from '@/api/cliente';
 import { larguraModal } from '@/componentes/responsivo';
 import { IconeLegado } from '@/componentes/vistas';
+import { useCoresPos } from '../comum/cores';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 
@@ -150,9 +151,10 @@ export function ModalPreVisualizacaoIntegracao({ ids, aoFechar, aoConcluir }: { 
 }
 
 function BlocoSessao({ s }: { s: SessaoPrevista }) {
+  const cores = useCoresPos();
   return (
-    <div style={{ border: '1px solid #e2e8f0', borderRadius: 4, marginBottom: '0.8rem' }} data-testid="bloco-sessao">
-      <div style={{ background: '#f8fafc', padding: '0.5rem 0.75rem', fontWeight: 700, fontSize: '0.85rem' }}>
+    <div style={{ border: `1px solid ${cores.borda}`, borderRadius: 4, marginBottom: '0.8rem' }} data-testid="bloco-sessao">
+      <div style={{ background: cores.fundoAlt, padding: '0.5rem 0.75rem', fontWeight: 700, fontSize: '0.85rem' }}>
         {[s.numero_z, s.nome_terminal, s.nome_operador].filter(Boolean).join(' · ')}
       </div>
       {s.impedimentos.map((i) => (

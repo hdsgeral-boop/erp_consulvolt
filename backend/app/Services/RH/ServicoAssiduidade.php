@@ -14,11 +14,16 @@ use App\Models\LinhaFolhaSalarial;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PlanoFeriasColaborador;
 use App\Support\Seguranca\GuardaUrlSaida;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 /**
  * Efectividade / assiduidade (js/modules/rh/assiduidade.js). Paridade com o apuramento mensal (resumoMes): horas do
@@ -107,7 +112,7 @@ final class ServicoAssiduidade
         $col = fn (array $nomes) => collect($cab)->search(fn ($c) => in_array($c, $nomes, true));
         $idx = ['nif' => $col(['nif']), 'inss' => $col(['inss', 'numero_inss', 'n_inss']), 'id' => $col(['numero', 'id', 'colaborador_id', 'n']),
             'nome' => $col(['nome', 'colaborador', 'nome_completo']), 'data' => $col(['data', 'dia']), 'entrada' => $col(['entrada', 'hora_entrada']),
-            'saida' => $col(['saida', 'hora_saida']), 'horas' => $col(['horas', 'total_horas']), 'observacoes' => $col(['observacoes', 'obs']),
+            'saida' => $col(['saida', 'hora_saida']), 'horas' => $col(['horas', 'total_horas']), 'observacoes' => $col(['observacoes', 'obs']), 'autorizado' => $col(['autorizado', 'autorizado_extra', 'extra_autorizado']),
             // Versão Actual (assiduidade.js): picagens do intervalo (dois períodos), com sinónimos
             'saida_intervalo' => $col(['saida_intervalo', 'saida_para_intervalo', 'inicio_intervalo', 'saida_almoco']),
             'entrada_intervalo' => $col(['entrada_intervalo', 'regresso_intervalo', 'fim_intervalo', 'entrada_almoco', 'regresso_almoco'])];
@@ -156,7 +161,8 @@ final class ServicoAssiduidade
             try {
                 DB::transaction(fn () => $this->gravarRegisto(['colaborador_id' => $c->id, 'data' => $data, 'entrada' => self::horaHHMM($v($l, 'entrada')) ?: null,
                     'saida' => self::horaHHMM($v($l, 'saida')) ?: null, 'saida_intervalo' => self::horaHHMM($v($l, 'saida_intervalo')) ?: null,
-                    'entrada_intervalo' => self::horaHHMM($v($l, 'entrada_intervalo')) ?: null, 'horas' => $v($l, 'horas'), 'observacoes' => $v($l, 'observacoes')], $origem, mb_substr($fonte ?? $ficheiro->getClientOriginalName(), 0, 50)));
+                    'entrada_intervalo' => self::horaHHMM($v($l, 'entrada_intervalo')) ?: null, 'horas' => $v($l, 'horas'), 'observacoes' => $v($l, 'observacoes'),
+                    'autorizado_extra' => in_array(self::chave((string) $v($l, 'autorizado')), ['sim', 's', 'x', '1', 'true'], true)], $origem, mb_substr($fonte ?? $ficheiro->getClientOriginalName(), 0, 50)));
                 $res['gravados']++;
             } catch (ErroNegocio $e) {
                 $res['erros'][] = "Linha {$linha}: {$e->getMessage()}";
@@ -164,6 +170,230 @@ final class ServicoAssiduidade
         }
 
         return $res;
+    }
+
+    /** Colunas do modelo de importação (modeloImportacao, assiduidade.js:640). */
+    public const COLUNAS_MODELO = ['NIF', 'Colaborador', 'Data', 'Entrada', 'Saida intervalo', 'Entrada intervalo', 'Saida', 'Horas', 'Autorizado', 'Observacoes'];
+
+    /**
+     * #4 — modelo Excel da efectividade JÁ PREENCHIDO (modeloImportacao, assiduidade.js:618; assiduidade_ui.js:680): uma linha por
+     * colaborador ACTIVO e por dia de trabalho do mês, com o horário previsto do dia (escala prioritária › normal › horário do
+     * contrato › regime da empresa, regimeDoDia), o NIF como texto (o Excel não lhe come os zeros à esquerda), mais as folhas
+     * «Colaboradores» e «Instruções». Os dias de folga, fora da admissão/contrato ou com o contrato suspenso não entram.
+     *
+     * @return array{linhas: int, sem_nif: list<string>}
+     */
+    public function modelo(string $mes, string $caminho): array
+    {
+        $mes = ServicoCalendarioRH::mes($mes);
+        $cfg = $this->calendario->config();
+        $inicio = "{$mes}-01";
+        $fim = date('Y-m-t', strtotime($inicio));
+        $dias = ServicoCalendarioRH::dias($inicio, $fim);
+        $contratos = ContratoTrabalho::query()->get()->groupBy('colaborador_id');
+        $escalas = ServicoEscalas::indexar(EscalaTrabalho::query()->whereBetween('dia', [$inicio, $fim])->get());
+        $colabs = Colaborador::query()->where('estado', 'ACTIVO')->ordenarPorNome('nome_completo')->get();
+        $linhas = [];
+        foreach ($colabs as $e) {
+            $contrato = RegrasContrato::emVigor($contratos[$e->id] ?? collect(), $inicio, $fim);
+            $horario = RegrasContrato::horario($contrato?->horario);
+            $desde = max(array_filter([$inicio, $e->data_admissao?->toDateString(), $contrato?->data_inicio?->toDateString()]));
+            $ate = min(array_filter([$fim, $contrato?->data_fim?->toDateString()]));
+            foreach ($dias as $dia) {
+                $esc = $escalas["{$e->id}|{$dia}"] ?? null;
+                if ($dia < $desde || $dia > $ate || ($esc ? $esc->folga : ! $this->diaUtilDo($dia, $cfg, $horario)) || ($contrato && RegrasContrato::suspensoEm($contrato, $dia))) {
+                    continue;
+                }
+                $h = $esc ? RegrasContrato::horario(ServicoEscalas::comoHorario($esc)) : $horario;
+                if (! $h && (int) ($cfg['periodos_padrao'] ?? 1) === 2) {   // regime da empresa com as horas do intervalo por omissão
+                    $h = ['entrada' => '', 'saida' => '', 'saida_intervalo' => RegrasContrato::hhmm($cfg['intervalo_saida_padrao'] ?? null) ?: '12:00',
+                        'entrada_intervalo' => RegrasContrato::hhmm($cfg['intervalo_entrada_padrao'] ?? null) ?: '13:00'];
+                }
+                $linhas[] = [(string) ($e->nif ?? ''), (string) $e->nome_completo, $dia, $h['entrada'] ?? '', $h['saida_intervalo'] ?? '', $h['entrada_intervalo'] ?? '', $h['saida'] ?? '', '', '', ''];
+            }
+        }
+
+        $livro = new Spreadsheet;
+        $folha = $livro->getActiveSheet()->setTitle('Efectividade');
+        $folha->fromArray(self::COLUNAS_MODELO);
+        $folha->getStyle('A1:J1')->getFont()->setBold(true);
+        $folha->getStyle('A:A')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
+        foreach ($linhas as $n => $l) {
+            $r = $n + 2;
+            $folha->setCellValueExplicit("A{$r}", $l[0], DataType::TYPE_STRING);   // NIF sempre como texto
+            foreach (array_slice($l, 1) as $k => $v) {
+                $folha->setCellValueExplicit(chr(66 + $k).$r, $v, DataType::TYPE_STRING);   // nada de fórmulas nem datas convertidas
+            }
+        }
+        foreach (['A' => 18, 'B' => 32, 'C' => 12, 'D' => 9, 'E' => 15, 'F' => 17, 'G' => 9, 'H' => 8, 'I' => 11, 'J' => 24] as $c => $w) {
+            $folha->getColumnDimension($c)->setWidth($w);
+        }
+        $folha->freezePane('A2');
+
+        $fc = $livro->createSheet()->setTitle('Colaboradores');
+        $fc->fromArray(['NIF', 'Nome', 'Nº INSS']);
+        $fc->getStyle('A1:C1')->getFont()->setBold(true);
+        $fc->getStyle('A:A')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
+        $fc->getStyle('C:C')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
+        foreach ($colabs->values() as $n => $e) {
+            $r = $n + 2;
+            $fc->setCellValueExplicit("A{$r}", (string) ($e->nif ?? ''), DataType::TYPE_STRING);
+            $fc->setCellValueExplicit("B{$r}", (string) $e->nome_completo, DataType::TYPE_STRING);
+            $fc->setCellValueExplicit("C{$r}", (string) ($e->numero_inss ?? ''), DataType::TYPE_STRING);
+        }
+        foreach (['A' => 18, 'B' => 32, 'C' => 14] as $c => $w) {
+            $fc->getColumnDimension($c)->setWidth($w);
+        }
+
+        $fi = $livro->createSheet()->setTitle('Instruções');
+        $instrucoes = [
+            ['Como preencher'],
+            ['1. A folha «Efectividade» já traz uma linha por colaborador e dia de trabalho do mês, com o NIF e o horário previsto.'],
+            ['2. Corrija as horas picadas. Apague as linhas dos dias que não quer importar; as linhas sem entrada, saída nem horas são ignoradas.'],
+            ['3. A chave é o NIF; também é aceite o Nº INSS ou o nome exacto. Não altere a coluna NIF.'],
+            ['4. Com dois períodos preencha as quatro horas («Entrada», «Saida intervalo», «Entrada intervalo», «Saida»); com período corrido deixe as duas do intervalo vazias.'],
+            ['5. Em alternativa às horas de picagem, pode preencher só a coluna «Horas» com o total do dia (aceita vírgula decimal, ex.: 7,5).'],
+            ['6. «Autorizado» = SIM marca trabalho extra autorizado em dia não útil.'],
+            [''],
+            ['O NIF está formatado como texto de propósito: se o Excel o converter em número, os zeros à esquerda perdem-se.'],
+            ['A importação já tolera essa perda, mas é mais seguro manter o formato de texto.'],
+        ];
+        foreach ($instrucoes as $n => [$t]) {
+            $fi->setCellValueExplicit('A'.($n + 1), $t, DataType::TYPE_STRING);
+        }
+        $fi->getStyle('A1')->getFont()->setBold(true);
+        $fi->getColumnDimension('A')->setWidth(130);
+        $livro->setActiveSheetIndex(0);
+        (new Xlsx($livro))->save($caminho);
+
+        return ['linhas' => count($linhas), 'sem_nif' => $colabs->filter(fn ($e) => trim((string) $e->nif) === '')->pluck('nome_completo')->values()->all()];
+    }
+
+    /**
+     * Faltas injustificadas acumuladas no ano até ao mês indicado (faltasDoAno, assiduidade.js:808; art. 230.º da Lei 12/23:
+     * mais de 3 num mês ou de 12 no ano é infracção disciplinar). Os meses fechados usam o apuramento fotografado no fecho;
+     * os outros são apurados de novo. O mês indicado conta com as linhas do resumo recebido (evita apurá-lo duas vezes).
+     * Os meses anteriores vêm da cache por empresa e ano (faltasPorMes / CacheFaltasDoAno).
+     *
+     * @param  list<array<string, mixed>>  $linhasDoMes
+     * @return array<int, int> colaborador_id => dias de falta no ano
+     */
+    public function faltasDoAno(string $mes, array $linhasDoMes): array
+    {
+        $mes = ServicoCalendarioRH::mes($mes);
+        [$ano, $m] = array_map('intval', explode('-', $mes));
+        $totais = [];
+        foreach ($this->faltasPorMes($ano, $m - 1)['meses'] as $faltas) {
+            foreach ($faltas as $id => $dias) {
+                $totais[(int) $id] = ($totais[(int) $id] ?? 0) + (int) $dias;
+            }
+        }
+        foreach ($linhasDoMes as $l) {
+            $id = (int) ($l['colaborador_id'] ?? 0);
+            $totais[$id] = ($totais[$id] ?? 0) + (int) ($l['dias_falta'] ?? 0);
+        }
+
+        return $totais;
+    }
+
+    /**
+     * Portal do colaborador: faltas injustificadas do PRÓPRIO no mês corrente e no ano até hoje, pelo mesmo apuramento do ecrã da
+     * efectividade (em cache). Null quando a empresa não tem registos de efectividade no ano (sem eles o apuramento marcaria todos
+     * os dias úteis como falta): o portal fica com a estimativa pelas faltas detectadas.
+     *
+     * @return array{mes: int, ano: int}|null
+     */
+    public function faltasDoColaborador(int $colaboradorId): ?array
+    {
+        $ano = (int) now()->format('Y');
+        $actual = now()->format('Y-m');
+        ['meses' => $porMes, 'com_registos' => $comRegistos] = $this->faltasPorMes($ano, (int) now()->format('n'));
+        if (! $comRegistos) {
+            return null;
+        }
+        $total = 0;
+        foreach ($porMes as $faltas) {
+            $total += (int) ($faltas[$colaboradorId] ?? 0);
+        }
+
+        return ['mes' => (int) ($porMes[$actual][$colaboradorId] ?? 0), 'ano' => $total];
+    }
+
+    /**
+     * Dias de falta injustificada por colaborador em cada mês de Janeiro a $ateMes do ano (fechados: o apuramento do fecho; abertos:
+     * resumoMes). Os meses antes do primeiro registo de efectividade do ano não se apuram (não há efectividade). Em cache Redis por
+     * empresa e ano (CacheFaltasDoAno): cada mês guarda o dia até onde foi apurado e só é recalculado quando esse dia muda (o mês
+     * corrente, a cada dia) ou quando a versão da empresa sobe (alteração de registos, fecho, ausências, férias, escala, contrato…).
+     *
+     * @return array{meses: array<string, array<int, int>>, com_registos: bool} meses: AAAA-MM => [colaborador_id => dias];
+     *                                                                          com_registos: há registos de efectividade no ano
+     */
+    public function faltasPorMes(int $ano, int $ateMes): array
+    {
+        $ateMes = min(12, $ateMes);
+        $empresa = app(ContextoEmpresa::class)->obrigatorio();
+        $chave = CacheFaltasDoAno::chave($empresa, $ano);   // versão lida ANTES de apurar (um pedido atrasado grava na chave antiga)
+        $guardado = CacheFaltasDoAno::ler($chave) + ['primeiro' => null, 'meses' => []];
+        $mudou = false;
+        if (! is_string($guardado['primeiro'])) {   // dia do primeiro registo do ano ('' = nenhum)
+            $guardado['primeiro'] = substr((string) EfectividadeAssiduidade::query()->whereBetween('data', [sprintf('%04d-01-01', $ano), sprintf('%04d-12-31', $ano)])->min('data'), 0, 10);
+            $mudou = true;
+        }
+        $primeiro = $guardado['primeiro'];
+        $hoje = now()->toDateString();
+        $ontem = now()->subDay()->toDateString();
+        $fechos = null;
+        $res = [];
+        for ($k = 1; $k <= $ateMes; $k++) {
+            $mk = sprintf('%04d-%02d', $ano, $k);
+            $fim = date('Y-m-t', strtotime("{$mk}-01"));
+            $ate = $fim >= $hoje ? min($ontem, $fim) : $fim;   // o mesmo «apurado_ate» do resumoMes
+            if (($guardado['meses'][$mk]['ate'] ?? null) !== $ate) {
+                $fechos ??= FechoMensalAssiduidade::query()->where('mes', '>=', sprintf('%04d-01', $ano))->where('mes', '<=', sprintf('%04d-12', $ano))
+                    ->where('estado', 'FECHADO')->get()->keyBy('mes');
+                $linhas = match (true) {
+                    $fechos->has($mk) => (array) $fechos[$mk]->linhas,
+                    $primeiro !== '' && $mk >= substr($primeiro, 0, 7) => $this->resumoMes($mk)['linhas'],
+                    default => [],   // antes do primeiro registo do ano não há efectividade a apurar
+                };
+                $faltas = [];
+                foreach ($linhas as $l) {
+                    $id = (int) ($l['colaborador_id'] ?? 0);
+                    $faltas[$id] = ($faltas[$id] ?? 0) + (int) ($l['dias_falta'] ?? 0);
+                }
+                $guardado['meses'][$mk] = ['ate' => $ate, 'faltas' => array_filter($faltas)];
+                $mudou = true;
+            }
+            $res[$mk] = $guardado['meses'][$mk]['faltas'];
+        }
+        if ($mudou) {
+            CacheFaltasDoAno::gravar($chave, $guardado);
+        }
+
+        return ['meses' => $res, 'com_registos' => $primeiro !== ''];
+    }
+
+    /**
+     * Acrescenta ao apuramento do mês o acumulado anual de faltas injustificadas e o aviso do art. 230.º (mais de 12 no ano).
+     *
+     * @param  array<string, mixed>  $resumo
+     * @return array<string, mixed>
+     */
+    public function comFaltasDoAno(array $resumo): array
+    {
+        $ano = $this->faltasDoAno((string) $resumo['mes'], (array) $resumo['linhas']);
+        $resumo['linhas'] = array_map(function ($l) use ($ano) {
+            $l['dias_falta_ano'] = $ano[(int) $l['colaborador_id']] ?? 0;
+            $aviso = "{$l['dias_falta_ano']} faltas sem justificação no ano: acima de 12 num ano há infracção disciplinar (art.º 230.º da Lei 12/23).";
+            if ($l['dias_falta_ano'] > 12 && ! in_array($aviso, $l['avisos'] ?? [], true)) {
+                $l['avisos'][] = $aviso;
+            }
+
+            return $l;
+        }, (array) $resumo['linhas']);
+        $resumo['colaboradores_com_faltas'] = count(array_filter($resumo['linhas'], fn ($l) => (int) ($l['dias_falta'] ?? 0) > 0));
+
+        return $resumo;
     }
 
     /** Limite do que se lê do relógio (5 MB) e tempo máximo do pedido (segundos). */

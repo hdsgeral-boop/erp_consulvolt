@@ -1,4 +1,5 @@
-import { Alert, DatePicker, Empty, Flex, Modal, Segmented, Select, Space, Spin, Switch, Typography, theme } from 'antd';
+import { Alert, Button, DatePicker, Empty, Flex, Modal, Segmented, Select, Space, Spin, Switch, Typography, theme } from 'antd';
+import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useMemo, useRef, useState } from 'react';
@@ -6,13 +7,14 @@ import { obter } from '@/api/cliente';
 import { BotoesExportar } from '@/componentes/impressao';
 import { larguraModal } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
-import { acumular, descricaoCalendario, ESCALAS, formatarQtd, type Escala } from '../../comum/regrasMetas';
+import { acumular, chavesComFilhosMapa, descricaoCalendario, ESCALAS, fechadosMapa, formatarQtd, linhasVisiveisMapa, type Escala } from '../../comum/regrasMetas';
 import type { LinhaMapa, MapaQuantidades as Mapa, TabelaMapa } from '../../comum/tipos';
 
 /**
  * Mapa de quantidades (Versão Actual, ui_projects.js:925-1477): uma tabela por unidade com fase › tarefa › subtarefa nas
  * linhas e os períodos da escala nas colunas; previsto (meta repartida pelo calendário) e executado (medições), com as
- * vistas Horas (previstas × lançadas) e Valor (orçamento mapeado pelas quantidades), modo acumulado, níveis e impressão.
+ * vistas Horas (previstas × lançadas) e Valor (orçamento mapeado pelas quantidades), modo acumulado e impressão. A árvore
+ * abre e fecha em cada nó (seta) e tem «Abrir tudo», «Só tarefas» (fases e tarefas de topo) e «Fechar tudo» (#15).
  * A matriz vem calculada do servidor (GET /projetos/{id}/mapa-quantidades).
  */
 export function ModalMapaQuantidades({ projectoId, projectoNome, aberto, aoFechar }: { projectoId: number; projectoNome: string; aberto: boolean; aoFechar: () => void }) {
@@ -21,7 +23,7 @@ export function ModalMapaQuantidades({ projectoId, projectoNome, aberto, aoFecha
   const [periodo, setPeriodo] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
   const [vista, setVista] = useState<'quantidades' | 'horas' | 'valor'>('quantidades');
   const [acumulado, setAcumulado] = useState(false);
-  const [nivel, setNivel] = useState(9);
+  const [fechados, setFechados] = useState<Set<string>>(() => new Set());
   const ref = useRef<HTMLDivElement>(null);
   const q = useQuery({
     queryKey: ['projectos', 'mapa-quantidades', projectoId, escala, periodo?.[0]?.format('YYYY-MM-DD'), periodo?.[1]?.format('YYYY-MM-DD')],
@@ -40,10 +42,19 @@ export function ModalMapaQuantidades({ projectoId, projectoNome, aberto, aoFecha
   const fmt = (v: number, dinheiro?: boolean) => (v ? (dinheiro ? formatarKz(v) : formatarQtd(v)) : '');
   const serie = (vs: number[]) => (acumulado ? acumular(vs) : vs);
   const celula: React.CSSProperties = { border: `1px solid ${token.colorBorderSecondary}`, padding: '2px 6px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: 12 };
-  const linhaHtml = (nome: string, tab: TabelaMapa['totais'] | LinhaMapa, dinheiro: boolean | undefined, rotulos: [string, string], forte: boolean, nivelLinha: number) => (
+  const todasLinhas = useMemo(() => tabelas.flatMap((t) => t.tab.linhas), [tabelas]);
+  const comFilhos = useMemo(() => chavesComFilhosMapa(todasLinhas), [todasLinhas]);
+  const alternar = (chave: string) => setFechados((f) => { const n = new Set(f); if (n.has(chave)) n.delete(chave); else n.add(chave); return n; });
+  const seta = (chave: string | null, nome: string) => {
+    if (!chave || !comFilhos.has(chave)) return null;
+    const fechado = fechados.has(chave);
+    return <Button type="text" size="small" className="imp-nao-imprimir" style={{ width: 18, minWidth: 18, height: 18, padding: 0, marginRight: 2 }} icon={fechado ? <CaretRightOutlined /> : <CaretDownOutlined />}
+      aria-expanded={!fechado} aria-label={`${fechado ? 'Abrir' : 'Fechar'} «${nome}»`} onClick={() => alternar(chave)} />;
+  };
+  const linhaHtml = (nome: string, tab: TabelaMapa['totais'] | LinhaMapa, dinheiro: boolean | undefined, rotulos: [string, string], forte: boolean, nivelLinha: number, chave: string | null = null) => (
     <>
       <tr style={{ background: forte ? token.colorFillAlter : undefined, fontWeight: forte ? 600 : undefined }}>
-        <td rowSpan={2} style={{ ...celula, textAlign: 'left', paddingLeft: 6 + nivelLinha * 14, minWidth: 220, whiteSpace: 'normal' }}>{nome}</td>
+        <td rowSpan={2} style={{ ...celula, textAlign: 'left', paddingLeft: 6 + nivelLinha * 14, minWidth: 220, whiteSpace: 'normal' }}>{seta(chave, nome)}{nome}</td>
         <td style={{ ...celula, textAlign: 'left', color: token.colorTextSecondary }}>{rotulos[0]}</td>
         {serie(tab.previsto).map((v, i) => <td key={i} style={celula}>{fmt(v, dinheiro)}</td>)}
         <td style={{ ...celula, fontWeight: 600 }}>{fmt(tab.total_previsto, dinheiro)}</td>
@@ -62,7 +73,11 @@ export function ModalMapaQuantidades({ projectoId, projectoNome, aberto, aoFecha
         <Segmented value={vista} onChange={(v) => setVista(v as typeof vista)} options={[{ value: 'quantidades', label: 'Quantidades' }, { value: 'horas', label: 'Horas' }, { value: 'valor', label: 'Valor' }]} />
         <Select value={escala} onChange={setEscala} options={ESCALAS} style={{ width: 130 }} aria-label="Escala" />
         <DatePicker.RangePicker format="DD/MM/YYYY" value={periodo} onChange={(v) => setPeriodo(v)} allowEmpty={[true, true]} placeholder={['Desde', 'Até']} />
-        <Select value={nivel} onChange={setNivel} style={{ width: 170 }} aria-label="Níveis" options={[{ value: 0, label: 'Só fases' }, { value: 1, label: 'Fases e tarefas' }, { value: 9, label: 'Tudo aberto' }]} />
+        <Space.Compact>
+          <Button onClick={() => setFechados(new Set())}>Abrir tudo</Button>
+          <Button title="Fases e tarefas de topo, sem subtarefas" onClick={() => setFechados(fechadosMapa(todasLinhas, 'tarefas'))}>Só tarefas</Button>
+          <Button onClick={() => setFechados(fechadosMapa(todasLinhas, 'tudo'))}>Fechar tudo</Button>
+        </Space.Compact>
         <Space><Switch checked={acumulado} onChange={setAcumulado} size="small" /> Acumulado</Space>
         <BotoesExportar tamanho="small" desactivado={!m} obterPedido={() => (ref.current ? { titulo: `Mapa de quantidades — ${projectoNome}`, conteudo: ref.current, orientacao: 'paisagem' as const,
           filtros: [`Escala: ${ESCALAS.find((e) => e.value === escala)?.label}`, m ? `${m.de ?? '—'} a ${m.ate ?? '—'}` : '', acumulado ? 'Acumulado' : ''].filter(Boolean) } : null)} />
@@ -82,7 +97,7 @@ export function ModalMapaQuantidades({ projectoId, projectoNome, aberto, aoFecha
                   </tr>
                 </thead>
                 <tbody>
-                  {t.tab.linhas.filter((l) => l.nivel <= nivel).map((l) => <FragmentoLinha key={l.chave}>{linhaHtml(l.nome, l, t.dinheiro, t.rotulos, l.tipo === 'fase', l.nivel)}</FragmentoLinha>)}
+                  {linhasVisiveisMapa(t.tab.linhas, fechados).map((l) => <FragmentoLinha key={l.chave}>{linhaHtml(l.nome, l, t.dinheiro, t.rotulos, l.tipo === 'fase', l.nivel, l.chave)}</FragmentoLinha>)}
                   {linhaHtml('Total', t.tab.totais, t.dinheiro, t.rotulos, true, 0)}
                 </tbody>
               </table>

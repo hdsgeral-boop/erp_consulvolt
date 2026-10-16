@@ -213,18 +213,18 @@ export function ListaLancamentos() {
       a.edicao !== null && {
         chave: 'editar',
         icone: 'fa-edit',
-        cor: '#000',
+        cor: token.colorText,
         titulo: a.tituloEdicao,
         onClick:
           a.edicao === 'completa'
             ? () => comErro(async () => navegar('novo', { state: { copia: await documento(r.id), corrigir: r.id } satisfies EstadoCopia }), 'Não foi possível abrir o lançamento')
             : () => setEditar({ linha: r, titulo: a.tituloEdicao }),
       },
-      { chave: 'fluxo', icone: 'fa-project-diagram', cor: '#000', titulo: 'Ver Fluxo Completo', onClick: () => setFluxoDe(r.id) },
+      { chave: 'fluxo', icone: 'fa-project-diagram', cor: token.colorText, titulo: 'Ver Fluxo Completo', onClick: () => setFluxoDe(r.id) },
       a.estornar !== false && {
         chave: 'estornar',
         icone: 'fa-exchange-alt',
-        cor: '#000',
+        cor: token.colorText,
         titulo: 'Estornar (Criar Lançamento contrário)',
         desactivado: typeof a.estornar === 'string' ? a.estornar : false,
         onClick: () => setEstornar(r),
@@ -232,14 +232,14 @@ export function ListaLancamentos() {
       a.copiar && {
         chave: 'copiar',
         icone: 'fa-copy',
-        cor: '#000',
+        cor: token.colorText,
         titulo: 'Copiar Lançamento',
         onClick: () => comErro(async () => navegar('novo', { state: { copia: await documento(r.id) } satisfies EstadoCopia }), 'Não foi possível copiar o lançamento'),
       },
       a.transferir !== false && {
         chave: 'transferir',
         icone: 'fa-truck-moving',
-        cor: '#000',
+        cor: token.colorText,
         titulo: 'Transferir Lançamento para Outra Empresa',
         desactivado: typeof a.transferir === 'string' ? a.transferir : false,
         onClick: () => setTransferir(r),
@@ -247,7 +247,7 @@ export function ListaLancamentos() {
       {
         chave: 'origem',
         icone: 'fa-external-link-alt',
-        cor: '#000',
+        cor: token.colorText,
         titulo: 'Ver Documento de Origem',
         onClick: () => comErro(async () => abrirOrigem(await obterOrigem(r.id), navegar), 'Não foi possível localizar o documento de origem'),
       },

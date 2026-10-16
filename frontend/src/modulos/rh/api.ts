@@ -204,6 +204,9 @@ export interface ContratoTrabalho {
   horas_por_dia: string | null;
   codigo_moeda: string | null;
   produtividade: { item_id: number; preco_unitario: number | null }[] | null;
+  /** Minuta (Lei 12/23): razões do contrato a termo (art. 13.º/2) e período experimental em dias (art. 18.º; vazio = 60/30). */
+  motivo_termo?: string | null;
+  periodo_experimental_dias?: number | null;
   /** Fase B: horário (1 ou 2 períodos), suspensão e cessação — tipos em ./faseB/tipos. */
   horario?: import('./faseB/tipos').HorarioTrabalho | null;
   suspensao?: import('./faseB/tipos').RegistoSuspensao | null;
@@ -228,6 +231,11 @@ export interface Cadastro {
   id: number;
   nome: string;
   descricao?: string | null;
+  /** Funções (#10, Versão Actual): objectivo geral e principais responsabilidades (uma por linha). */
+  objetivo_geral?: string | null;
+  responsabilidades?: string | null;
+  /** Cargos da estrutura orgânica que usam a função («Unidade — título»). */
+  cargos_estrutura?: string[];
 }
 
 export interface Banco {
@@ -318,6 +326,9 @@ export interface ConfiguracaoRH {
   ferias_meses_minimos_gozo: number;
   ferias_transporte_saldo: boolean;
   ferias_transporte_max_dias: number;
+  /** Subsídios de férias e de Natal em % do salário base (art. 238.º da Lei 12/23: mínimo 50). */
+  subsidio_ferias_pct: number;
+  subsidio_natal_pct: number;
   tabela_irt: EscalaoTabelaIrt[];
   tabela_irt_personalizada: boolean;
 }
@@ -458,6 +469,12 @@ export interface LinhaApuramento {
   diasEscalaPrioritaria?: number;
   semPicagemIntervalo?: number;
   diasSuspenso?: number;
+  /** Chave normalizada (colaborador_id → employeeId). */
+  employeeId?: number;
+  /** art. 230.º: faltas injustificadas acumuladas de Janeiro até ao mês. */
+  diasFaltaAno?: number;
+  /** Horário do contrato (chaves do servidor). */
+  horario?: { entrada?: string; saida?: string; periodos?: number; saida_intervalo?: string; entrada_intervalo?: string; horas_previstas?: number | null } | null;
 }
 
 export interface ApuramentoMes {
@@ -558,6 +575,8 @@ export interface ItemProdutividade {
   minimo: string | null;
   maximo: string | null;
   ativo: boolean;
+  /** #11: UNITARIO (quantidade × preço) ou PREMIO (só OBJECTIVO: prémio × % ÷ 100); vazio = UNITARIO. */
+  base_calculo?: 'UNITARIO' | 'PREMIO' | null;
 }
 
 export interface PeriodoProdutividade {
@@ -637,6 +656,9 @@ export interface ResumoPortal {
   ferias: { direito: number; marcados: number; saldo: number; aprovados?: number; gozados?: number };
   ano: number;
   faltas_por_justificar: number;
+  /** art. 230.º da Lei 12/23: dias de falta injustificada (detectados, por justificar ou recusados) no mês e no ano. */
+  faltas_injustificadas_mes?: number;
+  faltas_injustificadas_ano?: number;
   pedidos_pendentes: number;
   aprovacoes_para_mim: number;
 }

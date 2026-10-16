@@ -1,9 +1,10 @@
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Divider, Drawer, Flex, Form, Input, InputNumber, Modal, Rate, Row, Select, Space, Tabs, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
-import { obter } from '@/api/cliente';
+import { useMemo, useState } from 'react';
+import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, type CampoFormulario, type OpcaoCampo } from '@/componentes/formularios';
 import { IconeFa } from '@/componentes/fluxos';
 import { BotoesExportar, pares, tabelaHtml } from '@/componentes/impressao';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -17,7 +18,56 @@ import { classificar, itensAplicaveis } from './comum/regras';
 import { BarraFiltros, COLUNAS_DESCRICOES, larguraGaveta, scrollTabela } from '@/componentes/responsivo';
 import { seccaoHtml } from './comum/impressao';
 
-import { TabelaComModos } from '@/componentes/vistas';
+import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
+import { campoSimNao, opcoesColaboradores, semVazios } from './comum/linhasRh';
+
+/** Cores das classificações do antigo (avaliacao.js, CORES). */
+export const CORES_CLASSIFICACAO: Record<string, string> = { Excelente: '#15803d', 'Muito Bom': '#2563eb', Bom: '#0891b2', Suficiente: '#d97706', Insuficiente: '#dc2626' };
+
+/** Indicadores do antigo (avaliacao.js:258-261): sobre todos os colaboradores do ano/período, antes dos filtros. */
+export function indicadoresAvaliacao(avaliacoes: (Pick<AvaliacaoT, 'estado' | 'pontuacao' | 'classificacao'> | null)[]) {
+  const concl = avaliacoes.filter((a): a is NonNullable<typeof a> => !!a && a.estado === 'CONCLUIDA');
+  const media = concl.length ? concl.reduce((s, a) => s + (Number(a.pontuacao) || 0), 0) / concl.length : null;
+  return {
+    colaboradores: avaliacoes.length,
+    concluidas: concl.length,
+    rascunhos: avaliacoes.filter((a) => a && a.estado !== 'CONCLUIDA').length,
+    porAvaliar: avaliacoes.filter((a) => !a).length,
+    media,
+    distribuicao: Object.keys(CORES_CLASSIFICACAO).map((c) => ({ c, n: concl.filter((a) => a.classificacao === c).length })),
+  };
+}
+
+/**
+ * Colunas da vista Linhas dos itens de avaliação (critérios/objectivos). Com `colaboradores`, inclui o âmbito e o
+ * colaborador (cadastro geral «Itens de avaliação»); sem eles, são os itens específicos de um colaborador.
+ */
+export function camposItemAvaliacao(colaboradores?: OpcaoCampo[]): CampoFormulario[] {
+  const ambito: CampoFormulario[] = colaboradores
+    ? [
+        { nome: 'ambito', rotulo: 'Âmbito', tipo: 'select', obrigatorio: true, largura: 150, omissao: 'COMUM', opcoes: [{ value: 'COMUM', label: 'Comum a todos' }, { value: 'ESPECIFICO', label: 'Específico' }] },
+        { nome: 'colaborador_id', rotulo: 'Colaborador', tipo: 'select', largura: 220, opcoes: colaboradores, aliases: ['Nome do colaborador', 'NIF'],
+          validar: (v, r) => (r.ambito === 'ESPECIFICO' && !v ? 'Falta o colaborador (item específico).' : null) },
+      ]
+    : [];
+  return [
+    { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, largura: 130, opcoes: [{ value: 'CRITERIO', label: 'Critério' }, { value: 'OBJECTIVO', label: 'Objectivo' }] },
+    ...ambito,
+    { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 240, maxLength: 255, aliases: ['Item', 'Critério', 'Objectivo'] },
+    { nome: 'peso', rotulo: 'Peso', tipo: 'numero', largura: 90, min: 0, max: 100 },
+    { nome: 'ordem', rotulo: 'Ordem', tipo: 'numero', largura: 80, emLinhas: 'opcional' },
+    { nome: 'descricao', rotulo: 'Descrição', tipo: 'textoLongo', largura: 240, maxLength: 2000, emLinhas: 'opcional' },
+    { nome: 'natureza', rotulo: 'Natureza', tipo: 'select', largura: 140, omissao: 'QUANTITATIVO', seccao: 'Objectivo', opcoes: [{ value: 'QUANTITATIVO', label: 'Quantitativo' }, { value: 'QUALITATIVO', label: 'Qualitativo' }] },
+    { nome: 'meta', rotulo: 'Meta', tipo: 'numero', largura: 100, min: 0.0001, seccao: 'Objectivo' },
+    { nome: 'unidade', rotulo: 'Unidade', largura: 100, maxLength: 50, seccao: 'Objectivo', emLinhas: 'opcional' },
+    { nome: 'sentido', rotulo: 'Sentido', tipo: 'select', largura: 150, omissao: 'MAIOR', seccao: 'Objectivo', emLinhas: 'opcional', opcoes: [{ value: 'MAIOR', label: 'Maior é melhor' }, { value: 'MENOR', label: 'Menor é melhor' }] },
+    campoSimNao('ativo', 'Activo', { omissao: true }),
+  ];
+}
+
+/** Corpo do POST /rh/avaliacao/itens de um item específico (grade e linhas). */
+export const dadosItemEspecifico = (v: Record<string, unknown>, colaboradorId: number) => ({ ...semVazios(v), ambito: 'ESPECIFICO', colaborador_id: colaboradorId });
+
 interface Linha {
   colaborador: Colaborador;
   avaliacao: AvaliacaoT | null;
@@ -58,10 +108,12 @@ function ListaAvaliacoes({ ano, periodo }: { ano: number; periodo: PeriodoAvalia
   const nEspecificos = (cid: number) => (itens.data ?? []).filter((i) => i.ativo && i.ambito === 'ESPECIFICO' && i.colaborador_id === cid).length;
   const accao = useAccaoRh();
   const porColab = new Map((q.data ?? []).map((a) => [a.colaborador_id, a]));
-  const linhas: Linha[] = colaboradores.lista
+  const base: Linha[] = colaboradores.lista
     .filter((c) => c.estado === 'ACTIVO' || porColab.has(c.id))
-    .map((c) => ({ colaborador: c, avaliacao: porColab.get(c.id) ?? null }))
-    .filter((l) => contem(l.colaborador.nome_completo, termo) && (!fase || (l.avaliacao?.fase ?? 'POR_AVALIAR') === fase));
+    .map((c) => ({ colaborador: c, avaliacao: porColab.get(c.id) ?? null }));
+  const linhas = base.filter((l) => contem(l.colaborador.nome_completo, termo) && (!fase || (l.avaliacao?.fase ?? 'POR_AVALIAR') === fase));
+  const ind = indicadoresAvaliacao(base.map((l) => l.avaliacao));
+  const classMedia = classificar(ind.media);
 
   // Colunas e acções do antigo (renderAvaliacao): COLABORADOR, ESTADO, PONTUAÇÃO CHEFIA, CLASSIFICAÇÃO, NOTA 360º FINAL,
   // FASE, AVALIADOR, DATA, ITENS ESPECÍFICOS, ACÇÕES; a nota 360º (pares/subordinados) fica em «Colunas ▾».
@@ -81,6 +133,21 @@ function ListaAvaliacoes({ ano, periodo }: { ano: number; periodo: PeriodoAvalia
 
   return (
     <Card>
+      {/* antigo (avaliacao.js:288, .rha-kpis): seis caixas sem ícone, a média com a classificação e a barra da distribuição */}
+      <GrelhaKpi larguraMinima={140} style={{ marginBottom: 16 }}>
+        <CartaoKpi barra="nenhuma" rotulo="Colaboradores" valor={ind.colaboradores} />
+        <CartaoKpi barra="nenhuma" rotulo="Concluídas" valor={ind.concluidas} />
+        <CartaoKpi barra="nenhuma" rotulo="Rascunhos" valor={ind.rascunhos} />
+        <CartaoKpi barra="nenhuma" rotulo="Por avaliar" valor={ind.porAvaliar} />
+        <CartaoKpi barra="nenhuma" rotulo="Média (concluídas)" valor={ind.media === null ? '—' : formatarNumero(ind.media)}
+          secundaria={classMedia ? <span style={{ color: CORES_CLASSIFICACAO[classMedia] }}>{classMedia}</span> : undefined} />
+        <CartaoKpi barra="nenhuma" rotulo="Distribuição" valor={(
+          <div role="img" aria-label={ind.distribuicao.map((d) => `${d.c}: ${d.n}`).join(', ')}
+            style={{ display: 'flex', height: 10, borderRadius: 4, overflow: 'hidden', background: 'var(--erp-kpi-fundo)', marginTop: 6 }}>
+            {ind.concluidas > 0 && ind.distribuicao.filter((d) => d.n).map((d) => <div key={d.c} title={`${d.c}: ${d.n}`} style={{ width: `${(d.n / ind.concluidas) * 100}%`, background: CORES_CLASSIFICACAO[d.c] }} />)}
+          </div>
+        )} secundaria={ind.distribuicao.filter((d) => d.n).map((d) => `${d.c} ${d.n}`).join(' · ') || 'Sem avaliações concluídas'} />
+      </GrelhaKpi>
       <BarraFiltros>
         <PesquisaLocal aoMudar={setTermo} placeholder="Nome" />
         <Select placeholder="Fase" allowClear style={{ width: 220 }} value={fase} onChange={setFase} options={Object.entries(FASES_AVALIACAO).map(([k, f]) => ({ value: k, label: f.rotulo }))} />
@@ -115,6 +182,7 @@ function ItensEspecificos({ colaborador, itens, aoFechar }: { colaborador: Colab
   const [form] = Form.useForm();
   const [novo, setNovo] = useState(false);
   const accao = useAccaoRh(() => setNovo(false));
+  const camposLinhas = useMemo(() => camposItemAvaliacao(), []);
   const colunas: ColunaApi<ItemAvaliacao>[] = [
     { title: 'Nome', dataIndex: 'nome', render: (v: string) => <strong>{v}</strong> },
     { title: 'Tipo', dataIndex: 'tipo', render: (t: string) => (t === 'CRITERIO' ? 'Critério' : 'Objectivo') },
@@ -134,11 +202,13 @@ function ItensEspecificos({ colaborador, itens, aoFechar }: { colaborador: Colab
       <TabelaComModos<ItemAvaliacao> rowKey="id" size="small" columns={colunas} dataSource={itens} modos={false} contador={false} filtrosColuna={false} filtroPersonalizado={false}
         vazio={{ icone: 'list-ul', titulo: 'Sem itens específicos', texto: 'Este colaborador só tem os itens comuns.' }}
         accoes={(r) => [{ icone: 'trash', titulo: 'Eliminar', variante: 'perigo', confirmar: 'Eliminar o item específico?', onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/avaliacao/itens/${r.id}` }) }]} />
-      <Modal open={novo} title="Novo item específico" onCancel={() => setNovo(false)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraGaveta(720)} destroyOnHidden>
-        <Form form={form} layout="vertical" onFinish={(v: Record<string, unknown>) => accao.mutate({ metodo: 'post', url: '/rh/avaliacao/itens', dados: { ...v, ambito: 'ESPECIFICO', colaborador_id: colaborador.id } })}>
+      <ModalFormulario chave="rh.avaliacao.itensEspecificos" aberto={novo} titulo="Novo item específico" aoFechar={() => setNovo(false)} criacao form={form} campos={camposLinhas}
+        nomeRegistos="itens específicos" invalidar={[['rh', 'avaliacao']]} gravarLinha={(r) => enviar('post', '/rh/avaliacao/itens', dadosItemEspecifico(r, colaborador.id))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraGaveta(720)}>
+        <Form form={form} layout="vertical" onFinish={(v: Record<string, unknown>) => accao.mutate({ metodo: 'post', url: '/rh/avaliacao/itens', dados: dadosItemEspecifico(v, colaborador.id) })}>
           <CamposItem />
         </Form>
-      </Modal>
+      </ModalFormulario>
     </Modal>
   );
 }
@@ -299,6 +369,7 @@ function FormularioAvaliacao({ linha, ano, periodo, aoFechar }: { linha: Linha; 
 
 function Itens() {
   const colaboradores = useColaboradores();
+  const camposLinhas = useMemo(() => camposItemAvaliacao(opcoesColaboradores(colaboradores.lista)), [colaboradores.lista]);
   return (
     <CadastroSimples<ItemAvaliacao>
       url="/rh/avaliacao/itens"
@@ -310,6 +381,7 @@ function Itens() {
       larguraModal={720}
       pesquisa={(r) => `${r.nome} ${r.descricao ?? ''}`}
       valoresNovos={{ ambito: 'COMUM', tipo: 'CRITERIO', ativo: true, natureza: 'QUANTITATIVO', sentido: 'MAIOR' }}
+      linhas={{ chave: 'rh.avaliacao.itens', campos: camposLinhas, nomeRegistos: 'itens de avaliação' }}
       paraFormulario={(r) => ({ ...r, peso: r.peso !== null ? Number(r.peso) : null, meta: r.meta !== null ? Number(r.meta) : null })}
       colunas={[
         { title: 'Nome', dataIndex: 'nome', render: (v: string) => <strong>{v}</strong> },

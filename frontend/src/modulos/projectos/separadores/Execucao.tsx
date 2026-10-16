@@ -1,4 +1,5 @@
-import { Alert, Button, Card, Col, DatePicker, Flex, Modal, Row, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Flex, Modal, Row, Space, Table, Tag, Typography } from 'antd';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { SendOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -48,14 +49,17 @@ export function SeparadorExecucao({ projecto, acc }: PropsSeparador) {
         <Typography.Paragraph type="secondary">Horas, quantidades medidas e tarefas concluídas no intervalo escolhido — a matéria-prima do subsídio de produtividade do RH.</Typography.Paragraph>
         {e && (
           <>
-            <Row gutter={[12, 12]}>
-              <Col xs={24} md={8}><Card size="small"><Statistic title="Horas registadas" value={formatarQtd(e.cartoes.horas.total)} suffix="h" />
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>{formatarQtd(e.cartoes.horas.atribuivel)} h de colaboradores internos · {e.cartoes.horas.registos} registo(s)</Typography.Text></Card></Col>
-              <Col xs={24} md={8}><Card size="small"><Statistic title="Quantidade medida" value={e.cartoes.quantidades.length ? ' ' : '—'} />
-                {e.cartoes.quantidades.map((c) => <div key={c.unidade}><strong>{formatarQtd(c.total)} {c.unidade}</strong> <Typography.Text type="secondary" style={{ fontSize: 12 }}>({formatarQtd(c.atribuivel)} atribuível)</Typography.Text></div>)}</Card></Col>
-              <Col xs={24} md={8}><Card size="small"><Statistic title="Tarefas concluídas" value={e.cartoes.tarefas.total} />
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>{e.cartoes.tarefas.atribuivel} com responsável interno</Typography.Text></Card></Col>
-            </Row>
+            {/* legado (renderProjectExecucao, ui_projects.js:5724-5873): cartões com barra à esquerda — horas, uma quantidade por unidade, tarefas */}
+            <GrelhaKpi larguraMinima={208}>
+              <CartaoKpi barra="esquerda" cor="#0ea5e9" icone="clock" rotulo="Horas registadas" valor={formatarQtd(e.cartoes.horas.total)} unidade="h"
+                secundaria={`${e.cartoes.horas.registos} folha(s) · ${formatarQtd(e.cartoes.horas.atribuivel)} h atribuíveis a colaboradores`} />
+              {e.cartoes.quantidades.length ? e.cartoes.quantidades.map((c) => (
+                <CartaoKpi key={c.unidade} barra="esquerda" cor="#0369a1" icone="bullseye" rotulo={`Quantidade medida (${c.unidade})`} valor={formatarQtd(c.total)} unidade={c.unidade}
+                  secundaria={`${formatarQtd(c.atribuivel)} ${c.unidade} atribuíveis`} />
+              )) : <CartaoKpi barra="esquerda" cor="#94a3b8" icone="bullseye" rotulo="Quantidade medida" valor="—" secundaria="sem medições no intervalo" />}
+              <CartaoKpi barra="esquerda" cor="#16a34a" icone="clipboard-check" rotulo="Tarefas concluídas" valor={e.cartoes.tarefas.total}
+                secundaria={`pela data de conclusão · ${e.cartoes.tarefas.atribuivel} com responsável interno`} />
+            </GrelhaKpi>
             {e.sem_dono.length > 0 && (
               <Alert style={{ marginTop: 12 }} type="warning" showIcon message="Execução sem colaborador interno — não há a quem pagar"
                 description={<ul style={{ margin: 0, paddingLeft: 18 }}>{e.sem_dono.map((o) => <li key={`${o.tipo}|${o.unidade}|${o.motivo}`}>{TIPOS_PONTE[o.tipo]}: {formatarQtd(o.quantidade, 4)} {o.unidade} — {o.motivo}</li>)}</ul>} />
@@ -68,20 +72,31 @@ export function SeparadorExecucao({ projecto, acc }: PropsSeparador) {
                 ...quantidades.map((u) => ({ title: u, key: `q-${u}`, align: 'right' as const, render: (_: unknown, p: ExecucaoProjecto['por_colaborador'][number]) => formatarQtd(p.quantidades[u] ?? 0) })),
                 { title: 'Tarefas concluídas', dataIndex: 'tarefas', align: 'right' },
               ]} />
-            <Tabs style={{ marginTop: 16 }} items={[
-              { key: 'h', label: `Folhas de horas (${e.folhas.length})`, children: (
-                <Table size="small" rowKey="id" dataSource={e.folhas} pagination={{ pageSize: 20 }} scroll={scrollTabela()}
-                  columns={[{ title: 'Data', dataIndex: 'data', render: formatarData }, { title: 'Colaborador / membro', dataIndex: 'colaborador', render: (v) => v ?? '—' },
-                    { title: 'Tarefa', dataIndex: 'tarefa' }, { title: 'Horas', dataIndex: 'horas', align: 'right', render: (v) => formatarQtd(v) }]} />) },
-              { key: 'm', label: `Medições (${e.medicoes.length})`, children: (
-                <Table size="small" rowKey={(m) => `${m.tarefa_id}-${m.data}-${m.quantidade}-${m.por}`} dataSource={e.medicoes} pagination={{ pageSize: 20 }} scroll={scrollTabela()}
-                  columns={[{ title: 'Data', dataIndex: 'data', render: formatarData }, { title: 'Tarefa', dataIndex: 'tarefa' }, { title: 'Responsável', dataIndex: 'responsavel', render: (v) => v ?? '—' },
-                    { title: 'Quantidade', key: 'q', align: 'right', render: (_, m) => `${formatarQtd(m.quantidade)} ${m.unidade}` }, { title: 'Nota', dataIndex: 'nota' }, { title: 'Por', dataIndex: 'por' }]} />) },
-              { key: 'c', label: `Tarefas concluídas (${e.concluidas.length})`, children: (
-                <Table size="small" rowKey="tarefa_id" dataSource={e.concluidas} pagination={false} scroll={scrollTabela()}
-                  columns={[{ title: 'Concluída em', dataIndex: 'concluida_em', render: formatarData }, { title: 'Tarefa', dataIndex: 'tarefa' },
-                    { title: 'Responsável', dataIndex: 'responsavel', render: (v) => v ?? <Tag>sem responsável</Tag> }]} />) },
-            ]} />
+            {/* legado: duas colunas iguais (folhas de horas | quantidades medidas); as tarefas concluídas são do sistema novo */}
+            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+              <Col xs={24} xl={12}>
+                <Card size="small" title={`Folhas de horas (${e.folhas.length})`}>
+                  <Table size="small" rowKey="id" dataSource={e.folhas} pagination={{ pageSize: 20, hideOnSinglePage: true }} scroll={scrollTabela(352)}
+                    columns={[{ title: 'Data', dataIndex: 'data', render: formatarData }, { title: 'Colaborador', dataIndex: 'colaborador', render: (v) => v ?? '—' },
+                      { title: 'Tarefa', dataIndex: 'tarefa' }, { title: 'Horas', dataIndex: 'horas', align: 'right', render: (v) => formatarQtd(v) }]} />
+                </Card>
+              </Col>
+              <Col xs={24} xl={12}>
+                <Card size="small" title={`Quantidades medidas (${e.medicoes.length})`}>
+                  <Table size="small" rowKey={(m) => `${m.tarefa_id}-${m.data}-${m.quantidade}-${m.por}`} dataSource={e.medicoes} pagination={{ pageSize: 20, hideOnSinglePage: true }} scroll={scrollTabela(352)}
+                    columns={[{ title: 'Data', dataIndex: 'data', render: formatarData }, { title: 'Tarefa', dataIndex: 'tarefa' },
+                      { title: 'Responsável', dataIndex: 'responsavel', render: (v) => v ?? <Typography.Text type="warning">sem responsável</Typography.Text> },
+                      { title: 'Quantidade', key: 'q', align: 'right', render: (_, m) => `${formatarQtd(m.quantidade)} ${m.unidade}` }, { title: 'Nota', dataIndex: 'nota' }, { title: 'Por', dataIndex: 'por' }]} />
+                </Card>
+              </Col>
+              <Col xs={24}>
+                <Card size="small" title={`Tarefas concluídas (${e.concluidas.length})`}>
+                  <Table size="small" rowKey="tarefa_id" dataSource={e.concluidas} pagination={false} scroll={scrollTabela()}
+                    columns={[{ title: 'Concluída em', dataIndex: 'concluida_em', render: formatarData }, { title: 'Tarefa', dataIndex: 'tarefa' },
+                      { title: 'Responsável', dataIndex: 'responsavel', render: (v) => v ?? <Tag>sem responsável</Tag> }]} />
+                </Card>
+              </Col>
+            </Row>
           </>
         )}
       </Card>

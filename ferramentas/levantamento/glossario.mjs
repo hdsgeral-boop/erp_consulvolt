@@ -531,6 +531,8 @@ export const GLOSSARIO = {
   esperados: 'esperados', valor_esperado: 'valor_esperado', contado_em: 'contado_em', aplicado_em: 'aplicado_em',
   requerente: 'requerente', satisfeita_em: 'satisfeita_em', quantidade_entregue: 'quantidade_entregue',
   qtd_armazem: 'quantidade_armazem', qtd_compra: 'quantidade_compra',
+  // RH (fecho da Versão Actual, fi_rh): minuta do contrato pela Lei n.º 12/23 (app_v2.js:5063-5066)
+  motivo_termo: 'motivo_termo', periodo_experimental_dias: 'periodo_experimental_dias',
 };
 
 // Destinos que dependem da tabela. Chave: tabela legado -> { coluna_legado: destino }.
@@ -622,6 +624,8 @@ export const TIPOS_FORCADOS = {
   // (2026_10_14_*), para que estas passem a não fazer nada sobre uma base gerada de novo.
   // Fase B (RH)
   'contracts.suspensao': 'jsonb', 'contracts.suspensoes': 'jsonb', 'contracts.cessacao': 'jsonb', 'contracts.cessacoes_anuladas': 'jsonb',
+  // Fecho da Versão Actual (fi_rh, 2026-10-15): tipos da migration 2026_10_15_800100_fi_rh_minuta_funcoes
+  'contracts.motivo_termo': 'text', 'contracts.periodo_experimental_dias': 'integer',
   'employees.data_cessacao': 'date', 'rh_loan_instalments.descontado_em': 'timestamptz',
   'rh_loans.decidido_em': 'timestamptz', 'rh_loans.liquidado_em': 'timestamptz',
   // Fase C (repartição por unidades de negócio): alocação {criterio_id, unidades[]} em jsonb; indicador é um nome livre

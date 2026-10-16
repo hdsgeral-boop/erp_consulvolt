@@ -1,10 +1,12 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Statistic, Switch, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Switch, Table, Tag, Typography, theme } from 'antd';
 import { CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SettingOutlined, SyncOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obter, obterPagina } from '@/api/cliente';
+import { enviar, obter, obterPagina } from '@/api/cliente';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { textoOuNull } from '../comum/valoresFormulario';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import type { DocumentoVenda } from '../api';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -42,15 +44,30 @@ interface SerieFE {
   estabelecimento?: string | null;
 }
 
+/** Contagens do envio (legado: .fe-diag — válidos a verde #047857, problemas a âmbar #b45309). */
 const RESUMO: { chave: string; rotulo: string; cor?: string }[] = [
-  { chave: 'POR_ENVIAR', rotulo: 'Por enviar', cor: '#d48806' },
-  { chave: 'ENVIADO', rotulo: 'Enviados (a aguardar)' },
-  { chave: 'VALIDO', rotulo: 'Válidos', cor: '#389e0d' },
-  { chave: 'INVALIDO', rotulo: 'Inválidos', cor: '#cf1322' },
-  { chave: 'REJEITADO', rotulo: 'Rejeitados', cor: '#cf1322' },
-  { chave: 'ERRO', rotulo: 'Erro de envio', cor: '#cf1322' },
-  { chave: 'COM_ERROS_LOCAIS', rotulo: 'Com erros locais', cor: '#cf1322' },
+  { chave: 'POR_ENVIAR', rotulo: 'Por enviar' },
+  { chave: 'ENVIADO', rotulo: 'Enviados, a aguardar validação' },
+  { chave: 'VALIDO', rotulo: 'Válidos na AGT', cor: '#047857' },
+  { chave: 'INVALIDO', rotulo: 'Inválidos', cor: '#b45309' },
+  { chave: 'REJEITADO', rotulo: 'Rejeitados', cor: '#b45309' },
+  { chave: 'ERRO', rotulo: 'Erro de envio', cor: '#b45309' },
+  { chave: 'COM_ERROS_LOCAIS', rotulo: 'Com erros locais', cor: '#b45309' },
 ];
+
+/** Grelha e caixa .fe-diag do antigo (facturacao_agt_ui.js:41-44): moldura simples, 4 px, valor a 1,25rem. */
+const GRELHA_DIAG = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))', gap: '0.75rem' } as const;
+
+function CaixaDiag({ rotulo, valor, cor, children, ...resto }: { rotulo: ReactNode; valor: ReactNode; cor?: string; children?: ReactNode } & HTMLAttributes<HTMLDivElement>) {
+  const { token } = theme.useToken();
+  return (
+    <div {...resto} style={{ border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, padding: '0.65rem 0.8rem', fontSize: '0.82rem', ...resto.style }}>
+      <span>{rotulo}</span>
+      <strong style={{ display: 'block', fontSize: '1.25rem', color: cor }}>{valor}</strong>
+      {children}
+    </div>
+  );
+}
 
 const TIPOS_SERIE = ['FT', 'FR', 'NC', 'OR', 'PF', 'NE', 'RE'];
 
@@ -111,23 +128,26 @@ function EstadoEnvio() {
         {resumo.isLoading ? (
           <Skeleton active />
         ) : (
-          <Row gutter={[16, 16]}>
-            {RESUMO.map((r) => (
-              <Col key={r.chave} xs={12} md={6} lg={3}>
-                {/* atalho para a lista de documentos filtrada pelo estado AGT (A-04) */}
-                <div
+          <div style={GRELHA_DIAG}>
+            {RESUMO.map((r) => {
+              const n = resumo.data?.[r.chave] ?? 0;
+              return (
+                // atalho para a lista de documentos filtrada pelo estado AGT (A-04)
+                <CaixaDiag
+                  key={r.chave}
+                  rotulo={r.rotulo}
+                  valor={n}
+                  cor={r.cor === '#047857' ? r.cor : n > 0 ? r.cor : r.cor ? '#047857' : undefined}
                   role="link"
                   tabIndex={0}
                   title={`Ver os documentos: ${r.rotulo.toLowerCase()}`}
                   style={{ cursor: 'pointer' }}
                   onClick={() => navegar(`/m/vendas/vendas_faturacao?estado_fe=${r.chave}`)}
                   onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navegar(`/m/vendas/vendas_faturacao?estado_fe=${r.chave}`)}
-                >
-                  <Statistic title={r.rotulo} value={resumo.data?.[r.chave] ?? 0} valueStyle={(resumo.data?.[r.chave] ?? 0) > 0 && r.cor ? { color: r.cor } : undefined} />
-                </div>
-              </Col>
-            ))}
-          </Row>
+                />
+              );
+            })}
+          </div>
         )}
         {resultado && (
           <Alert
@@ -283,6 +303,34 @@ function Configuracao() {
   );
 }
 
+/** Corpo do pedido da série AGT — o mesmo na grade e na vista Linhas. */
+export function dadosSerieFE(v: Record<string, unknown>): Record<string, unknown> {
+  return {
+    tipo: v.tipo,
+    ano: v.ano,
+    codigo: String(v.codigo ?? '').trim(),
+    origem: textoOuNull(v.origem),
+    origem_nome: textoOuNull(v.origem_nome),
+    estabelecimento: textoOuNull(v.estabelecimento),
+    // grade: caixa de selecção (`contingencia`); linhas: Sim/Não (`contingencia_sn`)
+    contingencia: v.contingencia === true || v.contingencia_sn === 'S',
+    estado: v.estado ?? 'ATIVA',
+  };
+}
+
+/** Vista Linhas das séries AGT (as regras da grade: tipo, ano e código obrigatórios; código só com letras e números). */
+const CAMPOS_SERIE_FE: CampoFormulario[] = [
+  { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, omissao: 'FT', largura: 90, opcoes: TIPOS_SERIE.map((t) => ({ value: t, label: t })) },
+  { nome: 'ano', rotulo: 'Ano', tipo: 'numero', obrigatorio: true, min: 2000, max: 2100, precisao: 0, omissao: () => dayjs().year(), largura: 90 },
+  { nome: 'codigo', rotulo: 'Código', obrigatorio: true, maxLength: 30, largura: 130, aliases: ['Série'],
+    validar: (c) => (String(c ?? '').trim() && !/^[A-Za-z0-9]{1,30}$/.test(String(c).trim()) ? 'Código: letras e números, sem espaços nem «/».' : null) },
+  { nome: 'estado', rotulo: 'Estado', tipo: 'select', omissao: 'ATIVA', largura: 110, opcoes: [{ value: 'ATIVA', label: 'Activa' }, { value: 'FECHADA', label: 'Fechada' }] },
+  { nome: 'estabelecimento', rotulo: 'Estabelecimento', maxLength: 20, largura: 120 },
+  { nome: 'origem', rotulo: 'Origem', maxLength: 30, largura: 110, placeholder: 'Ex.: POS1' },
+  { nome: 'origem_nome', rotulo: 'Nome da origem', maxLength: 200, largura: 180, emLinhas: 'opcional', seccao: 'Origem' },
+  { nome: 'contingencia_sn', rotulo: 'Contingência', tipo: 'select', omissao: 'N', largura: 110, emLinhas: 'opcional', seccao: 'AGT', opcoes: [{ value: 'N', label: 'Não' }, { value: 'S', label: 'Sim' }] },
+];
+
 function Series() {
   const { pode } = useSessao();
   const podeGerir = pode('vendas_fe_config');
@@ -376,12 +424,29 @@ function Series() {
           },
         ]}
       />
-      <Modal width={larguraModal(560)} title={edicao === 'nova' ? 'Nova série' : 'Editar série'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
+      <ModalFormulario
+        chave="vendas.fe.series"
+        width={larguraModal(560)}
+        titulo={edicao === 'nova' ? 'Nova série' : 'Editar série'}
+        aberto={edicao !== null}
+        aoFechar={() => setEdicao(null)}
+        criacao={edicao === 'nova'}
+        destroyOnHidden={false}
+        form={form}
+        campos={CAMPOS_SERIE_FE}
+        nomeRegistos="séries"
+        invalidar={[['vendas', 'fe', 'series'], ['vendas', 'series-numeracao']]}
+        gravarLinha={(r) => enviar('post', '/vendas/configuracao/series', dadosSerieFE(r))}
+        okText="Gravar"
+        cancelText="Cancelar"
+        confirmLoading={accao.isPending}
+        onOk={() => form.submit()}
+      >
         <Form
           form={form}
           layout="vertical"
           onFinish={(v) => {
-            const dados = { tipo: v.tipo, ano: v.ano, codigo: v.codigo, origem: v.origem || null, origem_nome: v.origem_nome || null, estabelecimento: v.estabelecimento || null, contingencia: !!v.contingencia, estado: v.estado };
+            const dados = dadosSerieFE(v as Record<string, unknown>);
             accao.mutate(edicao && edicao !== 'nova' ? { metodo: 'put', url: `/vendas/configuracao/series/${edicao.id}`, dados } : { url: '/vendas/configuracao/series', dados });
           }}
         >
@@ -428,7 +493,7 @@ function Series() {
             </Col>
           </Row>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </Card>
   );
 }
@@ -458,17 +523,16 @@ function DadosARever() {
       {diag.error && <Alert type="error" showIcon message="Não foi possível verificar os dados." />}
       {d?.empresa_nif && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={d.empresa_nif} />}
       {d && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+        <div style={GRELHA_DIAG}>
           {itens.map(([titulo, b, dica]) => (
-            <div key={titulo} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, background: '#f8fafc' }}>
-              <Flex justify="space-between" align="center"><span>{titulo}</span><strong style={{ fontSize: 18, color: b?.total ? '#b45309' : '#047857' }}>{b?.total ?? 0}</strong></Flex>
+            <CaixaDiag key={titulo} rotulo={titulo} valor={b?.total ?? 0} cor={b?.total ? '#b45309' : '#047857'}>
               {!!b?.total && (
                 <>
-                  <small style={{ display: 'block', color: '#475569', marginTop: 4 }}>{b.exemplos.join(', ')}{b.total > b.exemplos.length ? ` e mais ${b.total - b.exemplos.length}` : ''}</small>
-                  <small style={{ display: 'block', color: '#64748b' }}>{dica}</small>
+                  <Typography.Text type="secondary" style={{ display: 'block', marginTop: '0.25rem', fontSize: 'inherit' }}>{b.exemplos.join(', ')}{b.total > b.exemplos.length ? ` e mais ${b.total - b.exemplos.length}` : ''}</Typography.Text>
+                  <Typography.Text type="secondary" style={{ display: 'block', marginTop: '0.25rem', fontSize: 'inherit' }}>{dica}</Typography.Text>
                 </>
               )}
-            </div>
+            </CaixaDiag>
           ))}
         </div>
       )}
@@ -496,7 +560,7 @@ function DocumentosComErros() {
       {erros.error ? (
         <Alert type="error" showIcon message="Não foi possível ler os documentos." />
       ) : lista.length === 0 ? (
-        <Typography.Text strong style={{ color: '#047857' }}>Nenhum documento com erros locais.</Typography.Text>
+        <Typography.Text strong type="success">Nenhum documento com erros locais.</Typography.Text>
       ) : (
         <Table<DocumentoVenda>
           rowKey="id"

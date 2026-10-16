@@ -1,8 +1,8 @@
-import { Alert, Button, Card, Checkbox, Col, Divider, Form, Input, Modal, Popconfirm, Row, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Form, Input, Modal, Popconfirm, Row, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
 import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -11,6 +11,8 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarDataHora } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { larguraModal } from '@/componentes/responsivo';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario, type PropsCelula } from '@/componentes/formularios';
+import { OPCOES_SIM_NAO, PROPS_SIM_NAO, simNao } from './comum/formularios';
 
 interface EmpresaUtilizador {
   empresa_id: number;
@@ -111,7 +113,7 @@ export default function Utilizadores() {
                       <Tag color="gold" style={{ marginLeft: 6 }}>legado</Tag>
                     </Tooltip>
                   )}
-                  <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{[u.nome_completo, u.email].filter(Boolean).join(' · ')}</div>
+                  <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{[u.nome_completo, u.email].filter(Boolean).join(' · ')}</Typography.Text>
                 </>
               ),
             },
@@ -223,7 +225,7 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
         empresas: u.empresas.map((e) => e.empresa_id),
         colaborador_id: u.empresas.find((e) => e.empresa_id === empresa?.id)?.colaborador_id ?? null,
       });
-    else form.setFieldsValue({ papel: 'UTILIZADOR', ativo: true, acesso_todas_empresas: false, empresas: empresa ? [empresa.id] : [] });
+    else form.setFieldsValue({ papel: 'UTILIZADOR', ativo: 1, acesso_todas_empresas: 0, empresas: empresa ? [empresa.id] : [] } as unknown as Partial<FormUtilizador>);
   }, [utilizador, u, form, empresa]);
 
   // empresas que o utilizador já tem mas que quem edita não vê: mantêm-se (o servidor só altera as que o actor gere)
@@ -235,33 +237,45 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
   const submeter = (v: FormUtilizador) => {
     const anteriores = new Map((u?.empresas ?? []).map((e) => [e.empresa_id, e.colaborador_id]));
     const lista = v.empresas.map((id) => ({ empresa_id: id, colaborador_id: id === empresa?.id ? (v.colaborador_id ?? null) : (anteriores.get(id) ?? null) }));
-    const dados: Record<string, unknown> = {
-      nome_utilizador: v.nome_utilizador.trim(),
-      nome_completo: v.nome_completo?.trim() || null,
-      email: v.email?.trim() || null,
-      perfil_utilizador_id: v.perfil_utilizador_id,
-      acesso_todas_empresas: v.acesso_todas_empresas,
-      ativo: v.ativo,
-      empresas: lista,
-      ...(souSuper ? { papel: v.papel } : {}),
-      ...(v.palavra_passe ? { palavra_passe: v.palavra_passe } : {}),
-    };
-    accao.mutate({ metodo: novo ? 'post' : 'put', url: novo ? '/sistema/utilizadores' : `/sistema/utilizadores/${u!.id}`, dados });
+    accao.mutate({ metodo: novo ? 'post' : 'put', url: novo ? '/sistema/utilizadores' : `/sistema/utilizadores/${u!.id}`, dados: dadosUtilizador(v, lista, souSuper) });
   };
 
+  // vista Linhas: um utilizador por linha, ligado à empresa activa (ou a todas); empresas e colaborador escolhem-se na grade
+  const campos: CampoFormulario[] = [
+    { nome: 'nome_utilizador', rotulo: 'Nome de utilizador', obrigatorio: true, largura: 160, maxLength: 100, aliases: ['Utilizador', 'Login'] },
+    { nome: 'nome_completo', rotulo: 'Nome completo', largura: 200, maxLength: 200, aliases: ['Nome'] },
+    { nome: 'email', rotulo: 'Email', largura: 190, maxLength: 150, aliases: ['E-mail'], validar: (e) => (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim()) ? 'Email inválido.' : null) },
+    { nome: 'palavra_passe', rotulo: 'Palavra-passe', tipo: 'personalizado', obrigatorio: true, largura: 160, celula: CelulaPalavraPasse,
+      validar: (p) => (p && String(p).length < MINIMO ? `Pelo menos ${MINIMO} caracteres.` : null) },
+    { nome: 'perfil_utilizador_id', rotulo: 'Perfil', tipo: 'select', obrigatorio: true, largura: 190, opcoes: (perfis.data ?? []).map((p) => ({ value: p.id, label: p.nome })) },
+    { nome: 'ativo', rotulo: 'Activo', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 1, largura: 90 },
+    { nome: 'acesso_todas_empresas', rotulo: 'Todas as empresas', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 0, largura: 130, emLinhas: 'opcional', seccao: 'Acesso' },
+    ...(souSuper ? [{ nome: 'papel', rotulo: 'Papel', tipo: 'select' as const, opcoes: Object.entries(PAPEIS).map(([value, label]) => ({ value, label })), omissao: 'UTILIZADOR', largura: 160, emLinhas: 'opcional' as const, seccao: 'Acesso' }] : []),
+  ];
+  const gravarLinha = (r: Record<string, unknown>) =>
+    enviar('post', '/sistema/utilizadores', dadosUtilizador(r as unknown as FormUtilizador, empresa ? [{ empresa_id: empresa.id, colaborador_id: null }] : [], souSuper));
+
   return (
-    <Modal
-      title={novo ? 'Novo utilizador' : `Editar — ${u?.nome_utilizador ?? ''}`}
-      open={utilizador !== null}
-      onCancel={aoFechar}
+    <ModalFormulario
+      chave="config.utilizadores"
+      titulo={novo ? 'Novo utilizador' : `Editar — ${u?.nome_utilizador ?? ''}`}
+      aberto={utilizador !== null}
+      aoFechar={aoFechar}
+      criacao={novo}
+      form={form}
+      campos={campos}
+      nomeRegistos="utilizadores"
+      invalidar={[CHAVE]}
+      gravarLinha={gravarLinha}
+      nota="Cada utilizador fica com acesso à empresa activa (ou a todas, na coluna «Todas as empresas»). Outras empresas e o colaborador ligado escolhem-se depois, em «Editar»."
       okText="Gravar"
       cancelText="Cancelar"
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
       width={larguraModal(720)}
-      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={submeter}>
+        <SeccaoFormulario titulo="Conta">
         <Row gutter={16}>
           <Col xs={24} md={12}>
             <Form.Item name="nome_utilizador" label="Nome de utilizador" rules={[{ required: true, message: 'Indique o nome de utilizador.' }]}>
@@ -287,6 +301,10 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
               <Input.Password maxLength={200} autoComplete="new-password" />
             </Form.Item>
           </Col>
+        </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Perfil e estado">
+        <Row gutter={16}>
           <Col xs={24} md={12}>
             <Form.Item name="perfil_utilizador_id" label="Perfil" rules={[{ required: true, message: 'Escolha o perfil.' }]}>
               <Select showSearch optionFilterProp="label" loading={perfis.isLoading} options={(perfis.data ?? []).map((p) => ({ value: p.id, label: p.acesso_total ? `${p.nome} (acesso total)` : p.nome }))} />
@@ -299,14 +317,15 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
           </Col>
         </Row>
         <Space size={24}>
-          <Form.Item name="ativo" label="Activo" valuePropName="checked">
+          <Form.Item name="ativo" label="Activo" {...PROPS_SIM_NAO}>
             <Switch />
           </Form.Item>
-          <Form.Item name="acesso_todas_empresas" valuePropName="checked" label=" ">
+          <Form.Item name="acesso_todas_empresas" {...PROPS_SIM_NAO} label=" ">
             <Checkbox>Acesso a todas as empresas</Checkbox>
           </Form.Item>
         </Space>
-        <Divider style={{ margin: '4px 0 12px' }} />
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Empresas e colaborador">
         {todas ? (
           <Alert type="info" showIcon message="Tem acesso a todas as empresas (actuais e futuras)." style={{ marginBottom: 12 }} />
         ) : (
@@ -325,14 +344,37 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
             />
           </Form.Item>
         )}
+        </SeccaoFormulario>
         {u && (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             Palavra-passe alterada em {formatarDataHora(u.palavra_passe_alterada_em)} · último acesso {formatarDataHora(u.ultimo_acesso_em)}
           </Typography.Text>
         )}
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
+}
+
+/** Célula da palavra-passe na vista Linhas: escondida (não fica à vista na tabela). */
+function CelulaPalavraPasse({ valor, aoMudar, rotulo, erro }: PropsCelula) {
+  return <Input.Password size="small" aria-label={rotulo} status={erro ? 'error' : undefined} autoComplete="new-password" maxLength={200} value={String(valor ?? '')} onChange={(e) => aoMudar(e.target.value)} />;
+}
+
+/** Corpo do pedido do utilizador (comum à grade e à vista Linhas, onde «Activo»/«Todas as empresas» vêm em 1/0). */
+export function dadosUtilizador(v: Partial<FormUtilizador> | Record<string, unknown>, empresas: { empresa_id: number; colaborador_id: number | null }[], souSuper: boolean): Record<string, unknown> {
+  const x = v as Record<string, unknown>;
+  const texto = (k: string) => (typeof x[k] === 'string' ? (x[k] as string).trim() : '');
+  return {
+    nome_utilizador: texto('nome_utilizador'),
+    nome_completo: texto('nome_completo') || null,
+    email: texto('email') || null,
+    perfil_utilizador_id: x.perfil_utilizador_id,
+    acesso_todas_empresas: simNao(x.acesso_todas_empresas),
+    ativo: x.ativo === undefined || x.ativo === null ? true : simNao(x.ativo),
+    empresas,
+    ...(souSuper && x.papel ? { papel: x.papel } : {}),
+    ...(x.palavra_passe ? { palavra_passe: x.palavra_passe } : {}),
+  };
 }
 
 function ModalPalavraPasse({ utilizador, aoFechar }: { utilizador: UtilizadorLinha | null; aoFechar: () => void }) {

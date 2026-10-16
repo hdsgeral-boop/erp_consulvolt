@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Radio, Row, Space, Statistic, Table, Tag, Tooltip, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Radio, Row, Space, Table, Tag, Tooltip, Typography, Upload, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
@@ -8,11 +8,14 @@ import { useState } from 'react';
 import { descarregar, http, obter } from '@/api/cliente';
 import type { Envelope } from '@/api/tipos';
 import { IconeFa } from '@/componentes/fluxos';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { larguraModal } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData } from '@/utilitarios/formatacao';
 import { SeletorColaborador } from '../comum/componentes';
+import { pedidoTabela } from '../comum/impressao';
+import { BotoesExportar } from '@/componentes/impressao';
 import { useAccaoRh, useAvisarErro } from '../comum/consultas';
 import { mesPorExtenso } from '../comum/regras';
 import { DIAS_CURTOS, horasPrevistas, textoHorario } from '../faseB/regras';
@@ -43,12 +46,32 @@ export function EscalaMes({ mes }: { mes: string }) {
   const accao = useAccaoRh(() => setCelula(null));
   const g = q.data;
   const editar = pode('rh_assid_registar') && !g?.fechado;
+  const [filtro, setFiltro] = useState('');
+  const linhas = (g?.linhas ?? []).filter((l) => !filtro.trim() || `${l.nome} ${l.nif ?? ''}`.toLowerCase().includes(filtro.trim().toLowerCase()));
+  // indicadores do legado (assiduidade_ui.js, escala do mês)
+  const semEscala = (g?.linhas ?? []).filter((l) => l.dias_trabalho + l.folgas === 0).length;
+  const horasPrevistasMes = (g?.linhas ?? []).reduce((s, l) => s + (Number(l.horas) || 0), 0);
+  const horarioCurto = (l: LinhaGrelhaEscala) => (l.horario_contrato ? textoHorario(l.horario_contrato).replace(/\s*\(−\d+ min\)$/, '') : '');
+
+  /** Exportar / imprimir a grelha (uma coluna por dia: horas do turno, «F» folga, «*» prioritária). */
+  const pedidoGrelha = () => pedidoTabela<LinhaGrelhaEscala>({
+    titulo: `Escala de ${mesPorExtenso(mes)}`, orientacao: 'paisagem', linhas,
+    filtros: filtro ? [`Colaborador: ${filtro}`] : undefined,
+    colunas: [
+      { title: 'Colaborador', dataIndex: 'nome', valorImpressao: (l) => `${l.nome}${horarioCurto(l) ? ` (${horarioCurto(l)})` : ''}` },
+      ...(g?.dias ?? []).map((d) => ({ title: String(Number(d.slice(8))), key: d, align: 'center' as const,
+        valorImpressao: (l: LinhaGrelhaEscala) => { const e = l.celulas.find((c) => c.dia === d)?.escala; return e ? `${textoCelula(e)}${e.prioritaria ? '*' : ''}` : ''; } })),
+      { title: 'Dias', dataIndex: 'dias_trabalho', align: 'right' },
+      { title: 'Folgas', dataIndex: 'folgas', align: 'right' },
+      { title: 'Horas', dataIndex: 'horas', align: 'right', valorImpressao: (l) => h2(l.horas) },
+    ],
+  });
 
   const colunas: ColumnsType<LinhaGrelhaEscala> = [
     { title: 'Colaborador', dataIndex: 'nome', fixed: 'left', width: 200, render: (v: string, l) => (
       <Space direction="vertical" size={0}>
         <Typography.Text strong>{v}</Typography.Text>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>{l.horario_contrato ? `Contrato: ${textoHorario(l.horario_contrato)}` : 'Sem horário no contrato'}</Typography.Text>
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>{horarioCurto(l) || 'Sem horário no contrato'}</Typography.Text>
       </Space>
     ) },
     ...(g?.dias ?? []).map((d) => ({
@@ -74,29 +97,42 @@ export function EscalaMes({ mes }: { mes: string }) {
   ];
 
   return (
-    <Card title={<Space><IconeFa nome="calendar-alt" />Escala de {mesPorExtenso(mes)}</Space>} loading={q.isLoading}
-      extra={editar && (
+    <Card title={<Space><IconeFa nome="calendar-alt" />Escala de {mesPorExtenso(mes)}{editar && <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}>— clique numa célula para alterar esse dia</Typography.Text>}</Space>} loading={q.isLoading}
+      extra={(
         <Space wrap>
+          <BotoesExportar desactivado={!linhas.length} obterPedido={pedidoGrelha} />
+        </Space>
+      )}>
+      {editar && (
+        <Space wrap style={{ marginBottom: 12 }}>
           <Button type="primary" onClick={() => setOperacao('aplicar')}>Aplicar turno</Button>
           <Button onClick={() => setOperacao('contrato')}>Migrar do contrato</Button>
           <Button onClick={() => setOperacao('copiar')}>Copiar</Button>
           <Button icon={<UploadOutlined />} onClick={() => setOperacao('importar')}>Importar Excel</Button>
           <Button danger onClick={() => setOperacao('limpar')}>Limpar</Button>
         </Space>
-      )}>
+      )}
       {g?.fechado && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="A efectividade deste mês está fechada: a escala só pode ser consultada." />}
       <Typography.Paragraph type="secondary">
         Prevalência em cada dia: escala prioritária › escala prevista › horário do contrato › configuração da empresa. As horas da escala passam a ser as horas previstas
         para as faltas e as horas extra desse dia.
       </Typography.Paragraph>
       {g && (
-        <Space size="large" wrap style={{ marginBottom: 12 }}>
-          <Statistic title="Dias escalados" value={g.total.linhas} />
-          <Statistic title="Prioritárias" value={g.total.prioritarias} />
-          <Space size={4}><Tag color="blue">8</Tag>horas do turno<Tag>F</Tag>folga<Tag color="gold">4</Tag>prioritária</Space>
-        </Space>
+        <>
+          {/* antigo (assiduidade_ui.js:106): .ef-kpis — mesmos indicadores, ordem e cores */}
+          <GrelhaKpi larguraMinima={150} style={{ marginBottom: 8 }}>
+            <CartaoKpi barra="nenhuma" rotulo="Colaboradores" valor={g.linhas.length} />
+            <CartaoKpi barra="nenhuma" rotulo="Dias escalados" valor={g.total.linhas} />
+            <CartaoKpi barra="nenhuma" rotulo="Escalas prioritárias" valor={g.total.prioritarias} corValor="#b45309" />
+            <CartaoKpi barra="nenhuma" rotulo="Horas previstas" valor={h2(horasPrevistasMes)} />
+            <CartaoKpi barra="nenhuma" rotulo="Sem escala no mês" valor={semEscala} corValor={semEscala > 0 ? '#b91c1c' : '#94a3b8'} />
+          </GrelhaKpi>
+          <Space size={4} wrap style={{ marginBottom: 12 }}><Tag color="blue">8</Tag>horas do turno<Tag>F</Tag>folga<Tag color="gold">4</Tag>prioritária</Space>
+        </>
       )}
-      <Table<LinhaGrelhaEscala> rowKey="colaborador_id" size="small" bordered pagination={false} columns={colunas} dataSource={g?.linhas ?? []} scroll={{ x: 'max-content', y: 520 }} />
+      <Input.Search allowClear placeholder="Filtrar por colaborador ou NIF" aria-label="Filtrar por colaborador" style={{ maxWidth: 320, marginBottom: 8 }}
+        value={filtro} onChange={(e) => setFiltro(e.target.value)} />
+      <Table<LinhaGrelhaEscala> rowKey="colaborador_id" size="small" bordered pagination={false} columns={colunas} dataSource={linhas} scroll={{ x: 'max-content', y: 520 }} />
 
       {operacao && g && <OperacaoEscala operacao={operacao} mes={mes} aoFechar={() => setOperacao(null)} />}
 

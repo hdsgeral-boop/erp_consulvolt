@@ -1,18 +1,47 @@
-import { Col, DatePicker, Form, Input, InputNumber, Modal, Progress, Row } from 'antd';
+import { Col, DatePicker, Form, Input, InputNumber, Progress, Row } from 'antd';
+import { useQuery } from '@tanstack/react-query';
 import { larguraModal } from '@/componentes/responsivo';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect } from 'react';
-import { dataApi } from '@/utilitarios/formatacao';
+import { useEffect, useMemo } from 'react';
+import { enviar, obterPagina } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { dataDe, fimAntesDe, textoOuNull } from '@/modulos/vendas/comum/valoresFormulario';
 import { SeletorTerceiro } from '../comum/Seletores';
+import type { FichaTerceiro } from '../comum/referencias';
 import type { ContratoCompra } from '../comum/tipos';
 
 interface ValoresContrato {
   fornecedor_id?: number;
   referencia: string;
   descricao?: string;
-  periodo?: [Dayjs | null, Dayjs | null] | null;
+  data_inicio?: Dayjs | null;
+  data_fim?: Dayjs | null;
   valor_total?: number;
+}
+
+/** Corpo do pedido do contrato — o mesmo na grade e na vista Linhas (datas em `dayjs` ou 'AAAA-MM-DD'). */
+export function dadosContrato(v: Record<string, unknown>): Record<string, unknown> {
+  return {
+    fornecedor_id: v.fornecedor_id,
+    referencia: String(v.referencia ?? '').trim(),
+    descricao: textoOuNull(v.descricao),
+    data_inicio: dataDe(v.data_inicio),
+    data_fim: dataDe(v.data_fim),
+    valor_total: v.valor_total,
+  };
+}
+
+/** Colunas da vista Linhas dos contratos (as regras da grade: fornecedor, referência ≤ 50, valor obrigatório, fim ≥ início). */
+export function camposContrato(fornecedores: { value: number; label: string }[]): CampoFormulario[] {
+  return [
+    { nome: 'fornecedor_id', rotulo: 'Fornecedor', tipo: 'select', obrigatorio: true, opcoes: fornecedores, largura: 230, aliases: ['NIF', 'Fornecedor (NIF)'] },
+    { nome: 'referencia', rotulo: 'Referência', obrigatorio: true, maxLength: 50, largura: 140, aliases: ['Ref', 'Contrato'] },
+    { nome: 'descricao', rotulo: 'Objecto / descrição', tipo: 'textoLongo', maxLength: 4000, largura: 240, aliases: ['Objecto', 'Descrição'] },
+    { nome: 'data_inicio', rotulo: 'Início', tipo: 'data', largura: 140, omissao: () => dayjs().format('YYYY-MM-DD') },
+    { nome: 'data_fim', rotulo: 'Fim', tipo: 'data', largura: 140, validar: fimAntesDe('data_inicio') },
+    { nome: 'valor_total', rotulo: 'Valor contratado (Kz)', tipo: 'numero', obrigatorio: true, min: 0, precisao: 2, largura: 150, aliases: ['Valor'] },
+  ];
 }
 
 /** Criação ou edição do contrato (POST /compras/contratos; PUT /compras/contratos/{id}). */
@@ -27,6 +56,19 @@ export function ModalContrato({ contrato, aberto, aoFechar, aoGravar }: { contra
     tituloErro: 'Não foi possível gravar o contrato',
   });
 
+  // fornecedores para a coluna da vista Linhas (só na criação)
+  const fornecedores = useQuery({
+    queryKey: ['terceiros', 'lista', 'FORNECEDOR'],
+    queryFn: () => obterPagina<FichaTerceiro>('/terceiros', { papel: 'FORNECEDOR', por_pagina: 500, estrito: 1 }),
+    enabled: aberto && !contrato,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const campos = useMemo(
+    () => camposContrato((fornecedores.data?.itens ?? []).map((t) => ({ value: t.id, label: `${t.nome.trim()}${t.nif ? ` (${t.nif})` : ''}` }))),
+    [fornecedores.data],
+  );
+
   useEffect(() => {
     if (!aberto) return;
     form.setFieldsValue(
@@ -35,18 +77,27 @@ export function ModalContrato({ contrato, aberto, aoFechar, aoGravar }: { contra
             fornecedor_id: contrato.fornecedor_id,
             referencia: contrato.referencia,
             descricao: contrato.descricao ?? undefined,
-            periodo: [contrato.data_inicio ? dayjs(contrato.data_inicio) : null, contrato.data_fim ? dayjs(contrato.data_fim) : null],
+            data_inicio: contrato.data_inicio ? dayjs(contrato.data_inicio) : null,
+            data_fim: contrato.data_fim ? dayjs(contrato.data_fim) : null,
             valor_total: Number(contrato.valor_total),
           }
-        : { fornecedor_id: undefined, referencia: '', descricao: undefined, periodo: [dayjs(), null], valor_total: undefined },
+        : { fornecedor_id: undefined, referencia: '', descricao: undefined, data_inicio: dayjs(), data_fim: null, valor_total: undefined },
     );
   }, [aberto, contrato, form]);
 
   return (
-    <Modal
-      title={contrato ? `Editar contrato ${contrato.referencia}` : 'Novo contrato'}
-      open={aberto}
-      onCancel={aoFechar}
+    <ModalFormulario
+      chave="compras.contratos"
+      titulo={contrato ? `Editar contrato ${contrato.referencia}` : 'Novo contrato'}
+      aberto={aberto}
+      aoFechar={aoFechar}
+      criacao={!contrato}
+      form={form}
+      campos={campos}
+      nomeRegistos="contratos"
+      invalidar={[['compras', 'contratos'], ['compras', 'contrato']]}
+      gravarLinha={(r) => enviar('post', '/compras/contratos', dadosContrato(r))}
+      nota="Uma linha por contrato de fornecimento. Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário."
       okText="Gravar"
       cancelText="Cancelar"
       width={larguraModal(680)}
@@ -57,14 +108,7 @@ export function ModalContrato({ contrato, aberto, aoFechar, aoGravar }: { contra
         form={form}
         layout="vertical"
         onFinish={(v) => {
-          const dados = {
-            fornecedor_id: v.fornecedor_id,
-            referencia: v.referencia,
-            descricao: v.descricao || null,
-            data_inicio: dataApi(v.periodo?.[0]) ?? null,
-            data_fim: dataApi(v.periodo?.[1]) ?? null,
-            valor_total: v.valor_total,
-          };
+          const dados = dadosContrato(v as unknown as Record<string, unknown>);
           gravar.mutate(contrato ? { metodo: 'put', url: `/compras/contratos/${contrato.id}`, dados } : { url: '/compras/contratos', dados });
         }}
       >
@@ -84,9 +128,21 @@ export function ModalContrato({ contrato, aberto, aoFechar, aoGravar }: { contra
               <Input.TextArea rows={2} />
             </Form.Item>
           </Col>
-          <Col xs={24} md={14}>
-            <Form.Item name="periodo" label="Vigência (início — fim)">
-              <DatePicker.RangePicker format="DD/MM/YYYY" allowEmpty={[true, true]} style={{ width: '100%' }} />
+          <Col xs={12} md={7}>
+            <Form.Item name="data_inicio" label="Vigência: início">
+              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col xs={12} md={7}>
+            <Form.Item
+              name="data_fim"
+              label="Fim"
+              dependencies={['data_inicio']}
+              rules={[({ getFieldValue }) => ({
+                validator: (_, v: Dayjs | null) => (!v || !getFieldValue('data_inicio') || !v.isBefore(getFieldValue('data_inicio'), 'day') ? Promise.resolve() : Promise.reject(new Error('O fim é anterior ao início.'))),
+              })]}
+            >
+              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
             </Form.Item>
           </Col>
           <Col xs={24} md={10}>
@@ -96,7 +152,7 @@ export function ModalContrato({ contrato, aberto, aoFechar, aoGravar }: { contra
           </Col>
         </Row>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 

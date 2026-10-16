@@ -75,6 +75,8 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
     e('vendas', 'vendas_relatorios', 'Relatórios Vendas', 'chart-line'),
   ]),
   g('compras', 'Compras', 'truck-loading', [
+    // Versão Actual (index_arrumado.html, data-target="compras"): «Aprovisionamento» abre o ecrã dos pedidos internos
+    e('compras', 'compras_pedidos', 'Aprovisionamento', 'shopping-cart', { query: 'vista=aprovisionamento' }),
     e('compras', 'compras_pedidos', 'Pedidos Internos', 'clipboard-list'),
     e('compras', 'compras_prospeccao', 'Prospeção', 'search-dollar'),
     e('compras', 'compras_encomendas', 'Encomendas', 'shopping-cart'),
@@ -111,7 +113,7 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
     g('teso-operacoes', 'Operações', 'money-bill-wave', [
       e('teso', 'teso_gestao_pagamentos', 'Pagamentos', undefined, { query: 'tipo=PAGAMENTO' }),
       e('teso', 'teso_gestao_pagamentos', 'Recebimentos', undefined, { query: 'tipo=RECEBIMENTO' }),
-      e('teso', 'teso_folha_caixa', 'Folha de Caixa'),
+      e('teso', 'teso_folha_caixa', 'Folha de Caixa', 'cash-register'),
       e('teso', 'teso_cartas', 'Cartas de Pagamento', 'file-signature'),   // Versão Actual (ADR-071, Fase D)
     ]),
     g('teso-contabil', 'Contábil', 'file-invoice-dollar', [
@@ -210,6 +212,7 @@ export const CASA_MODULO: Readonly<Record<string, string>> = {
   vendas: 'grupo:vendas',
   compras: 'grupo:compras',
   rh: 'grupo:rh',
+  metodo: 'grupo:metodo',
   teso: 'grupo:teso',
   contab: 'grupo:contab',
   acrescimos: 'grupo:contab',
@@ -229,6 +232,7 @@ export const NOME_MODULO_LEGADO: Readonly<Record<string, string>> = {
   vendas: 'Vendas',
   compras: 'Compras',
   rh: 'Salários e RH',
+  metodo: 'Método de Trabalho',
   teso: 'Tesouraria',
   contab: 'Contabilidade',
   acrescimos: 'Contabilidade',
@@ -243,6 +247,8 @@ export const NOME_MODULO_LEGADO: Readonly<Record<string, string>> = {
 /** Rótulos para a pesquisa e os favoritos quando o ecrã tem mais de uma entrada no menu (ex.: Pagamentos / Recebimentos). */
 const ROTULOS_EXTRA: Readonly<Record<string, string>> = {
   'teso/teso_gestao_pagamentos': 'Pagamentos e Recebimentos',
+  // «Aprovisionamento» e «Pedidos Internos» abrem o mesmo ecrã: na pesquisa e nos favoritos fica o nome do ecrã
+  'compras/compras_pedidos': 'Pedidos Internos',
 };
 
 /** Todos os ecrãs da estrutura, pela ordem do menu. */

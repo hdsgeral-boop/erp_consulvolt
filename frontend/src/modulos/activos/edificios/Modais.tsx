@@ -2,7 +2,9 @@ import { Alert, Button, DatePicker, Form, Input, InputNumber, Modal, Popconfirm,
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { enviar } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
 import { AMBITOS, nomeAndar, nomeAndarPorOmissao, previaPortas } from './regras';
@@ -11,6 +13,19 @@ import type { Ambito, AndarPlanta, Inventario, Planta, PortaPlanta } from './tip
 /** Modais da planta (assetFloorModal, assetRoomsModal, assetRoomModal, assetInventarioModal — js/activos_edificios.js:333-592). */
 
 const INVALIDAR = [['activos']];
+
+/** Regras de gravação do andar, comuns à grade e à vista Linhas (vazios a nulo: o servidor dá o nome automático). */
+export function dadosAndar(v: Record<string, unknown>): Record<string, unknown> {
+  const t = (x: unknown) => (typeof x === 'string' && x.trim() ? x.trim() : x === undefined || x === '' ? null : x);
+  return { numero: t(v.numero), nome: t(v.nome), notas: t(v.notas) };
+}
+
+/** Vista Linhas dos andares: um andar por linha (número, nome e notas). */
+const CAMPOS_ANDAR: CampoFormulario[] = [
+  { nome: 'numero', rotulo: 'Número do piso', largura: 110, maxLength: 20, aliases: ['Número', 'Piso'] },
+  { nome: 'nome', rotulo: 'Nome', largura: 220, maxLength: 255, placeholder: 'Vazio = automático', aliases: ['Andar'] },
+  { nome: 'notas', rotulo: 'Notas', largura: 260, maxLength: 2000 },
+];
 
 export function ModalAndar({ edificioId, andar, nAndares, aoFechar }: { edificioId: number; andar: AndarPlanta | null | undefined; nAndares: number; aoFechar: () => void }) {
   const [form] = Form.useForm<{ numero?: string; nome?: string; notas?: string }>();
@@ -23,11 +38,15 @@ export function ModalAndar({ edificioId, andar, nAndares, aoFechar }: { edificio
   }, [aberto, andar, nAndares, form]);
   const numero = Form.useWatch('numero', form);
   return (
-    <Modal title={andar ? 'Editar andar' : 'Novo andar'} open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar"
-      confirmLoading={accao.isPending} destroyOnHidden>
+    // sem `form`: o n.º proposto na grade (n.º de andares) não serve de omissão a todas as linhas
+    <ModalFormulario chave="activos.andares" titulo={andar ? 'Editar andar' : 'Novo andar'} aberto={aberto} aoFechar={aoFechar} criacao={!andar}
+      campos={CAMPOS_ANDAR} nomeRegistos="andares" invalidar={INVALIDAR} larguraLinhas={820}
+      gravarLinha={(r) => enviar('post', `/ativos/edificios/${edificioId}/andares`, dadosAndar(r))}
+      nota="Uma linha por andar (ex.: 0 Rés-do-chão, 1, 2, -1 Cave). Sem nome, o sistema dá o nome pelo número. Linhas deixadas em branco são ignoradas."
+      onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending}>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate(andar
-        ? { metodo: 'put', url: `/ativos/andares/${andar.id}`, dados: v }
-        : { url: `/ativos/edificios/${edificioId}/andares`, dados: v })}>
+        ? { metodo: 'put', url: `/ativos/andares/${andar.id}`, dados: dadosAndar(v) }
+        : { url: `/ativos/edificios/${edificioId}/andares`, dados: dadosAndar(v) })}>
         <Form.Item name="numero" label="Número do piso">
           <Input maxLength={20} />
         </Form.Item>
@@ -38,7 +57,7 @@ export function ModalAndar({ edificioId, andar, nAndares, aoFechar }: { edificio
           <Input maxLength={2000} />
         </Form.Item>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 

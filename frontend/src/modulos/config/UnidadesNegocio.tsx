@@ -1,4 +1,4 @@
-import { Button, Checkbox, Col, DatePicker, Divider, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Tag, message } from 'antd';
+import { Button, Checkbox, Col, DatePicker, Form, Input, InputNumber, Popconfirm, Row, Select, Space, Tag, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -11,6 +11,8 @@ import { notificarErro } from '@/utilitarios/erros';
 
 import { TabelaComModos } from '@/componentes/vistas';
 import { CriteriosReparticao } from '@/componentes/reparticao';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { dataDe, OPCOES_SIM_NAO, PROPS_SIM_NAO, simNao } from './comum/formularios';
 export interface UnidadeNegocio {
   id: number;
   codigo: string;
@@ -41,14 +43,22 @@ export interface UnidadeNegocio {
 
 type Valores = Omit<UnidadeNegocio, 'id' | 'valido_de' | 'valido_ate'> & { valido_de?: Dayjs | null; valido_ate?: Dayjs | null };
 
-/** Corpo do pedido: datas em AAAA-MM-DD e textos vazios como nulos. */
-export function corpoUnidade(v: Partial<Valores>): Record<string, unknown> {
+/**
+ * Corpo do pedido (comum à grade e à vista Linhas): datas em AAAA-MM-DD (de `dayjs` ou já em texto), textos vazios como
+ * nulos e as funções Vendas/Serviços como booleanos (1/0 nas linhas).
+ */
+export function corpoUnidade(v: Partial<Valores> | Record<string, unknown>): Record<string, unknown> {
   const d: Record<string, unknown> = {};
   for (const [k, x] of Object.entries(v)) d[k] = x === '' || x === undefined ? null : x;
-  d.valido_de = v.valido_de ? v.valido_de.format('YYYY-MM-DD') : null;
-  d.valido_ate = v.valido_ate ? v.valido_ate.format('YYYY-MM-DD') : null;
+  d.valido_de = dataDe((v as Record<string, unknown>).valido_de);
+  d.valido_ate = dataDe((v as Record<string, unknown>).valido_ate);
+  for (const k of ['tem_vendas', 'tem_servico']) if (k in d && d[k] !== null) d[k] = simNao(d[k]);
   return d;
 }
+
+const ESTADOS_UN = [{ value: 'ATIVO', label: 'Activa' }, { value: 'INATIVO', label: 'Inactiva' }];
+const fimAntesDoInicio = (fim: unknown, r: Record<string, unknown>) => (typeof fim === 'string' && fim && typeof r.valido_de === 'string' && r.valido_de && fim < r.valido_de ? 'O fim é anterior ao início.' : null);
+const emailInvalido = (e: unknown) => (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim()) ? 'E-mail inválido.' : null);
 
 /**
  * Unidades de negócio (M-14; legado js/modules/configuracoes/unidades_negocio.js): código, nome, hierarquia (unidade pai e
@@ -79,11 +89,33 @@ export function UnidadesNegocio() {
   });
   const abrir = (u: UnidadeNegocio | 'nova') => {
     form.resetFields();
-    if (u === 'nova') form.setFieldsValue({ estado: 'ATIVO', ordem_sequencia: 0, tem_vendas: false, tem_servico: false });
+    if (u === 'nova') form.setFieldsValue({ estado: 'ATIVO', ordem_sequencia: 0, tem_vendas: 0, tem_servico: 0 } as unknown as Partial<Valores>);
     else form.setFieldsValue({ ...u, valido_de: u.valido_de ? dayjs(u.valido_de) : null, valido_ate: u.valido_ate ? dayjs(u.valido_ate) : null });
     setEdicao(u);
   };
   const gerir = pode('aux_gerir');
+  // vista Linhas (legado: formularios_linhas_config.js › unidades_negocio — mesma ordem das colunas)
+  const campos: CampoFormulario[] = [
+    { nome: 'codigo', rotulo: 'Código', obrigatorio: true, largura: 110, maxLength: 50, aliases: ['Codigo'] },
+    { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 220, maxLength: 255, aliases: ['Designação'] },
+    { nome: 'nome_abreviado', rotulo: 'Nome abreviado', largura: 140, maxLength: 100, aliases: ['Abreviado'] },
+    { nome: 'descricao', rotulo: 'Descrição', largura: 200, maxLength: 2000 },
+    { nome: 'unidade_negocio_pai_id', rotulo: 'Unidade pai', tipo: 'select', largura: 170, opcoes: lista.map((u) => ({ value: u.id, label: `${u.codigo} - ${u.nome}` })) },
+    { nome: 'estado', rotulo: 'Estado', tipo: 'select', largura: 110, opcoes: ESTADOS_UN, omissao: 'ATIVO' },
+    { nome: 'valido_de', rotulo: 'Início', tipo: 'data', largura: 140 },
+    { nome: 'valido_ate', rotulo: 'Fim', tipo: 'data', largura: 140, validar: fimAntesDoInicio },
+    { nome: 'cidade', rotulo: 'Cidade', largura: 120, maxLength: 100 },
+    { nome: 'telefone', rotulo: 'Telefone', largura: 120, maxLength: 50 },
+    { nome: 'email', rotulo: 'E-mail', largura: 170, maxLength: 150, validar: emailInvalido },
+    { nome: 'colaborador_gestor_id', rotulo: 'Gerente', tipo: 'select', largura: 170, opcoes: (colaboradores.data ?? []).map((c) => ({ value: c.id, label: c.nome_completo })) },
+    { nome: 'tem_vendas', rotulo: 'Vendas', tipo: 'select', largura: 90, opcoes: OPCOES_SIM_NAO, omissao: 0 },
+    { nome: 'tem_servico', rotulo: 'Serviços', tipo: 'select', largura: 90, opcoes: OPCOES_SIM_NAO, omissao: 0 },
+    { nome: 'ordem_sequencia', rotulo: 'Sequência', tipo: 'numero', min: 0, precisao: 0, largura: 100, omissao: 0, emLinhas: 'opcional', seccao: 'Outros' },
+    { nome: 'endereco', rotulo: 'Morada', largura: 200, maxLength: 500, emLinhas: 'opcional', seccao: 'Morada e contactos' },
+    { nome: 'pais', rotulo: 'País', largura: 120, maxLength: 100, emLinhas: 'opcional', seccao: 'Morada e contactos' },
+    { nome: 'codigo_moeda', rotulo: 'Moeda', largura: 90, maxLength: 10, emLinhas: 'opcional', seccao: 'Gestão' },
+  ];
+  const aoFechar = () => setEdicao(null);
 
   return (
     <>
@@ -117,8 +149,10 @@ export function UnidadesNegocio() {
           </Space>
         ) },
       ]} />
-      <Modal title={edicao === 'nova' ? 'Nova unidade de negócio' : `Unidade de negócio — ${edicao && typeof edicao === 'object' ? edicao.codigo : ''}`} open={edicao !== null} width={larguraModal(900)}
-        onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="config.unidades_negocio" titulo={edicao === 'nova' ? 'Nova unidade de negócio' : `Unidade de negócio — ${edicao && typeof edicao === 'object' ? edicao.codigo : ''}`} aberto={edicao !== null} width={larguraModal(900)}
+        aoFechar={aoFechar} criacao={edicao === 'nova'} form={form} campos={campos} nomeRegistos="unidades de negócio" invalidar={[['sistema', 'unidades-negocio'], ['contab']]}
+        gravarLinha={(r) => enviar('post', '/sistema/unidades-negocio', corpoUnidade(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(v)}>
           <Row gutter={12}>
             <Col xs={24} sm={8}><Form.Item name="codigo" label="Código" rules={[{ required: true, message: 'Indique o código.' }, { max: 50 }]}><Input /></Form.Item></Col>
@@ -129,11 +163,11 @@ export function UnidadesNegocio() {
               <Select allowClear placeholder="— Nenhuma —" options={lista.filter((u) => !(edicao && edicao !== 'nova' && u.id === edicao.id)).map((u) => ({ value: u.id, label: `${u.codigo} — ${u.nome}` }))} />
             </Form.Item></Col>
             <Col xs={12} sm={4}><Form.Item name="ordem_sequencia" label="Sequência"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-            <Col xs={12} sm={4}><Form.Item name="estado" label="Estado"><Select options={[{ value: 'ATIVO', label: 'Activa' }, { value: 'INATIVO', label: 'Inactiva' }]} /></Form.Item></Col>
+            <Col xs={12} sm={4}><Form.Item name="estado" label="Estado"><Select options={ESTADOS_UN} /></Form.Item></Col>
             <Col xs={12} sm={3}><Form.Item name="valido_de" label="Início"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
             <Col xs={12} sm={3}><Form.Item name="valido_ate" label="Fim"><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
           </Row>
-          <Divider orientation="left" plain>Morada e contactos</Divider>
+          <SeccaoFormulario titulo="Morada e contactos" recolhida>
           <Row gutter={12}>
             <Col xs={24}><Form.Item name="endereco" label="Morada"><Input maxLength={500} /></Form.Item></Col>
             <Col xs={12} sm={6}><Form.Item name="cidade" label="Cidade"><Input maxLength={100} /></Form.Item></Col>
@@ -145,7 +179,8 @@ export function UnidadesNegocio() {
             <Col xs={12} sm={6}><Form.Item name="fax" label="Fax"><Input maxLength={50} /></Form.Item></Col>
             <Col xs={12} sm={6}><Form.Item name="website" label="Website"><Input maxLength={255} /></Form.Item></Col>
           </Row>
-          <Divider orientation="left" plain>Gestão</Divider>
+          </SeccaoFormulario>
+          <SeccaoFormulario titulo="Gestão">
           <Row gutter={12}>
             <Col xs={8} sm={4}><Form.Item name="codigo_moeda" label="Moeda"><Input maxLength={10} placeholder="AOA" /></Form.Item></Col>
             <Col xs={8} sm={4}><Form.Item name="bolsa_valores" label="Bolsa"><InputNumber style={{ width: '100%' }} /></Form.Item></Col>
@@ -156,13 +191,14 @@ export function UnidadesNegocio() {
             </Form.Item></Col>
             <Col xs={24}>
               <Space wrap>
-                <Form.Item name="tem_vendas" valuePropName="checked" noStyle><Checkbox>Função Vendas</Checkbox></Form.Item>
-                <Form.Item name="tem_servico" valuePropName="checked" noStyle><Checkbox>Função Serviços</Checkbox></Form.Item>
+                <Form.Item name="tem_vendas" {...PROPS_SIM_NAO} noStyle><Checkbox>Função Vendas</Checkbox></Form.Item>
+                <Form.Item name="tem_servico" {...PROPS_SIM_NAO} noStyle><Checkbox>Função Serviços</Checkbox></Form.Item>
               </Space>
             </Col>
           </Row>
+          </SeccaoFormulario>
         </Form>
-      </Modal>
+      </ModalFormulario>
       {/* Fase C (unidades_negocio.js:118, #un-chaves): critérios de repartição por unidade de negócio */}
       <CriteriosReparticao />
     </>

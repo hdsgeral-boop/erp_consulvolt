@@ -1,8 +1,9 @@
-import { Button, Checkbox, Col, Flex, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Switch } from 'antd';
+import { Button, Checkbox, Col, Flex, Form, Input, InputNumber, Row, Select, Skeleton, Switch, theme } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
@@ -12,6 +13,7 @@ import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { GRUPOS_LAV, UNIDADES_LAV, useDefinicoesLav, usePecas, useServicosLav } from './dados';
 import type { DefinicoesLav, Peca, ServicoLav } from './tipos';
 import { ImportarTabela } from './ImportarTabela';
+import { CAMPOS_PECA, CAMPOS_SERVICO, dadosPeca, dadosServico } from './formularios';
 
 import { IconeLegado, TabelaComModos } from '@/componentes/vistas';
 import { Seccao } from '../contas/Seccao';
@@ -106,6 +108,7 @@ function ModalPeca({ alvo, servicos, aoFechar }: { alvo: Peca | 'nova' | null; s
   const [form] = Form.useForm();
   const p = alvo && alvo !== 'nova' ? alvo : null;
   const gravar = useAccao({ invalidar: [['pos', 'lavandaria']], aoSucesso: aoFechar, tituloErro: 'Não foi possível gravar a peça' });
+  const comPrecos = (p?.precos_servico ?? []).length > 0;
   useEffect(() => {
     if (!alvo) return;
     form.resetFields();
@@ -116,8 +119,24 @@ function ModalPeca({ alvo, servicos, aoFechar }: { alvo: Peca | 'nova' | null; s
     );
   }, [alvo, p, form]);
   return (
-    <Modal open={!!alvo} title={p ? `Peça ${p.nome}` : 'Nova peça'} width={larguraModal(640)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onCancel={aoFechar} onOk={() => form.submit()} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(p ? { metodo: 'put', url: `/pos/lavandaria/pecas/${p.id}`, dados: v } : { url: '/pos/lavandaria/pecas', dados: v })}>
+    <ModalFormulario
+      chave="pos.lavandaria.pecas"
+      titulo={p ? `Peça ${p.nome}` : 'Nova peça'}
+      aberto={!!alvo}
+      aoFechar={aoFechar}
+      criacao={!p}
+      form={form}
+      campos={CAMPOS_PECA}
+      nomeRegistos="peças"
+      invalidar={[['pos', 'lavandaria']]}
+      gravarLinha={(r) => enviar('post', '/pos/lavandaria/pecas', dadosPeca(r))}
+      width={larguraModal(640)}
+      okText="Gravar"
+      cancelText="Cancelar"
+      confirmLoading={gravar.isPending}
+      onOk={() => form.submit()}
+    >
+      <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(p ? { metodo: 'put', url: `/pos/lavandaria/pecas/${p.id}`, dados: dadosPeca(v) } : { url: '/pos/lavandaria/pecas', dados: dadosPeca(v) })}>
         <Row gutter={[12, 0]}>
           <Col xs={24} sm={12}>
             <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}>
@@ -150,28 +169,31 @@ function ModalPeca({ alvo, servicos, aoFechar }: { alvo: Peca | 'nova' | null; s
             </Form.Item>
           </Col>
         </Row>
-        <Form.List name="precos_servico">
-          {(campos, { add, remove }) => (
-            <>
-              {campos.map((c) => (
-                <Flex key={c.key} gap={8} align="baseline">
-                  <Form.Item name={[c.name, 'produto_id']} rules={[{ required: true, message: 'Serviço' }]} style={{ flex: 1 }}>
-                    <Select placeholder="Serviço" options={servicos.map((s) => ({ value: s.id, label: s.nome }))} />
-                  </Form.Item>
-                  <Form.Item name={[c.name, 'preco']}>
-                    <InputNumber<number> min={0} precision={2} decimalSeparator="," placeholder="Preço" style={{ width: 150, maxWidth: '100%' }} />
-                  </Form.Item>
-                  <MinusCircleOutlined onClick={() => remove(c.name)} />
-                </Flex>
-              ))}
-              <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ preco: null })}>
-                Preço específico por serviço
-              </Button>
-            </>
-          )}
-        </Form.List>
+        {/* «Preços por serviço» do legado: secção recolhível, aberta só quando a peça já tem preços específicos */}
+        <SeccaoFormulario titulo="Preços específicos por serviço" recolhida={!comPrecos}>
+          <Form.List name="precos_servico">
+            {(campos, { add, remove }) => (
+              <>
+                {campos.map((c) => (
+                  <Flex key={c.key} gap={8} align="baseline">
+                    <Form.Item name={[c.name, 'produto_id']} rules={[{ required: true, message: 'Serviço' }]} style={{ flex: 1 }}>
+                      <Select placeholder="Serviço" options={servicos.map((s) => ({ value: s.id, label: s.nome }))} />
+                    </Form.Item>
+                    <Form.Item name={[c.name, 'preco']}>
+                      <InputNumber<number> min={0} precision={2} decimalSeparator="," placeholder="Preço" style={{ width: 150, maxWidth: '100%' }} />
+                    </Form.Item>
+                    <MinusCircleOutlined aria-label="Retirar preço" onClick={() => remove(c.name)} />
+                  </Flex>
+                ))}
+                <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({ preco: null })}>
+                  Preço específico por serviço
+                </Button>
+              </>
+            )}
+          </Form.List>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
@@ -258,8 +280,24 @@ function ModalServico({ alvo, aoFechar }: { alvo: ServicoLav | 'novo' | null; ao
     );
   }, [alvo, s, form]);
   return (
-    <Modal open={!!alvo} title={s ? `Serviço ${s.nome}` : 'Novo serviço'} width={larguraModal(620)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onCancel={aoFechar} onOk={() => form.submit()} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(s ? { metodo: 'put', url: `/pos/lavandaria/servicos/${s.id}`, dados: v } : { url: '/pos/lavandaria/servicos', dados: v })}>
+    <ModalFormulario
+      chave="pos.lavandaria.servicos"
+      titulo={s ? `Serviço ${s.nome}` : 'Novo serviço'}
+      aberto={!!alvo}
+      aoFechar={aoFechar}
+      criacao={!s}
+      form={form}
+      campos={CAMPOS_SERVICO}
+      nomeRegistos="serviços"
+      invalidar={[['pos', 'lavandaria'], ['logistica', 'catalogo']]}
+      gravarLinha={(r) => enviar('post', '/pos/lavandaria/servicos', dadosServico(r))}
+      width={larguraModal(620)}
+      okText="Gravar"
+      cancelText="Cancelar"
+      confirmLoading={gravar.isPending}
+      onOk={() => form.submit()}
+    >
+      <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(s ? { metodo: 'put', url: `/pos/lavandaria/servicos/${s.id}`, dados: dadosServico(v) } : { url: '/pos/lavandaria/servicos', dados: dadosServico(v) })}>
         <Row gutter={[12, 0]}>
           <Col xs={24} sm={14}>
             <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}>
@@ -269,16 +307,6 @@ function ModalServico({ alvo, aoFechar }: { alvo: ServicoLav | 'novo' | null; ao
           <Col xs={24} sm={10}>
             <Form.Item name="grupo" label="Grupo">
               <Select options={Object.entries(GRUPOS_LAV).map(([value, label]) => ({ value, label }))} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="codigo_conta" label="Conta de proveitos (62)" rules={[{ required: true, message: 'Indique a conta.' }]}>
-              <SeletorConta prefixo="62" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item name="conta_iva_liquidado" label="Conta de IVA liquidado">
-              <SeletorConta prefixo="34" />
             </Form.Item>
           </Col>
           <Col xs={24} sm={8}>
@@ -291,24 +319,39 @@ function ModalServico({ alvo, aoFechar }: { alvo: ServicoLav | 'novo' | null; ao
               <InputNumber<number> min={0} precision={0} style={{ width: '100%' }} />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={8}>
-            <Form.Item name="codigo_isencao_fe" label="Código de isenção">
-              <Input maxLength={10} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
+          <Col xs={12} sm={4}>
             <Form.Item name="requer_orcamento" label="Requer orçamento" valuePropName="checked">
               <Switch />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={12}>
+          <Col xs={12} sm={4}>
             <Form.Item name="ativa" label="Activo" valuePropName="checked">
               <Switch />
             </Form.Item>
           </Col>
         </Row>
+        {/* contas e isenção: secção recolhível (a conta 62 é obrigatória; a de IVA e a isenção são as menos usadas) */}
+        <SeccaoFormulario titulo="Contabilidade e IVA">
+          <Row gutter={[12, 0]}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="codigo_conta" label="Conta de proveitos (62)" rules={[{ required: true, message: 'Indique a conta.' }]}>
+                <SeletorConta prefixo="62" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="conta_iva_liquidado" label="Conta de IVA liquidado">
+                <SeletorConta prefixo="34" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item name="codigo_isencao_fe" label="Código de isenção">
+                <Input maxLength={10} />
+              </Form.Item>
+            </Col>
+          </Row>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
@@ -316,6 +359,7 @@ function ModalServico({ alvo, aoFechar }: { alvo: ServicoLav | 'novo' | null; ao
 export function Definicoes() {
   const { pode } = useSessao();
   const definicoes = useDefinicoesLav();
+  const { token } = theme.useToken();
   const [form] = Form.useForm();
   const gravar = useAccao<DefinicoesLav>({ invalidar: [['pos', 'lavandaria', 'definicoes']], tituloErro: 'Não foi possível gravar as definições' });
   useEffect(() => {
@@ -338,7 +382,7 @@ export function Definicoes() {
   );
   // cartão, rótulos e caixas de verificação do antigo (renderDefinicoes, lavandaria.js:1447-1466)
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4, padding: '1rem', maxWidth: 780 }}>
+    <div style={{ background: token.colorBgContainer, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4, padding: '1rem', maxWidth: 780 }}>
       <h3 style={{ margin: '0 0 0.7rem', fontSize: '1.05rem' }}>Definições da lavandaria e alfaiataria</h3>
       <Form form={form} layout="vertical" className="lav-definicoes-form" disabled={!pode('lav_tabelas')} onFinish={(v) => gravar.mutate({ metodo: 'put', url: '/pos/lavandaria/definicoes', dados: { ...v, estados_entrada: undefined } })}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.7rem' }}>
@@ -367,7 +411,7 @@ export function Definicoes() {
           <Checkbox style={{ fontSize: '0.85rem', alignItems: 'flex-start' }}>
             <strong>Facturar ao receber pagamentos antes da facturação</strong>
             <br />
-            <small style={{ color: '#64748b' }}>
+            <small style={{ color: token.colorTextSecondary }}>
               O IVA é exigível no recebimento de adiantamentos: um pagamento numa ordem ainda não facturada emite o documento dos serviços confirmados (Factura-Recibo se pagar exactamente esse valor; senão Factura e Recibo).
             </small>
           </Checkbox>

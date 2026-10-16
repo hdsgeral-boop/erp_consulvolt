@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography, message, theme } from 'antd';
 import { BookOutlined, FileTextOutlined, SaveOutlined, SettingOutlined, SyncOutlined, TableOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { esc, tabelaHtml } from '@/componentes/impressao';
 import { scrollTabela, useEcra } from '@/componentes/responsivo';
@@ -213,6 +214,7 @@ export default function RelatorioContas() {
 
   const anos = Array.from({ length: 6 }, (_, i) => dayjs().year() - i);
   const { telemovel } = useEcra();
+  const { token } = theme.useToken();
   const kpis: [string, string][] = [
     ['Total do activo', 'activo'],
     ['Capital próprio', 'capital_proprio'],
@@ -308,18 +310,13 @@ export default function RelatorioContas() {
           {d.alertas.map((a, i) => (
             <Alert key={i} type={CORES_ALERTA[a.tipo] ?? 'info'} showIcon style={{ marginBottom: 8 }} message={a.texto} />
           ))}
-          <div className="erp-grelha-auto" style={{ margin: '12px 0 16px' }}>
+          {/* legado (.rc-kpis, relatorio_contas.js:1052-1068): caixas simples, auto-fit de 170 px, rótulo em maiúsculas, negativos a vermelho */}
+          <GrelhaKpi larguraMinima={170} style={{ margin: '12px 0 16px' }}>
             {kpis.map(([rotulo, k]) => (
-              <Card key={k} size="small">
-                <Typography.Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
-                  {rotulo}
-                </Typography.Text>
-                <div style={{ fontSize: 17, fontWeight: 700 }}>
-                  <ValorKz valor={d.n.indicadores[k] as string} forte />
-                </div>
-              </Card>
+              <CartaoKpi key={k} barra="nenhuma" rotulo={rotulo} valor={formatarKz(d.n.indicadores[k] as string)}
+                corValor={Number(d.n.indicadores[k]) < 0 ? token.colorError : undefined} />
             ))}
-          </div>
+          </GrelhaKpi>
           <Tabs
             activeKey={aba}
             onChange={setAba}

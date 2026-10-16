@@ -2,6 +2,7 @@ import { Select, Tag, type SelectProps } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { obter, obterPagina } from '@/api/cliente';
+import type { CampoFormulario } from '@/componentes/formularios';
 import type { Activo, CategoriaActivo } from './tipos';
 
 /** Componentes e consultas partilhados do módulo Activos. Chaves de cache: ['activos', ...]. */
@@ -107,3 +108,11 @@ export function SeletorProjecto(props: PropsSelect<number>) {
     />
   );
 }
+
+/** Célula «Activo» da vista Linhas (pesquisa remota por código ou descrição). Colado: só o id numérico é reconhecido. */
+export const campoActivoLinhas = (extra: Partial<CampoFormulario> = {}): CampoFormulario => ({
+  nome: 'ativo_imobilizado_id', rotulo: 'Activo', tipo: 'personalizado', obrigatorio: true, largura: 260, aliases: ['Nº Inventário', 'Activo (id)'],
+  celula: (p) => <SeletorActivo aria-label={p.rotulo} status={p.erro ? 'error' : undefined} size="small" style={{ width: '100%' }} value={(p.valor as number | null) ?? undefined} onChange={(v) => p.aoMudar(v ?? null)} />,
+  converter: (t) => (/^\d+$/.test(t) ? Number(t) : undefined),
+  ...extra,
+});

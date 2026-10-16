@@ -12,7 +12,8 @@ export function useOpcoesLocais(activo = true) {
 
 /**
  * Selects encadeados Edifício › Andar › Porta da ficha do activo (assetLocalSelects/assetLocalMudou, js/activos_edificios.js
- * :973-1012). Mudar o edifício limpa o andar e a porta; mudar o andar limpa a porta. O servidor deriva o local da porta.
+ * :973-1012). Mudar o edifício limpa o andar e a porta; mudar o andar limpa a porta. O servidor deriva o local da porta;
+ * sem porta, o bem fica «neste edifício, sem porta» (ADR-071, A2).
  */
 export function CamposLocalizacao({ form }: { form: FormInstance }) {
   const q = useOpcoesLocais();
@@ -37,9 +38,9 @@ export function CamposLocalizacao({ form }: { form: FormInstance }) {
         </Form.Item>
       </Col>
       <Col xs={24} md={8}>
-        <Form.Item name="porta_id" label="Porta" dependencies={['edificio_id', 'andar_id']}
-          rules={[{ validator: (_, v) => (edificio && andar && !v ? Promise.reject(new Error('Indique a porta ou deixe o edifício em branco.')) : Promise.resolve()) }]}>
-          <Select allowClear placeholder="-- Porta --" disabled={!andar}
+        {/* ADR-071 (A2): sem porta o bem fica no edifício (andar opcional); o servidor valida a coerência */}
+        <Form.Item name="porta_id" label="Porta" dependencies={['edificio_id', 'andar_id']}>
+          <Select allowClear placeholder={edificio ? '-- Sem porta (fica no edifício) --' : '-- Porta --'} disabled={!andar}
             options={(o?.portas ?? []).filter((p) => p.andar_id === andar).map((p) => ({ value: p.id, label: `${p.numero}${p.nome ? ` — ${p.nome}` : ''}` }))} />
         </Form.Item>
       </Col>

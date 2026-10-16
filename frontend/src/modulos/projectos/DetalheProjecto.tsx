@@ -5,12 +5,14 @@ import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useAccao } from '@/componentes/Accoes';
 import { BarraExecucao, EtiquetaProjectos } from './comum/componentes';
 import { accoesProjecto } from './comum/regras';
 import type { FichaProjecto } from './comum/tipos';
 import { ModalProjecto } from './ModalProjecto';
+import { OrigemProjecto } from './comum/OrigemProjecto';
 import { SeparadorResumo } from './separadores/Resumo';
 import { SeparadorPlaneamento } from './separadores/Planeamento';
 import { SeparadorKanban } from './separadores/Kanban';
@@ -84,6 +86,7 @@ export function DetalheProjecto() {
           <Space size="large" wrap>
             {p.cliente && <span>Cliente: {p.cliente.nome}</span>}
             {p.encomenda && <span>Encomenda: {p.encomenda.numero_documento}</span>}
+            <OrigemProjecto projecto={p} />
             <Space wrap>Execução <BarraExecucao valor={p.execucao} largura={160} /></Space>
           </Space>
         }
@@ -103,17 +106,19 @@ export function DetalheProjecto() {
         onChange={(k) => setParams({ sep: k }, { replace: true })}
         destroyOnHidden
         items={[
-          { key: 'resumo', label: 'Resumo', children: <SeparadorResumo {...props} aoIr={(s) => setParams({ sep: s }, { replace: true })} /> },
-          { key: 'planeamento', label: 'Planeamento (WBS)', children: <SeparadorPlaneamento {...props} /> },
-          { key: 'kanban', label: 'Kanban', children: <SeparadorKanban {...props} /> },
-          { key: 'equipa', label: 'Equipa', children: <SeparadorEquipa {...props} /> },
-          { key: 'organigrama', label: 'Organigrama', children: <SeparadorOrganigrama {...props} /> },
-          { key: 'orcamento', label: 'Orçamento e aditamentos', children: <SeparadorOrcamento {...props} /> },
-          { key: 'horas', label: 'Horas e equipamentos', children: <SeparadorHoras {...props} /> },
+          // ordem do legado (viewProjectDetails, ui_projects.js:516-557): Resumo, Planeamento (WBS & Kanban), Execução, Equipa,
+          // Organigrama, Autos & Revisões, Aditamentos, Requisições, Orçamento base; «Horas e equipamentos» é do sistema novo (fim)
+          { key: 'resumo', label: <span><IconeFa nome="info-circle" /> Resumo</span>, children: <SeparadorResumo {...props} aoIr={(s) => setParams({ sep: s }, { replace: true })} /> },
+          { key: 'planeamento', label: <span><IconeFa nome="tasks" /> Planeamento (WBS)</span>, children: <SeparadorPlaneamento {...props} /> },
+          { key: 'kanban', label: <span><IconeFa nome="columns" /> Kanban</span>, children: <SeparadorKanban {...props} /> },
           // Versão Actual (ui_projects.js:539): horas, quantidades medidas e tarefas concluídas por colaborador e período
-          { key: 'execucao', label: 'Execução', children: <SeparadorExecucao {...props} /> },
-          { key: 'requisicoes', label: 'Requisições', children: <SeparadorRequisicoes {...props} /> },
-          { key: 'revisoes', label: 'Autos e facturação', children: <SeparadorRevisoes {...props} /> },
+          { key: 'execucao', label: <span><IconeFa nome="helmet-safety" /> Execução</span>, children: <SeparadorExecucao {...props} /> },
+          { key: 'equipa', label: <span><IconeFa nome="users" /> Equipa</span>, children: <SeparadorEquipa {...props} /> },
+          { key: 'organigrama', label: <span><IconeFa nome="sitemap" /> Organigrama</span>, children: <SeparadorOrganigrama {...props} /> },
+          { key: 'revisoes', label: <span><IconeFa nome="file-invoice-dollar" /> Autos e facturação</span>, children: <SeparadorRevisoes {...props} /> },
+          { key: 'requisicoes', label: <span><IconeFa nome="shopping-cart" /> Requisições</span>, children: <SeparadorRequisicoes {...props} /> },
+          { key: 'orcamento', label: <span><IconeFa nome="calculator" /> Orçamento e aditamentos</span>, children: <SeparadorOrcamento {...props} /> },
+          { key: 'horas', label: <span><IconeFa nome="clock" /> Horas e equipamentos</span>, children: <SeparadorHoras {...props} /> },
         ]}
       />
       <ModalProjecto aberto={editar && acc.editar} projecto={p} aoFechar={() => setEditar(false)} />

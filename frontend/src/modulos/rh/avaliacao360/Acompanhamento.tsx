@@ -41,12 +41,12 @@ export function IndicadoresCiclo({ dados }: { dados: Acompanhamento360 }) {
   const i = dados.indicadores;
   return (
     <GrelhaKpi larguraMinima={160}>
-      <CartaoKpi rotulo="Colaboradores" valor={i.colaboradores} icone="users" cor="azul" />
-      <CartaoKpi rotulo="Autoavaliações submetidas" valor={i.autoavaliacoes_submetidas} icone="user-check" cor="verdeAgua" />
-      <CartaoKpi rotulo="Avaliações 360º recebidas" valor={i.respostas_360} icone="sync-alt" cor="roxo" />
-      <CartaoKpi rotulo="Chefia concluída" valor={i.chefia_concluida} icone="user-tie" cor="primario" />
-      <CartaoKpi rotulo="Contestações por decidir" valor={i.contestacoes_por_decidir} icone="balance-scale" cor={i.contestacoes_por_decidir ? 'vermelho' : 'cinzento'} corValor={i.contestacoes_por_decidir ? '#b91c1c' : undefined} />
-      <CartaoKpi rotulo="Finais" valor={i.finais} icone="check-double" cor="verde" />
+      <CartaoKpi barra="nenhuma" rotulo="Colaboradores" valor={i.colaboradores} />
+      <CartaoKpi barra="nenhuma" rotulo="Autoavaliações submetidas" valor={i.autoavaliacoes_submetidas} />
+      <CartaoKpi barra="nenhuma" rotulo="Avaliações 360º recebidas" valor={i.respostas_360} />
+      <CartaoKpi barra="nenhuma" rotulo="Chefia concluída" valor={i.chefia_concluida} />
+      <CartaoKpi barra="nenhuma" rotulo="Contestações por decidir" valor={i.contestacoes_por_decidir} cor={i.contestacoes_por_decidir ? 'vermelho' : 'cinzento'} corValor={i.contestacoes_por_decidir ? '#b91c1c' : undefined} />
+      <CartaoKpi barra="nenhuma" rotulo="Finais" valor={i.finais} />
     </GrelhaKpi>
   );
 }

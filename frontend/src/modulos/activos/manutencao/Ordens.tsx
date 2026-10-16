@@ -2,13 +2,14 @@ import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Fo
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { ErroApi } from '@/api/tipos';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { SeletorActivo } from '../comum/componentes';
+import { campoActivoLinhas, SeletorActivo } from '../comum/componentes';
 import { useListaPaginada } from '../comum/paginacao';
 import { EtiquetaOrdem, SeletorArtigo, useArmazens } from './comum';
 import { destinoTexto, ESTADOS_ITEM, ordemAberta, PRIORIDADES, quantidade, resumoRequisicao, TIPOS } from './regras';
@@ -28,10 +29,10 @@ export function Ordens({ aoIrPlanos }: { aoIrPlanos: () => void }) {
     <>
       <Card style={{ marginBottom: 16 }} title={<span><IconeFa nome="clipboard-check" /> Ordens de manutenção</span>}
         extra={<Button size="small" icon={<IconeFa nome="calendar-check" />} title="As ordens abrem-se a partir dos planos" onClick={aoIrPlanos}>Abrir ordens em Planos</Button>}>
-        <p style={{ marginTop: 0, color: '#64748b' }}>
+        <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
           A ordem é o trabalho concreto num activo. Dentro dela lançam-se as necessidades e, num clique, o material de armazém vira <strong>requisição</strong> e os
           serviços viram <strong>pedido de compra</strong>.
-        </p>
+        </Typography.Paragraph>
         <Space wrap>
           {[['ABERTAS', `Em aberto (${c?.ABERTAS ?? 0})`], ['CONCLUIDA', `Concluídas (${c?.CONCLUIDA ?? 0})`], ['CANCELADA', 'Canceladas'], ['TODAS', `Todas (${c?.TODAS ?? 0})`]].map(([k, r]) => (
             <Button key={k} size="small" type={filtro === k ? 'primary' : 'default'} onClick={() => setFiltro(k)}>{r}</Button>
@@ -61,6 +62,30 @@ export function Ordens({ aoIrPlanos }: { aoIrPlanos: () => void }) {
   );
 }
 
+/** Data da grade (dayjs) ou da vista Linhas ('AAAA-MM-DD') → API. */
+const dataDe = (d: unknown): string | null => (dayjs.isDayjs(d) ? dataApi(d) ?? null : typeof d === 'string' && d ? d : null);
+
+/** Regras de gravação da ordem avulsa, comuns à grade e à vista Linhas. */
+export function dadosOrdemAvulsa(v: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ativo_imobilizado_id: v.ativo_imobilizado_id, tipo: v.tipo, prioridade: v.prioridade ?? 'NORMAL', data_prevista: dataDe(v.data_prevista),
+    responsavel: typeof v.responsavel === 'string' && v.responsavel.trim() ? v.responsavel.trim() : null, descricao: v.descricao,
+  };
+}
+
+const OPCOES_TIPO = Object.entries(TIPOS).map(([value, label]) => ({ value, label }));
+const OPCOES_PRIORIDADE = Object.entries(PRIORIDADES).map(([value, label]) => ({ value, label }));
+
+/** Vista Linhas: uma ordem avulsa por linha (várias avarias de uma vez). */
+const CAMPOS_ORDEM: CampoFormulario[] = [
+  campoActivoLinhas(),
+  { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, opcoes: OPCOES_TIPO, omissao: 'CORRECTIVA', largura: 150 },
+  { nome: 'prioridade', rotulo: 'Prioridade', tipo: 'select', opcoes: OPCOES_PRIORIDADE, omissao: 'NORMAL', largura: 110 },
+  { nome: 'data_prevista', rotulo: 'Data prevista', tipo: 'data', obrigatorio: true, omissao: () => dayjs().format('YYYY-MM-DD'), largura: 140, aliases: ['Prevista'] },
+  { nome: 'responsavel', rotulo: 'Responsável', largura: 150, maxLength: 150 },
+  { nome: 'descricao', rotulo: 'Trabalho a fazer', tipo: 'textoLongo', obrigatorio: true, maxLength: 5000, largura: 280, aliases: ['Descrição', 'Avaria'] },
+];
+
 /** Nova ordem para uma avaria ou trabalho pontual (formularioOrdem, UI :380-422). */
 export function ModalOrdemAvulsa({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => void }) {
   const [form] = Form.useForm<{ ativo_imobilizado_id: number; tipo: TipoManutencao; prioridade: string; data_prevista: Dayjs; responsavel?: string; descricao: string }>();
@@ -69,19 +94,23 @@ export function ModalOrdemAvulsa({ aberto, aoFechar }: { aberto: boolean; aoFech
     if (aberto) { form.resetFields(); form.setFieldsValue({ tipo: 'CORRECTIVA', prioridade: 'NORMAL', data_prevista: dayjs() }); }
   }, [aberto, form]);
   return (
-    <Modal title="Nova ordem de manutenção" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Abrir ordem" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden width={680}>
-      <p style={{ color: '#64748b' }}>Para um trabalho que não vem de um plano (avaria, pedido pontual).</p>
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/ativos/manutencao/ordens', dados: { ...v, data_prevista: dataApi(v.data_prevista) } })}>
+    <ModalFormulario chave="activos.manutencao.ordens" titulo="Nova ordem de manutenção" aberto={aberto} aoFechar={aoFechar} criacao form={form} campos={CAMPOS_ORDEM}
+      nomeRegistos="ordens de manutenção" invalidar={INVALIDAR} larguraLinhas={1150}
+      gravarLinha={(r) => enviar('post', '/ativos/manutencao/ordens', dadosOrdemAvulsa(r))}
+      nota="Uma linha por ordem (avaria ou trabalho pontual que não vem de um plano). Activo, tipo, data prevista e trabalho a fazer são obrigatórios. Linhas deixadas em branco são ignoradas."
+      onOk={() => form.submit()} okText="Abrir ordem" cancelText="Cancelar" confirmLoading={accao.isPending} width={680}>
+      <Typography.Paragraph type="secondary">Para um trabalho que não vem de um plano (avaria, pedido pontual).</Typography.Paragraph>
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: '/ativos/manutencao/ordens', dados: dadosOrdemAvulsa(v) })}>
         <Form.Item name="ativo_imobilizado_id" label="Activo" rules={[{ required: true, message: 'Escolha o activo da ordem de manutenção.' }]}><SeletorActivo style={{ width: '100%' }} /></Form.Item>
         <Row gutter={12}>
-          <Col span={8}><Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}><Select options={Object.entries(TIPOS).map(([value, label]) => ({ value, label }))} /></Form.Item></Col>
-          <Col span={8}><Form.Item name="prioridade" label="Prioridade"><Select options={Object.entries(PRIORIDADES).map(([value, label]) => ({ value, label }))} /></Form.Item></Col>
+          <Col span={8}><Form.Item name="tipo" label="Tipo" rules={[{ required: true }]}><Select options={OPCOES_TIPO} /></Form.Item></Col>
+          <Col span={8}><Form.Item name="prioridade" label="Prioridade"><Select options={OPCOES_PRIORIDADE} /></Form.Item></Col>
           <Col span={8}><Form.Item name="data_prevista" label="Data prevista" rules={[{ required: true, message: 'Indique a data prevista.' }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} /></Form.Item></Col>
         </Row>
         <Form.Item name="responsavel" label="Responsável"><Input maxLength={150} placeholder="Quem executa" /></Form.Item>
         <Form.Item name="descricao" label="Trabalho a fazer" rules={[{ required: true, message: 'Descreva o trabalho a fazer.' }]}><Input.TextArea rows={3} maxLength={5000} placeholder="Descreva a avaria ou o trabalho pedido" /></Form.Item>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
@@ -111,9 +140,9 @@ export function DetalheOrdemModal({ id, aoFechar }: { id: number | null; aoFecha
               </Typography.Text>
             </Col>
             <Col xs={24} md={8} style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 12, color: '#64748b', textTransform: 'uppercase' }}>Custo</div>
+              <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12, textTransform: 'uppercase' }}>Custo</Typography.Text>
               <div style={{ fontSize: 18, fontWeight: 700 }}>{formatarKz(o.custo_total)}</div>
-              <div style={{ fontSize: 12, color: '#64748b' }}>Material {formatarKz(o.custo_materiais)} · Serviços {formatarKz(o.custo_servicos)} · Mão-de-obra {formatarKz(o.custo_mao_obra)}</div>
+              <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>Material {formatarKz(o.custo_materiais)} · Serviços {formatarKz(o.custo_servicos)} · Mão-de-obra {formatarKz(o.custo_mao_obra)}</Typography.Text>
             </Col>
           </Row>
           {o.descricao && <Alert style={{ margin: '12px 0' }} type="info" message={o.descricao} />}
@@ -183,6 +212,20 @@ export function DetalheOrdemModal({ id, aoFechar }: { id: number | null; aoFecha
   );
 }
 
+const TIPOS_NECESSIDADE = [{ value: 'MATERIAL', label: 'Material (sai do armazém se houver)' }, { value: 'SERVICO', label: 'Serviço (vai sempre a compras)' }];
+
+/** Vista Linhas: uma necessidade por linha (o artigo pesquisa-se por código ou nome; o servidor confirma o tipo). */
+const CAMPOS_ITEM: CampoFormulario[] = [
+  { nome: 'tipo', rotulo: 'Tipo', tipo: 'select', obrigatorio: true, opcoes: [{ value: 'MATERIAL', label: 'Material' }, { value: 'SERVICO', label: 'Serviço' }], omissao: 'MATERIAL', largura: 120 },
+  { nome: 'produto_id', rotulo: 'Artigo / serviço', tipo: 'personalizado', obrigatorio: true, largura: 300, aliases: ['Artigo', 'Serviço'],
+    celula: (p) => <SeletorArtigo aria-label={p.rotulo} status={p.erro ? 'error' : undefined} size="small" style={{ width: '100%' }} value={(p.valor as number | null) ?? undefined} onChange={(v) => p.aoMudar(v ?? null)} />,
+    converter: (t) => (/^\d+$/.test(t) ? Number(t) : undefined) },
+  { nome: 'quantidade', rotulo: 'Quantidade', tipo: 'numero', obrigatorio: true, min: 0.001, omissao: 1, largura: 110 },
+];
+
+/** Regras de gravação da necessidade, comuns à grade e à vista Linhas. */
+export const dadosItemOrdem = (v: Record<string, unknown>) => ({ tipo: v.tipo ?? 'MATERIAL', produto_id: v.produto_id, quantidade: v.quantidade });
+
 /** Acrescentar necessidade (formularioItem, UI :530-566). */
 function ModalItem({ ordemId, aberto, aoFechar }: { ordemId: number; aberto: boolean; aoFechar: () => void }) {
   const [form] = Form.useForm<{ tipo: 'MATERIAL' | 'SERVICO'; produto_id: number; quantidade: number }>();
@@ -190,13 +233,17 @@ function ModalItem({ ordemId, aberto, aoFechar }: { ordemId: number; aberto: boo
   useEffect(() => { if (aberto) { form.resetFields(); form.setFieldsValue({ tipo: 'MATERIAL', quantidade: 1 }); } }, [aberto, form]);
   const tipo = Form.useWatch('tipo', form);
   return (
-    <Modal title="Acrescentar necessidade" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Acrescentar" cancelText="Cancelar" confirmLoading={accao.isPending} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/ativos/manutencao/ordens/${ordemId}/itens`, dados: v })}>
-        <Form.Item name="tipo" label="Tipo"><Select options={[{ value: 'MATERIAL', label: 'Material (sai do armazém se houver)' }, { value: 'SERVICO', label: 'Serviço (vai sempre a compras)' }]} /></Form.Item>
+    <ModalFormulario chave="activos.manutencao.necessidades" titulo="Acrescentar necessidade" aberto={aberto} aoFechar={aoFechar} criacao form={form} campos={CAMPOS_ITEM}
+      nomeRegistos="necessidades" invalidar={INVALIDAR} larguraLinhas={760}
+      gravarLinha={(r) => enviar('post', `/ativos/manutencao/ordens/${ordemId}/itens`, dadosItemOrdem(r))}
+      nota="Uma linha por necessidade. Material sai do armazém se houver; serviço vai sempre a compras. Linhas deixadas em branco são ignoradas."
+      onOk={() => form.submit()} okText="Acrescentar" cancelText="Cancelar" confirmLoading={accao.isPending}>
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/ativos/manutencao/ordens/${ordemId}/itens`, dados: dadosItemOrdem(v) })}>
+        <Form.Item name="tipo" label="Tipo"><Select options={TIPOS_NECESSIDADE} /></Form.Item>
         <Form.Item name="produto_id" label="Artigo / serviço" rules={[{ required: true, message: 'Escolha o artigo ou serviço.' }]}><SeletorArtigo tipo={tipo} style={{ width: '100%' }} /></Form.Item>
         <Form.Item name="quantidade" label="Quantidade" rules={[{ required: true, message: 'Indique a quantidade.' }]}><InputNumber min={0.001} style={{ width: '100%' }} /></Form.Item>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 
@@ -217,7 +264,7 @@ function AssistenteRequisicao({ ordem, aberto, aoFechar }: { ordem: DetalheOrdem
     <Modal title={`Requisitar o que falta — ordem ${ordem.numero}`} open={aberto} onCancel={aoFechar} width={900} destroyOnHidden okText="Emitir" cancelText="Cancelar"
       okButtonProps={{ disabled: !r.armazem && !r.compra }} confirmLoading={accao.isPending}
       onOk={() => accao.mutate({ url: `/ativos/manutencao/ordens/${ordem.id}/requisitar`, dados: { armazem_id: armazem ?? null, requerente: requerente || null } })}>
-      <p style={{ color: '#64748b' }}>O material que o armazém tem vira <strong>requisição</strong>; os serviços e o material em falta viram <strong>pedido de compra</strong>. Confirme antes de emitir.</p>
+      <Typography.Paragraph type="secondary">O material que o armazém tem vira <strong>requisição</strong>; os serviços e o material em falta viram <strong>pedido de compra</strong>. Confirme antes de emitir.</Typography.Paragraph>
       {armazens.data?.length
         ? <Space style={{ marginBottom: 8 }}><span>Armazém</span><Select<number> style={{ width: 280 }} value={armazem} onChange={setArmazem} options={armazens.data.map((w) => ({ value: w.id, label: w.nome }))} /></Space>
         : <Alert type="warning" showIcon style={{ marginBottom: 8 }} message="Não há armazéns registados: tudo segue para pedido de compra." />}

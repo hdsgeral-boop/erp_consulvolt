@@ -7,6 +7,7 @@ import {
   alvoMarcas,
   caminhoSector,
   caminhoSuave,
+  corCategoria,
   corSerie,
   COR_OUTROS,
   eixoValores,
@@ -18,7 +19,9 @@ import {
   passoRotulos,
   saoInteiros,
   truncarTexto,
+  type CoresCategorias,
 } from './escalas';
+import { ESTILO_GRAFICO } from './estiloGraficos';
 import './graficos.css';
 
 /**
@@ -37,6 +40,8 @@ export interface SerieGrafico {
   valores: (string | number | null)[];
   /** cor própria da série (as do legado: vendas #2563eb, compras #ea580c, proveitos #10b981, custos #ef4444…) */
   cor?: string | null;
+  /** cor por barra/fatia desta série, pela ordem dos rótulos (Chart.js `backgroundColor: [...]`); vazio → `cor`/paleta */
+  cores?: (string | null)[] | null;
 }
 
 interface PropsBase {
@@ -45,13 +50,20 @@ interface PropsBase {
   series: SerieGrafico[];
   monetario?: boolean;
   altura?: number;
+  /**
+   * Cor por categoria (barra/fatia) para as séries sem `cores` próprias: lista pela ordem dos rótulos ou função
+   * `(rotulo, indice) => cor`. Sem isto (ou com entrada vazia) usa-se a cor da série / paleta de estiloGraficos.ts.
+   */
+  coresCategorias?: CoresCategorias;
 }
 
-const TINTA = 'rgba(0,0,0,0.88)';
-const TINTA_2 = 'rgba(0,0,0,0.6)';
-const GRELHA = 'rgba(0,0,0,0.08)';
-const EIXO = 'rgba(0,0,0,0.3)';
-const FONTE = 11;
+/** Cor da barra/fatia `i` da série `serie` (índice `j`): cores da série → cores por categoria → cor da série/paleta. */
+export function corBarra(serie: SerieGrafico | undefined, j: number, rotulo: string, i: number, coresCategorias?: CoresCategorias): string {
+  return serie?.cores?.[i] || corCategoria(coresCategorias, rotulo, i) || corSerie(j, serie?.cor);
+}
+
+// estilo único dos gráficos (o do Chart.js do legado): estiloGraficos.ts
+const { tinta: TINTA, tintaSecundaria: TINTA_2, grelha: GRELHA, eixo: EIXO, guia: GUIA, fonte: FONTE } = ESTILO_GRAFICO;
 
 export function formatarValor(v: number, monetario?: boolean): string {
   return monetario ? `${formatarKz(v)} Kz` : formatarNumero(v);
@@ -221,12 +233,14 @@ export function GraficoBarras({
   empilhado,
   horizontal,
   rotulosDados,
+  coresCategorias,
 }: PropsBase & { empilhado?: boolean; horizontal?: boolean; rotulosDados?: boolean }) {
   const [ref, largura] = useLargura();
   const [dica, setDica] = useState<Dica | null>(null);
   const L = Math.max(240, largura);
   const numeros = series.map((s) => rotulos.map((_, i) => paraNumero(s.valores[i])));
-  const cores = series.map((s, j) => corSerie(j, s.cor));
+  // cor de cada barra (por categoria quando pedida; senão a da série)
+  const corDe = (j: number, i: number) => corBarra(series[j], j, rotulos[i], i, coresCategorias);
   const totais = rotulos.map((_, i) => numeros.reduce((t, s) => t + s[i], 0));
   const extremos = empilhado
     ? rotulos.flatMap((_, i) => [numeros.reduce((t, s) => t + Math.max(0, s[i]), 0), numeros.reduce((t, s) => t + Math.min(0, s[i]), 0)])
@@ -255,7 +269,7 @@ export function GraficoBarras({
   const alturaUtil = alturaReal - mCima - mBaixo;
   const eixo = horizontal ? eixoProv : eixoValores(extremos, alvoMarcas(alturaUtil), inteiros);
   const banda = (horizontal ? alturaUtil : larguraUtil) / n;
-  const espessura = Math.max(2, Math.min(38, (banda * 0.72) / grupos - (grupos > 1 ? 2 : 0)));
+  const espessura = Math.max(2, Math.min(ESTILO_GRAFICO.barraEspessuraMaxima, (banda * 0.72) / grupos - (grupos > 1 ? 2 : 0)));
   const v = horizontal ? escalaLinear(eixo.minimo, eixo.maximo, mEsq, mEsq + larguraUtil) : escalaLinear(eixo.minimo, eixo.maximo, mCima + alturaUtil, mCima);
   const zero = v(0);
   const passo = horizontal ? 1 : passoRotulos(n, banda, inclinar ? FONTE * 1.8 : larguraRotuloV);
@@ -268,7 +282,7 @@ export function GraficoBarras({
       x,
       y,
       titulo: rotulos[i],
-      linhas: series.map((s, j) => ({ cor: cores[j], rotulo: s.rotulo, valor: formatarValor(numeros[j][i], monetario) })),
+      linhas: series.map((s, j) => ({ cor: corDe(j, i), rotulo: s.rotulo, valor: formatarValor(numeros[j][i], monetario) })),
       total: series.length > 1 && empilhado ? formatarValor(totais[i], monetario) : undefined,
     });
 
@@ -299,7 +313,7 @@ export function GraficoBarras({
       const p1 = v(a1);
       const desloc = empilhado ? 0 : j * (espessura + 2);
       const ultimo = !empilhado || series.slice(j + 1).every((_x, k) => Math.sign(numeros[j + 1 + k][i]) !== Math.sign(valor));
-      const raio = ultimo ? Math.min(6, espessura / 3) : 0;
+      const raio = ultimo ? Math.min(ESTILO_GRAFICO.barraRaio, espessura / 3) : 0;
       const sep = empilhado ? 1 : 0;
       const d = horizontal
         ? caminhoBarra(Math.min(p0, p1), inicioBanda + desloc, Math.max(Math.abs(p1 - p0) - sep, 1), espessura, raio, valor >= 0 ? 'direita' : 'esquerda')
@@ -308,10 +322,10 @@ export function GraficoBarras({
         <path
           key={`${i}-${j}`}
           d={d}
-          fill={cores[j]}
-          fillOpacity={0.85}
-          stroke={cores[j]}
-          strokeWidth={1}
+          fill={corDe(j, i)}
+          fillOpacity={ESTILO_GRAFICO.barraOpacidade}
+          stroke={corDe(j, i)}
+          strokeWidth={ESTILO_GRAFICO.barraBorda}
           className={`${horizontal ? 'grafico-anim-h' : 'grafico-anim-v'}${valor < 0 ? ' negativo' : ''}`}
           style={{ animationDelay: `${Math.min(i * 25, 300)}ms` }}
         />,
@@ -461,16 +475,16 @@ export function GraficoLinhas({ titulo, rotulos, series, monetario, altura = 260
             </g>
           ))}
           <line x1={m.e} x2={m.e + larguraUtil} y1={y(0)} y2={y(0)} stroke={EIXO} />
-          {activo !== null && <line x1={x(activo)} x2={x(activo)} y1={m.t} y2={m.t + alturaUtil} stroke="rgba(0,0,0,0.25)" strokeDasharray="3 3" />}
+          {activo !== null && <line x1={x(activo)} x2={x(activo)} y1={m.t} y2={m.t + alturaUtil} stroke={GUIA} strokeDasharray="3 3" />}
           {numeros.map((s, j) => {
             const pontos = s.map((val, i) => [x(i), y(val)] as [number, number]);
             const linha = caminhoSuave(pontos);
             return (
               <g key={j} className="grafico-anim-f">
-                {area && n > 1 && <path d={`${linha} L ${x(n - 1).toFixed(1)} ${base.toFixed(1)} L ${x(0).toFixed(1)} ${base.toFixed(1)} Z`} fill={cores[j]} fillOpacity={0.13} stroke="none" />}
-                <path d={linha} fill="none" stroke={cores[j]} strokeWidth={area ? 2.5 : 2} strokeLinejoin="round" strokeLinecap="round" />
+                {area && n > 1 && <path d={`${linha} L ${x(n - 1).toFixed(1)} ${base.toFixed(1)} L ${x(0).toFixed(1)} ${base.toFixed(1)} Z`} fill={cores[j]} fillOpacity={ESTILO_GRAFICO.areaOpacidade} stroke="none" />}
+                <path d={linha} fill="none" stroke={cores[j]} strokeWidth={area ? ESTILO_GRAFICO.linhaEspessuraComArea : ESTILO_GRAFICO.linhaEspessura} strokeLinejoin="round" strokeLinecap="round" />
                 {(n <= 24 || activo !== null) &&
-                  s.map((val, i) => (n <= 24 || activo === i ? <circle key={i} cx={x(i)} cy={y(val)} r={activo === i ? 5 : 3} fill={cores[j]} stroke="#fff" strokeWidth={1.5} /> : null))}
+                  s.map((val, i) => (n <= 24 || activo === i ? <circle key={i} cx={x(i)} cy={y(val)} r={activo === i ? ESTILO_GRAFICO.pontoActivo : ESTILO_GRAFICO.ponto} fill={cores[j]} stroke="#fff" strokeWidth={1.5} /> : null))}
               </g>
             );
           })}
@@ -516,7 +530,7 @@ export function GraficoLinhas({ titulo, rotulos, series, monetario, altura = 260
  * Donut (parte de um todo) com a legenda ao lado (por baixo em ecrãs estreitos): cor, rótulo, valor e percentagem. Só a
  * primeira série é usada; mais de 10 fatias → as menores juntam-se em «Outros».
  */
-export function GraficoDonut({ titulo, rotulos, series, monetario, altura = 220 }: PropsBase) {
+export function GraficoDonut({ titulo, rotulos, series, monetario, altura = 220, coresCategorias }: PropsBase) {
   const [ref, largura] = useLargura();
   const [activo, setActivo] = useState<number | null>(null);
   const serie = series[0];
@@ -528,7 +542,13 @@ export function GraficoDonut({ titulo, rotulos, series, monetario, altura = 220 
   const total = fatias.reduce((s, f) => s + f.valor, 0);
   const pct = new Intl.NumberFormat('pt-PT', { style: 'percent', maximumFractionDigits: 1 });
   const fActiva = fatias.find((f) => f.indice === activo);
-  const cor = (k: number) => (agrupado.outros && k === fatias.length - 1 ? COR_OUTROS : corSerie(k));
+  // cor da fatia: «Outros» a cinzento; senão a cor própria da categoria (pelo índice original do rótulo) ou a paleta
+  const cor = (k: number) => {
+    if (agrupado.outros && k === fatias.length - 1) return COR_OUTROS;
+    const rotulo = fatias[k]?.rotulo ?? '';
+    const original = rotulos.indexOf(rotulo);
+    return (original >= 0 && (serie?.cores?.[original] || corCategoria(coresCategorias, rotulo, original))) || corSerie(k);
+  };
 
   return (
     <Moldura titulo={titulo} rotulos={rotulos} series={serie ? [serie] : []} monetario={monetario} legenda={false}>
@@ -541,7 +561,7 @@ export function GraficoDonut({ titulo, rotulos, series, monetario, altura = 220 
                 d={caminhoSector(c, c, activo === f.indice ? r + 3 : r, r * 0.6, f.inicio, f.fim)}
                 fill={cor(k)}
                 stroke="#fff"
-                strokeWidth={2}
+                strokeWidth={ESTILO_GRAFICO.donutBorda}
                 opacity={activo === null || activo === f.indice ? 1 : 0.45}
                 tabIndex={0}
                 aria-label={`${f.rotulo}: ${formatarValor(f.valor, monetario)} (${pct.format(f.fraccao)})`}
@@ -606,8 +626,8 @@ export interface GraficoApi {
   series: SerieGrafico[];
 }
 
-export function GraficoAuto({ grafico, altura }: { grafico: GraficoApi; altura?: number }) {
-  const p = { titulo: grafico.titulo, rotulos: grafico.rotulos ?? [], series: grafico.series ?? [], monetario: grafico.monetario, altura };
+export function GraficoAuto({ grafico, altura, coresCategorias }: { grafico: GraficoApi; altura?: number; coresCategorias?: CoresCategorias }) {
+  const p = { titulo: grafico.titulo, rotulos: grafico.rotulos ?? [], series: grafico.series ?? [], monetario: grafico.monetario, altura, coresCategorias };
   if (grafico.tipo === 'circular' || grafico.tipo === 'donut' || grafico.tipo === 'pie') return <GraficoDonut {...p} />;
   if (grafico.tipo === 'linhas' || grafico.tipo === 'line') return <GraficoLinhas {...p} preenchimento={grafico.sem_preenchimento ? false : undefined} />;
   return <GraficoBarras {...p} empilhado={grafico.empilhado} horizontal={grafico.horizontal} />;

@@ -1,9 +1,10 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Empty, Form, Input, InputNumber, Row, Space, Statistic, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Descriptions, Empty, Form, Input, InputNumber, Row, Space, Table, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { EstadoTag } from '../comum/componentes';
 import { useAccaoRh, useAvisarErro } from '../comum/consultas';
 import { TabelaPlano } from '../faseB/TabelaPlano';
@@ -27,11 +28,12 @@ export function PortalEscala() {
       <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Mostra o que está escalado para si. Se houver uma escala prioritária, é essa que vale nesse dia. Para alterações, fale com a sua chefia." />
       {e && (
         <>
-          <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
-            <Col xs={8}><Statistic title="Dias de trabalho" value={e.dias_trabalho} /></Col>
-            <Col xs={8}><Statistic title="Folgas" value={e.folgas} /></Col>
-            <Col xs={8}><Statistic title="Horas previstas" value={h2(e.horas)} /></Col>
-          </Row>
+          {/* antigo (portal_ui.js:530): três caixas em grelha de 130 px */}
+          <GrelhaKpi larguraMinima={130} style={{ marginBottom: 12 }}>
+            <CartaoKpi barra="nenhuma" rotulo="Dias de trabalho" valor={e.dias_trabalho} />
+            <CartaoKpi barra="nenhuma" rotulo="Folgas" valor={e.folgas} />
+            <CartaoKpi barra="nenhuma" rotulo="Horas previstas" valor={h2(e.horas)} />
+          </GrelhaKpi>
           {e.dias.length === 0 ? (
             <Empty description={`Ainda não há escala publicada para ${mes.format('MM/YYYY')}.${e.horario_contrato ? ` O seu horário de contrato é ${textoHorario(e.horario_contrato)}.` : ''}`} />
           ) : (

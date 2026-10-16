@@ -84,7 +84,7 @@ export function Balcao({ armazem, aoMudarArmazem }: { armazem: number; aoMudarAr
 
   const botaoAdd = (a: ArtigoPos, qtd: number) => (
     <Button type="primary" size="small" disabled={qtd <= 0 || a.bloqueado} onClick={() => acrescentar(a)} aria-label={`Acrescentar ${a.nome ?? ''}`}
-      title={a.bloqueado ? 'Produto bloqueado' : undefined} style={{ borderRadius: 8 }}>
+      title={a.bloqueado ? 'Produto bloqueado' : undefined}>
       <IconeFa nome="plus" /> Add
     </Button>
   );
@@ -299,7 +299,7 @@ function AcertoStock({ armazem, linhas, aoFechar }: { armazem: number; linhas: D
         </Button>,
       ]}
     >
-      <Typography.Paragraph style={{ fontSize: '0.82rem', color: '#475569' }}>
+      <Typography.Paragraph type="secondary" style={{ fontSize: '0.82rem' }}>
         A diferença entre o stock global do produto e a soma de todos os armazéns é aplicada a <strong>este armazém</strong>. O stock global não muda; o acerto fica
         registado como movimento de ajuste do armazém (ao custo médio), para o histórico bater com o saldo.
       </Typography.Paragraph>

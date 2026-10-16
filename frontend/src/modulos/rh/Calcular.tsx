@@ -15,6 +15,8 @@ import { TabelaComModos } from '@/componentes/vistas';
 import { notificarErro } from '@/utilitarios/erros';
 import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { numeroDe, opcoesColaboradores } from './comum/linhasRh';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros, larguraModal } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
@@ -124,6 +126,30 @@ interface ValoresLancamento {
   horas?: number | null;
 }
 
+/** Corpo do POST /rh/salarios/periodos/{id}/lancamentos (grade e linhas): rubricas por hora levam as horas, as outras o valor. */
+export function dadosLancamento(v: Record<string, unknown>, porHoras: boolean) {
+  return {
+    colaborador_id: v.colaborador_id,
+    infotipo_salarial_id: v.infotipo_salarial_id,
+    valor: numeroDe(v.valor),
+    dias_trabalhados: numeroDe(v.dias_trabalhados),
+    horas: porHoras ? numeroDe(v.horas) : null,
+  };
+}
+
+/** Vista Linhas do «Novo lançamento» (um lançamento por colaborador e rubrica; gravar substitui o existente). */
+export function camposLancamento(colaboradores: CampoFormulario['opcoes'], rubricas: CampoFormulario['opcoes'], porHoras: (rubrica: unknown) => boolean): CampoFormulario[] {
+  return [
+    { nome: 'colaborador_id', rotulo: 'Colaborador', tipo: 'select', obrigatorio: true, largura: 240, opcoes: colaboradores, aliases: ['NIF', 'Nome'] },
+    { nome: 'infotipo_salarial_id', rotulo: 'Rubrica', tipo: 'select', obrigatorio: true, largura: 220, opcoes: rubricas, aliases: ['Infotipo'] },
+    { nome: 'valor', rotulo: 'Valor (Kz)', tipo: 'numero', largura: 130, min: 0, precisao: 2, aliases: ['Valor'],
+      validar: (v, r) => (!porHoras(r.infotipo_salarial_id) && (v === null || v === undefined || v === '') ? 'Indique o valor.' : null) },
+    { nome: 'horas', rotulo: 'Horas (faltas / horas extra)', tipo: 'numero', largura: 110, min: 0, max: 744, precisao: 2, aliases: ['Horas'],
+      validar: (h, r) => (porHoras(r.infotipo_salarial_id) && (h === null || h === undefined || h === '') ? 'Indique as horas (rubrica por hora).' : null) },
+    { nome: 'dias_trabalhados', rotulo: 'Dias de trabalho', tipo: 'numero', largura: 110, min: 0, max: 31, aliases: ['Dias trabalhados', 'Dias'] },
+  ];
+}
+
 interface LinhaLote {
   marcada: boolean;
   valor?: number | null;
@@ -203,6 +229,12 @@ function PeriodoCalculo() {
     const i = idRubrica ? infotipos.mapa.get(idRubrica) : undefined;
     return i?.calculo_horas === 'EXTRA' || i?.calculo_horas === 'FALTA' ? i.calculo_horas : null;
   };
+
+  const camposLinhas = camposLancamento(
+    opcoesColaboradores(colaboradores.lista),
+    infotipos.lista.map((i) => ({ value: i.id, label: `${i.nome} (${i.tipo})` })),
+    (r) => Boolean(tipoHoras(Number(r) || undefined)),
+  );
 
   const abrirLancamento = (l: Lancamento | 'novo') => {
     formL.resetFields();
@@ -456,10 +488,14 @@ function PeriodoCalculo() {
       <ModalSimulacaoColaborador resultado={simular} mesAno={p.mes_ano} nome={simular ? simular.nome ?? colaboradores.nome(simular.colaborador_id) : ''}
         simulacao={p.estado !== 'VALIDADO'} aoFechar={() => setSimular(null)} />
 
-      <Modal title={lancar === 'novo' ? 'Novo lançamento' : 'Editar lançamento'} open={lancar !== null} onCancel={() => setLancar(null)} okText="Gravar" cancelText="Cancelar"
-        confirmLoading={accao.isPending} onOk={() => formL.submit()} destroyOnHidden>
+      <ModalFormulario chave="rh.calcular.lancamentos" titulo={lancar === 'novo' ? 'Novo lançamento' : 'Editar lançamento'} aberto={lancar !== null} aoFechar={() => setLancar(null)}
+        criacao={lancar === 'novo'} form={formL} campos={camposLinhas} nomeRegistos="lançamentos" invalidar={[['rh', 'salarios']]}
+        nota="Uma linha por colaborador e rubrica (gravar substitui o lançamento existente). Nas rubricas por hora indique as horas; nas outras, o valor. Linhas deixadas em branco são ignoradas."
+        gravarLinha={(r) => enviar('post', `/rh/salarios/periodos/${id}/lancamentos`, dadosLancamento(r, Boolean(tipoHoras(Number(r.infotipo_salarial_id) || undefined))))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formL.submit()}>
         <Typography.Paragraph type="secondary">Há um lançamento por colaborador e rubrica: gravar substitui o existente.</Typography.Paragraph>
-        <Form form={formL} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${id}/lancamentos`, dados: { ...v, horas: tipoHoras(v.infotipo_salarial_id) ? v.horas ?? null : null } })}>
+        <Form form={formL} layout="vertical" onFinish={(v) => accao.mutate({ metodo: 'post', url: `/rh/salarios/periodos/${id}/lancamentos`,
+          dados: dadosLancamento(v as unknown as Record<string, unknown>, Boolean(tipoHoras(v.infotipo_salarial_id))) })}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
             <SeletorColaborador style={{ width: '100%' }} disabled={lancar !== 'novo'} />
           </Form.Item>
@@ -479,7 +515,7 @@ function PeriodoCalculo() {
             <InputNumber min={0} max={31} step={0.5} style={{ width: '100%' }} />
           </Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
 
       <Modal title={`Edição em massa (${selecionados.length} lançamento(s))`} open={editarLote} width={larguraModal(480)} onCancel={() => setEditarLote(false)} okText="Aplicar em massa" cancelText="Cancelar"
         confirmLoading={accao.isPending} onOk={() => formEd.submit()} destroyOnHidden>

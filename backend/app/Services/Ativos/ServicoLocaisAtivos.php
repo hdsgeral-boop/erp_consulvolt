@@ -21,7 +21,11 @@ use Illuminate\Support\Facades\DB;
  *   - portas em série «prefixo + n.º» de/até, no máximo 200 de cada vez, ignorando as que já existem no andar (:421-450);
  *   - eliminar um andar ou uma porta liberta os bens (localização a null), nunca os apaga (:370-384, :490-501);
  *   - um edifício não fica dentro de uma porta (assetMoverBem :277-295);
- *   - na ficha, o tipo não muda depois de criado e escolher edifício e andar sem porta é recusado (ui_assets.js:465-480).
+ *   - na ficha, o tipo não muda depois de criado (ui_assets.js:465-480); o legado recusava edifício e andar
+ *     sem porta — desde ADR-071 o bem pode ficar no edifício sem porta.
+ * Fecho (ADR-071, A2): um bem pode ficar «neste edifício, sem porta» (edificio_id com andar opcional e porta_id null); a lista
+ * «Bens sem porta» da planta mostra os bens do edifício sem porta e os bens sem localização; à parte vêm os bens de outros
+ * edifícios (activos_edificios.js:92 — serve para arrastar bens entre edifícios).
  * Correcções/melhorias: validação no servidor (o edifício tem de ser do tipo EDIFICIO e a porta tem de pertencer ao andar
  * e ao edifício indicados), n.º de andar e de porta únicos no edifício/andar, bloqueio de eliminar andares ou portas com
  * folha de inventário aberta, bens abatidos fora da planta e auditoria de cada operação.
@@ -44,7 +48,9 @@ final class ServicoLocaisAtivos
         $edificios = AtivoImobilizado::query()->where('tipo_ativo', self::TIPO_EDIFICIO)->orderBy('codigo')->get(['id', 'codigo', 'descricao', 'estado', 'valor_aquisicao']);
         $andares = AndarEdificio::query()->selectRaw('edificio_id, COUNT(*) AS n')->groupBy('edificio_id')->pluck('n', 'edificio_id');
         $portas = PortaEdificio::query()->selectRaw('edificio_id, COUNT(*) AS n')->groupBy('edificio_id')->pluck('n', 'edificio_id');
-        $bens = $this->bensLocalizaveis()->whereNotNull('porta_id')->selectRaw('edificio_id, COUNT(*) AS n, COALESCE(SUM(valor_aquisicao), 0) AS valor')
+        // bens dentro do edifício: numa porta ou «neste edifício, sem porta»
+        $bens = $this->bensLocalizaveis()->whereNotNull('edificio_id')
+            ->selectRaw('edificio_id, COUNT(*) AS n, COUNT(*) FILTER (WHERE porta_id IS NULL) AS sem_porta, COALESCE(SUM(valor_aquisicao), 0) AS valor')
             ->groupBy('edificio_id')->get()->keyBy('edificio_id');
         $inventarios = InventarioFisicoAtivo::query()->where('estado', '<>', InventarioFisicoAtivo::ANULADO)->selectRaw('edificio_id, COUNT(*) AS n')
             ->groupBy('edificio_id')->pluck('n', 'edificio_id');
@@ -54,10 +60,12 @@ final class ServicoLocaisAtivos
                 'andares' => (int) ($andares[$e->id] ?? 0),
                 'portas' => (int) ($portas[$e->id] ?? 0),
                 'bens' => (int) ($bens[$e->id]->n ?? 0),
+                'sem_porta' => (int) ($bens[$e->id]->sem_porta ?? 0),
                 'valor_bens' => CalculadoraAmortizacoes::d($bens[$e->id]->valor ?? 0),
                 'inventarios' => (int) ($inventarios[$e->id] ?? 0),
             ])->values()->all(),
-            'sem_local' => $this->bensLocalizaveis()->whereNull('porta_id')->count(),
+            'sem_local' => $this->bensLocalizaveis()->whereNull('edificio_id')->count(),
+            'sem_porta' => $this->bensLocalizaveis()->whereNotNull('edificio_id')->whereNull('porta_id')->count(),
             'inventarios' => (int) InventarioFisicoAtivo::query()->where('estado', '<>', InventarioFisicoAtivo::ANULADO)->count(),
         ];
     }
@@ -88,14 +96,29 @@ final class ServicoLocaisAtivos
                 'valor' => $ps->reduce(fn ($s, $p) => bcadd($s, $p['valor'], 2), '0.00'),
             ];
         });
-        $semLocal = $this->bensLocalizaveis()->whereNull('porta_id')->orderBy('codigo')->limit(2000)->get(['id', 'codigo', 'descricao', 'valor_aquisicao', 'estado']);
+        // «Bens sem porta»: primeiro os deste edifício sem porta, depois os sem localização nenhuma
+        $semPorta = $this->bensLocalizaveis()->with('andar:id,numero,nome')
+            ->where(fn ($q) => $q->whereNull('edificio_id')->orWhere(fn ($q) => $q->where('edificio_id', $edificio->id)->whereNull('porta_id')))
+            ->orderByRaw('CASE WHEN edificio_id IS NULL THEN 1 ELSE 0 END')->orderBy('codigo')->limit(2000)
+            ->get(['id', 'codigo', 'descricao', 'valor_aquisicao', 'estado', 'edificio_id', 'andar_id']);
+        // bens de outros edifícios (com ou sem porta), para os arrastar para este (activos_edificios.js:92)
+        $outros = $this->bensLocalizaveis()->with(['edificio:id,codigo,descricao', 'andar:id,numero,nome', 'porta:id,numero'])
+            ->whereNotNull('edificio_id')->where('edificio_id', '<>', $edificio->id)->orderBy('codigo')->limit(2000)
+            ->get(['id', 'codigo', 'descricao', 'valor_aquisicao', 'estado', 'edificio_id', 'andar_id', 'porta_id']);
+        $nomeAndar = fn ($f) => $f ? ($f->nome ?: 'Piso '.$f->numero) : null;
+        $semPortaEste = $semPorta->filter(fn ($b) => (int) $b->edificio_id === $edificio->id);
 
         return [
             'edificio' => $edificio->only(['id', 'codigo', 'descricao', 'estado']),
             'andares' => $listaAndares->values()->all(),
-            'sem_local' => $semLocal->map(fn ($b) => ['id' => $b->id, 'codigo' => $b->codigo, 'descricao' => $b->descricao,
-                'valor_aquisicao' => CalculadoraAmortizacoes::d($b->valor_aquisicao)])->values()->all(),
-            'totais' => ['andares' => $andares->count(), 'portas' => $portas->count(), 'bens' => $bens->count(), 'valor' => $this->soma($bens)],
+            'sem_local' => $semPorta->map(fn ($b) => ['id' => $b->id, 'codigo' => $b->codigo, 'descricao' => $b->descricao,
+                'valor_aquisicao' => CalculadoraAmortizacoes::d($b->valor_aquisicao),
+                'grupo' => $b->edificio_id ? 'EDIFICIO' : 'SEM_LOCAL', 'local' => $b->edificio_id ? $nomeAndar($b->andar) : null])->values()->all(),
+            'outros_edificios' => $outros->map(fn ($b) => ['id' => $b->id, 'codigo' => $b->codigo, 'descricao' => $b->descricao,
+                'valor_aquisicao' => CalculadoraAmortizacoes::d($b->valor_aquisicao), 'grupo' => 'OUTRO',
+                'local' => implode(' · ', array_filter([$b->edificio?->codigo ?: $b->edificio?->descricao, $nomeAndar($b->andar), $b->porta?->numero ?? 'sem porta']))])->values()->all(),
+            'totais' => ['andares' => $andares->count(), 'portas' => $portas->count(), 'bens' => $bens->count() + $semPortaEste->count(),
+                'sem_porta' => $semPortaEste->count(), 'valor' => $this->soma($bens->concat($semPortaEste))],
         ];
     }
 
@@ -250,10 +273,13 @@ final class ServicoLocaisAtivos
 
     // ───────────── Localização dos bens ─────────────
 
-    /** Move um bem para uma porta, ou retira-o do local com `null` (assetMoverBem :277-295). */
-    public function moverBem(AtivoImobilizado $bem, ?int $portaId): AtivoImobilizado
+    /**
+     * Move um bem para uma porta (assetMoverBem :277-295); sem porta mas com edifício (e andar opcional) fica «neste
+     * edifício, sem porta» (ADR-071, A2); tudo a null retira-o do local.
+     */
+    public function moverBem(AtivoImobilizado $bem, ?int $portaId, ?int $edificioId = null, ?int $andarId = null): AtivoImobilizado
     {
-        return DB::transaction(function () use ($bem, $portaId) {
+        return DB::transaction(function () use ($bem, $portaId, $edificioId, $andarId) {
             $bem = AtivoImobilizado::query()->lockForUpdate()->findOrFail($bem->id);
             if ($bem->tipo_ativo === self::TIPO_EDIFICIO) {
                 throw new ErroNegocio('Um edifício não pode ficar dentro de uma porta.', 'EDIFICIO_NAO_LOCALIZAVEL', 422);
@@ -261,8 +287,8 @@ final class ServicoLocaisAtivos
             if ($bem->estado === AtivoImobilizado::ESTADO_ABATIDO) {
                 throw new ErroNegocio("O activo {$bem->codigo} está abatido.", 'ATIVO_ABATIDO', 422);
             }
-            $dados = $this->dadosPorta($portaId);
-            if ((int) $bem->porta_id !== (int) $dados['porta_id']) {
+            $dados = $this->resolverLocal($portaId, $edificioId, $andarId);
+            if ((int) $bem->porta_id !== (int) $dados['porta_id'] || (int) $bem->edificio_id !== (int) $dados['edificio_id'] || (int) $bem->andar_id !== (int) $dados['andar_id']) {
                 $bem->update($dados);
             }
 
@@ -304,17 +330,43 @@ final class ServicoLocaisAtivos
         if (! $mexeLocal) {
             return $d;
         }
-        if (empty($d['porta_id']) && ! empty($d['edificio_id']) && ! empty($d['andar_id'])) {
-            throw new ErroNegocio('Indique a porta ou deixe o edifício em branco.', 'PORTA_EM_FALTA', 422);
-        }
-        $local = $this->dadosPorta(empty($d['porta_id']) ? null : (int) $d['porta_id']);
-        foreach (['edificio_id', 'andar_id'] as $c) {
-            if (! empty($d[$c]) && $local['porta_id'] && (int) $d[$c] !== (int) $local[$c]) {
-                throw new ErroNegocio('A porta escolhida não pertence ao edifício/andar indicado.', 'LOCAL_INCOERENTE', 422);
-            }
-        }
+        // ADR-071 (A2): edifício sem porta (andar opcional) é aceite — o bem fica «neste edifício, sem porta»
+        $local = $this->resolverLocal(empty($d['porta_id']) ? null : (int) $d['porta_id'],
+            empty($d['edificio_id']) ? null : (int) $d['edificio_id'], empty($d['andar_id']) ? null : (int) $d['andar_id']);
 
         return array_merge($d, $local);
+    }
+
+    /**
+     * Localização coerente: a porta manda (edifício/andar indicados têm de bater certo); sem porta, o edifício tem de ser do
+     * tipo EDIFICIO e o andar (opcional) desse edifício; um andar sozinho dá o edifício dele.
+     *
+     * @return array{edificio_id: ?int, andar_id: ?int, porta_id: ?int}
+     */
+    private function resolverLocal(?int $portaId, ?int $edificioId, ?int $andarId): array
+    {
+        if ($portaId) {
+            $local = $this->dadosPorta($portaId);
+            if (($edificioId && $edificioId !== $local['edificio_id']) || ($andarId && $andarId !== $local['andar_id'])) {
+                throw new ErroNegocio('A porta escolhida não pertence ao edifício/andar indicado.', 'LOCAL_INCOERENTE', 422);
+            }
+
+            return $local;
+        }
+        if ($andarId) {
+            $andar = AndarEdificio::query()->find($andarId) ?? throw new ErroNegocio('Andar não encontrado.', 'DADOS_INVALIDOS', 422);
+            if ($edificioId && $edificioId !== (int) $andar->edificio_id) {
+                throw new ErroNegocio('O andar escolhido não pertence ao edifício indicado.', 'LOCAL_INCOERENTE', 422);
+            }
+            $edificioId = (int) $andar->edificio_id;
+        }
+        if (! $edificioId) {
+            return ['edificio_id' => null, 'andar_id' => null, 'porta_id' => null];
+        }
+        $edificio = AtivoImobilizado::query()->find($edificioId) ?? throw new ErroNegocio('Edifício não encontrado.', 'DADOS_INVALIDOS', 422);
+        $this->exigirEdificio($edificio);
+
+        return ['edificio_id' => $edificio->id, 'andar_id' => $andarId ?: null, 'porta_id' => null];
     }
 
     // ───────────── Auxiliares ─────────────

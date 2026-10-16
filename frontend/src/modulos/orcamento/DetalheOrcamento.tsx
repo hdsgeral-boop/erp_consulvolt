@@ -121,7 +121,7 @@ export function DetalheOrcamento() {
         </Descriptions>
       </Card>
       <Card size="small" title="Valores mensais" style={{ marginBottom: 16 }} loading={rub.isLoading}>
-        <GrelhaMensal tipo={o.tipo} rubricas={rubricas} valores={valores} editavel={acc.editarValores} comNotas
+        <GrelhaMensal tipo={o.tipo} rubricas={rubricas} valores={valores} editavel={acc.editarValores} comNotas ano={o.ano} realAnterior={o.real_anterior} saldoInicial={Number(o.saldo_inicial ?? 0)}
           aoMudar={(rid, v) => { setValores((s) => ({ ...s, [rid]: v })); setAlterado(true); }} />
       </Card>
       {o.filhos.length > 0 && (

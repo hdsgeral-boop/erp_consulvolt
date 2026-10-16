@@ -3,6 +3,7 @@
 namespace App\Services\Migracao;
 
 use App\Exceptions\ErroNegocio;
+use App\Services\RH\ServicoConfiguracaoRH;
 use App\Services\Sistema\ServicoPermissoesNovas;
 use App\Services\Tesouraria\ServicoConfigTesouraria;
 use App\Support\Cache\LimpezaCache;
@@ -78,6 +79,9 @@ final class ServicoMigracaoLegado
 
     /** @var callable(string): void */
     private $progresso;
+
+    /** @var array<int, list<array{id: int, colaborador_id: ?int}>>|null projeto_id => membros das equipas do projecto (folhas de horas) */
+    private ?array $membrosPorProjeto = null;
 
     public function __construct(private readonly string $caminho, ?callable $progresso = null)
     {
@@ -510,6 +514,11 @@ final class ServicoMigracaoLegado
                 }
                 break;
 
+            case 'modelos_cartas_pagamento':
+                // coluna nova NOT NULL DEFAULT false (o legado não a tem): o mais antigo de cada empresa/tipo é marcado em posCargaFases
+                $linha['predefinido'] ??= false;
+                break;
+
             case 'mapeamentos_contabeis_rh':
             case 'mapeamentos_contabeis_sistema_rh':
                 $legado = $orig['org_type_id'] ?? null;
@@ -534,6 +543,17 @@ final class ServicoMigracaoLegado
                 if (str_starts_with((string) ($linha['data_fim'] ?? ''), '9999-')) {
                     $linha['data_fim'] = null;
                 }
+                break;
+
+            case 'cargos_funcoes':   // fi_rh: o antigo `description` valia como responsabilidades (window.funcaoResponsabilidades, app_v2.js:4014)
+                if (ConversorTipos::vazio($linha['responsabilidades'] ?? null) && ! ConversorTipos::vazio($linha['descricao'] ?? null)) {
+                    $linha['responsabilidades'] = $linha['descricao'];
+                    $this->informacao('cargos_funcoes', 'responsabilidades', 'SEMANTICA', null, null, 'Responsabilidades vazias: copiada a descrição do legado (description)');
+                }
+                break;
+
+            case 'folhas_horas_projeto':
+                $this->ajustarFolhaHoras($orig, $linha);
                 break;
 
             case 'tarefas_projeto':   // concluida_em só com a data (projectos_metas.js): meio-dia, para não mudar de dia com o fuso
@@ -665,6 +685,80 @@ final class ServicoMigracaoLegado
     }
 
     /**
+     * Fecho da Versão Actual (fi_projectos): a folha de horas leva o membro da equipa (team_member_id, ui_projects.js:5121) e só
+     * tem colaborador quando o membro é interno. As folhas antigas guardavam «employee_id ou id do membro» no mesmo campo
+     * (colaboradorDaFolha, modules/rh/produtividade_projectos.js:84): resolve-se pela equipa do PRÓPRIO projecto —
+     *   1. membro com esse colaborador → é o colaborador (membro = o primeiro);
+     *   2. senão, membro com esse id → é o membro, e o colaborador é o dele (NULL quando é externo ou uma entidade);
+     *   3. senão fica como estava (colaborador validado pelas FKs, sem membro).
+     * Corre antes de validarChaves, para que o id de um membro não fique como colaborador (nem seja anulado como órfão).
+     *
+     * @param  array<string, mixed>  $orig
+     * @param  array<string, mixed>  $linha
+     */
+    private function ajustarFolhaHoras(array $orig, array &$linha): void
+    {
+        $projeto = $linha['projeto_id'] ?? null;
+        $membros = $projeto === null ? [] : ($this->membrosDoProjeto()[$projeto] ?? []);
+        $porId = array_column($membros, null, 'id');
+
+        $explicito = $linha['membro_equipa_projeto_id'] ?? null;
+        if ($explicito !== null) {
+            $doMembro = $porId[$explicito]['colaborador_id'] ?? null;
+            if (isset($porId[$explicito]) && ($linha['colaborador_id'] ?? null) !== $doMembro) {
+                $this->informacao('folhas_horas_projeto', 'colaborador_id', 'SEMANTICA', $linha['colaborador_id'] ?? null,
+                    $doMembro === null ? null : (string) $doMembro, 'Colaborador da folha acertado pelo membro da equipa (team_member_id)');
+                $linha['colaborador_id'] = $doMembro;
+            }
+
+            return;   // membro de outro projecto ou inexistente: as FKs tratam
+        }
+
+        $valor = $this->conversorChave($orig['employee_id'] ?? null);
+        if ($valor === null || $membros === []) {
+            return;
+        }
+        foreach ($membros as $m) {
+            if ($m['colaborador_id'] === $valor) {
+                $linha['membro_equipa_projeto_id'] = $m['id'];
+                $this->informacao('folhas_horas_projeto', 'membro_equipa_projeto_id', 'SEMANTICA', $valor, (string) $m['id'], 'Folha antiga: membro da equipa deduzido do colaborador');
+
+                return;
+            }
+        }
+        // como colaboradorDaFolha do legado (produtividade_projectos.js:84-94): um employee_id que é um colaborador da empresa
+        // é sempre o colaborador; só quando não existe é que se lê como o id de um membro da equipa
+        if (DB::table('colaboradores')->where('id', $valor)->where('empresa_id', $linha['empresa_id'] ?? null)->exists()) {
+            return;
+        }
+        if (isset($porId[$valor])) {
+            $doMembro = $porId[$valor]['colaborador_id'];
+            $linha['membro_equipa_projeto_id'] = $valor;
+            $linha['colaborador_id'] = $doMembro;
+            $this->informacao('folhas_horas_projeto', 'colaborador_id', 'SEMANTICA', $valor, $doMembro === null ? null : (string) $doMembro,
+                $doMembro === null ? 'Folha antiga: employee_id era o id de um membro externo da equipa — membro ligado, colaborador anulado'
+                    : 'Folha antiga: employee_id era o id do membro da equipa — trocado pelo colaborador do membro');
+        }
+    }
+
+    /** @return array<int, list<array{id: int, colaborador_id: ?int}>> */
+    private function membrosDoProjeto(): array
+    {
+        if ($this->membrosPorProjeto === null) {
+            $this->membrosPorProjeto = [];
+            $linhas = DB::table('membros_equipa_projeto as m')->join('equipas_projeto as e', 'e.id', '=', 'm.equipa_projeto_id')
+                ->orderBy('m.id')->get(['e.projeto_id', 'm.id', 'm.colaborador_id']);
+            foreach ($linhas as $r) {
+                if ($r->projeto_id !== null) {
+                    $this->membrosPorProjeto[(int) $r->projeto_id][] = ['id' => (int) $r->id, 'colaborador_id' => $r->colaborador_id === null ? null : (int) $r->colaborador_id];
+                }
+            }
+        }
+
+        return $this->membrosPorProjeto;
+    }
+
+    /**
      * Fase G: no legado, departamento_id dos assuntos 5W1H aponta para uma unidade ORGÂNICA (org_units), não para uma
      * unidade de negócio — mantê-lo ligaria o assunto a uma unidade de negócio qualquer (até de outra empresa): anula-se.
      * A deliberação passa a guardar o aprovador com a chave do sistema novo (aprovador_colaborador_id).
@@ -745,6 +839,39 @@ final class ServicoMigracaoLegado
                 ->where('empresa_id', $this->validos['pedidos_compra'][$pedido])->update(['pedido_compra_id' => $pedido]);
         }
         $resumo('itens_ordem_manutencao', 'pedido_compra_id', $ligadas, 'Necessidades da manutenção ligadas ao pedido de compra (purchase_items.maintenance_item_id)');
+
+        // F (fi_gestao): o bem fica numa porta e o edifício/andar vêm dela (activos_edificios.js:285); sem porta não há edifício nem andar
+        $resumo('ativos_imobilizados', 'edificio_id', DB::update(<<<'SQL'
+            UPDATE ativos_imobilizados SET edificio_id = NULL, andar_id = NULL
+            WHERE porta_id IS NULL AND (edificio_id IS NOT NULL OR andar_id IS NOT NULL)
+        SQL), 'Bem sem porta: edifício e andar anulados (o legado só localiza o bem numa porta)');
+        $resumo('ativos_imobilizados', 'andar_id', DB::update(<<<'SQL'
+            UPDATE ativos_imobilizados a SET edificio_id = p.edificio_id, andar_id = p.andar_id
+            FROM portas_edificios p
+            WHERE p.id = a.porta_id AND (a.edificio_id IS DISTINCT FROM p.edificio_id OR a.andar_id IS DISTINCT FROM p.andar_id)
+        SQL), 'Edifício e andar do bem acertados pela porta');
+
+        // B (fi_rh): percentagens dos subsídios de férias e de Natal da ficha da empresa (app_v2.js:5069-5070) → configuração de RH
+        foreach ($this->linhasDe('companies') as $o) {
+            $empresa = $this->conversorChave($o['id'] ?? null);
+            if ($empresa === null || ! array_key_exists($empresa, $this->validos['empresas'] ?? [])) {
+                continue;
+            }
+            foreach (['subsidio_ferias_pct', 'subsidio_natal_pct'] as $chave) {
+                $bruto = $o[$chave] ?? null;
+                if (! is_numeric($bruto) || (float) $bruto <= 0) {
+                    continue;   // vazio/0: o legado usa os 50 % da lei, que é o valor por omissão do sistema novo
+                }
+                $pct = max(ServicoConfiguracaoRH::SUBSIDIO_MINIMO_PCT, min(ServicoConfiguracaoRH::SUBSIDIO_MAXIMO_PCT, (int) round((float) $bruto)));
+                $this->linhaAtual = ['tabela' => 'companies', 'id' => (string) $empresa, 'destino' => 'configuracoes_rh', 'coluna' => 'valor', 'empresa' => $empresa];
+                if ((float) $pct !== (float) $bruto) {
+                    $this->informacao('configuracoes_rh', 'valor', 'NORMALIZACAO', $bruto, (string) $pct, "{$chave}: percentagem inteira entre o mínimo legal (50 %) e 300 %");
+                }
+                DB::table('configuracoes_rh')->upsert([['empresa_id' => $empresa, 'chave' => $chave, 'valor' => json_encode($pct), 'atualizado_por' => 'migração do legado']],
+                    ['empresa_id', 'chave'], ['valor', 'atualizado_por']);
+                $this->inseridas['configuracoes_rh'] = ($this->inseridas['configuracoes_rh'] ?? 0) + 1;
+            }
+        }
 
         // C: repartição por unidades de negócio — {criterio_id, unidades:[{business_unit_id, peso}]} → unidade_negocio_id
         foreach (['colaboradores', 'vendas', 'pedidos_compra', 'faturas_compra', 'encomendas_compra', 'recibos_venda'] as $tabela) {
@@ -872,6 +999,11 @@ final class ServicoMigracaoLegado
 
             // Já tratados pelas regras específicas (sem ocorrência de FK anulada)
             if (($col === 'tipo_organizacao_id' && ! empty($linha['avencado'])) || ($col === 'sessao_pos_id' && ! empty($linha['sessao_pos_legado_codigo']))) {
+                continue;
+            }
+            // Auto-referência (o edifício é um activo, muitas vezes com id maior do que os bens nele localizados): aqui ainda não
+            // está carregado; posCargaFases deriva-o da porta (e anula-o sem porta), por isso não é um órfão
+            if ($tabela === 'ativos_imobilizados' && $col === 'edificio_id') {
                 continue;
             }
             // Valor presente mas não numérico (ex.: "NaN", códigos): órfão

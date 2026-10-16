@@ -261,6 +261,60 @@ final class MigracaoLegadoTest extends TestCase
     }
 
     #[Test]
+    public function converte_os_campos_do_fecho_da_versao_actual(): void
+    {
+        $b = $this->backup();
+        foreach ($b['data']['data'] as &$t) {
+            if ($t['tableName'] === 'companies') {
+                $t['rows'][0] += ['subsidio_ferias_pct' => 75, 'subsidio_natal_pct' => 40];   // abaixo do mínimo legal → 50
+            }
+            if ($t['tableName'] === 'employees') {
+                $t['rows'][] = ['id' => 7, 'company_id' => 1, 'name' => 'Bruno'];
+            }
+        }
+        unset($t);
+        $n = fn (string $nome, array $linhas) => ['tableName' => $nome, 'inbound' => true, 'rows' => $linhas];
+        array_push($b['data']['data'],
+            $n('roles', [['id' => 1, 'company_id' => 1, 'name' => 'Técnico', 'description' => 'Montar quadros', 'responsabilidades' => ''],
+                ['id' => 2, 'company_id' => 1, 'name' => 'Chefe', 'description' => 'antigo', 'responsabilidades' => 'Coordenar', 'objectivo_geral' => 'Liderar']]),
+            $n('projects', [['id' => 1, 'company_id' => 1, 'name' => 'Obra']]),
+            $n('project_teams', [['id' => 1, 'company_id' => 1, 'project_id' => 1, 'name' => 'Equipa']]),
+            $n('project_team_members', [['id' => 7, 'company_id' => 1, 'team_id' => 1, 'third_party_id' => 1, 'external_name' => 'Subempreiteiro'],
+                ['id' => 8, 'company_id' => 1, 'team_id' => 1, 'employee_id' => 5]]),
+            $n('project_timesheets', [
+                ['id' => 1, 'company_id' => 1, 'project_id' => 1, 'employee_id' => 5, 'date' => '2026-09-01', 'hours' => 8],   // colaborador da equipa
+                ['id' => 2, 'company_id' => 1, 'project_id' => 1, 'employee_id' => 7, 'date' => '2026-09-01', 'hours' => 4],   // id do membro externo e de um colaborador fora da equipa: vale o colaborador
+                ['id' => 3, 'company_id' => 1, 'project_id' => 1, 'employee_id' => 5, 'team_member_id' => 7, 'date' => '2026-09-02', 'hours' => 2],
+            ]),
+            $n('fixed_assets', [['id' => 9, 'company_id' => 1, 'code' => 'ED1', 'asset_type' => 'EDIFICIO'],
+                ['id' => 2, 'company_id' => 1, 'code' => 'B1', 'building_id' => 9, 'floor_id' => 1],   // sem porta: fica sem edifício
+                ['id' => 3, 'company_id' => 1, 'code' => 'B2', 'building_id' => 9, 'floor_id' => 1, 'room_id' => 1]]),
+            $n('asset_floors', [['id' => 1, 'company_id' => 1, 'building_id' => 9, 'numero' => '0']]),
+            $n('asset_rooms', [['id' => 1, 'company_id' => 1, 'building_id' => 9, 'floor_id' => 1, 'numero' => '001']]),
+        );
+        file_put_contents($this->ficheiro, json_encode($b, JSON_UNESCAPED_UNICODE));
+
+        $this->assertSame(0, $this->migrar());
+
+        $this->assertSame(['subsidio_ferias_pct' => 75, 'subsidio_natal_pct' => 50],
+            DB::table('configuracoes_rh')->where('empresa_id', 1)->orderBy('chave')->pluck('valor', 'chave')->map(fn ($v) => json_decode($v))->all());
+        $this->assertSame('Montar quadros', DB::table('cargos_funcoes')->where('id', 1)->value('responsabilidades'));
+        $this->assertSame('Coordenar', DB::table('cargos_funcoes')->where('id', 2)->value('responsabilidades'));
+        $this->assertSame('Liderar', DB::table('cargos_funcoes')->where('id', 2)->value('objetivo_geral'));
+
+        $folhas = DB::table('folhas_horas_projeto')->orderBy('id')->get(['colaborador_id', 'membro_equipa_projeto_id'])
+            ->map(fn ($f) => [$f->colaborador_id === null ? null : (int) $f->colaborador_id, $f->membro_equipa_projeto_id === null ? null : (int) $f->membro_equipa_projeto_id])->all();
+        // a 2.ª: o id 7 é também um colaborador da empresa — o legado (colaboradorDaFolha) lê-o como colaborador, não como o membro
+        $this->assertSame([[5, 8], [7, null], [null, 7]], $folhas);
+
+        $locais = DB::table('ativos_imobilizados')->whereIn('id', [2, 3])->orderBy('id')->get(['edificio_id', 'andar_id', 'porta_id'])
+            ->map(fn ($a) => array_map(fn ($v) => $v === null ? null : (int) $v, (array) $a))->all();
+        $this->assertSame([['edificio_id' => null, 'andar_id' => null, 'porta_id' => null], ['edificio_id' => 9, 'andar_id' => 1, 'porta_id' => 1]], $locais);
+        // o edifício com id maior do que o bem não é um órfão (auto-referência ainda por carregar)
+        $this->assertSame(0, DB::table('ocorrencias_migracao')->where('tabela_destino', 'ativos_imobilizados')->where('coluna', 'edificio_id')->where('regra', 'ANULAR_FK')->count());
+    }
+
+    #[Test]
     public function recusa_ficheiros_que_nao_sao_exports_dexie(): void
     {
         file_put_contents($this->ficheiro, json_encode(['formatName' => 'outro', 'data' => []]));

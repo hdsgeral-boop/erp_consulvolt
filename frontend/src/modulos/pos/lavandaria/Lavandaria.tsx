@@ -10,6 +10,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { rotuloEstadoPOS } from '../comum/estados';
+import { useCoresPos } from '../comum/cores';
 import { SeletorTerminal, useFiltroTerminal } from '../comum/Filtros';
 import { BarraSessao, useTerminalDeTrabalho } from '../comum/SessaoTerminal';
 import { Ordens } from './Ordens';
@@ -104,8 +105,9 @@ export function periodoRelatorioLav(modo: ModoPeriodo, dia: Dayjs, mes: Dayjs, d
 }
 
 function KpiRel({ rotulo, valor, sub, cor }: { rotulo: string; valor: ReactNode; sub?: ReactNode; cor: string }) {
+  const c = useCoresPos();
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderLeft: `3px solid ${cor}`, borderRadius: 4, padding: '0.55rem 0.8rem' }}>
+    <div style={{ background: c.fundo, border: `1px solid ${c.borda}`, borderLeft: `3px solid ${cor}`, borderRadius: 4, padding: '0.55rem 0.8rem' }}>
       <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{rotulo}</div>
       <div style={{ fontSize: '1.15rem', fontWeight: 800 }}>{valor}</div>
       {sub ? <div style={{ fontSize: '0.72rem', color: '#64748b' }}>{sub}</div> : null}
@@ -114,8 +116,9 @@ function KpiRel({ rotulo, valor, sub, cor }: { rotulo: string; valor: ReactNode;
 }
 
 function SeccaoRel({ titulo, icone, children }: { titulo: string; icone: string; children: ReactNode }) {
+  const c = useCoresPos();
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4, padding: '0.9rem', margin: '0.7rem 0 0' }}>
+    <div style={{ background: c.fundo, border: `1px solid ${c.borda}`, borderRadius: 4, padding: '0.9rem', margin: '0.7rem 0 0' }}>
       <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.92rem' }}>
         <IconeLegado icone={icone} /> {titulo}
       </h4>
@@ -127,13 +130,14 @@ function SeccaoRel({ titulo, icone, children }: { titulo: string; icone: string;
 /** Tabela simples do antigo (tabelaRel, lavandaria.js:1988-1994): 0.8rem, «Sem dados no período.» e linha de totais. */
 function TabelaRel({ colunas, linhas, rodape }: { colunas: { rotulo: string; dir?: boolean }[]; linhas: ReactNode[][]; rodape?: ReactNode[] }) {
   const alinhar = (k: number): CSSProperties => (colunas[k]?.dir ? { textAlign: 'right', whiteSpace: 'nowrap' } : {});
+  const cores = useCoresPos();
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
         <thead>
-          <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
+          <tr style={{ background: cores.fundoAlt, textAlign: 'left' }}>
             {colunas.map((c, k) => (
-              <th key={k} style={{ padding: 6, textTransform: 'uppercase', fontSize: '0.72rem', fontWeight: 700, color: '#1e293b', letterSpacing: '0.03em', ...(c.dir ? { textAlign: 'right' } : {}) }}>
+              <th key={k} style={{ padding: 6, textTransform: 'uppercase', fontSize: '0.72rem', fontWeight: 700, color: cores.texto, letterSpacing: '0.03em', ...(c.dir ? { textAlign: 'right' } : {}) }}>
                 {c.rotulo}
               </th>
             ))}
@@ -142,7 +146,7 @@ function TabelaRel({ colunas, linhas, rodape }: { colunas: { rotulo: string; dir
         <tbody>
           {linhas.length ? (
             linhas.map((l, n) => (
-              <tr key={n} style={{ borderTop: '1px solid #f1f5f9' }}>
+              <tr key={n} style={{ borderTop: `1px solid ${cores.fundoSuave}` }}>
                 {l.map((v, k) => (
                   <td key={k} style={{ padding: '5px 6px', ...alinhar(k) }}>
                     {v}
@@ -160,7 +164,7 @@ function TabelaRel({ colunas, linhas, rodape }: { colunas: { rotulo: string; dir
         </tbody>
         {rodape && linhas.length > 0 && (
           <tfoot>
-            <tr style={{ borderTop: '2px solid #0f172a', fontWeight: 800 }}>
+            <tr style={{ borderTop: `2px solid ${cores.texto}`, fontWeight: 800 }}>
               {rodape.map((v, k) => (
                 <td key={k} style={{ padding: 6, ...alinhar(k) }}>
                   {v}
@@ -191,6 +195,7 @@ function Relatorio() {
     if (consulta.error) notificarErro(consulta.error, 'Erro ao carregar o relatório');
   }, [consulta.error]);
   const r = consulta.data;
+  const cores = useCoresPos();
   const filtroTerminal = useFiltroTerminal(terminal);
   const terminais = useTerminais();
   const escolhido = terminal ? terminais.data?.find((t) => t.id === terminal) : undefined;
@@ -214,7 +219,7 @@ function Relatorio() {
   return (
     <>
       {/* barra do antigo (lavandaria.js:2009-2018): Período (Dia/Mês/Intervalo), data(s), Terminal e exportação à direita */}
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4, padding: '0.8rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <div style={{ background: cores.fundo, border: `1px solid ${cores.borda}`, borderRadius: 4, padding: '0.8rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
         {campo(
           'Período',
           <Select<ModoPeriodo>
@@ -280,7 +285,7 @@ function Relatorio() {
             {Object.keys(porTipo).length > 0 && (
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem', fontSize: '0.8rem' }}>
                 {Object.entries(porTipo).map(([t, g]) => (
-                  <span key={t} style={{ background: '#f1f5f9', borderRadius: 4, padding: '2px 8px' }}>
+                  <span key={t} style={{ background: cores.fundoSuave, borderRadius: 4, padding: '2px 8px' }}>
                     <strong>{t}</strong>: {g.n} · {kzM(g.total)}
                   </span>
                 ))}

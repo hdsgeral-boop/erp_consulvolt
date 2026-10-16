@@ -19,6 +19,7 @@ import { accoesItemPrestacao, podeAnularLiquidacao } from './comum/regras';
 import type { FolhaCaixa, ItemPrestacao, Liquidacao, SessaoPrestacao } from './comum/tipos';
 import { destinoLiquidacao } from './contas/formatos';
 import { Seccao } from './contas/Seccao';
+import { useCoresPos } from './comum/cores';
 import { TIPOS_MEIO } from './comum/dados';
 
 /** Tipo do movimento com o rótulo do meio do legado (Numerário, Multicaixa (TPA), Transferência bancária). */
@@ -86,6 +87,7 @@ export function AvisoFolhaCaixa({ carregando, folha }: { carregando: boolean; fo
 }
 
 function PorRegularizar({ consulta }: { consulta: UseQueryResult<Pendentes> }) {
+  const cores = useCoresPos();
   const { pode, utilizador } = useSessao();
   const [detalhe, setDetalhe] = useState<number | null>(null);
   const [registar, setRegistar] = useState<{ sessao: SessaoPrestacao; item: ItemPrestacao } | null>(null);
@@ -108,7 +110,7 @@ function PorRegularizar({ consulta }: { consulta: UseQueryResult<Pendentes> }) {
       {consulta.isLoading ? (
         <Skeleton active />
       ) : !consulta.data?.sessoes.length ? (
-        <div style={{ background: 'var(--ant-color-bg-container, #fff)', border: '1px solid #e2e8f0', borderRadius: 4, padding: '1rem', marginBottom: 16, color: '#94a3b8', textAlign: 'center' }}>
+        <div style={{ background: cores.fundo, border: `1px solid ${cores.borda}`, borderRadius: 4, padding: '1rem', marginBottom: 16, color: cores.textoSec, textAlign: 'center' }}>
           Sem sessões por regularizar.
         </div>
       ) : (

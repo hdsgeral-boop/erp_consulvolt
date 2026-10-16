@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Result, Row, Space, Spin, Statistic, Table, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Popconfirm, Result, Row, Space, Spin, Table, Typography } from 'antd';
 import { ArrowLeftOutlined, CheckSquareOutlined, DeleteOutlined, EditOutlined, StopOutlined, UndoOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -6,12 +6,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ValorKz } from '@/modulos/contab/comum/Componentes';
 import { useAccao } from '@/componentes/Accoes';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { EtiquetaAD } from './comum/componentes';
+import { EtiquetaAD, rotuloAD } from './comum/componentes';
 import { accoesItem } from './comum/regras';
 import type { ItemAD, LancamentoAD, MapaItem, Quota } from './comum/tipos';
 import { ModalItem } from './ModalItem';
@@ -67,12 +68,16 @@ export function DetalheItem() {
         }
       />
       <div ref={refFicha}>
-      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Valor (Kz)" value={formatarKz(it.valor)} /></Card></Col>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Reconhecido (Kz)" value={formatarKz(q.data.reconhecido)} /></Card></Col>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Por reconhecer (Kz)" value={formatarKz((Number(it.valor) - Number(q.data.reconhecido)).toFixed(2))} /></Card></Col>
-        <Col xs={12} md={6}><Card size="small"><Statistic title="Saldo na conta 37 (Kz)" value={formatarKz(q.data.saldo_balanco)} /></Card></Col>
-      </Row>
+      {/* legado (ad_ui.js:354-358, .ad-kpis): Tipo · Natureza (valor e período) · Reconhecido · Saldo na conta 37 (devedor/credor) · Estado */}
+      <GrelhaKpi larguraMinima={210} style={{ marginBottom: 16 }}>
+        <CartaoKpi barra="nenhuma" rotulo={`${rotuloAD(it.tipo)} · ${rotuloAD(it.natureza)}`} valor={formatarKz(it.valor)} unidade="Kz"
+          secundaria={`${formatarData(it.data_inicio)} – ${formatarData(it.data_fim)}`} />
+        <CartaoKpi barra="nenhuma" rotulo="Reconhecido" valor={formatarKz(q.data.reconhecido)} unidade="Kz"
+          secundaria={`${formatarKz((Number(it.valor) - Number(q.data.reconhecido)).toFixed(2))} Kz por reconhecer`} />
+        <CartaoKpi barra="nenhuma" rotulo={`Saldo na conta ${it.conta_balanco}`} valor={formatarKz(Math.abs(Number(q.data.saldo_balanco)).toFixed(2))} unidade="Kz"
+          secundaria={Number(q.data.saldo_balanco) > 0.004 ? 'devedor' : Number(q.data.saldo_balanco) < -0.004 ? 'credor' : 'saldado'} />
+        <CartaoKpi barra="nenhuma" rotulo="Estado" valor={<EtiquetaAD valor={it.estado} />} />
+      </GrelhaKpi>
       <Card size="small" style={{ marginBottom: 16 }}>
         <Descriptions size="small" column={{ xs: 1, md: 3 }}>
           <Descriptions.Item label="Natureza"><EtiquetaAD valor={it.natureza} /></Descriptions.Item>

@@ -5,6 +5,7 @@ namespace App\Services\Projetos;
 use App\Exceptions\ErroNegocio;
 use App\Models\AfetacaoAtivoProjeto;
 use App\Models\AtivoImobilizado;
+use App\Models\CategoriaAtivo;
 use App\Models\Colaborador;
 use App\Models\EquipaProjeto;
 use App\Models\FolhaHorasProjeto;
@@ -68,9 +69,12 @@ final class ServicoExecucaoProjetos
             ->orderByDesc('data')->orderByDesc('id')->get();
         // o registo guarda «MAQ-<código do activo>» como documento de origem
         $codigos = $usos->map(fn ($u) => str_starts_with((string) $u->documento_origem_id, 'MAQ-') ? substr((string) $u->documento_origem_id, 4) : null)->filter()->unique()->values()->all();
-        $ativos = $codigos === [] ? collect() : AtivoImobilizado::query()->withTrashed()->whereIn('codigo', $codigos)->get(['id', 'codigo', 'descricao'])->keyBy('codigo');
+        $ativos = $codigos === [] ? collect() : AtivoImobilizado::query()->withTrashed()->whereIn('codigo', $codigos)
+            ->get(['id', 'codigo', 'descricao', 'categoria_ativo_id', 'estado', 'tipo_ativo'])->keyBy('codigo');
+        // Versão Actual (projectos_dashboard.js:381-384, 518-525): categoria e estado da ficha do activo
+        $categorias = CategoriaAtivo::query()->whereIn('id', $ativos->pluck('categoria_ativo_id')->filter()->unique()->values()->all())->pluck('nome', 'id');
         $total = '0.00';
-        $lista = $usos->map(function ($u) use ($tarefas, $ativos, &$total) {
+        $lista = $usos->map(function ($u) use ($tarefas, $ativos, $categorias, &$total) {
             $codigo = str_starts_with((string) $u->documento_origem_id, 'MAQ-') ? substr((string) $u->documento_origem_id, 4) : null;
             $a = $codigo !== null ? ($ativos[$codigo] ?? null) : null;
             $total = bcadd($total, (string) $u->montante, 2);
@@ -78,6 +82,7 @@ final class ServicoExecucaoProjetos
             return ['id' => $u->id, 'data' => $u->data?->toDateString(), 'tarefa_projeto_id' => $u->tarefa_projeto_id,
                 'tarefa_codigo' => $tarefas[$u->tarefa_projeto_id]['codigo'] ?? null, 'tarefa_nome' => $tarefas[$u->tarefa_projeto_id]['nome'] ?? null,
                 'ativo_imobilizado_id' => $a?->id, 'ativo_codigo' => $codigo, 'ativo_descricao' => $a?->descricao,
+                'ativo_categoria' => $a ? ($categorias[$a->categoria_ativo_id] ?? $a->tipo_ativo) : null, 'ativo_estado' => $a?->estado,
                 'descricao' => $u->descricao, 'montante' => ServicoAnaliticoProjetos::dinheiro((string) $u->montante), 'lancamento_contabil_id' => $u->lancamento_contabil_id];
         })->values()->all();
         $afetacoes = AfetacaoAtivoProjeto::query()->where('projeto_id', $p->id)->with('ativoImobilizado:id,codigo,descricao')->orderByDesc('data_inicio')->get()
@@ -86,19 +91,22 @@ final class ServicoExecucaoProjetos
 
         // Versão Actual (projectos_dashboard.js:381-407, 498-537): agregado por equipamento — horas (da descrição «(Xh a Y/h)»),
         // custo, custo/hora médio, período de uso, tarefas e peso no custo total do projecto
-        $custoProjeto = (string) RazaoAnaliticoProjeto::query()->where('projeto_id', $p->id)->whereIn('natureza', ['CUSTO', 'CUSTO_REAL'])->sum('montante');
+        // FJ: o peso mede-se contra o custo realizado do resumo (regra única de ServicoAnaliticoProjetos), como o legado
+        // (custoEquip ÷ custoTotal); a soma de `montante` do razão deixava de fora autos, compras e os movimentos só com `valor`
+        $custoProjeto = ServicoAnaliticoProjetos::totais(app(ServicoAnaliticoProjetos::class)->movimentos([$p->id]))['custos'];
         $porEquipamento = collect($lista)->groupBy(fn ($u) => $u['ativo_codigo'] ?? '—')->map(function ($us, $codigo) use ($custoProjeto) {
             $horas = $us->sum(fn ($u) => preg_match('/\(([\d.,]+)\s*h\b/u', (string) $u['descricao'], $m) ? (float) str_replace(',', '.', $m[1]) : 0.0);
             $custo = $us->reduce(fn ($s, $u) => bcadd($s, $u['montante'], 2), '0.00');
 
             return ['ativo_codigo' => $codigo === '—' ? null : $codigo, 'ativo_imobilizado_id' => $us->first()['ativo_imobilizado_id'], 'ativo_descricao' => $us->first()['ativo_descricao'],
+                'ativo_categoria' => $us->first()['ativo_categoria'], 'ativo_estado' => $us->first()['ativo_estado'],
                 'usos' => $us->count(), 'horas' => round($horas, 2), 'custo' => $custo, 'custo_hora_medio' => $horas > 0 ? round((float) $custo / $horas, 2) : null,
                 'de' => $us->pluck('data')->filter()->min(), 'ate' => $us->pluck('data')->filter()->max(),
                 'tarefas' => $us->map(fn ($u) => trim(($u['tarefa_codigo'] ? "{$u['tarefa_codigo']} " : '').($u['tarefa_nome'] ?? '')))->filter()->unique()->values()->all(),
                 'peso_pct' => (float) $custoProjeto > 0 ? round((float) $custo / (float) $custoProjeto * 100, 1) : null];
         })->sortByDesc(fn ($x) => (float) $x['custo'])->values()->all();
 
-        return ['usos' => $lista, 'total' => $total, 'afetacoes' => $afetacoes, 'por_equipamento' => $porEquipamento];
+        return ['usos' => $lista, 'total' => $total, 'afetacoes' => $afetacoes, 'por_equipamento' => $porEquipamento, 'custo_projeto' => ServicoAnaliticoProjetos::dinheiro($custoProjeto)];
     }
 
     /** @return array<int, array{codigo: ?string, nome: ?string}> */

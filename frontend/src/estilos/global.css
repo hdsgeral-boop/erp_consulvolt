@@ -69,13 +69,34 @@ canvas {
   }
 }
 
-/* Menu lateral fixo (desktop): acompanha o ecrã e desloca-se por si quando tem muitos módulos. */
+/* Menu lateral fixo (desktop): acompanha o ecrã; a marca fica no topo e só a árvore (.erp-sider-rolagem) se desloca,
+   para o friso de largura (.erp-menu-puxador, a cavalo do bordo direito) ficar sempre à vista (legado: .sidebar fixa,
+   .sidebar-nav com deslocamento próprio, z-index acima da barra superior). */
 .erp-sider {
   position: sticky !important;
   top: 0;
+  z-index: 101;
   height: 100vh;
+  overflow: visible;
+}
+
+.erp-sider > .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.erp-sider-rolagem {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden auto;
   scrollbar-width: thin;
+}
+
+/* a largura acompanha o rato sem a animação do Sider */
+.erp-sider.erp-sider-a-redimensionar,
+.erp-sider.erp-sider-a-redimensionar + .erp-layout-coluna {
+  transition: none !important;
 }
 
 .erp-cabecalho {

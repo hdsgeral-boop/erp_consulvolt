@@ -78,6 +78,9 @@ final class ContratoTrabalhoController extends Controller
             'horario.periodos' => ['nullable', 'integer', 'in:1,2'], 'horario.saida_intervalo' => ['nullable', 'date_format:H:i'],
             'horario.entrada_intervalo' => ['nullable', 'date_format:H:i'], 'horario.intervalo_min' => ['nullable', 'integer', 'between:0,480'],
             'horario.tolerancia_min' => ['nullable', 'integer', 'between:0,120'], 'horario.dias' => ['nullable', 'array', 'max:7'], 'horario.dias.*' => ['integer', 'between:0,6'],
-        ], [], ['remuneracoes' => 'remunerações', 'dias_contrato_mes' => 'dias do contrato', 'horas_por_dia' => 'horas por dia']);
+            // Fecho da Versão Actual (#8, Lei 12/23): motivo do termo (art. 13.º/2) e período experimental (art. 18.º; limites no serviço)
+            'motivo_termo' => ['sometimes', 'nullable', 'string', 'max:2000'], 'periodo_experimental_dias' => ['sometimes', 'nullable', 'integer', 'between:0,180'],
+        ], [], ['remuneracoes' => 'remunerações', 'dias_contrato_mes' => 'dias do contrato', 'horas_por_dia' => 'horas por dia',
+            'motivo_termo' => 'motivo do termo', 'periodo_experimental_dias' => 'período experimental']);
     }
 }

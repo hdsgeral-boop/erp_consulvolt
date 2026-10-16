@@ -21,6 +21,7 @@ import { ModalManutencao } from './Manutencao';
 import { pares, tabelaHtml } from '@/componentes/impressao';
 import { COLUNAS_DESCRICOES, scrollTabela } from '@/componentes/responsivo';
 import { seccaoHtml } from './comum/impressao';
+import { textoLocalFicha } from './edificios/regras';
 
 /** Ficha do activo com o histórico: amortizações, transferências, manutenções, abates, afectações e lançamento de origem. */
 export function DetalheActivo() {
@@ -49,7 +50,8 @@ export function DetalheActivo() {
     subtitulo: `${a.codigo ?? ''} — ${a.descricao}`,
     conteudo: [
       pares([
-        ['Estado', rotuloActivos(a.estado)], ['Categoria', a.categoria_ativo?.nome ?? '—'],
+        ['Estado', rotuloActivos(a.estado)], ['Tipo de activo', a.tipo_ativo === 'EDIFICIO' ? 'Edifício / Local' : 'Bem'], ['Localização', textoLocalFicha(a)],
+        ['Categoria', a.categoria_ativo?.nome ?? '—'],
         ['Taxa anual', a.categoria_ativo?.taxa_anual ? `${Number(a.categoria_ativo.taxa_anual).toLocaleString('pt-PT')}%` : '—'],
         ['Centro de custo', a.centro_custo ? `${a.centro_custo.codigo} — ${a.centro_custo.descricao ?? ''}` : '—'], ['Unidade de negócio', a.unidade_negocio?.codigo ?? '—'],
         ['Fornecedor', a.fornecedor?.nome ?? '—'], ['Data de aquisição', formatarData(a.data_aquisicao)], ['Vida útil', a.vida_util ? `${a.vida_util} meses` : 'Pela taxa da categoria'],
@@ -120,6 +122,8 @@ export function DetalheActivo() {
       />
       <Card style={{ marginBottom: 16 }}>
         <Descriptions size="small" column={{ xs: 1, md: 2, xl: 4 }}>
+          <Descriptions.Item label="Tipo de activo">{a.tipo_ativo === 'EDIFICIO' ? <Tag color="orange">Edifício / Local</Tag> : 'Bem'}</Descriptions.Item>
+          <Descriptions.Item label="Localização">{textoLocalFicha(a)}</Descriptions.Item>
           <Descriptions.Item label="Categoria">{a.categoria_ativo?.nome ?? '—'}</Descriptions.Item>
           <Descriptions.Item label="Taxa anual">{a.categoria_ativo?.taxa_anual ? `${Number(a.categoria_ativo.taxa_anual).toLocaleString('pt-PT')}%` : '—'}</Descriptions.Item>
           <Descriptions.Item label="Centro de custo">{a.centro_custo ? `${a.centro_custo.codigo} — ${a.centro_custo.descricao ?? ''}` : '—'}</Descriptions.Item>

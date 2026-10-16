@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
+import { ModalFormulario } from '@/componentes/formularios';
 import { useAccao } from '@/componentes/Accoes';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
 import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsivo';
@@ -91,10 +92,14 @@ export function ModalEditarLinhaExtrato({ linha, aoFechar }: { linha: LinhaExtra
   const [form] = Form.useForm<{ data: Dayjs; referencia?: string; descricao?: string; valor: number; tipo_dc: 'D' | 'C' }>();
   const accao = useAccao({ invalidar: [['teso']], aoSucesso: aoFechar, tituloErro: 'Não foi possível alterar a linha' });
   return (
-    <Modal
-      open={!!linha}
-      title="Editar linha do extracto"
-      onCancel={aoFechar}
+    <ModalFormulario
+      chave="teso.extrato_linha"
+      aberto={!!linha}
+      titulo="Editar linha do extracto"
+      aoFechar={aoFechar}
+      criacao={false}
+      campos={[]}
+      gravarLinha={() => Promise.resolve()}
       okText="Gravar"
       confirmLoading={accao.isPending}
       onOk={() => form.submit()}
@@ -111,7 +116,7 @@ export function ModalEditarLinhaExtrato({ linha, aoFechar }: { linha: LinhaExtra
         </Form.Item>
         <Typography.Text type="secondary">Só as linhas por reconciliar se alteram; a alteração fica na auditoria.</Typography.Text>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }
 

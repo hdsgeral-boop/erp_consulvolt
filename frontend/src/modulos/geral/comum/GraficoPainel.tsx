@@ -1,8 +1,10 @@
 import { Button, Empty, Flex, Typography } from 'antd';
 import { BarChartOutlined, TableOutlined } from '@ant-design/icons';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { GraficoAuto, TabelaGrafico, formatarValor, type GraficoApi } from '@/componentes/graficos/Graficos';
+import { GraficoAuto, TabelaGrafico, corBarra, formatarValor, type GraficoApi } from '@/componentes/graficos/Graficos';
+import type { CoresCategorias } from '@/componentes/graficos/escalas';
 import { caminhoSuave, corSerie, eixoValores, escalaLinear, formatarCompacto, larguraTexto, paraNumero, saoInteiros, truncarTexto } from '@/componentes/graficos/escalas';
+import { ESTILO_GRAFICO } from '@/componentes/graficos/estiloGraficos';
 import './painel.css';
 
 /**
@@ -14,11 +16,8 @@ import './painel.css';
  * partilhado (`GraficoAuto`).
  */
 
-const TINTA = 'rgba(0,0,0,0.88)';
-const TINTA_2 = 'rgba(0,0,0,0.6)';
-const GRELHA = 'rgba(0,0,0,0.08)';
-const EIXO = 'rgba(0,0,0,0.3)';
-const FONTE = 11;
+// estilo único dos gráficos (o do Chart.js do legado): componentes/graficos/estiloGraficos.ts
+const { tinta: TINTA, tintaSecundaria: TINTA_2, grelha: GRELHA, eixo: EIXO, guia: GUIA, fonte: FONTE } = ESTILO_GRAFICO;
 
 /** Divisões do eixo dos valores para uma altura útil (Chart.js: ~1 marca a cada 34 px; entre 4 e 10). */
 export function marcasPainel(alturaUtil: number): number {
@@ -72,14 +71,14 @@ export function LegendaCentrada({ itens, cores, vazios }: { itens: string[]; cor
 }
 
 /** Gráfico de um painel: mensais (barras/linhas) com o invólucro; os restantes com o componente partilhado. */
-export function GraficoPainel({ grafico, altura = 280 }: { grafico: GraficoApi; altura?: number }) {
+export function GraficoPainel({ grafico, altura = 280, coresCategorias }: { grafico: GraficoApi; altura?: number; coresCategorias?: CoresCategorias }) {
   const linhas = grafico.tipo === 'linhas' || grafico.tipo === 'line';
   const barras = grafico.tipo === 'barras' || grafico.tipo === 'bar';
-  if ((!linhas && !barras) || grafico.horizontal || grafico.empilhado) return <GraficoAuto grafico={grafico} altura={altura} />;
-  return <GraficoMensal grafico={grafico} altura={altura} linhas={linhas} />;
+  if ((!linhas && !barras) || grafico.horizontal || grafico.empilhado) return <GraficoAuto grafico={grafico} altura={altura} coresCategorias={coresCategorias} />;
+  return <GraficoMensal grafico={grafico} altura={altura} linhas={linhas} coresCategorias={coresCategorias} />;
 }
 
-function GraficoMensal({ grafico, altura, linhas }: { grafico: GraficoApi; altura: number; linhas: boolean }) {
+function GraficoMensal({ grafico, altura, linhas, coresCategorias }: { grafico: GraficoApi; altura: number; linhas: boolean; coresCategorias?: CoresCategorias }) {
   const [ref, largura] = useLargura();
   const [tabela, setTabela] = useState(false);
   const [activo, setActivo] = useState<number | null>(null);
@@ -110,7 +109,7 @@ function GraficoMensal({ grafico, altura, linhas }: { grafico: GraficoApi; altur
   const xCentro = (i: number) => (linhas ? (n <= 1 ? mEsq + larguraUtil / 2 : mEsq + (i / (n - 1)) * larguraUtil) : mEsq + i * banda + banda / 2);
 
   const grupos = Math.max(1, series.length);
-  const espessura = Math.max(2, Math.min(38, (banda * 0.72) / grupos - (grupos > 1 ? 2 : 0)));
+  const espessura = Math.max(2, Math.min(ESTILO_GRAFICO.barraEspessuraMaxima, (banda * 0.72) / grupos - (grupos > 1 ? 2 : 0)));
   const nos: ReactNode[] = [];
   if (!linhas) {
     rotulos.forEach((_, i) => {
@@ -119,14 +118,16 @@ function GraficoMensal({ grafico, altura, linhas }: { grafico: GraficoApi; altur
         const v = numeros[j][i];
         if (!v) return;
         const p1 = y(v);
+        // cor por barra (cores da série ou por categoria), senão a da série
+        const c = corBarra(series[j], j, rotulos[i], i, coresCategorias);
         nos.push(
           <path
             key={`${i}-${j}`}
-            d={caminhoBarra(inicio + j * (espessura + 2), Math.min(zero, p1), espessura, Math.max(Math.abs(p1 - zero), 1), Math.min(6, espessura / 3), v >= 0)}
-            fill={cores[j]}
-            fillOpacity={0.8}
-            stroke={cores[j]}
-            strokeWidth={1}
+            d={caminhoBarra(inicio + j * (espessura + 2), Math.min(zero, p1), espessura, Math.max(Math.abs(p1 - zero), 1), Math.min(ESTILO_GRAFICO.barraRaio, espessura / 3), v >= 0)}
+            fill={c}
+            fillOpacity={ESTILO_GRAFICO.barraOpacidade}
+            stroke={c}
+            strokeWidth={ESTILO_GRAFICO.barraBorda}
           />,
         );
       });
@@ -138,10 +139,10 @@ function GraficoMensal({ grafico, altura, linhas }: { grafico: GraficoApi; altur
       const d = caminhoSuave(pontos);
       nos.push(
         <g key={`l-${j}`}>
-          {area && n > 1 && <path d={`${d} L ${xCentro(n - 1).toFixed(1)} ${zero.toFixed(1)} L ${xCentro(0).toFixed(1)} ${zero.toFixed(1)} Z`} fill={cores[j]} fillOpacity={0.13} stroke="none" />}
-          <path d={d} fill="none" stroke={cores[j]} strokeWidth={area ? 3 : 2} strokeLinejoin="round" strokeLinecap="round" />
+          {area && n > 1 && <path d={`${d} L ${xCentro(n - 1).toFixed(1)} ${zero.toFixed(1)} L ${xCentro(0).toFixed(1)} ${zero.toFixed(1)} Z`} fill={cores[j]} fillOpacity={ESTILO_GRAFICO.areaOpacidade} stroke="none" />}
+          <path d={d} fill="none" stroke={cores[j]} strokeWidth={area ? ESTILO_GRAFICO.linhaEspessuraComArea : ESTILO_GRAFICO.linhaEspessura} strokeLinejoin="round" strokeLinecap="round" />
           {s.map((v, i) => (
-            <circle key={i} className="painel-marcador" cx={xCentro(i)} cy={y(v)} r={activo === i ? 5 : 3} fill={cores[j]} stroke="#fff" strokeWidth={1.5} />
+            <circle key={i} className="painel-marcador" cx={xCentro(i)} cy={y(v)} r={activo === i ? ESTILO_GRAFICO.pontoActivo : ESTILO_GRAFICO.ponto} fill={cores[j]} stroke="#fff" strokeWidth={1.5} />
           ))}
         </g>,
       );
@@ -196,7 +197,7 @@ function GraficoMensal({ grafico, altura, linhas }: { grafico: GraficoApi; altur
                 </g>
               ))}
               <line x1={mEsq} x2={mEsq + larguraUtil} y1={zero} y2={zero} stroke={EIXO} />
-              {activo !== null && linhas && <line x1={xCentro(activo)} x2={xCentro(activo)} y1={mCima} y2={mCima + alturaUtil} stroke="rgba(0,0,0,0.25)" strokeDasharray="3 3" />}
+              {activo !== null && linhas && <line x1={xCentro(activo)} x2={xCentro(activo)} y1={mCima} y2={mCima + alturaUtil} stroke={GUIA} strokeDasharray="3 3" />}
               {nos}
               {rotulos.map((r, i) => {
                 const x = xCentro(i);

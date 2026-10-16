@@ -1,4 +1,4 @@
-import { Button, Card, InputNumber, Modal, Select, Space, Table, Tag } from 'antd';
+import { Button, Card, InputNumber, Modal, Select, Space, Table, Tag, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { obter } from '@/api/cliente';
@@ -27,7 +27,7 @@ export function Requisicoes() {
       <Card style={{ marginBottom: 16 }} title={<span><IconeFa nome="dolly" /> Requisições ao armazém</span>}
         extra={<Select allowClear placeholder="Estado" value={estado} onChange={setEstado} style={{ width: 160 }}
           options={['PENDENTE', 'PARCIAL', 'SATISFEITA', 'CANCELADA'].map((e) => ({ value: e, label: e }))} />}>
-        <p style={{ margin: 0, color: '#64748b' }}>Material pedido pelas ordens de manutenção. A entrega dá saída do stock e soma o custo à ordem.</p>
+        <Typography.Paragraph type="secondary" style={{ margin: 0 }}>Material pedido pelas ordens de manutenção. A entrega dá saída do stock e soma o custo à ordem.</Typography.Paragraph>
       </Card>
       <Card>
         <Table<Requisicao> rowKey="id" size="middle" loading={q.isFetching} dataSource={q.itens} pagination={q.paginacao} scroll={{ x: 'max-content' }}
@@ -76,7 +76,7 @@ function ModalEntrega({ id, aoFechar }: { id: number | null; aoFechar: () => voi
     <Modal title={`Entregar o material — ${r?.numero ?? ''}`} open={!!id} onCancel={aoFechar} width={800} destroyOnHidden okText="Entregar" cancelText="Cancelar"
       okButtonProps={{ style: { background: '#10b981' }, disabled: !armazem }} confirmLoading={accao.isPending}
       onOk={() => r && accao.mutate({ url: `/ativos/manutencao/requisicoes/${r.id}/entregar`, dados: { armazem_id: armazem, entregas: quantidades } })}>
-      <p style={{ color: '#64748b' }}>A entrega dá saída do stock, regista o movimento no armazém e soma o custo à ordem de manutenção.</p>
+      <Typography.Paragraph type="secondary">A entrega dá saída do stock, regista o movimento no armazém e soma o custo à ordem de manutenção.</Typography.Paragraph>
       <Space style={{ marginBottom: 8 }}><span>Armazém de saída</span>
         <Select<number> style={{ width: 280 }} value={armazem} onChange={setArmazem} options={(armazens.data ?? []).map((w) => ({ value: w.id, label: w.nome }))} /></Space>
       <Table<LinhaRequisicao> rowKey="id" size="small" pagination={false} loading={q.isFetching} dataSource={r?.linhas ?? []}

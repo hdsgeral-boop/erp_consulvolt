@@ -1,11 +1,11 @@
-import { Button, Dropdown, Input, InputNumber, Modal, Space, Table, Tooltip, Typography } from 'antd';
+import { Button, Dropdown, Input, InputNumber, Modal, Space, Table, Tooltip, Typography, theme } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { useMemo, useState } from 'react';
 import { useEcra } from '@/componentes/responsivo';
 import { formatarKz } from '@/utilitarios/formatacao';
 import { Kz } from './componentes';
-import { MESES, repartirAnual, sinal, totalAnual, totaisMensais } from './regras';
+import { MESES, repartirAnual, totalAnual } from './regras';
 import type { Rubrica, TipoOrcamento } from './tipos';
 
 export interface ValoresRubrica {
@@ -13,20 +13,77 @@ export interface ValoresRubrica {
   notas: string | null;
 }
 
-interface Linha {
+type TipoLinha = 'natureza' | 'grupo' | 'rubrica' | 'total' | 'resultado' | 'saldo';
+
+export interface LinhaGrelha {
   chave: string;
+  tipo: TipoLinha;
+  rotulo: string;
   rubrica?: Rubrica;
-  grupo?: string;
-  total?: 'entradas' | 'saidas' | 'saldo';
+  /** 12 meses; `total` = total anual (nulo nas linhas sem total, como o saldo final). */
   valores: number[];
+  total: number | null;
 }
 
+const NOME_NAT: Record<string, string> = { PROVEITO: 'Proveitos', CUSTO: 'Custos', RECEBIMENTO: 'Recebimentos', PAGAMENTO: 'Pagamentos' };
+const vazio12 = () => Array(12).fill(0) as number[];
+const arred = (x: number) => Math.round(x * 100) / 100;
+const somar = (a: number[], b: number[]) => a.map((x, i) => arred(x + (b[i] ?? 0)));
+
 /**
- * Grelha de 12 meses por rubrica (orçamentos e previsões). Em modo de edição cada célula é um campo numérico;
- * o menu da linha permite repartir um total anual por 12 meses iguais ou copiar o 1.º mês para os restantes.
- * Mostra totais de entradas, saídas e resultado (exploração) ou saldo (tesouraria).
+ * Linhas da grelha como no legado (orcamento_ui.js:401-427): por natureza (Proveitos/Custos ou Recebimentos/Pagamentos),
+ * os grupos com o subtotal mensal, as rubricas e «Total <natureza>»; no fim «Resultado previsto» (exploração) ou
+ * «Fluxo de caixa do mês» e «Saldo final previsto» a partir do saldo inicial (tesouraria).
  */
-export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotulosMeses = MESES, comNotas }: {
+export function linhasGrelha(tipo: TipoOrcamento, rubricas: Rubrica[], valores: Record<number, ValoresRubrica>, saldoInicial = 0): LinhaGrelha[] {
+  const res: LinhaGrelha[] = [];
+  const tes = tipo === 'TESOURARIA';
+  const ordem = tes ? ['RECEBIMENTO', 'PAGAMENTO'] : ['PROVEITO', 'CUSTO'];
+  const visiveis = rubricas.filter((r) => r.ativo !== false || valores[r.id]);
+  const vals = (r: Rubrica) => {
+    const v = [...(valores[r.id]?.valores ?? [])].map(Number);
+    while (v.length < 12) v.push(0);
+    return v.slice(0, 12);
+  };
+  const totaisNat: Record<string, number[]> = {};
+  for (const nat of ordem) {
+    const daNat = visiveis.filter((r) => r.natureza === nat);
+    res.push({ chave: `n-${nat}`, tipo: 'natureza', rotulo: NOME_NAT[nat], valores: [], total: null });
+    const grupos = new Map<string, Rubrica[]>();
+    for (const r of daNat) {
+      const g = r.grupo || 'Sem grupo';
+      grupos.set(g, [...(grupos.get(g) ?? []), r]);
+    }
+    let totNat = vazio12();
+    for (const [g, rs] of grupos) {
+      const sub = rs.reduce((a, r) => somar(a, vals(r)), vazio12());
+      res.push({ chave: `g-${nat}-${g}`, tipo: 'grupo', rotulo: g, valores: sub, total: totalAnual(sub) });
+      for (const r of rs) res.push({ chave: `r-${r.id}`, tipo: 'rubrica', rotulo: `${r.codigo} ${r.nome}`, rubrica: r, valores: vals(r), total: totalAnual(vals(r)) });
+      totNat = somar(totNat, sub);
+    }
+    totaisNat[nat] = totNat;
+    res.push({ chave: `t-${nat}`, tipo: 'total', rotulo: `Total ${NOME_NAT[nat].toLowerCase()}`, valores: totNat, total: totalAnual(totNat) });
+  }
+  const fluxo = totaisNat[ordem[0]].map((x, i) => arred(x - totaisNat[ordem[1]][i]));
+  if (tes) {
+    res.push({ chave: 't-fluxo', tipo: 'resultado', rotulo: 'Fluxo de caixa do mês', valores: fluxo, total: totalAnual(fluxo) });
+    const saldo: number[] = [];
+    fluxo.forEach((x, i) => saldo.push(arred((i ? saldo[i - 1] : Number(saldoInicial) || 0) + x)));
+    res.push({ chave: 't-saldo', tipo: 'saldo', rotulo: 'Saldo final previsto', valores: saldo, total: null });
+  } else {
+    res.push({ chave: 't-res', tipo: 'resultado', rotulo: 'Resultado previsto', valores: fluxo, total: totalAnual(fluxo) });
+  }
+  return res;
+}
+
+type Linha = LinhaGrelha;
+
+/**
+ * Grelha de 12 meses por rubrica (orçamentos), com a disposição do legado: linhas por natureza, subtotais por grupo,
+ * totais por natureza, resultado (ou fluxo e saldo final) e as colunas «Total {ano}» e «Real. {ano-1}». Em modo de
+ * edição cada célula é um campo numérico; o menu da linha reparte um total anual ou copia o 1.º mês.
+ */
+export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotulosMeses = MESES, comNotas, ano, realAnterior, saldoInicial }: {
   tipo: TipoOrcamento;
   rubricas: Rubrica[];
   valores: Record<number, ValoresRubrica>;
@@ -34,31 +91,20 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
   aoMudar?: (rubricaId: number, v: ValoresRubrica) => void;
   rotulosMeses?: string[];
   comNotas?: boolean;
+  /** Ano do orçamento (cabeçalhos «Total {ano}» e «Real. {ano-1}»). */
+  ano?: number;
+  /** Realizado do ano anterior por rubrica (total anual); sem dados a coluna mostra «—». */
+  realAnterior?: Record<number, number | string> | null;
+  /** Saldo inicial de disponibilidades (tesouraria) para o «Saldo final previsto». */
+  saldoInicial?: number;
 }) {
   const [repartir, setRepartir] = useState<{ rubrica: Rubrica; total: number | null } | null>(null);
   // No telemóvel a coluna da rubrica não fica fixa (260 px fixos ocupariam quase todo o ecrã).
   const { telemovel } = useEcra();
-  const entradas = tipo === 'EXPLORACAO' ? 'Proveitos' : 'Recebimentos';
-  const saidas = tipo === 'EXPLORACAO' ? 'Custos' : 'Pagamentos';
-
-  const linhas = useMemo<Linha[]>(() => {
-    const res: Linha[] = [];
-    let grupo: string | null | undefined;
-    const doGrupo = rubricas.filter((r) => r.ativo !== false || valores[r.id]);
-    for (const r of doGrupo) {
-      if (r.grupo !== grupo) {
-        grupo = r.grupo;
-        if (grupo) res.push({ chave: `g-${grupo}`, grupo, valores: [] });
-      }
-      res.push({ chave: `r-${r.id}`, rubrica: r, valores: valores[r.id]?.valores ?? Array(12).fill(0) });
-    }
-    const comNatureza = doGrupo.map((r) => ({ valores: valores[r.id]?.valores ?? [], natureza: r.natureza }));
-    const e = totaisMensais(comNatureza.filter((x) => sinal(x.natureza) > 0));
-    const s = totaisMensais(comNatureza.filter((x) => sinal(x.natureza) < 0));
-    const saldo = totaisMensais(comNatureza, true);
-    res.push({ chave: 't-e', total: 'entradas', valores: e.slice(0, 12) }, { chave: 't-s', total: 'saidas', valores: s.slice(0, 12) }, { chave: 't-r', total: 'saldo', valores: saldo.slice(0, 12) });
-    return res;
-  }, [rubricas, valores]);
+  const { token } = theme.useToken();
+  const linhas = useMemo(() => linhasGrelha(tipo, rubricas, valores, saldoInicial), [tipo, rubricas, valores, saldoInicial]);
+  const nColunas = rotulosMeses.length + 3 + (comNotas ? 1 : 0);
+  const juntar = (l: Linha) => (l.tipo === 'natureza' ? { colSpan: 0 } : {});
 
   const mudarMes = (r: Rubrica, mes: number, v: number | null) => {
     const actual = valores[r.id] ?? { valores: Array(12).fill(0), notas: null };
@@ -71,13 +117,15 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
   const colunas: ColumnsType<Linha> = [
     {
       title: 'Rubrica', key: 'r', fixed: telemovel ? undefined : 'left', width: telemovel ? 180 : 260,
+      onCell: (l) => (l.tipo === 'natureza' ? { colSpan: nColunas } : {}),
       render: (_, l) => {
-        if (l.grupo) return <Typography.Text strong type="secondary">{l.grupo}</Typography.Text>;
-        if (l.total) return <Typography.Text strong>{l.total === 'entradas' ? `Total ${entradas.toLowerCase()}` : l.total === 'saidas' ? `Total ${saidas.toLowerCase()}` : tipo === 'EXPLORACAO' ? 'Resultado' : 'Saldo do período'}</Typography.Text>;
+        if (l.tipo === 'natureza') return <Typography.Text strong>{l.rotulo}</Typography.Text>;
+        if (l.tipo === 'grupo') return <Typography.Text strong type="secondary" style={{ paddingLeft: 16 }}>{l.rotulo}</Typography.Text>;
+        if (l.tipo !== 'rubrica') return <Typography.Text strong>{l.rotulo}</Typography.Text>;
         const r = l.rubrica!;
         return (
           <Space size={4}>
-            <Typography.Text>{r.codigo} {r.nome}</Typography.Text>
+            <Typography.Text><strong>{r.codigo}</strong> {r.nome}</Typography.Text>
             {editavel && (
               <Dropdown trigger={['click']} menu={{
                 items: [{ key: 'rep', label: 'Repartir um total anual' }, { key: 'cop', label: 'Copiar Jan. para todos os meses' }, { key: 'zero', label: 'Limpar a linha' }],
@@ -88,7 +136,7 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
                   if (key === 'zero') aoMudar?.(r.id, { ...actual, valores: Array(12).fill(0) });
                 },
               }}>
-                <Button size="small" type="text" icon={<MoreOutlined />} />
+                <Button size="small" type="text" icon={<MoreOutlined />} aria-label={`Opções da rubrica ${r.codigo}`} />
               </Dropdown>
             )}
           </Space>
@@ -100,17 +148,29 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
       key: `m${i}`,
       align: 'right' as const,
       width: editavel ? 120 : undefined,
+      onCell: juntar,
       render: (_: unknown, l: Linha) => {
-        if (l.grupo) return null;
-        if (editavel && l.rubrica) return <InputNumber size="small" value={l.valores[i] ?? 0} precision={2} style={{ width: 112 }} controls={false} onChange={(v) => mudarMes(l.rubrica!, i, v)} />;
-        return <Kz valor={l.valores[i] ?? 0} forte={!!l.total} />;
+        if (l.tipo === 'natureza') return null;
+        if (editavel && l.rubrica) return <InputNumber size="small" value={l.valores[i] ?? 0} precision={2} style={{ width: 112 }} controls={false} onChange={(v) => mudarMes(l.rubrica!, i, v)} aria-label={`${l.rubrica.codigo} ${m}`} />;
+        return <Kz valor={l.valores[i] ?? 0} forte={l.tipo !== 'rubrica'} />;
       },
     })),
-    { title: 'Total', key: 't', align: 'right', fixed: telemovel ? undefined : 'right', render: (_, l) => (l.grupo ? null : <Kz valor={totalAnual(l.valores)} forte />) },
+    {
+      title: ano ? `Total ${ano}` : 'Total', key: 't', align: 'right', fixed: telemovel ? undefined : 'right', onCell: juntar,
+      render: (_, l) => (l.total === null ? null : <Kz valor={l.total} forte />),
+    },
+    {
+      title: ano ? `Real. ${ano - 1}` : 'Real. ano anterior', key: 'ra', align: 'right', onCell: juntar,
+      render: (_, l) => {
+        if (l.tipo !== 'rubrica') return null;
+        const v = realAnterior?.[l.rubrica!.id];
+        return <Typography.Text type="secondary" style={{ whiteSpace: 'nowrap' }}>{v === undefined || v === null ? '—' : formatarKz(v)}</Typography.Text>;
+      },
+    },
   ];
   if (comNotas)
     colunas.push({
-      title: 'Notas', key: 'n', width: 220,
+      title: 'Notas', key: 'n', width: 220, onCell: juntar,
       render: (_, l) => {
         if (!l.rubrica) return null;
         const v = valores[l.rubrica.id];
@@ -129,7 +189,8 @@ export function GrelhaMensal({ tipo, rubricas, valores, editavel, aoMudar, rotul
         dataSource={linhas}
         columns={colunas}
         scroll={{ x: 'max-content', y: 620 }}
-        onRow={(l) => ({ style: l.total ? { background: 'rgba(0,0,0,0.03)' } : l.grupo ? { background: 'rgba(0,0,0,0.015)' } : undefined })}
+        rowClassName={(l) => `erp-grelha-${l.tipo}`}
+        onRow={(l) => ({ style: l.tipo === 'natureza' || l.tipo === 'grupo' ? { background: token.colorFillAlter, fontWeight: 700 } : l.tipo !== 'rubrica' ? { background: token.colorFillSecondary, fontWeight: 800 } : undefined })}
       />
       <Modal
         title={`Repartir ${repartir?.rubrica.codigo ?? ''} por 12 meses`}

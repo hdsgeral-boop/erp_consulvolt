@@ -30,14 +30,14 @@ export function horarioParaApi(v: ValoresHorario): HorarioTrabalho | null {
 
 const hora = [{ pattern: /^([01]\d|2[0-3]):[0-5]\d$/, message: 'HH:MM' }];
 
-export function CamposHorario({ form }: { form: FormInstance }) {
+export function CamposHorario({ form, semTitulo }: { form: FormInstance; /** Dentro de uma secção recolhível com o seu próprio título. */ semTitulo?: boolean }) {
   const usar = Form.useWatch('usar_horario', form) as boolean | undefined;
   const h = Form.useWatch('horario', form) as Partial<HorarioTrabalho> | undefined;
   const dois = Number(h?.periodos) === 2;
   const previstas = horasPrevistas(h);
   return (
     <>
-      <Typography.Title level={5} style={{ marginTop: 8 }}>Horário de trabalho</Typography.Title>
+      {!semTitulo && <Typography.Title level={5} style={{ marginTop: 8 }}>Horário de trabalho</Typography.Title>}
       <Form.Item name="usar_horario" valuePropName="checked" extra="Com horário, as horas por dia, as faltas e as horas extra passam a ser apuradas por ele (a escala do mês, quando existe, sobrepõe-se).">
         <Switch checkedChildren="Com horário" unCheckedChildren="Sem horário" />
       </Form.Item>

@@ -59,3 +59,28 @@
 .ft-paginas button:disabled { opacity: .45; cursor: default; }
 .ft-sem-resultados { padding: 1.5rem; text-align: center; color: #64748b; }
 @media (max-width: 520px) { .ft-pesquisa { width: 100%; } }
+
+/* Tela nocturna (cores do layout/telaNocturna.css): cartões dos períodos, separadores e a tabela da vista de volume. */
+@media screen {
+  html.erp-tela-nocturna .fluxo-cabecalho .fluxo-sub,
+  html.erp-tela-nocturna .fluxo-tab,
+  html.erp-tela-nocturna .fluxo-periodo-sub,
+  html.erp-tela-nocturna .fluxo-periodo-info,
+  html.erp-tela-nocturna .ft-rodape,
+  html.erp-tela-nocturna .ft-sem-resultados { color: #94a3b8; }
+  html.erp-tela-nocturna .fluxo-tab:hover { color: #e2e8f0; }
+  html.erp-tela-nocturna .fluxo-tab[aria-selected="true"] { color: #93c5fd; border-bottom-color: #3b82f6; }
+  html.erp-tela-nocturna .fluxo-tabs { border-bottom-color: #1f2a3d; }
+  html.erp-tela-nocturna .fluxo-periodo,
+  html.erp-tela-nocturna .fluxo-vazio,
+  html.erp-tela-nocturna .ft-tabela-wrap { background: #111a2b; border-color: #1f2a3d; color: #e2e8f0; }
+  html.erp-tela-nocturna .ft-pesquisa,
+  html.erp-tela-nocturna .ft-paginas button { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+  html.erp-tela-nocturna .ft-tabela { color: #e2e8f0; }
+  html.erp-tela-nocturna .ft-tabela th { background: #1e293b; color: #94a3b8; border-bottom-color: #334155; }
+  html.erp-tela-nocturna .ft-tabela td { border-bottom-color: #1f2a3d; }
+  html.erp-tela-nocturna .ft-linha:hover td,
+  html.erp-tela-nocturna .ft-detalhe-linha td { background: #0f172a; }
+  html.erp-tela-nocturna .ft-linha.sel td { background: #172554; }
+  html.erp-tela-nocturna .ft-linha-btn { color: #93c5fd; }
+}

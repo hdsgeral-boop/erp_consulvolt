@@ -1,15 +1,16 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Space, Statistic, Table, Typography, message } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Space, Table, Tabs, Tag, Typography, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { enviar, obter } from '@/api/cliente';
-import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BotaoImprimir, pares, tabelaHtml } from '@/componentes/impressao';
+import { IconeFa } from '@/componentes/fluxos/IconeFa';
+import { CartaoKpi } from '@/componentes/vistas';
+import { deCentimos, paraCentimos } from '@/utilitarios/decimal';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { dataApi, formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
-import { EtiquetaEstado, ValorKz } from '../contab/comum/Componentes';
+import { ValorKz } from '../contab/comum/Componentes';
 import { DENOMINACOES, type ConferenciaCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { accoesConferencia, lerDenominacoes, totalContado } from './regras';
@@ -60,47 +61,85 @@ interface ValoresConferencia {
   justificacao?: string;
 }
 
-/** Tesouraria › Conferência de caixa (ecrã teso_gestao_conferencia): contagem por denominação, finalizar (com regularização), assinatura do gerente e reabertura. */
+/** Diferença físico − sistema com as cores e o texto do legado (ui_tesouraria.js:7084-7086). */
+export function leituraDiferenca(dif: number | string | null | undefined): { cor: string; texto: string } {
+  const c = paraCentimos(dif ?? 0);
+  if (!c) return { cor: '#10b981', texto: 'Sem desvio' };
+  return c > 0 ? { cor: '#f59e0b', texto: 'Sobra' } : { cor: '#ef4444', texto: 'Quebra' };
+}
+
+const cartaoNumerado = (cor: string): CSSProperties => ({ borderTop: `3px solid ${cor}`, marginBottom: 12 });
+
+/**
+ * Tesouraria › Conferência de caixa (ecrã teso_gestao_conferencia), como no legado (ui_tesouraria.js:7150-7356): sem título
+ * próprio (o agregador «Tesouraria - Gestão» já o dá), sub-separadores «Nova Conferência» / «Histórico (n)» e o formulário
+ * na página em cartões numerados — 1. Identificação, 2. Contagem Física e 3. Comparação lado a lado, 4. Justificação do
+ * desvio — com «Limpar» e «Guardar Rascunho». Finalizar (com regularização), assinar e reabrir ficam no histórico.
+ */
 export default function Conferencia() {
   const { pode, utilizador } = useSessao();
   const cliente = useQueryClient();
+  const { token } = theme.useToken();
   const lista = useQuery({ queryKey: ['teso', 'conferencias'], queryFn: () => obter<ConferenciaCaixa[]>('/tesouraria/conferencias') });
-  const [edicao, setEdicao] = useState<ConferenciaCaixa | 'nova' | null>(null);
+  const [separador, setSeparador] = useState<'nova' | 'historico'>(pode('teso_conf_registar') ? 'nova' : 'historico');
+  const [edicao, setEdicao] = useState<ConferenciaCaixa | null>(null);
   const [finalizar, setFinalizar] = useState<ConferenciaCaixa | null>(null);
   const [regularizar, setRegularizar] = useState(false);
   const [reabrir, setReabrir] = useState<ConferenciaCaixa | null>(null);
   const [form] = Form.useForm<ValoresConferencia>();
   const [formMotivo] = Form.useForm<{ motivo: string }>();
   const quantidades = Form.useWatch('denominacoes', form) ?? {};
+  const conta = Form.useWatch('codigo_conta', form);
+  const dataConf = Form.useWatch('data_conferencia', form) as Dayjs | undefined;
+  const externo = Form.useWatch('saldo_externo', form);
   const nome = utilizador?.nome_utilizador;
   const pequeno = useEcraPequeno();
+  // saldo da conta no Diário à data (pré-visualização; o servidor recalcula ao gravar)
+  const dia = dataApi(dataConf);
+  const saldo = useQuery({
+    queryKey: ['teso', 'conferencia', 'saldo', conta, dia],
+    queryFn: () => obter<{ saldo_final: string }>('/tesouraria/extrato-conta', { codigo_conta: conta, data_inicio: dia, data_fim: dia }),
+    enabled: !!conta && !!dia && separador === 'nova',
+    retry: false,
+  });
+  const total = totalContado(quantidades);
+  const sistema = saldo.data?.saldo_final ?? edicao?.total_sistema ?? null;
+  const diferenca = sistema === null ? null : deCentimos(paraCentimos(total) - paraCentimos(sistema));
+  const leitura = leituraDiferenca(diferenca);
 
+  const limpar = () => {
+    form.resetFields();
+    form.setFieldsValue({ data_conferencia: dayjs(), denominacoes: {} });
+    setEdicao(null);
+  };
   const mutacao = useMutation({
     mutationFn: ({ metodo, url, corpo }: { metodo: 'post' | 'put'; url: string; corpo?: unknown }) => enviar<ConferenciaCaixa>(metodo, url, corpo),
-    onSuccess: ({ mensagem }) => {
+    onSuccess: ({ mensagem }, { url }) => {
       message.success(mensagem);
-      setEdicao(null);
       setFinalizar(null);
       setReabrir(null);
       formMotivo.resetFields();
+      if (url === '/tesouraria/conferencias' || /\/conferencias\/\d+$/.test(url)) {
+        limpar();
+        setSeparador('historico');
+      }
       void cliente.invalidateQueries({ queryKey: ['teso', 'conferencias'] });
       void cliente.invalidateQueries({ queryKey: ['contab'] });
     },
     onError: (e) => notificarErro(e),
   });
 
-  const abrir = (c: ConferenciaCaixa | 'nova') => {
+  const abrir = (c: ConferenciaCaixa) => {
     form.resetFields();
-    if (c === 'nova') form.setFieldsValue({ data_conferencia: dayjs(), denominacoes: {} });
-    else
-      form.setFieldsValue({
-        codigo_conta: c.codigo_conta,
-        data_conferencia: dayjs(c.data_conferencia),
-        denominacoes: lerDenominacoes(c.denominacoes),
-        saldo_externo: c.saldo_externo ? Number(c.saldo_externo) : undefined,
-        justificacao: c.justificacao ?? undefined,
-      });
+    form.setFieldsValue({
+      codigo_conta: c.codigo_conta,
+      data_conferencia: dayjs(c.data_conferencia),
+      denominacoes: lerDenominacoes(c.denominacoes),
+      saldo_externo: c.saldo_externo ? Number(c.saldo_externo) : undefined,
+      justificacao: c.justificacao ?? undefined,
+    });
     setEdicao(c);
+    setSeparador('nova');
   };
 
   const gravar = (v: ValoresConferencia) => {
@@ -111,114 +150,173 @@ export default function Conferencia() {
       saldo_externo: v.saldo_externo ?? undefined,
       justificacao: v.justificacao || undefined,
     };
-    mutacao.mutate(edicao && edicao !== 'nova' ? { metodo: 'put', url: `/tesouraria/conferencias/${edicao.id}`, corpo } : { metodo: 'post', url: '/tesouraria/conferencias', corpo });
+    mutacao.mutate(edicao ? { metodo: 'put', url: `/tesouraria/conferencias/${edicao.id}`, corpo } : { metodo: 'post', url: '/tesouraria/conferencias', corpo });
   };
+
+  const pedidoLista = () => ({
+    titulo: 'Conferências de caixa',
+    conteudo: tabelaHtml({
+      colunas: [
+        { titulo: 'Data', valor: (c: ConferenciaCaixa) => c.data_conferencia, formato: 'data' },
+        { titulo: 'Conta', valor: (c) => `${c.codigo_conta}${c.nome_conta ? ` — ${c.nome_conta}` : ''}` },
+        { titulo: 'Operador', valor: (c) => c.nome_operador ?? '' },
+        { titulo: 'Total físico (Kz)', valor: (c) => c.total_fisico, formato: 'moeda' },
+        { titulo: 'Saldo sistema (Kz)', valor: (c) => c.total_sistema, formato: 'moeda' },
+        { titulo: 'Diferença (Kz)', valor: (c) => c.diferenca, formato: 'moeda', somar: true },
+        { titulo: 'Estado', valor: (c) => (c.estado === 'FINALIZADO' ? 'Finalizado' : 'Rascunho') },
+        { titulo: 'Gerente', valor: (c) => (c.nome_gerente ? `${c.nome_gerente} · ${formatarDataHora(c.assinado_gerente_em)}` : '') },
+      ],
+      linhas: lista.data ?? [],
+      totais: true,
+    }),
+  });
+
+  // contagem: Notas e Moedas com o tipo, a quantidade e o valor (ui_tesouraria.js:7267-7271)
+  const linhasContagem = [
+    { chave: 'g-N', grupo: 'Notas' }, ...DENOMINACOES.filter((d) => d.chave.startsWith('N')).map((d) => ({ chave: d.chave, d })),
+    { chave: 'g-M', grupo: 'Moedas' }, ...DENOMINACOES.filter((d) => d.chave.startsWith('M')).map((d) => ({ chave: d.chave, d })),
+  ] as { chave: string; grupo?: string; d?: (typeof DENOMINACOES)[number] }[];
+  const juntar = (l: { grupo?: string }) => (l.grupo ? { colSpan: 0 } : {});
+
+  const formulario = (
+    <Form form={form} layout="vertical" onFinish={gravar} initialValues={{ data_conferencia: dayjs(), denominacoes: {} }}>
+      <Card size="small" style={cartaoNumerado('#7c3aed')} title={<><IconeFa nome="id-card" /> 1. Identificação{edicao ? ` — rascunho de ${formatarData(edicao.data_conferencia)}` : ''}</>}>
+        <Row gutter={12}>
+          <Col xs={24} sm={14}>
+            <Form.Item name="codigo_conta" label="Conta de caixa" rules={[{ required: true }]} style={{ marginBottom: 0 }}>
+              <SeletorContaFinanceira prefixos={['45']} style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={10}>
+            <Form.Item name="data_conferencia" label="Data" rules={[{ required: true }]} style={{ marginBottom: 0 }}>
+              <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        </Row>
+      </Card>
+      <Row gutter={12}>
+        <Col xs={24} lg={14}>
+          <Card size="small" style={cartaoNumerado('#0891b2')} title={<><IconeFa nome="money-bill-wave" /> 2. Contagem Física</>}>
+            <Table<(typeof linhasContagem)[number]>
+              rowKey="chave" size="small" pagination={false} dataSource={linhasContagem} data-testid="tabela-contagem"
+              onRow={(l) => ({ style: l.grupo ? { background: token.colorFillAlter, fontWeight: 700 } : undefined })}
+              columns={[
+                { title: 'Denominação', key: 'den', onCell: (l) => (l.grupo ? { colSpan: 4 } : {}), render: (_, l) => l.grupo ?? l.d!.rotulo },
+                { title: 'Tipo', key: 'tipo', onCell: juntar, render: (_, l) => (l.d ? (l.d.chave.startsWith('N') ? <Tag color="blue">Nota</Tag> : <Tag color="gold">Moeda</Tag>) : null) },
+                {
+                  title: 'Quantidade', key: 'q', align: 'right', onCell: juntar,
+                  render: (_, l) => (l.d ? (
+                    <Form.Item name={['denominacoes', l.d.chave]} noStyle>
+                      <InputNumber min={0} precision={0} size="small" style={{ width: 96 }} aria-label={`Quantidade ${l.d.rotulo}`} />
+                    </Form.Item>
+                  ) : null),
+                },
+                { title: 'Valor', key: 'v', align: 'right', onCell: juntar, render: (_, l) => (l.d ? formatarKz(Math.max(0, Math.trunc(quantidades[l.d.chave] ?? 0)) * l.d.valor) : null) },
+              ]}
+              summary={() => (
+                <Table.Summary>
+                  <Table.Summary.Row className="erp-linha-total">
+                    <Table.Summary.Cell index={0} colSpan={3}>TOTAL FÍSICO CONFERIDO</Table.Summary.Cell>
+                    <Table.Summary.Cell index={3} align="right">{formatarKz(total)}</Table.Summary.Cell>
+                  </Table.Summary.Row>
+                </Table.Summary>
+              )}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} lg={10}>
+          <Card size="small" style={cartaoNumerado('#7c3aed')} title={<><IconeFa nome="balance-scale" /> 3. Comparação</>}>
+            <Space direction="vertical" style={{ width: '100%' }} size={10}>
+              <CartaoKpi rotulo="Total Físico Conferido" valor={formatarKz(total)} unidade="Kz" icone="hand-holding-usd" cor="#7c3aed" corValor="#7c3aed" />
+              <CartaoKpi rotulo="Saldo em Sistema (Cont.)" valor={sistema === null ? '—' : formatarKz(sistema)} unidade="Kz" icone="database" cor="#0891b2" corValor="#0891b2"
+                secundaria={!conta ? 'Escolha a conta de caixa' : saldo.isFetching ? 'A calcular…' : 'Saldo no Diário à data (o servidor recalcula ao gravar)'} />
+              <CartaoKpi rotulo="Saldo Sistema Externo (manual)" valor={externo === undefined || externo === null ? '—' : formatarKz(externo)} unidade="Kz" icone="building" cor="#0d9488"
+                secundaria={<Form.Item name="saldo_externo" noStyle><InputNumber precision={2} size="small" style={{ width: '100%', borderColor: '#0d9488' }} placeholder="Opcional" aria-label="Saldo Sistema Externo" /></Form.Item>} />
+              <CartaoKpi rotulo="Diferença (Físico vs Sistema)" valor={diferenca === null ? '—' : formatarKz(diferenca)} unidade="Kz" icone="arrows-alt-v" cor={leitura.cor} corValor={leitura.cor}
+                secundaria={diferenca === null ? undefined : leitura.texto.toUpperCase()} />
+            </Space>
+          </Card>
+        </Col>
+      </Row>
+      <div hidden={diferenca === null || !paraCentimos(diferenca)}>
+        <Card size="small" style={cartaoNumerado('#ef4444')} title={<><IconeFa nome="exclamation-triangle" /> 4. Justificação do Desvio e Regularização</>}>
+          <Form.Item name="justificacao" label="Justificação de diferenças" style={{ marginBottom: 0 }}>
+            <Input.TextArea rows={2} maxLength={4000} />
+          </Form.Item>
+        </Card>
+      </div>
+      <Flex wrap gap={8} justify="flex-end">
+        <Button icon={<IconeFa nome="eraser" />} onClick={limpar}>Limpar</Button>
+        <Button htmlType="submit" loading={mutacao.isPending} icon={<IconeFa nome="save" />} style={{ color: '#92400e', background: 'rgba(245,158,11,0.12)', borderColor: 'rgba(245,158,11,0.5)' }}>Guardar Rascunho</Button>
+      </Flex>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>O saldo do sistema e a diferença são recalculados pelo servidor na data da conferência. Finalize o rascunho no Histórico.</Typography.Paragraph>
+    </Form>
+  );
+
+  const historico = (
+    <Card>
+      <Flex justify="flex-end" style={{ marginBottom: 8 }}>
+        <BotaoImprimir obterPedido={pedidoLista} />
+      </Flex>
+      <Table<ConferenciaCaixa>
+        rowKey="id"
+        loading={lista.isLoading}
+        dataSource={lista.data}
+        size={pequeno ? 'small' : 'middle'}
+        pagination={{ pageSize: 25 }}
+        scroll={scrollTabela()}
+        onRow={(c) => ({ style: c.estado === 'RASCUNHO' ? { background: 'rgba(245,158,11,0.07)' } : undefined })}
+        columns={[
+          // colunas do legado (ui_tesouraria.js:7214)
+          { title: 'Data/Hora', dataIndex: 'data_conferencia', render: formatarDataHora },
+          { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string, c) => <><strong>{v}</strong>{c.nome_conta && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{c.nome_conta}</Typography.Text>}</> },
+          { title: 'Operador', dataIndex: 'nome_operador', responsive: ['lg'] },
+          { title: 'Total Físico', dataIndex: 'total_fisico', align: 'right', responsive: ['md'], render: (v: string) => <ValorKz valor={v} /> },
+          { title: 'Saldo Sistema', dataIndex: 'total_sistema', align: 'right', responsive: ['md'], render: (v: string) => <ValorKz valor={v} /> },
+          {
+            title: 'Diferença', dataIndex: 'diferenca', align: 'right',
+            render: (v: string, c) => (c.estado !== 'FINALIZADO' && !paraCentimos(v) ? '—'
+              : <strong style={{ color: leituraDiferenca(v).cor, whiteSpace: 'nowrap' }}>{formatarKz(v)}</strong>),
+          },
+          {
+            title: 'Estado', dataIndex: 'estado',
+            render: (v: string) => (v === 'RASCUNHO' ? <Tag color="gold" icon={<IconeFa nome="pencil-alt" />}> RASCUNHO</Tag> : <Tag color="success" icon={<IconeFa nome="check" />}> FINALIZADO</Tag>),
+          },
+          {
+            title: '',
+            render: (_, c) => {
+              const a = accoesConferencia(c, pode, nome);
+              return (
+                <Space wrap>
+                  <BotaoImprimir tamanho="small" texto="Auto" obterPedido={() => pedidoConferencia(c)} />
+                  {a.podeEditar && <Button size="small" onClick={() => abrir(c)}>Editar</Button>}
+                  {a.podeFinalizar && <Button size="small" type="primary" onClick={() => { setRegularizar(false); setFinalizar(c); }}>Finalizar</Button>}
+                  {a.podeAssinar && (
+                    <Button size="small" onClick={() => Modal.confirm({ title: 'Assinar a conferência como gerente?', okText: 'Assinar', cancelText: 'Cancelar', onOk: () => mutacao.mutateAsync({ metodo: 'post', url: `/tesouraria/conferencias/${c.id}/assinar` }) })}>
+                      Assinar
+                    </Button>
+                  )}
+                  {a.podeReabrir && <Button size="small" danger onClick={() => setReabrir(c)}>Reabrir</Button>}
+                  {c.nome_gerente && <Tag icon={<IconeFa nome="signature" />} title={formatarDataHora(c.assinado_gerente_em)}> {c.nome_gerente}</Tag>}
+                </Space>
+              );
+            },
+          },
+        ]}
+      />
+    </Card>
+  );
 
   return (
     <>
-      <CabecalhoPagina
-        titulo="Conferência de caixa"
-        subtitulo="Contagem física por notas e moedas, comparada com o saldo contabilístico"
-        accoes={pode('teso_conf_registar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('nova')}>Nova conferência</Button>}
-        impressaoDesactivada={!lista.data?.length}
-        impressao={() => ({
-          titulo: 'Conferências de caixa',
-          conteudo: tabelaHtml({
-            colunas: [
-              { titulo: 'Data', valor: (c: ConferenciaCaixa) => c.data_conferencia, formato: 'data' },
-              { titulo: 'Conta', valor: (c) => `${c.codigo_conta}${c.nome_conta ? ` — ${c.nome_conta}` : ''}` },
-              { titulo: 'Operador', valor: (c) => c.nome_operador ?? '' },
-              { titulo: 'Contado (Kz)', valor: (c) => c.total_fisico, formato: 'moeda' },
-              { titulo: 'Sistema (Kz)', valor: (c) => c.total_sistema, formato: 'moeda' },
-              { titulo: 'Diferença (Kz)', valor: (c) => c.diferenca, formato: 'moeda', somar: true },
-              { titulo: 'Estado', valor: (c) => (c.estado === 'FINALIZADO' ? 'Finalizado' : 'Rascunho') },
-              { titulo: 'Gerente', valor: (c) => (c.nome_gerente ? `${c.nome_gerente} · ${formatarDataHora(c.assinado_gerente_em)}` : '') },
-            ],
-            linhas: lista.data ?? [],
-            totais: true,
-          }),
-        })}
+      <Tabs
+        activeKey={separador}
+        onChange={(k) => setSeparador(k as 'nova' | 'historico')}
+        items={[
+          ...(pode('teso_conf_registar') ? [{ key: 'nova', label: <><IconeFa nome="plus-circle" /> {edicao ? 'Editar Conferência' : 'Nova Conferência'}</>, children: formulario }] : []),
+          { key: 'historico', label: <><IconeFa nome="history" /> Histórico <Tag color="#7c3aed" style={{ marginLeft: 4 }}>{lista.data?.length ?? 0}</Tag></>, children: historico },
+        ]}
       />
-      <Card>
-        <Table<ConferenciaCaixa>
-          rowKey="id"
-          loading={lista.isLoading}
-          dataSource={lista.data}
-          size={pequeno ? 'small' : 'middle'}
-          pagination={{ pageSize: 25 }}
-          scroll={scrollTabela()}
-          columns={[
-            { title: 'Data', dataIndex: 'data_conferencia', render: formatarData },
-            { title: 'Conta', dataIndex: 'codigo_conta', render: (v: string, c) => `${v}${c.nome_conta ? ` — ${c.nome_conta}` : ''}` },
-            { title: 'Operador', dataIndex: 'nome_operador', responsive: ['lg'] },
-            { title: 'Contado', dataIndex: 'total_fisico', align: 'right', responsive: ['md'], render: (v: string) => <ValorKz valor={v} /> },
-            { title: 'Sistema', dataIndex: 'total_sistema', align: 'right', responsive: ['md'], render: (v: string) => <ValorKz valor={v} /> },
-            { title: 'Diferença', dataIndex: 'diferenca', align: 'right', render: (v: string) => <ValorKz valor={v} forte discretoSeZero /> },
-            { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
-            { title: 'Gerente', responsive: ['lg'], render: (_, c) => (c.nome_gerente ? `${c.nome_gerente} · ${formatarDataHora(c.assinado_gerente_em)}` : '—') },
-            {
-              title: '',
-              render: (_, c) => {
-                const a = accoesConferencia(c, pode, nome);
-                return (
-                  <Space wrap>
-                    <BotaoImprimir tamanho="small" texto="Auto" obterPedido={() => pedidoConferencia(c)} />
-                    {a.podeEditar && <Button size="small" onClick={() => abrir(c)}>Editar</Button>}
-                    {a.podeFinalizar && <Button size="small" type="primary" onClick={() => { setRegularizar(false); setFinalizar(c); }}>Finalizar</Button>}
-                    {a.podeAssinar && (
-                      <Button size="small" onClick={() => Modal.confirm({ title: 'Assinar a conferência como gerente?', okText: 'Assinar', cancelText: 'Cancelar', onOk: () => mutacao.mutateAsync({ metodo: 'post', url: `/tesouraria/conferencias/${c.id}/assinar` }) })}>
-                        Assinar
-                      </Button>
-                    )}
-                    {a.podeReabrir && <Button size="small" danger onClick={() => setReabrir(c)}>Reabrir</Button>}
-                  </Space>
-                );
-              },
-            },
-          ]}
-        />
-      </Card>
-
-      <Modal title={edicao === 'nova' ? 'Nova conferência de caixa' : 'Editar conferência'} open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar rascunho" confirmLoading={mutacao.isPending} onOk={() => form.submit()} width={larguraModal(760)}>
-        <Form form={form} layout="vertical" onFinish={gravar}>
-          <Row gutter={12}>
-            <Col xs={24} sm={14}>
-              <Form.Item name="codigo_conta" label="Conta de caixa" rules={[{ required: true }]}>
-                <SeletorContaFinanceira prefixos={['45']} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={10}>
-              <Form.Item name="data_conferencia" label="Data" rules={[{ required: true }]}>
-                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Typography.Text strong>Contagem</Typography.Text>
-          <Row gutter={12} style={{ marginTop: 8 }}>
-            {DENOMINACOES.map((d) => (
-              <Col key={d.chave} xs={12} md={6}>
-                <Form.Item name={['denominacoes', d.chave]} label={d.rotulo}>
-                  <InputNumber min={0} precision={0} style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-            ))}
-          </Row>
-          <Statistic title="Total contado (Kz)" value={formatarKz(totalContado(quantidades))} style={{ marginBottom: 12 }} />
-          <Row gutter={12}>
-            <Col xs={24} sm={10}>
-              <Form.Item name="saldo_externo" label="Saldo externo (opcional)">
-                <InputNumber precision={2} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={14}>
-              <Form.Item name="justificacao" label="Justificação de diferenças">
-                <Input.TextArea rows={2} maxLength={4000} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Typography.Text type="secondary">O saldo do sistema e a diferença são calculados pelo servidor na data da conferência.</Typography.Text>
-        </Form>
-      </Modal>
 
       <Modal
         width={larguraModal(520)}

@@ -396,8 +396,22 @@ final class ServicoReconciliacaoBancaria
     public function mapa(string $conta, string $data): array
     {
         $this->exigirContaBanco($conta);
-        $saldo = (string) LancamentoContabil::query()->where('codigo_conta', $conta)->where('data_documento', '<=', $data)
-            ->selectRaw("COALESCE(SUM(CASE WHEN tipo_dc = 'D' THEN valor ELSE -valor END), 0) AS s")->value('s');
+        // Quadro-resumo do legado (renderReconciliationUI, ui_tesouraria.js:4540-4568): ERP débito/crédito e Banco débito
+        // (saída)/crédito (entrada), aqui acumulados até à data — uma consulta agregada para o diário e o extracto.
+        // O extracto importado não traz coluna de saldo (bank_statement_lines só tem data/valor/D-C): o saldo do banco à
+        // data é, como no legado, Σ crédito − Σ débito das linhas do extracto (as anuladas não contam), ou seja o saldo
+        // corrido na última linha até à data.
+        $t = DB::selectOne("SELECT
+                (SELECT COALESCE(SUM(valor) FILTER (WHERE tipo_dc = 'D'), 0) FROM lancamentos_contabeis WHERE empresa_id = ? AND codigo_conta = ? AND data_documento <= ?) AS diario_debito,
+                (SELECT COALESCE(SUM(valor) FILTER (WHERE tipo_dc = 'C'), 0) FROM lancamentos_contabeis WHERE empresa_id = ? AND codigo_conta = ? AND data_documento <= ?) AS diario_credito,
+                (SELECT COALESCE(SUM(valor) FILTER (WHERE tipo_dc = 'D'), 0) FROM linhas_extrato_bancario
+                  WHERE empresa_id = ? AND codigo_conta = ? AND data <= ? AND (estado IS NULL OR estado <> 'ANULADO')) AS extrato_debito,
+                (SELECT COALESCE(SUM(valor) FILTER (WHERE tipo_dc = 'C'), 0) FROM linhas_extrato_bancario
+                  WHERE empresa_id = ? AND codigo_conta = ? AND data <= ? AND (estado IS NULL OR estado <> 'ANULADO')) AS extrato_credito",
+            array_merge(...array_fill(0, 4, [$this->contexto->obrigatorio(), $conta, $data])));
+        $d2 = fn ($v) => bcadd((string) $v, '0', 2);
+        [$diarioD, $diarioC, $extratoD, $extratoC] = [$d2($t->diario_debito), $d2($t->diario_credito), $d2($t->extrato_debito), $d2($t->extrato_credito)];
+        $saldo = bcsub($diarioD, $diarioC, 2);
         $porReconciliar = $this->porReconciliar($conta, null, $data)->get();
         $extrato = LinhaExtratoBancario::query()->where('codigo_conta', $conta)->where('estado', 'PENDENTE')->where('data', '<=', $data)->orderBy('data')->get();
         $soma = fn (Collection $c, string $positivo) => $c->reduce(fn ($s, $x) => $x->tipo_dc === $positivo ? bcadd($s, (string) $x->valor, 2) : bcsub($s, (string) $x->valor, 2), '0.00');
@@ -405,11 +419,13 @@ final class ServicoReconciliacaoBancaria
         $extratoLiq = $soma($extrato, 'C');
 
         return [
-            'conta' => $conta, 'data' => $data, 'saldo_diario' => number_format((float) $saldo, 2, '.', ''),
+            'conta' => $conta, 'data' => $data, 'saldo_diario' => $saldo,
             // saldo que o banco deve apresentar = diário − movimentos só no diário + movimentos só no extracto
-            'saldo_banco_esperado' => bcadd(bcsub(number_format((float) $saldo, 2, '.', ''), $diarioLiq, 2), $extratoLiq, 2),
+            'saldo_banco_esperado' => bcadd(bcsub($saldo, $diarioLiq, 2), $extratoLiq, 2),
             'por_reconciliar_diario' => ['total' => $diarioLiq, 'linhas' => $porReconciliar->map->only(['id', 'data_documento', 'numero_lan', 'numero_documento', 'descricao', 'tipo_dc', 'valor'])->values()],
             'por_reconciliar_extrato' => ['total' => $extratoLiq, 'linhas' => $extrato->map->only(['id', 'data', 'referencia', 'descricao', 'tipo_dc', 'valor'])->values()],
+            'diario_debito' => $diarioD, 'diario_credito' => $diarioC, 'extrato_debito' => $extratoD, 'extrato_credito' => $extratoC,
+            'saldo_extrato' => bcsub($extratoC, $extratoD, 2),
         ];
     }
 

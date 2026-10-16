@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Input, InputNumber, Modal, Row, Select, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Input, InputNumber, Modal, Row, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
@@ -9,7 +9,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi } from '@/utilitarios/formatacao';
 import { ROTULO_TIPO, type DocumentoTesouraria, type TipoDocumento } from './api';
 import { bloqueioAnulacao, colunasHistorico, urlSegura } from './colunasLegado';
-import { TabelaDocumentos } from './comum';
+import { TabelaDocumentos, useTotalDocumentos } from './comum';
 import { ModalReparacao } from './ModalReparacao';
 import { BannerTeso, pedirMotivo } from './motivo';
 import { DetalheDocumento } from './pagamentos/DetalheDocumento';
@@ -93,10 +93,12 @@ const rotulo = (t: string) => <label style={{ fontSize: 12, fontWeight: 600, dis
 
 function Integrados() {
   const navegar = useNavigate();
+  const { token } = theme.useToken();
   const { pode } = useSessao();
   const podeAnular = pode('teso_desintegrar');
   const [rascunho, setRascunho] = useState<FiltrosHistorico>({});
   const [filtros, setFiltros] = useState<FiltrosHistorico>({});
+  const totalIntegrados = useTotalDocumentos(parametrosHistorico(filtros));
   const [seleccao, setSeleccao] = useState<DocumentoTesouraria[]>([]);
   const [reparacao, setReparacao] = useState<'inconsistencias' | 'resgatar' | null>(null);
   const anularUm = useAccao({ invalidar: [['teso'], ['contab']] });
@@ -154,7 +156,7 @@ function Integrados() {
         )}
       />
 
-      <Card size="small" style={{ marginBottom: 16 }} title={<span><IconeFa nome="filter" /> Filtros de Pesquisa</span>} styles={{ body: { background: '#f8fafc' } }}>
+      <Card size="small" style={{ marginBottom: 16 }} title={<span><IconeFa nome="filter" /> Filtros de Pesquisa</span>} styles={{ body: { background: token.colorFillAlter } }}>
         <Row gutter={[10, 10]} align="bottom">
           <Col xs={12} md={6} lg={5}>{rotulo('Data Inicial / Data Final')}
             <DatePicker.RangePicker format="DD/MM/YYYY" style={{ width: '100%' }} value={rascunho.periodo ?? null} onChange={(v) => muda({ periodo: v })} placeholder={['Data Inicial', 'Data Final']} />
@@ -175,7 +177,7 @@ function Integrados() {
       </Card>
 
       {!podeAnular && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Não tem permissão para anular integrações: só consulta." />}
-      <Card title="Documentos Integrados na Contabilidade">
+      <Card title="Documentos Integrados na Contabilidade" extra={<Tag color="#4f46e5" data-testid="total-historico">Total: {totalIntegrados ?? '…'}</Tag>}>
         <TabelaDocumentos
           filtros={parametrosHistorico(filtros)}
           columns={colunasHistorico((d) => navegar(String(d.id)))}

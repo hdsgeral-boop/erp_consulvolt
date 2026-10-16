@@ -1,4 +1,4 @@
-import { Button, Card, Flex, Select, Tag, Typography } from 'antd';
+import { Button, Card, Flex, Select, Tag, Typography, theme } from 'antd';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { formatarData } from '@/utilitarios/formatacao';
 import type { GuiaSaidaPendente, MeioPagamentoVenda } from '../api';
@@ -14,9 +14,11 @@ export function GuiasPendentes({ guias, escolhida, aoEscolher }: {
   escolhida?: number;
   aoEscolher: (g: GuiaSaidaPendente) => void;
 }) {
+  // cores do tema (tela nocturna) e raios a 4 px (regra global do antigo)
+  const { token } = theme.useToken();
   return (
-    <div style={{ marginBottom: 16, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
-      <h4 style={{ margin: '0 0 12px', fontSize: 13, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+    <div style={{ marginBottom: 16, padding: 16, background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4 }}>
+      <h4 style={{ margin: '0 0 12px', fontSize: 13, color: token.colorTextSecondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         <IconeFa nome="truck-loading" style={{ marginRight: 6 }} />Guias de Saída Pendentes de Faturação
       </h4>
       <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 8 }} role="list">
@@ -31,15 +33,15 @@ export function GuiasPendentes({ guias, escolhida, aoEscolher }: {
               aria-pressed={activa}
               aria-label={`Facturar agora a guia ${g.numero_documento ?? g.id}`}
               style={{
-                flex: '0 0 240px', padding: 12, background: '#fff', textAlign: 'left', cursor: 'pointer', borderRadius: 8,
-                border: `1px solid ${activa ? '#2563eb' : '#cbd5e1'}`, boxShadow: activa ? '0 2px 4px rgba(0,0,0,0.08)' : 'none',
+                flex: '0 0 240px', padding: 12, background: token.colorBgContainer, color: token.colorText, textAlign: 'left', cursor: 'pointer', borderRadius: 4,
+                border: `1px solid ${activa ? token.colorPrimary : token.colorBorder}`, boxShadow: activa ? '0 2px 4px rgba(0,0,0,0.08)' : 'none',
               }}
             >
               <Flex justify="space-between" style={{ marginBottom: 4 }}>
-                <strong style={{ fontSize: 13, color: '#1e293b' }}>{g.numero_documento ?? `#${g.id}`}</strong>
-                <span style={{ fontSize: 11, color: '#64748b' }}>{g.data ? formatarData(g.data) : ''}</span>
+                <strong style={{ fontSize: 13 }}>{g.numero_documento ?? `#${g.id}`}</strong>
+                <span style={{ fontSize: 11, color: token.colorTextSecondary }}>{g.data ? formatarData(g.data) : ''}</span>
               </Flex>
-              <div style={{ fontSize: 12, color: '#475569', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {g.cliente?.nome ?? 'Consumidor Final'}
               </div>
               <Flex justify="space-between" align="center">
@@ -65,12 +67,13 @@ export function MeiosPagamentoDocumento({ meios, contas, aoMudar, carregando, oc
   carregando?: boolean;
   ocultar?: React.ReactNode;
 }) {
+  const { token } = theme.useToken();
   const usados = new Set(contas.filter(Boolean));
   const rotulo = (m: MeioPagamentoVenda) => [m.nome, m.iban ? `IBAN ${m.iban}` : m.codigo_conta].filter(Boolean).join(' — ');
   return (
-    <Card size="small" style={{ marginBottom: 16, background: '#f8fafc' }}>
+    <Card size="small" style={{ marginBottom: 16, background: token.colorFillAlter }}>
       <Flex justify="space-between" align="center" style={{ marginBottom: 12 }}>
-        <span style={{ fontWeight: 700, fontSize: 13, color: '#1e293b' }}><IconeFa nome="credit-card" style={{ color: AZUL, marginRight: 6 }} />Meios de Pagamento</span>
+        <span style={{ fontWeight: 700, fontSize: 13 }}><IconeFa nome="credit-card" style={{ color: AZUL, marginRight: 6 }} />Meios de Pagamento</span>
         <Button size="small" icon={<IconeFa nome="plus" />} onClick={() => aoMudar([...contas, undefined])} disabled={!meios.length || contas.length >= 10}>
           Adicionar Conta
         </Button>

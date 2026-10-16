@@ -29,8 +29,14 @@ const TAREFAS_NOVAS = {
 };
 // Perfis-tipo: tarefas do sistema novo acrescentadas aos modelos do legado (ADR-068)
 const MODELOS_EXTRA = {
-  'Técnico de RH': ['rh_tabela_irt_gerir'],
-  'Comercial / Facturação': ['vendas_alterar_preco'],
+  'Técnico de RH': ['rh_tabela_irt_gerir', 'rh_emprestimos_view', 'rh_emp_gerir', 'rh_emp_lancar'],   // ADR-071: empréstimos (Fase B)
+  'Responsável de Salários': ['rh_emp_gerir', 'rh_emp_lancar', 'rh_emp_config'],
+  'Contabilista': ['ia_regras', 'ia_lancar'],   // Fase H: regras de IA em ficheiro
+  'Responsável de Departamento': ['mt_assuntos_view', 'mt_criar', 'mt_aprovar'],   // Fase G: decide os assuntos da equipa
+  'Colaborador (só portal)': ['mt_assuntos_view', 'mt_criar'],
+  'Direcção': ['mt_aprovar'],
+  'Fiel de Armazém': ['activos_manutencao_view', 'activos_manut_requisitar'],   // Fase F: entrega das requisições de manutenção
+  'Comercial / Facturação': ['vendas_alterar_preco', 'vendas_series_view'],
   'Comercial CRM': ['vendas_alterar_preco'],
   'Director Comercial': ['vendas_alterar_preco'],
 };
@@ -50,7 +56,17 @@ for (const e of catalogo.modulos.flatMap((m) => m.ecras)) {
     if (i >= 0) e.tarefas.splice(i + 1, 0, t); else e.tarefas.push(t);
   }
 }
-for (const m of catalogo.modelos) for (const k of MODELOS_EXTRA[m.nome] || []) m.permissoes[k] = true;
+// Rótulos do legado que não dizem o que a tarefa faz no sistema novo (ADR-071)
+const ROTULOS = {
+  activos_manut: 'Registar, executar e eliminar manutenções no histórico do activo',
+  ia_lancar: 'Calcular com as regras e ler documentos com o agente (a gravação no diário exige a tarefa de lançamentos)',
+};
+for (const t of catalogo.modulos.flatMap((m) => m.ecras).flatMap((e) => e.tarefas)) if (ROTULOS[t.chave]) t.rotulo = ROTULOS[t.chave];
+const existentes = new Set(catalogo.modulos.flatMap((m) => m.ecras.flatMap((e) => [...e.vistas.map((v) => `${v}_view`), ...e.tarefas.map((t) => t.chave)])));
+for (const m of catalogo.modelos) for (const k of MODELOS_EXTRA[m.nome] || []) {
+  if (!existentes.has(k)) throw new Error(`MODELOS_EXTRA: a tarefa ${k} (${m.nome}) não existe no catálogo`);
+  m.permissoes[k] = true;
+}
 fs.writeFileSync(destino, JSON.stringify(catalogo, null, 2) + '\n');
 const ecras = catalogo.modulos.flatMap((m) => m.ecras);
 console.log(JSON.stringify({ modulos: catalogo.modulos.length, ecras: ecras.length, tarefas: ecras.reduce((a, e) => a + e.tarefas.length, 0), segregacao: catalogo.segregacao.length, modelos: catalogo.modelos.length }));

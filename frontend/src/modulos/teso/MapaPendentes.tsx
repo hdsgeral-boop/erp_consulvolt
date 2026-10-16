@@ -1,4 +1,5 @@
-import { Card, Input, Select, Statistic, Table, Typography } from 'antd';
+import { Card, Input, Select, Table, Typography } from 'antd';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
@@ -51,9 +52,11 @@ export function MapaPendentes() {
         />
         <Input.Search placeholder="Terceiro ou documento" allowClear style={{ width: 260, maxWidth: '100%' }} onSearch={setPesquisa} />
       </BarraFiltros>
-      <div className="erp-grelha-auto" style={{ marginBottom: 12 }}>
-        <Statistic title="A receber (Kz)" value={formatarKz(aReceber)} />
-        <Statistic title="A pagar (Kz)" value={formatarKz(aPagar)} />
+      <div style={{ marginBottom: 12 }}>
+        <GrelhaKpi larguraMinima={200}>
+          <CartaoKpi rotulo="A receber" valor={formatarKz(aReceber)} unidade="Kz" icone="hand-holding-usd" cor="sucesso" />
+          <CartaoKpi rotulo="A pagar" valor={formatarKz(aPagar)} unidade="Kz" icone="file-invoice-dollar" cor="vermelho" />
+        </GrelhaKpi>
       </div>
       <Table<Pendente>
         rowKey={(p) => `${p.terceiro_id}|${p.codigo_conta}|${p.numero_documento}`}

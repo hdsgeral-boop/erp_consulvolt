@@ -80,7 +80,7 @@ function Cadastro() {
   const pequeno = useEcraPequeno();
   const locais = useOpcoesLocais();
   // coluna «Localização» do legado novo (ui_assets.js:217): selo EDIFÍCIO ou Edifício · Andar · Porta
-  const local = (r: Activo) => (r.tipo_ativo === 'EDIFICIO' ? 'EDIFÍCIO' : textoLocal(locais.data, r.porta_id));
+  const local = (r: Activo) => (r.tipo_ativo === 'EDIFICIO' ? 'EDIFÍCIO' : textoLocal(locais.data, r.porta_id, r.edificio_id, r.andar_id));
   const kz = (v: unknown) => formatarKz(v === null || v === undefined ? null : String(v));
   const colunas: ColunaApi<Activo>[] = [
     {

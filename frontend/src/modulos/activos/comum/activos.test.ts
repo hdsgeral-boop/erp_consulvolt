@@ -108,3 +108,15 @@ describe('importação CSV', () => {
     expect(lerCsvImportacao('codigo;descricao').linhas).toEqual([]);
   });
 });
+
+describe('Categorias — contas fora da classe (ADR-071, A9)', () => {
+  it('compara só os dígitos e não assinala campos vazios', async () => {
+    const { contaForaDaClasse } = await import('./regras');
+    expect(contaForaDaClasse('68.1.1', '68')).toBe(false);
+    expect(contaForaDaClasse('681001', '68')).toBe(false);
+    expect(contaForaDaClasse('6211', '68')).toBe(true);
+    expect(contaForaDaClasse('78-1', '78')).toBe(false);
+    expect(contaForaDaClasse('', '78')).toBe(false);
+    expect(contaForaDaClasse(null, '78')).toBe(false);
+  });
+});

@@ -42,7 +42,7 @@ export function ListaProcessamentos({ accoesExtra }: { accoesExtra?: ReactNode }
       valorImpressao: (p) => (p.contabilizado ? `Contabilizado${p.numero_lan_contabilizacao ? ` (${p.numero_lan_contabilizacao})` : ''}` : 'Pendente'),
       valorFiltro: (p) => (p.contabilizado ? 'Contabilizado' : 'Pendente'),
       render: (_: unknown, p) => (p.contabilizado
-        ? <span style={{ color: '#2563eb', background: '#eff6ff', border: '1px solid #dbeafe', borderRadius: 6, padding: '2px 8px', whiteSpace: 'nowrap' }} title={p.numero_lan_contabilizacao ?? undefined}><IconeFa nome="book" /> Contabilizado</span>
+        ? <span style={{ color: '#2563eb', background: '#eff6ff', border: '1px solid #dbeafe', borderRadius: 4, padding: '2px 8px', whiteSpace: 'nowrap' }} title={p.numero_lan_contabilizacao ?? undefined}><IconeFa nome="book" /> Contabilizado</span>
         : <span style={{ color: '#94a3b8' }}><IconeFa nome="minus-circle" /> Pendente</span>),
     },
   ];

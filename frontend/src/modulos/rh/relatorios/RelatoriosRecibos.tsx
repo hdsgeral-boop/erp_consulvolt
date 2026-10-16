@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Empty, Modal, Select, Space, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Modal, Select, Space, Typography, theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState, type Key } from 'react';
 import { obter } from '@/api/cliente';
@@ -36,6 +36,7 @@ type Vista = (typeof MAPAS_RELATORIOS)[number]['vista'];
  * continuam também como páginas próprias (rh_rel_*). Só apresentação: os valores vêm do servidor (fotografia).
  */
 export default function RelatoriosRecibos() {
+  const { token } = theme.useToken();
   const { menu } = useSessao();
   const periodos = usePeriodosSalariais();
   useAvisarErro(periodos.error, 'Erro ao carregar os períodos salariais');
@@ -88,8 +89,8 @@ export default function RelatoriosRecibos() {
 
       {p && (
         <>
-          <div className="rh-nao-imprimir" style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: 10, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 4 }}>
-            <strong style={{ fontSize: '0.85rem', color: '#334155', marginRight: 4 }}>Folha:</strong>
+          <div className="rh-nao-imprimir" style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', padding: 10, background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 4 }}>
+            <strong style={{ fontSize: '0.85rem', color: token.colorText, marginRight: 4 }}>Folha:</strong>
             {botaoGrupo('colaboradores', 'Colaboradores', 'users')}
             {botaoGrupo('avencados', 'Avençados', 'user-tie')}
             <span style={{ marginLeft: 'auto' }}><BotaoGerarPagamento periodo={p} /></span>

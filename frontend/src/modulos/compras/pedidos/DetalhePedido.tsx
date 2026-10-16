@@ -6,6 +6,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { CartaoAlocacaoUN, useColunasUNCC, type LinhaComUNCC, type ResumoAlocacao } from '@/componentes/reparticao';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosPedidoCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -34,7 +35,9 @@ export function DetalhePedido() {
   const [form] = Form.useForm<{ decisao: 'APROVAR' | 'RECUSAR'; nota?: string }>();
   const tipoDecisao = Form.useWatch('decisao', form);
 
-  const consulta = useQuery({ queryKey: ['compras', 'pedido', id], queryFn: () => obter<PedidoCompra>(`/compras/pedidos/${id}`) });
+  const consulta = useQuery({ queryKey: ['compras', 'pedido', id], queryFn: () => obter<PedidoCompra & { alocacao_un?: ResumoAlocacao | null }>(`/compras/pedidos/${id}`) });
+  // ADR-071 (R5): colunas «Un. negócio» / «C. custo» por linha
+  const colunasUNCC = useColunasUNCC((consulta.data?.linhas ?? []) as (ItemCompra & LinhaComUNCC)[]);
   const verPropostas = pode('compras_prospeccao_view');
   const propostas = useQuery({
     queryKey: ['compras', 'propostas', 'do-pedido', id],
@@ -131,8 +134,10 @@ export function DetalhePedido() {
             { title: 'Qtd.', dataIndex: 'quantidade', align: 'right', render: formatarNumero },
             { title: 'Preço estimado', dataIndex: 'preco_unitario', align: 'right', render: (v: string | null) => (v ? formatarKz(v) : <Typography.Text type="warning">sem preço</Typography.Text>) },
             { title: 'Total estimado', key: 'total', align: 'right', render: (_, l) => (l.preco_unitario ? formatarKz(numero(l.quantidade) * numero(l.preco_unitario)) : '—') },
+            ...colunasUNCC,
           ]}
         />
+        <CartaoAlocacaoUN tipo="pedido_compra" id={p.id} resumo={p.alocacao_un} podeAlterar={false} />
       </Card>
 
       {verPropostas && (propostas.data?.itens.length ?? 0) > 0 && (

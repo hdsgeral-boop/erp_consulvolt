@@ -9,8 +9,10 @@ use App\Support\Dados\VerificadorReferencias;
 
 /**
  * Categorias de imobilizado (renderAssetCategories / saveAssetCategory / deleteAssetCategory, js/ui_assets.js:912-1095).
- * As contas seguem os filtros do formulário do legado: gasto 73, amortização acumulada 18, venda classe 6, perda classe 7
- * (ui_assets.js:926-929); a conta do activo (11/12/14) é nova e serve o abate quando o activo não tem lançamento de compra.
+ * As contas seguem os filtros do formulário do legado novo (ui_assets.js:985-1033): gasto 73, amortização acumulada 18, ganho
+ * na venda 68 (outros proveitos operacionais), perda/sinistro 78 (outros custos operacionais); a conta do activo (11/12/14)
+ * é nova e serve o abate quando o activo não tem lançamento de compra. A classe compara-se sem pontos (68.1.1 = 6811). Uma
+ * conta já gravada fora da classe (mapeamento anterior, ui_assets.js:1136-1150) mantém-se ao gravar se o campo não mudar.
  * Correcções:
  *   - as contas têm de existir e ser de movimento (o legado aceitava qualquer texto e a integração caía em «73.1»/«18.1»);
  *   - nome obrigatório e único (o legado gravava categorias sem nome e duplicadas);
@@ -21,8 +23,8 @@ final class ServicoCategoriasAtivos
     public const CONTAS = [
         'conta_gasto' => ['73', 'Amortização do exercício (73)'],
         'conta_amortizacao_acumulada' => ['18', 'Amortização acumulada (18)'],
-        'conta_venda' => ['6', 'Venda / ganho (classe 6)'],
-        'conta_perda' => ['7', 'Perda / sinistro (classe 7)'],
+        'conta_venda' => ['68', 'Ganho na venda (classe 68)'],
+        'conta_perda' => ['78', 'Perda / sinistro (classe 78)'],
         'conta_ativo' => ['1', 'Activo (classe 1)'],
     ];
 
@@ -50,7 +52,11 @@ final class ServicoCategoriasAtivos
             if ($d[$campo] === null) {
                 continue;
             }
-            if (! str_starts_with($d[$campo], $prefixo)) {
+            // mapeamento anterior fora da classe: não se bloqueia gravar a categoria se o campo não mudou (só se assinala no ecrã)
+            if ($c && (string) $c->{$campo} === $d[$campo]) {
+                continue;
+            }
+            if (! self::daClasse($d[$campo], $prefixo)) {
                 throw new ErroNegocio("{$rotulo}: a conta {$d[$campo]} não pertence à classe/grupo {$prefixo}.", 'CONTA_INVALIDA', 422, ['campo' => $campo]);
             }
             $this->planoContas->contaDeMovimento($d[$campo]);
@@ -63,6 +69,12 @@ final class ServicoCategoriasAtivos
         }
 
         return CategoriaAtivo::create($d + ['taxa_anual' => 0]);
+    }
+
+    /** A conta é da classe/grupo? Compara só os dígitos (68.1.1, 681001 e 68-1 são todos da 68 — ui_assets.js:989). */
+    public static function daClasse(string $conta, string $prefixo): bool
+    {
+        return str_starts_with((string) preg_replace('/\D/', '', $conta), $prefixo);
     }
 
     public function eliminar(CategoriaAtivo $c): void

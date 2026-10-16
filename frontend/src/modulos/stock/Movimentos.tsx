@@ -1,4 +1,4 @@
-import { Button, Card, Col, DatePicker, Flex, Input, Row, Select, Typography } from 'antd';
+import { Button, Card, Col, DatePicker, Flex, Input, Row, Select, theme, Typography } from 'antd';
 import { useEcraPequeno } from '@/componentes/responsivo';
 import type { Dayjs } from 'dayjs';
 import { useState, type ReactNode } from 'react';
@@ -24,11 +24,12 @@ interface Filtros {
 
 const VAZIO: Filtros = { referencia: '' };
 
-/** Rótulo dos filtros como no legado (0.65rem, negrito, maiúsculas, #475569). */
+/** Rótulo dos filtros como no legado (0.65rem, negrito, maiúsculas, #475569 = texto secundário do tema). */
 function Campo({ rotulo, children }: { rotulo: string; children: ReactNode }) {
+  const { token } = theme.useToken();
   return (
     <label style={{ display: 'block' }}>
-      <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginBottom: 6 }}>{rotulo}</span>
+      <span style={{ display: 'block', fontSize: '0.65rem', fontWeight: 800, color: token.colorTextSecondary, textTransform: 'uppercase', marginBottom: 6 }}>{rotulo}</span>
       {children}
     </label>
   );
@@ -46,6 +47,7 @@ export default function Movimentos() {
   const [recalcular, setRecalcular] = useState(false);
   const { pode } = useSessao();
   const pequeno = useEcraPequeno();
+  const { token } = theme.useToken();
   const produtos = useMapaProdutos();
   const armazens = useArmazens();
   const nomeArmazemFiltro = (id: number) => armazens.data?.find((a) => a.id === id)?.nome ?? 'N/D';
@@ -96,7 +98,7 @@ export default function Movimentos() {
           </Flex>
         }
       >
-        <div style={{ background: '#f1f5f9', padding: pequeno ? 12 : 20, borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 16 }}>
+        <div style={{ background: token.colorFillSecondary, padding: pequeno ? 12 : 20, borderRadius: token.borderRadius, border: `1px solid ${token.colorBorderSecondary}`, marginBottom: 16 }}>
           <Row gutter={[12, 12]} align="bottom">
             <Col xs={24} md={8} xl={6}>
               <Campo rotulo="Material">

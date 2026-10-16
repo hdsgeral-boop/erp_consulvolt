@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, Collapse, Drawer, Empty, Flex, Form, Input, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Statistic, Switch, Tabs, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Collapse, Drawer, Empty, Flex, Form, Input, List, Modal, Popconfirm, Row, Select, Skeleton, Space, Switch, Tabs, Tag, Tooltip, Typography, message } from 'antd';
 import { CheckOutlined, CopyOutlined, DeleteOutlined, EditOutlined, ExperimentOutlined, PlusOutlined, SafetyCertificateOutlined, WarningOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -24,6 +24,7 @@ import {
 } from './comum/permissoes';
 import { larguraGaveta, useEcra } from '@/componentes/responsivo';
 import { TabelaLocalImprimivel } from './comum/impressao';
+import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 
 interface PerfilResumo {
   id: number;
@@ -118,7 +119,7 @@ function ListaPerfis({ gerir }: { gerir: boolean }) {
         dataSource={linhas}
         pagination={{ pageSize: 50, hideOnSinglePage: true }}
         columns={[
-          { title: 'Perfil', dataIndex: 'nome', valorImpressao: (p) => [p.nome, p.descricao].filter(Boolean).join(' — '), render: (v: string, p) => (<><strong>{v}</strong>{p.descricao && <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>{p.descricao}</div>}</>) },
+          { title: 'Perfil', dataIndex: 'nome', valorImpressao: (p) => [p.nome, p.descricao].filter(Boolean).join(' — '), render: (v: string, p) => (<><strong>{v}</strong>{p.descricao && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{p.descricao}</Typography.Text>}</>) },
           {
             title: 'Formato',
             dataIndex: 'formato',
@@ -373,11 +374,13 @@ function EditorPerfil({ id, gerir, aoFechar, aoGravar }: { id: number | 'novo' |
               ) : (
                 contagem && (
                   <>
-                    <Flex gap={16} wrap>
-                      <Statistic title="Ecrãs" value={contagem.ecras} />
-                      <Statistic title="Tarefas" value={contagem.tarefas} />
-                      <Statistic title="Sensíveis" value={contagem.sensiveis} valueStyle={{ color: contagem.sensiveis ? '#d46b08' : undefined }} />
-                    </Flex>
+                    {/* resumo do legado (permissoes.js:1073-1078, .perm-resumo/.perm-num): 4 números, em âmbar quando há alerta */}
+                    <GrelhaKpi larguraMinima={110}>
+                      <CartaoKpi barra="nenhuma" rotulo="Ecrãs" valor={contagem.ecras} />
+                      <CartaoKpi barra="nenhuma" rotulo="Tarefas" valor={contagem.tarefas} />
+                      <CartaoKpi barra="nenhuma" rotulo="Tarefas sensíveis" valor={contagem.sensiveis} corValor={contagem.sensiveis ? '#b45309' : undefined} />
+                      <CartaoKpi barra="nenhuma" rotulo="Conflitos de segregação" valor={contagem.conflitos.length} corValor={contagem.conflitos.length ? '#b45309' : undefined} />
+                    </GrelhaKpi>
                     {contagem.ecras === 0 && <Alert style={{ marginTop: 8 }} type="warning" showIcon message="Marque pelo menos um ecrã para consultar." />}
                     <Typography.Title level={5} style={{ marginTop: 12 }}>
                       Segregação de funções

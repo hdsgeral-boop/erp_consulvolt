@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Empty, Row, Skeleton, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Empty, Row, Skeleton, Table, Tag, Typography, message, theme } from 'antd';
 import { DownloadOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -16,6 +16,9 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { type ResumoVendas, type ValidacaoSaft } from './kpis';
 import { EcraSaft } from './EcraSaft';
+
+/** Cores das fatias do donut «Maiores Clientes» no legado (ui_sales.js:4283), em ciclo como no Chart.js. */
+const CORES_CLIENTES = (_r: string, i: number) => ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][i % 5];
 
 /** Vendas › Dashboard (ecrã vendas_relatorios) e o separador «Exportar SAFT-AO» (vendas_relatorios/saft). */
 export default function Relatorios() {
@@ -172,7 +175,7 @@ function DashboardVendas() {
                     series={[{ rotulo: 'Faturação (com IVA)', valores: resumo.por_mes.map((m) => m.bruto), cor: '#2563eb' }]}
                     monetario
                     preenchimento
-                    altura={280}
+                    altura={300}
                   />
                 )}
                 <Typography.Text type="secondary">{resumo.documentos} documento(s) · total {formatarKz(resumo.bruto, true)}</Typography.Text>
@@ -183,7 +186,7 @@ function DashboardVendas() {
                 {resumo.maiores_clientes.length === 0 ? (
                   <Empty description="Sem clientes no período." />
                 ) : (
-                  <GraficoDonut rotulos={resumo.maiores_clientes.map((c) => c.nome)} series={[{ rotulo: 'Facturado', valores: resumo.maiores_clientes.map((c) => c.bruto) }]} monetario />
+                  <GraficoDonut coresCategorias={CORES_CLIENTES} rotulos={resumo.maiores_clientes.map((c) => c.nome)} series={[{ rotulo: 'Facturado', valores: resumo.maiores_clientes.map((c) => c.bruto) }]} monetario altura={300} />
                 )}
                 <Table
                   rowKey={(c) => String(c.cliente_id ?? 'cf')}
@@ -234,6 +237,7 @@ interface AlertaStock { id: number; codigo: string | null; nome: string | null; 
 
 /** 4.3.7 — «Alertas de Stock Baixo» do Dashboard de Vendas do legado (produto, código e «N un»). */
 function AlertasStock() {
+  const { token } = theme.useToken();
   const alertas = useQuery({
     queryKey: ['vendas', 'relatorio', 'alertas-stock'],
     queryFn: () => obter<AlertaStock[]>('/vendas/relatorios/alertas-stock'),
@@ -245,16 +249,16 @@ function AlertasStock() {
       {alertas.error ? (
         <Alert type="error" showIcon style={{ margin: 16 }} message="Não foi possível ler os alertas de stock." />
       ) : !alertas.data?.length ? (
-        <div style={{ padding: 32, textAlign: 'center', color: '#64748b' }}>Nenhum alerta de stock.</div>
+        <div style={{ padding: 32, textAlign: 'center', color: token.colorTextSecondary }}>Nenhum alerta de stock.</div>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {alertas.data.map((p) => {
             const q = Number(p.stock);
             return (
-              <li key={p.id} style={{ padding: 16, borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <li key={p.id} style={{ padding: 16, borderBottom: `1px solid ${token.colorSplit}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <div style={{ minWidth: 0 }}>
                   <span style={{ display: 'block', fontWeight: 600, fontSize: 14 }}>{p.nome}</span>
-                  <small style={{ color: '#64748b' }}>Código: {p.codigo ?? '—'}</small>
+                  <small style={{ color: token.colorTextSecondary }}>Código: {p.codigo ?? '—'}</small>
                 </div>
                 <Tag color={q <= 0 ? 'red' : 'orange'} style={{ margin: 0 }}>{formatarNumero(q)} un</Tag>
               </li>

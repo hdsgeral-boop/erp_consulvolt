@@ -1,9 +1,10 @@
-import { Button, Card, Checkbox, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Tabs, Tag, Tooltip } from 'antd';
+import { Button, Card, Checkbox, Col, Form, Input, InputNumber, Row, Select, Space, Tabs, Tag, Tooltip } from 'antd';
 import { ModalImportarProdutos, type EntidadeImportacao } from './ModalImportarProdutos';
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState, type Key } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState, type Key } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { AlternarFormulario, ModalFormulario, PainelLinhas, useVistaFormulario } from '@/componentes/formularios';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -13,7 +14,7 @@ import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { TabelaComModos } from '@/componentes/vistas';
-import { corpoProduto, produtoParaFormulario, type ProdutoFicha, type ValoresProduto } from './formularioProduto';
+import { CAMPOS_CATEGORIA, camposProdutoLinhas, corpoCategoria, corpoProduto, corpoProdutoLinha, produtoParaFormulario, type ProdutoFicha, type ValoresProduto } from './formularioProduto';
 import { CampoImagemProduto, MiniaturaProduto } from './imagemProduto';
 import { ModalEditarMassaProdutos } from './ModalEditarMassaProdutos';
 import { accoesProduto, type EdicaoProduto } from './regrasProdutos';
@@ -117,7 +118,7 @@ function ListaProdutos() {
     { title: 'IVA dedutível', key: 'c_ivd', render: (_, r) => celulaConta(r.contas.iva_dedutivel), valorImpressao: (r) => r.contas.iva_dedutivel ?? '' },
     { title: 'Quebras', key: 'c_queb', render: (_, r) => celulaConta(r.contas.quebra), valorImpressao: (r) => r.contas.quebra ?? '' },
     { title: 'Sobras', key: 'c_sob', render: (_, r) => celulaConta(r.contas.sobra), valorImpressao: (r) => r.contas.sobra ?? '' },
-    { title: 'Imobilizado', key: 'c_atv', render: (_, r) => <span style={{ background: '#f5f3ff', padding: '0 4px' }}>{celulaConta(r.contas.ativo)}</span>, valorImpressao: (r) => r.contas.ativo ?? '' },
+    { title: 'Imobilizado', key: 'c_atv', render: (_, r) => <span style={{ background: 'rgba(124, 58, 237, 0.08)', padding: '0 4px' }}>{celulaConta(r.contas.ativo)}</span>, valorImpressao: (r) => r.contas.ativo ?? '' },
   ];
 
   return (
@@ -189,6 +190,12 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
     enabled: !!edicao.id,
   });
   const gravar = useAccao<ProdutoFicha>({ invalidar: [['logistica']], aoSucesso: aoFechar, tituloErro: 'Não foi possível gravar o produto' });
+  // «Grade | Linhas» no cabeçalho do formulário, só em «Novo» (legado: formularios_linhas_config.js › produtos)
+  const [vistaPreferida, guardarVista] = useVistaFormulario('vendas.produtos');
+  const novo = edicao.modo === 'novo';
+  const emLinhas = novo && vistaPreferida === 'linhas';
+  const cliente = useQueryClient();
+  const camposLinhas = useMemo(() => camposProdutoLinhas(categorias), [categorias]);
 
   useEffect(() => {
     if (edicao.modo === 'novo') {
@@ -214,8 +221,27 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
       title={titulo}
       style={{ marginBottom: 16, borderTop: '4px solid var(--ant-color-primary, #2563eb)' }}
       loading={!!edicao.id && ficha.isLoading}
-      extra={<Button type="text" aria-label="Fechar" icon={<IconeFa nome="times" />} onClick={aoFechar} />}
+      extra={
+        <Space>
+          {novo && <AlternarFormulario vista={emLinhas ? 'linhas' : 'grade'} aoMudar={guardarVista} />}
+          <Button type="text" aria-label="Fechar" icon={<IconeFa nome="times" />} onClick={aoFechar} />
+        </Space>
+      }
     >
+      {emLinhas && (
+        <PainelLinhas
+          chave="vendas.produtos"
+          campos={camposLinhas}
+          nomeRegistos="produtos e serviços"
+          nota="Uma linha por produto ou serviço. Quartos, lavandaria e activos imobilizados registam-se na vista em grade (têm campos próprios). Linhas deixadas em branco são ignoradas. Cada linha é gravada com as mesmas regras do formulário."
+          gravar={(r) => enviar('post', '/logistica/produtos', corpoProdutoLinha(r))}
+          aoConcluir={(r) => {
+            if (r.gravadas) void cliente.invalidateQueries({ queryKey: ['logistica'] });
+            if (r.gravadas && !r.falhadas) aoFechar();
+          }}
+        />
+      )}
+      <div hidden={emLinhas}>
       <Form<ValoresProduto>
         form={form}
         layout="vertical"
@@ -342,6 +368,7 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
           <Button onClick={aoFechar}>Cancelar</Button>
         </Space>
       </Form>
+      </div>
     </Card>
   );
 }
@@ -359,6 +386,9 @@ function Categorias() {
   const adicionar = useAccao({ invalidar: [['logistica', 'categorias']], aoSucesso: () => formNova.resetFields() });
   const gravar = useAccao({ invalidar: [['logistica', 'categorias']], aoSucesso: () => setEdicao(null) });
   const eliminar = useAccao({ invalidar: [['logistica', 'categorias']] });
+  // «Grade | Linhas» no cabeçalho do cartão «Nova Categoria» (legado: formularios_linhas_config.js › categorias)
+  const [vista, guardarVista] = useVistaFormulario('vendas.categorias');
+  const cliente = useQueryClient();
 
   useEffect(() => {
     if (edicao) form.setFieldsValue({ nome: edicao.nome });
@@ -369,8 +399,17 @@ function Categorias() {
       <ModalImportarProdutos entidade={importar} aoFechar={() => setImportar(null)} />
       {/* dois cartões, como o legado (js/ui_sales.js:5406-5429): «Nova Categoria» e «Listagem de Categorias» */}
       {podeGerir && (
-        <Card title="Nova Categoria" style={{ marginBottom: '2rem' }}>
-          <Form form={formNova} layout="vertical" onFinish={(v) => adicionar.mutate({ url: '/logistica/categorias-produtos', dados: v })}>
+        <Card title="Nova Categoria" style={{ marginBottom: '2rem' }} extra={<AlternarFormulario vista={vista} aoMudar={guardarVista} />}>
+          {vista === 'linhas' ? (
+            <PainelLinhas
+              chave="vendas.categorias"
+              campos={CAMPOS_CATEGORIA}
+              nomeRegistos="categorias"
+              gravar={(r) => enviar('post', '/logistica/categorias-produtos', corpoCategoria(r))}
+              aoConcluir={(r) => { if (r.gravadas) void cliente.invalidateQueries({ queryKey: ['logistica', 'categorias'] }); }}
+            />
+          ) : (
+          <Form form={formNova} layout="vertical" onFinish={(v) => adicionar.mutate({ url: '/logistica/categorias-produtos', dados: corpoCategoria(v) })}>
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
               <Form.Item name="nome" label="Nome da Categoria:" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]} style={{ flex: 1, marginBottom: 0 }}>
                 <Input placeholder="Ex: Bebidas, Servicos de Consultoria..." />
@@ -378,6 +417,7 @@ function Categorias() {
               <Button type="primary" htmlType="submit" loading={adicionar.isPending} icon={<IconeFa nome="plus" />}>Adicionar</Button>
             </div>
           </Form>
+          )}
         </Card>
       )}
       <Card title="Listagem de Categorias" extra={podeGerir && <Button icon={<IconeFa nome="file-import" />} onClick={() => setImportar('categorias')}>Importar</Button>}>
@@ -394,11 +434,25 @@ function Categorias() {
         ]}
         vazio={{ icone: 'tags', titulo: 'Sem categorias', texto: 'Acrescente a primeira categoria acima.' }}
       />
-      <Modal title="Editar categoria" open={edicao !== null} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
-        <Form form={form} layout="vertical" onFinish={(v) => edicao && gravar.mutate({ metodo: 'put', url: `/logistica/categorias-produtos/${edicao.id}`, dados: v })}>
+      {/* só edição: a criação é no cartão «Nova Categoria» (com Grade | Linhas) */}
+      <ModalFormulario
+        chave="vendas.categorias"
+        titulo="Editar categoria"
+        aberto={edicao !== null}
+        aoFechar={() => setEdicao(null)}
+        criacao={false}
+        destroyOnHidden={false}
+        campos={CAMPOS_CATEGORIA}
+        gravarLinha={(r) => enviar('post', '/logistica/categorias-produtos', corpoCategoria(r))}
+        okText="Gravar"
+        cancelText="Cancelar"
+        confirmLoading={gravar.isPending}
+        onOk={() => form.submit()}
+      >
+        <Form form={form} layout="vertical" onFinish={(v) => edicao && gravar.mutate({ metodo: 'put', url: `/logistica/categorias-produtos/${edicao.id}`, dados: corpoCategoria(v) })}>
           <Form.Item name="nome" label="Nome da Categoria" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input /></Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
       </Card>
     </>
   );

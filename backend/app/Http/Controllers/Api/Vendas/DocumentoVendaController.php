@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Vendas\EmitirDocumentoRequest;
 use App\Http\Resources\Vendas\VendaResource;
 use App\Models\Venda;
+use App\Services\Gestao\ResumoAlocacaoUN;
+use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Vendas\ServicoContabilizacaoVendas;
 use App\Services\Vendas\ServicoDocumentosVenda;
 use App\Services\Vendas\ServicoFluxoDocumentoVenda;
@@ -190,7 +192,7 @@ final class DocumentoVendaController extends Controller
 
     private function detalhe(Venda $venda): array
     {
-        $venda->load(['cliente:id,nome,nif,endereco', 'itensVenda' => fn ($q) => $q->orderBy('id')]);
+        $venda->load(['cliente:id,nome,nif,endereco', 'itensVenda' => fn ($q) => $q->orderBy('id'), 'itensVenda.unidadeNegocio:id,codigo,nome', 'itensVenda.centroCusto:id,codigo,descricao']);
         $relacionados = DB::table('vendas_documentos_relacionados as r')
             ->join('vendas as o', fn ($j) => $j->on('o.id', '=', DB::raw('CASE WHEN r.venda_id = '.(int) $venda->id.' THEN r.venda_relacionada_id ELSE r.venda_id END')))
             ->where('r.empresa_id', $venda->empresa_id)
@@ -202,6 +204,11 @@ final class DocumentoVendaController extends Controller
         $anulacao = $venda->estado === 'ANULADO' ? ['em' => $venda->getAttribute('anulado_em') ? Carbon::parse($venda->getAttribute('anulado_em'))->toIso8601String() : null,
             'por' => $venda->getAttribute('anulado_por'), 'motivo' => $venda->getAttribute('motivo_anulacao')] : null;
 
-        return (new VendaResource($venda))->resolve() + ['documentos_relacionados' => $relacionados, 'anulacao' => $anulacao];
+        // ADR-071 (R5): alocação por unidades de negócio (editável no ecrã) e o bloco só de leitura com as percentagens
+        $alocacao = $venda->getAttributes()['unidades_alocadas'] ?? null;
+
+        return (new VendaResource($venda))->resolve() + ['documentos_relacionados' => $relacionados, 'anulacao' => $anulacao,
+            'unidades_alocadas' => ServicoReparticao::vazia($alocacao) ? null : ServicoReparticao::ler($alocacao),
+            'alocacao_un' => app(ResumoAlocacaoUN::class)->resumo($alocacao, $venda->total_liquido)];
     }
 }

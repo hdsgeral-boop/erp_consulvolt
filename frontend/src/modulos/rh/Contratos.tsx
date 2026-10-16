@@ -2,20 +2,23 @@ import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, M
 import { AppstoreAddOutlined, CalculatorOutlined, ImportOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState, type Key } from 'react';
+import { useMemo, useState, type Key } from 'react';
 import { descarregar, enviar, obter } from '@/api/cliente';
 import { IconeFa } from '@/componentes/fluxos';
 import { useImpressao } from '@/componentes/impressao';
 import { contratoAssinaturaHtml } from './contratos/contratoAssinatura';
+import { SubsidiosMinuta } from './contratos/SubsidiosMinuta';
 import { notificarErro } from '@/utilitarios/erros';
 import { ContratosMassa } from './comum/ContratosMassa';
 import { SimularMassa } from './comum/SimularMassa';
 import { ImportarExcel } from './comum/ImportarExcel';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { dataDe, numeroDe, opcoesColaboradores } from './comum/linhasRh';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
-import { ESTADOS_COLABORADOR, ESTADOS_CONTRATO, type ContratoTrabalho, type ItemProdutividade } from './api';
+import { ESTADOS_COLABORADOR, ESTADOS_CONTRATO, type ConfiguracaoRH, type ContratoTrabalho, type ItemProdutividade } from './api';
 import { accoesEstadoContrato, ModaisEstadoContrato, type AccaoEstado } from './contratos/EstadoContrato';
 import { CamposHorario, horarioParaApi, horarioParaForm, type ValoresHorario } from './contratos/HorarioContrato';
 import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
@@ -35,6 +38,64 @@ interface ValoresContrato extends ValoresHorario {
   codigo_moeda: string;
   remuneracoes: { infotipo_salarial_id: number; valor_mes: number }[];
   produtividade?: { item_id: number; preco_unitario?: number | null }[];
+  /** Minuta (Lei 12/23): razões do contrato a termo e período experimental. */
+  motivo_termo?: string | null;
+  periodo_experimental_dias?: number | null;
+}
+
+interface PostoEstrutura { id: number; titulo: string | null; responsabilidades: string | null }
+
+/** Prefixo das colunas «valor mensal por rubrica» da vista Linhas (legado: chave `rub-<id>`). */
+const PREFIXO_RUBRICA = 'rub_';
+
+/**
+ * Colunas da vista Linhas do «Novo contrato» (legado: formularios_linhas_config.js › contratos): colaborador, uma
+ * coluna de VALOR MENSAL por rubrica de vencimento, dias/mês, horas/dia, início, fim, estado e moeda.
+ */
+export function camposContrato(colaboradores: CampoFormulario['opcoes'], rubricas: { id: number; nome: string }[]): CampoFormulario[] {
+  return [
+    { nome: 'colaborador_id', rotulo: 'Colaborador', tipo: 'select', obrigatorio: true, largura: 230, opcoes: colaboradores, aliases: ['NIF Colaborador', 'NIF', 'Nome'] },
+    ...rubricas.map((r, i): CampoFormulario => ({
+      nome: `${PREFIXO_RUBRICA}${r.id}`, rotulo: `${r.nome} (mensal)`, tipo: 'numero', largura: 130, min: 0, precisao: 2, aliases: [r.nome], emLinhas: i < 4 ? true : 'opcional', seccao: 'Rubricas',
+      ...(i === 0 ? { validar: (_: unknown, reg: Record<string, unknown>) => (rubricas.some((x) => Number(reg[`${PREFIXO_RUBRICA}${x.id}`]) > 0) ? null : 'Indique o valor mensal de pelo menos uma rubrica.') } : {}),
+    })),
+    { nome: 'dias_contrato_mes', rotulo: 'Dias/mês', tipo: 'numero', obrigatorio: true, largura: 80, min: 1, max: 31, omissao: 22, aliases: ['Dias_Mes', 'Dias Mes'] },
+    { nome: 'horas_por_dia', rotulo: 'Horas/dia', tipo: 'numero', largura: 80, min: 0.5, max: 24, omissao: 8, aliases: ['Horas_Dia', 'Horas Dia'] },
+    { nome: 'data_inicio', rotulo: 'Início', tipo: 'data', obrigatorio: true, largura: 140, aliases: ['Data_Inicio', 'Data Início'] },
+    { nome: 'data_fim', rotulo: 'Fim', tipo: 'data', largura: 140, aliases: ['Data_Fim', 'Data Fim'],
+      validar: (f, r) => (f && r.data_inicio && String(f) < String(r.data_inicio) ? 'O fim é anterior ao início.' : null) },
+    { nome: 'estado', rotulo: 'Estado', tipo: 'select', largura: 110, omissao: 'ACTIVO', opcoes: ESTADOS_COLABORADOR.filter((e) => e.value !== 'SUSPENSO') },
+    { nome: 'codigo_moeda', rotulo: 'Moeda', largura: 90, maxLength: 3, omissao: 'AOA', validar: (m) => (m && String(m).trim().length !== 3 ? 'Moeda: 3 letras.' : null) },
+  ];
+}
+
+/**
+ * Corpo do POST/PUT /rh/contratos — grade (remunerações em lista, horário, minuta) e linhas (uma coluna por rubrica;
+ * sem horário nem itens de produtividade, que se acrescentam depois em «Editar»).
+ */
+export function dadosContrato(v: Record<string, unknown>) {
+  const { usar_horario: _usar, horario: _h, ...resto } = v;
+  const rubricas = Object.keys(v).filter((k) => k.startsWith(PREFIXO_RUBRICA));
+  const remuneracoes = Array.isArray(v.remuneracoes)
+    ? v.remuneracoes
+    : rubricas.filter((k) => Number(v[k]) > 0).map((k) => ({ infotipo_salarial_id: Number(k.slice(PREFIXO_RUBRICA.length)), valor_mes: Number(v[k]) }));
+  for (const k of rubricas) delete (resto as Record<string, unknown>)[k];
+  const fim = dataDe(v.data_fim);
+  return {
+    ...resto,
+    remuneracoes,
+    horario: horarioParaApi(v as ValoresHorario),
+    data_inicio: dataDe(v.data_inicio),
+    data_fim: fim,
+    // colunas deixadas em branco na colagem: os mesmos valores por omissão do «Novo contrato» da grade
+    dias_contrato_mes: numeroDe(v.dias_contrato_mes) ?? 22,
+    horas_por_dia: numeroDe(v.horas_por_dia) ?? 8,
+    estado: v.estado || 'ACTIVO',
+    codigo_moeda: String(v.codigo_moeda || 'AOA').toUpperCase(),
+    produtividade: ((v.produtividade as ValoresContrato['produtividade']) ?? []).map((p) => ({ item_id: p.item_id, preco_unitario: p.preco_unitario ?? null })),
+    motivo_termo: fim ? String(v.motivo_termo ?? '').trim() || null : null,
+    periodo_experimental_dias: numeroDe(v.periodo_experimental_dias),
+  };
 }
 
 /** RH › Contratos (ecrã contratos): histórico de contratos por colaborador, com remunerações e itens de produtividade. */
@@ -53,6 +114,7 @@ export default function Contratos() {
   const [importarCt, setImportarCt] = useState(false);
   const [massa, setMassa] = useState(false);
   const [simular, setSimular] = useState(false);
+  const [subsidios, setSubsidios] = useState(false);
   const [form] = Form.useForm<ValoresContrato>();
   const [formFim] = Form.useForm<{ data_fim: Dayjs }>();
   const contratos = useQuery({
@@ -85,6 +147,8 @@ export default function Contratos() {
         codigo_moeda: c.codigo_moeda ?? 'AOA',
         remuneracoes: normalizarRemuneracoes(c.remuneracoes, c.dias_contrato_mes ?? 22),
         produtividade: (c.produtividade ?? []).map((p) => ({ item_id: p.item_id, preco_unitario: p.preco_unitario })),
+        motivo_termo: c.motivo_termo ?? '',
+        periodo_experimental_dias: c.periodo_experimental_dias ?? null,
         ...horarioParaForm(c.horario),
       });
     }
@@ -92,20 +156,18 @@ export default function Contratos() {
   };
 
   const gravar = (v: ValoresContrato) => {
-    const { usar_horario: _usar, horario: _h, ...resto } = v;
-    const dados = {
-      ...resto,
-      horario: horarioParaApi(v),
-      data_inicio: dataApi(v.data_inicio),
-      data_fim: dataApi(v.data_fim ?? null) ?? null,
-      produtividade: (v.produtividade ?? []).map((p) => ({ item_id: p.item_id, preco_unitario: p.preco_unitario ?? null })),
-    };
+    const dados = dadosContrato(v as unknown as Record<string, unknown>);
     if (edicao === 'novo') accao.mutate({ metodo: 'post', url: '/rh/contratos', dados });
     else if (edicao) accao.mutate({ metodo: 'put', url: `/rh/contratos/${edicao.id}`, dados });
   };
 
   const linhas = (contratos.data ?? []).filter((c) => contem(colaboradores.nome(c.colaborador_id), termo));
   const vencimentos = infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO');
+  const camposLinhas = useMemo(
+    () => camposContrato(opcoesColaboradores(colaboradores.lista), infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO')),
+    [colaboradores.lista, infotipos.lista],
+  );
+  const contratoAberto = edicao !== null && edicao !== 'novo' ? edicao : null;
 
   const pequeno = useEcraPequeno();
   const { imprimir, obterIdentidade } = useImpressao();
@@ -113,11 +175,18 @@ export default function Contratos() {
   const [seleccionados, setSeleccionados] = useState<Key[]>([]);
   const [aEliminar, setAEliminar] = useState(false);
 
-  /** «Gerar PDF para Assinatura»: minuta do contrato (cláusulas do antigo), impressa ou guardada em PDF. */
+  /** «Gerar PDF para Assinatura»: minuta do contrato pela Lei 12/23 (legado novo, app_v2.js:4998), impressa ou guardada em PDF. */
   const gerarPdf = async (c: ContratoTrabalho) => {
     const col = colaboradores.mapa.get(c.colaborador_id);
-    const cargo = col?.cargo_funcao_id ? cargos.lista.find((x) => x.id === col.cargo_funcao_id) : undefined;
+    const funcao = col?.cargo_funcao_id ? cargos.lista.find((x) => x.id === col.cargo_funcao_id) : undefined;
     const id = await obterIdentidade();
+    // percentagens dos subsídios (configuração de RH) e cargo da estrutura orgânica (título e responsabilidades próprias)
+    const cfg = await obter<ConfiguracaoRH>('/rh/configuracao').catch(() => null);
+    let posto: PostoEstrutura | undefined;
+    if (col?.posto_trabalho_id && pode('est_estrutura_view', 'colaboradores_view')) {
+      const arvore = await obter<{ unidades: { postos: PostoEstrutura[] }[] }>('/rh/estrutura').catch(() => null);
+      posto = arvore?.unidades.flatMap((u) => u.postos).find((p) => p.id === col.posto_trabalho_id);
+    }
     await imprimir({
       titulo: 'Contrato de Trabalho',
       subtitulo: colaboradores.nome(c.colaborador_id),
@@ -126,9 +195,16 @@ export default function Contratos() {
       nomeFicheiro: `Contrato_${colaboradores.nome(c.colaborador_id)}`,
       conteudo: contratoAssinaturaHtml({
         contrato: c,
-        empresa: { nome: id?.nome ?? '', nif: id?.nif, morada: id?.morada },
-        colaborador: { nome: colaboradores.nome(c.colaborador_id), nif: col?.nif, morada: [col?.endereco, col?.bairro, col?.municipio, col?.provincia].filter(Boolean).join(', ') },
-        funcao: cargo ? { nome: cargo.nome, descricao: cargo.descricao } : null,
+        empresa: { nome: id?.nome ?? '', nif: id?.nif, morada: id?.morada, crc: id?.registo_comercial },
+        colaborador: {
+          nome: colaboradores.nome(c.colaborador_id), nif: col?.nif, morada: [col?.endereco, col?.bairro, col?.municipio, col?.provincia].filter(Boolean).join(', '),
+          nacionalidade: col?.nacionalidade, data_nascimento: col?.data_nascimento, estado_civil: col?.estado_civil,
+          naturalidade: [col?.naturalidade, col?.provincia_naturalidade].filter(Boolean).join(', '), documento: col?.documento_identificacao,
+          documento_validade: col?.documento_validade, inss: col?.numero_inss,
+        },
+        funcao: funcao ? { nome: funcao.nome, objetivo_geral: funcao.objetivo_geral, responsabilidades: funcao.responsabilidades, descricao: funcao.descricao } : null,
+        cargo: posto ? { titulo: posto.titulo, responsabilidades: posto.responsabilidades } : null,
+        subsidios: { ferias: cfg?.subsidio_ferias_pct, natal: cfg?.subsidio_natal_pct },
         rubrica: (i) => infotipos.nome(i),
       }),
     });
@@ -176,7 +252,8 @@ export default function Contratos() {
       <ImportarExcel aberto={importarCt} titulo="Importar contratos (Excel)" url="/rh/importacoes/contratos" modelo="contratos"
         ajuda="Modelo vertical: uma linha por rubrica; as linhas com o mesmo NIF formam um contrato (início, dias/mês, horas/dia e estado na 1.ª linha). Quem já tiver contrato nesse período é recusado."
         aoFechar={() => setImportarCt(false)} />
-      <ContratosMassa aberto={massa} aoFechar={() => setMassa(false)} />
+      <ContratosMassa aberto={massa} aoFechar={() => setMassa(false)} contratos={seleccionados.map(Number)} />
+      <SubsidiosMinuta aberto={subsidios} aoFechar={() => setSubsidios(false)} />
       <SimularMassa aberto={simular} aoFechar={() => setSimular(false)} />
       <CabecalhoPagina
         titulo="Gestão de Contratos de Trabalho"
@@ -192,7 +269,8 @@ export default function Contratos() {
               </>
             )}
             {pode('contratos_new') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrir('novo')}>Novo Contrato</Button>}
-            {pode('contratos_new') && <Button type="primary" icon={<AppstoreAddOutlined />} title="Escolher rubricas com o mesmo valor mensal e aplicá-las a vários colaboradores (actualiza ou cria os contratos)" onClick={() => setMassa(true)}>Aplicar em massa</Button>}
+            {pode('contratos_new') && <Button type="primary" icon={<AppstoreAddOutlined />} title="Rubricas com o mesmo valor mensal ou itens de produtividade, aplicados a vários colaboradores (ou aos contratos marcados)" onClick={() => setMassa(true)}>Aplicar em massa</Button>}
+            {pode('config_empresas_gerir', 'contratos_new') && <Button icon={<IconeFa nome="percent" />} title="Percentagens dos subsídios de férias e de Natal na minuta (mínimo legal 50 %)" onClick={() => setSubsidios(true)}>Subsídios na minuta</Button>}
             {pode('contratos_terminate') && (
               <>
                 <Button icon={<IconeFa nome="check-double" />} disabled={!linhas.length} onClick={() => setSeleccionados(linhas.map((c) => c.id))}>Selecionar Tudo</Button>
@@ -236,9 +314,13 @@ export default function Contratos() {
           vazio={{ icone: 'file-contract', titulo: 'Sem contratos', texto: 'Ainda não há contratos com estes filtros.' }} />
       </Card>
 
-      <Modal title={edicao === 'novo' ? 'Novo contrato' : 'Editar contrato'} open={edicao !== null} width={larguraModal(820)} onCancel={() => setEdicao(null)}
-        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="rh.contratos" titulo={edicao === 'novo' ? 'Novo contrato' : 'Editar contrato'} aberto={edicao !== null} width={larguraModal(820)} aoFechar={() => setEdicao(null)}
+        criacao={edicao === 'novo'} form={form} campos={camposLinhas} nomeRegistos="contratos" invalidar={[['rh']]}
+        nota="Uma linha por contrato (um contrato por colaborador). Indique o VALOR MENSAL de cada rubrica; valor dia e hora são apurados pelo sistema. O horário e os itens de produtividade acrescentam-se depois em «Editar»."
+        gravarLinha={(r) => enviar('post', '/rh/contratos', dadosContrato(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={gravar}>
+          <SeccaoFormulario titulo="Dados do contrato">
           <Row gutter={12}>
             <Col xs={24} md={12}>
               <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
@@ -261,10 +343,38 @@ export default function Contratos() {
               </Form.Item>
             </Col>
             <Col xs={12} md={6}><Form.Item name="codigo_moeda" label="Moeda" rules={[{ len: 3, message: '3 letras.' }]} extra="O processamento é só em Kz (AOA)."><Input maxLength={3} style={{ textTransform: 'uppercase' }} /></Form.Item></Col>
+            {/* Minuta pela Lei 12/23: período experimental (art. 18.º) e, nos contratos a termo, as razões (art. 13.º/2) */}
+            <Form.Item noStyle shouldUpdate={(a, b) => a.data_fim !== b.data_fim}>
+              {({ getFieldValue }) => {
+                const aTermo = Boolean(getFieldValue('data_fim'));
+                return (
+                  <>
+                    <Col xs={12} md={6}>
+                      <Form.Item name="periodo_experimental_dias" label="Período experimental (dias)" extra={aTermo ? 'Vazio = 30 dias; máximo 30 (art. 18.º, n.º 3).' : 'Vazio = 60 dias; até 120 por escrito, 180 em direcção (art. 18.º).'}
+                        rules={[{ type: 'number', min: 0, max: aTermo ? 30 : 180, message: aTermo ? 'A termo: no máximo 30 dias.' : 'No máximo 180 dias.' }]}>
+                        <InputNumber min={0} max={aTermo ? 30 : 180} style={{ width: '100%' }} placeholder={aTermo ? '30' : '60'} />
+                      </Form.Item>
+                    </Col>
+                    {aTermo && (
+                      <Col xs={24} md={18}>
+                        <Form.Item name="motivo_termo" label="Razões determinantes da contratação a termo (art. 13.º, n.º 2, e art. 15.º da Lei 12/23)"
+                          extra="Sem o motivo, a lei considera o contrato celebrado por tempo indeterminado (art. 13.º, n.º 3); a minuta sai com o aviso.">
+                          <Input.TextArea rows={2} maxLength={2000} placeholder="Ex.: acréscimo temporário e excepcional da actividade da empresa (art. 15.º)" />
+                        </Form.Item>
+                      </Col>
+                    )}
+                  </>
+                );
+              }}
+            </Form.Item>
           </Row>
-          <CamposHorario form={form} />
           {!pode('contratos_terminate') && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Terminar um contrato (data de fim ou estado Inactivo) exige a permissão de rescisão." />}
-          <Typography.Title level={5}>Remunerações mensais</Typography.Title>
+          </SeccaoFormulario>
+          {/* como no legado, o horário só se abre quando o contrato o tem; recolhido continua montado (valores e regras mantêm-se) */}
+          <SeccaoFormulario titulo="Horário de trabalho" recolhida={!contratoAberto?.horario?.entrada}>
+            <CamposHorario form={form} semTitulo />
+          </SeccaoFormulario>
+          <SeccaoFormulario titulo="Remunerações mensais">
           <Form.List name="remuneracoes" rules={[{ validator: (_, v: unknown[]) => (v && v.length > 0 ? Promise.resolve() : Promise.reject(new Error('Pelo menos uma remuneração.'))) }]}>
             {(campos, { add, remove }, { errors }) => (
               <>
@@ -291,9 +401,9 @@ export default function Contratos() {
               </>
             )}
           </Form.List>
+          </SeccaoFormulario>
           {(itensProd.data ?? []).length > 0 && (
-            <>
-              <Typography.Title level={5} style={{ marginTop: 16 }}>Itens de produtividade</Typography.Title>
+            <SeccaoFormulario titulo="Itens de produtividade" recolhida={!contratoAberto?.produtividade?.length}>
               <Form.List name="produtividade">
                 {(campos, { add, remove }) => (
                   <>
@@ -316,10 +426,10 @@ export default function Contratos() {
                   </>
                 )}
               </Form.List>
-            </>
+            </SeccaoFormulario>
           )}
         </Form>
-      </Modal>
+      </ModalFormulario>
 
       <ModaisEstadoContrato accao={accaoEstado} nome={(id) => colaboradores.nome(id)} aoFechar={() => setAccaoEstado(null)} />
 

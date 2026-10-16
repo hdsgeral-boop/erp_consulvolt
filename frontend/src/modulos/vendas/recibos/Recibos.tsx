@@ -1,5 +1,6 @@
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Flex, Form, Input, InputNumber, Modal, Row, Segmented, Select, Skeleton, Space, Statistic, Table, Tag, Typography, message } from 'antd';
-import { BookOutlined, UndoOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, BookOutlined, UndoOutlined } from '@ant-design/icons';
+import { CartaoAlocacaoUN, ModalAlocacaoUN, bloqueioAlocacao, type ResumoAlocacao } from '@/componentes/reparticao';
 import { BarraFiltros, COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { somar } from '@/utilitarios/decimal';
 import { pedidoRecibo } from '../impressao/documentoRecibo';
@@ -40,6 +41,7 @@ function ListaRecibos() {
   const [periodo, setPeriodo] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [nomeCliente, setNomeCliente] = useState<string>();
   const [seleccao, setSeleccao] = useState<number[]>([]);
+  const [alocar, setAlocar] = useState<ReciboVenda | null>(null);
   const pequeno = useEcraPequeno();
   // M-06: contabilizar/descontabilizar os recibos seleccionados (postSelectedReceipts / unpostSelectedReceipts do legado)
   const lote = useAccao<{ ok: number; erros: number; resultados: { numero: string | null; sucesso: boolean; mensagem: string }[] }>({
@@ -68,6 +70,14 @@ function ListaRecibos() {
     { title: 'Conta', dataIndex: 'codigo_conta', responsive: ['lg'], render: (v) => v || '—' },
     { title: 'Estado', dataIndex: 'estado', responsive: ['sm'], render: (e: string) => <EstadoTag estado={e} /> },
     { title: 'Contab.', dataIndex: 'contabilizado', align: 'center', responsive: ['lg'], render: (c: boolean) => (c ? <CheckCircleTwoTone twoToneColor="#52c41a" /> : null), valorImpressao: (r) => (r.contabilizado ? 'Sim' : 'Não') },
+    // ADR-071 (R2): alterar a repartição por unidades de negócio (recusado pelo servidor se contabilizado ou anulado)
+    ...(pode('vendas_recibos') ? [{
+      title: 'UN', key: 'alocacao_un', align: 'center' as const, valorImpressao: () => '',
+      render: (_: unknown, r: ReciboVenda) => (
+        <Button size="small" type="text" icon={<ApartmentOutlined />} disabled={!!bloqueioAlocacao(r)} title={bloqueioAlocacao(r) ?? 'Repartição por unidades de negócio'}
+          aria-label={`Repartição por unidades de negócio do recibo ${r.numero_recibo}`} onClick={(e) => { e.stopPropagation(); setAlocar(r); }} />
+      ),
+    }] : []),
   ];
 
   return (
@@ -114,6 +124,8 @@ function ListaRecibos() {
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
         />
       </Card>
+      <ModalAlocacaoUN tipo="recibo_venda" id={alocar?.id ?? null} valor={alocar ? Number(alocar.montante_total) : null} invalidar={[['vendas']]}
+        titulo={`Repartição por unidades de negócio — recibo ${alocar?.numero_recibo ?? ''}`} aoFechar={() => setAlocar(null)} />
     </>
   );
 }
@@ -309,7 +321,7 @@ function DetalheRecibo() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const [modal, setModal] = useState<'anular' | 'descontabilizar' | 'alocar' | null>(null);
-  const consulta = useQuery({ queryKey: ['vendas', 'recibo', id], queryFn: () => obter<ReciboVenda>(`/vendas/recibos/${id}`) });
+  const consulta = useQuery({ queryKey: ['vendas', 'recibo', id], queryFn: () => obter<ReciboVenda & { alocacao_un?: ResumoAlocacao | null }>(`/vendas/recibos/${id}`) });
   const accao = useAccao<ReciboVenda>({ invalidar: [['vendas']], aoSucesso: () => setModal(null) });
 
   if (consulta.isLoading) return <Skeleton active />;
@@ -366,6 +378,9 @@ function DetalheRecibo() {
           ]}
         />
         <Typography.Text type="secondary">Clique numa factura para abrir o documento.</Typography.Text>
+        {/* ADR-071 (R2/R5): repartição por UN do recibo — alterável enquanto não estiver contabilizado nem anulado */}
+        <CartaoAlocacaoUN tipo="recibo_venda" id={r.id} resumo={r.alocacao_un} valor={Number(r.montante_total ?? 0)} invalidar={[['vendas']]}
+          podeAlterar={pode('vendas_recibos')} bloqueio={bloqueioAlocacao(r)} />
       </Card>
       {modal === 'alocar' && <ModalAlocar recibo={r} aoFechar={() => setModal(null)} />}
       <ModalMotivo

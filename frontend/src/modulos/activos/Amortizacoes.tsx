@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Flex, Input, InputNumber, Modal, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Flex, Input, InputNumber, Modal, Space, Table, Tag, theme, Tooltip, Typography } from 'antd';
 import { CloudUploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
@@ -121,7 +121,7 @@ export default function Amortizacoes() {
   return (
     <>
       <NavActivos actual="activos_amortizacoes" />
-      <Card style={{ marginBottom: 24, borderRadius: 12 }} styles={{ body: { padding: 20 } }}>
+      <Card style={{ marginBottom: 24 }} styles={{ body: { padding: 20 } }}>
         <Flex justify="space-between" align="center" wrap gap={12}>
           <Flex align="center" gap={16} wrap>
             <div>
@@ -241,13 +241,17 @@ function CartaoPainel({ cor, icone, titulo, aoFechar, children }: { cor: string;
 }
 
 /** Grelha de períodos com caixas de selecção (todas marcadas de início) e «Seleccionar Tudo». */
-function GrelhaPeriodos({ lista, escolhidos, aoMudar, fundo, borda, distintivo, largura = 200 }: {
-  lista: { periodo: string }[]; escolhidos: string[]; aoMudar: (v: string[]) => void; fundo: string; borda: string; distintivo?: (p: string) => ReactNode; largura?: number;
+function GrelhaPeriodos({ lista, escolhidos, aoMudar, tom, distintivo, largura = 200 }: {
+  lista: { periodo: string }[]; escolhidos: string[]; aoMudar: (v: string[]) => void; tom: 'neutro' | 'aviso'; distintivo?: (p: string) => ReactNode; largura?: number;
 }) {
+  // cores do tema (certas também na tela nocturna); cantos de 4 px como o legado
+  const { token } = theme.useToken();
+  const fundo = tom === 'aviso' ? token.colorWarningBg : token.colorFillAlter;
+  const borda = tom === 'aviso' ? token.colorWarningBorder : token.colorBorderSecondary;
   return (
     <Checkbox.Group value={escolhidos} onChange={(v) => aoMudar(v as string[])} style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${largura}px, 1fr))`, gap: 10, marginBottom: 24, width: '100%' }}>
       {lista.map((m) => (
-        <label key={m.periodo} style={{ background: fundo, padding: 10, borderRadius: 8, border: `1px solid ${borda}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <label key={m.periodo} style={{ background: fundo, padding: 10, borderRadius: token.borderRadius, border: `1px solid ${borda}`, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}><Checkbox value={m.periodo} /> <strong>{m.periodo}</strong></span>
           {distintivo?.(m.periodo)}
         </label>
@@ -276,7 +280,7 @@ function PainelReabrir({ aoFechar, aoReabrir }: { aoFechar: () => void; aoReabri
             <Typography.Text type="secondary" style={{ fontSize: 13 }}>Selecione os períodos que deseja anular. Isto irá estornar os lançamentos na contabilidade e reverter os saldos dos activos.</Typography.Text>
             <BotaoTudo lista={lista} aoMudar={setEscolhidos} />
           </Flex>
-          <GrelhaPeriodos lista={lista} escolhidos={sel} aoMudar={setEscolhidos} fundo="#f8fafc" borda="#e2e8f0" largura={180}
+          <GrelhaPeriodos lista={lista} escolhidos={sel} aoMudar={setEscolhidos} tom="neutro" largura={180}
             distintivo={(p) => { const x = lista.find((m) => m.periodo === p); return x ? <Tag color={x.integrados ? 'success' : 'warning'} style={{ fontSize: 11 }}>{x.integrados ? 'integrado' : 'rascunho'}</Tag> : null; }} />
           <Flex justify="end" gap={10}>
             <Button onClick={aoFechar}>Cancelar</Button>
@@ -313,8 +317,8 @@ function PainelCalculo({ aoFechar }: { aoFechar: () => void }) {
             <Typography.Text type="secondary" style={{ fontSize: 13 }}>Seleccione os períodos que deseja calcular como rascunho.</Typography.Text>
             <BotaoTudo lista={lista} aoMudar={setEscolhidos} />
           </Flex>
-          <GrelhaPeriodos lista={lista} escolhidos={sel} aoMudar={setEscolhidos} fundo="#fffbeb" borda="#fef3c7"
-            distintivo={(p) => <Tag style={{ background: '#fef3c7', color: '#92400e', fontSize: 11, border: 0 }}>{lista.find((m) => m.periodo === p)?.ativos ?? 0} activos</Tag>} />
+          <GrelhaPeriodos lista={lista} escolhidos={sel} aoMudar={setEscolhidos} tom="aviso"
+            distintivo={(p) => <Tag color="warning" style={{ fontSize: 11, border: 0 }}>{lista.find((m) => m.periodo === p)?.ativos ?? 0} activos</Tag>} />
           <Flex justify="end" gap={10}>
             <Button onClick={aoFechar}>Cancelar</Button>
             <Button style={{ background: '#f59e0b', color: '#fff', borderColor: '#f59e0b' }} icon={<IconeFa nome="play" />} disabled={!sel.length} loading={calcular.isPending} onClick={confirmar}>
@@ -329,6 +333,7 @@ function PainelCalculo({ aoFechar }: { aoFechar: () => void }) {
 
 /** «Integração em Massa na Contabilidade» (showBulkIntegrationPreview): todos os períodos com rascunhos. */
 function PainelIntegracao({ aoFechar }: { aoFechar: () => void }) {
+  const { token } = theme.useToken();
   const q = usePendentes();
   const lista = q.data?.por_integrar ?? [];
   const periodos = ordenarPeriodos(lista.map((m) => m.periodo));
@@ -346,7 +351,7 @@ function PainelIntegracao({ aoFechar }: { aoFechar: () => void }) {
           <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>Serão gerados lançamentos no Diário AM para os seguintes períodos:</Typography.Paragraph>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 24 }}>
             {lista.map((m) => (
-              <div key={m.periodo} style={{ background: '#f0fdf4', padding: 10, borderRadius: 8, border: '1px solid #dcfce7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div key={m.periodo} style={{ background: token.colorSuccessBg, padding: 10, borderRadius: token.borderRadius, border: `1px solid ${token.colorSuccessBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <strong>{m.periodo}</strong><Tag color="success" style={{ fontSize: 11, marginInlineEnd: 0 }}>{m.ativos} activos</Tag>
               </div>
             ))}

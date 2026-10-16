@@ -1,13 +1,15 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Drawer, Dropdown, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Skeleton, Space, Table, Tabs, Tag, Timeline, Typography } from 'antd';
+import { Alert, Button, Col, DatePicker, Descriptions, Drawer, Dropdown, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Skeleton, Space, Table, Tabs, Tag, Timeline, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, FileAddOutlined, LinkOutlined, MailOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { obter } from '@/api/cliente';
+import { enviar, obter, obterPagina } from '@/api/cliente';
+import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
+import { camposOportunidade, dadosOportunidade } from './formularios';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
+import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
 import { SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import { useMapaProdutos } from '@/modulos/compras/comum/referencias';
@@ -284,6 +286,22 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
   const contactos = useQuery({ queryKey: ['crm', 'contactos', contaId], queryFn: () => obter<Contacto[]>(`/crm/contas/${contaId}/contactos`), enabled: !!contaId && aberto });
   const accao = useAccao({ invalidar: [CHAVE_CRM], aoSucesso: () => aoFechar() });
   const etapas = funis.data?.find((f) => f.id === funilId)?.etapas ?? [];
+  // contas para a coluna «Conta» da vista Linhas (só na criação)
+  const contas = useQuery({
+    queryKey: ['crm', 'contas', 'lista-linhas'],
+    queryFn: () => obterPagina<ContaCRM>('/crm/contas', { por_pagina: 500 }),
+    enabled: aberto && !oportunidade,
+    staleTime: 60_000,
+  });
+  const campos = useMemo(
+    () => camposOportunidade({
+      contas: (contas.data?.itens ?? []).map((c) => ({ value: c.id, label: `${c.nome}${c.nif ? ` (${c.nif})` : ''}` })),
+      funis: funis.data ?? [],
+      origens: config.data?.origens ?? [],
+      responsavel: utilizador?.nome_utilizador,
+    }),
+    [contas.data, funis.data, config.data, utilizador],
+  );
 
   useEffect(() => {
     if (!aberto) return;
@@ -306,7 +324,24 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
   const temLinhas = (itens ?? []).length > 0;
 
   return (
-    <Modal open={aberto} title={oportunidade ? 'Editar oportunidade' : 'Nova oportunidade'} onCancel={aoFechar} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} width={larguraModal(860)} destroyOnHidden>
+    <ModalFormulario
+      chave="crm.oportunidades"
+      titulo={oportunidade ? 'Editar oportunidade' : 'Nova oportunidade'}
+      aberto={aberto}
+      aoFechar={aoFechar}
+      criacao={!oportunidade}
+      form={form}
+      campos={campos}
+      nomeRegistos="oportunidades"
+      invalidar={[CHAVE_CRM]}
+      gravarLinha={(r) => enviar('post', '/crm/oportunidades', dadosOportunidade(r))}
+      nota="Uma linha por oportunidade, sem linhas de produtos (o valor é o indicado; acrescente produtos depois, na grade). Etapa em branco = a primeira do funil. Linhas deixadas em branco são ignoradas."
+      okText="Gravar"
+      cancelText="Cancelar"
+      confirmLoading={accao.isPending}
+      onOk={() => form.submit()}
+      width={larguraModal(860)}
+    >
       <Form
         form={form}
         layout="vertical"
@@ -314,10 +349,11 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
           accao.mutate({
             metodo: oportunidade ? 'put' : 'post',
             url: oportunidade ? `/crm/oportunidades/${oportunidade.id}` : '/crm/oportunidades',
-            dados: { ...v, valor: temLinhas ? totalLinhas : (v.valor ?? 0), data_fecho_prevista: dataApi(v.data_fecho_prevista) ?? null, itens: v.itens ?? [] },
+            dados: dadosOportunidade(v as unknown as Record<string, unknown>),
           })
         }
       >
+        <SeccaoFormulario titulo="Oportunidade">
         <Form.Item name="titulo" label="Título" rules={[{ required: true, message: 'Indique o título.' }]}><Input maxLength={255} /></Form.Item>
         <Row gutter={16}>
           <Col xs={24} sm={12}>
@@ -330,6 +366,10 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
               <Select allowClear loading={contactos.isFetching} options={(contactos.data ?? []).map((c) => ({ value: c.id, label: `${c.nome}${c.cargo ? ` — ${c.cargo}` : ''}` }))} />
             </Form.Item>
           </Col>
+        </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Funil e valor">
+        <Row gutter={16}>
           <Col xs={24} sm={8}>
             <Form.Item name="funil_vendas_crm_id" label="Funil" rules={[{ required: true }]}>
               <Select options={(funis.data ?? []).filter((f) => f.ativo || f.id === oportunidade?.funil_vendas_crm_id).map((f) => ({ value: f.id, label: f.nome }))} onChange={() => form.setFieldValue('etapa_codigo', undefined)} />
@@ -351,6 +391,10 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
           <Col xs={24} sm={8}>
             <Form.Item name="probabilidade" label="Probabilidade (%)" extra="Vazio: a da etapa."><InputNumber min={0} max={100} style={{ width: '100%' }} /></Form.Item>
           </Col>
+        </Row>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Responsável, origem e notas" recolhida={!oportunidade}>
+        <Row gutter={16}>
           <Col xs={24} sm={8}>
             <Form.Item name="responsavel" label="Responsável"><Input maxLength={100} /></Form.Item>
           </Col>
@@ -361,7 +405,8 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
             <Form.Item name="notas" label="Notas"><Input.TextArea rows={1} autoSize={{ minRows: 1, maxRows: 4 }} maxLength={4000} /></Form.Item>
           </Col>
         </Row>
-        <Card size="small" title="Linhas (opcional)" extra={temLinhas && <strong>Total s/ IVA: {formatarKz(totalLinhas)} Kz</strong>}>
+        </SeccaoFormulario>
+        <SeccaoFormulario titulo="Linhas (opcional)" recolhida={!oportunidade?.itens?.length} extra={temLinhas && <strong>Total s/ IVA: {formatarKz(totalLinhas)} Kz</strong>}>
           <Form.List name="itens">
             {(campos, { add, remove }) => (
               <>
@@ -388,8 +433,8 @@ export function FormOportunidade({ oportunidade, aberto, aoFechar, inicial }: { 
               </>
             )}
           </Form.List>
-        </Card>
+        </SeccaoFormulario>
       </Form>
-    </Modal>
+    </ModalFormulario>
   );
 }

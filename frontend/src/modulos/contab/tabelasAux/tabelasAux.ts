@@ -1,3 +1,5 @@
+import type { CampoFormulario } from '@/componentes/formularios';
+
 /** Lógica das Tabelas Auxiliares da Contabilidade (renderTabelasAuxiliares, js/ui_aux.js:98-491), sem UI para testar. */
 
 export type ChaveSeparadorAux =
@@ -64,3 +66,74 @@ export function papelDoTerceiro(t: TerceiroTipo): 'CLIENTE' | 'FORNECEDOR' {
   if (!t.e_cliente && t.tipo?.toUpperCase() === 'FORNECEDOR') return 'FORNECEDOR';
   return 'CLIENTE';
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Vistas «Grade | Linhas» dos cadastros (legado: js/shared/formularios_linhas_config.js — diarios, centros_custo,
+// terceiros, plano_contas). A grade e as linhas usam as mesmas funções puras para montar o corpo do pedido.
+// ---------------------------------------------------------------------------------------------------------------
+
+
+const txt = (v: unknown) => (typeof v === 'string' ? v.trim() : v === null || v === undefined ? '' : String(v).trim());
+
+/** Chave da preferência Grade/Linhas de cada tabela simples (as do legado; as notas não tinham linhas no legado). */
+export const CHAVE_LINHAS_TABELA: Record<string, string> = {
+  diarios: 'contab.diarios',
+  'notas-demonstracao': 'contab.notas_demonstracao',
+  'notas-fluxo-caixa': 'contab.notas_fluxo_caixa',
+  'centros-custo': 'contab.centros_custo',
+};
+
+/** Valores do formulário (grade ou linha) → corpo de POST/PUT /contabilidade/tabelas/{tabela}. */
+export function dadosRegistoAux(v: Record<string, unknown>): { codigo: string; descricao: string } {
+  return { codigo: txt(v.codigo), descricao: txt(v.descricao) };
+}
+
+/** Colunas da vista Linhas das tabelas simples (Código · Descrição, como no legado). */
+export function camposRegistoAux(textos?: { exCodigo?: string; exDescricao?: string }): CampoFormulario[] {
+  return [
+    { nome: 'codigo', rotulo: 'Código', obrigatorio: true, largura: 130, maxLength: 20, placeholder: textos?.exCodigo || undefined, aliases: ['Codigo', 'Cód.'] },
+    { nome: 'descricao', rotulo: 'Descrição', obrigatorio: true, largura: 300, maxLength: 255, placeholder: textos?.exDescricao || undefined, aliases: ['Descricao', 'Descriccação', 'Designação'] },
+  ];
+}
+
+/** Código de conta: só algarismos, letras e pontos (a mesma regra da grade). */
+export const PADRAO_CODIGO_CONTA = /^[0-9A-Za-z.]+$/;
+
+export interface ValoresConta {
+  codigo?: string;
+  descricao?: string;
+  tipo?: 'M' | 'T' | string;
+  codigo_moeda?: string | null;
+  natureza_conta?: string | null;
+}
+
+/** Valores da conta (grade ou linha) → corpo de POST/PUT /contabilidade/plano-contas. */
+export function dadosConta(v: ValoresConta): Record<string, unknown> {
+  const moeda = txt(v.codigo_moeda).toUpperCase();
+  const natureza = txt(v.natureza_conta);
+  return {
+    codigo: txt(v.codigo),
+    descricao: txt(v.descricao),
+    tipo: txt(v.tipo).toUpperCase() === 'T' ? 'T' : 'M',
+    // vazio → null (o mesmo que o '' da grade antiga, convertido em null pelo servidor)
+    codigo_moeda: moeda || null,
+    natureza_conta: natureza || null,
+  };
+}
+
+export const OPCOES_TIPO_CONTA = [
+  { value: 'M', label: 'Movimento (aceita lançamentos)' },
+  { value: 'T', label: 'Totalizadora' },
+];
+
+/** Colunas da vista Linhas do plano de contas (legado `plano_contas`: código, descrição, tipo M/T, moeda). */
+export const CAMPOS_CONTA: CampoFormulario[] = [
+  {
+    nome: 'codigo', rotulo: 'Código da conta', obrigatorio: true, largura: 140, maxLength: 20, aliases: ['Código', 'Codigo', 'Conta'],
+    validar: (v) => (txt(v) && !PADRAO_CODIGO_CONTA.test(txt(v)) ? 'Código da conta: só algarismos, letras e pontos.' : null),
+  },
+  { nome: 'descricao', rotulo: 'Descrição', obrigatorio: true, largura: 300, maxLength: 255, aliases: ['Descricao'] },
+  { nome: 'tipo', rotulo: 'Tipo (M/T)', tipo: 'select', obrigatorio: true, largura: 170, omissao: 'M', opcoes: OPCOES_TIPO_CONTA, aliases: ['Tipo'] },
+  { nome: 'codigo_moeda', rotulo: 'Moeda', largura: 100, maxLength: 10, placeholder: 'AOA', aliases: ['Moeda (só classe 4)'] },
+  { nome: 'natureza_conta', rotulo: 'Natureza', largura: 180, maxLength: 255, emLinhas: 'opcional' },
+];

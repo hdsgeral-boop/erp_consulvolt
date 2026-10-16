@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Form, Input, Popconfirm, Row, Select, Space, Table, Tag, Typography, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -8,6 +8,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { CHAVE_CRITERIOS, useCriterios } from './api';
 import { FORMAS, type CriterioReparticao, type FormaReparticao } from './regras';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 
 interface ValoresCriterio {
   codigo: string;
@@ -20,15 +21,41 @@ interface ValoresCriterio {
   ativo: boolean;
 }
 
-/** Corpo do pedido do critério (datas em AAAA-MM-DD; indicador só no personalizado, período só no volume de negócios). */
-export function corpoCriterio(v: ValoresCriterio): Record<string, unknown> {
+/** Data da grade (`dayjs`) ou da vista Linhas ('AAAA-MM-DD'). */
+const dataDe = (d: unknown): string | null => (dayjs.isDayjs(d) ? d.format('YYYY-MM-DD') : typeof d === 'string' && d ? d : null);
+
+/**
+ * Corpo do pedido do critério, comum à grade e à vista Linhas (datas em AAAA-MM-DD; indicador só no personalizado,
+ * período só no volume de negócios; «Activo» em booleano ou 1/0).
+ */
+export function corpoCriterio(v: ValoresCriterio | Record<string, unknown>): Record<string, unknown> {
+  const x = v as Record<string, unknown>;
+  const t = (k: string) => String(x[k] ?? '').trim();
+  const criterio = x.criterio as FormaReparticao;
   return {
-    codigo: v.codigo.trim().toUpperCase(), nome: v.nome.trim(), criterio: v.criterio, ativo: v.ativo !== false, notas: v.notas?.trim() || null,
-    indicador: v.criterio === 'PERSONALIZADO' ? v.indicador?.trim() || null : null,
-    periodo_de: v.criterio === 'VOLUME_NEGOCIOS' && v.periodo_de ? v.periodo_de.format('YYYY-MM-DD') : null,
-    periodo_ate: v.criterio === 'VOLUME_NEGOCIOS' && v.periodo_ate ? v.periodo_ate.format('YYYY-MM-DD') : null,
+    codigo: t('codigo').toUpperCase(), nome: t('nome'), criterio, ativo: x.ativo !== false && x.ativo !== 0, notas: t('notas') || null,
+    indicador: criterio === 'PERSONALIZADO' ? t('indicador') || null : null,
+    periodo_de: criterio === 'VOLUME_NEGOCIOS' ? dataDe(x.periodo_de) : null,
+    periodo_ate: criterio === 'VOLUME_NEGOCIOS' ? dataDe(x.periodo_ate) : null,
   };
 }
+
+const SECCAO_FORMA = 'Forma de repartir';
+
+/** Vista Linhas dos critérios de repartição (código, nome, forma; indicador, período e notas opcionais). */
+const CAMPOS_CRITERIO: CampoFormulario[] = [
+  { nome: 'codigo', rotulo: 'Código', obrigatorio: true, largura: 110, maxLength: 20, aliases: ['Codigo'],
+    validar: (c) => (c && !/^[A-Za-z0-9._-]{1,20}$/.test(String(c).trim()) ? 'Só letras, números, ponto, hífen ou sublinhado (até 20).' : null) },
+  { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 220, maxLength: 255 },
+  { nome: 'criterio', rotulo: 'Forma de repartir', tipo: 'select', obrigatorio: true, largura: 200, omissao: 'PERCENTAGEM', aliases: ['Critério', 'Forma'],
+    opcoes: Object.entries(FORMAS).map(([k, f]) => ({ value: k, label: f.nome })) },
+  { nome: 'indicador', rotulo: 'Nome do indicador', largura: 160, maxLength: 100, emLinhas: 'opcional', seccao: SECCAO_FORMA },
+  { nome: 'periodo_de', rotulo: 'Vendas desde', tipo: 'data', largura: 140, emLinhas: 'opcional', seccao: SECCAO_FORMA },
+  { nome: 'periodo_ate', rotulo: 'Vendas até', tipo: 'data', largura: 140, emLinhas: 'opcional', seccao: SECCAO_FORMA,
+    validar: (d, r) => (typeof d === 'string' && d && typeof r.periodo_de === 'string' && r.periodo_de && d < r.periodo_de ? 'Anterior ao início.' : null) },
+  { nome: 'notas', rotulo: 'Notas', tipo: 'textoLongo', largura: 200, maxLength: 4000, emLinhas: 'opcional', seccao: 'Outros' },
+  { nome: 'ativo', rotulo: 'Activo', tipo: 'select', opcoes: [{ value: 1, label: 'Sim' }, { value: 0, label: 'Não' }], omissao: 1, largura: 90, emLinhas: 'opcional', seccao: 'Outros' },
+];
 
 /**
  * Configurações › Unidades de negócio › «Critérios de repartição» (reparticao_ui.js do legado novo). O critério define só a
@@ -56,7 +83,7 @@ export function CriteriosReparticao() {
   });
   const abrir = (c: CriterioReparticao | 'novo') => {
     form.resetFields();
-    form.setFieldsValue(c === 'novo' ? { criterio: 'PERCENTAGEM', ativo: true } : {
+    form.setFieldsValue(c === 'novo' ? { criterio: 'PERCENTAGEM', ativo: 1 as unknown as boolean } : {
       codigo: c.codigo, nome: c.nome, criterio: c.criterio, indicador: c.indicador ?? undefined, notas: c.notas ?? undefined, ativo: c.ativo !== false,
       periodo_de: c.periodo_de ? dayjs(c.periodo_de) : null, periodo_ate: c.periodo_ate ? dayjs(c.periodo_ate) : null,
     });
@@ -93,9 +120,11 @@ export function CriteriosReparticao() {
             </Space>
           ) },
         ]} />
-      <Modal title={edicao === 'novo' ? 'Novo critério de repartição' : `Critério ${edicao && typeof edicao === 'object' ? edicao.codigo : ''}`} open={edicao !== null}
-        onCancel={() => setEdicao(null)} okText={edicao === 'novo' ? 'Criar critério' : 'Gravar alterações'} cancelText="Cancelar" confirmLoading={gravar.isPending}
-        onOk={() => form.submit()} destroyOnHidden width={680}>
+      <ModalFormulario chave="reparticao.criterios" titulo={edicao === 'novo' ? 'Novo critério de repartição' : `Critério ${edicao && typeof edicao === 'object' ? edicao.codigo : ''}`} aberto={edicao !== null}
+        aoFechar={() => setEdicao(null)} criacao={edicao === 'novo'} form={form} campos={CAMPOS_CRITERIO} nomeRegistos="critérios de repartição" invalidar={[[...CHAVE_CRITERIOS]]}
+        gravarLinha={(r) => enviar('post', '/reparticao/criterios', corpoCriterio(r))}
+        okText={edicao === 'novo' ? 'Criar critério' : 'Gravar alterações'} cancelText="Cancelar" confirmLoading={gravar.isPending}
+        onOk={() => form.submit()} width={680}>
         <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(v)}>
           <Row gutter={12}>
             <Col xs={24} sm={8}>
@@ -132,9 +161,9 @@ export function CriteriosReparticao() {
             </Row>
           )}
           <Form.Item name="notas" label="Notas" rules={[{ max: 4000 }]}><Input.TextArea rows={2} /></Form.Item>
-          <Form.Item name="ativo" valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item>
+          <Form.Item name="ativo" valuePropName="checked" getValueProps={(v: unknown) => ({ checked: v === true || v === 1 })} normalize={(v: unknown) => (v ? 1 : 0)}><Checkbox>Activo</Checkbox></Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </Card>
   );
 }

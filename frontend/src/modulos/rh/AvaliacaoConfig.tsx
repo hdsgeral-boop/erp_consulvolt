@@ -184,11 +184,11 @@ export default function AvaliacaoConfig() {
                 key: 'itens', label: <span><IconeFa nome="tasks" /> Itens e objectivos</span>, forceRender: true,
                 children: (
                   <>
-                    <GrelhaKpi larguraMinima={170}>
-                      <CartaoKpi rotulo="Critérios comuns (nota 1–5)" valor={comunsC || '8 padrão'} icone="list" cor="azul" />
-                      <CartaoKpi rotulo="Objectivos quantitativos" valor={objectivos.filter((i) => i.natureza !== 'QUALITATIVO').length} icone="bullseye" cor="verde" />
-                      <CartaoKpi rotulo="Objectivos qualitativos" valor={objectivos.filter((i) => i.natureza === 'QUALITATIVO').length} icone="star" cor="laranja" />
-                      <CartaoKpi rotulo="Itens específicos (por colaborador)" valor={activos.filter((i) => i.ambito === 'ESPECIFICO').length} icone="user-check" cor="roxo" />
+                    <GrelhaKpi larguraMinima={160}>
+                      <CartaoKpi barra="nenhuma" rotulo="Critérios comuns (nota 1–5)" valor={comunsC || '8 padrão'} />
+                      <CartaoKpi barra="nenhuma" rotulo="Objectivos quantitativos" valor={objectivos.filter((i) => i.natureza !== 'QUALITATIVO').length} />
+                      <CartaoKpi barra="nenhuma" rotulo="Objectivos qualitativos" valor={objectivos.filter((i) => i.natureza === 'QUALITATIVO').length} />
+                      <CartaoKpi barra="nenhuma" rotulo="Itens específicos (por colaborador)" valor={activos.filter((i) => i.ambito === 'ESPECIFICO').length} />
                     </GrelhaKpi>
                     <ul style={{ fontSize: '0.84rem', color: '#334155', margin: '12px 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
                       <li><b>Critérios comuns</b>: avaliados por todos os grupos do 360º (auto, chefia, pares e subordinados).</li>

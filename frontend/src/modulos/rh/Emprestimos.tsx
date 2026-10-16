@@ -16,6 +16,7 @@ import { EstadoTag, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores, useInfotipos } from './comum/consultas';
 import type { ConfiguracaoEmprestimos, Emprestimo } from './faseB/tipos';
 import { TabelaPlano } from './faseB/TabelaPlano';
+import { SeletorConta } from '@/modulos/contab/comum/Seletores';
 
 /**
  * RH › Empréstimos (ecrã rh_emprestimos; Versão Actual: emprestimos_ui.js, separadores Lista e Configurações).
@@ -31,12 +32,14 @@ export const ESTADOS_EMPRESTIMO = [
 
 export default function Emprestimos() {
   const { pode } = useSessao();
+  const [separador, setSeparador] = useState('lista');
+  const comConfig = pode('rh_emp_config') || pode('rh_emprestimos_view');
   return (
     <>
       <CabecalhoPagina titulo="Empréstimos a colaboradores" subtitulo="Pedidos do portal, plano de amortização (prestação constante), conta corrente e desconto no salário" />
-      <Tabs type="card" items={[
-        { key: 'lista', label: <span><IconeFa nome="hand-holding-usd" /> Lista</span>, children: <Lista /> },
-        ...(pode('rh_emp_config') || pode('rh_emprestimos_view') ? [{ key: 'config', label: <span><IconeFa nome="cog" /> Configurações</span>, children: <Configuracoes /> }] : []),
+      <Tabs type="card" activeKey={separador} onChange={setSeparador} items={[
+        { key: 'lista', label: <span><IconeFa nome="hand-holding-usd" /> Lista</span>, children: <Lista aoConfigurar={comConfig ? () => setSeparador('config') : undefined} /> },
+        ...(comConfig ? [{ key: 'config', label: <span><IconeFa nome="cog" /> Configurações</span>, children: <Configuracoes /> }] : []),
       ]} />
     </>
   );
@@ -57,8 +60,19 @@ export function autorizacaoDescontoHtml(e: Emprestimo, nome: string, empresa: st
     <p style="margin-top:48px">______________________________<br/>${esc(nome)}</p>`;
 }
 
-function Lista() {
+/** Aviso «Por configurar…» (emprestimos_ui.js): enquanto faltar, os colaboradores não conseguem pedir empréstimos. */
+function AvisoPorConfigurar({ porConfigurar, aoConfigurar }: { porConfigurar: string[]; aoConfigurar?: () => void }) {
+  if (!porConfigurar.length) return null;
+  return (
+    <Alert type="warning" showIcon style={{ marginBottom: 16 }} message={`Por configurar: ${porConfigurar.join('; ')}`}
+      description="Enquanto faltar, os colaboradores não conseguem pedir empréstimos."
+      action={aoConfigurar && <Button size="small" onClick={aoConfigurar}>Abrir configurações</Button>} />
+  );
+}
+
+function Lista({ aoConfigurar }: { aoConfigurar?: () => void }) {
   const { pode, empresa } = useSessao();
+  const config = useQuery({ queryKey: ['rh', 'emprestimos', 'configuracao'], queryFn: () => obter<ConfiguracaoEmprestimos>('/rh/emprestimos/configuracao'), retry: false, staleTime: 60_000 });
   const colaboradores = useColaboradores();
   const [estado, setEstado] = useState<string>();
   const [colaborador, setColaborador] = useState<number>();
@@ -73,20 +87,23 @@ function Lista() {
   const accao = useAccaoRh(() => { setCancelar(null); setLancar(null); });
   const { imprimir } = useImpressao();
 
+  // colunas, ordem e alinhamentos do antigo (emprestimos_ui.js:80): Nº · Colaborador · Capital · Plano · Início · Em dívida · Estado · Conta corrente
+  // («Juro/ano» é do sistema novo e fica escondida por omissão em «Colunas»)
   const colunas: ColunaApi<Emprestimo>[] = [
-    { title: 'Número', dataIndex: 'numero', render: (v: string) => <strong>{v}</strong> },
+    { title: 'Nº', dataIndex: 'numero', render: (v: string) => <strong>{v}</strong> },
     { title: 'Colaborador', dataIndex: 'nome', render: (v: string | null, e) => v ?? colaboradores.nome(e.colaborador_id) },
     { title: 'Capital', dataIndex: 'capital', align: 'right', render: (v: string) => formatarKz(v) },
-    { title: 'Prestações', key: 'prest', align: 'right', valorImpressao: (e) => `${e.prestacoes} × ${formatarKz(e.valor_prestacao)}`, render: (_, e) => `${e.prestacoes} × ${formatarKz(e.valor_prestacao)}` },
-    { title: 'Início', dataIndex: 'inicio_desconto', responsive: ['md'] },
-    { title: 'Juro/ano', dataIndex: 'taxa_juro', align: 'right', responsive: ['lg'], render: (v: string) => (Number(v) > 0 ? `${Number(v)} %` : 'Sem juros') },
+    { title: 'Plano', key: 'prest', align: 'center', valorImpressao: (e) => `${e.prestacoes} × ${formatarKz(e.valor_prestacao)}`, render: (_, e) => `${e.prestacoes} × ${formatarKz(e.valor_prestacao)}` },
+    { title: 'Início', dataIndex: 'inicio_desconto', align: 'center', responsive: ['md'] },
+    { title: 'Juro/ano', dataIndex: 'taxa_juro', align: 'right', responsive: ['lg'], ocultaPorOmissao: true, render: (v: string) => (Number(v) > 0 ? `${Number(v)} %` : 'Sem juros') },
     { title: 'Em dívida', dataIndex: 'em_divida', align: 'right', render: (v: string | undefined) => formatarKz(v ?? 0) },
-    { title: 'Conta corrente', dataIndex: 'lancamento_referencia', responsive: ['lg'], render: (v: string | null) => v ?? '—' },
-    { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EstadoTag estado={v} /> },
+    { title: 'Estado', dataIndex: 'estado', align: 'center', render: (v: string) => <EstadoTag estado={v} /> },
+    { title: 'Conta corrente', dataIndex: 'lancamento_referencia', align: 'center', responsive: ['lg'], render: (v: string | null) => v ?? '—' },
   ];
 
   return (
     <Card>
+      <AvisoPorConfigurar porConfigurar={config.data?.por_configurar ?? []} aoConfigurar={aoConfigurar} />
       <BarraFiltros>
         <Select placeholder="Estado" allowClear style={{ width: 180 }} value={estado} onChange={setEstado} options={ESTADOS_EMPRESTIMO} />
         <SeletorColaborador value={colaborador} onChange={setColaborador} />
@@ -160,27 +177,25 @@ function Configuracoes() {
   }, [q.data, form]);
   return (
     <Card loading={q.isLoading}>
-      {(q.data?.por_configurar ?? []).length > 0 && (
-        <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="Os colaboradores ainda não podem pedir empréstimos" description={`Falta configurar: ${q.data?.por_configurar.join('; ')}.`} />
-      )}
+      <AvisoPorConfigurar porConfigurar={q.data?.por_configurar ?? []} />
       <Form form={form} layout="vertical" disabled={!editar} style={{ maxWidth: 820 }} onFinish={(v) => accao.mutate({ metodo: 'put', url: '/rh/emprestimos/configuracao', dados: v })}>
         <Row gutter={16}>
-          <Col xs={24} md={12}><Form.Item name="conta_emprestimo" label="Conta de empréstimos ao pessoal (conta corrente)" extra="Conta de movimento do plano (débito)."><Input maxLength={20} /></Form.Item></Col>
-          <Col xs={24} md={12}><Form.Item name="conta_contrapartida" label="Conta de contrapartida do pagamento" extra="Ex.: a conta do banco (crédito)."><Input maxLength={20} /></Form.Item></Col>
+          <Col xs={24} md={12}><Form.Item name="conta_emprestimo" label="Conta de empréstimos ao pessoal (conta corrente)" extra="Debitada quando o empréstimo é concedido; é aqui que fica a dívida do colaborador."><SeletorConta allowClear placeholder="Conta de movimento" style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24} md={12}><Form.Item name="conta_contrapartida" label="Conta de contrapartida" extra="Creditada ao entregar o dinheiro — normalmente o banco (43) ou a caixa (45)."><SeletorConta allowClear placeholder="Conta de movimento" style={{ width: '100%' }} /></Form.Item></Col>
           <Col xs={24} md={12}>
-            <Form.Item name="diario_id" label="Diário" extra={diarios.isError ? 'Sem acesso à lista de diários.' : undefined}>
+            <Form.Item name="diario_id" label="Diário" extra={diarios.isError ? 'Sem acesso à lista de diários.' : 'É neste diário que fica o lançamento do empréstimo na conta corrente do colaborador.'}>
               <Select allowClear showSearch optionFilterProp="label" options={(diarios.data ?? []).map((d) => ({ value: d.id, label: `${d.codigo} — ${d.nome ?? d.descricao ?? ''}` }))} />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="infotipo_desconto_id" label="Rubrica de desconto no cálculo" extra="Rubrica do tipo DESCONTO.">
+            <Form.Item name="infotipo_desconto_id" label="Rubrica de desconto no cálculo" extra="É com esta rubrica que a prestação entra no processamento. Tem de ser do tipo DESCONTO.">
               <Select allowClear showSearch optionFilterProp="label" options={infotipos.lista.filter((i) => i.tipo === 'DESCONTO').map((i) => ({ value: i.id, label: i.nome }))} />
             </Form.Item>
           </Col>
           <Col xs={12} md={6}><Form.Item name="prestacoes_max" label="Máximo de prestações" rules={[{ required: true }]}><InputNumber min={1} max={120} style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={12} md={6}><Form.Item name="multiplo_salario_max" label="Tecto (× salário base)" rules={[{ required: true }]} extra="0 = sem tecto."><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={12} md={6}><Form.Item name="taxa_juro_padrao" label="Taxa de juro anual (%)" rules={[{ required: true }]}><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
-          <Col xs={12} md={6}><Form.Item name="exige_chefia" label="Parecer da chefia" valuePropName="checked"><Checkbox>Exigir</Checkbox></Form.Item></Col>
+          <Col xs={12} md={6}><Form.Item name="multiplo_salario_max" label="Limite: múltiplo do salário base" rules={[{ required: true }]} extra="0 = sem limite."><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={12} md={6}><Form.Item name="taxa_juro_padrao" label="Taxa de juro anual (%)" rules={[{ required: true }]} extra="0 = empréstimo sem juros."><InputNumber min={0} max={100} step={0.5} style={{ width: '100%' }} /></Form.Item></Col>
+          <Col xs={24} md={12}><Form.Item name="exige_chefia" label=" " valuePropName="checked"><Checkbox>Exigir parecer da chefia directa antes do RH</Checkbox></Form.Item></Col>
         </Row>
         {editar && <Button type="primary" htmlType="submit" loading={accao.isPending}>Gravar configuração</Button>}
       </Form>

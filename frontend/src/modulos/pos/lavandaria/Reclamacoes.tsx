@@ -12,6 +12,7 @@ import { BotoesExportar, prepararTexto, tabelaHtml } from '@/componentes/impress
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import { rotuloEstadoPOS } from '../comum/estados';
+import { useCoresPos } from '../comum/cores';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { NomeTerceiro } from '@/modulos/compras/comum/referencias';
 import { accoesReclamacao } from '../comum/regras';
@@ -33,6 +34,7 @@ const ESTADOS_DANO: Record<string, string> = {
  */
 export function Reclamacoes() {
   const { pode, utilizador } = useSessao();
+  const cores = useCoresPos();
   const [estado, setEstado] = useState<string>();
   const [decidir, setDecidir] = useState<{ r: Reclamacao; modo: 'COMPROVAR' | 'DECIDIR' } | null>(null);
   const [pagar, setPagar] = useState<Reclamacao | null>(null);
@@ -145,7 +147,7 @@ export function Reclamacoes() {
   ];
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 4, padding: '1rem' }}>
+    <div style={{ background: cores.fundo, border: `1px solid ${cores.borda}`, borderRadius: 4, padding: '1rem' }}>
       <Flex justify="space-between" align="flex-start" gap={8} wrap>
         <div>
           <h3 style={{ margin: '0 0 0.3rem', fontSize: '1.05rem' }}>Danos e reclamações</h3>

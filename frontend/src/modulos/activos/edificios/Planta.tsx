@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, Empty, Input, Modal, Popconfirm, Row, Space, Spin, Table, Typography } from 'antd';
+import { Alert, Button, Card, Col, Collapse, Empty, Input, Modal, Popconfirm, Row, Space, Spin, Table, Tag, theme, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useState, type DragEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -17,11 +17,14 @@ import type { AndarPlanta, BemNaPlanta, Planta, PortaPlanta } from './tipos';
 /**
  * Planta do edifício (assetBuildingPlan, js/activos_edificios.js:158-330): andares › portas com os bens, «Bens sem porta»
  * ao lado, arrastar bens entre portas (ou para fora), detalhe da porta, andares, portas em série, inventário e impressão.
+ * ADR-071 (A2): «Bens sem porta» lista os bens deste edifício sem porta e os bens sem localização; largar aí deixa o bem
+ * neste edifício, sem porta. Os bens de outros edifícios vêm numa secção recolhida para os arrastar para este.
  */
 export function PlantaEdificio() {
   const { id } = useParams();
   const edificioId = Number(id);
   const navegar = useNavigate();
+  const { token } = theme.useToken();
   const { pode } = useSessao();
   const gerir = pode('activos_locais_gerir');
   const inventariar = pode('activos_inventario_fisico');
@@ -41,8 +44,9 @@ export function PlantaEdificio() {
     e.preventDefault();
     setAlvo(null);
     const bem = Number(e.dataTransfer.getData('text/plain'));
-    if (bem > 0 && gerir) mover.mutate({ url: `/ativos/bens/${bem}/localizacao`, dados: { porta_id: portaId } });
+    if (bem > 0 && gerir) mover.mutate({ url: `/ativos/bens/${bem}/localizacao`, dados: portaId ? { porta_id: portaId } : { porta_id: null, edificio_id: edificioId } });
   };
+  const retirarDoLocal = (bem: number) => mover.mutate({ url: `/ativos/bens/${bem}/localizacao`, dados: { porta_id: null } });
   const zona = (chave: string, portaId: number | null) => (gerir ? {
     onDragOver: (e: DragEvent) => { e.preventDefault(); setAlvo(chave); },
     onDragLeave: () => setAlvo(null),
@@ -52,10 +56,18 @@ export function PlantaEdificio() {
   const cartaoBem = (b: BemNaPlanta) => (
     <div key={b.id} draggable={gerir} onDragStart={(e) => e.dataTransfer.setData('text/plain', String(b.id))} onClick={(e) => e.stopPropagation()}
       title={`${b.descricao} · ${formatarKz(b.valor_aquisicao)}`}
-      style={{ fontSize: 12, background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 3, padding: '2px 5px', cursor: gerir ? 'grab' : 'default', marginBottom: 2 }}>
+      style={{ fontSize: 12, background: token.colorFillTertiary, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 3, padding: '2px 5px', cursor: gerir ? 'grab' : 'default', marginBottom: 2 }}>
       {gerir && <IconeFa nome="grip-vertical" />} {b.codigo} {b.descricao.slice(0, 22)}
+      {b.grupo === 'EDIFICIO' && <Tag color="gold" style={{ marginLeft: 4, fontSize: 10 }} title="Neste edifício, sem porta">{b.local || 'neste edifício'}</Tag>}
+      {b.grupo === 'SEM_LOCAL' && <Tag style={{ marginLeft: 4, fontSize: 10 }}>sem local</Tag>}
+      {b.grupo === 'OUTRO' && <div style={{ fontSize: 10, color: token.colorTextSecondary }}><IconeFa nome="city" /> {b.local}</div>}
+      {gerir && b.grupo === 'EDIFICIO' && (
+        <Button size="small" type="text" title="Retirar do edifício (fica sem localização)" aria-label={`Retirar ${b.codigo ?? ''} do edifício`}
+          icon={<IconeFa nome="sign-out-alt" />} onClick={() => retirarDoLocal(b.id)} />
+      )}
     </div>
   );
+  const outros = p?.outros_edificios ?? [];
 
   if (q.isLoading) return <Spin />;
   if (!p) return <Empty description="Edifício não encontrado." />;
@@ -78,8 +90,8 @@ export function PlantaEdificio() {
       >
         <Row gutter={16}>
           <Col xs={24} lg={17}>
-            <div style={{ border: '2px solid #94a3b8', borderRadius: 4, background: '#f8fafc', padding: 8 }}>
-              <div style={{ height: 14, background: '#475569', borderRadius: '4px 4px 0 0', margin: '-8px -8px 8px' }} />
+            <div style={{ border: `2px solid ${token.colorBorder}`, borderRadius: 4, background: token.colorFillAlter, padding: 8 }}>
+              <div style={{ height: 14, background: token.colorTextTertiary, borderRadius: '4px 4px 0 0', margin: '-8px -8px 8px' }} />
               {!p.andares.length && <Empty description="Ainda não há andares. Comece por acrescentar um andar (ou o piso 0 para um local sem andares)." />}
               {p.andares.map((f) => (
                 <Card key={f.id} size="small" style={{ marginBottom: 8 }}
@@ -104,8 +116,8 @@ export function PlantaEdificio() {
                     {f.portas.map((pt) => (
                       <div key={pt.id} data-porta={pt.id} role="button" tabIndex={0} aria-label={`Porta ${pt.numero}`} onClick={() => setDetalhe(pt)}
                         onKeyDown={(e) => { if (e.key === 'Enter') setDetalhe(pt); }} {...zona(`p${pt.id}`, pt.id)}
-                        style={{ border: '1px solid #cbd5e1', borderTop: '3px solid #b45309', borderRadius: 4, padding: '6px 8px', minHeight: 92, cursor: 'pointer',
-                          background: alvo === `p${pt.id}` ? '#fef3c7' : '#fff' }}>
+                        style={{ border: `1px solid ${token.colorBorder}`, borderTop: '3px solid #b45309', borderRadius: 4, padding: '6px 8px', minHeight: 92, cursor: 'pointer',
+                          background: alvo === `p${pt.id}` ? token.colorWarningBg : token.colorBgContainer }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
                           <span><IconeFa nome="door-closed" /> {pt.numero}</span>
                           <Space size={2}>
@@ -114,7 +126,7 @@ export function PlantaEdificio() {
                             {gerir && <Button size="small" type="text" title="Editar porta" icon={<IconeFa nome="edit" />} onClick={(e) => { e.stopPropagation(); setPorta(pt); }} />}
                           </Space>
                         </div>
-                        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>{pt.nome || pt.tipo || 'Porta'}</div>
+                        <div style={{ fontSize: 12, color: token.colorTextSecondary, marginBottom: 4 }}>{pt.nome || pt.tipo || 'Porta'}</div>
                         <div style={{ maxHeight: 120, overflow: 'auto' }}>{pt.bens.length ? pt.bens.map(cartaoBem) : <Typography.Text type="secondary" style={{ fontSize: 12 }}>Sem bens</Typography.Text>}</div>
                         {!!pt.n_bens && <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>{pt.n_bens} bem(ns) · {formatarKz(pt.valor)}</div>}
                       </div>
@@ -123,18 +135,24 @@ export function PlantaEdificio() {
                 </Card>
               ))}
             </div>
-            {gerir && <Typography.Text type="secondary" style={{ fontSize: 12 }}><IconeFa nome="hand-pointer" /> Arraste os bens entre portas, ou para «Bens sem porta» para os retirar do local.</Typography.Text>}
+            {gerir && <Typography.Text type="secondary" style={{ fontSize: 12 }}><IconeFa nome="hand-pointer" /> Arraste os bens entre portas, ou para «Bens sem porta» para os deixar neste edifício sem porta.</Typography.Text>}
           </Col>
           <Col xs={24} lg={7}>
             <Card size="small" title={`Bens sem porta (${p.sem_local.length})`}>
               <Input placeholder="Procurar bem..." allowClear value={procura} onChange={(e) => setProcura(e.target.value)} style={{ marginBottom: 6 }} />
               <div {...zona('sem', null)} data-zona="sem-local"
-                style={{ border: '1px dashed #cbd5e1', borderRadius: 4, padding: 6, minHeight: 90, maxHeight: 420, overflow: 'auto', background: alvo === 'sem' ? '#fef3c7' : undefined }}>
+                style={{ border: `1px dashed ${token.colorBorder}`, borderRadius: 4, padding: 6, minHeight: 90, maxHeight: 420, overflow: 'auto', background: alvo === 'sem' ? token.colorWarningBg : undefined }}>
                 {filtrarBens(p.sem_local, procura).map(cartaoBem)}
                 {!p.sem_local.length && <Typography.Text type="secondary">Todos os bens estão localizados.</Typography.Text>}
               </div>
-              <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 8, paddingTop: 6, fontSize: 13 }}>
-                <div><strong>{p.totais.bens}</strong> bem(ns) neste edifício</div>
+              {outros.length > 0 && (
+                <Collapse size="small" style={{ marginTop: 8 }} items={[{
+                  key: 'outros', label: `Bens noutros edifícios (${outros.length})`,
+                  children: <div data-zona="outros-edificios" style={{ maxHeight: 300, overflow: 'auto' }}>{filtrarBens(outros, procura).map(cartaoBem)}</div>,
+                }]} />
+              )}
+              <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, marginTop: 8, paddingTop: 6, fontSize: 13 }}>
+                <div><strong>{p.totais.bens}</strong> bem(ns) neste edifício{p.totais.sem_porta ? ` (${p.totais.sem_porta} sem porta)` : ''}</div>
                 <div><strong>{formatarKz(p.totais.valor)}</strong> em valor de aquisição</div>
               </div>
             </Card>
@@ -148,7 +166,7 @@ export function PlantaEdificio() {
       <ModalGerarInventario planta={p} pedido={inventario} aoFechar={() => setInventario(null)} />
       <DetalhePorta porta={detalhe} andar={p.andares.find((a) => a.id === detalhe?.andar_id)} podeGerir={gerir}
         aoInventariar={(pt) => { setDetalhe(null); setInventario({ ambito: 'PORTA', alvoId: pt.id }); }}
-        aoRetirar={(bem) => mover.mutate({ url: `/ativos/bens/${bem}/localizacao`, dados: { porta_id: null } }, { onSuccess: () => setDetalhe(null) })}
+        aoRetirar={(bem) => mover.mutate({ url: `/ativos/bens/${bem}/localizacao`, dados: { porta_id: null, edificio_id: edificioId } }, { onSuccess: () => setDetalhe(null) })}
         aoFechar={() => setDetalhe(null)} podeInventariar={inventariar} />
     </>
   );
@@ -171,7 +189,7 @@ function DetalhePorta({ porta, andar, podeGerir, podeInventariar, aoInventariar,
           { title: 'Categoria', dataIndex: 'categoria', render: (v) => <small>{v ?? '—'}</small> },
           { title: 'Valor', dataIndex: 'valor_aquisicao', align: 'right', render: (v) => formatarKz(v) },
           ...(podeGerir ? [{ title: 'Acções', key: 'a', align: 'right' as const, render: (_: unknown, b: BemNaPlanta) => (
-            <Button size="small" danger title="Retirar desta porta" icon={<IconeFa nome="sign-out-alt" />} onClick={() => aoRetirar(b.id)} />
+            <Button size="small" danger title="Retirar desta porta (fica no edifício, sem porta)" icon={<IconeFa nome="sign-out-alt" />} onClick={() => aoRetirar(b.id)} />
           ) }] : []),
         ]}
         summary={() => (porta?.bens.length ? <Table.Summary.Row><Table.Summary.Cell index={0} colSpan={3} align="right"><strong>TOTAL</strong></Table.Summary.Cell>

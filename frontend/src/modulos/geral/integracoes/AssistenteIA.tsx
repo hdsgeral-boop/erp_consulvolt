@@ -1,5 +1,5 @@
 import { DeleteOutlined, EditOutlined, InboxOutlined, PlusOutlined, RobotOutlined, SendOutlined, WarningOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Descriptions, Drawer, Empty, Flex, Form, Input, List, Modal, Popconfirm, Segmented, Space, Switch, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
+import { Alert, Button, Card, Descriptions, Drawer, Empty, Flex, Form, Input, List, Popconfirm, Segmented, Space, Switch, Table, Tabs, Tag, Typography, Upload, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { notificarErro } from '@/utilitarios/erros';
 import { formatarKz } from '@/utilitarios/formatacao';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 /**
  * Assistente IA para lançamentos (decisão 26, M-03; legado js/ui_ai_agent.js): descreve-se a operação ou anexa-se o
  * documento (PDF/imagem) e o servidor devolve propostas validadas. NADA é gravado: «Rever no formulário» abre o
@@ -227,7 +228,7 @@ function Regras() {
   const [form] = Form.useForm<{ nome: string; palavras_chave: string; modelo: string }>();
   const gravar = useMutation({
     mutationFn: (v: { nome: string; palavras_chave: string; modelo: string }) =>
-      edicao && edicao !== 'nova' ? enviar('put', `/contabilidade/assistente/regras/${edicao.id}`, v) : enviar('post', '/contabilidade/assistente/regras', v),
+      edicao && edicao !== 'nova' ? enviar('put', `/contabilidade/assistente/regras/${edicao.id}`, dadosRegra(v)) : enviar('post', '/contabilidade/assistente/regras', dadosRegra(v)),
     onSuccess: ({ mensagem }) => {
       message.success(mensagem);
       setEdicao(null);
@@ -242,7 +243,7 @@ function Regras() {
   });
   const abrir = (r: Regra | 'nova') => {
     setEdicao(r);
-    form.setFieldsValue(r === 'nova' ? { nome: '', palavras_chave: '', modelo: '[\n  {"account_code": "6243", "type_dc": "D"},\n  {"account_code": "4511", "type_dc": "C"}\n]' } : r);
+    form.setFieldsValue(r === 'nova' ? { nome: '', palavras_chave: '', modelo: MODELO_REGRA } : r);
   };
   return (
     <>
@@ -277,7 +278,9 @@ function Regras() {
             : []),
         ]}
       />
-      <Modal title={edicao === 'nova' ? 'Nova regra interna' : 'Regra interna'} open={!!edicao} onCancel={() => setEdicao(null)} okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()} destroyOnHidden>
+      <ModalFormulario chave="geral.regras_ia" titulo={edicao === 'nova' ? 'Nova regra interna' : 'Regra interna'} aberto={!!edicao} aoFechar={() => setEdicao(null)} criacao={edicao === 'nova'} form={form}
+        campos={CAMPOS_REGRA} nomeRegistos="regras internas" invalidar={[CHAVE]} gravarLinha={(r) => enviar('post', '/contabilidade/assistente/regras', dadosRegra(r))}
+        okText="Gravar" cancelText="Cancelar" confirmLoading={gravar.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(v)}>
           <Form.Item name="nome" label="Nome" rules={[{ required: true, message: 'Indique o nome.' }]}><Input maxLength={255} /></Form.Item>
           <Form.Item name="palavras_chave" label="Palavras-chave (separadas por vírgulas)" rules={[{ required: true, message: 'Indique as palavras-chave.' }]}>
@@ -287,10 +290,34 @@ function Regras() {
             <Input.TextArea rows={7} style={{ fontFamily: 'monospace', fontSize: 12 }} />
           </Form.Item>
         </Form>
-      </Modal>
+      </ModalFormulario>
     </>
   );
 }
+
+const MODELO_REGRA = '[\n  {"account_code": "6243", "type_dc": "D"},\n  {"account_code": "4511", "type_dc": "C"}\n]';
+
+/** Regra interna: corpo do pedido comum à grade e à vista Linhas (textos aparados). */
+export function dadosRegra(v: Record<string, unknown>): { nome: string; palavras_chave: string; modelo: string } {
+  const t = (k: string) => String(v[k] ?? '').trim();
+  return { nome: t('nome'), palavras_chave: t('palavras_chave'), modelo: t('modelo') };
+}
+
+const modeloInvalido = (m: unknown) => {
+  if (!m || !String(m).trim()) return null;
+  try {
+    return Array.isArray(JSON.parse(String(m))) ? null : 'O modelo tem de ser uma lista JSON.';
+  } catch {
+    return 'JSON inválido.';
+  }
+};
+
+/** Vista Linhas das regras internas (nome, palavras-chave e o modelo das linhas em JSON). */
+const CAMPOS_REGRA: CampoFormulario[] = [
+  { nome: 'nome', rotulo: 'Nome', obrigatorio: true, largura: 200, maxLength: 255, aliases: ['Regra'] },
+  { nome: 'palavras_chave', rotulo: 'Palavras-chave', obrigatorio: true, largura: 240, aliases: ['Palavras chave'] },
+  { nome: 'modelo', rotulo: 'Modelo das linhas (JSON)', tipo: 'textoLongo', obrigatorio: true, largura: 320, omissao: MODELO_REGRA, aliases: ['Modelo'], validar: modeloInvalido },
+];
 
 function Configuracao({ estado }: { estado?: EstadoIA }) {
   const { pode } = useSessao();

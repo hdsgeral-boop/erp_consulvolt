@@ -62,7 +62,7 @@ interface TabelaRel {
   coluna_principal: string | null;
 }
 
-/** Cores do período A (escuras) e do B (claras), como nos relatórios de gestão do legado (relatorios_gestao.js:809). */
+/** Cores do período A (escuras) e do B (claras), como nos relatórios de gestão do legado (relatorios_gestao.js:825 — `coresA`/`coresB`; ficam fora de CORES_SERIES). */
 const CORES_A = ['#1d4ed8', '#b45309', '#15803d'];
 const CORES_B = ['#93c5fd', '#fcd34d', '#86efac'];
 

@@ -1,4 +1,4 @@
-import { Card, Input, Modal, Space, Typography, message } from 'antd';
+import { Card, Input, Modal, Space, Typography, message, theme } from 'antd';
 import type { CSSProperties, ReactNode } from 'react';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 
@@ -37,11 +37,16 @@ export function pedirMotivo({ titulo, texto, textoOk = 'Confirmar', aoConfirmar 
 export function BannerTeso({ icone, titulo, texto, cor, fundo, corTitulo, accoes, style }: {
   icone: string; titulo: ReactNode; texto?: ReactNode; cor: string; fundo: string; corTitulo?: string; accoes?: ReactNode; style?: CSSProperties;
 }) {
+  // tela nocturna: o fundo claro do legado passa a ser a cor a 8 % sobre o fundo do cartão; o título escuro, a cor do texto
+  const { token } = theme.useToken();
+  const escuro = !['#ffffff', '#fff'].includes(token.colorBgContainer.toLowerCase());
+  const fundoEfectivo = escuro ? `color-mix(in srgb, ${cor} 8%, ${token.colorBgContainer})` : fundo;
+  const titulo2 = escuro ? token.colorText : corTitulo ?? cor;
   return (
-    <Card style={{ marginBottom: 16, borderLeft: `4px solid ${cor}`, ...style }} styles={{ body: { background: fundo, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' } }}>
+    <Card style={{ marginBottom: 16, borderLeft: `4px solid ${cor}`, ...style }} styles={{ body: { background: fundoEfectivo, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' } }}>
       <div>
-        <h3 style={{ margin: 0, color: corTitulo ?? cor }}><IconeFa nome={icone} /> {titulo}</h3>
-        {texto && <p style={{ margin: 0, fontSize: 13, color: corTitulo ?? cor, opacity: 0.85 }}>{texto}</p>}
+        <h3 style={{ margin: 0, color: titulo2 }}><IconeFa nome={icone} /> {titulo}</h3>
+        {texto && <p style={{ margin: 0, fontSize: 13, color: titulo2, opacity: 0.85 }}>{texto}</p>}
       </div>
       {accoes && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>{accoes}</div>}
     </Card>

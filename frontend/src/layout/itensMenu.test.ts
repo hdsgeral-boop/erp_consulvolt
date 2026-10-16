@@ -121,3 +121,32 @@ describe('ícones do menu do legado', () => {
     expect([...nomes].filter((x) => !temIconeFa(x))).toEqual([]);
   });
 });
+
+describe('Versão Actual: Aprovisionamento, Método de Trabalho e Folha de Caixa', () => {
+  const MENU_VA: ModuloMenu[] = [
+    { id: 'compras', nome: 'Compras', ecras: [ecra('compras_pedidos', 'Pedidos internos'), ecra('compras_encomendas')] },
+    { id: 'metodo', nome: 'Método de Trabalho 5W1H', ecras: [ecra('mt_assuntos'), ecra('mt_novo', 'Ecrã novo do método')] },
+    { id: 'teso', nome: 'Tesouraria', ecras: [ecra('teso_folha_caixa', 'Folha de Caixa')] },
+  ];
+  const lateral = construirMenuLateral(MENU_VA);
+  const geral = filho(lateral.itens as Item[], 'Menu Geral');
+
+  it('«Aprovisionamento» à cabeça das Compras, abre o ecrã dos pedidos; a pesquisa mantém «Pedidos Internos»', () => {
+    const compras = filho(geral.children, 'Compras');
+    expect(rotulos(compras.children)).toEqual(['Aprovisionamento', 'Pedidos Internos', 'Encomendas']);
+    expect(filho(compras.children, 'Aprovisionamento').key).toBe('/m/compras/compras_pedidos?vista=aprovisionamento');
+    expect(estadoMenu('/m/compras/compras_pedidos', '?vista=aprovisionamento', lateral, MENU_VA).seleccionado).toBe('/m/compras/compras_pedidos?vista=aprovisionamento');
+    expect(estadoMenu('/m/compras/compras_pedidos', '', lateral, MENU_VA).seleccionado).toBe('/m/compras/compras_pedidos');
+    expect(rotuloEcra('compras', 'compras_pedidos', 'x')).toBe('Pedidos Internos');
+  });
+
+  it('ecrãs novos do módulo «metodo» entram no grupo Método de Trabalho, com o nome curto', () => {
+    const metodo = filho(geral.children, 'Método de Trabalho');
+    expect(rotulos(metodo.children)).toEqual(['Registo de Assuntos (5W1H)', 'Ecrã novo do método']);
+    expect(nomeModulo('metodo', 'Método de Trabalho 5W1H')).toBe('Método de Trabalho');
+  });
+
+  it('«Folha de Caixa» com o ícone cash-register do legado', () => {
+    expect(ecrasDaEstrutura().find((x) => x.ecra === 'teso_folha_caixa')?.icone).toBe('cash-register');
+  });
+});

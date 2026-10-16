@@ -10,7 +10,7 @@ import { ImportarExcel } from './ImportarExcel';
 export type EntidadeCadastro = 'funcoes' | 'infotipos' | 'bancos';
 
 const NOMES: Record<EntidadeCadastro, { rotulo: string; ficheiro: string; ajuda: string }> = {
-  funcoes: { rotulo: 'Funções', ficheiro: 'Template_Funcoes.xlsx', ajuda: 'Uma linha por função: Nome (obrigatório) e Descrição. As funções que já existem (mesmo nome) são ignoradas.' },
+  funcoes: { rotulo: 'Funções', ficheiro: 'Template_Funcoes.xlsx', ajuda: 'Uma linha por função: Nome (obrigatório), Objectivo Geral do Cargo e Principais Responsabilidades (uma por linha na mesma célula; o «Descrição» dos ficheiros antigos vale como responsabilidades). As funções que já existem (mesmo nome) são ignoradas.' },
   infotipos: { rotulo: 'Infotipos', ficheiro: 'Template_Infotipos.xlsx', ajuda: 'Uma linha por rubrica: Nome, Tipo (VENCIMENTO/DESCONTO/OUTROS), INSS, IRT, Base dia/hora e Por horas. As rubricas que já existem (mesmo nome) são ignoradas.' },
   bancos: { rotulo: 'Bancos', ficheiro: 'Template_Bancos.xlsx', ajuda: 'Uma linha por banco: Nome, Código, NIF, Endereço e Conta Contab. (conta de movimento do plano). Os bancos que já existem (mesmo nome) são ignorados.' },
 };
