@@ -1,5 +1,10 @@
 # Análise v3 — RH / Salários / Estrutura Orgânica / Portal do Colaborador
 
+> **Estado em 2026-10-16:** depois das fases B, C, D e E e do «Fecho da Versão Actual» (ADR-071), as 16 lacunas desta análise foram verificadas no código do EL (`backend/app`, `backend/routes`, `backend/database/migrations`, `frontend/src`) e estão todas construídas.
+> Totais, sobre a mesma base de 18 funcionalidades (em 2026-10-13: 2 Existe, 7 Parcial, 9 Falta): **18 Feito · 0 Parcial · 0 Falta · 0 Diferença intencional**.
+> Única nuance de regra, já decidida no ADR-071 e contada como Feito: no #7 o contrato CESSADO entra no mês da cessação (até à data) e o suspenso só em parte do mês também entra, com aviso; o legado excluía o cessado nesse mês.
+> O texto original abaixo mantém-se como estava em 2026-10-13; cada secção tem no fim uma linha «Estado em 2026-10-16» com a evidência.
+
 Comparação **LEGADO NOVO** (`Versões/Versão Actual/ERP`) × **LEGADO ANTIGO** (`payroll_system_web`) e verificação no **erp_laravel**.
 Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de leitura: não se alterou nada.
 
@@ -11,30 +16,30 @@ Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de lei
 
 ## Tabela-resumo
 
-| # | Funcionalidade | Ecrã (LN) | Estado no EL | Esforço |
-|---|---|---|---|---|
-| 1 | Escala do mês (turnos por colaborador e dia, escala prioritária, migrar do contrato, copiar, Excel) | RH › Efectividade › separador «Escala do mês» | **FALTA** | Alto |
-| 2 | Horário do contrato + regime de 1 ou 2 períodos (2 ou 4 picagens) | RH › Contratos (formulário) e Efectividade | **FALTA** | Médio |
-| 3 | Apuramento da efectividade pela escala ou horário (horas/dia por dia, dias úteis por colaborador, atrasos e saídas antecipadas, avisos) | RH › Efectividade › Resumo do mês | **PARCIAL** (só as regras antigas) | Médio |
-| 4 | Importação da efectividade melhorada (modelo Excel já preenchido, 4 picagens, NIF sem zeros à esquerda, vírgula decimal, linhas em branco ignoradas) | RH › Efectividade › Importar | **PARCIAL** | Baixo–Médio |
-| 5 | Empréstimos a colaboradores (pedido no portal → chefia → RH → plano de amortização → conta corrente → desconto no cálculo) | RH › Empréstimos; Portal › Empréstimos; Calcular › «Importar Empréstimos» | **FALTA** | Alto |
-| 6 | Suspensão e cessação do contrato (Lei 12/23, fundamentos, compensação, reversão, histórico) | RH › Contratos (botões por contrato) | **FALTA** | Médio–Alto |
-| 7 | Contrato em vigor mais rigoroso (exclui suspensos dentro do período e cessados) + contrato «vigente» só para consulta | Processamento, ficha, portal | **PARCIAL** | Baixo (depende do 6) |
-| 8 | Minuta do contrato de trabalho conforme a Lei 12/23 (art. 13.º, motivo do termo, período experimental do art. 18.º, subsídios de 50 % do art. 238.º, objectivo e responsabilidades numeradas) | RH › Contratos › «Gerar PDF para Assinatura» | **PARCIAL** | Baixo–Médio |
-| 9 | Remunerações contratualizáveis = todas as rubricas de vencimento | RH › Contratos | **EXISTE** | — |
-| 10 | Descritivo das funções (objectivo geral + responsabilidades) e herança pelos cargos da estrutura (função obrigatória) | RH › Funções; Estrutura › Unidades e Cargos | **PARCIAL** | Baixo–Médio |
-| 11 | Produtividade: rótulos e fórmula por métrica, base «PRÉMIO» para objectivo, explicação do cálculo, permissões por separador | RH › Produtividade | **PARCIAL** | Baixo |
-| 12 | Produtividade a partir da execução de projectos (horas, quantidades medidas, tarefas concluídas) | RH › Produtividade › «Execução de projectos» | **FALTA** | Médio–Alto |
-| 13 | Aplicar itens de produtividade em massa a contratos | RH › Contratos | **FALTA** | Baixo–Médio |
-| 14 | Portal: separadores Escala, Contrato e Empréstimos | Portal do Colaborador | **FALTA** | Médio (depende de 1, 5 e 6) |
-| 15 | Portal autónomo (`portal.html`: login próprio, escolha da empresa, sem o ERP à volta) | Página própria | **FALTA** | Médio |
-| 16 | Cartas de ordem de pagamento (a partir de um movimento de tesouraria; terceiros e salários; modelo de texto; IBAN da conta 42/43) | Tesouraria › Cartas de Pagamento | **PARCIAL** (só salários, a partir do período) | Médio–Alto |
-| 17 | Repartição do custo salarial por várias unidades de negócio (`unidades_alocadas`) | Processamentos › Integração contábil | **FALTA** | Médio |
-| 18 | Motor IRT/INSS/faltas/horas extra/avençado | Calcular / Processamentos | **EXISTE** (sem alterações no LN) | — |
+| # | Funcionalidade | Ecrã (LN) | Estado em 2026-10-13 | Estado em 2026-10-16 | Esforço |
+|---|---|---|---|---|---|
+| 1 | Escala do mês (turnos por colaborador e dia, escala prioritária, migrar do contrato, copiar, Excel) | RH › Efectividade › separador «Escala do mês» | **FALTA** | **Feito** | Alto |
+| 2 | Horário do contrato + regime de 1 ou 2 períodos (2 ou 4 picagens) | RH › Contratos (formulário) e Efectividade | **FALTA** | **Feito** | Médio |
+| 3 | Apuramento da efectividade pela escala ou horário (horas/dia por dia, dias úteis por colaborador, atrasos e saídas antecipadas, avisos) | RH › Efectividade › Resumo do mês | **PARCIAL** (só as regras antigas) | **Feito** | Médio |
+| 4 | Importação da efectividade melhorada (modelo Excel já preenchido, 4 picagens, NIF sem zeros à esquerda, vírgula decimal, linhas em branco ignoradas) | RH › Efectividade › Importar | **PARCIAL** | **Feito** | Baixo–Médio |
+| 5 | Empréstimos a colaboradores (pedido no portal → chefia → RH → plano de amortização → conta corrente → desconto no cálculo) | RH › Empréstimos; Portal › Empréstimos; Calcular › «Importar Empréstimos» | **FALTA** | **Feito** | Alto |
+| 6 | Suspensão e cessação do contrato (Lei 12/23, fundamentos, compensação, reversão, histórico) | RH › Contratos (botões por contrato) | **FALTA** | **Feito** | Médio–Alto |
+| 7 | Contrato em vigor mais rigoroso (exclui suspensos dentro do período e cessados) + contrato «vigente» só para consulta | Processamento, ficha, portal | **PARCIAL** | **Feito (o mês da cessação entra, com aviso — decisão do ADR-071)** | Baixo (depende do 6) |
+| 8 | Minuta do contrato de trabalho conforme a Lei 12/23 (art. 13.º, motivo do termo, período experimental do art. 18.º, subsídios de 50 % do art. 238.º, objectivo e responsabilidades numeradas) | RH › Contratos › «Gerar PDF para Assinatura» | **PARCIAL** | **Feito** | Baixo–Médio |
+| 9 | Remunerações contratualizáveis = todas as rubricas de vencimento | RH › Contratos | **EXISTE** | **Feito (já existia)** | — |
+| 10 | Descritivo das funções (objectivo geral + responsabilidades) e herança pelos cargos da estrutura (função obrigatória) | RH › Funções; Estrutura › Unidades e Cargos | **PARCIAL** | **Feito** | Baixo–Médio |
+| 11 | Produtividade: rótulos e fórmula por métrica, base «PRÉMIO» para objectivo, explicação do cálculo, permissões por separador | RH › Produtividade | **PARCIAL** | **Feito** | Baixo |
+| 12 | Produtividade a partir da execução de projectos (horas, quantidades medidas, tarefas concluídas) | RH › Produtividade › «Execução de projectos» | **FALTA** | **Feito** | Médio–Alto |
+| 13 | Aplicar itens de produtividade em massa a contratos | RH › Contratos | **FALTA** | **Feito** | Baixo–Médio |
+| 14 | Portal: separadores Escala, Contrato e Empréstimos | Portal do Colaborador | **FALTA** | **Feito** | Médio (depende de 1, 5 e 6) |
+| 15 | Portal autónomo (`portal.html`: login próprio, escolha da empresa, sem o ERP à volta) | Página própria | **FALTA** | **Feito** | Médio |
+| 16 | Cartas de ordem de pagamento (a partir de um movimento de tesouraria; terceiros e salários; modelo de texto; IBAN da conta 42/43) | Tesouraria › Cartas de Pagamento | **PARCIAL** (só salários, a partir do período) | **Feito** | Médio–Alto |
+| 17 | Repartição do custo salarial por várias unidades de negócio (`unidades_alocadas`) | Processamentos › Integração contábil | **FALTA** | **Feito** | Médio |
+| 18 | Motor IRT/INSS/faltas/horas extra/avençado | Calcular / Processamentos | **EXISTE** (sem alterações no LN) | **Feito (já existia)** | — |
 
 ---
 
-## 1. Escala do mês — **FALTA**
+## 1. Escala do mês — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz para o utilizador:** define, por colaborador e por dia, o turno previsto (entrada, saída, intervalo, tolerância) ou a folga. Formas de criar: migrar o horário do contrato, inserir à mão (um dia, um intervalo, ou certos dias da semana), copiar um intervalo para outro, importar Excel e limpar um intervalo. A **escala prioritária** sobrepõe-se à prevista sem a apagar: retirada a prioritária, a prevista volta a valer. As gerações em massa nunca a substituem sem confirmação explícita. Grelha mensal com horas, dias de trabalho, folgas e prioritárias por colaborador.
    - Ecrã: RH › Efectividade › separador «Escala do mês» (`js/modules/rh/assiduidade_ui.js:82` `abaEscala`).
@@ -51,7 +56,9 @@ Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de lei
 3. **No EL:** a pesquisa por `rh_schedules|escala|prioritari` em `backend/app`, `routes`, `migrations` e `frontend/src` não devolve nada. Não há tabela, serviço, ecrã nem permissão.
 4. **Esforço: Alto.** Precisa de uma migração (`escalas_colaboradores`), de `ServicoEscalas` (gravar com protecção das prioritárias, gerar do contrato, copiar, importar Excel com PhpSpreadsheet, grelha), do separador em `Assiduidade.tsx` com grelha editável, e da integração em `ServicoAssiduidade::resumoMes`. **Depende do #2** (horário do contrato) e alimenta o #3 e o #14.
 
-## 2. Horário do contrato e regime de picagem — **FALTA**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoEscalas.php:149` (`gravarLinhas` com protecção das prioritárias; `gerarDoContrato` :228, `copiar` :267, `importar` :294, `grelha` :103); tabela `escalas_trabalho` (`backend/database/migrations/2026_10_14_100100_fb_rh_estado_contrato_escalas_emprestimos.php:66`); separador em `frontend/src/modulos/rh/Assiduidade.tsx:62` (`EscalaMes`).
+
+## 2. Horário do contrato e regime de picagem — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** no formulário do contrato define-se o horário diário (entrada, saída, intervalo, tolerância e dias da semana) e o regime: **1 período** (2 picagens, intervalo fixo descontado) ou **2 períodos** (4 picagens, intervalo picado). As «Horas por Dia» do contrato passam a acompanhar o horário. A configuração da efectividade ganha `periodos_padrao`, `intervalo_saida_padrao` (12:00) e `intervalo_entrada_padrao` (13:00).
    - Ficheiros: `js/app_v2.js:4751` (formulário) e `js/modules/rh/assiduidade.js:148` `horarioDe` e :204 `regimeDoDia`.
@@ -59,7 +66,9 @@ Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de lei
 3. **No EL:** `ContratoTrabalho` não tem coluna `horario`. A pesquisa por «horario» nas migrações de RH e nos modelos base não devolve nada. `ServicoAssiduidade::gravarRegisto` só aceita `entrada/saida/horas`.
 4. **Esforço: Médio.** É preciso acrescentar uma coluna JSON ao contrato, os campos aos registos e à configuração, a validação (as duas picagens do intervalo vão juntas) e o formulário. É pré-requisito dos #1 e #3.
 
-## 3. Apuramento da efectividade pela escala e pelo horário — **PARCIAL**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Http/Controllers/Api/RH/ContratoTrabalhoController.php:77-78` (`horario` com `periodos` 1|2 e picagens do intervalo); `backend/app/Http/Controllers/Api/RH/AssiduidadeController.php:47` (`periodos_padrao`, `intervalo_saida_padrao`, `intervalo_entrada_padrao`) e :69 (`saida_intervalo`/`entrada_intervalo` no registo); formulário `frontend/src/modulos/rh/contratos/HorarioContrato.tsx`.
+
+## 3. Apuramento da efectividade pela escala e pelo horário — ~~PARCIAL~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** o resumo do mês (`assiduidade.js:674` `resumoMes`) passa a usar, dia a dia:
    - as horas previstas desse dia: escala, senão o horário do contrato, senão `hours_per_day`, senão 8;
@@ -79,7 +88,9 @@ Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de lei
 3. **No EL:** `backend/app/Services/RH/ServicoAssiduidade.php:218-330` já tem arredondamento, tolerância, mínimo de extra, não útil com autorização, compensação DIA/MENSAL/LIMITE, ausências não remuneradas e o aviso do art. 230.º, com correcções do ADR-038. **Mas** `$horasDia` é fixo por colaborador (`horas_por_dia` ou 8, linha 239) e os dias úteis são os da empresa (`calendario->diaUtil`). Não há escala, horário, regime de 2 períodos, atrasos nem os avisos novos.
 4. **Esforço: Médio.** Pode adaptar-se o ciclo diário existente. **Depende dos #1 e #2.**
 
-## 4. Importação da efectividade melhorada — **PARCIAL**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoAssiduidade.php:512` (horas previstas do dia: escala › horário › horas/dia › 8, via `RegrasContrato::horasPrevistas`); :563 (aviso de 2 períodos sem picagem do intervalo); :643-645 (`horario`, `dias_escala`, `dias_escala_prioritaria`, `sem_picagem_intervalo`, `horas_atraso`, `dias_atraso`, `horas_saida_antecipada`).
+
+## 4. Importação da efectividade melhorada — ~~PARCIAL~~ → **Feito (2026-10-16)**
 
 1. **O que faz:**
    - Modelo Excel **já preenchido** com uma linha por colaborador activo e dia de trabalho do mês, com o horário previsto e o NIF formatado como texto, mais uma folha de colaboradores e uma de instruções (`assiduidade.js:618` `modeloImportacao`).
@@ -92,7 +103,9 @@ Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de lei
 3. **No EL:** `ServicoAssiduidade.php:78-130` importa CSV/XLSX com chaves NIF, INSS, número e nome, e já salta as linhas totalmente vazias. Não lê as picagens do intervalo, não tem modelo pré-preenchido, não tem índice sem zeros e não converte a vírgula no campo `horas`. Uma linha do modelo com NIF mas sem horas não é ignorada.
 4. **Esforço: Baixo–Médio.** O modelo pré-preenchido depende do #1 e do #2 para trazer o horário previsto.
 
-## 5. Empréstimos a colaboradores — **FALTA**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoAssiduidade.php:186` (`modelo` pré-preenchido); :117 (colunas do intervalo com sinónimos); :126 e :139-140 (NIF/INSS sem zeros à esquerda, só quando não é ambíguo); :144 (linha do modelo em branco não é erro); :76 (vírgula decimal em `horas`, também na importação, que grava por `gravarRegisto`).
+
+## 5. Empréstimos a colaboradores — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz:**
    - O colaborador pede no Portal o capital, o número de prestações, o mês de início e o motivo, e vê a simulação da prestação ao vivo (`portal_ui.js:398`).
@@ -117,7 +130,9 @@ Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de lei
 3. **No EL:** a pesquisa por `emprestim|rh_loan` só encontra `ServicoRelatorioContas.php:319` (rubrica de balanço, sem relação com isto). O catálogo de permissões não tem `rh_emprestimos`. `ServicoPortalColaborador::TIPOS = ['FERIAS','AUSENCIA','DOCUMENTO','AGREGADO']` (linha 37). O `MotorSalarial` já trata uma linha de DESCONTO como desconto ao líquido, por isso o cálculo em si não precisa de mudanças.
 4. **Esforço: Alto.** Precisa de 3 tabelas, `ServicoEmprestimos` (plano em bcmath, pedido, aprovação no portal, lançamento no período com invalidação da cache depois do commit, anulação ao reabrir, lançamento contabilístico pelo serviço de diário), do ecrã RH › Empréstimos, do separador no portal, do botão em `Calcular.tsx` e do PDF de autorização. Depende do diário de contabilidade (já existe), dos terceiros e de `ServicoFolhaSalarial::reabrir`, que tem de anular as prestações.
 
-## 6. Suspensão e cessação do contrato — **FALTA**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoEmprestimos.php` (`criarPedido` :204, `aoDecidir` :253, `gerarPlano` :277, `lancarNoPeriodo` :341, `anularDoPeriodo` :396, `lancarContaCorrente` :435, `cancelar` :466); tipo `EMPRESTIMO` no portal (`backend/app/Services/RH/ServicoPortalColaborador.php:49`); «Importar empréstimos» em `frontend/src/modulos/rh/Calcular.tsx:319-327` (rota `backend/routes/api/fb_rh.php:45`).
+
+## 6. Suspensão e cessação do contrato — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** os botões Suspender, Reactivar, Cessar, Anular cessação e Ver estado na lista de contratos (`contrato_estado_ui.js`; lógica em `contrato_estado.js`).
    - **Suspender** (:136): exige o início, aceita um fim opcional e pede o fundamento do art. 267.º (trabalhador: serviço militar, maternidade, doença, prisão preventiva, pena até 1 ano, funções sindicais, cargo público, força maior) ou do art. 270.º (empregador: conjuntural, calamidade, encerramento, outra). Fica guardado no histórico `suspensoes[]`.
@@ -136,14 +151,18 @@ Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de lei
 3. **No EL:** os estados aceites são `ACTIVO, INACTIVO, SUSPENSO` (`ContratoTrabalhoController.php:20,71`). Não há CESSADO, nem campos de suspensão ou cessação, nem fundamentos, compensação ou histórico. Existe só `ServicoContratosTrabalho::terminar` (data de fim, linha 157). A pesquisa por `cessa(c|ç)ão|contratos_suspender` não devolve nada no RH.
 4. **Esforço: Médio–Alto.** Precisa de colunas JSON e estado no contrato, de catálogos de fundamentos, de um serviço de actos com auditoria, do cálculo da compensação em bcmath, da UI e das permissões. É pré-requisito do #7 e do separador «Contrato» do portal.
 
-## 7. Contrato em vigor mais rigoroso — **PARCIAL**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoEstadoContrato.php` (`compensacao` :134 com ART307/308/310, `suspender` :148, `reactivar` :182, `cessar` :205, `anularCessacao` :238); estado `CESSADO` em `backend/app/Models/ContratoTrabalho.php:21`; botões em `frontend/src/modulos/rh/contratos/EstadoContrato.tsx:23` (`contratos_suspender` / `contratos_terminate`).
+
+## 7. Contrato em vigor mais rigoroso — ~~PARCIAL~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** `RegrasSalariais.contratoActivo` (`regras_salariais.js:95`) passa a devolver só o contrato ACTIVO dentro das datas, ou SUSPENSO **fora** do período da suspensão. Exclui os CESSADOS. A importação dos lançamentos dos contratos (`app_v2.js:5547`) usa-o e informa quantos contratos ficaram fora. O novo `contratoVigente` (:107) mostra o contrato mesmo suspenso ou cessado, só para consulta (ficha `ficha_colaborador.js:470`, declaração do portal `portal_dados.js:344`).
 2. **Dados:** os do #6.
 3. **No EL:** `ServicoFolhaSalarial::contratoDoMes` (linhas 704-716) já exige ACTIVO e as datas válidas no mês, o que é equivalente para ACTIVO/INACTIVO. Um contrato SUSPENSO fica sempre de fora, mesmo fora do período, porque não há período de suspensão. Também não há a variante «vigente» para a consulta, e o colaborador suspenso não consegue pedir a declaração.
 4. **Esforço: Baixo**, depois do #6.
 
-## 8. Minuta do contrato de trabalho (Lei 12/23) — **PARCIAL**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/RegrasContrato.php:93` (`emVigor`: SUSPENSO fora da suspensão, CESSADO até à data) e :109 (`vigente`, só para consulta), usado em `backend/app/Services/RH/ServicoDocumentosRH.php:152` e `backend/app/Services/RH/ServicoPortalColaborador.php:496`; o processamento diz quem ficou fora (`backend/app/Services/RH/ServicoFolhaSalarial.php:186-187`). Diferença decidida no ADR-071: o mês da cessação e a suspensão parcial entram, com aviso.
+
+## 8. Minuta do contrato de trabalho (Lei 12/23) — ~~PARCIAL~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** `generateContractPDF` (`app_v2.js` ≈ 4999-5120) foi reescrita.
    - Cita a Lei 12/23 e inclui os dados do art. 13.º/1: morada repartida, naturalidade, documento e validade, INSS, CRC da empresa.
@@ -156,11 +175,15 @@ Legendas: LN = legado novo · LA = legado antigo · EL = erp_laravel. Só de lei
 3. **No EL:** existe `frontend/src/modulos/rh/contratos/contratoAssinatura.ts` com a minuta **antiga**: período experimental fixo de 60 dias, «termo incerto/certo», sem a lei citada, sem o aviso do motivo, sem os 50 %, só a `descricao` da função. Não foram encontrados os campos `motivo_termo` nem `periodo_experimental` no backend.
 4. **Esforço: Baixo–Médio.** São campos novos no contrato e na empresa e a reescrita do template. Depende do #10.
 
-## 9. Remunerações contratualizáveis — **EXISTE**
+**Estado em 2026-10-16: Feito.** evidência: `frontend/src/modulos/rh/contratos/contratoAssinatura.ts:2` (minuta pela Lei 12/23) e :74 (`periodoExperimental`: 60 dias sem termo, 30 a termo, ou o definido); subsídios ≥ 50 % em `backend/app/Http/Controllers/Api/RH/ConfiguracaoRHController.php:53-54`; `motivo_termo`/`periodo_experimental_dias` em `backend/app/Models/Base/ContratoTrabalhoBase.php:24`.
+
+## 9. Remunerações contratualizáveis — **EXISTE** (sem alterações em 2026-10-16)
 
 O LN (`app_v2.js:4370`) passa a aceitar todas as rubricas do tipo VENCIMENTO, em vez de uma lista fixa de nomes. O EL já faz isto: `ServicoContratosTrabalho::remuneracoes` (linhas 180-196) aceita qualquer `tipo === 'VENCIMENTO'`.
 
-## 10. Descritivo das funções e herança pelos cargos — **PARCIAL**
+**Estado em 2026-10-16: Feito (já existia).** evidência: sem alterações; continua em `backend/app/Services/RH/ServicoContratosTrabalho.php` (`remuneracoes`, qualquer rubrica `VENCIMENTO`).
+
+## 10. Descritivo das funções e herança pelos cargos — ~~PARCIAL~~ → **Feito (2026-10-16)**
 
 1. **O que faz:**
    - A função (RH › Funções) ganha **objectivo geral** e **responsabilidades**; o antigo `description` é migrado para `responsabilidades` e mantido como espelho (`app_v2.js:4011`, `funcaoObjectivo` :4013).
@@ -172,7 +195,9 @@ O LN (`app_v2.js:4370`) passa a aceitar todas as rubricas do tipo VENCIMENTO, em
 3. **No EL:** `Funcoes.tsx` só tem `descricao` («Descrição da Função (Obrigações)») e não aparece `objectivo_geral` em lado nenhum. `ServicoEstruturaOrg.php:177` aceita um cargo **sem** `cargo_funcao_id` se tiver título, ou seja, sem a nova obrigatoriedade. Não há painel do descritivo herdado nem bloqueio ao apagar uma função usada.
 4. **Esforço: Baixo–Médio.**
 
-## 11. Produtividade — base «prémio» e explicação do cálculo — **PARCIAL**
+**Estado em 2026-10-16: Feito.** evidência: `frontend/src/modulos/rh/Funcoes.tsx:13` (`objetivo_geral`) e :32 (cargos da estrutura que usam a função); função obrigatória em cargo novo (`backend/app/Services/RH/ServicoEstruturaOrg.php:177-180`, `POSTO_SEM_FUNCAO`) e função usada não se elimina (:256, `REGISTO_EM_USO` com a lista); descritivo herdado em `frontend/src/modulos/estrutura/Estrutura.tsx:512-515`.
+
+## 11. Produtividade — base «prémio» e explicação do cálculo — ~~PARCIAL~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** cada métrica ganha rótulos próprios para quantidade, preço, mínimo e máximo, a fórmula e um exemplo (`produtividade.js`, METRICAS). Nova `base_calculo`:
    - UNITARIO: valor = quantidade considerada × preço;
@@ -185,7 +210,9 @@ O LN (`app_v2.js:4370`) passa a aceitar todas as rubricas do tipo VENCIMENTO, em
 3. **No EL:** `ServicoProdutividade.php` tem as 5 métricas e calcula sempre quantidade × preço (linha 223). Não há `base_calculo`, PREMIO nem `origem_chave`. As permissões `rh_prod_*` já existem no catálogo.
 4. **Esforço: Baixo.**
 
-## 12. Produtividade a partir da execução de projectos — **FALTA**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoProdutividade.php:38` (`BASES` UNITARIO/PREMIO), :76 (itens antigos valem UNITARIO) e :97 (`explicar`); UI em `frontend/src/modulos/rh/Produtividade.tsx:34-35` (PREMIO só na métrica OBJECTIVO).
+
+## 12. Produtividade a partir da execução de projectos — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** `js/modules/rh/produtividade_projectos.js` (novo, 2026-10-11) recolhe os dados de três fontes:
    - **HORAS** ← `project_timesheets`;
@@ -197,21 +224,27 @@ O LN (`app_v2.js:4370`) passa a aceitar todas as rubricas do tipo VENCIMENTO, em
 3. **No EL:** não foi encontrada nenhuma ponte (a pesquisa por «produtividade» em `Services/Projetos` não devolve nada). Já existem as folhas de horas (`ServicoExecucaoProjetos`, `FolhaHorasProjeto`), por isso a fonte HORAS é viável.
 4. **Esforço: Médio–Alto.** Depende do #11 (`origem_chave`) e das metas por quantidade dos projectos (área de Projectos do LN, também nova).
 
-## 13. Aplicar itens de produtividade em massa a contratos — **FALTA**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoProdutividadeProjetos.php:59` (`recolher` HORAS/QUANTIDADE/TAREFAS) e :181/:248 (`origem_chave`: reenviar não duplica); rotas em `backend/routes/api/fe_projectos.php:34`; separador «Execução de projectos» em `frontend/src/modulos/rh/Produtividade.tsx:74`.
+
+## 13. Aplicar itens de produtividade em massa a contratos — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** `js/modules/rh/contratos_produtividade.js` (novo) aplica um ou mais itens, com o preço do item ou um preço próprio, aos contratos escolhidos. Há três modos: acrescentar, substituir ou retirar. Ignora os inactivos e grava em `contracts.produtividade=[{item_id, preco_unitario|null}]`. Exige `contratos_new`.
 2. **Dados:** não cria tabelas.
 3. **No EL:** o contrato já aceita `produtividade` (`ServicoContratosTrabalho.php:57-64`), mas a massa (`routes/api/ronda2_g2.php:41` `contratos/massa`, `aplicarRubricasEmMassa`) só trata rubricas.
 4. **Esforço: Baixo–Médio.**
 
-## 14. Portal: separadores Escala, Contrato e Empréstimos — **FALTA**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoContratosTrabalho.php:140` (`aplicarProdutividadeEmMassa`: acrescentar/substituir/retirar); `POST /rh/contratos/produtividade-massa` em `backend/app/Http/Controllers/Api/RH/FiRhController.php:32`; UI em `frontend/src/modulos/rh/Contratos.tsx:255` (`ContratosMassa`).
+
+## 14. Portal: separadores Escala, Contrato e Empréstimos — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** o portal ganha os separadores **Escala** (consulta da escala do mês, com o horário do contrato nos dias sem escala, `portal_ui.js:501`), **Contrato** (dados do contrato vigente, incluindo o estado, `:551`) e **Empréstimos** (pedir com simulação, acompanhar e ver o plano, `:398`). `PortalColaborador` passa a expor `etapasPara` e `criarPedido`.
 2. **Dados:** os dos #1, #5 e #6.
 3. **No EL:** `frontend/src/modulos/rh/Portal.tsx:43-51` tem Pedidos, Recibos, Faltas, Avaliação, Equipa, Aprovações e Os meus dados. Não há escala, contrato nem empréstimos («contrato» não aparece em `Portal.tsx` nem em `ServicoPortalColaborador.php`).
 4. **Esforço: Médio.** Depende dos #1, #5 e #6.
 
-## 15. Portal autónomo (`portal.html`) — **FALTA**
+**Estado em 2026-10-16: Feito.** evidência: `frontend/src/modulos/rh/Portal.tsx:45-47` (separadores Escala, Contrato e Empréstimos, de `portal/PortalFaseB.tsx`); `backend/app/Services/RH/ServicoPortalColaborador.php:49` (`EMPRESTIMO` nos tipos) e :496 (contrato vigente).
+
+## 15. Portal autónomo (`portal.html`) — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** uma página própria, acessível por um link no site da empresa.
    - Login com a mesma autenticação do ERP (`SessaoServico.autenticar`), seguido da escolha da empresa, que **não** volta a pedir as credenciais.
@@ -223,7 +256,9 @@ O LN (`app_v2.js:4370`) passa a aceitar todas as rubricas do tipo VENCIMENTO, em
 3. **No EL:** `frontend/src/App.tsx:20-24` só tem o `LayoutPrincipal` (`/`, `m/:modulo/:ecra/*`, `dados-pessoais`). Não há rota ou layout de portal isolado.
 4. **Esforço: Médio.** Uma rota `/portal` com layout mínimo e a mesma autenticação (Sanctum), escolha da empresa, guarda de acesso «tem colaborador ou aprovações», e reaproveitamento dos componentes de `Portal.tsx`. Pela OWASP: limitar as tentativas de login e não expor dados sem sessão.
 
-## 16. Cartas de ordem de pagamento — **PARCIAL**
+**Estado em 2026-10-16: Feito.** evidência: `frontend/src/App.tsx:25` (rota `portal/*` → `PortalAutonomo`, sem o layout do ERP); guarda no servidor em `backend/routes/api/fi_portal.php:10` → `backend/app/Services/RH/ServicoPortalColaborador.php:88` (`exigirAcessoPortal`: colaborador associado, aprovações pendentes ou `rh_portal_aprovar`); login com `throttle:entrar` (`backend/routes/api.php:64`).
+
+## 16. Cartas de ordem de pagamento — ~~PARCIAL~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** em Tesouraria › Cartas de Pagamento (`teso_cartas`, `index_arrumado.html:295`; `cartas_pagamento.js`, `cartas_pagamento_ui.js`):
    - A carta **nasce sempre de um movimento de tesouraria** do tipo PAGAMENTO (`elegibilidade` :137), com a conta financeira 42/43 e o **IBAN no plano de contas** (banco, balcão, conta, IBAN, SWIFT e titular).
@@ -236,14 +271,18 @@ O LN (`app_v2.js:4370`) passa a aceitar todas as rubricas do tipo VENCIMENTO, em
 3. **No EL:** `backend/app/Services/RH/ServicoPagamentoSalarios.php` emite cartas de **salários** a partir do **período validado**: o IBAN é fixado, um colaborador só entra numa carta por período, sem IBAN a carta é recusada, e daí gera-se o pagamento na tesouraria. Tabelas `cartas_pagamento_bancario` e `itens_carta_pagamento` (migração `2026_09_30_100700_criar_tabelas_rh.php:239-271`). **Faltam:** o fluxo inverso (carta a partir de um movimento), as cartas a terceiros, `third_party_bank_details`, o modelo de texto, a numeração CP, a anulação com estado, a fotografia dos dados do banco emissor e os dados bancários nas contas 42/43 do plano. O IBAN só existe em `meios_pagamento` e nas coordenadas dos colaboradores. O catálogo não tem `teso_cartas`.
 4. **Esforço: Médio–Alto.** O tipo salários pode reaproveitar `ServicoPagamentoSalarios`; é preciso alinhar a regra «a carta nasce do movimento» com a ordem actual do EL (carta → pagamento), o que pede uma decisão (ADR).
 
-## 17. Repartição do custo salarial por unidades de negócio — **FALTA**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Tesouraria/ServicoCartasPagamento.php:121` (`elegibilidade` a partir do pagamento gravado, tipos TERCEIRO e SALARIOS), :206 (numeração `CP AAAA/NNN` e fotografia da conta emissora) e :236 (`anular` com motivo); ecrã `teso_cartas` em `frontend/src/layout/menuLegado.ts:117`.
+
+## 17. Repartição do custo salarial por unidades de negócio — ~~FALTA~~ → **Feito (2026-10-16)**
 
 1. **O que faz:** na integração contabilística dos salários (`app_v2.js:6478-6554`), cada colaborador com `unidades_alocadas` tem o custo, os impostos e o líquido divididos pelas unidades conforme o critério (`ReparticaoUN.pesos`). A última parte absorve o arredondamento, para o lançamento ficar equilibrado. Sem alocação, vai tudo para a unidade da ficha.
 2. **Dados:** `employees.unidades_alocadas` e `bu_allocation_keys` (v1275; critérios PERCENTAGEM, PARTES_IGUAIS, COLABORADORES, VOLUME_NEGOCIOS, AREA, PERSONALIZADO). Ficheiros novos `js/modules/configuracoes/alocacao_un.js` e `reparticao.js`.
 3. **No EL:** `ServicoFolhaSalarial::contabilizar` agrega por `{conta}|{dc}|{unidade_negocio_id}|{centro_custo_id}` com **uma** unidade por colaborador (linhas 553-554). A pesquisa por `unidades_alocadas|bu_allocation|ReparticaoUN` não devolve nada.
 4. **Esforço: Médio.** Depende das chaves de repartição, que são da área de Configurações e estão fora do âmbito deste relatório.
 
-## 18. Motor salarial (IRT, INSS, faltas, horas extra) — **EXISTE, sem alterações no LN**
+**Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoFolhaSalarial.php:559-585` (custo, impostos e líquido repartidos por `unidades_alocadas` com `ServicoReparticao::dividir`; a última parte absorve o arredondamento).
+
+## 18. Motor salarial (IRT, INSS, faltas, horas extra) — **EXISTE, sem alterações no LN** (sem alterações em 2026-10-16)
 
 `js/engine_v2.js` não tem diferenças entre os legados. As fórmulas do manual novo (`docs/manual_rh_salarios.html`, «Valor dia e valor hora» … «Líquido») são as que já estavam:
 
@@ -257,9 +296,13 @@ O LN (`app_v2.js:4370`) passa a aceitar todas as rubricas do tipo VENCIMENTO, em
 
 **No EL:** `backend/app/Services/RH/MotorSalarial.php` implementa as mesmas fórmulas: a tabela de IRT das linhas 24-36, configurável por `ServicoTabelaIRT`; `he` com p1 50, limite 30 e p2 75 (linha 165); `taxa_avencado` 6.5 (linha 199); INSS 3 % e 8 % configuráveis; e a isenção de 30 000 Kz. Os modos LEGADO e ATUAL estão em ADR-014/017/036. O modo ATUAL difere de propósito do legado: a isenção é marcada por flag e conta sobre o valor pago, a base do INSS é ≥ 0, o avençado paga sobre o valor efectivamente pago, e há arredondamento por componente. **Não há nada a portar no motor.** As mudanças com efeito no salário são todas de dados de entrada (#3, #5, #7, #11, #17).
 
+**Estado em 2026-10-16: Feito (já existia).** evidência: sem alterações; continua em `backend/app/Services/RH/MotorSalarial.php`.
+
 ---
 
-## Menus, ecrãs e permissões novos no LN (para o catálogo do EL)
+## Menus, ecrãs e permissões novos no LN (para o catálogo do EL) — *histórico (2026-10-13)*
+
+> **Estado em 2026-10-16:** tabela mantida só como registo. Já estão no catálogo (`backend/resources/permissoes/catalogo.json`) `rh_emprestimos` com `rh_emp_gerir`/`rh_emp_lancar`/`rh_emp_config`, `teso_cartas` com `teso_carta_emitir`/`teso_carta_modelo` e `contratos_suspender`; no menu (`frontend/src/layout/menuLegado.ts`) RH › Empréstimos (:96) e Tesouraria › Cartas de Pagamento (:117). O separador «Escala do mês» está em `rh_assiduidade`, a ponte de projectos usa `rh_prod_registar` e o portal autónomo é a rota `/portal` (fora do menu). `ECRAS_ADIADOS` ficou vazio (ADR-071).
 
 | `data-target` / entidade | Origem no LN | No EL (`catalogo.json` / `ecras.ts`) |
 |---|---|---|
@@ -270,7 +313,9 @@ O LN (`app_v2.js:4370`) passa a aceitar todas as rubricas do tipo VENCIMENTO, em
 | Separador «Escala do mês» dentro de `rh_assiduidade` | `assiduidade_ui.js` | `rh_assiduidade` existe, sem o separador |
 | `portal.html` (fora do menu) | raiz do LN | Ausente |
 
-## Ordem sugerida de implementação no EL
+## Ordem sugerida de implementação no EL — *histórico (2026-10-13)*
+
+> **Estado em 2026-10-16:** plano cumprido. Os grupos 1–3 entraram na Fase B, o #17 na Fase C, o #16 na Fase D, o #12 na Fase E e os #8, #10, #11, #13, o modelo do #4 e o #15 no «Fecho da Versão Actual» (ADR-071).
 
 1. **#6 e #7**, Suspensão/Cessação e contrato em vigor: afectam directamente quem é processado.
 2. **#2, #1, #3 e #4**, horário, escala e apuramento: é um bloco único, que muda as horas de falta e extra.

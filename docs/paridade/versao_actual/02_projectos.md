@@ -1,5 +1,11 @@
 # Projectos e produtividade ligada a projectos: o que o legado novo tem a mais e o que falta no erp_laravel
 
+> **Estado em 2026-10-16:** depois da Fase E e do «Fecho da Versão Actual» (ADR-071), os 26 itens foram verificados um a um no código (`backend/app`, `backend/routes`, `backend/database/migrations`, `frontend/src`) e estão todos construídos.
+> **Totais novos:** 26 Feito, 0 Parcial, 0 Falta, 0 Diferença intencional, 0 N/A.
+> As colunas do esquema (secção 0) existem todas, algumas com nome diferente do sugerido (por exemplo `mapas_quantidades`, `tarefa_predecessora_id`). As medições ficaram em `tarefas_projeto.meta_execucoes jsonb`, como no legado, e não numa tabela filha.
+> As rotas novas estão em `backend/routes/api/fe_projectos.php` (projectos e ponte) e `backend/routes/api/fi_rh.php` (contratos em massa).
+> O texto original de 2026-10-13 fica abaixo como histórico. Cada item tem uma linha «Estado em 2026-10-16» com as evidências (caminhos relativos a `erp_laravel`).
+
 **Comparação:** `payroll_system_web` (legado antigo) contra `Versões/Versão Actual/ERP` (legado novo), e verificação no `erp_laravel`.
 Quase todo o código novo é de **2026-10-11**. A excepção é `contratos_produtividade.js`, de 2026-09-23.
 Os caminhos do legado são relativos a `Versões/Versão Actual/ERP/js/`.
@@ -13,56 +19,59 @@ Os caminhos do legado são relativos a `Versões/Versão Actual/ERP/js/`.
   - `proj_gerir` e `proj_execucao` cobrem as funções novas;
   - `rh_prod_registar` passa a cobrir `prodProjectosAssistente` e `prodProjectosEnviar`;
   - `contratos_new` passa a cobrir `contratosProdutividadeEmMassa` e `aplicarProdutividadeEmMassa`.
-- **erp_laravel:** procurei com grep `meta_quantidade`, `meta_execucoes`, `mapas_qtd`, `depends_on`, `predecessora`, `dependencia`, `origem_chave`, `Mapa de quantidades`, `Carga de trabalho`, `Folha de medi` e `calendario` (em Projetos). **Não há nenhuma ocorrência em `backend/app`, `backend/routes`, `backend/database/migrations` nem em `frontend/src`.** O módulo Projectos do erp_laravel corresponde ao legado antigo.
+- **(2026-10-13, desactualizado) erp_laravel:** procurei com grep `meta_quantidade`, `meta_execucoes`, `mapas_qtd`, `depends_on`, `predecessora`, `dependencia`, `origem_chave`, `Mapa de quantidades`, `Carga de trabalho`, `Folha de medi` e `calendario` (em Projetos). **Não há nenhuma ocorrência em `backend/app`, `backend/routes`, `backend/database/migrations` nem em `frontend/src`.** O módulo Projectos do erp_laravel corresponde ao legado antigo.
+  - *Em 2026-10-16 isto já não é verdade:* os termos aparecem, por exemplo, em `backend/database/migrations/2026_09_30_101100_criar_tabelas_projectos.php:29` (`calendario`), `:77-85` (dependências, metas, `concluida_em`, `meta_execucoes`) e `:171` (`mapas_quantidades`), e em `frontend/src/modulos/projectos/separadores/planeamento/MapaQuantidades.tsx`.
 
 ## Tabela-resumo
 
-| # | Funcionalidade | Ecrã / separador | Estado no erp_laravel | Esforço |
-|---|---|---|---|---|
-| 1 | Calendário de trabalho do projecto (dias, ½ dia, horas/dia) | Ficha do projecto (modal) | FALTA | Baixo |
-| 2 | Meta por quantidade na tarefa (unidade, meta, realizado → % calculada) | Planeamento › modal Tarefa | FALTA | Médio |
-| 3 | Meta por quantidade da fase e data de início da fase | Planeamento › modal Fase/Milestone | FALTA | Baixo |
-| 4 | Registo de execução por quantidade com histórico (`meta_execucoes`) e conclusão automática | Planeamento (linha da tarefa) | FALTA | Médio |
-| 5 | Folha de medição (várias tarefas de uma vez, colar do Excel) | Planeamento e Execução | FALTA | Médio |
-| 6 | Assistente «Tarefas por quantidade» (reparte uma meta total por N tarefas e responsáveis) | Planeamento | FALTA | Médio |
-| 7 | Progresso da árvore ponderado pela quantidade | Planeamento, Gantt, Resumo | FALTA (só média simples / %) | Baixo |
-| 8 | Dependências entre tarefas (FS/SS/FF, desfasamento, anti-ciclo, data mínima) | Modal Tarefa, coluna «Precedência», setas no Gantt | FALTA | Alto |
-| 9 | Datas dentro do nível acima (subtarefa ⊂ tarefa ⊂ fase), com encaixe automático | Gravar tarefa ou fase, mover | FALTA | Médio |
-| 10 | Mudar de nível e converter fase ↔ tarefa (arrastar fases) | Planeamento | PARCIAL (só mover tarefas) | Médio |
-| 11 | Duplicar fase, tarefa ou subtarefa com deslocamento de datas | Planeamento | FALTA | Médio |
-| 12 | Ordenação automática (data + precedência) | WBS e Gantt | FALTA (só ordem manual) | Baixo (depende do #8) |
-| 13 | Coluna «Estrutura orgânica» (posição do organigrama) na WBS e no Gantt, e campo posição no modal Tarefa | Planeamento | PARCIAL (associação existe no Organigrama) | Baixo |
-| 14 | Gantt com escala escolhida (dia…ano), filtro por período, árvore recolhível, quantidades por período | Planeamento › Gantt | PARCIAL (Gantt simples, escala automática, linha de hoje) | Alto |
-| 15 | Mapa de quantidades (vistas Quantidades, Horas, Valor; acumulado; níveis; impressão) | Planeamento › «Mapa de quantidades» | FALTA | Alto |
-| 16 | Orçamento mapeado pelas quantidades (preço unitário, distribuição por tarefa, fase, área e pessoa) | Orçamento | FALTA | Alto |
-| 17 | Organigrama: valores somam as subposições e incluem o orçamento mapeado por quantidade | Organigrama | PARCIAL | Médio |
-| 18 | Carga de trabalho da equipa (por responsável e área, horas previstas e lançadas) | Equipa › botão «Carga de trabalho» | FALTA | Alto |
-| 19 | Ordem de trabalho impressa por pessoa | Equipa › Carga de trabalho | FALTA | Médio |
-| 20 | Separador «Execução» (horas, quantidades e tarefas concluídas por colaborador e período) | Detalhe › Execução | FALTA | Médio |
-| 21 | Ponte Execução → RH Produtividade (assistente, mapeamento para itens, sem duplicar) | Execução e RH › Produtividade › «Execução de projectos» | FALTA | Alto |
-| 22 | Data de conclusão da tarefa (`concluida_em`) | Modal Tarefa, Kanban, metas | FALTA | Baixo |
-| 23 | Folhas de horas gravam o membro da equipa (`team_member_id`) | Horas | PARCIAL (equivalente seguro, mas recusa externos) | Baixo |
-| 24 | Autos e revisões só nos meses que o projecto ocupa | Revisões › modal | FALTA | Baixo |
-| 25 | Painel do projecto: equipamentos alocados (agregado) e origem «Método de Trabalho» | Resumo/Dashboard | PARCIAL / FALTA | Baixo / Médio |
-| 26 | Contratos: aplicar itens de produtividade em massa | RH › Contratos | FALTA (o massa só trata rubricas) | Médio |
+| # | Funcionalidade | Ecrã / separador | Estado em 2026-10-13 | Estado em 2026-10-16 | Esforço |
+|---|---|---|---|---|---|
+| 1 | Calendário de trabalho do projecto (dias, ½ dia, horas/dia) | Ficha do projecto (modal) | FALTA | Feito | Baixo |
+| 2 | Meta por quantidade na tarefa (unidade, meta, realizado → % calculada) | Planeamento › modal Tarefa | FALTA | Feito (inclui o ritmo exigido) | Médio |
+| 3 | Meta por quantidade da fase e data de início da fase | Planeamento › modal Fase/Milestone | FALTA | Feito | Baixo |
+| 4 | Registo de execução por quantidade com histórico (`meta_execucoes`) e conclusão automática | Planeamento (linha da tarefa) | FALTA | Feito (histórico em jsonb, como no legado) | Médio |
+| 5 | Folha de medição (várias tarefas de uma vez, colar do Excel) | Planeamento e Execução | FALTA | Feito | Médio |
+| 6 | Assistente «Tarefas por quantidade» (reparte uma meta total por N tarefas e responsáveis) | Planeamento | FALTA | Feito | Médio |
+| 7 | Progresso da árvore ponderado pela quantidade | Planeamento, Gantt, Resumo | FALTA (só média simples / %) | Feito | Baixo |
+| 8 | Dependências entre tarefas (FS/SS/FF, desfasamento, anti-ciclo, data mínima) | Modal Tarefa, coluna «Precedência», setas no Gantt | FALTA | Feito (inclui ligar por arrasto e alternativa por teclado) | Alto |
+| 9 | Datas dentro do nível acima (subtarefa ⊂ tarefa ⊂ fase), com encaixe automático | Gravar tarefa ou fase, mover | FALTA | Feito | Médio |
+| 10 | Mudar de nível e converter fase ↔ tarefa (arrastar fases) | Planeamento | PARCIAL (só mover tarefas) | Feito | Médio |
+| 11 | Duplicar fase, tarefa ou subtarefa com deslocamento de datas | Planeamento | FALTA | Feito | Médio |
+| 12 | Ordenação automática (data + precedência) | WBS e Gantt | FALTA (só ordem manual) | Feito (auto por defeito; manual à escolha) | Baixo (depende do #8) |
+| 13 | Coluna «Estrutura orgânica» (posição do organigrama) na WBS e no Gantt, e campo posição no modal Tarefa | Planeamento | PARCIAL (associação existe no Organigrama) | Feito | Baixo |
+| 14 | Gantt com escala escolhida (dia…ano), filtro por período, árvore recolhível, quantidades por período | Planeamento › Gantt | PARCIAL (Gantt simples, escala automática, linha de hoje) | Feito | Alto |
+| 15 | Mapa de quantidades (vistas Quantidades, Horas, Valor; acumulado; níveis; impressão) | Planeamento › «Mapa de quantidades» | FALTA | Feito | Alto |
+| 16 | Orçamento mapeado pelas quantidades (preço unitário, distribuição por tarefa, fase, área e pessoa) | Orçamento | FALTA | Feito (com a permissão `proj_orcamento_qtd`) | Alto |
+| 17 | Organigrama: valores somam as subposições e incluem o orçamento mapeado por quantidade | Organigrama | PARCIAL | Feito | Médio |
+| 18 | Carga de trabalho da equipa (por responsável e área, horas previstas e lançadas) | Equipa › botão «Carga de trabalho» | FALTA | Feito | Alto |
+| 19 | Ordem de trabalho impressa por pessoa | Equipa › Carga de trabalho | FALTA | Feito | Médio |
+| 20 | Separador «Execução» (horas, quantidades e tarefas concluídas por colaborador e período) | Detalhe › Execução | FALTA | Feito | Médio |
+| 21 | Ponte Execução → RH Produtividade (assistente, mapeamento para itens, sem duplicar) | Execução e RH › Produtividade › «Execução de projectos» | FALTA | Feito | Alto |
+| 22 | Data de conclusão da tarefa (`concluida_em`) | Modal Tarefa, Kanban, metas | FALTA | Feito | Baixo |
+| 23 | Folhas de horas gravam o membro da equipa (`team_member_id`) | Horas | PARCIAL (equivalente seguro, mas recusa externos) | Feito (aceita membros externos, sem colaborador) | Baixo |
+| 24 | Autos e revisões só nos meses que o projecto ocupa | Revisões › modal | FALTA | Feito | Baixo |
+| 25 | Painel do projecto: equipamentos alocados (agregado) e origem «Método de Trabalho» | Resumo/Dashboard | PARCIAL / FALTA | Feito (a) e (b) | Baixo / Médio |
+| 26 | Contratos: aplicar itens de produtividade em massa | RH › Contratos | FALTA (o massa só trata rubricas) | Feito | Médio |
 
-**Totais:** 0 EXISTE, 6 PARCIAL e 20 FALTA. Se todos os itens forem reproduzidos, o esforço global é Alto. A base de tudo são os itens 1–4 e 22: esquema e regras das metas.
+**Totais:** em 2026-10-13: 0 EXISTE, 6 PARCIAL e 20 FALTA. Em 2026-10-16: 26 Feito, 0 Parcial, 0 Falta, 0 Diferença intencional e 0 N/A. Se todos os itens forem reproduzidos, o esforço global é Alto (estimativa de 2026-10-13). A base de tudo são os itens 1–4 e 22: esquema e regras das metas.
 
 ---
 
 ## 0. Dados novos no Dexie (todos sem índice) e o que falta no esquema do erp_laravel
 
-| Tabela Dexie (legado) | Campo novo | Tabela erp_laravel | Em falta |
-|---|---|---|---|
-| `projects` | `calendario` = `{ horas_dia, dias: {0..6: 0, 0.5 ou 1} }` | `projetos` | coluna `calendario jsonb` |
-| `project_tasks` | `meta_unidade`, `meta_quantidade`, `meta_realizado`, `meta_execucoes` = `[{q, data, nota, por, em}]`, `depends_on_task_id`, `dependency_type` (FS/SS/FF), `dependency_lag_days`, `concluida_em` | `tarefas_projeto` | todas estas colunas |
-| `project_milestones` | `date_start`, `meta_unidade`, `meta_quantidade` | `marcos_projeto` (só tem `data`) | `data_inicio`, `meta_unidade`, `meta_quantidade` |
-| `project_budget_lines` | `mapas_qtd` = `[{unidade, escopo:{tipo:'UNIDADE'/'FASE'/'TAREFAS', ids}, valor, base:'META'/'EXECUTADO', preco_unitario, quantidade_mapeada, criado_em, criado_por}]`. O campo antigo `mapa_qtd`, de um só objecto, continua a ser lido. | `linhas_orcamento_projeto` | `mapas_qtd jsonb` |
-| `project_timesheets` | `team_member_id` | `folhas_horas_projeto` (só tem `colaborador_id`) | `membro_equipa_projeto_id` |
-| `project_org_nodes` | `tarefas`, que já existia | `nos_organigrama_projeto.tarefas jsonb` | já existe |
-| `rh_productivity` (registos) | `origem_chave`, `fonte` (json), `origem='PROJECTO'` | `registos_produtividade_rh` (tem `origem varchar(10)`) | `origem_chave` com índice único por período, `fonte jsonb` |
+| Tabela Dexie (legado) | Campo novo | Tabela erp_laravel | Em falta (2026-10-13) | Existe em 2026-10-16 |
+|---|---|---|---|---|
+| `projects` | `calendario` = `{ horas_dia, dias: {0..6: 0, 0.5 ou 1} }` | `projetos` | coluna `calendario jsonb` | sim: `calendario jsonb` (`criar_tabelas_projectos.php:29`); também `assunto_metodo_id` (← `mt_assunto_id`, `:32`) |
+| `project_tasks` | `meta_unidade`, `meta_quantidade`, `meta_realizado`, `meta_execucoes` = `[{q, data, nota, por, em}]`, `depends_on_task_id`, `dependency_type` (FS/SS/FF), `dependency_lag_days`, `concluida_em` | `tarefas_projeto` | todas estas colunas | sim, todas (`:77-85`): `tarefa_predecessora_id`, `tipo_dependencia` (CHECK FS/SS/FF em `2026_10_14_200100_fe_projectos_metas_execucao.php:48`), `desfasamento_dias`, `meta_unidade`, `meta_quantidade`, `meta_realizado`, `concluida_em timestamptz`, `meta_execucoes jsonb` |
+| `project_milestones` | `date_start`, `meta_unidade`, `meta_quantidade` | `marcos_projeto` (só tem `data`) | `data_inicio`, `meta_unidade`, `meta_quantidade` | sim, as três (`:52-54`) |
+| `project_budget_lines` | `mapas_qtd` = `[{unidade, escopo:{tipo:'UNIDADE'/'FASE'/'TAREFAS', ids}, valor, base:'META'/'EXECUTADO', preco_unitario, quantidade_mapeada, criado_em, criado_por}]`. O campo antigo `mapa_qtd`, de um só objecto, continua a ser lido. | `linhas_orcamento_projeto` | `mapas_qtd jsonb` | sim, com o nome `mapas_quantidades jsonb` (`:171`) |
+| `project_timesheets` | `team_member_id` | `folhas_horas_projeto` (só tem `colaborador_id`) | `membro_equipa_projeto_id` | sim, com índice e FK (`:222`, `:230`; para bases antigas `fe_projectos_metas_execucao.php:24-33`) |
+| `project_org_nodes` | `tarefas`, que já existia | `nos_organigrama_projeto.tarefas jsonb` | já existe | sim (sem alteração) |
+| `rh_productivity` (registos) | `origem_chave`, `fonte` (json), `origem='PROJECTO'` | `registos_produtividade_rh` (tem `origem varchar(10)`) | `origem_chave` com índice único por período, `fonte jsonb` | sim: `origem varchar(20)`, `origem_chave varchar(50)`, `fonte jsonb` (`criar_tabelas_rh.php:558-561`); índice único parcial `(empresa_id, origem_chave)` (`fe_projectos_metas_execucao.php:41`). O período vai dentro da chave (`PRJ\|…\|período`), por isso não é preciso no índice |
 
 Para as linhas dos registos de execução, recomendo uma tabela filha em vez de jsonb, por exemplo `execucoes_meta_tarefa` (tarefa, data, quantidade, nota, autor). Facilita a ponte para o RH (#21) e as consultas por período.
+
+*Nota de 2026-10-16:* a recomendação da tabela filha não foi seguida. O histórico ficou em `tarefas_projeto.meta_execucoes jsonb`, como no legado, e a ponte para o RH lê-o daí (`backend/app/Services/RH/ServicoProdutividadeProjetos.php:59`). As colunas vêm do esquema gerado a partir do backup novo (ADR-071). A migration da Fase E só acrescenta o que o gerador não traz: a FK das folhas de horas, o índice da `origem_chave` e o CHECK do tipo de dependência.
 
 ---
 
@@ -76,6 +85,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - `horasPrevistas(t) = diasUteis(início, fim) × horas_dia`
    - validação: horas por dia entre 0,5 e 24; pelo menos um dia com factor > 0.
 3. **erp_laravel: FALTA.** `projetos` não tem a coluna. `ModalProjecto.tsx` não tem o campo. Há `ServicoCalendarioRH.php`, mas é do RH (feriados/escala) e não serve aqui.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoProjetos.php:89-90` (valida e grava o calendário com `RegrasMetasProjetos::validarCalendario`), `frontend/src/modulos/projectos/ModalProjecto.tsx:103` (modelo, horas/dia e dias no modal), `backend/database/migrations/2026_09_30_101100_criar_tabelas_projectos.php:29`.
 4. **Esforço:** Baixo. Migração, validação no `ServicoProjetos` e campo no `ModalProjecto`. Os itens #14, #15 e #18 dependem deste.
 
 ## 2. Meta por quantidade na tarefa
@@ -89,6 +99,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - com subtarefas, o «realizado» fica só de leitura
    - ritmo por dia = `meta / dias úteis`; por semana = por dia × Σ factores da semana; por mês = por semana × 4,33; por hora = `meta / (dias × horas_dia)`.
 3. **erp_laravel: FALTA.** `ServicoPlaneamentoProjetos::guardarTarefa` só trata `percentagem_execucao`. `tipos.ts` (TarefaWbs) não tem campos de meta.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/database/migrations/2026_09_30_101100_criar_tabelas_projectos.php:80-82` (colunas), `frontend/src/modulos/projectos/separadores/Planeamento.tsx:547` (unidade obrigatória com meta) e `:504-510` (ritmo exigido e confirmação ao concluir abaixo da meta), `backend/app/Services/Projetos/RegrasMetasProjetos.php:325` (`ritmo`).
 4. **Esforço:** Médio. Migração, serviço e validação, modal React e testes. É a base dos itens #4–7, #15, #16, #18, #20 e #21.
 
 ## 3. Meta da fase e data de início da fase
@@ -100,6 +111,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - ao apertar o intervalo da fase, avisa sobre as tarefas que ficam fora
    - a soma vem de `somaRamo`, sem contar duas vezes o pai que tem filhos com meta.
 3. **erp_laravel: FALTA.** `marcos_projeto` só tem `data`. `guardarMarco` grava nome e data.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/database/migrations/2026_09_30_101100_criar_tabelas_projectos.php:52-54`, `backend/app/Services/Projetos/ServicoPlaneamentoProjetos.php:251-267` (`guardarMarcoComAvisos`: data de início, meta e aviso das tarefas que ficam fora), `frontend/src/modulos/projectos/separadores/Planeamento.tsx:582`.
 4. **Esforço:** Baixo.
 
 ## 4. Registo de execução por quantidade, com histórico
@@ -111,6 +123,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - não se regista numa tarefa cujas subtarefas têm meta
    - permissão `proj_execucao` ou `proj_gerir`, verificada também dentro do módulo.
 3. **erp_laravel: FALTA.** Só existe `atualizarExecucao(TarefaProjeto, int $pct)`.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoMetasProjetos.php:46-89` (`registar` com `lockForUpdate`, recusa de realizado negativo, passagem a EM_CURSO/CONCLUIDA e `concluida_em`), `backend/routes/api/fe_projectos.php:14`, `frontend/src/modulos/projectos/separadores/planeamento/ModaisMetas.tsx:26` (`ModalMedicao`).
 4. **Esforço:** Médio. Tabela de execuções, endpoint, auditoria e testes de concorrência (`lockForUpdate`).
 
 ## 5. Folha de medição em lote
@@ -119,6 +132,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - botões em `ui_projects.js:779` (Planeamento) e no separador Execução
 2. **Dados:** os mesmos do #4.
 3. **erp_laravel: FALTA.**
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoMetasProjetos.php:106` (`registarEmLote`) e `:133` (`folhaMedicao`), `frontend/src/modulos/projectos/separadores/planeamento/ModaisMetas.tsx:75` e `:128` («Colar do Excel»), `backend/routes/api/fe_projectos.php:15-16`.
 4. **Esforço:** Médio. Depende do #4.
 
 ## 6. Assistente «Tarefas por quantidade»
@@ -126,6 +140,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - `projectos_metas.js:683-839` (`projMetasEmMassa`) e botão em `ui_projects.js:778`
 2. **Regras:** prazo repartido = `(fim − início + 1)` dias, dividido em partes sequenciais; as quantidades são as indicadas por parte; o destino é a raiz da fase ou uma subtarefa.
 3. **erp_laravel: FALTA.**
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoMetasProjetos.php:152` (`criarPorQuantidade`), `frontend/src/modulos/projectos/separadores/planeamento/ModaisMetas.tsx:172` (`ModalTarefasQuantidade`), `backend/routes/api/fe_projectos.php:17`.
 4. **Esforço:** Médio. Depende dos itens #2 e #13.
 
 ## 7. Progresso ponderado pela quantidade
@@ -133,6 +148,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - `projectos_metas.js:51-110` (`progresso`, `somaRamo`, `progressoConjunto`)
    - usado em `ui_projects.js:670-688`
 2. **erp_laravel: FALTA.** `ServicoPlaneamentoProjetos::wbs` calcula a execução do marco por média simples.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoPlaneamentoProjetos.php:81-96` e `:117` (Σ min(feito, meta) / Σ meta quando os filhos têm meta na mesma unidade), `backend/app/Services/Projetos/RegrasMetasProjetos.php:355` (`somaRamo`).
 4. **Esforço:** Baixo. Depende do #2.
 
 ## 8. Dependências entre tarefas
@@ -149,12 +165,14 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - FF: `fim ≥ fim(pred) + desf`
    - ciclo: percorrer `depends_on_task_id` até ao fim da cadeia; não podem ser candidatas a própria tarefa nem as suas descendentes.
 3. **erp_laravel: FALTA.** Não há colunas nem lógica. O Gantt (`comum/Gantt.tsx`) é CSS simples, sem ligações.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoPlaneamentoProjetos.php:350-366` (ciclo e data mínima ao gravar), `backend/app/Services/Projetos/ServicoHierarquiaProjetos.php:172-205` (`criaCiclo`, `dataMinima`, `validarDependencia`), `frontend/src/modulos/projectos/separadores/Planeamento.tsx:355` (ligar por arrasto no Gantt) e `frontend/src/modulos/projectos/comum/Gantt.tsx:109` (setas).
 4. **Esforço:** Alto. Esquema e validação no backend são Médio. As setas e a ligação por arrasto no Gantt React aumentam o esforço.
 
 ## 9. Datas dentro do nível acima
 1. **O que faz:** uma subtarefa tem de caber nas datas da tarefa-mãe e uma tarefa nas da fase. Verifica-se ao gravar, ao mover e ao mudar de nível, com a opção de **encaixar** as datas automaticamente. Avisa sobre as subtarefas que ficam fora quando se mudam as datas do pai.
    - `projectos_hierarquia.js:63-125` (`intervaloDoPai`, `validarDatas`, `encaixar`, `conflitosAbaixo`) e `ui_projects.js:2441-2453`
 3. **erp_laravel: FALTA.** `guardarTarefa` só valida fim ≥ início.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoPlaneamentoProjetos.php:343-348` (`validarDatas`/`encaixar` ao gravar) e `:420` (`conflitosAbaixo`), `backend/app/Services/Projetos/ServicoHierarquiaProjetos.php:70-147`.
 4. **Esforço:** Médio. A regra é simples, mas toca na gravação, no mover e nas mensagens de confirmação.
 
 ## 10. Mudar de nível e converter fase ↔ tarefa
@@ -164,24 +182,28 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - converter uma fase em tarefa, ou uma tarefa em fase.
    - Ficheiros: `projectos_hierarquia.js:682-839` (`projMudarNivel`, `projConverterFase`, `converterFaseEmTarefa`, `converterTarefaEmFase`) e `ui_projects.js:3539+`
 3. **erp_laravel: PARCIAL.** `ServicoPlaneamentoProjetos::mover` (ANTES, DEPOIS, DENTRO ou MARCO, com controlo de ciclos) e `Planeamento.tsx` (arrastar, M-20) só movem **tarefas**. Não há conversão fase ↔ tarefa nem validação de datas no movimento.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoHierarquiaProjetos.php:388` (`mudarNivel`, incluindo fase → tarefa e tarefa → fase), `backend/routes/api/fe_projectos.php:20`, `frontend/src/modulos/projectos/separadores/Planeamento.tsx:318` (arrastar fases).
 4. **Esforço:** Médio.
 
 ## 11. Duplicar camada
 1. **O que faz:** copia uma fase com as suas tarefas, ou uma tarefa com as suas subtarefas. Dá-lhe um nome novo e desloca as datas N dias. A cópia nasce a 0 % e PENDENTE; horas, custos, autos e requisições não são copiados. As precedências internas ao bloco ligam as cópias entre si.
    - `projectos_hierarquia.js:275-411`
 3. **erp_laravel: FALTA.** Não há «duplicar» em `separadores/*.tsx` nem nos serviços de Projetos.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoHierarquiaProjetos.php:309` (`duplicar`), `backend/routes/api/fe_projectos.php:19`, `frontend/src/modulos/projectos/separadores/planeamento/ModaisHierarquia.tsx:28` (`ModalDuplicar`).
 4. **Esforço:** Médio.
 
 ## 12. Ordenação automática
 1. **O que faz:** entre irmãos, ordena por data de início sem nunca pôr uma tarefa antes da sua predecessora. Sem datas, vale a ordem manual. A ordem é a mesma na WBS, no Gantt, na carga de trabalho e na ordem de trabalho.
    - `projectos_hierarquia.js:174-219` e `ui_projects.js:709-710`
 3. **erp_laravel: FALTA.** Só existe a coluna `ordem` (manual).
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoPlaneamentoProjetos.php:166` (ordenação `auto` por defeito), `backend/app/Services/Projetos/ServicoHierarquiaProjetos.php:262` (`ordenarIrmaos`), `backend/app/Http/Controllers/Api/Projetos/PlaneamentoController.php:23`.
 4. **Esforço:** Baixo, depois do #8.
 
 ## 13. Posição do organigrama na tarefa e coluna «Estrutura orgânica»
 1. **O que faz:** o modal da tarefa tem o campo «Posição no organigrama do projecto». A ligação é guardada no nó (`project_org_nodes.tarefas`). A WBS e o Gantt mostram a coluna «Estrutura orgânica».
    - `ui_projects.js:2252-2258, 2460-2472, 712-737`
 3. **erp_laravel: PARCIAL.** A associação existe no lado do organigrama (`OrganigramaAccoes.tsx` › `ModalAssociarTarefas`; `nos_organigrama_projeto.tarefas`). Não existe no modal da tarefa nem como coluna em `Planeamento.tsx`.
+   - **Estado em 2026-10-16: Feito.** evidência: `frontend/src/modulos/projectos/separadores/Planeamento.tsx:529` (campo «Posição no organigrama do projecto» no modal), `:206` (coluna na WBS) e `:374` (coluna no Gantt).
 4. **Esforço:** Baixo.
 
 ## 14. Gantt melhorado
@@ -196,6 +218,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - Ficheiros: `ui_projects.js:868-922` (escalas e janela, partilhadas com o mapa), `:1700-2060` (render), `:5252-5400` (`ganttEscala`, `ganttPeriodo`, `ganttQuantidades`, `ganttArvore`, `toggleGanttFase`) e `projectos_metas.js:186-246` (`periodosDaEscala`)
 2. **Regras:** colunas alinhadas à unidade (semana a começar à segunda, trimestre em Jan/Abr/Jul/Out, semestre em Jan/Jul). A quantidade prevista por coluna vem de `repartirNoTempo`, proporcional aos dias úteis, com arredondamento cumulativo para a soma fechar.
 3. **erp_laravel: PARCIAL.** `comum/Gantt.tsx` e `regras.ts` (`escalaGantt`, `marcasGantt` com meses ou semanas automáticos, `posicaoHoje`) dão barras, progresso e linha de hoje. Não há escala à escolha, filtro por período, recolha da árvore, quantidades, precedências nem colunas extra.
+   - **Estado em 2026-10-16: Feito.** evidência: `frontend/src/modulos/projectos/comum/Gantt.tsx:49-67` (escala à escolha, setas, colunas extra, árvore recolhível, losango, quantidades), `frontend/src/modulos/projectos/separadores/Planeamento.tsx:329-330` (filtro por período e «Tudo / Fases e tarefas / Só fases») e `:353`.
 4. **Esforço:** Alto. Provavelmente compensa adoptar uma biblioteca de Gantt, ou reescrever o componente.
 
 ## 15. Mapa de quantidades
@@ -213,6 +236,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - acumulado: `s_i = Σ_{k≤i} v_k`
    - se o prazo não tiver dias úteis, reparte pelos dias de calendário.
 3. **erp_laravel: FALTA.**
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoPaineisExecucaoProjetos.php:103` (`mapa`, matriz calculada no backend), `backend/routes/api/fe_projectos.php:22`, `frontend/src/modulos/projectos/separadores/planeamento/MapaQuantidades.tsx:24-43` (vistas Quantidades/Horas/Valor e acumulado).
 4. **Esforço:** Alto. Depende dos itens #1, #2, #4, #14 (escala) e #16. Recomendo um endpoint backend que devolva a matriz já calculada.
 
 ## 16. Orçamento mapeado pelas quantidades
@@ -232,6 +256,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - por pessoa: o responsável directo leva tudo; sem ele, reparte pelos membros da área na proporção das `allocated_hours`, ou em partes iguais
    - permissão `proj_orcamento_qtd`.
 3. **erp_laravel: FALTA.** `ServicoOrcamentoProjetos.php` e `separadores/Orcamento.tsx` não têm mapeamento por quantidade. O catálogo não tem `proj_orcamento_qtd`.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoOrcamentoQuantidadesProjetos.php:64` (`saldo`) e `:227` (`mapear`), `backend/routes/api/fe_projectos.php:26-30`, `frontend/src/modulos/projectos/separadores/OrcamentoQuantidades.tsx:118` (quadro «Repartição do orçamento mapeado»). A permissão `proj_orcamento_qtd` é usada em `backend/app/Http/Controllers/Api/Projetos/OrcamentoQuantidadesController.php`.
 4. **Esforço:** Alto. Depende do #2 e do #4 (base EXECUTADO). Afecta o #17.
 
 ## 17. Organigrama: valores do ramo e orçamento por quantidade
@@ -242,6 +267,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - o contador «linhas sem posição» ignora o que já está mapeado.
    - Ficheiros: `projectos_organigrama.js:134-162, 172-234, 262-287, 591-653`
 3. **erp_laravel: PARCIAL.** `ServicoOrganigramaProjetos.php` calcula o orçamento e o executado **só da própria posição** (tarefas + linhas directas, sem duplicar). Já existe `descendentes()`, mas não é usado para somar o ramo. Não há orçamento por quantidade.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoOrganigramaProjetos.php:72-97` (valores do ramo com `descendentes()`, orçamento por quantidade pelas tarefas, «linhas sem posição» sem o já mapeado), `frontend/src/modulos/projectos/separadores/Organigrama.tsx:63-64` («Com as subposições»).
 4. **Esforço:** Médio. A soma do ramo é Baixo; a parte por quantidade depende do #16.
 
 ## 18. Carga de trabalho da equipa
@@ -253,12 +279,14 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - áreas sem gente ficam assinaladas
    - só contam as tarefas sem filhos com prazo ou meta.
 3. **erp_laravel: FALTA.** `separadores/Equipa.tsx` só lista membros, horas/dia e adição em massa.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoPaineisExecucaoProjetos.php:227` (`carga`) e `:317` (grupo «Sem responsável»), `frontend/src/modulos/projectos/separadores/Equipa.tsx:44` (botão «Carga de trabalho»), `backend/routes/api/fe_projectos.php:23`.
 4. **Esforço:** Alto. Depende dos itens #1, #2 e #13.
 
 ## 19. Ordem de trabalho
 1. **O que faz:** gera um documento de obra impresso, uma folha por pessoa, com o que há para fazer, prazos, quantidade e ritmo, agrupado por fase e com espaço para assinaturas.
    - `ui_projects.js:2935-3063` (`cargaOrdemTrabalho`)
 3. **erp_laravel: FALTA.**
+   - **Estado em 2026-10-16: Feito.** evidência: `frontend/src/modulos/projectos/separadores/CargaTrabalho.tsx:34` (botão «Ordem de trabalho») e `:87` (uma folha por pessoa, por fase, com assinaturas).
 4. **Esforço:** Médio. Pode reaproveitar o motor de impressão e PDF já existente, como o `ImpressaoSeparador`. Depende do #18.
 
 ## 20. Separador «Execução» do projecto
@@ -270,6 +298,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - botões «Folha de medição» e «Enviar para Produtividade (RH)».
    - Ficheiros: `ui_projects.js:539` (separador) e `:5715-5880` (`renderProjectExecucao`, `execFiltrar`)
 3. **erp_laravel: FALTA.** `DetalheProjecto.tsx:105-113` tem Resumo, Planeamento, Kanban, Equipa, Organigrama, Orçamento, Horas, Requisições e Revisões, mas não tem Execução.
+   - **Estado em 2026-10-16: Feito.** evidência: `frontend/src/modulos/projectos/DetalheProjecto.tsx:115` (separador Execução), `frontend/src/modulos/projectos/separadores/Execucao.tsx:42-43` (botões «Folha de medição» e «Enviar para Produtividade (RH)»), `backend/app/Services/Projetos/ServicoPaineisExecucaoProjetos.php:40`.
 4. **Esforço:** Médio. Depende dos itens #4, #21 (recolha) e #22.
 
 ## 21. Ponte Execução de projectos → RH Produtividade
@@ -285,24 +314,28 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - execução de externos ou sem responsável fica de fora, com o motivo
    - permissão `rh_prod_registar`, verificada também no `enviar`.
 3. **erp_laravel: FALTA.** `ServicoProdutividade.php` já tem as métricas QUANTIDADE, HORAS, OBJECTIVO, PONTOS e TAREFAS, `elegiveis()` e `gravarRegisto(..., $origem)`. Falta a recolha a partir dos projectos, a chave de idempotência (`origem_chave`, campo `fonte`) e o ecrã. `Produtividade.tsx` não tem o separador.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoProdutividadeProjetos.php:59` (`recolher`), `:161` (chave `PRJ|…`) e `:232` (`enviar`, actualiza em vez de duplicar), `backend/app/Http/Controllers/Api/RH/ProdutividadeProjetosController.php:46` (`rh_prod_registar` verificado no servidor), `frontend/src/modulos/rh/Produtividade.tsx:74` (separador «Execução de projectos»).
 4. **Esforço:** Alto. Depende dos itens #4, #22 e #23. A infra-estrutura de produtividade já existe, o que reduz o risco.
 
 ## 22. Data de conclusão da tarefa
 1. **O que faz:** grava `concluida_em` quando a tarefa passa a CONCLUÍDA (no modal, no Kanban ou ao atingir a meta) e apaga-a se a tarefa sair desse estado. Reeditar uma tarefa já concluída mantém a data original.
    - `ui_projects.js:2088-2092, 2396, 2434` e `projectos_metas.js:385-387`
 3. **erp_laravel: FALTA.** `tarefas_projeto` não tem a coluna. `colunasEstado` só trata `estado` e `estado_original`.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/database/migrations/2026_09_30_101100_criar_tabelas_projectos.php:83`, `backend/app/Services/Projetos/ServicoPlaneamentoProjetos.php:404` (modal), `:455` (`concluidaEm`, mantém a data original) e `:683` (Kanban); `backend/app/Services/Projetos/ServicoMetasProjetos.php:89` (meta atingida).
 4. **Esforço:** Baixo.
 
 ## 23. Folhas de horas com o membro da equipa
 1. **O que faz:** grava `team_member_id`. Antes guardava «employee_id ou id do membro» no mesmo campo, e os dois podiam colidir. Agora `employee_id` só é preenchido quando o membro é interno, o que impede que as horas de uma subempreitada entrem no subsídio de alguém.
    - `ui_projects.js:5068-5125`
 3. **erp_laravel: PARCIAL.** `ServicoExecucaoProjetos::registarHoras` grava `colaborador_id` e **só aceita colaboradores internos** da equipa. A ambiguidade não existe, mas também não é possível lançar horas de membros externos ou de entidades, coisa que o legado novo passou a permitir (para a carga de trabalho e o mapa de horas). Falta `membro_equipa_projeto_id`. Atenção na migração: as folhas antigas têm o campo ambíguo.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoExecucaoProjetos.php:136-151` (grava `membro_equipa_projeto_id` e só preenche `colaborador_id` quando o membro é interno; aceita externos), `backend/database/migrations/2026_09_30_101100_criar_tabelas_projectos.php:222`. O ETL deduz o membro nas folhas antigas (ADR-071, «Fecho da Versão Actual»).
 4. **Esforço:** Baixo.
 
 ## 24. Autos e revisões só nos meses do projecto
 1. **O que faz:** o selector de mês do auto ou da revisão mostra apenas os meses entre o início da primeira tarefa e o fim da última (sem tarefas, usa as datas do projecto). O valor por defeito é o mês do projecto mais próximo de hoje. A gravação volta a verificar a regra.
    - `ui_projects.js:4162-4190` (`projMesesAuto`), usado em `:4201` e `:4438`
 3. **erp_laravel: FALTA.** `ServicoRevisoesProjetos::simular` e `validarMes` só verificam se o mês e o ano são válidos.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/Projetos/ServicoRevisoesProjetos.php:369` (`mesesDoProjeto`) e `:394-399` (a gravação volta a verificar: `MES_FORA_DO_PROJETO`), `frontend/src/modulos/projectos/separadores/Revisoes.tsx:197-200` (selector só com esses meses e o mais próximo de hoje), `backend/routes/api/fe_projectos.php:24`.
 4. **Esforço:** Baixo.
 
 ## 25. Painel do projecto: equipamentos e origem
@@ -313,6 +346,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
 3. **erp_laravel:**
    - (a) **PARCIAL**: `ServicoExecucaoProjetos::equipamentos` devolve os usos linha a linha e as afectações (separador «Horas e equipamentos»), mas não o agregado por equipamento com custo por hora e percentagem do custo
    - (b) **FALTA**: não há `mt_assunto` nem Método de Trabalho no erp_laravel.
+   - **Estado em 2026-10-16: Feito.** evidência: (a) `backend/app/Services/Projetos/ServicoExecucaoProjetos.php:93-106` (agregado por equipamento com horas, custo/hora médio e peso no custo do projecto) e `frontend/src/modulos/projectos/separadores/Resumo.tsx:67`; (b) `backend/database/migrations/2026_09_30_101100_criar_tabelas_projectos.php:32` (`assunto_metodo_id`), `frontend/src/modulos/projectos/separadores/Resumo.tsx:239` e `frontend/src/modulos/projectos/comum/OrigemProjecto.tsx` (origem com ligação ao assunto do Método de Trabalho, Fase G). Nota: o peso mede-se contra o custo realizado do Resumo, que conta cada auto de subempreitada uma só vez (diferença intencional do ADR-071 no Resumo, não neste item).
 4. **Esforço:** (a) Baixo; (b) Médio, porque depende de migrar o módulo Método de Trabalho, que está fora desta área.
 
 ## 26. Contratos: itens de produtividade em massa
@@ -320,6 +354,7 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
    - `modules/rh/contratos_produtividade.js:53` (modal), `:184-233` (plano e confirmação), `:235-269` (`aplicarProdutividadeEmMassa`, `aplicarRegra`)
 2. **Dados:** `contracts.produtividade = [{item_id, preco_unitario | null}]`, o formato que já existia.
 3. **erp_laravel: FALTA.** `ServicoContratosTrabalho.php:57-64` já grava `produtividade` contrato a contrato, mas `rh/comum/ContratosMassa.tsx` e a rota `contratos/massa` (`ronda2_g2.php:41`) só tratam **rubricas**.
+   - **Estado em 2026-10-16: Feito.** evidência: `backend/app/Services/RH/ServicoContratosTrabalho.php:140` (`aplicarProdutividadeEmMassa`: acrescentar/substituir/retirar), `backend/routes/api/fi_rh.php:9`, `frontend/src/modulos/rh/comum/ContratosMassa.tsx:69` (opção «Itens de produtividade»).
 4. **Esforço:** Médio. Endpoint em lote numa transacção, modal React e permissão `contratos_new`.
 
 ---
@@ -342,3 +377,4 @@ Para as linhas dos registos de execução, recomendo uma tabela filha em vez de 
   - `origem_chave` e `fonte` nos registos de produtividade.
 - **Regras permanentes do projecto:** invalidar a cache Redis depois do commit nas gravações de tarefas, orçamento e produtividade, e aplicar OWASP: autorização no serviço e não só no botão, como o legado novo já faz em `ProjMetas.registar` e `ProdProjectos.enviar`.
 - **Fora do âmbito, mas relacionado:** `modules/rh/produtividade.js` do legado novo também acrescenta `base_calculo` (UNITARIO ou PREMIO, para a métrica OBJECTIVO) e textos de fórmula por métrica. O `ServicoProdutividade.php` não tem `base_calculo`. Convém confirmar isto no relatório de RH.
+  - *Estado em 2026-10-16:* feito. Existe a coluna `base_calculo` (`backend/database/migrations/2026_09_30_100700_criar_tabelas_rh.php:507`) e é usada em `backend/app/Services/RH/ServicoProdutividade.php:76`. A explicação do cálculo é servida em `backend/routes/api/fi_rh.php:13-14`.

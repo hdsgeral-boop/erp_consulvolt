@@ -1,5 +1,25 @@
 # Versão Actual do legado × erp_laravel — análise (2026-10-13)
 
+> **Estado em 2026-10-16:** as fases A–H e o «Fecho da Versão Actual» (ADR-071) estão construídas e commitadas. Cada lacuna desta análise foi verificada no código (ficheiro:linha em cada documento): **não ficou nenhuma funcionalidade em «Parcial» nem em «Falta»**.
+>
+> | Área | Funcionalidades | Feito | Diferença intencional | N/A |
+> |---|---:|---:|---:|---:|
+> | Projectos e produtividade ([02](02_projectos.md)) | 26 | 26 | 0 | 0 |
+> | Activos, Método 5W1H, repartição, cubo e relatórios ([03](03_activos_metodo_reparticao.md)) | 25 | 23 | 0 | 2 |
+> | RH / salários / estrutura / portal ([04](04_rh_salarios.md)) | 18 | 18 | 0 | 0 |
+> | Vendas, compras, tesouraria, contabilidade, IA e núcleo ([05](05_vendas_compras_tesouraria_nucleo.md)) | 27 | 23 | 1 (chave da IA no servidor) | 3 |
+>
+> Diferenças de regra decididas (ADR-071), dentro de itens «Feito»:
+> - série A<ano> automática;
+> - NC sobre uma só factura;
+> - recibos de facturas aceitam a conta 45;
+> - contrato cessado entra no mês da cessação, com aviso;
+> - custo dos projectos conta cada auto de subempreitada uma vez;
+> - cubo calculado no servidor.
+>
+> Verificação visual ecrã a ecrã lado a lado: ADR-071, secção «Verificação lado a lado (2026-10-16)».
+> O texto abaixo é a análise original de 2026-10-13 e mantém-se como histórico.
+
 **Fonte comparada:** `Versões/Versão Actual/ERP` (legado novo, mesma estrutura JS/Dexie) contra `payroll_system_web` (legado antigo, base da migração) e contra o `erp_laravel`.
 
 **Dimensão da diferença:** o legado novo acrescenta 30 ficheiros JS e altera 49. As versões Dexie novas vão da 1268 à 1277: são 21 tabelas novas e várias tabelas existentes ganham campos. Há 5 ecrãs novos no menu e um grupo de menu novo («Método de Trabalho»).
