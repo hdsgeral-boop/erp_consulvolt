@@ -123,18 +123,25 @@ final class POSArmazemTest extends TestCase
         // na Loja só há 1: não expede (o serviço não bloqueia)
         $l = $this->getJson("/api/pos/armazem/picking/{$ne['id']}?armazem_id={$this->ids['b']}", $this->s)->assertOk()->json('dados');
         $this->assertSame([false, [false, true], ['1.000', null]], [$l['pode_expedir'], array_column($l['linhas'], 'disponivel'), array_column($l['linhas'], 'stock_armazem')]);
-        $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['b']], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'STOCK_INSUFICIENTE')
+        $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['b'], 'recolhidos' => []], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'STOCK_INSUFICIENTE')
             ->assertJsonPath('erros.linhas.0.por_expedir', '5.000');
         $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['a']], $this->sessao(['pos_armazem_picking']))->assertForbidden();
 
-        // no Central: GR ligada à encomenda, stock ao custo médio
-        $gr = $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['a']], $this->s)->assertCreated()->json('dados');
+        // no Central: sem todos os artigos marcados como recolhidos, o servidor recusa (não depende só do ecrã)
+        $itens = array_column($this->getJson("/api/pos/armazem/picking/{$ne['id']}?armazem_id={$this->ids['a']}", $this->s)->json('dados.linhas'), 'item_id');
+        $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['a']], $this->s)->assertStatus(422)->assertJsonValidationErrors('recolhidos', 'erros');
+        $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['a'], 'recolhidos' => [$itens[0]]], $this->s)->assertStatus(422)
+            ->assertJsonPath('codigo', 'PICKING_INCOMPLETO')->assertJsonPath('erros.item_ids', [$itens[1]]);
+        $this->assertSame('10.000', $this->stock());
+
+        // com tudo recolhido: GR ligada à encomenda, stock ao custo médio
+        $gr = $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['a'], 'recolhidos' => $itens], $this->s)->assertCreated()->json('dados');
         $this->assertSame(['GR', $this->ids['a'], 2], [$gr['tipo_documento'], $gr['armazem_id'], count($gr['itens_venda'])]);
         $this->assertSame(['5.000', '1.000'], [$this->stock(), $this->stock('b')]);
         $entregue = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => ItemVenda::query()->where('venda_id', $ne['id'])->orderBy('id')->pluck('quantidade_entregue')->all());
         $this->assertSame(['5.000', '1.000'], array_map('strval', $entregue));
         $this->assertSame([], $this->getJson('/api/pos/armazem/picking', $this->s)->json('dados'));
         $this->getJson("/api/vendas/documentos/{$ne['id']}", $this->s)->assertJsonPath('dados.estado', 'PENDENTE');   // concluída só quando facturada (ADR-043)
-        $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['a']], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'JA_CONVERTIDO');
+        $this->postJson("/api/pos/armazem/picking/{$ne['id']}/expedir", ['armazem_id' => $this->ids['a'], 'recolhidos' => $itens], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'JA_CONVERTIDO');
     }
 }

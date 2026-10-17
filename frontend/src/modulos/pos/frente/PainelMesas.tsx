@@ -1,5 +1,5 @@
-import { Button, Card, Empty, Form, Input, Spin, Typography, theme } from 'antd';
-import { AppstoreOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons';
+import { Button, Card, Empty, Form, Input, InputNumber, Modal, Popconfirm, Space, Spin, Table, Typography, theme } from 'antd';
+import { AppstoreOutlined, DeleteOutlined, EditOutlined, PlusOutlined, SaveOutlined, ShopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
@@ -26,6 +26,7 @@ export function PainelMesas({ terminal, activa, aoEscolher, ocupado }: { termina
   const { pode } = useSessao();
   const mesas = useMesas(terminal);
   const [criar, setCriar] = useState(false);
+  const [gerir, setGerir] = useState(false);
   const [form] = Form.useForm<{ nome: string }>();
   const nova = useAccao<MesaPOS>({
     invalidar: [['pos', 'mesas', terminal]],
@@ -69,11 +70,18 @@ export function PainelMesas({ terminal, activa, aoEscolher, ocupado }: { termina
         </Typography.Text>
       }
       extra={
-        pode('pos_venda', 'pos_terminais_gerir') && (
-          <Button size="small" type="primary" ghost icon={<PlusOutlined />} onClick={() => setCriar(true)}>
-            Criar mesa
-          </Button>
-        )
+        <Space size={6}>
+          {pode('pos_terminais_gerir') && !!mesas.data?.length && (
+            <Button size="small" icon={<EditOutlined />} onClick={() => setGerir(true)}>
+              Gerir mesas
+            </Button>
+          )}
+          {pode('pos_venda', 'pos_terminais_gerir') && (
+            <Button size="small" type="primary" ghost icon={<PlusOutlined />} onClick={() => setCriar(true)}>
+              Criar mesa
+            </Button>
+          )}
+        </Space>
       }
     >
       {mesas.isLoading ? (
@@ -113,6 +121,79 @@ export function PainelMesas({ terminal, activa, aoEscolher, ocupado }: { termina
           </Form.Item>
         </Form>
       </ModalFormulario>
+      <GerirMesas terminal={terminal} aberto={gerir} mesas={mesas.data ?? []} aoFechar={() => setGerir(false)} />
     </Card>
+  );
+}
+
+/** Alterações por gravar de uma mesa (nome e ordem) ou null se não mudou. */
+export function alteracaoMesa(m: Pick<MesaPOS, 'nome' | 'ordem'>, rascunho: { nome?: string; ordem?: number | null } | undefined): { nome: string; ordem: number } | null {
+  if (!rascunho) return null;
+  const nome = (rascunho.nome ?? m.nome).trim();
+  const ordem = rascunho.ordem ?? m.ordem;
+  return nome && (nome !== m.nome || ordem !== m.ordem) ? { nome, ordem } : null;
+}
+
+/**
+ * «Gerir mesas» (auditoria backend × frontend, ponto 2): mudar o nome e a ordem de cada mesa (PUT /pos/terminais/{t}/mesas/{m})
+ * e eliminá-la (DELETE /pos/mesas/{m} — o servidor só desactiva a que já teve contas e recusa a que tem conta aberta).
+ */
+function GerirMesas({ terminal, aberto, mesas, aoFechar }: { terminal: number; aberto: boolean; mesas: MesaPOS[]; aoFechar: () => void }) {
+  const [rascunho, setRascunho] = useState<Record<number, { nome?: string; ordem?: number | null }>>({});
+  const accao = useAccao({ invalidar: [['pos', 'mesas', terminal]], tituloErro: 'Não foi possível alterar a mesa', aoSucesso: (_d, p) => {
+    const id = Number(p.url.split('/').pop());
+    setRascunho((r) => { const n = { ...r }; delete n[id]; return n; });
+  } });
+  const mudar = (id: number, v: { nome?: string; ordem?: number | null }) => setRascunho((r) => ({ ...r, [id]: { ...r[id], ...v } }));
+  return (
+    <Modal open={aberto} title="Gerir mesas" onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>} width={larguraModal(620)} destroyOnHidden>
+      <Table<MesaPOS>
+        rowKey="id"
+        size="small"
+        pagination={false}
+        dataSource={mesas}
+        columns={[
+          {
+            title: 'Nome',
+            render: (_, m) => (
+              <Input value={rascunho[m.id]?.nome ?? m.nome} maxLength={60} aria-label={`Nome da mesa ${m.nome}`} onChange={(e) => mudar(m.id, { nome: e.target.value })} />
+            ),
+          },
+          {
+            title: 'Ordem',
+            width: 100,
+            render: (_, m) => (
+              <InputNumber<number> min={0} max={100000} precision={0} value={rascunho[m.id]?.ordem ?? m.ordem} aria-label={`Ordem da mesa ${m.nome}`}
+                onChange={(v) => mudar(m.id, { ordem: v })} style={{ width: '100%' }} />
+            ),
+          },
+          {
+            title: 'Acções',
+            width: 110,
+            render: (_, m) => {
+              const alteracao = alteracaoMesa(m, rascunho[m.id]);
+              return (
+                <Space size={4}>
+                  <Button size="small" type="primary" icon={<SaveOutlined />} disabled={!alteracao} loading={accao.isPending} aria-label={`Gravar a mesa ${m.nome}`}
+                    onClick={() => alteracao && accao.mutate({ metodo: 'put', url: `/pos/terminais/${terminal}/mesas/${m.id}`, dados: alteracao })} />
+                  <Popconfirm
+                    title={`Eliminar a mesa ${m.nome}?`}
+                    description="Se já teve contas, fica só desactivada (o histórico mantém-se)."
+                    okText="Eliminar"
+                    cancelText="Cancelar"
+                    okButtonProps={{ danger: true }}
+                    disabled={!!m.conta && m.conta.itens > 0}
+                    onConfirm={() => accao.mutate({ metodo: 'delete', url: `/pos/mesas/${m.id}` })}
+                  >
+                    <Button size="small" danger icon={<DeleteOutlined />} aria-label={`Eliminar a mesa ${m.nome}`} disabled={!!m.conta && m.conta.itens > 0}
+                      title={m.conta && m.conta.itens > 0 ? 'A mesa tem uma conta aberta: cobre-a ou liberte-a primeiro.' : undefined} />
+                  </Popconfirm>
+                </Space>
+              );
+            },
+          },
+        ]}
+      />
+    </Modal>
   );
 }

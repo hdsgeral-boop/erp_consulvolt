@@ -19,7 +19,9 @@ use Illuminate\Support\Facades\DB;
  * A holding é uma empresa do sistema (empresas.e_consolidacao) criada com o grupo; o grupo, os membros e as execuções pertencem
  * à holding (empresa_id = holding). Os membros são consolidados a 100% (método INTEGRAL), como no legado.
  * Acesso: um grupo só é visível a quem tem acesso à holding (consolidacao.js:765) e só se gravam membros a que o utilizador
- * tem acesso (empresasPermitidas, consolidacao.js:746-753); o superadministrador vê todos.
+ * tem acesso (empresasPermitidas, consolidacao.js:746-753); o superadministrador vê todos. A holding aparece na troca de empresa
+ * a quem a criou (ligação directa, como o legado) e a quem acede a todas as empresas do grupo (ServicoEmpresas::holdingsDerivadas):
+ * criar, alterar ou eliminar um grupo invalida as listas de empresas em cache depois do commit.
  * Correcções face ao legado:
  *   - o NIF da holding é obrigatório e único entre as empresas activas (regra do esquema; o legado aceitava vazio ou repetido);
  *   - uma holding não pode ser membro de outro grupo nem de si própria (o legado só a escondia da lista);
@@ -108,6 +110,7 @@ final class ServicoConsolidacaoGrupos
                 $g = GrupoConsolidacao::create(['empresa_holding_id' => $holding->id, 'nome' => $d['nome']] + $this->configuracao($d));
                 $this->gravarMembros($g, $membros);
                 $this->auditoria->registar('Contabilidade', 'Criou grupo de consolidação', "Holding {$holding->id} com as empresas ".implode(', ', $membros), 'grupos_consolidacao', $g->id);
+                $this->empresas->invalidarTodos();   // a holding passa a aparecer a quem acede a todas as empresas do grupo
 
                 return $g;
             });
@@ -131,6 +134,7 @@ final class ServicoConsolidacaoGrupos
                 MembroConsolidacao::query()->where('grupo_consolidacao_id', $g->id)->get()->each->delete();
                 $this->gravarMembros($g, $membros);
                 $this->auditoria->registar('Contabilidade', 'Alterou grupo de consolidação', 'Empresas: '.implode(', ', $membros), 'grupos_consolidacao', $g->id);
+                $this->empresas->invalidarTodos();   // os membros mudaram: muda quem vê a holding
             });
         });
 
@@ -198,8 +202,27 @@ final class ServicoConsolidacaoGrupos
                 'membros' => $membros->map(fn ($m) => ['empresa_id' => $m->empresa_membro_id, 'nome' => $nomes[$m->empresa_membro_id]->nome ?? "Empresa {$m->empresa_membro_id}",
                     'nif' => $nomes[$m->empresa_membro_id]->nif ?? null, 'percentagem' => (string) $m->percentagem, 'metodo' => $m->metodo])->all(),
                 'ultima_execucao_id' => $g->ultima_execucao_id,
+                'eliminacoes_ultima' => $this->resumoEliminacoes($execucoes->first()),
                 'execucoes' => $execucoes->map(fn ($e) => $this->apresentarExecucao($e, false))->all()];
         });
+    }
+
+    /**
+     * Resumo das eliminações da execução mais recente para o cartão da holding (legado: botão «Eliminações e Divergências»
+     * só aparece quando a execução tem eliminações e fica a vermelho com pares divergentes — js/consolidacao.js:799).
+     */
+    private function resumoEliminacoes(?ExecucaoConsolidacao $e): ?array
+    {
+        $el = $e?->totais['eliminacoes'] ?? null;
+        if (! is_array($el)) {
+            return null;
+        }
+        $difere = fn ($v) => bccomp(ltrim((string) ($v ?? '0'), '-'), '0.01', 2) >= 0;
+        $divergentes = collect($el['divergencias'] ?? [])
+            ->filter(fn ($d) => $difere($d['dif_saldo'] ?? 0) || $difere($d['dif_ab'] ?? 0) || $difere($d['dif_ba'] ?? 0))
+            ->count();
+
+        return ['execucao_id' => $e->id, 'divergentes' => $divergentes];
     }
 
     public function apresentarExecucao(ExecucaoConsolidacao $e, bool $completo): array

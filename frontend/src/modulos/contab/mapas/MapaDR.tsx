@@ -2,6 +2,7 @@ import { Alert, Card, Checkbox, Form, Select } from 'antd';
 import { useState } from 'react';
 import { TabelaPorUnidade, useMapaPorUnidade } from '@/componentes/reparticao';
 import { TituloMapa } from './TituloMapa';
+import { DemonstracaoPorEmpresa, InterruptorPorEmpresa, usePorEmpresa } from './PorEmpresa';
 import { BotaoPorUN } from './MapaBalanco';
 import type { DemonstracaoResultados } from '../api';
 import { TabelaDemonstracao } from '../comum/Demonstracao';
@@ -17,12 +18,14 @@ export default function MapaDR() {
   const comparativo = !!mapa.parametros?.comparativo;
   const homologo = mapa.parametros?.modo_comparativo === 'homologo';
   const [porUN, setPorUN] = useState(false);
+  const [porEmpresa, setPorEmpresa] = useState(false);
+  const pe = usePorEmpresa('dr', mapa.parametros, porEmpresa);
   const porUnidade = useMapaPorUnidade<DemonstracaoResultados>('/contabilidade/relatorios/demonstracao-resultados', mapa.parametros, porUN);
 
   return (
     <>
       {/* legado: <h3>Demonstração de resultados comparativa</h3> (js/ui_reports.js:1305-1318) */}
-      <TituloMapa titulo="Demonstração de resultados comparativa" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Por natureza, com notas DEMO'} accoes={<BotaoPorUN ligado={porUN} aoMudar={setPorUN} />} />
+      <TituloMapa titulo="Demonstração de resultados comparativa" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Por natureza, com notas DEMO'} accoes={<><InterruptorPorEmpresa ligado={porEmpresa} aoMudar={setPorEmpresa} /><BotaoPorUN ligado={porUN} aoMudar={setPorUN} /></>} />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="periodo"
@@ -47,13 +50,15 @@ export default function MapaDR() {
           {porUnidade.data && <TabelaPorUnidade dados={porUnidade.data} linhas={linhasDR} titulo="Demonstração de resultados" periodo={periodoDosParametros(mapa.parametros)} />}
         </Card>
       )}
-      {!porUN && d && (
+      {porEmpresa && !porUN && d && <DemonstracaoPorEmpresa linhas={linhasDR(d)} dados={pe.data} titulo="Demonstração de resultados" periodo={periodoDosParametros(mapa.parametros)} carregando={pe.isFetching} />}
+      {!porUN && !porEmpresa && d && (
         <>
           {comparativo && !d.historico_anterior && (
             <Alert type="info" showIcon style={{ marginBottom: 16 }} message="O comparativo é calculado a partir dos lançamentos (sem saldos históricos importados)." />
           )}
           <Card>
             <TabelaDemonstracao
+              demonstracao="dr"
               linhas={linhasDR(d)}
               comparativo={comparativo}
               rotuloAtual={`Ano ${d.ano}`}

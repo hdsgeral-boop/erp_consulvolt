@@ -9,6 +9,13 @@ export const SEM_ROTULOS: { chave: SemCampo; rotulo: string; titulo: string }[] 
   { chave: 'cc', rotulo: 'CC', titulo: 'Filtrar linhas sem Centro de Custo' },
 ];
 
+/** Períodos do filtro rápido (legado: 1–12, 13 (Aj. Enc.) e 14 (Aj. Esp.), js/ui_lancamentos.js:484-491). */
+export const PERIODOS: { value: number; label: string }[] = [
+  ...Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: String(i + 1) })),
+  { value: 13, label: '13 (Aj. Enc.)' },
+  { value: 14, label: '14 (Aj. Esp.)' },
+];
+
 /** Valor do selector «alterar em massa» que significa remover (o «[REMOVER NOTA]» do legado). */
 export const REMOVER = -1;
 
@@ -40,6 +47,8 @@ const pad = (n: number) => String(n).padStart(2, '0');
 export function intervaloPeriodo(ano?: number, mes?: number): { inicio?: string; fim?: string } {
   if (!ano) return {};
   if (!mes) return { inicio: `${ano}-01-01`, fim: `${ano}-12-31` };
+  // períodos 13 (Aj. Enc.) e 14 (Aj. Esp.): ajustes que, como no legado (js/ui_reports.js:1916-1919), caem no mês 12
+  if (mes === 13 || mes === 14) return { inicio: `${ano}-12-01`, fim: `${ano}-12-31` };
   const ultimo = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
   return { inicio: `${ano}-${pad(mes)}-01`, fim: `${ano}-${pad(mes)}-${pad(ultimo)}` };
 }

@@ -121,10 +121,15 @@ final class ServicoPOSArmazem
             'pode_expedir' => $pendentes && ! array_filter($pendentes, fn ($l) => ! $l['disponivel'])];
     }
 
-    /** Expedição (finalizeOrderPicking, :1017-1120): GR da encomenda com tudo o que falta entregar, a partir do armazém escolhido. */
-    public function expedir(Venda $ne, int $armazem, ?string $observacoes = null): Venda
+    /**
+     * Expedição (finalizeOrderPicking, :1017-1120): GR da encomenda com tudo o que falta entregar, a partir do armazém escolhido.
+     * Como no legado, só com todos os artigos por expedir marcados como recolhidos ($recolhidos: ids das linhas da encomenda).
+     *
+     * @param  list<int>  $recolhidos
+     */
+    public function expedir(Venda $ne, int $armazem, array $recolhidos, ?string $observacoes = null): Venda
     {
-        return DB::transaction(function () use ($ne, $armazem, $observacoes) {
+        return DB::transaction(function () use ($ne, $armazem, $recolhidos, $observacoes) {
             $ne = Venda::query()->lockForUpdate()->findOrFail($ne->id);   // duas expedições da mesma encomenda não saem as duas
             $lista = $this->lista($ne, $armazem, true);
             $faltam = array_values(array_filter($lista['linhas'], fn ($l) => ! $l['disponivel']));
@@ -134,6 +139,11 @@ final class ServicoPOSArmazem
             }
             if (! $lista['pode_expedir']) {
                 throw new ErroNegocio('A encomenda já foi toda expedida.', 'JA_CONVERTIDO', 422);
+            }
+            $porRecolher = array_values(array_filter($lista['linhas'], fn ($l) => $l['por_expedir'] !== '0.000' && ! in_array($l['item_id'], $recolhidos, true)));
+            if ($porRecolher) {
+                throw new ErroNegocio('Marque todos os artigos como recolhidos antes de expedir. Por recolher: '.implode(', ', array_map(fn ($l) => $l['codigo'] ?: $l['nome'], $porRecolher)).'.',
+                    'PICKING_INCOMPLETO', 422, ['item_ids' => array_column($porRecolher, 'item_id')]);
             }
 
             return $this->documentos->converter($ne, 'GR', ['armazem_id' => $armazem, 'observacoes' => $observacoes ?? "Picking da encomenda {$ne->numero_documento}"]);

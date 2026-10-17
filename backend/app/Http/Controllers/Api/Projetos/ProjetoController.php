@@ -121,10 +121,32 @@ final class ProjetoController extends Controller
     {
         $this->exigir(...self::LER);
         $p = Projeto::query()->findOrFail($projeto);
-        $f = $r->validate(['por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+        // filtros simples do separador «Actividade»: texto (acção ou detalhe), acção, utilizador e intervalo de datas
+        $f = $r->validate(['por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1'],
+            'pesquisa' => ['nullable', 'string', 'max:100'], 'acao' => ['nullable', 'string', 'max:255'], 'utilizador' => ['nullable', 'string', 'max:255'],
+            'de' => ['nullable', 'date_format:Y-m-d'], 'ate' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:de']]);
+        $termo = isset($f['pesquisa']) && trim($f['pesquisa']) !== '' ? '%'.addcslashes(trim($f['pesquisa']), '%_\\').'%' : null;
+        $q = LogAtividadeProjeto::query()->where('projeto_id', $p->id)
+            ->when($termo, fn ($q) => $q->where(fn ($w) => $w->where('acao', 'ilike', $termo)->orWhere('detalhes', 'ilike', $termo)))
+            ->when($f['acao'] ?? null, fn ($q, $v) => $q->where('acao', $v))
+            ->when($f['utilizador'] ?? null, fn ($q, $v) => $q->where('nome_utilizador', $v))
+            ->when($f['de'] ?? null, fn ($q, $v) => $q->where('ocorrido_em', '>=', "{$v} 00:00:00"))
+            ->when($f['ate'] ?? null, fn ($q, $v) => $q->where('ocorrido_em', '<=', "{$v} 23:59:59"));
 
-        return RespostaApi::paginado(LogAtividadeProjeto::query()->where('projeto_id', $p->id)->orderByDesc('ocorrido_em')->orderByDesc('id')
+        return RespostaApi::paginado($q->orderByDesc('ocorrido_em')->orderByDesc('id')
             ->paginate($f['por_pagina'] ?? 50, ['*'], 'pagina', $f['pagina'] ?? 1), null, 'Actividade do projecto.');
+    }
+
+    /** Acções e utilizadores distintos do registo de actividade do projecto (opções dos filtros). */
+    public function atividadeFiltros(int $projeto): JsonResponse
+    {
+        $this->exigir(...self::LER);
+        $p = Projeto::query()->findOrFail($projeto);
+        $base = fn () => LogAtividadeProjeto::query()->where('projeto_id', $p->id);
+
+        return RespostaApi::sucesso(['acoes' => $base()->distinct()->orderBy('acao')->limit(300)->pluck('acao')->filter()->values(),
+            'utilizadores' => $base()->whereNotNull('nome_utilizador')->distinct()->orderBy('nome_utilizador')->limit(300)->pluck('nome_utilizador')->filter()->values()],
+            'Filtros da actividade.');
     }
 
     public function gantt(): JsonResponse

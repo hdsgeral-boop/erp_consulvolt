@@ -28,3 +28,11 @@ describe('papel do utilizador', () => {
     expect(rotuloPapel(null)).toBeNull();
   });
 });
+
+describe('rotuloEmpresa (troca de empresa)', () => {
+  it('marca as holdings', async () => {
+    const { rotuloEmpresa } = await import('./marca');
+    expect(rotuloEmpresa({ nome: 'Grupo AB', e_consolidacao: true })).toBe('Grupo AB · Holding');
+    expect(rotuloEmpresa({ nome: 'Alfa, Lda' })).toBe('Alfa, Lda');
+  });
+});

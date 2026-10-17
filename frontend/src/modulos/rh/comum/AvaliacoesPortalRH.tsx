@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useState } from 'react';
 import { obter } from '@/api/cliente';
+import { IconeFa } from '@/componentes/fluxos';
 import { larguraModal } from '@/componentes/responsivo';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 import { PERIODOS_AVALIACAO, type PeriodoAvaliacao } from '../api';
@@ -95,6 +96,9 @@ export function AvaliacaoChefiasRH() {
   return (
     <>
       <FiltroPeriodo ano={ano} periodo={periodo} setAno={setAno} setPeriodo={setPeriodo} />
+      {/* antigo (portal_ui.js gChefias): aviso de anonimato com o ícone user-secret */}
+      <Alert type="info" style={{ marginBottom: 12 }} showIcon icon={<IconeFa nome="user-secret" />}
+        message="As respostas não guardam quem respondeu. Os resultados de cada chefia só aparecem com o número mínimo de respostas do ciclo." />
       <Table size="small" rowKey="colaborador_id" loading={chefias.isFetching} dataSource={chefias.data ?? []} pagination={{ pageSize: 25 }} scroll={{ x: 'max-content' }} columns={[
         { title: 'Chefia', dataIndex: 'nome' }, { title: 'Equipa', dataIndex: 'equipa', align: 'right' },
         { title: '', key: 'a', align: 'right', render: (_, c) => <Button size="small" icon={<EyeOutlined />} onClick={() => setChefia(c)}>Resultados</Button> },

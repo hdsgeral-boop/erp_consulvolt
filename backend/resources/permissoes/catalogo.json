@@ -35,17 +35,6 @@
           "pai": null,
           "nota": "Cada separador também exige a consulta do módulo de origem.",
           "tarefas": []
-        },
-        {
-          "id": "accounting_bi",
-          "nome": "BI contabilístico e Gestão documental",
-          "vistas": [
-            "accounting_bi",
-            "sgd"
-          ],
-          "pai": null,
-          "nota": null,
-          "tarefas": []
         }
       ]
     },
@@ -1093,6 +1082,11 @@
               "chave": "vendas_produtos_gerir",
               "rotulo": "Criar, copiar, importar, bloquear produtos e categorias",
               "sensivel": false
+            },
+            {
+              "chave": "vendas_categorias_contas",
+              "rotulo": "Definir as contas contabilísticas das categorias de produtos",
+              "sensivel": true
             }
           ]
         },
@@ -2594,6 +2588,7 @@
       "nome": "Contabilista",
       "permissoes": {
         "_v2": true,
+        "vendas_categorias_contas": true,
         "dashboard_view": true,
         "fluxo_processos_view": true,
         "rh_portal_view": true,
@@ -2930,7 +2925,6 @@
         "rh_portal_view": true,
         "rh_portal_usar": true,
         "relatorios_gestao_view": true,
-        "accounting_bi_view": true,
         "colaboradores_view": true,
         "rh_portal_gestao_view": true,
         "rh_avaliacao_config_view": true,
@@ -3055,7 +3049,6 @@
         "rh_portal_view": true,
         "rh_portal_usar": true,
         "relatorios_gestao_view": true,
-        "accounting_bi_view": true,
         "colaboradores_view": true,
         "rh_portal_gestao_view": true,
         "rh_avaliacao_config_view": true,

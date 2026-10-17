@@ -41,7 +41,7 @@ final class ServicoClassificacaoLancamentos
     public const MAXIMO = 5000;
 
     /** Filtro «linhas sem …» do legado (filterByEmpty): chave => coluna. */
-    public const SEM = ['demo' => 'nota_demonstracao_id', 'fluxo' => 'nota_fluxo_caixa_id', 'un' => 'unidade_negocio_id', 'cc' => 'centro_custo_id'];
+    public const SEM = ['demo' => 'nota_demonstracao_id', 'fluxo' => 'nota_fluxo_caixa_id', 'un' => 'unidade_negocio_id', 'cc' => 'centro_custo_id', 'terceiro' => 'terceiro_id'];
 
     public function __construct(
         private readonly ContextoEmpresa $contexto,

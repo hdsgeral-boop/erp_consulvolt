@@ -10,12 +10,13 @@ import { CartaoAlocacaoUN, useColunasUNCC, type LinhaComUNCC, type ResumoAlocaca
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosPedidoCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { formatarData, formatarDataHora, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
+import { formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { numero } from '../comum/calculos';
-import { EstadoTag, rotuloEstado } from '../comum/estados';
+import { EstadoTag } from '../comum/estados';
 import { NomeProduto, NomeTerceiro } from '../comum/referencias';
 import { accoesPedido, etapaPendente } from '../comum/regras';
+import { DescricaoEtapa } from '../comum/accoesLista';
 import { numeroOuId, type EtapaDeliberacao, type ItemCompra, type PedidoCompra, type PropostaCompra } from '../comum/tipos';
 
 function estadoPasso(e: EtapaDeliberacao): 'finish' | 'process' | 'error' | 'wait' {
@@ -109,16 +110,12 @@ export function DetalhePedido() {
             items={etapas.map((e) => ({
               title: e.nome,
               status: estadoPasso(e),
-              description: (
-                <>
-                  <div>{rotuloEstado(e.estado)}</div>
-                  {e.por && <div>{e.por}{e.em ? ` · ${formatarDataHora(e.em)}` : ''}</div>}
-                  {e.estado === 'PENDENTE' && e.nome_aprovador && <div>{e.nome_aprovador}</div>}
-                  {e.nota && <div><em>{e.nota}</em></div>}
-                </>
-              ),
+              description: <DescricaoEtapa etapa={e} />,
             }))}
           />
+          {p.estado === 'PENDENTE' && p.pode_decidir === false && p.motivo_decisao && (
+            <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>{p.motivo_decisao}</Typography.Text>
+          )}
         </Card>
       )}
 

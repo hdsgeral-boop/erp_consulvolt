@@ -87,7 +87,7 @@ export function useTotalDocumentos(filtros: Record<string, unknown>): number | u
 export function TabelaDocumentos({
   filtros,
   ...props
-}: { filtros: Record<string, unknown>; impressao?: ImpressaoTabelaApi; columns?: ColunaApi<DocumentoTesouraria>[]; barra?: ReactNode }
+}: { filtros: Record<string, unknown>; impressao?: ImpressaoTabelaApi; columns?: ColunaApi<DocumentoTesouraria>[]; barra?: ReactNode; porPagina?: number }
   & Partial<Pick<PropsPadroesLista<DocumentoTesouraria>, 'accoes' | 'seleccao' | 'vazio' | 'tituloAccoes'>>
   & Omit<TableProps<DocumentoTesouraria>, 'dataSource' | 'pagination' | 'loading' | 'columns'>) {
   const pequeno = useEcraPequeno();

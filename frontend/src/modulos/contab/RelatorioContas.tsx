@@ -8,85 +8,25 @@ import { ErroApi } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
-import { esc, tabelaHtml } from '@/componentes/impressao';
+import { BotoesExportar, prepararDocumento, useImpressao, type PedidoImpressao } from '@/componentes/impressao';
 import { scrollTabela, useEcra } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { BotaoCsv, ValorKz } from './comum/Componentes';
 import { estadoConclusao, temErros, textosConclusao } from './relatorioContas/conclusao';
-import { DemonstracoesRC } from './relatorioContas/DemonstracoesRC';
+import { DemonstracoesRC, origemDemonstracoes } from './relatorioContas/DemonstracoesRC';
+import { MONETARIOS, montarDocumentoRC, NOMES_ANEXOS, opcoesDocumentoRC, paginasDasAncoras, RACIOS, racio, type DadosRC, type DemonstracoesFixadas, type EntradaDocumentoRC } from './relatorioContas/documentoRC';
 import { SeparadorGestao } from './relatorioContas/SeparadorGestao';
-import { SECCOES, tabelaSeccao, textoActual, textoParaHtml, type ConfigGestao, type TextoGravado } from './relatorioContas/textosGestao';
-
-type Indicadores = Record<string, string | number | null>;
-
-interface DadosRC {
-  ano: number;
-  ano_anterior: number;
-  encerrado: boolean;
-  moeda: string;
-  gerado_em: string;
-  empresa: { nome: string; nif: string | null };
-  n: { indicadores: Indicadores };
-  n1: { indicadores: Indicadores };
-  composicao: Record<string, { conta: string; descricao: string | null; n: string; n1: string }[]>;
-  alertas: { tipo: 'info' | 'aviso' | 'erro'; texto: string }[];
-  colaboradores: number;
-  anexos: Record<string, { conta: string; descricao: string | null; debito?: string; credito?: string; saldo_devedor?: string; saldo_credor?: string; [k: string]: unknown }[]>;
-}
+import type { ConfigGestao, TextoGravado } from './relatorioContas/textosGestao';
+import type { Balanco, DemonstracaoResultados, FluxoCaixa } from './api';
 
 interface RelatorioRC {
   registo: { id: number | null; ano: number; estado: string; configuracao: Record<string, unknown>; textos: Record<string, unknown>; notas_incluir: Record<string, boolean>; atualizado_por: string | null; atualizado_em: string | null; concluido_em?: string | null; concluido_por?: string | null };
   dados: DadosRC;
 }
 
-const MONETARIOS: [string, string][] = [
-  ['vendas_prestacoes', 'Vendas e prestações de serviços'],
-  ['margem_bruta', 'Margem bruta'],
-  ['pessoal', 'Custos com o pessoal'],
-  ['gastos_op', 'Gastos operacionais'],
-  ['ebitda', 'EBITDA'],
-  ['amortizacoes', 'Amortizações'],
-  ['ebit', 'EBIT (resultado operacional)'],
-  ['rai', 'Resultado antes de impostos'],
-  ['imposto', 'Imposto sobre o rendimento'],
-  ['rl', 'Resultado líquido'],
-  ['activo', 'Activo total'],
-  ['capital_proprio', 'Capital próprio'],
-  ['passivo', 'Passivo total'],
-  ['disponibilidades', 'Disponibilidades'],
-];
-
-const RACIOS: [string, string, 'pct' | 'x'][] = [
-  ['roe', 'Rendibilidade do capital próprio (ROE)', 'pct'],
-  ['roa', 'Rendibilidade do activo (ROA)', 'pct'],
-  ['ros', 'Rendibilidade das vendas (ROS)', 'pct'],
-  ['margem_operacional', 'Margem operacional', 'pct'],
-  ['autonomia_financeira', 'Autonomia financeira', 'pct'],
-  ['solvabilidade', 'Solvabilidade', 'x'],
-  ['endividamento', 'Endividamento', 'pct'],
-  ['liquidez_geral', 'Liquidez geral', 'x'],
-  ['liquidez_reduzida', 'Liquidez reduzida', 'x'],
-  ['liquidez_imediata', 'Liquidez imediata', 'x'],
-];
-
-function racio(v: string | number | null | undefined, tipo: 'pct' | 'x'): string {
-  if (v === null || v === undefined || v === '') return '—';
-  const n = Number(v);
-  if (!Number.isFinite(n)) return '—';
-  return tipo === 'pct' ? `${(n * 100).toLocaleString('pt-PT', { maximumFractionDigits: 2 })} %` : n.toLocaleString('pt-PT', { maximumFractionDigits: 2 });
-}
-
 const CORES_ALERTA = { info: 'info', aviso: 'warning', erro: 'error' } as const;
-
-const NOMES_ANEXOS: Record<string, string> = {
-  razao_dezembro: 'Balancete razão (Dezembro)',
-  razao_apuramento: 'Balancete razão (apuramento)',
-  geral_dezembro: 'Balancete geral (Dezembro)',
-  geral_apuramento: 'Balancete geral (apuramento)',
-  amortizacoes: 'Mapa de amortizações',
-};
 
 /**
  * Contabilidade › Relatório e Contas (ecrã relatorio_contas; legado: js/relatorio_contas.js:983-1106).
@@ -97,6 +37,7 @@ const NOMES_ANEXOS: Record<string, string> = {
 export default function RelatorioContas() {
   const { pode } = useSessao();
   const cliente = useQueryClient();
+  const { obterIdentidade } = useImpressao();
   const [ano, setAno] = useState(dayjs().year() - (dayjs().month() < 3 ? 1 : 0));
   const [form] = Form.useForm<Record<string, unknown>>();
   const [notas, setNotas] = useState<Record<string, boolean>>({});
@@ -213,6 +154,58 @@ export default function RelatorioContas() {
     } else setAno(novo);
   };
 
+  /**
+   * Balanço/DR/Fluxo do documento: os fixados na conclusão ou, em rascunho (e nos concluídos antigos), os dos mapas
+   * contabilísticos (mesmas chaves de cache do separador «Demonstrações Financeiras»); só os que o utilizador pode consultar.
+   */
+  const demonstracoesDoDocumento = async (dd: DadosRC): Promise<DemonstracoesFixadas> => {
+    if (origemDemonstracoes(regras.concluido, dd.demonstracoes) === 'fixadas') return dd.demonstracoes ?? {};
+    const inicio = `${ano}-01-01`;
+    const fim = `${ano}-12-31`;
+    const ler = async <T,>(permissao: string, chave: string, url: string, params: Record<string, unknown>): Promise<T | undefined> => {
+      if (!pode(permissao)) return undefined;
+      try {
+        return await cliente.fetchQuery({ queryKey: ['contab', 'mapa', chave, url, params], queryFn: () => obter<T>(url, params) });
+      } catch {
+        return undefined;
+      }
+    };
+    const [balanco, dr, fluxo] = await Promise.all([
+      ler<Balanco>('contab_mapa_balanco_view', 'balanco', '/contabilidade/relatorios/balanco', { data_fim: fim, comparativo: 1 }),
+      ler<DemonstracaoResultados>('contab_mapa_dr_view', 'dr', '/contabilidade/relatorios/demonstracao-resultados', { data_inicio: inicio, data_fim: fim, comparativo: 1, modo_comparativo: 'ano_anterior' }),
+      ler<FluxoCaixa>('contab_mapa_fluxo_view', 'fluxo', '/contabilidade/relatorios/fluxo-caixa', { data_inicio: inicio, data_fim: fim, comparativo: 1 }),
+    ]);
+    return { balanco, dr, fluxo };
+  };
+
+  /**
+   * Documento do Relatório e Contas (A4 vertical): capa, índice com páginas, relatório de gestão com gráficos,
+   * síntese de indicadores, demonstrações, notas e anexos. Preparado duas vezes: a 1.ª dá a página de cada secção.
+   */
+  const pedidoDocumento = async (): Promise<PedidoImpressao | null> => {
+    if (!d) return null;
+    const identidade = await obterIdentidade();
+    const entrada: EntradaDocumentoRC = {
+      dados: d,
+      notas,
+      textos,
+      config,
+      identidade,
+      demonstracoes: await demonstracoesDoDocumento(d),
+      concluido: regras.concluido,
+      legendaConclusao: regras.legenda,
+    };
+    const opcoes = { ...opcoesDocumentoRC(entrada), identidade };
+    let paginas: Record<string, number> | undefined;
+    try {
+      const prova = await prepararDocumento({ ...opcoes, conteudo: montarDocumentoRC(entrada).html });
+      paginas = paginasDasAncoras(prova.html);
+    } catch {
+      paginas = undefined; // sem números de página no índice (fica «—»), o documento sai na mesma
+    }
+    return { ...opcoes, conteudo: montarDocumentoRC(entrada, paginas ?? {}).html };
+  };
+
   const anos = Array.from({ length: 6 }, (_, i) => dayjs().year() - i);
   const { telemovel } = useEcra();
   const { token } = theme.useToken();
@@ -246,15 +239,6 @@ export default function RelatorioContas() {
               )}
             </Space>
           ) : undefined
-        }
-        impressaoDesactivada={!d}
-        impressao={() =>
-          d && {
-            titulo: `Relatório e Contas · exercício de ${ano}`,
-            subtitulo: d.encerrado ? undefined : 'Provisório: exercício aberto',
-            filtros: [regras.concluido ? 'Concluído (números fixados)' : 'Rascunho (números recalculados a cada consulta)', `Moeda: ${d.moeda}`],
-            conteudo: documentoRelatorioContas(d, notas, textos, config),
-          }
         }
         accoes={
           <Space wrap>
@@ -302,6 +286,7 @@ export default function RelatorioContas() {
                 Reabrir
               </Button>
             )}
+            <BotoesExportar obterPedido={pedidoDocumento} desactivado={!d} seletorPagina={false} chave="contab.relatorio-contas.documento" />
           </Space>
         }
       />
@@ -342,7 +327,7 @@ export default function RelatorioContas() {
                 children: (
                   <>
                   {/* legado: Balanço, DR e Fluxos de caixa (relatorio_contas.js:1003-1006); grandezas e rácios são do sistema novo */}
-                  <DemonstracoesRC ano={ano} concluido={regras.concluido} />
+                  <DemonstracoesRC ano={ano} concluido={regras.concluido} fixadas={d.demonstracoes} />
                   <Row gutter={[16, 16]}>
                     <Col xs={24} lg={12}>
                       <Card title="Grandezas (Kz)" size="small">
@@ -495,6 +480,11 @@ export default function RelatorioContas() {
                               <Input maxLength={255} />
                             </Form.Item>
                           </Col>
+                          <Col xs={24}>
+                            <Form.Item name="conselho" label="Conselho de Administração (capa do documento)" extra="Um membro por linha, p. ex. «Nome — Presidente». Vazio: a capa mostra a Direcção Geral.">
+                              <Input.TextArea autoSize={{ minRows: 2, maxRows: 8 }} maxLength={2000} />
+                            </Form.Item>
+                          </Col>
                         </Row>
                       </Card>
                       <Card size="small" title="Imposto e aplicação de resultados" style={{ marginBottom: 12 }}>
@@ -586,90 +576,4 @@ function TabelaAnexo({ nome, linhas }: { nome: string; linhas: Record<string, un
       />
     </>
   );
-}
-
-/** Relatório e Contas para impressão: indicadores, rácios, alertas, notas seleccionadas e anexos. */
-export function documentoRelatorioContas(d: DadosRC, notas: Record<string, boolean>, textos: Record<string, TextoGravado> = {}, config: ConfigGestao = {}): string {
-  // Relatório de Gestão (M-10): títulos, texto em vigor (editado ou automático) e tabelas de indicadores
-  let grupoActual: string | undefined;
-  const gestao = SECCOES.map((s) => {
-    const cab = s.grupo && s.grupo !== grupoActual ? `<h3 style="font-size:10.5pt;text-transform:uppercase;margin:10pt 0 4pt">${esc(s.grupo)}</h3>` : '';
-    if (s.grupo) grupoActual = s.grupo;
-    const linhas = tabelaSeccao(s.tabela, d, config);
-    const tabela = linhas.length
-      ? tabelaHtml<[string, string, string]>({
-          linhas,
-          colunas: [
-            { titulo: s.tabela === 'aplicacao' ? 'Aplicação' : 'Indicador', valor: (r) => r[0] },
-            { titulo: String(d.ano), valor: (r) => r[1], alinhamento: 'direita' },
-            ...(s.tabela === 'aplicacao' ? [] : [{ titulo: String(d.ano_anterior), valor: (r: [string, string, string]) => r[2], alinhamento: 'direita' as const }]),
-          ],
-        })
-      : '';
-    return `${cab}<h4 style="font-size:10pt;margin:8pt 0 3pt">${esc(s.titulo)}</h4><div style="font-size:9pt;line-height:1.45">${textoParaHtml(textoActual(s.id, textos[s.id], d, config).texto)}</div>${tabela}`;
-  }).join('');
-  const anoN = String(d.ano);
-  const anoN1 = String(d.ano_anterior);
-  const grandezas = tabelaHtml({
-    legenda: 'Grandezas (Kz)',
-    linhas: MONETARIOS,
-    colunas: [
-      { titulo: 'Indicador', valor: (r) => r[1] },
-      { titulo: anoN, valor: (r) => d.n.indicadores[r[0]] as string, formato: 'moeda' },
-      { titulo: anoN1, valor: (r) => d.n1.indicadores[r[0]] as string, formato: 'moeda' },
-    ],
-  });
-  const racios = tabelaHtml({
-    legenda: 'Rácios',
-    linhas: RACIOS,
-    colunas: [
-      { titulo: 'Rácio', valor: (r) => r[1] },
-      { titulo: anoN, valor: (r) => racio(d.n.indicadores[r[0]], r[2]), alinhamento: 'direita' },
-      { titulo: anoN1, valor: (r) => racio(d.n1.indicadores[r[0]], r[2]), alinhamento: 'direita' },
-    ],
-  });
-  const alertas = d.alertas.length
-    ? tabelaHtml({
-        legenda: `Alertas (${d.alertas.length})`,
-        linhas: d.alertas,
-        colunas: [
-          { titulo: 'Tipo', valor: (a) => (a.tipo === 'erro' ? 'Erro' : a.tipo === 'aviso' ? 'Aviso' : 'Informação') },
-          { titulo: 'Alerta', valor: (a) => a.texto, quebrar: true },
-        ],
-      })
-    : '';
-  const notasHtml = Object.entries(d.composicao)
-    .filter(([nota]) => notas[nota] !== false)
-    .sort(([a], [b]) => Number(a) - Number(b))
-    .map(([nota, contas]) =>
-      tabelaHtml({
-        legenda: `Nota ${nota}`,
-        linhas: contas,
-        totais: true,
-        colunas: [
-          { titulo: 'Conta', valor: (c) => c.conta },
-          { titulo: 'Descrição', valor: (c) => c.descricao ?? '—', quebrar: true },
-          { titulo: anoN, valor: (c) => c.n, formato: 'moeda', somar: true },
-          { titulo: anoN1, valor: (c) => c.n1, formato: 'moeda', somar: true },
-        ],
-      }),
-    )
-    .join('');
-  const anexos = Object.entries(d.anexos)
-    .filter(([, linhas]) => linhas?.length)
-    .map(([k, linhas]) => {
-      const chaves = Object.keys(linhas[0]);
-      const monetaria = (c: string) => linhas.some((l) => typeof l[c] === 'string' && /^-?\d+\.\d{2}$/.test(l[c] as string));
-      return tabelaHtml<Record<string, unknown>>({
-        legenda: NOMES_ANEXOS[k] ?? k,
-        linhas,
-        colunas: chaves.map((c) => ({
-          titulo: c.replace(/_/g, ' '),
-          valor: (l) => (typeof l[c] === 'object' && l[c] !== null ? JSON.stringify(l[c]) : (l[c] as string | number | null | undefined)),
-          formato: monetaria(c) ? ('moeda' as const) : undefined,
-        })),
-      });
-    })
-    .join('');
-  return `<h2 style="font-size:12pt">Relatório de Gestão</h2>${gestao}<h2 style="font-size:12pt;break-before:page">Demonstrações financeiras e indicadores</h2>${grandezas}${racios}<p style="font-size:8.5pt">Colaboradores no exercício: ${esc(d.colaboradores)}</p>${alertas}${notasHtml}${anexos}`;
 }

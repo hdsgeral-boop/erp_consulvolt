@@ -12,6 +12,7 @@ use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Logistica\ContasProduto;
 use App\Services\Logistica\ServicoConfigLogistica;
 use App\Services\Logistica\ServicoStock;
 use App\Services\Sistema\ServicoCambios;
@@ -173,8 +174,9 @@ final class ServicoRececoesCompra
                     continue;
                 }
                 $total = bcadd($total, $valor, 2);
-                $contaCompra = $produto->conta_compra ?: $this->config->exigir('compras_mercadorias', "Produto {$produto->codigo} sem conta de compras.");
-                $contaInv = $produto->conta_inventario ?: $this->config->exigir('inventario_mercadorias', "Produto {$produto->codigo} sem conta de inventário.");
+                $contasProduto = ContasProduto::de($produto);
+                $contaCompra = $contasProduto->compra ?: $this->config->exigir('compras_mercadorias', "Produto {$produto->codigo} sem conta de compras.");
+                $contaInv = $contasProduto->inventario ?: $this->config->exigir('inventario_mercadorias', "Produto {$produto->codigo} sem conta de inventário.");
                 $transitoria = $fornecedor->conta_compra_transitoria ?: $this->config->exigir('transitoria_compras', 'O fornecedor não tem conta transitória de compras.');
                 $comum = ['terceiro_id' => $fornecedor->id, 'unidade_negocio_id' => $rececao->unidade_negocio_id, 'centro_custo_id' => $rececao->centro_custo_id,
                     'projeto_id' => $item->projeto_id, 'descricao' => mb_substr("{$produto->codigo} {$produto->nome}", 0, 1000)];

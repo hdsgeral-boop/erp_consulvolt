@@ -19,7 +19,7 @@ import { htmlTabela, seccaoHtml } from './comum/impressao';
 
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 import { IconeFa } from '@/componentes/fluxos';
-import { conflitos, contaSaldo, corEstadoFerias, ESTADOS_FERIAS, filtrarPorEstado, periodosPorColaborador, rotuloChip, rotuloEstadoFerias, totaisFerias } from './ferias/regrasFerias';
+import { anosDisponiveis, conflitos, contaSaldo, corEstadoFerias, ESTADOS_FERIAS, filtrarPorEstado, periodosPorColaborador, rotuloChip, rotuloEstadoFerias, totaisFerias } from './ferias/regrasFerias';
 import { MapaAnualFerias } from './ferias/MapaAnualFerias';
 import { dataDe, numeroDe, opcoesColaboradores, textoDe } from './comum/linhasRh';
 
@@ -214,7 +214,9 @@ export default function Ferias() {
       </GrelhaKpi>
       <Card style={{ marginTop: 16 }}>
         <BarraFiltros>
-          <InputNumber value={ano} min={2000} max={2100} onChange={(v) => v && setAno(v)} prefix="Ano" style={{ width: 150 }} />
+          {/* antigo (ferias.js:163): o ano escolhe-se numa lista */}
+          <Select<number> aria-label="Ano" prefix="Ano" value={ano} onChange={setAno} style={{ width: 130 }}
+            options={anosDisponiveis(dayjs().year(), ano).map((a) => ({ value: a, label: String(a) }))} />
           <SeletorColaborador value={colaborador} onChange={setColaborador} />
           <PesquisaLocal aoMudar={setTermo} placeholder="Pesquisar colaborador" />
           <Select<string> value={estadoFiltro} onChange={setEstadoFiltro} style={{ width: 240 }} aria-label="Estado"

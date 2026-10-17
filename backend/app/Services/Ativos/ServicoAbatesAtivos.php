@@ -92,6 +92,7 @@ final class ServicoAbatesAtivos
         return DB::transaction(function () use ($d, $valor, $comTerceiro, $contabilizar) {
             $a = AtivoImobilizado::query()->lockForUpdate()->find($d['ativo_imobilizado_id'] ?? 0)
                 ?? throw new ErroNegocio('Activo inexistente.', 'DADOS_INVALIDOS', 422);
+            $this->exigirProprio($a);
             if ($a->estado !== AtivoImobilizado::ESTADO_ATIVO) {
                 throw new ErroNegocio("O activo {$a->codigo} não está activo (estado {$a->estado}).", 'ATIVO_NAO_ATIVO', 422);
             }
@@ -151,6 +152,7 @@ final class ServicoAbatesAtivos
     public function simular(array $d): array
     {
         $a = AtivoImobilizado::query()->findOrFail($d['ativo_imobilizado_id'] ?? 0);
+        $this->exigirProprio($a);
         $a = $this->ativos->recalcularAcumulado($a);
         $valor = CalculadoraAmortizacoes::d($d['valor'] ?? 0);
         $abate = new AbateVendaAtivo(['tipo' => $d['tipo'] ?? 'FIM_VIDA', 'valor' => $valor,
@@ -218,5 +220,14 @@ final class ServicoAbatesAtivos
 
         return ['linhas' => $linhas, 'valor_aquisicao' => $aquisicao, 'amortizacao_acumulada' => $acumulada, 'valor_liquido' => $liquido, 'resultado' => $resultado,
             'valor_iva' => $iva, 'total_terceiro' => bcadd($valor, $iva, 2)];
+    }
+
+    /** r3_activos: um bem alheio (arrendado, cedido, de terceiros) não é imobilizado da empresa — não se abate nem vende; inactiva-se. */
+    private function exigirProprio(AtivoImobilizado $a): void
+    {
+        if (! $a->eProprio()) {
+            throw new ErroNegocio("O activo {$a->codigo} é alheio (arrendado, cedido ou de terceiros): não se abate; mude o estado para Inactivo quando o devolver.",
+                'ATIVO_ALHEIO', 422);
+        }
     }
 }

@@ -85,8 +85,10 @@ final class POSArmazemController extends Controller
     public function expedir(Request $r, int $encomenda): JsonResponse
     {
         $this->exigir('pos_armazem_expedir');
-        $d = $r->validate(['armazem_id' => ['required', 'integer'], 'observacoes' => ['nullable', 'string', 'max:2000']]);
-        $gr = $this->pos->expedir(Venda::query()->findOrFail($encomenda), (int) $d['armazem_id'], $d['observacoes'] ?? null);
+        // «recolhidos»: as linhas marcadas como «Verificado» na checklist; o servidor exige-as todas (não depende só do ecrã)
+        $d = $r->validate(['armazem_id' => ['required', 'integer'], 'observacoes' => ['nullable', 'string', 'max:2000'],
+            'recolhidos' => ['present', 'array', 'max:2000'], 'recolhidos.*' => ['integer', 'distinct']]);
+        $gr = $this->pos->expedir(Venda::query()->findOrFail($encomenda), (int) $d['armazem_id'], array_map('intval', $d['recolhidos']), $d['observacoes'] ?? null);
 
         return RespostaApi::criado($gr->load('itensVenda'), "Picking concluído: guia de remessa {$gr->numero_documento} emitida.");
     }

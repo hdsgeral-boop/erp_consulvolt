@@ -1,4 +1,4 @@
-import type { ContratoCompra, EncomendaCompra, FaturaCompra, PedidoCompra, PropostaCompra, RececaoCompra } from './tipos';
+import type { ContratoCompra, EncomendaCompra, EtapaDeliberacao, FaturaCompra, PedidoCompra, PropostaCompra, RececaoCompra } from './tipos';
 
 /**
  * Que acções mostrar em cada documento de Compras. Espelham as validações do servidor
@@ -14,12 +14,23 @@ export function etapaPendente(p: Pick<PedidoCompra, 'deliberacao'>) {
   return p.deliberacao?.etapas?.find((e) => e.estado === 'PENDENTE') ?? null;
 }
 
+/**
+ * Quem aprova a etapa (como o legado, compras_deliberacao.js:252): o nome do aprovador (responsável da unidade,
+ * utilizador responsável do CC/UN ou «Utilizadores com a tarefa …»), senão o utilizador ou a tarefa.
+ */
+export function aprovadorEtapa(e: EtapaDeliberacao): string {
+  const v = e.nome_aprovador || (typeof e.utilizador === 'string' ? e.utilizador : null) || e.tarefa;
+  return v || '—';
+}
+
 export function accoesPedido(p: PedidoCompra, pode: Pode) {
   const etapa = etapaPendente(p);
   // Pedidos migrados sem etapas: o servidor inicia a deliberação na 1.ª decisão (nível 1).
   const tarefa = etapa && etapa.tipo !== 'LEGADO' ? etapa.tarefa ?? 'compras_ped_aprovar' : 'compras_ped_aprovar';
+  // O 1.º nível pode ser do responsável da unidade (RESPONSAVEL/UTILIZADOR): quando o servidor diz se pode decidir, vale isso.
+  const porTarefa = etapa?.tipo === 'LEGADO' ? pode(...TAREFAS_APROVAR) : pode(tarefa);
   return {
-    decidir: p.estado === 'PENDENTE' && (etapa?.tipo === 'LEGADO' ? pode(...TAREFAS_APROVAR) : pode(tarefa)),
+    decidir: p.estado === 'PENDENTE' && (p.pode_decidir ?? porTarefa),
     anular: ['PENDENTE', 'APROVADO', 'REJEITADO'].includes(p.estado) && pode('compras_ped_eliminar'),
     registarProposta: p.estado === 'APROVADO' && pode('compras_new_proposal'),
   };

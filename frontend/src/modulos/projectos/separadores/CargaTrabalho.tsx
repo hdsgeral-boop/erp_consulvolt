@@ -5,7 +5,7 @@ import { obter } from '@/api/cliente';
 import { BotaoImprimir, BotoesExportar, esc } from '@/componentes/impressao';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { formatarData } from '@/utilitarios/formatacao';
-import { EtiquetaProjectos } from '../comum/componentes';
+import { EtiquetaProjectos, rotuloProjectos } from '../comum/componentes';
 import { descricaoCalendario, formatarQtd } from '../comum/regrasMetas';
 import type { CargaTrabalho, GrupoCarga, TarefaCarga } from '../comum/tipos';
 
@@ -31,7 +31,7 @@ export function ModalCargaTrabalho({ projectoId, aberto, aoFechar }: { projectoI
             <Space wrap>
               <Button size="small" onClick={() => setAbertos(chaves)}>Abrir tudo</Button>
               <Button size="small" onClick={() => setAbertos([])}>Fechar tudo</Button>
-              <BotaoImprimir texto="Ordem de trabalho" tamanho="small" obterPedido={() => ({ titulo: `Ordem de trabalho — ${c.projeto.codigo ?? ''} ${c.projeto.nome}`, conteudo: ordemDeTrabalhoHtml(c), orientacao: 'retrato' as const })} />
+              <BotaoImprimir texto="Ordens de trabalho" tamanho="small" chave="projectos.ordem-trabalho" obterPedido={() => pedidoOrdemTrabalho(c)} />
               <BotoesExportar tamanho="small" obterPedido={() => (ref.current ? { titulo: `Carga de trabalho — ${c.projeto.codigo ?? ''} ${c.projeto.nome}`, conteudo: ref.current, orientacao: 'paisagem' as const } : null)} />
             </Space>
           </Flex>
@@ -39,7 +39,17 @@ export function ModalCargaTrabalho({ projectoId, aberto, aoFechar }: { projectoI
           <div ref={ref}>
             {!c.grupos.length ? <Empty description="A equipa do projecto está vazia." /> : (
               <Collapse activeKey={abertos ?? chaves} onChange={(k) => setAbertos(k as string[])}
-                items={c.grupos.map((g) => ({ key: g.chave, label: <CabecalhoGrupo g={g} />, children: <TabelaCarga tarefas={g.tarefas} /> }))} />
+                items={c.grupos.map((g) => ({
+                  key: g.chave,
+                  label: <CabecalhoGrupo g={g} />,
+                  // Versão Actual (ui_projects.js:2888-2889): a ordem de trabalho só desta pessoa, a partir da sua linha
+                  extra: g.tarefas.length > 0 && (
+                    <span className="imp-nao-imprimir" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} role="presentation">
+                      <BotaoImprimir texto="Ordem de trabalho" tamanho="small" chave="projectos.ordem-trabalho" obterPedido={() => pedidoOrdemTrabalho(c, g.chave)} />
+                    </span>
+                  ),
+                  children: <TabelaCarga tarefas={g.tarefas} />,
+                }))} />
             )}
           </div>
         </>
@@ -84,30 +94,61 @@ function TabelaCarga({ tarefas }: { tarefas: TarefaCarga[] }) {
   );
 }
 
-/** Ordem de trabalho: uma folha por pessoa, agrupada por fase, com prazos, quantidade, ritmo e assinaturas (cargaOrdemTrabalho, :2935-3063). */
-export function ordemDeTrabalhoHtml(c: CargaTrabalho): string {
-  const folhas = c.grupos.filter((g) => g.tarefas.length).map((g, n) => {
+/**
+ * Ordem de trabalho (cargaOrdemTrabalho, ui_projects.js:2935-3063): uma folha por pessoa, agrupada por fase, com a
+ * identificação do executante, prazos, o que falta da meta, o ritmo exigido, observações e assinaturas. Com `chave`
+ * imprime só a dessa pessoa (botão «Ordem de trabalho» de cada linha, :2888-2889); sem `chave`, todas (botão da barra).
+ */
+export function ordemDeTrabalhoHtml(c: CargaTrabalho, chave?: string): string {
+  const grupos = c.grupos.filter((g) => g.tarefas.length && (!chave || g.chave === chave));
+  const posicao = (g: GrupoCarga) => (!g.posicao ? '—' : typeof g.posicao === 'string' ? g.posicao : g.posicao.titulo);
+  const th = 'text-align:left;background:#f1f1f1;padding:3px 6px';
+  const folhas = grupos.map((g, n) => {
     const porFase = new Map<string, TarefaCarga[]>();
     g.tarefas.forEach((t) => { const k = t.fase ?? 'Sem fase'; porFase.set(k, [...(porFase.get(k) ?? []), t]); });
+    const inicios = g.tarefas.map((t) => t.inicio).filter((x): x is string => !!x).sort();
+    const fins = g.tarefas.map((t) => t.fim).filter((x): x is string => !!x).sort();
+    const qtd = Object.entries(g.quantidades).map(([u, v]) => `${esc(formatarQtd(v))} ${esc(u)}`).join(' · ');
     const corpo = [...porFase.entries()].map(([fase, ts]) => `
-      <tr><td colspan="5" style="background:#f1f5f9;font-weight:600;padding:4px 6px">${esc(fase)}</td></tr>
+      <tr><td colspan="6" style="background:#e8e8e8;font-weight:700;padding:4px 6px;font-size:10px;letter-spacing:.5px">FASE: ${esc(fase)}</td></tr>
       ${ts.map((t) => `<tr>
-        <td style="padding:3px 6px">${esc(t.caminho.length ? `${t.caminho.join(' › ')} › ` : '')}<strong>${esc(t.codigo ? `${t.codigo} ` : '')}${esc(t.nome)}</strong>${t.da_area && t.quota < 1 ? ` <small>(parte de ${Math.round(t.quota * 100)}%)</small>` : ''}</td>
-        <td style="padding:3px 6px;white-space:nowrap">${t.inicio ? `${esc(formatarData(t.inicio))} a ${esc(formatarData(t.fim))}` : '—'}</td>
-        <td style="padding:3px 6px;text-align:right;white-space:nowrap">${t.meta ? `${esc(formatarQtd(t.meta.quantidade - t.meta.realizado))} ${esc(t.meta.unidade)}` : '—'}</td>
-        <td style="padding:3px 6px;text-align:right;white-space:nowrap">${t.ritmo ? `${esc(formatarQtd(t.ritmo.dia))} ${esc(t.ritmo.unidade)}/dia` : '—'}</td>
-        <td style="padding:3px 6px;text-align:right">${esc(formatarQtd(t.horas_previstas))} h</td></tr>`).join('')}`).join('');
+        <td style="padding:3px 6px;vertical-align:top">${esc(t.caminho.length ? `${t.caminho.join(' › ')} › ` : '')}<strong>${esc(t.codigo ? `${t.codigo} ` : '')}${esc(t.nome)}</strong>${t.da_area && t.quota < 1 ? ` <small>(parte de ${Math.round(t.quota * 100)}%)</small>` : ''}${t.da_area && t.areas.length ? `<div style="font-size:9px;color:#555">Atribuída à área ${esc(t.areas.join(', '))}</div>` : ''}</td>
+        <td style="padding:3px 6px;white-space:nowrap;vertical-align:top">${t.inicio ? `${esc(formatarData(t.inicio))} a ${esc(formatarData(t.fim))}` : '—'}</td>
+        <td style="padding:3px 6px;text-align:right;white-space:nowrap;vertical-align:top">${t.meta ? `${esc(formatarQtd(t.meta.quantidade - t.meta.realizado))} ${esc(t.meta.unidade)}<div style="font-size:9px;color:#555">meta ${esc(formatarQtd(t.meta.quantidade))} · feitos ${esc(formatarQtd(t.meta.realizado))}</div>` : '—'}</td>
+        <td style="padding:3px 6px;text-align:right;white-space:nowrap;vertical-align:top">${t.ritmo ? `${esc(formatarQtd(t.ritmo.dia))} ${esc(t.ritmo.unidade)}/dia` : '—'}</td>
+        <td style="padding:3px 6px;text-align:right;vertical-align:top">${esc(formatarQtd(t.horas_previstas))} h</td>
+        <td style="padding:3px 6px;text-align:center;vertical-align:top">${esc(rotuloProjectos(t.estado))}<div style="font-size:9px;color:#555">${t.execucao}%</div></td></tr>`).join('')}`).join('');
     return `<section style="${n > 0 ? 'page-break-before:always;' : ''}">
       <h3 style="margin:0 0 4px">${esc(g.nome)}${g.papel ? ` — ${esc(g.papel)}` : ''}</h3>
-      <p style="margin:0 0 8px;color:#475569">${g.n_tarefas} tarefa(s) · ${esc(formatarQtd(g.horas_previstas))} h previstas · calendário: ${esc(descricaoCalendario(c.calendario))}</p>
-      <table style="width:100%;border-collapse:collapse;font-size:12px" border="1" cellspacing="0">
-        <thead><tr><th style="text-align:left;padding:4px 6px">Tarefa</th><th>Prazo</th><th>Falta fazer</th><th>Ritmo</th><th>Horas</th></tr></thead>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin:4px 0 10px" border="1" cellspacing="0">
+        <tr><th style="${th};width:14%">Executante</th><td style="padding:3px 6px"><strong>${esc(g.nome)}</strong>${g.papel ? ` — ${esc(g.papel)}` : ''}</td>
+          <th style="${th};width:14%">Posição</th><td style="padding:3px 6px">${esc(posicao(g))}</td></tr>
+        <tr><th style="${th}">Período</th><td style="padding:3px 6px">${inicios.length ? `${esc(formatarData(inicios[0]))} a ${esc(formatarData(fins[fins.length - 1] ?? null))}` : '—'}</td>
+          <th style="${th}">Horário</th><td style="padding:3px 6px">${esc(descricaoCalendario(c.calendario))}</td></tr>
+        <tr><th style="${th}">Trabalho</th><td style="padding:3px 6px">${g.n_tarefas} tarefa(s)</td>
+          <th style="${th}">Horas previstas</th><td style="padding:3px 6px">${esc(formatarQtd(g.horas_previstas))} h${g.horas_lancadas ? ` (${esc(formatarQtd(g.horas_lancadas))} h já lançadas)` : ''}</td></tr>
+        ${qtd ? `<tr><th style="${th}">Quantidades</th><td colspan="3" style="padding:3px 6px">${qtd}</td></tr>` : ''}
+      </table>
+      <table style="width:100%;border-collapse:collapse;font-size:11px" border="1" cellspacing="0">
+        <thead><tr><th style="text-align:left;padding:4px 6px">O que há para fazer</th><th>Prazo</th><th>Falta fazer</th><th>Ritmo exigido</th><th>Horas</th><th>Estado</th></tr></thead>
         <tbody>${corpo}</tbody>
       </table>
-      <table style="width:100%;margin-top:32px;font-size:12px"><tr>
-        <td style="width:50%;padding-top:28px;border-top:1px solid #000;text-align:center">O responsável pela obra</td><td style="width:8%"></td>
-        <td style="width:42%;padding-top:28px;border-top:1px solid #000;text-align:center">Recebi — ${esc(g.nome)}</td></tr></table>
+      <div style="margin-top:10px;border:1px solid #bbb;padding:5px 6px;font-size:11px"><strong>Observações / ocorrências:</strong><div style="height:52px"></div></div>
+      <table style="width:100%;margin-top:28px;font-size:11px"><tr>
+        <td style="width:32%;padding-top:26px;border-top:1px solid #000;text-align:center">Entregue por (nome e assinatura)</td><td style="width:2%"></td>
+        <td style="width:32%;padding-top:26px;border-top:1px solid #000;text-align:center">Recebido por — ${esc(g.nome)}</td><td style="width:2%"></td>
+        <td style="width:32%;padding-top:26px;border-top:1px solid #000;text-align:center">Data ____ / ____ / ________</td></tr></table>
     </section>`;
   });
   return folhas.join('') || '<p>Sem tarefas atribuídas.</p>';
+}
+
+/** Pedido de impressão da ordem de trabalho (todas as pessoas, ou só a da `chave`). */
+export function pedidoOrdemTrabalho(c: CargaTrabalho, chave?: string) {
+  const g = chave ? c.grupos.find((x) => x.chave === chave) : undefined;
+  return {
+    titulo: `Ordem de trabalho${g ? ` — ${g.nome}` : ''} — ${c.projeto.codigo ?? ''} ${c.projeto.nome}`.replace(/\s+/g, ' ').trim(),
+    conteudo: ordemDeTrabalhoHtml(c, chave),
+    orientacao: 'retrato' as const,
+  };
 }

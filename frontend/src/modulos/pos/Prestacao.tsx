@@ -1,4 +1,4 @@
-import { Alert, Button, Card, DatePicker, Flex, Form, InputNumber, List, Modal, Select, Skeleton, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Flex, Form, InputNumber, List, Modal, Select, Skeleton, Space, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import { CheckOutlined, EyeOutlined, SwapOutlined } from '@ant-design/icons';
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -324,6 +324,7 @@ function ModalRegistar({ alvo, folhas, aoFechar }: { alvo: { sessao: SessaoPrest
 function ListaLiquidacoes() {
   const { pode } = useSessao();
   const [anular, setAnular] = useState<Liquidacao | null>(null);
+  const [ver, setVer] = useState<number | null>(null);
   const accao = useAccao({ invalidar: [['pos'], ['tesouraria']], aoSucesso: () => setAnular(null) });
 
   return (
@@ -373,7 +374,10 @@ function ListaLiquidacoes() {
             valorImpressao: (l) => `${l.criado_por ?? ''} ${formatarDataHora(l.criado_em)}`.trim(),
           },
         ]}
-        accoes={(l) => [{ icone: 'undo', titulo: 'Anular', texto: 'Anular', variante: 'perigo', oculto: !podeAnularLiquidacao(pode, l), onClick: () => setAnular(l) }]}
+        accoes={(l) => [
+          { icone: 'eye', titulo: 'Ver o detalhe da liquidação', texto: 'Ver', onClick: () => setVer(l.id) },
+          { icone: 'undo', titulo: 'Anular', texto: 'Anular', variante: 'perigo', oculto: !podeAnularLiquidacao(pode, l), onClick: () => setAnular(l) },
+        ]}
         vazio={{ icone: 'history', titulo: 'Sem movimentos.' }}
       />
       <ModalMotivo
@@ -385,7 +389,45 @@ function ListaLiquidacoes() {
         aoFechar={() => setAnular(null)}
         aoConfirmar={(motivo) => anular && accao.mutate({ url: `/pos/liquidacoes/${anular.id}/anular`, dados: { motivo } })}
       />
+      <DetalheLiquidacao id={ver} aoFechar={() => setVer(null)} />
     </>
+  );
+}
+
+/** Linhas do detalhe de uma liquidação (rótulo, valor); os campos vazios não aparecem. */
+export function linhasDetalheLiquidacao(l: Liquidacao & { referencia_lote?: string | null; conta_comissao?: string | null; comissao_deduzida?: boolean | null }): [string, string][] {
+  const linhas: [string, string | null | undefined][] = [
+    ['Estado', l.estado === 'ANULADO' ? 'Anulada' : 'Registada'],
+    ['Data', formatarData(l.data)],
+    ['Sessão (Z)', l.numero_z],
+    ['Tipo', `${rotuloTipo(l.natureza_registo)}${l.meio_pagamento_codigo ? ` · ${l.meio_pagamento_codigo}` : ''}`],
+    ['Destino', destinoLiquidacao(l)],
+    ['Conta transitória → destino', l.conta_transitoria || l.conta_destino ? `${l.conta_transitoria ?? '—'} → ${l.conta_destino ?? '—'}` : null],
+    ['Bruto', `${formatarKz(l.montante_bruto)} Kz`],
+    ['Comissão', l.comissao && Number(l.comissao) !== 0 ? `${formatarKz(l.comissao)} Kz${l.comissao_deduzida ? ' (deduzida no recebimento)' : ''}${l.conta_comissao ? ` · conta ${l.conta_comissao}` : ''}` : null],
+    ['Líquido', `${formatarKz(l.montante_liquido)} Kz`],
+    ['Documento', l.numero_documento],
+    ['Referência / comprovativo', l.referencia],
+    ['Lote', l.referencia_lote],
+    ['Registado por', `${l.criado_por ?? '—'}${l.criado_em ? ` · ${formatarDataHora(l.criado_em)}` : ''}`],
+    ['Anulado', l.cancelado_em ? `${l.cancelado_por ?? '—'} · ${formatarDataHora(l.cancelado_em)}` : null],
+  ];
+  return linhas.filter((x): x is [string, string] => !!x[1]);
+}
+
+/** Detalhe de uma liquidação (GET /pos/liquidacoes/{id} — auditoria backend × frontend, ponto 7). */
+function DetalheLiquidacao({ id, aoFechar }: { id: number | null; aoFechar: () => void }) {
+  const consulta = useQuery({ queryKey: ['pos', 'liquidacoes', 'detalhe', id], queryFn: () => obter<Liquidacao>(`/pos/liquidacoes/${id}`), enabled: id !== null, retry: false });
+  return (
+    <Modal open={id !== null} title="Detalhe da liquidação" onCancel={aoFechar} footer={<Button onClick={aoFechar}>Fechar</Button>} width={larguraModal(560)} destroyOnHidden>
+      {consulta.isLoading ? (
+        <Skeleton active />
+      ) : consulta.isError ? (
+        <Alert type="error" showIcon message="Não foi possível obter a liquidação." />
+      ) : consulta.data ? (
+        <Descriptions size="small" column={1} bordered items={linhasDetalheLiquidacao(consulta.data).map(([rotulo, valor]) => ({ key: rotulo, label: rotulo, children: valor }))} />
+      ) : null}
+    </Modal>
   );
 }
 

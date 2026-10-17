@@ -13,7 +13,7 @@ import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ValorKz } from '../../contab/comum/Componentes';
 import { EditorLinhasDC, linhasParaApi, type LinhaEditor } from '../../contab/comum/EditorLinhasDC';
 import { SeletorTerceiro } from '../../contab/comum/Seletores';
-import { ROTULO_TIPO, type DocumentoTesouraria, type Pendente, type TipoDocumento } from '../api';
+import { ROTULO_TIPO, type DocumentoTesouraria, type OpcoesDocumentoTesouraria, type Pendente, type TipoDocumento } from '../api';
 import { SeletorContaFinanceira } from '../comum';
 import { sentidoPorOmissao, totalDocumento } from '../regras';
 import { AVISO_DOCUMENTO_ANTERIOR, MENSAGEM_SO_BANCOS, PREFIXO_MEIO, contaFinanceiraPermitida, contaParaCopia, documentoAnteriorEmCaixa, meioDaConta, opcoesMeio, type MeioTesouraria } from '../contaFinanceira';
@@ -32,7 +32,25 @@ interface ValoresForm {
   descricao?: string;
   referencia?: string;
   taxa_cambio?: number;
+  /** cabeçalho do legado (showTesourariaForm, ui_tesouraria.js:684-698) */
+  periodo_processamento_salarial_id?: number;
+  projeto_id?: number;
+  url_documento?: string;
   linhas: Linha[];
+}
+
+/** «URL do Documento (Opcional)»: só http:// ou https:// (o servidor valida o mesmo). */
+export const URL_DOCUMENTO = /^https?:\/\/[^\s<>"']+$/i;
+
+/** Corpo do cabeçalho enviado à API: vazios vão a null para limpar o que o documento tinha. */
+export function camposCabecalhoApi(v: Pick<ValoresForm, 'tipo' | 'periodo_processamento_salarial_id' | 'projeto_id' | 'url_documento'>) {
+  const url = v.url_documento?.trim();
+  return {
+    projeto_id: v.projeto_id ?? null,
+    url_documento: url ? url : null,
+    // o período salarial só existe nos pagamentos (o campo nem aparece nos recebimentos)
+    periodo_processamento_salarial_id: v.tipo === 'PAGAMENTO' ? v.periodo_processamento_salarial_id ?? null : null,
+  };
 }
 
 /**
@@ -58,6 +76,12 @@ export function FormularioDocumento() {
   const copiarId = id ? null : procura.get('copiar');
   const origemId = id ?? copiarId;
   const existente = useQuery({ queryKey: ['teso', 'documento', origemId], queryFn: () => obter<DocumentoTesouraria>(`/tesouraria/documentos/${origemId}`), enabled: !!origemId });
+  // projectos activos e períodos salariais processados (+ os do documento em edição)
+  const opcoes = useQuery({
+    queryKey: ['teso', 'documentos', 'opcoes', id ?? null],
+    queryFn: () => obter<OpcoesDocumentoTesouraria>('/tesouraria/documentos/opcoes', id ? { documento_id: id } : undefined),
+    staleTime: 60_000,
+  });
   // conta com que o documento editado foi gravado (numa cópia não conta: o documento é novo)
   const contaOriginal = id ? existente.data?.conta_financeira : undefined;
   const anteriorEmCaixa = documentoAnteriorEmCaixa(contaOriginal);
@@ -73,6 +97,10 @@ export function FormularioDocumento() {
       descricao: d.descricao ?? undefined,
       referencia: copiarId ? undefined : d.referencia ?? undefined,
       taxa_cambio: d.taxa_cambio ? Number(d.taxa_cambio) : undefined,
+      // copyTesourariaDocument do legado não copia o URL, o projecto nem o período (só a referência, a descrição e as linhas)
+      periodo_processamento_salarial_id: copiarId ? undefined : d.periodo_processamento_salarial_id ?? undefined,
+      projeto_id: copiarId ? undefined : d.projeto_id ?? undefined,
+      url_documento: copiarId ? undefined : d.url_documento ?? undefined,
       linhas: (d.linhas ?? []).map((l) => ({
         codigo_conta: l.codigo_conta,
         tipo_dc: l.tipo_dc,
@@ -82,6 +110,8 @@ export function FormularioDocumento() {
         numero_documento: l.numero_documento ?? undefined,
         centro_custo_id: l.centro_custo_id ?? undefined,
         unidade_negocio_id: l.unidade_negocio_id ?? undefined,
+        nota_demonstracao_id: l.nota_demonstracao_id ?? undefined,
+        nota_fluxo_caixa_id: l.nota_fluxo_caixa_id ?? undefined,
         venda_id: l.venda_id ?? undefined,
         fatura_compra_id: l.fatura_compra_id ?? undefined,
         _terceiro: l.terceiro?.nome?.trim() ?? (l.terceiro_id ? `Terceiro #${l.terceiro_id}` : undefined),
@@ -99,6 +129,7 @@ export function FormularioDocumento() {
         descricao: v.descricao,
         referencia: v.referencia || undefined,
         taxa_cambio: v.taxa_cambio || undefined,
+        ...camposCabecalhoApi(v),
         linhas: linhasParaApi(v.linhas),
         orcamento: v.orcamento,
       };
@@ -202,14 +233,55 @@ export function FormularioDocumento() {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col xs={24} md={18}>
-              <Form.Item name="descricao" label="Descrição Geral" rules={[{ required: true, min: 5, message: 'Descreva o documento (pelo menos 5 caracteres).' }]}>
-                <Input maxLength={1000} />
+            {tipo === 'PAGAMENTO' && (
+              <Col xs={24} md={8}>
+                <Form.Item
+                  name="periodo_processamento_salarial_id"
+                  label="Período salarial"
+                  tooltip="Se este pagamento é de salários, segurança social, IRT ou adiantamentos, escolha o período a que respeita (liquida a etapa no Fluxo de Processos)"
+                >
+                  <Select
+                    allowClear
+                    showSearch
+                    optionFilterProp="label"
+                    loading={opcoes.isLoading}
+                    placeholder="-- Não é pagamento de salários --"
+                    options={(opcoes.data?.periodos_salariais ?? []).map((p) => ({ value: p.id, label: p.rotulo }))}
+                  />
+                </Form.Item>
+              </Col>
+            )}
+            <Col xs={24} md={tipo === 'PAGAMENTO' ? 10 : 18}>
+              <Form.Item name="projeto_id" label="Projecto/Obra">
+                <Select
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  loading={opcoes.isLoading}
+                  placeholder="-- Sem Projecto --"
+                  options={(opcoes.data?.projetos ?? []).map((p) => ({ value: p.id, label: `${p.codigo ?? ''} - ${p.nome ?? ''}` }))}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} md={6}>
               <Form.Item name="taxa_cambio" label="Câmbio (só contas em moeda)" tooltip="Vazio = câmbio do dia registado no sistema">
                 <InputNumber min={0.000001} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col xs={24} md={16}>
+              <Form.Item name="descricao" label="Descrição Geral" rules={[{ required: true, min: 5, message: 'Descreva o documento (pelo menos 5 caracteres).' }]}>
+                <Input maxLength={1000} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item
+                name="url_documento"
+                label="URL do Documento (Opcional)"
+                rules={[{ pattern: URL_DOCUMENTO, message: 'Indique um endereço começado por http:// ou https://.' }, { max: 150, message: 'O URL tem no máximo 150 caracteres.' }]}
+              >
+                <Input type="url" inputMode="url" placeholder="https://..." maxLength={150} />
               </Form.Item>
             </Col>
           </Row>
@@ -224,7 +296,8 @@ export function FormularioDocumento() {
               ? 'Num pagamento os débitos das linhas têm de exceder os créditos; a diferença sai da conta bancária.'
               : 'Num recebimento os créditos das linhas têm de exceder os débitos; a diferença entra na conta bancária.'}
           </Typography.Paragraph>
-          <EditorLinhasDC campos={{ terceiro: true, numeroDocumento: true, centroCusto: true, unidade: true }} />
+          {/* colunas «Nota Demo» e «Nota Fluxo» das linhas do legado (ui_tesouraria.js:713-714) */}
+          <EditorLinhasDC campos={{ terceiro: true, numeroDocumento: true, centroCusto: true, unidade: true, notas: true }} />
           {!total.valido && linhas.length > 0 && <Alert style={{ marginTop: 12 }} type="warning" showIcon message="O valor do documento tem de ser positivo (veja o sentido D/C das linhas)." />}
         </Card>
         {/* legado: «Gravar Documento» à esquerda e o TOTAL à direita */}

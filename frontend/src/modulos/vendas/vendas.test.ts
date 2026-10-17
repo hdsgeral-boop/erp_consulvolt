@@ -63,12 +63,13 @@ describe('produtos', () => {
   };
 
   it('copiar limpa o código e marca o nome', () => {
-    expect(produtoParaFormulario(ficha, true)).toMatchObject({ codigo: '', nome: 'Bomba (cópia)', preco_unitario: 10.5, taxa_imposto: 14, codigo_conta: '62' });
+    expect(produtoParaFormulario(ficha, true)).toMatchObject({ codigo: '', nome: 'Bomba (cópia)', preco_unitario: 10.5, taxa_imposto: 14, categoria_produto_id: 3 });
   });
 
   it('o corpo só leva os campos de quartos/lavandaria quando activos', () => {
     const c = corpoProduto({ ...produtoParaFormulario(ficha), codigo_isencao_fe: 'm10', preco_por_dia: 5 });
-    expect(c).toMatchObject({ codigo: 'P1', codigo_isencao_fe: 'M10', codigo_conta: '62', conta_custo: null, lavandaria_ativa: false });
+    expect(c).toMatchObject({ codigo: 'P1', codigo_isencao_fe: 'M10', categoria_produto_id: 3, lavandaria_ativa: false });
+    expect(c).not.toHaveProperty('codigo_conta');   // ronda 3: as contas vêm da categoria
     expect(c).not.toHaveProperty('preco_por_dia');
     expect(corpoProduto({ e_quarto: true, preco_por_dia: 5 })).toMatchObject({ preco_por_dia: 5 });
   });

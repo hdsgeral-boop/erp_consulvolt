@@ -43,6 +43,8 @@ export interface EcraMenu {
   nome: string;
   vistas: string[];
   pai: string | null;
+  /** Funções (tarefas do catálogo) que o utilizador pode fazer neste ecrã — índice da pesquisa «Procurar». */
+  tarefas?: { chave: string; rotulo: string }[];
 }
 
 export interface ModuloMenu {

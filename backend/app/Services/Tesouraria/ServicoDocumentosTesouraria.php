@@ -8,6 +8,10 @@ use App\Models\DiarioContabil;
 use App\Models\DocumentoTesouraria;
 use App\Models\ItemDocumentoTesouraria;
 use App\Models\LiquidacaoPOS;
+use App\Models\NotaDemonstracao;
+use App\Models\NotaFluxoCaixa;
+use App\Models\PeriodoProcessamentoSalarial;
+use App\Models\Projeto;
 use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
@@ -38,6 +42,8 @@ use Illuminate\Support\Facades\DB;
  * é exclusivo da Folha de Caixa. Um documento anterior que já tinha uma conta 45 continua a abrir, a corrigir-se (mantendo
  * uma conta 45) e a integrar-se. Os circuitos internos (POS, lavandaria, salários, importação) mantêm as suas regras —
  * o legado novo também não as alterou.
+ * Recebimentos de recibos de venda (ronda 3, ServicoRecebimentosVendas): espelham o recibo — não se editam nem anulam aqui, e
+ * integrar/desintegrar contabiliza/descontabiliza o RECIBO (uma só fonte de lançamento).
  * Multi-moeda (moedas_tesouraria.js, ADR-034): a moeda do documento é a da conta financeira; o câmbio é o da tabela
  * na data (ou manual). Liquidar um documento em moeda estrangeira (a partir de conta na moeda ou em Kz) lança o
  * terceiro pelo VALOR HISTÓRICO em Kz — proporção do saldo em moeda — e a diferença para o valor ao câmbio do dia
@@ -52,6 +58,9 @@ final class ServicoDocumentosTesouraria
 
     /** Meio → prefixo da conta financeira (TESO_MEIO_PREFIXO do legado novo); CAIXA só para documentos anteriores. */
     public const MEIO_PREFIXO = ['BANCO' => '43', 'PRAZO' => '42', 'CAIXA' => '45'];
+
+    /** Estados de projecto que aparecem no selector (ServicoProjetos::ativos). */
+    public const ESTADOS_PROJECTO_ACTIVO = ['ACTIVO', 'EM_CURSO'];
 
     public function __construct(
         private readonly ContextoEmpresa $contexto,
@@ -77,18 +86,20 @@ final class ServicoDocumentosTesouraria
             throw new ErroNegocio("Um documento {$doc->estado} não pode ser alterado.", 'DOCUMENTO_NAO_EDITAVEL', 422);
         }
         $doc && $this->exigirSemLiquidacaoPOS($doc);
+        $doc && app(ServicoRecebimentosVendas::class)->exigirNaoEspelho($doc, 'altere-o');
         $soBancos && $this->exigirContaBancaria((string) $d['conta_financeira'], $doc);
         $tipo = $d['tipo'];
         $data = substr($d['data_documento'], 0, 10);
         $this->exercicios->exigirAberto($empresa, $data);
         $moeda = $this->moedaDocumento($d['conta_financeira'], $data, isset($d['taxa_cambio']) ? (string) $d['taxa_cambio'] : null, 'Tesouraria '.strtolower($tipo));
         [$linhas, $total, $totalMoeda] = $this->validarLinhas($tipo, $d['linhas'], $doc?->id, $data, $moeda);
+        $cabecalho = $this->camposCabecalho($d, $tipo, $doc);
 
-        return DB::transaction(function () use ($d, $doc, $tipo, $data, $linhas, $total, $totalMoeda, $moeda, $empresa) {
+        return DB::transaction(function () use ($d, $doc, $tipo, $data, $linhas, $total, $totalMoeda, $moeda, $empresa, $cabecalho) {
             $dados = ['tipo' => $tipo, 'data_documento' => $data, 'conta_financeira' => $d['conta_financeira'], 'descricao' => $d['descricao'],
-                'referencia' => $d['referencia'] ?? null, 'valor_total' => $total, 'estado' => 'PENDENTE', 'projeto_id' => $d['projeto_id'] ?? null,
+                'referencia' => $d['referencia'] ?? null, 'valor_total' => $total, 'estado' => 'PENDENTE',
                 'codigo_moeda' => $moeda['codigo'], 'taxa_cambio' => $moeda['estrangeira'] ? $moeda['taxa'] : null, 'taxa_cambio_id' => $moeda['taxa_id'],
-                'taxa_cambio_manual' => $moeda['manual'], 'valor_total_moeda' => $moeda['estrangeira'] ? $totalMoeda : null];
+                'taxa_cambio_manual' => $moeda['manual'], 'valor_total_moeda' => $moeda['estrangeira'] ? $totalMoeda : null] + $cabecalho;
             if ($doc) {
                 $doc = DocumentoTesouraria::query()->lockForUpdate()->findOrFail($doc->id);
                 if ($doc->estado !== 'PENDENTE') {
@@ -109,12 +120,114 @@ final class ServicoDocumentosTesouraria
             if ($tipo === 'PAGAMENTO') {   // controlo orçamental de tesouraria (ui_tesouraria.js:1032): débitos consomem, créditos abatem
                 app(ServicoControloOrcamental::class)->avaliar('TESOURARIA', ['origem' => 'PAGAMENTO', 'documento' => $doc->numero_documento, 'data' => $data],
                     array_map(fn ($l) => ['codigo_conta' => $l['codigo_conta'], 'valor' => ($l['tipo_dc'] === 'D' ? 1 : -1) * (float) $l['valor'],
-                        'unidade_negocio_id' => $l['unidade_negocio_id'] ?? null, 'centro_custo_id' => $l['centro_custo_id'] ?? null, 'projeto_id' => $l['projeto_id'] ?? null], $linhas),
+                        // o projecto do cabeçalho vale para as linhas sem projecto (saveTesouraria do legado: projT em todas as linhas)
+                        'unidade_negocio_id' => $l['unidade_negocio_id'] ?? null, 'centro_custo_id' => $l['centro_custo_id'] ?? null,
+                        'projeto_id' => ($l['projeto_id'] ?? null) ?? $doc->projeto_id], $linhas),
                     ['documento_tesouraria_id' => $doc->id]);
             }
 
             return $doc->refresh();
         });
+    }
+
+    /**
+     * Campos do cabeçalho do legado (showTesourariaForm): projecto (+ código, como project_code), URL do documento e período
+     * salarial. Só entram as chaves enviadas — quem grava sem elas (POS, importação, salários) não apaga o que já existe.
+     * Regras: projecto activo (ou o que o documento já tinha); período salarial só em pagamentos e só de um processamento
+     * validado, fechado ou integrado (ou o que o documento já tinha); URL só http/https (validada também no pedido).
+     *
+     * @param  array<string, mixed>  $d
+     * @return array<string, mixed>
+     */
+    private function camposCabecalho(array $d, string $tipo, ?DocumentoTesouraria $doc): array
+    {
+        $c = [];
+        if (array_key_exists('projeto_id', $d)) {
+            $id = $d['projeto_id'] !== null ? (int) $d['projeto_id'] : null;
+            $p = $id ? Projeto::query()->find($id) : null;
+            if ($id && ! $p) {
+                throw new ErroNegocio('O projecto escolhido não existe nesta empresa.', 'PROJECTO_INVALIDO', 422);
+            }
+            if ($p && $id !== $doc?->projeto_id && ! in_array($p->estado, self::ESTADOS_PROJECTO_ACTIVO, true)) {
+                throw new ErroNegocio("O projecto {$p->codigo} não está activo.", 'PROJECTO_INACTIVO', 422);
+            }
+            $c += ['projeto_id' => $p?->id, 'codigo_projeto' => $p?->codigo];
+        }
+        if (array_key_exists('url_documento', $d)) {
+            $url = trim((string) ($d['url_documento'] ?? ''));
+            if ($url !== '' && ! preg_match('#^https?://[^\s<>"\']+$#i', $url)) {
+                throw new ErroNegocio('O URL do documento tem de começar por http:// ou https://.', 'URL_INVALIDO', 422);
+            }
+            $c['url_documento'] = $url !== '' ? $url : null;
+        }
+        if (array_key_exists('periodo_processamento_salarial_id', $d)) {
+            $id = $d['periodo_processamento_salarial_id'] !== null ? (int) $d['periodo_processamento_salarial_id'] : null;
+            if ($id && $tipo !== 'PAGAMENTO') {
+                throw new ErroNegocio('Só os pagamentos se associam a um período salarial.', 'PERIODO_SO_PAGAMENTOS', 422);
+            }
+            $p = $id ? PeriodoProcessamentoSalarial::query()->find($id) : null;
+            if ($id && ! $p) {
+                throw new ErroNegocio('O período salarial escolhido não existe nesta empresa.', 'PERIODO_INVALIDO', 422);
+            }
+            if ($p && $id !== $doc?->periodo_processamento_salarial_id && ! $this->periodoProcessado($p)) {
+                throw new ErroNegocio("O processamento de {$p->mes_ano} ainda não está validado: não há salários a pagar.", 'PERIODO_NAO_PROCESSADO', 422);
+            }
+            $c['periodo_processamento_salarial_id'] = $p?->id;
+        }
+
+        return $c;
+    }
+
+    private function periodoProcessado(PeriodoProcessamentoSalarial $p): bool
+    {
+        return (bool) $p->contabilizado || in_array($p->estado, ['VALIDADO', 'FECHADO'], true);
+    }
+
+    /** Projectos activos (renderProjectSelector do legado), mais o do documento em edição. @return list<array<string, mixed>> */
+    public function projectosDisponiveis(?int $actual = null): array
+    {
+        return Projeto::query()->where(fn ($q) => $q->whereIn('estado', self::ESTADOS_PROJECTO_ACTIVO)->when($actual, fn ($x) => $x->orWhere('id', $actual)))
+            ->orderBy('codigo')->get(['id', 'codigo', 'nome', 'estado'])->toArray();
+    }
+
+    /**
+     * Períodos salariais do «Período salarial» (ui_tesouraria.js:750-760): validados, fechados ou integrados, mais o do
+     * documento em edição; do mais recente para o mais antigo. @return list<array<string, mixed>>
+     */
+    public function periodosSalariaisDisponiveis(?int $actual = null): array
+    {
+        $chave = function (?string $my): string {
+            $p = explode('/', (string) $my);
+
+            return sprintf('%s-%02d', $p[1] ?? '', (int) $p[0]);
+        };
+
+        return PeriodoProcessamentoSalarial::query()->whereNotNull('mes_ano')
+            ->where(fn ($q) => $q->where('contabilizado', true)->orWhereIn('estado', ['VALIDADO', 'FECHADO'])->when($actual, fn ($x) => $x->orWhere('id', $actual)))
+            ->get(['id', 'mes_ano', 'estado', 'contabilizado'])
+            ->sortByDesc(fn ($p) => $chave($p->mes_ano))->values()
+            ->map(fn ($p) => ['id' => $p->id, 'mes_ano' => $p->mes_ano, 'estado' => $p->estado, 'contabilizado' => (bool) $p->contabilizado,
+                'rotulo' => $p->mes_ano.($p->contabilizado ? ' (integrado)' : ' ('.mb_strtolower((string) $p->estado).')')])->all();
+    }
+
+    /** Nomes para o detalhe: projecto, período salarial e códigos das notas das linhas. @return array<string, mixed> */
+    public function nomesCabecalho(DocumentoTesouraria $d): array
+    {
+        $p = $d->projeto_id ? Projeto::query()->find($d->projeto_id, ['id', 'codigo', 'nome']) : null;
+        $s = $d->periodo_processamento_salarial_id ? PeriodoProcessamentoSalarial::query()->find($d->periodo_processamento_salarial_id, ['id', 'mes_ano', 'estado', 'contabilizado']) : null;
+        $itens = ItemDocumentoTesouraria::query()->where('documento_tesouraria_id', $d->id)->get(['nota_demonstracao_id', 'nota_fluxo_caixa_id']);
+        $codigos = function (string $modelo, $ids): object {
+            $ids = $ids->filter()->unique()->values();
+
+            return (object) ($ids->isEmpty() ? [] : $modelo::query()->whereIn('id', $ids)->pluck('codigo', 'id')->all());
+        };
+
+        return [
+            'projeto' => $p?->only(['id', 'codigo', 'nome']),
+            'periodo_salarial' => $s ? ['id' => $s->id, 'mes_ano' => $s->mes_ano, 'estado' => $s->estado, 'contabilizado' => (bool) $s->contabilizado] : null,
+            'notas_demonstracao' => $codigos(NotaDemonstracao::class, $itens->pluck('nota_demonstracao_id')),
+            'notas_fluxo_caixa' => $codigos(NotaFluxoCaixa::class, $itens->pluck('nota_fluxo_caixa_id')),
+        ];
     }
 
     public function anular(DocumentoTesouraria $doc, string $motivo): DocumentoTesouraria
@@ -125,6 +238,7 @@ final class ServicoDocumentosTesouraria
                 throw new ErroNegocio($doc->estado === 'INTEGRADO' ? 'O documento está integrado: desintegre-o primeiro (estorno).' : 'O documento já está anulado.',
                     'DOCUMENTO_NAO_ANULAVEL', 422);
             }
+            app(ServicoRecebimentosVendas::class)->exigirNaoEspelho($doc, 'anule o recibo');
             $this->exigirSemLiquidacaoPOS($doc);
             // ADR-071 (Fase D): a carta de pagamento nasce do pagamento; com cartas activas, anulam-se primeiro as cartas
             $cartas = CartaPagamentoBancario::query()->where('documento_tesouraria_id', $doc->id)->where('estado', 'EMITIDA')->pluck('numero')->all();
@@ -172,6 +286,10 @@ final class ServicoDocumentosTesouraria
 
     public function integrar(DocumentoTesouraria $doc): DocumentoTesouraria
     {
+        if (app(ServicoRecebimentosVendas::class)->reciboDe($doc)) {   // recebimento de um recibo de venda: integra-se contabilizando o recibo
+            return app(ServicoRecebimentosVendas::class)->integrar($doc);
+        }
+
         return DB::transaction(function () use ($doc) {
             $doc = DocumentoTesouraria::query()->lockForUpdate()->findOrFail($doc->id);
             if ($doc->estado !== 'PENDENTE') {
@@ -231,6 +349,10 @@ final class ServicoDocumentosTesouraria
 
     public function desintegrar(DocumentoTesouraria $doc, string $motivo): DocumentoTesouraria
     {
+        if (app(ServicoRecebimentosVendas::class)->reciboDe($doc)) {   // estorno do lançamento do recibo (descontabilizar o recibo)
+            return app(ServicoRecebimentosVendas::class)->desintegrar($doc, $motivo);
+        }
+
         return DB::transaction(function () use ($doc, $motivo) {
             $doc = DocumentoTesouraria::query()->lockForUpdate()->findOrFail($doc->id);
             if ($doc->estado !== 'INTEGRADO') {

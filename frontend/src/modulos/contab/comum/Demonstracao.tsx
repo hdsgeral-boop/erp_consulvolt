@@ -1,7 +1,9 @@
-import { Modal, Skeleton, Space, Statistic, Table, Typography } from 'antd';
+import { Modal, Skeleton, Space, Statistic, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useQuery } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { BotoesArvore } from '../mapas/DetalheConta';
+import { ComposicaoRubrica, type TipoDemonstracao } from './ComposicaoRubrica';
 import { BotoesExportar } from '@/componentes/impressao';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { obter } from '@/api/cliente';
@@ -32,11 +34,15 @@ export function classeLinhaDemonstracao(l: LinhaPlana): string {
   return `erp-dem-${l.tipo}${l.estilo === 'final' ? ' erp-dem-final' : ''}`;
 }
 
-/** Análise vertical (AV %): valor sobre a base do agregado; sem base → «-» (js/ui_reports.js:1256-1260). */
-export function analiseVertical(valor: string | undefined, base: string | undefined): string {
+/**
+ * Análise vertical (AV %): valor sobre a base do agregado; sem base → «-» (js/ui_reports.js:1256-1260).
+ * `absoluto`: |valor| / base, como o Fluxo de caixa do legado (js/ui_reports.js:1451-1455).
+ */
+export function analiseVertical(valor: string | undefined, base: string | undefined, absoluto = false): string {
   const b = Number(base ?? 0);
   if (valor === undefined || !b) return '-';
-  return `${((Number(valor) / b) * 100).toFixed(1)}%`;
+  const v = Number(valor);
+  return `${(((absoluto ? Math.abs(v) : v) / b) * 100).toFixed(1)}%`;
 }
 
 /** Análise horizontal (AH %): variação sobre o ano anterior, com sinal; anterior zero e actual ≠ 0 → «+100.0%» (js/ui_reports.js:1262-1273). */
@@ -65,7 +71,13 @@ export function TabelaDemonstracao({
   parametros,
   nomeCsv,
   impressao,
+  demonstracao,
 }: {
+  /**
+   * Demonstração (para o «cálculo» de cada rubrica): com ela, cada linha com rubrica abre o detalhe do cálculo — as contas
+   * que a compõem e os valores, ou as rubricas somadas nos totais — e há «Expandir tudo / Recolher tudo».
+   */
+  demonstracao?: TipoDemonstracao;
   linhas: LinhaPlana[];
   comparativo: boolean;
   rotuloAtual: string;
@@ -83,6 +95,11 @@ export function TabelaDemonstracao({
 
   const comAV = linhas.some((l) => l.base !== undefined);
   const semValor = (l: LinhaPlana) => l.tipo === 'seccao';
+  const comCalculo = (l: LinhaPlana) => !!demonstracao && !!l.rubrica && l.tipo !== 'seccao';
+  const chavesCalculo = linhas.filter(comCalculo).map((l) => l.chave);
+  const [abertas, setAbertas] = useState<string[]>([]);
+  const chaveLinhas = linhas.map((l) => `${l.chave}:${l.atual}`).join('|');
+  useEffect(() => setAbertas([]), [chaveLinhas]);
   // colunas do legado (js/ui_reports.js:1155-1165 e 1322-1332): Designação · Notas · Ano N · AV % · Ano N-1 · AH %
   const colunas: ColumnsType<LinhaPlana> = [
     {
@@ -116,7 +133,7 @@ export function TabelaDemonstracao({
             align: 'right' as const,
             onHeaderCell: () => ({ className: 'erp-mapa-av' }),
             onCell: (l: LinhaPlana) => ({ className: semValor(l) ? undefined : 'erp-mapa-av' }),
-            render: (_: unknown, l: LinhaPlana) => (semValor(l) ? null : analiseVertical(l.atual, l.base)),
+            render: (_: unknown, l: LinhaPlana) => (semValor(l) ? null : analiseVertical(l.atual, l.base, l.avAbsoluto)),
           },
         ]
       : []),
@@ -158,7 +175,7 @@ export function TabelaDemonstracao({
             { titulo: 'Designação', valor: (l) => l.descricao },
             { titulo: 'Notas', valor: (l) => l.nota },
             { titulo: rotuloAtual, valor: (l) => l.atual, numerico: true },
-            ...(comAV ? [{ titulo: 'AV %', valor: (l: LinhaPlana) => (l.tipo === 'seccao' ? null : analiseVertical(l.atual, l.base)) }] : []),
+            ...(comAV ? [{ titulo: 'AV %', valor: (l: LinhaPlana) => (l.tipo === 'seccao' ? null : analiseVertical(l.atual, l.base, l.avAbsoluto)) }] : []),
             ...(comparativo
               ? [
                   { titulo: rotuloAnterior, valor: (l: LinhaPlana) => l.anterior, numerico: true },
@@ -167,6 +184,13 @@ export function TabelaDemonstracao({
               : []),
           ]}
         />
+        {demonstracao && chavesCalculo.length > 0 && (
+          <Tooltip title="Cada rubrica abre o seu cálculo: as contas que a compõem (com os movimentos) ou as rubricas somadas nos totais">
+            <span>
+              <BotoesArvore aoExpandir={() => setAbertas(chavesCalculo)} aoRecolher={() => setAbertas([])} />
+            </span>
+          </Tooltip>
+        )}
       </div>
       <div ref={refTabela}>
         <Table<LinhaPlana>
@@ -178,6 +202,18 @@ export function TabelaDemonstracao({
           dataSource={linhas}
           rowClassName={classeLinhaDemonstracao}
           scroll={scrollTabela()}
+          expandable={
+            demonstracao
+              ? {
+                  expandedRowKeys: abertas,
+                  onExpandedRowsChange: (k) => setAbertas(k.map(String)),
+                  rowExpandable: comCalculo,
+                  expandedRowRender: (l) => (
+                    <ComposicaoRubrica tipo={demonstracao} rubrica={l.rubrica!} parametros={parametros} comparativo={comparativo} rotulos={[rotuloAtual, rotuloAnterior]} />
+                  ),
+                }
+              : undefined
+          }
         />
       </div>
       {notaAberta && <DetalheNota tipo={tipoNota} nota={notaAberta} parametros={parametros} aoFechar={() => setNotaAberta(null)} />}

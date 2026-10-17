@@ -1,9 +1,10 @@
-import { Button, Card, Flex, Form, Input, InputNumber, Modal, Popconfirm, Radio, Space, Tag, Typography, theme } from 'antd';
+import { Button, Card, Flex, Form, Input, InputNumber, Modal, Popconfirm, Radio, Space, Tag, Typography, message, theme } from 'antd';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { DeleteOutlined, EditOutlined, PlusOutlined, ScheduleOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { enviar, obterPagina } from '@/api/cliente';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { enviar, obter, obterPagina } from '@/api/cliente';
+import { BotaoImprimir } from '@/componentes/impressao';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { useColaboradores } from '@/modulos/rh/comum/consultas';
 import { dadosMembro, TIPOS_MEMBRO, validarLinhaMembro } from '../comum/linhas';
@@ -11,10 +12,10 @@ import { SeletorTerceiro } from '@/modulos/contab/comum/Seletores';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarNumero } from '@/utilitarios/formatacao';
 import { EtiquetaProjectos, rotuloProjectos, SeletorColaborador, useEquipa } from '../comum/componentes';
-import type { Membro } from '../comum/tipos';
+import type { CargaTrabalho, Membro } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
-import { ModalCargaTrabalho } from './CargaTrabalho';
+import { ModalCargaTrabalho, pedidoOrdemTrabalho } from './CargaTrabalho';
 import { scrollTabela } from '@/componentes/responsivo';
 
 import { TabelaComModos } from '@/componentes/vistas';
@@ -32,6 +33,17 @@ export function SeparadorEquipa({ projecto, acc }: PropsSeparador) {
   const horas = membros.reduce((t, m) => t + Number(m.horas_alocadas ?? 0), 0);
   const posicao = (p: Membro['posicao']) => (!p ? '—' : typeof p === 'string' ? p : p.titulo);
   const refSeparador = useRef<HTMLDivElement>(null);
+  const cliente = useQueryClient();
+  /** Ordem de trabalho de um membro: a carga de trabalho do projecto (em cache) filtrada pela pessoa. */
+  const ordemDoMembro = async (m: Membro) => {
+    const c = await cliente.fetchQuery({ queryKey: ['projectos', 'carga-trabalho', projecto.id], queryFn: () => obter<CargaTrabalho>(`/projetos/${projecto.id}/carga-trabalho`), staleTime: 30_000 });
+    const g = c.grupos.find((x) => x.membro_id === m.id);
+    if (!g || !g.tarefas.length) {
+      message.info(`${m.nome} não tem tarefas atribuídas neste projecto: não há ordem de trabalho a emitir.`);
+      return null;
+    }
+    return pedidoOrdemTrabalho(c, g.chave);
+  };
 
   return (
     <Card
@@ -81,7 +93,13 @@ export function SeparadorEquipa({ projecto, acc }: PropsSeparador) {
           ) },
           { title: 'Alocação (tempo)', dataIndex: 'horas_alocadas', align: 'right', render: (v) => (v ? `${formatarNumero(v)} h/dia` : '—') },
           { title: 'Tipo', dataIndex: 'tipo', responsive: ['lg'], render: (v) => <EtiquetaProjectos valor={v} /> },
-          { title: '', key: 'acc', align: 'right', render: (_, m) => acc.gerir && <Button size="small" icon={<EditOutlined />} aria-label={`Editar ${m.nome}`} onClick={() => setMembro(m)} /> },
+          { title: '', key: 'acc', align: 'right', render: (_, m) => (
+            <Space size={4} className="imp-nao-imprimir">
+              {/* ordem de trabalho só deste colaborador (cargaOrdemTrabalho(chave), ui_projects.js:2888-2889) */}
+              <BotaoImprimir texto="Ordem de trabalho" tamanho="small" chave="projectos.ordem-trabalho" obterPedido={() => ordemDoMembro(m)} />
+              {acc.gerir && <Button size="small" icon={<EditOutlined />} aria-label={`Editar ${m.nome}`} onClick={() => setMembro(m)} />}
+            </Space>
+          ) },
         ]}
       />
       <ModalMembro projectoId={projecto.id} membro={membro} aoFechar={() => setMembro(null)} />

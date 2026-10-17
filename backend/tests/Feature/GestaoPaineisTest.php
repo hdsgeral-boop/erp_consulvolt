@@ -18,7 +18,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Painéis, Análise Dinâmica e BI (ADR-059).
+ * Painéis e Análise Dinâmica (ADR-059).
  *
  * Cenário (2026): venda 1 000 (6211 / 311), salários 300 (721 / 4311), recebimento 500 (4311 / 311), custo 100 (75 / 321),
  * classe 9 (50) e o apuramento de Março (período 13: 621 D 1 000, 721 C 300, 881 C 700), que não pode zerar o resultado.
@@ -353,21 +353,5 @@ final class GestaoPaineisTest extends TestCase
         $r = $this->postJson('/api/gestao/cubo/consultar', $base + ['conjunto' => 'vendas', 'linhas' => ['cliente'], 'filtros' => ['cliente' => ["Cliente A' OR '1'='1"]]], $s)->assertOk()->json('dados');
         $this->assertSame([], $r['resultado']);   // o valor do filtro vai por parâmetro
         $this->postJson('/api/gestao/cubo/consultar', ['conjunto' => 'vendas'], $s)->assertStatus(422);
-    }
-
-    #[Test]
-    public function bi_contabilistico_com_a_visao_padrao_do_legado(): void
-    {
-        $this->getJson('/api/gestao/bi', $this->sessao(['dashboard_view']))->assertForbidden();
-        $s = $this->sessao(['accounting_bi_view']);
-        $meta = $this->getJson('/api/gestao/bi', $s)->assertOk()->json('dados');
-        $this->assertSame(['conta'], $meta['padrao']['linhas']);
-        $this->assertSame(['todo', 'mes_atual', 'ano_atual'], array_column($meta['periodos'], 'id'));
-        $r = $this->postJson('/api/gestao/bi/consultar', ['periodo' => 'todo'], $s)->assertOk()->json('dados');
-        $this->assertSame([['01 - Janeiro'], ['02 - Fevereiro'], ['03 - Março']], $r['chaves_colunas']);
-        $this->assertSame('-1000.00', collect($r['resultado'])->firstWhere('chave', ['6211'])['total'][0]);
-        $this->assertSame(['0.00'], $r['total_geral']);
-        $diario = $this->postJson('/api/gestao/bi/consultar', ['periodo' => 'todo', 'linhas' => ['diario'], 'colunas' => []], $s)->assertOk()->json('dados');
-        $this->assertSame([['Operações diversas']], array_column($diario['resultado'], 'chave'));
     }
 }

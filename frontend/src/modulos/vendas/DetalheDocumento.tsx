@@ -148,7 +148,18 @@ export function DetalheDocumento() {
   ];
 
   const colunas = [
-    { title: 'Descrição', dataIndex: 'descricao' },
+    {
+      title: 'Descrição',
+      dataIndex: 'descricao',
+      className: 'erp-quebra',
+      // observação do artigo (itens_venda.observacoes) por baixo da descrição, como na impressão
+      render: (v: string | null, l: LinhaVenda) => (
+        <>
+          {v}
+          {l.observacoes && <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12, whiteSpace: 'pre-line' }}>{l.observacoes}</Typography.Text>}
+        </>
+      ),
+    },
     { title: 'Qtd.', dataIndex: 'quantidade', align: 'right' as const, render: formatarNumero },
     { title: 'Preço unit.', dataIndex: 'preco_unitario', align: 'right' as const, render: (v: string) => formatarKz(v) },
     { title: 'IVA %', dataIndex: 'taxa_imposto', align: 'right' as const, render: formatarNumero },

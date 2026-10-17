@@ -42,9 +42,10 @@ final class ExecucaoMedidaController extends Controller
     public function registarMedicao(Request $r, int $projeto, int $tarefa): JsonResponse
     {
         $this->exigir(...self::EXECUTAR);
-        $d = $r->validate(['quantidade' => ['required', 'numeric', 'between:-1000000000,1000000000'], 'data' => ['nullable', 'date_format:Y-m-d'], 'nota' => ['nullable', 'string', 'max:500']]);
+        $d = $r->validate(['quantidade' => ['required', 'numeric', 'between:-1000000000,1000000000'], 'data' => ['nullable', 'date_format:Y-m-d'], 'nota' => ['nullable', 'string', 'max:500'],
+            'membro_id' => ['nullable', 'integer', 'min:1']]);
         $p = self::projeto($projeto);
-        $res = $this->metas->registar($p, $tarefa, $d['quantidade'], $d['data'] ?? null, $d['nota'] ?? null);
+        $res = $this->metas->registar($p, $tarefa, $d['quantidade'], $d['data'] ?? null, $d['nota'] ?? null, isset($d['membro_id']) ? (int) $d['membro_id'] : null);
 
         return RespostaApi::criado(['tarefa' => $res['tarefa'], 'realizado' => $res['realizado'], 'pct' => $res['pct']], "Registado. Execução: {$res['pct']}%.");
     }
@@ -61,7 +62,7 @@ final class ExecucaoMedidaController extends Controller
         $this->exigir(...self::EXECUTAR);
         $d = $r->validate(['data' => ['nullable', 'date_format:Y-m-d'], 'nota' => ['nullable', 'string', 'max:500'], 'linhas' => ['required', 'array', 'min:1', 'max:500'],
             'linhas.*.tarefa_id' => ['required', 'integer'], 'linhas.*.quantidade' => ['required', 'numeric', 'between:-1000000000,1000000000'],
-            'linhas.*.nota' => ['nullable', 'string', 'max:500']]);
+            'linhas.*.nota' => ['nullable', 'string', 'max:500'], 'linhas.*.membro_id' => ['nullable', 'integer', 'min:1']]);
         $res = $this->metas->registarEmLote(self::projeto($projeto), $d['linhas'], $d['data'] ?? null, $d['nota'] ?? null);
         $total = count($d['linhas']);
 

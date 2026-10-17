@@ -1,4 +1,4 @@
-import { Button, Modal, Skeleton, Steps } from 'antd';
+import { Button, Modal, Skeleton, Steps, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, type ReactNode } from 'react';
 import { obter } from '@/api/cliente';
@@ -9,6 +9,7 @@ import { formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { notificarErro } from '@/utilitarios/erros';
 import { linhasFatura } from '../faturacao/DetalheFatura';
 import { rotuloEstado } from './estados';
+import { aprovadorEtapa } from './regras';
 import { dadosEncomendaCompra, dadosFaturaCompra, dadosPedidoCompra, dadosPropostaCompra, dadosRececaoCompra } from './impressao';
 import { ModalIva } from './ModalIva';
 import { numeroOuId, type EncomendaCompra, type EtapaDeliberacao, type FaturaCompra, type PedidoCompra, type PropostaCompra, type RececaoCompra } from './tipos';
@@ -99,6 +100,26 @@ function estadoPasso(e: EtapaDeliberacao): 'finish' | 'process' | 'error' | 'wai
 }
 
 /** «Deliberação por valor» (comprasVerDeliberacao, js/compras_deliberacao.js:237): valor, níveis exigidos e decisões. */
+/**
+ * Descrição de uma etapa da deliberação (tabela «Nível / Aprovador / Estado / Decisão» do legado,
+ * compras_deliberacao.js:252): estado, quem aprova («Aguarda …» na pendente), a nota do aprovador (porque caiu na
+ * tarefa, a laranja) e a decisão (quem, quando, nota).
+ */
+export function DescricaoEtapa({ etapa: e }: { etapa: EtapaDeliberacao }) {
+  return (
+    <>
+      <div>{rotuloEstado(e.estado)}{e.revisao ? ' (revisão na adjudicação)' : ''}</div>
+      {e.estado === 'PENDENTE' && <div>Aguarda <strong>{aprovadorEtapa(e)}</strong></div>}
+      {e.estado === 'AGUARDA' && <div>Aprovador: {aprovadorEtapa(e)}</div>}
+      {e.nota_aprovador && e.estado !== 'APROVADO' && e.estado !== 'RECUSADO' && (
+        <Typography.Text type="warning" style={{ display: 'block', fontSize: 12 }}>{e.nota_aprovador}</Typography.Text>
+      )}
+      {e.por && <div>{e.por}{e.em ? ` · ${formatarDataHora(e.em)}` : ''}</div>}
+      {e.nota && <div><em>{e.nota}</em></div>}
+    </>
+  );
+}
+
 export function ModalDeliberacao({ pedido, aoFechar }: { pedido: PedidoCompra | null; aoFechar: () => void }) {
   const etapas = pedido?.deliberacao?.etapas ?? [];
   return (
@@ -121,13 +142,7 @@ export function ModalDeliberacao({ pedido, aoFechar }: { pedido: PedidoCompra | 
             items={etapas.map((e) => ({
               title: `Nível ${e.ordem}: ${e.nome}`,
               status: estadoPasso(e),
-              description: (
-                <>
-                  <div>{rotuloEstado(e.estado)}{e.revisao ? ' (revisão na adjudicação)' : ''}</div>
-                  {e.por && <div>{e.por}{e.em ? ` · ${formatarDataHora(e.em)}` : ''}</div>}
-                  {e.nota && <div><em>{e.nota}</em></div>}
-                </>
-              ),
+              description: <DescricaoEtapa etapa={e} />,
             }))}
           />
         </>

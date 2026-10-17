@@ -1,5 +1,6 @@
 import { deCentimos, paraCentimos, type Valor } from '@/utilitarios/decimal';
-import type { Activo, EstadoPeriodo, LinhaImportacao, LinhaMapa, LinhaPeriodo } from './tipos';
+import { formatarData, formatarKz } from '@/utilitarios/formatacao';
+import type { Activo, EstadoPeriodo, FichaActivo, LinhaImportacao, LinhaMapa, LinhaPeriodo } from './tipos';
 
 /** Regras de apresentação do módulo Activos (o servidor valida sempre; aqui decide-se só o que se mostra). */
 
@@ -45,15 +46,17 @@ export function quotaEditavel(linha: Pick<LinhaPeriodo, 'estado'>): boolean {
 }
 
 /** Acções da ficha de um activo. */
-export function accoesActivo(a: Pick<Activo, 'estado'> | null | undefined, pode: Pode) {
+export function accoesActivo(a: Pick<Activo, 'estado' | 'propriedade'> | null | undefined, pode: Pode) {
   const activo = a?.estado === 'ACTIVO';
+  // r3_activos: um bem alheio (arrendado, cedido, de terceiros) não se abate nem amortiza — o servidor recusa (ATIVO_ALHEIO)
+  const proprio = a?.propriedade !== 'ALHEIO';
   return {
     editar: !!a && pode('activos_gerir') && a.estado !== 'ABATIDO',
     eliminar: !!a && pode('activos_eliminar'),
     transferir: activo && pode('activos_gerir'),
     afectar: activo && pode('activos_gerir'),
-    abater: activo && pode('activos_abater'),
-    integrar: activo && pode('activos_amort_integrar'),
+    abater: activo && proprio && pode('activos_abater'),
+    integrar: activo && proprio && pode('activos_amort_integrar'),
   };
 }
 
@@ -215,4 +218,13 @@ export function validarInventariacao(itens: { valor_aquisicao?: Valor }[], porIn
 export function contaForaDaClasse(conta: unknown, prefixo: string): boolean {
   const t = String(conta ?? '').trim();
   return t !== '' && !t.replace(/\D/g, '').startsWith(prefixo);
+}
+
+/** Linhas de aquisição do activo em texto (impressão da ficha); combinado: uma por linha, com o valor coberto. */
+export function textoOrigens(a: Pick<FichaActivo, 'origem' | 'origens'>): string {
+  const linha = (o: { numero_documento: string | null; diario?: { codigo: string } | null; numero_lan: string | null; data_documento: string | null; codigo_conta: string }) =>
+    `${o.numero_documento ?? '—'} · ${o.diario?.codigo ?? ''} ${o.numero_lan ?? ''} · ${formatarData(o.data_documento)} · conta ${o.codigo_conta}`;
+  const origens = a.origens ?? [];
+  if (origens.length > 1) return origens.map((o) => `${linha(o)} · ${formatarKz(o.valor_alocado)} Kz`).join('; ');
+  return a.origem ? linha(a.origem) : 'Sem lançamento de compra associado';
 }

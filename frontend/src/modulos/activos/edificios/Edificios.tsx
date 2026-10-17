@@ -1,19 +1,25 @@
 import { Alert, Badge, Button, Card, Col, Empty, Row, Select, Space, Table, Tag, theme, Typography } from 'antd';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos';
+import { useImpressao } from '@/componentes/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
+import { notificarErro } from '@/utilitarios/erros';
 import { NavActivos } from '../comum/NavActivos';
 import { useListaPaginada } from '../comum/paginacao';
 import { ModalActivo } from '../ModalActivo';
 import { ComparacaoInventarioEcra, FolhaInventarioEcra } from './Folha';
-import { PlantaEdificio } from './Planta';
+import { DetalhePorta, PlantaEdificio } from './Planta';
+import { Predio } from './Predio';
+import { REGIMES_ALHEIO } from '../comum/propriedade';
+import type { RegimeAlheio } from '../comum/tipos';
 import { ModalGerarInventario } from './Modais';
-import type { Inventario, Planta, ResumoEdificios } from './tipos';
+import { CSS_EDIFICIOS, htmlFolha } from './impressao';
+import type { FolhaInventario, Inventario, Planta, ResumoEdificios } from './tipos';
 
 /**
  * Activos › Edifícios e Locais (ecrã activos_edificios — Fase F, Versão Actual; js/activos_edificios.js). Cartões dos
@@ -54,6 +60,20 @@ function GerarFolhaEdificio({ edificioId, aoFechar }: { edificioId: number; aoFe
   return <ModalGerarInventario planta={q.data} pedido={q.data ? { ambito: 'EDIFICIO' } : null} aoFechar={aoFechar} />;
 }
 
+/**
+ * Porta clicada no desenho do cartão (r3_activos): carrega a planta do edifício (fica na cache da própria planta) e mostra
+ * os bens daquela porta, como o detalhe da porta da planta (só consulta — mover bens faz-se na planta).
+ */
+function PortaDoCartao({ alvo, aoFechar, aoAbrirPlanta }: { alvo: { edificio: number; porta: number } | null; aoFechar: () => void; aoAbrirPlanta: (id: number) => void }) {
+  const q = useQuery({ queryKey: ['activos', 'edificios', 'planta', alvo?.edificio], queryFn: () => obter<Planta>(`/ativos/edificios/${alvo?.edificio}/planta`), enabled: !!alvo });
+  const andar = q.data?.andares.find((a) => a.portas.some((p) => p.id === alvo?.porta));
+  const porta = andar?.portas.find((p) => p.id === alvo?.porta) ?? null;
+  return (
+    <DetalhePorta porta={alvo ? porta : null} andar={andar} podeGerir={false} podeInventariar={false} aoInventariar={() => undefined} aoRetirar={() => undefined}
+      aoFechar={aoFechar} aoAbrirPlanta={alvo ? () => aoAbrirPlanta(alvo.edificio) : undefined} />
+  );
+}
+
 /** Número pequeno com rótulo por cima, como os `.aed-num` do legado (activos_edificios.js:39-41). */
 function Numero({ rotulo, children }: { rotulo: string; children: ReactNode }) {
   const { token } = theme.useToken();
@@ -72,6 +92,7 @@ function Cartoes({ aoAbrirFolhas }: { aoAbrirFolhas: () => void }) {
   const { pode } = useSessao();
   const [novo, setNovo] = useState(false);
   const [inventariar, setInventariar] = useState<number | null>(null);
+  const [portaAberta, setPortaAberta] = useState<{ edificio: number; porta: number } | null>(null);
   const q = useQuery({ queryKey: ['activos', 'edificios'], queryFn: () => obter<ResumoEdificios>('/ativos/edificios') });
   const d = q.data;
   const podeNovo = pode('activos_gerir');
@@ -104,16 +125,28 @@ function Cartoes({ aoAbrirFolhas }: { aoAbrirFolhas: () => void }) {
       <Row gutter={[16, 16]}>
         {d?.edificios.map((e) => (
           <Col key={e.id} xs={24} sm={12} xl={8}>
-            <Card size="small" style={{ borderLeft: '4px solid #b45309' }}
-              title={<div><div style={{ fontSize: 12, color: token.colorTextSecondary, fontWeight: 700 }}>{e.codigo}</div>{e.descricao || 'Edifício sem descrição'}</div>}
+            {/* r3_activos: cada edifício desenhado como casa/prédio, com os andares e as portas clicáveis; acções sempre à vista */}
+            <Card size="small" style={{ height: '100%', display: 'flex', flexDirection: 'column' }} styles={{ body: { flex: 1 } }}
+              title={(
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: token.colorTextSecondary, fontWeight: 700 }}>{e.codigo}</div>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.descricao}>{e.descricao || 'Edifício sem descrição'}</div>
+                </div>
+              )}
+              extra={e.propriedade === 'ALHEIO'
+                ? <Tag color="purple" title="Edifício alheio: não amortiza">{e.regime_alheio ? REGIMES_ALHEIO[e.regime_alheio as RegimeAlheio] ?? 'Alheio' : 'Alheio'}</Tag>
+                : <Tag color="green">Próprio</Tag>}
               actions={[
-                <Space key="a" size={6} wrap style={{ padding: '0 12px', width: '100%' }}>
+                <Space key="a" size={6} wrap style={{ padding: '0 12px', width: '100%', justifyContent: 'center' }}>
                   <Button type="primary" size="small" icon={<IconeFa nome="building" />} onClick={() => navegar(`planta/${e.id}`)}>Planta</Button>
                   {podeInventariar && <Button size="small" icon={<IconeFa nome="clipboard-list" />} onClick={() => setInventariar(e.id)}>Inventário</Button>}
                   <Button size="small" title="Editar a ficha do activo" aria-label="Editar a ficha do activo" icon={<IconeFa nome="edit" />} onClick={() => navegar(`/m/activos/activos/${e.id}`)} />
                 </Space>,
               ]}>
-              <Space size={18} wrap>
+              <Predio compacto nome={`${e.codigo ?? ''} ${e.descricao}`.trim()} pisos={e.pisos ?? []} maxPortas={14} alturaMaxima={250}
+                aoAbrirPorta={(pt) => typeof pt.id === 'number' && setPortaAberta({ edificio: e.id, porta: pt.id })}
+                vazio={<>Sem andares. Abra a planta e acrescente o primeiro andar.</>} />
+              <Space size={18} wrap style={{ marginTop: 10 }}>
                 <Numero rotulo="Andares">{e.andares}</Numero>
                 <Numero rotulo="Portas">{e.portas}</Numero>
                 <Numero rotulo="Bens dentro">{e.bens}{e.sem_porta ? <small title="Bens no edifício sem porta" style={{ fontWeight: 400 }}> ({e.sem_porta} s/ porta)</small> : null}</Numero>
@@ -126,7 +159,35 @@ function Cartoes({ aoAbrirFolhas }: { aoAbrirFolhas: () => void }) {
       </Row>
       <ModalActivo aberto={novo} tipoInicial="EDIFICIO" aoFechar={() => setNovo(false)} />
       {inventariar !== null && <GerarFolhaEdificio edificioId={inventariar} aoFechar={() => setInventariar(null)} />}
+      <PortaDoCartao alvo={portaAberta} aoFechar={() => setPortaAberta(null)} aoAbrirPlanta={(id) => { setPortaAberta(null); navegar(`planta/${id}`); }} />
     </Card>
+  );
+}
+
+/**
+ * «Imprimir folha» na linha da lista (assetImprimirFolha, renderAssetInventories :650): a folha só é carregada ao clicar
+ * (fica na cache da consulta da própria folha) e sai igual à impressão do ecrã da folha.
+ */
+export function BotaoImprimirFolha({ inventario }: { inventario: Pick<Inventario, 'id' | 'numero'> }) {
+  const cliente = useQueryClient();
+  const { imprimir } = useImpressao();
+  const [aCarregar, setACarregar] = useState(false);
+  const aoClicar = async () => {
+    setACarregar(true);
+    try {
+      const f = await cliente.fetchQuery({
+        queryKey: ['activos', 'inventarios-fisicos', inventario.id],
+        queryFn: () => obter<FolhaInventario>(`/ativos/inventarios-fisicos/${inventario.id}`),
+      });
+      await imprimir({ titulo: `Folha de Inventário — ${f.inventario.numero}`, conteudo: htmlFolha(f, false), cssExtra: CSS_EDIFICIOS });
+    } catch (e) {
+      notificarErro(e, 'Não foi possível imprimir a folha');
+    } finally {
+      setACarregar(false);
+    }
+  };
+  return (
+    <Button size="small" title="Imprimir folha" aria-label={`Imprimir folha ${inventario.numero}`} icon={<IconeFa nome="print" />} loading={aCarregar} onClick={() => void aoClicar()} />
   );
 }
 
@@ -160,6 +221,7 @@ function Folhas({ aoVoltar }: { aoVoltar: () => void }) {
             <Space size={4}>
               <Button size="small" title="Abrir folha" icon={<IconeFa nome="clipboard-check" />} onClick={() => navegar(`inventario/${i.id}`)} />
               <Button size="small" title="Comparar" icon={<IconeFa nome="balance-scale" />} onClick={() => navegar(`inventario/${i.id}/comparacao`)} />
+              <BotaoImprimirFolha inventario={i} />
               {pode('activos_inventario_fisico') && i.estado === 'ABERTO' && (
                 <Button size="small" danger title="Anular folha" icon={<IconeFa nome="ban" />} onClick={() => setAnular(i)} />
               )}

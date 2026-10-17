@@ -20,7 +20,8 @@ use Illuminate\Support\Facades\DB;
  * RH › Produtividade ← execução dos projectos (Versão Actual, 2026-10-11): js/modules/rh/produtividade_projectos.js.
  * Três fontes, cada uma a casar com uma métrica dos itens de produtividade:
  *   - HORAS ← folhas de horas das tarefas (por colaborador e data);
- *   - QUANTIDADE ← medições das metas (meta_execucoes), atribuídas ao responsável da tarefa;
+ *   - QUANTIDADE ← medições das metas (meta_execucoes), atribuídas a quem as executou (membro_id da medição, folha de
+ *     medição por pessoa) ou, sem executante, ao responsável da tarefa;
  *   - TAREFAS ← tarefas com concluida_em dentro do intervalo.
  * Mantém do legado:
  *   - recolha agrupada por (tipo, unidade, colaborador); execução de externos ou sem responsável fica à parte, com o
@@ -117,8 +118,12 @@ final class ServicoProdutividadeProjetos
                 if ($d === '' || $d < $de || $d > $ate || ! (float) ($x['q'] ?? 0)) {
                     continue;
                 }
-                $c ? $juntar($linhas, "QUANTIDADE|{$un}|{$c}", $base('QUANTIDADE', $un, (int) $c), (float) $x['q'], $d, $t)
-                    : $juntar($orfas, "QUANTIDADE|{$un}|{$motivo($t)}", ['tipo' => 'QUANTIDADE', 'unidade' => $un, 'motivo' => $motivo($t)], (float) $x['q'], $d, $t);
+                // medição com executante (folha de medição por pessoa): conta para esse colaborador
+                $mx = isset($x['membro_id']) ? ($membros[(int) $x['membro_id']] ?? null) : null;
+                $cx = isset($x['membro_id']) ? $mx?->colaborador_id : $c;
+                $mot = isset($x['membro_id']) ? (! $mx ? 'o executante já não está na equipa' : 'o executante não é colaborador interno ('.($mx->terceiro_id ? 'entidade externa' : 'membro externo').')') : $motivo($t);
+                $cx ? $juntar($linhas, "QUANTIDADE|{$un}|{$cx}", $base('QUANTIDADE', $un, (int) $cx), (float) $x['q'], $d, $t)
+                    : $juntar($orfas, "QUANTIDADE|{$un}|{$mot}", ['tipo' => 'QUANTIDADE', 'unidade' => $un, 'motivo' => $mot], (float) $x['q'], $d, $t);
             }
             $d = $t->concluida_em?->toDateString();
             if ($d && $d >= $de && $d <= $ate) {

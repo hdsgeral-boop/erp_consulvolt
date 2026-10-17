@@ -2,21 +2,7 @@ import { Alert, Form, InputNumber, Modal, Select, Space, Typography } from 'antd
 import { useAccao } from '@/componentes/Accoes';
 import { SeccaoFormulario } from '@/componentes/formularios';
 import { larguraModal } from '@/componentes/responsivo';
-import { SeletorConta } from '@/modulos/compras/comum/Seletores';
 import type { ProdutoFicha } from './formularioProduto';
-
-/** Campos de conta da edição em massa (mapeamento_massa.js do legado: rótulo e classe sugerida). */
-export const CONTAS_MASSA = [
-  { campo: 'codigo_conta', rotulo: 'Proveito (vendas 61 / serviços 62)', prefixo: '6', chave: 'venda' },
-  { campo: 'conta_custo', rotulo: 'Custo (71 / 75)', prefixo: '7', chave: 'custo' },
-  { campo: 'conta_compra', rotulo: 'Compra (21)', prefixo: '2', chave: 'compra' },
-  { campo: 'conta_inventario', rotulo: 'Existências (26)', prefixo: '2', chave: 'inventario' },
-  { campo: 'conta_iva_liquidado', rotulo: 'IVA liquidado (345)', prefixo: '34', chave: 'iva_liquidado' },
-  { campo: 'conta_iva_dedutivel', rotulo: 'IVA dedutível (345)', prefixo: '34', chave: 'iva_dedutivel' },
-  { campo: 'conta_quebra', rotulo: 'Quebras / faltas', prefixo: undefined, chave: 'quebra' },
-  { campo: 'conta_sobra', rotulo: 'Sobras', prefixo: undefined, chave: 'sobra' },
-  { campo: 'conta_ativo', rotulo: 'Activo imobilizado', prefixo: '1', chave: 'ativo' },
-] as const;
 
 const SIM_NAO = [{ value: 1, label: 'Sim' }, { value: 0, label: 'Não' }];
 const TAXAS = [{ value: 14, label: '14% (geral)' }, { value: 7, label: '7% (reduzida)' }, { value: 5, label: '5%' }, { value: 2, label: '2%' }, { value: 0, label: '0% (isento)' }];
@@ -46,13 +32,7 @@ export function corpoEdicaoMassa(ids: number[], v: Valores): { ids: number[]; da
   return { ids, dados, contas };
 }
 
-/** Resumo «Actual: …» do legado para um campo de conta. */
-const resumoConta = (linhas: ProdutoFicha[], chave: (typeof CONTAS_MASSA)[number]['chave']) => {
-  const com = linhas.filter((p) => p.contas[chave]).length;
-  return com ? `${com} de ${linhas.length} já com conta` : 'Nenhum com conta';
-};
-
-/** «Editar em massa» dos produtos/serviços seleccionados (dados e contas), como no legado. */
+/** «Editar em massa» dos produtos/serviços seleccionados (dados; as contas vêm da categoria — ronda 3). */
 export function ModalEditarMassaProdutos({ linhas, categorias, aoFechar }: { linhas: ProdutoFicha[] | null; categorias: { id: number; nome: string }[]; aoFechar: () => void }) {
   const [form] = Form.useForm<Valores>();
   const modo = Form.useWatch('preco_modo', form);
@@ -93,18 +73,8 @@ export function ModalEditarMassaProdutos({ linhas, categorias, aoFechar }: { lin
         <Form.Item name="e_servico" label="É serviço"><Select allowClear placeholder="— Manter como está —" options={SIM_NAO} /></Form.Item>
         <Form.Item name="bloqueado" label="Bloqueado para venda"><Select allowClear placeholder="— Manter como está —" options={SIM_NAO} /></Form.Item>
         </SeccaoFormulario>
-        <SeccaoFormulario titulo="Contas">
-        {CONTAS_MASSA.map((c) => (
-          <Form.Item key={c.campo} name={['contas', c.campo]} label={c.rotulo} extra={resumoConta(lista, c.chave)}>
-            <SeletorConta prefixo={c.prefixo} />
-          </Form.Item>
-        ))}
-        </SeccaoFormulario>
-        <SeccaoFormulario titulo="Retirar contas" recolhida>
-        <Form.Item name="retirar" label="Retirar a conta">
-          <Select mode="multiple" allowClear placeholder="— Nenhuma —" options={CONTAS_MASSA.map((c) => ({ value: c.campo, label: c.rotulo }))} />
-        </Form.Item>
-        </SeccaoFormulario>
+        {/* ronda 3: as contas definem-se na categoria — mudar a categoria aqui muda as contas dos produtos escolhidos */}
+        <Alert type="info" showIcon message="Contas contabilísticas" description="As contas vêm da categoria do produto: para as mudar, escolha outra categoria acima ou edite a categoria em Vendas › Categorias." />
       </Form>
     </Modal>
   );

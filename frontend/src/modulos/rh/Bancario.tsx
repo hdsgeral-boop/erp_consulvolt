@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Form, Input, Modal, Select, Space, Tag } from 'antd';
+import { Alert, Button, Card, Form, Input, Select, Space, Tag } from 'antd';
 import { PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import { BotoesCadastroLegado } from './comum/BotoesCadastroLegado';
 import { useQuery } from '@tanstack/react-query';
@@ -37,7 +37,7 @@ export function camposIban(colaboradores: CampoFormulario['opcoes'], bancos: Cam
   ];
 }
 
-interface Linha {
+export interface Linha {
   colaborador: Colaborador;
   coordenada: CoordenadaBancaria | null;
 }
@@ -105,19 +105,44 @@ export default function Bancario() {
   );
 }
 
+/** Filtro da lista de IBANs: como no antigo (app_v2.js:10003) só os colaboradores com IBAN, por omissão. */
+export type FiltroIban = 'com' | 'todos' | 'sem' | 'invalido';
+
+/** Linhas visíveis da lista de IBANs (pesquisa + filtro). */
+export function filtrarIbans(linhas: Linha[], termo: string, filtro: FiltroIban): Linha[] {
+  return linhas.filter((l) => {
+    if (!contem(`${l.colaborador.nome_completo} ${l.colaborador.nif} ${l.coordenada?.iban ?? ''}`, termo)) return false;
+    if (filtro === 'com') return Boolean(l.coordenada);
+    if (filtro === 'sem') return !l.coordenada;
+    if (filtro === 'invalido') return Boolean(l.coordenada && !ibanValido(l.coordenada.iban));
+    return true;
+  });
+}
+
+const regrasIban = [
+  { required: true, message: 'Indique o IBAN.' },
+  { validator: (_: unknown, v: string) => (!v || ibanValido(v) ? Promise.resolve() : Promise.reject(new Error('IBAN inválido (dígitos de controlo).'))) },
+];
+
+const rotuloFiltro: Record<FiltroIban, string | null> = { com: null, todos: 'Todos (incluindo sem IBAN)', sem: 'Só sem IBAN', invalido: 'Só IBAN com formato inválido' };
+
 function IbanColaboradores() {
   const { pode } = useSessao();
+  const podeGerir = pode('rh_bancario_gerir');
   const colaboradores = useColaboradores();
   const bancos = useBancos();
   const coordenadas = useQuery({ queryKey: ['rh', 'coordenadas'], queryFn: () => obter<CoordenadaBancaria[]>('/rh/coordenadas-bancarias') });
   useAvisarErro(coordenadas.error);
   const [termo, setTermo] = useState('');
-  const [filtro, setFiltro] = useState<'todos' | 'sem' | 'invalido'>('todos');
-  const [edicao, setEdicao] = useState<Linha | null>(null);
-  const [form] = Form.useForm<{ banco_id: number; iban: string }>();
-  const [novo, setNovo] = useState(false);
-  const [formNovo] = Form.useForm<{ colaborador_id: number; banco_id: number; iban: string }>();
-  const accao = useAccaoRh(() => { setEdicao(null); setNovo(false); });
+  const [filtro, setFiltro] = useState<FiltroIban>('com');
+  // formulário embutido na página, como no antigo (app_v2.js:9963): adicionar ou, ao editar, actualizar
+  const [emEdicao, setEmEdicao] = useState<Linha | null>(null);
+  const [form] = Form.useForm<{ colaborador_id: number; banco_id: number; iban: string }>();
+  const [linhasAberto, setLinhasAberto] = useState(false);
+  const [formLinhas] = Form.useForm<{ colaborador_id: number; banco_id: number; iban: string }>();
+  const limpar = () => { form.resetFields(); setEmEdicao(null); };
+  const accao = useAccaoRh(() => { limpar(); setLinhasAberto(false); });
+  const opcoesBancos = useMemo(() => (bancos.data ?? []).map((b) => ({ value: b.id, label: b.nome })), [bancos.data]);
   const camposLinhas = useMemo(
     () => camposIban(opcoesColaboradores(colaboradores.lista), (bancos.data ?? []).map((b) => ({ value: b.id, label: b.codigo ? `${b.nome} (${b.codigo})` : b.nome }))),
     [colaboradores.lista, bancos.data],
@@ -128,13 +153,13 @@ function IbanColaboradores() {
     return colaboradores.lista.map((c) => ({ colaborador: c, coordenada: porColab.get(c.id) ?? null }));
   }, [colaboradores.lista, coordenadas.data]);
 
-  const visiveis = linhas.filter((l) => {
-    if (!contem(`${l.colaborador.nome_completo} ${l.colaborador.nif} ${l.coordenada?.iban ?? ''}`, termo)) return false;
-    if (filtro === 'sem') return !l.coordenada;
-    if (filtro === 'invalido') return Boolean(l.coordenada && !ibanValido(l.coordenada.iban));
-    return true;
-  });
+  const visiveis = filtrarIbans(linhas, termo, filtro);
   const semIban = linhas.filter((l) => !l.coordenada && l.colaborador.estado === 'ACTIVO').length;
+
+  const editar = (l: Linha) => {
+    form.setFieldsValue({ colaborador_id: l.colaborador.id, banco_id: l.coordenada?.banco_id, iban: l.coordenada?.iban ?? '' });
+    setEmEdicao(l);
+  };
 
   const pequeno = useEcraPequeno();
   const colunas: ColunaApi<Linha>[] = [
@@ -160,15 +185,40 @@ function IbanColaboradores() {
 
   return (
     <Card title="2. IBANs dos Colaboradores"
-      extra={pode('rh_bancario_gerir') ? <Button type="primary" icon={<PlusOutlined />} onClick={() => { formNovo.resetFields(); setNovo(true); }}>Adicionar IBAN</Button> : undefined}>
-      {semIban > 0 && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message={`${semIban} colaborador(es) activo(s) sem IBAN: não podem entrar em cartas de pagamento.`} />}
+      extra={podeGerir ? <Button icon={<PlusOutlined />} onClick={() => { formLinhas.resetFields(); setLinhasAberto(true); }}>Vários IBAN</Button> : undefined}>
+      {semIban > 0 && (
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }} message={`${semIban} colaborador(es) activo(s) sem IBAN: não podem entrar em cartas de pagamento.`}
+          action={filtro !== 'sem' ? <Button size="small" onClick={() => setFiltro('sem')}>Ver</Button> : undefined} />
+      )}
+      {podeGerir && (
+        <Form form={form} layout="vertical" className="rh-form-em-linha" name="iban-colaborador"
+          onFinish={(v) => { const p = pedidoIban(v); accao.mutate({ metodo: 'put', url: p.url, dados: p.dados }); }}>
+          <div className="rh-grelha-bancos">
+            <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
+              <SeletorColaborador style={{ width: '100%' }} disabled={emEdicao !== null} />
+            </Form.Item>
+            <Form.Item name="banco_id" label="Banco" rules={[{ required: true, message: 'Escolha o banco.' }]}>
+              <Select showSearch optionFilterProp="label" loading={bancos.isLoading} options={opcoesBancos} placeholder="-- Seleccionar Banco --" />
+            </Form.Item>
+            <Form.Item name="iban" label="IBAN" extra="AO + 23 dígitos (o NIB de 21 dígitos é convertido para AO06) ou IBAN estrangeiro." rules={regrasIban}>
+              <Input maxLength={50} placeholder="0000 0000 ..." style={{ fontFamily: 'monospace' }} />
+            </Form.Item>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, justifyContent: 'flex-end' }}>
+            <Button type="primary" htmlType="submit" icon={emEdicao ? undefined : <PlusOutlined />} loading={accao.isPending}>
+              {emEdicao ? 'Actualizar IBAN' : 'Adicionar IBAN'}
+            </Button>
+            {emEdicao && <Button onClick={limpar}>Cancelar</Button>}
+          </div>
+        </Form>
+      )}
       <BarraFiltros
         accoes={
           <BotoesExportar
             desactivado={!visiveis.length}
             obterPedido={() => pedidoTabela({
               titulo: 'Coordenadas bancárias dos colaboradores',
-              filtros: [filtro === 'sem' ? 'Só sem IBAN' : filtro === 'invalido' ? 'Só IBAN com formato inválido' : null, termo ? `Pesquisa: ${termo}` : null],
+              filtros: [rotuloFiltro[filtro], termo ? `Pesquisa: ${termo}` : null],
               colunas,
               linhas: visiveis,
             })}
@@ -176,8 +226,9 @@ function IbanColaboradores() {
         }
       >
         <PesquisaLocal aoMudar={setTermo} placeholder="Nome, NIF ou IBAN" />
-        <Select value={filtro} onChange={setFiltro} style={{ width: 200 }} options={[
-          { value: 'todos', label: 'Todos' },
+        <Select aria-label="Filtro de IBAN" value={filtro} onChange={setFiltro} style={{ width: 230 }} options={[
+          { value: 'com', label: 'Com IBAN' },
+          { value: 'todos', label: 'Todos (incluindo sem IBAN)' },
           { value: 'sem', label: 'Sem IBAN' },
           { value: 'invalido', label: 'IBAN com formato inválido' },
         ]} />
@@ -185,38 +236,26 @@ function IbanColaboradores() {
       <TabelaComModos<Linha> rowKey={(l) => l.colaborador.id} size={pequeno ? 'small' : 'middle'} loading={colaboradores.isFetching || coordenadas.isFetching} columns={colunas} dataSource={visiveis}
         scroll={scrollTabela()}
         accoes={(l) => [
-          pode('rh_bancario_gerir') && { icone: 'edit', titulo: l.coordenada ? 'Editar IBAN' : 'Adicionar IBAN', onClick: () => { form.setFieldsValue({ banco_id: l.coordenada?.banco_id, iban: l.coordenada?.iban ?? '' }); setEdicao(l); } },
+          podeGerir && { icone: 'edit', titulo: l.coordenada ? 'Editar IBAN' : 'Adicionar IBAN', onClick: () => editar(l) },
           l.coordenada && pode('rh_banco_del') && { icone: 'trash', titulo: 'Apagar IBAN', variante: 'perigo', confirmar: { titulo: 'Eliminar as coordenadas bancárias?', textoOk: 'Eliminar', perigo: true },
             onClick: () => accao.mutateAsync({ metodo: 'delete', url: `/rh/colaboradores/${l.colaborador.id}/coordenada-bancaria` }) },
         ]} />
-      <ModalFormulario chave="rh.bancario.iban" titulo="Adicionar IBAN" aberto={novo} aoFechar={() => setNovo(false)} criacao form={formNovo} campos={camposLinhas}
+      {/* vários IBAN de uma vez (Grade | Linhas, colar do Excel) */}
+      <ModalFormulario chave="rh.bancario.iban" titulo="Adicionar IBAN" aberto={linhasAberto} aoFechar={() => setLinhasAberto(false)} criacao form={formLinhas} campos={camposLinhas}
         nomeRegistos="IBAN" invalidar={[['rh', 'coordenadas'], ['rh']]} gravarLinha={(r) => { const p = pedidoIban(r); return enviar('put', p.url, p.dados); }}
-        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formNovo.submit()}>
-        <Form form={formNovo} layout="vertical" onFinish={(v) => { const p = pedidoIban(v); accao.mutate({ metodo: 'put', url: p.url, dados: p.dados }); }}>
+        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => formLinhas.submit()}>
+        <Form form={formLinhas} layout="vertical" onFinish={(v) => { const p = pedidoIban(v); accao.mutate({ metodo: 'put', url: p.url, dados: p.dados }); }}>
           <Form.Item name="colaborador_id" label="Colaborador" rules={[{ required: true, message: 'Escolha o colaborador.' }]}>
             <SeletorColaborador style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="banco_id" label="Banco" rules={[{ required: true, message: 'Escolha o banco.' }]}>
-            <Select showSearch optionFilterProp="label" loading={bancos.isLoading} options={(bancos.data ?? []).map((b) => ({ value: b.id, label: b.nome }))} />
+            <Select showSearch optionFilterProp="label" loading={bancos.isLoading} options={opcoesBancos} />
           </Form.Item>
-          <Form.Item name="iban" label="IBAN" extra="AO + 23 dígitos (o NIB de 21 dígitos é convertido para AO06) ou IBAN estrangeiro."
-            rules={[{ required: true, message: 'Indique o IBAN.' }, { validator: (_, v: string) => (!v || ibanValido(v) ? Promise.resolve() : Promise.reject(new Error('IBAN inválido (dígitos de controlo).'))) }]}>
+          <Form.Item name="iban" label="IBAN" extra="AO + 23 dígitos (o NIB de 21 dígitos é convertido para AO06) ou IBAN estrangeiro." rules={regrasIban}>
             <Input maxLength={50} style={{ fontFamily: 'monospace' }} />
           </Form.Item>
         </Form>
       </ModalFormulario>
-      <Modal title={`Coordenadas bancárias — ${edicao?.colaborador.nome_completo ?? ''}`} open={edicao !== null} onCancel={() => setEdicao(null)}
-        okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} onOk={() => form.submit()} destroyOnHidden>
-        <Form form={form} layout="vertical" onFinish={(v) => edicao && accao.mutate({ metodo: 'put', url: `/rh/colaboradores/${edicao.colaborador.id}/coordenada-bancaria`, dados: { ...v, iban: v.iban.replace(/\s+/g, '') } })}>
-          <Form.Item name="banco_id" label="Banco" rules={[{ required: true, message: 'Escolha o banco.' }]}>
-            <Select showSearch optionFilterProp="label" loading={bancos.isLoading} options={(bancos.data ?? []).map((b) => ({ value: b.id, label: b.nome }))} />
-          </Form.Item>
-          <Form.Item name="iban" label="IBAN" extra="AO + 23 dígitos (o NIB de 21 dígitos é convertido para AO06) ou IBAN estrangeiro."
-            rules={[{ required: true, message: 'Indique o IBAN.' }, { validator: (_, v: string) => (!v || ibanValido(v) ? Promise.resolve() : Promise.reject(new Error('IBAN inválido (dígitos de controlo).'))) }]}>
-            <Input maxLength={50} style={{ fontFamily: 'monospace' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </Card>
   );
 }

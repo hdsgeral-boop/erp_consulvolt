@@ -46,6 +46,21 @@ final class FiltroMapas
             $sql .= " AND {$s}";
             $p = array_merge($p, $pp);
         }
+        // Holding — coluna «por empresa» dos mapas legais (só uso interno, ServicoMapasPorEmpresa; nunca vem do pedido):
+        // E<id> = agregação da empresa-membro, ELIM = eliminações, CONV = conversão cambial, OUTROS = lançado na holding
+        if (! empty($f['origem_consolidacao'])) {
+            $o = (string) $f['origem_consolidacao'];
+            if (preg_match('/^E(\d+)$/', $o, $m)) {
+                $sql .= " AND {$a}tipo_consolidacao = 'AGREGACAO' AND {$a}empresa_origem_id = ?";
+                $p[] = (int) $m[1];
+            } elseif ($o === 'ELIM') {
+                $sql .= " AND {$a}tipo_consolidacao = 'ELIMINACAO'";
+            } elseif ($o === 'CONV') {
+                $sql .= " AND {$a}tipo_consolidacao = 'CONVERSAO'";
+            } else {
+                $sql .= " AND NOT (COALESCE({$a}tipo_consolidacao, '') IN ('ELIMINACAO', 'CONVERSAO') OR ({$a}tipo_consolidacao = 'AGREGACAO' AND {$a}empresa_origem_id IS NOT NULL))";
+            }
+        }
 
         return [$sql, $p];
     }

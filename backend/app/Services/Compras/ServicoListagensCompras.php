@@ -8,6 +8,7 @@ use App\Models\CotacaoCompra;
 use App\Models\EncomendaCompra;
 use App\Models\FaturaCompra;
 use App\Models\ItemCompra;
+use App\Models\ItemVenda;
 use App\Models\PedidoCompra;
 use App\Models\RececaoCompra;
 use App\Models\Terceiro;
@@ -50,13 +51,14 @@ final class ServicoListagensCompras
         $linhas = ItemCompra::query()->whereIn('pedido_compra_id', $pedidos->pluck('id'))
             ->whereNull('cotacao_compra_id')->whereNull('encomenda_compra_id')->whereNull('fatura_compra_id')
             ->with(RelacoesNomes::produto())->orderBy('id')->get()->groupBy('pedido_compra_id');
-        $utilizador = auth()->user()?->nome_utilizador;
+        $deliberacao = app(ServicoDeliberacaoCompras::class);
+        $eu = $pedidos->contains('estado', 'PENDENTE') ? $deliberacao->meuColaborador() : null;   // uma leitura por página
         foreach ($pedidos as $p) {
             $ls = $linhas[$p->id] ?? collect();
             $p->setAttribute('itens_resumo', $ls->map(fn ($l) => ($l->produto?->nome ?? $l->descricao ?? 'Item').' ('.self::qtd($l->quantidade).')')->implode(', '));
             $p->setAttribute('itens_linhas', $ls->count());
             $p->setAttribute('itens_quantidade', self::qtd($ls->sum(fn ($l) => (float) $l->quantidade)));
-            $p->setAttribute('pode_decidir', $p->estado === 'PENDENTE' && $this->podeDecidir($p, $utilizador));
+            $p->setAttribute('pode_decidir', $p->estado === 'PENDENTE' && $deliberacao->podeDecidir($p, $eu)['pode']);
         }
     }
 
@@ -205,18 +207,30 @@ final class ServicoListagensCompras
             ->all();
     }
 
-    /** Mesmas regras de ServicoDeliberacaoCompras::decidir (o servidor volta a validar ao decidir). */
-    private function podeDecidir(PedidoCompra $p, ?string $utilizador): bool
+    /**
+     * Preço de referência por artigo vindo das encomendas de clientes (NE) que deram origem ao pedido
+     * (itens_venda.pedido_compra_id): preço unitário em Kz, sem IVA e já com o desconto da linha, médio ponderado pela
+     * quantidade. Serve o aviso da proposta de fornecedor (custo ≥ 70 % ou acima do valor da encomenda). Só para quem
+     * regista propostas ou vê as vendas (o preço de venda não é exposto a outros perfis).
+     *
+     * @return array<int, array{preco_kz: string, documentos: list<string>}> indexado pelo produto_id
+     */
+    public function referenciaEncomendas(PedidoCompra $pedido): array
     {
-        if ($p->criado_por && $p->criado_por === $utilizador) {
-            return false;
+        if (! Gate::any(['compras_new_proposal', 'vendas_faturacao_view'])) {
+            return [];
         }
-        $etapa = collect($p->deliberacao['etapas'] ?? [])->firstWhere('estado', 'PENDENTE');
-        if (! $etapa || ($etapa['tipo'] ?? 'TAREFA') === 'LEGADO') {
-            return Gate::any(['compras_ped_aprovar', 'compras_ped_aprovar_n2', 'compras_ped_aprovar_n3', 'compras_ped_aprovar_n4']);
-        }
+        $linhas = ItemVenda::query()->where('pedido_compra_id', $pedido->id)->whereNotNull('produto_id')
+            ->whereHas('venda', fn ($q) => $q->where('tipo_documento', 'NE')->where('estado', '<>', 'ANULADO'))
+            ->with('venda:id,numero_documento')->get(['id', 'venda_id', 'produto_id', 'quantidade', 'preco_unitario', 'percentagem_desconto']);
 
-        return Gate::allows($etapa['tarefa'] ?? 'compras_ped_aprovar');
+        return $linhas->groupBy('produto_id')->map(function (Collection $g) {
+            $qtd = $g->sum(fn ($l) => (float) $l->quantidade);
+            $valor = $g->sum(fn ($l) => (float) $l->quantidade * (float) $l->preco_unitario * (1 - (float) $l->percentagem_desconto / 100));
+
+            return ['preco_kz' => number_format($qtd > 0 ? $valor / $qtd : 0, 2, '.', ''),
+                'documentos' => $g->pluck('venda.numero_documento')->filter()->unique()->values()->all()];
+        })->all();
     }
 
     private static function qtd(mixed $v): string

@@ -8,12 +8,10 @@ use App\Services\Gestao\Paineis\PeriodoPainel;
 use App\Services\Gestao\Paineis\ServicoComparacaoEmpresas;
 use App\Services\Gestao\Paineis\ServicoInicio;
 use App\Services\Gestao\Paineis\ServicoPaineis;
-use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
@@ -28,7 +26,6 @@ final class PaineisController extends Controller
         private readonly ServicoPaineis $paineis,
         private readonly ServicoInicio $inicio,
         private readonly ServicoComparacaoEmpresas $comparacao,
-        private readonly ServicoEmpresas $empresas,
     ) {}
 
     /** Início: empresa, saudação, processos pendentes visíveis, dica do dia, comunicado 360º e módulos (renderWelcome, ui_dashboard.js:621). */
@@ -58,8 +55,8 @@ final class PaineisController extends Controller
     }
 
     /**
-     * Comparação livre de empresas (só as que o utilizador pode aceder). Sem lista: todas as empresas acessíveis que não são
-     * holdings (até 30).
+     * Comparação livre de empresas (só as que o utilizador pode aceder). Sem lista: numa holding, as empresas do grupo; fora
+     * dela, as empresas acessíveis que não são holdings (até 30) — ServicoComparacaoEmpresas::empresasPorOmissao.
      */
     public function comparacao(Request $r): JsonResponse
     {
@@ -74,8 +71,7 @@ final class PaineisController extends Controller
         ]);
         /** @var Utilizador $u */
         $u = $r->user();
-        $ids = $f['empresas'] ?? DB::table('empresas')->whereIn('id', $this->empresas->idsAcessiveis($u))->where('e_consolidacao', false)
-            ->ordenarPorNome()->limit(30)->pluck('id')->map(fn ($x) => (int) $x)->all();
+        $ids = $f['empresas'] ?? $this->comparacao->empresasPorOmissao();
         // Autorização FORA do Cache::remember: verificada em cada pedido, mesmo quando o resultado vem da cache (até
         // TTL_CACHE segundos) — quem perdeu o acesso a uma das empresas deixa de ver os valores de imediato (OWASP A01).
         $ids = $this->comparacao->garantirAcesso($ids);

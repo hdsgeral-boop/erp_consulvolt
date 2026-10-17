@@ -228,7 +228,8 @@ function DashboardVendas() {
   );
 }
 
-interface AlertaStock { id: number; codigo: string | null; nome: string | null; stock: string; minimo: string }
+/** Ronda 3: estado pelas regras dos níveis de stock (CRITICO, REPOSICAO) ou a regra do legado (< 5 un.) sem níveis. */
+interface AlertaStock { id: number; codigo: string | null; nome: string | null; stock: string; minimo: string; estado?: string; motivo?: string | null; quantidade_sugerida?: string | null }
 
 /** 4.3.7 — «Alertas de Stock Baixo» do Dashboard de Vendas do legado (produto, código e «N un»). */
 function AlertasStock() {
@@ -253,9 +254,13 @@ function AlertasStock() {
               <li key={p.id} style={{ padding: 16, borderBottom: `1px solid ${token.colorSplit}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <div style={{ minWidth: 0 }}>
                   <span style={{ display: 'block', fontWeight: 600, fontSize: 14 }}>{p.nome}</span>
-                  <small style={{ color: token.colorTextSecondary }}>Código: {p.codigo ?? '—'}</small>
+                  <small style={{ color: token.colorTextSecondary }}>
+                    Código: {p.codigo ?? '—'}
+                    {p.motivo && p.estado !== 'STOCK_BAIXO' ? ` · ${p.motivo}` : ''}
+                    {p.estado === 'REPOSICAO' || (p.estado === 'CRITICO' && Number(p.quantidade_sugerida) > 0) ? ` · repor ${formatarNumero(p.quantidade_sugerida ?? 0)}` : ''}
+                  </small>
                 </div>
-                <Tag color={q <= 0 ? 'red' : 'orange'} style={{ margin: 0 }}>{formatarNumero(q)} un</Tag>
+                <Tag color={q <= 0 || p.estado === 'CRITICO' ? 'red' : 'orange'} style={{ margin: 0 }}>{formatarNumero(q)} un</Tag>
               </li>
             );
           })}

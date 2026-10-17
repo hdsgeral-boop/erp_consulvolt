@@ -126,8 +126,16 @@ final class ServicoConfigFaturacaoEletronica
             if ($estado === 'ATIVA' && $outras->contains(fn ($x) => $x->estado === 'ATIVA' && $x->tipo === $tipo && $x->ano === $ano && $x->origem === $origem)) {
                 throw new ErroNegocio('Já existe outra série activa para este tipo, ano e origem. Feche-a antes.', 'SERIE_ATIVA_DUPLICADA', 422);
             }
-            if ($outras->contains(fn ($x) => $x->tipo === $tipo && $x->ano === $ano && $x->codigo === $codigo)) {
-                throw new ErroNegocio('Já existe uma série com este código para este tipo e ano.', 'SERIE_DUPLICADA', 422);
+            $codigoNovo = ! $serie || $codigo !== $serie->codigo || $tipo !== $serie->tipo;   // fechar uma série antiga não volta a validar o código
+            if ($codigoNovo && ! RegrasNumeracaoAgt::codigoValido($codigo)) {
+                throw new ErroNegocio('O código da série só pode ter letras e algarismos (até 30), sem espaços nem «/» (formato do SAF-T e da AGT).', 'SERIE_CODIGO_INVALIDO', 422);
+            }
+            // o n.º do documento («FT X/1») não leva o ano: o código não se pode repetir no mesmo tipo, mesmo noutro ano
+            $repetida = $codigoNovo ? $outras->first(fn ($x) => $x->tipo === $tipo && strtoupper((string) $x->codigo) === strtoupper($codigo)) : null;
+            if ($repetida) {
+                throw new ErroNegocio($repetida->ano === $ano ? 'Já existe uma série com este código para este tipo e ano.'
+                    : "Já existe a série {$tipo} {$repetida->codigo} de {$repetida->ano}: os documentos teriam o mesmo n.º ({$tipo} {$codigo}/1). Use outro código (ex.: com o ano).",
+                    'SERIE_DUPLICADA', 422);
             }
             $dados = ['codigo' => $codigo, 'tipo' => $tipo, 'ano' => $ano, 'origem' => $origem,
                 'origem_nome' => $d['origem_nome'] ?? $serie?->origem_nome ?? ($origem === 'GERAL' ? 'Facturação (geral)' : $origem),

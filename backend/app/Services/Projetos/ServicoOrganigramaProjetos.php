@@ -3,11 +3,14 @@
 namespace App\Services\Projetos;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\CargoFuncao;
+use App\Models\Colaborador;
 use App\Models\LinhaOrcamentoProjeto;
 use App\Models\MembroEquipaProjeto;
 use App\Models\NoOrganigramaProjeto;
 use App\Models\Projeto;
 use App\Models\TarefaProjeto;
+use App\Models\Terceiro;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -96,6 +99,34 @@ final class ServicoOrganigramaProjetos
                 'orcamento_sem_responsavel' => $orcamento->filter(fn ($l) => ! $l->no_organigrama_projeto_id && ! ($l->tarefa_projeto_id && isset($vistasTarefas[$l->tarefa_projeto_id]))
                     && ! (ServicoOrcamentoQuantidadesProjetos::mapasDe($l) && ServicoOrcamentoQuantidadesProjetos::saldo($l) < 0.01))->count(),
                 'vagas' => (int) $nos->sum('vagas'), 'membros' => $membros->count(), 'alocados' => $membros->whereNotNull('no_organigrama_projeto_id')->count()]];
+    }
+
+    /**
+     * Cartões do organigrama (2026-10-16): acrescenta aos membros o cargo/função e os contactos profissionais (telefone e
+     * e-mail do colaborador ou da entidade). Só é chamado para quem pode gerir o projecto ou ver colaboradores — os outros
+     * perfis vêem o organigrama sem contactos (minimização de dados pessoais).
+     *
+     * @param  array{posicoes: list<array<string, mixed>>, sem_posicao: list<array<string, mixed>>}  $o
+     * @return array<string, mixed>
+     */
+    public function comContactos(array $o): array
+    {
+        $todos = collect($o['posicoes'])->flatMap(fn ($p) => $p['membros'])->merge($o['sem_posicao']);
+        $colab = Colaborador::query()->withTrashed()->whereIn('id', $todos->pluck('colaborador_id')->filter()->unique()->values()->all() ?: [0])
+            ->get(['id', 'telefone', 'email', 'cargo_funcao_id'])->keyBy('id');
+        $cargos = CargoFuncao::query()->whereIn('id', $colab->pluck('cargo_funcao_id')->filter()->unique()->values()->all() ?: [0])->pluck('nome', 'id');
+        $terc = Terceiro::query()->withTrashed()->whereIn('id', $todos->pluck('terceiro_id')->filter()->unique()->values()->all() ?: [0])->get(['id', 'telefone', 'email'])->keyBy('id');
+        $com = function (array $m) use ($colab, $cargos, $terc): array {
+            $c = $m['colaborador_id'] ? ($colab[$m['colaborador_id']] ?? null) : null;
+            $t = $m['terceiro_id'] ? ($terc[$m['terceiro_id']] ?? null) : null;
+
+            return $m + ['telefone' => $c?->telefone ?? $t?->telefone, 'email' => $c?->email ?? $t?->email,
+                'cargo' => $c && $c->cargo_funcao_id ? ($cargos[$c->cargo_funcao_id] ?? null) : null];
+        };
+        $o['posicoes'] = array_map(fn ($p) => ['membros' => array_map($com, $p['membros'])] + $p, $o['posicoes']);
+        $o['sem_posicao'] = array_map($com, $o['sem_posicao']);
+
+        return $o;
     }
 
     /**

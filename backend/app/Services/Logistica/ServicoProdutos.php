@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\Schema;
  *   - conta_iva = conta_iva_liquidado (retrocompatibilidade do legado);
  *   - o catálogo de compras (catalogo_fornecedores) acompanha o produto (código, nome, preço).
  * Melhoria: a ficha não altera o stock (só movimentos de inventário — módulo Logística).
+ * Ronda 3: as contas contabilísticas definem-se na CATEGORIA (guardarCategoria; o produto herda-as por ContasProduto::de);
+ * níveis de stock (mínimo ≤ segurança ≤ ponto de encomenda ≤ máximo, ServicoNiveisStock) e ficha técnica do produto.
  */
 final class ServicoProdutos
 {
@@ -42,7 +44,7 @@ final class ServicoProdutos
     /** @param  array<string, mixed>  $f */
     public function listar(array $f): LengthAwarePaginator
     {
-        return Produto::query()
+        return Produto::query()->with(['categoriaProduto' => fn ($q) => $q->withTrashed()])
             ->when($f['categoria_produto_id'] ?? null, fn ($q, $v) => $q->where('categoria_produto_id', $v))
             ->when(isset($f['bloqueado']), fn ($q) => $q->where('bloqueado', (bool) $f['bloqueado']))
             ->when(isset($f['movimenta_stock']), fn ($q) => $q->where('movimenta_stock', (bool) $f['movimenta_stock']))
@@ -72,13 +74,18 @@ final class ServicoProdutos
     /** @param  array<string, mixed>  $dados */
     public function guardar(array $dados, ?Produto $produto = null): Produto
     {
+        // níveis de stock e ficha técnica: colunas fora do $fillable gerado — validadas aqui e gravadas com forceFill
+        $extras = array_intersect_key($dados, array_flip([...Produto::NIVEIS_STOCK, ...Produto::CAMPOS_FICHA]));
+        $dados = array_diff_key($dados, $extras);
+        $extras = $this->normalizarExtras($extras, $produto);
         $dados = $this->normalizar($dados, $produto);
         if (! empty($dados['codigo']) && Produto::query()->where('codigo', $dados['codigo'])->when($produto, fn ($q) => $q->whereKeyNot($produto->id))->exists()) {
             throw new ErroNegocio("Já existe um produto com o código {$dados['codigo']}.", 'PRODUTO_DUPLICADO', 422);
         }
 
-        return DB::transaction(function () use ($dados, $produto) {
-            $produto ? $produto->update($dados) : $produto = Produto::create($dados);
+        return DB::transaction(function () use ($dados, $extras, $produto) {
+            $produto ??= new Produto;
+            $produto->fill($dados)->forceFill($extras)->save();
             $this->sincronizarCatalogoCompras($produto);
 
             return $produto;
@@ -101,16 +108,62 @@ final class ServicoProdutos
         });
     }
 
-    /** @param  array<string, mixed>  $dados */
+    /**
+     * Categoria com as contas contabilísticas dos seus produtos. Cada conta alterada tem de existir, ser de movimento e
+     * pertencer às classes da sua natureza (CategoriaProduto::CONTAS); contas não alteradas não são revalidadas (as
+     * copiadas do legado pela conversão continuam editáveis no resto da categoria).
+     *
+     * @param  array<string, mixed>  $dados  nome, descricao?, codigo_conta?, conta_custo?, …
+     */
     public function guardarCategoria(array $dados, ?CategoriaProduto $categoria = null): CategoriaProduto
     {
-        $nome = trim($dados['nome']);
+        $nome = trim((string) ($dados['nome'] ?? $categoria?->nome ?? ''));
+        if ($nome === '') {
+            throw new ErroNegocio('Indique o nome da categoria.', 'CATEGORIA_SEM_NOME', 422);
+        }
         if (CategoriaProduto::query()->whereRaw('lower(nome) = lower(?)', [$nome])->when($categoria, fn ($q) => $q->whereKeyNot($categoria->id))->exists()) {
             throw new ErroNegocio("Já existe a categoria {$nome}.", 'CATEGORIA_DUPLICADA', 422);
         }
-        $categoria ? $categoria->update(['nome' => $nome]) : $categoria = CategoriaProduto::create(['nome' => $nome]);
+        $extras = [];
+        if (array_key_exists('descricao', $dados)) {
+            $extras['descricao'] = trim((string) $dados['descricao']) ?: null;
+        }
+        foreach (CategoriaProduto::CONTAS as $campo => [$rotulo, $classes]) {
+            if (! array_key_exists($campo, $dados)) {
+                continue;
+            }
+            $codigo = trim(str_replace(['.', ' '], '', (string) ($dados[$campo] ?? ''))) ?: null;
+            if ($codigo !== null && $codigo !== $categoria?->getAttribute($campo)) {
+                $this->plano->contaDeMovimento($codigo);
+                if (! collect($classes)->contains(fn ($c) => str_starts_with($codigo, $c))) {
+                    throw new ErroNegocio("A conta {$codigo} não serve para «{$rotulo}» (classes aceites: ".implode(', ', $classes).').', 'CONTA_CLASSE_INVALIDA', 422,
+                        ['campo' => $campo]);
+                }
+            }
+            $extras[$campo] = $codigo;
+        }
 
-        return $categoria;
+        return DB::transaction(function () use ($categoria, $nome, $extras) {
+            $categoria ??= new CategoriaProduto;
+            $categoria->fill(['nome' => $nome])->forceFill($extras)->save();
+
+            return $categoria;
+        });
+    }
+
+    /**
+     * Categoria para a API: nome, descrição, contas e (opcionalmente) o número de produtos.
+     *
+     * @return array<string, mixed>
+     */
+    public static function categoriaParaApi(CategoriaProduto $c, ?int $produtos = null): array
+    {
+        $saida = ['id' => $c->id, 'nome' => $c->nome, 'descricao' => $c->getAttribute('descricao')];
+        foreach (array_keys(CategoriaProduto::CONTAS) as $campo) {
+            $saida[$campo] = $c->getAttribute($campo);
+        }
+
+        return $saida + ($produtos !== null ? ['produtos' => $produtos] : []);
     }
 
     public function eliminarCategoria(CategoriaProduto $categoria): void
@@ -148,6 +201,52 @@ final class ServicoProdutos
         }
 
         return $dados;
+    }
+
+    /**
+     * Níveis de stock e ficha técnica: números não negativos, ordem dos níveis (com os valores actuais nos que não vêm),
+     * unidade de dimensão normalizada e características como lista {chave, valor} sem linhas vazias.
+     *
+     * @param  array<string, mixed>  $extras
+     * @return array<string, mixed>
+     */
+    private function normalizarExtras(array $extras, ?Produto $produto): array
+    {
+        foreach ([...Produto::NIVEIS_STOCK, 'comprimento', 'largura', 'altura', 'peso_liquido', 'peso_bruto'] as $campo) {
+            if (array_key_exists($campo, $extras)) {
+                $extras[$campo] = $extras[$campo] === null || $extras[$campo] === '' ? null : number_format((float) $extras[$campo], 3, '.', '');
+            }
+        }
+        $niveis = [];
+        foreach (Produto::NIVEIS_STOCK as $campo) {
+            $niveis[$campo] = array_key_exists($campo, $extras) ? $extras[$campo] : $produto?->getAttribute($campo);
+        }
+        ServicoNiveisStock::validarNiveis($niveis);
+        foreach (['marca', 'modelo', 'observacoes_tecnicas'] as $campo) {
+            if (array_key_exists($campo, $extras)) {
+                $extras[$campo] = trim((string) $extras[$campo]) ?: null;
+            }
+        }
+        if (array_key_exists('unidade_dimensao', $extras)) {
+            $extras['unidade_dimensao'] = $extras['unidade_dimensao'] ? mb_strtolower(trim((string) $extras['unidade_dimensao'])) : null;
+        }
+        if (array_key_exists('caracteristicas', $extras)) {
+            $lista = [];
+            foreach ((array) ($extras['caracteristicas'] ?? []) as $c) {
+                $chave = trim((string) ($c['chave'] ?? ''));
+                $valor = trim((string) ($c['valor'] ?? ''));
+                if ($chave === '' && $valor === '') {
+                    continue;
+                }
+                if ($chave === '') {
+                    throw new ErroNegocio("Característica sem nome (valor «{$valor}»).", 'CARACTERISTICA_INVALIDA', 422);
+                }
+                $lista[] = ['chave' => $chave, 'valor' => $valor];
+            }
+            $extras['caracteristicas'] = $lista ?: null;
+        }
+
+        return $extras;
     }
 
     private function sincronizarCatalogoCompras(Produto $produto): void

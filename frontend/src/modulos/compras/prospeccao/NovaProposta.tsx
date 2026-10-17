@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Divider, Flex, Form, Input, InputNumber, Row, Select, Space, Statistic, Table, Typography } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Divider, Flex, Form, Input, InputNumber, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -13,6 +13,7 @@ import { NomeProduto, useMapaProdutos } from '../comum/referencias';
 import { SeletorTerceiro } from '../comum/Seletores';
 import { numeroOuId, type ItemCompra, type PedidoCompra, type PropostaCompra } from '../comum/tipos';
 import { scrollTabela } from '@/componentes/responsivo';
+import { avaliarLinhas, cambioKz, LIMIAR_AVISO, type AvaliacaoLinha } from './avisoCusto';
 
 interface LinhaProposta {
   item_pedido_id: number;
@@ -56,6 +57,7 @@ export function NovaProposta() {
   const moeda = Form.useWatch('codigo_moeda', form) ?? 'AOA';
   const linhas = Form.useWatch('linhas', form) ?? [];
   const estimativa = totaisLinhas(linhas);
+  const taxaCambio = Form.useWatch('taxa_cambio', form);
 
   const aprovados = useQuery({
     queryKey: ['compras', 'pedidos', 'aprovados'],
@@ -80,6 +82,12 @@ export function NovaProposta() {
   }, [pedido.data, mapa, form]);
 
   const p = pedido.data;
+  const cambio = cambioKz(moeda, taxaCambio);
+  const avaliacao = avaliarLinhas(linhas, p?.referencia_encomendas, cambio);
+  const porProduto = new Map(avaliacao.map((a) => [a.produto_id, a]));
+  const acima = avaliacao.filter((a) => a.nivel === 'acima');
+  const perto = avaliacao.filter((a) => a.nivel === 'aviso');
+  const temReferencia = avaliacao.length > 0;
   return (
     <>
       <CabecalhoPagina titulo="Registar proposta de fornecedor" accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
@@ -183,6 +191,19 @@ export function NovaProposta() {
                         </Form.Item>
                       ),
                     },
+                    ...(temReferencia
+                      ? [
+                          {
+                            title: 'Valor da encomenda (Kz, s/ IVA)',
+                            align: 'right' as const,
+                            render: (_: unknown, c: { name: number }) => {
+                              const l = form.getFieldValue(['linhas', c.name]) as LinhaProposta | undefined;
+                              const a = l ? porProduto.get(l.produto_id) : undefined;
+                              return a ? <CelulaReferencia a={a} /> : <Typography.Text type="secondary">—</Typography.Text>;
+                            },
+                          },
+                        ]
+                      : []),
                     {
                       title: 'IVA %',
                       render: (_, c) => (
@@ -194,6 +215,27 @@ export function NovaProposta() {
                   ]}
                 />
                 <Form.ErrorList errors={errors} />
+                {temReferencia && cambio === null && (
+                  <Alert style={{ marginTop: 12 }} type="info" showIcon message="Indique o câmbio para comparar a proposta com o valor da encomenda do cliente." />
+                )}
+                {acima.length > 0 && (
+                  <Alert
+                    style={{ marginTop: 12 }}
+                    type="error"
+                    showIcon
+                    message={`Proposta acima do valor da encomenda em ${acima.length} artigo(s)`}
+                    description={<ListaAvisos itens={acima} />}
+                  />
+                )}
+                {perto.length > 0 && (
+                  <Alert
+                    style={{ marginTop: 12 }}
+                    type="warning"
+                    showIcon
+                    message={`Proposta a ${Math.round(LIMIAR_AVISO * 100)} % ou mais do valor da encomenda em ${perto.length} artigo(s)`}
+                    description={<ListaAvisos itens={perto} />}
+                  />
+                )}
               </>
             )}
           </Form.List>
@@ -213,5 +255,32 @@ export function NovaProposta() {
         </Space>
       </Form>
     </>
+  );
+}
+
+function percentagem(a: AvaliacaoLinha): string {
+  return a.razao === null ? '—' : `${Math.round(a.razao * 100)} %`;
+}
+
+function CelulaReferencia({ a }: { a: AvaliacaoLinha }) {
+  const cor = a.nivel === 'acima' ? 'error' : a.nivel === 'aviso' ? 'warning' : 'success';
+  return (
+    <Space size={6} title={a.documentos.length ? `Encomenda(s): ${a.documentos.join(', ')}` : undefined}>
+      <span>{formatarKz(a.referenciaKz)}</span>
+      {a.razao !== null && <Tag color={cor}>{percentagem(a)}</Tag>}
+    </Space>
+  );
+}
+
+function ListaAvisos({ itens }: { itens: AvaliacaoLinha[] }) {
+  return (
+    <ul style={{ margin: 0, paddingInlineStart: 18 }}>
+      {itens.map((a) => (
+        <li key={a.produto_id}>
+          <NomeProduto id={a.produto_id} /> — custo {formatarKz(a.custoKz ?? 0)} Kz contra {formatarKz(a.referenciaKz)} Kz na encomenda
+          {a.documentos.length ? ` ${a.documentos.join(', ')}` : ''} ({percentagem(a)}).
+        </li>
+      ))}
+    </ul>
   );
 }

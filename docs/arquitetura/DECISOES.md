@@ -2369,3 +2369,86 @@ Na pasta do Windows montada no Docker Desktop, o `DirectoryIterator` do PHP devo
   - passos do Encerramento pela ordem 1→5;
   - Contagem e Revisão de inventário paginadas a 50 artigos;
   - ícones `wrench`/`bolt`/`user-secret` substituídos por equivalentes do catálogo.
+
+### Pontos abertos postos como o legado (2026-10-16, decisões do utilizador)
+- **Compras — escalões:** o nível 1 vai primeiro ao responsável da unidade orgânica do requisitante, como no legado (`compras_deliberacao.js:98-149`).
+  - Se o requisitante for o próprio responsável, sobe na estrutura.
+  - Sem colaborador requisitante, vai ao responsável do CC/UN do pedido.
+  - Sem responsável com utilizador activo, cai na tarefa `compras_ped_aprovar`, com nota.
+  - A regra de decisão é única no servidor (`podeDecidir`), e ninguém aprova os próprios pedidos.
+- **Compras — aviso na proposta de fornecedor:** a partir de 70 % do preço de venda da encomenda do cliente que originou o pedido, e alerta acima de 100 %. Não bloqueia; o preço de venda só é enviado a quem regista propostas ou vê a faturação.
+- **Armazém — emitir guia de saída:** painel back-to-back e tipos do legado. A saída para cliente é uma única GR das Vendas (ADR-043).
+  - Para emitir, são precisas `armazem_guias_emitir` e `vendas_fat_emitir`.
+  - A lista mostra todas as GR, excepto as «GR LOG» migradas (espelhos do legado).
+- **POS de armazém:** «Finalizar Picking & Expedir» só com todos os artigos marcados (confirmado), verificado também no servidor (`PICKING_INCOMPLETO`).
+- **Menu e pesquisa:**
+  - O menu lateral fica sem campo de busca e mais compacto, e recolhe só aos ícones pelo botão a meio da borda.
+  - O «Procurar» do cabeçalho encontra ecrãs e funções. As funções (tarefas do catálogo permitidas) vêm em `GET /sistema/menu`.
+- **Outros pontos igualados ao legado:**
+  - Consolidação com um cartão por holding.
+  - AV % no Fluxo de Caixa (base = fluxos positivos de detalhe, sem os subtotais que o legado contava duas vezes).
+  - Relatório e Contas concluído mostra as demonstrações fixadas na conclusão.
+  - Editor D/C com a disposição de cada ecrã do legado.
+  - Plano de Contas com selecção e acções em massa (no servidor, em transacção).
+  - Tesouraria: URL, Período salarial, Projecto e Notas no documento; detalhe em modal; operador na Conferência de Caixa (quem regista não pode assinar); modelos de carta como no legado.
+  - RH: IBAN na página e só os que têm IBAN; motivo da suspensão; ano das férias em lista; mês dentro de cada separador da Efectividade; «Por decidir» e «Rever» nos Pedidos do Portal; título «Lançamentos de MM/AAAA».
+  - Inventário sem paginação (tabela virtualizada) e «Detalhes» abre a Contagem ou a Revisão.
+  - Activos combinados: a ficha mostra todas as linhas e as repartições são recalculadas ao alterar o valor.
+  - Ícones wrench/bolt/user-secret no catálogo.
+- **Fica diferente:** a ordem dos passos do Encerramento (1→5; o legado mostrava 5,4,3,1,2 por acaso).
+- **Colunas fora do esquema gerado:** `vendas.saida_armazem` e `conferencias_caixa.registado_por` (migrações com guardas), e a tabela `alocacoes_aquisicao_ativos` (modelo próprio com `PertenceEmpresa`). Acrescentar a `ferramentas/gerador/esquema_extra.mjs` na próxima regeneração do esquema.
+
+### Ronda de 2026-10-17 (pedidos do utilizador)
+- **Holding:**
+  - Usa a `e_consolidacao` existente.
+  - Vêem-na quem a criou e quem tem acesso a todas as empresas do grupo.
+  - Dentro dela só há Início, Dashboard e Contabilidade, com bloqueio também no servidor (Gate), mesmo para o superadministrador.
+  - O Início e o Dashboard comparam as empresas do grupo; os mapas legais têm «Por empresa» (colunas por empresa + eliminações/conversão + consolidado).
+  - A reclassificação 8–10 → 21 faz-se só no consolidado, para a soma bater.
+- **Produtos:**
+  - As contas passam a ser definidas na categoria (resolvedor único `ContasProduto::de`); a conta antiga do produto fica como recurso.
+  - A conversão dos dados é feita pelo comando `erp:produtos:converter-contas-categorias --simular` (ainda não corrido).
+  - Níveis de stock por produto (mínimo ≤ segurança ≤ ponto de encomenda ≤ máximo), com alertas e sugestões de reposição que geram um pedido de compra.
+  - Ficha técnica do produto.
+  - Permissão nova `vendas_categorias_contas`.
+- **POS:**
+  - O catálogo de cada terminal mostra só os artigos marcados para o serviço (`produtos.servicos_pos`; null = todos).
+  - Os quartos aparecem só na hotelaria e os serviços de lavandaria sempre na lavandaria.
+- **Séries e AGT:**
+  - O código de série passa a ser único por tipo em todos os anos (antes «FT X/1» podia repetir-se entre anos).
+  - O sufixo de colisão passa a ser uma letra (A2026B), não um algarismo.
+  - O formato SAF-T é validado antes de consumir um número (`RegrasNumeracaoAgt`).
+  - Ficam documentos migrados fora do formato SAF-T (FR-POS, FT-LAV, GR LOG), que não se renumeram.
+- **Tesouraria:**
+  - Cada recibo de venda (RE, adiantamento, FR, em contas 42/43/45) tem um documento RECEBIMENTO ligado, com uma só fonte de lançamento (integrar o documento contabiliza o recibo).
+  - Os recibos antigos tratam-se com `erp:tesouraria:reconciliar-recibos --simular`.
+  - Pagamentos/Recebimentos abrem só com o documento mais recente (legado `ui_tesouraria.js:403-430`).
+  - A Folha de Caixa só aceita contas 45, com importação tudo-ou-nada; sobras só em contas 68 e quebras só em contas 78 (validado no servidor).
+- **Activos:**
+  - Propriedade Próprio/Alheio; os alheios ficam fora de amortizações, mapas, abates e totais.
+  - Uma ordem de manutenção só conclui com as tarefas obrigatórias feitas (`TAREFAS_PENDENTES`); reabrir uma tarefa reabre a ordem.
+- **Projectos:**
+  - Medições por executante: a produtividade do RH passa a contar para quem executou.
+  - Folha de medição com modelo e importação; ordem de trabalho por colaborador.
+  - Organigrama em SVG (horizontal/vertical).
+  - Separadores Configuração e Actividade.
+- **Contabilidade:**
+  - Quebra por terceiro, UN e CC nos lançamentos.
+  - Mapas em árvore até à conta de movimento, com a composição de cada rubrica (`/relatorios/composicao`).
+  - Modelo e importação na actualização em massa.
+- **Relatório e Contas:** A4 vertical com capa, índice paginado, cabeçalhos e rodapés e gráficos SVG.
+- **Interface:**
+  - Eliminado o menu «BI contabilístico e Gestão documental»; o ecrã de gestão documental nunca existiu no legado (`renderSGD` inexistente).
+  - Cartões KPI com o valor completo (a letra ajusta-se ao espaço, sem reticências), o que substitui a regra anterior.
+  - A pesquisa do cabeçalho indexa também botões e separadores (`ferramentas/pesquisa/gerar_indice_pesquisa.mjs` — regenerar quando os ecrãs mudam).
+  - O portal tem o aspecto do ERP.
+- **Incidente:** a 2026-10-17 um agente aplicou por engano 6 migrações à base de desenvolvimento (`--env=testing` sem `.env.testing` usa o `.env`). Todas eram aditivas ou de dados previstos: retirar as chaves do BI dos perfis; marcar os activos como PRÓPRIO. Ficaram aplicadas.
+  - **Regra:** nunca correr `artisan migrate --env=testing`; para testes, só `phpunit -c`.
+- **Colunas fora do esquema gerado** (modelos com `forceFill`, migrações com guardas):
+  - `vendas.saida_armazem`;
+  - `conferencias_caixa.registado_por`;
+  - `produtos.servicos_pos`;
+  - as colunas de propriedade dos activos;
+  - as tabelas `alocacoes_aquisicao_ativos` e `registos_conversao_contas_produtos`.
+
+  Acrescentá-las a `ferramentas/gerador/esquema_extra.mjs` na próxima regeneração.

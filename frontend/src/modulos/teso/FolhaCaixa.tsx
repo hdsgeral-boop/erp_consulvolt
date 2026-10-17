@@ -22,6 +22,8 @@ import type { ModoLiquidacao } from './caixaLiquidacao';
 import type { MovimentoCaixa, SessaoCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { accoesSessao, sessaoAbertaRecente, valorComMoeda } from './regras';
+import { eContaCaixa, PREFIXOS_CAIXA } from './ronda3';
+import { descarregarModeloCaixa, ModalImportacaoCaixa } from './caixa/ModalImportacaoCaixa';
 import { COLUNAS_DESCRICOES, larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
@@ -135,9 +137,11 @@ function ListaSessoes() {
   const cliente = useQueryClient();
   const [conta, setConta] = useState<string>();
   const [abrir, setAbrir] = useState(false);
+  const [importar, setImportar] = useState(false);
   const [form] = Form.useForm<{ codigo_conta: string; data: Dayjs; saldo_abertura?: number }>();
   const sessoes = useQuery({ queryKey: ['teso', 'caixa', 'sessoes', conta], queryFn: () => obter<SessaoCaixa[]>('/tesouraria/caixa/sessoes', { codigo_conta: conta }) });
   const pequeno = useEcraPequeno();
+  const aberta = sessaoAbertaRecente(sessoes.data);
   const abertura = useMutation({
     mutationFn: (v: { codigo_conta: string; data: Dayjs; saldo_abertura?: number }) => enviar<SessaoCaixa>('post', '/tesouraria/caixa/sessoes', { ...v, data: dataApi(v.data) }),
     onSuccess: ({ dados, mensagem }) => {
@@ -173,12 +177,20 @@ function ListaSessoes() {
             linhas: sessoes.data ?? [],
           }),
         })}
-        accoes={pode('teso_caixa_operar') && <Button icon={<IconeFa nome="door-open" />} style={{ color: '#059669', borderColor: '#059669' }} onClick={() => { form.setFieldsValue({ data: dayjs() }); setAbrir(true); }}>Abrir sessão</Button>}
+        accoes={pode('teso_caixa_operar') && (
+          <Space wrap>
+            {/* ronda 3: modelo e importação de movimentos (showImportFolhaCaixaModal do legado) para a sessão aberta */}
+            <Button icon={<IconeFa nome="download" />} onClick={() => void descarregarModeloCaixa()}>Baixar modelo</Button>
+            <Button icon={<IconeFa nome="file-excel" />} style={{ color: '#10b981', borderColor: '#10b981' }} disabled={!aberta}
+              title={aberta ? `Importar movimentos para a sessão #${aberta.id}` : 'Abra uma sessão de caixa para importar movimentos'} onClick={() => setImportar(true)}>Importar</Button>
+            <Button type="primary" icon={<IconeFa nome="door-open" />} style={{ background: '#10b981', borderColor: '#10b981' }} onClick={() => { form.setFieldsValue({ data: dayjs() }); setAbrir(true); }}>Abrir Sessão</Button>
+          </Space>
+        )}
       />
-      <SubSeparadoresCaixa activo="sessoes" idAberta={sessaoAbertaRecente(sessoes.data)?.id} />
+      <SubSeparadoresCaixa activo="sessoes" idAberta={aberta?.id} />
       <Card title={<><IconeFa nome="history" /> Histórico de Sessões</>}>
         <Space wrap style={{ marginBottom: 16 }}>
-          <SeletorContaFinanceira value={conta} onChange={setConta} allowClear prefixos={['45']} placeholder="Conta de caixa" />
+          <SeletorContaFinanceira value={conta} onChange={setConta} allowClear prefixos={PREFIXOS_CAIXA} estrito placeholder="Conta de caixa" />
         </Space>
         <TabelaComModos<SessaoCaixa> idVista="sessoes"
           rowKey="id"
@@ -228,8 +240,9 @@ function ListaSessoes() {
       </Card>
       <Modal width={larguraModal(480)} title="Abrir sessão de caixa" open={abrir} onCancel={() => setAbrir(false)} okText="Abrir" confirmLoading={abertura.isPending} onOk={() => form.submit()}>
         <Form form={form} layout="vertical" onFinish={(v) => abertura.mutate(v)}>
-          <Form.Item name="codigo_conta" label="Conta de caixa" rules={[{ required: true }]}>
-            <SeletorContaFinanceira prefixos={['45']} style={{ width: '100%' }} />
+          {/* ronda 3: só contas de caixa (45) — a lista não mostra bancos; o servidor também valida (CONTA_NAO_CAIXA) */}
+          <Form.Item name="codigo_conta" label="Conta de caixa (45)" rules={[{ required: true }, { validator: (_, v) => (!v || eContaCaixa(v) ? Promise.resolve() : Promise.reject(new Error('A sessão de caixa abre-se numa conta 45.'))) }]}>
+            <SeletorContaFinanceira prefixos={PREFIXOS_CAIXA} estrito style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="data" label="Data" rules={[{ required: true }]}>
             <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
@@ -239,6 +252,7 @@ function ListaSessoes() {
           </Form.Item>
         </Form>
       </Modal>
+      {importar && aberta && <ModalImportacaoCaixa sessao={aberta} aoFechar={() => setImportar(false)} />}
     </>
   );
 }
@@ -364,6 +378,7 @@ function DetalheSessao() {
   const [seleccionados, setSeleccionados] = useState<number[]>([]);
   const [classificar, setClassificar] = useState(false);
   const [reabrir, setReabrir] = useState(false);
+  const [importarMov, setImportarMov] = useState(false);
   const notasDemo = porId(useTabelaAux('notas-demonstracao').data, (n) => n.codigo);
   const notasFluxo = porId(useTabelaAux('notas-fluxo-caixa').data, (n) => n.codigo);
   const unidades = porId(useUnidadesNegocio().data, (u) => `${u.codigo ? `${u.codigo} ` : ''}${u.nome}`);
@@ -433,13 +448,17 @@ function DetalheSessao() {
           <Flex wrap gap={8} justify="space-between" style={{ marginTop: 16 }} data-testid="botoes-sessao">
             <Space wrap>
               {a.podeRegistar && <>
-                <Button danger icon={<IconeFa nome="arrow-circle-down" />} onClick={() => registar('PAG')}>Registar Saída / Despesa</Button>
-                <Button icon={<IconeFa nome="arrow-circle-up" />} style={{ color: '#059669', borderColor: '#059669' }} onClick={() => registar('REC')}>Registar Entrada / Receita</Button>
+                {/* legado: btn-danger e btn-success (cheios) */}
+                <Button type="primary" danger icon={<IconeFa nome="arrow-circle-down" />} onClick={() => registar('PAG')}>Registar Saída / Despesa</Button>
+                <Button type="primary" icon={<IconeFa nome="arrow-circle-up" />} style={{ background: '#10b981', borderColor: '#10b981' }} onClick={() => registar('REC')}>Registar Entrada / Receita</Button>
                 <Button icon={<IconeFa nome="file-invoice-dollar" />} style={{ color: '#0284c7', borderColor: '#0284c7' }} onClick={() => setLiquidar('PAGAR')}>Pagar Faturas Fornecedor</Button>
                 <Button icon={<IconeFa nome="hand-holding-usd" />} style={{ color: '#7c3aed', borderColor: '#7c3aed' }} onClick={() => setLiquidar('RECEBER')}>Receber Faturas Cliente</Button>
+                {/* «Importar Excel» do legado (ui_folha_caixa.js:184), com o modelo */}
+                <Button icon={<IconeFa nome="file-excel" />} style={{ color: '#10b981', borderColor: '#10b981' }} onClick={() => setImportarMov(true)}>Importar Excel</Button>
+                <Button icon={<IconeFa nome="download" />} onClick={() => void descarregarModeloCaixa()}>Baixar modelo</Button>
               </>}
             </Space>
-            {a.podeFechar && <Button icon={<IconeFa nome="lock" />} style={{ color: '#d97706', borderColor: '#f59e0b' }} onClick={() => { formFecho.setFieldsValue({ data: dayjs(), saldo_fisico: Number(s.saldo_sistema ?? 0) }); setFecho(true); }}>Fechar Sessão</Button>}
+            {a.podeFechar && <Button icon={<IconeFa nome="door-closed" />} style={{ color: '#f59e0b', borderColor: '#f59e0b' }} onClick={() => { formFecho.setFieldsValue({ data: dayjs(), saldo_fisico: Number(s.saldo_sistema ?? 0) }); setFecho(true); }}>Fechar Sessão</Button>}
           </Flex>
         )}
         <Descriptions size="small" column={COLUNAS_DESCRICOES} style={{ marginTop: 16 }}>
@@ -565,6 +584,7 @@ function DetalheSessao() {
         </Form>
       </Modal>
 
+      {importarMov && <ModalImportacaoCaixa sessao={s} aoFechar={() => setImportarMov(false)} />}
       {liquidar && <ModalLiquidarFacturas sessao={s} modo={liquidar} aoFechar={() => setLiquidar(null)} />}
       {classificar && (
         <ModalClassificarMovimentos

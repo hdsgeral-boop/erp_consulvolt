@@ -46,13 +46,11 @@ final class CuboController extends Controller
         return RespostaApi::sucesso($this->cubo->consultar($f['conjunto'], $f), 'Análise dinâmica.');
     }
 
-    /** Regras comuns ao cubo e ao BI (a lista branca de dimensões e medidas é validada no serviço). */
-    public static function regras(bool $datasObrigatorias = true): array
+    /** Regras do pedido do cubo (a lista branca de dimensões e medidas é validada no serviço). */
+    public static function regras(): array
     {
-        $req = $datasObrigatorias ? 'required' : 'nullable';
-
         return [
-            'data_inicio' => [$req, 'date_format:Y-m-d'], 'data_fim' => [$req, 'date_format:Y-m-d', 'after_or_equal:data_inicio'],
+            'data_inicio' => ['required', 'date_format:Y-m-d'], 'data_fim' => ['required', 'date_format:Y-m-d', 'after_or_equal:data_inicio'],
             'linhas' => ['nullable', 'array', 'max:'.ServicoCubo::MAX_LINHAS], 'linhas.*' => ['string', 'max:60'],
             'colunas' => ['nullable', 'array', 'max:'.ServicoCubo::MAX_COLUNAS], 'colunas.*' => ['string', 'max:60'],
             'medidas' => ['nullable', 'array', 'max:'.ServicoCubo::MAX_MEDIDAS], 'medidas.*.medida' => ['nullable', 'string', 'max:60'],

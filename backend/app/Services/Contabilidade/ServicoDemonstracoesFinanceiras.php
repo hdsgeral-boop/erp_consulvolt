@@ -56,7 +56,7 @@ final class ServicoDemonstracoesFinanceiras
     public const FLUXO_PAGAMENTOS = ['112', '113', '12', '13', '142', '152', '22', '221', '222', '32', '321', '322', '323', '324', '325', '326', '327', '328'];
 
     /** Mesma lista, por igualdade, para os saldos históricos (js/ui_reports.js:1330). */
-    private const FLUXO_PAGAMENTOS_HISTORICO = ['112', '113', '12', '13', '142', '152', '221', '222', '321', '322', '323', '324', '325', '326', '327', '328'];
+    public const FLUXO_PAGAMENTOS_HISTORICO = ['112', '113', '12', '13', '142', '152', '221', '222', '321', '322', '323', '324', '325', '326', '327', '328'];
 
     /** Títulos das notas (js/relatorio_contas.js:32-68), usados quando a empresa não tem a nota nas tabelas auxiliares. */
     public const TITULOS = [
@@ -74,7 +74,7 @@ final class ServicoDemonstracoesFinanceiras
     ];
 
     /** Estrutura do Balanço (js/relatorio_contas.js:775-793). */
-    private const ESTRUTURA_BALANCO = [
+    public const ESTRUTURA_BALANCO = [
         'activo_nao_corrente' => ['4', '5', '6', '7'],
         'activo_corrente' => ['8', '9', '10', '11'],
         'capital_proprio' => ['12', '13', '14', 'res_liq'],
@@ -83,13 +83,13 @@ final class ServicoDemonstracoesFinanceiras
     ];
 
     /** Linhas do Fluxo de caixa (js/ui_reports.js:1414-1464). */
-    private const ESTRUTURA_FLUXO = [
+    public const ESTRUTURA_FLUXO = [
         'operacionais' => ['111', '112', '113', '11', '12', '13', '14', '141', '142', '15', '151', '152'],
         'investimento' => ['21', '211', '212', '213', '214', '215', '216', '22', '221', '222'],
         'financiamento' => ['31', '311', '312', '313', '314', '32', '321', '322', '323', '324', '325', '326', '327', '328'],
     ];
 
-    private const TITULOS_FLUXO = [
+    public const TITULOS_FLUXO = [
         '111' => 'Recebimentos (de caixa) de clientes', '112' => 'Pagamentos (de caixa) a fornecedores', '113' => 'Pagamentos ao pessoal',
         '11' => 'Caixa gerada pelas operações', '12' => 'Juros pagos', '13' => 'Pagamentos de impostos sobre lucros',
         '14' => 'Fluxos de caixa antes das rubricas outras actividades operacionais', '141' => 'Outros recebimentos relativos à actividade operacional',
@@ -188,7 +188,8 @@ final class ServicoDemonstracoesFinanceiras
             }
         }
         $v['res_liq'] = self::resultadoLiquido($dr);
-        foreach (['8', '9', '10'] as $n) {
+        // (só uso interno — colunas «por empresa» da holding: a reclassificação faz-se uma vez, sobre o consolidado)
+        foreach (empty($f['sem_reclassificacao']) ? ['8', '9', '10'] : [] as $n) {
             if (bccomp($v[$n], '0', 2) < 0) {
                 $v['21'] = bcadd($v['21'], bcmul($v[$n], '-1', 2), 2);
                 $v[$n] = '0.00';

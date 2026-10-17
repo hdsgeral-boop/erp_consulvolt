@@ -22,19 +22,19 @@ interface Filtro {
 
 interface Props {
   conjunto: ConjuntoCubo;
-  /** POST que executa a análise (ex.: /gestao/cubo/consultar ou /gestao/bi/consultar). */
+  /** POST que executa a análise (ex.: /gestao/cubo/consultar). */
   urlConsultar: string;
   /** Envia `conjunto` no pedido (cubo). */
   enviarConjunto?: boolean;
   /** Valores das dimensões para os filtros (só o cubo tem GET /gestao/cubo/valores). */
   comValores?: boolean;
-  /** Datas obrigatórias (cubo) ou opcionais com período pré-definido (BI). */
+  /** Datas opcionais com períodos pré-definidos (nenhum ecrã os usa desde que o BI contabilístico saiu, 17/10/2026). */
   periodos?: { id: string; rotulo: string }[];
 }
 
 /**
  * Análise dinâmica (tabela dinâmica agregada no servidor): dimensões nas linhas e colunas, medidas com agregação, filtros de
- * inclusão/exclusão, período, gráfico da 1.ª medida e exportação CSV. Usada pelo cubo do Dashboard e pelo BI contabilístico.
+ * inclusão/exclusão, período, gráfico da 1.ª medida e exportação CSV. Usada pelo cubo do Dashboard.
  */
 /** Visão gravada do cubo (o que se guarda no servidor). */
 interface VisaoCubo {

@@ -1,7 +1,9 @@
-import { Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, InputNumber, Space, Table, Tag, Typography, Upload, message } from 'antd';
+import { Button, Card, Checkbox, DatePicker, Descriptions, Flex, Form, InputNumber, Skeleton, Space, Table, Tag, Typography, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { obter } from '@/api/cliente';
 import { useNavigate } from 'react-router-dom';
 import { BotoesExportar, pares } from '@/componentes/impressao';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -20,6 +22,9 @@ import { filtrosDosParametros, periodoDosParametros, tabelaDeColunas } from '../
 import { useMapa } from '../comum/useMapa';
 import { periodoPorOmissao } from './periodoBalancete';
 import { TituloMapa } from './TituloMapa';
+import { achatar, agruparPorNivel, arvorePorPrefixo, chavesExpansiveis } from './arvoreContas';
+import { BotaoDetalheConta, BotoesArvore, DetalheConta, type PedidoDetalheConta } from './DetalheConta';
+import { BalancetePorEmpresa, InterruptorPorEmpresa, usePorEmpresa } from './PorEmpresa';
 import './mapas.css';
 
 /** Conta escolhida no balancete → separador Extrato (legado: renderRelatoriosContabeis('extrato', { accCode }), js/ui_reports.js:1660-1666). */
@@ -106,7 +111,19 @@ function SeparadorBalancete() {
   const p = mapa.parametros;
   const pequeno = useEcraPequeno();
   const t = mapa.data?.totais;
-  const linhas = mapa.data ? linhasVistaBalancete(mapa.data.linhas) : [];
+  const linhas = useMemo(() => (mapa.data ? linhasVistaBalancete(mapa.data.linhas) : []), [mapa.data]);
+  // árvore: cada totalizadora (Σ) abre até às contas de movimento, e estas aos terceiros («Quebrar por Terceiros»)
+  const arvore = useMemo(() => arvorePorPrefixo(linhas), [linhas]);
+  const todasChaves = useMemo(() => chavesExpansiveis(arvore), [arvore]);
+  const [abertas, setAbertas] = useState<string[]>([]);
+  // como o legado (lista aberta), cada cálculo mostra a árvore toda expandida
+  useEffect(() => setAbertas(todasChaves), [todasChaves]);
+  const [detalhe, setDetalhe] = useState<PedidoDetalheConta | null>(null);
+  const abrirDetalhe = (r: LinhaBalanceteVista) =>
+    setDetalhe({ conta: r.codigo_conta, descricao: r.eTerceiro ? null : r.descricao, terceiroId: r.terceiro_id, terceiroNome: r.eTerceiro ? r.descricao : r.terceiro, inicio: p?.data_inicio as string, fim: p?.data_fim as string, filtros: p });
+  const planas = useMemo(() => achatar(arvore), [arvore]);
+  const [porEmpresa, setPorEmpresa] = useState(false);
+  const pe = usePorEmpresa('balancete', p, porEmpresa);
   // SI devedor/credor: soma das contas de movimento mostradas (o legado preenchia-os ao filtrar, js/ui_reports.js:3523)
   const movimento = linhas.filter((l) => !l.totalizadora);
   const totaisSi = { saldo_inicial_devedor: somar(movimento.map((l) => l.saldo_inicial_devedor)), saldo_inicial_credor: somar(movimento.map((l) => l.saldo_inicial_credor)) };
@@ -127,6 +144,7 @@ function SeparadorBalancete() {
             <Typography.Link title="Abrir o extrato da conta" onClick={() => extrato(r)}>
               {v}
             </Typography.Link>
+            <BotaoDetalheConta aoClicar={() => abrirDetalhe(r)} />
           </span>
         ),
       valorImpressao: (l) => (l.eTerceiro ? '' : l.codigo_conta),
@@ -141,6 +159,7 @@ function SeparadorBalancete() {
             <Typography.Link title="Abrir o extrato da conta deste terceiro" onClick={() => extrato(r)}>
               {v?.trim() || 'Terceiro desconhecido'}
             </Typography.Link>
+            <BotaoDetalheConta aoClicar={() => abrirDetalhe(r)} titulo="Ver os movimentos da conta deste terceiro no período" />
           </span>
         ) : (
           <span className="erp-bal-descricao">{`${r.totalizadora ? 'Σ ' : ''}${v ?? (r.totalizadora ? '' : 'Conta desconhecida')}${r.terceiro ? ` · ${r.terceiro.trim()}` : ''}`}</span>
@@ -212,13 +231,13 @@ function SeparadorBalancete() {
                   titulo: 'Balancete',
                   periodo: periodoDosParametros(p),
                   filtros: filtrosDosParametros(p),
-                  conteudo: await tabelaDeColunas(colunas, linhas.flatMap((l) => [l, ...(l.filhos ?? [])])),
+                  conteudo: await tabelaDeColunas(colunas, planas),
                 }
               }
             />
             <BotaoCsv<LinhaBalanceteVista>
               nome={`balancete_${p?.data_inicio}_${p?.data_fim}`}
-              linhas={linhas.flatMap((l) => [l, ...(l.filhos ?? [])])}
+              linhas={planas}
               colunas={[
                 { titulo: 'Conta', valor: (l) => l.codigo_conta },
                 { titulo: 'Descrição', valor: (l) => (l.eTerceiro ? null : l.descricao) },
@@ -231,19 +250,22 @@ function SeparadorBalancete() {
                 { titulo: 'S. Credor', valor: (l) => l.saldo_credor, numerico: true },
               ]}
             />
+            <InterruptorPorEmpresa ligado={porEmpresa} aoMudar={setPorEmpresa} />
+            {todasChaves.length > 0 && !porEmpresa && <BotoesArvore aoExpandir={() => setAbertas(todasChaves)} aoRecolher={() => setAbertas([])} />}
             {t && t.debito !== t.credito && <Tag color="red">Débito ≠ crédito: verifique os desequilíbrios</Tag>}
           </Space>
+          {porEmpresa ? (
+            <BalancetePorEmpresa dados={pe.data} periodo={periodoDosParametros(p)} carregando={pe.isFetching} />
+          ) : (
           <Table<LinhaBalanceteVista>
-            // remonta a cada cálculo para abrir a quebra por terceiros (o legado mostrava-a aberta com a opção ligada)
-            key={JSON.stringify(p)}
             className="erp-mapa-contab"
             rowKey="chave"
             size="small"
             columns={colunas}
-            dataSource={linhas}
+            dataSource={arvore}
             rowClassName={classeLinhaBalancete}
-            expandable={{ childrenColumnName: 'filhos', defaultExpandAllRows: true, indentSize: 0 }}
-            pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (n) => `${n} conta(s)` }}
+            expandable={{ childrenColumnName: 'filhos', expandedRowKeys: abertas, onExpandedRowsChange: (k) => setAbertas(k.map(String)), indentSize: 12 }}
+            pagination={{ pageSize: 100, showSizeChanger: true, showTotal: (n) => `${n} conta(s) de 1.º nível` }}
             scroll={scrollTabela()}
             summary={() =>
               t ? (
@@ -264,8 +286,10 @@ function SeparadorBalancete() {
               ) : null
             }
           />
+          )}
         </>
       )}
+      <DetalheConta pedido={detalhe} aoFechar={() => setDetalhe(null)} />
     </Card>
   );
 }
@@ -276,6 +300,38 @@ function SeparadorRazao() {
   const abrirExtrato = useAbrirExtrato();
   const p = mapa.parametros;
   const t = mapa.data?.totais;
+  // cada conta do razão abre as suas contas de movimento: o mesmo balancete sem nível, pedido uma vez quando se abre a 1.ª
+  const [abertas, setAbertas] = useState<string[]>([]);
+  const [detalhe, setDetalhe] = useState<PedidoDetalheConta | null>(null);
+  useEffect(() => setAbertas([]), [mapa.data]);
+  const pMovimento = p ? { ...p, nivel: undefined, totalizadoras: undefined } : null;
+  const movimento = useQuery({
+    queryKey: ['contab', 'mapa', 'balancete_razao', 'movimento', pMovimento],
+    queryFn: () => obter<Balancete>('/contabilidade/relatorios/balancete', pMovimento ?? undefined),
+    enabled: !!pMovimento && abertas.length > 0,
+    retry: false,
+  });
+  const porRazao = useMemo(() => agruparPorNivel(movimento.data?.linhas ?? [], 2), [movimento.data]);
+  const todas = (mapa.data?.linhas ?? []).map((l) => l.codigo_conta);
+  const colunasMovimento: ColunaApi<LinhaBalancete>[] = [
+    {
+      title: 'Conta',
+      dataIndex: 'codigo_conta',
+      render: (v: string, r) => (
+        <span style={{ whiteSpace: 'nowrap', paddingLeft: 16 }}>
+          <Typography.Link title="Abrir o extrato da conta" onClick={() => abrirExtrato({ conta: v, inicio: p?.data_inicio as string, fim: p?.data_fim as string })}>
+            {v}
+          </Typography.Link>
+          <BotaoDetalheConta aoClicar={() => setDetalhe({ conta: v, descricao: r.descricao, inicio: p?.data_inicio as string, fim: p?.data_fim as string, filtros: p })} />
+        </span>
+      ),
+    },
+    { title: 'Descrição', dataIndex: 'descricao', render: (v: string | null) => <Typography.Text type="secondary">{v ?? 'Conta desconhecida'}</Typography.Text> },
+    { title: 'Débito', dataIndex: 'debito', align: 'right', render: (v: string) => <ValorBal valor={v} /> },
+    { title: 'Crédito', dataIndex: 'credito', align: 'right', render: (v: string) => <ValorBal valor={v} /> },
+    { title: 'S. Devedor', dataIndex: 'saldo_devedor', align: 'right', render: (v: string) => <ValorBal valor={v} classe="erp-bal-sd" /> },
+    { title: 'S. Credor', dataIndex: 'saldo_credor', align: 'right', render: (v: string) => <ValorBal valor={v} classe="erp-bal-sc" /> },
+  ];
   const kz = (v: string) => <span style={{ whiteSpace: 'nowrap' }}>{formatarKz(v)}</span>;
   const total = (k: string) => () => formatarKz(t?.[k]);
   const colunaConta: ColunaApi<LinhaBalancete> = {
@@ -351,6 +407,7 @@ function SeparadorRazao() {
                 { titulo: 'Saldo credor', valor: (l) => l.saldo_credor, numerico: true },
               ]}
             />
+            <BotoesArvore aoExpandir={() => setAbertas(todas)} aoRecolher={() => setAbertas([])} desactivado={!todas.length} />
             {t && t.debito !== t.credito && <Tag color="red">Débito ≠ crédito: verifique os desequilíbrios</Tag>}
           </Space>
           <Table<LinhaBalancete>
@@ -361,6 +418,24 @@ function SeparadorRazao() {
             columns={colunas}
             dataSource={mapa.data.linhas}
             pagination={false}
+            expandable={{
+              expandedRowKeys: abertas,
+              onExpandedRowsChange: (k) => setAbertas(k.map(String)),
+              expandedRowRender: (r) =>
+                movimento.isLoading ? (
+                  <Skeleton active paragraph={{ rows: 2 }} />
+                ) : (
+                  <Table<LinhaBalancete>
+                    rowKey="codigo_conta"
+                    size="small"
+                    pagination={false}
+                    showHeader={false}
+                    columns={colunasMovimento}
+                    dataSource={porRazao.get(r.codigo_conta) ?? []}
+                    locale={{ emptyText: 'Sem contas de movimento.' }}
+                  />
+                ),
+            }}
             scroll={scrollTabela()}
             summary={() =>
               t ? (
@@ -381,6 +456,7 @@ function SeparadorRazao() {
           />
         </>
       )}
+      <DetalheConta pedido={detalhe} aoFechar={() => setDetalhe(null)} />
     </Card>
   );
 }

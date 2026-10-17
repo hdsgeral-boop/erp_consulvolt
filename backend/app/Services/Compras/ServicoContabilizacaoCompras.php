@@ -11,6 +11,7 @@ use App\Models\Terceiro;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoNotasPorConta;
+use App\Services\Logistica\ContasProduto;
 use App\Services\Reparticao\ServicoReparticao;
 use App\Services\Vendas\ServicoStockVendas;
 use Illuminate\Support\Facades\DB;
@@ -114,15 +115,15 @@ final class ServicoContabilizacaoCompras
             } elseif ($p?->movimenta_stock) {
                 throw new ErroNegocio("{$onde} artigo de stock sem encomenda/recepção.", 'FATURA_DIRETA_COM_STOCK', 422);
             } elseif ($p?->e_ativo_imobilizado) {
-                $somar($p->conta_ativo ?: $this->config->exigir('imobilizado', "{$onde} activo sem conta de imobilizado."), $liquido);
+                $somar(ContasProduto::de($p)->ativo ?: $this->config->exigir('imobilizado', "{$onde} activo sem conta de imobilizado."), $liquido);
             } else {
-                $somar($p?->conta_custo ?: ($p?->conta_compra ?: $this->config->exigir('custos_servicos', "{$onde} produto sem conta de custo.")), $liquido);
+                $somar(ContasProduto::de($p)->custo ?: (ContasProduto::de($p)->compra ?: $this->config->exigir('custos_servicos', "{$onde} produto sem conta de custo.")), $liquido);
             }
             // IVA gravado na linha (em Kz); linhas do legado sem esse valor: recalculado sobre o líquido
             $iva = $l->imposto_kz !== null ? number_format((float) $l->imposto_kz, 2, '.', '')
                 : CalculadoraCompra::calcular([['quantidade' => '1', 'preco_unitario' => $liquido, 'taxa_imposto' => (string) ($l->taxa_imposto ?? 0)]])['imposto'];
             if (bccomp($iva, '0', 2) > 0) {   // o IVA dedutível não é custo do projecto: fica com o projecto da factura
-                $somar($p?->conta_iva_dedutivel ?: $this->config->exigir('iva_dedutivel', "{$onde} produto sem conta de IVA dedutível."), $iva, $fatura->projeto_id ?: 0, false);
+                $somar(ContasProduto::de($p)->ivaDedutivel ?: $this->config->exigir('iva_dedutivel', "{$onde} produto sem conta de IVA dedutível."), $iva, $fatura->projeto_id ?: 0, false);
             }
         }
 

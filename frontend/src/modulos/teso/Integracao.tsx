@@ -2,7 +2,7 @@ import { Alert, Button, Card, DatePicker, Form, Modal, Progress, Select, Tabs, T
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
 import { BarraFiltros } from '@/componentes/responsivo';
@@ -19,6 +19,7 @@ import { colunasIntegracao } from './colunasLegado';
 import { BannerTeso } from './motivo';
 import { ROTULO_TIPO } from './api';
 import { errosDoLote, LOTE_INTEGRACAO } from './regras';
+import { prefixosDaChave } from './ronda3';
 
 /** Tesouraria › Integração no razão (ecrã teso_contab_integracao): documentos por integrar e contas de tesouraria. */
 export default function Integracao() {
@@ -31,7 +32,8 @@ export default function Integracao() {
 }
 
 function PorIntegrar() {
-  const navegar = useNavigate();
+  // detalhe em modal sobre a lista (viewTesoDocDetail/viewTesoMovementDetail do legado); a rota …/:id continua
+  const [detalhe, setDetalhe] = useState<number | null>(null);
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const [tipo, setTipo] = useState<TipoDocumento>();
@@ -107,7 +109,7 @@ function PorIntegrar() {
                 )}
                 <TabelaDocumentos
                   filtros={filtrosPendentes}
-                  columns={colunasIntegracao((d) => navegar(String(d.id)))}
+                  columns={colunasIntegracao((d) => setDetalhe(d.id))}
                   impressao={{
                     titulo: 'Documentos de tesouraria por integrar',
                     periodo: textoPeriodo(periodo),
@@ -115,7 +117,7 @@ function PorIntegrar() {
                     rotuloTotal: 'Saldo',
                   }}
                   rowSelection={podeIntegrar ? { selectedRowKeys: seleccao.map((d) => d.id), onChange: (_, linhas) => setSeleccao(linhas) } : undefined}
-                  onRow={(r) => ({ onDoubleClick: () => navegar(String(r.id)) })}
+                  onRow={(r) => ({ onDoubleClick: () => setDetalhe(r.id) })}
                 />
                 <Typography.Text type="secondary">Duplo clique num documento para ver o detalhe.</Typography.Text>
               </Card>
@@ -124,11 +126,12 @@ function PorIntegrar() {
           { key: 'contas', label: 'Contas de tesouraria', children: <ContasTesouraria /> },
         ]}
       />
+      {detalhe !== null && <DetalheDocumento emModal permitirEdicao={false} id={detalhe} aoFechar={() => setDetalhe(null)} />}
     </>
   );
 }
 
-type ConfigContas = Record<string, { descricao: string; codigo_conta: string | null }>;
+type ConfigContas = Record<string, { descricao: string; codigo_conta: string | null; prefixos?: string[] | null }>;
 
 function ContasTesouraria() {
   const { pode } = useSessao();
@@ -158,8 +161,10 @@ function ContasTesouraria() {
           style={{ maxWidth: 560 }}
         >
           {Object.entries(c).map(([k, v]) => (
-            <Form.Item key={k} name={k} label={v.descricao}>
-              <SeletorConta allowClear style={{ width: '100%' }} />
+            // ronda 3: sobras só em contas 68 e quebras só em 78 (o servidor valida: CONTA_PREFIXO_INVALIDO)
+            <Form.Item key={k} name={k} label={v.descricao}
+              rules={[{ validator: (_, x?: string) => { const p = prefixosDaChave(k, v.prefixos); return !x || !p || p.some((q) => x.startsWith(q)) ? Promise.resolve() : Promise.reject(new Error(`Escolha uma conta ${p.join(' ou ')}.`)); } }]}>
+              <SeletorConta allowClear prefixos={prefixosDaChave(k, v.prefixos)} style={{ width: '100%' }} />
             </Form.Item>
           ))}
           {editar && <Button type="primary" htmlType="submit" loading={gravar.isPending}>Gravar</Button>}

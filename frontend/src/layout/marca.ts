@@ -27,3 +27,8 @@ export function rotuloPapel(papel: string | null | undefined): string | null {
   if (!papel) return null;
   return PAPEIS[papel.toUpperCase()] ?? papel.charAt(0).toUpperCase() + papel.slice(1).toLowerCase().replace(/_/g, ' ');
 }
+
+/** Nome da empresa nas listas de troca de empresa; as holdings (empresas de consolidação) levam a marca «Holding». */
+export function rotuloEmpresa(e: { nome: string; e_consolidacao?: boolean }): string {
+  return e.e_consolidacao ? `${e.nome} · Holding` : e.nome;
+}

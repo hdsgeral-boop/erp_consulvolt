@@ -22,8 +22,10 @@ export function seccoesRotinas(podeRotinas: boolean, podeSelo: boolean, pedida?:
 }
 
 export interface LinhaActualizacao {
-  lancamento_id: number;
-  campo_a_modificar: string;
+  /** N.º da linha no Excel (o importador envia-o, para os erros apontarem a linha do ficheiro). */
+  linha?: number;
+  lancamento_id: number | string | null;
+  campo_a_modificar: string | null;
   novo_valor: string | null;
 }
 
@@ -35,7 +37,64 @@ export const CAMPOS_ACTUALIZAVEIS: { valor: string; rotulo: string }[] = [
   { valor: 'diario_id', rotulo: 'Diário (id)' },
   { valor: 'nota_demonstracao_id', rotulo: 'Nota DEMO (id)' },
   { valor: 'nota_fluxo_caixa_id', rotulo: 'Nota de fluxo (id)' },
+  { valor: 'unidade_negocio_id', rotulo: 'Unidade de negócio (id)' },
+  { valor: 'centro_custo_id', rotulo: 'Centro de custo (id)' },
 ];
+
+/** Linha da pré-visualização (valor actual → novo valor) devolvida pelo servidor. */
+export interface LinhaPrevia {
+  linha: number;
+  lancamento_id: number | null;
+  numero_lan: string | null;
+  codigo_conta: string | null;
+  campo: string;
+  anterior: string | null;
+  novo: string | null;
+  estado: 'OK' | 'SEM_ALTERACAO' | 'ERRO';
+  motivo: string | null;
+}
+
+/** Resposta de POST /contabilidade/rotinas/actualizacao-massa (e /importar, que traz também as `linhas` lidas). */
+export interface ResultadoActualizacao {
+  codigo: string | null;
+  actualizadas: number;
+  validas: number;
+  erros: { linha: number; lancamento_id: number | null; motivo: string }[];
+  previa: LinhaPrevia[];
+  simulacao: boolean;
+  avisos: string[];
+  linhas?: LinhaActualizacao[];
+}
+
+/** Contagens da pré-visualização/resultado. */
+export function resumoActualizacao(r: Pick<ResultadoActualizacao, 'previa' | 'erros' | 'validas'>) {
+  return {
+    validas: r.validas,
+    erros: r.erros.length,
+    alterar: r.previa.filter((p) => p.estado === 'OK').length,
+    semAlteracao: r.previa.filter((p) => p.estado === 'SEM_ALTERACAO').length,
+  };
+}
+
+const escapar = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
+/** Documento (HTML) do relatório para imprimir/PDF/Excel: a pré-visualização completa, ou só os erros depois de aplicar. */
+export function documentoActualizacao(r: ResultadoActualizacao): string {
+  if (!r.simulacao && r.previa.length === 0) {
+    const linhas = r.erros.map((e) => `<tr><td>${e.linha}</td><td>${escapar(e.lancamento_id)}</td><td>${escapar(e.motivo)}</td></tr>`).join('');
+    return `<table><thead><tr><th>Linha</th><th>Lançamento</th><th>Motivo</th></tr></thead><tbody>${linhas || '<tr><td colspan="3">Sem erros.</td></tr>'}</tbody></table>`;
+  }
+  const rotulo = new Map(CAMPOS_ACTUALIZAVEIS.map((c) => [c.valor, c.rotulo]));
+  const estado = { OK: 'Alterar', SEM_ALTERACAO: 'Sem alteração', ERRO: 'Erro' } as const;
+  const linhas = r.previa
+    .map(
+      (p) =>
+        `<tr><td>${p.linha}</td><td>${escapar(p.lancamento_id)}</td><td>${escapar(p.numero_lan)}</td><td>${escapar(p.codigo_conta)}</td><td>${escapar(rotulo.get(p.campo) ?? p.campo)}</td><td>${escapar(p.anterior ?? '(vazio)')}</td><td>${escapar(p.novo ?? '(vazio)')}</td><td>${estado[p.estado]}</td><td>${escapar(p.motivo)}</td></tr>`,
+    )
+    .join('');
+  return `<table><thead><tr><th>Linha</th><th>ID</th><th>Nº Lanç.</th><th>Conta</th><th>Campo</th><th>Valor actual</th><th>Novo valor</th><th>Estado</th><th>Motivo</th></tr></thead><tbody>${linhas}</tbody></table>`;
+}
 
 /**
  * Lê linhas «id;campo;novo valor» coladas de uma folha de cálculo (separador «;», tabulação ou «,»).

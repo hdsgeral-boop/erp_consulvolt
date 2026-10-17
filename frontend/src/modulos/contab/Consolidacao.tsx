@@ -1,8 +1,8 @@
-import { Alert, Button, Card, Checkbox, DatePicker, Descriptions, Empty, Form, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, Typography, message, theme } from 'antd';
-import { DeleteOutlined, EditOutlined, PlayCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tag, Typography, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { ModalFormulario, SeccaoFormulario } from '@/componentes/formularios';
 import { larguraModal, scrollTabela, useEcra } from '@/componentes/responsivo';
@@ -37,6 +37,8 @@ interface Grupo {
   conta_diferenca_eliminacao: string;
   membros: { empresa_id: number; nome: string; nif: string | null; percentagem: string; metodo: string }[];
   ultima_execucao_id: number | null;
+  /** Resumo das eliminações da execução mais recente (null: sem eliminações registadas). */
+  eliminacoes_ultima?: { execucao_id: number; divergentes: number } | null;
   execucoes: Execucao[];
 }
 
@@ -62,35 +64,56 @@ interface ValoresGrupo {
   membros: number[];
 }
 
-/** Contabilidade › Consolidação de empresas (ecrã consolidacao, ADR-057): grupos/holdings, execução e Mapa de Consolidação. */
+interface Divergencia {
+  a: string;
+  b: string;
+  saldo_ab: string;
+  saldo_ba: string;
+  dif_saldo: string;
+  proveitos_ab: string;
+  custos_ba: string;
+  dif_ab: string;
+  proveitos_ba: string;
+  custos_ab: string;
+  dif_ba: string;
+}
+
+const ROXO = '#7c3aed';
+const ROTULO_SECCAO: React.CSSProperties = { fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 };
+
+/** «diferença» relevante como no legado: |v| ≥ 0,01 (js/consolidacao.js:1030). */
+export const temDiferenca = (v: string | number | null | undefined) => Math.abs(Number(v ?? 0)) >= 0.01;
+export const parDivergente = (d: Pick<Divergencia, 'dif_saldo' | 'dif_ab' | 'dif_ba'>) => temDiferenca(d.dif_saldo) || temDiferenca(d.dif_ab) || temDiferenca(d.dif_ba);
+
+/**
+ * Contabilidade › Consolidação de empresas (ecrã consolidacao, ADR-057).
+ * Como o legado (renderConsolidacao, js/consolidacao.js:755-890): um cartão por holding com as acções de cada uma
+ * (Mapa de Consolidação, Abrir nos Mapas, Eliminações e Divergências, Editar, Eliminar), as empresas do grupo,
+ * a última consolidação, o bloco «Executar consolidação» e o histórico (últimas 5).
+ */
 export default function Consolidacao() {
-  const { pode, empresas } = useSessao();
+  const { pode, empresas, recarregarEmpresas } = useSessao();
   const cliente = useQueryClient();
   const grupos = useQuery({ queryKey: ['contab', 'consolidacao', 'grupos'], queryFn: () => obter<Grupo[]>('/consolidacao/grupos') });
-  const [grupoId, setGrupoId] = useState<number | null>(null);
   const [edicao, setEdicao] = useState<Grupo | 'novo' | null>(null);
+  const [mapaDe, setMapaDe] = useState<Grupo | null>(null);
+  const [divergenciasDe, setDivergenciasDe] = useState<{ grupo: Grupo; execucao: number } | null>(null);
+  const [execucaoAberta, setExecucaoAberta] = useState<number | null>(null);
   const [form] = Form.useForm<ValoresGrupo>();
-  const grupo = grupos.data?.find((g) => g.id === grupoId) ?? grupos.data?.[0];
 
-  const invalidar = () => void cliente.invalidateQueries({ queryKey: ['contab', 'consolidacao'] });
+  // a holding criada (ou eliminada) aparece (ou desaparece) logo na troca de empresa, sem novo login
+  const invalidar = () => {
+    void cliente.invalidateQueries({ queryKey: ['contab', 'consolidacao'] });
+    void recarregarEmpresas().catch(() => undefined);
+  };
   const gravar = useMutation({
     mutationFn: (v: ValoresGrupo) => (edicao && edicao !== 'novo' ? enviar<Grupo>('put', `/consolidacao/grupos/${edicao.id}`, v) : enviar<Grupo>('post', '/consolidacao/grupos', v)),
-    onSuccess: ({ dados, mensagem }) => {
+    onSuccess: ({ mensagem }) => {
       message.success(mensagem);
       setEdicao(null);
-      setGrupoId(dados.id);
       invalidar();
     },
     onError: (e) => notificarErro(e, 'Não foi possível gravar o grupo'),
-  });
-  const eliminar = useMutation({
-    mutationFn: (id: number) => enviar('delete', `/consolidacao/grupos/${id}`),
-    onSuccess: ({ mensagem }) => {
-      message.success(mensagem);
-      setGrupoId(null);
-      invalidar();
-    },
-    onError: (e) => notificarErro(e, 'Não foi possível eliminar'),
   });
 
   const abrirEdicao = (g: Grupo | 'novo') => {
@@ -119,29 +142,61 @@ export default function Consolidacao() {
             <IconeFa nome="sitemap" /> Consolidação de Empresas
           </>
         }
-        subtitulo="Holdings, eliminações intragrupo por NIF e conversão cambial"
+        subtitulo="Crie uma holding, escolha as empresas do grupo e gere as contas consolidadas. Os mapas da contabilidade ficam disponíveis escolhendo a holding como empresa ativa."
         accoes={
-          <Space wrap>
-            {(grupos.data?.length ?? 0) > 0 && (
-              <Select style={{ minWidth: 240 }} value={grupo?.id} onChange={setGrupoId} options={(grupos.data ?? []).map((g) => ({ value: g.id, label: g.nome }))} aria-label="Grupo" />
-            )}
-            {pode('consol_gerir') && grupo && <Button icon={<EditOutlined />} onClick={() => abrirEdicao(grupo)}>Editar</Button>}
-            {pode('consol_eliminar') && grupo && (
-              <Popconfirm title={`Eliminar a holding ${grupo.nome}?`} description="As empresas do grupo não são afectadas." okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }} onConfirm={() => eliminar.mutateAsync(grupo.id)}>
-                <Button danger icon={<DeleteOutlined />}>Eliminar</Button>
-              </Popconfirm>
-            )}
-            {pode('consol_gerir') && <Button type="primary" icon={<PlusOutlined />} onClick={() => abrirEdicao('novo')}>Nova Holding</Button>}
-          </Space>
+          pode('consol_gerir') && (
+            <Button type="primary" icon={<IconeFa nome="plus" />} onClick={() => abrirEdicao('novo')}>
+              Nova Holding
+            </Button>
+          )
         }
       />
       {grupos.isLoading ? (
         <Card loading />
-      ) : !grupo ? (
-        <Empty description="Não há grupos de consolidação acessíveis." />
+      ) : !grupos.data?.length ? (
+        // legado: cartão vazio «Ainda não existe nenhuma holding» (js/consolidacao.js:782-786)
+        <Card>
+          <Empty
+            image={<IconeFa nome="sitemap" style={{ fontSize: 48, opacity: 0.35 }} />}
+            description={
+              <>
+                <Typography.Title level={5} style={{ marginBottom: 4 }}>Ainda não existe nenhuma holding</Typography.Title>
+                <Typography.Text type="secondary">Clique em <strong>Nova Holding</strong> para escolher as empresas a consolidar.</Typography.Text>
+              </>
+            }
+          />
+        </Card>
       ) : (
-        <PainelGrupo key={grupo.id} grupo={grupo} />
+        grupos.data.map((g) => (
+          <CartaoHolding
+            key={g.id}
+            grupo={g}
+            aoEditar={() => abrirEdicao(g)}
+            aoAbrirMapa={() => setMapaDe(g)}
+            aoAbrirDivergencias={(execucao) => setDivergenciasDe({ grupo: g, execucao })}
+            aoAbrirExecucao={setExecucaoAberta}
+            aoEliminado={invalidar}
+          />
+        ))
       )}
+
+      {mapaDe && (
+        <Modal open title={<><IconeFa nome="table" style={{ color: ROXO }} /> Mapa de Consolidação — {mapaDe.nome}</>} onCancel={() => setMapaDe(null)} footer={null} width={larguraModal(1200)}>
+          <PainelMapa grupo={mapaDe} />
+        </Modal>
+      )}
+      {divergenciasDe && (
+        <Modal
+          open
+          title={<><IconeFa nome="exchange-alt" style={{ color: ROXO }} /> Eliminações e Divergências — {divergenciasDe.grupo.nome}</>}
+          onCancel={() => setDivergenciasDe(null)}
+          footer={null}
+          width={larguraModal(1100)}
+        >
+          <EliminacoesExecucao id={divergenciasDe.execucao} />
+        </Modal>
+      )}
+      {execucaoAberta && <DetalheExecucao id={execucaoAberta} aoFechar={() => setExecucaoAberta(null)} />}
 
       {/*
         Grade com secções (sem «Linhas»): cada grupo leva a sua lista de empresas e é raro criar vários de uma vez.
@@ -149,7 +204,7 @@ export default function Consolidacao() {
       */}
       <ModalFormulario
         chave="contab.consolidacao.grupos"
-        titulo={edicao === 'novo' ? 'Novo grupo de consolidação' : 'Editar grupo de consolidação'}
+        titulo={edicao === 'novo' ? 'Nova Holding' : 'Editar Holding'}
         aberto={edicao !== null}
         aoFechar={() => setEdicao(null)}
         criacao={false}
@@ -164,21 +219,26 @@ export default function Consolidacao() {
         <Form form={form} layout="vertical" onFinish={(v) => gravar.mutate(v)}>
           <SeccaoFormulario titulo="Holding e empresas">
             <Form.Item name="nome" label="Nome da holding" rules={[{ required: true }]}>
-              <Input maxLength={255} />
+              <Input maxLength={255} placeholder="Ex.: GRUPO XPTO — CONSOLIDADO" />
             </Form.Item>
             <Form.Item name="nif" label="NIF da holding" rules={[{ required: true }]}>
               <Input maxLength={30} />
             </Form.Item>
-            <Form.Item name="membros" label="Empresas a consolidar (100%, método integral)" rules={[{ required: true, message: 'Escolha pelo menos uma empresa.' }]}>
+            <Form.Item
+              name="membros"
+              label="Empresas a consolidar (100%, método integral)"
+              rules={[{ required: true, message: 'Escolha pelo menos uma empresa.' }]}
+              extra="A holding é uma empresa própria: aparece na troca de empresa a quem a cria e a quem acede a todas as empresas do grupo. Dentro da holding só estão o Início, o Dashboard e a Contabilidade (consolidação, mapas e lançamentos da holding)."
+            >
               <Select mode="multiple" optionFilterProp="label" options={empresas.filter((e) => !e.e_consolidacao).map((e) => ({ value: e.id, label: e.nome }))} />
             </Form.Item>
           </SeccaoFormulario>
           <SeccaoFormulario key={edicao === 'novo' ? 'novo' : edicao?.id ?? 'fechado'} titulo="Moeda e eliminações" recolhida={edicao === 'novo'}>
             <Space wrap>
-              <Form.Item name="moeda_apresentacao" label="Moeda de apresentação">
+              <Form.Item name="moeda_apresentacao" label="Moeda por omissão">
                 <Input maxLength={3} style={{ width: 100 }} />
               </Form.Item>
-              <Form.Item name="conta_reserva_cambial" label="Conta de reserva cambial">
+              <Form.Item name="conta_reserva_cambial" label="Conta de reservas de conversão">
                 <Input maxLength={20} placeholder="599" style={{ width: 160 }} />
               </Form.Item>
               <Form.Item name="conta_diferenca_eliminacao" label="Conta de diferenças de eliminação">
@@ -186,9 +246,9 @@ export default function Consolidacao() {
               </Form.Item>
             </Space>
             <Form.Item name="eliminacao_ativa" valuePropName="checked">
-              <Checkbox>Eliminações intragrupo activas</Checkbox>
+              <Checkbox>Eliminar operações intragrupo</Checkbox>
             </Form.Item>
-            <Form.Item name="prefixos_excluidos_eliminacao" label="Prefixos excluídos das eliminações">
+            <Form.Item name="prefixos_excluidos_eliminacao" label="Contas não eliminadas (prefixos)">
               <Input maxLength={10} />
             </Form.Item>
           </SeccaoFormulario>
@@ -199,12 +259,30 @@ export default function Consolidacao() {
   );
 }
 
-function PainelGrupo({ grupo }: { grupo: Grupo }) {
-  const { pode } = useSessao();
+interface PropsCartao {
+  grupo: Grupo;
+  aoEditar: () => void;
+  aoAbrirMapa: () => void;
+  aoAbrirDivergencias: (execucaoId: number) => void;
+  aoAbrirExecucao: (execucaoId: number) => void;
+  aoEliminado: () => void;
+}
+
+/** Cartão de uma holding (legado js/consolidacao.js:787-887). As acções respeitam as permissões; o servidor volta a validá-las. */
+function CartaoHolding({ grupo, aoEditar, aoAbrirMapa, aoAbrirDivergencias, aoAbrirExecucao, aoEliminado }: PropsCartao) {
+  const { pode, empresas, escolherEmpresa } = useSessao();
+  const { token } = theme.useToken();
+  const navegar = useNavigate();
   const cliente = useQueryClient();
-  const [execucaoAberta, setExecucaoAberta] = useState<number | null>(null);
-  const [dataFim, setDataFim] = useState<Dayjs>(dayjs().endOf('month'));
+  // a lista vem do servidor ordenada da mais recente para a mais antiga (limite 5, como o «Histórico» do legado)
+  const ultima = grupo.execucoes[0] ?? null;
+  const [dataFim, setDataFim] = useState<Dayjs>(ultima?.data_fim ? dayjs(ultima.data_fim) : dayjs());
   const [moeda, setMoeda] = useState(grupo.moeda_apresentacao);
+  const moedas = useQuery({ queryKey: ['sistema', 'moedas', 'activas'], queryFn: () => obter<{ codigo: string; nome: string }[]>('/sistema/moedas', { ativas: 1 }), staleTime: 300_000, retry: false });
+  const opcoesMoeda = [...new Set(['AOA', grupo.moeda_apresentacao, ...(moedas.data ?? []).map((m) => m.codigo)])].map((c) => ({ value: c, label: c }));
+  const holdingAcessivel = !!grupo.holding && empresas.some((e) => e.id === grupo.holding?.id);
+  const el = grupo.eliminacoes_ultima ?? null;
+
   const executar = useMutation({
     mutationFn: () => enviar<{ execucao_id: number; equilibrado: boolean }>('post', `/consolidacao/grupos/${grupo.id}/executar`, { data_fim: dataApi(dataFim), moeda }),
     onSuccess: ({ dados, mensagem }) => {
@@ -214,94 +292,242 @@ function PainelGrupo({ grupo }: { grupo: Grupo }) {
     },
     onError: (e) => notificarErro(e, 'Não foi possível executar a consolidação'),
   });
+  const eliminar = useMutation({
+    mutationFn: () => enviar('delete', `/consolidacao/grupos/${grupo.id}`),
+    onSuccess: ({ mensagem }) => {
+      message.success(mensagem);
+      aoEliminado();
+    },
+    onError: (e) => notificarErro(e, 'Não foi possível eliminar'),
+  });
+  // legado consolAbrirHolding (js/consolidacao.js:992): muda a empresa activa para a holding e abre os Relatórios Contabilísticos
+  const abrirNosMapas = () =>
+    grupo.holding &&
+    escolherEmpresa(grupo.holding.id)
+      .then(() => navegar('/m/contab/relatorios_contabeis'))
+      .catch((e) => notificarErro(e, 'Não foi possível abrir a holding'));
 
   return (
-    <Tabs
-      items={[
-        {
-          key: 'grupo',
-          label: 'Grupo e execuções',
-          children: (
-            <>
-              <Card style={{ marginBottom: 16 }}>
-                <Descriptions size="small" column={{ xs: 1, md: 3 }}>
-                  <Descriptions.Item label="Holding">{grupo.holding ? `${grupo.holding.nome} (NIF ${grupo.holding.nif ?? '—'})` : '—'}</Descriptions.Item>
-                  <Descriptions.Item label="Moeda">{grupo.moeda_apresentacao}</Descriptions.Item>
-                  <Descriptions.Item label="Eliminações">{grupo.eliminacao_ativa ? <Tag color="green">Activas</Tag> : <Tag>Inactivas</Tag>}</Descriptions.Item>
-                  <Descriptions.Item label="Reserva cambial">{grupo.conta_reserva_cambial}</Descriptions.Item>
-                  <Descriptions.Item label="Diferenças de eliminação">{grupo.conta_diferenca_eliminacao}</Descriptions.Item>
-                  <Descriptions.Item label="Prefixos excluídos">{grupo.prefixos_excluidos_eliminacao || '—'}</Descriptions.Item>
-                </Descriptions>
-                <Table
-                  scroll={scrollTabela()}
-                  rowKey="empresa_id"
-                  size="small"
-                  pagination={false}
-                  style={{ marginTop: 12 }}
-                  dataSource={grupo.membros}
-                  columns={[
-                    { title: 'Empresa', dataIndex: 'nome' },
-                    { title: 'NIF', dataIndex: 'nif' },
-                    { title: '%', dataIndex: 'percentagem', align: 'right' },
-                    { title: 'Método', dataIndex: 'metodo' },
-                  ]}
-                />
-              </Card>
-              <Card
-                title="Execuções"
-                extra={
-                  pode('consol_executar') && (
-                    <Space wrap>
-                      <DatePicker value={dataFim} onChange={(v) => v && setDataFim(v)} format="DD/MM/YYYY" allowClear={false} />
-                      <Input value={moeda} onChange={(e) => setMoeda(e.target.value.toUpperCase())} maxLength={3} style={{ width: 80 }} aria-label="Moeda" />
-                      {/* legado: «Consolidar» a roxo (#7c3aed, js/consolidacao.js:824) */}
-                      <Button
-                        type="primary"
-                        icon={<PlayCircleOutlined />}
-                        style={{ background: '#7c3aed', borderColor: '#7c3aed' }}
-                        loading={executar.isPending}
-                        onClick={() =>
-                          Modal.confirm({
-                            title: `Consolidar até ${dataFim.format('DD/MM/YYYY')} em ${moeda}?`,
-                            content: 'As linhas geradas pela execução anterior na holding são substituídas; as manuais são preservadas.',
-                            okText: 'Executar',
-                            cancelText: 'Cancelar',
-                            onOk: () => executar.mutateAsync(),
-                          })
-                        }
-                      >
-                        Consolidar
-                      </Button>
-                    </Space>
-                  )
-                }
-              >
-                <Table<Execucao>
-                  scroll={scrollTabela()}
-                  rowKey="id"
-                  size="small"
-                  pagination={false}
-                  dataSource={grupo.execucoes}
-                  locale={{ emptyText: 'O grupo ainda não foi consolidado.' }}
-                  onRow={(r) => ({ onClick: () => setExecucaoAberta(r.id), style: { cursor: 'pointer' } })}
-                  columns={[
-                    { title: 'N.º', dataIndex: 'id', render: (v: number) => (v === grupo.ultima_execucao_id ? <Space>{v}<Tag color="blue">Última</Tag></Space> : v) },
-                    // ordem do legado (js/consolidacao.js:833): Execução · Até · Moeda · Utilizador · Linhas · Estado
-                    { title: 'Execução', dataIndex: 'executado_em', render: formatarDataHora },
-                    { title: 'Até', dataIndex: 'data_fim', render: formatarData },
-                    { title: 'Moeda', dataIndex: 'moeda' },
-                    { title: 'Utilizador', dataIndex: 'utilizador' },
-                    { title: 'Linhas', dataIndex: 'linhas', align: 'right' },
-                    { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
-                  ]}
-                />
-              </Card>
-              {execucaoAberta && <DetalheExecucao id={execucaoAberta} aoFechar={() => setExecucaoAberta(null)} />}
-            </>
-          ),
-        },
-        { key: 'mapa', label: 'Mapa de Consolidação', children: grupo.ultima_execucao_id ? <PainelMapa grupo={grupo} /> : <Empty description="Execute a consolidação para obter o mapa." /> },
-      ]}
+    <Card
+      style={{ marginBottom: 24, borderTop: `4px solid ${ROXO}` }}
+      data-testid={`consol-holding-${grupo.id}`}
+      title={
+        <div style={{ whiteSpace: 'normal' }}>
+          <span style={{ fontSize: 17 }}>
+            <IconeFa nome="building" style={{ color: ROXO }} /> {grupo.holding?.nome ?? grupo.nome}
+          </span>
+          <div style={{ fontSize: 13, fontWeight: 400, color: token.colorTextSecondary, marginTop: 4 }}>
+            NIF {grupo.holding?.nif || '-'} · Reservas de conversão: <strong>{grupo.conta_reserva_cambial || '5.9.9'}</strong>
+          </div>
+        </div>
+      }
+      extra={
+        <Space wrap style={{ justifyContent: 'flex-end' }}>
+          {ultima && (
+            <Button size="small" style={{ color: ROXO, borderColor: ROXO }} icon={<IconeFa nome="table" />} onClick={aoAbrirMapa}>
+              Mapa de Consolidação
+            </Button>
+          )}
+          <Button size="small" icon={<IconeFa nome="chart-line" />} disabled={!holdingAcessivel} title={holdingAcessivel ? undefined : 'Não tem acesso à holding'} onClick={abrirNosMapas}>
+            Abrir nos Mapas
+          </Button>
+          {el && (
+            <Button size="small" danger={el.divergentes > 0} icon={<IconeFa nome="exchange-alt" />} onClick={() => aoAbrirDivergencias(el.execucao_id)}>
+              Eliminações e Divergências
+            </Button>
+          )}
+          {pode('consol_gerir') && (
+            <Button size="small" icon={<IconeFa nome="edit" />} onClick={aoEditar}>
+              Editar
+            </Button>
+          )}
+          {pode('consol_eliminar') && (
+            <Popconfirm
+              title={`Eliminar a holding "${grupo.nome}"?`}
+              description="Serão apagados os lançamentos consolidados, o plano de contas e as tabelas da holding. As empresas do grupo NÃO são afectadas."
+              okText="Eliminar"
+              cancelText="Cancelar"
+              okButtonProps={{ danger: true }}
+              onConfirm={() => eliminar.mutateAsync()}
+            >
+              <Button size="small" danger icon={<IconeFa nome="trash" />} aria-label={`Eliminar a holding ${grupo.nome}`} loading={eliminar.isPending} />
+            </Popconfirm>
+          )}
+        </Space>
+      }
+    >
+      <Row gutter={[20, 20]}>
+        <Col xs={24} md={8}>
+          <div style={{ ...ROTULO_SECCAO, color: token.colorTextSecondary }}>Empresas do grupo ({grupo.membros.length})</div>
+          {grupo.membros.length ? (
+            grupo.membros.map((m) => (
+              <div key={m.empresa_id} style={{ padding: '6px 11px', background: token.colorFillAlter, border: `1px solid ${token.colorBorderSecondary}`, borderRadius: 8, marginBottom: 6, fontSize: 13 }}>
+                <strong>{m.nome}</strong> <Typography.Text type="secondary">NIF {m.nif || '-'}</Typography.Text>
+              </div>
+            ))
+          ) : (
+            <Typography.Text type="secondary" italic>Nenhuma</Typography.Text>
+          )}
+        </Col>
+        <Col xs={24} md={8}>
+          <div style={{ ...ROTULO_SECCAO, color: token.colorTextSecondary }}>Última consolidação</div>
+          {ultima ? (
+            <div style={{ fontSize: 13, lineHeight: 1.7 }}>
+              Até <strong>{formatarData(ultima.data_fim)}</strong> em <strong>{ultima.moeda}</strong> · executada em {formatarData(ultima.data_execucao ?? ultima.executado_em)} por {ultima.utilizador || '-'}
+              <br />
+              Estado: <EtiquetaEstado estado={ultima.estado} />
+              {ultima.linhas != null && ` · ${Number(ultima.linhas).toLocaleString('pt-PT')} linhas`}
+            </div>
+          ) : (
+            <Typography.Text type="secondary" italic>Ainda não consolidado</Typography.Text>
+          )}
+        </Col>
+        <Col xs={24} md={8}>
+          <div style={{ background: token.colorPrimaryBg, border: `1px solid ${token.colorPrimaryBorder}`, borderRadius: 12, padding: 16 }}>
+            <div style={{ ...ROTULO_SECCAO, color: ROXO }}>Executar consolidação</div>
+            {pode('consol_executar') ? (
+              <Space wrap align="end">
+                <div>
+                  <div style={{ fontSize: 12 }}>Até à data</div>
+                  <DatePicker value={dataFim} onChange={(v) => v && setDataFim(v)} format="DD/MM/YYYY" allowClear={false} aria-label="Até à data" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12 }}>Moeda</div>
+                  <Select value={moeda} onChange={setMoeda} options={opcoesMoeda} style={{ width: 100 }} aria-label="Moeda" />
+                </div>
+                {/* legado: «Consolidar» a roxo (#7c3aed, js/consolidacao.js:824) */}
+                <Button
+                  type="primary"
+                  icon={<IconeFa nome="play" />}
+                  style={{ background: ROXO, borderColor: ROXO }}
+                  loading={executar.isPending}
+                  onClick={() =>
+                    Modal.confirm({
+                      title: `Consolidar até ${dataFim.format('DD/MM/YYYY')} em ${moeda}?`,
+                      content: 'As linhas geradas pela execução anterior na holding são substituídas; as manuais são preservadas.',
+                      okText: 'Executar',
+                      cancelText: 'Cancelar',
+                      onOk: () => executar.mutateAsync(),
+                    })
+                  }
+                >
+                  Consolidar
+                </Button>
+              </Space>
+            ) : (
+              <Typography.Text type="secondary">Sem permissão para executar.</Typography.Text>
+            )}
+          </div>
+        </Col>
+      </Row>
+      {grupo.execucoes.length > 1 && (
+        <div style={{ marginTop: 16 }}>
+          <div style={{ ...ROTULO_SECCAO, color: token.colorTextSecondary, marginBottom: 6 }}>Histórico</div>
+          <Table<Execucao>
+            scroll={scrollTabela()}
+            rowKey="id"
+            size="small"
+            pagination={false}
+            dataSource={grupo.execucoes}
+            onRow={(r) => ({ onClick: () => aoAbrirExecucao(r.id), style: { cursor: 'pointer' } })}
+            columns={[
+              // ordem do legado (js/consolidacao.js:833): Execução · Até · Moeda · Utilizador · Linhas · Estado
+              { title: 'Execução', dataIndex: 'executado_em', render: formatarDataHora },
+              { title: 'Até', dataIndex: 'data_fim', render: formatarData },
+              { title: 'Moeda', dataIndex: 'moeda' },
+              { title: 'Utilizador', dataIndex: 'utilizador', render: (v: string | null) => v || '-' },
+              { title: 'Linhas', dataIndex: 'linhas', align: 'right', render: (v: number | null) => (v == null ? '-' : Number(v).toLocaleString('pt-PT')) },
+              { title: 'Estado', dataIndex: 'estado', render: (v: string) => <EtiquetaEstado estado={v} /> },
+            ]}
+          />
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** Painel «Eliminações intragrupo» de uma execução (legado htmlEliminacoes, js/consolidacao.js:1026-1074). */
+function EliminacoesExecucao({ id }: { id: number }) {
+  const consulta = useQuery({ queryKey: ['contab', 'consolidacao', 'execucao', id], queryFn: () => obter<Execucao>(`/consolidacao/execucoes/${id}`) });
+  if (consulta.isLoading) return <Card loading />;
+  const e = consulta.data;
+  const el = (e?.totais?.eliminacoes ?? null) as { ativa?: boolean; linhas?: number; diferenca?: string; excluidas?: string[]; sem_nif?: string[]; divergencias?: Divergencia[] } | null;
+  return (
+    <>
+      {e && (
+        <Typography.Paragraph style={{ marginTop: 0 }}>
+          Consolidação até <strong>{formatarData(e.data_fim)}</strong> em <strong>{e.moeda}</strong>, executada em {formatarData(e.data_execucao ?? e.executado_em)}.
+        </Typography.Paragraph>
+      )}
+      <PainelEliminacoes el={el} nome={`divergencias_intragrupo_${e?.data_fim ?? id}_${e?.moeda ?? ''}`} />
+    </>
+  );
+}
+
+function PainelEliminacoes({ el, nome }: { el: { ativa?: boolean; linhas?: number; diferenca?: string; excluidas?: string[]; sem_nif?: string[]; divergencias?: Divergencia[] } | null; nome: string }) {
+  if (!el) return <Typography.Text italic>Esta consolidação foi executada antes das eliminações intragrupo. Consolide novamente.</Typography.Text>;
+  if (el.ativa === false) return <Alert type="info" showIcon message="Eliminações intragrupo desactivadas nesta holding." />;
+  const divs = el.divergencias ?? [];
+  const divergentes = divs.filter(parDivergente).length;
+  const ok = !temDiferenca(el.diferenca) && divergentes === 0;
+  const celDif = (v: string) => (temDiferenca(v) ? <Typography.Text type="danger" strong>{formatarKz(v)}</Typography.Text> : <Typography.Text type="success" aria-label="Sem diferença"><IconeFa nome="check" /></Typography.Text>);
+  const v = (k: keyof Divergencia) => ({ dataIndex: k, align: 'right' as const, render: (x: string) => formatarKz(x) });
+  return (
+    <Alert
+      type={ok ? 'success' : 'error'}
+      message={
+        <Space wrap style={{ justifyContent: 'space-between', width: '100%' }}>
+          <strong><IconeFa nome="exchange-alt" style={{ color: ROXO }} /> Eliminações intragrupo · {Number(el.linhas ?? 0).toLocaleString('pt-PT')} linhas</strong>
+          <Space>
+            <Tag color={ok ? 'success' : 'error'}>{ok ? 'Sem divergências' : `${divergentes} par(es) com divergência`}</Tag>
+            <BotaoCsv<Divergencia>
+              nome={nome}
+              linhas={divs}
+              colunas={[
+                { titulo: 'Empresa A', valor: (d) => d.a },
+                { titulo: 'Empresa B', valor: (d) => d.b },
+                { titulo: 'Saldo A com B', valor: (d) => d.saldo_ab, numerico: true },
+                { titulo: 'Saldo B com A', valor: (d) => d.saldo_ba, numerico: true },
+                { titulo: 'Diferença saldos', valor: (d) => d.dif_saldo, numerico: true },
+                { titulo: 'Proveitos A com B', valor: (d) => d.proveitos_ab, numerico: true },
+                { titulo: 'Custos B com A', valor: (d) => d.custos_ba, numerico: true },
+                { titulo: 'Diferença A→B', valor: (d) => d.dif_ab, numerico: true },
+                { titulo: 'Proveitos B com A', valor: (d) => d.proveitos_ba, numerico: true },
+                { titulo: 'Custos A com B', valor: (d) => d.custos_ab, numerico: true },
+                { titulo: 'Diferença B→A', valor: (d) => d.dif_ba, numerico: true },
+              ]}
+            />
+          </Space>
+        </Space>
+      }
+      description={
+        <>
+          {temDiferenca(el.diferenca) && (
+            <div><Typography.Text type="danger">As eliminações não fecham: diferença de <strong>{formatarKz(el.diferenca)}</strong> levada à conta de diferenças de eliminação.</Typography.Text></div>
+          )}
+          {!!el.sem_nif?.length && <div><Typography.Text type="warning">Empresas sem NIF (as operações com elas não podem ser identificadas): {el.sem_nif.join(', ')}</Typography.Text></div>}
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Contas nunca eliminadas: {el.excluidas?.length ? el.excluidas.join(', ') : '-'} · O saldo de A com B deve ser o simétrico do saldo de B com A; os proveitos de uma empresa com a outra devem igualar os custos da outra.
+          </Typography.Text>
+          {divs.length > 0 && (
+            <Table<Divergencia>
+              style={{ marginTop: 8 }}
+              scroll={scrollTabela()}
+              size="small"
+              pagination={false}
+              rowKey={(d) => `${d.a}|${d.b}`}
+              dataSource={divs}
+              columns={[
+                { title: 'Empresa A', dataIndex: 'a' },
+                { title: 'Empresa B', dataIndex: 'b' },
+                { title: 'Saldos recíprocos (D−C)', children: [{ title: 'A com B', ...v('saldo_ab') }, { title: 'B com A', ...v('saldo_ba') }, { title: 'Diferença', dataIndex: 'dif_saldo', align: 'right', render: celDif }] },
+                { title: 'Proveitos de A com B vs Custos de B com A', children: [{ title: 'Proveitos A', ...v('proveitos_ab') }, { title: 'Custos B', ...v('custos_ba') }, { title: 'Diferença', dataIndex: 'dif_ab', align: 'right', render: celDif }] },
+                { title: 'Proveitos de B com A vs Custos de A com B', children: [{ title: 'Proveitos B', ...v('proveitos_ba') }, { title: 'Custos A', ...v('custos_ab') }, { title: 'Diferença', dataIndex: 'dif_ba', align: 'right', render: celDif }] },
+              ]}
+            />
+          )}
+        </>
+      }
     />
   );
 }
@@ -328,8 +554,10 @@ function DetalheExecucao({ id, aoFechar }: { id: number; aoFechar: () => void })
             <Descriptions.Item label="Eliminações (linhas)">{String(el.linhas ?? '—')}</Descriptions.Item>
             <Descriptions.Item label="Diferença de eliminação">{formatarKz(el.diferenca as string)}</Descriptions.Item>
           </Descriptions>
-          {Array.isArray(el.divergencias) && el.divergencias.length > 0 && (
-            <Alert style={{ marginTop: 12 }} type="warning" showIcon message={`${el.divergencias.length} divergência(s) nas eliminações intragrupo.`} description={<pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{JSON.stringify(el.divergencias, null, 1)}</pre>} />
+          {t.eliminacoes && (
+            <div style={{ marginTop: 12 }}>
+              <PainelEliminacoes el={t.eliminacoes as Parameters<typeof PainelEliminacoes>[0]['el']} nome={`divergencias_intragrupo_${id}`} />
+            </div>
           )}
           {Array.isArray(t.empresas) && t.empresas.length > 0 && (
             <Table

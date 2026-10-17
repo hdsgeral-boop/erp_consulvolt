@@ -15,6 +15,7 @@ import { contemTexto } from '@/modulos/compras/comum/lista';
 import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/LinhasProdutos';
 import { SeletorArmazem, SeletorProduto } from '@/modulos/compras/comum/Seletores';
 import { rotuloProduto, useArmazens, useCatalogo } from '@/modulos/compras/comum/referencias';
+import { AlertasNiveis } from './comum/AlertasNiveis';
 import { ExtractoArtigo } from './comum/ExtractoArtigo';
 import type { LinhaStock, RespostaStock } from './comum/tipos';
 import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -72,6 +73,8 @@ export default function NiveisStock() {
 
   return (
     <>
+      {/* ronda 3: regras de notificação dos níveis de stock e sugestões de reposição (gera o pedido de compra) */}
+      <AlertasNiveis />
       <Card
         title="Inventário por Armazém"
         extra={

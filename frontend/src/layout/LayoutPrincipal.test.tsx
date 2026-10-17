@@ -6,11 +6,11 @@ import { simularLargura } from '@/componentes/responsivo/testes/simularLargura';
 import { LayoutPrincipal } from './LayoutPrincipal';
 
 // o Ant Design (Menu, Drawer) é lento em jsdom quando a suíte inteira corre em paralelo
-vi.setConfig({ testTimeout: 30_000 });
+vi.setConfig({ testTimeout: 120_000 });   // AntD no jsdom é lento com a suite toda a correr em paralelo
 
 const EMPRESA = 'Demo E2E Comércio, Lda';
 const MENU: ModuloMenu[] = [
-  { id: 'vendas', nome: 'Vendas e Facturação', ecras: [{ id: 'vendas_faturacao', nome: 'Facturação', vistas: [], pai: null }] },
+  { id: 'vendas', nome: 'Vendas e Facturação', ecras: [{ id: 'vendas_faturacao', nome: 'Facturação', vistas: [], pai: null, tarefas: [{ chave: 'vendas_recibos', rotulo: 'Emitir e anular recibos (liquidar facturas)' }] }] },
   { id: 'config', nome: 'Configurações', ecras: [{ id: 'config_geral', nome: 'Geral', vistas: [], pai: null }] },
 ];
 
@@ -194,13 +194,18 @@ describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
     expect(screen.getByRole('button', { name: 'Ajuda' })).toBeInTheDocument();
   });
 
-  it('Ctrl+K abre a pesquisa de ecrãs e Enter navega', async () => {
+  it('Ctrl+K foca o campo «Procurar» da barra superior e Enter abre o primeiro resultado', async () => {
     montar('/');
+    const entrada = screen.getByRole('combobox', { name: 'Procurar no sistema' });
+    expect(entrada.closest('.erp-cabecalho')).not.toBeNull();
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    const entrada = await screen.findByRole('textbox', { name: 'Procurar ecrã' });
+    await waitFor(() => expect(entrada).toHaveFocus());
     fireEvent.change(entrada, { target: { value: 'factur' } });
-    fireEvent.keyDown(entrada, { key: 'Enter' });
+    expect(await screen.findByText('Ecrãs')).toBeInTheDocument();
+    // o AutoComplete (rc-select) lê o código da tecla
+    fireEvent.keyDown(entrada, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13 });
     expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
+    expect(entrada).toHaveValue('');
     // depois de navegar aparece o botão flutuante «Voltar»
     expect(screen.getByRole('button', { name: /Voltar/ })).toBeInTheDocument();
   });
@@ -229,32 +234,45 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     document.documentElement.classList.remove('erp-tela-nocturna');
   });
 
-  it('filtra a árvore em linha sem acentos, conta os resultados e abre o escolhido com setas e Enter', async () => {
-    const { container } = montar('/');
+  it('o menu lateral já não tem o campo de busca (nem na gaveta dos ecrãs pequenos)', async () => {
+    const { container, unmount } = montar('/');
     const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
-    const campo = within(lateral).getByRole('textbox', { name: 'Procurar no menu' });
-    fireEvent.change(campo, { target: { value: 'FATURACAO' } });
-    expect(await within(lateral).findByText('Faturação')).toBeInTheDocument();
-    expect(within(lateral).getByRole('status')).toHaveTextContent('1 operação encontrada');
-    // o grupo «Sistema» (sem resultados) desaparece durante a busca
-    expect(within(lateral).queryByText('Sistema')).toBeNull();
-    fireEvent.keyDown(campo, { key: 'ArrowDown' });
-    await waitFor(() => expect(lateral.querySelector('.erp-menu-focado')).not.toBeNull());
-    fireEvent.keyDown(campo, { key: 'Enter' });
-    expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
-    expect(campo).toHaveValue('');
+    expect(within(lateral).queryByRole('textbox')).toBeNull();
+    expect(within(lateral).queryByRole('search')).toBeNull();
+    expect(within(lateral).queryByPlaceholderText('Procurar operação...')).toBeNull();
+    unmount();
+
+    simularLargura(375);
+    montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu' }));
+    const gaveta = await waitFor(() => {
+      const g = document.querySelector('.erp-gaveta-menu') as HTMLElement | null;
+      expect(g).not.toBeNull();
+      return g as HTMLElement;
+    });
+    expect(within(gaveta).getByText('Menu Geral')).toBeInTheDocument();
+    expect(within(gaveta).queryByRole('textbox', { name: 'Procurar no menu' })).toBeNull();
+    // em ecrã estreito a pesquisa fica só com a lupa na barra superior, que abre o mesmo campo
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir a pesquisa' }));
+    expect(await screen.findByRole('combobox', { name: 'Procurar no sistema' })).toBeInTheDocument();
   });
 
-  it('nunca revela ecrãs sem permissão e Esc limpa a busca e repõe a árvore', async () => {
-    const { container } = montar('/');
-    const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
-    const campo = within(lateral).getByRole('textbox', { name: 'Procurar no menu' });
-    fireEvent.change(campo, { target: { value: 'compras' } });
-    expect(within(lateral).getByRole('status')).toHaveTextContent('Nada encontrado');
-    fireEvent.keyDown(campo, { key: 'Escape' });
-    expect(campo).toHaveValue('');
-    expect(within(lateral).getByRole('status')).toHaveTextContent('');
-    expect(within(lateral).getByText('Sistema')).toBeInTheDocument();
+  it('«Procurar» encontra as funções dentro dos ecrãs (sem acentos, várias palavras) com «Módulo › Ecrã» e abre o ecrã', async () => {
+    montar('/');
+    const entrada = screen.getByRole('combobox', { name: 'Procurar no sistema' });
+    fireEvent.focus(entrada);
+    fireEvent.change(entrada, { target: { value: 'ANULAR recibos' } });
+    expect(await screen.findByText('Funções')).toBeInTheDocument();
+    const caminho = await screen.findByText('Vendas › Faturação');
+    const opcao = caminho.closest('.erp-pesquisa-opcao') as HTMLElement;
+    expect(opcao).toHaveTextContent('Emitir e anular recibos (liquidar facturas)');
+    expect(opcao.querySelectorAll('mark').length).toBeGreaterThan(0);
+    // ecrãs de que o utilizador não tem o menu (ex.: compras) nunca aparecem
+    fireEvent.change(entrada, { target: { value: 'fornecedores' } });
+    expect(await screen.findByText('Nada encontrado. Experimente outra palavra.')).toBeInTheDocument();
+    fireEvent.change(entrada, { target: { value: 'anular recibos' } });
+    fireEvent.click(await screen.findByText('Vendas › Faturação'));
+    expect(await screen.findByText('Página do ecrã')).toBeInTheDocument();
   });
 
   it('tela nocturna: botão na barra superior e Ctrl+Shift+N, guardada nas preferências do utilizador', async () => {
@@ -273,6 +291,22 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     await waitFor(() => expect(document.documentElement).not.toHaveClass('erp-tela-nocturna'));
   });
 
+  it('o menu do utilizador já não tem a tela nocturna nem o aspecto do menu (ficam no botão da barra e no menu lateral)', async () => {
+    montar('/');
+    fireEvent.click(screen.getByRole('button', { name: 'Opções do utilizador' }));
+    expect(await screen.findByText('Gerir Dados Pessoais')).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Tela nocturna/ })).toBeNull();
+    expect(screen.queryByText('Aspecto do menu')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Tela nocturna' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Aspecto do menu' })).toBeInTheDocument();
+  });
+
+  it('em telemóvel a tela nocturna continua no botão da barra superior', () => {
+    simularLargura(375);
+    montar('/');
+    expect(screen.getByRole('button', { name: 'Tela nocturna' })).toBeInTheDocument();
+  });
+
   it('aspecto do menu do utilizador: «só nomes» retira os símbolos e «só símbolos» recolhe o menu', () => {
     localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'nomes' }));
     const { container, unmount } = montar('/');
@@ -286,9 +320,8 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     const segundo = montar('/');
     lateral = segundo.container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(lateral).toHaveClass('ant-layout-sider-collapsed');
-    // com o menu só em símbolos não há caixa de busca; «Recolher menu» volta ao aspecto anterior
-    expect(within(lateral).queryByRole('textbox', { name: 'Procurar no menu' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    // «Expandir menu» (botão a meio do bordo do menu) volta ao aspecto anterior
+    fireEvent.click(within(lateral).getByRole('button', { name: 'Expandir menu' }));
     expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
   });
 });
@@ -387,16 +420,41 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     expect(friso).toHaveAttribute('aria-valuenow', '280');
   });
 
-  it('recolher continua a funcionar: menu de 76 px sem friso, e ao expandir volta à largura escolhida', () => {
+  it('o botão a meio do bordo recolhe o menu a 64 px só com ícones (sem friso) e expande-o para a largura escolhida', () => {
     localStorage.setItem('erp.menu.largura.1', '450');
     const { container } = montar('/');
     const lateral = lateralDe(container);
-    fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    const recolher = within(lateral).getByRole('button', { name: 'Recolher menu' });
+    expect(recolher).toHaveAttribute('aria-expanded', 'true');
+    expect(recolher).toHaveAttribute('aria-controls', 'erp-menu-lateral');
+    fireEvent.click(recolher);
     expect(lateral).toHaveClass('ant-layout-sider-collapsed');
-    expect(lateral.style.width).toBe('76px');
+    expect(lateral.style.width).toBe('64px');
     expect(within(lateral).queryByRole('separator')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    const expandir = within(lateral).getByRole('button', { name: 'Expandir menu' });
+    expect(expandir).toHaveAttribute('aria-expanded', 'false');
+    // estado recolhido guardado por utilizador
+    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toMatchObject({ menu: 'icones' });
+    fireEvent.click(expandir);
     expect(lateral.style.width).toBe('450px');
+    expect(within(lateral).getByRole('separator', { name: 'Largura do menu' })).toHaveAttribute('aria-valuenow', '450');
+  });
+
+  it('recolhido: cada item de 1.º nível mostra só o ícone e o nome aparece na dica ao passar o rato', async () => {
+    localStorage.setItem('erp.aspecto.1', JSON.stringify({ tema: 'claro', menu: 'icones' }));
+    const { container } = montar('/');
+    const lateral = lateralDe(container);
+    expect(lateral).toHaveClass('ant-layout-sider-collapsed');
+    const primeiros = [
+      ...lateral.querySelectorAll('.erp-menu > .ant-menu-item'),
+      ...lateral.querySelectorAll('.erp-menu > .ant-menu-submenu > .ant-menu-submenu-title'),
+    ] as HTMLElement[];
+    expect(primeiros.length).toBeGreaterThanOrEqual(3);
+    // todos com símbolo (nenhum cai na inicial do nome)
+    primeiros.forEach((el) => expect(el.querySelector('svg')).not.toBeNull());
+    expect(lateral.querySelector('.ant-menu-inline-collapsed-noicon')).toBeNull();
+    fireEvent.mouseEnter(within(lateral).getByText('Início').closest('li') as HTMLElement);
+    await waitFor(() => expect(document.querySelector('.ant-menu-inline-collapsed-tooltip')).toHaveTextContent('Início'));
   });
 
   it('botões do aspecto no próprio menu (completo, só símbolos, só nomes) e «Expandir/Recolher tudo»', async () => {

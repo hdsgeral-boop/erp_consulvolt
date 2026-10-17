@@ -133,15 +133,27 @@ describe('Folha de caixa — «Registar movimento de caixa» em Grade | Linhas',
   });
 });
 
-describe('Cartas › Modelo de texto — «Novo modelo» em Grade | Linhas', () => {
-  it('as linhas começam com o texto padrão do tipo e gravam pelo mesmo POST', async () => {
+describe('Cartas › Modelo de texto — como o legado (um texto por tipo)', () => {
+  it('sem modelo gravado mostra o texto padrão e «Guardar modelo» cria o modelo activo do tipo', async () => {
     ecra(<ModelosTexto />);
-    fireEvent.click(await screen.findByText(/Novo modelo/));
-    const grupo = await waitFor(() => { const g = document.querySelector('.erp-alternar-formulario'); if (!g) throw new Error('sem selector'); return g as HTMLElement; });
-    fireEvent.click(within(grupo).getByText('Linhas'));
-    fireEvent.change(await screen.findByLabelText('Nome do modelo, linha 1'), { target: { value: 'Fornecedores' } });
-    await registar();
+    expect(await screen.findByDisplayValue('Ordem de pagamento')).toBeInTheDocument();
+    expect(screen.queryByText(/Novo modelo/)).toBeNull();
+    fireEvent.change(screen.getByLabelText('Assinado por'), { target: { value: 'Director Ficticio' } });
+    clicarTexto('Guardar modelo');
     await waitFor(() => expect(posts('/tesouraria/cartas/modelos')).toHaveLength(1));
-    expect(posts('/tesouraria/cartas/modelos')[0][2]).toMatchObject({ nome: 'Fornecedores', assunto: 'Ordem de pagamento', corpo: 'Exmos. Senhores', cargo_assinatura: 'Gerente', tipo: 'TERCEIRO' });
+    expect(posts('/tesouraria/cartas/modelos')[0][2]).toMatchObject({ assunto: 'Ordem de pagamento', corpo: 'Exmos. Senhores', nome_assinatura: 'Director Ficticio', tipo: 'TERCEIRO', predefinido: true });
+  });
+
+  it('com vários modelos edita o predefinido e guarda os outros («Usar este»)', async () => {
+    const lista = [
+      { id: 1, tipo: 'TERCEIRO', nome: 'Antigo', assunto: 'Assunto antigo', corpo: 'Texto antigo', nome_assinatura: null, cargo_assinatura: null, local: null, predefinido: false },
+      { id: 2, tipo: 'TERCEIRO', nome: 'Actual', assunto: 'Assunto actual', corpo: 'Texto actual', nome_assinatura: null, cargo_assinatura: null, local: null, predefinido: true },
+    ];
+    obter.mockImplementation((url: string) => Promise.resolve(url === '/tesouraria/cartas/modelos' ? { ...MODELOS, modelos: lista } : []));
+    ecra(<ModelosTexto />);
+    expect(await screen.findByDisplayValue('Assunto actual')).toBeInTheDocument();
+    expect(screen.getByText('Outros modelos guardados deste tipo (1)')).toBeInTheDocument();
+    clicarTexto('Guardar modelo');
+    await waitFor(() => expect(enviar).toHaveBeenCalledWith('put', '/tesouraria/cartas/modelos/2', expect.objectContaining({ nome: 'Actual', assunto: 'Assunto actual', predefinido: true })));
   });
 });

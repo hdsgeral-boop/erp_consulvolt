@@ -1,4 +1,4 @@
-import { Alert, Button, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Select, Space } from 'antd';
+import { Alert, Button, Col, DatePicker, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -7,7 +7,9 @@ import { useAccao } from '@/componentes/Accoes';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarKz } from '@/utilitarios/formatacao';
-import { AMBITOS, nomeAndar, nomeAndarPorOmissao, previaPortas } from './regras';
+import { larguraModal } from '@/componentes/responsivo';
+import { AMBITOS, nomeAndar, nomeAndarPorOmissao, pisosComAndar, pisosComPortas, pisosDaPlanta, previaPortas } from './regras';
+import { Predio } from './Predio';
 import type { Ambito, AndarPlanta, Inventario, Planta, PortaPlanta } from './tipos';
 
 /** Modais da planta (assetFloorModal, assetRoomsModal, assetRoomModal, assetInventarioModal — js/activos_edificios.js:333-592). */
@@ -27,7 +29,20 @@ const CAMPOS_ANDAR: CampoFormulario[] = [
   { nome: 'notas', rotulo: 'Notas', largura: 260, maxLength: 2000 },
 ];
 
-export function ModalAndar({ edificioId, andar, nAndares, aoFechar }: { edificioId: number; andar: AndarPlanta | null | undefined; nAndares: number; aoFechar: () => void }) {
+/** Pré-visualização viva do edifício nos modais de andares e portas (r3_activos). */
+function PreVisualizacao({ planta, children }: { planta: Planta; children: (pisos: ReturnType<typeof pisosDaPlanta>) => ReturnType<typeof pisosDaPlanta> }) {
+  const pisos = children(pisosDaPlanta(planta.andares));
+  return (
+    <div aria-live="polite">
+      <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>Pré-visualização — a verde o que vai ser criado</Typography.Text>
+      <Predio compacto nome={`${planta.edificio.codigo ?? ''} ${planta.edificio.descricao}`.trim()} pisos={pisos} alturaMaxima={340} maxPortas={40} />
+    </div>
+  );
+}
+
+export function ModalAndar({ edificioId, andar, nAndares, planta, aoFechar }: {
+  edificioId: number; andar: AndarPlanta | null | undefined; nAndares: number; planta?: Planta; aoFechar: () => void;
+}) {
   const [form] = Form.useForm<{ numero?: string; nome?: string; notas?: string }>();
   const accao = useAccao({ invalidar: INVALIDAR, aoSucesso: aoFechar });
   const aberto = andar !== undefined;
@@ -37,13 +52,16 @@ export function ModalAndar({ edificioId, andar, nAndares, aoFechar }: { edificio
     form.setFieldsValue(andar ? { numero: andar.numero ?? undefined, nome: andar.nome ?? undefined, notas: andar.notas ?? undefined } : { numero: String(nAndares) });
   }, [aberto, andar, nAndares, form]);
   const numero = Form.useWatch('numero', form);
+  const nome = Form.useWatch('nome', form);
   return (
     // sem `form`: o n.º proposto na grade (n.º de andares) não serve de omissão a todas as linhas
     <ModalFormulario chave="activos.andares" titulo={andar ? 'Editar andar' : 'Novo andar'} aberto={aberto} aoFechar={aoFechar} criacao={!andar}
       campos={CAMPOS_ANDAR} nomeRegistos="andares" invalidar={INVALIDAR} larguraLinhas={820}
       gravarLinha={(r) => enviar('post', `/ativos/edificios/${edificioId}/andares`, dadosAndar(r))}
       nota="Uma linha por andar (ex.: 0 Rés-do-chão, 1, 2, -1 Cave). Sem nome, o sistema dá o nome pelo número. Linhas deixadas em branco são ignoradas."
-      onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending}>
+      onOk={() => form.submit()} okText="Gravar" cancelText="Cancelar" confirmLoading={accao.isPending} width={planta ? larguraModal(820) : undefined}>
+      <Row gutter={16}>
+      <Col xs={24} md={planta ? 12 : 24}>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate(andar
         ? { metodo: 'put', url: `/ativos/andares/${andar.id}`, dados: dadosAndar(v) }
         : { url: `/ativos/edificios/${edificioId}/andares`, dados: dadosAndar(v) })}>
@@ -57,6 +75,13 @@ export function ModalAndar({ edificioId, andar, nAndares, aoFechar }: { edificio
           <Input maxLength={2000} />
         </Form.Item>
       </Form>
+      </Col>
+      {planta && (
+        <Col xs={24} md={12}>
+          <PreVisualizacao planta={planta}>{(pisos) => pisosComAndar(pisos, { numero, nome }, andar?.id)}</PreVisualizacao>
+        </Col>
+      )}
+      </Row>
     </ModalFormulario>
   );
 }
@@ -73,11 +98,14 @@ export function ModalPortas({ planta, andarId, aberto, aoFechar }: { planta: Pla
   const prefixo = Form.useWatch('prefixo', form) ?? '';
   const de = Form.useWatch('de', form);
   const ate = Form.useWatch('ate', form);
+  const andarEscolhido = Form.useWatch('andar_id', form);
   const previa = previaPortas(prefixo, de, ate);
   return (
     <Modal title="Criar portas" open={aberto} onCancel={aoFechar} onOk={() => form.submit()} okText="Criar portas" cancelText="Cancelar"
-      okButtonProps={{ disabled: !previa.valida }} confirmLoading={accao.isPending} destroyOnHidden>
+      okButtonProps={{ disabled: !previa.valida }} confirmLoading={accao.isPending} destroyOnHidden width={larguraModal(860)}>
       <p>As portas são numeradas automaticamente no intervalo indicado. Para uma porta única, ponha o mesmo número no início e no fim.</p>
+      <Row gutter={16}>
+      <Col xs={24} md={12}>
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/ativos/edificios/${planta.edificio.id}/portas`, dados: v })}>
         <Form.Item name="andar_id" label="Andar" rules={[{ required: true, message: 'Escolha o andar.' }]}>
           <Select options={planta.andares.map((a) => ({ value: a.id, label: nomeAndar(a) }))} />
@@ -93,6 +121,11 @@ export function ModalPortas({ planta, andarId, aberto, aoFechar }: { planta: Pla
         </Space>
         <Alert type={previa.valida ? 'info' : 'warning'} showIcon message={previa.texto} />
       </Form>
+      </Col>
+      <Col xs={24} md={12}>
+        <PreVisualizacao planta={planta}>{(pisos) => pisosComPortas(pisos, andarEscolhido, prefixo, de, ate)}</PreVisualizacao>
+      </Col>
+      </Row>
     </Modal>
   );
 }

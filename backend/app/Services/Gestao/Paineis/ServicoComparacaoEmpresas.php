@@ -17,7 +17,10 @@ use Illuminate\Support\Facades\DB;
  *     cada linha pertence à empresa de origem (agregação), às eliminações intragrupo, à conversão cambial ou foi lançada na
  *     própria holding (chave de origem do legado, consolChaveOrigem). Os valores de cada empresa são antes das eliminações; o
  *     consolidado inclui eliminações e conversão;
- *   - comparação livre (nova): várias empresas a que o utilizador tem acesso, cada uma com os seus próprios lançamentos.
+ *   - comparação livre (nova, separador «Comparar empresas»): várias empresas a que o utilizador tem acesso, cada uma com os seus
+ *     próprios lançamentos. Sem escolha: numa holding, as empresas do grupo a que tem acesso; fora dela, as empresas acessíveis
+ *     que não são holdings (até 30). A resposta traz `modulo` (o frontend usa-o para o aspecto do painel — sem ele o separador
+ *     rebentava com «Cannot read properties of undefined (reading 'id')»).
  *
  * Segurança: só entram empresas a que o utilizador tem acesso (ServicoEmpresas::podeAceder). No grupo, as linhas de membros a
  * que não tem acesso juntam-se numa única origem "Outras empresas (sem acesso)" — o total consolidado não muda e nenhuma
@@ -102,6 +105,28 @@ final class ServicoComparacaoEmpresas
         return $ids;
     }
 
+    public const MODULO_COMPARACAO = ['id' => '__comparacao', 'nome' => 'Comparar empresas'];
+
+    /**
+     * Empresas comparadas quando o utilizador não escolhe nenhuma: numa holding, as empresas do grupo a que tem acesso (pela
+     * ordem do nome); noutra empresa, as empresas acessíveis que não são holdings (até 30).
+     *
+     * @return list<int>
+     */
+    public function empresasPorOmissao(): array
+    {
+        $acessiveis = $this->empresas->idsAcessiveis($this->utilizador());
+        $activa = $this->contexto->id();
+        $grupo = $activa ? DB::table('grupos_consolidacao as g')->join('empresas as h', 'h.id', '=', 'g.empresa_holding_id')
+            ->where('g.empresa_holding_id', $activa)->where('h.e_consolidacao', true)->orderBy('g.id')->value('g.id') : null;
+        $q = DB::table('empresas')->whereIn('id', $acessiveis)->where('e_consolidacao', false);
+        if ($grupo) {
+            $q->whereIn('id', DB::table('membros_consolidacao')->where('grupo_consolidacao_id', $grupo)->whereNotNull('empresa_membro_id')->select('empresa_membro_id'));
+        }
+
+        return $q->ordenarPorNome()->limit(30)->pluck('id')->map(fn ($x) => (int) $x)->all();
+    }
+
     /**
      * Comparação livre entre empresas (cada uma pelos seus lançamentos).
      *
@@ -111,6 +136,9 @@ final class ServicoComparacaoEmpresas
     public function comparar(array $ids, PeriodoPainel $p, array $f): array
     {
         $ids = $this->garantirAcesso($ids);
+        if ($ids === []) {
+            return ['modulo' => self::MODULO_COMPARACAO, 'aviso' => 'Não há empresas para comparar: escolha pelo menos uma empresa a que tenha acesso.'] + $this->montar([], [], [], $p, false);
+        }
         $empresas = DB::table('empresas')->whereIn('id', $ids)->ordenarPorNome()->get(['id', 'nome', 'e_consolidacao']);
         $origens = $empresas->map(fn ($e) => self::origem((string) $e->id, $e->nome) + ['holding' => (bool) $e->e_consolidacao])->values()->all();
         [$fs, $fp] = ConsultasPaineis::filtroDimensoes('l', $f);
@@ -118,7 +146,8 @@ final class ServicoComparacaoEmpresas
         $stats = $this->estatisticas('l.empresa_id::text', "l.empresa_id IN ({$marcas}){$fs}", array_merge($ids, $fp), $p);
         $r = $this->montar($origens, [], $stats, $p, false);
 
-        return ['aviso' => in_array(true, array_column($origens, 'holding'), true) ? 'Inclui holdings: os seus valores são consolidados e repetem os das empresas do grupo.' : null] + $r;
+        return ['modulo' => self::MODULO_COMPARACAO,
+            'aviso' => in_array(true, array_column($origens, 'holding'), true) ? 'Inclui holdings: os seus valores são consolidados e repetem os das empresas do grupo.' : null] + $r;
     }
 
     /**

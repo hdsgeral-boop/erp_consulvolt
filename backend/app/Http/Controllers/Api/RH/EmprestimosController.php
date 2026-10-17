@@ -86,8 +86,9 @@ final class EmprestimosController extends Controller
     public function importar(Request $r, int $id): JsonResponse
     {
         $this->exigir('rh_emp_lancar');
-        $d = $r->validate(['substituir' => ['nullable', 'boolean']]);
-        $res = $this->emprestimos->lancarNoPeriodo(PeriodoProcessamentoSalarial::query()->findOrFail($id), (bool) ($d['substituir'] ?? false));
+        $d = $r->validate(['substituir' => ['nullable', 'boolean'], 'colaboradores' => ['nullable', 'array', 'max:5000'], 'colaboradores.*' => ['integer', 'min:1']]);
+        $res = $this->emprestimos->lancarNoPeriodo(PeriodoProcessamentoSalarial::query()->findOrFail($id), (bool) ($d['substituir'] ?? false),
+            array_key_exists('colaboradores', $d) && $d['colaboradores'] !== null ? array_map('intval', $d['colaboradores']) : null);
 
         return RespostaApi::sucesso($res, "Empréstimos: {$res['lancados']} lançado(s), {$res['actualizados']} actualizado(s), {$res['ignorados']} já existente(s).");
     }

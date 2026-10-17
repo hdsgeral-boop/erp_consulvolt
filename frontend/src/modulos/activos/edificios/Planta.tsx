@@ -11,7 +11,7 @@ import { formatarKz } from '@/utilitarios/formatacao';
 import { NavActivos } from '../comum/NavActivos';
 import { CSS_EDIFICIOS, htmlPlanta } from './impressao';
 import { ModalAndar, ModalGerarInventario, ModalPorta, ModalPortas, type PedidoInventario } from './Modais';
-import { filtrarBens, nomeAndar } from './regras';
+import { eCave, filtrarBens, formaEdificio, nomeAndar, ordenarParaDesenho } from './regras';
 import type { AndarPlanta, BemNaPlanta, Planta, PortaPlanta } from './tipos';
 
 /**
@@ -90,11 +90,24 @@ export function PlantaEdificio() {
       >
         <Row gutter={16}>
           <Col xs={24} lg={17}>
-            <div style={{ border: `2px solid ${token.colorBorder}`, borderRadius: 4, background: token.colorFillAlter, padding: 8 }}>
-              <div style={{ height: 14, background: token.colorTextTertiary, borderRadius: '4px 4px 0 0', margin: '-8px -8px 8px' }} />
+            {/* r3_activos: a planta desenha-se como o edifício — telhado (casa ou prédio), o último andar em cima, solo e caves por baixo */}
+            <div aria-hidden>
+              {formaEdificio(p.andares) === 'CASA' ? (
+                <svg viewBox="0 0 200 24" preserveAspectRatio="none" style={{ display: 'block', width: '100%', height: 30 }}>
+                  <polygon points="0,24 100,1 200,24" fill={token.colorTextTertiary} />
+                </svg>
+              ) : (
+                <div style={{ height: 12, background: token.colorTextTertiary, borderRadius: '4px 4px 0 0', margin: '0 4px' }} />
+              )}
+            </div>
+            <div style={{ border: `2px solid ${token.colorBorder}`, borderTop: 'none', borderRadius: '0 0 4px 4px', background: token.colorFillAlter, padding: 8 }}>
               {!p.andares.length && <Empty description="Ainda não há andares. Comece por acrescentar um andar (ou o piso 0 para um local sem andares)." />}
-              {p.andares.map((f) => (
-                <Card key={f.id} size="small" style={{ marginBottom: 8 }}
+              {ordenarParaDesenho(p.andares).map((f, i, todos) => (
+                <div key={f.id}>
+                {eCave(f) && (i === 0 || !eCave(todos[i - 1])) && (
+                  <div aria-hidden style={{ height: 6, background: token.colorTextSecondary, borderRadius: 2, margin: '4px -8px 8px' }} title="Solo" />
+                )}
+                <Card size="small" style={{ marginBottom: 8, borderLeft: `4px solid ${eCave(f) ? token.colorTextTertiary : token.colorWarning}` }}
                   title={<span><IconeFa nome="layer-group" /> {nomeAndar(f)} <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                     {f.n_portas} porta(s) · {f.n_bens} bem(ns) · {formatarKz(f.valor)}</Typography.Text></span>}
                   extra={
@@ -116,7 +129,7 @@ export function PlantaEdificio() {
                     {f.portas.map((pt) => (
                       <div key={pt.id} data-porta={pt.id} role="button" tabIndex={0} aria-label={`Porta ${pt.numero}`} onClick={() => setDetalhe(pt)}
                         onKeyDown={(e) => { if (e.key === 'Enter') setDetalhe(pt); }} {...zona(`p${pt.id}`, pt.id)}
-                        style={{ border: `1px solid ${token.colorBorder}`, borderTop: '3px solid #b45309', borderRadius: 4, padding: '6px 8px', minHeight: 92, cursor: 'pointer',
+                        style={{ border: `1px solid ${token.colorBorder}`, borderTop: `3px solid ${pt.n_bens ? token.colorPrimary : token.colorWarning}`, borderRadius: '10px 10px 4px 4px', padding: '6px 8px', minHeight: 92, cursor: 'pointer',
                           background: alvo === `p${pt.id}` ? token.colorWarningBg : token.colorBgContainer }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800 }}>
                           <span><IconeFa nome="door-closed" /> {pt.numero}</span>
@@ -133,7 +146,11 @@ export function PlantaEdificio() {
                     ))}
                   </div>
                 </Card>
+                </div>
               ))}
+              {!!p.andares.length && !p.andares.some(eCave) && (
+                <div aria-hidden style={{ height: 6, background: token.colorTextSecondary, borderRadius: 2, margin: '0 -8px -2px' }} />
+              )}
             </div>
             {gerir && <Typography.Text type="secondary" style={{ fontSize: 12 }}><IconeFa nome="hand-pointer" /> Arraste os bens entre portas, ou para «Bens sem porta» para os deixar neste edifício sem porta.</Typography.Text>}
           </Col>
@@ -160,7 +177,7 @@ export function PlantaEdificio() {
         </Row>
       </Card>
       {mover.isError && <Alert type="error" showIcon message="Não foi possível mover o bem." style={{ marginTop: 8 }} />}
-      <ModalAndar edificioId={edificioId} andar={andar} nAndares={p.andares.length} aoFechar={() => setAndar(undefined)} />
+      <ModalAndar edificioId={edificioId} andar={andar} nAndares={p.andares.length} planta={p} aoFechar={() => setAndar(undefined)} />
       <ModalPortas planta={p} aberto={portas.aberto} andarId={portas.andarId} aoFechar={() => setPortas({ aberto: false })} />
       <ModalPorta porta={porta} aoFechar={() => setPorta(null)} />
       <ModalGerarInventario planta={p} pedido={inventario} aoFechar={() => setInventario(null)} />
@@ -172,14 +189,18 @@ export function PlantaEdificio() {
   );
 }
 
-/** Detalhe da porta (assetPortaDetalhe :297-330): bens, categoria, valor e total. */
-function DetalhePorta({ porta, andar, podeGerir, podeInventariar, aoInventariar, aoRetirar, aoFechar }: {
+/**
+ * Detalhe da porta (assetPortaDetalhe :297-330): bens, categoria, valor e total. Também abre a partir do desenho do
+ * edifício nos cartões (r3_activos), só de consulta e com «Abrir a planta».
+ */
+export function DetalhePorta({ porta, andar, podeGerir, podeInventariar, aoInventariar, aoRetirar, aoFechar, aoAbrirPlanta }: {
   porta: PortaPlanta | null; andar?: AndarPlanta; podeGerir: boolean; podeInventariar: boolean;
-  aoInventariar: (p: PortaPlanta) => void; aoRetirar: (bem: number) => void; aoFechar: () => void;
+  aoInventariar: (p: PortaPlanta) => void; aoRetirar: (bem: number) => void; aoFechar: () => void; aoAbrirPlanta?: () => void;
 }) {
   return (
     <Modal open={!!porta} onCancel={aoFechar} width={720} title={<span><IconeFa nome="door-open" /> Porta {porta?.numero} {porta?.nome ? `— ${porta.nome}` : ''}</span>}
-      footer={[podeInventariar && porta && <Button key="i" icon={<IconeFa nome="clipboard-list" />} onClick={() => aoInventariar(porta)}>Inventariar esta porta</Button>,
+      footer={[aoAbrirPlanta && <Button key="p" icon={<IconeFa nome="building" />} onClick={aoAbrirPlanta}>Abrir a planta do edifício</Button>,
+        podeInventariar && porta && <Button key="i" icon={<IconeFa nome="clipboard-list" />} onClick={() => aoInventariar(porta)}>Inventariar esta porta</Button>,
         <Button key="f" type="primary" onClick={aoFechar}>Fechar</Button>]}>
       <p>{nomeAndar(andar)}{porta?.tipo ? ` · ${porta.tipo}` : ''}{porta?.capacidade ? ` · capacidade ${porta.capacidade}` : ''}</p>
       <Table<BemNaPlanta> rowKey="id" size="small" pagination={false} dataSource={porta?.bens ?? []} locale={{ emptyText: 'Sem bens nesta porta.' }}

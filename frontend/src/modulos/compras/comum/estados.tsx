@@ -47,3 +47,16 @@ export function EstadoTag({ estado }: { estado: string | null | undefined }) {
 export function opcoesEstado(estados: string[]) {
   return estados.map((e) => ({ value: e, label: rotuloEstado(e) }));
 }
+
+/** Estados dos contratos com os rótulos e as cores do legado (js/ui_compras_v2.js:791-795). */
+export const ESTADOS_CONTRATO: Record<string, { rotulo: string; cor: string }> = {
+  ATIVO: { rotulo: 'Ativo', cor: 'green' },
+  CANCELADO: { rotulo: 'Cancelado', cor: 'red' },
+  EXPIRADO: { rotulo: 'Expirado', cor: 'orange' },
+};
+
+export const rotuloEstadoContrato = (e: string | null | undefined) => (e ? ESTADOS_CONTRATO[e]?.rotulo ?? e : '—');
+
+export function EstadoContratoTag({ estado }: { estado: string | null | undefined }) {
+  return <Tag color={estado ? ESTADOS_CONTRATO[estado]?.cor : undefined}>{rotuloEstadoContrato(estado)}</Tag>;
+}

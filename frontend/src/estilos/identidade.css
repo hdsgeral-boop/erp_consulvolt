@@ -25,14 +25,14 @@ body {
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.025);
 }
 
-/* Árvore com deslocamento próprio (legado .sidebar-nav: 2rem acima e abaixo, barra de 12 px clara sobre o escuro) */
+/* Árvore com deslocamento próprio (compacta: 10 px acima, 16 px abaixo; barra de deslocamento clara sobre o escuro) */
 .erp-sider-rolagem {
-  padding: 32px 0 24px;
+  padding: 10px 0 16px;
   scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.04);
 }
 
 .erp-sider-rolagem::-webkit-scrollbar {
-  width: 12px;
+  width: 8px;
 }
 
 .erp-sider-rolagem::-webkit-scrollbar-track {
@@ -52,18 +52,18 @@ body {
   background-clip: padding-box;
 }
 
-/* Cabeçalho do menu (legado .sidebar-header: 1,5rem à volta, logótipo de 40 px, 12 px até ao nome) */
+/* Cabeçalho do menu (legado .sidebar-header; compacto: 16 px à volta, logótipo de 36 px, 12 px até ao nome) */
 .erp-sider-topo {
   flex: none;
   display: flex;
   align-items: center;
-  padding: 24px;
+  padding: 16px;
   min-width: 0;
 }
 
 .erp-sider-topo.recolhido {
   justify-content: center;
-  padding: 20px 8px;
+  padding: 14px 6px;
 }
 
 .erp-sider-topo,
@@ -78,10 +78,6 @@ body {
 
 :root .erp-gaveta-menu .ant-drawer-close:hover {
   color: #ffffff;
-}
-
-:root .erp-gaveta-menu .erp-menu-busca {
-  margin-top: 16px;
 }
 
 .erp-gaveta-empresa {
@@ -122,121 +118,52 @@ body {
   font-weight: 500;
 }
 
-/* Busca de operações (legado .nav-busca / .nav-busca-campo / .nav-busca-conta) */
-.erp-menu-busca {
-  flex: none;
-  margin: 0 16px 8px;
-}
-
-:root .erp-menu-busca .ant-input-affix-wrapper {
-  padding: 7px 8px 7px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: none;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-:root .erp-menu-busca .ant-input-affix-wrapper:hover {
-  border-color: rgba(255, 255, 255, 0.22);
-}
-
-:root .erp-menu-busca .ant-input-affix-wrapper-focused,
-:root .erp-menu-busca .ant-input-affix-wrapper:focus-within {
-  border-color: #3b82f6;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: none;
-}
-
-:root .erp-menu-busca .ant-input-affix-wrapper .ant-input {
-  background: transparent;
-  color: #e2e8f0;
-  font-size: 13.6px;
-}
-
-:root .erp-menu-busca .ant-input::placeholder {
-  color: #64748b;
-}
-
-:root .erp-menu-busca .ant-input-prefix {
-  margin-inline-end: 9px;
-  color: #64748b;
-  font-size: 12.8px;
-}
-
-:root .erp-menu-busca .ant-input-clear-icon {
-  color: #94a3b8;
-}
-
-:root .erp-menu-busca .ant-input-clear-icon:hover {
-  color: #ffffff;
-}
-
-.erp-menu-busca-contador {
-  display: block;
-  margin-top: 4px;
-  font-size: 11.5px;
-  letter-spacing: 0.2px;
-  color: #94a3b8;
-}
-
-/* vazio fica sem altura mas presente (região aria-live: tem de existir antes de receber o texto) */
-.erp-menu-busca-contador:empty {
-  margin-top: 0;
-}
-
-.erp-menu-busca-contador.vazio {
-  color: #fca5a5;
-}
-
-/* Realce da busca (legado mark.nb-realce: âmbar cheio, texto escuro) e resultado escolhido com as setas (.nb-focado) */
-:root .erp-menu mark.erp-menu-realce {
-  padding: 0 1px;
-  border-radius: 2px;
-  background: #fbbf24;
-  color: #111827;
-  font-weight: 600;
-}
-
-:root .erp-menu.ant-menu-dark .ant-menu-item.erp-menu-focado {
-  border-left-color: #3b82f6 !important;
-  background: rgba(59, 130, 246, 0.25) !important;
-  color: #ffffff !important;
-}
-
-/* Aspecto da árvore (legado .nav-aspecto: três botões de 56 px; o escolhido a azul) e «Expandir/Recolher tudo» */
+/* Controlos da árvore numa só linha compacta: aspecto (legado .nav-aspecto — «Símbolo e nome», «Só símbolos»,
+   «Só nomes»; o escolhido a azul) à esquerda e «Expandir/Recolher tudo» à direita */
 .erp-menu-controlos {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 12px;
+  padding: 6px 0;
+  border-block: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .erp-menu-aspecto {
   display: flex;
-  justify-content: center;
-  gap: 4px;
-  padding: 0 16px 8px;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.erp-menu-aspecto-botao {
-  flex: 1;
-  max-width: 56px;
-  padding: 5.6px 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.erp-menu-aspecto-botao,
+.erp-menu-expandir button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 0;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
   color: #94a3b8;
-  font-size: 12.8px;
+  font-size: 12.5px;
   line-height: 1;
   cursor: pointer;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.erp-menu-aspecto-botao:hover {
-  background: rgba(255, 255, 255, 0.12);
+.erp-menu-aspecto-botao:hover,
+.erp-menu-expandir button:hover {
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
 }
 
 .erp-menu-aspecto-botao[aria-checked='true'] {
-  border-color: #3b82f6;
   background: #2563eb;
   color: #ffffff;
 }
@@ -247,42 +174,22 @@ body {
   outline-offset: 1px;
 }
 
-.ant-layout-sider-collapsed .erp-menu-aspecto {
-  flex-wrap: wrap;
-  padding: 0 5.6px 8px;
-}
-
 .erp-menu-expandir {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 0 16px 8px;
+  gap: 2px;
 }
 
-.erp-menu-expandir button {
-  display: flex;
-  align-items: center;
+/* menu recolhido: os três botões do aspecto em coluna, ao centro */
+.ant-layout-sider-collapsed .erp-menu-controlos {
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  color: #ffffff;
-  font-size: 13.6px;
-  cursor: pointer;
+  margin: 6px 8px;
 }
 
-.erp-menu-expandir button:hover {
-  background: rgba(255, 255, 255, 0.08);
+.ant-layout-sider-collapsed .erp-menu-aspecto {
+  flex-direction: column;
 }
 
-.erp-menu-expandir svg {
-  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.9));
-}
-
-/* Friso da largura (legado .sidebar-resizer: 12 px a cavalo do bordo, linha de 2 px e pega de 8 × 44 px; azul ao passar) */
+/* Friso da largura (legado .sidebar-resizer: 12 px a cavalo do bordo, linha de 2 px; azul ao passar ou a arrastar) */
 .erp-menu-puxador {
   position: absolute;
   top: 0;
@@ -303,22 +210,8 @@ body {
   bottom: 0;
   left: 5px;
   width: 2px;
-  background: rgba(148, 163, 184, 0.25);
+  background: rgba(148, 163, 184, 0.18);
   transition: background 0.2s, width 0.2s, left 0.2s;
-}
-
-.erp-menu-puxador::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 2px;
-  width: 8px;
-  height: 44px;
-  margin-top: -22px;
-  border-radius: 4px;
-  background: #475569;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.4);
-  transition: background 0.2s;
 }
 
 .erp-menu-puxador:hover::before,
@@ -329,113 +222,135 @@ body {
   background: rgba(96, 165, 250, 0.8);
 }
 
-.erp-menu-puxador:hover::after,
-.erp-menu-puxador.a-arrastar::after,
-.erp-menu-puxador:focus-visible::after {
-  background: #60a5fa;
+/* Botão redondo a meio do bordo: recolher (só ícones) / expandir */
+.erp-menu-alternar {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-top: -12px;
+  padding: 0;
+  border: 1px solid #334155;
+  border-radius: 50%;
+  background: #1e293b;
+  color: #cbd5e1;
+  font-size: 10px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.erp-menu-puxador:focus-visible::after {
-  box-shadow: 0 0 0 2px #93c5fd;
+.erp-menu-alternar:hover,
+.erp-menu-alternar:focus-visible {
+  border-color: #3b82f6;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.erp-menu-alternar:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
 }
 
 @media print {
-  .erp-menu-puxador {
+  .erp-menu-puxador,
+  .erp-menu-alternar {
     display: none;
   }
 }
 
-/* ── Árvore (legado .nav-item / .nav-group-header / .nav-group-items) ─────────────────────────────────────────── */
+/* ── Árvore compacta: itens de 36 px (1.º nível) e 32/30 px (sub-níveis), ícones na mesma coluna, nomes com
+   reticências (dica com o nome completo), activo com fundo azul e barra de 3 px à esquerda ─────────────────── */
 .erp-menu.ant-menu.erp-menu-lista-topo,
 .erp-menu.ant-menu.erp-menu-lista-grupos {
-  padding: 0;
+  padding: 0 8px;
 }
 
 :root .erp-menu .ant-menu-item .fx-icone,
-:root .erp-menu .ant-menu-submenu-title .fx-icone {
-  width: 20px;
-  min-width: 20px;
-  font-size: 16px;
-  opacity: 0.8;
+:root .erp-menu .ant-menu-submenu-title .fx-icone,
+:root .erp-menu .ant-menu-item > .anticon,
+:root .erp-menu .ant-menu-submenu-title > .anticon {
+  flex: none;
+  width: 18px;
+  min-width: 18px;
+  font-size: 15px;
+  opacity: 0.85;
 }
 
-:root .erp-menu .ant-menu-item-selected .fx-icone {
+:root .erp-menu .ant-menu-item-selected .fx-icone,
+:root .erp-menu .ant-menu-submenu-selected > .ant-menu-submenu-title .fx-icone {
   opacity: 1;
 }
 
-/* Itens soltos do topo (Início, Dashboard Global, …): 1rem, 58 px de altura, 1rem de margem, 1rem entre símbolo e nome,
-   barra de 4 px à esquerda (azul quando activo, fundo azul a 10 %) */
-:root .erp-menu.ant-menu-inline > .ant-menu-item.erp-menu-topo {
-  height: 58px;
-  line-height: 58px;
-  margin: 0 16px 20px;
-  width: calc(100% - 32px);
-  padding-inline: 20px 24px !important;
-  border-left: 4px solid transparent;
-  border-radius: 4px;
-  font-size: 16px;
-  font-weight: 400;
+:root .erp-menu .ant-menu-item .ant-menu-title-content,
+:root .erp-menu .ant-menu-submenu-title .ant-menu-title-content {
+  min-width: 0;
+  margin-inline-start: 10px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-:root .erp-menu.ant-menu-inline > .ant-menu-item.erp-menu-topo .fx-icone {
-  font-size: 17.6px;
+/* 1.º nível: Início, Dashboard Global, …, Favoritos, Menu Geral, Sistema */
+:root .erp-menu.ant-menu-inline > .ant-menu-item,
+:root .erp-menu.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title {
+  height: 36px;
+  line-height: 36px;
+  margin: 1px 0;
+  width: 100%;
+  padding-inline: 12px 30px !important;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #cbd5e1;
 }
 
-:root .erp-menu.ant-menu-inline > .ant-menu-item.erp-menu-topo .ant-menu-title-content {
-  margin-inline-start: 16px;
+:root .erp-menu.ant-menu-inline > .ant-menu-item {
+  padding-inline: 12px 12px !important;
 }
 
-:root .erp-menu.ant-menu-dark > .ant-menu-item.erp-menu-topo.ant-menu-item-selected {
-  border-left-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
+:root .erp-menu.ant-menu-inline > .ant-menu-submenu {
+  margin-bottom: 1px;
+}
+
+/* realce ao passar e item activo (todos os níveis) */
+:root .erp-menu.ant-menu-dark .ant-menu-item:not(.ant-menu-item-selected):hover,
+:root .erp-menu.ant-menu-dark .ant-menu-submenu-title:hover {
+  background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
 }
 
-/* recolhido (só símbolos, 76 px): símbolo ao centro */
-:root .erp-menu.ant-menu-inline-collapsed > .ant-menu-item.erp-menu-topo {
-  height: 52px;
-  line-height: 52px;
-  margin: 0 4px 10px;
-  width: calc(100% - 8px);
-  padding-inline: calc(50% - 13px) 0 !important;
-  border-left: 4px solid transparent;
-  border-radius: 4px;
-}
-
-/* Grupos de 1.º nível (Favoritos, Menu Geral, Sistema): 10 px 20 px, 1rem, a toda a largura, 5 px entre grupos */
-:root .erp-menu.ant-menu-inline > .ant-menu-submenu {
-  margin-bottom: 5px;
-}
-
-:root .erp-menu.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title {
-  height: 46px;
-  line-height: 46px;
-  margin: 0;
-  width: 100%;
-  padding-inline: 20px 40px !important;
-  border-radius: 4px;
-  font-size: 16px;
-}
-
-:root .erp-menu.ant-menu-inline .ant-menu-submenu-title .ant-menu-title-content {
-  margin-inline-start: 6px;
+:root .erp-menu.ant-menu-dark .ant-menu-item-selected {
+  background: rgba(59, 130, 246, 0.16);
+  box-shadow: inset 3px 0 0 #3b82f6;
+  color: #ffffff;
+  font-weight: 500;
 }
 
 :root .erp-menu.ant-menu-dark .ant-menu-submenu-selected > .ant-menu-submenu-title {
   color: #ffffff;
 }
 
-/* Seta dos grupos (fa-chevron-down 0,8rem, roda ao abrir) */
+/* Seta dos grupos (fa-chevron-down, roda ao abrir) */
 :root .erp-menu .ant-menu-submenu-title > .erp-menu-seta {
   position: absolute;
   top: 50%;
-  inset-inline-end: 16px;
-  width: 12.8px;
-  height: 12.8px;
-  font-size: 12.8px;
-  color: currentColor;
+  inset-inline-end: 12px;
+  width: 10px;
+  height: 10px;
+  font-size: 10px;
+  color: #64748b;
   transform: translateY(-50%);
-  transition: transform 0.3s ease;
+  transition: transform 0.2s ease;
+}
+
+:root .erp-menu .ant-menu-submenu-title:hover > .erp-menu-seta {
+  color: #cbd5e1;
 }
 
 :root .erp-menu .ant-menu-submenu-title > .erp-menu-seta.aberta {
@@ -446,75 +361,49 @@ body {
   transform: translateY(-50%) rotate(-90deg);
 }
 
-:root .erp-menu.ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title > .erp-menu-seta {
-  display: none;
-}
-
-/* Sub-níveis com a guia tracejada (1.º: 18 px de afastamento; mais fundos: 22 px; 12 px até aos itens) */
+/* Sub-níveis: indentação discreta com uma guia fina por baixo da coluna dos ícones */
 :root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline {
-  margin-inline-start: 18px;
-  padding-inline-start: 12px;
-  border-inline-start: 1px dashed rgba(255, 255, 255, 0.15);
+  margin-inline-start: 20px;
+  padding-inline-start: 6px;
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.08);
   background: transparent;
 }
 
 :root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline {
-  margin-inline-start: 22px;
+  margin-inline-start: 18px;
 }
 
-/* 2.º nível: itens 0,6rem 1rem a 0,9rem com a barra de 4 px; sub-grupos 8 px 15 px a 0,9rem */
 :root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item,
 :root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title {
-  margin: 0;
+  height: 32px;
+  line-height: 32px;
+  margin: 1px 0;
   width: 100%;
-  border-radius: 4px;
-  font-size: 14.4px;
+  padding-inline: 10px 28px !important;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 400;
+  color: #b8c2d0;
 }
 
-:root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item {
-  height: 42px;
-  line-height: 42px;
-  padding-inline: 12px 16px !important;
-  border-left: 4px solid transparent;
-  border-radius: 0;
+:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-item .fx-icone,
+:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-submenu-title .fx-icone {
+  width: 16px;
+  min-width: 16px;
+  font-size: 13.5px;
 }
 
-:root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-submenu > .ant-menu-submenu-title {
-  height: 39px;
-  line-height: 39px;
-  margin-top: 4px;
-  padding-inline: 15px 36px !important;
-}
-
-:root .erp-menu.ant-menu-dark.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item-selected {
-  border-left-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-  color: #ffffff;
-}
-
-/* 3.º nível e seguintes: 0,85rem, cinzento-azulado, com «•»; activo com fundo azul a 15 % e sem barra */
+/* 3.º nível e seguintes: um pouco mais baixos e mais discretos */
 :root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item {
-  height: 38px;
-  line-height: 38px;
-  padding-inline: 8px 16px !important;
-  border-left: 0;
-  border-radius: 4px;
-  font-size: 13.6px;
+  height: 30px;
+  line-height: 30px;
+  font-size: 13px;
   color: #94a3b8;
 }
 
-:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item::before {
-  content: '\2022';
-  margin-inline-end: 8px;
-  color: rgba(255, 255, 255, 0.2);
-}
-
-:root .erp-menu.ant-menu-dark.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item-selected {
-  background: rgba(59, 130, 246, 0.15);
-  color: #ffffff;
-}
-
-:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item:hover {
+:root .erp-menu.ant-menu-inline .ant-menu-sub.ant-menu-inline > .ant-menu-item-selected,
+:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-sub.ant-menu-inline > .ant-menu-item-selected,
+:root .erp-menu.ant-menu-inline .ant-menu-sub .ant-menu-item:hover {
   color: #ffffff;
 }
 
@@ -525,7 +414,46 @@ body {
   outline-offset: -2px;
 }
 
-/* «⋮» à direita de cada ecrã (opacidade 0,5; abre «Adicionar aos Favoritos» / «Renomear favorito») */
+/* Menu recolhido (64 px): só os ícones dos módulos, ao centro, com o nome na dica e os sub-menus ao lado */
+:root .erp-menu.ant-menu-inline-collapsed {
+  width: 100%;
+}
+
+:root .erp-menu.ant-menu-inline-collapsed > .ant-menu-item,
+:root .erp-menu.ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  line-height: 40px;
+  margin: 2px 0;
+  width: 100%;
+  padding-inline: 0 !important;
+  border-radius: 6px;
+}
+
+:root .erp-menu.ant-menu-inline-collapsed > .ant-menu-item .ant-menu-title-content,
+:root .erp-menu.ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title .ant-menu-title-content,
+:root .erp-menu.ant-menu-inline-collapsed > .ant-menu-submenu > .ant-menu-submenu-title > .erp-menu-seta {
+  display: none;
+}
+
+:root .erp-menu.ant-menu-inline-collapsed .fx-icone,
+:root .erp-menu.ant-menu-inline-collapsed .ant-menu-item > .anticon,
+:root .erp-menu.ant-menu-inline-collapsed .ant-menu-submenu-title > .anticon {
+  width: 18px;
+  min-width: 18px;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1;
+}
+
+:root .erp-menu.ant-menu-dark.ant-menu-inline-collapsed > .ant-menu-submenu-selected > .ant-menu-submenu-title {
+  background: rgba(59, 130, 246, 0.16);
+  box-shadow: inset 3px 0 0 #3b82f6;
+}
+
+/* «⋮» à direita de cada ecrã (abre «Adicionar aos Favoritos» / «Renomear favorito»): discreto, aparece ao passar */
 :root .erp-menu .ant-menu-item:has(.erp-menu-pontos) {
   position: relative;
 }
@@ -536,30 +464,45 @@ body {
 }
 
 :root .erp-menu .erp-menu-rotulo-texto {
-  flex: 1;
+  display: block;
   min-width: 0;
+  padding-inline-end: 14px;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 :root .erp-menu .erp-menu-pontos {
   position: absolute;
-  right: 6px;
+  right: 4px;
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
   display: inline-flex;
   line-height: 1;
   padding: 4px;
-  font-size: 12.8px;
-  opacity: 0.5;
+  border-radius: 4px;
+  font-size: 12px;
+  opacity: 0.45;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+@media (hover: hover) {
+  :root .erp-menu .erp-menu-pontos {
+    opacity: 0;
+  }
+  :root .erp-menu .ant-menu-item:hover .erp-menu-pontos,
+  :root .erp-menu .ant-menu-item:focus-within .erp-menu-pontos,
+  :root .erp-menu .ant-menu-item-selected .erp-menu-pontos {
+    opacity: 0.6;
+  }
 }
 
 :root .erp-menu .erp-menu-pontos:hover,
 :root .erp-menu .erp-menu-pontos:focus-visible {
   opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 /* ── Barra superior (legado: .top-header — nome da empresa, crachá do NIF, utilizador e sair) ───────────────── */
@@ -1356,7 +1299,7 @@ button.erp-inicio-mini:focus-visible {
   }
 }
 
-:root .erp-cabecalho .ant-btn:not(.erp-botao-ajuda):not(.erp-botao-menu) {
+:root .erp-cabecalho .ant-btn:not(.erp-botao-ajuda):not(.erp-botao-menu):not(.erp-pesquisa-fechar) {
   height: 29px !important;
   padding: 0 12px !important;
   border-radius: 2px !important;

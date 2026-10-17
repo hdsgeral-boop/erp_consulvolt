@@ -168,7 +168,8 @@ export function ModalEmissaoCarta({ documentoId, aoFechar, aoEmitida }: { docume
             key: 'texto', forceRender: true, label: <span><strong>Texto da carta</strong> <Typography.Text type="secondary">(parte do modelo; altere só nesta carta)</Typography.Text></span>,
             children: (
               <Row gutter={12}>
-                <Col xs={24} md={12}>
+                {/* o legado tem um texto por tipo (sem escolha); só se escolhe o modelo quando há vários guardados no tipo */}
+                <Col xs={24} md={12} hidden={(modelos.data?.modelos ?? []).filter((m) => m.tipo === e.tipo).length < 2}>
                   <Form.Item name="modelo_id" label="Modelo">
                     <Select allowClear placeholder="Texto padrão" onChange={aplicarModelo}
                       options={(modelos.data?.modelos ?? []).filter((m) => m.tipo === e.tipo).map((m) => ({ value: m.id, label: `${m.nome ?? `Modelo #${m.id}`}${m.predefinido ? ' (predefinido)' : ''}` }))} />

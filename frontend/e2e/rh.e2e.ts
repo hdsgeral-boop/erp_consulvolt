@@ -22,7 +22,7 @@ test('abrir o período salarial, importar dos contratos, calcular e ver os resul
   await page.locator('.ant-modal').filter({ hasText: 'Abrir período salarial' }).getByRole('button', { name: 'Abrir' }).click();
   await expect(page).toHaveURL(/\/m\/rh\/calcular\/\d+$/);
   periodoId = Number(new URL(page.url()).pathname.split('/').pop());
-  await expect(page.getByRole('heading', { name: /^Processamento \d{2}\/\d{4}$/ })).toBeVisible();
+  await expect(page.locator('.erp-titulo-pagina', { hasText: /^Lançamentos de \d{2}\/\d{4}$/ })).toBeVisible();   // o cartão também tem o título
 
   await page.getByRole('button', { name: /Importar( down)?$/ }).click();
   await page.getByText('Importar dos contratos').click();

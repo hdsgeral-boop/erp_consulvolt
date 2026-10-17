@@ -434,6 +434,8 @@ export interface Medicao {
   nota: string;
   por: string;
   em: string;
+  /** Executante (membro da equipa) — folha de medição por pessoa. */
+  membro_id?: number;
 }
 
 export interface LinhaFolhaMedicao {
@@ -442,6 +444,8 @@ export interface LinhaFolhaMedicao {
   nome: string;
   fase: string | null;
   atribuido_a_id: number | null;
+  /** Pessoas da tarefa: o responsável directo ou os membros da área do organigrama. */
+  pessoas: number[];
   unidade: string;
   meta: number;
   realizado: number;

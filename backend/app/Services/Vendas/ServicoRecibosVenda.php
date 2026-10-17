@@ -10,6 +10,7 @@ use App\Models\Venda;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoPlanoContas;
 use App\Services\Reparticao\ServicoReparticao;
+use App\Services\Tesouraria\ServicoRecebimentosVendas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -85,6 +86,7 @@ final class ServicoRecibosVenda
                 $v->update(['valor_pago' => bcadd((string) ($v->valor_pago ?? '0'), $montante, 2)]);
                 $this->estado->recalcular($v);
             }
+            app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // ronda 3: o recebimento aparece na Tesouraria
 
             return $recibo;
         });
@@ -160,6 +162,7 @@ final class ServicoRecibosVenda
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
             ]);
             $recibo->forceFill(['tipo_recibo' => 'ADIANTAMENTO'])->save();
+            app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // ronda 3: o recebimento aparece na Tesouraria
 
             return $recibo;
         });
@@ -226,6 +229,7 @@ final class ServicoRecibosVenda
             'unidade_negocio_id' => $fr->unidade_negocio_id, 'centro_custo_id' => $fr->centro_custo_id, 'projeto_id' => $fr->projeto_id,
         ]);
         ItemReciboVenda::create(['recibo_venda_id' => $recibo->id, 'venda_id' => $fr->id, 'montante_pago' => $fr->total_bruto]);
+        app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // ronda 3: o recebimento da FR aparece na Tesouraria
 
         return $recibo;
     }
@@ -257,6 +261,7 @@ final class ServicoRecibosVenda
             }
             // autor da anulação (Fase A: anulacao_documentos.js grava anulado_por); forceFill — a coluna não está no $fillable gerado
             $recibo->forceFill(['estado' => 'ANULADO', 'anulado_em' => now(), 'motivo_anulacao' => $motivo, 'anulado_por' => Auth::user()?->nome_utilizador])->save();
+            app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // o recebimento de tesouraria ligado fica ANULADO
 
             return $recibo;
         });

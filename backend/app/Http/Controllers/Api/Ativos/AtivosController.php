@@ -82,7 +82,8 @@ final class AtivosController extends Controller
         $f = $r->validate(['estado' => ['nullable', Rule::in(AtivoImobilizado::ESTADOS)], 'categoria_ativo_id' => ['nullable', 'integer'], 'centro_custo_id' => ['nullable', 'integer'],
             'unidade_negocio_id' => ['nullable', 'integer'], 'texto' => ['nullable', 'string', 'max:100'], 'sem_lancamento' => ['nullable', 'boolean'],
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:1000'], 'pagina' => ['nullable', 'integer', 'min:1'],
-            'tipo_ativo' => ['nullable', Rule::in(['BEM', 'EDIFICIO'])], 'edificio_id' => ['nullable', 'integer'], 'porta_id' => ['nullable', 'integer']]);
+            'tipo_ativo' => ['nullable', Rule::in(['BEM', 'EDIFICIO'])], 'edificio_id' => ['nullable', 'integer'], 'porta_id' => ['nullable', 'integer'],
+            'propriedade' => ['nullable', Rule::in(AtivoImobilizado::PROPRIEDADES)]]);
         $q = AtivoImobilizado::query()->with(['categoriaAtivo:id,nome,taxa_anual', 'centroCusto:id,codigo', 'unidadeNegocio:id,codigo', 'fornecedor:id,nome']);
         // Fase F: filtro por tipo (BEM inclui os migrados sem tipo) e por local
         $q->when($f['tipo_ativo'] ?? null, fn ($q, $t) => $t === 'EDIFICIO' ? $q->where('tipo_ativo', 'EDIFICIO')
@@ -92,6 +93,8 @@ final class AtivosController extends Controller
         }
         $q->when($f['texto'] ?? null, fn ($q, $t) => $q->where(fn ($q) => $q->where('codigo', 'ilike', "%{$t}%")->orWhere('descricao', 'ilike', "%{$t}%")));
         $q->when($f['sem_lancamento'] ?? false, fn ($q) => $q->whereNull('lancamento_contabil_id'));
+        // r3_activos: próprios (inclui os antigos sem valor) ou alheios
+        $q->when($f['propriedade'] ?? null, fn ($q, $p) => $p === AtivoImobilizado::ALHEIO ? $q->where('propriedade', AtivoImobilizado::ALHEIO) : $q->proprios());
         $pagina = $q->orderBy('codigo')->paginate($f['por_pagina'] ?? 500, ['*'], 'pagina', $f['pagina'] ?? 1);
         $pagina->setCollection($this->ativos->enriquecer($pagina->getCollection()));
 
@@ -391,6 +394,12 @@ final class AtivosController extends Controller
             // Fase F (Versão Actual): tipo e localização física (o serviço valida a coerência porta › andar › edifício)
             'tipo_ativo' => [$s, 'nullable', Rule::in(['BEM', 'EDIFICIO'])], 'edificio_id' => [$s, 'nullable', 'integer'], 'andar_id' => [$s, 'nullable', 'integer'],
             'porta_id' => [$s, 'nullable', 'integer'],
+            // r3_activos: próprio / alheio e dados opcionais do proprietário/contrato (o serviço valida a coerência)
+            'propriedade' => [$s, 'nullable', Rule::in(AtivoImobilizado::PROPRIEDADES)], 'regime_alheio' => [$s, 'nullable', Rule::in(AtivoImobilizado::REGIMES_ALHEIO)],
+            'proprietario_terceiro_id' => [$s, 'nullable', 'integer'], 'proprietario_nome' => [$s, 'nullable', 'string', 'max:255'],
+            'contrato_referencia' => [$s, 'nullable', 'string', 'max:100'], 'contrato_inicio' => [$s, 'nullable', 'date'],
+            'contrato_fim' => [$s, 'nullable', 'date'], 'renda_mensal' => [$s, 'nullable', 'numeric', 'min:0', 'max:9999999999999'],
+            'propriedade_notas' => [$s, 'nullable', 'string', 'max:2000'],
         ];
     }
 

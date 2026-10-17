@@ -1,10 +1,11 @@
-import { Button, Card, Checkbox, Col, Form, Input, InputNumber, Row, Select, Space, Tabs, Tag, Tooltip } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Descriptions, Form, Input, InputNumber, Row, Select, Space, Tabs, Tag, Tooltip, theme } from 'antd';
 import { ModalImportarProdutos, type EntidadeImportacao } from './ModalImportarProdutos';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type Key } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
-import { AlternarFormulario, ModalFormulario, PainelLinhas, useVistaFormulario } from '@/componentes/formularios';
+import { AlternarFormulario, PainelLinhas, useVistaFormulario } from '@/componentes/formularios';
+import { BotoesExportar } from '@/componentes/impressao';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { BarraFiltros, useEcraPequeno } from '@/componentes/responsivo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
@@ -12,17 +13,13 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
-import { SeletorConta } from '@/modulos/compras/comum/Seletores';
-import { TabelaComModos } from '@/componentes/vistas';
-import { CAMPOS_CATEGORIA, camposProdutoLinhas, corpoCategoria, corpoProduto, corpoProdutoLinha, produtoParaFormulario, type ProdutoFicha, type ValoresProduto } from './formularioProduto';
+import { CONTAS_CATEGORIA, NIVEIS, camposProdutoLinhas, corpoProduto, corpoProdutoLinha, erroNiveis, produtoParaFormulario, type Categoria, type ProdutoFicha, type ValoresProduto } from './formularioProduto';
+import { Categorias, useCategorias } from './Categorias';
+import { pedidoFichaTecnica } from './fichaTecnica';
 import { CampoImagemProduto, MiniaturaProduto } from './imagemProduto';
 import { ModalEditarMassaProdutos } from './ModalEditarMassaProdutos';
+import { ServicosPOS } from './ServicosPOS';
 import { accoesProduto, type EdicaoProduto } from './regrasProdutos';
-
-interface Categoria {
-  id: number;
-  nome: string;
-}
 
 /** Produto da listagem (ProdutoResource + imagem). */
 type ProdutoLista = ProdutoFicha & { imagem_url?: string | null };
@@ -33,10 +30,6 @@ export const OPERACOES_FE: Record<string, string> = {
   STP: 'Transporte de passageiros', SR: 'Serviços sujeitos a royalties', SIF: 'Intermediação financeira ou seguradora',
   SHS: 'Hotelaria e similares', ST: 'Telecomunicações', AS: 'Arrendamento e subarrendamento', QT: 'Quotas', RD: 'Repasse de despesas',
 };
-
-function useCategorias() {
-  return useQuery({ queryKey: ['logistica', 'categorias'], queryFn: () => obter<Categoria[]>('/logistica/categorias-produtos'), staleTime: 300_000 });
-}
 
 /** Stock actual por produto (soma dos armazéns) — coluna «STOCK» e «Stock Atual» da ficha. */
 function useStockProdutos() {
@@ -52,8 +45,19 @@ export default function Produtos() {
   return procura.get('separador') === 'categorias' ? <Categorias /> : <ListaProdutos />;
 }
 
-/** Conta numa célula (legado celulaConta: código ou «—» em cinzento). */
-const celulaConta = (v: string | null | undefined) => (v ? <span style={{ fontFamily: 'monospace' }}>{v}</span> : <span style={{ color: '#94a3b8' }}>-</span>);
+/**
+ * Conta numa célula (legado celulaConta: código ou «—» em cinzento). Ronda 3: a conta vem da categoria; a que ainda vem do
+ * próprio produto (antes da conversão) fica assinalada.
+ */
+const celulaConta = (v: string | null | undefined, origem?: string | null) =>
+  v ? (
+    <span style={{ fontFamily: 'monospace' }}>
+      {v}
+      {origem === 'produto' && <Tooltip title="Conta própria do produto (ainda não convertida para a categoria)"><sup aria-label="conta do produto"> *</sup></Tooltip>}
+    </span>
+  ) : (
+    <span style={{ color: 'var(--ant-color-text-quaternary, #94a3b8)' }}>-</span>
+  );
 
 function ListaProdutos() {
   const { pode } = useSessao();
@@ -91,7 +95,7 @@ function ListaProdutos() {
         </Space>
       ),
     },
-    { title: 'Categoria', dataIndex: 'categoria_produto_id', ocultaPorOmissao: true, render: nomeCategoria, valorImpressao: (r) => nomeCategoria(r.categoria_produto_id) },
+    { title: 'Categoria', dataIndex: 'categoria_produto_id', render: (id: number | null) => (id ? nomeCategoria(id) : <Tag color="warning">Sem categoria</Tag>), valorImpressao: (r) => nomeCategoria(r.categoria_produto_id) },
     { title: 'Preço unitário', dataIndex: 'preco_unitario', align: 'right', render: (v: string | null) => formatarKz(v ?? 0, true) },
     { title: 'Taxa IVA', dataIndex: 'taxa_imposto', align: 'right', valorImpressao: (r) => `${formatarNumero(r.taxa_imposto)}%${r.codigo_isencao_fe ? ` · ${r.codigo_isencao_fe}` : ''}`, render: (v: string | null, r) => (r.codigo_isencao_fe ? <Tooltip title="Motivo de isenção AGT">{formatarNumero(v)}% · {r.codigo_isencao_fe}</Tooltip> : `${formatarNumero(v)}%`) },
     {
@@ -110,15 +114,15 @@ function ListaProdutos() {
         </Space>
       ),
     },
-    { title: 'Proveito (61/62)', key: 'c_venda', render: (_, r) => celulaConta(r.contas.venda), valorImpressao: (r) => r.contas.venda ?? '' },
-    { title: 'Custo (71/75)', key: 'c_custo', render: (_, r) => celulaConta(r.contas.custo), valorImpressao: (r) => r.contas.custo ?? '' },
-    { title: 'Compra (21)', key: 'c_compra', render: (_, r) => celulaConta(r.contas.compra), valorImpressao: (r) => r.contas.compra ?? '' },
-    { title: 'Existências (26)', key: 'c_inv', render: (_, r) => celulaConta(r.contas.inventario), valorImpressao: (r) => r.contas.inventario ?? '' },
-    { title: 'IVA liquidado', key: 'c_ivl', render: (_, r) => celulaConta(r.contas.iva_liquidado), valorImpressao: (r) => r.contas.iva_liquidado ?? '' },
-    { title: 'IVA dedutível', key: 'c_ivd', render: (_, r) => celulaConta(r.contas.iva_dedutivel), valorImpressao: (r) => r.contas.iva_dedutivel ?? '' },
-    { title: 'Quebras', key: 'c_queb', render: (_, r) => celulaConta(r.contas.quebra), valorImpressao: (r) => r.contas.quebra ?? '' },
-    { title: 'Sobras', key: 'c_sob', render: (_, r) => celulaConta(r.contas.sobra), valorImpressao: (r) => r.contas.sobra ?? '' },
-    { title: 'Imobilizado', key: 'c_atv', render: (_, r) => <span style={{ background: 'rgba(124, 58, 237, 0.08)', padding: '0 4px' }}>{celulaConta(r.contas.ativo)}</span>, valorImpressao: (r) => r.contas.ativo ?? '' },
+    { title: 'Proveito (61/62)', key: 'c_venda', render: (_, r) => celulaConta(r.contas.venda, r.contas_origem?.venda), valorImpressao: (r) => r.contas.venda ?? '' },
+    { title: 'Custo (71/75)', key: 'c_custo', render: (_, r) => celulaConta(r.contas.custo, r.contas_origem?.custo), valorImpressao: (r) => r.contas.custo ?? '' },
+    { title: 'Compra (21)', key: 'c_compra', render: (_, r) => celulaConta(r.contas.compra, r.contas_origem?.compra), valorImpressao: (r) => r.contas.compra ?? '' },
+    { title: 'Existências (26)', key: 'c_inv', render: (_, r) => celulaConta(r.contas.inventario, r.contas_origem?.inventario), valorImpressao: (r) => r.contas.inventario ?? '' },
+    { title: 'IVA liquidado', key: 'c_ivl', render: (_, r) => celulaConta(r.contas.iva_liquidado, r.contas_origem?.iva_liquidado), valorImpressao: (r) => r.contas.iva_liquidado ?? '' },
+    { title: 'IVA dedutível', key: 'c_ivd', render: (_, r) => celulaConta(r.contas.iva_dedutivel, r.contas_origem?.iva_dedutivel), valorImpressao: (r) => r.contas.iva_dedutivel ?? '' },
+    { title: 'Quebras', key: 'c_queb', render: (_, r) => celulaConta(r.contas.quebra, r.contas_origem?.quebra), valorImpressao: (r) => r.contas.quebra ?? '' },
+    { title: 'Sobras', key: 'c_sob', render: (_, r) => celulaConta(r.contas.sobra, r.contas_origem?.sobra), valorImpressao: (r) => r.contas.sobra ?? '' },
+    { title: 'Imobilizado', key: 'c_atv', render: (_, r) => <span style={{ background: 'rgba(124, 58, 237, 0.08)', padding: '0 4px' }}>{celulaConta(r.contas.ativo, r.contas_origem?.ativo)}</span>, valorImpressao: (r) => r.contas.ativo ?? '' },
   ];
 
   return (
@@ -184,6 +188,8 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
   const eQuarto = Form.useWatch('e_quarto', form);
   const lavandaria = Form.useWatch('lavandaria_ativa', form);
   const activo = Form.useWatch('e_ativo_imobilizado', form);
+  const gereStock = Form.useWatch('movimenta_stock', form);
+  const categoriaId = Form.useWatch('categoria_produto_id', form);
   const ficha = useQuery({
     queryKey: ['logistica', 'produto-ficha', edicao.id],
     queryFn: () => obter<ProdutoFicha & { imagem_url?: string | null }>(`/logistica/produtos/${edicao.id}`),
@@ -200,7 +206,7 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
   useEffect(() => {
     if (edicao.modo === 'novo') {
       form.resetFields();
-      form.setFieldsValue({ taxa_imposto: 14, movimenta_stock: true });
+      form.setFieldsValue({ taxa_imposto: 14, movimenta_stock: true, caracteristicas: [] });
     } else if (ficha.data) form.setFieldsValue(produtoParaFormulario(ficha.data, edicao.modo === 'copiar'));
   }, [edicao, ficha.data, form]);
   useEffect(() => {
@@ -208,13 +214,6 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
   }, [ficha.error]);
 
   const titulo = edicao.modo === 'editar' ? `Editar ${ficha.data?.nome ?? 'produto'}` : edicao.modo === 'copiar' ? 'Copiar produto' : 'Novo Produto / Serviço';
-  const conta = (nome: keyof ValoresProduto, rotulo: string, prefixo?: string) => (
-    <Col xs={24} md={12}>
-      <Form.Item name={nome} label={rotulo}>
-        <SeletorConta prefixo={prefixo} />
-      </Form.Item>
-    </Col>
-  );
 
   return (
     <Card
@@ -224,6 +223,9 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
       extra={
         <Space>
           {novo && <AlternarFormulario vista={emLinhas ? 'linhas' : 'grade'} aoMudar={guardarVista} />}
+          {edicao.modo === 'editar' && ficha.data && (
+            <BotoesExportar tamanho="small" textoImprimir="Ficha técnica" obterPedido={() => (ficha.data ? pedidoFichaTecnica(ficha.data, stockActual) : null)} />
+          )}
           <Button type="text" aria-label="Fechar" icon={<IconeFa nome="times" />} onClick={aoFechar} />
         </Space>
       }
@@ -270,7 +272,9 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
                     <Form.Item name="taxa_imposto" label="Taxa IVA"><InputNumber min={0} max={100} style={{ width: '100%' }} addonAfter="%" /></Form.Item>
                   </Col>
                   <Col xs={24} md={10}>
-                    <Form.Item name="categoria_produto_id" label="Categoria"><Select allowClear options={categorias.map((c) => ({ value: c.id, label: c.nome }))} /></Form.Item>
+                    <Form.Item name="categoria_produto_id" label="Categoria" tooltip="A categoria define as contas contabilísticas do produto." rules={[{ required: true, message: 'Escolha a categoria (define as contas contabilísticas).' }]}>
+                      <Select showSearch optionFilterProp="label" options={categorias.map((c) => ({ value: c.id, label: c.nome }))} />
+                    </Form.Item>
                   </Col>
                   <Col xs={12} md={6}>
                     <Form.Item label="Stock Atual" tooltip="Só de leitura: o stock muda com recepções, vendas, guias e inventários.">
@@ -317,23 +321,28 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
               ),
             },
             {
-              key: 'contas',
-              label: 'Contas',
+              key: 'ficha',
+              label: 'Ficha técnica',
               forceRender: true,
-              children: (
-                <Row gutter={16}>
-                  {conta('codigo_conta', 'Conta de Receita (61/62)', '6')}
-                  {conta('conta_custo', 'Conta de Custo (71/75)', '7')}
-                  {conta('conta_compra', 'Compras (21)', '2')}
-                  {conta('conta_inventario', 'Existências (26)', '2')}
-                  {conta('conta_iva_liquidado', 'IVA Liquidado', '34')}
-                  {conta('conta_iva_dedutivel', 'IVA Dedutível', '34')}
-                  {conta('conta_quebra', 'Quebras de inventário')}
-                  {conta('conta_sobra', 'Sobras de inventário')}
-                  {activo && conta('conta_ativo', 'Conta do activo', '1')}
-                </Row>
-              ),
+              children: <SeparadorFichaTecnica />,
             },
+            ...(gereStock
+              ? [{
+                  key: 'niveis',
+                  label: 'Níveis de stock',
+                  forceRender: true,
+                  children: <SeparadorNiveis />,
+                }]
+              : []),
+            {
+              key: 'contas',
+              label: 'Contabilidade',
+              forceRender: true,
+              children: <ContasHerdadas categoria={categorias.find((c) => c.id === categoriaId)} ficha={edicao.modo === 'editar' ? ficha.data : undefined} activo={!!activo} />,
+            },
+            ...(edicao.modo === 'editar' && edicao.id
+              ? [{ key: 'pos', label: 'Serviços do POS', children: <ServicosPOS produtoId={Number(edicao.id)} /> }]
+              : []),
             ...(eQuarto
               ? [{
                   key: 'hotelaria', label: 'Hotelaria', forceRender: true,
@@ -373,87 +382,102 @@ function FormularioProduto({ edicao, aoFechar, categorias, stockActual }: { edic
   );
 }
 
-/** Vendas › Categorias: formulário rápido «Nome da Categoria: + Adicionar» na página, Importar e a lista (NOME, AÇÕES). */
-function Categorias() {
-  const { pode } = useSessao();
-  const podeGerir = pode('vendas_produtos_gerir');
-  const podeEliminar = pode('vendas_dados_del');
-  const consulta = useCategorias();
-  const [importar, setImportar] = useState<EntidadeImportacao | null>(null);
-  const [edicao, setEdicao] = useState<Categoria | null>(null);
-  const [formNova] = Form.useForm<{ nome: string }>();
-  const [form] = Form.useForm<{ nome: string }>();
-  const adicionar = useAccao({ invalidar: [['logistica', 'categorias']], aoSucesso: () => formNova.resetFields() });
-  const gravar = useAccao({ invalidar: [['logistica', 'categorias']], aoSucesso: () => setEdicao(null) });
-  const eliminar = useAccao({ invalidar: [['logistica', 'categorias']] });
-  // «Grade | Linhas» no cabeçalho do cartão «Nova Categoria» (legado: formularios_linhas_config.js › categorias)
-  const [vista, guardarVista] = useVistaFormulario('vendas.categorias');
-  const cliente = useQueryClient();
+/** Separador «Ficha técnica»: especificações do produto (impressas em «Ficha técnica», no cabeçalho). */
+function SeparadorFichaTecnica() {
+  return (
+    <Row gutter={16}>
+      <Col xs={24} md={12}><Form.Item name="marca" label="Marca" rules={[{ max: 100 }]}><Input /></Form.Item></Col>
+      <Col xs={24} md={12}><Form.Item name="modelo" label="Modelo" rules={[{ max: 100 }]}><Input /></Form.Item></Col>
+      <Col xs={8} md={4}><Form.Item name="comprimento" label="Comprimento"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={8} md={4}><Form.Item name="largura" label="Largura"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={8} md={4}><Form.Item name="altura" label="Altura"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={8} md={4}>
+        <Form.Item name="unidade_dimensao" label="Unid. dimensão">
+          <Select allowClear options={['mm', 'cm', 'm'].map((x) => ({ value: x, label: x }))} />
+        </Form.Item>
+      </Col>
+      <Col xs={8} md={4}><Form.Item name="peso_liquido" label="Peso líquido (kg)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={8} md={4}><Form.Item name="peso_bruto" label="Peso bruto (kg)"><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col span={24}>
+        <Form.Item label="Composição / características">
+          <Form.List name="caracteristicas">
+            {(campos, { add, remove }) => (
+              <Space direction="vertical" style={{ width: '100%' }}>
+                {campos.map(({ key, name }) => (
+                  <Space.Compact key={key} style={{ width: '100%' }}>
+                    <Form.Item name={[name, 'chave']} noStyle rules={[{ max: 100 }]}><Input placeholder="Característica (ex.: Potência)" style={{ width: '40%' }} aria-label={`Característica ${name + 1}`} /></Form.Item>
+                    <Form.Item name={[name, 'valor']} noStyle rules={[{ max: 500 }]}><Input placeholder="Valor (ex.: 1,5 kW)" style={{ width: '55%' }} aria-label={`Valor da característica ${name + 1}`} /></Form.Item>
+                    <Button aria-label={`Retirar característica ${name + 1}`} icon={<IconeFa nome="times" />} onClick={() => remove(name)} />
+                  </Space.Compact>
+                ))}
+                <Button type="dashed" icon={<IconeFa nome="plus" />} onClick={() => add({ chave: '', valor: '' })}>Acrescentar característica</Button>
+              </Space>
+            )}
+          </Form.List>
+        </Form.Item>
+      </Col>
+      <Col span={24}><Form.Item name="observacoes_tecnicas" label="Observações" rules={[{ max: 5000 }]}><Input.TextArea rows={3} /></Form.Item></Col>
+    </Row>
+  );
+}
 
-  useEffect(() => {
-    if (edicao) form.setFieldsValue({ nome: edicao.nome });
-  }, [edicao, form]);
-
+/** Separador «Níveis de stock»: mínimo ≤ segurança ≤ ponto de encomenda ≤ máximo (o servidor volta a validar). */
+function SeparadorNiveis() {
+  const regra = ({ getFieldsValue }: { getFieldsValue: (n: string[]) => Record<string, number | null> }) => ({
+    validator: async () => {
+      const erro = erroNiveis(getFieldsValue(NIVEIS.map(([k]) => k)));
+      return erro ? Promise.reject(new Error(erro)) : undefined;
+    },
+  });
   return (
     <>
-      <ModalImportarProdutos entidade={importar} aoFechar={() => setImportar(null)} />
-      {/* dois cartões, como o legado (js/ui_sales.js:5406-5429): «Nova Categoria» e «Listagem de Categorias» */}
-      {podeGerir && (
-        <Card title="Nova Categoria" style={{ marginBottom: '2rem' }} extra={<AlternarFormulario vista={vista} aoMudar={guardarVista} />}>
-          {vista === 'linhas' ? (
-            <PainelLinhas
-              chave="vendas.categorias"
-              campos={CAMPOS_CATEGORIA}
-              nomeRegistos="categorias"
-              gravar={(r) => enviar('post', '/logistica/categorias-produtos', corpoCategoria(r))}
-              aoConcluir={(r) => { if (r.gravadas) void cliente.invalidateQueries({ queryKey: ['logistica', 'categorias'] }); }}
-            />
-          ) : (
-          <Form form={formNova} layout="vertical" onFinish={(v) => adicionar.mutate({ url: '/logistica/categorias-produtos', dados: corpoCategoria(v) })}>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-              <Form.Item name="nome" label="Nome da Categoria:" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]} style={{ flex: 1, marginBottom: 0 }}>
-                <Input placeholder="Ex: Bebidas, Servicos de Consultoria..." />
-              </Form.Item>
-              <Button type="primary" htmlType="submit" loading={adicionar.isPending} icon={<IconeFa nome="plus" />}>Adicionar</Button>
-            </div>
-          </Form>
-          )}
-        </Card>
-      )}
-      <Card title="Listagem de Categorias" extra={podeGerir && <Button icon={<IconeFa nome="file-import" />} onClick={() => setImportar('categorias')}>Importar</Button>}>
-      <TabelaComModos<Categoria>
-        idVista="categorias"
-        rowKey="id"
-        loading={consulta.isFetching}
-        dataSource={consulta.data ?? []}
-        columns={[{ title: 'Nome', dataIndex: 'nome', total: 'contagem' }]}
-        impressao={{ titulo: 'Categorias de produtos' }}
-        accoes={(c) => [
-          podeGerir && { icone: 'fa-edit', titulo: 'Editar', onClick: () => setEdicao(c) },
-          podeEliminar && { icone: 'fa-trash', titulo: 'Eliminar', variante: 'perigo', cheio: true, confirmar: { titulo: `Eliminar a categoria ${c.nome}?`, texto: 'É recusado se houver produtos nesta categoria.' }, onClick: () => eliminar.mutateAsync({ metodo: 'delete', url: `/logistica/categorias-produtos/${c.id}` }) },
-        ]}
-        vazio={{ icone: 'tags', titulo: 'Sem categorias', texto: 'Acrescente a primeira categoria acima.' }}
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="Regras de notificação (stock somado de todos os armazéns)"
+        description="Abaixo do mínimo ou do stock de segurança: alerta crítico. Stock + encomendas em curso no ponto de encomenda ou abaixo: sugestão de reposição até ao máximo (Armazém › Níveis de stock). Acima do máximo: alerta de excesso."
       />
-      {/* só edição: a criação é no cartão «Nova Categoria» (com Grade | Linhas) */}
-      <ModalFormulario
-        chave="vendas.categorias"
-        titulo="Editar categoria"
-        aberto={edicao !== null}
-        aoFechar={() => setEdicao(null)}
-        criacao={false}
-        destroyOnHidden={false}
-        campos={CAMPOS_CATEGORIA}
-        gravarLinha={(r) => enviar('post', '/logistica/categorias-produtos', corpoCategoria(r))}
-        okText="Gravar"
-        cancelText="Cancelar"
-        confirmLoading={gravar.isPending}
-        onOk={() => form.submit()}
-      >
-        <Form form={form} layout="vertical" onFinish={(v) => edicao && gravar.mutate({ metodo: 'put', url: `/logistica/categorias-produtos/${edicao.id}`, dados: corpoCategoria(v) })}>
-          <Form.Item name="nome" label="Nome da Categoria" rules={[{ required: true, message: 'Indique o nome.' }, { max: 255 }]}><Input /></Form.Item>
-        </Form>
-      </ModalFormulario>
-      </Card>
+      <Row gutter={16}>
+        {NIVEIS.map(([k, rotulo]) => (
+          <Col xs={12} md={6} key={k}>
+            <Form.Item name={k} label={rotulo} dependencies={NIVEIS.map(([x]) => x).filter((x) => x !== k)} rules={[regra]}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        ))}
+      </Row>
+    </>
+  );
+}
+
+/** Separador «Contabilidade»: as contas vêm da categoria (só leitura aqui; alteram-se em Vendas › Categorias). */
+function ContasHerdadas({ categoria, ficha, activo }: { categoria?: Categoria; ficha?: ProdutoFicha; activo: boolean }) {
+  const { token } = theme.useToken();
+  const contas = CONTAS_CATEGORIA.filter((c) => activo || c.chave !== 'ativo');
+  return (
+    <>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="As contas contabilísticas definem-se na categoria do produto"
+        description={categoria ? `Categoria «${categoria.nome}». Para mudar uma conta, edite a categoria em Vendas › Categorias (afecta todos os produtos da categoria).` : 'Escolha a categoria no separador Geral.'}
+      />
+      <Descriptions size="small" bordered column={{ xs: 1, md: 2 }}>
+        {contas.map((c) => {
+          const daCategoria = (categoria as unknown as Record<string, string | null> | undefined)?.[c.campo] ?? null;
+          // antes da conversão, um produto antigo pode ainda ter conta própria (usada quando a categoria não a define)
+          const doProduto = !daCategoria && ficha?.contas_origem?.[c.chave] === 'produto' ? ficha.contas[c.chave] : null;
+          return (
+            <Descriptions.Item key={c.campo} label={c.rotulo}>
+              {daCategoria ? <span style={{ fontFamily: 'monospace' }}>{daCategoria}</span>
+                : doProduto ? <Tooltip title="Conta própria do produto (anterior à passagem das contas para as categorias)"><span style={{ fontFamily: 'monospace' }}>{doProduto} *</span></Tooltip>
+                  : <span style={{ color: token.colorTextTertiary }}>Conta por omissão da configuração</span>}
+            </Descriptions.Item>
+          );
+        })}
+      </Descriptions>
     </>
   );
 }

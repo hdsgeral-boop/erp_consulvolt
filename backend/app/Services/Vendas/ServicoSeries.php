@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
  * transacção que grava o documento — se o documento falhar, o número não é consumido).
  *
  * Formato: "<TIPO> <SÉRIE>/<n>" (ex.: "FT A2026/15"). Série por omissão: "A<ano>" por tipo, ano e origem
- * (GERAL ou T<terminal>), criada automaticamente como no legado.
+ * (GERAL ou T<terminal>), criada automaticamente como no legado. O código é único por tipo em todos os anos e cumpre o
+ * formato do SAF-T (AO) e da AGT (RegrasNumeracaoAgt), para não colidir com séries de outros anos nem com as da AGT.
  * Documentos fiscais (FT, FR, NC): data não futura e não anterior à do último documento da série.
  * Substitui a numeração antiga "<2 letras> <ano>/<max+1>", em que Factura e Factura-Recibo colidiam em "FA".
  */
@@ -51,9 +52,11 @@ final class ServicoSeries
                 }
 
                 $numero = max(1, (int) $serie->proximo_numero);
+                // formato SAF-T/AGT verificado antes de consumir o número (RegrasNumeracaoAgt)
+                $numeroDocumento = RegrasNumeracaoAgt::exigirNumero($tipo, (string) $serie->codigo, $numero);
                 $serie->update(['proximo_numero' => $numero + 1, 'ultima_data' => $fiscal ? $dia : $serie->ultima_data]);
 
-                return ['serie' => $serie, 'numero' => $numero, 'numero_documento' => "{$tipo} {$serie->codigo}/{$numero}"];
+                return ['serie' => $serie, 'numero' => $numero, 'numero_documento' => $numeroDocumento];
             }));
         } catch (LockTimeoutException) {
             throw new ErroNegocio('Numeração ocupada por outra operação. Tente novamente.', 'NUMERACAO_OCUPADA', 409);
@@ -62,11 +65,8 @@ final class ServicoSeries
 
     private function criar(string $tipo, int $ano, string $origem): SerieFaturacaoEletronica
     {
-        $base = ($origem === 'GERAL' ? 'A' : preg_replace('/[^A-Za-z0-9]/', '', $origem)).$ano;
-        $codigo = $base;
-        for ($i = 2; SerieFaturacaoEletronica::query()->where('tipo', $tipo)->where('ano', $ano)->where('codigo', $codigo)->exists(); $i++) {
-            $codigo = $base.$i;
-        }
+        // único por tipo em TODOS os anos (o n.º do documento não leva o ano à parte) e com o formato do SAF-T/AGT
+        $codigo = RegrasNumeracaoAgt::codigoAutomatico($tipo, $ano, $origem);
 
         return SerieFaturacaoEletronica::create([
             'codigo' => $codigo, 'tipo' => $tipo, 'ano' => $ano, 'origem' => $origem, 'origem_nome' => $origem === 'GERAL' ? 'Geral' : $origem,

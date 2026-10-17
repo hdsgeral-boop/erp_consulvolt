@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Contas da logística por omissão (inventário permanente, ADR-042). No legado não havia configuração: cada ecrã
  * reescrevia o prefixo da conta do produto (resolveMatérialAccount), o que produzia contas inexistentes, e os campos
- * «conta de custo» e «conta de compras» do produto eram gravados mas nunca lidos. A conta do produto prevalece; na
- * falta dela usa-se a daqui (o inventário usa a das Compras, já configurada).
+ * «conta de custo» e «conta de compras» do produto eram gravados mas nunca lidos. A conta da categoria do produto
+ * (ContasProduto::de, ronda 3) prevalece; na falta dela usa-se a daqui (o inventário usa a das Compras, já configurada).
  */
 final class ServicoConfigLogistica
 {
@@ -58,21 +58,21 @@ final class ServicoConfigLogistica
 
     public function contaInventario(Produto $p): string
     {
-        return $p->conta_inventario ?: $this->compras->exigir('inventario_mercadorias', "O produto {$p->codigo} não tem conta de inventário.");
+        return ContasProduto::de($p)->inventario ?: $this->compras->exigir('inventario_mercadorias', "O produto {$p->codigo} não tem conta de inventário.");
     }
 
     public function contaCusto(Produto $p): string
     {
-        return $p->conta_custo ?: $this->exigir('custo_mercadorias_vendidas', "O produto {$p->codigo} não tem conta de custo (CMV).");
+        return ContasProduto::de($p)->custo ?: $this->exigir('custo_mercadorias_vendidas', "O produto {$p->codigo} não tem conta de custo (CMV).");
     }
 
     public function contaSobras(Produto $p): string
     {
-        return $p->conta_sobra ?: $this->exigir('sobras_inventario', "O produto {$p->codigo} não tem conta de sobras.");
+        return ContasProduto::de($p)->sobra ?: $this->exigir('sobras_inventario', "O produto {$p->codigo} não tem conta de sobras.");
     }
 
     public function contaQuebras(Produto $p): string
     {
-        return $p->conta_quebra ?: $this->exigir('quebras_inventario', "O produto {$p->codigo} não tem conta de quebras.");
+        return ContasProduto::de($p)->quebra ?: $this->exigir('quebras_inventario', "O produto {$p->codigo} não tem conta de quebras.");
     }
 }

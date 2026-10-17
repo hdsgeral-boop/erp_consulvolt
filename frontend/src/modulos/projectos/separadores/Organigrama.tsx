@@ -1,10 +1,9 @@
-import { Button, Card, Checkbox, Col, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Tag, Tree, Typography } from 'antd';
+import { Avatar, Button, Card, Checkbox, Col, Descriptions, Drawer, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Tag, Typography, type MenuProps } from 'antd';
 import {
   ApartmentOutlined, ArrowDownOutlined, ArrowUpOutlined, ColumnHeightOutlined, DeleteOutlined, DollarOutlined, DownOutlined, EditOutlined, OrderedListOutlined,
-  PlusOutlined, UnorderedListOutlined, UserAddOutlined,
+  MailOutlined, MoreOutlined, PhoneOutlined, PlusOutlined, UnorderedListOutlined, UserAddOutlined,
 } from '@ant-design/icons';
 import { ModalAssociarTarefas, ModalMapearOrcamento, ModalPosicoesLote, type PosicaoCompleta } from './OrganigramaAccoes';
-import type { DataNode } from 'antd/es/tree';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { enviar, obter } from '@/api/cliente';
@@ -13,7 +12,9 @@ import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { Organigrama, Posicao } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
-import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
+import { larguraModal } from '@/componentes/responsivo';
+import { ocupantes, QuadroOrganigrama, textoVagas, type PosicaoQuadro } from './organigrama/QuadroOrganigrama';
+import { iniciais } from './organigrama/layout';
 import { CORES_POSICAO as CORES, dadosPosicao, simNao } from '../comum/linhas';
 import { consumo } from '../comum/regras';
 
@@ -29,63 +30,49 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
   const [lote, setLote] = useState(false);
   const [tarefas, setTarefas] = useState<PosicaoCompleta | null>(null);
   const [mapear, setMapear] = useState(false);
+  const [detalheId, setDetalheId] = useState<number | null>(null);
   const accao = useAccao({ invalidar: [['projectos']] });
   const o = q.data;
   const refOrganigrama = useRef<HTMLDivElement>(null);
 
-  const arvore = useMemo<DataNode[]>(() => {
-    const filhos = new Map<number | null, Posicao[]>();
-    for (const p of o?.posicoes ?? []) {
-      const pai = p.no_pai_id && o?.posicoes.some((x) => x.id === p.no_pai_id) ? p.no_pai_id : null;
-      filhos.set(pai, [...(filhos.get(pai) ?? []), p]);
-    }
-    const no = (p: Posicao): DataNode => ({ key: p.id, title: p.titulo, children: (filhos.get(p.id) ?? []).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)).map(no) });
-    return (filhos.get(null) ?? []).sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0)).map(no);
-  }, [o]);
-  const porId = useMemo(() => new Map((o?.posicoes ?? []).map((p) => [p.id, p])), [o]);
+  const porId = useMemo(() => new Map((o?.posicoes ?? []).map((p) => [p.id, p as PosicaoQuadro])), [o]);
+  const detalhe = detalheId !== null ? porId.get(detalheId) ?? null : null;
+  const superior = detalhe?.no_pai_id ? porId.get(detalhe.no_pai_id) : undefined;
+  const subordinadas = detalhe ? (o?.posicoes ?? []).filter((x) => x.no_pai_id === detalhe.id) : [];
 
-  const titulo = (n: DataNode) => {
-    const p = porId.get(Number(n.key));
-    if (!p) return null;
-    const ocupadas = p.membros.length;
-    return (
-      <Flex gap={12} align="center" wrap style={{ padding: '4px 0' }}>
-        <Tag color={CORES[p.cor ?? 'azul'] ?? 'blue'}>{p.area ?? 'Posição'}</Tag>
-        <Typography.Text strong>{p.titulo}</Typography.Text>
-        {p.apoio && <Tag>Apoio</Tag>}
-        {((p as PosicaoCompleta).tarefas?.length ?? 0) > 0 && <Tag icon={<OrderedListOutlined />}>{(p as PosicaoCompleta).tarefas?.length} tarefa(s)</Tag>}
-        {(p as PosicaoCompleta).disposicao === 'COLUNA' && <Tag>Filhos em coluna</Tag>}
-        <Typography.Text type={p.vagas && ocupadas < p.vagas ? 'warning' : 'secondary'}>{ocupadas}/{p.vagas ?? 0} vaga(s)</Typography.Text>
-        {p.membros.length > 0 && <Typography.Text type="secondary">{p.membros.map((m) => m.nome).join(', ')}</Typography.Text>}
-        {Number(p.valores.orcamento) > 0 && <Typography.Text type="secondary">Orç. {formatarKz(p.valores.orcamento)} · exec. {formatarKz(p.valores.executado)}</Typography.Text>}
-        {/* Versão Actual (projectos_organigrama.js:134-162): a chefia responde pelo que está abaixo; orçamento mapeado pelas quantidades */}
-        {Number(p.valores.orcamento_qtd ?? 0) > 0 && <Typography.Text type="secondary" style={{ display: 'block' }}>Mapeado por qtd. {formatarKz(p.valores.orcamento_qtd)}</Typography.Text>}
-        {(p.valores_ramo?.subposicoes ?? 0) > 0 && Number(p.valores_ramo?.orcamento ?? 0) + Number(p.valores_ramo?.orcamento_qtd ?? 0) > 0 && (
-          <Typography.Text type="secondary" style={{ display: 'block' }}>Com as subposições: orç. {formatarKz(p.valores_ramo?.orcamento)} · exec. {formatarKz(p.valores_ramo?.executado)}{Number(p.valores_ramo?.orcamento_qtd ?? 0) > 0 ? ` · qtd. ${formatarKz(p.valores_ramo?.orcamento_qtd)}` : ''}</Typography.Text>
-        )}
-        {acc.gerir && (
-          <Space wrap size={4} onClick={(e) => e.stopPropagation()}>
-            <Button size="small" icon={<UserAddOutlined />} title="Alocar membros" onClick={() => setAlocar(p)} />
-            <Button size="small" icon={<OrderedListOutlined />} title="Associar tarefas" aria-label={`Associar tarefas a ${p.titulo}`} onClick={() => setTarefas(p as PosicaoCompleta)} />
-            <Button size="small" icon={<ColumnHeightOutlined />} title={(p as PosicaoCompleta).disposicao === 'COLUNA' ? 'Filhos em linha' : 'Filhos em coluna'}
-              aria-label={`Disposição dos filhos de ${p.titulo}`}
-              onClick={() => accao.mutate({ url: `/projetos/${projecto.id}/organigrama/disposicao`, dados: { posicoes: [p.id], disposicao: (p as PosicaoCompleta).disposicao === 'COLUNA' ? null : 'COLUNA' } })} />
-            <Button size="small" icon={<PlusOutlined />} title="Nova posição subordinada" onClick={() => setPosicao({ no_pai_id: p.id, cor: p.cor })} />
-            <Button size="small" icon={<EditOutlined />} onClick={() => setPosicao(p)} />
-            <Button size="small" icon={<ArrowUpOutlined />} title="Subir" onClick={() => accao.mutate({ url: `/projetos/${projecto.id}/organigrama/posicoes/${p.id}/arrumar`, dados: { acao: 'SUBIR' } })} />
-            <Button size="small" icon={<ArrowDownOutlined />} title="Descer" onClick={() => accao.mutate({ url: `/projetos/${projecto.id}/organigrama/posicoes/${p.id}/arrumar`, dados: { acao: 'DESCER' } })} />
-            <Popconfirm title={`Eliminar a posição «${p.titulo}»?`} okText="Eliminar" cancelText="Cancelar" okButtonProps={{ danger: true }}
-              onConfirm={() => accao.mutate({ metodo: 'delete', url: `/projetos/${projecto.id}/organigrama/posicoes/${p.id}` })}>
-              <Button size="small" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
-          </Space>
-        )}
-      </Flex>
-    );
+  /** Menu «⋯» do cartão (acções do legado na caixa: .porg-accoes, projectos_organigrama.js:285-293). */
+  const menuPosicao = (p: PosicaoQuadro): MenuProps['items'] => [
+    { key: 'alocar', icon: <UserAddOutlined />, label: 'Alocar membros' },
+    { key: 'tarefas', icon: <OrderedListOutlined />, label: 'Associar tarefas' },
+    { key: 'sub', icon: <PlusOutlined />, label: 'Nova subposição' },
+    { key: 'editar', icon: <EditOutlined />, label: 'Editar posição' },
+    { type: 'divider' },
+    { key: 'subir', icon: <ArrowUpOutlined />, label: 'Subir na ordem' },
+    { key: 'descer', icon: <ArrowDownOutlined />, label: 'Descer na ordem' },
+    { key: 'disposicao', icon: <ColumnHeightOutlined />, label: p.disposicao === 'COLUNA' ? 'Subposições lado a lado' : 'Subposições em coluna' },
+    { type: 'divider' },
+    { key: 'eliminar', icon: <DeleteOutlined />, label: 'Eliminar posição', danger: true },
+  ];
+  const executar = (p: PosicaoQuadro, chave: string) => {
+    const url = `/projetos/${projecto.id}/organigrama`;
+    switch (chave) {
+      case 'alocar': setAlocar(p); break;
+      case 'tarefas': setTarefas(p as PosicaoCompleta); break;
+      case 'sub': setPosicao({ no_pai_id: p.id, cor: p.cor }); break;
+      case 'editar': setPosicao(p); break;
+      case 'subir': accao.mutate({ url: `${url}/posicoes/${p.id}/arrumar`, dados: { acao: 'SUBIR' } }); break;
+      case 'descer': accao.mutate({ url: `${url}/posicoes/${p.id}/arrumar`, dados: { acao: 'DESCER' } }); break;
+      case 'disposicao': accao.mutate({ url: `${url}/disposicao`, dados: { posicoes: [p.id], disposicao: p.disposicao === 'COLUNA' ? null : 'COLUNA' } }); break;
+      case 'eliminar':
+        Modal.confirm({ title: `Eliminar a posição «${p.titulo}»?`, content: 'As subposições passam a reportar à posição superior e os ocupantes ficam sem posição.', okText: 'Eliminar',
+          okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => { setDetalheId(null); return accao.mutateAsync({ metodo: 'delete', url: `${url}/posicoes/${p.id}` }); } });
+        break;
+      default:
+    }
   };
 
   return (
-    <Card loading={q.isLoading} ref={refOrganigrama} title="Organigrama" extra={<ImpressaoSeparador alvo={refOrganigrama} titulo="Organigrama" projecto={projecto} desactivado={!o} />}>
+    <Card loading={q.isLoading} ref={refOrganigrama} title="Organigrama">
       {o && (
         <>
           {/* Indicadores em linha, como no legado (.porg-kpis, projectos_organigrama.js:249-352) */}
@@ -120,19 +107,42 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
               )}
             </Flex>
           )}
-          {/* legado (.porg-grid): árvore à esquerda e, à direita, a equipa sem posição */}
+          {/* legado (.porg-grid): esquema à esquerda e, à direita, a equipa sem posição */}
           <Row gutter={[16, 16]}>
             <Col xs={24} xl={o.sem_posicao.length > 0 ? 18 : 24}>
-              {arvore.length ? <Tree treeData={arvore} defaultExpandAll blockNode selectable={false} titleRender={titulo} key={arvore.length} /> : <Empty description="Organigrama vazio" />}
+              {o.posicoes.length
+                ? <QuadroOrganigrama posicoes={o.posicoes as PosicaoQuadro[]} titulo={`Organigrama — ${projecto.codigo ? `${projecto.codigo} ` : ''}${projecto.nome}`}
+                    aoAbrir={(p) => setDetalheId(p.id)} accoes={acc.gerir ? menuPosicao : undefined} aoAccao={executar} />
+                : <Empty description="Organigrama vazio" />}
             </Col>
             {o.sem_posicao.length > 0 && (
               <Col xs={24} xl={6}>
                 <Card size="small" title={`Equipa sem posição (${o.sem_posicao.length})`}>
-                  <Space wrap>{o.sem_posicao.map((m) => <Tag key={m.id}>{m.nome}{m.papel ? ` · ${m.papel}` : ''}</Tag>)}</Space>
+                  <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                    {o.sem_posicao.map((m) => (
+                      <Flex key={m.id} align="center" gap={8}>
+                        <Avatar size={24} style={{ flex: 'none', fontSize: 11 }}>{iniciais(m.nome)}</Avatar>
+                        <div style={{ minWidth: 0 }}>
+                          <Typography.Text ellipsis style={{ display: 'block' }}>{m.nome}</Typography.Text>
+                          {m.papel && <Typography.Text type="secondary" style={{ fontSize: 11 }}>{m.papel}</Typography.Text>}
+                        </div>
+                      </Flex>
+                    ))}
+                  </Space>
+                  {acc.gerir && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 8 }}>Use «Alocar membros» no menu ⋯ da posição.</Typography.Text>}
                 </Card>
               </Col>
             )}
           </Row>
+          <Drawer open={!!detalhe} onClose={() => setDetalheId(null)} width={larguraModal(460)} title={detalhe?.titulo}
+            extra={detalhe && acc.gerir && (
+              <Dropdown trigger={['click']} menu={{ items: menuPosicao(detalhe), onClick: ({ key }) => executar(detalhe, String(key)) }}>
+                <Button icon={<MoreOutlined />}>Acções</Button>
+              </Dropdown>
+            )}>
+            {detalhe && <DetalhePosicao p={detalhe} superior={superior?.titulo} subordinadas={subordinadas.map((x) => x.titulo)} aoIr={(id) => setDetalheId(id)}
+              idsSubordinadas={subordinadas.map((x) => x.id)} idSuperior={superior?.id} />}
+          </Drawer>
           <ModalPosicao projectoId={projecto.id} posicao={posicao} posicoes={o.posicoes} aoFechar={() => setPosicao(null)} />
           <ModalAlocar projectoId={projecto.id} posicao={alocar} organigrama={o} aoFechar={() => setAlocar(null)} />
           <ModalPosicoesLote aberto={lote} projectoId={projecto.id} posicoes={o.posicoes} aoFechar={() => setLote(false)} />
@@ -214,5 +224,51 @@ function ModalAlocar({ projectoId, posicao, organigrama, aoFechar }: { projectoI
       <Select mode="multiple" style={{ width: '100%' }} value={membros} onChange={setMembros} optionFilterProp="label"
         options={[...new Map(todos.map((m) => [m.id, m])).values()].map((m) => ({ value: m.id, label: `${m.nome}${m.papel ? ` (${m.papel})` : ''}` }))} />
     </Modal>
+  );
+}
+
+/** Detalhe da posição (projOrgDetalhe do legado): ocupantes com contactos, vagas, hierarquia, tarefas e valores. */
+function DetalhePosicao({ p, superior, idSuperior, subordinadas, idsSubordinadas, aoIr }: {
+  p: PosicaoQuadro; superior?: string; idSuperior?: number; subordinadas: string[]; idsSubordinadas: number[]; aoIr: (id: number) => void;
+}) {
+  const os = ocupantes(p);
+  const v = textoVagas(os.length, p.vagas);
+  const c = consumo(p.valores.executado, p.valores.orcamento);
+  return (
+    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Descriptions size="small" column={1} bordered items={[
+        { key: 'a', label: 'Área', children: p.area || '—' },
+        { key: 'v', label: 'Vagas', children: <Typography.Text type={v.excesso ? 'danger' : v.falta ? 'warning' : undefined}>{v.texto}{v.excesso ? ' — excedido' : ''}</Typography.Text> },
+        { key: 's', label: 'Reporta a', children: superior && idSuperior ? <Button type="link" size="small" style={{ padding: 0 }} onClick={() => aoIr(idSuperior)}>{superior}</Button> : '— (topo)' },
+        { key: 'f', label: 'Subposições', children: subordinadas.length ? <Space wrap size={4}>{subordinadas.map((t, i) => <Tag key={idsSubordinadas[i]} style={{ cursor: 'pointer' }} onClick={() => aoIr(idsSubordinadas[i])}>{t}</Tag>)}</Space> : '—' },
+        { key: 't', label: 'Tarefas associadas', children: p.tarefas?.length ?? 0 },
+        ...(p.apoio ? [{ key: 'ap', label: 'Tipo', children: <Tag color="purple">Apoio (staff)</Tag> }] : []),
+        ...(p.descricao ? [{ key: 'd', label: 'Descrição', children: p.descricao }] : []),
+      ]} />
+      <div>
+        <Typography.Text strong>Ocupantes ({os.length})</Typography.Text>
+        {os.length ? os.map((m) => (
+          <Flex key={m.id} gap={10} align="center" style={{ marginTop: 8 }}>
+            <Avatar size={36}>{iniciais(m.nome)}</Avatar>
+            <div style={{ minWidth: 0 }}>
+              <Typography.Text strong={m.id === p.membro_responsavel_id} style={{ display: 'block' }}>{m.nome}{m.id === p.membro_responsavel_id && <Tag color="gold" style={{ marginLeft: 6 }}>Responsável</Tag>}</Typography.Text>
+              <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{[m.cargo, m.papel].filter(Boolean).join(' · ') || '—'}</Typography.Text>
+              <Space size={12} wrap style={{ fontSize: 12 }}>
+                {m.telefone && <a href={`tel:${m.telefone.replace(/[^\d+]/g, '')}`}><PhoneOutlined /> {m.telefone}</a>}
+                {m.email && <a href={`mailto:${m.email}`}><MailOutlined /> {m.email}</a>}
+              </Space>
+            </div>
+          </Flex>
+        )) : <Typography.Paragraph type="secondary" italic style={{ marginTop: 4 }}>Sem ocupante.</Typography.Paragraph>}
+      </div>
+      {(Number(p.valores.orcamento) > 0 || Number(p.valores.executado) > 0 || Number(p.valores_ramo?.orcamento ?? 0) > 0) && (
+        <Descriptions size="small" column={1} title="Valores" items={[
+          { key: 'o', label: 'Orçamentado', children: formatarKz(p.valores.orcamento) },
+          { key: 'e', label: 'Executado', children: <Typography.Text type={corConsumo(c)}>{formatarKz(p.valores.executado)}{c !== null ? ` (${c.toLocaleString('pt-PT')}%)` : ''}</Typography.Text> },
+          ...(Number(p.valores.orcamento_qtd ?? 0) > 0 ? [{ key: 'q', label: 'Mapeado por qtd.', children: formatarKz(p.valores.orcamento_qtd) }] : []),
+          ...((p.valores_ramo?.subposicoes ?? 0) > 0 ? [{ key: 'r', label: 'Com as subposições', children: `orç. ${formatarKz(p.valores_ramo?.orcamento)} · exec. ${formatarKz(p.valores_ramo?.executado)}` }] : []),
+        ]} />
+      )}
+    </Space>
   );
 }

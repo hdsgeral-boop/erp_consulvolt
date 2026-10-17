@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Tooltip, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Typography, message } from 'antd';
 import { AppstoreAddOutlined, CalculatorOutlined, ImportOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -19,6 +19,7 @@ import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ESTADOS_COLABORADOR, ESTADOS_CONTRATO, type ConfiguracaoRH, type ContratoTrabalho, type ItemProdutividade } from './api';
+import { detalheEstadoContrato, LinhasRubricas } from './contratos/apresentacao';
 import { accoesEstadoContrato, ModaisEstadoContrato, type AccaoEstado } from './contratos/EstadoContrato';
 import { CamposHorario, horarioParaApi, horarioParaForm, type ValoresHorario } from './contratos/HorarioContrato';
 import { contem, EstadoTag, PesquisaLocal, SeletorColaborador } from './comum/componentes';
@@ -233,18 +234,35 @@ export default function Contratos() {
   // colunas do legado (renderContratos): colaborador, rubricas, valor/mês, valor/dia, valor/hora, dias · horas, início, fim, estado
   const rem = (c: ContratoTrabalho) => normalizarRemuneracoes(c.remuneracoes, c.dias_contrato_mes ?? 22);
   const moeda = (c: ContratoTrabalho) => (c.codigo_moeda && c.codigo_moeda !== 'AOA' ? ` ${c.codigo_moeda}` : '');
-  const porDia = (c: ContratoTrabalho) => Number(totalContrato(c)) / (Number(c.dias_contrato_mes) || 22);
+  const dias = (c: ContratoTrabalho) => Number(c.dias_contrato_mes) || 22;
+  const horas = (c: ContratoTrabalho) => Number(c.horas_por_dia) || 8;
+  const porDia = (c: ContratoTrabalho) => Number(totalContrato(c)) / dias(c);
   const colunas: ColunaApi<ContratoTrabalho>[] = [
     { title: 'Colaborador', dataIndex: 'colaborador_id', render: (v: number) => <strong>{colaboradores.nome(v)}</strong> },
-    { title: 'Rubricas (Infotipos)', responsive: ['lg'], ellipsis: true, valorImpressao: (c) => rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id)).join(', '),
-      render: (_, c) => <Tooltip title={rem(c).map((r) => `${infotipos.nome(r.infotipo_salarial_id)}: ${formatarKz(r.valor_mes)}`).join(' · ')}>{rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id)).join(', ')}</Tooltip> },
-    { title: 'Valor/Mês (Kz)', align: 'right', valorImpressao: (c) => `${formatarKz(totalContrato(c))}${moeda(c)}`, render: (_, c) => `${formatarKz(totalContrato(c))}${moeda(c)}` },
-    { title: 'Valor/Dia (Kz)', align: 'right', responsive: ['md'], valorImpressao: (c) => formatarKz(porDia(c)), render: (_, c) => formatarKz(porDia(c)) },
-    { title: 'Valor/Hora (Kz)', align: 'right', responsive: ['lg'], valorImpressao: (c) => formatarKz(porDia(c) / (Number(c.horas_por_dia) || 8)), render: (_, c) => formatarKz(porDia(c) / (Number(c.horas_por_dia) || 8)) },
+    // como no antigo (:4425-4447): uma linha por rubrica nas colunas de rubricas e de valores; só a coluna das rubricas quebra
+    { title: 'Rubricas (Infotipos)', responsive: ['lg'], className: 'erp-quebra', valorImpressao: (c) => rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id)).join(', '),
+      render: (_, c) => <LinhasRubricas valores={rem(c).map((r) => infotipos.nome(r.infotipo_salarial_id))} vazio={<Typography.Text type="danger">Sem rubricas</Typography.Text>} /> },
+    { title: 'Valor/Mês (Kz)', align: 'right', valorImpressao: (c) => `${formatarKz(totalContrato(c))}${moeda(c)}`,
+      render: (_, c) => <LinhasRubricas alinhar="right" negrito valores={rem(c).map((r) => `${formatarKz(r.valor_mes)}${moeda(c)}`)} /> },
+    { title: 'Valor/Dia (Kz)', align: 'right', responsive: ['md'], valorImpressao: (c) => formatarKz(porDia(c)),
+      render: (_, c) => <LinhasRubricas alinhar="right" valores={rem(c).map((r) => formatarKz(r.valor_mes / dias(c)))} /> },
+    { title: 'Valor/Hora (Kz)', align: 'right', responsive: ['lg'], valorImpressao: (c) => formatarKz(porDia(c) / horas(c)),
+      render: (_, c) => <LinhasRubricas alinhar="right" valores={rem(c).map((r) => <Typography.Text type="secondary" key={r.infotipo_salarial_id}>{formatarKz(r.valor_mes / dias(c) / horas(c))}</Typography.Text>)} /> },
     { title: 'Dias · Horas', align: 'center', responsive: ['md'], valorImpressao: (c) => `${c.dias_contrato_mes ?? 22} d · ${Number(c.horas_por_dia ?? 8)} h`, render: (_, c) => `${c.dias_contrato_mes ?? 22} d · ${Number(c.horas_por_dia ?? 8)} h` },
     { title: 'Início', dataIndex: 'data_inicio', align: 'center', render: formatarData },
     { title: 'Fim', dataIndex: 'data_fim', align: 'center', render: (v: string | null) => (semFim(v) ? '-' : formatarData(v)) },
-    { title: 'Estado', dataIndex: 'estado', align: 'center', render: (e: string | null, c) => <Space size={4} wrap><EstadoTag estado={e} />{contratoVigente(c, hoje) && <Typography.Text type="success">vigente</Typography.Text>}</Space> },
+    { title: 'Estado', dataIndex: 'estado', align: 'center',
+      valorImpressao: (c) => [c.estado ?? '', detalheEstadoContrato(c)?.texto].filter(Boolean).join(' — '),
+      render: (e: string | null, c) => {
+        // como no antigo: o motivo da suspensão (ou da cessação) e a data por baixo do estado
+        const detalhe = detalheEstadoContrato(c);
+        return (
+          <>
+            <Space size={4} wrap><EstadoTag estado={e} />{contratoVigente(c, hoje) && <Typography.Text type="success">vigente</Typography.Text>}</Space>
+            {detalhe && <div style={{ fontSize: '0.72rem', marginTop: 2, color: detalhe.tipo === 'suspensao' ? '#92400e' : '#991b1b' }}>{detalhe.texto}</div>}
+          </>
+        );
+      } },
   ];
 
   return (

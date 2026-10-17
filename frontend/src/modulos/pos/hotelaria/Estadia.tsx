@@ -101,7 +101,7 @@ export function DetalheEstadia({ id, terminal, aoFechar, aoCheckout }: { id: num
   const { pode } = useSessao();
   const consulta = useEstadia(id);
   const e = consulta.data;
-  const catalogo = useCatalogoPOS();
+  const catalogo = useCatalogoPOS(terminal?.id);
   const [consumos, setConsumos] = useState<ConsumoEstadia[]>([]);
   const [novoProduto, setNovoProduto] = useState<number>();
   const [alterar, setAlterar] = useState(false);

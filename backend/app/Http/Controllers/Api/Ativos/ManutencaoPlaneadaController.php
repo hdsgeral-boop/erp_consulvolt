@@ -16,6 +16,7 @@ use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * /api/ativos/manutencao — planos, ordens de manutenção, necessidades e requisições ao armazém (Fase F, Versão Actual;
@@ -155,7 +156,14 @@ final class ManutencaoPlaneadaController extends Controller
         $d = $r->validate(['ativo_imobilizado_id' => ['required', 'integer'], 'tipo' => ['required', Rule::in(PlanoManutencaoAtivo::TIPOS)],
             'prioridade' => ['nullable', Rule::in(OrdemManutencaoAtivo::PRIORIDADES)], 'data_prevista' => ['required', 'date'],
             'descricao' => ['required', 'string', 'max:5000'], 'responsavel' => ['nullable', 'string', 'max:150'],
-            'tarefas' => ['nullable', 'array', 'max:200'], 'tarefas.*' => ['nullable', 'string', 'max:500']] + self::regrasItens('itens'));
+            // r3_activos: cada tarefa é um texto (obrigatória) ou {texto, obrigatoria}
+            'tarefas' => ['nullable', 'array', 'max:200'], 'tarefas.*' => ['nullable', fn ($a, $v, $falha) => is_string($v) || is_array($v) || $v === null ? null : $falha('Tarefa inválida.')],
+            'tarefas.*.texto' => ['sometimes', 'nullable', 'string', 'max:500'], 'tarefas.*.obrigatoria' => ['sometimes', 'nullable', 'boolean']] + self::regrasItens('itens'));
+        foreach ($d['tarefas'] ?? [] as $t) {
+            if (is_string($t) && mb_strlen($t) > 500) {
+                throw ValidationException::withMessages(['tarefas' => 'Cada tarefa tem no máximo 500 caracteres.']);
+            }
+        }
         unset($d['plano_manutencao_id']);
         $o = $this->ordens->criar($d);
 

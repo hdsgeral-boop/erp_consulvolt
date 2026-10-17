@@ -45,6 +45,27 @@ final class PlanoContasController extends Controller
         return RespostaApi::sucesso($this->plano->atualizar(PlanoConta::query()->findOrFail($conta), $request->validated()), 'Conta actualizada com sucesso.');
     }
 
+    /** POST plano-contas/massa/modificar — «Modificar em Massa» (tipo, descrição ou sufixo) das contas seleccionadas. */
+    public function modificarEmMassa(Request $request): JsonResponse
+    {
+        $this->exigir('contab_plano_gerir');
+        $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:5000'], 'ids.*' => ['integer', 'distinct'],
+            'tipo' => ['nullable', 'in:M,T'], 'descricao' => ['nullable', 'string', 'max:255'], 'sufixo' => ['nullable', 'string', 'max:100']]);
+        $r = $this->plano->modificarEmMassa($d['ids'], $d['tipo'] ?? null, $d['descricao'] ?? null, $d['sufixo'] ?? null);
+
+        return RespostaApi::sucesso($r, "{$r['actualizadas']} conta(s) actualizada(s).");
+    }
+
+    /** POST plano-contas/massa/eliminar — «Eliminar Seleccionadas»: as contas com lançamentos mantêm-se; `simular` só pré-visualiza. */
+    public function eliminarEmMassa(Request $request): JsonResponse
+    {
+        $this->exigir('contab_tabelas_del');
+        $d = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:5000'], 'ids.*' => ['integer', 'distinct'], 'simular' => ['nullable', 'boolean']]);
+        $r = $this->plano->eliminarEmMassa($d['ids'], (bool) ($d['simular'] ?? false));
+
+        return RespostaApi::sucesso($r, $r['simulacao'] ? 'Simulação da eliminação.' : count($r['eliminadas']).' conta(s) eliminada(s).');
+    }
+
     public function destroy(int $conta): JsonResponse
     {
         $this->exigir('contab_tabelas_del');

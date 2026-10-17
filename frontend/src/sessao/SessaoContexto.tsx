@@ -25,6 +25,11 @@ interface Sessao {
   largarEmpresa: () => void;
   /** Tem pelo menos uma das permissões (como $this->exigir no backend); '*' = acesso total. */
   pode: (...chaves: string[]) => boolean;
+  /**
+   * Volta a ler as empresas a que o utilizador tem acesso (ex.: depois de criar ou eliminar uma holding na Consolidação,
+   * para a holding aparecer — ou desaparecer — na troca de empresa sem novo login).
+   */
+  recarregarEmpresas: () => Promise<void>;
   /** Actualiza os dados do utilizador na sessão (ex.: depois de «Gerir Dados Pessoais»), sem novo pedido ao servidor. */
   actualizarUtilizador: (parcial: Partial<Utilizador>) => void;
 }
@@ -144,6 +149,11 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     cliente.clear();   // os dados em cache são da empresa que se larga
   }, [cliente]);
 
+  const recarregarEmpresas = useCallback(async () => {
+    const d = await obter<DadosSessao>('/autenticacao/eu');
+    setDados((actual) => (actual ? { ...actual, empresas: d.empresas } : d));
+  }, []);
+
   const actualizarUtilizador = useCallback((parcial: Partial<Utilizador>) => {
     setDados((d) => (d ? { ...d, utilizador: { ...d.utilizador, ...parcial } } : d));
   }, []);
@@ -164,9 +174,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       escolherEmpresa,
       largarEmpresa,
       pode: (...chaves) => total || chaves.some((c) => permissoes.includes(c.toLowerCase())),
+      recarregarEmpresas,
       actualizarUtilizador,
     };
-  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa, largarEmpresa, actualizarUtilizador]);
+  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa, largarEmpresa, recarregarEmpresas, actualizarUtilizador]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

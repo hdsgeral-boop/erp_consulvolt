@@ -409,10 +409,18 @@ export function Definicoes() {
         </div>
         <Form.Item name="faturar_no_adiantamento" valuePropName="checked" style={{ margin: '0.9rem 0 0' }}>
           <Checkbox style={{ fontSize: '0.85rem', alignItems: 'flex-start' }}>
-            <strong>Facturar ao receber pagamentos antes da facturação</strong>
+            <strong>Emitir a factura logo no primeiro pagamento (adiantamento)</strong>
             <br />
-            <small style={{ color: token.colorTextSecondary }}>
-              O IVA é exigível no recebimento de adiantamentos: um pagamento numa ordem ainda não facturada emite o documento dos serviços confirmados (Factura-Recibo se pagar exactamente esse valor; senão Factura e Recibo).
+            <small style={{ color: token.colorTextSecondary }} data-testid="ajuda-faturar-adiantamento">
+              <strong>Ligada:</strong> quando o cliente paga uma ordem «Facturar na entrega» que ainda não tem factura, o sistema emite
+              logo a factura dos serviços da ordem. Se pagar o valor total, sai uma Factura-Recibo; se pagar só uma parte, sai a
+              Factura do total e um Recibo do valor pago.
+              <br />
+              <strong>Desligada:</strong> o pagamento fica só como Recibo de adiantamento e a factura é emitida na entrega das peças.
+              <br />
+              <em>Exemplo:</em> ordem de 10 000 Kz com adiantamento de 4 000 Kz — ligada: Factura de 10 000 Kz + Recibo de 4 000 Kz;
+              desligada: Recibo de 4 000 Kz agora e Factura na entrega. Recomenda-se ligada, porque o IVA é devido quando se recebe
+              um adiantamento. As ordens com «Facturar já» são sempre facturadas na recepção.
             </small>
           </Checkbox>
         </Form.Item>

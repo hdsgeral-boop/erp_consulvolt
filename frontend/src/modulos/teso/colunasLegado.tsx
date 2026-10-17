@@ -52,14 +52,19 @@ export function urlSegura(url: string | null | undefined): string | null {
   }
 }
 
+/** Recebimento gerado por um recibo de venda (ronda 3): segue o recibo — altera-se e anula-se em Vendas › Recibos. */
+export const TEXTO_RECIBO_VENDA = 'Recebimento do recibo de venda — altere ou anule o recibo em Vendas › Recibos';
+
 /** Motivo pelo qual o documento não se edita/elimina (dica do botão desactivado), ou `false`. */
 export function bloqueioEdicao(d: DocumentoTesouraria): string | false {
+  if (d.recibo_venda_id && d.estado !== 'ANULADO') return TEXTO_RECIBO_VENDA;
   if (d.estado === 'INTEGRADO') return 'Integrado na Contabilidade — apenas leitura';
   if (d.estado === 'ANULADO') return 'Documento anulado';
   return false;
 }
 
 export function bloqueioExclusao(d: DocumentoTesouraria): string | false {
+  if (d.recibo_venda_id && d.estado !== 'ANULADO') return TEXTO_RECIBO_VENDA;
   if (d.estado === 'INTEGRADO') return 'Não pode apagar — documento integrado';
   if (d.estado === 'ANULADO') return 'Documento já anulado';
   return false;
@@ -109,7 +114,13 @@ export function colunasOperacoes(tipo?: TipoDocumento): ColunaApi<DocumentoTesou
     {
       title: 'Referencia', dataIndex: 'referencia', key: 'referencia',
       valorImpressao: (r) => r.referencia || r.numero_documento || '-',
-      render: (v: string | null, r) => <><strong>{v || '-'}</strong>{r.numero_documento && <div style={{ fontSize: 11, opacity: 0.65 }}>{r.numero_documento}</div>}</>,
+      render: (v: string | null, r) => (
+        <>
+          <strong>{v || '-'}</strong>
+          {r.numero_documento && <div style={{ fontSize: 11, opacity: 0.65 }}>{r.numero_documento}</div>}
+          {r.recibo_venda_id ? <Tag color="green" style={{ marginTop: 2, fontSize: 10 }}>Recibo de venda</Tag> : null}
+        </>
+      ),
     },
     { title: 'Conta Fin.', dataIndex: 'conta_financeira', key: 'conta_fin', render: (c: string) => etiquetaConta(c) },
     { title: 'Contrapartida', key: 'contrapartida', valorImpressao: (r) => linhas(r).map((c) => c.codigo_conta).join('; '), render: (_, r) => pilha(linhas(r).map((c) => etiquetaConta(c.codigo_conta, '#2563eb'))) },

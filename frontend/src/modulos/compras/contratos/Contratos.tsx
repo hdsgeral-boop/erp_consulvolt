@@ -7,6 +7,7 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import type { AccaoLinha } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
+import { EstadoContratoTag, rotuloEstadoContrato } from '../comum/estados';
 import { NomeTerceiro } from '../comum/referencias';
 import { accoesContrato, type Pode } from '../comum/regras';
 import { SeletorTerceiro } from '../comum/Seletores';
@@ -34,18 +35,8 @@ export function accoesLinhaContrato(c: ContratoCompra, pode: Pode, f: { editar: 
   ];
 }
 
-/** Estados dos contratos com os rótulos e as cores do legado (js/ui_compras_v2.js:791-795). */
-const ESTADOS_CONTRATO: Record<string, { rotulo: string; cor: string }> = {
-  ATIVO: { rotulo: 'Ativo', cor: 'green' },
-  CANCELADO: { rotulo: 'Cancelado', cor: 'red' },
-  EXPIRADO: { rotulo: 'Expirado', cor: 'orange' },
-};
-
-export const rotuloEstadoContrato = (e: string | null | undefined) => (e ? ESTADOS_CONTRATO[e]?.rotulo ?? e : '—');
-
-export function EstadoContratoTag({ estado }: { estado: string | null | undefined }) {
-  return <Tag color={estado ? ESTADOS_CONTRATO[estado]?.cor : undefined}>{rotuloEstadoContrato(estado)}</Tag>;
-}
+// estados dos contratos (rótulos e cores do legado): em ../comum/estados, partilhados com o detalhe
+export { EstadoContratoTag, rotuloEstadoContrato };
 
 /** «Total encomendado» com «N% do previsto» (vermelho acima de 100 %). */
 export function TotalEncomendado({ c }: { c: ContratoCompra }) {

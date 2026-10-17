@@ -34,7 +34,7 @@ final class ModuloAtivos extends ModuloGestao
     {
         $e = $this->empresa();
         $abatidosAte = DB::table('abates_vendas_ativos')->where('empresa_id', $e)->where('data', '<=', $p['fim'])->pluck('ativo_imobilizado_id')->flip();
-        $ativos = DB::table('ativos_imobilizados')->where('empresa_id', $e)->whereNull('eliminado_em')
+        $ativos = DB::table('ativos_imobilizados')->where('empresa_id', $e)->whereNull('eliminado_em')->where('propriedade', '<>', 'ALHEIO')   // só bens próprios
             ->get(['id', 'categoria_ativo_id', 'valor_aquisicao', 'amortizacao_acumulada', 'data_aquisicao']);
         $emUso = $ativos->filter(fn ($a) => $a->data_aquisicao && $a->data_aquisicao <= $p['fim'] && ! isset($abatidosAte[$a->id]));
         $bruto = $emUso->reduce(fn ($s, $a) => bcadd($s, self::dinheiro($a->valor_aquisicao), 2), '0.00');

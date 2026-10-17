@@ -40,6 +40,16 @@ use Illuminate\Support\Facades\DB;
  * Melhorias: validação no servidor; linha sem artigo não vai a compras (o pedido de compra exige artigo) e fica por pedir
  * com o motivo; requisição e pedido criados na mesma transacção que o estado das necessidades; tudo auditado.
  * A manutenção não gera lançamento contabilístico (o material sai pelo stock e os serviços pelo circuito de compras).
+ * Gestão de tarefas (r3_activos — boas práticas de CMMS):
+ *   - cada tarefa tem id estável, texto, obrigatória/opcional e quem/quando a concluiu; o histórico da ordem regista cada
+ *     conclusão e reabertura (e iniciar, concluir, reabrir e cancelar a ordem);
+ *   - progresso «N de M» e situação derivada: SEM_TAREFAS | POR_INICIAR | EM_CURSO | PRONTA (todas as obrigatórias feitas);
+ *     marcar a primeira tarefa feita passa a ordem PLANEADA/AGUARDA_MATERIAL a EM_CURSO (o trabalho começou);
+ *   - a ordem fica pendente enquanto houver tarefas obrigatórias por fazer: o servidor recusa concluí-la (TAREFAS_PENDENTES);
+ *     as opcionais por fazer ficam registadas na conclusão;
+ *   - reabrir uma tarefa de uma ordem concluída reabre a ordem (com motivo): volta a EM_CURSO, sai do histórico do activo e
+ *     o plano volta ao estado anterior à conclusão (se entretanto não tiver avançado por outra ordem);
+ *   - acrescentar/retirar tarefas só com a ordem aberta; uma tarefa feita não se retira (reabre-se primeiro).
  */
 final class ServicoOrdensManutencao
 {
@@ -68,10 +78,11 @@ final class ServicoOrdensManutencao
         /** @var LengthAwarePaginator $pagina */
         $pagina = $q->paginate((int) ($f['por_pagina'] ?? 100), ['*'], 'pagina', (int) ($f['pagina'] ?? 1));
         $hoje = now()->toDateString();
-        $pagina->setCollection($pagina->getCollection()->map(fn (OrdemManutencaoAtivo $o) => $o->toArray() + [
+        $pagina->setCollection($pagina->getCollection()->map(fn (OrdemManutencaoAtivo $o) => array_merge($o->toArray(), [
+            'tarefas' => $t = self::tarefas($o->tarefas), 'progresso' => self::progresso($t),
             'custo_total' => $this->custoTotal($o),
             'em_atraso' => in_array($o->estado, OrdemManutencaoAtivo::ABERTAS, true) && $o->data_prevista && $o->data_prevista->toDateString() < $hoje,
-        ]));
+        ])));
         $contas = OrdemManutencaoAtivo::query()->selectRaw('estado, COUNT(*) AS n')->groupBy('estado')->pluck('n', 'estado');
         $atrasadas = OrdemManutencaoAtivo::query()->whereIn('estado', OrdemManutencaoAtivo::ABERTAS)->whereDate('data_prevista', '<', $hoje)->count();
 
@@ -89,14 +100,17 @@ final class ServicoOrdensManutencao
         $itens = ItemOrdemManutencao::query()->with('produto:id,codigo,nome,movimenta_stock')->where('ordem_manutencao_id', $o->id)->orderBy('id')->get();
         $pedidos = PedidoCompra::query()->whereIn('id', $itens->pluck('pedido_compra_id')->filter()->unique())->get(['id', 'numero_pedido', 'estado', 'data']);
 
-        return $o->toArray() + [
+        $tarefas = self::tarefas($o->tarefas);
+
+        return array_merge($o->toArray(), [
+            'tarefas' => $tarefas, 'progresso' => self::progresso($tarefas), 'historico' => array_values((array) ($o->historico ?? [])),
             'custo_total' => $this->custoTotal($o),
             'itens' => $itens->toArray(),
             'por_pedir' => $itens->where('estado', 'POR_PEDIR')->count(),
             'requisicoes' => RequisicaoManutencao::query()->where('ordem_manutencao_id', $o->id)->orderBy('id')->get(['id', 'numero', 'estado', 'data', 'armazem_id'])->toArray(),
             'pedidos_compra' => $pedidos->toArray(),
             'custo_servicos_sugerido' => $this->custoServicosSugerido($o),
-        ];
+        ]);
     }
 
     // ───────────── Criação ─────────────
@@ -129,8 +143,7 @@ final class ServicoOrdensManutencao
                 'tipo' => $d['tipo'], 'prioridade' => in_array($d['prioridade'] ?? null, OrdemManutencaoAtivo::PRIORIDADES, true) ? $d['prioridade'] : 'NORMAL',
                 'estado' => OrdemManutencaoAtivo::PLANEADA, 'data_prevista' => substr((string) $d['data_prevista'], 0, 10), 'descricao' => $descricao,
                 'responsavel' => trim((string) ($d['responsavel'] ?? '')) ?: null,
-                'tarefas' => collect($d['tarefas'] ?? [])->map(fn ($t) => trim((string) (is_array($t) ? ($t['texto'] ?? '') : $t)))->filter()->values()
-                    ->map(fn ($t) => ['texto' => mb_substr($t, 0, 500), 'feito' => false])->all(),
+                'tarefas' => array_map(fn ($t) => array_merge($t, ['feito' => false, 'feito_por' => null, 'feito_em' => null]), self::tarefas($d['tarefas'] ?? [], true)),
                 'horas' => 0, 'custo_mao_obra' => 0, 'custo_materiais' => 0, 'custo_servicos' => 0, 'criado_por' => Auth::user()?->nome_utilizador,
             ]);
             foreach ($itens as $i) {
@@ -207,20 +220,101 @@ final class ServicoOrdensManutencao
             if ($o->estado === OrdemManutencaoAtivo::EM_CURSO) {
                 throw new ErroNegocio('A ordem já está em curso.', 'ORDEM_EM_CURSO', 422);
             }
-            $o->update(['estado' => OrdemManutencaoAtivo::EM_CURSO, 'data_inicio' => $o->data_inicio ?? now()->toDateString()]);
+            $o->update(['estado' => OrdemManutencaoAtivo::EM_CURSO, 'data_inicio' => $o->data_inicio ?? now()->toDateString(),
+                'historico' => $this->comEvento($o, 'ORDEM_INICIADA')]);
 
             return $o->refresh();
         });
     }
 
-    /** Marca as tarefas feitas (od-tarefa, UI :504-508). @param  list<bool>  $feitas  pela ordem das tarefas */
+    /**
+     * Marca as tarefas feitas pela ordem da lista (od-tarefa, UI :504-508) — compatível com o pedido antigo; cada mudança
+     * fica com quem/quando e no histórico. @param  list<bool>  $feitas  pela ordem das tarefas
+     */
     public function marcarTarefas(OrdemManutencaoAtivo $o, array $feitas): OrdemManutencaoAtivo
     {
         return DB::transaction(function () use ($o, $feitas) {
             $o = $this->aberta($o);
-            $tarefas = collect((array) $o->tarefas)->values()->map(fn ($t, $k) => ['texto' => is_array($t) ? ($t['texto'] ?? '') : (string) $t,
-                'feito' => array_key_exists($k, $feitas) ? (bool) $feitas[$k] : (bool) (is_array($t) ? ($t['feito'] ?? false) : false)])->all();
-            $o->update(['tarefas' => $tarefas]);
+            $tarefas = self::tarefas($o->tarefas);
+            $alteradas = [];
+            foreach ($tarefas as $k => $t) {
+                if (array_key_exists($k, $feitas) && (bool) $feitas[$k] !== $t['feito']) {
+                    $alteradas[] = $t['id'];
+                }
+            }
+            $this->aplicarMarcacoes($o, $tarefas, array_fill_keys($alteradas, null));
+
+            return $o->refresh();
+        });
+    }
+
+    /**
+     * Conclui ou reabre uma tarefa (r3_activos). Numa ordem aberta só muda a tarefa; numa ordem CONCLUÍDA, reabrir a tarefa
+     * reabre a ordem — exige motivo. Ordem cancelada não aceita.
+     */
+    public function marcarTarefa(OrdemManutencaoAtivo $o, string $tarefaId, bool $feito, ?string $motivo = null): OrdemManutencaoAtivo
+    {
+        return DB::transaction(function () use ($o, $tarefaId, $feito, $motivo) {
+            $o = OrdemManutencaoAtivo::query()->lockForUpdate()->findOrFail($o->id);
+            if ($o->estado === OrdemManutencaoAtivo::CANCELADA) {
+                throw new ErroNegocio('A ordem está cancelada.', 'ORDEM_FECHADA', 422);
+            }
+            $tarefas = self::tarefas($o->tarefas);
+            $k = $this->indiceTarefa($tarefas, $tarefaId);
+            if ($tarefas[$k]['feito'] === $feito) {
+                return $o;
+            }
+            $motivo = trim((string) $motivo) !== '' ? mb_substr(trim((string) $motivo), 0, 1000) : null;
+            if ($o->estado === OrdemManutencaoAtivo::CONCLUIDA) {
+                if ($feito) {
+                    throw new ErroNegocio('A ordem já está concluída.', 'ORDEM_FECHADA', 422);
+                }
+                if ($motivo === null) {
+                    throw new ErroNegocio('Indique porque reabre a tarefa: a ordem concluída volta a ficar em curso.', 'MOTIVO_EM_FALTA', 422);
+                }
+                $this->reabrirOrdem($o, $motivo, $tarefas[$k]);
+            }
+            $this->aplicarMarcacoes($o, $tarefas, [$tarefaId => $motivo]);
+
+            return $o->refresh();
+        });
+    }
+
+    /** Acrescenta uma tarefa a uma ordem aberta (r3_activos). */
+    public function acrescentarTarefa(OrdemManutencaoAtivo $o, string $texto, bool $obrigatoria = true): OrdemManutencaoAtivo
+    {
+        $texto = mb_substr(trim($texto), 0, 500);
+        if ($texto === '') {
+            throw new ErroNegocio('Descreva a tarefa.', 'DADOS_INVALIDOS', 422);
+        }
+
+        return DB::transaction(function () use ($o, $texto, $obrigatoria) {
+            $o = $this->aberta($o);
+            $tarefas = self::tarefas($o->tarefas);
+            if (count($tarefas) >= 200) {
+                throw new ErroNegocio('A ordem já tem o máximo de 200 tarefas.', 'DADOS_INVALIDOS', 422);
+            }
+            $nova = ['id' => self::novoId($tarefas), 'texto' => $texto, 'obrigatoria' => $obrigatoria, 'feito' => false, 'feito_por' => null, 'feito_em' => null];
+            $tarefas[] = $nova;
+            $o->update(['tarefas' => $tarefas, 'historico' => $this->comEvento($o, 'TAREFA_ACRESCENTADA', $nova)]);
+
+            return $o->refresh();
+        });
+    }
+
+    /** Retira uma tarefa ainda por fazer de uma ordem aberta (r3_activos); uma tarefa feita reabre-se primeiro. */
+    public function retirarTarefa(OrdemManutencaoAtivo $o, string $tarefaId): OrdemManutencaoAtivo
+    {
+        return DB::transaction(function () use ($o, $tarefaId) {
+            $o = $this->aberta($o);
+            $tarefas = self::tarefas($o->tarefas);
+            $k = $this->indiceTarefa($tarefas, $tarefaId);
+            if ($tarefas[$k]['feito']) {
+                throw new ErroNegocio('A tarefa já está feita: reabra-a antes de a retirar.', 'TAREFA_FEITA', 422);
+            }
+            $retirada = $tarefas[$k];
+            array_splice($tarefas, $k, 1);
+            $o->update(['tarefas' => $tarefas, 'historico' => $this->comEvento($o, 'TAREFA_RETIRADA', $retirada)]);
 
             return $o->refresh();
         });
@@ -282,6 +376,28 @@ final class ServicoOrdensManutencao
             if ($o->data_inicio && $dataFim < $o->data_inicio->toDateString()) {
                 throw new ErroNegocio('A data de conclusão não pode ser anterior à data de início.', 'DADOS_INVALIDOS', 422);
             }
+            // r3_activos: as marcações enviadas com a conclusão contam (com quem/quando); com obrigatórias por fazer a ordem
+            // fica pendente — o «forcar» só dispensa as necessidades por receber, nunca as tarefas
+            $tarefas = self::tarefas($o->tarefas);
+            if (isset($d['tarefas']) && is_array($d['tarefas'])) {
+                $alteradas = [];
+                foreach ($tarefas as $k => $t) {
+                    if (array_key_exists($k, $d['tarefas']) && (bool) $d['tarefas'][$k] !== $t['feito']) {
+                        $alteradas[] = $t['id'];
+                    }
+                }
+                if ($alteradas) {
+                    $this->aplicarMarcacoes($o, $tarefas, array_fill_keys($alteradas, null));
+                    $o->refresh();
+                    $tarefas = self::tarefas($o->tarefas);
+                }
+            }
+            $prog = self::progresso($tarefas);
+            if ($prog['obrigatorias_por_fazer'] > 0) {
+                $falta = array_values(array_map(fn ($t) => $t['texto'], array_filter($tarefas, fn ($t) => $t['obrigatoria'] && ! $t['feito'])));
+                throw new ErroNegocio("A ordem tem {$prog['obrigatorias_por_fazer']} tarefa(s) obrigatória(s) por concluir ({$prog['feitas']} de {$prog['total']} feitas): "
+                    .'só se conclui quando todas estiverem terminadas.', 'TAREFAS_PENDENTES', 422, ['tarefas' => $falta, 'progresso' => $prog]);
+            }
             $pendentes = ItemOrdemManutencao::query()->where('ordem_manutencao_id', $o->id)->whereIn('estado', ['REQUISITADO', 'EM_COMPRA'])->count();
             if ($pendentes && empty($d['forcar'])) {
                 throw new ErroNegocio("A ordem tem {$pendentes} necessidade(s) por receber (requisição ou pedido de compra). Conclua mesmo assim?", 'NECESSIDADES_PENDENTES', 409,
@@ -295,10 +411,13 @@ final class ServicoOrdensManutencao
                 'custo_servicos' => array_key_exists('custo_servicos', $d) && $d['custo_servicos'] !== null ? CalculadoraAmortizacoes::d($d['custo_servicos']) : CalculadoraAmortizacoes::d($o->custo_servicos),
                 'leitura_contador' => $leitura, 'concluido_em' => now(), 'concluido_por' => Auth::user()?->nome_utilizador,
             ];
-            if (isset($d['tarefas']) && is_array($d['tarefas'])) {
-                $alt['tarefas'] = collect((array) $o->tarefas)->values()->map(fn ($t, $k) => ['texto' => is_array($t) ? ($t['texto'] ?? '') : (string) $t,
-                    'feito' => (bool) ($d['tarefas'][$k] ?? (is_array($t) ? ($t['feito'] ?? false) : false))])->all();
-            }
+            $opcionais = $prog['opcionais_por_fazer'];
+            $alt['tarefas'] = $tarefas;
+            $alt['historico'] = $this->comEvento($o, 'ORDEM_CONCLUIDA', null, $opcionais ? "{$opcionais} tarefa(s) opcional(is) por fazer" : null);
+            // estado do plano antes de avançar: repõe-se se a ordem for reaberta
+            $planoAntes = $o->plano_manutencao_id ? PlanoManutencaoAtivo::query()->find($o->plano_manutencao_id) : null;
+            $alt['plano_antes'] = $planoAntes ? ['ultima_data' => $planoAntes->ultima_data?->toDateString(), 'proxima_data' => $planoAntes->proxima_data?->toDateString(),
+                'execucoes' => (int) $planoAntes->execucoes, 'contador_atual' => $planoAntes->contador_atual, 'proximo_contador' => $planoAntes->proximo_contador] : null;
             $o->update($alt);
             $o->refresh();
 
@@ -346,7 +465,7 @@ final class ServicoOrdensManutencao
             }
             $pedidos = ItemOrdemManutencao::query()->where('ordem_manutencao_id', $o->id)->whereIn('estado', ['REQUISITADO', 'EM_COMPRA'])->count();
             $o->update(['estado' => OrdemManutencaoAtivo::CANCELADA, 'motivo_cancelamento' => mb_substr(trim($motivo), 0, 1000), 'cancelado_em' => now(),
-                'cancelado_por' => Auth::user()?->nome_utilizador]);
+                'cancelado_por' => Auth::user()?->nome_utilizador, 'historico' => $this->comEvento($o, 'ORDEM_CANCELADA', null, mb_substr(trim($motivo), 0, 1000))]);
 
             return ['ordem' => $o->refresh(), 'pedidos_emitidos' => $pedidos];
         });
@@ -496,6 +615,139 @@ final class ServicoOrdensManutencao
         }
 
         return number_format((float) $p->quantidade_stock, 3, '.', '');
+    }
+
+    // ───────────── Tarefas (r3_activos) ─────────────
+
+    /**
+     * Normaliza a checklist: aceita o formato antigo ({texto, feito} ou texto simples) e o novo. Sem id, a tarefa recebe
+     * «t<n>» pela posição (estável até ser gravada); sem «obrigatoria», é obrigatória. Com $nova os ids vindos do pedido
+     * são ignorados (criação).
+     *
+     * @return list<array{id: string, texto: string, obrigatoria: bool, feito: bool, feito_por: ?string, feito_em: ?string}>
+     */
+    public static function tarefas(mixed $lista, bool $nova = false): array
+    {
+        $res = [];
+        $usados = [];
+        foreach (array_values(is_array($lista) ? $lista : []) as $k => $t) {
+            $texto = mb_substr(trim((string) (is_array($t) ? ($t['texto'] ?? '') : $t)), 0, 500);
+            if ($texto === '') {
+                continue;
+            }
+            $id = is_array($t) && ! $nova && isset($t['id']) && preg_match('/^[a-z0-9]{1,20}$/', (string) $t['id']) ? (string) $t['id'] : 't'.($k + 1);
+            while (isset($usados[$id])) {
+                $id = 't'.($k + 1).'x'.count($usados);
+            }
+            $usados[$id] = true;
+            $feito = ! $nova && is_array($t) && (bool) ($t['feito'] ?? false);
+            $res[] = ['id' => $id, 'texto' => $texto, 'obrigatoria' => ! is_array($t) || ! array_key_exists('obrigatoria', $t) || (bool) $t['obrigatoria'],
+                'feito' => $feito, 'feito_por' => $feito ? ($t['feito_por'] ?? null) : null, 'feito_em' => $feito ? ($t['feito_em'] ?? null) : null];
+        }
+
+        return $res;
+    }
+
+    /**
+     * Progresso «N de M» e situação derivada da checklist.
+     *
+     * @return array{total: int, feitas: int, obrigatorias: int, obrigatorias_por_fazer: int, opcionais_por_fazer: int, percentagem: int, situacao: string}
+     */
+    public static function progresso(array $tarefas): array
+    {
+        $total = count($tarefas);
+        $feitas = count(array_filter($tarefas, fn ($t) => $t['feito']));
+        $obrigatorias = count(array_filter($tarefas, fn ($t) => $t['obrigatoria']));
+        $obrigPorFazer = count(array_filter($tarefas, fn ($t) => $t['obrigatoria'] && ! $t['feito']));
+
+        return ['total' => $total, 'feitas' => $feitas, 'obrigatorias' => $obrigatorias, 'obrigatorias_por_fazer' => $obrigPorFazer,
+            'opcionais_por_fazer' => $total - $feitas - $obrigPorFazer, 'percentagem' => $total ? (int) floor($feitas * 100 / $total) : 0,
+            'situacao' => $total === 0 ? 'SEM_TAREFAS' : ($obrigPorFazer === 0 ? 'PRONTA' : ($feitas === 0 ? 'POR_INICIAR' : 'EM_CURSO'))];
+    }
+
+    /**
+     * Inverte as tarefas indicadas (id => motivo), com quem/quando e um evento por tarefa; a primeira tarefa feita numa ordem
+     * PLANEADA/AGUARDA_MATERIAL passa-a a EM_CURSO. Corre dentro da transacção do chamador, com a ordem bloqueada.
+     *
+     * @param  array<string, ?string>  $ids
+     */
+    private function aplicarMarcacoes(OrdemManutencaoAtivo $o, array $tarefas, array $ids): void
+    {
+        if (! $ids) {
+            return;
+        }
+        $quem = Auth::user()?->nome_utilizador;
+        $historico = array_values((array) ($o->historico ?? []));
+        $algumaFeita = false;
+        foreach ($tarefas as $k => $t) {
+            if (! array_key_exists($t['id'], $ids)) {
+                continue;
+            }
+            $feito = ! $t['feito'];
+            $tarefas[$k] = array_merge($t, ['feito' => $feito, 'feito_por' => $feito ? $quem : null, 'feito_em' => $feito ? now()->toIso8601String() : null]);
+            $historico[] = $this->evento($feito ? 'TAREFA_CONCLUIDA' : 'TAREFA_REABERTA', $t, $ids[$t['id']]);
+            $algumaFeita = $algumaFeita || $feito;
+        }
+        $alt = ['tarefas' => $tarefas, 'historico' => array_slice($historico, -500)];
+        if ($algumaFeita && in_array($o->estado, [OrdemManutencaoAtivo::PLANEADA, OrdemManutencaoAtivo::AGUARDA_MATERIAL], true)) {
+            $alt += ['estado' => OrdemManutencaoAtivo::EM_CURSO, 'data_inicio' => $o->data_inicio?->toDateString() ?? now()->toDateString()];
+        }
+        $o->update($alt);
+    }
+
+    /**
+     * Reabre uma ordem concluída (ao reabrir uma tarefa): EM_CURSO, sem data de fim; sai do histórico do activo e o plano
+     * volta ao estado anterior à conclusão se ainda for o desta ordem (não avançou por outra ordem entretanto).
+     */
+    private function reabrirOrdem(OrdemManutencaoAtivo $o, string $motivo, array $tarefa): void
+    {
+        RegistoManutencaoAtivo::query()->where('ordem_manutencao_id', $o->id)->get()->each->delete();
+        $antes = (array) ($o->plano_antes ?? []);
+        if ($o->plano_manutencao_id && $antes) {
+            $p = PlanoManutencaoAtivo::query()->lockForUpdate()->find($o->plano_manutencao_id);
+            if ($p && $p->ultima_data?->toDateString() === $o->data_fim?->toDateString() && (int) $p->execucoes === (int) ($antes['execucoes'] ?? 0) + 1) {
+                $p->update(['ultima_data' => $antes['ultima_data'] ?? null, 'proxima_data' => $antes['proxima_data'] ?? null, 'execucoes' => (int) ($antes['execucoes'] ?? 0),
+                    'contador_atual' => $antes['contador_atual'] ?? $p->contador_atual, 'proximo_contador' => $antes['proximo_contador'] ?? $p->proximo_contador]);
+            }
+        }
+        $o->update(['estado' => OrdemManutencaoAtivo::EM_CURSO, 'data_fim' => null, 'concluido_em' => null, 'concluido_por' => null, 'plano_antes' => null,
+            'reaberta_em' => now(), 'reaberta_por' => Auth::user()?->nome_utilizador, 'historico' => $this->comEvento($o, 'ORDEM_REABERTA', $tarefa, $motivo)]);
+        $this->auditoria->registar('Activos', 'Reabrir ordem de manutenção', "{$o->numero}: tarefa «{$tarefa['texto']}» reaberta — {$motivo}", 'ordens_manutencao_ativos', $o->id);
+        $o->refresh();
+    }
+
+    /** @param  list<array{id: string}>  $tarefas */
+    private function indiceTarefa(array $tarefas, string $id): int
+    {
+        foreach ($tarefas as $k => $t) {
+            if ($t['id'] === $id) {
+                return $k;
+            }
+        }
+        throw new ErroNegocio('Tarefa não encontrada nesta ordem.', 'TAREFA_INEXISTENTE', 404);
+    }
+
+    /** @param  list<array{id: string}>  $tarefas */
+    private static function novoId(array $tarefas): string
+    {
+        $usados = array_flip(array_column($tarefas, 'id'));
+        do {
+            $id = 'k'.bin2hex(random_bytes(4));
+        } while (isset($usados[$id]));
+
+        return $id;
+    }
+
+    private function evento(string $accao, ?array $tarefa = null, ?string $motivo = null): array
+    {
+        return array_filter(['em' => now()->toIso8601String(), 'por' => Auth::user()?->nome_utilizador, 'accao' => $accao,
+            'tarefa' => $tarefa['id'] ?? null, 'texto' => $tarefa['texto'] ?? null, 'motivo' => $motivo], fn ($v) => $v !== null);
+    }
+
+    /** Histórico da ordem com mais um evento (guarda os últimos 500). */
+    private function comEvento(OrdemManutencaoAtivo $o, string $accao, ?array $tarefa = null, ?string $motivo = null): array
+    {
+        return array_slice([...array_values((array) ($o->historico ?? [])), $this->evento($accao, $tarefa, $motivo)], -500);
     }
 
     // ───────────── Auxiliares ─────────────

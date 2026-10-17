@@ -73,7 +73,8 @@ final class CalculadoraAmortizacoes
     /** O mês está dentro do período de amortização (aquisição, ano da amortização inicial e vida útil)? */
     public static function noPeriodoDeVida(AtivoImobilizado $a, int $ano, int $mes): bool
     {
-        if (! $a->data_aquisicao) {
+        // r3_activos: um bem alheio (arrendado, cedido, de terceiros) nunca amortiza
+        if (! $a->data_aquisicao || ! $a->eProprio()) {
             return false;
         }
         $inicio = (int) $a->data_aquisicao->format('Y') * 12 + (int) $a->data_aquisicao->format('n') - 1;

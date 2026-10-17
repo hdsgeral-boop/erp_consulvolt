@@ -14,7 +14,7 @@ import { dadosContratoCompra } from '../comum/impressao';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
-import { EstadoTag } from '../comum/estados';
+import { EstadoContratoTag, EstadoTag } from '../comum/estados';
 import { NomeTerceiro } from '../comum/referencias';
 import { accoesContrato } from '../comum/regras';
 import { numeroOuId, type ContratoCompra, type EncomendaCompra, type FaturaCompra, type MarcoContrato } from '../comum/tipos';
@@ -87,7 +87,7 @@ export function DetalheContrato() {
       {c.consumo?.excedido && <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="O valor encomendado excede o valor contratado." />}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
-          <Descriptions.Item label="Estado"><EstadoTag estado={c.estado} /></Descriptions.Item>
+          <Descriptions.Item label="Estado"><EstadoContratoTag estado={c.estado} /></Descriptions.Item>
           <Descriptions.Item label="Início">{formatarData(c.data_inicio)}</Descriptions.Item>
           <Descriptions.Item label="Fim">{formatarData(c.data_fim)}</Descriptions.Item>
           {c.descricao && <Descriptions.Item label="Objecto" span="filled">{c.descricao}</Descriptions.Item>}

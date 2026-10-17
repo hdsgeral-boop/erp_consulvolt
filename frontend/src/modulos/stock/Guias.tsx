@@ -1,32 +1,33 @@
-import { Alert, Button, Card, Col, DatePicker, Descriptions, Form, Input, Row, Skeleton, Space, Table, Typography } from 'antd';
+import { Alert, Button, Card, Descriptions, Skeleton, Space, Table, Typography } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useImpressao } from '@/componentes/impressao/useImpressao';
 import { useQuery } from '@tanstack/react-query';
 import { pedidoDocumentoComercial } from '@/modulos/vendas/impressao/documentoComercial';
 import { dadosGuiaSaida } from './comum/impressao';
-import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { dataApi, formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
+import { formatarData, formatarKz, formatarNumero } from '@/utilitarios/formatacao';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { EstadoTag, rotuloEstado } from '@/modulos/compras/comum/estados';
-import { LinhasProdutos, type LinhaProdutoForm } from '@/modulos/compras/comum/LinhasProdutos';
 import { NomeArmazem, NomeProduto, NomeTerceiro, useArmazens } from '@/modulos/compras/comum/referencias';
-import { SeletorArmazem } from '@/modulos/compras/comum/Seletores';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { accoesGuia, guiaGerida } from './comum/regras';
+import EmitirGuiaSaida from './EmitirGuiaSaida';
 import { TIPOS_GUIA, type GuiaSaida } from './comum/tipos';
 import { COLUNAS_DESCRICOES, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 
-/** Armazém › Guias de saída (ecrã armazem_guias): consumo interno, vendas ao balcão e guias de venda migradas. */
+/**
+ * Armazém › Guias de saída (ecrã armazem_guias): consumo interno, vendas ao balcão, guias de venda migradas e as guias de
+ * remessa das Vendas emitidas aqui para clientes (ADR-043 — abrem-se, contabilizam-se e anulam-se nas Vendas).
+ */
 export default function Guias() {
   return (
     <Routes>
       <Route index element={<ListaGuias />} />
-      <Route path="novo" element={<EmitirGuia />} />
+      <Route path="novo" element={<EmitirGuiaSaida />} />
       <Route path=":id" element={<DetalheGuia />} />
     </Routes>
   );
@@ -76,7 +77,7 @@ function ListaGuias() {
         <>
           <Space size={8} wrap>
             {/* legado (ui_warehouse.js:582-583): «CONCLUIDO» e «CONTABILIZADA» em texto, em maiúsculas */}
-            <span style={(e ?? 'CONCLUIDO') === 'ANULADA' ? { color: '#dc2626' } : undefined}>{(e ?? 'CONCLUIDO').toUpperCase()}</span>
+            <span style={/^ANULAD/.test(e ?? '') ? { color: '#dc2626' } : undefined}>{(e ?? 'CONCLUIDO').toUpperCase()}</span>
             {r.contabilizado && <span>CONTABILIZADA</span>}
           </Space>
           {/* legado (ui_warehouse.js:584): o motivo da anulação por baixo, em letra pequena (30 caracteres; completo na dica) */}
@@ -102,7 +103,11 @@ function ListaGuias() {
           chaveConsulta={['logistica', 'guias']}
           columns={colunas}
           size={pequeno ? 'small' : 'middle'}
+          rowKey={(g) => g.chave ?? String(g.id)}
           accoes={(g) => {
+            // guia de remessa das Vendas emitida aqui (ADR-043): consulta-se, contabiliza-se e anula-se nas Vendas
+            if (g.origem === 'GR')
+              return [{ icone: 'external-link-alt', titulo: 'Abrir a guia de remessa nas Vendas', oculto: !pode('vendas_faturacao_view'), onClick: () => navegar(`/m/vendas/vendas_faturacao/${g.venda_id}`) }];
             const a = accoesGuia(g, pode);
             const gerida = guiaGerida(g);
             const anulada = g.estado === 'ANULADA';
@@ -135,7 +140,11 @@ function ListaGuias() {
           menuColunas={false}
           filtrosColuna={false}
           filtroPersonalizado={false}
-          onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
+          onRow={(r) =>
+            r.origem === 'GR'
+              ? pode('vendas_faturacao_view') ? { onClick: () => navegar(`/m/vendas/vendas_faturacao/${r.venda_id}`), style: { cursor: 'pointer' } } : {}
+              : { onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } }
+          }
         />
       </Card>
       <ModalMotivo
@@ -156,58 +165,6 @@ function ListaGuias() {
         aoFechar={() => setModal(null)}
         aoConfirmar={(motivo) => modal && accao.mutate({ url: `/logistica/guias-saida/${modal.guia.id}/anular`, dados: { motivo } })}
       />
-    </>
-  );
-}
-
-function EmitirGuia() {
-  const navegar = useNavigate();
-  const [form] = Form.useForm<{ armazem_id: number; data: Dayjs; area_rececao: string; observacoes?: string; linhas: LinhaProdutoForm[] }>();
-  const emitir = useAccao<GuiaSaida>({ invalidar: [['logistica']], aoSucesso: (g) => navegar(`../${g.id}`), tituloErro: 'Não foi possível emitir a guia' });
-  return (
-    <>
-      <CabecalhoPagina titulo="Guia de consumo interno" accoes={<Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>} />
-      <Form
-        form={form}
-        layout="vertical"
-        initialValues={{ data: dayjs(), linhas: [{ quantidade: 1 }] }}
-        onFinish={(v) =>
-          emitir.mutate({
-            url: '/logistica/guias-saida',
-            dados: { armazem_id: v.armazem_id, data: dataApi(v.data), area_rececao: v.area_rececao, observacoes: v.observacoes || undefined, linhas: v.linhas.map((l) => ({ produto_id: l.produto_id, quantidade: l.quantidade })) },
-          })
-        }
-      >
-        <Card style={{ marginBottom: 16 }}>
-          <Row gutter={16}>
-            <Col xs={24} md={8}>
-              <Form.Item name="armazem_id" label="Armazém" rules={[{ required: true, message: 'Escolha o armazém.' }]}>
-                <SeletorArmazem />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={6}>
-              <Form.Item name="data" label="Data" rules={[{ required: true }]}>
-                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={10}>
-              <Form.Item name="area_rececao" label="Área / sector que recebe" rules={[{ required: true, message: 'Indique quem recebe o material.' }, { max: 255 }]}>
-                <Input placeholder="Ex.: Manutenção, Obra X" />
-              </Form.Item>
-            </Col>
-          </Row>
-        </Card>
-        <Card title="Artigos" style={{ marginBottom: 16 }}>
-          <LinhasProdutos form={form} apenasStock />
-          <Form.Item name="observacoes" label="Observações" style={{ marginTop: 16 }} rules={[{ max: 2000 }]}>
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </Card>
-        <Space wrap>
-          <Button type="primary" htmlType="submit" loading={emitir.isPending}>Emitir guia</Button>
-          <Button onClick={() => navegar('..')}>Cancelar</Button>
-        </Space>
-      </Form>
     </>
   );
 }

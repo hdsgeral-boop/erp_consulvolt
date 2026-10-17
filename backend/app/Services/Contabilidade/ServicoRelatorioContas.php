@@ -49,7 +49,7 @@ final class ServicoRelatorioContas
 
     /** Chaves de configuração copiadas do relatório do ano anterior (js/relatorio_contas.js:894). */
     private const CONFIG_COPIADA = ['nome', 'nif', 'sede', 'objecto', 'forma', 'capital', 'sector', 'local', 'director', 'contabilista', 'taxa_imposto',
-        'pct_reservas', 'pct_transitados', 'pct_dividendos', 'anexo_razao', 'anexo_geral', 'anexo_amortizacoes', 'graficos'];
+        'pct_reservas', 'pct_transitados', 'pct_dividendos', 'anexo_razao', 'anexo_geral', 'anexo_amortizacoes', 'graficos', 'conselho'];
 
     /** Textos livres copiados do ano anterior (js/relatorio_contas.js:503). */
     public const TEXTOS_LIVRES = ['economia', 'enquadramento', 'finais', 'nota_2', 'nota_3'];
@@ -115,6 +115,9 @@ final class ServicoRelatorioContas
         if ($erros && ! $forcar) {
             throw new ErroNegocio('O relatório tem erros (ver alertas): confirme para concluir mesmo assim.', 'RELATORIO_COM_ERROS', 422, ['alertas' => $erros]);
         }
+        // o legado mostra as demonstrações de um relatório concluído a partir da fotografia (js/relatorio_contas.js:944-945):
+        // fixam-se também o Balanço, a DR e o Fluxo tal como o separador «Demonstrações Financeiras» os apresenta
+        $dados['demonstracoes'] = $this->demonstracoes($ano);
 
         return DB::transaction(function () use ($ano, $dados) {
             $reg = RelatorioAnualContas::query()->where('ano_relatorio', $ano)->lockForUpdate()->first() ?? $this->novo($ano, $dados);
@@ -129,6 +132,22 @@ final class ServicoRelatorioContas
 
             return $this->obter($ano);
         });
+    }
+
+    /**
+     * Balanço, DR e Fluxo de caixa do exercício com o comparativo do ano anterior — os mesmos parâmetros que o separador
+     * «Demonstrações Financeiras» usa nos mapas (DemonstracoesRC.tsx) — para ficarem na fotografia da conclusão.
+     */
+    private function demonstracoes(int $ano): array
+    {
+        $ini = "{$ano}-01-01";
+        $fim = "{$ano}-12-31";
+
+        return [
+            'balanco' => $this->df->balanco(['data_fim' => $fim, 'comparativo' => true]),
+            'dr' => $this->df->demonstracaoResultados(['data_inicio' => $ini, 'data_fim' => $fim, 'comparativo' => true, 'modo_comparativo' => 'ano_anterior']),
+            'fluxo' => $this->df->fluxoCaixa(['data_inicio' => $ini, 'data_fim' => $fim, 'comparativo' => true]),
+        ];
     }
 
     /** rcReabrir (js/relatorio_contas.js:1186-1194): volta a RASCUNHO e larga a fotografia (os números voltam a ser recalculados). */
@@ -444,7 +463,7 @@ final class ServicoRelatorioContas
         $doAno = AmortizacaoAtivo::query()->where('contabilizado', true)->where('periodo_codigo', 'like', "%-{$ano}")
             ->selectRaw('ativo_imobilizado_id, SUM(valor) AS total')->groupBy('ativo_imobilizado_id')->pluck('total', 'ativo_imobilizado_id');
         $out = [];
-        foreach (AtivoImobilizado::query()->orderBy('codigo')->get() as $a) {
+        foreach (AtivoImobilizado::query()->proprios()->orderBy('codigo')->get() as $a) {   // bens alheios não entram no anexo de amortizações
             if ($a->estado !== AtivoImobilizado::ESTADO_ATIVO && ! isset($doAno[$a->id])) {
                 continue;
             }

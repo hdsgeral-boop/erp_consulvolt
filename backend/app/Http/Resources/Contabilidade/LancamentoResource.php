@@ -51,6 +51,8 @@ final class LancamentoResource extends JsonResource
             'codigo_projeto' => $this->codigo_projeto ?: ($this->projeto_id !== null && $this->resource->relationLoaded('projeto') ? $this->projeto?->codigo : null),
             // só na lista (subconsulta ao plano de contas em LancamentoController::index); nunca carregamento preguiçoso
             'conta_descricao' => $this->when(array_key_exists('conta_descricao', $this->resource->getAttributes()), fn () => $this->resource->getAttribute('conta_descricao')),
+            // só na lista: linhas de aquisição 11/12 a débito — valor ainda por inventariar no módulo de Activos («Inventariar» / «OK»)
+            'por_inventariar' => $this->when(array_key_exists('por_inventariar', $this->resource->getAttributes()), fn () => $this->resource->getAttribute('por_inventariar')),
         ];
     }
 }

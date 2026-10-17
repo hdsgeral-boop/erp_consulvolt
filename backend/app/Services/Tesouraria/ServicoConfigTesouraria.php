@@ -21,11 +21,17 @@ use Illuminate\Support\Facades\DB;
 final class ServicoConfigTesouraria
 {
     public const CHAVES = [
-        'caixa_sobras' => 'Sobras de caixa (proveito, classe 6)',
-        'caixa_quebras' => 'Quebras de caixa (custo, classe 7)',
+        'caixa_sobras' => 'Sobras de caixa (proveito, conta 68)',
+        'caixa_quebras' => 'Quebras de caixa (custo, conta 78)',
         'diferencas_cambio_favoraveis' => 'Diferenças de câmbio favoráveis (proveito)',
         'diferencas_cambio_desfavoraveis' => 'Diferenças de câmbio desfavoráveis (custo)',
     ];
+
+    /**
+     * Ronda 3 (pedido do utilizador): sobras de caixa só em contas 68 (outros proveitos operacionais) e quebras só em contas
+     * 78 (outros custos operacionais) — validado ao gravar a configuração e ao lançar (Folha de Caixa e Conferência).
+     */
+    public const PREFIXOS = ['caixa_sobras' => '68', 'caixa_quebras' => '78'];
 
     /** Contas do legado (decisão 19): chave => código. */
     public const DIFERENCAS_CAMBIO_LEGADO = ['diferencas_cambio_favoraveis' => '6621', 'diferencas_cambio_desfavoraveis' => '7621'];
@@ -72,8 +78,11 @@ final class ServicoConfigTesouraria
 
     public function exigir(string $chave, string $motivo): string
     {
-        return ConfigContabilTesouraria::query()->where('chave', $chave)->value('codigo_conta')
+        $conta = ConfigContabilTesouraria::query()->where('chave', $chave)->value('codigo_conta')
             ?: throw new ErroNegocio("{$motivo} Configure a conta \"".self::CHAVES[$chave].'" nas contas de tesouraria.', 'CONFIG_TESOURARIA_EM_FALTA', 422, ['chave' => $chave]);
+        $this->exigirPrefixo($chave, (string) $conta);
+
+        return $conta;
     }
 
     /**
@@ -92,7 +101,17 @@ final class ServicoConfigTesouraria
     {
         $v = ConfigContabilTesouraria::query()->pluck('codigo_conta', 'chave');
 
-        return collect(self::CHAVES)->map(fn ($d, $k) => ['descricao' => $d, 'codigo_conta' => $v[$k] ?? null])->all();
+        return collect(self::CHAVES)->map(fn ($d, $k) => ['descricao' => $d, 'codigo_conta' => $v[$k] ?? null, 'prefixos' => isset(self::PREFIXOS[$k]) ? [self::PREFIXOS[$k]] : null])->all();
+    }
+
+    /** Sobras só em 68, quebras só em 78 (PREFIXOS); as outras chaves não têm restrição de prefixo. */
+    public function exigirPrefixo(string $chave, string $conta): void
+    {
+        $prefixo = self::PREFIXOS[$chave] ?? null;
+        if ($prefixo !== null && ! str_starts_with(trim($conta), $prefixo)) {
+            throw new ErroNegocio(self::CHAVES[$chave]." tem de ser uma conta {$prefixo} (recebida: {$conta}).", 'CONTA_PREFIXO_INVALIDO', 422,
+                ['chave' => $chave, 'prefixo' => $prefixo, 'conta' => $conta]);
+        }
     }
 
     public function definir(array $contas): void
@@ -104,6 +123,7 @@ final class ServicoConfigTesouraria
                 }
                 if ($codigo) {
                     $this->plano->contaDeMovimento($codigo);
+                    $this->exigirPrefixo($chave, (string) $codigo);
                 }
                 ConfigContabilTesouraria::query()->updateOrCreate(['chave' => $chave], ['codigo_conta' => $codigo ?: null]);
             }

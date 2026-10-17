@@ -23,6 +23,11 @@ final class SistemaMenuTest extends TestCase
         $this->assertNotContains('rh', $modulos);
         $this->assertNotContains('config', $modulos);
         $this->assertContains('vendas_faturacao_view', $d['permissoes']);
+        // cada ecrã traz só as funções (tarefas) que o utilizador pode fazer — índice da pesquisa «Procurar»
+        $ecras = collect($d['menu'])->flatMap(fn ($m) => $m['ecras'])->keyBy('id');
+        $this->assertSame([], $ecras['vendas_faturacao']['tarefas']);
+        $this->assertContains('pos_venda', array_column($ecras->flatMap(fn ($e) => $e['tarefas'])->all(), 'chave'));
+        $this->assertNotContains('vendas_fat_emitir', array_column($ecras->flatMap(fn ($e) => $e['tarefas'])->all(), 'chave'));
         $this->getJson('/api/sistema/menu', $this->entrar($u))->assertStatus(422);   // sem empresa activa (fail-closed)
     }
 

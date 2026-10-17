@@ -299,6 +299,11 @@ final class ParidadeVendasTest extends TestCase
         $this->postJson("/api/vendas/documentos/{$ne['id']}/pedido-compra", [], $this->sessao(['vendas_faturacao_view']))->assertForbidden();
         $p = $this->postJson("/api/vendas/documentos/{$ne['id']}/pedido-compra", [], $s)->assertCreated()->json('dados');
         $this->assertNotEmpty($p['id']);
+        // o pedido mostra o preço de venda da encomenda (Kz, s/ IVA) para o aviso da proposta, só a quem regista propostas ou vê vendas
+        $preco = number_format((float) $ne['linhas'][0]['preco_unitario'] * (1 - (float) ($ne['linhas'][0]['percentagem_desconto'] ?? 0) / 100), 2, '.', '');
+        $ref = $this->getJson("/api/compras/pedidos/{$p['id']}", $this->sessao(['compras_pedidos_view', 'compras_new_proposal']))->assertOk()->json('dados.referencia_encomendas');
+        $this->assertSame(['preco_kz' => $preco, 'documentos' => [$ne['numero_documento']]], $ref[(string) $this->ids['p2']]);
+        $this->assertSame([], $this->getJson("/api/compras/pedidos/{$p['id']}", $this->sessao(['compras_pedidos_view']))->assertOk()->json('dados.referencia_encomendas'));
         // a mesma linha não entra em dois pedidos activos
         $this->postJson("/api/vendas/documentos/{$ne['id']}/pedido-compra", [], $s)->assertStatus(422);
         $ft = $this->documento('FT', $this->hoje, '10.00', '10.00', 'PENDENTE');

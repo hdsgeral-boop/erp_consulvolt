@@ -14,9 +14,11 @@ import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from '../../contab/comum/Componentes';
 import { ROTULO_TIPO, type DocumentoTesouraria, type EstadoDocumento, type TipoDocumento } from '../api';
 import { colunasOperacoes, bloqueioEdicao, bloqueioExclusao } from '../colunasLegado';
-import { SeletorContaFinanceira, TabelaDocumentos } from '../comum';
+import { SeletorContaFinanceira, TabelaDocumentos, useTotalDocumentos } from '../comum';
+import { emModoRecente, filtroAplicado, proximoLimite, textoRecentes } from '../ronda3';
 import { pedirMotivo } from '../motivo';
 import { eContaBancaria } from '../cartas/regras';
+import { DetalheDocumento } from './DetalheDocumento';
 
 /** Colunas genéricas dos documentos de tesouraria (mantidas para ecrãs que não seguem uma lista do legado). */
 export function colunasDocumentos(): ColunaApi<DocumentoTesouraria>[] {
@@ -101,7 +103,16 @@ export function ListaDocumentos() {
   const [pesquisa, setPesquisa] = useState('');
   const [seleccao, setSeleccao] = useState<DocumentoTesouraria[]>([]);
   const [importar, setImportar] = useState(false);
-  useEffect(() => setSeleccao([]), [separador]);
+  // detalhe em modal sobre a lista (viewTesoMovementDetail do legado); a rota …/:id continua para ligações directas
+  const [detalhe, setDetalhe] = useState<number | null>(null);
+  // ronda 3: sem filtro, a lista abre só com o registo mais recente (legado); «Ver mais» / «Ver todos»
+  const [limite, setLimite] = useState(1);
+  const [verTodos, setVerTodos] = useState(false);
+  useEffect(() => {
+    setSeleccao([]);
+    setLimite(1);
+    setVerTodos(false);
+  }, [separador]);
   const tipo = separador === 'TODOS' ? undefined : (separador as TipoDocumento);
   const novo = botaoNovo(separador);
   const lote = useAccao<{ ok: { numero_documento: string | null }[]; erros: { numero_documento: string | null; mensagem: string }[] }>({
@@ -119,6 +130,9 @@ export function ListaDocumentos() {
   const podeEmitir = pode('teso_doc_emitir');
   const podeEliminar = pode('teso_doc_eliminar');
   const { token } = theme.useToken();
+  const filtrosLista = { tipo, estado, conta_financeira: conta, pesquisa, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) };
+  const recente = emModoRecente({ pesquisa, estado, conta, inicio: periodo?.[0], fim: periodo?.[1] }, verTodos);
+  const total = useTotalDocumentos(filtrosLista);
 
   return (
     <>
@@ -127,7 +141,7 @@ export function ListaDocumentos() {
           accoes={
             <Space wrap>
               <Button type="primary" icon={<IconeFa nome="search" />} onClick={() => setPesquisa(texto)}>Buscar</Button>
-              <Button icon={<IconeFa nome="undo" />} onClick={() => { setTexto(''); setPesquisa(''); setPeriodo(null); setEstado(undefined); setConta(undefined); }}>Limpar</Button>
+              <Button icon={<IconeFa nome="undo" />} onClick={() => { setTexto(''); setPesquisa(''); setPeriodo(null); setEstado(undefined); setConta(undefined); setLimite(1); setVerTodos(false); }}>Limpar</Button>
             </Space>
           }
         >
@@ -177,12 +191,30 @@ export function ListaDocumentos() {
         </Flex>
       </Card>
       <Card>
+        {recente ? (
+          <Flex wrap gap="small" justify="space-between" align="center" style={{ marginBottom: 12 }} data-testid="teso-ver-mais">
+            <Typography.Text type="secondary" aria-live="polite"><IconeFa nome="history" /> {textoRecentes(limite, total)}</Typography.Text>
+            <Space wrap>
+              <Button icon={<IconeFa nome="chevron-down" />} disabled={total !== undefined && limite >= total} onClick={() => setLimite((l) => proximoLimite(l, total))}>Ver mais</Button>
+              <Button icon={<IconeFa nome="list" />} disabled={total !== undefined && limite >= total} onClick={() => setVerTodos(true)}>Ver todos</Button>
+            </Space>
+          </Flex>
+        ) : verTodos && !filtroAplicado({ pesquisa, estado, conta, inicio: periodo?.[0], fim: periodo?.[1] }) ? (
+          <Flex justify="flex-end" style={{ marginBottom: 12 }}>
+            <Button size="small" icon={<IconeFa nome="history" />} onClick={() => { setVerTodos(false); setLimite(1); }}>Só o mais recente</Button>
+          </Flex>
+        ) : null}
+        {/* modo «mais recente»: a tabela pede ao servidor só os `limite` registos mais recentes e esconde a paginação */}
+        {recente && <style>{'.teso-lista-recente .ant-pagination{display:none}'}</style>}
+        <div className={recente ? 'teso-lista-recente' : undefined}>
         <TabelaDocumentos
-          filtros={{ tipo, estado, conta_financeira: conta, pesquisa, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
+          key={recente ? `recente-${limite}` : 'todos'}
+          porPagina={recente ? limite : 50}
+          filtros={filtrosLista}
           columns={colunasOperacoes(tipo)}
           accoes={(d) => accoesDocumento(d, {
             podeEmitir, podeEliminar,
-            abrir: (x) => navegar(String(x.id)),
+            abrir: (x) => setDetalhe(x.id),
             copiar: (x) => navegar(`novo?copiar=${x.id}`),
             editar: (x) => navegar(`${x.id}/editar`),
             emitirCarta: pode('teso_carta_emitir') ? (x) => navegar(`/m/teso/teso_cartas?documento=${x.id}`) : undefined,
@@ -213,10 +245,12 @@ export function ListaDocumentos() {
             rotuloTotal: tipo ? 'Total' : 'Saldo',
           }}
           vazio={{ icone: 'money-bill-wave', titulo: 'Nenhum registo encontrado', texto: 'Use a pesquisa ou registe um novo documento.' }}
-          onRow={(r) => ({ onDoubleClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
+          onRow={(r) => ({ onDoubleClick: () => setDetalhe(r.id), style: { cursor: 'pointer' } })}
         />
+        </div>
       </Card>
       <ModalImportacaoTesouraria aberto={importar} aoFechar={() => setImportar(false)} />
+      {detalhe !== null && <DetalheDocumento emModal id={detalhe} aoFechar={() => setDetalhe(null)} />}
     </>
   );
 }

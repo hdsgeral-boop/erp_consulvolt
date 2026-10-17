@@ -43,6 +43,11 @@ const MODELOS_EXTRA = {
 // Ecrãs da Versão Actual do legado ainda não construídos no sistema novo (ADR-071): ficam fora do catálogo, do menu e
 // dos perfis-tipo até a fase que os constrói os retirar desta lista.
 const ECRAS_ADIADOS = new Set([]);   // todos os ecrãs da Versão Actual estão construídos ou em construção (ADR-071)
+// Ecrãs do legado eliminados do sistema novo a pedido do utilizador: nunca voltam ao catálogo, ao menu nem aos perfis-tipo.
+const ECRAS_ELIMINADOS = new Set([
+  'accounting_bi',   // «BI contabilístico e Gestão documental» (vistas accounting_bi e sgd) — retirado em 17/10/2026
+]);
+for (const id of ECRAS_ELIMINADOS) ECRAS_ADIADOS.add(id);
 const chavesAdiadas = new Set(catalogo.modulos.flatMap((m) => m.ecras.filter((e) => ECRAS_ADIADOS.has(e.id))
   .flatMap((e) => [e.id, ...e.vistas, ...e.vistas.map((v) => `${v}_view`), ...e.tarefas.map((t) => t.chave)])));
 for (const m of catalogo.modulos) m.ecras = m.ecras.filter((e) => !ECRAS_ADIADOS.has(e.id));

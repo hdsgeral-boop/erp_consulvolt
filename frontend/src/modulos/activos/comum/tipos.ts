@@ -51,7 +51,21 @@ export interface Activo {
   edificio?: { id: number; codigo: string | null; descricao: string } | null;
   andar?: { id: number; numero: string | null; nome: string | null } | null;
   porta?: { id: number; numero: string; nome: string | null } | null;
+  /** r3_activos: PROPRIO (por omissão) ou ALHEIO — arrendado, cedido, de terceiros (não amortiza nem entra nos mapas fiscais). */
+  propriedade?: Propriedade | null;
+  regime_alheio?: RegimeAlheio | null;
+  proprietario_terceiro_id?: number | null;
+  proprietario_nome?: string | null;
+  contrato_referencia?: string | null;
+  contrato_inicio?: string | null;
+  contrato_fim?: string | null;
+  renda_mensal?: string | null;
+  propriedade_notas?: string | null;
+  proprietario?: { id: number; nome: string } | null;
 }
+
+export type Propriedade = 'PROPRIO' | 'ALHEIO';
+export type RegimeAlheio = 'ARRENDADO' | 'CEDIDO' | 'TERCEIROS' | 'OUTRO';
 
 export interface AmortizacaoRegisto {
   id: number;
@@ -114,6 +128,20 @@ export interface Abate {
   terceiro?: { id: number; nome: string } | null;
 }
 
+export interface OrigemActivo {
+  id: number;
+  numero_lan: string | null;
+  numero_documento: string | null;
+  data_documento: string | null;
+  codigo_conta: string;
+  /** Valor total da linha de aquisição. */
+  valor: string;
+  descricao: string | null;
+  diario?: { codigo: string; nome: string | null } | null;
+  /** Parte da linha coberta por este activo. */
+  valor_alocado: string;
+}
+
 export interface FichaActivo extends Activo {
   origem: {
     id: number;
@@ -125,6 +153,10 @@ export interface FichaActivo extends Activo {
     descricao: string | null;
     diario?: { codigo: string; nome: string | null } | null;
   } | null;
+  /** Todas as linhas de aquisição cobertas pelo activo (várias quando foi inventariado em conjunto), com o valor de cada uma. */
+  origens?: OrigemActivo[];
+  /** Inventariado em conjunto a partir de várias linhas (alocacoes_aquisicao_ativos). */
+  combinado?: boolean;
   transferencias: Transferencia[];
   manutencoes: Manutencao[];
   amortizacoes: AmortizacaoRegisto[];

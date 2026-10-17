@@ -61,7 +61,11 @@ final class ComprasController extends Controller
         $this->exigir('compras_pedidos_view');
         $p = PedidoCompra::query()->findOrFail($id);
 
-        return RespostaApi::sucesso($this->doc($p, 'pedido_compra_id') + ['valor_estimado' => $this->deliberacao->valorEstimado($p)], 'Pedido obtido com sucesso.');
+        $decisao = $this->deliberacao->podeDecidir($p);
+
+        return RespostaApi::sucesso($this->doc($p, 'pedido_compra_id') + ['valor_estimado' => $this->deliberacao->valorEstimado($p),
+            'pode_decidir' => $decisao['pode'], 'motivo_decisao' => $decisao['pode'] ? null : $decisao['motivo'],
+            'referencia_encomendas' => (object) $this->listagens->referenciaEncomendas($p)], 'Pedido obtido com sucesso.');
     }
 
     public function criarPedido(Request $r): JsonResponse
@@ -81,9 +85,12 @@ final class ComprasController extends Controller
 
     public function decidirPedido(Request $r, int $id): JsonResponse
     {
-        $this->exigir('compras_ped_aprovar', 'compras_ped_aprovar_n2', 'compras_ped_aprovar_n3', 'compras_ped_aprovar_n4');
+        // o 1.º nível pode ser o responsável da unidade (etapa RESPONSAVEL/UTILIZADOR) sem tarefa de aprovação: a autorização
+        // é a da etapa pendente, verificada antes da validação (OWASP A01) e de novo, com o pedido bloqueado, ao decidir
+        $p = PedidoCompra::query()->findOrFail($id);
+        $this->deliberacao->exigirPodeDecidir($p);
         $d = $r->validate(['decisao' => ['required', Rule::in(['APROVAR', 'RECUSAR'])], 'nota' => ['nullable', 'string', 'max:1000']]);
-        $p = $this->deliberacao->decidir(PedidoCompra::query()->findOrFail($id), $d['decisao'] === 'APROVAR', $d['nota'] ?? null);
+        $p = $this->deliberacao->decidir($p, $d['decisao'] === 'APROVAR', $d['nota'] ?? null);
 
         return RespostaApi::sucesso($this->doc($p, 'pedido_compra_id'), $p->estado === 'APROVADO' ? 'Pedido aprovado.' : ($p->estado === 'REJEITADO' ? 'Pedido recusado.' : 'Etapa aprovada.'));
     }

@@ -5,6 +5,7 @@ namespace App\Services\Ativos;
 use App\Exceptions\ErroNegocio;
 use App\Models\AbateVendaAtivo;
 use App\Models\AfetacaoAtivoProjeto;
+use App\Models\AlocacaoAquisicaoAtivo;
 use App\Models\AmortizacaoAtivo;
 use App\Models\AtivoImobilizado;
 use App\Models\CategoriaAtivo;
@@ -66,6 +67,11 @@ final class ServicoAtivos
             }
             $d = $this->validar($d, $a);
             if ($a) {
+                // activo combinado (várias linhas de aquisição): o novo valor reparte-se outra vez pelas mesmas linhas
+                if (array_key_exists('valor_aquisicao', $d) && ! $this->igual($a->valor_aquisicao, $d['valor_aquisicao'])
+                    && ($fk = $this->repartirAquisicaoCombinada($a, $d['valor_aquisicao'])) !== null) {
+                    $a->forceFill(['lancamento_contabil_id' => $fk]);
+                }
                 $a->update($d);
 
                 return $this->recalcularAcumulado($a);
@@ -104,6 +110,9 @@ final class ServicoAtivos
                 throw new ErroNegocio("O n.º de inventário «{$d['codigo']}» já está em uso".($existente->trashed() ? ' (activo eliminado).' : '.'), 'CODIGO_DUPLICADO', 422);
             }
         }
+
+        // r3_activos: próprio / alheio (arrendado, cedido, de terceiros) — os alheios não têm aquisição nem amortização
+        $d = $this->normalizarPropriedade($d, $a);
 
         if ($a && $this->temAmortizacoes($a)) {
             $mudou = array_values(array_filter(self::CAMPOS_CALCULO, fn ($c) => array_key_exists($c, $d) && ! $this->igual($a->{$c}, $d[$c])));
@@ -173,6 +182,148 @@ final class ServicoAtivos
         }
 
         return $d;
+    }
+
+    /**
+     * Propriedade do bem/edifício (r3_activos). PROPRIO (por omissão, e todos os existentes) mantém as regras de aquisição e
+     * amortização. ALHEIO (arrendado, cedido, de terceiros): sem amortização (residual, quota fixa, vida e amortização inicial
+     * a zero), sem ligação a lançamentos de aquisição; o valor e a data ficam opcionais (valor de referência / entrada ao
+     * serviço — por omissão o início do contrato). Passar de próprio a alheio só sem quotas, sem lançamento de aquisição,
+     * sem linhas de aquisição combinadas e sem abates. Os dados do proprietário/contrato só se guardam nos alheios.
+     */
+    private function normalizarPropriedade(array $d, ?AtivoImobilizado $a): array
+    {
+        if (array_key_exists('propriedade', $d) && $d['propriedade'] !== null && ! in_array($d['propriedade'], AtivoImobilizado::PROPRIEDADES, true)) {
+            throw new ErroNegocio('Propriedade inválida (PROPRIO ou ALHEIO).', 'DADOS_INVALIDOS', 422, ['campo' => 'propriedade']);
+        }
+        $atual = $a ? ($a->propriedade ?: AtivoImobilizado::PROPRIO) : null;
+        $prop = ($d['propriedade'] ?? null) ?: ($atual ?? AtivoImobilizado::PROPRIO);
+        $mudou = $a && $prop !== $atual;
+        if (! $a || array_key_exists('propriedade', $d)) {
+            $d['propriedade'] = $prop;
+        }
+        $alheios = array_values(array_diff(AtivoImobilizado::CAMPOS_PROPRIEDADE, ['propriedade']));
+
+        if ($prop === AtivoImobilizado::PROPRIO) {
+            // os dados do contrato não se aplicam a um bem próprio
+            foreach ($alheios as $c) {
+                if (! $a || $mudou) {
+                    $d[$c] = null;
+                } else {
+                    unset($d[$c]);
+                }
+            }
+
+            return $d;
+        }
+
+        if ($mudou) {
+            $motivos = array_values(array_filter([
+                $this->temAmortizacoes($a) ? 'tem amortizações calculadas' : null,
+                $a->lancamento_contabil_id || AlocacaoAquisicaoAtivo::query()->where('ativo_imobilizado_id', $a->id)->exists() ? 'está ligado a um lançamento de aquisição' : null,
+                AbateVendaAtivo::query()->where('ativo_imobilizado_id', $a->id)->exists() ? 'tem abates registados' : null,
+            ]));
+            if ($motivos) {
+                throw new ErroNegocio("O activo {$a->codigo} não pode passar a alheio: ".implode(' e ', $motivos).'.', 'PROPRIEDADE_BLOQUEADA', 422, ['motivos' => $motivos]);
+            }
+        }
+        if (array_key_exists('regime_alheio', $d) && $d['regime_alheio'] !== null && $d['regime_alheio'] !== ''
+            && ! in_array($d['regime_alheio'], AtivoImobilizado::REGIMES_ALHEIO, true)) {
+            throw new ErroNegocio('Regime inválido (ARRENDADO, CEDIDO, TERCEIROS ou OUTRO).', 'DADOS_INVALIDOS', 422, ['campo' => 'regime_alheio']);
+        }
+        foreach (['regime_alheio', 'proprietario_nome', 'contrato_referencia', 'propriedade_notas'] as $c) {
+            if (array_key_exists($c, $d)) {
+                $d[$c] = trim((string) $d[$c]) ?: null;
+            }
+        }
+        if (! empty($d['proprietario_terceiro_id']) && ! Terceiro::query()->whereKey($d['proprietario_terceiro_id'])->exists()) {
+            throw new ErroNegocio('Proprietário inexistente.', 'DADOS_INVALIDOS', 422, ['campo' => 'proprietario_terceiro_id']);
+        }
+        if (array_key_exists('proprietario_terceiro_id', $d) && empty($d['proprietario_terceiro_id'])) {
+            $d['proprietario_terceiro_id'] = null;
+        }
+        foreach (['contrato_inicio', 'contrato_fim'] as $c) {
+            if (array_key_exists($c, $d)) {
+                $d[$c] = $this->data($d[$c]);
+            }
+        }
+        $inicio = array_key_exists('contrato_inicio', $d) ? $d['contrato_inicio'] : $a?->contrato_inicio?->toDateString();
+        $fim = array_key_exists('contrato_fim', $d) ? $d['contrato_fim'] : $a?->contrato_fim?->toDateString();
+        if ($inicio && $fim && $fim < $inicio) {
+            throw new ErroNegocio('O fim do contrato é anterior ao início.', 'DADOS_INVALIDOS', 422, ['campo' => 'contrato_fim']);
+        }
+        if (array_key_exists('renda_mensal', $d)) {
+            $d['renda_mensal'] = $d['renda_mensal'] === null || $d['renda_mensal'] === '' ? null : CalculadoraAmortizacoes::d($d['renda_mensal']);
+            if ($d['renda_mensal'] !== null && bccomp($d['renda_mensal'], '0', 2) < 0) {
+                throw new ErroNegocio('A renda não pode ser negativa.', 'DADOS_INVALIDOS', 422, ['campo' => 'renda_mensal']);
+            }
+        }
+        // sem amortização: os campos de cálculo ficam a zero (o servidor ignora o que vier)
+        $d = array_merge($d, ['valor_residual' => '0.00', 'quota_fixa' => '0.00', 'amortizacao_acumulada_inicial' => '0.00', 'acumulado_fim_ano' => null,
+            'vida_util' => 0, 'vida_util_restante' => 0]);
+        if (! $a || $mudou) {
+            $d['valor_aquisicao'] = isset($d['valor_aquisicao']) && $d['valor_aquisicao'] !== '' ? $d['valor_aquisicao'] : '0.00';
+            $d['data_aquisicao'] = ($d['data_aquisicao'] ?? null) ?: ($inicio ?? now()->toDateString());
+        } elseif (array_key_exists('data_aquisicao', $d) && empty($d['data_aquisicao'])) {
+            unset($d['data_aquisicao']);
+        }
+
+        return $d;
+    }
+
+    /**
+     * Activo inventariado em conjunto a partir de várias linhas de aquisição (ServicoAquisicoesAtivos::combinar): ao mudar o
+     * valor de aquisição, refaz a repartição pelas mesmas linhas e pela mesma ordem (data, id), sem exceder o que cada linha
+     * ainda tem por cobrir (descontado o que outros activos já cobrem). Se não couber, recusa sem alterar nada. Corre dentro
+     * da transacção de guardar(), com as linhas bloqueadas.
+     *
+     * @return int|null primeira linha coberta (nova FK do activo) ou null quando o activo não é combinado
+     */
+    private function repartirAquisicaoCombinada(AtivoImobilizado $a, string $valor): ?int
+    {
+        $atuais = AlocacaoAquisicaoAtivo::query()->where('ativo_imobilizado_id', $a->id)->lockForUpdate()->get()->keyBy('lancamento_contabil_id');
+        if ($atuais->isEmpty()) {
+            return null;
+        }
+        if (bccomp($valor, '0', 2) <= 0) {
+            throw new ErroNegocio("O activo {$a->codigo} foi inventariado a partir de várias linhas de aquisição: o valor de aquisição tem de ser maior que zero.",
+                'DADOS_INVALIDOS', 422, ['campo' => 'valor_aquisicao']);
+        }
+        $ids = $atuais->keys()->map(fn ($id) => (int) $id)->all();
+        $linhas = LancamentoContabil::query()->whereKey($ids)->orderBy('id')->lockForUpdate()->get()
+            ->sortBy([fn ($x, $y) => [$x->data_documento?->toDateString(), $x->id] <=> [$y->data_documento?->toDateString(), $y->id]])->values();
+        $alocado = app(ServicoAquisicoesAtivos::class)->alocadoPorLinha($ids);
+        $fila = [];
+        $disponivel = '0.00';
+        foreach ($linhas as $l) {
+            $outros = bcsub($alocado[$l->id]['v'] ?? '0.00', CalculadoraAmortizacoes::d($atuais[$l->id]?->valor), 2);
+            $restante = bcsub(CalculadoraAmortizacoes::d($l->valor), $outros, 2);
+            $restante = bccomp($restante, '0', 2) > 0 ? $restante : '0.00';
+            $fila[] = ['linha' => $l, 'restante' => $restante];
+            $disponivel = bcadd($disponivel, $restante, 2);
+        }
+        if (bccomp($valor, $disponivel, 2) > 0) {
+            $detalhe = array_map(fn ($f) => ['id' => $f['linha']->id, 'documento' => $f['linha']->numero_documento, 'disponivel' => $f['restante']], $fila);
+            throw new ErroNegocio("O valor de aquisição ({$valor}) excede o que as ".count($fila)." linhas de aquisição combinadas no activo {$a->codigo} ainda podem cobrir ({$disponivel}): "
+                .implode('; ', array_map(fn ($x) => ($x['documento'] ?: "linha {$x['id']}").' '.$x['disponivel'], $detalhe)).'. Indique um valor até '.$disponivel.'.',
+                'EXCEDE_AQUISICAO', 422, ['disponivel' => $disponivel, 'linhas' => $detalhe]);
+        }
+        $falta = $valor;
+        $fk = null;
+        foreach ($fila as $f) {
+            $id = $f['linha']->id;
+            $parte = bccomp($falta, $f['restante'], 2) <= 0 ? $falta : $f['restante'];
+            $existente = $atuais[$id] ?? null;
+            if (bccomp($parte, '0', 2) > 0) {
+                $existente ? $existente->update(['valor' => $parte]) : AlocacaoAquisicaoAtivo::create(['ativo_imobilizado_id' => $a->id, 'lancamento_contabil_id' => $id, 'valor' => $parte]);
+                $fk ??= $id;
+                $falta = bcsub($falta, $parte, 2);
+            } else {
+                $existente?->delete();
+            }
+        }
+
+        return $fk;
     }
 
     public function eliminar(AtivoImobilizado $a): void
@@ -393,11 +544,21 @@ final class ServicoAtivos
     public function ficha(AtivoImobilizado $a): array
     {
         $origem = $a->lancamento_contabil_id ? LancamentoContabil::query()->with('diario:id,codigo,nome')->find($a->lancamento_contabil_id) : null;
+        $campos = ['id', 'numero_lan', 'numero_documento', 'data_documento', 'codigo_conta', 'valor', 'descricao', 'terceiro_id'];
+        // todas as linhas de aquisição que o activo cobre, com o valor de cada uma (combinado: as alocações; senão: a FK)
+        $alocacoes = AlocacaoAquisicaoAtivo::query()->where('ativo_imobilizado_id', $a->id)->pluck('valor', 'lancamento_contabil_id');
+        $origens = $alocacoes->isNotEmpty()
+            ? LancamentoContabil::query()->with('diario:id,codigo,nome')->whereKey($alocacoes->keys()->all())->get()
+                ->sortBy([fn ($x, $y) => [$x->data_documento?->toDateString(), $x->id] <=> [$y->data_documento?->toDateString(), $y->id]])
+                ->map(fn ($l) => $l->only($campos) + ['diario' => $l->diario?->only(['codigo', 'nome']), 'valor_alocado' => CalculadoraAmortizacoes::d($alocacoes[$l->id])])->values()->all()
+            : ($origem ? [$origem->only($campos) + ['diario' => $origem->diario?->only(['codigo', 'nome']), 'valor_alocado' => CalculadoraAmortizacoes::d($a->valor_aquisicao)]] : []);
 
-        return $a->load(['categoriaAtivo', 'centroCusto:id,codigo,descricao', 'unidadeNegocio:id,codigo,nome', 'fornecedor:id,nome', 'edificio:id,codigo,descricao', 'andar:id,numero,nome', 'porta:id,numero,nome'])->toArray() + [
+        return $a->load(['categoriaAtivo', 'centroCusto:id,codigo,descricao', 'unidadeNegocio:id,codigo,nome', 'fornecedor:id,nome', 'proprietario:id,nome', 'edificio:id,codigo,descricao', 'andar:id,numero,nome', 'porta:id,numero,nome'])->toArray() + [
             'valor_liquido' => bcsub(CalculadoraAmortizacoes::d($a->valor_aquisicao), CalculadoraAmortizacoes::d($a->amortizacao_acumulada), 2),
             'bloqueado' => $this->temAmortizacoes($a),
-            'origem' => $origem ? $origem->only(['id', 'numero_lan', 'numero_documento', 'data_documento', 'codigo_conta', 'valor', 'descricao', 'terceiro_id']) + ['diario' => $origem->diario?->only(['codigo', 'nome'])] : null,
+            'origem' => $origem ? $origem->only($campos) + ['diario' => $origem->diario?->only(['codigo', 'nome'])] : null,
+            'origens' => $origens,
+            'combinado' => $alocacoes->isNotEmpty(),
             'transferencias' => TransferenciaCentroCustoAtivo::query()->where('ativo_imobilizado_id', $a->id)->with(['centroCustoOrigem:id,codigo,descricao', 'centroCustoDestino:id,codigo,descricao'])
                 ->orderByDesc('data')->orderByDesc('id')->get(),
             'manutencoes' => RegistoManutencaoAtivo::query()->where('ativo_imobilizado_id', $a->id)->orderByDesc('data')->orderByDesc('id')->get(),

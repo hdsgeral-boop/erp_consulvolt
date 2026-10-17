@@ -12,7 +12,9 @@ use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Logistica\ContasProduto;
 use App\Services\Reparticao\ServicoReparticao;
+use App\Services\Tesouraria\ServicoRecebimentosVendas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -64,6 +66,7 @@ final class ServicoContabilizacaoVendas
             $numeroLan = $criadas->first()->numero_lan;
             $venda->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
             $recibo?->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $numeroLan]);
+            $recibo && app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // recebimento da FR na Tesouraria: INTEGRADO
 
             return $venda;
         });
@@ -220,6 +223,7 @@ final class ServicoContabilizacaoVendas
             $venda->update(['contabilizado' => false, 'numero_lan_contabilizacao' => null]);
             if ($venda->tipo_documento === 'FR') {
                 ReciboVenda::query()->where('venda_origem_id', $venda->id)->update(['contabilizado' => false, 'numero_lan_contabilizacao' => null]);
+                ReciboVenda::query()->where('venda_origem_id', $venda->id)->get()->each(fn ($r) => app(ServicoRecebimentosVendas::class)->sincronizar($r));
             }
 
             return $venda;
@@ -256,6 +260,7 @@ final class ServicoContabilizacaoVendas
                 ],
             ]);
             $recibo->update(['contabilizado' => true, 'numero_lan_contabilizacao' => $criadas->first()->numero_lan]);
+            app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // o recebimento na Tesouraria fica INTEGRADO (mesmo lançamento)
 
             return $recibo;
         });
@@ -276,6 +281,7 @@ final class ServicoContabilizacaoVendas
         return DB::transaction(function () use ($recibo, $motivo) {
             $this->lancamentos->estornar($this->localizar($recibo->numero_lan_contabilizacao, $recibo->numero_recibo, false), $motivo);
             $recibo->update(['contabilizado' => false, 'numero_lan_contabilizacao' => null]);
+            app(ServicoRecebimentosVendas::class)->sincronizar($recibo);   // e volta a PENDENTE na Tesouraria
 
             return $recibo;
         });
@@ -386,12 +392,13 @@ final class ServicoContabilizacaoVendas
                 : CalculadoraDocumento::arredondar(bcmul((string) $item->quantidade, (string) $item->preco_unitario, 8));
             $imposto = bcsub((string) ($item->total ?? $valor), $valor, 2);
 
-            $contaProveito = $item->codigo_conta ?: $p?->codigo_conta
+            $contasProduto = ContasProduto::de($p);   // ronda 3: contas da categoria do produto
+            $contaProveito = $item->codigo_conta ?: $contasProduto->venda
                 ?: $this->config->exigir($p?->movimenta_stock ? 'proveitos_mercadorias' : 'proveitos_servicos', 'Linha '.($i + 1).': produto sem conta de proveitos.');
             $somar((string) $contaProveito, $valor, false, $porUnidade ? ServicoStockVendas::analiticaLinha($item) : []);
 
             if (bccomp($imposto, '0', 2) !== 0) {
-                $contaIva = $p?->conta_iva_liquidado ?: $p?->conta_iva ?: $this->config->exigir('iva_vendas', 'Linha '.($i + 1).': produto sem conta de IVA liquidado.');
+                $contaIva = $contasProduto->ivaLiquidado ?: $this->config->exigir('iva_vendas', 'Linha '.($i + 1).': produto sem conta de IVA liquidado.');
                 $somar((string) $contaIva, $imposto, true, []);
             }
         }

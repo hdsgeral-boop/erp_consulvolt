@@ -31,6 +31,9 @@ export interface EtapaDeliberacao {
   tarefa?: string | null;
   nome_aprovador?: string | null;
   nota_aprovador?: string | null;
+  /** RESPONSAVEL: colaborador responsável; UTILIZADOR: nome de utilizador do responsável do CC/UN. */
+  employee_id?: number | null;
+  utilizador?: string | null;
   /** Quem decidiu e quando (gravado na decisão). */
   por?: string | null;
   em?: string | null;
@@ -57,11 +60,15 @@ export interface PedidoCompra {
   motivo_anulacao: string | null;
   linhas?: ItemCompra[];
   valor_estimado?: { valor: string; sem_preco: number };
+  /** Preço de venda (Kz, s/ IVA, com desconto) por produto_id das encomendas de clientes que originaram o pedido. */
+  referencia_encomendas?: Record<string, { preco_kz: string; documentos: string[] }>;
   /** Só na lista (ServicoListagensCompras): «Produto (qtd), …», n.º de linhas, quantidade total e se o utilizador pode decidir. */
   itens_resumo?: string;
   itens_linhas?: number;
   itens_quantidade?: string;
   pode_decidir?: boolean;
+  /** Só no detalhe: porque não pode decidir («Aguarda …», «Não pode aprovar os seus próprios pedidos.»). */
+  motivo_decisao?: string | null;
   unidade_negocio_codigo?: string | null;
   centro_custo_codigo?: string | null;
 }

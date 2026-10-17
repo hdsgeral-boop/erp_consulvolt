@@ -3,9 +3,12 @@
 namespace App\Services\Compras;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\Colaborador;
 use App\Models\ConfigDeliberacaoCompra;
 use App\Models\ItemCompra;
 use App\Models\PedidoCompra;
+use App\Models\UnidadeOrganica;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -13,9 +16,13 @@ use Illuminate\Support\Facades\Gate;
 /**
  * Deliberação dos pedidos de compra por escalões de valor (js/compras_deliberacao.js do legado).
  *   - escalões cumulativos: um pedido de valor V exige os níveis 1..k, sendo k o primeiro com V ≤ limite;
- *   - nível 1: tarefa compras_ped_aprovar; níveis 2..4: compras_ped_aprovar_n{i}
- *     (a aprovação pelo responsável da unidade orgânica do requisitante chega com o módulo RH/estrutura);
- *   - ninguém aprova os próprios pedidos; a recusa exige nota (≥ 3 caracteres) e rejeita o pedido;
+ *   - nível 1 (aprovadorPrimeiroNivel, compras_deliberacao.js:99-127): o responsável da unidade orgânica do colaborador
+ *     requisitante (sobe na estrutura enquanto o responsável for o próprio requisitante) — etapa RESPONSAVEL, só ele
+ *     decide; sem colaborador/unidade, o utilizador responsável da unidade ligada ao CC/UN do pedido — etapa UTILIZADOR;
+ *     sem nenhum dos dois (ou o responsável sem utilizador activo na empresa), a tarefa compras_ped_aprovar com a nota
+ *     do porquê (nota_aprovador); níveis 2..4: tarefa compras_ped_aprovar_n{i};
+ *   - ninguém aprova os próprios pedidos (criador ou colaborador requisitante); a recusa exige nota (≥ 3 caracteres) e
+ *     rejeita o pedido;
  *   - revisão na adjudicação: se a proposta exigir mais níveis do que os aprovados, abrem-se as etapas em falta.
  * O formato de `deliberacao` (etapas, revisoes, valor…) é o do legado, para os pedidos migrados continuarem válidos.
  */
@@ -26,6 +33,10 @@ final class ServicoDeliberacaoCompras
         ['nome' => 'Direcção', 'limite' => 5000000],
         ['nome' => 'Administração', 'limite' => null],
     ];
+
+    private const NOME_TAREFA_N1 = 'Utilizadores com a tarefa «Aprovar e rejeitar pedidos»';
+
+    public function __construct(private readonly ContextoEmpresa $contexto) {}
 
     /** @return list<array{nome: string, limite: ?float}> */
     public function escaloes(): array
@@ -99,7 +110,7 @@ final class ServicoDeliberacaoCompras
         $estimado = $this->valorEstimado($pedido);
         $etapas = [];
         foreach ($this->niveisExigidos((float) $estimado['valor']) as $k => $i) {
-            $etapas[] = $this->etapa($i, $k === 0 ? 'PENDENTE' : 'AGUARDA');
+            $etapas[] = $this->etapa($i, $k === 0 ? 'PENDENTE' : 'AGUARDA', $pedido);
         }
         $pedido->update(['deliberacao' => ['valor' => (float) $estimado['valor'], 'sem_preco' => $estimado['sem_preco'], 'etapas' => $etapas,
             'revisoes' => [], 'iniciada_em' => now()->toIso8601String()], 'estado' => 'PENDENTE']);
@@ -134,12 +145,7 @@ final class ServicoDeliberacaoCompras
             }
             $etapa = $d['etapas'][$i];
             $utilizador = Auth::user()?->nome_utilizador;
-            if ($pedido->criado_por && $pedido->criado_por === $utilizador) {
-                throw new ErroNegocio('Ninguém aprova os próprios pedidos.', 'AUTO_APROVACAO', 403);
-            }
-            if (($etapa['tipo'] ?? 'TAREFA') !== 'LEGADO' && ! Gate::allows($etapa['tarefa'] ?? 'compras_ped_aprovar')) {
-                throw new ErroNegocio("Não tem permissão para aprovar a etapa \"{$etapa['nome']}\".", 'SEM_PERMISSAO_ETAPA', 403);
-            }
+            $this->exigirPodeDecidir($pedido);
             if (! $aprovar && mb_strlen(trim((string) $nota)) < 3) {
                 throw new ErroNegocio('Indique o motivo da recusa.', 'RECUSA_SEM_NOTA', 422);
             }
@@ -181,7 +187,7 @@ final class ServicoDeliberacaoCompras
                 return false;
             }
             foreach (array_slice($exigidos, $aprovados) as $k => $i) {
-                $d['etapas'][] = $this->etapa($i, $k === 0 ? 'PENDENTE' : 'AGUARDA') + ['revisao' => true];
+                $d['etapas'][] = $this->etapa($i, $k === 0 ? 'PENDENTE' : 'AGUARDA', $pedido) + ['revisao' => true];
             }
             $d['revisoes'][] = ['valor_proposta' => (float) $valorProposta, 'cotacao_compra_id' => $cotacaoId, 'em' => now()->toIso8601String(),
                 'por' => Auth::user()?->nome_utilizador];
@@ -191,11 +197,136 @@ final class ServicoDeliberacaoCompras
         });
     }
 
-    private function etapa(int $i, string $estado): array
+    /**
+     * Pode o utilizador autenticado decidir a etapa pendente? (podeDecidir, compras_deliberacao.js:139-149)
+     * $meuColaborador: o colaborador ligado ao utilizador na empresa activa (false = lê-o aqui; a lista passa-o já lido).
+     *
+     * @return array{pode: bool, motivo: ?string, codigo: ?string}
+     */
+    public function podeDecidir(PedidoCompra $pedido, int|false|null $meuColaborador = false): array
+    {
+        $nao = fn (string $motivo, string $codigo = 'SEM_PERMISSAO_ETAPA') => ['pode' => false, 'motivo' => $motivo, 'codigo' => $codigo];
+        if ($pedido->estado !== 'PENDENTE') {
+            return $nao('O pedido não está por aprovar.', 'SEM_ETAPA_PENDENTE');
+        }
+        $utilizador = Auth::user()?->nome_utilizador;
+        $meuColaborador = $meuColaborador === false ? $this->meuColaborador() : $meuColaborador;
+        if (($pedido->criado_por && $pedido->criado_por === $utilizador)
+            || ($meuColaborador !== null && $pedido->colaborador_requerente_id !== null && (int) $pedido->colaborador_requerente_id === $meuColaborador)) {
+            return $nao('Não pode aprovar os seus próprios pedidos.', 'AUTO_APROVACAO');
+        }
+        $etapa = collect($pedido->deliberacao['etapas'] ?? [])->firstWhere('estado', 'PENDENTE');
+        if (! $etapa) {
+            // pedido migrado sem deliberação: inicia-se ao decidir (nível 1); aqui basta uma das tarefas de aprovação
+            return Gate::any(['compras_ped_aprovar', 'compras_ped_aprovar_n2', 'compras_ped_aprovar_n3', 'compras_ped_aprovar_n4'])
+                ? ['pode' => true, 'motivo' => null, 'codigo' => null] : $nao('Não tem permissão para aprovar pedidos.');
+        }
+        $tipo = $etapa['tipo'] ?? 'TAREFA';
+        $ok = match ($tipo) {
+            'RESPONSAVEL' => $meuColaborador !== null && (int) ($etapa['employee_id'] ?? 0) === $meuColaborador,
+            'UTILIZADOR' => $utilizador !== null && ($etapa['utilizador'] ?? null) === $utilizador,
+            'LEGADO' => true,
+            default => Gate::allows($etapa['tarefa'] ?? 'compras_ped_aprovar'),
+        };
+        if ($ok) {
+            return ['pode' => true, 'motivo' => null, 'codigo' => null];
+        }
+
+        return $nao(match ($tipo) {
+            'RESPONSAVEL' => 'Aguarda '.($etapa['nome_aprovador'] ?? 'o responsável da unidade').'.',
+            'UTILIZADOR' => 'Aguarda '.($etapa['utilizador'] ?? 'o responsável').'.',
+            default => "Aguarda o nível «{$etapa['nome']}».",
+        });
+    }
+
+    public function exigirPodeDecidir(PedidoCompra $pedido): void
+    {
+        $r = $this->podeDecidir($pedido);
+        if (! $r['pode']) {
+            throw new ErroNegocio($r['codigo'] === 'AUTO_APROVACAO' ? 'Ninguém aprova os próprios pedidos.' : (string) $r['motivo'], (string) $r['codigo'],
+                $r['codigo'] === 'SEM_ETAPA_PENDENTE' ? 422 : 403);
+        }
+    }
+
+    /** Colaborador ligado ao utilizador autenticado na empresa activa (utilizador_empresa.colaborador_id; meuColaboradorId do legado). */
+    public function meuColaborador(): ?int
+    {
+        $id = Auth::id() ? DB::table('utilizador_empresa')->where('utilizador_id', Auth::id())->where('empresa_id', $this->contexto->obrigatorio())->value('colaborador_id') : null;
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /**
+     * Aprovador do 1.º nível (aprovadorPrimeiroNivel, compras_deliberacao.js:99-127). Campos da etapa no formato do legado.
+     *
+     * @return array<string, mixed>
+     */
+    public function aprovadorPrimeiroNivel(PedidoCompra $pedido): array
+    {
+        $empresa = $this->contexto->obrigatorio();
+        $fallback = fn (string $nota) => ['tipo' => 'TAREFA', 'tarefa' => 'compras_ped_aprovar', 'nome_aprovador' => self::NOME_TAREFA_N1, 'nota_aprovador' => $nota];
+        $requisitante = $pedido->colaborador_requerente_id ? Colaborador::query()->find($pedido->colaborador_requerente_id, ['id', 'unidade_organica_id']) : null;
+        if ($requisitante && $requisitante->unidade_organica_id) {
+            $visto = [];
+            for ($u = UnidadeOrganica::query()->find($requisitante->unidade_organica_id); $u && ! isset($visto[$u->id]) && count($visto) < 200;
+                $u = $u->unidade_organica_pai_id ? UnidadeOrganica::query()->find($u->unidade_organica_pai_id) : null) {
+                $visto[$u->id] = true;
+                if ($u->colaborador_responsavel_id && (int) $u->colaborador_responsavel_id !== (int) $requisitante->id) {
+                    $resp = Colaborador::query()->find($u->colaborador_responsavel_id, ['id', 'nome_completo']);
+                    if ($resp && $this->temUtilizador($empresa, (int) $resp->id)) {
+                        return ['tipo' => 'RESPONSAVEL', 'employee_id' => (int) $resp->id, 'nome_aprovador' => "{$resp->nome_completo} ({$u->nome})", 'nota_aprovador' => ''];
+                    }
+
+                    return $fallback("O responsável de «{$u->nome}»".($resp ? " ({$resp->nome_completo})" : '').' não tem utilizador no sistema.');
+                }
+            }
+
+            return $fallback('A unidade do requisitante não tem responsável definido.');
+        }
+        // sem colaborador (ou sem unidade): utilizador responsável da unidade ligada ao centro de custo / UN do pedido
+        if ($pedido->centro_custo_id || $pedido->unidade_negocio_id) {
+            $user = $this->responsavelPara($pedido->centro_custo_id, $pedido->unidade_negocio_id);
+            if ($user && $user !== $pedido->criado_por && $this->utilizadorActivoNaEmpresa($empresa, $user)) {
+                return ['tipo' => 'UTILIZADOR', 'utilizador' => $user, 'nome_aprovador' => "{$user} (responsável do CC/UN)", 'nota_aprovador' => ''];
+            }
+        }
+
+        return $fallback('Requisitante sem unidade na Estrutura Orgânica.');
+    }
+
+    /** EstruturaOrg.responsavelPara (estrutura_dados.js:231-235): utilizador responsável da unidade activa ligada ao CC, senão à UN. */
+    private function responsavelPara(?int $centroCusto, ?int $unidadeNegocio): ?string
+    {
+        $base = fn () => UnidadeOrganica::query()->where(fn ($q) => $q->where('ativo', true)->orWhereNull('ativo'))
+            ->whereNotNull('utilizador_responsavel')->where('utilizador_responsavel', '<>', '')->orderBy('id');
+
+        return ($centroCusto ? $base()->where('centro_custo_id', $centroCusto)->value('utilizador_responsavel') : null)
+            ?: ($unidadeNegocio ? $base()->where('unidade_negocio_id', $unidadeNegocio)->value('utilizador_responsavel') : null);
+    }
+
+    /** O colaborador tem utilizador activo ligado nesta empresa (utilizadoresDe do legado). */
+    private function temUtilizador(int $empresa, int $colaborador): bool
+    {
+        return DB::table('utilizador_empresa')->join('utilizadores', 'utilizadores.id', '=', 'utilizador_empresa.utilizador_id')
+            ->where('utilizador_empresa.empresa_id', $empresa)->where('utilizador_empresa.colaborador_id', $colaborador)
+            ->where('utilizadores.ativo', true)->whereNull('utilizadores.eliminado_em')->exists();
+    }
+
+    private function utilizadorActivoNaEmpresa(int $empresa, string $nome): bool
+    {
+        return DB::table('utilizadores')->where('nome_utilizador', $nome)->where('ativo', true)->whereNull('eliminado_em')
+            ->where(fn ($q) => $q->where('acesso_todas_empresas', true)
+                ->orWhereExists(fn ($e) => $e->from('utilizador_empresa')->whereColumn('utilizador_empresa.utilizador_id', 'utilizadores.id')->where('utilizador_empresa.empresa_id', $empresa)))
+            ->exists();
+    }
+
+    private function etapa(int $i, string $estado, PedidoCompra $pedido): array
     {
         $n = $this->escaloes()[$i];
+        $base = ['ordem' => $i + 1, 'nome' => $n['nome'], 'estado' => $estado];
 
-        return ['ordem' => $i + 1, 'nome' => $n['nome'], 'tipo' => 'TAREFA', 'tarefa' => $i === 0 ? 'compras_ped_aprovar' : 'compras_ped_aprovar_n'.($i + 1),
-            'estado' => $estado];
+        return $i === 0
+            ? $base + $this->aprovadorPrimeiroNivel($pedido)
+            : $base + ['tipo' => 'TAREFA', 'tarefa' => 'compras_ped_aprovar_n'.($i + 1), 'nome_aprovador' => 'Utilizadores com a tarefa «Aprovar pedidos — nível '.($i + 1).'»'];
     }
 }

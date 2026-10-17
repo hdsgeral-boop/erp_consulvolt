@@ -5,7 +5,7 @@ import { CalendarOutlined, ClockCircleOutlined, DeleteOutlined, LockOutlined, Pl
 import type { UploadFile } from 'antd/es/upload/interface';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { descarregar, enviar, http, obter } from '@/api/cliente';
 import type { Envelope } from '@/api/tipos';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -39,29 +39,25 @@ const COR_FALTA = '#b91c1c';
 export default function Assiduidade() {
   const [mes, setMes] = useState<Dayjs>(dayjs().startOf('month'));
   const m = mes.format('YYYY-MM');
+  // antigo (assiduidade_ui.js:100, :485, :566, :659): o mês escolhe-se dentro de cada separador; o estado é partilhado
+  const seletor = (rotulo = 'Mês') => <SeletorMes rotulo={rotulo} valor={mes} aoMudar={setMes} />;
   // Ordem e nomes dos separadores do antigo (abre no «Resumo do mês»); «Fechos mensais» é um extra do sistema novo.
   return (
     <>
       <CabecalhoPagina
         titulo="Efectividade (biometria)"
         subtitulo="Dias e horas trabalhados: registo manual, importação de ficheiro do relógio biométrico ou ligação directa. Base do apuramento de faltas e horas extra no processamento salarial."
-        accoes={
-          <Space wrap>
-            <DatePicker picker="month" format="MM/YYYY" allowClear={false} value={mes} onChange={(v) => v && setMes(v)} aria-label="Mês" />
-            <BotaoFecharEfectividade mes={m} />
-          </Space>
-        }
       />
       <Tabs
         type="card"
         defaultActiveKey="apuramento"
         items={[
-          { key: 'apuramento', label: <span><IconeFa nome="calculator" /> Resumo do mês</span>, children: <Apuramento mes={m} /> },
+          { key: 'apuramento', label: <span><IconeFa nome="calculator" /> Resumo do mês</span>, children: <Apuramento mes={m} seletor={seletor()} /> },
           // Versão Actual (assiduidade_ui.js:58 e :82): turnos por colaborador e dia, escala prioritária, migrar do contrato, copiar, Excel
-          { key: 'escala', label: <span><IconeFa nome="calendar-alt" /> Escala do mês</span>, children: <EscalaMes mes={m} /> },
-          { key: 'registos', label: <span><IconeFa nome="clock" /> Registos</span>, children: <Registos mes={m} /> },
-          { key: 'importar', label: <span><IconeFa nome="file-import" /> Importar</span>, children: <Registos mes={m} soImportar /> },
-          { key: 'ausencias', label: <span><IconeFa nome="user-clock" /> Ausências justificadas</span>, children: <Ausencias mes={m} /> },
+          { key: 'escala', label: <span><IconeFa nome="calendar-alt" /> Escala do mês</span>, children: <EscalaMes mes={m} seletor={seletor('Mês da escala')} /> },
+          { key: 'registos', label: <span><IconeFa nome="clock" /> Registos</span>, children: <Registos mes={m} seletor={seletor()} /> },
+          { key: 'importar', label: <span><IconeFa nome="file-import" /> Importar</span>, children: <Registos mes={m} soImportar seletor={seletor('Mês do modelo')} /> },
+          { key: 'ausencias', label: <span><IconeFa nome="user-clock" /> Ausências justificadas</span>, children: <Ausencias mes={m} seletor={seletor()} /> },
           { key: 'fechos', label: 'Fechos mensais', children: <Fechos /> },
           { key: 'config', label: <span><IconeFa nome="sliders-h" /> Configuração</span>, children: <Configuracao /> },
         ]}
@@ -119,24 +115,17 @@ export function camposRegistoEfectividade(colaboradores: CampoFormulario['opcoes
   ];
 }
 
-/** «Fechar efectividade» no topo do ecrã (como no antigo): fecha o apuramento do mês escolhido. */
-function BotaoFecharEfectividade({ mes }: { mes: string }) {
-  const { pode } = useSessao();
-  const permitido = pode('rh_assid_fechar');
-  const q = useQuery({ queryKey: ['rh', 'assiduidade', 'mes', mes], queryFn: () => obter<ApuramentoMes>(`/rh/assiduidade/meses/${mes}`), enabled: permitido });
-  const accao = useAccaoRh();
-  if (!permitido || !q.data) return null;
-  if (q.data.estado === 'FECHADO') return <Tag color="green" style={{ padding: '4px 10px' }}><LockOutlined /> Efectividade fechada</Tag>;
+/** Mês da efectividade dentro de cada separador (antigo: `<label>Mês</label><input type="month">`). */
+export function SeletorMes({ rotulo, valor, aoMudar }: { rotulo: string; valor: Dayjs; aoMudar: (v: Dayjs) => void }) {
   return (
-    <Button type="primary" icon={<LockOutlined />} loading={accao.isPending} onClick={() => Modal.confirm({
-      title: `Fechar a efectividade de ${mesPorExtenso(mes)}?`,
-      content: 'O apuramento fica guardado e passa a poder ser lançado no processamento salarial. As faltas por justificar são geradas.',
-      okText: 'Fechar efectividade', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/assiduidade/meses/${mes}/fechar` }),
-    })}>Fechar efectividade</Button>
+    <Space size={6} style={{ fontWeight: 400 }}>
+      <Typography.Text strong style={{ fontSize: 13 }}>{rotulo}</Typography.Text>
+      <DatePicker picker="month" format="MM/YYYY" allowClear={false} value={valor} onChange={(v) => v && aoMudar(v.startOf('month'))} aria-label={rotulo} style={{ width: 130 }} />
+    </Space>
   );
 }
 
-function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
+function Registos({ mes, soImportar, seletor }: { mes: string; soImportar?: boolean; seletor?: ReactNode }) {
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const colaboradores = useColaboradores();
@@ -253,7 +242,7 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
   if (soImportar) {
     // Separador «Importar» do antigo: ficheiro do relógio (CSV/XLSX) ou leitura directa do relógio configurado.
     return (
-      <Card title={<Space><IconeFa nome="file-import" />Importar registos de {mesPorExtenso(mes)}</Space>}>
+      <Card title={<Space wrap><Space><IconeFa nome="file-import" />Importar registos de {mesPorExtenso(mes)}</Space>{seletor}</Space>}>
         <Typography.Paragraph type="secondary">
           Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>,
             <code>saida intervalo</code> e <code>entrada intervalo</code> (dois períodos; também «saída almoço» / «regresso almoço»), <code>horas</code> (aceita «7,5»), <code>autorizado</code> e <code>observacoes</code>.
@@ -295,6 +284,7 @@ function Registos({ mes, soImportar }: { mes: string; soImportar?: boolean }) {
           )}
         </>
       }>
+        {seletor}
         <SeletorColaborador value={colaborador} onChange={setColaborador} />
       </BarraFiltros>
       <TabelaComModos<RegistoEfectividade> idVista="registos" rowKey="id" size="small" loading={registos.isFetching} columns={colunas} dataSource={registos.data ?? []} scroll={scrollTabela()}
@@ -344,7 +334,7 @@ function textoHorario(l: Pick<LinhaApuramento, 'horario' | 'horasDia'>): string 
   return `${h.entrada.slice(0, 5)}–${dois ? `${h.saida_intervalo!.slice(0, 5)} · ${h.entrada_intervalo!.slice(0, 5)}–` : ''}${h.saida.slice(0, 5)}${hd ? ` · ${hd}` : ''}`;
 }
 
-function Apuramento({ mes }: { mes: string }) {
+function Apuramento({ mes, seletor }: { mes: string; seletor?: ReactNode }) {
   const { pode } = useSessao();
   const q = useQuery({ queryKey: ['rh', 'assiduidade', 'mes', mes], queryFn: () => obter<ApuramentoMes>(`/rh/assiduidade/meses/${mes}`) });
   useAvisarErro(q.error);
@@ -391,7 +381,7 @@ function Apuramento({ mes }: { mes: string }) {
   const comFaltas = a ? (a as { colaboradores_com_faltas?: number }).colaboradores_com_faltas ?? a.linhas.filter((l) => (l.diasFalta ?? 0) > 0).length : 0;
 
   return (
-    <Card loading={q.isLoading} title={<Space><IconeFa nome="calendar-check" />Apuramento de {mes}</Space>}>
+    <Card loading={q.isLoading} title={<Space wrap>{seletor}<Space><IconeFa nome="calendar-check" />Apuramento de {mes}</Space></Space>}>
       {a && (
         <>
           {/* antigo (assiduidade_ui.js:494, resumo do mês): .ef-kpis com a mesma ordem e as mesmas cores; «Dias de falta» e «Estado» são do sistema novo */}
@@ -491,7 +481,7 @@ export function camposAusencia(colaboradores: CampoFormulario['opcoes'], cat: Re
   ];
 }
 
-function Ausencias({ mes }: { mes: string }) {
+function Ausencias({ mes, seletor }: { mes: string; seletor?: ReactNode }) {
   const { pode } = useSessao();
   const colaboradores = useColaboradores();
   const [estado, setEstado] = useState<string>();
@@ -565,6 +555,7 @@ function Ausencias({ mes }: { mes: string }) {
           {pode('rh_assid_registar') && <Button type="primary" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEdicao('nova'); }}>Registar ausência</Button>}
         </>
       }>
+          {seletor}
           <SeletorColaborador value={colaborador} onChange={setColaborador} />
           <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={ESTADOS_AUSENCIA.map((e) => ({ value: e, label: <EstadoTag estado={e} /> }))} />
           <Checkbox checked={doMes} onChange={(e) => setDoMes(e.target.checked)}>Só {mesPorExtenso(mes)}</Checkbox>

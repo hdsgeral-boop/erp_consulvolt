@@ -23,6 +23,8 @@ import { SeparadorHoras } from './separadores/Horas';
 import { SeparadorRequisicoes } from './separadores/Requisicoes';
 import { SeparadorRevisoes } from './separadores/Revisoes';
 import { SeparadorExecucao } from './separadores/Execucao';
+import { SeparadorActividade } from './separadores/Actividade';
+import { SeparadorConfiguracao } from './separadores/Configuracao';
 
 export interface PropsSeparador {
   projecto: FichaProjecto;
@@ -119,6 +121,9 @@ export function DetalheProjecto() {
           { key: 'requisicoes', label: <span><IconeFa nome="shopping-cart" /> Requisições</span>, children: <SeparadorRequisicoes {...props} /> },
           { key: 'orcamento', label: <span><IconeFa nome="calculator" /> Orçamento e aditamentos</span>, children: <SeparadorOrcamento {...props} /> },
           { key: 'horas', label: <span><IconeFa nome="clock" /> Horas e equipamentos</span>, children: <SeparadorHoras {...props} /> },
+          // auditoria backend×frontend: registo de actividade (GET /projetos/{id}/atividade) e configuração dos projectos (GET/PUT /projetos/configuracao)
+          { key: 'actividade', label: <span><IconeFa nome="history" /> Actividade</span>, children: <SeparadorActividade {...props} /> },
+          { key: 'configuracao', label: <span><IconeFa nome="cog" /> Configuração</span>, children: <SeparadorConfiguracao {...props} /> },
         ]}
       />
       <ModalProjecto aberto={editar && acc.editar} projecto={p} aoFechar={() => setEditar(false)} />

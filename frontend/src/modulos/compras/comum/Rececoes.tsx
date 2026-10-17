@@ -1,5 +1,5 @@
 import { Alert, Button, Card, Descriptions, Form, InputNumber, Modal, Select, Skeleton, Table, Tag } from 'antd';
-import type { AccaoLinha } from '@/componentes/vistas';
+import { AccoesLinha, type AccaoLinha } from '@/componentes/vistas';
 import { useImprimirCompra } from './accoesLista';
 import { colunaUnCc } from './colunasLegado';
 import { ModalFluxoDocumental, type TipoDocumentoCompra } from './FluxoDocumental';
@@ -27,6 +27,16 @@ import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import { numeroOuId, type EncomendaCompra, type LinhaRececao, type RececaoCompra } from './tipos';
 
 export type ModoRececoes = 'compras' | 'armazem';
+
+/** Selo da coluna Ações das recepções por contabilizar (legado :531): a recepção é contabilizada na validação do Armazém. */
+export function SeloValidacaoArmazem({ rececao: r }: { rececao: Pick<RececaoCompra, 'contabilizado' | 'validado' | 'estado'> }) {
+  if (r.contabilizado || r.estado === 'ANULADO') return null;
+  return (
+    <Tag color={r.validado ? 'green' : 'orange'} title="A receção é contabilizada na validação do Armazém" style={{ marginInlineEnd: 0 }}>
+      {r.validado ? 'VALIDADA NO ARMAZÉM' : 'POR VALIDAR NO ARMAZÉM'}
+    </Tag>
+  );
+}
 
 const ESTADOS_FILTRO = [
   { value: 'RECEBIDO', label: 'Por validar' },
@@ -74,14 +84,7 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
     colunaUnCc<RececaoCompra>(),
     {
       title: 'Status', dataIndex: 'estado', valorImpressao: (r) => rotuloEstado(r.estado === 'RECEBIDO' && !r.validado ? 'PENDENTE' : r.estado),
-      render: (e: string, r) => (
-        <>
-          <EstadoTag estado={e === 'RECEBIDO' && !r.validado ? 'PENDENTE' : e} />
-          {!r.contabilizado && e !== 'ANULADO' && (
-            <Tag color={r.validado ? 'green' : 'orange'} title="A receção é contabilizada na validação do Armazém">{r.validado ? 'VALIDADA NO ARMAZÉM' : 'POR VALIDAR NO ARMAZÉM'}</Tag>
-          )}
-        </>
-      ),
+      render: (e: string, r) => <EstadoTag estado={e === 'RECEBIDO' && !r.validado ? 'PENDENTE' : e} />,
     },
     { title: 'Guia do fornecedor', dataIndex: 'numero_entrega', ocultaPorOmissao: true, render: (v) => v || '—' },
     { title: 'Armazém', dataIndex: 'armazem_id', ocultaPorOmissao: true, valorImpressao: (r) => nomeArmazem(r.armazem_id), render: (v: number | null) => <NomeArmazem id={v} /> },
@@ -95,6 +98,20 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
     { icone: 'print', titulo: 'Imprimir Guia de Receção', onClick: () => imprimir.rececao(r.id, { encomenda: encomendaTexto(r), armazem: r.armazem_id ? nomeArmazem(r.armazem_id) : null }) },
     { icone: 'undo', titulo: 'Descontabilizar', cor: '#dc2626', oculto: !r.contabilizado || !pode('armazem_rec_anular'), onClick: () => setDescontabilizar(r) },
   ];
+
+  /**
+   * Coluna «Ações» como no legado (:526-534): os botões e, na recepção por contabilizar, o selo «VALIDADA / POR VALIDAR
+   * NO ARMAZÉM» no lugar de «Descontabilizar». O AccoesLinha partilhado só desenha botões: o selo fica ao lado, na célula.
+   */
+  const colunaAccoes: ColunaApi<RececaoCompra> = {
+    key: '__accoes', title: 'Ações', accoes: true, exportar: false, filtravel: false, ocultavel: false, align: 'left',
+    render: (_, r) => (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+        <AccoesLinha accoes={accoes(r)} />
+        <SeloValidacaoArmazem rececao={r} />
+      </span>
+    ),
+  };
 
   return (
     <>
@@ -130,8 +147,7 @@ function ListaRececoes({ modo }: { modo: ModoRececoes }) {
           url="/compras/rececoes"
           chaveConsulta={['compras', 'rececoes']}
           filtros={{ estado, pesquisa: pesquisa || undefined, encomenda_compra_id: encomenda ?? undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
-          columns={colunas}
-          accoes={accoes}
+          columns={[...colunas, colunaAccoes]}
           size={pequeno ? 'small' : 'middle'}
           impressao={{
             titulo: modo === 'armazem' ? 'Lista de entradas a validar' : 'Guias de Receção de Mercadoria',

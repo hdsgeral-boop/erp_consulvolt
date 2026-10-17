@@ -5,5 +5,4 @@ export const ecras: Record<string, LazyExoticComponent<ComponentType>> = {
   dashboard: lazy(() => import('./Dashboard')),
   relatorios_gestao: lazy(() => import('./RelatoriosGestao')),
   fluxo_processos: lazy(() => import('./FluxoProcessos')),
-  accounting_bi: lazy(() => import('./AccountingBI')),
 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Balanco, LinhaBalancete } from '../api';
+import type { Balanco, FluxoCaixa, LinhaBalancete } from '../api';
 import { analiseHorizontal, analiseVertical, classeLinhaDemonstracao } from '../comum/Demonstracao';
-import { linhasBalanco } from '../comum/demonstracoes';
+import { baseAVFluxo, linhasBalanco, linhasFluxo } from '../comum/demonstracoes';
 import { classeLinhaBalancete, linhasVistaBalancete } from './MapaBalancete';
 
 const linha = (codigo: string, extra: Partial<LinhaBalancete> = {}): LinhaBalancete => ({
@@ -69,5 +69,32 @@ describe('demonstrações: AV % / AH % e realces do legado', () => {
     expect(classeLinhaDemonstracao(l.find((x) => x.chave === 'total-activo')!)).toBe('erp-dem-total');
     expect(classeLinhaDemonstracao({ chave: 'rl', tipo: 'total', descricao: 'RL', estilo: 'final' })).toBe('erp-dem-total erp-dem-final');
     expect(classeLinhaDemonstracao({ chave: 'tp', tipo: 'subtotal', descricao: 'T', estilo: 'proveitos' })).toBe('erp-dem-proveitos');
+  });
+
+  it('Fluxo de caixa: AV % sobre a soma dos fluxos positivos (só detalhe) e em valor absoluto (js/ui_reports.js:1451-1469)', () => {
+    const sec = (linhas: { atual: string; subtotal?: boolean }[], total: string) => ({ linhas: linhas.map((l, i) => ({ codigo: String(i), descricao: `L${i}`, anterior: '0.00', ...l })), total: { atual: total, anterior: '0.00' } });
+    const f = {
+      ano: 2026,
+      seccoes: {
+        operacionais: sec([{ atual: '300.00' }, { atual: '-100.00' }, { atual: '200.00', subtotal: true }], '200.00'),
+        investimento: sec([{ atual: '-50.00' }], '-50.00'),
+        financiamento: sec([{ atual: '100.00' }], '100.00'),
+      },
+      variacao_caixa: { atual: '250.00', anterior: '0.00' },
+      caixa_inicial: { atual: '20.00', anterior: '0.00' },
+      caixa_final: { atual: '270.00', anterior: '0.00' },
+      controlo: { variacao_classe_4: '250.00', nao_explicado: '0.00' },
+      historico_anterior: false,
+    } as FluxoCaixa;
+    // 300 + 100 (o subtotal 200 não conta — o legado contava-o duas vezes)
+    expect(baseAVFluxo(f)).toBe('400.00');
+    const l = linhasFluxo(f);
+    const av = (chave: string) => { const x = l.find((y) => y.chave === chave)!; return analiseVertical(x.atual, x.base, x.avAbsoluto); };
+    expect(av('op-0')).toBe('75.0%');
+    expect(av('op-1')).toBe('25.0%'); // pagamento: |−100| / 400
+    expect(av('inv-s')).toBe('12.5%');
+    expect(av('fim')).toBe('67.5%');
+    expect(l.find((x) => x.chave === 'op-t')?.base).toBeUndefined();
+    expect(baseAVFluxo({ ...f, seccoes: { operacionais: sec([{ atual: '-5.00' }], '-5.00'), investimento: sec([], '0.00'), financiamento: sec([], '0.00') } })).toBe('1.00');
   });
 });

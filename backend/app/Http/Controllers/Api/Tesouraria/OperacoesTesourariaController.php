@@ -296,6 +296,7 @@ final class OperacoesTesourariaController extends Controller
     {
         $this->exigir('teso_conf_registar');
         $d = $r->validate(['codigo_conta' => ['required', 'string', 'max:20'], 'data_conferencia' => ['required', 'date_format:Y-m-d'],
+            'nome_operador' => ['nullable', 'string', 'max:255'],
             'denominacoes' => ['required', 'array'], 'denominacoes.*' => ['integer', 'min:0'], 'saldo_externo' => ['nullable', 'numeric'],
             'justificacao' => ['nullable', 'string', 'max:4000']]);
         $c = $this->conferencia->gravar($d, $id ? ConferenciaCaixa::query()->findOrFail($id) : null);

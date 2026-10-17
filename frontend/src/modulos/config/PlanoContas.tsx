@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Checkbox, Col, Collapse, Flex, Form, Input, Radio, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import type { Key } from 'react';
 import { PlusOutlined, SwapOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
@@ -18,6 +19,7 @@ import { IconeFa } from '@/componentes/fluxos';
 import { tituloPlanoContas } from './comum/paridade';
 import { CelulaUso, CopiarOutraEmpresa, ImportarPlano, baixarTemplatePlano, useContasEmUso } from './plano/PlanoContasParidade';
 import { DadosBancariosConta, useDadosBancariosConta } from './plano/DadosBancariosConta';
+import { BarraAccoesMassa } from './plano/AccoesMassaPlano';
 import { CAMPOS_BANCARIOS, dadosBancariosParaApi, ibanContaValido, swiftValido, type DadosBancarios } from './plano/contasBancarias';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 
@@ -75,6 +77,8 @@ interface SimulacaoEmpresa {
  * Copiar de outra empresa · Substituir conta · Baixar Template · Importar Excel · Nova Conta, colunas
  * CÓDIGO · DESCRIÇÃO · TIPO · USO · AÇÕES (Editar, Excluir).
  * Fase A (legado novo, app_v2.js:9050-9163): nas contas 42/43 de movimento, o bloco «Dados bancários da conta».
+ * Caixas de selecção na 1.ª coluna e barra de acções em massa (app_v2.js:8828-9037): «Modificar em Massa» e
+ * «Eliminar Seleccionadas» (AccoesMassaPlano), com as permissões verificadas também no servidor.
  */
 export default function PlanoContas() {
   const { pode } = useSessao();
@@ -105,6 +109,7 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
   const [tipo, setTipo] = useState<'M' | 'T' | undefined>();
   const [edicao, setEdicao] = useState<ContaPlano | 'nova' | null>(null);
   const [janela, setJanela] = useState<'copiar' | 'importar' | null>(null);
+  const [seleccao, setSeleccao] = useState<Key[]>([]);
   const [form] = Form.useForm<{ codigo: string; descricao: string; tipo: 'M' | 'T'; codigo_moeda?: string; natureza_conta?: string } & DadosBancarios>();
   const gerir = pode('contab_plano_gerir');
   const eliminar = pode('contab_tabelas_del');
@@ -132,8 +137,16 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
     return (plano.data ?? []).filter((c) => (!tipo || c.tipo === tipo) && (!f || c.codigo.startsWith(f) || (c.descricao ?? '').toLowerCase().includes(f)));
   }, [plano.data, filtro, tipo]);
 
+  const comSeleccao = gerir || eliminar;
+  // a selecção só guarda contas que ainda existem (depois de eliminar/recarregar)
+  const idsSeleccionados = useMemo(() => {
+    const existentes = new Set((plano.data ?? []).map((c) => c.id));
+    return seleccao.map(Number).filter((id) => existentes.has(id));
+  }, [seleccao, plano.data]);
+
   return (
     <Card>
+      {comSeleccao && <BarraAccoesMassa ids={idsSeleccionados} podeModificar={gerir} podeEliminar={eliminar} aoLimpar={() => setSeleccao([])} />}
       <TabelaLocalImprimivel<ContaPlano>
         titulo={tituloPlanoContas(plano.data?.length)}
         filtros={[tipo ? `Tipo: ${tipo === 'M' ? 'Movimento' : 'Totalizadoras'}` : null, filtro ? `Pesquisa: ${filtro}` : null]}
@@ -157,6 +170,19 @@ function Contas({ aoSubstituir }: { aoSubstituir?: () => void }) {
         size="small"
         loading={plano.isLoading}
         dataSource={linhas}
+        // legado: caixa de selecção na 1.ª coluna e «Seleccionar todos» no cabeçalho (js/app_v2.js:8830, 8873)
+        rowSelection={
+          comSeleccao
+            ? {
+                selectedRowKeys: seleccao,
+                onChange: setSeleccao,
+                preserveSelectedRowKeys: true,
+                columnWidth: 40,
+                selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE],
+                getCheckboxProps: (c: ContaPlano) => ({ title: `Seleccionar a conta ${c.codigo}` }),
+              }
+            : undefined
+        }
         pagination={{ pageSize: 100, showSizeChanger: false, showTotal: (n) => `${n} conta(s)` }}
         columns={[
           { title: 'Código', dataIndex: 'codigo', width: 150, render: (v: string, c) => <span style={{ paddingLeft: Math.max(0, v.replace(/\./g, '').length - 1) * 6, fontWeight: c.tipo === 'T' ? 600 : 400, fontFamily: 'monospace' }}>{v}</span> },

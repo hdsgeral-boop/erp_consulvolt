@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Col, DatePicker, Input, InputNumber, Modal, Row, Select, Tag, Tooltip, Typography, theme } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useState } from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import type { AccaoLinha } from '@/componentes/vistas';
@@ -92,7 +92,8 @@ export const FERRAMENTAS_DISPENSADAS = {
 const rotulo = (t: string) => <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 2 }}>{t}</label>;
 
 function Integrados() {
-  const navegar = useNavigate();
+  // detalhe em modal sobre a lista (viewTesoDocDetail/viewTesoMovementDetail do legado); a rota …/:id continua
+  const [detalhe, setDetalhe] = useState<number | null>(null);
   const { token } = theme.useToken();
   const { pode } = useSessao();
   const podeAnular = pode('teso_desintegrar');
@@ -184,7 +185,7 @@ function Integrados() {
       <Card title="Documentos Integrados na Contabilidade" extra={<Tag color="#4f46e5" data-testid="total-historico">Total: {totalIntegrados ?? '…'}</Tag>}>
         <TabelaDocumentos
           filtros={parametrosHistorico(filtros)}
-          columns={colunasHistorico((d) => navegar(String(d.id)))}
+          columns={colunasHistorico((d) => setDetalhe(d.id))}
           accoes={(d) => accoesHistorico(d, { podeAnular, anular })}
           rowSelection={podeAnular ? {
             selectedRowKeys: seleccao.map((d) => d.id),
@@ -200,11 +201,12 @@ function Integrados() {
               filtros.contaContrapartida && `C. Contrapartida: ${filtros.contaContrapartida}`, filtros.referencia && `Referência: ${filtros.referencia}`],
           }}
           vazio={{ icone: 'history', titulo: 'Nenhum documento integrado', texto: 'Ajuste os filtros e clique em «Pesquisar».' }}
-          onRow={(r) => ({ onDoubleClick: () => navegar(String(r.id)) })}
+          onRow={(r) => ({ onDoubleClick: () => setDetalhe(r.id) })}
         />
         <Typography.Text type="secondary">Duplo clique (ou clique na referência) para ver o detalhe do documento.</Typography.Text>
       </Card>
       {reparacao && <ModalReparacao modo={reparacao} aberto aoFechar={() => setReparacao(null)} />}
+      {detalhe !== null && <DetalheDocumento emModal permitirEdicao={false} id={detalhe} aoFechar={() => setDetalhe(null)} />}
     </>
   );
 }

@@ -25,7 +25,8 @@ final class PainelAtivos implements Painel
     {
         $empresa = $this->consultas->empresa();
         [$fs, $fp] = ConsultasPaineis::filtroDimensoes('a', $f);
-        $base = "FROM ativos_imobilizados a WHERE a.empresa_id = ? AND a.eliminado_em IS NULL{$fs}";
+        // só os bens próprios contam para valores, amortizações e «sem amortização» (os alheios não amortizam)
+        $base = "FROM ativos_imobilizados a WHERE a.empresa_id = ? AND a.eliminado_em IS NULL AND a.propriedade <> 'ALHEIO'{$fs}";
         $pb = array_merge([$empresa], $fp);
         $vlc = 'GREATEST(0, COALESCE(a.valor_aquisicao, 0) - COALESCE(a.amortizacao_acumulada, 0))';
         $tot = DB::selectOne("SELECT COUNT(*) FILTER (WHERE a.estado = 'ACTIVO') AS activos, COUNT(*) FILTER (WHERE a.estado <> 'ACTIVO') AS outros,
@@ -38,7 +39,7 @@ final class PainelAtivos implements Painel
         $manut = (int) DB::selectOne("SELECT COUNT(*) AS n FROM registos_manutencao_ativos m JOIN ativos_imobilizados a ON a.id = m.ativo_imobilizado_id
             WHERE m.empresa_id = ? AND COALESCE(m.estado, 'PLANEADA') = 'PLANEADA'{$fs}", array_merge([$empresa], $fp))->n;
         $porCat = DB::select("SELECT COALESCE(MAX(c.nome), 'Sem categoria') AS categoria, SUM({$vlc}) AS liquido FROM ativos_imobilizados a LEFT JOIN categorias_ativos c ON c.id = a.categoria_ativo_id
-            WHERE a.empresa_id = ? AND a.eliminado_em IS NULL AND a.estado = 'ACTIVO'{$fs} GROUP BY a.categoria_ativo_id ORDER BY liquido DESC LIMIT 8", $pb);
+            WHERE a.empresa_id = ? AND a.eliminado_em IS NULL AND a.propriedade <> 'ALHEIO' AND a.estado = 'ACTIVO'{$fs} GROUP BY a.categoria_ativo_id ORDER BY liquido DESC LIMIT 8", $pb);
         $top = DB::select("SELECT a.id, a.codigo, a.descricao, a.valor_aquisicao, a.amortizacao_acumulada, {$vlc} AS liquido {$base} AND a.estado = 'ACTIVO' ORDER BY liquido DESC, a.codigo LIMIT 8", $pb);
         $aquisicao = Indicadores::dinheiro($tot->aquisicao);
         $acumulada = Indicadores::dinheiro($tot->acumulada);

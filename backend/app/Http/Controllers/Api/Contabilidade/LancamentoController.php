@@ -9,11 +9,13 @@ use App\Http\Resources\Contabilidade\LancamentoResource;
 use App\Models\LancamentoContabil;
 use App\Models\PlanoConta;
 use App\Models\Utilizador;
+use App\Services\Ativos\ServicoAquisicoesAtivos;
 use App\Services\Contabilidade\ServicoClassificacaoLancamentos;
 use App\Services\Contabilidade\ServicoDescontabilizacaoLancamentos;
 use App\Services\Contabilidade\ServicoExercicios;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Services\Contabilidade\ServicoOrigemLancamentos;
+use App\Services\Contabilidade\ServicoQuebraLancamentos;
 use App\Services\Contabilidade\ServicoTransferenciaLancamentos;
 use App\Services\Orcamento\ServicoControloOrcamental;
 use App\Support\Api\RespostaApi;
@@ -45,7 +47,33 @@ final class LancamentoController extends Controller
             ->orderByDesc('data_documento')->orderByDesc('id')
             ->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
 
+        // legado (js/ui_lancamentos.js:392-409): linhas de aquisição (11/12 a débito) com «Inventariar» ou «OK» — valor ainda
+        // por inventariar calculado pelo módulo de Activos (uma consulta para a página, sem N+1)
+        $aquisicao = $pagina->getCollection()->filter(fn ($l) => $l->tipo_dc === 'D' && preg_match('/^1[12]/', (string) $l->codigo_conta) && ! $l->estorno_de_id && ! $l->estornado_por_id);
+        if ($aquisicao->isNotEmpty()) {
+            $alocado = app(ServicoAquisicoesAtivos::class)->alocadoPorLinha($aquisicao->pluck('id')->all());
+            foreach ($aquisicao as $l) {
+                $l->setAttribute('por_inventariar', bcsub(bcadd((string) $l->valor, '0', 2), $alocado[$l->id]['v'] ?? '0.00', 2));
+            }
+        }
+
         return RespostaApi::paginado($pagina, LancamentoResource::class);
+    }
+
+    /**
+     * GET /quebra — «Quebra por Terceiro», «Quebra por Unidade de Negócio» (e por Centro de Custo) das linhas filtradas:
+     * subtotais por grupo (paginados pelos grupos) e total geral; `com_linhas` traz o detalhe para impressão/Excel.
+     */
+    public function quebra(Request $request, ServicoQuebraLancamentos $servico): JsonResponse
+    {
+        $this->exigir('lancamentos_view');
+        $f = $request->validate(self::regrasFiltros() + [
+            'por' => ['required', 'string', Rule::in(array_keys(ServicoQuebraLancamentos::DIMENSOES))],
+            'por_pagina' => ['nullable', 'integer', 'min:1', 'max:200'], 'pagina' => ['nullable', 'integer', 'min:1'], 'com_linhas' => ['nullable', 'boolean'],
+        ], [], ['por' => 'quebra']);
+        $r = $servico->quebra($f, $f['por'], (int) ($f['pagina'] ?? 1), (int) ($f['por_pagina'] ?? 50), filter_var($f['com_linhas'] ?? false, FILTER_VALIDATE_BOOLEAN));
+
+        return RespostaApi::sucesso($r, 'Quebra calculada com sucesso.');
     }
 
     /**
@@ -160,7 +188,7 @@ final class LancamentoController extends Controller
             'data_doc_inicio' => ['nullable', 'date_format:Y-m-d'], 'data_doc_fim' => ['nullable', 'date_format:Y-m-d'],
             'criado_inicio' => ['nullable', 'date_format:Y-m-d'], 'criado_fim' => ['nullable', 'date_format:Y-m-d'],
             'pesquisa' => ['nullable', 'string', 'max:200'], 'incluir_classe_9' => ['nullable', 'boolean'],
-            'sem' => ['nullable', 'array', 'max:4'], 'sem.*' => ['string', 'in:demo,fluxo,un,cc'],
+            'sem' => ['nullable', 'array', 'max:5'], 'sem.*' => ['string', 'in:demo,fluxo,un,cc,terceiro'],
         ];
     }
 

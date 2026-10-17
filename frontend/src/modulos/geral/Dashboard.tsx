@@ -1,5 +1,5 @@
-import { Alert, Button, Card, Empty, Flex, Form, InputNumber, Popover, Select, Skeleton, Space, Tag, Typography } from 'antd';
-import { FilterOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Empty, Flex, Form, Popover, Select, Skeleton, Space, Tag, Typography } from 'antd';
+import { FilterOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useRef, useState, type CSSProperties } from 'react';
@@ -33,8 +33,9 @@ interface KpiPainel {
   ir?: string | null;
 }
 
-interface DadosPainel {
-  modulo: { id: string; nome: string };
+export interface DadosPainel {
+  /** Painel de origem (aspecto e título da exportação). A comparação de empresas devolve `__comparacao`. */
+  modulo?: { id: string; nome: string };
   empresa?: { id: number; nome: string; holding: boolean };
   periodo: { ano: number; mes: number; meses: { chave: string; rotulo: string }[] };
   filtros_ignorados?: string[];
@@ -57,7 +58,17 @@ interface Filtros {
 }
 
 /** Separador «Comparar empresas» (só existe no sistema novo, para quem tem várias empresas). */
-const COMPARACAO = '__comparacao';
+export const COMPARACAO = '__comparacao';
+const MODULO_COMPARACAO = { id: COMPARACAO, nome: 'Comparar empresas' };
+
+/**
+ * O separador «Comparar empresas» aparece a quem pode ver o painel de Contabilidade e tem mais de uma empresa (que não seja
+ * holding) para comparar — ou está numa holding (compara as empresas do grupo).
+ */
+export function mostraComparacao(empresas: { e_consolidacao?: boolean }[], paineis: { id: string }[], holding: boolean): boolean {
+  if (!paineis.some((p) => p.id === 'contabilidade')) return false;
+  return holding || empresas.filter((e) => !e.e_consolidacao).length > 1;
+}
 
 /**
  * Geral › Dashboard Global (renderPainelModulos, js/ui_painel_modulos.js:964-1012): título «Dashboard» com a empresa e o
@@ -82,7 +93,7 @@ export default function Dashboard() {
   // a comparação mostra valores contabilísticos: exige as vistas do painel de Contabilidade (como o servidor)
   const separadores = [
     ...paineis.map((p) => ({ id: p.id, nome: p.nome, tipo: p.tipo as string })),
-    ...(empresas.length > 1 && paineis.some((p) => p.id === 'contabilidade') ? [{ id: COMPARACAO, nome: 'Comparar empresas', tipo: 'EMPRESAS' }] : []),
+    ...(mostraComparacao(empresas, paineis, holding) ? [{ id: COMPARACAO, nome: MODULO_COMPARACAO.nome, tipo: 'EMPRESAS' }] : []),
   ];
   const pedido = procura.get('separador');
   const activo = separadores.find((p) => p.id === pedido) ?? separadores[0];
@@ -174,7 +185,7 @@ export default function Dashboard() {
             {activo.tipo === 'CUBO' ? (
               <Cubo />
             ) : activo.id === COMPARACAO ? (
-              <ComparacaoEmpresas filtros={filtros} aoMudarFiltros={setFiltros} />
+              <ComparacaoEmpresas filtros={filtros} actualizar={actualizar} holding={holding} />
             ) : (
               <PainelModulo modulo={activo.id} filtros={filtros} actualizar={actualizar} aoIrPara={(ir) => paineis.some((x) => x.id === ir) && escolher(ir)} />
             )}
@@ -204,82 +215,24 @@ function FiltrosDimensoes({ filtros, aoMudar }: { filtros: Filtros; aoMudar: (f:
   );
 }
 
-function BarraPeriodo({ filtros, aoMudar, dimensoes, aoActualizar, aActualizar }: {
-  filtros: Filtros;
-  aoMudar: (f: Filtros) => void;
-  dimensoes?: boolean;
-  aoActualizar: () => void;
-  aActualizar?: boolean;
-}) {
-  const un = useUnidadesNegocio(!!dimensoes);
-  const cc = useTabelaAux('centros-custo', !!dimensoes);
-  return (
-    <Card size="small" style={{ marginBottom: 16 }} styles={{ body: { padding: '6px 12px' } }}>
-      <Form layout="inline" size="small" style={{ rowGap: 6 }}>
-        <Form.Item label="Ano">
-          <InputNumber min={1900} max={2999} value={filtros.ano} onChange={(v) => v && aoMudar({ ...filtros, ano: v })} style={{ width: 96 }} />
-        </Form.Item>
-        <Form.Item label="Mês">
-          <Select value={filtros.mes} onChange={(m: number) => aoMudar({ ...filtros, mes: m })} style={{ width: 130 }} options={MESES.map((n, i) => ({ value: i + 1, label: n }))} />
-        </Form.Item>
-        {dimensoes && (
-          <>
-            <Form.Item label="Valores">
-              <Select value={filtros.iva} onChange={(v: 'sem' | 'com') => aoMudar({ ...filtros, iva: v })} style={{ width: 110 }} options={[{ value: 'sem', label: 'Sem IVA' }, { value: 'com', label: 'Com IVA' }]} />
-            </Form.Item>
-            <Form.Item label="Unidade de negócio">
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                value={filtros.unidade_negocio_id}
-                onChange={(v?: number) => aoMudar({ ...filtros, unidade_negocio_id: v })}
-                style={{ width: 200 }}
-                loading={un.isLoading}
-                options={(un.data ?? []).map((u) => ({ value: u.id, label: u.nome }))}
-                placeholder="Todas"
-              />
-            </Form.Item>
-            <Form.Item label="Centro de custo">
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                value={filtros.centro_custo_id}
-                onChange={(v?: number) => aoMudar({ ...filtros, centro_custo_id: v })}
-                style={{ width: 200 }}
-                loading={cc.isLoading}
-                options={(cc.data ?? []).map((c) => ({ value: c.id, label: `${c.codigo} — ${c.descricao ?? ''}` }))}
-                placeholder="Todos"
-              />
-            </Form.Item>
-          </>
-        )}
-        <Form.Item>
-          <Button icon={<ReloadOutlined />} onClick={aoActualizar} loading={aActualizar} title="Recalcular (ignora a cache de 5 minutos)">
-            Actualizar
-          </Button>
-        </Form.Item>
-      </Form>
-    </Card>
-  );
-}
-
 /** Conteúdo de um painel: KPIs, gráficos, tabelas e atalhos. Reaproveitado pela comparação de empresas. */
 export function ConteudoPainel({ dados, aoIrPara, tituloImpressao }: { dados: DadosPainel; aoIrPara?: (ir: string) => void; tituloImpressao?: string }) {
   const navegar = useNavigate();
   const refVisual = useRef<HTMLDivElement>(null);
   const rotaDaVista = useRotaDaVista();
   const atalhos = (dados.atalhos ?? []).map((a) => ({ ...a, rota: rotaDaVista(a.vista) })).filter((a) => a.rota);
+  // sem `modulo` (respostas antigas da comparação) o painel não pode rebentar: assume-se a comparação de empresas
+  const modulo = dados.modulo ?? MODULO_COMPARACAO;
+  const kpis = dados.kpis ?? [];
   // cor do módulo: barra do aviso e contorno dos atalhos (legado htmlConteudo: border-left-color / border-color = mod.cor)
-  const corModulo = estiloPainel(dados.modulo.id).cor;
+  const corModulo = estiloPainel(modulo.id).cor;
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Flex justify="end">
         <BotoesExportar
           tamanho="small"
           obterPedido={() => ({
-            titulo: tituloImpressao ?? `Dashboard · ${dados.modulo.nome}`,
+            titulo: tituloImpressao ?? `Dashboard · ${modulo.nome}`,
             periodo: `${MESES[dados.periodo.mes - 1] ?? dados.periodo.mes} de ${dados.periodo.ano}`,
             filtros: [dados.aviso, dados.calculado_em ? `Calculado em ${formatarDataHora(dados.calculado_em)}` : null],
             estilosDaPagina: true,
@@ -295,10 +248,10 @@ export function ConteudoPainel({ dados, aoIrPara, tituloImpressao }: { dados: Da
       )}
       {!!dados.filtros_ignorados?.length && <Alert type="warning" showIcon message="Este painel não suporta os filtros por unidade de negócio ou centro de custo; foram ignorados." />}
       <div ref={refVisual}>
-      {dados.kpis.length > 0 && (
+      {kpis.length > 0 && (
         <div className="painel-kpis">
-          {dados.kpis.map((k) => {
-            const e = estiloKpi(dados.modulo.id, k.id, k.valor);
+          {kpis.map((k) => {
+            const e = estiloKpi(modulo.id, k.id, k.valor);
             return (
               <CartaoKpi
                 key={k.id}
@@ -378,21 +331,30 @@ function PainelModulo({ modulo, filtros, actualizar, aoIrPara }: { modulo: strin
   );
 }
 
-function ComparacaoEmpresas({ filtros, aoMudarFiltros }: { filtros: Filtros; aoMudarFiltros: (f: Filtros) => void }) {
+/** Empresas que se podem escolher na comparação: as holdings ficam de fora (repetiriam os valores das empresas do grupo). */
+export function opcoesComparacao(empresas: { id: number; nome: string; e_consolidacao?: boolean }[]): { value: number; label: string }[] {
+  return empresas.filter((e) => !e.e_consolidacao).map((e) => ({ value: e.id, label: e.nome }));
+}
+
+/**
+ * Separador «Comparar empresas»: números da contabilidade de várias empresas (cálculo no servidor, GET /gestao/paineis/comparacao).
+ * Sem escolha, o servidor compara as empresas acessíveis (fora das holdings) ou, numa holding, as empresas do grupo. O período é o
+ * do cabeçalho do Dashboard e «Actualizar» recalcula sem a cache.
+ */
+function ComparacaoEmpresas({ filtros, actualizar, holding }: { filtros: Filtros; actualizar: number; holding: boolean }) {
   const { empresas } = useSessao();
   const [escolhidas, setEscolhidas] = useState<number[]>([]);
-  const [forcar, setForcar] = useState(0);
   const consulta = useQuery({
-    queryKey: ['gestao', 'comparacao', escolhidas, filtros.ano, filtros.mes, forcar],
-    queryFn: () => obter<DadosPainel>('/gestao/paineis/comparacao', { empresas: escolhidas.length ? escolhidas : undefined, ano: filtros.ano, mes: filtros.mes, actualizar: forcar ? 1 : undefined }),
+    queryKey: ['gestao', 'comparacao', escolhidas, filtros.ano, filtros.mes, actualizar],
+    queryFn: () => obter<DadosPainel>('/gestao/paineis/comparacao', { empresas: escolhidas.length ? escolhidas : undefined, ano: filtros.ano, mes: filtros.mes, actualizar: actualizar ? 1 : undefined }),
     staleTime: 60_000,
   });
+  const opcoes = opcoesComparacao(empresas);
   return (
     <>
-      <BarraPeriodo filtros={filtros} aoMudar={aoMudarFiltros} aoActualizar={() => setForcar((n) => n + 1)} aActualizar={consulta.isFetching} />
       <Card size="small" style={{ marginBottom: 16 }}>
         <Flex gap={8} align="center" wrap>
-          <Typography.Text>Empresas:</Typography.Text>
+          <Typography.Text id="comparacao-empresas-rotulo">Empresas:</Typography.Text>
           <Select
             mode="multiple"
             allowClear
@@ -401,13 +363,20 @@ function ComparacaoEmpresas({ filtros, aoMudarFiltros }: { filtros: Filtros; aoM
             value={escolhidas}
             onChange={setEscolhidas}
             optionFilterProp="label"
-            placeholder="Todas as empresas a que tem acesso (excepto holdings, até 30)"
-            options={empresas.map((e) => ({ value: e.id, label: e.nome }))}
+            aria-labelledby="comparacao-empresas-rotulo"
+            placeholder={holding ? 'Empresas do grupo de consolidação (a que tem acesso)' : 'Todas as empresas a que tem acesso (excepto holdings, até 30)'}
+            options={opcoes}
           />
           <Tag>Contabilidade · classe 9 e apuramento excluídos</Tag>
         </Flex>
       </Card>
-      {consulta.isLoading ? <Skeleton active /> : consulta.error ? <Alert type="error" showIcon message={(consulta.error as Error).message} /> : consulta.data ? <ConteudoPainel dados={consulta.data} tituloImpressao="Comparação de empresas" /> : null}
+      {consulta.isLoading ? (
+        <Skeleton active />
+      ) : consulta.error ? (
+        <Alert type="error" showIcon message={(consulta.error as Error).message} />
+      ) : consulta.data ? (
+        <ConteudoPainel dados={{ ...consulta.data, modulo: consulta.data.modulo ?? MODULO_COMPARACAO }} tituloImpressao="Comparação de empresas" />
+      ) : null}
     </>
   );
 }

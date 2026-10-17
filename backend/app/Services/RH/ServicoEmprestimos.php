@@ -336,9 +336,12 @@ final class ServicoEmprestimos
     /**
      * «Importar Empréstimos» (lancarNoPeriodo, emprestimos.js:229; app_v2.js:5406).
      *
+     * `colaboradores`: só as prestações destes colaboradores (escolha na tabela do legado, emprestimos_ui.js:245-265);
+     * null = todas.
+     *
      * @return array{lancados: int, actualizados: int, ignorados: int, total: string, liquidados: list<string>}
      */
-    public function lancarNoPeriodo(PeriodoProcessamentoSalarial $p, bool $substituir = false): array
+    public function lancarNoPeriodo(PeriodoProcessamentoSalarial $p, bool $substituir = false, ?array $colaboradores = null): array
     {
         $cfg = $this->definicoes();
         $rubrica = $cfg['infotipo_desconto_id'] ? InfotipoSalarial::query()->find($cfg['infotipo_desconto_id']) : null;
@@ -349,7 +352,7 @@ final class ServicoEmprestimos
             throw new ErroNegocio("A rubrica {$rubrica->nome} não é um desconto.", 'RUBRICA_NAO_DESCONTO', 422);
         }
 
-        return DB::transaction(function () use ($p, $substituir, $rubrica) {
+        return DB::transaction(function () use ($p, $substituir, $rubrica, $colaboradores) {
             $p = PeriodoProcessamentoSalarial::query()->lockForUpdate()->findOrFail($p->id);
             if ($p->estado !== 'ABERTO') {
                 throw new ErroNegocio("O processamento de {$p->mes_ano} não está aberto.", 'PERIODO_ESTADO_INVALIDO', 422);
@@ -358,7 +361,7 @@ final class ServicoEmprestimos
             $mes = ServicoCalendarioRH::mes($p->mes_ano);
             $aprovados = EmprestimoColaborador::query()->where('estado', 'APROVADO')->lockForUpdate()->get()->keyBy('id');
             $ps = PrestacaoEmprestimo::query()->where('mes_ano', $mes)->where('estado', 'PENDENTE')->whereIn('emprestimo_id', $aprovados->keys()->all() ?: [0])
-                ->lockForUpdate()->get();
+                ->when($colaboradores !== null, fn ($q) => $q->whereIn('colaborador_id', $colaboradores ?: [0]))->lockForUpdate()->get();
             foreach ($ps as $pr) {
                 $linha = LinhaFolhaSalarial::query()->where('periodo_processamento_salarial_id', $p->id)->where('colaborador_id', $pr->colaborador_id)
                     ->where('infotipo_salarial_id', $rubrica->id)->first();

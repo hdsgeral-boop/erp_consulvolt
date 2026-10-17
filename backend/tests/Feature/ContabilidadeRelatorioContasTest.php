@@ -110,11 +110,35 @@ final class ContabilidadeRelatorioContasTest extends TestCase
         // a fotografia não muda com lançamentos posteriores
         app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => LancamentoContabil::query()->where('numero_lan', 'OD2026000002')->update(['valor' => 9000]));
         $this->getJson('/api/contabilidade/relatorio-contas/2026', $this->s)->assertJsonPath('dados.dados.n.indicadores.vendas_prestacoes', '8000.00');
+        // as demonstrações do separador também ficam fixadas (legado relatorio_contas.js:944) e só seguem com a permissão do mapa
+        $comMapas = $this->sessao(['relatorio_contas_view', 'contab_mapa_balanco_view', 'contab_mapa_dr_view']);
+        $dem = $this->getJson('/api/contabilidade/relatorio-contas/2026', $comMapas)->assertOk()->json('dados.dados.demonstracoes');
+        $this->assertEqualsCanonicalizing(['balanco', 'dr'], array_keys($dem));
+        $this->assertSame('8000.00', $dem['dr']['proveitos_operacionais']['total']['atual']);
+        $this->assertSame(2026, $dem['balanco']['ano']);
+        $this->assertSame([], $this->getJson('/api/contabilidade/relatorio-contas/2026', $this->s)->json('dados.dados.demonstracoes'));
+        $this->assertSame('9000.00', $this->getJson('/api/contabilidade/relatorios/demonstracao-resultados?data_inicio=2026-01-01&data_fim=2026-12-31', $comMapas)
+            ->assertOk()->json('dados.proveitos_operacionais.total.atual'));
         $this->putJson('/api/contabilidade/relatorio-contas/2026', ['notas_incluir' => ['4' => false]], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'RELATORIO_CONCLUIDO');
         $re = $this->postJson('/api/contabilidade/relatorio-contas/2026/reabrir', [], $this->s)->assertOk()->json('dados');
         $this->assertSame('RASCUNHO', $re['registo']['estado']);
         $this->assertSame('9000.00', $re['dados']['n']['indicadores']['vendas_prestacoes']);
         $this->postJson('/api/contabilidade/relatorio-contas/2026/reabrir', [], $this->sessao(['relatorio_contas_view']))->assertForbidden();
+    }
+
+    #[Test]
+    public function conselho_de_administracao_da_capa_e_validado_gravado_e_herdado_do_ano_anterior(): void
+    {
+        $this->putJson('/api/contabilidade/relatorio-contas/2025', ['configuracao' => ['conselho' => str_repeat('x', 2001)]], $this->s)
+            ->assertStatus(422);
+        $this->putJson('/api/contabilidade/relatorio-contas/2025', ['configuracao' => ['conselho' => ['não é texto']]], $this->s)->assertStatus(422);
+        $this->putJson('/api/contabilidade/relatorio-contas/2025', ['configuracao' => ['conselho' => 'Membro A — Presidente
+Membro B — Vogal']], $this->s)->assertOk();
+        $this->assertSame('Membro A — Presidente
+Membro B — Vogal', $this->getJson('/api/contabilidade/relatorio-contas/2025', $this->s)->json('dados.registo.configuracao.conselho'));
+        // o relatório do ano seguinte herda-o, como o resto da identificação
+        $this->assertSame('Membro A — Presidente
+Membro B — Vogal', $this->getJson('/api/contabilidade/relatorio-contas/2026', $this->s)->json('dados.registo.configuracao.conselho'));
     }
 
     #[Test]

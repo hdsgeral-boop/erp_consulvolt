@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
+import { ICONES_FA } from '@/componentes/fluxos/iconesFa';
 
 vi.setConfig({ testTimeout: 180_000 });
 
@@ -24,6 +25,11 @@ const PLANOS = [{ id: 1, codigo: 'PM-2026/0001', nome: 'Revisão trimestral do g
   duracao_horas: '0.000', responsavel: null, instrucoes: null, tarefas: [], itens: [], ativo: true, ultima_data: null, execucoes: 0,
   situacao: { chave: 'VENCIDO', rotulo: 'Em atraso 4 dia(s)' }, alvo: 'AST-009 — Gerador fictício', ordens: 0 }];
 
+const imprimirMock = vi.fn((_p: { titulo: string }) => Promise.resolve(null));
+vi.mock('@/componentes/impressao', async (original) => ({
+  ...(await original<typeof import('@/componentes/impressao')>()),
+  useImpressao: () => ({ imprimir: imprimirMock, aImprimir: false, obterIdentidade: () => Promise.resolve(null), exportarExcel: () => Promise.resolve(null) }),
+}));
 const obterMock = vi.fn();
 const enviarMock = vi.fn(() => Promise.resolve({ dados: null, mensagem: 'ok' }));
 let permissoes = new Set<string>();
@@ -110,5 +116,25 @@ describe('Manutenção planeada (Fase F)', () => {
     expect(screen.getByText('Cada 3 meses')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Gerar ordens dos planos vencidos \(1\)/ })).toBeTruthy();
     expect(screen.getByText(/1 plano\(s\) vencido\(s\) ou a vencer/)).toBeTruthy();
+    // ícones do legado (activos_manutencao_ui.js:145-146): wrench na ordem avulsa, bolt na geração
+    const caminho = (nome: RegExp) => screen.getByRole('button', { name: nome }).querySelector('svg.fx-icone path')?.getAttribute('d');
+    expect(caminho(/Ordem avulsa/)).toBe(ICONES_FA.wrench[2]);
+    expect(caminho(/Gerar ordens dos planos vencidos/)).toBe(ICONES_FA.bolt[2]);
+  });
+});
+
+describe('Folhas de inventário — «Imprimir folha» na linha (renderAssetInventories :650)', () => {
+  it('só carrega a folha ao clicar e imprime-a', async () => {
+    const FOLHA = { inventario: { id: 3, numero: 'INV-3', ambito: 'EDIFICIO', ambito_texto: 'Todo o edifício', data: '2026-10-01', responsavel: 'Fictício', notas: null, estado: 'ABERTO',
+      edificio: { id: 1, codigo: 'AST-100', descricao: 'Sede fictícia' } }, linhas: [], portas: [] };
+    obterMock.mockImplementation((url: string) => Promise.resolve(url === '/ativos/inventarios-fisicos/3' ? FOLHA : []));
+    const { BotaoImprimirFolha } = await import('./Edificios');
+    envolver(<BotaoImprimirFolha inventario={{ id: 3, numero: 'INV-3' }} />);
+    const botao = await screen.findByRole('button', { name: 'Imprimir folha INV-3' }, { timeout: 60_000 });
+    expect(obterMock).not.toHaveBeenCalledWith('/ativos/inventarios-fisicos/3');
+    fireEvent.click(botao);
+    await waitFor(() => expect(imprimirMock).toHaveBeenCalledTimes(1));
+    expect(obterMock).toHaveBeenCalledWith('/ativos/inventarios-fisicos/3');
+    expect(imprimirMock.mock.calls[0][0]).toMatchObject({ titulo: 'Folha de Inventário — INV-3' });
   });
 });

@@ -11,6 +11,7 @@ use App\Models\PedidoExtrapolacaoOrcamento;
 use App\Models\Produto;
 use App\Models\RubricaOrcamental;
 use App\Services\Compras\ServicoConfigCompras;
+use App\Services\Logistica\ContasProduto;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -49,8 +50,8 @@ final class ServicoControloOrcamental
     {
         $p = $produto ? Produto::query()->withTrashed()->find($produto) : null;
         try {
-            return $p?->movimenta_stock ? ($p->conta_compra ?: $this->configCompras->exigir('compras_mercadorias', ''))
-                : ($p?->conta_custo ?: $this->configCompras->exigir('custos_servicos', ''));
+            return $p?->movimenta_stock ? (ContasProduto::de($p)->compra ?: $this->configCompras->exigir('compras_mercadorias', ''))
+                : (ContasProduto::de($p)->custo ?: $this->configCompras->exigir('custos_servicos', ''));
         } catch (ErroNegocio) {
             return null;
         }

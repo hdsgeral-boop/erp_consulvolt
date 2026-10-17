@@ -59,6 +59,8 @@ final class ServicoProcessoCompras
                 'estado' => 'PENDENTE', 'descricao' => $d['descricao'] ?? null, 'data_entrega' => $d['data_entrega'] ?? null, 'observacoes' => $d['observacoes'] ?? null,
                 'unidade_negocio_id' => $d['unidade_negocio_id'] ?? null, 'centro_custo_id' => $d['centro_custo_id'] ?? null, 'projeto_id' => $d['projeto_id'] ?? null,
                 'criado_por' => Auth::user()?->nome_utilizador, 'unidades_alocadas' => $alocacao,
+                // requisitante = colaborador do utilizador nesta empresa (ui_compras_v2.js:978/1083); decide o 1.º nível da deliberação
+                'colaborador_requerente_id' => $this->deliberacao->meuColaborador(),
             ]);
             foreach ($d['linhas'] as $l) {
                 $preco = number_format((float) ($l['preco_unitario'] ?? 0), 2, '.', '');

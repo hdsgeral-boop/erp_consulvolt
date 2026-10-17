@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Contabilidade\LancamentoController;
 use App\Http\Controllers\Api\Contabilidade\PlanoContasController;
 use App\Http\Controllers\Api\Contabilidade\RelatorioContabilController;
 use App\Http\Controllers\Api\Logistica\CategoriaProdutoController;
+use App\Http\Controllers\Api\Logistica\GuiasRemessaArmazemController;
 use App\Http\Controllers\Api\Logistica\ProdutoController;
 use App\Http\Controllers\Api\Logistica\StockController;
 use App\Http\Controllers\Api\Orcamento\OrcamentoController;
@@ -112,6 +113,13 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('categorias-produtos', [CategoriaProdutoController::class, 'store'])->name('categorias.store');
             Route::put('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'update'])->whereNumber('categoria')->name('categorias.update');
             Route::delete('categorias-produtos/{categoria}', [CategoriaProdutoController::class, 'destroy'])->whereNumber('categoria')->name('categorias.destroy');
+
+            // «Emitir Guia de Saída» para clientes: a guia de remessa das Vendas emitida no armazém (ADR-043)
+            Route::controller(GuiasRemessaArmazemController::class)->group(function () {
+                Route::get('guias-saida/encomendas-clientes', 'encomendas')->name('guias.encomendas_clientes');
+                Route::get('guias-saida/stock-armazem', 'stock')->name('guias.stock_armazem');
+                Route::post('guias-saida/remessa', 'emitir')->name('guias.remessa');
+            });
 
             Route::controller(StockController::class)->group(function () {
                 Route::get('armazens', 'armazens')->name('armazens.index');
@@ -241,6 +249,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::prefix('tesouraria')->name('tesouraria.')->controller(TesourariaController::class)->group(function () {
             Route::get('documentos', 'index')->name('documentos.index');
+            Route::get('documentos/opcoes', 'opcoes')->name('documentos.opcoes');
             Route::post('documentos', 'store')->name('documentos.store');
             Route::get('documentos/{id}', 'show')->whereNumber('id')->name('documentos.show');
             Route::put('documentos/{id}', 'update')->whereNumber('id')->name('documentos.update');
@@ -483,7 +492,10 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/fa_vendas.php';      // Fase A: séries com número inicial, cancelar recebimentos antes da NC, anulação com motivo
         require __DIR__.'/api/fb_rh.php';          // Fase B (Versão Actual): RH — cessação/suspensão, horário e escala, empréstimos, portal
         require __DIR__.'/api/fe_projectos.php';   // Fase E: Projectos — metas, execução, dependências, orçamento por quantidades
+        require __DIR__.'/api/r3_rh_proj.php';     // Ronda 3: folha de medição por pessoa (modelo e importação)
         require __DIR__.'/api/ff_activos.php';     // Fase F: Activos — edifícios, inventário físico, manutenção
+        require __DIR__.'/api/r3_activos.php';     // Ronda 3: Activos — tarefas das ordens de manutenção
+        require __DIR__.'/api/r3_vendas.php';      // Ronda 3: POS por serviço e pesquisa de clientes nas Vendas
         require __DIR__.'/api/fc_reparticao.php';  // Fase C: repartição por unidades de negócio
         require __DIR__.'/api/fg_metodo.php';      // Fase G: Método de Trabalho 5W1H
         require __DIR__.'/api/fd_cartas.php';      // Fase D: Tesouraria › Cartas de pagamento
@@ -492,6 +504,9 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/fi_projectos.php';   // Fecho: Projectos (Gantt, origem)
         require __DIR__.'/api/fi_gestao.php';   // Fecho: Activos, repartição nos detalhes, gestão de projectos
         require __DIR__.'/api/fi_portal.php';   // Fecho: portal autónomo e núcleo
+        require __DIR__.'/api/r3_contab.php';   // Ronda 3: Contabilidade — quebra dos lançamentos, cálculo das rubricas, modelo da actualização em massa
+        require __DIR__.'/api/r3_produtos.php';   // Ronda 3: produtos e categorias — contas na categoria, níveis de stock, reposição
+        require __DIR__.'/api/r3_teso.php';   // Ronda 3: Tesouraria — importação de movimentos na Folha de Caixa
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');
@@ -581,6 +596,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('plano-contas', [PlanoContasController::class, 'store'])->name('plano-contas.store');
             Route::put('plano-contas/{conta}', [PlanoContasController::class, 'update'])->whereNumber('conta')->name('plano-contas.update');
             Route::delete('plano-contas/{conta}', [PlanoContasController::class, 'destroy'])->whereNumber('conta')->name('plano-contas.destroy');
+            Route::post('plano-contas/massa/modificar', [PlanoContasController::class, 'modificarEmMassa'])->name('plano-contas.massa.modificar');
+            Route::post('plano-contas/massa/eliminar', [PlanoContasController::class, 'eliminarEmMassa'])->name('plano-contas.massa.eliminar');
 
             Route::get('diarios', [DiarioController::class, 'index'])->name('diarios.index');
             Route::post('diarios', [DiarioController::class, 'store'])->name('diarios.store');

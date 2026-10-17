@@ -12,7 +12,18 @@ export type LinhaLista = LinhaLancamento & {
   codigo_projeto?: string | null;
   conta_descricao?: string | null;
   taxa_cambio_manual?: boolean;
+  /** Só nas linhas de aquisição (11/12 a débito): valor ainda por inventariar no módulo de Activos. */
+  por_inventariar?: string | null;
 };
+
+/**
+ * Linha de aquisição de imobilizado (11/12 a débito, legado js/ui_lancamentos.js:392-409): «Inventariar» enquanto houver
+ * valor por inventariar, «OK» quando está totalmente inventariada; `null` nas restantes linhas.
+ */
+export function estadoInventario(l: Pick<LinhaLista, 'codigo_conta' | 'tipo_dc' | 'por_inventariar'>): 'inventariar' | 'ok' | null {
+  if (l.tipo_dc !== 'D' || !/^1[12]/.test(l.codigo_conta) || l.por_inventariar === undefined || l.por_inventariar === null) return null;
+  return Number(l.por_inventariar) <= 0.01 ? 'ok' : 'inventariar';
+}
 
 // --- «Colar múltiplas contas/documentos» ---------------------------------------------------------------------------
 

@@ -158,6 +158,10 @@ final class FfActivosManutencaoTest extends TestCase
         $this->postJson("/api/ativos/manutencao/ordens/{$ordem}/iniciar", [], $this->h)->assertStatus(422)->assertJsonPath('codigo', 'ORDEM_EM_CURSO');
         $this->putJson("/api/ativos/manutencao/ordens/{$ordem}/tarefas", ['feitas' => [true, false]], $this->h)->assertOk()->assertJsonPath('dados.tarefas.0.feito', true);
         $this->postJson("/api/ativos/manutencao/ordens/{$ordem}/concluir", ['resolucao' => ''], $this->h)->assertStatus(422);
+        // r3_activos: com uma tarefa obrigatória por fazer a ordem não se conclui, nem forçando
+        $this->postJson("/api/ativos/manutencao/ordens/{$ordem}/concluir", ['resolucao' => 'Óleo trocado', 'forcar' => true], $this->h)->assertStatus(422)
+            ->assertJsonPath('codigo', 'TAREFAS_PENDENTES');
+        $this->putJson("/api/ativos/manutencao/ordens/{$ordem}/tarefas", ['feitas' => [true, true]], $this->h)->assertOk();
         $this->postJson("/api/ativos/manutencao/ordens/{$ordem}/concluir", ['resolucao' => 'Óleo trocado'], $this->h)->assertStatus(409)->assertJsonPath('codigo', 'NECESSIDADES_PENDENTES');
         $fim = now()->toDateString();
         $this->postJson("/api/ativos/manutencao/ordens/{$ordem}/concluir", ['resolucao' => 'Óleo trocado e filtro limpo', 'data_fim' => $fim, 'horas' => 2.5,
@@ -181,7 +185,7 @@ final class FfActivosManutencaoTest extends TestCase
         // «Ordem» do plano: abre já; vencido por contador
         $this->postJson("/api/ativos/manutencao/planos/{$plano}/ordens", [], $this->h)->assertCreated()->assertJsonCount(1, 'dados.criadas');
         $ordem = $this->getJson('/api/ativos/manutencao/ordens', $this->h)->json('dados.0.id');
-        $this->postJson("/api/ativos/manutencao/ordens/{$ordem}/concluir", ['resolucao' => 'Revisão feita', 'leitura_contador' => 1250], $this->h)->assertOk();
+        $this->postJson("/api/ativos/manutencao/ordens/{$ordem}/concluir", ['resolucao' => 'Revisão feita', 'leitura_contador' => 1250, 'tarefas' => [true, true]], $this->h)->assertOk();
         $p = collect($this->getJson('/api/ativos/manutencao/planos', $this->h)->json('dados'))->firstWhere('id', $plano);
         $this->assertSame(['1250.00', '1750.00'], [$p['contador_atual'], $p['proximo_contador']]);
 

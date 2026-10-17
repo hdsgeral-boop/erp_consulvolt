@@ -10,7 +10,7 @@ type Item = No | null;
 
 const ecra = (id: string, nome = id, pai: string | null = null) => ({ id, nome, vistas: [], pai });
 const MENU: ModuloMenu[] = [
-  { id: 'geral', nome: 'Geral', ecras: [ecra('dashboard'), ecra('relatorios_gestao'), ecra('fluxo_processos'), ecra('accounting_bi', 'BI contabilístico')] },
+  { id: 'geral', nome: 'Geral', ecras: [ecra('dashboard'), ecra('relatorios_gestao'), ecra('fluxo_processos'), ecra('geral_novo', 'Ecrã geral novo')] },
   { id: 'rh', nome: 'Recursos Humanos e Salários', ecras: [ecra('colaboradores'), ecra('relatorios', 'Relatórios e recibos'), ecra('rh_rel_irt', 'Mapa de IRT', 'relatorios')] },
   { id: 'contab', nome: 'Contabilidade', ecras: [ecra('lancamentos'), ecra('contab_rotinas'), ecra('imposto_selo', 'Imposto de Selo', 'contab_rotinas')] },
   { id: 'acrescimos', nome: 'Acréscimos e Diferimentos', ecras: [ecra('ad_registos')] },
@@ -34,9 +34,15 @@ describe('menu lateral com a estrutura do legado (0.1)', () => {
   const raiz = itens as Item[];
 
   it('itens gerais soltos no topo, depois «Menu Geral» e «Sistema»', () => {
-    expect(rotulos(raiz)).toEqual(['Início', 'Dashboard Global', 'Relatórios de Gestão', 'Fluxo de Processos', 'BI contabilístico', 'Menu Geral', 'Sistema']);
+    expect(rotulos(raiz)).toEqual(['Início', 'Dashboard Global', 'Relatórios de Gestão', 'Fluxo de Processos', 'Ecrã geral novo', 'Menu Geral', 'Sistema']);
     expect(raiz[0]?.key).toBe('/');
     expect(raiz.find((x) => x?.key === CHAVE_MENU_GERAL)).toBeDefined();
+  });
+
+  it('todos os itens de 1.º nível têm símbolo (o menu recolhido só mostra os ícones), incluindo os ecrãs gerais novos', () => {
+    raiz.forEach((x) => expect((x as { icon?: unknown })?.icon, String(x?.label)).toBeTruthy());
+    const novo = filho(raiz, 'Ecrã geral novo') as { icon?: { props?: { nome?: string } } };
+    expect(novo.icon?.props?.nome).toBe('file-alt');
   });
 
   it('módulos dentro do «Menu Geral» pela ordem e com os nomes curtos do legado; módulo desconhecido no fim', () => {

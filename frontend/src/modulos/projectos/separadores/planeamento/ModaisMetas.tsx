@@ -1,9 +1,11 @@
 import { Alert, AutoComplete, Button, Checkbox, Col, DatePicker, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Table, Tag, Typography } from 'antd';
-import { ClearOutlined, SnippetsOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
+import { ClearOutlined, DownloadOutlined, SnippetsOutlined, ThunderboltOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { enviar, obter } from '@/api/cliente';
+import { descarregar, enviar, obter } from '@/api/cliente';
+import { ImportarExcel } from '@/modulos/rh/comum/ImportarExcel';
 import { useAccao } from '@/componentes/Accoes';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { notificarErro } from '@/utilitarios/erros';
@@ -12,6 +14,7 @@ import { useEquipa, useOrganigrama, useWbs } from '../../comum/componentes';
 import { achatarWbs } from '../../comum/regras';
 import { formatarQtd, interpretarColagem, partesIguais, prazoRepartido, UNIDADES } from '../../comum/regrasMetas';
 import type { LinhaFolhaMedicao, ResultadoLote, TarefaWbs } from '../../comum/tipos';
+import { agruparPorPessoa, chaveLinha, linhasALancar, linhasPorPessoa, medidoPorPessoa, type LinhaPessoa } from '../../comum/folhaMedicao';
 
 /**
  * Execução medida (Versão Actual, js/projectos_metas.js): registar a quantidade executada de uma tarefa (grade), a folha
@@ -24,15 +27,17 @@ const useFolha = (projectoId: number, activo: boolean) =>
 
 /** Registar execução de uma tarefa (projMetaRegistar, :405-459). */
 export function ModalMedicao({ projectoId, tarefa, aoFechar, aoLinhas }: { projectoId: number; tarefa: TarefaWbs | null; aoFechar: () => void; aoLinhas: () => void }) {
-  const [form] = Form.useForm<{ quantidade: number; data: dayjs.Dayjs; nota?: string }>();
+  const [form] = Form.useForm<{ quantidade: number; data: dayjs.Dayjs; nota?: string; membro_id?: number }>();
   const folha = useFolha(projectoId, !!tarefa);
+  const equipa = useEquipa(projectoId);
+  const nomeMembro = new Map((equipa.data?.membros ?? []).map((m) => [m.id, m.nome]));
   const linha = folha.data?.find((l) => l.id === tarefa?.id);
   const accao = useAccao({ invalidar: [['projectos']], aoSucesso: () => aoFechar() });
   useEffect(() => {
     if (!tarefa) return;
     form.resetFields();
     const falta = Number(tarefa.meta_quantidade ?? 0) - Number(tarefa.meta_realizado ?? 0);
-    form.setFieldsValue({ data: dayjs(), quantidade: falta > 0 ? Math.round(falta * 1000) / 1000 : undefined });
+    form.setFieldsValue({ data: dayjs(), quantidade: falta > 0 ? Math.round(falta * 1000) / 1000 : undefined, membro_id: tarefa.atribuido_a_id ?? undefined });
   }, [tarefa, form]);
   const meta = Number(tarefa?.meta_quantidade ?? 0);
   const feito = Number(tarefa?.meta_realizado ?? 0);
@@ -45,7 +50,7 @@ export function ModalMedicao({ projectoId, tarefa, aoFechar, aoLinhas }: { proje
     >
       <Alert type="info" showIcon style={{ marginBottom: 12 }}
         message={<>Meta: <strong>{formatarQtd(meta)} {un}</strong> · realizado <strong>{formatarQtd(feito)}</strong> · falta <strong>{formatarQtd(Math.max(0, meta - feito))}</strong></>} />
-      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/projetos/${projectoId}/tarefas/${tarefa?.id}/medicoes`, dados: { quantidade: v.quantidade, data: dataApi(v.data), nota: v.nota || null } })}>
+      <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/projetos/${projectoId}/tarefas/${tarefa?.id}/medicoes`, dados: { quantidade: v.quantidade, data: dataApi(v.data), nota: v.nota || null, membro_id: v.membro_id ?? null } })}>
         <Row gutter={12}>
           <Col xs={24} md={12}>
             <Form.Item name="quantidade" label={`Quantidade executada (${un})`} extra="Negativa para corrigir um registo a mais." rules={[{ required: true, message: 'Indique a quantidade.' }]}>
@@ -56,6 +61,9 @@ export function ModalMedicao({ projectoId, tarefa, aoFechar, aoLinhas }: { proje
             <Form.Item name="data" label="Data" rules={[{ required: true }]}><DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabledDate={(d) => d.isAfter(dayjs(), 'day')} /></Form.Item>
           </Col>
         </Row>
+        <Form.Item name="membro_id" label="Executante" extra="Quem executou (membro da equipa); conta para a produtividade dessa pessoa.">
+          <Select allowClear showSearch optionFilterProp="label" placeholder="—" options={(equipa.data?.membros ?? []).map((m) => ({ value: m.id, label: `${m.nome}${m.papel ? ` (${m.papel})` : ''}` }))} />
+        </Form.Item>
         <Form.Item name="nota" label="Nota"><Input maxLength={500} placeholder="Frente, turno, medição…" /></Form.Item>
       </Form>
       {(linha?.medicoes.length ?? 0) > 0 && (
@@ -63,6 +71,7 @@ export function ModalMedicao({ projectoId, tarefa, aoFechar, aoLinhas }: { proje
           columns={[
             { title: 'Data', dataIndex: 'data', render: formatarData },
             { title: 'Qtd.', dataIndex: 'q', align: 'right', render: (v) => <strong>{formatarQtd(v)}</strong> },
+            { title: 'Executante', dataIndex: 'membro_id', render: (v?: number) => (v ? nomeMembro.get(v) ?? `#${v}` : '—') },
             { title: 'Nota', dataIndex: 'nota' },
             { title: 'Por', dataIndex: 'por' },
           ]} />
@@ -71,39 +80,52 @@ export function ModalMedicao({ projectoId, tarefa, aoFechar, aoLinhas }: { proje
   );
 }
 
-/** Folha de medição: uma linha por tarefa com meta (projMetasRegistarEmMassa, :468-628). */
+/**
+ * Folha de medição por pessoa (projMetasRegistarEmMassa, :468-628, com o pedido de 2026-10-16): uma linha por tarefa
+ * medível e pessoa que a executa (responsável directo, ou cada membro da área do organigrama da tarefa); filtro e
+ * agrupamento por pessoa; cada medição grava-se com o executante. «Baixar modelo» (Excel com as tarefas da pessoa e as
+ * listas de referência) e «Importar» (simulação, erros por linha, tudo ou nada, sem duplicados) — regras no servidor.
+ */
 export function ModalFolhaMedicao({ projectoId, aberto, aoFechar, destacar }: { projectoId: number; aberto: boolean; aoFechar: () => void; destacar?: number | null }) {
   const folha = useFolha(projectoId, aberto);
   const equipa = useEquipa(projectoId);
   const cliente = useQueryClient();
   const [data, setData] = useState(dayjs());
   const [nota, setNota] = useState('');
-  const [qtd, setQtd] = useState<Record<number, number | null>>({});
-  const [notas, setNotas] = useState<Record<number, string>>({});
+  const [pessoa, setPessoa] = useState<number | null>(null);
+  const [agrupar, setAgrupar] = useState(true);
+  const [qtd, setQtd] = useState<Record<string, number | null>>({});
+  const [notas, setNotas] = useState<Record<string, string>>({});
+  const [exec, setExec] = useState<Record<string, number | null>>({});
   const [falhas, setFalhas] = useState<Record<number, string>>({});
   const [colar, setColar] = useState(false);
+  const [importar, setImportar] = useState(false);
   const [aGravar, setAGravar] = useState(false);
-  useEffect(() => { if (aberto) { setQtd({}); setNotas({}); setFalhas({}); setData(dayjs()); setNota(''); } }, [aberto]);
-  const linhas = folha.data ?? [];
-  const nomeMembro = useMemo(() => new Map((equipa.data?.membros ?? []).map((m) => [m.id, m.nome])), [equipa.data]);
-  const preenchidas = linhas.filter((l) => Number(qtd[l.id] ?? 0) !== 0);
-  const porUnidade = preenchidas.reduce<Record<string, number>>((a, l) => ({ ...a, [l.unidade]: (a[l.unidade] ?? 0) + Number(qtd[l.id]) }), {});
-  const acima = preenchidas.filter((l) => Number(qtd[l.id]) > l.falta && l.falta >= 0).length;
+  useEffect(() => { if (aberto) { setQtd({}); setNotas({}); setExec({}); setFalhas({}); setData(dayjs()); setNota(''); } }, [aberto]);
+  const membros = useMemo(() => equipa.data?.membros ?? [], [equipa.data]);
+  const nomeMembro = useMemo(() => new Map(membros.map((m) => [m.id, m.nome])), [membros]);
+  const nome = (id: number) => nomeMembro.get(id) ?? `#${id}`;
+  const linhas = useMemo(() => linhasPorPessoa(folha.data ?? [], pessoa), [folha.data, pessoa]);
+  const grupos = useMemo(() => agruparPorPessoa(linhas, (id) => nomeMembro.get(id) ?? `#${id}`), [linhas, nomeMembro]);
+  const aLancar = linhasALancar(linhas, qtd, notas, exec);
+  const porUnidade = linhas.filter((l) => Number(qtd[l.chave] ?? 0) !== 0)
+    .reduce<Record<string, number>>((a, l) => ({ ...a, [l.linha.unidade]: (a[l.linha.unidade] ?? 0) + Number(qtd[l.chave]) }), {});
+  const acima = linhas.filter((l) => Number(qtd[l.chave] ?? 0) > l.linha.falta && l.linha.falta >= 0).length;
+  const opcoesMembros = membros.map((m) => ({ value: m.id, label: `${m.nome}${m.papel ? ` (${m.papel})` : ''}` }));
+  const medidoPessoa = useMemo(() => medidoPorPessoa(folha.data ?? []), [folha.data]);
 
   const gravar = () => Modal.confirm({
     title: 'Registar medições',
-    content: `${preenchidas.length} linha(s) em ${data.format('DD/MM/YYYY')}. Cada uma é gravada com as mesmas regras do registo individual; as que falharem ficam assinaladas para corrigir.`,
+    content: `${aLancar.length} linha(s) em ${data.format('DD/MM/YYYY')}. Cada uma é gravada com as mesmas regras do registo individual e com o executante indicado; as que falharem ficam assinaladas para corrigir.`,
     okText: 'Registar', cancelText: 'Cancelar',
     onOk: async () => {
       setAGravar(true);
       try {
-        const r = await enviar<ResultadoLote>('post', `/projetos/${projectoId}/medicoes/lote`, {
-          data: dataApi(data), nota: nota || null, linhas: preenchidas.map((l) => ({ tarefa_id: l.id, quantidade: qtd[l.id], nota: notas[l.id] || null })),
-        });
+        const r = await enviar<ResultadoLote>('post', `/projetos/${projectoId}/medicoes/lote`, { data: dataApi(data), nota: nota || null, linhas: aLancar });
         const novas: Record<number, string> = {};
         r.dados.falhadas.forEach((f) => { novas[f.tarefa_id] = f.erro; });
         setFalhas(novas);
-        setQtd((q) => Object.fromEntries(Object.entries(q).filter(([id]) => novas[Number(id)])));
+        setQtd((q) => Object.fromEntries(Object.entries(q).filter(([k]) => novas[Number(k.split(':')[0])])));
         void cliente.invalidateQueries({ queryKey: ['projectos'] });
         if (r.dados.falhadas.length) Modal.warning({ title: 'Folha de medição', content: r.mensagem });
         else { Modal.success({ title: 'Folha de medição', content: r.mensagem }); aoFechar(); }
@@ -115,42 +137,84 @@ export function ModalFolhaMedicao({ projectoId, aberto, aoFechar, destacar }: { 
     },
   });
 
+  const colunas: ColumnsType<LinhaPessoa> = [
+    { title: 'Tarefa', key: 't', render: (_, { linha: l }) => <>{l.fase && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{l.fase}</Typography.Text>}<strong>{l.codigo}</strong> {l.nome}{falhas[l.id] && <Typography.Text type="danger" style={{ display: 'block', fontSize: 12 }}>{falhas[l.id]}</Typography.Text>}</> },
+    { title: 'Executante', key: 'e', width: 200, render: (_, l) => (
+      <Select<number> size="small" style={{ width: '100%' }} allowClear placeholder="—" options={opcoesMembros} showSearch optionFilterProp="label"
+        value={(exec[l.chave] !== undefined ? exec[l.chave] : l.membro_id) ?? undefined} onChange={(v) => setExec((x) => ({ ...x, [l.chave]: v ?? null }))}
+        aria-label={`Executante de ${l.linha.nome}`} />
+    ) },
+    { title: 'Meta', key: 'm', align: 'right', render: (_, { linha: l }) => `${formatarQtd(l.meta)} ${l.unidade}` },
+    { title: 'Realizado', key: 'rz', align: 'right', render: (_, { linha: l }) => formatarQtd(l.realizado) },
+    { title: 'Falta', key: 'f', align: 'right', render: (_, { linha: l }) => <Typography.Text type={l.falta > 0 ? 'warning' : 'success'}>{formatarQtd(Math.max(0, l.falta))}</Typography.Text> },
+    { title: 'A registar', key: 'q', width: 130, render: (_, l) => <InputNumber size="small" style={{ width: '100%' }} value={qtd[l.chave] ?? null} onChange={(v) => setQtd((q) => ({ ...q, [l.chave]: v }))} decimalSeparator="," aria-label={`Quantidade de ${l.linha.nome}${l.membro_id ? ` (${nome(l.membro_id)})` : ''}`} /> },
+    { title: 'Nota da linha', key: 'n', width: 170, render: (_, l) => <Input size="small" value={notas[l.chave] ?? ''} onChange={(e) => setNotas((n) => ({ ...n, [l.chave]: e.target.value }))} maxLength={500} aria-label={`Nota de ${l.linha.nome}`} /> },
+  ];
+  const tabela = (dados: LinhaPessoa[], comCarga: boolean) => (
+    <Table<LinhaPessoa> size="small" rowKey="chave" loading={comCarga && folha.isFetching} dataSource={dados} pagination={false} scroll={scrollTabela()} columns={colunas}
+      rowClassName={(l) => (falhas[l.linha.id] ? 'erp-linha-erro' : l.linha.id === destacar ? 'ant-table-row-selected' : '')}
+      locale={{ emptyText: pessoa ? 'Esta pessoa não tem tarefas com meta por quantidade (directas ou da sua área do organigrama).' : 'Este projecto não tem tarefas com meta por quantidade. Defina metas ou use «Tarefas por quantidade».' }} />
+  );
+
   return (
-    <Modal title="Folha de medição" open={aberto} onCancel={aoFechar} width={larguraModal(1080)} destroyOnHidden
-      footer={[<Button key="c" onClick={aoFechar}>Fechar</Button>, <Button key="g" type="primary" disabled={!preenchidas.length} loading={aGravar} onClick={gravar}>Registar medições</Button>]}>
-      <Typography.Paragraph type="secondary">Uma linha por tarefa com meta. Escreva só as que mediu — as linhas em branco são ignoradas.</Typography.Paragraph>
-      <Flex gap={8} wrap align="end" style={{ marginBottom: 12 }}>
+    <Modal title="Folha de medição" open={aberto} onCancel={aoFechar} width={larguraModal(1180)} destroyOnHidden
+      footer={[<Button key="c" onClick={aoFechar}>Fechar</Button>, <Button key="g" type="primary" disabled={!aLancar.length} loading={aGravar} onClick={gravar}>Registar medições</Button>]}>
+      <Typography.Paragraph type="secondary">Uma linha por tarefa com meta e por pessoa que a executa. Escreva só as que mediu — as linhas em branco são ignoradas. Cada medição fica registada com o executante.</Typography.Paragraph>
+      <Flex gap={8} wrap align="end" style={{ marginBottom: 8 }}>
+        <div style={{ flex: '0 1 260px', minWidth: 200 }}><Typography.Text strong style={{ display: 'block', fontSize: 12 }} id="folha-pessoa">Pessoa</Typography.Text>
+          <Select<number> allowClear showSearch optionFilterProp="label" style={{ width: '100%' }} placeholder="Todas as pessoas" aria-labelledby="folha-pessoa"
+            value={pessoa ?? undefined} onChange={(v) => setPessoa(v ?? null)} options={opcoesMembros} /></div>
         <div><Typography.Text strong style={{ display: 'block', fontSize: 12 }}>Data da medição</Typography.Text>
-          <DatePicker format="DD/MM/YYYY" value={data} allowClear={false} onChange={(d) => d && setData(d)} disabledDate={(d) => d.isAfter(dayjs(), 'day')} /></div>
-        <div style={{ flex: '1 1 14rem' }}><Typography.Text strong style={{ display: 'block', fontSize: 12 }}>Nota comum</Typography.Text>
-          <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={500} placeholder="Frente, turno, auto de medição…" /></div>
-        <Button icon={<ThunderboltOutlined />} onClick={() => setQtd(Object.fromEntries(linhas.filter((l) => l.falta > 0).map((l) => [l.id, l.falta])))}>Preencher o que falta</Button>
-        <Button icon={<SnippetsOutlined />} onClick={() => setColar(true)}>Colar do Excel</Button>
-        <Button icon={<ClearOutlined />} onClick={() => { setQtd({}); setNotas({}); }}>Limpar</Button>
+          <DatePicker format="DD/MM/YYYY" value={data} allowClear={false} onChange={(d) => d && setData(d)} disabledDate={(d) => d.isAfter(dayjs(), 'day')} aria-label="Data da medição" /></div>
+        <div style={{ flex: '1 1 12rem' }}><Typography.Text strong style={{ display: 'block', fontSize: 12 }}>Nota comum</Typography.Text>
+          <Input value={nota} onChange={(e) => setNota(e.target.value)} maxLength={500} placeholder="Frente, turno, auto de medição…" aria-label="Nota comum" /></div>
+        {!pessoa && <Checkbox checked={agrupar} onChange={(e) => setAgrupar(e.target.checked)}>Agrupar por pessoa</Checkbox>}
       </Flex>
-      <Table<LinhaFolhaMedicao> size="small" rowKey="id" loading={folha.isFetching} dataSource={linhas} pagination={false} scroll={scrollTabela('52vh')}
-        rowClassName={(l) => (falhas[l.id] ? 'erp-linha-erro' : l.id === destacar ? 'ant-table-row-selected' : '')}
-        locale={{ emptyText: 'Este projecto não tem tarefas com meta por quantidade. Defina metas ou use «Tarefas por quantidade».' }}
-        columns={[
-          { title: 'Tarefa', key: 't', render: (_, l) => <>{l.fase && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{l.fase}</Typography.Text>}<strong>{l.codigo}</strong> {l.nome}{falhas[l.id] && <Typography.Text type="danger" style={{ display: 'block', fontSize: 12 }}>{falhas[l.id]}</Typography.Text>}</> },
-          { title: 'Responsável', key: 'r', render: (_, l) => (l.atribuido_a_id ? nomeMembro.get(l.atribuido_a_id) ?? `#${l.atribuido_a_id}` : '—') },
-          { title: 'Meta', key: 'm', align: 'right', render: (_, l) => `${formatarQtd(l.meta)} ${l.unidade}` },
-          { title: 'Realizado', dataIndex: 'realizado', align: 'right', render: (v) => formatarQtd(v) },
-          { title: 'Falta', dataIndex: 'falta', align: 'right', render: (v: number) => <Typography.Text type={v > 0 ? 'warning' : 'success'}>{formatarQtd(Math.max(0, v))}</Typography.Text> },
-          { title: 'A registar', key: 'q', width: 130, render: (_, l) => <InputNumber size="small" style={{ width: '100%' }} value={qtd[l.id] ?? null} onChange={(v) => setQtd((q) => ({ ...q, [l.id]: v }))} decimalSeparator="," aria-label={`Quantidade de ${l.nome}`} /> },
-          { title: 'Nota da linha', key: 'n', width: 170, render: (_, l) => <Input size="small" value={notas[l.id] ?? ''} onChange={(e) => setNotas((n) => ({ ...n, [l.id]: e.target.value }))} maxLength={500} /> },
-        ]} />
+      <Flex gap={8} wrap style={{ marginBottom: 12 }}>
+        <Button icon={<ThunderboltOutlined />} onClick={() => setQtd(Object.fromEntries(linhas.filter((l) => l.linha.falta > 0 && (l.linha.pessoas.length <= 1 || pessoa)).map((l) => [l.chave, l.linha.falta])))}>Preencher o que falta</Button>
+        <Button icon={<SnippetsOutlined />} onClick={() => setColar(true)}>Colar do Excel</Button>
+        <Button icon={<ClearOutlined />} onClick={() => { setQtd({}); setNotas({}); setExec({}); }}>Limpar</Button>
+        <Button icon={<DownloadOutlined />} onClick={() => void descarregar(`/projetos/${projectoId}/medicoes/modelo`, pessoa ? { membro_id: pessoa } : undefined,
+          `Folha_Medicao${pessoa ? `_${nome(pessoa).replace(/[^\p{L}\p{N}]+/gu, '_')}` : ''}.xlsx`).catch(notificarErro)}>Baixar modelo</Button>
+        <Button icon={<UploadOutlined />} onClick={() => setImportar(true)}>Importar</Button>
+      </Flex>
+      <div style={{ maxHeight: '52vh', overflow: 'auto' }}>
+        {!pessoa && agrupar && grupos.length > 0
+          ? grupos.map((g) => {
+            const medido = medidoPessoa.get(g.membro_id);
+            return (
+              <section key={g.membro_id ?? 0} style={{ marginBottom: 12 }} aria-label={`Tarefas de ${g.nome}`}>
+                <Flex gap={8} align="center" wrap style={{ margin: '4px 0' }}>
+                  <Typography.Text strong>{g.nome}</Typography.Text>
+                  <Tag>{g.linhas.length} tarefa(s)</Tag>
+                  {medido && Object.entries(medido).map(([u, v]) => <Tag key={u} color="blue">{formatarQtd(v)} {u} medidos</Tag>)}
+                  {g.membro_id !== null && <Button size="small" type="link" onClick={() => setPessoa(g.membro_id)}>Só esta pessoa</Button>}
+                </Flex>
+                {tabela(g.linhas, false)}
+              </section>
+            );
+          })
+          : tabela(linhas, true)}
+      </div>
       <Typography.Paragraph type="secondary" style={{ marginTop: 8 }}>
-        {preenchidas.length
-          ? <>{preenchidas.length} linha(s) a registar: {Object.entries(porUnidade).map(([u, v]) => <Tag key={u}>{formatarQtd(v)} {u}</Tag>)}{acima > 0 && <Typography.Text type="warning"> · {acima} linha(s) acima do que falta para a meta</Typography.Text>}</>
+        {aLancar.length
+          ? <>{aLancar.length} linha(s) a registar: {Object.entries(porUnidade).map(([u, v]) => <Tag key={u}>{formatarQtd(v)} {u}</Tag>)}{acima > 0 && <Typography.Text type="warning"> · {acima} linha(s) acima do que falta para a meta</Typography.Text>}</>
           : 'Nenhuma linha preenchida.'}
       </Typography.Paragraph>
       <ModalColar aberto={colar} aoFechar={() => setColar(false)} aoAplicar={(texto) => {
-        const r = interpretarColagem(texto, linhas);
-        setQtd((q) => ({ ...q, ...Object.fromEntries(r.quantidades) }));
+        const r = interpretarColagem(texto, (folha.data ?? []).filter((l) => linhas.some((x) => x.linha.id === l.id)));
+        // a quantidade vai para a primeira linha visível da tarefa (com uma pessoa escolhida, a dessa pessoa)
+        const porTarefa = new Map<number, string>();
+        linhas.forEach((l) => { if (!porTarefa.has(l.linha.id)) porTarefa.set(l.linha.id, l.chave); });
+        setQtd((q) => ({ ...q, ...Object.fromEntries([...r.quantidades].map(([id, v]) => [porTarefa.get(id) ?? chaveLinha(id, null), v])) }));
         setColar(false);
         if (r.naoReconhecidas.length) Modal.warning({ title: 'Colagem parcial', content: `${r.quantidades.size} linha(s) aplicada(s). Não reconhecidas: ${r.naoReconhecidas.slice(0, 8).join(', ')}.` });
       }} />
+      <ImportarExcel aberto={importar} titulo={`Importar folha de medição${pessoa ? ` — ${nome(pessoa)}` : ''}`} url={`/projetos/${projectoId}/medicoes/importar`}
+        modelo="folha_medicao" urlModelo={`/projetos/${projectoId}/medicoes/modelo`} paramsModelo={pessoa ? { membro_id: pessoa } : undefined} ficheiroModelo="Folha_Medicao.xlsx"
+        invalidar={[['projectos']]}
+        ajuda="Preencha a coluna Quantidade do modelo (as linhas sem quantidade são ignoradas). Executante: nome ou NIF de um membro da equipa (vazio = responsável da tarefa); Data DD/MM/AAAA (vazia = hoje). Use primeiro «Simular»: uma linha com erro e nada é gravado; importar o mesmo ficheiro duas vezes não duplica as medições."
+        aoFechar={() => setImportar(false)} />
     </Modal>
   );
 }

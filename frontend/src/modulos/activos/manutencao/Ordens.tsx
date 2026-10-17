@@ -1,9 +1,9 @@
-import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Spin, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Empty, Form, Input, InputNumber, Modal, Row, Select, Space, Spin, Table, Tag, Tooltip, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
-import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { ErroApi } from '@/api/tipos';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { IconeFa } from '@/componentes/fluxos';
@@ -12,7 +12,8 @@ import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { campoActivoLinhas, SeletorActivo } from '../comum/componentes';
 import { useListaPaginada } from '../comum/paginacao';
 import { EtiquetaOrdem, SeletorArtigo, useArmazens } from './comum';
-import { destinoTexto, ESTADOS_ITEM, ordemAberta, PRIORIDADES, quantidade, resumoRequisicao, TIPOS } from './regras';
+import { destinoTexto, ESTADOS_ITEM, ordemAberta, podeConcluirTarefas, PRIORIDADES, progressoTarefas, quantidade, resumoRequisicao, tarefasParaEnviar, TIPOS } from './regras';
+import { ChecklistTarefas, HistoricoOrdem, ProgressoOrdem } from './Tarefas';
 import type { DetalheOrdem, ItemOrdem, LinhaPlanoRequisicao, Ordem, ResumoManutencao, TipoManutencao } from './tipos';
 
 const INVALIDAR = [['activos']];
@@ -52,6 +53,8 @@ export function Ordens({ aoIrPlanos }: { aoIrPlanos: () => void }) {
             { title: 'Prioridade', dataIndex: 'prioridade', render: (v: keyof typeof PRIORIDADES) => <Tag color={v === 'URGENTE' || v === 'ALTA' ? 'volcano' : 'default'}>{PRIORIDADES[v] ?? v}</Tag> },
             { title: 'Prevista', key: 'p', render: (_, o) => <>{formatarData(o.data_prevista)} {o.em_atraso && <Tag color="red">em atraso</Tag>}</> },
             { title: 'Responsável', dataIndex: 'responsavel', render: (v) => v || '—' },
+            // r3_activos: progresso «N de M» das tarefas
+            { title: 'Tarefas', key: 't', render: (_, o) => <ProgressoOrdem compacto progresso={o.progresso ?? progressoTarefas(o.tarefas)} /> },
             { title: 'Custo', dataIndex: 'custo_total', align: 'right', render: (v) => formatarKz(v) },
             { title: 'Estado', dataIndex: 'estado', render: (v) => <EtiquetaOrdem estado={v} /> },
             { title: 'Abrir', key: 'x', align: 'right', render: (_, o) => <Button size="small" title="Abrir a ordem" icon={<IconeFa nome="folder-open" />} onClick={() => setAberta(o.id)} /> },
@@ -70,6 +73,7 @@ export function dadosOrdemAvulsa(v: Record<string, unknown>): Record<string, unk
   return {
     ativo_imobilizado_id: v.ativo_imobilizado_id, tipo: v.tipo, prioridade: v.prioridade ?? 'NORMAL', data_prevista: dataDe(v.data_prevista),
     responsavel: typeof v.responsavel === 'string' && v.responsavel.trim() ? v.responsavel.trim() : null, descricao: v.descricao,
+    ...(v.tarefas !== undefined ? { tarefas: tarefasParaEnviar(v.tarefas) } : {}),
   };
 }
 
@@ -88,7 +92,8 @@ const CAMPOS_ORDEM: CampoFormulario[] = [
 
 /** Nova ordem para uma avaria ou trabalho pontual (formularioOrdem, UI :380-422). */
 export function ModalOrdemAvulsa({ aberto, aoFechar }: { aberto: boolean; aoFechar: () => void }) {
-  const [form] = Form.useForm<{ ativo_imobilizado_id: number; tipo: TipoManutencao; prioridade: string; data_prevista: Dayjs; responsavel?: string; descricao: string }>();
+  const [form] = Form.useForm<{ ativo_imobilizado_id: number; tipo: TipoManutencao; prioridade: string; data_prevista: Dayjs; responsavel?: string; descricao: string;
+    tarefas?: { texto?: string; obrigatoria?: boolean }[] }>();
   const accao = useAccao({ invalidar: INVALIDAR, aoSucesso: aoFechar });
   useEffect(() => {
     if (aberto) { form.resetFields(); form.setFieldsValue({ tipo: 'CORRECTIVA', prioridade: 'NORMAL', data_prevista: dayjs() }); }
@@ -109,6 +114,21 @@ export function ModalOrdemAvulsa({ aberto, aoFechar }: { aberto: boolean; aoFech
         </Row>
         <Form.Item name="responsavel" label="Responsável"><Input maxLength={150} placeholder="Quem executa" /></Form.Item>
         <Form.Item name="descricao" label="Trabalho a fazer" rules={[{ required: true, message: 'Descreva o trabalho a fazer.' }]}><Input.TextArea rows={3} maxLength={5000} placeholder="Descreva a avaria ou o trabalho pedido" /></Form.Item>
+        {/* r3_activos: passos do trabalho — a ordem só conclui com as obrigatórias feitas */}
+        <Form.List name="tarefas">
+          {(campos, { add, remove }) => (
+            <SeccaoFormulario titulo="Tarefas (checklist)" recolhida extra={<Button size="small" icon={<IconeFa nome="plus" />} onClick={() => add({ texto: '', obrigatoria: true })}>Tarefa</Button>}>
+              {!campos.length && <Typography.Text type="secondary" style={{ fontSize: 12 }}>Sem tarefas. Com tarefas, a ordem só se conclui quando as obrigatórias estiverem feitas.</Typography.Text>}
+              {campos.map((c, i) => (
+                <Space key={c.key} align="baseline" style={{ display: 'flex' }}>
+                  <Form.Item name={[c.name, 'texto']} style={{ flex: 1, marginBottom: 8, minWidth: 260 }}><Input maxLength={500} placeholder={`Tarefa ${i + 1}`} aria-label={`Tarefa ${i + 1}`} /></Form.Item>
+                  <Form.Item name={[c.name, 'obrigatoria']} valuePropName="checked" style={{ marginBottom: 8 }}><Checkbox>Obrigatória</Checkbox></Form.Item>
+                  <Button size="small" type="text" danger aria-label={`Retirar a tarefa ${i + 1}`} icon={<IconeFa nome="times" />} onClick={() => remove(c.name)} />
+                </Space>
+              ))}
+            </SeccaoFormulario>
+          )}
+        </Form.List>
       </Form>
     </ModalFormulario>
   );
@@ -127,6 +147,8 @@ export function DetalheOrdemModal({ id, aoFechar }: { id: number | null; aoFecha
   const [cancelar, setCancelar] = useState(false);
   const o = q.data;
   const aberta = !!o && ordemAberta(o.estado);
+  const progresso = o?.progresso ?? progressoTarefas(o?.tarefas);
+  const tarefasOk = podeConcluirTarefas(progresso);
   return (
     <Modal open={!!id} onCancel={aoFechar} width={980} footer={null} destroyOnHidden
       title={o ? <Space wrap><IconeFa nome="clipboard-check" /> Ordem {o.numero} <EtiquetaOrdem estado={o.estado} /></Space> : 'Ordem'}>
@@ -148,18 +170,8 @@ export function DetalheOrdemModal({ id, aoFechar }: { id: number | null; aoFecha
           {o.descricao && <Alert style={{ margin: '12px 0' }} type="info" message={o.descricao} />}
           {o.motivo_cancelamento && <Alert style={{ margin: '12px 0' }} type="error" message={<><strong>Cancelada:</strong> {o.motivo_cancelamento}</>} />}
           {o.resolucao && <Alert style={{ margin: '12px 0' }} type="success" message={<><strong>Trabalho efectuado:</strong> {o.resolucao}{Number(o.horas) ? ` · ${Number(o.horas)} h` : ''}{o.data_fim ? ` · concluída em ${formatarData(o.data_fim)}` : ''}</>} />}
-          {!!o.tarefas?.length && (
-            <Card size="small" title="Tarefas" style={{ marginBottom: 12 }}>
-              <Space direction="vertical">
-                {o.tarefas.map((t, k) => (
-                  <Checkbox key={k} checked={t.feito} disabled={!aberta || !gerir}
-                    onChange={(e) => accao.mutate({ metodo: 'put', url: `/ativos/manutencao/ordens/${o.id}/tarefas`, dados: { feitas: o.tarefas!.map((x, j) => (j === k ? e.target.checked : x.feito)) } })}>
-                    {t.texto}
-                  </Checkbox>
-                ))}
-              </Space>
-            </Card>
-          )}
+          {/* r3_activos: checklist com progresso, quem/quando, obrigatórias/opcionais e reabertura */}
+          {(!!o.tarefas?.length || (aberta && gerir)) && <ChecklistTarefas ordem={o} aberta={aberta} gerir={gerir} />}
           <Card size="small" title="Necessidades" extra={aberta && (
             <Space>
               {gerir && <Button size="small" icon={<IconeFa nome="plus" />} onClick={() => setItem(true)}>Acrescentar</Button>}
@@ -195,9 +207,14 @@ export function DetalheOrdemModal({ id, aoFechar }: { id: number | null; aoFecha
             </Space>
             <Space>
               <Button onClick={aoFechar}>Fechar</Button>
-              {aberta && gerir && <Button type="primary" style={{ background: '#10b981' }} icon={<IconeFa nome="check" />} onClick={() => setConcluir(true)}>Concluir</Button>}
+              {aberta && gerir && (
+                <Tooltip title={tarefasOk ? undefined : `Faltam ${progresso.obrigatorias_por_fazer} tarefa(s) obrigatória(s): a ordem fica pendente até estarem todas feitas.`}>
+                  <Button type="primary" style={tarefasOk ? { background: '#10b981' } : undefined} disabled={!tarefasOk} icon={<IconeFa nome="check" />} onClick={() => setConcluir(true)}>Concluir</Button>
+                </Tooltip>
+              )}
             </Space>
           </Space>
+          <HistoricoOrdem eventos={o.historico} />
           <ModalItem ordemId={o.id} aberto={item} aoFechar={() => setItem(false)} />
           <AssistenteRequisicao ordem={o} aberto={assistente} aoFechar={() => setAssistente(false)} />
           <ModalConclusao ordem={o} aberto={concluir} aoFechar={() => setConcluir(false)} />

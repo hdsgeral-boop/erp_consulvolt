@@ -1,3 +1,4 @@
+import { theme } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { obter } from '@/api/cliente';
@@ -54,6 +55,15 @@ export function subseparadorFaturacao(caminho: string): (typeof SUBSEPARADORES_F
   return (m?.[1] as 'orcamentos' | 'encomendas' | 'guias' | 'recibos' | undefined) ?? null;
 }
 
+/** N.º de documentos por subseparador (GET /vendas/documentos/contagens — ServicoParidadeVendas::GRUPOS + recibos). */
+export type ContagensFaturacao = Partial<Record<(typeof SUBSEPARADORES_FATURACAO)[number]['chave'], number>>;
+
+/** Texto do distintivo do subseparador (vazio enquanto as contagens não chegam). */
+export function textoContagem(contagens: ContagensFaturacao | undefined, chave: (typeof SUBSEPARADORES_FATURACAO)[number]['chave']): string {
+  const n = contagens?.[chave];
+  return typeof n === 'number' ? String(n) : '';
+}
+
 export interface IndicadoresVendas {
   pendentes: number;
   a_receber: string;
@@ -81,6 +91,15 @@ export function BarraVendas() {
     retry: false,
   });
   const i = indicadores.data;
+  const { token } = theme.useToken();
+  // distintivos com o n.º de documentos de cada subseparador (renderFaturaçãoTab, js/ui_sales.js:720-723)
+  const contagens = useQuery({
+    queryKey: ['vendas', 'contagens'],
+    queryFn: () => obter<ContagensFaturacao>('/vendas/documentos/contagens'),
+    enabled: naFaturacao && !!sub && pode('vendas_faturacao_view'),
+    staleTime: 60_000,
+    retry: false,
+  });
 
   return (
     <CabecalhoModulo
@@ -94,7 +113,7 @@ export function BarraVendas() {
         { chave: 'mensal', rotulo: 'Mensal', valor: `${formatarKz(i.mensal)} Kz`, icone: 'chart-bar', cor: '#10b981', dica: 'Facturado no mês corrente (facturas e facturas-recibo, com IVA)' },
       ] : undefined}
       separadores={SEPARADORES_VENDAS.map((s) => ({ ...s, permissao: [...(Array.isArray(s.permissao) ? s.permissao : [s.permissao])] }))}
-      // sub-separadores na mesma linha, à direita, sem contadores — como o legado (renderFaturaçãoTab)
+      // sub-separadores na mesma linha, à direita, com o n.º de documentos de cada um — como o legado (renderFaturaçãoTab)
       separadoresDireita={
         naFaturacao &&
         sub &&
@@ -114,6 +133,14 @@ export function BarraVendas() {
             >
               <span className="erp-separador-icone"><IconeFa nome={s.icone} /></span>
               <span>{s.rotulo}</span>
+              {textoContagem(contagens.data, s.chave) !== '' && (
+                <span
+                  aria-label={`${textoContagem(contagens.data, s.chave)} documentos`}
+                  style={{ background: token.colorFillSecondary, color: token.colorText, borderRadius: 10, padding: '1px 7px', fontSize: '0.75rem', marginLeft: 4 }}
+                >
+                  {textoContagem(contagens.data, s.chave)}
+                </span>
+              )}
             </a>
           );
         })

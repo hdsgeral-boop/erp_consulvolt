@@ -237,7 +237,11 @@ final class ServicoDocumentosVenda
         });
     }
 
-    /** Converte um documento (orçamento/proforma/encomenda -> factura; factura -> nota de crédito). */
+    /**
+     * Converte um documento (orçamento/proforma/encomenda -> factura; factura -> nota de crédito).
+     * $extra['quantidades'] ({item_venda_id: quantidade}, opcional): converte só essas quantidades (ex.: entrega parcial de
+     * uma encomenda pelo Armazém); sem ele, converte tudo o que falta, como antes.
+     */
     public function converter(Venda $origem, string $destino, array $extra): Venda
     {
         if (! in_array($destino, self::CONVERSOES[$origem->tipo_documento] ?? [], true)) {
@@ -260,6 +264,12 @@ final class ServicoDocumentosVenda
 
         $itens = $origem->itensVenda()->orderBy('id')->get();
         $creditada = $destino === 'NC' ? $this->quantidadesCreditadas($origem) : [];
+        // conversão parcial (Armazém › Emitir Guia de Saída, ServicoGuiasRemessaArmazem): quantidade por linha de origem
+        // ({item_venda_id: quantidade}); as linhas omitidas não se convertem e nunca se converte mais do que o que falta
+        $pedidas = isset($extra['quantidades']) ? array_map('floatval', (array) $extra['quantidades']) : null;
+        if ($pedidas !== null && array_diff(array_map('intval', array_keys($pedidas)), $itens->pluck('id')->all())) {
+            throw new ErroNegocio('Há linhas que não pertencem ao documento de origem.', 'LINHA_INVALIDA', 422);
+        }
         $linhas = [];
         foreach ($itens as $i) {
             // NC: o que ainda não foi creditado por outras NC (creditado por produto, abatido às primeiras linhas)
@@ -273,9 +283,19 @@ final class ServicoDocumentosVenda
                 $origem->tipo_documento === 'GR' => (float) $i->quantidade - (float) $i->quantidade_faturada - (float) $i->quantidade_devolvida,
                 default => (float) $i->quantidade - (float) $i->quantidade_faturada,
             };
+            if ($pedidas !== null) {
+                $q = $pedidas[$i->id] ?? 0.0;
+                $falta = max(0, round($restante, 3));
+                if ($q > $restante + 0.0005) {
+                    throw new ErroNegocio("{$i->descricao}: a quantidade ({$q}) excede a que falta ({$falta}).", 'QUANTIDADE_EXCEDIDA', 422,
+                        ['item_origem_id' => $i->id, 'disponivel' => $falta]);
+                }
+                $restante = $q;
+            }
             if ($restante > 0.0005) {
                 $preco = $origem->codigo_moeda && $origem->codigo_moeda !== ServicoCambios::BASE && $i->preco_unitario_moeda !== null ? $i->preco_unitario_moeda : $i->preco_unitario;
-                $linhas[] = ['produto_id' => $i->produto_id, 'quantidade' => $restante, 'preco_unitario' => $preco, 'descricao' => $i->descricao, 'item_origem_id' => $i->id, '_origem' => $i];
+                $linhas[] = ['produto_id' => $i->produto_id, 'quantidade' => $restante, 'preco_unitario' => $preco, 'descricao' => $i->descricao,
+                    'observacoes' => $i->observacoes, 'item_origem_id' => $i->id, '_origem' => $i];   // a observação do artigo acompanha a conversão
             }
         }
         if (! $linhas) {
@@ -343,7 +363,7 @@ final class ServicoDocumentosVenda
                     if ($restante > 0.0005) {
                         $preco = $g->codigo_moeda && $g->codigo_moeda !== ServicoCambios::BASE && $i->preco_unitario_moeda !== null ? $i->preco_unitario_moeda : $i->preco_unitario;
                         $l = ['produto_id' => $i->produto_id, 'quantidade' => $restante, 'preco_unitario' => $preco,
-                            'descricao' => $i->descricao, 'item_origem_id' => $i->id, '_origem' => $i];
+                            'descricao' => $i->descricao, 'observacoes' => $i->observacoes, 'item_origem_id' => $i->id, '_origem' => $i];
                         $linhas[] = $l;
                         $porGuia[$g->id][] = $l;
                     }

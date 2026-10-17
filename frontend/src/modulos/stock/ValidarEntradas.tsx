@@ -90,6 +90,15 @@ function ListaEntradas() {
             r.situacao === 'PENDENTE' && pode('armazem_validar') && { icone: 'check', titulo: 'Validar Entrada', variante: 'sucesso', cheio: true, onClick: () => navegar(String(r.id)) },
             // legado (ui_warehouse.js:328,335): cancelar a receção pendente / reverter a validação — confirmados no detalhe
             r.situacao === 'PENDENTE' && pode('armazem_validar') && { icone: 'times', titulo: 'Cancelar Receção', variante: 'perigo', cheio: true, onClick: () => navegar(String(r.id)) },
+            // legado (ui_warehouse.js:331-335): recepção validada de uma compra feita para uma encomenda de cliente — abre o
+            // «Emitir Guia de Saída» já preenchido com essa encomenda (a GR das Vendas, ADR-043)
+            !!r.encomenda_cliente_id && r.situacao === 'VALIDADO' && pode('armazem_guias_emitir') && pode('vendas_fat_emitir') && {
+              icone: 'truck',
+              titulo: 'Gerar Guia de Saída para Cliente (Back-to-Back)',
+              variante: 'primario',
+              cheio: true,
+              onClick: () => navegar(`/m/stock/armazem_guias/novo?encomenda=${r.encomenda_cliente_id}`),
+            },
             r.situacao === 'VALIDADO' && pode('armazem_validar') && { icone: 'undo', titulo: 'Eliminar/Reverter Validação', variante: 'perigo', cheio: true, onClick: () => navegar(String(r.id)) },
           ]}
           impressao={{

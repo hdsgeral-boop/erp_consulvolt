@@ -4,7 +4,7 @@ import type { UploadFile } from 'antd/es/upload/interface';
 import { DeleteOutlined, DownloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { descarregar, http, obter } from '@/api/cliente';
 import type { Envelope } from '@/api/tipos';
 import { IconeFa } from '@/componentes/fluxos';
@@ -37,7 +37,7 @@ function textoCelula(e: CelulaEscala): string {
   return h2(e.horas);
 }
 
-export function EscalaMes({ mes }: { mes: string }) {
+export function EscalaMes({ mes, seletor }: { mes: string; seletor?: ReactNode }) {
   const { pode } = useSessao();
   const q = useQuery({ queryKey: ['rh', 'assiduidade', 'escalas', mes], queryFn: () => obter<GrelhaEscala>(`/rh/assiduidade/escalas/${mes}`) });
   useAvisarErro(q.error);
@@ -97,7 +97,7 @@ export function EscalaMes({ mes }: { mes: string }) {
   ];
 
   return (
-    <Card title={<Space><IconeFa nome="calendar-alt" />Escala de {mesPorExtenso(mes)}{editar && <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}>— clique numa célula para alterar esse dia</Typography.Text>}</Space>} loading={q.isLoading}
+    <Card title={<Space wrap>{seletor}<Space><IconeFa nome="calendar-alt" />Escala de {mesPorExtenso(mes)}{editar && <Typography.Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}>— clique numa célula para alterar esse dia</Typography.Text>}</Space></Space>} loading={q.isLoading}
       extra={(
         <Space wrap>
           <BotoesExportar desactivado={!linhas.length} obterPedido={pedidoGrelha} />

@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import { ModalMotivo, useAccao } from '@/componentes/Accoes';
 import { larguraModal } from '@/componentes/responsivo';
 import { PainelPesquisaCompras } from '../comum/PainelPesquisaCompras';
-import type { AccaoLinha } from '@/componentes/vistas';
+import { BotaoAccao, type AccaoLinha } from '@/componentes/vistas';
 import { useImprimirCompra } from '../comum/accoesLista';
 import { colunasMoeda, colunaUnCc } from '../comum/colunasLegado';
 import { ModalFluxoDocumental, type TipoDocumentoCompra } from '../comum/FluxoDocumental';
@@ -26,6 +26,7 @@ import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
 import type { FaturaCompra } from '../comum/tipos';
 import { DetalheFatura } from './DetalheFatura';
 import { NovaFatura } from './NovaFatura';
+import { PopoverPreContabilizacao } from './PopoverPreContabilizacao';
 
 /** Compras › Facturas de fornecedores (ecrã compras_faturacao). */
 export default function FaturacaoCompras() {
@@ -89,10 +90,29 @@ function ListaFaturas() {
       { icone: 'project-diagram', titulo: 'Ver Fluxo', variante: 'info', onClick: () => setFluxo({ tipo: 'fatura', id: f.id }) },
       f.contabilizado
         ? { icone: 'undo', titulo: 'Descontabilizar', cor: '#dc2626', desactivado: !a.descontabilizar && (pode('compras_descontab') ? 'Factura paga: não se descontabiliza' : 'Sem permissão para descontabilizar'), onClick: () => setModal({ tipo: 'descontabilizar', f }) }
-        : { icone: 'book', titulo: 'Contabilizar', variante: 'primario', oculto: anulada, desactivado: !a.contabilizar && 'Sem permissão para contabilizar', confirmar: `Contabilizar a factura ${f.numero_fatura}?`, onClick: () => accao.mutateAsync({ url: `/compras/faturas/${f.id}/contabilizar` }) },
+        : { chave: 'contabilizar', icone: 'book', titulo: 'Contabilizar', variante: 'primario', oculto: anulada, desactivado: !a.contabilizar && 'Sem permissão para contabilizar', confirmar: `Contabilizar a factura ${f.numero_fatura}?`, onClick: () => accao.mutateAsync({ url: `/compras/faturas/${f.id}/contabilizar` }) },
       { icone: 'trash', titulo: 'Apagar Fatura', variante: 'perigo', cheio: true, onClick: () => setModal({ tipo: 'anular', f }),
         desactivado: anulada ? 'A factura já está anulada' : f.contabilizado ? 'Eliminação bloqueada: factura contabilizada (descontabilize primeiro)' : !a.anular ? 'Sem permissão para anular facturas' : false },
     ];
+  };
+
+  /**
+   * Coluna «Ações» própria (em vez da prop `accoes` da tabela) só para envolver «Contabilizar» na simulação
+   * contabilística ao passar o rato (legado :640); o resto é o mesmo grupo de botões de AccoesLinha.
+   */
+  const colunaAccoes: ColunaApi<FaturaCompra> = {
+    key: '__accoes', title: 'Ações', accoes: true, exportar: false, filtravel: false, ocultavel: false, align: 'left',
+    render: (_, f) => (
+      <span className="erp-accoes-linha" role="group" aria-label="Acções">
+        {accoes(f).filter((a) => !a.oculto).map((a, i) =>
+          a.chave === 'contabilizar' && !a.desactivado ? (
+            <PopoverPreContabilizacao key="contabilizar" fatura={f}><BotaoAccao accao={a} /></PopoverPreContabilizacao>
+          ) : (
+            <BotaoAccao key={a.chave ?? `${a.icone}:${a.titulo}:${i}`} accao={a} />
+          ),
+        )}
+      </span>
+    ),
   };
 
   return (
@@ -136,8 +156,7 @@ function ListaFaturas() {
           url="/compras/faturas"
           chaveConsulta={['compras', 'faturas']}
           filtros={{ estado, fornecedor_id: fornecedor, encomenda_compra_id: encomenda, pesquisa: pesquisa || undefined, por_contabilizar: porContabilizar ? 1 : undefined, data_inicio: dataApi(periodo?.[0]), data_fim: dataApi(periodo?.[1]) }}
-          columns={colunas}
-          accoes={accoes}
+          columns={[...colunas, colunaAccoes]}
           rotuloTotal="TOTAL (FILTRADO):"
           size={pequeno ? 'small' : 'middle'}
           impressao={{

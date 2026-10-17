@@ -1,4 +1,5 @@
-import { Button, Card, Checkbox, DatePicker, Flex, Input, Modal, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
+import { useEcraPequeno } from '@/componentes/responsivo';
+import { Button, Card, Checkbox, DatePicker, Flex, Input, Modal, Segmented, Select, Space, Tag, Tooltip, Typography, message, theme } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +11,7 @@ import { IconeFa } from '@/componentes/fluxos';
 import type { AccaoLinha } from '@/componentes/vistas';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { notificarErro } from '@/utilitarios/erros';
-import { dataApi, formatarData } from '@/utilitarios/formatacao';
+import { dataApi, formatarData, formatarKz } from '@/utilitarios/formatacao';
 import type { DocumentoLancamento } from '../api';
 import { useDiarios, porId, useTabelaAux, useUnidadesNegocio } from '../comum/dados';
 import { ModalImportar } from '../comum/ficheiros';
@@ -23,6 +24,7 @@ import {
   descarregarTemplate,
   gravarSeccoesOcultas,
   lerSeccoesOcultas,
+  estadoInventario,
   regrasAccoes,
   type LinhaLista,
   type Seccao,
@@ -31,7 +33,9 @@ import { ModalSaldosHistoricos } from './ModalSaldosHistoricos';
 import { ModalClassificacao, ModalTransferir, pedidoClassificacao, type CamposClassificacao } from './ModaisLancamento';
 import { ModalColar, ModalDescontabilizar, ModalEstornar, ModalFluxoLancamento, abrirOrigem, obterOrigem, type AlvoMassa } from './ModaisParidade';
 import type { EstadoCopia } from './NovoLancamento';
-import { camposMassa, filtrosIniciais, filtrosLancamentos, intervaloPeriodo, REMOVER, SEM_ROTULOS, semCriterios, type FiltrosLista, type SemCampo } from './filtros';
+import { camposMassa, filtrosIniciais, filtrosLancamentos, intervaloPeriodo, PERIODOS, REMOVER, SEM_ROTULOS, semCriterios, type FiltrosLista, type SemCampo } from './filtros';
+import { QuebraLancamentos } from './QuebraLancamentos';
+import { VISTAS_LANCAMENTOS, type VistaLancamentos } from './quebra';
 
 // «Agente IA (Ler Documento)» do legado → Assistente IA (M-03, ecrã do grupo Geral), carregado só quando se abre
 const AssistenteIA = lazy(() => import('@/modulos/geral/integracoes/AssistenteIA').then((m) => ({ default: m.AssistenteIA })));
@@ -84,6 +88,7 @@ type Colar = { campo: 'contas' | 'numeroLan' | 'numeroDoc' | 'referencia'; titul
 export function ListaLancamentos() {
   const navegar = useNavigate();
   const { token } = theme.useToken();
+  const pequeno = useEcraPequeno();
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const ecra = useEcraCheio();
@@ -113,6 +118,8 @@ export function ListaLancamentos() {
   const [fluxoDe, setFluxoDe] = useState<number | null>(null);
   const [estornar, setEstornar] = useState<LinhaLista | null>(null);
   const [transferir, setTransferir] = useState<LinhaLista | null>(null);
+  // «Linhas» (a lista do legado) ou a quebra por terceiro / unidade de negócio / centro de custo das linhas filtradas
+  const [vista, setVista] = useState<VistaLancamentos>('linhas');
   const muda = (p: Partial<FiltrosLista>) => setRascunho((r) => ({ ...r, ...p }));
   const filtrar = () => setAplicados(rascunho);
   const filtros = useMemo(() => filtrosLancamentos(aplicados, sem), [aplicados, sem]);
@@ -220,6 +227,25 @@ export function ListaLancamentos() {
             ? () => comErro(async () => navegar('novo', { state: { copia: await documento(r.id), corrigir: r.id } satisfies EstadoCopia }), 'Não foi possível abrir o lançamento')
             : () => setEditar({ linha: r, titulo: a.tituloEdicao }),
       },
+      // legado (js/ui_lancamentos.js:392-409): linhas de aquisição 11/12 a débito — «Inventariar» (abre as Aquisições
+      // Pendentes do módulo de Activos) ou «OK» quando o imobilizado já está totalmente inventariado
+      estadoInventario(r) === 'inventariar' &&
+        pode('activos_inventariar', 'activos_pendentes_view') && {
+          chave: 'inventariar',
+          icone: 'fa-couch',
+          cor: token.colorPrimary,
+          texto: 'Inventariar',
+          titulo: `Inventariar Imobilizado (por inventariar: ${formatarKz(r.por_inventariar ?? null)})`,
+          onClick: () => navegar('/m/activos/activos_pendentes'),
+        },
+      estadoInventario(r) === 'ok' && {
+        chave: 'inventariado',
+        icone: 'fa-check-circle',
+        cor: token.colorSuccess,
+        texto: 'OK',
+        titulo: 'Imobilizado totalmente inventariado',
+        desactivado: 'Imobilizado totalmente inventariado',
+      },
       { chave: 'fluxo', icone: 'fa-project-diagram', cor: token.colorText, titulo: 'Ver Fluxo Completo', onClick: () => setFluxoDe(r.id) },
       a.estornar !== false && {
         chave: 'estornar',
@@ -288,6 +314,28 @@ export function ListaLancamentos() {
     setRascunho({});
     setAplicados({});
     setSelec([]);
+  };
+
+  // impressão/PDF/Excel da lista (e cabeçalho da impressão da quebra): período e filtros aplicados
+  const impressaoLista = {
+    titulo: 'Lançamentos contabilísticos',
+    orientacao: 'paisagem' as const,
+    // rótulo do total do legado («TOTAL MOVIMENTOS (FILTRADO):», js/ui_lancamentos.js:744)
+    rotuloTotal: 'TOTAL MOVIMENTOS (FILTRADO):',
+    periodo: aplicados.inicio && aplicados.fim ? `${formatarData(aplicados.inicio)} a ${formatarData(aplicados.fim)}` : undefined,
+    filtros: [
+      !!aplicados.diario && `Diário: ${codigoDiario.get(aplicados.diario) ?? aplicados.diario}`,
+      aplicados.contas && `Contas: ${aplicados.contas}`,
+      !!aplicados.terceiro && `Terceiro: n.º ${aplicados.terceiro}`,
+      aplicados.numeroLan && `N.º lançamento: ${aplicados.numeroLan}`,
+      aplicados.numeroDoc && `N.º documento: ${aplicados.numeroDoc}`,
+      aplicados.referencia && `Referência: ${aplicados.referencia}`,
+      (aplicados.docInicio || aplicados.docFim) && `Data doc.: ${formatarData(aplicados.docInicio ?? null) || '…'} a ${formatarData(aplicados.docFim ?? null) || '…'}`,
+      (aplicados.criadoInicio || aplicados.criadoFim) && `Data lanç.: ${formatarData(aplicados.criadoInicio ?? null) || '…'} a ${formatarData(aplicados.criadoFim ?? null) || '…'}`,
+      aplicados.pesquisa && `Descrição: ${aplicados.pesquisa}`,
+      aplicados.classe9 && 'Inclui classe 9',
+      sem.length > 0 && `Sem: ${SEM_ROTULOS.filter((s) => sem.includes(s.chave)).map((s) => s.rotulo).join(', ')}`,
+    ],
   };
 
   // «Secções» (legado: filtros-vistas): mostrar/ocultar cada secção ou todas
@@ -440,7 +488,7 @@ export function ListaLancamentos() {
                   style={{ width: '100%' }}
                   value={rascunho.mes}
                   disabled={!rascunho.ano}
-                  options={Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: String(i + 1) }))}
+                  options={PERIODOS}
                   onChange={(mes?: number) => muda({ mes, ...intervaloPeriodo(rascunho.ano, mes) })}
                 />
               </CampoFiltro>
@@ -536,6 +584,38 @@ export function ListaLancamentos() {
           )}
         </PainelFiltros>
         <Card size="small" styles={{ body: { padding: 8 } }}>
+          <Flex wrap gap={8} align="center" style={{ marginBottom: 8 }}>
+            <Typography.Text strong>Listagem de Movimentos (Diário)</Typography.Text>
+            {/* em ecrã estreito (telemóvel) as quatro vistas não cabem lado a lado: lista de escolha */}
+            {pequeno ? (
+              <Select<VistaLancamentos>
+                size="small"
+                aria-label="Vista da listagem: linhas ou quebra"
+                value={vista}
+                onChange={setVista}
+                style={{ width: '100%' }}
+                options={VISTAS_LANCAMENTOS.map((v) => ({ value: v.valor, label: v.rotulo }))}
+              />
+            ) : (
+              <Segmented<VistaLancamentos>
+                size="small"
+                aria-label="Vista da listagem: linhas ou quebra"
+                value={vista}
+                onChange={setVista}
+                options={VISTAS_LANCAMENTOS.map((v) => ({ value: v.valor, label: <span title={v.rotulo}><IconeFa nome={v.icone} /> {v.rotulo}</span> }))}
+              />
+            )}
+          </Flex>
+          {vista !== 'linhas' ? (
+            <QuebraLancamentos
+              por={vista}
+              filtros={filtros}
+              colunas={colunas}
+              accoes={accoes}
+              aoAbrir={(id) => navegar(String(id))}
+              impressao={{ titulo: 'Lançamentos contabilísticos', periodo: impressaoLista.periodo, filtros: impressaoLista.filtros }}
+            />
+          ) : (
           <TabelaApi<LinhaLista>
             url="/contabilidade/lancamentos"
             chaveConsulta={['contab', 'lancamentos']}
@@ -551,30 +631,13 @@ export function ListaLancamentos() {
               aoMudar: (k) => setSelec(k.map(Number)),
               ajuda: 'Marque as linhas para «Descontabilizar Selecionados» ou «Alterar em massa»; sem selecção, aplicam-se a todas as filtradas.',
             }}
-            impressao={{
-              titulo: 'Lançamentos contabilísticos',
-              orientacao: 'paisagem',
-              rotuloTotal: 'TOTAL:',
-              periodo: aplicados.inicio && aplicados.fim ? `${formatarData(aplicados.inicio)} a ${formatarData(aplicados.fim)}` : undefined,
-              filtros: [
-                !!aplicados.diario && `Diário: ${codigoDiario.get(aplicados.diario) ?? aplicados.diario}`,
-                aplicados.contas && `Contas: ${aplicados.contas}`,
-                !!aplicados.terceiro && `Terceiro: n.º ${aplicados.terceiro}`,
-                aplicados.numeroLan && `N.º lançamento: ${aplicados.numeroLan}`,
-                aplicados.numeroDoc && `N.º documento: ${aplicados.numeroDoc}`,
-                aplicados.referencia && `Referência: ${aplicados.referencia}`,
-                (aplicados.docInicio || aplicados.docFim) && `Data doc.: ${formatarData(aplicados.docInicio ?? null) || '…'} a ${formatarData(aplicados.docFim ?? null) || '…'}`,
-                (aplicados.criadoInicio || aplicados.criadoFim) && `Data lanç.: ${formatarData(aplicados.criadoInicio ?? null) || '…'} a ${formatarData(aplicados.criadoFim ?? null) || '…'}`,
-                aplicados.pesquisa && `Descrição: ${aplicados.pesquisa}`,
-                aplicados.classe9 && 'Inclui classe 9',
-                sem.length > 0 && `Sem: ${SEM_ROTULOS.filter((s) => sem.includes(s.chave)).map((s) => s.rotulo).join(', ')}`,
-              ],
-            }}
+            impressao={impressaoLista}
             onRow={(r) => ({
               // duplo clique abre o lançamento (o clique simples fica para a selecção e as acções, como no legado)
               onDoubleClick: () => navegar(String(r.id)),
             })}
           />
+          )}
         </Card>
       </div>
       <ModalColar

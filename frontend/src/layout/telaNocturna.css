@@ -88,8 +88,18 @@
   html.erp-tela-nocturna .erp-ajuda-resultado { background: #111a2b; border-color: #334155; color: #e2e8f0; }
   html.erp-tela-nocturna .erp-painel-ajuda kbd,
   html.erp-tela-nocturna .erp-ajuda-corpo kbd { background: #1e293b; border-color: #475569; }
-  html.erp-tela-nocturna .erp-pesquisa-resultados button.activo { background: #1e3a8a; }
+  /* pesquisa «Procurar» da barra superior (campo e lista) */
+  html.erp-tela-nocturna .erp-pesquisa-cabecalho .ant-input-affix-wrapper { background: #1e293b; border-color: #1e293b; }
+  html.erp-tela-nocturna .erp-pesquisa-cabecalho .ant-input-affix-wrapper:hover { border-color: #334155; }
+  html.erp-tela-nocturna .erp-pesquisa-cabecalho .ant-input-affix-wrapper-focused,
+  html.erp-tela-nocturna .erp-pesquisa-cabecalho .ant-input-affix-wrapper:focus-within { background: #0f172a; border-color: #3b82f6; }
+  html.erp-tela-nocturna .erp-pesquisa-cabecalho.flutuante { background: #111a2b; }
+  html.erp-tela-nocturna .erp-pesquisa-atalho { background: #0f172a; border-color: #334155; color: #94a3b8; }
+  html.erp-tela-nocturna .erp-pesquisa-icone { background: #1e293b; color: #93c5fd; }
   html.erp-tela-nocturna .erp-pesquisa-nome { color: #e2e8f0; }
+  html.erp-tela-nocturna .erp-pesquisa-caminho,
+  html.erp-tela-nocturna .erp-pesquisa-grupo { color: #94a3b8; }
+  html.erp-tela-nocturna .erp-pesquisa-nome mark { background: #854d0e; color: #fef3c7; }
 }
 
 /* (busca no menu, realce e resultado escolhido: src/estilos/identidade.css, secção do menu lateral) */
@@ -107,10 +117,10 @@
   html.erp-tela-nocturna .erp-gaveta-menu .ant-drawer-content {
     background: #0b1119;
   }
-  html.erp-tela-nocturna .erp-menu-puxador::after { background: #334155; }
+  html.erp-tela-nocturna .erp-menu-alternar { background: #0f172a; border-color: #1f2a3d; }
 
   /* barra superior: botões com contorno, «Ajuda» e separador do utilizador (as regras claras usam !important) */
-  html.erp-tela-nocturna .erp-cabecalho .ant-btn:not(.erp-botao-ajuda):not(.erp-botao-menu) {
+  html.erp-tela-nocturna .erp-cabecalho .ant-btn:not(.erp-botao-ajuda):not(.erp-botao-menu):not(.erp-pesquisa-fechar) {
     border-color: #475569 !important;
     color: #e2e8f0 !important;
   }

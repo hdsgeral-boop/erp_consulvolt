@@ -88,3 +88,14 @@ export function barraNoAno(p: Pick<PeriodoFerias, 'data_inicio' | 'data_fim'>, a
   if (z < 0 || a > total - 1 || z < a) return null;
   return { esquerda: (a / total) * 100, largura: ((z - a + 1) / total) * 100 };
 }
+
+/**
+ * Anos da lista «Ano» (antigo: ferias.js anosDisponiveis, :184): do próximo ano até 5 anos atrás, mais o ano escolhido
+ * se estiver fora desse intervalo; do mais recente para o mais antigo.
+ */
+export function anosDisponiveis(anoActual: number, escolhido: number): number[] {
+  const lista: number[] = [];
+  for (let x = anoActual + 1; x >= anoActual - 5; x -= 1) lista.push(x);
+  if (!lista.includes(escolhido)) lista.push(escolhido);
+  return lista.sort((a, b) => b - a);
+}

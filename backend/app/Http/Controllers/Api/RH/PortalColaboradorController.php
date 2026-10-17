@@ -21,6 +21,15 @@ use Illuminate\Validation\Rule;
  */
 final class PortalColaboradorController extends Controller
 {
+    /** Estados de um pedido do portal (filtro da lista do RH). */
+    public const ESTADOS_PEDIDO = ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'];
+
+    /** Estados que ainda esperam uma decisão (chefia ou RH). */
+    public const ESTADOS_PENDENTES = ['PENDENTE_CHEFIA', 'PENDENTE_RH'];
+
+    /** Valor do filtro «Por decidir»: os dois estados pendentes. */
+    public const POR_DECIDIR = 'POR_DECIDIR';
+
     public function __construct(
         private readonly ServicoPortalColaborador $portal,
         private readonly ServicoDocumentosRH $documentos,
@@ -141,9 +150,12 @@ final class PortalColaboradorController extends Controller
     public function pedidos(Request $r): JsonResponse
     {
         $this->exigir('rh_portal_gestao_view', 'rh_portal_aprovar');
-        $f = $r->validate(['estado' => ['nullable', 'string'], 'tipo' => ['nullable', Rule::in(ServicoPortalColaborador::TIPOS)], 'colaborador_id' => ['nullable', 'integer']]);
+        $f = $r->validate(['estado' => ['nullable', 'string', Rule::in([...self::ESTADOS_PEDIDO, self::POR_DECIDIR])],
+            'tipo' => ['nullable', Rule::in(ServicoPortalColaborador::TIPOS)], 'colaborador_id' => ['nullable', 'integer']]);
 
-        return RespostaApi::sucesso(PedidoPortalColaborador::query()->when($f['estado'] ?? null, fn ($q, $e) => $q->where('estado', $e))
+        return RespostaApi::sucesso(PedidoPortalColaborador::query()
+            // «Por decidir» (antigo: portal_ui.js:855, estado PENDENTES) junta os dois estados pendentes
+            ->when($f['estado'] ?? null, fn ($q, $e) => $e === self::POR_DECIDIR ? $q->whereIn('estado', self::ESTADOS_PENDENTES) : $q->where('estado', $e))
             ->when($f['tipo'] ?? null, fn ($q, $t) => $q->where('tipo', $t))->when($f['colaborador_id'] ?? null, fn ($q, $c) => $q->where('colaborador_id', $c))
             ->orderByDesc('id')->get(), 'Pedidos do portal.');
     }

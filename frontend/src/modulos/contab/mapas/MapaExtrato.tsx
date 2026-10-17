@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Checkbox, Collapse, DatePicker, Flex, Form, Input, Modal, Select, Space, Tag, Typography, message, theme } from 'antd';
+import { Alert, Button, Card, Checkbox, Collapse, DatePicker, Flex, Form, Input, Modal, Segmented, Select, Space, Tag, Typography, message, theme } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useRef, useState, type Key } from 'react';
@@ -21,6 +21,7 @@ import { useAbrirLancamento, useMapa } from '../comum/useMapa';
 import type { PedidoExtratoConta } from './MapaBalancete';
 import { contasParaColar, descreverUltimo, normalizarContasColadas } from './separadoresRelatorios';
 import { TituloMapa } from './TituloMapa';
+import { ExtratoPorConta } from './ExtratoPorConta';
 
 interface Compensacao {
   reconciliacao_codigo: string;
@@ -82,6 +83,8 @@ export default function MapaExtrato() {
   const [codigo, setCodigo] = useState<string | null>(null);
   const [limpo, setLimpo] = useState(false);
   const [criterio, setCriterio] = useState(false);
+  // «Movimentos» (o extracto do legado) ou «Por conta»: cada conta com os subtotais, que abre os seus movimentos
+  const [vista, setVista] = useState<'movimentos' | 'contas'>('movimentos');
   const area = useRef<HTMLDivElement>(null);
   const [formReg] = Form.useForm<{ codigo_conta: string; data: Dayjs; diario_id?: number }>();
   const d = limpo ? undefined : mapa.data;
@@ -356,6 +359,21 @@ export default function MapaExtrato() {
             </Space>
           </Flex>
           {ultimo && <Alert type="info" showIcon style={{ marginBottom: 12 }} message={descreverUltimo(d.ultimo)} />}
+          <Segmented<'movimentos' | 'contas'>
+            size="small"
+            className="imp-nao-imprimir"
+            style={{ marginBottom: 8 }}
+            aria-label="Vista do extracto"
+            value={vista}
+            onChange={setVista}
+            options={[
+              { value: 'movimentos', label: <span><IconeFa nome="list" /> Movimentos</span> },
+              { value: 'contas', label: <span title="Uma linha por conta com os subtotais; abre os movimentos de cada conta"><IconeFa nome="sitemap" /> Por conta</span> },
+            ]}
+          />
+          {vista === 'contas' ? (
+            <ExtratoPorConta movimentos={movimentos} abrir={abrir} />
+          ) : (
           <TabelaComModos<MovimentoExtrato>
             idVista="extrato"
             modos={false}
@@ -403,6 +421,7 @@ export default function MapaExtrato() {
               accoes: <Button size="small" onClick={novaConsulta}>Limpar Filtros</Button>,
             }}
           />
+          )}
         </div>
       )}
 

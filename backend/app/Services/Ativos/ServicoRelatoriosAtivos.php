@@ -19,6 +19,7 @@ use Illuminate\Support\Collection;
  *     correcção: o legado listava todos os activos, mesmo os adquiridos depois do ano, e os abatidos em anos anteriores;
  *   - resumo por categoria (bruto, amortização acumulada, líquido) para a Nota 4 das demonstrações (ui_reports.js:4100-4127),
  *     sem os activos abatidos (que o abate retira do balanço);
+ *   - r3_activos: só os bens próprios entram (os alheios — arrendados, cedidos, de terceiros — não são imobilizado da empresa);
  *   - fluxo do imobilizado (js/fluxo_imobilizado.js): da aquisição à integração das amortizações, com as mesmas etapas e regras.
  */
 final class ServicoRelatoriosAtivos
@@ -28,7 +29,7 @@ final class ServicoRelatoriosAtivos
     public function mapaAmortizacoes(int $ano): array
     {
         $cats = CategoriaAtivo::withTrashed()->get()->keyBy('id');
-        $ativos = AtivoImobilizado::query()->whereYear('data_aquisicao', '<=', $ano)->orderBy('codigo')->get();
+        $ativos = AtivoImobilizado::query()->proprios()->whereYear('data_aquisicao', '<=', $ano)->orderBy('codigo')->get();
         $registos = AmortizacaoAtivo::query()->whereIn('ativo_imobilizado_id', $ativos->pluck('id'))->get()->groupBy('ativo_imobilizado_id');
         $linhas = [];
         $tot = ['aquisicao_anos_anteriores' => '0.00', 'aquisicao_ano' => '0.00', 'acumulado_anterior' => '0.00', 'ano' => '0.00', 'acumulado' => '0.00', 'liquido' => '0.00',
@@ -72,7 +73,7 @@ final class ServicoRelatoriosAtivos
     {
         $cats = CategoriaAtivo::withTrashed()->get()->keyBy('id');
         $abatidosAntes = AbateVendaAtivo::query()->where('data', '<', "{$ano}-01-01")->pluck('ativo_imobilizado_id')->flip();
-        $ativos = AtivoImobilizado::query()->whereYear('data_aquisicao', '<=', $ano)->orderBy('codigo')->get()->reject(fn ($a) => isset($abatidosAntes[$a->id]));
+        $ativos = AtivoImobilizado::query()->proprios()->whereYear('data_aquisicao', '<=', $ano)->orderBy('codigo')->get()->reject(fn ($a) => isset($abatidosAntes[$a->id]));
         $contas = LancamentoContabil::query()->whereIn('id', $ativos->pluck('lancamento_contabil_id')->filter())->pluck('codigo_conta', 'id');
         $integradas = AmortizacaoAtivo::query()->whereIn('ativo_imobilizado_id', $ativos->pluck('id'))->where('contabilizado', true)->get()->groupBy('ativo_imobilizado_id');
         $linhas = [];
@@ -114,7 +115,7 @@ final class ServicoRelatoriosAtivos
     {
         $cats = CategoriaAtivo::withTrashed()->get()->keyBy('id');
 
-        return AtivoImobilizado::query()->where('estado', '<>', AtivoImobilizado::ESTADO_ABATIDO)->get()->groupBy('categoria_ativo_id')
+        return AtivoImobilizado::query()->proprios()->where('estado', '<>', AtivoImobilizado::ESTADO_ABATIDO)->get()->groupBy('categoria_ativo_id')
             ->map(function (Collection $g, $id) use ($cats) {
                 $bruto = $g->reduce(fn ($s, $a) => bcadd($s, CalculadoraAmortizacoes::d($a->valor_aquisicao), 2), '0.00');
                 $acumulada = $g->reduce(fn ($s, $a) => bcadd($s, CalculadoraAmortizacoes::d($a->amortizacao_acumulada), 2), '0.00');
@@ -134,7 +135,7 @@ final class ServicoRelatoriosAtivos
     {
         $ultimo = (int) date('Y', strtotime($referencia ?? 'now')) * 12 + (int) date('n', strtotime($referencia ?? 'now')) - 2;
         $cats = CategoriaAtivo::withTrashed()->get()->keyBy('id');
-        $ativos = AtivoImobilizado::query()->orderBy('codigo')->get();
+        $ativos = AtivoImobilizado::query()->proprios()->orderBy('codigo')->get();
         $registos = AmortizacaoAtivo::query()->get()->groupBy('ativo_imobilizado_id');
         $porCalcular = collect($this->amortizacoes->mesesPorCalcular($ultimo))->groupBy('ativo_imobilizado_id');
         $linhas = LancamentoContabil::query()->where('tipo_dc', 'D')->where(fn ($q) => $q->where('codigo_conta', 'like', '11%')->orWhere('codigo_conta', 'like', '12%'))

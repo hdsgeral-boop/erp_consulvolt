@@ -5,6 +5,7 @@ namespace App\Services\Gestao\Paineis;
 use App\Models\Utilizador;
 use App\Services\Ativos\ServicoAquisicoesAtivos;
 use App\Services\Integracoes\Cambios\ServicoCambiosBAIAutomaticos;
+use App\Services\Logistica\ServicoNiveisStock;
 use App\Services\RH\ServicoAvaliacao360;
 use App\Services\RH\ServicoEstruturaOrg;
 use App\Services\RH\ServicoPortalColaborador;
@@ -27,6 +28,11 @@ use Throwable;
  *   · actividades CRM em atraso (crm_agenda) · vagas em aberto (est_mapa) · pedidos do portal que o utilizador decide
  *   (ServicoPortalColaborador::pendentesParaMim) · acções pendentes da avaliação 360º do próprio.
  * Cada contador é isolado: uma falha num módulo não impede os restantes (como o legado, `contar`).
+ * Holding (empresa de consolidação): só se mostram os módulos da holding (Contabilidade; o Início e o Dashboard estão sempre) e,
+ * em vez dos contadores dos módulos operacionais (a holding não factura, não compra, não processa salários), os da consolidação:
+ * movimentos das empresas do grupo posteriores à última consolidação e pares com divergências nas eliminações intragrupo.
+ * O bloco `holding` traz o grupo, a última execução e o resumo consolidado do ano até ao mês corrente com a comparação por
+ * empresa (ServicoComparacaoEmpresas::grupo — cálculo no servidor).
  * Correcções: extractos anulados não contam como "por reconciliar"; encomendas e pedidos anulados não contam; as aquisições por
  * inventariar excluem linhas estornadas (regra do módulo, ADR-051).
  */
@@ -55,6 +61,7 @@ final class ServicoInicio
         private readonly ServicoAquisicoesAtivos $aquisicoes,
         private readonly ServicoEstruturaOrg $estrutura,
         private readonly ServicoPortalColaborador $portal,
+        private readonly ServicoComparacaoEmpresas $comparacao,
     ) {}
 
     /** @return array<string, mixed> */
@@ -64,7 +71,8 @@ final class ServicoInicio
         $u = $this->utilizador();
         $e = DB::table('empresas')->where('id', $empresa)->first(['id', 'nome', 'nif', 'endereco', 'municipio', 'provincia', 'e_consolidacao', 'logotipo']);
         $hora = (int) now()->format('G');
-        $pendentes = $this->pendentes();
+        $holding = (bool) $e->e_consolidacao;
+        $pendentes = $holding ? $this->pendentesHolding() : $this->pendentes();
 
         return [
             'empresa' => ['id' => $e->id, 'nome' => $e->nome, 'nif' => $e->nif, 'endereco' => $e->endereco ?: 'Angola', 'municipio' => $e->municipio, 'provincia' => $e->provincia,
@@ -76,8 +84,73 @@ final class ServicoInicio
             'total_pendentes' => array_sum(array_column($pendentes, 'quantidade')),
             'dica_do_dia' => self::DICA_DO_DIA,
             'comunicado_avaliacao' => $this->comunicado(),
-            'modulos' => array_map(fn ($m) => ['id' => $m[0], 'nome' => $m[1], 'descricao' => $m[2], 'autorizado' => $this->podeVer(array_merge([$m[0]], $m[3]))], self::MODULOS),
+            'modulos' => array_map(fn ($m) => ['id' => $m[0], 'nome' => $m[1], 'descricao' => $m[2],
+                'autorizado' => (! $holding || $m[0] === 'contabilidade') && $this->podeVer(array_merge([$m[0]], $m[3]))], self::MODULOS),
+            'holding' => $holding ? $this->resumoHolding() : null,
         ];
+    }
+
+    /**
+     * Resumo da holding para o Início: grupo, última consolidação e indicadores consolidados do ano até ao mês corrente, com o
+     * quadro comparativo das empresas do grupo. Isolado: uma falha não impede o resto da página.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function resumoHolding(): ?array
+    {
+        try {
+            $r = $this->comparacao->grupo(PeriodoPainel::de(null, null), []);
+            $quadro = collect($r['tabelas'] ?? [])->firstWhere('id', 'quadro_comparativo');
+
+            return ['grupo' => $r['grupo'] ?? null, 'ultima_consolidacao' => $r['ultima_consolidacao'] ?? null, 'aviso' => $r['aviso'] ?? null,
+                'empresas' => count($r['empresas'] ?? []),
+                'kpis' => array_values(array_filter($r['kpis'] ?? [], fn ($k) => in_array($k['id'], ['proveitos', 'custos', 'resultado', 'eliminacoes', 'disponibilidades'], true))),
+                'quadro' => $quadro];
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /**
+     * Pendentes de uma holding (vista `consolidacao`): movimentos das empresas do grupo lançados depois da última consolidação
+     * (a consolidação está desactualizada) e pares de empresas com divergências na última execução.
+     *
+     * @return list<array{id: string, rotulo: string, quantidade: int, vista: string}>
+     */
+    public function pendentesHolding(): array
+    {
+        if (! $this->podeVer(['consolidacao'])) {
+            return [];
+        }
+        $saida = [];
+        try {
+            $grupo = DB::table('grupos_consolidacao')->where('empresa_holding_id', $this->contexto->obrigatorio())->orderBy('id')->first();
+            if (! $grupo) {
+                return [];
+            }
+            $membros = DB::table('membros_consolidacao')->where('grupo_consolidacao_id', $grupo->id)->whereNotNull('empresa_membro_id')->pluck('empresa_membro_id')->all();
+            $ultima = DB::table('execucoes_consolidacao')->where('grupo_consolidacao_id', $grupo->id)->where('estado', '<>', 'EM_CURSO')
+                ->orderByDesc('executado_em')->orderByDesc('id')->first();
+            $novos = $membros ? DB::table('lancamentos_contabeis')->whereIn('empresa_id', $membros)
+                ->when($ultima?->executado_em, fn ($q) => $q->where('criado_em', '>', $ultima->executado_em))->count() : 0;
+            if ($novos > 0) {
+                $saida[] = ['id' => 'consolidacao_desactualizada', 'rotulo' => $ultima ? 'Linhas das empresas por consolidar' : 'Holding ainda não consolidada',
+                    'quantidade' => $novos, 'vista' => 'consolidacao'];
+            }
+            $difere = fn ($v) => bccomp(ltrim((string) ($v ?? '0'), '-'), '0.01', 2) >= 0;
+            $totais = $ultima ? (json_decode((string) $ultima->totais, true) ?: []) : [];
+            $divergentes = collect($totais['eliminacoes']['divergencias'] ?? [])
+                ->filter(fn ($d) => $difere($d['dif_saldo'] ?? 0) || $difere($d['dif_ab'] ?? 0) || $difere($d['dif_ba'] ?? 0))->count();
+            if ($divergentes > 0) {
+                $saida[] = ['id' => 'consolidacao_divergencias', 'rotulo' => 'Divergências intragrupo', 'quantidade' => $divergentes, 'vista' => 'consolidacao'];
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
+
+        return $saida;
     }
 
     /** @return list<array{id: string, rotulo: string, quantidade: int, vista: string}> só os contadores visíveis e maiores que zero */
@@ -95,6 +168,11 @@ final class ServicoInicio
                 fn () => $n("SELECT COUNT(*) AS n FROM vendas WHERE empresa_id = ? AND tipo_documento IN ('FT', 'FR') AND COALESCE(estado, '') NOT IN ('PAGO', 'CANCELADO', 'ANULADO')")],
             ['compras_pedidos', 'Pedidos por aprovar', 'compras', fn () => $this->podeVer(['compras']),
                 fn () => $n("SELECT COUNT(*) AS n FROM pedidos_compra WHERE empresa_id = ? AND estado = 'PENDENTE' AND anulado_em IS NULL")],
+            // ronda 3: regras de notificação dos níveis de stock (ServicoNiveisStock, em cache)
+            ['stock_critico', 'Produtos com stock crítico', 'armazem_stock', fn () => $this->podeVer(['armazem_stock']),
+                fn () => (int) app(ServicoNiveisStock::class)->avaliar()['resumo']['criticos']],
+            ['stock_reposicao', 'Sugestões de reposição de stock', 'armazem_stock', fn () => $this->podeVer(['armazem_stock']),
+                fn () => (int) app(ServicoNiveisStock::class)->avaliar()['resumo']['reposicao']],
             ['compras_encomendas', 'Encomendas por receber', 'compras', fn () => $this->podeVer(['compras']),
                 fn () => $n("SELECT COUNT(*) AS n FROM encomendas_compra WHERE empresa_id = ? AND anulado_em IS NULL AND COALESCE(estado, '') NOT IN ('RECEBIDO', 'ANULADO', 'ANULADA')")],
             ['rh_periodos_abertos', 'Períodos RH abertos', 'calcular', fn () => $this->podeVer(['calcular']),
@@ -103,7 +181,7 @@ final class ServicoInicio
                 fn () => count($this->aquisicoes->pendentes()['linhas'])],
             ['ativos_sem_amortizacao', 'Activos s/ amortização', 'activos_amortizacoes', fn () => $this->podeVer(['activos', 'activos_amortizacoes']),
                 fn () => $n("SELECT COUNT(*) AS n FROM ativos_imobilizados a WHERE a.empresa_id = ? AND a.eliminado_em IS NULL AND a.estado = 'ACTIVO'
-                    AND NOT EXISTS (SELECT 1 FROM amortizacoes_ativos q WHERE q.ativo_imobilizado_id = a.id)")],
+                    AND a.propriedade <> 'ALHEIO' AND NOT EXISTS (SELECT 1 FROM amortizacoes_ativos q WHERE q.ativo_imobilizado_id = a.id)")],
             ['ativos_manutencoes', 'Manutenções planeadas', 'activos_manutencao', fn () => $this->podeVer(['activos', 'activos_manutencao']),
                 fn () => $n("SELECT COUNT(*) AS n FROM registos_manutencao_ativos WHERE empresa_id = ? AND COALESCE(estado, 'PLANEADA') = 'PLANEADA'")],
             ['orc_por_aprovar', 'Orçamentos por aprovar', 'orc_orcamentos', fn () => $this->podeTarefa('orc_aprovar'),

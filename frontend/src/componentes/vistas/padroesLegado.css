@@ -442,15 +442,33 @@
 }
 
 .erp-kpi-valor {
-  /* legado: 1,35rem a 800, numa só linha com reticências (.painel-kpi-valor) */
+  /* legado: 1,35rem a 800 numa só linha (.painel-kpi-valor). Sem reticências (17/10/2026): o valor aparece sempre completo —
+     a letra encolhe até caber (CartaoKpiAjuste.ts) e, no limite, a unidade passa para a linha seguinte. */
   font-size: 1.35rem;
   font-weight: 800;
   color: #0f172a;
   line-height: 1.2;
   margin: 0;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  min-width: 0;
+}
+
+.erp-kpi-numero {
+  white-space: nowrap;
+}
+
+.erp-kpi-valor[data-quebra] {
+  white-space: normal;
+}
+
+.erp-kpi-valor[data-quebra='tudo'] .erp-kpi-numero {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.erp-kpi-unidade {
+  white-space: nowrap;
 }
 
 .erp-kpi-unidade {
@@ -535,7 +553,7 @@
 }
 
 /* Variante «barra à esquerda» = cartões do Dashboard do legado (.painel-kpi em ui_painel_modulos.js:1030-1036):
-   barra 4px, raio 4px, 16px 17,6px, ícone 46px, rótulo 0,72rem, valor 1,3rem numa só linha com «…», unidade igual ao valor. */
+   barra 4px, raio 4px, 16px 17,6px, ícone 46px, rótulo 0,72rem, valor 1,3rem (completo, sem «…»), unidade igual ao valor. */
 .erp-kpi.erp-kpi-barra-esquerda {
   border-left-width: 4px;
   border-radius: 4px;
@@ -556,10 +574,6 @@
   line-height: 1.35;
   letter-spacing: normal;
   color: #0f172a;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  overflow-wrap: normal;
 }
 
 .erp-kpi.erp-kpi-barra-esquerda .erp-kpi-unidade {

@@ -24,6 +24,9 @@ export interface RececaoArmazem {
   contabilizado: boolean | null;
   valor_total_kz: string | null;
   situacao: SituacaoRececao;
+  /** Encomenda de cliente (NE) de onde veio a compra — back-to-back (ui_warehouse.js:331, order.source_sale_id). */
+  encomenda_cliente_id?: number | null;
+  encomenda_cliente?: string | null;
 }
 
 /** Filtro de situação (o legado listava todas por omissão — 2.2.3). */

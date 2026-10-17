@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Col, DatePicker, Flex, Form, Input, InputNumber, Row, Select, Space, Typography, message, theme } from 'antd';
+import { Alert, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Select, Space, Typography, message, theme } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, ScissorOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -224,13 +224,19 @@ export function NovoLancamento() {
           )}
         </Card>
         <Card title="Linhas do documento" style={{ marginBottom: 16 }}>
-          <EditorLinhasDC minimo={2} campos={{ terceiro: true, centroCusto: true, unidade: true, notas: true }} rotuloValor={estrangeira ? `Valor (${moeda})` : 'Valor (Kz)'} />
-          <Flex wrap gap={16} justify="space-between" align="center" style={{ marginTop: 16 }}>
-            <Button icon={<ScissorOutlined />} onClick={equilibrar} title="Preencher o valor em falta para equilibrar D = C" disabled={e.equilibrado}>
-              Equilibrar
-            </Button>
-            <IndicadorEquilibrio linhas={linhas} />
-          </Flex>
+          {/* legado (ui_lancamentos.js:650-680): colunas Conta · D/C · Valor · Terceiro · Notas · UNº/CC e, por baixo, «Adicionar Linha» + «Equilibrar» com os totais à direita */}
+          <EditorLinhasDC
+            disposicao="lancamentos"
+            minimo={2}
+            campos={{ terceiro: true, centroCusto: true, unidade: true, notas: true }}
+            rotuloValor={estrangeira ? `Valor (${moeda})` : 'Valor (Kz)'}
+            extraRodape={
+              <Button icon={<ScissorOutlined />} onClick={equilibrar} title="Preencher o valor em falta para equilibrar D = C" disabled={e.equilibrado}>
+                Equilibrar
+              </Button>
+            }
+            rodapeDireita={<IndicadorEquilibrio linhas={linhas} />}
+          />
           {estrangeira && (
             <Typography.Paragraph type="secondary" style={{ marginTop: 8, textAlign: 'right' }}>
               Contravalor estimado: {formatarKz(contravalorKz(e.debito, taxaEfectiva))} Kz a débito / {formatarKz(contravalorKz(e.credito, taxaEfectiva))} Kz a crédito

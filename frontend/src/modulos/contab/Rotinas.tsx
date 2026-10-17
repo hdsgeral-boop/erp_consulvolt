@@ -1,7 +1,7 @@
 import { Alert, Button, Card, DatePicker, Empty, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import ImpostoSelo from './ImpostoSelo';
 import { enviar, obter } from '@/api/cliente';
@@ -15,7 +15,8 @@ import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaEstado, ValorKz } from './comum/Componentes';
 import { somar } from '@/utilitarios/decimal';
-import { lerLinhasActualizacao, seccoesRotinas } from './comum/rotinas';
+import { seccoesRotinas } from './comum/rotinas';
+import { ActualizacaoMassa } from './rotinas/ActualizacaoMassa';
 import { SeletorAux, SeletorConta, SeletorDiario } from './comum/Seletores';
 
 interface Obra {
@@ -89,7 +90,7 @@ export default function Rotinas({ separadorInicial }: { separadorInicial?: strin
     compensacao: <Compensacao exec={exec} />,
     transferencia: <Transferencia exec={exec} />,
     selo: <ImpostoSelo />,
-    actualizacao: <Actualizacao exec={exec} />,
+    actualizacao: <ActualizacaoMassa exec={exec} />,
     limpeza: <Limpeza />,
     historico: <Historico />,
   };
@@ -297,59 +298,6 @@ function Transferencia({ exec }: { exec: boolean }) {
                 Transferir {prontas.length} saldo(s) · {formatarKz(somar(prontas.map((l) => l.saldo)))} Kz
               </Button>
             </Space>
-          )}
-        </>
-      )}
-    </Card>
-  );
-}
-
-function Actualizacao({ exec }: { exec: boolean }) {
-  const [texto, setTexto] = useState('');
-  const [resultado, setResultado] = useState<{ codigo: string; actualizadas: number; erros: { linha: number; lancamento_id: number | null; motivo: string }[] } | null>(null);
-  const linhas = useMemo(() => lerLinhasActualizacao(texto), [texto]);
-  const cliente = useQueryClient();
-  const accao = useMutation({
-    mutationFn: () => enviar<{ codigo: string; actualizadas: number; erros: { linha: number; lancamento_id: number | null; motivo: string }[] }>('post', '/contabilidade/rotinas/actualizacao-massa', { linhas }),
-    onSuccess: ({ dados, mensagem }) => {
-      message.success(mensagem);
-      setResultado(dados);
-      void cliente.invalidateQueries({ queryKey: ['contab'] });
-    },
-    onError: (e) => notificarErro(e),
-  });
-  return (
-    <Card>
-      <Typography.Paragraph type="secondary">
-        Cole linhas «id da linha de lançamento; campo; novo valor» (de uma folha de cálculo). Campos: descricao, codigo_conta, terceiro_id, diario_id,
-        nota_demonstracao_id, nota_fluxo_caixa_id. As linhas com erro são recusadas; as válidas ficam no histórico e podem ser anuladas.
-      </Typography.Paragraph>
-      <Input.TextArea rows={8} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={'91489;nota_demonstracao_id;272\n91490;descricao;Nova descrição'} disabled={!exec} />
-      <Space wrap style={{ marginTop: 12 }}>
-        <Typography.Text>{linhas.length} linha(s) reconhecida(s)</Typography.Text>
-        {exec && (
-          <Button type="primary" disabled={!linhas.length} loading={accao.isPending} onClick={() => accao.mutate()}>
-            Processar
-          </Button>
-        )}
-      </Space>
-      {resultado && (
-        <>
-          <Alert style={{ marginTop: 12 }} type={resultado.erros.length ? 'warning' : 'success'} showIcon message={`${resultado.actualizadas} actualizada(s) · ${resultado.erros.length} com erro · rotina ${resultado.codigo}`} />
-          {resultado.erros.length > 0 && (
-            <Table
-              scroll={scrollTabela()}
-              rowKey={(r) => `${r.linha}`}
-              size="small"
-              style={{ marginTop: 12 }}
-              pagination={false}
-              dataSource={resultado.erros}
-              columns={[
-                { title: 'Linha', dataIndex: 'linha' },
-                { title: 'Lançamento', dataIndex: 'lancamento_id' },
-                { title: 'Motivo', dataIndex: 'motivo' },
-              ]}
-            />
           )}
         </>
       )}

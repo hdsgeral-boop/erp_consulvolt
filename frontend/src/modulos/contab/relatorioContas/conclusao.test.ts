@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { temIconeFa } from '@/componentes/fluxos/IconeFa';
 import { estadoConclusao, legendaConclusao, temErros, textosConclusao } from './conclusao';
+import { origemDemonstracoes } from './DemonstracoesRC';
 
 const todas = () => true;
 const so = (...permitidas: string[]) => (...c: string[]) => c.some((x) => permitidas.includes(x));
@@ -46,4 +47,13 @@ describe('Relatório e Contas — Concluir / Reabrir', () => {
     expect(temIconeFa('check')).toBe(true);
     expect(temIconeFa('lock-open')).toBe(true);
   });
+});
+
+describe('Demonstrações de um relatório concluído (legado relatorio_contas.js:944-945)', () => {
+  it('concluído com fotografia → números fixados; concluído antigo → actuais com aviso; rascunho → actuais', () => {
+    expect(origemDemonstracoes(true, { dr: {} as never })).toBe('fixadas');
+    expect(origemDemonstracoes(true, undefined)).toBe('actuais_concluido');
+    expect(origemDemonstracoes(true, [] as never)).toBe('actuais_concluido');
+    expect(origemDemonstracoes(false, { dr: {} as never })).toBe('actuais');
+  }, 60_000);
 });

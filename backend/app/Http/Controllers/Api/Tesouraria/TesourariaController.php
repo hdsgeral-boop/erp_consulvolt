@@ -74,6 +74,23 @@ final class TesourariaController extends Controller
         return RespostaApi::sucesso($this->doc(DocumentoTesouraria::query()->findOrFail($id)), 'Documento obtido com sucesso.');
     }
 
+    /**
+     * GET /api/tesouraria/documentos/opcoes — listas do cabeçalho do formulário: projectos activos (renderProjectSelector) e
+     * períodos salariais processados (validados, fechados ou integrados — ui_tesouraria.js:750-760). O projecto e o período
+     * do documento em edição entram sempre, para não se perderem. Sem depender das permissões dos módulos Projectos/RH.
+     */
+    public function opcoes(Request $r): JsonResponse
+    {
+        $this->exigir('teso_gestao_pagamentos_view', 'teso_doc_emitir');
+        $f = $r->validate(['documento_id' => ['nullable', 'integer', 'min:1']]);
+        $doc = isset($f['documento_id']) ? DocumentoTesouraria::query()->find($f['documento_id']) : null;
+
+        return RespostaApi::sucesso([
+            'projetos' => $this->documentos->projectosDisponiveis($doc?->projeto_id),
+            'periodos_salariais' => $this->documentos->periodosSalariaisDisponiveis($doc?->periodo_processamento_salarial_id),
+        ], 'Opções do documento de tesouraria.');
+    }
+
     public function store(Request $r): JsonResponse
     {
         $this->exigir('teso_doc_emitir');
@@ -166,6 +183,10 @@ final class TesourariaController extends Controller
             'conta_financeira' => ['required', 'string', 'max:20'], 'descricao' => ['required', 'string', 'min:5', 'max:1000'],
             'referencia' => ['nullable', 'string', 'max:100'], 'projeto_id' => ['nullable', 'integer', $daEmpresa('projetos')],
             'taxa_cambio' => ['nullable', 'numeric', 'gt:0'],
+            // campos do cabeçalho do legado (showTesourariaForm, ui_tesouraria.js:684-698): URL do documento (só http/https —
+            // A03/A10: nada de javascript:/data:), período salarial e projecto da empresa activa
+            'url_documento' => ['nullable', 'string', 'max:150', 'url:http,https'],
+            'periodo_processamento_salarial_id' => ['nullable', 'integer', $daEmpresa('periodos_processamento_salarial')],
             'linhas' => ['required', 'array', 'min:1', 'max:500'],
             'linhas.*.codigo_conta' => ['required', 'string', 'max:20'], 'linhas.*.tipo_dc' => ['required', Rule::in(['D', 'C'])],
             'linhas.*.valor' => ['required', 'numeric', 'gt:0', 'max:9999999999999.99'],
@@ -174,7 +195,11 @@ final class TesourariaController extends Controller
             'linhas.*.fatura_compra_id' => ['nullable', 'integer', $daEmpresa('faturas_compra')],
             'linhas.*.unidade_negocio_id' => ['nullable', 'integer', $daEmpresa('unidades_negocio')], 'linhas.*.centro_custo_id' => ['nullable', 'integer', $daEmpresa('centros_custo')],
             'linhas.*.projeto_id' => ['nullable', 'integer', $daEmpresa('projetos')],
-        ], [], ['descricao' => 'descrição', 'conta_financeira' => 'conta bancária (42/43)']);
+            // «Nota Demo» e «Nota Fluxo» de cada linha (legado: demo_note_id / cashflow_note_id)
+            'linhas.*.nota_demonstracao_id' => ['nullable', 'integer', $daEmpresa('notas_demonstracao_resultados')],
+            'linhas.*.nota_fluxo_caixa_id' => ['nullable', 'integer', $daEmpresa('notas_fluxo_caixa')],
+        ], [], ['descricao' => 'descrição', 'conta_financeira' => 'conta bancária (42/43)', 'url_documento' => 'URL do documento',
+            'periodo_processamento_salarial_id' => 'período salarial', 'projeto_id' => 'projecto']);
     }
 
     private function motivo(Request $r): string
@@ -185,6 +210,6 @@ final class TesourariaController extends Controller
     private function doc(DocumentoTesouraria $d): array
     {
         return $d->refresh()->toArray() + ['linhas' => ItemDocumentoTesouraria::query()->where('documento_tesouraria_id', $d->id)
-            ->with(RelacoesNomes::terceiro())->orderBy('id')->get()->toArray()];
+            ->with(RelacoesNomes::terceiro())->orderBy('id')->get()->toArray()] + $this->documentos->nomesCabecalho($d);
     }
 }

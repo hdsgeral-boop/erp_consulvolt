@@ -22,15 +22,16 @@ import { BarraFiltros, larguraModal } from '@/componentes/responsivo';
 import type { ColunaApi } from '@/componentes/TabelaApi';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz, formatarNumero } from '@/utilitarios/formatacao';
-import type { DetalhePeriodo, Lancamento, PeriodoSalarial, ResultadoSalarial } from './api';
+import type { DetalhePeriodo, Lancamento, ResultadoSalarial } from './api';
 import { EstadoTag, SeletorColaborador } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useColaboradores, useInfotipos, usePeriodosSalariais } from './comum/consultas';
 import { ImportarExcel } from './comum/ImportarExcel';
 import { ListaPeriodos } from './comum/ListaPeriodos';
 import { ResumoTotais, TabelaResultados } from './comum/TabelaResultados';
 import { BotaoFolhaDetalhada, ModalSimulacaoColaborador } from './comum/SimulacaoColaborador';
-import { normalizarMesAno } from './calcular/mesAno';
-import { accoesPeriodo } from './comum/regras';
+import { ModalImportarEmprestimos } from './calcular/ImportarEmprestimos';
+import { gruposPeriodos, periodoCorresponde, periodoPorOmissao } from './calcular/periodos';
+import { accoesPeriodo, mesPorExtenso } from './comum/regras';
 import { folhaSalariosHtml, pedidoTabela } from './comum/impressao';
 
 /**
@@ -47,74 +48,73 @@ export default function Calcular() {
   );
 }
 
-/** Passo 1 do legado (renderCalcular): «Digitar Mês/Ano» ou consultar existente, «Acessar Lançamentos», Template e Importar Excel. */
+/**
+ * Passo 1 do legado (renderCalcular, js/app_v2.js:5312-5345): o período escolhe-se numa lista dos que o sistema já tem
+ * (abertos, encerrados e validados, com o estado), em vez de se escrever o Mês/Ano; um mês novo abre-se por «Abrir
+ * período». «Acessar Lançamentos», Template e Importar Excel actuam sobre o período escolhido.
+ */
 function ListaCalculo() {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const periodos = usePeriodosSalariais();
-  const [mesAno, setMesAno] = useState('');
+  const [escolhido, setEscolhido] = useState<number | undefined>(undefined);
   const [importar, setImportar] = useState<{ id: number; mes_ano: string } | null>(null);
-  const [aAbrir, setAAbrir] = useState(false);
   const podeEditar = pode('calcular_folha');
-
-  /** Período do mês escrito: o existente ou, se não houver e o perfil puder, abre-o (como o antigo). */
-  const resolverPeriodo = async (): Promise<{ id: number; mes_ano: string } | null> => {
-    const m = normalizarMesAno(mesAno);
-    if (!m) {
-      message.warning('Formato inválido. Use MM/AAAA (ex.: 01/2026).');
-      return null;
-    }
-    const existente = (periodos.data ?? []).find((p) => p.mes_ano === m);
-    if (existente) return existente;
-    if (!podeEditar) {
-      message.warning(`Não existe processamento para ${m}.`);
-      return null;
-    }
-    setAAbrir(true);
-    try {
-      const { dados } = await enviar<PeriodoSalarial>('post', '/rh/salarios/periodos', { mes_ano: m });
-      void periodos.refetch();
-      return dados;
-    } catch (e) {
-      notificarErro(e, 'Não foi possível abrir o período');
-      return null;
-    } finally {
-      setAAbrir(false);
-    }
-  };
+  const grupos = useMemo(() => gruposPeriodos(periodos.data), [periodos.data]);
+  // sem escolha explícita, fica pré-seleccionado o período aberto mais recente (ou o mais recente de todos)
+  const idActual = escolhido ?? periodoPorOmissao(periodos.data)?.id;
+  const actual = (periodos.data ?? []).find((p) => p.id === idActual);
+  const porId = useMemo(() => new Map((periodos.data ?? []).map((p) => [p.id, p])), [periodos.data]);
 
   return (
     <ListaPeriodos titulo="Lançamentos e Cálculos" subtitulo="Lançamentos e cálculos do processamento salarial" permitirAbrir
-      antes={
+      antes={(abrirPeriodo) => (
         <Card size="small" title="1. Selecionar Período ou Importar Dados" style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div>
-              <Typography.Text style={{ display: 'block', marginBottom: 4 }}>Digitar Mês/Ano (ex: 01/2026)</Typography.Text>
-              <Input placeholder="MM/AAAA" style={{ width: 150 }} value={mesAno} maxLength={7} aria-label="Mês/Ano"
-                onChange={(e) => setMesAno(e.target.value)} onPressEnter={() => void resolverPeriodo().then((p) => p && navegar(String(p.id)))} />
+            <div style={{ flex: '0 1 340px', minWidth: 220 }}>
+              <Typography.Text id="rotulo-periodo-calculo" style={{ display: 'block', marginBottom: 4 }}>Período do processamento</Typography.Text>
+              <Select<number> showSearch style={{ width: '100%' }} aria-labelledby="rotulo-periodo-calculo" loading={periodos.isLoading}
+                placeholder={periodos.data?.length ? '-- Selecione o período --' : 'Ainda não há períodos'} value={idActual} onChange={setEscolhido}
+                filterOption={(t, o) => { const p = o?.value !== undefined ? porId.get(Number(o.value)) : undefined; return !!p && periodoCorresponde(t, p); }}
+                notFoundContent={<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={podeEditar ? 'Sem período para esse mês — use «Abrir período».' : 'Sem período para esse mês.'} />}
+                options={grupos.map((g) => ({
+                  label: `${g.rotulo} (${g.periodos.length})`,
+                  options: g.periodos.map((p) => ({
+                    value: p.id,
+                    label: (
+                      <Space size={6}>
+                        <strong>{p.mes_ano}</strong>
+                        <Typography.Text type="secondary">{mesPorExtenso(p.mes_ano).replace(/ de \d{4}$/, '')}</Typography.Text>
+                        <EstadoTag estado={p.estado} />
+                        {p.contabilizado && <Tag color="green">Contabilizado</Tag>}
+                      </Space>
+                    ),
+                  })),
+                }))} />
             </div>
-            <div>
-              <Typography.Text style={{ display: 'block', marginBottom: 4 }}>Ou consultar existente:</Typography.Text>
-              <Select<string> placeholder="-- Selecione --" style={{ width: 220 }} allowClear aria-label="Período existente"
-                value={(periodos.data ?? []).some((p) => p.mes_ano === mesAno) ? mesAno : undefined} onChange={(v) => setMesAno(v ?? '')}
-                options={(periodos.data ?? []).map((p) => ({ value: p.mes_ano, label: `${p.mes_ano} (${p.estado})` }))} />
-            </div>
-            <Button type="primary" icon={<FolderOpenOutlined />} loading={aAbrir} onClick={() => void resolverPeriodo().then((p) => p && navegar(String(p.id)))}>Acessar Lançamentos</Button>
+            <Button type="primary" icon={<FolderOpenOutlined />} disabled={!actual} onClick={() => actual && navegar(String(actual.id))}>Acessar Lançamentos</Button>
+            {podeEditar && <Button icon={<PlusOutlined />} onClick={abrirPeriodo}>Abrir novo mês</Button>}
             {podeEditar && (
               <Space wrap style={{ marginLeft: 'auto' }}>
                 <Button icon={<IconeFa nome="file-download" />} onClick={() => void descarregar('/rh/importacoes/modelos/calculo', undefined, 'Template_Calculo_RH.xlsx').catch(notificarErro)}>Template</Button>
-                <Button icon={<IconeFa nome="file-import" />} loading={aAbrir} onClick={() => {
-                  if (!normalizarMesAno(mesAno)) { message.info('Indique primeiro o Mês/Ano (MM/AAAA) para onde importar os lançamentos.'); return; }
-                  void resolverPeriodo().then((p) => p && setImportar(p));
+                <Button icon={<IconeFa nome="file-import" />} onClick={() => {
+                  if (!actual) { message.info('Escolha primeiro o período para onde importar os lançamentos (ou abra um novo).'); return; }
+                  if (actual.estado !== 'ABERTO') { message.warning(`O período ${actual.mes_ano} está ${actual.estado === 'VALIDADO' ? 'validado' : 'encerrado'}: só se importam lançamentos num período aberto.`); return; }
+                  setImportar(actual);
                 }}>Importar Excel</Button>
               </Space>
             )}
           </div>
+          {actual && actual.estado !== 'ABERTO' && (
+            <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+              Período {actual.estado === 'VALIDADO' ? 'validado' : 'encerrado'}: os lançamentos ficam só para consulta (relatórios e recibos em Processamentos).
+            </Typography.Text>
+          )}
           <ImportarExcel aberto={importar !== null} titulo={`Importar lançamentos (Excel) — ${importar?.mes_ano ?? ''}`} url={`/rh/salarios/periodos/${importar?.id ?? 0}/importar-excel`} modelo="calculo"
             ajuda="Uma linha por colaborador e rubrica: NIF (ou nome completo), rubrica, valor, horas (rubricas por hora) e dias trabalhados. Os lançamentos existentes do mesmo colaborador e rubrica são substituídos."
             aoFechar={() => { const p = importar; setImportar(null); if (p) navegar(String(p.id)); }} />
         </Card>
-      } />
+      )} />
   );
 }
 
@@ -179,6 +179,7 @@ function PeriodoCalculo() {
   const [efectividade, setEfectividade] = useState(false);
   const [produtividade, setProdutividade] = useState(false);
   const [importarExcel, setImportarExcel] = useState(false);
+  const [emprestimos, setEmprestimos] = useState(false);
   const [resultadoImport, setResultadoImport] = useState<{ titulo: string; linhas: string[] } | null>(null);
   const [selecionados, setSelecionados] = useState<number[]>([]);
   const [editarLote, setEditarLote] = useState(false);
@@ -257,7 +258,8 @@ function PeriodoCalculo() {
   const importarContratos = () => Modal.confirm({ title: 'Importar lançamentos dos contratos?', content: 'Cria os lançamentos em falta a partir do contrato activo no mês (colaboradores activos, em Kz). Os existentes mantêm-se.', okText: 'Importar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-contratos` }) });
   const abrirEfectividade = () => { formEf.resetFields(); setEfectividade(true); };
   const abrirProdutividade = () => { setSubstituir(true); setProdutividade(true); };
-  const importarEmprestimos = () => Modal.confirm({ title: `Importar as prestações dos empréstimos de ${p.mes_ano}?`, content: 'Cria um desconto por colaborador na rubrica configurada (RH › Empréstimos), com o valor da prestação do mês. As prestações passam a descontadas; o empréstimo fica liquidado quando já não houver prestações. Um desconto já existente na mesma rubrica não é alterado.', okText: 'Importar', cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-emprestimos`, dados: { substituir: false } }) });
+  // legado (emprestimos_ui.js:245-265): primeiro a tabela das prestações do mês, depois o lançamento
+  const importarEmprestimos = () => setEmprestimos(true);
   const anularEmprestimos = () => Modal.confirm({ title: 'Anular os descontos de empréstimos deste período?', content: 'Retira os lançamentos criados por «Importar empréstimos» e repõe as prestações por descontar.', okText: 'Anular', okButtonProps: { danger: true }, cancelText: 'Cancelar', onOk: () => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/anular-emprestimos` }) });
   const encerrarComConfirmacao = () => Modal.confirm({
     title: `Encerrar o cálculo de ${p.mes_ano}?`,
@@ -310,7 +312,7 @@ function PeriodoCalculo() {
   return (
     <>
       <CabecalhoPagina
-        titulo={`Processamento ${p.mes_ano}`}
+        titulo={`Lançamentos de ${p.mes_ano}`}
         subtitulo={<Space wrap><EstadoTag estado={p.estado} />{p.contabilizado && <Tag color="green">Contabilizado</Tag>}{p.fotografia ? 'Resultados fotografados' : 'Cálculo ao vivo'}</Space>}
         impressaoDesactivada={!p.resultados.length}
         impressao={() => ({
@@ -588,6 +590,8 @@ function PeriodoCalculo() {
         <Space><Switch checked={substituir} onChange={setSubstituir} />Substituir os lançamentos de produtividade existentes</Space>
       </Modal>
 
+      <ModalImportarEmprestimos periodoId={Number(id)} mesAno={p.mes_ano} aberto={emprestimos} aoFechar={() => setEmprestimos(false)}
+        aoLancar={(d) => accao.mutateAsync({ metodo: 'post', url: `/rh/salarios/periodos/${id}/importar-emprestimos`, dados: d })} />
       <ImportarExcel aberto={importarExcel} titulo={`Importar lançamentos (Excel) — ${p.mes_ano}`} url={`/rh/salarios/periodos/${id}/importar-excel`} modelo="calculo"
         ajuda="Uma linha por colaborador e rubrica: NIF (ou nome completo), rubrica, valor, horas (rubricas por hora) e dias trabalhados. Os lançamentos existentes do mesmo colaborador e rubrica são substituídos."
         aoFechar={() => setImportarExcel(false)} />

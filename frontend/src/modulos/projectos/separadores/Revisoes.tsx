@@ -17,6 +17,14 @@ import { larguraGaveta, larguraModal, scrollTabela } from '@/componentes/respons
 import { BotoesExportar, CSS_SIMULACAO_COMUM, marcaSimulacao, pares, tabelaHtml } from '@/componentes/impressao';
 import { useRef } from 'react';
 import { ImpressaoSeparador } from '../comum/ImpressaoSeparador';
+import { useSearchParams } from 'react-router-dom';
+import { tratarErroConfiguracao } from './Configuracao';
+
+/** Fecha o diálogo e abre o separador «Configuração» do projecto (ligação dos 422 de artigo em falta). */
+function useIrConfiguracao(aoFechar: () => void) {
+  const [, setParams] = useSearchParams();
+  return () => { aoFechar(); setParams({ sep: 'configuracao' }, { replace: true }); };
+}
 
 /** Auto de medição impresso (A4 retrato): resumo, subempreitadas, mão de obra, equipamentos e assinaturas. */
 export function pedidoAutoMedicao(d: DetalheRevisao, mes: string) {
@@ -202,7 +210,8 @@ function ModalNovaRevisao({ projectoId, aberto, aoFechar }: { projectoId: number
   const [aSimular, setASimular] = useState(false);
   const [confirmarAdit, setConfirmarAdit] = useState(false);
   const [produto, setProduto] = useState<number>();
-  const accao = useAccao({ invalidar: [['projectos']], aoSucesso: () => aoFechar() });
+  const irConfiguracao = useIrConfiguracao(aoFechar);
+  const accao = useAccao({ invalidar: [['projectos']], aoSucesso: () => aoFechar(), aoErro: (e) => tratarErroConfiguracao(e, irConfiguracao) });
   useEffect(() => { if (aberto) { setSimulacao(null); setConfirmarAdit(false); } }, [aberto]);
 
   const simular = async () => {
@@ -320,7 +329,8 @@ function ModalFaturar({ projectoId, revisao, aoFechar }: { projectoId: number; r
     enabled: !!revisao,
     retry: false,
   });
-  const accao = useAccao({ invalidar: [['projectos'], ['vendas']], aoSucesso: () => aoFechar() });
+  const irConfiguracao = useIrConfiguracao(aoFechar);
+  const accao = useAccao({ invalidar: [['projectos'], ['vendas']], aoSucesso: () => aoFechar(), aoErro: (e) => tratarErroConfiguracao(e, irConfiguracao) });
   useEffect(() => {
     if (revisao) { form.resetFields(); form.setFieldsValue({ tipo_documento: 'FT', data_emissao: dayjs() }); }
   }, [revisao, form]);

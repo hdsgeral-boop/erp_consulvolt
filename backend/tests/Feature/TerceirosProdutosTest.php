@@ -29,7 +29,7 @@ final class TerceirosProdutosTest extends TestCase
                 PlanoConta::create(['codigo' => $c, 'descricao' => $d, 'tipo' => $t]);
             }
         });
-        $perfil = $this->criarPerfil(['_v2' => true, 'vendas_clientes_gerir' => true, 'compras_forn_gerir' => true, 'vendas_produtos_gerir' => true,
+        $perfil = $this->criarPerfil(['_v2' => true, 'vendas_clientes_gerir' => true, 'compras_forn_gerir' => true, 'vendas_produtos_gerir' => true, 'vendas_categorias_contas' => true,
             'vendas_dados_del' => true, 'lancamentos_post' => true]);
         $u = $this->criarUtilizador(['perfil_utilizador_id' => $perfil->id]);
         $u->empresas()->attach($this->empresa->id);
@@ -89,39 +89,48 @@ final class TerceirosProdutosTest extends TestCase
         $this->cliente(['nif' => '5000000002', 'nome' => 'Reaproveita NIF'])->assertCreated();   // NIF de uma entidade eliminada fica livre
     }
 
+    /** Ronda 3: a categoria é obrigatória e define as contas do produto. */
+    private function categoria(string $nome = 'Geral', array $contas = []): int
+    {
+        return $this->postJson('/api/logistica/categorias-produtos', ['nome' => $nome] + $contas, $this->h)->assertCreated()->json('dados.id');
+    }
+
     #[Test]
     public function produto_valida_contas_trata_isencao_e_sincroniza_o_catalogo_de_compras(): void
     {
+        $cat = $this->categoria('Cimentos', ['codigo_conta' => '611', 'conta_custo' => '711', 'conta_iva_liquidado' => '3453', 'conta_iva_dedutivel' => '3452']);
         $base = ['codigo' => 'P001', 'nome' => 'Cimento 50kg', 'preco_unitario' => '7500.00', 'taxa_imposto' => 14, 'movimenta_stock' => true,
-            'codigo_conta' => '611', 'conta_custo' => '711', 'conta_iva_liquidado' => '3453', 'conta_iva_dedutivel' => '3452', 'codigo_isencao_fe' => 'M02'];
+            'categoria_produto_id' => $cat, 'codigo_isencao_fe' => 'M02'];
         $r = $this->postJson('/api/logistica/produtos', $base, $this->h)->assertCreated()
             ->assertJsonPath('dados.unidade_fe', 'UN')
             ->assertJsonPath('dados.codigo_isencao_fe', null)          // isenção só com IVA 0% (limpa, como o legado)
-            ->assertJsonPath('dados.contas.iva_liquidado', '3453');
+            ->assertJsonPath('dados.contas.iva_liquidado', '3453');   // herdada da categoria
         $id = $r->json('dados.id');
-        $this->assertSame('3453', DB::table('produtos')->where('id', $id)->value('conta_iva'));   // retrocompatibilidade
 
         $this->assertSame(['P001', 'Cimento 50kg', '7500.00'], array_values((array) DB::table('catalogo_fornecedores')->where('produto_id', $id)->first(['codigo', 'nome', 'preco_unitario'])));
         $this->putJson("/api/logistica/produtos/{$id}", ['nome' => 'Cimento 50 kg', 'preco_unitario' => '7800.00'], $this->h)->assertOk();
         $this->assertSame('7800.00', DB::table('catalogo_fornecedores')->where('produto_id', $id)->value('preco_unitario'));
         $this->assertSame(1, DB::table('catalogo_fornecedores')->count());
 
-        $this->postJson('/api/logistica/produtos', ['codigo' => 'P002', 'nome' => 'Isento', 'taxa_imposto' => 0, 'codigo_isencao_fe' => 'M02'], $this->h)
+        $this->postJson('/api/logistica/produtos', ['codigo' => 'P002', 'nome' => 'Isento', 'taxa_imposto' => 0, 'codigo_isencao_fe' => 'M02', 'categoria_produto_id' => $cat], $this->h)
             ->assertCreated()->assertJsonPath('dados.codigo_isencao_fe', 'M02');
         // M3: só as taxas de IVA legais (0, 5, 7, 14)
-        $this->postJson('/api/logistica/produtos', ['codigo' => 'P004', 'nome' => 'Taxa ilegal', 'taxa_imposto' => 10], $this->h)
+        $this->postJson('/api/logistica/produtos', ['codigo' => 'P004', 'nome' => 'Taxa ilegal', 'taxa_imposto' => 10, 'categoria_produto_id' => $cat], $this->h)
             ->assertStatus(422)->assertJsonValidationErrors(['taxa_imposto'], 'erros');
-        $this->postJson('/api/logistica/produtos', ['codigo' => 'P005', 'nome' => 'Intermédia', 'taxa_imposto' => '7.0000'], $this->h)->assertCreated();
+        $this->postJson('/api/logistica/produtos', ['codigo' => 'P005', 'nome' => 'Intermédia', 'taxa_imposto' => '7.0000', 'categoria_produto_id' => $cat], $this->h)->assertCreated();
         $this->postJson('/api/logistica/produtos', $base, $this->h)->assertStatus(422)->assertJsonPath('codigo', 'PRODUTO_DUPLICADO');
-        $this->postJson('/api/logistica/produtos', ['codigo' => 'P003', 'nome' => 'X', 'codigo_conta' => '31'], $this->h)
-            ->assertStatus(422)->assertJsonPath('codigo', 'CONTA_TOTALIZADORA');
-        $this->postJson('/api/logistica/produtos', ['codigo' => 'P004', 'nome' => 'X', 'codigo_isencao_fe' => 'ISENTO'], $this->h)->assertStatus(422);
+        $this->putJson("/api/logistica/categorias-produtos/{$cat}", ['codigo_conta' => '31'], $this->h)
+            ->assertStatus(422)->assertJsonPath('codigo', 'CONTA_TOTALIZADORA');   // as contas validam-se na categoria
+        $this->postJson('/api/logistica/produtos', ['codigo' => 'P003', 'nome' => 'X', 'codigo_conta' => '611', 'categoria_produto_id' => $cat], $this->h)
+            ->assertStatus(422)->assertJsonValidationErrors(['codigo_conta'], 'erros');   // já não se gravam no produto
+        $this->postJson('/api/logistica/produtos', ['codigo' => 'P004', 'nome' => 'X', 'codigo_isencao_fe' => 'ISENTO', 'categoria_produto_id' => $cat], $this->h)->assertStatus(422);
     }
 
     #[Test]
     public function a_ficha_nao_altera_stock_e_o_catalogo_de_venda_exclui_bloqueados(): void
     {
-        $id = $this->postJson('/api/logistica/produtos', ['codigo' => 'P1', 'nome' => 'Artigo', 'quantidade_stock' => 500], $this->h)->assertCreated()->json('dados.id');
+        $id = $this->postJson('/api/logistica/produtos', ['codigo' => 'P1', 'nome' => 'Artigo', 'quantidade_stock' => 500, 'categoria_produto_id' => $this->categoria()], $this->h)
+            ->assertCreated()->json('dados.id');
         $this->assertNull(DB::table('produtos')->where('id', $id)->value('quantidade_stock'));   // campo ignorado
         $this->assertSame(0, DB::table('stock_armazem')->count());
 

@@ -47,13 +47,27 @@ export interface DocumentoTesouraria {
   anulado_em: string | null;
   motivo_anulacao: string | null;
   importado: boolean | null;
+  /** Ronda 3: recibo de venda que gerou este recebimento (espelho; integra-se/anula-se pelo recibo). */
+  recibo_venda_id?: number | null;
   url_documento?: string | null;
+  codigo_projeto?: string | null;
   linhas?: LinhaDocumentoTesouraria[];
+  /** GET /tesouraria/documentos/{id} (nomesCabecalho): projecto, período salarial e códigos das notas das linhas. */
+  projeto?: { id: number; codigo: string | null; nome: string | null } | null;
+  periodo_salarial?: { id: number; mes_ano: string; estado: string | null; contabilizado: boolean } | null;
+  notas_demonstracao?: Record<string, string>;
+  notas_fluxo_caixa?: Record<string, string>;
   /** GET /tesouraria/documentos (ServicoListagemTesouraria): colunas do legado, agregadas por página. */
   contrapartidas?: ContrapartidaLista[];
   entidades?: { nome: string | null; nif: string | null }[];
   reconciliacao_bancaria?: EstadoReconciliacaoLista | null;
   compensacao?: EstadoReconciliacaoLista | null;
+}
+
+/** GET /tesouraria/documentos/opcoes — listas do cabeçalho do formulário (projectos activos e períodos salariais processados). */
+export interface OpcoesDocumentoTesouraria {
+  projetos: { id: number; codigo: string | null; nome: string | null; estado: string | null }[];
+  periodos_salariais: { id: number; mes_ano: string; estado: string | null; contabilizado: boolean; rotulo: string }[];
 }
 
 /** Linha (contrapartida) de um documento na listagem: conta, sentido, valor e as dimensões em código. */
@@ -234,6 +248,8 @@ export interface ConferenciaCaixa {
   nome_conta: string | null;
   data_conferencia: string;
   nome_operador: string | null;
+  /** utilizador que registou a conferência (o operador é texto livre) */
+  registado_por?: string | null;
   denominacoes: string | Record<string, number> | null;
   total_fisico: string;
   total_sistema: string;

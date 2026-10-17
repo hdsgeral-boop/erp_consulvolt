@@ -90,6 +90,87 @@ final class ServicoPlanoContas
         $conta->delete();   // eliminação lógica
     }
 
+    /**
+     * «Modificar em Massa» do legado (bulkEditAccounts / _executeBulkEditAccounts, js/app_v2.js:8917-9000): muda o tipo,
+     * substitui a descrição ou acrescenta-lhe um sufixo nas contas escolhidas (da empresa activa). Como no legado, uma conta
+     * de movimento com lançamentos não passa a totalizadora — mantém o tipo, mas recebe a descrição. Tudo numa transacção.
+     *
+     * @param  list<int>  $ids
+     * @return array{actualizadas: int, sem_tipo: list<array{codigo: string, descricao: ?string, movimentos: int}>}
+     */
+    public function modificarEmMassa(array $ids, ?string $tipo, ?string $descricao, ?string $sufixo): array
+    {
+        $descricao = $descricao !== null && trim($descricao) !== '' ? trim($descricao) : null;
+        $sufixo = $sufixo !== null && trim($sufixo) !== '' ? trim($sufixo) : null;
+        if (! $tipo && $descricao === null && $sufixo === null) {
+            throw new ErroNegocio('Nenhuma alteração definida: preencha pelo menos um campo.', 'SEM_ALTERACOES', 422);
+        }
+
+        return DB::transaction(function () use ($ids, $tipo, $descricao, $sufixo) {
+            $actualizadas = 0;
+            $semTipo = [];
+            foreach (PlanoConta::query()->whereKey($ids)->orderBy('codigo')->lockForUpdate()->get() as $conta) {
+                $dados = [];
+                if ($tipo && $tipo !== $conta->tipo) {
+                    $movimentos = $tipo === PlanoConta::TIPO_TOTALIZADORA ? $this->contarMovimentos($conta->codigo) : 0;
+                    if ($movimentos > 0) {
+                        $semTipo[] = ['codigo' => $conta->codigo, 'descricao' => $conta->descricao, 'movimentos' => $movimentos];
+                    } else {
+                        $dados['tipo'] = $tipo;
+                    }
+                }
+                if ($descricao !== null) {
+                    $dados['descricao'] = $descricao;
+                } elseif ($sufixo !== null) {
+                    $dados['descricao'] = mb_substr(trim(($conta->descricao ?? '').' '.$sufixo), 0, 255);
+                }
+                if ($dados) {
+                    $this->atualizar($conta, $dados);
+                    $actualizadas++;
+                }
+            }
+
+            return ['actualizadas' => $actualizadas, 'sem_tipo' => $semTipo];
+        });
+    }
+
+    /**
+     * «Eliminar Seleccionadas» do legado (bulkDeleteAccounts, js/app_v2.js:9003-9037): as contas com lançamentos ficam;
+     * as outras são eliminadas (eliminação lógica). Com `simular`, só devolve o que aconteceria (o legado confirma antes).
+     *
+     * @param  list<int>  $ids
+     * @return array{eliminadas: list<string>, mantidas: list<array{codigo: string, descricao: ?string, movimentos: int}>, simulacao: bool}
+     */
+    public function eliminarEmMassa(array $ids, bool $simular): array
+    {
+        $executar = function () use ($ids, $simular) {
+            $eliminadas = [];
+            $mantidas = [];
+            $contas = PlanoConta::query()->whereKey($ids)->orderBy('codigo');
+            foreach (($simular ? $contas : $contas->lockForUpdate())->get() as $conta) {
+                $movimentos = $this->contarMovimentos($conta->codigo);
+                if ($movimentos > 0) {
+                    $mantidas[] = ['codigo' => $conta->codigo, 'descricao' => $conta->descricao, 'movimentos' => $movimentos];
+
+                    continue;
+                }
+                if (! $simular) {
+                    $conta->delete();   // eliminação lógica
+                }
+                $eliminadas[] = $conta->codigo;
+            }
+
+            return ['eliminadas' => $eliminadas, 'mantidas' => $mantidas, 'simulacao' => $simular];
+        };
+
+        return $simular ? $executar() : DB::transaction($executar);
+    }
+
+    private function contarMovimentos(string $codigo): int
+    {
+        return DB::table('lancamentos_contabeis')->where('empresa_id', $this->contexto->obrigatorio())->where('codigo_conta', $codigo)->count();
+    }
+
     private function temMovimentos(string $codigo): bool
     {
         return DB::table('lancamentos_contabeis')->where('empresa_id', $this->contexto->obrigatorio())->where('codigo_conta', $codigo)->exists();

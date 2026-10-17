@@ -149,6 +149,10 @@ final class ConsolidacaoEmpresasTest extends TestCase
         $this->assertSame(['6', '7'], array_column($classes, 'codigo'));
 
         $this->assertSame(10, $this->getJson("/api/consolidacao/execucoes/{$r['execucao_id']}", $this->s)->assertOk()->json('dados.totais.linhas'));
+
+        // cartão da holding (legado consolidacao.js:799): resumo das eliminações da última execução; o par A/B fecha → 0 divergentes
+        $cartao = collect($this->getJson('/api/consolidacao/grupos', $this->s)->assertOk()->json('dados'))->firstWhere('id', $g['id']);
+        $this->assertSame(['execucao_id' => $r['execucao_id'], 'divergentes' => 0], $cartao['eliminacoes_ultima']);
     }
 
     #[Test]

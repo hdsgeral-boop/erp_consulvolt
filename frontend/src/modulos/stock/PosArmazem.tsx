@@ -280,7 +280,7 @@ function Picking({ armazem, aoMudarArmazem }: { armazem: number; aoMudarArmazem:
                       content: 'É emitida a guia de remessa e o stock sai do armazém.',
                       okText: 'Expedir',
                       cancelText: 'Cancelar',
-                      onOk: () => expedir.mutateAsync({ url: `/pos/armazem/picking/${encomenda}/expedir`, dados: { armazem_id: armazem, observacoes: observacoes || undefined } }).catch(() => undefined),
+                      onOk: () => expedir.mutateAsync({ url: `/pos/armazem/picking/${encomenda}/expedir`, dados: { armazem_id: armazem, recolhidos, observacoes: observacoes || undefined } }).catch(() => undefined),
                     })
                   }
                 >

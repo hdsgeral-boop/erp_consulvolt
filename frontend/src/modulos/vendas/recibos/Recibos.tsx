@@ -45,7 +45,7 @@ function ListaRecibos() {
   const pequeno = useEcraPequeno();
   // M-06: contabilizar/descontabilizar os recibos seleccionados (postSelectedReceipts / unpostSelectedReceipts do legado)
   const lote = useAccao<{ ok: number; erros: number; resultados: { numero: string | null; sucesso: boolean; mensagem: string }[] }>({
-    invalidar: [['vendas']],
+    invalidar: [['vendas'], ['teso']],
     aoSucesso: (r) => {
       setSeleccao([]);
       if (r.erros) Modal.warning({ title: 'Alguns recibos não foram tratados', content: <ul>{r.resultados.filter((x) => !x.sucesso).map((x, i) => <li key={i}><strong>{x.numero}</strong>: {x.mensagem}</li>)}</ul> });
@@ -172,7 +172,7 @@ function NovoRecibo() {
   }, [pendentes.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = totalAlocado(alocacoes);
   const distribuicao = recebido !== null ? distribuirMontante(facturas, recebido) : null;
-  const emitir = useAccao<ReciboVenda>({ invalidar: [['vendas']], aoSucesso: (r) => navegar(`../${r.id}`), tituloErro: 'Não foi possível emitir o recibo' });
+  const emitir = useAccao<ReciboVenda>({ invalidar: [['vendas'], ['teso']], aoSucesso: (r) => navegar(`../${r.id}`), tituloErro: 'Não foi possível emitir o recibo' });
 
   return (
     <>
@@ -322,7 +322,7 @@ function DetalheRecibo() {
   const { pode } = useSessao();
   const [modal, setModal] = useState<'anular' | 'descontabilizar' | 'alocar' | null>(null);
   const consulta = useQuery({ queryKey: ['vendas', 'recibo', id], queryFn: () => obter<ReciboVenda & { alocacao_un?: ResumoAlocacao | null }>(`/vendas/recibos/${id}`) });
-  const accao = useAccao<ReciboVenda>({ invalidar: [['vendas']], aoSucesso: () => setModal(null) });
+  const accao = useAccao<ReciboVenda>({ invalidar: [['vendas'], ['teso']], aoSucesso: () => setModal(null) });
 
   if (consulta.isLoading) return <Skeleton active />;
   const r = consulta.data;
@@ -396,7 +396,7 @@ function DetalheRecibo() {
         aberto={modal === 'anular'}
         titulo={`Anular o recibo ${r.numero_recibo}`}
         textoOk="Anular"
-        aviso="As facturas voltam a ficar pendentes no valor liquidado."
+        aviso="As facturas voltam a ficar pendentes no valor liquidado e o recebimento ligado na Tesouraria fica anulado."
         carregando={accao.isPending}
         aoFechar={() => setModal(null)}
         aoConfirmar={(motivo) => accao.mutate({ url: `/vendas/recibos/${r.id}/anular`, dados: { motivo } })}

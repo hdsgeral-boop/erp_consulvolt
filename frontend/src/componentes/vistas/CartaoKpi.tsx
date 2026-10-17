@@ -1,12 +1,15 @@
 import { Tooltip } from 'antd';
-import type { CSSProperties, ReactNode } from 'react';
+import { useRef, type CSSProperties, type ReactNode } from 'react';
 import { IconeLegado } from './AccoesLinha';
+import { useAjusteValorKpi } from './CartaoKpiAjuste';
 import './padroesLegado.css';
 
 /**
  * Cartão KPI do sistema anterior (.stat-card): barra de cor (por baixo — Dashboard de Vendas, Relatórios POS,
  * Lavandaria — ou à esquerda — Dashboard Global), quadrado com ícone colorido, rótulo em MAIÚSCULAS, valor grande a
  * negrito e linha secundária opcional. Com `aoClicar` passa a botão (filtra a lista, abre o detalhe…).
+ * O valor aparece sempre completo, sem reticências: a letra encolhe até caber e, no limite, a unidade passa para a linha
+ * seguinte (CartaoKpiAjuste.ts — pedido de 17/10/2026).
  */
 export type PosicaoBarraKpi = 'baixo' | 'esquerda' | 'nenhuma';
 
@@ -62,8 +65,11 @@ export function fundoTranslucido(cor: string): string {
 
 export function CartaoKpi({ rotulo, valor, unidade, secundaria, icone, cor, barra = 'baixo', corValor, ajuda, aoClicar, activo, className, style }: PropsCartaoKpi) {
   const c = corDe(cor);
-  // o valor fica numa só linha com reticências (legado): o texto completo aparece ao passar o rato
-  const tituloValor = typeof valor === 'string' || typeof valor === 'number' ? `${valor}${typeof unidade === 'string' ? ` ${unidade}` : ''}` : undefined;
+  const primitivo = typeof valor === 'string' || typeof valor === 'number';
+  const tituloValor = primitivo ? `${valor}${typeof unidade === 'string' ? ` ${unidade}` : ''}` : undefined;
+  // valor completo: a letra ajusta-se à largura do cartão (nunca «…»)
+  const refValor = useRef<HTMLDivElement>(null);
+  useAjusteValorKpi(refValor, primitivo && (unidade === undefined || unidade === null || typeof unidade === 'string') ? tituloValor : valor);
   const classes = [
     'erp-kpi',
     barra === 'baixo' ? 'erp-kpi-barra-baixo' : barra === 'esquerda' ? 'erp-kpi-barra-esquerda' : '',
@@ -78,9 +84,14 @@ export function CartaoKpi({ rotulo, valor, unidade, secundaria, icone, cor, barr
     <>
       <div className="erp-kpi-textos">
         <div className="erp-kpi-rotulo">{rotulo}</div>
-        <div className="erp-kpi-valor" style={corValor ? { color: corValor } : undefined} title={tituloValor}>
-          {valor}
-          {unidade !== undefined && unidade !== null && <span className="erp-kpi-unidade">{unidade}</span>}
+        <div ref={refValor} className="erp-kpi-valor" style={corValor ? { color: corValor } : undefined} title={tituloValor}>
+          <span className="erp-kpi-numero">{valor}</span>
+          {unidade !== undefined && unidade !== null && (
+            <>
+              <wbr />
+              <span className="erp-kpi-unidade">{unidade}</span>
+            </>
+          )}
         </div>
         {secundaria !== undefined && secundaria !== null && secundaria !== '' && <span className="erp-kpi-secundaria">{secundaria}</span>}
       </div>

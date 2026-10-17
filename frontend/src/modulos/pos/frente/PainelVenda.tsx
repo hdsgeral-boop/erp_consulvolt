@@ -73,7 +73,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
   const cores = useCoresPos();
   const { pode, empresa } = useSessao();
   const cabecalho = useCabecalhoTalao();
-  const catalogo = useCatalogoPOS();
+  const catalogo = useCatalogoPOS(terminal.id);   // só os produtos marcados para o serviço deste terminal
   const categorias = useCategoriasPOS();
   const [prefsLocais, setPrefsLocais] = useState<PreferenciasFrente>(PREFERENCIAS_FRENTE_PADRAO);
   const preferencias = prefs ?? prefsLocais;
@@ -635,7 +635,7 @@ export function PainelVenda({ terminal, sessaoId, barraSessao, colunas = 2, pref
           erro={catalogo.isError}
         />
       </div>
-      {catalogo.isSuccess && produtos.length === 0 && <Empty description="Não há produtos activos no catálogo." />}
+      {catalogo.isSuccess && produtos.length === 0 && <Empty description="Não há produtos activos marcados para este serviço." />}
 
       {hotelaria && <CheckoutHotel aberto={!!checkoutHotel} estadias={checkoutHotel ?? []} terminal={terminal} aoFechar={() => setCheckoutHotel(null)} />}
 

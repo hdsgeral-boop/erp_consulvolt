@@ -1,4 +1,4 @@
-import { Alert, Col, DatePicker, Form, Input, InputNumber, Row, Select, Typography } from 'antd';
+import { Alert, Col, DatePicker, Form, Input, InputNumber, Radio, Row, Select, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useMemo } from 'react';
 import { enviar } from '@/api/cliente';
@@ -12,6 +12,7 @@ import { SeletorCategoria, useCategorias } from './comum/componentes';
 import type { Activo, CategoriaActivo } from './comum/tipos';
 import { larguraModal } from '@/componentes/responsivo';
 import { CamposLocalizacao } from './edificios/locais';
+import { OPCOES_PROPRIEDADE, OPCOES_REGIME } from './comum/propriedade';
 
 interface Props {
   aberto: boolean;
@@ -43,6 +44,16 @@ interface Valores {
   edificio_id?: number;
   andar_id?: number;
   porta_id?: number;
+  // r3_activos: próprio / alheio e dados opcionais do proprietário/contrato
+  propriedade?: 'PROPRIO' | 'ALHEIO';
+  regime_alheio?: string;
+  proprietario_terceiro_id?: number;
+  proprietario_nome?: string;
+  contrato_referencia?: string;
+  contrato_inicio?: dayjs.Dayjs;
+  contrato_fim?: dayjs.Dayjs;
+  renda_mensal?: number;
+  propriedade_notas?: string;
 }
 
 const num = (v: string | number | null | undefined) => (v === null || v === undefined || v === '' ? undefined : Number(v));
@@ -56,12 +67,25 @@ const dataDe = (d: unknown): string | null => (dayjs.isDayjs(d) ? dataApi(d) ?? 
  */
 export function dadosActivo(v: Record<string, unknown>, activo?: Pick<Activo, 'tipo_ativo'> | null): Record<string, unknown> {
   const dados: Record<string, unknown> = { ...v, data_aquisicao: dataDe(v.data_aquisicao) };
+  for (const k of ['contrato_inicio', 'contrato_fim']) if (k in v) dados[k] = dataDe(v[k]);
   for (const k of Object.keys(dados)) if (dados[k] === undefined || dados[k] === '') dados[k] = null;
   if (!activo) delete dados.estado;
   if (activo) delete dados.tipo_ativo;
   if (v.tipo_ativo === 'EDIFICIO' || activo?.tipo_ativo === 'EDIFICIO') { delete dados.edificio_id; delete dados.andar_id; delete dados.porta_id; }
+  // r3_activos: um bem alheio não tem amortização (o servidor põe estes campos a zero); um próprio não guarda o contrato
+  if (v.propriedade === 'ALHEIO') {
+    for (const k of ['valor_residual', 'vida_util', 'vida_util_restante', 'quota_fixa', 'amortizacao_acumulada_inicial', 'acumulado_fim_ano']) delete dados[k];
+  } else if (v.propriedade === 'PROPRIO') {
+    for (const k of CAMPOS_CONTRATO) delete dados[k];
+  }
   return dados;
 }
+
+const CAMPOS_CONTRATO = ['regime_alheio', 'proprietario_terceiro_id', 'proprietario_nome', 'contrato_referencia', 'contrato_inicio', 'contrato_fim', 'renda_mensal', 'propriedade_notas'];
+
+/** Na vista Linhas: data e valor de aquisição só são obrigatórios nos bens próprios. */
+export const obrigatorioSeProprio = (v: unknown, r: Record<string, unknown>) =>
+  r.propriedade !== 'ALHEIO' && (v === null || v === undefined || v === '') ? 'Data e valor de aquisição são obrigatórios num bem próprio.' : null;
 
 /** Vida útil por omissão da categoria quando a linha não a traz (o mesmo que a grade faz ao escolher a categoria). */
 export function comVidaDaCategoria(r: Record<string, unknown>, categorias: CategoriaActivo[] | undefined): Record<string, unknown> {
@@ -83,7 +107,7 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
     if (!aberto) return;
     form.resetFields();
     // edifício novo: vida útil longa por omissão, como no legado (assetNovoEdificio :155, 600 meses)
-    if (!activo) form.setFieldsValue(tipoInicial === 'EDIFICIO' ? { tipo_ativo: 'EDIFICIO', vida_util: 600, vida_util_restante: 600 } : { tipo_ativo: 'BEM' });
+    if (!activo) form.setFieldsValue(tipoInicial === 'EDIFICIO' ? { tipo_ativo: 'EDIFICIO', vida_util: 600, vida_util_restante: 600, propriedade: 'PROPRIO' } : { tipo_ativo: 'BEM', propriedade: 'PROPRIO' });
     if (activo)
       form.setFieldsValue({
         codigo: activo.codigo ?? undefined, descricao: activo.descricao, categoria_ativo_id: activo.categoria_ativo_id ?? undefined, estado: activo.estado,
@@ -93,9 +117,17 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
         quota_fixa: num(activo.quota_fixa), amortizacao_acumulada_inicial: num(activo.amortizacao_acumulada_inicial), acumulado_fim_ano: num(activo.acumulado_fim_ano),
         tipo_ativo: activo.tipo_ativo === 'EDIFICIO' ? 'EDIFICIO' : 'BEM', edificio_id: activo.edificio_id ?? undefined, andar_id: activo.andar_id ?? undefined,
         porta_id: activo.porta_id ?? undefined,
+        propriedade: activo.propriedade === 'ALHEIO' ? 'ALHEIO' : 'PROPRIO', regime_alheio: activo.regime_alheio ?? undefined,
+        proprietario_terceiro_id: activo.proprietario_terceiro_id ?? undefined, proprietario_nome: activo.proprietario_nome ?? undefined,
+        contrato_referencia: activo.contrato_referencia ?? undefined, contrato_inicio: activo.contrato_inicio ? dayjs(activo.contrato_inicio) : undefined,
+        contrato_fim: activo.contrato_fim ? dayjs(activo.contrato_fim) : undefined, renda_mensal: num(activo.renda_mensal), propriedade_notas: activo.propriedade_notas ?? undefined,
       });
   }, [aberto, activo, form, tipoInicial]);
   const tipo = Form.useWatch('tipo_ativo', form);
+  const alheio = Form.useWatch('propriedade', form) === 'ALHEIO';
+  // aquisição obrigatória num próprio novo (ou que deixa de ser alheio)
+  const exigeAquisicao = !alheio && (!activo || activo.propriedade === 'ALHEIO');
+  const nomeTipo = tipo === 'EDIFICIO' ? 'edifício/local' : 'bem';
 
   const aoMudarCategoria = (id: number) => {
     const c = categorias.data?.find((x) => x.id === id);
@@ -122,8 +154,9 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
     { nome: 'fornecedor_id', rotulo: 'Fornecedor / origem', tipo: 'personalizado', largura: 190, emLinhas: 'opcional', seccao: 'Origem',
       celula: (p) => <SeletorTerceiro papel="FORNECEDOR" aria-label={p.rotulo} status={p.erro ? 'error' : undefined} size="small" style={{ width: '100%' }} value={(p.valor as number | null) ?? undefined} onChange={(v) => p.aoMudar(v ?? null)} />,
       converter: (t) => (/^\d+$/.test(t) ? Number(t) : undefined) },
-    { nome: 'data_aquisicao', rotulo: 'Data de aquisição', tipo: 'data', obrigatorio: true, largura: 140, aliases: ['Data Aquisição (AAAA-MM-DD)', 'Data Aquisição'] },
-    { nome: 'valor_aquisicao', rotulo: 'Valor de aquisição', tipo: 'numero', obrigatorio: true, min: 0, precisao: 2, largura: 130, aliases: ['Valor Aquisição (Kz)', 'Valor Aquisição', 'Valor'] },
+    // obrigatórios só nos próprios (r3_activos): a validação vê a coluna «Propriedade» da linha
+    { nome: 'data_aquisicao', rotulo: 'Data de aquisição', tipo: 'data', validar: obrigatorioSeProprio, largura: 140, aliases: ['Data Aquisição (AAAA-MM-DD)', 'Data Aquisição'] },
+    { nome: 'valor_aquisicao', rotulo: 'Valor de aquisição', tipo: 'numero', validar: obrigatorioSeProprio, min: 0, precisao: 2, largura: 130, aliases: ['Valor Aquisição (Kz)', 'Valor Aquisição', 'Valor'] },
     { nome: 'valor_residual', rotulo: 'Valor residual', tipo: 'numero', min: 0, precisao: 2, largura: 120 },
     { nome: 'vida_util', rotulo: 'Vida útil (meses)', tipo: 'numero', min: 0, precisao: 0, largura: 100, aliases: ['Meses de Vida Total', 'Vida útil'] },
     { nome: 'vida_util_restante', rotulo: 'Vida remanescente', tipo: 'numero', min: 0, precisao: 0, largura: 100, aliases: ['Vida útil restante (meses)'] },
@@ -131,6 +164,9 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
     { nome: 'amortizacao_acumulada_inicial', rotulo: 'Valor já amortizado (Kz)', tipo: 'numero', min: 0, precisao: 2, largura: 130, aliases: ['Amortização Acumulada (Kz)', 'Amortização Acumulada'] },
     { nome: 'acumulado_fim_ano', rotulo: 'Acumulado até ao fim do ano', tipo: 'numero', min: 1900, max: 2100, precisao: 0, largura: 110, emLinhas: 'opcional', seccao: 'Saldo inicial' },
     { nome: 'tipo_ativo', rotulo: 'Tipo de Activo', tipo: 'select', opcoes: TIPOS_ACTIVO, omissao: 'BEM', largura: 170, emLinhas: 'opcional', seccao: 'Tipo' },
+    { nome: 'propriedade', rotulo: 'Propriedade', tipo: 'select', opcoes: OPCOES_PROPRIEDADE, omissao: 'PROPRIO', largura: 190, emLinhas: 'opcional', seccao: 'Tipo',
+      aliases: ['Próprio/Alheio'] },
+    { nome: 'regime_alheio', rotulo: 'Regime (alheio)', tipo: 'select', opcoes: OPCOES_REGIME, largura: 160, emLinhas: 'opcional', seccao: 'Tipo' },
   ], [categorias.data, unidades.data, centros.data]);
 
   return (
@@ -145,7 +181,7 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
       nomeRegistos="activos imobilizados"
       invalidar={[['activos']]}
       gravarLinha={(r) => enviar('post', '/ativos/bens', dadosActivo(comVidaDaCategoria(r, categorias.data)))}
-      nota="Uma linha por activo. Descrição, categoria, data e valor de aquisição são obrigatórios; sem código, o sistema numera (AST-NNN). Sem vida útil, usa a da categoria. A localização física escolhe-se na grade."
+      nota="Uma linha por activo. Descrição e categoria são obrigatórias; data e valor de aquisição também, nos bens próprios (coluna opcional «Propriedade»: os alheios — arrendados, cedidos — não amortizam). Sem código, o sistema numera (AST-NNN). Sem vida útil, usa a da categoria. A localização física escolhe-se na grade."
       larguraLinhas={1400}
       onOk={() => form.submit()}
       okText="Gravar"
@@ -177,6 +213,11 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
             </Typography.Paragraph>
           </Col>
         </Row>
+        <Form.Item name="propriedade" label={`Este ${nomeTipo} é nosso?`}
+          extra={alheio ? 'Alheio: não amortiza, não entra nos mapas fiscais nem na contabilização da aquisição. Os dados do proprietário e do contrato são opcionais.'
+            : 'Próprio: a aquisição e a amortização são obrigatórias.'}>
+          <Radio.Group optionType="button" buttonStyle="solid" options={OPCOES_PROPRIEDADE} disabled={!!activo && bloqueado && !alheio} />
+        </Form.Item>
         {tipo !== 'EDIFICIO' && (
           <SeccaoFormulario titulo="Localização física" recolhida={!!activo && !activo.edificio_id}>
             <CamposLocalizacao form={form} />
@@ -226,15 +267,66 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
             </Col>
           </Row>
         </SeccaoFormulario>
+        {alheio && (
+          <SeccaoFormulario titulo="Proprietário e contrato (opcional)">
+            <Row gutter={12}>
+              <Col xs={24} md={8}>
+                <Form.Item name="regime_alheio" label="Regime">
+                  <Select allowClear options={OPCOES_REGIME} placeholder="Arrendado, cedido..." />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item name="proprietario_terceiro_id" label="Proprietário (terceiro registado)">
+                  <SeletorTerceiro papel="FORNECEDOR" style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item name="proprietario_nome" label="Ou o nome do proprietário">
+                  <Input maxLength={255} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item name="contrato_referencia" label="Contrato n.º / referência">
+                  <Input maxLength={100} />
+                </Form.Item>
+              </Col>
+              <Col xs={12} md={8}>
+                <Form.Item name="contrato_inicio" label="Início do contrato">
+                  <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={12} md={8}>
+                <Form.Item name="contrato_fim" label="Fim do contrato" dependencies={['contrato_inicio']}
+                  rules={[({ getFieldValue }) => ({ validator: (_, v?: dayjs.Dayjs) => {
+                    const ini = getFieldValue('contrato_inicio') as dayjs.Dayjs | undefined;
+                    return v && ini && v.isBefore(ini, 'day') ? Promise.reject(new Error('O fim é anterior ao início.')) : Promise.resolve();
+                  } })]}>
+                  <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item name="renda_mensal" label="Renda / encargo mensal (Kz)">
+                  <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={16}>
+                <Form.Item name="propriedade_notas" label="Notas">
+                  <Input maxLength={2000} />
+                </Form.Item>
+              </Col>
+            </Row>
+          </SeccaoFormulario>
+        )}
+        <div hidden={alheio}>
         <SeccaoFormulario titulo="Aquisição e amortização">
           <Row gutter={12}>
             <Col xs={24} md={8}>
-              <Form.Item name="data_aquisicao" label="Data de aquisição" rules={[{ required: !activo, message: 'Indique a data.' }]}>
+              <Form.Item name="data_aquisicao" label="Data de aquisição" rules={[{ required: exigeAquisicao, message: 'Indique a data.' }]}>
                 <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} disabled={bloqueado} />
               </Form.Item>
             </Col>
             <Col xs={24} md={8}>
-              <Form.Item name="valor_aquisicao" label="Valor de aquisição (Kz)" rules={[{ required: !activo, message: 'Indique o valor.' }]}>
+              <Form.Item name="valor_aquisicao" label="Valor de aquisição (Kz)" rules={[{ required: exigeAquisicao, message: 'Indique o valor.' }]}>
                 <InputNumber min={0} precision={2} style={{ width: '100%' }} disabled={bloqueado} />
               </Form.Item>
             </Col>
@@ -274,6 +366,7 @@ export function ModalActivo({ aberto, activo, aoFechar, aoGravar, tipoInicial = 
             </Col>
           </Row>
         </SeccaoFormulario>
+        </div>
       </Form>
     </ModalFormulario>
   );

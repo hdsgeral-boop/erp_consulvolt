@@ -7,6 +7,7 @@ use App\Models\Produto;
 use App\Models\SessaoPOS;
 use App\Models\TerminalPOS;
 use App\Models\Venda;
+use App\Services\POS\ServicoCatalogoPOS;
 use App\Services\POS\ServicoConfigPOS;
 use App\Services\POS\ServicoContabilizacaoPOS;
 use App\Services\POS\ServicoSessoesPOS;
@@ -26,6 +27,7 @@ final class POSController extends Controller
         private readonly ServicoSessoesPOS $sessoes,
         private readonly ServicoVendasPOS $vendas,
         private readonly ServicoContabilizacaoPOS $contabilizacao,
+        private readonly ServicoCatalogoPOS $catalogo,
     ) {}
 
     // ───────────── Terminais ─────────────
@@ -180,7 +182,11 @@ final class POSController extends Controller
         if ($alterado) {
             $this->exigir('pos_desconto');
         }
-        $v = $this->vendas->vender(SessaoPOS::query()->findOrFail($sessao), $d);
+        $s = SessaoPOS::query()->findOrFail($sessao);
+        // venda ao balcão: só produtos marcados para o serviço do terminal (r3_vendas; o catálogo do terminal já os filtra).
+        // Mesas, estadias e ordens de lavandaria não passam por aqui: os consumos já gravados não ficam presos no check-out.
+        $this->catalogo->exigirDoServico($d['linhas'], TerminalPOS::query()->findOrFail($s->terminal_pos_id));
+        $v = $this->vendas->vender($s, $d);
 
         return RespostaApi::criado($v->load('itensVenda'), "Venda {$v->numero_documento} registada. Troco: ".number_format((float) $v->pos_troco, 2, ',', ' ').' Kz.');
     }

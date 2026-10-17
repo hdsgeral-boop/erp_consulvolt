@@ -1,6 +1,6 @@
 import { Alert, Button, Descriptions, Modal, Radio, Space, Table, Typography, Upload, message } from 'antd';
 import { DownloadOutlined, ExperimentOutlined, UploadOutlined } from '@ant-design/icons';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { descarregar, enviar } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
@@ -28,10 +28,16 @@ interface Props {
   titulo: string;
   /** Endpoint multipart de importação. */
   url: string;
-  /** Entidade do modelo (GET /rh/importacoes/modelos/{modelo}). */
-  modelo: 'calculo' | 'colaboradores' | 'contratos' | 'produtividade' | 'funcoes' | 'infotipos' | 'bancos';
+  /** Entidade do modelo (GET /rh/importacoes/modelos/{modelo}); noutros módulos, o nome do modelo com `urlModelo`. */
+  modelo: 'calculo' | 'colaboradores' | 'contratos' | 'produtividade' | 'funcoes' | 'infotipos' | 'bancos' | (string & {});
   /** Caminho do modelo, quando não é o de /rh/importacoes/modelos/{modelo} (ex.: tabelas de suporte). */
   urlModelo?: string;
+  /** Parâmetros do pedido do modelo (ex.: a pessoa da folha de medição). */
+  paramsModelo?: Record<string, unknown>;
+  /** Nome do ficheiro do modelo descarregado (por omissão Template_{modelo}.xlsx). */
+  ficheiroModelo?: string;
+  /** Consultas a invalidar depois de importar (por omissão as do RH). */
+  invalidar?: QueryKey[];
   ajuda?: ReactNode;
   /** Mostra a escolha IGNORAR/ACTUALIZAR para os registos já existentes. */
   comDecisao?: 'IGNORAR' | 'ACTUALIZAR';
@@ -42,7 +48,7 @@ interface Props {
  * Importação Excel do RH (A-08/A-09/M-13), com o fluxo do legado — modelo, simulação, importação — e a regra do servidor:
  * uma linha com erro e nada é gravado (o relatório indica a linha e o motivo).
  */
-export function ImportarExcel({ aberto, titulo, url, modelo, urlModelo, ajuda, comDecisao, aoFechar }: Props) {
+export function ImportarExcel({ aberto, titulo, url, modelo, urlModelo, paramsModelo, ficheiroModelo, invalidar, ajuda, comDecisao, aoFechar }: Props) {
   const cliente = useQueryClient();
   const [ficheiro, setFicheiro] = useState<File | null>(null);
   const [decisao, setDecisao] = useState(comDecisao ?? 'IGNORAR');
@@ -67,7 +73,7 @@ export function ImportarExcel({ aberto, titulo, url, modelo, urlModelo, ajuda, c
       setErros(linhasComErro(dados));
       if (!simular) {
         message.success(mensagem);
-        void cliente.invalidateQueries({ queryKey: ['rh'] });
+        (invalidar ?? [['rh']]).forEach((k) => void cliente.invalidateQueries({ queryKey: k }));
       }
     } catch (e) {
       if (e instanceof ErroApi && e.codigo === 'IMPORTACAO_COM_ERROS' && e.erros) {
@@ -94,7 +100,7 @@ export function ImportarExcel({ aberto, titulo, url, modelo, urlModelo, ajuda, c
           {ajuda ?? 'Preencha o modelo Excel e importe-o. Use primeiro «Simular»: nada é gravado e o relatório indica as linhas com erro.'}
         </Typography.Paragraph>
         <Space wrap>
-          <Button icon={<DownloadOutlined />} onClick={() => void descarregar(urlModelo ?? `/rh/importacoes/modelos/${modelo}`, undefined, `Template_${modelo}.xlsx`).catch(notificarErro)}>Template</Button>
+          <Button icon={<DownloadOutlined />} onClick={() => void descarregar(urlModelo ?? `/rh/importacoes/modelos/${modelo}`, paramsModelo, ficheiroModelo ?? `Template_${modelo}.xlsx`).catch(notificarErro)}>Template</Button>
           <Upload accept=".xlsx,.xls,.csv" maxCount={1} beforeUpload={(f) => { setFicheiro(f); setRel(null); setErros([]); return false; }}
             onRemove={() => { setFicheiro(null); setRel(null); }} fileList={ficheiro ? [{ uid: '1', name: ficheiro.name, status: 'done' }] : []}>
             <Button icon={<UploadOutlined />}>Escolher ficheiro</Button>

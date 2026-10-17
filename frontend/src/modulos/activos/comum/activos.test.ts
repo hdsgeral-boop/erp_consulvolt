@@ -1,6 +1,6 @@
 import {
   accoesActivo, accoesPeriodo, codigoPeriodo, lerCsvImportacao, lerNumero, ordemPeriodo, ordenarPeriodos, quotaEditavel, repartirValor,
-  resultadoAbate, rotuloPeriodo, somaMesesLinha, totaisMapa, validarInventariacao,
+  resultadoAbate, rotuloPeriodo, somaMesesLinha, textoOrigens, totaisMapa, validarInventariacao,
 } from './regras';
 import type { LinhaMapa } from './tipos';
 
@@ -118,5 +118,21 @@ describe('Categorias — contas fora da classe (ADR-071, A9)', () => {
     expect(contaForaDaClasse('78-1', '78')).toBe(false);
     expect(contaForaDaClasse('', '78')).toBe(false);
     expect(contaForaDaClasse(null, '78')).toBe(false);
+  });
+});
+
+describe('Ficha do activo — linhas de aquisição combinadas (textoOrigens)', () => {
+  const linha = (id: number, doc: string, valor: string, alocado: string) => ({
+    id, numero_lan: `L${id}`, numero_documento: doc, data_documento: '2026-01-10', codigo_conta: '1141', valor, descricao: null, diario: { codigo: 'CP', nome: null }, valor_alocado: alocado,
+  });
+  it('combinado: todas as linhas com o valor de cada uma; simples: a linha de origem', () => {
+    const origens = [linha(1, 'FT A', '50000.00', '50000.00'), linha(2, 'FT B', '30000.00', '10000.00')];
+    const texto = textoOrigens({ origem: origens[0], origens });
+    expect(texto.split('; ')).toHaveLength(2);
+    expect(texto).toContain('FT A');
+    expect(texto).toContain('FT B');
+    expect(texto).toMatch(/10[\s.  ]?000,00 Kz$/);
+    expect(textoOrigens({ origem: origens[0], origens: [origens[0]] })).not.toContain('Kz');
+    expect(textoOrigens({ origem: null, origens: [] })).toBe('Sem lançamento de compra associado');
   });
 });

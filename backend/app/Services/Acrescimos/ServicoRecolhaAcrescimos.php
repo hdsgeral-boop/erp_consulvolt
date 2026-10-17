@@ -9,6 +9,7 @@ use App\Models\ItemCompra;
 use App\Models\LancamentoContabil;
 use App\Models\Terceiro;
 use App\Models\Venda;
+use App\Services\Logistica\ContasProduto;
 use App\Services\Vendas\ServicoContabilizacaoVendas;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
@@ -130,7 +131,7 @@ final class ServicoRecolhaAcrescimos
             } else {
                 $linhas = $this->agrupar(ItemCompra::query()->where('fatura_compra_id', $fc->id)->with(['produto' => fn ($q) => $q->withTrashed()])->orderBy('id')->get()
                     ->filter(fn ($i) => ! $i->produto?->movimenta_stock && ! $i->produto?->e_ativo_imobilizado)
-                    ->map(fn ($i) => [(string) ($i->produto?->conta_custo ?: $i->produto?->conta_compra), CalculadoraAcrescimos::dinheiro((string) ($i->total_kz ?? $i->total ?? 0))])
+                    ->map(fn ($i) => [(string) (ContasProduto::de($i->produto)->custo ?: ContasProduto::de($i->produto)->compra), CalculadoraAcrescimos::dinheiro((string) ($i->total_kz ?? $i->total ?? 0))])
                     ->filter(fn ($x) => str_starts_with($x[0], '7')));
             }
             $r[] = ['fonte' => 'COMPRA', 'id' => $fc->id, 'doc' => $fc->numero_fatura ?: "#{$fc->id}", 'data' => $fc->data->toDateString(), 'terceiro_id' => $fc->fornecedor_id,

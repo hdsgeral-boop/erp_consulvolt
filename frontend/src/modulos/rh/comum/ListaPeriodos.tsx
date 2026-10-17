@@ -15,7 +15,14 @@ import { pedidoTabela } from './impressao';
 
 import { TabelaComModos } from '@/componentes/vistas';
 /** Listagem dos períodos salariais (ecrãs Calcular e Processamentos); abrir um período só no Calcular. */
-export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra, antes }: { titulo: string; subtitulo: string; permitirAbrir?: boolean; accoesExtra?: ReactNode; antes?: ReactNode }) {
+export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra, antes }: {
+  titulo: string;
+  subtitulo: string;
+  permitirAbrir?: boolean;
+  accoesExtra?: ReactNode;
+  /** Conteúdo antes da tabela; como função recebe `abrirPeriodo` (abre o diálogo «Abrir período salarial»). */
+  antes?: ReactNode | ((abrirPeriodo: () => void) => ReactNode);
+}) {
   const navegar = useNavigate();
   const { pode } = useSessao();
   const periodos = usePeriodosSalariais();
@@ -27,6 +34,14 @@ export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra, a
     navegar(String(p.id));
   });
 
+  const existentes = new Set((periodos.data ?? []).map((p) => p.mes_ano));
+  /** Abre o diálogo no mês corrente ou, se já tiver período, no primeiro mês seguinte sem período. */
+  const abrirDialogo = () => {
+    let d = dayjs();
+    for (let i = 0; i < 24 && existentes.has(d.format('MM/YYYY')); i++) d = d.add(1, 'month');
+    setMes(d);
+    setAbrir(true);
+  };
   const pequeno = useEcraPequeno();
   const colunas: ColunaApi<PeriodoSalarial>[] = [
     { title: 'Mês', dataIndex: 'mes_ano', render: (v: string) => <strong>{v}</strong> },
@@ -42,19 +57,21 @@ export function ListaPeriodos({ titulo, subtitulo, permitirAbrir, accoesExtra, a
       <CabecalhoPagina
         titulo={titulo}
         subtitulo={subtitulo}
-        accoes={<>{accoesExtra}{permitirAbrir && pode('calcular_folha') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setAbrir(true)}>Abrir período</Button>}</>}
+        accoes={<>{accoesExtra}{permitirAbrir && pode('calcular_folha') && <Button type="primary" icon={<PlusOutlined />} onClick={abrirDialogo}>Abrir período</Button>}</>}
         impressaoDesactivada={!periodos.data?.length}
         impressao={() => pedidoTabela({ titulo: `Períodos salariais — ${titulo}`, colunas, linhas: periodos.data ?? [] })}
       />
-      {antes}
+      {typeof antes === 'function' ? antes(abrirDialogo) : antes}
       <Card>
         <TabelaComModos<PeriodoSalarial> rowKey="id" size={pequeno ? 'small' : 'middle'} scroll={scrollTabela()} loading={periodos.isFetching} columns={colunas} dataSource={periodos.data ?? []}
           onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })} pagination={{ pageSize: 24, showTotal: (t) => `${t} período(s)` }} />
       </Card>
       <Modal title="Abrir período salarial" open={abrir} onCancel={() => setAbrir(false)} okText="Abrir" cancelText="Cancelar" confirmLoading={accao.isPending}
-        okButtonProps={{ disabled: !mes }} onOk={() => mes && accao.mutate({ metodo: 'post', url: '/rh/salarios/periodos', dados: { mes_ano: mes.format('MM/YYYY') } })}>
-        <Typography.Paragraph type="secondary">O exercício contabilístico do mês tem de estar aberto. Só pode existir um processamento por mês.</Typography.Paragraph>
-        <DatePicker picker="month" format="MM/YYYY" value={mes} onChange={setMes} style={{ width: '100%' }} />
+        okButtonProps={{ disabled: !mes || existentes.has(mes.format('MM/YYYY')) }} onOk={() => mes && accao.mutate({ metodo: 'post', url: '/rh/salarios/periodos', dados: { mes_ano: mes.format('MM/YYYY') } })}>
+        <Typography.Paragraph type="secondary">O exercício contabilístico do mês tem de estar aberto. Só pode existir um processamento por mês (os meses que já têm período aparecem indisponíveis).</Typography.Paragraph>
+        <DatePicker picker="month" format="MM/YYYY" value={mes} onChange={setMes} style={{ width: '100%' }} aria-label="Mês do novo período"
+          disabledDate={(d) => existentes.has(d.format('MM/YYYY'))} />
+        {mes && existentes.has(mes.format('MM/YYYY')) && <Typography.Text type="warning">Já existe o período {mes.format('MM/YYYY')}: escolha-o na lista.</Typography.Text>}
       </Modal>
     </>
   );

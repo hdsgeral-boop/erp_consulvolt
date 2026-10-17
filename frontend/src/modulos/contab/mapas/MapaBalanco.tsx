@@ -2,6 +2,7 @@ import { Alert, Button, Card, Checkbox, Form } from 'antd';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useState } from 'react';
 import { TituloMapa } from './TituloMapa';
+import { DemonstracaoPorEmpresa, InterruptorPorEmpresa, usePorEmpresa } from './PorEmpresa';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { Balanco } from '../api';
 import { MovimentosSemNota, TabelaDemonstracao } from '../comum/Demonstracao';
@@ -16,6 +17,9 @@ export default function MapaBalanco() {
   const mapa = useMapa<Balanco>('balanco', '/contabilidade/relatorios/balanco');
   const [semNota, setSemNota] = useState(false);
   const [porUN, setPorUN] = useState(false);
+  // holding: uma coluna por empresa do grupo + consolidado (legado renderPorEmpresa)
+  const [porEmpresa, setPorEmpresa] = useState(false);
+  const pe = usePorEmpresa('balanco', mapa.parametros, porEmpresa);
   const porUnidade = useMapaPorUnidade<Balanco>('/contabilidade/relatorios/balanco', mapa.parametros, porUN);
   const d = mapa.data;
   const comparativo = !!mapa.parametros?.comparativo;
@@ -24,7 +28,7 @@ export default function MapaBalanco() {
   return (
     <>
       {/* legado: <h3>Balanço patrimonial comparativo</h3> com «Por unidade de negócio: ON/OFF» à direita (js/ui_reports.js:1137-1150) */}
-      <TituloMapa titulo="Balanço patrimonial comparativo" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Demonstração da posição financeira por notas'} accoes={<BotaoPorUN ligado={porUN} aoMudar={setPorUN} />} />
+      <TituloMapa titulo="Balanço patrimonial comparativo" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Demonstração da posição financeira por notas'} accoes={<><InterruptorPorEmpresa ligado={porEmpresa} aoMudar={setPorEmpresa} /><BotaoPorUN ligado={porUN} aoMudar={setPorUN} /></>} />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="ate"
@@ -44,7 +48,8 @@ export default function MapaBalanco() {
           {porUnidade.data && <TabelaPorUnidade dados={porUnidade.data} linhas={linhasBalanco} titulo="Balanço" periodo={periodoDosParametros(mapa.parametros)} />}
         </Card>
       )}
-      {!porUN && d && controlo && (
+      {porEmpresa && !porUN && d && <DemonstracaoPorEmpresa linhas={linhasBalanco(d)} dados={pe.data} titulo="Balanço" periodo={periodoDosParametros(mapa.parametros)} carregando={pe.isFetching} />}
+      {!porUN && !porEmpresa && d && controlo && (
         <>
           {!controlo.equilibrado && (
             <Alert
@@ -65,6 +70,7 @@ export default function MapaBalanco() {
           )}
           <Card>
             <TabelaDemonstracao
+              demonstracao="balanco"
               linhas={linhasBalanco(d)}
               comparativo={comparativo}
               rotuloAtual={`Ano ${d.ano}`}

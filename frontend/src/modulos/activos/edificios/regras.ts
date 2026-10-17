@@ -1,4 +1,4 @@
-import type { OpcoesLocais, Resultado } from './tipos';
+import type { AndarPlanta, OpcoesLocais, PisoDesenho, PortaDesenho, Resultado } from './tipos';
 
 /** Regras de apresentação dos Edifícios e Locais (js/activos_edificios.js). O servidor valida e decide; aqui só se mostra. */
 
@@ -86,4 +86,64 @@ export function filtrarBens<T extends { codigo: string | null; descricao: string
 /** «Marcar todos encontrados» (assetMarcarTodos :780-782): só as linhas ainda por contar. */
 export function marcarTodosEncontrados<T extends { resultado: Resultado | null | '' }>(linhas: T[]): T[] {
   return linhas.map((l) => (l.resultado ? l : { ...l, resultado: 'ENCONTRADO' as Resultado }));
+}
+
+// ───────────── Desenho do edifício (r3_activos) ─────────────
+
+/** Pisos da planta no formato do desenho. */
+export function pisosDaPlanta(andares: AndarPlanta[]): PisoDesenho[] {
+  return andares.map((a) => ({ id: a.id, numero: a.numero, nome: a.nome, ordem: a.ordem,
+    portas: a.portas.map((p) => ({ id: p.id, numero: p.numero, nome: p.nome, tipo: p.tipo, n_bens: p.n_bens })) }));
+}
+
+const ordemDe = (p: Pick<PisoDesenho, 'ordem' | 'numero'>) => (p.ordem ?? (/^-?\d+$/.test(String(p.numero ?? '').trim()) ? Number(p.numero) : 0));
+
+/** Ordem do desenho: o último andar em cima, as caves em baixo (como num prédio visto de frente). */
+export function ordenarParaDesenho<T extends PisoDesenho>(pisos: T[]): T[] {
+  return [...pisos].sort((a, b) => ordemDe(b) - ordemDe(a) || String(b.id).localeCompare(String(a.id), 'pt', { numeric: true }));
+}
+
+/** Casa (telhado de duas águas) até um piso acima do solo; prédio (terraço) com mais. */
+export function formaEdificio(pisos: Pick<PisoDesenho, 'ordem' | 'numero'>[]): 'CASA' | 'PREDIO' {
+  return pisos.filter((p) => ordemDe(p) >= 0).length <= 1 ? 'CASA' : 'PREDIO';
+}
+
+/** Cave = piso abaixo do solo (n.º negativo). */
+export const eCave = (p: Pick<PisoDesenho, 'ordem' | 'numero'>) => ordemDe(p) < 0;
+
+/**
+ * Pré-visualização ao criar/editar um andar: o andar em edição muda de nome/número; um andar novo entra na posição
+ * do número (como o servidor: ordem = n.º se for numérico, senão a seguir aos existentes), em destaque.
+ */
+export function pisosComAndar(pisos: PisoDesenho[], valores: { numero?: string | null; nome?: string | null }, editarId?: number | string | null): PisoDesenho[] {
+  const numero = String(valores.numero ?? '').trim();
+  const nome = String(valores.nome ?? '').trim() || nomeAndarPorOmissao(numero);
+  const numerico = /^-?\d+$/.test(numero);
+  if (editarId !== undefined && editarId !== null) {
+    return pisos.map((p) => (p.id === editarId ? { ...p, numero: numero || p.numero, nome, ordem: numerico ? Number(numero) : p.ordem, destaque: true } : p));
+  }
+  return [...pisos, { id: 'novo', numero: numero || null, nome, ordem: numerico ? Number(numero) : pisos.length, portas: [], destaque: true, novo: true }];
+}
+
+/** Pré-visualização das portas em série no andar escolhido: as que já existem ficam como estão (o servidor ignora-as). */
+export function pisosComPortas(pisos: PisoDesenho[], andarId: number | string | null | undefined, prefixo: string, de: number | null | undefined, ate: number | null | undefined): PisoDesenho[] {
+  const previa = previaPortas(prefixo, de, ate);
+  if (!previa.valida || andarId === null || andarId === undefined) return pisos;
+  const p = prefixo.trim();
+  return pisos.map((f) => {
+    if (f.id !== andarId) return f;
+    const existentes = new Set(f.portas.map((x) => x.numero));
+    const novas: PortaDesenho[] = [];
+    for (let i = de as number; i <= (ate as number); i++) {
+      const numero = `${p}${i}`.slice(0, 20);
+      if (!existentes.has(numero)) novas.push({ id: `nova-${numero}`, numero, n_bens: 0, nova: true });
+    }
+    return { ...f, portas: [...f.portas, ...novas], destaque: true };
+  });
+}
+
+/** Rótulo acessível da porta no desenho. */
+export function rotuloPorta(p: Pick<PortaDesenho, 'numero' | 'nome' | 'n_bens' | 'nova'>, piso: Pick<PisoDesenho, 'nome' | 'numero'>): string {
+  const bens = p.n_bens === 1 ? '1 bem' : `${p.n_bens} bens`;
+  return `Porta ${p.numero}${p.nome ? ` (${p.nome})` : ''} — ${nomeAndar(piso)}, ${p.nova ? 'nova' : bens}`;
 }

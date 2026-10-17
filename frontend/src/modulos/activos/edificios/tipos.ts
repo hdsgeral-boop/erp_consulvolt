@@ -12,6 +12,10 @@ export interface CartaoEdificio {
   inventarios: number;
   /** Bens deste edifício ainda sem porta (ADR-071, A2). */
   sem_porta?: number;
+  /** r3_activos: próprio ou alheio (arrendado, cedido) e a estrutura para o desenho do edifício. */
+  propriedade?: 'PROPRIO' | 'ALHEIO';
+  regime_alheio?: string | null;
+  pisos?: PisoDesenho[];
 }
 
 export interface ResumoEdificios {
@@ -62,7 +66,7 @@ export interface AndarPlanta {
 }
 
 export interface Planta {
-  edificio: { id: number; codigo: string | null; descricao: string; estado: string };
+  edificio: { id: number; codigo: string | null; descricao: string; estado: string; propriedade?: 'PROPRIO' | 'ALHEIO' };
   andares: AndarPlanta[];
   sem_local: BemNaPlanta[];
   /** Bens de outros edifícios, para os arrastar para este (activos_edificios.js:92). */
@@ -131,4 +135,26 @@ export interface ComparacaoInventario extends FolhaInventario {
     conformidade: number;
     a_aplicar: number;
   };
+}
+
+/** r3_activos: porta e piso tal como se desenham no edifício (painel, planta e pré-visualização ao criar). */
+export interface PortaDesenho {
+  id: number | string;
+  numero: string;
+  nome?: string | null;
+  tipo?: string | null;
+  n_bens: number;
+  /** Porta ainda por criar (pré-visualização). */
+  nova?: boolean;
+}
+
+export interface PisoDesenho {
+  id: number | string;
+  numero: string | null;
+  nome: string | null;
+  ordem: number | null;
+  portas: PortaDesenho[];
+  /** Piso novo ou em edição (pré-visualização). */
+  destaque?: boolean;
+  novo?: boolean;
 }

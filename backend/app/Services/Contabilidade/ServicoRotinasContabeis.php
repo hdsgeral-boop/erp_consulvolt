@@ -16,6 +16,12 @@ use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Throwable;
 
 /**
  * Rotinas contabilísticas (js/ui_rotinas.js): capitalização de obras internas, compensação automática, transferência de saldos,
@@ -290,35 +296,78 @@ final class ServicoRotinasContabeis
     // ───────────── Actualização em massa (ui_rotinas.js:422-553) ─────────────
 
     /**
-     * Altera campos de linhas de lançamento ([{lancamento_id, campo_a_modificar, novo_valor}]). Linhas com erro são recusadas com o
-     * motivo (como o legado); as válidas ficam gravadas e registadas no histórico (UPDATE_BATCH_*) para poderem ser anuladas.
+     * Altera campos de linhas de lançamento ([{lancamento_id, campo_a_modificar, novo_valor}]), validadas linha a linha.
+     *
+     * - `simular`: valida tudo e devolve a pré-visualização (valor actual → novo valor, com rótulos legíveis) sem gravar nada
+     *   (a validação corre dentro de uma transacção que é sempre desfeita, para a verificação do equilíbrio dos lançamentos
+     *   ver o estado final);
+     * - `soValidas` (omissão, como o legado): grava as linhas válidas e devolve as recusadas com o motivo; com `false`, se
+     *   houver alguma linha com erro nada é gravado (tudo ou nada);
+     * - tudo numa transacção, com bloqueio da empresa e das linhas (lockForUpdate); as alterações ficam no histórico
+     *   (UPDATE_BATCH_*) para poderem ser anuladas.
+     *
+     * @return array<string, mixed>
      */
-    public function actualizarEmMassa(array $linhas): array
+    public function actualizarEmMassa(array $linhas, bool $simular = false, bool $soValidas = true): array
     {
         $empresa = $this->contexto->obrigatorio();
+        $rotulos = [];
+        $rotulo = function (string $campo, mixed $valor) use (&$rotulos): ?string {
+            if ($valor === null || $valor === '') {
+                return null;
+            }
+            if (! in_array($campo, ['terceiro_id', 'diario_id', 'nota_demonstracao_id', 'nota_fluxo_caixa_id', 'unidade_negocio_id', 'centro_custo_id'], true)) {
+                return (string) $valor;
+            }
+            $chave = $campo.'|'.$valor;
+            if (! array_key_exists($chave, $rotulos)) {
+                $r = match ($campo) {
+                    'terceiro_id' => Terceiro::query()->withTrashed()->find((int) $valor, ['id', 'nome', 'nif']),
+                    'diario_id' => DiarioContabil::query()->find((int) $valor, ['id', 'codigo', 'nome', 'descricao']),
+                    'nota_demonstracao_id' => NotaDemonstracao::query()->find((int) $valor, ['id', 'codigo', 'descricao']),
+                    'nota_fluxo_caixa_id' => NotaFluxoCaixa::query()->find((int) $valor, ['id', 'codigo', 'descricao']),
+                    'unidade_negocio_id' => UnidadeNegocio::query()->find((int) $valor, ['id', 'codigo', 'nome']),
+                    'centro_custo_id' => CentroCusto::query()->find((int) $valor, ['id', 'codigo', 'descricao']),
+                };
+                $a = $r?->getAttributes() ?? [];
+                $codigo = trim((string) ($campo === 'terceiro_id' ? ($a['nif'] ?? '') : ($a['codigo'] ?? '')));
+                $nome = trim((string) (($a['nome'] ?? null) ?: ($a['descricao'] ?? '')));
+                $rotulos[$chave] = $r ? trim($codigo.' — '.$nome, ' —')." (id {$valor})" : "id {$valor}";
+            }
 
-        return DB::transaction(function () use ($empresa, $linhas) {
+            return $rotulos[$chave];
+        };
+
+        DB::beginTransaction();
+        try {
             $this->bloquearEmpresa($empresa);
-            $alteracoes = $erros = [];
+            $alteracoes = $erros = $previa = $avisos = [];
             $afectados = [];
-            foreach ($linhas as $i => $r) {
-                $n = $i + 2;
+            foreach (array_values($linhas) as $i => $r) {
+                // n.º da linha no Excel (o importador envia-o; colado: 2 = primeira linha de dados, como o legado)
+                $n = isset($r['linha']) ? (int) $r['linha'] : $i + 2;
                 $campoPedido = trim((string) ($r['campo_a_modificar'] ?? ''));
                 $campo = self::CAMPOS_ACTUALIZAVEIS[$campoPedido] ?? (in_array($campoPedido, self::CAMPOS_ACTUALIZAVEIS, true) ? $campoPedido : null);
                 $id = (int) ($r['lancamento_id'] ?? 0);
+                $erro = function (string $motivo, ?LancamentoContabil $l = null) use (&$erros, &$previa, $n, $id, $campo, $campoPedido, $r): void {
+                    $erros[] = ['linha' => $n, 'lancamento_id' => $id ?: null, 'motivo' => $motivo];
+                    $previa[] = ['linha' => $n, 'lancamento_id' => $id ?: null, 'numero_lan' => $l?->numero_lan, 'codigo_conta' => $l?->codigo_conta,
+                        'campo' => $campo ?? $campoPedido, 'anterior' => null,
+                        'novo' => isset($r['novo_valor']) && $r['novo_valor'] !== '' ? mb_substr((string) $r['novo_valor'], 0, 200) : null, 'estado' => 'ERRO', 'motivo' => $motivo];
+                };
                 if (! $id || $campoPedido === '') {
-                    $erros[] = ['linha' => $n, 'lancamento_id' => $id ?: null, 'motivo' => 'ID ou campo ausente.'];
+                    $erro('ID ou campo ausente.');
 
                     continue;
                 }
                 if ($campo === null) {
-                    $erros[] = ['linha' => $n, 'lancamento_id' => $id, 'motivo' => "O campo \"{$campoPedido}\" não é editável ou não existe."];
+                    $erro("O campo \"{$campoPedido}\" não é editável ou não existe.");
 
                     continue;
                 }
                 $linha = LancamentoContabil::query()->lockForUpdate()->find($id);
                 if (! $linha) {
-                    $erros[] = ['linha' => $n, 'lancamento_id' => $id, 'motivo' => 'Lançamento não encontrado nesta empresa.'];
+                    $erro('Lançamento não encontrado nesta empresa.');
 
                     continue;
                 }
@@ -326,7 +375,7 @@ final class ServicoRotinasContabeis
                     $novo = $this->valorActualizacao($campo, $r['novo_valor'] ?? null);
                     $this->exigirAlteravel($linha);
                 } catch (ErroNegocio $e) {
-                    $erros[] = ['linha' => $n, 'lancamento_id' => $id, 'motivo' => $e->getMessage()];
+                    $erro($e->getMessage(), $linha);
 
                     continue;
                 }
@@ -335,19 +384,126 @@ final class ServicoRotinasContabeis
                     $afectados[] = [$linha->diario_id, $linha->chave()];
                     $afectados[] = [$novo, $linha->chave()];
                 }
+                $previa[] = ['linha' => $n, 'lancamento_id' => $id, 'numero_lan' => $linha->numero_lan, 'codigo_conta' => $linha->codigo_conta, 'campo' => $campo,
+                    'anterior' => $rotulo($campo, $anterior), 'novo' => $rotulo($campo, $novo),
+                    'estado' => (string) $anterior === (string) $novo ? 'SEM_ALTERACAO' : 'OK', 'motivo' => null];
                 $linha->update([$campo => $novo]);
                 $alteracoes[] = ['id' => $linha->id, 'campo' => $campo, 'anterior' => $anterior, 'novo' => $novo];
             }
-            $this->exigirEquilibrados($afectados);
+            try {
+                $this->exigirEquilibrados($afectados);
+            } catch (ErroNegocio $e) {
+                if (! $simular) {
+                    throw $e;
+                }
+                $avisos[] = $e->getMessage();
+            }
+            if ($erros && ! $soValidas && ! $simular) {
+                throw new ErroNegocio(count($erros).' linha(s) com erro: nada foi gravado. Corrija o ficheiro ou aplique só as linhas válidas.',
+                    'ACTUALIZACAO_COM_ERROS', 422, ['erros' => $erros]);
+            }
             $codigo = null;
-            if ($alteracoes) {
+            if ($alteracoes && ! $simular) {
                 $codigo = 'UPDATE_BATCH_'.$this->marca();
                 ReconciliacaoBancaria::create(['reconciliacao_codigo' => $codigo, 'data' => now()->toDateString(), 'valor_total' => count($alteracoes),
                     'tipo' => 'ATUALIZACAO_LOTE', 'tipo_original' => 'BATCH_UPDATE', 'detalhes' => json_encode($alteracoes, JSON_UNESCAPED_UNICODE)]);
             }
+            $resultado = ['codigo' => $codigo, 'actualizadas' => $simular ? 0 : count($alteracoes), 'validas' => count($alteracoes), 'erros' => $erros,
+                'previa' => $previa, 'simulacao' => $simular, 'avisos' => $avisos];
+            $simular ? DB::rollBack() : DB::commit();
 
-            return ['codigo' => $codigo, 'actualizadas' => count($alteracoes), 'erros' => $erros];
-        });
+            return $resultado;
+        } catch (Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Modelo Excel da actualização em massa (legado: downloadRotinaTemplate, js/ui_rotinas.js:377-420): folha «Ajustes» com as
+     * colunas aceites (lista pendente nos campos), «Como_Usar» com as instruções e exemplos, e as listas de referência da
+     * empresa (diários, notas, unidades, centros de custo e terceiros) para escolher os ids.
+     */
+    public function modeloActualizacao(string $caminho): void
+    {
+        $livro = new Spreadsheet;
+        $folha = $livro->getActiveSheet()->setTitle('Ajustes');
+        $folha->fromArray(['lancamento_id', 'campo_a_modificar', 'novo_valor'], null, 'A1');
+        $folha->getStyle('A1:C1')->getFont()->setBold(true);
+        foreach (['A' => 16, 'B' => 26, 'C' => 50] as $col => $l) {
+            $folha->getColumnDimension($col)->setWidth($l);
+        }
+        $folha->getStyle('C2:C20001')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
+        $campos = array_values(array_unique(array_values(self::CAMPOS_ACTUALIZAVEIS)));
+        $validacao = $folha->getCell('B2')->getDataValidation();
+        $validacao->setType(DataValidation::TYPE_LIST)->setAllowBlank(true)->setShowDropDown(true)
+            ->setShowErrorMessage(true)->setErrorTitle('Campo inválido')->setError('Escolha um dos campos da lista.')
+            ->setFormula1('"'.implode(',', $campos).'"');
+        $folha->setDataValidation('B2:B20001', $validacao);
+        $folha->freezePane('A2');
+
+        $ajuda = [
+            ['CAMPO', 'DESCRIÇÃO / VALORES ACEITES'],
+            ['lancamento_id', 'O ID único da linha de lançamento (coluna ID da lista de Lançamentos)'],
+            ['campo_a_modificar', 'O nome técnico do campo a alterar (lista pendente na folha Ajustes)'],
+            ['novo_valor', 'O novo valor. Vazio remove a associação (notas, terceiro, unidade, centro de custo); a conta e o diário não podem ficar vazios'],
+            ['', ''],
+            ['CAMPOS SUPORTADOS', ''],
+            ['descricao', 'Texto da descrição da linha'],
+            ['codigo_conta', 'Conta de movimento do plano de contas (ex.: 62.1.1)'],
+            ['terceiro_id', 'ID do terceiro (folha Terceiros)'],
+            ['diario_id', 'ID do diário (folha Diarios) — mude todas as linhas do lançamento para ele continuar equilibrado'],
+            ['nota_demonstracao_id', 'ID da nota às demonstrações (folha Notas_DEMO)'],
+            ['nota_fluxo_caixa_id', 'ID da nota de fluxo de caixa (folha Notas_Fluxo)'],
+            ['unidade_negocio_id', 'ID da unidade de negócio (folha Unidades_Negocio)'],
+            ['centro_custo_id', 'ID do centro de custo (folha Centros_Custo)'],
+            ['', ''],
+            ['Também se aceitam os nomes do sistema anterior: '.implode(', ', array_keys(self::CAMPOS_ACTUALIZAVEIS)), ''],
+            ['', ''],
+            ['EXEMPLOS (não copie os ids: use os da sua empresa)', ''],
+            ['123 | descricao | Nova descrição do movimento', ''],
+            ['123 | codigo_conta | 62.1.1', ''],
+            ['456 | terceiro_id | 10', ''],
+            ['', ''],
+            ['NOTAS', ''],
+            ['- Ao importar, o sistema valida cada linha e mostra a pré-visualização (valor actual → novo valor) antes de aplicar.', ''],
+            ['- Linhas de exercícios encerrados ou de lançamentos estornados são recusadas.', ''],
+            ['- As alterações aplicadas ficam no Histórico das rotinas e podem ser anuladas.', ''],
+        ];
+        $como = $livro->createSheet()->setTitle('Como_Usar');
+        $como->fromArray($ajuda, null, 'A1');
+        $como->getStyle('A1:B1')->getFont()->setBold(true);
+        $como->getColumnDimension('A')->setWidth(32);
+        $como->getColumnDimension('B')->setWidth(110);
+
+        $referencias = [
+            'Diarios' => [['id', 'codigo', 'descricao'], DiarioContabil::query()->orderBy('codigo')->get(['id', 'codigo', 'nome', 'descricao'])->map(fn ($x) => [$x->id, $x->codigo, $x->descricao ?: $x->nome])],
+            'Notas_DEMO' => [['id', 'codigo', 'descricao'], NotaDemonstracao::query()->orderBy('codigo')->get(['id', 'codigo', 'descricao'])->map(fn ($x) => [$x->id, $x->codigo, $x->descricao])],
+            'Notas_Fluxo' => [['id', 'codigo', 'descricao'], NotaFluxoCaixa::query()->orderBy('codigo')->get(['id', 'codigo', 'descricao'])->map(fn ($x) => [$x->id, $x->codigo, $x->descricao])],
+            'Unidades_Negocio' => [['id', 'codigo', 'nome'], UnidadeNegocio::query()->orderBy('codigo')->get(['id', 'codigo', 'nome'])->map(fn ($x) => [$x->id, $x->codigo, $x->nome])],
+            'Centros_Custo' => [['id', 'codigo', 'descricao'], CentroCusto::query()->orderBy('codigo')->get(['id', 'codigo', 'descricao'])->map(fn ($x) => [$x->id, $x->codigo, $x->descricao])],
+            'Terceiros' => [['id', 'nif', 'nome'], Terceiro::query()->ordenarPorNome()->limit(20000)->get(['id', 'nif', 'nome'])->map(fn ($x) => [$x->id, $x->nif, $x->nome])],
+        ];
+        foreach ($referencias as $nome => [$cab, $dados]) {
+            $f = $livro->createSheet()->setTitle($nome);
+            $f->fromArray($cab, null, 'A1');
+            $f->getStyle('A1:C1')->getFont()->setBold(true);
+            $i = 2;
+            foreach ($dados as $l) {
+                $f->setCellValue([1, $i], $l[0]);
+                // códigos e NIF como texto (ex.: «012» ≠ «12»)
+                $f->setCellValueExplicit([2, $i], (string) $l[1], DataType::TYPE_STRING);
+                $f->setCellValueExplicit([3, $i], (string) $l[2], DataType::TYPE_STRING);
+                $i++;
+            }
+            foreach (['A' => 10, 'B' => 18, 'C' => 60] as $col => $l) {
+                $f->getColumnDimension($col)->setWidth($l);
+            }
+            $f->freezePane('A2');
+        }
+        $livro->setActiveSheetIndex(0);
+        (new Xlsx($livro))->save($caminho);
+        $livro->disconnectWorksheets();
     }
 
     // ───────────── Histórico e anulação (ui_rotinas.js:1110-1221) ─────────────

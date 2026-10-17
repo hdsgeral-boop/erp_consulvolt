@@ -13,7 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Leituras de paridade da Logística com o sistema anterior (verificacao_visual/RELATORIO.md, secção 2):
- *  - recepções a validar com o n.º da encomenda, o fornecedor e o armazém (2.2 — renderRececoesPendentes, ui_warehouse.js:262);
+ *  - recepções a validar com o n.º da encomenda, o fornecedor e o armazém (2.2 — renderRececoesPendentes, ui_warehouse.js:262) e a encomenda
+ *    de cliente (NE) de origem, para «Gerar Guia de Saída para Cliente (Back-to-Back)» (ui_warehouse.js:331);
  *  - histórico de movimentos com o terceiro e o nome do armazém (2.4 — renderMovimentosTab, ui_warehouse.js:1226);
  *  - valor em stock por armazém (2.5 — renderArmazensTab, ui_warehouse.js:1378).
  * Só leitura; os modelos já filtram pela empresa activa (PertenceEmpresa) e as junções exigem a mesma empresa.
@@ -40,6 +41,10 @@ final class ParidadeStockController extends Controller
             ->leftJoin('encomendas_compra as e', fn ($j) => $j->on('e.id', '=', 'rececoes_compra.encomenda_compra_id')->on('e.empresa_id', '=', 'rececoes_compra.empresa_id'))
             ->leftJoin('terceiros as t', fn ($j) => $j->on('t.id', '=', 'e.fornecedor_id')->on('t.empresa_id', '=', 'rececoes_compra.empresa_id'))
             ->leftJoin('armazens as a', fn ($j) => $j->on('a.id', '=', 'rececoes_compra.armazem_id')->on('a.empresa_id', '=', 'rececoes_compra.empresa_id'))
+            // back-to-back (ui_warehouse.js:331, order.source_sale_id): a encomenda de cliente (NE) de onde veio a compra — directa ou pelo pedido
+            ->leftJoin('pedidos_compra as pc', fn ($j) => $j->on('pc.id', '=', 'e.pedido_compra_id')->on('pc.empresa_id', '=', 'rececoes_compra.empresa_id'))
+            ->leftJoin('vendas as ne', fn ($j) => $j->on('ne.id', '=', DB::raw('COALESCE(e.venda_origem_id, pc.venda_origem_id)'))
+                ->on('ne.empresa_id', '=', 'rececoes_compra.empresa_id')->where('ne.tipo_documento', '=', 'NE'))
             ->when($f['situacao'] ?? null, fn ($q, $v) => $q->whereRaw("({$situacao}) = ?", [$v]))
             ->when($f['data_inicio'] ?? null, fn ($q, $v) => $q->where('rececoes_compra.data', '>=', $v))
             ->when($f['data_fim'] ?? null, fn ($q, $v) => $q->where('rececoes_compra.data', '<=', $v))
@@ -50,7 +55,7 @@ final class ParidadeStockController extends Controller
             })
             ->select(['rececoes_compra.id', 'rececoes_compra.data', 'rececoes_compra.numero_entrega', 'rececoes_compra.numero_rececao', 'rececoes_compra.encomenda_compra_id',
                 'rececoes_compra.armazem_id', 'rececoes_compra.estado', 'rececoes_compra.validado', 'rececoes_compra.contabilizado', 'rececoes_compra.valor_total_kz',
-                'e.numero_encomenda', 'e.fornecedor_id', 't.nome as fornecedor', 'a.nome as armazem'])
+                'e.numero_encomenda', 'e.fornecedor_id', 't.nome as fornecedor', 'a.nome as armazem', 'ne.id as encomenda_cliente_id', 'ne.numero_documento as encomenda_cliente'])
             ->selectRaw("{$situacao} as situacao")
             ->orderByDesc('rececoes_compra.data')->orderByDesc('rececoes_compra.id')
             ->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));

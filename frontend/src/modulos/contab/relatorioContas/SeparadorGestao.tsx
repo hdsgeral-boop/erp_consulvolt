@@ -2,7 +2,8 @@ import { Button, Card, Input, Table, Tag, Tooltip, Typography, theme } from 'ant
 import { UndoOutlined } from '@ant-design/icons';
 import { Fragment } from 'react';
 import { scrollTabela } from '@/componentes/responsivo';
-import { SECCOES, tabelaSeccao, textoActual, textoParaHtml, type ConfigGestao, type DadosGestao, type TextoGravado } from './textosGestao';
+import { graficoSeccao, type CoresGrafico, type DadosGraficos } from './graficosRC';
+import { SECCOES, tabelaSeccao, textoActual, textoParaHtml, type ConfigGestao, type TextoGravado } from './textosGestao';
 
 /** Parágrafos e listas de um texto (sem HTML: «• » no início da linha = item de lista). */
 export function TextoFormatado({ texto }: { texto: string }) {
@@ -35,7 +36,9 @@ export function TextoFormatado({ texto }: { texto: string }) {
 
 /**
  * Separador «Relatório de Gestão» (M-10; legado: aba «gestao», js/relatorio_contas.js:993-1001): secções com o texto
- * automático (gerado a partir dos números) ou o texto editado, «Repor automático» e as tabelas de indicadores.
+ * automático (gerado a partir dos números) ou o texto editado, «Repor automático», as tabelas de indicadores e, com
+ * «Incluir gráficos» ligado, os gráficos de cada secção (legado: graficoSeccao, js/relatorio_contas.js:998) — os mesmos
+ * SVG do documento impresso, com as cores de texto/grelha do tema (claro ou nocturno).
  */
 export function SeparadorGestao({
   dados,
@@ -44,13 +47,14 @@ export function SeparadorGestao({
   editavel,
   aoMudar,
 }: {
-  dados: DadosGestao;
+  dados: DadosGraficos;
   config: ConfigGestao;
   textos: Record<string, TextoGravado>;
   editavel: boolean;
   aoMudar: (id: string, valor: TextoGravado | null) => void;
 }) {
   const { token } = theme.useToken();
+  const cores: CoresGrafico = { texto: token.colorText, secundario: token.colorTextSecondary, grelha: token.colorBorderSecondary, superficie: token.colorBgContainer };
   let grupo: string | undefined;
   return (
     <>
@@ -118,10 +122,20 @@ export function SeparadorGestao({
                   ]}
                 />
               )}
+              <GraficosSeccao html={graficoSeccao(s.id, dados, config, cores)} titulo={s.titulo} />
             </Card>
           </Fragment>
         );
       })}
     </>
   );
+}
+
+/**
+ * Gráficos da secção (SVG gerado por graficosRC: todo o texto vem escapado e não há scripts nem atributos de eventos,
+ * por isso pode ser inserido como HTML).
+ */
+function GraficosSeccao({ html, titulo }: { html: string; titulo: string }) {
+  if (!html) return null;
+  return <div role="group" aria-label={`Gráficos — ${titulo}`} style={{ marginTop: 8 }} dangerouslySetInnerHTML={{ __html: html }} />;
 }

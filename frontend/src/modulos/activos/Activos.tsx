@@ -26,6 +26,7 @@ import { AlertaReconciliacao } from './inventario/AlertaReconciliacao';
 import { useOpcoesLocais } from './edificios/locais';
 import { textoLocal } from './edificios/regras';
 import { BotaoCartao } from './inventario/BotaoCartao';
+import { EtiquetaPropriedade } from './comum/propriedade';
 import { bloqueioEliminar, corEstadoActivo, dicaEditar, iconeEditar, NOME_TEMPLATE_ACTIVOS, ouTracos, taxaPorVidaUtil, vidaUtilMeses } from './inventario/regrasInventario';
 
 import { TabelaComModos } from '@/componentes/vistas';
@@ -66,6 +67,7 @@ function Cadastro() {
   const [categoria, setCategoria] = useState<number>();
   const [centro, setCentro] = useState<number>();
   const [semLancamento, setSemLancamento] = useState(false);
+  const [propriedade, setPropriedade] = useState<string>();
   const [seleccao, setSeleccao] = useState<number[]>([]);
   const [novo, setNovo] = useState(false);
   const [editar, setEditar] = useState<Activo | null>(null);
@@ -92,7 +94,9 @@ function Cadastro() {
         </Button>
       ),
     },
-    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300, render: (v) => <strong>{v}</strong> },
+    { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 300,
+      // r3_activos: os bens alheios (arrendados, cedidos, de terceiros) não amortizam — selo ao lado da descrição
+      render: (v, r) => <><strong>{v}</strong>{r.propriedade === 'ALHEIO' && <EtiquetaPropriedade activo={r} />}</> },
     { title: 'Categoria', key: 'cat', valorFiltro: (r) => r.categoria_ativo?.nome ?? '', valorImpressao: (r) => r.categoria_ativo?.nome ?? 'N/A', render: (_, r) => <small>{r.categoria_ativo?.nome ?? 'N/A'}</small> },
     { title: 'Localização', key: 'local', valorFiltro: local, valorImpressao: (r) => local(r) || '—',
       render: (_, r) => (r.tipo_ativo === 'EDIFICIO' ? <Tag icon={<IconeFa nome="city" />}>EDIFÍCIO</Tag> : <small>{local(r) || '—'}</small>) },
@@ -148,6 +152,8 @@ function Cadastro() {
             options={[{ value: 'ACTIVO', label: 'Activo' }, { value: 'INACTIVO', label: 'Inactivo' }, { value: 'ABATIDO', label: 'Abatido' }]} />
           <SeletorCategoria allowClear value={categoria} onChange={setCategoria} style={{ width: 220 }} />
           <SeletorAux tabela="centros-custo" placeholder="Centro de custo" value={centro} onChange={setCentro} style={{ width: 200 }} />
+          <Select placeholder="Propriedade" allowClear value={propriedade} onChange={setPropriedade} style={{ width: 170 }} aria-label="Propriedade"
+            options={[{ value: 'PROPRIO', label: 'Próprios' }, { value: 'ALHEIO', label: 'Alheios (arrendados, cedidos)' }]} />
           <Checkbox checked={semLancamento} onChange={(e) => setSemLancamento(e.target.checked)} style={{ alignSelf: 'center' }}>
             Sem lançamento de compra
           </Checkbox>
@@ -155,7 +161,7 @@ function Cadastro() {
         <TabelaApi<Activo>
           url="/ativos/bens"
           chaveConsulta={['activos', 'bens']}
-          filtros={{ texto, estado, categoria_ativo_id: categoria, centro_custo_id: centro, sem_lancamento: semLancamento ? 1 : undefined }}
+          filtros={{ texto, estado, categoria_ativo_id: categoria, centro_custo_id: centro, sem_lancamento: semLancamento ? 1 : undefined, propriedade }}
           porPagina={50}
           columns={colunas}
           size={pequeno ? 'small' : 'middle'}

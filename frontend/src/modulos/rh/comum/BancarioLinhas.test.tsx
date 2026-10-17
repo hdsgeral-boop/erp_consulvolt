@@ -57,7 +57,7 @@ describe('Configurações bancárias › «Adicionar IBAN» (Grade | Linhas)', (
     const b = ibanAo('000600000987654321098');
     const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={cliente}><MemoryRouter><Bancario /></MemoryRouter></QueryClientProvider>);
-    fireEvent.click(await screen.findByRole('button', { name: /Adicionar IBAN/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Vários IBAN/ }));
     fireEvent.click(await screen.findByRole('button', { name: /Linhas/ }));
     await screen.findByTestId('painel-linhas');
     fireEvent.click(screen.getByRole('button', { name: /Colar do Excel/ }));

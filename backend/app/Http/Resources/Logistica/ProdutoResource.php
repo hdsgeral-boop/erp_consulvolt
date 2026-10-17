@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Logistica;
 
 use App\Models\Produto;
+use App\Services\Logistica\ContasProduto;
 use App\Services\Vendas\ServicoImagemProduto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -14,6 +15,7 @@ final class ProdutoResource extends JsonResource
     public function toArray(Request $request): array
     {
         $detalhe = $request->routeIs('logistica.produtos.show', 'logistica.produtos.store', 'logistica.produtos.update');
+        $contas = ContasProduto::de($this->resource);
 
         return [
             'id' => $this->id,
@@ -30,11 +32,27 @@ final class ProdutoResource extends JsonResource
             'unidade_fe' => $this->unidade_fe,
             'tipo_operacao_fe' => $this->tipo_operacao_fe,
             'codigo_isencao_fe' => $this->codigo_isencao_fe,
+            // ronda 3: contas EFECTIVAS (as da categoria; na falta, as de recurso gravadas no produto) e de onde vêm
+            'categoria' => $this->categoria_produto_id ? $this->categoriaProduto?->nome : null,
             'contas' => [
-                'venda' => $this->codigo_conta, 'custo' => $this->conta_custo, 'compra' => $this->conta_compra, 'inventario' => $this->conta_inventario,
-                'iva_liquidado' => $this->conta_iva_liquidado, 'iva_dedutivel' => $this->conta_iva_dedutivel,
-                'quebra' => $this->conta_quebra, 'sobra' => $this->conta_sobra, 'ativo' => $this->conta_ativo,
+                'venda' => $contas->venda, 'custo' => $contas->custo, 'compra' => $contas->compra, 'inventario' => $contas->inventario,
+                'iva_liquidado' => $contas->ivaLiquidado, 'iva_dedutivel' => $contas->ivaDedutivel,
+                'quebra' => $contas->quebra, 'sobra' => $contas->sobra, 'ativo' => $contas->ativo,
             ],
+            'contas_origem' => [
+                'venda' => $contas->origem['venda'], 'custo' => $contas->origem['custo'], 'compra' => $contas->origem['compra'], 'inventario' => $contas->origem['inventario'],
+                'iva_liquidado' => $contas->origem['ivaLiquidado'], 'iva_dedutivel' => $contas->origem['ivaDedutivel'],
+                'quebra' => $contas->origem['quebra'], 'sobra' => $contas->origem['sobra'], 'ativo' => $contas->origem['ativo'],
+            ],
+            'niveis_stock' => [
+                'stock_minimo' => $this->stock_minimo, 'stock_seguranca' => $this->stock_seguranca,
+                'ponto_encomenda' => $this->ponto_encomenda, 'stock_maximo' => $this->stock_maximo,
+            ],
+            'ficha_tecnica' => $this->when($detalhe, fn () => [
+                'marca' => $this->marca, 'modelo' => $this->modelo, 'comprimento' => $this->comprimento, 'largura' => $this->largura, 'altura' => $this->altura,
+                'unidade_dimensao' => $this->unidade_dimensao, 'peso_liquido' => $this->peso_liquido, 'peso_bruto' => $this->peso_bruto,
+                'caracteristicas' => $this->caracteristicas ?? [], 'observacoes_tecnicas' => $this->observacoes_tecnicas,
+            ]),
             'hotelaria' => $this->when((bool) $this->e_quarto, fn () => ['preco_por_hora' => $this->preco_por_hora, 'preco_por_dia' => $this->preco_por_dia, 'horas_minimas' => $this->horas_minimas]),
             'lavandaria' => $this->when((bool) $this->lavandaria_ativa, fn () => ['grupo' => $this->lavandaria_grupo, 'unidade' => $this->lavandaria_unidade,
                 'dias_entrega' => $this->lavandaria_dias_entrega, 'requer_orcamento' => (bool) $this->lavandaria_requer_orcamento,

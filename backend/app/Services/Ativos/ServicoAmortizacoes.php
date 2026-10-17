@@ -57,7 +57,7 @@ final class ServicoAmortizacoes
         $registos = AmortizacaoAtivo::query()->get()->groupBy('ativo_imobilizado_id');
         $cats = CategoriaAtivo::withTrashed()->get()->keyBy('id');
         $linhas = [];
-        foreach (AtivoImobilizado::query()->with('centroCusto:id,codigo', 'unidadeNegocio:id,codigo')->orderBy('codigo')->get() as $a) {
+        foreach (AtivoImobilizado::query()->proprios()->with('centroCusto:id,codigo', 'unidadeNegocio:id,codigo')->orderBy('codigo')->get() as $a) {
             $doAtivo = $registos[$a->id] ?? collect();
             $reg = $doAtivo->firstWhere('periodo_codigo', $periodo);
             $acumulado = $this->acumuladoSem($a, $doAtivo, $periodo);
@@ -126,7 +126,7 @@ final class ServicoAmortizacoes
     public function mesesPorCalcular(int $ultimo, ?Collection $ativos = null): array
     {
         $cats = CategoriaAtivo::withTrashed()->get()->keyBy('id');
-        $ativos ??= AtivoImobilizado::query()->where('estado', AtivoImobilizado::ESTADO_ATIVO)->orderBy('codigo')->get();
+        $ativos ??= AtivoImobilizado::query()->proprios()->where('estado', AtivoImobilizado::ESTADO_ATIVO)->orderBy('codigo')->get();
         $registos = AmortizacaoAtivo::query()->whereIn('ativo_imobilizado_id', $ativos->pluck('id'))->get()->groupBy('ativo_imobilizado_id');
         $saida = [];
         foreach ($ativos as $a) {
@@ -220,7 +220,7 @@ final class ServicoAmortizacoes
 
         return DB::transaction(function () use ($periodos) {
             $cats = CategoriaAtivo::withTrashed()->get()->keyBy('id');
-            $ativos = AtivoImobilizado::query()->where('estado', AtivoImobilizado::ESTADO_ATIVO)->orderBy('id')->lockForUpdate()->get();
+            $ativos = AtivoImobilizado::query()->proprios()->where('estado', AtivoImobilizado::ESTADO_ATIVO)->orderBy('id')->lockForUpdate()->get();
             $registos = AmortizacaoAtivo::query()->whereIn('ativo_imobilizado_id', $ativos->pluck('id'))->get()->groupBy('ativo_imobilizado_id')
                 ->map(fn ($g) => $g->keyBy('periodo_codigo'));
             $saida = [];
@@ -286,6 +286,7 @@ final class ServicoAmortizacoes
 
                 return null;
             }
+            $this->exigirProprio($a);
             if ($a->estado !== AtivoImobilizado::ESTADO_ATIVO) {
                 throw new ErroNegocio("O activo {$a->codigo} não está activo.", 'ATIVO_NAO_ATIVO', 422);
             }
@@ -345,6 +346,7 @@ final class ServicoAmortizacoes
 
         return DB::transaction(function () use ($a, $anoAte, $mesAte, $ate) {
             $a = AtivoImobilizado::query()->lockForUpdate()->findOrFail($a->id);
+            $this->exigirProprio($a);
             if ($a->estado !== AtivoImobilizado::ESTADO_ATIVO) {
                 throw new ErroNegocio("O activo {$a->codigo} não está activo.", 'ATIVO_NAO_ATIVO', 422);
             }
@@ -412,7 +414,7 @@ final class ServicoAmortizacoes
         $registos = AmortizacaoAtivo::query()->get()->groupBy('ativo_imobilizado_id');
         $quotas = $acumulados = [];
         $n = 0;
-        foreach (AtivoImobilizado::query()->orderBy('codigo')->get() as $a) {
+        foreach (AtivoImobilizado::query()->proprios()->orderBy('codigo')->get() as $a) {
             $acumulado = CalculadoraAmortizacoes::d($a->amortizacao_acumulada_inicial);
             $integrado = $acumulado;
             foreach (($registos[$a->id] ?? collect())->sortBy(fn ($r) => CalculadoraAmortizacoes::ordem($r->periodo_codigo)) as $r) {
@@ -438,6 +440,14 @@ final class ServicoAmortizacoes
     }
 
     // ───────────── Auxiliares ─────────────
+
+    /** r3_activos: um bem alheio (arrendado, cedido, de terceiros) não tem quotas de amortização. */
+    private function exigirProprio(AtivoImobilizado $a): void
+    {
+        if (! $a->eProprio()) {
+            throw new ErroNegocio("O activo {$a->codigo} é alheio (arrendado, cedido ou de terceiros): não amortiza.", 'ATIVO_ALHEIO', 422);
+        }
+    }
 
     /** Cria (ou mantém) o rascunho de um activo num período, pela regra de cálculo. */
     private function calcularAtivo(AtivoImobilizado $a, string $periodo): void

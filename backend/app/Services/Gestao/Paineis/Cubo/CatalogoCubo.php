@@ -3,7 +3,7 @@
 namespace App\Services\Gestao\Paineis\Cubo;
 
 /**
- * Lista branca da Análise Dinâmica (CONJUNTOS, ui_cubo.js:100-338) e do BI contabilístico (ui_bi.js:75-100): conjuntos de dados,
+ * Lista branca da Análise Dinâmica (CONJUNTOS, ui_cubo.js:100-338): conjuntos de dados,
  * dimensões e medidas, com as expressões SQL fixas no servidor. O cliente só escolhe identificadores desta lista; nenhum texto
  * do pedido entra no SQL (os valores dos filtros vão sempre por parâmetros).
  *
@@ -39,8 +39,6 @@ final class CatalogoCubo
 
     private const MESES = "ARRAY['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']";
 
-    private const MESES_LONGOS = "ARRAY['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']";
-
     /** @return array<string, array<string, mixed>> */
     public static function conjuntos(): array
     {
@@ -55,42 +53,6 @@ final class CatalogoCubo
             'projetos' => self::projetos(),
             'ativos' => self::ativos(),
         ];
-    }
-
-    /**
-     * BI contabilístico (ui_bi.js): os lançamentos com os campos do legado (conta, nome da conta, entidade, diário, mês por extenso,
-     * trimestre, ano, dia, natureza, documento, descrição, valor e saldo). Correcção: o legado procurava o nome do diário pelo
-     * código com o id da linha e mostrava sempre "Geral"; agora é o nome do diário.
-     *
-     * @return array<string, mixed>
-     */
-    public static function bi(): array
-    {
-        $c = self::contabilidade();
-        $data = 'l.data_documento';
-
-        return array_merge($c, [
-            'nome' => 'BI contabilístico — Lançamentos',
-            'vistas' => ['accounting_bi'],
-            'padrao' => ['linhas' => ['conta'], 'colunas' => ['mes_nome'], 'medidas' => [['medida' => 'saldo', 'agregacao' => 'soma']]],
-            'dimensoes' => [
-                'conta' => ['Cód. Conta', "COALESCE(l.codigo_conta, 'S/C')", []],
-                'descricao_conta' => ['Nome da Conta', "COALESCE(pc.descricao, 'N/A')", ['pc']],
-                'terceiro' => ['Entidade', "COALESCE(t.nome, 'N/A')", ['t']],
-                'diario' => ['Diário', "COALESCE(d.nome, d.descricao, d.codigo, 'Geral')", ['d']],
-                'mes_nome' => ['Mês', "COALESCE(to_char({$data}, 'MM') || ' - ' || (".self::MESES_LONGOS.")[EXTRACT(MONTH FROM {$data})::int], '(sem data)')", []],
-                'trimestre' => ['Trimestre', "COALESCE('Trim ' || EXTRACT(QUARTER FROM {$data})::int, '(sem data)')", []],
-                'ano' => ['Ano', "COALESCE(to_char({$data}, 'YYYY'), '(sem data)')", []],
-                'dia' => ['Dia', "COALESCE(to_char({$data}, 'DD'), '(sem data)')", []],
-                'natureza' => ['Natureza', "CASE WHEN l.tipo_dc = 'D' THEN 'DÉBITO' ELSE 'CRÉDITO' END", []],
-                'documento' => ['Ref. Doc', "COALESCE(l.numero_documento, '-')", []],
-                'descricao' => ['Descrição', "COALESCE(l.descricao, '')", []],
-            ] + array_intersect_key($c['dimensoes'], array_flip(['empresa', 'tipo_linha'])),
-            'medidas' => [
-                'valor' => ['Valor', 'COALESCE(l.valor, 0)', 'kz', []],
-                'saldo' => ['Saldo', "CASE WHEN l.tipo_dc = 'D' THEN COALESCE(l.valor, 0) ELSE -COALESCE(l.valor, 0) END", 'kz', []],
-            ],
-        ]);
     }
 
     /** Dimensões de data (Ano, Trimestre, Mês "MM - Mmm") a partir de uma expressão de data (dimData, ui_cubo.js:31-36). */

@@ -56,6 +56,7 @@ export function pedidoConferencia(c: ConferenciaCaixa) {
 interface ValoresConferencia {
   codigo_conta: string;
   data_conferencia: Dayjs;
+  nome_operador?: string;
   denominacoes: Record<string, number | null>;
   saldo_externo?: number;
   justificacao?: string;
@@ -93,6 +94,8 @@ export default function Conferencia() {
   const dataConf = Form.useWatch('data_conferencia', form) as Dayjs | undefined;
   const externo = Form.useWatch('saldo_externo', form);
   const nome = utilizador?.nome_utilizador;
+  // «Nome do Tesoureiro / Operador» (ui_tesouraria.js:7255): por omissão o utilizador da sessão, editável
+  const operadorSessao = (utilizador?.nome_completo ?? '').trim() || nome || '';
   const pequeno = useEcraPequeno();
   // saldo da conta no Diário à data (pré-visualização; o servidor recalcula ao gravar)
   const dia = dataApi(dataConf);
@@ -109,7 +112,7 @@ export default function Conferencia() {
 
   const limpar = () => {
     form.resetFields();
-    form.setFieldsValue({ data_conferencia: dayjs(), denominacoes: {} });
+    form.setFieldsValue({ data_conferencia: dayjs(), nome_operador: operadorSessao, denominacoes: {} });
     setEdicao(null);
   };
   const mutacao = useMutation({
@@ -134,6 +137,7 @@ export default function Conferencia() {
     form.setFieldsValue({
       codigo_conta: c.codigo_conta,
       data_conferencia: dayjs(c.data_conferencia),
+      nome_operador: c.nome_operador ?? undefined,
       denominacoes: lerDenominacoes(c.denominacoes),
       saldo_externo: c.saldo_externo ? Number(c.saldo_externo) : undefined,
       justificacao: c.justificacao ?? undefined,
@@ -146,6 +150,7 @@ export default function Conferencia() {
     const corpo = {
       codigo_conta: v.codigo_conta,
       data_conferencia: dataApi(v.data_conferencia),
+      nome_operador: v.nome_operador?.trim() || undefined,
       denominacoes: Object.fromEntries(DENOMINACOES.map((d) => [d.chave, Math.max(0, Math.trunc(v.denominacoes?.[d.chave] ?? 0))])),
       saldo_externo: v.saldo_externo ?? undefined,
       justificacao: v.justificacao || undefined,
@@ -179,15 +184,21 @@ export default function Conferencia() {
   const juntar = (l: { grupo?: string }) => (l.grupo ? { colSpan: 0 } : {});
 
   const formulario = (
-    <Form form={form} layout="vertical" onFinish={gravar} initialValues={{ data_conferencia: dayjs(), denominacoes: {} }}>
+    <Form form={form} layout="vertical" onFinish={gravar} initialValues={{ data_conferencia: dayjs(), nome_operador: operadorSessao, denominacoes: {} }}>
       <Card size="small" style={cartaoNumerado('#7c3aed')} title={<><IconeFa nome="id-card" /> 1. Identificação da Conferência{edicao ? ` — rascunho de ${formatarData(edicao.data_conferencia)}` : ''}</>}>
         <Row gutter={12}>
-          <Col xs={24} sm={14}>
+          {/* grelha do legado: Conta (1.5fr) · Operador (1.5fr) · Data (1fr) */}
+          <Col xs={24} md={9}>
             <Form.Item name="codigo_conta" label="Conta de Caixa (Classe 45)" rules={[{ required: true }]} style={{ marginBottom: 0 }}>
-              <SeletorContaFinanceira prefixos={['45']} style={{ width: '100%' }} />
+              <SeletorContaFinanceira prefixos={['45']} estrito style={{ width: '100%' }} />
             </Form.Item>
           </Col>
-          <Col xs={24} sm={10}>
+          <Col xs={24} md={9}>
+            <Form.Item name="nome_operador" label="Nome do Tesoureiro / Operador" rules={[{ required: true, whitespace: true, message: 'Indique o nome do Tesoureiro/Operador.' }]} style={{ marginBottom: 0 }}>
+              <Input maxLength={255} placeholder="Nome completo do responsável pela contagem" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={6}>
             <Form.Item name="data_conferencia" label="Data" rules={[{ required: true }]} style={{ marginBottom: 0 }}>
               <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
             </Form.Item>
@@ -285,7 +296,7 @@ export default function Conferencia() {
           {
             title: '',
             render: (_, c) => {
-              const a = accoesConferencia(c, pode, nome);
+              const a = accoesConferencia(c, pode, nome, utilizador?.nome_completo);
               return (
                 <Space wrap>
                   <BotaoImprimir tamanho="small" texto="Auto" obterPedido={() => pedidoConferencia(c)} />

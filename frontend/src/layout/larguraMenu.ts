@@ -7,13 +7,13 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as EventoT
  *  - teclado (acessibilidade, não existia no legado): o friso é um `role="separator"` focável; ← → mudam 10 px
  *    (Shift: 50 px), Home/End vão ao mínimo/máximo e Enter/Delete repõem;
  *  - a largura fica guardada no navegador por utilizador (`erp.menu.largura.<id>`; no legado era `sidebar-width`, sem
- *    utilizador) e não se aplica ao menu recolhido (só símbolos, 76 px) nem à gaveta dos ecrãs pequenos.
+ *    utilizador) e não se aplica ao menu recolhido (só ícones, 64 px) nem à gaveta dos ecrãs pequenos.
  */
 export const LARGURA_MENU_PADRAO = 280;
 export const LARGURA_MENU_MINIMA = 220;
 export const LARGURA_MENU_MAXIMA = 800;
-/** Menu recolhido (legado: --sidebar-estreita). */
-export const LARGURA_MENU_RECOLHIDO = 76;
+/** Menu recolhido: barra estreita só com os ícones dos módulos (legado: --sidebar-estreita, 76 px; compacto: 64 px). */
+export const LARGURA_MENU_RECOLHIDO = 64;
 export const PASSO_TECLADO = 10;
 export const PASSO_TECLADO_GRANDE = 50;
 

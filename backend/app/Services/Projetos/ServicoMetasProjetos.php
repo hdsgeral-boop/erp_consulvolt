@@ -3,7 +3,9 @@
 namespace App\Services\Projetos;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\EquipaProjeto;
 use App\Models\MarcoProjeto;
+use App\Models\MembroEquipaProjeto;
 use App\Models\NoOrganigramaProjeto;
 use App\Models\Projeto;
 use App\Models\TarefaProjeto;
@@ -43,11 +45,15 @@ final class ServicoMetasProjetos
      *
      * @return array{tarefa: TarefaProjeto, realizado: float, pct: int}
      */
-    public function registar(Projeto $p, int $tarefaId, mixed $quantidade, ?string $data = null, ?string $nota = null): array
+    public function registar(Projeto $p, int $tarefaId, mixed $quantidade, ?string $data = null, ?string $nota = null, ?int $membroId = null): array
     {
         $this->projetos->exigirAberto($p);
+        // Folha de medição por pessoa (2026-10-16): a medição pode indicar quem a executou (membro da equipa do projecto)
+        if ($membroId !== null && ! in_array($membroId, self::idsMembros($p), true)) {
+            throw new ErroNegocio('O executante indicado não pertence à equipa do projecto.', 'EXECUTANTE_INVALIDO', 422);
+        }
 
-        return DB::transaction(function () use ($p, $tarefaId, $quantidade, $data, $nota) {
+        return DB::transaction(function () use ($p, $tarefaId, $quantidade, $data, $nota, $membroId) {
             $t = TarefaProjeto::query()->where('projeto_id', $p->id)->lockForUpdate()->find($tarefaId)
                 ?? throw new ErroNegocio('Tarefa não encontrada no projecto.', 'TAREFA_INEXISTENTE', 422);
             if (TarefaProjeto::query()->where('tarefa_pai_id', $t->id)->get()->contains(fn ($x) => $x->temMeta())) {
@@ -75,7 +81,8 @@ final class ServicoMetasProjetos
             if ($novo < 0) {
                 throw new ErroNegocio('A correcção deixaria o realizado negativo.', 'REALIZADO_NEGATIVO', 422);
             }
-            $execucoes = [...$t->medicoes(), ['q' => $q, 'data' => $dia, 'nota' => mb_substr(trim((string) $nota), 0, 500), 'por' => (string) Auth::user()?->nome_utilizador, 'em' => now()->toIso8601String()]];
+            $execucoes = [...$t->medicoes(), ['q' => $q, 'data' => $dia, 'nota' => mb_substr(trim((string) $nota), 0, 500), 'por' => (string) Auth::user()?->nome_utilizador,
+                'em' => now()->toIso8601String()] + ($membroId !== null ? ['membro_id' => $membroId] : [])];
             $pct = max(0, min(100, (int) round($novo / (float) $t->meta_quantidade * 100)));
             $estado = $t->estadoEfetivo();
             $dados = ['meta_realizado' => $novo, 'meta_execucoes' => $execucoes, 'percentagem_execucao' => $pct];
@@ -100,7 +107,7 @@ final class ServicoMetasProjetos
     /**
      * Folha de medição (projMetasRegistarEmMassa, :468-628): uma linha por tarefa; cada linha grava (ou falha) sozinha.
      *
-     * @param  list<array{tarefa_id: int, quantidade: mixed, nota?: ?string}>  $linhas
+     * @param  list<array{tarefa_id: int, quantidade: mixed, nota?: ?string, membro_id?: ?int}>  $linhas
      * @return array{gravadas: int, falhadas: list<array{tarefa_id: int, nome: ?string, erro: string, codigo: string}>, resultados: list<array{tarefa_id: int, realizado: float, pct: int}>}
      */
     public function registarEmLote(Projeto $p, array $linhas, ?string $data, ?string $notaComum): array
@@ -114,7 +121,8 @@ final class ServicoMetasProjetos
         foreach ($linhas as $l) {
             $id = (int) ($l['tarefa_id'] ?? 0);
             try {
-                $r = $this->registar($p, $id, $l['quantidade'] ?? null, $data, trim((string) ($l['nota'] ?? '')) ?: $notaComum);
+                $r = $this->registar($p, $id, $l['quantidade'] ?? null, $data, trim((string) ($l['nota'] ?? '')) ?: $notaComum,
+                    isset($l['membro_id']) && $l['membro_id'] !== '' ? (int) $l['membro_id'] : null);
                 $saida['gravadas']++;
                 $saida['resultados'][] = ['tarefa_id' => $id, 'realizado' => $r['realizado'], 'pct' => $r['pct']];
             } catch (ErroNegocio $e) {
@@ -135,11 +143,44 @@ final class ServicoMetasProjetos
         $tarefas = TarefaProjeto::query()->where('projeto_id', $p->id)->get();
         $marcos = MarcoProjeto::query()->where('projeto_id', $p->id)->pluck('nome', 'id');
         $lista = ServicoHierarquiaProjetos::ordenarIrmaos(RegrasMetasProjetos::medidas($tarefas));
+        $pessoas = self::pessoasDasTarefas($p);
 
         return $lista->map(fn (TarefaProjeto $t) => ['id' => $t->id, 'codigo' => $t->codigo, 'nome' => $t->nome, 'fase' => $marcos[$t->marco_projeto_id] ?? null,
-            'atribuido_a_id' => $t->atribuido_a_id, 'unidade' => $t->unidadeMeta(), 'meta' => (float) $t->meta_quantidade, 'realizado' => (float) $t->meta_realizado,
+            'atribuido_a_id' => $t->atribuido_a_id,
+            // por pessoa: o responsável directo ou, sem ele, os membros da(s) área(s) do organigrama da tarefa (carga de trabalho)
+            'pessoas' => $t->atribuido_a_id ? [(int) $t->atribuido_a_id] : ($pessoas[$t->id] ?? []),
+            'unidade' => $t->unidadeMeta(), 'meta' => (float) $t->meta_quantidade, 'realizado' => (float) $t->meta_realizado,
             'falta' => RegrasMetasProjetos::r2((float) $t->meta_quantidade - (float) $t->meta_realizado),
             'medicoes' => array_reverse($t->medicoes())])->values()->all();
+    }
+
+    /** @return list<int> ids dos membros da equipa do projecto */
+    public static function idsMembros(Projeto $p): array
+    {
+        return MembroEquipaProjeto::query()->whereIn('equipa_projeto_id', EquipaProjeto::query()->where('projeto_id', $p->id)->select('id'))
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    /**
+     * Membros de cada tarefa atribuída a uma área do organigrama (sem responsável directo): os que estão nas posições que
+     * têm a tarefa — a mesma regra da carga de trabalho (renderCargaTrabalho, ui_projects.js:2683-2934).
+     *
+     * @return array<int, list<int>> tarefa → membros
+     */
+    public static function pessoasDasTarefas(Projeto $p): array
+    {
+        $membros = MembroEquipaProjeto::query()->whereIn('equipa_projeto_id', EquipaProjeto::query()->where('projeto_id', $p->id)->select('id'))
+            ->whereNotNull('no_organigrama_projeto_id')->get(['id', 'no_organigrama_projeto_id'])->groupBy('no_organigrama_projeto_id');
+        $saida = [];
+        foreach (NoOrganigramaProjeto::query()->where('projeto_id', $p->id)->get(['id', 'tarefas']) as $n) {
+            foreach (array_map('intval', (array) ($n->tarefas ?? [])) as $tid) {
+                foreach ($membros[$n->id] ?? [] as $m) {
+                    $saida[$tid][] = (int) $m->id;
+                }
+            }
+        }
+
+        return array_map(fn ($ids) => array_values(array_unique($ids)), $saida);
     }
 
     /**

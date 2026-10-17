@@ -67,8 +67,8 @@ export default function CartasPagamento() {
 
   return (
     <>
-      <CabecalhoModulo titulo="Cartas de Pagamento" icone={<IconeFa nome="file-signature" style={{ color: '#7c3aed' }} />}
-        subtitulo="Ordens dirigidas ao banco para executar pagamentos já gravados na Tesouraria (terceiros e salários). Não geram lançamentos." ecraCheio />
+      {/* cabeçalho do legado (renderCartasPagamento): só o título «Cartas de Pagamento» — sem subtítulo nem «Ecrã Cheio» */}
+      <CabecalhoModulo titulo="Cartas de Pagamento" />
       <Tabs activeKey={aba} onChange={setAba} items={[
         { key: 'cartas', label: <span><IconeFa nome="envelope-open-text" /> Cartas emitidas</span>, children: <ListaCartas podeEmitir={podeEmitir} ver={(c) => setVer(c.id)} imprimir={imprimirCarta} irParaEmitir={() => setAba('emitir')} /> },
         ...(podeEmitir ? [{ key: 'emitir', label: <span><IconeFa nome="file-signature" /> Emitir a partir de um pagamento</span>, children: <PagamentosElegiveis aoEmitir={setEmitir} /> }] : []),

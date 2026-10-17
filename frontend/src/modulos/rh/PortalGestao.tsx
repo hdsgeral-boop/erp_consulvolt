@@ -1,10 +1,11 @@
 import { AutoavaliacoesRH, AvaliacaoChefiasRH } from './comum/AvaliacoesPortalRH';
-import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Col, Descriptions, Flex, Form, Input, Modal, Popconfirm, Row, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd';
 import { IconeFa } from '@/componentes/fluxos';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { notificarErro } from '@/utilitarios/erros';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { SeccaoFormulario } from '@/componentes/formularios';
 import { BotoesExportar } from '@/componentes/impressao';
@@ -21,6 +22,15 @@ import { pedidoTabela } from './comum/impressao';
 
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 const ESTADOS_PEDIDO = ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'];
+/** «Por decidir» (antigo: portal_ui.js:855, estado PENDENTES): o servidor junta PENDENTE_CHEFIA e PENDENTE_RH. */
+export const POR_DECIDIR = 'POR_DECIDIR';
+/** Valor do Select «Estado» que corresponde a «Todos» (o filtro vai vazio ao servidor). */
+const TODOS = '';
+export const opcoesEstadoPedido = () => [
+  { value: POR_DECIDIR, label: 'Por decidir' },
+  { value: TODOS, label: 'Todos' },
+  ...ESTADOS_PEDIDO.map((e) => ({ value: e, label: <EstadoTag estado={e} /> })),
+];
 
 /** RH › Pedidos do Portal (ecrã rh_portal_gestao): decidir pedidos, emitir documentos, modelos e ligações utilizador ↔ colaborador. */
 export default function PortalGestao() {
@@ -35,7 +45,7 @@ export default function PortalGestao() {
         { key: 'pedidos', label: <span><IconeFa nome="inbox" /> Pedidos</span>, children: <Pedidos /> },
         { key: 'modelos', label: <span><IconeFa nome="file-alt" /> Modelos de documentos</span>, children: <Modelos /> },
         ...(pode('rh_portal_aprovar') || pode('rh_avaliacao_view') ? [{ key: 'autoavaliacoes', label: <span><IconeFa nome="user-check" /> Autoavaliações</span>, children: <AutoavaliacoesRH /> }] : []),
-        ...(pode('rh_portal_aprovar') ? [{ key: 'chefias', label: <span><IconeFa nome="user-shield" /> Avaliação das chefias</span>, children: <AvaliacaoChefiasRH /> }] : []),
+        ...(pode('rh_portal_aprovar') ? [{ key: 'chefias', label: <span><IconeFa nome="user-secret" /> Avaliação das chefias</span>, children: <AvaliacaoChefiasRH /> }] : []),
         ...(pode('rh_portal_aprovar') || pode('rh_portal_gestao_view') ? [{ key: 'ligacoes', label: <span><IconeFa nome="link" /> Utilizadores e colaboradores</span>, children: <Ligacoes editar={pode('rh_portal_aprovar')} /> }] : []),
       ]} />
     </>
@@ -45,7 +55,7 @@ export default function PortalGestao() {
 function Pedidos() {
   const { pode, empresa } = useSessao();
   const colaboradores = useColaboradores();
-  const [estado, setEstado] = useState<string | undefined>('PENDENTE_RH');
+  const [estado, setEstado] = useState<string>(POR_DECIDIR);
   const [tipo, setTipo] = useState<TipoPedido>();
   const [colaborador, setColaborador] = useState<number>();
   const [decidir, setDecidir] = useState<PedidoPortal | null>(null);
@@ -54,13 +64,29 @@ function Pedidos() {
   const [formD] = Form.useForm<{ decisao: 'APROVADO' | 'RECUSADO'; nota?: string; remunerada?: 'SIM' | 'NAO' }>();
   const [formE] = Form.useForm<{ titulo: string; texto: string; assinante: string; cargo_assinante?: string; local?: string }>();
   const decisao = Form.useWatch('decisao', formD);
-  const q = useQuery({ queryKey: ['rh', 'portal', 'pedidos', { estado, tipo, colaborador }], queryFn: () => obter<PedidoPortal[]>('/rh/portal/pedidos', { estado, tipo, colaborador_id: colaborador }) });
+  const q = useQuery({ queryKey: ['rh', 'portal', 'pedidos', { estado, tipo, colaborador }], queryFn: () => obter<PedidoPortal[]>('/rh/portal/pedidos', { estado: estado || undefined, tipo, colaborador_id: colaborador }) });
   useAvisarErro(q.error);
   // indicadores do antigo (portal_ui.js:850): contados sobre todos os pedidos, independentemente dos filtros
   const todos = useQuery({ queryKey: ['rh', 'portal', 'pedidos', 'todos'], queryFn: () => obter<PedidoPortal[]>('/rh/portal/pedidos') });
   const contar = (e: string) => (todos.data ?? []).filter((p) => p.estado === e).length;
   const proposta = useQuery({ queryKey: ['rh', 'portal', 'proposta', emitir?.id], queryFn: () => obter<PropostaDocumento>(`/rh/portal/pedidos/${emitir?.id}/proposta`), enabled: emitir !== null, gcTime: 0 });
   const accao = useAccaoRh(() => { setDecidir(null); setEmitir(null); });
+  // «Aprovar e emitir» (antigo: portal_ui.js:788): emite com o modelo; se faltar algo, o servidor não emite e abre-se a revisão
+  const cliente = useQueryClient();
+  const aprovarEmitir = useMutation({
+    mutationFn: (p: PedidoPortal) => enviar<{ emitido: boolean; pedido?: PedidoPortal }>('post', `/rh/portal/pedidos/${p.id}/emitir`, {}),
+    onSuccess: ({ dados, mensagem }, p) => {
+      void cliente.invalidateQueries({ queryKey: ['rh'] });
+      if (dados.emitido) {
+        message.success(mensagem);
+        if (dados.pedido?.documento) setVer(dados.pedido);
+        return;
+      }
+      message.warning('Não foi emitido automaticamente (modelo com revisão, dados em falta ou sem assinante). Reveja e emita.');
+      abrirEmissao(p);
+    },
+    onError: (e) => notificarErro(e),
+  });
 
   const abrirEmissao = (p: PedidoPortal) => {
     formE.resetFields();
@@ -88,7 +114,9 @@ function Pedidos() {
           <Space size={4} wrap>
             {ac.decidir && <Button size="small" type="primary" onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'APROVADO' }); setDecidir(p); }}>Aprovar</Button>}
             {ac.decidir && p.tipo !== 'DOCUMENTO' && <Button size="small" danger onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'RECUSADO' }); setDecidir(p); }}>Recusar</Button>}
-            {ac.emitir && <Button size="small" type="primary" onClick={() => abrirEmissao(p)}>Aprovar e emitir</Button>}
+            {ac.emitir && <Button size="small" type="primary" icon={<IconeFa nome="stamp" />} loading={aprovarEmitir.isPending && aprovarEmitir.variables?.id === p.id}
+              onClick={() => aprovarEmitir.mutate(p)}>Aprovar e emitir</Button>}
+            {ac.emitir && <Button size="small" icon={<IconeFa nome="file-signature" />} title="Rever o texto antes de emitir" onClick={() => abrirEmissao(p)}>Rever</Button>}
             {ac.emitir && <Button size="small" danger onClick={() => { formD.resetFields(); formD.setFieldsValue({ decisao: 'RECUSADO' }); setDecidir(p); }}>Recusar</Button>}
             {p.documento && <Button size="small" onClick={() => setVer(p)}>Ver</Button>}
           </Space>
@@ -109,14 +137,14 @@ function Pedidos() {
       <BarraFiltros style={{ marginBottom: 12 }} accoes={
         <BotoesExportar desactivado={!q.data?.length} obterPedido={() => pedidoTabela({
           titulo: 'Pedidos do Portal do Colaborador',
-          filtros: [estado ? `Estado: ${estado}` : null, tipo ? `Tipo: ${TIPOS_PEDIDO[tipo]}` : null, colaborador ? `Colaborador: ${colaboradores.nome(colaborador)}` : null],
+          filtros: [estado === POR_DECIDIR ? 'Estado: por decidir' : estado ? `Estado: ${estado}` : null, tipo ? `Tipo: ${TIPOS_PEDIDO[tipo]}` : null, colaborador ? `Colaborador: ${colaboradores.nome(colaborador)}` : null],
           colunas,
           linhas: q.data ?? [],
         })} />
       }>
         {/* ordem do antigo: Tipo · Estado */}
         <Select placeholder="Tipo" allowClear style={{ width: 260 }} value={tipo} onChange={setTipo} options={Object.entries(TIPOS_PEDIDO).map(([v, l]) => ({ value: v, label: l }))} />
-        <Select placeholder="Estado" allowClear style={{ width: 200 }} value={estado} onChange={setEstado} options={ESTADOS_PEDIDO.map((e) => ({ value: e, label: <EstadoTag estado={e} /> }))} />
+        <Select aria-label="Estado" style={{ width: 200 }} value={estado} onChange={setEstado} options={opcoesEstadoPedido()} />
         <SeletorColaborador value={colaborador} onChange={setColaborador} />
       </BarraFiltros>
       <TabelaComModos<PedidoPortal> idVista="pedidos" rowKey="id" size="small" loading={q.isFetching} columns={colunas} dataSource={q.data ?? []} pagination={{ pageSize: 25 }} scroll={scrollTabela()}

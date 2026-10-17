@@ -12,6 +12,7 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useFavoritos } from '@/componentes/preferencias/favoritos';
 import { usePreferencia } from '@/componentes/preferencias/usePreferencias';
 import { ecrasDeTopo, rotaEcra } from '@/layout/itensMenu';
+import { ResumoHolding, type DadosResumoHolding } from '@/modulos/geral/comum/ResumoHolding';
 
 const SEM_ORDEM: string[] = [];
 
@@ -81,6 +82,8 @@ export const ICONES_PENDENTES: Readonly<Record<string, readonly [string, string]
   cambios_bai: ['coins', '#fcd34d'],
   portal_pedidos: ['inbox', '#fcd34d'],
   avaliacao_360: ['star-half-alt', '#a5b4fc'],
+  consolidacao_desactualizada: ['layer-group', '#c4b5fd'],
+  consolidacao_divergencias: ['exclamation-triangle', '#fca5a5'],
 };
 
 /** Texto do comunicado da avaliação (o servidor devolve { nome, comunicado } ou { titulo, texto }); nulo se não houver texto. */
@@ -103,7 +106,9 @@ interface Pendente {
 
 interface DadosInicio {
   saudacao?: string;
-  empresa?: { nome?: string; nif?: string | null };
+  empresa?: { nome?: string; nif?: string | null; holding?: boolean };
+  /** Só numa holding: resumo consolidado e comparação das empresas do grupo. */
+  holding?: DadosResumoHolding | null;
   pendentes?: Pendente[];
   total_pendentes?: number;
   dica_do_dia?: { titulo?: string; texto?: string } | string | null;
@@ -169,7 +174,7 @@ export function Inicio() {
               confirmação de leitura); no Início conta apenas na pílula «Avaliação de desempenho: acções pendentes». */}
 
           <section className="erp-inicio-empresa" aria-label="Empresa activa">
-            <span className="erp-inicio-cracha">Empresa activa</span>
+            <span className="erp-inicio-cracha">{d.empresa?.holding ? 'Holding · contas consolidadas' : 'Empresa activa'}</span>
             <h2 className="erp-inicio-empresa-nome">{nomeEmpresa}</h2>
             {identidade.data?.morada && (
               <div className="erp-inicio-empresa-morada">
@@ -252,6 +257,16 @@ export function Inicio() {
               </Col>
             )}
           </Row>
+
+          {d.holding && (
+            <ResumoHolding
+              dados={d.holding}
+              rotaPermitida={(rota) => {
+                const [, , modulo, ecra] = rota.split('?')[0].split('/');
+                return menu.some((m) => m.id === modulo && m.ecras.some((e) => e.id === ecra));
+              }}
+            />
+          )}
 
           <section className="erp-inicio-mini" style={{ marginTop: 16, display: 'block' }} aria-label="Favoritos">
             <h3 className="erp-inicio-mini-titulo">

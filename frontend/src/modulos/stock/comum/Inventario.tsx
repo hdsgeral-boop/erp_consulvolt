@@ -69,6 +69,10 @@ export function pedidoInventario(s: SessaoInventario, nome: string, armazem: str
   };
 }
 
+/** Largura mínima das folhas de trabalho (soma das colunas; «Artigo» fica com pelo menos ~300 px). */
+const LARGURA_FOLHA_CONTAGEM = 930;
+const LARGURA_FOLHA_REVISAO = 1480;
+
 /** Modo do ecrã: sessões (gestão), contagem (contagem cega) ou revisão (diferenças e regularização). */
 export type ModoInventario = 'sessoes' | 'contagem' | 'revisao';
 
@@ -101,6 +105,15 @@ const TITULOS: Record<ModoInventario, { titulo: string; subtitulo: string; estad
 
 /** «# Lote» e tipo como no legado (o tipo das sessões é «GERAL» quando não vem gravado). */
 export const tipoInventario = (s: Pick<SessaoInventario, 'tipo'>) => (s.tipo?.trim() ? s.tipo.trim().toUpperCase() : 'GERAL');
+
+/**
+ * «Detalhes» das sessões como no legado (viewInvSession, js/ui_inventory.js:232-237): em contagem abre a folha de contagem,
+ * nos outros estados a folha de revisão, já com o lote escolhido. Sem acesso a essa folha, abre a ficha da sessão.
+ */
+export function destinoDetalhesInventario(s: Pick<SessaoInventario, 'id' | 'estado'>, pode: (p: string) => boolean): string {
+  if (s.estado === 'EM_CONTAGEM') return pode('inventario_contagem_view') ? `/m/stock/inventario_contagem?lote=${s.id}` : String(s.id);
+  return pode('inventario_revisao_view') ? `/m/stock/inventario_revisao?lote=${s.id}` : String(s.id);
+}
 
 export interface EdicaoContagem {
   quantidade_contada?: number | null;
@@ -259,12 +272,13 @@ function ListaSessoes({ modo }: { modo: ModoInventario }) {
           accoes={(s) => {
             const a = accoesInventario(s, pode);
             return [
-              { icone: 'eye', titulo: 'Detalhes', onClick: () => navegar(String(s.id)) },
+              { icone: 'eye', titulo: 'Detalhes', onClick: () => navegar(destinoDetalhesInventario(s, pode)) },
+              { icone: 'file-alt', titulo: 'Ficha da sessão (histórico, reabrir, anular)', onClick: () => navegar(String(s.id)) },
               modo === 'sessoes' && s.estado === 'EM_CONTAGEM' && a.anular && { icone: 'trash', titulo: 'Anular Sessão', variante: 'perigo', onClick: () => setMotivo({ accao: 'anular', sessao: s }) },
               modo === 'sessoes' && a.reabrir && { icone: 'undo', titulo: 'Reabrir (Reverter Movimentos)', variante: 'aviso', onClick: () => setMotivo({ accao: 'reabrir', sessao: s }) },
             ];
           }}
-          onRow={(r) => ({ onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } })}
+          onRow={(r) => ({ onClick: () => navegar(destinoDetalhesInventario(r, pode)), style: { cursor: 'pointer' } })}
         />
       </Card>
       <ModalAbrir aberto={abrir} aoFechar={() => setAbrir(false)} aoAbrir={(s) => navegar(String(s.id))} />
@@ -544,15 +558,17 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
     const revisaoFolha = modo === 'revisao';
     const codigo = (v: string | null) => <span style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: token.colorTextSecondary }}>{v || '-'}</span>;
     const artigo = (v: string) => <span style={{ fontWeight: 600 }}>{v}</span>;
+    // larguras fixas (excepto «Artigo», que ocupa o resto): a tabela virtualizada precisa delas para alinhar cabeçalho e linhas
     const colunasFolha: ColumnsType<LinhaInventario> = revisaoFolha
       ? [
-          { title: 'Código', dataIndex: 'codigo', width: '10%', render: codigo },
+          { title: 'Código', dataIndex: 'codigo', width: 120, render: codigo },
           { title: 'Artigo', dataIndex: 'nome', render: artigo },
-          { title: 'Qtd. Sistema', dataIndex: 'quantidade_sistema', align: 'center', render: formatarNumero },
-          { title: 'Qtd. Contada', dataIndex: 'quantidade_contada', align: 'center', render: (v: string | null) => <span style={{ fontWeight: 700, color: token.colorPrimary }}>{formatarNumero(v)}</span> },
+          { title: 'Qtd. Sistema', dataIndex: 'quantidade_sistema', width: 110, align: 'center', render: formatarNumero },
+          { title: 'Qtd. Contada', dataIndex: 'quantidade_contada', width: 110, align: 'center', render: (v: string | null) => <span style={{ fontWeight: 700, color: token.colorPrimary }}>{formatarNumero(v)}</span> },
           {
             title: 'Diferença',
             dataIndex: 'diferenca',
+            width: 140,
             align: 'center',
             render: (v: string | null) => {
               const n = Number(v ?? 0);
@@ -560,10 +576,11 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
               return n > 0 ? <Tag color="green">+{formatarNumero(n)} (Sobra)</Tag> : <Tag color="red">{formatarNumero(n)} (Quebra)</Tag>;
             },
           },
-          { ...colunaCusto, title: 'Custo Unitario', align: 'right' },
+          { ...colunaCusto, title: 'Custo Unitario', width: 160, align: 'right' },
           {
             title: 'Impacto Financeiro',
             key: 'impacto',
+            width: 150,
             align: 'right',
             render: (_, l) => {
               const dif = Number(l.diferenca ?? 0);
@@ -572,14 +589,14 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
               return <Typography.Text type="secondary" style={{ fontSize: '0.8rem' }}>{formatarKz(Math.abs(dif) * custo)}</Typography.Text>;
             },
           },
-          { ...colunaJustificacao, title: 'Justificação / Nota', width: '25%' },
-          { title: 'Custo médio', dataIndex: 'custo_medio', align: 'right', render: (v: string | null) => formatarKz(v) },
+          { ...colunaJustificacao, title: 'Justificação / Nota', width: 260 },
+          { title: 'Custo médio', dataIndex: 'custo_medio', width: 130, align: 'right', render: (v: string | null) => formatarKz(v) },
         ]
       : [
-          { title: 'Código', dataIndex: 'codigo', width: '20%', render: codigo },
+          { title: 'Código', dataIndex: 'codigo', width: 160, render: codigo },
           { title: 'Artigo', dataIndex: 'nome', render: artigo },
-          { ...colunaQuantidade, title: 'Quantidade Contada', align: 'center' },
-          colunaObservacoes,
+          { ...colunaQuantidade, title: 'Quantidade Contada', width: 180, align: 'center' },
+          { ...colunaObservacoes, width: 290 },
         ];
     const temRevisaoPorGravar = Object.keys(revisao).length > 0;
     return (
@@ -642,14 +659,20 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
             )}
             <BotoesExportar tamanho="small" obterPedido={() => pedidoInventario(s, nome, armazens.data?.find((x) => x.id === s.armazem_id)?.nome ?? `#${s.armazem_id}`)} />
           </BarraFiltros>
+          {/* legado: todos os artigos numa só folha com deslocamento vertical (500 px na contagem, 450 px na revisão —
+              ui_inventory.js:441, 773); virtualizada para continuar rápida com milhares de artigos */}
           <Table<LinhaInventario>
+            virtual
             rowKey="id"
             size="small"
-            scroll={scrollTabela()}
+            scroll={{ x: revisaoFolha ? LARGURA_FOLHA_REVISAO : LARGURA_FOLHA_CONTAGEM, y: revisaoFolha ? 450 : 500 }}
             dataSource={visiveis}
             columns={colunasFolha}
-            pagination={{ defaultPageSize: 50, showSizeChanger: true, hideOnSinglePage: true, showTotal: (t) => `${t} artigo(s)` }}
+            pagination={false}
           />
+          <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: '0.8rem' }}>
+            {visiveis.length === linhas.length ? `${linhas.length} artigo(s)` : `${visiveis.length} de ${linhas.length} artigo(s)`}
+          </Typography.Text>
         </div>
         <Flex justify="space-between" align="center" gap={12} wrap style={{ padding: '1.5rem', background: token.colorFillAlter, borderTop: `1px solid ${token.colorBorderSecondary}` }}>
           {revisaoFolha ? (

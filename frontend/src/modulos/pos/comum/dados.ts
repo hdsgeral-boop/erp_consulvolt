@@ -14,9 +14,22 @@ export function useDefinicoesPOS(activo = true) {
   return useQuery({ queryKey: ['pos', 'definicoes'], queryFn: () => obter<DefinicoesPOS>('/pos/definicoes'), enabled: activo, retry: false });
 }
 
-/** Catálogo de produtos activos (preço com IVA). Partilha a cache do catálogo de Logística. */
-export function useCatalogoPOS() {
-  return useQuery({ queryKey: ['logistica', 'catalogo'], queryFn: () => obter<ProdutoPOS[]>('/logistica/produtos/catalogo'), staleTime: 300_000, retry: false });
+/**
+ * Catálogo de produtos activos (preço com IVA). Com o terminal, só os produtos marcados para o serviço dele (filtro no
+ * servidor: GET /pos/terminais/{id}/catalogo — produtos.servicos_pos); sem terminal, o catálogo comum de Logística.
+ * A chave começa por ['logistica', 'catalogo'] para ser invalidada com o catálogo comum (e não a cada venda).
+ */
+export function chaveCatalogoPOS(terminalId?: number | null) {
+  return terminalId ? (['logistica', 'catalogo', 'pos', terminalId] as const) : (['logistica', 'catalogo'] as const);
+}
+
+export function useCatalogoPOS(terminalId?: number | null) {
+  return useQuery({
+    queryKey: chaveCatalogoPOS(terminalId),
+    queryFn: () => obter<ProdutoPOS[]>(terminalId ? `/pos/terminais/${terminalId}/catalogo` : '/logistica/produtos/catalogo'),
+    staleTime: 300_000,
+    retry: false,
+  });
 }
 
 /** Categorias de produtos (exigem permissão de Vendas/Armazém; sem ela o filtro por categoria não aparece). */

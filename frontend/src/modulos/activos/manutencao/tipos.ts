@@ -47,9 +47,38 @@ export interface Plano {
   ordens: number;
 }
 
+/** Tarefa da ordem (r3_activos): id estável, obrigatória ou opcional e quem/quando a concluiu. */
 export interface Tarefa {
+  id?: string;
   texto: string;
   feito: boolean;
+  obrigatoria?: boolean;
+  feito_por?: string | null;
+  feito_em?: string | null;
+}
+
+export type SituacaoTarefas = 'SEM_TAREFAS' | 'POR_INICIAR' | 'EM_CURSO' | 'PRONTA';
+
+export interface ProgressoTarefas {
+  total: number;
+  feitas: number;
+  obrigatorias: number;
+  obrigatorias_por_fazer: number;
+  opcionais_por_fazer: number;
+  percentagem: number;
+  situacao: SituacaoTarefas;
+}
+
+export type AccaoHistorico = 'ORDEM_INICIADA' | 'ORDEM_CONCLUIDA' | 'ORDEM_REABERTA' | 'ORDEM_CANCELADA' | 'TAREFA_CONCLUIDA' | 'TAREFA_REABERTA'
+  | 'TAREFA_ACRESCENTADA' | 'TAREFA_RETIRADA';
+
+export interface EventoOrdem {
+  em: string;
+  por?: string | null;
+  accao: AccaoHistorico | string;
+  tarefa?: string;
+  texto?: string;
+  motivo?: string;
 }
 
 export interface Ordem {
@@ -75,6 +104,12 @@ export interface Ordem {
   motivo_cancelamento: string | null;
   custo_total: string;
   em_atraso?: boolean;
+  /** r3_activos: progresso das tarefas e histórico. */
+  progresso?: ProgressoTarefas;
+  historico?: EventoOrdem[] | null;
+  reaberta_em?: string | null;
+  reaberta_por?: string | null;
+  concluido_por?: string | null;
   ativo_imobilizado?: { id: number; codigo: string | null; descricao: string } | null;
   plano_manutencao?: { id: number; codigo: string | null; nome: string; periodicidade?: Periodicidade } | null;
 }

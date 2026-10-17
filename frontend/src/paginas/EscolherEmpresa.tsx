@@ -1,4 +1,4 @@
-import { Avatar, Button, Card, Empty, Input, List, Typography, theme } from 'antd';
+import { Avatar, Button, Card, Empty, Input, List, Tag, Typography, theme } from 'antd';
 import { LogoutOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -115,7 +115,22 @@ export function EscolherEmpresa() {
                       </Button>,
                     ]}
                   >
-                    <List.Item.Meta style={{ minWidth: 0 }} avatar={<LogotipoEmpresa empresa={e} />} title={e.nome} description={e.nif ? `NIF ${e.nif}` : undefined} />
+                    <List.Item.Meta
+                      style={{ minWidth: 0 }}
+                      avatar={<LogotipoEmpresa empresa={e} />}
+                      title={
+                        <>
+                          {e.nome}
+                          {/* legado: marca «Consolidação» das holdings na escolha de empresa (js/app_v2.js:455) */}
+                          {e.e_consolidacao && (
+                            <Tag color="purple" bordered style={{ marginInlineStart: 8 }}>
+                              Holding · Consolidação
+                            </Tag>
+                          )}
+                        </>
+                      }
+                      description={e.nif ? `NIF ${e.nif}` : undefined}
+                    />
                   </List.Item>
                 )}
               />

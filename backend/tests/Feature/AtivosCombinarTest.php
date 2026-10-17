@@ -160,6 +160,49 @@ final class AtivosCombinarTest extends TestCase
     }
 
     #[Test]
+    public function ficha_mostra_todas_as_linhas_e_alterar_o_valor_reparte_outra_vez_pela_mesma_ordem(): void
+    {
+        $a = $this->compra('50000', '2026-01-10');
+        $b = $this->compra('30000', '2026-02-05');
+        $c = $this->compra('20000', '2026-03-01', '1142');
+        // outro activo já cobre 10 000 de B: B só tem 20 000 para o combinado
+        $this->postJson("/api/ativos/aquisicoes-pendentes/{$b}/inventariar", ['itens' => [$this->item(10000, ['descricao' => 'Cabo'])]], $this->s)->assertCreated();
+        $id = $this->postJson('/api/ativos/aquisicoes-pendentes/combinar', ['linhas' => [$c, $b, $a], 'itens' => [$this->item(60000)]], $this->s)
+            ->assertCreated()->json('dados.ativos.0.id');
+        $aloc = fn () => app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => AlocacaoAquisicaoAtivo::query()->where('ativo_imobilizado_id', $id)->pluck('valor', 'lancamento_contabil_id')->map(fn ($v) => (string) $v)->all());
+        $this->assertEquals([$a => '50000.00', $b => '10000.00'], $aloc());
+
+        // ficha: todas as linhas combinadas, por ordem (data, id), com o valor de cada uma
+        $ficha = $this->getJson("/api/ativos/bens/{$id}", $this->s)->assertOk()->json('dados');
+        $this->assertTrue($ficha['combinado']);
+        $this->assertSame([[$a, '50000.00'], [$b, '10000.00']], array_map(fn ($o) => [$o['id'], $o['valor_alocado']], $ficha['origens']));
+        $this->assertSame($a, $ficha['origem']['id']);
+
+        // 85 000: A 50 000 + B 20 000 (o resto de B é do outro activo) + nada de C (não fazia parte) → não cabe, recusa sem alterar
+        $this->putJson("/api/ativos/bens/{$id}", ['valor_aquisicao' => 85000], $this->s)->assertStatus(422)
+            ->assertJsonPath('codigo', 'EXCEDE_AQUISICAO')->assertJsonPath('erros.disponivel', '70000.00');
+        $this->assertEquals([$a => '50000.00', $b => '10000.00'], $aloc());
+        $this->getJson("/api/ativos/bens/{$id}", $this->s)->assertJsonPath('dados.valor_aquisicao', '60000.00');
+
+        // 70 000 cabe: B passa a 20 000
+        $this->putJson("/api/ativos/bens/{$id}", ['valor_aquisicao' => 70000], $this->s)->assertOk();
+        $this->assertEquals([$a => '50000.00', $b => '20000.00'], $aloc());
+        $this->assertArrayNotHasKey($b, $this->pendentes());
+
+        // 30 000: só A (pela mesma ordem); B volta a ficar pendente com 20 000; a FK continua em A
+        $this->putJson("/api/ativos/bens/{$id}", ['valor_aquisicao' => 30000], $this->s)->assertOk()->assertJsonPath('dados.lancamento_contabil_id', $a);
+        $this->assertEquals([$a => '30000.00'], $aloc());
+        $p = $this->pendentes();
+        $this->assertSame(['20000.00', '20000.00'], [$p[$a]['por_inventariar'], $p[$b]['por_inventariar']]);
+        // a linha B saiu da combinação: só A aparece na ficha
+        $this->assertSame([$a], array_column($this->getJson("/api/ativos/bens/{$id}", $this->s)->json('dados.origens'), 'id'));
+
+        // valor 0 num combinado é recusado
+        $this->putJson("/api/ativos/bens/{$id}", ['valor_aquisicao' => 0], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'DADOS_INVALIDOS');
+    }
+
+    #[Test]
     public function exige_a_permissao_de_inventariar(): void
     {
         $a = $this->compra('50000', '2026-01-10');

@@ -81,6 +81,34 @@ export interface GuiaSaida {
   motivo_anulacao: string | null;
   linhas?: { id: number; produto_id: number; produto?: RefProduto | null; quantidade: string; valor_kz: string | null; custo_unitario_kz: string | null }[];
   aviso_contabilizacao?: string | null;
+  /** Na lista: GUIA (guias_saida) ou GR (guia de remessa das Vendas emitida no armazém — ADR-043; abre-se nas Vendas). */
+  origem?: 'GUIA' | 'GR';
+  /** Chave única da linha na lista (o id repete-se entre guias e GR). */
+  chave?: string;
+  venda_id?: number | null;
+}
+
+/** Encomenda de cliente (NE) vinculada a compras — GET /logistica/guias-saida/encomendas-clientes (back-to-back). */
+export interface EncomendaVinculada {
+  id: number;
+  numero_documento: string;
+  data_emissao: string | null;
+  cliente_id: number;
+  cliente: RefTerceiro | null;
+  projeto_id: number | null;
+  /** A compra ligada já foi recebida (pronta a expedir — «Encomendas Satisfeitas»). */
+  satisfeita: boolean;
+  compras: { id: number; numero_encomenda: string | null; estado: string | null; recebida: boolean }[];
+  linhas: {
+    id: number;
+    produto_id: number;
+    descricao: string | null;
+    produto: { id: number; codigo: string | null; nome: string } | null;
+    movimenta_stock: boolean;
+    quantidade: string;
+    quantidade_entregue: string;
+    por_entregar: string;
+  }[];
 }
 
 export interface SessaoInventario {

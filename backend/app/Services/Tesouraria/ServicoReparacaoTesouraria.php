@@ -117,6 +117,10 @@ final class ServicoReparacaoTesouraria
     /** Integrados para os quais não há NENHUMA linha activa do lançamento (pelo n.º do lançamento ou, no legado, pelo n.º/referência). */
     private function orfas(Builder $q): Builder
     {
+        if (ServicoRecebimentosVendas::activo()) {   // os recebimentos de recibos de venda seguem o recibo: não se repõem aqui
+            $q->whereNull('recibo_venda_id');
+        }
+
         return $q->where('estado', 'INTEGRADO')->whereNotExists(function (Consulta $s) {
             $s->selectRaw('1')->from('lancamentos_contabeis as l')
                 ->whereColumn('l.empresa_id', 'documentos_tesouraria.empresa_id')

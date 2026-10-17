@@ -12,6 +12,7 @@ import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 import { lerComoDataUrl } from './comum/ficheiros';
 import { UnidadesNegocio } from './UnidadesNegocio';
+import { SincronizarNotas } from './geral/SincronizarNotas';
 
 interface ResumoCopia {
   empresa_origem: { id: number; nome: string | null };
@@ -24,7 +25,7 @@ interface ResumoCopia {
   nulificadas?: number | Record<string, number>;
 }
 
-/** Configurações › Geral (config_geral): cópia de segurança da empresa, importação, clonagem da estrutura e logótipo de entrada. */
+/** Configurações › Geral (config_geral): cópia de segurança da empresa, importação, clonagem da estrutura, sincronização das notas às demonstrações e logótipo de entrada. */
 export default function ConfigGeral() {
   const { pode, utilizador } = useSessao();
   const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
@@ -47,6 +48,10 @@ export default function ConfigGeral() {
             </Col>
             <Col xs={24} xl={12}>
               <Clonar />
+            </Col>
+            <Col xs={24} xl={12}>
+              {/* legado: «Recuperar Dados Contabilísticos» (js/app_v2.js:8676-8680) */}
+              <SincronizarNotas />
             </Col>
           </>
         )}

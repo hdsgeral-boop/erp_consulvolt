@@ -1,5 +1,7 @@
 import { Alert, Card, Checkbox, Form } from 'antd';
+import { useState } from 'react';
 import { TituloMapa } from './TituloMapa';
+import { DemonstracaoPorEmpresa, InterruptorPorEmpresa, usePorEmpresa } from './PorEmpresa';
 import { formatarKz } from '@/utilitarios/formatacao';
 import type { FluxoCaixa } from '../api';
 import { eZero } from '@/utilitarios/decimal';
@@ -14,11 +16,13 @@ export default function MapaFluxo() {
   const mapa = useMapa<FluxoCaixa>('fluxo', '/contabilidade/relatorios/fluxo-caixa');
   const d = mapa.data;
   const comparativo = !!mapa.parametros?.comparativo;
+  const [porEmpresa, setPorEmpresa] = useState(false);
+  const pe = usePorEmpresa('fluxo', mapa.parametros, porEmpresa);
 
   return (
     <>
       {/* legado: <h3>Demonstração de fluxo de caixa</h3> (js/ui_reports.js:1490-1499) */}
-      <TituloMapa titulo="Demonstração de fluxo de caixa" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Método directo, por notas de fluxo de caixa'} />
+      <TituloMapa titulo="Demonstração de fluxo de caixa" subtitulo={periodoDosParametros(mapa.parametros) ?? 'Método directo, por notas de fluxo de caixa'} accoes={<InterruptorPorEmpresa ligado={porEmpresa} aoMudar={setPorEmpresa} />} />
       <Card style={{ marginBottom: 16 }}>
         <FiltrosMapa
           modo="periodo"
@@ -34,7 +38,8 @@ export default function MapaFluxo() {
           }
         />
       </Card>
-      {d && (
+      {porEmpresa && d && <DemonstracaoPorEmpresa linhas={linhasFluxo(d)} dados={pe.data} titulo="Demonstração de fluxo de caixa" periodo={periodoDosParametros(mapa.parametros)} carregando={pe.isFetching} />}
+      {!porEmpresa && d && (
         <>
           {!eZero(d.controlo.nao_explicado) && (
             <Alert
@@ -47,6 +52,7 @@ export default function MapaFluxo() {
           )}
           <Card>
             <TabelaDemonstracao
+              demonstracao="fluxo"
               linhas={linhasFluxo(d)}
               comparativo={comparativo}
               rotuloAtual={`Ano ${d.ano}`}

@@ -17,6 +17,8 @@ import { AlocacaoUN, CamposLinhaUNCC, alocacaoDeApi, alocacaoParaApi, regraAloca
 import { MEIOS_PAGAMENTO, TIPOS_DOCUMENTO, TIPOS_EMITIVEIS, type DocumentoVenda, type GuiaSaidaPendente, type MeioPagamentoVenda, type ProdutoCatalogo, type Terceiro } from './api';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { GuiasPendentes, MeiosPagamentoDocumento } from './formulario/QuadrosFormulario';
+import { SeletorClienteVenda } from './comum/SeletorClienteVenda';
+import type { ClienteResumo } from './comum/clientes';
 import { ModalCancelarRecebimentos } from './recebimentos/ModalCancelarRecebimentos';
 import { facturaDoErroNcPaga } from './recebimentos/regrasRecebimentos';
 import {
@@ -36,6 +38,8 @@ interface LinhaForm {
   /** preço da ficha na moeda do documento — o preço só é enviado quando difere deste (decisão 8) */
   preco_ficha?: number;
   descricao?: string;
+  /** observação do artigo (itens_venda.observacoes): impressa por baixo da descrição da linha */
+  observacoes?: string;
   /** Fase C (linha_un_cc.js): unidade/centro de custo da linha (vazio = cabeçalho) */
   unidade_negocio_id?: number;
   centro_custo_id?: number;
@@ -47,7 +51,7 @@ interface ConversaoCrm {
   cliente_id?: number;
   data_emissao?: string;
   oportunidade_crm_id?: number;
-  linhas?: { produto_id: number; quantidade: number | string; preco_unitario?: number | string | null; descricao?: string | null }[];
+  linhas?: { produto_id: number; quantidade: number | string; preco_unitario?: number | string | null; descricao?: string | null; observacoes?: string | null }[];
 }
 
 interface ValoresForm {
@@ -106,7 +110,6 @@ export function EmitirDocumento() {
   const taxaManual = Form.useWatch('taxa_cambio', form);
   const dataEmissao = Form.useWatch('data_emissao', form);
   const origemId = Form.useWatch('venda_origem_id', form);
-  const [pesquisaCliente, setPesquisaCliente] = useState('');
   const [modo, setModo] = useState<ModoPagamento>('PRONTO');
   const [plano, setPlano] = useState<Prestacao[]>([]);
   const { telemovel } = useEcra();
@@ -154,7 +157,7 @@ export function EmitirDocumento() {
         projeto_id: (copia.projeto_id as number | null) ?? undefined,
         unidades_alocadas: alocacaoDeApi(copia.unidades_alocadas),
         linhas: (copia.linhas ?? []).map((l) => ({
-          produto_id: l.produto_id, quantidade: Number(l.quantidade), descricao: l.descricao ?? undefined,
+          produto_id: l.produto_id, quantidade: Number(l.quantidade), descricao: l.descricao ?? undefined, observacoes: l.observacoes ?? undefined,
           ...unccDaLinha(l as { unidade_negocio_id?: number | null; centro_custo_id?: number | null }),
           preco_unitario: Number(copia.codigo_moeda && copia.codigo_moeda !== 'AOA' && l.preco_unitario_moeda ? l.preco_unitario_moeda : l.preco_unitario),
         })),
@@ -167,7 +170,7 @@ export function EmitirDocumento() {
       cliente_id: conversao.cliente_id,
       data_emissao: conversao.data_emissao ? dayjs(conversao.data_emissao) : base.data_emissao,
       linhas: conversao.linhas?.length
-        ? conversao.linhas.map((l) => ({ produto_id: l.produto_id, quantidade: Number(l.quantidade), preco_unitario: l.preco_unitario == null ? undefined : Number(l.preco_unitario), descricao: l.descricao ?? undefined }))
+        ? conversao.linhas.map((l) => ({ produto_id: l.produto_id, quantidade: Number(l.quantidade), preco_unitario: l.preco_unitario == null ? undefined : Number(l.preco_unitario), descricao: l.descricao ?? undefined, observacoes: l.observacoes ?? undefined }))
         : base.linhas,
     };
   }, [conversao, copia, procura]);
@@ -180,10 +183,6 @@ export function EmitirDocumento() {
   });
 
   const produtos = useQuery({ queryKey: ['logistica', 'catalogo'], queryFn: () => obter<ProdutoCatalogo[]>('/logistica/produtos/catalogo'), staleTime: 300_000 });
-  const clientes = useQuery({
-    queryKey: ['terceiros', 'clientes', pesquisaCliente],
-    queryFn: () => obterPagina<Terceiro>('/terceiros', { papel: 'CLIENTE', pesquisa: pesquisaCliente, por_pagina: 30 }),
-  });
   const moedas = useQuery({ queryKey: ['sistema', 'moedas'], queryFn: () => obter<Moeda[]>('/sistema/moedas'), staleTime: 600_000, retry: false });
   const cambio = useQuery({
     queryKey: ['sistema', 'cambio', moeda, dataIso],
@@ -207,10 +206,11 @@ export function EmitirDocumento() {
   });
 
   const porId = useMemo(() => new Map((produtos.data ?? []).map((p) => [p.id, p])), [produtos.data]);
-  const todosClientes = useMemo(
-    () => [...(clienteInicial.data && !(clientes.data?.itens ?? []).some((c) => c.id === clienteInicial.data?.id) ? [clienteInicial.data] : []), ...(clientes.data?.itens ?? [])],
-    [clienteInicial.data, clientes.data],
-  );
+  // cliente vindo da cópia/CRM ou da guia a facturar, para o seletor mostrar o nome antes de qualquer pesquisa
+  const clienteConhecido = useMemo<ClienteResumo | null>(() => {
+    const c = clienteInicial.data ?? (guia?.cliente ? { id: guia.cliente.id, nome: guia.cliente.nome ?? `#${guia.cliente.id}`, nif: null } : null);
+    return c ? { id: c.id, nome: c.nome, nif: c.nif ?? null, tipo: null, codigo_moeda: (c as Terceiro).codigo_moeda ?? null, e_cliente: true, conta_cliente: null } : null;
+  }, [clienteInicial.data, guia]);
   const taxaRef = cambio.data ? Number(cambio.data.taxa) : 0;
   const taxaEfectiva = estrangeira ? (taxaManual ? Number(taxaManual) : taxaRef) : 1;
   const desvio = estrangeira && taxaManual && taxaRef ? desvioCambio(Number(taxaManual), taxaRef) : 0;
@@ -224,12 +224,10 @@ export function EmitirDocumento() {
   // decisão 27 (como o legado): NC sobre factura paga — incluindo a factura-recibo — fica bloqueada até se anular o recibo
   const origemPaga = !!origemEscolhida && (origemEscolhida.tipo_documento === 'FR' || (origemEscolhida.estado === 'PAGO' && num(origemEscolhida.valor_pago) > 0.005) || num(origemEscolhida.valor_pago) > 0.01);
 
-  // moeda do cliente por omissão (moedas_vendas.js: sugerir a moeda do cliente)
-  useEffect(() => {
-    if (!clienteId || copia) return;
-    const c = todosClientes.find((x) => x.id === clienteId);
-    if (c?.codigo_moeda) form.setFieldsValue({ codigo_moeda: c.codigo_moeda });
-  }, [clienteId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // moeda do cliente por omissão (moedas_vendas.js: sugerir a moeda do cliente) — ao escolher o cliente no seletor
+  const aoEscolherCliente = (c: ClienteResumo | undefined) => {
+    if (!copia && c?.codigo_moeda) form.setFieldsValue({ codigo_moeda: c.codigo_moeda });
+  };
 
   // preço da ficha (em Kz) convertido ao câmbio do documento; as linhas com o preço da ficha acompanham a mudança de câmbio
   const precoFicha = (id?: number) => {
@@ -271,7 +269,7 @@ export function EmitirDocumento() {
         ...(comModalidade ? { modo_pagamento: modo, plano_pagamentos: modo === 'PRONTO' ? undefined : plano.map((p) => ({ percentagem: p.percentagem, data: p.data || undefined, descricao: p.descricao || undefined })) } : {}),
         ...(v.tipo_documento !== 'NC' ? { codigo_moeda: v.codigo_moeda || 'AOA', taxa_cambio: estrangeira && v.taxa_cambio ? v.taxa_cambio : undefined } : {}),
         linhas: v.linhas.map((l) => ({
-          produto_id: l.produto_id, quantidade: l.quantidade, descricao: l.descricao || undefined, ...unccDaLinha(l),
+          produto_id: l.produto_id, quantidade: l.quantidade, descricao: l.descricao || undefined, observacoes: l.observacoes?.trim() || undefined, ...unccDaLinha(l),
           // decisão 8: o preço só segue quando difere do da ficha (o servidor usa o da ficha, convertido ao câmbio)
           preco_unitario: l.preco_unitario != null && l.preco_unitario !== (l.preco_ficha ?? precoFicha(l.produto_id)) ? l.preco_unitario : undefined,
         })),
@@ -358,14 +356,7 @@ export function EmitirDocumento() {
           <Row gutter={16}>
             <Col xs={24} md={12} lg={8}>
               <Form.Item name="cliente_id" label="Cliente" rules={[{ required: true, message: 'Escolha o cliente.' }]}>
-                <Select
-                  showSearch
-                  filterOption={false}
-                  onSearch={setPesquisaCliente}
-                  loading={clientes.isFetching}
-                  placeholder="Pesquisar por nome ou NIF"
-                  options={todosClientes.map((c) => ({ value: c.id, label: `${c.nome}${c.nif ? ` (NIF ${c.nif})` : ''}` }))}
-                />
+                <SeletorClienteVenda inicial={clienteConhecido} onEscolher={aoEscolherCliente} />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12} lg={4}>
@@ -596,6 +587,16 @@ export function EmitirDocumento() {
                       </Col>
                       <Col xs={4} md={1}>
                         <Button danger size="small" icon={<IconeFa nome="times" />} onClick={() => remove(name)} aria-label="Remover linha" style={{ marginTop: 4 }} />
+                      </Col>
+                      <Col xs={24} md={{ span: guia ? 19 : 20, offset: 0 }}>
+                        <Form.Item name={[name, 'observacoes']} style={{ marginBottom: 8 }}>
+                          <Input.TextArea
+                            autoSize={{ minRows: 1, maxRows: 4 }}
+                            maxLength={2000}
+                            placeholder="Observação do artigo (opcional — sai impressa por baixo da descrição)"
+                            aria-label={`Observação do artigo da linha ${n + 1}`}
+                          />
+                        </Form.Item>
                       </Col>
                       <Col xs={24} md={{ span: guia ? 19 : 20, offset: 0 }}>
                         <CamposLinhaUNCC nome={name} />

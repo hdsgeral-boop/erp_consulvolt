@@ -12,6 +12,7 @@ use App\Services\Projetos\ServicoOrganigramaProjetos;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 /** /api/projetos/{projeto} — equipa e organigrama. */
@@ -79,7 +80,10 @@ final class EquipaController extends Controller
     {
         $this->exigir(...ProjetoController::LER);
 
-        return RespostaApi::sucesso($this->organigrama->organigrama(Projeto::query()->findOrFail($projeto), $this->equipas), 'Organigrama do projecto.');
+        $o = $this->organigrama->organigrama(Projeto::query()->findOrFail($projeto), $this->equipas);
+
+        // contactos e cargo nos cartões só para quem gere o projecto ou vê colaboradores (dados pessoais)
+        return RespostaApi::sucesso(Gate::any(['proj_gerir', 'colaboradores_view']) ? $this->organigrama->comContactos($o) : $o, 'Organigrama do projecto.');
     }
 
     public function guardarPosicao(Request $r, int $projeto, ?int $posicao = null): JsonResponse

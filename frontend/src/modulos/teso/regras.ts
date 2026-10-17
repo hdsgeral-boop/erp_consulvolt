@@ -30,11 +30,13 @@ export function sentidoPorOmissao(tipo: TipoDocumento): 'D' | 'C' {
   return tipo === 'PAGAMENTO' ? 'D' : 'C';
 }
 
-export function accoesDocumento(doc: Pick<DocumentoTesouraria, 'estado' | 'periodo_processamento_salarial_id'> | undefined, pode: Pode) {
+export function accoesDocumento(doc: (Pick<DocumentoTesouraria, 'estado' | 'periodo_processamento_salarial_id'> & Partial<Pick<DocumentoTesouraria, 'recibo_venda_id'>>) | undefined, pode: Pode) {
   const pendente = doc?.estado === 'PENDENTE';
+  // ronda 3: o recebimento de um recibo de venda edita-se e anula-se no recibo; integrar/desintegrar = (des)contabilizar o recibo
+  const doRecibo = !!doc?.recibo_venda_id;
   return {
-    podeEditar: pendente && pode('teso_doc_emitir'),
-    podeAnular: pendente && pode('teso_doc_eliminar'),
+    podeEditar: pendente && !doRecibo && pode('teso_doc_emitir'),
+    podeAnular: pendente && !doRecibo && pode('teso_doc_eliminar'),
     podeIntegrar: pendente && pode('teso_integrar'),
     podeDesintegrar: doc?.estado === 'INTEGRADO' && pode('teso_desintegrar'),
   };
@@ -58,14 +60,30 @@ export function accoesSessao(s: (Pick<SessaoCaixa, 'estado'> & Partial<Pick<Sess
   };
 }
 
-export function accoesConferencia(c: Pick<ConferenciaCaixa, 'estado' | 'nome_operador' | 'nome_gerente'> | undefined, pode: Pode, utilizador: string | null | undefined) {
+/** Nomes comparados sem maiúsculas nem espaços a mais (o operador é texto livre, como no legado). */
+const mesmoNome = (a: string | null | undefined, b: string | null | undefined) => {
+  const n = (x: string | null | undefined) => (x ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+  return !!n(a) && n(a) === n(b);
+};
+
+/**
+ * Acções da conferência. O gerente que assina tem de ser outra pessoa: nem quem a registou (registado_por) nem a pessoa
+ * escrita como operador (o servidor confirma — ServicoConferenciaCaixa::eDoOperador).
+ */
+export function accoesConferencia(
+  c: Pick<ConferenciaCaixa, 'estado' | 'nome_operador' | 'nome_gerente'> & { registado_por?: string | null } | undefined,
+  pode: Pode,
+  utilizador: string | null | undefined,
+  nomeCompleto?: string | null,
+) {
   const rascunho = c?.estado === 'RASCUNHO';
   const finalizado = c?.estado === 'FINALIZADO';
+  const eOperador = mesmoNome(c?.registado_por, utilizador) || mesmoNome(c?.nome_operador, utilizador) || mesmoNome(c?.nome_operador, nomeCompleto);
   return {
     podeEditar: rascunho && pode('teso_conf_registar'),
     podeFinalizar: rascunho && pode('teso_conf_registar'),
     /** A assinatura do gerente tem de ser de outra pessoa que não o operador. */
-    podeAssinar: finalizado && !c?.nome_gerente && pode('teso_conf_assinar') && !!utilizador && c?.nome_operador !== utilizador,
+    podeAssinar: finalizado && !c?.nome_gerente && pode('teso_conf_assinar') && !!utilizador && !eOperador,
     podeReabrir: finalizado && pode('teso_conf_reabrir'),
   };
 }

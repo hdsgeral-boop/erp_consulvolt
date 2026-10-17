@@ -12,8 +12,8 @@ import { somar } from '@/utilitarios/decimal';
 import { useAccao } from '@/componentes/Accoes';
 import { formatarData, formatarKz } from '@/utilitarios/formatacao';
 import { EtiquetaActivos, rotuloActivos } from './comum/componentes';
-import { accoesActivo, ordemPeriodo, rotuloPeriodo } from './comum/regras';
-import type { AmortizacaoRegisto, FichaActivo } from './comum/tipos';
+import { accoesActivo, ordemPeriodo, rotuloPeriodo, textoOrigens } from './comum/regras';
+import type { AmortizacaoRegisto, FichaActivo, OrigemActivo } from './comum/tipos';
 import { ModalActivo } from './ModalActivo';
 import { ModalAfectacao, ModalTransferir } from './ModaisActivos';
 import { ModalAbate } from './ModalAbate';
@@ -22,6 +22,39 @@ import { pares, tabelaHtml } from '@/componentes/impressao';
 import { COLUNAS_DESCRICOES, scrollTabela } from '@/componentes/responsivo';
 import { seccaoHtml } from './comum/impressao';
 import { textoLocalFicha } from './edificios/regras';
+import { eAlheio, textoContrato } from './comum/propriedade';
+
+/** Activo inventariado em conjunto: todas as linhas de aquisição, com o valor da linha e a parte coberta por este activo. */
+function OrigensCombinadas({ origens }: { origens: OrigemActivo[] }) {
+  return (
+    <>
+      <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Inventariado em conjunto a partir de ${origens.length} linhas de aquisição; o valor de aquisição reparte-se por elas, por esta ordem.`} />
+      <Table<OrigemActivo>
+        rowKey="id"
+        size="small"
+        pagination={false}
+        scroll={scrollTabela()}
+        dataSource={origens}
+        columns={[
+          { title: 'Documento', dataIndex: 'numero_documento', render: (v) => v ?? '—' },
+          { title: 'N.º lançamento', dataIndex: 'numero_lan', render: (v) => v ?? '—' },
+          { title: 'Diário', key: 'd', render: (_, o) => o.diario?.codigo ?? '—' },
+          { title: 'Data', dataIndex: 'data_documento', render: formatarData },
+          { title: 'Conta', dataIndex: 'codigo_conta' },
+          { title: 'Descrição', dataIndex: 'descricao', render: (v) => v ?? '—' },
+          { title: 'Valor da linha', dataIndex: 'valor', align: 'right', render: (v: string) => <ValorKz valor={v} /> },
+          { title: 'Valor neste activo', dataIndex: 'valor_alocado', align: 'right', render: (v: string) => <strong><ValorKz valor={v} /></strong> },
+        ]}
+        summary={(ls) => (
+          <Table.Summary.Row>
+            <Table.Summary.Cell index={0} colSpan={7}><strong>Total</strong></Table.Summary.Cell>
+            <Table.Summary.Cell index={7} align="right"><strong><ValorKz valor={somar(ls.map((o) => o.valor_alocado))} /></strong></Table.Summary.Cell>
+          </Table.Summary.Row>
+        )}
+      />
+    </>
+  );
+}
 
 /** Ficha do activo com o histórico: amortizações, transferências, manutenções, abates, afectações e lançamento de origem. */
 export function DetalheActivo() {
@@ -51,13 +84,14 @@ export function DetalheActivo() {
     conteudo: [
       pares([
         ['Estado', rotuloActivos(a.estado)], ['Tipo de activo', a.tipo_ativo === 'EDIFICIO' ? 'Edifício / Local' : 'Bem'], ['Localização', textoLocalFicha(a)],
+        ['Propriedade', eAlheio(a) ? textoContrato(a) : 'Próprio'],
         ['Categoria', a.categoria_ativo?.nome ?? '—'],
         ['Taxa anual', a.categoria_ativo?.taxa_anual ? `${Number(a.categoria_ativo.taxa_anual).toLocaleString('pt-PT')}%` : '—'],
         ['Centro de custo', a.centro_custo ? `${a.centro_custo.codigo} — ${a.centro_custo.descricao ?? ''}` : '—'], ['Unidade de negócio', a.unidade_negocio?.codigo ?? '—'],
         ['Fornecedor', a.fornecedor?.nome ?? '—'], ['Data de aquisição', formatarData(a.data_aquisicao)], ['Vida útil', a.vida_util ? `${a.vida_util} meses` : 'Pela taxa da categoria'],
         ['Quota fixa', a.quota_fixa ? formatarKz(a.quota_fixa, true) : '—'], ['Valor de aquisição', kz(a.valor_aquisicao)], ['Valor residual', kz(a.valor_residual)],
         ['Amortização acumulada', kz(a.amortizacao_acumulada)], ['Valor líquido', kz(a.valor_liquido)],
-        ['Lançamento de origem', a.origem ? `${a.origem.numero_documento ?? '—'} · ${a.origem.diario?.codigo ?? ''} ${a.origem.numero_lan ?? ''} · ${formatarData(a.origem.data_documento)} · conta ${a.origem.codigo_conta}` : 'Sem lançamento de compra associado'],
+        ['Lançamento de origem', textoOrigens(a)],
       ]),
       seccaoHtml(`Amortizações (${a.amortizacoes.length})`, tabelaHtml({ linhas: [...amortizacoes].reverse(), vazio: 'Sem amortizações.', totais: 'Total', colunas: [
         { titulo: 'Período', valor: (r) => rotuloPeriodo(r.periodo_codigo) },
@@ -120,8 +154,15 @@ export function DetalheActivo() {
           </>
         }
       />
+      {eAlheio(a) && (
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} message={`Bem alheio — ${textoContrato(a)}`}
+          description={<>Não é imobilizado da empresa: não amortiza, não entra nos mapas fiscais nem se liga a lançamentos de aquisição.
+            {a.renda_mensal && Number(a.renda_mensal) ? <> Renda/encargo mensal: <strong>{formatarKz(a.renda_mensal)}</strong>.</> : null}
+            {a.propriedade_notas ? <> {a.propriedade_notas}</> : null}</>} />
+      )}
       <Card style={{ marginBottom: 16 }}>
         <Descriptions size="small" column={{ xs: 1, md: 2, xl: 4 }}>
+          <Descriptions.Item label="Propriedade">{eAlheio(a) ? <Tag color="purple">Alheio</Tag> : 'Próprio'}</Descriptions.Item>
           <Descriptions.Item label="Tipo de activo">{a.tipo_ativo === 'EDIFICIO' ? <Tag color="orange">Edifício / Local</Tag> : 'Bem'}</Descriptions.Item>
           <Descriptions.Item label="Localização">{textoLocalFicha(a)}</Descriptions.Item>
           <Descriptions.Item label="Categoria">{a.categoria_ativo?.nome ?? '—'}</Descriptions.Item>
@@ -173,7 +214,9 @@ export function DetalheActivo() {
             {
               key: 'origem',
               label: 'Lançamento de origem',
-              children: a.origem ? (
+              children: (a.origens?.length ?? 0) > 1 ? (
+                <OrigensCombinadas origens={a.origens ?? []} />
+              ) : a.origem ? (
                 <Descriptions bordered size="small" column={COLUNAS_DESCRICOES}>
                   <Descriptions.Item label="Documento">{a.origem.numero_documento ?? '—'}</Descriptions.Item>
                   <Descriptions.Item label="N.º lançamento">{a.origem.numero_lan ?? '—'}</Descriptions.Item>

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Análise Dinâmica (cubo, ui_cubo.js:350-570) e motor do BI contabilístico: tabela dinâmica calculada no PostgreSQL.
+ * Análise Dinâmica (cubo, ui_cubo.js:350-570): tabela dinâmica calculada no PostgreSQL.
  *
  * O legado carregava até 150 000 linhas para o navegador e fazia o pivot com o PivotTable.js. Aqui o servidor agrega:
  *   SELECT dimensões, agregações FROM (fonte filtrada) GROUP BY GROUPING SETS ((linhas, colunas), (linhas), (colunas), ())
@@ -81,7 +81,7 @@ final class ServicoCubo
      */
     public function definicao(string $id, bool $exigir = true): ?array
     {
-        $def = $id === 'bi' ? CatalogoCubo::bi() : (CatalogoCubo::conjuntos()[$id] ?? null);
+        $def = CatalogoCubo::conjuntos()[$id] ?? null;
         if ($def === null) {
             throw new ErroNegocio('Conjunto de dados desconhecido.', 'CUBO_CONJUNTO_INVALIDO', 422);
         }
@@ -93,7 +93,7 @@ final class ServicoCubo
             return null;
         }
         $holding = $this->holding();
-        $contab = in_array($id, ['contabilidade', 'bi'], true);
+        $contab = $id === 'contabilidade';
         $def['dimensoes'] = array_filter($def['dimensoes'], fn ($d) => empty($d['holding']) || ($holding && $contab));
         if ($holding && ! $contab) {
             $def['dimensoes'] = ['empresa' => ['Empresa', "COALESCE(emp.nome, '-')", ['emp']]] + $def['dimensoes'];
@@ -312,11 +312,11 @@ final class ServicoCubo
         return $this->fonte($conjunto, $def, $f, [$empresa]);
     }
 
-    /** @return list<int> empresas lidas: a activa; na holding, as do grupo acessíveis (excepto Contabilidade/BI, que lêem a holding) */
+    /** @return list<int> empresas lidas: a activa; na holding, as do grupo acessíveis (excepto Contabilidade, que lê a holding) */
     private function ambito(string $conjunto): array
     {
         $empresa = $this->contexto->obrigatorio();
-        if (in_array($conjunto, ['contabilidade', 'bi'], true) || ! $this->holding()) {
+        if ($conjunto === 'contabilidade' || ! $this->holding()) {
             return [$empresa];
         }
         $acessiveis = array_flip($this->empresas->idsAcessiveis($this->utilizador()));

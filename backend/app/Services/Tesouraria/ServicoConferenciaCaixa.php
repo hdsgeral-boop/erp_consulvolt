@@ -32,7 +32,7 @@ final class ServicoConferenciaCaixa
         private readonly ServicoConfigTesouraria $config,
     ) {}
 
-    /** @param  array{codigo_conta: string, data_conferencia: string, denominacoes: array<string, int>, saldo_externo?: ?float, justificacao?: ?string}  $d */
+    /** @param  array{codigo_conta: string, data_conferencia: string, nome_operador?: ?string, denominacoes: array<string, int>, saldo_externo?: ?float, justificacao?: ?string}  $d */
     public function gravar(array $d, ?ConferenciaCaixa $c = null): ConferenciaCaixa
     {
         if ($c && $c->estado !== 'RASCUNHO') {
@@ -53,12 +53,19 @@ final class ServicoConferenciaCaixa
         }
         $data = substr($d['data_conferencia'], 0, 10);
         $sistema = $this->saldoConta($d['codigo_conta'], $data);
-        $dados = ['codigo_conta' => $d['codigo_conta'], 'nome_conta' => $conta['descricao'], 'data_conferencia' => $data, 'nome_operador' => Auth::user()?->nomeApresentacao(),
+        // «Nome do Tesoureiro / Operador» (ui_tesouraria.js:7255): texto do formulário; por omissão o utilizador da sessão
+        $operador = trim(strip_tags((string) ($d['nome_operador'] ?? '')));
+        $dados = ['codigo_conta' => $d['codigo_conta'], 'nome_conta' => $conta['descricao'], 'data_conferencia' => $data,
+            'nome_operador' => $operador !== '' ? mb_substr($operador, 0, 255) : Auth::user()?->nomeApresentacao(),
             'denominacoes' => json_encode($denominacoes), 'total_fisico' => $fisico, 'total_sistema' => $sistema,
             'saldo_externo' => isset($d['saldo_externo']) ? number_format((float) $d['saldo_externo'], 2, '.', '') : null,
             'diferenca' => bcsub($fisico, $sistema, 2), 'justificacao' => $d['justificacao'] ?? null, 'estado' => 'RASCUNHO'];
 
-        return $c ? tap($c)->update($dados) : ConferenciaCaixa::create($dados);
+        $c ??= new ConferenciaCaixa;
+        // registado_por fica fora do $fillable do contrato gerado: quem registou primeiro mantém-se
+        $c->fill($dados)->forceFill(['registado_por' => $c->registado_por ?? Auth::user()?->nome_utilizador])->save();
+
+        return $c;
     }
 
     public function finalizar(ConferenciaCaixa $c, bool $regularizar): ConferenciaCaixa
@@ -98,12 +105,29 @@ final class ServicoConferenciaCaixa
         if ($c->estado !== 'FINALIZADO') {
             throw new ErroNegocio('Só se assinam conferências finalizadas.', 'CONFERENCIA_NAO_FINALIZADA', 422);
         }
-        if ($c->nome_operador === Auth::user()?->nome_utilizador) {
+        if ($this->eDoOperador($c)) {
             throw new ErroNegocio('A assinatura do gerente tem de ser de outra pessoa que não o operador.', 'AUTO_ASSINATURA', 403);
         }
         $c->update(['nome_gerente' => Auth::user()?->nome_utilizador, 'assinado_gerente_em' => now()]);
 
         return $c;
+    }
+
+    /**
+     * O gerente não pode ser quem registou a conferência nem a pessoa indicada como operador (o operador é texto livre:
+     * compara-se com o utilizador e com o nome de apresentação, sem distinguir maiúsculas nem espaços).
+     */
+    private function eDoOperador(ConferenciaCaixa $c): bool
+    {
+        $u = Auth::user();
+        if (! $u) {
+            return false;
+        }
+        $norm = fn (?string $x) => mb_strtolower(preg_replace('/\s+/u', ' ', trim((string) $x)));
+        $eu = array_filter([$norm($u->nome_utilizador), $norm($u->nomeApresentacao())]);
+
+        return ($c->registado_por !== null && $norm($c->registado_por) === $norm($u->nome_utilizador))
+            || in_array($norm($c->nome_operador), $eu, true);
     }
 
     public function reabrir(ConferenciaCaixa $c, string $motivo): ConferenciaCaixa

@@ -10,6 +10,7 @@ use App\Models\Produto;
 use App\Models\Terceiro;
 use App\Models\Venda;
 use App\Services\Compras\ServicoEncomendasClientes;
+use App\Services\Logistica\ServicoNiveisStock;
 use App\Services\Logistica\ServicoProdutos;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +38,7 @@ final class ServicoParidadeVendas
     /** Facturas (FT/FR) por receber: pelo ESTADO (as FR do POS migradas têm valor_pago 0 e estado PAGO) e com saldo. */
     public const SQL_POR_RECEBER = "v.tipo_documento IN ('FT', 'FR') AND COALESCE(v.estado, '') NOT IN ('PAGO', 'ANULADO', 'CONCLUIDO') AND ".self::SQL_SALDO.' > 0';
 
-    /** Abaixo disto (ou do stock mínimo do produto, se definido) o produto aparece em «Alertas de Stock Baixo» (legado: < 5). */
+    /** Produtos SEM níveis de stock definidos: abaixo disto aparecem em «Alertas de Stock Baixo» (legado: < 5). */
     public const LIMITE_STOCK_BAIXO = 5;
 
     public function __construct(
@@ -90,26 +91,41 @@ final class ServicoParidadeVendas
     }
 
     /**
-     * «Alertas de Stock Baixo» do Dashboard de Vendas: produtos com stock controlado abaixo do mínimo (ou de 5 un.),
-     * com o stock somado de todos os armazéns.
+     * «Alertas de Stock Baixo» do Dashboard de Vendas. Ronda 3: os produtos com níveis de stock definidos seguem as regras
+     * de ServicoNiveisStock (CRITICO — abaixo do mínimo/segurança; REPOSICAO — no ponto de encomenda, com a quantidade
+     * sugerida até ao máximo); os que não têm níveis mantêm a regra do legado (stock somado < 5 un.).
      *
-     * @return list<array{id: int, codigo: string|null, nome: string|null, stock: string, minimo: string}>
+     * @return list<array{id: int, codigo: string|null, nome: string|null, stock: string, minimo: string, estado: string, motivo: string|null, quantidade_sugerida: string|null}>
      */
     public function alertasStock(int $limite = 20): array
     {
         $empresa = $this->contexto->obrigatorio();
+        $niveis = array_values(array_filter(app(ServicoNiveisStock::class)->linhas(), fn ($l) => $l['estado'] !== ServicoNiveisStock::EXCESSO));
+        $alertas = array_map(fn ($l) => ['id' => $l['produto_id'], 'codigo' => $l['codigo'], 'nome' => $l['nome'], 'stock' => $l['stock'],
+            'minimo' => $l['stock_minimo'] ?? $l['stock_seguranca'] ?? $l['ponto_encomenda'] ?? '0.000', 'estado' => $l['estado'], 'motivo' => $l['motivo'],
+            'quantidade_sugerida' => $l['quantidade_sugerida']], $niveis);
+
         $stock = DB::table('stock_armazem')->where('empresa_id', $empresa)->groupBy('produto_id')
             ->selectRaw('produto_id, SUM(COALESCE(quantidade_stock, 0)) AS q');
-
-        return DB::table('produtos as p')->where('p.empresa_id', $empresa)->whereNull('p.eliminado_em')
+        $legado = DB::table('produtos as p')->where('p.empresa_id', $empresa)->whereNull('p.eliminado_em')
             ->where('p.movimenta_stock', true)->where(fn ($q) => $q->whereNull('p.bloqueado')->orWhere('p.bloqueado', false))
+            ->where(fn ($q) => $q->whereNull('p.stock_minimo')->orWhere('p.stock_minimo', '<=', 0))
+            ->where(fn ($q) => $q->whereNull('p.stock_seguranca')->orWhere('p.stock_seguranca', '<=', 0))
+            ->where(fn ($q) => $q->whereNull('p.ponto_encomenda')->orWhere('p.ponto_encomenda', '<=', 0))
+            ->where(fn ($q) => $q->whereNull('p.stock_maximo')->orWhere('p.stock_maximo', '<=', 0))
             ->leftJoinSub($stock, 's', 's.produto_id', '=', 'p.id')
-            ->whereRaw('COALESCE(s.q, 0) < COALESCE(NULLIF(p.stock_minimo, 0), ?)', [self::LIMITE_STOCK_BAIXO])
+            ->whereRaw('COALESCE(s.q, 0) < ?', [self::LIMITE_STOCK_BAIXO])
             ->orderByRaw('COALESCE(s.q, 0)')->ordenarPorNome('p.nome')->limit($limite)
-            ->get(['p.id', 'p.codigo', 'p.nome', DB::raw('COALESCE(s.q, 0) AS stock'), DB::raw('COALESCE(NULLIF(p.stock_minimo, 0), '.self::LIMITE_STOCK_BAIXO.') AS minimo')])
-            ->map(fn ($p) => ['id' => (int) $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome,
-                'stock' => number_format((float) $p->stock, 3, '.', ''), 'minimo' => number_format((float) $p->minimo, 3, '.', '')])
-            ->values()->all();
+            ->get(['p.id', 'p.codigo', 'p.nome', DB::raw('COALESCE(s.q, 0) AS stock')])
+            ->map(fn ($p) => ['id' => (int) $p->id, 'codigo' => $p->codigo, 'nome' => $p->nome, 'stock' => number_format((float) $p->stock, 3, '.', ''),
+                'minimo' => number_format(self::LIMITE_STOCK_BAIXO, 3, '.', ''), 'estado' => 'STOCK_BAIXO', 'motivo' => 'Stock baixo (sem níveis definidos: < 5 un.)',
+                'quantidade_sugerida' => null])
+            ->all();
+
+        $todos = array_merge($alertas, $legado);
+        usort($todos, fn ($a, $b) => [(float) $a['stock'], (string) $a['nome']] <=> [(float) $b['stock'], (string) $b['nome']]);
+
+        return array_slice($todos, 0, $limite);
     }
 
     /**

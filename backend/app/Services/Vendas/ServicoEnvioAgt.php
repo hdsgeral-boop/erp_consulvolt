@@ -238,8 +238,11 @@ final class ServicoEnvioAgt
         if (! preg_match('/^[A-Za-z0-9]{1,30}$/', $codigo)) {
             throw new ErroNegocio("Código de série devolvido pela AGT com formato inesperado ({$codigo}).", 'AGT_RESPOSTA_INVALIDA', 502);
         }
-        if (SerieFaturacaoEletronica::query()->where('id', '<>', $serie->id)->where('tipo', $serie->tipo)->where('ano', $serie->ano)->where('codigo', $codigo)->exists()) {
-            throw new ErroNegocio("Já existe no ERP uma série {$serie->tipo} com o código {$codigo}.", 'SERIE_DUPLICADA', 422);
+        // o código da AGT não pode repetir o de outra série do mesmo tipo (em qualquer ano): o n.º do documento seria igual
+        if ($repetida = RegrasNumeracaoAgt::codigoUsado($serie->tipo, $codigo, $serie->id)) {
+            throw new ErroNegocio("Já existe no ERP a série {$serie->tipo} {$repetida->codigo} ({$repetida->ano}) com o código que a AGT atribuiu ({$codigo}, n.os "
+                .($res['firstDocumentNo'] ?? '?').' a '.($res['lastDocumentNo'] ?? '?').'). Feche ou renomeie a série local e registe o código da AGT em Vendas › Séries.',
+                'SERIE_DUPLICADA', 422, ['agt_codigo' => $codigo, 'serie_existente_id' => $repetida->id]);
         }
         $serie->update([
             'codigo' => $codigo, 'agt_codigo' => $codigo, 'proximo_numero' => max(1, (int) ($res['firstDocumentNo'] ?? 1)),

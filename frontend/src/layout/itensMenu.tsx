@@ -15,6 +15,14 @@ export const ecrasDeTopo = (m: ModuloMenu): EcraMenu[] => m.ecras.filter((e) => 
 /** Chave do grupo «Menu Geral» (os favoritos entram imediatamente antes, como no legado). */
 export const CHAVE_MENU_GERAL = MENU_GERAL_LEGADO.chave;
 
+/**
+ * Ícone (Font Awesome do legado) dos ecrãs exclusivos do sistema novo que entram soltos no topo do menu (CASA_MODULO
+ * 'topo'): todos os itens de 1.º nível têm símbolo, para o menu recolhido (só ícones) os mostrar.
+ */
+export const ICONES_ECRAS_TOPO: Readonly<Record<string, string>> = {};
+/** Símbolo dos itens de topo sem ícone próprio. */
+export const ICONE_TOPO_POR_OMISSAO = 'file-alt';
+
 const icone = (nome?: string, cor?: string) => (nome ? <IconeFa nome={nome} style={cor ? { color: cor } : undefined} /> : undefined);
 
 export interface MenuLateral {
@@ -85,7 +93,14 @@ export function construirMenuLateral(menu: ModuloMenu[]): MenuLateral {
   const topo: ItemMenu[] = [
     { key: '/', icon: icone('home'), label: 'Início', title: 'Início', className: 'erp-menu-topo' },
     ...(TOPO_LEGADO.map((n) => ecraItem(n, [])).filter(Boolean) as ItemMenu[]),
-    ...itensExtra('topo', []).map((i) => ({ ...(i as object), className: 'erp-menu-topo' }) as ItemMenu),
+    ...(extras.get('topo') ?? []).map(
+      ({ m, x }) =>
+        ({
+          ...(ecraCatalogo(m.id, x, m.ecras, []) as object),
+          icon: icone(ICONES_ECRAS_TOPO[`${m.id}/${x.id}`] ?? ICONE_TOPO_POR_OMISSAO),
+          className: 'erp-menu-topo',
+        }) as ItemMenu,
+    ),
   ];
   const itens = [...topo, grupoItem(MENU_GERAL_LEGADO, []), grupoItem(SISTEMA_LEGADO, [])].filter(Boolean) as ItemMenu[];
   return { itens, ancestrais };

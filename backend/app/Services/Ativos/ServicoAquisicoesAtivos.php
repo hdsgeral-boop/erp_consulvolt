@@ -145,6 +145,11 @@ final class ServicoAquisicoesAtivos
             if ($ativos->count() !== count(array_unique($ids))) {
                 throw new ErroNegocio('Há activos seleccionados que não existem.', 'DADOS_INVALIDOS', 422);
             }
+            // r3_activos: um bem alheio (arrendado, cedido, de terceiros) não tem aquisição a contabilizar
+            if ($alheios = $ativos->reject(fn (AtivoImobilizado $a) => $a->eProprio())->pluck('codigo')->values()->all()) {
+                throw new ErroNegocio('Há activos alheios (arrendados, cedidos ou de terceiros), que não se ligam a aquisições: '.implode(', ', $alheios).'.', 'ATIVO_ALHEIO', 422,
+                    ['ativos' => $alheios]);
+            }
             if ($ligados = $ativos->whereNotNull('lancamento_contabil_id')->pluck('codigo')->values()->all()) {
                 throw new ErroNegocio('Há activos já ligados a um lançamento de compra: '.implode(', ', $ligados).'.', 'ATIVO_JA_LIGADO', 422, ['ativos' => $ligados]);
             }
@@ -164,7 +169,7 @@ final class ServicoAquisicoesAtivos
     /** Activos sem lançamento de compra associado (candidatos à ligação). */
     public function semLancamento(): array
     {
-        $ativos = AtivoImobilizado::query()->whereNull('lancamento_contabil_id')->orderBy('codigo')
+        $ativos = AtivoImobilizado::query()->proprios()->whereNull('lancamento_contabil_id')->orderBy('codigo')
             ->get(['id', 'codigo', 'descricao', 'valor_aquisicao', 'data_aquisicao', 'categoria_ativo_id', 'estado']);
         $categorias = CategoriaAtivo::withTrashed()->whereIn('id', $ativos->pluck('categoria_ativo_id')->filter()->unique()->values()->all())->pluck('nome', 'id');
 

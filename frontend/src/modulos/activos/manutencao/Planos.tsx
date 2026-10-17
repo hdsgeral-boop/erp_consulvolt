@@ -32,8 +32,8 @@ export function Planos({ aoAbrirOrdens }: { aoAbrirOrdens: () => void }) {
       <Card style={{ marginBottom: 16 }} title={<span><IconeFa nome="calendar-check" /> Planos de manutenção</span>}
         extra={gerir && (
           <Space wrap>
-            <Button size="small" icon={<IconeFa nome="tools" />} title="Ordem para uma avaria ou um trabalho pontual, que não vem de nenhum plano" onClick={() => setAvulsa(true)}>Ordem avulsa (avaria)</Button>
-            <Button size="small" icon={<IconeFa nome="magic" />} loading={accao.isPending} onClick={() => accao.mutate({ url: '/ativos/manutencao/ordens/gerar' })}>
+            <Button size="small" icon={<IconeFa nome="wrench" />} title="Ordem para uma avaria ou um trabalho pontual, que não vem de nenhum plano" onClick={() => setAvulsa(true)}>Ordem avulsa (avaria)</Button>
+            <Button size="small" icon={<IconeFa nome="bolt" />} loading={accao.isPending} onClick={() => accao.mutate({ url: '/ativos/manutencao/ordens/gerar' })}>
               Gerar ordens dos planos vencidos{porVencer.length ? ` (${porVencer.length})` : ''}
             </Button>
             <Button size="small" type="primary" icon={<IconeFa nome="plus" />} onClick={() => setPlano(null)}>Novo plano</Button>

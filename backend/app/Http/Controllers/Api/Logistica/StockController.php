@@ -9,6 +9,7 @@ use App\Models\ItemGuiaSaida;
 use App\Models\LinhaSessaoInventario;
 use App\Models\MovimentoInventario;
 use App\Models\SessaoInventario;
+use App\Models\Venda;
 use App\Services\Compras\RelacoesNomes;
 use App\Services\Logistica\ServicoArmazens;
 use App\Services\Logistica\ServicoConfigLogistica;
@@ -19,6 +20,7 @@ use App\Services\Logistica\ServicoStock;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /** /api/logistica — armazéns, stock, movimentos, transferências, ajustes, extracto do artigo e inventários. */
 final class StockController extends Controller
@@ -120,7 +122,23 @@ final class StockController extends Controller
         return RespostaApi::criado($res['movimento'], 'Ajuste de stock registado.');
     }
 
-    // ───────────── Guias de saída (consumo interno) ─────────────
+    // ───────────── Guias de saída (consumo interno) e guias de remessa emitidas no armazém ─────────────
+
+    /**
+     * «Guias de Saída e Entrega» (renderGuiasSaida, js/ui_warehouse.js:536): as guias do armazém (consumo, venda ao balcão e
+     * as migradas) e, como no legado, as saídas para clientes — hoje guias de remessa das Vendas (ADR-043), emitidas no
+     * formulário do armazém (vendas.saida_armazem) ou nas próprias Vendas. Só leitura: a GR contabiliza-se e anula-se nas Vendas (origem = GR, venda_id).
+     */
+    /**
+     * Tipo de saída de uma GR na lista do armazém: o gravado no formulário do armazém; senão BACK_TO_BACK quando a GR vem de
+     * uma encomenda de cliente (NE) com processo de compra (pedido com venda_origem_id ou linhas enviadas a compras), senão
+     * VENDA. SQL fixo (sem dados do pedido), sobre a mesma empresa da GR.
+     */
+    private const TIPO_REMESSA = "COALESCE(vendas.saida_armazem, CASE WHEN EXISTS (SELECT 1 FROM vendas_documentos_relacionados r
+        JOIN vendas ne ON ne.id = r.venda_relacionada_id AND ne.tipo_documento = 'NE' AND ne.empresa_id = vendas.empresa_id
+        WHERE r.venda_id = vendas.id AND (EXISTS (SELECT 1 FROM pedidos_compra pc WHERE pc.venda_origem_id = ne.id AND pc.empresa_id = ne.empresa_id AND pc.estado <> 'ANULADO')
+            OR EXISTS (SELECT 1 FROM itens_venda iv WHERE iv.venda_id = ne.id AND iv.pedido_compra_id IS NOT NULL)))
+        THEN 'BACK_TO_BACK' ELSE 'VENDA' END)";
 
     public function guias(Request $r): JsonResponse
     {
@@ -128,17 +146,49 @@ final class StockController extends Controller
         $f = $r->validate(['tipo' => ['nullable', 'in:VENDA,BACK_TO_BACK,CONSUMO'], 'armazem_id' => ['nullable', 'integer'], 'estado' => ['nullable', 'string', 'max:30'],
             'contabilizado' => ['nullable', 'boolean'], 'pesquisa' => ['nullable', 'string', 'max:100'],
             'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
+        $termo = trim((string) ($f['pesquisa'] ?? '')) === '' ? null : '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], trim($f['pesquisa'])).'%';
 
-        return RespostaApi::paginado(GuiaSaida::query()->with(RelacoesNomes::terceiro())
+        $guias = GuiaSaida::query()
             ->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))
             ->when($f['armazem_id'] ?? null, fn ($q, $v) => $q->where('armazem_id', $v))
             ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v))
             ->when(isset($f['contabilizado']), fn ($q) => $q->where('contabilizado', (bool) $f['contabilizado']))
-            ->when($f['pesquisa'] ?? null, function ($q, $v) {
-                $termo = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], trim($v)).'%';
-                $q->where(fn ($w) => $w->where('numero_documento', 'ilike', $termo)->orWhere('area_rececao', 'ilike', $termo));
-            })
-            ->orderByDesc('data')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1)), null, 'Guias de saída.');
+            ->when($termo, fn ($q, $t) => $q->where(fn ($w) => $w->where('numero_documento', 'ilike', $t)->orWhere('area_rececao', 'ilike', $t)))
+            ->select(['id', 'data'])->selectRaw("'GUIA' AS origem");
+        // todas as GR (também as emitidas nas Vendas): saem do armazém como as guias de entrega do legado
+        // excepto as «GR LOG» migradas: eram o espelho que o legado criava para cada guia do armazém (ui_warehouse.js:943-958),
+        // e essa saída já aparece pela guia GE migrada (evita a mesma entrega duas vezes)
+        $remessas = Venda::query()->where('tipo_documento', 'GR')->where('numero_documento', 'not ilike', 'GR LOG %')
+            ->when($f['tipo'] ?? null, fn ($q, $v) => $q->whereRaw(self::TIPO_REMESSA.' = ?', [$v]))
+            ->when($f['armazem_id'] ?? null, fn ($q, $v) => $q->where('armazem_id', $v))
+            ->when($f['estado'] ?? null, fn ($q, $v) => $q->where('estado', $v === 'ANULADA' ? 'ANULADO' : $v))
+            ->when(isset($f['contabilizado']), fn ($q) => $q->where('contabilizado', (bool) $f['contabilizado']))
+            ->when($termo, fn ($q, $t) => $q->where('numero_documento', 'ilike', $t))
+            ->selectRaw("id, CAST(data_emissao AS date) AS data, 'GR' AS origem");
+
+        $pagina = DB::query()->fromSub($guias->toBase()->unionAll($remessas->toBase()), 'u')
+            ->orderByDesc('data')->orderByDesc('id')->orderBy('origem')
+            ->paginate(perPage: (int) ($f['por_pagina'] ?? 50), page: (int) ($f['pagina'] ?? 1));
+        $chaves = $pagina->getCollection();
+        $g = GuiaSaida::query()->with(RelacoesNomes::terceiro())->whereIn('id', $chaves->where('origem', 'GUIA')->pluck('id'))->get()->keyBy('id');
+        $v = Venda::query()->with(RelacoesNomes::terceiro('cliente'))->whereIn('id', $chaves->where('origem', 'GR')->pluck('id'))
+            ->select('vendas.*')->selectRaw(self::TIPO_REMESSA.' AS tipo_saida')->get()->keyBy('id');
+        $pagina->setCollection($chaves->map(fn ($c) => $c->origem === 'GUIA'
+            ? $g[$c->id]->toArray() + ['origem' => 'GUIA', 'chave' => "G{$c->id}", 'venda_id' => null]
+            : $this->linhaRemessa($v[$c->id])));
+
+        return RespostaApi::paginado($pagina, null, 'Guias de saída.');
+    }
+
+    /** GR emitida no armazém, com os campos de uma guia de saída (tipo = VENDA | BACK_TO_BACK, destinatário = cliente). */
+    private function linhaRemessa(Venda $gr): array
+    {
+        return ['id' => $gr->id, 'chave' => "V{$gr->id}", 'origem' => 'GR', 'venda_id' => $gr->id, 'numero_documento' => $gr->numero_documento,
+            'data' => $gr->data_emissao?->toDateString(), 'tipo' => $gr->saida_armazem ?? $gr->getAttribute('tipo_saida') ?? 'VENDA', 'tipo_original' => null, 'terceiro_id' => $gr->cliente_id,
+            'terceiro' => $gr->cliente ? ['id' => $gr->cliente->id, 'nome' => $gr->cliente->nome, 'nif' => $gr->cliente->nif] : null,
+            'armazem_id' => $gr->armazem_id, 'area_rececao' => null, 'estado' => $gr->estado, 'venda_relacionada_id' => null,
+            'contabilizado' => (bool) $gr->contabilizado, 'observacoes' => $gr->observacoes, 'criado_por' => null,
+            'numero_lan_contabilizacao' => $gr->numero_lan_contabilizacao, 'anulado_em' => $gr->anulado_em, 'motivo_anulacao' => $gr->motivo_anulacao];
     }
 
     public function guia(int $guia): JsonResponse

@@ -45,9 +45,18 @@ final class ServicoLocaisAtivos
     /** Cartões dos edifícios (renderAssetBuildings) e n.º de bens sem porta. */
     public function edificios(): array
     {
-        $edificios = AtivoImobilizado::query()->where('tipo_ativo', self::TIPO_EDIFICIO)->orderBy('codigo')->get(['id', 'codigo', 'descricao', 'estado', 'valor_aquisicao']);
-        $andares = AndarEdificio::query()->selectRaw('edificio_id, COUNT(*) AS n')->groupBy('edificio_id')->pluck('n', 'edificio_id');
-        $portas = PortaEdificio::query()->selectRaw('edificio_id, COUNT(*) AS n')->groupBy('edificio_id')->pluck('n', 'edificio_id');
+        $edificios = AtivoImobilizado::query()->where('tipo_ativo', self::TIPO_EDIFICIO)->orderBy('codigo')
+            ->get(['id', 'codigo', 'descricao', 'estado', 'valor_aquisicao', 'propriedade', 'regime_alheio']);
+        // r3_activos: estrutura compacta (pisos › portas com n.º de bens) para desenhar cada edifício no painel
+        $listaAndares = AndarEdificio::query()->orderBy('ordem')->orderBy('id')->get(['id', 'edificio_id', 'numero', 'nome', 'ordem'])->groupBy('edificio_id');
+        $listaPortas = PortaEdificio::query()->get(['id', 'edificio_id', 'andar_id', 'numero', 'nome', 'tipo', 'ordem'])
+            ->sort(fn ($a, $b) => [(int) $a->ordem, $a->numero] <=> [(int) $b->ordem, $b->numero])->groupBy('andar_id');
+        $bensPorPorta = $this->bensLocalizaveis()->whereNotNull('porta_id')->selectRaw('porta_id, COUNT(*) AS n')->groupBy('porta_id')->pluck('n', 'porta_id');
+        $andares = $listaAndares->map->count();
+        $portas = $listaPortas->flatten(1)->groupBy('edificio_id')->map->count();
+        $pisos = fn (int $id) => $listaAndares->get($id, collect())->map(fn (AndarEdificio $f) => $f->only(['id', 'numero', 'nome', 'ordem']) + [
+            'portas' => $listaPortas->get($f->id, collect())->map(fn (PortaEdificio $p) => $p->only(['id', 'numero', 'nome', 'tipo']) + ['n_bens' => (int) ($bensPorPorta[$p->id] ?? 0)])->values()->all(),
+        ])->values()->all();
         // bens dentro do edifício: numa porta ou «neste edifício, sem porta»
         $bens = $this->bensLocalizaveis()->whereNotNull('edificio_id')
             ->selectRaw('edificio_id, COUNT(*) AS n, COUNT(*) FILTER (WHERE porta_id IS NULL) AS sem_porta, COALESCE(SUM(valor_aquisicao), 0) AS valor')
@@ -57,6 +66,7 @@ final class ServicoLocaisAtivos
 
         return [
             'edificios' => $edificios->map(fn (AtivoImobilizado $e) => $e->only(['id', 'codigo', 'descricao', 'estado']) + [
+                'propriedade' => $e->propriedade ?: AtivoImobilizado::PROPRIO, 'regime_alheio' => $e->regime_alheio, 'pisos' => $pisos($e->id),
                 'andares' => (int) ($andares[$e->id] ?? 0),
                 'portas' => (int) ($portas[$e->id] ?? 0),
                 'bens' => (int) ($bens[$e->id]->n ?? 0),
@@ -109,7 +119,7 @@ final class ServicoLocaisAtivos
         $semPortaEste = $semPorta->filter(fn ($b) => (int) $b->edificio_id === $edificio->id);
 
         return [
-            'edificio' => $edificio->only(['id', 'codigo', 'descricao', 'estado']),
+            'edificio' => $edificio->only(['id', 'codigo', 'descricao', 'estado']) + ['propriedade' => $edificio->propriedade ?: AtivoImobilizado::PROPRIO],
             'andares' => $listaAndares->values()->all(),
             'sem_local' => $semPorta->map(fn ($b) => ['id' => $b->id, 'codigo' => $b->codigo, 'descricao' => $b->descricao,
                 'valor_aquisicao' => CalculadoraAmortizacoes::d($b->valor_aquisicao),
