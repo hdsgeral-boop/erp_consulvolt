@@ -30,8 +30,6 @@ final class DominioPedido
 
     public const DESCONHECIDA = 'desconhecida';
 
-    private const PREFIXO_PLATAFORMA = 'gestao-admin';
-
     private function __construct(
         public readonly string $area,
         public readonly ?string $slug = null,
@@ -51,7 +49,7 @@ final class DominioPedido
 
         $prefixo = substr($host, 0, -strlen('.'.$base));
 
-        if ($prefixo === self::PREFIXO_PLATAFORMA) {
+        if ($prefixo === strtolower((string) config('erp.dominio.prefixo_plataforma'))) {
             return new self(self::PLATAFORMA);
         }
         if ($prefixo === '' || str_contains($prefixo, '.') || in_array($prefixo, (array) config('erp.dominio.slugs_reservados'), true)) {

@@ -159,6 +159,11 @@ return [
         // Tenant que opera a plataforma (acesso à área admin.erp.<base>).
         'plataforma_tenant_id' => (int) env('PLATAFORMA_TENANT_ID', 1),
         // Subdomínios que não podem ser slugs de clientes.
-        'slugs_reservados' => ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste', 'gestao-admin'],
+        'slugs_reservados' => array_values(array_unique(array_merge(
+            ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste'],
+            [env('DOMINIO_PLATAFORMA', 'admin.erp')],
+        ))),
+        // Subdomínio da área da plataforma SaaS: <prefixo>.<base>. Configurável por DOMINIO_PLATAFORMA (ex.: gestao-admin).
+        'prefixo_plataforma' => env('DOMINIO_PLATAFORMA', 'admin.erp'),
     ],
 ];
