@@ -9,6 +9,7 @@ use App\Models\PlanoConta;
 use App\Models\RubricaOrcamental;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
+use App\Services\Orcamento\ServicoPlaneamentoOrcamental;
 use App\Services\Orcamento\ServicoRubricasOrcamentais;
 use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
@@ -99,7 +100,10 @@ final class OrcamentoPlaneamentoTest extends TestCase
         $this->assertEquals(115.5, collect($this->getJson("/api/orcamento/orcamentos/{$v}", $s)->json('dados.linhas'))->firstWhere('rubrica_orcamental_id', $this->ids['P01'])['valores'][0]);
 
         // desvio de vendas Jan–Mar: +200, +500, +800 → concentrado nos 2 maiores meses (87 %) → pontual
-        $d = $this->getJson("/api/orcamento/orcamentos/{$o}/desvios/{$this->ids['P01']}?de=1&ate=3", $s)->assertOk()->json('dados');
+        // (rota GET /api/orcamento/orcamentos/{o}/desvios/{r} retirada na ronda 4: o ecrã usa /orcamento/paridade/…/desvios/…, que
+        // chama esta mesma análise — ServicoParidadeOrcamento::causas)
+        $d = app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => json_decode(json_encode(app(ServicoPlaneamentoOrcamental::class)->analisarDesvio(OrcamentoAnual::query()->findOrFail($o), $this->ids['P01'], 1, 3)), true));
         $this->assertEquals([1500, 'PONTUAL', 0], [$d['desvio_total'], $d['classificacao'], $d['desfavoraveis']]);
         $this->assertEquals(['611', 1800, 0], [$d['contas'][0]['conta'], $d['contas'][0]['real'], $d['contas'][0]['anterior']]);
         $this->assertCount(3, $d['maiores_movimentos']);

@@ -6,6 +6,7 @@ use App\Jobs\Vendas\CicloAgt;
 use App\Models\Empresa;
 use App\Models\PlanoConta;
 use App\Models\Produto;
+use App\Models\SerieFaturacaoEletronica;
 use App\Models\TaxaCambio;
 use App\Models\Terceiro;
 use App\Models\Venda;
@@ -56,7 +57,7 @@ final class FaturacaoEletronicaTest extends TestCase
                 'codigo_conta' => '611', 'conta_iva_liquidado' => '3452', 'movimenta_stock' => true]);
         });
         $this->cabecalhos = $this->sessao(['vendas_faturacao_view', 'vendas_fat_emitir', 'vendas_alterar_preco', 'cambio_manual_fora_tolerancia', 'vendas_fe_config', 'vendas_relatorios_view', 'vendas_recibos',
-            'vendas_fat_contabilizar']);
+            'vendas_fat_contabilizar', 'vendas_agt_enviar', 'vendas_agt_ligacao', 'vendas_agt_registos']);
 
         // Chaves de teste (as reais ficam em /run/segredos/agt, fora do Git)
         $this->pasta = sys_get_temp_dir().'/agt_testes_'.bin2hex(random_bytes(4));
@@ -102,8 +103,18 @@ final class FaturacaoEletronicaTest extends TestCase
         ], $this->cabecalhos);
     }
 
-    private function ativarRegime(array $servico = []): void
+    /** Com o regime activo só se emite em séries atribuídas pela AGT (r4_agt): cria-as (FT, FR, NC) por omissão. */
+    private function ativarRegime(array $servico = [], bool $seriesAgt = true): void
     {
+        if ($seriesAgt) {
+            $ano = (int) substr($this->hoje, 0, 4);
+            app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () use ($ano) {
+                foreach (['FT', 'FR', 'NC'] as $tipo) {
+                    SerieFaturacaoEletronica::query()->firstOrCreate(['tipo' => $tipo, 'ano' => $ano, 'origem' => 'GERAL', 'estado' => 'ATIVA'],
+                        ['codigo' => "AGT{$ano}", 'agt_codigo' => "AGT{$ano}", 'proximo_numero' => 1, 'contingencia' => false, 'origem_nome' => 'Geral']);
+                }
+            });
+        }
         $this->putJson('/api/vendas/faturacao-eletronica/configuracao', ['ativo' => true, 'data_inicio' => $this->hoje,
             'estabelecimentos' => [['numero' => '1', 'nome' => 'Sede']], 'pais_padrao' => 'AO', 'servico' => $servico], $this->cabecalhos)->assertOk();
     }
@@ -111,6 +122,11 @@ final class FaturacaoEletronicaTest extends TestCase
     private function venda(int $id): Venda
     {
         return app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Venda::query()->findOrFail($id));
+    }
+
+    private function ultimoNumero(): string
+    {
+        return app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => Venda::query()->orderByDesc('id')->value('numero_documento'));
     }
 
     private function verificaJws(string $jws, string $publica): array
@@ -178,11 +194,17 @@ final class FaturacaoEletronicaTest extends TestCase
 
         Http::fake([
             '*/registarFactura' => Http::sequence()->push(['requestID' => 'R-1'], 200)->push(['requestID' => 'R-2'], 200),
-            '*/obterEstado' => Http::sequence()
-                ->push(['resultCode' => '8'], 200)
-                ->push(['resultCode' => '0', 'documentStatusList' => [['documentNo' => $numero, 'documentStatus' => 'I',
-                    'errorList' => [['idError' => 'E40', 'descriptionError' => 'NIF do adquirente inválido']]]]], 200)
-                ->push(['resultCode' => '0', 'documentStatusList' => [['documentNo' => $numero, 'documentStatus' => 'V']]], 200),
+            // obterEstado (doc-agt «consultar.html»): erros com errorCode/errorDescription; resultCode inteiro ou texto
+            '*/obterEstado' => function () use ($numero) {
+                static $n = 0;
+
+                return match (++$n) {
+                    1 => Http::response(['resultCode' => '8'], 200),
+                    2 => Http::response(['resultCode' => '0', 'documentStatusList' => [['documentNo' => $numero, 'documentStatus' => 'I',
+                        'errorList' => [['errorCode' => 'E11', 'errorDescription' => 'NIF do adquirente desconhecido']]]]], 200),
+                    default => Http::response(['resultCode' => 0, 'documentStatusList' => [['documentNo' => $this->ultimoNumero(), 'documentStatus' => 'V']]], 200),
+                };
+            },
         ]);
 
         $this->postJson('/api/vendas/faturacao-eletronica/enviar', [], $this->cabecalhos)->assertOk()->assertJsonPath('dados.enviados', 1);
@@ -207,17 +229,24 @@ final class FaturacaoEletronicaTest extends TestCase
         $this->postJson('/api/vendas/faturacao-eletronica/consultar', ['forcar' => true], $this->cabecalhos)->assertOk()->assertJsonPath('dados.aguardar', 1);  // em processamento
         $this->postJson('/api/vendas/faturacao-eletronica/consultar', ['forcar' => true], $this->cabecalhos)->assertJsonPath('dados.invalidos', 1);
         $this->getJson("/api/vendas/documentos/{$id}", $this->cabecalhos)->assertJsonPath('dados.faturacao_eletronica.envio', 'INVALIDO')
-            ->assertJsonPath('dados.faturacao_eletronica.erros_agt.0.codigo', 'E40');
+            ->assertJsonPath('dados.faturacao_eletronica.erros_agt.0.codigo', 'E11');
 
-        // corrigidos os dados de origem: revalida e reenvia como correcção (documentStatus "C")
-        $this->postJson("/api/vendas/documentos/{$id}/revalidar", [], $this->cabecalhos)->assertOk()->assertJsonPath('dados.enviados', 1);
-        Http::assertSent(fn (PedidoHttp $p) => str_ends_with($p->url(), '/registarFactura') && ($p->data()['documents'][0]['documentStatus'] ?? null) === 'C');
+        // E46 / FE-RNG-073: não se reenvia com o mesmo número — emite-se a correcção (novo n.º, documentStatus «C», rejectedDocumentNo)
+        $this->postJson("/api/vendas/documentos/{$id}/revalidar", [], $this->cabecalhos)->assertStatus(422)->assertJsonPath('codigo', 'CORRECCAO_EXIGE_NOVO_NUMERO');
+        $novo = $this->postJson("/api/vendas/documentos/{$id}/correccao-agt", [], $this->cabecalhos)->assertCreated()->assertJsonPath('dados.envio', 'ENVIADO')->json('dados');
+        $this->assertNotSame($numero, $novo['numero_documento']);
+        Http::assertSent(fn (PedidoHttp $p) => str_ends_with($p->url(), '/registarFactura') && ($p->data()['documents'][0]['documentStatus'] ?? null) === 'C'
+            && $p->data()['documents'][0]['rejectedDocumentNo'] === $numero && $p->data()['documents'][0]['documentNo'] === $novo['numero_documento']);
         $this->postJson('/api/vendas/faturacao-eletronica/consultar', ['forcar' => true], $this->cabecalhos)->assertJsonPath('dados.validos', 1);
-        $v = $this->venda($id);
+        $v = $this->venda($novo['id']);
         $this->assertSame('VALIDO', $v->fe_envio['estado']);
-        $this->assertFalse($v->fe_envio['correccao']);
+        $this->assertSame($numero, $v->fe_envio['documento_rejeitado']);
         $this->assertNotEmpty($v->fe_envio['historico']);
-        $this->getJson('/api/vendas/faturacao-eletronica/resumo', $this->cabecalhos)->assertJsonPath('dados.VALIDO', 1);
+        $original = $this->venda($id);
+        $this->assertSame('SUBSTITUIDO', $original->fe_envio['estado']);
+        $this->assertSame('ANULADO', $original->estado);
+        $this->assertSame($numero, $original->numero_documento, 'o n.º do documento recusado nunca muda');
+        $this->getJson('/api/vendas/faturacao-eletronica/resumo', $this->cabecalhos)->assertJsonPath('dados.VALIDO', 1)->assertJsonPath('dados.SUBSTITUIDO', 1);
     }
 
     #[Test]
@@ -276,7 +305,7 @@ final class FaturacaoEletronicaTest extends TestCase
         Http::fake(['*/solicitarSerie' => Http::response(['seriesFEResult' => ['seriesCode' => "FT{$ano}AGT", 'firstDocumentNo' => 1, 'lastDocumentNo' => 2, 'authorizedQuantity' => 2]], 200)]);
         $this->postJson("/api/vendas/configuracao/series/{$s}/solicitar-agt", [], $this->cabecalhos)->assertOk()->assertJsonPath('dados.agt_codigo', "FT{$ano}AGT");
 
-        $this->ativarRegime(['exigir_series_agt' => true]);
+        $this->ativarRegime(['exigir_series_agt' => true], false);
         $this->emitir()->assertCreated()->assertJsonPath('dados.numero_documento', "FT FT{$ano}AGT/1");
         $this->emitir()->assertCreated();
         $this->emitir()->assertStatus(422)->assertJsonPath('codigo', 'SERIE_ESGOTADA');   // quantidade autorizada pela AGT esgotada

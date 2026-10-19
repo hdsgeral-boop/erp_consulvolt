@@ -25,8 +25,15 @@ x-backend: &backend
     DB_HOST: postgres
     DB_PORT: 5432
     DB_DATABASE: ${POSTGRES_DB}
-    DB_USERNAME: ${POSTGRES_USER}
-    DB_PASSWORD: ${POSTGRES_PASSWORD}
+    # SaaS (ADR-073): por omissao a aplicacao liga como o utilizador actual. Para ligar como erp_app (sujeita a RLS), definir no .env
+    # DB_APP_USERNAME=erp_app, DB_APP_PASSWORD=... e SAAS_ATIVO=true (ver docs/arquitetura/SAAS_ATIVACAO.md). Migracoes e DDL: dono.
+    DB_USERNAME: ${DB_APP_USERNAME:-${POSTGRES_USER}}
+    DB_PASSWORD: ${DB_APP_PASSWORD:-${POSTGRES_PASSWORD}}
+    DB_APP_PASSWORD: ${DB_APP_PASSWORD:-}
+    DB_OWNER_USERNAME: ${POSTGRES_USER}
+    DB_OWNER_PASSWORD: ${POSTGRES_PASSWORD}
+    SAAS_ATIVO: ${SAAS_ATIVO:-false}
+    SAAS_LIGACAO_DONO: ${SAAS_LIGACAO_DONO:-}
     REDIS_CLIENT: phpredis
     REDIS_HOST: redis
     REDIS_PORT: 6379

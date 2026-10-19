@@ -9,6 +9,7 @@ use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -170,8 +171,14 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
     #[Test]
     public function editor_de_perfis_valida_catalogo_ecras_e_segregacao(): void
     {
-        $this->postJson('/api/sistema/perfis', ['nome' => 'Mau', 'permissoes' => ['lancamentos_view', 'chave_inventada']], $this->s)
-            ->assertStatus(422)->assertJsonPath('codigo', 'PERMISSAO_INEXISTENTE');
+        // chaves fora do catálogo (ex.: as do BI eliminado) descartam-se ao gravar, com registo no log
+        Log::spy();
+        $r = $this->postJson('/api/sistema/perfis', ['nome' => 'Mau', 'permissoes' => ['lancamentos_view', 'chave_inventada', 'accounting_bi_view']], $this->s)
+            ->assertCreated()->assertJsonPath('dados.descartadas', ['chave_inventada', 'accounting_bi_view'])->assertJsonPath('dados.permissoes', ['lancamentos_view']);
+        $this->assertSame(['_v2' => true, 'lancamentos_view' => true], PerfilUtilizador::query()->find($r->json('dados.id'))->permissoes);
+        Log::shouldHaveReceived('info')->withArgs(fn ($m, $c) => str_contains($m, 'descartadas') && $c['chaves'] === ['chave_inventada', 'accounting_bi_view'])->once();
+        // um perfil que só tinha chaves mortas fica sem ecrãs: recusa-se
+        $this->postJson('/api/sistema/perfis', ['nome' => 'Só BI', 'permissoes' => ['sgd_view']], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'PERFIL_SEM_ECRAS');
         $this->postJson('/api/sistema/perfis', ['nome' => 'Sem ecrãs', 'permissoes' => []], $this->s)->assertStatus(422);
 
         $conflito = ['nome' => 'Administrador de acessos', 'permissoes' => ['config_utilizadores_view', 'config_util_gerir', 'config_perfis_gerir']];

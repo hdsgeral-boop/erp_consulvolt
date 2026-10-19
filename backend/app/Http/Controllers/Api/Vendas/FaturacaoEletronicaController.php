@@ -40,6 +40,9 @@ final class FaturacaoEletronicaController extends Controller
             'estabelecimentos.*.numero' => ['required', 'string', 'max:20'], 'estabelecimentos.*.nome' => ['nullable', 'string', 'max:200'],
             'pais_padrao' => ['nullable', 'regex:/^[A-Z]{2}$/'], 'isencao_padrao' => ['nullable', 'regex:/^M\d{2}$/'],
             'servico.auto' => ['nullable', 'boolean'], 'servico.exigir_series_agt' => ['nullable', 'boolean'],
+            // r4_agt: modo de contingência declarado (séries de contingência «C»)
+            'servico.contingencia' => ['nullable', 'array'], 'servico.contingencia.ativo' => ['nullable', 'boolean'],
+            'servico.contingencia.motivo' => ['nullable', 'string', 'max:500'],
         ]);
 
         return RespostaApi::sucesso($this->config->gravar($d), 'Configuração da facturação electrónica gravada.');
@@ -62,15 +65,16 @@ final class FaturacaoEletronicaController extends Controller
 
     public function enviar(Request $request): JsonResponse
     {
-        $this->exigir('vendas_fat_emitir');
+        $this->exigir('vendas_agt_enviar');
         $d = $request->validate(['ids' => ['nullable', 'array', 'max:500'], 'ids.*' => ['integer']]);
 
-        return RespostaApi::sucesso($this->envio->enviarPendentes($d['ids'] ?? null), 'Envio à AGT concluído.');
+        // pedido do utilizador: envia já, sem a espera entre tentativas do ciclo automático
+        return RespostaApi::sucesso($this->envio->enviarPendentes($d['ids'] ?? null, true), 'Envio à AGT concluído.');
     }
 
     public function consultar(Request $request): JsonResponse
     {
-        $this->exigir('vendas_fat_emitir');
+        $this->exigir('vendas_agt_enviar');
         $d = $request->validate(['ids' => ['nullable', 'array', 'max:500'], 'ids.*' => ['integer'], 'forcar' => ['nullable', 'boolean']]);
 
         return RespostaApi::sucesso($this->envio->consultarEstados($d['ids'] ?? null, (bool) ($d['forcar'] ?? false)), 'Consulta à AGT concluída.');
@@ -79,7 +83,7 @@ final class FaturacaoEletronicaController extends Controller
     /** POST /api/vendas/documentos/{id}/revalidar — refaz o documento electrónico e reenvia. */
     public function revalidar(int $venda): JsonResponse
     {
-        $this->exigir('vendas_fat_emitir');
+        $this->exigir('vendas_agt_enviar');
 
         return RespostaApi::sucesso($this->envio->revalidarEReenviar(Venda::query()->findOrFail($venda)), 'Documento revalidado e reenviado.');
     }

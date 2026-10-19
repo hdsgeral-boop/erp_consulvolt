@@ -19,6 +19,7 @@ import { CartaoKpi, EstadoVazio, GrelhaKpi } from '@/componentes/vistas';
 import { somaCorrespondencia } from './regras';
 import { BotaoEditarLinha, HistoricoFiltrado, ModalEditarLinhaExtrato, ModalRascunhos, PainelRascunhos, type RascunhoReconciliacao } from './ReconciliacaoExtras';
 import { scrollTabela } from '@/componentes/responsivo';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 const PREFIXO_BANCOS = ['43'];
 
@@ -126,7 +127,7 @@ const Valor = ({ v, cor }: { v: string; cor: string }) => <span style={{ color: 
 export default function Conciliacao() {
   const [conta, setConta] = useState<string>();
   const [data, setData] = useState<Dayjs>(dayjs());
-  const [separador, setSeparador] = useState('auto');
+  const [separador, setSeparador] = useSeparadorUrl(['auto', 'manual', 'extrato', 'mapa']);
   const meios = useMeiosPagamento();
   const [escolhida, setEscolhida] = useState(false);
   const [verRascunhos, setVerRascunhos] = useState(false);

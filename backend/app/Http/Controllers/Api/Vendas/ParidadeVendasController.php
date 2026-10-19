@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Vendas;
 
 use App\Http\Controllers\Controller;
+use App\Models\CategoriaProduto;
 use App\Models\Venda;
 use App\Rules\TaxaIvaLegal;
 use App\Services\Compras\ServicoEncomendasClientes;
@@ -111,28 +112,47 @@ final class ParidadeVendasController extends Controller
         return RespostaApi::criado(['id' => $p->id, 'numero_pedido' => $p->numero_pedido], "Pedido de compra {$p->numero_pedido} gerado para a encomenda.");
     }
 
-    /** POST /vendas/produtos/editar-em-massa — «Editar em massa (N)» do catálogo de produtos e serviços. */
+    /**
+     * POST /vendas/produtos/editar-em-massa — «Editar em massa (N)» do catálogo de produtos e serviços. As contas já não
+     * se gravam no produto (a categoria sobrepõe-se): «contas» preenchidas → 422 CONTAS_NA_CATEGORIA; para as mudar,
+     * escolhe-se a categoria (dados.categoria_produto_id) ou editam-se as da categoria (categoria_contas, com
+     * vendas_categorias_contas — vale para todos os produtos da categoria).
+     */
     public function editarProdutosEmMassa(Request $request, ServicoProdutos $produtos): JsonResponse
     {
         $this->exigir('vendas_produtos_gerir');
+        if ($request->filled('categoria_contas')) {
+            $this->exigir('vendas_categorias_contas');   // autorização antes da validação (OWASP A01)
+        }
+        $empresa = app(ContextoEmpresa::class)->obrigatorio();
         $conta = ['nullable', 'string', 'max:20', 'regex:/^(__RETIRAR__|[0-9][0-9.]*)$/'];
         $d = $request->validate([
-            'ids' => ['required', 'array', 'min:1', 'max:1000'], 'ids.*' => ['integer', 'distinct'],
+            'ids' => ['required_without:categoria_contas', 'array', 'max:1000'], 'ids.*' => ['integer', 'distinct'],
             'dados' => ['nullable', 'array'],
             'dados.preco' => ['nullable', 'array'],
             'dados.preco.modo' => ['required_with:dados.preco', Rule::in(['DEFINIR', 'PERCENT', 'VALOR'])],
             'dados.preco.valor' => ['required_with:dados.preco', 'numeric', 'min:-9999999999', 'max:9999999999'],
             'dados.taxa_imposto' => ['nullable', 'numeric', new TaxaIvaLegal],
-            'dados.categoria_produto_id' => ['nullable', 'integer', Rule::exists('categorias_produtos', 'id')->where('empresa_id', app(ContextoEmpresa::class)->obrigatorio())->whereNull('eliminado_em')],
+            'dados.categoria_produto_id' => ['nullable', 'integer', Rule::exists('categorias_produtos', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],
             'dados.movimenta_stock' => ['nullable', 'boolean'], 'dados.e_servico' => ['nullable', 'boolean'], 'dados.bloqueado' => ['nullable', 'boolean'],
             'contas' => ['nullable', 'array'],
-            'contas.codigo_conta' => $conta, 'contas.conta_custo' => $conta, 'contas.conta_compra' => $conta, 'contas.conta_inventario' => $conta,
-            'contas.conta_iva_liquidado' => $conta, 'contas.conta_iva_dedutivel' => $conta, 'contas.conta_quebra' => $conta, 'contas.conta_sobra' => $conta,
-            'contas.conta_ativo' => $conta,
-        ], [], ['ids' => 'produtos']);
+            'categoria_contas' => ['nullable', 'array'],
+            'categoria_contas.categoria_produto_id' => ['required_with:categoria_contas', 'integer',
+                Rule::exists('categorias_produtos', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em')],
+            'categoria_contas.contas' => ['required_with:categoria_contas', 'array'],
+            ...array_combine(array_map(fn ($c) => "categoria_contas.contas.{$c}", array_keys(CategoriaProduto::CONTAS)), array_fill(0, count(CategoriaProduto::CONTAS), $conta)),
+        ], [], ['ids' => 'produtos', 'categoria_contas.categoria_produto_id' => 'categoria']);
         $dados = array_filter($d['dados'] ?? [], fn ($v) => $v !== null);
-        $r = $this->servico->editarProdutosEmMassa($d['ids'], $dados, $d['contas'] ?? [], $produtos);
+        $r = $this->servico->editarProdutosEmMassa($d['ids'] ?? [], $dados, (array) $request->input('contas', []), $produtos, $d['categoria_contas'] ?? null);
 
-        return RespostaApi::sucesso($r, "{$r['alterados']} produto(s)/serviço(s) actualizado(s).");
+        $mensagens = [];
+        if ($r['alterados']) {
+            $mensagens[] = "{$r['alterados']} produto(s)/serviço(s) actualizado(s).";
+        }
+        if (isset($r['categoria'])) {
+            $mensagens[] = "Contas da categoria «{$r['categoria']['categoria']}» actualizadas: aplicam-se aos {$r['categoria']['produtos']} produto(s) da categoria.";
+        }
+
+        return RespostaApi::sucesso($r, implode(' ', $mensagens));
     }
 }

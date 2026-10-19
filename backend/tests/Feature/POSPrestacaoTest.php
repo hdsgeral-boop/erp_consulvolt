@@ -12,6 +12,7 @@ use App\Models\PlanoConta;
 use App\Models\Produto;
 use App\Models\SessaoPOS;
 use App\Services\Logistica\ServicoStock;
+use App\Services\POS\ServicoRelatoriosPOS;
 use App\Services\Vendas\ServicoConfigVendas;
 use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
@@ -303,7 +304,9 @@ final class POSPrestacaoTest extends TestCase
         $this->getJson('/api/pos/relatorios?data_inicio=2020-02-01&data_fim=2020-01-01', $this->g)->assertStatus(422);
 
         // «POS e Serviços»: bloco POS; lavandaria e hotelaria a null até esses módulos existirem
-        $k = collect($this->getJson("/api/pos/relatorios/servicos?data_inicio={$hoje}&data_fim={$hoje}", $this->g)->assertOk()->json('dados.kpis'))->pluck('valor', 'id');
+        // (rota GET /api/pos/relatorios/servicos retirada na ronda 4: o bloco é servido por /api/gestao/relatorios/servicos — ModuloServicos)
+        $k = collect(app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => json_decode(json_encode(app(ServicoRelatoriosPOS::class)->indicadoresServicos($hoje, $hoje)), true))['kpis'])->pluck('valor', 'id');
         $this->assertSame(['4332.00', 3, '1444.00', 2, '-2.00', null, null], [$k['pos_vendas'], $k['pos_tickets'], $k['pos_ticket'], $k['pos_sessoes'], $k['pos_desvios'],
             $k['lav_ordens'], $k['hot_ocupacao']]);
 

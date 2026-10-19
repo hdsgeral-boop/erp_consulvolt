@@ -1,9 +1,10 @@
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 import { ImportarExcel } from './comum/ImportarExcel';
 import { Alert, Button, Card, Checkbox, Col, DatePicker, Descriptions, Form, Input, InputNumber, Modal, Row, Select, Space, Tabs, Tag, Typography } from 'antd';
 import { ImportOutlined, LockOutlined, PlusOutlined, UnlockOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
@@ -19,19 +20,34 @@ import { EstadoTag } from './comum/componentes';
 import { useAccaoRh, useAvisarErro, useInfotipos } from './comum/consultas';
 import { mesPorExtenso, somar } from './comum/regras';
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
-import { BASES_CALCULO, baseDe, explicarCalculo, METRICAS, metricaDe, periodoActualProdutividade, resumoProdutividade, type LinhaResumoProdutividade } from './produtividade/regrasProdutividade';
+import {
+  descricaoMetrica, nomeMetrica, parametrosSimulacao, periodoActualProdutividade, resumoProdutividade, textoExplicacao,
+  type ExplicacaoCalculo, type LinhaResumoProdutividade, type MetricasProdutividade, type ValoresSimulacao,
+} from './produtividade/regrasProdutividade';
 import { PonteProdutividade } from '@/modulos/projectos/comum/PonteProdutividade';
 import { campoSimNao, dataDe, numeroDe, textoDe } from './comum/linhasRh';
 
+/** Métricas e bases de cálculo descritas pelo servidor (GET /rh/produtividade/metricas — a mesma fonte da explicação do cálculo). */
+export function useMetricasProdutividade() {
+  return useQuery({ queryKey: ['rh', 'produtividade', 'metricas'], queryFn: () => obter<MetricasProdutividade>('/rh/produtividade/metricas'), staleTime: Infinity });
+}
+
+/** Valor que só muda depois de `ms` sem alterações (evita um pedido por tecla na pré-visualização). */
+function useAdiado<T>(valor: T, ms: number): T {
+  const [v, setV] = useState(valor);
+  useEffect(() => { const t = setTimeout(() => setV(valor), ms); return () => clearTimeout(t); }, [valor, ms]);
+  return v;
+}
+
 /** Vista Linhas dos «Itens de produtividade» (um item por linha; o mesmo POST e o mesmo `paraEnvio` da grade). */
-export function camposItemProdutividade(rubricas: CampoFormulario['opcoes']): CampoFormulario[] {
+export function camposItemProdutividade(rubricas: CampoFormulario['opcoes'], metricas?: MetricasProdutividade): CampoFormulario[] {
   return [
     { nome: 'codigo', rotulo: 'Código', obrigatorio: true, largura: 110, maxLength: 20 },
     { nome: 'descricao', rotulo: 'Descrição', obrigatorio: true, largura: 240, maxLength: 500 },
-    { nome: 'metrica', rotulo: 'Métrica', tipo: 'select', largura: 190, omissao: 'QUANTIDADE', opcoes: METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: metricaDe(m).nome })) },
+    { nome: 'metrica', rotulo: 'Métrica', tipo: 'select', largura: 190, omissao: 'QUANTIDADE', opcoes: METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: nomeMetrica(metricas, m) })) },
     { nome: 'unidade', rotulo: 'Unidade', largura: 90, maxLength: 10 },
     { nome: 'base_calculo', rotulo: 'Base de cálculo', tipo: 'select', largura: 240, omissao: 'UNITARIO', emLinhas: 'opcional',
-      opcoes: (['UNITARIO', 'PREMIO'] as const).map((b) => ({ value: b, label: BASES_CALCULO[b].nome })),
+      opcoes: (['UNITARIO', 'PREMIO'] as const).map((b) => ({ value: b, label: metricas?.bases[b]?.nome ?? b })),
       validar: (b, r) => (b === 'PREMIO' && r.metrica !== 'OBJECTIVO' ? 'O prémio só se aplica ao cumprimento de objectivo.' : null) },
     { nome: 'preco_unitario', rotulo: 'Preço / prémio', tipo: 'numero', obrigatorio: true, largura: 120, min: 0.0001, precisao: 4, aliases: ['Preço', 'Valor por unidade'] },
     { nome: 'minimo', rotulo: 'Mínimo (total)', tipo: 'numero', largura: 110, min: 0, emLinhas: 'opcional' },
@@ -82,7 +98,7 @@ function EcraProdutividade() {
   const { pode } = useSessao();
   const periodos = useQuery({ queryKey: ['rh', 'produtividade', 'periodos'], queryFn: () => obter<PeriodoProdutividade[]>('/rh/produtividade/periodos') });
   useAvisarErro(periodos.error);
-  const [sep, setSep] = useState<Separador>('registos');
+  const [sep, setSep] = useSeparadorUrl<Separador>(SEPARADORES.map(([k]) => k), 'registos');   // ?sep= (pesquisa do cabeçalho)
   const [novo, setNovo] = useState(false);
   const periodoId = id ? Number(id) : periodoActualProdutividade(periodos.data ?? [])?.id;
   const irPara = (pid: number) => navegar(id ? `../${pid}` : String(pid), { relative: 'path' });
@@ -210,7 +226,9 @@ function ListaPeriodos({ aoAbrir }: { aoAbrir: (id: number) => void }) {
 function ItensProdutividade() {
   const { pode } = useSessao();
   const infotipos = useInfotipos();
-  const camposLinhas = camposItemProdutividade(infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO').map((i) => ({ value: i.id, label: i.nome })));
+  const metricas = useMetricasProdutividade();
+  useAvisarErro(metricas.error);
+  const camposLinhas = camposItemProdutividade(infotipos.lista.filter((i) => i.tipo === 'VENCIMENTO').map((i) => ({ value: i.id, label: i.nome })), metricas.data);
   return (
     <CadastroSimples<ItemProdutividade>
       url="/rh/produtividade/itens"
@@ -221,15 +239,15 @@ function ItensProdutividade() {
       podeEliminar={pode('rh_prod_config')}
       pesquisa={(r) => `${r.codigo} ${r.descricao}`}
       valoresNovos={{ metrica: 'QUANTIDADE', base_calculo: 'UNITARIO', ativo: true }}
-      paraFormulario={(r) => ({ ...r, base_calculo: baseDe(r), preco_unitario: Number(r.preco_unitario), minimo: r.minimo !== null ? Number(r.minimo) : null, maximo: r.maximo !== null ? Number(r.maximo) : null })}
+      paraFormulario={(r) => ({ ...r, base_calculo: r.base_calculo === 'PREMIO' ? 'PREMIO' : 'UNITARIO', preco_unitario: Number(r.preco_unitario), minimo: r.minimo !== null ? Number(r.minimo) : null, maximo: r.maximo !== null ? Number(r.maximo) : null })}
       // #11: a base «prémio» só se envia na métrica OBJECTIVO (o servidor recusa noutras)
       paraEnvio={(v) => ({ ...v, base_calculo: v.metrica === 'OBJECTIVO' ? v.base_calculo ?? 'UNITARIO' : 'UNITARIO' })}
       linhas={{ chave: 'rh.produtividade.itens', campos: camposLinhas, nomeRegistos: 'itens de produtividade' }}
       colunas={[
         { title: 'Código', dataIndex: 'codigo', render: (v: string) => <strong>{v}</strong> },
         { title: 'Descrição', dataIndex: 'descricao' },
-        { title: 'Métrica', dataIndex: 'metrica', render: (v: string | null) => metricaDe(v).nome },
-        { title: 'Base de cálculo', key: 'base', render: (_, r) => (baseDe(r) === 'PREMIO' ? <Tag color="purple">Prémio × % atingida</Tag> : 'Quantidade × preço') },
+        { title: 'Métrica', dataIndex: 'metrica', render: (v: string | null) => nomeMetrica(metricas.data, v) },
+        { title: 'Base de cálculo', key: 'base', render: (_, r) => (r.base_calculo === 'PREMIO' ? <Tag color="purple">Prémio × % atingida</Tag> : 'Quantidade × preço') },
         { title: 'Unidade', dataIndex: 'unidade', render: (v: string | null) => v ?? '—' },
         { title: 'Preço / prémio', dataIndex: 'preco_unitario', align: 'right', render: (v: string) => formatarKz(v) },
         { title: 'Mín./máx. (total)', render: (_, r) => `${r.minimo !== null ? formatarNumero(r.minimo) : '—'} / ${r.maximo !== null ? formatarNumero(r.maximo) : '—'}` },
@@ -240,43 +258,17 @@ function ItensProdutividade() {
         <Row gutter={12}>
           <Col xs={24} sm={12} md={8}><Form.Item name="codigo" label="Código" rules={[{ required: true }, { max: 20 }]}><Input /></Form.Item></Col>
           <Col xs={24} md={16}><Form.Item name="descricao" label="Descrição" rules={[{ required: true }, { max: 500 }]}><Input /></Form.Item></Col>
-          <Col xs={24} sm={12} md={8}><Form.Item name="metrica" label="Métrica"><Select options={METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: metricaDe(m).nome }))} /></Form.Item></Col>
+          <Col xs={24} sm={12} md={8}><Form.Item name="metrica" label="Métrica"><Select loading={metricas.isLoading} options={METRICAS_PRODUTIVIDADE.map((m) => ({ value: m, label: nomeMetrica(metricas.data, m) }))} /></Form.Item></Col>
           <Col xs={24} sm={12} md={8}><Form.Item name="unidade" label="Unidade"><Input maxLength={10} /></Form.Item></Col>
           {/* #11: rótulos, fórmula e exemplo da métrica; base «prémio» só no cumprimento de objectivo (produtividade.js:36-160) */}
           <Form.Item noStyle shouldUpdate={(a, b) => a.metrica !== b.metrica || a.base_calculo !== b.base_calculo || a.preco_unitario !== b.preco_unitario
             || a.minimo !== b.minimo || a.maximo !== b.maximo || a.unidade !== b.unidade}>
-            {({ getFieldValue }) => {
-              const metrica = getFieldValue('metrica') as string | undefined;
-              const m = metricaDe(metrica);
-              const premio = metrica === 'OBJECTIVO' && getFieldValue('base_calculo') === 'PREMIO';
-              const item = { metrica: metrica ?? null, base_calculo: premio ? 'PREMIO' as const : 'UNITARIO' as const, unidade: getFieldValue('unidade') ?? null,
-                minimo: getFieldValue('minimo') ?? null, maximo: getFieldValue('maximo') ?? null };
-              const preco = Number(getFieldValue('preco_unitario')) || 0;
-              const exemplo = metrica === 'OBJECTIVO' ? 95 : 10;
-              const exp = preco > 0 ? explicarCalculo(item, exemplo, preco) : null;
-              return (
-                <>
-                  {m.basePremio && (
-                    <Col xs={24} sm={12} md={8}>
-                      <Form.Item name="base_calculo" label="Base de cálculo">
-                        <Select options={(['UNITARIO', 'PREMIO'] as const).map((b) => ({ value: b, label: BASES_CALCULO[b].nome }))} />
-                      </Form.Item>
-                    </Col>
-                  )}
-                  <Col xs={24} sm={12} md={8}><Form.Item name="preco_unitario" label={premio ? m.rotuloPreco : metrica === 'OBJECTIVO' ? 'Valor por ponto percentual' : m.rotuloPreco} rules={[{ required: true }]}><InputNumber min={0.0001} precision={4} decimalSeparator="," style={{ width: '100%' }} /></Form.Item></Col>
-                  <Col xs={24} sm={12} md={8}><Form.Item name="minimo" label={`${m.rotuloMinimo} (total)`}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                  <Col xs={24} sm={12} md={8}><Form.Item name="maximo" label={`${m.rotuloMaximo} (total)`}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
-                  <Col xs={24}>
-                    <Alert type="info" showIcon style={{ marginBottom: 12 }} message={premio ? METRICAS.OBJECTIVO.formula : metrica === 'OBJECTIVO' ? 'Subsídio = % atingida × valor por ponto percentual' : m.formula}
-                      description={<>
-                        <div>{m.ajuda}</div>
-                        <div style={{ marginTop: 4 }}><b>Exemplo:</b> {m.exemplo}</div>
-                        {exp && <div style={{ marginTop: 4 }}><b>Com estes valores, para {exemplo}{metrica === 'OBJECTIVO' ? ' %' : ` ${item.unidade ?? ''}`}:</b> {exp.conta}{exp.cortes.length ? ` (${exp.cortes.join('; ')})` : ''}</div>}
-                      </>} />
-                  </Col>
-                </>
-              );
-            }}
+            {({ getFieldValue }) => (
+              <CamposCalculoItem metricas={metricas.data} valores={{
+                metrica: getFieldValue('metrica'), base_calculo: getFieldValue('base_calculo'), preco_unitario: getFieldValue('preco_unitario'),
+                unidade: getFieldValue('unidade'), minimo: getFieldValue('minimo'), maximo: getFieldValue('maximo'),
+              }} />
+            )}
           </Form.Item>
           <Col xs={24} sm={12} md={8}><Form.Item name="ativo" label=" " valuePropName="checked"><Checkbox>Activo</Checkbox></Form.Item></Col>
           <Col xs={24}>
@@ -288,6 +280,49 @@ function ItensProdutividade() {
       }
       larguraModal={720}
     />
+  );
+}
+
+/**
+ * #11 — campos do item que dependem da métrica (base, preço, mínimo, máximo) e a explicação do cálculo com os valores do
+ * formulário. Rótulos, fórmula e conta vêm do servidor (GET /rh/produtividade/explicar simula o item por gravar com o mesmo
+ * motor que calcula os registos); aqui só se formata.
+ */
+export function CamposCalculoItem({ metricas, valores }: { metricas?: MetricasProdutividade; valores: ValoresSimulacao }) {
+  const m = descricaoMetrica(metricas, valores.metrica);
+  const pedido = parametrosSimulacao(valores);
+  const chave = useAdiado(JSON.stringify(pedido), 300);
+  const exp = useQuery({
+    queryKey: ['rh', 'produtividade', 'explicar', chave],
+    queryFn: () => obter<ExplicacaoCalculo>('/rh/produtividade/explicar', JSON.parse(chave) as Record<string, string>),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+  });
+  const e = exp.data;
+  const temPreco = Number(pedido.preco) > 0;
+  const unidade = valores.metrica === 'OBJECTIVO' ? '%' : (valores.unidade ?? '');
+  return (
+    <>
+      {m?.base_premio && (
+        <Col xs={24} sm={12} md={8}>
+          <Form.Item name="base_calculo" label="Base de cálculo">
+            <Select options={(['UNITARIO', 'PREMIO'] as const).map((b) => ({ value: b, label: metricas?.bases[b]?.nome ?? b }))} />
+          </Form.Item>
+        </Col>
+      )}
+      <Col xs={24} sm={12} md={8}><Form.Item name="preco_unitario" label={e?.rotulo_preco ?? m?.rotulo_preco ?? 'Preço unitário'} rules={[{ required: true }]}><InputNumber min={0.0001} precision={4} decimalSeparator="," style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={24} sm={12} md={8}><Form.Item name="minimo" label={`${m?.rotulo_minimo ?? 'Mínimo'} (total)`}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={24} sm={12} md={8}><Form.Item name="maximo" label={`${m?.rotulo_maximo ?? 'Máximo'} (total)`}><InputNumber min={0} style={{ width: '100%' }} /></Form.Item></Col>
+      <Col xs={24}>
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} data-testid="explicacao-item" message={e?.formula ?? m?.formula ?? 'A carregar a fórmula…'}
+          description={<>
+            {m && <div>{m.ajuda}</div>}
+            {m && <div style={{ marginTop: 4 }}><b>Exemplo:</b> {m.exemplo}</div>}
+            {e && temPreco && <div style={{ marginTop: 4 }} aria-live="polite"><b>Com estes valores, para {formatarNumero(e.quantidade)} {unidade}:</b> {textoExplicacao(e)}</div>}
+            {exp.isError && <Typography.Text type="warning">Não foi possível obter a explicação do cálculo.</Typography.Text>}
+          </>} />
+      </Col>
+    </>
   );
 }
 

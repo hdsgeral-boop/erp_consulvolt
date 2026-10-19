@@ -10,6 +10,7 @@ use App\Services\RH\ServicoAvaliacao360;
 use App\Services\RH\ServicoEstruturaOrg;
 use App\Services\RH\ServicoPortalColaborador;
 use App\Services\Sistema\ServicoPermissoes;
+use App\Services\Vendas\ServicoEnvioAgt;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -166,6 +167,9 @@ final class ServicoInicio
                 fn () => $n("SELECT COUNT(*) AS n FROM linhas_extrato_bancario WHERE empresa_id = ? AND COALESCE(estado, '') NOT IN ('CONCILIADO', 'ANULADO')")],
             ['vendas_por_liquidar', 'Facturas por liquidar', 'vendas_faturacao', fn () => $this->podeVer(['vendas_faturacao']),
                 fn () => $n("SELECT COUNT(*) AS n FROM vendas WHERE empresa_id = ? AND tipo_documento IN ('FT', 'FR') AND COALESCE(estado, '') NOT IN ('PAGO', 'CANCELADO', 'ANULADO')")],
+            // r4_agt: documentos recusados pela AGT (inválidos/rejeitados) à espera do documento de correcção
+            ['vendas_agt_recusados', 'Documentos recusados pela AGT', 'vendas_faturacao', fn () => $this->podeVer(['vendas_faturacao']),
+                fn () => app(ServicoEnvioAgt::class)->contarRecusados()],
             ['compras_pedidos', 'Pedidos por aprovar', 'compras', fn () => $this->podeVer(['compras']),
                 fn () => $n("SELECT COUNT(*) AS n FROM pedidos_compra WHERE empresa_id = ? AND estado = 'PENDENTE' AND anulado_em IS NULL")],
             // ronda 3: regras de notificação dos níveis de stock (ServicoNiveisStock, em cache)

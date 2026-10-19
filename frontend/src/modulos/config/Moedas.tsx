@@ -18,6 +18,7 @@ import { descarregarModeloCambios } from './comum/modeloCambios';
 import { IconeFa } from '@/componentes/fluxos';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { dataDe, OPCOES_SIM_NAO, PROPS_SIM_NAO } from './comum/formularios';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 interface Moeda {
   id: number;
@@ -114,7 +115,7 @@ function useMoedaFuncional(activo: boolean) {
 export default function Moedas() {
   const { pode } = useSessao();
   const gerir = pode('config_moedas_gerir');
-  const [separador, setSeparador] = useState('cambios');
+  const [separador, setSeparador] = useSeparadorUrl(gerir ? ['cambios', 'moedas', 'importar', 'bai'] : ['cambios', 'moedas']);
   const automatico = useBaiAutomatico(gerir);
   const porValidar = automatico.data?.pendentes.length ?? 0;
   return (

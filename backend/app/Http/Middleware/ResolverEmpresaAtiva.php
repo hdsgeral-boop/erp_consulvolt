@@ -49,12 +49,39 @@ final class ResolverEmpresaAtiva
             throw ErroContextoEmpresa::semAcesso();
         }
 
+        $this->licenca($request, $utilizador, $empresaId);
+
         $this->contexto->definir($empresaId);
 
         try {
             return $next($request);
         } finally {
             $this->contexto->limpar();
+        }
+    }
+
+    /**
+     * Licença por empresa (ADR-074): empresa com licença expirada fica só de leitura, sem tolerância. As outras empresas do
+     * utilizador não são afectadas. Super-administradores têm acesso vitalício (isentos). Sem efeito com erp.licencas.ativo=false.
+     */
+    private function licenca(Request $request, $utilizador, int $empresaId): void
+    {
+        if (! config('erp.licencas.ativo') || $utilizador->eSuperAdministrador()) {
+            return;
+        }
+
+        $empresa = Empresa::query()->whereKey($empresaId)->first(['id', 'licenca_fim']);
+        if ($empresa === null || ! $empresa->licencaExpirada()) {
+            return;
+        }
+
+        // As rotas da própria licença (pedir renovação, confirmar pagamento) ficam sempre disponíveis: é por elas que se renova.
+        if (str_starts_with((string) $request->route()?->getName(), 'licenca.')) {
+            return;
+        }
+
+        if (! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)) {
+            throw ErroContextoEmpresa::licencaExpirada();
         }
     }
 }

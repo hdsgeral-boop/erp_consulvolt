@@ -7,17 +7,20 @@ use App\Models\TokenAcesso;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Services\Vendas\Agt\ClienteAgt;
-use App\Services\Vendas\Agt\ClienteAgtDesligado;
-use App\Services\Vendas\Agt\ClienteAgtDireto;
-use App\Services\Vendas\Agt\ClienteAgtIntermedio;
+use App\Services\Vendas\Agt\ClienteAgtPorEmpresa;
 use App\Support\Dados\OrdenacaoTexto;
 use App\Support\Seguranca\ValorSemFormulas;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
@@ -30,13 +33,12 @@ class AppServiceProvider extends ServiceProvider
         // Um contexto de empresa por pedido HTTP / trabalho de fila (seguro também com Octane).
         $this->app->scoped(ContextoEmpresa::class);
         $this->app->scoped(ServicoPermissoes::class);
+        // SaaS (ADR-073): um tenant por sessão de base de dados; espelha o `app.tenant_id` da ligação.
+        $this->app->singleton(ContextoTenant::class);
 
-        // Ligação à AGT (ADR-030): directa, pelo serviço intermédio do legado, ou desligada (por omissão)
-        $this->app->bind(ClienteAgt::class, fn ($app) => match (config('erp.agt.driver')) {
-            'direto' => $app->make(ClienteAgtDireto::class),
-            'intermedio' => $app->make(ClienteAgtIntermedio::class),
-            default => $app->make(ClienteAgtDesligado::class),
-        });
+        // Ligação à AGT (ADR-030; r4_agt): a da empresa activa, quando configurada; senão o driver do servidor
+        // (directa, pelo serviço intermédio do legado, ou desligada — por omissão)
+        $this->app->bind(ClienteAgt::class, fn ($app) => $app->make(ClienteAgtPorEmpresa::class));
     }
 
     public function boot(): void
@@ -56,9 +58,53 @@ class AppServiceProvider extends ServiceProvider
         $this->configurarSanctum();
         $this->configurarPermissoes();
         $this->configurarLimites();
+        $this->configurarFilas();
+        $this->configurarComandosDeManutencao();
 
         // OWASP A03: textos começados por = + - @ nunca viram fórmulas nos .xlsx gerados (CSV/Excel injection).
         Cell::setValueBinder(new ValorSemFormulas);
+    }
+
+    /**
+     * SaaS (ADR-073): um trabalho não herda o tenant do anterior (a ligação de um worker é de longa duração e a sessão
+     * PostgreSQL mantém o `app.tenant_id`). Antes do trabalho o tenant fica vazio; depois (ou em falha) repõe-se o de quem
+     * despachou. Sem efeito com erp.saas.ativo=false.
+     */
+    private function configurarFilas(): void
+    {
+        $tenants = [];
+        $contexto = fn () => $this->app->make(ContextoTenant::class);
+
+        Queue::before(function () use (&$tenants, $contexto) {
+            if (! ContextoTenant::ativo()) {
+                return;
+            }
+            $tenants[] = $contexto()->id();
+            $contexto()->limpar();
+        });
+
+        $repor = function () use (&$tenants, $contexto) {
+            if (! ContextoTenant::ativo() || $tenants === []) {
+                return;
+            }
+            $contexto()->definir(array_pop($tenants));
+        };
+        Queue::after($repor);
+        Queue::failing($repor);
+    }
+
+    /**
+     * SaaS (ADR-073): comandos de manutencao atravessam tenants e nao tem utilizador. Com SaaS activo e ligacao do dono
+     * configurada, correm nessa ligacao (superuser, ignora a RLS). Os restantes (agendador, jobs) definem o tenant.
+     */
+    private function configurarComandosDeManutencao(): void
+    {
+        Event::listen(CommandStarting::class, function (CommandStarting $evento) {
+            $ligacao = config('erp.saas.ligacao_dono');
+            if (ContextoTenant::ativo() && $ligacao && in_array($evento->command, (array) config('erp.saas.comandos_de_manutencao'), true)) {
+                DB::setDefaultConnection($ligacao);
+            }
+        });
     }
 
     private function configurarSanctum(): void

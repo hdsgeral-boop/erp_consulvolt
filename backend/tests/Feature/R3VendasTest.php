@@ -40,7 +40,7 @@ final class R3VendasTest extends TestCase
             $base = ['preco_unitario' => 100, 'taxa_imposto' => 14, 'codigo_conta' => '611', 'conta_iva_liquidado' => '3452', 'movimenta_stock' => false, 'e_servico' => true];
             foreach (['todos' => null, 'loja' => ['LOJA'], 'rest' => ['RESTAURANTE', 'HOTELARIA'], 'nenhum' => []] as $k => $servicos) {
                 $p = Produto::create(['codigo' => strtoupper($k), 'nome' => "Produto {$k}"] + $base);
-                $p->forceFill(['servicos_pos' => $servicos === null ? null : json_encode($servicos)])->save();
+                $p->update(['servicos_pos' => $servicos]);
                 $this->ids[$k] = $p->id;
             }
             $this->ids['quarto'] = Produto::create(['codigo' => 'Q1', 'nome' => 'Quarto 1', 'e_quarto' => true] + $base)->id;

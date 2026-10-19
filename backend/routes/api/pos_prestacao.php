@@ -15,5 +15,4 @@ Route::prefix('pos')->name('pos.')->controller(PrestacaoContasController::class)
     Route::get('liquidacoes/{liquidacao}', 'liquidacao')->whereNumber('liquidacao')->name('liquidacoes.show');
     Route::post('liquidacoes/{liquidacao}/anular', 'anular')->whereNumber('liquidacao')->name('liquidacoes.anular');
     Route::get('relatorios', 'relatorios')->name('relatorios.index');
-    Route::get('relatorios/servicos', 'relatorioServicos')->name('relatorios.servicos');
 });

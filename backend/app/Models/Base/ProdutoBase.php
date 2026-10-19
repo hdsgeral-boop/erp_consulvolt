@@ -16,6 +16,7 @@ use App\Models\LinhaSessaoInventario;
 use App\Models\ModeloBase;
 use App\Models\MovimentoCaixa;
 use App\Models\MovimentoInventario;
+use App\Models\RegistoConversaoContasProduto;
 use App\Models\StockArmazem;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -34,7 +35,7 @@ abstract class ProdutoBase extends ModeloBase
     protected string $moduloAuditoria = 'Logística';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'quantidade_stock', 'movimenta_stock', 'codigo_conta', 'conta_compra', 'conta_inventario', 'conta_custo', 'categoria_produto_id', 'conta_iva', 'conta_iva_liquidado', 'conta_iva_dedutivel', 'conta_quebra', 'conta_sobra', 'imagem_base64', 'e_quarto', 'e_ativo_imobilizado', 'conta_ativo', 'preco_por_hora', 'preco_por_dia', 'horas_minimas', 'e_servico', 'bloqueado', 'unidade_fe', 'tipo_operacao_fe', 'codigo_isencao_fe', 'lavandaria_grupo', 'lavandaria_unidade', 'lavandaria_dias_entrega', 'lavandaria_requer_orcamento', 'lavandaria_ativa', 'lavandaria_preco_peca', 'lavandaria_preco_kg', 'custo_medio', 'stock_minimo',
+        'empresa_id', 'codigo', 'nome', 'preco_unitario', 'taxa_imposto', 'quantidade_stock', 'movimenta_stock', 'codigo_conta', 'conta_compra', 'conta_inventario', 'conta_custo', 'categoria_produto_id', 'conta_iva', 'conta_iva_liquidado', 'conta_iva_dedutivel', 'conta_quebra', 'conta_sobra', 'imagem_base64', 'e_quarto', 'e_ativo_imobilizado', 'conta_ativo', 'preco_por_hora', 'preco_por_dia', 'horas_minimas', 'e_servico', 'bloqueado', 'unidade_fe', 'tipo_operacao_fe', 'codigo_isencao_fe', 'lavandaria_grupo', 'lavandaria_unidade', 'lavandaria_dias_entrega', 'lavandaria_requer_orcamento', 'lavandaria_ativa', 'lavandaria_preco_peca', 'lavandaria_preco_kg', 'custo_medio', 'stock_minimo', 'stock_maximo', 'stock_seguranca', 'ponto_encomenda', 'marca', 'modelo', 'comprimento', 'largura', 'altura', 'unidade_dimensao', 'peso_liquido', 'peso_bruto', 'caracteristicas', 'observacoes_tecnicas', 'servicos_pos',
     ];
 
     protected function casts(): array
@@ -60,6 +61,16 @@ abstract class ProdutoBase extends ModeloBase
             'lavandaria_preco_kg' => 'decimal:2',
             'custo_medio' => 'decimal:6',
             'stock_minimo' => 'decimal:3',
+            'stock_maximo' => 'decimal:3',
+            'stock_seguranca' => 'decimal:3',
+            'ponto_encomenda' => 'decimal:3',
+            'comprimento' => 'decimal:3',
+            'largura' => 'decimal:3',
+            'altura' => 'decimal:3',
+            'peso_liquido' => 'decimal:3',
+            'peso_bruto' => 'decimal:3',
+            'caracteristicas' => 'array',
+            'servicos_pos' => 'array',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',
@@ -124,5 +135,10 @@ abstract class ProdutoBase extends ModeloBase
     public function linhasRequisicaoManutencao(): HasMany
     {
         return $this->hasMany(LinhaRequisicaoManutencao::class, 'produto_id');
+    }
+
+    public function registosConversaoContasProdutos(): HasMany
+    {
+        return $this->hasMany(RegistoConversaoContasProduto::class, 'produto_id');
     }
 }

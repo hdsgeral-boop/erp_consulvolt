@@ -93,20 +93,22 @@ describe('acções AGT avançadas no detalhe da venda', () => {
   const todas = () => true;
   const fe = (o: Record<string, unknown>) => ({ serie: 'A', numero: 1, estado: 'PRONTO', regime: true, erros: [], avisos: [], selado_em: '2026-01-10T10:00:00Z', envio: 'VALIDO', ...o });
 
-  it('revalidar só para erros locais por enviar ou inválidos/rejeitados pela AGT, com vendas_fat_emitir', () => {
-    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO' }) }, todas).revalidar).toBe(true);
-    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'INVALIDO' }) }, todas).revalidar).toBe(true);
-    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ estado: 'COM_ERROS', envio: null }) }, todas).revalidar).toBe(true);
+  it('revalidar só para erros locais ainda por enviar; inválidos/rejeitados pela AGT pedem correcção (novo n.º, E46), com vendas_agt_enviar', () => {
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO' }) }, todas)).toMatchObject({ revalidar: false, correccao: true });
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'INVALIDO' }) }, todas)).toMatchObject({ revalidar: false, correccao: true });
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ estado: 'COM_ERROS', envio: null }) }, todas)).toMatchObject({ revalidar: true, correccao: false });
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ estado: 'COM_ERROS', envio: 'CONTINGENCIA' }) }, todas).revalidar).toBe(true);
     expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ estado: 'COM_ERROS', envio: 'VALIDO' }) }, todas).revalidar).toBe(false);
-    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'VALIDO' }) }, todas).revalidar).toBe(false);
-    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO', regime: false }) }, todas).revalidar).toBe(false);
-    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO' }) }, (p) => p !== 'vendas_fat_emitir').revalidar).toBe(false);
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'VALIDO' }) }, todas)).toMatchObject({ revalidar: false, correccao: false });
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO', regime: false }) }, todas).correccao).toBe(false);
+    expect(accoesAgt({ estado: 'ANULADO', faturacao_eletronica: fe({ envio: 'INVALIDO' }) }, todas).correccao).toBe(false);
+    expect(accoesAgt({ estado: 'PENDENTE', faturacao_eletronica: fe({ envio: 'REJEITADO' }) }, (p) => p !== 'vendas_agt_enviar').correccao).toBe(false);
   });
 
   it('QR e pedido assinado só para documentos do regime já selados, cada um com a sua permissão', () => {
     expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: fe({}) }, todas)).toMatchObject({ qr: true, pedidoAssinado: true });
     expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: fe({ selado_em: null }) }, todas)).toMatchObject({ qr: false, pedidoAssinado: false });
-    expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: undefined }, todas)).toEqual({ revalidar: false, qr: false, pedidoAssinado: false });
+    expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: undefined }, todas)).toEqual({ revalidar: false, correccao: false, qr: false, pedidoAssinado: false });
     expect(accoesAgt({ estado: 'PAGO', faturacao_eletronica: fe({}) }, (p) => p === 'vendas_faturacao_view')).toMatchObject({ qr: true, pedidoAssinado: false });
   });
 

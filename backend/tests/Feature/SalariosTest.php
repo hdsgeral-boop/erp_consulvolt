@@ -14,6 +14,7 @@ use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\PlanoConta;
 use App\Models\ResultadoFolhaSalarial;
 use App\Models\TipoOrganizacaoRH;
+use App\Services\RH\ServicoFolhaSalarial;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -103,9 +104,13 @@ final class SalariosTest extends TestCase
         app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => InfotipoSalarial::query()->whereKey($this->ids['base'])->update(['sujeito_inss' => false]));
         $this->getJson("/api/rh/salarios/periodos/{$p}", $this->s)->assertJsonPath('dados.fotografia', true)->assertJsonPath('dados.totais.inss_trabalhador', '9000.00');
 
-        $this->getJson("/api/rh/salarios/periodos/{$p}/recibos/{$this->ids['ana']}", $this->s)->assertStatus(422)->assertJsonPath('codigo', 'PERIODO_NAO_VALIDADO');
+        // (rota JSON GET …/recibos/{colaborador} retirada na ronda 4: o recibo emite-se em PDF — …/recibos/{colaborador}/pdf e recibos-zip)
+        $this->get("/api/rh/salarios/periodos/{$p}/recibos-zip?colaboradores={$this->ids['ana']}", $this->s)->assertStatus(422)->assertJsonPath('codigo', 'PERIODO_NAO_VALIDADO');
         $this->postJson("/api/rh/salarios/periodos/{$p}/validar", [], $this->s)->assertOk()->assertJsonPath('dados.estado', 'VALIDADO');
-        $this->getJson("/api/rh/salarios/periodos/{$p}/recibos/{$this->ids['ana']}", $this->s)->assertOk()->assertJsonPath('dados.liquido', '231560.00');
+        $this->get("/api/rh/salarios/periodos/{$p}/recibos/{$this->ids['ana']}/pdf", $this->s)->assertOk()->assertHeader('content-type', 'application/pdf');
+        $recibo = app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => collect(app(ServicoFolhaSalarial::class)->resultados(PeriodoProcessamentoSalarial::query()->findOrFail($p)))->firstWhere('colaborador_id', $this->ids['ana']));
+        $this->assertSame('231560.00', (string) $recibo['liquido']);
 
         $this->postJson("/api/rh/salarios/periodos/{$p}/contabilizar", [], $this->s)->assertStatus(422)->assertJsonPath('codigo', 'MAPEAMENTO_EM_FALTA');
         $this->mapear();

@@ -48,6 +48,9 @@ final class SistemaSubstituicaoContaTest extends TestCase
         DB::table('lancamentos_contabeis')->insert(['empresa_id' => $this->a->id, 'codigo_conta' => '3212', 'tipo_dc' => 'C', 'valor' => 100, 'data_documento' => '2026-01-10']);
         DB::table('configuracoes_acrescimos_diferimentos')->insert(['empresa_id' => $this->a->id, 'contas' => json_encode(['ACRESCIMO_CUSTO' => '3212', 'DIFERIMENTO_CUSTO' => '3743'])]);
         $this->ids['pendente'] = $pendente;
+        // as contas da categoria sobrepõem-se às do produto: também se substituem
+        $this->ids['categoria'] = DB::table('categorias_produtos')->insertGetId(['empresa_id' => $this->a->id, 'nome' => 'Serviços', 'codigo_conta' => '3212',
+            'conta_inventario' => '3212', 'conta_custo' => '752']);
 
         $u = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'contab_conta_substituir' => true])->id]);
         $u->empresas()->attach([$this->a->id, $this->b->id]);
@@ -61,8 +64,8 @@ final class SistemaSubstituicaoContaTest extends TestCase
         [$a, $b] = $r->json('dados');
         $this->assertTrue($a['pode_substituir']);
         $alteraveis = collect($a['alteraveis'])->mapWithKeys(fn ($x) => ["{$x['tabela']}.{$x['coluna']}" => $x['registos']])->all();
-        $this->assertEquals(['terceiros.codigo_conta' => 1, 'produtos.conta_custo' => 1, 'itens_documento_tesouraria.codigo_conta' => 1,
-            'configuracoes_acrescimos_diferimentos.contas' => 1], $alteraveis);
+        $this->assertEquals(['terceiros.codigo_conta' => 1, 'produtos.conta_custo' => 1, 'categorias_produtos.codigo_conta' => 1,
+            'categorias_produtos.conta_inventario' => 1, 'itens_documento_tesouraria.codigo_conta' => 1, 'configuracoes_acrescimos_diferimentos.contas' => 1], $alteraveis);
         $informativos = collect($a['informativos'])->mapWithKeys(fn ($x) => ["{$x['tabela']}.{$x['coluna']}" => $x['registos']])->all();
         $this->assertEquals(['lancamentos_contabeis.codigo_conta' => 1, 'itens_documento_tesouraria.codigo_conta' => 1], $informativos);
         $this->assertFalse($b['pode_substituir']);
@@ -77,7 +80,9 @@ final class SistemaSubstituicaoContaTest extends TestCase
         $this->assertSame('3212', DB::table('terceiros')->where('id', $this->ids['terceiro'])->value('codigo_conta'));
 
         $r = $this->postJson('/api/sistema/plano-contas/substituir', ['origem' => '3212', 'destino' => '32121', 'confirmar' => true], $this->s)->assertOk();
-        $this->assertSame(4, $r->json('dados.0.total'));
+        $this->assertSame(6, $r->json('dados.0.total'));
+        $categoria = DB::table('categorias_produtos')->where('id', $this->ids['categoria'])->first();
+        $this->assertSame(['32121', '32121', '752'], [$categoria->codigo_conta, $categoria->conta_inventario, $categoria->conta_custo]);
         $this->assertSame('32121', DB::table('terceiros')->where('id', $this->ids['terceiro'])->value('codigo_conta'));
         $this->assertSame('752', DB::table('terceiros')->where('id', $this->ids['outro'])->value('codigo_conta'));
         $this->assertSame('32121', DB::table('produtos')->where('id', $this->ids['produto'])->value('conta_custo'));
@@ -87,6 +92,7 @@ final class SistemaSubstituicaoContaTest extends TestCase
         $this->assertSame('32121', json_decode(DB::table('configuracoes_acrescimos_diferimentos')->value('contas'), true)['ACRESCIMO_CUSTO']);
         $log = app(ContextoEmpresa::class)->semIsolamento(fn () => LogAuditoria::query()->where('acao', 'Substituir conta')->firstOrFail());
         $this->assertSame([$this->ids['terceiro']], $log->dados_anteriores['registos']['terceiros.codigo_conta']);
+        $this->assertSame([$this->ids['categoria']], $log->dados_anteriores['registos']['categorias_produtos.conta_inventario']);
         $this->assertSame($this->a->id, $log->empresa_id);
     }
 

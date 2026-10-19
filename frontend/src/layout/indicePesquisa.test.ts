@@ -32,7 +32,15 @@ describe('índice da pesquisa (botões e separadores dos ecrãs)', () => {
     try {
       escrever(raiz, 'src/modulos/vendas/ecras.ts', `import { lazy } from 'react';
 const mapa = (n: string) => lazy(() => import('./Mapas').then((m) => ({ default: m[n] })));
-export const ecras = { vendas_faturacao: lazy(() => import('./Faturacao')), vendas_mapa: mapa('A') };`);
+export const ecras = { vendas_faturacao: lazy(() => import('./Faturacao')), vendas_mapa: mapa('A'), vendas_config: lazy(() => import('./Config')) };`);
+      // ecrã com o hook partilhado: grava só a chave (a pesquisa abre rota?sep=<chave>); o separador de um detalhe não
+      escrever(raiz, 'src/modulos/vendas/Config.tsx', `import { Tabs } from 'antd';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
+export default function Config() {
+  const { pode } = useSessao();
+  const [sep, setSep] = useSeparadorUrl<'series' | 'modelos'>(pode('vendas_cfg') ? ['series', 'modelos'] : ['series']);
+  return <Tabs activeKey={sep} onChange={setSep} items={[{ key: 'series', label: 'Séries' }, ...(pode('vendas_cfg') ? [{ key: 'modelos', label: 'Modelos de impressão' }] : [])]} />;
+}`);
       escrever(raiz, 'src/modulos/vendas/Faturacao.tsx', `import { Button, Tabs } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 import { Detalhe } from './comum/Detalhe';
@@ -61,6 +69,8 @@ export default function Faturacao() {
       const texto = await gerarIndice(raiz);
       const linhas = texto.split('\n').filter((l) => l.startsWith('  [')).map((l) => JSON.parse(l.trim().replace(/,$/, '')));
       expect(linhas).toEqual([
+        ['vendas_config', 's', 'Modelos de impressão', 'vendas_cfg', 'modelos'],
+        ['vendas_config', 's', 'Séries', '', 'series'],
         ['vendas_faturacao', 'b', 'Anular documento', 'vendas_fat_del'],
         ['vendas_faturacao', 'b', 'Contabilizar seleccionados', 'vendas_fat_contabilizar'],
         ['vendas_faturacao', 'b', 'Emitir factura', 'vendas_fat_emitir|vendas_fat_post'],

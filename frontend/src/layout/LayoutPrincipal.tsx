@@ -35,6 +35,9 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { ICONES_FA } from '@/componentes/fluxos/iconesFa';
 import { CHAVE_MENU_GERAL, construirMenuLateral, estadoMenu } from './itensMenu';
 import { MarcaEmpresa } from './MarcaEmpresa';
+import { AvisoLicenca } from './AvisoLicenca';
+import { ContadorLicencaHeader } from './ContadorLicencaHeader';
+import { NotificacoesSinoHeader } from './NotificacoesSinoHeader';
 import { classeFundoModulo } from './fundoModulo';
 import { rotuloEmpresa, rotuloPapel } from './marca';
 import { PesquisaCabecalho } from './PesquisaEcras';
@@ -48,8 +51,8 @@ import './telaNocturna.css';
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
 const AssistenteIA = lazy(() => import('@/modulos/geral/integracoes/AssistenteIA').then((m) => ({ default: m.AssistenteIA })));
 
-const ALTURA_CABECALHO = 72;
-const ALTURA_CABECALHO_TELEMOVEL = 56;
+const ALTURA_CABECALHO = 60;
+const ALTURA_CABECALHO_TELEMOVEL = 52;
 export const PREFIXO_FAVORITO = 'fav:';
 /** id da árvore do menu lateral (aria-controls do botão recolher/expandir) */
 const ID_MENU_LATERAL = 'erp-menu-lateral';
@@ -506,18 +509,12 @@ function Estrutura() {
                     onClick={alternarRecolhido}
                   />
                 )}
-                {ecra.pequeno ? (
-                  <div style={{ minWidth: 0, flex: '1 1 auto' }}>
-                    <MarcaEmpresa tamanho={ecra.md ? 34 : 28} />
-                  </div>
-                ) : (
-                  <div className="erp-cabecalho-empresa">
-                    <span className="erp-cabecalho-empresa-nome" title={nomeEmpresa}>
-                      {nomeEmpresa}
-                    </span>
-                    {nif && <span className="erp-cracha-nif">NIF: {nif}</span>}
-                  </div>
-                )}
+                <div className="erp-cabecalho-empresa" style={{ minWidth: 0, flex: '1 1 auto' }}>
+                  <span className="erp-cabecalho-empresa-nome" title={nomeEmpresa || 'Consulvolt'}>
+                    {nomeEmpresa || 'Consulvolt'}
+                  </span>
+                  {nif && <span className="erp-cracha-nif">NIF: {nif}</span>}
+                </div>
               </Flex>
               {ecra.lg && (
                 <div className="erp-cabecalho-pesquisa">
@@ -542,6 +539,8 @@ function Estrutura() {
                     />
                   </Tooltip>
                 )}
+                {!ecra.pequeno && <ContadorLicencaHeader />}
+                <NotificacoesSinoHeader />
                 {!ecra.pequeno && botaoTrocarEmpresa}
                 {/* nome + papel e o botão ▾ que mostra as opções (Gerir Dados Pessoais … Terminar sessão); em telemóvel, o avatar */}
                 <Dropdown menu={{ items: itensUtilizador }} trigger={['click']} placement="bottomRight">
@@ -562,6 +561,7 @@ function Estrutura() {
             </Flex>
           </Layout.Header>
           <Layout.Content className={`erp-conteudo ${classeFundoModulo(local.pathname)}`}>
+            <AvisoLicenca />
             <Suspense fallback={<Spin style={{ display: 'block', marginTop: 80 }} />}>
               <Outlet />
             </Suspense>

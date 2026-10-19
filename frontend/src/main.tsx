@@ -17,6 +17,7 @@ import '@fontsource/inter/latin-700.css';
 import '@fontsource/inter/latin-800.css';
 import '@/estilos/global.css';
 import '@/estilos/identidade.css';
+import '@/estilos/escalaResponsiva.css';
 
 dayjs.locale('pt');
 

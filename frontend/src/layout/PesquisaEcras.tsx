@@ -18,7 +18,7 @@ import { nomeModulo, rotuloEcra } from './menuLegado';
  *  - os BOTÕES/acções e SEPARADORES de cada ecrã (índice gerado a partir do código por
  *    ferramentas/pesquisa/gerar_indice_pesquisa.mjs → indicePesquisa.gerado.ts, carregado só quando se usa a pesquisa):
  *    «Botão/Separador › Ecrã › Módulo», só dos ecrãs do menu do utilizador e, quando a permissão que protege o botão é
- *    conhecida, só se pode(); ao escolher abre o ecrã (e o separador, quando o ecrã o lê do endereço).
+ *    conhecida, só se pode(); ao escolher abre o ecrã e, num separador, `rota?sep=<chave>` (o ecrã lê-o com useSeparadorUrl).
  * Sem acentos, por várias palavras (todas têm de aparecer), favoritos primeiro, ↑/↓/Enter/Esc, resultados agrupados
  * (Ecrãs / Funções / Botões e separadores) e limitados. Nunca mostra o que o utilizador não pode abrir.
  */
@@ -66,7 +66,7 @@ export interface ResultadoAccao {
   ecra: string;
   nomeModulo: string;
   nomeEcra: string;
-  /** rota do ecrã (com ?separador=/?sep= quando o ecrã abre o separador pelo endereço) */
+  /** rota do ecrã (com ?sep=<chave> quando o ecrã abre o separador pelo endereço — useSeparadorUrl) */
   rota: string;
   favorito: boolean;
 }
@@ -125,6 +125,15 @@ export interface AccaoIndexada {
 }
 
 /**
+ * Consulta que abre o separador: a chave gravada no índice dá `sep=<chave>` (useSeparadorUrl); entradas antigas que já
+ * trazem a consulta completa (`separador=<chave>`) ficam como estão.
+ */
+export function consultaSeparador(separador: string | undefined): string {
+  if (!separador) return '';
+  return separador.includes('=') ? separador : `sep=${encodeURIComponent(separador)}`;
+}
+
+/**
  * Liga o índice gerado ao menu do utilizador: só ficam os ecrãs que estão no menu (GET /sistema/menu, já filtrado pelas
  * permissões); o texto de procura fica normalizado em memória para a pesquisa ser rápida a cada tecla.
  */
@@ -137,10 +146,11 @@ export function prepararIndiceAccoes(indice: readonly EntradaIndicePesquisa[], m
       ecras.set(e.id, { modulo: m.id, nomeModulo: nm, nomeEcra: ne, procura: normalizar(`${ne} ${e.nome} ${nm} ${m.nome}`) });
     }
   const r: AccaoIndexada[] = [];
-  for (const [ecraId, tipo, rotulo, permissoes, consulta] of indice) {
+  for (const [ecraId, tipo, rotulo, permissoes, separador] of indice) {
     const e = ecras.get(ecraId);
     if (!e) continue;
     const nomeNormal = normalizar(rotulo);
+    const consulta = consultaSeparador(separador);
     r.push({
       tipo: tipo === 's' ? 'separador' : 'botao',
       nome: rotulo,

@@ -3,6 +3,7 @@
 namespace App\Support\Tenancy;
 
 use App\Exceptions\ErroContextoEmpresa;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Empresa activa no pedido/trabalho corrente (registado como `scoped` no contentor: um por pedido HTTP,
@@ -17,8 +18,11 @@ final class ContextoEmpresa
 
     private int $semIsolamento = 0;
 
+    public function __construct(private readonly ContextoTenant $tenant) {}
+
     public function definir(int $empresaId): void
     {
+        $this->alinharTenant($empresaId);
         $this->empresaId = $empresaId;
     }
 
@@ -59,12 +63,44 @@ final class ContextoEmpresa
     public function executarComo(int $empresaId, callable $operacao): mixed
     {
         $anterior = $this->empresaId;
+        $tenantAnterior = $this->tenant->id();
+        $this->alinharTenant($empresaId);
         $this->empresaId = $empresaId;
         try {
             return $operacao();
         } finally {
             $this->empresaId = $anterior;
+            if (ContextoTenant::ativo()) {
+                $this->tenant->definir($tenantAnterior);
+            }
         }
+    }
+
+    /**
+     * SaaS (ADR-073): a empresa pertence a um tenant. Sem tenant definido deduz-o da empresa; com tenant definido
+     * tem de coincidir. Sem efeito com `erp.saas.ativo=false`.
+     */
+    private function alinharTenant(int $empresaId): void
+    {
+        if (! ContextoTenant::ativo()) {
+            return;
+        }
+
+        $dono = DB::selectOne('SELECT app_tenant_da_empresa(?) AS tenant', [$empresaId])?->tenant;
+
+        if ($dono === null) {
+            throw ErroContextoEmpresa::semAcesso();
+        }
+
+        if ($this->tenant->definido()) {
+            if ($this->tenant->id() !== (int) $dono) {
+                throw ErroContextoEmpresa::empresaDeOutroTenant($empresaId);
+            }
+
+            return;
+        }
+
+        $this->tenant->definir((int) $dono);
     }
 
     /**

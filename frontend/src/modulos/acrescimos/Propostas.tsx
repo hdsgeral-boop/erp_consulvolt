@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { obter, obterPagina } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { BotoesExportar, tabelaHtml } from '@/componentes/impressao';
 import { BarraFiltros, scrollTabela } from '@/componentes/responsivo';
@@ -20,6 +21,7 @@ import type { LancamentoAD, LinhaProposta, LinhaReconciliacao, Proposta, Resulta
 
 /** Acréscimos e diferimentos › Proposta mensal (ecrã ad_propostas): contabilizar as linhas escolhidas, descontabilizar e reconciliar. */
 export default function Propostas() {
+  const [sep, setSep] = useSeparadorUrl(['proposta', 'lancamentos', 'reconciliacao']);
   return (
     <>
       <CabecalhoPagina
@@ -28,6 +30,8 @@ export default function Propostas() {
       />
       <Tabs
         destroyOnHidden
+        activeKey={sep}
+        onChange={setSep}
         items={[
           { key: 'proposta', label: 'Proposta', children: <PropostaMes /> },
           { key: 'lancamentos', label: 'Lançamentos', children: <Lancamentos /> },

@@ -20,6 +20,7 @@ import { BannerTeso } from './motivo';
 import { ROTULO_TIPO } from './api';
 import { errosDoLote, LOTE_INTEGRACAO } from './regras';
 import { prefixosDaChave } from './ronda3';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Tesouraria › Integração no razão (ecrã teso_contab_integracao): documentos por integrar e contas de tesouraria. */
 export default function Integracao() {
@@ -44,6 +45,7 @@ function PorIntegrar() {
   const [seleccao, setSeleccao] = useState<DocumentoTesouraria[]>([]);
   const [progresso, setProgresso] = useState<{ feitos: number; total: number; erros: string[] } | null>(null);
   const podeIntegrar = pode('teso_integrar');
+  const [sep, setSep] = useSeparadorUrl(['pendentes', 'contas']);
 
   /**
    * Integração em lote: POST /tesouraria/documentos/integrar {ids} (ADR-064), em blocos de LOTE_INTEGRACAO. No servidor cada
@@ -88,6 +90,8 @@ function PorIntegrar() {
         )}
       />
       <Tabs
+        activeKey={sep}
+        onChange={setSep}
         items={[
           {
             key: 'pendentes',

@@ -13,6 +13,7 @@ export interface IdentidadeEmpresa {
   website: string | null;
   registo_comercial: string | null;
   rodape: string | null;
+  nome_sistema?: string | null;
   /** data URI (PNG/JPEG/GIF/WEBP) ou null */
   logotipo: string | null;
 }

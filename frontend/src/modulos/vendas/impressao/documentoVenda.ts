@@ -102,6 +102,7 @@ export function dadosDocumentoVenda(d: DocumentoVenda, qr?: QrDocumento | null):
     moeda: d.codigo_moeda || 'AOA',
     blocos: [
       ['Motivo da nota de crédito', d.motivo_nota_credito],
+      ['Correcção', fe?.documento_rejeitado ? `Documento de correcção do documento ${fe.documento_rejeitado}, recusado pela AGT.` : null],
       ['Plano de pagamentos', textoPlano(d)],
       ['Contravalor em Kz', textoContravalor(d)],
       ['Condições de pagamento', typeof d.condicoes_pagamento === 'string' ? d.condicoes_pagamento : null],
@@ -116,7 +117,10 @@ export function dadosDocumentoVenda(d: DocumentoVenda, qr?: QrDocumento | null):
             url: qr?.url ?? null,
           }
         : null,
-    hash: fe?.hash ? `Hash: ${fe.hash}` : null,
+    // Decreto Presidencial n.º 71/25: o documento identifica o software validado pela AGT, o código hash e o n.º de
+    // validação. Forma usada: «<4 caracteres do Hash>-Processado por programa validado n.º <n.º>» (redacção inferida da
+    // prática dos programas certificados; a confirmar na homologação — docs/integracoes/agt_faturacao_eletronica.md)
+    hash: fe?.hash ? (fe.software?.certificacao ? `${fe.hash}-Processado por programa validado n.º ${fe.software.certificacao}` : `Hash: ${fe.hash}`) : null,
     legal: [
       semValor ? null : 'Documento processado por computador.',
       ['FT', 'FR', 'GR'].includes(tipo) ? 'Os bens/serviços foram colocados à disposição do adquirente na data e local do documento.' : null,

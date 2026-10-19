@@ -60,7 +60,7 @@ final class PerfilController extends Controller
         $this->exigir('config_perfis_gerir');
         $res = $this->perfis->guardar($this->validar($r, true), null, $r->user());
 
-        return RespostaApi::criado($this->perfis->obter($res['perfil']) + ['avisos' => $res['avisos']], 'Perfil criado com sucesso.');
+        return RespostaApi::criado($this->perfis->obter($res['perfil']) + ['avisos' => $res['avisos'], 'descartadas' => $res['descartadas']], 'Perfil criado com sucesso.');
     }
 
     public function update(Request $r, int $perfil): JsonResponse
@@ -68,7 +68,7 @@ final class PerfilController extends Controller
         $this->exigir('config_perfis_gerir');
         $res = $this->perfis->guardar($this->validar($r, false), PerfilUtilizador::query()->findOrFail($perfil), $r->user());
 
-        return RespostaApi::sucesso($this->perfis->obter($res['perfil']) + ['avisos' => $res['avisos']],
+        return RespostaApi::sucesso($this->perfis->obter($res['perfil']) + ['avisos' => $res['avisos'], 'descartadas' => $res['descartadas']],
             'Perfil gravado. Os utilizadores com este perfil têm as novas permissões a partir do próximo pedido.');
     }
 

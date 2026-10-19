@@ -21,6 +21,7 @@ import { EstadoPOS } from './comum/estados';
 import { SeletorTerminal } from './comum/Filtros';
 import type { PainelRelatorios, SessaoPOS } from './comum/tipos';
 import { htmlRelatorioSessao, lerPreferencias, reimprimir, useCabecalhoTalao } from './comum/impressao';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 type Z = PainelRelatorios['zs'][number];
 
@@ -61,6 +62,7 @@ export default function Relatorios() {
 
   const { empresa } = useSessao();
   const cabecalho = useCabecalhoTalao();
+  const [sep, setSep] = useSeparadorUrl(['z', 'meios', 'produtos', 'terminais', 'tpa']);
   // «Reemitir Z» por linha, como o legado (window.reprintZReport, pos_gestao.js:677-682)
   const reemitirZ = (id: number) =>
     obter<SessaoPOS>(`/pos/sessoes/${id}`)
@@ -210,6 +212,8 @@ export default function Relatorios() {
             </Col>
           </Row>
           <Tabs
+            activeKey={sep}
+            onChange={setSep}
             items={[
               {
                 key: 'z',

@@ -42,6 +42,7 @@ import {
   type ResultadoCalculo,
   type ResultadoDia,
 } from './ia/regrasFicheiro';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /**
  * Contabilidade › Assistente IA (lançamento assistido) — ecrã `ia_assistente` da Versão Actual (js/ia_regras_ficheiro.js).
@@ -53,9 +54,9 @@ import {
  */
 export default function IAAssistente() {
   const { pode } = useSessao();
-  const [separador, setSeparador] = useState('regras');
-  const [regraEscolhida, setRegraEscolhida] = useState<number | null>(null);
   const lancar = pode('ia_lancar');
+  const [separador, setSeparador] = useSeparadorUrl(lancar ? ['regras', 'interno', 'externo'] : ['regras']);
+  const [regraEscolhida, setRegraEscolhida] = useState<number | null>(null);
   const usar = (id: number, motor: 'interno' | 'externo') => {
     setRegraEscolhida(id);
     setSeparador(motor);

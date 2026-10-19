@@ -239,7 +239,7 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET | `/api/pos/prestacao` · `/api/pos/sessoes/{id}/prestacao` | Prestação de contas por regularizar (itens NUM/TPA/TRF) |
 | POST | `/api/pos/sessoes/{id}/prestacao` · `/prestacao/transferencias` | Liquidar numerário (folha de caixa), TPA com comissão e transferências (tesouraria) |
 | GET/POST | `/api/pos/liquidacoes[/{id}]` · POST `/{id}/anular` | Histórico e anulação de liquidações |
-| GET | `/api/pos/relatorios` · `/api/pos/relatorios/servicos` | Relatórios do POS (período, terminal, operador) e bloco «POS e Serviços» |
+| GET | `/api/pos/relatorios` | Relatórios do POS (período, terminal, operador); o bloco «POS e Serviços» está em `/api/gestao/relatorios/servicos` |
 | GET/PUT/POST | `/api/pos/lavandaria/definicoes` · `/pecas` · `/servicos` | Tabelas e definições da lavandaria |
 | GET/POST | `/api/pos/lavandaria/ordens[/{id}]` · `/sessoes/{id}/ordens` · `/orcamentos` · `/ordens/estado` · `/ordens/atribuir` · `/ordens/{id}/anular` | Ordens de serviço |
 | POST | `/api/pos/lavandaria/sessoes/{s}/ordens/{o}/pagamentos` · `/faturar` · `/entregar` · `/pagamentos/{id}/anular` | Recebimentos, facturação e entrega |
@@ -247,7 +247,7 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET/PUT | `/api/pos/hotelaria/quartos[/{produto}]` | Mapa de quartos e tarifas |
 | GET/PUT | `/api/pos/hotelaria/estadias[/{id}]` · PUT `/consumos` · POST `/anular` | Estadias |
 | POST | `/api/pos/hotelaria/sessoes/{id}/checkin` · `/checkout` · `/checkout/simular` | Check-in e check-out com factura-recibo POS |
-| GET/POST | `/api/pos/armazem/vendas[/{id}]` · GET `/api/pos/armazem/stock` | Venda ao balcão (guia de saída com CMV) |
+| GET/POST | `/api/pos/armazem/vendas[/{id}]` | Venda ao balcão (guia de saída com CMV); stock em `/api/logistica/stock` e `/api/pos/armazem/artigos` |
 | GET/POST | `/api/pos/armazem/picking[/{id}]` · POST `/expedir` | Picking e expedição de encomendas (NE → GR) |
 | GET/POST/PUT/DELETE | `/api/ativos/categorias[/{id}]` · `/api/ativos/bens[/{id}]` · POST `/importar`, `/edicao-massa`, `/eliminar` | Categorias e cadastro de activos |
 | GET/POST/PUT/DELETE | `/api/ativos/afetacoes[/{id}]` · `/api/ativos/manutencoes[/{id}]` · POST `/api/ativos/bens/{id}/transferencias` | Afectações, manutenções e transferências de centro de custo |
@@ -280,7 +280,7 @@ Autenticação por `Authorization: Bearer <token>`; dados de empresa exigem `X-E
 | GET | `/api/contabilidade/lancamentos/{id}` | Lançamento completo a que a linha pertence |
 | POST | `/api/contabilidade/lancamentos/{id}/estornar` | Estorno com rasto (`motivo`) |
 | GET | `/api/contabilidade/relatorios/balancete` | `data_inicio`, `data_fim`, `nivel`, `prefixo`, `excluir_estornos`, `so_com_saldo` |
-| GET | `/api/contabilidade/relatorios/razao` | `codigo_conta`, `data_inicio`, `data_fim`, `terceiro_id` |
+| GET | `/api/contabilidade/relatorios/extrato` | Extracto de conta corrente (contas e/ou terceiro, período) — o antigo `/relatorios/razao` foi retirado na ronda 4 |
 | GET | `/api/contabilidade/relatorios/desequilibrios` | Lançamentos com Σ D ≠ Σ C |
 
 **Ronda 2 das lacunas (ADR-068)** — principais endpoints novos:

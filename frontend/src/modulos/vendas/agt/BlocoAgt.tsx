@@ -57,7 +57,12 @@ export function BlocoAgt({ documento }: { documento: Pick<DocumentoVenda, 'fatur
         {envio?.ultima_consulta && <Descriptions.Item label="Última consulta">{formatarDataHora(envio.ultima_consulta)}</Descriptions.Item>}
         {estado === 'ENVIADO' && envio?.proxima_consulta && <Descriptions.Item label="Próxima consulta">{formatarDataHora(envio.proxima_consulta)}</Descriptions.Item>}
         {!!envio?.tentativas && <Descriptions.Item label="Tentativas de envio">{envio.tentativas}</Descriptions.Item>}
-        {envio?.correccao && <Descriptions.Item label="Tipo de envio">Correcção (C)</Descriptions.Item>}
+        {(envio?.correccao || fe.documento_rejeitado) && (
+          <Descriptions.Item label="Tipo de envio">Correcção (C){fe.documento_rejeitado ? ` de ${fe.documento_rejeitado}` : ''}</Descriptions.Item>
+        )}
+        {fe.substituido_por && <Descriptions.Item label="Substituído por">{fe.substituido_por}</Descriptions.Item>}
+        {fe.penalizacao && <Descriptions.Item label="Validação"><Tag color="orange">Válido com penalização (comunicado com mais de 24 h)</Tag></Descriptions.Item>}
+        {fe.contingencia_desde && <Descriptions.Item label="Em contingência desde">{formatarDataHora(fe.contingencia_desde)}</Descriptions.Item>}
       </Descriptions>
       {orientacao && <Alert style={{ marginTop: 12 }} type={estado === 'ENVIADO' ? 'info' : 'warning'} showIcon message={orientacao} />}
       <ListaMensagens titulo="Erros devolvidos pela AGT" itens={errosAgt} tipo="danger" />

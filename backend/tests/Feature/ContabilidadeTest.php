@@ -9,6 +9,7 @@ use App\Models\LogAuditoria;
 use App\Models\NotaFluxoCaixa;
 use App\Models\PlanoConta;
 use App\Models\TaxaCambio;
+use App\Services\Contabilidade\ServicoRelatoriosContabeis;
 use App\Services\Sistema\ServicoNumeracao;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
@@ -179,7 +180,9 @@ final class ContabilidadeTest extends TestCase
         $classes = $this->getJson('/api/contabilidade/relatorios/balancete?data_inicio=2026-01-01&data_fim=2026-12-31&nivel=1', $this->cabecalhos)->json('dados.linhas');
         $this->assertSame(['1', '2', '6'], array_column($classes, 'codigo_conta'));
 
-        $razao = $this->getJson('/api/contabilidade/relatorios/razao?codigo_conta=111&data_inicio=2026-01-01&data_fim=2026-12-31', $this->cabecalhos)->assertOk()->json('dados');
+        // (rota GET /api/contabilidade/relatorios/razao retirada na ronda 4; o serviço continua a servir os mapas de tesouraria)
+        $razao = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => json_decode(json_encode(app(ServicoRelatoriosContabeis::class)
+            ->razao(['codigo_conta' => '111', 'data_inicio' => '2026-01-01', 'data_fim' => '2026-12-31'])), true));
         $this->assertSame('100.00', $razao['saldo_inicial']);
         $this->assertSame(['140.00', '125.00'], array_column($razao['movimentos'], 'saldo'));
         $this->assertSame('125.00', $razao['saldo_final']);

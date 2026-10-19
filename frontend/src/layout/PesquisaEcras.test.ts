@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModuloMenu } from '@/api/tipos';
-import { funcoesDoMenu, pesquisarSistema, prepararIndiceAccoes, procurarAccoes, procurarFuncoes, trechosRealce, type FuncaoSistema } from './PesquisaEcras';
+import { consultaSeparador, funcoesDoMenu, pesquisarSistema, prepararIndiceAccoes, procurarAccoes, procurarFuncoes, trechosRealce, type FuncaoSistema } from './PesquisaEcras';
 import type { EntradaIndicePesquisa } from './indicePesquisa.gerado';
 
 const ecra = (id: string, nome = id) => ({ id, nome, vistas: [], pai: null });
@@ -75,7 +75,7 @@ describe('pesquisa da barra superior: funções dentro dos ecrãs', () => {
       ['vendas_faturacao', 'b', 'Contabilizar seleccionados', 'vendas_fat_contabilizar'],
       ['vendas_faturacao', 'b', 'Emitir factura', 'vendas_fat_emitir|vendas_fat_post'],
       ['vendas_faturacao', 'b', 'Exportar SAF-T', ''],
-      ['vendas_clientes', 's', 'Contas correntes', '', 'separador=contas'],
+      ['vendas_clientes', 's', 'Contas correntes', '', 'contas'],
       ['teso_reconciliacao', 'b', 'Validar extracto', 'teso_rec_validar;teso_ver'],
       ['colaboradores', 'b', 'Exportar colaboradores', ''],   // ecrã fora do menu
     ];
@@ -84,8 +84,18 @@ describe('pesquisa da barra superior: funções dentro dos ecrãs', () => {
     it('só ecrãs do menu do utilizador; «Botão/Separador › Ecrã › Módulo» com a rota do ecrã e do separador', () => {
       expect(accoes.map((a) => a.ecra)).not.toContain('colaboradores');
       const r = procurarAccoes('contas correntes', { ...todas, accoes });
-      expect(r).toEqual([{ tipo: 'separador', nome: 'Contas correntes', modulo: 'vendas', ecra: 'vendas_clientes', nomeModulo: 'Vendas', nomeEcra: 'Clientes', rota: '/m/vendas/vendas_clientes?separador=contas', favorito: false }]);
+      expect(r).toEqual([{ tipo: 'separador', nome: 'Contas correntes', modulo: 'vendas', ecra: 'vendas_clientes', nomeModulo: 'Vendas', nomeEcra: 'Clientes', rota: '/m/vendas/vendas_clientes?sep=contas', favorito: false }]);
       expect(procurarAccoes('exportar', { ...todas, accoes }).map((a) => a.nome)).toEqual(['Exportar SAF-T']);
+    });
+
+    it('o separador abre-se com ?sep=<chave> (codificada); consultas antigas completas mantêm-se', () => {
+      expect(consultaSeparador('contas')).toBe('sep=contas');
+      expect(consultaSeparador('a b&c')).toBe('sep=a%20b%26c');
+      expect(consultaSeparador('separador=razao')).toBe('separador=razao');
+      expect(consultaSeparador(undefined)).toBe('');
+      expect(consultaSeparador('')).toBe('');
+      const [semSep] = prepararIndiceAccoes([['vendas_clientes', 's', 'Lista', '']], MENU);
+      expect(semSep.rota).toBe('/m/vendas/vendas_clientes');
     });
 
     it('respeita a permissão conhecida: «|» basta uma, «;» todas', () => {

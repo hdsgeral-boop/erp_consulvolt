@@ -75,6 +75,14 @@ describe('documento comercial impresso', () => {
     expect(doc).toContain('dc-documento');
   });
 
+  it('identifica o software validado e o hash (Decreto Presidencial n.º 71/25) e a correcção de um documento recusado', () => {
+    const fe = { ...ft.faturacao_eletronica!, software: { produto: 'ERP Consulvolt', certificacao: '123/AGT/2026' }, documento_rejeitado: 'FT A2026/11' };
+    const html = esp(htmlDocumentoComercial(dadosDocumentoVenda({ ...ft, faturacao_eletronica: fe })));
+    expect(html).toContain('AbCd-Processado por programa validado n.º 123/AGT/2026');
+    expect(html).not.toContain('Hash: AbCd');
+    expect(html).toContain('Documento de correcção do documento FT A2026/11, recusado pela AGT.');
+  });
+
   it('documentos sem valor fiscal e guias levam os avisos e assinaturas próprios', () => {
     const or = htmlDocumentoComercial(dadosDocumentoVenda({ ...ft, tipo_documento: 'OR', faturacao_eletronica: undefined }));
     expect(or).toContain('Este documento não serve de factura');

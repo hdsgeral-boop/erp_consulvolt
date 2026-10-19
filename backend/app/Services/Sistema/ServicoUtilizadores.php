@@ -114,6 +114,8 @@ final class ServicoUtilizadores
     /** @param  array<string, mixed>  $d */
     public function criar(array $d, Utilizador $actor): Utilizador
     {
+        app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteUtilizadores();
+
         return DB::transaction(function () use ($d, $actor) {
             $nome = trim((string) $d['nome_utilizador']);
             if (Utilizador::withTrashed()->where('nome_utilizador', $nome)->exists()) {

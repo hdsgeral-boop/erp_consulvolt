@@ -7,10 +7,22 @@ import { useSessao } from '@/sessao/SessaoContexto';
 export const SECCOES_CONFIG: { id: string; rotulo: string }[] = [
   { id: 'config_geral', rotulo: 'Geral / Backup' },
   { id: 'config_empresas', rotulo: 'Gestão de Empresas' },
+  { id: 'config_licenca', rotulo: 'Licença e plano' },
+  { id: 'plataforma_painel', rotulo: 'Plataforma: painel' },
+  { id: 'plataforma_clientes', rotulo: 'Plataforma: clientes' },
+  { id: 'plataforma_suporte', rotulo: 'Plataforma: Suporte' },
+  { id: 'plataforma_administradores', rotulo: 'Plataforma: Administradores' },
+  { id: 'plataforma_auditoria', rotulo: 'Plataforma: Auditoria' },
+  { id: 'plataforma_sessoes', rotulo: 'Plataforma: Sessões activas' },
+  { id: 'plataforma_definicoes', rotulo: 'Plataforma: Definições' },
+  { id: 'minha_conta', rotulo: 'Minha conta' },
+  { id: 'plataforma_planos', rotulo: 'Plataforma: Planos e versões' },
+  { id: 'plataforma_codigos', rotulo: 'Plataforma: Manual de códigos' },
   { id: 'config_plano', rotulo: 'Plano de Contas' },
   { id: 'config_moedas', rotulo: 'Moedas e Câmbios' },
   { id: 'config_utilizadores', rotulo: 'Utilizadores' },
   { id: 'config_perfis', rotulo: 'Perfis e Permissões' },
+  { id: 'notificacoes_centro', rotulo: 'Notificações e Alertas' },
   { id: 'config_manutencao', rotulo: 'Manutenção de dados' },
 ];
 

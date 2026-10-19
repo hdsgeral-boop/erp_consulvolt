@@ -22,6 +22,8 @@ final class CriarParticoesAuditoria extends Command
         $inicio = (int) ($this->option('desde') ?: now()->year);
         $fim = now()->year + (int) $this->option('anos');
 
+        $bd = DB::connection(config('erp.saas.ligacao_dono'));
+
         for ($ano = $inicio; $ano <= $fim; $ano++) {
             $tabela = "logs_auditoria_{$ano}";
             if ($this->existe($tabela)) {
@@ -30,15 +32,20 @@ final class CriarParticoesAuditoria extends Command
                 continue;
             }
 
-            DB::transaction(function () use ($ano, $tabela) {
+            $bd->transaction(function () use ($bd, $ano, $tabela) {
                 $de = "{$ano}-01-01 00:00:00+00";
                 $ate = ($ano + 1).'-01-01 00:00:00+00';
 
-                DB::statement('CREATE TEMP TABLE _mover_logs ON COMMIT DROP AS
+                $bd->statement('CREATE TEMP TABLE _mover_logs ON COMMIT DROP AS
                                SELECT * FROM logs_auditoria_padrao WHERE ocorrido_em >= ? AND ocorrido_em < ?', [$de, $ate]);
-                DB::delete('DELETE FROM logs_auditoria_padrao WHERE ocorrido_em >= ? AND ocorrido_em < ?', [$de, $ate]);
-                DB::statement("CREATE TABLE {$tabela} PARTITION OF logs_auditoria FOR VALUES FROM ('{$de}') TO ('{$ate}')");
-                $movidas = DB::affectingStatement('INSERT INTO logs_auditoria SELECT * FROM _mover_logs');
+                $bd->delete('DELETE FROM logs_auditoria_padrao WHERE ocorrido_em >= ? AND ocorrido_em < ?', [$de, $ate]);
+                $bd->statement("CREATE TABLE {$tabela} PARTITION OF logs_auditoria FOR VALUES FROM ('{$de}') TO ('{$ate}')");
+                $movidas = $bd->affectingStatement('INSERT INTO logs_auditoria SELECT * FROM _mover_logs');
+
+                // SaaS (ADR-073): auditoria imutável também na base de dados para a role da aplicação.
+                if ($bd->selectOne("SELECT 1 AS x FROM pg_roles WHERE rolname = 'erp_app'") !== null) {
+                    $bd->statement("REVOKE UPDATE, DELETE, TRUNCATE ON {$tabela} FROM erp_app");
+                }
 
                 $this->info("  {$tabela}: criada".($movidas ? " ({$movidas} linhas movidas da partição DEFAULT)" : ''));
             });

@@ -12,6 +12,10 @@ import { formatarKz } from '@/utilitarios/formatacao';
 import { usePlanoContas } from '@/modulos/contab/comum/dados';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
 import { eFolhaExcel, lerTabelaColada } from './comum/regras';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
+import { useCategorias } from '@/modulos/vendas/produtos/Categorias';
+import { CONTAS_CATEGORIA } from '@/modulos/vendas/produtos/formularioProduto';
+import { alteraRegistos, CONTAS_MASSA, corpoEdicaoMassa, PREFIXO_CONTA_CATEGORIA, RETIRAR_CONTA, type EntidadeMassa } from './comum/edicaoMassa';
 
 interface ColunaModelo {
   cabecalho: string;
@@ -48,15 +52,15 @@ interface ResultadoImportacao {
 export default function Migracao() {
   const { pode } = useSessao();
   const massa = pode('vendas_clientes_gerir', 'compras_forn_gerir', 'vendas_produtos_gerir');
+  const separadoresEcra = [
+    { key: 'importar', label: 'Importação em massa', children: <Importacao /> },
+    ...(massa ? [{ key: 'massa', label: 'Edição em massa', children: <EdicaoMassa /> }] : []),
+  ];
+  const [sep, setSep] = useSeparadorUrl(separadoresEcra.map((i) => i.key));
   return (
     <>
       <CabecalhoPagina titulo="Migração de dados" subtitulo="Carregamento inicial em massa a partir dos modelos e alterações em massa de clientes, fornecedores e produtos" />
-      <Tabs
-        items={[
-          { key: 'importar', label: 'Importação em massa', children: <Importacao /> },
-          ...(massa ? [{ key: 'massa', label: 'Edição em massa', children: <EdicaoMassa /> }] : []),
-        ]}
-      />
+      <Tabs activeKey={sep} onChange={setSep} items={separadoresEcra} />
     </>
   );
 }
@@ -231,17 +235,6 @@ function Importacao() {
   );
 }
 
-type EntidadeMassa = 'clientes' | 'fornecedores' | 'produtos';
-
-const CONTAS_MASSA: Record<EntidadeMassa, [string, string][]> = {
-  clientes: [['codigo_conta', 'Conta do cliente']],
-  fornecedores: [['codigo_conta', 'Conta do fornecedor'], ['conta_compra_transitoria', 'Conta de compras transitória']],
-  produtos: [
-    ['codigo_conta', 'Conta de proveitos'], ['conta_custo', 'Conta de custo'], ['conta_compra', 'Conta de compras'], ['conta_inventario', 'Conta de inventário'],
-    ['conta_iva_liquidado', 'IVA liquidado'], ['conta_iva_dedutivel', 'IVA dedutível'], ['conta_quebra', 'Quebras'], ['conta_sobra', 'Sobras'], ['conta_ativo', 'Conta de activo'],
-  ],
-};
-
 interface RegistoMassa {
   id: number;
   nome: string;
@@ -254,6 +247,7 @@ interface RegistoMassa {
 
 function EdicaoMassa() {
   const { pode } = useSessao();
+  const { token } = theme.useToken();
   const plano = usePlanoContas();
   const disponiveis = (['clientes', 'fornecedores', 'produtos'] as EntidadeMassa[]).filter((e) =>
     pode(e === 'clientes' ? 'vendas_clientes_gerir' : e === 'fornecedores' ? 'compras_forn_gerir' : 'vendas_produtos_gerir'),
@@ -263,15 +257,18 @@ function EdicaoMassa() {
   const [ids, setIds] = useState<number[]>([]);
   const [form] = Form.useForm();
   const cliente = useQueryClient();
+  const podeContasCategoria = pode('vendas_categorias_contas');
+  const categorias = useCategorias();
+  const categoriaContasId = Form.useWatch('categoria_contas_id', form) as number | undefined;
+  const categoriaEditada = (categorias.data ?? []).find((c) => c.id === categoriaContasId);
   const contasMov = (plano.data ?? []).filter((c) => c.tipo === 'M').map((c) => ({ value: c.codigo, label: `${c.codigo} - ${c.descricao ?? ''}` }));
   const aplicar = useMutation({
     mutationFn: async () => {
       const v = await form.validateFields();
-      const dados: Record<string, unknown> = {};
-      for (const k of ['codigo_moeda', 'taxa_imposto', 'movimenta_stock', 'e_servico', 'bloqueado']) if (v[k] !== undefined && v[k] !== null && v[k] !== '') dados[k] = v[k];
-      const contas = Object.fromEntries(CONTAS_MASSA[entidade].map(([k]) => [k, v[`conta_${k}`]]).filter(([, x]) => x));
-      const preco = entidade === 'produtos' && v.preco_modo && v.preco_valor !== undefined && v.preco_valor !== null ? { modo: v.preco_modo, valor: v.preco_valor } : undefined;
-      return enviar<{ alterados: number; avisos: string[] }>('post', `/sistema/migracao/edicao-massa/${entidade}`, { ids, dados, contas, preco });
+      const corpo = corpoEdicaoMassa(entidade, ids, v, CONTAS_CATEGORIA.map((c) => c.campo));
+      if (!alteraRegistos(corpo) && !corpo.categoria_contas) throw new Error('Escolha pelo menos um campo a alterar.');
+      if (alteraRegistos(corpo) && !ids.length) throw new Error('Seleccione os registos a alterar na lista.');
+      return enviar<{ alterados: number; avisos?: string[] }>('post', `/sistema/migracao/edicao-massa/${entidade}`, corpo);
     },
     onSuccess: ({ dados, mensagem }) => {
       message.success(mensagem);
@@ -327,6 +324,11 @@ function EdicaoMassa() {
                     <Select allowClear options={[14, 7, 5, 2, 0].map((t) => ({ value: t, label: `${t}%` }))} />
                   </Form.Item>
                 </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="categoria_produto_id" label="Categoria (define as contas)">
+                    <Select allowClear showSearch optionFilterProp="label" loading={categorias.isLoading} options={(categorias.data ?? []).map((c) => ({ value: c.id, label: c.nome }))} />
+                  </Form.Item>
+                </Col>
                 <Col xs={24} md={12}><Form.Item name="movimenta_stock" label="Movimenta stock"><Select allowClear options={simNao} /></Form.Item></Col>
                 <Col xs={24} md={12}><Form.Item name="e_servico" label="É serviço"><Select allowClear options={simNao} /></Form.Item></Col>
                 <Col xs={24} md={12}><Form.Item name="bloqueado" label="Bloqueado"><Select allowClear options={simNao} /></Form.Item></Col>
@@ -340,13 +342,57 @@ function EdicaoMassa() {
             )}
             {CONTAS_MASSA[entidade].map(([k, rotulo]) => (
               <Form.Item key={k} name={`conta_${k}`} label={rotulo}>
-                <Select allowClear showSearch optionFilterProp="label" options={[{ value: '__RETIRAR__', label: '(retirar a conta)' }, ...contasMov]} loading={plano.isLoading} />
+                <Select allowClear showSearch optionFilterProp="label" options={[{ value: RETIRAR_CONTA, label: '(retirar a conta)' }, ...contasMov]} loading={plano.isLoading} />
               </Form.Item>
             ))}
+            {entidade === 'produtos' && (
+              <>
+                <Typography.Title level={5} style={{ marginTop: 4 }}>Contas contabilísticas</Typography.Title>
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="As contas dos produtos vêm da categoria"
+                  description="A conta da categoria sobrepõe-se à do produto, por isso as contas já não se alteram produto a produto. Para mudar as contas dos produtos seleccionados, mude a categoria deles acima ou edite as contas da categoria."
+                />
+                {podeContasCategoria ? (
+                  <>
+                    <Form.Item name="categoria_contas_id" label="Editar as contas da categoria" extra="Escolha a categoria; só as contas preenchidas são alteradas.">
+                      <Select allowClear showSearch optionFilterProp="label" placeholder="— Não alterar contas —" loading={categorias.isLoading}
+                        options={(categorias.data ?? []).map((c) => ({ value: c.id, label: `${c.nome}${c.produtos != null ? ` (${c.produtos} produto(s))` : ''}` }))} />
+                    </Form.Item>
+                    {categoriaEditada && (
+                      <>
+                        <Alert
+                          type="warning"
+                          showIcon
+                          style={{ marginBottom: 12 }}
+                          message={`Altera a contabilização de todos os produtos da categoria «${categoriaEditada.nome}»${categoriaEditada.produtos != null ? ` (${categoriaEditada.produtos})` : ''}, não só dos seleccionados.`}
+                        />
+                        {CONTAS_CATEGORIA.map((c) => {
+                          const actual = (categoriaEditada as unknown as Record<string, string | null | undefined>)[c.campo];
+                          return (
+                            <Form.Item key={c.campo} name={`${PREFIXO_CONTA_CATEGORIA}${c.campo}`} label={c.rotulo}
+                              extra={<span style={{ color: token.colorTextSecondary }}>Actual: {actual || '— (sem conta na categoria)'}</span>}>
+                              <Select allowClear showSearch optionFilterProp="label" loading={plano.isLoading}
+                                options={[{ value: RETIRAR_CONTA, label: '(retirar a conta da categoria)' }, ...contasMov.filter((o) => c.prefixos.some((p) => o.value.startsWith(p)))]} />
+                            </Form.Item>
+                          );
+                        })}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <Typography.Paragraph type="secondary" style={{ fontSize: 12 }}>
+                    Editar as contas das categorias exige a permissão «Definir as contas contabilísticas das categorias».
+                  </Typography.Paragraph>
+                )}
+              </>
+            )}
             <Form.Item name="ciente" valuePropName="checked" rules={[{ validator: (_, v) => (v ? Promise.resolve() : Promise.reject(new Error('Confirme.'))) }]}>
               <Checkbox>Confirmo a alteração dos registos seleccionados</Checkbox>
             </Form.Item>
-            <Button type="primary" disabled={!ids.length} loading={aplicar.isPending} onClick={() => aplicar.mutate()}>
+            <Button type="primary" disabled={!ids.length && !categoriaContasId} loading={aplicar.isPending} onClick={() => aplicar.mutate()}>
               Aplicar
             </Button>
           </Form>

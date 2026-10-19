@@ -127,17 +127,6 @@ final class PlaneamentoOrcamentalController extends Controller
         return $this->novo($this->plano->orcamentoDeCenario(CenarioOrcamental::query()->findOrFail($cenario)), 'Nova versão do orçamento gerada do cenário.');
     }
 
-    // ───────────── Desvios ─────────────
-
-    public function desvios(Request $r, int $orcamento, int $rubrica): JsonResponse
-    {
-        $this->exigir('orc_controlo_view');
-        $d = $r->validate(['de' => ['nullable', 'integer', 'between:1,12'], 'ate' => ['nullable', 'integer', 'between:1,12']]);
-
-        return $this->ok($this->plano->analisarDesvio(OrcamentoAnual::query()->findOrFail($orcamento), $rubrica, (int) ($d['de'] ?? 1), (int) ($d['ate'] ?? now()->month)),
-            'Análise do desvio.');
-    }
-
     /** Resposta com os valores monetários em texto decimal de 2 casas (ADR-064). */
     private function ok(mixed $dados, string $mensagem, array $extra = []): JsonResponse
     {

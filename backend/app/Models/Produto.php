@@ -12,7 +12,7 @@ use App\Support\Cache\InvalidacaoCache;
  * fontes de stock desalinhadas: products.stock_qty, warehouse_stock e inventory_movements).
  * Ronda 3: as contas contabilísticas definem-se na categoria (ContasProduto::de); as colunas de conta do produto ficam
  * como contas de recurso. Níveis de stock (mínimo, segurança, ponto de encomenda, máximo) e ficha técnica: colunas da
- * migração 2026_10_17_093117, fora do $fillable gerado (gravadas pelo ServicoProdutos com forceFill, depois de validadas).
+ * migração 2026_10_17_093117 (no esquema gerado e no $fillable desde a ronda 4 — esquema_extra.mjs).
  */
 class Produto extends ProdutoBase
 {
@@ -27,15 +27,6 @@ class Produto extends ProdutoBase
 
     /** Campos da ficha técnica. */
     public const CAMPOS_FICHA = ['marca', 'modelo', 'comprimento', 'largura', 'altura', 'unidade_dimensao', 'peso_liquido', 'peso_bruto', 'caracteristicas', 'observacoes_tecnicas'];
-
-    protected function casts(): array
-    {
-        return parent::casts() + [
-            'stock_maximo' => 'decimal:3', 'stock_seguranca' => 'decimal:3', 'ponto_encomenda' => 'decimal:3',
-            'comprimento' => 'decimal:3', 'largura' => 'decimal:3', 'altura' => 'decimal:3', 'peso_liquido' => 'decimal:3', 'peso_bruto' => 'decimal:3',
-            'caracteristicas' => 'array',
-        ];
-    }
 
     protected static function booted(): void
     {

@@ -38,95 +38,77 @@ export function resumoProdutividade(p: DetalheProdutividade, item: (id: number) 
   }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt'));
 }
 
-// ───────────── #11 (Versão Actual): métricas, base «prémio» e explicação do cálculo (produtividade.js:36-160) ─────────────
+// ───────────── #11 (Versão Actual): métricas e explicação do cálculo — vêm do servidor (ServicoProdutividade) ─────────────
+// O ecrã não refaz a conta: as descrições vêm de GET /rh/produtividade/metricas e a explicação (fórmula, conta, cortes e valor)
+// de GET /rh/produtividade/explicar ou …/periodos/{id}/explicacao — o mesmo motor que grava o valor dos registos.
 
 export type BaseCalculo = 'UNITARIO' | 'PREMIO';
 
+/** Descrição de uma métrica (DESCRICAO_METRICAS do servidor). */
 export interface DescricaoMetrica {
   nome: string;
-  rotuloQuantidade: string;
-  rotuloPreco: string;
-  rotuloMinimo: string;
-  rotuloMaximo: string;
+  rotulo_quantidade: string;
+  rotulo_preco: string;
+  rotulo_minimo: string;
+  rotulo_maximo: string;
   formula: string;
   exemplo: string;
   ajuda: string;
-  basePremio: boolean;
+  base_premio: boolean;
+  quantidade_exemplo: number;
+  formula_unitario?: string;
+  rotulo_preco_unitario?: string;
 }
 
-/** Cada métrica diz por palavras o que se escreve, o que vale o preço e como se chega ao subsídio (METRICAS do legado). */
-export const METRICAS: Record<string, DescricaoMetrica> = {
-  QUANTIDADE: {
-    nome: 'Quantidade produzida', rotuloQuantidade: 'Quantidade produzida no período', rotuloPreco: 'Valor por unidade',
-    rotuloMinimo: 'Quantidade mínima para pagar', rotuloMaximo: 'Quantidade máxima paga',
-    formula: 'Subsídio = quantidade produzida × valor por unidade', exemplo: '40 m³ × 2 000 Kz/m³ = 80 000 Kz',
-    ajuda: 'Paga-se o que foi produzido, à peça. Escreve-se a quantidade do período e o sistema multiplica pelo valor da unidade.', basePremio: false,
-  },
-  HORAS: {
-    nome: 'Horas produtivas', rotuloQuantidade: 'Horas produtivas no período', rotuloPreco: 'Valor por hora',
-    rotuloMinimo: 'Horas mínimas para pagar', rotuloMaximo: 'Horas máximas pagas',
-    formula: 'Subsídio = horas produtivas × valor por hora', exemplo: '120 h × 800 Kz/h = 96 000 Kz',
-    ajuda: 'Paga-se o tempo efectivamente produtivo ou de máquina. Não confundir com horas extraordinárias, que se tratam na Efectividade.', basePremio: false,
-  },
-  OBJECTIVO: {
-    nome: 'Cumprimento de objectivo (%)', rotuloQuantidade: 'Percentagem atingida do objectivo', rotuloPreco: 'Prémio a 100% do objectivo',
-    rotuloMinimo: '% mínima para haver prémio', rotuloMaximo: '% máxima considerada (tecto)',
-    formula: 'Subsídio = prémio a 100% × (% atingida ÷ 100)', exemplo: 'objectivo cumprido a 95% com prémio de 50 000 Kz → 50 000 × 0,95 = 47 500 Kz',
-    ajuda: 'Define-se quanto vale o objectivo cumprido a 100% e paga-se na proporção do que foi atingido. Use a % mínima (ex.: 80%) para não pagar abaixo disso e o tecto (ex.: 120%) para limitar o excesso.',
-    basePremio: true,
-  },
-  PONTOS: {
-    nome: 'Pontos de desempenho/qualidade', rotuloQuantidade: 'Pontos obtidos na grelha', rotuloPreco: 'Valor por ponto',
-    rotuloMinimo: 'Pontos mínimos para pagar', rotuloMaximo: 'Pontos máximos pagos',
-    formula: 'Subsídio = pontos obtidos × valor por ponto', exemplo: '85 pontos × 300 Kz/ponto = 25 500 Kz',
-    ajuda: 'Para grelhas de avaliação ou de qualidade (ex.: 0 a 100 pontos). Cada ponto vale um valor fixo. Ponha o tecto igual ao máximo da grelha.', basePremio: false,
-  },
-  TAREFAS: {
-    nome: 'Tarefas / ordens concluídas', rotuloQuantidade: 'Tarefas concluídas no período', rotuloPreco: 'Valor por tarefa concluída',
-    rotuloMinimo: 'Tarefas mínimas para pagar', rotuloMaximo: 'Tarefas máximas pagas',
-    formula: 'Subsídio = tarefas concluídas × valor por tarefa', exemplo: '12 entregas × 2 000 Kz/entrega = 24 000 Kz',
-    ajuda: 'Paga-se por trabalho concluído: ordem de serviço, visita, entrega ou contrato. Só contam as concluídas no período.', basePremio: false,
-  },
-};
-
-export const BASES_CALCULO: Record<BaseCalculo, { nome: string; formula: string }> = {
-  UNITARIO: { nome: 'Valor por unidade (quantidade × preço)', formula: 'quantidade × valor unitário' },
-  PREMIO: { nome: 'Prémio proporcional à percentagem atingida', formula: 'prémio × (% atingida ÷ 100)' },
-};
-
-/** Descrição da métrica (as desconhecidas valem como QUANTIDADE). */
-export const metricaDe = (m: string | null | undefined): DescricaoMetrica => METRICAS[m ?? ''] ?? METRICAS.QUANTIDADE;
-
-/** Base efectiva: PREMIO só gravada assim e na métrica OBJECTIVO; os itens antigos valem como UNITARIO. */
-export const baseDe = (i: Pick<ItemProdutividade, 'base_calculo' | 'metrica'> | null | undefined): BaseCalculo =>
-  i?.base_calculo === 'PREMIO' && i.metrica === 'OBJECTIVO' ? 'PREMIO' : 'UNITARIO';
-
-type ItemCalculo = Pick<ItemProdutividade, 'base_calculo' | 'metrica' | 'unidade'> & { minimo: string | number | null; maximo: string | number | null };
-
-/** Quantidade considerada: 0 abaixo do mínimo; o tecto acima do máximo. */
-export function quantidadeConsiderada(i: ItemCalculo, q: number): number {
-  if (i.minimo !== null && i.minimo !== '' && q < Number(i.minimo)) return 0;
-  if (i.maximo !== null && i.maximo !== '' && Number(i.maximo) > 0 && q > Number(i.maximo)) return Number(i.maximo);
-  return q;
+/** GET /rh/produtividade/metricas */
+export interface MetricasProdutividade {
+  metricas: Record<string, DescricaoMetrica>;
+  bases: Record<BaseCalculo, { nome: string; formula: string }>;
 }
 
-/** Valor ao cêntimo: UNITARIO = considerada × preço; PREMIO = preço × (considerada ÷ 100) (calcularValor, produtividade.js:149). */
-export function valorProdutividade(i: ItemCalculo, q: number, preco: number): number {
-  const qc = quantidadeConsiderada(i, q);
-  return Math.round((baseDe(i) === 'PREMIO' ? preco * (qc / 100) : qc * preco) * 100) / 100;
+/** GET /rh/produtividade/explicar — a conta de um caso, feita pelo motor do servidor. */
+export interface ExplicacaoCalculo {
+  metrica: string;
+  base_calculo: BaseCalculo;
+  formula: string;
+  rotulo_preco: string;
+  conta: string;
+  cortes: string[];
+  quantidade: number;
+  quantidade_considerada: number;
+  preco: number;
+  valor: string;
 }
 
-const n = (v: number) => new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 4 }).format(v);
+/** Descrição da métrica para mostrar; sem métrica (itens antigos) mostra a de QUANTIDADE, como o servidor a trata. */
+export const descricaoMetrica = (m: MetricasProdutividade | undefined, codigo: string | null | undefined): DescricaoMetrica | undefined =>
+  m?.metricas[codigo ?? ''] ?? m?.metricas.QUANTIDADE;
 
-/** A conta escrita por extenso, com os números do caso e os cortes de mínimo e tecto (explicarCalculo, produtividade.js:155). */
-export function explicarCalculo(i: ItemCalculo, q: number, preco: number): { formula: string; conta: string; cortes: string[]; valor: number } {
-  const un = i.unidade ?? '';
-  const qc = quantidadeConsiderada(i, q);
-  const cortes: string[] = [];
-  if (i.minimo !== null && i.minimo !== '' && q < Number(i.minimo)) cortes.push(`abaixo do mínimo de ${n(Number(i.minimo))} ${un} — não há subsídio`.replace(/\s+/g, ' '));
-  if (i.maximo !== null && i.maximo !== '' && Number(i.maximo) > 0 && q > Number(i.maximo)) cortes.push(`acima do tecto de ${n(Number(i.maximo))} ${un} — conta ${n(Number(i.maximo))}`.replace(/\s+/g, ' '));
-  const premio = baseDe(i) === 'PREMIO';
-  const valor = valorProdutividade(i, q, preco);
-  const conta = `${premio ? `${n(preco)} Kz × (${n(qc)} ÷ 100)` : `${`${n(qc)} ${un}`.trim()} × ${n(preco)} Kz`} = ${new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valor)} Kz`;
-  return { formula: premio ? METRICAS.OBJECTIVO.formula : metricaDe(i.metrica).formula, conta, cortes, valor };
+/** Nome da métrica (o código enquanto as descrições não chegam). */
+export const nomeMetrica = (m: MetricasProdutividade | undefined, codigo: string | null | undefined): string => descricaoMetrica(m, codigo)?.nome ?? codigo ?? '—';
+
+/** A conta com os cortes de mínimo e tecto, numa linha (só formatação do que o servidor devolve). */
+export const textoExplicacao = (e: Pick<ExplicacaoCalculo, 'conta' | 'cortes'>): string => `${e.conta}${e.cortes.length ? ` (${e.cortes.join('; ')})` : ''}`;
+
+/** Valores do formulário do item que o servidor usa para simular a conta. */
+export interface ValoresSimulacao {
+  metrica?: string | null;
+  base_calculo?: string | null;
+  preco_unitario?: number | string | null;
+  unidade?: string | null;
+  minimo?: number | string | null;
+  maximo?: number | string | null;
+}
+
+/** Parâmetros de GET /rh/produtividade/explicar para o item ainda por gravar (preço vazio vai como 0: devolve fórmula e rótulos). */
+export function parametrosSimulacao(v: ValoresSimulacao): Record<string, string> {
+  const p: Record<string, string> = { metrica: v.metrica || 'QUANTIDADE', base_calculo: v.base_calculo === 'PREMIO' ? 'PREMIO' : 'UNITARIO' };
+  const preco = Number(v.preco_unitario);
+  p.preco = Number.isFinite(preco) && preco > 0 ? String(preco) : '0';
+  if (v.unidade) p.unidade = String(v.unidade).slice(0, 10);
+  for (const k of ['minimo', 'maximo'] as const) {
+    const n = v[k];
+    if (n !== null && n !== undefined && n !== '' && Number.isFinite(Number(n)) && Number(n) >= 0) p[k] = String(n);
+  }
+  return p;
 }

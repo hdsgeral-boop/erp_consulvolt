@@ -26,7 +26,7 @@ abstract class OrdemManutencaoAtivoBase extends ModeloBase
     protected string $moduloAuditoria = 'Activos';
 
     protected $fillable = [
-        'empresa_id', 'numero', 'ativo_imobilizado_id', 'plano_manutencao_id', 'tipo', 'prioridade', 'estado', 'data_prevista', 'data_inicio', 'data_fim', 'descricao', 'responsavel', 'tarefas', 'horas', 'custo_mao_obra', 'custo_materiais', 'custo_servicos', 'resolucao', 'leitura_contador', 'criado_por', 'motivo_cancelamento', 'cancelado_em', 'cancelado_por', 'concluido_em', 'concluido_por',
+        'empresa_id', 'numero', 'ativo_imobilizado_id', 'plano_manutencao_id', 'tipo', 'prioridade', 'estado', 'data_prevista', 'data_inicio', 'data_fim', 'descricao', 'responsavel', 'tarefas', 'horas', 'custo_mao_obra', 'custo_materiais', 'custo_servicos', 'resolucao', 'leitura_contador', 'criado_por', 'motivo_cancelamento', 'cancelado_em', 'cancelado_por', 'concluido_em', 'concluido_por', 'historico', 'plano_antes', 'reaberta_em', 'reaberta_por',
     ];
 
     protected function casts(): array
@@ -46,6 +46,9 @@ abstract class OrdemManutencaoAtivoBase extends ModeloBase
             'leitura_contador' => 'decimal:2',
             'cancelado_em' => 'datetime',
             'concluido_em' => 'datetime',
+            'historico' => 'array',
+            'plano_antes' => 'array',
+            'reaberta_em' => 'datetime',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];

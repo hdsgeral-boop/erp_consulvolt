@@ -4,6 +4,7 @@
 *.pem
 backend/.env
 # Dependências e artefactos
+node_modules/
 backend/vendor/
 backend/node_modules/
 frontend/node_modules/
@@ -26,8 +27,10 @@ copias/
 backups/
 *.dump
 *.backup
+*.sql
 *.sql.gz
 *.tar.gz.enc
+contagem_*.txt
 SHA256SUMS
 wstb_payroll_backup_*.json
 .versoes-implantadas

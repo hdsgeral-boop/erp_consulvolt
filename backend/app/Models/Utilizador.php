@@ -64,6 +64,13 @@ class Utilizador extends Autenticavel
 
     protected static function booted(): void
     {
+        // SaaS (ADR-073): um utilizador novo pertence ao tenant do pedido/trabalho que o cria.
+        static::creating(function (Utilizador $u) {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('utilizadores', 'tenant_id')) {
+                $u->tenant_id ??= app(\App\Support\Tenancy\ContextoTenant::class)->paraNovo();
+            }
+        });
+
         static::saved(function (Utilizador $u) {
             if ($u->wasChanged(['papel', 'acesso_todas_empresas', 'ativo'])) {
                 app(ServicoEmpresas::class)->invalidarUtilizador((int) $u->getKey());

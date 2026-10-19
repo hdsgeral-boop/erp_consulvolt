@@ -206,22 +206,48 @@ final class ParidadeVendasTest extends TestCase
     }
 
     #[Test]
-    public function edicao_em_massa_de_produtos_aplica_preco_e_contas_com_as_regras_da_ficha(): void
+    public function edicao_em_massa_de_produtos_aplica_dados_e_as_contas_vao_para_a_categoria(): void
     {
         $s = $this->tudo();
+        $categoria = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => DB::table('categorias_produtos')
+            ->insertGetId(['empresa_id' => $this->empresa->id, 'nome' => 'Mercadorias', 'codigo_conta' => '611']));
         $this->postJson('/api/vendas/produtos/editar-em-massa', ['ids' => [$this->ids['p'], $this->ids['p2']],
-            'dados' => ['preco' => ['modo' => 'PERCENT', 'valor' => 10], 'bloqueado' => true], 'contas' => ['codigo_conta' => '612', 'conta_custo' => '__RETIRAR__']], $s)
+            'dados' => ['preco' => ['modo' => 'PERCENT', 'valor' => 10], 'bloqueado' => true, 'categoria_produto_id' => $categoria]], $s)
             ->assertOk()->assertJsonPath('dados.alterados', 2);
-        app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () {
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () use ($categoria) {
             $p = Produto::query()->find($this->ids['p']);
             $this->assertSame('1100.00', (string) $p->preco_unitario);
-            $this->assertSame('612', $p->codigo_conta);
-            $this->assertNull($p->conta_custo);
+            $this->assertSame($categoria, (int) $p->categoria_produto_id);
             $this->assertTrue((bool) $p->bloqueado);
             $this->assertSame('550.00', (string) Produto::query()->find($this->ids['p2'])->preco_unitario);
         });
-        // conta inexistente: nada é alterado (transacção única)
-        $this->postJson('/api/vendas/produtos/editar-em-massa', ['ids' => [$this->ids['p']], 'contas' => ['codigo_conta' => '999']], $s)->assertStatus(422);
+
+        // contas no produto: recusadas com mensagem clara (a categoria sobrepõe-se) e nada é alterado
+        $this->postJson('/api/vendas/produtos/editar-em-massa', ['ids' => [$this->ids['p']], 'dados' => ['bloqueado' => false], 'contas' => ['codigo_conta' => '612']], $s)
+            ->assertStatus(422)->assertJsonPath('codigo', 'CONTAS_NA_CATEGORIA')->assertJsonPath('erros.contas', ['codigo_conta']);
+        $this->assertTrue((bool) DB::table('produtos')->where('id', $this->ids['p'])->value('bloqueado'));
+        $this->assertSame('611', DB::table('produtos')->where('id', $this->ids['p'])->value('codigo_conta'));
+
+        // contas da categoria: exigem vendas_categorias_contas
+        $corpo = ['categoria_contas' => ['categoria_produto_id' => $categoria, 'contas' => ['codigo_conta' => '612', 'conta_custo' => '7111', 'conta_inventario' => '__RETIRAR__']]];
+        $this->postJson('/api/vendas/produtos/editar-em-massa', $corpo, $s)->assertForbidden();
+        $this->assertSame('611', DB::table('categorias_produtos')->where('id', $categoria)->value('codigo_conta'));
+        $comContas = $this->sessao(['vendas_produtos_gerir', 'vendas_categorias_contas']);
+        $r = $this->postJson('/api/vendas/produtos/editar-em-massa', $corpo, $comContas)->assertOk()
+            ->assertJsonPath('dados.alterados', 0)->assertJsonPath('dados.categoria.produtos', 2);
+        $this->assertStringContainsString('aplicam-se aos 2 produto(s) da categoria', $r->json('mensagem'));
+        $cat = DB::table('categorias_produtos')->where('id', $categoria)->first();
+        $this->assertSame(['612', '7111', null], [$cat->codigo_conta, $cat->conta_custo, $cat->conta_inventario]);
+        // conta da classe errada para o campo (proveitos tem de ser 6): validada como na ficha da categoria, nada muda
+        $this->postJson('/api/vendas/produtos/editar-em-massa', ['ids' => [$this->ids['p']], 'dados' => ['bloqueado' => false],
+            'categoria_contas' => ['categoria_produto_id' => $categoria, 'contas' => ['codigo_conta' => '7111']]], $comContas)
+            ->assertStatus(422)->assertJsonPath('codigo', 'CONTA_CLASSE_INVALIDA');
+        $this->assertTrue((bool) DB::table('produtos')->where('id', $this->ids['p'])->value('bloqueado'));
+        // categoria de outra empresa: inexistente
+        $outra = $this->criarEmpresa(['nif' => '5417000889']);
+        $alheia = DB::table('categorias_produtos')->insertGetId(['empresa_id' => $outra->id, 'nome' => 'Alheia']);
+        $this->postJson('/api/vendas/produtos/editar-em-massa', ['categoria_contas' => ['categoria_produto_id' => $alheia, 'contas' => ['codigo_conta' => '612']]], $comContas)
+            ->assertStatus(422);
         $this->postJson('/api/vendas/produtos/editar-em-massa', ['ids' => [$this->ids['p']], 'dados' => ['bloqueado' => false]], $this->sessao(['vendas_produtos_view']))->assertForbidden();
     }
 

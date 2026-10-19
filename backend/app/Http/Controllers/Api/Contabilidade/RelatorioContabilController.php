@@ -28,13 +28,6 @@ final class RelatorioContabilController extends Controller
         return RespostaApi::sucesso($this->relatorios->balancete($f), 'Balancete calculado com sucesso.');
     }
 
-    public function razao(RelatorioPeriodoRequest $request): JsonResponse
-    {
-        $this->exigir('contab_mapa_balancete_view', 'contab_mapa_extrato_view');
-
-        return RespostaApi::sucesso($this->relatorios->razao($request->validated()), 'Extracto da conta calculado com sucesso.');
-    }
-
     public function desequilibrios(RelatorioPeriodoRequest $request): JsonResponse
     {
         $this->exigir('relatorios_contabeis_view');

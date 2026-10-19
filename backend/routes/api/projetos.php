@@ -15,9 +15,7 @@ Route::prefix('projetos')->name('projetos.')->group(function () {
         Route::post('/', 'store')->name('store');
         Route::get('ativos', 'ativos')->name('ativos');
         Route::get('gantt', 'gantt')->name('gantt');
-        Route::get('fluxo', 'fluxo')->name('fluxo');
         Route::get('extracto', 'extracto')->name('extracto');
-        Route::get('rentabilidade', 'rentabilidade')->name('rentabilidade');
         Route::get('configuracao', 'configuracao')->name('configuracao.show');
         Route::put('configuracao', 'guardarConfiguracao')->name('configuracao.update');
         Route::get('{projeto}', 'show')->whereNumber('projeto')->name('show');

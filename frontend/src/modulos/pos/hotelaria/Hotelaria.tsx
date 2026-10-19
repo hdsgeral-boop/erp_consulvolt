@@ -19,6 +19,7 @@ import { DetalheEstadia, ModalCheckin } from './Estadia';
 import type { Estadia, Quarto } from './tipos';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 /**
  * POS › Hotelaria (ecrã pos_hotelaria): mapa de quartos, check-in, consumos, check-out com rateio dos pagamentos,
  * anulação, histórico de estadias e tarifas dos quartos (ADR-050).
@@ -26,6 +27,7 @@ import { TabelaComModos } from '@/componentes/vistas';
 export default function Hotelaria() {
   const { pode } = useSessao();
   const trabalho = useTerminalDeTrabalho('HOTELARIA');
+  const [sep, setSep] = useSeparadorUrl(pode('hotel_quartos') ? ['mapa', 'estadias', 'tarifas'] : ['mapa', 'estadias']);
   return (
     <>
       <CabecalhoPagina titulo="Hotelaria" accoes={<BarraSessao tipo="HOTELARIA" {...trabalho} />} />
@@ -34,6 +36,8 @@ export default function Hotelaria() {
       ) : (
         <Tabs
           destroyOnHidden
+          activeKey={sep}
+          onChange={setSep}
           items={[
             { key: 'mapa', label: 'Mapa de quartos', children: <Mapa terminalId={trabalho.terminalId} terminal={trabalho.terminal} /> },
             { key: 'estadias', label: 'Estadias', children: <ListaEstadias terminal={trabalho.terminal} /> },

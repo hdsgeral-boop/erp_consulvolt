@@ -131,11 +131,4 @@ final class AmortizacoesController extends Controller
 
         return RespostaApi::sucesso($this->relatorios->resumoPorCategoria(), 'Imobilizado por categoria.');
     }
-
-    public function fluxo(): JsonResponse
-    {
-        $this->exigir('fluxo_processos_view', 'activos_view', 'activos_amortizacoes_view');
-
-        return RespostaApi::sucesso($this->relatorios->fluxo(), 'Fluxo do imobilizado.');
-    }
 }

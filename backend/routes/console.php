@@ -5,6 +5,7 @@ use App\Models\ContratoFornecedor;
 use App\Services\Integracoes\Cambios\ServicoCambiosBAIAutomaticos;
 use App\Support\Cache\Batimentos;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Facades\Schedule;
 
 // Partições anuais da auditoria preparadas com antecedência (1 de Dezembro).
@@ -15,8 +16,9 @@ Schedule::command('erp:agt:ciclo')->everyTwoMinutes()->withoutOverlapping();
 
 // Contratos de fornecedores: ATIVO → EXPIRADO depois da data de fim (no legado a expiração era manual).
 Schedule::call(function () {
-    app(ContextoEmpresa::class)->semIsolamento(fn () => ContratoFornecedor::query()->where('estado', 'ATIVO')
-        ->whereNotNull('data_fim')->where('data_fim', '<', now()->toDateString())->update(['estado' => 'EXPIRADO']));
+    // SaaS (ADR-073): uma passagem por tenant (sem SaaS, uma só).
+    app(ContextoTenant::class)->porTenant(fn () => app(ContextoEmpresa::class)->semIsolamento(fn () => ContratoFornecedor::query()->where('estado', 'ATIVO')
+        ->whereNotNull('data_fim')->where('data_fim', '<', now()->toDateString())->update(['estado' => 'EXPIRADO'])));
 })->dailyAt('00:15')->name('compras:contratos-expirados')->withoutOverlapping();
 
 // Câmbios do BAI automáticos: verifica a cada minuto se a obtenção diária está devida (activa, depois da hora configurada,

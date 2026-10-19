@@ -14,6 +14,7 @@ import { larguraGaveta, scrollTabela, useEcra } from '@/componentes/responsivo';
 import { TabelaLocalImprimivel } from './comum/impressao';
 import Validacoes from './validacoes/Validacoes';
 import { RestauroLegado } from './RestauroLegado';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 interface ParametroAccao {
   id: string;
@@ -75,7 +76,7 @@ const CHAVE = ['sistema', 'manutencao'];
  */
 export default function Manutencao() {
   const catalogo = useQuery({ queryKey: [...CHAVE, 'acoes'], queryFn: () => obter<Catalogo>('/sistema/manutencao/acoes'), staleTime: 3_600_000 });
-  const [separador, setSeparador] = useState('pedidos');
+  const [separador, setSeparador] = useSeparadorUrl(['pedidos', 'novo', 'validacoes', 'restauro', 'legado']);
   return (
     <>
       <NavConfig actual="config_manutencao" />

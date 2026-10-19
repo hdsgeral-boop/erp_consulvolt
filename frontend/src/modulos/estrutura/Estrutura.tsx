@@ -18,6 +18,7 @@ import { TIPOS_UNIDADE, aplanar, construirArvore, descendentes, tipoInfo, type E
 import { caminho, estadoVagas, linhasMembros, mapaSalarios, nomePosto, ocupantesPorPosto, type ColaboradorEstrutura, type SalariosApi } from './comum/legado';
 import { ModalFormulario, SeccaoFormulario, type CampoFormulario } from '@/componentes/formularios';
 import './comum/estrutura.css';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 const CHAVES = [['rh', 'estrutura'], ['rh', 'colaboradores'], ['rh', 'cargos'], ['gestao']];
 /** máximo de colaboradores por pedido de afectação (o servidor aceita até 500) */
@@ -82,6 +83,7 @@ export default function Estrutura() {
   const [varias, setVarias] = useState<{ pai: number | null } | null>(null);
   const [emMassa, setEmMassa] = useState<{ unidade: number | null; soSem: boolean } | null>(null);
   const arvore = useMemo(() => construirArvore(estrutura.data?.unidades ?? []), [estrutura.data]);
+  const [sep, setSep] = useSeparadorUrl(['estrutura', 'cargos']);
 
   return (
     <>
@@ -104,6 +106,8 @@ export default function Estrutura() {
       />
       <Tabs
         size="small"
+        activeKey={sep}
+        onChange={setSep}
         items={[
           {
             key: 'estrutura',

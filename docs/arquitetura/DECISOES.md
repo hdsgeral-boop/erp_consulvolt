@@ -2452,3 +2452,46 @@ Na pasta do Windows montada no Docker Desktop, o `DirectoryIterator` do PHP devo
   - as tabelas `alocacoes_aquisicao_ativos` e `registos_conversao_contas_produtos`.
 
   Acrescentá-las a `ferramentas/gerador/esquema_extra.mjs` na próxima regeneração.
+
+## ADR-073 — SaaS: tenants e isolamento por RLS (2026-10-17)
+
+- **Estado:** fases 1 e 2 implementadas; fases 3 a 5 por fazer. **A aplicação ainda liga como superuser e com `SAAS_ATIVO=false`: o comportamento é o de antes.**
+- **Decisão:** base partilhada, tenant = grupo de empresas, tenant 1 = CONSULVOLT. `empresas.tenant_id` e `utilizadores.tenant_id`; sem `tenant_id` nas tabelas de negócio: a política RLS `isolamento_tenant` usa `empresa_id IN (SELECT id FROM empresas)`, e `empresas` filtra por `tenant_id = app_tenant_id()`. Portado da v5, adaptado ao sistema actual.
+- **Interruptor:** `erp.saas.ativo` (`SAAS_ATIVO`). Desligado: `ContextoTenant` só em memória, `ResolverTenantAtivo` não faz nada, sem restrições por endereço.
+- **RLS inerte até à mudança de role:** sem `FORCE ROW LEVEL SECURITY`, o dono/superuser ignora a política. Só vale quando a aplicação liga como `erp_app` (sem SUPERUSER, sem BYPASSRLS) com SaaS activo. Ver `docs/arquitetura/SAAS_ATIVACAO.md`.
+- **Contrato:** qualquer migração que crie uma tabela com `empresa_id` chama `(new IsolamentoRls(DB::connection()))->aplicarATodas()`. O teste `IsolamentoRlsContratoTest` falha se ficar alguma sem política. Comando idempotente: `erp:saas:aplicar-rls [--verificar]`.
+- **Excepções:** `logs_auditoria*` sem RLS (ADR-009), mas `erp_app` não pode UPDATE/DELETE/TRUNCATE. `tenants`, `utilizadores` e `personal_access_tokens` sem RLS (o isolamento de utilizadores é da aplicação).
+- **Compatibilidade:** `tenant_id` tem `DEFAULT 1` (inserções directas, seeders, testes). Sai quando o SaaS passar a obrigatório.
+- **Não importado da v5:** BI contabilístico (retirado a 17/10/2026), nome «MEU ERP», migrações-base antigas.
+- **Pendente (fase 3):** caminhos sem sessão com tenant explícito (webhook AGT, feed OData, jobs, comandos, agendador) antes de ligar `erp_app`. Acrescentar `tenants` e `tenant_id` ao `esquema_extra.mjs` na próxima regeneração.
+
+## ADR-074 — Licença por empresa (2026-10-17)
+
+- **Regra:** a licença é paga pela empresa. Empresa com licença expirada fica **só de leitura** (sem tolerância); as outras empresas do mesmo utilizador funcionam normalmente. Super-administradores têm acesso vitalício. Empresa nova: 7 dias de teste; depois cobra-se por plano e tempo (a cobrança ainda não existe).
+- **Implementação:** `empresas.licenca_origem` (SEM_LIMITE, TESTE, PLANO), `licenca_inicio`, `licenca_fim` (último dia inclusivo; nulo = sem expiração). Verificação em `ResolverEmpresaAtiva`; erro `LICENCA_EXPIRADA` (403) em escritas. Interruptor `LICENCAS_ATIVAS` (desligado por omissão). As empresas actuais ficam SEM_LIMITE.
+- **Limite conhecido:** relatórios pedidos por POST ficam bloqueados em empresa expirada, pois só GET/HEAD/OPTIONS passam.
+
+## ADR-074 — Licença por empresa, planos e cobrança manual
+
+- A licença é por empresa (empresas.licenca_origem/inicio/fim). Empresas novas: TESTE de 7 dias; depois PLANO.
+- Super-administradores estão isentos. Licença expirada = só leitura (GET/HEAD/OPTIONS), sem tolerância, só nessa empresa.
+- Planos globais (planos_licenca) e pedidos por empresa (subscricoes_empresa: PENDENTE → PAGO/CANCELADO). Sem preços semeados.
+- Pagamento confirmado manualmente por super-admin (sem gateway por decidir). Renovação a partir de hoje ou do dia seguinte ao fim vigente.
+- Rotas pi/licenca/* sempre permitidas em modo de leitura. Permissões config_licenca_view/gerir. Activação via LICENCAS_ATIVAS (omissão: desligado).
+- Frontend: ecrã config_licenca e aviso AvisoLicenca no layout.
+## ADR-075 — Área da plataforma (fase 4, fatia 1: painel e clientes)
+
+- Rotas /api/plataforma/* fora do grupo empresa, com o middleware plataforma (ExigirPlataforma): só o super-administrador do tenant da plataforma (erp.dominio.plataforma_tenant_id) e só com o SaaS activo. Nega por omissão; os controladores não voltam a decidir.
+- Clientes = 	enants: criar (com administrador e primeira empresa, no contexto do cliente), editar, suspender/activar, arquivar, utilizadores e redefinição de palavra-passe. O cliente da plataforma nunca se suspende nem arquiva.
+- Metadados de empresas de todos os clientes via funções SECURITY DEFINER (plataforma_empresas, plataforma_empresas_por_tenant); nunca dados de negócio.
+- Cobrança é por empresa (ADR-074): a v5 cobrava por cliente (	enants.plano); aqui não se importou. Os planos são planos_licenca.
+- Catálogo: plataforma_painel e plataforma_clientes existem para menu/pesquisa; a barreira real é o middleware, não a atribuição a perfis.
+- Fatia 2: suporte (`tickets_suporte`, sem RLS: pertencem ao cliente), auditoria transversal (`logs_auditoria` já está fora da RLS), administradores (super-admins do tenant da plataforma; não se auto-desactivam nem eliminam), sessões activas com revogação e definições globais (`definicoes_plataforma`, só chaves conhecidas). Migração `210000`.
+- Pendente: conversas de suporte, `Minha conta` do cliente, códigos/manual, créditos de IA (fora do âmbito: BI/IA removidos) e activação no ambiente (`SAAS_ATIVO`, role `erp_app`).
+## ADR-076 — Cliente SaaS (fase 5): planos com versões, limites, Minha conta e suporte
+
+- Plano = `planos_licenca` (agora com `max_empresas`); o cliente (`tenants.plano`) tem um plano; a licença/cobrança continua por empresa (ADR-074). Limites de empresas e utilizadores aplicam-se na criação (`ServicoLimitesPlano`), só com o SaaS activo; cliente sem plano (por exemplo a plataforma) não tem limites.
+- Versões (`planos_licenca_versoes`): rascunho editável -> publicada (imutável) -> descontinuada. Publicar copia preço e limites para o plano. Os módulos ficam registados na versão (`erp.planos_catalogo`) mas ainda NÃO condicionam o acesso.
+- Minha conta (`/api/minha-conta/*`, middleware `admin_cliente`): só o super-administrador do próprio cliente; plano e uso, planos disponíveis, nome do sistema (`tenants.nome_sistema`) e suporte com conversa (`mensagens_suporte`). Um ticket de outro cliente responde 404.
+- Plataforma: planos e versões, atribuição de plano ao cliente, conversa de suporte e manual de códigos (`config/codigos_erro.php`, gerado a partir de `ErroNegocio`).
+- Fora de âmbito (decisão anterior): IA/créditos e BI. Por fazer: usar `nome_sistema` na identidade mostrada ao utilizador e condicionar módulos pelo plano.

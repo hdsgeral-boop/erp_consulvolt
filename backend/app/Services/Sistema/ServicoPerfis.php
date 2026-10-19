@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Perfis e permissões — editor v2 (renderPerfis / permGravarPerfil / permEliminarPerfil / permCriarModelos /
@@ -22,8 +23,8 @@ use Illuminate\Support\Facades\DB;
  *  - perfis-modelo: criar os que faltam (pelo nome) e "actualizar" = acrescentar as permissões em falta, nunca retirar.
  *
  * Correcções face ao legado:
- *  - o editor aceitava qualquer chave gravada à mão na base; agora só chaves do catálogo (evita perfis com chaves
- *    mortas que nunca dão acesso a nada);
+ *  - o editor aceitava qualquer chave gravada à mão na base; agora só chaves do catálogo — as outras descartam-se
+ *    ao gravar (com registo no log e devolvidas em «descartadas»), evitando perfis com chaves mortas;
  *  - só um utilizador de acesso total pode criar ou alterar um perfil de acesso total (escalada de privilégios);
  *  - os utilizadores com eliminação lógica também contam para "perfil em uso" (a FK impede apagar o perfil).
  */
@@ -60,7 +61,7 @@ final class ServicoPerfis
 
     /**
      * @param  array{nome: string, descricao?: ?string, acesso_total?: bool, permissoes?: list<string>, confirmar_conflitos?: bool}  $d
-     * @return array{perfil: PerfilUtilizador, avisos: list<array<string, string>>}
+     * @return array{perfil: PerfilUtilizador, avisos: list<array<string, string>>, descartadas: list<string>}
      */
     public function guardar(array $d, ?PerfilUtilizador $p, Utilizador $actor): array
     {
@@ -93,9 +94,11 @@ final class ServicoPerfis
             } else {
                 $chaves = array_key_exists('permissoes', $d) ? $d['permissoes'] : $this->chaves($p?->permissoes ?? []);
                 $chaves = array_values(array_unique(array_map(fn ($k) => ServicoPermissoes::norm((string) $k), $chaves)));
-                $invalidas = array_values(array_filter($chaves, fn ($k) => ! CatalogoPermissoes::chaveValida($k)));
-                if ($invalidas) {
-                    throw new ErroNegocio('Há permissões que não existem no catálogo: '.implode(', ', $invalidas).'.', 'PERMISSAO_INEXISTENTE', 422, ['permissoes' => $invalidas]);
+                $descartadas = array_values(array_filter($chaves, fn ($k) => ! CatalogoPermissoes::chaveValida($k)));
+                if ($descartadas) {
+                    // chaves mortas (ex.: accounting_bi_view / sgd_* do BI eliminado) não dão acesso a nada: descartam-se
+                    Log::info('Perfis: permissões fora do catálogo descartadas ao gravar', ['perfil' => $p?->id, 'nome' => $nome, 'chaves' => $descartadas]);
+                    $chaves = array_values(array_diff($chaves, $descartadas));
                 }
                 $contagem = $this->contar($chaves);
                 if ($contagem['ecras'] === 0) {
@@ -109,15 +112,17 @@ final class ServicoPerfis
                 $permissoes = ['_v2' => true] + array_fill_keys($chaves, true);
             }
 
+            $descartadas ??= [];
             $antes = $p ? ['nome' => $p->nome, 'permissoes' => $p->permissoes] : null;
             $dados = ['nome' => $nome, 'permissoes' => $permissoes] + (array_key_exists('descricao', $d) ? ['descricao' => $d['descricao']] : []);
             $p ? $p->update($dados) : $p = PerfilUtilizador::create($dados);
 
             $this->auditoria->registar('Sistema/Perfis', $antes ? 'Alterar perfil' : 'Criar perfil', "Perfil «{$nome}» gravado"
                 .($avisos ? ' com '.count($avisos).' conflito(s) de segregação de funções confirmados.' : '.'),
-                'perfis_utilizador', $p->id, $antes, ['nome' => $nome, 'permissoes' => $permissoes, 'conflitos' => $avisos]);
+                'perfis_utilizador', $p->id, $antes, ['nome' => $nome, 'permissoes' => $permissoes, 'conflitos' => $avisos]
+                + ($descartadas ? ['descartadas' => $descartadas] : []));
 
-            return ['perfil' => $p->refresh(), 'avisos' => $avisos];
+            return ['perfil' => $p->refresh(), 'avisos' => $avisos, 'descartadas' => $descartadas];
         });
     }
 

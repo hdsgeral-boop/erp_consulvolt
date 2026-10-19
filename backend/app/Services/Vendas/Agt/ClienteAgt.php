@@ -8,8 +8,11 @@ namespace App\Services\Vendas\Agt;
  */
 interface ClienteAgt
 {
-    /** registarFactura — até 30 documentos (já construídos pela selagem, sem assinatura). */
-    public function registar(string $nif, array $documentos, bool $simular = false): array;
+    /**
+     * registarFactura — até 30 documentos (já construídos pela selagem, sem assinatura). O submissionUUID, quando
+     * indicado, é reutilizado (reenvio idempotente de um lote cujo resultado ficou incerto).
+     */
+    public function registar(string $nif, array $documentos, bool $simular = false, ?string $submissionUuid = null): array;
 
     /** obterEstado de um pedido (requestID). */
     public function estado(string $nif, string $requestId): array;

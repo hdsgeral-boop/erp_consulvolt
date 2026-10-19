@@ -28,9 +28,11 @@ use App\Http\Controllers\Api\RH\PortalColaboradorController;
 use App\Http\Controllers\Api\SaudeController;
 use App\Http\Controllers\Api\Sistema\ConfiguracaoSistemaController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
+use App\Http\Controllers\Api\Sistema\GatewayPagamentoController;
 use App\Http\Controllers\Api\Sistema\IdentidadeEmpresaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
 use App\Http\Controllers\Api\Sistema\MenuController;
+use App\Http\Controllers\Api\Sistema\NotificacoesController;
 use App\Http\Controllers\Api\Sistema\ValidacaoDadosController;
 use App\Http\Controllers\Api\Terceiros\TerceiroController;
 use App\Http\Controllers\Api\Tesouraria\OperacoesTesourariaController;
@@ -58,8 +60,12 @@ use Illuminate\Support\Facades\Route;
 
 // sem o throttle da API (R5): o limitador usa o Redis e, com ele em baixo, a saúde respondia 500 em vez do 503 com o detalhe por componente
 Route::get('saude', SaudeController::class)->withoutMiddleware('throttle:api')->name('saude');
+require __DIR__.'/api/r4_agt_publico.php';   // Ronda 4: webhook da AGT por empresa (sem sessão; HMAC + carimbo + nonce)
 Route::get('sistema/logotipo-login', [ConfiguracaoSistemaController::class, 'logotipoLogin'])->name('sistema.logotipo_login');   // ecrã de entrada (sem sessão), ADR-058
 require __DIR__.'/api/bi_odata.php';   // feed OData do Power BI: autenticação por token de leitura da empresa (ronda 2, R2-G4)
+
+// Webhooks públicos de terceiros (sem sessão)
+Route::post('pagamentos/webhook/{gateway}', [GatewayPagamentoController::class, 'webhook'])->name('pagamentos.webhook');
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');
@@ -82,6 +88,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('empresas/{empresa}', [EmpresaController::class, 'show'])->whereNumber('empresa')->name('empresas.show');
     });
 
+    // Área da plataforma SaaS (sem empresa activa; ver routes/api/plataforma.php)
+    require __DIR__.'/api/plataforma.php';
+
     // Rotas com empresa activa (X-Empresa-Id)
     Route::middleware('empresa')->group(function () {
         Route::prefix('sistema')->name('sistema.')->group(function () {
@@ -90,6 +99,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('logs', [LogAuditoriaController::class, 'index'])->name('logs.index');
             Route::get('validacoes', [ValidacaoDadosController::class, 'index'])->name('validacoes.index');
             Route::get('validacoes/{codigo}', [ValidacaoDadosController::class, 'show'])->where('codigo', '[a-z_]+')->name('validacoes.show');
+            Route::get('notificacoes', [NotificacoesController::class, 'index'])->name('notificacoes.index');
+            Route::post('notificacoes/{id}/ler', [NotificacoesController::class, 'marcarLida'])->whereNumber('id')->name('notificacoes.ler');
+            Route::post('notificacoes/ler-todas', [NotificacoesController::class, 'marcarTodasLidas'])->name('notificacoes.ler_todas');
+            Route::post('notificacoes/teste', [NotificacoesController::class, 'criarTeste'])->name('notificacoes.teste');
         });
 
         Route::prefix('terceiros')->name('terceiros.')->group(function () {
@@ -127,7 +140,6 @@ Route::middleware('auth:sanctum')->group(function () {
                 Route::put('armazens/{armazem}', 'guardarArmazem')->whereNumber('armazem')->name('armazens.update');
                 Route::delete('armazens/{armazem}', 'eliminarArmazem')->whereNumber('armazem')->name('armazens.destroy');
                 Route::get('stock', 'stock')->name('stock.index');
-                Route::get('movimentos', 'movimentos')->name('movimentos.index');
                 Route::get('produtos/{produto}/extracto', 'extracto')->whereNumber('produto')->name('produtos.extracto');
                 Route::post('transferencias', 'transferir')->name('transferencias.store');
                 Route::post('ajustes', 'ajustar')->name('ajustes.store');
@@ -269,7 +281,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('extrato/{id}/anular', 'anularLinhaExtrato')->whereNumber('id')->name('extrato.anular');
             Route::get('reconciliacao/sugestoes', 'sugestoes')->name('reconciliacao.sugestoes');
             Route::post('reconciliacao', 'confirmar')->name('reconciliacao.confirmar');
-            Route::get('reconciliacao', 'reconciliacoes')->name('reconciliacao.index');
             Route::post('reconciliacao/{codigo}/anular', 'anularReconciliacao')->where('codigo', '[A-Za-z0-9_\-]+')->name('reconciliacao.anular');
             Route::get('reconciliacao/mapa', 'mapa')->name('reconciliacao.mapa');
 
@@ -309,7 +320,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('periodos/{id}/reabrir', 'reabrir')->whereNumber('id')->name('periodos.reabrir');
             Route::post('periodos/{id}/contabilizar', 'contabilizar')->whereNumber('id')->name('periodos.contabilizar');
             Route::post('periodos/{id}/descontabilizar', 'descontabilizar')->whereNumber('id')->name('periodos.descontabilizar');
-            Route::get('periodos/{id}/recibos/{colaborador}', 'recibo')->whereNumber(['id', 'colaborador'])->name('recibos.show');
             Route::get('verificacao-legado', 'verificacaoLegado')->name('verificacao-legado');
         });
 
@@ -493,6 +503,7 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/fb_rh.php';          // Fase B (Versão Actual): RH — cessação/suspensão, horário e escala, empréstimos, portal
         require __DIR__.'/api/fe_projectos.php';   // Fase E: Projectos — metas, execução, dependências, orçamento por quantidades
         require __DIR__.'/api/r3_rh_proj.php';     // Ronda 3: folha de medição por pessoa (modelo e importação)
+        require __DIR__.'/api/r4_rh_proj.php';     // Ronda 4: organigrama — mover membros entre posições
         require __DIR__.'/api/ff_activos.php';     // Fase F: Activos — edifícios, inventário físico, manutenção
         require __DIR__.'/api/r3_activos.php';     // Ronda 3: Activos — tarefas das ordens de manutenção
         require __DIR__.'/api/r3_vendas.php';      // Ronda 3: POS por serviço e pesquisa de clientes nas Vendas
@@ -507,6 +518,8 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/r3_contab.php';   // Ronda 3: Contabilidade — quebra dos lançamentos, cálculo das rubricas, modelo da actualização em massa
         require __DIR__.'/api/r3_produtos.php';   // Ronda 3: produtos e categorias — contas na categoria, níveis de stock, reposição
         require __DIR__.'/api/r3_teso.php';   // Ronda 3: Tesouraria — importação de movimentos na Folha de Caixa
+        require __DIR__.'/api/r4_agt.php';    // Ronda 4: AGT por empresa — ligação, monitorização, comunicações, correcções, SAF-T integrados
+        require __DIR__.'/api/saas_licenca.php';   // SaaS: licença da empresa e cobrança por plano e tempo (ADR-074)
 
         Route::prefix('orcamento')->name('orcamento.')->controller(OrcamentoController::class)->group(function () {
             Route::get('rubricas', 'rubricas')->name('rubricas.index');
@@ -550,7 +563,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('cenarios/{cenario}', 'gravarCenario')->whereNumber('cenario')->name('cenarios.update');
             Route::delete('cenarios/{cenario}', 'eliminarCenario')->whereNumber('cenario')->name('cenarios.destroy');
             Route::post('cenarios/{cenario}/gerar-versao', 'orcamentoDeCenario')->whereNumber('cenario')->name('cenarios.versao');
-            Route::get('orcamentos/{orcamento}/desvios/{rubrica}', 'desvios')->whereNumber(['orcamento', 'rubrica'])->name('desvios');
         });
 
         Route::prefix('rh')->name('rh.')->group(function () {
@@ -608,7 +620,6 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('lancamentos/{lancamento}/estornar', [LancamentoController::class, 'estornar'])->whereNumber('lancamento')->name('lancamentos.estornar');
 
             Route::get('relatorios/balancete', [RelatorioContabilController::class, 'balancete'])->name('relatorios.balancete');
-            Route::get('relatorios/razao', [RelatorioContabilController::class, 'razao'])->name('relatorios.razao');
             Route::get('relatorios/desequilibrios', [RelatorioContabilController::class, 'desequilibrios'])->name('relatorios.desequilibrios');
         });
     });

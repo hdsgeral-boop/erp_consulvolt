@@ -30,6 +30,12 @@ class Venda extends VendaBase
      */
     public bool $permitirRevalidacao = false;
 
+    /**
+     * Só ServicoCorrecaoAgt liga isto (r4_agt): um documento recusado pela AGT é substituído por um documento de correcção
+     * com novo número (regra FE-RNG-073 / E46) e fica ANULADO no ERP. Os campos fiscais continuam imutáveis.
+     */
+    public bool $permitirSubstituicaoAgt = false;
+
     protected static function booted(): void
     {
         static::updating(function (Venda $v) {
@@ -38,7 +44,7 @@ class Venda extends VendaBase
                 throw new ErroNegocio('Documento fiscal selado: não pode ser alterado. Emita uma nota de crédito.', 'DOCUMENTO_SELADO', 422,
                     ['campos' => array_keys(array_intersect_key($v->getDirty(), array_flip($selados)))]);
             }
-            if ($v->getOriginal('fe_selado_em') !== null && $v->estado === 'ANULADO') {
+            if ($v->getOriginal('fe_selado_em') !== null && $v->estado === 'ANULADO' && ! $v->permitirSubstituicaoAgt) {
                 throw new ErroNegocio('Um documento fiscal selado não se anula: emita uma nota de crédito.', 'DOCUMENTO_SELADO', 422);
             }
         });

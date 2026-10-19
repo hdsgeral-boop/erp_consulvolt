@@ -23,6 +23,7 @@ use App\Models\ResultadoFolhaSalarial;
 use App\Models\Terceiro;
 use App\Services\Compras\ServicoFaturasCompra;
 use App\Services\Logistica\ServicoStock;
+use App\Services\Projetos\ServicoAnaliticoProjetos;
 use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -199,7 +200,9 @@ final class ProjetosExecucaoTest extends TestCase
         $this->assertSame(bcsub('11350.00', $x['totais']['custos'], 2), $r['indicadores']['margem_real']);
         $this->assertSame(['TAREFAS_SEM_ORCAMENTO'], array_column($r['alertas'], 'codigo'));
         $this->assertSame(['execucao' => 27, 'faturado_pct' => 113.5], ['execucao' => $r['indicadores']['execucao'], 'faturado_pct' => $r['indicadores']['faturado_pct']]);
-        $fluxo = collect($this->getJson('/api/projetos/fluxo', $s)->assertOk()->json('dados'))->firstWhere('id', $p);
+        // (rota GET /api/projetos/fluxo retirada na ronda 4: o fluxo é servido por /api/gestao/fluxos — FluxoProjetos usa este serviço)
+        $fluxo = collect(app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => json_decode(json_encode(app(ServicoAnaliticoProjetos::class)->fluxo(), JSON_PRESERVE_ZERO_FRACTION), true)))
+            ->firstWhere('id', $p);
         $this->assertSame([$x['totais']['custos'], '11350.00', 'CONCLUIDA'], [$fluxo['custo'], $fluxo['faturado'], $fluxo['etapas']['faturacao']]);
     }
 
@@ -240,7 +243,9 @@ final class ProjetosExecucaoTest extends TestCase
         });
         // as linhas de pedido não são custo; o equipamento sim
         $this->getJson("/api/projetos/extracto?projeto_id={$p}", $s)->assertJsonPath('dados.totais.custos', '40000.00');
-        $rent = $this->getJson('/api/projetos/rentabilidade?inicio=2026-09-01&fim=2026-09-30', $s)->assertOk()->json('dados');
+        // (rota GET /api/projetos/rentabilidade retirada na ronda 4: a rentabilidade é servida pelos relatórios/painéis da Gestão)
+        $rent = app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => json_decode(json_encode(app(ServicoAnaliticoProjetos::class)->rentabilidade('2026-09-01', '2026-09-30'), JSON_PRESERVE_ZERO_FRACTION), true));
         $this->assertSame(['40000.00', '-40000.00'], [$rent['linhas'][0]['custos'], $rent['linhas'][0]['margem']]);
         $this->assertSame(0.0, $rent['kpis']['horas']);
     }
