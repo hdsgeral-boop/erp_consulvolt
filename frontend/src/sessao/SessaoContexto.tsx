@@ -32,6 +32,8 @@ interface Sessao {
   recarregarEmpresas: () => Promise<void>;
   /** Actualiza os dados do utilizador na sessão (ex.: depois de «Gerir Dados Pessoais»), sem novo pedido ao servidor. */
   actualizarUtilizador: (parcial: Partial<Utilizador>) => void;
+  /** Sincroniza a sessão do utilizador e selecciona a empresa imediatamente após registo. */
+  autenticarAposRegisto: (token: string, empresaId: number) => Promise<void>;
 }
 
 const Contexto = createContext<Sessao | null>(null);
@@ -158,6 +160,20 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setDados((d) => (d ? { ...d, utilizador: { ...d.utilizador, ...parcial } } : d));
   }, []);
 
+  const autenticarAposRegisto = useCallback(
+    async (token: string, novaEmpresaId: number) => {
+      armazenamento.definirToken(token);
+      armazenamento.definirEmpresa(novaEmpresaId);
+      const d = await obter<DadosSessao>('/autenticacao/eu');
+      setDados(d);
+      setEmpresaId(novaEmpresaId);
+      setMotivoSaida(null);
+      setEstado('autenticado');
+      await carregarMenu().catch(() => undefined);
+    },
+    [carregarMenu],
+  );
+
   const valor = useMemo<Sessao>(() => {
     const permissoes = permissoesEmpresa ?? dados?.permissoes ?? [];
     const total = permissoes.includes('*');
@@ -176,8 +192,9 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       pode: (...chaves) => total || chaves.some((c) => permissoes.includes(c.toLowerCase())),
       recarregarEmpresas,
       actualizarUtilizador,
+      autenticarAposRegisto,
     };
-  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa, largarEmpresa, recarregarEmpresas, actualizarUtilizador]);
+  }, [estado, dados, empresaId, menu, permissoesEmpresa, motivoSaida, entrar, sair, escolherEmpresa, largarEmpresa, recarregarEmpresas, actualizarUtilizador, autenticarAposRegisto]);
 
   return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
 }

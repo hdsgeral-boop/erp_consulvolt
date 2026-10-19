@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
+use App\Http\Controllers\Api\Autenticacao\RegistoEmpresaController;
 use App\Http\Controllers\Api\Autenticacao\DadosPessoaisController;
 use App\Http\Controllers\Api\Compras\ComprasController;
 use App\Http\Controllers\Api\Compras\ContratosComprasController;
@@ -69,6 +70,7 @@ Route::post('pagamentos/webhook/{gateway}', [GatewayPagamentoController::class, 
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');
+    Route::post('registar-empresa', [RegistoEmpresaController::class, 'store'])->middleware('throttle:6,1')->name('registar_empresa');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('sair', [AutenticacaoController::class, 'sair'])->name('sair');
