@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  * /api/licenca — licença da empresa activa e cobrança por plano e tempo (ADR-074).
  *
  * Estado e planos activos: qualquer utilizador da empresa (alimentam o aviso do cabeçalho). Pedir renovação, ver e cancelar
- * pedidos: `config_licenca_gerir`. Confirmar pagamento e gerir o catálogo de planos: só super-administradores.
+ * pedidos: `config_licenca_gerir`. Confirmar pagamento e gerir o catálogo de planos: só o super-administrador do tenant da plataforma.
  * Estas rotas funcionam também com a licença expirada (é assim que se renova); ver ResolverEmpresaAtiva.
  */
 final class LicencaController extends Controller
@@ -29,7 +29,7 @@ final class LicencaController extends Controller
 
     public function planos(Request $request): JsonResponse
     {
-        $todos = $request->user()->eSuperAdministrador() && $request->boolean('todos');
+        $todos = $this->ePlataforma($request) && $request->boolean('todos');
 
         return RespostaApi::sucesso($this->licenca->planos($todos), 'Planos de licença.');
     }
@@ -82,11 +82,24 @@ final class LicencaController extends Controller
         );
     }
 
+    /**
+     * Catálogo global de planos e confirmação de pagamentos: só o super-administrador do tenant da plataforma.
+     * Um super-administrador de cliente não pode alterar planos nem aprovar a própria subscrição.
+     */
     private function exigirSuperAdministrador(Request $request): void
     {
-        if (! $request->user()?->eSuperAdministrador()) {
+        if (! $this->ePlataforma($request)) {
             throw new AccessDeniedHttpException;
         }
+    }
+
+    private function ePlataforma(Request $request): bool
+    {
+        $u = $request->user();
+
+        return $u !== null
+            && $u->eSuperAdministrador()
+            && (int) $u->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
     }
 
     /** @return array<string, mixed> */

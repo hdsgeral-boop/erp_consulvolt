@@ -104,6 +104,24 @@ class LicencaCobrancaTest extends TestCase
         $this->getJson('/api/licenca/planos', $this->sessaoGestor($empresa))->assertOk()->assertJsonCount(1, 'dados');
     }
 
+    public function test_super_admin_de_cliente_nao_gere_catalogo_nem_aprova_a_propria_subscricao(): void
+    {
+        $empresa = $this->empresaComLicenca(now()->addDays(30)->toDateString());
+        $cliente = new \App\Models\Tenant;
+        $cliente->forceFill(['nome' => 'Cliente', 'slug' => 'cliente-x', 'estado' => \App\Models\Tenant::ESTADO_ATIVO])->save();
+        $u = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]);
+        $u->forceFill(['tenant_id' => $cliente->id])->save();
+        $sessao = $this->entrar($u) + ['X-Empresa-Id' => $empresa->id];
+
+        $corpo = ['codigo' => 'meu-plano', 'nome' => 'Meu plano', 'preco_mensal' => 1, 'moeda' => 'AOA', 'ativo' => true];
+        $this->postJson('/api/licenca/planos', $corpo, $sessao)->assertForbidden();
+
+        $plano = $this->plano(25000);
+        $id = $this->postJson('/api/licenca/renovacao', ['plano_id' => $plano->id, 'meses' => 1], $this->sessaoGestor($empresa))->assertCreated()->json('dados.id');
+        $this->postJson("/api/licenca/subscricoes/{$id}/confirmar-pagamento", [], $sessao)->assertForbidden();
+        $this->assertSame('PENDENTE', DB::table('subscricoes_empresa')->where('id', $id)->value('estado'));
+    }
+
     private function empresaComLicenca(?string $fim): Empresa
     {
         $e = $this->criarEmpresa();
