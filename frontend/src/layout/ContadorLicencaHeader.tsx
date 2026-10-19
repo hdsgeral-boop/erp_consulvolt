@@ -8,7 +8,7 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useEstadoLicenca } from '@/modulos/config/Licenca';
+import { useEstadoLicenca } from '@/plataforma/Licenca';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData } from '@/utilitarios/formatacao';
 
