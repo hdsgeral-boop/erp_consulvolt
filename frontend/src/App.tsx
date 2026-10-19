@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { LayoutPrincipal } from '@/layout/LayoutPrincipal';
 import { Entrar } from '@/paginas/Entrar';
+import { RedefinirSenha } from '@/paginas/RedefinirSenha';
 import { EscolherEmpresa } from '@/paginas/EscolherEmpresa';
 import { Inicio } from '@/paginas/Inicio';
 import { Ecra } from '@/paginas/Ecra';
@@ -17,7 +18,7 @@ import { PortalAutonomo } from '@/portal/PortalAutonomo';
 export function App() {
   const { estado, empresa } = useSessao();
   if (estado === 'a_carregar') return <Spin size="large" style={{ display: 'block', marginTop: '40vh' }} />;
-  if (estado === 'anonimo') return <Entrar />;
+  if (estado === 'anonimo') return window.location.pathname === '/redefinir-senha' ? <RedefinirSenha /> : <Entrar />;
   if (!empresa) return <EscolherEmpresa />;
   return (
     <BrowserRouter>

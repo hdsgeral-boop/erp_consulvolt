@@ -151,6 +151,14 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // Recuperação de palavra-passe (sem sessão): limite por IP e por identificador, contra abuso de envio de e-mails
+        RateLimiter::for('recuperar-senha', fn (Request $request) => [
+            Limit::perMinute(5)->by('rec-ip|'.$request->ip()),
+            Limit::perHour(5)->by('rec-id|'.mb_strtolower(trim((string) $request->input('identificador'))).'|'.$request->ip()),
+            Limit::perHour(10)->by('rec-id|'.mb_strtolower(trim((string) $request->input('identificador')))),
+        ]);
+        RateLimiter::for('redefinir-senha', fn (Request $request) => Limit::perMinute(10)->by('red-ip|'.$request->ip()));
+
         // Alteração da própria palavra-passe (exige a actual): poucas tentativas por utilizador, contra adivinhação (OWASP A07)
         RateLimiter::for('palavra-passe', fn (Request $request) => Limit::perMinute(5)->by('pp|'.($request->user()?->getKey() ?: $request->ip())));
 
