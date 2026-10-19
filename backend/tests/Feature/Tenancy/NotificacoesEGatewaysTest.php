@@ -115,11 +115,23 @@ class NotificacoesEGatewaysTest extends TestCase
         $this->assertSame('EXPRESS', $resExp['gateway']);
         $this->assertSame('923123456', $resExp['telemovel']);
 
-        $this->postJson('/api/pagamentos/webhook/referencia', [
+        // O webhook exige segredo configurado e pedido assinado (HMAC) com evento único, valor e moeda exatos
+        $segredo = 'segredo-webhook-de-teste-123456';
+        $this->putJson('/api/plataforma/pagamentos/config', ['referencia' => ['webhook_segredo' => $segredo]], $super)->assertOk();
+        $bruto = json_encode([
             'referencia' => str_replace(' ', '', $resRef['referencia']),
             'status' => 'paid',
             'amount' => 20000,
-        ])->assertOk()->assertJsonPath('sucesso', true);
+            'moeda' => 'AOA',
+        ]);
+        $ts = (string) time();
+        $this->call('POST', '/api/pagamentos/webhook/referencia', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_X_WEBHOOK_TIMESTAMP' => $ts,
+            'HTTP_X_WEBHOOK_EVENT_ID' => 'evt-gateways-1',
+            'HTTP_X_WEBHOOK_SIGNATURE' => hash_hmac('sha256', $ts.'.'.$bruto, $segredo),
+        ], $bruto)->assertOk()->assertJsonPath('sucesso', true);
 
         // Subscrição passa a PAGO e empresa ganha licença de PLANO
         $sub = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(

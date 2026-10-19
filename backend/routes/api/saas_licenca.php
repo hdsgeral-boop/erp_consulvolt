@@ -22,6 +22,9 @@ Route::prefix('licenca')->name('licenca.')->group(function () {
 
     Route::controller(GatewayPagamentoController::class)->group(function () {
         Route::post('subscricoes/{subscricao}/iniciar-pagamento', 'iniciarPagamento')->whereNumber('subscricao')->name('subscricoes.iniciar_pagamento');
-        Route::post('subscricoes/{subscricao}/simular-confirmacao', 'simularConfirmacao')->whereNumber('subscricao')->name('subscricoes.simular_confirmacao');
+        // Simulação de pagamento: nunca registada em produção.
+        if (! app()->isProduction()) {
+            Route::post('subscricoes/{subscricao}/simular-confirmacao', 'simularConfirmacao')->whereNumber('subscricao')->name('subscricoes.simular_confirmacao');
+        }
     });
 });

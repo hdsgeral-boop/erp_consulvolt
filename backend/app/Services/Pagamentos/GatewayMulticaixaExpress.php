@@ -26,7 +26,7 @@ class GatewayMulticaixaExpress implements ContratoGatewayPagamento
             throw new ErroNegocio('O número de telemóvel deve ser um número válido de Angola com 9 dígitos (iniciado por 9).', 'TELEMOVEL_INVALIDO', 422);
         }
 
-        $configs = DB::table('configuracoes_gateway')->pluck('valor', 'chave');
+        $configs = SegredosGateway::configuracoes();
         $merchantId = $configs['mcx_merchant_id'] ?? 'CONSULVOLT';
         $terminalId = $configs['mcx_terminal_id'] ?? '';
         $urlApi = $configs['mcx_url_api'] ?? '';
@@ -102,7 +102,12 @@ class GatewayMulticaixaExpress implements ContratoGatewayPagamento
         $referenciaExterna = $payload['id_transacao'] ?? $payload['transaction_id'] ?? $payload['id'] ?? null;
         $referenciaSubscricao = $payload['referencia'] ?? $payload['reference'] ?? null;
         $valor = isset($payload['amount']) ? (float) $payload['amount'] : (isset($payload['valor']) ? (float) $payload['valor'] : null);
+        $moeda = isset($payload['moeda']) || isset($payload['currency']) ? strtoupper((string) ($payload['moeda'] ?? $payload['currency'])) : null;
         $status = strtolower((string) ($payload['status'] ?? $payload['estado'] ?? ''));
+
+        if (! $referenciaExterna && ! $referenciaSubscricao) {
+            return new ResultadoConfirmacao(sucesso: false, mensagem: 'Transação não identificada no payload do webhook.');
+        }
 
         $transacao = TransacaoGateway::query()
             ->when($referenciaExterna, fn ($q) => $q->where('referencia_externa', $referenciaExterna))
@@ -110,6 +115,8 @@ class GatewayMulticaixaExpress implements ContratoGatewayPagamento
                 $subId = SubscricaoEmpresa::query()->where('referencia', $referenciaSubscricao)->value('id');
                 $q->where('subscricao_id', $subId);
             })
+            ->where('gateway', TransacaoGateway::GATEWAY_EXPRESS)
+            ->orderByDesc('id')
             ->first();
 
         if (! $transacao) {
@@ -122,9 +129,11 @@ class GatewayMulticaixaExpress implements ContratoGatewayPagamento
             sucesso: $sucesso,
             subscricaoId: $transacao->subscricao_id,
             referenciaExterna: $referenciaExterna ?: $transacao->referencia_externa,
-            valorPago: $valor ?: (float) $transacao->valor,
+            valorPago: $valor,
             mensagem: $sucesso ? 'Pagamento Multicaixa Express aprovado com sucesso.' : 'Notificação Express recebida com estado '.$status,
             dadosOriginais: $payload,
+            moeda: $moeda,
+            gateway: $transacao->gateway,
         );
     }
 }

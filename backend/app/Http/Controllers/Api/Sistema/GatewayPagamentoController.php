@@ -11,6 +11,7 @@ use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Gestão de métodos de pagamento, gateways angolanos (Referência e Multicaixa Express) e webhooks.
@@ -42,6 +43,7 @@ final class GatewayPagamentoController extends Controller
             'referencia.subentidade' => ['nullable', 'string', 'max:20'],
             'referencia.chave_api' => ['nullable', 'string', 'max:255'],
             'referencia.url_api' => ['nullable', 'string', 'max:255'],
+            'referencia.webhook_segredo' => ['nullable', 'string', 'min:16', 'max:255'],
 
             'express' => ['nullable', 'array'],
             'express.ativo' => ['nullable', 'boolean'],
@@ -49,6 +51,7 @@ final class GatewayPagamentoController extends Controller
             'express.terminal_id' => ['nullable', 'string', 'max:80'],
             'express.chave_api' => ['nullable', 'string', 'max:255'],
             'express.url_api' => ['nullable', 'string', 'max:255'],
+            'express.webhook_segredo' => ['nullable', 'string', 'min:16', 'max:255'],
 
             'dados_bancarios' => ['nullable', 'array'],
             'dados_bancarios.banco' => ['nullable', 'string', 'max:100'],
@@ -82,6 +85,10 @@ final class GatewayPagamentoController extends Controller
     /** POST /api/licenca/subscricoes/{id}/simular-confirmacao (apenas super-administrador) */
     public function simularConfirmacao(Request $request, int $id): JsonResponse
     {
+        // Simulação só em ambientes de teste/desenvolvimento: em produção usa-se a confirmação manual da plataforma.
+        if (app()->isProduction()) {
+            throw new NotFoundHttpException;
+        }
         $this->exigirSuperAdmin($request);
 
         $subscricao = SubscricaoEmpresa::query()->findOrFail($id);
@@ -98,12 +105,12 @@ final class GatewayPagamentoController extends Controller
     /** POST /api/pagamentos/webhook/{gateway} — público para receção de callbacks da API Real */
     public function webhook(Request $request, string $gateway): JsonResponse
     {
-        $payload = $request->all();
-        $headers = $request->headers->all();
+        // A assinatura cobre o corpo bruto, por isso é passado tal como foi recebido.
+        $res = $this->processador->processarWebhook($gateway, $request->all(), $request->headers->all(), (string) $request->getContent(), $request->ip());
+        $http = (int) ($res['http'] ?? ($res['sucesso'] ? 200 : 400));
+        unset($res['http']);
 
-        $res = $this->processador->processarWebhook($gateway, $payload, $headers);
-
-        return response()->json($res, $res['sucesso'] ? 200 : 400);
+        return response()->json($res, $http);
     }
 
     private function exigirSuperAdmin(Request $request): void
