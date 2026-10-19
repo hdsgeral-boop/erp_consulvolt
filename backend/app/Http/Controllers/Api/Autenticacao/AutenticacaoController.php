@@ -11,6 +11,7 @@ use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoTenant;
+use App\Support\Tenancy\DominioPedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,6 +32,7 @@ final class AutenticacaoController extends Controller
             $request->string('dispositivo')->toString() ?: 'api',
             $request->ip(),
             $request->userAgent(),
+            DominioPedido::de($request),
         );
 
         return RespostaApi::sucesso([
