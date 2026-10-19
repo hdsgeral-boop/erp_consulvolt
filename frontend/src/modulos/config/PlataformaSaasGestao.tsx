@@ -58,6 +58,13 @@ interface EstadoSaas {
   dias_teste_padrao: number;
   rls_cobertura_completa: boolean;
   tabelas_sem_rls: string[];
+  efetivo: { saas_ativo: boolean; licencas_ativas: boolean };
+  divergencia: { saas_ativo: boolean; licencas_ativas: boolean };
+  isolamento: {
+    ativo: boolean;
+    utilizador: string | null;
+    verificacoes: Record<string, { ok: boolean; motivo: string | null }>;
+  };
   estatisticas: EstatisticasSaas;
 }
 
@@ -328,10 +335,20 @@ export default function PlataformaSaasGestao() {
           </Col>
         </Row>
 
-        {estadoGeral?.rls_cobertura_completa ? (
+        {estadoGeral && (estadoGeral.divergencia.saas_ativo || estadoGeral.divergencia.licencas_ativas) && (
           <Alert
-            message="Segurança Multi-Tenant Ativa (RLS 100%)"
-            description="Todas as tabelas de negócio do PostgreSQL possuem políticas de isolamento estrito por tenant ativas."
+            message="O interruptor guardado difere do estado efetivo do ambiente"
+            description={`Estado efetivo (variáveis de ambiente do servidor): SaaS ${estadoGeral.efetivo.saas_ativo ? 'LIGADO' : 'DESLIGADO'}, licenças ${estadoGeral.efetivo.licencas_ativas ? 'LIGADAS' : 'DESLIGADAS'}. Os interruptores só gravam a definição; para mudar o ambiente é preciso alterar SAAS_ATIVO / LICENCAS_ATIVAS no servidor.`}
+            type="warning"
+            showIcon
+            style={{ marginTop: 16 }}
+          />
+        )}
+
+        {estadoGeral?.isolamento.ativo ? (
+          <Alert
+            message="Isolamento Multi-Tenant Efetivo (RLS ativa)"
+            description={`SaaS ativo, ligação '${estadoGeral.isolamento.utilizador ?? ''}' sem privilégios, row_security ligado e políticas presentes em todas as tabelas.`}
             type="success"
             showIcon
             icon={<SafetyCertificateOutlined />}
@@ -339,8 +356,16 @@ export default function PlataformaSaasGestao() {
           />
         ) : (
           <Alert
-            message="Atenção: Tabelas sem Isolamento RLS"
-            description={`As seguintes tabelas necessitam de política RLS: ${estadoGeral?.tabelas_sem_rls.join(', ')}`}
+            message="Isolamento RLS não está efetivo"
+            description={
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {Object.entries(estadoGeral?.isolamento.verificacoes ?? {})
+                  .filter(([, v]) => !v.ok)
+                  .map(([chave, v]) => (
+                    <li key={chave}>{v.motivo ?? chave}</li>
+                  ))}
+              </ul>
+            }
             type="warning"
             showIcon
             style={{ marginTop: 16 }}

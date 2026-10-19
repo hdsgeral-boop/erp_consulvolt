@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\Plataforma;
 
+use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
-use App\Models\LogAuditoria;
 use App\Models\Tenant;
 use App\Support\Api\RespostaApi;
 use App\Support\Tenancy\ContextoTenant;
@@ -12,12 +12,15 @@ use App\Support\Tenancy\IsolamentoRls;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Gestão de activação/desligamento do SaaS e Licenciamento (Geral e por Empresa).
  * Protegido com RBAC estrito: apenas Superadministrador da Plataforma (middleware `plataforma`).
+ *
+ * Funciona com RLS real (ligação `erp_app`): o que lê de TODOS os clientes passa pelas funções SECURITY DEFINER
+ * (`plataforma_empresas_licencas()`), e as escritas numa empresa correm no contexto do tenant dela.
  */
 final class PlataformaSaasController extends Controller
 {
@@ -28,52 +31,48 @@ final class PlataformaSaasController extends Controller
         $saasConfig = (bool) config('erp.saas.ativo');
         $licencasConfig = (bool) config('erp.licencas.ativo');
 
-        // Valores dinâmicos das definições se foram alterados na base de dados
+        // Valores gravados na BD (definições). NÃO controlam o ambiente: o efectivo vem da configuração (.env).
         $saasAtivo = isset($definicoes['saas_ativo']) ? $definicoes['saas_ativo'] === 'true' : $saasConfig;
         $licencasAtivas = isset($definicoes['licencas_ativas']) ? $definicoes['licencas_ativas'] === 'true' : $licencasConfig;
         $diasTeste = isset($definicoes['dias_teste_padrao']) ? (int) $definicoes['dias_teste_padrao'] : (int) config('erp.licencas.dias_teste', 7);
 
         $totalTenants = Tenant::query()->count();
-        $totalEmpresas = Empresa::query()->count();
 
-        $hoje = now()->startOfDay();
+        // Licenças de TODOS os clientes: com RLS real, Empresa::query() só veria as do tenant da plataforma.
+        $empresas = $this->licencasDeTodas();
+        $hoje = now()->startOfDay()->toDateString();
 
-        $empresasAtivas = Empresa::query()
-            ->where(function ($q) use ($hoje) {
-                $q->where('licenca_origem', Empresa::LICENCA_SEM_LIMITE)
-                    ->orWhere(function ($q2) use ($hoje) {
-                        $q2->whereNotNull('licenca_fim')->where('licenca_fim', '>=', $hoje->toDateString());
-                    });
-            })
-            ->count();
+        $empresasAtivas = $empresas->filter(fn ($e) => $e->licenca_origem === Empresa::LICENCA_SEM_LIMITE
+            || ($e->licenca_fim !== null && $e->licenca_fim >= $hoje))->count();
+        $empresasEmTeste = $empresas->filter(fn ($e) => $e->licenca_origem === Empresa::LICENCA_TESTE
+            && $e->licenca_fim !== null && $e->licenca_fim >= $hoje)->count();
+        $empresasExpiradas = $empresas->filter(fn ($e) => $e->licenca_origem !== null
+            && $e->licenca_origem !== Empresa::LICENCA_SEM_LIMITE
+            && $e->licenca_fim !== null && $e->licenca_fim < $hoje)->count();
+        $empresasSemLimite = $empresas->filter(fn ($e) => $e->licenca_origem === Empresa::LICENCA_SEM_LIMITE)->count();
 
-        $empresasEmTeste = Empresa::query()
-            ->where('licenca_origem', Empresa::LICENCA_TESTE)
-            ->where('licenca_fim', '>=', $hoje->toDateString())
-            ->count();
-
-        $empresasExpiradas = Empresa::query()
-            ->where('licenca_origem', '!=', Empresa::LICENCA_SEM_LIMITE)
-            ->whereNotNull('licenca_fim')
-            ->where('licenca_fim', '<', $hoje->toDateString())
-            ->count();
-
-        $empresasSemLimite = Empresa::query()
-            ->where('licenca_origem', Empresa::LICENCA_SEM_LIMITE)
-            ->count();
-
-        $rls = new IsolamentoRls(DB::connection());
-        $tabelasSemRls = $rls->tabelasSemPolitica();
+        $isolamento = (new IsolamentoRls(DB::connection()))->estado();
 
         return RespostaApi::sucesso([
             'saas_ativo' => $saasAtivo,
             'licencas_ativas' => $licencasAtivas,
             'dias_teste_padrao' => $diasTeste,
-            'rls_cobertura_completa' => count($tabelasSemRls) === 0,
-            'tabelas_sem_rls' => $tabelasSemRls,
+            // Efectivo = o que a aplicação está mesmo a usar (config/ambiente); o gravado é só a definição na BD.
+            'efetivo' => [
+                'saas_ativo' => $saasConfig,
+                'licencas_ativas' => $licencasConfig,
+            ],
+            'divergencia' => [
+                'saas_ativo' => $saasAtivo !== $saasConfig,
+                'licencas_ativas' => $licencasAtivas !== $licencasConfig,
+            ],
+            // Só «cobertura das políticas»; o estado real do isolamento (todas as verificações) está em `isolamento`.
+            'rls_cobertura_completa' => $isolamento['verificacoes']['politicas']['ok'],
+            'tabelas_sem_rls' => $isolamento['tabelas_sem_rls'],
+            'isolamento' => $isolamento,
             'estatisticas' => [
                 'tenants' => $totalTenants,
-                'empresas_total' => $totalEmpresas,
+                'empresas_total' => $empresas->count(),
                 'empresas_ativas' => $empresasAtivas,
                 'empresas_em_teste' => $empresasEmTeste,
                 'empresas_expiradas' => $empresasExpiradas,
@@ -110,31 +109,26 @@ final class PlataformaSaasController extends Controller
     public function listarEmpresas(Request $request): JsonResponse
     {
         $hoje = now()->startOfDay();
+        $tenants = Tenant::query()->get(['id', 'nome', 'slug', 'plano'])->keyBy('id');
 
-        $empresas = DB::table('empresas as e')
-            ->leftJoin('tenants as t', 't.id', '=', 'e.tenant_id')
-            ->select([
-                'e.id', 'e.nome', 'e.nif', 'e.tenant_id', 'e.licenca_origem', 'e.licenca_inicio', 'e.licenca_fim',
-                't.nome as tenant_nome', 't.slug as tenant_slug', 't.plano as tenant_plano',
-            ])
-            ->orderBy('e.id')
-            ->get()
-            ->map(function ($emp) use ($hoje) {
+        $empresas = $this->licencasDeTodas()
+            ->map(function ($emp) use ($hoje, $tenants) {
                 $fim = $emp->licenca_fim ? Carbon::parse($emp->licenca_fim)->startOfDay() : null;
                 $expirada = $emp->licenca_origem !== Empresa::LICENCA_SEM_LIMITE && $fim !== null && $fim->lt($hoje);
                 $diasRestantes = ($emp->licenca_origem === Empresa::LICENCA_SEM_LIMITE || $fim === null)
                     ? null
                     : ($expirada ? 0 : (int) $hoje->diffInDays($fim));
+                $tenant = $tenants[$emp->tenant_id] ?? null;
 
                 return [
                     'id' => (int) $emp->id,
                     'nome' => (string) $emp->nome,
                     'nif' => $emp->nif,
-                    'tenant_id' => $emp->tenant_id,
-                    'tenant_nome' => $emp->tenant_nome,
-                    'tenant_slug' => $emp->tenant_slug,
-                    'tenant_codigo' => $emp->tenant_slug,
-                    'tenant_plano' => $emp->tenant_plano,
+                    'tenant_id' => (int) $emp->tenant_id,
+                    'tenant_nome' => $tenant?->nome,
+                    'tenant_slug' => $tenant?->slug,
+                    'tenant_codigo' => $tenant?->slug,
+                    'tenant_plano' => $tenant?->plano,
                     'origem' => $emp->licenca_origem ?: Empresa::LICENCA_SEM_LIMITE,
                     'inicio' => $emp->licenca_inicio,
                     'fim' => $emp->licenca_fim,
@@ -143,6 +137,7 @@ final class PlataformaSaasController extends Controller
                     'somente_leitura' => $expirada,
                 ];
             })
+            ->values()
             ->all();
 
         return RespostaApi::sucesso($empresas, 'Empresas obtidas para gestão de SaaS.');
@@ -151,8 +146,6 @@ final class PlataformaSaasController extends Controller
     /** PUT /api/plataforma/saas/empresas/{empresa} */
     public function atualizarEmpresa(Request $request, int $empresaId): JsonResponse
     {
-        $empresa = Empresa::query()->findOrFail($empresaId);
-
         $d = $request->validate([
             'origem' => ['required', 'string', 'in:SEM_LIMITE,TESTE,PLANO'],
             'inicio' => ['nullable', 'date'],
@@ -161,6 +154,23 @@ final class PlataformaSaasController extends Controller
             'revogar' => ['nullable', 'boolean'],
         ]);
 
+        // A empresa é de outro cliente: resolve o tenant (função SECURITY DEFINER) e actua no contexto dele (RLS).
+        $tenantId = DB::selectOne('SELECT app_tenant_da_empresa(?) AS t', [$empresaId])->t ?? null;
+        if ($tenantId === null) {
+            throw new ErroNegocio('Empresa não encontrada.', 'NAO_ENCONTRADO', 404);
+        }
+
+        return app(ContextoTenant::class)->executarComo((int) $tenantId, fn () => $this->aplicarLicenca($empresaId, $d));
+    }
+
+    /**
+     * Grava a licença da empresa. Tem de correr no contexto do tenant dela.
+     *
+     * @param  array<string, mixed>  $d
+     */
+    private function aplicarLicenca(int $empresaId, array $d): JsonResponse
+    {
+        $empresa = Empresa::query()->findOrFail($empresaId);
         $hoje = now()->startOfDay();
 
         if (! empty($d['revogar'])) {
@@ -203,5 +213,15 @@ final class PlataformaSaasController extends Controller
             'inicio' => $empresa->licenca_inicio?->toDateString(),
             'fim' => $empresa->licenca_fim?->toDateString(),
         ], 'Licença da empresa atualizada com sucesso.');
+    }
+
+    /**
+     * Licença de todas as empresas de todos os clientes (função SECURITY DEFINER; a RLS esconderia as dos outros).
+     *
+     * @return Collection<int, object>
+     */
+    private function licencasDeTodas(): Collection
+    {
+        return collect(DB::select('SELECT id, tenant_id, nome, nif, estado, licenca_origem, licenca_inicio, licenca_fim FROM plataforma_empresas_licencas()'));
     }
 }
