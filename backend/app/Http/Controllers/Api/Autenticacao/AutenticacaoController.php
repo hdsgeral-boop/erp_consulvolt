@@ -10,6 +10,7 @@ use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -57,6 +58,18 @@ final class AutenticacaoController extends Controller
 
     /** @return array<string, mixed> */
     private function perfilSessao($utilizador): array
+    {
+        // SaaS: em `entrar` ainda não há token, logo o ResolverTenantAtivo não definiu o tenant e a RLS esconderia as
+        // empresas (a lista vazia ficava em cache até à próxima invalidação). Calcula-se sempre no tenant do utilizador.
+        if (ContextoTenant::ativo() && $utilizador->tenant_id !== null) {
+            return app(ContextoTenant::class)->executarComo((int) $utilizador->tenant_id, fn () => $this->montarPerfilSessao($utilizador));
+        }
+
+        return $this->montarPerfilSessao($utilizador);
+    }
+
+    /** @return array<string, mixed> */
+    private function montarPerfilSessao($utilizador): array
     {
         $utilizador->loadMissing('perfil');
 
