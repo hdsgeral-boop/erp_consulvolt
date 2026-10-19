@@ -67,7 +67,8 @@ jobs:
             cd ~/erp
             docker compose up -d --build app worker scheduler web
             docker compose exec -T app composer install --no-interaction --no-progress
-            docker compose exec -T app php artisan migrate --force
+            # Com o SaaS activo a aplicação liga como erp_app (sem DDL): as migrações usam a ligação do dono.
+            docker compose exec -T app php artisan migrate --force --database=pgsql_owner
             docker compose exec -T app php artisan optimize:clear
             docker compose restart app worker scheduler web
             docker compose ps --format "{{.Service}} {{.Status}}"
