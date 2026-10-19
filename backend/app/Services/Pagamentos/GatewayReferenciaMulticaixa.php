@@ -18,7 +18,7 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
 {
     public function iniciar(SubscricaoEmpresa $subscricao, array $parametros = []): ResultadoIniciacao
     {
-        $configs = DB::table('configuracoes_gateway')->pluck('valor', 'chave');
+        $configs = SegredosGateway::configuracoes();
 
         $entidade = $configs['ref_entidade'] ?? '00123';
         $subentidade = $configs['ref_subentidade'] ?? '';
@@ -107,7 +107,8 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
         $referencia = $payload['referencia'] ?? $payload['reference'] ?? $payload['custom_fields']['referencia'] ?? null;
         $referenciaExterna = $payload['id'] ?? $payload['transaction_id'] ?? null;
         $valor = isset($payload['amount']) ? (float) $payload['amount'] : (isset($payload['valor']) ? (float) $payload['valor'] : null);
-        $status = strtolower((string) ($payload['status'] ?? $payload['estado'] ?? 'paid'));
+        $moeda = isset($payload['moeda']) || isset($payload['currency']) ? strtoupper((string) ($payload['moeda'] ?? $payload['currency'])) : null;
+        $status = strtolower((string) ($payload['status'] ?? $payload['estado'] ?? ''));
 
         if (! $referencia && ! $referenciaExterna) {
             return new ResultadoConfirmacao(sucesso: false, mensagem: 'Referência não identificada no payload do webhook.');
@@ -116,6 +117,8 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
         $transacao = TransacaoGateway::query()
             ->when($referencia, fn ($q) => $q->where('referencia', preg_replace('/\s+/', '', (string) $referencia)))
             ->when($referenciaExterna && ! $referencia, fn ($q) => $q->where('referencia_externa', $referenciaExterna))
+            ->where('gateway', TransacaoGateway::GATEWAY_REFERENCIA)
+            ->orderByDesc('id')
             ->first();
 
         if (! $transacao) {
@@ -128,9 +131,11 @@ class GatewayReferenciaMulticaixa implements ContratoGatewayPagamento
             sucesso: $sucesso,
             subscricaoId: $transacao->subscricao_id,
             referenciaExterna: $referenciaExterna ?: $transacao->referencia_externa,
-            valorPago: $valor ?: (float) $transacao->valor,
+            valorPago: $valor,
             mensagem: $sucesso ? 'Pagamento por referência confirmado com sucesso.' : 'Notificação recebida com estado '.$status,
             dadosOriginais: $payload,
+            moeda: $moeda,
+            gateway: $transacao->gateway,
         );
     }
 }
