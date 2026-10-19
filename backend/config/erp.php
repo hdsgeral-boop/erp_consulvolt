@@ -159,6 +159,6 @@ return [
         // Tenant que opera a plataforma (acesso à área admin.erp.<base>).
         'plataforma_tenant_id' => (int) env('PLATAFORMA_TENANT_ID', 1),
         // Subdomínios que não podem ser slugs de clientes.
-        'slugs_reservados' => ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste'],
+        'slugs_reservados' => ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste', 'gestao-admin'],
     ],
 ];

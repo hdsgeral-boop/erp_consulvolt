@@ -30,7 +30,7 @@ final class DominioPedido
 
     public const DESCONHECIDA = 'desconhecida';
 
-    private const PREFIXO_PLATAFORMA = 'admin.erp';
+    private const PREFIXO_PLATAFORMA = 'gestao-admin';
 
     private function __construct(
         public readonly string $area,
