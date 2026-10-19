@@ -56,7 +56,7 @@ if [ -n "$TOKEN_P" ]; then ok "login em $HOST_P"; else falha "login em $HOST_P";
 # Pedido cruzado: o token da empresa A noutro host tem de dar 403.
 if [ -n "$TOKEN_A" ]; then
     for h in "$HOST_B" "$HOST_P"; do
-        c=$(estado_http GET "$ESQUEMA://$h/api/autenticacao/eu" "$TOKEN_A")
+        c=$(estado_http GET "$ESQUEMA://$h/api/sistema/empresas" "$TOKEN_A")
         if [ "$c" = 403 ]; then ok "token de $HOST_A recusado em $h (403)"; else falha "token de $HOST_A em $h devolveu HTTP $c (esperado 403)"; fi
     done
 else
