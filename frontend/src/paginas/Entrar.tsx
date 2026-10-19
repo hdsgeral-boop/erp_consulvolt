@@ -1,7 +1,8 @@
-import { Alert, Button, Card, Flex, Form, Input, Typography } from 'antd';
+import { Alert, Button, Card, Divider, Flex, Form, Input, Typography } from 'antd';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
@@ -44,10 +45,29 @@ export function Entrar() {
           <Form.Item name="palavra_passe" label="Palavra-passe" rules={[{ required: true, message: 'Indique a palavra-passe.' }]}>
             <Input.Password size="large" prefix={<LockOutlined />} autoComplete="current-password" />
           </Form.Item>
-          <Button type="primary" htmlType="submit" block size="large" loading={aEntrar} style={{ marginTop: 8, fontWeight: 700 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -6, marginBottom: 16 }}>
+            <Link to="/recuperar-password" style={{ fontSize: 13, color: '#b91c1c', fontWeight: 600 }}>
+              Esqueceu-se da palavra-passe?
+            </Link>
+          </div>
+          <Button type="primary" htmlType="submit" block size="large" loading={aEntrar} style={{ fontWeight: 700 }}>
             Entrar
           </Button>
         </Form>
+
+        <Divider style={{ margin: '20px 0 16px' }} />
+
+        <Flex vertical align="center" gap={10}>
+          <div style={{ fontSize: 14, color: '#475569' }}>
+            Ainda não tem conta?{' '}
+            <Link to="/registar" style={{ fontWeight: 700, color: '#b91c1c' }}>
+              Criar conta grátis
+            </Link>
+          </div>
+          <Link to="/" style={{ fontSize: 13, color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            ← Voltar ao site
+          </Link>
+        </Flex>
       </Card>
     </main>
   );

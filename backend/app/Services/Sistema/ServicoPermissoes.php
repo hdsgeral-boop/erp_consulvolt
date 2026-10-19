@@ -33,7 +33,7 @@ final class ServicoPermissoes
     public const MODULOS_HOLDING = ['contab'];
 
     /** Ecrãs de outros módulos disponíveis numa holding (o Início, vista `welcome`, não é ecrã do catálogo e fica sempre). */
-    public const ECRAS_HOLDING = ['dashboard', 'notificacoes_centro'];
+    public const ECRAS_HOLDING = ['dashboard'];
 
     /** @var array<int, bool> memória por pedido: empresa => é holding */
     private array $holdings = [];

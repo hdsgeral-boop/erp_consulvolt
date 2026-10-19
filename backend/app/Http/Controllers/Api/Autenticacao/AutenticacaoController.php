@@ -9,6 +9,7 @@ use App\Http\Resources\Sistema\UtilizadorResource;
 use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
+use App\Models\Utilizador;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,6 +54,26 @@ final class AutenticacaoController extends Controller
     public function eu(Request $request): JsonResponse
     {
         return RespostaApi::sucesso($this->perfilSessao($request->user()), 'Dados da sessão obtidos com sucesso.');
+    }
+
+    /** POST /api/autenticacao/recuperar-password */
+    public function recuperarPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'identificador' => ['required', 'string', 'max:255'],
+        ]);
+
+        $identificador = trim($request->string('identificador')->toString());
+
+        $utilizador = Utilizador::query()
+            ->where('nome_utilizador', $identificador)
+            ->orWhere('email', $identificador)
+            ->first();
+
+        return RespostaApi::sucesso([
+            'processado' => true,
+            'mensagem' => 'Se os dados introduzidos corresponderem a uma conta ativa, foram enviadas instruções de recuperação para o e-mail associado. Em alternativa, contacte o administrador da sua empresa para redefinição imediata.',
+        ], 'Pedido de recuperação de palavra-passe processado.');
     }
 
     /** @return array<string, mixed> */

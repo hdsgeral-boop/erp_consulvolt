@@ -31,6 +31,7 @@ use App\Http\Controllers\Api\Sistema\ConfiguracaoSistemaController;
 use App\Http\Controllers\Api\Sistema\EmpresaController;
 use App\Http\Controllers\Api\Sistema\GatewayPagamentoController;
 use App\Http\Controllers\Api\Sistema\IdentidadeEmpresaController;
+use App\Http\Controllers\Api\Sistema\LicencaController;
 use App\Http\Controllers\Api\Sistema\LogAuditoriaController;
 use App\Http\Controllers\Api\Sistema\MenuController;
 use App\Http\Controllers\Api\Sistema\NotificacoesController;
@@ -67,10 +68,12 @@ require __DIR__.'/api/bi_odata.php';   // feed OData do Power BI: autenticação
 
 // Webhooks públicos de terceiros (sem sessão)
 Route::post('pagamentos/webhook/{gateway}', [GatewayPagamentoController::class, 'webhook'])->name('pagamentos.webhook');
+Route::get('sistema/planos-publicos', [LicencaController::class, 'planosPublicos'])->name('sistema.planos_publicos');
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');
     Route::post('registar-empresa', [RegistoEmpresaController::class, 'store'])->middleware('throttle:6,1')->name('registar_empresa');
+    Route::post('recuperar-password', [AutenticacaoController::class, 'recuperarPassword'])->middleware('throttle:6,1')->name('recuperar_password');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('sair', [AutenticacaoController::class, 'sair'])->name('sair');

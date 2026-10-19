@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { LayoutPrincipal } from '@/layout/LayoutPrincipal';
 import { Entrar } from '@/paginas/Entrar';
+import { RecuperarPassword } from '@/paginas/RecuperarPassword';
 import { EscolherEmpresa } from '@/paginas/EscolherEmpresa';
 import { Inicio } from '@/paginas/Inicio';
 import { Ecra } from '@/paginas/Ecra';
@@ -51,6 +52,10 @@ export function App() {
           element={estado === 'anonimo' ? <Entrar /> : <Destino empresa={!!empresa} superAdmin={superAdmin} />}
         />
         <Route
+          path="recuperar-password"
+          element={estado === 'anonimo' ? <RecuperarPassword /> : <Destino empresa={!!empresa} superAdmin={superAdmin} />}
+        />
+        <Route
           path="portal/*"
           element={estado === 'anonimo' ? <Entrar /> : <PortalAutonomo />}
         />
@@ -90,7 +95,7 @@ export function App() {
             ) : !empresa ? (
               <EscolherEmpresa />
             ) : (
-              <Navigate to="/m/inicio/inicio" replace />
+              <Navigate to="/inicio" replace />
             )
           }
         />
@@ -117,5 +122,5 @@ export function App() {
 }
 
 function Destino({ empresa, superAdmin }: { empresa: boolean; superAdmin: boolean }) {
-  return <Navigate to={superAdmin ? '/admin' : empresa ? '/m/inicio/inicio' : '/app'} replace />;
+  return <Navigate to={superAdmin ? '/admin' : empresa ? '/inicio' : '/app'} replace />;
 }

@@ -34,6 +34,12 @@ final class LicencaController extends Controller
         return RespostaApi::sucesso($this->licenca->planos($todos), 'Planos de licença.');
     }
 
+    /** GET /api/sistema/planos-publicos (sem autenticação) */
+    public function planosPublicos(): JsonResponse
+    {
+        return RespostaApi::sucesso($this->licenca->planos(false), 'Planos de subscrição.');
+    }
+
     public function criarPlano(Request $request): JsonResponse
     {
         $this->exigirSuperAdministrador($request);

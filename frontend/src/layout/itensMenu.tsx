@@ -91,7 +91,7 @@ export function construirMenuLateral(menu: ModuloMenu[]): MenuLateral {
   };
 
   const topo: ItemMenu[] = [
-    { key: '/', icon: icone('home'), label: 'Início', title: 'Início', className: 'erp-menu-topo' },
+    { key: '/inicio', icon: icone('home'), label: 'Início', title: 'Início', className: 'erp-menu-topo' },
     ...(TOPO_LEGADO.map((n) => ecraItem(n, [])).filter(Boolean) as ItemMenu[]),
     ...(extras.get('topo') ?? []).map(
       ({ m, x }) =>
