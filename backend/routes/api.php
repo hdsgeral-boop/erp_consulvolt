@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
 use App\Http\Controllers\Api\Autenticacao\DadosPessoaisController;
+use App\Http\Controllers\Api\Autenticacao\RecuperacaoSenhaController;
 use App\Http\Controllers\Api\Compras\ComprasController;
 use App\Http\Controllers\Api\Compras\ContratosComprasController;
 use App\Http\Controllers\Api\Contabilidade\DiarioController;
@@ -69,6 +70,8 @@ Route::post('pagamentos/webhook/{gateway}', [GatewayPagamentoController::class, 
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');
+    Route::post('recuperar-senha', [RecuperacaoSenhaController::class, 'recuperar'])->middleware('throttle:recuperar-senha')->name('recuperar_senha');
+    Route::post('redefinir-senha', [RecuperacaoSenhaController::class, 'redefinir'])->middleware('throttle:redefinir-senha')->name('redefinir_senha');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('sair', [AutenticacaoController::class, 'sair'])->name('sair');

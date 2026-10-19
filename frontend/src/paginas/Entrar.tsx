@@ -1,8 +1,9 @@
-import { Alert, Button, Card, Flex, Form, Input, Typography } from 'antd';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Flex, Form, Input, Modal, Typography } from 'antd';
+import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { obter } from '@/api/cliente';
+import { enviar, obter } from '@/api/cliente';
+import { RodapeEntrada } from '@/paginas/RodapeEntrada';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { ErroApi } from '@/api/tipos';
 import { naRotaPortal } from '@/portal/rota';
@@ -12,6 +13,10 @@ export function Entrar() {
   const { entrar, motivoSaida } = useSessao();
   const [erro, setErro] = useState<string | null>(null);
   const [aEntrar, setAEntrar] = useState(false);
+  const [recuperar, setRecuperar] = useState(false);
+  const [aRecuperar, setARecuperar] = useState(false);
+  const [mensagemRecuperacao, setMensagemRecuperacao] = useState<string | null>(null);
+  const [erroRecuperacao, setErroRecuperacao] = useState<string | null>(null);
   const portal = naRotaPortal();
   const logotipo = useQuery({ queryKey: ['logotipo-login'], queryFn: () => obter<{ logotipo: string | null }>('/sistema/logotipo-login'), retry: false });
 
@@ -27,8 +32,27 @@ export function Entrar() {
     }
   };
 
+  const fecharRecuperar = () => {
+    setRecuperar(false);
+    setMensagemRecuperacao(null);
+    setErroRecuperacao(null);
+  };
+
+  const pedirRecuperacao = async (v: { identificador: string }) => {
+    setErroRecuperacao(null);
+    setARecuperar(true);
+    try {
+      const r = await enviar('post', '/autenticacao/recuperar-senha', { identificador: v.identificador });
+      setMensagemRecuperacao(r.mensagem);
+    } catch (e) {
+      setErroRecuperacao(e instanceof ErroApi ? e.message : 'Não foi possível enviar o pedido.');
+    } finally {
+      setARecuperar(false);
+    }
+  };
+
   return (
-    <main className="erp-pagina-entrada erp-fundo-entrada">
+    <main className="erp-pagina-entrada erp-fundo-entrada" style={{ paddingBottom: 64 }}>
       <Card className="erp-cartao-entrada" style={{ width: '100%', maxWidth: 440 }} styles={{ body: { padding: 'clamp(24px, 6vw, 44px)' } }}>
         <Flex vertical align="center" gap={8} style={{ marginBottom: 24, textAlign: 'center' }}>
           {logotipo.data?.logotipo ? <img src={logotipo.data.logotipo} alt="Logótipo" style={{ maxHeight: 110, maxWidth: 'min(240px, 100%)', objectFit: 'contain', marginBottom: 8 }} /> : null}
@@ -47,8 +71,35 @@ export function Entrar() {
           <Button type="primary" htmlType="submit" block size="large" loading={aEntrar} style={{ marginTop: 8, fontWeight: 700 }}>
             Entrar
           </Button>
+          <Flex justify="center" style={{ marginTop: 12 }}>
+            <Button type="link" onClick={() => setRecuperar(true)}>
+              Esqueceu a senha?
+            </Button>
+          </Flex>
         </Form>
       </Card>
+      <Modal title="Recuperar senha" open={recuperar} onCancel={fecharRecuperar} footer={null} destroyOnClose>
+        {mensagemRecuperacao ? (
+          <>
+            <Alert type="success" showIcon message={mensagemRecuperacao} style={{ marginBottom: 16 }} />
+            <Button block onClick={fecharRecuperar}>
+              Fechar
+            </Button>
+          </>
+        ) : (
+          <Form layout="vertical" onFinish={pedirRecuperacao} requiredMark={false}>
+            <Typography.Paragraph type="secondary">Indique o seu e-mail ou nome de utilizador. Se existir uma conta com e-mail registado, enviaremos uma ligação para criar nova palavra-passe.</Typography.Paragraph>
+            {erroRecuperacao && <Alert type="error" showIcon message={erroRecuperacao} style={{ marginBottom: 16 }} />}
+            <Form.Item name="identificador" label="E-mail ou utilizador" rules={[{ required: true, message: 'Indique o e-mail ou o utilizador.' }]}>
+              <Input size="large" prefix={<MailOutlined />} autoFocus />
+            </Form.Item>
+            <Button type="primary" htmlType="submit" block size="large" loading={aRecuperar}>
+              Enviar ligação
+            </Button>
+          </Form>
+        )}
+      </Modal>
+      <RodapeEntrada />
     </main>
   );
 }
