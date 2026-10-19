@@ -203,7 +203,7 @@ final class ServicoExportacaoSaft
         $this->el($x, 'TaxEntity', 'Global');
         $this->el($x, 'ProductCompanyTaxID', $s['productCompanyTaxId'] ?: $nif);
         $this->el($x, 'SoftwareValidationNumber', $s['softwareValidationNumber'] ?: '0');
-        $this->el($x, 'ProductID', $s['productId'] ?: 'ERP Consulvolt');
+        $this->el($x, 'ProductID', $s['productId'] ?: 'MEU ERP');
         $this->el($x, 'ProductVersion', $s['productVersion'] ?: '1.0');
         $this->elOpcional($x, 'Telephone', $e->telefone);
         $this->elOpcional($x, 'Email', $e->email);
