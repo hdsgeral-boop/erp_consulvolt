@@ -1,0 +1,78 @@
+# Deploy automático para o servidor AWS a cada push no main.
+# Só corre quando a variável de repositório DEPLOY_ENABLED = true (ver docs/DEPLOY_AWS.md).
+name: Deploy AWS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    env:
+      SERVIDOR: ${{ secrets.SERVER_HOST }}
+      UTILIZADOR: ${{ secrets.SERVER_USER }}
+      CHAVE: ${{ secrets.SERVER_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Compilar frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Preparar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$CHAVE" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SERVIDOR" >> ~/.ssh/known_hosts
+
+      - name: Enviar código para o servidor
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'frontend/node_modules' \
+            --exclude 'backend/vendor' \
+            --exclude '.env' \
+            --exclude '.env.prod' \
+            --exclude 'backend/.env' \
+            --exclude '.segredos' \
+            --exclude 'credenciais_login.txt' \
+            --exclude 'backup_*' \
+            --exclude '*.dump' \
+            --exclude 'backend/storage/logs' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ "$UTILIZADOR@$SERVIDOR:~/erp/"
+
+      - name: Atualizar contêineres e migrações
+        run: |
+          ssh -i ~/.ssh/deploy_key "$UTILIZADOR@$SERVIDOR" '
+            set -e
+            cd ~/erp
+            docker compose up -d --build app worker scheduler web
+            docker compose exec -T app composer install --no-interaction --no-progress
+            docker compose exec -T app php artisan migrate --force
+            docker compose exec -T app php artisan optimize:clear
+            docker compose restart app worker scheduler web
+            docker compose ps --format "{{.Service}} {{.Status}}"
+          '
+
+      - name: Verificar site
+        run: |
+          sleep 15
+          curl -fsS -o /dev/null -w "web %{http_code}\n" "http://ec2-13-53-43-240.eu-north-1.compute.amazonaws.com/"
