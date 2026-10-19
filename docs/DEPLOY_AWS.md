@@ -5,8 +5,16 @@ Cada push no branch `main` atualiza o servidor. O workflow é `.github/workflows
 O que acontece a cada push:
 1. Compila o frontend (`npm run build`).
 2. Envia o código para `~/erp` no servidor por rsync, sem apagar ficheiros existentes. Preserva `backend/storage` e `backend/bootstrap/cache`, além de `.env`, `.segredos`, `vendor`, `node_modules` e backups. Ficheiros de código removidos do repositório requerem limpeza manual no servidor.
-3. Roda `docker compose up -d --build`, `composer install`, `php artisan migrate --force` e reinicia os serviços.
+3. Roda `docker compose up -d --build`, `composer install`, `php artisan migrate --force --database=pgsql_owner` e reinicia os serviços.
 4. Verifica se o site responde.
+
+## Estado atual (2026-10-19)
+
+- O SaaS está ativado em produção: a aplicação liga à base como `erp_app`, que não tem DDL. Por isso as migrações correm pela ligação `pgsql_owner` (`--database=pgsql_owner`), como o workflow já faz. Migrações manuais no servidor também têm de usar essa opção.
+- O workflow **não toca em nenhum `.env`** (nem `.env` da raiz, nem `backend/.env`): estão excluídos do rsync. Alterações de configuração fazem-se à mão no servidor e exigem `docker compose up -d` para os serviços as lerem.
+- O `backend/.env` tem de ser legível pelo utilizador do PHP-FPM no contentor (`www-data`, uid/gid 82): `chgrp 82 backend/.env && chmod 640 backend/.env`. Senão a aplicação ignora o ficheiro e todos os logins falham com `ERRO_INTERNO`.
+- Depois de cada deploy relevante, correr `ferramentas/operacao/verificar_saas.sh`.
+- Ativação, reversão e lições: [plataforma-saas/RUNBOOK_ATIVACAO.md](plataforma-saas/RUNBOOK_ATIVACAO.md). Proxy HTTPS: [deploy/caddy/Caddyfile.exemplo](../deploy/caddy/Caddyfile.exemplo).
 
 ## Configuração (uma vez)
 
