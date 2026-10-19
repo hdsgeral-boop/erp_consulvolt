@@ -39,11 +39,11 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$CHAVE" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "$SERVIDOR" >> ~/.ssh/known_hosts
+          printf '%s\n' "$SERVIDOR ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPmATqGqEj5R2Lk2Kf2ixtSBnjIw2e4v7IjM1Or+bzz/" >> ~/.ssh/known_hosts
 
       - name: Enviar código para o servidor
         run: |
-          rsync -az --delete \
+          rsync -az \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude 'frontend/node_modules' \
@@ -55,7 +55,8 @@ jobs:
             --exclude 'credenciais_login.txt' \
             --exclude 'backup_*' \
             --exclude '*.dump' \
-            --exclude 'backend/storage/logs' \
+            --exclude 'backend/storage/' \
+            --exclude 'backend/bootstrap/cache/' \
             -e "ssh -i ~/.ssh/deploy_key" \
             ./ "$UTILIZADOR@$SERVIDOR:~/erp/"
 

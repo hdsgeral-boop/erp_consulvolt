@@ -4,7 +4,7 @@ Cada push no branch `main` atualiza o servidor. O workflow é `.github/workflows
 
 O que acontece a cada push:
 1. Compila o frontend (`npm run build`).
-2. Envia o código para `~/erp` no servidor por rsync. Não envia `.env`, `.segredos`, `vendor`, `node_modules` nem backups.
+2. Envia o código para `~/erp` no servidor por rsync, sem apagar ficheiros existentes. Preserva `backend/storage` e `backend/bootstrap/cache`, além de `.env`, `.segredos`, `vendor`, `node_modules` e backups. Ficheiros de código removidos do repositório requerem limpeza manual no servidor.
 3. Roda `docker compose up -d --build`, `composer install`, `php artisan migrate --force` e reinicia os serviços.
 4. Verifica se o site responde.
 
