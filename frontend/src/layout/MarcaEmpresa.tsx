@@ -102,7 +102,7 @@ export function MarcaEmpresa({ soIcone = false, tamanho = 36, comProduto = false
             className="erp-marca-produto"
             style={escuro ? { color: '#94a3b8', fontSize: 11, letterSpacing: '0.5px' } : { fontSize: 12 }}
           >
-            {escuro ? 'GESTÃO EMPRESARIAL' : (identidade.data?.nome_sistema || 'ERP Consulvolt')}
+            {escuro ? 'GESTÃO EMPRESARIAL' : (identidade.data?.nome_sistema || 'MEU ERP')}
           </Typography.Text>
         )}
       </div>
