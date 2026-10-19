@@ -20,6 +20,7 @@ import { pedidoCarta } from './impressao';
 import { ModalEmissaoCarta } from './ModalEmissao';
 import { ModelosTexto } from './Modelos';
 import { formatarIban, mesPorExtenso, valorMoeda } from './regras';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 const etiquetaEstado = (e: EstadoCarta) =>
   e === 'ANULADA' ? <Tag color="red">ANULADA</Tag> : <Tag color="green">EMITIDA</Tag>;
@@ -44,7 +45,7 @@ export default function CartasPagamento() {
   const podeEmitir = pode('teso_carta_emitir');
   const [parametros, setParametros] = useSearchParams();
   const documentoPedido = Number(parametros.get('documento')) || null;
-  const [aba, setAba] = useState(documentoPedido && podeEmitir ? 'emitir' : 'cartas');
+  const [aba, setAba] = useSeparadorUrl(podeEmitir ? ['cartas', 'emitir', 'modelo'] : ['cartas', 'modelo'], documentoPedido && podeEmitir ? 'emitir' : undefined);
   const [emitir, setEmitir] = useState<number | null>(documentoPedido && podeEmitir ? documentoPedido : null);
   const [ver, setVer] = useState<number | null>(null);
   const { imprimir } = useImpressao();

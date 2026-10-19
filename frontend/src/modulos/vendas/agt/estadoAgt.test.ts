@@ -36,7 +36,7 @@ describe('estado AGT do documento (A-04)', () => {
   });
 
   it('dá orientação só nos estados que exigem acção ou espera', () => {
-    expect(orientacaoAgt('INVALIDO')).toMatch(/Revalidar AGT/);
+    expect(orientacaoAgt('INVALIDO')).toMatch(/Emitir correcção AGT/);
     expect(orientacaoAgt('COM_ERROS_LOCAIS')).toMatch(/nota de crédito/);
     expect(orientacaoAgt('VALIDO')).toBeNull();
     expect(orientacaoAgt(null)).toBeNull();

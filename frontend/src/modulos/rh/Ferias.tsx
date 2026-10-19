@@ -22,6 +22,7 @@ import { IconeFa } from '@/componentes/fluxos';
 import { anosDisponiveis, conflitos, contaSaldo, corEstadoFerias, ESTADOS_FERIAS, filtrarPorEstado, periodosPorColaborador, rotuloChip, rotuloEstadoFerias, totaisFerias } from './ferias/regrasFerias';
 import { MapaAnualFerias } from './ferias/MapaAnualFerias';
 import { dataDe, numeroDe, opcoesColaboradores, textoDe } from './comum/linhasRh';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 interface Plano {
   resumo: ResumoFerias[];
@@ -74,6 +75,7 @@ export default function Ferias() {
   const [termo, setTermo] = useState('');
   const [estadoFiltro, setEstadoFiltro] = useState('');
   const [edicao, setEdicao] = useState<PeriodoFerias | 'novo' | null>(null);
+  const [sep, setSep] = useSeparadorUrl(['resumo', 'periodos', 'regras']);
   const [form] = Form.useForm<ValoresFerias>();
   const plano = useQuery({ queryKey: ['rh', 'ferias', ano, colaborador], queryFn: () => obter<Plano>('/rh/ferias', { ano, colaborador_id: colaborador }) });
   useAvisarErro(plano.error);
@@ -222,7 +224,7 @@ export default function Ferias() {
           <Select<string> value={estadoFiltro} onChange={setEstadoFiltro} style={{ width: 240 }} aria-label="Estado"
             options={[{ value: '', label: 'Estado: todos' }, ...ESTADOS_FERIAS.map((e) => ({ value: e.k, label: `Com períodos: ${e.r.toLowerCase()}` })), { value: 'SEM', label: 'Sem férias planeadas' }]} />
         </BarraFiltros>
-        <Tabs items={[
+        <Tabs activeKey={sep} onChange={setSep} items={[
           {
             key: 'resumo', label: 'Resumo por colaborador', children: (
               <>

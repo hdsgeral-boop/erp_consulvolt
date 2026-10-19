@@ -10,6 +10,7 @@ use App\Models\LiquidacaoPOS;
 use App\Models\ModeloBase;
 use App\Models\PeriodoProcessamentoSalarial;
 use App\Models\Projeto;
+use App\Models\ReciboVenda;
 use App\Models\ReclamacaoLavandaria;
 use App\Models\TaxaCambio;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,7 +29,7 @@ abstract class DocumentoTesourariaBase extends ModeloBase
     protected string $moduloAuditoria = 'Tesouraria';
 
     protected $fillable = [
-        'empresa_id', 'tipo', 'tipo_original', 'data_documento', 'conta_financeira', 'descricao', 'valor_total', 'estado', 'estado_original', 'referencia', 'projeto_id', 'codigo_projeto', 'importado', 'url_documento', 'anulado_em', 'anulado_por', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'valor_total_moeda', 'periodo_processamento_salarial_id', 'reconciliacao_codigo', 'numero_documento', 'numero_lan_contabilizacao', 'integrado_em', 'integrado_por', 'motivo_anulacao',
+        'empresa_id', 'tipo', 'tipo_original', 'data_documento', 'conta_financeira', 'descricao', 'valor_total', 'estado', 'estado_original', 'referencia', 'projeto_id', 'codigo_projeto', 'importado', 'url_documento', 'anulado_em', 'anulado_por', 'codigo_moeda', 'taxa_cambio', 'taxa_cambio_id', 'taxa_cambio_manual', 'valor_total_moeda', 'periodo_processamento_salarial_id', 'reconciliacao_codigo', 'numero_documento', 'numero_lan_contabilizacao', 'integrado_em', 'integrado_por', 'motivo_anulacao', 'recibo_venda_id',
     ];
 
     protected function casts(): array
@@ -46,6 +47,7 @@ abstract class DocumentoTesourariaBase extends ModeloBase
             'valor_total_moeda' => 'decimal:2',
             'periodo_processamento_salarial_id' => 'integer',
             'integrado_em' => 'datetime',
+            'recibo_venda_id' => 'integer',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
         ];
@@ -64,6 +66,11 @@ abstract class DocumentoTesourariaBase extends ModeloBase
     public function periodoProcessamentoSalarial(): BelongsTo
     {
         return $this->belongsTo(PeriodoProcessamentoSalarial::class, 'periodo_processamento_salarial_id');
+    }
+
+    public function reciboVenda(): BelongsTo
+    {
+        return $this->belongsTo(ReciboVenda::class, 'recibo_venda_id');
     }
 
     public function cartasPagamentoBancario(): HasMany

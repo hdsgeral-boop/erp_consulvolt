@@ -3,6 +3,7 @@
 namespace App\Services\Vendas;
 
 use App\Exceptions\ErroNegocio;
+use App\Models\ConfigFaturacaoEletronica;
 use App\Models\SerieFaturacaoEletronica;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Auth;
@@ -35,11 +36,19 @@ final class ServicoSeries
 
         try {
             return Cache::lock("lock:serie:{$empresaId}:{$tipo}:{$ano}:{$origem}", 10)->block(5, fn () => DB::transaction(function () use ($tipo, $ano, $dia, $fiscal, $origem, $exigirAgt) {
+                // r4_agt: em modo de contingência declarado (AGT inacessível), os documentos fiscais saem na série de contingência
+                // pedida à AGT (seriesContingencyIndicator «C», doc-agt «solicitar.html»); fora dele, na série normal
+                $contingencia = $exigirAgt && $fiscal && ! empty(ConfigFaturacaoEletronica::query()->value('servico')['contingencia']['ativo'] ?? null);
                 $serie = SerieFaturacaoEletronica::query()->where('tipo', $tipo)->where('ano', $ano)->where('origem', $origem)
-                    ->where('estado', 'ATIVA')->lockForUpdate()->first();
-                // "Exigir séries AGT" (configuração do regime): só séries com código atribuído pela AGT (facturacao_agt.js:191)
+                    ->where('estado', 'ATIVA')
+                    ->when($exigirAgt, fn ($q) => $contingencia ? $q->where('contingencia', true) : $q->where(fn ($w) => $w->whereNull('contingencia')->orWhere('contingencia', false)))
+                    ->orderBy('id')->lockForUpdate()->first();
+                // "Exigir séries AGT" (configuração do regime; obrigatório com o regime activo): só séries com código atribuído pela AGT
+                // (facturacao_agt.js:191) — nenhum documento fiscal sai numa série que a AGT não conheça
                 if ($exigirAgt && (! $serie || ! $serie->agt_codigo)) {
-                    throw new ErroNegocio("Não há série {$tipo} {$ano} atribuída pela AGT. Peça-a em Vendas › Facturação electrónica › Séries.", 'SERIE_AGT_EM_FALTA', 422);
+                    throw new ErroNegocio($contingencia
+                        ? "Modo de contingência activo e não há série de contingência {$tipo} {$ano} atribuída pela AGT. Peça-a em Vendas › Facturação electrónica › Séries (indicador de contingência)."
+                        : "Não há série {$tipo} {$ano} atribuída pela AGT. Peça-a em Vendas › Facturação electrónica › Séries.", 'SERIE_AGT_EM_FALTA', 422);
                 }
                 $serie ??= $this->criar($tipo, $ano, $origem);
 

@@ -32,27 +32,11 @@ class AtivoImobilizado extends AtivoImobilizadoBase
     public const REGIMES_ALHEIO = ['ARRENDADO', 'CEDIDO', 'TERCEIROS', 'OUTRO'];
 
     /**
-     * Colunas acrescentadas pela migração r3_activos. Não entram no $fillable (gerado e conferido com o contrato do esquema,
-     * EsquemaContratoTest): fill() aceita-as por esta lista explícita, com forceFill.
+     * Campos da propriedade (migração r3_activos; no esquema gerado e no $fillable desde a ronda 4 — esquema_extra.mjs).
+     * Lista de domínio usada pelo ServicoAtivos (dados do proprietário/contrato dos bens alheios).
      */
     public const CAMPOS_PROPRIEDADE = ['propriedade', 'regime_alheio', 'proprietario_terceiro_id', 'proprietario_nome', 'contrato_referencia', 'contrato_inicio',
         'contrato_fim', 'renda_mensal', 'propriedade_notas'];
-
-    public function fill(array $attributes)
-    {
-        if (static::isUnguarded()) {
-            return parent::fill($attributes);
-        }
-        $extra = array_intersect_key($attributes, array_flip(self::CAMPOS_PROPRIEDADE));
-        parent::fill(array_diff_key($attributes, $extra));
-
-        return $extra ? $this->forceFill($extra) : $this;
-    }
-
-    protected function casts(): array
-    {
-        return parent::casts() + ['proprietario_terceiro_id' => 'integer', 'contrato_inicio' => 'date', 'contrato_fim' => 'date', 'renda_mensal' => 'decimal:2'];
-    }
 
     public function proprietario(): BelongsTo
     {

@@ -58,7 +58,7 @@ export function DetalheDocumento() {
       setConversao(false);
       setDescontab(false);
       setAnular(false);
-      if (caminho === 'converter' && dados?.id) navegar(`../${dados.id}`);
+      if ((caminho === 'converter' || caminho === 'correccao-agt') && dados?.id) navegar(`../${dados.id}`);
     },
     onError: (e) => {
       // a NC foi recusada por a factura estar paga: oferece cancelar o recebimento na hora (o formulário fica aberto)
@@ -201,6 +201,24 @@ export function DetalheDocumento() {
                 }
               >
                 Revalidar AGT
+              </Button>
+            )}
+            {agt.correccao && (
+              <Button
+                danger
+                loading={accao.isPending}
+                onClick={() =>
+                  Modal.confirm({
+                    title: `Emitir o documento de correcção de ${d.numero_documento}?`,
+                    content:
+                      'A AGT recusou este documento. É emitido um documento NOVO (novo número, mesma série) com as linhas e os valores deste e os dados de cliente e produtos já corrigidos, enviado à AGT como correcção (C) do recusado. Este fica anulado e ligado ao novo.',
+                    okText: 'Emitir correcção',
+                    cancelText: 'Cancelar',
+                    onOk: () => accao.mutateAsync({ caminho: 'correccao-agt' }),
+                  })
+                }
+              >
+                Emitir correcção AGT
               </Button>
             )}
             {accoesAgtMenu.length > 0 && (

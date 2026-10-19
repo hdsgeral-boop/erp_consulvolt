@@ -21,6 +21,7 @@ import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsi
 import { pedidoTabela } from './comum/impressao';
 
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 const ESTADOS_PEDIDO = ['PENDENTE_CHEFIA', 'PENDENTE_RH', 'APROVADO', 'EMITIDO', 'RECUSADO', 'CANCELADO'];
 /** «Por decidir» (antigo: portal_ui.js:855, estado PENDENTES): o servidor junta PENDENTE_CHEFIA e PENDENTE_RH. */
 export const POR_DECIDIR = 'POR_DECIDIR';
@@ -36,11 +37,17 @@ export const opcoesEstadoPedido = () => [
 export default function PortalGestao() {
   const { pode } = useSessao();
   const navegar = useNavigate();
+  const [sep, setSep] = useSeparadorUrl([
+    'pedidos', 'modelos',
+    ...(pode('rh_portal_aprovar') || pode('rh_avaliacao_view') ? ['autoavaliacoes'] : []),
+    ...(pode('rh_portal_aprovar') ? ['chefias'] : []),
+    ...(pode('rh_portal_aprovar') || pode('rh_portal_gestao_view') ? ['ligacoes'] : []),
+  ]);
   return (
     <>
       <CabecalhoPagina titulo="Pedidos do Portal do Colaborador" subtitulo="Decisões do RH sobre férias, documentos e agregado familiar; autoavaliações submetidas; avaliação anónima das chefias; ligação dos utilizadores às fichas."
         accoes={pode('rh_portal_usar') && <Button icon={<IconeFa nome="id-badge" />} onClick={() => navegar('/m/rh/rh_portal')}>Abrir o meu portal</Button>} />
-      <Tabs type="card" items={[
+      <Tabs type="card" activeKey={sep} onChange={setSep} items={[
         // separadores do antigo (portal_ui.js:833), com os ícones
         { key: 'pedidos', label: <span><IconeFa nome="inbox" /> Pedidos</span>, children: <Pedidos /> },
         { key: 'modelos', label: <span><IconeFa nome="file-alt" /> Modelos de documentos</span>, children: <Modelos /> },

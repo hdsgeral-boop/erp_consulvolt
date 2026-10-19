@@ -105,6 +105,8 @@ final class ServicoGestaoEmpresas
     /** @param  array<string, mixed>  $d */
     public function criar(array $d, Utilizador $actor): Empresa
     {
+        app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteEmpresas();
+
         return DB::transaction(function () use ($d, $actor) {
             $this->validar($d, null);
             $e = Empresa::create($this->dados($d) + ['estado' => Empresa::ESTADO_ATIVO,

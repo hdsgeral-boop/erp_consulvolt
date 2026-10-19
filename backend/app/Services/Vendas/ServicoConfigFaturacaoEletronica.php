@@ -29,7 +29,11 @@ final class ServicoConfigFaturacaoEletronica
             'ativo' => (bool) $c?->ativo, 'data_inicio' => $c?->data_inicio?->toDateString(),
             'estabelecimentos' => $c?->estabelecimentos ?: [['numero' => '1', 'nome' => 'Sede']],
             'pais_padrao' => $c?->pais_padrao ?: 'AO', 'isencao_padrao' => $c?->isencao_padrao ?: null,
-            'servico' => ['auto' => ! empty($c?->servico['auto']), 'exigir_series_agt' => ! empty($c?->servico['exigir_series_agt'])],
+            'servico' => ['auto' => ! empty($c?->servico['auto']), 'exigir_series_agt' => ! empty($c?->servico['exigir_series_agt']) || (bool) $c?->ativo,
+                'contingencia' => [
+                    'ativo' => ! empty($c?->servico['contingencia']['ativo']), 'desde' => $c?->servico['contingencia']['desde'] ?? null,
+                    'motivo' => $c?->servico['contingencia']['motivo'] ?? null, 'por' => $c?->servico['contingencia']['por'] ?? null,
+                ]],
             'isencoes' => CatalogoAgt::ISENCOES,
         ];
     }
@@ -79,13 +83,38 @@ final class ServicoConfigFaturacaoEletronica
                 'ativo' => $ativo, 'data_inicio' => $inicio, 'estabelecimentos' => $estabelecimentos,
                 'pais_padrao' => strtoupper($d['pais_padrao'] ?? $atual?->pais_padrao ?? 'AO'), 'isencao_padrao' => $isencao ?: null,
                 'servico' => ['auto' => (bool) ($d['servico']['auto'] ?? $atual?->servico['auto'] ?? false),
-                    'exigir_series_agt' => (bool) ($d['servico']['exigir_series_agt'] ?? $atual?->servico['exigir_series_agt'] ?? false)],
+                    // r4_agt (recomendação aceite): com o regime activo, nenhum documento fiscal sai numa série que a AGT não conheça
+                    'exigir_series_agt' => $ativo || (bool) ($d['servico']['exigir_series_agt'] ?? $atual?->servico['exigir_series_agt'] ?? false),
+                    'contingencia' => $this->contingencia($d['servico']['contingencia'] ?? null, $atual?->servico['contingencia'] ?? null, $ativo)],
                 'atualizado_por' => Auth::user()?->nome_utilizador,
             ];
             $atual ? $atual->update($dados) : ConfigFaturacaoEletronica::create($dados);
 
             return $this->obter();
         });
+    }
+
+    /**
+     * Modo de contingência (Decreto Presidencial n.º 71/25, art. 18.º — emissão quando não é possível comunicar com a
+     * plataforma da AGT): declarado pelo utilizador, com motivo; os documentos fiscais passam a sair nas séries de
+     * contingência (indicador «C») e são comunicados quando a ligação voltar (o ciclo reenvia-os automaticamente).
+     */
+    private function contingencia(mixed $novo, mixed $atual, bool $regime): array
+    {
+        $atual = is_array($atual) ? $atual : [];
+        if (! is_array($novo)) {
+            return $atual + ['ativo' => false];
+        }
+        $ativo = $regime && ! empty($novo['ativo']);
+        if ($ativo && trim((string) ($novo['motivo'] ?? '')) === '') {
+            throw new ErroNegocio('Indique o motivo da contingência (ex.: falha de comunicação com a AGT, falta de energia).', 'CONTINGENCIA_SEM_MOTIVO', 422);
+        }
+        if (! $ativo) {
+            return ['ativo' => false, 'desde' => null, 'motivo' => null, 'por' => null, 'ultima' => ! empty($atual['ativo']) ? ['desde' => $atual['desde'] ?? null, 'ate' => now()->toIso8601String(), 'motivo' => $atual['motivo'] ?? null] : ($atual['ultima'] ?? null)];
+        }
+
+        return ['ativo' => true, 'desde' => ! empty($atual['ativo']) ? ($atual['desde'] ?? now()->toIso8601String()) : now()->toIso8601String(),
+            'motivo' => mb_substr(trim((string) $novo['motivo']), 0, 500), 'por' => Auth::user()?->nome_utilizador, 'ultima' => $atual['ultima'] ?? null];
     }
 
     /** Limite do número inicial da série (proximoValido, js/facturacao_agt.js:127-133 do legado novo). */
@@ -123,7 +152,8 @@ final class ServicoConfigFaturacaoEletronica
                 throw new ErroNegocio("O número inicial tem de estar dentro do intervalo autorizado pela AGT ({$serie->agt_primeiro_numero} a {$serie->agt_ultimo_numero}).",
                     'SERIE_FORA_INTERVALO_AGT', 422);
             }
-            if ($estado === 'ATIVA' && $outras->contains(fn ($x) => $x->estado === 'ATIVA' && $x->tipo === $tipo && $x->ano === $ano && $x->origem === $origem)) {
+            $contingente = (bool) ($d['contingencia'] ?? false);
+            if ($estado === 'ATIVA' && $outras->contains(fn ($x) => $x->estado === 'ATIVA' && $x->tipo === $tipo && $x->ano === $ano && $x->origem === $origem && (bool) $x->contingencia === $contingente)) {
                 throw new ErroNegocio('Já existe outra série activa para este tipo, ano e origem. Feche-a antes.', 'SERIE_ATIVA_DUPLICADA', 422);
             }
             $codigoNovo = ! $serie || $codigo !== $serie->codigo || $tipo !== $serie->tipo;   // fechar uma série antiga não volta a validar o código

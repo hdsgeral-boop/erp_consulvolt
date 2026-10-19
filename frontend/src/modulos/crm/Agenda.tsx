@@ -12,6 +12,7 @@ import { dataApi } from '@/utilitarios/formatacao';
 import { useConfigCRM } from './comum/dados';
 import { ListaActividades, ModalActividade } from './comum/componentes';
 import type { Actividade } from './comum/tipos';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 interface Agenda {
   em_atraso: Actividade[];
@@ -63,7 +64,7 @@ export default function AgendaComercial() {
       }),
   });
 
-  const [separador, setSeparador] = useState('agenda');
+  const [separador, setSeparador] = useSeparadorUrl(['agenda', 'todas']);
   const tipos = config.data?.tipos_atividade ?? {};
   /** Lista impressa das actividades (agenda: agrupada em atraso/hoje/próximos; todas: com os filtros actuais). */
   const pedidoImpressao = () => {

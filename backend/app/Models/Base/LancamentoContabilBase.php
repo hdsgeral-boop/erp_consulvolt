@@ -2,6 +2,7 @@
 
 namespace App\Models\Base;
 
+use App\Models\AlocacaoAquisicaoAtivo;
 use App\Models\AtivoImobilizado;
 use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
@@ -182,5 +183,10 @@ abstract class LancamentoContabilBase extends ModeloBase
     public function razaoAnaliticoProjetos(): HasMany
     {
         return $this->hasMany(RazaoAnaliticoProjeto::class, 'lancamento_contabil_id');
+    }
+
+    public function alocacoesAquisicaoAtivos(): HasMany
+    {
+        return $this->hasMany(AlocacaoAquisicaoAtivo::class, 'lancamento_contabil_id');
     }
 }

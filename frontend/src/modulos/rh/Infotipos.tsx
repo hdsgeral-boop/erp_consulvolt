@@ -1,6 +1,6 @@
 import { Button, Card, Checkbox, Form, Input, InputNumber, Select, Space, Tabs, Typography } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { IconeFa } from '@/componentes/fluxos';
@@ -12,6 +12,7 @@ import { useAccaoRh, useAvisarErro } from './comum/consultas';
 import { TabelaIrt } from './comum/TabelaIrt';
 import type { CampoFormulario } from '@/componentes/formularios';
 import { campoSimNao } from './comum/linhasRh';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Vista Linhas do «Novo Infotipo» (uma rubrica por linha; mesmas regras e mesmo POST da grade). */
 export const CAMPOS_LINHAS_INFOTIPO: CampoFormulario[] = [
@@ -63,7 +64,7 @@ const porTipo = (a: Infotipo, b: Infotipo) => a.tipo.localeCompare(b.tipo, 'pt')
 export default function Infotipos() {
   const { pode } = useSessao();
   const gerir = pode('rh_infotipos_gerir');
-  const [separador, setSeparador] = useState('rubricas');
+  const [separador, setSeparador] = useSeparadorUrl(['rubricas', 'irt']);
   const [destino, elementoDestino] = useDestinoAccoes();
   return (
     <>

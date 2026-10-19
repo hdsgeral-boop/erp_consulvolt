@@ -12,7 +12,9 @@ use App\Models\Venda;
 use App\Services\Compras\ServicoEncomendasClientes;
 use App\Services\Logistica\ServicoNiveisStock;
 use App\Services\Logistica\ServicoProdutos;
+use App\Services\Sistema\ServicoContasCategoriaMassa;
 use App\Support\Tenancy\ContextoEmpresa;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -368,55 +370,70 @@ final class ServicoParidadeVendas
 
     /**
      * «Editar em massa» de produtos (mapeamento_massa.js do legado): dados (preço — definir, ajustar % ou somar —, IVA,
-     * categoria, stock, serviço, bloqueio) e contas (definir ou retirar). Cada produto passa pelas regras da ficha
-     * (ServicoProdutos::guardar: contas de movimento, isenção, catálogo de compras), numa só transacção.
+     * categoria, stock, serviço, bloqueio). Cada produto passa pelas regras da ficha (ServicoProdutos::guardar), numa só
+     * transacção. Ronda 3: as contas já NÃO se gravam no produto (a categoria sobrepõe-se — ContasProduto::de): pedidos
+     * com contas recebem 422 CONTAS_NA_CATEGORIA; muda-se a categoria dos produtos ou editam-se as contas da categoria
+     * ($categoriaContas, com vendas_categorias_contas — vale para todos os produtos da categoria).
      *
      * @param  list<int>  $ids
      * @param  array<string, mixed>  $dados
-     * @param  array<string, string|null>  $contas  campo => código, ou «__RETIRAR__»
-     * @return array{alterados: int}
+     * @param  array<string, string|null>  $contas  contas de produto (recusadas se preenchidas)
+     * @param  array{categoria_produto_id: int, contas: array<string, string|null>}|null  $categoriaContas
+     * @return array{alterados: int, categoria?: array<string, mixed>}
      */
-    public function editarProdutosEmMassa(array $ids, array $dados, array $contas, ServicoProdutos $produtos): array
+    public function editarProdutosEmMassa(array $ids, array $dados, array $contas, ServicoProdutos $produtos, ?array $categoriaContas = null): array
     {
+        $massa = app(ServicoContasCategoriaMassa::class);
+        $massa->recusarContasNoProduto($contas);
         $ids = array_values(array_unique(array_map('intval', $ids)));
         $lista = Produto::query()->whereIn('id', $ids)->get();
         if ($lista->count() !== count($ids)) {
             throw new ErroNegocio('Um dos produtos não existe.', 'PRODUTO_INEXISTENTE', 422);
         }
         $comuns = array_intersect_key($dados, array_flip(['taxa_imposto', 'categoria_produto_id', 'movimenta_stock', 'e_servico', 'bloqueado']));
-        foreach ($contas as $campo => $valor) {
-            if (! in_array($campo, Produto::CAMPOS_CONTA, true) || $valor === null || $valor === '') {
-                continue;
-            }
-            $comuns[$campo] = $valor === '__RETIRAR__' ? null : $valor;
-        }
         $preco = $dados['preco'] ?? null;
-        if (! $comuns && ! $preco) {
+        if (! $comuns && ! $preco && ! $categoriaContas) {
             throw new ErroNegocio('Escolha pelo menos um campo a alterar.', 'SEM_ALTERACOES', 422);
         }
+        if ($lista->isEmpty() && ($comuns || $preco)) {
+            throw new ErroNegocio('Seleccione os produtos a alterar.', 'SEM_PRODUTOS', 422);
+        }
 
-        DB::transaction(function () use ($lista, $comuns, $preco, $produtos) {
-            foreach ($lista as $p) {
-                $alteracao = $comuns;
-                if ($preco) {
-                    $actual = (string) ($p->preco_unitario ?? '0');
-                    $valor = (string) $preco['valor'];
-                    $novo = match ($preco['modo']) {
-                        'DEFINIR' => $valor,
-                        'PERCENT' => bcadd($actual, bcdiv(bcmul($actual, $valor, 6), '100', 6), 6),
-                        'VALOR' => bcadd($actual, $valor, 6),
-                    };
-                    $novo = number_format(round((float) $novo, 2), 2, '.', '');
-                    if (bccomp($novo, '0', 2) < 0) {
-                        throw new ErroNegocio("O preço de {$p->codigo} ficaria negativo.", 'PRECO_INVALIDO', 422);
-                    }
-                    $alteracao['preco_unitario'] = $novo;
-                }
-                $produtos->guardar($alteracao, $p);
+        return DB::transaction(function () use ($lista, $comuns, $preco, $produtos, $categoriaContas, $massa) {
+            $r = ['alterados' => 0];
+            if ($categoriaContas) {
+                $r['categoria'] = $massa->editarContas((int) $categoriaContas['categoria_produto_id'], $categoriaContas['contas'] ?? [], 'Vendas/Produtos');
             }
-        });
+            if ($comuns || $preco) {
+                $this->aplicarDadosEmMassa($lista, $comuns, $preco, $produtos);
+                $r['alterados'] = $lista->count();
+            }
 
-        return ['alterados' => $lista->count()];
+            return $r;
+        });
+    }
+
+    /** @param  Collection<int, Produto>  $lista */
+    private function aplicarDadosEmMassa($lista, array $comuns, ?array $preco, ServicoProdutos $produtos): void
+    {
+        foreach ($lista as $p) {
+            $alteracao = $comuns;
+            if ($preco) {
+                $actual = (string) ($p->preco_unitario ?? '0');
+                $valor = (string) $preco['valor'];
+                $novo = match ($preco['modo']) {
+                    'DEFINIR' => $valor,
+                    'PERCENT' => bcadd($actual, bcdiv(bcmul($actual, $valor, 6), '100', 6), 6),
+                    'VALOR' => bcadd($actual, $valor, 6),
+                };
+                $novo = number_format(round((float) $novo, 2), 2, '.', '');
+                if (bccomp($novo, '0', 2) < 0) {
+                    throw new ErroNegocio("O preço de {$p->codigo} ficaria negativo.", 'PRECO_INVALIDO', 422);
+                }
+                $alteracao['preco_unitario'] = $novo;
+            }
+            $produtos->guardar($alteracao, $p);
+        }
     }
 
     /**

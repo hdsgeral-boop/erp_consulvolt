@@ -7,6 +7,7 @@ use App\Models\Empresa;
 use App\Models\LancamentoContabil;
 use App\Models\PlanoConta;
 use App\Models\Terceiro;
+use App\Services\Ativos\ServicoRelatoriosAtivos;
 use App\Services\Contabilidade\LocalizadorLancamentos;
 use App\Services\Contabilidade\ServicoLancamentos;
 use App\Support\Tenancy\ContextoEmpresa;
@@ -94,7 +95,9 @@ final class AtivosCombinarTest extends TestCase
         $this->assertSame([], $this->pendentes());
 
         // o fluxo do imobilizado conta o activo combinado nas duas aquisições, cada uma pelo valor alocado
-        $fluxo = collect($this->getJson('/api/ativos/fluxo', $this->s)->assertOk()->json('dados.aquisicoes'))->where('tipo', 'lancamento')->values();
+        // (rota GET /api/ativos/fluxo retirada na ronda 4: o fluxo é servido por /api/gestao/fluxos — FluxoImobilizado usa este serviço)
+        $aquisicoes = app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => json_decode(json_encode(app(ServicoRelatoriosAtivos::class)->fluxo()), true))['aquisicoes'];
+        $fluxo = collect($aquisicoes)->where('tipo', 'lancamento')->values();
         $this->assertEqualsCanonicalizing(['50000.00', '30000.00'], $fluxo->pluck('inventariado')->all());
 
         // a linha B não é a FK do activo, mas está coberta pela combinação: o estorno do lançamento fica bloqueado

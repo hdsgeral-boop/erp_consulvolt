@@ -7,7 +7,7 @@ use App\Exceptions\ErroNegocio;
 /** Por omissão: a ligação à AGT não está configurada (AGT_DRIVER=desligado). Os documentos ficam POR_ENVIAR. */
 final class ClienteAgtDesligado implements ClienteAgt
 {
-    public function registar(string $nif, array $documentos, bool $simular = false): array
+    public function registar(string $nif, array $documentos, bool $simular = false, ?string $submissionUuid = null): array
     {
         $this->recusar();
     }

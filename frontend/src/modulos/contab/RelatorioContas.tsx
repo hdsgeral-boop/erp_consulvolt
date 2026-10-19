@@ -20,6 +20,7 @@ import { MONETARIOS, montarDocumentoRC, NOMES_ANEXOS, opcoesDocumentoRC, paginas
 import { SeparadorGestao } from './relatorioContas/SeparadorGestao';
 import type { ConfigGestao, TextoGravado } from './relatorioContas/textosGestao';
 import type { Balanco, DemonstracaoResultados, FluxoCaixa } from './api';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 interface RelatorioRC {
   registo: { id: number | null; ano: number; estado: string; configuracao: Record<string, unknown>; textos: Record<string, unknown>; notas_incluir: Record<string, boolean>; atualizado_por: string | null; atualizado_em: string | null; concluido_em?: string | null; concluido_por?: string | null };
@@ -43,7 +44,7 @@ export default function RelatorioContas() {
   const [notas, setNotas] = useState<Record<string, boolean>>({});
   const [textos, setTextos] = useState<Record<string, TextoGravado>>({});
   const [sujo, setSujo] = useState(false);
-  const [aba, setAba] = useState('gestao');
+  const [aba, setAba] = useSeparadorUrl(['gestao', 'demonstracoes', 'notas', 'configuracao']);
   const configForm = Form.useWatch([], form) as ConfigGestao | undefined;
 
   const consulta = useQuery({ queryKey: ['contab', 'relatorio-contas', ano], queryFn: () => obter<RelatorioRC>(`/contabilidade/relatorio-contas/${ano}`) });

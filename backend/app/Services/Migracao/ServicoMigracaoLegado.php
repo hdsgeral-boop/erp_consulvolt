@@ -4,11 +4,13 @@ namespace App\Services\Migracao;
 
 use App\Exceptions\ErroNegocio;
 use App\Services\RH\ServicoConfiguracaoRH;
+use App\Services\Sistema\CatalogoPermissoes;
 use App\Services\Sistema\ServicoPermissoesNovas;
 use App\Services\Tesouraria\ServicoConfigTesouraria;
 use App\Support\Cache\LimpezaCache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -446,6 +448,9 @@ final class ServicoMigracaoLegado
             $v = $leg !== null ? ($orig[$leg] ?? null) : null;
 
             if ($leg === null) {
+                if ($c['origem'] === 'novo' && $c['nulo'] === false && $col !== 'id') {
+                    continue;   // coluna nova obrigatória sem origem no legado (ex.: ativos_imobilizados.propriedade): vale o DEFAULT da base
+                }
                 $linha[$col] = null;
             } elseif ($c['origem'] === 'texto_original') {
                 $linha[$col] = ConversorTipos::vazio($v) ? null : mb_substr(is_scalar($v) ? (string) $v : json_encode($v, JSON_UNESCAPED_UNICODE), 0, 255);
@@ -1200,6 +1205,7 @@ final class ServicoMigracaoLegado
                 $this->informacao('perfis_utilizador', 'permissoes', 'CONVERSAO_PERFIL', null, (string) (count($perms) - 1),
                     'Perfil no formato antigo convertido para v2 com o converterAntigo do legado (original em permissoes_originais)');
             }
+            $perms = $this->descartarPermissoesForaDoCatalogo($perms);
             $lote[] = ['id' => $id, 'nome' => trim((string) ($o['name'] ?? "Perfil {$id}")),
                 'permissoes' => json_encode($perms ?: new \stdClass, JSON_UNESCAPED_UNICODE), 'permissoes_originais' => $originais];
             $this->validos['perfis_utilizador'][$id] = null;
@@ -1207,6 +1213,30 @@ final class ServicoMigracaoLegado
         if ($lote) {
             $this->inserir('perfis_utilizador', $lote);
         }
+    }
+
+    /**
+     * Chaves que não existem no catálogo (ex.: accounting_bi_view / sgd_* do BI eliminado) não dão acesso a nada:
+     * descartam-se na carga, com ocorrência e registo no log, para o editor não voltar a mostrá-las como «fora do catálogo».
+     *
+     * @param  array<string, mixed>  $perms
+     * @return array<string, mixed>
+     */
+    private function descartarPermissoesForaDoCatalogo(array $perms): array
+    {
+        if (($perms['all'] ?? null) === true) {
+            return $perms;
+        }
+        $descartadas = array_values(array_filter(array_map('strval', array_keys($perms)),
+            fn (string $k) => $k !== '_v2' && $k !== 'all' && ! CatalogoPermissoes::chaveValida($k)));
+        if (! $descartadas) {
+            return $perms;
+        }
+        $this->informacao('perfis_utilizador', 'permissoes', 'PERMISSAO_DESCARTADA', implode(', ', $descartadas), null,
+            count($descartadas).' permissão(ões) inexistente(s) no catálogo descartada(s)');
+        Log::info('Migração: permissões fora do catálogo descartadas', ['perfil' => $this->linhaAtual['id'], 'chaves' => $descartadas]);
+
+        return array_diff_key($perms, array_flip($descartadas));
     }
 
     private function carregarUtilizadores(): void

@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Http;
  */
 final class ClienteAgtIntermedio implements ClienteAgt
 {
-    public function registar(string $nif, array $documentos, bool $simular = false): array
+    public function registar(string $nif, array $documentos, bool $simular = false, ?string $submissionUuid = null): array
     {
         return $this->chamar('POST', 'facturas/registar', ['nif' => $nif, 'documentos' => array_values($documentos), 'simular' => $simular]);
     }

@@ -79,8 +79,9 @@ final class ServicoMigracaoDados
     public const EDICAO_MASSA = [
         'clientes' => ['permissao' => 'vendas_clientes_gerir', 'dados' => ['codigo_moeda'], 'contas' => ['codigo_conta']],
         'fornecedores' => ['permissao' => 'compras_forn_gerir', 'dados' => ['codigo_moeda'], 'contas' => ['codigo_conta', 'conta_compra_transitoria']],
+        // ronda 3: as contas dos produtos definem-se na categoria (sobrepõe-se ao produto) — ver ServicoContasCategoriaMassa
         'produtos' => ['permissao' => 'vendas_produtos_gerir', 'dados' => ['taxa_imposto', 'categoria_produto_id', 'movimenta_stock', 'e_servico', 'bloqueado'],
-            'contas' => ['codigo_conta', 'conta_custo', 'conta_compra', 'conta_inventario', 'conta_iva_liquidado', 'conta_iva_dedutivel', 'conta_quebra', 'conta_sobra', 'conta_ativo']],
+            'contas' => []],
     ];
 
     public const RETIRAR = '__RETIRAR__';
@@ -204,15 +205,25 @@ final class ServicoMigracaoDados
      * @param  array<string, mixed>  $dados
      * @param  array<string, string>  $contas
      * @param  array{modo: string, valor: float}|null  $preco
-     * @return array{alterados: int, avisos: list<string>}
+     * @param  array{categoria_produto_id: int, contas: array<string, string|null>}|null  $categoriaContas  só produtos
+     * @return array{alterados: int, avisos: list<string>, categoria?: array<string, mixed>}
      */
-    public function editarEmMassa(string $entidade, array $ids, array $dados, array $contas, ?array $preco): array
+    public function editarEmMassa(string $entidade, array $ids, array $dados, array $contas, ?array $preco, ?array $categoriaContas = null): array
     {
         $def = self::EDICAO_MASSA[$entidade] ?? throw new ErroNegocio('Entidade desconhecida.', 'ENTIDADE_DESCONHECIDA', 404);
+        if ($entidade === 'produtos') {
+            // as contas do produto ficariam escondidas pela categoria: muda-se a categoria ou as contas da categoria
+            app(ServicoContasCategoriaMassa::class)->recusarContasNoProduto($contas);
+        } else {
+            $categoriaContas = null;
+        }
         $dados = array_intersect_key($dados, array_flip($def['dados']));
         $contas = array_intersect_key($contas, array_flip($def['contas']));
-        if (! $dados && ! $contas && ! $preco) {
+        if (! $dados && ! $contas && ! $preco && ! $categoriaContas) {
             throw new ErroNegocio('Altere pelo menos um campo.', 'SEM_ALTERACOES', 422);
+        }
+        if (! $ids && ($dados || $contas || $preco)) {
+            throw new ErroNegocio('Seleccione os registos a alterar.', 'SEM_REGISTOS', 422);
         }
         foreach ($contas as $campo => $codigo) {
             if ($codigo === self::RETIRAR) {
@@ -225,7 +236,13 @@ final class ServicoMigracaoDados
         }
         $avisos = [];
 
-        return DB::transaction(function () use ($entidade, $ids, $dados, $contas, $preco, &$avisos) {
+        return DB::transaction(function () use ($entidade, $ids, $dados, $contas, $preco, $categoriaContas, &$avisos) {
+            $categoria = $categoriaContas
+                ? app(ServicoContasCategoriaMassa::class)->editarContas((int) $categoriaContas['categoria_produto_id'], $categoriaContas['contas'] ?? [], 'Sistema/Migração de dados')
+                : null;
+            if (! $dados && ! $contas && ! $preco) {
+                return ['alterados' => 0, 'avisos' => $avisos, 'categoria' => $categoria];
+            }
             $registos = $entidade === 'produtos' ? Produto::query()->whereIn('id', $ids)->lockForUpdate()->get()
                 : Terceiro::query()->whereIn('id', $ids)->whereIn('tipo', $entidade === 'clientes' ? Terceiro::TIPOS_CLIENTE : Terceiro::TIPOS_FORNECEDOR)->lockForUpdate()->get();
             if ($registos->count() !== count(array_unique($ids))) {
@@ -261,7 +278,7 @@ final class ServicoMigracaoDados
                 .implode(', ', array_keys($dados + $contas + ($preco ? ['preco_unitario' => 1] : []))).'.', $entidade === 'produtos' ? 'produtos' : 'terceiros', null,
                 null, ['ids' => $registos->pluck('id')->all(), 'dados' => $dados, 'contas' => $contas, 'preco' => $preco]);
 
-            return ['alterados' => $registos->count(), 'avisos' => $avisos];
+            return ['alterados' => $registos->count(), 'avisos' => $avisos] + ($categoria ? ['categoria' => $categoria] : []);
         });
     }
 

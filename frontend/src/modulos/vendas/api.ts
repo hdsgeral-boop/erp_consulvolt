@@ -66,6 +66,15 @@ export interface DocumentoVenda {
       tentativas: number;
       historico: { em: string; accao: string; resultado: string }[];
     } | null;
+    /** r4_agt: correcção (E46), penalização (> 24 h), contingência, documento integrado e software no impresso. */
+    documento_rejeitado?: string | null;
+    substituido_por?: string | null;
+    substituido_por_id?: number | null;
+    penalizacao?: boolean;
+    contingencia_desde?: string | null;
+    importado?: boolean;
+    sistema_origem?: string | null;
+    software?: { produto: string | null; certificacao: string | null };
   };
   linhas?: LinhaVenda[];
   /** paridade 4.2.4/4.8.2: códigos da UN e do CC e progresso de entrega/facturação (só na listagem) */

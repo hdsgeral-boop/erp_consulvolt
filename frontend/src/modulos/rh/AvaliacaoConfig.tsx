@@ -17,6 +17,7 @@ import { validarPesos360 } from './comum/regras';
 import { scrollTabela } from '@/componentes/responsivo';
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 import { cicloActivo, textoProcedimentos } from './avaliacao360/textoComunicado';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 const GRUPOS = [
   { chave: 'CHEFIA', rotulo: 'Chefia' },
@@ -63,6 +64,7 @@ export default function AvaliacaoConfig() {
   const rascunho = escolhido === 'novo' || ciclo?.estado === 'RASCUNHO';
   const fechado = ciclo?.estado === 'FECHADO';
   const podeGravar = pode('rh_aval_config') && !fechado;
+  const [sep, setSep] = useSeparadorUrl(['ciclo', 'itens', 'r360', 'feedback', 'bonificacao', 'comunicado']);
 
   useEffect(() => {
     if (escolhido === null && q.data) {
@@ -163,7 +165,7 @@ export default function AvaliacaoConfig() {
           {ciclo?.estado === 'ABERTO' && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Ciclo aberto: só se alteram o nome, os prazos, o comunicado, o acompanhamento e (sem bónus aprovados) a bonificação." />}
           {fechado && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Ciclo fechado: a configuração já não se altera." />}
           <Form form={form} layout="vertical" onFinish={gravar} disabled={!podeGravar}>
-            <Tabs type="card" items={[
+            <Tabs type="card" activeKey={sep} onChange={setSep} items={[
               {
                 key: 'ciclo', label: <span><IconeFa nome="calendar-alt" /> Ciclo e período</span>, forceRender: true,
                 children: (

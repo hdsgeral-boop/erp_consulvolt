@@ -4,7 +4,7 @@
  * (fe_estado ≠ PRONTO) = «Com erros locais»; pronto sem envio = «Por enviar»; depois o estado do envio.
  */
 
-export type EstadoAgt = 'POR_ENVIAR' | 'ENVIADO' | 'VALIDO' | 'INVALIDO' | 'REJEITADO' | 'ERRO' | 'COM_ERROS_LOCAIS';
+export type EstadoAgt = 'POR_ENVIAR' | 'ENVIADO' | 'VALIDO' | 'INVALIDO' | 'REJEITADO' | 'ERRO' | 'CONTINGENCIA' | 'SUBSTITUIDO' | 'COM_ERROS_LOCAIS';
 
 export const ESTADOS_AGT: { chave: EstadoAgt; rotulo: string; rotuloPlural: string; cor: string; corTexto?: string }[] = [
   { chave: 'POR_ENVIAR', rotulo: 'Por enviar', rotuloPlural: 'Por enviar', cor: 'gold', corTexto: '#d48806' },
@@ -13,6 +13,9 @@ export const ESTADOS_AGT: { chave: EstadoAgt; rotulo: string; rotuloPlural: stri
   { chave: 'INVALIDO', rotulo: 'Inválido', rotuloPlural: 'Inválidos', cor: 'red', corTexto: '#cf1322' },
   { chave: 'REJEITADO', rotulo: 'Rejeitado', rotuloPlural: 'Rejeitados', cor: 'red', corTexto: '#cf1322' },
   { chave: 'ERRO', rotulo: 'Erro de envio', rotuloPlural: 'Erro de envio', cor: 'volcano', corTexto: '#cf1322' },
+  // r4_agt: AGT indisponível (reenvio automático, idempotente) e documento recusado já substituído pela correcção
+  { chave: 'CONTINGENCIA', rotulo: 'Em contingência', rotuloPlural: 'Em contingência', cor: 'orange', corTexto: '#d46b08' },
+  { chave: 'SUBSTITUIDO', rotulo: 'Substituído (correcção)', rotuloPlural: 'Substituídos (correcção)', cor: 'default' },
   { chave: 'COM_ERROS_LOCAIS', rotulo: 'Com erros locais', rotuloPlural: 'Com erros locais', cor: 'red', corTexto: '#cf1322' },
 ];
 
@@ -53,8 +56,8 @@ export function normalizarMensagensAgt(lista: unknown): MensagemAgt[] {
     }
     if (typeof item === 'object') {
       const o = item as Record<string, unknown>;
-      const codigo = String(o.codigo ?? o.idError ?? o.code ?? '').trim() || null;
-      const mensagem = String(o.mensagem ?? o.descriptionError ?? o.message ?? o.descricao ?? '').trim() || JSON.stringify(o);
+      const codigo = String(o.codigo ?? o.idError ?? o.errorCode ?? o.code ?? '').trim() || null;
+      const mensagem = String(o.mensagem ?? o.descriptionError ?? o.errorDescription ?? o.message ?? o.descricao ?? '').trim() || JSON.stringify(o);
       const documento = (o.documentNo ?? o.documento ?? null) as string | null;
       saida.push({ codigo, mensagem, documento });
     }
@@ -69,9 +72,13 @@ export function orientacaoAgt(estado: EstadoAgt | null): string | null {
       return 'Corrija os dados de origem (produto, cliente, empresa ou configuração) e use «Revalidar AGT». O número, a data, o cliente e os valores não mudam; se estiverem errados, emita uma nota de crédito e um novo documento.';
     case 'INVALIDO':
     case 'REJEITADO':
-      return 'Corrija os dados de origem (produto, cliente, empresa) e use «Revalidar AGT» (um documento inválido segue como correcção). Se o erro estiver no número, na data, no cliente ou nos valores, emita uma nota de crédito e um novo documento.';
+      return 'A AGT recusou o documento. Corrija os dados de origem (produto, cliente, empresa) e use «Emitir correcção AGT»: a correcção é um documento com NOVO número, enviado como correcção (C) do recusado — a AGT não aceita o mesmo número (regra E46). O documento recusado fica anulado e ligado ao novo.';
     case 'ERRO':
-      return 'O envio falhou antes de a AGT responder (rede, credenciais ou serviço). O documento volta a ser enviado no próximo envio.';
+      return 'O envio falhou antes de a AGT responder (credenciais, chaves ou serviço). O documento volta a ser enviado automaticamente.';
+    case 'CONTINGENCIA':
+      return 'A AGT não respondeu (sem ligação ou serviço indisponível). O documento é reenviado automaticamente com o mesmo identificador de envio, sem duplicados. Comunique-o em menos de 24 h para não ficar «válido com penalização».';
+    case 'SUBSTITUIDO':
+      return 'Documento recusado pela AGT e substituído por um documento de correcção.';
     case 'ENVIADO':
       return 'A AGT recebeu o documento e está a validá-lo; o estado é consultado automaticamente.';
     default:

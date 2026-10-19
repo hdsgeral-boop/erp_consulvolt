@@ -234,11 +234,24 @@ final class SistemaCopiasMigracaoTest extends TestCase
             $this->ids['p2'] = Produto::create(['codigo' => 'P2', 'nome' => 'B', 'preco_unitario' => 250, 'codigo_conta' => '611'])->id;
             $this->ids['f'] = Terceiro::create(['nome' => 'Fornecedor', 'nif' => '5000000041', 'tipo' => Terceiro::FORNECEDOR, 'codigo_conta' => '3211'])->id;
         });
-        $this->postJson('/api/sistema/migracao/edicao-massa/produtos', ['ids' => [$this->ids['p1'], $this->ids['p2']], 'contas' => ['codigo_conta' => '621'],
-            'dados' => ['taxa_imposto' => 7], 'preco' => ['modo' => 'PERCENTAGEM', 'valor' => 10]], $this->s)->assertOk()->assertJsonPath('dados.alterados', 2);
+        $categoria = DB::table('categorias_produtos')->insertGetId(['empresa_id' => $this->empresa->id, 'nome' => 'Serviços', 'codigo_conta' => '611']);
+        $this->postJson('/api/sistema/migracao/edicao-massa/produtos', ['ids' => [$this->ids['p1'], $this->ids['p2']], 'dados' => ['taxa_imposto' => 7,
+            'categoria_produto_id' => $categoria], 'preco' => ['modo' => 'PERCENTAGEM', 'valor' => 10]], $this->s)->assertOk()->assertJsonPath('dados.alterados', 2);
         $this->assertSame(['1100.00', '275.00'], DB::table('produtos')->orderBy('codigo')->pluck('preco_unitario')->map(fn ($v) => (string) $v)->all());
-        $this->assertSame(['621', '621'], DB::table('produtos')->pluck('codigo_conta')->all());
-        $this->postJson('/api/sistema/migracao/edicao-massa/produtos', ['ids' => [$this->ids['p1']], 'contas' => ['conta_custo' => '9999']], $this->s)
+        $this->assertSame([$categoria, $categoria], DB::table('produtos')->pluck('categoria_produto_id')->map(fn ($v) => (int) $v)->all());
+        // ronda 3: as contas não se gravam no produto (a categoria sobrepõe-se) — mensagem clara, nada muda
+        $r = $this->postJson('/api/sistema/migracao/edicao-massa/produtos', ['ids' => [$this->ids['p1']], 'contas' => ['codigo_conta' => '621'], 'dados' => ['taxa_imposto' => 14]], $this->s)
+            ->assertStatus(422)->assertJsonPath('codigo', 'CONTAS_NA_CATEGORIA');
+        $this->assertStringContainsString('categoria', $r->json('mensagem'));
+        $this->assertSame(['611', '611'], DB::table('produtos')->pluck('codigo_conta')->all());
+        // contas da categoria: só com vendas_categorias_contas; os ids podem ficar vazios
+        $corpo = ['categoria_contas' => ['categoria_produto_id' => $categoria, 'contas' => ['codigo_conta' => '621']]];
+        $this->postJson('/api/sistema/migracao/edicao-massa/produtos', $corpo, $this->s)->assertForbidden();
+        $comContas = $this->sessao(['vendas_produtos_gerir', 'vendas_categorias_contas']);
+        $this->postJson('/api/sistema/migracao/edicao-massa/produtos', $corpo, $comContas)->assertOk()->assertJsonPath('dados.categoria.produtos', 2)
+            ->assertJsonPath('mensagem', 'Contas da categoria «Serviços» actualizadas: aplicam-se aos 2 produto(s) da categoria.');
+        $this->assertSame('621', DB::table('categorias_produtos')->where('id', $categoria)->value('codigo_conta'));
+        $this->postJson('/api/sistema/migracao/edicao-massa/produtos', ['categoria_contas' => ['categoria_produto_id' => $categoria, 'contas' => ['conta_custo' => '9999']]], $comContas)
             ->assertStatus(422)->assertJsonPath('codigo', 'CONTA_INEXISTENTE');
         $this->postJson('/api/sistema/migracao/edicao-massa/fornecedores', ['ids' => [$this->ids['f']], 'contas' => ['codigo_conta' => '__RETIRAR__']], $this->s)
             ->assertStatus(422)->assertJsonPath('codigo', 'CONTA_OBRIGATORIA');

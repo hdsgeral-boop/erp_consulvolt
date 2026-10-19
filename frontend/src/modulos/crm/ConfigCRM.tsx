@@ -11,6 +11,7 @@ import { marcadoresDesconhecidos, validarFunil, type Etapa, type Funil, type Mod
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 const TIPOS_ETAPA = [{ value: 'ABERTA', label: 'Em aberto' }, { value: 'GANHA', label: 'Ganha' }, { value: 'PERDIDA', label: 'Perdida' }];
 
 /** Subtítulo e separadores do antigo (renderCrmConfig, crm_ui_gestao.js:394-395), pela mesma ordem. */
@@ -45,11 +46,12 @@ export default function ConfigCRM() {
   const { pode } = useSessao();
   const gerir = pode('crm_configurar');
   const filhos = { pipelines: <Funis gerir={gerir} />, modelos: <Modelos gerir={gerir} />, sequencias: <Sequencias gerir={gerir} />, listas: <Definicoes gerir={gerir} /> };
+  const [sep, setSep] = useSeparadorUrl(SEPARADORES_CONFIG_CRM.map((x) => x.key));
   return (
     <>
       <CabecalhoPagina titulo="Configuração do CRM" subtitulo={SUBTITULO_CONFIG_CRM} />
       {!gerir && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="Só consulta: alterar a configuração exige a permissão de configurar o CRM." />}
-      <Tabs items={SEPARADORES_CONFIG_CRM.map((x) => ({ key: x.key, label: x.label, children: filhos[x.key] }))} />
+      <Tabs activeKey={sep} onChange={setSep} items={SEPARADORES_CONFIG_CRM.map((x) => ({ key: x.key, label: x.label, children: filhos[x.key] }))} />
     </>
   );
 }

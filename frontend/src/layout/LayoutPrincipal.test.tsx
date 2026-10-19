@@ -75,12 +75,14 @@ afterEach(() => {
 describe('LayoutPrincipal — portátil (1366 px)', () => {
   beforeEach(() => simularLargura(1366));
 
-  it('mostra o menu lateral com o nome da empresa, iniciais, «Trocar empresa» e a estrutura do legado com ícones', () => {
+  it('mostra o menu lateral com o nome do sistema, iniciais, «Trocar empresa» e a estrutura do legado com ícones', () => {
     const { container } = montar();
     const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    const cabecalho = container.querySelector('.ant-layout-header') as HTMLElement;
     expect(lateral).not.toBeNull();
-    expect(within(lateral).getByText(EMPRESA)).toBeInTheDocument();
-    expect(within(lateral).getByText('DE')).toBeInTheDocument();
+    expect(within(lateral).getByText('CONSULVOLT ERP')).toBeInTheDocument();
+    expect(within(lateral).getByText('CE')).toBeInTheDocument();
+    expect(within(cabecalho).getByText(EMPRESA)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Trocar empresa' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Empresa activa' })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Empresa activa' })).toBeNull();
@@ -106,19 +108,18 @@ describe('LayoutPrincipal — portátil (1366 px)', () => {
     expect(largarEmpresaMock).toHaveBeenCalledTimes(1);
   });
 
-  it('usa o logótipo quando a empresa o tem', () => {
-    logotipo = 'data:image/png;base64,iVBORw0KGgo=';
+  it('usa o logótipo e nome do sistema no menu lateral', () => {
     montar();
-    expect(screen.getByRole('img', { name: `Logótipo de ${EMPRESA}` })).toHaveAttribute('src', logotipo);
+    expect(screen.getByText('CONSULVOLT ERP')).toBeInTheDocument();
   });
 
-  it('recolher o menu deixa só o logótipo/iniciais', () => {
+  it('recolher o menu deixa só o logótipo/iniciais do sistema', () => {
     const { container } = montar();
     fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
     const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(lateral).toHaveClass('ant-layout-sider-collapsed');
     expect(within(lateral).queryByText(EMPRESA)).toBeNull();
-    expect(within(lateral).getByText('DE')).toBeInTheDocument();
+    expect(within(lateral).getByText('CE')).toBeInTheDocument();
   });
 });
 

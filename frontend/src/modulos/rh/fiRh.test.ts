@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ContratoTrabalho } from './api';
 import { contratoEmVigor } from './colaboradores/fichaIndividual';
 import { contratoAssinaturaHtml, horasSemana, listaResponsabilidades, pctSubsidio, periodoExperimental } from './contratos/contratoAssinatura';
-import { explicarCalculo, valorProdutividade } from './produtividade/regrasProdutividade';
+import { parametrosSimulacao, textoExplicacao } from './produtividade/regrasProdutividade';
 
 /** Fecho da Versão Actual — RH (#7, #8, #11): minuta pela Lei 12/23, base «prémio» e contrato vigente. Dados fictícios. */
 const contrato = (x: Partial<ContratoTrabalho> = {}): ContratoTrabalho => ({
@@ -52,21 +52,18 @@ describe('#8 — minuta do contrato (Lei n.º 12/23)', () => {
   });
 });
 
-describe('#11 — produtividade com base «prémio»', () => {
-  const objectivo = { metrica: 'OBJECTIVO', base_calculo: 'PREMIO' as const, unidade: '%', minimo: 80, maximo: 120 };
-  it('prémio × % considerada ÷ 100, com mínimo e tecto', () => {
-    expect(valorProdutividade(objectivo, 95, 50000)).toBe(47500);
-    expect(valorProdutividade(objectivo, 130, 50000)).toBe(60000);
-    expect(valorProdutividade(objectivo, 70, 50000)).toBe(0);
-    // a base «prémio» só vale no OBJECTIVO: noutra métrica é quantidade × preço
-    expect(valorProdutividade({ ...objectivo, metrica: 'QUANTIDADE' }, 95, 10)).toBe(950);
+describe('#11 — produtividade: a conta é a do servidor', () => {
+  it('pede ao servidor a simulação com os valores do formulário (prémio só no objectivo é regra do servidor)', () => {
+    expect(parametrosSimulacao({ metrica: 'OBJECTIVO', base_calculo: 'PREMIO', preco_unitario: 50000, unidade: '%', minimo: 80, maximo: 120 }))
+      .toEqual({ metrica: 'OBJECTIVO', base_calculo: 'PREMIO', preco: '50000', unidade: '%', minimo: '80', maximo: '120' });
+    // sem preço vai 0 (o servidor devolve a fórmula e os rótulos); vazios e negativos não se enviam
+    expect(parametrosSimulacao({ metrica: null, base_calculo: null, preco_unitario: null, minimo: '', maximo: -1 }))
+      .toEqual({ metrica: 'QUANTIDADE', base_calculo: 'UNITARIO', preco: '0' });
   });
-  it('explica a conta por extenso', () => {
-    const e = explicarCalculo(objectivo, 130, 50000);
-    expect(e.formula).toContain('prémio a 100%');
-    expect(e.conta).toContain('(120 ÷ 100)');
-    expect(e.cortes).toHaveLength(1);
-    expect(explicarCalculo({ metrica: 'QUANTIDADE', base_calculo: null, unidade: 'peças', minimo: null, maximo: null }, 40, 2000).conta).toContain('40 peças × 2');
+  it('formata a explicação devolvida, sem a recalcular', () => {
+    expect(textoExplicacao({ conta: '50 000 Kz × (120 ÷ 100) = 60 000,00 Kz', cortes: ['acima do tecto de 120 % — conta 120'] }))
+      .toBe('50 000 Kz × (120 ÷ 100) = 60 000,00 Kz (acima do tecto de 120 % — conta 120)');
+    expect(textoExplicacao({ conta: '40 peças × 2 000 Kz = 80 000,00 Kz', cortes: [] })).toBe('40 peças × 2 000 Kz = 80 000,00 Kz');
   });
 });
 

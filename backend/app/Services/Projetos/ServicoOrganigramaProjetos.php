@@ -305,6 +305,54 @@ final class ServicoOrganigramaProjetos
         });
     }
 
+    /**
+     * Mover UM membro para outra posição ou para «sem posição» (arrastar e largar do legado: ligarArrasto → projOrgAlocar,
+     * projectos_organigrama.js:354-367 e 923-942). Regras de `alocar` (só membros e posições deste projecto, vagas acima do limite
+     * só com confirmação, sair da posição retira a responsabilidade) e, para o «Desfazer» imediato:
+     *   - `$origemEsperada` (quando indicada) tem de ser a posição actual — se outra pessoa já o moveu, recusa (MEMBRO_MOVIDO, 409);
+     *   - devolve de onde saiu e se era o responsável; `$reporResponsavel` volta a pô-lo como responsável do destino se este não tiver.
+     *
+     * @return array{membro_id: int, de: ?int, para: ?int, era_responsavel: bool, alterado: bool}
+     */
+    public function mover(Projeto $p, int $membroId, ?int $destino, bool $comOrigem, ?int $origemEsperada, bool $confirmarExcesso = false, bool $reporResponsavel = false): array
+    {
+        return DB::transaction(function () use ($p, $membroId, $destino, $comOrigem, $origemEsperada, $confirmarExcesso, $reporResponsavel) {
+            $m = MembroEquipaProjeto::query()->whereKey($membroId)
+                ->whereIn('equipa_projeto_id', DB::table('equipas_projeto')->where('projeto_id', $p->id)->select('id'))->lockForUpdate()->first()
+                ?? throw new ErroNegocio('O membro não pertence à equipa do projecto.', 'MEMBRO_INEXISTENTE', 422);
+            $de = $m->no_organigrama_projeto_id ? (int) $m->no_organigrama_projeto_id : null;
+            if ($comOrigem && $de !== $origemEsperada) {
+                throw new ErroNegocio('O membro foi movido entretanto por outra pessoa: actualize o organigrama.', 'MEMBRO_MOVIDO', 409, ['posicao_actual' => $de]);
+            }
+            $n = null;
+            if ($destino) {
+                $n = NoOrganigramaProjeto::query()->where('projeto_id', $p->id)->lockForUpdate()->find($destino) ?? throw new ErroNegocio('Posição inexistente.', 'POSICAO_INEXISTENTE', 422);
+            }
+            if ($de === $destino) {
+                return ['membro_id' => $m->id, 'de' => $de, 'para' => $destino, 'era_responsavel' => false, 'alterado' => false];
+            }
+            if ($n && (int) $n->vagas) {
+                $ficaria = MembroEquipaProjeto::query()->where('no_organigrama_projeto_id', $n->id)->whereKeyNot($m->id)->count() + 1;
+                if ($ficaria > (int) $n->vagas && ! $confirmarExcesso) {
+                    throw new ErroNegocio("A posição «{$n->titulo}» tem {$n->vagas} vaga(s) e ficaria com {$ficaria} membro(s). Confirme para alocar.",
+                        'VAGAS_EXCEDIDAS', 422, ['vagas' => (int) $n->vagas, 'ficaria_com' => $ficaria]);
+                }
+            }
+            $eraResponsavel = false;
+            if ($de) {
+                $eraResponsavel = NoOrganigramaProjeto::query()->whereKey($de)->where('membro_responsavel_id', $m->id)->update(['membro_responsavel_id' => null]) > 0;
+            }
+            $m->update(['no_organigrama_projeto_id' => $destino]);
+            if ($n && $reporResponsavel && ! $n->membro_responsavel_id) {
+                $n->update(['membro_responsavel_id' => $m->id]);
+            }
+            $titulo = fn (?int $id) => $id ? (string) NoOrganigramaProjeto::query()->whereKey($id)->value('titulo') : 'sem posição';
+            $this->projetos->registar($p->id, 'Mover membro', "#{$m->id}: {$titulo($de)} → {$titulo($destino)}");
+
+            return ['membro_id' => $m->id, 'de' => $de, 'para' => $destino, 'era_responsavel' => $eraResponsavel, 'alterado' => true];
+        });
+    }
+
     /** Arrumar uma posição (projOrgArrumar): TRAS | FRENTE | SUBIR | DESCER | APOIO. */
     public function arrumar(Projeto $p, NoOrganigramaProjeto $n, string $acao): NoOrganigramaProjeto
     {

@@ -26,7 +26,8 @@ describe('BlocoAgt (A-04)', () => {
     expect(screen.getByText(/NIF do cliente inválido/)).toBeInTheDocument();
     expect(screen.getByText('W01')).toBeInTheDocument();
     expect(screen.getByText('Correcção (C)')).toBeInTheDocument();
-    expect(screen.getByText(/Revalidar AGT/)).toBeInTheDocument();
+    // r4_agt: a orientação do INVALIDO passou a pedir a correcção com novo número (E46)
+    expect(screen.getByText(/Emitir correcção AGT/)).toBeInTheDocument();
   });
 
   it('não aparece fora do regime de facturação electrónica', () => {

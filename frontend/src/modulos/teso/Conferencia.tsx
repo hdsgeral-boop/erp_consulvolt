@@ -15,6 +15,7 @@ import { DENOMINACOES, type ConferenciaCaixa } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { accoesConferencia, lerDenominacoes, totalContado } from './regras';
 import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Auto de conferência de caixa impresso: contagem por denominação, totais, diferença, justificação e assinaturas. */
 export function pedidoConferencia(c: ConferenciaCaixa) {
@@ -82,7 +83,7 @@ export default function Conferencia() {
   const cliente = useQueryClient();
   const { token } = theme.useToken();
   const lista = useQuery({ queryKey: ['teso', 'conferencias'], queryFn: () => obter<ConferenciaCaixa[]>('/tesouraria/conferencias') });
-  const [separador, setSeparador] = useState<'nova' | 'historico'>(pode('teso_conf_registar') ? 'nova' : 'historico');
+  const [separador, setSeparador] = useSeparadorUrl<'nova' | 'historico'>(pode('teso_conf_registar') ? ['nova', 'historico'] : ['historico']);
   const [edicao, setEdicao] = useState<ConferenciaCaixa | null>(null);
   const [finalizar, setFinalizar] = useState<ConferenciaCaixa | null>(null);
   const [regularizar, setRegularizar] = useState(false);
@@ -322,7 +323,7 @@ export default function Conferencia() {
     <>
       <Tabs
         activeKey={separador}
-        onChange={(k) => setSeparador(k as 'nova' | 'historico')}
+        onChange={setSeparador}
         items={[
           ...(pode('teso_conf_registar') ? [{ key: 'nova', label: <><IconeFa nome="plus-circle" /> {edicao ? 'Editar Conferência' : 'Nova Conferência'}</>, children: formulario }] : []),
           { key: 'historico', label: <><IconeFa nome="history" /> Histórico <Tag color="#7c3aed" style={{ marginLeft: 4 }}>{lista.data?.length ?? 0}</Tag></>, children: historico },

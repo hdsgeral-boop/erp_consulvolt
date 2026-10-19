@@ -18,6 +18,7 @@ import { TabelaComModos } from '@/componentes/vistas';
 import { useNavigate } from 'react-router-dom';
 import { IconeFa } from '@/componentes/fluxos';
 import { Comunicado, IndicadoresCiclo, Participacao, Reunioes, RotuloSeparador, type Acompanhamento360 } from './avaliacao360/Acompanhamento';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 interface Resultado360 {
   componentes?: Record<string, { media: number | null; n: number; peso: number }>;
@@ -47,6 +48,7 @@ export default function AvaliacaoCiclo() {
   const acomp = useQuery({ queryKey: ['rh', 'avaliacao', 'acompanhamento', id], queryFn: () => obter<Acompanhamento360>(`/rh/paridade/avaliacao/ciclos/${id}/acompanhamento`), enabled: id !== undefined });
   useAvisarErro(acomp.error);
   const k = acomp.data?.contadores;
+  const [sep, setSep] = useSeparadorUrl(['participacao', 'avaliacoes', 'reunioes', 'bonificacoes', 'comunicado', 'participantes']);
 
   return (
     <>
@@ -67,7 +69,7 @@ export default function AvaliacaoCiclo() {
             </Descriptions>
           </Card>
           {acomp.data && <div style={{ marginBottom: 16 }}><IndicadoresCiclo dados={acomp.data} /></div>}
-          <Tabs type="card" items={[
+          <Tabs type="card" activeKey={sep} onChange={setSep} items={[
             { key: 'participacao', label: <RotuloSeparador icone="users" texto="Participação" />, children: <Participacao dados={acomp.data} carregando={acomp.isFetching} /> },
             { key: 'avaliacoes', label: <RotuloSeparador icone="balance-scale" texto="Conhecimento e contestações" contador={k?.contestacoes} />, children: <Avaliacoes ciclo={ciclo} /> },
             { key: 'reunioes', label: <RotuloSeparador icone="comments" texto="Reuniões de acompanhamento" contador={k?.reunioes} />, children: <Reunioes dados={acomp.data} carregando={acomp.isFetching} /> },

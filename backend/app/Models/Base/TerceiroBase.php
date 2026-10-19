@@ -157,9 +157,14 @@ abstract class TerceiroBase extends ModeloBase
         return $this->hasMany(ReclamacaoLavandaria::class, 'cliente_id');
     }
 
-    public function ativosImobilizados(): HasMany
+    public function ativosImobilizadosPorFornecedor(): HasMany
     {
         return $this->hasMany(AtivoImobilizado::class, 'fornecedor_id');
+    }
+
+    public function ativosImobilizadosPorProprietarioTerceiro(): HasMany
+    {
+        return $this->hasMany(AtivoImobilizado::class, 'proprietario_terceiro_id');
     }
 
     public function abatesVendasAtivos(): HasMany

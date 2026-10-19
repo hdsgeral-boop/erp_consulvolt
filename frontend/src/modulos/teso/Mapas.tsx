@@ -16,6 +16,7 @@ import type { Disponibilidades, ExtratoConta } from './api';
 import { SeletorContaFinanceira } from './comum';
 import { extratoConfere } from './regras';
 import { scrollTabela } from '@/componentes/responsivo';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 type LinhaDisponivel = Disponibilidades['contas'][number];
 type MovimentoExtrato = ExtratoConta['movimentos'][number];
@@ -59,9 +60,9 @@ export default function Mapas() {
   const [data, setData] = useState<Dayjs>(dayjs());
   const [periodo, setPeriodo] = useState<[Dayjs, Dayjs]>([dayjs().startOf('month'), dayjs()]);
   const [conta, setConta] = useState<string>();
-  const [separador, setSeparador] = useState('saldos');
   const { token } = theme.useToken();
   const { pode } = useSessao();
+  const [separador, setSeparador] = useSeparadorUrl(pode('teso_gestao_pagamentos_view') ? ['saldos', 'extrato', 'pendentes'] : ['saldos', 'extrato']);
   const p = { data_inicio: dataApi(periodo[0]), data_fim: dataApi(periodo[1]) };
 
   const saldos = useQuery({

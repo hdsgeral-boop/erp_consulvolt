@@ -91,4 +91,36 @@ final class RegrasNumeracaoAgt
 
         throw new ErroNegocio("Não foi possível gerar um código livre para a série {$tipo} {$ano}. Crie a série em Vendas › Séries.", 'SERIE_SEM_CODIGO', 422);
     }
+
+    /**
+     * N.º no formato SAF-T de um documento INTEGRADO de outro sistema cujo n.º original não cumpre o padrão
+     * (ex.: «FR-POS/T1/2026/5», «FT-LAV/WCZL/2026/3», «GR LOG 1/5»). O n.º original NUNCA é alterado: este é só a
+     * representação exigida pelo XSD (InvoiceNo `[^ ]+ [^/^ ]+/[0-9]+`), guardada à parte (vendas.numero_documento_saft) e
+     * listada no relatório de validação com o original ao lado. Regra: «<tipo> <restante sem o prefixo do tipo, com os
+     * separadores trocados por «-»>/<último n.º>». Os códigos de série nativos só têm letras e algarismos, por isso um
+     * n.º derivado (com «-») nunca colide com um documento emitido neste sistema; sem «-» acrescenta-se «-I».
+     */
+    public static function numeroSaftImportado(string $tipo, string $original): ?string
+    {
+        $t = trim($original);
+        if (self::numeroValido($t)) {
+            return null;   // já cumpre o formato: exporta-se tal como está
+        }
+        if (! preg_match('/^(.*?)[\s\/\-_.]*(\d+)\s*$/u', $t, $m)) {
+            return null;
+        }
+        [$resto, $n] = [$m[1], ltrim($m[2], '0') ?: '0'];
+        if (stripos($resto, $tipo) === 0) {
+            $resto = substr($resto, strlen($tipo));
+        }
+        $serie = trim((string) preg_replace('/[^A-Za-z0-9]+/', '-', $resto), '-');
+        $serie = $serie === '' ? 'I' : (str_contains($serie, '-') ? $serie : "{$serie}-I");
+        $numero = "{$tipo} {$serie}/{$n}";
+        if (strlen($numero) > self::MAX_NUMERO) {
+            $serie = substr($serie, 0, self::MAX_NUMERO - strlen($tipo) - strlen($n) - 2);
+            $numero = "{$tipo} {$serie}/{$n}";
+        }
+
+        return self::numeroValido($numero) ? $numero : null;
+    }
 }

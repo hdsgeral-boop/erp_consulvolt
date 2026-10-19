@@ -21,7 +21,6 @@ Route::prefix('pos/hotelaria')->name('pos.hotelaria.')->controller(HotelariaCont
 });
 
 Route::prefix('pos/armazem')->name('pos.armazem.')->controller(POSArmazemController::class)->group(function () {
-    Route::get('stock', 'stock')->name('stock');
     Route::get('vendas', 'vendas')->name('vendas.index');
     Route::post('vendas', 'vender')->name('vendas.store');
     Route::get('vendas/{guia}', 'venda')->whereNumber('guia')->name('vendas.show');

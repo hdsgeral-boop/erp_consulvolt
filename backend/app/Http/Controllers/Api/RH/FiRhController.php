@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
@@ -59,15 +60,39 @@ final class FiRhController extends Controller
             'Métricas e bases de cálculo da produtividade.');
     }
 
-    /** GET /rh/produtividade/explicar?item_id=&quantidade=&preco= — a conta por extenso de um caso (pré-visualização no item). */
+    /**
+     * GET /rh/produtividade/explicar?item_id=&quantidade=&preco=&metrica=&base_calculo=&unidade=&minimo=&maximo= — a conta por extenso
+     * de um caso, pelo mesmo motor que calcula os registos. Sem `item_id` (item novo) ou com valores do formulário por gravar, o
+     * item é simulado com esses valores (pré-visualização no formulário do item); `quantidade` omitida = a de exemplo da métrica.
+     */
     public function explicar(Request $r): JsonResponse
     {
         $this->exigir('rh_produtividade_view', 'rh_prod_config');
-        $d = $r->validate(['item_id' => ['required', 'integer'], 'quantidade' => ['required', 'numeric', 'min:0', 'max:999999999'],
-            'preco' => ['nullable', 'numeric', 'min:0', 'max:99999999999']]);
-        $item = ItemProdutividadeRH::query()->findOrFail($d['item_id']);
+        $empresa = app(ContextoEmpresa::class)->obrigatorio();
+        $d = $r->validate([
+            'item_id' => ['nullable', 'integer', Rule::exists('itens_produtividade_rh', 'id')->where('empresa_id', $empresa)],
+            'quantidade' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'preco' => ['nullable', 'numeric', 'min:0', 'max:99999999999'],
+            'metrica' => ['nullable', Rule::in(ServicoProdutividade::METRICAS)],
+            'base_calculo' => ['nullable', Rule::in(ServicoProdutividade::BASES)],
+            'unidade' => ['nullable', 'string', 'max:10'],
+            'minimo' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+            'maximo' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
+        ]);
+        $gravado = isset($d['item_id']) ? ItemProdutividadeRH::query()->findOrFail($d['item_id']) : null;
+        $simular = array_intersect_key($d, array_flip(['metrica', 'base_calculo', 'unidade', 'minimo', 'maximo', 'preco']));
+        if (! $gravado && ! isset($d['metrica'])) {
+            throw ValidationException::withMessages(['metrica' => 'Indique o item ou a métrica.']);
+        }
+        if (! $gravado && ! isset($d['preco'])) {
+            throw ValidationException::withMessages(['preco' => 'Indique o preço.']);
+        }
+        // só os campos enviados alteram o item gravado (os ausentes mantêm-se); num item novo os ausentes ficam vazios
+        $item = $gravado && ! $simular ? $gravado : ServicoProdutividade::itemSimulado($gravado, $simular + ($gravado ? [] : ['minimo' => null, 'maximo' => null, 'unidade' => null]));
+        $metrica = ServicoProdutividade::metricaDe($item->metrica);
+        $quantidade = (float) ($d['quantidade'] ?? ServicoProdutividade::DESCRICAO_METRICAS[$metrica]['quantidade_exemplo']);
 
-        return RespostaApi::sucesso(ServicoProdutividade::explicar($item, (float) $d['quantidade'], (float) ($d['preco'] ?? $item->preco_unitario)), 'Explicação do cálculo.');
+        return RespostaApi::sucesso(ServicoProdutividade::explicar($item, $quantidade, (float) ($d['preco'] ?? $item->preco_unitario)), 'Explicação do cálculo.');
     }
 
     /**

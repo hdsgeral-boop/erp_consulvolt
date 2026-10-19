@@ -167,21 +167,6 @@ final class ProjetoController extends Controller
         return RespostaApi::sucesso($this->analitico->extracto($f['projeto_id'] ?? null, $f['inicio'] ?? null, $f['fim'] ?? null), 'Extracto analítico de projectos.');
     }
 
-    public function fluxo(): JsonResponse
-    {
-        $this->exigir(...self::LER);
-
-        return RespostaApi::sucesso($this->analitico->fluxo(), 'Fluxo dos projectos.');
-    }
-
-    public function rentabilidade(Request $r): JsonResponse
-    {
-        $this->exigir('projectos_extracto_view');
-        $f = $r->validate(['inicio' => ['required', 'date'], 'fim' => ['required', 'date', 'after_or_equal:inicio']]);
-
-        return RespostaApi::sucesso($this->analitico->rentabilidade($f['inicio'], $f['fim']), 'Rentabilidade dos projectos.');
-    }
-
     public function configuracao(): JsonResponse
     {
         $this->exigir(...self::LER);

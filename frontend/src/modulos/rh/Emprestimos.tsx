@@ -17,6 +17,7 @@ import { useAccaoRh, useAvisarErro, useColaboradores, useInfotipos } from './com
 import type { ConfiguracaoEmprestimos, Emprestimo } from './faseB/tipos';
 import { TabelaPlano } from './faseB/TabelaPlano';
 import { SeletorConta } from '@/modulos/contab/comum/Seletores';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /**
  * RH › Empréstimos (ecrã rh_emprestimos; Versão Actual: emprestimos_ui.js, separadores Lista e Configurações).
@@ -32,8 +33,8 @@ export const ESTADOS_EMPRESTIMO = [
 
 export default function Emprestimos() {
   const { pode } = useSessao();
-  const [separador, setSeparador] = useState('lista');
   const comConfig = pode('rh_emp_config') || pode('rh_emprestimos_view');
+  const [separador, setSeparador] = useSeparadorUrl(comConfig ? ['lista', 'config'] : ['lista']);
   return (
     <>
       <CabecalhoPagina titulo="Empréstimos a Colaboradores" subtitulo="Pedidos do portal, plano de amortização (prestação constante), conta corrente e desconto no salário" />

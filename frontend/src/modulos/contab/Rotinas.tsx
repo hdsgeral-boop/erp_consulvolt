@@ -18,6 +18,7 @@ import { somar } from '@/utilitarios/decimal';
 import { seccoesRotinas } from './comum/rotinas';
 import { ActualizacaoMassa } from './rotinas/ActualizacaoMassa';
 import { SeletorAux, SeletorConta, SeletorDiario } from './comum/Seletores';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 interface Obra {
   id: number;
@@ -67,16 +68,16 @@ export default function Rotinas({ separadorInicial }: { separadorInicial?: strin
   const exec = pode('contab_rotinas_exec');
   const podeRotinas = pode('contab_rotinas_view', 'contab_rotinas_exec', 'contab_rotinas_anular');
   const podeSelo = pode('imposto_selo_view', 'selo_lancar');
-  const [activa, setActiva] = useState(() => {
-    let guardada: string | null = null;
+  // separador: o do endereço (?sep=); senão o da rota (imposto_selo → «selo»), o último usado (localStorage) ou o primeiro
+  const [guardada] = useState(() => {
     try {
-      guardada = localStorage.getItem('rotinas.seccao');
+      return localStorage.getItem('rotinas.seccao');
     } catch {
-      guardada = null;
+      return null;
     }
-    return seccoesRotinas(podeRotinas, podeSelo, separadorInicial, guardada).activa ?? 'capitalizacao';
   });
-  const { seccoes } = seccoesRotinas(podeRotinas, podeSelo);
+  const { seccoes, activa: preferida } = seccoesRotinas(podeRotinas, podeSelo, separadorInicial, guardada);
+  const [activa, setActiva] = useSeparadorUrl(seccoes.map((s) => s.chave), preferida ?? undefined);
   const mudar = (k: string) => {
     setActiva(k);
     try {

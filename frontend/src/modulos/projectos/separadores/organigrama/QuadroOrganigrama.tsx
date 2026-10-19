@@ -6,8 +6,10 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as KE, type PointerEvent as PE } from 'react';
 import { BotoesExportar } from '@/componentes/impressao';
 import type { Membro, Posicao } from '../../comum/tipos';
-import { antepassados, cortar, descendentes, disporArvore, escalaAjustada, filhosPorPai, iniciais, MEDIDAS, type NoEntrada, type Orientacao } from './layout';
+import { antepassados, descendentes, disporArvore, escalaAjustada, filhosPorPai, iniciais, MEDIDAS, type NoEntrada, type Orientacao } from './layout';
 import { CORES_HEX, descarregarPng, organigramaSvg, type CartaoSvg } from './svg';
+import { CARTAO, medidorTexto, medirCartao, type CartaoMedido, type TextoAjustado } from './texto';
+import { MIME_MEMBRO, type Destino, type PrevisaoDestino } from './moverMembro';
 
 /** Membro com os dados dos cartões (contactos e cargo só chegam a quem pode vê-los — ver EquipaController@organigrama). */
 export type MembroCartao = Membro & { telefone?: string | null; email?: string | null; cargo?: string | null };
@@ -32,6 +34,21 @@ export function textoVagas(ocupadas: number, vagas: number | null | undefined): 
   return { texto: `${ocupadas}/${v} vaga(s)`, excesso: ocupadas > v, falta: ocupadas < v };
 }
 
+/**
+ * Ronda 4 — arrastar membros entre posições (legado: ligarArrasto, projectos_organigrama.js:354-367). O estado do arrasto vive
+ * no separador (também se larga na «Equipa sem posição»); o quadro só liga os cartões e mostra a pré-visualização do destino.
+ */
+export interface ArrastoMembros {
+  activo: { membroId: number; de: Destino } | null;
+  iniciar: (membroId: number, de: Destino) => void;
+  terminar: () => void;
+  largar: (para: Destino) => void;
+  previsao: (para: Destino) => PrevisaoDestino | null;
+}
+
+/** O arrasto em curso é de um membro (e não de um ficheiro ou texto)? */
+export const eArrastoMembro = (e: { dataTransfer: DataTransfer | null }): boolean => !!e.dataTransfer && Array.from(e.dataTransfer.types ?? []).includes(MIME_MEMBRO);
+
 interface Props {
   posicoes: PosicaoQuadro[];
   titulo: string;
@@ -40,6 +57,8 @@ interface Props {
   /** Acções de gestão da posição (menu «⋯» do cartão); sem elas o cartão é só de consulta. */
   accoes?: (p: PosicaoQuadro) => MenuProps['items'];
   aoAccao?: (p: PosicaoQuadro, chave: string) => void;
+  /** Arrastar membros entre posições (só para quem gere o projecto). */
+  arrasto?: ArrastoMembros;
 }
 
 /**
@@ -49,7 +68,7 @@ interface Props {
  * impressão/PDF e PNG. Navegação por teclado nos cartões: ↑ superior, ↓ primeira subposição, ← recolher, → expandir,
  * Enter detalhe.
  */
-export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao }: Props) {
+export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao, arrasto }: Props) {
   const { token } = theme.useToken();
   const [orientacao, setOrientacao] = useState<Orientacao>(lerOrientacao);
   const [recolhidos, setRecolhidos] = useState<Set<number>>(new Set());
@@ -57,14 +76,26 @@ export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao }
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [realce, setRealce] = useState<number | null>(null);
   const [cheio, setCheio] = useState(false);
+  /** Posição sobre a qual se está a arrastar um membro (pré-visualização do destino). */
+  const [alvo, setAlvo] = useState<number | null>(null);
+  useEffect(() => { if (!arrasto?.activo) setAlvo(null); }, [arrasto?.activo]);
   const area = useRef<HTMLDivElement>(null);
   const moldura = useRef<HTMLDivElement>(null);
-  const arrasto = useRef<{ x: number; y: number; px: number; py: number; moveu: boolean } | null>(null);
+  const arrastoFundo = useRef<{ x: number; y: number; px: number; py: number; moveu: boolean } | null>(null);
 
   const entradas = useMemo<NoEntrada[]>(() => posicoes.map((p) => ({ id: p.id, pai: p.no_pai_id, ordem: p.ordem, apoio: p.apoio, coluna: p.disposicao === 'COLUNA' })), [posicoes]);
   const filhos = useMemo(() => filhosPorPai(entradas), [entradas]);
   const pais = useMemo(() => new Map(entradas.map((n) => [n.id, n.pai !== null && posicoes.some((p) => p.id === n.pai) ? n.pai : null])), [entradas, posicoes]);
-  const disp = useMemo(() => disporArvore(entradas, orientacao, recolhidos), [entradas, orientacao, recolhidos]);
+  // texto completo nos cartões (sem «…»): quebra em linhas e a altura de cada cartão entra na disposição
+  const medidas = useMemo(() => {
+    const medir = medidorTexto(token.fontFamily);
+    return new Map<number, CartaoMedido>(posicoes.map((p) => [p.id, medirCartao({
+      titulo: p.titulo, area: [p.area || (p.apoio ? '' : 'Posição'), p.apoio ? 'apoio' : ''].filter(Boolean).join(' · '),
+      pessoas: ocupantes(p).map((m) => ({ nome: m.nome, cargo: m.cargo || m.papel })),
+    }, medir)]));
+  }, [posicoes, token.fontFamily]);
+  const alturas = useMemo(() => new Map([...medidas].map(([id, m]) => [id, m.altura])), [medidas]);
+  const disp = useMemo(() => disporArvore(entradas, orientacao, recolhidos, MEDIDAS, alturas), [entradas, orientacao, recolhidos, alturas]);
   const porId = useMemo(() => new Map(posicoes.map((p) => [p.id, p])), [posicoes]);
   const caminho = useMemo(() => (realce === null ? new Set<number>() : new Set([realce, ...antepassados(realce, pais)])), [realce, pais]);
 
@@ -121,17 +152,17 @@ export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao }
   // arrastar o fundo para mover
   const premir = (e: PE<HTMLDivElement>) => {
     if (e.button !== 0 || (e.target as HTMLElement).closest('[data-org-no], button, a')) return;
-    arrasto.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y, moveu: false };
+    arrastoFundo.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y, moveu: false };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const mover = (e: PE<HTMLDivElement>) => {
-    const a = arrasto.current;
+    const a = arrastoFundo.current;
     if (!a) return;
     a.moveu = true;
     setPan({ x: a.px + e.clientX - a.x, y: a.py + e.clientY - a.y });
   };
   const largar = (e: PE<HTMLDivElement>) => {
-    arrasto.current = null;
+    arrastoFundo.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
   };
   const teclaArea = (e: KE<HTMLDivElement>) => {
@@ -152,7 +183,7 @@ export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao }
     const x = n.x * zoom + pan.x;
     const y = n.y * zoom + pan.y;
     const w = MEDIDAS.largura * zoom;
-    const h = MEDIDAS.altura * zoom;
+    const h = n.altura * zoom;
     let dx = 0;
     let dy = 0;
     if (x < 8) dx = 8 - x; else if (x + w > el.clientWidth - 8) dx = el.clientWidth - 8 - x - w;
@@ -173,7 +204,7 @@ export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao }
     const os = ocupantes(p);
     const contacto = os.find((m) => m.telefone || m.email);
     return [p.id, { id: p.id, titulo: p.titulo, area: p.area, cor: p.cor, apoio: !!p.apoio, vagas: textoVagas(os.length, p.vagas).texto,
-      pessoas: os.map((m) => ({ nome: m.nome, cargo: m.cargo ?? m.papel, responsavel: m.id === p.membro_responsavel_id })),
+      pessoas: os.map((m) => ({ nome: m.nome, cargo: m.cargo || m.papel, responsavel: m.id === p.membro_responsavel_id })),
       contacto: contacto ? [contacto.telefone, contacto.email].filter(Boolean).join(' · ') : null }];
   }));
   const svg = () => organigramaSvg(disp, cartoesSvg());
@@ -211,7 +242,7 @@ export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao }
       <div ref={area} role="tree" aria-label={`${titulo}. Arraste o fundo para mover; Ctrl + roda ou + e − para o zoom; 0 ajusta ao ecrã.`} tabIndex={0}
         onKeyDown={teclaArea} onPointerDown={premir} onPointerMove={mover} onPointerUp={largar} onPointerCancel={largar}
         style={{ position: 'relative', overflow: 'hidden', height: cheio ? 'calc(100vh - 80px)' : 'min(72vh, 760px)', minHeight: 320, borderRadius: token.borderRadiusLG,
-          border: `1px solid ${token.colorBorderSecondary}`, cursor: arrasto.current ? 'grabbing' : 'grab', touchAction: 'none', outlineOffset: 2,
+          border: `1px solid ${token.colorBorderSecondary}`, cursor: arrastoFundo.current ? 'grabbing' : 'grab', touchAction: 'none', outlineOffset: 2,
           backgroundColor: token.colorFillQuaternary, backgroundImage: `radial-gradient(${token.colorBorderSecondary} 1px, transparent 1px)`, backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
           backgroundPosition: `${pan.x}px ${pan.y}px` }}>
         <div style={{ position: 'absolute', left: 0, top: 0, width: disp.largura, height: disp.altura, transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
@@ -232,45 +263,70 @@ export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao }
             const activo = caminho.has(p.id);
             const contacto = os.find((m) => m.telefone || m.email);
             const menu = accoes?.(p);
+            const med = medidas.get(p.id);
+            const previsao = arrasto?.activo && alvo === p.id ? arrasto.previsao(p.id) : null;
+            const corAlvo = previsao ? (previsao.mesmo ? token.colorTextQuaternary : previsao.excede ? token.colorError : token.colorPrimary) : null;
             return (
               <div key={n.id} data-org-no={n.id} role="treeitem" tabIndex={0} aria-level={n.nivel + 1} aria-expanded={nFilhos ? !n.recolhido : undefined}
                 aria-label={`${p.titulo}${p.area ? `, ${p.area}` : ''}, ${v.texto}${os.length ? `, ${os.map((m) => m.nome).join(', ')}` : ', sem ocupante'}`}
                 onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a')) aoAbrir(p); }} onKeyDown={(e) => teclaNo(e, p)}
                 onMouseEnter={() => setRealce(p.id)} onMouseLeave={() => setRealce((r) => (r === p.id ? null : r))}
                 onFocus={() => { setRealce(p.id); mostrar(p.id); }} onBlur={() => setRealce((r) => (r === p.id ? null : r))}
+                onDragOver={arrasto ? (e) => {
+                  if (!arrasto.activo || !eArrastoMembro(e)) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = arrasto.previsao(p.id)?.mesmo ? 'none' : 'move';
+                  if (alvo !== p.id) setAlvo(p.id);
+                } : undefined}
+                onDragLeave={arrasto ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAlvo((a) => (a === p.id ? null : a)); } : undefined}
+                onDrop={arrasto ? (e) => {
+                  if (!arrasto.activo || !eArrastoMembro(e)) return;
+                  e.preventDefault();
+                  setAlvo(null);
+                  arrasto.largar(p.id);
+                } : undefined}
+                data-org-alvo={previsao ? (previsao.excede ? 'excede' : previsao.mesmo ? 'mesmo' : 'ok') : undefined}
                 style={{
-                  position: 'absolute', left: n.x, top: n.y, width: MEDIDAS.largura, height: MEDIDAS.altura, boxSizing: 'border-box', cursor: 'pointer',
+                  position: 'absolute', left: n.x, top: n.y, width: MEDIDAS.largura, height: n.altura, boxSizing: 'border-box', cursor: 'pointer',
                   background: p.apoio ? token.colorFillAlter : token.colorBgContainer, color: token.colorText, borderRadius: 8,
                   border: `1px ${p.apoio ? 'dashed' : 'solid'} ${activo ? realceCor : token.colorBorder}`, borderTop: `4px solid ${cor}`,
-                  boxShadow: activo ? `0 0 0 2px ${token.colorPrimaryBorder}, ${token.boxShadowSecondary}` : token.boxShadowTertiary,
-                  padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 2, transition: 'box-shadow 120ms, border-color 120ms', outline: 'none',
+                  boxShadow: corAlvo ? `0 0 0 3px ${corAlvo}, ${token.boxShadowSecondary}` : activo ? `0 0 0 2px ${token.colorPrimaryBorder}, ${token.boxShadowSecondary}` : token.boxShadowTertiary,
+                  padding: `${CARTAO.padTopo - 2}px ${CARTAO.padH}px ${CARTAO.padBase}px`, display: 'flex', flexDirection: 'column', gap: 0, transition: 'box-shadow 120ms, border-color 120ms', outline: 'none',
                 }}>
                 <Flex justify="space-between" align="start" gap={4}>
-                  <div style={{ minWidth: 0 }}>
-                    <Typography.Text strong ellipsis={{ tooltip: p.titulo }} style={{ display: 'block', fontSize: 13 }}>{p.titulo}</Typography.Text>
-                    <Typography.Text type="secondary" ellipsis style={{ display: 'block', fontSize: 11 }}>
-                      {p.area || (p.apoio ? '' : 'Posição')}{p.apoio && <Tag style={{ marginLeft: p.area ? 4 : 0, fontSize: 10, lineHeight: '16px' }} color="purple">apoio</Tag>}
-                    </Typography.Text>
-                  </div>
-                  <Flex align="center" gap={2}>
-                    <Typography.Text style={{ fontSize: 11, whiteSpace: 'nowrap' }} type={v.excesso ? 'danger' : v.falta ? 'warning' : 'secondary'}>{v.texto}</Typography.Text>
-                    {menu && menu.length > 0 && (
-                      <Dropdown trigger={['click']} menu={{ items: menu, onClick: ({ key, domEvent }) => { domEvent.stopPropagation(); aoAccao?.(p, String(key)); } }}>
-                        <Button size="small" type="text" icon={<MoreOutlined />} aria-label={`Acções de ${p.titulo}`} onClick={(e) => e.stopPropagation()} />
-                      </Dropdown>
-                    )}
-                  </Flex>
+                  <Linhas texto={med?.titulo} completo={p.titulo} forte />
+                  {menu && menu.length > 0 && (
+                    <Dropdown trigger={['click']} menu={{ items: menu, onClick: ({ key, domEvent }) => { domEvent.stopPropagation(); aoAccao?.(p, String(key)); } }}>
+                      <Button size="small" type="text" icon={<MoreOutlined />} aria-label={`Acções de ${p.titulo}`} onClick={(e) => e.stopPropagation()} style={{ flex: 'none', marginRight: -6 }} />
+                    </Dropdown>
+                  )}
                 </Flex>
-                <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                  {os.length ? os.slice(0, 2).map((m) => (
-                    <Flex key={m.id} align="center" gap={6} style={{ marginTop: 3 }}>
-                      <Avatar size={22} style={{ background: cor, flex: 'none', fontSize: 10 }}>{iniciais(m.nome)}</Avatar>
-                      <div style={{ minWidth: 0, lineHeight: 1.15 }}>
-                        <Typography.Text ellipsis style={{ display: 'block', fontSize: 12, fontWeight: m.id === p.membro_responsavel_id ? 600 : 400 }}>{m.nome}</Typography.Text>
-                        {(m.cargo || m.papel) && <Typography.Text type="secondary" ellipsis style={{ display: 'block', fontSize: 10 }}>{cortar(m.cargo || m.papel, 40)}</Typography.Text>}
+                <Flex justify="space-between" align="start" gap={4} style={{ minHeight: med?.linhaArea ?? CARTAO.linhaArea }}>
+                  <Typography.Text type="secondary" style={{ fontSize: 11, minWidth: 0 }}>
+                    <Linhas texto={med?.area ?? null} completo={p.area ?? ''} semApoio={!!p.apoio} />
+                    {p.apoio && <Tag style={{ marginLeft: 0, fontSize: 10, lineHeight: '16px' }} color="purple">apoio</Tag>}
+                  </Typography.Text>
+                  <Typography.Text style={{ fontSize: 11, whiteSpace: 'nowrap', flex: 'none' }} type={v.excesso ? 'danger' : v.falta ? 'warning' : 'secondary'}>{v.texto}</Typography.Text>
+                </Flex>
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  {os.length ? os.slice(0, 2).map((m, i) => (
+                    <Flex key={m.id} align="start" gap={6} style={{ marginTop: i ? CARTAO.entrePessoas : 2, cursor: arrasto ? 'grab' : undefined, opacity: arrasto?.activo?.membroId === m.id ? 0.4 : 1 }}
+                      draggable={!!arrasto} data-org-membro={m.id} title={arrasto ? `Arraste «${m.nome}» para outra posição` : m.nome}
+                      onDragStart={arrasto ? (e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData(MIME_MEMBRO, String(m.id));
+                        e.dataTransfer.setData('text/plain', m.nome);
+                        arrasto.iniciar(m.id, p.id);
+                      } : undefined}
+                      onDragEnd={arrasto ? () => arrasto.terminar() : undefined}>
+                      <Avatar size={CARTAO.avatar} style={{ background: cor, flex: 'none', fontSize: 10 }}>{iniciais(m.nome)}</Avatar>
+                      <div style={{ minWidth: 0 }}>
+                        <Linhas texto={med?.pessoas[i]?.nome} completo={m.nome} peso={m.id === p.membro_responsavel_id ? 600 : 400} />
+                        {(m.cargo || m.papel) && <Typography.Text type="secondary"><Linhas texto={med?.pessoas[i]?.cargo ?? null} completo={m.cargo || m.papel || ''} /></Typography.Text>}
                       </div>
                     </Flex>
-                  )) : <Typography.Text type="secondary" italic style={{ fontSize: 11 }}>Sem ocupante</Typography.Text>}
+                  )) : <Typography.Text type="secondary" italic style={{ fontSize: 11, display: 'block', marginTop: 2 }}>Sem ocupante</Typography.Text>}
                 </div>
                 <Flex justify="space-between" align="center" gap={4} style={{ minHeight: 18 }}>
                   <Space size={4}>
@@ -286,14 +342,49 @@ export function QuadroOrganigrama({ posicoes, titulo, aoAbrir, accoes, aoAccao }
                     </Button>
                   )}
                 </Flex>
+                {previsao && (
+                  <div data-testid="previsao-destino" style={{ position: 'absolute', left: 4, right: 4, bottom: -12, zIndex: 2, pointerEvents: 'none', textAlign: 'center' }}>
+                    <Tag color={previsao.mesmo ? 'default' : previsao.excede ? 'error' : 'processing'} style={{ margin: 0, maxWidth: '100%', whiteSpace: 'normal', lineHeight: 1.3, fontSize: 10 }}>
+                      {previsao.texto}
+                    </Tag>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       </div>
+      <div aria-live="polite" className="imp-nao-imprimir" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
+        {arrasto?.activo && alvo !== null ? arrasto.previsao(alvo)?.texto : ''}
+      </div>
       <Typography.Text type="secondary" style={{ fontSize: 11 }} className="imp-nao-imprimir">
         Arraste o fundo para mover · Ctrl + roda (ou + / −) para o zoom · 0 ajusta ao ecrã · nos cartões: ↑ ↓ para navegar, ← → para recolher/expandir, Enter para o detalhe.
+        {arrasto && ' · Arraste um membro para outra posição (ou use «Mover membro para…» no menu ⋯ da posição).'}
       </Typography.Text>
     </div>
   );
+}
+
+/**
+ * Texto já quebrado em linhas (texto.ts): cada linha numa linha própria, no tamanho ajustado — nunca com «…». O texto
+ * completo fica no `title`. Sem medida (não devia acontecer) mostra o texto a quebrar normalmente.
+ */
+function Linhas({ texto, completo, forte, peso, semApoio }: { texto: TextoAjustado | null | undefined; completo: string; forte?: boolean; peso?: number; semApoio?: boolean }) {
+  if (!completo && !texto) return null;
+  const linhas = texto ? (semApoio ? semSufixoApoio(texto.linhas) : texto.linhas) : [completo];
+  const tamanho = texto?.tamanho ?? 12;
+  return (
+    <span title={completo || undefined} style={{ display: 'block', minWidth: 0, fontSize: tamanho, lineHeight: `${Math.ceil(tamanho * CARTAO.alturaLinha)}px`,
+      fontWeight: forte ? 600 : peso, overflowWrap: 'anywhere' }}>
+      {linhas.map((l, i) => <span key={i} style={{ display: 'block', whiteSpace: texto ? 'nowrap' : 'normal' }}>{l}</span>)}
+    </span>
+  );
+}
+
+/** A área foi medida com « · apoio» (a etiqueta ocupa esse espaço); no ecrã a etiqueta mostra-se à parte. */
+export function semSufixoApoio(linhas: string[]): string[] {
+  const l = [...linhas];
+  const u = l.length - 1;
+  if (u >= 0) l[u] = l[u].replace(/\s*·?\s*apoio$/, '');
+  return l.filter((x) => x !== '');
 }

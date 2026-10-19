@@ -19,13 +19,15 @@ import { EstadoTag } from '@/modulos/compras/comum/estados';
 import { ModalContas } from '@/modulos/compras/comum/ModalContas';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { LigacaoAgtEmpresa } from './LigacaoAgtEmpresa';
+import { MonitorAgt } from './MonitorAgt';
 interface ConfiguracaoFE {
   ativo: boolean;
   data_inicio: string | null;
   estabelecimentos: { numero: string; nome: string | null }[];
   pais_padrao: string | null;
   isencao_padrao: string | null;
-  servico: { auto: boolean; exigir_series_agt: boolean };
+  servico: { auto: boolean; exigir_series_agt: boolean; contingencia?: { ativo: boolean; desde: string | null; motivo: string | null; por: string | null } };
   isencoes: Record<string, string>;
 }
 
@@ -52,6 +54,8 @@ const RESUMO: { chave: string; rotulo: string; cor?: string }[] = [
   { chave: 'INVALIDO', rotulo: 'Inválidos', cor: '#b45309' },
   { chave: 'REJEITADO', rotulo: 'Rejeitados', cor: '#b45309' },
   { chave: 'ERRO', rotulo: 'Erro de envio', cor: '#b45309' },
+  { chave: 'CONTINGENCIA', rotulo: 'Em contingência (reenvio automático)', cor: '#b45309' },
+  { chave: 'SUBSTITUIDO', rotulo: 'Substituídos por correcção' },
   { chave: 'COM_ERROS_LOCAIS', rotulo: 'Com erros locais', cor: '#b45309' },
 ];
 
@@ -86,7 +90,9 @@ export function FaturacaoEletronica() {
       {/* 4.7.1: uma página com as secções pela ordem do legado (facturacao_agt_ui.js:render) */}
       <Flex vertical gap={16}>
         {config && <Configuracao />}
+        {pode('vendas_agt_ligacao', 'vendas_fe_config') && <LigacaoAgtEmpresa />}
         <EstadoEnvio />
+        <MonitorAgt />
         <DadosARever />
         <Series />
         <DocumentosComErros />
@@ -109,7 +115,7 @@ function EstadoEnvio() {
       <Card
         style={{ marginBottom: 16 }}
         extra={
-          pode('vendas_fat_emitir') && (
+          pode('vendas_agt_enviar') && (
             <Space wrap>
               <Button type="primary" icon={<CloudUploadOutlined />} loading={accao.isPending && accao.variables?.url.endsWith('enviar')} onClick={() => accao.mutate({ url: '/vendas/faturacao-eletronica/enviar' })}>
                 Enviar pendentes
@@ -120,10 +126,10 @@ function EstadoEnvio() {
             </Space>
           )
         }
-        title={<><IconeFa nome="paper-plane" style={{ marginRight: 6 }} />Ligação à AGT (serviço intermédio)</>}
+        title={<><IconeFa nome="paper-plane" style={{ marginRight: 6 }} />Envio à AGT</>}
       >
         <Typography.Paragraph type="secondary">
-          O serviço intermédio guarda as credenciais e as chaves, assina e envia os documentos à AGT. Nada é enviado enquanto não carregar em «Enviar pendentes» ou o envio automático não estiver ligado.
+          O servidor assina e envia os documentos à AGT com a ligação da empresa (ou a do servidor) e consulta o estado periodicamente. Se a AGT não responder, os documentos ficam em contingência e são reenviados automaticamente, sem duplicados. Nada é enviado enquanto não carregar em «Enviar pendentes» ou o envio automático não estiver ligado.
         </Typography.Paragraph>
         {resumo.isLoading ? (
           <Skeleton active />
@@ -194,6 +200,8 @@ interface ValoresConfig {
   isencao_padrao?: string | null;
   auto?: boolean;
   exigir_series_agt?: boolean;
+  contingencia?: boolean;
+  motivo_contingencia?: string | null;
   estabelecimentos: { numero: string; nome?: string | null }[];
 }
 
@@ -212,6 +220,8 @@ function Configuracao() {
         isencao_padrao: c.isencao_padrao,
         auto: c.servico?.auto,
         exigir_series_agt: c.servico?.exigir_series_agt,
+        contingencia: !!c.servico?.contingencia?.ativo,
+        motivo_contingencia: c.servico?.contingencia?.motivo ?? null,
         estabelecimentos: c.estabelecimentos?.length ? c.estabelecimentos : [{ numero: '1', nome: 'Sede' }],
       });
   }, [consulta.data, form]);
@@ -235,7 +245,7 @@ function Configuracao() {
               data_inicio: dataApi(v.data_inicio) ?? null,
               pais_padrao: v.pais_padrao?.toUpperCase() || null,
               isencao_padrao: v.isencao_padrao || null,
-              servico: { auto: !!v.auto, exigir_series_agt: !!v.exigir_series_agt },
+              servico: { auto: !!v.auto, exigir_series_agt: !!v.exigir_series_agt, contingencia: { ativo: !!v.contingencia, motivo: v.motivo_contingencia?.trim() || null } },
               estabelecimentos: v.estabelecimentos.map((e) => ({ numero: e.numero, nome: e.nome || null })),
             },
           })
@@ -266,10 +276,35 @@ function Configuracao() {
             <Form.Item name="auto" valuePropName="checked" style={{ marginBottom: 8 }}>
               <Checkbox>Envio e consulta automáticos (agendador)</Checkbox>
             </Form.Item>
-            <Form.Item name="exigir_series_agt" valuePropName="checked">
-              <Checkbox>Exigir séries atribuídas pela AGT</Checkbox>
+            <Form.Item name="exigir_series_agt" valuePropName="checked" extra={consulta.data?.ativo ? 'Obrigatório com o regime activo: nenhum documento fiscal sai numa série que a AGT não conheça.' : undefined}>
+              <Checkbox disabled={consulta.data?.ativo}>Exigir séries atribuídas pela AGT</Checkbox>
             </Form.Item>
           </Col>
+          {consulta.data?.ativo && (
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="contingencia"
+                valuePropName="checked"
+                style={{ marginBottom: 8 }}
+                extra={
+                  consulta.data.servico?.contingencia?.ativo && consulta.data.servico.contingencia.desde
+                    ? `Em contingência desde ${formatarData(consulta.data.servico.contingencia.desde)}${consulta.data.servico.contingencia.por ? ` (${consulta.data.servico.contingencia.por})` : ''}.`
+                    : 'Sem ligação à AGT: os documentos saem nas séries de contingência (pedidas à AGT com o indicador «C») e são comunicados quando a ligação voltar.'
+                }
+              >
+                <Checkbox>Modo de contingência</Checkbox>
+              </Form.Item>
+              <Form.Item noStyle shouldUpdate={(a, b) => a.contingencia !== b.contingencia}>
+                {({ getFieldValue }) =>
+                  getFieldValue('contingencia') ? (
+                    <Form.Item name="motivo_contingencia" label="Motivo da contingência" rules={[{ required: true, message: 'Indique o motivo.' }, { max: 500 }]}>
+                      <Input placeholder="Ex.: falha de comunicação com a AGT, falta de energia" />
+                    </Form.Item>
+                  ) : null
+                }
+              </Form.Item>
+            </Col>
+          )}
         </Row>
         <Card size="small" title="Estabelecimentos" style={{ marginBottom: 16 }}>
           <Form.List name="estabelecimentos">

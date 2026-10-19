@@ -228,6 +228,9 @@ final class MigracaoLegadoTest extends TestCase
                 $t['rows'][] = ['id' => 3, 'name' => 'Financeiro', 'permissions' => ['_v2' => true, 'config_moedas_view' => true, 'config_moedas_gerir' => true,
                     'rh_infotipos_gerir' => true]];
                 $t['rows'][] = ['id' => 4, 'name' => 'Administrador', 'permissions' => ['all' => true]];
+                // chaves do BI eliminado: descartadas na carga (ocorrência PERMISSAO_DESCARTADA)
+                $t['rows'][] = ['id' => 5, 'name' => 'Analista', 'permissions' => ['_v2' => true, 'config_logs_view' => true, 'accounting_bi_view' => true,
+                    'sgd_view' => true, 'sgd_gerir' => true]];
             }
             if ($t['tableName'] === 'chart_of_accounts') {
                 $t['rows'][] = ['id' => 3, 'company_id' => 1, 'code' => '6621', 'description' => 'Diferenças de câmbio favoráveis', 'type' => 'M'];
@@ -248,6 +251,10 @@ final class MigracaoLegadoTest extends TestCase
         $this->assertArrayNotHasKey('vendas_alterar_preco', $perms(3));
         $this->assertSame(['all' => true], $perms(4));   // acesso total intacto (já tem tudo)
         $this->assertSame(['_v2' => true, 'config_logs_view' => true], $perms(1));
+        $this->assertSame(['_v2' => true, 'config_logs_view' => true], $perms(5));
+        $descartada = DB::table('ocorrencias_migracao')->where('regra', 'PERMISSAO_DESCARTADA')->sole();
+        $this->assertSame('5', (string) $descartada->id_legado);
+        $this->assertEqualsCanonicalizing(['accounting_bi_view', 'sgd_view', 'sgd_gerir'], explode(', ', $descartada->valor_original));
 
         foreach (['configuracoes_contabeis_tesouraria', 'configuracoes_contabeis_compras'] as $tabela) {
             $this->assertSame(['diferencas_cambio_desfavoraveis' => '7621', 'diferencas_cambio_favoraveis' => '6621'],

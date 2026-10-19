@@ -26,20 +26,20 @@ import { IconeFa } from '@/componentes/fluxos';
 import { Ordens } from './manutencao/Ordens';
 import { Planos } from './manutencao/Planos';
 import { Requisicoes } from './manutencao/Requisicoes';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 const SEPARADORES = ['ordens', 'planos', 'requisicoes', 'historico'] as const;
-type Separador = (typeof SEPARADORES)[number];
 
 /**
  * Activos › Manutenção (ecrã activos_manutencao): separadores do legado novo (renderMaintenanceView,
  * js/activos_manutencao_ui.js:78-105) — Ordens de manutenção, Planos, Requisições ao armazém e Histórico.
  */
 export default function Manutencao() {
-  const [aba, setAba] = useState<Separador>('ordens');
+  const [aba, setAba] = useSeparadorUrl(SEPARADORES);
   return (
     <>
       <NavActivos actual="activos_manutencao" />
-      <Tabs activeKey={aba} onChange={(k) => setAba(k as Separador)} destroyOnHidden
+      <Tabs activeKey={aba} onChange={setAba} destroyOnHidden
         items={[
           { key: 'ordens', label: <span><IconeFa nome="clipboard-check" /> Ordens de manutenção</span>, children: <Ordens aoIrPlanos={() => setAba('planos')} /> },
           { key: 'planos', label: <span><IconeFa nome="calendar-check" /> Planos</span>, children: <Planos aoAbrirOrdens={() => setAba('ordens')} /> },

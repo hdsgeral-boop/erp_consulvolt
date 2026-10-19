@@ -48,6 +48,7 @@ Route::prefix('ativos')->name('ativos.')->group(function () {
 
     Route::controller(AmortizacoesController::class)->group(function () {
         Route::get('amortizacoes', 'periodo')->name('amortizacoes.periodo');
+        Route::get('amortizacoes/periodos-registados', 'periodosRegistados')->name('amortizacoes.periodos_registados');
         Route::get('amortizacoes/pendentes', 'pendentes')->name('amortizacoes.pendentes');
         Route::get('amortizacoes/pre-visualizacao', 'previsualizar')->name('amortizacoes.previsualizacao');
         Route::get('amortizacoes/verificacao', 'verificar')->name('amortizacoes.verificacao');
@@ -61,6 +62,5 @@ Route::prefix('ativos')->name('ativos.')->group(function () {
         Route::get('mapas/amortizacoes', 'mapaAmortizacoes')->name('mapas.amortizacoes');
         Route::get('mapas/fiscal', 'mapaFiscal')->name('mapas.fiscal');
         Route::get('mapas/categorias', 'resumoCategorias')->name('mapas.categorias');
-        Route::get('fluxo', 'fluxo')->name('fluxo');
     });
 });

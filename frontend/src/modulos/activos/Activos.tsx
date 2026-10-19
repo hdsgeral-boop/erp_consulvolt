@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Route, Routes, useNavigate } from 'react-router-dom';
 import { descarregar, obter } from '@/api/cliente';
 import { NavActivos } from './comum/NavActivos';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 import { BotoesExportar } from '@/componentes/impressao';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaApi, type ColunaApi } from '@/componentes/TabelaApi';
@@ -41,11 +42,14 @@ export default function Activos() {
 }
 
 function Painel() {
+  const [sep, setSep] = useSeparadorUrl(['cadastro', 'transferencias', 'afectacoes', 'categorias']);
   return (
     <>
       <NavActivos actual="activos" />
       <Tabs
         destroyOnHidden
+        activeKey={sep}
+        onChange={setSep}
         items={[
           { key: 'cadastro', label: 'Inventário', children: <Cadastro /> },
           { key: 'transferencias', label: 'Transferências', children: <Transferencias /> },

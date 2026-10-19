@@ -6,6 +6,7 @@ use App\Models\Banco;
 use App\Models\CentroCusto;
 use App\Models\Concerns\Auditavel;
 use App\Models\Concerns\PertenceEmpresa;
+use App\Models\DocumentoTesouraria;
 use App\Models\ItemReciboVenda;
 use App\Models\ModeloBase;
 use App\Models\Projeto;
@@ -92,5 +93,10 @@ abstract class ReciboVendaBase extends ModeloBase
     public function itensReciboVenda(): HasMany
     {
         return $this->hasMany(ItemReciboVenda::class, 'recibo_venda_id');
+    }
+
+    public function documentosTesouraria(): HasMany
+    {
+        return $this->hasMany(DocumentoTesouraria::class, 'recibo_venda_id');
     }
 }

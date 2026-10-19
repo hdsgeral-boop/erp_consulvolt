@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Sistema\ServicoLeituraFolha;
 use App\Services\Sistema\ServicoMigracaoDados;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -78,20 +79,36 @@ final class MigracaoDadosController extends Controller
     {
         abort_unless(isset(ServicoMigracaoDados::EDICAO_MASSA[$entidade]), 404);
         $this->exigir(ServicoMigracaoDados::EDICAO_MASSA[$entidade]['permissao']);
+        $categoriaContas = $entidade === 'produtos' && $r->filled('categoria_contas');
+        if ($categoriaContas) {
+            $this->exigir('vendas_categorias_contas');   // contas da categoria: tarefa sensível, antes da validação (OWASP A01)
+        }
+        $empresa = app(ContextoEmpresa::class)->obrigatorio();
+        $categoriaExiste = Rule::exists('categorias_produtos', 'id')->where('empresa_id', $empresa)->whereNull('eliminado_em');
         $d = $r->validate([
-            'ids' => ['required', 'array', 'min:1', 'max:5000'], 'ids.*' => ['integer'],
+            'ids' => [$categoriaContas ? 'nullable' : 'required', 'array', 'max:5000'], 'ids.*' => ['integer'],
             'dados' => ['nullable', 'array'], 'dados.codigo_moeda' => ['sometimes', 'string', 'size:3'], 'dados.taxa_imposto' => ['sometimes', Rule::in([14, 7, 5, 2, 0])],
-            'dados.categoria_produto_id' => ['sometimes', 'nullable', 'integer'], 'dados.movimenta_stock' => ['sometimes', 'boolean'], 'dados.e_servico' => ['sometimes', 'boolean'],
+            'dados.categoria_produto_id' => ['sometimes', 'nullable', 'integer', $categoriaExiste], 'dados.movimenta_stock' => ['sometimes', 'boolean'], 'dados.e_servico' => ['sometimes', 'boolean'],
             'dados.bloqueado' => ['sometimes', 'boolean'],
             'contas' => ['nullable', 'array'], 'contas.*' => ['string', 'max:20'],
+            'categoria_contas' => ['nullable', 'array'],
+            'categoria_contas.categoria_produto_id' => ['required_with:categoria_contas', 'integer', $categoriaExiste],
+            'categoria_contas.contas' => ['required_with:categoria_contas', 'array'],
+            'categoria_contas.contas.*' => ['nullable', 'string', 'max:20', 'regex:/^(__RETIRAR__|[0-9][0-9.]*)$/'],
             'preco' => ['nullable', 'array'], 'preco.modo' => ['required_with:preco', Rule::in(['DEFINIR', 'PERCENTAGEM', 'SOMAR'])], 'preco.valor' => ['required_with:preco', 'numeric'],
-        ]);
+        ], [], ['categoria_contas.categoria_produto_id' => 'categoria']);
         if (($d['preco']['modo'] ?? null) === 'DEFINIR' && $d['preco']['valor'] < 0) {
             throw new ErroNegocio('O preço não pode ser negativo.', 'PRECO_INVALIDO', 422);
         }
-        $res = $this->migracao->editarEmMassa($entidade, array_map('intval', $d['ids']), $d['dados'] ?? [], $r->input('contas', []), $d['preco'] ?? null);
+        $res = $this->migracao->editarEmMassa($entidade, array_map('intval', $d['ids'] ?? []), $d['dados'] ?? [], (array) $r->input('contas', []), $d['preco'] ?? null,
+            $categoriaContas ? $d['categoria_contas'] : null);
 
-        return RespostaApi::sucesso($res, "Alterações aplicadas a {$res['alterados']} registo(s).");
+        $mensagens = $res['alterados'] || ! isset($res['categoria']) ? ["Alterações aplicadas a {$res['alterados']} registo(s)."] : [];
+        if (isset($res['categoria'])) {
+            $mensagens[] = "Contas da categoria «{$res['categoria']['categoria']}» actualizadas: aplicam-se aos {$res['categoria']['produtos']} produto(s) da categoria.";
+        }
+
+        return RespostaApi::sucesso($res, implode(' ', $mensagens));
     }
 
     /**

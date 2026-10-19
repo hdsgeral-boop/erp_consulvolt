@@ -25,6 +25,7 @@ import {
 import { larguraGaveta, useEcra } from '@/componentes/responsivo';
 import { TabelaLocalImprimivel } from './comum/impressao';
 import { CartaoKpi, GrelhaKpi } from '@/componentes/vistas';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 interface PerfilResumo {
   id: number;
@@ -54,17 +55,17 @@ function useCatalogo() {
 export default function Perfis() {
   const { pode } = useSessao();
   const gerir = pode('config_perfis_gerir');
+  const separadoresEcra = [
+    { key: 'perfis', label: 'Perfis', children: <ListaPerfis gerir={gerir} /> },
+    { key: 'matriz', label: 'Matriz', children: <Matriz /> },
+    ...(gerir ? [{ key: 'modelos', label: 'Perfis-modelo', children: <Modelos /> }] : []),
+  ];
+  const [sep, setSep] = useSeparadorUrl(separadoresEcra.map((i) => i.key));
   return (
     <>
       <NavConfig actual="config_perfis" />
       <CabecalhoPagina titulo="Perfis e permissões" subtitulo="O que cada perfil pode consultar e fazer, com controlo da segregação de funções" />
-      <Tabs
-        items={[
-          { key: 'perfis', label: 'Perfis', children: <ListaPerfis gerir={gerir} /> },
-          { key: 'matriz', label: 'Matriz', children: <Matriz /> },
-          ...(gerir ? [{ key: 'modelos', label: 'Perfis-modelo', children: <Modelos /> }] : []),
-        ]}
-      />
+      <Tabs activeKey={sep} onChange={setSep} items={separadoresEcra} />
     </>
   );
 }

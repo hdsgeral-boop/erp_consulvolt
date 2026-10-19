@@ -14,6 +14,7 @@ import type { EstadoExercicio, ExercicioResumo, MapaApuramento, PassoEstado, Pre
 import { BotaoCsv, ValorKz } from './comum/Componentes';
 import { accoesEncerramento } from './comum/regras';
 import { PainelPlano } from './encerramento/PainelPlano';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Contabilidade › Encerramento do exercício (ADR-056): 5 passos de apuramento (período 13), validações, encerrar/reabrir/cancelar. */
 export default function Encerramento() {
@@ -60,7 +61,7 @@ export default function Encerramento() {
   const regras = accoesEncerramento(estado.data, validacao.data, pode);
   const e = estado.data;
 
-  const [separador, setSeparador] = useState('passos');
+  const [separador, setSeparador] = useSeparadorUrl(['passos', 'validacoes', 'mapa', 'classe8']);
 
   return (
     <>

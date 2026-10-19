@@ -22,6 +22,7 @@ import { DadosBancariosConta, useDadosBancariosConta } from './plano/DadosBancar
 import { BarraAccoesMassa } from './plano/AccoesMassaPlano';
 import { CAMPOS_BANCARIOS, dadosBancariosParaApi, ibanContaValido, swiftValido, type DadosBancarios } from './plano/contasBancarias';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Conta do plano: regras comuns à grade e à vista Linhas (vazios = null; dados bancários só nas 42/43 de movimento). */
 export function dadosConta(v: Record<string, unknown>): Record<string, unknown> {
@@ -83,8 +84,8 @@ interface SimulacaoEmpresa {
 export default function PlanoContas() {
   const { pode } = useSessao();
   const plano = usePlanoContas();
-  const [separador, setSeparador] = useState('contas');
   const substituir = pode('contab_conta_substituir');
+  const [separador, setSeparador] = useSeparadorUrl(substituir ? ['contas', 'substituir'] : ['contas']);
   return (
     <>
       <NavConfig actual="config_plano" />

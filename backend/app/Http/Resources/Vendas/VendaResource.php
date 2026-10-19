@@ -69,6 +69,13 @@ final class VendaResource extends JsonResource
                     'tentativas' => (int) ($this->fe_envio['tentativas'] ?? 0), 'historico' => array_values(array_slice((array) ($this->fe_envio['historico'] ?? []), -5)),
                 ] : null,
                 'hash' => ServicoHashSaft::excerto($this->saft_hash), 'hash_controlo' => $this->saft_hash_controlo,
+                // r4_agt: correcções (E46), penalização, contingência, documentos integrados e identificação do software no impresso
+                'documento_rejeitado' => $this->fe_envio['documento_rejeitado'] ?? null, 'substituido_por' => $this->fe_envio['substituido_por'] ?? null,
+                'substituido_por_id' => $this->fe_envio['substituido_por_id'] ?? null, 'penalizacao' => (bool) ($this->fe_envio['penalizacao'] ?? false),
+                'contingencia_desde' => $this->fe_envio['contingencia_desde'] ?? null,
+                'importado' => in_array($this->resource->getAttributes()['saft_source_billing'] ?? null, ['I', 'M'], true),
+                'sistema_origem' => $this->resource->getAttributes()['sistema_origem'] ?? null,
+                'software' => ['produto' => config('erp.agt.software.productId') ?: null, 'certificacao' => config('erp.agt.software.softwareValidationNumber') ?: null],
             ],
             'linhas' => $this->whenLoaded('itensVenda', fn () => $this->itensVenda->map(fn (ItemVenda $i) => [
                 'id' => $i->id, 'produto_id' => $i->produto_id, 'descricao' => $i->descricao, 'quantidade' => $i->quantidade,

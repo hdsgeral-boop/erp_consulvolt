@@ -117,14 +117,6 @@ final class PrestacaoContasController extends Controller
         return RespostaApi::sucesso($this->relatorios->painel($f), 'Relatórios do POS.');
     }
 
-    public function relatorioServicos(Request $r): JsonResponse
-    {
-        $this->exigir('pos_relatorios_view', 'pos_relatorios', 'relatorios_gestao_view');
-        $f = $r->validate(['data_inicio' => ['required', 'date_format:Y-m-d'], 'data_fim' => ['required', 'date_format:Y-m-d', 'after_or_equal:data_inicio']]);
-
-        return RespostaApi::sucesso($this->relatorios->indicadoresServicos($f['data_inicio'], $f['data_fim']), 'POS e Serviços.');
-    }
-
     private function resumo(SessaoPOS $s): array
     {
         return $s->only(['id', 'codigo_sessao', 'numero_z', 'terminal_pos_id', 'codigo_terminal', 'nome_terminal', 'operador_id', 'nome_operador', 'fechado_em',

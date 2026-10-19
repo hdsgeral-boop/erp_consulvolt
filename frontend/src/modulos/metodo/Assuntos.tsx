@@ -11,7 +11,8 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData, formatarDataHora, formatarKz } from '@/utilitarios/formatacao';
 import { FormularioAssunto } from './FormularioAssunto';
 import { agrupar, CORES_ESTADO, DELIB, ESTADOS, onde, resumoCusto, VISTAS } from './regras';
-import type { ListaAssuntos, RegistoHistorico, ResumoAssunto, Vista } from './tipos';
+import type { ListaAssuntos, RegistoHistorico, ResumoAssunto } from './tipos';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 export const CHAVE = ['metodo', 'assuntos'];
 
@@ -24,7 +25,7 @@ export default function Assuntos() {
   const { pode } = useSessao();
   const { token } = theme.useToken();
   const navegar = useNavigate();
-  const [vista, setVista] = useState<Vista>('lista');
+  const [vista, setVista] = useSeparadorUrl(VISTAS.map((v) => v.chave));
   const [pesquisa, setPesquisa] = useState('');
   const [aberto, setAberto] = useState<number | 'novo' | null>(null);
   const [historico, setHistorico] = useState<number | null>(null);
@@ -91,7 +92,7 @@ export default function Assuntos() {
         accoes={podeCriar && <Button type="primary" icon={<IconeFa nome="plus" />} onClick={() => setAberto('novo')}>Novo assunto</Button>}
       />
       <Card style={{ marginBottom: 16 }} size="small">
-        <Tabs activeKey={vista} onChange={(k) => setVista(k as Vista)} style={{ marginBottom: 0 }}
+        <Tabs activeKey={vista} onChange={setVista} style={{ marginBottom: 0 }}
           tabBarExtraContent={<Input.Search size="small" allowClear placeholder="Número ou título" onSearch={setPesquisa} style={{ width: 220, maxWidth: '100%' }} />}
           items={VISTAS.map((v) => ({ key: v.chave, label: <span><IconeFa nome={v.icone} /> {v.rotulo}</span> }))} />
         {al && nAlertas > 0 && (

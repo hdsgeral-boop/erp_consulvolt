@@ -44,24 +44,30 @@ final class ServicoProdutividade
         'QUANTIDADE' => ['nome' => 'Quantidade produzida', 'rotulo_quantidade' => 'Quantidade produzida no período', 'rotulo_preco' => 'Valor por unidade',
             'rotulo_minimo' => 'Quantidade mínima para pagar', 'rotulo_maximo' => 'Quantidade máxima paga',
             'formula' => 'Subsídio = quantidade produzida × valor por unidade', 'exemplo' => '40 m³ × 2 000 Kz/m³ = 80 000 Kz',
-            'ajuda' => 'Paga-se o que foi produzido, à peça. Escreve-se a quantidade do período e o sistema multiplica pelo valor da unidade.', 'base_premio' => false],
+            'ajuda' => 'Paga-se o que foi produzido, à peça. Escreve-se a quantidade do período e o sistema multiplica pelo valor da unidade.', 'base_premio' => false,
+            'quantidade_exemplo' => 10],
         'HORAS' => ['nome' => 'Horas produtivas', 'rotulo_quantidade' => 'Horas produtivas no período', 'rotulo_preco' => 'Valor por hora',
             'rotulo_minimo' => 'Horas mínimas para pagar', 'rotulo_maximo' => 'Horas máximas pagas',
             'formula' => 'Subsídio = horas produtivas × valor por hora', 'exemplo' => '120 h × 800 Kz/h = 96 000 Kz',
-            'ajuda' => 'Paga-se o tempo efectivamente produtivo ou de máquina. Não confundir com horas extraordinárias, que se tratam na Efectividade.', 'base_premio' => false],
+            'ajuda' => 'Paga-se o tempo efectivamente produtivo ou de máquina. Não confundir com horas extraordinárias, que se tratam na Efectividade.', 'base_premio' => false,
+            'quantidade_exemplo' => 10],
         'OBJECTIVO' => ['nome' => 'Cumprimento de objectivo (%)', 'rotulo_quantidade' => 'Percentagem atingida do objectivo', 'rotulo_preco' => 'Prémio a 100% do objectivo',
             'rotulo_minimo' => '% mínima para haver prémio', 'rotulo_maximo' => '% máxima considerada (tecto)',
             'formula' => 'Subsídio = prémio a 100% × (% atingida ÷ 100)', 'exemplo' => 'objectivo cumprido a 95% com prémio de 50 000 Kz → 50 000 × 0,95 = 47 500 Kz',
             'ajuda' => 'Define-se quanto vale o objectivo cumprido a 100% e paga-se na proporção do que foi atingido. Use a % mínima (ex.: 80%) para não pagar abaixo disso e o tecto (ex.: 120%) para limitar o excesso.',
-            'base_premio' => true],
+            'base_premio' => true, 'quantidade_exemplo' => 95,
+            // OBJECTIVO com a base UNITARIO (a regra de sempre): o preço vale por ponto percentual atingido
+            'formula_unitario' => 'Subsídio = % atingida × valor por ponto percentual', 'rotulo_preco_unitario' => 'Valor por ponto percentual'],
         'PONTOS' => ['nome' => 'Pontos de desempenho/qualidade', 'rotulo_quantidade' => 'Pontos obtidos na grelha', 'rotulo_preco' => 'Valor por ponto',
             'rotulo_minimo' => 'Pontos mínimos para pagar', 'rotulo_maximo' => 'Pontos máximos pagos',
             'formula' => 'Subsídio = pontos obtidos × valor por ponto', 'exemplo' => '85 pontos × 300 Kz/ponto = 25 500 Kz',
-            'ajuda' => 'Para grelhas de avaliação ou de qualidade (ex.: 0 a 100 pontos). Cada ponto vale um valor fixo. Ponha o tecto igual ao máximo da grelha.', 'base_premio' => false],
+            'ajuda' => 'Para grelhas de avaliação ou de qualidade (ex.: 0 a 100 pontos). Cada ponto vale um valor fixo. Ponha o tecto igual ao máximo da grelha.', 'base_premio' => false,
+            'quantidade_exemplo' => 10],
         'TAREFAS' => ['nome' => 'Tarefas / ordens concluídas', 'rotulo_quantidade' => 'Tarefas concluídas no período', 'rotulo_preco' => 'Valor por tarefa concluída',
             'rotulo_minimo' => 'Tarefas mínimas para pagar', 'rotulo_maximo' => 'Tarefas máximas pagas',
             'formula' => 'Subsídio = tarefas concluídas × valor por tarefa', 'exemplo' => '12 entregas × 2 000 Kz/entrega = 24 000 Kz',
-            'ajuda' => 'Paga-se por trabalho concluído: ordem de serviço, visita, entrega ou contrato. Só contam as concluídas no período.', 'base_premio' => false],
+            'ajuda' => 'Paga-se por trabalho concluído: ordem de serviço, visita, entrega ou contrato. Só contam as concluídas no período.', 'base_premio' => false,
+            'quantidade_exemplo' => 10],
     ];
 
     /** Bases de cálculo (BASES, produtividade.js:86). */
@@ -74,6 +80,57 @@ final class ServicoProdutividade
     public static function baseDe(?ItemProdutividadeRH $i): string
     {
         return $i && $i->base_calculo === 'PREMIO' ? 'PREMIO' : 'UNITARIO';
+    }
+
+    /** Métrica conhecida (as desconhecidas valem como QUANTIDADE). */
+    public static function metricaDe(?string $m): string
+    {
+        return in_array($m, self::METRICAS, true) ? $m : 'QUANTIDADE';
+    }
+
+    /**
+     * Fórmula por palavras da conta que `valor()` faz para esta métrica e base: PREMIO → prémio × % ÷ 100; OBJECTIVO em UNITARIO
+     * → % atingida × valor por ponto percentual; as outras → a fórmula da métrica. É a única fonte do texto mostrado no ecrã (#11).
+     */
+    public static function formula(?string $metrica, string $base): string
+    {
+        $m = self::metricaDe($metrica);
+        if ($base === 'PREMIO') {
+            return self::DESCRICAO_METRICAS['OBJECTIVO']['formula'];
+        }
+
+        return self::DESCRICAO_METRICAS[$m]['formula_unitario'] ?? self::DESCRICAO_METRICAS[$m]['formula'];
+    }
+
+    /** Rótulo do preço do item para a métrica e base (no OBJECTIVO em UNITARIO o preço vale por ponto percentual). */
+    public static function rotuloPreco(?string $metrica, string $base): string
+    {
+        $m = self::metricaDe($metrica);
+
+        return $base === 'PREMIO' ? self::DESCRICAO_METRICAS[$m]['rotulo_preco'] : (self::DESCRICAO_METRICAS[$m]['rotulo_preco_unitario'] ?? self::DESCRICAO_METRICAS[$m]['rotulo_preco']);
+    }
+
+    /**
+     * Item por gravar, para pré-visualizar a conta no formulário com o MESMO motor (`explicar`/`valor`): parte do item gravado
+     * (se houver) e aplica os valores do formulário; a base «prémio» só vale no OBJECTIVO, como em `gravarItem`.
+     *
+     * @param  array{metrica?: ?string, base_calculo?: ?string, unidade?: ?string, minimo?: mixed, maximo?: mixed, preco?: mixed}  $d
+     */
+    public static function itemSimulado(?ItemProdutividadeRH $gravado, array $d): ItemProdutividadeRH
+    {
+        $i = $gravado ? $gravado->replicate() : new ItemProdutividadeRH;
+        foreach (['metrica', 'base_calculo', 'unidade', 'minimo', 'maximo'] as $k) {
+            if (array_key_exists($k, $d)) {
+                $i->setAttribute($k, $d[$k] === '' ? null : $d[$k]);
+            }
+        }
+        if (array_key_exists('preco', $d) && $d['preco'] !== null) {
+            $i->setAttribute('preco_unitario', $d['preco']);
+        }
+        $i->setAttribute('metrica', self::metricaDe($i->metrica));
+        $i->setAttribute('base_calculo', $i->base_calculo === 'PREMIO' && $i->metrica === 'OBJECTIVO' ? 'PREMIO' : 'UNITARIO');
+
+        return $i;
     }
 
     /**
@@ -92,11 +149,11 @@ final class ServicoProdutividade
     /**
      * A conta escrita por extenso, com os números do caso (explicarCalculo, produtividade.js:155).
      *
-     * @return array{metrica: string, base_calculo: string, formula: string, conta: string, cortes: list<string>, quantidade: float, quantidade_considerada: float, preco: float, valor: string}
+     * @return array{metrica: string, base_calculo: string, formula: string, rotulo_preco: string, conta: string, cortes: list<string>, quantidade: float, quantidade_considerada: float, preco: float, valor: string}
      */
     public static function explicar(ItemProdutividadeRH $i, float $quantidade, float $preco): array
     {
-        $metrica = in_array($i->metrica, self::METRICAS, true) ? $i->metrica : 'QUANTIDADE';
+        $metrica = self::metricaDe($i->metrica);
         $base = self::baseDe($i);
         $min = $i->minimo !== null ? (float) $i->minimo : null;
         $max = $i->maximo !== null ? (float) $i->maximo : null;
@@ -113,7 +170,7 @@ final class ServicoProdutividade
         $conta = $base === 'PREMIO' ? "{$n($preco)} Kz × ({$n($qc)} ÷ 100)" : trim("{$n($qc)} {$un}")." × {$n($preco)} Kz";
         $valor = self::valor($i, $quantidade, $preco);
 
-        return ['metrica' => $metrica, 'base_calculo' => $base, 'formula' => $base === 'PREMIO' ? self::DESCRICAO_METRICAS['OBJECTIVO']['formula'] : self::DESCRICAO_METRICAS[$metrica]['formula'],
+        return ['metrica' => $metrica, 'base_calculo' => $base, 'formula' => self::formula($metrica, $base), 'rotulo_preco' => self::rotuloPreco($metrica, $base),
             'conta' => $conta.' = '.number_format((float) $valor, 2, ',', ' ').' Kz', 'cortes' => array_map(fn ($c) => trim(preg_replace('/\s+/', ' ', $c)), $cortes),
             'quantidade' => $quantidade, 'quantidade_considerada' => $qc, 'preco' => $preco, 'valor' => $valor];
     }

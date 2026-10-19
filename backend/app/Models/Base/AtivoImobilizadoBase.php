@@ -4,6 +4,7 @@ namespace App\Models\Base;
 
 use App\Models\AbateVendaAtivo;
 use App\Models\AfetacaoAtivoProjeto;
+use App\Models\AlocacaoAquisicaoAtivo;
 use App\Models\AmortizacaoAtivo;
 use App\Models\AndarEdificio;
 use App\Models\AtivoImobilizado;
@@ -40,7 +41,7 @@ abstract class AtivoImobilizadoBase extends ModeloBase
     protected string $moduloAuditoria = 'Activos';
 
     protected $fillable = [
-        'empresa_id', 'codigo', 'descricao', 'categoria_ativo_id', 'centro_custo_id', 'valor_aquisicao', 'vida_util', 'data_aquisicao', 'estado', 'estado_original', 'lancamento_contabil_id', 'fornecedor_id', 'valor_residual', 'amortizacao_acumulada', 'vida_util_restante', 'amortizacao_acumulada_inicial', 'quota_fixa', 'edificio_id', 'andar_id', 'porta_id', 'acumulado_fim_ano', 'unidade_negocio_id', 'tipo_ativo',
+        'empresa_id', 'codigo', 'descricao', 'categoria_ativo_id', 'centro_custo_id', 'valor_aquisicao', 'vida_util', 'data_aquisicao', 'estado', 'estado_original', 'lancamento_contabil_id', 'fornecedor_id', 'valor_residual', 'amortizacao_acumulada', 'vida_util_restante', 'amortizacao_acumulada_inicial', 'quota_fixa', 'edificio_id', 'andar_id', 'porta_id', 'acumulado_fim_ano', 'unidade_negocio_id', 'tipo_ativo', 'propriedade', 'regime_alheio', 'proprietario_terceiro_id', 'proprietario_nome', 'contrato_referencia', 'contrato_inicio', 'contrato_fim', 'renda_mensal', 'propriedade_notas',
     ];
 
     protected function casts(): array
@@ -64,6 +65,10 @@ abstract class AtivoImobilizadoBase extends ModeloBase
             'porta_id' => 'integer',
             'acumulado_fim_ano' => 'integer',
             'unidade_negocio_id' => 'integer',
+            'proprietario_terceiro_id' => 'integer',
+            'contrato_inicio' => 'date',
+            'contrato_fim' => 'date',
+            'renda_mensal' => 'decimal:2',
             'criado_em' => 'datetime',
             'atualizado_em' => 'datetime',
             'eliminado_em' => 'datetime',
@@ -108,6 +113,11 @@ abstract class AtivoImobilizadoBase extends ModeloBase
     public function unidadeNegocio(): BelongsTo
     {
         return $this->belongsTo(UnidadeNegocio::class, 'unidade_negocio_id');
+    }
+
+    public function proprietarioTerceiro(): BelongsTo
+    {
+        return $this->belongsTo(Terceiro::class, 'proprietario_terceiro_id');
     }
 
     public function ativosImobilizadosPorEdificio(): HasMany
@@ -173,5 +183,10 @@ abstract class AtivoImobilizadoBase extends ModeloBase
     public function requisicoesManutencao(): HasMany
     {
         return $this->hasMany(RequisicaoManutencao::class, 'ativo_imobilizado_id');
+    }
+
+    public function alocacoesAquisicaoAtivos(): HasMany
+    {
+        return $this->hasMany(AlocacaoAquisicaoAtivo::class, 'ativo_imobilizado_id');
     }
 }

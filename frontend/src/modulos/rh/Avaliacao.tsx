@@ -20,6 +20,7 @@ import { seccaoHtml } from './comum/impressao';
 
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 import { campoSimNao, opcoesColaboradores, semVazios } from './comum/linhasRh';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Cores das classificações do antigo (avaliacao.js, CORES). */
 export const CORES_CLASSIFICACAO: Record<string, string> = { Excelente: '#15803d', 'Muito Bom': '#2563eb', Bom: '#0891b2', Suficiente: '#d97706', Insuficiente: '#dc2626' };
@@ -78,7 +79,7 @@ export default function Avaliacao() {
   const { pode } = useSessao();
   const [ano, setAno] = useState(dayjs().year());
   const [periodo, setPeriodo] = useState<PeriodoAvaliacao>('ANUAL');
-  const [sep, setSep] = useState('avaliacoes');
+  const [sep, setSep] = useSeparadorUrl(pode('rh_avaliacao_itens') ? ['avaliacoes', 'itens'] : ['avaliacoes']);
   return (
     <>
       <CabecalhoPagina titulo="Avaliação de desempenho" subtitulo="Critérios (1 a 5) e objectivos; pontuação = critérios × (1 − P) + objectivos × P"

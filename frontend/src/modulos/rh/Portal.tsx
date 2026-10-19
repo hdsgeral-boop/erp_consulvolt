@@ -22,11 +22,12 @@ import { IndicadoresPortal } from './portal/IndicadoresPortal';
 import { PortalContrato, PortalEmprestimos, PortalEscala } from './portal/PortalFaseB';
 import { pedidoPendente } from './comum/regras';
 import { larguraModal, scrollTabela } from '@/componentes/responsivo';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Portal do Colaborador (ecrã rh_portal): os próprios dados, recibos, pedidos e aprovações da equipa. */
 export default function Portal() {
   const resumo = useQuery({ queryKey: ['rh', 'portal', 'resumo'], queryFn: () => obter<ResumoPortal>('/rh/portal/resumo'), retry: false });
-  const [separador, setSeparador] = useState('pedidos');
+  const [separador, setSeparador] = useSeparadorUrl(['pedidos', 'recibos', 'faltas', 'escala', 'contrato', 'emprestimos', 'avaliacao', 'equipa', 'aprovacoes', 'dados']);
   if (resumo.isLoading) return <Card loading />;
   if (resumo.error || !resumo.data) {
     const msg = resumo.error instanceof ErroApi ? resumo.error.message : 'Não foi possível abrir o portal.';

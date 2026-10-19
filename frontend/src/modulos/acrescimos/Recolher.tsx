@@ -18,6 +18,7 @@ import { candidatosVisiveis, contaBalancoPadrao, textoSemCandidatos, valoresDife
 import type { Candidato, FonteRecolha, ItemAD } from './comum/tipos';
 import { ModalRegularizar } from './DetalheItem';
 import { ModalItem, type ValoresIniciais } from './ModalItem';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Separadores do legado (FONTES de ad_ui.js): rótulo e ícone Font Awesome. */
 const FONTES: { value: FonteRecolha; label: string; icone: string }[] = [
@@ -38,7 +39,7 @@ export default function Recolher() {
   const { pode } = useSessao();
   const navegar = useNavigate();
   const def = useDefinicoes();
-  const [fonte, setFonte] = useState<FonteRecolha>('COMPRA');
+  const [fonte, setFonte] = useSeparadorUrl(FONTES.map((f) => f.value));
   const [inicio, setInicio] = useState<dayjs.Dayjs | null>(dayjs().startOf('year'));
   const [fim, setFim] = useState<dayjs.Dayjs | null>(dayjs());
   const [texto, setTexto] = useState('');
@@ -105,7 +106,7 @@ export default function Recolher() {
       />
       <Tabs
         activeKey={fonte}
-        onChange={(k) => setFonte(k as FonteRecolha)}
+        onChange={setFonte}
         items={FONTES.map((f) => ({ key: f.value, label: <span><IconeFa nome={f.icone} /> {f.label}</span> }))}
       />
       <Card>

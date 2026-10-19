@@ -1,19 +1,21 @@
-import { Avatar, Button, Card, Checkbox, Col, Descriptions, Drawer, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Tag, Typography, type MenuProps } from 'antd';
+import { Avatar, Button, Card, Checkbox, Col, Descriptions, Drawer, Dropdown, Empty, Flex, Form, Input, InputNumber, Modal, Row, Select, Space, Tag, Typography, theme, type MenuProps } from 'antd';
 import {
   ApartmentOutlined, ArrowDownOutlined, ArrowUpOutlined, ColumnHeightOutlined, DeleteOutlined, DollarOutlined, DownOutlined, EditOutlined, OrderedListOutlined,
-  MailOutlined, MoreOutlined, PhoneOutlined, PlusOutlined, UnorderedListOutlined, UserAddOutlined,
+  MailOutlined, MoreOutlined, PhoneOutlined, PlusOutlined, SwapOutlined, UnorderedListOutlined, UserAddOutlined,
 } from '@ant-design/icons';
 import { ModalAssociarTarefas, ModalMapearOrcamento, ModalPosicoesLote, type PosicaoCompleta } from './OrganigramaAccoes';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { useAccao } from '@/componentes/Accoes';
 import { ModalFormulario, type CampoFormulario } from '@/componentes/formularios';
 import { formatarKz } from '@/utilitarios/formatacao';
-import type { Organigrama, Posicao } from '../comum/tipos';
+import type { Membro, Organigrama, Posicao } from '../comum/tipos';
 import type { PropsSeparador } from '../DetalheProjecto';
 import { larguraModal } from '@/componentes/responsivo';
-import { ocupantes, QuadroOrganigrama, textoVagas, type PosicaoQuadro } from './organigrama/QuadroOrganigrama';
+import { eArrastoMembro, ocupantes, QuadroOrganigrama, textoVagas, type ArrastoMembros, type PosicaoQuadro } from './organigrama/QuadroOrganigrama';
+import { chaveDestino, destinoDaChave, MIME_MEMBRO, opcoesDestino, previsaoDestino, type Destino } from './organigrama/moverMembro';
+import { useMoverMembro } from './organigrama/useMoverMembro';
 import { iniciais } from './organigrama/layout';
 import { CORES_POSICAO as CORES, dadosPosicao, simNao } from '../comum/linhas';
 import { consumo } from '../comum/regras';
@@ -34,6 +36,25 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
   const accao = useAccao({ invalidar: [['projectos']] });
   const o = q.data;
   const refOrganigrama = useRef<HTMLDivElement>(null);
+  const { token } = theme.useToken();
+  // Ronda 4: arrastar membros entre posições (e para «Equipa sem posição»), com «Desfazer» e menu «Mover para…»
+  const { mover } = useMoverMembro(projecto.id);
+  const [arrastado, setArrastado] = useState<{ membroId: number; de: Destino } | null>(null);
+  const [sobreLivres, setSobreLivres] = useState(false);
+  const arrasto = useMemo<ArrastoMembros | undefined>(() => (acc.gerir && o ? {
+    activo: arrastado,
+    iniciar: (membroId, de) => setArrastado({ membroId, de }),
+    terminar: () => { setArrastado(null); setSobreLivres(false); },
+    largar: (para) => { const a = arrastado; setArrastado(null); setSobreLivres(false); if (a) mover(a.membroId, para); },
+    previsao: (para) => (arrastado ? previsaoDestino(o, arrastado.membroId, para) : null),
+  } : undefined), [acc.gerir, o, arrastado, mover]);
+  /** Submenu «Mover para…» de um membro (alternativa por teclado ao arrastar). */
+  const itensMover = (de: Destino): MenuProps['items'] => (o ? opcoesDestino(o, de).map((d) => ({ key: chaveDestino(d.valor), label: d.rotulo })) : []);
+  const botaoMover = (m: Membro, de: Destino) => (
+    <Dropdown trigger={['click']} menu={{ items: itensMover(de), onClick: ({ key, domEvent }) => { domEvent.stopPropagation(); mover(m.id, destinoDaChave(String(key))); } }}>
+      <Button size="small" type="text" icon={<SwapOutlined />} aria-label={`Mover ${m.nome} para…`} title="Mover para…" onClick={(e) => e.stopPropagation()} />
+    </Dropdown>
+  );
 
   const porId = useMemo(() => new Map((o?.posicoes ?? []).map((p) => [p.id, p as PosicaoQuadro])), [o]);
   const detalhe = detalheId !== null ? porId.get(detalheId) ?? null : null;
@@ -43,6 +64,10 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
   /** Menu «⋯» do cartão (acções do legado na caixa: .porg-accoes, projectos_organigrama.js:285-293). */
   const menuPosicao = (p: PosicaoQuadro): MenuProps['items'] => [
     { key: 'alocar', icon: <UserAddOutlined />, label: 'Alocar membros' },
+    ...(p.membros.length ? [{
+      key: 'mover', icon: <SwapOutlined />, label: 'Mover membro para…',
+      children: ocupantes(p).map((m) => ({ key: `mover:${m.id}`, label: m.nome, children: itensMover(p.id)?.map((d) => d && { ...d, key: `mover:${m.id}:${String(d.key)}` }) })),
+    }] : []),
     { key: 'tarefas', icon: <OrderedListOutlined />, label: 'Associar tarefas' },
     { key: 'sub', icon: <PlusOutlined />, label: 'Nova subposição' },
     { key: 'editar', icon: <EditOutlined />, label: 'Editar posição' },
@@ -55,6 +80,11 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
   ];
   const executar = (p: PosicaoQuadro, chave: string) => {
     const url = `/projetos/${projecto.id}/organigrama`;
+    if (chave.startsWith('mover:')) {
+      const [, membro, destino] = chave.split(':');
+      if (destino !== undefined) mover(Number(membro), destinoDaChave(destino));
+      return;
+    }
     switch (chave) {
       case 'alocar': setAlocar(p); break;
       case 'tarefas': setTarefas(p as PosicaoCompleta); break;
@@ -109,27 +139,37 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
           )}
           {/* legado (.porg-grid): esquema à esquerda e, à direita, a equipa sem posição */}
           <Row gutter={[16, 16]}>
-            <Col xs={24} xl={o.sem_posicao.length > 0 ? 18 : 24}>
+            <Col xs={24} xl={o.sem_posicao.length > 0 || arrastado ? 18 : 24}>
               {o.posicoes.length
                 ? <QuadroOrganigrama posicoes={o.posicoes as PosicaoQuadro[]} titulo={`Organigrama — ${projecto.codigo ? `${projecto.codigo} ` : ''}${projecto.nome}`}
-                    aoAbrir={(p) => setDetalheId(p.id)} accoes={acc.gerir ? menuPosicao : undefined} aoAccao={executar} />
+                    aoAbrir={(p) => setDetalheId(p.id)} accoes={acc.gerir ? menuPosicao : undefined} aoAccao={executar} arrasto={arrasto} />
                 : <Empty description="Organigrama vazio" />}
             </Col>
-            {o.sem_posicao.length > 0 && (
+            {(o.sem_posicao.length > 0 || arrastado) && (
               <Col xs={24} xl={6}>
-                <Card size="small" title={`Equipa sem posição (${o.sem_posicao.length})`}>
+                {/* legado (.porg-livres + data-porg-livres): também é zona de largada — retira o membro da posição */}
+                <Card size="small" title={`Equipa sem posição (${o.sem_posicao.length})`} data-testid="equipa-sem-posicao"
+                  style={sobreLivres && arrastado ? { boxShadow: `0 0 0 3px ${arrastado.de === null ? token.colorTextQuaternary : token.colorPrimary}` } : undefined}
+                  onDragOver={arrasto ? (e) => { if (!arrastado || !eArrastoMembro(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = arrastado.de === null ? 'none' : 'move'; setSobreLivres(true); } : undefined}
+                  onDragLeave={arrasto ? (e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSobreLivres(false); } : undefined}
+                  onDrop={arrasto ? (e) => { if (!arrastado || !eArrastoMembro(e)) return; e.preventDefault(); arrasto.largar(null); } : undefined}>
+                  {sobreLivres && arrastado && <Tag color={arrastado.de === null ? 'default' : 'processing'} style={{ marginBottom: 8, whiteSpace: 'normal' }}>{previsaoDestino(o, arrastado.membroId, null)?.texto}</Tag>}
                   <Space direction="vertical" size={6} style={{ width: '100%' }}>
                     {o.sem_posicao.map((m) => (
-                      <Flex key={m.id} align="center" gap={8}>
+                      <Flex key={m.id} align="center" gap={8} data-org-membro={m.id} draggable={!!arrasto}
+                        style={{ cursor: arrasto ? 'grab' : undefined, opacity: arrastado?.membroId === m.id ? 0.4 : 1 }} title={arrasto ? `Arraste «${m.nome}» para uma posição` : undefined}
+                        onDragStart={arrasto ? (e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData(MIME_MEMBRO, String(m.id)); e.dataTransfer.setData('text/plain', m.nome); arrasto.iniciar(m.id, null); } : undefined}
+                        onDragEnd={arrasto ? () => arrasto.terminar() : undefined}>
                         <Avatar size={24} style={{ flex: 'none', fontSize: 11 }}>{iniciais(m.nome)}</Avatar>
-                        <div style={{ minWidth: 0 }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
                           <Typography.Text ellipsis style={{ display: 'block' }}>{m.nome}</Typography.Text>
                           {m.papel && <Typography.Text type="secondary" style={{ fontSize: 11 }}>{m.papel}</Typography.Text>}
                         </div>
+                        {acc.gerir && o.posicoes.length > 0 && botaoMover(m, null)}
                       </Flex>
                     ))}
                   </Space>
-                  {acc.gerir && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 8 }}>Use «Alocar membros» no menu ⋯ da posição.</Typography.Text>}
+                  {acc.gerir && <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 8 }}>Arraste um membro para uma posição (ou para aqui, para o retirar), use «Mover para…» ou «Alocar membros» no menu ⋯ da posição.</Typography.Text>}
                 </Card>
               </Col>
             )}
@@ -141,7 +181,7 @@ export function SeparadorOrganigrama({ projecto, acc }: PropsSeparador) {
               </Dropdown>
             )}>
             {detalhe && <DetalhePosicao p={detalhe} superior={superior?.titulo} subordinadas={subordinadas.map((x) => x.titulo)} aoIr={(id) => setDetalheId(id)}
-              idsSubordinadas={subordinadas.map((x) => x.id)} idSuperior={superior?.id} />}
+              idsSubordinadas={subordinadas.map((x) => x.id)} idSuperior={superior?.id} accaoMembro={acc.gerir ? (m) => botaoMover(m, detalhe.id) : undefined} />}
           </Drawer>
           <ModalPosicao projectoId={projecto.id} posicao={posicao} posicoes={o.posicoes} aoFechar={() => setPosicao(null)} />
           <ModalAlocar projectoId={projecto.id} posicao={alocar} organigrama={o} aoFechar={() => setAlocar(null)} />
@@ -228,8 +268,10 @@ function ModalAlocar({ projectoId, posicao, organigrama, aoFechar }: { projectoI
 }
 
 /** Detalhe da posição (projOrgDetalhe do legado): ocupantes com contactos, vagas, hierarquia, tarefas e valores. */
-function DetalhePosicao({ p, superior, idSuperior, subordinadas, idsSubordinadas, aoIr }: {
+function DetalhePosicao({ p, superior, idSuperior, subordinadas, idsSubordinadas, aoIr, accaoMembro }: {
   p: PosicaoQuadro; superior?: string; idSuperior?: number; subordinadas: string[]; idsSubordinadas: number[]; aoIr: (id: number) => void;
+  /** Ronda 4: «Mover para…» de cada ocupante (só para quem gere). */
+  accaoMembro?: (m: Membro) => ReactNode;
 }) {
   const os = ocupantes(p);
   const v = textoVagas(os.length, p.vagas);
@@ -250,7 +292,7 @@ function DetalhePosicao({ p, superior, idSuperior, subordinadas, idsSubordinadas
         {os.length ? os.map((m) => (
           <Flex key={m.id} gap={10} align="center" style={{ marginTop: 8 }}>
             <Avatar size={36}>{iniciais(m.nome)}</Avatar>
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <Typography.Text strong={m.id === p.membro_responsavel_id} style={{ display: 'block' }}>{m.nome}{m.id === p.membro_responsavel_id && <Tag color="gold" style={{ marginLeft: 6 }}>Responsável</Tag>}</Typography.Text>
               <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>{[m.cargo, m.papel].filter(Boolean).join(' · ') || '—'}</Typography.Text>
               <Space size={12} wrap style={{ fontSize: 12 }}>
@@ -258,6 +300,7 @@ function DetalhePosicao({ p, superior, idSuperior, subordinadas, idsSubordinadas
                 {m.email && <a href={`mailto:${m.email}`}><MailOutlined /> {m.email}</a>}
               </Space>
             </div>
+            {accaoMembro?.(m)}
           </Flex>
         )) : <Typography.Paragraph type="secondary" italic style={{ marginTop: 4 }}>Sem ocupante.</Typography.Paragraph>}
       </div>

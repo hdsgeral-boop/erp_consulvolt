@@ -33,7 +33,7 @@ final class ServicoPermissoes
     public const MODULOS_HOLDING = ['contab'];
 
     /** Ecrãs de outros módulos disponíveis numa holding (o Início, vista `welcome`, não é ecrã do catálogo e fica sempre). */
-    public const ECRAS_HOLDING = ['dashboard'];
+    public const ECRAS_HOLDING = ['dashboard', 'notificacoes_centro'];
 
     /** @var array<int, bool> memória por pedido: empresa => é holding */
     private array $holdings = [];
@@ -64,6 +64,9 @@ final class ServicoPermissoes
             return true;
         }
         $k = self::norm($chave);
+        if ($this->administrador($utilizador) && in_array($k, ['notificacoes_centro_view', 'notificacoes_centro_ver', 'notificacoes_centro_gerir', 'notificacoes_view'], true)) {
+            return true;
+        }
         if (($this->permissoes($utilizador)[$k] ?? null) === true) {
             return true;
         }
@@ -89,7 +92,7 @@ final class ServicoPermissoes
     /** Consulta de um ecrã/vista — equivalente a window.hasView (formato v2) do legado. */
     public function podeVer(Utilizador $utilizador, string $vista, ?int $empresaId = null): bool
     {
-        if ($vista === 'welcome' || $this->total($utilizador)) {
+        if ($vista === 'welcome' || in_array($vista, ['notificacoes_centro', 'notificacoes'], true) || $this->total($utilizador)) {
             return true;
         }
         $k = self::norm($vista);
@@ -145,7 +148,7 @@ final class ServicoPermissoes
         if ($empresaId !== null && $this->ligadoAColaborador($utilizador, $empresaId)) {
             $chaves = array_merge($chaves, self::PORTAL_AUTOMATICO);
         }
-        $chaves = array_values(array_unique(array_map(self::norm(...), $chaves)));
+        $chaves = array_values(array_unique(array_map(fn ($k) => self::norm($k), $chaves)));
         if ($this->eHolding($empresaId)) {
             $chaves = array_values(array_filter($chaves, fn ($k) => ! $this->bloqueadaNaHolding($k)));
         }
@@ -209,7 +212,7 @@ final class ServicoPermissoes
     {
         $ecras = self::ecrasDaChave(self::norm($chave));
 
-        return $ecras !== [] && array_filter($ecras, self::ecraPermitidoNaHolding(...)) === [];
+        return $ecras !== [] && array_filter($ecras, fn ($e) => self::ecraPermitidoNaHolding($e)) === [];
     }
 
     /** @return list<array<string, mixed>> */
@@ -244,6 +247,9 @@ final class ServicoPermissoes
     /** @param  array<string, mixed>  $ecra */
     private function ecraVisivel(Utilizador $utilizador, array $ecra, ?int $empresaId): bool
     {
+        if (($ecra['id'] ?? null) === 'notificacoes_centro') {
+            return true;
+        }
         if ($this->tem($utilizador, "{$ecra['id']}_view", $empresaId)) {
             return true;
         }

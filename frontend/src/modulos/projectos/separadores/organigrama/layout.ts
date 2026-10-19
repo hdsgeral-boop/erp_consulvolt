@@ -21,6 +21,8 @@ export interface NoPosto {
   nivel: number;
   x: number;
   y: number;
+  /** Altura do cartão (o texto quebra em linhas: os cartões crescem em vez de cortar o texto). */
+  altura: number;
   filhos: number[];
   /** Tem filhos escondidos (ramo recolhido). */
   recolhido: boolean;
@@ -103,66 +105,80 @@ export function descendentes(id: number, filhos: Map<number | null, NoEntrada[]>
 }
 
 /**
- * Disposição da árvore. Vertical: níveis de cima para baixo, irmãos lado a lado, o pai centrado sobre os filhos.
- * Horizontal: níveis da esquerda para a direita, irmãos uns por baixo dos outros. `recolhidos`: ramos fechados.
+ * Disposição da árvore. Vertical: níveis de cima para baixo, irmãos lado a lado, o pai centrado sobre os filhos; cada nível
+ * tem a altura do cartão mais alto (os cartões do nível alinham pelo topo). Horizontal: níveis da esquerda para a direita,
+ * irmãos uns por baixo dos outros, cada um com a sua altura. `recolhidos`: ramos fechados. `alturas`: altura de cada cartão
+ * (omissão: `m.altura`).
  */
-export function disporArvore(nos: NoEntrada[], orientacao: Orientacao, recolhidos: Set<number> = new Set(), m: Medidas = MEDIDAS): Disposicao {
+export function disporArvore(nos: NoEntrada[], orientacao: Orientacao, recolhidos: Set<number> = new Set(), m: Medidas = MEDIDAS,
+  alturas?: Map<number, number>): Disposicao {
   const filhos = filhosPorPai(nos);
   const porId = new Map(nos.map((n) => [n.id, n]));
   const visiveis = (id: number) => (recolhidos.has(id) ? [] : filhos.get(id) ?? []);
   const vertical = orientacao === 'vertical';
-  // dimensões no eixo «ao longo do nível» (amplitude) e «entre níveis» (profundidade)
-  const amp = vertical ? m.largura : m.altura;
-  const prof = vertical ? m.altura : m.largura;
+  const alt = (id: number) => Math.max(m.altura, alturas?.get(id) ?? m.altura);
+  // amplitude (ao longo do nível) de um cartão
+  const ampNo = (id: number) => (vertical ? m.largura : alt(id));
   const emColuna = (id: number) => vertical && !!porId.get(id)?.coluna && visiveis(id).length > 0 && visiveis(id).every((f) => visiveis(f.id).length === 0);
+  const raizes = filhos.get(null) ?? [];
+
+  // vertical: altura de cada nível = o cartão mais alto do nível (as subposições «em coluna» empilham-se e não contam)
+  const alturaNivel: number[] = [];
+  if (vertical) {
+    const percorrer = (n: NoEntrada, nivel: number) => {
+      alturaNivel[nivel] = Math.max(alturaNivel[nivel] ?? 0, alt(n.id));
+      if (!emColuna(n.id)) visiveis(n.id).forEach((f) => percorrer(f, nivel + 1));
+    };
+    raizes.forEach((r) => percorrer(r, 0));
+  }
+  const profNivel = (nivel: number) => (vertical ? alturaNivel[nivel] ?? m.altura : m.largura);
 
   // amplitude ocupada por cada sub-árvore
   const ampl = new Map<number, number>();
   const medir = (id: number): number => {
     const fs = visiveis(id);
-    let a = amp;
+    const proprio = ampNo(id);
+    let a = proprio;
     if (fs.length) {
-      if (emColuna(id)) a = Math.max(amp, m.recuo + amp);
-      else a = Math.max(amp, fs.reduce((s, f) => s + medir(f.id), 0) + m.irmaos * (fs.length - 1));
+      if (emColuna(id)) a = Math.max(proprio, m.recuo + m.largura);
+      else a = Math.max(proprio, fs.reduce((s, f) => s + medir(f.id), 0) + m.irmaos * (fs.length - 1));
     }
     ampl.set(id, a);
     return a;
   };
-  const raizes = filhos.get(null) ?? [];
   raizes.forEach((r) => medir(r.id));
 
   const postos = new Map<number, NoPosto>();
   const ligacoes: Ligacao[] = [];
-  let maxProf = 0;
   // posiciona a sub-árvore com início `ini` na amplitude e o nível em `p` na profundidade (canto superior esquerdo)
-  const colocar = (n: NoEntrada, ini: number, p: number, nivel: number) => {
-    const a = ampl.get(n.id) ?? amp;
+  const colocar = (n: NoEntrada, ini: number, p: number, nivel: number, fixo?: { x: number; y: number }) => {
+    const proprio = ampNo(n.id);
+    const a = ampl.get(n.id) ?? proprio;
     const fs = visiveis(n.id);
     const coluna = emColuna(n.id);
-    const centro = coluna ? ini + amp / 2 : ini + a / 2;
-    const xy = vertical ? { x: centro - amp / 2, y: p } : { x: p, y: centro - amp / 2 };
-    postos.set(n.id, { id: n.id, pai: n.pai !== null && porId.has(n.pai) ? n.pai : null, nivel, ...xy, filhos: fs.map((f) => f.id),
+    const centro = coluna ? ini + proprio / 2 : ini + a / 2;
+    const xy = fixo ?? (vertical ? { x: centro - proprio / 2, y: p } : { x: p, y: centro - proprio / 2 });
+    postos.set(n.id, { id: n.id, pai: n.pai !== null && porId.has(n.pai) ? n.pai : null, nivel, ...xy, altura: alt(n.id), filhos: fs.map((f) => f.id),
       recolhido: recolhidos.has(n.id) && (filhos.get(n.id)?.length ?? 0) > 0 });
-    maxProf = Math.max(maxProf, p + prof);
     if (coluna) {
       // filhos em coluna (vertical): uns por baixo dos outros, recuados à direita da linha que desce do pai
-      let y = p + prof + m.niveis / 2;
+      let y = xy.y + alt(n.id) + m.niveis / 2;
       fs.forEach((f) => {
-        colocar(f, ini + m.recuo, y, nivel + 1);
-        y += m.altura + m.irmaos / 2;
+        colocar(f, 0, 0, nivel + 1, { x: xy.x + m.recuo, y });
+        y += alt(f.id) + m.irmaos / 2;
       });
       return;
     }
-    let cursor = ini + (a - (fs.reduce((s, f) => s + (ampl.get(f.id) ?? amp), 0) + m.irmaos * Math.max(0, fs.length - 1))) / 2;
+    let cursor = ini + (a - (fs.reduce((s, f) => s + (ampl.get(f.id) ?? ampNo(f.id)), 0) + m.irmaos * Math.max(0, fs.length - 1))) / 2;
     fs.forEach((f) => {
-      colocar(f, cursor, p + prof + m.niveis, nivel + 1);
-      cursor += (ampl.get(f.id) ?? amp) + m.irmaos;
+      colocar(f, cursor, p + profNivel(nivel) + m.niveis, nivel + 1);
+      cursor += (ampl.get(f.id) ?? ampNo(f.id)) + m.irmaos;
     });
   };
   let cursor = m.margem;
   raizes.forEach((r) => {
     colocar(r, cursor, m.margem, 0);
-    cursor += (ampl.get(r.id) ?? amp) + m.irmaos * 2;
+    cursor += (ampl.get(r.id) ?? ampNo(r.id)) + m.irmaos * 2;
   });
 
   // ligações (cotovelos)
@@ -174,15 +190,15 @@ export function disporArvore(nos: NoEntrada[], orientacao: Orientacao, recolhido
       let d: string;
       if (coluna) {
         const x0 = n.x + m.recuo / 2;
-        d = `M${x0},${n.y + m.altura} V${f.y + m.altura / 2} H${f.x}`;
+        d = `M${x0},${n.y + n.altura} V${f.y + f.altura / 2} H${f.x}`;
       } else if (vertical) {
         const x0 = n.x + m.largura / 2;
         const x1 = f.x + m.largura / 2;
-        const ym = n.y + m.altura + m.niveis / 2;
-        d = `M${x0},${n.y + m.altura} V${ym} H${x1} V${f.y}`;
+        const ym = f.y - m.niveis / 2;
+        d = `M${x0},${n.y + n.altura} V${ym} H${x1} V${f.y}`;
       } else {
-        const y0 = n.y + m.altura / 2;
-        const y1 = f.y + m.altura / 2;
+        const y0 = n.y + n.altura / 2;
+        const y1 = f.y + f.altura / 2;
         const xm = n.x + m.largura + m.niveis / 2;
         d = `M${n.x + m.largura},${y0} H${xm} V${y1} H${f.x}`;
       }
@@ -191,7 +207,7 @@ export function disporArvore(nos: NoEntrada[], orientacao: Orientacao, recolhido
   }
   const xs = [...postos.values()];
   const largura = xs.length ? Math.max(...xs.map((n) => n.x + m.largura)) + m.margem : 0;
-  const altura = xs.length ? Math.max(...xs.map((n) => n.y + m.altura)) + m.margem : 0;
+  const altura = xs.length ? Math.max(...xs.map((n) => n.y + n.altura)) + m.margem : 0;
   return { nos: postos, ligacoes, largura, altura, raizes: raizes.map((r) => r.id) };
 }
 
@@ -206,10 +222,4 @@ export function iniciais(nome: string | null | undefined): string {
   const p = String(nome ?? '').trim().split(/\s+/).filter(Boolean);
   if (!p.length) return '?';
   return ((p[0][0] ?? '') + (p.length > 1 ? p[p.length - 1][0] ?? '' : '')).toUpperCase();
-}
-
-/** Corta um texto para caber em `max` caracteres, com reticências. */
-export function cortar(texto: string | null | undefined, max: number): string {
-  const t = String(texto ?? '');
-  return t.length > max ? `${t.slice(0, Math.max(1, max - 1))}…` : t;
 }

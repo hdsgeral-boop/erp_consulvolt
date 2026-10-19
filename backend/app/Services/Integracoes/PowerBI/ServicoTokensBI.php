@@ -4,6 +4,8 @@ namespace App\Services\Integracoes\PowerBI;
 
 use App\Exceptions\ErroNegocio;
 use App\Services\Sistema\ServicoAuditoria;
+use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -75,6 +77,19 @@ final class ServicoTokensBI
         if (! $token || ! str_starts_with($token, self::PREFIXO) || strlen($token) > 100) {
             return null;
         }
+        // Sem utilizador nem tenant (Power BI): com SaaS activo a empresa resolve-se pela função SQL SECURITY DEFINER
+        // `app_empresa_por_token_bi` e a leitura corre nesse contexto (ADR-073).
+        if (ContextoTenant::ativo()) {
+            $empresa = DB::selectOne('SELECT app_empresa_por_token_bi(?) AS empresa', [hash('sha256', $token)])?->empresa;
+
+            return $empresa === null ? null : app(ContextoEmpresa::class)->executarComo((int) $empresa, fn () => $this->autenticarNoContexto($token));
+        }
+
+        return $this->autenticarNoContexto($token);
+    }
+
+    private function autenticarNoContexto(string $token): ?object
+    {
         $t = DB::table('tokens_bi')->where('hash_token', hash('sha256', $token))->first();
         if (! $t || $t->revogado_em || ($t->expira_em && strtotime((string) $t->expira_em) <= time())) {
             return null;

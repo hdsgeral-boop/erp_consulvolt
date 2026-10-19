@@ -9,7 +9,11 @@ export function Ecra() {
   const { modulo, ecra } = useParams();
   const { menu } = useSessao();
   const definicao = menu.find((m) => m.id === modulo)?.ecras.find((e) => e.id === ecra);
-  if (!definicao) return <Result status="403" title="Sem acesso" subTitle="Não tem permissão para este ecrã nesta empresa." />;
+  const ePermitidoTransversal = ecra === 'notificacoes_centro';
+
+  if (!definicao && !ePermitidoTransversal) {
+    return <Result status="403" title="Sem acesso" subTitle="Não tem permissão para este ecrã nesta empresa." />;
+  }
   const Componente = ecra ? ECRAS[ecra] : undefined;
-  return Componente ? <Componente /> : <EmConstrucao nome={definicao.nome} />;
+  return Componente ? <Componente /> : <EmConstrucao nome={definicao?.nome ?? ecra ?? 'Ecrã'} />;
 }

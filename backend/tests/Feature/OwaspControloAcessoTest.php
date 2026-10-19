@@ -36,6 +36,11 @@ final class OwaspControloAcessoTest extends TestCase
         'POST api/rh/avaliacao/ascendente' => 'avaliação ascendente do próprio',
         'GET api/rh/avaliacao/ascendente/{colaborador}' => 'avaliação ascendente do próprio',
         'PUT api/sistema/preferencias/{tipo}/{nome}' => 'preferências do próprio utilizador',
+        'GET api/licenca/estado' => 'estado da licença da empresa activa (alimenta o aviso do cabeçalho; sem dados sensíveis)',
+        'GET api/licenca/planos' => 'planos activos (catálogo da plataforma); todos os planos só para super-administradores',
+        'GET api/sistema/notificacoes' => 'notificações e alertas da empresa activa: itens filtrados por permissão no serviço',
+        'POST api/sistema/notificacoes/{id}/ler' => 'marcar notificação como lida da empresa activa',
+        'POST api/sistema/notificacoes/ler-todas' => 'marcar todas as notificações como lidas da empresa activa',
     ];
 
     /** Padrões que mostram uma verificação de autorização no corpo da acção (para acções que validam antes de autorizar). */

@@ -29,6 +29,7 @@ import { pedidoTabela } from './comum/impressao';
 
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
 import { campoHora, campoSimNao, dataDe, horaDe, numeroDe, opcoesColaboradores, propsHora, textoDe } from './comum/linhasRh';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Cores dos valores dos indicadores do antigo (assiduidade_ui.js, .ef-kpi strong). */
 const COR_EXTRA = '#166534';
@@ -41,6 +42,7 @@ export default function Assiduidade() {
   const m = mes.format('YYYY-MM');
   // antigo (assiduidade_ui.js:100, :485, :566, :659): o mês escolhe-se dentro de cada separador; o estado é partilhado
   const seletor = (rotulo = 'Mês') => <SeletorMes rotulo={rotulo} valor={mes} aoMudar={setMes} />;
+  const [sep, setSep] = useSeparadorUrl(['apuramento', 'escala', 'registos', 'importar', 'ausencias', 'fechos', 'config']);
   // Ordem e nomes dos separadores do antigo (abre no «Resumo do mês»); «Fechos mensais» é um extra do sistema novo.
   return (
     <>
@@ -50,7 +52,8 @@ export default function Assiduidade() {
       />
       <Tabs
         type="card"
-        defaultActiveKey="apuramento"
+        activeKey={sep}
+        onChange={setSep}
         items={[
           { key: 'apuramento', label: <span><IconeFa nome="calculator" /> Resumo do mês</span>, children: <Apuramento mes={m} seletor={seletor()} /> },
           // Versão Actual (assiduidade_ui.js:58 e :82): turnos por colaborador e dia, escala prioritária, migrar do contrato, copiar, Excel

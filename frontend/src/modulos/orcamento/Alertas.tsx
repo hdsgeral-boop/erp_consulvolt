@@ -19,16 +19,20 @@ import { corMonitor, MESES } from './comum/regras';
 import type { AlertaOrcamental, LinhaMonitor, PedidoExcesso, RefOrcamento, RefRubrica } from './comum/tipos';
 
 import { CartaoKpi, GrelhaKpi, TabelaComModos } from '@/componentes/vistas';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 /** Orçamento › Alertas e aprovações (ecrã orc_alertas): pedidos de excesso para decidir, registo de alertas e monitor de consumo. */
 export default function Alertas() {
   // contador de pedidos pendentes no separador (pílula âmbar do legado, orcamento_planeamento_ui.js:575-588)
   const pendentes = useQuery({ queryKey: ['orcamento', 'pedidos-excesso', 'PENDENTE'], queryFn: () => obter<PedidoExcesso[]>('/orcamento/pedidos-excesso', { estado: 'PENDENTE' }) });
   const n = pendentes.data?.length ?? 0;
+  const [sep, setSep] = useSeparadorUrl(['monitor', 'pedidos', 'registo']);
   return (
     <>
       <CabecalhoPagina titulo="Alertas e aprovações orçamentais" subtitulo="Excessos detectados nos documentos (adjudicações, facturas, pagamentos e lançamentos)" />
       <Tabs
         destroyOnHidden
+        activeKey={sep}
+        onChange={setSep}
         items={[
           // ordem do legado: consumo vs orçamento, pedidos de aprovação, registo de alertas
           { key: 'monitor', label: <><IconeFa nome="tachometer-alt" /> Consumo vs orçamento</>, children: <Monitor /> },

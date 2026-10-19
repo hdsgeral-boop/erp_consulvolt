@@ -7,7 +7,6 @@ use App\Models\Armazem;
 use App\Models\GuiaSaida;
 use App\Models\ItemGuiaSaida;
 use App\Models\LinhaSessaoInventario;
-use App\Models\MovimentoInventario;
 use App\Models\SessaoInventario;
 use App\Models\Venda;
 use App\Services\Compras\RelacoesNomes;
@@ -70,21 +69,6 @@ final class StockController extends Controller
 
         return RespostaApi::sucesso(['linhas' => $this->armazens->stock($f['armazem_id'] ?? null, (bool) ($f['com_stock'] ?? false)), 'valorizacao' => $this->armazens->valorizacao()],
             'Stock por armazém.');
-    }
-
-    public function movimentos(Request $r): JsonResponse
-    {
-        $this->exigir('armazem_movimentos_view', 'armazem_stock_view');
-        $f = $r->validate(['produto_id' => ['nullable', 'integer'], 'armazem_id' => ['nullable', 'integer'], 'tipo' => ['nullable', 'in:ENTRADA,SAIDA,TRANSFERENCIA,AJUSTE'],
-            'de' => ['nullable', 'date'], 'ate' => ['nullable', 'date'], 'referencia' => ['nullable', 'string', 'max:100'],
-            'por_pagina' => ['nullable', 'integer', 'min:1', 'max:500'], 'pagina' => ['nullable', 'integer', 'min:1']]);
-
-        return RespostaApi::paginado(MovimentoInventario::query()
-            ->when($f['produto_id'] ?? null, fn ($q, $v) => $q->where('produto_id', $v))->when($f['armazem_id'] ?? null, fn ($q, $v) => $q->where('armazem_id', $v))
-            ->when($f['tipo'] ?? null, fn ($q, $v) => $q->where('tipo', $v))->when($f['de'] ?? null, fn ($q, $v) => $q->where('data', '>=', $v))
-            ->when($f['ate'] ?? null, fn ($q, $v) => $q->where('data', '<=', $v.' 23:59:59'))
-            ->when($f['referencia'] ?? null, fn ($q, $v) => $q->where('referencia', 'ilike', '%'.str_replace(['%', '_'], ['\%', '\_'], $v).'%'))
-            ->orderByDesc('data')->orderByDesc('id')->paginate(perPage: (int) ($f['por_pagina'] ?? 100), page: (int) ($f['pagina'] ?? 1)));
     }
 
     public function extracto(Request $r, int $produto): JsonResponse

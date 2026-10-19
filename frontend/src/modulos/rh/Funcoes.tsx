@@ -1,11 +1,11 @@
 import { Alert, Form, Input, Tabs, Tag, Tooltip, Typography } from 'antd';
-import { useState } from 'react';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import type { Cadastro } from './api';
 import { CadastroSimples, useDestinoAccoes } from './comum/CadastroSimples';
 import { BotoesCadastroLegado } from './comum/BotoesCadastroLegado';
 import type { CampoFormulario } from '@/componentes/formularios';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 /** Vista Linhas da «Nova Função» (legado: formularios_linhas_config.js › funcoes — nome e descrição). */
 const CAMPOS_LINHAS_FUNCAO: CampoFormulario[] = [
@@ -50,7 +50,7 @@ export default function Funcoes() {
   const { pode } = useSessao();
   const gerir = pode('rh_funcoes_gerir');
   const eliminar = pode('rh_funcao_del');
-  const [separador, setSeparador] = useState('cargos');
+  const [separador, setSeparador] = useSeparadorUrl(['cargos', 'tipos']);
   const [destino, elementoDestino] = useDestinoAccoes();
   return (
     <>

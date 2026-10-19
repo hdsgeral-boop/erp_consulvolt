@@ -12,8 +12,9 @@
 //     seguem-se os imports locais (estáticos e dinâmicos) dentro de src/modulos/** — os componentes partilhados de
 //     src/componentes/** (Imprimir, CSV, …) ficam de fora por serem iguais em todos os ecrãs;
 //  2. separadores: objectos { key, label } dentro do `items` de um <Tabs> (directo ou numa variável/useMemo do ficheiro);
-//     se o <Tabs> está no ficheiro de entrada do ecrã e o seu `activeKey` vem do endereço (`.get('separador')` /
-//     `.get('sep')`) guarda-se a consulta que o abre;
+//     se o <Tabs> está no ficheiro de entrada do ecrã e o seu `activeKey` vem do endereço — o hook partilhado
+//     useSeparadorUrl (src/componentes/navegacao, `?sep=`) ou `.get('sep')` — guarda-se a CHAVE do separador (o `key` do
+//     item) e a pesquisa abre `rota?sep=<chave>`; ecrãs antigos que só lêem `.get('separador')` guardam `separador=<chave>`;
 //  3. botões: texto de <Button>…</Button> (ou o `title`/`aria-label` quando só tem ícone) e descritores de acções
 //     ({ titulo, onClick } das AccoesLinha e { label, onClick } dos menus de acções);
 //  4. permissão: a chamada `pode('…')` mais próxima que condiciona o elemento (`pode(x) && <Button>`, `pode(x) ? … : …`,
@@ -120,28 +121,36 @@ export function gerarIndice(raiz = RAIZ_FRONTEND) {
     if (porFicheiro.has(f)) return porFicheiro.get(f);
     const sf = ler(f);
     const texto = sf.getFullText();
-    const lerEndereco = /\.get\(\s*'(separador|sep)'\s*\)/;
+    const lerEndereco = /\.get\(\s*'(separador|sep)'\s*\)|(useSeparadorUrl)\s*[<(]/;
     const constantes = new Map();
+    // todas as declarações com o mesmo nome (o mesmo nome pode existir em várias funções do ficheiro)
+    const declaracoes = new Map();
+    const declarar = (nome, init) => {
+      constantes.set(nome, init);
+      if (!declaracoes.has(nome)) declaracoes.set(nome, []);
+      declaracoes.get(nome).push(init);
+    };
     const recolherConstantes = (n) => {
       if (ts.isVariableDeclaration(n) && n.initializer) {
-        if (ts.isIdentifier(n.name)) constantes.set(n.name.text, n.initializer);
+        if (ts.isIdentifier(n.name)) declarar(n.name.text, n.initializer);
         // const [aba, setAba] = useState(pedido ?? …): o valor vem do inicializador
         else if (ts.isArrayBindingPattern(n.name) && n.name.elements[0] && ts.isBindingElement(n.name.elements[0]) && ts.isIdentifier(n.name.elements[0].name))
-          constantes.set(n.name.elements[0].name.text, n.initializer);
+          declarar(n.name.elements[0].name.text, n.initializer);
       }
       ts.forEachChild(n, recolherConstantes);
     };
     recolherConstantes(sf);
-    /** O `activeKey` do <Tabs> vem do endereço (?separador= / ?sep=)? Devolve o nome do parâmetro. */
+    /** O `activeKey` do <Tabs> vem do endereço (useSeparadorUrl / ?sep= / ?separador=)? Devolve o nome do parâmetro. */
     const parametroDe = (expr, prof = 0) => {
       if (!expr || prof > 3) return null;
       const m = lerEndereco.exec(expr.getText(sf));
-      if (m) return m[1];
+      if (m) return m[2] ? 'sep' : m[1];
       let achado = null;
       const ver = (n) => {
         if (achado) return;
-        if (ts.isIdentifier(n) && constantes.has(n.text) && constantes.get(n.text) !== expr) achado = parametroDe(constantes.get(n.text), prof + 1);
-        else ts.forEachChild(n, ver);
+        if (ts.isIdentifier(n) && declaracoes.has(n.text)) {
+          for (const d of declaracoes.get(n.text)) if (!achado && d !== expr) achado = parametroDe(d, prof + 1);
+        } else ts.forEachChild(n, ver);
       };
       ver(expr);
       return achado;
@@ -250,7 +259,7 @@ export function gerarIndice(raiz = RAIZ_FRONTEND) {
               const k = propriedade(x, 'key');
               const chave = k && ts.isStringLiteralLike(k.initializer) ? k.initializer.text : null;
               const rotulo = limpar(textoDe(propriedade(x, 'label')?.initializer));
-              if (rotulo) itens.push({ tipo: 's', rotulo, permissoes: permissaoDe(x), consulta: chave && parametro ? `${parametro}=${chave}` : '' });
+              if (rotulo) itens.push({ tipo: 's', rotulo, permissoes: permissaoDe(x), consulta: !chave || !parametro ? '' : parametro === 'sep' ? chave : `${parametro}=${chave}` });
               return;
             }
             ts.forEachChild(x, procurar);
@@ -313,9 +322,10 @@ export function gerarIndice(raiz = RAIZ_FRONTEND) {
   return `/* eslint-disable */
 // GERADO por ferramentas/pesquisa/gerar_indice_pesquisa.mjs a partir de src/modulos/** — NÃO EDITAR À MÃO.
 // Para actualizar (a partir de erp_laravel/): node ferramentas/pesquisa/gerar_indice_pesquisa.mjs
-// Cada entrada: [ecrã do catálogo, 'b' botão/acção | 's' separador, rótulo, permissões ('a|b' = basta uma; ';' = todas), consulta que abre o separador].
+// Cada entrada: [ecrã do catálogo, 'b' botão/acção | 's' separador, rótulo, permissões ('a|b' = basta uma; ';' = todas),
+//   separador: a chave que o abre (a pesquisa navega para rota?sep=<chave>) ou, em ecrãs antigos, a consulta 'separador=<chave>'].
 
-export type EntradaIndicePesquisa = readonly [ecra: string, tipo: 'b' | 's', rotulo: string, permissoes: string, consulta?: string];
+export type EntradaIndicePesquisa = readonly [ecra: string, tipo: 'b' | 's', rotulo: string, permissoes: string, separador?: string];
 
 export const INDICE_PESQUISA: readonly EntradaIndicePesquisa[] = [
 ${corpo}

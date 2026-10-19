@@ -9,7 +9,7 @@ use App\Support\Cache\InvalidacaoCache;
 /**
  * categorias_produtos — /api/logistica/categorias-produtos.
  * Ronda 3: a categoria define TODAS as contas contabilísticas dos seus produtos (ContasProduto::de). As colunas novas
- * (migração 2026_10_17_093117) não estão no $fillable gerado: o ServicoProdutos grava-as com forceFill, depois de validar.
+ * (migração 2026_10_17_093117) estão no esquema gerado e no $fillable desde a ronda 4 (esquema_extra.mjs).
  */
 class CategoriaProduto extends CategoriaProdutoBase
 {

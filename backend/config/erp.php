@@ -86,11 +86,27 @@ return [
         'palavra_passe' => env('AGT_PALAVRA_PASSE'),
         'jws_typ' => env('AGT_JWS_TYP', 'JWT'),           // a confirmar na homologação (erros E08/E40)
         'timeout' => (int) env('AGT_TIMEOUT', 30),
+        // r4_agt: transporte — tempo de ligação, retentativas só em falhas transitórias (recuo exponencial com jitter)
+        'timeout_ligacao' => (int) env('AGT_TIMEOUT_LIGACAO', 10),
+        'retentativas' => (int) env('AGT_RETENTATIVAS', 3),
+        'recuo_base_ms' => (int) env('AGT_RECUO_BASE_MS', 500),
+        'recuo_max_ms' => (int) env('AGT_RECUO_MAX_MS', 8000),
+        // domínios aceites no endereço da AGT configurado por empresa (anti-SSRF)
+        'hosts_permitidos' => env('AGT_HOSTS_PERMITIDOS', 'minfin.gov.ao'),
+        // consultarFactura: a tabela diz documentNo e o exemplo invoiceNo (a confirmar na homologação)
+        'campo_consulta_documento' => env('AGT_CAMPO_CONSULTA_DOCUMENTO', 'documentNo'),
+        // webhook (a AGT anuncia o callback para «próximas versões»): janela anti-replay e tamanho máximo
+        'webhook_janela_segundos' => (int) env('AGT_WEBHOOK_JANELA', 300),
+        'webhook_max_bytes' => (int) env('AGT_WEBHOOK_MAX_BYTES', 65536),
+        // alerta de documentos por comunicar (a AGT marca «P — válida com penalização» os enviados com mais de 24 h)
+        'alerta_horas_por_comunicar' => (int) env('AGT_ALERTA_HORAS', 20),
         'software' => [
             'productId' => env('AGT_PRODUCT_ID', ''),
             'productVersion' => env('AGT_PRODUCT_VERSION', ''),
             'softwareValidationNumber' => env('AGT_SOFTWARE_VALIDATION', ''),
             'productCompanyTaxId' => env('AGT_PRODUTOR_NIF', ''),
+            // «signatureVersion — Número de assinatura a aplicar» (registarFactura); vazio = não enviar
+            'signatureVersion' => env('AGT_SIGNATURE_VERSION', '1'),
         ],
         'pasta_chaves' => env('AGT_PASTA_CHAVES', '/run/segredos/agt'),
         'chave_produtor' => env('AGT_CHAVE_PRODUTOR', 'produtor_privada.pem'),      // relativo à pasta das chaves
@@ -110,4 +126,39 @@ return [
         'anos_particoes' => [2024, 2025, 2026, 2027, 2028],
     ],
 
+    // SaaS (ADR-073). Com `ativo=false`, o sistema comporta-se como antes: sem tenant na sessão e sem restrições por endereço.
+    'saas' => [
+        'ativo' => (bool) env('SAAS_ATIVO', false),
+        // Ligacao com DDL (dono da base) para comandos de manutencao (ex.: particoes de auditoria). null = ligacao por omissao.
+        'ligacao_dono' => env('SAAS_LIGACAO_DONO'),
+        // Comandos de manutencao (sem utilizador, a atravessar tenants): correm na ligacao do dono, que ignora a RLS.
+        'comandos_de_manutencao' => [
+            'erp:produtos:converter-contas-categorias', 'erp:migracao:corrigir-dados', 'erp:saft:documentos-importados',
+            'erp:migrar-backup-legado', 'erp:migracao:pos-carga', 'erp:tesouraria:diferencas-cambio',
+            'erp:tesouraria:reconciliar-recibos', 'erp:e2e:preparar',
+        ],
+    ],
+
+    // Licença por empresa (ADR-074). Desligado: sem expiração nem período de teste (comportamento anterior).
+    // Módulos que um plano pode incluir (registados na versão do plano; ainda não condicionam o acesso).
+    'planos_catalogo' => [
+        'modulos' => [
+            'vendas' => 'Vendas', 'compras' => 'Compras', 'stock' => 'Stock', 'contab' => 'Contabilidade', 'teso' => 'Tesouraria',
+            'rh' => 'Recursos Humanos', 'activos' => 'Activos', 'crm' => 'CRM', 'projectos' => 'Projectos', 'orcamento' => 'Orçamento', 'pos' => 'Ponto de venda',
+        ],
+    ],
+
+    'licencas' => [
+        'ativo' => (bool) env('LICENCAS_ATIVAS', false),
+        'dias_teste' => (int) env('LICENCAS_DIAS_TESTE', 7),
+    ],
+
+    'dominio' => [
+        // Domínio base dos clientes: <slug>.<base> = cliente; admin.erp.<base> = área da plataforma. Vazio = sem restrição.
+        'base' => env('DOMINIO_BASE', ''),
+        // Tenant que opera a plataforma (acesso à área admin.erp.<base>).
+        'plataforma_tenant_id' => (int) env('PLATAFORMA_TENANT_ID', 1),
+        // Subdomínios que não podem ser slugs de clientes.
+        'slugs_reservados' => ['admin', 'erp', 'www', 'api', 'app', 'mail', 'ftp', 'suporte', 'static', 'site', 'teste'],
+    ],
 ];

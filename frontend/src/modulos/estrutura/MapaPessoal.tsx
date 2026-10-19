@@ -15,6 +15,7 @@ import { documentoMapaLegado, linhasMapaLegado, totaisMapaLegado, type Colaborad
 import { documentoMapaPessoal, linhasPorUnidade, taxaOcupacao, type CargoMapa, type ContagemMapa, type LinhaUnidadeMapa, type MapaPessoalApi } from './comum/mapa';
 import { useEstrutura, useSalariosEstrutura } from './Estrutura';
 import './comum/estrutura.css';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 
 const contagem = (n: number, cor: string) => (n ? <Tag color={cor}>{n}</Tag> : 0);
 
@@ -131,6 +132,7 @@ function VistasAgregadas() {
 
   const postos = useMemo(() => mapaPessoal(construirArvore(estrutura.data?.unidades ?? [], true), cargos.nome), [estrutura.data, cargos.nome]);
   const unidades = useMemo(() => linhasPorUnidade(mapa.data?.por_unidade ?? [], true), [mapa.data]);
+  const [sep, setSep] = useSeparadorUrl(['unidades', 'cargos', 'postos']);
 
   if (mapa.isLoading) return <Skeleton active />;
   const d = mapa.data;
@@ -188,7 +190,7 @@ function VistasAgregadas() {
         )}
       </Row>
       <Card>
-        <Tabs items={[
+        <Tabs activeKey={sep} onChange={setSep} items={[
           {
             key: 'unidades',
             label: 'Por unidade orgânica',

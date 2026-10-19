@@ -135,9 +135,9 @@ final class ServicoCatalogoPOS
 
         return DB::transaction(function () use ($produto, $servicos) {
             $p = Produto::query()->lockForUpdate()->findOrFail($produto->id);
-            // forceFill: a coluna é nova e o modelo-base (gerado) ainda não a tem nos fillable; o «saved» do Produto
-            // invalida a cache do catálogo comum depois do commit
-            $p->forceFill(['servicos_pos' => $servicos === null ? null : json_encode($servicos)])->save();
+            // servicos_pos está no $fillable e com cast «array» desde a ronda 4 (esquema gerado): grava-se a lista tal como está;
+            // o «saved» do Produto invalida a cache do catálogo comum depois do commit
+            $p->update(['servicos_pos' => $servicos]);
 
             return $servicos;
         });

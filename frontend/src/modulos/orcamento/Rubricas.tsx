@@ -15,6 +15,7 @@ import { BarraFiltros, larguraModal, scrollTabela } from '@/componentes/responsi
 import { pedidoTabela } from './comum/impressao';
 
 import { TabelaComModos } from '@/componentes/vistas';
+import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
 const NATUREZAS: Record<TipoOrcamento, { value: string; label: string }[]> = {
   EXPLORACAO: [{ value: 'PROVEITO', label: 'Proveito' }, { value: 'CUSTO', label: 'Custo' }],
   TESOURARIA: [{ value: 'RECEBIMENTO', label: 'Recebimento' }, { value: 'PAGAMENTO', label: 'Pagamento' }],
@@ -23,7 +24,7 @@ const NATUREZAS: Record<TipoOrcamento, { value: string; label: string }[]> = {
 /** Orçamento › Rubricas (ecrã orc_rubricas): rubricas de exploração e tesouraria, ligação às contas e controlo de excesso. */
 export default function Rubricas() {
   const { pode } = useSessao();
-  const [tipo, setTipo] = useState<TipoOrcamento>('EXPLORACAO');
+  const [tipo, setTipo] = useSeparadorUrl<TipoOrcamento>(['EXPLORACAO', 'TESOURARIA']);
   const [texto, setTexto] = useState('');
   const [editar, setEditar] = useState<Partial<Rubrica> | null>(null);
   const q = useRubricas(tipo);
@@ -63,7 +64,7 @@ export default function Rubricas() {
         impressao={() => pedidoTabela({ titulo: `Rubricas orçamentais (${tipo === 'EXPLORACAO' ? 'exploração' : 'tesouraria'})`, filtros: texto ? [`Pesquisa: ${texto}`] : undefined, colunas, linhas })}
       />
       {/* disposição do legado (orcamento_ui.js:103-162): separadores com ícone, nota informativa e só depois a tabela */}
-      <Tabs activeKey={tipo} onChange={(v) => setTipo(v as TipoOrcamento)}
+      <Tabs activeKey={tipo} onChange={setTipo}
         items={[{ key: 'EXPLORACAO', label: <><IconeFa nome="chart-bar" /> Exploração</> }, { key: 'TESOURARIA', label: <><IconeFa nome="coins" /> Tesouraria</> }]} />
         <div role="note" style={{ border: '1px solid rgba(37,99,235,0.35)', background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', borderRadius: 4, padding: '0.5rem 0.7rem', fontSize: 13, margin: '8px 0' }}>
           {tipo === 'EXPLORACAO'

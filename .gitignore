@@ -37,3 +37,7 @@ credenciais*.txt
 *credenciais*
 # prompts de trabalho do utilizador (locais)
 PROMPT_*.txt
+
+# Backups de base de dados (contêm dados reais de clientes)
+backup_*
+*.dump

@@ -1,0 +1,104 @@
+/*
+ * Escala corporativa de alta densidade (proporção 80% do navegador a 100% de zoom)
+ * e responsividade 100% completa para smartphones, tablets e desktops.
+ */
+
+/* ── 1. Layout e Menu Lateral: 100% de Altura Total ────────────────────── */
+html,
+body,
+#root {
+  min-height: 100vh;
+}
+
+.ant-layout {
+  min-height: 100vh !important;
+}
+
+.erp-sider {
+  height: 100vh !important;
+  min-height: 100vh !important;
+  position: sticky !important;
+  top: 0;
+  bottom: 0;
+  background: #121212 !important;
+}
+
+.erp-sider > .ant-layout-sider-children {
+  height: 100% !important;
+  min-height: 100vh !important;
+  display: flex;
+  flex-direction: column;
+  background: #121212 !important;
+}
+
+.erp-layout-coluna {
+  min-height: 100vh !important;
+}
+
+/* ── 2. Dispositivos Móveis e Tablets (< 768px): Responsividade 100% ─────── */
+@media (max-width: 767.98px) {
+  /* Ajuste de padding do conteúdo para não desperdiçar tela em telemóveis */
+  .erp-conteudo {
+    padding: 12px 8px !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Tabelas com rolagem horizontal suave ao toque */
+  .ant-table-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .ant-table {
+    min-width: 580px;
+  }
+
+  /* Modais ocupam tela cheia confortável em smartphones */
+  .ant-modal {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto !important;
+    top: 8px !important;
+  }
+
+  .ant-modal .ant-modal-content {
+    padding: 16px 12px !important;
+  }
+
+  /* Cartões com margens e preenchimentos compactos */
+  .ant-card .ant-card-body {
+    padding: 12px 10px !important;
+  }
+
+  /* Cabeçalho do ERP responsivo */
+  .erp-cabecalho {
+    padding: 0 8px !important;
+  }
+
+  /* Botões e toques acessíveis */
+  .ant-btn {
+    min-height: 32px;
+  }
+
+  /* Formulários empilhados verticalmente no telemóvel */
+  .ant-form-item {
+    margin-bottom: 12px !important;
+  }
+}
+
+/* ── 3. Ecrãs Muito Pequenos (< 480px) ─────────────────────────────────── */
+@media (max-width: 479.98px) {
+  .erp-cabecalho-empresa-nome {
+    max-width: 140px !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .erp-conteudo {
+    padding: 8px 4px !important;
+  }
+}

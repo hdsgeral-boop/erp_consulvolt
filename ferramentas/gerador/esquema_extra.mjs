@@ -7,10 +7,18 @@
 
 // Tabelas globais (sem empresa_id / sem isolamento multi-empresa).
 // pedidos_manutencao_equipamentos = pedidos de "Manutenção de dados" (js/manutencao.js): podem ser globais (empresa_id NULL).
-export const GLOBAIS = new Set(['utilizadores', 'perfis_utilizador', 'moedas', 'configuracoes_sistema', 'taxas_cambio', 'pedidos_manutencao_equipamentos']);
+export const GLOBAIS = new Set([
+  'utilizadores', 'perfis_utilizador', 'moedas', 'configuracoes_sistema', 'taxas_cambio', 'pedidos_manutencao_equipamentos',
+  'tenants', 'planos_licenca', 'planos_licenca_versoes', 'tickets_suporte', 'mensagens_suporte', 'definicoes_plataforma',
+  'configuracoes_gateway', 'transacoes_gateway',
+]);
 
 // Tabelas criadas manualmente na Fase 1 (o gerador não as recria; FKs para elas são permitidas).
-export const FASE1 = new Set(['empresas', 'utilizadores', 'perfis_utilizador', 'logs_auditoria']);
+export const FASE1 = new Set([
+  'empresas', 'utilizadores', 'perfis_utilizador', 'logs_auditoria',
+  'tenants', 'planos_licenca', 'planos_licenca_versoes', 'subscricoes_empresa', 'tickets_suporte', 'mensagens_suporte', 'definicoes_plataforma',
+  'configuracoes_gateway', 'transacoes_gateway', 'notificacoes_sistema',
+]);
 
 // Tabelas-filho sem empresa no legado: o ETL deriva empresa_id do pai (coluna -> tabela pai).
 export const EMPRESA_DERIVADA = {
@@ -112,6 +120,10 @@ export const UNICOS = [
   // (só as cartas numeradas: as antigas do RH não têm número). Antes só na migração 2026_10_15_700100_fd_cartas_modelos_numeracao.
   ['modelos_cartas_pagamento', ['empresa_id', 'tipo'], 'predefinido'],
   ['cartas_pagamento_bancario', ['empresa_id', 'ano', 'sequencia'], 'ano IS NOT NULL AND sequencia IS NOT NULL'],
+  // Rondas 3/4 (registadas aqui na ronda 4; criadas pelas migrações com guardas indicadas em COLUNAS_NOVAS/TABELAS_NOVAS)
+  ['documentos_tesouraria', ['empresa_id', 'recibo_venda_id'], 'recibo_venda_id IS NOT NULL'],   // um recebimento-espelho por recibo
+  ['alocacoes_aquisicao_ativos', ['ativo_imobilizado_id', 'lancamento_contabil_id']],
+  ['registos_conversao_contas_produtos', ['empresa_id', 'produto_id']],   // um registo por produto: conversão idempotente
 ];
 
 // Chaves candidatas que o backup VIOLA: ficam como índice normal + relatório de validação (ADR-015).
@@ -159,6 +171,8 @@ export const CASCATA = new Set([
   'coordenadas_bancarias_colaboradores.colaborador_id', 'dependentes_colaboradores.colaborador_id',
   // Ronda 2 (ADR-068): as mesas pertencem ao terminal; as preferências ao utilizador
   'mesas_pos.terminal_pos_id', 'preferencias_utilizador.utilizador_id',
+  // 2026_10_16_100000_ativos_alocacoes_aquisicao: as alocações pertencem ao activo
+  'alocacoes_aquisicao_ativos.ativo_imobilizado_id',
 ]);
 
 // FKs polimórficas do legado substituídas por uma FK real por tipo (CHECK: exactamente uma preenchida).
@@ -211,6 +225,8 @@ export const COLUNAS_NOVAS = {
     ['devolucao_mercadoria', 'boolean', null, 'NC: a mercadoria volta ao stock (as NC de correcção de preço não mexem no stock)'],
     // ADR-068 (decisão 10): arredondamento AGT do POS separado do desconto comercial
     ['arredondamento_agt', 'numeric(15,2)', null, 'POS: arredondamento AGT (valor cobrado − desconto − total do documento), separado do desconto'],
+    // 2026_10_16_210000_logistica_gr_saida_armazem (CHECK ck_vendas_saida_armazem na migração)
+    ['saida_armazem', 'varchar(20)', null, 'GR emitida no Armazém: VENDA ou BACK_TO_BACK (delivery_notes.type do legado)'],
   ],
   itens_venda: [
     ['custo_unitario_kz', 'numeric(18,6)', null, 'Custo médio da saída/entrada de stock da linha (base do CMV)'],
@@ -247,6 +263,8 @@ export const COLUNAS_NOVAS = {
     ['numero_lan_contabilizacao', 'varchar(30)', null, 'N.º do lançamento da integração'],
     ['integrado_em', 'timestamptz', null, 'Data/hora da integração'], ['integrado_por', 'varchar(100)', null, 'Utilizador que integrou'],
     ['anulado_em', 'timestamptz', null, 'Data/hora da anulação'], ['motivo_anulacao', 'text', null, 'Motivo da anulação'],
+    // 2026_10_17_094200_r3_teso_recibo_venda_tesouraria
+    ['recibo_venda_id', 'bigint', 'recibos_venda', 'Recibo de venda que gerou este recebimento (espelho; contabiliza-se pelo recibo)'],
   ],
   sessoes_caixa: [
     ['numeros_lan_contabilizacao', 'jsonb', null, 'Lançamentos da contabilização (um por data de movimento + diferença de fecho)'],
@@ -297,6 +315,34 @@ export const COLUNAS_NOVAS = {
   produtos: [
     ['custo_medio', 'numeric(18,6)', null, 'Custo médio ponderado (Kz), actualizado nas entradas de stock'],
     ['stock_minimo', 'numeric(12,3)', null, 'Stock mínimo (alerta de ruptura; o legado usava ≤ 5 fixo)'],
+    // 2026_10_17_093117_r3_produtos_contas_categorias_niveis_ficha: níveis de stock (CHECKs ≥ 0 na migração) e ficha técnica
+    ['stock_maximo', 'numeric(12,3)', null, 'Stock máximo (acima: alerta de excesso; alvo da reposição)'],
+    ['stock_seguranca', 'numeric(12,3)', null, 'Stock de segurança (abaixo: alerta crítico)'],
+    ['ponto_encomenda', 'numeric(12,3)', null, 'Ponto de encomenda (posição de stock ≤ ponto: sugestão de reposição)'],
+    ['marca', 'varchar(100)', null, 'Ficha técnica: marca'], ['modelo', 'varchar(100)', null, 'Ficha técnica: modelo'],
+    ['comprimento', 'numeric(12,3)', null, 'Ficha técnica: comprimento (na unidade de dimensão)'],
+    ['largura', 'numeric(12,3)', null, 'Ficha técnica: largura (na unidade de dimensão)'],
+    ['altura', 'numeric(12,3)', null, 'Ficha técnica: altura (na unidade de dimensão)'],
+    ['unidade_dimensao', 'varchar(5)', null, 'Ficha técnica: mm, cm ou m'],
+    ['peso_liquido', 'numeric(12,3)', null, 'Ficha técnica: peso líquido (kg)'], ['peso_bruto', 'numeric(12,3)', null, 'Ficha técnica: peso bruto (kg)'],
+    ['caracteristicas', 'jsonb', null, 'Ficha técnica: composição/características [{chave, valor}]'],
+    ['observacoes_tecnicas', 'text', null, 'Ficha técnica: observações'],
+    // 2026_10_17_104512_r3_vendas_servicos_pos_produtos (CHECK ck_produtos_servicos_pos na migração)
+    ['servicos_pos', 'jsonb', null, 'Tipos de terminal POS onde o produto aparece (LOJA, RESTAURANTE, HOTELARIA, LAVANDARIA); NULL = todos; [] = nenhum'],
+  ],
+  // 2026_10_17_093117_r3_produtos_contas_categorias_niveis_ficha: as contas definem-se na categoria (ContasProduto::de)
+  categorias_produtos: [
+    ['descricao', 'text', null, 'Descrição/notas da categoria'],
+    ['codigo_conta', 'varchar(20)', null, 'Conta de proveitos (vendas 61 / serviços 62) — herdada pelos produtos da categoria'],
+    ['conta_custo', 'varchar(20)', null, 'Conta de custo (CMV, 71/75) — herdada pelos produtos da categoria'],
+    ['conta_compra', 'varchar(20)', null, 'Conta de compras (21) — herdada pelos produtos da categoria'],
+    ['conta_inventario', 'varchar(20)', null, 'Conta de existências (22-27) — herdada pelos produtos da categoria'],
+    ['conta_iva_liquidado', 'varchar(20)', null, 'IVA liquidado (345) — herdada pelos produtos da categoria'],
+    ['conta_iva_dedutivel', 'varchar(20)', null, 'IVA dedutível (345) — herdada pelos produtos da categoria'],
+    ['conta_quebra', 'varchar(20)', null, 'Quebras de inventário (custo, 7) — herdada pelos produtos da categoria'],
+    ['conta_sobra', 'varchar(20)', null, 'Sobras de inventário (proveito, 6) — herdada pelos produtos da categoria'],
+    ['conta_ativo', 'varchar(20)', null, 'Activo imobilizado (classe 1) — herdada pelos produtos da categoria'],
+    ['chave_conversao', 'varchar(64)', null, 'Conversão das contas dos produtos: categoria de origem + combinação de contas (sha256)'],
   ],
   sessoes_inventario: [
     ['aprovado_por', 'varchar(100)', null, 'Quem aprovou a regularização'], ['aprovado_em', 'timestamptz', null, 'Aprovação'],
@@ -368,6 +414,26 @@ export const COLUNAS_NOVAS = {
     ['centro_custo_id', 'bigint', 'centros_custo', 'Centro de custo do projecto interno'],
     ['encomenda_venda_id', 'bigint', 'vendas', 'NE do cliente para o projecto externo'],
     ['linhas_pedido_compra', 'jsonb', null, 'Artigos do pedido de compra [{produto_id, quantidade, preco_unitario, descricao}]'],
+  ],
+  // 2026_10_17_093100_r3_activos_propriedade_e_tarefas: bens próprios/alheios (só os próprios amortizam; CHECKs na migração)
+  ativos_imobilizados: [
+    ['propriedade', 'varchar(10)', null, 'PROPRIO | ALHEIO — só os próprios amortizam', { padrao: 'PROPRIO', nulo: false }],
+    ['regime_alheio', 'varchar(12)', null, 'ALHEIO: ARRENDADO | CEDIDO | TERCEIROS | OUTRO'],
+    ['proprietario_terceiro_id', 'bigint', 'terceiros', 'ALHEIO: proprietário (terceiro registado; ON DELETE SET NULL na migração)'],
+    ['proprietario_nome', 'varchar(255)', null, 'ALHEIO: proprietário (texto livre)'],
+    ['contrato_referencia', 'varchar(100)', null, 'ALHEIO: n.º/referência do contrato'],
+    ['contrato_inicio', 'date', null, 'ALHEIO: início do contrato'], ['contrato_fim', 'date', null, 'ALHEIO: fim do contrato'],
+    ['renda_mensal', 'numeric(15,2)', null, 'ALHEIO: renda/encargo mensal (informativo)'],
+    ['propriedade_notas', 'text', null, 'Notas sobre a propriedade'],
+  ],
+  ordens_manutencao_ativos: [
+    ['historico', 'jsonb', null, 'Eventos da ordem e das tarefas: [{em, por, accao, tarefa?, texto?, motivo?}]'],
+    ['plano_antes', 'jsonb', null, 'Estado do plano antes da conclusão (repõe-se ao reabrir)'],
+    ['reaberta_em', 'timestamptz', null, 'Data/hora da reabertura'], ['reaberta_por', 'varchar(100)', null, 'Utilizador que reabriu'],
+  ],
+  // 2026_10_16_220000_teso_conferencia_registado_por
+  conferencias_caixa: [
+    ['registado_por', 'varchar(100)', null, 'Utilizador (nome_utilizador) que registou a conferência; o operador é texto livre'],
   ],
 };
 
@@ -532,6 +598,35 @@ export const TABELAS_NOVAS = {
       ['utilizador_id', 'bigint', 'Utilizador', { fk: 'utilizadores', nulo: false }],
       ['empresa_id', 'bigint', 'NULL = válida em todas as empresas'],
       ['tipo', 'varchar(40)', 'favoritos, ordem_modulos, visoes_cubo, interface'], ['nome', 'varchar(150)'], ['valor', 'jsonb'],
+    ],
+  },
+
+  // ── Rondas 3/4 — tabelas criadas por migrações com guardas, registadas aqui na ronda 4 ──────────────────────────
+  // ATENÇÃO ao regenerar: o gerador volta a escrevê-las (e às colunas das rondas 3/4 em COLUNAS_NOVAS) nas migrações
+  // 2026_09_30_1*_criar_tabelas_*.php e 2026_09_30_900000; essas alterações NÃO se mantêm (git checkout dessas migrações) —
+  // o esquema já é criado pelas migrações com guardas indicadas em cada entrada. Mantêm-se só esquema.json e Models/Base.
+  // 2026_10_16_100000_ativos_alocacoes_aquisicao: parte de uma linha de aquisição (11/12 a débito) coberta por um activo
+  alocacoes_aquisicao_ativos: {
+    modulo: 'Activos', model: 'AlocacaoAquisicaoAtivo',
+    colunas: [
+      ['ativo_imobilizado_id', 'bigint', 'Activo inventariado', { fk: 'ativos_imobilizados', nulo: false }],
+      ['lancamento_contabil_id', 'bigint', 'Linha de aquisição (11/12 a débito)', { fk: 'lancamentos_contabeis', nulo: false }],
+      ['valor', 'numeric(15,2)', 'Parte da linha coberta por este activo (CHECK > 0 na migração)', { nulo: false }],
+    ],
+    indices: [['empresa_id', 'lancamento_contabil_id']],
+  },
+  // 2026_10_17_093117_r3_produtos_contas_categorias_niveis_ficha: um registo por produto convertido (comando
+  // erp:produtos:converter-contas-categorias); FKs tornadas adiáveis em 2026_10_17_141500_r4_sistema_fks_adiaveis_conversao_contas
+  registos_conversao_contas_produtos: {
+    modulo: 'Logística', model: 'RegistoConversaoContasProduto',
+    colunas: [
+      ['produto_id', 'bigint', 'Produto convertido (um registo por produto: torna a conversão idempotente)', { fk: 'produtos', nulo: false }],
+      ['categoria_anterior_id', 'bigint', 'Categoria do produto antes da conversão (sem FK: pode ter sido eliminada)'],
+      ['categoria_nova_id', 'bigint', 'Categoria atribuída', { fk: 'categorias_produtos', nulo: false }],
+      ['categoria_criada', 'boolean', 'A categoria foi criada pela conversão', { padrao: false, nulo: false }],
+      ['contas', 'jsonb', 'Contas do produto no momento da conversão (copiadas para a categoria)', { nulo: false }],
+      ['avisos', 'jsonb', 'Contas inexistentes ou totalizadoras encontradas (copiadas sem alteração)'],
+      ['executado_por', 'varchar(100)', 'Utilizador que executou a conversão'],
     ],
   },
 };

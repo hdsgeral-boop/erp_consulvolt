@@ -1148,6 +1148,21 @@
               "chave": "vendas_fe_config",
               "rotulo": "Configurar a facturação electrónica AGT (regime, séries, estabelecimentos)",
               "sensivel": true
+            },
+            {
+              "chave": "vendas_agt_ligacao",
+              "rotulo": "Configurar a ligação da empresa à AGT (credenciais, chave do contribuinte, webhook)",
+              "sensivel": true
+            },
+            {
+              "chave": "vendas_agt_enviar",
+              "rotulo": "Enviar e reenviar documentos à AGT e emitir documentos de correcção",
+              "sensivel": true
+            },
+            {
+              "chave": "vendas_agt_registos",
+              "rotulo": "Ver o registo de comunicações com a AGT",
+              "sensivel": true
             }
           ]
         },
@@ -2374,6 +2389,198 @@
           ]
         },
         {
+          "id": "config_licenca",
+          "nome": "Licença e plano",
+          "vistas": [
+            "config_licenca"
+          ],
+          "pai": null,
+          "nota": null,
+          "tarefas": [
+            {
+              "chave": "config_licenca_gerir",
+              "rotulo": "Pedir renovação da licença e cancelar pedidos",
+              "sensivel": false
+            }
+          ]
+        },
+        {
+          "id": "plataforma_painel",
+          "nome": "Plataforma: painel",
+          "vistas": [
+            "plataforma_painel"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_painel_ver",
+              "rotulo": "Ver o painel da plataforma",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_clientes",
+          "nome": "Plataforma: clientes",
+          "vistas": [
+            "plataforma_clientes"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_clientes_gerir",
+              "rotulo": "Gerir clientes SaaS (criar, suspender, arquivar)",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_suporte",
+          "nome": "Plataforma: Suporte",
+          "vistas": [
+            "plataforma_suporte"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_suporte_gerir",
+              "rotulo": "Gerir: Suporte da plataforma",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_administradores",
+          "nome": "Plataforma: Administradores",
+          "vistas": [
+            "plataforma_administradores"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_administradores_gerir",
+              "rotulo": "Gerir: Administradores da plataforma",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_auditoria",
+          "nome": "Plataforma: Auditoria",
+          "vistas": [
+            "plataforma_auditoria"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_auditoria_gerir",
+              "rotulo": "Gerir: Auditoria da plataforma",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_sessoes",
+          "nome": "Plataforma: Sessões activas",
+          "vistas": [
+            "plataforma_sessoes"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_sessoes_gerir",
+              "rotulo": "Gerir: Sessões activas da plataforma",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_definicoes",
+          "nome": "Plataforma: Definições",
+          "vistas": [
+            "plataforma_definicoes"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_definicoes_gerir",
+              "rotulo": "Gerir: Definições da plataforma",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_saas",
+          "nome": "Plataforma: Gestão de SaaS",
+          "vistas": [
+            "plataforma_saas"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador do tenant da plataforma (middleware plataforma).",
+          "tarefas": [
+            {
+              "chave": "plataforma_saas_gerir",
+              "rotulo": "Gerir: Activação e licenças de SaaS",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "minha_conta",
+          "nome": "Minha conta",
+          "vistas": [
+            "minha_conta"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador (da plataforma ou do próprio cliente); barreira real nos middlewares plataforma e admin_cliente.",
+          "tarefas": [
+            {
+              "chave": "minha_conta_gerir",
+              "rotulo": "Gerir: Minha conta",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_planos",
+          "nome": "Plataforma: Planos e versões",
+          "vistas": [
+            "plataforma_planos"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador (da plataforma ou do próprio cliente); barreira real nos middlewares plataforma e admin_cliente.",
+          "tarefas": [
+            {
+              "chave": "plataforma_planos_gerir",
+              "rotulo": "Gerir: Plataforma: Planos e versões",
+              "sensivel": true
+            }
+          ]
+        },
+        {
+          "id": "plataforma_codigos",
+          "nome": "Plataforma: Manual de códigos",
+          "vistas": [
+            "plataforma_codigos"
+          ],
+          "pai": null,
+          "nota": "Só o super-administrador (da plataforma ou do próprio cliente); barreira real nos middlewares plataforma e admin_cliente.",
+          "tarefas": [
+            {
+              "chave": "plataforma_codigos_gerir",
+              "rotulo": "Gerir: Plataforma: Manual de códigos",
+              "sensivel": true
+            }
+          ]
+        },
+        {
           "id": "config_plano",
           "nome": "Plano de contas",
           "vistas": [
@@ -2482,6 +2689,28 @@
           "pai": null,
           "nota": "As importações continuam sujeitas às tarefas de cada módulo.",
           "tarefas": []
+        },
+        {
+          "id": "notificacoes_centro",
+          "nome": "Notificações e Alertas",
+          "vistas": [
+            "notificacoes_centro",
+            "notificacoes"
+          ],
+          "pai": null,
+          "nota": "Central unificada de notificações, alertas operacionais e processos pendentes do sistema por empresa.",
+          "tarefas": [
+            {
+              "chave": "notificacoes_centro_ver",
+              "rotulo": "Consultar notificações e alertas do sistema",
+              "sensivel": false
+            },
+            {
+              "chave": "notificacoes_centro_gerir",
+              "rotulo": "Marcar como lidas e gerir notificações e alertas",
+              "sensivel": false
+            }
+          ]
         }
       ]
     }

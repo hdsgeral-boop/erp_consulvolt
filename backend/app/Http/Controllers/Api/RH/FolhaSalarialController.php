@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\RH;
 
-use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Models\LinhaFolhaSalarial;
 use App\Models\PeriodoProcessamentoSalarial;
@@ -199,20 +198,6 @@ final class FolhaSalarialController extends Controller
         $d = $r->validate(['motivo' => ['required', 'string', 'min:5', 'max:500']]);
 
         return RespostaApi::sucesso($this->folha->descontabilizar(PeriodoProcessamentoSalarial::query()->findOrFail($id), $d['motivo']), 'Processamento descontabilizado (estorno registado).');
-    }
-
-    /** GET /periodos/{id}/recibos/{colaborador} — dados do recibo de vencimento (da fotografia; só períodos validados, como no legado). */
-    public function recibo(int $id, int $colaborador): JsonResponse
-    {
-        $this->exigir('rh_recibos_emitir', 'rh_rel_recibos_view');
-        $p = PeriodoProcessamentoSalarial::query()->findOrFail($id);
-        if ($p->estado !== 'VALIDADO') {
-            throw new ErroNegocio('Os recibos só se emitem de processamentos validados.', 'PERIODO_NAO_VALIDADO', 422);
-        }
-        $res = collect($this->folha->resultados($p))->firstWhere('colaborador_id', $colaborador) ?? abort(404);
-        [$mes, $ano] = explode('/', $p->mes_ano);
-
-        return RespostaApi::sucesso($res + ['numero_recibo' => sprintf('%s%s-%04d', $ano, $mes, $colaborador), 'mes_ano' => $p->mes_ano], 'Recibo de vencimento.');
     }
 
     public function verificacaoLegado(): JsonResponse

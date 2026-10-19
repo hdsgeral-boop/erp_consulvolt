@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\ConferenciaCaixa;
 use App\Models\LinhaExtratoBancario;
 use App\Models\MovimentoCaixa;
-use App\Models\ReconciliacaoBancaria;
 use App\Models\SessaoCaixa;
 use App\Services\Compras\RelacoesNomes;
 use App\Services\Tesouraria\ServicoCaixa;
@@ -87,13 +86,6 @@ final class OperacoesTesourariaController extends Controller
         $this->exigir('teso_conc_anular');
 
         return RespostaApi::sucesso($this->reconciliacao->anularLinhaExtrato(LinhaExtratoBancario::query()->findOrFail($id)), 'Linha de extracto anulada.');
-    }
-
-    public function reconciliacoes(Request $r): JsonResponse
-    {
-        $this->exigir('teso_gestao_conciliacao_view', 'teso_contab_historico_view');
-
-        return RespostaApi::sucesso(ReconciliacaoBancaria::query()->where('estado', 'CONCILIADO_BANCO')->orderByDesc('data')->limit(500)->get(), 'Reconciliações bancárias.');
     }
 
     public function mapa(Request $r): JsonResponse

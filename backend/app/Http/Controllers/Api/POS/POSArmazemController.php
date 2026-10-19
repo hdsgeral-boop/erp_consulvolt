@@ -7,7 +7,6 @@ use App\Models\GuiaSaida;
 use App\Models\ItemGuiaSaida;
 use App\Models\Venda;
 use App\Services\Compras\RelacoesNomes;
-use App\Services\Logistica\ServicoArmazens;
 use App\Services\POS\ServicoPOSArmazem;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
@@ -22,14 +21,6 @@ final class POSArmazemController extends Controller
     private const VER = ['pos_armazem_view', 'pos_armazem_vender', 'pos_armazem_picking', 'pos_armazem_expedir'];
 
     public function __construct(private readonly ServicoPOSArmazem $pos) {}
-
-    public function stock(Request $r, ServicoArmazens $armazens): JsonResponse
-    {
-        $this->exigir(...self::VER, ...['pos_venda']);   // a frente de caixa mostra o stock do armazém do terminal
-        $f = $r->validate(['armazem_id' => ['required', 'integer'], 'so_com_stock' => ['nullable', 'boolean']]);
-
-        return RespostaApi::sucesso($armazens->stock((int) $f['armazem_id'], (bool) ($f['so_com_stock'] ?? false)), 'Stock do armazém.');
-    }
 
     // ───────────── Venda ao balcão ─────────────
 

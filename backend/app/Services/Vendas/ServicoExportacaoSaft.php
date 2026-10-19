@@ -12,6 +12,7 @@ use App\Models\Venda;
 use App\Support\Tenancy\ContextoEmpresa;
 use DateTimeImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use XMLWriter;
 
@@ -24,6 +25,10 @@ use XMLWriter;
  *   - isenção sempre M10; XML sem escape (um "&" no nome do cliente corrompia o ficheiro).
  * Os valores são os oficiais em Kz; documentos em moeda estrangeira levam o bloco <Currency>.
  * Documentos anteriores ao sistema novo (sem Hash) saem com Hash "0" e HashControl "0" e são assinalados nos avisos.
+ * r4_agt: os documentos integrados de outro sistema (migrados) saem com SourceBilling «I» e, se o n.º original não cumprir
+ * o padrão do XSD, com o n.º SAF-T guardado à parte (ServicoDocumentosImportadosSaft) — o original nunca é alterado. Os
+ * documentos anulados saem com InvoiceStatus «A» e o motivo, fora dos totais (as facturas omitidas do SAF-T
+ * consideram-se não emitidas — Decreto Presidencial n.º 71/25).
  * A estrutura segue a XSD SAF-T(AO) 1.01_01; validar o ficheiro no validador da AGT antes da certificação.
  */
 final class ServicoExportacaoSaft
@@ -61,6 +66,10 @@ final class ServicoExportacaoSaft
         if ($semHash) {
             $avisos[] = $this->avisoSemHash($semHash);
         }
+        $importados = app(ServicoDocumentosImportadosSaft::class)->relatorio($inicio, $fim)['totais'];
+        if ($importados['documentos']) {
+            $avisos[] = "{$importados['documentos']} documento(s) integrado(s) de outro sistema (SourceBilling «I»)".($importados['fora_do_padrao'] ? ", {$importados['fora_do_padrao']} com o n.º original fora do padrão SAF-T (exportados com o n.º SAF-T; ver o relatório de documentos integrados)" : '').'.';
+        }
 
         return ['nome' => "SAFT_AO_{$nif}_{$inicio}_{$fim}.xml", 'documentos' => $documentos, 'recibos' => $recibos, 'avisos' => $avisos];
     }
@@ -74,16 +83,18 @@ final class ServicoExportacaoSaft
         $vendas = $this->consultaVendas($inicio, $fim)
             ->with(['itensVenda' => fn ($q) => $q->orderBy('id')])->orderBy('data_emissao')->orderBy('id')->get();
         $recibos = $this->consultaRecibos($inicio, $fim)
-            ->with('itensReciboVenda.venda:id,numero_documento,data_emissao')->orderBy('data')->orderBy('id')->get();
+            ->with('itensReciboVenda.venda:id,tipo_documento,numero_documento,numero_documento_saft,saft_source_billing,fe_selado_em,data_emissao')->orderBy('data')->orderBy('id')->get();
         if ($vendas->isEmpty() && $recibos->isEmpty()) {
             throw new ErroNegocio('Não há documentos fiscais nem recibos no período.', 'SEM_DOCUMENTOS', 422);
         }
 
         $clientes = Terceiro::query()->withTrashed()->whereIn('id', $vendas->pluck('cliente_id')->merge($recibos->pluck('cliente_id'))->unique())->get()->keyBy('id');
         $produtos = Produto::query()->withTrashed()->whereIn('id', $vendas->flatMap(fn ($v) => $v->itensVenda->pluck('produto_id'))->filter()->unique())->get()->keyBy('id');
-        $referencias = DB::table('vendas_documentos_relacionados as r')->join('vendas as o', 'o.id', '=', 'r.venda_relacionada_id')
-            ->where('r.empresa_id', $empresa->id)->whereIn('r.venda_id', $vendas->where('tipo_documento', 'NC')->pluck('id'))
-            ->pluck('o.numero_documento', 'r.venda_id');
+        $ligacoes = DB::table('vendas_documentos_relacionados as r')->where('r.empresa_id', $empresa->id)
+            ->whereIn('r.venda_id', $vendas->where('tipo_documento', 'NC')->pluck('id'))->pluck('r.venda_relacionada_id', 'r.venda_id');
+        $origens = Venda::query()->whereIn('id', $ligacoes->values()->unique())
+            ->get(['id', 'tipo_documento', 'numero_documento', 'numero_documento_saft', 'saft_source_billing', 'fe_selado_em'])->keyBy('id');
+        $referencias = $ligacoes->map(fn ($id) => isset($origens[$id]) ? ServicoDocumentosImportadosSaft::numeroSaft($origens[$id]) : null)->filter();
 
         $x = new XMLWriter;
         $x->openMemory();
@@ -141,9 +152,9 @@ final class ServicoExportacaoSaft
     /** @return Builder<Venda> */
     private function consultaVendas(string $inicio, string $fim): Builder
     {
+        // os anulados também saem (InvoiceStatus «A», fora dos totais)
         return Venda::query()->whereIn('tipo_documento', Venda::FISCAIS)
-            ->where('data_emissao', '>=', $inicio)->where('data_emissao', '<', date('Y-m-d', strtotime("{$fim} +1 day")))
-            ->where(fn ($q) => $q->whereNull('estado')->orWhere('estado', '<>', 'ANULADO'));
+            ->where('data_emissao', '>=', $inicio)->where('data_emissao', '<', date('Y-m-d', strtotime("{$fim} +1 day")));
     }
 
     /** @return Builder<ReciboVenda> */
@@ -246,7 +257,7 @@ final class ServicoExportacaoSaft
     private function facturas(XMLWriter $x, $vendas, $produtos, $referencias): void
     {
         $debito = $credito = '0.00';
-        foreach ($vendas as $v) {
+        foreach ($vendas->filter(fn ($v) => $v->estado !== 'ANULADO') as $v) {
             $v->tipo_documento === 'NC' ? $debito = bcadd($debito, (string) $v->total_liquido, 2) : $credito = bcadd($credito, (string) $v->total_liquido, 2);
         }
         $isencaoPadrao = ConfigFaturacaoEletronica::query()->value('isencao_padrao');
@@ -258,16 +269,26 @@ final class ServicoExportacaoSaft
         foreach ($vendas as $v) {
             $nc = $v->tipo_documento === 'NC';
             $entrada = ($v->fe_data_entrada_sistema ?? $v->data_emissao)->format('Y-m-d\TH:i:s');
+            $importado = ServicoDocumentosImportadosSaft::eImportado($v);
+            $anulado = $v->estado === 'ANULADO';
+            $numeroSaft = ServicoDocumentosImportadosSaft::numeroSaft($v);
+            if ($numeroSaft !== $v->numero_documento) {
+                $this->avisos[] = "{$v->numero_documento}: integrado de outro sistema; exportado como {$numeroSaft} (n.º original fora do padrão SAF-T).";
+            }
             $x->startElement('Invoice');
-            $this->el($x, 'InvoiceNo', $v->numero_documento);
+            $this->el($x, 'InvoiceNo', $numeroSaft);
             $x->startElement('DocumentStatus');
-            $this->el($x, 'InvoiceStatus', 'N');
-            $this->el($x, 'InvoiceStatusDate', $entrada);
+            $this->el($x, 'InvoiceStatus', $anulado ? 'A' : 'N');
+            $this->el($x, 'InvoiceStatusDate', $anulado && $v->anulado_em ? Carbon::parse($v->anulado_em)->format('Y-m-d\TH:i:s') : $entrada);
+            if ($anulado) {
+                $this->el($x, 'Reason', mb_substr((string) ($v->motivo_anulacao ?: 'Anulado'), 0, 50));
+            }
             $this->el($x, 'SourceID', 'ERP');
-            $this->el($x, 'SourceBilling', 'P');
+            $this->el($x, 'SourceBilling', $importado ? ((string) ($v->getAttribute('saft_source_billing') ?: 'I') === 'M' ? 'M' : 'I') : 'P');
             $x->endElement();
-            $this->el($x, 'Hash', $v->saft_hash ?: '0');
-            $this->el($x, 'HashControl', $v->saft_hash_controlo ?: '0');
+            // integrado de um programa não validado: Hash e HashControl «0» (XSD 1.01_01, HashControl)
+            $this->el($x, 'Hash', $importado ? '0' : ($v->saft_hash ?: '0'));
+            $this->el($x, 'HashControl', $importado ? '0' : ($v->saft_hash_controlo ?: '0'));
             $this->el($x, 'Period', (string) (int) $v->data_emissao->format('m'));
             $this->el($x, 'InvoiceDate', $v->data_emissao->toDateString());
             $this->el($x, 'InvoiceType', $v->tipo_documento);
@@ -378,7 +399,7 @@ final class ServicoExportacaoSaft
                 $x->startElement('Line');
                 $this->el($x, 'LineNumber', (string) ($n + 1));
                 $x->startElement('SourceDocumentID');
-                $this->el($x, 'OriginatingON', $i->venda?->numero_documento ?? 'Desconhecido');
+                $this->el($x, 'OriginatingON', $i->venda ? ServicoDocumentosImportadosSaft::numeroSaft($i->venda) : 'Desconhecido');
                 $this->el($x, 'InvoiceDate', $i->venda?->data_emissao?->toDateString() ?? $r->data->toDateString());
                 $x->endElement();
                 $this->el($x, 'CreditAmount', number_format((float) $i->montante_pago, 2, '.', ''));

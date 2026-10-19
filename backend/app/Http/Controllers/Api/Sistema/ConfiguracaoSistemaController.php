@@ -24,7 +24,13 @@ final class ConfiguracaoSistemaController extends Controller
     /** GET /api/sistema/logotipo-login — público (ecrã de entrada). */
     public function logotipoLogin(): JsonResponse
     {
-        return RespostaApi::sucesso(['logotipo' => DB::table('configuracoes_sistema')->where('chave', self::CHAVE_LOGOTIPO)->value('valor')], 'Logótipo do sistema.');
+        $logo = DB::table('configuracoes_sistema')->where('chave', self::CHAVE_LOGOTIPO)->value('valor');
+        $nomeSistema = DB::table('configuracoes_sistema')->where('chave', 'sistema_nome')->value('valor') ?: 'CONSULVOLT ERP';
+
+        return RespostaApi::sucesso([
+            'logotipo' => $logo,
+            'nome_sistema' => $nomeSistema,
+        ], 'Logótipo do sistema.');
     }
 
     /** PUT /api/sistema/configuracoes/logotipo-login — {logotipo: data URI | null}. */

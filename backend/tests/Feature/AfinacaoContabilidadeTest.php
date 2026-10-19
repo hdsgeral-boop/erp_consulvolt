@@ -6,6 +6,7 @@ use App\Models\DiarioContabil;
 use App\Models\Empresa;
 use App\Models\PlanoConta;
 use App\Models\Terceiro;
+use App\Services\Contabilidade\ServicoRelatoriosContabeis;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -76,15 +77,19 @@ final class AfinacaoContabilidadeTest extends TestCase
     public function razao_traz_o_terceiro_de_cada_movimento(): void
     {
         $this->lancar('150.00');
-        $r = $this->getJson('/api/contabilidade/relatorios/razao?codigo_conta=311&data_inicio=2026-01-01&data_fim=2026-12-31', $this->s)->assertOk();
-        $this->assertSame(['id' => $this->terceiro, 'nome' => 'Cliente Afinação', 'nif' => '5000000901'], $r->json('dados.movimentos.0.terceiro'));
-        $this->assertArrayNotHasKey('terceiro_nome', $r->json('dados.movimentos.0'));
+        // a rota GET /api/contabilidade/relatorios/razao foi retirada na ronda 4 (o ecrã usa /relatorios/extrato); o razão continua
+        // a servir os mapas de tesouraria (ServicoMapasTesouraria) — as asserções passam para o serviço
+        $razao = fn (array $f) => app(ContextoEmpresa::class)->executarComo($this->empresa->id,
+            fn () => json_decode(json_encode(app(ServicoRelatoriosContabeis::class)->razao($f + ['data_inicio' => '2026-01-01', 'data_fim' => '2026-12-31'])), true));
+        $r = $razao(['codigo_conta' => '311']);
+        $this->assertSame(['id' => $this->terceiro, 'nome' => 'Cliente Afinação', 'nif' => '5000000901'], $r['movimentos'][0]['terceiro']);
+        $this->assertArrayNotHasKey('terceiro_nome', $r['movimentos'][0]);
 
-        $r = $this->getJson('/api/contabilidade/relatorios/razao?codigo_conta=611&data_inicio=2026-01-01&data_fim=2026-12-31', $this->s)->assertOk();
-        $this->assertNull($r->json('dados.movimentos.0.terceiro'));
+        $this->assertNull($razao(['codigo_conta' => '611'])['movimentos'][0]['terceiro']);
 
         // filtro por terceiro continua a funcionar com a junção
-        $this->getJson("/api/contabilidade/relatorios/razao?codigo_conta=311&data_inicio=2026-01-01&data_fim=2026-12-31&terceiro_id={$this->terceiro}", $this->s)
-            ->assertOk()->assertJsonCount(1, 'dados.movimentos')->assertJsonPath('dados.debito', '150.00');
+        $r = $razao(['codigo_conta' => '311', 'terceiro_id' => $this->terceiro]);
+        $this->assertCount(1, $r['movimentos']);
+        $this->assertSame('150.00', $r['debito']);
     }
 }

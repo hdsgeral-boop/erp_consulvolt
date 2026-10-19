@@ -42,6 +42,9 @@ final class ServicoSubstituicaoConta
         'terceiros' => [['codigo_conta', 'conta_cliente', 'conta_fornecedor', 'conta_compra_transitoria'], 'Terceiros', null],   // Fase A: contas por papel
         'produtos' => [['codigo_conta', 'conta_compra', 'conta_custo', 'conta_inventario', 'conta_iva', 'conta_iva_liquidado', 'conta_iva_dedutivel',
             'conta_quebra', 'conta_sobra', 'conta_ativo'], 'Produtos e serviços', null],
+        // as contas da categoria sobrepõem-se às do produto (ContasProduto::de, ronda 3)
+        'categorias_produtos' => [['codigo_conta', 'conta_custo', 'conta_compra', 'conta_inventario', 'conta_iva_liquidado', 'conta_iva_dedutivel',
+            'conta_quebra', 'conta_sobra', 'conta_ativo'], 'Categorias de produtos', null],
         'bancos' => [['codigo_conta'], 'Bancos', null],
         'meios_pagamento' => [['codigo_conta'], 'Meios de pagamento', null],
         'categorias_ativos' => [['conta_ativo', 'conta_amortizacao_acumulada', 'conta_gasto', 'conta_venda', 'conta_perda'], 'Categorias de activos', null],
