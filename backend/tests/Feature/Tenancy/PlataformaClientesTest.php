@@ -22,6 +22,23 @@ class PlataformaClientesTest extends TestCase
         $this->getJson('/api/plataforma/clientes')->assertUnauthorized();
     }
 
+    public function test_lista_de_clientes_nao_inclui_o_tenant_da_plataforma(): void
+    {
+        $sessao = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
+        config(['erp.saas.ativo' => true]);
+
+        // Sem clientes: a lista vem vazia (o tenant da plataforma existe, mas não é um cliente).
+        $this->getJson('/api/plataforma/clientes', $sessao)->assertOk()->assertJsonCount(0, 'dados');
+
+        $this->postJson('/api/plataforma/clientes', [
+            'nome' => 'Cliente Visível', 'slug' => 'cliente-visivel',
+            'administrador' => ['nome_utilizador' => 'adm_visivel', 'palavra_passe' => 'SenhaForte123'],
+        ], $sessao)->assertCreated();
+
+        $lista = $this->getJson('/api/plataforma/clientes', $sessao)->assertOk()->assertJsonCount(1, 'dados')->json('dados');
+        $this->assertSame('cliente-visivel', $lista[0]['slug']);
+    }
+
     public function test_super_admin_de_outro_cliente_nao_entra(): void
     {
         $outro = Tenant::query()->create(['nome' => 'Outro', 'slug' => 'outro-cliente', 'estado' => Tenant::ESTADO_ATIVO]);

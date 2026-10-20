@@ -20,7 +20,12 @@ final class ClientesController extends Controller
 
     public function index(Request $r): JsonResponse
     {
-        $lista = $this->clientes->listar()->map(fn (array $i) => $this->apresentar($i['tenant'], $r) + ['empresas' => $i['empresas'], 'utilizadores' => $i['utilizadores']])->all();
+        // O tenant que opera a plataforma (onde vivem os administradores) não é um cliente: não aparece na lista de clientes.
+        $plataforma = (int) config('erp.dominio.plataforma_tenant_id', 1);
+        $lista = $this->clientes->listar()
+            ->reject(fn (array $i) => (int) $i['tenant']->id === $plataforma)
+            ->map(fn (array $i) => $this->apresentar($i['tenant'], $r) + ['empresas' => $i['empresas'], 'utilizadores' => $i['utilizadores']])
+            ->values()->all();
 
         return RespostaApi::sucesso($lista, 'Clientes obtidos com sucesso.');
     }
