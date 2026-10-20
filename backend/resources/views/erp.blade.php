@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MEU ERP · Plataforma</title>
+    <title>MEU ERP</title>
+    @vite('src/main.tsx')
   </head>
   <body>
     <div id="raiz"></div>
-    <script type="module" src="/src/plataforma/main.tsx"></script>
   </body>
 </html>

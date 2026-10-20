@@ -8,7 +8,7 @@
 #   - base própria erp_consulvolt_e2e (o comando erp:e2e:preparar recusa correr noutra base que não termine em _e2e);
 #   - Redis nas bases lógicas 2 (default/sessões) e 3 (cache) e com prefixos próprios — o worker de desenvolvimento
 #     (base lógica 0) nunca vê trabalhos deste ambiente; as filas correm em modo síncrono (QUEUE_CONNECTION=sync);
-#   - AGT sempre desligada; nginx próprio em 127.0.0.1:8081 a servir o mesmo frontend/dist.
+#   - AGT sempre desligada; nginx próprio em 127.0.0.1:8081 a servir os mesmos activos de frontend/dist (em /build/; a página vem do Laravel).
 # Nota: as âncoras YAML do ficheiro base não atravessam ficheiros, por isso a definição do backend é repetida aqui.
 
 services:
@@ -23,6 +23,7 @@ services:
     volumes:
       - ./backend:/var/www/html
       - erp_vendor:/var/www/html/vendor
+      - ./frontend/dist:/var/www/html/public/build:ro
     environment:
       APP_ENV: e2e
       APP_DEBUG: "false"
@@ -68,7 +69,7 @@ services:
       - "127.0.0.1:${WEB_E2E_PORTA:-8081}:80"
     volumes:
       - ./docker/nginx/e2e.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./frontend/dist:/var/www/frontend:ro
+      - ./frontend/dist:/var/www/frontend/build:ro
     depends_on:
       app_e2e:
         condition: service_healthy

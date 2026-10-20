@@ -4,16 +4,19 @@ services:
     volumes: !override
       - ./backend:/var/www/html
       - erp_vendor:/var/www/html/vendor
+      - ./frontend/dist:/var/www/html/public/build:ro
   worker:
     container_name: !reset null
     volumes: !override
       - ./backend:/var/www/html
       - erp_vendor:/var/www/html/vendor
+      - ./frontend/dist:/var/www/html/public/build:ro
   scheduler:
     container_name: !reset null
     volumes: !override
       - ./backend:/var/www/html
       - erp_vendor:/var/www/html/vendor
+      - ./frontend/dist:/var/www/html/public/build:ro
   web:
     container_name: !reset null
   postgres:

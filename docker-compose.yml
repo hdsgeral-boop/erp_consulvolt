@@ -16,6 +16,8 @@ x-backend: &backend
     # vendor num volume Linux nativo: evita ler milhares de ficheiros pela montagem Windows (arranque 7 s -> ms).
     # Gerir dependências sempre dentro do contentor: docker compose exec app composer <comando>
     - erp_vendor:/var/www/html/vendor
+    # Frontend compilado (npm run build em frontend/): o @vite do Laravel lê public/build/manifest.json. Só leitura.
+    - ./frontend/dist:/var/www/html/public/build:ro
     - ../wstb_payroll_backup_2026-09-22.json:/dados/legado/wstb_payroll_backup_2026-09-22.json:ro
     # Chaves da AGT (produtor, contribuintes por NIF, chave SAF-T): só leitura, fora do Git (ADR-030)
     - ${AGT_PASTA_SEGREDOS:-./.segredos/agt}:/run/segredos/agt:ro
@@ -62,14 +64,13 @@ services:
     image: nginx:1.27-alpine
     container_name: erp_web
     restart: unless-stopped
-    environment:
-      DOMINIO_PLATAFORMA: ${DOMINIO_PLATAFORMA:-gestao-admin}
     ports:
       - "127.0.0.1:${WEB_PORTA:-8080}:80"
     volumes:
-      # modelo: o entrypoint do nginx substitui ${DOMINIO_PLATAFORMA} (host da plataforma -> plataforma.html)
-      - ./docker/nginx/default.conf:/etc/nginx/templates/default.conf.template:ro
-      - ./frontend/dist:/var/www/frontend:ro
+      # A página (ERP ou plataforma, por host) é decidida pelo Laravel (DOMINIO_PLATAFORMA via config erp.dominio);
+      # o nginx serve só os activos compilados em /build/ e encaminha o resto para o PHP.
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/var/www/frontend/build:ro
     depends_on:
       app:
         condition: service_healthy
