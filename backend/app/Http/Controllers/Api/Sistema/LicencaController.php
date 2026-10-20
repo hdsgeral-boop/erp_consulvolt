@@ -95,11 +95,7 @@ final class LicencaController extends Controller
 
     private function ePlataforma(Request $request): bool
     {
-        $u = $request->user();
-
-        return $u !== null
-            && $u->eSuperAdministrador()
-            && (int) $u->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
+        return $request->user()?->ePlataforma() ?? false;
     }
 
     /** @return array<string, mixed> */

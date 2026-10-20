@@ -106,6 +106,13 @@ class Utilizador extends Autenticavel
         return $this->papel === self::PAPEL_SUPER_ADMINISTRADOR;
     }
 
+    /** Administrador da plataforma SaaS: super-administrador do tenant da plataforma (erp.dominio.plataforma_tenant_id). */
+    public function ePlataforma(): bool
+    {
+        return $this->eSuperAdministrador()
+            && (int) $this->tenant_id === (int) config('erp.dominio.plataforma_tenant_id', 1);
+    }
+
     public function temCredencialLegada(): bool
     {
         return $this->palavra_passe === null && $this->hash_password_legado !== null;

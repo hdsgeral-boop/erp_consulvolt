@@ -24,8 +24,7 @@ final class ExigirPlataforma
 
     public static function exigir(?Utilizador $utilizador, ?Request $request = null): void
     {
-        $plataforma = (int) config('erp.dominio.plataforma_tenant_id', 1);
-        if (! $utilizador || (int) $utilizador->tenant_id !== $plataforma || ! $utilizador->eSuperAdministrador()) {
+        if (! $utilizador || ! $utilizador->ePlataforma()) {
             throw new ErroNegocio('Esta área é reservada à administração da plataforma.', 'AREA_RESERVADA', 403);
         }
 

@@ -79,6 +79,7 @@ final class AutenticacaoController extends Controller
             'utilizador' => UtilizadorResource::make($utilizador)->resolve(),
             'permissoes' => $this->permissoes->efectivas($utilizador),
             'perfil_formato_v2' => $this->permissoes->formatoV2($utilizador),
+            'e_plataforma' => $utilizador->ePlataforma(),
             'empresas' => EmpresaResource::collection($this->empresas->acessiveis($utilizador))->resolve(),
         ];
     }

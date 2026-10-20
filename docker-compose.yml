@@ -62,10 +62,13 @@ services:
     image: nginx:1.27-alpine
     container_name: erp_web
     restart: unless-stopped
+    environment:
+      DOMINIO_PLATAFORMA: ${DOMINIO_PLATAFORMA:-gestao-admin}
     ports:
       - "127.0.0.1:${WEB_PORTA:-8080}:80"
     volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # modelo: o entrypoint do nginx substitui ${DOMINIO_PLATAFORMA} (host da plataforma -> plataforma.html)
+      - ./docker/nginx/default.conf:/etc/nginx/templates/default.conf.template:ro
       - ./frontend/dist:/var/www/frontend:ro
     depends_on:
       app:

@@ -8,6 +8,17 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   // ERP_API_ALVO permite apontar o servidor de desenvolvimento para o ambiente E2E (http://127.0.0.1:8081, dados fictícios).
   server: { port: 5173, proxy: { '/api': process.env.ERP_API_ALVO ?? 'http://127.0.0.1:8080' } },
-  build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 1500 },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 1500,
+    // Duas aplicações: o ERP (index.html) e a plataforma SaaS (plataforma.html), servidas por host no nginx.
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        plataforma: fileURLToPath(new URL('./plataforma.html', import.meta.url)),
+      },
+    },
+  },
   test: { environment: 'jsdom', globals: true, setupFiles: ['./src/configuracao-testes.ts'] },
 });
