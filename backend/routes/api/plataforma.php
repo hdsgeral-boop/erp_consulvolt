@@ -49,6 +49,8 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
 
     Route::controller(PlanosPlataformaController::class)->group(function () {
         Route::get('planos', 'index')->name('planos.index');
+        Route::post('planos', 'criarPlano')->name('planos.criar');
+        Route::put('planos/{plano}', 'atualizarPlano')->whereNumber('plano')->name('planos.atualizar');
         Route::post('planos/{plano}/versoes', 'criarVersao')->whereNumber('plano')->name('planos.versoes.criar');
         Route::put('versoes/{versao}', 'atualizarVersao')->whereNumber('versao')->name('versoes.atualizar');
         Route::post('versoes/{versao}/publicar', 'publicar')->whereNumber('versao')->name('versoes.publicar');

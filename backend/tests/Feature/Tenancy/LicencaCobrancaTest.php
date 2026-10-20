@@ -93,15 +93,18 @@ class LicencaCobrancaTest extends TestCase
             ->assertStatus(422)->assertJsonPath('codigo', 'PLANO_INEXISTENTE');
     }
 
-    public function test_catalogo_de_planos_so_o_super_admin_altera(): void
+    public function test_o_cliente_so_le_os_planos_activos_e_nao_gere_o_catalogo(): void
     {
         $empresa = $this->empresaComLicenca(now()->addDays(30)->toDateString());
-        $corpo = ['codigo' => 'basico', 'nome' => 'Básico', 'preco_mensal' => 15000, 'moeda' => 'AOA', 'ativo' => true];
+        $this->plano(15000, ['codigo' => 'basico']);
+        $this->plano(9000, ['codigo' => 'antigo', 'ativo' => false]);
+        $corpo = ['codigo' => 'novo', 'nome' => 'Novo', 'preco_mensal' => 1, 'moeda' => 'AOA', 'ativo' => true];
 
-        $this->postJson('/api/licenca/planos', $corpo, $this->sessaoGestor($empresa))->assertForbidden();
-        $id = $this->postJson('/api/licenca/planos', $corpo, $this->sessaoSuperAdmin($empresa))->assertCreated()->json('dados.id');
-        $this->putJson("/api/licenca/planos/{$id}", ['preco_mensal' => 20000] + $corpo, $this->sessaoSuperAdmin($empresa))->assertOk()->assertJsonPath('dados.preco_mensal', 20000.0);
+        // A criação/edição do catálogo saiu do ERP do cliente: vive em /api/plataforma/planos.
+        $this->postJson('/api/licenca/planos', $corpo, $this->sessaoSuperAdmin($empresa))->assertStatus(405);
         $this->getJson('/api/licenca/planos', $this->sessaoGestor($empresa))->assertOk()->assertJsonCount(1, 'dados');
+        // O parâmetro `todos` só é respeitado para a plataforma; para a empresa cliente continuam só os activos.
+        $this->getJson('/api/licenca/planos?todos=1', $this->sessaoGestor($empresa))->assertOk()->assertJsonCount(1, 'dados');
     }
 
     public function test_super_admin_de_cliente_nao_gere_catalogo_nem_aprova_a_propria_subscricao(): void
@@ -112,9 +115,6 @@ class LicencaCobrancaTest extends TestCase
         $u = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]);
         $u->forceFill(['tenant_id' => $cliente->id])->save();
         $sessao = $this->entrar($u) + ['X-Empresa-Id' => $empresa->id];
-
-        $corpo = ['codigo' => 'meu-plano', 'nome' => 'Meu plano', 'preco_mensal' => 1, 'moeda' => 'AOA', 'ativo' => true];
-        $this->postJson('/api/licenca/planos', $corpo, $sessao)->assertForbidden();
 
         $plano = $this->plano(25000);
         $id = $this->postJson('/api/licenca/renovacao', ['plano_id' => $plano->id, 'meses' => 1], $this->sessaoGestor($empresa))->assertCreated()->json('dados.id');
