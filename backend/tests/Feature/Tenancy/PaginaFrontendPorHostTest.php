@@ -102,6 +102,33 @@ class PaginaFrontendPorHostTest extends TestCase
         $this->pagina('empresa1.meuerp.ao', '/apice')->assertOk()->assertSee('<div id="raiz">', false);
     }
 
+    public function test_host_encaminhado_nao_abre_a_plataforma(): void
+    {
+        $this->comManifesto();
+
+        // Vindo do proxy (rede privada) com um X-Forwarded-Host forjado: o endereço que decide é o do pedido, nunca o encaminhado.
+        $resposta = $this->call('GET', 'http://empresa1.meuerp.ao/', [], [], [], [
+            'REMOTE_ADDR' => '172.18.0.5',
+            'HTTP_X_FORWARDED_HOST' => 'gestao-admin.meuerp.ao',
+        ]);
+
+        $resposta->assertOk()->assertSee('<title>MEU ERP</title>', false)->assertDontSee('Plataforma', false);
+    }
+
+    public function test_proxies_confiaveis_so_para_ip_e_esquema_nunca_para_o_host(): void
+    {
+        $cabecalhos = new \ReflectionProperty(\Illuminate\Http\Middleware\TrustProxies::class, 'alwaysTrustHeaders');
+        $proxies = new \ReflectionProperty(\Illuminate\Http\Middleware\TrustProxies::class, 'alwaysTrustProxies');
+        $mascara = $cabecalhos->getValue();
+
+        $this->assertNotSame(0, $mascara & \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR);
+        $this->assertNotSame(0, $mascara & \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO);
+        $this->assertSame(0, $mascara & \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST);
+        $this->assertSame(0, $mascara & \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT);
+        $this->assertNotContains('*', (array) $proxies->getValue());
+        $this->assertContains('172.16.0.0/12', (array) $proxies->getValue());
+    }
+
     public function test_sem_manifesto_devolve_pagina_de_erro_clara(): void
     {
         // Directório de build sem manifest.json (o public/build real pode estar montado só de leitura).

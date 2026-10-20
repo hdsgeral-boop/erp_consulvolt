@@ -41,3 +41,8 @@ PROMPT_*.txt
 # Backups de base de dados (contêm dados reais de clientes)
 backup_*
 *.dump
+
+# Túnel da Cloudflare: configuração e credenciais locais
+deploy/cloudflared/config.yml
+deploy/cloudflared/*.json
+deploy/cloudflared/cert.pem

@@ -1,0 +1,14 @@
+# Túnel da Cloudflare para o MEU ERP.
+# 1) Copie este ficheiro para `config.yml` (fica fora do Git).
+# 2) Troque <ID_DO_TUNEL> pelo ID que o `cloudflared tunnel create` devolveu; o ficheiro <ID_DO_TUNEL>.json (credenciais)
+#    é gravado em C:\Users\<utilizador>\.cloudflared\ — copie-o para esta pasta. NUNCA o envie para o Git.
+tunnel: <ID_DO_TUNEL>
+credentials-file: /etc/cloudflared/<ID_DO_TUNEL>.json
+
+ingress:
+  # O endereço original (Host) chega intacto ao Nginx e ao Laravel, que escolhe plataforma/empresa por ele.
+  - hostname: meuerp.ao
+    service: http://web:80
+  - hostname: "*.meuerp.ao"          # gestao-admin.meuerp.ao e <empresa>.meuerp.ao
+    service: http://web:80
+  - service: http_status:404

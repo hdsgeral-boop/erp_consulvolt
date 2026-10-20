@@ -23,6 +23,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [ForcarRespostaJson::class]);
+        // Atrás do Nginx/Caddy/túnel da Cloudflare: só se confia no IP do cliente (X-Forwarded-For) e no esquema https
+        // (X-Forwarded-Proto) quando o pedido chega de uma rede privada (o proxy). NUNCA no host encaminhado
+        // (X-Forwarded-Host): o endereço decide a plataforma/empresa (DominioPedido) e um visitante poderia forjá-lo.
+        $middleware->trustProxies(
+            at: ['127.0.0.1', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'],
+            headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO,
+        );
         // SaaS (ADR-073): o tenant da sessão de base de dados vem do utilizador autenticado. Sem efeito com erp.saas.ativo=false.
         $middleware->api(append: [ResolverTenantAtivo::class]);
         // Limite geral da API (limitador 'api' do AppServiceProvider, configurável em erp.api.pedidos_por_minuto).

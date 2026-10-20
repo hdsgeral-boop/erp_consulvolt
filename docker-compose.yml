@@ -75,6 +75,21 @@ services:
       app:
         condition: service_healthy
 
+  # 2b. Túnel da Cloudflare (opcional): publica o sistema no domínio sem abrir portas nem precisar de IP fixo.
+  # Só sobe com o perfil `tunel`:  docker compose --profile tunel up -d
+  # Configuração e credenciais em deploy/cloudflared/ (o JSON de credenciais NUNCA vai para o Git; ver o README ali).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.1
+    container_name: erp_cloudflared
+    profiles: ["tunel"]
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "--config", "/etc/cloudflared/config.yml", "run"]
+    volumes:
+      - ./deploy/cloudflared:/etc/cloudflared:ro
+    depends_on:
+      web:
+        condition: service_started
+
   # 3. PostgreSQL 16
   postgres:
     image: postgres:16-alpine
