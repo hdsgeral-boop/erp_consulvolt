@@ -5,18 +5,86 @@ namespace App\Services\Plataforma;
 use App\Exceptions\ErroNegocio;
 use App\Models\PlanoLicenca;
 use App\Models\PlanoLicencaVersao;
+use App\Models\Tenant;
+use App\Services\Sistema\ServicoAuditoria;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Versões dos planos: rascunho, edição, publicação. Uma versão publicada nunca se altera: para mudar, cria-se um
- * rascunho (cópia da versão indicada ou da em vigor). Publicar copia preço e limites para o plano (usados na cobrança
- * e nos limites) e descontinua a versão anterior. Os módulos ficam registados na versão (catálogo em config/erp.php).
+ * Planos e versões: criação do plano, edição dos seus dados, rascunho, edição, publicação. Uma versão publicada nunca se
+ * altera: para mudar, cria-se um rascunho (cópia da versão indicada ou da em vigor). Publicar copia preço e limites para o
+ * plano (usados na cobrança e nos limites) e descontinua a versão anterior. Os módulos ficam registados na versão
+ * (catálogo em config/erp.php); por enquanto são informativos e não condicionam o acesso.
  */
 final class ServicoVersoesPlano
 {
+    public function __construct(private readonly ServicoAuditoria $auditoria) {}
+
     public function emVigor(PlanoLicenca $plano): ?PlanoLicencaVersao
     {
         return PlanoLicencaVersao::query()->where('plano_id', $plano->id)->where('estado', PlanoLicencaVersao::PUBLICADA)->orderByDesc('numero')->first();
+    }
+
+    /** Quantos clientes (tenants) têm este plano atribuído. */
+    public function clientesDoPlano(PlanoLicenca $plano): int
+    {
+        return Tenant::query()->where('plano', $plano->codigo)->count();
+    }
+
+    /**
+     * Cria o plano e a sua PRIMEIRA versão em rascunho. O preço e os limites do plano só passam a valer ao publicar a versão;
+     * até lá o plano guarda os valores do rascunho apenas para consulta e fica INACTIVO (não é escolhível nem renovável
+     * pelas empresas), mesmo que se peça activo: um plano só fica activo depois de ter uma versão publicada.
+     *
+     * @param  array<string, mixed>  $d
+     */
+    public function criarPlano(array $d): PlanoLicenca
+    {
+        return DB::transaction(function () use ($d) {
+            $plano = PlanoLicenca::query()->create([
+                'codigo' => $d['codigo'], 'nome' => $d['nome'], 'descricao' => $d['descricao'] ?? null,
+                'preco_mensal' => $d['preco_mensal'], 'moeda' => $d['moeda'],
+                'max_empresas' => $d['max_empresas'] ?? null, 'max_utilizadores' => $d['max_utilizadores'] ?? null,
+                'ativo' => false, 'ordem' => $d['ordem'] ?? 0,
+            ]);
+            PlanoLicencaVersao::query()->create([
+                'plano_id' => $plano->id, 'numero' => 1, 'estado' => PlanoLicencaVersao::RASCUNHO,
+                'preco_mensal' => $d['preco_mensal'], 'moeda' => $d['moeda'],
+                'max_empresas' => $d['max_empresas'] ?? null, 'max_utilizadores' => $d['max_utilizadores'] ?? null,
+                'modulos' => array_values(array_unique($d['modulos'] ?? [])),
+            ]);
+            $this->auditoria->registar('Plataforma', 'Criou plano', "Plano {$plano->codigo} criado (versão 1 em rascunho).", 'planos_licenca', $plano->id, null, ['codigo' => $plano->codigo, 'nome' => $plano->nome]);
+
+            return $plano->refresh();
+        });
+    }
+
+    /**
+     * Altera nome, descrição, estado e ordem (o código nunca muda; preço e limites só por versão publicada).
+     * Regras: activar exige uma versão publicada; desactivar um plano em uso por clientes exige `confirmar_desativacao`
+     * (os clientes mantêm o plano e os limites, mas o plano deixa de poder ser escolhido/renovado nas empresas).
+     *
+     * @param  array<string, mixed>  $d
+     */
+    public function atualizarPlano(PlanoLicenca $plano, array $d): PlanoLicenca
+    {
+        return DB::transaction(function () use ($plano, $d) {
+            $plano = PlanoLicenca::query()->lockForUpdate()->findOrFail($plano->id);
+            if (($d['ativo'] ?? null) === true && ! $plano->ativo && $this->emVigor($plano) === null) {
+                throw new ErroNegocio('Publique uma versão antes de activar o plano.', 'PLANO_SEM_VERSAO_PUBLICADA', 422);
+            }
+            if (($d['ativo'] ?? null) === false && $plano->ativo) {
+                $emUso = $this->clientesDoPlano($plano);
+                if ($emUso > 0 && empty($d['confirmar_desativacao'])) {
+                    throw new ErroNegocio("O plano está atribuído a {$emUso} cliente(s). Desactivar impede novas escolhas e renovações, mas não retira o plano aos clientes. Confirme para continuar.", 'PLANO_EM_USO', 422);
+                }
+            }
+            $campos = ['nome', 'descricao', 'ativo', 'ordem'];
+            $antes = $plano->only($campos);
+            $plano->fill(array_intersect_key($d, array_flip($campos)))->save();
+            $this->auditoria->registar('Plataforma', 'Atualizou plano', "Plano {$plano->codigo} actualizado.", 'planos_licenca', $plano->id, $antes, $plano->only($campos));
+
+            return $plano->refresh();
+        });
     }
 
     public function criarRascunho(PlanoLicenca $plano, ?int $copiarDe = null): PlanoLicencaVersao
@@ -54,6 +122,11 @@ final class ServicoVersoesPlano
         }
 
         return DB::transaction(function () use ($versao) {
+            // Bloqueia o plano: duas publicações em simultâneo não deixam duas versões em vigor.
+            PlanoLicenca::query()->lockForUpdate()->findOrFail($versao->plano_id);
+            if (PlanoLicencaVersao::query()->whereKey($versao->id)->value('estado') !== PlanoLicencaVersao::RASCUNHO) {
+                throw new ErroNegocio('Só um rascunho pode ser publicado.', 'VERSAO_NAO_RASCUNHO', 422);
+            }
             PlanoLicencaVersao::query()->where('plano_id', $versao->plano_id)->where('estado', PlanoLicencaVersao::PUBLICADA)
                 ->update(['estado' => PlanoLicencaVersao::DESCONTINUADA]);
             $versao->update(['estado' => PlanoLicencaVersao::PUBLICADA, 'publicada_em' => now()]);
@@ -61,6 +134,7 @@ final class ServicoVersoesPlano
                 'preco_mensal' => $versao->preco_mensal, 'moeda' => $versao->moeda,
                 'max_empresas' => $versao->max_empresas, 'max_utilizadores' => $versao->max_utilizadores,
             ]);
+            $this->auditoria->registar('Plataforma', 'Publicou versão', "Versão {$versao->numero} do plano #{$versao->plano_id} publicada.", 'planos_licenca_versoes', $versao->id);
 
             return $versao->refresh();
         });

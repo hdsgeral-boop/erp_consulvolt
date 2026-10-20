@@ -3,19 +3,18 @@
 namespace App\Http\Controllers\Api\Sistema;
 
 use App\Http\Controllers\Controller;
-use App\Models\PlanoLicenca;
 use App\Services\Sistema\ServicoLicenca;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * /api/licenca — licença da empresa activa e cobrança por plano e tempo (ADR-074).
  *
  * Estado e planos activos: qualquer utilizador da empresa (alimentam o aviso do cabeçalho). Pedir renovação, ver e cancelar
- * pedidos: `config_licenca_gerir`. Confirmar pagamento e gerir o catálogo de planos: só o super-administrador do tenant da plataforma.
+ * pedidos: `config_licenca_gerir`. Confirmar pagamento: só o super-administrador do tenant da plataforma. O catálogo de planos
+ * gere-se na app da plataforma (/api/plataforma/planos); aqui o cliente só lê os planos activos.
  * Estas rotas funcionam também com a licença expirada (é assim que se renova); ver ResolverEmpresaAtiva.
  */
 final class LicencaController extends Controller
@@ -32,21 +31,6 @@ final class LicencaController extends Controller
         $todos = $this->ePlataforma($request) && $request->boolean('todos');
 
         return RespostaApi::sucesso($this->licenca->planos($todos), 'Planos de licença.');
-    }
-
-    public function criarPlano(Request $request): JsonResponse
-    {
-        $this->exigirSuperAdministrador($request);
-
-        return RespostaApi::criado($this->licenca->gravarPlano(null, $this->validarPlano($request)), 'Plano criado.');
-    }
-
-    public function actualizarPlano(Request $request, int $plano): JsonResponse
-    {
-        $this->exigirSuperAdministrador($request);
-        $modelo = PlanoLicenca::query()->findOrFail($plano);
-
-        return RespostaApi::sucesso($this->licenca->gravarPlano($modelo, $this->validarPlano($request, $modelo->id)), 'Plano actualizado.');
     }
 
     public function subscricoes(): JsonResponse
@@ -83,8 +67,8 @@ final class LicencaController extends Controller
     }
 
     /**
-     * Catálogo global de planos e confirmação de pagamentos: só o super-administrador do tenant da plataforma.
-     * Um super-administrador de cliente não pode alterar planos nem aprovar a própria subscrição.
+     * Confirmação de pagamentos: só o super-administrador do tenant da plataforma.
+     * Um super-administrador de cliente não pode aprovar a própria subscrição.
      */
     private function exigirSuperAdministrador(Request $request): void
     {
@@ -96,21 +80,5 @@ final class LicencaController extends Controller
     private function ePlataforma(Request $request): bool
     {
         return $request->user()?->ePlataforma() ?? false;
-    }
-
-    /** @return array<string, mixed> */
-    private function validarPlano(Request $request, ?int $ignorar = null): array
-    {
-        return $request->validate([
-            'codigo' => ['required', 'string', 'max:30', 'regex:/^[a-z0-9_-]+$/', Rule::unique('planos_licenca', 'codigo')->ignore($ignorar)],
-            'nome' => ['required', 'string', 'max:100'],
-            'descricao' => ['nullable', 'string', 'max:2000'],
-            'preco_mensal' => ['required', 'numeric', 'min:0', 'max:999999999'],
-            'moeda' => ['required', 'string', 'size:3'],
-            'max_utilizadores' => ['nullable', 'integer', 'min:1'],
-            'max_empresas' => ['nullable', 'integer', 'min:1'],
-            'ativo' => ['required', 'boolean'],
-            'ordem' => ['nullable', 'integer', 'min:0'],
-        ]);
     }
 }
