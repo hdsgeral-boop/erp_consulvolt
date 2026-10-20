@@ -5,7 +5,7 @@ import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora } from '@/utilitarios/formatacao';
-import { ConversaSuporte } from './comum/ConversaSuporte';
+import { ConversaSuporte } from './ConversaSuporte';
 
 interface Ticket { id: number; tenant_id: number; cliente: string | null; assunto: string; descricao: string | null; estado: string; prioridade: string; categoria: string; criado_por: string | null; criado_em: string }
 interface Cliente { id: number; nome: string }

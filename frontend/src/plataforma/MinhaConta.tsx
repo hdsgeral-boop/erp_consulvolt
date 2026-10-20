@@ -5,7 +5,7 @@ import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData, formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
-import { ConversaSuporte } from './comum/ConversaSuporte';
+import { ConversaSuporte } from './ConversaSuporte';
 
 interface Resumo {
   cliente: { id: number; nome: string; slug: string; estado: string; nome_sistema: string | null };
