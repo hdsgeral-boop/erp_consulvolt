@@ -1,12 +1,10 @@
 import { Avatar, Button, ConfigProvider, Drawer, Dropdown, Flex, Input, Layout, Menu, Modal, Select, Space, Spin, Tooltip, Typography, type MenuProps } from 'antd';
 import {
   ApiOutlined,
-  AppstoreOutlined,
   ArrowLeftOutlined,
   CheckOutlined,
   DownOutlined,
   EditOutlined,
-  FontSizeOutlined,
   IdcardOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
@@ -18,7 +16,6 @@ import {
   StarOutlined,
   SunOutlined,
   SwapOutlined,
-  UnorderedListOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -41,7 +38,7 @@ import { NotificacoesSinoHeader } from './NotificacoesSinoHeader';
 import { classeFundoModulo } from './fundoModulo';
 import { rotuloEmpresa, rotuloPapel } from './marca';
 import { PesquisaCabecalho } from './PesquisaEcras';
-import { ROTULOS_MENU, useAspecto, type AspectoMenu } from './aspecto';
+import { useAspecto, type AspectoMenu } from './aspecto';
 import { semIcones, type ItemMenu } from './filtroMenu';
 import { TEMA_NOCTURNO } from './temaNocturno';
 import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
@@ -57,13 +54,6 @@ export const PREFIXO_FAVORITO = 'fav:';
 /** id da árvore do menu lateral (aria-controls do botão recolher/expandir) */
 const ID_MENU_LATERAL = 'erp-menu-lateral';
 type ItemMenuLateral = ItemMenu;
-
-/** Botões do aspecto da árvore no próprio menu (legado: .nav-aspecto — «Símbolo e nome», «Só símbolos», «Só nomes»). */
-const OPCOES_ASPECTO: { menu: AspectoMenu; icone: ReactNode; titulo: string }[] = [
-  { menu: 'completo', icone: <UnorderedListOutlined />, titulo: 'Símbolo e nome' },
-  { menu: 'icones', icone: <AppstoreOutlined />, titulo: 'Só símbolos (passe o rato para ver o nome)' },
-  { menu: 'nomes', icone: <FontSizeOutlined />, titulo: 'Só nomes' },
-];
 
 const temFilhos = (it: ItemMenuLateral): boolean => !!it && typeof it === 'object' && Array.isArray((it as { children?: unknown }).children);
 
@@ -386,25 +376,9 @@ function Estrutura() {
     />
   );
 
-  // aspecto da árvore e «Expandir/Recolher tudo» no próprio menu (legado: .nav-aspecto e os dois botões por baixo)
+  // «Expandir/Recolher tudo» no próprio menu.
   const controlosMenu = !ecra.pequeno && (
     <div className="erp-menu-controlos">
-      <div className="erp-menu-aspecto" role="radiogroup" aria-label="Aspecto do menu">
-        {OPCOES_ASPECTO.map((o) => (
-          <button
-            key={o.menu}
-            type="button"
-            role="radio"
-            aria-checked={aspecto.menu === o.menu}
-            aria-label={ROTULOS_MENU[o.menu]}
-            title={o.titulo}
-            className="erp-menu-aspecto-botao"
-            onClick={() => definir({ menu: o.menu })}
-          >
-            {o.icone}
-          </button>
-        ))}
-      </div>
       {!colapsado && todosGrupos.length > 0 && (
         <div className="erp-menu-expandir">
           <button type="button" title="Expandir Tudo" aria-label="Expandir tudo" onClick={() => setAbertosMenu(todosGrupos)}>
