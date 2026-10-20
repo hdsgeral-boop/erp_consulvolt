@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
 use PhpOffice\PhpSpreadsheet\Cell\Cell;
@@ -45,6 +46,10 @@ class AppServiceProvider extends ServiceProvider
     {
         // Fora de produção: falhar cedo em lazy loading, atributos inexistentes e mass assignment silencioso.
         Model::shouldBeStrict(! $this->app->isProduction());
+
+        // Activos do Vite (@vite) com caminho relativo à raiz (/build/...): sem esquema nem host, para funcionar atrás do
+        // proxy HTTPS e em qualquer domínio de cliente (o asset() do Laravel geraria http://<host>/... e bloquearia por conteúdo misto).
+        Vite::createAssetPathsUsing(fn (string $caminho, ?bool $seguro = null): string => '/'.ltrim($caminho, '/'));
 
         // Listas por nome em ordem alfabética portuguesa (a base usa a ordenação C) — ADR-071.
         OrdenacaoTexto::registar();
