@@ -1,5 +1,6 @@
 import type { ModuloMenu } from '@/api/tipos';
 import conteudo from './conteudo.json';
+import { lerCaminhoEcra } from '@/utilitarios/caminhos';
 
 /**
  * Ajuda contextual (M-04): conteúdo de payroll_system_web/js/ajuda.js convertido para conteudo.json (script do R2-G4
@@ -40,9 +41,9 @@ export interface AjudaLocalizada {
 
 /** Ajuda do ecrã do caminho actual (/{modulo}/{ecra}/… ou o Início). */
 export function localizarAjuda(caminho: string, menu: ModuloMenu[]): AjudaLocalizada {
-  const [, prefixo, moduloId, ecraId] = caminho.split('/');
-  if (prefixo !== 'm' || !moduloId || !ecraId) return montar('inicio', 'geral', menu, 'Início');
-  return montar(ecraId, moduloId, menu);
+  const ecra = lerCaminhoEcra(caminho);
+  if (!ecra) return montar('inicio', 'geral', menu, 'Início');
+  return montar(ecra.ecra, ecra.modulo, menu);
 }
 
 /** Ajuda de um ecrã do catálogo pelo id. */

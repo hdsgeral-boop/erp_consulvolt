@@ -3,6 +3,8 @@
  * RH, Contabilidade, Armazém, Vendas/Tesouraria e Activos têm imagem própria; os restantes usam a do sistema.
  * Devolve a classe CSS a pôr na área de conteúdo (definidas em estilos/identidade.css).
  */
+import { lerCaminhoEcra } from '@/utilitarios/caminhos';
+
 const FUNDOS: Record<string, string> = {
   // RH
   'rh/colaboradores': 'rh',
@@ -31,8 +33,9 @@ const FUNDOS: Record<string, string> = {
 };
 
 export function classeFundoModulo(caminho: string): string {
-  const [, m, modulo, ecra] = caminho.split('/');
-  if (m !== 'm' || !modulo || !ecra) return 'erp-fundo-sistema';
+  const lido = lerCaminhoEcra(caminho);
+  if (!lido) return 'erp-fundo-sistema';
+  const { modulo, ecra } = lido;
   // todos os ecrãs de Compras usam a imagem do armazém (chave «compras» do bgMap do legado)
   if (modulo === 'compras') return 'erp-fundo-armazem';
   const f = FUNDOS[`${modulo}/${ecra}`];

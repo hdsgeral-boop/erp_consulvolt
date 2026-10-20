@@ -3,6 +3,7 @@ import type { EcraMenu, ModuloMenu } from '@/api/tipos';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { iconeModulo } from '@/componentes/icones/iconesModulos';
 import { CASA_MODULO, ESCONDIDOS, MENU_GERAL_LEGADO, SISTEMA_LEGADO, TOPO_LEGADO, type EcraLegado, type GrupoLegado, type NoLegado } from './menuLegado';
+import { lerCaminhoEcra } from '@/utilitarios/caminhos';
 
 type ItemMenu = NonNullable<MenuProps['items']>[number];
 
@@ -117,7 +118,10 @@ export function construirItensMenu(menu: ModuloMenu[]): NonNullable<MenuProps['i
  */
 export function estadoMenu(caminho: string, pesquisa = '', lateral?: MenuLateral, menu: ModuloMenu[] = []): { seleccionado: string; abertos: string[] } {
   if (!caminho.startsWith('/')) return { seleccionado: '/', abertos: [] };
-  const [, , moduloId, ecraId] = caminho.split('/');
+  const lido = lerCaminhoEcra(caminho);
+  // Início, portal, dados pessoais…: não é um ecrã de módulo, nada a seleccionar além do próprio caminho
+  if (!lido) return { seleccionado: caminho.split('?')[0], abertos: [] };
+  const { modulo: moduloId, ecra: ecraId } = lido;
   let seleccionado = rotaEcra(moduloId, ecraId);
   const parametros = new URLSearchParams(pesquisa);
   const tipo = parametros.get('tipo');

@@ -1,5 +1,6 @@
 import { Spin } from 'antd';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { normalizarCaminhoLegado } from '@/utilitarios/caminhos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { LayoutPrincipal } from '@/layout/LayoutPrincipal';
 import { Entrar } from '@/paginas/Entrar';
@@ -9,6 +10,12 @@ import { Inicio } from '@/paginas/Inicio';
 import { Ecra } from '@/paginas/Ecra';
 import { DadosPessoais } from '@/paginas/DadosPessoais';
 import { PortalAutonomo } from '@/portal/PortalAutonomo';
+
+/** `/m/{modulo}/{ecra}/…` (endereço antigo) → `/{modulo}/{ecra}/…`, mantendo a pesquisa (`?…`) e o `#`. */
+export function RedirecionarEnderecoAntigo() {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate replace to={`${normalizarCaminhoLegado(pathname)}${search}${hash}`} />;
+}
 
 /**
  * Encaminhamento: sem sessão → entrar; sem empresa activa → escolher; depois o layout com o menu do utilizador.
@@ -24,6 +31,8 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route path="portal/*" element={<PortalAutonomo />} />
+        {/* Endereços antigos com o prefixo /m/ (favoritos do navegador, ligações já enviadas): vão para o endereço novo. */}
+        <Route path="m/:modulo/:ecra/*" element={<RedirecionarEnderecoAntigo />} />
         <Route element={<LayoutPrincipal />}>
           <Route index element={<Inicio />} />
           <Route path=":modulo/:ecra/*" element={<Ecra />} />

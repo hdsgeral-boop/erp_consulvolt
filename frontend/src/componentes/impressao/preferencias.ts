@@ -1,4 +1,5 @@
 import type { OpcoesDocumento, Orientacao, Papel, PreferenciaPagina } from './tipos';
+import { lerCaminhoEcra, normalizarCaminhoLegado } from '@/utilitarios/caminhos';
 
 /**
  * Preferência de página escolhida pelo utilizador no botão de impressão («Automática», «Vertical», «Horizontal» e o
@@ -31,7 +32,10 @@ export function chaveDocumento(base: string): string {
 
 /** Chave por omissão de um botão: o caminho do ecrã (sem identificadores numéricos) e o texto do botão. */
 export function chavePorOmissao(caminho: string, texto?: string): string {
-  const ecra = caminho.split('/').filter((s) => s && !/^\d+$/.test(s)).join('/');
+  const segmentos = normalizarCaminhoLegado(caminho).split('/').filter((s) => s && !/^\d+$/.test(s));
+  // Chave histórica: antes dos endereços sem prefixo o primeiro segmento era «m». Mantém-se (só para ecrãs de módulo)
+  // para não perder as preferências de impressão já guardadas no navegador.
+  const ecra = (lerCaminhoEcra(caminho) || lerCaminhoEcra(normalizarCaminhoLegado(caminho)) ? ['m', ...segmentos] : segmentos).join('/');
   return chaveDocumento(`${ecra}|${texto ?? ''}`) || 'documento';
 }
 

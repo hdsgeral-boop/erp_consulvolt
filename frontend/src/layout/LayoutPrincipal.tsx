@@ -44,6 +44,7 @@ import { TEMA_NOCTURNO } from './temaNocturno';
 import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
 import { PuxadorMenu } from './PuxadorMenu';
 import './telaNocturna.css';
+import { lerCaminhoEcra } from '@/utilitarios/caminhos';
 
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
 const AssistenteIA = lazy(() => import('@/modulos/geral/integracoes/AssistenteIA').then((m) => ({ default: m.AssistenteIA })));
@@ -206,8 +207,9 @@ function Estrutura() {
         if (!it || typeof it !== 'object') return it;
         const x = it as { key?: string; label?: ReactNode; title?: string; children?: ItemMenuLateral[] };
         if (x.children) return { ...it, children: comPontos(x.children) } as ItemMenuLateral;
-        const [, m, mod, ecraId] = String(x.key ?? '').split('?')[0].split('/');
-        if (m !== 'm' || !mod || !ecraId || (mod === 'geral' && ecraId === 'dashboard')) return it;
+        const lido = lerCaminhoEcra(String(x.key ?? ''));
+        if (!lido || (lido.modulo === 'geral' && lido.ecra === 'dashboard')) return it;
+        const { modulo: mod, ecra: ecraId } = lido;
         const fav = eFavorito(mod, ecraId);
         return {
           ...it,
@@ -255,8 +257,10 @@ function Estrutura() {
   const itensTopo = useMemo(() => itens.filter((i) => !temFilhos(i)), [itens]);
   const itensGrupos = useMemo(() => itens.filter(temFilhos), [itens]);
   const { seleccionado, abertos } = useMemo(() => estadoMenu(local.pathname, local.search, lateral, menu), [local.pathname, local.search, lateral, menu]);
-  const [, , moduloActual, ecraActual] = local.pathname.split('/');
-  const noEcra = local.pathname.startsWith('/') && !!moduloActual && !!ecraActual;
+  const ecraLido = lerCaminhoEcra(local.pathname);
+  const moduloActual = ecraLido?.modulo ?? '';
+  const ecraActual = ecraLido?.ecra ?? '';
+  const noEcra = ecraLido !== null;
   const favoritoActual = noEcra && eFavorito(moduloActual, ecraActual);
 
   // grupos abertos: os do utilizador e, com o menu recolhido, os sub-menus flutuantes
