@@ -36,7 +36,7 @@ class Contido extends Component<{ children: ReactNode }, { erro: boolean }> {
 }
 
 /**
- * Raiz da aplicação da plataforma SaaS (plataforma.html), separada do ERP: sem sessão -> entrar / primeiro acesso;
+ * Raiz da aplicação da plataforma SaaS (view Blade plataforma), separada do ERP: sem sessão -> entrar / primeiro acesso;
  * com sessão só entra quem é administrador da plataforma (e_plataforma). Nunca pede empresa.
  */
 export function PlataformaApp() {

@@ -43,6 +43,8 @@ ferramentas/gerador/unicidade_resultado.json
 **/node_modules
 backend/vendor
 frontend/dist
+backend/public/build
+backend/public/hot
 frontend/*.tsbuildinfo
 frontend/coverage
 frontend/test-results

@@ -69,13 +69,13 @@ docker compose exec app vendor/bin/pint && docker compose exec app php artisan m
 
 ## Frontend (React — Fase 5)
 
-React 18 + TypeScript + Ant Design 5 (Vite), em `frontend/`. Em produção o nginx serve `frontend/dist` em http://127.0.0.1:8080 e encaminha `/api` para o Laravel.
+React 18 + TypeScript + Ant Design 5 (Vite), em `frontend/`. Não há ficheiros HTML de entrada: as páginas são duas views Blade (`backend/resources/views/erp.blade.php` e `plataforma.blade.php`) que carregam o JavaScript com `@vite()`. O Laravel escolhe a view pelo host (`DominioPedido`: `<DOMINIO_PLATAFORMA>.<DOMINIO_BASE>` = plataforma SaaS; qualquer outro = ERP) para qualquer caminho que não seja `/api`, `/up` ou `/build`. O nginx serve os activos compilados (`frontend/dist`, em `/build/`, com cache longa) e encaminha tudo o resto para o Laravel; o contentor PHP monta `frontend/dist` em `public/build` (só leitura) para o `@vite()` ler o `manifest.json`.
 
 ```bash
 cd frontend
 npm install                  # npm 11: aprovar o script do esbuild — npm approve-scripts esbuild
-npm run dev                  # http://127.0.0.1:5173 (proxy de /api para :8080)
-npm run build                # verifica tipos e gera frontend/dist (servido pelo nginx)
+npm run dev                  # HMR: escreve backend/public/hot; abrir a aplicação pelo nginx (http://127.0.0.1:8080), não por :5173
+npm run build                # verifica tipos e gera frontend/dist (+ manifest.json); montado em public/build
 npm run testes               # Vitest
 ```
 

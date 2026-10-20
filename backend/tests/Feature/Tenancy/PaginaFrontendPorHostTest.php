@@ -3,6 +3,7 @@
 namespace Tests\Feature\Tenancy;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Vite;
 use Tests\TestCase;
 
 /**
@@ -104,20 +105,15 @@ class PaginaFrontendPorHostTest extends TestCase
 
     public function test_sem_manifesto_devolve_pagina_de_erro_clara(): void
     {
-        $existente = public_path('build/manifest.json');
-        $copia = null;
-        if (File::exists($existente)) {
-            $copia = File::get($existente);
-            File::delete($existente);
-        }
+        // Directório de build sem manifest.json (o public/build real pode estar montado só de leitura).
+        Vite::useBuildDirectory('build-inexistente');
 
         try {
             $resposta = $this->pagina('empresa1.meuerp.ao', '/m/vendas/faturacao');
             $resposta->assertStatus(503)->assertSee('Interface indisponível')->assertSee('npm run build');
+            $this->assertStringContainsString('no-store', (string) $resposta->headers->get('Cache-Control'));
         } finally {
-            if ($copia !== null) {
-                File::put($existente, $copia);
-            }
+            Vite::useBuildDirectory('build');
         }
     }
 }

@@ -1663,7 +1663,7 @@ Implementado em `app/Services/Gestao/Relatorios` e `app/Services/Gestao/Fluxos`,
 
 **Decisão do utilizador (2026-10-01):** Ant Design + TypeScript. Primeiro a base e um módulo piloto, depois os restantes módulos em paralelo.
 
-**Stack:** React 18, TypeScript estrito, Ant Design 5 (locale pt_PT, dayjs pt), React Router 6, TanStack Query 5, axios, Vite 6, Vitest 3. O build vai para `frontend/dist`, que é servido pelo nginx já existente; o build não é versionado.
+**Stack:** React 18, TypeScript estrito, Ant Design 5 (locale pt_PT, dayjs pt), React Router 6, TanStack Query 5, axios, Vite 6, Vitest 3. O build vai para `frontend/dist` (não versionado). Actualização: já não há `index.html`; as páginas são views Blade (`erp` e `plataforma`, escolhidas pelo host no Laravel) com `@vite()` (laravel-vite-plugin); o nginx serve só `/build/*` e encaminha o resto ao Laravel.
 
 **Base:**
 - **Cliente HTTP** (`src/api/cliente.ts`):

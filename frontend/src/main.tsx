@@ -28,7 +28,7 @@ try {
   /* armazenamento indisponível */
 }
 
-// Depois de uma nova publicação os fragmentos antigos deixam de existir: recarrega uma vez para obter o index.html novo
+// Depois de uma nova publicação os fragmentos antigos deixam de existir: recarrega uma vez para obter a página nova
 // (sem isto o ecrã fica em branco). A marca na sessionStorage evita um ciclo de recargas se o fragmento faltar mesmo.
 window.addEventListener('vite:preloadError', (e) => {
   try {

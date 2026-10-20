@@ -25,7 +25,7 @@ Na raiz do projecto (`erp_laravel/`), com o Docker Desktop a correr e o ambiente
 # 1. contentores E2E (reutilizam o postgres e o redis do docker-compose.yml)
 docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d app_e2e web_e2e
 
-# 2. frontend (o web_e2e serve frontend/dist) e Playwright
+# 2. frontend (o web_e2e serve os activos de frontend/dist em /build/; a página vem do Laravel) e Playwright
 cd frontend
 npm install
 npx playwright install chromium

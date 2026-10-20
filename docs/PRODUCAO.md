@@ -23,7 +23,7 @@ Guia de operação da nova arquitectura em produção: instalação, implantaç�
 Internet ──HTTPS──► reverse proxy do host (Caddy / nginx / Traefik; certificado TLS)
                       │  http://127.0.0.1:8080   (X-Forwarded-For / X-Forwarded-Proto)
                       ▼
-                   web  (nginx sem root, 8080) ── SPA React (frontend/dist dentro da imagem)
+                   web  (nginx sem root, 8080) ── activos do SPA React (frontend/dist em /build/, dentro das imagens web e app); a página é uma view Blade do Laravel
                       │  FastCGI app:9000 (/api, /up)
                       ▼
                    app  (PHP 8.3-FPM sem root, código imutável, OPcache sem revalidação)
@@ -174,7 +174,7 @@ Cabeçalhos enviados pelo ERP (`docker/nginx/producao/cabecalhos-seguranca.conf`
 - `X-Content-Type-Options`, `X-Frame-Options SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Resource-Policy`, `X-Request-Id`;
 - HSTS (1 ano), só quando o pedido chegou por HTTPS.
 
-Cache: os activos `/assets/*` (com hash) ficam em cache durante 1 ano (`immutable`); o `index.html` nunca fica em cache. Cada deploy é visto de imediato, sem activos antigos.
+Cache: os activos `/build/*` (com hash) ficam em cache durante 1 ano (`immutable`); a página de entrada (view Blade servida pelo Laravel) responde sempre com `Cache-Control: no-store`. Cada deploy é visto de imediato, sem activos antigos.
 
 ## 6. Implantar uma nova versão
 
