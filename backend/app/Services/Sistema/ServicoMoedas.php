@@ -7,6 +7,7 @@ use App\Models\Moeda;
 use App\Models\TaxaCambio;
 use App\Support\Dados\VerificadorReferencias;
 use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -134,6 +135,10 @@ final class ServicoMoedas
             $data = substr((string) $d['data_taxa'], 0, 10);
             $taxa = $this->taxa($d['taxa']);
             $ambitoEmpresa = ($d['ambito'] ?? self::AMBITO_TODAS) === self::AMBITO_EMPRESA ? $empresa : null;
+            if ($ambitoEmpresa === null || ($existente !== null && $existente->empresa_id === null)) {
+                $this->exigirPodeGravarPartilhado((bool) ($d['_oficial'] ?? false));
+            }
+            unset($d['_oficial']);
             $this->exigirMoedaEstrangeiraAtiva($moeda);
             $this->bloquear($ambitoEmpresa, $moeda, $data);
             $utilizador = Auth::user()?->nome_utilizador ?? 'sistema';
@@ -189,6 +194,9 @@ final class ServicoMoedas
         DB::transaction(function () use ($t) {
             $t = TaxaCambio::query()->lockForUpdate()->findOrFail($t->id);
             $this->exigirDaEmpresaActiva($t);
+            if ($t->empresa_id === null) {
+                $this->exigirPodeGravarPartilhado(false);
+            }
             $uso = $this->referencias->emUso('taxas_cambio', $t->id);
             if ($uso) {
                 throw new ErroNegocio('Este câmbio não pode ser eliminado: já está a ser usado em documentos.', 'CAMBIO_EM_USO', 422, ['utilizacoes' => $uso]);
@@ -341,6 +349,28 @@ final class ServicoMoedas
     {
         if ($t->empresa_id !== null && $t->empresa_id !== $this->contexto->obrigatorio()) {
             throw new ErroNegocio('Câmbio não encontrado.', 'NAO_ENCONTRADO', 404);
+        }
+    }
+
+    /**
+     * SaaS: os câmbios de âmbito «todas» (empresa_id nulo) são partilhados por todos os clientes. Só a plataforma (ou a
+     * leitura oficial do BAI, feita pelo servidor) os grava; cada cliente regista os seus com âmbito «empresa».
+     */
+    private function exigirPodeGravarPartilhado(bool $oficial): void
+    {
+        $u = Auth::user();
+        if (! $oficial && ContextoTenant::ativo() && $u !== null && ! $u->ePlataforma()) {
+            throw new ErroNegocio('Os câmbios de âmbito «todas as empresas» são comuns a todos os clientes e só a plataforma os altera. Registe o câmbio com âmbito «empresa».',
+                'CAMBIO_PARTILHADO', 403);
+        }
+    }
+
+    /** Moedas: o catálogo é comum a todos os clientes; com SaaS activo só a plataforma o altera. */
+    public function exigirGestaoCatalogo(): void
+    {
+        $u = Auth::user();
+        if (ContextoTenant::ativo() && $u !== null && ! $u->ePlataforma()) {
+            throw new ErroNegocio('O catálogo de moedas é comum a todos os clientes: só a plataforma cria ou altera moedas.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
         }
     }
 

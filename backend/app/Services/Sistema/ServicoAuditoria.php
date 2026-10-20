@@ -34,8 +34,10 @@ final class ServicoAuditoria
         $utilizador = Auth::user();
         $pedido = app()->runningInConsole() ? null : app(Request::class);
 
-        // A escrita do log nunca é bloqueada pelo isolamento (pode não haver empresa activa).
-        return $this->contexto->semIsolamento(fn () => LogAuditoria::create([
+        // A escrita do log nunca é bloqueada pelo isolamento (pode não haver empresa activa). Sem RETURNING: com o SaaS, a
+        // RLS de logs_auditoria só deixa LER as linhas do tenant da sessão (o trigger preenche tenant_id), e no login ainda
+        // não há tenant — um INSERT ... RETURNING seria recusado. Devolve o registo preenchido (sem id).
+        return $this->contexto->semIsolamento(fn () => $this->inserir(new LogAuditoria([
             'empresa_id' => $empresaId ?? $this->contexto->id(),
             'utilizador_id' => $utilizadorId ?? $utilizador?->getKey(),
             'nome_utilizador' => $nomeUtilizador ?? $utilizador?->nome_utilizador ?? (app()->runningInConsole() ? 'sistema' : null),
@@ -49,7 +51,14 @@ final class ServicoAuditoria
             'dados_novos' => $novos,
             'endereco_ip' => $pedido?->ip(),
             'agente_utilizador' => $pedido ? mb_substr((string) $pedido->userAgent(), 0, 500) : null,
-        ]));
+        ])));
+    }
+
+    private function inserir(LogAuditoria $log): LogAuditoria
+    {
+        $log->newQueryWithoutScopes()->insert($log->getAttributes());
+
+        return $log;
     }
 
     /**

@@ -118,7 +118,7 @@ final class ServicoUtilizadores
 
         return DB::transaction(function () use ($d, $actor) {
             $nome = trim((string) $d['nome_utilizador']);
-            if (Utilizador::withTrashed()->where('nome_utilizador', $nome)->exists()) {
+            if (Utilizador::withTrashed()->withoutGlobalScope('tenant')->where('nome_utilizador', $nome)->exists()) {
                 throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
             }
             $perfil = $this->perfilAtribuivel((int) $d['perfil_utilizador_id'], $actor);
@@ -158,7 +158,7 @@ final class ServicoUtilizadores
 
             if (isset($d['nome_utilizador'])) {
                 $nome = trim((string) $d['nome_utilizador']);
-                if ($nome !== $u->nome_utilizador && Utilizador::withTrashed()->where('nome_utilizador', $nome)->whereKeyNot($u->id)->exists()) {
+                if ($nome !== $u->nome_utilizador && Utilizador::withTrashed()->withoutGlobalScope('tenant')->where('nome_utilizador', $nome)->whereKeyNot($u->id)->exists()) {
                     throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
                 }
                 $u->nome_utilizador = $nome;

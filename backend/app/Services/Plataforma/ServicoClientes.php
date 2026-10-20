@@ -4,6 +4,7 @@ namespace App\Services\Plataforma;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\Empresa;
+use App\Models\PerfilUtilizador;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoGestaoEmpresas;
@@ -66,6 +67,8 @@ final class ServicoClientes
     {
         return DB::transaction(function () use ($d) {
             $cliente = Tenant::create(['nome' => $d['nome'], 'slug' => $d['slug'], 'estado' => Tenant::ESTADO_ATIVO]);
+            // cada cliente começa com a sua cópia dos perfis-modelo (Perfis e Permissões são por cliente)
+            PerfilUtilizador::copiarModelosPara((int) $cliente->id);
 
             return $this->tenant->executarComo((int) $cliente->id, function () use ($d, $cliente) {
                 $administrador = new Utilizador([

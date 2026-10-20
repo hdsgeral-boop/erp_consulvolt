@@ -64,6 +64,17 @@ class Utilizador extends Autenticavel
 
     protected static function booted(): void
     {
+        // SaaS (ADR-073): `utilizadores` não tem RLS (o login procura o nome antes de haver tenant). Com um tenant de
+        // cliente activo (pedido autenticado, trabalho por tenant), só se vêem os utilizadores desse cliente: a lista,
+        // a ficha e as rotas {utilizador} deixam de alcançar contas de outros clientes. Sem tenant (login, troca do
+        // código, autenticação do token) e no tenant da plataforma (gere os clientes) não há filtro.
+        static::addGlobalScope('tenant', function (\Illuminate\Database\Eloquent\Builder $q) {
+            $tenant = app(\App\Support\Tenancy\ContextoTenant::class)->id();
+            if ($tenant !== null && $tenant !== (int) config('erp.dominio.plataforma_tenant_id', 1)) {
+                $q->where($q->qualifyColumn('tenant_id'), $tenant);
+            }
+        });
+
         // SaaS (ADR-073): um utilizador novo pertence ao tenant do pedido/trabalho que o cria.
         static::creating(function (Utilizador $u) {
             if (\Illuminate\Support\Facades\Schema::hasColumn('utilizadores', 'tenant_id')) {

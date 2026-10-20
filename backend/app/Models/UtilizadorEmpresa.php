@@ -17,6 +17,20 @@ class UtilizadorEmpresa extends Pivot
 
     protected $table = 'utilizador_empresa';
 
+    /**
+     * O AsPivot herda as colunas de data do modelo pai (Utilizador: atualizado_em), que esta tabela não tem: ao alterar o
+     * colaborador de uma ligação existente o UPDATE incluía "atualizado_em" e falhava (500 ao editar um utilizador).
+     */
+    public function getCreatedAtColumn()
+    {
+        return self::CREATED_AT;
+    }
+
+    public function getUpdatedAtColumn()
+    {
+        return null;
+    }
+
     protected static function booted(): void
     {
         $invalidar = fn (UtilizadorEmpresa $p) => app(ServicoEmpresas::class)->invalidarUtilizador((int) $p->utilizador_id);

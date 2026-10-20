@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\RestauroLegado;
 use App\Services\Sistema\ServicoRestauroLegado;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -75,6 +76,10 @@ final class RestauroLegadoController extends Controller
     {
         if (! $r->user()?->eSuperAdministrador()) {
             throw new ErroNegocio('Só um super-administrador pode ver ou executar restauros da plataforma.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
+        }
+        // SaaS: o restauro substitui a base inteira (todos os clientes); só o administrador da plataforma o pode fazer
+        if (ContextoTenant::ativo() && ! $r->user()->ePlataforma()) {
+            throw new ErroNegocio('O restauro do backup antigo substitui os dados de todos os clientes: só o administrador da plataforma o pode fazer.', 'SEM_PERMISSAO_ADMINISTRATIVA', 403);
         }
     }
 

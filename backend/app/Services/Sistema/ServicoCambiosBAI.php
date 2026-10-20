@@ -131,7 +131,7 @@ final class ServicoCambiosBAI
                     continue;
                 }
                 $this->moedas->gravarCambio(['data_taxa' => $data, 'codigo_moeda' => $codigo, 'taxa' => $media, 'ambito' => ServicoMoedas::AMBITO_TODAS,
-                    'fonte_dados' => 'BAI', 'taxa_compra_bai' => $l['compra'], 'taxa_venda_bai' => $l['venda'], 'substituir' => true]);
+                    'fonte_dados' => 'BAI', 'taxa_compra_bai' => $l['compra'], 'taxa_venda_bai' => $l['venda'], 'substituir' => true, '_oficial' => true]);
                 $ex ? $r['substituidos']++ : $r['novos']++;
                 $r['gravados'][] = ['codigo_moeda' => $codigo, 'taxa' => (float) $media];
             }

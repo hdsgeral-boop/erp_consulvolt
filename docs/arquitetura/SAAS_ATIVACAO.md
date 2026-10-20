@@ -1,6 +1,14 @@
 ﻿# Activar o SaaS (mudança para a role `erp_app`)
 
-> Estado em 2026-10-17: **não activado**. A aplicação liga como superuser com `SAAS_ATIVO=false`. Não activar antes da fase 3 (caminhos sem sessão), senão o webhook AGT, o feed OData, os comandos e o agendador deixam de ver dados.
+> Estado em 2026-10-20: **activado** em produção (`SAAS_ATIVO=true`, a aplicação liga como `erp_app`).
+>
+> Isolamento por cliente além da RLS das tabelas com `empresa_id`:
+> - `utilizadores` e `perfis_utilizador`: filtro global no modelo pelo tenant activo (o tenant da plataforma vê todos).
+>   Cada cliente tem a sua cópia dos perfis; um cliente novo recebe os perfis-modelo da plataforma.
+> - `logs_auditoria`: `tenant_id` preenchido por trigger e RLS só de leitura (inserção sempre permitida; continua imutável).
+> - Identidade do sistema (logótipo e nome) por cliente em `tenants.logotipo_sistema` / `nome_sistema`.
+> - Partilhados e só da plataforma: catálogo de moedas, câmbios de âmbito «todas» (o BAI grava-os), restauro do legado.
+> - Entrada pelo domínio base: valida as credenciais e reencaminha para `<slug>.<base>` com um código de uso único (60 s).
 
 ## Pré-requisitos
 1. Fase 3 concluída (teste de enumeração verde).
