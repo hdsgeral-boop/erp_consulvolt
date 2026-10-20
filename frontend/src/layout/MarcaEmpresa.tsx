@@ -1,8 +1,6 @@
 import { Avatar, Tooltip, Typography, theme } from 'antd';
-import { useQuery } from '@tanstack/react-query';
-import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
-import { useIdentidade } from '@/sessao/identidade';
+import { useIdentidade, useIdentidadeSistema } from '@/sessao/identidade';
 import { LogotipoSistema } from '@/componentes/LogotipoSistema';
 import { iniciais } from './marca';
 
@@ -19,31 +17,23 @@ interface Props {
 
 /**
  * Identidade exibida no sistema:
- * - No menu lateral (escuro = true): mostra SEMPRE o nome do sistema ('CONSULVOLT ERP') e
- *   estritamente o logótipo oficial do sistema (de /sistema/logotipo-login), sem exibir o nome da empresa.
+ * - No menu lateral (escuro = true): a identidade do sistema do cliente do endereço (logótipo e nome definidos em
+ *   Configurações › Geral) ou, sem personalização, o SVG e «MEU ERP». Nunca o nome ou a imagem de uma empresa.
  * - Fora do menu escuro (portal, impressões, etc.): mostra a identidade da empresa ativa.
  */
 export function MarcaEmpresa({ soIcone = false, tamanho = 36, comProduto = false, escuro = false }: Props) {
   const { empresa } = useSessao();
   const identidade = useIdentidade();
+  const sistema = useIdentidadeSistema();
   const { token } = theme.useToken();
-
-  // Consulta do logótipo e nome do sistema (definido globalmente em /sistema/logotipo-login)
-  const sistema = useQuery({
-    queryKey: ['sistema', 'logotipo-login'],
-    queryFn: () => obter<{ logotipo: string | null; nome_sistema?: string | null }>('/sistema/logotipo-login'),
-    staleTime: 10 * 60_000,
-  });
 
   const nomeSistema = sistema.data?.nome_sistema || identidade.data?.nome_sistema || 'MEU ERP';
   const nomeEmpresa = identidade.data?.nome || empresa?.nome || 'Consulvolt';
 
-  // No menu escuro, exibe SEMPRE o nome e logótipo do sistema (não o da empresa)
   const nome = escuro ? nomeSistema : nomeEmpresa;
-  // menu escuro = identidade do sistema: sempre o logótipo padrão (SVG), nunca uma imagem de empresa
-  const logotipo = escuro ? null : (identidade.data?.logotipo ?? null);
+  const logotipo = escuro ? (sistema.data?.logotipo ?? null) : (identidade.data?.logotipo ?? null);
 
-  const imagem = escuro ? (
+  const imagem = escuro && !logotipo ? (
     <LogotipoSistema tamanho={tamanho} soSimbolo />
   ) : logotipo ? (
     <img

@@ -2,9 +2,10 @@ import { Alert, Button, Card, Flex, Form, Input, Modal, Typography } from 'antd'
 import { LockOutlined, MailOutlined, UserOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { enviar } from '@/api/cliente';
-import { LogotipoSistema } from '@/componentes/LogotipoSistema';
+import { LogotipoDoSistema } from '@/componentes/LogotipoSistema';
 import { RodapeEntrada } from '@/paginas/RodapeEntrada';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { useIdentidadeSistema } from '@/sessao/identidade';
 import { ErroApi } from '@/api/tipos';
 import { naRotaPortal } from '@/portal/rota';
 
@@ -18,6 +19,7 @@ export function Entrar() {
   const [mensagemRecuperacao, setMensagemRecuperacao] = useState<string | null>(null);
   const [erroRecuperacao, setErroRecuperacao] = useState<string | null>(null);
   const portal = naRotaPortal();
+  const sistema = useIdentidadeSistema();
 
   const submeter = async (v: { nome_utilizador: string; palavra_passe: string }) => {
     setErro(null);
@@ -54,8 +56,8 @@ export function Entrar() {
     <main className="erp-pagina-entrada erp-fundo-entrada" style={{ paddingBottom: 64 }}>
       <Card className="erp-cartao-entrada" style={{ width: '100%', maxWidth: 440 }} styles={{ body: { padding: 'clamp(24px, 6vw, 44px)' } }}>
         <Flex vertical align="center" gap={8} style={{ marginBottom: 24, textAlign: 'center' }}>
-          <LogotipoSistema tamanho={72} soSimbolo />
-          <h1 className="erp-entrada-titulo">{portal ? 'Portal do Colaborador' : 'MEU ERP'}</h1>
+          <LogotipoDoSistema tamanho={72} />
+          <h1 className="erp-entrada-titulo">{portal ? 'Portal do Colaborador' : sistema.data?.nome_sistema || 'MEU ERP'}</h1>
           <Typography.Text type="secondary">
             {portal ? 'Entre com o seu utilizador para aceder ao portal' : 'Aceda à sua conta para continuar'}
           </Typography.Text>

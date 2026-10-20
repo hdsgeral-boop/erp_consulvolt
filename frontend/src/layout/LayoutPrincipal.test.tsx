@@ -15,6 +15,8 @@ const MENU: ModuloMenu[] = [
 ];
 
 let logotipo: string | null = null;
+// identidade do sistema do endereço (cliente SaaS): null = padrão «MEU ERP» com o símbolo SVG
+let sistema: { logotipo: string | null; nome_sistema: string | null } = { logotipo: null, nome_sistema: null };
 const largarEmpresaMock = vi.fn();
 
 vi.mock('@/sessao/SessaoContexto', () => ({
@@ -36,6 +38,8 @@ vi.mock('@/sessao/SessaoContexto', () => ({
 
 vi.mock('@/sessao/identidade', () => ({
   useIdentidade: () => ({ data: { id: 1, nome: EMPRESA, logotipo }, isLoading: false }),
+  useIdentidadeSistema: () => ({ data: sistema, isLoading: false }),
+  CHAVE_IDENTIDADE_SISTEMA: ['sistema', 'logotipo-login'],
 }));
 
 // preferências do utilizador (favoritos): um favorito guardado no servidor
@@ -68,6 +72,7 @@ function montar(caminho = '/') {
 afterEach(() => {
   simularLargura(null);
   logotipo = null;
+  sistema = { logotipo: null, nome_sistema: null };
   // o aspecto do menu fica no navegador por utilizador: cada teste começa com o padrão
   localStorage.clear();
 });
@@ -80,8 +85,8 @@ describe('LayoutPrincipal — portátil (1366 px)', () => {
     const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
     const cabecalho = container.querySelector('.ant-layout-header') as HTMLElement;
     expect(lateral).not.toBeNull();
-    expect(within(lateral).getByText('CONSULVOLT ERP')).toBeInTheDocument();
-    expect(within(lateral).getByText('CE')).toBeInTheDocument();
+    expect(within(lateral).getByText('MEU ERP')).toBeInTheDocument();
+    expect(within(lateral).getByTestId('logotipo-sistema')).toBeInTheDocument();
     expect(within(cabecalho).getByText(EMPRESA)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Trocar empresa' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Empresa activa' })).toBeInTheDocument();
@@ -108,9 +113,13 @@ describe('LayoutPrincipal — portátil (1366 px)', () => {
     expect(largarEmpresaMock).toHaveBeenCalledTimes(1);
   });
 
-  it('usa o logótipo e nome do sistema no menu lateral', () => {
-    montar();
-    expect(screen.getByText('CONSULVOLT ERP')).toBeInTheDocument();
+  it('usa o logótipo e nome do sistema do cliente no menu lateral', () => {
+    sistema = { logotipo: 'data:image/png;base64,UE5H', nome_sistema: 'ACME ERP' };
+    const { container } = montar();
+    const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
+    expect(within(lateral).getByText('ACME ERP')).toBeInTheDocument();
+    expect(within(lateral).getByAltText('Logótipo de ACME ERP')).toHaveAttribute('src', 'data:image/png;base64,UE5H');
+    expect(within(lateral).queryByTestId('logotipo-sistema')).toBeNull();
   });
 
   it('recolher o menu deixa só o logótipo/iniciais do sistema', () => {
@@ -119,7 +128,7 @@ describe('LayoutPrincipal — portátil (1366 px)', () => {
     const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(lateral).toHaveClass('ant-layout-sider-collapsed');
     expect(within(lateral).queryByText(EMPRESA)).toBeNull();
-    expect(within(lateral).getByText('CE')).toBeInTheDocument();
+    expect(within(lateral).getByTestId('logotipo-sistema')).toBeInTheDocument();
   });
 });
 

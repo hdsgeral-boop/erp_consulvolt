@@ -63,7 +63,9 @@ final class SistemaEmpresasMoedasTest extends TestCase
         $this->putJson('/api/sistema/configuracoes/logotipo-login', ['logotipo' => $png], $this->s)->assertStatus(403);
         $super = $this->criarUtilizador(['papel' => 'SUPER_ADMINISTRADOR']);
         $this->putJson('/api/sistema/configuracoes/logotipo-login', ['logotipo' => $png], $this->entrar($super) + ['X-Empresa-Id' => $this->empresa->id])->assertOk();
-        $this->assertSame($png, DB::table('configuracoes_sistema')->where('chave', 'login_logo')->value('valor'));
+        // por cliente SaaS: fica no tenant do super-administrador, não numa chave global
+        $this->assertSame($png, DB::table('tenants')->where('id', $super->fresh()->tenant_id)->value('logotipo_sistema'));
+        $this->assertNull(DB::table('configuracoes_sistema')->where('chave', 'login_logo')->value('valor'));
         $this->getJson("/api/sistema/gestao-empresas/{$id}", $this->s)->assertOk()->assertJsonPath('dados.logotipo', $png)->assertJsonPath('dados.he_percentagem_1', 60.0);
         // gravar sem logótipo mantém-no (correcção do legado)
         $this->putJson("/api/sistema/empresas/{$id}", ['nome' => 'Nova Empresa SA'], $this->s)->assertOk()->assertJsonPath('dados.tem_logotipo', true);

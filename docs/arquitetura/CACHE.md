@@ -34,6 +34,7 @@ Chave no Redis = `erp:` + chave lógica. TTL em `config/erp.php` (`erp.cache.ttl
 | `copia_empresa:tabelas:{versão do esquema}` | `ServicoCopiaEmpresa::tabelasEmpresa` | global (metadados) | 3600 s | < 4 KB | versionada pela última migração |
 | `operacoes:{uuid do batch}` | `ServicoOperacoes::registarDono` | utilizador + empresa (no valor) | 7 dias | < 1 KB | expira; o dono é verificado em cada leitura |
 | `batimento:{scheduler,worker}` | `Batimentos::registar` | global | sem TTL (`forever`) | inteiro | sobrescrito a cada batimento |
+| `autenticacao:codigo-entrada:{sha256(código)}` | `ServicoAutenticacao::emitirCodigoEntrada` (entrada pelo domínio base) | utilizador (no valor: só o id) | 60 s | inteiro | `Cache::pull` na troca (uso único) ou expira. A chave guarda o hash, nunca o código |
 | limitadores (`entrar`, `api`, `odata:*`) | `RateLimiter` | IP / utilizador / token | janela (60 s) | inteiro | expira |
 
 Reservados em `config/erp.php` mas **sem uso**: `permissoes_utilizador` (as permissões são memorizadas por pedido

@@ -1,3 +1,19 @@
+import { useIdentidadeSistema } from '@/sessao/identidade';
+
+/** Logótipo do cliente do endereço (definido em Configurações › Geral) ou, sem ele, o símbolo SVG padrão. */
+export function LogotipoDoSistema({ tamanho = 64 }: { tamanho?: number }) {
+  const { data } = useIdentidadeSistema();
+  if (!data?.logotipo) return <LogotipoSistema tamanho={tamanho} soSimbolo />;
+  return (
+    <img
+      src={data.logotipo}
+      alt={data.nome_sistema || 'Logótipo do sistema'}
+      data-testid="logotipo-cliente"
+      style={{ height: tamanho, maxWidth: tamanho * 3, objectFit: 'contain', display: 'block', flex: 'none' }}
+    />
+  );
+}
+
 interface Props {
   /** altura em px (a largura acompanha) */
   tamanho?: number;

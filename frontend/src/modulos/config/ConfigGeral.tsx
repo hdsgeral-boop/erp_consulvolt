@@ -1,12 +1,13 @@
 import { Alert, Button, Card, Col, Descriptions, Flex, Form, Image, Input, Modal, Radio, Row, Select, Space, Table, Tag, Typography, Upload, message } from 'antd';
 import { CloudDownloadOutlined, CopyOutlined, DeleteOutlined, ImportOutlined, UploadOutlined } from '@ant-design/icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { descarregar, enviar, obter } from '@/api/cliente';
+import { descarregar, enviar } from '@/api/cliente';
 import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { scrollTabela } from '@/componentes/responsivo';
 import { useSessao } from '@/sessao/SessaoContexto';
+import { CHAVE_IDENTIDADE_SISTEMA, useIdentidadeSistema } from '@/sessao/identidade';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
@@ -288,39 +289,57 @@ function Clonar() {
 
 function LogotipoEntrada() {
   const cliente = useQueryClient();
-  const actual = useQuery({ queryKey: ['sistema', 'logotipo-login'], queryFn: () => obter<{ logotipo: string | null }>('/sistema/logotipo-login') });
+  const actual = useIdentidadeSistema();
+  const [nome, setNome] = useState<string | null>(null);
   const gravar = useMutation({
-    mutationFn: (logotipo: string | null) => enviar('put', '/sistema/configuracoes/logotipo-login', { logotipo }),
+    mutationFn: (corpo: { logotipo?: string | null; nome_sistema?: string | null }) => enviar('put', '/sistema/configuracoes/logotipo-login', corpo),
     onSuccess: ({ mensagem }) => {
       message.success(mensagem);
-      void cliente.invalidateQueries({ queryKey: ['sistema', 'logotipo-login'] });
+      setNome(null);
+      void cliente.invalidateQueries({ queryKey: CHAVE_IDENTIDADE_SISTEMA });
     },
     onError: (e) => notificarErro(e),
   });
+  const nomeActual = actual.data?.nome_sistema ?? '';
   return (
-    <Card title={<Space>Logótipo do ecrã de entrada <Tag color="purple">Super-administrador</Tag></Space>} style={{ height: '100%' }}>
-      <Typography.Paragraph type="secondary">Imagem PNG ou JPEG até 1 MB, mostrada a todos antes de iniciarem sessão.</Typography.Paragraph>
-      <Flex gap={16} align="center" wrap>
-        {actual.data?.logotipo ? <Image src={actual.data.logotipo} alt="Logótipo do ecrã de entrada" height={72} /> : <Tag>Sem logótipo</Tag>}
-        <Upload
-          accept="image/png,image/jpeg"
-          showUploadList={false}
-          beforeUpload={async (f) => {
-            if (f.size > 1_000_000) message.error('A imagem deve ter no máximo 1 MB.');
-            else gravar.mutate(await lerComoDataUrl(f));
-            return false;
-          }}
-        >
-          <Button icon={<UploadOutlined />} loading={gravar.isPending}>
-            Carregar imagem
-          </Button>
-        </Upload>
-        {actual.data?.logotipo && (
-          <Button danger icon={<DeleteOutlined />} loading={gravar.isPending} onClick={() => gravar.mutate(null)}>
-            Remover
-          </Button>
-        )}
-      </Flex>
+    <Card title={<Space>Identidade do sistema <Tag color="purple">Super-administrador</Tag></Space>} style={{ height: '100%' }}>
+      <Typography.Paragraph type="secondary">
+        Logótipo e nome mostrados no ecrã de entrada e no menu do endereço <Typography.Text code>{window.location.host}</Typography.Text>. Só se
+        aplicam à sua conta; sem personalização aparece o padrão «MEU ERP».
+      </Typography.Paragraph>
+      <Form layout="vertical" requiredMark={false}>
+        <Form.Item label="Nome do sistema" style={{ marginBottom: 16 }}>
+          <Space.Compact style={{ width: '100%', maxWidth: 420 }}>
+            <Input maxLength={80} placeholder="MEU ERP" value={nome ?? nomeActual} onChange={(e) => setNome(e.target.value)} />
+            <Button type="primary" disabled={nome === null || nome.trim() === nomeActual} loading={gravar.isPending} onClick={() => gravar.mutate({ nome_sistema: nome?.trim() || null })}>
+              Guardar
+            </Button>
+          </Space.Compact>
+        </Form.Item>
+        <Form.Item label="Logótipo (PNG ou JPEG até 1 MB)" style={{ marginBottom: 0 }}>
+          <Flex gap={16} align="center" wrap>
+            {actual.data?.logotipo ? <Image src={actual.data.logotipo} alt="Logótipo do sistema" height={72} /> : <Tag>Logótipo padrão</Tag>}
+            <Upload
+              accept="image/png,image/jpeg"
+              showUploadList={false}
+              beforeUpload={async (f) => {
+                if (f.size > 1_000_000) message.error('A imagem deve ter no máximo 1 MB.');
+                else gravar.mutate({ logotipo: await lerComoDataUrl(f) });
+                return false;
+              }}
+            >
+              <Button icon={<UploadOutlined />} loading={gravar.isPending}>
+                Carregar imagem
+              </Button>
+            </Upload>
+            {actual.data?.logotipo && (
+              <Button danger icon={<DeleteOutlined />} loading={gravar.isPending} onClick={() => gravar.mutate({ logotipo: null })}>
+                Remover
+              </Button>
+            )}
+          </Flex>
+        </Form.Item>
+      </Form>
     </Card>
   );
 }

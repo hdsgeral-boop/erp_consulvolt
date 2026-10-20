@@ -26,15 +26,45 @@ final class AutenticacaoController extends Controller
     /** POST /api/autenticacao/entrar */
     public function entrar(EntrarRequest $request): JsonResponse
     {
+        $dominio = DominioPedido::de($request);
+
+        // Domínio base (meuerp.ao): não abre sessão aqui; reencaminha para o endereço do cliente com um código de uso único
+        if ($dominio->area === DominioPedido::SITE) {
+            $entrada = $this->autenticacao->emitirCodigoEntrada(
+                $request->string('nome_utilizador')->toString(),
+                $request->string('palavra_passe')->toString(),
+            );
+            $endereco = $this->autenticacao->enderecoDoUtilizador($entrada['utilizador']);
+            if ($endereco !== null) {
+                // no fragmento (#): não chega aos registos do servidor nem ao Referer
+                return RespostaApi::sucesso(['redirecionar_para' => "{$endereco}/entrar#codigo={$entrada['codigo']}"], 'A abrir o endereço da sua conta.');
+            }
+        }
+
         $sessao = $this->autenticacao->entrar(
             $request->string('nome_utilizador')->toString(),
             $request->string('palavra_passe')->toString(),
             $request->string('dispositivo')->toString() ?: 'api',
             $request->ip(),
             $request->userAgent(),
-            DominioPedido::de($request),
+            $dominio,
         );
 
+        return $this->respostaSessao($sessao);
+    }
+
+    /** POST /api/autenticacao/trocar-codigo — {codigo}: conclui a entrada feita no domínio base. */
+    public function trocarCodigo(Request $request): JsonResponse
+    {
+        $d = $request->validate(['codigo' => ['required', 'string', 'size:48'], 'dispositivo' => ['nullable', 'string', 'max:60']]);
+        $sessao = $this->autenticacao->trocarCodigo($d['codigo'], ($d['dispositivo'] ?? null) ?: 'web', $request->ip(), $request->userAgent(), DominioPedido::de($request));
+
+        return $this->respostaSessao($sessao);
+    }
+
+    /** @param  array{token: string, expira_em: \Illuminate\Support\Carbon, utilizador: \App\Models\Utilizador}  $sessao */
+    private function respostaSessao(array $sessao): JsonResponse
+    {
         return RespostaApi::sucesso([
             'token' => $sessao['token'],
             'tipo_token' => 'Bearer',

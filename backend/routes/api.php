@@ -77,6 +77,7 @@ Route::prefix('plataforma-inicial')->name('plataforma_inicial.')->group(function
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');
+    Route::post('trocar-codigo', [AutenticacaoController::class, 'trocarCodigo'])->middleware('throttle:entrar')->name('trocar_codigo');
     Route::post('recuperar-senha', [RecuperacaoSenhaController::class, 'recuperar'])->middleware('throttle:recuperar-senha')->name('recuperar_senha');
     Route::post('redefinir-senha', [RecuperacaoSenhaController::class, 'redefinir'])->middleware('throttle:redefinir-senha')->name('redefinir_senha');
 

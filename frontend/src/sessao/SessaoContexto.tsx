@@ -38,6 +38,16 @@ interface Sessao {
   actualizarUtilizador: (parcial: Partial<Utilizador>) => void;
 }
 
+type RespostaSessao = DadosSessao & { token: string; inatividade_minutos?: number };
+
+/** Lê e retira do endereço o código de entrada vindo do domínio base (#codigo=…), para não ficar no histórico. */
+function retirarCodigoEntrada(): string | null {
+  const m = /^#codigo=([A-Za-z0-9]{48})$/.exec(window.location.hash);
+  if (!m) return null;
+  window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  return m[1];
+}
+
 const Contexto = createContext<Sessao | null>(null);
 const INATIVIDADE_PADRAO_MIN = 15;
 
@@ -71,9 +81,26 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setPermissoesEmpresa(r.permissoes);
   }, []);
 
-  // arranque: reaproveita o token guardado
+  const aplicarSessao = useCallback((r: RespostaSessao) => {
+    armazenamento.definirToken(r.token);
+    armazenamento.definirEmpresa(null);
+    inatividade.current = r.inatividade_minutos ?? INATIVIDADE_PADRAO_MIN;
+    setDados({ utilizador: r.utilizador, empresas: r.empresas, permissoes: r.permissoes, e_plataforma: r.e_plataforma });
+    setEmpresaId(null);
+    setMotivoSaida(null);
+    setEstado('autenticado');
+  }, []);
+
+  // arranque: conclui a entrada feita no domínio base (#codigo=…) ou reaproveita o token guardado
   useEffect(() => {
     definirAoExpirar(() => limparSessao('A sessão expirou. Entre novamente.'));
+    const codigo = retirarCodigoEntrada();
+    if (codigo) {
+      enviar<RespostaSessao>('post', '/autenticacao/trocar-codigo', { codigo, dispositivo: 'web' })
+        .then(({ dados }) => aplicarSessao(dados))
+        .catch(() => limparSessao('O código de entrada expirou. Entre novamente.'));
+      return;
+    }
     if (!armazenamento.token()) {
       setEstado('anonimo');
       return;
@@ -90,7 +117,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
         setEstado('autenticado');
       })
       .catch(() => limparSessao(null));
-  }, [carregarMenu, limparSessao]);
+  }, [aplicarSessao, carregarMenu, limparSessao]);
 
   // inactividade (o servidor também termina a sessão ao fim de N minutos sem pedidos)
   useEffect(() => {
@@ -112,20 +139,22 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     };
   }, [estado, limparSessao]);
 
-  const entrar = useCallback(async (nomeUtilizador: string, palavraPasse: string) => {
-    const { dados: r } = await enviar<DadosSessao & { token: string; inatividade_minutos?: number }>('post', '/autenticacao/entrar', {
-      nome_utilizador: nomeUtilizador,
-      palavra_passe: palavraPasse,
-      dispositivo: 'web',
-    });
-    armazenamento.definirToken(r.token);
-    armazenamento.definirEmpresa(null);
-    inatividade.current = r.inatividade_minutos ?? INATIVIDADE_PADRAO_MIN;
-    setDados({ utilizador: r.utilizador, empresas: r.empresas, permissoes: r.permissoes, e_plataforma: r.e_plataforma });
-    setEmpresaId(null);
-    setMotivoSaida(null);
-    setEstado('autenticado');
-  }, []);
+  const entrar = useCallback(
+    async (nomeUtilizador: string, palavraPasse: string) => {
+      const { dados: r } = await enviar<RespostaSessao | { redirecionar_para: string }>('post', '/autenticacao/entrar', {
+        nome_utilizador: nomeUtilizador,
+        palavra_passe: palavraPasse,
+        dispositivo: 'web',
+      });
+      // domínio base (meuerp.ao): o servidor validou e manda abrir o endereço do cliente, com um código de uso único
+      if ('redirecionar_para' in r) {
+        window.location.assign(r.redirecionar_para);
+        return;
+      }
+      aplicarSessao(r);
+    },
+    [aplicarSessao],
+  );
 
   const sair = useCallback(
     async (motivo?: string) => {
