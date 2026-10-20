@@ -9,13 +9,19 @@ import { fileURLToPath, URL } from 'node:url';
 // contentor PHP em public/build. Em desenvolvimento (`npm run dev`) o plugin escreve o ficheiro "hot" em
 // backend/public/hot e o @vite aponta para o servidor do Vite (HMR).
 // ERP_API_ALVO permite apontar o servidor de desenvolvimento para o ambiente E2E (http://127.0.0.1:8081, dados fictícios).
-export default defineConfig({
+// O plugin do Laravel só serve ao build e ao servidor de desenvolvimento: nos testes (Vitest, mode 'test') fica de fora,
+// porque muda a base das URLs ('/build/') e liga o servidor, o que faz testes pesados de ecrãs ficarem sem terminar.
+export default defineConfig(({ mode }) => ({
   plugins: [
-    laravel({
-      input: ['src/main.tsx', 'src/plataforma/main.tsx'],
-      hotFile: '../backend/public/hot',
-      buildDirectory: 'build',
-    }),
+    ...(mode === 'test' || process.env.VITEST
+      ? []
+      : [
+          laravel({
+            input: ['src/main.tsx', 'src/plataforma/main.tsx'],
+            hotFile: '../backend/public/hot',
+            buildDirectory: 'build',
+          }),
+        ]),
     react(),
   ],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
@@ -27,4 +33,4 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
   },
   test: { environment: 'jsdom', globals: true, setupFiles: ['./src/configuracao-testes.ts'] },
-});
+}));
