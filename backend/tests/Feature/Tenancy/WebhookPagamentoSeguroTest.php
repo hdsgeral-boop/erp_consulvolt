@@ -24,8 +24,9 @@ class WebhookPagamentoSeguroTest extends TestCase
     /** @return array{0:int,1:string,2:array} id da subscrição, referência Multicaixa (sem espaços) e sessão da empresa */
     private function cenario(): array
     {
-        config(['erp.saas.ativo' => true]);
+        // O super admin cria-se e entra com o SaaS desligado (como nos restantes testes); só depois se liga.
         $super = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
+        config(['erp.saas.ativo' => true]);
 
         $this->putJson('/api/plataforma/pagamentos/config', [
             'referencia' => ['chave_api' => self::CHAVE_API, 'webhook_segredo' => self::SEGREDO_WEBHOOK],
