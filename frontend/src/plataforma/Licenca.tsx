@@ -16,7 +16,6 @@ import {
   Select,
   Space,
   Spin,
-  Switch,
   Table,
   Tabs,
   Tag,
@@ -63,6 +62,7 @@ interface Plano {
   preco_mensal: number;
   moeda: string;
   max_utilizadores: number | null;
+  max_empresas: number | null;
   ativo: boolean;
   ordem: number;
 }
@@ -113,14 +113,16 @@ export function useEstadoLicenca(activo = true) {
 
 /** Configurações — Licença e plano (config_licenca): estado, renovação por plano e tempo, pedidos e pagamentos via gateway. */
 export default function Licenca() {
-  const { pode, utilizador } = useSessao();
-  const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
+  const { pode, ePlataforma } = useSessao();
+  // Confirmar um pagamento à mão é só da plataforma (o backend recusa o super-administrador de uma empresa cliente).
+  const superAdmin = ePlataforma;
   const gerir = pode('config_licenca_gerir');
   const qc = useQueryClient();
   const estado = useEstadoLicenca();
+  // O cliente só vê os planos activos; o catálogo gere-se na app da plataforma.
   const planos = useQuery({
-    queryKey: [...CHAVE_LICENCA, 'planos', superAdmin],
-    queryFn: () => obter<Plano[]>(`/licenca/planos${superAdmin ? '?todos=1' : ''}`),
+    queryKey: [...CHAVE_LICENCA, 'planos'],
+    queryFn: () => obter<Plano[]>('/licenca/planos'),
   });
   const subs = useQuery({
     queryKey: [...CHAVE_LICENCA, 'subscricoes'],
@@ -129,8 +131,6 @@ export default function Licenca() {
 
   const [planoId, setPlanoId] = useState<number>();
   const [meses, setMeses] = useState<number>(1);
-  const [edicao, setEdicao] = useState<Partial<Plano> | null>(null);
-  const [form] = Form.useForm<Plano>();
 
   // Estado do Modal de Pagamento
   const [subscricaoPagamento, setSubscricaoPagamento] = useState<Subscricao | null>(null);
@@ -167,17 +167,6 @@ export default function Licenca() {
     mutationFn: (id: number) => enviar('delete', `/licenca/subscricoes/${id}`),
     onSuccess: () => {
       message.success('Pedido cancelado.');
-      refrescar();
-    },
-    onError: (e) => notificarErro(e),
-  });
-
-  const gravarPlano = useMutation({
-    mutationFn: (v: Plano) =>
-      edicao?.id ? enviar('put', `/licenca/planos/${edicao.id}`, v) : enviar('post', '/licenca/planos', v),
-    onSuccess: () => {
-      message.success('Plano gravado.');
-      setEdicao(null);
       refrescar();
     },
     onError: (e) => notificarErro(e),
@@ -385,70 +374,6 @@ export default function Licenca() {
               </Space>
             ),
           },
-          ...(superAdmin
-            ? [
-                {
-                  key: 'planos',
-                  label: 'Gestão de Planos Comerciais',
-                  children: (
-                    <Card
-                      extra={
-                        <Button
-                          type="primary"
-                          onClick={() => {
-                            form.resetFields();
-                            form.setFieldsValue({ moeda: 'AOA', ativo: true, ordem: 0 } as Plano);
-                            setEdicao({});
-                          }}
-                        >
-                          Novo Plano
-                        </Button>
-                      }
-                    >
-                      <Table<Plano>
-                        rowKey="id"
-                        size="middle"
-                        loading={planos.isLoading}
-                        dataSource={planos.data ?? []}
-                        pagination={false}
-                        columns={[
-                          { title: 'Código', dataIndex: 'codigo' },
-                          { title: 'Nome Comercial', dataIndex: 'nome' },
-                          {
-                            title: 'Preço Mensal',
-                            align: 'right',
-                            render: (_, p) => `${formatarNumero(p.preco_mensal)} ${p.moeda}`,
-                          },
-                          {
-                            title: 'Limite Utilizadores',
-                            render: (_, p) => p.max_utilizadores ?? 'Ilimitado',
-                          },
-                          {
-                            title: 'Ativo',
-                            render: (_, p) => (p.ativo ? <Tag color="green">Sim</Tag> : <Tag>Não</Tag>),
-                          },
-                          {
-                            title: 'Ações',
-                            align: 'right',
-                            render: (_, p) => (
-                              <Button
-                                size="small"
-                                onClick={() => {
-                                  form.setFieldsValue(p);
-                                  setEdicao(p);
-                                }}
-                              >
-                                Editar
-                              </Button>
-                            ),
-                          },
-                        ]}
-                      />
-                    </Card>
-                  ),
-                },
-              ]
-            : []),
         ]}
       />
 
@@ -735,48 +660,6 @@ export default function Licenca() {
             )}
           </div>
         )}
-      </Modal>
-
-      {/* Modal de Edição de Planos (SuperAdmin) */}
-      <Modal
-        open={edicao !== null}
-        title={edicao?.id ? 'Editar plano' : 'Novo plano'}
-        okText="Gravar"
-        confirmLoading={gravarPlano.isPending}
-        onCancel={() => setEdicao(null)}
-        onOk={() => form.validateFields().then((v) => gravarPlano.mutate(v))}
-        destroyOnClose
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item name="codigo" label="Código" rules={[{ required: true }]}>
-            <Input maxLength={40} disabled={!!edicao?.id} />
-          </Form.Item>
-          <Form.Item name="nome" label="Nome" rules={[{ required: true }]}>
-            <Input maxLength={120} />
-          </Form.Item>
-          <Form.Item name="descricao" label="Descrição">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-          <Space>
-            <Form.Item name="preco_mensal" label="Preço mensal" rules={[{ required: true }]}>
-              <InputNumber min={0} precision={2} />
-            </Form.Item>
-            <Form.Item name="moeda" label="Moeda" rules={[{ required: true }]}>
-              <Input maxLength={3} style={{ width: 80 }} />
-            </Form.Item>
-            <Form.Item name="max_utilizadores" label="Máx. utilizadores">
-              <InputNumber min={1} />
-            </Form.Item>
-          </Space>
-          <Space>
-            <Form.Item name="ordem" label="Ordem">
-              <InputNumber min={0} />
-            </Form.Item>
-            <Form.Item name="ativo" label="Activo" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-          </Space>
-        </Form>
       </Modal>
     </>
   );

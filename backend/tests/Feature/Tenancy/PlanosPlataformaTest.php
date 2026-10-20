@@ -15,9 +15,11 @@ class PlanosPlataformaTest extends TestCase
     /** @return array<string, string> */
     private function admin(): array
     {
+        // Com o SaaS activo, criar utilizadores sem tenant falha: criar/entrar primeiro e ligar o SaaS depois.
+        $sessao = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
         config(['erp.saas.ativo' => true]);
 
-        return $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]));
+        return $sessao;
     }
 
     /** @return array<string, mixed> */
@@ -68,14 +70,14 @@ class PlanosPlataformaTest extends TestCase
         $sessao = $this->admin();
         $this->postJson('/api/plataforma/planos', $this->corpo(), $sessao)->assertCreated();
 
-        $this->postJson('/api/plataforma/planos', $this->corpo(['nome' => 'Outro']), $sessao)->assertStatus(422)->assertJsonValidationErrors('codigo');
-        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'outro']), $sessao)->assertStatus(422)->assertJsonValidationErrors('nome');
-        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'Com Espaço', 'nome' => 'X']), $sessao)->assertStatus(422)->assertJsonValidationErrors('codigo');
-        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'neg', 'nome' => 'Neg', 'preco_mensal' => -1]), $sessao)->assertStatus(422)->assertJsonValidationErrors('preco_mensal');
-        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'zero', 'nome' => 'Zero', 'max_empresas' => 0]), $sessao)->assertStatus(422)->assertJsonValidationErrors('max_empresas');
+        $this->postJson('/api/plataforma/planos', $this->corpo(['nome' => 'Outro']), $sessao)->assertStatus(422)->assertJsonValidationErrors('codigo', 'erros');
+        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'outro']), $sessao)->assertStatus(422)->assertJsonValidationErrors('nome', 'erros');
+        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'Com Espaço', 'nome' => 'X']), $sessao)->assertStatus(422)->assertJsonValidationErrors('codigo', 'erros');
+        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'neg', 'nome' => 'Neg', 'preco_mensal' => -1]), $sessao)->assertStatus(422)->assertJsonValidationErrors('preco_mensal', 'erros');
+        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'zero', 'nome' => 'Zero', 'max_empresas' => 0]), $sessao)->assertStatus(422)->assertJsonValidationErrors('max_empresas', 'erros');
         $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'zeroU', 'nome' => 'ZeroU']), $sessao)->assertStatus(422);
-        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'mod', 'nome' => 'Mod', 'modulos' => ['inexistente']]), $sessao)->assertStatus(422)->assertJsonValidationErrors('modulos.0');
-        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'moe', 'nome' => 'Moe', 'moeda' => 'KWANZA']), $sessao)->assertStatus(422)->assertJsonValidationErrors('moeda');
+        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'mod', 'nome' => 'Mod', 'modulos' => ['inexistente']]), $sessao)->assertStatus(422)->assertJsonValidationErrors('modulos.0', 'erros');
+        $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'moe', 'nome' => 'Moe', 'moeda' => 'KWANZA']), $sessao)->assertStatus(422)->assertJsonValidationErrors('moeda', 'erros');
         $this->assertSame(1, PlanoLicenca::query()->count());
     }
 
@@ -91,7 +93,7 @@ class PlanosPlataformaTest extends TestCase
         $this->assertSame(15000.0, (float) $plano->preco_mensal);
 
         $this->postJson('/api/plataforma/planos', $this->corpo(['codigo' => 'pro', 'nome' => 'Pro']), $sessao)->assertCreated();
-        $this->putJson("/api/plataforma/planos/{$id}", ['nome' => 'Pro'], $sessao)->assertStatus(422)->assertJsonValidationErrors('nome');
+        $this->putJson("/api/plataforma/planos/{$id}", ['nome' => 'Pro'], $sessao)->assertStatus(422)->assertJsonValidationErrors('nome', 'erros');
         $this->putJson('/api/plataforma/planos/999999', ['nome' => 'X'], $sessao)->assertNotFound();
     }
 
@@ -140,12 +142,12 @@ class PlanosPlataformaTest extends TestCase
 
     public function test_cliente_comum_e_super_admin_de_cliente_recebem_403(): void
     {
-        config(['erp.saas.ativo' => true]);
         $comum = $this->entrar($this->criarUtilizador());
         $outro = Tenant::query()->create(['nome' => 'Outro', 'slug' => 'outro-planos', 'estado' => Tenant::ESTADO_ATIVO]);
         $superCliente = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]);
         $superCliente->forceFill(['tenant_id' => $outro->id])->save();
         $sessaoSuper = $this->entrar($superCliente);
+        config(['erp.saas.ativo' => true]);
 
         foreach ([$comum, $sessaoSuper] as $sessao) {
             $this->getJson('/api/plataforma/planos', $sessao)->assertForbidden();
