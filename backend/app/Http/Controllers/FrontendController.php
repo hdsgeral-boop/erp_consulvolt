@@ -6,6 +6,7 @@ use App\Support\Tenancy\DominioPedido;
 use Illuminate\Foundation\ViteManifestNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\View\ViewException;
 
 /**
  * Entrega a página de entrada do SPA React. Há duas aplicações, escolhidas pelo host do pedido:
@@ -22,7 +23,11 @@ class FrontendController extends Controller
         try {
             $conteudo = view($vista)->render();
             $estado = 200;
-        } catch (ViteManifestNotFoundException) {
+        } catch (ViewException $e) {
+            // O Blade embrulha a excepção do @vite numa ViewException.
+            if (! $e->getPrevious() instanceof ViteManifestNotFoundException) {
+                throw $e;
+            }
             // Frontend por compilar: página clara em vez de um 500 anónimo.
             $conteudo = view('frontend-indisponivel')->render();
             $estado = 503;
