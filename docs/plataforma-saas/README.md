@@ -13,10 +13,12 @@ A plataforma está **dentro do ERP**, em Configurações → Plataforma, e usa o
 
 ## Documentos existentes (ficam onde estão)
 
-- [Ativar o SaaS (papel `erp_app` e RLS)](../docs/arquitetura/SAAS_ATIVACAO.md)
-- [Pagamentos, gateways e notificações](../docs/arquitetura/SAAS_PAGAMENTOS_NOTIFICACOES.md)
-- [Comparação com a v5 do SaaS](../docs/arquitetura/COMPARACAO_V5_SAAS.md)
-- [Deploy automático para a AWS](../docs/DEPLOY_AWS.md)
+- [Ativar o SaaS (papel `erp_app` e RLS)](../arquitetura/SAAS_ATIVACAO.md)
+- [Runbook de ativação e reversão do SaaS](RUNBOOK_ATIVACAO.md)
+- [Configuração do Caddy (exemplo)](../../deploy/caddy/Caddyfile.exemplo)
+- [Pagamentos, gateways e notificações](../arquitetura/SAAS_PAGAMENTOS_NOTIFICACOES.md)
+- [Comparação com a v5 do SaaS](../arquitetura/COMPARACAO_V5_SAAS.md)
+- [Deploy automático para a AWS](../DEPLOY_AWS.md)
 
 ## Onde está o código
 

@@ -1,0 +1,36 @@
+# Configuração do Caddy usada em produção (copiar para /etc/caddy/Caddyfile no servidor).
+#
+# HTTPS automático: para cada nome de domínio abaixo o Caddy obtém e renova sozinho o certificado
+# (Let's Encrypt), desde que o DNS aponte para este servidor e as portas 80 e 443 estejam abertas.
+# O bloco "http://" não usa HTTPS (não há certificado para o nome DNS público da EC2).
+#
+# Acrescentar um subdomínio novo:
+#   1. Route 53: criar um registo A do subdomínio para o IP do servidor.
+#   2. Copiar um dos blocos abaixo para o Caddyfile com o novo nome.
+#   3. sudo systemctl reload caddy
+#
+# Substituir <DNS-PUBLICO-EC2> pelo nome ec2-...compute.amazonaws.com da instância.
+
+meuerp.ao {
+	reverse_proxy 127.0.0.1:8080
+}
+
+www.meuerp.ao {
+	reverse_proxy 127.0.0.1:8080
+}
+
+gestao-admin.meuerp.ao {
+	reverse_proxy 127.0.0.1:8080
+}
+
+empresa1.meuerp.ao {
+	reverse_proxy 127.0.0.1:8080
+}
+
+empresa2.meuerp.ao {
+	reverse_proxy 127.0.0.1:8080
+}
+
+http://<DNS-PUBLICO-EC2> {
+	reverse_proxy 127.0.0.1:8080
+}

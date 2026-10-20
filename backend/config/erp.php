@@ -165,5 +165,7 @@ return [
         ))),
         // Subdomínio da área da plataforma SaaS: <prefixo>.<base>. Configurável por DOMINIO_PLATAFORMA (ex.: gestao-admin).
         'prefixo_plataforma' => env('DOMINIO_PLATAFORMA', 'admin.erp'),
+        // Segredo opcional do primeiro acesso da plataforma (cabeçalho X-Setup-Token). Vazio = só o host da plataforma protege.
+        'plataforma_setup_token' => env('PLATAFORMA_SETUP_TOKEN', ''),
     ],
 ];

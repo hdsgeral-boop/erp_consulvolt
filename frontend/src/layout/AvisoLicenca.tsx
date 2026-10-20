@@ -1,6 +1,6 @@
 import { Alert, Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { useEstadoLicenca } from '@/modulos/config/Licenca';
+import { useEstadoLicenca } from '@/plataforma/Licenca';
 import { useSessao } from '@/sessao/SessaoContexto';
 
 /** Aviso de licença da empresa activa: a expirar (<= 7 dias) ou expirada (só de leitura). Invisível sem aviso. */

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Autenticacao\AutenticacaoController;
+use App\Http\Controllers\Api\Autenticacao\PlataformaInicialController;
 use App\Http\Controllers\Api\Autenticacao\DadosPessoaisController;
 use App\Http\Controllers\Api\Autenticacao\RecuperacaoSenhaController;
 use App\Http\Controllers\Api\Compras\ComprasController;
@@ -67,6 +68,12 @@ require __DIR__.'/api/bi_odata.php';   // feed OData do Power BI: autenticação
 
 // Webhooks públicos de terceiros (sem sessão)
 Route::post('pagamentos/webhook/{gateway}', [GatewayPagamentoController::class, 'webhook'])->name('pagamentos.webhook');
+
+// Primeiro acesso da plataforma: só no host da plataforma e enquanto não existir super-administrador (sem sessão)
+Route::prefix('plataforma-inicial')->name('plataforma_inicial.')->group(function () {
+    Route::get('estado', [PlataformaInicialController::class, 'estado'])->middleware('throttle:plataforma-inicial-estado')->name('estado');
+    Route::post('criar-admin', [PlataformaInicialController::class, 'criarAdmin'])->middleware('throttle:plataforma-inicial-criar')->name('criar_admin');
+});
 
 Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
     Route::post('entrar', [AutenticacaoController::class, 'entrar'])->middleware('throttle:entrar')->name('entrar');

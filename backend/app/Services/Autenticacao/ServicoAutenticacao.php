@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\TokenAcesso;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoAuditoria;
+use App\Support\Tenancy\DominioPedido;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -32,7 +33,7 @@ final class ServicoAutenticacao
     /**
      * @return array{token: string, expira_em: Carbon, utilizador: Utilizador}
      */
-    public function entrar(string $nomeUtilizador, string $palavraPasse, string $dispositivo, ?string $ip, ?string $agente): array
+    public function entrar(string $nomeUtilizador, string $palavraPasse, string $dispositivo, ?string $ip, ?string $agente, ?DominioPedido $dominio = null): array
     {
         $utilizador = Utilizador::query()->where('nome_utilizador', $nomeUtilizador)->first();
 
@@ -43,8 +44,15 @@ final class ServicoAutenticacao
         }
         $valida = $utilizador && $this->credencialValida($utilizador, $palavraPasse);
 
-        if (! $utilizador || ! $utilizador->ativo || ! $valida) {
-            $this->auditoria->registar('Autenticação', 'Falha de autenticação', "Tentativa falhada para '{$nomeUtilizador}'.",
+        // SaaS: credenciais certas num endereço que não é do utilizador (ex.: conta de outro cliente) são recusadas com a
+        // MESMA mensagem, para não revelar que a conta existe noutro cliente. Em `livre` (sem domínio base) `permite()` é sempre verdadeiro.
+        $enderecoErrado = $valida && $utilizador->ativo && $dominio !== null && ! $dominio->permite($utilizador);
+
+        if (! $utilizador || ! $utilizador->ativo || ! $valida || $enderecoErrado) {
+            $detalhe = $enderecoErrado
+                ? "Tentativa recusada para '{$nomeUtilizador}': o endereço usado ({$dominio->area}) não pertence a este utilizador."
+                : "Tentativa falhada para '{$nomeUtilizador}'.";
+            $this->auditoria->registar('Autenticação', 'Falha de autenticação', $detalhe,
                 'utilizadores', $utilizador?->getKey(), utilizadorId: $utilizador?->getKey(), nomeUtilizador: $nomeUtilizador);
 
             throw new ErroNegocio('Nome de utilizador ou palavra-passe incorrectos.', 'CREDENCIAIS_INVALIDAS', 401);
