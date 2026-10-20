@@ -9,11 +9,12 @@ use Tests\TestCase;
 /**
  * O frontend não tem HTML de entrada: o Laravel devolve a view Blade da plataforma SaaS no host
  * `<DOMINIO_PLATAFORMA>.<DOMINIO_BASE>` e a do ERP em qualquer outro host, para qualquer caminho do SPA.
- * Os activos vêm do manifesto do Vite; aqui usa-se um manifesto temporário em public/build (apagado no fim).
+ * Os activos vêm do manifesto do Vite; aqui usa-se um manifesto falso numa pasta `public` temporária (apagada no fim).
  */
 class PaginaFrontendPorHostTest extends TestCase
 {
-    private bool $manifestoCriado = false;
+    /** Pasta `public` temporária deste teste (nunca se escreve no public/build real, que pode estar montado só de leitura). */
+    private ?string $publicTemporario = null;
 
     protected function setUp(): void
     {
@@ -24,25 +25,23 @@ class PaginaFrontendPorHostTest extends TestCase
 
     protected function tearDown(): void
     {
-        if ($this->manifestoCriado) {
-            File::delete(public_path('build/manifest.json'));
+        if ($this->publicTemporario !== null) {
+            File::deleteDirectory($this->publicTemporario);
         }
 
         parent::tearDown();
     }
 
-    /** Garante um manifesto do Vite com as duas entradas (se o frontend real já estiver compilado, usa-o). */
+    /** Usa um manifesto do Vite falso, com as duas entradas, numa pasta `public` temporária. */
     private function comManifesto(): void
     {
-        if (File::exists(public_path('build/manifest.json'))) {
-            return;
-        }
-        File::ensureDirectoryExists(public_path('build'));
-        File::put(public_path('build/manifest.json'), json_encode([
+        $this->publicTemporario = sys_get_temp_dir().DIRECTORY_SEPARATOR.'erp-teste-public-'.uniqid('', true);
+        File::ensureDirectoryExists($this->publicTemporario.DIRECTORY_SEPARATOR.'build');
+        File::put($this->publicTemporario.DIRECTORY_SEPARATOR.'build'.DIRECTORY_SEPARATOR.'manifest.json', json_encode([
             'src/main.tsx' => ['file' => 'assets/main-erp.js', 'src' => 'src/main.tsx', 'isEntry' => true, 'css' => ['assets/main-erp.css']],
             'src/plataforma/main.tsx' => ['file' => 'assets/main-plataforma.js', 'src' => 'src/plataforma/main.tsx', 'isEntry' => true],
         ]));
-        $this->manifestoCriado = true;
+        $this->app->usePublicPath($this->publicTemporario);
     }
 
     private function pagina(string $host, string $caminho = '/')
