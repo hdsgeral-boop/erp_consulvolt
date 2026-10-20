@@ -71,6 +71,10 @@ jobs:
             docker compose exec -T app php artisan migrate --force --database=pgsql_owner
             docker compose exec -T app php artisan optimize:clear
             docker compose exec -T app php artisan erp:empresas:invalidar-cache
+            # Cache de configuração, rotas, eventos e views: sem isto cada pedido recarrega tudo (de ~3 s para ~0,2 s).
+            # Alterar um .env exige `optimize:clear` e voltar a correr `optimize` (ver docs/DEPLOY_AWS.md).
+            docker compose exec -T app php artisan optimize
+            docker compose exec -T app php artisan view:cache
             docker compose restart app worker scheduler web
             docker compose ps --format "{{.Service}} {{.Status}}"
           '

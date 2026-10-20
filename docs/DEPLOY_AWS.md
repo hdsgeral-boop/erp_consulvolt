@@ -49,3 +49,13 @@ O security group `erp-web` libera a porta 22 só para o seu IP. Os runners do Gi
 ## Testar
 
 Depois de configurar, vá em Actions > Deploy AWS > Run workflow. O log mostra cada etapa.
+
+## Desempenho: cache do Laravel
+
+O deploy corre `php artisan optimize` e `view:cache` (cache de configuração, rotas, eventos e views). Sem isso cada
+pedido recarrega todos os ficheiros e a página passa de ~0,2 s para ~3 s (medido no Docker local do Windows).
+
+- **Depois de alterar um `.env` ou configuração**: `docker compose exec app php artisan optimize:clear && docker compose exec app php artisan optimize`
+  e `docker compose restart app worker scheduler`.
+- **Antes de correr testes** (PHPUnit) no mesmo contentor: `php artisan optimize:clear`, senão os testes usam a configuração em cache.
+- No Docker local, depois de editar código ou rotas: `docker compose exec app php artisan optimize:clear`.
