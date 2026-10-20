@@ -79,3 +79,5 @@ jobs:
         run: |
           sleep 15
           curl -fsS -o /dev/null -w "web %{http_code}\n" "http://ec2-13-53-43-240.eu-north-1.compute.amazonaws.com/"
+          # A página é uma view Blade do Laravel: tem de referir os activos compilados em /build/ (sem manifesto devolve 503)
+          curl -fsS "http://ec2-13-53-43-240.eu-north-1.compute.amazonaws.com/" | grep -q "/build/assets/"
