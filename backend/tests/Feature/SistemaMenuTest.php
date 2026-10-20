@@ -35,6 +35,24 @@ final class SistemaMenuTest extends TestCase
     }
 
     #[Test]
+    public function menu_do_erp_nunca_traz_os_ecras_da_plataforma_saas(): void
+    {
+        // Super-administrador (vê todo o catálogo): a administração da plataforma vive noutra aplicação e não aparece no menu do ERP.
+        $empresa = $this->criarEmpresa();
+        $super = $this->criarUtilizador(['papel' => \App\Models\Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]);
+        $s = $this->entrar($super) + ['X-Empresa-Id' => $empresa->id];
+
+        $d = $this->getJson('/api/sistema/menu', $s)->assertOk()->json('dados');
+        $ids = collect($d['menu'])->flatMap(fn ($m) => array_column($m['ecras'], 'id'))->all();
+
+        $this->assertNotEmpty($ids);
+        $this->assertSame([], array_values(array_filter($ids, fn ($id) => str_starts_with($id, 'plataforma_'))));
+        // o que é do cliente continua lá
+        $this->assertContains('config_licenca', $ids);
+        $this->assertContains('minha_conta', $ids);
+    }
+
+    #[Test]
     public function identidade_da_empresa_activa_para_qualquer_utilizador_da_empresa(): void
     {
         $logo = 'data:image/png;base64,iVBORw0KGgo=';

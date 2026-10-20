@@ -170,6 +170,11 @@ final class ServicoPermissoes
         foreach (CatalogoPermissoes::completo()['modulos'] as $m) {
             $ecras = [];
             foreach ($m['ecras'] as $e) {
+                // A administração da plataforma SaaS (`plataforma_*`) vive na aplicação própria da plataforma: nunca
+                // aparece no menu do ERP, nem para o super-administrador de uma empresa cliente.
+                if (str_starts_with((string) ($e['id'] ?? ''), 'plataforma_')) {
+                    continue;
+                }
                 if ($holding && ! self::ecraPermitidoNaHolding($e + ['modulo' => $m['id']])) {
                     continue;
                 }

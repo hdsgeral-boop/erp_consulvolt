@@ -191,19 +191,11 @@ export const SISTEMA_LEGADO: GrupoLegado = g('sistema', 'Sistema', 'cogs', [
     e('config', 'notificacoes_centro', 'Notificações e Alertas', 'bell'),
     e('config', 'config_manutencao', 'Manutenção de dados', 'shield-alt'),
   ]),
-  g('sistema-plataforma', 'Plataforma SaaS', 'layer-group', [
+  // O que é do cliente: a licença/plano da sua empresa e a sua conta. A administração da plataforma SaaS (clientes,
+  // planos, suporte, auditoria…) NÃO está no menu do ERP: vive na aplicação própria da plataforma (frontend/src/plataforma).
+  g('sistema-plataforma', 'Conta e subscrição', 'layer-group', [
     e('config', 'config_licenca', 'Licença e plano', 'credit-card'),
-    e('config', 'plataforma_painel', 'Plataforma: painel', 'chart-line'),
-    e('config', 'plataforma_clientes', 'Plataforma: clientes', 'building'),
-    e('config', 'plataforma_suporte', 'Plataforma: Suporte', 'life-ring'),
-    e('config', 'plataforma_administradores', 'Plataforma: Administradores', 'user-shield'),
-    e('config', 'plataforma_auditoria', 'Plataforma: Auditoria', 'clipboard-list'),
-    e('config', 'plataforma_sessoes', 'Plataforma: Sessões activas', 'desktop'),
-    e('config', 'plataforma_definicoes', 'Plataforma: Definições', 'sliders-h'),
-    e('config', 'plataforma_saas', 'Plataforma: Gestão de SaaS', 'power-off'),
     e('config', 'minha_conta', 'Minha conta', 'id-card'),
-    e('config', 'plataforma_planos', 'Plataforma: Planos e versões', 'tags'),
-    e('config', 'plataforma_codigos', 'Plataforma: Manual de códigos', 'book'),
   ]),
   e('config', 'config_migracao', 'Migração de Dados', 'file-import'),
 ]);
