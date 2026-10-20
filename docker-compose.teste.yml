@@ -1,0 +1,22 @@
+services:
+  app:
+    container_name: !reset null
+    volumes: !override
+      - ./backend:/var/www/html
+      - erp_vendor:/var/www/html/vendor
+  worker:
+    container_name: !reset null
+    volumes: !override
+      - ./backend:/var/www/html
+      - erp_vendor:/var/www/html/vendor
+  scheduler:
+    container_name: !reset null
+    volumes: !override
+      - ./backend:/var/www/html
+      - erp_vendor:/var/www/html/vendor
+  web:
+    container_name: !reset null
+  postgres:
+    container_name: !reset null
+  redis:
+    container_name: !reset null

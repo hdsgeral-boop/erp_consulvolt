@@ -58,7 +58,9 @@ class LoginPorEnderecoEPrimeiroAcessoTest extends TestCase
 
         $errado->assertStatus(401)->assertJsonPath('codigo', 'CREDENCIAIS_INVALIDAS');
         $this->assertSame($inexistente->json('mensagem'), $errado->json('mensagem'));
-        $this->assertTrue(LogAuditoria::query()->where('acao', 'Falha de autenticação')->where('nome_utilizador', 'user_acme')->exists());
+        $this->assertTrue(app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(
+            fn () => LogAuditoria::query()->where('acao', 'Falha de autenticação')->where('nome_utilizador', 'user_acme')->exists()
+        ));
     }
 
     public function test_login_aceite_no_host_do_proprio_cliente_e_em_host_livre(): void
@@ -102,7 +104,9 @@ class LoginPorEnderecoEPrimeiroAcessoTest extends TestCase
         $admin = Utilizador::query()->where('nome_utilizador', 'dono')->firstOrFail();
         $this->assertSame(Utilizador::PAPEL_SUPER_ADMINISTRADOR, $admin->papel);
         $this->assertSame(1, (int) $admin->tenant_id);
-        $this->assertTrue(LogAuditoria::query()->where('acao', 'Criar administrador inicial')->exists());
+        $this->assertTrue(app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(
+            fn () => LogAuditoria::query()->where('acao', 'Criar administrador inicial')->exists()
+        ));
 
         $this->postJson(self::PLATAFORMA.'/api/autenticacao/entrar', ['nome_utilizador' => 'dono', 'palavra_passe' => 'SenhaForte123'])->assertOk();
 

@@ -21,7 +21,10 @@ final class SistemaMenuTest extends TestCase
         $this->assertContains('vendas', $modulos);
         $this->assertContains('pos', $modulos);
         $this->assertNotContains('rh', $modulos);
-        $this->assertNotContains('config', $modulos);
+        // O centro de notificações é sempre visível (ServicoPermissoes::ecraVisivel) e vive no módulo «config»:
+        // o módulo pode aparecer, mas só com esse ecrã.
+        $config = collect($d['menu'])->firstWhere('id', 'config');
+        $this->assertSame(['notificacoes_centro'], $config ? array_column($config['ecras'], 'id') : ['notificacoes_centro']);
         $this->assertContains('vendas_faturacao_view', $d['permissoes']);
         // cada ecrã traz só as funções (tarefas) que o utilizador pode fazer — índice da pesquisa «Procurar»
         $ecras = collect($d['menu'])->flatMap(fn ($m) => $m['ecras'])->keyBy('id');
