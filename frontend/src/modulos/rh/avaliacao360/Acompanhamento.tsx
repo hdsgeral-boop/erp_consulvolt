@@ -70,7 +70,7 @@ export function Participacao({ dados, carregando }: { dados?: Acompanhamento360;
       <TabelaComModos<LinhaParticipacao> idVista="participacao-360" rowKey="colaborador_id" size="small" loading={carregando} columns={colunas} dataSource={dados?.participacao ?? []} modos={false}
         impressao={{ titulo: 'Participação no ciclo 360º', orientacao: 'paisagem' }}
         vazio={{ icone: 'users', titulo: 'Sem participantes', texto: 'A composição é fotografada ao abrir o ciclo.' }}
-        accoes={(l) => [{ icone: 'star', titulo: l.avaliacao_id ? 'Abrir a avaliação' : 'Avaliar', texto: l.avaliacao_id ? 'Abrir' : 'Avaliar', onClick: () => navegar('/m/rh/rh_avaliacao') }]} />
+        accoes={(l) => [{ icone: 'star', titulo: l.avaliacao_id ? 'Abrir a avaliação' : 'Avaliar', texto: l.avaliacao_id ? 'Abrir' : 'Avaliar', onClick: () => navegar('/rh/rh_avaliacao') }]} />
     </Card>
   );
 }

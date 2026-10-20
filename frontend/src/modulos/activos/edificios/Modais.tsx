@@ -173,7 +173,7 @@ export function ModalGerarInventario({ planta, pedido, aoFechar }: { planta: Pla
   const navegar = useNavigate();
   const { utilizador } = useSessao();
   const [modal, contexto] = Modal.useModal();
-  const accao = useAccao<Inventario>({ invalidar: INVALIDAR, aoSucesso: (inv) => { aoFechar(); navegar(`/m/activos/activos_edificios/inventario/${inv.id}`); } });
+  const accao = useAccao<Inventario>({ invalidar: INVALIDAR, aoSucesso: (inv) => { aoFechar(); navegar(`/activos/activos_edificios/inventario/${inv.id}`); } });
   useEffect(() => {
     if (!pedido) return;
     form.resetFields();

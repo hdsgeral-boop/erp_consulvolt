@@ -4,7 +4,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 
-const BASE = '/m/stock';
+const BASE = '/stock';
 
 /**
  * Separadores do «Gestão de Armazém» do legado (renderArmazém, js/ui_warehouse.js:103-113), pela mesma ordem e com os

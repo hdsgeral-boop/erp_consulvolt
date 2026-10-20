@@ -110,7 +110,7 @@ function PropostaMes() {
               {q.data?.alertas.map((a, i) => (
                 <span key={a.id}>
                   {i > 0 && '; '}
-                  <Link to={`/m/acrescimos/ad_registos/${a.id}`}>{a.descricao}</Link> (até {formatarData(a.data_limite)})
+                  <Link to={`/acrescimos/ad_registos/${a.id}`}>{a.descricao}</Link> (até {formatarData(a.data_limite)})
                 </span>
               ))}
               .
@@ -218,7 +218,7 @@ function PropostaMes() {
               { title: 'Data', dataIndex: 'data_documento', render: formatarData },
               {
                 title: 'Registo', key: 'r',
-                render: (_, l) => <Link to={`/m/acrescimos/ad_registos/${l.item_acrescimo_diferimento_id}`}>{l.item_acrescimo_diferimento?.descricao ?? `#${l.item_acrescimo_diferimento_id}`}</Link>,
+                render: (_, l) => <Link to={`/acrescimos/ad_registos/${l.item_acrescimo_diferimento_id}`}>{l.item_acrescimo_diferimento?.descricao ?? `#${l.item_acrescimo_diferimento_id}`}</Link>,
               },
               { title: 'Lançamento', dataIndex: 'tipo', render: (t) => def.data?.tipos_linha?.[t] ?? rotuloAD(t) },
               { title: 'Período', dataIndex: 'periodo', render: mesCurto },
@@ -273,7 +273,7 @@ function Lancamentos() {
         filtros={{ periodo: periodo ? mesApi(periodo) : undefined, estado }}
         impressao={{ titulo: 'Lançamentos de acréscimos e diferimentos', periodo: periodo ? periodo.format('MM/YYYY') : undefined, filtros: [estado && `Estado: ${estado === 'CONTABILIZADO' ? 'Contabilizado' : 'Anulado (estornado)'}`] }}
         columns={[
-          { title: 'Registo', dataIndex: 'item_acrescimo_diferimento_id', render: (id) => <Link to={`/m/acrescimos/ad_registos/${id}`}>#{id}</Link> },
+          { title: 'Registo', dataIndex: 'item_acrescimo_diferimento_id', render: (id) => <Link to={`/acrescimos/ad_registos/${id}`}>#{id}</Link> },
           { title: 'Período', dataIndex: 'periodo' },
           { title: 'Tipo', dataIndex: 'tipo', render: (v) => <EtiquetaAD valor={v} /> },
           { title: 'Documento', dataIndex: 'numero_documento', responsive: ['md'] },

@@ -51,8 +51,8 @@ describe('impressão e listas (ronda 2)', () => {
   it('percentagem paga, separadores e acções do adiantamento', () => {
     expect(percentagemPaga({ tipo_documento: 'FT', total_bruto: '1000', valor_pago: '250' })).toBe(25);
     expect(percentagemPaga({ tipo_documento: 'NC', total_bruto: '1000', valor_pago: '0' })).toBe(0);
-    expect(separadorFaturacao('/m/vendas/vendas_faturacao/guias')).toBe('guias');
-    expect(separadorFaturacao('/m/vendas/vendas_faturacao/orcamentos')).toBe('orcamentos');
+    expect(separadorFaturacao('/vendas/vendas_faturacao/guias')).toBe('guias');
+    expect(separadorFaturacao('/vendas/vendas_faturacao/orcamentos')).toBe('orcamentos');
     const ad = { estado: 'EMITIDO', contabilizado: true, tipo_recibo: 'ADIANTAMENTO' as const, saldo_adiantamento: '100.00', alocacoes: [] };
     expect(accoesRecibo(ad, () => true)).toMatchObject({ alocar: true, descontabilizar: true });
     expect(accoesRecibo({ ...ad, alocacoes: [{ venda_id: 1, numero_documento: 'FT 1', montante: '10' }] }, () => true)).toMatchObject({ descontabilizar: false, anular: false });

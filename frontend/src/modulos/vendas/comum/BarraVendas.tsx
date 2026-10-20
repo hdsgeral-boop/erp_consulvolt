@@ -7,7 +7,7 @@ import { IconeFa } from '@/componentes/fluxos/IconeFa';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarKz } from '@/utilitarios/formatacao';
 
-const BASE = '/m/vendas';
+const BASE = '/vendas';
 const FATURACAO = `${BASE}/vendas_faturacao`;
 
 /** Separadores do agregador «Gestão de Vendas», pela ordem, rótulos e ícones do legado (renderVendas, js/ui_sales.js:94-100). */

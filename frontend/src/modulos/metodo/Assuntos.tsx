@@ -72,7 +72,7 @@ export default function Assuntos() {
       title: 'Acções', key: 'x', align: 'right',
       render: (_, a) => (
         <Space size={4}>
-          {a.projeto_id && <Button size="small" title="Abrir o projecto de resolução" icon={<IconeFa nome="hard-hat" />} onClick={() => navegar(`/m/projectos/projectos_carteira/${a.projeto_id}`)} />}
+          {a.projeto_id && <Button size="small" title="Abrir o projecto de resolução" icon={<IconeFa nome="hard-hat" />} onClick={() => navegar(`/projectos/projectos_carteira/${a.projeto_id}`)} />}
           <Button size="small" title="Abrir" aria-label={`Abrir ${a.numero}`} icon={<IconeFa nome="folder-open" />} onClick={() => setAberto(a.id)} />
           <Button size="small" title="Histórico" aria-label={`Histórico ${a.numero}`} icon={<IconeFa nome="history" />} onClick={() => setHistorico(a.id)} />
         </Space>

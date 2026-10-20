@@ -17,8 +17,8 @@ export interface DadosResumoHolding {
 }
 
 /** Rotas do menu da holding usadas nos atalhos (o menu só tem Dashboard e Contabilidade). */
-export const ROTA_COMPARACAO_GRUPO = '/m/geral/dashboard?separador=grupo';
-export const ROTA_CONSOLIDACAO = '/m/contab/consolidacao';
+export const ROTA_COMPARACAO_GRUPO = '/geral/dashboard?separador=grupo';
+export const ROTA_CONSOLIDACAO = '/contab/consolidacao';
 
 /**
  * Início de uma holding: indicadores consolidados do ano até ao mês corrente e o quadro comparativo das empresas do grupo

@@ -51,7 +51,7 @@ const COLUNAS: ColumnsType<LinhaFiscal> = [
 ];
 
 /**
- * Activos › Mapa Fiscal (separador do agregador, rota /m/activos/activos_mapa/fiscal): Mapa Fiscal de Reintegrações e
+ * Activos › Mapa Fiscal (separador do agregador, rota /activos/activos_mapa/fiscal): Mapa Fiscal de Reintegrações e
  * Amortizações do ano, modelo oficial (legado renderFiscalAssetMap). Dados: GET /ativos/mapas/fiscal (só quotas integradas;
  * sem os activos adquiridos depois do ano nem os abatidos em anos anteriores). Reavaliações: o sistema não as regista
  * (como o legado, «—»); «Importado»: «Não» (o legado não tinha o dado).

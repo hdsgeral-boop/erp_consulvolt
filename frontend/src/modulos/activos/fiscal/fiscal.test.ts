@@ -21,11 +21,11 @@ describe('agregador dos Activos', () => {
 
   it('o Mapa Fiscal usa a permissão do mapa e a sub-rota /fiscal', () => {
     const fiscal = SECCOES_ACTIVOS.find((s) => s.id === 'activos_mapa_fiscal')!;
-    expect(destinoSeccao(fiscal)).toBe('/m/activos/activos_mapa/fiscal');
+    expect(destinoSeccao(fiscal)).toBe('/activos/activos_mapa/fiscal');
     expect(seccoesVisiveis(['activos', 'activos_mapa']).map((s) => s.id)).toEqual(['activos', 'activos_mapa', 'activos_mapa_fiscal']);
     expect(seccoesVisiveis(['activos']).map((s) => s.id)).toEqual(['activos']);
-    expect(eRotaFiscal('/m/activos/activos_mapa/fiscal')).toBe(true);
-    expect(eRotaFiscal('/m/activos/activos_mapa')).toBe(false);
+    expect(eRotaFiscal('/activos/activos_mapa/fiscal')).toBe(true);
+    expect(eRotaFiscal('/activos/activos_mapa')).toBe(false);
   });
 });
 

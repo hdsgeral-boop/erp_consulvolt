@@ -264,7 +264,7 @@ export function NotificacoesSinoHeader() {
           icon={<BellOutlined />}
           onClick={() => {
             setPopoverAberto(false);
-            navegar('/m/config/notificacoes_centro');
+            navegar('/config/notificacoes_centro');
           }}
         >
           Ver Central de Notificações e Alertas

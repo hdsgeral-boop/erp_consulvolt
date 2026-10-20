@@ -186,7 +186,7 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
                     pagination={false}
                     dataSource={d.documentos}
                     locale={{ emptyText: 'Sem documentos de venda ligados.' }}
-                    onRow={(v) => ({ onClick: () => navegar(`/m/vendas/vendas_faturacao/${v.id}`), style: { cursor: 'pointer' } })}
+                    onRow={(v) => ({ onClick: () => navegar(`/vendas/vendas_faturacao/${v.id}`), style: { cursor: 'pointer' } })}
                     columns={[
                       { title: 'Documento', dataIndex: 'numero_documento' },
                       { title: 'Data', dataIndex: 'data_emissao', render: formatarData },
@@ -213,7 +213,7 @@ export function FichaOportunidade({ id, aoFechar }: { id: number | null; aoFecha
           <Space wrap>
             <Button onClick={() => setConversao(null)}>Fechar</Button>
             {pode('vendas_faturacao_view') && (
-              <Button type="primary" icon={<FileAddOutlined />} onClick={() => navegar('/m/vendas/vendas_faturacao/novo', { state: { conversaoCrm: conversao } })}>
+              <Button type="primary" icon={<FileAddOutlined />} onClick={() => navegar('/vendas/vendas_faturacao/novo', { state: { conversaoCrm: conversao } })}>
                 Abrir emissão de documento
               </Button>
             )}

@@ -138,7 +138,7 @@ export default function AvaliacaoConfig() {
       <CabecalhoPagina titulo="Configuração da Avaliação de Desempenho" subtitulo="Ciclo 360º: período, itens e objectivos, anonimato, acompanhamento, bonificação e comunicado"
         accoes={<Space wrap>
           {pode('rh_aval_config') && <Button icon={<PlusOutlined />} onClick={() => setEscolhido('novo')}>Novo ciclo</Button>}
-          {pode('rh_avaliacao_ciclo_view') && <Button icon={<IconeFa nome="sync-alt" />} onClick={() => navegar('/m/rh/rh_avaliacao_ciclo')}>Acompanhamento do ciclo</Button>}
+          {pode('rh_avaliacao_ciclo_view') && <Button icon={<IconeFa nome="sync-alt" />} onClick={() => navegar('/rh/rh_avaliacao_ciclo')}>Acompanhamento do ciclo</Button>}
         </Space>} />
 
       <Card size="small" title="Ciclos" style={{ marginBottom: 16 }}>
@@ -199,7 +199,7 @@ export default function AvaliacaoConfig() {
                       <li><b>Objectivos qualitativos</b>: nota de 1 a 5 (1 = 0% · 3 = 50% · 5 = 100%).</li>
                       <li>Na abertura do ciclo os critérios comuns ficam fixados para as avaliações 360º{ciclo?.criterios?.length ? ` (este ciclo: ${ciclo.criterios.map((c) => c.nome).join(', ')})` : ''}.</li>
                     </ul>
-                    {pode('rh_avaliacao_itens') && <Button style={{ marginTop: 12 }} type="primary" icon={<IconeFa nome="tasks" />} onClick={() => navegar('/m/rh/rh_avaliacao')}>Gerir itens e objectivos</Button>}
+                    {pode('rh_avaliacao_itens') && <Button style={{ marginTop: 12 }} type="primary" icon={<IconeFa nome="tasks" />} onClick={() => navegar('/rh/rh_avaliacao')}>Gerir itens e objectivos</Button>}
                   </>
                 ),
               },

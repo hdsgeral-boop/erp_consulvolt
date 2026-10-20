@@ -9,7 +9,7 @@ export const PERMISSOES_ASSUNTOS = ['mt_assuntos_view', 'mt_criar', 'mt_aprovar'
 
 /** Destino da ligação para o assunto de origem (o ecrã de assuntos abre-o pelo parâmetro `assunto`). */
 export function ligacaoAssunto(id: number): string {
-  return `/m/metodo/mt_assuntos?assunto=${id}`;
+  return `/metodo/mt_assuntos?assunto=${id}`;
 }
 
 /** Texto da origem: «Método de Trabalho — assunto MT-2026/0007» (projectos_dashboard.js:555-557). */

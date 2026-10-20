@@ -44,7 +44,7 @@ beforeEach(() => {
   });
 });
 
-function montar(no: React.ReactNode, rota = '/m/contab/tabelas_aux') {
+function montar(no: React.ReactNode, rota = '/contab/tabelas_aux') {
   const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={cliente}>
@@ -75,7 +75,7 @@ describe('Tabelas auxiliares — Grade | Linhas: funções puras', () => {
 describe('Tabelas auxiliares — Grade | Linhas nos cadastros', () => {
   it('Diários: «Novo Diário» em Linhas grava um diário por linha pelo mesmo POST; em edição só há a grade', async () => {
     respostas['/contabilidade/tabelas/diarios'] = [{ id: 1, codigo: '01', descricao: 'Geral' }];
-    montar(<TabelasAux />, '/m/contab/tabelas_aux?separador=diarios');
+    montar(<TabelasAux />, '/contab/tabelas_aux?separador=diarios');
     expect(await screen.findByText('Novo Diário')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Linhas/ }));
     fireEvent.paste(await screen.findByLabelText('Código, linha 1'), { clipboardData: { getData: () => '02\tVendas\n03\tCompras\n' } });
@@ -91,7 +91,7 @@ describe('Tabelas auxiliares — Grade | Linhas nos cadastros', () => {
   });
 
   it('Plano de contas: «Nova conta» em Linhas grava cada conta pelo mesmo POST e não grava nada com uma linha inválida', async () => {
-    montar(<TabelasAux />, '/m/contab/tabelas_aux?separador=plano');
+    montar(<TabelasAux />, '/contab/tabelas_aux?separador=plano');
     fireEvent.click(await screen.findByRole('button', { name: /Nova conta/ }));
     fireEvent.click(await screen.findByRole('button', { name: /Linhas/ }));
     fireEvent.paste(await screen.findByLabelText('Código da conta, linha 1'), { clipboardData: { getData: () => '43.1.1\tBanco BFA\tM\tUSD\n43 2\tBanco BAI\tM\t\n' } });

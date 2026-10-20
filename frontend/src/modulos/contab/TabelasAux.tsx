@@ -67,7 +67,7 @@ export default function TabelasAux() {
           chave: s.chave,
           rotulo: s.cor ? <span style={{ color: activo === s.chave ? undefined : s.cor }}>{s.rotulo}</span> : s.rotulo,
           icone: s.icone,
-          destino: `/m/contab/tabelas_aux?separador=${s.chave}`,
+          destino: `/contab/tabelas_aux?separador=${s.chave}`,
         }))}
       />
       {/* o Plano de contas e a Reciclagem já desenham o seu cartão */}

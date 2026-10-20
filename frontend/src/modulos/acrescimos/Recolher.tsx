@@ -142,7 +142,7 @@ export default function Recolher() {
         />
       </Card>
       <EscolherLinha documento={escolherLinha} aoEscolher={(l) => escolherLinha && diferir(escolherLinha, l)} aoFechar={() => setEscolherLinha(null)} />
-      <ModalItem aberto={!!criar} item={criar} aoFechar={() => setCriar(null)} aoGravar={(it) => navegar(`/m/acrescimos/ad_registos/${it.id}`)} />
+      <ModalItem aberto={!!criar} item={criar} aoFechar={() => setCriar(null)} aoGravar={(it) => navegar(`/acrescimos/ad_registos/${it.id}`)} />
       <EscolherAcrescimo documento={regularizarDe} aoFechar={() => setRegularizarDe(null)} />
     </>
   );

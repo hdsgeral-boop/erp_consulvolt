@@ -125,7 +125,7 @@ function DetalheProcessamento() {
                 title={p.numero_lan_contabilizacao ?? undefined}><IconeFa nome="book" /> Contabilizado</span>
             )}
             {ac.descontabilizar && <Button danger icon={<IconeFa nome="undo" />} onClick={() => { form.resetFields(); setEstorno(true); }}>Descontabilizar</Button>}
-            {ac.recibos && <Button icon={<FilePdfOutlined />} onClick={() => navegar('/m/rh/rh_rel_recibos')}>Recibos</Button>}
+            {ac.recibos && <Button icon={<FilePdfOutlined />} onClick={() => navegar('/rh/rh_rel_recibos')}>Recibos</Button>}
             {p.contabilizado && <BotaoGerarPagamento periodo={p} texto="Gerar Pagamento" contorno />}
             {ac.validar && (
               <Button type="primary" style={{ background: '#16a34a', borderColor: '#16a34a' }} icon={<CheckOutlined />} onClick={() => Modal.confirm({ title: `Validar o processamento de ${p.mes_ano}?`, content: 'Ao validar o processamento, concorda que os cálculos estão correctos. Depois de validado emitem-se os recibos, a ordem de pagamento e a contabilização.', okText: 'Validar', cancelText: 'Cancelar', onOk: () => post('validar') })}>Validar Processamento</Button>

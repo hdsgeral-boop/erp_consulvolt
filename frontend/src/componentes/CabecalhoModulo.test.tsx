@@ -13,9 +13,9 @@ function Onde() {
 }
 
 const SEPARADORES = [
-  { chave: 'a', rotulo: 'Pedidos', icone: 'shopping-cart', destino: '/m/compras/compras_encomendas', permissao: 'compras_encomendas_view', contador: 3 },
-  { chave: 'b', rotulo: 'Encomendas Clientes', icone: 'file-export', destino: '/m/compras/compras_encomendas_clientes', permissao: 'compras_encomendas_clientes_view' },
-  { chave: 'c', rotulo: 'Recebimentos', destino: '/m/teso/teso_gestao_pagamentos?tipo=RECEBIMENTO' },
+  { chave: 'a', rotulo: 'Pedidos', icone: 'shopping-cart', destino: '/compras/compras_encomendas', permissao: 'compras_encomendas_view', contador: 3 },
+  { chave: 'b', rotulo: 'Encomendas Clientes', icone: 'file-export', destino: '/compras/compras_encomendas_clientes', permissao: 'compras_encomendas_clientes_view' },
+  { chave: 'c', rotulo: 'Recebimentos', destino: '/teso/teso_gestao_pagamentos?tipo=RECEBIMENTO' },
 ];
 
 function montar(caminho: string, props: Partial<Parameters<typeof CabecalhoModulo>[0]> = {}) {
@@ -42,7 +42,7 @@ describe('CabecalhoModulo (G.5)', () => {
   });
 
   it('título com ícone, subtítulo, indicadores e separadores-botão com o activo pelo caminho', () => {
-    const { container } = montar('/m/compras/compras_encomendas_clientes/12', {
+    const { container } = montar('/compras/compras_encomendas_clientes/12', {
       indicadores: [
         { chave: 'p', rotulo: 'Pendentes', valor: 8 },
         { chave: 'i', rotulo: 'Integrados', valor: 286, icone: 'check-circle', cor: '#10b981' },
@@ -64,15 +64,15 @@ describe('CabecalhoModulo (G.5)', () => {
   });
 
   it('os separadores navegam entre rotas e respeitam a query string', () => {
-    montar('/m/compras/compras_encomendas');
+    montar('/compras/compras_encomendas');
     fireEvent.click(screen.getByRole('link', { name: 'Recebimentos' }));
-    expect(screen.getByTestId('onde')).toHaveTextContent('/m/teso/teso_gestao_pagamentos?tipo=RECEBIMENTO');
+    expect(screen.getByTestId('onde')).toHaveTextContent('/teso/teso_gestao_pagamentos?tipo=RECEBIMENTO');
     expect(screen.getByRole('link', { name: 'Recebimentos' })).toHaveAttribute('aria-current', 'page');
   });
 
   it('esconde os separadores sem permissão e a barra quando fica só um', () => {
     permissoes = ['compras_encomendas_view'];
-    montar('/m/compras/compras_encomendas');
+    montar('/compras/compras_encomendas');
     // fica «Pedidos» (com permissão) e «Recebimentos» (sem permissão exigida)
     expect(screen.queryByRole('link', { name: 'Encomendas Clientes' })).toBeNull();
     expect(screen.getAllByRole('link')).toHaveLength(2);
@@ -83,17 +83,17 @@ describe('CabecalhoModulo (G.5)', () => {
     Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, value: true });
     const alvo = document.createElement('div');
     alvo.requestFullscreen = pedir;
-    montar('/m/compras/compras_encomendas', { accoesRapidas: <button type="button">Pedido</button>, ecraCheio: () => alvo });
+    montar('/compras/compras_encomendas', { accoesRapidas: <button type="button">Pedido</button>, ecraCheio: () => alvo });
     expect(screen.getByRole('button', { name: 'Pedido' }).closest('.erp-cab-modulo-rapidas')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Ecrã Cheio/ }));
     expect(pedir).toHaveBeenCalledTimes(1);
   });
 
   it('separadorActivo: prefixo do caminho e parâmetros da query', () => {
-    expect(separadorActivo('/m/a/b', '/m/a/b')).toBe(true);
-    expect(separadorActivo('/m/a/b', '/m/a/b/novo')).toBe(true);
-    expect(separadorActivo('/m/a/b', '/m/a/bc')).toBe(false);
-    expect(separadorActivo('/m/a/b?tipo=X', '/m/a/b', '?tipo=X&p=1')).toBe(true);
-    expect(separadorActivo('/m/a/b?tipo=X', '/m/a/b', '?tipo=Y')).toBe(false);
+    expect(separadorActivo('/a/b', '/a/b')).toBe(true);
+    expect(separadorActivo('/a/b', '/a/b/novo')).toBe(true);
+    expect(separadorActivo('/a/b', '/a/bc')).toBe(false);
+    expect(separadorActivo('/a/b?tipo=X', '/a/b', '?tipo=X&p=1')).toBe(true);
+    expect(separadorActivo('/a/b?tipo=X', '/a/b', '?tipo=Y')).toBe(false);
   });
 });

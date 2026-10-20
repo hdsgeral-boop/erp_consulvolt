@@ -76,7 +76,7 @@ export function PlantaEdificio() {
     <>
       <NavActivos actual="activos_edificios" />
       <Card
-        title={<Space wrap><Button size="small" icon={<IconeFa nome="arrow-left" />} onClick={() => navegar('/m/activos/activos_edificios')}>Edifícios</Button>
+        title={<Space wrap><Button size="small" icon={<IconeFa nome="arrow-left" />} onClick={() => navegar('/activos/activos_edificios')}>Edifícios</Button>
           <span>{p.edificio.codigo} — {p.edificio.descricao}</span></Space>}
         extra={
           <Space wrap>

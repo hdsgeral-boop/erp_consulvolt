@@ -15,7 +15,7 @@ const SENHA_NOVA = 'Nova#Senha2026';
 test('criar perfil com conflito de segregação: aviso no editor, confirmação no servidor e gravação', async ({ page }) => {
   const erros = vigiarErros(page);
   const a = await entrarComo(page, UTILIZADOR.admin);
-  await page.goto('/m/config/config_perfis');
+  await page.goto('/config/config_perfis');
   await page.getByRole('button', { name: 'Novo perfil' }).click();
   const gaveta = page.locator('.ant-drawer-content').filter({ hasText: 'Novo perfil' });
   await expect(gaveta.getByText('Recursos Humanos e Salários')).toBeVisible();
@@ -47,7 +47,7 @@ test('criar perfil com conflito de segregação: aviso no editor, confirmação 
 test('criar utilizador com o novo perfil, que entra e vê só o módulo de RH', async ({ page }) => {
   const erros = vigiarErros(page);
   await entrarComo(page, UTILIZADOR.admin);
-  await page.goto('/m/config/config_utilizadores');
+  await page.goto('/config/config_utilizadores');
   await page.getByRole('button', { name: 'Novo utilizador' }).click();
   const modal = page.locator('.ant-modal').filter({ hasText: 'Novo utilizador' });
   await modal.locator('#nome_utilizador').fill(NOVO);

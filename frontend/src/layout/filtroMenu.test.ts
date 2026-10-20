@@ -11,30 +11,30 @@ const ARVORE: ItemMenu[] = [
         key: 'teso',
         label: 'Tesouraria',
         children: [
-          { key: '/m/teso/pag', label: 'Pagamentos', title: 'Pagamentos' },
-          { key: '/m/teso/conc', label: 'Reconciliação Bancária', title: 'Reconciliação Bancária' },
+          { key: '/teso/pag', label: 'Pagamentos', title: 'Pagamentos' },
+          { key: '/teso/conc', label: 'Reconciliação Bancária', title: 'Reconciliação Bancária' },
         ],
       },
-      { key: 'vendas', label: 'Vendas', children: [{ key: '/m/vendas/fat', label: 'Faturação', title: 'Faturação' }] },
+      { key: 'vendas', label: 'Vendas', children: [{ key: '/vendas/fat', label: 'Faturação', title: 'Faturação' }] },
     ],
   },
-  { key: 'grupo:favoritos', label: 'Favoritos', children: [{ key: 'fav:/m/vendas/fat', label: 'Faturação', title: 'Faturação (Vendas)' }] },
+  { key: 'grupo:favoritos', label: 'Favoritos', children: [{ key: 'fav:/vendas/fat', label: 'Faturação', title: 'Faturação (Vendas)' }] },
 ];
 
 describe('filtro em linha do menu (busca_menu.js)', () => {
   it('sem acentos nem maiúsculas, pelo rótulo', () => {
     expect(normalizarTexto('  Reconciliação   Bancária ')).toBe('reconciliacao bancaria');
     const r = filtrarMenu(ARVORE, 'reconciliacao');
-    expect(r.folhas).toEqual([{ key: '/m/teso/conc', rotulo: 'Reconciliação Bancária' }]);
+    expect(r.folhas).toEqual([{ key: '/teso/conc', rotulo: 'Reconciliação Bancária' }]);
     expect(r.abertos).toEqual(['teso', 'geral']);
   });
 
   it('pelo caminho dos grupos: «tesouraria» traz tudo o que está dentro', () => {
     const r = filtrarMenu(ARVORE, 'TESOURARIA');
-    expect(r.folhas.map((f) => f.key)).toEqual(['/m/teso/pag', '/m/teso/conc']);
+    expect(r.folhas.map((f) => f.key)).toEqual(['/teso/pag', '/teso/conc']);
     // com várias palavras, todas têm de aparecer (no rótulo ou no caminho)
-    expect(filtrarMenu(ARVORE, 'tesouraria pag').folhas.map((f) => f.key)).toEqual(['/m/teso/pag']);
-    expect(filtrarMenu(ARVORE, 'vendas fat').folhas.map((f) => f.key)).toEqual(['/m/vendas/fat']);
+    expect(filtrarMenu(ARVORE, 'tesouraria pag').folhas.map((f) => f.key)).toEqual(['/teso/pag']);
+    expect(filtrarMenu(ARVORE, 'vendas fat').folhas.map((f) => f.key)).toEqual(['/vendas/fat']);
   });
 
   it('só filtra o que o menu tem (nada é revelado) e grupos vazios desaparecem', () => {
@@ -42,7 +42,7 @@ describe('filtro em linha do menu (busca_menu.js)', () => {
     expect(r.itens).toEqual([]);
     expect(r.folhas).toEqual([]);
     const f = filtrarMenu(ARVORE, 'faturacao');
-    expect(f.folhas.map((x) => x.key)).toEqual(['/m/vendas/fat', 'fav:/m/vendas/fat']);
+    expect(f.folhas.map((x) => x.key)).toEqual(['/vendas/fat', 'fav:/vendas/fat']);
     expect(f.itens.map((x) => x?.key)).toEqual(['geral', 'grupo:favoritos']);
   });
 
@@ -51,7 +51,7 @@ describe('filtro em linha do menu (busca_menu.js)', () => {
   });
 
   it('marca o resultado escolhido com as setas e permite realçar o rótulo', () => {
-    const r = filtrarMenu(ARVORE, 'tesouraria', '/m/teso/conc', (t) => `«${t}»`);
+    const r = filtrarMenu(ARVORE, 'tesouraria', '/teso/conc', (t) => `«${t}»`);
     const teso = ((r.itens[0] as { children: ItemMenu[] }).children[0] as { children: { className?: string; label: string }[] }).children;
     expect(teso[1].className).toBe('erp-menu-focado');
     expect(teso[0].className).toBeUndefined();

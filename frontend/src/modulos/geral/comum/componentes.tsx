@@ -47,7 +47,7 @@ export function useRotaDaVista() {
       if (!vista) return null;
       for (const m of menu) {
         const e = m.ecras.find((x) => x.id === vista || x.vistas.includes(vista));
-        if (e) return `/m/${m.id}/${e.id}`;
+        if (e) return `/${m.id}/${e.id}`;
       }
       return null;
     },

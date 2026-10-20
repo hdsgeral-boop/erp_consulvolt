@@ -72,10 +72,10 @@ export function DetalhePedido() {
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navegar('..')}>Voltar</Button>
             {a.registarProposta && (
-              <Button onClick={() => navegar(`/m/compras/compras_prospeccao/novo?pedido=${p.id}`)}>Registar proposta</Button>
+              <Button onClick={() => navegar(`/compras/compras_prospeccao/novo?pedido=${p.id}`)}>Registar proposta</Button>
             )}
             {verPropostas && ['APROVADO', 'ADJUDICADO'].includes(p.estado) && (
-              <Button onClick={() => navegar(`/m/compras/compras_prospeccao/comparacao/${p.id}`)}>Quadro comparativo</Button>
+              <Button onClick={() => navegar(`/compras/compras_prospeccao/comparacao/${p.id}`)}>Quadro comparativo</Button>
             )}
             {a.decidir && (
               <Button type="primary" onClick={() => { form.setFieldsValue({ decisao: 'APROVAR', nota: undefined }); setDecisao(true); }}>
@@ -145,7 +145,7 @@ export function DetalhePedido() {
             pagination={false}
             dataSource={propostas.data?.itens}
             scroll={scrollTabela()}
-            onRow={(r) => ({ onClick: () => navegar(`/m/compras/compras_prospeccao/${r.id}`), style: { cursor: 'pointer' } })}
+            onRow={(r) => ({ onClick: () => navegar(`/compras/compras_prospeccao/${r.id}`), style: { cursor: 'pointer' } })}
             columns={[
               { title: 'Proposta', render: (_, r) => numeroOuId(r.numero_proposta, r.id) },
               { title: 'Referência', dataIndex: 'referencia' },

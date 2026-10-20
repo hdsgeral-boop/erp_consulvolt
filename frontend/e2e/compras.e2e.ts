@@ -17,7 +17,7 @@ const idDoEndereco = (page: Page) => Number(new URL(page.url()).pathname.split('
 test('o comprador cria o pedido interno, que fica a aguardar aprovação', async ({ page }) => {
   const erros = vigiarErros(page);
   await entrarComo(page, UTILIZADOR.admin);
-  await page.goto('/m/compras/compras_pedidos');
+  await page.goto('/compras/compras_pedidos');
   await page.getByRole('button', { name: 'Novo pedido' }).click();
   await expect(page.getByText('Novo pedido interno')).toBeVisible();
   await page.locator('#descricao').fill('Reposição de stock do Artigo Demo B (teste E2E)');
@@ -36,7 +36,7 @@ test('o comprador cria o pedido interno, que fica a aguardar aprovação', async
 test('o aprovador (outro utilizador) aprova o pedido', async ({ page }) => {
   const erros = vigiarErros(page);
   await entrarComo(page, UTILIZADOR.aprovador);
-  await page.goto(`/m/compras/compras_pedidos/${pedidoId}`);
+  await page.goto(`/compras/compras_pedidos/${pedidoId}`);
   await page.getByRole('button', { name: 'Decidir' }).click();
   const modal = page.locator('.ant-modal').filter({ hasText: 'Decisão' });
   await expect(modal.getByText('Aprovar')).toBeVisible();
@@ -49,7 +49,7 @@ test('o aprovador (outro utilizador) aprova o pedido', async ({ page }) => {
 test('proposta do fornecedor, proposta de adjudicação e adjudicação geram a encomenda', async ({ page }) => {
   const erros = vigiarErros(page);
   const a = await entrarComo(page, UTILIZADOR.admin);
-  await page.goto(`/m/compras/compras_pedidos/${pedidoId}`);
+  await page.goto(`/compras/compras_pedidos/${pedidoId}`);
   await page.getByRole('button', { name: 'Registar proposta' }).click();
   await expect(page.getByText('Registar proposta de fornecedor')).toBeVisible();
   await expect(page.locator('#linhas_0_preco_unitario')).toBeVisible();
@@ -79,7 +79,7 @@ test('proposta do fornecedor, proposta de adjudicação e adjudicação geram a 
 test('recepção da mercadoria e validação da entrada em stock', async ({ page }) => {
   const erros = vigiarErros(page);
   const a = await entrarComo(page, UTILIZADOR.admin);
-  await page.goto(`/m/compras/compras_encomendas/${encomendaId}`);
+  await page.goto(`/compras/compras_encomendas/${encomendaId}`);
   await page.getByRole('button', { name: 'Registar recepção' }).click();
   const modal = page.locator('.ant-modal').filter({ hasText: 'Registar recepção — encomenda' });
   await modal.locator('#numero_entrega').fill('GR-FORN-E2E-1');
@@ -106,7 +106,7 @@ test('recepção da mercadoria e validação da entrada em stock', async ({ page
 test('factura do fornecedor sobre a encomenda e contabilização', async ({ page }) => {
   const erros = vigiarErros(page);
   const a = await entrarComo(page, UTILIZADOR.admin);
-  await page.goto(`/m/compras/compras_encomendas/${encomendaId}`);
+  await page.goto(`/compras/compras_encomendas/${encomendaId}`);
   await page.getByRole('button', { name: 'Registar factura' }).click();
   const modal = page.locator('.ant-modal').filter({ hasText: 'Registar factura — encomenda' });
   await modal.locator('#numero_fatura').fill('FT-FORN-E2E-1');

@@ -47,10 +47,10 @@ function montar() {
   const cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={cliente}>
-      <MemoryRouter initialEntries={['/m/contab/ia_assistente']}>
+      <MemoryRouter initialEntries={['/contab/ia_assistente']}>
         <Routes>
-          <Route path="/m/contab/ia_assistente" element={<IAAssistente />} />
-          <Route path="/m/contab/lancamentos/novo" element={<p>Formulário de lançamento</p>} />
+          <Route path="/contab/ia_assistente" element={<IAAssistente />} />
+          <Route path="/contab/lancamentos/novo" element={<p>Formulário de lançamento</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,

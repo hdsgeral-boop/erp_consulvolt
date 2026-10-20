@@ -56,7 +56,7 @@ function montar(caminho = '/') {
           <Route path="portal/*" element={<p>Página do portal</p>} />
           <Route element={<LayoutPrincipal />}>
             <Route index element={<p>Página inicial</p>} />
-            <Route path="m/:modulo/:ecra/*" element={<p>Página do ecrã</p>} />
+            <Route path=":modulo/:ecra/*" element={<p>Página do ecrã</p>} />
             <Route path="dados-pessoais" element={<p>Página dos dados pessoais</p>} />
           </Route>
         </Routes>
@@ -103,7 +103,7 @@ describe('LayoutPrincipal — portátil (1366 px)', () => {
 
   it('«Trocar empresa» volta à escolha de empresa', () => {
     largarEmpresaMock.mockClear();
-    montar('/m/vendas/vendas_faturacao');
+    montar('/vendas/vendas_faturacao');
     fireEvent.click(screen.getByRole('button', { name: 'Trocar empresa' }));
     expect(largarEmpresaMock).toHaveBeenCalledTimes(1);
   });
@@ -171,7 +171,7 @@ describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
   beforeEach(() => simularLargura(1366));
 
   it('favoritos do servidor no menu e estrela do ecrã actual grava a preferência', async () => {
-    const { container } = montar('/m/vendas/vendas_faturacao');
+    const { container } = montar('/vendas/vendas_faturacao');
     const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(await within(lateral).findByText('Favoritos')).toBeInTheDocument();
     const estrela = await screen.findByRole('button', { name: 'Adicionar aos favoritos' });
@@ -188,7 +188,7 @@ describe('LayoutPrincipal — funcionalidades transversais (ronda 2)', () => {
   });
 
   it('F1 e o botão «Ajuda» abrem o painel de ajuda do ecrã', async () => {
-    montar('/m/vendas/vendas_faturacao');
+    montar('/vendas/vendas_faturacao');
     fireEvent.keyDown(window, { key: 'F1' });
     expect(await screen.findByText('Para que serve')).toBeInTheDocument();
     expect(screen.getByText(/Emitir facturas, facturas-recibo/)).toBeInTheDocument();
@@ -340,7 +340,7 @@ describe('LayoutPrincipal — fecho Versão Actual: portal autónomo e renomear 
 
   it('o lápis «Renomear favorito» no menu «⋮» grava o rótulo próprio com a preferência', async () => {
     enviarMock.mockClear();
-    const { container } = montar('/m/config/config_geral');
+    const { container } = montar('/config/config_geral');
     const lateral = container.querySelector('.ant-layout-sider') as HTMLElement;
     expect(await within(lateral).findByText('Favoritos')).toBeInTheDocument();
     const pontos = await waitFor(() => {

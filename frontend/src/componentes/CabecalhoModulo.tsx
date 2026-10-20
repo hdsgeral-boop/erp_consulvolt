@@ -20,11 +20,11 @@ export interface IndicadorModulo {
   dica?: string;
 }
 
-/** Separador em forma de botão que navega para uma rota /m/... */
+/** Separador em forma de botão que navega para uma rota /... */
 export interface SeparadorModulo {
   chave: string;
   rotulo: ReactNode;
-  /** rota de destino (ex.: «/m/compras/compras_pedidos»); pode ter query string sem dados pessoais */
+  /** rota de destino (ex.: «/compras/compras_pedidos»); pode ter query string sem dados pessoais */
   destino: string;
   icone?: IconeModulo;
   /** contador opcional num distintivo (ex.: pendentes); 0/nulo não mostra */
@@ -95,7 +95,7 @@ function useEcraCheio(alvo: PropsCabecalhoModulo['ecraCheio']) {
  * Cabeçalho de MÓDULO AGREGADOR, como no sistema anterior (G.5 do relatório de verificação visual): título grande com o
  * ícone do módulo (h2.view-title), subtítulo, indicadores à direita, botão «Ecrã Cheio» opcional, barra de acções rápidas
  * opcional e os separadores do módulo em forma de BOTÃO (activo azul cheio, restantes brancos com contorno, ícone à
- * esquerda, contador opcional, quebra de linha). Os separadores navegam entre rotas /m/... (cada separador é um ecrã).
+ * esquerda, contador opcional, quebra de linha). Os separadores navegam entre rotas /... (cada separador é um ecrã).
  * Documentação: src/componentes/README_CABECALHO_MODULO.md.
  */
 export function CabecalhoModulo({

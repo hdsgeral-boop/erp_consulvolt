@@ -5,7 +5,7 @@ import { Spin } from 'antd';
 const Mapa = lazy(() => import('../Mapa'));
 const MapaFiscal = lazy(() => import('../MapaFiscal'));
 
-/** O caminho é o do «Mapa Fiscal» (/m/activos/activos_mapa/fiscal)? */
+/** O caminho é o do «Mapa Fiscal» (/activos/activos_mapa/fiscal)? */
 export function eRotaFiscal(caminho: string): boolean {
   return /\/activos_mapa\/fiscal\/?$/.test(caminho);
 }

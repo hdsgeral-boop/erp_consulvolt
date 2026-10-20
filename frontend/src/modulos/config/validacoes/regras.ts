@@ -118,7 +118,7 @@ export function alinharDireita(chave: string, valor: unknown): boolean {
 /** «diario» fica de fora: quando é numérico é uma quantia (folhas de salários vs diário); quando é o código do diário não é número. */
 const CHAVE_NAO_NUMERICA = /_id$|^id$|^numero|codigo|^ano$|nif|mes|lancamento|terminal|sessao/;
 
-/** Destino de uma ligação: ecrã do catálogo (/m/{modulo}/{ecra}/{id}). */
+/** Destino de uma ligação: ecrã do catálogo (/{modulo}/{ecra}/{id}). */
 export interface Ligacao {
   modulo: string;
   ecra: string;
@@ -152,5 +152,5 @@ export function rotaDaLinha(ligacao: Ligacao | null, linha: Record<string, unkno
   if (!ligacao) return null;
   const id = linha[ligacao.coluna];
   if (id === null || id === undefined || id === '' || !/^\d+$/.test(String(id))) return null;
-  return `/m/${ligacao.modulo}/${ligacao.ecra}/${id}`;
+  return `/${ligacao.modulo}/${ligacao.ecra}/${id}`;
 }

@@ -217,7 +217,7 @@ export function ListaDocumentos() {
             abrir: (x) => setDetalhe(x.id),
             copiar: (x) => navegar(`novo?copiar=${x.id}`),
             editar: (x) => navegar(`${x.id}/editar`),
-            emitirCarta: pode('teso_carta_emitir') ? (x) => navegar(`/m/teso/teso_cartas?documento=${x.id}`) : undefined,
+            emitirCarta: pode('teso_carta_emitir') ? (x) => navegar(`/teso/teso_cartas?documento=${x.id}`) : undefined,
             excluir: (x) => pedirMotivo({
               titulo: `Excluir ${x.numero_documento ?? x.referencia ?? `#${x.id}`}?`,
               texto: 'O documento por integrar é anulado (fica no histórico com o motivo); não é apagado.',

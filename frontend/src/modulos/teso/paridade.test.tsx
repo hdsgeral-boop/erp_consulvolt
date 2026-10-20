@@ -32,11 +32,11 @@ describe('7.0.1 agregadores da Tesouraria', () => {
     expect(GRUPO_DO_ECRA.teso_meios_pagamento).toBeUndefined();
   });
   it('separador activo pelo caminho e pelo ?tipo=', () => {
-    expect(separadorActivoTesouraria('operacoes', '/m/teso/teso_gestao_pagamentos', '?tipo=PAGAMENTO')).toBe('pagamentos');
-    expect(separadorActivoTesouraria('operacoes', '/m/teso/teso_gestao_pagamentos', '?tipo=RECEBIMENTO')).toBe('recebimentos');
-    expect(separadorActivoTesouraria('operacoes', '/m/teso/teso_gestao_pagamentos/12', '')).toBe('todos');
-    expect(separadorActivoTesouraria('operacoes', '/m/teso/teso_folha_caixa', '')).toBe('folha_caixa');
-    expect(separadorActivoTesouraria('gestao', '/m/teso/teso_gestao_conciliacao', '')).toBe('conciliacao');
+    expect(separadorActivoTesouraria('operacoes', '/teso/teso_gestao_pagamentos', '?tipo=PAGAMENTO')).toBe('pagamentos');
+    expect(separadorActivoTesouraria('operacoes', '/teso/teso_gestao_pagamentos', '?tipo=RECEBIMENTO')).toBe('recebimentos');
+    expect(separadorActivoTesouraria('operacoes', '/teso/teso_gestao_pagamentos/12', '')).toBe('todos');
+    expect(separadorActivoTesouraria('operacoes', '/teso/teso_folha_caixa', '')).toBe('folha_caixa');
+    expect(separadorActivoTesouraria('gestao', '/teso/teso_gestao_conciliacao', '')).toBe('conciliacao');
     expect(separadorActivoTesouraria('gestao', '/outro', '')).toBeUndefined();
   });
   it('indicadores «Pendentes» e «Integrados» (… enquanto carrega)', () => {

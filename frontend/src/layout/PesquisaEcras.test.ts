@@ -22,7 +22,7 @@ describe('pesquisa da barra superior: funções dentro dos ecrãs', () => {
   it('encontra pela função, sem acentos e com várias palavras, e indica «Módulo › Ecrã» e a rota do ecrã', () => {
     const r = procurarFuncoes(MENU, 'ANULAR recibos', todas);
     expect(r).toEqual([
-      { chave: 'vendas_recibos', nome: 'Emitir e anular recibos (liquidar facturas)', modulo: 'vendas', ecra: 'vendas_faturacao', nomeModulo: 'Vendas', nomeEcra: 'Faturação', rota: '/m/vendas/vendas_faturacao', favorito: false },
+      { chave: 'vendas_recibos', nome: 'Emitir e anular recibos (liquidar facturas)', modulo: 'vendas', ecra: 'vendas_faturacao', nomeModulo: 'Vendas', nomeEcra: 'Faturação', rota: '/vendas/vendas_faturacao', favorito: false },
     ]);
     expect(procurarFuncoes(MENU, 'reconciliacao', todas).map((f) => f.chave)).toEqual(['teso_rec_validar']);
     // a palavra pode estar no ecrã ou no módulo; as que a têm no nome da função vêm primeiro
@@ -46,7 +46,7 @@ describe('pesquisa da barra superior: funções dentro dos ecrãs', () => {
 
   it('pesquisarSistema agrupa ecrãs e funções; sem termo mostra só os ecrãs favoritos', () => {
     const r = pesquisarSistema(MENU, 'faturacao', todas);
-    expect(r.ecras.map((e) => e.rota)).toEqual(['/m/vendas/vendas_faturacao']);
+    expect(r.ecras.map((e) => e.rota)).toEqual(['/vendas/vendas_faturacao']);
     expect(r.funcoes.map((f) => f.chave)).toEqual(expect.arrayContaining(['vendas_recibos', 'vendas_fat_del']));
     const vazio = pesquisarSistema(MENU, '  ', { ...todas, eFavorito: (_m, e) => e === 'teso_reconciliacao' });
     expect(vazio).toEqual({ ecras: [expect.objectContaining({ ecra: 'teso_reconciliacao', favorito: true })], funcoes: [], accoes: [] });
@@ -84,7 +84,7 @@ describe('pesquisa da barra superior: funções dentro dos ecrãs', () => {
     it('só ecrãs do menu do utilizador; «Botão/Separador › Ecrã › Módulo» com a rota do ecrã e do separador', () => {
       expect(accoes.map((a) => a.ecra)).not.toContain('colaboradores');
       const r = procurarAccoes('contas correntes', { ...todas, accoes });
-      expect(r).toEqual([{ tipo: 'separador', nome: 'Contas correntes', modulo: 'vendas', ecra: 'vendas_clientes', nomeModulo: 'Vendas', nomeEcra: 'Clientes', rota: '/m/vendas/vendas_clientes?sep=contas', favorito: false }]);
+      expect(r).toEqual([{ tipo: 'separador', nome: 'Contas correntes', modulo: 'vendas', ecra: 'vendas_clientes', nomeModulo: 'Vendas', nomeEcra: 'Clientes', rota: '/vendas/vendas_clientes?sep=contas', favorito: false }]);
       expect(procurarAccoes('exportar', { ...todas, accoes }).map((a) => a.nome)).toEqual(['Exportar SAF-T']);
     });
 
@@ -95,7 +95,7 @@ describe('pesquisa da barra superior: funções dentro dos ecrãs', () => {
       expect(consultaSeparador(undefined)).toBe('');
       expect(consultaSeparador('')).toBe('');
       const [semSep] = prepararIndiceAccoes([['vendas_clientes', 's', 'Lista', '']], MENU);
-      expect(semSep.rota).toBe('/m/vendas/vendas_clientes');
+      expect(semSep.rota).toBe('/vendas/vendas_clientes');
     });
 
     it('respeita a permissão conhecida: «|» basta uma, «;» todas', () => {

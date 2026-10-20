@@ -35,7 +35,7 @@ describe('Inventário de Activos (13.1.1)', () => {
     expect(ouTracos('UN01')).toBe('UN01');
     expect(corEstadoActivo('ACTIVO')).toBe('success');
     expect(corEstadoActivo('ABATIDO')).toBe('error');
-    expect(destinoActivo(7)).toBe('/m/activos/activos/7');
+    expect(destinoActivo(7)).toBe('/activos/activos/7');
   });
 
   it('aviso de reconciliação só acima de 1 cêntimo', () => {

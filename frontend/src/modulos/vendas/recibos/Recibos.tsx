@@ -367,7 +367,7 @@ function DetalheRecibo() {
           size="small"
           pagination={false}
           dataSource={r.alocacoes ?? []}
-          onRow={(l) => ({ onClick: () => navegar(`/m/vendas/vendas_faturacao/${l.venda_id}`), style: { cursor: 'pointer' } })}
+          onRow={(l) => ({ onClick: () => navegar(`/vendas/vendas_faturacao/${l.venda_id}`), style: { cursor: 'pointer' } })}
           columns={[
             { title: 'Factura', dataIndex: 'numero_documento', render: (v: string | null, l) => v ?? `#${l.venda_id}` },
             ...(r.tipo_recibo === 'ADIANTAMENTO' ? [

@@ -4,7 +4,7 @@ import { useSessao } from '@/sessao/SessaoContexto';
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 import { IconeFa } from '@/componentes/fluxos/IconeFa';
 
-const BASE = '/m/compras';
+const BASE = '/compras';
 
 /** Separadores do módulo, pela ordem, rótulos e ícones do legado (renderCompras, js/ui_compras_v2.js:850-875). */
 export const SEPARADORES_COMPRAS = [

@@ -145,7 +145,7 @@ export default function Extracto() {
           vazio={{ icone: 'hard-hat', titulo: 'Sem movimentos', texto: 'Seleccione um projecto e clique em consultar.' }}
         />
       </Card>
-      <ModalProjecto aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(p) => navegar(`/m/projectos/projectos_carteira/${p.id}`)} />
+      <ModalProjecto aberto={novo} aoFechar={() => setNovo(false)} aoGravar={(p) => navegar(`/projectos/projectos_carteira/${p.id}`)} />
     </>
   );
 }

@@ -101,7 +101,7 @@ function Lista() {
           vazio={{ icone: 'file-invoice-dollar', titulo: 'Ainda não há orçamentos', texto: 'Crie primeiro as rubricas (Rubricas Orçamentais) e depois «Novo orçamento».' }}
           accoes={(o) => [
             { icone: o.estado === 'RASCUNHO' ? 'edit' : 'eye', titulo: o.estado === 'RASCUNHO' ? 'Editar' : 'Abrir', texto: o.estado === 'RASCUNHO' ? 'Editar' : 'Abrir', variante: 'primario', cheio: true, onClick: () => navegar(String(o.id)) },
-            { icone: 'balance-scale', titulo: 'Orçado vs realizado', oculto: !pode('orc_controlo_view'), onClick: () => navegar(`/m/orcamento/orc_controlo?orcamento=${o.id}`) },
+            { icone: 'balance-scale', titulo: 'Orçado vs realizado', oculto: !pode('orc_controlo_view'), onClick: () => navegar(`/orcamento/orc_controlo?orcamento=${o.id}`) },
           ]}
         />
       </Card>

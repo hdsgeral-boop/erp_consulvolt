@@ -76,7 +76,7 @@ export function ListaPropostas() {
   const accao = useAccao<PropostaCompra | EncomendaCompra>({
     invalidar: [['compras']],
     aoSucesso: (d, p) => {
-      if (p.url.endsWith('/adjudicar') && d?.id && pode('compras_encomendas_view')) navegar(`/m/compras/compras_encomendas/${d.id}`);
+      if (p.url.endsWith('/adjudicar') && d?.id && pode('compras_encomendas_view')) navegar(`/compras/compras_encomendas/${d.id}`);
     },
   });
 

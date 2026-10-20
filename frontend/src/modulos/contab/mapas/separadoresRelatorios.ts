@@ -1,6 +1,6 @@
 /**
  * Separadores do ecrã único «Relatórios e mapas contabilísticos» (renderRelatoriosContabeis, js/ui_reports.js:114-126),
- * pela ordem do sistema anterior. Cada separador tem a sua rota (`/m/contab/{ecra}`, com `?separador=` quando partilha
+ * pela ordem do sistema anterior. Cada separador tem a sua rota (`/contab/{ecra}`, com `?separador=` quando partilha
  * o ecrã de permissões — Balancete do Razão e Mapa IVA dependem, como no legado, de `contab_mapa_balancete`).
  */
 export type ChaveSeparadorRelatorio = 'extrato' | 'balancete' | 'razao' | 'balanco' | 'dr' | 'fluxo' | 'evolucao' | 'iva';
@@ -29,7 +29,7 @@ export const SEPARADORES_RELATORIOS: DefinicaoSeparadorRelatorio[] = [
 
 /** Rota do separador. */
 export function destinoSeparador(s: DefinicaoSeparadorRelatorio): string {
-  return `/m/contab/${s.ecra}${s.query ? `?separador=${s.query}` : ''}`;
+  return `/contab/${s.ecra}${s.query ? `?separador=${s.query}` : ''}`;
 }
 
 /** Separadores que o utilizador pode ver (permissão `{ecra}_view`). */

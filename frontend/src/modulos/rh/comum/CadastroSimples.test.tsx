@@ -64,7 +64,7 @@ beforeEach(() => {
   reporPreferenciasColunasLocal();
   obter.mockReset();
   obter.mockImplementation((url: string) => Promise.resolve(url === '/rh/teste' ? LINHAS : {}));
-  window.history.replaceState(null, '', '/m/rh/funcoes');
+  window.history.replaceState(null, '', '/rh/funcoes');
 });
 
 describe('CadastroSimples', { timeout: 30_000 }, () => {

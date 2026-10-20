@@ -1,6 +1,6 @@
 import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
 
-const BASE = '/m/pos';
+const BASE = '/pos';
 
 /**
  * Separadores do módulo POS pela ordem, rótulos e ícones do legado (renderPOS, js/ui_sales.js:134-145; separadores

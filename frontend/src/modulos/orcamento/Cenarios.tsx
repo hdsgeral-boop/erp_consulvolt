@@ -80,7 +80,7 @@ export default function Cenarios() {
       {!!lista.data?.length && (
         <div data-testid="grelha-cenarios" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 290px), 1fr))', gap: 12, marginBottom: 16 }}>
           {lista.data.map((c) => (
-            <CartaoCenario key={c.id} id={c.id} editar={editar} podeVersao={editar && pode('orc_editar')} aoGerar={(oid) => navegar(`/m/orcamento/orc_orcamentos/${oid}`)} />
+            <CartaoCenario key={c.id} id={c.id} editar={editar} podeVersao={editar && pode('orc_editar')} aoGerar={(oid) => navegar(`/orcamento/orc_orcamentos/${oid}`)} />
           ))}
         </div>
       )}

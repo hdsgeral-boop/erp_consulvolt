@@ -6,7 +6,7 @@ import { Recibos } from './recibos/Recibos';
 import { FaturacaoEletronica } from './agt/FaturacaoEletronica';
 import SeriesNumeracao from './series/SeriesNumeracao';
 
-const BASE = '/m/vendas/vendas_faturacao';
+const BASE = '/vendas/vendas_faturacao';
 
 export type SeparadorFaturacao = 'orcamentos' | 'encomendas' | 'documentos' | 'guias' | 'recibos' | 'agt' | 'series';
 

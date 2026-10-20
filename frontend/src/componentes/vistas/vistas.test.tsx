@@ -81,7 +81,7 @@ beforeEach(() => {
     servidor = [...servidor.filter((p) => p.nome !== nome), { nome, valor: corpo.valor }];
     return { dados: null, mensagem: 'ok' };
   });
-  window.history.replaceState(null, '', '/m/vendas/vendas_clientes');
+  window.history.replaceState(null, '', '/vendas/vendas_clientes');
 });
 
 afterEach(() => simularLargura(null));
@@ -151,14 +151,14 @@ describe('TabelaComModos', { timeout: 30_000 }, () => {
     const [metodo, url, corpo] = enviar.mock.calls[0];
     expect(metodo).toBe('put');
     expect(url).toBe(`/sistema/preferencias/interface/${NOME_PREFERENCIA_VISTAS}`);
-    expect(corpo).toEqual({ valor: { ecras: { '/m/vendas/vendas_clientes': 'grade' } } });
+    expect(corpo).toEqual({ valor: { ecras: { '/vendas/vendas_clientes': 'grade' } } });
     const local = JSON.parse(window.localStorage.getItem(CHAVE_LOCAL_VISTAS) ?? '{}');
-    expect(local.valor.ecras['/m/vendas/vendas_clientes']).toBe('grade');
+    expect(local.valor.ecras['/vendas/vendas_clientes']).toBe('grade');
     await waitFor(() => expect(JSON.parse(window.localStorage.getItem(CHAVE_LOCAL_VISTAS) ?? '{}').pendente).toBe(false), { timeout: 10_000 });
   });
 
   it('lê a preferência do servidor (escolha do ecrã e omissão global)', async () => {
-    servidor = [{ nome: NOME_PREFERENCIA_VISTAS, valor: { omissao: 'grade', ecras: { '/m/outro': 'linhas' } } }];
+    servidor = [{ nome: NOME_PREFERENCIA_VISTAS, valor: { omissao: 'grade', ecras: { '/outro': 'linhas' } } }];
     comCliente(<TabelaComModos<Cliente> rowKey="id" columns={colunas} dataSource={linhas} />);
     expect(await screen.findByRole('listitem', { name: 'Alfa, Lda' }, { timeout: 10_000 })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Vista em grade' })).toHaveAttribute('aria-pressed', 'true');
@@ -167,14 +167,14 @@ describe('TabelaComModos', { timeout: 30_000 }, () => {
   it('sem servidor (offline) usa e mantém a escolha do navegador', async () => {
     obter.mockRejectedValue(new Error('Network Error'));
     enviar.mockRejectedValue(new Error('Network Error'));
-    window.localStorage.setItem(CHAVE_LOCAL_VISTAS, JSON.stringify({ valor: { ecras: { '/m/vendas/vendas_clientes': 'grade' } }, pendente: true }));
+    window.localStorage.setItem(CHAVE_LOCAL_VISTAS, JSON.stringify({ valor: { ecras: { '/vendas/vendas_clientes': 'grade' } }, pendente: true }));
     // o estado local é lido no arranque; simula-se um novo carregamento da página
     recarregarPreferenciasVistaLocal();
     comCliente(<TabelaComModos<Cliente> rowKey="id" columns={colunas} dataSource={linhas} />);
     expect(await screen.findByRole('listitem', { name: 'Alfa, Lda' }, { timeout: 10_000 })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Vista em linhas' }));
     await waitFor(() => expect(screen.getByRole('table')).toBeInTheDocument(), { timeout: 10_000 });
-    expect(JSON.parse(window.localStorage.getItem(CHAVE_LOCAL_VISTAS) ?? '{}')).toEqual({ valor: { ecras: { '/m/vendas/vendas_clientes': 'linhas' } }, pendente: true });
+    expect(JSON.parse(window.localStorage.getItem(CHAVE_LOCAL_VISTAS) ?? '{}')).toEqual({ valor: { ecras: { '/vendas/vendas_clientes': 'linhas' } }, pendente: true });
   });
 
   it('em telemóvel a omissão é a grade', async () => {

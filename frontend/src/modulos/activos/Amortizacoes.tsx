@@ -64,7 +64,7 @@ export default function Amortizacoes() {
   const colunas: ColunaApi<LinhaPeriodo>[] = [
     {
       title: 'Nº Inventário', dataIndex: 'codigo', fixed: 'left', valorImpressao: (l) => l.codigo ?? '',
-      render: (v, l) => <Link to={`/m/activos/activos/${l.ativo_imobilizado_id}`}><Button size="small" style={{ fontWeight: 700 }}>{v ?? '—'}</Button></Link>,
+      render: (v, l) => <Link to={`/activos/activos/${l.ativo_imobilizado_id}`}><Button size="small" style={{ fontWeight: 700 }}>{v ?? '—'}</Button></Link>,
     },
     { title: 'Descrição', dataIndex: 'descricao', ellipsis: true, width: 260 },
     { title: 'Data Aquisição', dataIndex: 'data_aquisicao', render: (v) => (v ? formatarData(v) : '—') },

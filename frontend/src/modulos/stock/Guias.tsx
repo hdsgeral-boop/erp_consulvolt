@@ -107,7 +107,7 @@ function ListaGuias() {
           accoes={(g) => {
             // guia de remessa das Vendas emitida aqui (ADR-043): consulta-se, contabiliza-se e anula-se nas Vendas
             if (g.origem === 'GR')
-              return [{ icone: 'external-link-alt', titulo: 'Abrir a guia de remessa nas Vendas', oculto: !pode('vendas_faturacao_view'), onClick: () => navegar(`/m/vendas/vendas_faturacao/${g.venda_id}`) }];
+              return [{ icone: 'external-link-alt', titulo: 'Abrir a guia de remessa nas Vendas', oculto: !pode('vendas_faturacao_view'), onClick: () => navegar(`/vendas/vendas_faturacao/${g.venda_id}`) }];
             const a = accoesGuia(g, pode);
             const gerida = guiaGerida(g);
             const anulada = g.estado === 'ANULADA';
@@ -142,7 +142,7 @@ function ListaGuias() {
           filtroPersonalizado={false}
           onRow={(r) =>
             r.origem === 'GR'
-              ? pode('vendas_faturacao_view') ? { onClick: () => navegar(`/m/vendas/vendas_faturacao/${r.venda_id}`), style: { cursor: 'pointer' } } : {}
+              ? pode('vendas_faturacao_view') ? { onClick: () => navegar(`/vendas/vendas_faturacao/${r.venda_id}`), style: { cursor: 'pointer' } } : {}
               : { onClick: () => navegar(String(r.id)), style: { cursor: 'pointer' } }
           }
         />

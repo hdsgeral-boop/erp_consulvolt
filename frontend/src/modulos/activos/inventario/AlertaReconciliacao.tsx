@@ -29,7 +29,7 @@ export function AlertaReconciliacao() {
   });
   const total = q.data?.total_por_inventariar;
   if (!visivel || !haDiferenca(total)) return null;
-  const abrir = () => navegar('/m/activos/activos_pendentes');
+  const abrir = () => navegar('/activos/activos_pendentes');
   return (
     <div
       role="link"

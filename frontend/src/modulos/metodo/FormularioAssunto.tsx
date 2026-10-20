@@ -343,7 +343,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
               )}
               {a?.projeto && (
                 <Alert type="info" style={{ marginBottom: 8 }} message={<span><IconeFa nome="hard-hat" /> Projecto de resolução <strong>{a.projeto.codigo}</strong> — {a.projeto.nome} ({a.projeto.estado}){' '}
-                  <Button type="link" size="small" onClick={() => navegar(`/m/projectos/projectos_carteira/${a.projeto?.id}`)}>abrir o projecto</Button></span>} />
+                  <Button type="link" size="small" onClick={() => navegar(`/projectos/projectos_carteira/${a.projeto?.id}`)}>abrir o projecto</Button></span>} />
               )}
               <Form.Item name="gerar_pedido_compra" valuePropName="checked" style={{ marginBottom: 4 }}><Checkbox disabled={so || !rascunho}>Gerar pedido de compra</Checkbox></Form.Item>
               <Typography.Text type={gerarPc && !temFornecedor ? 'danger' : 'secondary'} style={{ fontSize: 12 }}>
@@ -374,7 +374,7 @@ export function FormularioAssunto({ id, aoFechar, aoCriar }: { id: number | 'nov
                 </div>
               )}
               {a?.pedido_compra && <div style={{ marginTop: 8, fontSize: 13 }}><strong>Pedido de compra {a.pedido_compra.numero}</strong> ({a.pedido_compra.estado}){' '}
-                <Button type="link" size="small" onClick={() => navegar('/m/compras/compras_pedidos')}>abrir em Compras</Button></div>}
+                <Button type="link" size="small" onClick={() => navegar('/compras/compras_pedidos')}>abrir em Compras</Button></div>}
 
               <div style={{ marginTop: 12 }}>
                 <Typography.Text strong style={{ fontSize: 13 }}>Anexos <Typography.Text type="secondary" style={{ fontWeight: 400 }}>(orçamentos, facturas, propostas — por endereço)</Typography.Text></Typography.Text>

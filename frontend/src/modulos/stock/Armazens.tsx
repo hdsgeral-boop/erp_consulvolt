@@ -102,7 +102,7 @@ export default function Armazens() {
           filtrosColuna={false}
           filtroPersonalizado={false}
           accoes={(r) => [
-            { icone: 'boxes', titulo: 'Ver Stock Detalhado', texto: 'Ver Stock', oculto: !pode('armazem_stock_view'), onClick: () => navegar(`/m/stock/armazem_stock?armazem=${r.id}`) },
+            { icone: 'boxes', titulo: 'Ver Stock Detalhado', texto: 'Ver Stock', oculto: !pode('armazem_stock_view'), onClick: () => navegar(`/stock/armazem_stock?armazem=${r.id}`) },
             { icone: 'edit', titulo: 'Editar Armazém', oculto: !podeGerir, onClick: () => setEdicao(r) },
             {
               icone: 'trash',

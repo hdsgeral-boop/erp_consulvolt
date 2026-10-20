@@ -22,7 +22,7 @@ const kzOuHifen = (v: string | number | null | undefined) => valorOuHifen(v, for
 /**
  * Activos › Mapa de Amortizações (ecrã activos_mapa; renderAmortizationMap do legado): cartão «Mapa de Amortizações - Ano N»
  * com «Filtrar por Ano», Extrair e Exportar; colunas e cabeçalho em duas linhas («Meses do Ano N» sobre Jan…Dez) do antigo.
- * O «Mapa Fiscal» é um separador próprio do agregador (/m/activos/activos_mapa/fiscal).
+ * O «Mapa Fiscal» é um separador próprio do agregador (/activos/activos_mapa/fiscal).
  */
 export default function Mapa() {
   const { pode } = useSessao();

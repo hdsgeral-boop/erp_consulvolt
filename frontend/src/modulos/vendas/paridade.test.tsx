@@ -21,15 +21,15 @@ describe('agregador «Gestão de Vendas» (4.0.1)', () => {
     expect(SEPARADORES_VENDAS.map((s) => s.rotulo)).toEqual(['Dashboard', 'Clientes', 'Categorias', 'Produtos/Serviços', 'Faturação', 'Séries', 'Exportar SAFT-AO', 'Facturação electrónica']);
   });
   it('identifica o separador e o subseparador activos', () => {
-    expect(separadorVendas('/m/vendas/vendas_relatorios/saft')).toBe('saft');
-    expect(separadorVendas('/m/vendas/vendas_relatorios')).toBe('dashboard');
-    expect(separadorVendas('/m/vendas/vendas_produtos', '?separador=categorias')).toBe('categorias');
-    expect(separadorVendas('/m/vendas/vendas_faturacao/agt')).toBe('fe');
-    expect(separadorVendas('/m/vendas/vendas_faturacao/series')).toBe('series');
-    expect(subseparadorFaturacao('/m/vendas/vendas_faturacao/series')).toBeNull();
-    expect(subseparadorFaturacao('/m/vendas/vendas_faturacao')).toBe('faturas');
-    expect(subseparadorFaturacao('/m/vendas/vendas_faturacao/guias')).toBe('guias');
-    expect(subseparadorFaturacao('/m/vendas/vendas_faturacao/123')).toBeNull();
+    expect(separadorVendas('/vendas/vendas_relatorios/saft')).toBe('saft');
+    expect(separadorVendas('/vendas/vendas_relatorios')).toBe('dashboard');
+    expect(separadorVendas('/vendas/vendas_produtos', '?separador=categorias')).toBe('categorias');
+    expect(separadorVendas('/vendas/vendas_faturacao/agt')).toBe('fe');
+    expect(separadorVendas('/vendas/vendas_faturacao/series')).toBe('series');
+    expect(subseparadorFaturacao('/vendas/vendas_faturacao/series')).toBeNull();
+    expect(subseparadorFaturacao('/vendas/vendas_faturacao')).toBe('faturas');
+    expect(subseparadorFaturacao('/vendas/vendas_faturacao/guias')).toBe('guias');
+    expect(subseparadorFaturacao('/vendas/vendas_faturacao/123')).toBeNull();
   });
 });
 

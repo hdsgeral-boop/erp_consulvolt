@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { UTILIZADOR, api, entrarComo } from './apoio';
 
 /**
- * Abre TODOS os ecrãs do menu do administrador (/m/{modulo}/{ecra}) e confirma que nenhum mostra «Sem acesso»,
+ * Abre TODOS os ecrãs do menu do administrador (/{modulo}/{ecra}) e confirma que nenhum mostra «Sem acesso»,
  * notificação de erro, erro na consola do navegador, excepção ou resposta 4xx/5xx da API ao carregar.
  * Os ecrãs vêm do catálogo de permissões (o mesmo que o GET /api/sistema/menu usa); o primeiro teste confirma
  * que o menu devolvido pela API ao administrador coincide com o catálogo.
@@ -51,7 +51,7 @@ test('o menu do administrador (GET /api/sistema/menu) tem todos os ecrãs do cat
 for (const e of ECRAS) {
   test(`ecrã ${e.modulo}/${e.id} — ${e.nome}`, async () => {
     problemas = [];
-    await pagina.goto(`/m/${e.modulo}/${e.id}`);
+    await pagina.goto(`/${e.modulo}/${e.id}`);
     await pagina.waitForLoadState('networkidle');
     await pagina.waitForTimeout(400);
     await pagina.waitForLoadState('networkidle');
@@ -67,6 +67,6 @@ for (const e of ECRAS) {
     ];
     // fecha notificações para não passarem ao ecrã seguinte
     await pagina.evaluate(() => document.querySelectorAll('.ant-notification-notice-close').forEach((b) => (b as HTMLElement).click()));
-    expect(motivos, `ecrã /m/${e.modulo}/${e.id}`).toEqual([]);
+    expect(motivos, `ecrã /${e.modulo}/${e.id}`).toEqual([]);
   });
 }

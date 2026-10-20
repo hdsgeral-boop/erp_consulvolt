@@ -414,7 +414,7 @@ function ResultadosDias({ resultado, colunas }: { resultado: ResultadoCalculo; c
   const podeAbrir = menu.some((m) => m.id === 'contab' && m.ecras.some((e) => e.id === 'lancamentos')) && pode('lancamentos_post');
   const titulos = useMemo(() => (colunas?.length === 6 ? colunas : ['Conta', 'D/C', 'Valor', 'Nota demo', 'Nota fluxo', 'Descrição']), [colunas]);
   const [confirmar, setConfirmar] = useState<ResultadoDia | null>(null);
-  const seguir = (d: ResultadoDia) => d.proposta && navegar('/m/contab/lancamentos/novo', { state: propostaParaFormulario({ ...d.proposta, origem: 'REGRAS' }) });
+  const seguir = (d: ResultadoDia) => d.proposta && navegar('/contab/lancamentos/novo', { state: propostaParaFormulario({ ...d.proposta, origem: 'REGRAS' }) });
   // validações da regra por cumprir: pede confirmação antes de abrir o formulário (como o legado)
   const abrir = (d: ResultadoDia) => (validacoesFalhadas(d) ? setConfirmar(d) : seguir(d));
   return (

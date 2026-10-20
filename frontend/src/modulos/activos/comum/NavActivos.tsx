@@ -14,7 +14,7 @@ export interface SeccaoActivos {
 /**
  * Separadores do legado «Gestão de Activos Imobilizados» (renderAssets, js/ui_assets.js:38-48), pela mesma ordem, rótulos e
  * ícones. O «Mapa Fiscal» não tem ecrã próprio no catálogo de permissões: no legado partilha a permissão `activos_mapa`
- * («Mapa Fiscal de Amortizações», app_v2.js:3306), por isso vive em /m/activos/activos_mapa/fiscal.
+ * («Mapa Fiscal de Amortizações», app_v2.js:3306), por isso vive em /activos/activos_mapa/fiscal.
  */
 export const SECCOES_ACTIVOS: SeccaoActivos[] = [
   { id: 'activos', rotulo: 'Inventário de Activos', icone: 'list', ecra: 'activos' },
@@ -31,7 +31,7 @@ export const SECCOES_ACTIVOS: SeccaoActivos[] = [
 
 /** Destino de uma secção. */
 export function destinoSeccao(s: SeccaoActivos): string {
-  return `/m/activos/${s.ecra}${s.caminho ? `/${s.caminho}` : ''}`;
+  return `/activos/${s.ecra}${s.caminho ? `/${s.caminho}` : ''}`;
 }
 
 /** Secções visíveis com os ecrãs do menu do servidor que o utilizador pode ver. */

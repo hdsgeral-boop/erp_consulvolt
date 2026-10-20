@@ -38,7 +38,7 @@ export default function Abates() {
     {
       title: 'Nº Inventário', key: 'inv', valorImpressao: (r) => r.ativo_imobilizado?.codigo ?? '---',
       render: (_, r) => (
-        <Link to={`/m/activos/activos/${r.ativo_imobilizado_id}`}>
+        <Link to={`/activos/activos/${r.ativo_imobilizado_id}`}>
           <Button size="small" style={{ fontWeight: 700, color: 'var(--ant-color-primary, #2563eb)' }}>{r.ativo_imobilizado?.codigo ?? '---'}</Button>
         </Link>
       ),

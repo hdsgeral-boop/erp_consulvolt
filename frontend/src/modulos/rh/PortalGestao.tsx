@@ -46,7 +46,7 @@ export default function PortalGestao() {
   return (
     <>
       <CabecalhoPagina titulo="Pedidos do Portal do Colaborador" subtitulo="Decisões do RH sobre férias, documentos e agregado familiar; autoavaliações submetidas; avaliação anónima das chefias; ligação dos utilizadores às fichas."
-        accoes={pode('rh_portal_usar') && <Button icon={<IconeFa nome="id-badge" />} onClick={() => navegar('/m/rh/rh_portal')}>Abrir o meu portal</Button>} />
+        accoes={pode('rh_portal_usar') && <Button icon={<IconeFa nome="id-badge" />} onClick={() => navegar('/rh/rh_portal')}>Abrir o meu portal</Button>} />
       <Tabs type="card" activeKey={sep} onChange={setSep} items={[
         // separadores do antigo (portal_ui.js:833), com os ícones
         { key: 'pedidos', label: <span><IconeFa nome="inbox" /> Pedidos</span>, children: <Pedidos /> },

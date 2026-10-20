@@ -224,7 +224,7 @@ export const obterOrigem = (id: number) => obter<RespostaOrigem>(`/contabilidade
 /** Destino no frontend do documento de origem (o n.º do documento vai como pesquisa; nunca dados pessoais). */
 export function destinoOrigem(o: OrigemModulo): string | null {
   if (o.modulo === 'contab' && o.ecra === 'lancamentos') return null;
-  return `/m/${o.modulo}/${o.ecra}${o.numero ? `?pesquisa=${encodeURIComponent(o.numero)}` : ''}`;
+  return `/${o.modulo}/${o.ecra}${o.numero ? `?pesquisa=${encodeURIComponent(o.numero)}` : ''}`;
 }
 
 /** Abre o documento de origem (legado goToSourceDocument): ecrã do módulo, ou o URL do documento externo. */
@@ -311,7 +311,7 @@ export function ModalFluxoLancamento({ linhaId, aoFechar, aoDescontabilizar }: {
                 icon={<IconeFa nome="eye" />}
                 onClick={() => {
                   aoFechar();
-                  navegar(`/m/contab/lancamentos/${linhaId}`);
+                  navegar(`/contab/lancamentos/${linhaId}`);
                 }}
               >
                 Abrir lançamento

@@ -148,8 +148,8 @@ function EstadoEnvio() {
                   tabIndex={0}
                   title={`Ver os documentos: ${r.rotulo.toLowerCase()}`}
                   style={{ cursor: 'pointer' }}
-                  onClick={() => navegar(`/m/vendas/vendas_faturacao?estado_fe=${r.chave}`)}
-                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navegar(`/m/vendas/vendas_faturacao?estado_fe=${r.chave}`)}
+                  onClick={() => navegar(`/vendas/vendas_faturacao?estado_fe=${r.chave}`)}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navegar(`/vendas/vendas_faturacao?estado_fe=${r.chave}`)}
                 />
               );
             })}
@@ -608,13 +608,13 @@ function DocumentosComErros() {
             { title: 'Data', dataIndex: 'data_emissao', render: formatarData },
             { title: 'Total', dataIndex: 'total_bruto', align: 'right', render: (v: string) => formatarKz(v) },
             { title: 'Erros', key: 'erros', render: (_, d) => texto(d) },
-            { title: '', key: 'ver', render: (_, d) => <Button size="small" icon={<IconeFa nome="file-code" />} onClick={() => navegar(`/m/vendas/vendas_faturacao/${d.id}`)}>Ver</Button> },
+            { title: '', key: 'ver', render: (_, d) => <Button size="small" icon={<IconeFa nome="file-code" />} onClick={() => navegar(`/vendas/vendas_faturacao/${d.id}`)}>Ver</Button> },
           ]}
         />
       )}
       <Space wrap style={{ marginTop: 12 }}>
         {['INVALIDO', 'REJEITADO', 'ERRO'].map((e) => (
-          <Button key={e} size="small" type="link" onClick={() => navegar(`/m/vendas/vendas_faturacao?estado_fe=${e}`)}>
+          <Button key={e} size="small" type="link" onClick={() => navegar(`/vendas/vendas_faturacao?estado_fe=${e}`)}>
             Ver documentos: {RESUMO.find((r) => r.chave === e)?.rotulo.toLowerCase()}
           </Button>
         ))}
