@@ -65,7 +65,7 @@ beforeEach(() => {
   enviar.mockReset();
   obter.mockResolvedValue([]);
   enviar.mockResolvedValue({ dados: null, mensagem: 'ok' });
-  window.history.replaceState(null, '', '/m/stock/armazem_stock');
+  window.history.replaceState(null, '', '/stock/armazem_stock');
 });
 
 describe('filtros (lógica do antigo: tabelas_padrao.js)', () => {
@@ -145,7 +145,7 @@ describe('TabelaComModos com o padrão das listas do antigo', () => {
     fireEvent.click(within(grupo).getByRole('checkbox', { name: 'Armazém' }));
     await waitFor(() => expect(screen.queryByRole('columnheader', { name: /Armazém/ })).toBeNull());
     const guardado = JSON.parse(window.localStorage.getItem(CHAVE_LOCAL_COLUNAS) ?? '{}') as Record<string, { ocultas: string[] }>;
-    expect(guardado['/m/stock/armazem_stock'].ocultas).toEqual(['armazem']);
+    expect(guardado['/stock/armazem_stock'].ocultas).toEqual(['armazem']);
     await waitFor(() => expect(enviar).toHaveBeenCalledWith('put', '/sistema/preferencias/interface/colunas_listas', expect.anything()));
   }, 60_000);
 

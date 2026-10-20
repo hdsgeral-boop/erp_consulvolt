@@ -26,7 +26,7 @@ export function App() {
         <Route path="portal/*" element={<PortalAutonomo />} />
         <Route element={<LayoutPrincipal />}>
           <Route index element={<Inicio />} />
-          <Route path="m/:modulo/:ecra/*" element={<Ecra />} />
+          <Route path=":modulo/:ecra/*" element={<Ecra />} />
           <Route path="dados-pessoais" element={<DadosPessoais />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

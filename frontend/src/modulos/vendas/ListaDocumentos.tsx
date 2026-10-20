@@ -17,7 +17,7 @@ import { accoesLinhaDocumento } from './accoesLinhaDocumento';
 import { ModalFluxoProcesso } from './ModalFluxoProcesso';
 import { useImprimirDocumentoVenda } from './impressao/useImprimirDocumentoVenda';
 
-const BASE = '/m/vendas/vendas_faturacao';
+const BASE = '/vendas/vendas_faturacao';
 
 export type GrupoDocumentos = 'faturas' | 'orcamentos' | 'encomendas' | 'guias';
 

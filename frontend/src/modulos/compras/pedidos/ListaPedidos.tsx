@@ -112,7 +112,7 @@ export function ListaPedidos() {
               ver: () => navegar(String(r.id)),
               fluxo: () => setFluxo({ tipo: 'pedido', id: r.id }),
               imprimir: () => imprimir.pedido(r.id),
-              proposta: () => navegar(`/m/compras/compras_prospeccao/novo?pedido=${r.id}`),
+              proposta: () => navegar(`/compras/compras_prospeccao/novo?pedido=${r.id}`),
               apagar: () => setMotivo({ pedido: r, tipo: 'anular' }),
               deliberacao: () => setDeliberacao(r),
               aprovar: () => accao.mutateAsync({ url: `/compras/pedidos/${r.id}/decidir`, dados: { decisao: 'APROVAR' } }),

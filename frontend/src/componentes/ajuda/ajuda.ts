@@ -38,7 +38,7 @@ export interface AjudaLocalizada {
   outros: { id: string; titulo: string }[];
 }
 
-/** Ajuda do ecrã do caminho actual (/m/{modulo}/{ecra}/… ou o Início). */
+/** Ajuda do ecrã do caminho actual (/{modulo}/{ecra}/… ou o Início). */
 export function localizarAjuda(caminho: string, menu: ModuloMenu[]): AjudaLocalizada {
   const [, prefixo, moduloId, ecraId] = caminho.split('/');
   if (prefixo !== 'm' || !moduloId || !ecraId) return montar('inicio', 'geral', menu, 'Início');

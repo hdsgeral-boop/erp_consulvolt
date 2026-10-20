@@ -120,7 +120,7 @@ export function DetalheConta({ pedido, aoFechar }: { pedido: PedidoDetalheConta 
             <Button
               size="small"
               icon={<IconeFa nome="file-invoice-dollar" />}
-              onClick={() => navegar('/m/contab/contab_mapa_extrato', { state: { extrato: { conta: pedido?.conta, terceiroId: pedido?.terceiroId, inicio: pedido?.inicio, fim: pedido?.fim } } })}
+              onClick={() => navegar('/contab/contab_mapa_extrato', { state: { extrato: { conta: pedido?.conta, terceiroId: pedido?.terceiroId, inicio: pedido?.inicio, fim: pedido?.fim } } })}
             >
               Abrir no Extrato
             </Button>

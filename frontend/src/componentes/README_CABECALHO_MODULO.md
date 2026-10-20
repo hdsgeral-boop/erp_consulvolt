@@ -4,7 +4,7 @@
 verificação visual): título grande com o ícone do módulo (`h2.view-title`), subtítulo, indicadores à direita, botão
 **«⛶ Ecrã Cheio»** opcional, barra opcional de acções rápidas e os **separadores em forma de botão** (`.tab-btn`: activo azul
 cheio, restantes brancos com contorno, ícone à esquerda, contador opcional, quebra em várias linhas). Cada separador é um
-ecrã com rota própria `/m/{modulo}/{ecra}`: o componente navega entre rotas, não esconde conteúdo.
+ecrã com rota própria `/{modulo}/{ecra}`: o componente navega entre rotas, não esconde conteúdo.
 
 Exemplo aplicado: `src/modulos/compras/comum/BarraCompras.tsx` (Compras).
 
@@ -24,8 +24,8 @@ import { CabecalhoModulo } from '@/componentes/CabecalhoModulo';
   ecraCheio                                  // true = área de conteúdo; ou () => elemento
   accoesRapidas={<Button type="primary">Novo Pedido</Button>}
   separadores={[
-    { chave: 'dashboard', rotulo: 'Dashboard', icone: 'chart-line', destino: '/m/vendas/vendas_relatorios', permissao: 'vendas_relatorios_view' },
-    { chave: 'clientes', rotulo: 'Clientes', icone: 'users', destino: '/m/vendas/vendas_clientes', permissao: 'vendas_clientes_view', contador: 3 },
+    { chave: 'dashboard', rotulo: 'Dashboard', icone: 'chart-line', destino: '/vendas/vendas_relatorios', permissao: 'vendas_relatorios_view' },
+    { chave: 'clientes', rotulo: 'Clientes', icone: 'users', destino: '/vendas/vendas_clientes', permissao: 'vendas_clientes_view', contador: 3 },
   ]}
 />
 ```
@@ -53,8 +53,8 @@ ponha-o por cima de cada ecrã em `ecras.ts` (ver `comBarra` em `src/modulos/com
 
 - **Permissões**: `permissao` (texto ou lista; basta uma) usa `pode()` da sessão — o separador some se o perfil não tiver
   acesso. O servidor continua a validar cada pedido.
-- **Activo**: por omissão é activo o separador cujo `destino` é prefixo do caminho actual (`/m/compras/compras_encomendas`
-  não confunde com `/m/compras/compras_encomendas_clientes`). Se o `destino` tiver query string (ex.: `?tipo=PAGAMENTO`),
+- **Activo**: por omissão é activo o separador cujo `destino` é prefixo do caminho actual (`/compras/compras_encomendas`
+  não confunde com `/compras/compras_encomendas_clientes`). Se o `destino` tiver query string (ex.: `?tipo=PAGAMENTO`),
   os parâmetros também têm de coincidir. Use `activo` (no cabeçalho) ou `activo` (no separador) para casos especiais.
 - **Navegação**: são ligações `<a href>` (papel *link*, abrem noutro separador do navegador com Ctrl/clique do meio) e
   navegam com o React Router; não usam `role="button"`, para não colidirem com os botões dos ecrãs nos testes E2E.

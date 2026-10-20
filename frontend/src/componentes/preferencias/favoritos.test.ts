@@ -7,7 +7,7 @@ const MENU: ModuloMenu[] = [{ id: 'config', nome: 'Configurações', ecras: [{ i
 describe('favoritos — rótulo próprio (renomear favorito, Versão Actual)', () => {
   it('mostra o rótulo próprio e guarda o nome original do ecrã', () => {
     const [f] = resolverFavoritos([{ modulo: 'config', ecra: 'config_geral', rotulo: 'Cópias' }], MENU);
-    expect(f).toMatchObject({ nome: 'Cópias', rotulo: 'Cópias', rota: '/m/config/config_geral' });
+    expect(f).toMatchObject({ nome: 'Cópias', rotulo: 'Cópias', rota: '/config/config_geral' });
     expect(nomeOriginalFavorito('config', 'config_geral', MENU)).toBe('Geral / Backup');
     expect(resolverFavoritos([{ modulo: 'config', ecra: 'config_geral' }], MENU)[0].nome).toBe('Geral / Backup');
   });

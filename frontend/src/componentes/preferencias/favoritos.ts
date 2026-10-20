@@ -46,7 +46,7 @@ export function resolverFavoritos(favoritos: Favorito[], menu: ModuloMenu[]): Fa
     const m = menu.find((x) => x.id === f.modulo);
     const e: EcraMenu | undefined = m?.ecras.find((x) => x.id === f.ecra);
     if (!m || !e) return [];
-    return [{ ...f, nome: normalizarRotulo(f.rotulo) ?? rotuloEcra(m.id, e.id, e.nome), nomeModulo: nomeModulo(m.id, m.nome), rota: `/m/${m.id}/${e.id}` }];
+    return [{ ...f, nome: normalizarRotulo(f.rotulo) ?? rotuloEcra(m.id, e.id, e.nome), nomeModulo: nomeModulo(m.id, m.nome), rota: `/${m.id}/${e.id}` }];
   });
 }
 

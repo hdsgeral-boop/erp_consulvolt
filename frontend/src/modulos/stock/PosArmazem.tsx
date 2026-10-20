@@ -22,7 +22,7 @@ import { larguraModal, scrollTabela } from '@/componentes/responsivo';
 import { Balcao } from './posArmazem/Balcao';
 import { Senhas } from './posArmazem/Senhas';
 
-const ROTA = '/m/stock/pos_armazem';
+const ROTA = '/stock/pos_armazem';
 const SEPARADORES = ['balcao', 'picking', 'senhas', 'vendas'] as const;
 type Separador = (typeof SEPARADORES)[number];
 
@@ -64,7 +64,7 @@ export default function PosArmazem() {
         <h3>Nenhum Armazém Configurado</h3>
         <Typography.Paragraph type="secondary">Por favor, configure pelo menos um Armazém antes de aceder ao POS.</Typography.Paragraph>
         {pode('armazem_armazens_view') && (
-          <Button type="primary" style={{ marginTop: '1rem' }} onClick={() => navegar('/m/stock/armazem_armazens')}>
+          <Button type="primary" style={{ marginTop: '1rem' }} onClick={() => navegar('/stock/armazem_armazens')}>
             Configurar Armazens
           </Button>
         )}

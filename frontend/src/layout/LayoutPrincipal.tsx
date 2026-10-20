@@ -266,7 +266,7 @@ function Estrutura() {
   const itensGrupos = useMemo(() => itens.filter(temFilhos), [itens]);
   const { seleccionado, abertos } = useMemo(() => estadoMenu(local.pathname, local.search, lateral, menu), [local.pathname, local.search, lateral, menu]);
   const [, , moduloActual, ecraActual] = local.pathname.split('/');
-  const noEcra = local.pathname.startsWith('/m/') && !!moduloActual && !!ecraActual;
+  const noEcra = local.pathname.startsWith('/') && !!moduloActual && !!ecraActual;
   const favoritoActual = noEcra && eFavorito(moduloActual, ecraActual);
 
   // grupos abertos: os do utilizador e, com o menu recolhido, os sub-menus flutuantes

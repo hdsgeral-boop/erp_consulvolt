@@ -333,7 +333,7 @@ function FichaConta({ id, aoFechar, aoEditar }: { id: number | null; aoFechar: (
                       rowKey="id"
                       dataSource={d.financeiro.documentos}
                       pagination={false}
-                      onRow={(v) => ({ onClick: () => navegar(`/m/vendas/vendas_faturacao/${v.id}`), style: { cursor: 'pointer' } })}
+                      onRow={(v) => ({ onClick: () => navegar(`/vendas/vendas_faturacao/${v.id}`), style: { cursor: 'pointer' } })}
                       columns={[
                         { title: 'Documento', dataIndex: 'doc' },
                         { title: 'Data', dataIndex: 'data', render: formatarData },

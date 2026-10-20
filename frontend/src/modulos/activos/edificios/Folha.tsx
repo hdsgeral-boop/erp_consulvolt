@@ -15,7 +15,7 @@ import { CSS_EDIFICIOS, htmlFolha } from './impressao';
 import { marcarTodosEncontrados, RESULTADOS } from './regras';
 import type { ComparacaoInventario, FolhaInventario, LinhaInventario, Resultado } from './tipos';
 
-const BASE = '/m/activos/activos_edificios';
+const BASE = '/activos/activos_edificios';
 
 function Cabecalho({ f, titulo, voltar }: { f: FolhaInventario; titulo: string; voltar: () => void }) {
   const i = f.inventario;

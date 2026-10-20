@@ -33,7 +33,7 @@ export function DetalheProposta() {
     invalidar: [['compras']],
     aoSucesso: (dados, pedido) => {
       setAdjudicar(false);
-      if (pedido.url.endsWith('/adjudicar') && dados?.id && pode('compras_encomendas_view')) navegar(`/m/compras/compras_encomendas/${dados.id}`);
+      if (pedido.url.endsWith('/adjudicar') && dados?.id && pode('compras_encomendas_view')) navegar(`/compras/compras_encomendas/${dados.id}`);
     },
     // a adjudicação cria a encomenda e passa pelo controlo orçamental (A-02)
     aoErro: (e, pedido) => {
@@ -99,7 +99,7 @@ export function DetalheProposta() {
       <Card style={{ marginBottom: 16 }}>
         <Descriptions column={COLUNAS_DESCRICOES} size="small">
           <Descriptions.Item label="Pedido">
-            {pode('compras_pedidos_view') ? <a onClick={() => navegar(`/m/compras/compras_pedidos/${c.pedido_compra_id}`)}>#{c.pedido_compra_id}</a> : `#${c.pedido_compra_id}`}
+            {pode('compras_pedidos_view') ? <a onClick={() => navegar(`/compras/compras_pedidos/${c.pedido_compra_id}`)}>#{c.pedido_compra_id}</a> : `#${c.pedido_compra_id}`}
           </Descriptions.Item>
           <Descriptions.Item label="Data">{formatarData(c.data)}</Descriptions.Item>
           <Descriptions.Item label="Estado"><EstadoTag estado={c.estado} /></Descriptions.Item>

@@ -49,7 +49,7 @@ describe('validações de dados (A-01)', () => {
     expect(ligacaoDaValidacao('folhas_salariais_vs_diario', ['periodo_id'])).toMatchObject({ modulo: 'rh', ecra: 'processamento' });
     expect(ligacaoDaValidacao('ad_periodos_sem_lancamento', ['periodo_id', 'item_id'])).toMatchObject({ ecra: 'ad_registos', coluna: 'item_id' });
     const l = ligacaoDaValidacao('ativos_sem_categoria_ou_contas', ['ativo_id']);
-    expect(rotaDaLinha(l, { ativo_id: 42 })).toBe('/m/activos/activos/42');
+    expect(rotaDaLinha(l, { ativo_id: 42 })).toBe('/activos/activos/42');
     expect(rotaDaLinha(l, { ativo_id: null })).toBeNull();
     expect(rotaDaLinha(null, { ativo_id: 42 })).toBeNull();
   });

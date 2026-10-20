@@ -17,7 +17,7 @@ const totalResumo = async (page: Page, rotulo: string) =>
 test('abrir o período salarial, importar dos contratos, calcular e ver os resultados', async ({ page }) => {
   const erros = vigiarErros(page);
   const api = await entrarComo(page, UTILIZADOR.rh);
-  await page.goto('/m/rh/calcular');
+  await page.goto('/rh/calcular');
   await page.getByRole('button', { name: 'Abrir período' }).click();
   await page.locator('.ant-modal').filter({ hasText: 'Abrir período salarial' }).getByRole('button', { name: 'Abrir' }).click();
   await expect(page).toHaveURL(/\/m\/rh\/calcular\/\d+$/);
@@ -62,7 +62,7 @@ for (const [ecra, titulo] of [
   test(`${titulo} abre com o período calculado`, async ({ page }) => {
     const erros = vigiarErros(page);
     await entrarComo(page, UTILIZADOR.rh);
-    await page.goto(`/m/rh/${ecra}`);
+    await page.goto(`/rh/${ecra}`);
     await expect(page.getByRole('heading', { name: titulo }).first()).toBeVisible();
     await page.waitForLoadState('networkidle');
     await expect(page.getByText('Colaboradora Demo Ana Fictícia').first()).toBeVisible();

@@ -79,14 +79,14 @@ export function MonitorAgt() {
   const { pode } = useSessao();
   const navegar = useNavigate();
   const consulta = useQuery({ queryKey: ['vendas', 'fe', 'monitor'], queryFn: () => obter<MonitorAgtDados>('/vendas/faturacao-eletronica/monitor'), refetchInterval: 60_000 });
-  const accao = useAccao<{ id: number; numero_documento: string }>({ invalidar: [['vendas']], aoSucesso: (d) => d?.id && navegar(`/m/vendas/vendas_faturacao/${d.id}`) });
+  const accao = useAccao<{ id: number; numero_documento: string }>({ invalidar: [['vendas']], aoSucesso: (d) => d?.id && navegar(`/vendas/vendas_faturacao/${d.id}`) });
   const [filtro, setFiltro] = useState<{ operacao?: string; sucesso?: boolean }>({});
   const [detalhe, setDetalhe] = useState<Comunicacao | null>(null);
   const m = consulta.data;
   const r = m?.resumo ?? {};
 
   const colunasDoc = (correccao: boolean) => [
-    { title: 'Documento', dataIndex: 'numero_documento', render: (v: string, l: LinhaMonitor) => <Button type="link" style={{ padding: 0, fontFamily: 'monospace' }} onClick={() => navegar(`/m/vendas/vendas_faturacao/${l.id}`)}>{v}</Button> },
+    { title: 'Documento', dataIndex: 'numero_documento', render: (v: string, l: LinhaMonitor) => <Button type="link" style={{ padding: 0, fontFamily: 'monospace' }} onClick={() => navegar(`/vendas/vendas_faturacao/${l.id}`)}>{v}</Button> },
     { title: 'Estado', dataIndex: 'estado', render: (e: string | null) => (e ? <Tag color={INFO_ESTADO_AGT[e]?.cor}>{INFO_ESTADO_AGT[e]?.rotulo ?? e}</Tag> : '—') },
     { title: 'Total', dataIndex: 'total_bruto', align: 'right' as const, responsive: ['md' as const], render: (v: string) => formatarKz(v) },
     { title: 'Há', dataIndex: 'horas', align: 'right' as const, render: (h: number | null) => (h === null ? '—' : <span style={{ fontWeight: h >= (m?.limite_horas ?? 20) ? 700 : undefined }}>{h} h</span>) },

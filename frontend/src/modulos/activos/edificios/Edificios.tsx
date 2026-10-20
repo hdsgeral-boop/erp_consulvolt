@@ -140,7 +140,7 @@ function Cartoes({ aoAbrirFolhas }: { aoAbrirFolhas: () => void }) {
                 <Space key="a" size={6} wrap style={{ padding: '0 12px', width: '100%', justifyContent: 'center' }}>
                   <Button type="primary" size="small" icon={<IconeFa nome="building" />} onClick={() => navegar(`planta/${e.id}`)}>Planta</Button>
                   {podeInventariar && <Button size="small" icon={<IconeFa nome="clipboard-list" />} onClick={() => setInventariar(e.id)}>Inventário</Button>}
-                  <Button size="small" title="Editar a ficha do activo" aria-label="Editar a ficha do activo" icon={<IconeFa nome="edit" />} onClick={() => navegar(`/m/activos/activos/${e.id}`)} />
+                  <Button size="small" title="Editar a ficha do activo" aria-label="Editar a ficha do activo" icon={<IconeFa nome="edit" />} onClick={() => navegar(`/activos/activos/${e.id}`)} />
                 </Space>,
               ]}>
               <Predio compacto nome={`${e.codigo ?? ''} ${e.descricao}`.trim()} pisos={e.pisos ?? []} maxPortas={14} alturaMaxima={250}

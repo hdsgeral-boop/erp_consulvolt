@@ -99,7 +99,7 @@ export async function entrarComo(page: Page, utilizador: string, empresa = EMPRE
 }
 
 export async function abrirEcra(page: Page, modulo: string, ecra: string, resto = ''): Promise<void> {
-  await page.goto(`/m/${modulo}/${ecra}${resto}`);
+  await page.goto(`/${modulo}/${ecra}${resto}`);
 }
 
 /** Abre um Select do Ant Design (pelo campo) e escolhe a opção com o texto indicado (pesquisa se o select o permitir). */

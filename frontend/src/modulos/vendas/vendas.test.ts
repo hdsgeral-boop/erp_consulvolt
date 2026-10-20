@@ -77,10 +77,10 @@ describe('produtos', () => {
 
 describe('navegação e ficheiros', () => {
   it('identifica o separador da facturação pelo caminho', () => {
-    expect(separadorFaturacao('/m/vendas/vendas_faturacao')).toBe('documentos');
-    expect(separadorFaturacao('/m/vendas/vendas_faturacao/recibos/5')).toBe('recibos');
-    expect(separadorFaturacao('/m/vendas/vendas_faturacao/agt')).toBe('agt');
-    expect(separadorFaturacao('/m/vendas/vendas_faturacao/123')).toBe('documentos');
+    expect(separadorFaturacao('/vendas/vendas_faturacao')).toBe('documentos');
+    expect(separadorFaturacao('/vendas/vendas_faturacao/recibos/5')).toBe('recibos');
+    expect(separadorFaturacao('/vendas/vendas_faturacao/agt')).toBe('agt');
+    expect(separadorFaturacao('/vendas/vendas_faturacao/123')).toBe('documentos');
   });
 
   it('lê o nome do ficheiro do Content-Disposition', () => {

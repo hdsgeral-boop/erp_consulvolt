@@ -15,7 +15,7 @@ const totalDoDetalhe = async (page: Page, rotulo: string) =>
   numeroPt(await page.locator('.ant-descriptions-bordered .ant-descriptions-row').filter({ hasText: rotulo }).locator('.ant-descriptions-item-content').innerText());
 
 async function novoDocumento(page: Page) {
-  await page.goto('/m/vendas/vendas_faturacao');
+  await page.goto('/vendas/vendas_faturacao');
   // como no legado: «+ Factura» (os outros tipos escolhem-se no próprio formulário)
   await page.getByRole('button', { name: /\+ Factura$/ }).click();
   await expect(page.getByText('Emitir Novo Documento de Venda')).toBeVisible();
@@ -117,7 +117,7 @@ test('nota de crédito (NC) parcial sobre a FT abate o pendente', async ({ page 
   expect(ft).toMatchObject({ estado: 'PARCIAL', valor_pendente: '6840.00' });
 
   // e a lista mostra os três documentos
-  await page.goto('/m/vendas/vendas_faturacao');
+  await page.goto('/vendas/vendas_faturacao');
   // como no legado, o tipo vem no n.º do documento (ex.: «FT A2026/1»)
   for (const tipo of ['FT', 'FR', 'NC']) await expect(page.locator('.ant-table-tbody td').filter({ hasText: new RegExp(`^${tipo} \\S+/\\d+$`) }).first()).toBeVisible();
   expect(erros).toEqual([]);

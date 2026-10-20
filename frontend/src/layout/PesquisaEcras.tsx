@@ -86,7 +86,7 @@ export function procurarEcras(menu: ModuloMenu[], termo: string, eFavorito: (m: 
   // rótulos do menu do legado (menuLegado.ts); a pesquisa também encontra pelo nome do catálogo e do módulo no catálogo
   const todos = menu.flatMap((m) =>
     m.ecras.map((e) => ({
-      modulo: m.id, ecra: e.id, nome: rotuloEcra(m.id, e.id, e.nome), nomeModulo: nomeModulo(m.id, m.nome), rota: `/m/${m.id}/${e.id}`, favorito: eFavorito(m.id, e.id),
+      modulo: m.id, ecra: e.id, nome: rotuloEcra(m.id, e.id, e.nome), nomeModulo: nomeModulo(m.id, m.nome), rota: `/${m.id}/${e.id}`, favorito: eFavorito(m.id, e.id),
       procura: normalizar(`${rotuloEcra(m.id, e.id, e.nome)} ${e.nome} ${nomeModulo(m.id, m.nome)} ${m.nome} ${e.id}`),
     })),
   );
@@ -158,7 +158,7 @@ export function prepararIndiceAccoes(indice: readonly EntradaIndicePesquisa[], m
       ecra: ecraId,
       nomeModulo: e.nomeModulo,
       nomeEcra: e.nomeEcra,
-      rota: `/m/${e.modulo}/${ecraId}${consulta ? `?${consulta}` : ''}`,
+      rota: `/${e.modulo}/${ecraId}${consulta ? `?${consulta}` : ''}`,
       permissoes: permissoes ? permissoes.split(';').map((g) => g.split('|').filter(Boolean)).filter((g) => g.length) : [],
       nomeNormal,
       procura: `${nomeNormal} ${e.procura}`,
@@ -213,7 +213,7 @@ export function procurarFuncoes(menu: ModuloMenu[], termo: string, o: OpcoesPesq
     if (!palavras.every((p) => texto.includes(p))) return;
     const favorito = o.eFavorito(f.modulo, f.ecra);
     const peso = (favorito ? 4 : 0) + (palavras.every((p) => nome.includes(p)) ? 2 : 0) + (nome.startsWith(palavras[0]) ? 1 : 0);
-    achados.push({ chave: f.chave, nome: f.rotulo, modulo: f.modulo, ecra: f.ecra, nomeModulo: ecra.nomeModulo, nomeEcra: ecra.nomeEcra, rota: `/m/${f.modulo}/${f.ecra}`, favorito, peso, ordem });
+    achados.push({ chave: f.chave, nome: f.rotulo, modulo: f.modulo, ecra: f.ecra, nomeModulo: ecra.nomeModulo, nomeEcra: ecra.nomeEcra, rota: `/${f.modulo}/${f.ecra}`, favorito, peso, ordem });
   });
   return achados
     .sort((a, b) => b.peso - a.peso || a.ordem - b.ordem)

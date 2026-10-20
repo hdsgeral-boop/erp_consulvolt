@@ -228,7 +228,7 @@ describe('#25b — origem «Método de Trabalho»', () => {
     expect(textoOrigem({ origem: 'METODO_TRABALHO', assunto_metodo_id: 7, assunto_metodo: { id: 7, numero: 'MT-2026/0007', titulo: 'Fuga de água', estado: 'EM_CURSO' } }))
       .toBe('Método de Trabalho — assunto MT-2026/0007');
     expect(textoOrigem({ origem: null, assunto_metodo_id: null, assunto_metodo: null })).toBeNull();
-    expect(ligacaoAssunto(7)).toBe('/m/metodo/mt_assuntos?assunto=7');
+    expect(ligacaoAssunto(7)).toBe('/metodo/mt_assuntos?assunto=7');
     expect(PERMISSOES_ASSUNTOS).toEqual(['mt_assuntos_view', 'mt_criar', 'mt_aprovar']);
   });
 });

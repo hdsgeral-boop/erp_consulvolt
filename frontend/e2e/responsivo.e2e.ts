@@ -43,7 +43,7 @@ test('telemóvel: barra com o logótipo e o nome da empresa; menu numa gaveta', 
 
 for (const e of ECRAS) {
   test(`375 px sem deslocação horizontal — ${e.modulo}/${e.id} (${e.nome})`, async () => {
-    await pagina.goto(`/m/${e.modulo}/${e.id}`);
+    await pagina.goto(`/${e.modulo}/${e.id}`);
     await pagina.waitForLoadState('networkidle');
     await pagina.waitForTimeout(300);
     const m = await pagina.evaluate(() => {
@@ -54,8 +54,8 @@ for (const e of ECRAS) {
         conteudo: c ? c.scrollWidth - c.clientWidth : 0,
       };
     });
-    expect(m.documento, `largura do documento em /m/${e.modulo}/${e.id}`).toBeLessThanOrEqual(m.janela + 1);
-    expect(m.conteudo, `excesso do conteúdo em /m/${e.modulo}/${e.id}`).toBeLessThanOrEqual(1);
+    expect(m.documento, `largura do documento em /${e.modulo}/${e.id}`).toBeLessThanOrEqual(m.janela + 1);
+    expect(m.conteudo, `excesso do conteúdo em /${e.modulo}/${e.id}`).toBeLessThanOrEqual(1);
   });
 }
 
@@ -66,7 +66,7 @@ test('PDF de uma listagem: documento com o logótipo e o nome da empresa, sem ba
   await p.addInitScript(() => {
     window.print = () => undefined;
   });
-  await p.goto('/m/config/config_empresas');
+  await p.goto('/config/config_empresas');
   await p.waitForLoadState('networkidle');
   await p.getByRole('button', { name: /(^| )PDF$/ }).first().click();
   const doc = p.frameLocator('iframe').last();

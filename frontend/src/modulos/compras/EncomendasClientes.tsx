@@ -58,7 +58,7 @@ export default function EncomendasClientes() {
     aoSucesso: (p) => {
       setGerar(null);
       setSelecao([]);
-      if (p?.id && pode('compras_pedidos_view')) navegar(`/m/compras/compras_pedidos/${p.id}`);
+      if (p?.id && pode('compras_pedidos_view')) navegar(`/compras/compras_pedidos/${p.id}`);
     },
     tituloErro: 'Não foi possível gerar o pedido',
   });
@@ -95,7 +95,7 @@ export default function EncomendasClientes() {
         <Space wrap size={4}>
           <Tag>{(i.encomenda.estado ?? '—').toUpperCase()}</Tag>
           {i.linha.pedido_compra && (
-            <a onClick={(ev) => { ev.stopPropagation(); if (pode('compras_pedidos_view')) navegar(`/m/compras/compras_pedidos/${i.linha.pedido_compra?.id}`); }}>
+            <a onClick={(ev) => { ev.stopPropagation(); if (pode('compras_pedidos_view')) navegar(`/compras/compras_pedidos/${i.linha.pedido_compra?.id}`); }}>
               {numeroOuId(i.linha.pedido_compra.numero_pedido, i.linha.pedido_compra.id)}
             </a>
           )}
@@ -250,7 +250,7 @@ export default function EncomendasClientes() {
                     render: (_, l) =>
                       l.pedido_compra ? (
                         <Space wrap>
-                          <a onClick={() => pode('compras_pedidos_view') && navegar(`/m/compras/compras_pedidos/${l.pedido_compra?.id}`)}>{numeroOuId(l.pedido_compra.numero_pedido, l.pedido_compra.id)}</a>
+                          <a onClick={() => pode('compras_pedidos_view') && navegar(`/compras/compras_pedidos/${l.pedido_compra?.id}`)}>{numeroOuId(l.pedido_compra.numero_pedido, l.pedido_compra.id)}</a>
                           <EstadoTag estado={l.pedido_compra.estado} />
                         </Space>
                       ) : l.por_comprar && Number(l.pendente) > 0 ? (

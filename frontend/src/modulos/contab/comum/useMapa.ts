@@ -34,5 +34,5 @@ export function useMapa<T>(nome: string, url: string) {
 export function useAbrirLancamento(): ((id: number) => void) | undefined {
   const navegar = useNavigate();
   const { pode } = useSessao();
-  return pode('lancamentos_view') ? (id: number) => navegar(`/m/contab/lancamentos/${id}`) : undefined;
+  return pode('lancamentos_view') ? (id: number) => navegar(`/contab/lancamentos/${id}`) : undefined;
 }

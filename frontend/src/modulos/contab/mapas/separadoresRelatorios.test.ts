@@ -14,9 +14,9 @@ describe('Relatórios e mapas contabilísticos (8.2.1)', () => {
 
   it('cada separador navega para a rota contab_mapa_* (razão e IVA no ecrã do balancete)', () => {
     const destinos = Object.fromEntries(SEPARADORES_RELATORIOS.map((s) => [s.chave, destinoSeparador(s)]));
-    expect(destinos.extrato).toBe('/m/contab/contab_mapa_extrato');
-    expect(destinos.razao).toBe('/m/contab/contab_mapa_balancete?separador=razao');
-    expect(destinos.iva).toBe('/m/contab/contab_mapa_balancete?separador=iva');
+    expect(destinos.extrato).toBe('/contab/contab_mapa_extrato');
+    expect(destinos.razao).toBe('/contab/contab_mapa_balancete?separador=razao');
+    expect(destinos.iva).toBe('/contab/contab_mapa_balancete?separador=iva');
   });
 
   it('escolhe o separador da rota, com ?separador= no balancete', () => {

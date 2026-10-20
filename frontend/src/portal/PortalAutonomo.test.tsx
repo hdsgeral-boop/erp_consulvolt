@@ -120,6 +120,6 @@ describe('Portal autónomo do colaborador', () => {
     expect(naRotaPortal('/portal')).toBe(true);
     expect(naRotaPortal('/portal/x')).toBe(true);
     expect(naRotaPortal('/portalx')).toBe(false);
-    expect(naRotaPortal('/m/rh/rh_portal')).toBe(false);
+    expect(naRotaPortal('/rh/rh_portal')).toBe(false);
   });
 });

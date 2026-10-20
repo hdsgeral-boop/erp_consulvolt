@@ -61,7 +61,7 @@ describe('menu lateral com a estrutura do legado (0.1)', () => {
     const geral = filho(raiz, 'Menu Geral');
     const rh = filho(geral.children, 'Salários e RH');
     expect(rotulos(rh.children)).toEqual(['Colaboradores', 'Relatórios e Recibos']);
-    expect(filho(rh.children, 'Relatórios e Recibos').key).toBe('/m/rh/relatorios');
+    expect(filho(rh.children, 'Relatórios e Recibos').key).toBe('/rh/relatorios');
     const contab = filho(geral.children, 'Contabilidade');
     expect(rotulos(contab.children)).toEqual(['Lançamentos (Diários)', 'Acréscimos e Diferimentos', 'Rotinas (inclui Imposto de Selo)']);
   });
@@ -69,9 +69,9 @@ describe('menu lateral com a estrutura do legado (0.1)', () => {
   it('Pagamentos e Recebimentos: duas entradas para o mesmo ecrã já filtrado', () => {
     const operacoes = filho(filho(filho(raiz, 'Menu Geral').children, 'Tesouraria').children, 'Operações');
     expect(operacoes.children?.map((x) => x?.key)).toEqual([
-      '/m/teso/teso_gestao_pagamentos?tipo=PAGAMENTO',
-      '/m/teso/teso_gestao_pagamentos?tipo=RECEBIMENTO',
-      '/m/teso/teso_folha_caixa',
+      '/teso/teso_gestao_pagamentos?tipo=PAGAMENTO',
+      '/teso/teso_gestao_pagamentos?tipo=RECEBIMENTO',
+      '/teso/teso_folha_caixa',
     ]);
   });
 
@@ -87,12 +87,12 @@ describe('menu lateral com a estrutura do legado (0.1)', () => {
 
   it('estado do menu: query de Pagamentos/Recebimentos, ecrãs escondidos seleccionam o pai e abrem os grupos', () => {
     const lateral = { itens, ancestrais };
-    expect(estadoMenu('/m/teso/teso_gestao_pagamentos', '?tipo=RECEBIMENTO', lateral, MENU)).toEqual({
-      seleccionado: '/m/teso/teso_gestao_pagamentos?tipo=RECEBIMENTO',
+    expect(estadoMenu('/teso/teso_gestao_pagamentos', '?tipo=RECEBIMENTO', lateral, MENU)).toEqual({
+      seleccionado: '/teso/teso_gestao_pagamentos?tipo=RECEBIMENTO',
       abertos: ['grupo:menu-geral', 'grupo:teso', 'grupo:teso-operacoes'],
     });
-    expect(estadoMenu('/m/rh/rh_rel_irt', '', lateral, MENU).seleccionado).toBe('/m/rh/relatorios');
-    expect(estadoMenu('/m/contab/imposto_selo', '', lateral, MENU).seleccionado).toBe('/m/contab/contab_rotinas');
+    expect(estadoMenu('/rh/rh_rel_irt', '', lateral, MENU).seleccionado).toBe('/rh/relatorios');
+    expect(estadoMenu('/contab/imposto_selo', '', lateral, MENU).seleccionado).toBe('/contab/contab_rotinas');
     expect(estadoMenu('/', '', lateral, MENU)).toEqual({ seleccionado: '/', abertos: [] });
   });
 });
@@ -103,7 +103,7 @@ describe('rótulos do legado na pesquisa (Ctrl+K)', () => {
     expect(r.map((x) => x.nome)).toContain('Faturação');
     expect(r.find((x) => x.nome === 'Faturação')?.nomeModulo).toBe('Vendas');
     // o separador Imposto de Selo e as Rotinas («inclui Imposto de Selo»)
-    expect(procurarEcras(MENU, 'imposto selo', () => false).map((x) => x.rota).sort()).toEqual(['/m/contab/contab_rotinas', '/m/contab/imposto_selo']);
+    expect(procurarEcras(MENU, 'imposto selo', () => false).map((x) => x.rota).sort()).toEqual(['/contab/contab_rotinas', '/contab/imposto_selo']);
   });
 
   it('cada ecrã da estrutura tem rótulo; nomes de módulo curtos', () => {
@@ -140,9 +140,9 @@ describe('Versão Actual: Aprovisionamento, Método de Trabalho e Folha de Caixa
   it('«Aprovisionamento» à cabeça das Compras, abre o ecrã dos pedidos; a pesquisa mantém «Pedidos Internos»', () => {
     const compras = filho(geral.children, 'Compras');
     expect(rotulos(compras.children)).toEqual(['Aprovisionamento', 'Pedidos Internos', 'Encomendas']);
-    expect(filho(compras.children, 'Aprovisionamento').key).toBe('/m/compras/compras_pedidos?vista=aprovisionamento');
-    expect(estadoMenu('/m/compras/compras_pedidos', '?vista=aprovisionamento', lateral, MENU_VA).seleccionado).toBe('/m/compras/compras_pedidos?vista=aprovisionamento');
-    expect(estadoMenu('/m/compras/compras_pedidos', '', lateral, MENU_VA).seleccionado).toBe('/m/compras/compras_pedidos');
+    expect(filho(compras.children, 'Aprovisionamento').key).toBe('/compras/compras_pedidos?vista=aprovisionamento');
+    expect(estadoMenu('/compras/compras_pedidos', '?vista=aprovisionamento', lateral, MENU_VA).seleccionado).toBe('/compras/compras_pedidos?vista=aprovisionamento');
+    expect(estadoMenu('/compras/compras_pedidos', '', lateral, MENU_VA).seleccionado).toBe('/compras/compras_pedidos');
     expect(rotuloEcra('compras', 'compras_pedidos', 'x')).toBe('Pedidos Internos');
   });
 

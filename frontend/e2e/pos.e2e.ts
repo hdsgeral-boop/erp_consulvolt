@@ -17,7 +17,7 @@ const valorDescricao = async (page: Page, contexto: string, rotulo: string) =>
 test('operador abre a sessão, vende com pagamento misto e troco, vê o relatório X e faz o fecho Z sem desvio', async ({ page }) => {
   const erros = vigiarErros(page);
   const api = await entrarComo(page, UTILIZADOR.pos);
-  await page.goto('/m/pos/pos');
+  await page.goto('/pos/pos');
   // cartão «Frente de Caixa Imersiva» → ambiente imersivo (PC / Tablet / Mobile, «Voltar ao Office ERP»)
   await expect(page.getByText('Frente de Caixa Imersiva')).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar Ponto de Venda (POS)' }).click();
@@ -111,7 +111,7 @@ test('administrador pré-visualiza e integra a sessão fechada na contabilidade'
   expect(sessaoId, 'depende da sessão do teste anterior').toBeGreaterThan(0);
   const erros = vigiarErros(page);
   const api = await entrarComo(page, UTILIZADOR.admin);
-  await page.goto('/m/pos/pos_integracao');
+  await page.goto('/pos/pos_integracao');
   // secção «Integração contabilística das sessões do POS»: as sessões por integrar vêm marcadas
   const seccao = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Integração contabilística das sessões do POS' }) });
   const linha = seccao.locator('.ant-table-tbody tr.ant-table-row').filter({ hasText: /Z-T01-/ });

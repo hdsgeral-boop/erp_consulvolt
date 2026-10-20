@@ -4,7 +4,7 @@ import { obter } from '@/api/cliente';
 import { CabecalhoModulo, type IndicadorModulo, type SeparadorModulo } from '@/componentes/CabecalhoModulo';
 import type { ResumoTesouraria } from './api';
 
-const BASE = '/m/teso';
+const BASE = '/teso';
 
 export type GrupoTesouraria = 'operacoes' | 'contabilidade' | 'gestao';
 

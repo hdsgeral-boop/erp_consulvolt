@@ -205,7 +205,7 @@ function Propor({ estado, aoFechar }: { estado?: EstadoIA; aoFechar: () => void 
                   title={podeAbrirFormulario ? undefined : 'Sem acesso a Contabilidade › Lançamentos'}
                   onClick={() => {
                     aoFechar();
-                    navegar('/m/contab/lancamentos/novo', { state: propostaParaFormulario(p) });
+                    navegar('/contab/lancamentos/novo', { state: propostaParaFormulario(p) });
                   }}
                 >
                   Rever no formulário de lançamento

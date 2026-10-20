@@ -60,7 +60,7 @@ beforeEach(() => {
           : {},
     ),
   );
-  window.history.replaceState(null, '', '/m/contab/contabilidade');
+  window.history.replaceState(null, '', '/contab/contabilidade');
 });
 
 describe('Mapeamento contábil — layout do legado', { timeout: 60_000 }, () => {

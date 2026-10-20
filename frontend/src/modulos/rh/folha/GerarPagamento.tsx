@@ -45,7 +45,7 @@ export function BotaoGerarPagamento({ periodo, texto = 'Gerar Pagamento de Salá
         footer={
           <Space wrap>
             {pode('teso_gestao_pagamentos_view', 'teso_doc_emitir') && (
-              <Button icon={<IconeFa nome="university" />} onClick={() => navegar('/m/teso/teso_gestao_pagamentos?tipo=PAGAMENTO')}>Abrir Pagamentos na Tesouraria</Button>
+              <Button icon={<IconeFa nome="university" />} onClick={() => navegar('/teso/teso_gestao_pagamentos?tipo=PAGAMENTO')}>Abrir Pagamentos na Tesouraria</Button>
             )}
             <Button onClick={() => setAberto(false)}>Fechar</Button>
           </Space>

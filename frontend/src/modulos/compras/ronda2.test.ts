@@ -4,8 +4,8 @@ import { linhaIvaEditavel, TAXAS_IVA_LEGAIS } from './comum/ModalIva';
 
 describe('compras — ronda 2', () => {
   it('identifica o separador do módulo pelo caminho (separadores do legado)', () => {
-    expect(ecraCompras('/m/compras/compras_prospeccao/12')).toBe('compras_prospeccao');
-    expect(ecraCompras('/m/vendas/vendas_faturacao')).toBeNull();
+    expect(ecraCompras('/compras/compras_prospeccao/12')).toBe('compras_prospeccao');
+    expect(ecraCompras('/vendas/vendas_faturacao')).toBeNull();
     expect(SEPARADORES_COMPRAS.map((s) => s.rotulo)).toEqual(['Pedidos', 'Prospeção', 'Encomendas', 'Receções', 'Faturação', 'Fornecedores', 'Encomendas Clientes', 'Contratos']);
   });
 

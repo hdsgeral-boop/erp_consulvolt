@@ -175,7 +175,7 @@ describe('Fluxo de Processos — disposição do legado', () => {
     await waitFor(() => expect(screen.getByRole('heading', { level: 3, name: /Integrar na contabilidade/ })).toBeInTheDocument());
     expect(screen.getByText(/Sem pendências nesta etapa/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Integrar em Processamentos/ }));
-    expect(navegarMock).toHaveBeenCalledWith('/m/rh/processamento');
+    expect(navegarMock).toHaveBeenCalledWith('/rh/processamento');
     // o aviso da empresa continua no detalhe dos dados base
     fireEvent.click(screen.getByRole('button', { name: /Dados base/ }));
     expect(await screen.findByText('6 sem IBAN')).toBeInTheDocument();

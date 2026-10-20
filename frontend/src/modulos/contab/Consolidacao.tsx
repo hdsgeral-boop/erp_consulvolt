@@ -304,7 +304,7 @@ function CartaoHolding({ grupo, aoEditar, aoAbrirMapa, aoAbrirDivergencias, aoAb
   const abrirNosMapas = () =>
     grupo.holding &&
     escolherEmpresa(grupo.holding.id)
-      .then(() => navegar('/m/contab/relatorios_contabeis'))
+      .then(() => navegar('/contab/relatorios_contabeis'))
       .catch((e) => notificarErro(e, 'Não foi possível abrir a holding'));
 
   return (

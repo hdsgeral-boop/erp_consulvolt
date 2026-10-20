@@ -124,7 +124,7 @@ describe('8.1.3 — acções por linha', () => {
       expect(temIconeFa(i), i).toBe(true);
   });
   it('destino do documento de origem: ecrã do módulo com o n.º como pesquisa', () => {
-    expect(destinoOrigem({ tipo_origem: 'VENDAS', modulo: 'vendas', ecra: 'vendas_faturacao', nome: 'Vendas', instrucoes: '', documento_id: 1, numero: 'FT 2026/1' })).toBe('/m/vendas/vendas_faturacao?pesquisa=FT%202026%2F1');
+    expect(destinoOrigem({ tipo_origem: 'VENDAS', modulo: 'vendas', ecra: 'vendas_faturacao', nome: 'Vendas', instrucoes: '', documento_id: 1, numero: 'FT 2026/1' })).toBe('/vendas/vendas_faturacao?pesquisa=FT%202026%2F1');
     expect(destinoOrigem({ tipo_origem: 'X', modulo: 'contab', ecra: 'lancamentos', nome: 'x', instrucoes: '', documento_id: null, numero: null })).toBeNull();
   });
 });

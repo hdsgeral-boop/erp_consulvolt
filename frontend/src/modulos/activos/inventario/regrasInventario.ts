@@ -7,7 +7,7 @@
 export const NOME_TEMPLATE_ACTIVOS = 'Template_Migração_Imobilizado.xlsx';
 
 /** Destino da ficha (histórico) de um activo. */
-export const destinoActivo = (id: number) => `/m/activos/activos/${id}`;
+export const destinoActivo = (id: number) => `/activos/activos/${id}`;
 
 /** Texto vazio como no legado: «---». */
 export function ouTracos(v: string | number | null | undefined): string {

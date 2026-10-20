@@ -13,7 +13,7 @@ export function useAvisarErroCartas(erro: unknown, titulo = 'Erro ao carregar os
 }
 
 /** Endereço do ecrã das cartas com a emissão aberta para o pagamento (sem dados pessoais na URL). */
-export const urlEmissaoCarta = (documentoId: number) => `/m/teso/teso_cartas?documento=${documentoId}`;
+export const urlEmissaoCarta = (documentoId: number) => `/teso/teso_cartas?documento=${documentoId}`;
 
 /**
  * Convite discreto depois de gravar um pagamento (tesoOferecerCarta do legado novo): só se for um pagamento numa conta

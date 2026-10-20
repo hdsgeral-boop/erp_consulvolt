@@ -25,7 +25,7 @@ export function NavConfig({ actual }: { actual: string }) {
   const lista = SECCOES_CONFIG.filter((s) => visiveis.has(s.id));
   if (lista.length < 2) return null;
   return (
-    <Tabs size="small" activeKey={actual} onChange={(k) => navegar(`/m/config/${k}`)} className="erp-oculto-impressao" style={{ marginBottom: 4 }}
+    <Tabs size="small" activeKey={actual} onChange={(k) => navegar(`/config/${k}`)} className="erp-oculto-impressao" style={{ marginBottom: 4 }}
       items={lista.map((s) => ({ key: s.id, label: s.id === 'config_manutencao' ? <span style={{ color: '#cf1322' }}><SafetyOutlined /> {s.rotulo}</span> : s.rotulo }))} />
   );
 }

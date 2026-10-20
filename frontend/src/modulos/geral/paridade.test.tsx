@@ -231,7 +231,7 @@ describe('Dashboard Global — ecrã', () => {
 
   it('título «Dashboard» com a empresa e o período; pílulas com ícone; activo pelo endereço; cartão com ícone e barra à esquerda', async () => {
     const { default: Dashboard } = await import('./Dashboard');
-    const { container } = envolver(<Dashboard />, '/m/geral/dashboard?separador=geral');
+    const { container } = envolver(<Dashboard />, '/geral/dashboard?separador=geral');
     expect(await screen.findByText('Dashboard')).toBeTruthy();
     expect(screen.getByText('Empresa Teste')).toBeTruthy();
     expect(container.textContent).toContain('Período de referência:');

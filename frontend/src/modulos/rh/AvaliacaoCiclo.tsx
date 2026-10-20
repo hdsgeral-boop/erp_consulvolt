@@ -54,8 +54,8 @@ export default function AvaliacaoCiclo() {
     <>
       <CabecalhoPagina titulo="Acompanhamento do Ciclo 360º" subtitulo="Estado de cada colaborador no ciclo, contestações, reuniões de acompanhamento, bonificações e confirmações de leitura do comunicado."
         accoes={<Space wrap>
-          {pode('rh_avaliacao_config_view') && <Button icon={<IconeFa nome="sliders-h" />} onClick={() => navegar('/m/rh/rh_avaliacao_config')}>Configuração</Button>}
-          {pode('rh_avaliacao_view') && <Button icon={<IconeFa nome="star-half-alt" />} onClick={() => navegar('/m/rh/rh_avaliacao')}>Avaliações</Button>}
+          {pode('rh_avaliacao_config_view') && <Button icon={<IconeFa nome="sliders-h" />} onClick={() => navegar('/rh/rh_avaliacao_config')}>Configuração</Button>}
+          {pode('rh_avaliacao_view') && <Button icon={<IconeFa nome="star-half-alt" />} onClick={() => navegar('/rh/rh_avaliacao')}>Avaliações</Button>}
           <Select style={{ width: 300, maxWidth: '100%' }} placeholder="Ciclo" value={id} onChange={setId} loading={ciclos.isLoading} aria-label="Ciclo"
             options={(ciclos.data ?? []).map((c) => ({ value: c.id, label: `${c.nome ?? `${c.periodo} ${c.ano}`} — ${c.estado}` }))} />
         </Space>} />

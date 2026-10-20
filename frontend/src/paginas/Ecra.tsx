@@ -4,7 +4,7 @@ import { ECRAS } from '@/modulos/registo';
 import { EmConstrucao } from '@/componentes/EmConstrucao';
 import { useSessao } from '@/sessao/SessaoContexto';
 
-/** /m/:modulo/:ecra/* — mostra o ecrã registado, se o utilizador o puder ver (o servidor volta a validar cada pedido). */
+/** /:modulo/:ecra/* — mostra o ecrã registado, se o utilizador o puder ver (o servidor volta a validar cada pedido). */
 export function Ecra() {
   const { modulo, ecra } = useParams();
   const { menu } = useSessao();

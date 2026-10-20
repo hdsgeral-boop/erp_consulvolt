@@ -80,9 +80,9 @@ test.describe('Autenticação, empresa activa e menu por permissões', () => {
     await expect(menu.getByText('Faturação', { exact: true })).toBeVisible();
 
     // acesso directo pelo endereço a um ecrã de RH: «Sem acesso»
-    await page.goto('/m/rh/colaboradores');
+    await page.goto('/rh/colaboradores');
     await expect(page.getByText('Sem acesso')).toBeVisible();
-    await page.goto('/m/config/config_utilizadores');
+    await page.goto('/config/config_utilizadores');
     await expect(page.getByText('Sem acesso')).toBeVisible();
 
     // e a API também recusa (403), independentemente do menu

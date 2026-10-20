@@ -113,7 +113,7 @@ export function DetalheContrato() {
           dataSource={c.encomendas ?? []}
           scroll={scrollTabela()}
           columns={[
-            { title: 'Encomenda', render: (_, e) => (pode('compras_encomendas_view') ? <a onClick={() => navegar(`/m/compras/compras_encomendas/${e.id}`)}>{numeroOuId(e.numero_encomenda, e.id)}</a> : numeroOuId(e.numero_encomenda, e.id)) },
+            { title: 'Encomenda', render: (_, e) => (pode('compras_encomendas_view') ? <a onClick={() => navegar(`/compras/compras_encomendas/${e.id}`)}>{numeroOuId(e.numero_encomenda, e.id)}</a> : numeroOuId(e.numero_encomenda, e.id)) },
             { title: 'Data', dataIndex: 'data', render: formatarData },
             { title: 'Total (Kz)', dataIndex: 'montante_total', align: 'right', render: (v: string | null) => formatarKz(v) },
             { title: 'Estado', dataIndex: 'estado', render: (s: string) => <EstadoTag estado={s} /> },

@@ -56,7 +56,7 @@ export function ContadorLicencaHeader() {
 
   const irParaRenovacao = () => {
     setModalAberto(false);
-    navegar('/m/config/config_licenca');
+    navegar('/config/config_licenca');
   };
 
   return (

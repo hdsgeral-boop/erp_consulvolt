@@ -236,7 +236,7 @@ export function ListaLancamentos() {
           cor: token.colorPrimary,
           texto: 'Inventariar',
           titulo: `Inventariar Imobilizado (por inventariar: ${formatarKz(r.por_inventariar ?? null)})`,
-          onClick: () => navegar('/m/activos/activos_pendentes'),
+          onClick: () => navegar('/activos/activos_pendentes'),
         },
       estadoInventario(r) === 'ok' && {
         chave: 'inventariado',

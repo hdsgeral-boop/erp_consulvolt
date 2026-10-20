@@ -16,7 +16,7 @@ test('lançamento manual equilibrado e o balancete a reflecti-lo', async ({ page
     (await api.get<Bal>('/contabilidade/relatorios/balancete', { data_inicio: inicioAno, data_fim: hojeApi(), filtro_contas: '511' })).linhas.find((l) => l.codigo_conta === '511');
   const antes = Number((await balancete511())?.credito ?? 0);
 
-  await page.goto('/m/contab/lancamentos');
+  await page.goto('/contab/lancamentos');
   await page.getByRole('button', { name: 'Novo lançamento' }).click();
   await expect(page.getByRole('heading', { name: 'Novo lançamento' })).toBeVisible();
   await escolherOpcao(page, page.locator('#diario_id'), /^OD — /, 'OD');
@@ -37,7 +37,7 @@ test('lançamento manual equilibrado e o balancete a reflecti-lo', async ({ page
   await expect(page.getByText('Realização de capital social (teste E2E)').first()).toBeVisible();
 
   // balancete no ecrã (filtrado à conta 511)
-  await page.goto('/m/contab/contab_mapa_balancete');
+  await page.goto('/contab/contab_mapa_balancete');
   await page.locator('#filtro_contas').fill('511');
   await page.getByRole('button', { name: 'Calcular' }).click();
   const linha = page.locator('.ant-table-tbody tr.ant-table-row').filter({ has: page.getByText('511', { exact: true }) });
@@ -64,7 +64,7 @@ for (const [ecra, titulo] of [
   test(`mapa ${ecra} abre e calcula sem erros`, async ({ page }) => {
     const erros = vigiarErros(page);
     await entrarComo(page, UTILIZADOR.admin);
-    await page.goto(`/m/contab/${ecra}`);
+    await page.goto(`/contab/${ecra}`);
     await expect(page.getByRole('heading', { name: new RegExp(titulo, 'i') }).first()).toBeVisible();
     const calcular = page.getByRole('button', { name: 'Calcular' }).first();
     if (await calcular.isVisible()) {

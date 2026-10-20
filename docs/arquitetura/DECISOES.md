@@ -1678,7 +1678,7 @@ Implementado em `app/Services/Gestao/Relatorios` e `app/Services/Gestao/Fluxos`,
   - termina ao fim de `inatividade_minutos` sem actividade, alinhado com o servidor;
   - no navegador só se guardam o token e a empresa activa.
 - **Menu:** novo `GET /api/sistema/menu` (`ServicoPermissoes::menu`), que devolve os módulos e ecrãs do catálogo que o utilizador pode ver na empresa activa, com a mesma regra do `podeVer`. O frontend não decide permissões: esconde o que o servidor diz que não se vê, e o servidor volta a validar cada pedido.
-- **Rotas:** `/` (início, `GET /api/gestao/inicio`) e `/m/{modulo}/{ecra}/*`. Os ecrãs registam-se em `src/modulos/registo.tsx` pelo id do catálogo; os que ainda não existem mostram «em construção».
+- **Rotas:** `/` (início, `GET /api/gestao/inicio`) e `/{modulo}/{ecra}/*`. Os ecrãs registam-se em `src/modulos/registo.tsx` pelo id do catálogo; os que ainda não existem mostram «em construção».
 - **Componentes:** `TabelaApi` (paginação do servidor, filtros, erros), `CabecalhoPagina`, `notificarErro` (mensagem, detalhes e código), formatação em Kz e datas pt.
 
 **Módulo piloto — Vendas › Facturação:**

@@ -142,7 +142,7 @@ function DashboardVendas() {
           <>
             <DatePicker.RangePicker format="DD/MM/YYYY" allowClear={false} value={periodo} onChange={(v) => v?.[0] && v?.[1] && setPeriodo([v[0], v[1]])} />
             {podeResumo && <Button icon={<ReloadOutlined />} loading={consulta.isFetching} onClick={() => void consulta.refetch()}>Actualizar</Button>}
-            {pode('vendas_faturacao_view') && <Button icon={<IconeFa nome="list" />} onClick={() => navegar('/m/vendas/vendas_faturacao')}>Ver Todas Faturas</Button>}
+            {pode('vendas_faturacao_view') && <Button icon={<IconeFa nome="list" />} onClick={() => navegar('/vendas/vendas_faturacao')}>Ver Todas Faturas</Button>}
             {pode('vendas_relatorios_view', 'vendas_fe_config') && (
               <Button type="primary" icon={<DownloadOutlined />} loading={aExportar} onClick={() => void exportarSaft()}>
                 Exportar SAF-T (AO)

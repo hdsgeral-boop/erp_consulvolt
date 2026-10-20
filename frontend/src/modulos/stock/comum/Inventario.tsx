@@ -111,8 +111,8 @@ export const tipoInventario = (s: Pick<SessaoInventario, 'tipo'>) => (s.tipo?.tr
  * nos outros estados a folha de revisão, já com o lote escolhido. Sem acesso a essa folha, abre a ficha da sessão.
  */
 export function destinoDetalhesInventario(s: Pick<SessaoInventario, 'id' | 'estado'>, pode: (p: string) => boolean): string {
-  if (s.estado === 'EM_CONTAGEM') return pode('inventario_contagem_view') ? `/m/stock/inventario_contagem?lote=${s.id}` : String(s.id);
-  return pode('inventario_revisao_view') ? `/m/stock/inventario_revisao?lote=${s.id}` : String(s.id);
+  if (s.estado === 'EM_CONTAGEM') return pode('inventario_contagem_view') ? `/stock/inventario_contagem?lote=${s.id}` : String(s.id);
+  return pode('inventario_revisao_view') ? `/stock/inventario_revisao?lote=${s.id}` : String(s.id);
 }
 
 export interface EdicaoContagem {
@@ -366,7 +366,7 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
     aoSucesso: () => {
       limpar();
       // legado (finishInvCount): concluída a contagem, segue para a «Revisão e Regularização»
-      if (modo === 'contagem' && pode('inventario_revisao_view')) navegar(`/m/stock/inventario_revisao?lote=${id}`);
+      if (modo === 'contagem' && pode('inventario_revisao_view')) navegar(`/stock/inventario_revisao?lote=${id}`);
     },
   });
   /** Acrescentar um produto não limpa as contagens ainda por gravar. */
@@ -534,7 +534,7 @@ function DetalheSessao({ modo, idSessao }: { modo: ModoInventario; idSessao?: st
         accao
           .mutateAsync({ url: `/logistica/inventarios/${s.id}/voltar-contagem` })
           .then(() => {
-            if (modo === 'revisao' && pode('inventario_contagem_view')) navegar(`/m/stock/inventario_contagem?lote=${s.id}`);
+            if (modo === 'revisao' && pode('inventario_contagem_view')) navegar(`/stock/inventario_contagem?lote=${s.id}`);
           })
           .catch(() => undefined),
     });

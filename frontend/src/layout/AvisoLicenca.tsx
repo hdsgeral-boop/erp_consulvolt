@@ -16,7 +16,7 @@ export function AvisoLicenca() {
       showIcon
       type={expirada ? 'error' : 'warning'}
       message={expirada ? 'Licença expirada: a empresa está só em modo de leitura.' : `Licença a expirar em ${data.dias_restantes} dia(s).`}
-      action={pode('config_licenca_view') || pode('config_licenca_gerir') ? <Button size="small" onClick={() => navegar('/m/config/config_licenca')}>Renovar</Button> : undefined}
+      action={pode('config_licenca_view') || pode('config_licenca_gerir') ? <Button size="small" onClick={() => navegar('/config/config_licenca')}>Renovar</Button> : undefined}
     />
   );
 }

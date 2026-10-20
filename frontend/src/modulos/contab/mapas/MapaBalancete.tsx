@@ -37,7 +37,7 @@ export interface PedidoExtratoConta {
 
 function useAbrirExtrato() {
   const navegar = useNavigate();
-  return (pedido: PedidoExtratoConta) => navegar('/m/contab/contab_mapa_extrato', { state: { extrato: pedido } });
+  return (pedido: PedidoExtratoConta) => navegar('/contab/contab_mapa_extrato', { state: { extrato: pedido } });
 }
 
 /** Separador «Balancete» (ecrã contab_mapa_balancete). */

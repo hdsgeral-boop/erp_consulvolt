@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import Dashboard, { mostraComparacao, opcoesComparacao } from './Dashboard';
 import { ResumoHolding, ROTA_COMPARACAO_GRUPO, ROTA_CONSOLIDACAO } from './comum/ResumoHolding';
 
-/** Separador «Comparar empresas» (/m/geral/dashboard?separador=__comparacao) e Início da holding (agente r3_holding). */
+/** Separador «Comparar empresas» (/geral/dashboard?separador=__comparacao) e Início da holding (agente r3_holding). */
 
 const obterMock = vi.fn();
 vi.mock('@/api/cliente', () => ({ obter: (...a: unknown[]) => obterMock(...a), enviar: vi.fn(), descarregar: vi.fn() }));
@@ -72,7 +72,7 @@ describe('Dashboard › Comparar empresas', () => {
     obterMock.mockImplementation((url: string) =>
       Promise.resolve(url === '/gestao/paineis' ? { holding: false, paineis: [{ id: 'contabilidade', nome: 'Contabilidade', tipo: 'PAINEL' }] } : COMPARACAO_SEM_MODULO),
     );
-    envolver(<Dashboard />, '/m/geral/dashboard?separador=__comparacao');
+    envolver(<Dashboard />, '/geral/dashboard?separador=__comparacao');
     expect(await screen.findByText('Quadro Comparativo das Empresas', undefined, { timeout: 15_000 })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Comparar empresas/, pressed: true })).toBeTruthy();
     expect(screen.getAllByText('Proveitos').length).toBeGreaterThan(0);
@@ -91,7 +91,7 @@ describe('Dashboard › Comparar empresas', () => {
           : { ...COMPARACAO_SEM_MODULO, modulo: { id: '__comparacao', nome: 'Comparar empresas' } },
       ),
     );
-    envolver(<Dashboard />, '/m/geral/dashboard?separador=__comparacao');
+    envolver(<Dashboard />, '/geral/dashboard?separador=__comparacao');
     expect(await screen.findByText('Empresas do grupo de consolidação (a que tem acesso)', undefined, { timeout: 15_000 })).toBeTruthy();
     expect(screen.getByText('Consolidação')).toBeTruthy();
   });
@@ -119,6 +119,6 @@ describe('Início da holding', () => {
     expect(screen.getByText('Quadro Comparativo das Empresas')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Comparar empresas/ })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Consolidação$/ })).toBeNull();
-    expect(ROTA_CONSOLIDACAO).toBe('/m/contab/consolidacao');
+    expect(ROTA_CONSOLIDACAO).toBe('/contab/consolidacao');
   });
 });

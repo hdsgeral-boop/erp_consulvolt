@@ -83,7 +83,7 @@ function ListaContratos() {
         r.encomendas?.length ? (
           r.encomendas.map((e) => (
             <Tag key={e.id} style={{ margin: 1, cursor: pode('compras_encomendas_view') ? 'pointer' : undefined }}
-              onClick={(ev) => { ev.stopPropagation(); if (pode('compras_encomendas_view')) navegar(`/m/compras/compras_encomendas/${e.id}`); }}>
+              onClick={(ev) => { ev.stopPropagation(); if (pode('compras_encomendas_view')) navegar(`/compras/compras_encomendas/${e.id}`); }}>
               <IconeFa nome="link" /> {numeroOuId(e.numero_encomenda, e.id)}
             </Tag>
           ))

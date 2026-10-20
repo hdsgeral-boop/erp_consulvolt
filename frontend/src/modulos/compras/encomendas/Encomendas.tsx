@@ -182,7 +182,7 @@ function ListaEncomendas() {
             modal.tipo === 'rececao' ? (
               <ModalRececao encomenda={e} aberto aoFechar={() => setModal(null)} />
             ) : (
-              <ModalFaturaEncomenda encomenda={e} aberto aoFechar={() => setModal(null)} aoRegistar={(f) => pode('compras_faturacao_view') && navegar(`/m/compras/compras_faturacao/${f.id}`)} />
+              <ModalFaturaEncomenda encomenda={e} aberto aoFechar={() => setModal(null)} aoRegistar={(f) => pode('compras_faturacao_view') && navegar(`/compras/compras_faturacao/${f.id}`)} />
             )
           }
         </ComDocumento>
@@ -313,7 +313,7 @@ export function DetalheEncomenda() {
             pagination={false}
             dataSource={rececoes.data?.itens}
             scroll={scrollTabela()}
-            onRow={(r) => ({ onClick: () => pode('compras_rececoes_view') && navegar(`/m/compras/compras_rececoes/${r.id}`), style: { cursor: 'pointer' } })}
+            onRow={(r) => ({ onClick: () => pode('compras_rececoes_view') && navegar(`/compras/compras_rececoes/${r.id}`), style: { cursor: 'pointer' } })}
             columns={[
               { title: 'Recepção', render: (_, r) => numeroOuId(r.numero_rececao, r.id) },
               { title: 'Guia do fornecedor', dataIndex: 'numero_entrega' },
@@ -331,7 +331,7 @@ export function DetalheEncomenda() {
             pagination={false}
             dataSource={faturas.data?.itens}
             scroll={scrollTabela()}
-            onRow={(f) => ({ onClick: () => navegar(`/m/compras/compras_faturacao/${f.id}`), style: { cursor: 'pointer' } })}
+            onRow={(f) => ({ onClick: () => navegar(`/compras/compras_faturacao/${f.id}`), style: { cursor: 'pointer' } })}
             columns={[
               { title: 'Factura', dataIndex: 'numero_fatura' },
               { title: 'Data', dataIndex: 'data', render: formatarData },
@@ -347,7 +347,7 @@ export function DetalheEncomenda() {
         encomenda={e}
         aberto={modal === 'fatura'}
         aoFechar={() => setModal(null)}
-        aoRegistar={(f) => pode('compras_faturacao_view') && navegar(`/m/compras/compras_faturacao/${f.id}`)}
+        aoRegistar={(f) => pode('compras_faturacao_view') && navegar(`/compras/compras_faturacao/${f.id}`)}
       />
       <ModalMotivo
         aberto={modal === 'anular'}

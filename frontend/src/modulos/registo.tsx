@@ -18,7 +18,7 @@ import { ecras as metodo } from './metodo/ecras';
 
 /**
  * Ecrãs disponíveis no frontend, pelo id do ecrã do catálogo de permissões (resources/permissoes/catalogo.json).
- * Cada módulo regista os seus em src/modulos/<módulo>/ecras.ts. Rota: /m/{modulo}/{ecra}/*.
+ * Cada módulo regista os seus em src/modulos/<módulo>/ecras.ts. Rota: /{modulo}/{ecra}/*.
  * Os ecrãs que ainda não estão registados mostram «em construção».
  */
 export const ECRAS: Record<string, LazyExoticComponent<ComponentType>> = {

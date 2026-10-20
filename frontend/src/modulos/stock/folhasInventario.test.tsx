@@ -45,9 +45,9 @@ const montar = (modo: 'contagem' | 'revisao') =>
 describe('Sessões de inventário — «Detalhes» como no legado (viewInvSession, ui_inventory.js:232-237)', () => {
   it('em contagem vai para a folha de contagem; nos outros estados para a revisão; sem acesso, para a ficha', () => {
     const todos = () => true;
-    expect(destinoDetalhesInventario({ id: 7, estado: 'EM_CONTAGEM' }, todos)).toBe('/m/stock/inventario_contagem?lote=7');
-    expect(destinoDetalhesInventario({ id: 7, estado: 'REVISAO' }, todos)).toBe('/m/stock/inventario_revisao?lote=7');
-    expect(destinoDetalhesInventario({ id: 7, estado: 'CONCLUIDA' }, todos)).toBe('/m/stock/inventario_revisao?lote=7');
+    expect(destinoDetalhesInventario({ id: 7, estado: 'EM_CONTAGEM' }, todos)).toBe('/stock/inventario_contagem?lote=7');
+    expect(destinoDetalhesInventario({ id: 7, estado: 'REVISAO' }, todos)).toBe('/stock/inventario_revisao?lote=7');
+    expect(destinoDetalhesInventario({ id: 7, estado: 'CONCLUIDA' }, todos)).toBe('/stock/inventario_revisao?lote=7');
     expect(destinoDetalhesInventario({ id: 7, estado: 'EM_CONTAGEM' }, () => false)).toBe('7');
   });
 });

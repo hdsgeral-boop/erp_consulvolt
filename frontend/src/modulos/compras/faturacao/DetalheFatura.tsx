@@ -153,7 +153,7 @@ export function DetalheFatura() {
               <div>Pagamento: <EstadoTag estado={f.estado} /></div>
               <div>
                 Encomenda:{' '}
-                {f.encomenda_compra_id ? (pode('compras_encomendas_view') ? <a onClick={() => navegar(`/m/compras/compras_encomendas/${f.encomenda_compra_id}`)}>{numeroOuId(f.numero_encomenda, f.encomenda_compra_id)}</a> : numeroOuId(f.numero_encomenda, f.encomenda_compra_id)) : 'Factura directa'}
+                {f.encomenda_compra_id ? (pode('compras_encomendas_view') ? <a onClick={() => navegar(`/compras/compras_encomendas/${f.encomenda_compra_id}`)}>{numeroOuId(f.numero_encomenda, f.encomenda_compra_id)}</a> : numeroOuId(f.numero_encomenda, f.encomenda_compra_id)) : 'Factura directa'}
               </div>
               <div>Contabilização: {f.contabilizado ? `Contabilizada${f.numero_lan_contabilizacao ? ` (${f.numero_lan_contabilizacao})` : ''}` : 'Por contabilizar'}</div>
             </div>

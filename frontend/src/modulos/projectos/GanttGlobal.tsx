@@ -33,7 +33,7 @@ export default function GanttGlobal() {
       <CabecalhoPagina
         titulo={<><IconeFa nome="stream" /> Gantt Global (Carteira)</>}
         subtitulo="Visão macro de todos os projectos activos segmentados por tipo. Barras tracejadas = sem data de fim."
-        accoes={podeCarteira && <Button icon={<IconeFa nome="arrow-left" />} onClick={() => navegar('/m/projectos/projectos_carteira')}>Voltar à Carteira</Button>}
+        accoes={podeCarteira && <Button icon={<IconeFa nome="arrow-left" />} onClick={() => navegar('/projectos/projectos_carteira')}>Voltar à Carteira</Button>}
         impressaoDesactivada={!linhas.length}
         impressao={() =>
           ref.current
@@ -60,7 +60,7 @@ export default function GanttGlobal() {
           inicio={q.data?.inicio}
           fim={q.data?.fim}
           corPor="nivel"
-          aoClicar={podeCarteira ? (l) => l.tipo === 'projecto' && navegar(`/m/projectos/projectos_carteira/${l.id}?sep=planeamento`) : undefined}
+          aoClicar={podeCarteira ? (l) => l.tipo === 'projecto' && navegar(`/projectos/projectos_carteira/${l.id}?sep=planeamento`) : undefined}
         />
       </Card>
     </>

@@ -97,7 +97,7 @@ function ListaEntradas() {
               titulo: 'Gerar Guia de Saída para Cliente (Back-to-Back)',
               variante: 'primario',
               cheio: true,
-              onClick: () => navegar(`/m/stock/armazem_guias/novo?encomenda=${r.encomenda_cliente_id}`),
+              onClick: () => navegar(`/stock/armazem_guias/novo?encomenda=${r.encomenda_cliente_id}`),
             },
             r.situacao === 'VALIDADO' && pode('armazem_validar') && { icone: 'undo', titulo: 'Eliminar/Reverter Validação', variante: 'perigo', cheio: true, onClick: () => navegar(String(r.id)) },
           ]}

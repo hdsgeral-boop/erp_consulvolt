@@ -25,7 +25,7 @@ const MENU: ModuloMenu[] = [
 
 describe('ajuda contextual (conteúdo de ajuda.js)', () => {
   it('ecrã com texto próprio, regras do módulo e outros ecrãs', () => {
-    const a = localizarAjuda('/m/contab/lancamentos', MENU);
+    const a = localizarAjuda('/contab/lancamentos', MENU);
     expect(a.titulo).toBe('Lançamentos');
     expect(a.ecra?.serve).toMatch(/Consultar, criar, importar/);
     expect(a.modulo.nome).toBe('Contabilidade');
@@ -34,8 +34,8 @@ describe('ajuda contextual (conteúdo de ajuda.js)', () => {
   });
 
   it('ecrã-filho sem texto usa o do pai; módulos sem texto no legado usam o resumo', () => {
-    expect(localizarAjuda('/m/contab/contab_mapa_balancete', MENU).ecra?.titulo).toBe('Mapas e Relatórios');
-    const crm = localizarAjuda('/m/crm/crm_pipeline', MENU);
+    expect(localizarAjuda('/contab/contab_mapa_balancete', MENU).ecra?.titulo).toBe('Mapas e Relatórios');
+    const crm = localizarAjuda('/crm/crm_pipeline', MENU);
     expect(crm.ecra).toBeNull();
     expect(crm.modulo.resumo).toMatch(/Pipeline comercial/);
     expect(localizarAjuda('/', MENU).titulo).toBe('Início');
@@ -59,7 +59,7 @@ describe('pesquisa de ecrãs, favoritos e ordem dos módulos', () => {
 
   it('favoritos que já não estão no menu são ignorados', () => {
     const r = resolverFavoritos([{ modulo: 'contab', ecra: 'lancamentos' }, { modulo: 'rh', ecra: 'colaboradores' }], MENU);
-    expect(r).toEqual([{ modulo: 'contab', ecra: 'lancamentos', nome: 'Lançamentos (Diários)', nomeModulo: 'Contabilidade', rota: '/m/contab/lancamentos' }]);
+    expect(r).toEqual([{ modulo: 'contab', ecra: 'lancamentos', nome: 'Lançamentos (Diários)', nomeModulo: 'Contabilidade', rota: '/contab/lancamentos' }]);
   });
 
   it('arrastar e largar e ordem guardada (módulos novos no fim)', () => {

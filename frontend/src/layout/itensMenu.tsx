@@ -6,8 +6,8 @@ import { CASA_MODULO, ESCONDIDOS, MENU_GERAL_LEGADO, SISTEMA_LEGADO, TOPO_LEGADO
 
 type ItemMenu = NonNullable<MenuProps['items']>[number];
 
-/** Rota de um ecrã: /m/{modulo}/{ecra}. */
-export const rotaEcra = (moduloId: string, ecraId: string) => `/m/${moduloId}/${ecraId}`;
+/** Rota de um ecrã: /{modulo}/{ecra}. */
+export const rotaEcra = (moduloId: string, ecraId: string) => `/${moduloId}/${ecraId}`;
 
 /** Ecrãs de topo de um módulo (sem pai, ou cujo pai não está no menu do utilizador). */
 export const ecrasDeTopo = (m: ModuloMenu): EcraMenu[] => m.ecras.filter((e) => !e.pai || !m.ecras.some((x) => x.id === e.pai));
@@ -116,7 +116,7 @@ export function construirItensMenu(menu: ModuloMenu[]): NonNullable<MenuProps['i
  * `?tipo=`; Aprovisionamento/Pedidos Internos: `?vista=`. Ecrãs escondidos do menu (ex.: os mapas de Relatórios e Recibos) seleccionam o ecrã pai.
  */
 export function estadoMenu(caminho: string, pesquisa = '', lateral?: MenuLateral, menu: ModuloMenu[] = []): { seleccionado: string; abertos: string[] } {
-  if (!caminho.startsWith('/m/')) return { seleccionado: '/', abertos: [] };
+  if (!caminho.startsWith('/')) return { seleccionado: '/', abertos: [] };
   const [, , moduloId, ecraId] = caminho.split('/');
   let seleccionado = rotaEcra(moduloId, ecraId);
   const parametros = new URLSearchParams(pesquisa);
