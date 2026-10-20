@@ -25,7 +25,7 @@ final class ConfiguracaoSistemaController extends Controller
     public function logotipoLogin(): JsonResponse
     {
         $logo = DB::table('configuracoes_sistema')->where('chave', self::CHAVE_LOGOTIPO)->value('valor');
-        $nomeSistema = DB::table('configuracoes_sistema')->where('chave', 'sistema_nome')->value('valor') ?: 'CONSULVOLT ERP';
+        $nomeSistema = DB::table('configuracoes_sistema')->where('chave', 'sistema_nome')->value('valor') ?: 'MEU ERP';
 
         return RespostaApi::sucesso([
             'logotipo' => $logo,

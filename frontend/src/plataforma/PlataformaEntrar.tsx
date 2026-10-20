@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { http, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
+import { LogotipoSistema } from '@/componentes/LogotipoSistema';
 import { useSessao } from '@/sessao/SessaoContexto';
 
 interface DadosAdmin {
@@ -53,6 +54,7 @@ export function PlataformaEntrar() {
     <main className="erp-pagina-entrada erp-fundo-entrada">
       <Card className="erp-cartao-entrada" style={{ width: '100%', maxWidth: 440 }} styles={{ body: { padding: 'clamp(24px, 6vw, 44px)' } }}>
         <Flex vertical align="center" gap={8} style={{ marginBottom: 24, textAlign: 'center' }}>
+          <LogotipoSistema tamanho={72} soSimbolo />
           <h1 className="erp-entrada-titulo">MEU ERP · Plataforma</h1>
           <Typography.Text type="secondary">
             {precisaCriarAdmin ? 'Criar administrador da plataforma' : 'Administração da plataforma'}

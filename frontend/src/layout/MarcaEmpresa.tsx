@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { obter } from '@/api/cliente';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { useIdentidade } from '@/sessao/identidade';
+import { LogotipoSistema } from '@/componentes/LogotipoSistema';
 import { iniciais } from './marca';
 
 interface Props {
@@ -34,14 +35,17 @@ export function MarcaEmpresa({ soIcone = false, tamanho = 36, comProduto = false
     staleTime: 10 * 60_000,
   });
 
-  const nomeSistema = sistema.data?.nome_sistema || identidade.data?.nome_sistema || 'CONSULVOLT ERP';
+  const nomeSistema = sistema.data?.nome_sistema || identidade.data?.nome_sistema || 'MEU ERP';
   const nomeEmpresa = identidade.data?.nome || empresa?.nome || 'Consulvolt';
 
   // No menu escuro, exibe SEMPRE o nome e logótipo do sistema (não o da empresa)
   const nome = escuro ? nomeSistema : nomeEmpresa;
-  const logotipo = escuro ? (sistema.data?.logotipo ?? null) : (identidade.data?.logotipo ?? null);
+  // menu escuro = identidade do sistema: sempre o logótipo padrão (SVG), nunca uma imagem de empresa
+  const logotipo = escuro ? null : (identidade.data?.logotipo ?? null);
 
-  const imagem = logotipo ? (
+  const imagem = escuro ? (
+    <LogotipoSistema tamanho={tamanho} soSimbolo />
+  ) : logotipo ? (
     <img
       src={logotipo}
       alt={`Logótipo de ${nome}`}
