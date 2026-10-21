@@ -2,7 +2,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { useQueryClient } from '@tanstack/react-query';
 import { definirAoExpirar, enviar, obter } from '@/api/cliente';
 import type { Empresa, ModuloMenu, Utilizador } from '@/api/tipos';
+import { naRotaPortal, ROTA_PORTAL } from '@/portal/rota';
 import { armazenamento } from './armazenamento';
+
+/**
+ * Ao terminar sessão ou largar a empresa, o endereço volta ao início (ou ao portal, se se estava no portal). O ERP é
+ * desmontado nesses momentos e, sem isto, a próxima entrada (ou a outra empresa) reabria o ecrã onde se estava.
+ */
+function voltarAoInicio() {
+  if (window.location.pathname === '/redefinir-senha') return;   // link do e-mail de recuperação: não se toca
+  const destino = naRotaPortal() ? ROTA_PORTAL : '/';
+  if (window.location.pathname !== destino || window.location.search) window.history.replaceState(null, '', destino);
+}
 
 interface DadosSessao {
   utilizador: Utilizador;
@@ -63,6 +74,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 
   const limparSessao = useCallback(
     (motivo: string | null) => {
+      voltarAoInicio();
       armazenamento.limpar();
       setDados(null);
       setMenu([]);
@@ -175,6 +187,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   );
 
   const largarEmpresa = useCallback(() => {
+    voltarAoInicio();
     armazenamento.definirEmpresa(null);
     setEmpresaId(null);
     setMenu([]);
