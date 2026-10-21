@@ -1,4 +1,5 @@
 import { Spin } from 'antd';
+import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { normalizarCaminhoLegado } from '@/utilitarios/caminhos';
 import { useSessao } from '@/sessao/SessaoContexto';
@@ -22,6 +23,13 @@ export function RedirecionarEnderecoAntigo() {
  * /portal: portal autónomo do colaborador (sem o menu do ERP). O login e a escolha de empresa não mudam o endereço,
  * por isso quem entra por /portal volta a /portal; com sessão já aberta não pede de novo as credenciais.
  */
+/** Abrir /selecionar-empresa com uma empresa activa volta à escolha de empresa (como «Trocar empresa»). */
+function LargarEmpresa() {
+  const { largarEmpresa } = useSessao();
+  useEffect(() => largarEmpresa(), [largarEmpresa]);
+  return null;
+}
+
 export function App() {
   const { estado, empresa } = useSessao();
   if (estado === 'a_carregar') return <Spin size="large" style={{ display: 'block', marginTop: '40vh' }} />;
@@ -37,6 +45,8 @@ export function App() {
           <Route index element={<Inicio />} />
           <Route path=":modulo/:ecra/*" element={<Ecra />} />
           <Route path="dados-pessoais" element={<DadosPessoais />} />
+          {/* /selecionar-empresa com uma empresa activa: larga-a e mostra a escolha */}
+          <Route path="selecionar-empresa" element={<LargarEmpresa />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

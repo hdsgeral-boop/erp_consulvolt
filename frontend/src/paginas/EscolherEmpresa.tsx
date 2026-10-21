@@ -1,13 +1,45 @@
 import { Avatar, Button, Card, Empty, Input, List, Tag, Typography, theme } from 'antd';
 import { LogoutOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { obter } from '@/api/cliente';
 import type { Empresa } from '@/api/tipos';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { iniciais } from '@/layout/marca';
 import { notificarErro } from '@/utilitarios/erros';
 import { naRotaPortal } from '@/portal/rota';
+
+/** Endereço próprio da escolha de empresa (no legado: #/selecionar-empresa). */
+export const ROTA_ESCOLHA_EMPRESA = '/selecionar-empresa';
+const CHAVE_DESTINO = 'erp.destino_apos_escolha';
+
+/**
+ * Ao abrir a escolha, o endereço passa a /selecionar-empresa; um link directo aberto antes (ex.: favorito para
+ * /rh/colaboradores) fica guardado para depois da escolha. O portal mantém o seu endereço.
+ */
+export function marcarEnderecoEscolha(): void {
+  if (naRotaPortal() || window.location.pathname === ROTA_ESCOLHA_EMPRESA) return;
+  const actual = `${window.location.pathname}${window.location.search}`;
+  try {
+    if (actual !== '/') sessionStorage.setItem(CHAVE_DESTINO, actual);
+    else sessionStorage.removeItem(CHAVE_DESTINO);
+  } catch {
+    // sem sessionStorage: depois da escolha vai para o início
+  }
+  window.history.replaceState(null, '', ROTA_ESCOLHA_EMPRESA);
+}
+
+/** Endereço para onde ir depois de escolher a empresa: o link directo guardado ou o início. */
+export function enderecoDepoisDaEscolha(): string {
+  let destino: string | null = null;
+  try {
+    destino = sessionStorage.getItem(CHAVE_DESTINO);
+    sessionStorage.removeItem(CHAVE_DESTINO);
+  } catch {
+    // idem
+  }
+  return destino && destino.startsWith('/') && !destino.startsWith('//') ? destino : '/';
+}
 
 /** Texto normalizado para pesquisa: sem acentos, minúsculas e sem espaços a mais. */
 export const normalizarPesquisa = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -58,10 +90,18 @@ export function EscolherEmpresa() {
   const [pesquisa, setPesquisa] = useState('');
   const visiveis = useMemo(() => filtrarEmpresas(empresas, pesquisa), [empresas, pesquisa]);
 
+  useEffect(() => marcarEnderecoEscolha(), []);
+
   const escolher = (id: number) => {
     setAEscolher(id);
+    // o ERP monta-se com o endereço actual: define-se antes de a empresa ficar activa
+    const portal = naRotaPortal();
+    if (!portal) window.history.replaceState(null, '', enderecoDepoisDaEscolha());
     escolherEmpresa(id)
-      .catch((e) => notificarErro(e))
+      .catch((e) => {
+        if (!portal) window.history.replaceState(null, '', ROTA_ESCOLHA_EMPRESA);
+        notificarErro(e);
+      })
       .finally(() => setAEscolher(null));
   };
 
