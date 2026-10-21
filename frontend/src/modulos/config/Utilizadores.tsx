@@ -236,7 +236,10 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
 
   const submeter = (v: FormUtilizador) => {
     const anteriores = new Map((u?.empresas ?? []).map((e) => [e.empresa_id, e.colaborador_id]));
-    const lista = v.empresas.map((id) => ({ empresa_id: id, colaborador_id: id === empresa?.id ? (v.colaborador_id ?? null) : (anteriores.get(id) ?? null) }));
+    // com «Acesso a todas as empresas» o campo Empresas não é mostrado e não vem em `v`: sem isto o .map rebentava e o
+    // «Gravar» não fazia nada. Usa o valor guardado no formulário, as empresas que o utilizador já tinha ou a activa.
+    const ids: number[] = v.empresas ?? form.getFieldValue('empresas') ?? u?.empresas.map((e) => e.empresa_id) ?? (empresa ? [empresa.id] : []);
+    const lista = ids.map((id) => ({ empresa_id: id, colaborador_id: id === empresa?.id ? (v.colaborador_id ?? null) : (anteriores.get(id) ?? null) }));
     accao.mutate({ metodo: novo ? 'post' : 'put', url: novo ? '/sistema/utilizadores' : `/sistema/utilizadores/${u!.id}`, dados: dadosUtilizador(v, lista, souSuper) });
   };
 

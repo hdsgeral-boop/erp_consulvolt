@@ -204,6 +204,24 @@ describe('Utilizadores — «Novo utilizador» em Linhas', () => {
     for (const id of ['nome_utilizador', 'nome_completo', 'email', 'palavra_passe', 'perfil_utilizador_id']) expect(dialogo.querySelector(`#${id}`)).not.toBeNull();
     for (const s of ['Conta', 'Perfil e estado', 'Empresas e colaborador']) expect(within(dialogo).getByRole('button', { name: new RegExp(`(^| )${s}$`) })).toHaveAttribute('aria-expanded', 'true');
   });
+
+  it('com «Acesso a todas as empresas» o Gravar envia o POST (o campo Empresas escondido rebentava o envio)', async () => {
+    const { default: Utilizadores } = await import('./Utilizadores');
+    envolver(<Utilizadores />);
+    fireEvent.click(await screen.findByRole('button', { name: /Novo utilizador/ }, { timeout: 60_000 }));
+    const dialogo = await screen.findByRole('dialog');
+    escrever(dialogo.querySelector('#nome_utilizador') as HTMLElement, 'eugenio');
+    escrever(dialogo.querySelector('#palavra_passe') as HTMLElement, 'Segredo#2026x');
+    fireEvent.mouseDown(dialogo.querySelector('#perfil_utilizador_id') as HTMLElement);
+    fireEvent.click(await screen.findByTitle('Salários'));
+    fireEvent.click(within(dialogo).getByRole('checkbox', { name: /Acesso a todas as empresas/ }));
+    await within(dialogo).findByText(/Tem acesso a todas as empresas/);
+    fireEvent.click(within(dialogo).getByRole('button', { name: /Gravar/ }));
+    await waitFor(() => expect(posts('/sistema/utilizadores')).toHaveLength(1));
+    expect(posts('/sistema/utilizadores')[0][2]).toMatchObject({
+      nome_utilizador: 'eugenio', perfil_utilizador_id: 3, acesso_todas_empresas: true, empresas: [{ empresa_id: 7, colaborador_id: null }],
+    });
+  });
 });
 
 describe('Empresas — «Nova empresa» em Linhas e ficha em secções', () => {
