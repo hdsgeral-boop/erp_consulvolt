@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Empresa;
+use App\Models\Utilizador;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
@@ -122,8 +123,10 @@ final class FiPortalCopiaEmpresaTest extends TestCase
         try {
             $tmp = $ficheiro.'.'.uniqid();
             copy($ficheiro, $tmp);
+            // Importar é reservado a Super Administradores (CopiaEmpresaController::importar).
+            $sa = $this->entrar($this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR])) + ['X-Empresa-Id' => $this->empresa->id];
             $imp = $this->post('/api/sistema/copias/importar', ['ficheiro' => new UploadedFile($tmp, 'copia.json', 'application/json', null, true), 'nif' => '5419100003'],
-                $this->s + ['Accept' => 'application/json'])->assertCreated();
+                $sa + ['Accept' => 'application/json'])->assertCreated();
             $nova = (int) $imp->json('dados.empresa_destino.id');
         } finally {
             @unlink($ficheiro);

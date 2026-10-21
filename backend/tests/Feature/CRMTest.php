@@ -150,11 +150,32 @@ final class CRMTest extends TestCase
         $this->getJson("/api/crm/oportunidades/{$o['id']}", $s)->assertJsonPath('dados.saude.nivel', 'OK');   // a reunião da etapa continua agendada
         $this->postJson("/api/crm/atividades/{$t}/reabrir", [], $s)->assertOk()->assertJsonPath('dados.concluida', false);
 
-        // quadro: abertas + fechadas há ≤ 30 dias, ponderado pela probabilidade da etapa (75 %)
+        // quadro: abertas + fechadas (sem limite de dias), ponderado pela probabilidade da etapa (75 %)
         $q = $this->getJson("/api/crm/funis/{$f['id']}/quadro", $s)->assertOk()->json('dados');
         $this->assertSame(['abertas' => 1, 'valor' => '3100.00', 'ponderado' => '2325.00', 'em_risco' => 0, 'atencao' => 1], $q['resumo']);
         $this->assertSame(1, collect($q['etapas'])->firstWhere('etapa.nome', 'Negociação')['n']);
         $this->getJson("/api/crm/funis/{$f['id']}/quadro", $this->sessao(['crm_agenda_view']))->assertForbidden();
+    }
+
+    #[Test]
+    public function quadro_mostra_ganhas_e_perdidas_fechadas_ha_mais_de_30_dias(): void
+    {
+        $s = $this->s;
+        $f = $this->funil();
+        $conta = $this->prospect();
+        $ganha = $this->postJson('/api/crm/oportunidades', ['titulo' => 'Negócio antigo ganho', 'conta_crm_id' => $conta, 'funil_vendas_crm_id' => $f['id'], 'valor' => 5000], $s)->json('dados.id');
+        $perdida = $this->postJson('/api/crm/oportunidades', ['titulo' => 'Negócio antigo perdido', 'conta_crm_id' => $conta, 'funil_vendas_crm_id' => $f['id'], 'valor' => 2000], $s)->json('dados.id');
+        $this->postJson("/api/crm/oportunidades/{$ganha}/etapa", ['etapa_codigo' => $this->etapa($f, 'Ganha')], $s)->assertOk();
+        $this->postJson("/api/crm/oportunidades/{$perdida}/etapa", ['etapa_codigo' => $this->etapa($f, 'Perdida'), 'motivo_perda' => 'Preço'], $s)->assertOk();
+        app(ContextoEmpresa::class)->executarComo($this->empresa->id, function () use ($ganha, $perdida) {
+            DB::table('oportunidades_venda_crm')->whereIn('id', [$ganha, $perdida])->update(['fechado_em' => now()->subDays(45)]);
+        });
+
+        $q = $this->getJson("/api/crm/funis/{$f['id']}/quadro", $s)->assertOk()->json('dados');
+        $this->assertSame(1, collect($q['etapas'])->firstWhere('etapa.nome', 'Ganha')['n']);
+        $this->assertSame('5000.00', collect($q['etapas'])->firstWhere('etapa.nome', 'Ganha')['valor']);
+        $this->assertSame(1, collect($q['etapas'])->firstWhere('etapa.nome', 'Perdida')['n']);
+        $this->assertSame('2000.00', collect($q['etapas'])->firstWhere('etapa.nome', 'Perdida')['valor']);
     }
 
     #[Test]

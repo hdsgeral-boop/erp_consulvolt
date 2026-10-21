@@ -24,7 +24,8 @@ use Illuminate\Support\Facades\DB;
  *     reabrir limpa o fecho;
  *   - saúde: RISCO (sem actividade agendada ou estagnada além dos dias da etapa), ATENCAO (dias sem actividade,
  *     actividades em atraso ou fecho previsto ultrapassado);
- *   - quadro: oportunidades abertas e as fechadas nos últimos 30 dias; totais bruto e ponderado; em risco;
+ *   - quadro: todas as oportunidades abertas e fechadas (ganhas/perdidas) do funil, sempre — sem limite de dias no
+ *     fecho, para bater certo com a Lista e os relatórios; totais bruto e ponderado; em risco;
  *   - documento de venda emitido a partir da oportunidade: fica ligado (lista `vendas` e `vendas.oportunidade_crm_id`),
  *     regista uma NOTA e, se for factura ou encomenda de uma oportunidade aberta, marca-a como ganha;
  *   - não se elimina uma oportunidade que já gerou documentos.
@@ -202,17 +203,16 @@ final class ServicoOportunidadesCRM
     }
 
     /**
-     * Quadro Kanban de um funil: etapas com as oportunidades (abertas e fechadas nos últimos 30 dias), saúde, probabilidade
-     * efectiva, valor ponderado e aviso de facturas em atraso do cliente.
+     * Quadro Kanban de um funil: etapas com as oportunidades (todas as abertas e todas as fechadas — ganhas ou
+     * perdidas, sem limite de dias no fecho, para as colunas Ganha/Perdida baterem sempre certo com a Lista e os
+     * relatórios), saúde, probabilidade efectiva, valor ponderado e aviso de facturas em atraso do cliente.
      *
      * @param  array{responsavel?: ?string, texto?: ?string, so_risco?: bool}  $f
      */
     public function quadro(FunilVendasCRM $funil, array $f): array
     {
         $config = $this->config->obter();
-        $limite = now()->subDays(30);
         $opps = OportunidadeVendaCRM::query()->where('funil_vendas_crm_id', $funil->id)
-            ->where(fn ($q) => $q->where('estado', 'ABERTA')->orWhere('fechado_em', '>=', $limite->startOfDay()))
             ->when($f['responsavel'] ?? null, fn ($q, $r) => $q->where('responsavel', $r))
             ->with(['contaCrm:id,nome,tipo,terceiro_id', 'contactoCrm:id,nome'])->orderBy('id')->get();
         if ($t = mb_strtolower(trim((string) ($f['texto'] ?? '')))) {

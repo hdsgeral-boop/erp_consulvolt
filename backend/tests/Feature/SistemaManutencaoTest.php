@@ -8,7 +8,6 @@ use App\Models\LogAuditoria;
 use App\Models\PedidoManutencaoEquipamento;
 use App\Models\PlanoConta;
 use App\Models\Utilizador;
-use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Tesouraria\ServicoDocumentosTesouraria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\DB;
@@ -41,13 +40,12 @@ final class SistemaManutencaoTest extends TestCase
                 PlanoConta::create(['codigo' => (string) $c, 'descricao' => $d, 'tipo' => 'M']);
             }
         });
+        // Manutenção de dados é reservada a Super Administradores (ManutencaoDadosController::exigirSuperAdministrador):
+        // têm sempre acesso a qualquer empresa (ServicoEmpresas::idsAcessiveis), por isso não precisam de ligação directa.
         $perfil = $this->criarPerfil(['_v2' => true, 'config_manutencao_view' => true, 'teso_gestao_pagamentos_view' => true, 'teso_doc_emitir' => true,
             'teso_integrar' => true], 'Manutenção');
-        $this->pedinte = $this->criarUtilizador(['nome_utilizador' => 'pedinte', 'papel' => Utilizador::PAPEL_ADMINISTRADOR, 'perfil_utilizador_id' => $perfil->id]);
-        $aprovador = $this->criarUtilizador(['nome_utilizador' => 'aprovador', 'papel' => Utilizador::PAPEL_ADMINISTRADOR, 'perfil_utilizador_id' => $perfil->id]);
-        foreach ([$this->pedinte, $aprovador] as $u) {
-            $u->empresas()->attach($this->empresa->id);
-        }
+        $this->pedinte = $this->criarUtilizador(['nome_utilizador' => 'pedinte', 'papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'perfil_utilizador_id' => $perfil->id]);
+        $aprovador = $this->criarUtilizador(['nome_utilizador' => 'aprovador', 'papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'perfil_utilizador_id' => $perfil->id]);
         $this->sp = $this->entrar($this->pedinte) + ['X-Empresa-Id' => $this->empresa->id];
         $this->sa = $this->entrar($aprovador) + ['X-Empresa-Id' => $this->empresa->id];
     }
@@ -74,6 +72,22 @@ final class SistemaManutencaoTest extends TestCase
     private function doc(int $id): DocumentoTesouraria
     {
         return app(ContextoEmpresa::class)->executarComo($this->empresa->id, fn () => DocumentoTesouraria::query()->findOrFail($id));
+    }
+
+    #[Test]
+    public function administrador_de_empresa_com_a_permissao_fica_bloqueado_mesmo_assim(): void
+    {
+        // config_manutencao_view é partilhada com ecrãs de empresa só de leitura (Validações de dados); o fluxo
+        // destrutivo em si é sempre reservado a Super Administradores, mesmo a quem tem essa permissão no perfil.
+        $u = $this->criarUtilizador(['papel' => Utilizador::PAPEL_ADMINISTRADOR, 'perfil_utilizador_id' => $this->pedinte->perfil_utilizador_id]);
+        $u->empresas()->attach($this->empresa->id);
+        $s = $this->entrar($u) + ['X-Empresa-Id' => $this->empresa->id];
+
+        $this->getJson('/api/sistema/manutencao/acoes', $s)->assertStatus(403)->assertJsonPath('codigo', 'RESERVADO_SUPER_ADMINISTRADOR');
+        $this->postJson('/api/sistema/manutencao/impacto', ['acao' => 'ANULAR_PENDENTES_TESOURARIA'], $s)
+            ->assertStatus(403)->assertJsonPath('codigo', 'RESERVADO_SUPER_ADMINISTRADOR');
+        $this->postJson('/api/sistema/manutencao/pedidos', ['acao' => 'ANULAR_PENDENTES_TESOURARIA', 'justificacao' => str_repeat('j', 25), 'ciente' => true], $s)
+            ->assertStatus(403)->assertJsonPath('codigo', 'RESERVADO_SUPER_ADMINISTRADOR');
     }
 
     #[Test]
@@ -159,10 +173,13 @@ final class SistemaManutencaoTest extends TestCase
             ->assertOk()->assertJsonPath('dados.estado', 'REJEITADO');
 
         $id2 = $this->pedir('ANULAR_PENDENTES_TESOURARIA_DATA', ['data' => '2026-03-15']);
-        $this->postJson("/api/sistema/manutencao/pedidos/{$id2}/cancelar", ['motivo' => 'Engano no pedido'], $this->sa)->assertStatus(403);
-        $this->postJson("/api/sistema/manutencao/pedidos/{$id2}/cancelar", ['motivo' => 'Engano no pedido'], $this->sp)->assertOk()->assertJsonPath('dados.estado', 'CANCELADO');
+        // qualquer Super Administrador pode cancelar, não só quem pediu (ServicoManutencaoDados::cancelar).
+        $this->postJson("/api/sistema/manutencao/pedidos/{$id2}/cancelar", ['motivo' => 'Engano no pedido'], $this->sa)->assertOk()->assertJsonPath('dados.estado', 'CANCELADO');
+
+        $id3 = $this->pedir('ANULAR_PENDENTES_TESOURARIA_DATA', ['data' => '2026-03-15']);
+        $this->postJson("/api/sistema/manutencao/pedidos/{$id3}/cancelar", ['motivo' => 'Engano no pedido'], $this->sp)->assertOk()->assertJsonPath('dados.estado', 'CANCELADO');
         $this->getJson('/api/sistema/manutencao/pedidos', $this->sp)->assertOk()->assertJsonCount(0, 'dados');
-        $this->getJson('/api/sistema/manutencao/pedidos?estado=TODOS', $this->sp)->assertOk()->assertJsonCount(2, 'dados');
+        $this->getJson('/api/sistema/manutencao/pedidos?estado=TODOS', $this->sp)->assertOk()->assertJsonCount(3, 'dados');
     }
 
     #[Test]
@@ -191,15 +208,7 @@ final class SistemaManutencaoTest extends TestCase
         $vazia = $this->criarEmpresa(['nif' => '5417000399']);
         $comDados = $this->criarEmpresa(['nif' => '5417000398']);
         DB::table('lancamentos_contabeis')->insert(['empresa_id' => $comDados->id, 'codigo_conta' => '4311', 'tipo_dc' => 'D', 'valor' => 1, 'data_documento' => $this->hoje]);
-        // sem acesso à empresa indicada: nem impacto nem pedido (não revela contagens de outra empresa)
-        $pedidoVazia = ['acao' => 'ELIMINAR_EMPRESA', 'parametros' => ['empresa_id' => $vazia->id], 'justificacao' => str_repeat('j', 25), 'ciente' => true];
-        $this->postJson('/api/sistema/manutencao/impacto', ['acao' => 'ELIMINAR_EMPRESA', 'parametros' => ['empresa_id' => $vazia->id]], $this->sp)
-            ->assertForbidden()->assertJsonPath('codigo', 'EMPRESA_SEM_ACESSO');
-        $this->postJson('/api/sistema/manutencao/pedidos', $pedidoVazia, $this->sp)->assertForbidden()->assertJsonPath('codigo', 'EMPRESA_SEM_ACESSO');
-        foreach (Utilizador::query()->whereIn('nome_utilizador', ['pedinte', 'aprovador'])->get() as $u) {
-            $u->empresas()->attach([$vazia->id, $comDados->id]);
-            app(ServicoEmpresas::class)->invalidarUtilizador($u->id);
-        }
+        // Super Administrador: acesso a qualquer empresa sem ligação directa (ServicoEmpresas::idsAcessiveis).
         $this->postJson('/api/sistema/manutencao/pedidos', ['acao' => 'ELIMINAR_EMPRESA', 'parametros' => ['empresa_id' => $comDados->id], 'justificacao' => str_repeat('j', 25), 'ciente' => true], $this->sp)
             ->assertStatus(422)->assertJsonPath('codigo', 'ACAO_BLOQUEADA');
 
