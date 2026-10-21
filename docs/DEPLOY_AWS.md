@@ -1,4 +1,48 @@
-# Deploy automático para a AWS
+# Produção na AWS
+
+> Estado em 2026-10-21: servidor **independente** do PC local (sem túnel Cloudflare). O workflow
+> `.github/workflows/deploy-aws.yml` descrito mais abaixo era do servidor antigo (13.53.43.240, já não existe) e
+> **não está activo**.
+
+## Arquitectura (eu-north-1, Estocolmo)
+
+| Peça | Recurso |
+| --- | --- |
+| Servidor | EC2 `meuerp-app` (t3.large, Ubuntu 24.04, disco gp3 40 GB encriptado), IP fixo **13.62.141.36** |
+| Base de dados | RDS PostgreSQL 16 `meuerp-db` (db.t4g.medium, 50 GB gp3 até 200 GB, encriptada, cópias 7 dias, protecção contra eliminação) |
+| Rede | SG `erp-aws-app` (80/443 abertos), SG `erp-aws-db` (5432 só a partir do servidor) |
+| Acesso ao servidor | SSM Session Manager (sem SSH): `aws ssm start-session --target <id-da-instância>` |
+| Segredos | palavra-passe mestra da RDS em SSM Parameter Store `/meuerp/rds/master_password`; `.env` da raiz só no servidor |
+| Transferências | bucket S3 privado `meuerp-transferencia-962367498111` |
+
+No servidor o projecto está em `/opt/erp` e corre com:
+
+```
+docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d
+```
+
+`docker-compose.aws.yml` liga a aplicação à RDS (`DB_HOST_RDS`), desliga o contentor postgres e põe o Caddy nas portas
+80/443 (`deploy/caddy/Caddyfile.aws`).
+
+## Domínio
+
+Enquanto não houver domínio, o acesso é por `http://13.62.141.36`. Para activar um domínio:
+1. DNS: registos A do domínio e de cada subdomínio (`gestao-admin.`, `<cliente>.`) para 13.62.141.36.
+2. No servidor, `.env` da raiz: `CADDY_DOMINIOS=dominio, www.dominio, gestao-admin.dominio, cliente1.dominio`.
+3. `backend/.env`: `DOMINIO_BASE=dominio` e `APP_URL=https://dominio`.
+4. `docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d caddy` e `php artisan optimize` no `app`.
+
+## Instalar ou actualizar
+
+`deploy/aws/instalar.sh` (corre como root no servidor, via SSM): descarrega o pacote do bucket, cria o `.env` na primeira
+vez, opcionalmente restaura a base (`--restaurar`, só numa base vazia), constrói, instala dependências, aplica migrações
+(`--database=pgsql_owner`) e a RLS, faz a cache e reinicia. Depois de alterar código PHP: `restart app worker scheduler`
+(opcache sem revalidação).
+
+---
+
+## Workflow antigo (servidor 13.53.43.240, inactivo)
+
 
 Cada push no branch `main` atualiza o servidor. O workflow é `.github/workflows/deploy-aws.yml`.
 

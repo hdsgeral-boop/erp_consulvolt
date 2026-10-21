@@ -1,0 +1,20 @@
+# Caddy no servidor AWS (docker-compose.aws.yml): entrada pública directa do servidor (portas 80/443), sem túnel.
+#
+# Sem domínio (CADDY_DOMINIOS vazio no .env): responde em HTTP pelo IP do servidor.
+# Com domínio: no .env da raiz, por exemplo
+#   CADDY_DOMINIOS=meuerp.exemplo, www.meuerp.exemplo, gestao-admin.meuerp.exemplo, cliente1.meuerp.exemplo
+# e os registos DNS (A) de cada nome a apontar para o IP do servidor. O Caddy obtém e renova sozinho o certificado
+# (Let's Encrypt) de cada nome. Depois: docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d caddy
+(erp) {
+	encode gzip
+	reverse_proxy web:80
+}
+
+# acesso pelo IP (e qualquer nome sem certificado), sem HTTPS
+:80 {
+	import erp
+}
+
+{$CADDY_DOMINIOS} {
+	import erp
+}

@@ -170,7 +170,13 @@ final class IsolamentoRls
         SQL);
 
         if ($palavraPasse !== null && $palavraPasse !== '') {
-            $this->bd->unprepared('ALTER ROLE erp_app LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '.$this->bd->getPdo()->quote($palavraPasse));
+            $this->bd->unprepared('ALTER ROLE erp_app LOGIN PASSWORD '.$this->bd->getPdo()->quote($palavraPasse));
+        }
+        // Só um superuser altera SUPERUSER/BYPASSRLS (na RDS o dono não é superuser): corrige-se apenas se estiverem mal,
+        // e aí falhar é o correcto — a aplicação não pode ligar com uma role que ignora a RLS.
+        $atributos = $this->bd->selectOne("SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'erp_app'");
+        if ($atributos && ($atributos->rolsuper || $atributos->rolbypassrls)) {
+            $this->bd->unprepared('ALTER ROLE erp_app NOSUPERUSER NOBYPASSRLS');
         }
 
         $base = $this->bd->selectOne('SELECT current_database() AS base')->base;
