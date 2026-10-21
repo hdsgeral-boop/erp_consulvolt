@@ -354,4 +354,35 @@ final class POSLavandariaTest extends TestCase
         $this->getJson('/api/rh/colaboradores', $s)->assertForbidden();
         $this->getJson('/api/pos/lavandaria/colaboradores', $this->sessao(['vendas_view']))->assertForbidden();
     }
+
+    /** Serviços por terminal: sem configurar (null) o terminal vê tudo; configurado, só vê e só aceita esses. */
+    #[Test]
+    public function servicos_por_terminal_restringem_o_catalogo_e_a_recepcao(): void
+    {
+        $s = $this->s;
+        $this->getJson("/api/pos/terminais/{$this->ids['t']}/servicos-lav", $s)->assertOk()->assertJsonPath('dados.servico_ids', null);
+        $this->assertSame(collect([$this->ids['bainha'], $this->ids['lavar']])->sort()->values()->all(),
+            collect($this->getJson("/api/pos/lavandaria/servicos?terminal_pos_id={$this->ids['t']}", $s)->json('dados'))->pluck('id')->sort()->values()->all());
+
+        $this->putJson("/api/pos/terminais/{$this->ids['t']}/servicos-lav", ['servico_ids' => [9999999]], $s)
+            ->assertStatus(422)->assertJsonPath('codigo', 'SERVICO_LAV_INVALIDO');
+        $this->putJson("/api/pos/terminais/{$this->ids['t']}/servicos-lav", ['servico_ids' => [$this->ids['lavar']]], $s)
+            ->assertOk()->assertJsonPath('dados.servico_ids', [$this->ids['lavar']]);
+        $this->assertSame([$this->ids['lavar']], array_column($this->getJson("/api/pos/lavandaria/servicos?terminal_pos_id={$this->ids['t']}", $s)->json('dados'), 'id'));
+        // os outros ecrãs (sem terminal_pos_id) continuam a ver o catálogo inteiro — a restrição é só por terminal
+        $this->assertCount(2, $this->getJson('/api/pos/lavandaria/servicos', $s)->json('dados'));
+
+        $sessao = $this->abrir();
+        $this->postJson("/api/pos/lavandaria/sessoes/{$sessao}/ordens", ['cliente_id' => $this->ids['cliente'], 'itens' => [$this->linha(['produto_id' => $this->ids['bainha'],
+            'estado_entrada' => 'Bom estado'])]], $s)->assertStatus(422)->assertJsonPath('codigo', 'SERVICO_FORA_DO_TERMINAL');
+        $this->postJson("/api/pos/lavandaria/sessoes/{$sessao}/ordens", ['cliente_id' => $this->ids['cliente'], 'itens' => [$this->linha()]], $s)->assertCreated();
+
+        // só terminais de Lavandaria têm serviços configuráveis
+        $loja = $this->postJson('/api/pos/terminais', ['codigo' => 'LJ1', 'nome' => 'Loja', 'tipo' => 'LOJA', 'fundo_maneio_padrao' => 0,
+            'meios_pagamento' => [['id' => 'pm_num', 'tipo' => 'NUMERARIO', 'nome' => 'Numerário', 'conta_transitoria' => '489', 'conta_liquidacao' => '4511']]], $s)
+            ->assertCreated()->json('dados.id');
+        $this->putJson("/api/pos/terminais/{$loja}/servicos-lav", ['servico_ids' => [$this->ids['lavar']]], $s)
+            ->assertStatus(422)->assertJsonPath('codigo', 'TERMINAL_NAO_LAVANDARIA');
+        $this->putJson("/api/pos/terminais/{$this->ids['t']}/servicos-lav", ['servico_ids' => [$this->ids['lavar']]], $this->sessao(['lav_ordens']))->assertForbidden();
+    }
 }

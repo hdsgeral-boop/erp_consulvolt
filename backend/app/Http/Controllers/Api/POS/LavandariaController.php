@@ -8,6 +8,7 @@ use App\Models\PecaLavandaria;
 use App\Models\PedidoLavandaria;
 use App\Models\Produto;
 use App\Models\ReclamacaoLavandaria;
+use App\Models\TerminalPOS;
 use App\Rules\TaxaIvaLegal;
 use App\Services\POS\Lavandaria\RegrasLavandaria;
 use App\Services\POS\Lavandaria\ServicoCaixaLavandaria;
@@ -84,12 +85,16 @@ final class LavandariaController extends Controller
         return $p ? RespostaApi::sucesso($res, 'Peça actualizada.') : RespostaApi::criado($res, 'Peça criada.');
     }
 
+    /** ?terminal_pos_id= filtra para os serviços configurados nesse terminal (null no terminal = sem restrição). */
     public function servicos(Request $r): JsonResponse
     {
         $this->exigir(...self::VER);
+        $f = $r->validate(['incluir_inativos' => ['nullable', 'boolean'], 'terminal_pos_id' => ['nullable', 'integer']]);
+        $ids = isset($f['terminal_pos_id']) ? TerminalPOS::query()->findOrFail($f['terminal_pos_id'])->lavandaria_servicos_ids : null;
 
         return RespostaApi::sucesso(Produto::query()->whereIn('lavandaria_grupo', RegrasLavandaria::GRUPOS)
             ->when(! $r->boolean('incluir_inativos'), fn ($q) => $q->where(fn ($q) => $q->whereNull('lavandaria_ativa')->orWhere('lavandaria_ativa', true)))
+            ->when($ids !== null, fn ($q) => $q->whereIn('id', $ids))
             ->orderBy('lavandaria_grupo')->ordenarPorNome()
             ->get(['id', 'codigo', 'nome', 'lavandaria_grupo', 'codigo_conta', 'taxa_imposto', 'lavandaria_dias_entrega', 'lavandaria_requer_orcamento', 'lavandaria_ativa']), 'Tabela de serviços.');
     }

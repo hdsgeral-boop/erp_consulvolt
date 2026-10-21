@@ -151,7 +151,8 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
   const { pode, empresa } = useSessao();
   const cabecalho = useCabecalhoTalao();
   const pecas = usePecas();
-  const servicos = useServicosLav();
+  // só os serviços configurados neste terminal (POS › Terminais › «Configurar serviços»; vazio = todos)
+  const servicos = useServicosLav(false, terminal?.id);
   const definicoes = useDefinicoesLav();
   const def = definicoes.data;
   const estados = def?.estados_entrada?.length ? def.estados_entrada : [BOM_ESTADO];
@@ -456,6 +457,9 @@ export function Recepcao({ terminal, aoRegistar }: { terminal: Terminal | undefi
   return (
     <>
       {!sessaoId && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="O terminal escolhido não tem sessão aberta: abra a caixa para registar a ordem." />}
+      {terminal?.lavandaria_servicos_ids?.length === 0 && (
+        <Alert type="error" showIcon style={{ marginBottom: 12 }} message="Este terminal ainda não tem serviços configurados. Configure-os em POS › Terminais antes de receber ordens." />
+      )}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 480px', maxWidth: 780, minWidth: 0 }}>
           <Seccao n={1} titulo="Cliente e condições">

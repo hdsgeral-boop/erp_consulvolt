@@ -6,8 +6,22 @@ export function usePecas(incluirInativas = false) {
   return useQuery({ queryKey: ['pos', 'lavandaria', 'pecas', incluirInativas], queryFn: () => obter<Peca[]>('/pos/lavandaria/pecas', { incluir_inativas: incluirInativas ? 1 : undefined }), staleTime: 300_000 });
 }
 
-export function useServicosLav(incluirInativos = false) {
-  return useQuery({ queryKey: ['pos', 'lavandaria', 'servicos', incluirInativos], queryFn: () => obter<ServicoLav[]>('/pos/lavandaria/servicos', { incluir_inativos: incluirInativos ? 1 : undefined }), staleTime: 300_000 });
+/** terminalId filtra para os serviços configurados nesse terminal (ver Terminais › «Configurar serviços»). */
+export function useServicosLav(incluirInativos = false, terminalId?: number) {
+  return useQuery({
+    queryKey: ['pos', 'lavandaria', 'servicos', incluirInativos, terminalId],
+    queryFn: () => obter<ServicoLav[]>('/pos/lavandaria/servicos', { incluir_inativos: incluirInativos ? 1 : undefined, terminal_pos_id: terminalId }),
+    staleTime: 300_000,
+  });
+}
+
+/** Selecção de serviços do terminal (GET /pos/terminais/{id}/servicos-lav); null = sem restrição (todos). */
+export function useServicosLavTerminal(terminalId: number | undefined) {
+  return useQuery({
+    queryKey: ['pos', 'terminais', terminalId, 'servicos-lav'],
+    queryFn: () => obter<{ servico_ids: number[] | null }>(`/pos/terminais/${terminalId}/servicos-lav`),
+    enabled: !!terminalId,
+  });
 }
 
 export function useDefinicoesLav() {

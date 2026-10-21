@@ -93,6 +93,24 @@ final class POSController extends Controller
         return RespostaApi::sucesso(null, 'Terminal eliminado.');
     }
 
+    /** Serviços de lavandaria configurados neste terminal (null = sem restrição, todos os serviços). */
+    public function servicosLavTerminal(int $terminal): JsonResponse
+    {
+        $this->exigir('pos_terminais_view', 'pos_terminais_gerir', 'pos_venda', 'lav_ordens', 'lav_tabelas');
+        $t = TerminalPOS::query()->findOrFail($terminal);
+
+        return RespostaApi::sucesso(['servico_ids' => $t->lavandaria_servicos_ids], 'Serviços de lavandaria do terminal.');
+    }
+
+    public function guardarServicosLavTerminal(Request $r, int $terminal): JsonResponse
+    {
+        $this->exigir('pos_terminais_gerir');
+        $d = $r->validate(['servico_ids' => ['required', 'array'], 'servico_ids.*' => ['integer']]);
+        $t = $this->terminais->guardarServicosLav(TerminalPOS::query()->findOrFail($terminal), $d['servico_ids']);
+
+        return RespostaApi::sucesso(['servico_ids' => $t->lavandaria_servicos_ids], 'Serviços de lavandaria do terminal gravados.');
+    }
+
     // ───────────── Definições ─────────────
 
     public function definicoes(): JsonResponse

@@ -47,6 +47,8 @@ export interface Terminal {
   hotel_bloco_horas: boolean | null;
   hotel_bloco_horas_de: string | null;
   hotel_bloco_horas_ate: string | null;
+  /** Serviços de lavandaria configurados neste terminal (null = sem restrição, todos os serviços). */
+  lavandaria_servicos_ids: number[] | null;
   sessao_aberta: SessaoResumo | null;
 }
 

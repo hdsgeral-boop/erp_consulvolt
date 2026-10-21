@@ -463,6 +463,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('terminais/{terminal}', 'eliminarTerminal')->whereNumber('terminal')->name('terminais.destroy');
             Route::post('terminais/{terminal}/copiar-meios', 'copiarMeios')->whereNumber('terminal')->name('terminais.copiar');
             Route::post('terminais/{terminal}/ativo', 'ativarTerminal')->whereNumber('terminal')->name('terminais.ativo');
+            Route::get('terminais/{terminal}/servicos-lav', 'servicosLavTerminal')->whereNumber('terminal')->name('terminais.servicos-lav.show');
+            Route::put('terminais/{terminal}/servicos-lav', 'guardarServicosLavTerminal')->whereNumber('terminal')->name('terminais.servicos-lav.update');
             Route::post('terminais/{terminal}/sessoes', 'abrirSessao')->whereNumber('terminal')->name('sessoes.abrir');
             Route::get('definicoes', 'definicoes')->name('definicoes.show');
             Route::put('definicoes', 'guardarDefinicoes')->name('definicoes.update');

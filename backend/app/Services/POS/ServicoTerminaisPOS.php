@@ -4,11 +4,13 @@ namespace App\Services\POS;
 
 use App\Exceptions\ErroNegocio;
 use App\Models\Armazem;
+use App\Models\Produto;
 use App\Models\SessaoPOS;
 use App\Models\Terceiro;
 use App\Models\TerminalPOS;
 use App\Models\Venda;
 use App\Services\Contabilidade\ServicoPlanoContas;
+use App\Services\POS\Lavandaria\RegrasLavandaria;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -189,6 +191,32 @@ final class ServicoTerminaisPOS
         }
 
         return $this->guardar(['meios_pagamento' => $meios], $destino);
+    }
+
+    /**
+     * Serviços de lavandaria que este terminal usa (Recepção só mostra estes): null = sem restrição (todos os
+     * serviços activos do catálogo — omissão dos terminais já criados antes desta funcionalidade); lista de ids de
+     * `produtos` = só esses. Terminais novos do tipo LAVANDARIA são obrigados a configurar pelo menos um antes de
+     * poderem receber ordens (o frontend abre este passo logo a seguir a criar o terminal).
+     *
+     * @param  list<int>  $ids
+     */
+    public function guardarServicosLav(TerminalPOS $t, array $ids): TerminalPOS
+    {
+        if ($t->tipo !== 'LAVANDARIA') {
+            throw new ErroNegocio('Só os terminais de Lavandaria / Alfaiataria têm serviços configuráveis.', 'TERMINAL_NAO_LAVANDARIA', 422);
+        }
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if ($ids) {
+            $validos = Produto::query()->whereIn('id', $ids)->whereIn('lavandaria_grupo', RegrasLavandaria::GRUPOS)->pluck('id')->all();
+            $invalidos = array_diff($ids, $validos);
+            if ($invalidos) {
+                throw new ErroNegocio('Serviço de lavandaria inválido: '.implode(', ', $invalidos).'.', 'SERVICO_LAV_INVALIDO', 422);
+            }
+        }
+        $t->update(['lavandaria_servicos_ids' => $ids, 'atualizado_por' => Auth::user()?->nome_utilizador]);
+
+        return $t->refresh();
     }
 
     public function definirAtivo(TerminalPOS $t, bool $ativo): TerminalPOS
