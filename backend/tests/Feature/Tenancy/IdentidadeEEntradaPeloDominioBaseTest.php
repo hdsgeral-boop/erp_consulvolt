@@ -4,7 +4,6 @@ namespace Tests\Feature\Tenancy;
 
 use App\Models\Tenant;
 use App\Models\Utilizador;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**

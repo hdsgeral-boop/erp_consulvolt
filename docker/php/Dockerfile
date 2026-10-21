@@ -4,7 +4,7 @@ FROM php:8.3-fpm-alpine
 RUN apk add --no-cache icu-libs libzip libpq libpng postgresql-client tzdata \
  && apk add --no-cache --virtual .deps-build $PHPIZE_DEPS icu-dev libzip-dev libpng-dev postgresql-dev linux-headers \
  && docker-php-ext-install -j"$(nproc)" pdo_pgsql pgsql intl zip bcmath opcache pcntl gd \
- && pecl install redis \
+ && (for i in 1 2 3 4 5; do pecl install redis && exit 0; echo "pecl install redis falhou (tentativa $i)"; sleep 15; done; exit 1) \
  && docker-php-ext-enable redis \
  && apk del .deps-build \
  && rm -rf /tmp/pear

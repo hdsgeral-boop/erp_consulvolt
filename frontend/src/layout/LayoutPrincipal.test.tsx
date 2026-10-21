@@ -308,7 +308,8 @@ describe('LayoutPrincipal — Versão Actual: busca no menu, aspecto e tela noct
     expect(screen.queryByRole('menuitem', { name: /Tela nocturna/ })).toBeNull();
     expect(screen.queryByText('Aspecto do menu')).toBeNull();
     expect(screen.getByRole('button', { name: 'Tela nocturna' })).toBeInTheDocument();
-    expect(screen.getByRole('radiogroup', { name: 'Aspecto do menu' })).toBeInTheDocument();
+    // o selector do aspecto do menu foi retirado (927ee80)
+    expect(screen.queryByRole('radiogroup', { name: 'Aspecto do menu' })).toBeNull();
   });
 
   it('em telemóvel a tela nocturna continua no botão da barra superior', () => {
@@ -467,11 +468,10 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     await waitFor(() => expect(document.querySelector('.ant-menu-inline-collapsed-tooltip')).toHaveTextContent('Início'));
   });
 
-  it('botões do aspecto no próprio menu (completo, só símbolos, só nomes) e «Expandir/Recolher tudo»', async () => {
+  it('«Expandir/Recolher tudo» no próprio menu e setas dos grupos (sem o selector do aspecto, retirado em 927ee80)', async () => {
     const { container } = montar('/');
     const lateral = lateralDe(container);
-    const grupo = within(lateral).getByRole('radiogroup', { name: 'Aspecto do menu' });
-    expect(within(grupo).getByRole('radio', { name: 'Completo (símbolos e nomes)' })).toHaveAttribute('aria-checked', 'true');
+    expect(within(lateral).queryByRole('radiogroup', { name: 'Aspecto do menu' })).toBeNull();
     // «Expandir tudo» abre os grupos e sub-grupos (Menu Geral › Vendas); «Recolher tudo» fecha-os
     expect(within(lateral).queryByText('Faturação')).toBeNull();
     fireEvent.click(within(lateral).getByRole('button', { name: 'Expandir tudo' }));
@@ -483,13 +483,6 @@ describe('LayoutPrincipal — menu lateral igual ao legado: largura ajustável, 
     expect(titulo.querySelector('.erp-menu-seta')).not.toHaveClass('aberta');
     fireEvent.click(titulo);
     await waitFor(() => expect(titulo.querySelector('.erp-menu-seta')).toHaveClass('aberta'));
-
-    fireEvent.click(within(grupo).getByRole('radio', { name: 'Só símbolos' }));
-    expect(lateral).toHaveClass('ant-layout-sider-collapsed');
-    expect(within(grupo).getByRole('radio', { name: 'Só símbolos' })).toHaveAttribute('aria-checked', 'true');
-    fireEvent.click(within(grupo).getByRole('radio', { name: 'Só nomes' }));
-    expect(lateral).not.toHaveClass('ant-layout-sider-collapsed');
-    expect(JSON.parse(localStorage.getItem('erp.aspecto.1') ?? '{}')).toEqual({ tema: 'claro', menu: 'nomes' });
   });
 
   it('a gaveta dos ecrãs pequenos não tem friso nem botões do aspecto', async () => {

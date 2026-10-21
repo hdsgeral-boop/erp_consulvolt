@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditavel;
 use App\Services\Sistema\ServicoEmpresas;
+use App\Support\Tenancy\ContextoTenant;
 use DateTimeInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Autenticavel;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
@@ -68,8 +71,8 @@ class Utilizador extends Autenticavel
         // cliente activo (pedido autenticado, trabalho por tenant), só se vêem os utilizadores desse cliente: a lista,
         // a ficha e as rotas {utilizador} deixam de alcançar contas de outros clientes. Sem tenant (login, troca do
         // código, autenticação do token) e no tenant da plataforma (gere os clientes) não há filtro.
-        static::addGlobalScope('tenant', function (\Illuminate\Database\Eloquent\Builder $q) {
-            $tenant = app(\App\Support\Tenancy\ContextoTenant::class)->id();
+        static::addGlobalScope('tenant', function (Builder $q) {
+            $tenant = app(ContextoTenant::class)->id();
             if ($tenant !== null && $tenant !== (int) config('erp.dominio.plataforma_tenant_id', 1)) {
                 $q->where($q->qualifyColumn('tenant_id'), $tenant);
             }
@@ -77,8 +80,8 @@ class Utilizador extends Autenticavel
 
         // SaaS (ADR-073): um utilizador novo pertence ao tenant do pedido/trabalho que o cria.
         static::creating(function (Utilizador $u) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn('utilizadores', 'tenant_id')) {
-                $u->tenant_id ??= app(\App\Support\Tenancy\ContextoTenant::class)->paraNovo();
+            if (Schema::hasColumn('utilizadores', 'tenant_id')) {
+                $u->tenant_id ??= app(ContextoTenant::class)->paraNovo();
             }
         });
 

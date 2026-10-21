@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Models\Empresa;
 use App\Models\PerfilUtilizador;
 use App\Models\Utilizador;
+use App\Services\Plataforma\ServicoLimitesPlano;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -114,7 +115,7 @@ final class ServicoUtilizadores
     /** @param  array<string, mixed>  $d */
     public function criar(array $d, Utilizador $actor): Utilizador
     {
-        app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteUtilizadores();
+        app(ServicoLimitesPlano::class)->exigirLimiteUtilizadores();
 
         return DB::transaction(function () use ($d, $actor) {
             $nome = trim((string) $d['nome_utilizador']);

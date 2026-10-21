@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Autenticacao\EntrarRequest;
 use App\Http\Resources\Sistema\EmpresaResource;
 use App\Http\Resources\Sistema\UtilizadorResource;
+use App\Models\Utilizador;
 use App\Services\Autenticacao\ServicoAutenticacao;
 use App\Services\Sistema\ServicoEmpresas;
 use App\Services\Sistema\ServicoPermissoes;
@@ -14,6 +15,7 @@ use App\Support\Tenancy\ContextoTenant;
 use App\Support\Tenancy\DominioPedido;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 final class AutenticacaoController extends Controller
 {
@@ -62,7 +64,7 @@ final class AutenticacaoController extends Controller
         return $this->respostaSessao($sessao);
     }
 
-    /** @param  array{token: string, expira_em: \Illuminate\Support\Carbon, utilizador: \App\Models\Utilizador}  $sessao */
+    /** @param  array{token: string, expira_em: Carbon, utilizador: Utilizador}  $sessao */
     private function respostaSessao(array $sessao): JsonResponse
     {
         return RespostaApi::sucesso([

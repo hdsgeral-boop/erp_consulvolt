@@ -44,5 +44,6 @@ backup_*
 
 # Túnel da Cloudflare: configuração e credenciais locais
 deploy/cloudflared/config.yml
+deploy/cloudflared/config.yml.*
 deploy/cloudflared/*.json
 deploy/cloudflared/cert.pem
