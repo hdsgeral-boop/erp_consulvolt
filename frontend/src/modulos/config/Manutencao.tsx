@@ -70,57 +70,85 @@ const CORES: Record<string, string> = { PENDENTE: 'orange', APROVADO: 'blue', EX
 const ROTULOS: Record<string, string> = { PENDENTE: 'A aguardar aprovação', APROVADO: 'Aprovado', EXECUTADO: 'Executado', REJEITADO: 'Rejeitado', CANCELADO: 'Cancelado', EXPIRADO: 'Expirado' };
 const CHAVE = ['sistema', 'manutencao'];
 
+const SEPARADORES_SUPER_ADMIN = ['pedidos', 'novo', 'validacoes', 'restauro', 'legado'] as const;
+const SEPARADORES_COMUNS = ['validacoes'] as const;
+
 /**
  * Configurações › Manutenção de dados (config_manutencao): acções correctivas com impacto, pedido, aprovação dupla e execução,
  * e as Validações de dados (A-01) — relatórios só de leitura que substituem as rotinas destrutivas do legado (ADR-015).
+ *
+ * O fluxo destrutivo (Pedidos, Novo pedido, Restauro do sistema antigo, Acções do sistema antigo) é reservado a
+ * Super Administradores (bloqueado também no servidor, ManutencaoDadosController): quem não o é só vê Validações de
+ * dados, que continua disponível por partilhar a permissão do ecrã com outras ferramentas só de leitura.
  */
 export default function Manutencao() {
-  const catalogo = useQuery({ queryKey: [...CHAVE, 'acoes'], queryFn: () => obter<Catalogo>('/sistema/manutencao/acoes'), staleTime: 3_600_000 });
-  const [separador, setSeparador] = useSeparadorUrl(['pedidos', 'novo', 'validacoes', 'restauro', 'legado']);
+  const { utilizador } = useSessao();
+  const superAdmin = utilizador?.papel === 'SUPER_ADMINISTRADOR';
+  const catalogo = useQuery({ queryKey: [...CHAVE, 'acoes'], queryFn: () => obter<Catalogo>('/sistema/manutencao/acoes'), staleTime: 3_600_000, enabled: superAdmin });
+  const [separador, setSeparador] = useSeparadorUrl(superAdmin ? SEPARADORES_SUPER_ADMIN : SEPARADORES_COMUNS);
   return (
     <>
       <NavConfig actual="config_manutencao" />
-      <CabecalhoPagina titulo="Manutenção de dados" subtitulo="Correcções em massa com pedido, aprovação por outro administrador (com palavra-passe) e execução confirmada" />
-      <Alert
-        type="warning"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message="Operações com efeito em muitos registos"
-        description="Exporte uma cópia de segurança antes de executar. Cada passo fica registado na auditoria. O pedido expira em 7 dias e a aprovação em 24 horas."
+      <CabecalhoPagina
+        titulo="Manutenção de dados"
+        subtitulo={superAdmin
+          ? 'Correcções em massa com pedido, aprovação por outro administrador (com palavra-passe) e execução confirmada'
+          : 'Validações de dados só de leitura — correcções em massa são reservadas à equipa de suporte'}
       />
-      {catalogo.isLoading ? (
+      {superAdmin ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Operações com efeito em muitos registos"
+          description="Exporte uma cópia de segurança antes de executar. Cada passo fica registado na auditoria. O pedido expira em 7 dias e a aprovação em 24 horas."
+        />
+      ) : (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Correcções em massa reservadas à equipa de suporte"
+          description="Anulações, estornos e outras correcções em massa só podem ser feitas por um Super Administrador. Para pedir uma, abra um ticket em Minha Licença › Minha conta a indicar o que precisa."
+        />
+      )}
+      {superAdmin && catalogo.isLoading ? (
         <Skeleton active />
       ) : (
         <Tabs
           activeKey={separador}
           onChange={setSeparador}
           items={[
-            { key: 'pedidos', label: 'Pedidos', children: <Pedidos /> },
-            { key: 'novo', label: 'Novo pedido', children: <NovoPedido acoes={catalogo.data?.acoes ?? []} aoCriar={() => setSeparador('pedidos')} /> },
+            ...(superAdmin ? [
+              { key: 'pedidos', label: 'Pedidos', children: <Pedidos /> },
+              { key: 'novo', label: 'Novo pedido', children: <NovoPedido acoes={catalogo.data?.acoes ?? []} aoCriar={() => setSeparador('pedidos')} /> },
+            ] : []),
             { key: 'validacoes', label: 'Validações de dados', children: <Validacoes /> },
-            { key: 'restauro', label: 'Restauro do sistema antigo', children: <RestauroLegado /> },
-            {
-              key: 'legado',
-              label: 'Acções do sistema antigo',
-              children: (
-                <List
-                  dataSource={catalogo.data?.nao_portadas ?? []}
-                  renderItem={(a) => (
-                    <List.Item>
-                      <List.Item.Meta
-                        title={
-                          <Space>
-                            {a.titulo}
-                            <Tag color={a.tratamento === 'NAO_PORTADA' ? 'red' : 'blue'}>{a.tratamento === 'NAO_PORTADA' ? 'Não existe' : 'Substituída'}</Tag>
-                          </Space>
-                        }
-                        description={a.substituto}
-                      />
-                    </List.Item>
-                  )}
-                />
-              ),
-            },
+            ...(superAdmin ? [
+              { key: 'restauro', label: 'Restauro do sistema antigo', children: <RestauroLegado /> },
+              {
+                key: 'legado',
+                label: 'Acções do sistema antigo',
+                children: (
+                  <List
+                    dataSource={catalogo.data?.nao_portadas ?? []}
+                    renderItem={(a) => (
+                      <List.Item>
+                        <List.Item.Meta
+                          title={
+                            <Space>
+                              {a.titulo}
+                              <Tag color={a.tratamento === 'NAO_PORTADA' ? 'red' : 'blue'}>{a.tratamento === 'NAO_PORTADA' ? 'Não existe' : 'Substituída'}</Tag>
+                            </Space>
+                          }
+                          description={a.substituto}
+                        />
+                      </List.Item>
+                    )}
+                  />
+                ),
+              },
+            ] : []),
           ]}
         />
       )}
