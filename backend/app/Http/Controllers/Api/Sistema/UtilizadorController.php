@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api\Sistema;
 
 use App\Http\Controllers\Controller;
+use App\Mail\NovoUtilizadorMail;
+use App\Mail\PalavraPasseRedefinidaMail;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoUtilizadores;
 use App\Support\Api\RespostaApi;
+use App\Support\Email\EnviarEmail;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,6 +41,9 @@ final class UtilizadorController extends Controller
     {
         $this->exigir('config_util_gerir');
         $u = $this->utilizadores->criar($this->validar($r, true), $r->user());
+        // e-mail de boas-vindas (nome de utilizador e endereço de entrada; nunca a palavra-passe)
+        EnviarEmail::para($u->email, new NovoUtilizadorMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador,
+            EnviarEmail::nomeClienteDe($u), EnviarEmail::enderecoDe($u)));
 
         return RespostaApi::criado($this->utilizadores->apresentar($u->load('perfil'), $r->user()), 'Utilizador criado com sucesso.');
     }
@@ -64,7 +70,9 @@ final class UtilizadorController extends Controller
         $this->exigir('config_util_gerir');
         $d = $r->validate(['palavra_passe' => ['required', 'string', 'min:'.ServicoUtilizadores::MINIMO_PALAVRA_PASSE, 'max:200', 'confirmed']],
             [], ['palavra_passe' => 'palavra-passe']);
-        $this->utilizadores->reporPalavraPasse(Utilizador::query()->findOrFail($utilizador), $d['palavra_passe'], $r->user());
+        $u = $this->utilizadores->reporPalavraPasse(Utilizador::query()->findOrFail($utilizador), $d['palavra_passe'], $r->user());
+        // aviso ao próprio: se não foi pedido por ele, sabe que deve falar com o administrador
+        EnviarEmail::para($u->email, new PalavraPasseRedefinidaMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador, EnviarEmail::nomeClienteDe($u)));
 
         return RespostaApi::sucesso(null, 'Palavra-passe reposta. As sessões abertas do utilizador foram terminadas.');
     }

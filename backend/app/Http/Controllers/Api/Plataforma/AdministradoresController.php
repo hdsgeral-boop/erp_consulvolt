@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api\Plataforma;
 
 use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
+use App\Mail\AdministradorPlataformaCriadoMail;
 use App\Models\Utilizador;
 use App\Support\Api\RespostaApi;
+use App\Support\Email\EnviarEmail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -36,6 +38,7 @@ final class AdministradoresController extends Controller
             'acesso_todas_empresas' => true, 'ativo' => true,
         ]);
         $novo->save();
+        EnviarEmail::para($novo->email, new AdministradorPlataformaCriadoMail($novo->nome_completo ?: $novo->nome_utilizador, $novo->nome_utilizador, EnviarEmail::enderecoDe($novo)));
 
         return RespostaApi::criado($this->apresentar($novo), 'Administrador criado com sucesso.');
     }

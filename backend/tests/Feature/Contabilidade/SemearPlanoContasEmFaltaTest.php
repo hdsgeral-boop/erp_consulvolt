@@ -3,6 +3,7 @@
 namespace Tests\Feature\Contabilidade;
 
 use App\Services\Contabilidade\ServicoPlanoContasModelo;
+use App\Services\Sistema\ServicoGestaoEmpresas;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -50,7 +51,7 @@ class SemearPlanoContasEmFaltaTest extends TestCase
         config(['erp.plano_contas.empresa_modelo' => $modelo->id]);
 
         $actor = $this->criarUtilizador(['papel' => 'SUPER_ADMINISTRADOR', 'acesso_todas_empresas' => true]);
-        $nova = app(\App\Services\Sistema\ServicoGestaoEmpresas::class)->criar(['nome' => 'Nova, Lda', 'nif' => '5000999111'], $actor);
+        $nova = app(ServicoGestaoEmpresas::class)->criar(['nome' => 'Nova, Lda', 'nif' => '5000999111'], $actor);
 
         $this->assertSame(['61', '611'], DB::table('plano_contas')->where('empresa_id', $nova->id)->orderBy('codigo')->pluck('codigo')->all());
     }

@@ -3,11 +3,13 @@
 namespace App\Services\Plataforma;
 
 use App\Exceptions\ErroNegocio;
+use App\Mail\ContaSuspensaMail;
 use App\Models\Empresa;
 use App\Models\PerfilUtilizador;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoGestaoEmpresas;
+use App\Support\Email\EnviarEmail;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -122,9 +124,23 @@ final class ServicoClientes
     public function definirEstado(Tenant $cliente, string $estado): Tenant
     {
         $this->naoMexerNaPlataforma($cliente, $estado === Tenant::ESTADO_SUSPENSO);
+        $suspende = $estado === Tenant::ESTADO_SUSPENSO && $cliente->estado !== Tenant::ESTADO_SUSPENSO;
         $cliente->update(['estado' => $estado]);
+        if ($suspende) {
+            $this->notificarSuspensao($cliente);
+        }
 
         return $cliente->refresh();
+    }
+
+    /** Avisa os administradores do cliente suspenso (utilizadores do tenant dele, com e-mail). */
+    private function notificarSuspensao(Tenant $cliente): void
+    {
+        $admins = Utilizador::query()->withoutGlobalScope('tenant')->where('tenant_id', $cliente->id)->where('ativo', true)
+            ->whereIn('papel', [Utilizador::PAPEL_ADMINISTRADOR, Utilizador::PAPEL_SUPER_ADMINISTRADOR])->whereNotNull('email')->get();
+        foreach ($admins as $a) {
+            EnviarEmail::para($a->email, new ContaSuspensaMail($a->nome_completo ?: $a->nome_utilizador, $cliente->nome));
+        }
     }
 
     /** Arquiva o cliente (bloqueado, dados preservados). */
