@@ -3,7 +3,7 @@
 #
 # Servidor independente do PC local (sem túnel). Diferenças:
 #  - Base de dados: RDS (DB_HOST_RDS no .env da raiz); o contentor postgres não sobe (perfil «local-db»).
-#  - Entrada: Caddy nas portas 80/443; HTTPS automático para os nomes em CADDY_DOMINIOS (deploy/caddy/Caddyfile.aws).
+#  - Entrada: Caddy nas portas 80/443; HTTPS a pedido para DOMINIO_BASE e subdomínios (deploy/caddy/Caddyfile.aws).
 #  - Sem os ficheiros do backup antigo montados (só existem no PC).
 x-rds: &rds
   environment:
@@ -38,8 +38,8 @@ services:
       - ./deploy/caddy/Caddyfile.aws:/etc/caddy/Caddyfile:ro
       - erp_caddy_dados:/data
     environment:
-      # sem domínio: um nome HTTP inofensivo (o acesso faz-se pelo IP, no bloco :80)
-      CADDY_DOMINIOS: ${CADDY_DOMINIOS:-http://localhost}
+      # domínio do sistema (HTTPS a pedido para ele e os subdomínios); sem domínio só responde pelo IP, em HTTP
+      DOMINIO_BASE: ${DOMINIO_BASE:-dominio.invalid}
     depends_on:
       web:
         condition: service_started

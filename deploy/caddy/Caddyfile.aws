@@ -1,20 +1,31 @@
-# Caddy no servidor AWS (docker-compose.aws.yml): entrada pública directa do servidor (portas 80/443), sem túnel.
+# Caddy no servidor AWS (docker-compose.aws.yml): entrada pública directa (portas 80/443), sem túnel.
 #
-# Sem domínio (CADDY_DOMINIOS vazio no .env): responde em HTTP pelo IP do servidor.
-# Com domínio: no .env da raiz, por exemplo
-#   CADDY_DOMINIOS=meuerp.exemplo, www.meuerp.exemplo, gestao-admin.meuerp.exemplo, cliente1.meuerp.exemplo
-# e os registos DNS (A) de cada nome a apontar para o IP do servidor. O Caddy obtém e renova sozinho o certificado
-# (Let's Encrypt) de cada nome. Depois: docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d caddy
+# HTTPS a pedido para <DOMINIO_BASE> e todos os seus subdomínios: no primeiro acesso a um nome, o Caddy pergunta ao
+# Laravel (/api/sistema/dominio-permitido) se é do sistema (base, www, plataforma ou slug de um cliente que existe) e
+# só então obtém o certificado (Let's Encrypt), que renova sozinho. Um cliente novo não precisa de configuração.
+# Requisito: DNS do domínio e de *.<domínio> a apontar para o IP do servidor. DOMINIO_BASE vem do .env da raiz.
+{
+	on_demand_tls {
+		ask http://web/api/sistema/dominio-permitido
+	}
+}
+
 (erp) {
 	encode gzip
 	reverse_proxy web:80
 }
 
-# acesso pelo IP (e qualquer nome sem certificado), sem HTTPS
-:80 {
+# HTTPS para os nomes do domínio (certificado a pedido)
+https:// {
+	tls {
+		on_demand
+	}
 	import erp
 }
 
-{$CADDY_DOMINIOS} {
+# HTTP: os nomes do domínio passam para HTTPS; o acesso pelo IP continua em HTTP
+:80 {
+	@dominio host {$DOMINIO_BASE:dominio.invalid} *.{$DOMINIO_BASE:dominio.invalid}
+	redir @dominio https://{host}{uri} 308
 	import erp
 }

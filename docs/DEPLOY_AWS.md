@@ -24,13 +24,15 @@ docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d
 `docker-compose.aws.yml` liga a aplicação à RDS (`DB_HOST_RDS`), desliga o contentor postgres e põe o Caddy nas portas
 80/443 (`deploy/caddy/Caddyfile.aws`).
 
-## Domínio
+## Domínio (meuerp.ao)
 
-Enquanto não houver domínio, o acesso é por `http://13.62.141.36`. Para activar um domínio:
-1. DNS: registos A do domínio e de cada subdomínio (`gestao-admin.`, `<cliente>.`) para 13.62.141.36.
-2. No servidor, `.env` da raiz: `CADDY_DOMINIOS=dominio, www.dominio, gestao-admin.dominio, cliente1.dominio`.
-3. `backend/.env`: `DOMINIO_BASE=dominio` e `APP_URL=https://dominio`.
-4. `docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d caddy` e `php artisan optimize` no `app`.
+DNS na zona Route 53 `meuerp.ao` (Z05803741C631O6LW4A1T), nameservers ns-900.awsdns-48.net, ns-278.awsdns-34.com,
+ns-1302.awsdns-34.org, ns-1927.awsdns-48.co.uk. Registos: `meuerp.ao`, `www` e `*` → 13.62.141.36; e-mail StackMail
+(MX, SPF, DMARC, DKIM `s1`, CNAME mail/smtp/imap/pop/webmail/autodiscover/ftp) copiado da Cloudflare em 2026-10-21.
+
+HTTPS a pedido no Caddy (`deploy/caddy/Caddyfile.aws`): no primeiro acesso a um nome o Caddy pergunta ao Laravel
+(`/api/sistema/dominio-permitido`) se é do sistema e obtém o certificado Let's Encrypt. Clientes novos não precisam de
+configuração. `DOMINIO_BASE=meuerp.ao` no `.env` da raiz (Caddy) e no `backend/.env` (Laravel).
 
 ## Instalar ou actualizar
 

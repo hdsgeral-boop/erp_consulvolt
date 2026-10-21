@@ -104,4 +104,15 @@ class IdentidadeEEntradaPeloDominioBaseTest extends TestCase
         $this->postJson('http://meuerp.test/api/autenticacao/entrar', ['nome_utilizador' => 'user_acme', 'palavra_passe' => 'errada'])
             ->assertStatus(401)->assertJsonPath('codigo', 'CREDENCIAIS_INVALIDAS');
     }
+
+    public function test_dominio_permitido_so_para_nomes_do_sistema(): void
+    {
+        $this->cliente('acme', 'user_acme');
+        foreach (['meuerp.test', 'www.meuerp.test', 'gestao-admin.meuerp.test', 'acme.meuerp.test'] as $nome) {
+            $this->get("/api/sistema/dominio-permitido?domain={$nome}")->assertOk();
+        }
+        foreach (['inventado.meuerp.test', 'a.b.meuerp.test', 'exemplo.com', ''] as $nome) {
+            $this->get("/api/sistema/dominio-permitido?domain={$nome}")->assertNotFound();
+        }
+    }
 }

@@ -63,7 +63,8 @@ use Illuminate\Support\Facades\Route;
 // sem o throttle da API (R5): o limitador usa o Redis e, com ele em baixo, a saúde respondia 500 em vez do 503 com o detalhe por componente
 Route::get('saude', SaudeController::class)->withoutMiddleware('throttle:api')->name('saude');
 require __DIR__.'/api/r4_agt_publico.php';   // Ronda 4: webhook da AGT por empresa (sem sessão; HMAC + carimbo + nonce)
-Route::get('sistema/logotipo-login', [ConfiguracaoSistemaController::class, 'logotipoLogin'])->middleware('cache_condicional:publico')->name('sistema.logotipo_login');   // ecrã de entrada (sem sessão), ADR-058
+Route::get('sistema/dominio-permitido', \App\Http\Controllers\Api\Sistema\DominioPermitidoController::class)->withoutMiddleware('throttle:api')->name('sistema.dominio_permitido');   // Caddy: TLS a pedido
+Route::get('sistema/logotipo-login',[ConfiguracaoSistemaController::class, 'logotipoLogin'])->middleware('cache_condicional:publico')->name('sistema.logotipo_login');   // ecrã de entrada (sem sessão), ADR-058
 require __DIR__.'/api/bi_odata.php';   // feed OData do Power BI: autenticação por token de leitura da empresa (ronda 2, R2-G4)
 
 // Webhooks públicos de terceiros (sem sessão)
