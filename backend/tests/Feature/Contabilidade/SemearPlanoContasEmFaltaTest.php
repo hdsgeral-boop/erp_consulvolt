@@ -19,8 +19,8 @@ class SemearPlanoContasEmFaltaTest extends TestCase
     public function test_copia_so_a_estrutura_generica_e_nao_toca_em_empresas_com_contas(): void
     {
         $modelo = $this->criarEmpresa(['nome' => 'Modelo']);
-        $this->conta($modelo->id, '31', 'CLIENTES', ['tipo' => 'R']);
-        $this->conta($modelo->id, '311', 'Clientes correntes', ['tipo' => 'R']);
+        $this->conta($modelo->id, '31', 'CLIENTES', ['tipo' => 'T']);
+        $this->conta($modelo->id, '311', 'Clientes correntes', ['tipo' => 'T']);
         $this->conta($modelo->id, '31121', 'Nacionais');
         $this->conta($modelo->id, '43101001', 'Banco AOA BAI - 05071015510001');            // conta da empresa: não passa
         $this->conta($modelo->id, '4311', 'Depósitos à ordem', ['banco_iban' => 'AO06000000000000000000000']);   // dados bancários: não passa
@@ -46,7 +46,7 @@ class SemearPlanoContasEmFaltaTest extends TestCase
     public function test_empresa_nova_recebe_a_estrutura_do_modelo(): void
     {
         $modelo = $this->criarEmpresa(['nome' => 'Modelo']);
-        $this->conta($modelo->id, '61', 'Vendas', ['tipo' => 'R']);
+        $this->conta($modelo->id, '61', 'Vendas', ['tipo' => 'T']);
         $this->conta($modelo->id, '611', 'Produtos acabados');
         config(['erp.plano_contas.empresa_modelo' => $modelo->id]);
 

@@ -110,7 +110,9 @@ final class HoldingEmpresaTest extends TestCase
         $h = $g['holding']['id'];
 
         $menu = $this->getJson('/api/sistema/menu', $cab + ['X-Empresa-Id' => $h])->assertOk()->json('dados');
-        $this->assertSame(['geral', 'contab'], array_column($menu['menu'], 'id'));
+        // o centro de notificações (módulo config) também serve na holding (ServicoPermissoes::ECRAS_HOLDING)
+        $this->assertSame(['geral', 'contab', 'config'], array_column($menu['menu'], 'id'));
+        $this->assertSame(['notificacoes_centro'], array_column($menu['menu'][2]['ecras'], 'id'));
         $this->assertSame(['dashboard'], array_column($menu['menu'][0]['ecras'], 'id'));
         $this->assertContains('consolidacao', array_column($menu['menu'][1]['ecras'], 'id'));
         // numa empresa normal o menu fica completo

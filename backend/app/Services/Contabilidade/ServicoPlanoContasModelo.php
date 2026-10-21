@@ -86,7 +86,7 @@ final class ServicoPlanoContasModelo
     {
         $configurada = config('erp.plano_contas.empresa_modelo');
         if ($configurada) {
-            return $dono->table('empresas')->whereKey((int) $configurada)->whereNull('eliminado_em')->exists() ? (int) $configurada : null;
+            return $dono->table('empresas')->where('id', (int) $configurada)->whereNull('eliminado_em')->exists() ? (int) $configurada : null;
         }
         $id = $dono->table('empresas')->where('tenant_id', (int) config('erp.dominio.plataforma_tenant_id', 1))
             ->whereNull('eliminado_em')->orderBy('id')->value('id');

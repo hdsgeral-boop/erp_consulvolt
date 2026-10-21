@@ -28,13 +28,13 @@ export const ACCOES_RAPIDAS_COMPRAS = [
 
 /** Ecrã de compras do caminho actual (ou nulo). */
 export function ecraCompras(caminho: string): string | null {
-  const m = /^\/m\/compras\/([a-z_]+)/.exec(caminho);
+  const m = /^\/compras\/([a-z_]+)/.exec(caminho);
   return m ? m[1] : null;
 }
 
 /** A barra de acções rápidas só aparece nas listas (nos formulários e detalhes há botões do ecrã com os mesmos nomes). */
 export function eListaCompras(caminho: string): boolean {
-  return /^\/m\/compras\/[a-z_]+\/?$/.test(caminho);
+  return /^\/compras\/[a-z_]+\/?$/.test(caminho);
 }
 
 /**

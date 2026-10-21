@@ -79,7 +79,7 @@ export const GRUPO_DO_ECRA: Record<string, GrupoTesouraria> = {
  * dois e a detecção automática do CabecalhoModulo marcava-o também em «Pagamentos»/«Recebimentos».
  */
 export function separadorActivoTesouraria(grupo: GrupoTesouraria, caminho: string, pesquisa = ''): string | undefined {
-  const ecra = /^\/m\/teso\/([a-z_]+)/.exec(caminho)?.[1];
+  const ecra = /^\/teso\/([a-z_]+)/.exec(caminho)?.[1];
   if (!ecra) return undefined;
   if (grupo === 'operacoes' && ecra === 'teso_gestao_pagamentos') {
     const tipo = new URLSearchParams(pesquisa).get('tipo');

@@ -28,6 +28,9 @@
         <env name="DB_URL" value="" force="true"/>
         <!-- o domínio do .env local (ex.: meuerp.ao) não entra nos testes: quem precisa de domínio define-o no teste -->
         <env name="DOMINIO_BASE" value="" force="true"/>
+        <!-- uma só ligação nos testes: a do dono (pgsql_owner) não vê os dados da transacção do teste -->
+        <env name="SAAS_LIGACAO_DONO" value="" force="true"/>
+        <server name="SAAS_LIGACAO_DONO" value="" force="true"/>
         <env name="CACHE_STORE" value="array" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>
