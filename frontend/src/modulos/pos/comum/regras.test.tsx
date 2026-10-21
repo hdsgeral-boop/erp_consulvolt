@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { estimarOrdem } from '../lavandaria/Recepcao';
+import dayjs from 'dayjs';
+import { calcularNova, eConsumidorFinal, validarNova, type LinhaNova } from '../lavandaria/Recepcao';
 import { precoPecaServico } from '../lavandaria/tipos';
 import { precoQuarto, quantidadeMinima } from '../hotelaria/tipos';
 import type { Pagamento } from './calculos';
@@ -147,7 +148,27 @@ describe('lavandaria', () => {
     expect(precoPecaServico(peca, 122)).toBe(20000);
     expect(precoPecaServico(peca, 999)).toBe(10000);
     expect(precoPecaServico(undefined, 1)).toBe(0);
-    expect(estimarOrdem([{ quantidade: 2, preco: 10000 }], true, 50, [1500, 0])).toBe(3150000);
+    // protótipo (calcularNova): serviços + urgência (% dos serviços) + taxas; prazo do serviço mais longo × factor; etiquetas
+    const linha = (a: Partial<LinhaNova>): LinhaNova => ({
+      chave: 'x', peca_id: 1, nome_peca: 'Camisa', produto_id: 2, nome_servico: 'Lavar', grupo: 'LAVANDARIA', unidade: 'PECA', quantidade: 2, numero_pecas: 1,
+      preco: 10000, preco_tabela: 10000, dias_prazo: 2, requer_orcamento: false, cor: '', tecido: '', estado_entrada: 'Bom estado', notas_entrada: '', valor_declarado: null, ...a,
+    });
+    const def = { percentagem_urgencia: '50', fator_prazo_urgencia: 0.5, valor_taxa_recolha: '1500', valor_taxa_entrega: '2000' } as never;
+    const sem = { ativa: false, morada: '', data: null, taxa: null };
+    const hoje = dayjs('2026-10-21');
+    const t = calcularNova([linha({}), linha({ unidade: 'KG', quantidade: 3.5, numero_pecas: 4, preco: 1000, dias_prazo: 5 })], true, { ...sem, ativa: true }, sem, def, hoje);
+    expect(t).toMatchObject({ servicos: 23500, urgencia: 11750, recolha: 1500, entrega: 0, total: 36750, etiquetas: 6 });
+    expect(t.prometida.format('YYYY-MM-DD')).toBe('2026-10-24');   // 5 dias × 0,5 → 3 (arredonda para cima)
+    expect(calcularNova([linha({})], false, sem, sem, def, hoje).prometida.format('YYYY-MM-DD')).toBe('2026-10-23');
+    // Consumidor Final pelo NIF de noves ou pelo nome
+    expect(eConsumidorFinal({ nome: 'Consumidor Final', nif: '99999999' })).toBe(true);
+    expect(eConsumidorFinal({ nome: 'ACME', nif: '999999999' })).toBe(true);
+    expect(eConsumidorFinal({ nome: 'ACME', nif: '5417213969' })).toBe(false);
+    // validação pela ordem do protótipo: estado à entrada e descrição do dano obrigatórios
+    expect(validarNova([linha({ estado_entrada: '' })], 1, sem, sem)).toMatch(/estado à entrada/);
+    expect(validarNova([linha({ estado_entrada: 'Manchas' })], 1, sem, sem)).toMatch(/Descreva o dano/);
+    expect(validarNova([linha({})], 1, { ...sem, ativa: true }, sem)).toMatch(/morada da recolha/);
+    expect(validarNova([linha({})], 1, sem, sem)).toBeNull();
   });
 });
 
