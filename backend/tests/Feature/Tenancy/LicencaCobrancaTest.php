@@ -4,6 +4,7 @@ namespace Tests\Feature\Tenancy;
 
 use App\Models\Empresa;
 use App\Models\PlanoLicenca;
+use App\Models\Tenant;
 use App\Models\Utilizador;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -110,8 +111,8 @@ class LicencaCobrancaTest extends TestCase
     public function test_super_admin_de_cliente_nao_gere_catalogo_nem_aprova_a_propria_subscricao(): void
     {
         $empresa = $this->empresaComLicenca(now()->addDays(30)->toDateString());
-        $cliente = new \App\Models\Tenant;
-        $cliente->forceFill(['nome' => 'Cliente', 'slug' => 'cliente-x', 'estado' => \App\Models\Tenant::ESTADO_ATIVO])->save();
+        $cliente = new Tenant;
+        $cliente->forceFill(['nome' => 'Cliente', 'slug' => 'cliente-x', 'estado' => Tenant::ESTADO_ATIVO])->save();
         $u = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]);
         $u->forceFill(['tenant_id' => $cliente->id])->save();
         $sessao = $this->entrar($u) + ['X-Empresa-Id' => $empresa->id];

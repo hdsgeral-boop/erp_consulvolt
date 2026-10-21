@@ -67,7 +67,7 @@ final class CodificadorIdsTest extends TestCase
         $ref = $c->codificar('colaborador', 72);
         $adulterada = $ref;
         $adulterada[3] = $adulterada[3] === 'a' ? 'b' : 'a';
-        foreach (['', '72', '0', '-1', 'abc', str_repeat('a', 15), str_repeat('z', 15), strtoupper($ref), $ref.'a', substr($ref, 1), $adulterada, "../../etc/passwd", str_repeat('é', 15), "{$ref}\0"] as $mau) {
+        foreach (['', '72', '0', '-1', 'abc', str_repeat('a', 15), str_repeat('z', 15), strtoupper($ref), $ref.'a', substr($ref, 1), $adulterada, '../../etc/passwd', str_repeat('é', 15), "{$ref}\0"] as $mau) {
             $this->assertNull($c->descodificar('colaborador', $mau), "devia recusar «{$mau}»");
         }
     }

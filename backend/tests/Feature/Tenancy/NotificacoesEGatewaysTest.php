@@ -6,6 +6,8 @@ use App\Models\Empresa;
 use App\Models\PlanoLicenca;
 use App\Models\SubscricaoEmpresa;
 use App\Models\Utilizador;
+use App\Support\Tenancy\ContextoEmpresa;
+use App\Support\Tenancy\ContextoTenant;
 use Tests\TestCase;
 
 /**
@@ -75,7 +77,7 @@ class NotificacoesEGatewaysTest extends TestCase
             'nome' => 'Plano Teste', 'preco_mensal' => 10000, 'moeda' => 'AOA', 'ativo' => true,
         ]);
 
-        app(\App\Support\Tenancy\ContextoTenant::class)->definir(1);
+        app(ContextoTenant::class)->definir(1);
         $empresa = $this->criarEmpresa([
             'nif' => '5000000077',
             'licenca_origem' => Empresa::LICENCA_PLANO,
@@ -134,7 +136,7 @@ class NotificacoesEGatewaysTest extends TestCase
         ], $bruto)->assertOk()->assertJsonPath('sucesso', true);
 
         // Subscrição passa a PAGO e empresa ganha licença de PLANO
-        $sub = app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(
+        $sub = app(ContextoEmpresa::class)->semIsolamento(
             fn () => SubscricaoEmpresa::query()->findOrFail($subId)
         );
         $this->assertSame(SubscricaoEmpresa::PAGO, $sub->estado);

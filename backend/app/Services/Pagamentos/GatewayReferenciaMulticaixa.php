@@ -4,7 +4,6 @@ namespace App\Services\Pagamentos;
 
 use App\Models\SubscricaoEmpresa;
 use App\Models\TransacaoGateway;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 

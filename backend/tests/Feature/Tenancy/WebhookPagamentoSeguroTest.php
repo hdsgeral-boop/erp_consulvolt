@@ -9,6 +9,7 @@ use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoEmpresa;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
 
 /**
@@ -55,7 +56,7 @@ class WebhookPagamentoSeguroTest extends TestCase
     }
 
     /** Envia o webhook assinado (ou não) sobre o corpo JSON bruto. */
-    private function enviar(array $corpo, ?string $evento = 'evt-1', ?int $timestamp = null, string $segredo = self::SEGREDO_WEBHOOK, string $gateway = 'referencia'): \Illuminate\Testing\TestResponse
+    private function enviar(array $corpo, ?string $evento = 'evt-1', ?int $timestamp = null, string $segredo = self::SEGREDO_WEBHOOK, string $gateway = 'referencia'): TestResponse
     {
         $bruto = json_encode($corpo);
         $ts = (string) ($timestamp ?? time());

@@ -10,16 +10,23 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TransacaoGateway extends ModeloBase
 {
     public const ESTADO_PENDENTE = 'PENDENTE';
+
     public const ESTADO_PAGO = 'PAGO';
+
     public const ESTADO_CANCELADO = 'CANCELADO';
+
     public const ESTADO_FALHOU = 'FALHOU';
+
     public const ESTADO_EXPIRADA = 'EXPIRADA';
 
     public const GATEWAY_REFERENCIA = 'REFERENCIA';
+
     public const GATEWAY_EXPRESS = 'EXPRESS';
+
     public const GATEWAY_MANUAL = 'MANUAL';
 
     public const CREATED_AT = 'criado_em';
+
     public const UPDATED_AT = 'atualizado_em';
 
     protected $table = 'transacoes_gateway';

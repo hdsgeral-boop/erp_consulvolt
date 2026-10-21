@@ -7,6 +7,7 @@ use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoTenant;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -40,7 +41,7 @@ final class ExigirPlataforma
     private static function saasAtivoNaBd(): bool
     {
         try {
-            $val = \Illuminate\Support\Facades\DB::table('definicoes_plataforma')->where('chave', 'saas_ativo')->value('valor');
+            $val = DB::table('definicoes_plataforma')->where('chave', 'saas_ativo')->value('valor');
 
             return $val === 'true' || $val === '1';
         } catch (\Throwable) {

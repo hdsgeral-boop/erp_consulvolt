@@ -114,9 +114,14 @@ jobs:
 
   # ------------------------------------------------------------------------------------------
   frontend:
-    name: Frontend (Node 22 · TypeScript · Vitest · build)
+    name: Frontend (Node 22 · TypeScript · Vitest ${{ matrix.parte }}/4 · build)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
+    # a suíte do Vitest passava os 20 min num só job: dividida em 4 partes em paralelo
+    strategy:
+      fail-fast: false
+      matrix:
+        parte: [1, 2, 3, 4]
     defaults:
       run:
         working-directory: frontend
@@ -144,8 +149,8 @@ jobs:
       - name: Tipos (tsc)
         run: npx tsc --noEmit -p .
 
-      - name: Testes (Vitest)
-        run: npx vitest run
+      - name: Testes (Vitest, parte ${{ matrix.parte }} de 4)
+        run: npx vitest run --shard=${{ matrix.parte }}/4
 
       - name: Build de produção
         run: npm run build

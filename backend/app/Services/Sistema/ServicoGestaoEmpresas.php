@@ -8,6 +8,7 @@ use App\Models\InfotipoSalarial;
 use App\Models\Moeda;
 use App\Models\TipoOrganizacaoRH;
 use App\Models\Utilizador;
+use App\Services\Plataforma\ServicoLimitesPlano;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -105,7 +106,7 @@ final class ServicoGestaoEmpresas
     /** @param  array<string, mixed>  $d */
     public function criar(array $d, Utilizador $actor): Empresa
     {
-        app(\App\Services\Plataforma\ServicoLimitesPlano::class)->exigirLimiteEmpresas();
+        app(ServicoLimitesPlano::class)->exigirLimiteEmpresas();
 
         return DB::transaction(function () use ($d, $actor) {
             $this->validar($d, null);

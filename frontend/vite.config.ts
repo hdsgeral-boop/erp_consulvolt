@@ -32,5 +32,6 @@ export default defineConfig(({ mode }) => ({
     manifest: 'manifest.json',
     chunkSizeWarningLimit: 1500,
   },
-  test: { environment: 'jsdom', globals: true, setupFiles: ['./src/configuracao-testes.ts'] },
+  // 30 s por teste: o Ant Design no jsdom é lento com a suíte em paralelo (com 5 s havia falsos «timed out»)
+  test: { environment: 'jsdom', globals: true, setupFiles: ['./src/configuracao-testes.ts'], testTimeout: 30_000 },
 }));

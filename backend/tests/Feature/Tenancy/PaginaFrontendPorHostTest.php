@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Tenancy;
 
+use Illuminate\Http\Middleware\TrustProxies;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Vite;
 use Tests\TestCase;
@@ -117,14 +119,14 @@ class PaginaFrontendPorHostTest extends TestCase
 
     public function test_proxies_confiaveis_so_para_ip_e_esquema_nunca_para_o_host(): void
     {
-        $cabecalhos = new \ReflectionProperty(\Illuminate\Http\Middleware\TrustProxies::class, 'alwaysTrustHeaders');
-        $proxies = new \ReflectionProperty(\Illuminate\Http\Middleware\TrustProxies::class, 'alwaysTrustProxies');
+        $cabecalhos = new \ReflectionProperty(TrustProxies::class, 'alwaysTrustHeaders');
+        $proxies = new \ReflectionProperty(TrustProxies::class, 'alwaysTrustProxies');
         $mascara = $cabecalhos->getValue();
 
-        $this->assertNotSame(0, $mascara & \Illuminate\Http\Request::HEADER_X_FORWARDED_FOR);
-        $this->assertNotSame(0, $mascara & \Illuminate\Http\Request::HEADER_X_FORWARDED_PROTO);
-        $this->assertSame(0, $mascara & \Illuminate\Http\Request::HEADER_X_FORWARDED_HOST);
-        $this->assertSame(0, $mascara & \Illuminate\Http\Request::HEADER_X_FORWARDED_PORT);
+        $this->assertNotSame(0, $mascara & Request::HEADER_X_FORWARDED_FOR);
+        $this->assertNotSame(0, $mascara & Request::HEADER_X_FORWARDED_PROTO);
+        $this->assertSame(0, $mascara & Request::HEADER_X_FORWARDED_HOST);
+        $this->assertSame(0, $mascara & Request::HEADER_X_FORWARDED_PORT);
         $this->assertNotContains('*', (array) $proxies->getValue());
         $this->assertContains('172.16.0.0/12', (array) $proxies->getValue());
     }

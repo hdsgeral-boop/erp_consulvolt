@@ -6,7 +6,6 @@ use App\Models\LogAuditoria;
 use App\Models\NotificacaoSistema;
 use App\Models\Utilizador;
 use App\Services\Gestao\Paineis\ServicoInicio;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Motor avançado de notificações e alertas do sistema por empresa com RBAC estrito por módulo.
@@ -430,4 +429,3 @@ final class ServicoNotificacoes
             ]);
     }
 }
-

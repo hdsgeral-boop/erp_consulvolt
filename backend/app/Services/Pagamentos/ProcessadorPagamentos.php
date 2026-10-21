@@ -9,6 +9,7 @@ use App\Models\TransacaoGateway;
 use App\Models\Utilizador;
 use App\Services\Sistema\ServicoLicenca;
 use App\Services\Sistema\ServicoNotificacoes;
+use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
@@ -222,7 +223,7 @@ final class ProcessadorPagamentos
             return $this->rejeitarWebhook($ctx, 'Valor e moeda são obrigatórios no webhook.', 422);
         }
 
-        $contextoEmpresa = app(\App\Support\Tenancy\ContextoEmpresa::class);
+        $contextoEmpresa = app(ContextoEmpresa::class);
         $subscricao = $contextoEmpresa->semIsolamento(fn () => SubscricaoEmpresa::query()->find($resultado->subscricaoId));
         if (! $subscricao) {
             return $this->rejeitarWebhook($ctx, 'Subscrição não encontrada.', 404);
@@ -328,5 +329,4 @@ final class ProcessadorPagamentos
             report($e);
         }
     }
-
 }

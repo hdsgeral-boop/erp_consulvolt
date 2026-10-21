@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Utilizador;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -39,7 +40,7 @@ final class SistemaMenuTest extends TestCase
     {
         // Super-administrador (vê todo o catálogo): a administração da plataforma vive noutra aplicação e não aparece no menu do ERP.
         $empresa = $this->criarEmpresa();
-        $super = $this->criarUtilizador(['papel' => \App\Models\Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]);
+        $super = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR, 'acesso_todas_empresas' => true]);
         $s = $this->entrar($super) + ['X-Empresa-Id' => $empresa->id];
 
         $d = $this->getJson('/api/sistema/menu', $s)->assertOk()->json('dados');

@@ -5,6 +5,7 @@ namespace Tests\Feature\Tenancy;
 use App\Models\LogAuditoria;
 use App\Models\Tenant;
 use App\Models\Utilizador;
+use App\Support\Tenancy\ContextoEmpresa;
 use Tests\TestCase;
 
 /** Login por endereço (a conta só entra no host do seu cliente) e primeiro acesso da plataforma (criar o 1.º super-administrador). */
@@ -58,7 +59,7 @@ class LoginPorEnderecoEPrimeiroAcessoTest extends TestCase
 
         $errado->assertStatus(401)->assertJsonPath('codigo', 'CREDENCIAIS_INVALIDAS');
         $this->assertSame($inexistente->json('mensagem'), $errado->json('mensagem'));
-        $this->assertTrue(app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(
+        $this->assertTrue(app(ContextoEmpresa::class)->semIsolamento(
             fn () => LogAuditoria::query()->where('acao', 'Falha de autenticação')->where('nome_utilizador', 'user_acme')->exists()
         ));
     }
@@ -104,7 +105,7 @@ class LoginPorEnderecoEPrimeiroAcessoTest extends TestCase
         $admin = Utilizador::query()->where('nome_utilizador', 'dono')->firstOrFail();
         $this->assertSame(Utilizador::PAPEL_SUPER_ADMINISTRADOR, $admin->papel);
         $this->assertSame(1, (int) $admin->tenant_id);
-        $this->assertTrue(app(\App\Support\Tenancy\ContextoEmpresa::class)->semIsolamento(
+        $this->assertTrue(app(ContextoEmpresa::class)->semIsolamento(
             fn () => LogAuditoria::query()->where('acao', 'Criar administrador inicial')->exists()
         ));
 

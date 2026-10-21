@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditavel;
 use App\Services\Sistema\ServicoEmpresas;
+use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Empresa (tenant). Legado: companies.
@@ -58,8 +60,8 @@ class Empresa extends ModeloBase
     {
         // SaaS (ADR-073): uma empresa nova pertence ao tenant do pedido/trabalho que a cria.
         static::creating(function (Empresa $e) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn('empresas', 'tenant_id')) {
-                $e->tenant_id ??= app(\App\Support\Tenancy\ContextoTenant::class)->paraNovo();
+            if (Schema::hasColumn('empresas', 'tenant_id')) {
+                $e->tenant_id ??= app(ContextoTenant::class)->paraNovo();
             }
 
             // Licença (ADR-074): com as licenças activas, uma empresa nova começa com o período de teste.
