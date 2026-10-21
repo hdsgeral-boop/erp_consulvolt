@@ -8,6 +8,7 @@ use App\Models\InfotipoSalarial;
 use App\Models\Moeda;
 use App\Models\TipoOrganizacaoRH;
 use App\Models\Utilizador;
+use App\Services\Contabilidade\ServicoPlanoContasModelo;
 use App\Services\Plataforma\ServicoLimitesPlano;
 use App\Support\Tenancy\ContextoEmpresa;
 use Illuminate\Support\Collection;
@@ -121,6 +122,8 @@ final class ServicoGestaoEmpresas
                     TipoOrganizacaoRH::create(['nome' => $nome]);
                 }
             });
+            // estrutura do plano de contas modelo (cópia própria da empresa, sem dados de outras empresas)
+            app(ServicoPlanoContasModelo::class)->semear($e->id);
             if (! $this->veTodas($actor)) {
                 $actor->empresas()->syncWithoutDetaching([$e->id]);
                 $this->empresas->invalidarUtilizador($actor->id);

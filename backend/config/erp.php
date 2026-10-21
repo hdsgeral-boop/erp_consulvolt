@@ -127,6 +127,12 @@ return [
     ],
 
     // SaaS (ADR-073). Com `ativo=false`, o sistema comporta-se como antes: sem tenant na sessão e sem restrições por endereço.
+    // Plano de contas modelo (ServicoPlanoContasModelo): empresa cuja ESTRUTURA genérica é copiada para empresas novas
+    // ou sem contas. Vazio = a empresa mais antiga do tenant da plataforma.
+    'plano_contas' => [
+        'empresa_modelo' => env('PLANO_CONTAS_EMPRESA_MODELO'),
+    ],
+
     'saas' => [
         'ativo' => (bool) env('SAAS_ATIVO', false),
         // Ligacao com DDL (dono da base) para comandos de manutencao (ex.: particoes de auditoria). null = ligacao por omissao.
