@@ -26,10 +26,11 @@ export function filtrarEmpresas(empresas: Empresa[], pesquisa: string): Empresa[
 function LogotipoEmpresa({ empresa }: { empresa: Empresa }) {
   const { token } = theme.useToken();
   const logo = useQuery({
-    queryKey: ['empresa-logotipo', empresa.id],
-    queryFn: () => obter<{ logotipo?: string | null }>(`/sistema/empresas/${empresa.id}`),
+    queryKey: ['empresa-logotipo', empresa.id, empresa.logotipo_versao],
+    // com a versão no URL o browser guarda a resposta em cache (só volta a descarregar se o logótipo mudar)
+    queryFn: () => obter<{ logotipo?: string | null }>(`/sistema/empresas/${empresa.id}${empresa.logotipo_versao ? `?v=${empresa.logotipo_versao}` : ''}`),
     enabled: empresa.tem_logotipo === true,
-    staleTime: 60 * 60_000,
+    staleTime: Infinity,
     retry: false,
   });
   const src = logo.data?.logotipo;

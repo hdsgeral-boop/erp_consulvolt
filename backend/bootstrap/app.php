@@ -34,7 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [ResolverTenantAtivo::class]);
         // Limite geral da API (limitador 'api' do AppServiceProvider, configurável em erp.api.pedidos_por_minuto).
         $middleware->throttleApi();
-        $middleware->alias(['empresa' => ResolverEmpresaAtiva::class, 'plataforma' => \App\Http\Middleware\ExigirPlataforma::class, 'admin_cliente' => \App\Http\Middleware\ExigirAdministradorCliente::class]);
+        $middleware->alias(['empresa' => ResolverEmpresaAtiva::class, 'plataforma' => \App\Http\Middleware\ExigirPlataforma::class, 'admin_cliente' => \App\Http\Middleware\ExigirAdministradorCliente::class, 'cache_condicional' => \App\Http\Middleware\CacheCondicional::class]);
         // API só por token: nunca redireccionar para uma página de login.
         $middleware->redirectGuestsTo(fn () => null);
     })

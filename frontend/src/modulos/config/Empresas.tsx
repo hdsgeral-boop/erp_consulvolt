@@ -9,7 +9,7 @@ import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { useSessao } from '@/sessao/SessaoContexto';
 import { formatarData } from '@/utilitarios/formatacao';
 import { useAccao } from '@/componentes/Accoes';
-import { lerComoDataUrl } from './comum/ficheiros';
+import { lerLogotipoReduzido } from './comum/ficheiros';
 import { larguraModal, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
 import { TabelaLocalImprimivel } from './comum/impressao';
 import { enderecoSede, podeUsarEmpresa } from './comum/paridade';
@@ -263,7 +263,7 @@ function FichaEmpresa({ id, gerir, aoFechar }: { id: number | 'nova' | null; ger
                               message.error('O logótipo deve ter no máximo 1 MB.');
                               return false;
                             }
-                            setLogotipo(await lerComoDataUrl(f));
+                            setLogotipo(await lerLogotipoReduzido(f));
                             return false;
                           }}
                         >

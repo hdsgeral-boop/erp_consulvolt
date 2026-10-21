@@ -18,6 +18,8 @@ x-backend: &backend
     - erp_vendor:/var/www/html/vendor
     # Frontend compilado (npm run build em frontend/): o @vite do Laravel lê public/build/manifest.json. Só leitura.
     - ./frontend/dist:/var/www/html/public/build:ro
+    # opcache sem revalidar o código em produção (PHP_OPCACHE_VALIDAR=0 no .env); ver docker/php/desempenho.ini
+    - ./docker/php/desempenho.ini:/usr/local/etc/php/conf.d/zzz-desempenho.ini:ro
     - ../wstb_payroll_backup_2026-09-22.json:/dados/legado/wstb_payroll_backup_2026-09-22.json:ro
     # Chaves da AGT (produtor, contribuintes por NIF, chave SAF-T): só leitura, fora do Git (ADR-030)
     - ${AGT_PASTA_SEGREDOS:-./.segredos/agt}:/run/segredos/agt:ro
@@ -36,6 +38,7 @@ x-backend: &backend
     DB_OWNER_PASSWORD: ${POSTGRES_PASSWORD}
     SAAS_ATIVO: ${SAAS_ATIVO:-false}
     SAAS_LIGACAO_DONO: ${SAAS_LIGACAO_DONO:-}
+    PHP_OPCACHE_VALIDAR: ${PHP_OPCACHE_VALIDAR:-1}
     REDIS_CLIENT: phpredis
     REDIS_HOST: redis
     REDIS_PORT: 6379

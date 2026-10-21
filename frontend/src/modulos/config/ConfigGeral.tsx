@@ -11,7 +11,7 @@ import { CHAVE_IDENTIDADE_SISTEMA, useIdentidadeSistema } from '@/sessao/identid
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarDataHora, formatarNumero } from '@/utilitarios/formatacao';
 import { enviarFicheiro } from '@/modulos/contab/comum/ficheiros';
-import { lerComoDataUrl } from './comum/ficheiros';
+import { lerLogotipoReduzido } from './comum/ficheiros';
 import { UnidadesNegocio } from './UnidadesNegocio';
 import { SincronizarNotas } from './geral/SincronizarNotas';
 
@@ -324,7 +324,7 @@ function LogotipoEntrada() {
               showUploadList={false}
               beforeUpload={async (f) => {
                 if (f.size > 1_000_000) message.error('A imagem deve ter no máximo 1 MB.');
-                else gravar.mutate({ logotipo: await lerComoDataUrl(f) });
+                else gravar.mutate({ logotipo: await lerLogotipoReduzido(f) });
                 return false;
               }}
             >

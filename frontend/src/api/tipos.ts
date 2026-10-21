@@ -27,6 +27,8 @@ export interface Empresa {
   e_consolidacao?: boolean;
   /** Há logótipo (o próprio só vem no detalhe GET /sistema/empresas/{id}). */
   tem_logotipo?: boolean;
+  /** hash curto do logótipo (muda quando muda); vai no URL para o browser o guardar em cache */
+  logotipo_versao?: string | null;
   [chave: string]: unknown;
 }
 

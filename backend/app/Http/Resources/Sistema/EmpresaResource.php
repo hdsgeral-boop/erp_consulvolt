@@ -30,6 +30,8 @@ final class EmpresaResource extends JsonResource
             'e_consolidacao' => (bool) $this->e_consolidacao,
             'moeda_consolidacao' => $this->moeda_consolidacao,
             'tem_logotipo' => $this->logotipo !== null && $this->logotipo !== '',
+            // muda quando o logótipo muda: o ecrã de escolha pede /empresas/{id}?v=… e o browser guarda-o em cache
+            'logotipo_versao' => $this->logotipo ? substr(md5($this->logotipo), 0, 12) : null,
             // O logótipo (base64, dezenas de KB) só é enviado no detalhe.
             'logotipo' => $this->when($request->routeIs('sistema.empresas.show'), $this->logotipo),
         ];
