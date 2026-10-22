@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::command('erp:auditoria:particoes --anos=2')->yearlyOn(12, 1, '02:00');
 
 // Facturação electrónica: envio automático e consulta de estados na AGT (no legado corria no browser, de 2 em 2 min).
+// Licenças (ADR-074): avisos de licença a expirar (7 e 3 dias antes) e expirada no próprio dia
+Schedule::command('erp:licencas:avisar')->dailyAt('07:00')->withoutOverlapping();
+
 Schedule::command('erp:agt:ciclo')->everyTwoMinutes()->withoutOverlapping();
 
 // Contratos de fornecedores: ATIVO → EXPIRADO depois da data de fim (no legado a expiração era manual).

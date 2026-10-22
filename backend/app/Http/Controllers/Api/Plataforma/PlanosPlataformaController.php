@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Services\Plataforma\ServicoVersoesPlano;
 use App\Services\Sistema\ServicoAuditoria;
 use App\Support\Api\RespostaApi;
+use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -116,6 +117,7 @@ final class PlanosPlataformaController extends Controller
         $d = $r->validate(['plano' => ['nullable', 'string', Rule::exists('planos_licenca', 'codigo')]]);
         $anterior = $cliente->plano;
         $cliente->update(['plano' => $d['plano'] ?? null]);
+        ModulosPlano::invalidar();
         $auditoria->registar('Plataforma', 'Atribuiu plano', "Plano do cliente #{$cliente->id}: ".($anterior ?? 'nenhum').' -> '.($cliente->plano ?? 'nenhum'), 'tenants', $cliente->id, ['plano' => $anterior], ['plano' => $cliente->plano]);
 
         return RespostaApi::sucesso(['id' => $cliente->id, 'plano' => $cliente->plano], 'Plano do cliente actualizado.');

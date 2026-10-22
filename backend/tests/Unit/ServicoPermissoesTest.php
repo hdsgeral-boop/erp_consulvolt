@@ -49,7 +49,8 @@ final class ServicoPermissoesTest extends TestCase
         $this->assertFalse($this->permissoes->tem($u, 'vendas_fat_emitir'));      // só `true` concede
         $this->assertFalse($this->permissoes->tem($u, 'lancamentos_post'));
         $this->assertTrue($this->permissoes->formatoV2($u));
-        $this->assertSame(['config_logs_view', 'config_migracao_view'], $this->permissoes->efectivas($u));
+        // Logs (config_logs) só para Super Administradores: fica fora das efectivas de um utilizador comum
+        $this->assertSame(['config_migracao_view'], $this->permissoes->efectivas($u));
     }
 
     #[Test]

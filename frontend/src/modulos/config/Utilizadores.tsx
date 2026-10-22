@@ -3,6 +3,7 @@ import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, StopOutlined, 
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
+import { ErroApi } from '@/api/tipos';
 import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -208,7 +209,22 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
   const souSuper = eu?.papel === 'SUPER_ADMINISTRADOR';
   const escolhidas = Form.useWatch('empresas', form) ?? [];
   const todas = Form.useWatch('acesso_todas_empresas', form);
-  const accao = useAccao({ invalidar: [CHAVE], aoSucesso: () => aoFechar() });
+  const accao = useAccao({
+    invalidar: [CHAVE],
+    aoSucesso: () => aoFechar(),
+    // o nome é de um utilizador eliminado deste cliente (a eliminação guarda a conta): oferece reactivá-la com estes dados
+    aoErro: (e, pedido) => {
+      if (!(e instanceof ErroApi) || e.codigo !== 'UTILIZADOR_ELIMINADO' || pedido.metodo !== 'post') return false;
+      Modal.confirm({
+        title: 'Reactivar o utilizador eliminado?',
+        content: `${e.message} A conta volta a ficar activa, com o perfil, as empresas e a palavra-passe indicados.`,
+        okText: 'Reactivar',
+        cancelText: 'Cancelar',
+        onOk: () => accao.mutateAsync({ ...pedido, dados: { ...(pedido.dados as Record<string, unknown>), reactivar: true } }),
+      });
+      return true;
+    },
+  });
 
   useEffect(() => {
     if (!utilizador) return;

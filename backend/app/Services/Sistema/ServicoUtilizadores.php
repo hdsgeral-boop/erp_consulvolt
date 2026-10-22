@@ -119,8 +119,9 @@ final class ServicoUtilizadores
 
         return DB::transaction(function () use ($d, $actor) {
             $nome = trim((string) $d['nome_utilizador']);
-            if (Utilizador::withTrashed()->withoutGlobalScope('tenant')->where('nome_utilizador', $nome)->exists()) {
-                throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
+            $existente = Utilizador::withTrashed()->withoutGlobalScope('tenant')->where('nome_utilizador', $nome)->first();
+            if ($existente !== null) {
+                return $this->reactivarEliminado($existente, $d, $actor);
             }
             $perfil = $this->perfilAtribuivel((int) $d['perfil_utilizador_id'], $actor);
             $this->exigirPalavraPasse((string) ($d['palavra_passe'] ?? ''));
@@ -147,6 +148,33 @@ final class ServicoUtilizadores
 
             return $u->refresh();
         });
+    }
+
+    /**
+     * O nome pedido já é de alguém. A eliminação é lógica (a conta fica guardada para a auditoria e o histórico), por isso
+     * o nome de um utilizador eliminado continua ocupado: se for do mesmo cliente, devolve UTILIZADOR_ELIMINADO para o ecrã
+     * oferecer a reactivação; com `reactivar`, recupera essa conta e grava-lhe os dados indicados (perfil, empresas,
+     * palavra-passe…). Nome de uma conta activa ou de outro cliente: UTILIZADOR_DUPLICADO.
+     *
+     * @param  array<string, mixed>  $d
+     */
+    private function reactivarEliminado(Utilizador $existente, array $d, Utilizador $actor): Utilizador
+    {
+        if (! $existente->trashed() || (int) $existente->tenant_id !== (int) $actor->tenant_id) {
+            throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
+        }
+        if (empty($d['reactivar'])) {
+            throw new ErroNegocio("O nome «{$existente->nome_utilizador}» pertence a um utilizador eliminado. Pode reactivá-lo com os dados indicados.",
+                'UTILIZADOR_ELIMINADO', 422, ['utilizador_id' => $existente->id]);
+        }
+        $this->exigirPalavraPasse((string) ($d['palavra_passe'] ?? ''));
+        $existente->restore();
+        $existente->forceFill(['ativo' => (bool) ($d['ativo'] ?? true)])->save();
+        $this->auditoria->registar('Sistema/Utilizadores', 'Reactivar utilizador', "Utilizador eliminado '{$existente->nome_utilizador}' reactivado ao criar uma conta com o mesmo nome.",
+            'utilizadores', $existente->id);
+        unset($d['nome_utilizador'], $d['reactivar'], $d['ativo']);
+
+        return $this->atualizar($existente, $d, $actor);
     }
 
     /** @param  array<string, mixed>  $d */

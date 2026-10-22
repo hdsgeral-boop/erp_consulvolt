@@ -214,7 +214,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('documentos/{venda}/revalidar', [FaturacaoEletronicaController::class, 'revalidar'])->whereNumber('venda')->name('documentos.revalidar');
             Route::get('documentos/{venda}/pedido-assinado', [FaturacaoEletronicaController::class, 'pedidoAssinado'])->whereNumber('venda')->name('documentos.pedido-assinado');
             Route::get('documentos/{venda}/qr', [FaturacaoEletronicaController::class, 'qr'])->whereNumber('venda')->name('documentos.qr');
-            Route::get('saft', [FaturacaoEletronicaController::class, 'saft'])->name('saft');
+            Route::get('saft', [FaturacaoEletronicaController::class, 'saft'])->middleware('licenca_exportacao')->name('saft');
         });
 
         Route::prefix('compras')->name('compras.')->controller(ContratosComprasController::class)->group(function () {

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Empresa;
+use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -72,6 +73,7 @@ final class PrepararPlanosIniciais extends Command
 
             return $ids->count();
         });
+        ModulosPlano::invalidar();
         $this->info('Planos criados: '.($criados ? implode(', ', $criados) : 'nenhum (já existiam)').". Clientes com o plano interno: {$clientes}.");
 
         return self::SUCCESS;

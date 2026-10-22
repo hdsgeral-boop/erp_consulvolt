@@ -120,20 +120,20 @@ final class SistemaUtilizadoresPerfisTest extends TestCase
     #[Test]
     public function desactivar_e_repor_palavra_passe_revogam_as_sessoes(): void
     {
-        $perfil = $this->criarPerfil(['_v2' => true, 'config_logs_view' => true], 'Leitor');
+        $perfil = $this->criarPerfil(['_v2' => true, 'config_migracao_view' => true], 'Leitor');
         $u = $this->criarUtilizador(['nome_utilizador' => 'leitor', 'perfil_utilizador_id' => $perfil->id]);
         $u->empresas()->attach($this->empresa->id);
         $su = $this->entrar($u) + ['X-Empresa-Id' => $this->empresa->id];
-        $this->getJson('/api/sistema/logs', $su)->assertOk();
+        $this->getJson('/api/autenticacao/eu', $su)->assertOk();
 
         $this->putJson("/api/sistema/utilizadores/{$u->id}/estado", ['ativo' => false], $this->s)->assertOk()->assertJsonPath('dados.ativo', false);
-        $this->getJson('/api/sistema/logs', $su)->assertUnauthorized();
+        $this->getJson('/api/autenticacao/eu', $su)->assertUnauthorized();
         $this->assertSame(0, $u->tokens()->count());
         $this->putJson("/api/sistema/utilizadores/{$u->id}/estado", ['ativo' => true], $this->s)->assertOk();
 
         $su = $this->entrar($u) + ['X-Empresa-Id' => $this->empresa->id];
         $this->postJson("/api/sistema/utilizadores/{$u->id}/palavra-passe", ['palavra_passe' => 'NovaChave#26', 'palavra_passe_confirmation' => 'NovaChave#26'], $this->s)->assertOk();
-        $this->getJson('/api/sistema/logs', $su)->assertUnauthorized();
+        $this->getJson('/api/autenticacao/eu', $su)->assertUnauthorized();
         $this->postJson('/api/autenticacao/entrar', ['nome_utilizador' => 'leitor', 'palavra_passe' => 'Palavra#Passe2026'])->assertUnauthorized();
         $this->entrar($u, 'NovaChave#26');
     }

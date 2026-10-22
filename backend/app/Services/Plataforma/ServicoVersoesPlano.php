@@ -7,6 +7,7 @@ use App\Models\PlanoLicenca;
 use App\Models\PlanoLicencaVersao;
 use App\Models\Tenant;
 use App\Services\Sistema\ServicoAuditoria;
+use App\Support\Tenancy\ModulosPlano;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -134,6 +135,7 @@ final class ServicoVersoesPlano
                 'preco_mensal' => $versao->preco_mensal, 'moeda' => $versao->moeda,
                 'max_empresas' => $versao->max_empresas, 'max_utilizadores' => $versao->max_utilizadores,
             ]);
+            ModulosPlano::invalidar();
             $this->auditoria->registar('Plataforma', 'Publicou versão', "Versão {$versao->numero} do plano #{$versao->plano_id} publicada.", 'planos_licenca_versoes', $versao->id);
 
             return $versao->refresh();

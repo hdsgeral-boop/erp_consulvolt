@@ -66,22 +66,26 @@ final class ResolverEmpresaAtiva
      */
     private function licenca(Request $request, $utilizador, int $empresaId): void
     {
+        if ($this->licencaBloqueada($request, $utilizador, $empresaId) && ! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)) {
+            throw ErroContextoEmpresa::licencaExpirada();
+        }
+    }
+
+    /**
+     * A licença da empresa está expirada e o pedido não é das rotas da própria licença (por onde se renova). Também usado
+     * por BloquearExportacaoComLicencaExpirada, que bloqueia as exportações mesmo sendo GET.
+     */
+    public function licencaBloqueada(Request $request, $utilizador, int $empresaId): bool
+    {
         if (! config('erp.licencas.ativo') || $utilizador->eSuperAdministrador()) {
-            return;
+            return false;
         }
 
         $empresa = Empresa::query()->whereKey($empresaId)->first(['id', 'licenca_fim']);
         if ($empresa === null || ! $empresa->licencaExpirada()) {
-            return;
+            return false;
         }
 
-        // As rotas da própria licença (pedir renovação, confirmar pagamento) ficam sempre disponíveis: é por elas que se renova.
-        if (str_starts_with((string) $request->route()?->getName(), 'licenca.')) {
-            return;
-        }
-
-        if (! in_array($request->method(), ['GET', 'HEAD', 'OPTIONS'], true)) {
-            throw ErroContextoEmpresa::licencaExpirada();
-        }
+        return ! str_starts_with((string) $request->route()?->getName(), 'licenca.');
     }
 }

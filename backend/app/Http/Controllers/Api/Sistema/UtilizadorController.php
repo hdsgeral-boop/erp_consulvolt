@@ -107,6 +107,8 @@ final class UtilizadorController extends Controller
             'papel' => ['sometimes', Rule::in([Utilizador::PAPEL_SUPER_ADMINISTRADOR, Utilizador::PAPEL_ADMINISTRADOR, Utilizador::PAPEL_UTILIZADOR])],
             'acesso_todas_empresas' => ['sometimes', 'boolean'],
             'ativo' => ['sometimes', 'boolean'],
+            // criar com o nome de um utilizador eliminado do mesmo cliente: reactiva essa conta com estes dados
+            'reactivar' => ['sometimes', 'boolean'],
             'empresas' => ['sometimes', 'array', 'max:500'],
             'empresas.*.empresa_id' => ['required', 'integer'],
             'empresas.*.colaborador_id' => ['nullable', 'integer'],
