@@ -3,6 +3,7 @@ import {
   ApiOutlined,
   ArrowLeftOutlined,
   CheckOutlined,
+  CompassOutlined,
   DownOutlined,
   EditOutlined,
   IdcardOutlined,
@@ -43,6 +44,7 @@ import { semIcones, type ItemMenu } from './filtroMenu';
 import { TEMA_NOCTURNO } from './temaNocturno';
 import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
 import { PuxadorMenu } from './PuxadorMenu';
+import { TourBoasVindas, reiniciarTourBoasVindas } from '@/componentes/tour/TourBoasVindas';
 import './telaNocturna.css';
 import { lerCaminhoEcra } from '@/utilitarios/caminhos';
 
@@ -409,6 +411,7 @@ function Estrutura() {
       : []),
     ...(podeIA ? [{ key: 'ia', icon: <RobotOutlined />, label: 'Assistente IA', onClick: () => setPainel('ia') }] : []),
     ...(podeBI ? [{ key: 'powerbi', icon: <ApiOutlined />, label: 'Power BI (feed OData)', onClick: () => setPainel('powerbi') }] : []),
+    { key: 'tour', icon: <CompassOutlined />, label: 'Repetir tutorial', onClick: reiniciarTourBoasVindas },
     { type: 'divider' as const },
     { key: 'sair', icon: <LogoutOutlined />, label: 'Terminar sessão', onClick: () => void sair() },
   ];
@@ -517,7 +520,11 @@ function Estrutura() {
                     />
                   </Tooltip>
                 )}
-                {!ecra.pequeno && <ContadorLicencaHeader />}
+                {!ecra.pequeno && (
+                  <span id="erp-tour-licenca" style={{ display: 'inline-flex' }}>
+                    <ContadorLicencaHeader />
+                  </span>
+                )}
                 <NotificacoesSinoHeader />
                 {!ecra.pequeno && botaoTrocarEmpresa}
                 {/* nome + papel e o botão ▾ que mostra as opções (Gerir Dados Pessoais … Terminar sessão); em telemóvel, o avatar */}
@@ -538,6 +545,7 @@ function Estrutura() {
               </Flex>
             </Flex>
           </Layout.Header>
+          <TourBoasVindas />
           <Layout.Content className={`erp-conteudo ${classeFundoModulo(local.pathname)}`}>
             <AvisoLicenca />
             <Suspense fallback={<Spin style={{ display: 'block', marginTop: 80 }} />}>
