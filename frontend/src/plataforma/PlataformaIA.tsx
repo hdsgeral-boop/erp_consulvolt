@@ -1,7 +1,7 @@
 import { Alert, Button, Card, Col, Form, Input, InputNumber, Row, Select, Space, Statistic, Switch, Table, Tabs, Tag, Typography, message } from 'antd';
 import { ApiOutlined, CheckCircleOutlined, RobotOutlined, SaveOutlined } from '@ant-design/icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { GraficoBarras } from '@/componentes/graficos/Graficos';
@@ -58,6 +58,8 @@ const AJUDA: Record<string, string> = {
 function CartaoFornecedor({ f }: { f: Fornecedor }) {
   const qc = useQueryClient();
   const [form] = Form.useForm();
+  const [modelosDetectados, setModelosDetectados] = useState<string[]>([]);
+  const ultimaChaveConsultada = useRef('');
   useEffect(() => {
     form.setFieldsValue({ chave: '', modelos: f.modelos, modelo_padrao: f.modelo_padrao, preco_entrada_mtok: f.preco_entrada_mtok, preco_saida_mtok: f.preco_saida_mtok, ativo: f.ativo });
   }, [f, form]);
@@ -72,6 +74,26 @@ function CartaoFornecedor({ f }: { f: Fornecedor }) {
     onError: (e) => { notificarErro(e); void qc.invalidateQueries({ queryKey: CHAVE }); },
   });
   const modelos = Form.useWatch('modelos', form) as string[] | undefined;
+  const chaveDigitada = Form.useWatch('chave', form) as string | undefined;
+  const consultarModelos = useMutation({
+    mutationFn: (chave?: string) => enviar<string[]>('post', `/plataforma/ia/fornecedores/${f.fornecedor}/modelos`, { chave: chave || undefined }),
+    onSuccess: (r) => {
+      setModelosDetectados(r.dados);
+      const actual = form.getFieldValue('modelo_padrao') as string | undefined;
+      form.setFieldsValue({ modelos: r.dados, modelo_padrao: actual && r.dados.includes(actual) ? actual : r.dados[0] });
+      message.success(`${r.dados.length} modelos disponíveis encontrados. Clique em Gravar para guardar a configuração.`);
+    },
+    onError: (e) => notificarErro(e, 'Não foi possível reconhecer a chave'),
+  });
+  useEffect(() => {
+    const chave = chaveDigitada?.trim() ?? '';
+    if (chave.length < 16 || chave === ultimaChaveConsultada.current) return;
+    const temporizador = window.setTimeout(() => {
+      ultimaChaveConsultada.current = chave;
+      consultarModelos.mutate(chave);
+    }, 700);
+    return () => window.clearTimeout(temporizador);
+  }, [chaveDigitada, consultarModelos.mutate]);
 
   return (
     <Card
@@ -85,7 +107,9 @@ function CartaoFornecedor({ f }: { f: Fornecedor }) {
         <Form.Item name="chave" label={f.configurado ? 'Nova chave da API (em branco mantém a actual)' : 'Chave da API'} extra="Guardada cifrada; nunca é mostrada nem enviada ao navegador.">
           <Input.Password autoComplete="off" maxLength={500} placeholder={f.chave_final ?? ''} />
         </Form.Item>
-        <Form.Item name="modelos" label="Modelos disponíveis"><Select mode="tags" tokenSeparators={[',', ' ']} placeholder="ex.: claude-opus-5-5" /></Form.Item>
+        <Button size="small" loading={consultarModelos.isPending} onClick={() => consultarModelos.mutate(chaveDigitada?.trim() || undefined)} style={{ marginBottom: 12 }}>Reconhecer chave e carregar modelos</Button>
+        {modelosDetectados.length > 0 && <Alert type="success" showIcon message={`Chave reconhecida · ${modelosDetectados.length} modelos encontrados`} style={{ marginBottom: 12 }} />}
+        <Form.Item name="modelos" label="Modelos disponíveis"><Select mode="tags" tokenSeparators={[',', ' ']} placeholder="Clique em Reconhecer chave para carregar modelos" /></Form.Item>
         <Form.Item name="modelo_padrao" label="Modelo por omissão"><Select allowClear options={(modelos ?? []).map((m) => ({ value: m, label: m }))} /></Form.Item>
         <Row gutter={12}>
           <Col span={12}><Form.Item name="preco_entrada_mtok" label="Preço entrada (USD / milhão tokens)"><InputNumber min={0} step={0.1} style={{ width: '100%' }} /></Form.Item></Col>

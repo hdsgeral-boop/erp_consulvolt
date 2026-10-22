@@ -48,6 +48,13 @@ final class IAPlataformaController extends Controller
         return RespostaApi::sucesso(null, 'Ligação ao fornecedor verificada.');
     }
 
+    public function modelos(Request $r, string $fornecedor): JsonResponse
+    {
+        $d = $r->validate(['chave' => ['nullable', 'string', 'max:500']]);
+
+        return RespostaApi::sucesso($this->ia->modelosDisponiveis($fornecedor, $d['chave'] ?? null), 'Modelos disponíveis obtidos.');
+    }
+
     public function atribuicoes(): JsonResponse
     {
         return RespostaApi::sucesso($this->ia->atribuicoes(), 'Atribuições de IA.');

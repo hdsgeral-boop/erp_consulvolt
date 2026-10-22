@@ -66,7 +66,7 @@ final class AnthropicIA implements FornecedorIA
                 betas: $comFallback ? ['server-side-fallback-2026-07-01'] : null,
             );
         } catch (APIException $e) {
-            throw new ErroNegocio('O fornecedor de IA (Anthropic) recusou o pedido: '.$e->getMessage(), 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio('O serviço de IA não conseguiu processar o pedido. Tente novamente ou contacte a plataforma.', 'IA_FORNECEDOR_ERRO', 502);
         }
 
         $m = json_decode((string) json_encode($resposta), true);

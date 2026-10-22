@@ -54,8 +54,6 @@ final class ServicoAssistenteIA
         return [
             'ativo' => $this->ativo($empresa),
             'configurado' => $this->claude->configurado(),
-            'modelo' => (string) config('assistente_ia.modelo'),
-            'fornecedor' => 'Anthropic (Claude)',
             'regras_internas' => RegraInternaIA::query()->count(),
             'tem_regras_empresa' => trim((string) DB::table('empresas')->where('id', $empresa)->value('regras_ia')) !== '',
             'uso_mes' => ['pedidos' => (int) $uso->pedidos, 'pedidos_ia' => (int) $uso->pedidos_ia, 'custo_estimado_usd' => round((float) $uso->custo, 4)],
@@ -102,10 +100,10 @@ final class ServicoAssistenteIA
             }
         }
         if (! $this->ativo($empresa)) {
-            throw new ErroNegocio('O assistente IA está desligado nesta empresa. Um administrador pode activá-lo em «Assistente IA › Configuração».', 'IA_DESACTIVADA', 422);
+            throw new ErroNegocio('A IA ainda não está disponível. Solicite a ativação ou a compra de créditos à plataforma.', 'IA_DESACTIVADA', 422);
         }
         if (! $this->claude->configurado()) {
-            throw new ErroNegocio('O assistente IA não está configurado no servidor: o administrador do sistema tem de definir a variável ANTHROPIC_API_KEY (ver docs/PRODUCAO.md).', 'IA_SEM_CHAVE', 422);
+            throw new ErroNegocio('A IA ainda não está disponível. Solicite a ativação ou a compra de créditos à plataforma.', 'IA_SEM_CHAVE', 422);
         }
 
         try {

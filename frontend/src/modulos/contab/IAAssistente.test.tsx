@@ -115,10 +115,10 @@ describe('Assistente IA — ecrã ia_assistente', { timeout: 180_000 }, () => { 
     expect(await screen.findByText('Formulário de lançamento')).toBeInTheDocument();
   });
 
-  it('IA externa desligada: explica e não deixa enviar o documento', async () => {
+  it('leitura assistida desligada: explica e não deixa enviar o documento', async () => {
     montar();
-    fireEvent.click(await screen.findByRole('tab', { name: 'IA externa' }));
-    expect(await screen.findByText('A IA está desligada nesta empresa')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('tab', { name: 'Ler documento' }));
+    expect(await screen.findByText('A leitura com IA ainda não está disponível')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Ler o documento e propor/ })).toBeDisabled();
   });
 });

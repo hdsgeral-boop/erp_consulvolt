@@ -8,8 +8,10 @@ use App\Services\IA\Agente\Fornecedores\FornecedorIA;
 use App\Services\IA\Agente\Fornecedores\GeminiIA;
 use App\Services\IA\Agente\Fornecedores\OpenAIIA;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Configuração da IA na plataforma: fornecedores (chave cifrada com a APP_KEY, nunca devolvida — só «configurada» e
@@ -108,6 +110,49 @@ final class ServicoConfiguracaoIA
             'openai' => new OpenAIIA($chave),
             'gemini' => new GeminiIA($chave),
         };
+    }
+
+    /** Confirma uma chave (nova ou guardada) e devolve os modelos realmente acessíveis à conta. */
+    public function modelosDisponiveis(string $codigo, ?string $novaChave = null): array
+    {
+        if (! isset(self::FORNECEDORES[$codigo])) {
+            throw new ErroNegocio('Fornecedor de IA desconhecido.', 'IA_FORNECEDOR_INVALIDO', 422);
+        }
+        $f = $this->db()->table('ia_fornecedores')->where('fornecedor', $codigo)->first();
+        $chave = trim((string) ($novaChave ?: ($f?->chave ? rescue(fn () => Crypt::decryptString($f->chave), '', report: false) : '')));
+        if ($chave === '') {
+            throw new ErroNegocio('Indique uma chave para consultar os modelos.', 'IA_SEM_CHAVE', 422);
+        }
+
+        try {
+            $pedido = Http::acceptJson()->timeout(25);
+            $resposta = match ($codigo) {
+                'anthropic' => $pedido->withHeaders(['x-api-key' => $chave, 'anthropic-version' => '2023-06-01'])->get('https://api.anthropic.com/v1/models', ['limit' => 100]),
+                'openai' => $pedido->withToken($chave)->get('https://api.openai.com/v1/models'),
+                'gemini' => $pedido->withHeaders(['x-goog-api-key' => $chave])->get('https://generativelanguage.googleapis.com/v1beta/models', ['pageSize' => 1000]),
+            };
+        } catch (ConnectionException) {
+            throw new ErroNegocio('Não foi possível consultar os modelos. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
+        }
+        if ($resposta->failed()) {
+            $motivo = in_array($resposta->status(), [401, 403], true) ? 'A chave foi recusada. Confirme a chave e as permissões da conta.' : 'O serviço respondeu com HTTP '.$resposta->status().'.';
+            throw new ErroNegocio($motivo, 'IA_CHAVE_INVALIDA', 422);
+        }
+
+        $itens = $codigo === 'gemini' ? $resposta->json('models', []) : $resposta->json('data', []);
+        $modelos = collect(is_array($itens) ? $itens : [])->filter(function ($m) use ($codigo) {
+            if ($codigo === 'gemini') {
+                return in_array('generateContent', $m['supportedGenerationMethods'] ?? [], true);
+            }
+
+            return isset($m['id']) && ($codigo !== 'openai' || preg_match('/^(gpt-|o[1-9]|chatgpt-)/', (string) $m['id']));
+        })->map(fn ($m) => $codigo === 'gemini' ? preg_replace('#^models/#', '', (string) ($m['name'] ?? '')) : (string) $m['id'])
+            ->filter()->unique()->values()->all();
+        if (! $modelos) {
+            throw new ErroNegocio('A chave é válida, mas não foram encontrados modelos de conversa disponíveis.', 'IA_SEM_MODELOS', 422);
+        }
+
+        return $modelos;
     }
 
     /** @return list<array<string, mixed>> atribuições de todos os clientes (com o consumo do mês) */

@@ -122,10 +122,10 @@ final class GeminiIA implements FornecedorIA
         try {
             $r = Http::withHeaders(['x-goog-api-key' => $this->chave])->acceptJson()->timeout(180)->post(sprintf(self::URL, rawurlencode($modelo)), $corpo);
         } catch (ConnectionException $e) {
-            throw new ErroNegocio('Não foi possível contactar o Google Gemini: '.$e->getMessage(), 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio('Não foi possível contactar o serviço de IA. Tente novamente.', 'IA_FORNECEDOR_ERRO', 502);
         }
         if ($r->failed()) {
-            throw new ErroNegocio('O fornecedor de IA (Google Gemini) recusou o pedido: '.($r->json('error.message') ?: 'HTTP '.$r->status()), 'IA_FORNECEDOR_ERRO', 502);
+            throw new ErroNegocio('O serviço de IA não conseguiu processar o pedido. Tente novamente ou contacte a plataforma.', 'IA_FORNECEDOR_ERRO', 502);
         }
 
         return (array) $r->json();

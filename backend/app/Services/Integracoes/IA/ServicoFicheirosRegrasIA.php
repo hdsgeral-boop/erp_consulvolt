@@ -171,10 +171,10 @@ final class ServicoFicheirosRegrasIA
     {
         $r = $this->regraUtilizavel($id, 'EXTERNA');
         if (! $this->assistente->ativo($empresa)) {
-            throw new ErroNegocio('O assistente IA está desligado nesta empresa. Um administrador pode activá-lo em «Assistente IA › Configuração».', 'IA_DESACTIVADA', 422);
+            throw new ErroNegocio('A IA ainda não está disponível. Solicite a ativação ou a compra de créditos à plataforma.', 'IA_DESACTIVADA', 422);
         }
         if (! $this->claude->configurado()) {
-            throw new ErroNegocio('O assistente IA não está configurado no servidor: o administrador do sistema tem de definir a variável ANTHROPIC_API_KEY (ver docs/PRODUCAO.md).', 'IA_SEM_CHAVE', 422);
+            throw new ErroNegocio('A IA ainda não está disponível. Solicite a ativação ou a compra de créditos à plataforma.', 'IA_SEM_CHAVE', 422);
         }
         $regra = RegraFicheiro::ler((string) $r->conteudo);
         $inicio = microtime(true);
@@ -235,7 +235,7 @@ final class ServicoFicheirosRegrasIA
         }
         $m = $r->motor ?: 'AMBOS';
         if ($m !== 'AMBOS' && $m !== $motor) {
-            throw new ErroNegocio($motor === 'INTERNA' ? 'Esta regra só está disponível para a IA externa.' : 'Esta regra só está disponível para o motor interno.', 'IA_REGRA_MOTOR', 422);
+            throw new ErroNegocio($motor === 'INTERNA' ? 'Esta regra só está disponível para leitura assistida de documentos.' : 'Esta regra só está disponível para o motor interno.', 'IA_REGRA_MOTOR', 422);
         }
 
         return $r;

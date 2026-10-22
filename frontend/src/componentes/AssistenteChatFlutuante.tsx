@@ -34,6 +34,10 @@ export function AssistenteChatFlutuante({ contexto }: { contexto?: string }) {
 
   async function mandar() {
     if (!texto.trim() || aEnviar) return;
+    if (!estado.data?.ativo || (estado.data.quota_tokens_mes !== null && estado.data.tokens_usados_mes >= estado.data.quota_tokens_mes)) {
+      message.info('Para começar a conversar, solicite a ativação da IA ou a compra de créditos ao administrador da plataforma.');
+      return;
+    }
     setAEnviar(true);
     try {
       const ecra = lerCaminhoEcra(local.pathname);
@@ -75,14 +79,15 @@ export function AssistenteChatFlutuante({ contexto }: { contexto?: string }) {
     finally { setAGuardar(false); }
   }
 
-  if (estado.isLoading || !estado.data?.ativo) return null;
-  const quota = estado.data.quota_tokens_mes;
+  const quota = estado.data?.quota_tokens_mes ?? null;
   return <>
-    <Button type="primary" shape="round" icon={<RobotOutlined />} onClick={() => setAberto(true)} aria-label="Abrir chat da IA"
-      style={{ position: 'fixed', right: 22, bottom: 22, zIndex: 900, boxShadow: '0 6px 24px #0003' }}>IA</Button>
+    <Button type="primary" shape="circle" icon={<RobotOutlined style={{ fontSize: 24 }} />} onClick={() => setAberto(true)} aria-label="Abrir chat da IA" title="Assistente IA"
+      style={{ position: 'fixed', right: 24, bottom: 88, zIndex: 900, width: 56, height: 56, boxShadow: '0 8px 26px #1677ff55', border: '2px solid #ffffff' }} />
     <Drawer title="Assistente IA" open={aberto} onClose={() => setAberto(false)} width={Math.min(520, window.innerWidth)} styles={{ body: { padding: 12, display: 'flex', flexDirection: 'column' } }}>
       <Tabs activeKey={aba} onChange={setAba} items={[
         { key: 'chat', label: <><RobotOutlined /> Chat</>, children: <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 160px)' }}>
+          {estado.data?.ativo === false && <Alert type="info" showIcon style={{ marginBottom: 12 }} message="IA ainda não disponível" description="Solicite a ativação ou a compra de créditos ao administrador da plataforma para iniciar uma conversa." />}
+          {estado.isError && <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="Não foi possível verificar a disponibilidade da IA" description="Pode abrir o chat e tentar novamente mais tarde." />}
           <Space style={{ marginBottom: 12 }}><Button icon={<PlusOutlined />} onClick={() => { setConversa(null); setTexto(''); }}>Nova conversa</Button>
             <Button icon={<HistoryOutlined />} onClick={() => setAba('historico')}>Histórico</Button></Space>
           <div style={{ flex: 1, overflowY: 'auto', padding: 4 }}>
@@ -111,8 +116,8 @@ export function AssistenteChatFlutuante({ contexto }: { contexto?: string }) {
         </div> },
         { key: 'definicoes', label: <><SettingOutlined /> Definições</>, children: <div>
           <Typography.Title level={5}>Consumo de tokens</Typography.Title>
-          <Typography.Paragraph>{estado.data.tokens_usados_mes.toLocaleString('pt-PT')} usados este mês{quota !== null ? ` de ${quota.toLocaleString('pt-PT')}` : ''}</Typography.Paragraph>
-          {quota !== null && estado.data.tokens_usados_mes >= quota && <Alert type="warning" message="Limite mensal atingido" />}
+          <Typography.Paragraph>{(estado.data?.tokens_usados_mes ?? 0).toLocaleString('pt-PT')} usados este mês{quota !== null ? ` de ${quota.toLocaleString('pt-PT')}` : ''}</Typography.Paragraph>
+          {quota !== null && (estado.data?.tokens_usados_mes ?? 0) >= quota && <Alert type="warning" message="Limite mensal atingido. Solicite mais créditos à plataforma." />}
           <Typography.Title level={5}>Regras da IA para a tua empresa</Typography.Title>
           <Typography.Paragraph type="secondary">Estas regras orientam o assistente em todas as conversas da empresa.</Typography.Paragraph>
           <Input.TextArea rows={10} maxLength={10000} showCount value={regras} onChange={(e) => setRegras(e.target.value)} placeholder="Ex.: Responde sempre em português de Angola. Antes de propor um lançamento, pede o centro de custo." />

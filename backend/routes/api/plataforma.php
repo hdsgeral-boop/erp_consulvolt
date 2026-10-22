@@ -83,6 +83,7 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
     Route::controller(IAPlataformaController::class)->prefix('ia')->name('ia.')->group(function () {
         Route::get('fornecedores', 'fornecedores')->name('fornecedores.index');
         Route::put('fornecedores/{fornecedor}', 'gravarFornecedor')->where('fornecedor', 'anthropic|openai|gemini')->name('fornecedores.gravar');
+        Route::post('fornecedores/{fornecedor}/modelos', 'modelos')->where('fornecedor', 'anthropic|openai|gemini')->middleware('throttle:10,1')->name('fornecedores.modelos');
         Route::post('fornecedores/{fornecedor}/testar', 'testar')->where('fornecedor', 'anthropic|openai|gemini')->middleware('throttle:10,1')->name('fornecedores.testar');
         Route::get('atribuicoes', 'atribuicoes')->name('atribuicoes.index');
         Route::put('atribuicoes/{cliente}', 'atribuir')->whereNumber('cliente')->name('atribuicoes.gravar');

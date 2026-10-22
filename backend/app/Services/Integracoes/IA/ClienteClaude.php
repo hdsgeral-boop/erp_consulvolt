@@ -38,7 +38,7 @@ final class ClienteClaude
     public function extrair(string $sistema, array $conteudo, array $esquema): array
     {
         if (! $this->configurado()) {
-            throw new ErroNegocio('O assistente IA não está configurado no servidor (falta a variável ANTHROPIC_API_KEY).', 'IA_SEM_CHAVE', 422);
+            throw new ErroNegocio('A IA ainda não está disponível. Solicite acesso à plataforma.', 'IA_SEM_CHAVE', 422);
         }
         $corpo = [
             'model' => (string) config('assistente_ia.modelo'),
@@ -60,7 +60,7 @@ final class ClienteClaude
         if (! $r->successful()) {
             $s = $r->status();
             [$codigo, $msg] = match (true) {
-                $s === 401, $s === 403 => ['IA_CHAVE_INVALIDA', 'A chave do serviço de IA foi recusada. Verifique ANTHROPIC_API_KEY no servidor.'],
+                $s === 401, $s === 403 => ['IA_CHAVE_INVALIDA', 'O serviço de IA está temporariamente indisponível. Contacte a plataforma.'],
                 $s === 429 => ['IA_LIMITE', 'O serviço de IA está com limite de pedidos. Tente dentro de alguns minutos.'],
                 $s === 400, $s === 413 => ['IA_PEDIDO_INVALIDO', 'O serviço de IA recusou o pedido (documento demasiado grande ou formato não suportado).'],
                 default => ['IA_INDISPONIVEL', "O serviço de IA respondeu com erro {$s}. Tente mais tarde."],

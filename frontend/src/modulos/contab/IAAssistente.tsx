@@ -48,8 +48,8 @@ import { useSeparadorUrl } from '@/componentes/navegacao/useSeparadorUrl';
  * Contabilidade › Assistente IA (lançamento assistido) — ecrã `ia_assistente` da Versão Actual (js/ia_regras_ficheiro.js).
  *
  * Cada regra é um ficheiro JSON com as contas, as fórmulas e as validações. Os dois motores usam o mesmo ficheiro e o mesmo
- * cálculo, feito no SERVIDOR: o motor interno pede os valores num formulário gerado pela regra; a IA externa lê-os do
- * documento (a chave do fornecedor fica só no servidor). Nada é gravado: cada dia abre no formulário normal de lançamento,
+ * cálculo, feito no SERVIDOR: o motor interno pede os valores num formulário gerado pela regra; a leitura assistida lê-os do
+ * documento. Nada é gravado: cada dia abre no formulário normal de lançamento,
  * onde o utilizador revê e grava. Permissões: ver (ia_assistente_view), gerir regras (ia_regras), calcular/ler (ia_lancar).
  */
 export default function IAAssistente() {
@@ -64,8 +64,8 @@ export default function IAAssistente() {
   return (
     <>
       <CabecalhoPagina
-        titulo={<span><RobotOutlined /> Assistente IA — Regras em ficheiro</span>}
-        subtitulo="Os dois motores usam o mesmo ficheiro: o motor interno pede-lhe os valores, a IA externa lê-os do documento. O cálculo e as validações são sempre feitos pelo ERP e nada é gravado sem revisão."
+        titulo={<span><RobotOutlined /> Definições — Regras da IA</span>}
+        subtitulo="Configure as regras em ficheiro que orientam a leitura de documentos e o cálculo. Nada é gravado sem revisão."
         excel={false}
       />
       <Tabs
@@ -76,7 +76,7 @@ export default function IAAssistente() {
           ...(lancar
             ? [
                 { key: 'interno', label: 'Motor interno', children: <MotorInterno regraId={regraEscolhida} aoEscolher={setRegraEscolhida} /> },
-                { key: 'externo', label: 'IA externa', children: <IAExterna regraId={regraEscolhida} aoEscolher={setRegraEscolhida} /> },
+                { key: 'externo', label: 'Ler documento', children: <IAExterna regraId={regraEscolhida} aoEscolher={setRegraEscolhida} /> },
               ]
             : []),
         ]}
@@ -217,7 +217,7 @@ function ListaRegras({ aoUsar }: { aoUsar: (id: number, motor: 'interno' | 'exte
                 <Button size="small" type="text" icon={<EyeOutlined />} aria-label="Ver a regra" title="Ver a regra" onClick={() => setVer(r.id)} />
                 <Button size="small" type="text" icon={<DownloadOutlined />} aria-label="Exportar" title="Exportar o ficheiro" onClick={() => exportar(r.id)} />
                 {lancar && !r.problema && usaMotor(r, 'INTERNA') && <Button size="small" onClick={() => aoUsar(r.id, 'interno')}>Motor interno</Button>}
-                {lancar && !r.problema && usaMotor(r, 'EXTERNA') && <Button size="small" onClick={() => aoUsar(r.id, 'externo')}>IA externa</Button>}
+                {lancar && !r.problema && usaMotor(r, 'EXTERNA') && <Button size="small" onClick={() => aoUsar(r.id, 'externo')}>Ler documento</Button>}
                 {gerir && (
                   <Popconfirm title={`Eliminar a regra «${r.nome}»?`} description="O ficheiro pode voltar a ser importado depois." okText="Eliminar" cancelText="Cancelar" onConfirm={() => eliminar.mutateAsync(r.id)}>
                     <Button size="small" type="text" danger icon={<DeleteOutlined />} aria-label="Eliminar" title="Eliminar" />
@@ -284,7 +284,7 @@ function SeletorRegra({ motor, regraId, aoEscolher }: { motor: 'INTERNA' | 'EXTE
       value={valor ?? undefined}
       onChange={(v) => aoEscolher(v)}
       options={opcoes.map((r) => ({ value: r.id, label: `${r.nome} (v${r.versao})${r.unidade ? ` — ${r.unidade}` : ''}` }))}
-      notFoundContent={motor === 'INTERNA' ? 'Sem regras activas para o motor interno.' : 'Sem regras activas para a IA externa.'}
+      notFoundContent={motor === 'INTERNA' ? 'Sem regras activas para o motor interno.' : 'Sem regras activas para leitura de documentos.'}
     />
   );
 }
@@ -372,8 +372,8 @@ function IAExterna({ regraId, aoEscolher }: { regraId: number | null; aoEscolher
   return (
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
       {estado.data && !disponivel && (
-        <Alert type="info" showIcon message={estado.data.configurado ? 'A IA está desligada nesta empresa' : 'A IA não está configurada no servidor'}
-          description="O motor interno continua disponível. A ativação da IA é gerida no painel SaaS." />
+        <Alert type="info" showIcon message="A leitura com IA ainda não está disponível"
+          description="O motor interno continua disponível. Para ativar a leitura com IA, solicite acesso ou créditos à plataforma." />
       )}
       <Typography.Text type="secondary">
         A IA só LÊ os valores pedidos pela regra no documento anexado: não escolhe contas nem faz contas. O cálculo, as validações e a proposta são feitos pelo ERP

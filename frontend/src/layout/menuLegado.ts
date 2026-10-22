@@ -129,7 +129,6 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
   ]),
   g('contab', 'Contabilidade', 'book', [
     e('contab', 'lancamentos', 'Lançamentos (Diários)', 'book-open'),
-    e('contab', 'ia_assistente', 'Assistente IA (regras)', 'robot'),   // Fase H: no legado abre a partir dos Lançamentos
     e('acrescimos', 'ad_registos', 'Acréscimos e Diferimentos', 'exchange-alt'),
     e('acrescimos', 'ad_propostas', 'Acrésc./Difer. — Proposta Mensal', 'calendar-check'),
     e('acrescimos', 'ad_recolher', 'Acrésc./Difer. — Recolher Documentos', 'inbox'),
@@ -181,6 +180,7 @@ export const MENU_GERAL_LEGADO: GrupoLegado = g('menu-geral', 'Menu Geral', 'lay
 /** Grupo «Sistema» (configurações; «Migração de Dados» fica fora do sub-grupo, como no legado). */
 export const SISTEMA_LEGADO: GrupoLegado = g('sistema', 'Sistema', 'cogs', [
   g('sistema-config', 'Configurações', 'cog', [
+    e('contab', 'ia_assistente', 'Regras da IA', 'robot'),
     e('config', 'config_geral', 'Geral / Backup', 'save'),
     e('config', 'config_empresas', 'Gestão de Empresas', 'building'),
     e('config', 'config_plano', 'Plano de Contas', 'list-alt'),

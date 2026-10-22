@@ -94,8 +94,6 @@ export function AssistenteIA({ aberto, aoFechar }: { aberto: boolean; aoFechar: 
       <Tabs
         items={[
           ...(pode('lancamentos_post') ? [{ key: 'propor', label: 'Propor lançamento', children: <Propor estado={estado.data} aoFechar={aoFechar} /> }] : []),
-          ...(pode('lancamentos_post', 'aux_gerir') ? [{ key: 'regras', label: 'Regras internas', children: <Regras /> }] : []),
-          { key: 'config', label: 'Configuração', children: <Configuracao estado={estado.data} /> },
         ]}
       />
     </Drawer>
@@ -164,7 +162,7 @@ function Propor({ estado, aoFechar }: { estado?: EstadoIA; aoFechar: () => void 
       {pedir.data && (
         <div style={{ marginTop: 16 }}>
           <Typography.Text type="secondary">
-            {pedir.data.motor === 'REGRAS' ? `Regra interna aplicada: «${pedir.data.regra}».` : `Proposto pela IA (${estado?.fornecedor ?? 'Claude'}).`} Nada foi gravado.
+            {pedir.data.motor === 'REGRAS' ? `Regra aplicada: «${pedir.data.regra}».` : 'Proposto pela IA.'} Nada foi gravado.
           </Typography.Text>
           {pedir.data.observacoes && <Alert type="warning" showIcon style={{ marginTop: 8 }} message="Observações" description={pedir.data.observacoes} />}
           {!pedir.data.propostas.length && <Empty description="Sem propostas para este conteúdo." />}
@@ -219,7 +217,7 @@ function Propor({ estado, aoFechar }: { estado?: EstadoIA; aoFechar: () => void 
   );
 }
 
-function Regras() {
+export function Regras() {
   const { pode } = useSessao();
   const gerir = pode('aux_gerir');
   const cliente = useQueryClient();
@@ -319,7 +317,7 @@ const CAMPOS_REGRA: CampoFormulario[] = [
   { nome: 'modelo', rotulo: 'Modelo das linhas (JSON)', tipo: 'textoLongo', obrigatorio: true, largura: 320, omissao: MODELO_REGRA, aliases: ['Modelo'], validar: modeloInvalido },
 ];
 
-function Configuracao({ estado }: { estado?: EstadoIA }) {
+export function Configuracao({ estado }: { estado?: EstadoIA }) {
   const { pode } = useSessao();
   const cliente = useQueryClient();
   const activar = useMutation({
