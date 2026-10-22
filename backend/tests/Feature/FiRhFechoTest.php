@@ -240,12 +240,16 @@ final class FiRhFechoTest extends TestCase
         $this->assertSame(['Efectividade', 'Colaboradores', 'Instruções'], $livro->getSheetNames());
         $folha = $livro->getSheet(0);
         $linhas = $folha->toArray(null, false, false, false);
-        $this->assertSame(['NIF', 'Colaborador', 'Data', 'Entrada', 'Saida intervalo', 'Entrada intervalo', 'Saida', 'Horas', 'Autorizado', 'Observacoes'], $linhas[0]);
-        $ana = array_values(array_filter($linhas, fn ($l) => $l[1] === 'Ana Fictícia'));
-        $this->assertCount(22, $ana);   // dias úteis de Setembro de 2025 (segunda a sexta)
-        $this->assertSame(['000123456LA041', '2025-09-01', '08:00', '12:00', '13:00', '17:00'], [$ana[0][0], $ana[0][2], $ana[0][3], $ana[0][4], $ana[0][5], $ana[0][6]]);
-        $this->assertSame('s', $folha->getCell('A2')->getDataType());
-        $this->assertEmpty(array_filter($linhas, fn ($l) => $l[1] === 'Zé Inactivo'));
+        // layout do picómetro: «Attendance Record», cabeçalho na linha 4 (Employee ID | Card No. | Name | Department | AAAA/MM/DD…), «SW - EW» na 5
+        $this->assertSame('Attendance Record', $linhas[0][0]);
+        $this->assertSame(['Employee ID', 'Card No.', 'Name', 'Department', '2025/09/01', '2025/09/02'], array_slice($linhas[3], 0, 6));
+        $this->assertSame('2025/09/30', $linhas[3][4 + 29]);
+        $this->assertSame('SW - EW', $linhas[4][4]);
+        $ana = array_values(array_filter($linhas, fn ($l) => ($l[2] ?? null) === 'Ana Fictícia'));
+        $this->assertCount(1, $ana);   // uma linha por colaborador
+        $this->assertSame("08:00 12:00\n13:00 17:00\n--:-- --:--\n--:-- --:--", $ana[0][4]);   // 2025-09-01 (segunda): dois períodos
+        $this->assertSame(implode("\n", array_fill(0, 4, '--:-- --:--')), $ana[0][4 + 5]);   // 2025-09-06 (sábado): folga
+        $this->assertEmpty(array_filter($linhas, fn ($l) => ($l[2] ?? null) === 'Zé Inactivo'));
         $this->assertSame(4, $livro->getSheet(1)->getHighestRow());   // cabeçalho + 3 activos
     }
 

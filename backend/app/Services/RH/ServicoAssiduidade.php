@@ -19,6 +19,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -108,6 +109,7 @@ final class ServicoAssiduidade
     public function importar(UploadedFile $ficheiro, bool $substituir = true, string $origem = 'FICHEIRO', ?string $fonte = null): array
     {
         $folha = IOFactory::load($ficheiro->getRealPath())->getActiveSheet()->toArray(null, true, false, false);
+        $folha = self::picometroParaLinhas($folha) ?? $folha;
         $cab = array_map(fn ($c) => self::chave((string) $c), array_shift($folha) ?? []);
         $col = fn (array $nomes) => collect($cab)->search(fn ($c) => in_array($c, $nomes, true));
         $idx = ['nif' => $col(['nif']), 'inss' => $col(['inss', 'numero_inss', 'n_inss']), 'id' => $col(['numero', 'id', 'colaborador_id', 'n']),
@@ -126,7 +128,7 @@ final class ServicoAssiduidade
         $semZeros = fn ($lista, callable $chave) => $lista->groupBy(fn ($c) => ltrim((string) $chave($c), '0'))->filter(fn ($g) => $g->count() === 1)->map->first();
         $porNifSemZeros = $semZeros($colabs->filter(fn ($c) => $c->nif), fn ($c) => ServicoColaboradores::normalizarNif($c->nif));
         $porInssSemZeros = $semZeros($colabs->filter(fn ($c) => $c->numero_inss), fn ($c) => trim($c->numero_inss));
-        $porNome = $colabs->keyBy(fn ($c) => mb_strtolower(trim($c->nome_completo)));
+        $porNome = $colabs->keyBy(fn ($c) => self::nomeNormalizado($c->nome_completo));
         $res = ['gravados' => 0, 'ignorados' => 0, 'em_branco' => 0, 'erros' => []];
         $v = fn (array $l, string $k) => $idx[$k] === false ? null : (is_string($l[$idx[$k]] ?? null) ? trim($l[$idx[$k]]) : ($l[$idx[$k]] ?? null));
         $exemploNif = $porNif->keys()->first();
@@ -139,7 +141,7 @@ final class ServicoAssiduidade
             $c = ($nif ? $porNif[$nif] ?? $porNifSemZeros[ltrim($nif, '0')] ?? null : null)
                 ?? ($v($l, 'inss') ? $porInss[(string) $v($l, 'inss')] ?? $porInssSemZeros[ltrim((string) $v($l, 'inss'), '0')] ?? null : null)
                 ?? ($v($l, 'id') ? $colabs->firstWhere('id', (int) $v($l, 'id')) : null)
-                ?? ($v($l, 'nome') ? $porNome[mb_strtolower((string) $v($l, 'nome'))] ?? null : null);
+                ?? ($v($l, 'nome') ? $porNome[self::nomeNormalizado((string) $v($l, 'nome'))] ?? null : null);
             $data = self::dataIso($v($l, 'data'));
             // linha do modelo pré-preenchido deixada em branco (sem entrada, saída nem horas): não é erro
             if (in_array($v($l, 'entrada'), [null, ''], true) && in_array($v($l, 'saida'), [null, ''], true) && in_array($v($l, 'horas'), [null, ''], true)) {
@@ -172,14 +174,11 @@ final class ServicoAssiduidade
         return $res;
     }
 
-    /** Colunas do modelo de importação (modeloImportacao, assiduidade.js:640). */
-    public const COLUNAS_MODELO = ['NIF', 'Colaborador', 'Data', 'Entrada', 'Saida intervalo', 'Entrada intervalo', 'Saida', 'Horas', 'Autorizado', 'Observacoes'];
-
     /**
-     * #4 — modelo Excel da efectividade JÁ PREENCHIDO (modeloImportacao, assiduidade.js:618; assiduidade_ui.js:680): uma linha por
-     * colaborador ACTIVO e por dia de trabalho do mês, com o horário previsto do dia (escala prioritária › normal › horário do
-     * contrato › regime da empresa, regimeDoDia), o NIF como texto (o Excel não lhe come os zeros à esquerda), mais as folhas
-     * «Colaboradores» e «Instruções». Os dias de folga, fora da admissão/contrato ou com o contrato suspenso não entram.
+     * #4 — modelo Excel da efectividade JÁ PREENCHIDO, no layout do relatório do picómetro («Attendance Record»): uma linha por
+     * colaborador ACTIVO, uma coluna por dia do mês, com o horário previsto do dia (escala prioritária › normal › horário do
+     * contrato › regime da empresa, regimeDoDia), mais as folhas «Colaboradores» e «Instruções». Os dias de folga, fora da
+     * admissão/contrato ou com o contrato suspenso ficam sem picagens (--:--).
      *
      * @return array{linhas: int, sem_nif: list<string>}
      */
@@ -209,26 +208,48 @@ final class ServicoAssiduidade
                     $h = ['entrada' => '', 'saida' => '', 'saida_intervalo' => RegrasContrato::hhmm($cfg['intervalo_saida_padrao'] ?? null) ?: '12:00',
                         'entrada_intervalo' => RegrasContrato::hhmm($cfg['intervalo_entrada_padrao'] ?? null) ?: '13:00'];
                 }
-                $linhas[] = [(string) ($e->nif ?? ''), (string) $e->nome_completo, $dia, $h['entrada'] ?? '', $h['saida_intervalo'] ?? '', $h['entrada_intervalo'] ?? '', $h['saida'] ?? '', '', '', ''];
+                $linhas["{$e->id}|{$dia}"] = [$h['entrada'] ?? '', $h['saida_intervalo'] ?? '', $h['entrada_intervalo'] ?? '', $h['saida'] ?? ''];
             }
         }
 
+        // Mesmo layout do relatório «Attendance Record» do picómetro (ver picometroParaLinhas): colaboradores em linhas, dias em colunas
         $livro = new Spreadsheet;
         $folha = $livro->getActiveSheet()->setTitle('Efectividade');
-        $folha->fromArray(self::COLUNAS_MODELO);
-        $folha->getStyle('A1:J1')->getFont()->setBold(true);
-        $folha->getStyle('A:A')->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_TEXT);
-        foreach ($linhas as $n => $l) {
-            $r = $n + 2;
-            $folha->setCellValueExplicit("A{$r}", $l[0], DataType::TYPE_STRING);   // NIF sempre como texto
-            foreach (array_slice($l, 1) as $k => $v) {
-                $folha->setCellValueExplicit(chr(66 + $k).$r, $v, DataType::TYPE_STRING);   // nada de fórmulas nem datas convertidas
+        $vazio = '--:-- --:--';
+        $par = fn (?string $a, ?string $b) => ($a ?: '--:--').' '.($b ?: '--:--');
+        $folha->setCellValue('A1', 'Attendance Record');
+        $folha->setCellValue('A3', 'Create Time:'.now()->format('Y-m-d H:i:s'));
+        $folha->setCellValue('D3', 'SW:Start-Work|EW:End-Work');
+        foreach (['Employee ID', 'Card No.', 'Name', 'Department'] as $k => $t) {
+            $folha->setCellValueExplicit(Coordinate::stringFromColumnIndex($k + 1).'4', $t, DataType::TYPE_STRING);
+        }
+        foreach ($dias as $i => $dia) {
+            $col = Coordinate::stringFromColumnIndex($i + 5);
+            $folha->setCellValueExplicit("{$col}4", str_replace('-', '/', $dia), DataType::TYPE_STRING);
+            $folha->setCellValueExplicit("{$col}5", 'SW - EW', DataType::TYPE_STRING);
+            $folha->getColumnDimension($col)->setWidth(13);
+        }
+        $ultima = Coordinate::stringFromColumnIndex(4 + count($dias));
+        foreach ($colabs->values() as $n => $e) {
+            $r = $n + 6;
+            $folha->setCellValueExplicit("A{$r}", sprintf('%08d', $e->id), DataType::TYPE_STRING);
+            $folha->setCellValueExplicit("C{$r}", (string) $e->nome_completo, DataType::TYPE_STRING);
+            $folha->setCellValueExplicit("D{$r}", 'Company', DataType::TYPE_STRING);
+            foreach ($dias as $i => $dia) {
+                $p = $linhas["{$e->id}|{$dia}"] ?? null;
+                $texto = implode("\n", $p === null ? array_fill(0, 4, $vazio)
+                    : [$p[1] !== '' && $p[2] !== '' ? $par($p[0], $p[1]) : $par($p[0], $p[3]), $p[1] !== '' && $p[2] !== '' ? $par($p[2], $p[3]) : $vazio, $vazio, $vazio]);
+                $folha->setCellValueExplicit(Coordinate::stringFromColumnIndex($i + 5).$r, $texto, DataType::TYPE_STRING);   // nada de fórmulas nem datas convertidas
             }
         }
-        foreach (['A' => 18, 'B' => 32, 'C' => 12, 'D' => 9, 'E' => 15, 'F' => 17, 'G' => 9, 'H' => 8, 'I' => 11, 'J' => 24] as $c => $w) {
+        $folha->getStyle("A4:{$ultima}5")->getFont()->setBold(true);
+        if ($colabs->isNotEmpty()) {
+            $folha->getStyle('E6:'.$ultima.(5 + $colabs->count()))->getAlignment()->setWrapText(true);
+        }
+        foreach (['A' => 13, 'B' => 9, 'C' => 36, 'D' => 12] as $c => $w) {
             $folha->getColumnDimension($c)->setWidth($w);
         }
-        $folha->freezePane('A2');
+        $folha->freezePane('E6');
 
         $fc = $livro->createSheet()->setTitle('Colaboradores');
         $fc->fromArray(['NIF', 'Nome', 'Nº INSS']);
@@ -248,15 +269,12 @@ final class ServicoAssiduidade
         $fi = $livro->createSheet()->setTitle('Instruções');
         $instrucoes = [
             ['Como preencher'],
-            ['1. A folha «Efectividade» já traz uma linha por colaborador e dia de trabalho do mês, com o NIF e o horário previsto.'],
-            ['2. Corrija as horas picadas. Apague as linhas dos dias que não quer importar; as linhas sem entrada, saída nem horas são ignoradas.'],
-            ['3. A chave é o NIF; também é aceite o Nº INSS ou o nome exacto. Não altere a coluna NIF.'],
-            ['4. Com dois períodos preencha as quatro horas («Entrada», «Saida intervalo», «Entrada intervalo», «Saida»); com período corrido deixe as duas do intervalo vazias.'],
-            ['5. Em alternativa às horas de picagem, pode preencher só a coluna «Horas» com o total do dia (aceita vírgula decimal, ex.: 7,5).'],
-            ['6. «Autorizado» = SIM marca trabalho extra autorizado em dia não útil.'],
-            [''],
-            ['O NIF está formatado como texto de propósito: se o Excel o converter em número, os zeros à esquerda perdem-se.'],
-            ['A importação já tolera essa perda, mas é mais seguro manter o formato de texto.'],
+            ['1. A folha «Efectividade» tem o mesmo formato do relatório «Attendance Record» do picómetro: uma linha por colaborador e uma coluna por dia do mês.'],
+            ['2. Cada célula tem até 4 linhas «SW EW» (início e fim de trabalho); «--:--» é sem picagem. Já vem preenchida com o horário previsto dos dias de trabalho.'],
+            ['3. Corrija as horas picadas. Os dias com tudo «--:--» são ignorados. Pode colar directamente o relatório exportado do picómetro.'],
+            ['4. Período corrido: 1.ª linha = entrada e saída. Com dois períodos: 1.ª linha = entrada e saída para o intervalo; 2.ª linha = regresso do intervalo e saída.'],
+            ['5. A chave é o nome do colaborador (coluna «Name»), tal como está registado no ERP; o «Employee ID» é só o número do relógio.'],
+            ['6. Para registar só o total de horas do dia ou trabalho extra autorizado em dia não útil, use a importação por linhas (NIF, Data, Horas, Autorizado).'],
         ];
         foreach ($instrucoes as $n => [$t]) {
             $fi->setCellValueExplicit('A'.($n + 1), $t, DataType::TYPE_STRING);
@@ -940,6 +958,79 @@ final class ServicoAssiduidade
         }
 
         return null;
+    }
+
+    /** Nome em minúsculas e com os espaços repetidos colapsados («Maria Natal  André» do relógio = «Maria Natal André»). */
+    private static function nomeNormalizado(string $nome): string
+    {
+        return mb_strtolower(trim(preg_replace('/\s+/u', ' ', $nome)));
+    }
+
+    /**
+     * Relatório «Attendance Record» do picómetro (modelo «DADOS PICÓMETRO»): cabeçalho «Employee ID | Card No. | Name | Department |
+     * AAAA/MM/DD…», uma linha por colaborador e uma coluna por dia; cada célula traz até 4 linhas «SW EW» (início/fim de trabalho,
+     * «--:--» = sem picagem). 1.º par = entrada/saída; um 2.º par completo passa o 1.º EW a saída e o 2.º SW a regresso do intervalo.
+     * Devolve as linhas no formato normal da importação (cabeçalho + uma linha por colaborador e dia com picagens), ou null se a
+     * folha não for deste modelo. A chave é o nome (o «Employee ID» do relógio não existe no ERP). Um nome repetido no relógio
+     * (duas fichas da mesma pessoa) funde-se: a primeira entrada e a última saída do dia.
+     *
+     * @param  list<list<mixed>>  $folha
+     * @return list<list<mixed>>|null
+     */
+    private static function picometroParaLinhas(array $folha): ?array
+    {
+        $cab = null;
+        foreach (array_slice($folha, 0, 10, true) as $n => $l) {
+            if (self::chave((string) ($l[0] ?? '')) === 'employee_id' && self::chave((string) ($l[2] ?? '')) === 'name') {
+                $cab = $n;
+
+                break;
+            }
+        }
+        if ($cab === null) {
+            return null;
+        }
+        $dias = [];
+        foreach ($folha[$cab] as $c => $v) {
+            if ($c >= 4 && preg_match('#^(\d{4})/(\d{2})/(\d{2})$#', trim((string) $v), $m)) {
+                $dias[$c] = "{$m[1]}-{$m[2]}-{$m[3]}";
+            }
+        }
+        $hora = fn (string $t) => preg_match('/^\d{1,2}:\d{2}$/', $t) ? $t : null;
+        $porDia = [];   // "nome|data" => [nome, data, entrada, saida_intervalo, entrada_intervalo, saida]
+        foreach (array_slice($folha, $cab + 1) as $l) {
+            $nome = preg_replace('/\s+/u', ' ', trim((string) ($l[2] ?? '')));
+            if ($nome === '') {
+                continue;
+            }
+            foreach ($dias as $c => $data) {
+                $pares = [];
+                foreach (preg_split('/\R/u', trim((string) ($l[$c] ?? ''))) as $linhaPar) {
+                    $t = preg_split('/\s+/', trim($linhaPar));
+                    $pares[] = [$hora($t[0] ?? ''), $hora($t[1] ?? '')];
+                }
+                [$e, $s] = $pares[0] ?? [null, null];
+                $si = $ei = null;
+                if (isset($pares[1]) && $pares[1][0] && $pares[1][1] && $s) {   // 2.º par completo = dois períodos
+                    [$si, $ei, $s] = [$s, $pares[1][0], $pares[1][1]];
+                }
+                if ($e === null && $s === null) {
+                    continue;
+                }
+                $k = mb_strtolower($nome)."|{$data}";
+                if (isset($porDia[$k])) {   // mesma pessoa com duas fichas: abrange o dia todo
+                    $a = &$porDia[$k];
+                    $a[2] = min(array_filter([$a[2], $e]) ?: [null]);
+                    $a[5] = max(array_filter([$a[5], $s]) ?: [null]);
+                    unset($a);
+
+                    continue;
+                }
+                $porDia[$k] = [$nome, $data, $e, $si, $ei, $s];
+            }
+        }
+
+        return [['nome', 'data', 'entrada', 'saida_intervalo', 'entrada_intervalo', 'saida'], ...array_values($porDia)];
     }
 
     public static function horaHHMM(mixed $v): string

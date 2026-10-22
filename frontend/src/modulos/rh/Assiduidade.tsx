@@ -139,7 +139,7 @@ function Registos({ mes, soImportar, seletor }: { mes: string; soImportar?: bool
   const [substituir, setSubstituir] = useState(true);
   const [resultado, setResultado] = useState<ResultadoImportacaoEfectividade | null>(null);
   const [aDescarregar, setADescarregar] = useState(false);
-  /** Modelo Excel pré-preenchido do mês (uma linha por colaborador activo e dia de trabalho, NIF em texto). */
+  /** Modelo Excel pré-preenchido do mês, no formato do relatório do picómetro (colaboradores em linhas, dias em colunas). */
   const descarregarModelo = async () => {
     setADescarregar(true);
     try {
@@ -250,7 +250,8 @@ function Registos({ mes, soImportar, seletor }: { mes: string; soImportar?: bool
           Colunas reconhecidas pelo cabeçalho: <code>data</code> e uma identificação (<code>nif</code>, <code>inss</code>, <code>numero</code> ou <code>nome</code>); opcionais <code>entrada</code>, <code>saida</code>,
             <code>saida intervalo</code> e <code>entrada intervalo</code> (dois períodos; também «saída almoço» / «regresso almoço»), <code>horas</code> (aceita «7,5»), <code>autorizado</code> e <code>observacoes</code>.
             As linhas sem entrada, saída nem horas (do modelo, deixadas em branco) não contam como erro. Máximo 10 MB.
-          Comece por «Descarregar o modelo»: traz uma linha por colaborador activo e dia de trabalho, com o NIF e o horário previsto. Depois de importar, confira o «Resumo do mês» e feche a efectividade.
+          Também é aceite o relatório «Attendance Record» do picómetro (uma linha por colaborador, uma coluna por dia, células «SW EW»), identificando o colaborador pelo nome.
+          Comece por «Descarregar o modelo»: tem esse mesmo formato, com uma linha por colaborador activo e o horário previsto de cada dia. Depois de importar, confira o «Resumo do mês» e feche a efectividade.
         </Typography.Paragraph>
         {pode('rh_assid_registar') ? (
           <Space wrap>
