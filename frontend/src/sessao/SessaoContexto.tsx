@@ -21,6 +21,8 @@ interface DadosSessao {
   permissoes: string[];
   /** Super-administrador do tenant da plataforma SaaS: não precisa de empresa. */
   e_plataforma?: boolean;
+  /** Agente de suporte da plataforma: só o backoffice de tickets (consola da plataforma, «Suporte»). */
+  e_suporte?: boolean;
 }
 
 interface Sessao {
@@ -32,6 +34,8 @@ interface Sessao {
   permissoes: string[];
   /** Administrador da plataforma SaaS (opera clientes, planos, licenças…), sem empresa. */
   ePlataforma: boolean;
+  /** Agente de suporte da plataforma (só tickets). */
+  eSuporte: boolean;
   motivoSaida: string | null;
   entrar: (nomeUtilizador: string, palavraPasse: string) => Promise<void>;
   sair: (motivo?: string) => Promise<void>;
@@ -97,7 +101,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     armazenamento.definirToken(r.token);
     armazenamento.definirEmpresa(null);
     inatividade.current = r.inatividade_minutos ?? INATIVIDADE_PADRAO_MIN;
-    setDados({ utilizador: r.utilizador, empresas: r.empresas, permissoes: r.permissoes, e_plataforma: r.e_plataforma });
+    setDados({ utilizador: r.utilizador, empresas: r.empresas, permissoes: r.permissoes, e_plataforma: r.e_plataforma, e_suporte: r.e_suporte });
     setEmpresaId(null);
     setMotivoSaida(null);
     setEstado('autenticado');
@@ -215,6 +219,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       menu,
       permissoes,
       ePlataforma: dados?.e_plataforma === true,
+      eSuporte: dados?.e_suporte === true,
       motivoSaida,
       entrar,
       sair,
