@@ -504,6 +504,7 @@ Route::middleware('auth:sanctum')->group(function () {
         require __DIR__.'/api/ronda2_g3.php';
         // Ronda 2, grupo 4 (transversais e integrações): BAI automático, Power BI, assistente IA, preferências, operações
         require __DIR__.'/api/integracoes.php';
+        require __DIR__.'/api/ia_assistente.php';   // assistente IA (chat, anexos, propostas confirmadas)
         // Ronda 2, grupo 1 (Contabilidade, POS, Gestão, Acréscimos, Estrutura)
         require __DIR__.'/api/ronda2_g1.php';
         // Ronda 2, grupo 2 (RH, Configurações, Activos, Orçamento)

@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\Plataforma\ClientesController;
 use App\Http\Controllers\Api\Plataforma\CodigosController;
 use App\Http\Controllers\Api\Plataforma\ConversaSuportePlataformaController;
 use App\Http\Controllers\Api\Plataforma\DefinicoesController;
+use App\Http\Controllers\Api\Plataforma\IAPlataformaController;
 use App\Http\Controllers\Api\Plataforma\MinhaContaController;
 use App\Http\Controllers\Api\Plataforma\PainelController;
 use App\Http\Controllers\Api\Plataforma\PlanosPlataformaController;
@@ -77,6 +78,16 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
         Route::put('agentes-suporte/{agente}/estado', 'estado')->whereNumber('agente')->name('agentes_suporte.estado');
         Route::put('agentes-suporte/{agente}', 'atualizar')->whereNumber('agente')->name('agentes_suporte.atualizar');
         Route::delete('agentes-suporte/{agente}', 'eliminar')->whereNumber('agente')->name('agentes_suporte.eliminar');
+    });
+
+    Route::controller(IAPlataformaController::class)->prefix('ia')->name('ia.')->group(function () {
+        Route::get('fornecedores', 'fornecedores')->name('fornecedores.index');
+        Route::put('fornecedores/{fornecedor}', 'gravarFornecedor')->where('fornecedor', 'anthropic|openai|gemini')->name('fornecedores.gravar');
+        Route::post('fornecedores/{fornecedor}/testar', 'testar')->where('fornecedor', 'anthropic|openai|gemini')->middleware('throttle:10,1')->name('fornecedores.testar');
+        Route::get('atribuicoes', 'atribuicoes')->name('atribuicoes.index');
+        Route::put('atribuicoes/{cliente}', 'atribuir')->whereNumber('cliente')->name('atribuicoes.gravar');
+        Route::delete('atribuicoes/{cliente}', 'removerAtribuicao')->whereNumber('cliente')->name('atribuicoes.remover');
+        Route::get('consumo', 'consumo')->name('consumo');
     });
 
     Route::controller(SessoesController::class)->group(function () {
