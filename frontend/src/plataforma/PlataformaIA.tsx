@@ -69,7 +69,7 @@ function CartaoFornecedor({ f }: { f: Fornecedor }) {
     onError: (e) => notificarErro(e),
   });
   const testar = useMutation({
-    mutationFn: () => enviar('post', `/plataforma/ia/fornecedores/${f.fornecedor}/testar`, {}),
+    mutationFn: () => enviar('post', `/plataforma/ia/fornecedores/${f.fornecedor}/testar`, { modelo: form.getFieldValue('modelo_padrao') }),
     onSuccess: () => { message.success('Ligação verificada: a chave e o modelo funcionam.'); void qc.invalidateQueries({ queryKey: CHAVE }); },
     onError: (e) => { notificarErro(e); void qc.invalidateQueries({ queryKey: CHAVE }); },
   });

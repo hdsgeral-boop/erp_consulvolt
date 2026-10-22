@@ -23,8 +23,10 @@ final class ServicoConfiguracaoIA
     public const FORNECEDORES = [
         'anthropic' => ['nome' => 'Anthropic (Claude)', 'modelos' => ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'], 'modelo_padrao' => 'claude-opus-5-5',
             'preco_entrada_mtok' => 4.0, 'preco_saida_mtok' => 20.0],
-        'openai' => ['nome' => 'OpenAI', 'modelos' => [], 'modelo_padrao' => null, 'preco_entrada_mtok' => 0, 'preco_saida_mtok' => 0],
-        'gemini' => ['nome' => 'Google Gemini', 'modelos' => [], 'modelo_padrao' => null, 'preco_entrada_mtok' => 0, 'preco_saida_mtok' => 0],
+        'openai' => ['nome' => 'OpenAI', 'modelos' => ['gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano'], 'modelo_padrao' => 'gpt-5.1',
+            'preco_entrada_mtok' => 0, 'preco_saida_mtok' => 0],
+        'gemini' => ['nome' => 'Google Gemini', 'modelos' => ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'], 'modelo_padrao' => 'gemini-3.8-flash',
+            'preco_entrada_mtok' => 0, 'preco_saida_mtok' => 0],
     ];
 
     private function db(): ConnectionInterface
@@ -40,12 +42,17 @@ final class ServicoConfiguracaoIA
         return collect(self::FORNECEDORES)->map(function (array $base, string $codigo) use ($gravados) {
             $f = $gravados[$codigo] ?? null;
             $chave = $f?->chave ? rescue(fn () => Crypt::decryptString($f->chave), null, report: false) : null;
+            $gravadosFornecedor = $f ? (json_decode((string) $f->modelos, true) ?: []) : [];
+            $modelos = collect(array_merge($base['modelos'], $gravadosFornecedor))
+                ->map(fn ($modelo) => trim((string) $modelo))->filter(fn ($modelo) => $this->modeloValido($codigo, $modelo))->unique()->values()->all();
+            $padraoGravado = trim((string) ($f->modelo_padrao ?? ''));
+            $modeloPadrao = in_array($padraoGravado, $modelos, true) ? $padraoGravado : $base['modelo_padrao'];
 
             return [
                 'id' => $f?->id, 'fornecedor' => $codigo, 'nome' => $f->nome ?? $base['nome'],
                 'configurado' => $chave !== null, 'chave_final' => $chave ? '…'.substr($chave, -4) : null,
-                'modelos' => $f ? (json_decode((string) $f->modelos, true) ?: []) : $base['modelos'],
-                'modelo_padrao' => $f->modelo_padrao ?? $base['modelo_padrao'],
+                'modelos' => $modelos,
+                'modelo_padrao' => $modeloPadrao,
                 'preco_entrada_mtok' => (float) ($f->preco_entrada_mtok ?? $base['preco_entrada_mtok']),
                 'preco_saida_mtok' => (float) ($f->preco_saida_mtok ?? $base['preco_saida_mtok']),
                 'ativo' => (bool) ($f->ativo ?? false), 'testado_em' => $f->testado_em ?? null, 'ultimo_erro' => $f->ultimo_erro ?? null,
@@ -153,6 +160,15 @@ final class ServicoConfiguracaoIA
         }
 
         return $modelos;
+    }
+
+    private function modeloValido(string $codigo, string $modelo): bool
+    {
+        return $modelo !== '' && match ($codigo) {
+            'anthropic' => (bool) preg_match('/^claude-[a-z0-9.-]+$/i', $modelo),
+            'openai' => (bool) preg_match('/^(gpt-|o[1-9]|chatgpt-)[a-z0-9.-]+$/i', $modelo),
+            'gemini' => (bool) preg_match('/^gemini-[a-z0-9.-]+$/i', $modelo),
+        };
     }
 
     /** @return list<array<string, mixed>> atribuições de todos os clientes (com o consumo do mês) */
