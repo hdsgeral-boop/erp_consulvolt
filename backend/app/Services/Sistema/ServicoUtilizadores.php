@@ -421,8 +421,7 @@ final class ServicoUtilizadores
     {
         return match (true) {
             mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE => 'A palavra-passe tem de ter pelo menos '.self::MINIMO_PALAVRA_PASSE.' caracteres.',
-            ! preg_match('/\p{Lu}/u', $palavraPasse) || ! preg_match('/\p{Ll}/u', $palavraPasse) || ! preg_match('/\d/', $palavraPasse)
-                => 'A palavra-passe é fraca: use maiúsculas, minúsculas e algarismos (por exemplo, «Luanda#2026»).',
+            ! preg_match('/\p{Lu}/u', $palavraPasse) || ! preg_match('/\p{Ll}/u', $palavraPasse) || ! preg_match('/\d/', $palavraPasse) => 'A palavra-passe é fraca: use maiúsculas, minúsculas e algarismos (por exemplo, «Luanda#2026»).',
             default => null,
         };
     }
