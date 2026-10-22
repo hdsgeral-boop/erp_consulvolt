@@ -187,12 +187,12 @@ describe('Utilizadores — «Novo utilizador» em Linhas', () => {
     await abrirLinhas(/Novo utilizador/);
     await waitFor(() => expect(obter).toHaveBeenCalledWith('/sistema/perfis'));
     expect(celula('Palavra-passe', 1).type).toBe('password');
-    await colar('Nome de utilizador\tNome completo\tEmail\tPalavra-passe\tPerfil\nana\tAna Fictícia\tana@exemplo.invalid\tsegredo123\tSalários');
+    await colar('Nome de utilizador\tNome completo\tEmail\tPalavra-passe\tPerfil\nana\tAna Fictícia\tana@exemplo.invalid\tSegredo123\tSalários');
     await registar();
     await waitFor(() => expect(posts('/sistema/utilizadores')).toHaveLength(1));
     expect(posts('/sistema/utilizadores')[0][2]).toEqual({
       nome_utilizador: 'ana', nome_completo: 'Ana Fictícia', email: 'ana@exemplo.invalid', perfil_utilizador_id: 3,
-      acesso_todas_empresas: false, ativo: true, empresas: [{ empresa_id: 7, colaborador_id: null }], palavra_passe: 'segredo123',
+      acesso_todas_empresas: false, ativo: true, empresas: [{ empresa_id: 7, colaborador_id: null }], palavra_passe: 'Segredo123',
     });
   });
 
