@@ -6,6 +6,7 @@ use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Mail\AdministradorPlataformaCriadoMail;
 use App\Models\Utilizador;
+use App\Services\Sistema\ServicoUtilizadores;
 use App\Support\Api\RespostaApi;
 use App\Support\Email\EnviarEmail;
 use Illuminate\Http\JsonResponse;
@@ -28,12 +29,14 @@ final class AdministradoresController extends Controller
         $d = $r->validate([
             'nome_utilizador' => ['required', 'string', 'max:100', Rule::unique('utilizadores', 'nome_utilizador')],
             'nome_completo' => ['nullable', 'string', 'max:200'],
+            'email' => ['nullable', 'email', 'max:150'],
             'palavra_passe' => ['required', 'string', 'min:10', 'max:255'],
         ]);
+        ServicoUtilizadores::exigirForca($d['palavra_passe']);
 
         // Criado no tenant da plataforma (o do pedido): o hook de criação atribui-lhe o tenant.
         $novo = new Utilizador([
-            'nome_utilizador' => $d['nome_utilizador'], 'nome_completo' => $d['nome_completo'] ?? null,
+            'nome_utilizador' => $d['nome_utilizador'], 'nome_completo' => $d['nome_completo'] ?? null, 'email' => $d['email'] ?? null,
             'palavra_passe' => $d['palavra_passe'], 'papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR,
             'acesso_todas_empresas' => true, 'ativo' => true,
         ]);
@@ -65,14 +68,18 @@ final class AdministradoresController extends Controller
         $alvo = $this->consulta()->whereKey($administrador)->firstOrFail();
         $d = $r->validate([
             'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:150'],
             'palavra_passe' => ['sometimes', 'nullable', 'string', 'min:10', 'max:255'],
         ]);
 
         $alteracoes = [];
-        if (array_key_exists('nome_completo', $d)) {
-            $alteracoes['nome_completo'] = $d['nome_completo'];
+        foreach (['nome_completo', 'email'] as $campo) {
+            if (array_key_exists($campo, $d)) {
+                $alteracoes[$campo] = $d[$campo];
+            }
         }
         if (! empty($d['palavra_passe'])) {
+            ServicoUtilizadores::exigirForca($d['palavra_passe']);
             $alteracoes['palavra_passe'] = $d['palavra_passe'];
             $alvo->tokens()->delete();
         }
@@ -106,7 +113,7 @@ final class AdministradoresController extends Controller
     private function apresentar(Utilizador $u): array
     {
         return [
-            'id' => $u->id, 'nome_utilizador' => $u->nome_utilizador, 'nome_completo' => $u->nome_completo,
+            'id' => $u->id, 'nome_utilizador' => $u->nome_utilizador, 'nome_completo' => $u->nome_completo, 'email' => $u->email,
             'ativo' => (bool) $u->ativo, 'ultimo_acesso_em' => $u->ultimo_acesso_em,
         ];
     }

@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api\Plataforma;
 
+use App\Exceptions\ErroNegocio;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\Utilizador;
 use App\Services\Plataforma\ServicoClientes;
+use App\Services\Sistema\ServicoAuditoria;
+use App\Services\Sistema\ServicoUtilizadores;
 use App\Support\Api\RespostaApi;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -116,12 +119,40 @@ final class ClientesController extends Controller
         return RespostaApi::sucesso($lista, 'Utilizadores obtidos com sucesso.');
     }
 
+    /** PUT clientes/{cliente}/utilizadores/{utilizador} — nome, e-mail, papel e estado de um utilizador do cliente. */
+    public function atualizarUtilizador(Request $r, Tenant $cliente, int $utilizador, ServicoAuditoria $auditoria): JsonResponse
+    {
+        $alvo = Utilizador::query()->where('tenant_id', $cliente->id)->whereKey($utilizador)->firstOrFail();
+        $d = $r->validate([
+            'nome_completo' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:150'],
+            'papel' => ['sometimes', Rule::in([Utilizador::PAPEL_SUPER_ADMINISTRADOR, Utilizador::PAPEL_ADMINISTRADOR, Utilizador::PAPEL_UTILIZADOR])],
+            'ativo' => ['sometimes', 'boolean'],
+        ]);
+        $deixaDeSerSuper = $alvo->eSuperAdministrador() && ((isset($d['papel']) && $d['papel'] !== Utilizador::PAPEL_SUPER_ADMINISTRADOR) || (isset($d['ativo']) && ! $d['ativo']));
+        if ($deixaDeSerSuper && ! Utilizador::query()->where('tenant_id', $cliente->id)->where('papel', Utilizador::PAPEL_SUPER_ADMINISTRADOR)
+            ->where('ativo', true)->whereKeyNot($alvo->id)->exists()) {
+            throw new ErroNegocio('É o último super-administrador activo deste cliente: não pode deixar de o ser.', 'ULTIMO_SUPER_ADMINISTRADOR', 422);
+        }
+        $antes = $alvo->only(['nome_completo', 'email', 'papel', 'ativo']);
+        $alvo->fill($d)->save();
+        if (isset($d['ativo']) && ! $d['ativo']) {
+            $alvo->tokens()->delete();
+        }
+        $auditoria->registar('Plataforma', 'Alterar utilizador de cliente', "Utilizador '{$alvo->nome_utilizador}' do cliente #{$cliente->id} alterado.",
+            'utilizadores', $alvo->id, $antes, $alvo->only(['nome_completo', 'email', 'papel', 'ativo']));
+
+        return RespostaApi::sucesso($alvo->only(['id', 'nome_utilizador', 'nome_completo', 'email', 'papel', 'ativo']), 'Utilizador actualizado.');
+    }
+
     public function redefinirSenha(Request $r, Tenant $cliente, int $utilizador): JsonResponse
     {
         $alvo = Utilizador::query()->where('tenant_id', $cliente->id)->whereKey($utilizador)->firstOrFail();
         $d = $r->validate(['palavra_passe' => ['required', 'string', 'min:10', 'max:255']], [], ['palavra_passe' => 'palavra-passe']);
+        ServicoUtilizadores::exigirForca($d['palavra_passe']);
 
-        $alvo->update(['palavra_passe' => $d['palavra_passe']]);
+        // provisória: o utilizador é convidado a alterá-la no próximo acesso
+        $alvo->forceFill(['palavra_passe' => $d['palavra_passe'], 'alterar_palavra_passe' => true, 'palavra_passe_alterada_em' => now()])->save();
         $alvo->tokens()->delete();
 
         return RespostaApi::sucesso(['id' => $alvo->id], 'Palavra-passe redefinida. As sessões deste utilizador terminaram.');

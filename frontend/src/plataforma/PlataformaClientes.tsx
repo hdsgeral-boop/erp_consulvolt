@@ -1,10 +1,11 @@
-import { Button, Card, Drawer, Form, Input, Modal, Popconfirm, Select, Space, Table, Tag, message } from 'antd';
+import { Button, Card, Drawer, Form, Input, Modal, Popconfirm, Select, Space, Table, Tabs, Tag, message } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { notificarErro } from '@/utilitarios/erros';
 import { formatarData } from '@/utilitarios/formatacao';
+import { UtilizadoresCliente } from './UtilizadoresCliente';
 
 interface Cliente {
   id: number;
@@ -97,9 +98,11 @@ export default function PlataformaClientes() {
           ]}
         />
       </Card>
-      <Drawer open={ver !== null} onClose={() => setVer(null)} width={560} title={detalhe.data?.nome ?? 'Cliente'}>
-        <p>Utilizadores: {detalhe.data?.utilizadores ?? '—'}</p>
+      <Drawer open={ver !== null} onClose={() => setVer(null)} width={760} title={detalhe.data?.nome ?? 'Cliente'}>
         <p>Plano: <Select allowClear style={{ width: 240 }} placeholder="Sem plano" value={detalhe.data?.plano ?? undefined} options={(planos.data?.planos ?? []).map((p) => ({ value: p.codigo, label: p.nome }))} onChange={(v) => ver !== null && plano.mutate({ id: ver, plano: v ?? null })} /></p>
+        <Tabs
+          items={[
+            { key: 'empresas', label: `Empresas (${detalhe.data?.empresas.length ?? 0})`, children: (
         <Table<EmpresaCliente>
           rowKey="id"
           size="small"
@@ -111,6 +114,10 @@ export default function PlataformaClientes() {
             { title: 'NIF', dataIndex: 'nif' },
             { title: 'Estado', dataIndex: 'estado' },
             { title: 'Licença', render: (_, e) => `${e.licenca_origem}${e.licenca_fim ? ` até ${formatarData(e.licenca_fim)}` : ''}` },
+          ]}
+        />
+            ) },
+            { key: 'utilizadores', label: `Utilizadores (${detalhe.data?.utilizadores ?? 0})`, children: ver !== null && <UtilizadoresCliente clienteId={ver} /> },
           ]}
         />
       </Drawer>

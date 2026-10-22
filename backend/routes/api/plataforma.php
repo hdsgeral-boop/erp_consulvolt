@@ -33,6 +33,7 @@ Route::prefix('plataforma')->name('plataforma.')->middleware('plataforma')->grou
         Route::put('clientes/{cliente}/estado', 'estado')->whereNumber('cliente')->name('clientes.estado');
         Route::post('clientes/{cliente}/arquivar', 'arquivar')->whereNumber('cliente')->name('clientes.arquivar');
         Route::get('clientes/{cliente}/utilizadores', 'utilizadores')->whereNumber('cliente')->name('clientes.utilizadores');
+        Route::put('clientes/{cliente}/utilizadores/{utilizador}', 'atualizarUtilizador')->whereNumber(['cliente', 'utilizador'])->name('clientes.utilizadores.atualizar');
         Route::post('clientes/{cliente}/utilizadores/{utilizador}/redefinir', 'redefinirSenha')->whereNumber(['cliente', 'utilizador'])->name('clientes.utilizadores.redefinir');
         Route::put('clientes/{cliente}/empresas/{empresa}', 'atualizarEmpresa')->whereNumber(['cliente', 'empresa'])->name('clientes.empresas.atualizar');
         Route::get('empresas', 'empresas')->name('empresas.index');
