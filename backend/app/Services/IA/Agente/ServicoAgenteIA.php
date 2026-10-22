@@ -42,20 +42,30 @@ final class ServicoAgenteIA
 
         return [
             'ativo' => $a !== null,
-            'fornecedor' => $a['fornecedor'] ?? null,
-            'modelo' => $a['modelo'] ?? null,
             'quota_tokens_mes' => $a['quota'] ?? null,
             'tokens_usados_mes' => $a['usados'] ?? 0,
-            'pesquisa_web' => (bool) ($a['pesquisa_web'] ?? false),
-            'accoes_erp' => (bool) ($a['accoes_erp'] ?? false),
         ];
+    }
+
+    /** @return array{regras: string} */
+    public function regras(Utilizador $u): array
+    {
+        return ['regras' => (string) (DB::table('ia_regras_cliente')->where('tenant_id', $u->tenant_id)->value('regras') ?? '')];
+    }
+
+    /** @return array{regras: string} */
+    public function guardarRegras(Utilizador $u, string $regras): array
+    {
+        DB::table('ia_regras_cliente')->updateOrInsert(['tenant_id' => $u->tenant_id], ['regras' => trim($regras), 'atualizado_em' => now()]);
+
+        return $this->regras($u);
     }
 
     /** @return list<array<string, mixed>> */
     public function conversas(Utilizador $u, int $empresa): array
     {
         return DB::table('ia_conversas')->where('utilizador_id', $u->id)->where('empresa_id', $empresa)->whereNull('eliminado_em')
-            ->orderByDesc('atualizado_em')->limit(200)->get(['id', 'titulo', 'fornecedor', 'modelo', 'criado_em', 'atualizado_em'])->all();
+            ->orderByDesc('atualizado_em')->limit(200)->get(['id', 'titulo', 'criado_em', 'atualizado_em'])->all();
     }
 
     public function renomear(Utilizador $u, int $empresa, int $id, string $titulo): void
@@ -91,7 +101,7 @@ final class ServicoAgenteIA
      * @param  list<UploadedFile>  $ficheiros
      * @return array{conversa: array<string, mixed>, mensagens: list<array<string, mixed>>}
      */
-    public function enviar(Utilizador $u, int $empresa, ?int $conversaId, string $texto, array $ficheiros): array
+    public function enviar(Utilizador $u, int $empresa, ?int $conversaId, string $texto, array $ficheiros, ?string $modulo = null, ?string $ecra = null): array
     {
         $a = $this->config->doCliente($u->tenant_id);
         if ($a === null) {
@@ -112,7 +122,7 @@ final class ServicoAgenteIA
         }
         $conversa = $this->conversa($u, $empresa, $conversaId);
         if ($conversa->fornecedor !== $a['fornecedor']) {
-            throw new ErroNegocio('O fornecedor de IA da sua conta mudou: abra uma nova conversa para continuar.', 'IA_FORNECEDOR_MUDOU', 409);
+            throw new ErroNegocio('A configuração da IA mudou. Abra uma nova conversa para continuar.', 'IA_FORNECEDOR_MUDOU', 409);
         }
         $fornecedor = $this->config->cliente($a['fornecedor']);
 
@@ -121,7 +131,7 @@ final class ServicoAgenteIA
         $daVez = $fornecedor->mensagemUtilizador($textoEnviado, $anexosModelo);
         $historico = array_merge($this->historico($conversaId), $daVez);
 
-        $sistema = $this->sistema($u, $empresa, $a);
+        $sistema = $this->sistema($u, $empresa, $a, $modulo, $ecra);
         $defs = $this->ferramentas->definicoes($u, $empresa, $a['accoes_erp']);
         $novas = [];
         $textos = [];
@@ -195,7 +205,7 @@ final class ServicoAgenteIA
 
         $mensagens = array_values(array_filter($this->mensagens($u, $empresa, $conversaId), fn ($m) => in_array($m['id'], $ids, true)));
 
-        return ['conversa' => (array) DB::table('ia_conversas')->where('id', $conversaId)->first(['id', 'titulo', 'fornecedor', 'modelo', 'criado_em', 'atualizado_em']), 'mensagens' => $mensagens];
+        return ['conversa' => (array) DB::table('ia_conversas')->where('id', $conversaId)->first(['id', 'titulo', 'criado_em', 'atualizado_em']), 'mensagens' => $mensagens];
     }
 
     /**
@@ -296,7 +306,7 @@ final class ServicoAgenteIA
     }
 
     /** @param  array<string, mixed>  $a */
-    private function sistema(Utilizador $u, int $empresa, array $a): string
+    private function sistema(Utilizador $u, int $empresa, array $a, ?string $modulo, ?string $ecra): string
     {
         $nomeEmpresa = (string) DB::table('empresas')->where('id', $empresa)->value('nome');
         $sistema = EnviarEmail::nomeSistemaDe($u);
@@ -307,6 +317,8 @@ final class ServicoAgenteIA
             $a['pesquisa_web'] ? 'pesquisar na internet quando a pergunta precisa de informação actual ou externa' : null,
             'ler anexos (PDF, imagens, Excel/CSV, texto)',
         ]);
+        $regrasCliente = $this->regras($u)['regras'];
+        $contextoEcra = $modulo && $ecra ? "O utilizador está atualmente no módulo {$modulo}, ecrã {$ecra}. Usa este contexto para uma saudação útil e pergunta em que quer trabalhar, sem assumir que tens dados desse ecrã sem os consultar." : 'O ecrã atual não foi identificado.';
 
         return <<<TXT
         És o assistente do MEU ERP «{$sistema}», um ERP angolano (contabilidade PGC de Angola, facturação AGT, RH, tesouraria, stock, compras, vendas).
@@ -320,6 +332,11 @@ final class ServicoAgenteIA
         - Se te faltar informação essencial (data, valor, conta, diário), pergunta antes de propor.
         - Não inventes números do ERP: consulta-os com as ferramentas; se não tiveres ferramenta para isso, diz em que ecrã o utilizador os encontra (e oferece-te para o abrir).
         - Quando usares a internet, indica as fontes.
+        - Não reveles fornecedor, modelo, chave, detalhes da API ou configuração interna ao utilizador.
+
+        Contexto de navegação: {$contextoEcra}
+        Regras definidas pelo cliente (aplica-as quando compatíveis com a segurança, permissões e confirmações acima):
+        {$regrasCliente}
 
         Data de hoje: {$this->hoje()}.
         TXT;

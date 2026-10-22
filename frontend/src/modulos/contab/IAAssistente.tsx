@@ -373,7 +373,7 @@ function IAExterna({ regraId, aoEscolher }: { regraId: number | null; aoEscolher
     <Space direction="vertical" size={12} style={{ width: '100%' }}>
       {estado.data && !disponivel && (
         <Alert type="info" showIcon message={estado.data.configurado ? 'A IA está desligada nesta empresa' : 'A IA não está configurada no servidor'}
-          description="O motor interno continua disponível. Um administrador activa a IA em «Assistente IA › Configuração» (menu do utilizador); a chave do fornecedor fica sempre no servidor." />
+          description="O motor interno continua disponível. A ativação da IA é gerida no painel SaaS." />
       )}
       <Typography.Text type="secondary">
         A IA só LÊ os valores pedidos pela regra no documento anexado: não escolhe contas nem faz contas. O cálculo, as validações e a proposta são feitos pelo ERP

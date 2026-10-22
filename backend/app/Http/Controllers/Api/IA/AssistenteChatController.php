@@ -22,6 +22,18 @@ final class AssistenteChatController extends Controller
         return RespostaApi::sucesso($this->agente->estado($r->user()), 'Estado do assistente.');
     }
 
+    public function regras(Request $r): JsonResponse
+    {
+        return RespostaApi::sucesso($this->agente->regras($r->user()), 'Regras obtidas.');
+    }
+
+    public function guardarRegras(Request $r): JsonResponse
+    {
+        $d = $r->validate(['regras' => ['present', 'nullable', 'string', 'max:10000']]);
+
+        return RespostaApi::sucesso($this->agente->guardarRegras($r->user(), (string) ($d['regras'] ?? '')), 'Regras guardadas.');
+    }
+
     public function conversas(Request $r): JsonResponse
     {
         return RespostaApi::sucesso($this->agente->conversas($r->user(), $this->contexto->obrigatorio()), 'Conversas obtidas.');
@@ -38,13 +50,15 @@ final class AssistenteChatController extends Controller
         $d = $r->validate([
             'texto' => ['required', 'string', 'max:20000'],
             'conversa_id' => ['nullable', 'integer'],
+            'modulo' => ['nullable', 'string', 'max:80', 'regex:/^[a-z0-9_-]+$/i'],
+            'ecra' => ['nullable', 'string', 'max:80', 'regex:/^[a-z0-9_-]+$/i'],
             'anexos' => ['nullable', 'array', 'max:5'],
             'anexos.*' => ['file', 'max:10240', 'extensions:pdf,png,jpg,jpeg,gif,webp,xlsx,xls,csv,txt,md,json,xml'],
         ], ['anexos.*.extensions' => 'Use PDF, imagem, Excel, CSV ou texto.', 'anexos.*.max' => 'Cada anexo pode ter até 10 MB.']);
         @set_time_limit(300);   // o ciclo do agente pode fazer vários pedidos ao fornecedor
 
         return RespostaApi::sucesso(
-            $this->agente->enviar($r->user(), $this->contexto->obrigatorio(), isset($d['conversa_id']) ? (int) $d['conversa_id'] : null, $d['texto'], $r->file('anexos', [])),
+            $this->agente->enviar($r->user(), $this->contexto->obrigatorio(), isset($d['conversa_id']) ? (int) $d['conversa_id'] : null, $d['texto'], $r->file('anexos', []), $d['modulo'] ?? null, $d['ecra'] ?? null),
             'Resposta do assistente.'
         );
     }

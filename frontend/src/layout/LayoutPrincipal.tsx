@@ -12,7 +12,6 @@ import {
   MenuOutlined,
   MenuUnfoldOutlined,
   MoonOutlined,
-  RobotOutlined,
   StarFilled,
   StarOutlined,
   SunOutlined,
@@ -48,9 +47,9 @@ import { TourBoasVindas, reiniciarTourBoasVindas } from '@/componentes/tour/Tour
 import { PrimeiroAcesso } from '@/componentes/PrimeiroAcesso';
 import './telaNocturna.css';
 import { lerCaminhoEcra } from '@/utilitarios/caminhos';
+import { AssistenteChatFlutuante } from '@/componentes/AssistenteChatFlutuante';
 
 const PainelPowerBI = lazy(() => import('@/modulos/geral/integracoes/PainelPowerBI').then((m) => ({ default: m.PainelPowerBI })));
-const AssistenteIA = lazy(() => import('@/modulos/geral/integracoes/AssistenteIA').then((m) => ({ default: m.AssistenteIA })));
 
 const ALTURA_CABECALHO = 60;
 const ALTURA_CABECALHO_TELEMOVEL = 52;
@@ -174,7 +173,7 @@ function Estrutura() {
   const recolhido = aspecto.menu === 'icones';
   const colapsado = recolhido && !ecra.pequeno;
   const [gavetaAberta, setGavetaAberta] = useState(false);
-  const [painel, setPainel] = useState<'powerbi' | 'ia' | null>(null);
+  const [painel, setPainel] = useState<'powerbi' | null>(null);
   const [historico, setHistorico] = useState<string[]>([]);
 
   // «Recolher menu» (botão a meio do bordo do menu) alterna entre «só símbolos» e o último aspecto expandido
@@ -311,7 +310,6 @@ function Estrutura() {
   const nomeEmpresa = identidade.data?.nome || empresa?.nome || '';
   const nif = identidade.data?.nif ?? empresa?.nif ?? null;
   const podeBI = !!pode?.('config_backup');
-  const podeIA = !!pode?.('lancamentos_post', 'aux_gerir', 'config_empresas_gerir');
   const trocarEmpresa = (id: number) =>
     escolherEmpresa(id)
       .then(() => navegar('/'))
@@ -410,7 +408,6 @@ function Estrutura() {
     ...(!ecra.md && noEcra
       ? [{ key: 'favorito', icon: favoritoActual ? <StarFilled style={{ color: '#f59e0b' }} /> : <StarOutlined />, label: textoFavorito, onClick: () => alternar(moduloActual, ecraActual) }]
       : []),
-    ...(podeIA ? [{ key: 'ia', icon: <RobotOutlined />, label: 'Assistente IA', onClick: () => setPainel('ia') }] : []),
     ...(podeBI ? [{ key: 'powerbi', icon: <ApiOutlined />, label: 'Power BI (feed OData)', onClick: () => setPainel('powerbi') }] : []),
     { key: 'tour', icon: <CompassOutlined />, label: 'Repetir tutorial', onClick: reiniciarTourBoasVindas },
     { type: 'divider' as const },
@@ -587,7 +584,7 @@ function Estrutura() {
         </Modal>
         <Suspense fallback={null}>
           {painel === 'powerbi' && <PainelPowerBI aberto aoFechar={() => setPainel(null)} />}
-          {painel === 'ia' && <AssistenteIA aberto aoFechar={() => setPainel(null)} />}
+          <AssistenteChatFlutuante contexto={noEcra ? `${moduloActual.toUpperCase()} › ${ecraActual.replace(/_/g, ' ')}` : undefined} />
         </Suspense>
       </Layout>
     </ConfigProvider>

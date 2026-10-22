@@ -79,6 +79,26 @@ final class AssistenteIAChatTest extends TestCase
         $consumo = DB::table('ia_consumo')->first();
         $this->assertSame([300, 60], [(int) $consumo->tokens_entrada, (int) $consumo->tokens_saida]);
         $this->getJson('/api/ia/estado', $h)->assertOk()->assertJsonPath('dados.ativo', true)->assertJsonPath('dados.tokens_usados_mes', 360);
+        $estado = $this->getJson('/api/ia/estado', $h)->json('dados');
+        $this->assertArrayNotHasKey('fornecedor', $estado);
+        $this->assertArrayNotHasKey('modelo', $estado);
+    }
+
+    public function test_regras_do_cliente_e_contexto_do_ecra_chegam_ao_chat_sem_expor_o_motor(): void
+    {
+        [$h] = $this->preparar();
+        $this->putJson('/api/ia/regras', ['regras' => 'Pede sempre o período da análise.'], $h)->assertOk();
+        $this->getJson('/api/ia/regras', $h)->assertOk()->assertJsonPath('dados.regras', 'Pede sempre o período da análise.');
+        Http::fake(['api.openai.com/*' => Http::response(self::resposta([
+            ['type' => 'message', 'role' => 'assistant', 'content' => [['type' => 'output_text', 'text' => 'Vamos analisar a produtividade?', 'annotations' => []]]],
+        ]))]);
+
+        $r = $this->postJson('/api/ia/mensagens', ['texto' => 'Olá', 'modulo' => 'rh', 'ecra' => 'produtividade'], $h)->assertOk();
+        $this->assertSame('Vamos analisar a produtividade?', $r->json('dados.mensagens.1.texto'));
+        $this->assertArrayNotHasKey('fornecedor', $r->json('dados.conversa'));
+        $this->assertArrayNotHasKey('modelo', $r->json('dados.conversa'));
+        Http::assertSent(fn ($req) => str_contains(json_encode($req->data(), JSON_UNESCAPED_UNICODE), 'produtividade')
+            && str_contains(json_encode($req->data(), JSON_UNESCAPED_UNICODE), 'Pede sempre o período da análise.'));
     }
 
     public function test_conversa_continua_com_o_historico_e_anexos_e_a_quota_bloqueia(): void
