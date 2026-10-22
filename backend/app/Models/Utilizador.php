@@ -61,6 +61,7 @@ class Utilizador extends Autenticavel
         return [
             'palavra_passe' => 'hashed',
             'palavra_passe_alterada_em' => 'datetime',
+            'alterar_palavra_passe' => 'boolean',
             'ultimo_acesso_em' => 'datetime',
             'acesso_todas_empresas' => 'boolean',
             'ativo' => 'boolean',

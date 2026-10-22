@@ -10,9 +10,14 @@ use Tests\TestCase;
 /** Middleware `empresa` (X-Empresa-Id) e selector de empresas. */
 final class EmpresaAtivaTest extends TestCase
 {
+    /**
+     * Utilizador de empresa para exercitar o middleware `empresa` (X-Empresa-Id) com um pedido empresa-scoped
+     * qualquer — config_logs_view é reservado a Super Administradores, por isso já não serve aqui (ver os testes
+     * próprios de Logs de Navegação mais abaixo).
+     */
     private function utilizadorComLogs(): Utilizador
     {
-        return $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'config_logs_view' => true])->id]);
+        return $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'config_utilizadores_view' => true])->id]);
     }
 
     #[Test]
@@ -20,8 +25,8 @@ final class EmpresaAtivaTest extends TestCase
     {
         $cabecalhos = $this->entrar($this->utilizadorComLogs());
 
-        $this->getJson('/api/sistema/logs', $cabecalhos)->assertStatus(422)->assertJsonPath('codigo', 'EMPRESA_NAO_INDICADA');
-        $this->getJson('/api/sistema/logs', $cabecalhos + ['X-Empresa-Id' => 'abc'])->assertStatus(422)->assertJsonPath('codigo', 'EMPRESA_INVALIDA');
+        $this->getJson('/api/sistema/utilizadores', $cabecalhos)->assertStatus(422)->assertJsonPath('codigo', 'EMPRESA_NAO_INDICADA');
+        $this->getJson('/api/sistema/utilizadores', $cabecalhos + ['X-Empresa-Id' => 'abc'])->assertStatus(422)->assertJsonPath('codigo', 'EMPRESA_INVALIDA');
     }
 
     #[Test]
@@ -33,12 +38,11 @@ final class EmpresaAtivaTest extends TestCase
         $u->empresas()->attach($minha->id);
         $cabecalhos = $this->entrar($u);
 
-        $this->getJson('/api/sistema/logs', $cabecalhos + ['X-Empresa-Id' => $alheia->id])
+        $this->getJson('/api/sistema/utilizadores', $cabecalhos + ['X-Empresa-Id' => $alheia->id])
             ->assertStatus(403)->assertJsonPath('codigo', 'EMPRESA_SEM_ACESSO');
-        $this->getJson('/api/sistema/logs', $cabecalhos + ['X-Empresa-Id' => 999999])
+        $this->getJson('/api/sistema/utilizadores', $cabecalhos + ['X-Empresa-Id' => 999999])
             ->assertStatus(403)->assertJsonPath('codigo', 'EMPRESA_SEM_ACESSO');
-        $this->getJson('/api/sistema/logs', $cabecalhos + ['X-Empresa-Id' => $minha->id])
-            ->assertOk()->assertJsonPath('metadados.empresa_id', $minha->id);
+        $this->getJson('/api/sistema/utilizadores', $cabecalhos + ['X-Empresa-Id' => $minha->id])->assertOk();
     }
 
     #[Test]
@@ -48,7 +52,7 @@ final class EmpresaAtivaTest extends TestCase
         $u = $this->utilizadorComLogs();
         $u->empresas()->attach($empresa->id);
 
-        $this->getJson('/api/sistema/logs', $this->entrar($u) + ['X-Empresa-Id' => $empresa->id])
+        $this->getJson('/api/sistema/utilizadores', $this->entrar($u) + ['X-Empresa-Id' => $empresa->id])
             ->assertStatus(403)->assertJsonPath('codigo', 'EMPRESA_INATIVA');
     }
 
@@ -91,5 +95,19 @@ final class EmpresaAtivaTest extends TestCase
 
         $this->getJson('/api/sistema/logs', $this->entrar($u) + ['X-Empresa-Id' => $empresa->id])
             ->assertStatus(403)->assertJsonPath('codigo', 'SEM_PERMISSAO');
+    }
+
+    /** Logs de Navegação é reservado a Super Administradores: ter config_logs_view no perfil não chega. */
+    #[Test]
+    public function consulta_de_logs_e_reservada_a_super_administradores_mesmo_com_a_permissao(): void
+    {
+        $empresa = $this->criarEmpresa();
+        $comPerfil = $this->criarUtilizador(['perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'config_logs_view' => true])->id]);
+        $comPerfil->empresas()->attach($empresa->id);
+        $this->getJson('/api/sistema/logs', $this->entrar($comPerfil) + ['X-Empresa-Id' => $empresa->id])
+            ->assertStatus(403)->assertJsonPath('codigo', 'SEM_PERMISSAO');
+
+        $superAdmin = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR]);
+        $this->getJson('/api/sistema/logs', $this->entrar($superAdmin) + ['X-Empresa-Id' => $empresa->id])->assertOk();
     }
 }

@@ -72,9 +72,7 @@ final class ServicoRecuperacaoSenha
     /** @return int sessões (tokens) terminadas */
     public function redefinir(string $token, string $novaPalavraPasse, Request $pedido): int
     {
-        if (mb_strlen($novaPalavraPasse) < ServicoUtilizadores::MINIMO_PALAVRA_PASSE) {
-            throw new ErroNegocio('A nova palavra-passe tem de ter pelo menos '.ServicoUtilizadores::MINIMO_PALAVRA_PASSE.' caracteres.', 'PALAVRA_PASSE_CURTA', 422);
-        }
+        ServicoUtilizadores::exigirForca($novaPalavraPasse);
         $dominio = DominioPedido::de($pedido);
 
         return DB::transaction(function () use ($token, $novaPalavraPasse, $dominio) {
@@ -89,7 +87,7 @@ final class ServicoRecuperacaoSenha
             DB::table('recuperacoes_senha')->where('utilizador_id', $utilizador->id)->whereNull('usado_em')->delete();
 
             $utilizador->palavra_passe = $novaPalavraPasse;   // Argon2id pelo cast «hashed»
-            $utilizador->forceFill(['hash_password_legado' => null, 'salt_password_legado' => null, 'algoritmo_password_legado' => null, 'palavra_passe_alterada_em' => now()])->save();
+            $utilizador->forceFill(['hash_password_legado' => null, 'salt_password_legado' => null, 'algoritmo_password_legado' => null, 'palavra_passe_alterada_em' => now(), 'alterar_palavra_passe' => false])->save();
             $terminadas = $utilizador->tokens()->delete();
 
             $this->auditoria->registar('Autenticação', 'Redefinir palavra-passe', "Palavra-passe redefinida por recuperação ({$terminadas} sessão(ões) terminada(s)).",

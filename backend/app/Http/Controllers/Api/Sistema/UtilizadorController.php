@@ -40,10 +40,12 @@ final class UtilizadorController extends Controller
     public function store(Request $r): JsonResponse
     {
         $this->exigir('config_util_gerir');
-        $u = $this->utilizadores->criar($this->validar($r, true), $r->user());
-        // e-mail de boas-vindas (nome de utilizador e endereço de entrada; nunca a palavra-passe)
+        $d = $this->validar($r, true);
+        $u = $this->utilizadores->criar($d, $r->user());
+        // e-mail de boas-vindas: sistema do cliente, empresas, utilizador e a palavra-passe provisória (pedido de 2026-10-22;
+        // o primeiro acesso pede para a alterar)
         EnviarEmail::para($u->email, new NovoUtilizadorMail($u->nome_completo ?: $u->nome_utilizador, $u->nome_utilizador,
-            EnviarEmail::nomeClienteDe($u), EnviarEmail::enderecoDe($u)));
+            EnviarEmail::nomeSistemaDe($u), EnviarEmail::empresasDe($u), EnviarEmail::enderecoDe($u), (string) $d['palavra_passe']));
 
         return RespostaApi::criado($this->utilizadores->apresentar($u->load('perfil'), $r->user()), 'Utilizador criado com sucesso.');
     }

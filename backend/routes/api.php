@@ -90,6 +90,7 @@ Route::prefix('autenticacao')->name('autenticacao.')->group(function () {
         Route::get('dados-pessoais', [DadosPessoaisController::class, 'show'])->name('dados_pessoais.show');
         Route::put('dados-pessoais', [DadosPessoaisController::class, 'update'])->name('dados_pessoais.update');
         Route::put('palavra-passe', [DadosPessoaisController::class, 'palavraPasse'])->middleware('throttle:palavra-passe')->name('palavra_passe');
+        Route::put('palavra-passe/dispensar', [DadosPessoaisController::class, 'dispensarAlteracao'])->name('palavra_passe.dispensar');
     });
 });
 

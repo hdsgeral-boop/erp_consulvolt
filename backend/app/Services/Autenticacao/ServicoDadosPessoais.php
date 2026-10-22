@@ -62,9 +62,7 @@ final class ServicoDadosPessoais
         if (! $this->autenticacao->palavraPasseCorrecta($u, $actual)) {
             throw new ErroNegocio('A palavra-passe actual não está correcta.', 'PALAVRA_PASSE_ACTUAL_ERRADA', 422);
         }
-        if (mb_strlen($nova) < ServicoUtilizadores::MINIMO_PALAVRA_PASSE) {
-            throw new ErroNegocio('A nova palavra-passe tem de ter pelo menos '.ServicoUtilizadores::MINIMO_PALAVRA_PASSE.' caracteres.', 'PALAVRA_PASSE_CURTA', 422);
-        }
+        ServicoUtilizadores::exigirForca($nova);
         if (hash_equals($actual, $nova)) {
             throw new ErroNegocio('A nova palavra-passe tem de ser diferente da actual.', 'PALAVRA_PASSE_IGUAL', 422);
         }
@@ -72,7 +70,7 @@ final class ServicoDadosPessoais
         return DB::transaction(function () use ($u, $nova) {
             // Argon2id pelo cast «hashed» do model; a credencial PBKDF2 do legado deixa de existir
             $u->palavra_passe = $nova;
-            $u->forceFill(['hash_password_legado' => null, 'salt_password_legado' => null, 'algoritmo_password_legado' => null, 'palavra_passe_alterada_em' => now()])->save();
+            $u->forceFill(['hash_password_legado' => null, 'salt_password_legado' => null, 'algoritmo_password_legado' => null, 'palavra_passe_alterada_em' => now(), 'alterar_palavra_passe' => false])->save();
             $actual = $u->currentAccessToken();
             $outras = $u->tokens()->when($actual?->getKey(), fn ($q, $id) => $q->whereKeyNot($id))->delete();
             $this->auditoria->registar('Sistema/Utilizadores', 'Alterar palavra-passe', "O utilizador '{$u->nome_utilizador}' alterou a sua palavra-passe ({$outras} outra(s) sessão(ões) terminada(s)).",

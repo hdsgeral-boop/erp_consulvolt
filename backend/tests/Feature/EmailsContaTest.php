@@ -11,7 +11,7 @@ use App\Services\Plataforma\ServicoClientes;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
-/** E-mails de conta (da v6, adaptados): enviados em fila, com o endereço do cliente e nunca com a palavra-passe. */
+/** E-mails de conta (da v6, adaptados): enviados em fila, com o endereço do cliente; só o de conta nova leva a palavra-passe provisória. */
 class EmailsContaTest extends TestCase
 {
     private const SENHA = 'Segredo#Novo2026';
@@ -26,7 +26,7 @@ class EmailsContaTest extends TestCase
         return [$this->entrar($a) + ['X-Empresa-Id' => $e->id], $perfil->id];
     }
 
-    public function test_utilizador_novo_recebe_o_acesso_sem_a_palavra_passe(): void
+    public function test_utilizador_novo_recebe_o_acesso_com_o_sistema_do_cliente_e_a_palavra_passe_provisoria(): void
     {
         Mail::fake();
         [$h, $perfil] = $this->admin();
@@ -36,7 +36,9 @@ class EmailsContaTest extends TestCase
         Mail::assertQueued(NovoUtilizadorMail::class, function (NovoUtilizadorMail $m) {
             $html = $m->render();
             $this->assertStringContainsString('ana.nova', $html);
-            $this->assertStringNotContainsString(self::SENHA, $html);
+            // a pedido (2026-10-22): a palavra-passe provisória vai no e-mail; o primeiro acesso pede para a alterar
+            $this->assertStringContainsString(self::SENHA, $html);
+            $this->assertStringContainsString('provisória', $html);
             $this->assertStringContainsString('MEU ERP', $html);
 
             return $m->hasTo('ana@exemplo.test');

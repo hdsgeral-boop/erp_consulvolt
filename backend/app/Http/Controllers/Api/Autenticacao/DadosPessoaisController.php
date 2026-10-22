@@ -47,4 +47,12 @@ final class DadosPessoaisController extends Controller
         return RespostaApi::sucesso(['sessoes_terminadas' => $outras],
             'Palavra-passe alterada.'.($outras ? " Foram terminadas {$outras} outra(s) sessão(ões) aberta(s)." : ''));
     }
+
+    /** PUT /autenticacao/palavra-passe/dispensar — «Agora não» no primeiro acesso: deixa de pedir a alteração. */
+    public function dispensarAlteracao(Request $r): JsonResponse
+    {
+        $r->user()->forceFill(['alterar_palavra_passe' => false])->save();
+
+        return RespostaApi::sucesso(null, 'Pode alterar a palavra-passe mais tarde em «Gerir Dados Pessoais».');
+    }
 }

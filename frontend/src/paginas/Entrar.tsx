@@ -65,7 +65,7 @@ export function Entrar() {
         {motivoSaida && <Alert type="info" showIcon message={motivoSaida} style={{ marginBottom: 16 }} />}
         {erro && <Alert type="error" showIcon message={erro} style={{ marginBottom: 16 }} />}
         <Form layout="vertical" onFinish={submeter} requiredMark={false}>
-          <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>
+          <Form.Item name="nome_utilizador" label="Utilizador ou e-mail" rules={[{ required: true, message: 'Indique o utilizador ou o e-mail.' }]}>
             <Input size="large" prefix={<UserOutlined />} autoComplete="username" autoFocus />
           </Form.Item>
           <Form.Item name="palavra_passe" label="Palavra-passe" rules={[{ required: true, message: 'Indique a palavra-passe.' }]}>

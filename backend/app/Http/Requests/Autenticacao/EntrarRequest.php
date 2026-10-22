@@ -15,7 +15,7 @@ final class EntrarRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nome_utilizador' => ['required', 'string', 'max:100'],
+            'nome_utilizador' => ['required', 'string', 'max:150'],
             'palavra_passe' => ['required', 'string', 'max:255'],
             'dispositivo' => ['nullable', 'string', 'max:100'],
         ];

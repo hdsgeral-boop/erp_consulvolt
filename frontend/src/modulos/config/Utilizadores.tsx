@@ -1,9 +1,10 @@
 import { Alert, Button, Card, Checkbox, Col, Form, Input, Modal, Popconfirm, Row, Select, Space, Switch, Tag, Tooltip, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, StopOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { enviar, obter } from '@/api/cliente';
 import { ErroApi } from '@/api/tipos';
+import { gerarPalavraPasse, problemaPalavraPasse, sugerirNomeUtilizador } from '@/utilitarios/palavraPasse';
 import { NavConfig } from './comum/NavConfig';
 import { CabecalhoPagina } from '@/componentes/CabecalhoPagina';
 import { BarraFiltros, scrollTabela, useEcraPequeno } from '@/componentes/responsivo';
@@ -39,7 +40,6 @@ interface UtilizadorLinha {
 }
 
 const PAPEIS = { SUPER_ADMINISTRADOR: 'Super-administrador', ADMINISTRADOR: 'Administrador', UTILIZADOR: 'Utilizador' } as const;
-const MINIMO = 8;
 const CHAVE = ['sistema', 'utilizadores'];
 
 /** Configurações › Utilizadores (config_utilizadores): lista, criação/edição com empresas e colaborador, estado, palavra-passe. */
@@ -200,6 +200,8 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
   const [form] = Form.useForm<FormUtilizador>();
   const perfis = usePerfis();
   const novo = utilizador === 'novo';
+  // o utilizador escreveu o nome de utilizador à mão: deixa de o sugerir a partir do nome completo
+  const nomeEditado = useRef(false);
   const u = utilizador && utilizador !== 'novo' ? utilizador : null;
   const colaboradores = useQuery({
     queryKey: ['sistema', 'utilizadores', 'colaboradores', u?.id ?? 0],
@@ -229,6 +231,7 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
   useEffect(() => {
     if (!utilizador) return;
     form.resetFields();
+    nomeEditado.current = false;
     if (u)
       form.setFieldsValue({
         nome_utilizador: u.nome_utilizador,
@@ -261,11 +264,11 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
 
   // vista Linhas: um utilizador por linha, ligado à empresa activa (ou a todas); empresas e colaborador escolhem-se na grade
   const campos: CampoFormulario[] = [
-    { nome: 'nome_utilizador', rotulo: 'Nome de utilizador', obrigatorio: true, largura: 160, maxLength: 100, aliases: ['Utilizador', 'Login'] },
     { nome: 'nome_completo', rotulo: 'Nome completo', largura: 200, maxLength: 200, aliases: ['Nome'] },
+    { nome: 'nome_utilizador', rotulo: 'Nome de utilizador', obrigatorio: true, largura: 160, maxLength: 100, aliases: ['Utilizador', 'Login'] },
     { nome: 'email', rotulo: 'Email', largura: 190, maxLength: 150, aliases: ['E-mail'], validar: (e) => (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e).trim()) ? 'Email inválido.' : null) },
     { nome: 'palavra_passe', rotulo: 'Palavra-passe', tipo: 'personalizado', obrigatorio: true, largura: 160, celula: CelulaPalavraPasse,
-      validar: (p) => (p && String(p).length < MINIMO ? `Pelo menos ${MINIMO} caracteres.` : null) },
+      validar: (p) => (p ? problemaPalavraPasse(String(p)) : null) },
     { nome: 'perfil_utilizador_id', rotulo: 'Perfil', tipo: 'select', obrigatorio: true, largura: 190, opcoes: (perfis.data ?? []).map((p) => ({ value: p.id, label: p.nome })) },
     { nome: 'ativo', rotulo: 'Activo', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 1, largura: 90 },
     { nome: 'acesso_todas_empresas', rotulo: 'Todas as empresas', tipo: 'select', opcoes: OPCOES_SIM_NAO, omissao: 0, largura: 130, emLinhas: 'opcional', seccao: 'Acesso' },
@@ -297,13 +300,14 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
         <SeccaoFormulario titulo="Conta">
         <Row gutter={16}>
           <Col xs={24} md={12}>
-            <Form.Item name="nome_utilizador" label="Nome de utilizador" rules={[{ required: true, message: 'Indique o nome de utilizador.' }]}>
-              <Input maxLength={100} autoComplete="off" />
+            <Form.Item name="nome_completo" label="Nome completo">
+              {/* numa conta nova, o nome de utilizador acompanha o nome completo (ana.silva) até ser editado à mão */}
+              <Input maxLength={200} onChange={(e) => novo && !nomeEditado.current && form.setFieldValue('nome_utilizador', sugerirNomeUtilizador(e.target.value))} />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
-            <Form.Item name="nome_completo" label="Nome completo">
-              <Input maxLength={200} />
+            <Form.Item name="nome_utilizador" label="Nome de utilizador" rules={[{ required: true, message: 'Indique o nome de utilizador.' }]}>
+              <Input maxLength={100} autoComplete="off" onChange={() => (nomeEditado.current = true)} />
             </Form.Item>
           </Col>
           <Col xs={24} md={12}>
@@ -313,11 +317,16 @@ function ModalUtilizador({ utilizador, aoFechar }: { utilizador: UtilizadorLinha
           </Col>
           <Col xs={24} md={12}>
             <Form.Item
-              name="palavra_passe"
               label={novo ? 'Palavra-passe' : 'Nova palavra-passe (opcional)'}
-              rules={[{ required: novo, message: 'Indique a palavra-passe.' }, { min: MINIMO, message: `Pelo menos ${MINIMO} caracteres.` }]}
+              required={novo}
+              extra={novo ? 'Provisória: no primeiro acesso o sistema pede para a alterar.' : undefined}
             >
-              <Input.Password maxLength={200} autoComplete="new-password" />
+              <Space.Compact style={{ width: '100%' }}>
+                <Form.Item name="palavra_passe" noStyle rules={[{ required: novo, message: 'Indique a palavra-passe.' }, ({ validator: (_: unknown, v?: string) => { const p = v ? problemaPalavraPasse(v) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } })]}>
+                  <Input.Password maxLength={200} autoComplete="new-password" />
+                </Form.Item>
+                <Button onClick={() => form.setFields([{ name: 'palavra_passe', value: gerarPalavraPasse(), errors: [] }])}>Gerar</Button>
+              </Space.Compact>
             </Form.Item>
           </Col>
         </Row>
@@ -415,8 +424,20 @@ function ModalPalavraPasse({ utilizador, aoFechar }: { utilizador: UtilizadorLin
     >
       <Alert type="warning" showIcon style={{ marginBottom: 12 }} message="As sessões abertas do utilizador são terminadas." />
       <Form form={form} layout="vertical" onFinish={(v) => accao.mutate({ url: `/sistema/utilizadores/${utilizador!.id}/palavra-passe`, dados: v })}>
-        <Form.Item name="palavra_passe" label="Nova palavra-passe" rules={[{ required: true, message: 'Indique a palavra-passe.' }, { min: MINIMO, message: `Pelo menos ${MINIMO} caracteres.` }]}>
-          <Input.Password autoComplete="new-password" maxLength={200} />
+        <Form.Item label="Nova palavra-passe" required extra="Provisória: no próximo acesso o sistema pede para a alterar.">
+          <Space.Compact style={{ width: '100%' }}>
+            <Form.Item name="palavra_passe" noStyle rules={[{ required: true, message: 'Indique a palavra-passe.' }, ({ validator: (_: unknown, v?: string) => { const p = v ? problemaPalavraPasse(v) : null; return p ? Promise.reject(new Error(p)) : Promise.resolve(); } })]}>
+              <Input.Password autoComplete="new-password" maxLength={200} />
+            </Form.Item>
+            <Button
+              onClick={() => {
+                const p = gerarPalavraPasse();
+                form.setFieldsValue({ palavra_passe: p, palavra_passe_confirmation: p });
+              }}
+            >
+              Gerar
+            </Button>
+          </Space.Compact>
         </Form.Item>
         <Form.Item
           name="palavra_passe_confirmation"

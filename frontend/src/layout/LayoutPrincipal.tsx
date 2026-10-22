@@ -45,6 +45,7 @@ import { TEMA_NOCTURNO } from './temaNocturno';
 import { LARGURA_MENU_RECOLHIDO, useLarguraMenu } from './larguraMenu';
 import { PuxadorMenu } from './PuxadorMenu';
 import { TourBoasVindas, reiniciarTourBoasVindas } from '@/componentes/tour/TourBoasVindas';
+import { PrimeiroAcesso } from '@/componentes/PrimeiroAcesso';
 import './telaNocturna.css';
 import { lerCaminhoEcra } from '@/utilitarios/caminhos';
 
@@ -545,6 +546,7 @@ function Estrutura() {
               </Flex>
             </Flex>
           </Layout.Header>
+          <PrimeiroAcesso />
           <TourBoasVindas />
           <Layout.Content className={`erp-conteudo ${classeFundoModulo(local.pathname)}`}>
             <AvisoLicenca />

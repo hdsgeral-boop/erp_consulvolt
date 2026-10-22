@@ -68,9 +68,7 @@ final class ServicoPlataformaInicial
                 if (Utilizador::withTrashed()->where('nome_utilizador', $nome)->exists()) {
                     throw new ErroNegocio('Este nome de utilizador já existe.', 'UTILIZADOR_DUPLICADO', 422);
                 }
-                if (mb_strlen($d['palavra_passe']) < ServicoUtilizadores::MINIMO_PALAVRA_PASSE) {
-                    throw new ErroNegocio('A palavra-passe tem de ter pelo menos '.ServicoUtilizadores::MINIMO_PALAVRA_PASSE.' caracteres.', 'PALAVRA_PASSE_CURTA', 422);
-                }
+                ServicoUtilizadores::exigirForca($d['palavra_passe']);
 
                 $admin = new Utilizador([
                     'nome_utilizador' => $nome,

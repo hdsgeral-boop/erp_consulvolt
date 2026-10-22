@@ -68,7 +68,7 @@ export function PlataformaEntrar() {
             <Form.Item name="nome_completo" label="Nome completo" rules={[{ required: true, message: 'Indique o nome completo.' }]}>
               <Input size="large" prefix={<UserOutlined />} autoComplete="name" autoFocus />
             </Form.Item>
-            <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>
+            <Form.Item name="nome_utilizador" label="Utilizador ou e-mail" rules={[{ required: true, message: 'Indique o utilizador ou o e-mail.' }]}>
               <Input size="large" prefix={<UserOutlined />} autoComplete="username" />
             </Form.Item>
             <Form.Item name="email" label="E-mail" rules={[{ required: true, message: 'Indique o e-mail.' }, { type: 'email', message: 'E-mail inválido.' }]}>
@@ -101,7 +101,7 @@ export function PlataformaEntrar() {
           </Form>
         ) : (
           <Form layout="vertical" onFinish={submeter} requiredMark={false}>
-            <Form.Item name="nome_utilizador" label="Utilizador" rules={[{ required: true, message: 'Indique o utilizador.' }]}>
+            <Form.Item name="nome_utilizador" label="Utilizador ou e-mail" rules={[{ required: true, message: 'Indique o utilizador ou o e-mail.' }]}>
               <Input size="large" prefix={<UserOutlined />} autoComplete="username" autoFocus />
             </Form.Item>
             <Form.Item name="palavra_passe" label="Palavra-passe" rules={[{ required: true, message: 'Indique a palavra-passe.' }]}>

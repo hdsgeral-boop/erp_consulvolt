@@ -34,6 +34,24 @@ final class EnviarEmail
         return app(ServicoAutenticacao::class)->enderecoDoUtilizador($u) ?? rtrim((string) config('app.url'), '/');
     }
 
+    /** Nome do sistema do cliente (Configurações › Identidade do sistema, ex.: «Grupo GLOMEU»), ou o nome do cliente. */
+    public static function nomeSistemaDe(Utilizador $u): string
+    {
+        $cliente = $u->tenant_id ? Tenant::query()->whereKey($u->tenant_id)->first(['nome', 'nome_sistema']) : null;
+
+        return trim((string) ($cliente?->nome_sistema ?: $cliente?->nome)) ?: 'MEU ERP';
+    }
+
+    /** @return list<string> empresas a que o utilizador tem acesso, pelo nome («todas as empresas» com acesso total) */
+    public static function empresasDe(Utilizador $u): array
+    {
+        if ($u->acesso_todas_empresas) {
+            return ['todas as empresas do grupo'];
+        }
+
+        return $u->empresas()->orderBy('nome')->pluck('nome')->map(fn ($n) => (string) $n)->all();
+    }
+
     /** Nome do cliente (tenant) do utilizador, para os textos dos e-mails. */
     public static function nomeClienteDe(Utilizador $u): string
     {

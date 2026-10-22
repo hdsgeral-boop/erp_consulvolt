@@ -35,10 +35,12 @@ abstract class EmailBase extends Mailable implements ShouldQueue
         );
     }
 
-    /** E-mail do suporte (definicoes_plataforma.email_suporte) ou o remetente; leitura opcional, nunca bloqueia o envio. */
+    /**
+     * E-mail do suporte (Plataforma › Definições, definicoes_plataforma.email_suporte). Sem ele definido o rodapé não mostra
+     * contacto de suporte (antes caía no remetente noreply@, que não é atendido). Nunca bloqueia o envio.
+     */
     public static function emailSuporte(): ?string
     {
-        return rescue(fn () => DB::table('definicoes_plataforma')->where('chave', 'email_suporte')->value('valor'), null, report: false)
-            ?: config('mail.from.address');
+        return rescue(fn () => DB::table('definicoes_plataforma')->where('chave', 'email_suporte')->value('valor'), null, report: false) ?: null;
     }
 }

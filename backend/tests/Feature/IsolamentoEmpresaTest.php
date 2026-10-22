@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Exceptions\ErroContextoEmpresa;
 use App\Models\LogAuditoria;
+use App\Models\Utilizador;
 use App\Support\Tenancy\ContextoEmpresa;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -26,7 +27,8 @@ final class IsolamentoEmpresaTest extends TestCase
         $this->log($a->id, 'registo da empresa A');
         $this->log($b->id, 'registo da empresa B');
 
-        $u = $this->criarUtilizador(['acesso_todas_empresas' => true, 'perfil_utilizador_id' => $this->criarPerfil(['_v2' => true, 'config_logs_view' => true])->id]);
+        // Logs de Navegação é reservado a Super Administradores (ver EmpresaAtivaTest), que já têm acesso a qualquer empresa.
+        $u = $this->criarUtilizador(['papel' => Utilizador::PAPEL_SUPER_ADMINISTRADOR]);
         $cabecalhos = $this->entrar($u);
 
         $deA = $this->getJson('/api/sistema/logs?modulo=Teste', $cabecalhos + ['X-Empresa-Id' => $a->id])->assertOk();

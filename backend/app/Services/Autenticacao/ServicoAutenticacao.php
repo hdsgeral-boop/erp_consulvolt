@@ -102,7 +102,7 @@ final class ServicoAutenticacao
 
     private function validar(string $nomeUtilizador, string $palavraPasse, ?DominioPedido $dominio): Utilizador
     {
-        $utilizador = Utilizador::query()->where('nome_utilizador', $nomeUtilizador)->first();
+        $utilizador = Utilizador::query()->where('nome_utilizador', $nomeUtilizador)->first() ?? $this->porEmail($nomeUtilizador);
 
         // OWASP A07: verificar SEMPRE uma palavra-passe — sem utilizador, contra um hash fictício com o mesmo custo — para
         // o tempo de resposta não revelar se o nome existe (antes: ~ms sem utilizador vs. ~100 ms do Argon2id).
@@ -126,6 +126,24 @@ final class ServicoAutenticacao
         }
 
         return $utilizador;
+    }
+
+    /**
+     * Entrar também com o e-mail (pedido de 2026-10-22). O e-mail não é único: se houver mais do que uma conta activa
+     * com ele (no âmbito do endereço usado), pede-se o nome de utilizador em vez de adivinhar qual é.
+     */
+    private function porEmail(string $texto): ?Utilizador
+    {
+        $email = mb_strtolower(trim($texto));
+        if (! str_contains($email, '@')) {
+            return null;
+        }
+        $contas = Utilizador::query()->whereRaw('lower(email) = ?', [$email])->where('ativo', true)->limit(2)->get();
+        if ($contas->count() > 1) {
+            throw new ErroNegocio('Este e-mail está associado a mais de uma conta: entre com o nome de utilizador.', 'EMAIL_AMBIGUO', 401);
+        }
+
+        return $contas->first();
     }
 
     /** @return array{token: string, expira_em: Carbon, utilizador: Utilizador} */

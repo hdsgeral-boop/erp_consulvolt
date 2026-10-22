@@ -453,6 +453,7 @@ export const INDICE_PESQUISA: readonly EntradaIndicePesquisa[] = [
   ["config_plano","s","Novas",""],
   ["config_plano","s","Substituir conta","contab_conta_substituir","substituir"],
   ["config_utilizadores","b","Activar","config_util_gerir"],
+  ["config_utilizadores","b","Gerar",""],
   ["config_utilizadores","b","Novo utilizador","config_util_gerir"],
   ["config_utilizadores","b","Repor palavra-passe","config_util_gerir"],
   ["consolidacao","b","Abrir nos Mapas",""],

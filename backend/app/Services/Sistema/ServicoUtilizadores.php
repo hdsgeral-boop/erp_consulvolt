@@ -140,7 +140,8 @@ final class ServicoUtilizadores
                 'ativo' => (bool) ($d['ativo'] ?? true),
                 'palavra_passe' => (string) $d['palavra_passe'],
             ]);
-            $u->forceFill(['palavra_passe_alterada_em' => now()])->save();
+            // definida pelo administrador: provisória, o utilizador é convidado a alterá-la no primeiro acesso
+            $u->forceFill(['palavra_passe_alterada_em' => now(), 'alterar_palavra_passe' => true])->save();
             $this->sincronizarEmpresas($u, $d['empresas'] ?? [], $actor);
 
             $this->auditoria->registar('Sistema/Utilizadores', 'Criar utilizador', "Utilizador '{$u->nome_utilizador}' criado com o perfil '{$perfil->nome}'.",
@@ -215,6 +216,7 @@ final class ServicoUtilizadores
             $novaPalavraPasse = isset($d['palavra_passe']) && $d['palavra_passe'] !== '' ? (string) $d['palavra_passe'] : null;
             if ($novaPalavraPasse !== null) {
                 $this->definirPalavraPasse($u, $novaPalavraPasse);
+                $u->alterar_palavra_passe = $u->id !== $actor->id;   // reposta por outro: provisória
             }
             $u->save();
             if (array_key_exists('empresas', $d)) {
@@ -264,6 +266,7 @@ final class ServicoUtilizadores
             $u = Utilizador::query()->lockForUpdate()->findOrFail($u->id);
             $this->exigirGerivel($u, $actor);
             $this->definirPalavraPasse($u, $palavraPasse);
+            $u->alterar_palavra_passe = $u->id !== $actor->id;   // reposta por um administrador: provisória
             $u->save();
             $revogadas = $u->id === $actor->id ? 0 : $u->tokens()->delete();
             $this->auditoria->registar('Sistema/Utilizadores', 'Repor palavra-passe', "Palavra-passe de '{$u->nome_utilizador}' reposta por um administrador"
@@ -407,8 +410,27 @@ final class ServicoUtilizadores
 
     private function exigirPalavraPasse(string $palavraPasse): void
     {
-        if (mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE) {
-            throw new ErroNegocio('A palavra-passe tem de ter pelo menos '.self::MINIMO_PALAVRA_PASSE.' caracteres.', 'PALAVRA_PASSE_CURTA', 422);
+        self::exigirForca($palavraPasse);
+    }
+
+    /**
+     * Força mínima de qualquer palavra-passe (criar, repor, alterar a própria, recuperar): pelo menos 8 caracteres, com
+     * maiúscula, minúscula e algarismo (pedido de 2026-10-22: antes aceitava qualquer palavra-passe com 8 caracteres).
+     */
+    public static function problemaDeForca(string $palavraPasse): ?string
+    {
+        return match (true) {
+            mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE => 'A palavra-passe tem de ter pelo menos '.self::MINIMO_PALAVRA_PASSE.' caracteres.',
+            ! preg_match('/\p{Lu}/u', $palavraPasse) || ! preg_match('/\p{Ll}/u', $palavraPasse) || ! preg_match('/\d/', $palavraPasse)
+                => 'A palavra-passe é fraca: use maiúsculas, minúsculas e algarismos (por exemplo, «Luanda#2026»).',
+            default => null,
+        };
+    }
+
+    public static function exigirForca(string $palavraPasse): void
+    {
+        if (($problema = self::problemaDeForca($palavraPasse)) !== null) {
+            throw new ErroNegocio($problema, mb_strlen($palavraPasse) < self::MINIMO_PALAVRA_PASSE ? 'PALAVRA_PASSE_CURTA' : 'PALAVRA_PASSE_FRACA', 422);
         }
     }
 

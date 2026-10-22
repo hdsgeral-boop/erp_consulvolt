@@ -111,11 +111,13 @@ export function TourBoasVindas() {
     } catch {
       /* modo privado ou armazenamento bloqueado: segue só pela preferência do servidor */
     }
+    // espera que o primeiro acesso (alterar a palavra-passe provisória) termine
+    if (utilizador?.alterar_palavra_passe === true) return;
     if (!aCarregarPref && !visto && !vistoLocal) {
       setIndice(0);
       setFase('boas_vindas');
     }
-  }, [estado, aCarregarPref, visto, chaveLocal]);
+  }, [estado, aCarregarPref, visto, chaveLocal, utilizador?.alterar_palavra_passe]);
 
   useEffect(() => {
     const reiniciar = () => {

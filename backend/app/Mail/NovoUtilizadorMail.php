@@ -5,22 +5,26 @@ namespace App\Mail;
 use Illuminate\Mail\Mailables\Envelope;
 
 /**
- * Enviado a um utilizador novo com o nome de utilizador e o endereço de entrada (nunca a palavra-passe) (ServicoUtilizadores::criar) — só se o utilizador tiver
- * email (campo opcional). A password em texto simples só existe neste momento (antes do cast 'hashed' do
- * Utilizador); nunca é guardada nem fica acessível depois da criação.
+ * Enviado a um utilizador novo (UtilizadorController::store), só se tiver e-mail: o sistema do cliente («MEU ERP
+ * Grupo GLOMEU»), as empresas atribuídas, o utilizador e — a pedido de 2026-10-22 — a palavra-passe provisória, que
+ * o sistema pede para alterar no primeiro acesso (utilizadores.alterar_palavra_passe). A palavra-passe em texto só
+ * existe neste momento; nunca é guardada.
  */
 final class NovoUtilizadorMail extends EmailBase
 {
+    /** @param  list<string>  $empresas */
     public function __construct(
         private readonly string $nomeCompleto,
         private readonly string $nomeUtilizador,
-        private readonly string $nomeEmpresa,
+        private readonly string $nomeSistema,
+        private readonly array $empresas,
         private readonly string $url,
+        private readonly ?string $palavraPasse = null,
     ) {}
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "O seu acesso ao MEU ERP — {$this->nomeEmpresa}");
+        return new Envelope(subject: "O seu acesso ao MEU ERP {$this->nomeSistema}");
     }
 
     protected function vista(): string
@@ -31,7 +35,10 @@ final class NovoUtilizadorMail extends EmailBase
     protected function dados(): array
     {
         return [
-            'nomeCompleto' => $this->nomeCompleto, 'nomeUtilizador' => $this->nomeUtilizador, 'nomeEmpresa' => $this->nomeEmpresa, 'url' => $this->url,
+            'nomeCompleto' => $this->nomeCompleto, 'nomeUtilizador' => $this->nomeUtilizador, 'nomeSistema' => $this->nomeSistema,
+            'empresas' => $this->empresas, 'url' => $this->url, 'palavraPasse' => $this->palavraPasse,
+            // rodapé do layout: «plataforma MEU ERP — <sistema do cliente>»
+            'nomeEmpresa' => $this->nomeSistema,
         ];
     }
 }

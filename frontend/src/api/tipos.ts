@@ -37,6 +37,8 @@ export interface Utilizador {
   nome_utilizador: string;
   nome_completo?: string | null;
   papel?: string | null;
+  /** palavra-passe provisória: o primeiro acesso pede a alteração (PrimeiroAcesso) */
+  alterar_palavra_passe?: boolean;
   [chave: string]: unknown;
 }
 
