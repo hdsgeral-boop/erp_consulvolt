@@ -7,6 +7,7 @@ use App\Services\Sistema\ServicoEmpresas;
 use App\Support\Tenancy\ContextoTenant;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -26,6 +27,9 @@ class Empresa extends ModeloBase
     public const LICENCA_TESTE = 'TESTE';
 
     public const LICENCA_PLANO = 'PLANO';
+
+    /** Código do plano interno da equipa (sem limites, sem custo). */
+    public const PLANO_INTERNO = 'interno';
 
     protected $table = 'empresas';
 
@@ -64,8 +68,10 @@ class Empresa extends ModeloBase
                 $e->tenant_id ??= app(ContextoTenant::class)->paraNovo();
             }
 
-            // Licença (ADR-074): com as licenças activas, uma empresa nova começa com o período de teste.
-            if (config('erp.licencas.ativo') && ($e->licenca_fim === null) && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE) {
+            // Licença (ADR-074): com as licenças activas, uma empresa nova começa com o período de teste — excepto nos
+            // clientes com o plano interno (sem limites), cujas empresas ficam sem limite.
+            if (config('erp.licencas.ativo') && ($e->licenca_fim === null) && ($e->licenca_origem ?? self::LICENCA_SEM_LIMITE) === self::LICENCA_SEM_LIMITE
+                && ! self::doPlanoInterno($e->tenant_id)) {
                 $e->licenca_origem = self::LICENCA_TESTE;
                 $e->licenca_inicio = now()->toDateString();
                 $e->licenca_fim = now()->addDays((int) config('erp.licencas.dias_teste', 7))->toDateString();
@@ -75,6 +81,13 @@ class Empresa extends ModeloBase
         static::saved(fn (Empresa $e) => $e->wasChanged(['estado', 'eliminado_em']) || $e->wasRecentlyCreated ? $invalidar() : null);
         static::deleted($invalidar);
         static::restored($invalidar);
+    }
+
+    /** O cliente (tenant) tem o plano interno, sem limites (pedido de 2026-10-22: consulvolt e grupoglomeu). */
+    private static function doPlanoInterno(?int $tenantId): bool
+    {
+        return $tenantId !== null && Schema::hasColumn('tenants', 'plano')
+            && DB::table('tenants')->where('id', $tenantId)->value('plano') === self::PLANO_INTERNO;
     }
 
     public function utilizadores(): BelongsToMany

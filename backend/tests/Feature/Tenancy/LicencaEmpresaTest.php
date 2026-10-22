@@ -106,4 +106,47 @@ class LicencaEmpresaTest extends TestCase
 
         return $this->entrar($u) + ['X-Empresa-Id' => $empresa->id];
     }
+
+    public function test_empresa_nova_de_cliente_com_plano_interno_fica_sem_limite(): void
+    {
+        config(['erp.licencas.ativo' => true]);
+        $interno = DB::table('tenants')->insertGetId(['nome' => 'Grupo Interno', 'slug' => 'grupo-interno', 'estado' => 'ATIVO', 'plano' => Empresa::PLANO_INTERNO]);
+        $outro = DB::table('tenants')->insertGetId(['nome' => 'Cliente Pago', 'slug' => 'cliente-pago', 'estado' => 'ATIVO', 'plano' => 'basico']);
+
+        $semLimite = $this->empresaDoCliente($interno, '5000777001');
+        $emTeste = $this->empresaDoCliente($outro, '5000777002');
+
+        $this->assertSame([Empresa::LICENCA_SEM_LIMITE, null], [$semLimite->licenca_origem ?? Empresa::LICENCA_SEM_LIMITE, $semLimite->licenca_fim]);
+        $this->assertSame(Empresa::LICENCA_TESTE, $emTeste->licenca_origem);
+    }
+
+    public function test_planos_iniciais_criam_os_4_planos_e_o_interno_fica_nos_clientes_internos(): void
+    {
+        config(['erp.licencas.ativo' => true]);
+        $glomeu = DB::table('tenants')->insertGetId(['nome' => 'GRUPO GLOMEU', 'slug' => 'grupoglomeu', 'estado' => 'ATIVO']);
+        $outro = DB::table('tenants')->insertGetId(['nome' => 'Outro', 'slug' => 'outro-cliente', 'estado' => 'ATIVO']);
+        $empresaGlomeu = $this->empresaDoCliente($glomeu, '5000777011');
+        $empresaOutro = $this->empresaDoCliente($outro, '5000777012');
+        $this->assertSame(Empresa::LICENCA_TESTE, $empresaGlomeu->licenca_origem);
+
+        $this->artisan('erp:licencas:planos-iniciais')->assertSuccessful();
+        $this->artisan('erp:licencas:planos-iniciais')->assertSuccessful();   // repetível
+
+        $this->assertSame(['basico', 'empresarial', 'interno', 'profissional'], DB::table('planos_licenca')->orderBy('codigo')->pluck('codigo')->all());
+        $this->assertSame(4, DB::table('planos_licenca_versoes')->where('estado', 'PUBLICADA')->count());
+        $interno = DB::table('planos_licenca')->where('codigo', 'interno')->first();
+        $this->assertSame([null, null, false], [$interno->max_empresas, $interno->max_utilizadores, (bool) $interno->ativo]);
+        $this->assertSame('interno', DB::table('tenants')->where('id', $glomeu)->value('plano'));
+        $this->assertNull(DB::table('tenants')->where('id', $outro)->value('plano'));
+        $this->assertSame([Empresa::LICENCA_SEM_LIMITE, null], [$empresaGlomeu->refresh()->licenca_origem, $empresaGlomeu->licenca_fim]);
+        $this->assertSame(Empresa::LICENCA_TESTE, $empresaOutro->refresh()->licenca_origem);
+    }
+
+    private function empresaDoCliente(int $tenant, string $nif): Empresa
+    {
+        $e = (new Empresa)->forceFill(['nome' => "Empresa {$nif}, Lda", 'nif' => $nif, 'estado' => Empresa::ESTADO_ATIVO, 'tenant_id' => $tenant]);
+        $e->save();
+
+        return $e->refresh();
+    }
 }
