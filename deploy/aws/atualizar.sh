@@ -45,8 +45,11 @@ $C run --rm app php artisan erp:saas:aplicar-rls
 
 echo "== arranque"
 $C up -d app worker scheduler web caddy
-# Caddyfile montado: um ficheiro novo só entra em vigor com reload (sem cortar ligações)
-$C exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || echo 'aviso: caddy reload falhou (continua com a configuração anterior)'
+# Caddyfile montado como ficheiro: o rsync troca-o por outro (novo inode) e o contentor continuaria a ver o antigo —
+# se mudou, recria só o Caddy (corte de ~1 s)
+if ! $C exec -T caddy cat /etc/caddy/Caddyfile 2>/dev/null | cmp -s - deploy/caddy/Caddyfile.aws; then
+  $C up -d --force-recreate --no-deps caddy >/dev/null 2>&1 || echo 'aviso: não foi possível recriar o Caddy'
+fi
 $C exec -T app php artisan optimize:clear >/dev/null
 $C exec -T app php artisan optimize
 $C exec -T app php artisan erp:empresas:invalidar-cache
